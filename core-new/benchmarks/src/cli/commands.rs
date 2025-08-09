@@ -381,10 +381,7 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 	let output = match format.to_lowercase().as_str() {
 		// Default whitepaper format now includes phase breakdown under 'Indexing'
 		"whitepaper" => {
-			fn format_plain(value: f64) -> String {
-				format!("{:.1}", value)
-			}
-			// Phase-specific throughput table: Phase,Metric,Value,Unit
+			use std::collections::HashMap;
 			fn label_for_recipe(recipe: &str) -> Option<&'static str> {
 				let r = recipe.to_lowercase();
 				if r.starts_with("nvme_") {
@@ -399,57 +396,81 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 					None
 				}
 			}
-			use std::collections::HashMap;
-			let mut best_discovery: HashMap<&'static str, f64> = HashMap::new();
-			let mut best_processing: HashMap<&'static str, f64> = HashMap::new();
-			let mut best_content: HashMap<&'static str, f64> = HashMap::new();
-
-			for (sc, rc, du, f, fps, _d, _dps, _gb, _e) in &rows {
-				let Some(label) = label_for_recipe(rc) else {
-					continue;
-				};
-				match sc.as_str() {
-					"indexing-discovery" => {
-						// derive discovery files/s if duration is discovery
-						// We cannot retrieve discovery duration here directly, so approximate:
-						// If total duration is minimal across runs, use provided fps; otherwise skip.
-						// Better: downstream code could include discovery-only fps; for now, use fps as proxy.
-						let entry = best_discovery.entry(label).or_insert(0.0);
-						if *entry < *fps {
-							*entry = *fps;
-						}
-					}
-					"aggregation" => {
-						let entry = best_processing.entry(label).or_insert(0.0);
-						if *entry < *fps {
-							*entry = *fps;
-						}
-					}
-					"content-identification" => {
-						let entry = best_content.entry(label).or_insert(0.0);
-						if *entry < *fps {
-							*entry = *fps;
-						}
-					}
-					_ => {}
+			fn phase_for_scenario(s: &str) -> Option<&'static str> {
+				match s {
+					"indexing-discovery" => Some("Discovery"),
+					"aggregation" => Some("Processing"),
+					"content-identification" => Some("Content Identification"),
+					_ => None,
 				}
 			}
-
+			#[derive(Clone)]
+			struct BestRow {
+				files_per_s: f64,
+				files: u64,
+				dirs: u64,
+				gb: f64,
+				errors: u64,
+				duration_s: f64,
+				recipe: String,
+			}
+			let mut best_by_hw_phase: HashMap<(String, &'static str), BestRow> = HashMap::new();
+			for (sc, rc, du, f, fps, d, _dps, gb, e) in &rows {
+				let Some(phase) = phase_for_scenario(sc) else {
+					continue;
+				};
+				let Some(hw) = label_for_recipe(rc) else {
+					continue;
+				};
+				let key = (phase.to_string(), hw);
+				let candidate = BestRow {
+					files_per_s: *fps,
+					files: *f,
+					dirs: *d,
+					gb: *gb,
+					errors: *e,
+					duration_s: *du,
+					recipe: rc.clone(),
+				};
+				match best_by_hw_phase.get(&key) {
+					Some(existing) if existing.files_per_s >= *fps => {}
+					_ => {
+						best_by_hw_phase.insert(key, candidate);
+					}
+				}
+			}
+			let mut entries: Vec<(String, &'static str, BestRow)> = best_by_hw_phase
+				.into_iter()
+				.map(|((phase, hw), row)| (phase, hw, row))
+				.collect();
+			fn phase_rank(p: &str) -> i32 {
+				match p {
+					"Discovery" => 0,
+					"Processing" => 1,
+					"Content Identification" => 2,
+					_ => 9,
+				}
+			}
+			entries.sort_by(|a, b| phase_rank(&a.0).cmp(&phase_rank(&b.0)).then(a.1.cmp(&b.1)));
 			let mut s = String::new();
-			s.push_str("Phase,Hardware,Value,Unit\n");
-			for (label, value) in best_discovery {
-				let v = format_plain(value);
-				s.push_str(&format!("Discovery,{}, {},files/sec\n", label, v));
-			}
-			for (label, value) in best_processing {
-				let v = format_plain(value);
-				s.push_str(&format!("Processing,{}, {},files/sec\n", label, v));
-			}
-			for (label, value) in best_content {
-				let v = format_plain(value);
+			s.push_str("Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe\n");
+			for (phase, hw, row) in entries {
+				let gbps = if row.duration_s > 0.0 {
+					row.gb / row.duration_s
+				} else {
+					0.0
+				};
 				s.push_str(&format!(
-					"Content Identification,{}, {},files/sec\n",
-					label, v
+					"{},{},{:.1},{:.2},{},{},{:.2},{},{}\n",
+					phase,
+					hw,
+					row.files_per_s,
+					gbps,
+					row.files,
+					row.dirs,
+					row.gb,
+					row.errors,
+					row.recipe
 				));
 			}
 			s

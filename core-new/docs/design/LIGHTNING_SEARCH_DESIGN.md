@@ -1,5 +1,7 @@
 # Lightning Search: Next-Generation File Discovery for Spacedrive
 
+Note: in recent versions of the whitepaper we now refer to search as "Temporal-Sematic Search", or simply just "search".
+
 ## Overview
 
 Lightning Search is a revolutionary multi-modal file discovery system designed specifically for Spacedrive's VDFS (Virtual Distributed File System) architecture. The system combines blazing-fast temporal search with intelligent semantic understanding, delivering sub-100ms query responses across millions of files while maintaining complete user privacy through local processing.
@@ -32,7 +34,7 @@ CREATE VIRTUAL TABLE search_index USING fts5(
     content='entries',
     content_rowid='id',
     name,
-    extension, 
+    extension,
     relative_path,
     -- Computed searchable content for text files
     extracted_content,
@@ -41,12 +43,12 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 
 -- Real-time triggers for immediate index updates
 CREATE TRIGGER entries_search_insert AFTER INSERT ON entries BEGIN
-    INSERT INTO search_index(rowid, name, extension, relative_path) 
+    INSERT INTO search_index(rowid, name, extension, relative_path)
     VALUES (new.id, new.name, new.extension, new.relative_path);
 END;
 
 CREATE TRIGGER entries_search_update AFTER UPDATE ON entries BEGIN
-    UPDATE search_index SET 
+    UPDATE search_index SET
         name = new.name,
         extension = new.extension,
         relative_path = new.relative_path
@@ -55,6 +57,7 @@ END;
 ```
 
 **Performance Characteristics:**
+
 - **Query Speed**: <10ms for simple queries, <30ms for complex patterns
 - **Index Size**: ~15% of total database size
 - **Update Latency**: Real-time via triggers (<1ms)
@@ -79,23 +82,23 @@ pub struct VectorSearchEngine {
 impl VectorSearchEngine {
     async fn new(chroma_path: &Path) -> Result<Self> {
         let client = ChromaClient::new(&format!("file://{}", chroma_path.display()))?;
-        
+
         let mut collections = HashMap::new();
-        
+
         // Separate collections for different content types for optimized retrieval
-        collections.insert(ContentKind::Document, 
+        collections.insert(ContentKind::Document,
             client.get_or_create_collection("documents", None).await?);
-        collections.insert(ContentKind::Code, 
+        collections.insert(ContentKind::Code,
             client.get_or_create_collection("code", None).await?);
-        collections.insert(ContentKind::Image, 
+        collections.insert(ContentKind::Image,
             client.get_or_create_collection("images", None).await?);
-        collections.insert(ContentKind::Audio, 
+        collections.insert(ContentKind::Audio,
             client.get_or_create_collection("audio", None).await?);
-        collections.insert(ContentKind::Video, 
+        collections.insert(ContentKind::Video,
             client.get_or_create_collection("video", None).await?);
-        
+
         let file_type_registry = Arc::new(FileTypeRegistry::new());
-        
+
         Ok(Self {
             chroma_client: client,
             collections,
@@ -104,18 +107,18 @@ impl VectorSearchEngine {
             file_type_registry,
         })
     }
-    
+
     async fn search_semantic(&self, query: &str, pre_filtered_ids: &[i32]) -> Result<Vec<ScoredResult>> {
         let query_embedding = self.embedding_model.encode(query).await?;
         let mut all_results = Vec::new();
-        
+
         // Search across relevant collections based on pre-filtered content
         for (content_type, collection) in &self.collections {
             let filtered_ids: Vec<String> = pre_filtered_ids.iter()
                 .filter(|id| self.get_content_type(**id) == *content_type)
                 .map(|id| id.to_string())
                 .collect();
-            
+
             if !filtered_ids.is_empty() {
                 let results = collection.query()
                     .query_embeddings(vec![query_embedding.clone()])
@@ -124,11 +127,11 @@ impl VectorSearchEngine {
                     .ids(filtered_ids)
                     .execute()
                     .await?;
-                
+
                 all_results.extend(self.process_chroma_results(results));
             }
         }
-        
+
         // Sort by semantic similarity score
         all_results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         Ok(all_results)
@@ -154,34 +157,34 @@ pub struct ContentExtractor {
 impl ContentExtractor {
     async fn extract_searchable_content(&self, entry: &Entry) -> Result<ExtractedContent> {
         let cache_key = self.compute_content_hash(entry);
-        
+
         if let Some(cached) = self.cache.get(&cache_key) {
             return Ok(cached.clone());
         }
-        
+
         // Step 1: Identify file type using the integrated file type system
         let file_path = entry.full_path();
         let identification = self.file_type_registry.identify(&file_path).await?;
-        
+
         // Step 2: Check if extraction is supported for this file type
         let extraction_config = identification.file_type.extraction_config
             .ok_or_else(|| ExtractionError::UnsupportedType(identification.file_type.id.clone()))?;
-        
+
         // Step 3: Select appropriate extraction method based on file type configuration
         let content = self.extract_by_file_type(&identification, &extraction_config, entry).await?;
-        
+
         self.cache.put(cache_key, content.clone());
         Ok(content)
     }
-    
+
     async fn extract_by_file_type(
-        &self, 
+        &self,
         identification: &IdentificationResult,
         config: &ExtractionConfig,
         entry: &Entry
     ) -> Result<ExtractedContent> {
         let mut extracted = ExtractedContent::new(entry, identification.file_type.category);
-        
+
         // Extract content based on configured methods
         for method in &config.methods {
             match method {
@@ -199,10 +202,10 @@ impl ContentExtractor {
                 },
             }
         }
-        
+
         Ok(extracted)
     }
-    
+
     async fn extract_text_content(
         &self,
         identification: &IdentificationResult,
@@ -228,26 +231,26 @@ impl ContentExtractor {
             _ => Ok(None),
         }
     }
-    
+
     async fn extract_code_content(&self, entry: &Entry) -> Result<ExtractedContent> {
         let raw_content = fs::read_to_string(&entry.full_path()).await?;
-        
+
         // Extract meaningful content for code files
         let mut searchable_parts = Vec::new();
-        
+
         // Function/class names, comments, string literals
         searchable_parts.push(entry.name.clone());
         searchable_parts.extend(self.extract_code_symbols(&raw_content));
         searchable_parts.extend(self.extract_comments(&raw_content));
         searchable_parts.extend(self.extract_string_literals(&raw_content));
-        
+
         Ok(ExtractedContent {
             primary_text: searchable_parts.join(" "),
             metadata: self.extract_code_metadata(&raw_content),
             content_type: ContentType::Code,
         })
     }
-    
+
     /// Enhanced metadata extraction using file type system
     async fn extract_file_metadata(
         &self,
@@ -255,13 +258,13 @@ impl ContentExtractor {
         entry: &Entry
     ) -> Result<HashMap<String, String>> {
         let mut metadata = HashMap::new();
-        
+
         // Basic file information
         metadata.insert("file_type".to_string(), identification.file_type.id.clone());
         metadata.insert("category".to_string(), format!("{:?}", identification.file_type.category));
         metadata.insert("confidence".to_string(), identification.confidence.to_string());
         metadata.insert("identification_method".to_string(), format!("{:?}", identification.method));
-        
+
         // Extract type-specific metadata
         match identification.file_type.category {
             ContentKind::Image => {
@@ -286,7 +289,7 @@ impl ContentExtractor {
             },
             _ => {}
         }
-        
+
         Ok(metadata)
     }
 }
@@ -301,16 +304,16 @@ The integration with the file type system enables sophisticated, type-aware cont
 pub struct ExtractionConfig {
     /// Supported extraction methods for this file type
     pub methods: Vec<ExtractionMethod>,
-    
+
     /// Required external dependencies
     pub dependencies: Vec<String>,
-    
+
     /// Extraction priority (higher = more important for search)
     pub priority: u8,
-    
+
     /// Maximum file size to process (bytes)
     pub max_file_size: Option<u64>,
-    
+
     /// Specific configuration per extraction method
     pub method_configs: HashMap<ExtractionMethod, MethodConfig>,
 }
@@ -319,16 +322,16 @@ pub struct ExtractionConfig {
 pub enum ExtractionMethod {
     /// Extract readable text content
     Text,
-    
+
     /// Extract file metadata (EXIF, ID3, etc.)
     Metadata,
-    
+
     /// Extract document structure (headings, tables, etc.)
     Structure,
-    
+
     /// Generate thumbnails and previews
     Thumbnails,
-    
+
     /// Extract semantic embeddings
     Embeddings,
 }
@@ -337,10 +340,10 @@ pub enum ExtractionMethod {
 pub struct MethodConfig {
     /// Engine to use for extraction (e.g., "poppler", "tesseract", "exifread")
     pub engine: String,
-    
+
     /// Engine-specific configuration
     pub settings: HashMap<String, serde_json::Value>,
-    
+
     /// Fallback engines if primary fails
     pub fallbacks: Vec<String>,
 }
@@ -349,6 +352,7 @@ pub struct MethodConfig {
 #### File Type-Specific Extraction Examples
 
 **PDF Documents:**
+
 ```toml
 # core-new/src/file_type/definitions/documents.toml
 [[file_types]]
@@ -375,6 +379,7 @@ settings = { page = 1, dpi = 150, format = "webp" }
 ```
 
 **Source Code Files:**
+
 ```toml
 # core-new/src/file_type/definitions/code.toml
 [[file_types]]
@@ -399,6 +404,7 @@ settings = { model = "microsoft/codebert-base", chunk_size = 512 }
 ```
 
 **Image Files:**
+
 ```toml
 # core-new/src/file_type/definitions/images.toml
 [[file_types]]
@@ -440,10 +446,10 @@ impl ExtractionScheduler {
     pub async fn schedule_extraction(&self, entry: &Entry) -> Result<()> {
         // Identify file type and extraction capabilities
         let identification = self.file_type_registry.identify(&entry.full_path()).await?;
-        
+
         if let Some(config) = &identification.file_type.extraction_config {
             let task_priority = self.calculate_extraction_priority(&identification, entry, config);
-            
+
             let task = ExtractionTask {
                 entry: entry.clone(),
                 file_type: identification.file_type.clone(),
@@ -451,7 +457,7 @@ impl ExtractionScheduler {
                 priority: task_priority,
                 scheduled_at: Utc::now(),
             };
-            
+
             // Schedule based on system resources and task priority
             if self.system_monitor.can_handle_immediate_extraction() && task_priority > 80 {
                 self.schedule_immediate(task).await?;
@@ -459,33 +465,33 @@ impl ExtractionScheduler {
                 self.schedule_background(task).await?;
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn calculate_extraction_priority(
-        &self, 
+        &self,
         identification: &IdentificationResult,
         entry: &Entry,
         config: &ExtractionConfig
     ) -> u8 {
         let mut priority = config.priority;
-        
+
         // Boost priority for recently accessed files
         if entry.last_accessed_within(Duration::from_days(7)) {
             priority = (priority + 10).min(100);
         }
-        
+
         // Boost priority for files in active directories
         if self.is_active_directory(&entry.parent_path()) {
             priority = (priority + 15).min(100);
         }
-        
+
         // Lower priority for very large files
         if entry.size > 100_000_000 { // 100MB
             priority = priority.saturating_sub(20);
         }
-        
+
         // High priority for text/code files (fast to process)
         match identification.file_type.category {
             ContentKind::Text | ContentKind::Code => priority + 5,
@@ -514,61 +520,61 @@ impl LightningSearchEngine {
     pub async fn search(&self, query: SearchQuery) -> Result<SearchResults> {
         let search_id = Uuid::new_v4();
         let start_time = Instant::now();
-        
+
         // Step 1: Optimize query
         let optimized_query = self.query_optimizer.optimize(query);
-        
+
         // Step 2: Check cache
         if let Some(cached_results) = self.cache_manager.get(&optimized_query).await {
             return Ok(cached_results);
         }
-        
+
         // Step 3: Temporal search (fast filtering)
         let temporal_results = self.temporal_engine
             .search(&optimized_query)
             .await?;
-        
+
         let mut final_results = temporal_results;
-        
+
         // Step 4: Semantic enhancement (if enabled and beneficial)
         if self.should_use_semantic_search(&optimized_query, &final_results) {
             let pre_filtered_ids: Vec<i32> = final_results.entries
                 .iter()
                 .map(|e| e.id)
                 .collect();
-            
+
             let semantic_scores = self.vector_engine
                 .search_semantic(&optimized_query.text, &pre_filtered_ids)
                 .await?;
-            
+
             // Merge temporal and semantic results
             final_results = self.merge_search_results(final_results, semantic_scores);
         }
-        
+
         // Step 5: Apply metadata filters and final ranking
         final_results = self.metadata_engine
             .apply_filters_and_rank(final_results, &optimized_query)
             .await?;
-        
+
         // Step 6: Cache results
         self.cache_manager.store(&optimized_query, &final_results).await;
-        
+
         final_results.execution_time = start_time.elapsed();
         final_results.search_id = search_id;
-        
+
         Ok(final_results)
     }
-    
+
     fn should_use_semantic_search(&self, query: &SearchQuery, temporal_results: &SearchResults) -> bool {
         // Use semantic search when:
         // 1. Query appears to be semantic in nature (not just filename search)
         // 2. Temporal results are ambiguous (many results with similar relevance)
         // 3. User explicitly requested comprehensive search
         // 4. Query contains natural language patterns
-        
+
         query.mode == SearchMode::Comprehensive ||
         query.mode == SearchMode::Semantic ||
-        (temporal_results.entries.len() > 10 && 
+        (temporal_results.entries.len() > 10 &&
          temporal_results.relevance_variance() < 0.2) ||
         self.query_optimizer.is_semantic_query(&query.text)
     }
@@ -620,7 +626,7 @@ impl VirtualSidecarSystem {
             ChangeType::Created | ChangeType::Modified => {
                 // Update sidecar metadata
                 self.sidecar_manager.update_metadata(file_path).await?;
-                
+
                 // Schedule embedding generation based on file type and priority
                 if self.should_generate_embedding(file_path) {
                     self.embedding_scheduler.schedule_embedding(
@@ -638,30 +644,30 @@ impl VirtualSidecarSystem {
                 self.move_sidecar_references(old_path, new_path).await?;
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn should_generate_embedding(&self, file_path: &Path) -> bool {
         // Smart decisions based on file type, size, and user patterns
         let extension = file_path.extension()
             .and_then(|ext| ext.to_str())
             .unwrap_or("");
-        
+
         match extension {
             // Always embed text content
             "txt" | "md" | "rst" | "doc" | "docx" | "pdf" => true,
-            
+
             // Embed code files in active projects
             "rs" | "js" | "py" | "cpp" | "java" => {
                 self.is_active_project_file(file_path)
             },
-            
+
             // Embed images if they're in photo directories
             "jpg" | "jpeg" | "png" | "webp" => {
                 self.is_photo_directory(file_path.parent().unwrap())
             },
-            
+
             // Skip large binaries and system files
             _ => false
         }
@@ -678,23 +684,23 @@ impl LightningSearchEngine {
     async fn search_with_sidecar(&self, query: SearchQuery) -> Result<SearchResults> {
         // Step 1: Temporal search as usual
         let temporal_results = self.temporal_engine.search(&query).await?;
-        
+
         // Step 2: Automatic semantic enhancement via sidecar embeddings
         let enhanced_results = self.enhance_with_sidecar_embeddings(
             temporal_results,
             &query
         ).await?;
-        
+
         Ok(enhanced_results)
     }
-    
+
     async fn enhance_with_sidecar_embeddings(
         &self,
         temporal_results: SearchResults,
         query: &SearchQuery
     ) -> Result<SearchResults> {
         let mut enhanced_entries = Vec::new();
-        
+
         for entry in temporal_results.entries {
             // Check if this entry has vector embeddings available
             if let Some(sidecar) = self.sidecar_system.get_sidecar(&entry.full_path()).await? {
@@ -703,7 +709,7 @@ impl LightningSearchEngine {
                     let semantic_score = self.vector_engine
                         .get_similarity_score(&query.text, &embedding_ref)
                         .await?;
-                    
+
                     enhanced_entries.push(SearchResultEntry {
                         temporal_score: entry.temporal_score,
                         semantic_score: Some(semantic_score),
@@ -719,12 +725,12 @@ impl LightningSearchEngine {
                 }
             }
         }
-        
+
         // Re-sort by combined score
-        enhanced_entries.sort_by(|a, b| 
+        enhanced_entries.sort_by(|a, b|
             b.combined_score.partial_cmp(&a.combined_score).unwrap()
         );
-        
+
         Ok(SearchResults {
             entries: enhanced_entries,
             ..temporal_results
@@ -757,7 +763,7 @@ impl ChromaConfig {
                     max_elements: 1_000_000,
                 },
                 "code".to_string() => CollectionMetadata {
-                    hnsw_space: "cosine", 
+                    hnsw_space: "cosine",
                     embedding_dim: 384,
                     max_elements: 500_000,
                 },
@@ -797,25 +803,25 @@ impl AdaptivePerformanceManager {
     async fn optimize_search_strategy(&self, query: &SearchQuery) -> SearchStrategy {
         let system_load = self.system_monitor.current_load();
         let query_complexity = self.analyze_query_complexity(query);
-        
+
         match (system_load, query_complexity) {
             (SystemLoad::Low, QueryComplexity::Simple) => SearchStrategy::FastTrack {
                 use_temporal_only: true,
                 cache_ttl: Duration::from_secs(300),
             },
-            
+
             (SystemLoad::Low, QueryComplexity::Complex) => SearchStrategy::Comprehensive {
                 use_vector_search: true,
                 max_vector_candidates: 1000,
                 enable_faceted_search: true,
             },
-            
+
             (SystemLoad::High, _) => SearchStrategy::Conservative {
                 use_temporal_only: true,
                 limit_results: 50,
                 skip_faceted_search: true,
             },
-            
+
             (SystemLoad::Medium, QueryComplexity::Semantic) => SearchStrategy::Balanced {
                 use_vector_search: true,
                 max_vector_candidates: 500,
@@ -823,17 +829,17 @@ impl AdaptivePerformanceManager {
             },
         }
     }
-    
+
     async fn schedule_background_embedding(&self, entry: &Entry) -> Result<()> {
         let priority = self.calculate_embedding_priority(entry);
         let system_resources = self.system_monitor.available_resources();
-        
+
         if system_resources.cpu_available > 0.3 && system_resources.memory_available > 0.5 {
             self.embedding_scheduler.schedule_immediate(entry.clone(), priority).await?;
         } else {
             self.embedding_scheduler.schedule_deferred(entry.clone(), priority).await?;
         }
-        
+
         Ok(())
     }
 }
@@ -848,16 +854,16 @@ impl AdaptivePerformanceManager {
 pub enum SearchMode {
     /// Ultra-fast filename and path search only
     Lightning,   // <5ms, FTS5 only
-    
+
     /// Fast search with basic semantic enhancement
     Fast,        // <25ms, FTS5 + limited vector search
-    
+
     /// Balanced speed and intelligence
     Balanced,    // <100ms, FTS5 + vector search + metadata
-    
+
     /// Comprehensive semantic search
     Comprehensive, // <500ms, full vector search + facets
-    
+
     /// Pure semantic/content search
     Semantic,    // variable, vector-first approach
 }
@@ -872,7 +878,7 @@ impl SearchMode {
                 max_results: 100,
                 timeout: Duration::from_millis(5),
             },
-            
+
             SearchMode::Fast => ExecutionStrategy {
                 use_fts5: true,
                 use_vector_search: true,
@@ -881,7 +887,7 @@ impl SearchMode {
                 max_results: 200,
                 timeout: Duration::from_millis(25),
             },
-            
+
             SearchMode::Balanced => ExecutionStrategy {
                 use_fts5: true,
                 use_vector_search: true,
@@ -890,7 +896,7 @@ impl SearchMode {
                 max_results: 500,
                 timeout: Duration::from_millis(100),
             },
-            
+
             SearchMode::Comprehensive => ExecutionStrategy {
                 use_fts5: true,
                 use_vector_search: true,
@@ -900,7 +906,7 @@ impl SearchMode {
                 max_results: 1000,
                 timeout: Duration::from_millis(500),
             },
-            
+
             SearchMode::Semantic => ExecutionStrategy {
                 use_fts5: false, // Vector-first approach
                 use_vector_search: true,
@@ -927,45 +933,45 @@ pub struct QueryIntelligence {
 impl QueryIntelligence {
     pub fn analyze_query(&self, query_text: &str) -> QueryAnalysis {
         let mut analysis = QueryAnalysis::default();
-        
+
         // Detect query patterns
         analysis.query_type = self.detect_query_type(query_text);
         analysis.intent = self.extract_intent(query_text);
         analysis.entities = self.extract_entities(query_text);
         analysis.temporal_context = self.extract_temporal_context(query_text);
-        
+
         // Suggest optimizations
         analysis.optimizations = self.suggest_optimizations(&analysis);
-        
+
         analysis
     }
-    
+
     fn detect_query_type(&self, query: &str) -> QueryType {
         // File extension search
-        if query.ends_with(|c: char| c == '.' || c.is_alphanumeric()) && 
+        if query.ends_with(|c: char| c == '.' || c.is_alphanumeric()) &&
            query.contains('.') {
             return QueryType::FileExtension;
         }
-        
+
         // Path-like search
         if query.contains('/') || query.contains('\\') {
             return QueryType::PathSearch;
         }
-        
+
         // Natural language questions
-        if query.starts_with("show me") || query.starts_with("find") || 
+        if query.starts_with("show me") || query.starts_with("find") ||
            query.contains('?') {
             return QueryType::NaturalLanguage;
         }
-        
+
         // Content search indicators
         if query.len() > 20 || query.split_whitespace().count() > 3 {
             return QueryType::ContentSearch;
         }
-        
+
         QueryType::SimpleFilename
     }
-    
+
     fn extract_temporal_context(&self, query: &str) -> Option<TemporalContext> {
         let temporal_patterns = [
             (r"today", TemporalContext::Today),
@@ -975,13 +981,13 @@ impl QueryIntelligence {
             (r"recent", TemporalContext::Recent),
             (r"old", TemporalContext::Old),
         ];
-        
+
         for (pattern, context) in temporal_patterns {
             if query.to_lowercase().contains(pattern) {
                 return Some(context);
             }
         }
-        
+
         None
     }
 }
@@ -1000,26 +1006,26 @@ CREATE VIRTUAL TABLE search_index USING fts5(
     extension,
     relative_path,
     extracted_content,  -- Content extracted from files
-    
+
     -- FTS5 configuration for optimal search
     tokenize="unicode61 remove_diacritics 2 tokenchars '.@-_'",
-    
+
     -- Prefix indexing for autocomplete
     prefix='2,3'
 );
 
 -- Optimized triggers for real-time updates
-CREATE TRIGGER IF NOT EXISTS entries_search_insert 
+CREATE TRIGGER IF NOT EXISTS entries_search_insert
 AFTER INSERT ON entries WHEN new.kind = 0  -- Only files
 BEGIN
-    INSERT INTO search_index(rowid, name, extension, relative_path, extracted_content) 
+    INSERT INTO search_index(rowid, name, extension, relative_path, extracted_content)
     VALUES (
-        new.id, 
-        new.name, 
-        new.extension, 
+        new.id,
+        new.name,
+        new.extension,
         new.relative_path,
-        CASE 
-            WHEN new.extension IN ('txt', 'md', 'rs', 'js', 'py') 
+        CASE
+            WHEN new.extension IN ('txt', 'md', 'rs', 'js', 'py')
             THEN (SELECT content FROM file_content_cache WHERE entry_id = new.id)
             ELSE ''
         END
@@ -1062,7 +1068,7 @@ CREATE TABLE embedding_metadata (
     embedding_hash TEXT NOT NULL,
     content_hash TEXT NOT NULL,  -- For invalidation
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    
+
     UNIQUE(chroma_collection, chroma_id)
 );
 
@@ -1074,7 +1080,7 @@ CREATE TABLE search_facet_cache (
     facet_data TEXT NOT NULL,  -- JSON
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL,
-    
+
     INDEX idx_facet_cache_query_type (query_hash, facet_type),
     INDEX idx_facet_cache_expires (expires_at)
 );
@@ -1084,29 +1090,29 @@ CREATE TABLE search_facet_cache (
 
 ```sql
 -- Critical indexes for search performance
-CREATE INDEX IF NOT EXISTS idx_entries_search_composite 
+CREATE INDEX IF NOT EXISTS idx_entries_search_composite
 ON entries(location_id, kind, extension, modified_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_entries_size_range 
+CREATE INDEX IF NOT EXISTS idx_entries_size_range
 ON entries(size) WHERE kind = 0;
 
-CREATE INDEX IF NOT EXISTS idx_entries_recent 
+CREATE INDEX IF NOT EXISTS idx_entries_recent
 ON entries(modified_at DESC) WHERE kind = 0;
 
-CREATE INDEX IF NOT EXISTS idx_user_metadata_search 
+CREATE INDEX IF NOT EXISTS idx_user_metadata_search
 ON user_metadata(favorite, hidden);
 
 -- Specialized indexes for common search patterns
-CREATE INDEX IF NOT EXISTS idx_entries_media_files 
-ON entries(extension, size DESC) 
+CREATE INDEX IF NOT EXISTS idx_entries_media_files
+ON entries(extension, size DESC)
 WHERE extension IN ('jpg', 'jpeg', 'png', 'mp4', 'mov', 'avi');
 
-CREATE INDEX IF NOT EXISTS idx_entries_documents 
-ON entries(extension, modified_at DESC) 
+CREATE INDEX IF NOT EXISTS idx_entries_documents
+ON entries(extension, modified_at DESC)
 WHERE extension IN ('pdf', 'doc', 'docx', 'txt', 'md');
 
-CREATE INDEX IF NOT EXISTS idx_entries_code_files 
-ON entries(extension, relative_path) 
+CREATE INDEX IF NOT EXISTS idx_entries_code_files
+ON entries(extension, relative_path)
 WHERE extension IN ('rs', 'js', 'py', 'cpp', 'java', 'go');
 ```
 
@@ -1198,83 +1204,79 @@ pub struct ScoreBreakdown {
 
 ```graphql
 extend type Query {
-    """
-    Primary search endpoint with full Lightning Search capabilities
-    """
-    search(
-        query: String!
-        mode: SearchMode = BALANCED
-        filters: [SearchFilterInput!] = []
-        sort: SortOptionsInput
-        pagination: PaginationInput
-        facets: FacetOptionsInput
-    ): SearchResponse!
-    
-    """
-    Fast autocomplete suggestions
-    """
-    searchSuggestions(
-        partial: String!
-        limit: Int = 10
-        context: SearchContextInput
-    ): [SearchSuggestion!]!
-    
-    """
-    Get available facets for a query
-    """
-    searchFacets(
-        query: String!
-        filters: [SearchFilterInput!] = []
-    ): SearchFacetsResponse!
-    
-    """
-    Search analytics and insights
-    """
-    searchAnalytics(
-        timeRange: TimeRangeInput
-        groupBy: AnalyticsGroupBy
-    ): SearchAnalyticsResponse!
+	"""
+	Primary search endpoint with full Lightning Search capabilities
+	"""
+	search(
+		query: String!
+		mode: SearchMode = BALANCED
+		filters: [SearchFilterInput!] = []
+		sort: SortOptionsInput
+		pagination: PaginationInput
+		facets: FacetOptionsInput
+	): SearchResponse!
+
+	"""
+	Fast autocomplete suggestions
+	"""
+	searchSuggestions(
+		partial: String!
+		limit: Int = 10
+		context: SearchContextInput
+	): [SearchSuggestion!]!
+
+	"""
+	Get available facets for a query
+	"""
+	searchFacets(query: String!, filters: [SearchFilterInput!] = []): SearchFacetsResponse!
+
+	"""
+	Search analytics and insights
+	"""
+	searchAnalytics(timeRange: TimeRangeInput, groupBy: AnalyticsGroupBy): SearchAnalyticsResponse!
 }
 
 enum SearchMode {
-    LIGHTNING
-    FAST  
-    BALANCED
-    COMPREHENSIVE
-    SEMANTIC
+	LIGHTNING
+	FAST
+	BALANCED
+	COMPREHENSIVE
+	SEMANTIC
 }
 
 type SearchResponse {
-    entries: [SearchResultEntry!]!
-    facets: [SearchFacet!]!
-    suggestions: [SearchSuggestion!]!
-    analytics: SearchAnalytics!
-    pagination: PaginationInfo!
-    searchId: UUID!
+	entries: [SearchResultEntry!]!
+	facets: [SearchFacet!]!
+	suggestions: [SearchSuggestion!]!
+	analytics: SearchAnalytics!
+	pagination: PaginationInfo!
+	searchId: UUID!
 }
 
 type SearchResultEntry {
-    entry: Entry!
-    score: Float!
-    scoreBreakdown: ScoreBreakdown!
-    highlights: [TextHighlight!]!
-    context: SearchResultContext!
+	entry: Entry!
+	score: Float!
+	scoreBreakdown: ScoreBreakdown!
+	highlights: [TextHighlight!]!
+	context: SearchResultContext!
 }
 
 type ScoreBreakdown {
-    temporalScore: Float!
-    semanticScore: Float
-    metadataScore: Float!
-    recencyBoost: Float!
-    userPreferenceBoost: Float!
-    finalScore: Float!
+	temporalScore: Float!
+	semanticScore: Float
+	metadataScore: Float!
+	recencyBoost: Float!
+	userPreferenceBoost: Float!
+	finalScore: Float!
 }
 ```
 
 ## Implementation Roadmap
 
 ### Phase 1: Foundation (Weeks 1-3)
+
 **Temporal Search Engine**
+
 - [ ] FTS5 integration with existing VDFS schema
 - [ ] Real-time indexing triggers
 - [ ] Basic search API infrastructure
@@ -1283,12 +1285,14 @@ type ScoreBreakdown {
 - [ ] Content extraction pipeline for text files
 
 **File Type Integration**
+
 - [ ] Extend file type definitions with extraction configurations
 - [ ] Implement extraction method framework
 - [ ] Add magic byte-based content identification
 - [ ] Create type-aware extraction scheduling
 
 **Deliverables:**
+
 - Lightning-fast filename and content search (<10ms)
 - Real-time index updates
 - Basic REST and GraphQL APIs
@@ -1296,7 +1300,9 @@ type ScoreBreakdown {
 - Extensible file type system with extraction capabilities
 
 ### Phase 2: Vector Intelligence (Weeks 4-6)
+
 **Chroma Integration**
+
 - [ ] Chroma vector database setup and configuration
 - [ ] Embedding generation pipeline
 - [ ] Content type-specific collections
@@ -1304,6 +1310,7 @@ type ScoreBreakdown {
 - [ ] Background embedding processing
 
 **Advanced Extraction Engines**
+
 - [ ] PDF text extraction with poppler/tesseract
 - [ ] Image metadata extraction (EXIF, XMP)
 - [ ] Audio metadata extraction (ID3, FLAC)
@@ -1311,6 +1318,7 @@ type ScoreBreakdown {
 - [ ] Document structure extraction
 
 **Deliverables:**
+
 - Semantic search capabilities
 - Automatic embedding generation
 - Vector-enhanced result ranking
@@ -1318,7 +1326,9 @@ type ScoreBreakdown {
 - Comprehensive metadata extraction across all file types
 
 ### Phase 3: Advanced Features (Weeks 7-9)
+
 **Search Intelligence**
+
 - [ ] Query analysis and optimization
 - [ ] Faceted search implementation
 - [ ] Search result personalization
@@ -1326,6 +1336,7 @@ type ScoreBreakdown {
 - [ ] Search analytics and learning
 
 **Content-Aware Search Enhancement**
+
 - [ ] File type-specific search strategies
 - [ ] Context-aware extraction scheduling
 - [ ] Intelligent thumbnail generation
@@ -1333,6 +1344,7 @@ type ScoreBreakdown {
 - [ ] Content similarity clustering
 
 **Deliverables:**
+
 - Intelligent query understanding
 - Dynamic faceted search
 - Personalized search results
@@ -1340,7 +1352,9 @@ type ScoreBreakdown {
 - Context-aware content processing
 
 ### Phase 4: Virtual Sidecar System (Weeks 10-12)
+
 **Sidecar Architecture**
+
 - [ ] Virtual sidecar file system design
 - [ ] Atomic file linking system
 - [ ] Automatic embedding scheduling
@@ -1348,6 +1362,7 @@ type ScoreBreakdown {
 - [ ] Performance optimization
 
 **Deliverables:**
+
 - Transparent file-based search
 - Automatic vector embedding generation
 - Seamless filesystem integration
@@ -1357,13 +1372,13 @@ type ScoreBreakdown {
 
 ### Search Performance Goals
 
-| Search Mode | Target Latency | Max Results | Use Case |
-|-------------|---------------|-------------|----------|
-| Lightning | <5ms | 100 | Instant autocomplete |
-| Fast | <25ms | 200 | Quick file finding |
-| Balanced | <100ms | 500 | General purpose search |
-| Comprehensive | <500ms | 1000 | Deep content discovery |
-| Semantic | <2000ms | 1000 | Research and exploration |
+| Search Mode   | Target Latency | Max Results | Use Case                 |
+| ------------- | -------------- | ----------- | ------------------------ |
+| Lightning     | <5ms           | 100         | Instant autocomplete     |
+| Fast          | <25ms          | 200         | Quick file finding       |
+| Balanced      | <100ms         | 500         | General purpose search   |
+| Comprehensive | <500ms         | 1000        | Deep content discovery   |
+| Semantic      | <2000ms        | 1000        | Research and exploration |
 
 ### Scalability Targets
 
@@ -1383,12 +1398,14 @@ type ScoreBreakdown {
 ## Security and Privacy
 
 ### Data Protection
+
 - **Local Processing**: All embeddings generated locally
 - **No Cloud Dependencies**: Complete offline operation
 - **Encryption**: Vector embeddings encrypted at rest
 - **Access Control**: Search respects file permissions
 
 ### Privacy Guarantees
+
 - **No Telemetry**: Search queries never leave the device
 - **Content Privacy**: File content never transmitted
 - **Metadata Protection**: User annotations remain local

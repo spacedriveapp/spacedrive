@@ -38,7 +38,8 @@
 
 \bibitem[{Amazon Web Services}(2025)]%
         {aws-s3-etag-2025}
-\bibfield{author}{\bibinfo{person}{{Amazon Web Services}}.} \bibinfo{year}{2025}\natexlab{}.
+\bibfield{author}{\bibinfo{person}{{Amazon Web Services}}.}
+  \bibinfo{year}{2025}\natexlab{}.
 \newblock \bibinfo{title}{Amazon S3 ETag Generation}.
 \newblock
 \urldef\tempurl%
@@ -51,7 +52,8 @@
 
 \bibitem[{Apache OpenDAL Contributors}(2025)]%
         {opendal-changelog-2025}
-\bibfield{author}{\bibinfo{person}{{Apache OpenDAL Contributors}}.} \bibinfo{year}{2025}\natexlab{}.
+\bibfield{author}{\bibinfo{person}{{Apache OpenDAL Contributors}}.}
+  \bibinfo{year}{2025}\natexlab{}.
 \newblock \bibinfo{title}{OpenDAL v0.49 Changelog}.
 \newblock
 \urldef\tempurl%
@@ -64,37 +66,49 @@
 
 \bibitem[{Atlassian}(2025)]%
         {atlassian2025}
-\bibfield{author}{\bibinfo{person}{{Atlassian}}.} \bibinfo{year}{2025}\natexlab{}.
+\bibfield{author}{\bibinfo{person}{{Atlassian}}.}
+  \bibinfo{year}{2025}\natexlab{}.
 \newblock \bibinfo{booktitle}{\emph{State of Teams 2025}}.
-\newblock \bibinfo{type}{{T}echnical {R}eport}. \bibinfo{institution}{Atlassian}.
+\newblock \bibinfo{type}{{T}echnical {R}eport}.
+  \bibinfo{institution}{Atlassian}.
 \newblock
 \urldef\tempurl%
 \url{https://www.atlassian.com/blog/state-of-teams-2025}
 \showURL{%
 \tempurl}
 \newblock
-\shownote{Knowledge workers spend 25\% of their workweek searching for information across fragmented systems}.
+\shownote{Knowledge workers spend 25\% of their workweek searching for
+  information across fragmented systems}.
 
 
 \bibitem[Benet(2014)]%
         {ipfs}
-\bibfield{author}{\bibinfo{person}{Juan Benet}.} \bibinfo{year}{2014}\natexlab{}.
-\newblock \showarticletitle{IPFS - Content Addressed, Versioned, P2P File System}.
-\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:1407.3561}} (\bibinfo{year}{2014}).
+\bibfield{author}{\bibinfo{person}{Juan Benet}.}
+  \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{IPFS - Content Addressed, Versioned, P2P File
+  System}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:1407.3561}}
+  (\bibinfo{year}{2014}).
 \newblock
 
 
 \bibitem[Bergman et~al\mbox{.}(2006)]%
         {bergman_fragmentation_2006}
-\bibfield{author}{\bibinfo{person}{Ofer Bergman}, \bibinfo{person}{Ruth Beyth-Marom}, {and} \bibinfo{person}{Rafi Nachmias}.} \bibinfo{year}{2006}\natexlab{}.
-\newblock \showarticletitle{The Project Fragmentation Problem in Personal Information Management}. In \bibinfo{booktitle}{\emph{CHI '06: Proceedings of the SIGCHI Conference on Human Factors in Computing Systems}}. \bibinfo{pages}{271--274}.
+\bibfield{author}{\bibinfo{person}{Ofer Bergman}, \bibinfo{person}{Ruth
+  Beyth-Marom}, {and} \bibinfo{person}{Rafi Nachmias}.}
+  \bibinfo{year}{2006}\natexlab{}.
+\newblock \showarticletitle{The Project Fragmentation Problem in Personal
+  Information Management}. In \bibinfo{booktitle}{\emph{CHI '06: Proceedings of
+  the SIGCHI Conference on Human Factors in Computing Systems}}.
+  \bibinfo{pages}{271--274}.
 \newblock
 \href{https://doi.org/10.1145/1124772.1124813}{doi:\nolinkurl{10.1145/1124772.1124813}}
 
 
 \bibitem[Craig-Wood(2014)]%
         {rclone_reference}
-\bibfield{author}{\bibinfo{person}{Nick Craig-Wood}.} \bibinfo{year}{2014}\natexlab{}.
+\bibfield{author}{\bibinfo{person}{Nick Craig-Wood}.}
+  \bibinfo{year}{2014}\natexlab{}.
 \newblock \bibinfo{title}{rclone - rsync for cloud storage}.
 \newblock \bibinfo{howpublished}{\url{https://rclone.org}}.
 \newblock
@@ -104,7 +118,8 @@
 
 \bibitem[{Datafuse Labs}(2025)]%
         {opendal-2025}
-\bibfield{author}{\bibinfo{person}{{Datafuse Labs}}.} \bibinfo{year}{2025}\natexlab{}.
+\bibfield{author}{\bibinfo{person}{{Datafuse Labs}}.}
+  \bibinfo{year}{2025}\natexlab{}.
 \newblock \bibinfo{title}{OpenDAL: Open Data Access Layer}.
 \newblock
 \urldef\tempurl%
@@ -117,39 +132,60 @@
 
 \bibitem[Dourish et~al\mbox{.}(1999)]%
         {dourish_presto_1999}
-\bibfield{author}{\bibinfo{person}{Paul Dourish}, \bibinfo{person}{W.~Keith Edwards}, \bibinfo{person}{Anthony LaMarca}, {and} \bibinfo{person}{Michael Salisbury}.} \bibinfo{year}{1999}\natexlab{}.
-\newblock \showarticletitle{Using Properties for Uniform Interaction in the Presto Document System}. In \bibinfo{booktitle}{\emph{ACM Transactions on Computer-Human Interaction}}, Vol.~\bibinfo{volume}{6}. \bibinfo{pages}{135–--161}.
+\bibfield{author}{\bibinfo{person}{Paul Dourish}, \bibinfo{person}{W.~Keith
+  Edwards}, \bibinfo{person}{Anthony LaMarca}, {and} \bibinfo{person}{Michael
+  Salisbury}.} \bibinfo{year}{1999}\natexlab{}.
+\newblock \showarticletitle{Using Properties for Uniform Interaction in the
+  Presto Document System}. In \bibinfo{booktitle}{\emph{ACM Transactions on
+  Computer-Human Interaction}}, Vol.~\bibinfo{volume}{6}.
+  \bibinfo{pages}{135–--161}.
 \newblock
 \href{https://doi.org/10.1145/306409.306411}{doi:\nolinkurl{10.1145/306409.306411}}
 
 
 \bibitem[Dumais et~al\mbox{.}(2003)]%
         {dumais_stuff_2003}
-\bibfield{author}{\bibinfo{person}{Susan~T. Dumais}, \bibinfo{person}{Edward Cutrell}, \bibinfo{person}{JJ Cadiz}, \bibinfo{person}{Gavin Jancke}, \bibinfo{person}{Raman Sarin}, {and} \bibinfo{person}{Daniel~C. Robbins}.} \bibinfo{year}{2003}\natexlab{}.
-\newblock \showarticletitle{Stuff I've Seen: A System for Personal Information Retrieval and Re-use}. In \bibinfo{booktitle}{\emph{SIGIR '03: Proceedings of the 26th Annual International ACM SIGIR Conference on Research and Development in Information Retrieval}}. \bibinfo{pages}{72--79}.
+\bibfield{author}{\bibinfo{person}{Susan~T. Dumais}, \bibinfo{person}{Edward
+  Cutrell}, \bibinfo{person}{JJ Cadiz}, \bibinfo{person}{Gavin Jancke},
+  \bibinfo{person}{Raman Sarin}, {and} \bibinfo{person}{Daniel~C. Robbins}.}
+  \bibinfo{year}{2003}\natexlab{}.
+\newblock \showarticletitle{Stuff I've Seen: A System for Personal Information
+  Retrieval and Re-use}. In \bibinfo{booktitle}{\emph{SIGIR '03: Proceedings of
+  the 26th Annual International ACM SIGIR Conference on Research and
+  Development in Information Retrieval}}. \bibinfo{pages}{72--79}.
 \newblock
 \href{https://doi.org/10.1145/860435.860451}{doi:\nolinkurl{10.1145/860435.860451}}
 
 
 \bibitem[Gifford et~al\mbox{.}(1991)]%
         {gifford_sfs_1991}
-\bibfield{author}{\bibinfo{person}{David~K. Gifford}, \bibinfo{person}{Pierre Jouvelot}, \bibinfo{person}{Mark~A. Sheldon}, {and} \bibinfo{person}{James W.~O'Toole Jr.}} \bibinfo{year}{1991}\natexlab{}.
-\newblock \showarticletitle{Semantic File Systems}. In \bibinfo{booktitle}{\emph{Proceedings of the Thirteenth ACM Symposium on Operating Systems Principles}}. \bibinfo{pages}{16--25}.
+\bibfield{author}{\bibinfo{person}{David~K. Gifford}, \bibinfo{person}{Pierre
+  Jouvelot}, \bibinfo{person}{Mark~A. Sheldon}, {and} \bibinfo{person}{James
+  W.~O'Toole Jr.}} \bibinfo{year}{1991}\natexlab{}.
+\newblock \showarticletitle{Semantic File Systems}. In
+  \bibinfo{booktitle}{\emph{Proceedings of the Thirteenth ACM Symposium on
+  Operating Systems Principles}}. \bibinfo{pages}{16--25}.
 \newblock
 \href{https://doi.org/10.1145/121132.121137}{doi:\nolinkurl{10.1145/121132.121137}}
 
 
 \bibitem[Houston and Ferdowsi(2008)]%
         {dropbox}
-\bibfield{author}{\bibinfo{person}{Drew Houston} {and} \bibinfo{person}{Arash Ferdowsi}.} \bibinfo{year}{2008}\natexlab{}.
-\newblock \showarticletitle{Dropbox: Simplifying Cloud Storage}. In \bibinfo{booktitle}{\emph{Y Combinator Demo Day}}.
+\bibfield{author}{\bibinfo{person}{Drew Houston} {and} \bibinfo{person}{Arash
+  Ferdowsi}.} \bibinfo{year}{2008}\natexlab{}.
+\newblock \showarticletitle{Dropbox: Simplifying Cloud Storage}. In
+  \bibinfo{booktitle}{\emph{Y Combinator Demo Day}}.
 \newblock
 
 
 \bibitem[Kleppmann et~al\mbox{.}(2019)]%
         {kleppmann_localfirst_2019}
-\bibfield{author}{\bibinfo{person}{Martin Kleppmann}, \bibinfo{person}{Adam Wiggins}, \bibinfo{person}{Peter van Hardenberg}, {and} \bibinfo{person}{Mark McGranaghan}.} \bibinfo{year}{2019}\natexlab{}.
-\newblock \showarticletitle{Local-First Software: You Own Your Data, in spite of the Cloud}. In \bibinfo{booktitle}{\emph{Proceedings of the ACM Conference on Systems and Programming}}.
+\bibfield{author}{\bibinfo{person}{Martin Kleppmann}, \bibinfo{person}{Adam
+  Wiggins}, \bibinfo{person}{Peter van Hardenberg}, {and} \bibinfo{person}{Mark
+  McGranaghan}.} \bibinfo{year}{2019}\natexlab{}.
+\newblock \showarticletitle{Local-First Software: You Own Your Data, in spite
+  of the Cloud}. In \bibinfo{booktitle}{\emph{Proceedings of the ACM Conference
+  on Systems and Programming}}.
 \newblock
 \urldef\tempurl%
 \url{https://martin.kleppmann.com/papers/local-first.pdf}
@@ -159,9 +195,12 @@
 
 \bibitem[Li(2018)]%
         {alluxio_vdfs}
-\bibfield{author}{\bibinfo{person}{Haoyuan Li}.} \bibinfo{year}{2018}\natexlab{}.
-\newblock \bibinfo{booktitle}{\emph{Alluxio: A Virtual Distributed File System}}.
-\newblock \bibinfo{type}{{T}echnical {R}eport} UCB/EECS-2018-29. \bibinfo{institution}{EECS Department, University of California, Berkeley}.
+\bibfield{author}{\bibinfo{person}{Haoyuan Li}.}
+  \bibinfo{year}{2018}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Alluxio: A Virtual Distributed File
+  System}}.
+\newblock \bibinfo{type}{{T}echnical {R}eport} UCB/EECS-2018-29.
+  \bibinfo{institution}{EECS Department, University of California, Berkeley}.
 \newblock
 \urldef\tempurl%
 \url{http://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.html}
@@ -171,16 +210,22 @@
 
 \bibitem[Muthitacharoen et~al\mbox{.}(2001)]%
         {muthitacharoen_lbfs_2001}
-\bibfield{author}{\bibinfo{person}{Athicha Muthitacharoen}, \bibinfo{person}{Benjie Chen}, {and} \bibinfo{person}{David Mazieres}.} \bibinfo{year}{2001}\natexlab{}.
-\newblock \showarticletitle{A Low-Bandwidth Network File System}. In \bibinfo{booktitle}{\emph{SOSP '01: Proceedings of the Eighteenth ACM Symposium on Operating Systems Principles}}. \bibinfo{pages}{174--187}.
+\bibfield{author}{\bibinfo{person}{Athicha Muthitacharoen},
+  \bibinfo{person}{Benjie Chen}, {and} \bibinfo{person}{David Mazieres}.}
+  \bibinfo{year}{2001}\natexlab{}.
+\newblock \showarticletitle{A Low-Bandwidth Network File System}. In
+  \bibinfo{booktitle}{\emph{SOSP '01: Proceedings of the Eighteenth ACM
+  Symposium on Operating Systems Principles}}. \bibinfo{pages}{174--187}.
 \newblock
 \href{https://doi.org/10.1145/502034.502052}{doi:\nolinkurl{10.1145/502034.502052}}
 
 
 \bibitem[{n0 Computer}(2024)]%
         {iroh_networking}
-\bibfield{author}{\bibinfo{person}{{n0 Computer}}.} \bibinfo{year}{2024}\natexlab{}.
-\newblock \bibinfo{title}{Iroh: A Toolkit for Building Distributed Applications}.
+\bibfield{author}{\bibinfo{person}{{n0 Computer}}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{Iroh: A Toolkit for Building Distributed
+  Applications}.
 \newblock
 \urldef\tempurl%
 \url{https://github.com/n0-computer/iroh}
@@ -192,15 +237,22 @@
 
 \bibitem[Quinlan and Dorward(2002)]%
         {quinlan_venti_2002}
-\bibfield{author}{\bibinfo{person}{Sean Quinlan} {and} \bibinfo{person}{Sean Dorward}.} \bibinfo{year}{2002}\natexlab{}.
-\newblock \showarticletitle{Venti: A New Approach to Archival Storage}. In \bibinfo{booktitle}{\emph{FAST '02: File and Storage Technologies}}. \bibinfo{pages}{89--101}.
+\bibfield{author}{\bibinfo{person}{Sean Quinlan} {and} \bibinfo{person}{Sean
+  Dorward}.} \bibinfo{year}{2002}\natexlab{}.
+\newblock \showarticletitle{Venti: A New Approach to Archival Storage}. In
+  \bibinfo{booktitle}{\emph{FAST '02: File and Storage Technologies}}.
+  \bibinfo{pages}{89--101}.
 \newblock
 
 
 \bibitem[Shapiro et~al\mbox{.}(2011)]%
         {shapiro_crdts_2011}
-\bibfield{author}{\bibinfo{person}{Marc Shapiro}, \bibinfo{person}{Nuno Preguiça}, \bibinfo{person}{Carlos Baquero}, {and} \bibinfo{person}{Marek Zawirski}.} \bibinfo{year}{2011}\natexlab{}.
-\newblock \showarticletitle{Conflict-Free Replicated Data Types}. In \bibinfo{booktitle}{\emph{SSS 2011: Symposium on Self-Stabilizing Systems}}. \bibinfo{pages}{386--400}.
+\bibfield{author}{\bibinfo{person}{Marc Shapiro}, \bibinfo{person}{Nuno
+  Preguiça}, \bibinfo{person}{Carlos Baquero}, {and} \bibinfo{person}{Marek
+  Zawirski}.} \bibinfo{year}{2011}\natexlab{}.
+\newblock \showarticletitle{Conflict-Free Replicated Data Types}. In
+  \bibinfo{booktitle}{\emph{SSS 2011: Symposium on Self-Stabilizing Systems}}.
+  \bibinfo{pages}{386--400}.
 \newblock
 \href{https://doi.org/10.1007/978-3-642-24550-3_29}{doi:\nolinkurl{10.1007/978-3-642-24550-3_29}}
 
@@ -220,22 +272,32 @@
 
 \bibitem[Weil et~al\mbox{.}(2006)]%
         {ceph}
-\bibfield{author}{\bibinfo{person}{Sage~A Weil}, \bibinfo{person}{Scott~A Brandt}, \bibinfo{person}{Ethan~L Miller}, \bibinfo{person}{Darrell~DE Long}, {and} \bibinfo{person}{Carlos Maltzahn}.} \bibinfo{year}{2006}\natexlab{}.
-\newblock \showarticletitle{Ceph: A Scalable, High-Performance Distributed File System}. In \bibinfo{booktitle}{\emph{Proceedings of the 7th symposium on Operating systems design and implementation}}. \bibinfo{pages}{307--320}.
+\bibfield{author}{\bibinfo{person}{Sage~A Weil}, \bibinfo{person}{Scott~A
+  Brandt}, \bibinfo{person}{Ethan~L Miller}, \bibinfo{person}{Darrell~DE Long},
+  {and} \bibinfo{person}{Carlos Maltzahn}.} \bibinfo{year}{2006}\natexlab{}.
+\newblock \showarticletitle{Ceph: A Scalable, High-Performance Distributed File
+  System}. In \bibinfo{booktitle}{\emph{Proceedings of the 7th symposium on
+  Operating systems design and implementation}}. \bibinfo{pages}{307--320}.
 \newblock
 
 
 \bibitem[Weiser(1991)]%
         {weiser_ubiquitous_1991}
-\bibfield{author}{\bibinfo{person}{Mark Weiser}.} \bibinfo{year}{1991}\natexlab{}.
-\newblock \showarticletitle{The Computer for the 21st Century}. In \bibinfo{booktitle}{\emph{Scientific American}}, Vol.~\bibinfo{volume}{265}. \bibinfo{pages}{94--104}.
+\bibfield{author}{\bibinfo{person}{Mark Weiser}.}
+  \bibinfo{year}{1991}\natexlab{}.
+\newblock \showarticletitle{The Computer for the 21st Century}. In
+  \bibinfo{booktitle}{\emph{Scientific American}}, Vol.~\bibinfo{volume}{265}.
+  \bibinfo{pages}{94--104}.
 \newblock
 
 
 \bibitem[Zhu et~al\mbox{.}(2008)]%
         {zhu_dedup_2008}
-\bibfield{author}{\bibinfo{person}{Benjamin Zhu}, \bibinfo{person}{Kai Li}, {and} \bibinfo{person}{Hugo Patterson}.} \bibinfo{year}{2008}\natexlab{}.
-\newblock \showarticletitle{Avoiding the Disk Bottleneck in the Data Domain Deduplication File System}. In \bibinfo{booktitle}{\emph{FAST '08: 6th USENIX Conference on File and Storage Technologies}}. \bibinfo{pages}{1--14}.
+\bibfield{author}{\bibinfo{person}{Benjamin Zhu}, \bibinfo{person}{Kai Li},
+  {and} \bibinfo{person}{Hugo Patterson}.} \bibinfo{year}{2008}\natexlab{}.
+\newblock \showarticletitle{Avoiding the Disk Bottleneck in the Data Domain
+  Deduplication File System}. In \bibinfo{booktitle}{\emph{FAST '08: 6th USENIX
+  Conference on File and Storage Technologies}}. \bibinfo{pages}{1--14}.
 \newblock
 
 

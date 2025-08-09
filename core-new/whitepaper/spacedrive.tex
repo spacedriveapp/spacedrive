@@ -2099,15 +2099,15 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 	\centering
 	\caption{Performance benchmarks across storage tiers. Testing conducted on M2 MacBook Pro with 16GB RAM running macOS 14.5. Values generated from the benchmarking harness summaries.}
 	\label{tab:performance}
-    \begin{tabular}{llrr}
+    \begin{tabular}{llrrrrrrl}
 	\toprule
-    \textbf{Phase} & \textbf{Hardware} & \textbf{Value} & \textbf{Unit} \\
+    \textbf{Phase} & \textbf{Hardware} & \textbf{Files/s} & \textbf{GB/s} & \textbf{Files} & \textbf{Dirs} & \textbf{GB} & \textbf{Errors} & \textbf{Recipe} \\
 	\midrule
-	\multicolumn{3}{l}{\textit{Indexing}} \\
+    \multicolumn{9}{l}{\textit{Indexing}} \\
 	\csvreader[
 	late after line=\\
-    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Value=\Value,Unit=\Unit}{%
-    \Phase & \Hardware & \num{\Value} & \Unit
+    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Files_per_s=\Fps,GB_per_s=\Gbps,Files=\Files,Dirs=\Dirs,GB=\Gb,Errors=\Err,Recipe=\Recipe}{%
+    \Phase & \Hardware & \num{\Fps} & \num{\Gbps} & \num{\Files} & \num{\Dirs} & \num{\Gb} & \num{\Err} & \texttt{\detokenize{\Recipe}}
 	}
 	\midrule
 	\multicolumn{3}{l}{\textit{Search Latency (1M entries)}} \\

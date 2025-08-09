@@ -1,7 +1,7 @@
-Phase,Hardware,Value,Unit
-Discovery,Internal NVMe SSD, 1811.2,files/sec
-Discovery,External HDD (USB 3.0), 1452.8,files/sec
-Processing,External HDD (USB 3.0), 1515.2,files/sec
-Processing,Internal NVMe SSD, 1500.0,files/sec
-Content Identification,Internal NVMe SSD, 310.3,files/sec
-Content Identification,External HDD (USB 3.0), 68.3,files/sec
+Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe
+Discovery,External HDD (USB 3.0),1452.8,21.52,5000,2200,74.02,0,hdd_medium
+Discovery,Internal NVMe SSD,1811.2,2.06,300,107,0.35,0,nvme_small
+Processing,External HDD (USB 3.0),1515.2,22.43,5000,2200,74.02,0,hdd_medium
+Processing,Internal NVMe SSD,1500.0,1.75,300,107,0.35,0,nvme_small
+Content Identification,External HDD (USB 3.0),68.3,7.56,19854,18408,2196.91,0,hdd_large
+Content Identification,Internal NVMe SSD,310.3,0.00,100000,0,0.66,0,nvme_tiny
