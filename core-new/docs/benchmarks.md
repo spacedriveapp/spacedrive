@@ -38,10 +38,14 @@ This document explains how to use and extend the benchmarking suite that lives i
   - Discovery: `cargo run -p sd-bench -- run --scenario indexing-discovery --recipe benchmarks/recipes/nvme_small.yaml --out-json benchmarks/results/nvme_small-indexing-discovery.json`
   - Content identification: `cargo run -p sd-bench -- run --scenario content-identification --recipe benchmarks/recipes/nvme_small.yaml --out-json benchmarks/results/nvme_small-content-identification.json`
 - Run the scenario for all recipes (writes per-recipe JSON summaries):
+
   - `cargo run -p sd-bench -- run-all`
   - Equivalent explicit form:
     - `cargo run -p sd-bench -- run-all --scenario indexing-discovery --recipes-dir benchmarks/recipes --out-dir benchmarks/results`
   - Reuse existing datasets without regenerating: `cargo run -p sd-bench -- run-all --skip-generate`
+
+- Generate the whitepaper CSV from JSON summaries (consumed by the LaTeX doc):
+  - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format whitepaper`
 
 The CLI always prints a brief stdout summary and (if applicable) the path to the generated JSON. It also prints job log paths for later inspection.
 
@@ -163,6 +167,21 @@ media:
   - `benchmarks/src/reporting/json_summary.rs` writes `{ "runs": [ ...ScenarioResult... ] }`.
 - Register additional reporters in `benchmarks/src/reporting/registry.rs`.
 - Planned: Markdown, CSV, HTML.
+
+### Whitepaper CSV
+
+- After producing JSON results (e.g., via `run` or `run-all`), generate a CSV tailored for the whitepaper tables:
+  - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format whitepaper`
+- Output schema matches the LaTeX reader in `whitepaper/spacedrive.tex`:
+
+  - Header: `Phase,Metric,Value,Unit`
+  - Rows aggregate best observed throughput per phase across hardware classes inferred from recipe names:
+    - Discovery: scenario `indexing-discovery` (files/sec)
+    - Processing: scenario `aggregation` (files/sec)
+    - Content: scenario `content-identification` (files/sec)
+  - Hardware labels are derived from recipe prefixes like `nvme_*`, `hdd_*`, etc.
+
+- The LaTeX document reads `../benchmarks/results/whitepaper_metrics.csv`, so ensure the command above writes to that path.
 
 ## Core Boot (Isolated)
 

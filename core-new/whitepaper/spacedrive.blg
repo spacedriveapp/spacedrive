@@ -1,0 +1,86 @@
+This is BibTeX, Version 0.99d (TeX Live 2025)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: spacedrive.aux
+The style file: ACM-Reference-Format.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: references.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
+Warning--no number and no volume in ipfs
+Warning--page numbers missing in both pages and numpages fields in ipfs
+Warning--empty publisher in bergman_fragmentation_2006
+Warning--empty address in bergman_fragmentation_2006
+Warning--can't use both volume and number fields in dourish_presto_1999
+Warning--empty publisher in dourish_presto_1999
+Warning--empty address in dourish_presto_1999
+Warning--empty publisher in dumais_stuff_2003
+Warning--empty address in dumais_stuff_2003
+Warning--empty publisher in gifford_sfs_1991
+Warning--empty address in gifford_sfs_1991
+Warning--empty publisher in dropbox
+Warning--empty address in dropbox
+Warning--page numbers missing in both pages and numpages fields in dropbox
+Warning--empty publisher in kleppmann_localfirst_2019
+Warning--empty address in kleppmann_localfirst_2019
+Warning--page numbers missing in both pages and numpages fields in kleppmann_localfirst_2019
+Warning--empty publisher in muthitacharoen_lbfs_2001
+Warning--empty address in muthitacharoen_lbfs_2001
+Warning--empty publisher in quinlan_venti_2002
+Warning--empty address in quinlan_venti_2002
+Warning--empty publisher in shapiro_crdts_2011
+Warning--empty address in shapiro_crdts_2011
+Warning--empty publisher in ceph
+Warning--empty address in ceph
+Warning--can't use both volume and number fields in weiser_ubiquitous_1991
+Warning--empty publisher in weiser_ubiquitous_1991
+Warning--empty address in weiser_ubiquitous_1991
+Warning--empty publisher in zhu_dedup_2008
+Warning--empty address in zhu_dedup_2008
+You've used 21 entries,
+            6056 wiz_defined-function locations,
+            1607 strings with 21835 characters,
+and the built_in function-call counts, 21280 in all, are:
+= -- 2332
+> -- 583
+< -- 1
++ -- 185
+- -- 206
+* -- 1377
+:= -- 2044
+add.period$ -- 107
+call.type$ -- 21
+change.case$ -- 135
+chr.to.int$ -- 21
+cite$ -- 51
+duplicate$ -- 2096
+empty$ -- 1468
+format.name$ -- 250
+if$ -- 4974
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 64
+newline$ -- 242
+num.names$ -- 147
+pop$ -- 864
+preamble$ -- 1
+purify$ -- 302
+quote$ -- 0
+skip$ -- 805
+stack$ -- 0
+substring$ -- 1577
+swap$ -- 177
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 616
+warning$ -- 30
+while$ -- 140
+width$ -- 0
+write$ -- 460
+(There were 30 warnings)

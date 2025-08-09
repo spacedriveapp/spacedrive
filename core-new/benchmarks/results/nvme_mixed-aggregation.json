@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "content_duration_s": 0.0,
+      "directories": 2625,
+      "directories_per_s": 729.1666666666666,
+      "discovery_duration_s": 4.3,
+      "duration_s": 3.6,
+      "errors": 0,
+      "files": 5000,
+      "files_per_s": 1388.888888888889,
+      "id": "7739ca7f-07d6-4022-9523-2c29e8a6db93",
+      "processing_duration_s": 3.6,
+      "raw_artifacts": [
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/aggregation/job_logs/7739ca7f-07d6-4022-9523-2c29e8a6db93.log"
+      ],
+      "recipe_name": "nvme_mixed",
+      "scenario": "aggregation",
+      "total_gb": 95.45
+    }
+  ]
+}

@@ -12,6 +12,9 @@
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning, shadows, patterns, fit, backgrounds, calc}
 \usepackage{pgfplots}
+\usepackage{pgfplotstable} % load CSV tables
+\usepackage{csvsimple} % simple CSV rendering & filtering
+\usepackage{siunitx} % number formatting with grouping
 \pgfplotsset{compat=1.17}
 \usepackage[most]{tcolorbox}
 
@@ -2009,94 +2012,6 @@ Spacedrive's design principles are validated through careful implementation choi
 
 % --- APPENDIX ---
 \appendix
-\section{Implementation Blueprint: SdPath Refactor}
-\label{sec:appendix-sdpath-refactor}
-
-The following provides a detailed, actionable blueprint for refactoring the \texttt{SdPath} struct into the content-aware enum described in Section~\ref{sec:vdfs}. This plan is intended to guide an automated or human developer through the necessary codebase modifications.
-
-\subsection{PathResolver Integration}
-The \texttt{PathResolver} is a core service and should be integrated into the application's central context.
-\begin{itemize}
-    \item \textbf{Location:} Create the new resolver at \texttt{src/operations/indexing/path\_resolver.rs}. The existing \texttt{PathResolver} struct in that file, which only handles resolving \texttt{entry\_id} to a \texttt{PathBuf}, should be merged into this new, more powerful service.
-    \item \textbf{Integration:} An instance of the new \texttt{PathResolver} should be added to the \texttt{CoreContext} in \texttt{src/context.rs} to make it accessible to all actions and jobs.
-    \item \textbf{Cost Function Parameters:} The "optimal path resolution" should be guided by a cost function. The implementation should prioritize sources based on the following, in order:
-        \begin{enumerate}
-            \item Is the source on the local device? (lowest cost)
-            \item What is the network latency to the source's device? (from the \texttt{NetworkingService})
-            \item What is the benchmarked speed of the source's volume? (from the \texttt{VolumeManager})
-        \end{enumerate}
-\end{itemize}
-
-\subsection{Impact on the Codebase (Expanded)}
-This refactor will touch every part of the codebase that handles file paths. The following instructions provide specific guidance for each affected area.
-
-\subsubsection{Action and Job Contracts}
-The fundamental principle is that \textbf{Actions receive \texttt{SdPath}s, and Jobs resolve them}.
-
-\paragraph{Action Definitions} All action structs that currently accept \texttt{PathBuf} must be changed to accept \texttt{SdPath}.
-\begin{lstlisting}[language=Rust, caption={Updating FileCopyAction in src/operations/files/copy/action.rs}]
-pub struct FileCopyAction {
-    // BEFORE: pub sources: Vec<PathBuf>,
-    pub sources: Vec<SdPath>, // AFTER
-    // BEFORE: pub destination: PathBuf,
-pub destination: SdPath, // AFTER
-    pub options: CopyOptions,
-}
-\end{lstlisting}
-This pattern applies to \texttt{FileDeleteAction}, \texttt{ValidationAction}, \texttt{DuplicateDetectionAction}, and others.
-
-\paragraph{Job Execution Flow} Any job that operates on files must begin its \texttt{run} method by resolving its \texttt{SdPath} members.
-\begin{lstlisting}[language=Rust, caption={Resolving paths at the start of a Job in src/operations/files/copy/job.rs}]
-impl JobHandler for FileCopyJob {
-    async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
-        // 1. RESOLVE PATHS FIRST
-        let physical_destination = self.destination.resolve(&ctx).await?;
-        let mut physical_sources = Vec::new();
-        for source in &self.sources.paths {
-            physical_sources.push(source.resolve(&ctx).await?);
-        }
-
-        // ... existing logic now uses physical_sources and physical_destination ...
-    }
-}
-\end{lstlisting}
-
-\paragraph{Operation Target Validity} Explicit rules must be enforced within jobs for \texttt{SdPath} variants:
-\begin{itemize}
-    \item \textbf{Destination/Target:} Operations like copy, move, or index require a physical target. The job must ensure the destination \texttt{SdPath} is or resolves to a \texttt{Physical} variant. An attempt to use a \texttt{Content} variant as a final destination is a logical error and should fail.
-    \item \textbf{Source:} A source can be a \texttt{Content} variant, as the resolver will find a physical location for it.
-\end{itemize}
-
-\subsubsection{API Layer (CLI Commands)}
-The CLI command layer must be updated to accept string URIs.
-\begin{itemize}
-    \item \textbf{File:} \texttt{src/infrastructure/cli/daemon/types/commands.rs}
-    \item \textbf{Action:} Change enums like \texttt{DaemonCommand::Copy} to use \texttt{Vec<String>}.
-\end{itemize}
-\begin{lstlisting}[language=Rust, caption={Updating DaemonCommand in src/infrastructure/cli/daemon/types/commands.rs}]
-pub enum DaemonCommand {
-    // ...
-    Copy {
-        // BEFORE: sources: Vec<PathBuf>,
-        sources: Vec<String>, // AFTER (as URIs)
-        // BEFORE: destination: PathBuf,
-        destination: String, // AFTER (as a URI)
-        // ... options
-    },
-    // ...
-}
-\end{lstlisting}
-The command handlers will then parse these string URIs into \texttt{SdPath} enums.
-
-\subsubsection{Copy Strategy and Routing}
-The copy strategy logic must be made \texttt{SdPath} variant-aware.
-\begin{itemize}
-    \item \textbf{File:} \texttt{src/operations/files/copy/routing.rs}
-    \item \textbf{Action:} The \texttt{CopyStrategyRouter::select\_strategy} function must be refactored to resolve source and destination paths first, then compare the \texttt{device\_id} of the resulting \texttt{Physical} paths to select the correct strategy.
-    \item \textbf{File:} \texttt{src/operations/files/copy/strategy.rs}
-    \item \textbf{Action:} Strategy implementations like \texttt{LocalMoveStrategy} must be modified to only accept resolved, physical paths, enforcing safety by matching the \texttt{SdPath::Physical} variant.
-\end{itemize}
-
 
 Spacedrive is implemented in \textbf{Rust} to leverage its guarantees of memory safety, performance, and fearless concurrency---essential for a reliable, multi-threaded distributed system. The core technology stack reflects modern best practices:
 
@@ -2181,88 +2096,48 @@ Spacedrive employs a sophisticated testing framework that simulates real-world d
 Systematic performance testing demonstrates Spacedrive's efficiency across critical operations:
 
 \begin{table*}[ht]
-\centering
-\caption{Performance benchmarks across storage tiers. Testing conducted on M2 MacBook Pro with 16GB RAM running macOS 14.5. Values represent median of 10 runs with standard filesystem workloads~\cite{spacedrive-benchmarks-2025}.}
-\label{tab:performance}
-\begin{tabular}{lrr}
-\toprule
-\textbf{Metric} & \textbf{Value} & \textbf{Unit} \\
-\midrule
-\multicolumn{3}{l}{\textit{Indexing Throughput}} \\
-\quad Internal NVMe SSD & $8,500 \pm 200$ & files/sec \\
-\quad External USB 3.2 SSD & $6,200 \pm 180$ & files/sec \\
-\quad Network Attached Storage (1Gbps) & $3,100 \pm 150$ & files/sec \\
-\quad External HDD (USB 3.0) & $1,850 \pm 120$ & files/sec \\
-\quad Cloud Storage (S3, parallel) & $450 \pm 75$ & files/sec \\
-\quad Cloud Storage (Google Drive) & $280 \pm 50$ & files/sec \\
-\quad FTP (Local Network) & $2,200 \pm 100$ & files/sec \\
-\quad SFTP (Remote) & $450 \pm 40$ & files/sec \\
-\quad WebDAV (Nextcloud) & $380 \pm 35$ & files/sec \\
-\midrule
-\multicolumn{3}{l}{\textit{Search Latency (1M entries)}} \\
-\quad Temporal Search (FTS5) & $55 \pm 3$ & ms \\
-\quad Semantic Search (Vector) & $95 \pm 5$ & ms \\
-\quad Combined Temporal-Semantic & $110 \pm 6$ & ms \\
-\midrule
-\multicolumn{3}{l}{\textit{Memory Usage}} \\
-\quad Base daemon & 45 & MB \\
-\quad Per 1M indexed files & 105 & MB \\
-\quad With active P2P connections & +15 & MB/peer \\
-\quad With WASM plugins (per plugin) & +8-25 & MB \\
-\midrule
-\multicolumn{3}{l}{\textit{Network Performance}} \\
-\quad P2P transfer (LAN) & $110 \pm 8$ & MB/s \\
-\quad P2P transfer (WAN w/ relay) & $45 \pm 10$ & MB/s \\
-\quad Connection establishment & $1.8 \pm 0.2$ & seconds \\
-\midrule
-\multicolumn{3}{l}{\textit{Extension System}} \\
-\quad WASM plugin load time & 12 & ms \\
-\quad Integration process startup & 150 & ms \\
-\quad IPC roundtrip latency & 0.8 & ms \\
-\bottomrule
-\end{tabular}
-\end{table*}
+	\centering
+	\caption{Performance benchmarks across storage tiers. Testing conducted on M2 MacBook Pro with 16GB RAM running macOS 14.5. Values generated from the benchmarking harness summaries.}
+	\label{tab:performance}
+    \begin{tabular}{llrr}
+	\toprule
+    \textbf{Phase} & \textbf{Hardware} & \textbf{Value} & \textbf{Unit} \\
+	\midrule
+	\multicolumn{3}{l}{\textit{Indexing}} \\
+	\csvreader[
+	late after line=\\
+    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Value=\Value,Unit=\Unit}{%
+    \Phase & \Hardware & \num{\Value} & \Unit
+	}
+	\midrule
+	\multicolumn{3}{l}{\textit{Search Latency (1M entries)}} \\
+	Temporal Search (FTS5) & -- & ms \\
+	Semantic Search (Vector) & -- & ms \\
+	Combined Temporal-Semantic & -- & ms \\
+	\midrule
+	\multicolumn{3}{l}{\textit{Memory Usage}} \\
+	Base daemon & -- & MB \\
+	Per 1M indexed files & -- & MB \\
+	With active P2P connections & -- & MB/peer \\
+	With WASM plugins (per plugin) & -- & MB \\
+	\midrule
+	\multicolumn{3}{l}{\textit{Network Performance}} \\
+	P2P transfer (LAN) & -- & MB/s \\
+	P2P transfer (WAN w/ relay) & -- & MB/s \\
+	Connection establishment & -- & seconds \\
+	\midrule
+	\multicolumn{3}{l}{\textit{Extension System}} \\
+	WASM plugin load time & -- & ms \\
+	Integration process startup & -- & ms \\
+	IPC roundtrip latency & -- & ms \\
+	\bottomrule
+	\end{tabular}
+	\end{table*}
 
 \textit{Note: Cloud storage indexing uses metadata-only requests with on-demand content fetching. Performance varies based on API rate limits and network conditions.}
 
 These benchmarks validate that Spacedrive maintains sub-100ms response times for typical user operations even with multi-million entry libraries, achieving performance previously limited to enterprise systems.
 
-\subsubsection{Performance Comparison with Traditional Systems}
-To contextualize Spacedrive's performance, Table~\ref{tab:performance-comparison} compares key metrics against traditional file management approaches:
-
-\begin{table*}[ht]
-\centering
-\begin{tabular}{@{}llll@{}}
-\toprule
-\textbf{Operation} & \textbf{Spacedrive} & \textbf{Traditional File Manager} & \textbf{Cloud Service} \\
-\midrule
-\multicolumn{4}{l}{\textit{Search Performance}} \\
-Find file by name & 55ms (1M files) & 2-5 seconds & 1-3 seconds \\
-Content search & 95ms (semantic) & Not available & 3-10 seconds \\
-Cross-device search & 100-200ms & Not possible & Requires sync first \\
-\midrule
-\multicolumn{4}{l}{\textit{File Operations}} \\
-Duplicate detection & Instant (indexed) & 10+ minutes scan & Not automatic \\
-Preview operations & Yes, with metrics & No preview & Limited preview \\
-Cross-device copy & Native P2P & Manual process & Upload + download \\
-Resume after failure & Automatic & Manual restart & Varies by service \\
-\midrule
-\multicolumn{4}{l}{\textit{Resource Usage}} \\
-Memory (1M files) & 150MB & 50-100MB & N/A (cloud) \\
-Storage overhead & 250 bytes/file & Minimal & Full sync required \\
-Network usage & P2P efficient & N/A & 2x bandwidth \\
-Offline capability & Full functionality & Full (local only) & Read-only cache \\
-\midrule
-\multicolumn{4}{l}{\textit{Intelligence Features}} \\
-Natural language & Yes (AI-native) & No & Limited \\
-Auto-organization & Yes & No & Basic folders \\
-Redundancy tracking & Automatic & No & Version history \\
-Predictive actions & Yes & No & No \\
-\bottomrule
-\end{tabular}
-\caption{Performance comparison between Spacedrive, traditional file managers, and cloud services}
-\label{tab:performance-comparison}
-\end{table*}
 
 \subsubsection{Resource Impact Analysis}
 The performance overhead of Spacedrive's advanced features is carefully optimized:

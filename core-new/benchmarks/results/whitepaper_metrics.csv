@@ -1,0 +1,7 @@
+Phase,Hardware,Value,Unit
+Discovery,Internal NVMe SSD, 1811.2,files/sec
+Discovery,External HDD (USB 3.0), 1452.8,files/sec
+Processing,External HDD (USB 3.0), 1515.2,files/sec
+Processing,Internal NVMe SSD, 1500.0,files/sec
+Content Identification,Internal NVMe SSD, 310.3,files/sec
+Content Identification,External HDD (USB 3.0), 68.3,files/sec

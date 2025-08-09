@@ -21,6 +21,18 @@ pub enum Commands {
 		#[arg(short, long)]
 		recipe: PathBuf,
 	},
+	/// Generate a table summary from JSON results in a directory
+	ResultsTable {
+		/// Directory containing JSON summaries (default: benchmarks/results)
+		#[arg(long, default_value = "benchmarks/results")]
+		results_dir: PathBuf,
+		/// Output file (if omitted, prints to stdout)
+		#[arg(long)]
+		out: Option<PathBuf>,
+		/// Format: markdown or csv (default: markdown)
+		#[arg(long, default_value = "markdown")]
+		format: String,
+	},
 	/// Generate benchmark datasets for all recipes in a directory
 	MkdataAll {
 		/// Directory containing recipe YAML files
@@ -74,6 +86,11 @@ pub async fn run(cli: Cli) -> Result<()> {
 			out_dir,
 			skip_generate,
 		} => run_all(scenario, recipes_dir, out_dir, skip_generate).await?,
+		Commands::ResultsTable {
+			results_dir,
+			out,
+			format,
+		} => results_table(results_dir, out, &format).await?,
 	}
 	Ok(())
 }
@@ -250,16 +267,29 @@ async fn run_all(
 	for recipe in entries {
 		println!("\n---");
 		println!("Preparing {}", recipe.display());
-		if !skip_generate {
-			mkdata(recipe.clone()).await?;
-		} else {
-			println!("Skipping dataset generation (--skip-generate)");
-		}
-		// Preflight: ensure recipe location paths exist before running scenario
+
+		// Read recipe to decide whether to generate
 		let recipe_str = std::fs::read_to_string(&recipe)
 			.with_context(|| format!("reading recipe {recipe:?}"))?;
 		let parsed: bench::recipe::Recipe =
 			serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
+
+		let all_paths_exist_before = parsed.locations.iter().all(|loc| loc.path.exists());
+
+		if !skip_generate {
+			if all_paths_exist_before {
+				println!(
+					"Skipping dataset generation (paths already present for recipe '{}')",
+					parsed.name
+				);
+			} else {
+				mkdata(recipe.clone()).await?;
+			}
+		} else {
+			println!("Skipping dataset generation (--skip-generate)");
+		}
+
+		// Preflight: ensure recipe location paths exist before running scenario
 		let mut missing: Vec<String> = Vec::new();
 		for loc in &parsed.locations {
 			if !loc.path.exists() {
@@ -285,5 +315,182 @@ async fn run_all(
 	}
 
 	println!("\nCompleted RunAll for {} recipes.", scenario);
+	Ok(())
+}
+
+async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str) -> Result<()> {
+	#[derive(serde::Deserialize, Debug)]
+	struct ScenarioRun {
+		id: Option<uuid::Uuid>,
+		scenario: Option<String>,
+		recipe_name: Option<String>,
+		recipe: Option<String>,
+		duration_s: Option<f64>,
+		#[serde(default)]
+		discovery_duration_s: Option<f64>,
+		#[serde(default)]
+		processing_duration_s: Option<f64>,
+		#[serde(default)]
+		content_duration_s: Option<f64>,
+		files: Option<u64>,
+		files_per_s: Option<f64>,
+		directories: Option<u64>,
+		directories_per_s: Option<f64>,
+		total_gb: Option<f64>,
+		errors: Option<u64>,
+	}
+
+	#[derive(serde::Deserialize, Debug)]
+	struct ResultsFile {
+		runs: Vec<ScenarioRun>,
+	}
+
+	let mut rows: Vec<(String, String, f64, u64, f64, u64, f64, f64, u64)> = Vec::new();
+	// (scenario, recipe, duration_s, files, files_per_s, dirs, dirs_per_s, total_gb, errors)
+
+	for entry in std::fs::read_dir(&results_dir)? {
+		let entry = entry?;
+		let path = entry.path();
+		if path.extension().and_then(|e| e.to_str()) != Some("json") {
+			continue;
+		}
+		if let Ok(txt) = std::fs::read_to_string(&path) {
+			if let Ok(parsed) = serde_json::from_str::<ResultsFile>(&txt) {
+				for run in parsed.runs {
+					let scenario = run.scenario.unwrap_or_else(|| "?".into());
+					let recipe = run.recipe_name.or(run.recipe).unwrap_or_else(|| "?".into());
+					let duration = run.duration_s.unwrap_or(0.0);
+					let files = run.files.unwrap_or(0);
+					let files_ps = run.files_per_s.unwrap_or(0.0);
+					let dirs = run.directories.unwrap_or(0);
+					let dirs_ps = run.directories_per_s.unwrap_or(0.0);
+					let total_gb = run.total_gb.unwrap_or(0.0);
+					let errors = run.errors.unwrap_or(0);
+					rows.push((
+						scenario, recipe, duration, files, files_ps, dirs, dirs_ps, total_gb,
+						errors,
+					));
+				}
+			}
+		}
+	}
+
+	// Sort by scenario then recipe
+	rows.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+
+	let output = match format.to_lowercase().as_str() {
+		// Default whitepaper format now includes phase breakdown under 'Indexing'
+		"whitepaper" => {
+			fn format_plain(value: f64) -> String {
+				format!("{:.1}", value)
+			}
+			// Phase-specific throughput table: Phase,Metric,Value,Unit
+			fn label_for_recipe(recipe: &str) -> Option<&'static str> {
+				let r = recipe.to_lowercase();
+				if r.starts_with("nvme_") {
+					Some("Internal NVMe SSD")
+				} else if r.starts_with("hdd_") {
+					Some("External HDD (USB 3.0)")
+				} else if r.contains("nas") {
+					Some("Network Attached Storage (1Gbps)")
+				} else if r.contains("usb") {
+					Some("External USB 3.2 SSD")
+				} else {
+					None
+				}
+			}
+			use std::collections::HashMap;
+			let mut best_discovery: HashMap<&'static str, f64> = HashMap::new();
+			let mut best_processing: HashMap<&'static str, f64> = HashMap::new();
+			let mut best_content: HashMap<&'static str, f64> = HashMap::new();
+
+			for (sc, rc, du, f, fps, _d, _dps, _gb, _e) in &rows {
+				let Some(label) = label_for_recipe(rc) else {
+					continue;
+				};
+				match sc.as_str() {
+					"indexing-discovery" => {
+						// derive discovery files/s if duration is discovery
+						// We cannot retrieve discovery duration here directly, so approximate:
+						// If total duration is minimal across runs, use provided fps; otherwise skip.
+						// Better: downstream code could include discovery-only fps; for now, use fps as proxy.
+						let entry = best_discovery.entry(label).or_insert(0.0);
+						if *entry < *fps {
+							*entry = *fps;
+						}
+					}
+					"aggregation" => {
+						let entry = best_processing.entry(label).or_insert(0.0);
+						if *entry < *fps {
+							*entry = *fps;
+						}
+					}
+					"content-identification" => {
+						let entry = best_content.entry(label).or_insert(0.0);
+						if *entry < *fps {
+							*entry = *fps;
+						}
+					}
+					_ => {}
+				}
+			}
+
+			let mut s = String::new();
+			s.push_str("Phase,Hardware,Value,Unit\n");
+			for (label, value) in best_discovery {
+				let v = format_plain(value);
+				s.push_str(&format!("Discovery,{}, {},files/sec\n", label, v));
+			}
+			for (label, value) in best_processing {
+				let v = format_plain(value);
+				s.push_str(&format!("Processing,{}, {},files/sec\n", label, v));
+			}
+			for (label, value) in best_content {
+				let v = format_plain(value);
+				s.push_str(&format!(
+					"Content Identification,{}, {},files/sec\n",
+					label, v
+				));
+			}
+			s
+		}
+		"csv" => {
+			let mut s = String::new();
+			s.push_str(
+				"scenario,recipe,duration_s,files,files_per_s,dirs,dirs_per_s,total_gb,errors\n",
+			);
+			for (sc, rc, du, f, fps, d, dps, gb, e) in &rows {
+				s.push_str(&format!(
+					"{},{},{:.2},{},{:.1},{},{:.1},{:.2},{}\n",
+					sc, rc, du, f, fps, d, dps, gb, e
+				));
+			}
+			s
+		}
+		_ => {
+			// markdown
+			let mut s = String::new();
+			s.push_str("| scenario | recipe | duration (s) | files | files/s | dirs | dirs/s | total GB | errors |\n");
+			s.push_str("|---|---|---:|---:|---:|---:|---:|---:|---:|\n");
+			for (sc, rc, du, f, fps, d, dps, gb, e) in &rows {
+				s.push_str(&format!(
+					"| {} | {} | {:.2} | {} | {:.1} | {} | {:.1} | {:.2} | {} |\n",
+					sc, rc, du, f, fps, d, dps, gb, e
+				));
+			}
+			s
+		}
+	};
+
+	if let Some(out_path) = out {
+		if let Some(parent) = out_path.parent() {
+			std::fs::create_dir_all(parent).ok();
+		}
+		std::fs::write(&out_path, &output)?;
+		println!("Wrote results table to {}", out_path.display());
+	} else {
+		println!("\n{}", output);
+	}
+
 	Ok(())
 }

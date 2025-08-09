@@ -332,11 +332,84 @@ pub async fn run_processing_phase(
 			for change in deleted {
 				if let Change::Deleted { path, entry_id } = change {
 					ctx.log(format!(
-						"❌ Marking as deleted: {} (id: {})",
+						"❌ Deleting missing entry from database: {} (id: {})",
 						path.display(),
 						entry_id
 					));
-					// TODO: Handle deletion (mark as deleted or remove from DB)
+
+					// Best-effort subtree deletion: remove closure links, directory path cache, and entries
+					let txn = ctx.library_db().begin().await.map_err(|e| {
+						JobError::execution(format!("Failed to begin deletion transaction: {}", e))
+					})?;
+
+					// Collect subtree descendant IDs (including the entry itself)
+					let mut to_delete_ids: Vec<i32> = vec![entry_id];
+					match entities::entry_closure::Entity::find()
+						.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
+						.all(&txn)
+						.await
+					{
+						Ok(rows) => {
+							to_delete_ids.extend(rows.into_iter().map(|r| r.descendant_id));
+						}
+						Err(e) => {
+							let msg = format!(
+								"Failed to query closure table for subtree of {}: {}",
+								entry_id, e
+							);
+							ctx.add_non_critical_error(msg);
+							// Attempt to delete just the single entry below
+						}
+					}
+
+					// De-duplicate IDs
+					to_delete_ids.sort_unstable();
+					to_delete_ids.dedup();
+
+					// Remove closure links referencing any of the subtree nodes (as ancestor or descendant)
+					if !to_delete_ids.is_empty() {
+						use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+						let _ = entities::entry_closure::Entity::delete_many()
+							.filter(
+								entities::entry_closure::Column::DescendantId
+									.is_in(to_delete_ids.clone()),
+							)
+							.exec(&txn)
+							.await;
+						let _ = entities::entry_closure::Entity::delete_many()
+							.filter(
+								entities::entry_closure::Column::AncestorId
+									.is_in(to_delete_ids.clone()),
+							)
+							.exec(&txn)
+							.await;
+
+						// Remove directory path cache rows
+						let _ = entities::directory_paths::Entity::delete_many()
+							.filter(
+								entities::directory_paths::Column::EntryId
+									.is_in(to_delete_ids.clone()),
+							)
+							.exec(&txn)
+							.await;
+
+						// Finally remove entries themselves
+						let _ = entities::entry::Entity::delete_many()
+							.filter(entities::entry::Column::Id.is_in(to_delete_ids))
+							.exec(&txn)
+							.await;
+					}
+
+					txn.commit().await.map_err(|e| {
+						JobError::execution(format!("Failed to commit deletion transaction: {}", e))
+					})?;
+
+					// Update in-memory caches
+					state.entry_id_cache.remove(&path);
+					ctx.log(format!(
+						"✅ Deleted entry {} (and subtree if any)",
+						entry_id
+					));
 				}
 			}
 		}

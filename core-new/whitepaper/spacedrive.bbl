@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{22}
+\begin{thebibliography}{21}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -203,17 +203,6 @@
 \newblock \showarticletitle{Conflict-Free Replicated Data Types}. In \bibinfo{booktitle}{\emph{SSS 2011: Symposium on Self-Stabilizing Systems}}. \bibinfo{pages}{386--400}.
 \newblock
 \href{https://doi.org/10.1007/978-3-642-24550-3_29}{doi:\nolinkurl{10.1007/978-3-642-24550-3_29}}
-
-
-\bibitem[{Spacedrive Team}(2025)]%
-        {spacedrive-benchmarks-2025}
-\bibfield{author}{\bibinfo{person}{{Spacedrive Team}}.} \bibinfo{year}{2025}\natexlab{}.
-\newblock \bibinfo{title}{Spacedrive Benchmarks}.
-\newblock
-\urldef\tempurl%
-\url{https://github.com/spacedriveapp/benchmarks}
-\showURL{%
-\tempurl}
 
 
 \bibitem[{W3C}(2021)]%
