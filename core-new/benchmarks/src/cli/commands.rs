@@ -20,6 +20,9 @@ pub enum Commands {
 	Mkdata {
 		#[arg(short, long)]
 		recipe: PathBuf,
+		/// Prefix relative recipe locations with this path (e.g., /Volumes/HDD)
+		#[arg(long)]
+		dataset_root: Option<PathBuf>,
 	},
 	/// Generate a table summary from JSON results in a directory
 	ResultsTable {
@@ -38,6 +41,9 @@ pub enum Commands {
 		/// Directory containing recipe YAML files
 		#[arg(long, default_value = "benchmarks/recipes")]
 		recipes_dir: PathBuf,
+		/// Prefix relative recipe locations with this path (e.g., /Volumes/HDD)
+		#[arg(long)]
+		dataset_root: Option<PathBuf>,
 	},
 	/// Run a benchmark scenario
 	Run {
@@ -47,6 +53,9 @@ pub enum Commands {
 		recipe: PathBuf,
 		#[arg(long)]
 		out_json: Option<PathBuf>,
+		/// Prefix relative recipe locations with this path (e.g., /Volumes/HDD)
+		#[arg(long)]
+		dataset_root: Option<PathBuf>,
 	},
 	/// Render reports from JSON results (stub)
 	Report {
@@ -67,25 +76,36 @@ pub enum Commands {
 		/// Skip dataset generation (assume recipes already generated)
 		#[arg(long, default_value_t = false)]
 		skip_generate: bool,
+		/// Prefix relative recipe locations with this path (e.g., /Volumes/HDD)
+		#[arg(long)]
+		dataset_root: Option<PathBuf>,
 	},
 }
 
 pub async fn run(cli: Cli) -> Result<()> {
 	match cli.command {
-		Commands::Mkdata { recipe } => mkdata(recipe).await?,
-		Commands::MkdataAll { recipes_dir } => mkdata_all(recipes_dir).await?,
+		Commands::Mkdata {
+			recipe,
+			dataset_root,
+		} => mkdata(recipe, dataset_root).await?,
+		Commands::MkdataAll {
+			recipes_dir,
+			dataset_root,
+		} => mkdata_all(recipes_dir, dataset_root).await?,
 		Commands::Run {
 			scenario,
 			recipe,
 			out_json,
-		} => run_scenario(scenario, recipe, out_json).await?,
+			dataset_root,
+		} => run_scenario(scenario, recipe, out_json, dataset_root).await?,
 		Commands::Report { input } => report(input).await?,
 		Commands::RunAll {
 			scenario,
 			recipes_dir,
 			out_dir,
 			skip_generate,
-		} => run_all(scenario, recipes_dir, out_dir, skip_generate).await?,
+			dataset_root,
+		} => run_all(scenario, recipes_dir, out_dir, skip_generate, dataset_root).await?,
 		Commands::ResultsTable {
 			results_dir,
 			out,
@@ -95,7 +115,22 @@ pub async fn run(cli: Cli) -> Result<()> {
 	Ok(())
 }
 
-async fn mkdata(recipe_path: PathBuf) -> Result<()> {
+fn apply_dataset_root(
+	mut recipe: bench::recipe::Recipe,
+	root: Option<PathBuf>,
+) -> bench::recipe::Recipe {
+	if let Some(r) = root {
+		let r = r;
+		for loc in &mut recipe.locations {
+			if loc.path.is_relative() {
+				loc.path = r.join(&loc.path);
+			}
+		}
+	}
+	recipe
+}
+
+async fn mkdata(recipe_path: PathBuf, dataset_root: Option<PathBuf>) -> Result<()> {
 	println!("Generating dataset for {}...", recipe_path.display());
 	use std::io::Write as _;
 	let _ = std::io::stdout().flush();
@@ -103,6 +138,7 @@ async fn mkdata(recipe_path: PathBuf) -> Result<()> {
 		.with_context(|| format!("reading recipe {recipe_path:?}"))?;
 	let recipe: bench::recipe::Recipe =
 		serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
+	let recipe = apply_dataset_root(recipe, dataset_root);
 
 	let gen = bench::generator::FileSystemGenerator::default();
 	gen.generate(&recipe).await?;
@@ -111,7 +147,7 @@ async fn mkdata(recipe_path: PathBuf) -> Result<()> {
 	Ok(())
 }
 
-async fn mkdata_all(recipes_dir: PathBuf) -> Result<()> {
+async fn mkdata_all(recipes_dir: PathBuf, dataset_root: Option<PathBuf>) -> Result<()> {
 	let mut entries: Vec<PathBuf> = Vec::new();
 	for entry in std::fs::read_dir(&recipes_dir)? {
 		let entry = entry?;
@@ -129,7 +165,7 @@ async fn mkdata_all(recipes_dir: PathBuf) -> Result<()> {
 		return Ok(());
 	}
 	for recipe in entries {
-		mkdata(recipe).await?;
+		mkdata(recipe, dataset_root.clone()).await?;
 	}
 	println!("\nCompleted MkdataAll for {}", recipes_dir.display());
 	Ok(())
@@ -139,6 +175,7 @@ async fn run_scenario(
 	scenario: String,
 	recipe_path: PathBuf,
 	out_json: Option<PathBuf>,
+	dataset_root: Option<PathBuf>,
 ) -> Result<()> {
 	println!(
 		"Running scenario '{}' for recipe {}...",
@@ -162,6 +199,7 @@ async fn run_scenario(
 		.with_context(|| format!("reading recipe {recipe_path:?}"))?;
 	let recipe: bench::recipe::Recipe =
 		serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
+	let recipe = apply_dataset_root(recipe, dataset_root);
 
 	// Resolve scenario by name
 	let mut scenario_impl = bench::scenarios::registry::registered_scenarios()
@@ -240,6 +278,7 @@ async fn run_all(
 	recipes_dir: PathBuf,
 	out_dir: PathBuf,
 	skip_generate: bool,
+	dataset_root: Option<PathBuf>,
 ) -> Result<()> {
 	std::fs::create_dir_all(&out_dir)?;
 	println!(
@@ -273,6 +312,7 @@ async fn run_all(
 			.with_context(|| format!("reading recipe {recipe:?}"))?;
 		let parsed: bench::recipe::Recipe =
 			serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
+		let parsed = apply_dataset_root(parsed, dataset_root.clone());
 
 		let all_paths_exist_before = parsed.locations.iter().all(|loc| loc.path.exists());
 
@@ -283,7 +323,7 @@ async fn run_all(
 					parsed.name
 				);
 			} else {
-				mkdata(recipe.clone()).await?;
+				mkdata(recipe.clone(), dataset_root.clone()).await?;
 			}
 		} else {
 			println!("Skipping dataset generation (--skip-generate)");
@@ -311,7 +351,13 @@ async fn run_all(
 			.to_string();
 		let out_json = out_dir.join(format!("{}-{}.json", stem, scenario));
 		println!("Executing scenario -> {}", out_json.display());
-		run_scenario(scenario.clone(), recipe.clone(), Some(out_json)).await?;
+		run_scenario(
+			scenario.clone(),
+			recipe.clone(),
+			Some(out_json),
+			dataset_root.clone(),
+		)
+		.await?;
 	}
 
 	println!("\nCompleted RunAll for {} recipes.", scenario);

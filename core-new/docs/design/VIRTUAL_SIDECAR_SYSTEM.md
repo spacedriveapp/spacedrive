@@ -185,4 +185,3 @@ We reuse the pairing + file sharing stack to avoid reprocessing on every device.
 - Grid thumbnail (2x): `sidecars/content/{content_uuid}/thumbs/grid@2x.webp`
 - 1080p proxy: `sidecars/content/{content_uuid}/proxies/1080p.mp4`
 - Embeddings (MiniLM): `sidecars/content/{content_uuid}/embeddings/all-MiniLM-L6-v2.json`
-

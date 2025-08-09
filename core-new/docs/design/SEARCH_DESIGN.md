@@ -8,19 +8,23 @@ Lightning Search is a revolutionary multi-modal file discovery system designed s
 
 ## Architecture Philosophy
 
-### Temporal-First, Vector-Enhanced Search
+### Temporal-First, Vector-Enhanced Search (VSS-Native)
 
 Lightning Search employs a sophisticated two-stage architecture:
 
 1. **Temporal Engine** (SQLite FTS5) provides instant text-based discovery and acts as a high-performance filter
-2. **Vector Engine** (Chroma-based) performs semantic analysis on temporal results for intelligent ranking and discovery
+2. **Semantic Engine** (VSS-managed embeddings) performs semantic analysis on temporal results for intelligent ranking and discovery
 
 This approach ensures that vector search operations are performed only on pre-filtered, relevant datasets, dramatically improving performance while maintaining semantic intelligence.
 
 ```
-User Query → Temporal Engine (FTS5) → Filtered Results → Vector Engine (Chroma) → Ranked Results
-             ↑ <10ms                   ↑ 100-1000 items   ↑ +50ms        ↑ Final Results
+User Query → Temporal Engine (FTS5) → Filtered Results → Semantic Engine (VSS embeddings) → Ranked Results
+             ↑ <10ms                   ↑ 100-1000 items            ↑ +50ms                     ↑ Final Results
 ```
+
+### Revised Search Architecture: A VSS-Native Approach
+
+Search is a primary consumer of the Virtual Sidecar System (VSS). It remains a Hybrid Temporal–Semantic Search, with the semantic component powered directly by VSS-managed embedding sidecars. This eliminates any external vector database dependencies and makes the semantic index portable with the library.
 
 ## Core Components
 
@@ -29,29 +33,25 @@ User Query → Temporal Engine (FTS5) → Filtered Results → Vector Engine (Ch
 The foundation layer providing instant text-based discovery integrated directly with the VDFS schema:
 
 ```sql
--- FTS5 Virtual Table integrated with entries
+-- FTS5 Virtual Table integrated with entries (metadata-only)
 CREATE VIRTUAL TABLE search_index USING fts5(
     content='entries',
     content_rowid='id',
     name,
     extension,
-    relative_path,
-    -- Computed searchable content for text files
-    extracted_content,
     tokenize="unicode61 remove_diacritics 2 tokenchars '.@-'"
 );
 
 -- Real-time triggers for immediate index updates
 CREATE TRIGGER entries_search_insert AFTER INSERT ON entries BEGIN
-    INSERT INTO search_index(rowid, name, extension, relative_path)
-    VALUES (new.id, new.name, new.extension, new.relative_path);
+    INSERT INTO search_index(rowid, name, extension)
+    VALUES (new.id, new.name, new.extension);
 END;
 
 CREATE TRIGGER entries_search_update AFTER UPDATE ON entries BEGIN
     UPDATE search_index SET
         name = new.name,
-        extension = new.extension,
-        relative_path = new.relative_path
+        extension = new.extension
     WHERE rowid = new.id;
 END;
 ```
@@ -63,80 +63,229 @@ END;
 - **Update Latency**: Real-time via triggers (<1ms)
 - **Throughput**: >10,000 queries/second
 
-### 2. Vector Content Engine (Chroma Integration)
+#### Path and Date Scoping with FTS5
 
-Semantic search using lightweight embeddings stored in external vector database:
+FTS5 remains metadata-only (name/extension). Path and date constraints are applied via `entries` and the directory closure table, intersected with FTS candidates. Two execution patterns are supported and chosen dynamically based on selectivity:
+
+- FTS-first (broad folder/date, selective text):
+
+```sql
+WITH fts AS (
+  SELECT rowid, bm25(search_index) AS rank
+  FROM search_index
+  WHERE search_index MATCH :q
+  ORDER BY rank
+  LIMIT 5000
+)
+SELECT e.id, fts.rank
+FROM fts
+JOIN entries e ON e.id = fts.rowid
+JOIN directory_closure dc ON dc.descendant_dir_id = e.directory_id
+WHERE dc.ancestor_dir_id = :dir_id
+  AND e.kind = 0
+  AND e.modified_at BETWEEN :from AND :to
+ORDER BY fts.rank
+LIMIT 200;
+```
+
+- Filter-first (tight folder/date, broader text):
+
+```sql
+WITH cand AS (
+  SELECT e.id
+  FROM entries e
+  JOIN directory_closure dc ON dc.descendant_dir_id = e.directory_id
+  WHERE dc.ancestor_dir_id = :dir_id
+    AND e.kind = 0
+    AND e.modified_at BETWEEN :from AND :to
+  LIMIT 100000
+)
+SELECT e.id, bm25(si) AS rank
+FROM cand c
+JOIN search_index si ON si.rowid = c.id
+JOIN entries e ON e.id = c.id
+WHERE si MATCH :q
+ORDER BY rank
+LIMIT 200;
+```
+
+Recommended supporting indexes:
+
+- `CREATE INDEX IF NOT EXISTS idx_entries_recent ON entries(modified_at DESC) WHERE kind = 0;`
+- `CREATE INDEX IF NOT EXISTS idx_entries_created ON entries(created_at DESC) WHERE kind = 0;`
+- `CREATE INDEX IF NOT EXISTS idx_entries_dir_modified ON entries(directory_id, modified_at DESC) WHERE kind = 0;`
+- `CREATE INDEX IF NOT EXISTS idx_entries_dir_created ON entries(directory_id, created_at DESC) WHERE kind = 0;`
+
+### The `SearchRequest` API
+
+The `SearchRequest` struct is the primary input for any search operation. It is designed to be expressive, type-safe, and extensible, capturing the full range of search capabilities envisioned for Spacedrive.
 
 ```rust
-use chroma_rs::{ChromaClient, Collection, EmbeddingFunction};
-use crate::file_type::FileTypeRegistry;
+/// The main entry point for all search operations.
+/// It serves as the parameter object for a SearchJob.
+pub struct SearchRequest {
+    /// The primary text query. Can be a filename, content snippet, or natural language.
+    pub query: String,
 
-pub struct VectorSearchEngine {
-    chroma_client: ChromaClient,
-    collections: HashMap<ContentKind, Collection>,
-    embedding_model: Arc<OnnxEmbeddingModel>,
-    content_extractor: ContentExtractor,
-    file_type_registry: Arc<FileTypeRegistry>,
+    /// The mode of search, determining the trade-off between speed and comprehensiveness.
+    pub mode: SearchMode,
+
+    /// The scope to which the search should be restricted.
+    pub scope: SearchScope,
+
+    /// Options that toggle specific search behaviors.
+    pub options: SearchOptions,
+
+    /// The desired sorting for the results.
+    pub sort: Sort,
+
+    /// Pagination for the result set.
+    pub pagination: Pagination,
+
+    /// A collection of structured filters to narrow down the search.
+    pub filters: SearchFilters,
 }
 
-impl VectorSearchEngine {
-    async fn new(chroma_path: &Path) -> Result<Self> {
-        let client = ChromaClient::new(&format!("file://{}", chroma_path.display()))?;
+/// Defines the scope of the filesystem to search within.
+#[derive(Default)]
+pub enum SearchScope {
+    /// Search the entire library (default).
+    #[default]
+    Library,
+    /// Restrict search to a specific location by its ID.
+    Location { location_id: Uuid },
+    /// Restrict search to a specific directory path and all its descendants.
+    Path { path: SdPath },
+}
 
-        let mut collections = HashMap::new();
+/// Defines boolean toggles and other options for the search.
+pub struct SearchOptions {
+    /// If true, results with the same `content_uuid` will be deduplicated,
+    /// showing only the best-ranked instance of each unique content.
+    pub unique_by_content: bool,
+    /// If true, the text query will be case-sensitive.
+    pub case_sensitive: bool,
+    /// If true, the search result will include facet information (e.g., counts per file type).
+    pub request_facets: bool,
+}
 
-        // Separate collections for different content types for optimized retrieval
-        collections.insert(ContentKind::Document,
-            client.get_or_create_collection("documents", None).await?);
-        collections.insert(ContentKind::Code,
-            client.get_or_create_collection("code", None).await?);
-        collections.insert(ContentKind::Image,
-            client.get_or_create_collection("images", None).await?);
-        collections.insert(ContentKind::Audio,
-            client.get_or_create_collection("audio", None).await?);
-        collections.insert(ContentKind::Video,
-            client.get_or_create_collection("video", None).await?);
+/// Defines the sorting field and direction for the search results.
+pub struct Sort {
+    pub field: SortField,
+    pub direction: SortDirection,
+}
 
-        let file_type_registry = Arc::new(FileTypeRegistry::new());
+pub enum SortField {
+    /// Sort by relevance score (default).
+    Relevance,
+    ModifiedAt,
+    CreatedAt,
+    Name,
+    Size,
+}
 
+pub enum SortDirection { Desc, Asc }
+
+/// Defines the pagination for the result set.
+pub struct Pagination {
+    /// The maximum number of results to return.
+    pub limit: u32,
+    /// The number of results to skip from the beginning.
+    pub offset: u32,
+}
+
+/// A container for all structured filters.
+/// Fields are optional, allowing for flexible query composition.
+#[derive(Default)]
+pub struct SearchFilters {
+    pub time_range: Option<TimeFilter>,
+    pub size_range: Option<SizeFilter>,
+    pub content_types: Option<Vec<ContentType>>,
+    pub tags: Option<TagFilter>,
+    // Extensible list for other specific filters.
+    pub other: Vec<OtherFilter>,
+}
+
+/// A filter for a time-based field.
+pub struct TimeFilter {
+    pub field: TimeField,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
+}
+pub enum TimeField { CreatedAt, ModifiedAt }
+
+/// A filter for file size in bytes.
+pub struct SizeFilter {
+    pub min: Option<u64>,
+    pub max: Option<u64>,
+}
+
+/// A filter for tags, supporting complex boolean logic.
+pub struct TagFilter {
+    // e.g., (tag1 AND tag2) OR (tag3 AND NOT tag4)
+    // This structure can be defined more concretely as needed.
+    // For now, a simple list is proposed.
+    pub include: Vec<Uuid>, // Must have all of these tag IDs.
+    pub exclude: Vec<Uuid>, // Must not have any of these tag IDs.
+}
+
+/// An extensible enum for other types of filters.
+pub enum OtherFilter {
+    IsFavorite(bool),
+    IsHidden(bool),
+    Resolution { min_width: u32, min_height: u32 },
+    Duration { min_seconds: u64, max_seconds: u64 },
+}
+```
+
+### 2. Semantic Engine: VSS-Powered Vector Search
+
+Semantic search using on-device embeddings stored as Virtual Sidecar artifacts (no external DB):
+
+```rust
+use crate::vss::{SidecarPathResolver, SidecarRepository};
+use crate::file_type::FileTypeRegistry;
+
+pub struct SemanticEngine {
+    embedding_model: Arc<OnnxEmbeddingModel>,
+    sidecars: Arc<SidecarRepository>,
+}
+
+impl SemanticEngine {
+    async fn new(sidecars: Arc<SidecarRepository>) -> Result<Self> {
         Ok(Self {
-            chroma_client: client,
-            collections,
             embedding_model: Arc::new(OnnxEmbeddingModel::load("all-MiniLM-L6-v2")?),
-            content_extractor: ContentExtractor::new(file_type_registry.clone()),
-            file_type_registry,
+            sidecars,
         })
     }
 
-    async fn search_semantic(&self, query: &str, pre_filtered_ids: &[i32]) -> Result<Vec<ScoredResult>> {
-        let query_embedding = self.embedding_model.encode(query).await?;
-        let mut all_results = Vec::new();
+    async fn rerank_with_embeddings(
+        &self,
+        query_text: &str,
+        candidate_entry_ids: &[i32],
+        model_name: &str,
+    ) -> Result<Vec<ScoredResult>> {
+        let query_vec = self.embedding_model.encode(query_text).await?;
+        let mut results = Vec::new();
 
-        // Search across relevant collections based on pre-filtered content
-        for (content_type, collection) in &self.collections {
-            let filtered_ids: Vec<String> = pre_filtered_ids.iter()
-                .filter(|id| self.get_content_type(**id) == *content_type)
-                .map(|id| id.to_string())
-                .collect();
-
-            if !filtered_ids.is_empty() {
-                let results = collection.query()
-                    .query_embeddings(vec![query_embedding.clone()])
-                    .n_results(100)
-                    .include(vec!["distances", "metadatas"])
-                    .ids(filtered_ids)
-                    .execute()
-                    .await?;
-
-                all_results.extend(self.process_chroma_results(results));
+        for entry_id in candidate_entry_ids {
+            if let Some((content_uuid, sidecar_path)) =
+                self.sidecars.find_embedding_sidecar(*entry_id, model_name).await?
+            {
+                if let Some(file_vec) = self.sidecars.read_embedding_vector(&sidecar_path).await? {
+                    let score = cosine_similarity(&query_vec, &file_vec);
+                    results.push(ScoredResult { entry_id: *entry_id, content_uuid, score });
+                }
             }
         }
 
-        // Sort by semantic similarity score
-        all_results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-        Ok(all_results)
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        Ok(results)
     }
 }
+
+// Sidecar file layout (deterministic):
+// .sdlibrary/sidecars/content/{content_uuid}/embeddings/{model_name}.json
 ```
 
 ### 3. Content Extraction Pipeline
@@ -503,89 +652,84 @@ impl ExtractionScheduler {
 }
 ```
 
-### 5. Unified Search Orchestrator
+### 5. Unified Search Orchestrator & The Progressive Search Lifecycle
 
-The main search coordinator that manages the temporal-first, vector-enhanced workflow:
+The `LightningSearchEngine` acts as a lightweight orchestrator. Its primary role is to dispatch a `SearchJob` that follows a **Progressive Enhancement Lifecycle**. This model ensures users receive instant results which are then intelligently refined in the background.
+
+A single user query triggers a multi-stage job that can progress through several power levels, emitting updates as more relevant results are found.
+
+#### The `SearchMode` Enum
+The `SearchMode` now represents the internal power level or stage of a search.
 
 ```rust
-pub struct LightningSearchEngine {
-    temporal_engine: TemporalSearchEngine,
-    vector_engine: VectorSearchEngine,
-    metadata_engine: MetadataSearchEngine,
-    cache_manager: SearchCacheManager,
-    query_optimizer: QueryOptimizer,
-}
-
-impl LightningSearchEngine {
-    pub async fn search(&self, query: SearchQuery) -> Result<SearchResults> {
-        let search_id = Uuid::new_v4();
-        let start_time = Instant::now();
-
-        // Step 1: Optimize query
-        let optimized_query = self.query_optimizer.optimize(query);
-
-        // Step 2: Check cache
-        if let Some(cached_results) = self.cache_manager.get(&optimized_query).await {
-            return Ok(cached_results);
-        }
-
-        // Step 3: Temporal search (fast filtering)
-        let temporal_results = self.temporal_engine
-            .search(&optimized_query)
-            .await?;
-
-        let mut final_results = temporal_results;
-
-        // Step 4: Semantic enhancement (if enabled and beneficial)
-        if self.should_use_semantic_search(&optimized_query, &final_results) {
-            let pre_filtered_ids: Vec<i32> = final_results.entries
-                .iter()
-                .map(|e| e.id)
-                .collect();
-
-            let semantic_scores = self.vector_engine
-                .search_semantic(&optimized_query.text, &pre_filtered_ids)
-                .await?;
-
-            // Merge temporal and semantic results
-            final_results = self.merge_search_results(final_results, semantic_scores);
-        }
-
-        // Step 5: Apply metadata filters and final ranking
-        final_results = self.metadata_engine
-            .apply_filters_and_rank(final_results, &optimized_query)
-            .await?;
-
-        // Step 6: Cache results
-        self.cache_manager.store(&optimized_query, &final_results).await;
-
-        final_results.execution_time = start_time.elapsed();
-        final_results.search_id = search_id;
-
-        Ok(final_results)
-    }
-
-    fn should_use_semantic_search(&self, query: &SearchQuery, temporal_results: &SearchResults) -> bool {
-        // Use semantic search when:
-        // 1. Query appears to be semantic in nature (not just filename search)
-        // 2. Temporal results are ambiguous (many results with similar relevance)
-        // 3. User explicitly requested comprehensive search
-        // 4. Query contains natural language patterns
-
-        query.mode == SearchMode::Comprehensive ||
-        query.mode == SearchMode::Semantic ||
-        (temporal_results.entries.len() > 10 &&
-         temporal_results.relevance_variance() < 0.2) ||
-        self.query_optimizer.is_semantic_query(&query.text)
-    }
+pub enum SearchMode {
+    /// Fast, metadata-only FTS5 search on filenames and extensions.
+    Fast,
+    /// Adds VSS-based semantic re-ranking to the fast results.
+    Normal,
+    /// A comprehensive search that may include more expensive operations
+    /// like on-demand content analysis or expanded candidate sets.
+    Full,
 }
 ```
 
-## Virtual Sidecar File System (Future Enhancement)
+#### The Phased Search Lifecycle
+
+1.  **Dispatch:** A `SearchRequest` is received. The `LightningSearchEngine` creates and dispatches a `SearchJob`.
+
+2.  **Phase 1: `Fast` Search (Instant Results)**
+    *   The job immediately runs the `Fast` search (FTS5 on metadata).
+    *   Within ~50ms, the initial results are cached and a `SearchResultsReady(result_id)` event is sent to the UI.
+    *   **The user sees instant results for any matching filenames.**
+
+3.  **Phase 2: `Normal` Search (Background Enhancement)**
+    *   After Phase 1 completes, the job analyzes the query and initial results.
+    *   If the query appears semantic or the `Fast` results are ambiguous, the job automatically promotes itself to the `Normal` stage.
+    *   It re-ranks the results using VSS embedding sidecars.
+    *   When complete, it **updates the existing cached result set** for the same `result_id` and sends a `SearchResultsUpdated(result_id)` event.
+    *   **The UI seamlessly re-sorts the results list, bringing more relevant files to the top.**
+
+4.  **Phase 3: `Full` Search (Optional Deep Dive)**
+    *   This phase can be triggered by explicit user action (e.g., a "search deeper" button) or by an AI agent.
+    *   It may perform more expensive operations, like expanding the candidate pool for semantic search.
+    *   Like Phase 2, it updates the cached results when complete.
+
+### 6. Search Result Caching: A Device-Local Filesystem Approach
+
+To ensure a fast experience and avoid re-computing searches, Spacedrive uses a scalable, device-local caching strategy. The cache is ephemeral and is **never synced between devices**.
+
+This solution has three components:
+
+1.  **Cache Directory (Non-Syncing)**
+    *   The cache lives outside the portable `.sdlibrary` directory, in a standard system cache location, ensuring it is never synced or backed up.
+    *   Example: `~/.cache/spacedrive/libraries/{library_id}/search/`
+
+2.  **Result Files (Binary)**
+    *   The ordered list of `entry_id`s for a search is stored in a compact binary file (e.g., a raw array of `i64`s).
+    *   The filename is the unique `query_hash` of the search request (e.g., `.../search/a1b2c3d4.../results.bin`).
+    *   This scales to millions of results and allows for extremely efficient pagination by seeking to the required offset in the file without loading the entire list into memory.
+
+3.  **Cache Index (Local Database)**
+    *   A tiny, separate SQLite database (`cache_index.db`) is kept in the cache directory to manage the result files.
+    *   This database is also local and never synced. It contains a single table to provide fast lookups for cached results.
+    *   **Schema:**
+        ```sql
+        -- In: cache_index.db
+        CREATE TABLE cached_searches (
+            query_hash TEXT PRIMARY KEY,
+            result_count INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            expires_at TEXT NOT NULL
+        );
+        ```
+
+This architecture strictly separates durable, syncable library data from ephemeral, device-local cache data, providing a robust and scalable caching solution.
+
+## Virtual Sidecar File System (Core)
 
 ### Concept Overview
 
-The Virtual Sidecar File System represents the next evolution of Spacedrive's file management, where the index maintains atomic links to files inline with the filesystem. This system will enable automatic, transparent vector embedding generation and search capabilities.
+The Virtual Sidecar File System is the source of truth for derived intelligence. It maintains atomic links to files inline with the filesystem and enables automatic, transparent embedding generation and search capabilities. Search consumes VSS-managed artifacts directly.
 
 ### Architecture Design
 
@@ -601,18 +745,18 @@ pub struct VirtualSidecarSystem {
 pub struct VirtualSidecar {
     pub file_path: PathBuf,
     pub spacedrive_metadata: SpacedriveMetadata,
-    pub vector_embeddings: Option<EmbeddingReference>,
+    pub embeddings: HashMap<String, EmbeddingSidecar>, // key: model_name
     pub content_analysis: Option<ContentAnalysis>,
     pub user_annotations: UserAnnotations,
     pub sync_status: SyncStatus,
     pub last_updated: SystemTime,
 }
 
-pub struct EmbeddingReference {
-    pub chroma_collection: String,
-    pub chroma_id: String,
-    pub model_version: String,
+pub struct EmbeddingSidecar {
+    pub model_name: String,
     pub embedding_hash: String,
+    pub vector_len: usize,
+    pub sidecar_path: PathBuf, // .sdlibrary/sidecars/content/{content_uuid}/embeddings/{model}.json
     pub created_at: SystemTime,
 }
 ```
@@ -704,11 +848,14 @@ impl LightningSearchEngine {
         for entry in temporal_results.entries {
             // Check if this entry has vector embeddings available
             if let Some(sidecar) = self.sidecar_system.get_sidecar(&entry.full_path()).await? {
-                if let Some(embedding_ref) = sidecar.vector_embeddings {
-                    // Get semantic similarity score
-                    let semantic_score = self.vector_engine
-                        .get_similarity_score(&query.text, &embedding_ref)
-                        .await?;
+                if let Some(emb) = sidecar.embeddings.get("all-MiniLM-L6-v2") {
+                    let semantic_score = self.semantic_engine
+                        .rerank_with_embeddings(&query.text, &[entry.id], &emb.model_name)
+                        .await?
+                        .into_iter()
+                        .next()
+                        .map(|r| r.score)
+                        .unwrap_or(0.0);
 
                     enhanced_entries.push(SearchResultEntry {
                         temporal_score: entry.temporal_score,
@@ -741,51 +888,33 @@ impl LightningSearchEngine {
 
 ## Performance Architecture
 
-### Chroma Vector Database Integration
+### VSS Embedding Storage and Access
 
 ```rust
-// Chroma configuration optimized for Spacedrive
-pub struct ChromaConfig {
-    pub persist_directory: PathBuf,
-    pub collection_metadata: HashMap<String, CollectionMetadata>,
-    pub embedding_model: EmbeddingModelConfig,
-    pub index_params: IndexParams,
+// Deterministic on-disk layout owned by VSS
+// .sdlibrary/sidecars/content/{content_uuid}/embeddings/{model_name}.json
+
+#[derive(Serialize, Deserialize)]
+pub struct EmbeddingFileV1 {
+    pub model_name: String,
+    pub model_version: String,
+    pub vector: Vec<f32>,
+    pub vector_len: usize,
+    pub embedding_hash: String,
+    pub content_hash: String,
+    pub created_at: SystemTime,
 }
 
-impl ChromaConfig {
-    pub fn spacedrive_optimized(data_dir: &Path) -> Self {
-        Self {
-            persist_directory: data_dir.join("chroma_db"),
-            collection_metadata: hashmap! {
-                "documents".to_string() => CollectionMetadata {
-                    hnsw_space: "cosine",
-                    embedding_dim: 384, // all-MiniLM-L6-v2
-                    max_elements: 1_000_000,
-                },
-                "code".to_string() => CollectionMetadata {
-                    hnsw_space: "cosine",
-                    embedding_dim: 384,
-                    max_elements: 500_000,
-                },
-                "images".to_string() => CollectionMetadata {
-                    hnsw_space: "cosine",
-                    embedding_dim: 512, // CLIP embeddings
-                    max_elements: 100_000,
-                }
-            },
-            embedding_model: EmbeddingModelConfig {
-                model_name: "all-MiniLM-L6-v2",
-                batch_size: 32,
-                max_sequence_length: 256,
-            },
-            index_params: IndexParams {
-                ef_construction: 200,
-                m: 16,
-                max_m: 16,
-                ml: 1.0 / 2.0_f32.ln(),
-            }
-        }
-    }
+pub struct SidecarRepository {
+    root: PathBuf,
+}
+
+impl SidecarRepository {
+    pub async fn find_embedding_sidecar(&self, entry_id: i32, model_name: &str)
+        -> Result<Option<(Uuid, PathBuf)>> { /* lookup via sidecars table */ }
+
+    pub async fn read_embedding_vector(&self, path: &Path)
+        -> Result<Option<Vec<f32>>> { /* mmap or buffered read */ }
 }
 ```
 
@@ -1004,8 +1133,6 @@ CREATE VIRTUAL TABLE search_index USING fts5(
     content_rowid='id',
     name,
     extension,
-    relative_path,
-    extracted_content,  -- Content extracted from files
 
     -- FTS5 configuration for optimal search
     tokenize="unicode61 remove_diacritics 2 tokenchars '.@-_'",
@@ -1018,18 +1145,8 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 CREATE TRIGGER IF NOT EXISTS entries_search_insert
 AFTER INSERT ON entries WHEN new.kind = 0  -- Only files
 BEGIN
-    INSERT INTO search_index(rowid, name, extension, relative_path, extracted_content)
-    VALUES (
-        new.id,
-        new.name,
-        new.extension,
-        new.relative_path,
-        CASE
-            WHEN new.extension IN ('txt', 'md', 'rs', 'js', 'py')
-            THEN (SELECT content FROM file_content_cache WHERE entry_id = new.id)
-            ELSE ''
-        END
-    );
+    INSERT INTO search_index(rowid, name, extension)
+    VALUES (new.id, new.name, new.extension);
 END;
 
 -- Search analytics for query optimization
@@ -1046,44 +1163,10 @@ CREATE TABLE search_analytics (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Content extraction cache
-CREATE TABLE file_content_cache (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entry_id INTEGER UNIQUE REFERENCES entries(id) ON DELETE CASCADE,
-    content_hash TEXT NOT NULL,
-    extracted_content TEXT,
-    content_type TEXT NOT NULL,
-    extraction_method TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- Vector embedding metadata (references to Chroma)
-CREATE TABLE embedding_metadata (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entry_id INTEGER UNIQUE REFERENCES entries(id) ON DELETE CASCADE,
-    chroma_collection TEXT NOT NULL,
-    chroma_id TEXT NOT NULL,
-    model_version TEXT NOT NULL,
-    embedding_hash TEXT NOT NULL,
-    content_hash TEXT NOT NULL,  -- For invalidation
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-
-    UNIQUE(chroma_collection, chroma_id)
-);
-
--- Search facet cache for performance
-CREATE TABLE search_facet_cache (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    query_hash TEXT NOT NULL,
-    facet_type TEXT NOT NULL,
-    facet_data TEXT NOT NULL,  -- JSON
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    expires_at TEXT NOT NULL,
-
-    INDEX idx_facet_cache_query_type (query_hash, facet_type),
-    INDEX idx_facet_cache_expires (expires_at)
-);
+-- Note: The schema for the Virtual Sidecar System (`sidecars`, `sidecar_availability`)
+-- is defined in the VSS design document and is the source of truth.
+-- The schema for search result caching (`cached_searches`) is defined in a separate,
+-- non-synced, device-local database.
 ```
 
 ### Optimized Indexes for Search Performance
@@ -1111,94 +1194,15 @@ CREATE INDEX IF NOT EXISTS idx_entries_documents
 ON entries(extension, modified_at DESC)
 WHERE extension IN ('pdf', 'doc', 'docx', 'txt', 'md');
 
+-- Path filtering is handled via the closure table; prefer joins over storing path in FTS
 CREATE INDEX IF NOT EXISTS idx_entries_code_files
-ON entries(extension, relative_path)
+ON entries(extension)
 WHERE extension IN ('rs', 'js', 'py', 'cpp', 'java', 'go');
 ```
 
 ## API Design
 
-### Unified Search API
 
-```rust
-// Main search request structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchRequest {
-    pub query: String,
-    pub mode: SearchMode,
-    pub filters: Vec<SearchFilter>,
-    pub sort: SortOptions,
-    pub pagination: PaginationOptions,
-    pub facets: FacetOptions,
-    pub context: SearchContext,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchFilter {
-    pub field: FilterField,
-    pub operation: FilterOperation,
-    pub value: FilterValue,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FilterField {
-    FileType,
-    Size,
-    ModifiedDate,
-    CreatedDate,
-    Location,
-    Tags,
-    ContentType,
-    Resolution,
-    Duration,
-    Favorite,
-    Hidden,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FilterOperation {
-    Equals,
-    NotEquals,
-    Contains,
-    StartsWith,
-    EndsWith,
-    GreaterThan,
-    LessThan,
-    Between,
-    In,
-    NotIn,
-}
-
-// Rich search results
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchResponse {
-    pub entries: Vec<SearchResultEntry>,
-    pub facets: HashMap<FilterField, Vec<FacetValue>>,
-    pub suggestions: Vec<SearchSuggestion>,
-    pub analytics: SearchAnalytics,
-    pub pagination: PaginationInfo,
-    pub search_id: Uuid,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchResultEntry {
-    pub entry: Entry,
-    pub score: f32,
-    pub score_breakdown: ScoreBreakdown,
-    pub highlights: Vec<TextHighlight>,
-    pub context: SearchResultContext,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScoreBreakdown {
-    pub temporal_score: f32,
-    pub semantic_score: Option<f32>,
-    pub metadata_score: f32,
-    pub recency_boost: f32,
-    pub user_preference_boost: f32,
-    pub final_score: f32,
-}
-```
 
 ### GraphQL Integration
 
@@ -1273,7 +1277,12 @@ type ScoreBreakdown {
 
 ## Implementation Roadmap
 
-### Phase 1: Foundation (Weeks 1-3)
+### Phase 1: VSS & Temporal Search Foundation (Weeks 1-3)
+
+**VSS Core**
+
+- [ ] Implement `sidecars` and `sidecar_availability` tables
+- [ ] Implement deterministic filesystem layout under `.sdlibrary/sidecars/...`
 
 **Temporal Search Engine**
 
@@ -1299,15 +1308,15 @@ type ScoreBreakdown {
 - Type-aware content extraction for text, code, and documents
 - Extensible file type system with extraction capabilities
 
-### Phase 2: Vector Intelligence (Weeks 4-6)
+### Phase 2: Embedding Generation (Weeks 4-6)
 
-**Chroma Integration**
+**VSS Embeddings**
 
-- [ ] Chroma vector database setup and configuration
-- [ ] Embedding generation pipeline
-- [ ] Content type-specific collections
-- [ ] Vector search integration with temporal results
-- [ ] Background embedding processing
+- [ ] Integrate a lightweight embedding model (e.g., all-MiniLM-L6-v2)
+- [ ] Implement `EmbeddingJob` producing VSS-compliant sidecars
+- [ ] Write sidecar records to `sidecars` and `sidecar_availability`
+- [ ] Hook job dispatch into the indexer Intelligence Queueing
+- [ ] Background batching and throttling
 
 **Advanced Extraction Engines**
 
@@ -1319,13 +1328,18 @@ type ScoreBreakdown {
 
 **Deliverables:**
 
-- Semantic search capabilities
-- Automatic embedding generation
-- Vector-enhanced result ranking
-- Multi-modal content understanding
-- Comprehensive metadata extraction across all file types
+- Semantic reranking via VSS embeddings
+- Automatic embedding generation and storage
+- Portable, self-contained semantic artifacts per library
+- Multi-modal extraction and metadata
 
-### Phase 3: Advanced Features (Weeks 7-9)
+### Phase 3: Semantic Search Integration (Weeks 7-9)
+
+**Semantic Reranking**
+
+- [ ] Update `SearchJob` to perform Stage 2 reranking using VSS embedding sidecars
+- [ ] Model selection and fallbacks
+- [ ] Result caching keyed by query + model + candidates
 
 **Search Intelligence**
 
@@ -1358,7 +1372,7 @@ type ScoreBreakdown {
 - [ ] Virtual sidecar file system design
 - [ ] Atomic file linking system
 - [ ] Automatic embedding scheduling
-- [ ] Transparent search integration
+- [ ] Transparent search integration (Search consumes VSS sidecars directly)
 - [ ] Performance optimization
 
 **Deliverables:**
@@ -1446,7 +1460,7 @@ impl LightningSearchEngine {
     pub async fn health_check(&self) -> SearchHealthStatus {
         SearchHealthStatus {
             fts5_status: self.temporal_engine.health_check().await,
-            chroma_status: self.vector_engine.health_check().await,
+            vss_status: self.semantic_engine.health_check().await,
             cache_status: self.cache_manager.health_check().await,
             index_freshness: self.check_index_freshness().await,
             performance_status: self.check_performance_status().await,
@@ -1454,6 +1468,25 @@ impl LightningSearchEngine {
     }
 }
 ```
+
+## Updated Search Workflow
+
+1. Indexing & Intelligence Queueing
+
+   - A file is discovered and its `content_uuid` is determined.
+   - The indexer dispatches jobs: `OcrJob`, `TextExtractionJob`, `EmbeddingJob`, etc.
+
+2. Sidecar Generation
+
+   - Jobs run asynchronously. `TextExtractionJob` updates content caches feeding FTS5.
+   - `EmbeddingJob` writes embedding sidecar files and inserts rows into `sidecars`/`sidecar_availability`.
+
+3. Search Execution (`SearchJob`)
+   - Stage 1 (Temporal Filter): Query FTS5 for a small set of candidate entry IDs (<100ms typical).
+   - Stage 2 (Semantic Re-ranking): Map entries → `content_uuid`, resolve embedding sidecars for the chosen model, load vectors, compute cosine similarity to the query vector, and rerank.
+   - Cache the final ranked list and notify the frontend.
+
+This workflow is portable, offline, and fully aligned with VSS.
 
 ## Conclusion
 
