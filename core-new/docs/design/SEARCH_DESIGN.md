@@ -978,75 +978,18 @@ impl AdaptivePerformanceManager {
 
 ### Search Mode Optimization
 
+The system operates on three primary modes, which a search job can transition through to progressively enhance results.
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SearchMode {
-    /// Ultra-fast filename and path search only
-    Lightning,   // <5ms, FTS5 only
-
-    /// Fast search with basic semantic enhancement
-    Fast,        // <25ms, FTS5 + limited vector search
-
-    /// Balanced speed and intelligence
-    Balanced,    // <100ms, FTS5 + vector search + metadata
-
-    /// Comprehensive semantic search
-    Comprehensive, // <500ms, full vector search + facets
-
-    /// Pure semantic/content search
-    Semantic,    // variable, vector-first approach
-}
-
-impl SearchMode {
-    pub fn execution_strategy(&self) -> ExecutionStrategy {
-        match self {
-            SearchMode::Lightning => ExecutionStrategy {
-                use_fts5: true,
-                use_vector_search: false,
-                use_faceted_search: false,
-                max_results: 100,
-                timeout: Duration::from_millis(5),
-            },
-
-            SearchMode::Fast => ExecutionStrategy {
-                use_fts5: true,
-                use_vector_search: true,
-                vector_candidate_limit: 50,
-                use_faceted_search: false,
-                max_results: 200,
-                timeout: Duration::from_millis(25),
-            },
-
-            SearchMode::Balanced => ExecutionStrategy {
-                use_fts5: true,
-                use_vector_search: true,
-                vector_candidate_limit: 500,
-                use_faceted_search: true,
-                max_results: 500,
-                timeout: Duration::from_millis(100),
-            },
-
-            SearchMode::Comprehensive => ExecutionStrategy {
-                use_fts5: true,
-                use_vector_search: true,
-                vector_candidate_limit: 2000,
-                use_faceted_search: true,
-                use_ml_ranking: true,
-                max_results: 1000,
-                timeout: Duration::from_millis(500),
-            },
-
-            SearchMode::Semantic => ExecutionStrategy {
-                use_fts5: false, // Vector-first approach
-                use_vector_search: true,
-                vector_candidate_limit: 5000,
-                use_semantic_expansion: true,
-                use_faceted_search: true,
-                max_results: 1000,
-                timeout: Duration::from_secs(2),
-            },
-        }
-    }
+    /// Fast, metadata-only FTS5 search on filenames and extensions.
+    Fast,
+    /// Adds VSS-based semantic re-ranking to the fast results.
+    Normal,
+    /// A comprehensive search that may include more expensive operations
+    /// like on-demand content analysis or expanded candidate sets.
+    Full,
 }
 ```
 
