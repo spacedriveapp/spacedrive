@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use super::{infer_hardware_label, Scenario};
 use crate::core_boot::CoreBoot;
-use crate::metrics::ScenarioResult;
+use crate::metrics::{BenchmarkRun, Durations, RunMeta};
 use crate::recipe::Recipe;
 
 #[derive(Default)]
@@ -68,8 +68,8 @@ impl Scenario for AggregationScenario {
 		Ok(())
 	}
 
-	async fn run(&mut self, _boot: &CoreBoot, recipe: &Recipe) -> Result<Vec<ScenarioResult>> {
-		let mut results: Vec<ScenarioResult> = Vec::new();
+	async fn run(&mut self, _boot: &CoreBoot, recipe: &Recipe) -> Result<Vec<BenchmarkRun>> {
+		let mut results: Vec<BenchmarkRun> = Vec::new();
 		if self.job_ids.is_empty() || self.library.is_none() {
 			return Ok(results);
 		}
@@ -176,31 +176,38 @@ impl Scenario for AggregationScenario {
 			} else {
 				0.0
 			};
-            let dirs_per_s = if proc_secs > 0.0 {
-                dirs.unwrap_or_default() as f64 / proc_secs
-            } else {
-                0.0
-            };
+			let dirs_per_s = if proc_secs > 0.0 {
+				dirs.unwrap_or_default() as f64 / proc_secs
+			} else {
+				0.0
+			};
 
-            let location_paths: Vec<PathBuf> = recipe.locations.iter().map(|l| l.path.clone()).collect();
+			let location_paths: Vec<PathBuf> =
+				recipe.locations.iter().map(|l| l.path.clone()).collect();
 
-            results.push(ScenarioResult {
+			let meta = RunMeta {
 				id: *jid,
-				scenario: self.name().to_string(),
 				recipe_name: recipe.name.clone(),
-                location_paths: location_paths.clone(),
-                hardware_label: infer_hardware_label(&recipe.name),
-				duration_s: proc_secs,
-				discovery_duration_s: discovery,
-				processing_duration_s: processing,
-				content_duration_s: content,
+				location_paths: location_paths.clone(),
+				hardware_label: crate::metrics::derive_hardware_label_from_paths(&location_paths)
+					.or_else(|| infer_hardware_label(&recipe.name)),
+				timestamp_utc: Some(chrono::Utc::now().to_rfc3339()),
+			};
+			let durations = Durations {
+				discovery_s: discovery,
+				processing_s: processing,
+				content_s: content,
+				total_s: Some(proc_secs).filter(|d| *d > 0.0),
+			};
+			results.push(BenchmarkRun::Aggregation {
+				meta,
 				files: files_v,
 				files_per_s,
-				directories: dirs.unwrap_or_default(),
-				directories_per_s: dirs_per_s,
+				dirs: dirs.unwrap_or_default(),
+				dirs_per_s,
 				total_gb: total_gb.unwrap_or_default(),
 				errors: errors.unwrap_or_default(),
-				raw_artifacts: vec![log_path],
+				durations,
 			});
 		}
 

@@ -9,42 +9,36 @@
 //! - Performance monitoring and metrics
 
 pub mod action;
-pub mod job;
-pub mod state;
+pub mod change_detection;
 pub mod entry;
 pub mod filters;
-pub mod rules;
+pub mod hierarchy;
+pub mod job;
 pub mod metrics;
+pub mod path_resolver;
+pub mod persistence;
 pub mod phases;
 pub mod progress;
-pub mod change_detection;
-pub mod persistence;
-pub mod hierarchy;
-pub mod path_resolver;
+pub mod rules;
+pub mod state;
 
 // Re-exports for convenience
-pub use job::{
-    IndexerJob, IndexMode, IndexScope, IndexPersistence,
-    IndexerJobConfig, EphemeralIndex, EphemeralContentIdentity,
-    IndexerOutput
-};
-pub use state::{IndexerState, IndexerProgress, IndexPhase, IndexerStats};
-pub use entry::{EntryProcessor, EntryMetadata};
+pub use action::IndexingAction;
+pub use entry::{EntryMetadata, EntryProcessor};
 pub use filters::should_skip_path;
-pub use rules::{
-    IndexerRuler,
-    IndexerRule,
-    RulePerKind,
-    RuleKind,
-    RulerDecision,
-    RuleToggles,
-    build_default_ruler,
+pub use hierarchy::HierarchyQuery;
+pub use job::{
+	EphemeralContentIdentity, EphemeralIndex, IndexMode, IndexPersistence, IndexScope, IndexerJob,
+	IndexerJobConfig, IndexerOutput,
 };
 pub use metrics::IndexerMetrics;
-pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
-pub use action::IndexingAction;
-pub use hierarchy::HierarchyQuery;
 pub use path_resolver::PathResolver;
+pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
+pub use rules::{
+	build_default_ruler, IndexerRule, IndexerRuler, RuleKind, RulePerKind, RuleToggles,
+	RulerDecision,
+};
+pub use state::{IndexPhase, IndexerProgress, IndexerState, IndexerStats};
 
 // Rules system will be integrated here in the future
 // pub mod rules;

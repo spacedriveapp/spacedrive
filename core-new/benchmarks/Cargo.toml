@@ -26,6 +26,7 @@ sd-core-new = { path = ".." }
 serde_with = { version = "3.9", features = ["json"] }
 async-trait = "0.1"
 blake3 = "1.5"
+sysinfo = { version = "0.30", default-features = false, features = ["multithread"] }
 
 [lib]
 name = "sd_bench"

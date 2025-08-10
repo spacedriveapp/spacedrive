@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use super::{infer_hardware_label, Scenario};
 use crate::core_boot::CoreBoot;
-use crate::metrics::ScenarioResult;
+use crate::metrics::{BenchmarkRun, Durations, RunMeta};
 use crate::recipe::Recipe;
 
 #[derive(Default)]
@@ -70,8 +70,8 @@ impl Scenario for IndexingDiscoveryScenario {
 		Ok(())
 	}
 
-	async fn run(&mut self, _boot: &CoreBoot, recipe: &Recipe) -> Result<Vec<ScenarioResult>> {
-		let mut results: Vec<ScenarioResult> = Vec::new();
+	async fn run(&mut self, _boot: &CoreBoot, recipe: &Recipe) -> Result<Vec<BenchmarkRun>> {
+		let mut results: Vec<BenchmarkRun> = Vec::new();
 
 		if self.job_ids.is_empty() || self.library.is_none() {
 			return Ok(results);
@@ -88,8 +88,9 @@ impl Scenario for IndexingDiscoveryScenario {
 		loop {
 			let mut remaining = 0usize;
 			let mut active_statuses: Vec<(uuid::Uuid, String)> = Vec::new();
-        let location_paths: Vec<PathBuf> = recipe.locations.iter().map(|l| l.path.clone()).collect();
-        for jid in &self.job_ids {
+			let location_paths: Vec<PathBuf> =
+				recipe.locations.iter().map(|l| l.path.clone()).collect();
+			for jid in &self.job_ids {
 				match job_manager.get_job_info(*jid).await {
 					Ok(Some(info)) => {
 						if !info.status.is_terminal() {
@@ -127,14 +128,15 @@ impl Scenario for IndexingDiscoveryScenario {
 			tokio::time::sleep(Duration::from_millis(500)).await;
 		}
 
-        // Parse metrics from job logs (temporary until structured metrics available)
+		// Parse metrics from job logs (temporary until structured metrics available)
 		let re = Regex::new(r"Indexing completed in ([0-9.]+)s:|Files: ([0-9]+) \(([0-9.]+)/s\)|Directories: ([0-9]+) \(([0-9.]+)/s\)|Total size: ([0-9.]+) GB|Errors: ([0-9]+)|Phase timing: discovery ([0-9.]+)s, processing ([0-9.]+)s, content ([0-9.]+)s").unwrap();
 		let log_dir = self
 			.job_logs_dir
 			.clone()
 			.unwrap_or_else(|| PathBuf::from("."));
 
-        let location_paths: Vec<PathBuf> = recipe.locations.iter().map(|l| l.path.clone()).collect();
+		let location_paths: Vec<PathBuf> =
+			recipe.locations.iter().map(|l| l.path.clone()).collect();
 
 		for jid in &self.job_ids {
 			let log_path = log_dir.join(format!("{}.log", jid));
@@ -182,23 +184,29 @@ impl Scenario for IndexingDiscoveryScenario {
 					}
 				}
 			}
-            results.push(ScenarioResult {
+			let meta = RunMeta {
 				id: *jid,
-				scenario: self.name().to_string(),
 				recipe_name: recipe.name.clone(),
-                location_paths: location_paths.clone(),
-                hardware_label: infer_hardware_label(&recipe.name),
-				duration_s: duration_s.unwrap_or_default(),
-				discovery_duration_s,
-				processing_duration_s,
-				content_duration_s,
+				location_paths: location_paths.clone(),
+				hardware_label: crate::metrics::derive_hardware_label_from_paths(&location_paths)
+					.or_else(|| infer_hardware_label(&recipe.name)),
+				timestamp_utc: Some(chrono::Utc::now().to_rfc3339()),
+			};
+			let durations = Durations {
+				discovery_s: discovery_duration_s,
+				processing_s: processing_duration_s,
+				content_s: content_duration_s,
+				total_s: duration_s.filter(|d| *d > 0.0),
+			};
+			results.push(BenchmarkRun::IndexingDiscovery {
+				meta,
 				files: files.unwrap_or_default(),
 				files_per_s: files_per_s.unwrap_or_default(),
-				directories: dirs.unwrap_or_default(),
-				directories_per_s: dirs_per_s.unwrap_or_default(),
+				dirs: dirs.unwrap_or_default(),
+				dirs_per_s: dirs_per_s.unwrap_or_default(),
 				total_gb: total_gb.unwrap_or_default(),
 				errors: errors.unwrap_or_default(),
-				raw_artifacts: vec![log_path],
+				durations,
 			});
 		}
 

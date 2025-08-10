@@ -533,7 +533,7 @@ pub async fn build_default_ruler(toggles: RuleToggles, location_root: &Path, cur
     if toggles.no_git { base.push((&*NO_GIT).into()); }
     if toggles.only_images { base.push((&*ONLY_IMAGES).into()); }
     if toggles.gitignore {
-        if let Some(gi) = GitIgnoreRules::get_rules_if_in_git_repo(location_root, current).await { 
+        if let Some(gi) = GitIgnoreRules::get_rules_if_in_git_repo(location_root, current).await {
             let rule = IndexerRule {
                 id: None,
                 name: "Gitignore".to_string(),

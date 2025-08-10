@@ -1,23 +1,26 @@
 {
   "runs": [
     {
-      "content_duration_s": 0.0,
-      "directories": 72,
-      "directories_per_s": 61.4,
-      "discovery_duration_s": 1.2,
-      "duration_s": 1.17,
+      "dirs": 72,
+      "dirs_per_s": 9.7,
+      "durations": {
+        "content_s": 0.0,
+        "discovery_s": 7.4,
+        "processing_s": 1.0,
+        "total_s": 7.43
+      },
       "errors": 0,
       "files": 5000,
-      "files_per_s": 4264.7,
-      "id": "d2ef2dbb-cceb-4d93-b7ed-2073c71c038f",
-      "location_paths": [
-        "/Volumes/Seagate/benchdata/shape_small"
-      ],
-      "processing_duration_s": 1.1,
-      "raw_artifacts": [
-        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/d2ef2dbb-cceb-4d93-b7ed-2073c71c038f.log"
-      ],
-      "recipe_name": "shape_small",
+      "files_per_s": 673.3,
+      "meta": {
+        "hardware_label": "External HDD (Seagate)",
+        "id": "309522b5-1454-4780-b267-764c9e917d83",
+        "location_paths": [
+          "/Volumes/Seagate/benchdata/shape_small"
+        ],
+        "recipe_name": "shape_small",
+        "timestamp_utc": "2025-08-10T05:42:59.524851+00:00"
+      },
       "scenario": "indexing-discovery",
       "total_gb": 8.21
     }

@@ -292,40 +292,70 @@ async fn run_scenario(
 		println!("\nWrote summary to {}", path.display());
 	}
 	for r in &results {
-		println!("\nBenchmark summary (job {}):", r.id);
-		if !r.location_paths.is_empty() {
-			println!("- Locations:");
-			for p in &r.location_paths {
-				println!("  - {}", p.display());
+		use bench::metrics::BenchmarkRun;
+		match r {
+			BenchmarkRun::IndexingDiscovery {
+				meta,
+				files,
+				files_per_s,
+				dirs,
+				dirs_per_s,
+				total_gb,
+				errors,
+				durations,
 			}
-		}
-		if let Some(hw) = &r.hardware_label {
-			println!("- Hardware: {}", hw);
-		}
-		if r.duration_s > 0.0 {
-			println!("- Duration: {:.2}s", r.duration_s);
-		}
-		if let Some(dd) = r.discovery_duration_s {
-			println!("- Discovery: {:.2}s", dd);
-		}
-		if let Some(cd) = r.content_duration_s {
-			println!("- Content: {:.2}s", cd);
-		}
-		if r.files > 0 {
-			println!("- Files: {} ({:.1}/s)", r.files, r.files_per_s);
-		}
-		if r.directories > 0 {
-			println!(
-				"- Directories: {} ({:.1}/s)",
-				r.directories, r.directories_per_s
-			);
-		}
-		if r.total_gb > 0.0 {
-			println!("- Total size: {:.2} GB", r.total_gb);
-		}
-		println!("- Errors: {}", r.errors);
-		if let Some(p) = r.raw_artifacts.get(0) {
-			println!("- Job log: {}", p.display());
+			| BenchmarkRun::Aggregation {
+				meta,
+				files,
+				files_per_s,
+				dirs,
+				dirs_per_s,
+				total_gb,
+				errors,
+				durations,
+			}
+			| BenchmarkRun::ContentIdentification {
+				meta,
+				files,
+				files_per_s,
+				dirs,
+				dirs_per_s,
+				total_gb,
+				errors,
+				durations,
+			} => {
+				println!("\nBenchmark summary (job {}):", meta.id);
+				if !meta.location_paths.is_empty() {
+					println!("- Locations:");
+					for p in &meta.location_paths {
+						println!("  - {}", p.display());
+					}
+				}
+				if let Some(hw) = &meta.hardware_label {
+					println!("- Hardware: {}", hw);
+				}
+				if let Some(total) = durations.total_s {
+					if total > 0.0 {
+						println!("- Duration: {:.2}s", total);
+					}
+				}
+				if let Some(dd) = durations.discovery_s {
+					println!("- Discovery: {:.2}s", dd);
+				}
+				if let Some(cd) = durations.content_s {
+					println!("- Content: {:.2}s", cd);
+				}
+				if *files > 0 {
+					println!("- Files: {} ({:.1}/s)", files, files_per_s);
+				}
+				if *dirs > 0 {
+					println!("- Directories: {} ({:.1}/s)", dirs, dirs_per_s);
+				}
+				if *total_gb > 0.0 {
+					println!("- Total size: {:.2} GB", total_gb);
+				}
+				println!("- Errors: {}", errors);
+			}
 		}
 	}
 
@@ -477,33 +507,72 @@ async fn run_all(
 
 async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str) -> Result<()> {
 	#[derive(serde::Deserialize, Debug)]
-	struct ScenarioRun {
+	struct RunMeta {
 		id: Option<uuid::Uuid>,
-		scenario: Option<String>,
 		recipe_name: Option<String>,
-		recipe: Option<String>,
-		duration_s: Option<f64>,
 		#[serde(default)]
-		discovery_duration_s: Option<f64>,
+		location_paths: Option<Vec<std::path::PathBuf>>,
 		#[serde(default)]
-		processing_duration_s: Option<f64>,
+		hardware_label: Option<String>,
+	}
+
+	#[derive(serde::Deserialize, Debug, Default)]
+	struct Durations {
 		#[serde(default)]
-		content_duration_s: Option<f64>,
-		files: Option<u64>,
-		files_per_s: Option<f64>,
-		directories: Option<u64>,
-		directories_per_s: Option<f64>,
-		total_gb: Option<f64>,
-		errors: Option<u64>,
+		discovery_s: Option<f64>,
+		#[serde(default)]
+		processing_s: Option<f64>,
+		#[serde(default)]
+		content_s: Option<f64>,
+		#[serde(default)]
+		total_s: Option<f64>,
+	}
+
+	#[derive(serde::Deserialize, Debug)]
+	#[serde(tag = "scenario", rename_all = "kebab-case")]
+	enum BenchmarkRunFile {
+		IndexingDiscovery {
+			meta: RunMeta,
+			files: u64,
+			files_per_s: f64,
+			dirs: u64,
+			dirs_per_s: f64,
+			total_gb: f64,
+			errors: u64,
+			#[serde(default)]
+			durations: Durations,
+		},
+		Aggregation {
+			meta: RunMeta,
+			files: u64,
+			files_per_s: f64,
+			dirs: u64,
+			dirs_per_s: f64,
+			total_gb: f64,
+			errors: u64,
+			#[serde(default)]
+			durations: Durations,
+		},
+		ContentIdentification {
+			meta: RunMeta,
+			files: u64,
+			files_per_s: f64,
+			dirs: u64,
+			dirs_per_s: f64,
+			total_gb: f64,
+			errors: u64,
+			#[serde(default)]
+			durations: Durations,
+		},
 	}
 
 	#[derive(serde::Deserialize, Debug)]
 	struct ResultsFile {
-		runs: Vec<ScenarioRun>,
+		runs: Vec<BenchmarkRunFile>,
 	}
 
-	let mut rows: Vec<(String, String, f64, u64, f64, u64, f64, f64, u64)> = Vec::new();
-	// (scenario, recipe, duration_s, files, files_per_s, dirs, dirs_per_s, total_gb, errors)
+	let mut rows: Vec<(String, String, String, f64, u64, f64, u64, f64, f64, u64)> = Vec::new();
+	// (scenario, recipe, hardware, duration_s, files, files_per_s, dirs, dirs_per_s, total_gb, errors)
 
 	for entry in std::fs::read_dir(&results_dir)? {
 		let entry = entry?;
@@ -514,45 +583,116 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 		if let Ok(txt) = std::fs::read_to_string(&path) {
 			if let Ok(parsed) = serde_json::from_str::<ResultsFile>(&txt) {
 				for run in parsed.runs {
-					let scenario = run.scenario.unwrap_or_else(|| "?".into());
-					let recipe = run.recipe_name.or(run.recipe).unwrap_or_else(|| "?".into());
-					let duration = run.duration_s.unwrap_or(0.0);
-					let files = run.files.unwrap_or(0);
-					let files_ps = run.files_per_s.unwrap_or(0.0);
-					let dirs = run.directories.unwrap_or(0);
-					let dirs_ps = run.directories_per_s.unwrap_or(0.0);
-					let total_gb = run.total_gb.unwrap_or(0.0);
-					let errors = run.errors.unwrap_or(0);
-					rows.push((
-						scenario, recipe, duration, files, files_ps, dirs, dirs_ps, total_gb,
+					let (
+						scenario,
+						meta,
+						files,
+						files_ps,
+						dirs,
+						dirs_ps,
+						total_gb,
 						errors,
+						durations,
+					) = match run {
+						BenchmarkRunFile::IndexingDiscovery {
+							meta,
+							files,
+							files_per_s,
+							dirs,
+							dirs_per_s,
+							total_gb,
+							errors,
+							durations,
+						} => (
+							"indexing-discovery".to_string(),
+							meta,
+							files,
+							files_per_s,
+							dirs,
+							dirs_per_s,
+							total_gb,
+							errors,
+							durations,
+						),
+						BenchmarkRunFile::Aggregation {
+							meta,
+							files,
+							files_per_s,
+							dirs,
+							dirs_per_s,
+							total_gb,
+							errors,
+							durations,
+						} => (
+							"aggregation".to_string(),
+							meta,
+							files,
+							files_per_s,
+							dirs,
+							dirs_per_s,
+							total_gb,
+							errors,
+							durations,
+						),
+						BenchmarkRunFile::ContentIdentification {
+							meta,
+							files,
+							files_per_s,
+							dirs,
+							dirs_per_s,
+							total_gb,
+							errors,
+							durations,
+						} => (
+							"content-identification".to_string(),
+							meta,
+							files,
+							files_per_s,
+							dirs,
+							dirs_per_s,
+							total_gb,
+							errors,
+							durations,
+						),
+					};
+					let recipe = meta.recipe_name.unwrap_or_else(|| "?".into());
+					let hardware = meta
+						.hardware_label
+						.or_else(|| {
+							meta.location_paths
+								.as_ref()
+								.and_then(|paths| paths.get(0))
+								.and_then(|p| {
+									let mut it = p.iter();
+									let _root = it.next();
+									if let Some(vol) = it.next() {
+										if vol.to_string_lossy() == "Volumes" {
+											return it
+												.next()
+												.map(|n| n.to_string_lossy().to_string());
+										}
+									}
+									None
+								})
+						})
+						.unwrap_or_else(|| "?".into());
+					let duration = durations.total_s.unwrap_or(0.0);
+					rows.push((
+						scenario, recipe, hardware, duration, files, files_ps, dirs, dirs_ps,
+						total_gb, errors,
 					));
 				}
 			}
 		}
 	}
 
-	// Sort by scenario then recipe
-	rows.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+	// Sort by scenario, then recipe, then hardware
+	rows.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
 
 	let output = match format.to_lowercase().as_str() {
 		// Default whitepaper format now includes phase breakdown under 'Indexing'
 		"whitepaper" => {
 			use std::collections::HashMap;
-			fn label_for_recipe(recipe: &str) -> Option<&'static str> {
-				let r = recipe.to_lowercase();
-				if r.starts_with("nvme_") {
-					Some("Internal NVMe SSD")
-				} else if r.starts_with("hdd_") {
-					Some("External HDD (USB 3.0)")
-				} else if r.contains("nas") {
-					Some("Network Attached Storage (1Gbps)")
-				} else if r.contains("usb") {
-					Some("External USB 3.2 SSD")
-				} else {
-					None
-				}
-			}
 			fn phase_for_scenario(s: &str) -> Option<&'static str> {
 				match s {
 					"indexing-discovery" => Some("Discovery"),
@@ -561,45 +701,26 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 					_ => None,
 				}
 			}
-			#[derive(Clone)]
-			struct BestRow {
-				files_per_s: f64,
-				files: u64,
-				dirs: u64,
-				gb: f64,
-				errors: u64,
-				duration_s: f64,
-				recipe: String,
-			}
-			let mut best_by_hw_phase: HashMap<(String, &'static str), BestRow> = HashMap::new();
-			for (sc, rc, du, f, fps, d, _dps, gb, e) in &rows {
+			// Average files/s across shapes (shape_small/medium/large) per phase and hardware
+			let mut by_hw_phase: HashMap<(String, String), Vec<f64>> = HashMap::new();
+			for (sc, rc, hw, _du, _f, fps, _d, _dps, _gb, _e) in &rows {
 				let Some(phase) = phase_for_scenario(sc) else {
 					continue;
 				};
-				let Some(hw) = label_for_recipe(rc) else {
-					continue;
-				};
-				let key = (phase.to_string(), hw);
-				let candidate = BestRow {
-					files_per_s: *fps,
-					files: *f,
-					dirs: *d,
-					gb: *gb,
-					errors: *e,
-					duration_s: *du,
-					recipe: rc.clone(),
-				};
-				match best_by_hw_phase.get(&key) {
-					Some(existing) if existing.files_per_s >= *fps => {}
-					_ => {
-						best_by_hw_phase.insert(key, candidate);
-					}
+				if rc.starts_with("shape_") && *fps > 0.0 {
+					by_hw_phase
+						.entry((phase.to_string(), hw.clone()))
+						.or_default()
+						.push(*fps);
 				}
 			}
-			let mut entries: Vec<(String, &'static str, BestRow)> = best_by_hw_phase
-				.into_iter()
-				.map(|((phase, hw), row)| (phase, hw, row))
-				.collect();
+			let mut entries: Vec<(String, String, f64)> = Vec::new();
+			for ((phase, hw), vals) in by_hw_phase.into_iter() {
+				if !vals.is_empty() {
+					let avg = vals.iter().copied().sum::<f64>() / (vals.len() as f64);
+					entries.push((phase, hw, avg));
+				}
+			}
 			fn phase_rank(p: &str) -> i32 {
 				match p {
 					"Discovery" => 0,
@@ -611,24 +732,8 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 			entries.sort_by(|a, b| phase_rank(&a.0).cmp(&phase_rank(&b.0)).then(a.1.cmp(&b.1)));
 			let mut s = String::new();
 			s.push_str("Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe\n");
-			for (phase, hw, row) in entries {
-				let gbps = if row.duration_s > 0.0 {
-					row.gb / row.duration_s
-				} else {
-					0.0
-				};
-				s.push_str(&format!(
-					"{},{},{:.1},{:.2},{},{},{:.2},{},{}\n",
-					phase,
-					hw,
-					row.files_per_s,
-					gbps,
-					row.files,
-					row.dirs,
-					row.gb,
-					row.errors,
-					row.recipe
-				));
+			for (phase, hw, avg) in entries {
+				s.push_str(&format!("{},{},{:.1},,, ,,,\n", phase, hw, avg));
 			}
 			s
 		}
@@ -637,7 +742,7 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 			s.push_str(
 				"scenario,recipe,duration_s,files,files_per_s,dirs,dirs_per_s,total_gb,errors\n",
 			);
-			for (sc, rc, du, f, fps, d, dps, gb, e) in &rows {
+			for (sc, rc, _hw, du, f, fps, d, dps, gb, e) in &rows {
 				s.push_str(&format!(
 					"{},{},{:.2},{},{:.1},{},{:.1},{:.2},{}\n",
 					sc, rc, du, f, fps, d, dps, gb, e
@@ -650,7 +755,7 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 			let mut s = String::new();
 			s.push_str("| scenario | recipe | duration (s) | files | files/s | dirs | dirs/s | total GB | errors |\n");
 			s.push_str("|---|---|---:|---:|---:|---:|---:|---:|---:|\n");
-			for (sc, rc, du, f, fps, d, dps, gb, e) in &rows {
+			for (sc, rc, _hw, du, f, fps, d, dps, gb, e) in &rows {
 				s.push_str(&format!(
 					"| {} | {} | {:.2} | {} | {:.1} | {} | {:.1} | {:.2} | {} |\n",
 					sc, rc, du, f, fps, d, dps, gb, e

@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::core_boot::CoreBoot;
 use crate::generator::DatasetGenerator;
-use crate::metrics::ScenarioResult;
+use crate::metrics::BenchmarkRun;
 use crate::recipe::Recipe;
 use crate::reporting::Reporter;
 use crate::scenarios::Scenario;
@@ -15,7 +15,7 @@ pub async fn run_scenario(
 	reporters: &[Box<dyn Reporter>],
 	recipe: &Recipe,
 	report_dest: Option<&Path>,
-) -> Result<Vec<ScenarioResult>> {
+) -> Result<Vec<BenchmarkRun>> {
 	generator.generate(recipe).await?;
 	scenario.prepare(boot, recipe).await?;
 	let results = scenario.run(boot, recipe).await?;
