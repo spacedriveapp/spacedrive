@@ -2,24 +2,29 @@
   "runs": [
     {
       "dirs": 1847,
-      "dirs_per_s": 31.7,
+      "dirs_per_s": 3.2,
       "durations": {
         "content_s": 0.0,
-        "discovery_s": 58.3,
-        "processing_s": 7.8,
-        "total_s": 58.29
+        "discovery_s": 584.1,
+        "processing_s": 8.2,
+        "total_s": 584.14
       },
       "errors": 0,
       "files": 20000,
-      "files_per_s": 343.1,
+      "files_per_s": 34.2,
       "meta": {
         "hardware_label": "External HDD (Seagate)",
-        "id": "772f3ab3-c0ca-441a-bbed-01860f1a4b4b",
+        "host": {
+          "cpu_model": "Apple M3 Max",
+          "cpu_physical_cores": 16,
+          "memory_total_gb": 48
+        },
+        "id": "f74909b0-7394-4f99-9eca-372b4ffbbfbe",
         "location_paths": [
           "/Volumes/Seagate/benchdata/shape_medium"
         ],
         "recipe_name": "shape_medium",
-        "timestamp_utc": "2025-08-10T05:45:05.198989+00:00"
+        "timestamp_utc": "2025-08-10T06:38:18.774580+00:00"
       },
       "scenario": "indexing-discovery",
       "total_gb": 375.63

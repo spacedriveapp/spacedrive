@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use super::{infer_hardware_label, Scenario};
 use crate::core_boot::CoreBoot;
-use crate::metrics::{BenchmarkRun, Durations, RunMeta};
+use crate::metrics::{collect_host_info, BenchmarkRun, Durations, RunMeta};
 use crate::recipe::Recipe;
 
 #[derive(Default)]
@@ -191,6 +191,7 @@ impl Scenario for IndexingDiscoveryScenario {
 				hardware_label: crate::metrics::derive_hardware_label_from_paths(&location_paths)
 					.or_else(|| infer_hardware_label(&recipe.name)),
 				timestamp_utc: Some(chrono::Utc::now().to_rfc3339()),
+				host: collect_host_info(),
 			};
 			let durations = Durations {
 				discovery_s: discovery_duration_s,

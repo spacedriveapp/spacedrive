@@ -507,6 +507,16 @@ async fn run_all(
 
 async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str) -> Result<()> {
 	#[derive(serde::Deserialize, Debug)]
+	struct HostInfo {
+		#[serde(default)]
+		cpu_model: Option<String>,
+		#[serde(default)]
+		cpu_physical_cores: Option<usize>,
+		#[serde(default)]
+		memory_total_gb: Option<u64>,
+	}
+
+	#[derive(serde::Deserialize, Debug)]
 	struct RunMeta {
 		id: Option<uuid::Uuid>,
 		recipe_name: Option<String>,
@@ -514,6 +524,8 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 		location_paths: Option<Vec<std::path::PathBuf>>,
 		#[serde(default)]
 		hardware_label: Option<String>,
+		#[serde(default)]
+		host: Option<HostInfo>,
 	}
 
 	#[derive(serde::Deserialize, Debug, Default)]
@@ -571,8 +583,21 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 		runs: Vec<BenchmarkRunFile>,
 	}
 
-	let mut rows: Vec<(String, String, String, f64, u64, f64, u64, f64, f64, u64)> = Vec::new();
-	// (scenario, recipe, hardware, duration_s, files, files_per_s, dirs, dirs_per_s, total_gb, errors)
+	let mut rows: Vec<(
+		String, // scenario
+		String, // recipe
+		String, // hardware label
+		String, // cpu model
+		String, // cpu cores
+		String, // memory GB
+		f64,    // duration_s
+		u64,    // files
+		f64,    // files_per_s
+		u64,    // dirs
+		f64,    // dirs_per_s
+		f64,    // total_gb
+		u64,    // errors
+	)> = Vec::new();
 
 	for entry in std::fs::read_dir(&results_dir)? {
 		let entry = entry?;
@@ -676,10 +701,27 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 								})
 						})
 						.unwrap_or_else(|| "?".into());
+					let cpu_model = meta
+						.host
+						.as_ref()
+						.and_then(|h| h.cpu_model.clone())
+						.unwrap_or_default();
+					let cpu_cores = meta
+						.host
+						.as_ref()
+						.and_then(|h| h.cpu_physical_cores)
+						.map(|v| v.to_string())
+						.unwrap_or_default();
+					let mem_gb = meta
+						.host
+						.as_ref()
+						.and_then(|h| h.memory_total_gb)
+						.map(|v| v.to_string())
+						.unwrap_or_default();
 					let duration = durations.total_s.unwrap_or(0.0);
 					rows.push((
-						scenario, recipe, hardware, duration, files, files_ps, dirs, dirs_ps,
-						total_gb, errors,
+						scenario, recipe, hardware, cpu_model, cpu_cores, mem_gb, duration, files,
+						files_ps, dirs, dirs_ps, total_gb, errors,
 					));
 				}
 			}
@@ -701,24 +743,40 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 					_ => None,
 				}
 			}
-			// Average files/s across shapes (shape_small/medium/large) per phase and hardware
-			let mut by_hw_phase: HashMap<(String, String), Vec<f64>> = HashMap::new();
-			for (sc, rc, hw, _du, _f, fps, _d, _dps, _gb, _e) in &rows {
+			// Average files/s and GB/s across shapes per phase and hardware
+			let mut by_hw_phase_fps: HashMap<(String, String), Vec<f64>> = HashMap::new();
+			let mut by_hw_phase_gbps: HashMap<(String, String), Vec<f64>> = HashMap::new();
+			for (sc, rc, hw, _cpu, _cores, _mem, du, _f, fps, _d, _dps, gb, _e) in &rows {
 				let Some(phase) = phase_for_scenario(sc) else {
 					continue;
 				};
 				if rc.starts_with("shape_") && *fps > 0.0 {
-					by_hw_phase
+					by_hw_phase_fps
 						.entry((phase.to_string(), hw.clone()))
 						.or_default()
 						.push(*fps);
+					let gbps = if *du > 0.0 { *gb / *du } else { 0.0 };
+					if gbps > 0.0 {
+						by_hw_phase_gbps
+							.entry((phase.to_string(), hw.clone()))
+							.or_default()
+							.push(gbps);
+					}
 				}
 			}
-			let mut entries: Vec<(String, String, f64)> = Vec::new();
-			for ((phase, hw), vals) in by_hw_phase.into_iter() {
+			let mut entries: Vec<(String, String, f64, f64)> = Vec::new();
+			for ((phase, hw), vals) in by_hw_phase_fps.into_iter() {
 				if !vals.is_empty() {
 					let avg = vals.iter().copied().sum::<f64>() / (vals.len() as f64);
-					entries.push((phase, hw, avg));
+					let gbps_vals = by_hw_phase_gbps
+						.remove(&(phase.clone(), hw.clone()))
+						.unwrap_or_default();
+					let avg_gbps = if !gbps_vals.is_empty() {
+						gbps_vals.iter().copied().sum::<f64>() / (gbps_vals.len() as f64)
+					} else {
+						0.0
+					};
+					entries.push((phase, hw, avg, avg_gbps));
 				}
 			}
 			fn phase_rank(p: &str) -> i32 {
@@ -731,21 +789,24 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 			}
 			entries.sort_by(|a, b| phase_rank(&a.0).cmp(&phase_rank(&b.0)).then(a.1.cmp(&b.1)));
 			let mut s = String::new();
-			s.push_str("Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe\n");
-			for (phase, hw, avg) in entries {
-				s.push_str(&format!("{},{},{:.1},,, ,,,\n", phase, hw, avg));
+			s.push_str("Phase,Hardware,Files_per_s,GB_per_s\n");
+			for (phase, hw, avg_fps, avg_gbps) in entries {
+				s.push_str(&format!(
+					"{},{},{:.1},{:.2}\n",
+					phase, hw, avg_fps, avg_gbps
+				));
 			}
 			s
 		}
 		"csv" => {
 			let mut s = String::new();
 			s.push_str(
-				"scenario,recipe,duration_s,files,files_per_s,dirs,dirs_per_s,total_gb,errors\n",
-			);
-			for (sc, rc, _hw, du, f, fps, d, dps, gb, e) in &rows {
+                "scenario,recipe,hardware,cpu_model,cpu_physical_cores,memory_total_gb,duration_s,files,files_per_s,dirs,dirs_per_s,total_gb,errors\n",
+            );
+			for (sc, rc, hw, cpu, cores, mem, du, f, fps, d, dps, gb, e) in &rows {
 				s.push_str(&format!(
-					"{},{},{:.2},{},{:.1},{},{:.1},{:.2},{}\n",
-					sc, rc, du, f, fps, d, dps, gb, e
+					"{},{},{},{},{},{},{:.2},{},{:.1},{},{:.1},{:.2},{}\n",
+					sc, rc, hw, cpu, cores, mem, du, f, fps, d, dps, gb, e
 				));
 			}
 			s
@@ -755,7 +816,7 @@ async fn results_table(results_dir: PathBuf, out: Option<PathBuf>, format: &str)
 			let mut s = String::new();
 			s.push_str("| scenario | recipe | duration (s) | files | files/s | dirs | dirs/s | total GB | errors |\n");
 			s.push_str("|---|---|---:|---:|---:|---:|---:|---:|---:|\n");
-			for (sc, rc, _hw, du, f, fps, d, dps, gb, e) in &rows {
+			for (sc, rc, _hw, _cpu, _cores, _mem, du, f, fps, d, dps, gb, e) in &rows {
 				s.push_str(&format!(
 					"| {} | {} | {:.2} | {} | {:.1} | {} | {:.1} | {:.2} | {} |\n",
 					sc, rc, du, f, fps, d, dps, gb, e

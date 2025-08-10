@@ -47,6 +47,8 @@ pub struct RunMeta {
 	pub hardware_label: Option<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub timestamp_utc: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub host: Option<HostInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -59,6 +61,44 @@ pub struct Durations {
 	pub content_s: Option<f64>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub total_s: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HostInfo {
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub cpu_model: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub cpu_physical_cores: Option<usize>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub memory_total_gb: Option<u64>,
+}
+
+pub fn collect_host_info() -> Option<HostInfo> {
+	use sysinfo::System;
+	let mut system = System::new_all();
+	system.refresh_all();
+
+	let cpu_model = system
+		.cpus()
+		.get(0)
+		.map(|c| c.brand().to_string())
+		.filter(|s| !s.is_empty());
+
+	let cpu_physical_cores = system.physical_core_count();
+
+	// sysinfo >=0.30 reports memory in bytes. Convert to GB (rounded).
+	let memory_total_gb = system
+		.total_memory()
+		.checked_div(1024 * 1024 * 1024)
+		.filter(|gb| *gb > 0);
+
+	let info = HostInfo {
+		cpu_model,
+		cpu_physical_cores,
+		memory_total_gb,
+	};
+
+	Some(info)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
