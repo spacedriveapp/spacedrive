@@ -3,7 +3,7 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use super::Scenario;
+use super::{infer_hardware_label, Scenario};
 use crate::core_boot::CoreBoot;
 use crate::metrics::ScenarioResult;
 use crate::recipe::Recipe;
@@ -88,7 +88,8 @@ impl Scenario for IndexingDiscoveryScenario {
 		loop {
 			let mut remaining = 0usize;
 			let mut active_statuses: Vec<(uuid::Uuid, String)> = Vec::new();
-			for jid in &self.job_ids {
+        let location_paths: Vec<PathBuf> = recipe.locations.iter().map(|l| l.path.clone()).collect();
+        for jid in &self.job_ids {
 				match job_manager.get_job_info(*jid).await {
 					Ok(Some(info)) => {
 						if !info.status.is_terminal() {
@@ -126,12 +127,14 @@ impl Scenario for IndexingDiscoveryScenario {
 			tokio::time::sleep(Duration::from_millis(500)).await;
 		}
 
-		// Parse metrics from job logs (temporary until structured metrics available)
+        // Parse metrics from job logs (temporary until structured metrics available)
 		let re = Regex::new(r"Indexing completed in ([0-9.]+)s:|Files: ([0-9]+) \(([0-9.]+)/s\)|Directories: ([0-9]+) \(([0-9.]+)/s\)|Total size: ([0-9.]+) GB|Errors: ([0-9]+)|Phase timing: discovery ([0-9.]+)s, processing ([0-9.]+)s, content ([0-9.]+)s").unwrap();
 		let log_dir = self
 			.job_logs_dir
 			.clone()
 			.unwrap_or_else(|| PathBuf::from("."));
+
+        let location_paths: Vec<PathBuf> = recipe.locations.iter().map(|l| l.path.clone()).collect();
 
 		for jid in &self.job_ids {
 			let log_path = log_dir.join(format!("{}.log", jid));
@@ -179,10 +182,12 @@ impl Scenario for IndexingDiscoveryScenario {
 					}
 				}
 			}
-			results.push(ScenarioResult {
+            results.push(ScenarioResult {
 				id: *jid,
 				scenario: self.name().to_string(),
 				recipe_name: recipe.name.clone(),
+                location_paths: location_paths.clone(),
+                hardware_label: infer_hardware_label(&recipe.name),
 				duration_s: duration_s.unwrap_or_default(),
 				discovery_duration_s,
 				processing_duration_s,

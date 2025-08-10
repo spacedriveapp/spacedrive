@@ -1,0 +1,20 @@
+name: shape_large
+seed: 13579
+locations:
+  - path: benchdata/shape_large
+    structure:
+      depth: 4
+      fanout_per_dir: 12
+    files:
+      total: 100000
+      size_buckets:
+        tiny: { range: [0, 1024], share: 0.05 }
+        small: { range: [1024, 65536], share: 0.25 }
+        medium: { range: [65536, 5000000], share: 0.45 }
+        large: { range: [5000000, 1000000000], share: 0.25 }
+      extensions: [txt, md, jpg, png, mp4, mkv, pdf, zip, tar]
+      duplicate_ratio: 0.1
+      content_gen:
+        mode: partial
+        sample_block_size: 10240
+        magic_headers: true

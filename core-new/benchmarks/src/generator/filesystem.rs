@@ -302,6 +302,15 @@ impl DatasetGenerator for FileSystemGenerator {
 					}
 				}
 			}
+			// After generation for this location, write a marker file
+			let marker = loc.path.join(".sd-bench-generated");
+			if let Err(e) = std::fs::write(&marker, b"ok") {
+				eprintln!(
+					"Warning: failed to write generation marker at {}: {}",
+					marker.display(),
+					e
+				);
+			}
 		}
 
 		Ok(())

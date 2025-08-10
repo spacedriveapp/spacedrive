@@ -1,0 +1,19 @@
+name: shape_small
+seed: 12345
+locations:
+  - path: benchdata/shape_small
+    structure:
+      depth: 2
+      fanout_per_dir: 8
+    files:
+      total: 5000
+      size_buckets:
+        small: { range: [4096, 131072], share: 0.6 }
+        medium: { range: [1048576, 5242880], share: 0.3 }
+        large: { range: [5242880, 10485760], share: 0.1 }
+      extensions: [pdf, zip, jpg, txt]
+      duplicate_ratio: 0.1
+      content_gen:
+        mode: partial
+        sample_block_size: 10240
+        magic_headers: true

@@ -32,8 +32,10 @@ This document explains how to use and extend the benchmarking suite that lives i
 
 - Generate one recipe:
   - `cargo run -p sd-bench -- mkdata --recipe benchmarks/recipes/nvme_small.yaml`
-- Generate all recipes in a directory:
+- Generate all recipes in a directory (default locations under `locations[].path` in each recipe):
   - `cargo run -p sd-bench -- mkdata-all --recipes-dir benchmarks/recipes`
+- Generate datasets on an external disk without changing recipes (prefix relative recipe paths):
+  - `cargo run -p sd-bench -- mkdata-all --recipes-dir benchmarks/recipes --dataset-root /Volumes/YourHDD`
 - Run one scenario with one recipe and write a JSON summary:
   - Discovery: `cargo run -p sd-bench -- run --scenario indexing-discovery --recipe benchmarks/recipes/nvme_small.yaml --out-json benchmarks/results/nvme_small-indexing-discovery.json`
   - Content identification: `cargo run -p sd-bench -- run --scenario content-identification --recipe benchmarks/recipes/nvme_small.yaml --out-json benchmarks/results/nvme_small-content-identification.json`
@@ -43,6 +45,11 @@ This document explains how to use and extend the benchmarking suite that lives i
   - Equivalent explicit form:
     - `cargo run -p sd-bench -- run-all --scenario indexing-discovery --recipes-dir benchmarks/recipes --out-dir benchmarks/results`
   - Reuse existing datasets without regenerating: `cargo run -p sd-bench -- run-all --skip-generate`
+  - Run against datasets on an external disk (prefix relative paths):
+    - `cargo run -p sd-bench -- run-all --scenario indexing-discovery --recipes-dir benchmarks/recipes --out-dir benchmarks/results --dataset-root /Volumes/YourHDD`
+  - Only run a subset of recipes using a filename regex (applied to the recipe file stem):
+    - HDD only: `--recipe-filter '^hdd_'`
+    - Single recipe via run-all: `--recipe-filter '^nvme_small$'`
 
 - Generate the whitepaper CSV from JSON summaries (consumed by the LaTeX doc):
   - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format whitepaper`
@@ -51,16 +58,22 @@ The CLI always prints a brief stdout summary and (if applicable) the path to the
 
 ## Commands
 
-- `mkdata --recipe <path>`
+- `mkdata --recipe <path> [--dataset-root <path>]`
   - Generates a dataset based on a YAML recipe (see Recipe Schema below).
-- `mkdata-all [--recipes-dir <dir>]`
+  - With `--dataset-root`, any relative `locations[].path` in the recipe is prefixed with this path (absolute paths are left unchanged). Useful for targeting an external HDD.
+- `mkdata-all [--recipes-dir <dir>] [--dataset-root <path>] [--recipe-filter <regex>]`
   - Scans a directory for `.yaml` / `.yml` and runs `mkdata` for each file.
-- `run --scenario <name> --recipe <path> [--out-json <path>]`
+  - `--dataset-root` prefixes relative `locations[].path` as above.
+  - `--recipe-filter` filters recipe files by filename (regex applied to file stem), e.g. `^hdd_`.
+- `run --scenario <name> --recipe <path> [--out-json <path>] [--dataset-root <path>]`
   - Boots an isolated core, ensures a benchmark library, adds recipe locations, waits for jobs to finish.
   - Summarizes metrics to stdout; optionally writes JSON summary at `--out-json`.
-- `run-all [--scenario <name>] [--recipes-dir <dir>] [--out-dir <dir>] [--skip-generate]`
+  - `--dataset-root` prefixes relative `locations[].path` at runtime (absolute paths untouched).
+- `run-all [--scenario <name>] [--recipes-dir <dir>] [--out-dir <dir>] [--skip-generate] [--dataset-root <path>] [--recipe-filter <regex>]`
   - For each recipe file, runs `mkdata` then `run` and writes JSON per recipe into `--out-dir`.
   - With `--skip-generate`, it will not call `mkdata` and will instead validate that all `locations[].path` exist, skipping recipes whose dataset paths are missing.
+  - `--dataset-root` redirects relative recipe paths to the provided root (absolute paths untouched).
+  - `--recipe-filter` selects a subset of recipes by regex on filename stem.
 
 ## Architecture
 
@@ -170,16 +183,17 @@ media:
 
 ### Whitepaper CSV
 
-- After producing JSON results (e.g., via `run` or `run-all`), generate a CSV tailored for the whitepaper tables:
+- After producing JSON results (e.g., via `run` or `run-all`), generate a CSV used by the LaTeX whitepaper:
   - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format whitepaper`
-- Output schema matches the LaTeX reader in `whitepaper/spacedrive.tex`:
+- Current CSV schema (consumed by `whitepaper/spacedrive.tex`):
 
-  - Header: `Phase,Metric,Value,Unit`
-  - Rows aggregate best observed throughput per phase across hardware classes inferred from recipe names:
-    - Discovery: scenario `indexing-discovery` (files/sec)
-    - Processing: scenario `aggregation` (files/sec)
-    - Content: scenario `content-identification` (files/sec)
-  - Hardware labels are derived from recipe prefixes like `nvme_*`, `hdd_*`, etc.
+  - Header: `Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe`
+  - Rows summarize the best observed throughput per hardware class and phase:
+    - Discovery: scenario `indexing-discovery`
+    - Processing: scenario `aggregation`
+    - Content Identification: scenario `content-identification`
+  - Hardware labels are inferred from recipe filenames (`nvme_*`, `hdd_*`, etc.).
+  - LaTeX formats numeric columns via `siunitx` for grouping.
 
 - The LaTeX document reads `../benchmarks/results/whitepaper_metrics.csv`, so ensure the command above writes to that path.
 

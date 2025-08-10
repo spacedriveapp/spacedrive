@@ -14,12 +14,14 @@ pub mod entry_state_service;
 pub mod file_sharing;
 pub mod location_watcher;
 pub mod networking;
+pub mod sidecar_manager;
 pub mod volume_monitor;
 
 use device::DeviceService;
 use file_sharing::FileSharingService;
 use location_watcher::{LocationWatcher, LocationWatcherConfig};
 use networking::NetworkingService;
+use sidecar_manager::SidecarManager;
 use volume_monitor::{VolumeMonitorService, VolumeMonitorConfig};
 
 /// Container for all background services
@@ -34,6 +36,8 @@ pub struct Services {
 	pub networking: Option<Arc<NetworkingService>>,
 	/// Volume monitoring service
 	pub volume_monitor: Option<Arc<VolumeMonitorService>>,
+	/// Sidecar manager
+	pub sidecar_manager: Arc<SidecarManager>,
 	/// Library key manager
 	pub library_key_manager: Arc<LibraryKeyManager>,
 	/// Shared context for all services
@@ -52,6 +56,7 @@ impl Services {
 		));
 		let file_sharing = Arc::new(FileSharingService::new(context.clone()));
 		let device = Arc::new(DeviceService::new(context.clone()));
+		let sidecar_manager = Arc::new(SidecarManager::new(context.clone()));
 		let library_key_manager = context.library_key_manager.clone();
 
 		Self {
@@ -60,6 +65,7 @@ impl Services {
 			device,
 			networking: None, // Initialized separately when needed
 			volume_monitor: None, // Initialized after library manager is available
+			sidecar_manager,
 			library_key_manager,
 			context,
 		}

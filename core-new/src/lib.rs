@@ -202,15 +202,34 @@ impl Core {
 		
 		let context = Arc::new(context_inner);
 
-		// 10. Auto-load all libraries with context for job manager initialization
-		info!("Loading existing libraries...");
-		match libraries.load_all_with_context(context.clone()).await {
-			Ok(count) => info!("Loaded {} libraries", count),
-			Err(e) => error!("Failed to load libraries: {}", e),
-		}
-
-		// 11. Initialize services, passing them the context
+		// 10. Initialize services first, passing them the context
 		let services = Services::new(context.clone());
+
+		// 11. Auto-load all libraries with context for job manager initialization
+		info!("Loading existing libraries...");
+		let loaded_libraries: Vec<Arc<crate::library::Library>> = match libraries.load_all_with_context(context.clone()).await {
+			Ok(count) => {
+				info!("Loaded {} libraries", count);
+				libraries.list().await
+			}
+			Err(e) => {
+				error!("Failed to load libraries: {}", e);
+				vec![]
+			}
+		};
+
+		// Initialize sidecar manager for each loaded library
+		for library in &loaded_libraries {
+			info!("Initializing sidecar manager for library {}", library.id());
+			if let Err(e) = services.sidecar_manager.init_library(&library).await {
+				error!("Failed to initialize sidecar manager for library {}: {}", library.id(), e);
+			} else {
+				// Run bootstrap scan
+				if let Err(e) = services.sidecar_manager.bootstrap_scan(&library).await {
+					error!("Failed to run sidecar bootstrap scan for library {}: {}", library.id(), e);
+				}
+			}
+		}
 
 		info!("Starting background services...");
 		match services.start_all().await {

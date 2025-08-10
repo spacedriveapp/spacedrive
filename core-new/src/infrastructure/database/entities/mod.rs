@@ -1,5 +1,5 @@
 //! Sea-ORM entity definitions
-//! 
+//!
 //! These map our domain models to database tables.
 
 pub mod content_kind;
@@ -20,6 +20,9 @@ pub mod audit_log;
 pub mod volume;
 pub mod collection;
 pub mod collection_entry;
+pub mod sidecar;
+pub mod sidecar_availability;
+pub mod indexer_rule;
 
 // Re-export all entities
 pub use device::Entity as Device;
@@ -36,6 +39,9 @@ pub use audit_log::Entity as AuditLog;
 pub use volume::Entity as Volume;
 pub use collection::Entity as Collection;
 pub use collection_entry::Entity as CollectionEntry;
+pub use sidecar::Entity as Sidecar;
+pub use sidecar_availability::Entity as SidecarAvailability;
+pub use indexer_rule::Entity as IndexerRule;
 
 // Re-export active models for easy access
 pub use device::ActiveModel as DeviceActive;
@@ -52,3 +58,6 @@ pub use audit_log::ActiveModel as AuditLogActive;
 pub use volume::ActiveModel as VolumeActive;
 pub use collection::ActiveModel as CollectionActive;
 pub use collection_entry::ActiveModel as CollectionEntryActive;
+pub use sidecar::ActiveModel as SidecarActive;
+pub use sidecar_availability::ActiveModel as SidecarAvailabilityActive;
+pub use indexer_rule::ActiveModel as IndexerRuleActive;

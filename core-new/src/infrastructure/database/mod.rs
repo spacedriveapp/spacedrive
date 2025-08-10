@@ -16,6 +16,12 @@ pub struct Database {
 	conn: DatabaseConnection,
 }
 
+impl AsRef<DatabaseConnection> for Database {
+    fn as_ref(&self) -> &DatabaseConnection {
+        &self.conn
+    }
+}
+
 impl Database {
 	/// Create a new database at the specified path
 	pub async fn create(path: &Path) -> Result<Self, DbErr> {

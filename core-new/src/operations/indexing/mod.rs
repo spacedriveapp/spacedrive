@@ -1,5 +1,5 @@
 //! Production-ready indexing system for Spacedrive
-//! 
+//!
 //! This module implements a sophisticated file indexing system with:
 //! - Multi-phase processing (discovery, processing, content identification)
 //! - Full resumability with checkpoint support
@@ -13,6 +13,7 @@ pub mod job;
 pub mod state;
 pub mod entry;
 pub mod filters;
+pub mod rules;
 pub mod metrics;
 pub mod phases;
 pub mod progress;
@@ -23,13 +24,22 @@ pub mod path_resolver;
 
 // Re-exports for convenience
 pub use job::{
-    IndexerJob, IndexMode, IndexScope, IndexPersistence, 
+    IndexerJob, IndexMode, IndexScope, IndexPersistence,
     IndexerJobConfig, EphemeralIndex, EphemeralContentIdentity,
     IndexerOutput
 };
 pub use state::{IndexerState, IndexerProgress, IndexPhase, IndexerStats};
 pub use entry::{EntryProcessor, EntryMetadata};
 pub use filters::should_skip_path;
+pub use rules::{
+    IndexerRuler,
+    IndexerRule,
+    RulePerKind,
+    RuleKind,
+    RulerDecision,
+    RuleToggles,
+    build_default_ruler,
+};
 pub use metrics::IndexerMetrics;
 pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
 pub use action::IndexingAction;

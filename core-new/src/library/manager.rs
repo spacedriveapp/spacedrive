@@ -246,6 +246,9 @@ impl LibraryManager {
 			libraries.insert(config.id, library.clone());
 		}
 
+		// Note: Sidecar manager initialization should be done by the Core when libraries are loaded
+		// This allows Core to pass its services reference
+
 		// Auto-track user-relevant volumes for this library
 		info!(
 			"Auto-tracking user-relevant volumes for library {}",

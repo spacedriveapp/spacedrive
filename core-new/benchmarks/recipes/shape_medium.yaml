@@ -1,0 +1,20 @@
+name: shape_medium
+seed: 67890
+locations:
+  - path: benchdata/shape_medium
+    structure:
+      depth: 3
+      fanout_per_dir: 12
+    files:
+      total: 20000
+      size_buckets:
+        tiny: { range: [0, 1024], share: 0.10 }
+        small: { range: [1024, 65536], share: 0.35 }
+        medium: { range: [65536, 5000000], share: 0.40 }
+        large: { range: [5000000, 250000000], share: 0.15 }
+      extensions: [txt, md, jpg, png, pdf, zip]
+      duplicate_ratio: 0.1
+      content_gen:
+        mode: partial
+        sample_block_size: 10240
+        magic_headers: true

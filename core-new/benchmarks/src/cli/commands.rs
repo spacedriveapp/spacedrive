@@ -44,6 +44,9 @@ pub enum Commands {
 		/// Prefix relative recipe locations with this path (e.g., /Volumes/HDD)
 		#[arg(long)]
 		dataset_root: Option<PathBuf>,
+		/// Only include recipe files whose filename matches this regex (applied to file stem), e.g. ^hdd_
+		#[arg(long)]
+		recipe_filter: Option<String>,
 	},
 	/// Run a benchmark scenario
 	Run {
@@ -79,6 +82,12 @@ pub enum Commands {
 		/// Prefix relative recipe locations with this path (e.g., /Volumes/HDD)
 		#[arg(long)]
 		dataset_root: Option<PathBuf>,
+		/// Only include recipe files whose filename matches this regex (applied to file stem), e.g. ^hdd_
+		#[arg(long)]
+		recipe_filter: Option<String>,
+		/// Optional tag appended to output filenames to avoid overwrites (e.g., nvme, seagate). If omitted, derives from dataset_root basename when present.
+		#[arg(long)]
+		out_tag: Option<String>,
 	},
 }
 
@@ -91,7 +100,8 @@ pub async fn run(cli: Cli) -> Result<()> {
 		Commands::MkdataAll {
 			recipes_dir,
 			dataset_root,
-		} => mkdata_all(recipes_dir, dataset_root).await?,
+			recipe_filter,
+		} => mkdata_all(recipes_dir, dataset_root, recipe_filter).await?,
 		Commands::Run {
 			scenario,
 			recipe,
@@ -105,7 +115,20 @@ pub async fn run(cli: Cli) -> Result<()> {
 			out_dir,
 			skip_generate,
 			dataset_root,
-		} => run_all(scenario, recipes_dir, out_dir, skip_generate, dataset_root).await?,
+			recipe_filter,
+			out_tag,
+		} => {
+			run_all(
+				scenario,
+				recipes_dir,
+				out_dir,
+				skip_generate,
+				dataset_root,
+				recipe_filter,
+				out_tag,
+			)
+			.await?
+		}
 		Commands::ResultsTable {
 			results_dir,
 			out,
@@ -140,6 +163,16 @@ async fn mkdata(recipe_path: PathBuf, dataset_root: Option<PathBuf>) -> Result<(
 		serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
 	let recipe = apply_dataset_root(recipe, dataset_root);
 
+	// If all location markers exist, skip generation
+	let all_ready = recipe
+		.locations
+		.iter()
+		.all(|loc| loc.path.join(".sd-bench-generated").exists());
+	if all_ready {
+		println!("Dataset already present (markers found), skipping generation.");
+		return Ok(());
+	}
+
 	let gen = bench::generator::FileSystemGenerator::default();
 	gen.generate(&recipe).await?;
 	println!("Generated dataset: {}", recipe.name);
@@ -147,7 +180,11 @@ async fn mkdata(recipe_path: PathBuf, dataset_root: Option<PathBuf>) -> Result<(
 	Ok(())
 }
 
-async fn mkdata_all(recipes_dir: PathBuf, dataset_root: Option<PathBuf>) -> Result<()> {
+async fn mkdata_all(
+	recipes_dir: PathBuf,
+	dataset_root: Option<PathBuf>,
+	recipe_filter: Option<String>,
+) -> Result<()> {
 	let mut entries: Vec<PathBuf> = Vec::new();
 	for entry in std::fs::read_dir(&recipes_dir)? {
 		let entry = entry?;
@@ -164,7 +201,27 @@ async fn mkdata_all(recipes_dir: PathBuf, dataset_root: Option<PathBuf>) -> Resu
 		println!("No recipes found in {}", recipes_dir.display());
 		return Ok(());
 	}
+	// Optional filter by regex on file stem
+	let matcher = if let Some(pat) = recipe_filter {
+		Some(
+			regex::Regex::new(&pat)
+				.map_err(|e| anyhow::anyhow!("bad recipe_filter regex: {}", e))?,
+		)
+	} else {
+		None
+	};
+
 	for recipe in entries {
+		if let Some(rx) = &matcher {
+			let stem = recipe
+				.file_stem()
+				.unwrap_or_default()
+				.to_string_lossy()
+				.to_string();
+			if !rx.is_match(&stem) {
+				continue;
+			}
+		}
 		mkdata(recipe, dataset_root.clone()).await?;
 	}
 	println!("\nCompleted MkdataAll for {}", recipes_dir.display());
@@ -236,6 +293,15 @@ async fn run_scenario(
 	}
 	for r in &results {
 		println!("\nBenchmark summary (job {}):", r.id);
+		if !r.location_paths.is_empty() {
+			println!("- Locations:");
+			for p in &r.location_paths {
+				println!("  - {}", p.display());
+			}
+		}
+		if let Some(hw) = &r.hardware_label {
+			println!("- Hardware: {}", hw);
+		}
 		if r.duration_s > 0.0 {
 			println!("- Duration: {:.2}s", r.duration_s);
 		}
@@ -279,6 +345,8 @@ async fn run_all(
 	out_dir: PathBuf,
 	skip_generate: bool,
 	dataset_root: Option<PathBuf>,
+	recipe_filter: Option<String>,
+	out_tag: Option<String>,
 ) -> Result<()> {
 	std::fs::create_dir_all(&out_dir)?;
 	println!(
@@ -303,7 +371,27 @@ async fn run_all(
 		return Ok(());
 	}
 
+	// Optional filter by regex on file stem
+	let matcher = if let Some(pat) = &recipe_filter {
+		Some(
+			regex::Regex::new(pat)
+				.map_err(|e| anyhow::anyhow!("bad recipe_filter regex: {}", e))?,
+		)
+	} else {
+		None
+	};
+
 	for recipe in entries {
+		if let Some(rx) = &matcher {
+			let stem = recipe
+				.file_stem()
+				.unwrap_or_default()
+				.to_string_lossy()
+				.to_string();
+			if !rx.is_match(&stem) {
+				continue;
+			}
+		}
 		println!("\n---");
 		println!("Preparing {}", recipe.display());
 
@@ -318,10 +406,23 @@ async fn run_all(
 
 		if !skip_generate {
 			if all_paths_exist_before {
-				println!(
-					"Skipping dataset generation (paths already present for recipe '{}')",
-					parsed.name
-				);
+				// If marker files exist for all locations, skip; otherwise generate
+				let all_marked = parsed
+					.locations
+					.iter()
+					.all(|loc| loc.path.join(".sd-bench-generated").exists());
+				if all_marked {
+					println!(
+						"Skipping dataset generation (markers found) for '{}'",
+						parsed.name
+					);
+				} else {
+					println!(
+						"Paths exist but no generation markers found; generating/repairing '{}'",
+						parsed.name
+					);
+					mkdata(recipe.clone(), dataset_root.clone()).await?;
+				}
 			} else {
 				mkdata(recipe.clone(), dataset_root.clone()).await?;
 			}
@@ -349,7 +450,17 @@ async fn run_all(
 			.unwrap_or_default()
 			.to_string_lossy()
 			.to_string();
-		let out_json = out_dir.join(format!("{}-{}.json", stem, scenario));
+		let suffix = if let Some(tag) = &out_tag {
+			format!("-{}", tag)
+		} else if let Some(root) = &dataset_root {
+			root.file_name()
+				.and_then(|s| s.to_str())
+				.map(|s| format!("-{}", s))
+				.unwrap_or_default()
+		} else {
+			String::new()
+		};
+		let out_json = out_dir.join(format!("{}-{}{}.json", stem, scenario, suffix));
 		println!("Executing scenario -> {}", out_json.display());
 		run_scenario(
 			scenario.clone(),

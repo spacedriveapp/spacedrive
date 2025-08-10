@@ -20,3 +20,18 @@ pub mod registry;
 pub use indexing_discovery::IndexingDiscoveryScenario;
 pub use content_identification::ContentIdentificationScenario;
 pub use aggregation::AggregationScenario;
+
+pub fn infer_hardware_label(recipe_name: &str) -> Option<String> {
+    let r = recipe_name.to_lowercase();
+    if r.starts_with("nvme_") {
+        Some("Internal NVMe SSD".to_string())
+    } else if r.starts_with("hdd_") {
+        Some("External HDD (USB 3.0)".to_string())
+    } else if r.contains("nas") {
+        Some("Network Attached Storage (1Gbps)".to_string())
+    } else if r.contains("usb") {
+        Some("External USB 3.2 SSD".to_string())
+    } else {
+        None
+    }
+}

@@ -33,7 +33,7 @@ impl CommandHandler for LibraryHandler {
 				{
 					Ok(library) => DaemonResponse::LibraryCreated {
 						id: library.id(),
-						name: library.name().await,
+						name: name.clone(),  // Use the name passed in instead of reading from library
 						path: library.path().to_path_buf(),
 					},
 					Err(e) => DaemonResponse::Error(e.to_string()),

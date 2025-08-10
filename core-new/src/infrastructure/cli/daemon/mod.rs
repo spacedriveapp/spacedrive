@@ -398,6 +398,7 @@ async fn handle_client(
 
 		let json = serde_json::to_string(&response)?;
 		writer.write_all(format!("{}\n", json).as_bytes()).await?;
+		writer.flush().await?;
 
 		line.clear();
 	}

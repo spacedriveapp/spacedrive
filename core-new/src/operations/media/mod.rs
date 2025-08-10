@@ -7,5 +7,9 @@
 //! - Image optimization
 
 pub mod thumbnail;
+pub mod live_photo;
+pub mod live_photo_query;
 
 pub use thumbnail::ThumbnailJob;
+pub use live_photo::{LivePhoto, LivePhotoDetector};
+pub use live_photo_query::{LivePhotoQuery, LivePhotoPair};

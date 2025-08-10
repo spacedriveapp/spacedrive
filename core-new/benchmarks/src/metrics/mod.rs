@@ -6,6 +6,10 @@ pub struct ScenarioResult {
 	pub id: uuid::Uuid,
 	pub scenario: String,
 	pub recipe_name: String,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub location_paths: Vec<PathBuf>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub hardware_label: Option<String>,
 	pub duration_s: f64,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub discovery_duration_s: Option<f64>,

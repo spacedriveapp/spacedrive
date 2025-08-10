@@ -3,7 +3,7 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use super::Scenario;
+use super::{infer_hardware_label, Scenario};
 use crate::core_boot::CoreBoot;
 use crate::metrics::ScenarioResult;
 use crate::recipe::Recipe;
@@ -176,16 +176,20 @@ impl Scenario for AggregationScenario {
 			} else {
 				0.0
 			};
-			let dirs_per_s = if proc_secs > 0.0 {
-				dirs.unwrap_or_default() as f64 / proc_secs
-			} else {
-				0.0
-			};
+            let dirs_per_s = if proc_secs > 0.0 {
+                dirs.unwrap_or_default() as f64 / proc_secs
+            } else {
+                0.0
+            };
 
-			results.push(ScenarioResult {
+            let location_paths: Vec<PathBuf> = recipe.locations.iter().map(|l| l.path.clone()).collect();
+
+            results.push(ScenarioResult {
 				id: *jid,
 				scenario: self.name().to_string(),
 				recipe_name: recipe.name.clone(),
+                location_paths: location_paths.clone(),
+                hardware_label: infer_hardware_label(&recipe.name),
 				duration_s: proc_secs,
 				discovery_duration_s: discovery,
 				processing_duration_s: processing,

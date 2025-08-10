@@ -18,6 +18,7 @@ pub mod libraries;
 pub mod locations;
 pub mod media;
 pub mod metadata;
+pub mod sidecar;
 pub mod volumes;
 
 /// Register all jobs with the job system
