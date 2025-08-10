@@ -1,8 +1,8 @@
-# Design Document: The Spacedrive Activity Center
+# Design Document: The Spacedrive UI
 
 ## 1. Overview
 
-This document outlines the design for the **Spacedrive Activity Center**, a next-generation user interface for monitoring and managing all background tasks and system operations. Inspired by the file transfer dialogs in native operating systems, the Activity Center reimagines this concept as a beautiful, interactive, and radically transparent "mission control" for the entire VDFS.
+This document outlines the design for the refreshed **Spacedrive UI**, a next-generation user interface for monitoring and managing all background tasks and system operations. Inspired by the file transfer dialogs in native operating systems, the UI reimagines this concept as a beautiful, interactive, and radically transparent "mission control" for the entire VDFS.
 
 It provides a single, unified view of file operations, compute jobs (indexing, thumbnailing), real-time sync status, and actions taken by AI agents.
 
@@ -16,7 +16,7 @@ It provides a single, unified view of file operations, compute jobs (indexing, t
 
 ## 3. Architectural Components of the UI
 
-The Activity Center is composed of three main components that work together to create a rich, informative experience.
+The UI is composed of three main components that work together to create a rich, informative experience.
 
 ### 3.1. The Live Resource Component
 

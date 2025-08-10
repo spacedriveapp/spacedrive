@@ -1,0 +1,25 @@
+{
+  "runs": [
+    {
+      "content_duration_s": 0.0,
+      "directories": 72,
+      "directories_per_s": 61.4,
+      "discovery_duration_s": 1.2,
+      "duration_s": 1.17,
+      "errors": 0,
+      "files": 5000,
+      "files_per_s": 4264.7,
+      "id": "d2ef2dbb-cceb-4d93-b7ed-2073c71c038f",
+      "location_paths": [
+        "/Volumes/Seagate/benchdata/shape_small"
+      ],
+      "processing_duration_s": 1.1,
+      "raw_artifacts": [
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/d2ef2dbb-cceb-4d93-b7ed-2073c71c038f.log"
+      ],
+      "recipe_name": "shape_small",
+      "scenario": "indexing-discovery",
+      "total_gb": 8.21
+    }
+  ]
+}
