@@ -139,10 +139,20 @@ fn apply_dataset_root(
 	root: Option<PathBuf>,
 ) -> bench::recipe::Recipe {
 	if let Some(r) = root {
-		let r = r;
 		for loc in &mut recipe.locations {
 			if loc.path.is_relative() {
-				loc.path = r.join(&loc.path);
+				// If the location path starts with "benchdata/", replace it with just the recipe name
+				if let Some(path_str) = loc.path.to_str() {
+					if path_str.starts_with("benchdata/") {
+						// Extract the part after "benchdata/"
+						let recipe_subdir = path_str.strip_prefix("benchdata/").unwrap_or(path_str);
+						loc.path = r.join(recipe_subdir);
+					} else {
+						loc.path = r.join(&loc.path);
+					}
+				} else {
+					loc.path = r.join(&loc.path);
+				}
 			}
 		}
 	}
@@ -236,7 +246,8 @@ async fn run_scenario(
 			.and_then(|stem| stem.to_str())
 			.and_then(|s| {
 				// Extract suffix after last hyphen (e.g., "nvme" from "shape_small-indexing-discovery-nvme")
-				s.rsplit('-').next()
+				s.rsplit('-')
+					.next()
 					.filter(|suffix| matches!(*suffix, "nvme" | "hdd" | "ssd" | "nas" | "usb"))
 					.map(|s| s.to_string())
 			})
@@ -270,7 +281,7 @@ async fn run_scenario(
 		.into_iter()
 		.find(|s| s.name() == scenario)
 		.ok_or_else(|| anyhow::anyhow!(format!("unknown scenario: {}", scenario)))?;
-	
+
 	// Set hardware hint if available
 	if hardware_hint.is_some() {
 		scenario_impl.set_hardware_hint(hardware_hint.clone());
@@ -395,9 +406,10 @@ async fn run_all(
 			.map(|loc| {
 				let path = PathBuf::from(&loc);
 				// Use the existing hardware detection function
-				let hardware_label = crate::metrics::derive_hardware_label_from_paths(&[path.clone()])
-					.unwrap_or_else(|| "Unknown".to_string());
-				
+				let hardware_label =
+					crate::metrics::derive_hardware_label_from_paths(&[path.clone()])
+						.unwrap_or_else(|| "Unknown".to_string());
+
 				// Extract a simple tag from the hardware label for filename
 				let tag = if hardware_label.contains("NVMe") {
 					"nvme"
@@ -410,7 +422,7 @@ async fn run_all(
 				} else {
 					"unknown"
 				};
-				
+
 				println!("Detected {} as {}", path.display(), hardware_label);
 				(path, tag.to_string())
 			})
@@ -426,13 +438,13 @@ async fn run_all(
 	} else {
 		// Default to all scenarios
 		vec![
-			"indexing-discovery".to_string(),
+			"indexing_discovery".to_string(),
 			"aggregation".to_string(),
-			"content-identification".to_string(),
+			"content_identification".to_string(),
 		]
 	};
 	std::fs::create_dir_all(&out_dir)?;
-	
+
 	// Collect all recipe files
 	let mut recipe_paths: Vec<PathBuf> = Vec::new();
 	for entry in std::fs::read_dir(&recipes_dir)? {
@@ -491,18 +503,22 @@ async fn run_all(
 
 	// Iterate over all combinations of location, scenario, and recipe
 	for (location_path, hardware_tag) in &location_configs {
-		println!("\n=== Running benchmarks on {} ({}) ===", location_path.display(), hardware_tag);
-		
+		println!(
+			"\n=== Running benchmarks on {} ({}) ===",
+			location_path.display(),
+			hardware_tag
+		);
+
 		for scenario in &scenarios_to_run {
 			println!("\n--- Scenario: {} ---", scenario);
-			
+
 			for recipe_path in &filtered_recipes {
 				let recipe_stem = recipe_path
 					.file_stem()
 					.unwrap_or_default()
 					.to_string_lossy()
 					.to_string();
-				
+
 				println!("\nProcessing recipe: {}", recipe_stem);
 
 				// Read and parse recipe
@@ -510,7 +526,7 @@ async fn run_all(
 					.with_context(|| format!("reading recipe {recipe_path:?}"))?;
 				let mut parsed: bench::recipe::Recipe =
 					serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
-				
+
 				// Apply location path to recipe
 				let parsed = apply_dataset_root(parsed, Some(location_path.clone()));
 
@@ -520,7 +536,7 @@ async fn run_all(
 						.locations
 						.iter()
 						.all(|loc| loc.path.join(".sd-bench-generated").exists());
-					
+
 					if !all_marked {
 						println!("Generating dataset at {}", location_path.display());
 						mkdata(recipe_path.clone(), Some(location_path.clone())).await?;
@@ -548,13 +564,11 @@ async fn run_all(
 				// Construct output filename with hardware tag
 				let out_json = out_dir.join(format!(
 					"{}-{}-{}.json",
-					recipe_stem,
-					scenario,
-					hardware_tag
+					recipe_stem, scenario, hardware_tag
 				));
-				
+
 				println!("Executing -> {}", out_json.display());
-				
+
 				run_scenario(
 					scenario.clone(),
 					recipe_path.clone(),
@@ -562,7 +576,7 @@ async fn run_all(
 					Some(location_path.clone()),
 				)
 				.await?;
-				
+
 				total_runs += 1;
 			}
 		}

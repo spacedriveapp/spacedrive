@@ -31,28 +31,32 @@ This document explains how to use and extend the benchmarking suite that lives i
 ## Quickstart
 
 - Generate one recipe:
-  - `cargo run -p sd-bench -- mkdata --recipe benchmarks/recipes/nvme_small.yaml`
+  - `cargo run -p sd-bench -- mkdata --recipe benchmarks/recipes/shape_small.yaml`
 - Generate all recipes in a directory (default locations under `locations[].path` in each recipe):
   - `cargo run -p sd-bench -- mkdata-all --recipes-dir benchmarks/recipes`
 - Generate datasets on an external disk without changing recipes (prefix relative recipe paths):
   - `cargo run -p sd-bench -- mkdata-all --recipes-dir benchmarks/recipes --dataset-root /Volumes/YourHDD`
 - Run one scenario with one recipe and write a JSON summary:
-  - Discovery: `cargo run -p sd-bench -- run --scenario indexing-discovery --recipe benchmarks/recipes/nvme_small.yaml --out-json benchmarks/results/nvme_small-indexing-discovery.json`
-  - Content identification: `cargo run -p sd-bench -- run --scenario content-identification --recipe benchmarks/recipes/nvme_small.yaml --out-json benchmarks/results/nvme_small-content-identification.json`
-- Run the scenario for all recipes (writes per-recipe JSON summaries):
+  - Discovery: `cargo run -p sd-bench -- run --scenario indexing-discovery --recipe benchmarks/recipes/shape_small.yaml --out-json benchmarks/results/shape_small-indexing-discovery-nvme.json`
+  - Content identification: `cargo run -p sd-bench -- run --scenario content-identification --recipe benchmarks/recipes/shape_small.yaml --out-json benchmarks/results/shape_small-content-identification-nvme.json`
+- **NEW: Run all scenarios on multiple locations with automatic hardware detection:**
+  ```bash
+  # Run all scenarios (discovery, aggregation, content-id) on both NVMe and HDD
+  cargo run -p sd-bench -- run-all --locations "/tmp/benchdata" "/Volumes/Seagate/benchdata"
+  
+  # Run specific scenarios on multiple locations
+  cargo run -p sd-bench -- run-all \
+    --scenarios indexing-discovery aggregation \
+    --locations "/Users/me/benchdata" "/Volumes/HDD/benchdata" "/Volumes/SSD/benchdata"
+  
+  # Filter to only shape recipes
+  cargo run -p sd-bench -- run-all \
+    --locations "/tmp/benchdata" "/Volumes/Seagate/benchdata" \
+    --recipe-filter "^shape_"
+  ```
 
-  - `cargo run -p sd-bench -- run-all`
-  - Equivalent explicit form:
-    - `cargo run -p sd-bench -- run-all --scenario indexing-discovery --recipes-dir benchmarks/recipes --out-dir benchmarks/results`
-  - Reuse existing datasets without regenerating: `cargo run -p sd-bench -- run-all --skip-generate`
-  - Run against datasets on an external disk (prefix relative paths):
-    - `cargo run -p sd-bench -- run-all --scenario indexing-discovery --recipes-dir benchmarks/recipes --out-dir benchmarks/results --dataset-root /Volumes/YourHDD`
-  - Only run a subset of recipes using a filename regex (applied to the recipe file stem):
-    - HDD only: `--recipe-filter '^hdd_'`
-    - Single recipe via run-all: `--recipe-filter '^nvme_small$'`
-
-- Generate the whitepaper CSV from JSON summaries (consumed by the LaTeX doc):
-  - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format whitepaper`
+- Generate CSV reports from JSON summaries:
+  - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format csv`
 
 The CLI always prints a brief stdout summary and (if applicable) the path to the generated JSON. It also prints job log paths for later inspection.
 
@@ -69,11 +73,15 @@ The CLI always prints a brief stdout summary and (if applicable) the path to the
   - Boots an isolated core, ensures a benchmark library, adds recipe locations, waits for jobs to finish.
   - Summarizes metrics to stdout; optionally writes JSON summary at `--out-json`.
   - `--dataset-root` prefixes relative `locations[].path` at runtime (absolute paths untouched).
-- `run-all [--scenario <name>] [--recipes-dir <dir>] [--out-dir <dir>] [--skip-generate] [--dataset-root <path>] [--recipe-filter <regex>]`
-  - For each recipe file, runs `mkdata` then `run` and writes JSON per recipe into `--out-dir`.
-  - With `--skip-generate`, it will not call `mkdata` and will instead validate that all `locations[].path` exist, skipping recipes whose dataset paths are missing.
-  - `--dataset-root` redirects relative recipe paths to the provided root (absolute paths untouched).
-  - `--recipe-filter` selects a subset of recipes by regex on filename stem.
+- `run-all [--scenarios <names...>] [--locations <paths...>] [--recipes-dir <dir>] [--out-dir <dir>] [--skip-generate] [--recipe-filter <regex>]`
+  - **Enhanced for multi-location, multi-scenario benchmarking with automatic hardware detection**
+  - Runs all combinations of scenarios × locations × recipes, automatically detecting hardware type from volume information.
+  - `--scenarios`: Optional list of scenarios to run. If not specified, runs all: `indexing-discovery`, `aggregation`, `content-identification`.
+  - `--locations`: List of paths where datasets should be generated/benchmarked. Hardware type is automatically detected from the volume (e.g., NVMe, HDD, SSD).
+  - Output files are automatically named: `{recipe}-{scenario}-{hardware}.json` (e.g., `shape_small-indexing-discovery-nvme.json`).
+  - With `--skip-generate`, it will not generate datasets and expects them to exist.
+  - `--recipe-filter` selects a subset of recipes by regex on filename stem (e.g., `^shape_` for shape recipes only).
+  - The system automatically handles the `benchdata/` prefix in recipes, so you can specify `/tmp/benchdata` and it will create `/tmp/benchdata/shape_small` etc.
 
 ## Architecture
 
@@ -90,13 +98,13 @@ The CLI always prints a brief stdout summary and (if applicable) the path to the
 
 ## Recipe Schema
 
-YAML schema (see `benchmarks/recipes/*.yaml`). Example:
+YAML schema (see `benchmarks/recipes/*.yaml`). Recipe names no longer need hardware prefixes - hardware is auto-detected. Example:
 
 ```yaml
-name: nvme_small
+name: shape_small
 seed: 12345
 locations:
-  - path: benchdata/nvme_small
+  - path: benchdata/shape_small  # Note: 'benchdata/' prefix is handled automatically
     structure:
       depth: 2
       fanout_per_dir: 8
@@ -181,21 +189,22 @@ media:
 - Register additional reporters in `benchmarks/src/reporting/registry.rs`.
 - Planned: Markdown, CSV, HTML.
 
-### Whitepaper CSV
+### CSV Reports
 
-- After producing JSON results (e.g., via `run` or `run-all`), generate a CSV used by the LaTeX whitepaper:
-  - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format whitepaper`
-- Current CSV schema (consumed by `whitepaper/spacedrive.tex`):
+- After producing JSON results (e.g., via `run` or `run-all`), generate CSV reports:
+  - `cargo run -p sd-bench -- results-table --results-dir benchmarks/results --out benchmarks/results/whitepaper_metrics.csv --format csv`
+- The CSV format shows all individual benchmark runs with automatic hardware detection:
 
   - Header: `Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe`
-  - Rows summarize the best observed throughput per hardware class and phase:
-    - Discovery: scenario `indexing-discovery`
-    - Processing: scenario `aggregation`
-    - Content Identification: scenario `content-identification`
-  - Hardware labels are inferred from recipe filenames (`nvme_*`, `hdd_*`, etc.).
-  - LaTeX formats numeric columns via `siunitx` for grouping.
+  - Each row represents one benchmark run
+  - Phase names: "Discovery" (indexing-discovery), "Processing" (aggregation), "Content Identification" (content-identification)
+  - Hardware labels are automatically detected from the volume where the benchmark was run (e.g., "Internal NVMe SSD", "External HDD (Seagate)")
+  - Results are sorted by phase, then hardware, then recipe name
+  - The LaTeX document reads `../benchmarks/results/whitepaper_metrics.csv`
 
-- The LaTeX document reads `../benchmarks/results/whitepaper_metrics.csv`, so ensure the command above writes to that path.
+- Other supported formats:
+  - `--format json`: Export as JSON (default)
+  - `--format markdown`: Generate a markdown table (useful for documentation)
 
 ## Core Boot (Isolated)
 
@@ -203,9 +212,39 @@ media:
 - Job logging is enabled and sized for benchmarks. Job logs are printed after each run and are included as artifacts in results.
 - A dedicated library is created/used for benchmark runs.
 
+## Key Features & Improvements
+
+### Automatic Hardware Detection
+- The benchmark suite now automatically detects hardware type from the volume where benchmarks are run
+- No need for hardware-specific recipe names or manual tagging
+- Detects: Internal/External NVMe SSD, HDD, SSD, Network Attached Storage
+- Hardware information is included in output filenames and benchmark results
+
+### Multi-Location, Multi-Scenario Execution
+- Run all benchmark combinations with a single command
+- Automatically generates datasets at each location if needed
+- Output files are named systematically: `{recipe}-{scenario}-{hardware}.json`
+- Example: `shape_small-indexing-discovery-nvme.json`
+
+### Smart Path Handling
+- The `benchdata/` prefix in recipes is handled intelligently
+- Specify `/tmp/benchdata` as location, and it creates `/tmp/benchdata/shape_small` (not `/tmp/benchdata/benchdata/shape_small`)
+- Works seamlessly with external drives and network volumes
+
+### Enhanced Reporting
+- CSV reporter shows all individual runs (not aggregated)
+- Results are sorted by phase → hardware → recipe for easy comparison
+- Hardware labels are human-readable (e.g., "External HDD (Seagate)")
+
 ## Best Practices
 
-- For fast iteration, use smaller recipes (`nvme_tiny.yaml`) and `content_gen.mode: partial`.
+- For comprehensive benchmarking across hardware:
+  ```bash
+  cargo run -p sd-bench -- run-all \
+    --locations "/path/to/nvme" "/Volumes/HDD" "/Volumes/SSD" \
+    --recipe-filter "^shape_"
+  ```
+- For fast iteration, use smaller recipes (`shape_small.yaml`) and `content_gen.mode: partial`.
 - For realistic content identification, set `magic_headers: true` and `content_gen.mode: partial` or `full` for a subset of files.
 - Keep seeds fixed in CI to avoid result variance.
 

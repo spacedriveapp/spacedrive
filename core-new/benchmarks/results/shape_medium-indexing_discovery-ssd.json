@@ -2,29 +2,29 @@
   "runs": [
     {
       "dirs": 1847,
-      "dirs_per_s": 57.9,
+      "dirs_per_s": 251.2,
       "durations": {
         "content_s": 0.0,
-        "discovery_s": 31.9,
-        "processing_s": 5.6,
-        "total_s": 31.91
+        "discovery_s": 7.4,
+        "processing_s": 6.2,
+        "total_s": 7.35
       },
       "errors": 0,
       "files": 20000,
-      "files_per_s": 626.7,
+      "files_per_s": 2720.6,
       "meta": {
-        "hardware_label": "External HDD (Seagate)",
+        "hardware_label": "Internal SSD (Macintosh HD)",
         "host": {
           "cpu_model": "Apple M3 Max",
           "cpu_physical_cores": 16,
           "memory_total_gb": 48
         },
-        "id": "d7d44268-659e-4397-970f-a25c18535543",
+        "id": "e3a3c71e-1850-4f71-9d4f-5ef8b9a94df5",
         "location_paths": [
-          "/Volumes/Seagate/benchdata/shape_medium"
+          "/Users/jamespine/Projects/spacedrive/core-new/benchdata/shape_medium"
         ],
         "recipe_name": "shape_medium",
-        "timestamp_utc": "2025-08-10T07:20:29.763659+00:00"
+        "timestamp_utc": "2025-08-10T09:10:54.220721+00:00"
       },
       "scenario": "indexing-discovery",
       "total_gb": 375.63
