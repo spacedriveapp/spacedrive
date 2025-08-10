@@ -1,0 +1,33 @@
+{
+  "runs": [
+    {
+      "dirs": 1847,
+      "dirs_per_s": 6.948833709556057,
+      "durations": {
+        "content_s": 265.8,
+        "discovery_s": 273.4,
+        "processing_s": 272.1,
+        "total_s": 265.8
+      },
+      "errors": 0,
+      "files": 20000,
+      "files_per_s": 75.24454477050413,
+      "meta": {
+        "hardware_label": "Internal SSD (Macintosh HD)",
+        "host": {
+          "cpu_model": "Apple M3 Max",
+          "cpu_physical_cores": 16,
+          "memory_total_gb": 48
+        },
+        "id": "62872b39-d91b-4195-89e5-d63986c516ea",
+        "location_paths": [
+          "/Users/jamespine/Projects/spacedrive/core-new/benchdata/shape_medium"
+        ],
+        "recipe_name": "shape_medium",
+        "timestamp_utc": "2025-08-10T09:40:28.247578+00:00"
+      },
+      "scenario": "content-identification",
+      "total_gb": 375.63
+    }
+  ]
+}

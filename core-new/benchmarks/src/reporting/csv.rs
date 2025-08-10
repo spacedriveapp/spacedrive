@@ -36,7 +36,7 @@ impl Reporter for CsvReporter {
 
 	fn render(&self, runs: &[BenchmarkRun], dest: &Path) -> Result<()> {
 		// Collect all data rows first so we can sort them
-		let mut data_rows: Vec<(String, String, f64, f64, u64, u64, f64, u64, String)> = Vec::new();
+		let mut data_rows: Vec<(String, String, f64, f64, u64, u64, f64, u64, String, f64)> = Vec::new();
 
 		// Process each run individually
 		for run in runs {
@@ -110,13 +110,17 @@ impl Reporter for CsvReporter {
 				.clone()
 				.unwrap_or_else(|| "Unknown".to_string());
 
-			// Calculate GB/s
-			let gb_per_s = if let Some(duration) = durations.total_s {
-				if duration > 0.0 {
-					total_gb / duration
-				} else {
-					0.0
-				}
+			// Get phase-specific duration or fall back to total
+			let phase_duration = match scenario {
+				"indexing_discovery" => durations.discovery_s.unwrap_or(durations.total_s.unwrap_or(0.0)),
+				"aggregation" => durations.processing_s.unwrap_or(durations.total_s.unwrap_or(0.0)),
+				"content_identification" => durations.content_s.unwrap_or(durations.total_s.unwrap_or(0.0)),
+				_ => durations.total_s.unwrap_or(0.0),
+			};
+
+			// Calculate GB/s using phase-specific duration
+			let gb_per_s = if phase_duration > 0.0 {
+				total_gb / phase_duration
 			} else {
 				0.0
 			};
@@ -131,6 +135,7 @@ impl Reporter for CsvReporter {
 				total_gb,
 				errors,
 				meta.recipe_name.clone(),
+				phase_duration,
 			));
 		}
 
@@ -144,14 +149,14 @@ impl Reporter for CsvReporter {
 
 		// Build CSV output
 		let mut rows =
-			vec!["Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe".to_string()];
+			vec!["Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe,Duration_s".to_string()];
 
-		for (phase, hardware, files_per_s, gb_per_s, files, dirs, total_gb, errors, recipe) in
+		for (phase, hardware, files_per_s, gb_per_s, files, dirs, total_gb, errors, recipe, duration) in
 			data_rows
 		{
 			rows.push(format!(
-				"{},{},{:.1},{:.2},{},{},{:.2},{},{}",
-				phase, hardware, files_per_s, gb_per_s, files, dirs, total_gb, errors, recipe
+				"{},{},{:.1},{:.2},{},{},{:.2},{},{},{:.1}",
+				phase, hardware, files_per_s, gb_per_s, files, dirs, total_gb, errors, recipe, duration
 			));
 		}
 

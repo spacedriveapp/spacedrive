@@ -2101,13 +2101,13 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 	\label{tab:performance}
     \begin{tabular}{llrrrrrrl}
 	\toprule
-    \textbf{Phase} & \textbf{Hardware} & \textbf{Files/s} & \textbf{GB/s} & \textbf{Files} & \textbf{Dirs} & \textbf{GB} & \textbf{Recipe} \\
+    \textbf{Phase} & \textbf{Hardware} & \textbf{Files/s} &  \textbf{Duration/s} & \textbf{GB/s} & \textbf{Files} & \textbf{Dirs} & \textbf{GB} & \textbf{Recipe} \\
 	\midrule
     \multicolumn{8}{l}{\textit{Indexing}} \\
 	\csvreader[
 	late after line=\\
-    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Files_per_s=\Fps,GB_per_s=\Gbps,Files=\Files,Dirs=\Dirs,GB=\Gb,Recipe=\Recipe}{%
-    \Phase & \Hardware & \num{\Fps} & \num{\Gbps} & \num{\Files} & \num{\Dirs} & \num{\Gb} & \url{\Recipe}}
+    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Files_per_s=\Fps,Duration_s=\Duration,GB_per_s=\Gbps,Files=\Files,Dirs=\Dirs,GB=\Gb,Recipe=\Recipe}{%
+    \Phase & \Hardware & \num{\Fps} & \num{\Duration} & \num{\Gbps} & \num{\Files} & \num{\Dirs} & \num{\Gb} & \url{\Recipe}}
 	\bottomrule
 	\end{tabular}
 	\end{table*}
