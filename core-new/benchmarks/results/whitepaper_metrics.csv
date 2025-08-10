@@ -1,10 +1,19 @@
 Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe,Duration_s
+Discovery,External HDD (Seagate),1702.9,202.43,100000,16507,11882.38,0,shape_large,58.7
+Discovery,External HDD (Seagate),880.9,16.55,20000,1847,375.63,0,shape_medium,22.7
+Discovery,External HDD (Seagate),1828.2,3.04,5000,72,8.21,0,shape_small,2.7
 Discovery,Internal SSD (Macintosh HD),1662.5,197.38,100000,16507,11882.38,0,shape_large,60.2
 Discovery,Internal SSD (Macintosh HD),2720.6,50.76,20000,1847,375.63,0,shape_medium,7.4
 Discovery,Internal SSD (Macintosh HD),3588.6,5.86,5000,72,8.21,0,shape_small,1.4
+Processing,External HDD (Seagate),1666.7,198.04,100000,16507,11882.38,0,shape_large,60.0
+Processing,External HDD (Seagate),3278.7,61.58,20000,1847,375.63,0,shape_medium,6.1
+Processing,External HDD (Seagate),4166.7,6.84,5000,72,8.21,0,shape_small,1.2
 Processing,Internal SSD (Macintosh HD),1890.4,224.62,100000,16507,11882.38,0,shape_large,52.9
 Processing,Internal SSD (Macintosh HD),3278.7,61.58,20000,1847,375.63,0,shape_medium,6.1
 Processing,Internal SSD (Macintosh HD),4166.7,6.84,5000,72,8.21,0,shape_small,1.2
+Content Identification,External HDD (Seagate),34.2,4.07,100000,16507,11882.38,0,shape_large,2922.7
+Content Identification,External HDD (Seagate),104.4,1.96,20000,1847,375.63,0,shape_medium,191.6
+Content Identification,External HDD (Seagate),129.9,0.21,5000,72,8.21,0,shape_small,38.5
 Content Identification,Internal SSD (Macintosh HD),74.6,8.86,100000,16507,11882.38,0,shape_large,1340.8
 Content Identification,Internal SSD (Macintosh HD),75.2,1.41,20000,1847,375.63,0,shape_medium,265.8
 Content Identification,Internal SSD (Macintosh HD),72.8,0.12,5000,72,8.21,0,shape_small,68.7

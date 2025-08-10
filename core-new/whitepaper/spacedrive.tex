@@ -14,6 +14,8 @@
 \usepackage{pgfplots}
 \usepackage{pgfplotstable} % load CSV tables
 \usepackage{csvsimple} % simple CSV rendering & filtering
+\usepackage{pgf-pie} % pie charts
+\usepackage{subcaption} % side-by-side figures
 \usepackage{siunitx} % number formatting with grouping
 \pgfplotsset{compat=1.17}
 \usepackage[most]{tcolorbox}
@@ -1995,7 +1997,79 @@ https://relay.company.com/drop/xyz789
 
 This unified approach to sharing—from private team collaboration to public content distribution—demonstrates how core P2P primitives scale to support diverse use cases without architectural compromises.
 
+\begin{table*}[ht]
+\centering
+\caption{Indexing Duration Summary (in seconds)}
+\label{tab:benchmark_summary}
+\sisetup{table-format=4.1, round-mode=places, round-precision=1}
+\begin{tabular}{@{}l S[table-format=2.1] S[table-format=1.1] S[table-format=2.1] S[table-format=1.1] S[table-format=2.1] S[table-format=2.1]@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{Small Dataset}} & \multicolumn{2}{c}{\textbf{Medium Dataset}} & \multicolumn{2}{c}{\textbf{Large Dataset}} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+\textbf{Phase} & {\textbf{HDD}} & {\textbf{SSD}} & {\textbf{HDD}} & {\textbf{SSD}} & {\textbf{HDD}} & {\textbf{SSD}} \\
+\midrule
+Discovery & 2.7 & 1.4 & 22.7 & 7.4 & 58.7 & 60.2 \\
+Processing & 1.2 & 1.2 & 6.1 & 6.1 & 60.0 & 52.9 \\
+Content Identification & 38.5 & 68.7 & 191.6 & 265.8 & 2922.7 & 1340.8 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
 % --- SECTION 6: IMPLEMENTATION AND EVALUATION ---
+
+\begin{figure*}[ht]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+            title={Indexing Performance by Phase and Hardware (Lower is Better)},
+            ybar=3pt, % Adjusts spacing between bars within a group.
+            enlarge x limits=0.25, % Adjusts spacing between groups and at plot edges.
+            legend style={at={(0.5,-0.25)}, anchor=north, legend columns=-1},
+            ylabel={Duration (seconds) - Logarithmic Scale},
+            ymode=log,
+            log ticks with fixed point,
+            symbolic x coords={Discovery, Processing, Content ID},
+            xtick=data,
+            bar width=7pt, % Slightly thinner bars.
+            width=0.95\textwidth,
+            height=8cm,
+            nodes near coords,
+            every node near coords/.style={
+                @if y < 100 {
+                    font=\tiny,
+                    rotate=90,
+                    anchor=west
+                }
+                @else {
+                    font=\tiny,
+                    rotate=90,
+                    anchor=west,
+                    yshift=0pt
+                }
+                @endif
+            },
+            nodes near coords style={
+                /pgf/number format/fixed,
+                /pgf/number format/precision=1
+            }
+        ]
+        % Data for HDD
+        \addplot coordinates {(Discovery, 58.7) (Processing, 60.0) (Content ID, 2922.7)};
+        \addplot coordinates {(Discovery, 22.7) (Processing, 6.1) (Content ID, 191.6)};
+        \addplot coordinates {(Discovery, 2.7) (Processing, 1.2) (Content ID, 38.5)};
+
+        % Data for SSD
+        \addplot coordinates {(Discovery, 60.2) (Processing, 52.9) (Content ID, 1340.8)};
+        \addplot coordinates {(Discovery, 7.4) (Processing, 6.1) (Content ID, 265.8)};
+        \addplot coordinates {(Discovery, 1.4) (Processing, 1.2) (Content ID, 68.7)};
+
+        \legend{HDD-Large, HDD-Medium, HDD-Small, SSD-Large, SSD-Medium, SSD-Small}
+        \end{axis}
+    \end{tikzpicture}
+    \caption{Comparison of indexing duration across different phases, hardware types, and dataset sizes. Note the logarithmic scale for the Y-axis to accommodate the wide range of timings. The most significant performance difference is in the I/O-bound Content Identification phase, where the SSD significantly outperforms the HDD on the large dataset.}
+    \label{fig:benchmark_performance}
+\end{figure*}
+
 \section{Implementation and Evaluation}
 
 \begin{keytakeaways}
@@ -2111,6 +2185,135 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 	\bottomrule
 	\end{tabular}
 	\end{table*}
+
+% --- Visualization of CSV metrics ---
+\begin{figure*}[ht]
+% Left: Phase-by-recipe (Internal SSD)
+\begin{minipage}[t]{.49\textwidth}
+\begin{tikzpicture}
+\begin{axis}[
+    ybar,
+    bar width=10pt,
+    width=\linewidth,
+    height=6.4cm,
+    enlarge x limits=0.15,
+    xlabel={Recipe},
+    ylabel={Files/s},
+    symbolic x coords={shape_small,shape_medium,shape_large},
+    xticklabels={shape\_small,shape\_medium,shape\_large},
+    xtick=data,
+    legend style={at={(0.02,0.98)}, anchor=north west, draw=none, fill=none, font=\small},
+    ymajorgrids,
+]
+% Discovery series (Internal SSD only)
+\addplot table[
+    x=Recipe,
+    y=Files_per_s,
+    col sep=comma,
+    row predicate/.code={%
+        \pgfplotstableuserowtrue
+        \ifnum\pdfstrcmp{\thisrow{Phase}}{Discovery}=0\relax\else\pgfplotstableuserowfalse\fi
+        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
+    }
+]{../benchmarks/results/whitepaper_metrics.csv};
+\addlegendentry{Discovery}
+
+% Processing series (Internal SSD only)
+\addplot table[
+    x=Recipe,
+    y=Files_per_s,
+    col sep=comma,
+    row predicate/.code={%
+        \pgfplotstableuserowtrue
+        \ifnum\pdfstrcmp{\thisrow{Phase}}{Processing}=0\relax\else\pgfplotstableuserowfalse\fi
+        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
+    }
+]{../benchmarks/results/whitepaper_metrics.csv};
+\addlegendentry{Processing}
+
+% Content Identification series (Internal SSD only)
+\addplot table[
+    x=Recipe,
+    y=Files_per_s,
+    col sep=comma,
+    row predicate/.code={%
+        \pgfplotstableuserowtrue
+        \ifnum\pdfstrcmp{\thisrow{Phase}}{Content Identification}=0\relax\else\pgfplotstableuserowfalse\fi
+        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
+    }
+]{../benchmarks/results/whitepaper_metrics.csv};
+\addlegendentry{Content Identification}
+
+\end{axis}
+\end{tikzpicture}
+\subcaption{Internal SSD: Files/s by phase and recipe}
+\label{fig:throughput_files_per_s}
+\end{minipage}%
+\hfill
+
+% Right: Storage medium comparison (shape_large)
+\begin{minipage}[t]{.49\textwidth}
+\begin{tikzpicture}
+\begin{axis}[
+    ybar,
+    bar width=12pt,
+    width=\linewidth,
+    height=6.4cm,
+    enlarge x limits=0.15,
+    xlabel={Phase},
+    ylabel={Files/s},
+    symbolic x coords={Discovery,Processing,Content Identification},
+    xtick=data,
+    legend style={at={(0.98,0.98)}, anchor=north east, draw=none, fill=none, font=\small},
+    ymajorgrids,
+]
+% Internal SSD series (shape_large)
+\addplot table[
+    x=Phase,
+    y=Files_per_s,
+    col sep=comma,
+    row predicate/.code={%
+        \pgfplotstableuserowtrue
+        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
+        \ifnum\pdfstrcmp{\thisrow{Recipe}}{shape_large}=0\relax\else\pgfplotstableuserowfalse\fi
+    }
+]{../benchmarks/results/whitepaper_metrics.csv};
+\addlegendentry{Internal SSD}
+
+% External HDD series (shape_large)
+\addplot table[
+    x=Phase,
+    y=Files_per_s,
+    col sep=comma,
+    row predicate/.code={%
+        \pgfplotstableuserowtrue
+        \ifnum\pdfstrcmp{\thisrow{Hardware}}{External HDD (Seagate)}=0\relax\else\pgfplotstableuserowfalse\fi
+        \ifnum\pdfstrcmp{\thisrow{Recipe}}{shape_large}=0\relax\else\pgfplotstableuserowfalse\fi
+    }
+]{../benchmarks/results/whitepaper_metrics.csv};
+\addlegendentry{External HDD}
+
+\end{axis}
+\end{tikzpicture}
+\subcaption{Shape\_large: Internal SSD vs External HDD}
+\label{fig:hardware_comparison_files_per_s}
+\end{minipage}
+
+\end{figure*}
+
+% Example pie chart retained but commented for space in two-column layout
+% \begin{figure}[ht]
+% \centering
+% \begin{tikzpicture}
+% \pie[
+%     color={blue!60,orange!70,green!60},
+%     text=legend,
+%     sum=auto
+% ]{60.2/Discovery,52.9/Processing,1340.8/Content Identification}
+% \end{tikzpicture}
+% \caption{Phase time distribution for recipe \texttt{shape\_large} (seconds).}
+% \label{fig:duration_pie_shape_large}
+% \end{figure}
 
 \textit{Note: Cloud storage indexing uses metadata-only requests with on-demand content fetching. Performance varies based on API rate limits and network conditions.}
 
