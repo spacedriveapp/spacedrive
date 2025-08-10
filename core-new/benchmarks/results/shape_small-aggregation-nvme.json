@@ -2,31 +2,31 @@
   "runs": [
     {
       "dirs": 72,
-      "dirs_per_s": 58.7,
+      "dirs_per_s": 72.0,
       "durations": {
         "content_s": 0.0,
-        "discovery_s": 1.2,
+        "discovery_s": 1.1,
         "processing_s": 1.0,
-        "total_s": 1.23
+        "total_s": 1.0
       },
       "errors": 0,
       "files": 5000,
-      "files_per_s": 4077.9,
+      "files_per_s": 5000.0,
       "meta": {
-        "hardware_label": "External HDD (Seagate)",
+        "hardware_label": "Internal NVMe SSD",
         "host": {
           "cpu_model": "Apple M3 Max",
           "cpu_physical_cores": 16,
           "memory_total_gb": 48
         },
-        "id": "2d0f63e4-b989-4591-aa55-d4b8e42780c5",
+        "id": "3bf4be0e-5579-44d1-aa0a-02e64db6f225",
         "location_paths": [
-          "/Volumes/Seagate/benchdata/shape_small"
+          "benchdata/shape_small"
         ],
         "recipe_name": "shape_small",
-        "timestamp_utc": "2025-08-10T07:15:50.740599+00:00"
+        "timestamp_utc": "2025-08-10T08:08:45.652435+00:00"
       },
-      "scenario": "indexing-discovery",
+      "scenario": "aggregation",
       "total_gb": 8.21
     }
   ]

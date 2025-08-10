@@ -6,7 +6,9 @@ pub trait Reporter {
 	fn render(&self, runs: &[BenchmarkRun], dest: &Path) -> anyhow::Result<()>;
 }
 
+pub mod csv;
 pub mod json_summary;
 pub mod registry;
 
+pub use csv::CsvReporter;
 pub use json_summary::JsonSummaryReporter;

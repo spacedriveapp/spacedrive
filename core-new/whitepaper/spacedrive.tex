@@ -2101,35 +2101,13 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 	\label{tab:performance}
     \begin{tabular}{llrrrrrrl}
 	\toprule
-    \textbf{Phase} & \textbf{Hardware} & \textbf{Files/s} & \textbf{GB/s} & \textbf{Files} & \textbf{Dirs} & \textbf{GB} & \textbf{Errors} & \textbf{Recipe} \\
+    \textbf{Phase} & \textbf{Hardware} & \textbf{Files/s} & \textbf{GB/s} & \textbf{Files} & \textbf{Dirs} & \textbf{GB} & \textbf{Recipe} \\
 	\midrule
-    \multicolumn{9}{l}{\textit{Indexing}} \\
+    \multicolumn{8}{l}{\textit{Indexing}} \\
 	\csvreader[
 	late after line=\\
-    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Files_per_s=\Fps,GB_per_s=\Gbps,Files=\Files,Dirs=\Dirs,GB=\Gb,Errors=\Err,Recipe=\Recipe}{%
-    \Phase & \Hardware & \num{\Fps} & \num{\Gbps} & \num{\Files} & \num{\Dirs} & \num{\Gb} & \num{\Err} & \texttt{\detokenize{\Recipe}}
-	}
-	\midrule
-	\multicolumn{3}{l}{\textit{Search Latency (1M entries)}} \\
-	Temporal Search (FTS5) & -- & ms \\
-	Semantic Search (Vector) & -- & ms \\
-	Combined Temporal-Semantic & -- & ms \\
-	\midrule
-	\multicolumn{3}{l}{\textit{Memory Usage}} \\
-	Base daemon & -- & MB \\
-	Per 1M indexed files & -- & MB \\
-	With active P2P connections & -- & MB/peer \\
-	With WASM plugins (per plugin) & -- & MB \\
-	\midrule
-	\multicolumn{3}{l}{\textit{Network Performance}} \\
-	P2P transfer (LAN) & -- & MB/s \\
-	P2P transfer (WAN w/ relay) & -- & MB/s \\
-	Connection establishment & -- & seconds \\
-	\midrule
-	\multicolumn{3}{l}{\textit{Extension System}} \\
-	WASM plugin load time & -- & ms \\
-	Integration process startup & -- & ms \\
-	IPC roundtrip latency & -- & ms \\
+    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Files_per_s=\Fps,GB_per_s=\Gbps,Files=\Files,Dirs=\Dirs,GB=\Gb,Recipe=\Recipe}{%
+    \Phase & \Hardware & \num{\Fps} & \num{\Gbps} & \num{\Files} & \num{\Dirs} & \num{\Gb} & \url{\Recipe}}
 	\bottomrule
 	\end{tabular}
 	\end{table*}

@@ -1,0 +1,33 @@
+{
+  "runs": [
+    {
+      "dirs": 0,
+      "dirs_per_s": 0.0,
+      "durations": {
+        "content_s": 66.5,
+        "discovery_s": 67.7,
+        "processing_s": 67.6,
+        "total_s": 66.5
+      },
+      "errors": 0,
+      "files": 5000,
+      "files_per_s": 75.18796992481202,
+      "meta": {
+        "hardware_label": "Internal NVMe SSD",
+        "host": {
+          "cpu_model": "Apple M3 Max",
+          "cpu_physical_cores": 16,
+          "memory_total_gb": 48
+        },
+        "id": "657fbc19-42ba-43de-8f8c-a6f9f52b2de1",
+        "location_paths": [
+          "benchdata/shape_small"
+        ],
+        "recipe_name": "shape_small",
+        "timestamp_utc": "2025-08-10T08:18:22.476657+00:00"
+      },
+      "scenario": "content-identification",
+      "total_gb": 8.21
+    }
+  ]
+}

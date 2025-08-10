@@ -3,7 +3,7 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use super::{infer_hardware_label, Scenario};
+use super::{hardware_hint_to_label, infer_hardware_label, Scenario};
 use crate::core_boot::CoreBoot;
 use crate::metrics::{collect_host_info, BenchmarkRun, Durations, RunMeta};
 use crate::recipe::Recipe;
@@ -13,6 +13,7 @@ pub struct AggregationScenario {
 	job_ids: Vec<uuid::Uuid>,
 	job_logs_dir: Option<PathBuf>,
 	library: Option<Arc<sd_core_new::library::Library>>,
+	hardware_hint: Option<String>,
 }
 
 #[async_trait::async_trait]
@@ -185,14 +186,15 @@ impl Scenario for AggregationScenario {
 			let location_paths: Vec<PathBuf> =
 				recipe.locations.iter().map(|l| l.path.clone()).collect();
 
-            let meta = RunMeta {
+			let meta = RunMeta {
 				id: *jid,
 				recipe_name: recipe.name.clone(),
 				location_paths: location_paths.clone(),
 				hardware_label: crate::metrics::derive_hardware_label_from_paths(&location_paths)
+					.or_else(|| self.hardware_hint.as_ref().and_then(|h| hardware_hint_to_label(h)))
 					.or_else(|| infer_hardware_label(&recipe.name)),
 				timestamp_utc: Some(chrono::Utc::now().to_rfc3339()),
-                host: collect_host_info(),
+				host: collect_host_info(),
 			};
 			let durations = Durations {
 				discovery_s: discovery,
@@ -213,5 +215,9 @@ impl Scenario for AggregationScenario {
 		}
 
 		Ok(results)
+	}
+	
+	fn set_hardware_hint(&mut self, hint: Option<String>) {
+		self.hardware_hint = hint;
 	}
 }

@@ -1,2 +1,6 @@
-Phase,Hardware,Files_per_s,GB_per_s
-Discovery,External HDD (Seagate),198.2,0.62
+Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe
+Discovery,External HDD (Seagate),626.7,11.77,20000,1847,375.63,0,shape_medium
+Discovery,External HDD (Seagate),4077.9,6.67,5000,72,8.21,0,shape_small
+Discovery,Internal NVMe SSD,3274.5,61.48,20000,0,375.63,0,shape_medium
+Processing,Internal NVMe SSD,5000.0,8.21,5000,72,8.21,0,shape_small
+Content Identification,Internal NVMe SSD,75.2,0.12,5000,0,8.21,0,shape_small
