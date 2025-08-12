@@ -79,6 +79,30 @@ impl PairingProtocolHandler {
             }
         }
         
+        // Mark the initiator device as connected immediately after pairing completes
+        // This ensures Bob sees Alice as connected even if the completion message fails
+        {
+            let simple_connection = crate::services::networking::device::DeviceConnection {
+                addresses: vec![], // Will be filled in later
+                latency_ms: None,
+                rx_bytes: 0,
+                tx_bytes: 0,
+            };
+            
+            let mut registry = self.device_registry.write().await;
+            if let Err(e) = registry.mark_connected(actual_device_id, simple_connection).await {
+                self.log_warn(&format!(
+                    "Warning - failed to mark initiator device {} as connected: {}",
+                    actual_device_id, e
+                )).await;
+            } else {
+                self.log_info(&format!(
+                    "Successfully marked initiator device {} as connected after pairing",
+                    actual_device_id
+                )).await;
+            }
+        }
+        
         // Update session state to completed
         {
             let mut sessions = self.active_sessions.write().await;

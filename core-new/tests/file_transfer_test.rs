@@ -187,8 +187,8 @@ async fn alice_file_transfer_scenario() {
 					"  📄 Created: {} ({} bytes, checksum: {})",
 					filename,
 					content.len(),
-					&checksum[..32]
-				); // Show first 32 chars
+					checksum
+				); // Show full checksum
 			}
 			Err(e) => {
 				println!(
@@ -584,7 +584,7 @@ async fn bob_file_transfer_scenario() {
 						match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(&received_path).await {
 							Ok(checksum) => {
 								println!("✅ Bob: Verified: {} (size: {} bytes, checksum: {})",
-									expected_name, metadata.len(), &checksum[..32]); // Show first 32 chars of checksum
+									expected_name, metadata.len(), checksum); // Show full checksum
 							}
 							Err(e) => {
 								println!("⚠️ Bob: Could not generate checksum for {}: {}", expected_name, e);
