@@ -198,6 +198,9 @@ impl DeviceRegistry {
 			}
 		};
 
+		// Extract addresses before moving connection
+		let addresses: Vec<String> = connection.addresses.iter().map(|addr| addr.to_string()).collect();
+		
 		let state = DeviceState::Connected {
 			info,
 			connection,
@@ -207,8 +210,8 @@ impl DeviceRegistry {
 
 		self.devices.insert(device_id, state);
 
-		// Update persistence - device connected successfully
-		if let Err(e) = self.persistence.update_device_connection(device_id, true, None).await {
+		// Update persistence - device connected successfully with current addresses
+		if let Err(e) = self.persistence.update_device_connection(device_id, true, Some(addresses)).await {
 			self.logger.warn(&format!("⚠️ Failed to update device connection status {}: {}", device_id, e)).await;
 		}
 

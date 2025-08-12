@@ -243,7 +243,7 @@ async fn bob_pairing_scenario() {
 
 /// Main test orchestrator - spawns cargo test subprocesses
 #[tokio::test]
-async fn pairing_test() {
+async fn test_device_pairing() {
 	const PAIRING_CODE_PATH: &str = "/tmp/spacedrive-pairing-test/pairing_code.txt";
 
 	// Clean up stale pairing code file from previous test runs
@@ -258,7 +258,7 @@ async fn pairing_test() {
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-pairing-test");
 	std::fs::create_dir_all("/tmp/spacedrive-pairing-test").unwrap();
 
-	let mut runner = CargoTestRunner::for_test_file("pairing_test")
+	let mut runner = CargoTestRunner::for_test_file("device_pairing_test")
 		.with_timeout(Duration::from_secs(180))
 		.add_subprocess("alice", "alice_pairing_scenario")
 		.add_subprocess("bob", "bob_pairing_scenario");

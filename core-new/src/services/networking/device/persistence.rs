@@ -79,7 +79,11 @@ impl DevicePersistence {
         let networking_dir = data_dir.join("networking");
         let devices_file = networking_dir.join("paired_devices.json");
         
-        let device_key_manager = DeviceKeyManager::new()
+        // Use fallback file for master key to ensure consistency
+        // IMPORTANT: Use the root data_dir for the master key, not the networking subdirectory
+        // This ensures consistency with DeviceManager which also uses the root data_dir
+        let master_key_path = data_dir.join("master_key");
+        let device_key_manager = DeviceKeyManager::new_with_fallback(master_key_path)
             .map_err(|e| NetworkingError::Protocol(format!("Failed to initialize master key manager: {}", e)))?;
 
         Ok(Self {
@@ -92,31 +96,9 @@ impl DevicePersistence {
     #[cfg(test)]
     /// Create a test persistence manager with a fixed key (for testing only)
     pub fn new_for_test(data_dir: impl AsRef<Path>) -> Result<Self> {
-        let data_dir = data_dir.as_ref().to_path_buf();
-        let networking_dir = data_dir.join("networking");
-        let devices_file = networking_dir.join("paired_devices.json");
-        
-        const TEST_SERVICE: &str = "SpacedriveTest";
-        const TEST_USERNAME: &str = "test_device_persistence";
-        
-        // Clean up any existing test key
-        if let Ok(entry) = keyring::Entry::new(TEST_SERVICE, TEST_USERNAME) {
-            let _ = entry.delete_credential();
-        }
-        
-        // Create test master key manager and ensure it has a key
-        let device_key_manager = DeviceKeyManager::new_for_test(TEST_SERVICE, TEST_USERNAME)
-            .map_err(|e| NetworkingError::Protocol(format!("Failed to create test master key manager: {}", e)))?;
-        
-        // Ensure the test key exists
-        let _ = device_key_manager.get_or_create_master_key()
-            .map_err(|e| NetworkingError::Protocol(format!("Failed to create test master key: {}", e)))?;
-
-        Ok(Self {
-            data_dir: networking_dir,
-            devices_file,
-            device_key_manager,
-        })
+        // Just use the regular new() method for tests now
+        // The fallback file will ensure consistency across test runs
+        Self::new(data_dir)
     }
 
     /// Derive encryption key from master key for device persistence

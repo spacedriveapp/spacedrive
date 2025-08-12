@@ -167,6 +167,8 @@ impl NetworkingService {
 		let discovery = LocalSwarmDiscovery::new(self.node_id).map_err(|e| {
 			NetworkingError::Transport(format!("Failed to create discovery: {}", e))
 		})?;
+		
+		self.logger.info(&format!("Created LocalSwarmDiscovery for node {}", self.node_id)).await;
 
 		// Create endpoint with discovery
 		let endpoint = Endpoint::builder()
@@ -250,6 +252,9 @@ impl NetworkingService {
 
 		drop(device_registry); // Release the lock for async operations
 
+		// Give discovery service time to start up before attempting reconnections
+		tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+		
 		// Start background reconnection attempts
 		self.start_background_reconnection(auto_reconnect_devices)
 			.await;
@@ -317,27 +322,57 @@ impl NetworkingService {
 					}
 				}
 
-				// Attempt connection with Iroh
-				match endpoint.connect(node_addr, &[]).await {
-					Ok(_conn) => {
-						logger
-							.info(&format!(
-								"✅ Successfully connected to device {}",
-								device_id
-							))
-							.await;
+				// If no direct addresses, let discovery find the node
+				if node_addr.direct_addresses().count() == 0 {
+					logger
+						.info(&format!(
+							"No direct addresses for device {}, relying on discovery",
+							device_id
+						))
+						.await;
+				}
 
-						// Send connection established command
-						let _ = sender
-							.send(EventLoopCommand::ConnectionEstablished { device_id, node_id });
-					}
-					Err(e) => {
-						logger
-							.error(&format!(
-								"❌ Failed to connect to device {}: {}",
-								device_id, e
-							))
-							.await;
+				// Attempt connection with retries to give discovery time to work
+				let mut retry_count = 0;
+				let max_retries = 10;
+				let retry_delay = tokio::time::Duration::from_secs(5);
+				
+				loop {
+					// Use MESSAGING_ALPN for reconnection to paired devices
+					match endpoint.connect(node_addr.clone(), MESSAGING_ALPN).await {
+						Ok(_conn) => {
+							logger
+								.info(&format!(
+									"✅ Successfully connected to device {}",
+									device_id
+								))
+								.await;
+
+							// Send connection established command
+							let _ = sender
+								.send(EventLoopCommand::ConnectionEstablished { device_id, node_id });
+							break;
+						}
+						Err(e) => {
+							retry_count += 1;
+							if retry_count >= max_retries {
+								logger
+									.error(&format!(
+										"❌ Failed to connect to device {} after {} attempts: {}",
+										device_id, max_retries, e
+									))
+									.await;
+								break;
+							} else {
+								logger
+									.info(&format!(
+										"⏳ Connection attempt {} of {} failed for device {}, retrying in {:?}...",
+										retry_count, max_retries, device_id, retry_delay
+									))
+									.await;
+								tokio::time::sleep(retry_delay).await;
+							}
+						}
 					}
 				}
 			}

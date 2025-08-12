@@ -3,7 +3,6 @@
 use keyring::{Entry, Error as KeyringError};
 use rand::{thread_rng, Rng};
 use thiserror::Error;
-use uuid::Uuid;
 
 const KEYRING_SERVICE: &str = "Spacedrive";
 const DEVICE_KEY_USERNAME: &str = "master_encryption_key";
@@ -23,21 +22,28 @@ pub enum DeviceKeyError {
 
 pub struct DeviceKeyManager {
     entry: Entry,
+    fallback_path: Option<std::path::PathBuf>,
 }
 
 impl DeviceKeyManager {
     pub fn new() -> Result<Self, DeviceKeyError> {
         let entry = Entry::new(KEYRING_SERVICE, DEVICE_KEY_USERNAME)?;
-        Ok(Self { entry })
+        Ok(Self { entry, fallback_path: None })
+    }
+
+    pub fn new_with_fallback(fallback_path: std::path::PathBuf) -> Result<Self, DeviceKeyError> {
+        let entry = Entry::new(KEYRING_SERVICE, DEVICE_KEY_USERNAME)?;
+        Ok(Self { entry, fallback_path: Some(fallback_path) })
     }
 
     #[cfg(test)]
     pub fn new_for_test(service: &str, username: &str) -> Result<Self, DeviceKeyError> {
         let entry = Entry::new(service, username)?;
-        Ok(Self { entry })
+        Ok(Self { entry, fallback_path: None })
     }
 
     pub fn get_or_create_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], DeviceKeyError> {
+        // Try keyring first
         match self.entry.get_password() {
             Ok(key_hex) => {
                 let key_bytes = hex::decode(key_hex)
@@ -52,27 +58,93 @@ impl DeviceKeyManager {
                 Ok(key)
             }
             Err(KeyringError::NoEntry) => {
+                // Check fallback file if keyring has no entry
+                if let Some(ref path) = self.fallback_path {
+                    if path.exists() {
+                        if let Ok(key_hex) = std::fs::read_to_string(path) {
+                            if let Ok(key_bytes) = hex::decode(key_hex.trim()) {
+                                if key_bytes.len() == MASTER_KEY_LENGTH {
+                                    let mut key = [0u8; MASTER_KEY_LENGTH];
+                                    key.copy_from_slice(&key_bytes);
+                                    // Also save to keyring for future use
+                                    let _ = self.entry.set_password(&key_hex.trim());
+                                    return Ok(key);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Generate new key
                 let key = self.generate_new_master_key()?;
                 let key_hex = hex::encode(key);
+                
+                // Save to keyring
                 self.entry.set_password(&key_hex)?;
+                
+                // Also save to fallback file if specified
+                if let Some(ref path) = self.fallback_path {
+                    if let Some(parent) = path.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    let _ = std::fs::write(path, &key_hex);
+                }
+                
                 Ok(key)
             }
-            Err(e) => Err(DeviceKeyError::Keyring(e)),
+            Err(e) => {
+                // If keyring fails, try fallback file
+                if let Some(ref path) = self.fallback_path {
+                    if path.exists() {
+                        if let Ok(key_hex) = std::fs::read_to_string(path) {
+                            if let Ok(key_bytes) = hex::decode(key_hex.trim()) {
+                                if key_bytes.len() == MASTER_KEY_LENGTH {
+                                    let mut key = [0u8; MASTER_KEY_LENGTH];
+                                    key.copy_from_slice(&key_bytes);
+                                    return Ok(key);
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(DeviceKeyError::Keyring(e))
+            }
         }
     }
 
     pub fn get_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], DeviceKeyError> {
-        let key_hex = self.entry.get_password()?;
-        let key_bytes = hex::decode(key_hex)
-            .map_err(|_| DeviceKeyError::InvalidKeyFormat)?;
-        
-        if key_bytes.len() != MASTER_KEY_LENGTH {
-            return Err(DeviceKeyError::InvalidKeyFormat);
+        // Try keyring first
+        match self.entry.get_password() {
+            Ok(key_hex) => {
+                let key_bytes = hex::decode(key_hex)
+                    .map_err(|_| DeviceKeyError::InvalidKeyFormat)?;
+                
+                if key_bytes.len() != MASTER_KEY_LENGTH {
+                    return Err(DeviceKeyError::InvalidKeyFormat);
+                }
+                
+                let mut key = [0u8; MASTER_KEY_LENGTH];
+                key.copy_from_slice(&key_bytes);
+                Ok(key)
+            }
+            Err(_) => {
+                // If keyring fails, try fallback file
+                if let Some(ref path) = self.fallback_path {
+                    if path.exists() {
+                        if let Ok(key_hex) = std::fs::read_to_string(path) {
+                            if let Ok(key_bytes) = hex::decode(key_hex.trim()) {
+                                if key_bytes.len() == MASTER_KEY_LENGTH {
+                                    let mut key = [0u8; MASTER_KEY_LENGTH];
+                                    key.copy_from_slice(&key_bytes);
+                                    return Ok(key);
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(DeviceKeyError::Keyring(KeyringError::NoEntry))
+            }
         }
-        
-        let mut key = [0u8; MASTER_KEY_LENGTH];
-        key.copy_from_slice(&key_bytes);
-        Ok(key)
     }
 
     pub fn get_master_key_hex(&self) -> Result<String, DeviceKeyError> {
@@ -109,7 +181,7 @@ mod tests {
 
     fn create_test_manager() -> DeviceKeyManager {
         let entry = Entry::new(TEST_SERVICE, TEST_USERNAME).unwrap();
-        DeviceKeyManager { entry }
+        DeviceKeyManager { entry, fallback_path: None }
     }
 
     fn cleanup_test_key() {

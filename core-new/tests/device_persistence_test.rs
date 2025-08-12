@@ -56,14 +56,14 @@ async fn alice_persistence_scenario() {
 			.unwrap()
 			.unwrap();
 
-		// Give time for auto-reconnection to happen
-		tokio::time::sleep(Duration::from_secs(5)).await;
+		// Give time for auto-reconnection to happen - discovery takes time
+		tokio::time::sleep(Duration::from_secs(10)).await;
 		println!("✅ Alice: Networking initialized, checking for auto-reconnection...");
 
 		// Check if Bob reconnected automatically
 		println!("⏳ Alice: Waiting for automatic reconnection to Bob...");
 		let mut attempts = 0;
-		let max_attempts = 30; // 30 seconds
+		let max_attempts = 60; // 60 seconds - give more time for discovery
 
 		loop {
 			tokio::time::sleep(Duration::from_secs(1)).await;
@@ -262,14 +262,14 @@ async fn bob_persistence_scenario() {
 			.unwrap()
 			.unwrap();
 
-		// Give time for auto-reconnection to happen
-		tokio::time::sleep(Duration::from_secs(5)).await;
+		// Give time for auto-reconnection to happen - discovery takes time
+		tokio::time::sleep(Duration::from_secs(10)).await;
 		println!("✅ Bob: Networking initialized, checking for auto-reconnection...");
 
 		// Check if Alice reconnected automatically
 		println!("⏳ Bob: Waiting for automatic reconnection to Alice...");
 		let mut attempts = 0;
-		let max_attempts = 30; // 30 seconds
+		let max_attempts = 60; // 60 seconds - give more time for discovery
 
 		loop {
 			tokio::time::sleep(Duration::from_secs(1)).await;
@@ -431,7 +431,7 @@ async fn test_device_persistence() {
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-persistence-test");
 	std::fs::create_dir_all("/tmp/spacedrive-persistence-test").unwrap();
 
-	let mut runner = CargoTestRunner::for_test_file("test_device_persistence")
+	let mut runner = CargoTestRunner::for_test_file("device_persistence_test")
 		.with_timeout(Duration::from_secs(240)) // Longer timeout for restart test
 		.add_subprocess("alice", "alice_persistence_scenario")
 		.add_subprocess("alice_restart", "alice_persistence_scenario")
@@ -495,14 +495,17 @@ async fn test_device_persistence() {
 		.await
 		.expect("Failed to spawn Alice restart");
 
-	// Give Alice time to start up
-	tokio::time::sleep(Duration::from_secs(5)).await;
+	// Give Alice just a small head start
+	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	println!("🔄 Restarting Bob...");
 	runner
 		.spawn_single_process("bob_restart")
 		.await
 		.expect("Failed to spawn Bob restart");
+		
+	// Give both devices time to fully start up and discover each other
+	tokio::time::sleep(Duration::from_secs(8)).await;
 
 	// Wait for auto-reconnection
 	let reconnection_result = runner

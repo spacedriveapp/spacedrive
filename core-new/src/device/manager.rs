@@ -39,6 +39,8 @@ pub struct DeviceManager {
     config: Arc<RwLock<DeviceConfig>>,
     /// Master encryption key manager
     device_key_manager: DeviceKeyManager,
+    /// Custom data directory (if any)
+    data_dir: Option<PathBuf>,
 }
 
 impl DeviceManager {
@@ -71,6 +73,7 @@ impl DeviceManager {
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
             device_key_manager,
+            data_dir: None,
         })
     }
     
@@ -94,13 +97,16 @@ impl DeviceManager {
             Err(e) => return Err(e),
         };
         
-        let device_key_manager = DeviceKeyManager::new()?;
+        // Use fallback file for master key when using custom data directory
+        let master_key_path = data_dir.join("master_key");
+        let device_key_manager = DeviceKeyManager::new_with_fallback(master_key_path)?;
         // Initialize master key on first run
         device_key_manager.get_or_create_master_key()?;
         
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
             device_key_manager,
+            data_dir: Some(data_dir.clone()),
         })
     }
     
@@ -158,7 +164,13 @@ impl DeviceManager {
             .map_err(|_| DeviceError::LockPoisoned)?;
         
         config.name = name;
-        config.save()?;
+        
+        // Save to the appropriate location based on whether we have a custom data dir
+        if let Some(data_dir) = &self.data_dir {
+            config.save_to(data_dir)?;
+        } else {
+            config.save()?;
+        }
         
         Ok(())
     }
