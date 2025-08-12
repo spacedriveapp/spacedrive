@@ -114,7 +114,7 @@ pub enum BenchmarkRun {
 		errors: u64,
 		durations: Durations,
 	},
-	Aggregation {
+	Processing {
 		meta: RunMeta,
 		files: u64,
 		files_per_s: f64,

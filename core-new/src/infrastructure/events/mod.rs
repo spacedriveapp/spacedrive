@@ -1,5 +1,6 @@
 //! Event bus for decoupled communication
 
+use crate::infrastructure::jobs::output::JobOutput;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::sync::broadcast;
@@ -65,7 +66,7 @@ pub enum Event {
         // Enhanced progress data - serialized GenericProgress
         generic_progress: Option<serde_json::Value>,
     },
-    JobCompleted { job_id: String, job_type: String },
+    JobCompleted { job_id: String, job_type: String, output: JobOutput },
     JobFailed { 
         job_id: String, 
         job_type: String, 

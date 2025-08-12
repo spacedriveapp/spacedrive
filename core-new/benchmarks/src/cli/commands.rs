@@ -327,7 +327,7 @@ async fn run_scenario(
 				errors,
 				durations,
 			}
-			| BenchmarkRun::Aggregation {
+			| BenchmarkRun::Processing {
 				meta,
 				files,
 				files_per_s,
@@ -438,8 +438,7 @@ async fn run_all(
 	} else {
 		// Default to all scenarios
 		vec![
-			"indexing_discovery".to_string(),
-			"aggregation".to_string(),
+			"core_indexing".to_string(),
 			"content_identification".to_string(),
 		]
 	};
@@ -707,7 +706,7 @@ async fn render_markdown_table(results_dir: PathBuf, out: Option<PathBuf>) -> Re
 					errors,
 					durations,
 				),
-				bench::metrics::BenchmarkRun::Aggregation {
+				bench::metrics::BenchmarkRun::Processing {
 					meta,
 					files,
 					files_per_s,

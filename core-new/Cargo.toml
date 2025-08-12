@@ -125,6 +125,16 @@ keyring = "3.6"
 
 # CLI dependencies
 clap = { version = "4.5", features = ["derive", "env"] }
+comfy-table = "7.1"
+dialoguer = "0.11"
+indicatif = "0.17"
+owo-colors = "4.1"
+supports-color = "3.0"
+console = "0.15"
+colored = "2.1"
+
+[build-dependencies]
+vergen = { version = "8", features = ["git", "gitcl", "cargo"] }
 ratatui = "0.29"
 crossterm = "0.28"
 indicatif = "0.17"

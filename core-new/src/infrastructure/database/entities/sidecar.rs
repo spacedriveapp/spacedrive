@@ -19,6 +19,10 @@ pub struct Model {
     
     pub rel_path: String,
     
+    /// For reference sidecars, the entry ID of the original file
+    /// This allows sidecars to reference existing entries without moving them
+    pub source_entry_id: Option<i32>,
+    
     pub size: i64,
     
     pub checksum: Option<String>,
@@ -42,11 +46,24 @@ pub enum Relation {
         to = "super::content_identity::Column::Uuid"
     )]
     ContentIdentity,
+    
+    #[sea_orm(
+        belongs_to = "super::entry::Entity",
+        from = "Column::SourceEntryId",
+        to = "super::entry::Column::Id"
+    )]
+    SourceEntry,
 }
 
 impl Related<super::content_identity::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ContentIdentity.def()
+    }
+}
+
+impl Related<super::entry::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::SourceEntry.def()
     }
 }
 

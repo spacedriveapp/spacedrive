@@ -131,6 +131,16 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 		checkpoint_handler: std::sync::Arc<
 			dyn crate::infrastructure::jobs::context::CheckpointHandler,
 		>,
+		output_handle: std::sync::Arc<
+			tokio::sync::Mutex<
+				Option<
+					Result<
+						crate::infrastructure::jobs::output::JobOutput,
+						crate::infrastructure::jobs::error::JobError,
+					>,
+				>,
+			>,
+		>,
 		networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<crate::config::JobLoggingConfig>,

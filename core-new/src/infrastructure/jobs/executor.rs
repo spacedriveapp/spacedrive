@@ -5,10 +5,10 @@ use super::{
 	database::{self, JobDb},
 	error::{JobError, JobResult},
 	handle::JobHandle,
-	logger::FileJobLogger,
 	output::JobOutput,
 	progress::Progress,
-	traits::{Job, JobHandler, Resourceful},
+	registry::REGISTRY,
+	traits::{DynJob, Job, JobHandler},
 	types::{ErasedJob, JobId, JobMetrics, JobStatus},
 };
 use crate::{config::JobLoggingConfig, library::Library};
@@ -33,7 +33,7 @@ pub struct JobExecutorState {
 	pub broadcast_tx: broadcast::Sender<Progress>,
 	pub checkpoint_handler: Arc<dyn CheckpointHandler>,
 	pub metrics: JobMetrics,
-	pub output: Option<JobOutput>,
+	pub output: Arc<Mutex<Option<JobResult<JobOutput>>>>,
 	pub networking: Option<Arc<crate::services::networking::NetworkingService>>,
 	pub volume_manager: Option<Arc<crate::volume::VolumeManager>>,
 	pub latest_progress: Arc<Mutex<Option<Progress>>>,
@@ -52,6 +52,7 @@ impl<J: JobHandler> JobExecutor<J> {
 		progress_tx: mpsc::UnboundedSender<Progress>,
 		broadcast_tx: broadcast::Sender<Progress>,
 		checkpoint_handler: Arc<dyn CheckpointHandler>,
+		output_handle: Arc<Mutex<Option<JobResult<JobOutput>>>>,
 		networking: Option<Arc<crate::services::networking::NetworkingService>>,
 		volume_manager: Option<Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<JobLoggingConfig>,
@@ -85,7 +86,7 @@ impl<J: JobHandler> JobExecutor<J> {
 				broadcast_tx,
 				checkpoint_handler,
 				metrics: Default::default(),
-				output: None,
+				output: output_handle,
 				networking,
 				volume_manager,
 				latest_progress: Arc::new(Mutex::new(None)),
@@ -209,9 +210,13 @@ impl<J: JobHandler> JobExecutor<J> {
 		let metrics_ref = ctx.metrics.clone();
 
 		// Run the job
-		let result = match self.job.run(ctx).await {
-			Ok(output) => {
-				self.state.output = Some(output.into());
+		let result = self.job.run(ctx).await.map(|o| o.into());
+
+		// Store the final result in the handle for the manager to retrieve
+		*self.state.output.lock().await = Some(result.clone());
+
+		match result {
+			Ok(ref output) => {
 
 				// Update metrics
 				self.state.metrics = metrics_ref.lock().await.clone();
@@ -226,7 +231,7 @@ impl<J: JobHandler> JobExecutor<J> {
 				}
 
 				// Persist final status and progress to database atomically
-				let final_progress = if let Some(ref output) = self.state.output {
+				let final_progress = if let Some(Ok(ref output)) = *self.state.output.lock().await {
 					output.as_progress()
 				} else {
 					Some(Progress::percentage(1.0))
@@ -252,7 +257,7 @@ impl<J: JobHandler> JobExecutor<J> {
 				);
 				Ok(ExecStatus::Done(sd_task_system::TaskOutput::Empty))
 			}
-			Err(e) => {
+			Err(ref e) => {
 				if e.is_interrupted() {
 					debug!("Job {} interrupted", self.state.job_id);
 
@@ -332,15 +337,17 @@ impl<J: JobHandler> JobExecutor<J> {
 		};
 
 		// Clean up checkpoint if job completed
-		if matches!(result, Ok(ExecStatus::Done(_))) {
-			let _ = self
-				.state
-				.checkpoint_handler
-				.delete_checkpoint(self.state.job_id)
-				.await;
+		match &result {
+			Ok(_) => {
+				let _ = self
+					.state
+					.checkpoint_handler
+					.delete_checkpoint(self.state.job_id)
+					.await;
+				Ok(ExecStatus::Done(().into()))
+			}
+			Err(e) => Err(e.clone()),
 		}
-
-		result
 	}
 }
 
@@ -363,6 +370,7 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 		progress_tx: tokio::sync::mpsc::UnboundedSender<Progress>,
 		broadcast_tx: tokio::sync::broadcast::Sender<Progress>,
 		checkpoint_handler: std::sync::Arc<dyn CheckpointHandler>,
+		output_handle: Arc<Mutex<Option<JobResult<JobOutput>>>>,
 		networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<crate::config::JobLoggingConfig>,
@@ -396,7 +404,7 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 			broadcast_tx,
 			checkpoint_handler,
 			metrics: Default::default(),
-			output: None,
+			output: output_handle,
 			networking,
 			volume_manager,
 			latest_progress: Arc::new(Mutex::new(None)),

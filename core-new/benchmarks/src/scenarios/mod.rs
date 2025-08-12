@@ -10,21 +10,20 @@ pub trait Scenario {
 	fn describe(&self) -> &'static str;
 	async fn prepare(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<()>;
 	async fn run(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<Vec<BenchmarkRun>>;
-	
+
 	/// Set a hardware hint for this scenario (e.g., "nvme", "hdd", "ssd")
 	fn set_hardware_hint(&mut self, _hint: Option<String>) {
 		// Default implementation does nothing
 	}
 }
 
-pub mod aggregation;
+pub mod common;
 pub mod content_identification;
-pub mod indexing_discovery;
+pub mod core_indexing;
 pub mod registry;
 
-pub use aggregation::AggregationScenario;
 pub use content_identification::ContentIdentificationScenario;
-pub use indexing_discovery::IndexingDiscoveryScenario;
+pub use core_indexing::CoreIndexingScenario;
 
 pub fn infer_hardware_label(recipe_name: &str) -> Option<String> {
 	let r = recipe_name.to_lowercase();

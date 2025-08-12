@@ -45,6 +45,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
+                        ColumnDef::new(Sidecar::SourceEntryId)
+                            .integer()
+                            .null(),
+                    )
+                    .col(
                         ColumnDef::new(Sidecar::Size)
                             .big_integer()
                             .not_null(),
@@ -89,6 +94,14 @@ impl MigrationTrait for Migration {
                             .from(Sidecar::Table, Sidecar::ContentUuid)
                             .to(ContentIdentities::Table, ContentIdentities::Uuid)
                             .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_sidecar_source_entry")
+                            .from(Sidecar::Table, Sidecar::SourceEntryId)
+                            .to(Entries::Table, Entries::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
@@ -228,6 +241,7 @@ enum Sidecar {
     Variant,
     Format,
     RelPath,
+    SourceEntryId,
     Size,
     Checksum,
     Status,
@@ -261,4 +275,10 @@ enum ContentIdentities {
 enum Devices {
     Table,
     Uuid,
+}
+
+#[derive(Iden)]
+enum Entries {
+    Table,
+    Id,
 }

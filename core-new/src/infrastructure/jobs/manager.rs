@@ -7,10 +7,11 @@ use super::{
 	error::{JobError, JobResult},
 	executor::JobExecutor,
 	handle::JobHandle,
+	output::JobOutput,
 	progress::Progress,
 	registry::REGISTRY,
 	traits::{DynJob, Job, JobHandler},
-	types::{JobId, JobInfo, JobPriority, JobStatus},
+	types::{ErasedJob, JobId, JobInfo, JobPriority, JobStatus},
 };
 use crate::{
 	context::CoreContext,
@@ -208,6 +209,15 @@ impl JobManager {
 		let networking = self.context.get_networking().await;
 		let volume_manager = Some(self.context.volume_manager.clone());
 
+		// Create handle
+		let handle = JobHandle {
+			id: job_id,
+			task_handle: Arc::new(Mutex::new(None)),
+			status_rx,
+			progress_rx: broadcast_rx,
+			output: Arc::new(Mutex::new(None)),
+		};
+
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
@@ -219,20 +229,12 @@ impl JobManager {
 			Arc::new(DbCheckpointHandler {
 				db: self.db.clone(),
 			}),
+			handle.output.clone(),
 			networking,
 			volume_manager,
 			self.context.job_logging_config.clone(),
 			self.context.job_logs_dir.clone(),
 		);
-
-		// Create handle
-		let handle = JobHandle {
-			id: job_id,
-			task_handle: Arc::new(Mutex::new(None)),
-			status_rx,
-			progress_rx: broadcast_rx,
-			output: Arc::new(Mutex::new(None)),
-		};
 
 		// Dispatch to task system
 		let task_handle = self
@@ -265,11 +267,28 @@ impl JobManager {
 						let status = *status_rx.borrow();
 						match status {
 							JobStatus::Completed => {
-								// Emit completion event
+								// Get the final output from the handle before removing the job
+								let output = {
+									let jobs = running_jobs.read().await;
+									if let Some(job) = jobs.get(&job_id_clone) {
+										let result = job.handle.output.lock().await.clone();
+										match result {
+											Some(Ok(output)) => output,
+											Some(Err(_)) => JobOutput::Success,
+											None => JobOutput::Success,
+										}
+									} else {
+										JobOutput::Success
+									}
+								};
+
+								// Emit completion event with the job's output
 								event_bus.emit(Event::JobCompleted {
 									job_id: job_id_clone.to_string(),
 									job_type: job_type_str.clone(),
+									output,
 								});
+
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
 								info!(
@@ -446,6 +465,18 @@ impl JobManager {
 		let networking = self.context.get_networking().await;
 		let volume_manager = Some(self.context.volume_manager.clone());
 
+		// Clone status_rx for cleanup task
+		let status_rx_cleanup = status_rx.clone();
+
+		// Create handle
+		let handle = JobHandle {
+			id: job_id,
+			task_handle: Arc::new(Mutex::new(None)),
+			status_rx,
+			progress_rx: broadcast_rx,
+			output: Arc::new(Mutex::new(None)),
+		};
+
 		// Create executor
 		let executor = JobExecutor::new(
 			job,
@@ -458,23 +489,12 @@ impl JobManager {
 			Arc::new(DbCheckpointHandler {
 				db: self.db.clone(),
 			}),
+			handle.output.clone(),
 			networking,
 			volume_manager,
 			self.context.job_logging_config.clone(),
 			self.context.job_logs_dir.clone(),
 		);
-
-		// Clone status_rx for cleanup task
-		let status_rx_cleanup = status_rx.clone();
-
-		// Create handle
-		let handle = JobHandle {
-			id: job_id,
-			task_handle: Arc::new(Mutex::new(None)),
-			status_rx,
-			progress_rx: broadcast_rx,
-			output: Arc::new(Mutex::new(None)),
-		};
 
 		// Dispatch to task system
 		let task_handle = self.dispatcher.dispatch(executor).await;
@@ -508,11 +528,24 @@ impl JobManager {
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
 							JobStatus::Completed => {
-								// Emit completion event
+								// Get the final output from the handle before removing the job
+								let output = {
+									let jobs = running_jobs.read().await;
+									if let Some(job) = jobs.get(&job_id_clone) {
+										job.handle.output.lock().await.clone()
+											.unwrap_or(Ok(JobOutput::Success))
+									} else {
+										Ok(JobOutput::Success)
+									}
+								};
+
+								// Emit completion event with the job's output
 								event_bus.emit(Event::JobCompleted {
 									job_id: job_id_clone.to_string(),
 									job_type: job_type_str.to_string(),
+									output: output.unwrap_or(JobOutput::Success),
 								});
+
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
 								info!(
@@ -905,6 +938,15 @@ impl JobManager {
 						let networking = self.context.get_networking().await;
 						let volume_manager = Some(self.context.volume_manager.clone());
 
+						// Create handle
+						let handle = JobHandle {
+							id: job_id,
+							task_handle: Arc::new(Mutex::new(None)),
+							status_rx,
+							progress_rx: broadcast_rx,
+							output: Arc::new(Mutex::new(None)),
+						};
+
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
 							job_id,
@@ -916,20 +958,12 @@ impl JobManager {
 							Arc::new(DbCheckpointHandler {
 								db: self.db.clone(),
 							}),
+							handle.output.clone(),
 							networking,
 							volume_manager,
 							self.context.job_logging_config.clone(),
 							self.context.job_logs_dir.clone(),
 						);
-
-						// Create handle
-						let handle = JobHandle {
-							id: job_id,
-							task_handle: Arc::new(Mutex::new(None)),
-							status_rx,
-							progress_rx: broadcast_rx,
-							output: Arc::new(Mutex::new(None)),
-						};
 
 						// Dispatch to task system
 						match self
@@ -961,10 +995,19 @@ impl JobManager {
 										let status = *status_rx.borrow();
 										match status {
 											JobStatus::Completed => {
+												// Get the final output from the handle
+												let output = {
+													let jobs = running_jobs.read().await;
+													jobs.get(&job_id_clone)
+														.and_then(|job| job.handle.output.blocking_lock().clone())
+														.unwrap_or(Ok(JobOutput::Success))
+												};
+
 												// Emit completion event
 												event_bus.emit(Event::JobCompleted {
 													job_id: job_id_clone.to_string(),
 													job_type: job_type_str.clone(),
+													output: output.unwrap_or(JobOutput::Success),
 												});
 												// Remove from running jobs
 												running_jobs.write().await.remove(&job_id_clone);
@@ -1157,6 +1200,15 @@ impl JobManager {
 			let networking = self.context.get_networking().await;
 			let volume_manager = Some(self.context.volume_manager.clone());
 
+			// Create handle
+			let handle = JobHandle {
+				id: job_id,
+				task_handle: Arc::new(Mutex::new(None)),
+				status_rx,
+				progress_rx: broadcast_rx,
+				output: Arc::new(Mutex::new(None)),
+			};
+
 			// Create executor
 			let executor = erased_job.create_executor(
 				job_id,
@@ -1168,20 +1220,12 @@ impl JobManager {
 				Arc::new(DbCheckpointHandler {
 					db: self.db.clone(),
 				}),
+				handle.output.clone(),
 				networking,
 				volume_manager,
 				self.context.job_logging_config.clone(),
 				self.context.job_logs_dir.clone(),
 			);
-
-			// Create handle
-			let handle = JobHandle {
-				id: job_id,
-				task_handle: Arc::new(Mutex::new(None)),
-				status_rx,
-				progress_rx: broadcast_rx,
-				output: Arc::new(Mutex::new(None)),
-			};
 
 			// Dispatch to task system
 			let task_handle = self
@@ -1213,9 +1257,16 @@ impl JobManager {
 					let status = *status_rx.borrow();
 					match status {
 						JobStatus::Completed => {
+							let output = {
+								let jobs = running_jobs.read().await;
+								jobs.get(&job_id_clone)
+									.and_then(|job| job.handle.output.blocking_lock().clone())
+									.unwrap_or(Ok(JobOutput::Success))
+							};
 							event_bus.emit(Event::JobCompleted {
 								job_id: job_id_clone.to_string(),
 								job_type: job_type_str.clone(),
+								output: output.unwrap_or(JobOutput::Success),
 							});
 							running_jobs.write().await.remove(&job_id_clone);
 							info!("Resumed job {} completed", job_id_clone);

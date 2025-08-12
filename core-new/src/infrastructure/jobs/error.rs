@@ -7,7 +7,7 @@ use thiserror::Error;
 pub type JobResult<T = ()> = Result<T, JobError>;
 
 /// Errors that can occur during job execution
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum JobError {
     /// Job was interrupted (paused or cancelled)
     #[error("Job was interrupted")]
@@ -19,7 +19,7 @@ pub enum JobError {
     
     /// Database operation failed
     #[error("Database error: {0}")]
-    Database(#[from] sea_orm::DbErr),
+    Database(String),
     
     /// Serialization/deserialization error
     #[error("Serialization error: {0}")]
@@ -39,16 +39,28 @@ pub enum JobError {
     
     /// I/O error
     #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(String),
     
     /// Other errors
     #[error("{0}")]
-    Other(Box<dyn std::error::Error + Send + Sync>),
+    Other(String),
 }
 
 impl From<String> for JobError {
     fn from(msg: String) -> Self {
         Self::ExecutionFailed(msg)
+    }
+}
+
+impl From<std::io::Error> for JobError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err.to_string())
+    }
+}
+
+impl From<sea_orm::DbErr> for JobError {
+    fn from(err: sea_orm::DbErr) -> Self {
+        Self::Database(err.to_string())
     }
 }
 

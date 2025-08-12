@@ -17,7 +17,7 @@ pub struct JobHandle {
     pub(crate) task_handle: Arc<Mutex<Option<TaskHandle<JobError>>>>,
     pub(crate) status_rx: watch::Receiver<JobStatus>,
     pub(crate) progress_rx: broadcast::Receiver<Progress>,
-    pub(crate) output: Arc<Mutex<Option<JobOutput>>>,
+    pub(crate) output: Arc<Mutex<Option<JobResult<JobOutput>>>>,
 }
 
 impl Clone for JobHandle {
@@ -67,9 +67,12 @@ impl JobHandle {
         match final_status {
             JobStatus::Completed => {
                 // Get output
-                let output = self.output.lock().await.clone()
-                    .unwrap_or_default();
-                Ok(output)
+                let result = self.output.lock().await.clone();
+                match result {
+                    Some(Ok(output)) => Ok(output),
+                    Some(Err(e)) => Err(e),
+                    None => Ok(JobOutput::Success),
+                }
             }
             JobStatus::Failed => Err(JobError::ExecutionFailed("Job failed".into())),
             JobStatus::Cancelled => Err(JobError::Interrupted),
@@ -141,9 +144,12 @@ impl JobUpdateStream {
                 
                 match status {
                     JobStatus::Completed => {
-                        let output = self.handle.output.lock().await.clone()
-                            .unwrap_or_default();
-                        Some(JobUpdate::Completed(output))
+                        let result = self.handle.output.lock().await.clone();
+                        match result {
+                            Some(Ok(output)) => Some(JobUpdate::Completed(output)),
+                            Some(Err(e)) => Some(JobUpdate::Failed(e)),
+                            None => Some(JobUpdate::Completed(JobOutput::Success)),
+                        }
                     }
                     JobStatus::Failed => {
                         Some(JobUpdate::Failed(JobError::ExecutionFailed("Job failed".into())))

@@ -1,5 +1,6 @@
 //! Job output types
 
+use crate::operations::indexing::{metrics::IndexerMetrics, state::IndexerStats};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use super::progress::Progress;
@@ -19,9 +20,8 @@ pub enum JobOutput {
     
     /// Indexer job output
     Indexed {
-        total_files: u64,
-        total_dirs: u64,
-        total_bytes: u64,
+        stats: IndexerStats,
+        metrics: IndexerMetrics,
     },
     
     /// Thumbnail generation output
@@ -79,11 +79,11 @@ impl JobOutput {
     /// Get indexed output if this is an indexed job
     pub fn as_indexed(&self) -> Option<IndexedOutput> {
         match self {
-            Self::Indexed { total_files, total_dirs, total_bytes } => {
+            Self::Indexed { stats, metrics } => {
                 Some(IndexedOutput {
-                    total_files: *total_files,
-                    total_dirs: *total_dirs,
-                    total_bytes: *total_bytes,
+                    total_files: stats.files,
+                    total_dirs: stats.dirs,
+                    total_bytes: stats.bytes,
                 })
             }
             _ => None,
@@ -103,13 +103,13 @@ impl JobOutput {
                     ).with_bytes(*total_bytes, *total_bytes)
                 ))
             }
-            Self::Indexed { total_files, total_dirs, total_bytes } => {
+            Self::Indexed { stats, metrics } => {
                 Some(Progress::generic(
                     crate::infrastructure::jobs::generic_progress::GenericProgress::new(
                         1.0,
                         "Completed",
-                        format!("Indexed {} files, {} directories", total_files, total_dirs)
-                    ).with_bytes(*total_bytes, *total_bytes)
+                        format!("Indexed {} files, {} directories", stats.files, stats.dirs)
+                    ).with_bytes(stats.bytes, stats.bytes)
                 ))
             }
             Self::ThumbnailGeneration { generated_count, .. } => {
@@ -159,9 +159,9 @@ impl fmt::Display for JobOutput {
             Self::FileCopy { copied_count, total_bytes } => {
                 write!(f, "Copied {} files ({} bytes)", copied_count, total_bytes)
             }
-            Self::Indexed { total_files, total_dirs, total_bytes } => {
+            Self::Indexed { stats, metrics } => {
                 write!(f, "Indexed {} files, {} directories ({} bytes)", 
-                    total_files, total_dirs, total_bytes)
+                    stats.files, stats.dirs, stats.bytes)
             }
             Self::ThumbnailsGenerated { generated_count, failed_count } => {
                 write!(f, "Generated {} thumbnails ({} failed)", 

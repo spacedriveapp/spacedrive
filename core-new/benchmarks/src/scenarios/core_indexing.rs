@@ -9,18 +9,18 @@ use crate::recipe::Recipe;
 use sd_core_new::infrastructure::jobs::output::JobOutput;
 
 #[derive(Default)]
-pub struct ContentIdentificationScenario {
+pub struct CoreIndexingScenario {
     base: ScenarioBase,
 }
 
 #[async_trait::async_trait]
-impl Scenario for ContentIdentificationScenario {
+impl Scenario for CoreIndexingScenario {
     fn name(&self) -> &'static str {
-        "content_identification"
+        "core_indexing"
     }
 
     fn describe(&self) -> &'static str {
-        "Generate content identities and report content-phase throughput"
+        "Measure core indexing throughput (Discovery + Processing)"
     }
 
     async fn prepare(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<()> {
@@ -39,7 +39,7 @@ impl Scenario for ContentIdentificationScenario {
                 action: sd_core_new::operations::locations::add::action::LocationAddAction {
                     path: loc.path.clone(),
                     name: Some(format!("bench:{}", recipe.name)),
-                    mode: sd_core_new::operations::indexing::IndexMode::Content,
+                    mode: sd_core_new::operations::indexing::IndexMode::Shallow,
                 },
             };
             let handler = sd_core_new::operations::locations::add::action::LocationAddHandler::new();
@@ -62,10 +62,6 @@ impl Scenario for ContentIdentificationScenario {
 
         for (jid, output) in outputs {
             if let JobOutput::Indexed { stats, metrics } = output {
-                let content_secs = metrics.content_duration.as_secs_f64();
-                let files_per_s = if content_secs > 0.0 { stats.files as f64 / content_secs } else { 0.0 };
-                let dirs_per_s = if content_secs > 0.0 { stats.dirs as f64 / content_secs } else { 0.0 };
-
                 let location_paths: Vec<PathBuf> = recipe.locations.iter().map(|l| l.path.clone()).collect();
                 let meta = RunMeta {
                     id: jid,
@@ -77,21 +73,45 @@ impl Scenario for ContentIdentificationScenario {
                     timestamp_utc: Some(chrono::Utc::now().to_rfc3339()),
                     host: collect_host_info(),
                 };
-                let durations = Durations {
-                    discovery_s: Some(metrics.discovery_duration.as_secs_f64()),
-                    processing_s: Some(metrics.processing_duration.as_secs_f64()),
-                    content_s: Some(content_secs),
-                    total_s: Some(content_secs),
-                };
-                results.push(BenchmarkRun::ContentIdentification {
-                    meta,
+
+                // --- IndexingDiscovery Result ---
+                let discovery_secs = metrics.discovery_duration.as_secs_f64();
+                let files_per_s_discovery = if discovery_secs > 0.0 { stats.files as f64 / discovery_secs } else { 0.0 };
+                let dirs_per_s_discovery = if discovery_secs > 0.0 { stats.dirs as f64 / discovery_secs } else { 0.0 };
+                results.push(BenchmarkRun::IndexingDiscovery {
+                    meta: meta.clone(),
                     files: stats.files,
-                    files_per_s,
+                    files_per_s: files_per_s_discovery,
                     dirs: stats.dirs,
-                    dirs_per_s,
+                    dirs_per_s: dirs_per_s_discovery,
                     total_gb: stats.bytes as f64 / 1_000_000_000.0,
                     errors: stats.errors,
-                    durations,
+                    durations: Durations {
+                        discovery_s: Some(discovery_secs),
+                        processing_s: Some(metrics.processing_duration.as_secs_f64()),
+                        content_s: Some(metrics.content_duration.as_secs_f64()),
+                        total_s: Some(discovery_secs),
+                    },
+                });
+
+                // --- Processing Result ---
+                let processing_secs = metrics.processing_duration.as_secs_f64();
+                let files_per_s_processing = if processing_secs > 0.0 { stats.files as f64 / processing_secs } else { 0.0 };
+                let dirs_per_s_processing = if processing_secs > 0.0 { stats.dirs as f64 / processing_secs } else { 0.0 };
+                results.push(BenchmarkRun::Processing {
+                    meta,
+                    files: stats.files,
+                    files_per_s: files_per_s_processing,
+                    dirs: stats.dirs,
+                    dirs_per_s: dirs_per_s_processing,
+                    total_gb: stats.bytes as f64 / 1_000_000_000.0,
+                    errors: stats.errors,
+                    durations: Durations {
+                        discovery_s: Some(metrics.discovery_duration.as_secs_f64()),
+                        processing_s: Some(processing_secs),
+                        content_s: Some(metrics.content_duration.as_secs_f64()),
+                        total_s: Some(processing_secs),
+                    },
                 });
             }
         }

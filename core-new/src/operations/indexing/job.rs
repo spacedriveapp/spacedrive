@@ -634,9 +634,8 @@ pub struct IndexerOutput {
 impl From<IndexerOutput> for JobOutput {
 	fn from(output: IndexerOutput) -> Self {
 		JobOutput::Indexed {
-			total_files: output.stats.files,
-			total_dirs: output.stats.dirs,
-			total_bytes: output.stats.bytes,
+			stats: output.stats,
+			metrics: output.metrics.unwrap_or_default(),
 		}
 	}
 }

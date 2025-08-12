@@ -264,6 +264,139 @@ impl SidecarManager {
         Ok(())
     }
 
+    /// Create a reference sidecar that links to an existing entry
+    /// This allows tracking files in their original locations without moving them
+    pub async fn create_reference_sidecar(
+        &self,
+        library: &Library,
+        content_uuid: &Uuid,
+        source_entry_id: i32,
+        kind: &SidecarKind,
+        variant: &SidecarVariant,
+        format: &SidecarFormat,
+        size: u64,
+        checksum: Option<String>,
+    ) -> Result<()> {
+        let db = library.db();
+        
+        // For reference sidecars, we use the source entry's path
+        // The rel_path will be empty as the file is not in our sidecar directory
+        let sidecar = sidecar::ActiveModel {
+            content_uuid: ActiveValue::Set(*content_uuid),
+            kind: ActiveValue::Set(kind.as_str().to_string()),
+            variant: ActiveValue::Set(variant.as_str().to_string()),
+            format: ActiveValue::Set(format.as_str().to_string()),
+            rel_path: ActiveValue::Set("".to_string()), // Empty for reference sidecars
+            source_entry_id: ActiveValue::Set(Some(source_entry_id)),
+            size: ActiveValue::Set(size as i64),
+            checksum: ActiveValue::Set(checksum.clone()),
+            status: ActiveValue::Set("ready".to_string()),
+            source: ActiveValue::Set(Some("reference".to_string())),
+            version: ActiveValue::Set(1),
+            created_at: ActiveValue::Set(Utc::now()),
+            updated_at: ActiveValue::Set(Utc::now()),
+            ..Default::default()
+        };
+
+        sidecar.insert(db.conn()).await?;
+
+        // Update local availability
+        self.update_local_availability(
+            library,
+            content_uuid,
+            kind,
+            variant,
+            true,
+            Some(size),
+            checksum,
+        ).await?;
+
+        info!(
+            "Created reference sidecar: {} {} {} for {} (entry_id: {})",
+            kind.as_str(),
+            variant.as_str(),
+            format.as_str(),
+            content_uuid,
+            source_entry_id
+        );
+
+        Ok(())
+    }
+
+    /// Convert reference sidecars to owned sidecars by moving files
+    pub async fn convert_reference_to_owned(
+        &self,
+        library: &Library,
+        content_uuid: &Uuid,
+    ) -> Result<()> {
+        let db = library.db();
+        
+        // Find all reference sidecars for this content
+        let reference_sidecars = Sidecar::find()
+            .filter(sidecar::Column::ContentUuid.eq(*content_uuid))
+            .filter(sidecar::Column::SourceEntryId.is_not_null())
+            .all(db.conn())
+            .await?;
+
+        for sidecar in reference_sidecars {
+            if let Some(source_entry_id) = sidecar.source_entry_id {
+                // Get the source entry to find the file path
+                use crate::infrastructure::database::entities::entry;
+                let source_entry = entry::Entity::find_by_id(source_entry_id)
+                    .one(db.conn())
+                    .await?
+                    .ok_or_else(|| anyhow::anyhow!("Source entry not found"))?;
+
+                // Compute the target sidecar path
+                let kind = sidecar.kind.as_str().try_into().map_err(|e: String| anyhow::anyhow!(e))?;
+                let variant = SidecarVariant::new(&sidecar.variant);
+                let format = sidecar.format.as_str().try_into().map_err(|e: String| anyhow::anyhow!(e))?;
+                
+                let target_path = self.compute_path(
+                    &library.id(),
+                    content_uuid,
+                    &kind,
+                    &variant,
+                    &format,
+                ).await?;
+
+                // Create parent directory
+                if let Some(parent) = target_path.absolute_path.parent() {
+                    tokio::fs::create_dir_all(parent).await?;
+                }
+
+                // Move the file
+                // Get the path from directory_paths for this entry
+                use crate::infrastructure::database::entities::directory_paths;
+                let dir_path = directory_paths::Entity::find_by_id(source_entry_id)
+                    .one(db.conn())
+                    .await?
+                    .ok_or_else(|| anyhow::anyhow!("Directory path not found for entry"))?;
+                
+                let source_path = PathBuf::from(&dir_path.path);
+                tokio::fs::rename(&source_path, &target_path.absolute_path).await?;
+
+                // Update the sidecar record
+                let mut active: sidecar::ActiveModel = sidecar.into();
+                active.rel_path = ActiveValue::Set(target_path.relative_path.to_string_lossy().to_string());
+                active.source_entry_id = ActiveValue::Set(None);
+                active.source = ActiveValue::Set(Some("converted".to_string()));
+                active.updated_at = ActiveValue::Set(Utc::now());
+                active.update(db.conn()).await?;
+
+                info!(
+                    "Converted reference sidecar to owned: {} {} {} for {}",
+                    kind.as_str(),
+                    variant.as_str(),
+                    format.as_str(),
+                    content_uuid
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     /// Record sidecar creation
     pub async fn record_sidecar(
         &self,

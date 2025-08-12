@@ -10,15 +10,6 @@ use crate::metrics::BenchmarkRun;
 pub struct CsvReporter;
 
 impl CsvReporter {
-	fn phase_for_scenario(scenario: &str) -> &'static str {
-		match scenario {
-			"indexing_discovery" => "Discovery",
-			"aggregation" => "Processing",
-			"content_identification" => "Content Identification",
-			_ => "Unknown",
-		}
-	}
-
 	fn phase_rank(phase: &str) -> i32 {
 		match phase {
 			"Discovery" => 0,
@@ -36,86 +27,96 @@ impl Reporter for CsvReporter {
 
 	fn render(&self, runs: &[BenchmarkRun], dest: &Path) -> Result<()> {
 		// Collect all data rows first so we can sort them
-		let mut data_rows: Vec<(String, String, f64, f64, u64, u64, f64, u64, String, f64)> = Vec::new();
+		let mut data_rows: Vec<(String, String, f64, f64, u64, u64, f64, u64, String, f64)> =
+			Vec::new();
 
 		// Process each run individually
 		for run in runs {
-			let (scenario, meta, files, files_per_s, dirs, dirs_per_s, total_gb, errors, durations) =
-				match run {
-					BenchmarkRun::IndexingDiscovery {
-						meta,
-						files,
-						files_per_s,
-						dirs,
-						dirs_per_s,
-						total_gb,
-						errors,
-						durations,
-					} => (
-						"indexing_discovery",
-						meta,
-						*files,
-						*files_per_s,
-						*dirs,
-						*dirs_per_s,
-						*total_gb,
-						*errors,
-						durations,
-					),
-					BenchmarkRun::Aggregation {
-						meta,
-						files,
-						files_per_s,
-						dirs,
-						dirs_per_s,
-						total_gb,
-						errors,
-						durations,
-					} => (
-						"aggregation",
-						meta,
-						*files,
-						*files_per_s,
-						*dirs,
-						*dirs_per_s,
-						*total_gb,
-						*errors,
-						durations,
-					),
-					BenchmarkRun::ContentIdentification {
-						meta,
-						files,
-						files_per_s,
-						dirs,
-						dirs_per_s,
-						total_gb,
-						errors,
-						durations,
-					} => (
-						"content_identification",
-						meta,
-						*files,
-						*files_per_s,
-						*dirs,
-						*dirs_per_s,
-						*total_gb,
-						*errors,
-						durations,
-					),
-				};
+			let (
+				phase_name,
+				meta,
+				files,
+				files_per_s,
+				dirs,
+				dirs_per_s,
+				total_gb,
+				errors,
+				durations,
+			) = match run {
+				BenchmarkRun::IndexingDiscovery {
+					meta,
+					files,
+					files_per_s,
+					dirs,
+					dirs_per_s,
+					total_gb,
+					errors,
+					durations,
+				} => (
+					"Discovery",
+					meta,
+					*files,
+					*files_per_s,
+					*dirs,
+					*dirs_per_s,
+					*total_gb,
+					*errors,
+					durations,
+				),
+				BenchmarkRun::Processing {
+					meta,
+					files,
+					files_per_s,
+					dirs,
+					dirs_per_s,
+					total_gb,
+					errors,
+					durations,
+				} => (
+					"Processing",
+					meta,
+					*files,
+					*files_per_s,
+					*dirs,
+					*dirs_per_s,
+					*total_gb,
+					*errors,
+					durations,
+				),
+				BenchmarkRun::ContentIdentification {
+					meta,
+					files,
+					files_per_s,
+					dirs,
+					dirs_per_s,
+					total_gb,
+					errors,
+					durations,
+				} => (
+					"Content Identification",
+					meta,
+					*files,
+					*files_per_s,
+					*dirs,
+					*dirs_per_s,
+					*total_gb,
+					*errors,
+					durations,
+				),
+			};
 
-			let phase = Self::phase_for_scenario(scenario);
+			let phase = phase_name.to_string();
 			let hardware = meta
 				.hardware_label
 				.clone()
 				.unwrap_or_else(|| "Unknown".to_string());
 
-			// Get phase-specific duration or fall back to total
-			let phase_duration = match scenario {
-				"indexing_discovery" => durations.discovery_s.unwrap_or(durations.total_s.unwrap_or(0.0)),
-				"aggregation" => durations.processing_s.unwrap_or(durations.total_s.unwrap_or(0.0)),
-				"content_identification" => durations.content_s.unwrap_or(durations.total_s.unwrap_or(0.0)),
-				_ => durations.total_s.unwrap_or(0.0),
+			// Get phase-specific duration
+			let phase_duration = match phase_name {
+				"Discovery" => durations.discovery_s.unwrap_or(0.0),
+				"Processing" => durations.processing_s.unwrap_or(0.0),
+				"Content Identification" => durations.content_s.unwrap_or(0.0),
+				_ => 0.0,
 			};
 
 			// Calculate GB/s using phase-specific duration
@@ -126,7 +127,7 @@ impl Reporter for CsvReporter {
 			};
 
 			data_rows.push((
-				phase.to_string(),
+				phase,
 				hardware,
 				files_per_s,
 				gb_per_s,
@@ -148,15 +149,36 @@ impl Reporter for CsvReporter {
 		});
 
 		// Build CSV output
-		let mut rows =
-			vec!["Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe,Duration_s".to_string()];
+		let mut rows = vec![
+			"Phase,Hardware,Files_per_s,GB_per_s,Files,Dirs,GB,Errors,Recipe,Duration_s"
+				.to_string(),
+		];
 
-		for (phase, hardware, files_per_s, gb_per_s, files, dirs, total_gb, errors, recipe, duration) in
-			data_rows
+		for (
+			phase,
+			hardware,
+			files_per_s,
+			gb_per_s,
+			files,
+			dirs,
+			total_gb,
+			errors,
+			recipe,
+			duration,
+		) in data_rows
 		{
 			rows.push(format!(
 				"{},{},{:.1},{:.2},{},{},{:.2},{},{},{:.1}",
-				phase, hardware, files_per_s, gb_per_s, files, dirs, total_gb, errors, recipe, duration
+				phase,
+				hardware,
+				files_per_s,
+				gb_per_s,
+				files,
+				dirs,
+				total_gb,
+				errors,
+				recipe,
+				duration
 			));
 		}
 

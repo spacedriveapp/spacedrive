@@ -9,6 +9,12 @@
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use anyhow::Result;
+use crate::{
+    library::Library,
+    services::sidecar_manager::SidecarManager,
+    operations::sidecar::{SidecarKind, SidecarVariant, SidecarFormat},
+};
 
 /// Represents a detected Live Photo pair
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +126,91 @@ impl LivePhotoDetector {
         ]);
         
         Uuid::new_v5(&LIVE_PHOTO_NAMESPACE, combined.as_bytes())
+    }
+    
+    /// Create a reference sidecar for a Live Photo video
+    /// This is called during indexing when we find a Live Photo pair
+    pub async fn create_live_photo_reference_sidecar(
+        library: &Library,
+        sidecar_manager: &SidecarManager,
+        image_content_uuid: &Uuid,
+        video_entry_id: i32,
+        video_size: u64,
+        video_checksum: Option<String>,
+    ) -> Result<()> {
+        // Create a reference sidecar for the video component
+        // It references the original video entry without moving the file
+        sidecar_manager.create_reference_sidecar(
+            library,
+            image_content_uuid, // The video is a sidecar of the image
+            video_entry_id,     // References the video entry
+            &SidecarKind::LivePhotoVideo,
+            &SidecarVariant::new("original"),
+            &SidecarFormat::Mp4, // Or MOV based on actual format
+            video_size,
+            video_checksum,
+        ).await?;
+        
+        Ok(())
+    }
+    
+    /// Example of how Live Photos would be handled during indexing
+    /// NOTE: This is a demonstration - actual integration would be in the indexer
+    #[allow(dead_code)]
+    async fn example_live_photo_indexing_flow(
+        library: &Library,
+        sidecar_manager: &SidecarManager,
+        image_path: &Path,
+        image_content_uuid: &Uuid,
+    ) -> Result<()> {
+        // During indexing, when we process an image file...
+        if let Some(live_photo) = Self::detect_pair(image_path) {
+            // We found a Live Photo pair!
+            
+            // The video would normally be indexed as an entry
+            // But instead, we skip indexing it and create a reference sidecar
+            
+            // In real implementation, we would:
+            // 1. Get or create the video entry (minimal record)
+            // 2. Get the video's size and checksum
+            // 3. Create the reference sidecar
+            
+            let video_entry_id = 12345; // This would come from the database
+            let video_size = 1024 * 1024 * 10; // 10MB, would come from fs::metadata
+            let video_checksum = Some("abc123".to_string()); // Would be computed
+            
+            // Create the reference sidecar
+            Self::create_live_photo_reference_sidecar(
+                library,
+                sidecar_manager,
+                image_content_uuid,
+                video_entry_id,
+                video_size,
+                video_checksum,
+            ).await?;
+            
+            // The video is now tracked as a virtual sidecar of the image
+            // It won't appear in search results or galleries as a separate item
+            // But can be accessed through the image's sidecar API
+        }
+        
+        Ok(())
+    }
+    
+    /// Bulk convert reference sidecars to owned sidecars
+    /// This is called when the user wants to take ownership of Live Photo videos
+    pub async fn convert_live_photos_to_owned(
+        library: &Library,
+        sidecar_manager: &SidecarManager,
+        content_uuids: &[Uuid],
+    ) -> Result<()> {
+        for content_uuid in content_uuids {
+            // This will move all reference sidecars (including Live Photo videos)
+            // to the managed sidecar directory structure
+            sidecar_manager.convert_reference_to_owned(library, content_uuid).await?;
+        }
+        
+        Ok(())
     }
 }
 

@@ -23,6 +23,9 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(name = "spacedrive")]
 #[command(about = "Spacedrive v2 CLI", long_about = None)]
+#[command(long_version = concat!(env!("CARGO_PKG_VERSION"), "
+", "Commit SHA: ", env!("VERGEN_GIT_SHA"), "
+", "Commit Date: ", env!("VERGEN_GIT_COMMIT_TIMESTAMP")))]
 pub struct Cli {
 	/// Path to Spacedrive data directory
 	#[arg(short, long, global = true)]

@@ -338,22 +338,33 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(Volumes::DeviceId).integer().not_null())
-					.col(ColumnDef::new(Volumes::Identifier).string().not_null())
-					.col(ColumnDef::new(Volumes::Name).string())
+					.col(ColumnDef::new(Volumes::Uuid).uuid().not_null())
+					.col(ColumnDef::new(Volumes::DeviceId).uuid().not_null())
+					.col(ColumnDef::new(Volumes::Fingerprint).string().not_null())
 					.col(ColumnDef::new(Volumes::MountPoint).string())
 					.col(ColumnDef::new(Volumes::TotalCapacity).big_integer())
 					.col(ColumnDef::new(Volumes::AvailableCapacity).big_integer())
 					.col(ColumnDef::new(Volumes::IsRemovable).boolean())
 					.col(ColumnDef::new(Volumes::IsEjectable).boolean())
-					.col(ColumnDef::new(Volumes::FileSystemType).string())
-					.col(ColumnDef::new(Volumes::LastSeen).timestamp_with_time_zone())
-					.col(ColumnDef::new(Volumes::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(Volumes::UpdatedAt).timestamp_with_time_zone().not_null())
+					.col(ColumnDef::new(Volumes::FileSystem).string())
+					.col(ColumnDef::new(Volumes::DisplayName).string())
+					.col(ColumnDef::new(Volumes::TrackedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+					.col(ColumnDef::new(Volumes::LastSeenAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+					.col(ColumnDef::new(Volumes::IsOnline).boolean().not_null().default(true))
+					.col(ColumnDef::new(Volumes::ReadSpeedMbps).integer())
+					.col(ColumnDef::new(Volumes::WriteSpeedMbps).integer())
+					.col(ColumnDef::new(Volumes::LastSpeedTestAt).timestamp_with_time_zone())
+					.col(ColumnDef::new(Volumes::IsNetworkDrive).boolean())
+					.col(ColumnDef::new(Volumes::DeviceModel).string())
+					.col(ColumnDef::new(Volumes::VolumeType).string())
+					.col(ColumnDef::new(Volumes::IsUserVisible).boolean())
+					.col(ColumnDef::new(Volumes::AutoTrackEligible).boolean())
+					.col(ColumnDef::new(Volumes::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+					.col(ColumnDef::new(Volumes::UpdatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
 					.foreign_key(
 						ForeignKey::create()
 							.from(Volumes::Table, Volumes::DeviceId)
-							.to(Devices::Table, Devices::Id)
+							.to(Devices::Table, Devices::Uuid)
 							.on_delete(ForeignKeyAction::Cascade),
 					)
 					.to_owned(),
@@ -503,10 +514,10 @@ impl MigrationTrait for Migration {
 		manager
 			.create_index(
 				Index::create()
-					.name("idx_volumes_device_identifier")
+					.name("idx_volumes_device_fingerprint")
 					.table(Volumes::Table)
 					.col(Volumes::DeviceId)
-					.col(Volumes::Identifier)
+					.col(Volumes::Fingerprint)
 					.unique()
 					.to_owned(),
 			)
@@ -690,16 +701,27 @@ enum Locations {
 enum Volumes {
 	Table,
 	Id,
+	Uuid,
 	DeviceId,
-	Identifier,
-	Name,
+	Fingerprint,
+	DisplayName,
 	MountPoint,
 	TotalCapacity,
 	AvailableCapacity,
 	IsRemovable,
 	IsEjectable,
-	FileSystemType,
-	LastSeen,
+	FileSystem,
+	TrackedAt,
+	LastSeenAt,
+	IsOnline,
+	ReadSpeedMbps,
+	WriteSpeedMbps,
+	LastSpeedTestAt,
+	IsNetworkDrive,
+	DeviceModel,
+	VolumeType,
+	IsUserVisible,
+	AutoTrackEligible,
 	CreatedAt,
 	UpdatedAt,
 }

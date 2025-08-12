@@ -1,11 +1,8 @@
-use super::{IndexingDiscoveryScenario, Scenario};
-use crate::scenarios::aggregation::AggregationScenario;
-use crate::scenarios::content_identification::ContentIdentificationScenario;
+use super::{CoreIndexingScenario, ContentIdentificationScenario, Scenario};
 
 pub fn registered_scenarios() -> Vec<Box<dyn Scenario>> {
 	vec![
-		Box::new(IndexingDiscoveryScenario::default()),
+		Box::new(CoreIndexingScenario::default()),
 		Box::new(ContentIdentificationScenario::default()),
-		Box::new(AggregationScenario::default()),
 	]
 }
