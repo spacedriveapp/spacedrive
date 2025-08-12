@@ -883,7 +883,7 @@ impl VolumeManager {
 			.collect()
 	}
 
-	/// Auto-track eligible volumes (Primary and External types)
+	/// Auto-track eligible volumes (only Primary system volume)
 	pub async fn auto_track_user_volumes(
 		&self,
 		library: &crate::library::Library,

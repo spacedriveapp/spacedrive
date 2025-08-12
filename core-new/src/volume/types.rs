@@ -132,12 +132,15 @@ impl VolumeType {
 	/// Should this volume type be auto-tracked by default?
 	pub fn auto_track_by_default(&self) -> bool {
 		match self {
-			VolumeType::Primary
-			| VolumeType::UserData
+			// Only auto-track the primary system volume
+			// Users should explicitly choose to track other volumes
+			VolumeType::Primary => true,
+			VolumeType::UserData
 			| VolumeType::External
 			| VolumeType::Secondary
-			| VolumeType::Network => true,
-			VolumeType::System | VolumeType::Unknown => false,
+			| VolumeType::Network
+			| VolumeType::System
+			| VolumeType::Unknown => false,
 		}
 	}
 

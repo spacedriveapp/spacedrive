@@ -78,13 +78,14 @@ pub async fn handle_location_command(
 		LocationCommands::Add { path, name, mode } => {
 			output.info(&format!("Adding location {}...", path.display()))?;
 
-			match client
+			let response = client
 				.send_command(DaemonCommand::AddLocation {
 					path: path.clone(),
 					name,
 				})
-				.await
-			{
+				.await;
+			
+			match response {
 				Ok(DaemonResponse::LocationAdded {
 					location_id,
 					job_id,
@@ -148,7 +149,8 @@ pub async fn handle_location_command(
 						e
 					)))?;
 				}
-				_ => {
+				Ok(resp) => {
+					eprintln!("DEBUG: Got unexpected response: {:?}", resp);
 					output.error(Message::Error(
 						"Unexpected response from daemon".to_string(),
 					))?;

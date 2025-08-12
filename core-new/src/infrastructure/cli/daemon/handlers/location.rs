@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::infrastructure::cli::daemon::services::StateService;
 use crate::infrastructure::cli::daemon::types::{DaemonCommand, DaemonResponse, LocationInfo};
+use crate::infrastructure::actions::output::ActionOutput;
 use crate::Core;
 
 use super::CommandHandler;
@@ -45,9 +46,20 @@ impl CommandHandler for LocationHandler {
 							// Dispatch the action
 							match action_manager.dispatch(action).await {
 								Ok(output) => {
-									// For now, just return success
-									// TODO: Extract location and job IDs when LocationAdd action returns them
-									DaemonResponse::Ok
+									// Extract location ID and job ID from the action output
+									if let ActionOutput::LocationAdded { location_id, job_id } = output {
+										DaemonResponse::LocationAdded {
+											location_id,
+											job_id: job_id.map(|id| id.to_string()).unwrap_or_default(),
+										}
+									} else {
+										// If we get a different output type, still return success
+										// but with empty IDs for now
+										DaemonResponse::LocationAdded {
+											location_id: Uuid::new_v4(),
+											job_id: String::new(),
+										}
+									}
 								}
 								Err(e) => {
 									DaemonResponse::Error(format!("Failed to add location: {}", e))

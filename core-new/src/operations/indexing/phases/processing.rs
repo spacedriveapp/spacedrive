@@ -2,7 +2,7 @@
 
 use crate::{
 	infrastructure::{
-		database::entities,
+		database::entities::{self, directory_paths, entry_closure},
 		jobs::generic_progress::ToGenericProgress,
 		jobs::prelude::{JobContext, JobError, Progress},
 	},
@@ -307,6 +307,26 @@ pub async fn run_processing_phase(
 					ctx.log(format!("⏭️  No change for: {}", entry.path.display()));
 				}
 			}
+		}
+
+		// Bulk insert self-closures if any
+		if !bulk_self_closures.is_empty() {
+			entities::entry_closure::Entity::insert_many(bulk_self_closures)
+				.exec(&txn)
+				.await
+				.map_err(|e| {
+					JobError::execution(format!("Failed to bulk insert self-closures: {}", e))
+				})?;
+		}
+
+		// Bulk insert directory paths if any
+		if !bulk_dir_paths.is_empty() {
+			entities::directory_paths::Entity::insert_many(bulk_dir_paths)
+				.exec(&txn)
+				.await
+				.map_err(|e| {
+					JobError::execution(format!("Failed to bulk insert directory paths: {}", e))
+				})?;
 		}
 
 		// Commit the batch creation transaction

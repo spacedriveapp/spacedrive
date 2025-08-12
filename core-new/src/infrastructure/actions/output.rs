@@ -45,6 +45,12 @@ pub enum ActionOutput {
         write_speed_mbps: Option<u32>,
     },
     
+    /// Location was added
+    LocationAdded {
+        location_id: Uuid,
+        job_id: Option<Uuid>,
+    },
+    
     /// Generic output with custom data
     Custom {
         output_type: String,
@@ -99,6 +105,9 @@ impl fmt::Display for ActionOutput {
                     }
                     _ => write!(f, "Volume {} speed test completed", fingerprint),
                 }
+            }
+            Self::LocationAdded { location_id, .. } => {
+                write!(f, "Location added successfully (ID: {})", location_id)
             }
             Self::Custom { message, .. } => write!(f, "{}", message),
         }

@@ -122,9 +122,10 @@ impl ActionHandler for LocationAddHandler {
 				return Err(ActionError::Internal("Location added but indexing failed to start".to_string()));
 			};
 
-			let output = LocationAddOutput::new(location_id, action.path.clone(), name_for_output)
-				.with_job_id(job_id.into());
-			Ok(ActionOutput::from_trait(output))
+			Ok(ActionOutput::LocationAdded {
+				location_id,
+				job_id: Some(job_id),
+			})
 		} else {
 			Err(ActionError::InvalidActionType)
 		}

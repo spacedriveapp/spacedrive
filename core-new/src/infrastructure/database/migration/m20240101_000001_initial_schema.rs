@@ -384,23 +384,16 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(AuditLog::DeviceId).integer().not_null())
-					.col(ColumnDef::new(AuditLog::EntryId).integer())
-					.col(ColumnDef::new(AuditLog::Operation).string().not_null())
-					.col(ColumnDef::new(AuditLog::Details).json())
+					.col(ColumnDef::new(AuditLog::Uuid).string().not_null().unique_key())
+					.col(ColumnDef::new(AuditLog::ActionType).string().not_null())
+					.col(ColumnDef::new(AuditLog::ActorDeviceId).string().not_null())
+					.col(ColumnDef::new(AuditLog::Targets).string().not_null())
+					.col(ColumnDef::new(AuditLog::Status).string().not_null())
+					.col(ColumnDef::new(AuditLog::JobId).string())
 					.col(ColumnDef::new(AuditLog::CreatedAt).timestamp_with_time_zone().not_null())
-					.foreign_key(
-						ForeignKey::create()
-							.from(AuditLog::Table, AuditLog::DeviceId)
-							.to(Devices::Table, Devices::Id)
-							.on_delete(ForeignKeyAction::Cascade),
-					)
-					.foreign_key(
-						ForeignKey::create()
-							.from(AuditLog::Table, AuditLog::EntryId)
-							.to(Entries::Table, Entries::Id)
-							.on_delete(ForeignKeyAction::SetNull),
-					)
+					.col(ColumnDef::new(AuditLog::CompletedAt).timestamp_with_time_zone())
+					.col(ColumnDef::new(AuditLog::ErrorMessage).string())
+					.col(ColumnDef::new(AuditLog::ResultPayload).string())
 					.to_owned(),
 			)
 			.await?;
@@ -523,13 +516,43 @@ impl MigrationTrait for Migration {
 			)
 			.await?;
 
-		// Audit log index
+		// Audit log indices
 		manager
 			.create_index(
 				Index::create()
-					.name("idx_audit_log_entry_id")
+					.name("idx_audit_log_action_type")
 					.table(AuditLog::Table)
-					.col(AuditLog::EntryId)
+					.col(AuditLog::ActionType)
+					.to_owned(),
+			)
+			.await?;
+
+		manager
+			.create_index(
+				Index::create()
+					.name("idx_audit_log_actor_device")
+					.table(AuditLog::Table)
+					.col(AuditLog::ActorDeviceId)
+					.to_owned(),
+			)
+			.await?;
+
+		manager
+			.create_index(
+				Index::create()
+					.name("idx_audit_log_status")
+					.table(AuditLog::Table)
+					.col(AuditLog::Status)
+					.to_owned(),
+			)
+			.await?;
+
+		manager
+			.create_index(
+				Index::create()
+					.name("idx_audit_log_job_id")
+					.table(AuditLog::Table)
+					.col(AuditLog::JobId)
 					.to_owned(),
 			)
 			.await?;
@@ -730,11 +753,16 @@ enum Volumes {
 enum AuditLog {
 	Table,
 	Id,
-	DeviceId,
-	EntryId,
-	Operation,
-	Details,
+	Uuid,
+	ActionType,
+	ActorDeviceId,
+	Targets,
+	Status,
+	JobId,
 	CreatedAt,
+	CompletedAt,
+	ErrorMessage,
+	ResultPayload,
 }
 
 #[derive(DeriveIden)]

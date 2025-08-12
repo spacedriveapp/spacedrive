@@ -7,7 +7,6 @@ mod m20240102_000001_populate_lookups;
 mod m20240107_000001_create_collections;
 mod m20250109_000001_create_sidecars;
 mod m20250110_000001_refactor_volumes_table;
-mod m20250110_000002_add_uuid_to_audit_log;
 mod m20250112_000001_create_indexer_rules;
 
 pub struct Migrator;
@@ -21,7 +20,6 @@ impl MigratorTrait for Migrator {
 			Box::new(m20240107_000001_create_collections::Migration),
 			Box::new(m20250109_000001_create_sidecars::Migration),
 			Box::new(m20250110_000001_refactor_volumes_table::Migration),
-			Box::new(m20250110_000002_add_uuid_to_audit_log::Migration),
 			Box::new(m20250112_000001_create_indexer_rules::Migration),
 		]
 	}
