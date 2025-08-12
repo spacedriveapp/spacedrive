@@ -1999,7 +1999,8 @@ This unified approach to sharing—from private team collaboration to public con
 
 \begin{table*}[ht]
 \centering
-\caption{Indexing Duration Summary (in seconds)}
+% \caption{Indexing Duration Summary (in seconds)}
+\caption{Performance benchmarks across storage tiers. Testing conducted on M2 MacBook Pro with 16GB RAM running macOS 14.5. Values generated from the benchmarking harness summaries.}
 \label{tab:benchmark_summary}
 \sisetup{table-format=4.1, round-mode=places, round-precision=1}
 \begin{tabular}{@{}l S[table-format=2.1] S[table-format=1.1] S[table-format=2.1] S[table-format=1.1] S[table-format=2.1] S[table-format=2.1]@{}}
@@ -2165,141 +2166,6 @@ Spacedrive employs a sophisticated testing framework that simulates real-world d
  \item Performance validation under various load conditions
 \end{itemize}
 
-
-\subsubsection{Performance Benchmarks}
-Systematic performance testing demonstrates Spacedrive's efficiency across critical operations:
-
-\begin{table*}[ht]
-	\centering
-	\caption{Performance benchmarks across storage tiers. Testing conducted on M2 MacBook Pro with 16GB RAM running macOS 14.5. Values generated from the benchmarking harness summaries.}
-	\label{tab:performance}
-    \begin{tabular}{llrrrrrrl}
-	\toprule
-    \textbf{Phase} & \textbf{Hardware} & \textbf{Files/s} &  \textbf{Duration/s} & \textbf{GB/s} & \textbf{Files} & \textbf{Dirs} & \textbf{GB} & \textbf{Recipe} \\
-	\midrule
-    \multicolumn{8}{l}{\textit{Indexing}} \\
-	\csvreader[
-	late after line=\\
-    ]{../benchmarks/results/whitepaper_metrics.csv}{Phase=\Phase,Hardware=\Hardware,Files_per_s=\Fps,Duration_s=\Duration,GB_per_s=\Gbps,Files=\Files,Dirs=\Dirs,GB=\Gb,Recipe=\Recipe}{%
-    \Phase & \Hardware & \num{\Fps} & \num{\Duration} & \num{\Gbps} & \num{\Files} & \num{\Dirs} & \num{\Gb} & \url{\Recipe}}
-	\bottomrule
-	\end{tabular}
-	\end{table*}
-
-% --- Visualization of CSV metrics ---
-\begin{figure*}[ht]
-% Left: Phase-by-recipe (Internal SSD)
-\begin{minipage}[t]{.49\textwidth}
-\begin{tikzpicture}
-\begin{axis}[
-    ybar,
-    bar width=10pt,
-    width=\linewidth,
-    height=6.4cm,
-    enlarge x limits=0.15,
-    xlabel={Recipe},
-    ylabel={Files/s},
-    symbolic x coords={shape_small,shape_medium,shape_large},
-    xticklabels={shape\_small,shape\_medium,shape\_large},
-    xtick=data,
-    legend style={at={(0.02,0.98)}, anchor=north west, draw=none, fill=none, font=\small},
-    ymajorgrids,
-]
-% Discovery series (Internal SSD only)
-\addplot table[
-    x=Recipe,
-    y=Files_per_s,
-    col sep=comma,
-    row predicate/.code={%
-        \pgfplotstableuserowtrue
-        \ifnum\pdfstrcmp{\thisrow{Phase}}{Discovery}=0\relax\else\pgfplotstableuserowfalse\fi
-        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
-    }
-]{../benchmarks/results/whitepaper_metrics.csv};
-\addlegendentry{Discovery}
-
-% Processing series (Internal SSD only)
-\addplot table[
-    x=Recipe,
-    y=Files_per_s,
-    col sep=comma,
-    row predicate/.code={%
-        \pgfplotstableuserowtrue
-        \ifnum\pdfstrcmp{\thisrow{Phase}}{Processing}=0\relax\else\pgfplotstableuserowfalse\fi
-        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
-    }
-]{../benchmarks/results/whitepaper_metrics.csv};
-\addlegendentry{Processing}
-
-% Content Identification series (Internal SSD only)
-\addplot table[
-    x=Recipe,
-    y=Files_per_s,
-    col sep=comma,
-    row predicate/.code={%
-        \pgfplotstableuserowtrue
-        \ifnum\pdfstrcmp{\thisrow{Phase}}{Content Identification}=0\relax\else\pgfplotstableuserowfalse\fi
-        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
-    }
-]{../benchmarks/results/whitepaper_metrics.csv};
-\addlegendentry{Content Identification}
-
-\end{axis}
-\end{tikzpicture}
-\subcaption{Internal SSD: Files/s by phase and recipe}
-\label{fig:throughput_files_per_s}
-\end{minipage}%
-\hfill
-
-% Right: Storage medium comparison (shape_large)
-\begin{minipage}[t]{.49\textwidth}
-\begin{tikzpicture}
-\begin{axis}[
-    ybar,
-    bar width=12pt,
-    width=\linewidth,
-    height=6.4cm,
-    enlarge x limits=0.15,
-    xlabel={Phase},
-    ylabel={Files/s},
-    symbolic x coords={Discovery,Processing,Content Identification},
-    xtick=data,
-    legend style={at={(0.98,0.98)}, anchor=north east, draw=none, fill=none, font=\small},
-    ymajorgrids,
-]
-% Internal SSD series (shape_large)
-\addplot table[
-    x=Phase,
-    y=Files_per_s,
-    col sep=comma,
-    row predicate/.code={%
-        \pgfplotstableuserowtrue
-        \ifnum\pdfstrcmp{\thisrow{Hardware}}{Internal SSD (Macintosh HD)}=0\relax\else\pgfplotstableuserowfalse\fi
-        \ifnum\pdfstrcmp{\thisrow{Recipe}}{shape_large}=0\relax\else\pgfplotstableuserowfalse\fi
-    }
-]{../benchmarks/results/whitepaper_metrics.csv};
-\addlegendentry{Internal SSD}
-
-% External HDD series (shape_large)
-\addplot table[
-    x=Phase,
-    y=Files_per_s,
-    col sep=comma,
-    row predicate/.code={%
-        \pgfplotstableuserowtrue
-        \ifnum\pdfstrcmp{\thisrow{Hardware}}{External HDD (Seagate)}=0\relax\else\pgfplotstableuserowfalse\fi
-        \ifnum\pdfstrcmp{\thisrow{Recipe}}{shape_large}=0\relax\else\pgfplotstableuserowfalse\fi
-    }
-]{../benchmarks/results/whitepaper_metrics.csv};
-\addlegendentry{External HDD}
-
-\end{axis}
-\end{tikzpicture}
-\subcaption{Shape\_large: Internal SSD vs External HDD}
-\label{fig:hardware_comparison_files_per_s}
-\end{minipage}
-
-\end{figure*}
 
 % Example pie chart retained but commented for space in two-column layout
 % \begin{figure}[ht]
