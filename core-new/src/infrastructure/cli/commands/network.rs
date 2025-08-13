@@ -355,7 +355,7 @@ async fn handle_pairing_command(
                     output.info("Monitoring pairing progress...")?;
 
                     let mut attempts = 0;
-                    let max_attempts = 30; // 30 seconds timeout
+                    let max_attempts = 30;
 
                     loop {
                         if attempts >= max_attempts {
@@ -394,7 +394,7 @@ async fn handle_pairing_command(
                                         break;
                                     }
                                     s @ ("in_progress" | "waiting" | "connecting"
-                                    | "authenticating") => {
+                                    | "authenticating" | "exchanging_keys" | "establishing_session") => {
                                         // Still in progress - show periodic updates
                                         if attempts % 5 == 0 {
                                             output.info(&format!(

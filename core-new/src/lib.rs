@@ -162,11 +162,11 @@ impl Core {
 		let volumes = Arc::new(VolumeManager::new(device_id, volume_config, events.clone()));
 
 		// 5. Initialize volume detection
-		info!("Initializing volume detection...");
-		match volumes.initialize().await {
-			Ok(()) => info!("Volume manager initialized"),
-			Err(e) => error!("Failed to initialize volume manager: {}", e),
-		}
+		// info!("Initializing volume detection...");
+		// match volumes.initialize().await {
+		// 	Ok(()) => info!("Volume manager initialized"),
+		// 	Err(e) => error!("Failed to initialize volume manager: {}", e),
+		// }
 
 		// 6. Initialize library manager with libraries directory
 		let libraries_dir = config.read().await.libraries_dir();
@@ -189,17 +189,15 @@ impl Core {
 			volumes.clone(),
 			library_key_manager.clone(),
 		);
-		
+
 		// Set job logging configuration if enabled
 		let app_config = config.read().await;
 		if app_config.job_logging.enabled {
-			context_inner.set_job_logging(
-				app_config.job_logging.clone(),
-				app_config.job_logs_dir(),
-			);
+			context_inner
+				.set_job_logging(app_config.job_logging.clone(), app_config.job_logs_dir());
 		}
 		drop(app_config);
-		
+
 		let context = Arc::new(context_inner);
 
 		// 10. Initialize services first, passing them the context
@@ -207,26 +205,35 @@ impl Core {
 
 		// 11. Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
-		let loaded_libraries: Vec<Arc<crate::library::Library>> = match libraries.load_all_with_context(context.clone()).await {
-			Ok(count) => {
-				info!("Loaded {} libraries", count);
-				libraries.list().await
-			}
-			Err(e) => {
-				error!("Failed to load libraries: {}", e);
-				vec![]
-			}
-		};
+		let loaded_libraries: Vec<Arc<crate::library::Library>> =
+			match libraries.load_all_with_context(context.clone()).await {
+				Ok(count) => {
+					info!("Loaded {} libraries", count);
+					libraries.list().await
+				}
+				Err(e) => {
+					error!("Failed to load libraries: {}", e);
+					vec![]
+				}
+			};
 
 		// Initialize sidecar manager for each loaded library
 		for library in &loaded_libraries {
 			info!("Initializing sidecar manager for library {}", library.id());
 			if let Err(e) = services.sidecar_manager.init_library(&library).await {
-				error!("Failed to initialize sidecar manager for library {}: {}", library.id(), e);
+				error!(
+					"Failed to initialize sidecar manager for library {}: {}",
+					library.id(),
+					e
+				);
 			} else {
 				// Run bootstrap scan
 				if let Err(e) = services.sidecar_manager.bootstrap_scan(&library).await {
-					error!("Failed to run sidecar bootstrap scan for library {}: {}", library.id(), e);
+					error!(
+						"Failed to run sidecar bootstrap scan for library {}: {}",
+						library.id(),
+						e
+					);
 				}
 			}
 		}
@@ -375,17 +382,6 @@ impl Core {
 
 		info!("Networking initialized successfully for shared core");
 		Ok(Arc::new(new_core))
-	}
-
-	/// Start the networking service (must be called after init_networking)
-	pub async fn start_networking(&self) -> Result<(), Box<dyn std::error::Error>> {
-		if let Some(_networking) = self.services.networking() {
-			// Networking is already started in init_networking
-			info!("Networking system is active and ready");
-			Ok(())
-		} else {
-			Err("Networking not initialized. Call init_networking() first.".into())
-		}
 	}
 
 	/// Get the networking service (if initialized)

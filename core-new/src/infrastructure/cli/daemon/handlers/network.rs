@@ -4,11 +4,11 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::Core;
 use crate::infrastructure::cli::daemon::services::StateService;
 use crate::infrastructure::cli::daemon::types::{
 	ConnectedDeviceInfo, DaemonCommand, DaemonResponse, PairingRequestInfo,
 };
+use crate::Core;
 
 use super::CommandHandler;
 
@@ -35,11 +35,6 @@ impl CommandHandler for NetworkHandler {
 					)
 				}
 			}
-
-			DaemonCommand::StartNetworking => match core.start_networking().await {
-				Ok(_) => DaemonResponse::Ok,
-				Err(e) => DaemonResponse::Error(e.to_string()),
-			},
 
 			DaemonCommand::StopNetworking => {
 				// TODO: Implement networking stop when available
@@ -102,19 +97,19 @@ impl CommandHandler for NetworkHandler {
 							// Create DeviceRevokeAction
 							let action = crate::infrastructure::actions::Action::DeviceRevoke {
 								library_id,
-								action: crate::operations::devices::revoke::action::DeviceRevokeAction {
-									device_id,
-									reason: Some("Revoked via CLI".to_string()),
-								},
+								action:
+									crate::operations::devices::revoke::action::DeviceRevokeAction {
+										device_id,
+										reason: Some("Revoked via CLI".to_string()),
+									},
 							};
 
 							// Dispatch the action
 							match action_manager.dispatch(action).await {
 								Ok(_output) => DaemonResponse::Ok,
-								Err(e) => DaemonResponse::Error(format!(
-									"Failed to revoke device: {}",
-									e
-								)),
+								Err(e) => {
+									DaemonResponse::Error(format!("Failed to revoke device: {}", e))
+								}
 							}
 						}
 						None => DaemonResponse::Error("Action manager not available".to_string()),
@@ -205,7 +200,9 @@ impl CommandHandler for NetworkHandler {
 										"waiting_for_connection"
 									}
 									crate::networking::PairingState::Connecting => "connecting",
-									crate::networking::PairingState::Authenticating => "authenticating",
+									crate::networking::PairingState::Authenticating => {
+										"authenticating"
+									}
 									crate::networking::PairingState::ExchangingKeys => {
 										"exchanging_keys"
 									}
@@ -215,10 +212,12 @@ impl CommandHandler for NetworkHandler {
 									crate::networking::PairingState::EstablishingSession => {
 										"establishing_session"
 									}
-									crate::networking::PairingState::ChallengeReceived { .. } => {
+									crate::networking::PairingState::ChallengeReceived {
+										..
+									} => "authenticating",
+									crate::networking::PairingState::ResponseSent => {
 										"authenticating"
 									}
-									crate::networking::PairingState::ResponseSent => "authenticating",
 									crate::networking::PairingState::Completed => "completed",
 									crate::networking::PairingState::Failed { .. } => "failed",
 									crate::networking::PairingState::ResponsePending { .. } => {
@@ -227,9 +226,32 @@ impl CommandHandler for NetworkHandler {
 								}
 								.to_string();
 
+								// Include remote device info if available
+								let remote_device = if status == "completed" {
+									// Try to get the paired device info from the session
+									session.remote_device_info.as_ref().map(|device_info| {
+										ConnectedDeviceInfo {
+											device_id: device_info.device_id,
+											device_name: device_info.device_name.clone(),
+											device_type: format!("{:?}", device_info.device_type),
+											os_version: device_info.os_version.clone(),
+											app_version: device_info.app_version.clone(),
+											peer_id: device_info.network_fingerprint.node_id.clone(),
+											status: "paired".to_string(),
+											connection_active: false,
+											last_seen: device_info.last_seen.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+											connected_at: None,
+											bytes_sent: 0,
+											bytes_received: 0,
+										}
+									})
+								} else {
+									None
+								};
+
 								DaemonResponse::PairingStatus {
 									status,
-									remote_device: None, // No device info available yet in new system
+									remote_device,
 								}
 							} else {
 								DaemonResponse::PairingStatus {

@@ -167,8 +167,13 @@ impl NetworkingService {
 		let discovery = LocalSwarmDiscovery::new(self.node_id).map_err(|e| {
 			NetworkingError::Transport(format!("Failed to create discovery: {}", e))
 		})?;
-		
-		self.logger.info(&format!("Created LocalSwarmDiscovery for node {}", self.node_id)).await;
+
+		self.logger
+			.info(&format!(
+				"Created LocalSwarmDiscovery for node {}",
+				self.node_id
+			))
+			.await;
 
 		// Create endpoint with discovery
 		let endpoint = Endpoint::builder()
@@ -254,7 +259,7 @@ impl NetworkingService {
 
 		// Give discovery service time to start up before attempting reconnections
 		tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-		
+
 		// Start background reconnection attempts
 		self.start_background_reconnection(auto_reconnect_devices)
 			.await;
@@ -336,7 +341,7 @@ impl NetworkingService {
 				let mut retry_count = 0;
 				let max_retries = 10;
 				let retry_delay = tokio::time::Duration::from_secs(5);
-				
+
 				loop {
 					// Use MESSAGING_ALPN for reconnection to paired devices
 					match endpoint.connect(node_addr.clone(), MESSAGING_ALPN).await {
@@ -349,8 +354,10 @@ impl NetworkingService {
 								.await;
 
 							// Send connection established command
-							let _ = sender
-								.send(EventLoopCommand::ConnectionEstablished { device_id, node_id });
+							let _ = sender.send(EventLoopCommand::ConnectionEstablished {
+								device_id,
+								node_id,
+							});
 							break;
 						}
 						Err(e) => {
@@ -700,7 +707,18 @@ impl NetworkingService {
 
 		// For local testing: also write the advertisement to a file
 		// This simulates what a DHT would do for peer discovery
-		if let Ok(temp_dir) = std::env::var("SPACEDRIVE_TEST_DIR") {
+		let temp_dir = std::env::var("SPACEDRIVE_TEST_DIR")
+			.unwrap_or_else(|_| "/tmp/spacedrive-pairing".to_string());
+
+		// Create directory if it doesn't exist
+		if let Err(e) = std::fs::create_dir_all(&temp_dir) {
+			self.logger
+				.warn(&format!(
+					"Warning: Could not create pairing directory {}: {}",
+					temp_dir, e
+				))
+				.await;
+		} else {
 			let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
 			if let Err(e) = std::fs::write(&session_file, &value) {
 				self.logger
@@ -761,25 +779,34 @@ impl NetworkingService {
 		let key = session_id.as_bytes();
 		let mut node_addrs = self.query_discovery_record(key).await?;
 
-		// For local testing: also check for file-based session advertisement
-		if let Ok(temp_dir) = std::env::var("SPACEDRIVE_TEST_DIR") {
-			let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
-			if let Ok(data) = std::fs::read(&session_file) {
-				if let Ok(advertisement) = serde_json::from_slice::<
-					crate::services::networking::protocols::pairing::PairingAdvertisement,
-				>(&data)
-				{
-					if let Ok(initiator_node_addr) = advertisement.node_addr() {
-						self.logger
-							.info("Found Initiator's session info, attempting connection...")
-							.await;
-						node_addrs.push(initiator_node_addr);
-					}
+		// Check for file-based session advertisement
+		// This is a temporary solution until we have proper DHT or mDNS discovery
+		let temp_dir = std::env::var("SPACEDRIVE_TEST_DIR")
+			.unwrap_or_else(|_| "/tmp/spacedrive-pairing".to_string());
+
+		let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
+		if let Ok(data) = std::fs::read(&session_file) {
+			if let Ok(advertisement) = serde_json::from_slice::<
+				crate::services::networking::protocols::pairing::PairingAdvertisement,
+			>(&data)
+			{
+				if let Ok(initiator_node_addr) = advertisement.node_addr() {
+					self.logger
+						.info("Found Initiator's session info, attempting connection...")
+						.await;
+					node_addrs.push(initiator_node_addr);
 				}
 			}
+		} else {
+			self.logger
+				.debug(&format!(
+					"No pairing session file found at {}",
+					session_file
+				))
+				.await;
 		}
 
-		// Try to connect to discovered nodes
+		// Try to connect to discovered nodes first
 		for node_addr in node_addrs {
 			self.logger.info("Attempting to connect to node...").await;
 			self.logger
@@ -815,6 +842,63 @@ impl NetworkingService {
 				connected_nodes.len()
 			))
 			.await;
+
+		// If no nodes are connected yet, try to discover all peers on the network
+		// and attempt to connect to each one - the initiator will respond to our pairing request
+		if connected_nodes.is_empty() {
+			self.logger
+				.info("No connected nodes found, attempting to discover all peers on local network...")
+				.await;
+
+			// Get all discovered peers through the endpoint's discovery service
+			if let Some(endpoint) = &self.endpoint {
+				// LocalSwarmDiscovery should have discovered peers by now
+				// We need to try connecting to all discovered nodes since we don't know which one is the initiator
+
+				// Get our own node address to broadcast it
+				let our_node_addr = endpoint.node_addr().await.map_err(|e| {
+					NetworkingError::Protocol(format!("Failed to get our node addr: {}", e))
+				})?;
+
+				self.logger
+					.info(&format!(
+						"Our node address for pairing: {:?}",
+						our_node_addr
+					))
+					.await;
+
+				// Since we can't directly query discovered nodes from LocalSwarmDiscovery,
+				// we'll implement a broadcast approach where we try to connect to any node
+				// that might be listening with the pairing ALPN
+
+				// For now, let's wait a bit longer for discovery and connection attempts
+				self.logger
+					.info("Waiting additional time for local network discovery...")
+					.await;
+				tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+				// Check again for connected nodes
+				let connected_nodes = self.get_raw_connected_nodes().await;
+				if connected_nodes.is_empty() {
+					self.logger
+						.warn("Still no connected nodes after extended discovery period")
+						.await;
+					self.logger
+						.info("Ensure both devices are on the same local network and the initiator is running")
+						.await;
+
+					// As a last resort, if we're in a test environment with the pairing session file,
+					// we already tried to connect to it above
+					return Err(NetworkingError::Protocol(
+						"Failed to discover initiator on local network. Ensure both devices are on the same network.".to_string()
+					));
+				}
+			}
+		}
+
+		// Get the potentially updated list of connected nodes
+		let connected_nodes = self.get_raw_connected_nodes().await;
+
 		if !connected_nodes.is_empty() {
 			self.logger
 				.info(&format!(

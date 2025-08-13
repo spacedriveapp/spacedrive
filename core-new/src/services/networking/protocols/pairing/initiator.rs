@@ -180,12 +180,14 @@ impl PairingProtocolHandler {
             ).await?;
         } // Release write lock here
 
-        // Get node ID for device connection with separate read lock
-        let node_id = {
-            let registry = self.device_registry.read().await;
-            registry.get_node_id_for_device(actual_device_id)
-                .unwrap_or_else(|| NodeId::from_bytes(&[0u8; 32]).unwrap())
-        }; // Release read lock here
+        // Get node ID from the device info's network fingerprint
+        let node_id = match device_info.network_fingerprint.node_id.parse::<NodeId>() {
+            Ok(id) => id,
+            Err(_) => {
+                self.log_warn("Failed to parse node ID from device info, using fallback").await;
+                NodeId::from_bytes(&[0u8; 32]).unwrap()
+            }
+        };
 
         // Mark device as connected since pairing is successful
         let simple_connection = crate::services::networking::device::DeviceConnection {
@@ -220,6 +222,28 @@ impl PairingProtocolHandler {
                 "Session {} updated with shared secret and remote device ID {}",
                 session_id, actual_device_id
             )).await;
+        }
+
+        // IMPORTANT: Establish a persistent messaging connection after pairing
+        // The initiator needs to establish a connection to the joiner as well
+        self.log_info(&format!(
+            "Establishing persistent messaging connection to paired device {} (node: {})",
+            actual_device_id, node_id
+        )).await;
+
+        // Send a command to establish a new persistent connection
+        let command = crate::services::networking::core::event_loop::EventLoopCommand::EstablishPersistentConnection {
+            device_id: actual_device_id,
+            node_id,
+        };
+
+        if let Err(e) = self.command_sender.send(command) {
+            self.log_error(&format!(
+                "Failed to send establish connection command: {:?}",
+                e
+            )).await;
+        } else {
+            self.log_info("Sent command to establish persistent connection").await;
         }
 
         // Send completion message

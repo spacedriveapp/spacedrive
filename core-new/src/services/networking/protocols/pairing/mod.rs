@@ -569,57 +569,88 @@ impl ProtocolHandler for PairingProtocolHandler {
     ) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         
-        // Read the message length (4 bytes)
-        let mut len_buf = [0u8; 4];
-        if let Err(e) = recv.read_exact(&mut len_buf).await {
-            self.logger.error(&format!("Failed to read message length: {}", e)).await;
-            return;
-        }
-        let msg_len = u32::from_be_bytes(len_buf) as usize;
+        self.logger.info(&format!("handle_stream called from node {}", remote_node_id)).await;
         
-        // Read the message
-        let mut msg_buf = vec![0u8; msg_len];
-        if let Err(e) = recv.read_exact(&mut msg_buf).await {
-            self.logger.error(&format!("Failed to read message: {}", e)).await;
-            return;
-        }
-        
-        // Deserialize and handle the message
-        let message: PairingMessage = match serde_json::from_slice(&msg_buf) {
-            Ok(msg) => msg,
-            Err(e) => {
-                self.logger.error(&format!("Failed to deserialize pairing message: {}", e)).await;
-                return;
+        // Keep the stream alive for multiple message exchanges
+        loop {
+            // Read the message length (4 bytes)
+            let mut len_buf = [0u8; 4];
+            match recv.read_exact(&mut len_buf).await {
+                Ok(_) => {},
+                Err(e) => {
+                    // Connection closed or error - this is normal when the other side closes
+                    self.logger.debug(&format!("Stream closed or error reading message length: {}", e)).await;
+                    break;
+                }
             }
-        };
-        
-        // Process the message and get response
-        let response = match self.handle_pairing_message(message, remote_node_id).await {
-            Ok(resp) => resp,
-            Err(e) => {
-                self.logger.error(&format!("Failed to handle pairing message: {}", e)).await;
-                return;
-            }
-        };
-        
-        // Send response if any
-        if let Some(response_data) = response {
-            // Write message length
-            let len = response_data.len() as u32;
-            if let Err(e) = send.write_all(&len.to_be_bytes()).await {
-                self.logger.error(&format!("Failed to write response length: {}", e)).await;
-                return;
+            let msg_len = u32::from_be_bytes(len_buf) as usize;
+            self.logger.info(&format!("Read message length: {} bytes", msg_len)).await;
+            
+            // Read the message
+            let mut msg_buf = vec![0u8; msg_len];
+            if let Err(e) = recv.read_exact(&mut msg_buf).await {
+                self.logger.error(&format!("Failed to read message: {}", e)).await;
+                break;
             }
             
-            // Write message
-            if let Err(e) = send.write_all(&response_data).await {
-                self.logger.error(&format!("Failed to write response: {}", e)).await;
-                return;
+            // Deserialize and handle the message
+            let message: PairingMessage = match serde_json::from_slice(&msg_buf) {
+                Ok(msg) => {
+                    // Log the message type
+                    let msg_type = match &msg {
+                        PairingMessage::PairingRequest { .. } => "PairingRequest",
+                        PairingMessage::Challenge { .. } => "Challenge",
+                        PairingMessage::Response { .. } => "Response",
+                        PairingMessage::Complete { .. } => "Complete",
+                    };
+                    self.logger.info(&format!("Received {} message from {}", msg_type, remote_node_id)).await;
+                    msg
+                },
+                Err(e) => {
+                    self.logger.error(&format!("Failed to deserialize pairing message: {}", e)).await;
+                    break;
+                }
+            };
+            
+            // Process the message and get response
+            let response = match self.handle_pairing_message(message.clone(), remote_node_id).await {
+                Ok(resp) => resp,
+                Err(e) => {
+                    self.logger.error(&format!("Failed to handle pairing message: {}", e)).await;
+                    break;
+                }
+            };
+            
+            // Send response if any
+            if let Some(response_data) = response {
+                // Write message length
+                let len = response_data.len() as u32;
+                if let Err(e) = send.write_all(&len.to_be_bytes()).await {
+                    self.logger.error(&format!("Failed to write response length: {}", e)).await;
+                    break;
+                }
+                
+                // Write message
+                if let Err(e) = send.write_all(&response_data).await {
+                    self.logger.error(&format!("Failed to write response: {}", e)).await;
+                    break;
+                }
+                
+                // Flush the stream
+                if let Err(e) = send.flush().await {
+                    self.logger.error(&format!("Failed to flush stream: {}", e)).await;
+                    break;
+                }
             }
             
-            // Flush the stream
-            let _ = send.flush().await;
+            // Check if this was a completion message - if so, we can close the stream
+            if matches!(message, PairingMessage::Complete { .. }) {
+                self.logger.info("Received Complete message, closing pairing stream").await;
+                break;
+            }
         }
+        
+        self.logger.info(&format!("Pairing stream handler completed for node {}", remote_node_id)).await;
     }
 
     async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>> {
@@ -750,39 +781,60 @@ impl ProtocolHandler for PairingProtocolHandler {
                             from_node
                         )).await;
 
-                        // Update the session state to ResponsePending so the unified pairing flow can send it
+                        // Instead of using ResponsePending state (which relies on state machine),
+                        // send the response directly via the command sender
                         {
                             let mut sessions = self.active_sessions.write().await;
                             if let Some(session) = sessions.get_mut(&session_id) {
-                                session.state = PairingState::ResponsePending {
-                                    challenge: challenge.clone(),
-                                    response_data: response_data.clone(),
-                                    remote_node_id,
-                                };
-                                self.log_debug(&format!(
-                                    "Session {} updated to ResponsePending state",
-                                    session_id
-                                )).await;
+                                // Only mark as ResponseSent if not already completed
+                                // handle_pairing_challenge may have already set it to Completed
+                                if !matches!(session.state, PairingState::Completed) {
+                                    session.state = PairingState::ResponseSent;
+                                    self.log_debug(&format!(
+                                        "Session {} marked as ResponseSent",
+                                        session_id
+                                    )).await;
+                                } else {
+                                    self.log_debug(&format!(
+                                        "Session {} already completed, keeping state",
+                                        session_id
+                                    )).await;
+                                }
                             } else {
-                                self.log_error(&format!("ERROR: Session {} not found when trying to update to ResponsePending", session_id)).await;
+                                self.log_error(&format!("ERROR: Session {} not found when trying to update state", session_id)).await;
                             }
                         }
-
-                        // Verify state change
-                        {
-                            let sessions = self.active_sessions.read().await;
-                            if let Some(session) = sessions.get(&session_id) {
-                                self.log_debug(&format!(
-                                    "Session {} final state: {}",
-                                    session_id, session.state
-                                )).await;
-                            }
-                        }
-
+                        
+                        // Send the response directly via command sender
                         self.log_info(&format!(
-                            "Challenge response ready to send for session {}",
-                            session_id
+                            "Sending challenge response directly to node {}",
+                            from_node
                         )).await;
+                        
+                        let command = crate::services::networking::core::event_loop::EventLoopCommand::SendMessageToNode {
+                            node_id: from_node,
+                            protocol: "pairing".to_string(),
+                            data: response_data.clone(),
+                        };
+                        
+                        if let Err(e) = self.command_sender.send(command) {
+                            self.log_error(&format!(
+                                "Failed to send response command: {:?}",
+                                e
+                            )).await;
+                            // Mark session as failed
+                            let mut sessions = self.active_sessions.write().await;
+                            if let Some(session) = sessions.get_mut(&session_id) {
+                                session.state = PairingState::Failed {
+                                    reason: "Failed to send response".to_string(),
+                                };
+                            }
+                        } else {
+                            self.log_info(&format!(
+                                "Challenge response sent successfully for session {}",
+                                session_id
+                            )).await;
+                        }
                     }
                     Err(e) => {
                         self.log_error(&format!(

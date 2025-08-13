@@ -12,6 +12,7 @@ use iroh::net::key::NodeId;
 use iroh::net::{Endpoint, NodeAddr};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 /// Commands that can be sent to the event loop
@@ -19,6 +20,10 @@ use uuid::Uuid;
 pub enum EventLoopCommand {
 	// Connection management
 	ConnectionEstablished {
+		device_id: Uuid,
+		node_id: NodeId,
+	},
+	EstablishPersistentConnection {
 		device_id: Uuid,
 		node_id: NodeId,
 	},
@@ -259,16 +264,19 @@ impl NetworkingEventLoop {
 				bi_result = conn.accept_bi() => {
 					match bi_result {
 						Ok((send, recv)) => {
-							logger.debug(&format!("Accepted bidirectional stream from {}", remote_node_id)).await;
+							logger.info(&format!("Accepted bidirectional stream from {}", remote_node_id)).await;
 							// For now, assume bidirectional streams are pairing
 							let registry = protocol_registry.read().await;
 							if let Some(handler) = registry.get_handler("pairing") {
-								logger.debug("Directing bidirectional stream to pairing handler").await;
+								logger.info("Directing bidirectional stream to pairing handler").await;
 								handler.handle_stream(
 									Box::new(send),
 									Box::new(recv),
 									remote_node_id,
 								).await;
+								logger.info(&format!("Pairing handler completed for stream from {}", remote_node_id)).await;
+							} else {
+								logger.error("No pairing handler registered!").await;
 							}
 						}
 						Err(e) => {
@@ -350,6 +358,58 @@ impl NetworkingEventLoop {
 				self.send_to_node(node_id, &protocol, data).await;
 			}
 
+			EventLoopCommand::EstablishPersistentConnection { device_id, node_id } => {
+				// Establish a new persistent connection using MESSAGING_ALPN
+				self.logger
+					.info(&format!(
+						"Establishing persistent messaging connection to device {} (node: {})",
+						device_id, node_id
+					))
+					.await;
+
+				// Create NodeAddr for the connection
+				let node_addr = NodeAddr::new(node_id);
+				
+				// Attempt to connect with MESSAGING_ALPN
+				match self.endpoint.connect(node_addr, MESSAGING_ALPN).await {
+					Ok(conn) => {
+						// Store the connection
+						{
+							let mut connections = self.active_connections.write().await;
+							connections.insert(node_id, conn);
+						}
+						
+						self.logger
+							.info(&format!(
+								"Successfully established persistent connection to device {} (node: {})",
+								device_id, node_id
+							))
+							.await;
+						
+						// Update device registry to mark as connected
+						let mut registry = self.device_registry.write().await;
+						if let Err(e) = registry.set_device_connected(device_id, node_id) {
+							self.logger
+								.error(&format!("Failed to update device connection state: {}", e))
+								.await;
+						}
+						
+						// Send connection event
+						let _ = self
+							.event_sender
+							.send(NetworkEvent::ConnectionEstablished { device_id, node_id });
+					}
+					Err(e) => {
+						self.logger
+							.error(&format!(
+								"Failed to establish persistent connection to device {} (node: {}): {}",
+								device_id, node_id, e
+							))
+							.await;
+					}
+				}
+			}
+
 			EventLoopCommand::Shutdown => {
 				// Handled in main loop
 			}
@@ -422,6 +482,13 @@ impl NetworkingEventLoop {
 							Ok((mut send, _recv)) => {
 								// For pairing, send with length prefix like send_pairing_message_to_node does
 								if protocol == "pairing" {
+									self.logger
+										.info(&format!(
+											"Sending pairing message to {} ({} bytes)",
+											node_id, data.len()
+										))
+										.await;
+									
 									// Send message length first
 									let len = data.len() as u32;
 									if let Err(e) = send.write_all(&len.to_be_bytes()).await {
@@ -443,7 +510,25 @@ impl NetworkingEventLoop {
 											protocol, e
 										))
 										.await;
+								} else {
+									self.logger
+										.info(&format!(
+											"Successfully sent {} message to {}",
+											protocol, node_id
+										))
+										.await;
 								}
+								
+								// Flush the stream to ensure data is sent
+								if let Err(e) = send.flush().await {
+									self.logger
+										.error(&format!(
+											"Failed to flush {} stream: {}",
+											protocol, e
+										))
+										.await;
+								}
+								
 								let _ = send.finish();
 							}
 							Err(e) => {

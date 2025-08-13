@@ -106,7 +106,6 @@ impl Daemon {
 
 		// Initialize networking
 		core.init_networking().await?;
-		core.start_networking().await?;
 
 		let core = Arc::new(core);
 
