@@ -157,11 +157,31 @@ impl PairingPersistence {
             return Ok(HashMap::new());
         }
 
-        let json_data = fs::read_to_string(&self.sessions_file).await.map_err(NetworkingError::Io)?;
+        let json_data = match fs::read_to_string(&self.sessions_file).await {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("Failed to read pairing sessions file: {}", e);
+                return Ok(HashMap::new());
+            }
+        };
 
-        let persisted: PersistedPairingSessions = serde_json::from_str(&json_data).map_err(|e| {
-            NetworkingError::Serialization(e)
-        })?;
+        // Handle empty files
+        if json_data.trim().is_empty() {
+            eprintln!("Pairing sessions file is empty, returning empty sessions");
+            return Ok(HashMap::new());
+        }
+
+        let persisted: PersistedPairingSessions = match serde_json::from_str(&json_data) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("Failed to parse pairing sessions JSON: {}. File may be corrupted.", e);
+                // Try to rename the corrupted file for debugging
+                let backup_path = self.sessions_file.with_extension("json.corrupted");
+                let _ = fs::rename(&self.sessions_file, &backup_path).await;
+                eprintln!("Renamed corrupted file to: {:?}", backup_path);
+                return Ok(HashMap::new());
+            }
+        };
 
         // Filter out expired sessions (older than 1 hour)
         let now = chrono::Utc::now();

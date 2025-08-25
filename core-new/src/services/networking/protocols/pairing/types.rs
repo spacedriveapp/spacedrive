@@ -80,11 +80,19 @@ impl PairingCode {
 
     /// Parse a pairing code from a BIP39 mnemonic string
     pub fn from_string(code: &str) -> crate::services::networking::Result<Self> {
-        let words: Vec<String> = code.split_whitespace().map(|s| s.to_lowercase()).collect();
+        // Trim the input and normalize whitespace
+        let trimmed = code.trim();
+        if trimmed.is_empty() {
+            return Err(crate::services::networking::NetworkingError::Protocol(
+                "Pairing code cannot be empty".to_string(),
+            ));
+        }
+
+        let words: Vec<String> = trimmed.split_whitespace().map(|s| s.to_lowercase()).collect();
 
         if words.len() != 12 {
             return Err(crate::services::networking::NetworkingError::Protocol(
-                "Invalid pairing code format - must be 12 BIP39 words".to_string(),
+                format!("Invalid pairing code format - expected 12 words but got {}", words.len()),
             ));
         }
 

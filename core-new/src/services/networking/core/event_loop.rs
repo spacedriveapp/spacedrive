@@ -265,18 +265,35 @@ impl NetworkingEventLoop {
 					match bi_result {
 						Ok((send, recv)) => {
 							logger.info(&format!("Accepted bidirectional stream from {}", remote_node_id)).await;
-							// For now, assume bidirectional streams are pairing
+							
+							// Check if this device is already paired
+							let is_paired = {
+								let registry = device_registry.read().await;
+								if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
+									match registry.get_device_state(device_id) {
+										Some(crate::services::networking::device::DeviceState::Paired { .. }) |
+										Some(crate::services::networking::device::DeviceState::Connected { .. }) => true,
+										_ => false,
+									}
+								} else {
+									false
+								}
+							};
+							
+							// Route to appropriate handler based on pairing status
+							let handler_name = if is_paired { "messaging" } else { "pairing" };
+							
 							let registry = protocol_registry.read().await;
-							if let Some(handler) = registry.get_handler("pairing") {
-								logger.info("Directing bidirectional stream to pairing handler").await;
+							if let Some(handler) = registry.get_handler(handler_name) {
+								logger.info(&format!("Directing bidirectional stream to {} handler", handler_name)).await;
 								handler.handle_stream(
 									Box::new(send),
 									Box::new(recv),
 									remote_node_id,
 								).await;
-								logger.info(&format!("Pairing handler completed for stream from {}", remote_node_id)).await;
+								logger.info(&format!("{} handler completed for stream from {}", handler_name, remote_node_id)).await;
 							} else {
-								logger.error("No pairing handler registered!").await;
+								logger.error(&format!("No {} handler registered!", handler_name)).await;
 							}
 						}
 						Err(e) => {
@@ -315,9 +332,13 @@ impl NetworkingEventLoop {
 	async fn handle_command(&self, command: EventLoopCommand) {
 		match command {
 			EventLoopCommand::ConnectionEstablished { device_id, node_id } => {
+				// For now, we don't have the remote device's addresses here
+				// They should be discovered through the discovery service
+				let addresses = vec![];
+				
 				// Update device registry
 				let mut registry = self.device_registry.write().await;
-				if let Err(e) = registry.set_device_connected(device_id, node_id) {
+				if let Err(e) = registry.set_device_connected(device_id, node_id, addresses).await {
 					self.logger
 						.error(&format!("Failed to update device connection state: {}", e))
 						.await;
@@ -386,9 +407,13 @@ impl NetworkingEventLoop {
 							))
 							.await;
 						
+						// For now, we don't have the remote device's addresses here
+						// They should be discovered through the discovery service
+						let addresses = vec![];
+						
 						// Update device registry to mark as connected
 						let mut registry = self.device_registry.write().await;
-						if let Err(e) = registry.set_device_connected(device_id, node_id) {
+						if let Err(e) = registry.set_device_connected(device_id, node_id, addresses).await {
 							self.logger
 								.error(&format!("Failed to update device connection state: {}", e))
 								.await;

@@ -19,6 +19,7 @@ pub mod test_framework;
 pub mod volume;
 
 use services::networking::protocols::PairingProtocolHandler;
+use services::networking::utils::logging::NetworkLogger;
 
 // Compatibility module for legacy networking references
 pub mod networking {
@@ -334,12 +335,24 @@ impl Core {
 			.ok_or("NetworkingEventLoop command sender not available")?
 			.clone();
 
-		let pairing_handler = Arc::new(networking::protocols::PairingProtocolHandler::new(
+		// Get data directory from config
+		let data_dir = {
+			let config = self.config.read().await;
+			config.data_dir.clone()
+		};
+
+		let pairing_handler = Arc::new(networking::protocols::PairingProtocolHandler::new_with_persistence(
 			networking.identity().clone(),
 			networking.device_registry(),
 			logger.clone(),
 			command_sender,
+			data_dir,
 		));
+
+		// Try to load persisted sessions, but don't fail if there's an error
+		if let Err(e) = pairing_handler.load_persisted_sessions().await {
+			logger.warn(&format!("Failed to load persisted pairing sessions: {}. Starting with empty sessions.", e)).await;
+		}
 
 		// Start the state machine task for pairing
 		networking::protocols::PairingProtocolHandler::start_state_machine_task(

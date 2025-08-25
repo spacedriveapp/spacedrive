@@ -31,10 +31,24 @@ impl CommandHandler for LibraryHandler {
 					.create_library(&name, path, core.context.clone())
 					.await
 				{
-					Ok(library) => DaemonResponse::LibraryCreated {
-						id: library.id(),
-						name: name.clone(),  // Use the name passed in instead of reading from library
-						path: library.path().to_path_buf(),
+					Ok(library) => {
+						// Auto-select the newly created library
+						let library_id = library.id();
+						let library_path = library.path().to_path_buf();
+						
+						// Try to set the new library as current
+						if let Err(e) = state_service
+							.switch_library(library_id, library_path.clone())
+							.await
+						{
+							warn!("Failed to auto-select new library: {}", e);
+						}
+						
+						DaemonResponse::LibraryCreated {
+							id: library_id,
+							name: name.clone(),  // Use the name passed in instead of reading from library
+							path: library_path,
+						}
 					},
 					Err(e) => DaemonResponse::Error(e.to_string()),
 				}

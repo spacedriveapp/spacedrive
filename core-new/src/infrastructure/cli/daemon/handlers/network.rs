@@ -175,10 +175,25 @@ impl CommandHandler for NetworkHandler {
 					let service = &*networking;
 					match service.start_pairing_as_joiner(&code).await {
 						Ok(_) => DaemonResponse::PairingInProgress,
-						Err(e) => DaemonResponse::Error(e.to_string()),
+						Err(e) => {
+							// Provide more helpful error messages
+							let error_msg = match e.to_string().as_str() {
+								s if s.contains("Invalid pairing code format") => {
+									"Invalid pairing code format. Please ensure you've entered exactly 12 BIP39 words separated by spaces.".to_string()
+								}
+								s if s.contains("Invalid BIP39 mnemonic") => {
+									"Invalid pairing code. The words provided are not valid BIP39 words or the checksum is incorrect.".to_string()
+								}
+								s if s.contains("Session") && s.contains("already exists") => {
+									"A pairing session with this code is already active. Please wait for it to complete or expire.".to_string()
+								}
+								_ => format!("Failed to join pairing session: {}", e)
+							};
+							DaemonResponse::Error(error_msg)
+						}
 					}
 				} else {
-					DaemonResponse::Error("Networking not initialized".to_string())
+					DaemonResponse::Error("Networking not initialized. Please run 'spacedrive network init' first.".to_string())
 				}
 			}
 

@@ -205,6 +205,12 @@ impl PairingProtocolHandler {
     /// Join an existing pairing session with a specific session ID and pairing code
     /// This allows a joiner to participate in an initiator's session
     pub async fn join_pairing_session(&self, session_id: Uuid, pairing_code: PairingCode) -> Result<()> {
+        // Check if the pairing code has expired
+        if pairing_code.is_expired() {
+            return Err(NetworkingError::Protocol(
+                "Pairing code has expired. Please request a new code from the initiator.".to_string()
+            ));
+        }
 
         // Check if session already exists to prevent conflicts
         {
