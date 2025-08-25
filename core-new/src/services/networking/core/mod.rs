@@ -665,7 +665,39 @@ impl NetworkingService {
 		}
 
 		// Get our node address for advertising
-		let node_addr = self.get_node_addr().await?;
+		let mut node_addr = self.get_node_addr().await?;
+
+		// If we don't have any direct addresses yet, wait a bit for the endpoint to discover them
+		if node_addr.direct_addresses().count() == 0 {
+			self.logger
+				.info("No direct addresses discovered yet, waiting for endpoint to discover addresses...")
+				.await;
+			
+			// Wait up to 5 seconds for addresses to be discovered
+			let mut attempts = 0;
+			const MAX_ATTEMPTS: u32 = 10;
+			const WAIT_TIME_MS: u64 = 500;
+			
+			while attempts < MAX_ATTEMPTS {
+				tokio::time::sleep(tokio::time::Duration::from_millis(WAIT_TIME_MS)).await;
+				node_addr = self.get_node_addr().await?;
+				
+				if node_addr.direct_addresses().count() > 0 {
+					self.logger
+						.info(&format!("Discovered {} direct addresses", node_addr.direct_addresses().count()))
+						.await;
+					break;
+				}
+				
+				attempts += 1;
+			}
+			
+			if node_addr.direct_addresses().count() == 0 {
+				self.logger
+					.warn("No direct addresses discovered after waiting, proceeding with relay-only address")
+					.await;
+			}
+		}
 
 		self.logger
 			.info(&format!("Node address: {:?}", node_addr))

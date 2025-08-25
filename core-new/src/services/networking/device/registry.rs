@@ -447,6 +447,8 @@ impl DeviceRegistry {
 
 	/// Set a device as connected with its node ID
 	pub async fn set_device_connected(&mut self, device_id: Uuid, node_id: NodeId, addresses: Vec<String>) -> Result<()> {
+		self.logger.info(&format!("Setting device {} as connected with addresses: {:?}", device_id, addresses)).await; // <-- Add this line
+
 		// Update the node_to_device mapping
 		self.node_to_device.insert(node_id, device_id);
 		

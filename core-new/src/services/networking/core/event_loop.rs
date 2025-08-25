@@ -332,10 +332,16 @@ impl NetworkingEventLoop {
 	async fn handle_command(&self, command: EventLoopCommand) {
 		match command {
 			EventLoopCommand::ConnectionEstablished { device_id, node_id } => {
-				// For now, we don't have the remote device's addresses here
-				// They should be discovered through the discovery service
-				let addresses = vec![];
-				
+				// Get the address from the active connection map
+				let connections = self.active_connections.read().await;
+				let addresses = if let Some(conn) = connections.get(&node_id) {
+					vec![conn.remote_address().to_string()]
+				} else {
+					self.logger.warn(&format!("Could not find active connection for node {}", node_id)).await;
+					vec![]
+				};
+				drop(connections);
+
 				// Update device registry
 				let mut registry = self.device_registry.write().await;
 				if let Err(e) = registry.set_device_connected(device_id, node_id, addresses).await {
@@ -407,9 +413,15 @@ impl NetworkingEventLoop {
 							))
 							.await;
 						
-						// For now, we don't have the remote device's addresses here
-						// They should be discovered through the discovery service
-						let addresses = vec![];
+						// Get the address from the active connection map
+						let connections = self.active_connections.read().await;
+						let addresses = if let Some(conn) = connections.get(&node_id) {
+							vec![conn.remote_address().to_string()]
+						} else {
+							self.logger.warn(&format!("Could not find active connection for node {}", node_id)).await;
+							vec![]
+						};
+						drop(connections);
 						
 						// Update device registry to mark as connected
 						let mut registry = self.device_registry.write().await;
