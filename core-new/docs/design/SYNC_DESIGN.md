@@ -46,6 +46,7 @@ Spacedrive distinguishes between three separate data synchronization concerns:
 9.  **Intelligent Conflicts** - Union merge for content tags, deterministic UUIDs prevent ContentIdentity conflicts
 10. **Sync Readiness** - UUIDs optional until content identification complete, preventing premature sync of incomplete data
 11. **Declarative Dependencies** - Simple `depends_on = ["location", "device"]` syntax with automatic circular resolution
+12. **Derived Data is Not Synced** - Derived data, such as the closure table for hierarchical queries, is not synced directly. Each device rebuilds it locally from the synced source of truth (e.g., parent-child relationships), ensuring efficiency and consistency.
 
 ## Architecture
 
