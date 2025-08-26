@@ -7,7 +7,7 @@ use sd_core_new::domain::addressing::SdPath;
 use sd_core_new::{
 	infrastructure::{
 		actions::{manager::ActionManager, Action},
-		jobs::types::JobStatus,
+		events::Event,
 	},
 	operations::files::{
 		copy::{action::FileCopyAction, job::CopyOptions},
@@ -161,117 +161,73 @@ async fn test_copy_progress_monitoring_large_file() {
 	};
 	println!("Monitoring job ID: {}", job_id);
 
-	// Start monitoring task
-	let library_clone = library.clone();
+	// Subscribe to events from the event bus
+	let mut event_subscriber = core.events.subscribe();
 	let expected_size_clone = expected_size;
+	let job_id_str = job_id.to_string();
+	
+	// Start monitoring task using EventBus
 	let monitor_handle = tokio::spawn(async move {
 		let mut last_progress = 0.0;
-		let mut consecutive_same_progress = 0;
-		let mut poll_count = 0;
 		let mut has_seen_progress = false;
+		let mut event_count = 0;
 
-		loop {
-			poll_count += 1;
+		while let Ok(event) = event_subscriber.recv().await {
+			event_count += 1;
 
-			// Get job info from the job manager
-			let job_info_result = library_clone.jobs().get_job_info(job_id).await.unwrap();
-			if let Some(job_info) = job_info_result {
-				let current_progress = job_info.progress * 100.0;
+			match event {
+				Event::JobProgress { job_id: event_job_id, progress, message, .. } if event_job_id == job_id_str => {
+					let current_progress = progress * 100.0;
 
-				// Only show debug output every 100 polls to reduce noise
-				if poll_count % 100 == 0 && poll_count > 0 {
-					println!(
-						"Poll #{}: Status={:?}, Progress={:.1}%",
-						poll_count, job_info.status, current_progress
-					);
-				}
+					// Record snapshot if progress changed
+					if (current_progress - last_progress).abs() > 0.01 {
+						has_seen_progress = true;
 
-				// Debug log when we're near completion
-				if current_progress > 99.0 {
-					println!(
-						"Near completion - Poll #{}: Status={:?}, Progress={:.1}%",
-						poll_count, job_info.status, current_progress
-					);
-				}
+						let snapshot = ProgressSnapshot {
+							timestamp: std::time::Instant::now(),
+							percentage: current_progress as f32,
+							bytes_copied: (expected_size_clone as f64 * (progress as f64)) as u64,
+							message: message.unwrap_or_else(|| format!("{:.1}%", current_progress)),
+						};
 
-				// Record snapshot if progress changed
-				if (current_progress - last_progress).abs() > 0.01 {
-					consecutive_same_progress = 0;
-					has_seen_progress = true;
+						println!(
+							"Progress: {:.1}% ({} MB)",
+							current_progress,
+							snapshot.bytes_copied / (1024 * 1024)
+						);
 
-					let snapshot = ProgressSnapshot {
-						timestamp: std::time::Instant::now(),
-						percentage: current_progress,
-						bytes_copied: (expected_size_clone as f64
-							* (current_progress as f64 / 100.0)) as u64,
-						message: format!("{:.1}%", current_progress),
-					};
-
-					println!(
-						"Progress: {:.1}% ({} MB)",
-						current_progress,
-						snapshot.bytes_copied / (1024 * 1024)
-					);
-
-					progress_snapshots_clone.lock().unwrap().push(snapshot);
-					last_progress = current_progress;
-				}
-
-				// Check if job is complete
-				match job_info.status {
-					JobStatus::Completed => {
-						println!("Job completed! (after {} polls)", poll_count);
-						println!("Final progress: {:.1}%", current_progress);
-						// Record final progress if we haven't seen any updates
-						if !has_seen_progress && current_progress > 0.0 {
-							let snapshot = ProgressSnapshot {
-								timestamp: std::time::Instant::now(),
-								percentage: current_progress,
-								bytes_copied: expected_size_clone,
-								message: "Final".to_string(),
-							};
-							progress_snapshots_clone.lock().unwrap().push(snapshot);
-						}
-						break;
-					}
-					JobStatus::Failed => {
-						println!("Job failed after {} polls", poll_count);
-						panic!("Job failed!");
-					}
-					_ => {
-						// Continue monitoring
-						consecutive_same_progress += 1;
-
-						// If progress hasn't changed for many iterations, it might be stuck
-						if consecutive_same_progress == 100 {
-							println!(
-								"Warning: Progress appears stuck at {:.1}% after 100 polls",
-								current_progress
-							);
-						}
-
-						// Fail fast if progress is stuck at 0% for too long
-						if consecutive_same_progress > 200 && current_progress == 0.0 {
-							println!(
-								"ERROR: Progress stuck at 0% for {} polls. Aborting test.",
-								consecutive_same_progress
-							);
-							break;
-						}
+						progress_snapshots_clone.lock().unwrap().push(snapshot);
+						last_progress = current_progress;
 					}
 				}
-			} else {
-				println!(
-					"Job info returned None for job {} (poll #{})",
-					job_id, poll_count
-				);
-				// Job might have been removed from running jobs after completion
-				// Let's assume it completed successfully
-				break;
+				Event::JobCompleted { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+					println!("Job completed! (after {} events)", event_count);
+					println!("Final progress: {:.1}%", last_progress);
+					
+					// Record final progress if we haven't seen any updates
+					if !has_seen_progress && last_progress == 0.0 {
+						let snapshot = ProgressSnapshot {
+							timestamp: std::time::Instant::now(),
+							percentage: 100.0,
+							bytes_copied: expected_size_clone,
+							message: "Final".to_string(),
+						};
+						progress_snapshots_clone.lock().unwrap().push(snapshot);
+					}
+					break;
+				}
+				Event::JobFailed { job_id: event_job_id, error, .. } if event_job_id == job_id_str => {
+					println!("Job failed after {} events: {}", event_count, error);
+					panic!("Job failed: {}", error);
+				}
+				Event::JobCancelled { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+					println!("Job was cancelled after {} events", event_count);
+					break;
+				}
+				_ => {
+					// Other events - continue monitoring
+				}
 			}
-
-			// Poll every 50ms to catch fine-grained progress updates
-			tokio::time::sleep(Duration::from_millis(50)).await;
 		}
 
 		has_seen_progress
@@ -465,43 +421,46 @@ async fn test_copy_progress_multiple_files() {
 		_ => panic!("Expected Custom ActionOutput variant"),
 	};
 
-	// Monitor progress
-	let library_clone = library.clone();
+	// Subscribe to events and monitor progress using EventBus
+	let mut event_subscriber = core.events.subscribe();
+	let job_id_str = job_id.to_string();
+	
 	let monitor_handle = tokio::spawn(async move {
 		let mut last_progress = 0.0;
 
-		loop {
-			let job_info_result = library_clone.jobs().get_job_info(job_id).await.unwrap();
-			if let Some(job_info) = job_info_result {
-				let current_progress = job_info.progress * 100.0;
+		while let Ok(event) = event_subscriber.recv().await {
+			match event {
+				Event::JobProgress { job_id: event_job_id, progress, .. } if event_job_id == job_id_str => {
+					let current_progress = progress * 100.0;
 
-				if (current_progress - last_progress).abs() > 0.01 {
-					let snapshot = ProgressSnapshot {
-						timestamp: std::time::Instant::now(),
-						percentage: current_progress,
-						bytes_copied: 0, // Would need to calculate from percentage
-						message: format!("{:.1}%", current_progress),
-					};
+					if (current_progress - last_progress).abs() > 0.01 {
+						let snapshot = ProgressSnapshot {
+							timestamp: std::time::Instant::now(),
+							percentage: current_progress as f32,
+							bytes_copied: 0, // Would need to calculate from percentage
+							message: format!("{:.1}%", current_progress),
+						};
 
-					println!("Multi-file progress: {:.1}%", current_progress);
-					progress_snapshots_clone.lock().unwrap().push(snapshot);
-					last_progress = current_progress;
+						println!("Multi-file progress: {:.1}%", current_progress);
+						progress_snapshots_clone.lock().unwrap().push(snapshot);
+						last_progress = current_progress;
+					}
 				}
-
-				if matches!(job_info.status, JobStatus::Completed) {
+				Event::JobCompleted { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+					println!("Multi-file job completed");
 					break;
-				} else if matches!(job_info.status, JobStatus::Failed) {
-					panic!("Multi-file job failed!");
 				}
-			} else {
-				println!(
-					"Job info returned None for multi-file job {}. Job likely completed.",
-					job_id
-				);
-				break;
+				Event::JobFailed { job_id: event_job_id, error, .. } if event_job_id == job_id_str => {
+					panic!("Multi-file job failed: {}", error);
+				}
+				Event::JobCancelled { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+					println!("Multi-file job was cancelled");
+					break;
+				}
+				_ => {
+					// Other events - continue monitoring
+				}
 			}
-
-			tokio::time::sleep(Duration::from_millis(50)).await;
 		}
 	});
 
