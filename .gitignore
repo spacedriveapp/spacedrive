@@ -359,3 +359,7 @@ vite.config.ts.*
 /config.json
 
 benchdata
+
+combined_tasks.txt
+combined_docs.txt
+combined_rust_files.txt
