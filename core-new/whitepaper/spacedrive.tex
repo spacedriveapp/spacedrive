@@ -1457,6 +1457,230 @@ The Spacedrive architecture supports multiple synchronization policies, managed 
 
 This stateful, always-on monitoring eliminates the need for periodic manual syncs. In the event of conflicts, Spacedrive's metadata conflict resolution strategies are invoked to merge changes intelligently or prompt the user for a decision.
 
+\subsection{Practical Conflict Resolution}
+While the simulation engine prevents operational conflicts before they occur, synchronization conflicts can still arise when multiple devices modify the same data concurrently. Library Sync's domain separation significantly reduces these conflicts, but when they do occur---particularly in the User Metadata domain---the system provides transparent, user-controlled conflict resolution that maintains data integrity while preserving user intent.
+
+\subsubsection{Metadata Conflict Scenarios}
+The most common conflicts occur when multiple devices modify the same content metadata simultaneously:
+
+\paragraph{Tag Conflicts}
+\textbf{Scenario}: User adds tag "vacation" on Device A while simultaneously adding tag "family" on Device B to the same photo.
+
+\textbf{Resolution Strategy}: Union merge with conflict notification, leveraging the richly-structured tag system (Section 3.3):
+
+\textbf{Intelligent Tag Conflict Resolution Process}
+
+When tag conflicts occur, Spacedrive follows a sophisticated resolution process:
+
+\textbf{Detection Phase}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item System identifies when the same file has been tagged differently on multiple devices
+ \item Compares tag sets to determine if there's actual overlap or genuine conflict
+ \item Analyzes tag hierarchies to identify if tags are related (e.g., both are children of the same parent tag)
+ \item Generates detailed conflict context for decision-making
+\end{itemize}
+
+\textbf{Resolution Strategy}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Union Merge}: Automatically combines all tags from both devices
+ \item \textbf{Conflict Notification}: Creates detailed notification explaining what was merged
+ \item \textbf{User Transparency}: Provides complete visibility into the resolution process
+\end{itemize}
+
+\textbf{Outcome Tracking}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Records timestamp and source of each tag for future reference
+ \item Enables user to review and modify the automatic resolution if needed
+ \item Maintains audit trail of all conflict resolution decisions
+\end{itemize}
+
+
+\textbf{User Experience}:
+- Tags are automatically combined: "vacation, family"
+- User receives notification: "Combined tags for sunset.jpg: added 'vacation' and 'family' from different devices"
+- User can review and modify the combined tags if needed
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    scale=0.85,
+    node distance=1.2cm,
+    auto,
+    % Styles
+    device/.style={rectangle, rounded corners, draw=black!70, fill=blue!15, minimum width=2cm, minimum height=0.8cm, align=center, font=\small},
+    conflict/.style={circle, draw=red!70, fill=red!15, minimum width=1.5cm, align=center, font=\small},
+    process/.style={rectangle, rounded corners, draw=black!70, fill=green!15, minimum width=2.8cm, minimum height=1cm, align=center, font=\small},
+    result/.style={rectangle, rounded corners, draw=black!70, fill=yellow!15, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\small},
+    arrow/.style={->, >=stealth, semithick},
+    conflictarrow/.style={->, >=stealth, semithick, red},
+    label/.style={font=\tiny, fill=white, inner sep=1pt}
+]
+    % Devices in a row
+    \node[device] (deviceA) {Device A\\
+    \tiny Tags: "vacation"};
+
+    \node[device, right=2cm of deviceA] (deviceB) {Device B\\
+    \tiny Tags: "family"};
+
+    % Conflict Detection centered below
+    \node[conflict, below=1.5cm of $(deviceA)!0.5!(deviceB)$] (conflict) {Conflict\\
+    \tiny Detected};
+
+    % Resolution Process
+    \node[process, below=1.2cm of conflict] (resolution) {Resolution Engine\\
+    \tiny Union merge};
+
+    % Result
+    \node[result, below=1.2cm of resolution] (merged) {Merged Result\\
+    \tiny Tags: "vacation, family"};
+
+    % Arrows
+    \draw[conflictarrow] (deviceA) -- (conflict);
+    \draw[conflictarrow] (deviceB) -- (conflict);
+    \draw[arrow] (conflict) -- (resolution);
+    \draw[arrow] (resolution) -- (merged);
+
+    % Sync arrows
+    \draw[arrow, dashed] (merged.west) to[bend left=45] node[label, pos=0.3] {\tiny Sync} (deviceA.south);
+    \draw[arrow, dashed] (merged.east) to[bend right=45] node[label, pos=0.3] {\tiny Sync} (deviceB.south);
+\end{tikzpicture}
+\caption{Tag Conflict Resolution: Union merge strategy automatically combines tags from multiple devices while notifying the user of the resolution.}
+\label{fig:tag-conflict-resolution}
+\end{figure}
+
+\paragraph{Rating Conflicts}
+\textbf{Scenario}: Photo rated 4 stars on Device A, 5 stars on Device B.
+
+\textbf{Resolution Strategy}: Last-writer-wins with user notification:
+
+
+\textbf{Rating Conflict Resolution: Last-Writer-Wins Strategy}
+
+For rating conflicts, Spacedrive uses a temporal resolution approach:
+
+\textbf{Conflict Scenario}: Photo rated differently on multiple devices (e.g., 4 stars vs. 5 stars)
+
+\textbf{Resolution Logic}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Timestamp Comparison}: System examines when each rating was applied
+ \item \textbf{Most Recent Wins}: The more recent rating is automatically selected
+ \item \textbf{Clear Attribution}: User notification specifies which device's rating was chosen and when
+\end{itemize}
+
+\textbf{User Experience}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Automatic resolution without user intervention required
+ \item Transparent notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
+ \item User can manually override the automatic choice if they disagree with the outcome
+\end{itemize}
+
+
+\textbf{User Experience}:
+- Most recent rating wins automatically
+- Notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
+- User can manually change rating if they disagree
+
+\subsubsection{Advanced Conflict Scenarios}
+\paragraph{Complex Metadata Conflicts}
+\textbf{Scenario}: User creates custom metadata field "project" with value "website" on Device A, while Device B creates the same field with value "portfolio".
+
+\textbf{Intelligent Custom Metadata Conflict Resolution}
+
+When users create conflicting custom metadata on different devices, Spacedrive provides sophisticated resolution assistance:
+
+\textbf{Conflict Analysis}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item System identifies the specific metadata field and conflicting values
+ \item Analyzes value types to determine if combination is possible
+ \item Generates context-aware resolution suggestions based on conflict nature
+\end{itemize}
+
+\textbf{Smart Resolution Options}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Compatible Values}: For string conflicts, offers to use either value, combine them, or create custom resolution
+ \item \textbf{Type Mismatches}: When data types differ, provides clear choice between local/remote values or custom entry
+ \item \textbf{Contextual Suggestions}: System provides reasoning for each resolution option
+\end{itemize}
+
+\textbf{User Experience}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Clear presentation of conflict: "project field conflicts: 'website' vs 'portfolio'"
+ \item Multiple resolution choices: use either value, combine as "website, portfolio", or enter custom value
+ \item One-time decision with preference learning for similar future conflicts
+ \item Complete transparency about which device contributed each value
+\end{itemize}
+
+\textbf{User Experience}:
+- System detects incompatible values for "project" field
+- Presents clear options: "website", "portfolio", "website, portfolio", or custom value
+- User makes one-time decision, system remembers preference for similar conflicts
+
+\subsubsection{Conflict Prevention}
+Spacedrive employs several strategies to minimize conflicts before they occur:
+
+\paragraph{Optimistic Locking}
+\textbf{Optimistic Metadata Locking Strategy}
+
+To prevent simultaneous metadata modifications that could lead to conflicts, Spacedrive employs a lightweight locking mechanism:
+
+\textbf{Lock Characteristics}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Short Duration}: 30-second locks prevent long-term resource blocking
+ \item \textbf{Field-Specific}: Locks target specific metadata fields, not entire files
+ \item \textbf{Device Attribution}: Clear identification of which device holds each lock
+ \item \textbf{Automatic Expiration}: Locks expire automatically to prevent deadlocks
+\end{itemize}
+
+\textbf{Cross-Device Coordination}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Lock acquisition broadcasts to all connected devices in the library
+ \item Other devices receive immediate notification and defer their edits
+ \item Graceful handling of network interruptions during lock operations
+ \item Automatic retry mechanisms for failed lock acquisitions
+\end{itemize}
+
+\textbf{User Experience Benefits}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Prevents frustrating conflicts from simultaneous editing
+ \item Near-instant feedback when metadata modification is blocked
+ \item Transparent handling—users don't need to understand the locking mechanism
+ \item Reliable metadata consistency across all devices
+\end{itemize}
+
+\paragraph{Real-time Conflict Notifications}
+When conflicts do occur, users receive immediate, actionable notifications:
+
+\textbf{User-Friendly Conflict Notification System}
+
+Spacedrive provides clear, actionable notifications when conflicts occur and are resolved:
+
+\textbf{Notification Structure}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Clear Titles}: Descriptive headings like "Photo tags updated on both devices"
+ \item \textbf{Detailed Descriptions}: Specific information about what was changed or merged
+ \item \textbf{Affected Files List}: Complete inventory of files impacted by the conflict resolution
+ \item \textbf{Action Options}: Clear next steps like "Tap to review" or "Changes automatically applied"
+\end{itemize}
+
+\textbf{Example Notification}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Title}: "Metadata synchronized"
+ \item \textbf{Description}: "Combined tags from iPhone and MacBook for 3 photos"
+ \item \textbf{Affected Files}: sunset.jpg, beach.jpg, vacation.mp4
+ \item \textbf{User Action}: "Review changes" (optional)
+ \item \textbf{Status}: Auto-resolved with timestamp for audit trail
+\end{itemize}
+
+\textbf{Transparency and Control}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Complete visibility into what conflicts occurred and how they were resolved
+ \item Clear indication of automatic vs. manual resolution requirements
+ \item Historical timestamp for tracking when conflicts were addressed
+ \item Optional review actions for users who want to verify or modify automatic resolutions
+\end{itemize}
+
+This transparent, user-controlled approach to conflict resolution ensures that users maintain complete control over their metadata while benefiting from seamless synchronization across devices.
+
 % --- SECTION 4.6: THE AI LAYER ---
 \subsection{AI-Native VDFS: From Semantic Search to Intelligent Management}
 \label{sec:ai-native}
@@ -2076,8 +2300,8 @@ Content Identification & 38.5 & 68.7 & 191.6 & 265.8 & 2922.7 & 1340.8 \\
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Production-Ready}: Built in Rust with memory safety guarantees \textbullet{} 95\%+ test coverage \textbullet{} Multi-process distributed testing framework
-\item \textbf{Proven Performance}: 8,500 files/sec indexing \textbullet{} 55ms keyword search \textbullet{} 95ms semantic search \textbullet{} Reliable P2P connectivity via Iroh~\cite{iroh_networking}
-\item \textbf{Full Compatibility}: Works seamlessly with existing filesystems, cloud services, and tools---no migration required
+% \item \textbf{Performance}: 8,500 files/sec indexing \textbullet{} 55ms keyword search \textbullet{} 95ms semantic search \textbullet{} Reliable P2P connectivity via Iroh~\cite{iroh_networking}
+\item \textbf{Full Compatibility}: Works seamlessly with existing filesystems, cloud services and tools.
 \end{itemize}
 \end{keytakeaways}
 
@@ -2548,162 +2772,7 @@ This model fosters an ecosystem of "mini-apps" that offload the hard problems of
 private, and intelligent foundation for a user's entire digital existence, far beyond the boundaries of the traditional filesystem.
 
 
-% --- SECTION 7: RESOURCE EFFICIENCY AND MOBILE CONSIDERATIONS ---
-\section{Resource Efficiency and Mobile Considerations}
-Spacedrive is designed to be a responsible citizen on user devices, particularly mobile platforms where battery life and storage are constrained.
 
-\subsection{Adaptive Background Processing}
-The system employs intelligent resource management to balance functionality with device performance:
-
-
-\textbf{Intelligent Resource Management}
-
-Spacedrive continuously monitors device conditions and automatically adjusts its resource usage to maintain optimal performance:
-
-\textbf{Resource Monitoring}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Power Status}: Distinguishes between plugged-in and battery operation
- \item \textbf{Thermal Conditions}: Monitors device temperature and throttles when hot
- \item \textbf{Network Type}: Detects WiFi vs. cellular connections for data-conscious behavior
- \item \textbf{Device Type}: Adapts behavior for mobile vs. desktop environments
-\end{itemize}
-
-\textbf{Adaptive Behavior}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Battery Power}: Reduces CPU usage by 50\%, doubles sync intervals, minimizes background indexing
- \item \textbf{Thermal Pressure}: Dramatically reduces processing to prevent overheating
- \item \textbf{Cellular Connection}: Limits network bandwidth to 1MB/s, prioritizes critical operations
- \item \textbf{Background Mode}: Defers heavy operations until the user is actively using the app
-\end{itemize}
-
-
-\subsubsection{Platform-Specific Optimizations}
-
-\textbf{iOS/iPadOS}:
-- Background processing limited to 30-second windows when app backgrounded
-- Incremental indexing during brief background execution periods
-- Sync operations deferred until app returns to foreground
-
-\textbf{Android}:
-- Doze mode compatibility with intelligent scheduling around maintenance windows
-- Adaptive sync frequency based on device usage patterns
-- Background processing respects battery optimization settings
-
-\textbf{Desktop Platforms}:
-- Full background operation with thermal and power management
-- CPU thread scaling based on available cores and current load
-- Memory usage caps based on total system memory
-
-\textbf{Bluetooth Discovery (Spacedrop)}:
-- iOS/macOS: Native Core Bluetooth framework with user permission
-- Android: BluetoothLeScanner APIs with location permission requirements
-- Windows 10/11: WinRT Bluetooth LE APIs for proximity detection
-- Linux: BlueZ D-Bus integration where available
-
-\subsection{Storage Efficiency}
-Spacedrive minimizes storage overhead through several strategies:
-
-\subsubsection{Compact Database Design}
-
-
-\textbf{Space-Optimized Database Design}
-
-Spacedrive's database uses several techniques to minimize storage overhead while maintaining performance:
-
-\textbf{Efficient Data Representation}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Compact Timestamps}: Unix epoch integers instead of text strings (4 bytes vs 20+ bytes)
- \item \textbf{Bitfield Metadata}: Common boolean properties packed into single integers
- \item \textbf{Relative Paths}: Store only the path relative to location, not full absolute paths
- \item \textbf{Reference-Based Content}: Link to shared content records rather than duplicating information
-\end{itemize}
-
-\textbf{Intelligent Thumbnail Management}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Progressive Quality}: Generate thumbnails in multiple sizes (tiny, small, medium, large) on demand
- \item \textbf{Modern Formats}: Use efficient compression (WebP, AVIF) while maintaining compatibility
- \item \textbf{Storage Only When Needed}: Generate thumbnails only for files that are actually viewed
-\end{itemize}
-
-
-\textbf{Database Compression}: SQLite databases use page-level compression, typically achieving 60-80\% space savings for metadata.
-
-\textbf{Progressive Thumbnails}: Generate thumbnails on-demand in multiple sizes, storing only what's needed for current UI requirements.
-
-\subsubsection{Memory Management}
-
-
-\textbf{Memory-Efficient Query Processing Architecture}
-
-Spacedrive employs sophisticated memory management strategies to handle large datasets efficiently:
-
-\textbf{Streaming Query Execution}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Large queries process results as streams rather than loading everything into memory
- \item Prevents memory exhaustion when working with millions of file entries
- \item Cached prepared statements eliminate repeated query compilation overhead
- \item Incremental result processing enables responsive UI even with massive datasets
-\end{itemize}
-
-\textbf{Intelligent Caching Strategy}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item LRU (Least Recently Used) cache for frequently accessed metadata
- \item Configurable cache size limits based on available system memory
- \item Automatic eviction of stale data to prevent memory bloat
- \item Hot data remains instantly accessible while cold data is fetched on demand
-\end{itemize}
-
-\textbf{Resource-Conscious Design}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Query results transform directly into UI-ready objects without intermediate copying
- \item Error handling integrated into streaming pipeline for robust operation
- \item Memory usage scales with active operations, not total library size
-\end{itemize}
-
-
-\textbf{Streaming Operations}: Large queries use iterators rather than loading complete result sets into memory.
-
-\textbf{Bounded Caches}: LRU caches for frequently accessed data with configurable size limits based on available memory.
-
-\subsection{Network Efficiency}
-Cross-device operations are optimized for both speed and data usage:
-
-\subsubsection{Intelligent Sync Strategies}
-
-
-\textbf{Connection-Aware Synchronization}
-
-Spacedrive intelligently adapts its sync behavior based on the user's current network conditions:
-
-\textbf{WiFi Connections}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Full synchronization of all pending changes
- \item Unrestricted file transfers and metadata updates
- \item Background operations proceed at full capacity
-\end{itemize}
-
-\textbf{Cellular Connections}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Priority-based sync focusing on critical changes first
- \item 10MB size limit for individual file transfers
- \item Metadata and small files synchronized immediately
-\end{itemize}
-
-\textbf{Metered Connections}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Metadata-only synchronization to preserve data allowances
- \item File transfers deferred until unmetered connection available
- \item User can override for urgent transfers
-\end{itemize}
-
-
-\textbf{Connection-Aware Sync}: Automatically adjust sync behavior based on connection type and user preferences.
-
-\textbf{Delta Sync}: Only transmit changed data rather than full file re-uploads.
-
-\textbf{Compression}: Use zstd compression for metadata sync, achieving ~70\% reduction in network usage.
-
-This resource-conscious design ensures Spacedrive provides powerful functionality without compromising device performance or user experience.
 
 
 % --- SECTION 8: SECURITY AND PRIVACY MODEL ---
@@ -3127,230 +3196,7 @@ The system maintains security through isolation:
 By making encryption optional but enabled by default, Spacedrive provides flexibility for content creators and enterprises while maintaining strong privacy guarantees for personal data.
 
 
-% --- SECTION 9: PRACTICAL CONFLICT RESOLUTION ---
-\section{Practical Conflict Resolution}
-While the simulation engine prevents operational conflicts before they occur, synchronization conflicts can still arise when multiple devices modify the same data concurrently. Library Sync's domain separation significantly reduces these conflicts, but when they do occur---particularly in the User Metadata domain---the system provides transparent, user-controlled conflict resolution that maintains data integrity while preserving user intent.
 
-\subsection{Metadata Conflict Scenarios}
-The most common conflicts occur when multiple devices modify the same content metadata simultaneously:
-
-\subsubsection{Tag Conflicts}
-\textbf{Scenario}: User adds tag "vacation" on Device A while simultaneously adding tag "family" on Device B to the same photo.
-
-\textbf{Resolution Strategy}: Union merge with conflict notification, leveraging the richly-structured tag system (Section 3.3):
-
-\textbf{Intelligent Tag Conflict Resolution Process}
-
-When tag conflicts occur, Spacedrive follows a sophisticated resolution process:
-
-\textbf{Detection Phase}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item System identifies when the same file has been tagged differently on multiple devices
- \item Compares tag sets to determine if there's actual overlap or genuine conflict
- \item Analyzes tag hierarchies to identify if tags are related (e.g., both are children of the same parent tag)
- \item Generates detailed conflict context for decision-making
-\end{itemize}
-
-\textbf{Resolution Strategy}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Union Merge}: Automatically combines all tags from both devices
- \item \textbf{Conflict Notification}: Creates detailed notification explaining what was merged
- \item \textbf{User Transparency}: Provides complete visibility into the resolution process
-\end{itemize}
-
-\textbf{Outcome Tracking}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Records timestamp and source of each tag for future reference
- \item Enables user to review and modify the automatic resolution if needed
- \item Maintains audit trail of all conflict resolution decisions
-\end{itemize}
-
-
-\textbf{User Experience}:
-- Tags are automatically combined: "vacation, family"
-- User receives notification: "Combined tags for sunset.jpg: added 'vacation' and 'family' from different devices"
-- User can review and modify the combined tags if needed
-
-\begin{figure}[h]
-\centering
-\begin{tikzpicture}[
-    scale=0.85,
-    node distance=1.2cm,
-    auto,
-    % Styles
-    device/.style={rectangle, rounded corners, draw=black!70, fill=blue!15, minimum width=2cm, minimum height=0.8cm, align=center, font=\small},
-    conflict/.style={circle, draw=red!70, fill=red!15, minimum width=1.5cm, align=center, font=\small},
-    process/.style={rectangle, rounded corners, draw=black!70, fill=green!15, minimum width=2.8cm, minimum height=1cm, align=center, font=\small},
-    result/.style={rectangle, rounded corners, draw=black!70, fill=yellow!15, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\small},
-    arrow/.style={->, >=stealth, semithick},
-    conflictarrow/.style={->, >=stealth, semithick, red},
-    label/.style={font=\tiny, fill=white, inner sep=1pt}
-]
-    % Devices in a row
-    \node[device] (deviceA) {Device A\\
-    \tiny Tags: "vacation"};
-
-    \node[device, right=2cm of deviceA] (deviceB) {Device B\\
-    \tiny Tags: "family"};
-
-    % Conflict Detection centered below
-    \node[conflict, below=1.5cm of $(deviceA)!0.5!(deviceB)$] (conflict) {Conflict\\
-    \tiny Detected};
-
-    % Resolution Process
-    \node[process, below=1.2cm of conflict] (resolution) {Resolution Engine\\
-    \tiny Union merge};
-
-    % Result
-    \node[result, below=1.2cm of resolution] (merged) {Merged Result\\
-    \tiny Tags: "vacation, family"};
-
-    % Arrows
-    \draw[conflictarrow] (deviceA) -- (conflict);
-    \draw[conflictarrow] (deviceB) -- (conflict);
-    \draw[arrow] (conflict) -- (resolution);
-    \draw[arrow] (resolution) -- (merged);
-
-    % Sync arrows
-    \draw[arrow, dashed] (merged.west) to[bend left=45] node[label, pos=0.3] {\tiny Sync} (deviceA.south);
-    \draw[arrow, dashed] (merged.east) to[bend right=45] node[label, pos=0.3] {\tiny Sync} (deviceB.south);
-\end{tikzpicture}
-\caption{Tag Conflict Resolution: Union merge strategy automatically combines tags from multiple devices while notifying the user of the resolution.}
-\label{fig:tag-conflict-resolution}
-\end{figure}
-
-\subsubsection{Rating Conflicts}
-\textbf{Scenario}: Photo rated 4 stars on Device A, 5 stars on Device B.
-
-\textbf{Resolution Strategy}: Last-writer-wins with user notification:
-
-
-\textbf{Rating Conflict Resolution: Last-Writer-Wins Strategy}
-
-For rating conflicts, Spacedrive uses a temporal resolution approach:
-
-\textbf{Conflict Scenario}: Photo rated differently on multiple devices (e.g., 4 stars vs. 5 stars)
-
-\textbf{Resolution Logic}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Timestamp Comparison}: System examines when each rating was applied
- \item \textbf{Most Recent Wins}: The more recent rating is automatically selected
- \item \textbf{Clear Attribution}: User notification specifies which device's rating was chosen and when
-\end{itemize}
-
-\textbf{User Experience}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Automatic resolution without user intervention required
- \item Transparent notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
- \item User can manually override the automatic choice if they disagree with the outcome
-\end{itemize}
-
-
-\textbf{User Experience}:
-- Most recent rating wins automatically
-- Notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
-- User can manually change rating if they disagree
-
-\subsection{Advanced Conflict Scenarios}
-\subsubsection{Complex Metadata Conflicts}
-\textbf{Scenario}: User creates custom metadata field "project" with value "website" on Device A, while Device B creates the same field with value "portfolio".
-
-\textbf{Intelligent Custom Metadata Conflict Resolution}
-
-When users create conflicting custom metadata on different devices, Spacedrive provides sophisticated resolution assistance:
-
-\textbf{Conflict Analysis}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item System identifies the specific metadata field and conflicting values
- \item Analyzes value types to determine if combination is possible
- \item Generates context-aware resolution suggestions based on conflict nature
-\end{itemize}
-
-\textbf{Smart Resolution Options}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Compatible Values}: For string conflicts, offers to use either value, combine them, or create custom resolution
- \item \textbf{Type Mismatches}: When data types differ, provides clear choice between local/remote values or custom entry
- \item \textbf{Contextual Suggestions}: System provides reasoning for each resolution option
-\end{itemize}
-
-\textbf{User Experience}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Clear presentation of conflict: "project field conflicts: 'website' vs 'portfolio'"
- \item Multiple resolution choices: use either value, combine as "website, portfolio", or enter custom value
- \item One-time decision with preference learning for similar future conflicts
- \item Complete transparency about which device contributed each value
-\end{itemize}
-
-\textbf{User Experience}:
-- System detects incompatible values for "project" field
-- Presents clear options: "website", "portfolio", "website, portfolio", or custom value
-- User makes one-time decision, system remembers preference for similar conflicts
-
-\subsection{Conflict Prevention}
-Spacedrive employs several strategies to minimize conflicts before they occur:
-
-\subsubsection{Optimistic Locking}
-\textbf{Optimistic Metadata Locking Strategy}
-
-To prevent simultaneous metadata modifications that could lead to conflicts, Spacedrive employs a lightweight locking mechanism:
-
-\textbf{Lock Characteristics}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Short Duration}: 30-second locks prevent long-term resource blocking
- \item \textbf{Field-Specific}: Locks target specific metadata fields, not entire files
- \item \textbf{Device Attribution}: Clear identification of which device holds each lock
- \item \textbf{Automatic Expiration}: Locks expire automatically to prevent deadlocks
-\end{itemize}
-
-\textbf{Cross-Device Coordination}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Lock acquisition broadcasts to all connected devices in the library
- \item Other devices receive immediate notification and defer their edits
- \item Graceful handling of network interruptions during lock operations
- \item Automatic retry mechanisms for failed lock acquisitions
-\end{itemize}
-
-\textbf{User Experience Benefits}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Prevents frustrating conflicts from simultaneous editing
- \item Near-instant feedback when metadata modification is blocked
- \item Transparent handling—users don't need to understand the locking mechanism
- \item Reliable metadata consistency across all devices
-\end{itemize}
-
-\subsubsection{Real-time Conflict Notifications}
-When conflicts do occur, users receive immediate, actionable notifications:
-
-\textbf{User-Friendly Conflict Notification System}
-
-Spacedrive provides clear, actionable notifications when conflicts occur and are resolved:
-
-\textbf{Notification Structure}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Clear Titles}: Descriptive headings like "Photo tags updated on both devices"
- \item \textbf{Detailed Descriptions}: Specific information about what was changed or merged
- \item \textbf{Affected Files List}: Complete inventory of files impacted by the conflict resolution
- \item \textbf{Action Options}: Clear next steps like "Tap to review" or "Changes automatically applied"
-\end{itemize}
-
-\textbf{Example Notification}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Title}: "Metadata synchronized"
- \item \textbf{Description}: "Combined tags from iPhone and MacBook for 3 photos"
- \item \textbf{Affected Files}: sunset.jpg, beach.jpg, vacation.mp4
- \item \textbf{User Action}: "Review changes" (optional)
- \item \textbf{Status}: Auto-resolved with timestamp for audit trail
-\end{itemize}
-
-\textbf{Transparency and Control}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Complete visibility into what conflicts occurred and how they were resolved
- \item Clear indication of automatic vs. manual resolution requirements
- \item Historical timestamp for tracking when conflicts were addressed
- \item Optional review actions for users who want to verify or modify automatic resolutions
-\end{itemize}
-
-This transparent, user-controlled approach to conflict resolution ensures that users maintain complete control over their metadata while benefiting from seamless synchronization across devices.
 
 
 % --- SECTION 10: CONCLUSION ---

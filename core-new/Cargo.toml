@@ -11,6 +11,7 @@ ffmpeg = ["dep:sd-ffmpeg"]
 [workspace]
 members = [
     "benchmarks",
+    "task-validator",
 ]
 
 [dependencies]
