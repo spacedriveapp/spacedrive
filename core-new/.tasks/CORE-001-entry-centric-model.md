@@ -11,11 +11,11 @@ whitepaper: Section 4.1.2
 
 ## Description
 
-Implemented the universal `Entry` data model, which represents any filesystem item (file, directory, symlink). Every `Entry` is designed for immediate metadata capability via a linked `UserMetadata` record, allowing users to tag and organize files the moment they are discovered.
+Implement the universal `Entry` data model, which represents any filesystem item (file, directory, symlink). Every `Entry` is designed for immediate metadata capability via a linked `UserMetadata` record, allowing users to tag and organize files the moment they are discovered.
 
 ## Implementation Notes
--   The core domain model is defined in `src/domain/entry.rs`.
--   The corresponding database entity is implemented in `src/infrastructure/database/entities/entry.rs`.
+-   The core domain model will be defined in `src/domain/entry.rs`.
+-   The corresponding database entity will be implemented in `src/infrastructure/database/entities/entry.rs`.
 -   The `EntryKind` enum correctly differentiates between `File`, `Directory`, and `Symlink`.
 
 ## Acceptance Criteria

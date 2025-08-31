@@ -10,4 +10,4 @@ whitepaper: Section 4
 
 ## Description
 
-Encompasses all core file manipulation tasks, including copying, moving, deleting, and validation. These operations are implemented as durable jobs orchestrated by the Action System.
+Encompasses all core file manipulation tasks, including copying, moving, deleting, and validation. These operations will be implemented as durable jobs orchestrated by the Action System.

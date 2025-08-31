@@ -11,10 +11,10 @@ whitepaper: Section 4.4
 
 ## Description
 
-A `JobManager` has been implemented for each library to schedule, execute, and monitor background tasks. It is built on top of a generic `TaskSystem` for concurrency management.
+A `JobManager` will be implemented for each library to schedule, execute, and monitor background tasks. It will be built on top of a generic `TaskSystem` for concurrency management.
 
 ## Implementation Notes
--   The `JobManager` is defined in `src/infrastructure/jobs/manager.rs`.
+-   The `JobManager` will be defined in `src/infrastructure/jobs/manager.rs`.
 -   It maintains its own private database (`jobs.db`) for storing job state, history, and checkpoints.
 -   It is responsible for resuming interrupted jobs on startup.
 -   It provides APIs to `dispatch`, `pause`, and `resume` jobs.

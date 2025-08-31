@@ -11,7 +11,7 @@ whitepaper: Section 4.5.2
 
 ## Description
 
-The networking layer has been built using the Iroh library. A single, unified `NetworkingService` manages one Iroh endpoint that handles all P2P communication, including device discovery, pairing, and file transfers.
+The networking layer will be built using the Iroh library. A single, unified `NetworkingService` manages one Iroh endpoint that handles all P2P communication, including device discovery, pairing, and file transfers.
 
 ## Implementation Notes
 -   The `NetworkingService` in `src/services/networking/core/mod.rs` encapsulates the Iroh `Endpoint`.

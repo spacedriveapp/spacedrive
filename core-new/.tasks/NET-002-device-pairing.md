@@ -11,10 +11,10 @@ whitepaper: Section 4.5.2
 
 ## Description
 
-A secure protocol for pairing two devices has been implemented. The flow uses a human-readable BIP39 mnemonic code to establish a secure, end-to-end encrypted session, after which devices are mutually trusted.
+A secure protocol for pairing two devices will be implemented. The flow uses a human-readable BIP39 mnemonic code to establish a secure, end-to-end encrypted session, after which devices are mutually trusted.
 
 ## Implementation Notes
--   The complete state machine and logic are implemented in `src/services/networking/protocols/pairing/`.
+-   The complete state machine and logic will be implemented in `src/services/networking/protocols/pairing/`.
 -   The `PairingProtocolHandler` manages the initiator and joiner roles.
 -   Cryptographic operations, including challenge-response using `ed25519-dalek`, are handled by `pairing/security.rs`.
 -   Multi-process integration tests (`device_pairing_test.rs`, `device_persistence_test.rs`) validate the real-world functionality.

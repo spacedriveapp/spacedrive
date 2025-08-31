@@ -11,10 +11,10 @@ whitepaper: Section 6.3.1
 
 ## Description
 
-A custom testing framework has been built to validate complex, multi-device distributed scenarios directly within the Rust test suite. It orchestrates multiple `cargo test` subprocesses, each assuming a different device "role," to simulate real-world P2P interactions like pairing and file transfers.
+A custom testing framework will be built to validate complex, multi-device distributed scenarios directly within the Rust test suite. It orchestrates multiple `cargo test` subprocesses, each assuming a different device "role," to simulate real-world P2P interactions like pairing and file transfers.
 
 ## Implementation Notes
--   The core runner is implemented in `src/test_framework/runner.rs`.
+-   The core runner will be implemented in `src/test_framework/runner.rs`.
 -   Tests like `device_pairing_test.rs` and `cross_device_copy_test.rs` use this framework by defining distinct, `#[ignore]`-ed test functions for each role (e.g., `alice_pairing_scenario`, `bob_pairing_scenario`).
 -   The main test function acts as an orchestrator, spawning the subprocesses and coordinating their interaction using the filesystem for signaling.
 

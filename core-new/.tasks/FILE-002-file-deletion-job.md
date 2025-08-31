@@ -11,10 +11,10 @@ whitepaper: Section 4.4
 
 ## Description
 
-A durable and resilient job for handling file and directory deletion has been implemented. This job is orchestrated by the Action System and provides different modes for deletion, ensuring safe and reliable file removal.
+A durable and resilient job for handling file and directory deletion will be implemented. This job will be orchestrated by the Action System and provides different modes for deletion, ensuring safe and reliable file removal.
 
 ## Implementation Notes
--   The `DeleteJob` is defined in `src/operations/files/delete/job.rs`.
+-   The `DeleteJob` will be defined in `src/operations/files/delete/job.rs`.
 -   It supports multiple deletion modes, including `Trash` and `Permanent` deletion.
 -   The implementation includes platform-specific logic for finding the correct trash directory on Unix, macOS, and Windows.
 -   The job is resumable, tracking completed deletions to ensure it can recover from interruptions.

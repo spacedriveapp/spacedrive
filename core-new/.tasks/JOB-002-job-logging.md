@@ -11,10 +11,10 @@ whitepaper: Section 6
 
 ## Description
 
-A dedicated logging system for jobs has been implemented. When enabled, each job writes its detailed operational logs, including progress and debug messages, to a unique log file.
+A dedicated logging system for jobs will be implemented. When enabled, each job writes its detailed operational logs, including progress and debug messages, to a unique log file.
 
 ## Implementation Notes
--   The logging logic is implemented in `src/infrastructure/jobs/logger.rs`.
+-   The logging logic will be implemented in `src/infrastructure/jobs/logger.rs`.
 -   Configuration is managed via `JobLoggingConfig` in `src/config/app_config.rs`.
 -   The `JobExecutor` creates a `FileJobLogger` instance for each job it runs, passing it down through the `JobContext`.
 -   Log files are stored in the `job_logs` directory within the library path.

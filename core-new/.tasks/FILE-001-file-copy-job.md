@@ -11,12 +11,12 @@ whitepaper: Section 4.4.6
 
 ## Description
 
-A flexible `FileCopyJob` has been implemented to handle all copy and move operations. It uses a strategy pattern to select the optimal file transfer method (e.g., local move, cross-volume stream, remote transfer) based on the source and destination `SdPath`.
+A flexible `FileCopyJob` will be implemented to handle all copy and move operations. It uses a strategy pattern to select the optimal file transfer method (e.g., local move, cross-volume stream, remote transfer) based on the source and destination `SdPath`.
 
 ## Implementation Notes
--   The `FileCopyJob` and `CopyOptions` are defined in `src/operations/files/copy/job.rs`.
+-   The `FileCopyJob` and `CopyOptions` will be defined in `src/operations/files/copy/job.rs`.
 -   The `CopyStrategyRouter` in `src/operations/files/copy/routing.rs` selects the appropriate strategy.
--   Implemented strategies include `LocalMoveStrategy`, `LocalStreamCopyStrategy`, and `RemoteTransferStrategy` in `src/operations/files/copy/strategy.rs`.
+-   Implement strategies include `LocalMoveStrategy`, `LocalStreamCopyStrategy`, and `RemoteTransferStrategy` in `src/operations/files/copy/strategy.rs`.
 -   The job provides detailed, byte-level progress updates.
 
 ## Acceptance Criteria

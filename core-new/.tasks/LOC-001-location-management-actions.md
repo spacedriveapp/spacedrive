@@ -11,7 +11,7 @@ whitepaper: Section 4.3.3
 
 ## Description
 
-The core actions for managing library locations have been implemented. This includes adding a new directory to be indexed, removing it, and triggering a rescan.
+The core actions for managing library locations will be implemented. This includes adding a new directory to be indexed, removing it, and triggering a rescan.
 
 ## Implementation Notes
 -   **Add:** The `LocationAddAction` (`src/operations/locations/add/action.rs`) creates a location record and dispatches an initial `IndexerJob`.

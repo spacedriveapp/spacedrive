@@ -11,7 +11,7 @@ whitepaper: Section 4.2
 
 ## Description
 
-Implemented the Content Identity system, which forms the foundation for data deduplication and redundancy tracking. It uses an adaptive hashing strategy to efficiently fingerprint files.
+Implement the Content Identity system, which forms the foundation for data deduplication and redundancy tracking. It uses an adaptive hashing strategy to efficiently fingerprint files.
 
 ## Implementation Notes
 -   The core logic is in `src/domain/content_identity.rs`.
