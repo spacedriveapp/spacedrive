@@ -1,6 +1,6 @@
 ---
 id: LSYNC-004
-title: Implement SyncRelationship Database Schema
+title: SyncRelationship Database Schema
 status: Done
 assignee: james
 parent: LSYNC-000

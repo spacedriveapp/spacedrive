@@ -1,6 +1,6 @@
 ---
 id: VOL-003
-title: Implement Intelligent Storage Tiering Warning System
+title: Intelligent Storage Tiering Warning System
 status: To Do
 assignee: unassigned
 parent: VOL-000

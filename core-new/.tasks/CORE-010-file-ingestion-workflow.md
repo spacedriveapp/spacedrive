@@ -1,6 +1,6 @@
 ---
 id: CORE-010
-title: Implement File Ingestion Workflow
+title: File Ingestion Workflow
 status: To Do
 assignee: unassigned
 parent: CORE-000

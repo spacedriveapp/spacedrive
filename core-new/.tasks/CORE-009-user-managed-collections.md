@@ -1,6 +1,6 @@
 ---
 id: CORE-009
-title: Implement User-Managed Collections
+title: User-Managed Collections
 status: To Do
 assignee: unassigned
 parent: CORE-000

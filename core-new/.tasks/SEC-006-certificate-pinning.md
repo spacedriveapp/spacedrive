@@ -1,6 +1,6 @@
 ---
 id: SEC-006
-title: Implement Certificate Pinning
+title: Certificate Pinning
 status: To Do
 assignee: unassigned
 parent: SEC-000

@@ -27,6 +27,10 @@ enum Commands {
         priority: Option<String>,
         #[arg(long)]
         tag: Option<String>,
+        #[arg(long, help = "Sort by field (id, title, status, priority, assignee)")]
+        sort_by: Option<String>,
+        #[arg(short, long, help = "Reverse sort order")]
+        reverse: bool,
     },
     /// Validate staged task files (for git hook)
     Validate,
@@ -49,8 +53,8 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::List { status, assignee, priority, tag } => {
-            if let Err(e) = list_tasks(status, assignee, priority, tag) {
+        Commands::List { status, assignee, priority, tag, sort_by, reverse } => {
+            if let Err(e) = list_tasks(status, assignee, priority, tag, sort_by, *reverse) {
                 eprintln!("Error listing tasks: {}", e);
                 process::exit(1);
             }
@@ -69,6 +73,8 @@ fn list_tasks(
     assignee_filter: &Option<String>,
     priority_filter: &Option<String>,
     tag_filter: &Option<String>,
+    sort_by: &Option<String>,
+    reverse: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut tasks = Vec::new();
 
@@ -86,7 +92,7 @@ fn list_tasks(
         }
     }
 
-    let filtered_tasks = tasks.into_iter().filter(|task| {
+    let mut filtered_tasks = tasks.into_iter().filter(|task| {
         let status_match = status_filter.as_ref().map_or(true, |s| task.status.to_lowercase() == s.to_lowercase());
         let assignee_match = assignee_filter.as_ref().map_or(true, |a| task.assignee.to_lowercase() == a.to_lowercase());
         let priority_match = priority_filter.as_ref().map_or(true, |p| task.priority.to_lowercase() == p.to_lowercase());
@@ -95,6 +101,41 @@ fn list_tasks(
         });
         status_match && assignee_match && priority_match && tag_match
     }).collect::<Vec<_>>();
+
+    // Sort the tasks if sort_by is provided
+    if let Some(sort_field) = sort_by {
+        match sort_field.to_lowercase().as_str() {
+            "id" => filtered_tasks.sort_by(|a, b| {
+                let cmp = a.id.cmp(&b.id);
+                if reverse { cmp.reverse() } else { cmp }
+            }),
+            "title" => filtered_tasks.sort_by(|a, b| {
+                let cmp = a.title.to_lowercase().cmp(&b.title.to_lowercase());
+                if reverse { cmp.reverse() } else { cmp }
+            }),
+            "status" => filtered_tasks.sort_by(|a, b| {
+                let cmp = a.status.to_lowercase().cmp(&b.status.to_lowercase());
+                if reverse { cmp.reverse() } else { cmp }
+            }),
+            "priority" => filtered_tasks.sort_by(|a, b| {
+                // Sort priority: critical > high > medium > low
+                let priority_value = |p: &str| match p.to_lowercase().as_str() {
+                    "critical" => 0,
+                    "high" => 1,
+                    "medium" => 2,
+                    "low" => 3,
+                    _ => 4,
+                };
+                let cmp = priority_value(&a.priority).cmp(&priority_value(&b.priority));
+                if reverse { cmp.reverse() } else { cmp }
+            }),
+            "assignee" => filtered_tasks.sort_by(|a, b| {
+                let cmp = a.assignee.to_lowercase().cmp(&b.assignee.to_lowercase());
+                if reverse { cmp.reverse() } else { cmp }
+            }),
+            _ => eprintln!("Invalid sort field: {}. Valid options: id, title, status, priority, assignee", sort_field),
+        }
+    }
 
     let mut table = Table::new();
     table.set_header(vec!["ID", "Title", "Status", "Assignee", "Priority", "Tags"]);

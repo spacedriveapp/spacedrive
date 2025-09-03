@@ -1,6 +1,6 @@
 ---
 id: SEC-002
-title: Implement SQLCipher for At-Rest Library Encryption
+title: SQLCipher for At-Rest Library Encryption
 status: To Do
 assignee: unassigned
 parent: SEC-000
@@ -22,6 +22,6 @@ Implement transparent, at-rest encryption for all library databases (`.sdlibrary
 
 ## Acceptance Criteria
 
--   [ ] A new library created with a password has its `database.db` file encrypted.
--   [ ] The application can successfully connect to and query an encrypted database with the correct password.
--   [ ] An attempt to open an encrypted database without a password fails with a clear error.
+- [ ] A new library created with a password has its `database.db` file encrypted.
+- [ ] The application can successfully connect to and query an encrypted database with the correct password.
+- [ ] An attempt to open an encrypted database without a password fails with a clear error.

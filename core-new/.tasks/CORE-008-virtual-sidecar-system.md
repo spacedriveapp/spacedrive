@@ -1,6 +1,6 @@
 ---
 id: CORE-008
-title: Implement Virtual Sidecar System
+title: Virtual Sidecar System
 status: To Do
 assignee: unassigned
 parent: CORE-000

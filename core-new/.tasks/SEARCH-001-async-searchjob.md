@@ -1,6 +1,6 @@
 ---
 id: SEARCH-001
-title: Implement Asynchronous SearchJob
+title: Asynchronous SearchJob
 status: To Do
 assignee: unassigned
 parent: SEARCH-000

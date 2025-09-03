@@ -1,6 +1,6 @@
 ---
 id: VOL-004
-title: Implement Remote Volume Indexing with OpenDAL
+title: Remote Volume Indexing with OpenDAL
 status: To Do
 assignee: unassigned
 parent: VOL-000

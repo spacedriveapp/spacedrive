@@ -1,6 +1,6 @@
 ---
 id: RES-001
-title: Implement Adaptive Resource Throttling
+title: Adaptive Resource Throttling
 status: To Do
 assignee: unassigned
 parent: RES-000
@@ -20,5 +20,6 @@ Make background jobs like indexing and file transfers "good citizens" by impleme
 3.  Implement logic to dynamically adjust resource usage, such as reducing the number of concurrent tasks or introducing delays between operations.
 
 ## Acceptance Criteria
--   [ ] On battery power, background CPU usage is reduced by at least 50%.
--   [ ] Indexing jobs are automatically paused or slowed when the system reports high thermal pressure.
+
+- [ ] On battery power, background CPU usage is reduced by at least 50%.
+- [ ] Indexing jobs are automatically paused or slowed when the system reports high thermal pressure.

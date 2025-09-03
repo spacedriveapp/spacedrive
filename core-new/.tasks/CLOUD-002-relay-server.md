@@ -1,6 +1,6 @@
 ---
 id: CLOUD-002
-title: Implement Asynchronous Relay Server
+title: Asynchronous Relay Server
 status: To Do
 assignee: unassigned
 parent: CLOUD-000

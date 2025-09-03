@@ -1,6 +1,6 @@
 ---
 id: CORE-007
-title: Implement Quantum State for On-Demand State Computation
+title: Quantum State for On-Demand State Computation
 status: To Do
 assignee: unassigned
 parent: CORE-000

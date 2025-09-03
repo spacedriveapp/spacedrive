@@ -1,6 +1,6 @@
 ---
 id: INDEX-001
-title: Implement Location Watcher Service
+title: Location Watcher Service
 status: Done
 assignee: james
 parent: INDEX-000

@@ -1,7 +1,7 @@
 ---
 id: INDEX-002
-title: Implement Stale File Detection Algorithm
-status: To Do
+title: Stale File Detection Algorithm
+status: In Progress
 assignee: unassigned
 parent: INDEX-000
 priority: High

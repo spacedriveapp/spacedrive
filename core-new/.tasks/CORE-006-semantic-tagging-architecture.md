@@ -1,6 +1,6 @@
 ---
 id: CORE-006
-title: Implement Semantic Tagging Architecture
+title: Semantic Tagging Architecture
 status: To Do
 assignee: unassigned
 parent: CORE-000

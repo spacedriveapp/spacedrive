@@ -1,6 +1,6 @@
 ---
 id: SEARCH-002
-title: Implement Two-Stage FTS5 + Semantic Re-ranking
+title: Two-Stage FTS5 + Semantic Re-ranking
 status: To Do
 assignee: unassigned
 parent: SEARCH-000

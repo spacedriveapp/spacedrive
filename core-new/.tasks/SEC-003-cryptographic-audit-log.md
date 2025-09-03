@@ -1,6 +1,6 @@
 ---
 id: SEC-003
-title: Implement Cryptographically Chained Audit Log
+title: Cryptographically Chained Audit Log
 status: To Do
 assignee: unassigned
 parent: SEC-000
@@ -22,6 +22,6 @@ Enhance the `audit_log` table to be tamper-proof by implementing a cryptographic
 
 ## Acceptance Criteria
 
--   [ ] New `audit_log` records correctly store a hash of the preceding entry.
--   [ ] The chain is verifiable from the first entry to the last.
--   [ ] An integrity check function can detect a tampered log entry.
+- [ ] New `audit_log` records correctly store a hash of the preceding entry.
+- [ ] The chain is verifiable from the first entry to the last.
+- [ ] An integrity check function can detect a tampered log entry.

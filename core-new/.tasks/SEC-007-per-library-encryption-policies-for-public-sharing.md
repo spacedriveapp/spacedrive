@@ -1,6 +1,6 @@
 ---
 id: SEC-007
-title: Implement Per-Library Encryption Policies for Public Sharing
+title: Per-Library Encryption Policies for Public Sharing
 status: To Do
 assignee: unassigned
 parent: SEC-000

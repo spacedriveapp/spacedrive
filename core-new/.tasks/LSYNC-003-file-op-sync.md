@@ -1,6 +1,6 @@
 ---
 id: LSYNC-003
-title: Implement File Operation Sync (via Action System)
+title: File Operation Sync (via Action System)
 status: To Do
 assignee: unassigned
 parent: LSYNC-000

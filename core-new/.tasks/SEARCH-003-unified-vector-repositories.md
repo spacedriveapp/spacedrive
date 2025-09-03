@@ -1,6 +1,6 @@
 ---
 id: SEARCH-003
-title: Implement Unified Vector Repositories
+title: Unified Vector Repositories
 status: To Do
 assignee: unassigned
 parent: SEARCH-000

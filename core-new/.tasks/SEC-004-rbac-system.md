@@ -1,6 +1,6 @@
 ---
 id: SEC-004
-title: Implement Role-Based Access Control (RBAC) System
+title: Role-Based Access Control (RBAC) System
 status: To Do
 assignee: unassigned
 parent: SEC-000
@@ -21,6 +21,7 @@ Implement a granular Role-Based Access Control (RBAC) system for team and enterp
 4.  Implement APIs for managing roles and permissions.
 
 ## Acceptance Criteria
--   [ ] A `Viewer` can read data but cannot execute write actions (e.g., `FileCopy`, `FileDelete`).
--   [ ] A `Contributor` can execute write actions but cannot manage library settings or permissions.
--   [ ] An administrator can define custom roles with specific permissions.
+
+- [ ] A `Viewer` can read data but cannot execute write actions (e.g., `FileCopy`, `FileDelete`).
+- [ ] A `Contributor` can execute write actions but cannot manage library settings or permissions.
+- [ ] An administrator can define custom roles with specific permissions.

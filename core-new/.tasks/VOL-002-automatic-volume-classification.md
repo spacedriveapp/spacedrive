@@ -1,6 +1,6 @@
 ---
 id: VOL-002
-title: Implement Automatic Volume Classification
+title: Automatic Volume Classification
 status: To Do
 assignee: unassigned
 parent: VOL-000

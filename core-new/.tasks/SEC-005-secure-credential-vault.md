@@ -1,6 +1,6 @@
 ---
 id: SEC-005
-title: Implement Secure Credential Vault
+title: Secure Credential Vault
 status: To Do
 assignee: unassigned
 parent: SEC-000

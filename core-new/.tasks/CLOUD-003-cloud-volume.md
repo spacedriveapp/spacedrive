@@ -1,6 +1,6 @@
 ---
 id: CLOUD-003
-title: Implement Cloud Storage Provider as a Volume
+title: Cloud Storage Provider as a Volume
 status: To Do
 assignee: unassigned
 parent: CLOUD-000

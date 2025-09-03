@@ -1,6 +1,6 @@
 ---
 id: VOL-001
-title: Implement Volume PhysicalClass and Location LogicalClass
+title: Volume PhysicalClass and Location LogicalClass
 status: To Do
 assignee: unassigned
 parent: VOL-000

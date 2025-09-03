@@ -1,6 +1,6 @@
 ---
 id: FILE-002
-title: Implement Resilient File Deletion Job
+title: File Deletion Job
 status: Done
 assignee: james
 parent: FILE-000
@@ -11,15 +11,17 @@ whitepaper: Section 4.4
 
 ## Description
 
-A durable and resilient job for handling file and directory deletion will be implemented. This job will be orchestrated by the Action System and provides different modes for deletion, ensuring safe and reliable file removal.
+A job for handling file and directory deletion. This job will be orchestrated by the Action System and provides different modes for deletion, ensuring safe and reliable file removal.
 
 ## Implementation Notes
--   The `DeleteJob` will be defined in `src/operations/files/delete/job.rs`.
--   It supports multiple deletion modes, including `Trash` and `Permanent` deletion.
--   The implementation includes platform-specific logic for finding the correct trash directory on Unix, macOS, and Windows.
--   The job is resumable, tracking completed deletions to ensure it can recover from interruptions.
+
+- The `DeleteJob` will be defined in `src/operations/files/delete/job.rs`.
+- It supports multiple deletion modes, including `Trash` and `Permanent` deletion.
+- The implementation includes platform-specific logic for finding the correct trash directory on Unix, macOS, and Windows.
+- The job is resumable, tracking completed deletions to ensure it can recover from interruptions.
 
 ## Acceptance Criteria
--   [x] The `FileDeleteAction` correctly dispatches a `DeleteJob`.
--   [x] The job can move files to the system's trash location.
--   [x] The job supports permanent file deletion.
+
+- [x] The `FileDeleteAction` correctly dispatches a `DeleteJob`.
+- [x] The job can move files to the system's trash location.
+- [x] The job supports permanent file deletion.

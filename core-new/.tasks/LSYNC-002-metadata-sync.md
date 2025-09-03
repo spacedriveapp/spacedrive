@@ -1,6 +1,6 @@
 ---
 id: LSYNC-002
-title: Implement Metadata Sync (Index & Audit Log)
+title: Metadata Sync (Index & Audit Log)
 status: To Do
 assignee: unassigned
 parent: LSYNC-000

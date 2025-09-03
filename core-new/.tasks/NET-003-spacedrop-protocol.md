@@ -1,6 +1,6 @@
 ---
 id: NET-003
-title: Implement Spacedrop Protocol
+title: Spacedrop Protocol
 status: To Do
 assignee: unassigned
 parent: NET-000

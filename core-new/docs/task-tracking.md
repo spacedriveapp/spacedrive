@@ -48,9 +48,29 @@ A custom command-line tool, `task-validator`, exists in the repository to manage
 
 You can list and filter all tasks using the `list` command. This is useful for getting an overview of the current project status.
 
-**Example:** To see all "In Progress" tasks assigned to `james`:
+**Filter Options:**
+- `--status <STATUS>` - Filter by status (e.g., "To Do", "In Progress", "Done")
+- `--assignee <ASSIGNEE>` - Filter by assignee
+- `--priority <PRIORITY>` - Filter by priority (e.g., "High", "Medium", "Low")
+- `--tag <TAG>` - Filter by tag
+
+**Sort Options:**
+- `--sort-by <FIELD>` - Sort results by field (id, title, status, priority, assignee)
+- `-r, --reverse` - Reverse sort order
+
+**Examples:**
 ```sh
+# List all "In Progress" tasks assigned to "james"
 cargo run -p task-validator -- list --status "In Progress" --assignee "james"
+
+# List all tasks sorted by priority (Critical → High → Medium → Low)
+cargo run -p task-validator -- list --sort-by priority
+
+# List all "To Do" tasks sorted by ID in reverse order
+cargo run -p task-validator -- list --status "To Do" --sort-by id --reverse
+
+# List high priority tasks sorted by assignee
+cargo run -p task-validator -- list --priority "High" --sort-by assignee
 ```
 
 ### Validating Tasks
