@@ -1,12 +1,14 @@
 //! Main indexer job implementation
 
 use crate::{
+	domain::addressing::SdPath,
+	infrastructure::database::entities,
 	infrastructure::jobs::{
 		prelude::*,
 		traits::{DynJob, Resourceful},
 	},
-	domain::addressing::SdPath,
 };
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
@@ -17,6 +19,7 @@ use super::{
 	metrics::{IndexerMetrics, PhaseTimer},
 	phases,
 	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
+	PathResolver,
 };
 
 /// Indexing mode determines the depth of indexing
@@ -88,6 +91,8 @@ pub struct IndexerJobConfig {
 	pub scope: IndexScope,
 	pub persistence: IndexPersistence,
 	pub max_depth: Option<u32>, // Override for Current scope or depth limiting
+	#[serde(default)]
+	pub rule_toggles: super::rules::RuleToggles,
 }
 
 impl IndexerJobConfig {
@@ -100,6 +105,7 @@ impl IndexerJobConfig {
 			scope: IndexScope::Recursive,
 			persistence: IndexPersistence::Persistent,
 			max_depth: None,
+			rule_toggles: Default::default(),
 		}
 	}
 
@@ -112,6 +118,7 @@ impl IndexerJobConfig {
 			scope: IndexScope::Current,
 			persistence: IndexPersistence::Persistent,
 			max_depth: Some(1),
+			rule_toggles: Default::default(),
 		}
 	}
 
@@ -128,6 +135,7 @@ impl IndexerJobConfig {
 			} else {
 				None
 			},
+			rule_toggles: Default::default(),
 		}
 	}
 
@@ -277,11 +285,36 @@ impl JobHandler for IndexerJob {
 			}
 		};
 
-		// Get local path for operations
-		let root_path =
-			self.config.path.as_local_path().ok_or_else(|| {
-				JobError::execution("Location root path is not local".to_string())
-			})?;
+		// Get local path for operations (fallback to DB path if device ID hasn't been initialized yet)
+		let root_path_buf = if let Some(p) = self.config.path.as_local_path() {
+			p.to_path_buf()
+		} else if !self.config.is_ephemeral() {
+			let loc_uuid = self
+				.config
+				.location_id
+				.ok_or_else(|| JobError::execution("Missing location id".to_string()))?;
+			let db = ctx.library().db();
+			let location = entities::location::Entity::find()
+				.filter(entities::location::Column::Uuid.eq(loc_uuid))
+				.one(db.conn())
+				.await
+				.map_err(|e| JobError::execution(e.to_string()))?
+				.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
+			let path_str = PathResolver::get_directory_path(db.conn(), location.entry_id)
+				.await
+				.map_err(|e| JobError::execution(e.to_string()))?;
+			std::path::PathBuf::from(path_str)
+		} else {
+			return Err(JobError::execution(
+				"Location root path is not local".to_string(),
+			));
+		};
+		let root_path = root_path_buf.as_path();
+
+		// Seed discovery queue if it wasn't initialized due to device-id timing
+		if state.dirs_to_walk.is_empty() {
+			state.dirs_to_walk.push_back(root_path.to_path_buf());
+		}
 
 		// Main state machine loop
 		loop {
@@ -294,7 +327,13 @@ impl JobHandler for IndexerJob {
 					if self.config.is_current_scope() {
 						Self::run_current_scope_discovery_static(state, &ctx, root_path).await?;
 					} else {
-						phases::run_discovery_phase(state, &ctx, root_path).await?;
+						phases::run_discovery_phase(
+							state,
+							&ctx,
+							root_path,
+							self.config.rule_toggles,
+						)
+						.await?;
 					}
 
 					// Track batch info

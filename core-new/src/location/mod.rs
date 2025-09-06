@@ -9,7 +9,7 @@ use crate::{
 		jobs::{handle::JobHandle, output::IndexedOutput, types::JobStatus},
 	},
 	library::Library,
-	operations::indexing::{IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig, PathResolver},
+	operations::indexing::{IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig, PathResolver, rules::RuleToggles},
 	domain::addressing::SdPath,
 };
 
@@ -296,7 +296,17 @@ async fn start_location_indexing(
 	let location_sd_path = SdPath::new(device_uuid, path.clone());
 
 	// Create and dispatch indexer job through the proper job manager
-	let config = IndexerJobConfig::new(location_uuid, location_sd_path, index_mode.into());
+	let lib_cfg = library.config().await;
+	let idx_cfg = lib_cfg.settings.indexer;
+	let mut config = IndexerJobConfig::new(location_uuid, location_sd_path, index_mode.into());
+	config.rule_toggles = RuleToggles {
+		no_system_files: idx_cfg.no_system_files,
+		no_hidden: idx_cfg.no_hidden,
+		no_git: idx_cfg.no_git,
+		gitignore: idx_cfg.gitignore,
+		only_images: idx_cfg.only_images,
+		no_dev_dirs: idx_cfg.no_dev_dirs,
+	};
 	let indexer_job = IndexerJob::new(config);
 
 	match library.jobs().dispatch(indexer_job).await {
@@ -535,11 +545,11 @@ async fn update_location_stats(
 async fn get_device_uuid(_library: Arc<Library>) -> LocationResult<Uuid> {
 	// Get the current device ID from the global state
 	let device_uuid = crate::shared::utils::get_current_device_id();
-	
+
 	if device_uuid.is_nil() {
 		return Err(LocationError::InvalidPath("Current device ID not initialized".to_string()));
 	}
-	
+
 	Ok(device_uuid)
 }
 

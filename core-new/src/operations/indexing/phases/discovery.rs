@@ -5,18 +5,28 @@ use crate::{
 	infrastructure::jobs::prelude::{JobContext, JobError, Progress},
 	operations::indexing::{
 		entry::EntryProcessor,
-		filters::should_skip_path,
+		rules::{build_default_ruler, RuleToggles, RulerDecision},
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
 };
 use std::path::Path;
 use std::time::Instant;
 
+struct SimpleMetadata {
+	is_dir: bool,
+}
+impl crate::operations::indexing::rules::MetadataForIndexerRules for SimpleMetadata {
+	fn is_dir(&self) -> bool {
+		self.is_dir
+	}
+}
+
 /// Run the discovery phase of indexing
 pub async fn run_discovery_phase(
 	state: &mut IndexerState,
 	ctx: &JobContext<'_>,
 	root_path: &Path,
+	rule_toggles: RuleToggles,
 ) -> Result<(), JobError> {
 	ctx.log(format!(
 		"Discovery phase starting from: {}",
@@ -29,6 +39,8 @@ pub async fn run_discovery_phase(
 
 	let mut skipped_count = 0u64;
 
+	let toggles = rule_toggles;
+
 	while let Some(dir_path) = state.dirs_to_walk.pop_front() {
 		ctx.check_interrupt().await?;
 
@@ -37,13 +49,10 @@ pub async fn run_discovery_phase(
 			continue;
 		}
 
-		// Check if we should skip this directory
-		if should_skip_path(&dir_path) {
-			state.stats.skipped += 1;
-			skipped_count += 1;
-			ctx.log(format!("Skipping directory: {}", dir_path.display()));
-			continue;
-		}
+		// Build rules in the context of the current directory for gitignore behavior
+		let dir_ruler = build_default_ruler(toggles, root_path, &dir_path).await;
+
+		// Do not skip the directory itself by rules; only apply rules to its entries
 
 		// Update progress
 		let indexer_progress = IndexerProgress {
@@ -67,11 +76,31 @@ pub async fn run_discovery_phase(
 				let mut added_count = 0;
 
 				for entry in entries {
-					// Skip filtered entries
-					if should_skip_path(&entry.path) {
+					// Skip filtered entries via rules engine (match against basename to avoid ancestor effects)
+					let name_path = entry
+						.path
+						.file_name()
+						.map(|n| std::path::PathBuf::from(n))
+						.unwrap_or_else(|| entry.path.clone());
+					let decision = dir_ruler
+						.evaluate_path(
+							&name_path,
+							&SimpleMetadata {
+								is_dir: matches!(entry.kind, EntryKind::Directory),
+							},
+						)
+						.await;
+					if matches!(decision, Ok(RulerDecision::Reject)) {
 						state.stats.skipped += 1;
 						skipped_count += 1;
+						eprintln!("[discovery] Filtered entry: {}", entry.path.display());
 						continue;
+					}
+					if let Err(err) = decision {
+						state.add_error(IndexError::FilterCheck {
+							path: entry.path.to_string_lossy().to_string(),
+							error: err.to_string(),
+						});
 					}
 
 					match entry.kind {

@@ -1,5 +1,5 @@
 //! Indexer phases implementation
-//! 
+//!
 //! The indexer operates in distinct phases for clarity and resumability:
 //! 1. Discovery - Walk directories and collect entries
 //! 2. Processing - Create/update database records
