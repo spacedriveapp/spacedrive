@@ -1,6 +1,6 @@
 //! Security utilities for pairing protocol
 
-use crate::service::networking::{NetworkingError, Result};
+use crate::service::network::{NetworkingError, Result};
 // We'll use our own signature verification
 
 /// Security operations for pairing protocol

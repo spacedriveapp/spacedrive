@@ -107,7 +107,7 @@ pub struct JobRegistration {
 	pub create_fn: fn(serde_json::Value) -> Result<Box<dyn ErasedJob>, serde_json::Error>,
 	pub deserialize_fn: fn(&[u8]) -> Result<Box<dyn ErasedJob>, rmp_serde::decode::Error>,
 	pub deserialize_dyn_fn:
-		fn(&[u8]) -> Result<Box<dyn crate::infra::jobs::traits::DynJob>, rmp_serde::decode::Error>,
+		fn(&[u8]) -> Result<Box<dyn crate::infra::job::traits::DynJob>, rmp_serde::decode::Error>,
 }
 
 /// Type-erased job for dynamic dispatch
@@ -116,28 +116,28 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 		self: Box<Self>,
 		job_id: JobId,
 		library: std::sync::Arc<crate::library::Library>,
-		job_db: std::sync::Arc<crate::infra::jobs::database::JobDb>,
+		job_db: std::sync::Arc<crate::infra::job::database::JobDb>,
 		status_tx: tokio::sync::watch::Sender<JobStatus>,
-		progress_tx: tokio::sync::mpsc::UnboundedSender<crate::infra::jobs::progress::Progress>,
-		broadcast_tx: tokio::sync::broadcast::Sender<crate::infra::jobs::progress::Progress>,
-		checkpoint_handler: std::sync::Arc<dyn crate::infra::jobs::context::CheckpointHandler>,
+		progress_tx: tokio::sync::mpsc::UnboundedSender<crate::infra::job::progress::Progress>,
+		broadcast_tx: tokio::sync::broadcast::Sender<crate::infra::job::progress::Progress>,
+		checkpoint_handler: std::sync::Arc<dyn crate::infra::job::context::CheckpointHandler>,
 		output_handle: std::sync::Arc<
 			tokio::sync::Mutex<
 				Option<
 					Result<
-						crate::infra::jobs::output::JobOutput,
-						crate::infra::jobs::error::JobError,
+						crate::infra::job::output::JobOutput,
+						crate::infra::job::error::JobError,
 					>,
 				>,
 			>,
 		>,
-		networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
+		networking: Option<std::sync::Arc<crate::service::network::NetworkingService>>,
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<crate::config::JobLoggingConfig>,
 		job_logs_dir: Option<std::path::PathBuf>,
-	) -> Box<dyn sd_task_system::Task<crate::infra::jobs::error::JobError>>;
+	) -> Box<dyn sd_task_system::Task<crate::infra::job::error::JobError>>;
 
-	fn serialize_state(&self) -> Result<Vec<u8>, crate::infra::jobs::error::JobError>;
+	fn serialize_state(&self) -> Result<Vec<u8>, crate::infra::job::error::JobError>;
 }
 
 /// Information about a job (for display/querying)

@@ -158,7 +158,7 @@ impl Daemon {
 		// Emit CoreStarted event to signal daemon is ready
 		self.core
 			.events
-			.emit(crate::infra::events::Event::CoreStarted);
+			.emit(crate::infra::event::Event::CoreStarted);
 
 		// Set up shutdown channel
 		let (shutdown_tx, mut shutdown_rx) = oneshot::channel();

@@ -1,6 +1,6 @@
 //! Event bus for decoupled communication
 
-use crate::infra::jobs::output::JobOutput;
+use crate::infra::job::output::JobOutput;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::sync::broadcast;

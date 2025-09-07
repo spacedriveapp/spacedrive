@@ -1,7 +1,7 @@
 //! Infrastructure layer - external interfaces
 
-pub mod actions;
+pub mod action;
 pub mod cli;
-pub mod database;
-pub mod events;
-pub mod jobs;
+pub mod db;
+pub mod event;
+pub mod job;

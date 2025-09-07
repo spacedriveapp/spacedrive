@@ -5,7 +5,7 @@ pub mod messaging;
 pub mod pairing;
 pub mod registry;
 
-use crate::service::networking::{NetworkingError, Result};
+use crate::service::network::{NetworkingError, Result};
 use async_trait::async_trait;
 use iroh::net::key::NodeId;
 use std::collections::HashMap;

@@ -2,7 +2,7 @@
 //!
 //! Provides access to device connection information and networking functionality
 
-use crate::{context::CoreContext, service::networking};
+use crate::{context::CoreContext, service::network};
 use anyhow::Result;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -30,7 +30,7 @@ impl DeviceService {
     }
 
     /// Get detailed information about connected devices
-    pub async fn get_connected_devices_info(&self) -> Result<Vec<networking::DeviceInfo>> {
+    pub async fn get_connected_devices_info(&self) -> Result<Vec<network::DeviceInfo>> {
         if let Some(networking) = self.context.get_networking().await {
             let service = &*networking;
             let devices = service.get_connected_devices().await;

@@ -95,7 +95,7 @@ impl CommandHandler for NetworkHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create DeviceRevokeAction
-							let action = crate::infra::actions::Action::DeviceRevoke {
+							let action = crate::infra::action::Action::DeviceRevoke {
 								library_id,
 								action:
 									crate::ops::devices::revoke::action::DeviceRevokeAction {
@@ -205,37 +205,37 @@ impl CommandHandler for NetworkHandler {
 							// Convert sessions to status format for compatibility
 							if let Some(session) = sessions.first() {
 								let status = match &session.state {
-									crate::networking::PairingState::Idle => "idle",
-									crate::networking::PairingState::GeneratingCode => {
+									crate::service::network::PairingState::Idle => "idle",
+									crate::service::network::PairingState::GeneratingCode => {
 										"generating_code"
 									}
-									crate::networking::PairingState::Broadcasting => "broadcasting",
-									crate::networking::PairingState::Scanning => "scanning",
-									crate::networking::PairingState::WaitingForConnection => {
+									crate::service::network::PairingState::Broadcasting => "broadcasting",
+									crate::service::network::PairingState::Scanning => "scanning",
+									crate::service::network::PairingState::WaitingForConnection => {
 										"waiting_for_connection"
 									}
-									crate::networking::PairingState::Connecting => "connecting",
-									crate::networking::PairingState::Authenticating => {
+									crate::service::network::PairingState::Connecting => "connecting",
+									crate::service::network::PairingState::Authenticating => {
 										"authenticating"
 									}
-									crate::networking::PairingState::ExchangingKeys => {
+									crate::service::network::PairingState::ExchangingKeys => {
 										"exchanging_keys"
 									}
-									crate::networking::PairingState::AwaitingConfirmation => {
+									crate::service::network::PairingState::AwaitingConfirmation => {
 										"awaiting_confirmation"
 									}
-									crate::networking::PairingState::EstablishingSession => {
+									crate::service::network::PairingState::EstablishingSession => {
 										"establishing_session"
 									}
-									crate::networking::PairingState::ChallengeReceived {
+									crate::service::network::PairingState::ChallengeReceived {
 										..
 									} => "authenticating",
-									crate::networking::PairingState::ResponseSent => {
+									crate::service::network::PairingState::ResponseSent => {
 										"authenticating"
 									}
-									crate::networking::PairingState::Completed => "completed",
-									crate::networking::PairingState::Failed { .. } => "failed",
-									crate::networking::PairingState::ResponsePending { .. } => {
+									crate::service::network::PairingState::Completed => "completed",
+									crate::service::network::PairingState::Failed { .. } => "failed",
+									crate::service::network::PairingState::ResponsePending { .. } => {
 										"responding"
 									}
 								}
@@ -293,7 +293,7 @@ impl CommandHandler for NetworkHandler {
 								.filter(|session| {
 									matches!(
 										session.state,
-										crate::networking::PairingState::WaitingForConnection
+										crate::service::network::PairingState::WaitingForConnection
 									)
 								})
 								.map(|session| PairingRequestInfo {

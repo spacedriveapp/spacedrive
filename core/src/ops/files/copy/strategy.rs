@@ -1,7 +1,7 @@
 //! Copy strategy implementations for different file operation scenarios
 
 use crate::{
-    infra::jobs::prelude::*,
+    infra::job::prelude::*,
     domain::addressing::SdPath,
     volume::VolumeManager,
     ops::files::copy::job::CopyPhase,
@@ -134,7 +134,7 @@ impl CopyStrategy for RemoteTransferStrategy {
         ));
 
         // Create file metadata for transfer
-        let file_metadata = crate::service::networking::protocols::FileMetadata {
+        let file_metadata = crate::service::network::protocol::FileMetadata {
             name: local_path.file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
@@ -155,14 +155,14 @@ impl CopyStrategy for RemoteTransferStrategy {
             .ok_or_else(|| anyhow::anyhow!("File transfer protocol not registered"))?;
 
         let file_transfer_protocol = file_transfer_handler.as_any()
-            .downcast_ref::<crate::service::networking::protocols::FileTransferProtocolHandler>()
+            .downcast_ref::<crate::service::network::protocol::FileTransferProtocolHandler>()
             .ok_or_else(|| anyhow::anyhow!("Invalid file transfer protocol handler"))?;
 
         // Initiate transfer
         let transfer_id = file_transfer_protocol.initiate_transfer(
             destination.device_id().unwrap_or_default(),
             local_path.to_path_buf(),
-            crate::service::networking::protocols::TransferMode::TrustedCopy,
+            crate::service::network::protocol::TransferMode::TrustedCopy,
         ).await?;
 
         ctx.log(format!("Transfer initiated with ID: {}", transfer_id));
@@ -171,10 +171,10 @@ impl CopyStrategy for RemoteTransferStrategy {
         let chunk_size = 64 * 1024u32;
         let total_chunks = ((file_size + chunk_size as u64 - 1) / chunk_size as u64) as u32;
 
-        let transfer_request = crate::service::networking::protocols::file_transfer::FileTransferMessage::TransferRequest {
+        let transfer_request = crate::service::network::protocol::file_transfer::FileTransferMessage::TransferRequest {
             transfer_id,
             file_metadata: file_metadata.clone(),
-            transfer_mode: crate::service::networking::protocols::TransferMode::TrustedCopy,
+            transfer_mode: crate::service::network::protocol::TransferMode::TrustedCopy,
             chunk_size,
             total_chunks,
             destination_path: destination.path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
@@ -472,7 +472,7 @@ async fn calculate_file_checksum(path: &Path) -> Result<String> {
 async fn stream_file_data<'a>(
     file_path: &Path,
     transfer_id: uuid::Uuid,
-    file_transfer_protocol: &crate::service::networking::protocols::FileTransferProtocolHandler,
+    file_transfer_protocol: &crate::service::network::protocol::FileTransferProtocolHandler,
     total_size: u64,
     destination_device_id: uuid::Uuid,
     ctx: &JobContext<'a>,
@@ -525,7 +525,7 @@ async fn stream_file_data<'a>(
         )?;
 
         // Create encrypted file chunk message
-        let chunk_message = crate::service::networking::protocols::file_transfer::FileTransferMessage::FileChunk {
+        let chunk_message = crate::service::network::protocol::file_transfer::FileTransferMessage::FileChunk {
             transfer_id,
             chunk_index,
             data: encrypted_data,
@@ -560,7 +560,7 @@ async fn stream_file_data<'a>(
 
     // Send transfer completion message
     let final_checksum = calculate_file_checksum(file_path).await?;
-    let completion_message = crate::service::networking::protocols::file_transfer::FileTransferMessage::TransferComplete {
+    let completion_message = crate::service::network::protocol::file_transfer::FileTransferMessage::TransferComplete {
         transfer_id,
         final_checksum,
         total_bytes: bytes_transferred,
@@ -578,7 +578,7 @@ async fn stream_file_data<'a>(
     // Mark transfer as completed locally
     file_transfer_protocol.update_session_state(
         &transfer_id,
-        crate::service::networking::protocols::file_transfer::TransferState::Completed,
+        crate::service::network::protocol::file_transfer::TransferState::Completed,
     )?;
 
     ctx.log(format!("File streaming completed: {} chunks, {} bytes sent to device {}",

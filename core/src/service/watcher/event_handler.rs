@@ -1,6 +1,6 @@
 //! Event handling for file system changes
 
-use crate::infra::events::Event;
+use crate::infra::event::Event;
 use notify::{Event as NotifyEvent, EventKind};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

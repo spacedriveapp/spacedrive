@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     context::CoreContext,
-    infra::database::entities::{
+    infra::db::entities::{
         sidecar::{self, Entity as Sidecar},
         sidecar_availability::{self, Entity as SidecarAvailability},
     },
@@ -341,7 +341,7 @@ impl SidecarManager {
         for sidecar in reference_sidecars {
             if let Some(source_entry_id) = sidecar.source_entry_id {
                 // Get the source entry to find the file path
-                use crate::infra::database::entities::entry;
+                use crate::infra::db::entities::entry;
                 let source_entry = entry::Entity::find_by_id(source_entry_id)
                     .one(db.conn())
                     .await?
@@ -367,7 +367,7 @@ impl SidecarManager {
 
                 // Move the file
                 // Get the path from directory_paths for this entry
-                use crate::infra::database::entities::directory_paths;
+                use crate::infra::db::entities::directory_paths;
                 let dir_path = directory_paths::Entity::find_by_id(source_entry_id)
                     .one(db.conn())
                     .await?

@@ -1,4 +1,4 @@
-use crate::infra::jobs::{manager::JobManager, traits::Resourceful};
+use crate::infra::job::{manager::JobManager, traits::Resourceful};
 use crate::ops::entries::state::EntryState;
 use sea_orm::DbConn;
 use std::collections::HashMap;
@@ -73,7 +73,7 @@ impl EntryStateService {
 	}
 
 	// Helper to map a job to a state
-	fn state_from_job(job: &crate::infra::jobs::types::JobInfo) -> EntryState {
+	fn state_from_job(job: &crate::infra::job::types::JobInfo) -> EntryState {
 		match job.name.as_str() {
 			"indexer" => EntryState::Processing { job_id: job.id },
 			"file_sync" => EntryState::Syncing { job_id: job.id },

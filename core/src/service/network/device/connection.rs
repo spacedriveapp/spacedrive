@@ -1,7 +1,7 @@
 //! Individual device connection handling
 
 use super::{DeviceInfo, SessionKeys};
-use crate::service::networking::{NetworkingError, Result};
+use crate::service::network::{NetworkingError, Result};
 use chrono::{DateTime, Utc};
 use iroh::net::key::NodeId;
 use std::sync::Arc;

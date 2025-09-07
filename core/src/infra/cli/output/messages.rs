@@ -272,15 +272,15 @@ pub enum JobStatus {
 	Cancelled,
 }
 
-impl From<crate::infra::jobs::types::JobStatus> for JobStatus {
-	fn from(status: crate::infra::jobs::types::JobStatus) -> Self {
+impl From<crate::infra::job::types::JobStatus> for JobStatus {
+	fn from(status: crate::infra::job::types::JobStatus) -> Self {
 		match status {
-			crate::infra::jobs::types::JobStatus::Queued => Self::Queued,
-			crate::infra::jobs::types::JobStatus::Running => Self::Running,
-			crate::infra::jobs::types::JobStatus::Completed => Self::Completed,
-			crate::infra::jobs::types::JobStatus::Failed => Self::Failed,
-			crate::infra::jobs::types::JobStatus::Paused => Self::Paused,
-			crate::infra::jobs::types::JobStatus::Cancelled => Self::Cancelled,
+			crate::infra::job::types::JobStatus::Queued => Self::Queued,
+			crate::infra::job::types::JobStatus::Running => Self::Running,
+			crate::infra::job::types::JobStatus::Completed => Self::Completed,
+			crate::infra::job::types::JobStatus::Failed => Self::Failed,
+			crate::infra::job::types::JobStatus::Paused => Self::Paused,
+			crate::infra::job::types::JobStatus::Cancelled => Self::Cancelled,
 		}
 	}
 }

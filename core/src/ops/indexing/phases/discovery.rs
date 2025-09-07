@@ -1,8 +1,8 @@
 //! Discovery phase - walks directories and collects entries
 
 use crate::{
-	infra::jobs::generic_progress::ToGenericProgress,
-	infra::jobs::prelude::{JobContext, JobError, Progress},
+	infra::job::generic_progress::ToGenericProgress,
+	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
 		entry::EntryProcessor,
 		rules::{build_default_ruler, RuleToggles, RulerDecision},

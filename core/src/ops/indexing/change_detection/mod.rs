@@ -7,7 +7,7 @@
 //! - Directory hierarchy tracking
 
 use super::state::EntryKind;
-use crate::infra::{database::entities, jobs::prelude::JobContext};
+use crate::infra::{db::entities, job::prelude::JobContext};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use std::{
 	collections::HashMap,
@@ -79,12 +79,12 @@ impl ChangeDetector {
 		ctx: &JobContext<'_>,
 		location_id: i32,
 		indexing_path: &Path,
-	) -> Result<(), crate::infra::jobs::prelude::JobError> {
-		use crate::infra::jobs::prelude::JobError;
+	) -> Result<(), crate::infra::job::prelude::JobError> {
+		use crate::infra::job::prelude::JobError;
 		use super::persistence::{DatabasePersistence, IndexPersistence};
 
 		// For change detection, we need to get the location's root entry ID
-		use crate::infra::database::entities;
+		use crate::infra::db::entities;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		let location_record = entities::location::Entity::find_by_id(location_id)

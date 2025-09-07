@@ -2,7 +2,7 @@
 
 use crate::{
 	domain::content_identity::ContentHashGenerator,
-	infra::jobs::prelude::*,
+	infra::job::prelude::*,
 	domain::addressing::{SdPath, SdPathBatch},
 };
 use serde::{Deserialize, Serialize};
@@ -82,7 +82,7 @@ impl Job for DuplicateDetectionJob {
 	const DESCRIPTION: Option<&'static str> = Some("Find duplicate files");
 }
 
-impl crate::infra::jobs::traits::DynJob for DuplicateDetectionJob {
+impl crate::infra::job::traits::DynJob for DuplicateDetectionJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}

@@ -8,7 +8,7 @@ use super::common::{
 	BrowseEntry, ConnectedDeviceInfo, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo,
 	VolumeListItem,
 };
-use crate::{infra::actions::output::ActionOutput, volume::Volume};
+use crate::{infra::action::output::ActionOutput, volume::Volume};
 
 /// Responses from the daemon
 #[derive(Debug, Serialize, Deserialize)]

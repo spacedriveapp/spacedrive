@@ -6,11 +6,11 @@
 pub mod common;
 pub mod config;
 pub mod context;
+pub mod crypto;
 pub mod device;
 pub mod domain;
 pub mod filetype;
 pub mod infra;
-pub mod keys;
 pub mod library;
 pub mod location;
 pub mod ops;
@@ -18,19 +18,19 @@ pub mod service;
 pub mod testing;
 pub mod volume;
 
-use service::networking::protocols::PairingProtocolHandler;
-use service::networking::utils::logging::NetworkLogger;
+use service::network::protocol::pairing::PairingProtocolHandler;
+use service::network::utils::logging::NetworkLogger;
 
 // Compatibility module for legacy networking references
 pub mod networking {
-	pub use crate::service::networking::*;
+	pub use crate::service::network::*;
 }
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
 use crate::device::DeviceManager;
-use crate::infra::actions::manager::ActionManager;
-use crate::infra::events::{Event, EventBus};
+use crate::infra::action::manager::ActionManager;
+use crate::infra::event::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::service::Services;
 use crate::volume::{VolumeDetectionConfig, VolumeManager};
@@ -63,13 +63,13 @@ struct SpacedropRequest {
 
 /// Bridge between networking events and core events
 pub struct NetworkEventBridge {
-	network_events: mpsc::UnboundedReceiver<networking::NetworkEvent>,
+	network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
 	core_events: Arc<EventBus>,
 }
 
 impl NetworkEventBridge {
 	pub fn new(
-		network_events: mpsc::UnboundedReceiver<networking::NetworkEvent>,
+		network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
 		core_events: Arc<EventBus>,
 	) -> Self {
 		Self {
@@ -86,18 +86,18 @@ impl NetworkEventBridge {
 		}
 	}
 
-	fn translate_event(&self, event: networking::NetworkEvent) -> Option<Event> {
+	fn translate_event(&self, event: service::network::NetworkEvent) -> Option<Event> {
 		match event {
-			networking::NetworkEvent::ConnectionEstablished { device_id, .. } => {
+			service::network::NetworkEvent::ConnectionEstablished { device_id, .. } => {
 				Some(Event::DeviceConnected {
 					device_id,
 					device_name: "Connected Device".to_string(),
 				})
 			}
-			networking::NetworkEvent::ConnectionLost { device_id, .. } => {
+			service::network::NetworkEvent::ConnectionLost { device_id, .. } => {
 				Some(Event::DeviceDisconnected { device_id })
 			}
-			networking::NetworkEvent::PairingCompleted {
+			service::network::NetworkEvent::PairingCompleted {
 				device_id,
 				device_info,
 			} => Some(Event::DeviceConnected {
@@ -175,7 +175,7 @@ impl Core {
 
 		// 7. Initialize library key manager
 		let library_key_manager =
-			Arc::new(crate::keys::library_key_manager::LibraryKeyManager::new()?);
+			Arc::new(crate::crypto::library_key_manager::LibraryKeyManager::new()?);
 
 		// 8. Register all job types
 		info!("Registering job types...");
@@ -246,7 +246,7 @@ impl Core {
 		}
 
 		// 12. Initialize ActionManager and set it in context
-		let action_manager = Arc::new(crate::infra::actions::manager::ActionManager::new(
+		let action_manager = Arc::new(crate::infra::action::manager::ActionManager::new(
 			context.clone(),
 		));
 		context.set_action_manager(action_manager).await;
@@ -272,14 +272,14 @@ impl Core {
 
 	/// Initialize networking using master key
 	pub async fn init_networking(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-		self.init_networking_with_logger(Arc::new(networking::SilentLogger))
+		self.init_networking_with_logger(Arc::new(service::network::SilentLogger))
 			.await
 	}
 
 	/// Initialize networking with custom logger
 	pub async fn init_networking_with_logger(
 		&mut self,
-		logger: Arc<dyn networking::NetworkLogger>,
+		logger: Arc<dyn service::network::NetworkLogger>,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		logger.info("Initializing networking...").await;
 
@@ -325,9 +325,9 @@ impl Core {
 	/// Register default protocol handlers
 	async fn register_default_protocols(
 		&self,
-		networking: &networking::NetworkingService,
+		networking: &service::network::NetworkingService,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		let logger = std::sync::Arc::new(networking::utils::logging::ConsoleLogger);
+		let logger = std::sync::Arc::new(service::network::utils::logging::ConsoleLogger);
 
 		// Get command sender for the pairing handler's state machine
 		let command_sender = networking
@@ -342,7 +342,7 @@ impl Core {
 		};
 
 		let pairing_handler = Arc::new(
-			networking::protocols::PairingProtocolHandler::new_with_persistence(
+			service::network::protocol::PairingProtocolHandler::new_with_persistence(
 				networking.identity().clone(),
 				networking.device_registry(),
 				logger.clone(),
@@ -362,16 +362,16 @@ impl Core {
 		}
 
 		// Start the state machine task for pairing
-		networking::protocols::PairingProtocolHandler::start_state_machine_task(
+		service::network::protocol::PairingProtocolHandler::start_state_machine_task(
 			pairing_handler.clone(),
 		);
 
 		// Start cleanup task for expired sessions
-		networking::protocols::PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
+		service::network::protocol::PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
 
-		let messaging_handler = networking::protocols::MessagingProtocolHandler::new();
+		let messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
 		let mut file_transfer_handler =
-			networking::protocols::FileTransferProtocolHandler::new_default(logger.clone());
+			service::network::protocol::FileTransferProtocolHandler::new_default(logger.clone());
 
 		// Inject device registry into file transfer handler for encryption
 		file_transfer_handler.set_device_registry(networking.device_registry());
@@ -405,7 +405,7 @@ impl Core {
 	}
 
 	/// Get the networking service (if initialized)
-	pub fn networking(&self) -> Option<Arc<networking::NetworkingService>> {
+	pub fn networking(&self) -> Option<Arc<service::network::NetworkingService>> {
 		self.services.networking()
 	}
 
@@ -419,7 +419,7 @@ impl Core {
 	/// Get detailed information about connected devices
 	pub async fn get_connected_devices_info(
 		&self,
-	) -> Result<Vec<networking::DeviceInfo>, Box<dyn std::error::Error>> {
+	) -> Result<Vec<service::network::DeviceInfo>, Box<dyn std::error::Error>> {
 		Ok(self.services.device.get_connected_devices_info().await?)
 	}
 

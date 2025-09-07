@@ -1,6 +1,6 @@
 //! Location Watcher Service - Monitors file system changes in indexed locations
 
-use crate::infra::events::{Event, EventBus};
+use crate::infra::event::{Event, EventBus};
 use crate::service::Service;
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};

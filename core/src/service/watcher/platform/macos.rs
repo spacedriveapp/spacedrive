@@ -10,7 +10,7 @@
 //! When moved from elsewhere to our location, we receive new path rename event (handle as creation).
 
 use super::EventHandler;
-use crate::infra::events::Event;
+use crate::infra::event::Event;
 use crate::service::watcher::event_handler::WatcherEventKind;
 use crate::service::watcher::{WatchedLocation, WatcherEvent};
 use anyhow::Result;

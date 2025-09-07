@@ -2,7 +2,7 @@
 
 use crate::{
     context::CoreContext,
-    infra::actions::{
+    infra::action::{
         error::{ActionError, ActionResult},
         handler::ActionHandler,
         output::ActionOutput,
@@ -68,7 +68,7 @@ impl ActionHandler for DeviceRevokeHandler {
                 .ok_or(ActionError::LibraryNotFound(library_id))?;
 
             // Remove device from database
-            use crate::infra::database::entities;
+            use crate::infra::db::entities;
             use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, ModelTrait};
 
             let device = entities::device::Entity::find()

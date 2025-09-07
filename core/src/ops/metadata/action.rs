@@ -2,7 +2,7 @@
 
 use crate::{
     context::CoreContext,
-    infra::actions::{
+    infra::action::{
         error::{ActionError, ActionResult},
         handler::ActionHandler,
         output::ActionOutput,
@@ -33,9 +33,9 @@ impl ActionHandler for MetadataHandler {
     async fn validate(
         &self,
         _context: Arc<CoreContext>,
-        action: &crate::infra::actions::Action,
+        action: &crate::infra::action::Action,
     ) -> ActionResult<()> {
-        if let crate::infra::actions::Action::MetadataOperation { action, .. } = action {
+        if let crate::infra::action::Action::MetadataOperation { action, .. } = action {
             if action.paths.is_empty() {
                 return Err(ActionError::Validation {
                     field: "paths".to_string(),
@@ -51,9 +51,9 @@ impl ActionHandler for MetadataHandler {
     async fn execute(
         &self,
         context: Arc<CoreContext>,
-        action: crate::infra::actions::Action,
+        action: crate::infra::action::Action,
     ) -> ActionResult<ActionOutput> {
-        if let crate::infra::actions::Action::MetadataOperation { library_id, action } = action {
+        if let crate::infra::action::Action::MetadataOperation { library_id, action } = action {
             let library_manager = &context.library_manager;
 
             let job_params = serde_json::json!({
@@ -77,8 +77,8 @@ impl ActionHandler for MetadataHandler {
         }
     }
 
-    fn can_handle(&self, action: &crate::infra::actions::Action) -> bool {
-        matches!(action, crate::infra::actions::Action::MetadataOperation { .. })
+    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
+        matches!(action, crate::infra::action::Action::MetadataOperation { .. })
     }
 
     fn supported_actions() -> &'static [&'static str] {

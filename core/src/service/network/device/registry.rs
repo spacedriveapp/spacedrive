@@ -2,7 +2,7 @@
 
 use super::{DeviceConnection, DeviceInfo, DeviceState, DevicePersistence, PersistedPairedDevice, SessionKeys, TrustLevel};
 use crate::device::DeviceManager;
-use crate::service::networking::{NetworkingError, Result, utils::logging::NetworkLogger};
+use crate::service::network::{NetworkingError, Result, utils::logging::NetworkLogger};
 use chrono::{DateTime, Utc};
 use iroh::net::NodeAddr;
 use iroh::net::key::NodeId;
@@ -380,7 +380,7 @@ impl DeviceRegistry {
 			os_version: std::env::consts::OS.to_string(),
 			app_version: env!("CARGO_PKG_VERSION").to_string(),
 			network_fingerprint:
-				crate::service::networking::utils::identity::NetworkFingerprint {
+				crate::service::network::utils::identity::NetworkFingerprint {
 					node_id: "placeholder".to_string(), // Will be filled in by caller
 					public_key_hash: "placeholder".to_string(),
 				},

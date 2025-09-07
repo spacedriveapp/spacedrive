@@ -5,7 +5,7 @@
 
 use crate::{
 	domain::addressing::SdPath,
-	infra::database::entities::{entry, location, Entry},
+	infra::db::entities::{entry, location, Entry},
 	ops::indexing::PathResolver,
 };
 use anyhow::Result;

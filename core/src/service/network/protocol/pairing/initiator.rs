@@ -6,7 +6,7 @@ use super::{
     types::{PairingSession, PairingState},
     PairingProtocolHandler,
 };
-use crate::service::networking::{
+use crate::service::network::{
     device::{DeviceInfo, SessionKeys},
     NetworkingError, Result,
 };
@@ -190,7 +190,7 @@ impl PairingProtocolHandler {
         };
 
         // Mark device as connected since pairing is successful
-        let simple_connection = crate::service::networking::device::DeviceConnection {
+        let simple_connection = crate::service::network::device::DeviceConnection {
             addresses: vec![], // Will be filled in later
             latency_ms: None,
             rx_bytes: 0,
@@ -232,7 +232,7 @@ impl PairingProtocolHandler {
         )).await;
 
         // Send a command to establish a new persistent connection
-        let command = crate::service::networking::core::event_loop::EventLoopCommand::EstablishPersistentConnection {
+        let command = crate::service::network::core::event_loop::EventLoopCommand::EstablishPersistentConnection {
             device_id: actual_device_id,
             node_id,
         };

@@ -3,7 +3,7 @@
 //! This action tests the read/write performance of a volume.
 
 use crate::{
-	infra::actions::{error::ActionError, output::ActionOutput},
+	infra::action::{error::ActionError, output::ActionOutput},
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};

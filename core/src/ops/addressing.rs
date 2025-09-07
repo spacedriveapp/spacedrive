@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::{
 	context::CoreContext,
 	domain::addressing::{PathResolutionError, SdPath},
-	infra::database::entities::{
+	infra::db::entities::{
 		content_identity, device, entry, location, ContentIdentity, Device, Entry, Location,
 	},
 };

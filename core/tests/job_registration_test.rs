@@ -1,9 +1,9 @@
 //! Tests for job registration system
 
-use sd_core_new::{
-	infrastructure::jobs::{prelude::*, registry::REGISTRY},
-	operations::files::copy::job::FileCopyJob,
+use sd_core::{
 	domain::addressing::SdPath,
+	infra::job::{prelude::*, registry::REGISTRY},
+	ops::files::copy::job::FileCopyJob,
 };
 use uuid::Uuid;
 
@@ -23,7 +23,10 @@ async fn test_job_registration() {
 	let schema = schema.unwrap();
 	assert_eq!(schema.name, "file_copy");
 	assert_eq!(schema.resumable, true);
-	assert_eq!(schema.description, Some("Copy or move files to a destination"));
+	assert_eq!(
+		schema.description,
+		Some("Copy or move files to a destination")
+	);
 }
 
 #[tokio::test]

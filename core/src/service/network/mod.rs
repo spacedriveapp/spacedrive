@@ -14,7 +14,7 @@
 //! - `utils`: Shared utilities (identity, codecs, logging)
 
 pub mod core;
-pub mod protocols;
+pub mod protocol;
 pub mod device;
 pub mod utils;
 
@@ -24,11 +24,11 @@ pub use core::{NetworkingService, NetworkEvent};
 // Compatibility alias for legacy code
 pub use NetworkingService as NetworkingCore;
 pub use device::{DeviceInfo, DeviceRegistry, DeviceState};
-pub use protocols::{ProtocolHandler, ProtocolRegistry};
+pub use protocol::{ProtocolHandler, ProtocolRegistry};
 pub use utils::{NetworkIdentity, NetworkLogger, SilentLogger};
 
 // Re-export specific protocol types for CLI compatibility
-pub use protocols::pairing::{PairingState, PairingSession};
+pub use protocol::pairing::{PairingState, PairingSession};
 
 /// Main error type for networking operations
 #[derive(Debug, thiserror::Error)]
@@ -66,7 +66,7 @@ pub type Result<T> = std::result::Result<T, NetworkingError>;
 /// Initialize the new networking system
 pub async fn init_networking(
     device_manager: std::sync::Arc<crate::device::DeviceManager>,
-    library_key_manager: std::sync::Arc<crate::keys::library_key_manager::LibraryKeyManager>,
+    library_key_manager: std::sync::Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
     data_dir: impl AsRef<std::path::Path>,
 ) -> Result<NetworkingService> {
     let logger = std::sync::Arc::new(utils::logging::ConsoleLogger);

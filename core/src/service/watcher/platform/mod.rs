@@ -1,6 +1,6 @@
 //! Platform-specific event handling
 
-use crate::infra::events::Event;
+use crate::infra::event::Event;
 use crate::service::watcher::{WatchedLocation, WatcherEvent};
 use anyhow::Result;
 use std::collections::HashMap;

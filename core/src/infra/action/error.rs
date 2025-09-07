@@ -1,7 +1,7 @@
 //! Error types for the Action System
 
 use crate::{
-    infra::jobs::error::JobError,
+    infra::job::error::JobError,
     library::LibraryError,
     common::errors::CoreError,
 };

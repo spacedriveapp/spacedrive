@@ -3,7 +3,7 @@
 use crate::{
 	domain::addressing::{SdPath, SdPathBatch},
 	domain::content_identity::ContentHashGenerator,
-	infra::jobs::prelude::*,
+	infra::job::prelude::*,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -80,7 +80,7 @@ impl Job for ValidationJob {
 	const DESCRIPTION: Option<&'static str> = Some("Validate file integrity and accessibility");
 }
 
-impl crate::infra::jobs::traits::DynJob for ValidationJob {
+impl crate::infra::job::traits::DynJob for ValidationJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}

@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     context::CoreContext,
-    infra::database::entities::{audit_log, AuditLog, AuditLogActive},
+    infra::db::entities::{audit_log, AuditLog, AuditLogActive},
     common::utils::get_current_device_id,
 };
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set};

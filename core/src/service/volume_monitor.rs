@@ -4,7 +4,7 @@
 
 use crate::{
     context::CoreContext,
-    infra::events::EventBus,
+    infra::event::EventBus,
     library::LibraryManager,
     service::Service,
     volume::VolumeManager,

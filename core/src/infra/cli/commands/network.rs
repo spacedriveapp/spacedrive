@@ -10,7 +10,7 @@ use crate::infra::cli::daemon::{DaemonClient, DaemonCommand, DaemonResponse};
 use crate::infra::cli::output::{CliOutput, Message};
 use crate::infra::cli::output::messages::{DeviceInfo as OutputDeviceInfo, DeviceStatus, PairingRequest};
 use crate::infra::cli::utils::format_bytes_parts;
-use crate::service::networking::DeviceInfo;
+use crate::service::network::DeviceInfo;
 use clap::Subcommand;
 use comfy_table::{presets::UTF8_FULL, Table};
 use std::path::PathBuf;

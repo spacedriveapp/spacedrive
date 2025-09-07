@@ -2,8 +2,8 @@
 
 use crate::{
 	domain::addressing::SdPath,
-	infra::database::entities,
-	infra::jobs::{
+	infra::db::entities,
+	infra::job::{
 		prelude::*,
 		traits::{DynJob, Resourceful},
 	},

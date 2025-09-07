@@ -1,6 +1,6 @@
 //! Thumbnail generation job implementation
 
-use crate::infra::jobs::{prelude::*, traits::Resourceful};
+use crate::infra::job::{prelude::*, traits::Resourceful};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
@@ -76,7 +76,7 @@ impl Job for ThumbnailJob {
 	const DESCRIPTION: Option<&'static str> = Some("Generate thumbnails for media files");
 }
 
-impl crate::infra::jobs::traits::DynJob for ThumbnailJob {
+impl crate::infra::job::traits::DynJob for ThumbnailJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}
@@ -344,7 +344,7 @@ impl ThumbnailJob {
 							entry.relative_path, e
 						);
 						state.add_error(error_msg.clone());
-						ctx.add_non_critical_error(crate::infra::jobs::error::JobError::execution(
+						ctx.add_non_critical_error(crate::infra::job::error::JobError::execution(
 							error_msg,
 						));
 					}

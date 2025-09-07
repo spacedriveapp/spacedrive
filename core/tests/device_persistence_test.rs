@@ -6,8 +6,8 @@
 //! 3. After both devices restart, they automatically reconnect
 //! 4. The reconnection happens without manual intervention
 
-use sd_core_new::test_framework::CargoTestRunner;
-use sd_core_new::Core;
+use sd_core::testing::CargoTestRunner;
+use sd_core::Core;
 use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -503,7 +503,7 @@ async fn test_device_persistence() {
 		.spawn_single_process("bob_restart")
 		.await
 		.expect("Failed to spawn Bob restart");
-		
+
 	// Give both devices time to fully start up and discover each other
 	tokio::time::sleep(Duration::from_secs(8)).await;
 

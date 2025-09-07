@@ -1,8 +1,8 @@
 //! Persistence for paired devices and their connection info
 
 use super::{DeviceInfo, SessionKeys};
-use crate::keys::device_key_manager::DeviceKeyManager;
-use crate::service::networking::{NetworkingError, Result};
+use crate::crypto::device_key_manager::DeviceKeyManager;
+use crate::service::network::{NetworkingError, Result};
 use aes_gcm::{
 	aead::{Aead, AeadCore, KeyInit, OsRng},
 	Aes256Gcm, Key, Nonce,
@@ -386,7 +386,7 @@ impl DevicePersistence {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::service::networking::utils::identity::NetworkFingerprint;
+	use crate::service::network::utils::identity::NetworkFingerprint;
 	use tempfile::TempDir;
 
 	async fn create_test_persistence() -> (DevicePersistence, TempDir) {

@@ -1,6 +1,6 @@
 //! Progress reporting for jobs
 
-use crate::infra::jobs::generic_progress::GenericProgress;
+use crate::infra::job::generic_progress::GenericProgress;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

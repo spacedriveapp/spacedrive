@@ -47,7 +47,7 @@ impl CommandHandler for JobHandler {
 
 					// For other statuses, query the database
 					let status_filter = status.and_then(|s| {
-						s.parse::<crate::infra::jobs::types::JobStatus>()
+						s.parse::<crate::infra::job::types::JobStatus>()
 							.ok()
 					});
 
@@ -95,7 +95,7 @@ impl CommandHandler for JobHandler {
 				// Get current library from CLI state
 				if let Some(library) = state_service.get_current_library(core).await {
 					let job_manager = library.jobs();
-					let job_id = crate::infra::jobs::types::JobId(id);
+					let job_id = crate::infra::job::types::JobId(id);
 
 					match job_manager.pause_job(job_id).await {
 						Ok(_) => DaemonResponse::Ok,
@@ -110,7 +110,7 @@ impl CommandHandler for JobHandler {
 				// Get current library from CLI state
 				if let Some(library) = state_service.get_current_library(core).await {
 					let job_manager = library.jobs();
-					let job_id = crate::infra::jobs::types::JobId(id);
+					let job_id = crate::infra::job::types::JobId(id);
 
 					match job_manager.resume_job(job_id).await {
 						Ok(_) => DaemonResponse::Ok,

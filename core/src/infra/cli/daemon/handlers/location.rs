@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::infra::cli::daemon::services::StateService;
 use crate::infra::cli::daemon::types::{DaemonCommand, DaemonResponse, LocationInfo};
-use crate::infra::actions::output::ActionOutput;
+use crate::infra::action::output::ActionOutput;
 use crate::Core;
 
 use super::CommandHandler;
@@ -33,7 +33,7 @@ impl CommandHandler for LocationHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create the location add action
-							let action = crate::infra::actions::Action::LocationAdd {
+							let action = crate::infra::action::Action::LocationAdd {
 								library_id,
 								action:
 									crate::ops::locations::add::action::LocationAddAction {
@@ -77,7 +77,7 @@ impl CommandHandler for LocationHandler {
 				// Get current library from CLI state
 				if let Some(library) = state_service.get_current_library(core).await {
 					// For listing, we can directly query the database since it's a read operation
-					use crate::infra::database::entities;
+					use crate::infra::db::entities;
 					use crate::ops::indexing::PathResolver;
 					use sea_orm::EntityTrait;
 
@@ -123,7 +123,7 @@ impl CommandHandler for LocationHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create the location remove action
-							let action = crate::infra::actions::Action::LocationRemove {
+							let action = crate::infra::action::Action::LocationRemove {
 								library_id,
 								action: crate::ops::locations::remove::action::LocationRemoveAction {
 									location_id: id,
@@ -155,7 +155,7 @@ impl CommandHandler for LocationHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create LocationRescanAction
-							let action = crate::infra::actions::Action::LocationRescan {
+							let action = crate::infra::action::Action::LocationRescan {
 								library_id,
 								action: crate::ops::locations::rescan::action::LocationRescanAction {
 									location_id: id,

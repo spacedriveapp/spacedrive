@@ -2,9 +2,9 @@
 
 use crate::{
 	context::CoreContext,
-	ops::files::copy::{CopyOptions, FileCopyJob},
-	service::networking::protocols::file_transfer::FileMetadata,
 	domain::addressing::SdPath,
+	ops::files::copy::{CopyOptions, FileCopyJob},
+	service::network::protocol::file_transfer::FileMetadata,
 };
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc, time::SystemTime};
@@ -337,24 +337,12 @@ impl FileSharingService {
 
 				if let Some(info) = job_info {
 					let state = match info.status {
-						crate::infra::jobs::types::JobStatus::Queued => {
-							TransferState::Pending
-						}
-						crate::infra::jobs::types::JobStatus::Running => {
-							TransferState::Active
-						}
-						crate::infra::jobs::types::JobStatus::Paused => {
-							TransferState::Active
-						}
-						crate::infra::jobs::types::JobStatus::Completed => {
-							TransferState::Completed
-						}
-						crate::infra::jobs::types::JobStatus::Failed => {
-							TransferState::Failed
-						}
-						crate::infra::jobs::types::JobStatus::Cancelled => {
-							TransferState::Cancelled
-						}
+						crate::infra::job::types::JobStatus::Queued => TransferState::Pending,
+						crate::infra::job::types::JobStatus::Running => TransferState::Active,
+						crate::infra::job::types::JobStatus::Paused => TransferState::Active,
+						crate::infra::job::types::JobStatus::Completed => TransferState::Completed,
+						crate::infra::job::types::JobStatus::Failed => TransferState::Failed,
+						crate::infra::job::types::JobStatus::Cancelled => TransferState::Cancelled,
 					};
 
 					Ok(TransferStatus {
@@ -443,16 +431,12 @@ impl FileSharingService {
 			// Only include file copy jobs as transfers
 			if job_info.name == "file_copy" {
 				let state = match job_info.status {
-					crate::infra::jobs::types::JobStatus::Queued => TransferState::Pending,
-					crate::infra::jobs::types::JobStatus::Running => TransferState::Active,
-					crate::infra::jobs::types::JobStatus::Paused => TransferState::Active,
-					crate::infra::jobs::types::JobStatus::Completed => {
-						TransferState::Completed
-					}
-					crate::infra::jobs::types::JobStatus::Failed => TransferState::Failed,
-					crate::infra::jobs::types::JobStatus::Cancelled => {
-						TransferState::Cancelled
-					}
+					crate::infra::job::types::JobStatus::Queued => TransferState::Pending,
+					crate::infra::job::types::JobStatus::Running => TransferState::Active,
+					crate::infra::job::types::JobStatus::Paused => TransferState::Active,
+					crate::infra::job::types::JobStatus::Completed => TransferState::Completed,
+					crate::infra::job::types::JobStatus::Failed => TransferState::Failed,
+					crate::infra::job::types::JobStatus::Cancelled => TransferState::Cancelled,
 				};
 
 				transfers.push(TransferStatus {
@@ -510,8 +494,8 @@ pub struct TransferProgress {
 mod tests {
 	use super::*;
 	use crate::{
-		device::DeviceManager, infra::events::EventBus,
-		keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
+		crypto::library_key_manager::LibraryKeyManager, device::DeviceManager,
+		infra::event::EventBus, library::LibraryManager,
 	};
 	use tempfile::tempdir;
 

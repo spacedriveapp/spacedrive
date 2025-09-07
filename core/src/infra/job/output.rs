@@ -1,6 +1,6 @@
 //! Job output types
 
-use crate::operations::indexing::{metrics::IndexerMetrics, state::IndexerStats};
+use crate::ops::indexing::{metrics::IndexerMetrics, state::IndexerStats};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use super::progress::Progress;
@@ -96,7 +96,7 @@ impl JobOutput {
             Self::Success => Some(Progress::percentage(1.0)),
             Self::FileCopy { copied_count, total_bytes } => {
                 Some(Progress::generic(
-                    crate::infra::jobs::generic_progress::GenericProgress::new(
+                    crate::infra::job::generic_progress::GenericProgress::new(
                         1.0,
                         "Completed",
                         format!("Copied {} files", copied_count)
@@ -105,7 +105,7 @@ impl JobOutput {
             }
             Self::Indexed { stats, metrics } => {
                 Some(Progress::generic(
-                    crate::infra::jobs::generic_progress::GenericProgress::new(
+                    crate::infra::job::generic_progress::GenericProgress::new(
                         1.0,
                         "Completed",
                         format!("Indexed {} files, {} directories", stats.files, stats.dirs)
@@ -114,7 +114,7 @@ impl JobOutput {
             }
             Self::ThumbnailGeneration { generated_count, .. } => {
                 Some(Progress::generic(
-                    crate::infra::jobs::generic_progress::GenericProgress::new(
+                    crate::infra::job::generic_progress::GenericProgress::new(
                         1.0,
                         "Completed",
                         format!("Generated {} thumbnails", generated_count)

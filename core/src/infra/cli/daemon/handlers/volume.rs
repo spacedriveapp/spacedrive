@@ -6,7 +6,7 @@ use tracing::debug;
 
 use crate::{
 	infra::{
-		actions::{manager::ActionManager, Action},
+		action::{manager::ActionManager, Action},
 		cli::{
 			commands::VolumeCommands,
 			daemon::{

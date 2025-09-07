@@ -3,11 +3,11 @@
 //! This test demonstrates cross-device file sharing functionality where Alice
 //! (sender) pairs with Bob (receiver) and transfers multiple test files.
 
-use sd_core_new::test_framework::CargoTestRunner;
-use sd_core_new::Core;
-use std::env;
-use std::path::PathBuf;
-use std::time::Duration;
+use sd_core::{
+	domain::content_identity::ContentHashGenerator, service::file_sharing::TransferState,
+	testing::CargoTestRunner, Core,
+};
+use std::{env, path::PathBuf, time::Duration};
 use tokio::time::timeout;
 
 /// Alice's file transfer scenario - sender role
@@ -177,11 +177,7 @@ async fn alice_file_transfer_scenario() {
 		std::fs::write(&file_path, content).unwrap();
 
 		// Generate and display checksum for the file Alice is about to send
-		match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(
-			&file_path,
-		)
-		.await
-		{
+		match ContentHashGenerator::generate_content_hash(&file_path).await {
 			Ok(checksum) => {
 				println!(
 					"  📄 Created: {} ({} bytes, checksum: {})",
@@ -258,7 +254,7 @@ async fn alice_file_transfer_scenario() {
 				{
 					Ok(status) => {
 						match status.state {
-							sd_core_new::services::file_sharing::TransferState::Completed => {
+							TransferState::Completed => {
 								println!(
 									"✅ Alice: Transfer {:?} completed successfully",
 									transfer_id
@@ -266,7 +262,7 @@ async fn alice_file_transfer_scenario() {
 								completed = true;
 								break;
 							}
-							sd_core_new::services::file_sharing::TransferState::Failed => {
+							TransferState::Failed => {
 								println!(
 									"❌ Alice: Transfer {:?} failed: {:?}",
 									transfer_id, status.error
@@ -581,13 +577,20 @@ async fn bob_file_transfer_scenario() {
 				if let Ok(metadata) = std::fs::metadata(&received_path) {
 					if metadata.len() == *expected_size as u64 {
 						// Generate checksum for received file
-						match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(&received_path).await {
+						match ContentHashGenerator::generate_content_hash(&received_path).await {
 							Ok(checksum) => {
-								println!("✅ Bob: Verified: {} (size: {} bytes, checksum: {})",
-									expected_name, metadata.len(), checksum); // Show full checksum
+								println!(
+									"✅ Bob: Verified: {} (size: {} bytes, checksum: {})",
+									expected_name,
+									metadata.len(),
+									checksum
+								); // Show full checksum
 							}
 							Err(e) => {
-								println!("⚠️ Bob: Could not generate checksum for {}: {}", expected_name, e);
+								println!(
+									"⚠️ Bob: Could not generate checksum for {}: {}",
+									expected_name, e
+								);
 								println!("✅ Bob: Verified: {} (size matches)", expected_name);
 							}
 						}

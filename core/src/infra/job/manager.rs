@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	infra::events::{Event, EventBus},
+	infra::event::{Event, EventBus},
 	library::Library,
 };
 use async_trait::async_trait;
@@ -164,17 +164,17 @@ impl JobManager {
 				let _ = broadcast_tx_clone.send(progress.clone());
 
 				// Emit enhanced progress event
-				use crate::infra::events::Event;
+				use crate::infra::event::Event;
 
 				// Extract generic progress data if available
 				let generic_progress = match &progress {
 					Progress::Structured(value) => {
 						// Try to deserialize CopyProgress and convert to GenericProgress
 						if let Ok(copy_progress) = serde_json::from_value::<
-							crate::operations::files::copy::CopyProgress,
+							crate::ops::files::copy::CopyProgress,
 						>(value.clone())
 						{
-							use crate::infra::jobs::generic_progress::ToGenericProgress;
+							use crate::infra::job::generic_progress::ToGenericProgress;
 							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
 						} else {
 							None
@@ -410,17 +410,17 @@ impl JobManager {
 				}
 
 				// Emit enhanced progress event
-				use crate::infra::events::Event;
+				use crate::infra::event::Event;
 
 				// Extract generic progress data if available
 				let generic_progress = match &progress {
 					Progress::Structured(value) => {
 						// Try to deserialize CopyProgress and convert to GenericProgress
 						if let Ok(copy_progress) = serde_json::from_value::<
-							crate::operations::files::copy::CopyProgress,
+							crate::ops::files::copy::CopyProgress,
 						>(value.clone())
 						{
-							use crate::infra::jobs::generic_progress::ToGenericProgress;
+							use crate::infra::job::generic_progress::ToGenericProgress;
 							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
 						} else {
 							None

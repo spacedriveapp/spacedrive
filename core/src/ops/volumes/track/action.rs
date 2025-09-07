@@ -4,7 +4,7 @@
 //! and index files on the volume.
 
 use crate::{
-    infra::actions::{error::ActionError, output::ActionOutput},
+    infra::action::{error::ActionError, output::ActionOutput},
     volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};

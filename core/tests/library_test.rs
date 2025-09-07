@@ -1,6 +1,6 @@
 //! Integration tests for the library system
 
-use sd_core_new::Core;
+use sd_core::Core;
 use tempfile::TempDir;
 
 #[tokio::test]

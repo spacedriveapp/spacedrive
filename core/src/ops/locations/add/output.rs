@@ -1,6 +1,6 @@
 //! Location add operation output types
 
-use crate::infra::actions::output::ActionOutputTrait;
+use crate::infra::action::output::ActionOutputTrait;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;

@@ -5,13 +5,13 @@ mod tests {
     use super::*;
     use crate::{
         context::CoreContext,
-        infra::actions::{Action, registry::REGISTRY},
+        infra::action::{Action, registry::REGISTRY},
     };
 
     #[test]
     fn test_action_kind() {
         let action = Action::LibraryCreate(
-            crate::operations::libraries::create::action::LibraryCreateAction {
+            crate::ops::libraries::create::action::LibraryCreateAction {
                 name: "Test Library".to_string(),
                 path: None,
             }
@@ -22,7 +22,7 @@ mod tests {
     #[test]
     fn test_action_description() {
         let action = Action::LibraryCreate(
-            crate::operations::libraries::create::action::LibraryCreateAction {
+            crate::ops::libraries::create::action::LibraryCreateAction {
                 name: "Test Library".to_string(),
                 path: None,
             }
@@ -33,7 +33,7 @@ mod tests {
     #[test]
     fn test_action_targets_summary() {
         let action = Action::LibraryCreate(
-            crate::operations::libraries::create::action::LibraryCreateAction {
+            crate::ops::libraries::create::action::LibraryCreateAction {
                 name: "Test Library".to_string(),
                 path: Some("/path/to/library".into()),
             }

@@ -3,13 +3,13 @@
 use super::output::LocationAddOutput;
 use crate::{
 	context::CoreContext,
-	infra::actions::{
+	infra::action::{
 		error::{ActionError, ActionResult},
 		handler::ActionHandler,
 		output::ActionOutput,
 		Action,
 	},
-	infra::database::entities,
+	infra::db::entities,
 	location::manager::LocationManager,
 	ops::indexing::IndexMode,
 	register_action_handler,

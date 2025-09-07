@@ -1,6 +1,6 @@
 //! Hierarchical query helpers using closure table
 
-use crate::infra::database::entities::{entry, entry_closure};
+use crate::infra::db::entities::{entry, entry_closure};
 use sea_orm::{
 	ColumnTrait, Condition, DbConn, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QueryOrder,
 	QuerySelect, RelationTrait,

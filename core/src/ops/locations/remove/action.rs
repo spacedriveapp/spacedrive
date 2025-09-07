@@ -3,7 +3,7 @@
 use crate::{
     context::CoreContext,
     location::manager::LocationManager,
-    infra::actions::{
+    infra::action::{
         Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
     },
     register_action_handler,

@@ -1,6 +1,6 @@
 //! Pairing protocol message definitions
 
-use crate::service::networking::device::DeviceInfo;
+use crate::service::network::device::DeviceInfo;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

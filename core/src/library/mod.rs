@@ -15,8 +15,8 @@ pub use lock::LibraryLock;
 pub use manager::{LibraryManager, DiscoveredLibrary};
 
 use crate::infra::{
-    database::Database,
-    jobs::manager::JobManager,
+    db::Database,
+    job::manager::JobManager,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -195,7 +195,7 @@ impl Library {
     }
 
     /// Start thumbnail generation job
-    pub async fn generate_thumbnails(&self, entry_ids: Option<Vec<Uuid>>) -> Result<crate::infra::jobs::handle::JobHandle> {
+    pub async fn generate_thumbnails(&self, entry_ids: Option<Vec<Uuid>>) -> Result<crate::infra::job::handle::JobHandle> {
         use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 
         let config = ThumbnailJobConfig {

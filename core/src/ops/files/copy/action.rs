@@ -8,7 +8,7 @@ use super::{
 use crate::{
 	context::CoreContext,
 	infra::{
-		actions::{
+		action::{
 			builder::{ActionBuildError, ActionBuilder},
 			error::{ActionError, ActionResult},
 			handler::ActionHandler,

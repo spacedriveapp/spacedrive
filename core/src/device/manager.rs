@@ -1,7 +1,7 @@
 //! Device manager for handling device lifecycle
 
 use super::config::DeviceConfig;
-use crate::keys::device_key_manager::{DeviceKeyManager, DeviceKeyError};
+use crate::crypto::device_key_manager::{DeviceKeyManager, DeviceKeyError};
 use crate::domain::device::{Device, OperatingSystem};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};

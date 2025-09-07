@@ -2,7 +2,7 @@
 
 use crate::{
     context::CoreContext,
-    infra::actions::{
+    infra::action::{
         error::{ActionError, ActionResult},
         handler::ActionHandler,
         output::ActionOutput,
@@ -33,7 +33,7 @@ impl ActionHandler for ContentHandler {
     async fn validate(
         &self,
         _context: Arc<CoreContext>,
-        action: &crate::infra::actions::Action,
+        action: &crate::infra::action::Action,
     ) -> ActionResult<()> {
         // TODO: Re-enable when ContentAnalysis variant is added back
         Err(ActionError::Internal("ContentAnalysis action not yet implemented".to_string()))
@@ -42,13 +42,13 @@ impl ActionHandler for ContentHandler {
     async fn execute(
         &self,
         context: Arc<CoreContext>,
-        action: crate::infra::actions::Action,
+        action: crate::infra::action::Action,
     ) -> ActionResult<ActionOutput> {
         // TODO: Re-enable when ContentAnalysis variant is added back
         Err(ActionError::Internal("ContentAnalysis action not yet implemented".to_string()))
     }
 
-    fn can_handle(&self, action: &crate::infra::actions::Action) -> bool {
+    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
         // TODO: Re-enable when ContentAnalysis variant is added back
         false
     }

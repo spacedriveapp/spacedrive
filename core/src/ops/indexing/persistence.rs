@@ -6,8 +6,8 @@
 use crate::{
 	filetype::FileTypeRegistry,
 	infra::{
-		database::entities::{self, entry_closure},
-		jobs::prelude::{JobContext, JobError, JobResult},
+		db::entities::{self, entry_closure},
+		job::prelude::{JobContext, JobError, JobResult},
 	},
 };
 use sea_orm::{

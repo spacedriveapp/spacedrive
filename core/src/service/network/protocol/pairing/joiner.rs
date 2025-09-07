@@ -5,7 +5,7 @@ use super::{
 	types::{PairingSession, PairingState},
 	PairingProtocolHandler,
 };
-use crate::service::networking::{
+use crate::service::network::{
 	device::{DeviceInfo, SessionKeys},
 	NetworkingError, Result,
 };
@@ -92,7 +92,7 @@ impl PairingProtocolHandler {
 		// Mark the initiator device as connected immediately after pairing completes
 		// This ensures Bob sees Alice as connected even if the completion message fails
 		{
-			let simple_connection = crate::service::networking::device::DeviceConnection {
+			let simple_connection = crate::service::network::device::DeviceConnection {
 				addresses: vec![], // Will be filled in later
 				latency_ms: None,
 				rx_bytes: 0,
@@ -206,13 +206,13 @@ impl PairingProtocolHandler {
 									"No remote device info stored in session, using fallback",
 								)
 								.await;
-								crate::service::networking::device::DeviceInfo {
+								crate::service::network::device::DeviceInfo {
                                     device_id: from_device,
                                     device_name: format!("Remote Device {}", &from_device.to_string()[..8]),
-                                    device_type: crate::service::networking::device::DeviceType::Desktop,
+                                    device_type: crate::service::network::device::DeviceType::Desktop,
                                     os_version: "Unknown".to_string(),
                                     app_version: "Unknown".to_string(),
-                                    network_fingerprint: crate::service::networking::utils::identity::NetworkFingerprint {
+                                    network_fingerprint: crate::service::network::utils::identity::NetworkFingerprint {
                                         node_id: from_node.to_string(),
                                         public_key_hash: "unknown".to_string(),
                                     },
@@ -220,7 +220,7 @@ impl PairingProtocolHandler {
                                 }
 							}
 						} else {
-							return Err(crate::service::networking::NetworkingError::Protocol(
+							return Err(crate::service::network::NetworkingError::Protocol(
 								"Session not found when completing pairing".to_string(),
 							));
 						}
@@ -259,7 +259,7 @@ impl PairingProtocolHandler {
 
 							if let Some(node_id) = initiator_node_id {
 								let simple_connection =
-									crate::service::networking::device::DeviceConnection {
+									crate::service::network::device::DeviceConnection {
 										addresses: vec![], // Will be filled in later
 										latency_ms: None,
 										rx_bytes: 0,
@@ -281,7 +281,7 @@ impl PairingProtocolHandler {
                             )).await;
 
 							// Send a command to establish a new persistent connection
-							let command = crate::service::networking::core::event_loop::EventLoopCommand::EstablishPersistentConnection {
+							let command = crate::service::network::core::event_loop::EventLoopCommand::EstablishPersistentConnection {
                                 device_id: actual_device_id,
                                 node_id: from_node,
                             };

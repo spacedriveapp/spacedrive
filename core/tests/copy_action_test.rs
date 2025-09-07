@@ -3,10 +3,10 @@
 //! This test verifies that the action can be properly dispatched without
 //! requiring a full database setup or job execution.
 
-use sd_core_new::domain::addressing::SdPath;
-use sd_core_new::{
-	infrastructure::actions::Action,
-	operations::files::{
+use sd_core::domain::addressing::SdPath;
+use sd_core::{
+	infra::action::Action,
+	ops::files::{
 		copy::{
 			action::FileCopyAction,
 			job::{CopyOptions, MoveMode},

@@ -1,6 +1,6 @@
 //! Pairing protocol types and state definitions
 
-use crate::service::networking::{
+use crate::service::network::{
     device::{DeviceInfo, SessionKeys},
     utils::identity::NetworkFingerprint,
 };
@@ -28,7 +28,7 @@ pub struct PairingCode {
 
 impl PairingCode {
     /// Generate a new pairing code using BIP39 wordlist
-    pub fn generate() -> crate::service::networking::Result<Self> {
+    pub fn generate() -> crate::service::network::Result<Self> {
         use rand::RngCore;
 
         let mut secret = [0u8; 32];
@@ -79,11 +79,11 @@ impl PairingCode {
     }
 
     /// Parse a pairing code from a BIP39 mnemonic string
-    pub fn from_string(code: &str) -> crate::service::networking::Result<Self> {
+    pub fn from_string(code: &str) -> crate::service::network::Result<Self> {
         // Trim the input and normalize whitespace
         let trimmed = code.trim();
         if trimmed.is_empty() {
-            return Err(crate::service::networking::NetworkingError::Protocol(
+            return Err(crate::service::network::NetworkingError::Protocol(
                 "Pairing code cannot be empty".to_string(),
             ));
         }
@@ -91,14 +91,14 @@ impl PairingCode {
         let words: Vec<String> = trimmed.split_whitespace().map(|s| s.to_lowercase()).collect();
 
         if words.len() != 12 {
-            return Err(crate::service::networking::NetworkingError::Protocol(
+            return Err(crate::service::network::NetworkingError::Protocol(
                 format!("Invalid pairing code format - expected 12 words but got {}", words.len()),
             ));
         }
 
         // Convert Vec to array
         let words_array: [String; 12] = words.try_into().map_err(|_| {
-            crate::service::networking::NetworkingError::Protocol(
+            crate::service::network::NetworkingError::Protocol(
                 "Failed to convert words to array".to_string(),
             )
         })?;
@@ -107,13 +107,13 @@ impl PairingCode {
     }
 
     /// Create pairing code from BIP39 words
-    pub fn from_words(words: &[String; 12]) -> crate::service::networking::Result<Self> {
+    pub fn from_words(words: &[String; 12]) -> crate::service::network::Result<Self> {
         // Decode BIP39 words back to secret
         let secret = Self::decode_from_bip39_words(words)?;
 
         // Extract session ID directly from the first 16 bytes (entropy)
         let session_id = Uuid::from_bytes(secret[..16].try_into().map_err(|_| {
-            crate::service::networking::NetworkingError::Protocol(
+            crate::service::network::NetworkingError::Protocol(
                 "Failed to extract session ID from entropy".to_string(),
             )
         })?);
@@ -147,7 +147,7 @@ impl PairingCode {
     }
 
     /// Encode bytes to BIP39 words using proper mnemonic generation
-    fn encode_to_bip39_words(secret: &[u8; 32]) -> crate::service::networking::Result<[String; 12]> {
+    fn encode_to_bip39_words(secret: &[u8; 32]) -> crate::service::network::Result<[String; 12]> {
         use bip39::{Language, Mnemonic};
 
         // For 12 words, we need 128 bits of entropy (standard BIP39)
@@ -156,7 +156,7 @@ impl PairingCode {
 
         // Generate mnemonic from entropy
         let mnemonic = Mnemonic::from_entropy(entropy).map_err(|e| {
-            crate::service::networking::NetworkingError::Protocol(format!(
+            crate::service::network::NetworkingError::Protocol(format!(
                 "BIP39 generation failed: {}",
                 e
             ))
@@ -166,7 +166,7 @@ impl PairingCode {
         let word_list: Vec<&str> = mnemonic.words().collect();
 
         if word_list.len() != 12 {
-            return Err(crate::service::networking::NetworkingError::Protocol(
+            return Err(crate::service::network::NetworkingError::Protocol(
                 format!("Expected 12 words, got {}", word_list.len()),
             ));
         }
@@ -188,7 +188,7 @@ impl PairingCode {
     }
 
     /// Decode BIP39 words back to secret
-    fn decode_from_bip39_words(words: &[String; 12]) -> crate::service::networking::Result<[u8; 32]> {
+    fn decode_from_bip39_words(words: &[String; 12]) -> crate::service::network::Result<[u8; 32]> {
         use bip39::{Language, Mnemonic};
 
         // Join words with spaces to create mnemonic string
@@ -196,7 +196,7 @@ impl PairingCode {
 
         // Parse the mnemonic
         let mnemonic = Mnemonic::parse_in(Language::English, &mnemonic_str).map_err(|e| {
-            crate::service::networking::NetworkingError::Protocol(format!(
+            crate::service::network::NetworkingError::Protocol(format!(
                 "Invalid BIP39 mnemonic: {}",
                 e
             ))
@@ -206,7 +206,7 @@ impl PairingCode {
         let entropy = mnemonic.to_entropy();
 
         if entropy.len() != 16 {
-            return Err(crate::service::networking::NetworkingError::Protocol(
+            return Err(crate::service::network::NetworkingError::Protocol(
                 format!("Expected 16 bytes of entropy, got {}", entropy.len()),
             ));
         }
@@ -389,9 +389,9 @@ pub struct NodeAddrInfo {
 
 impl PairingAdvertisement {
     /// Convert node ID string back to NodeId
-    pub fn node_id(&self) -> crate::service::networking::Result<NodeId> {
+    pub fn node_id(&self) -> crate::service::network::Result<NodeId> {
         self.node_id.parse().map_err(|e| {
-            crate::service::networking::NetworkingError::Protocol(format!(
+            crate::service::network::NetworkingError::Protocol(format!(
                 "Invalid node ID: {}",
                 e
             ))
@@ -399,10 +399,10 @@ impl PairingAdvertisement {
     }
 
     /// Convert node address info back to NodeAddr
-    pub fn node_addr(&self) -> crate::service::networking::Result<NodeAddr> {
+    pub fn node_addr(&self) -> crate::service::network::Result<NodeAddr> {
         // Parse node ID
         let node_id = self.node_addr_info.node_id.parse::<NodeId>()
-            .map_err(|e| crate::service::networking::NetworkingError::Protocol(
+            .map_err(|e| crate::service::network::NetworkingError::Protocol(
                 format!("Invalid node ID in advertisement: {}", e)
             ))?;
 

@@ -41,9 +41,9 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         // Auto-register the job using inventory
         inventory::submit! {
-            crate::infrastructure::jobs::types::JobRegistration {
-                name: <#name as crate::infrastructure::jobs::traits::Job>::NAME,
-                schema_fn: <#name as crate::infrastructure::jobs::traits::Job>::schema,
+            crate::infra::job::types::JobRegistration {
+                name: <#name as crate::infra::job::traits::Job>::NAME,
+                schema_fn: <#name as crate::infra::job::traits::Job>::schema,
                 create_fn: |data| {
                     let job: #name = serde_json::from_value(data)?;
                     Ok(Box::new(job))
@@ -60,23 +60,23 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
         }
 
         // Implement ErasedJob for the job type
-        impl crate::infrastructure::jobs::types::ErasedJob for #name {
+        impl crate::infra::job::types::ErasedJob for #name {
             fn create_executor(
                 self: Box<Self>,
-                job_id: crate::infrastructure::jobs::types::JobId,
+                job_id: crate::infra::job::types::JobId,
                 library: std::sync::Arc<crate::library::Library>,
-                job_db: std::sync::Arc<crate::infrastructure::jobs::database::JobDb>,
-                status_tx: tokio::sync::watch::Sender<crate::infrastructure::jobs::types::JobStatus>,
-                progress_tx: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::jobs::progress::Progress>,
-                broadcast_tx: tokio::sync::broadcast::Sender<crate::infrastructure::jobs::progress::Progress>,
-                checkpoint_handler: std::sync::Arc<dyn crate::infrastructure::jobs::context::CheckpointHandler>,
-                output_handle: std::sync::Arc<tokio::sync::Mutex<Option<Result<crate::infrastructure::jobs::output::JobOutput, crate::infrastructure::jobs::error::JobError>>>>,
-                networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
+                job_db: std::sync::Arc<crate::infra::job::database::JobDb>,
+                status_tx: tokio::sync::watch::Sender<crate::infra::job::types::JobStatus>,
+                progress_tx: tokio::sync::mpsc::UnboundedSender<crate::infra::job::progress::Progress>,
+                broadcast_tx: tokio::sync::broadcast::Sender<crate::infra::job::progress::Progress>,
+                checkpoint_handler: std::sync::Arc<dyn crate::infra::job::context::CheckpointHandler>,
+                output_handle: std::sync::Arc<tokio::sync::Mutex<Option<Result<crate::infra::job::output::JobOutput, crate::infra::job::error::JobError>>>>,
+                networking: Option<std::sync::Arc<crate::service::network::NetworkingService>>,
                 volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
                 job_logging_config: Option<crate::config::JobLoggingConfig>,
                 job_logs_dir: Option<std::path::PathBuf>,
-            ) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>> {
-                Box::new(crate::infrastructure::jobs::executor::JobExecutor::new(
+            ) -> Box<dyn sd_task_system::Task<crate::infra::job::error::JobError>> {
+                Box::new(crate::infra::job::executor::JobExecutor::new(
                     *self,
                     job_id,
                     library,
@@ -93,9 +93,9 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
                 ))
             }
 
-            fn serialize_state(&self) -> Result<Vec<u8>, crate::infrastructure::jobs::error::JobError> {
+            fn serialize_state(&self) -> Result<Vec<u8>, crate::infra::job::error::JobError> {
                 rmp_serde::to_vec(self)
-                    .map_err(|e| crate::infrastructure::jobs::error::JobError::serialization(format!("{}", e)))
+                    .map_err(|e| crate::infra::job::error::JobError::serialization(format!("{}", e)))
             }
         }
     };

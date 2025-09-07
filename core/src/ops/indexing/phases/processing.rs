@@ -2,9 +2,9 @@
 
 use crate::{
 	infra::{
-		database::entities::{self, directory_paths, entry_closure},
-		jobs::generic_progress::ToGenericProgress,
-		jobs::prelude::{JobContext, JobError, Progress},
+		db::entities::{self, directory_paths, entry_closure},
+		job::generic_progress::ToGenericProgress,
+		job::prelude::{JobContext, JobError, Progress},
 	},
 	ops::indexing::{
 		change_detection::{Change, ChangeDetector},

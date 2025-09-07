@@ -24,85 +24,85 @@ mod tests;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Action {
 	// Global actions (no library context)
-	LibraryCreate(crate::operations::libraries::create::action::LibraryCreateAction),
-	LibraryDelete(crate::operations::libraries::delete::action::LibraryDeleteAction),
+	LibraryCreate(crate::ops::libraries::create::action::LibraryCreateAction),
+	LibraryDelete(crate::ops::libraries::delete::action::LibraryDeleteAction),
 	
 	// Library-scoped actions (require library_id)
 	LibraryRename { 
 		library_id: Uuid, 
-		action: crate::operations::libraries::rename::action::LibraryRenameAction 
+		action: crate::ops::libraries::rename::action::LibraryRenameAction 
 	},
 	LibraryExport { 
 		library_id: Uuid, 
-		action: crate::operations::libraries::export::action::LibraryExportAction 
+		action: crate::ops::libraries::export::action::LibraryExportAction 
 	},
 	FileCopy { 
 		library_id: Uuid, 
-		action: crate::operations::files::copy::action::FileCopyAction 
+		action: crate::ops::files::copy::action::FileCopyAction 
 	},
 	FileDelete { 
 		library_id: Uuid, 
-		action: crate::operations::files::delete::action::FileDeleteAction 
+		action: crate::ops::files::delete::action::FileDeleteAction 
 	},
 	FileValidate { 
 		library_id: Uuid, 
-		action: crate::operations::files::validation::ValidationAction 
+		action: crate::ops::files::validation::ValidationAction 
 	},
 	DetectDuplicates { 
 		library_id: Uuid, 
-		action: crate::operations::files::duplicate_detection::DuplicateDetectionAction 
+		action: crate::ops::files::duplicate_detection::DuplicateDetectionAction 
 	},
 	
 	LocationAdd { 
 		library_id: Uuid, 
-		action: crate::operations::locations::add::action::LocationAddAction 
+		action: crate::ops::locations::add::action::LocationAddAction 
 	},
 	LocationRemove { 
 		library_id: Uuid, 
-		action: crate::operations::locations::remove::action::LocationRemoveAction 
+		action: crate::ops::locations::remove::action::LocationRemoveAction 
 	},
 	LocationIndex { 
 		library_id: Uuid, 
-		action: crate::operations::locations::index::action::LocationIndexAction 
+		action: crate::ops::locations::index::action::LocationIndexAction 
 	},
 	LocationRescan { 
 		library_id: Uuid, 
-		action: crate::operations::locations::rescan::action::LocationRescanAction 
+		action: crate::ops::locations::rescan::action::LocationRescanAction 
 	},
 	
 	Index { 
 		library_id: Uuid, 
-		action: crate::operations::indexing::action::IndexingAction 
+		action: crate::ops::indexing::action::IndexingAction 
 	},
 	
 	GenerateThumbnails { 
 		library_id: Uuid, 
-		action: crate::operations::media::thumbnail::action::ThumbnailAction 
+		action: crate::ops::media::thumbnail::action::ThumbnailAction 
 	},
 	
 	ContentAnalysis { 
 		library_id: Uuid, 
-		action: crate::operations::content::action::ContentAction 
+		action: crate::ops::content::action::ContentAction 
 	},
 	
 	MetadataOperation { 
 		library_id: Uuid, 
-		action: crate::operations::metadata::action::MetadataAction 
+		action: crate::ops::metadata::action::MetadataAction 
 	},
 	
 	DeviceRevoke { 
 		library_id: Uuid, 
-		action: crate::operations::devices::revoke::action::DeviceRevokeAction 
+		action: crate::ops::devices::revoke::action::DeviceRevokeAction 
 	},
 	
 	VolumeTrack {
-		action: crate::operations::volumes::track::action::VolumeTrackAction
+		action: crate::ops::volumes::track::action::VolumeTrackAction
 	},
 	VolumeUntrack {
-		action: crate::operations::volumes::untrack::action::VolumeUntrackAction
+		action: crate::ops::volumes::untrack::action::VolumeUntrackAction
 	},
 	VolumeSpeedTest {
-		action: crate::operations::volumes::speed_test::action::VolumeSpeedTestAction
+		action: crate::ops::volumes::speed_test::action::VolumeSpeedTestAction
 	},
 }
 

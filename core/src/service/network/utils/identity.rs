@@ -1,6 +1,6 @@
 //! Network identity management - node ID and key generation
 
-use crate::service::networking::{NetworkingError, Result};
+use crate::service::network::{NetworkingError, Result};
 use iroh::net::key::{NodeId, SecretKey};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

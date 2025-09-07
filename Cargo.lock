@@ -4382,8 +4382,9 @@ dependencies = [
 
 [[package]]
 name = "if-watch"
-version = "3.2.0"
-source = "git+https://github.com/spacedriveapp/if-watch.git?rev=a92c17d3f8#a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3"
+version = "3.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdf9d64cfcf380606e64f9a0bcf493616b65331199f984151a6fa11a7b3cde38"
 dependencies = [
  "async-io",
  "core-foundation 0.9.4",
@@ -4392,9 +4393,13 @@ dependencies = [
  "if-addrs 0.10.2",
  "ipnet",
  "log",
- "rtnetlink 0.10.1",
- "system-configuration 0.5.1",
- "windows 0.51.1",
+ "netlink-packet-core",
+ "netlink-packet-route",
+ "netlink-proto",
+ "netlink-sys",
+ "rtnetlink",
+ "system-configuration 0.6.1",
+ "windows 0.52.0",
 ]
 
 [[package]]
@@ -4949,8 +4954,8 @@ dependencies = [
  "iroh-quinn-udp",
  "libc",
  "netdev",
- "netlink-packet-core 0.7.0",
- "netlink-packet-route 0.17.1",
+ "netlink-packet-core",
+ "netlink-packet-route",
  "netlink-sys",
  "netwatch",
  "num_enum",
@@ -4964,7 +4969,7 @@ dependencies = [
  "rcgen 0.12.1",
  "reqwest 0.12.9",
  "ring 0.17.8",
- "rtnetlink 0.13.1",
+ "rtnetlink",
  "rustls",
  "rustls-webpki",
  "serde",
@@ -6098,24 +6103,12 @@ dependencies = [
  "dlopen2 0.5.0",
  "libc",
  "memalloc",
- "netlink-packet-core 0.7.0",
- "netlink-packet-route 0.17.1",
+ "netlink-packet-core",
+ "netlink-packet-route",
  "netlink-sys",
  "once_cell",
  "system-configuration 0.6.1",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "netlink-packet-core"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "345b8ab5bd4e71a2986663e88c56856699d060e78e152e6e9d7966fcd5491297"
-dependencies = [
- "anyhow",
- "byteorder",
- "libc",
- "netlink-packet-utils",
 ]
 
 [[package]]
@@ -6131,20 +6124,6 @@ dependencies = [
 
 [[package]]
 name = "netlink-packet-route"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9ea4302b9759a7a88242299225ea3688e63c85ea136371bb6cf94fd674efaab"
-dependencies = [
- "anyhow",
- "bitflags 1.3.2",
- "byteorder",
- "libc",
- "netlink-packet-core 0.4.2",
- "netlink-packet-utils",
-]
-
-[[package]]
-name = "netlink-packet-route"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "053998cea5a306971f88580d0829e90f270f940befd7cf928da179d4187a5a66"
@@ -6153,7 +6132,7 @@ dependencies = [
  "bitflags 1.3.2",
  "byteorder",
  "libc",
- "netlink-packet-core 0.7.0",
+ "netlink-packet-core",
  "netlink-packet-utils",
 ]
 
@@ -6171,21 +6150,6 @@ dependencies = [
 
 [[package]]
 name = "netlink-proto"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65b4b14489ab424703c092062176d52ba55485a89c076b4f9db05092b7223aa6"
-dependencies = [
- "bytes",
- "futures",
- "log",
- "netlink-packet-core 0.4.2",
- "netlink-sys",
- "thiserror 1.0.64",
- "tokio",
-]
-
-[[package]]
-name = "netlink-proto"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86b33524dc0968bfad349684447bfce6db937a9ac3332a1fe60c0c5a5ce63f21"
@@ -6193,7 +6157,7 @@ dependencies = [
  "bytes",
  "futures",
  "log",
- "netlink-packet-core 0.7.0",
+ "netlink-packet-core",
  "netlink-sys",
  "thiserror 1.0.64",
  "tokio",
@@ -6226,11 +6190,11 @@ dependencies = [
  "futures-util",
  "libc",
  "netdev",
- "netlink-packet-core 0.7.0",
- "netlink-packet-route 0.17.1",
+ "netlink-packet-core",
+ "netlink-packet-route",
  "netlink-sys",
  "once_cell",
- "rtnetlink 0.13.1",
+ "rtnetlink",
  "serde",
  "socket2",
  "thiserror 1.0.64",
@@ -6246,17 +6210,6 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
-
-[[package]]
-name = "nix"
-version = "0.24.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa52e972a9a719cecb6864fb88568781eb706bac2cd1d4f04a648542dbf78069"
-dependencies = [
- "bitflags 1.3.2",
- "cfg-if",
- "libc",
-]
 
 [[package]]
 name = "nix"
@@ -8773,30 +8726,16 @@ dependencies = [
 
 [[package]]
 name = "rtnetlink"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "322c53fd76a18698f1c27381d58091de3a043d356aa5bd0d510608b565f469a0"
-dependencies = [
- "futures",
- "log",
- "netlink-packet-route 0.12.0",
- "netlink-proto 0.10.0",
- "nix 0.24.3",
- "thiserror 1.0.64",
-]
-
-[[package]]
-name = "rtnetlink"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a552eb82d19f38c3beed3f786bd23aa434ceb9ac43ab44419ca6d67a7e186c0"
 dependencies = [
  "futures",
  "log",
- "netlink-packet-core 0.7.0",
- "netlink-packet-route 0.17.1",
+ "netlink-packet-core",
+ "netlink-packet-route",
  "netlink-packet-utils",
- "netlink-proto 0.11.3",
+ "netlink-proto",
  "netlink-sys",
  "nix 0.26.4",
  "thiserror 1.0.64",
@@ -13820,28 +13759,3 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
-
-[[patch.unused]]
-name = "libp2p"
-version = "0.54.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=1024411ffa#1024411ffa3e397df1266a0f10ee0d94eb21c5dd"
-
-[[patch.unused]]
-name = "libp2p-core"
-version = "0.42.0"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=1024411ffa#1024411ffa3e397df1266a0f10ee0d94eb21c5dd"
-
-[[patch.unused]]
-name = "libp2p-identity"
-version = "0.2.9"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=1024411ffa#1024411ffa3e397df1266a0f10ee0d94eb21c5dd"
-
-[[patch.unused]]
-name = "libp2p-stream"
-version = "0.2.0-alpha"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=1024411ffa#1024411ffa3e397df1266a0f10ee0d94eb21c5dd"
-
-[[patch.unused]]
-name = "libp2p-swarm"
-version = "0.45.1"
-source = "git+https://github.com/spacedriveapp/rust-libp2p?rev=1024411ffa#1024411ffa3e397df1266a0f10ee0d94eb21c5dd"

@@ -2,7 +2,7 @@
 
 use crate::{
 	context::CoreContext,
-	infra::actions::{
+	infra::action::{
 		error::{ActionError, ActionResult},
 		handler::ActionHandler,
 		output::ActionOutput,
@@ -42,7 +42,7 @@ impl ActionHandler for LibraryDeleteHandler {
 				"Library deletion not yet implemented".to_string(),
 			))
 		} else {
-			Err(crate::infra::actions::error::ActionError::InvalidActionType)
+			Err(crate::infra::action::error::ActionError::InvalidActionType)
 		}
 	}
 

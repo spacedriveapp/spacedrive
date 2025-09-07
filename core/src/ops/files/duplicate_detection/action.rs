@@ -2,7 +2,7 @@
 
 use crate::{
     context::CoreContext,
-    infra::actions::{
+    infra::action::{
         error::{ActionError, ActionResult},
         handler::ActionHandler,
         output::ActionOutput,
@@ -35,9 +35,9 @@ impl ActionHandler for DuplicateDetectionHandler {
     async fn validate(
         &self,
         _context: Arc<CoreContext>,
-        action: &crate::infra::actions::Action,
+        action: &crate::infra::action::Action,
     ) -> ActionResult<()> {
-        if let crate::infra::actions::Action::DetectDuplicates { action, .. } = action {
+        if let crate::infra::action::Action::DetectDuplicates { action, .. } = action {
             if action.paths.is_empty() {
                 return Err(ActionError::Validation {
                     field: "paths".to_string(),
@@ -53,9 +53,9 @@ impl ActionHandler for DuplicateDetectionHandler {
     async fn execute(
         &self,
         context: Arc<CoreContext>,
-        action: crate::infra::actions::Action,
+        action: crate::infra::action::Action,
     ) -> ActionResult<ActionOutput> {
-        if let crate::infra::actions::Action::DetectDuplicates { library_id, action } = action {
+        if let crate::infra::action::Action::DetectDuplicates { library_id, action } = action {
             let library_manager = &context.library_manager;
 
             let library = library_manager.get_library(library_id).await
@@ -91,8 +91,8 @@ impl ActionHandler for DuplicateDetectionHandler {
         }
     }
 
-    fn can_handle(&self, action: &crate::infra::actions::Action) -> bool {
-        matches!(action, crate::infra::actions::Action::DetectDuplicates { .. })
+    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
+        matches!(action, crate::infra::action::Action::DetectDuplicates { .. })
     }
 
     fn supported_actions() -> &'static [&'static str] {

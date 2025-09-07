@@ -4,8 +4,8 @@
 //! providing console-based interactions for device pairing.
 
 use async_trait::async_trait;
-use crate::networking::{DeviceInfo, NetworkingError as NetworkError, Result};
-use crate::networking::PairingState;
+use crate::service::network::{DeviceInfo, NetworkingError as NetworkError, Result};
+use crate::service::network::PairingState;
 
 /// CLI-specific pairing user interface trait
 #[async_trait]
@@ -210,7 +210,7 @@ impl PairingUserInterface for SimplePairingUI {
 pub struct CliNetworkLogger;
 
 #[async_trait]
-impl crate::networking::NetworkLogger for CliNetworkLogger {
+impl crate::service::network::NetworkLogger for CliNetworkLogger {
     async fn info(&self, message: &str) {
         tracing::info!("{}", message);
     }

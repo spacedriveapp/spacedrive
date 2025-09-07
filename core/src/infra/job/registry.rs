@@ -103,16 +103,16 @@ pub static REGISTRY: Lazy<JobRegistry> = Lazy::new(JobRegistry::new);
 macro_rules! register_job {
 	($job_type:ty) => {
 		inventory::submit! {
-			$crate::infrastructure::jobs::types::JobRegistration {
-				name: <$job_type as $crate::infrastructure::jobs::traits::Job>::NAME,
-				schema_fn: <$job_type as $crate::infrastructure::jobs::traits::Job>::schema,
+			$crate::infra::job::types::JobRegistration {
+				name: <$job_type as $crate::infra::job::traits::Job>::NAME,
+				schema_fn: <$job_type as $crate::infra::job::traits::Job>::schema,
 				create_fn: |data| {
 					let job: $job_type = serde_json::from_value(data)?;
-					Ok(Box::new($crate::infrastructure::jobs::executor::JobExecutor::new(job)))
+					Ok(Box::new($crate::infra::job::executor::JobExecutor::new(job)))
 				},
 				deserialize_fn: |data| {
 					let job: $job_type = rmp_serde::from_slice(data)?;
-					Ok(Box::new($crate::infrastructure::jobs::executor::JobExecutor::new(job)))
+					Ok(Box::new($crate::infra::job::executor::JobExecutor::new(job)))
 				},
 				deserialize_dyn_fn: |data| {
 					let job: $job_type = rmp_serde::from_slice(data)?;

@@ -259,7 +259,7 @@ impl SdPath {
     /// Resolve this path using a JobContext
     pub async fn resolve_in_job<'a>(
         &self,
-        job_ctx: &crate::infra::jobs::context::JobContext<'a>
+        job_ctx: &crate::infra::job::context::JobContext<'a>
     ) -> Result<SdPath, PathResolutionError> {
         // For now, if it's already physical, just return it
         // TODO: Implement proper resolution using job context's library and networking

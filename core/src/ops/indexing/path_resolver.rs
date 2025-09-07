@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use sea_orm::{prelude::*, ConnectionTrait, QuerySelect, Statement};
 
-use crate::infra::database::entities::{directory_paths, entry, DirectoryPaths, Entry};
+use crate::infra::db::entities::{directory_paths, entry, DirectoryPaths, Entry};
 
 pub struct PathResolver;
 
@@ -23,7 +23,7 @@ impl PathResolver {
 			.ok_or_else(|| DbErr::RecordNotFound(format!("Entry {} not found", entry_id)))?;
 
 		match entry.entry_kind() {
-			crate::infra::database::entities::entry::EntryKind::Directory => {
+			crate::infra::db::entities::entry::EntryKind::Directory => {
 				// For directories, lookup in directory_paths table
 				let dir_path = DirectoryPaths::find_by_id(entry_id)
 					.one(db)
@@ -113,7 +113,7 @@ impl PathResolver {
 
 		for entry in entries {
 			match entry.entry_kind() {
-				crate::infra::database::entities::entry::EntryKind::Directory => {
+				crate::infra::db::entities::entry::EntryKind::Directory => {
 					directory_ids.push(entry.id);
 				}
 				_ => {

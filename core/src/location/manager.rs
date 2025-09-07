@@ -3,9 +3,9 @@
 use super::{LocationError, LocationResult, ManagedLocation, IndexMode};
 use crate::{
     infra::{
-        database::entities::{self, entry::EntryKind},
-        events::{Event, EventBus},
-        jobs::{manager::JobManager, traits::Job},
+        db::entities::{self, entry::EntryKind},
+        event::{Event, EventBus},
+        job::{manager::JobManager, traits::Job},
     },
     library::Library,
     ops::indexing::{job::{IndexerJob, IndexerJobConfig}, PathResolver},

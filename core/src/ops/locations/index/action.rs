@@ -3,7 +3,7 @@
 use crate::{
     context::CoreContext,
     infra::{
-        actions::{
+        action::{
             Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
         },
     },

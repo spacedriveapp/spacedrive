@@ -45,14 +45,14 @@ pub fn register_all_jobs() {
 /// but for now we call it manually for each job type.
 fn register_job<T>()
 where
-	T: crate::infra::jobs::traits::Job + 'static,
+	T: crate::infra::job::traits::Job + 'static,
 {
 	// In a real implementation with inventory, this would automatically register the job
 	// For now, this serves as documentation of which jobs should be registered
 
 	// The actual registration would happen via:
 	// inventory::submit! {
-	//     crate::infrastructure::jobs::registration::JobRegistration::new::<T>()
+	//     crate::infra::job::registration::JobRegistration::new::<T>()
 	// }
 
 	// For now we'll just log that the job type exists

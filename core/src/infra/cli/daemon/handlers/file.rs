@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::infra::actions::builder::{ActionBuildError, ActionBuilder};
+use crate::infra::action::builder::{ActionBuildError, ActionBuilder};
 use crate::infra::cli::daemon::services::StateService;
 use crate::infra::cli::daemon::types::{DaemonCommand, DaemonResponse};
 use crate::Core;
@@ -70,7 +70,7 @@ impl CommandHandler for FileHandler {
 						Some(action_manager) => {
 
 							// Create the full Action enum
-							let full_action = crate::infra::actions::Action::FileCopy {
+							let full_action = crate::infra::action::Action::FileCopy {
 								library_id,
 								action,
 							};
@@ -208,7 +208,7 @@ impl CommandHandler for FileHandler {
 
 									// Dispatch LocationIndexAction for each location
 									for location in locations {
-										let action = crate::infra::actions::Action::LocationIndex {
+										let action = crate::infra::action::Action::LocationIndex {
 											library_id,
 											action: crate::ops::locations::index::action::LocationIndexAction {
 												location_id: location.id,
@@ -267,7 +267,7 @@ impl CommandHandler for FileHandler {
 							match core.context.get_action_manager().await {
 								Some(action_manager) => {
 									// Create LocationIndexAction
-									let action = crate::infra::actions::Action::LocationIndex {
+									let action = crate::infra::action::Action::LocationIndex {
 										library_id,
 										action: crate::ops::locations::index::action::LocationIndexAction {
 											location_id,

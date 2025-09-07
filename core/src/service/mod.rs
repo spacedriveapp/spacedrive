@@ -1,8 +1,8 @@
 //! Background services management
 
 use crate::{
-	context::CoreContext, infrastructure::events::EventBus,
-	keys::library_key_manager::LibraryKeyManager,
+	context::CoreContext, infra::event::EventBus,
+	crypto::library_key_manager::LibraryKeyManager,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -12,15 +12,15 @@ use tracing::info;
 pub mod device;
 pub mod entry_state_service;
 pub mod file_sharing;
-pub mod location_watcher;
-pub mod networking;
+pub mod watcher;
+pub mod network;
 pub mod sidecar_manager;
 pub mod volume_monitor;
 
 use device::DeviceService;
 use file_sharing::FileSharingService;
-use location_watcher::{LocationWatcher, LocationWatcherConfig};
-use networking::NetworkingService;
+use watcher::{LocationWatcher, LocationWatcherConfig};
+use network::NetworkingService;
 use sidecar_manager::SidecarManager;
 use volume_monitor::{VolumeMonitorService, VolumeMonitorConfig};
 
@@ -122,10 +122,10 @@ impl Services {
 	pub async fn init_networking(
 		&mut self,
 		device_manager: std::sync::Arc<crate::device::DeviceManager>,
-		library_key_manager: std::sync::Arc<crate::keys::library_key_manager::LibraryKeyManager>,
+		library_key_manager: std::sync::Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
 		data_dir: impl AsRef<std::path::Path>,
 	) -> Result<()> {
-		use crate::services::networking::{NetworkingService, utils::logging::ConsoleLogger};
+		use crate::service::network::{NetworkingService, utils::logging::ConsoleLogger};
 
 		info!("Initializing networking service");
 		let logger = std::sync::Arc::new(ConsoleLogger);
@@ -144,7 +144,7 @@ impl Services {
 			// Create a temporary mutable reference to start the service
 			// This is safe because start() is only called once during initialization
 			let networking_ptr =
-				Arc::as_ptr(networking) as *mut crate::services::networking::NetworkingService;
+				Arc::as_ptr(networking) as *mut crate::service::network::NetworkingService;
 			unsafe {
 				(*networking_ptr)
 					.start()

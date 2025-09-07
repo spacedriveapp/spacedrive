@@ -2,7 +2,7 @@
 
 use super::state::{IndexPhase, IndexerProgress};
 use crate::{
-	infra::jobs::generic_progress::{GenericProgress, ToGenericProgress},
+	infra::job::generic_progress::{GenericProgress, ToGenericProgress},
 	domain::addressing::SdPath,
 };
 use std::path::PathBuf;

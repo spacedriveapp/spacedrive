@@ -1,6 +1,6 @@
 //! Delete job implementation
 
-use crate::{infra::jobs::prelude::*, domain::addressing::SdPathBatch};
+use crate::{infra::job::prelude::*, domain::addressing::SdPathBatch};
 use serde::{Deserialize, Serialize};
 use std::{
 	path::PathBuf,
@@ -69,7 +69,7 @@ impl Job for DeleteJob {
 	const DESCRIPTION: Option<&'static str> = Some("Delete files and directories");
 }
 
-impl crate::infra::jobs::traits::DynJob for DeleteJob {
+impl crate::infra::job::traits::DynJob for DeleteJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}

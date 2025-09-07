@@ -60,7 +60,7 @@ pub static REGISTRY: Lazy<ActionRegistry> = Lazy::new(ActionRegistry::new);
 macro_rules! register_action_handler {
     ($handler_type:ty, $action_kind:expr) => {
         inventory::submit! {
-            $crate::infrastructure::actions::registry::ActionRegistration {
+            $crate::infra::action::registry::ActionRegistration {
                 name: $action_kind,
                 create_fn: || Box::new(<$handler_type>::new()),
             }

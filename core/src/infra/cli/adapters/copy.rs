@@ -1,6 +1,6 @@
 //! CLI adapter for file copy operations
 
-use crate::operations::files::copy::input::{CopyMethod, FileCopyInput};
+use crate::ops::files::copy::input::{CopyMethod, FileCopyInput};
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 

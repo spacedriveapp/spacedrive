@@ -4,14 +4,14 @@
 //! create files and then dispatch copy actions where the source SdPath is on
 //! Alice's device and the destination is on Bob's device.
 
-use sd_core_new::test_framework::CargoTestRunner;
-use sd_core_new::Core;
-use sd_core_new::domain::addressing::SdPath;
-use sd_core_new::operations::files::copy::{CopyOptions, action::FileCopyAction};
-use sd_core_new::infrastructure::actions::Action;
-use std::env;
-use std::path::PathBuf;
-use std::time::Duration;
+use sd_core::{
+	domain::addressing::SdPath,
+	infra::action::Action,
+	ops::files::copy::{action::FileCopyAction, CopyOptions},
+	testing::CargoTestRunner,
+	Core,
+};
+use std::{env, path::PathBuf, time::Duration};
 use tokio::time::timeout;
 
 /// Alice's cross-device copy scenario - sender role
@@ -24,7 +24,10 @@ async fn alice_cross_device_copy_scenario() {
 	}
 
 	// Set test directory for file-based discovery
-	env::set_var("SPACEDRIVE_TEST_DIR", "/tmp/spacedrive-cross-device-copy-test");
+	env::set_var(
+		"SPACEDRIVE_TEST_DIR",
+		"/tmp/spacedrive-cross-device-copy-test",
+	);
 
 	let data_dir = PathBuf::from("/tmp/spacedrive-cross-device-copy-test/alice");
 	let device_name = "Alice's Test Device";
@@ -66,7 +69,10 @@ async fn alice_cross_device_copy_scenario() {
 		.await
 		.unwrap();
 	let library_id = library.id();
-	println!("✅ Alice: Library created successfully (ID: {})", library_id);
+	println!(
+		"✅ Alice: Library created successfully (ID: {})",
+		library_id
+	);
 
 	// Start pairing as initiator
 	println!("🔑 Alice: Starting pairing as initiator...");
@@ -121,8 +127,7 @@ async fn alice_cross_device_copy_scenario() {
 			);
 			println!(
 				"📱 Alice: Connected device: {} ({})",
-				connected_devices[0].device_name,
-				connected_devices[0].device_id
+				connected_devices[0].device_name, connected_devices[0].device_id
 			);
 
 			// Wait for session keys to be established
@@ -151,18 +156,17 @@ async fn alice_cross_device_copy_scenario() {
 	let test_files = vec![
 		("test1.txt", "Hello from Alice's device - file 1!"),
 		("test2.txt", "Cross-device copy test - file 2"),
-		("test3.json", r#"{"test": "cross-device-copy", "from": "alice", "to": "bob"}"#),
+		(
+			"test3.json",
+			r#"{"test": "cross-device-copy", "from": "alice", "to": "bob"}"#,
+		),
 	];
 
 	let mut source_paths = Vec::new();
 	for (filename, content) in &test_files {
 		let file_path = test_files_dir.join(filename);
 		std::fs::write(&file_path, content).unwrap();
-		println!(
-			"  📄 Created: {} ({} bytes)",
-			filename,
-			content.len()
-		);
+		println!("  📄 Created: {} ({} bytes)", filename, content.len());
 		source_paths.push(file_path);
 	}
 
@@ -185,7 +189,10 @@ async fn alice_cross_device_copy_scenario() {
 	println!("🚀 Alice: Dispatching cross-device copy actions...");
 
 	// Get the action manager from context
-	let action_manager = core.context.get_action_manager().await
+	let action_manager = core
+		.context
+		.get_action_manager()
+		.await
 		.expect("Action manager not initialized");
 
 	// Copy each file individually to test the routing
@@ -204,7 +211,11 @@ async fn alice_cross_device_copy_scenario() {
 			source_path.display(),
 			alice_device_id
 		);
-		println!("  📍 Destination: {} (device: {})", dest_path.display(), bob_id);
+		println!(
+			"  📍 Destination: {} (device: {})",
+			dest_path.display(),
+			bob_id
+		);
 
 		// Build the copy action directly with SdPath
 		let copy_action = FileCopyAction {
@@ -215,14 +226,17 @@ async fn alice_cross_device_copy_scenario() {
 				verify_checksum: true,
 				preserve_timestamps: true,
 				..Default::default()
-			}
+			},
 		};
 
 		// Dispatch the action
-		match action_manager.dispatch(Action::FileCopy { 
-			library_id,
-			action: copy_action 
-		}).await {
+		match action_manager
+			.dispatch(Action::FileCopy {
+				library_id,
+				action: copy_action,
+			})
+			.await
+		{
 			Ok(output) => {
 				println!("✅ Alice: Copy action {} dispatched successfully", i + 1);
 				println!("  📊 Output: {:?}", output);
@@ -251,7 +265,10 @@ async fn alice_cross_device_copy_scenario() {
 		}
 
 		if attempt % 10 == 0 {
-			println!("🔍 Alice: Still waiting for Bob's confirmation... ({}s)", attempt);
+			println!(
+				"🔍 Alice: Still waiting for Bob's confirmation... ({}s)",
+				attempt
+			);
 		}
 		tokio::time::sleep(Duration::from_secs(1)).await;
 	}
@@ -280,7 +297,10 @@ async fn bob_cross_device_copy_scenario() {
 	}
 
 	// Set test directory for file-based discovery
-	env::set_var("SPACEDRIVE_TEST_DIR", "/tmp/spacedrive-cross-device-copy-test");
+	env::set_var(
+		"SPACEDRIVE_TEST_DIR",
+		"/tmp/spacedrive-cross-device-copy-test",
+	);
 
 	let data_dir = PathBuf::from("/tmp/spacedrive-cross-device-copy-test/bob");
 	let device_name = "Bob's Test Device";
@@ -358,9 +378,9 @@ async fn bob_cross_device_copy_scenario() {
 		let connected_devices = core.get_connected_devices_info().await.unwrap();
 		if !connected_devices.is_empty() {
 			println!("🎉 Bob: Pairing completed successfully!");
-			println!("📱 Bob: Connected to {} ({})", 
-				connected_devices[0].device_name,
-				connected_devices[0].device_id
+			println!(
+				"📱 Bob: Connected to {} ({})",
+				connected_devices[0].device_name, connected_devices[0].device_id
 			);
 
 			// Wait for session keys
@@ -382,7 +402,10 @@ async fn bob_cross_device_copy_scenario() {
 	// Create directory for received files
 	let received_dir = std::path::Path::new("/tmp/received_files");
 	std::fs::create_dir_all(received_dir).unwrap();
-	println!("📁 Bob: Created directory for received files: {:?}", received_dir);
+	println!(
+		"📁 Bob: Created directory for received files: {:?}",
+		received_dir
+	);
 
 	// Load expected files
 	println!("📋 Bob: Loading expected file list...");
@@ -401,7 +424,10 @@ async fn bob_cross_device_copy_scenario() {
 		tokio::time::sleep(Duration::from_millis(500)).await;
 	};
 
-	println!("📋 Bob: Expecting {} files via cross-device copy", expected_files.len());
+	println!(
+		"📋 Bob: Expecting {} files via cross-device copy",
+		expected_files.len()
+	);
 	for (filename, size) in &expected_files {
 		println!("  📄 Expecting: {} ({} bytes)", filename, size);
 	}
@@ -430,9 +456,8 @@ async fn bob_cross_device_copy_scenario() {
 							);
 
 							// Verify file size
-							if let Some((_, expected_size)) = expected_files
-								.iter()
-								.find(|(name, _)| name == &filename)
+							if let Some((_, expected_size)) =
+								expected_files.iter().find(|(name, _)| name == &filename)
 							{
 								if metadata.len() == *expected_size as u64 {
 									println!("  ✅ Size verified: {} bytes", metadata.len());
@@ -537,7 +562,9 @@ async fn test_cross_device_copy() {
 
 	match result {
 		Ok(_) => {
-			println!("🎉 Cross-device copy test successful! Action system routing works correctly.");
+			println!(
+				"🎉 Cross-device copy test successful! Action system routing works correctly."
+			);
 		}
 		Err(e) => {
 			println!("❌ Cross-device copy test failed: {}", e);

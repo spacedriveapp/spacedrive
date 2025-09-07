@@ -3,13 +3,13 @@
 use crate::{
     context::CoreContext,
     infra::{
-        actions::{
+        action::{
             error::{ActionError, ActionResult},
             handler::ActionHandler,
             output::ActionOutput,
             Action,
         },
-        database::entities,
+        db::entities,
     },
     ops::indexing::{IndexMode, job::IndexerJob, PathResolver},
     register_action_handler,
@@ -51,7 +51,7 @@ impl ActionHandler for LocationRescanHandler {
                 .ok_or(ActionError::LibraryNotFound(library_id))?;
 
             // Get location details from database
-            use crate::infra::database::entities;
+            use crate::infra::db::entities;
             use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
             let location = entities::location::Entity::find()

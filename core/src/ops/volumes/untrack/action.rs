@@ -3,7 +3,7 @@
 //! This action removes volume tracking from a library.
 
 use crate::{
-    infra::actions::{error::ActionError, output::ActionOutput},
+    infra::action::{error::ActionError, output::ActionOutput},
     volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};

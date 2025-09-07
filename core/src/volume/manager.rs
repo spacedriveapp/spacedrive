@@ -1,7 +1,7 @@
 //! Volume Manager - Central management for all volume operations
 
-use crate::infra::database::entities;
-use crate::infra::events::{Event, EventBus};
+use crate::infra::db::entities;
+use crate::infra::event::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::volume::{
 	error::{VolumeError, VolumeResult},

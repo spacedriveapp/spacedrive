@@ -9,9 +9,9 @@ use super::{
 use crate::{
 	context::CoreContext,
 	infra::{
-		database::{entities, Database},
-		events::{Event, EventBus},
-		jobs::manager::JobManager,
+		db::{entities, Database},
+		event::{Event, EventBus},
+		job::manager::JobManager,
 	},
 };
 use chrono::Utc;

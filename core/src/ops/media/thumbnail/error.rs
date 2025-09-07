@@ -61,8 +61,8 @@ impl ThumbnailError {
     }
 }
 
-impl From<ThumbnailError> for crate::infra::jobs::error::JobError {
+impl From<ThumbnailError> for crate::infra::job::error::JobError {
     fn from(err: ThumbnailError) -> Self {
-        crate::infra::jobs::error::JobError::execution(err.to_string())
+        crate::infra::job::error::JobError::execution(err.to_string())
     }
 }

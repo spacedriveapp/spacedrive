@@ -4,7 +4,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::infra::database::entities::{sidecar, entry, content_identity};
+use crate::infra::db::entities::{sidecar, entry, content_identity};
 
 /// Represents a Live Photo pair (image + video sidecar)
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -100,7 +100,7 @@ pub async fn handle_job_command(
 							.map(|job| {
 								let status = job
 									.status
-									.parse::<crate::infra::jobs::types::JobStatus>()
+									.parse::<crate::infra::job::types::JobStatus>()
 									.map(OutputJobStatus::from)
 									.unwrap_or(OutputJobStatus::Queued);
 

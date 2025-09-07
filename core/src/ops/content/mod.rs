@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::infra::database::entities::{
+use crate::infra::db::entities::{
 	content_identity::{self, Entity as ContentIdentity, Model as ContentIdentityModel},
 	entry::{self, Entity as Entry, Model as EntryModel},
 };

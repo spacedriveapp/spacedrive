@@ -3,9 +3,9 @@
 pub mod event_loop;
 
 use crate::device::DeviceManager;
-use crate::service::networking::{
+use crate::service::network::{
 	device::{DeviceInfo, DeviceRegistry},
-	protocols::{pairing::PairingProtocolHandler, ProtocolRegistry},
+	protocol::{pairing::PairingProtocolHandler, ProtocolRegistry},
 	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
@@ -117,7 +117,7 @@ impl NetworkingService {
 	/// Create a new networking service
 	pub async fn new(
 		device_manager: Arc<DeviceManager>,
-		library_key_manager: Arc<crate::keys::library_key_manager::LibraryKeyManager>,
+		library_key_manager: Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
 		data_dir: impl AsRef<std::path::Path>,
 		logger: Arc<dyn NetworkLogger>,
 	) -> Result<Self> {
@@ -272,7 +272,7 @@ impl NetworkingService {
 		&self,
 		auto_reconnect_devices: Vec<(
 			Uuid,
-			crate::service::networking::device::PersistedPairedDevice,
+			crate::service::network::device::PersistedPairedDevice,
 		)>,
 	) {
 		for (device_id, persisted_device) in auto_reconnect_devices {
@@ -297,7 +297,7 @@ impl NetworkingService {
 	/// Attempt to reconnect to a specific device
 	async fn attempt_device_reconnection(
 		device_id: Uuid,
-		persisted_device: crate::service::networking::device::PersistedPairedDevice,
+		persisted_device: crate::service::network::device::PersistedPairedDevice,
 		command_sender: Option<tokio::sync::mpsc::UnboundedSender<EventLoopCommand>>,
 		endpoint: Option<Endpoint>,
 		logger: Arc<dyn NetworkLogger>,
@@ -420,7 +420,7 @@ impl NetworkingService {
 						let is_disconnected = {
 							let registry = device_registry.read().await;
 							if let Some(device_state) = registry.get_device_state(device_id) {
-								matches!(device_state, crate::service::networking::device::DeviceState::Disconnected { .. })
+								matches!(device_state, crate::service::network::device::DeviceState::Disconnected { .. })
 							} else {
 								true // Not in registry, try to reconnect
 							}
@@ -638,7 +638,7 @@ impl NetworkingService {
 		// Cast to pairing handler to access pairing-specific methods
 		let pairing_handler = pairing_handler
 			.as_any()
-			.downcast_ref::<crate::service::networking::protocols::PairingProtocolHandler>()
+			.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>()
 			.ok_or(NetworkingError::Protocol(
 				"Invalid pairing handler type".to_string(),
 			))?;
@@ -646,7 +646,7 @@ impl NetworkingService {
 		// Generate session ID
 		let session_id = uuid::Uuid::new_v4();
 		let pairing_code =
-			crate::service::networking::protocols::pairing::PairingCode::from_session_id(
+			crate::service::network::protocol::pairing::PairingCode::from_session_id(
 				session_id,
 			);
 
@@ -713,7 +713,7 @@ impl NetworkingService {
 			.await;
 
 		// Create pairing advertisement
-		let node_addr_info = crate::service::networking::protocols::pairing::types::NodeAddrInfo {
+		let node_addr_info = crate::service::network::protocol::pairing::types::NodeAddrInfo {
 			node_id: self.node_id().to_string(),
 			direct_addresses: node_addr
 				.direct_addresses()
@@ -722,7 +722,7 @@ impl NetworkingService {
 			relay_url: node_addr.relay_url().map(|u| u.to_string()),
 		};
 
-		let advertisement = crate::service::networking::protocols::pairing::PairingAdvertisement {
+		let advertisement = crate::service::network::protocol::pairing::PairingAdvertisement {
 			node_id: self.node_id().to_string(),
 			node_addr_info,
 			device_info: pairing_handler.get_device_info().await?,
@@ -775,7 +775,7 @@ impl NetworkingService {
 	pub async fn start_pairing_as_joiner(&self, code: &str) -> Result<()> {
 		// Parse BIP39 pairing code
 		let pairing_code =
-			crate::service::networking::protocols::pairing::PairingCode::from_string(code)?;
+			crate::service::network::protocol::pairing::PairingCode::from_string(code)?;
 		let session_id = pairing_code.session_id();
 
 		// Get pairing handler
@@ -790,7 +790,7 @@ impl NetworkingService {
 				))?;
 		let pairing_handler = pairing_handler
 			.as_any()
-			.downcast_ref::<crate::service::networking::protocols::PairingProtocolHandler>()
+			.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>()
 			.ok_or(NetworkingError::Protocol(
 				"Invalid pairing handler type".to_string(),
 			))?;
@@ -819,7 +819,7 @@ impl NetworkingService {
 		let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
 		if let Ok(data) = std::fs::read(&session_file) {
 			if let Ok(advertisement) = serde_json::from_slice::<
-				crate::service::networking::protocols::pairing::PairingAdvertisement,
+				crate::service::network::protocol::pairing::PairingAdvertisement,
 			>(&data)
 			{
 				if let Ok(initiator_node_addr) = advertisement.node_addr() {
@@ -944,10 +944,10 @@ impl NetworkingService {
 					let device_registry = self.device_registry();
 					let registry = device_registry.read().await;
 					registry.get_local_device_info().unwrap_or_else(|_| {
-						crate::service::networking::device::DeviceInfo {
+						crate::service::network::device::DeviceInfo {
 							device_id: self.device_id(),
 							device_name: "Joiner Device".to_string(),
-							device_type: crate::service::networking::device::DeviceType::Desktop,
+							device_type: crate::service::network::device::DeviceType::Desktop,
 							os_version: std::env::consts::OS.to_string(),
 							app_version: env!("CARGO_PKG_VERSION").to_string(),
 							network_fingerprint: self.identity().network_fingerprint(),
@@ -957,7 +957,7 @@ impl NetworkingService {
 				};
 
 				let pairing_request =
-					crate::service::networking::protocols::pairing::messages::PairingMessage::PairingRequest {
+					crate::service::network::protocol::pairing::messages::PairingMessage::PairingRequest {
 						session_id,
 						device_info: local_device_info,
 						public_key: self.identity().public_key_bytes(),
@@ -1016,7 +1016,7 @@ impl NetworkingService {
 	/// Get current pairing status
 	pub async fn get_pairing_status(
 		&self,
-	) -> Result<Vec<crate::service::networking::PairingSession>> {
+	) -> Result<Vec<crate::service::network::PairingSession>> {
 		// Get pairing handler from protocol registry
 		let registry = self.protocol_registry();
 		let pairing_handler =
@@ -1032,7 +1032,7 @@ impl NetworkingService {
 		if let Some(pairing_handler) =
 			pairing_handler
 				.as_any()
-				.downcast_ref::<crate::service::networking::protocols::PairingProtocolHandler>()
+				.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>()
 		{
 			let sessions = pairing_handler.get_active_sessions().await;
 			Ok(sessions)
@@ -1057,13 +1057,13 @@ impl NetworkingService {
 				if let Some(handler) =
 					pairing_handler
 						.as_any()
-						.downcast_ref::<crate::service::networking::protocols::PairingProtocolHandler>(
+						.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>(
 					) {
 					let sessions = handler.get_active_sessions().await;
 					if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
 						if !matches!(
 							session.state,
-							crate::service::networking::protocols::pairing::PairingState::Scanning
+							crate::service::network::protocol::pairing::PairingState::Scanning
 						) {
 							return Ok(());
 						}
@@ -1080,11 +1080,11 @@ impl NetworkingService {
 						let device_registry = self.device_registry();
 						let registry = device_registry.read().await;
 						registry.get_local_device_info().unwrap_or_else(|_| {
-							crate::service::networking::device::DeviceInfo {
+							crate::service::network::device::DeviceInfo {
 								device_id: self.device_id(),
 								device_name: "Joiner's Test Device".to_string(),
 								device_type:
-									crate::service::networking::device::DeviceType::Desktop,
+									crate::service::network::device::DeviceType::Desktop,
 								os_version: std::env::consts::OS.to_string(),
 								app_version: env!("CARGO_PKG_VERSION").to_string(),
 								network_fingerprint: self.identity().network_fingerprint(),
@@ -1094,7 +1094,7 @@ impl NetworkingService {
 					};
 
 					let pairing_request =
-						crate::service::networking::protocols::pairing::messages::PairingMessage::PairingRequest {
+						crate::service::network::protocol::pairing::messages::PairingMessage::PairingRequest {
 							session_id,
 							device_info: local_device_info,
 							public_key: self.identity().public_key_bytes(),

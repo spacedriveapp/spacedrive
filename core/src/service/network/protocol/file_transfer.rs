@@ -1,7 +1,7 @@
 //! File transfer protocol for cross-device file operations
 
-use crate::service::networking::utils::logging::NetworkLogger;
-use crate::service::networking::{NetworkingError, Result};
+use crate::service::network::utils::logging::NetworkLogger;
+use crate::service::network::{NetworkingError, Result};
 use async_trait::async_trait;
 use iroh::net::key::NodeId;
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ pub struct FileTransferProtocolHandler {
 	config: TransferConfig,
 	/// Device registry for session keys
 	device_registry:
-		Option<Arc<tokio::sync::RwLock<crate::service::networking::device::DeviceRegistry>>>,
+		Option<Arc<tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>>>,
 	/// Logger for protocol operations
 	logger: Arc<dyn NetworkLogger>,
 }
@@ -240,7 +240,7 @@ impl FileTransferProtocolHandler {
 	pub fn set_device_registry(
 		&mut self,
 		device_registry: Arc<
-			tokio::sync::RwLock<crate::service::networking::device::DeviceRegistry>,
+			tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>,
 		>,
 	) {
 		self.device_registry = Some(device_registry);
@@ -1278,8 +1278,8 @@ impl NetworkingError {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::service::networking::protocols::ProtocolHandler;
-	use crate::service::networking::utils::logging::SilentLogger;
+	use crate::service::network::protocol::ProtocolHandler;
+	use crate::service::network::utils::logging::SilentLogger;
 
 	#[tokio::test]
 	async fn test_file_transfer_handler_creation() {

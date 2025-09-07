@@ -3,8 +3,8 @@
 //! This test demonstrates the new approach where ALL test logic remains in the test file
 //! while still supporting subprocess-based testing for multi-device scenarios.
 
-use sd_core_new::test_framework::CargoTestRunner;
-use sd_core_new::Core;
+use sd_core::testing::CargoTestRunner;
+use sd_core::Core;
 use std::env;
 use std::path::PathBuf;
 use std::time::Duration;

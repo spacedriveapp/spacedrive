@@ -3,13 +3,13 @@
 //! This test verifies that copy progress updates smoothly with byte-level
 //! granularity rather than jumping in large increments.
 
-use sd_core_new::domain::addressing::SdPath;
-use sd_core_new::{
-	infrastructure::{
-		actions::{manager::ActionManager, Action},
-		events::Event,
+use sd_core::domain::addressing::SdPath;
+use sd_core::{
+	infra::{
+		action::{manager::ActionManager, Action},
+		event::Event,
 	},
-	operations::files::{
+	ops::files::{
 		copy::{action::FileCopyAction, job::CopyOptions},
 		input::CopyMethod,
 	},
@@ -152,7 +152,7 @@ async fn test_copy_progress_monitoring_large_file() {
 
 	// Extract job ID from output
 	let job_id = match &action_output {
-		sd_core_new::infrastructure::actions::output::ActionOutput::Custom { data, .. } => {
+		sd_core::infra::action::output::ActionOutput::Custom { data, .. } => {
 			let job_id_value = data.get("job_id").unwrap();
 			let job_id_str = job_id_value.as_str().expect("job_id should be a string");
 			Uuid::parse_str(job_id_str).expect("job_id should be valid UUID")
@@ -165,7 +165,7 @@ async fn test_copy_progress_monitoring_large_file() {
 	let mut event_subscriber = core.events.subscribe();
 	let expected_size_clone = expected_size;
 	let job_id_str = job_id.to_string();
-	
+
 	// Start monitoring task using EventBus
 	let monitor_handle = tokio::spawn(async move {
 		let mut last_progress = 0.0;
@@ -176,7 +176,12 @@ async fn test_copy_progress_monitoring_large_file() {
 			event_count += 1;
 
 			match event {
-				Event::JobProgress { job_id: event_job_id, progress, message, .. } if event_job_id == job_id_str => {
+				Event::JobProgress {
+					job_id: event_job_id,
+					progress,
+					message,
+					..
+				} if event_job_id == job_id_str => {
 					let current_progress = progress * 100.0;
 
 					// Record snapshot if progress changed
@@ -200,10 +205,13 @@ async fn test_copy_progress_monitoring_large_file() {
 						last_progress = current_progress;
 					}
 				}
-				Event::JobCompleted { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+				Event::JobCompleted {
+					job_id: event_job_id,
+					..
+				} if event_job_id == job_id_str => {
 					println!("Job completed! (after {} events)", event_count);
 					println!("Final progress: {:.1}%", last_progress);
-					
+
 					// Record final progress if we haven't seen any updates
 					if !has_seen_progress && last_progress == 0.0 {
 						let snapshot = ProgressSnapshot {
@@ -216,11 +224,18 @@ async fn test_copy_progress_monitoring_large_file() {
 					}
 					break;
 				}
-				Event::JobFailed { job_id: event_job_id, error, .. } if event_job_id == job_id_str => {
+				Event::JobFailed {
+					job_id: event_job_id,
+					error,
+					..
+				} if event_job_id == job_id_str => {
 					println!("Job failed after {} events: {}", event_count, error);
 					panic!("Job failed: {}", error);
 				}
-				Event::JobCancelled { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+				Event::JobCancelled {
+					job_id: event_job_id,
+					..
+				} if event_job_id == job_id_str => {
 					println!("Job was cancelled after {} events", event_count);
 					break;
 				}
@@ -414,7 +429,7 @@ async fn test_copy_progress_multiple_files() {
 		.expect("Action dispatch should succeed");
 
 	let job_id = match &action_output {
-		sd_core_new::infrastructure::actions::output::ActionOutput::Custom { data, .. } => {
+		sd_core::infra::action::output::ActionOutput::Custom { data, .. } => {
 			let job_id_str = data.get("job_id").unwrap().as_str().unwrap();
 			Uuid::parse_str(job_id_str).unwrap()
 		}
@@ -424,13 +439,17 @@ async fn test_copy_progress_multiple_files() {
 	// Subscribe to events and monitor progress using EventBus
 	let mut event_subscriber = core.events.subscribe();
 	let job_id_str = job_id.to_string();
-	
+
 	let monitor_handle = tokio::spawn(async move {
 		let mut last_progress = 0.0;
 
 		while let Ok(event) = event_subscriber.recv().await {
 			match event {
-				Event::JobProgress { job_id: event_job_id, progress, .. } if event_job_id == job_id_str => {
+				Event::JobProgress {
+					job_id: event_job_id,
+					progress,
+					..
+				} if event_job_id == job_id_str => {
 					let current_progress = progress * 100.0;
 
 					if (current_progress - last_progress).abs() > 0.01 {
@@ -446,14 +465,24 @@ async fn test_copy_progress_multiple_files() {
 						last_progress = current_progress;
 					}
 				}
-				Event::JobCompleted { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+				Event::JobCompleted {
+					job_id: event_job_id,
+					..
+				} if event_job_id == job_id_str => {
 					println!("Multi-file job completed");
 					break;
 				}
-				Event::JobFailed { job_id: event_job_id, error, .. } if event_job_id == job_id_str => {
+				Event::JobFailed {
+					job_id: event_job_id,
+					error,
+					..
+				} if event_job_id == job_id_str => {
 					panic!("Multi-file job failed: {}", error);
 				}
-				Event::JobCancelled { job_id: event_job_id, .. } if event_job_id == job_id_str => {
+				Event::JobCancelled {
+					job_id: event_job_id,
+					..
+				} if event_job_id == job_id_str => {
 					println!("Multi-file job was cancelled");
 					break;
 				}

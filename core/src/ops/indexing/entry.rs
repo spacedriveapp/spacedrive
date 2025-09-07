@@ -5,8 +5,8 @@ use super::state::{DirEntry, EntryKind, IndexerState};
 use crate::{
 	filetype::FileTypeRegistry,
 	infra::{
-		database::entities::{self, directory_paths, entry_closure},
-		jobs::prelude::{JobContext, JobError},
+		db::entities::{self, directory_paths, entry_closure},
+		job::prelude::{JobContext, JobError},
 	},
 };
 use sea_orm::{
@@ -744,7 +744,7 @@ impl EntryProcessor {
 	//     ctx: &JobContext<'_>,
 	//     image_content_uuid: &Uuid,
 	//     path: &Path,
-	//     live_photo: &crate::operations::media::LivePhoto,
+	//     live_photo: &crate::ops::media::LivePhoto,
 	//     library_id: Uuid,
 	// ) -> Result<(), JobError> {
 	//     // Only process if this is the image component

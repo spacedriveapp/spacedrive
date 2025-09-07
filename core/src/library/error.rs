@@ -53,7 +53,7 @@ pub enum LibraryError {
 
     /// Job system error
     #[error("Job system error: {0}")]
-    JobError(#[from] crate::infra::jobs::error::JobError),
+    JobError(#[from] crate::infra::job::error::JobError),
 
     /// Generic error
     #[error("{0}")]

@@ -3,9 +3,9 @@
 //! Shared context providing access to core application components.
 
 use crate::{
-	config::JobLoggingConfig, device::DeviceManager, infra::actions::manager::ActionManager,
-	infra::events::EventBus, keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
-	service::networking::NetworkingService, volume::VolumeManager,
+	config::JobLoggingConfig, device::DeviceManager, infra::action::manager::ActionManager,
+	infra::event::EventBus, crypto::library_key_manager::LibraryKeyManager, library::LibraryManager,
+	service::network::NetworkingService, volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;

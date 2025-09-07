@@ -1,8 +1,8 @@
 //! Content identification phase - generates CAS IDs and links content
 
 use crate::{
-    infra::jobs::prelude::{JobContext, JobError, Progress},
-    infra::jobs::generic_progress::ToGenericProgress,
+    infra::job::prelude::{JobContext, JobError, Progress},
+    infra::job::generic_progress::ToGenericProgress,
     ops::indexing::{
         state::{IndexerState, IndexPhase, IndexError, IndexerProgress},
         entry::EntryProcessor,

@@ -2,7 +2,7 @@
 
 use super::{ProtocolEvent, ProtocolHandler};
 use iroh::net::key::NodeId;
-use crate::service::networking::{NetworkingError, Result};
+use crate::service::network::{NetworkingError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;

@@ -2,7 +2,7 @@
 
 use crate::{
     context::CoreContext,
-    infra::actions::{
+    infra::action::{
         error::{ActionError, ActionResult},
         handler::ActionHandler,
         output::ActionOutput,
@@ -34,9 +34,9 @@ impl ActionHandler for LibraryCreateHandler {
     async fn validate(
         &self,
         _context: Arc<CoreContext>,
-        action: &crate::infra::actions::Action,
+        action: &crate::infra::action::Action,
     ) -> ActionResult<()> {
-        if let crate::infra::actions::Action::LibraryCreate(action) = action {
+        if let crate::infra::action::Action::LibraryCreate(action) = action {
             if action.name.trim().is_empty() {
                 return Err(ActionError::Validation {
                     field: "name".to_string(),
@@ -52,9 +52,9 @@ impl ActionHandler for LibraryCreateHandler {
     async fn execute(
         &self,
         context: Arc<CoreContext>,
-        action: crate::infra::actions::Action,
+        action: crate::infra::action::Action,
     ) -> ActionResult<ActionOutput> {
-        if let crate::infra::actions::Action::LibraryCreate(action) = action {
+        if let crate::infra::action::Action::LibraryCreate(action) = action {
             let library_manager = &context.library_manager;
             let new_library = library_manager.create_library(action.name.clone(), action.path.clone(), context.clone()).await?;
 
@@ -70,8 +70,8 @@ impl ActionHandler for LibraryCreateHandler {
         }
     }
 
-    fn can_handle(&self, action: &crate::infra::actions::Action) -> bool {
-        matches!(action, crate::infra::actions::Action::LibraryCreate(_))
+    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
+        matches!(action, crate::infra::action::Action::LibraryCreate(_))
     }
 
     fn supported_actions() -> &'static [&'static str] {

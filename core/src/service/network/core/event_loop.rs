@@ -1,9 +1,9 @@
 //! Networking event loop for handling Iroh connections and messages
 
-use crate::service::networking::{
+use crate::service::network::{
 	core::{NetworkEvent, FILE_TRANSFER_ALPN, MESSAGING_ALPN, PAIRING_ALPN},
 	device::DeviceRegistry,
-	protocols::ProtocolRegistry,
+	protocol::ProtocolRegistry,
 	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
@@ -271,8 +271,8 @@ impl NetworkingEventLoop {
 								let registry = device_registry.read().await;
 								if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
 									match registry.get_device_state(device_id) {
-										Some(crate::service::networking::device::DeviceState::Paired { .. }) |
-										Some(crate::service::networking::device::DeviceState::Connected { .. }) => true,
+										Some(crate::service::network::device::DeviceState::Paired { .. }) |
+										Some(crate::service::network::device::DeviceState::Connected { .. }) => true,
 										_ => false,
 									}
 								} else {

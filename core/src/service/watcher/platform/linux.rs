@@ -1,9 +1,9 @@
 //! Linux-specific file system event handling using inotify
 
 use super::EventHandler;
-use crate::infrastructure::events::Event;
-use crate::services::location_watcher::{WatchedLocation, WatcherEvent};
-use crate::services::location_watcher::event_handler::WatcherEventKind;
+use crate::infra::event::Event;
+use crate::service::location_watcher::{WatchedLocation, WatcherEvent};
+use crate::service::location_watcher::event_handler::WatcherEventKind;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;

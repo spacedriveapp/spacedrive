@@ -5,9 +5,9 @@ pub mod manager;
 use crate::{
 	domain::addressing::SdPath,
 	infra::{
-		database::entities::{self, entry::EntryKind},
-		events::{Event, EventBus},
-		jobs::{handle::JobHandle, output::IndexedOutput, types::JobStatus},
+		db::entities::{self, entry::EntryKind},
+		event::{Event, EventBus},
+		job::{handle::JobHandle, output::IndexedOutput, types::JobStatus},
 	},
 	library::Library,
 	ops::indexing::{
@@ -119,7 +119,7 @@ pub enum LocationError {
 	#[error("Invalid path: {0}")]
 	InvalidPath(String),
 	#[error("Job error: {0}")]
-	Job(#[from] crate::infra::jobs::error::JobError),
+	Job(#[from] crate::infra::job::error::JobError),
 	#[error("Other error: {0}")]
 	Other(String),
 }

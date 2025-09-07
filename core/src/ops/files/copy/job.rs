@@ -2,8 +2,8 @@
 
 use super::{database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrategyRouter};
 use crate::{
-	infra::jobs::generic_progress::{GenericProgress, ToGenericProgress},
-	infra::jobs::{prelude::*, traits::Resourceful},
+	infra::job::generic_progress::{GenericProgress, ToGenericProgress},
+	infra::job::{prelude::*, traits::Resourceful},
 	domain::addressing::{SdPath, SdPathBatch},
 };
 use serde::{Deserialize, Serialize};
@@ -71,7 +71,7 @@ impl Job for FileCopyJob {
 	const DESCRIPTION: Option<&'static str> = Some("Copy or move files to a destination");
 }
 
-impl crate::infra::jobs::traits::DynJob for FileCopyJob {
+impl crate::infra::job::traits::DynJob for FileCopyJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}
@@ -886,7 +886,7 @@ impl Job for MoveJob {
 	const DESCRIPTION: Option<&'static str> = Some("Move or rename files and directories");
 }
 
-impl crate::infra::jobs::traits::DynJob for MoveJob {
+impl crate::infra::job::traits::DynJob for MoveJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}

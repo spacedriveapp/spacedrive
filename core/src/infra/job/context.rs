@@ -6,7 +6,7 @@ use super::{
     progress::Progress,
     types::{JobId, JobMetrics},
 };
-use crate::{library::Library, services::networking::NetworkingService};
+use crate::{library::Library, service::network::NetworkingService};
 use sea_orm::DatabaseConnection;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;

@@ -2,9 +2,9 @@
 
 use crate::{
 	infra::{
-		database::entities::{self, entry_closure},
-		jobs::generic_progress::ToGenericProgress,
-		jobs::prelude::{JobContext, JobError, Progress},
+		db::entities::{self, entry_closure},
+		job::generic_progress::ToGenericProgress,
+		job::prelude::{JobContext, JobError, Progress},
 	},
 	ops::indexing::state::{IndexPhase, IndexerProgress, IndexerState, Phase},
 };

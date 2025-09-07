@@ -214,7 +214,7 @@ impl std::fmt::Display for OperatingSystem {
 }
 
 // Conversion implementations for database entities
-use crate::infra::database::entities;
+use crate::infra::db::entities;
 use sea_orm::ActiveValue;
 
 impl From<Device> for entities::device::ActiveModel {

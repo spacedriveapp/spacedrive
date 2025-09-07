@@ -1,6 +1,6 @@
 //! Location remove operation output types
 
-use crate::infra::actions::output::ActionOutputTrait;
+use crate::infra::action::output::ActionOutputTrait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

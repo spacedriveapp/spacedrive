@@ -8,7 +8,7 @@
 //!   spacedrive-cli location add /path/to/folder
 //!   spacedrive-cli tui
 
-use sd_core_new::infrastructure::cli;
+use sd_core::infra::cli;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

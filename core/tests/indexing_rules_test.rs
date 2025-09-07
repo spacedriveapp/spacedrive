@@ -1,6 +1,6 @@
 //! Integration tests for the indexing rules engine
 
-use sd_core_new::operations::indexing::rules::{
+use sd_core::ops::indexing::rules::{
 	build_default_ruler, IndexerRule, IndexerRuler, RulePerKind, RuleToggles, RulerDecision,
 };
 use std::collections::HashSet;
@@ -110,11 +110,7 @@ async fn test_conflict_precedence_and_children_rules() {
 		.apply_all(&dir, &std::fs::metadata(&dir).unwrap())
 		.await
 		.unwrap();
-	assert!(
-		sd_core_new::operations::indexing::rules::IndexerRuler::rejected_by_children_directories(
-			&acc
-		)
-	);
+	assert!(sd_core::ops::indexing::rules::IndexerRuler::rejected_by_children_directories(&acc));
 
 	// A directory without the child should be accepted
 	let other = root.join("other");
@@ -124,9 +120,7 @@ async fn test_conflict_precedence_and_children_rules() {
 		.await
 		.unwrap();
 	assert!(
-		!sd_core_new::operations::indexing::rules::IndexerRuler::rejected_by_children_directories(
-			&acc_other
-		)
+		!sd_core::ops::indexing::rules::IndexerRuler::rejected_by_children_directories(&acc_other)
 	);
 }
 

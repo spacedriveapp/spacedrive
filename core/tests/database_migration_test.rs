@@ -1,6 +1,6 @@
 //! Test database migration functionality
 
-use sd_core_new::infrastructure::database::{migration::Migrator, Database};
+use sd_core::infra::db::Database;
 use tempfile::TempDir;
 
 #[tokio::test]

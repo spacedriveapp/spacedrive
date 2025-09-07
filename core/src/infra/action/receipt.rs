@@ -1,6 +1,6 @@
 //! Action execution receipts
 
-use crate::infra::jobs::handle::JobHandle;
+use crate::infra::job::handle::JobHandle;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
