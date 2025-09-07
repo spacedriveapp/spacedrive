@@ -25,7 +25,7 @@ What started as an ambitious vision became an engineering lesson. Now we're ship
 <br/>
 
 > **The Revolution**
-> 
+>
 > Copy files between your iPhone and MacBook as easily as moving between folders. Search across all your devices with a single query. Organize photos that live anywhere. **Device boundaries disappear.**
 
 <p align="center">
@@ -50,9 +50,9 @@ What started as an ambitious vision became an engineering lesson. Now we're ship
 
 ## The Vision Realized
 
-**Copy iPhone video to MacBook storage?** Done.  
-**Search across all devices instantly?** Built-in.  
-**Organize files that live everywhere?** Native.  
+**Copy iPhone video to MacBook storage?** Done.
+**Search across all devices instantly?** Built-in.
+**Organize files that live everywhere?** Native.
 **Keep it private and lightning fast?** Always.
 
 The original Spacedrive captured imaginations with a bold promise: the **Virtual Distributed File System**. Manage all your files across all your devices as if they were one giant drive. We delivered impressive file management, but the revolutionary cross-device magic remained just out of reach.
@@ -64,21 +64,25 @@ The original Spacedrive captured imaginations with a bold promise: the **Virtual
 Your files are scattered across devices, cloud services, and external drives. Traditional file managers trap you in local boundaries. Spacedrive makes those boundaries disappear:
 
 **🌐 Universal File Access**
+
 - Browse files on any device from any device
 - External drives, cloud storage, remote servers - all unified
 - Offline files show up with cached metadata
 
 **⚡ Lightning Search**
+
 - Find files across all locations with a single search
 - Content search inside documents, PDFs, and media
 - AI-powered semantic search: "find sunset photos from vacation"
 
 **🔄 Seamless Operations**
+
 - Copy, move, and organize files between any devices
 - Drag and drop across device boundaries
 - Batch operations on distributed collections
 
 **🔒 Privacy First**
+
 - Your data stays on your devices
 - Optional cloud sync, never required
 - End-to-end encryption for all transfers
@@ -88,12 +92,14 @@ Your files are scattered across devices, cloud services, and external drives. Tr
 The original Spacedrive got 500,000 installs because the vision was right. Development paused because the execution was flawed:
 
 ### The Problems (2022-2024)
+
 - **Split personality**: Couldn't copy between different location types
 - **Search limitations**: Basic filename matching, not true content discovery
 - **Technical debt**: Built on foundations that couldn't scale
 - **Feature paralysis**: Perfect became the enemy of good
 
 ### The Breakthrough (2024-2025)
+
 - **Unified experience**: Every operation works everywhere
 - **Real search**: Content indexing, semantic understanding, instant results
 - **Modern foundation**: Built for performance and extensibility
@@ -118,6 +124,7 @@ We kept the revolutionary vision. We rebuilt the foundation to deliver it.
 ```
 
 **Cross-device operations made simple:**
+
 - Drag photos from your iPhone to external storage
 - Search finds files regardless of which device they're on
 - Organize distributed media collections as if they were local
@@ -138,8 +145,9 @@ spacedrive server --host 0.0.0.0 --port 8080
 ```
 
 **Perfect for:**
+
 - **Creators**: Manage media across multiple workstations
-- **Developers**: Sync projects between dev environments  
+- **Developers**: Sync projects between dev environments
 - **Families**: Shared photo organization across devices
 - **Self-hosters**: Private cloud with true file management
 
@@ -150,6 +158,7 @@ Access your files from any browser, anywhere. Full Spacedrive functionality with
 ## Architecture: Built to Last
 
 ### Self-Contained Libraries
+
 ```
 My Photos.sdlibrary/
 ├── library.json      # Configuration & device registry
@@ -159,11 +168,13 @@ My Photos.sdlibrary/
 ```
 
 **Portable by design:**
+
 - **Backup** = copy the folder
-- **Share** = send the folder  
+- **Share** = send the folder
 - **Migrate** = move the folder
 
 ### Unified Operations
+
 No more confusion between "indexed" and "direct" files. Every file operation works the same way:
 
 - **Indexed locations**: Rich metadata, lightning search, smart organization
@@ -171,16 +182,18 @@ No more confusion between "indexed" and "direct" files. Every file operation wor
 - **Hybrid mode**: Best of both worlds automatically
 
 ### Real Search Engine
+
 ```
 🔍 Search: "sunset photos from vacation"
 
 Results across all devices:
 📱 iPhone/Photos/Vacation2024/sunset_beach.jpg
-💾 External/Backup/2024/vacation_sunset.mov  
+💾 External/Backup/2024/vacation_sunset.mov
 ☁️  iCloud/Memories/golden_hour_sunset.heic
 ```
 
 **Beyond filename matching:**
+
 - Full-text content search in documents
 - Image recognition and scene detection
 - Vector search for semantic queries
@@ -189,24 +202,28 @@ Results across all devices:
 ## What's Shipping: The VDFS Roadmap
 
 ### Q1 2025: Foundation
+
 - ✅ **Core rewrite** with unified file system
 - ✅ **Working CLI** with daemon architecture
 - 🚧 **Desktop app** rebuilt on new foundation
 - 🚧 **Real search** with content indexing
 
-### Q2 2025: Device Communication  
+### Q2 2025: Device Communication
+
 - 🔄 **P2P discovery** and secure connections
 - 🔄 **Cross-device operations** (copy, move, sync)
 - 🔄 **Mobile apps** with desktop feature parity
 - 🔄 **Web interface** for universal access
 
 ### Q3 2025: Intelligence
+
 - 🎯 **AI-powered organization** with local models
 - 🎯 **Smart collections** and auto-tagging
 - 🎯 **Cloud integrations** (iCloud, Google Drive, etc.)
 - 🎯 **Advanced media analysis**
 
 ### Q4 2025: Ecosystem
+
 - 🚀 **Extension system** for community features
 - 🚀 **Professional tools** for creators and teams
 - 🚀 **Enterprise features** and compliance
@@ -236,6 +253,7 @@ spacedrive job monitor
 ```
 
 **Working today:**
+
 - ✅ Multi-location management
 - ✅ Smart indexing with progress tracking
 - ✅ Content-aware search
@@ -245,18 +263,21 @@ spacedrive job monitor
 ## Sustainable Open Source
 
 ### Always Free & Open
+
 - **Core file management** and VDFS operations
 - **Local search** and organization features
 - **P2P sync** between your own devices
 - **Privacy-first** architecture
 
 ### Premium Value-Adds
+
 - **Spacedrive Cloud**: Cross-internet sync and backup
 - **Advanced AI**: Professional media analysis and organization
 - **Team features**: Shared libraries and collaboration
 - **Enterprise**: SSO, compliance, and enterprise deployment
 
 ### Community First
+
 - **Weekly dev streams** showing real progress
 - **Open roadmap** with community voting
 - **Contributor rewards** and recognition program
@@ -265,20 +286,26 @@ spacedrive job monitor
 ## Why It Will Work This Time
 
 ### Technical Maturity
+
 From 500k installs and 34k stars, we learned what users actually need:
+
 - **Performance first**: Sub-second search, responsive UI, efficient sync
 - **Reliability**: Robust error handling, data integrity, graceful failures
 - **Simplicity**: Complex features with simple interfaces
 
 ### Market Reality
+
 The world has changed since 2022:
+
 - **Privacy concerns** have intensified with cloud services
 - **AI expectations** for semantic search and smart organization
 - **Multi-device life** is now universal, not niche
 - **Creator economy** needs professional file management tools
 
 ### Execution Discipline
+
 No more feature paralysis:
+
 - **Ship working features**, enhance over time
 - **Measure real usage**, not just code metrics
 - **Community feedback** drives priority decisions
@@ -287,18 +314,21 @@ No more feature paralysis:
 ## Get Involved
 
 ### For Users
+
 - ⭐ **Star the repo** to follow development
 - 💬 **Join Discord** for updates and early access
 - 🐛 **Report issues** and request features
 - 📖 **Beta testing** as features ship
 
 ### For Developers
+
 - 🔧 **Contribute code** to the core rewrite
 - 📚 **Improve docs** and tutorials
 - 🧪 **Write tests** and benchmarks
 - 🎨 **Design interfaces** for new features
 
 ### For Organizations
+
 - 💼 **Early access** to enterprise features
 - 🤝 **Partnership** opportunities
 - 💰 **Sponsorship** and development funding
@@ -320,10 +350,10 @@ The future of file management isn't about better folder hierarchies or cloud sto
 
 <p align="center">
   <strong>Follow the comeback</strong><br/>
-  <a href="https://spacedrive.com">Website</a> · 
-  <a href="https://discord.gg/gTaF2Z44f5">Discord</a> · 
+  <a href="https://spacedrive.com">Website</a> ·
+  <a href="https://discord.gg/gTaF2Z44f5">Discord</a> ·
   <a href="https://x.com/spacedriveapp">Twitter</a> ·
-  <a href="https://github.com/spacedriveapp/spacedrive/tree/main/core-new">Core Development</a>
+  <a href="https://github.com/spacedriveapp/spacedrive/tree/main/core">Core Development</a>
 </p>
 
 <p align="center">

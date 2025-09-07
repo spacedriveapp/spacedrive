@@ -1,1 +1,0 @@
-export { stringify } from 'uuid';

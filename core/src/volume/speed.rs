@@ -1,14 +1,16 @@
-use super::error::VolumeError;
-use super::types::{MountType, Volume, VolumeEvent};
-use std::path::PathBuf;
+//! Volume speed testing functionality
+
+use crate::volume::{
+	error::{VolumeError, VolumeResult},
+	types::{MountType, Volume, VolumeType},
+};
 use std::time::Instant;
 use tokio::{
 	fs::{File, OpenOptions},
 	io::{AsyncReadExt, AsyncWriteExt},
-	sync::broadcast::Sender,
 	time::{timeout, Duration},
 };
-use tracing::{debug, error, instrument, trace};
+use tracing::{debug, instrument, warn};
 
 /// Configuration for speed tests
 #[derive(Debug, Clone)]
@@ -17,8 +19,8 @@ pub struct SpeedTestConfig {
 	pub file_size_mb: usize,
 	/// Timeout for the test in seconds
 	pub timeout_secs: u64,
-	/// Whether to emit events during the test
-	pub emit_events: bool,
+	/// Number of test iterations for averaging
+	pub iterations: usize,
 }
 
 impl Default for SpeedTestConfig {
@@ -26,7 +28,7 @@ impl Default for SpeedTestConfig {
 		Self {
 			file_size_mb: 10,
 			timeout_secs: 30,
-			emit_events: true,
+			iterations: 1,
 		}
 	}
 }
@@ -35,54 +37,83 @@ impl Default for SpeedTestConfig {
 #[derive(Debug, Clone)]
 pub struct SpeedTestResult {
 	/// Write speed in MB/s
-	pub write_speed: f64,
+	pub write_speed_mbps: f64,
 	/// Read speed in MB/s
-	pub read_speed: f64,
-	/// Time taken for the test in seconds
-	pub duration: f64,
+	pub read_speed_mbps: f64,
+	/// Total time taken for the test
+	pub duration_secs: f64,
 }
 
-/// Trait for performing speed tests on volumes
-#[async_trait::async_trait]
-pub trait SpeedTest {
-	/// Performs a speed test on the volume
-	async fn speed_test(
-		&mut self,
-		config: Option<SpeedTestConfig>,
-		event_tx: Option<&Sender<VolumeEvent>>,
-	) -> Result<SpeedTestResult, VolumeError>;
+/// Run a speed test on the given volume
+#[instrument(skip(volume), fields(volume_name = %volume.name))]
+pub async fn run_speed_test(volume: &Volume) -> VolumeResult<(u64, u64)> {
+	run_speed_test_with_config(volume, SpeedTestConfig::default()).await
 }
 
-/// Helper for managing temporary test files and directories
+/// Run a speed test with custom configuration
+#[instrument(skip(volume, config), fields(volume_name = %volume.name))]
+pub async fn run_speed_test_with_config(
+	volume: &Volume,
+	config: SpeedTestConfig,
+) -> VolumeResult<(u64, u64)> {
+	if !volume.is_mounted {
+		return Err(VolumeError::NotMounted(volume.name.clone()));
+	}
+
+	if volume.read_only {
+		return Err(VolumeError::ReadOnly(volume.name.clone()));
+	}
+
+	debug!("Starting speed test with config: {:?}", config);
+
+	let test_location = TestLocation::new(&volume.mount_point, &volume.mount_type).await?;
+	let result = perform_speed_test(&test_location, &config).await?;
+
+	// Cleanup
+	test_location.cleanup().await?;
+
+	debug!(
+		"Speed test completed: {:.2} MB/s write, {:.2} MB/s read",
+		result.write_speed_mbps, result.read_speed_mbps
+	);
+
+	Ok((
+		result.read_speed_mbps as u64,
+		result.write_speed_mbps as u64,
+	))
+}
+
+/// Helper for managing test files and directories
 struct TestLocation {
-	dir: PathBuf,
-	file_path: PathBuf,
-	created_dir: bool,
+	test_file: std::path::PathBuf,
+	created_dir: Option<std::path::PathBuf>,
 }
 
 impl TestLocation {
-	#[instrument(skip(volume_path, mount_type))]
-	async fn new(volume_path: &PathBuf, mount_type: &MountType) -> Result<Self, VolumeError> {
+	/// Create a new test location
+	async fn new(volume_path: &std::path::Path, mount_type: &MountType) -> VolumeResult<Self> {
 		let (dir, created_dir) = get_writable_directory(volume_path, mount_type).await?;
-		let file_path = dir.join("sd_speed_test_file.tmp");
+		let test_file = dir.join("spacedrive_speed_test.tmp");
 
 		Ok(Self {
-			dir,
-			file_path,
+			test_file,
 			created_dir,
 		})
 	}
 
-	async fn cleanup(&self) -> Result<(), VolumeError> {
-		trace!("Cleaning up test file: {:?}", self.file_path);
-		if let Err(e) = tokio::fs::remove_file(&self.file_path).await {
-			error!("Failed to remove test file: {}", e);
+	/// Clean up test files and directories
+	async fn cleanup(&self) -> VolumeResult<()> {
+		// Remove test file
+		if self.test_file.exists() {
+			if let Err(e) = tokio::fs::remove_file(&self.test_file).await {
+				warn!("Failed to remove test file: {}", e);
+			}
 		}
 
-		if self.created_dir {
-			trace!("Removing created directory: {:?}", self.dir);
-			if let Err(e) = tokio::fs::remove_dir_all(&self.dir).await {
-				error!("Failed to remove directory: {}", e);
+		// Remove created directory if we created it
+		if let Some(ref dir) = self.created_dir {
+			if let Err(e) = tokio::fs::remove_dir_all(dir).await {
+				warn!("Failed to remove test directory: {}", e);
 			}
 		}
 
@@ -90,185 +121,249 @@ impl TestLocation {
 	}
 }
 
-#[async_trait::async_trait]
-impl SpeedTest for Volume {
-	#[instrument(skip(self, config, event_tx), fields(volume_name = %self.name))]
-	async fn speed_test(
-		&mut self,
-		config: Option<SpeedTestConfig>,
-		event_tx: Option<&Sender<VolumeEvent>>,
-	) -> Result<SpeedTestResult, VolumeError> {
-		let config = config.unwrap_or_default();
+/// Perform the actual speed test
+async fn perform_speed_test(
+	location: &TestLocation,
+	config: &SpeedTestConfig,
+) -> VolumeResult<SpeedTestResult> {
+	let test_data = generate_test_data(config.file_size_mb);
+	let timeout_duration = Duration::from_secs(config.timeout_secs);
 
-		// if volume is not mounted or not writable, return an error
-		if !self.is_mounted || self.read_only {
-			return Err(VolumeError::Cancelled);
-		}
+	let mut write_speeds = Vec::new();
+	let mut read_speeds = Vec::new();
+	let overall_start = Instant::now();
 
-		debug!("Starting speed test with config: {:?}", config);
+	for iteration in 0..config.iterations {
+		debug!(
+			"Speed test iteration {}/{}",
+			iteration + 1,
+			config.iterations
+		);
 
-		let test_location = TestLocation::new(&self.mount_point, &self.mount_type).await?;
-		let data = vec![0u8; config.file_size_mb * 1024 * 1024];
-		let timeout_duration = Duration::from_secs(config.timeout_secs);
+		// Write test
+		let write_speed = timeout(
+			timeout_duration,
+			perform_write_test(&location.test_file, &test_data),
+		)
+		.await
+		.map_err(|_| VolumeError::Timeout)??;
 
-		// Perform write test
-		let write_speed =
-			perform_write_test(&test_location.file_path, &data, timeout_duration).await?;
+		write_speeds.push(write_speed);
 
-		// Perform read test
-		let read_speed =
-			perform_read_test(&test_location.file_path, data.len(), timeout_duration).await?;
+		// Read test
+		let read_speed = timeout(
+			timeout_duration,
+			perform_read_test(&location.test_file, test_data.len()),
+		)
+		.await
+		.map_err(|_| VolumeError::Timeout)??;
 
-		let result = SpeedTestResult {
-			write_speed,
-			read_speed,
-			duration: timeout_duration.as_secs_f64(),
-		};
+		read_speeds.push(read_speed);
 
-		// Update volume speeds
-		self.read_speed_mbps = Some(read_speed as u64);
-		self.write_speed_mbps = Some(write_speed as u64);
-
-		// Emit event if requested
-		// if config.emit_events {
-		println!("emitting event for {:?}", self.fingerprint);
-		if let Some(fingerprint) = self.fingerprint.clone() {
-			if let Some(tx) = event_tx {
-				let _ = tx.send(VolumeEvent::VolumeSpeedTested {
-					fingerprint,
-					read_speed: read_speed as u64,
-					write_speed: write_speed as u64,
-				});
-			}
-		}
-		// }
-
-		// Cleanup
-		test_location.cleanup().await?;
-
-		debug!("Speed test completed: {:?}", result);
-		Ok(result)
-	}
-}
-
-/// Helper function to get a writable directory within a volume
-#[instrument(skip(volume_path, mount_type))]
-async fn get_writable_directory(
-	volume_path: &PathBuf,
-	mount_type: &MountType,
-) -> Result<(PathBuf, bool), VolumeError> {
-	match mount_type {
-		MountType::System => {
-			trace!("Using system temp directory for system volume");
-			Ok((std::env::temp_dir(), false))
-		}
-		_ => {
-			let candidates = [
-				volume_path.join("tmp"),
-				volume_path.join("var").join("tmp"),
-				volume_path.clone(),
-			];
-
-			for dir in &candidates {
-				trace!("Checking directory: {:?}", dir);
-
-				if let Ok(metadata) = tokio::fs::metadata(dir).await {
-					if metadata.is_dir() {
-						return Ok((dir.clone(), false));
-					}
-				}
-
-				trace!("Attempting to create directory: {:?}", dir);
-				if tokio::fs::create_dir_all(dir).await.is_ok() {
-					return Ok((dir.clone(), true));
-				}
-			}
-
-			Err(VolumeError::DirectoryError(
-				"No writable directory found".to_string(),
-			))
+		// Clean up test file between iterations
+		if iteration < config.iterations - 1 {
+			let _ = tokio::fs::remove_file(&location.test_file).await;
 		}
 	}
+
+	let avg_write_speed = write_speeds.iter().sum::<f64>() / write_speeds.len() as f64;
+	let avg_read_speed = read_speeds.iter().sum::<f64>() / read_speeds.len() as f64;
+
+	Ok(SpeedTestResult {
+		write_speed_mbps: avg_write_speed,
+		read_speed_mbps: avg_read_speed,
+		duration_secs: overall_start.elapsed().as_secs_f64(),
+	})
 }
 
-/// Performs the write speed test
-#[instrument(skip(path, data))]
-async fn perform_write_test(
-	path: &PathBuf,
-	data: &[u8],
-	timeout_duration: Duration,
-) -> Result<f64, VolumeError> {
-	trace!("Starting write test");
+/// Generate test data for speed testing
+fn generate_test_data(size_mb: usize) -> Vec<u8> {
+	let size_bytes = size_mb * 1024 * 1024;
+
+	// Use a pattern instead of zeros to avoid compression optimizations
+	let pattern = b"SpacedriveSpeedTest0123456789ABCDEF";
+	let mut data = Vec::with_capacity(size_bytes);
+
+	for i in 0..size_bytes {
+		data.push(pattern[i % pattern.len()]);
+	}
+
+	data
+}
+
+/// Perform write speed test
+async fn perform_write_test(file_path: &std::path::Path, data: &[u8]) -> VolumeResult<f64> {
 	let start = Instant::now();
 
 	let mut file = OpenOptions::new()
 		.write(true)
 		.create(true)
-		.open(path)
+		.truncate(true)
+		.open(file_path)
 		.await?;
 
-	timeout(timeout_duration, file.write_all(data)).await??;
+	file.write_all(data).await?;
+	file.sync_all().await?; // Ensure data is written to disk
 
 	let duration = start.elapsed();
-	let speed = (data.len() as f64 / 1024.0 / 1024.0) / duration.as_secs_f64();
+	let speed_mbps = (data.len() as f64 / 1024.0 / 1024.0) / duration.as_secs_f64();
 
-	trace!("Write test completed: {} MB/s", speed);
-	Ok(speed)
+	Ok(speed_mbps)
 }
 
-/// Performs the read speed test
-#[instrument(skip(path))]
-async fn perform_read_test(
-	path: &PathBuf,
-	size: usize,
-	timeout_duration: Duration,
-) -> Result<f64, VolumeError> {
-	trace!("Starting read test");
+/// Perform read speed test
+async fn perform_read_test(file_path: &std::path::Path, expected_size: usize) -> VolumeResult<f64> {
 	let start = Instant::now();
 
-	let mut file = File::open(path).await?;
-	let mut buffer = vec![0u8; size];
-
-	timeout(timeout_duration, file.read_exact(&mut buffer)).await??;
+	let mut file = File::open(file_path).await?;
+	let mut buffer = Vec::with_capacity(expected_size);
+	file.read_to_end(&mut buffer).await?;
 
 	let duration = start.elapsed();
-	let speed = (size as f64 / 1024.0 / 1024.0) / duration.as_secs_f64();
+	let speed_mbps = (buffer.len() as f64 / 1024.0 / 1024.0) / duration.as_secs_f64();
 
-	trace!("Read test completed: {} MB/s", speed);
-	Ok(speed)
+	Ok(speed_mbps)
+}
+
+/// Get a writable directory within the volume
+async fn get_writable_directory(
+	volume_path: &std::path::Path,
+	mount_type: &MountType,
+) -> VolumeResult<(std::path::PathBuf, Option<std::path::PathBuf>)> {
+	match mount_type {
+		MountType::System => {
+			// For system volumes, prefer using temp directory
+			let temp_dir = std::env::temp_dir();
+			Ok((temp_dir, None))
+		}
+		_ => {
+			// For external volumes, try to write in the root or create a temp directory
+			let candidates = [
+				volume_path.join("tmp"),
+				volume_path.join(".spacedrive_temp"),
+				volume_path.to_path_buf(),
+			];
+
+			for candidate in &candidates {
+				// Try to create the directory
+				if let Ok(()) = tokio::fs::create_dir_all(candidate).await {
+					// Test if we can write to it
+					let test_file = candidate.join("test_write_permissions");
+					if tokio::fs::write(&test_file, b"test").await.is_ok() {
+						let _ = tokio::fs::remove_file(&test_file).await;
+
+						// If we created a directory specifically for this test, mark it for cleanup
+						let created_dir = if candidate
+							.file_name()
+							.map_or(false, |name| name == "tmp" || name == ".spacedrive_temp")
+						{
+							Some(candidate.clone())
+						} else {
+							None
+						};
+
+						return Ok((candidate.clone(), created_dir));
+					}
+				}
+			}
+
+			Err(VolumeError::PermissionDenied(format!(
+				"No writable directory found in volume: {}",
+				volume_path.display()
+			)))
+		}
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use tempfile::tempdir;
+	use crate::volume::{
+		types::{DiskType, FileSystem},
+		VolumeFingerprint,
+	};
+	use tempfile::TempDir;
 
 	#[tokio::test]
-	async fn test_speed_test() {
-		let temp_dir = tempdir().unwrap();
-		let mut volume = Volume::new(
-			"test".to_string(),
+	async fn test_speed_test_config() {
+		let config = SpeedTestConfig::default();
+		assert_eq!(config.file_size_mb, 10);
+		assert_eq!(config.timeout_secs, 30);
+		assert_eq!(config.iterations, 1);
+	}
+
+	#[tokio::test]
+	async fn test_generate_test_data() {
+		let data = generate_test_data(1); // 1MB
+		assert_eq!(data.len(), 1024 * 1024);
+
+		// Verify pattern is not all zeros
+		assert!(data.iter().any(|&b| b != 0));
+	}
+
+	#[tokio::test]
+	async fn test_writable_directory_external() {
+		let temp_dir = TempDir::new().unwrap();
+		let volume_path = temp_dir.path();
+
+		let (writable_dir, created_dir) = get_writable_directory(volume_path, &MountType::External)
+			.await
+			.unwrap();
+
+		assert!(writable_dir.exists());
+
+		// Cleanup if we created a directory
+		if let Some(dir) = created_dir {
+			let _ = tokio::fs::remove_dir_all(dir).await;
+		}
+	}
+
+	#[tokio::test]
+	async fn test_writable_directory_system() {
+		let (writable_dir, created_dir) =
+			get_writable_directory(&std::path::PathBuf::from("/"), &MountType::System)
+				.await
+				.unwrap();
+
+		assert!(writable_dir.exists());
+		assert!(created_dir.is_none()); // Should use system temp, not create new dir
+	}
+
+	#[tokio::test]
+	async fn test_full_speed_test() {
+		let temp_dir = TempDir::new().unwrap();
+
+		let volume = Volume::new(
+			uuid::Uuid::new_v4(), // Test device ID
+			"Test Volume".to_string(),
 			MountType::External,
+			VolumeType::External,
 			temp_dir.path().to_path_buf(),
 			vec![],
-			super::super::types::DiskType::Unknown,
-			super::super::types::FileSystem::Other("test".to_string()),
-			1000000,
-			1000000,
-			false,
+			DiskType::Unknown,
+			FileSystem::Other("test".to_string()),
+			1000000000, // 1GB capacity
+			500000000,  // 500MB available
+			false,      // Not read-only
+			None,
+			VolumeFingerprint::new(
+				"Test Volume",
+				1000000000,
+				"test",
+			),
 		);
 
 		let config = SpeedTestConfig {
-			file_size_mb: 1,
-			timeout_secs: 5,
-			emit_events: false,
+			file_size_mb: 1, // Small test file
+			timeout_secs: 10,
+			iterations: 1,
 		};
 
-		let result = volume.speed_test(Some(config), None).await.unwrap();
+		let result = run_speed_test_with_config(&volume, config).await;
+		assert!(result.is_ok());
 
-		assert!(result.read_speed > 0.0);
-		assert!(result.write_speed > 0.0);
-		assert_eq!(volume.read_speed_mbps, Some(result.read_speed as u64));
-		assert_eq!(volume.write_speed_mbps, Some(result.write_speed as u64));
+		let (read_speed, write_speed) = result.unwrap();
+		assert!(read_speed > 0);
+		assert!(write_speed > 0);
 	}
 }

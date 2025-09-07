@@ -13,9 +13,9 @@
 		{
 			"path": "apps/landing"
 		},
-		{
-			"path": "interface"
-		},
+		// {
+		// 	"path": "interface"
+		// },
 		{
 			"path": "packages/client"
 		},
