@@ -1,7 +1,6 @@
 //! Library demo using full core lifecycle
 
-use sd_core_new::infrastructure::database::entities;
-use sd_core_new::Core;
+use sd_core::{infra::db::entities, Core};
 use sea_orm::{ActiveModelTrait, ActiveValue::NotSet, EntityTrait, PaginatorTrait, Set};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -92,7 +91,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			id: NotSet,
 			uuid: Set(Some(Uuid::new_v4())),
 			parent_id: Set(None), // Location root has no parent
-			name: Set(current_path.file_name()
+			name: Set(current_path
+				.file_name()
 				.and_then(|n| n.to_str())
 				.unwrap_or("Current Directory")
 				.to_string()),
@@ -111,7 +111,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			inode: Set(None),
 		};
 		let entry_record = entry.insert(db.conn()).await?;
-		
+
 		// Add location
 		let location = entities::location::ActiveModel {
 			id: NotSet,

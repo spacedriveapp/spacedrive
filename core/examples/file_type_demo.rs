@@ -1,8 +1,6 @@
 //! Example demonstrating the new file type identification system
 
-use sd_core_new::domain::ContentKind;
-use sd_core_new::file_type::FileTypeRegistry;
-use std::path::Path;
+use sd_core::filetype::FileTypeRegistry;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

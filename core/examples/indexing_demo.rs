@@ -11,9 +11,10 @@
 //!    - Multi-phase processing
 //! 5. Showing detailed results and metrics
 
-use sd_core_new::{
-	infrastructure::{database::entities, events::Event},
-	location::{create_location, LocationCreateArgs},
+use sd_core::{
+	config::{AppConfig, JobLoggingConfig},
+	infra::{db::entities, event::Event, job::types::JobStatus},
+	location::{create_location, IndexMode, LocationCreateArgs},
 	Core,
 };
 use sea_orm::{
@@ -34,31 +35,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// 1. Initialize Spacedrive Core with job logging enabled
 	println!("1. 🔧 Initializing Spacedrive Core...");
 	let data_dir = PathBuf::from("./data/spacedrive-desktop-demo");
-	
+
 	// Enable job logging by modifying the config before core initialization
 	{
-		use sd_core_new::config::{AppConfig, JobLoggingConfig};
-		let mut config = AppConfig::load_from(&data_dir).unwrap_or_else(|_| {
-			AppConfig::default_with_dir(data_dir.clone())
-		});
-		
+		let mut config = AppConfig::load_from(&data_dir)
+			.unwrap_or_else(|_| AppConfig::default_with_dir(data_dir.clone()));
+
 		// Enable job logging - hardcoded for demo
 		config.job_logging = JobLoggingConfig {
 			enabled: true,
 			log_directory: "job_logs".to_string(),
 			max_file_size: 10 * 1024 * 1024, // 10MB
-			include_debug: true, // Include debug logs for full detail
+			include_debug: true,             // Include debug logs for full detail
 		};
-		
+
 		config.save()?;
-		println!("   📝 Job logging enabled to: {}", config.job_logs_dir().display());
+		println!(
+			"   📝 Job logging enabled to: {}",
+			config.job_logs_dir().display()
+		);
 	}
-	
+
 	let core = Core::new_with_config(data_dir.clone()).await?;
 	println!("   ✅ Core initialized with job logging");
 	println!("   📱 Device ID: {}", core.device.device_id()?);
 	println!("   💾 Data directory: {:?}", data_dir);
-	println!("   📝 Job logs directory: {:?}\n", data_dir.join("job_logs"));
+	println!(
+		"   📝 Job logs directory: {:?}\n",
+		data_dir.join("job_logs")
+	);
 
 	// 2. Get or create library
 	println!("2. 📚 Setting up library...");
@@ -112,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let location_args = LocationCreateArgs {
 		path: desktop_path.clone(),
 		name: Some("Desktop".to_string()),
-		index_mode: sd_core_new::location::IndexMode::Deep, // Deep indexing with content analysis
+		index_mode: IndexMode::Deep, // Deep indexing with content analysis
 	};
 
 	let location_db_id = create_location(
@@ -188,7 +193,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 							(progress * 100.0) as u8
 						);
 					} else {
-						println!("   📊 Job {} [{}]: {}%", job_id, job_type, (progress * 100.0) as u8);
+						println!(
+							"   📊 Job {} [{}]: {}%",
+							job_id,
+							job_type,
+							(progress * 100.0) as u8
+						);
 					}
 				}
 				_ => {} // Ignore other events
@@ -276,18 +286,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		// Poll job status from the job manager
 		let job_status = library.jobs().list_jobs(None).await?;
-		let running_jobs = library
-			.jobs()
-			.list_jobs(Some(
-				sd_core_new::infrastructure::jobs::types::JobStatus::Running,
-			))
-			.await?;
-		let completed_jobs = library
-			.jobs()
-			.list_jobs(Some(
-				sd_core_new::infrastructure::jobs::types::JobStatus::Completed,
-			))
-			.await?;
+		let running_jobs = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
+		let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
 		// Also check how many entries have been created so far
 		let current_entry_count = entities::entry::Entity::find()
@@ -362,7 +362,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Get all entry IDs under the location using closure table
 	use entities::entry_closure;
 	let location_entry_id = location_record.entry_id;
-	
+
 	let descendant_ids = entry_closure::Entity::find()
 		.filter(entry_closure::Column::AncestorId.eq(location_entry_id))
 		.all(db.conn())
@@ -370,7 +370,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.into_iter()
 		.map(|ec| ec.descendant_id)
 		.collect::<Vec<i32>>();
-	
+
 	let mut all_entry_ids = vec![location_entry_id];
 	all_entry_ids.extend(descendant_ids);
 
@@ -468,18 +468,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	// Check job status
-	let running_jobs = library
-		.jobs()
-		.list_jobs(Some(
-			sd_core_new::infrastructure::jobs::types::JobStatus::Running,
-		))
-		.await?;
-	let completed_jobs = library
-		.jobs()
-		.list_jobs(Some(
-			sd_core_new::infrastructure::jobs::types::JobStatus::Completed,
-		))
-		.await?;
+	let running_jobs = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
+	let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
 	println!("\n   💼 Job System Status:");
 	println!("      🔄 Running jobs: {}", running_jobs.len());
@@ -539,18 +529,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("   • Detect and remove deleted entries");
 
 	// Final job status check
-	let final_running = library
-		.jobs()
-		.list_jobs(Some(
-			sd_core_new::infrastructure::jobs::types::JobStatus::Running,
-		))
-		.await?;
-	let final_completed = library
-		.jobs()
-		.list_jobs(Some(
-			sd_core_new::infrastructure::jobs::types::JobStatus::Completed,
-		))
-		.await?;
+	let final_running = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
+	let final_completed = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
 	println!("\n   📋 Final Job Summary:");
 	println!("      🔄 Still running: {}", final_running.len());
@@ -576,18 +556,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				}
 			}
 		}
-		
+
 		if !log_files.is_empty() {
 			println!("   📝 Found {} job log file(s):", log_files.len());
 			for (i, log_file) in log_files.iter().enumerate() {
 				let log_path = job_logs_dir.join(log_file);
 				if let Ok(metadata) = tokio::fs::metadata(&log_path).await {
-					println!("      {} {} ({} bytes)", 
-						i + 1, 
-						log_file,
-						metadata.len()
-					);
-					
+					println!("      {} {} ({} bytes)", i + 1, log_file, metadata.len());
+
 					// Show first few lines of the first log
 					if i == 0 {
 						if let Ok(contents) = tokio::fs::read_to_string(&log_path).await {
@@ -597,7 +573,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 								println!("      > {}", line);
 							}
 							if contents.lines().count() > 5 {
-								println!("      ... and {} more lines", contents.lines().count() - 5);
+								println!(
+									"      ... and {} more lines",
+									contents.lines().count() - 5
+								);
 							}
 						}
 					}

@@ -3,7 +3,7 @@
 //! This example demonstrates how to use the location watcher to monitor
 //! file system changes in real-time.
 
-use sd_core_new::{infrastructure::events::Event, Core};
+use sd_core::{infra::event::Event, Core};
 use std::path::PathBuf;
 use tokio::time::{sleep, Duration};
 use tracing::info;

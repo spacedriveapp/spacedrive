@@ -1,9 +1,9 @@
 //! Simple test for job logging functionality
 
-use sd_core_new::{
+use sd_core::{
 	config::{AppConfig, JobLoggingConfig},
-	infrastructure::{database::entities, events::Event},
-	location::{create_location, LocationCreateArgs},
+	infra::{db::entities, event::Event},
+	location::{create_location, IndexMode, LocationCreateArgs},
 	Core,
 };
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
@@ -22,24 +22,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// 1. Initialize Core with job logging
 	println!("1. Setting up with job logging enabled...");
 	let data_dir = PathBuf::from("./data/job-logging-test");
-	
+
 	// Configure with job logging
 	{
-		let mut config = AppConfig::load_from(&data_dir).unwrap_or_else(|_| {
-			AppConfig::default_with_dir(data_dir.clone())
-		});
-		
+		let mut config = AppConfig::load_from(&data_dir)
+			.unwrap_or_else(|_| AppConfig::default_with_dir(data_dir.clone()));
+
 		config.job_logging = JobLoggingConfig {
 			enabled: true,
 			log_directory: "job_logs".to_string(),
 			max_file_size: 10 * 1024 * 1024,
 			include_debug: true,
 		};
-		
+
 		config.save()?;
 		println!("   ✅ Job logging enabled");
 	}
-	
+
 	let core = Core::new_with_config(data_dir.clone()).await?;
 	let job_logs_dir = data_dir.join("job_logs");
 	println!("   📝 Job logs directory: {:?}", job_logs_dir);
@@ -58,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// 3. Create a small test location
 	println!("\n3. Creating test location...");
 	let test_path = PathBuf::from("./test-data");
-	
+
 	// Register device
 	let db = library.db();
 	let device = core.device.to_device()?;
@@ -78,17 +77,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let location_args = LocationCreateArgs {
 		path: test_path.clone(),
 		name: Some("Test Data".to_string()),
-		index_mode: sd_core_new::location::IndexMode::Deep,
+		index_mode: IndexMode::Deep,
 	};
 
-	let location_db_id = create_location(
+	let _location_db_id = create_location(
 		library.clone(),
 		&core.events,
 		location_args,
 		device_record.id,
 	)
 	.await?;
-	
+
 	println!("   ✅ Location created, job dispatched");
 
 	// 4. Monitor for a short time
@@ -96,7 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut event_rx = core.events.subscribe();
 	let start = std::time::Instant::now();
 	let timeout = Duration::from_secs(10);
-	
+
 	while start.elapsed() < timeout {
 		tokio::select! {
 			Ok(event) = event_rx.recv() => {
@@ -130,13 +129,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 						println!("\n   📄 Log file: {}", name);
 						println!("   Size: {} bytes", contents.len());
 						println!("   Lines: {}", contents.lines().count());
-						
+
 						// Show first few lines
 						println!("\n   First 10 lines:");
 						for (i, line) in contents.lines().take(10).enumerate() {
 							println!("   {}: {}", i + 1, line);
 						}
-						
+
 						if contents.lines().count() > 10 {
 							println!("   ... {} more lines", contents.lines().count() - 10);
 						}
@@ -144,7 +143,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				}
 			}
 		}
-		
+
 		if count == 0 {
 			println!("   ⚠️  No job logs found");
 		} else {
