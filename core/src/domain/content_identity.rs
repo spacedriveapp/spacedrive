@@ -133,7 +133,7 @@ impl ContentKind {
 	}
 
 	/// Get content kind from file type
-	pub fn from_file_type(file_type: &crate::file_type::FileType) -> Self {
+	pub fn from_file_type(file_type: &crate::filetype::FileType) -> Self {
 		file_type.category
 	}
 }
@@ -171,10 +171,10 @@ impl ContentHashGenerator {
 
 		let mut hasher = Hasher::new();
 		hasher.update(&size.to_le_bytes());
-		
+
 		let content = tokio::fs::read(path).await?;
 		hasher.update(&content);
-		
+
 		Ok(hasher.finalize().to_hex()[..16].to_string())
 	}
 

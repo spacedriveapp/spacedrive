@@ -24,31 +24,31 @@ impl Thumbnailer {
 	) -> Result<(), Error> {
 		let output_thumbnail_path = output_thumbnail_path.as_ref();
 		let path = output_thumbnail_path.parent().ok_or_else(|| {
-			FileIOError::from((
+			FileIOError::from_std_io_err(
 				output_thumbnail_path,
 				io::Error::new(
 					io::ErrorKind::InvalidInput,
 					"Cannot determine parent directory",
 				),
-			))
+			)
 		})?;
 
 		fs::create_dir_all(path)
 			.await
-			.map_err(|e| FileIOError::from((path, e)))?;
+			.map_err(|e| FileIOError::from_std_io_err(path, e))?;
 
 		let webp = self.process_to_webp_bytes(video_file_path).await?;
 		let mut file = fs::File::create(output_thumbnail_path)
 			.await
-			.map_err(|e: io::Error| FileIOError::from((output_thumbnail_path, e)))?;
+			.map_err(|e: io::Error| FileIOError::from_std_io_err(output_thumbnail_path, e))?;
 
 		file.write_all(&webp)
 			.await
-			.map_err(|e| FileIOError::from((output_thumbnail_path, e)))?;
+			.map_err(|e| FileIOError::from_std_io_err(output_thumbnail_path, e))?;
 
 		file.sync_all()
 			.await
-			.map_err(|e| FileIOError::from((output_thumbnail_path, e)).into())
+			.map_err(|e| FileIOError::from_std_io_err(output_thumbnail_path, e).into())
 	}
 
 	/// Processes an video input file and returns a webp encoded thumbnail as bytes

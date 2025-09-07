@@ -3,17 +3,21 @@
 pub mod manager;
 
 use crate::{
-	infrastructure::{
+	domain::addressing::SdPath,
+	infra::{
 		database::entities::{self, entry::EntryKind},
 		events::{Event, EventBus},
 		jobs::{handle::JobHandle, output::IndexedOutput, types::JobStatus},
 	},
 	library::Library,
-	operations::indexing::{IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig, PathResolver, rules::RuleToggles},
-	domain::addressing::SdPath,
+	ops::indexing::{
+		rules::RuleToggles, IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig, PathResolver,
+	},
 };
 
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
+use sea_orm::{
+	ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
+};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 use tokio::fs;
@@ -115,7 +119,7 @@ pub enum LocationError {
 	#[error("Invalid path: {0}")]
 	InvalidPath(String),
 	#[error("Job error: {0}")]
-	Job(#[from] crate::infrastructure::jobs::error::JobError),
+	Job(#[from] crate::infra::jobs::error::JobError),
 	#[error("Other error: {0}")]
 	Other(String),
 }
@@ -146,12 +150,17 @@ pub async fn create_location(
 	}
 
 	// Begin transaction to ensure atomicity
-	let txn = library.db().conn().begin().await
+	let txn = library
+		.db()
+		.conn()
+		.begin()
+		.await
 		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 
 	// First, check if an entry already exists for this path
 	// We need to create a root entry for the location directory
-	let directory_name = args.path
+	let directory_name = args
+		.path
 		.file_name()
 		.and_then(|n| n.to_str())
 		.unwrap_or("Unknown")
@@ -178,7 +187,9 @@ pub async fn create_location(
 		..Default::default()
 	};
 
-	let entry_record = entry_model.insert(&txn).await
+	let entry_record = entry_model
+		.insert(&txn)
+		.await
 		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 	let entry_id = entry_record.id;
 
@@ -189,7 +200,9 @@ pub async fn create_location(
 		depth: Set(0),
 		..Default::default()
 	};
-	self_closure.insert(&txn).await
+	self_closure
+		.insert(&txn)
+		.await
 		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 
 	// Add to directory_paths table
@@ -198,7 +211,9 @@ pub async fn create_location(
 		path: Set(path_str.to_string()),
 		..Default::default()
 	};
-	dir_path_entry.insert(&txn).await
+	dir_path_entry
+		.insert(&txn)
+		.await
 		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 
 	// Check if a location already exists for this entry
@@ -210,7 +225,8 @@ pub async fn create_location(
 
 	if existing.is_some() {
 		// Rollback transaction
-		txn.rollback().await
+		txn.rollback()
+			.await
 			.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 		return Err(LocationError::LocationExists { path: args.path });
 	}
@@ -241,12 +257,15 @@ pub async fn create_location(
 		updated_at: Set(chrono::Utc::now()),
 	};
 
-	let location_record = location_model.insert(&txn).await
+	let location_record = location_model
+		.insert(&txn)
+		.await
 		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 	let location_db_id = location_record.id;
 
 	// Commit transaction
-	txn.commit().await
+	txn.commit()
+		.await
 		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 
 	info!("Created location '{}' with ID: {}", name, location_db_id);
@@ -544,10 +563,12 @@ async fn update_location_stats(
 /// Get device UUID for current device
 async fn get_device_uuid(_library: Arc<Library>) -> LocationResult<Uuid> {
 	// Get the current device ID from the global state
-	let device_uuid = crate::shared::utils::get_current_device_id();
+	let device_uuid = crate::common::utils::get_current_device_id();
 
 	if device_uuid.is_nil() {
-		return Err(LocationError::InvalidPath("Current device ID not initialized".to_string()));
+		return Err(LocationError::InvalidPath(
+			"Current device ID not initialized".to_string(),
+		));
 	}
 
 	Ok(device_uuid)

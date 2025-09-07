@@ -3,11 +3,9 @@
 //! Shared context providing access to core application components.
 
 use crate::{
-	config::JobLoggingConfig,
-	device::DeviceManager, infrastructure::events::EventBus,
-	keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
-	infrastructure::actions::manager::ActionManager,
-	services::networking::NetworkingService, volume::VolumeManager,
+	config::JobLoggingConfig, device::DeviceManager, infra::actions::manager::ActionManager,
+	infra::events::EventBus, keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
+	service::networking::NetworkingService, volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
@@ -49,7 +47,7 @@ impl CoreContext {
 			job_logs_dir: None,
 		}
 	}
-	
+
 	/// Set job logging configuration
 	pub fn set_job_logging(&mut self, config: JobLoggingConfig, logs_dir: PathBuf) {
 		self.job_logging_config = Some(config);

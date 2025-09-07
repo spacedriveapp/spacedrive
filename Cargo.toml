@@ -1,6 +1,6 @@
 [workspace]
 members = [
-	"apps/cloud",
+	# "apps/cloud",
 	"apps/desktop/crates/*",
 	"apps/desktop/src-tauri",
 	"apps/mobile/modules/sd-core/android/crate",

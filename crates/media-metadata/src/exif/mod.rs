@@ -52,7 +52,7 @@ impl ExifMetadata {
 				| exif::Error::NotSupported(_)
 				| exif::Error::BlankValue(_),
 			)) => Ok(None),
-			Err(Error::Exif(exif::Error::Io(e))) => Err(FileIOError::from((path, e)).into()),
+			Err(Error::Exif(exif::Error::Io(e))) => Err(FileIOError::from_std_io_err(path, e).into()),
 			Err(e) => Err(e),
 		}
 	}

@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	infrastructure::{
+	infra::{
 		database::{entities, Database},
 		events::{Event, EventBus},
 		jobs::manager::JobManager,

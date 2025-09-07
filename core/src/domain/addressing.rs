@@ -1,6 +1,6 @@
 //! Core addressing data structures for the Virtual Distributed File System
 //!
-//! This module contains the fundamental "nouns" of the addressing system - 
+//! This module contains the fundamental "nouns" of the addressing system -
 //! the data structures that represent paths in Spacedrive's distributed
 //! file system.
 
@@ -56,7 +56,7 @@ impl SdPath {
     /// Create an SdPath for a local file on this device
     pub fn local(path: impl Into<PathBuf>) -> Self {
         Self::Physical {
-            device_id: crate::shared::utils::get_current_device_id(),
+            device_id: crate::common::utils::get_current_device_id(),
             path: path.into(),
         }
     }
@@ -64,7 +64,7 @@ impl SdPath {
     /// Check if this path is on the current device
     pub fn is_local(&self) -> bool {
         match self {
-            Self::Physical { device_id, .. } => *device_id == crate::shared::utils::get_current_device_id(),
+            Self::Physical { device_id, .. } => *device_id == crate::common::utils::get_current_device_id(),
             Self::Content { .. } => false, // Content paths are abstract, not inherently local
         }
     }
@@ -73,7 +73,7 @@ impl SdPath {
     pub fn as_local_path(&self) -> Option<&Path> {
         match self {
             Self::Physical { device_id, path } => {
-                if *device_id == crate::shared::utils::get_current_device_id() {
+                if *device_id == crate::common::utils::get_current_device_id() {
                     Some(path)
                 } else {
                     None
@@ -87,7 +87,7 @@ impl SdPath {
     pub fn display(&self) -> String {
         match self {
             Self::Physical { device_id, path } => {
-                if *device_id == crate::shared::utils::get_current_device_id() {
+                if *device_id == crate::common::utils::get_current_device_id() {
                     path.display().to_string()
                 } else {
                     format!("sd://{}/{}", device_id, path.display())
@@ -147,7 +147,7 @@ impl SdPath {
             Self::Content { .. } => None, // Content paths don't have volumes until resolved
         }
     }
-    
+
     /// Check if this path is on the same volume as another path
     pub async fn same_volume(&self, other: &SdPath, volume_manager: &crate::volume::VolumeManager) -> bool {
         match (self, other) {
@@ -155,7 +155,7 @@ impl SdPath {
                 if !self.is_local() || !other.is_local() {
                     return false;
                 }
-                
+
                 if let (Some(self_path), Some(other_path)) = (self.as_local_path(), other.as_local_path()) {
                     volume_manager.same_volume(self_path, other_path).await
                 } else {
@@ -174,7 +174,7 @@ impl SdPath {
     pub fn from_uri(uri: &str) -> Result<Self, SdPathParseError> {
         if uri.starts_with("sd://") {
             let uri = &uri[5..]; // Strip "sd://"
-            
+
             if let Some(content_id_str) = uri.strip_prefix("content/") {
                 // Parse content path
                 let content_id = Uuid::parse_str(content_id_str)
@@ -186,11 +186,11 @@ impl SdPath {
                 if parts.len() != 2 {
                     return Err(SdPathParseError::InvalidFormat);
                 }
-                
+
                 let device_id = Uuid::parse_str(parts[0])
                     .map_err(|_| SdPathParseError::InvalidDeviceId)?;
                 let path = PathBuf::from("/").join(parts[1]);
-                
+
                 Ok(Self::Physical { device_id, path })
             }
         } else {
@@ -252,14 +252,14 @@ impl SdPath {
         &self,
         context: &crate::context::CoreContext
     ) -> Result<SdPath, PathResolutionError> {
-        let resolver = crate::operations::addressing::PathResolver;
+        let resolver = crate::ops::addressing::PathResolver;
         resolver.resolve(self, context).await
     }
-    
+
     /// Resolve this path using a JobContext
     pub async fn resolve_in_job<'a>(
         &self,
-        job_ctx: &crate::infrastructure::jobs::context::JobContext<'a>
+        job_ctx: &crate::infra::jobs::context::JobContext<'a>
     ) -> Result<SdPath, PathResolutionError> {
         // For now, if it's already physical, just return it
         // TODO: Implement proper resolution using job context's library and networking

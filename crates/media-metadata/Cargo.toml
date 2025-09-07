@@ -22,9 +22,9 @@ chrono     = { workspace = true, features = ["serde"] }
 image      = { workspace = true }
 serde      = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-specta     = { workspace = true, features = ["chrono"] }
+specta     = { workspace = true, features = ["chrono", "derive"] }
 thiserror  = { workspace = true }
-tokio      = { workspace = true }
+tokio      = { workspace = true, features = ["rt", "rt-multi-thread"] }
 
 # Specific Media Metadata dependencies
 kamadak-exif = "0.5.5"

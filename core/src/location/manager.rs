@@ -2,13 +2,13 @@
 
 use super::{LocationError, LocationResult, ManagedLocation, IndexMode};
 use crate::{
-    infrastructure::{
+    infra::{
         database::entities::{self, entry::EntryKind},
         events::{Event, EventBus},
         jobs::{manager::JobManager, traits::Job},
     },
     library::Library,
-    operations::indexing::{job::{IndexerJob, IndexerJobConfig}, PathResolver},
+    ops::indexing::{job::{IndexerJob, IndexerJobConfig}, PathResolver},
     domain::addressing::SdPath,
 };
 use sea_orm::{
@@ -119,7 +119,7 @@ impl LocationManager {
         };
 
         let location_record = location_model.insert(&txn).await?;
-        
+
         // Commit transaction
         txn.commit().await?;
         info!("Created location record with ID: {}", location_record.id);
@@ -376,7 +376,7 @@ impl LocationManager {
             .ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
         let path = PathResolver::get_full_path(library.db().conn(), location.entry_id).await?;
-        
+
         let managed_location = ManagedLocation {
             id: location.uuid,
             name: location.name.unwrap_or_else(|| "Unknown".to_string()),

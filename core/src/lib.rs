@@ -3,36 +3,36 @@
 //!
 //! A unified, simplified architecture for cross-platform file management.
 
+pub mod common;
 pub mod config;
 pub mod context;
 pub mod device;
 pub mod domain;
-pub mod file_type;
-pub mod infrastructure;
+pub mod filetype;
+pub mod infra;
 pub mod keys;
 pub mod library;
 pub mod location;
-pub mod operations;
-pub mod services;
-pub mod shared;
-pub mod test_framework;
+pub mod ops;
+pub mod service;
+pub mod testing;
 pub mod volume;
 
-use services::networking::protocols::PairingProtocolHandler;
-use services::networking::utils::logging::NetworkLogger;
+use service::networking::protocols::PairingProtocolHandler;
+use service::networking::utils::logging::NetworkLogger;
 
 // Compatibility module for legacy networking references
 pub mod networking {
-	pub use crate::services::networking::*;
+	pub use crate::service::networking::*;
 }
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
 use crate::device::DeviceManager;
-use crate::infrastructure::actions::manager::ActionManager;
-use crate::infrastructure::events::{Event, EventBus};
+use crate::infra::actions::manager::ActionManager;
+use crate::infra::events::{Event, EventBus};
 use crate::library::LibraryManager;
-use crate::services::Services;
+use crate::service::Services;
 use crate::volume::{VolumeDetectionConfig, VolumeManager};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -152,7 +152,7 @@ impl Core {
 		// 2. Initialize device manager
 		let device = Arc::new(DeviceManager::init_with_path(&data_dir)?);
 		// Set the global device ID for legacy compatibility
-		shared::utils::set_current_device_id(device.device_id()?);
+		common::utils::set_current_device_id(device.device_id()?);
 
 		// 3. Create event bus
 		let events = Arc::new(EventBus::default());
@@ -179,7 +179,7 @@ impl Core {
 
 		// 8. Register all job types
 		info!("Registering job types...");
-		crate::operations::register_all_jobs();
+		crate::ops::register_all_jobs();
 		info!("Job types registered");
 
 		// 9. Create the context that will be shared with services
@@ -246,7 +246,7 @@ impl Core {
 		}
 
 		// 12. Initialize ActionManager and set it in context
-		let action_manager = Arc::new(crate::infrastructure::actions::manager::ActionManager::new(
+		let action_manager = Arc::new(crate::infra::actions::manager::ActionManager::new(
 			context.clone(),
 		));
 		context.set_action_manager(action_manager).await;
@@ -341,17 +341,24 @@ impl Core {
 			config.data_dir.clone()
 		};
 
-		let pairing_handler = Arc::new(networking::protocols::PairingProtocolHandler::new_with_persistence(
-			networking.identity().clone(),
-			networking.device_registry(),
-			logger.clone(),
-			command_sender,
-			data_dir,
-		));
+		let pairing_handler = Arc::new(
+			networking::protocols::PairingProtocolHandler::new_with_persistence(
+				networking.identity().clone(),
+				networking.device_registry(),
+				logger.clone(),
+				command_sender,
+				data_dir,
+			),
+		);
 
 		// Try to load persisted sessions, but don't fail if there's an error
 		if let Err(e) = pairing_handler.load_persisted_sessions().await {
-			logger.warn(&format!("Failed to load persisted pairing sessions: {}. Starting with empty sessions.", e)).await;
+			logger
+				.warn(&format!(
+					"Failed to load persisted pairing sessions: {}. Starting with empty sessions.",
+					e
+				))
+				.await;
 		}
 
 		// Start the state machine task for pairing
@@ -424,7 +431,7 @@ impl Core {
 		path: std::path::PathBuf,
 		enabled: bool,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		use crate::services::location_watcher::WatchedLocation;
+		use crate::service::watcher::WatchedLocation;
 
 		let watched_location = WatchedLocation {
 			id: location_id,
@@ -466,9 +473,7 @@ impl Core {
 	}
 
 	/// Get all currently watched locations
-	pub async fn get_watched_locations(
-		&self,
-	) -> Vec<crate::services::location_watcher::WatchedLocation> {
+	pub async fn get_watched_locations(&self) -> Vec<crate::service::watcher::WatchedLocation> {
 		self.services.location_watcher.get_watched_locations().await
 	}
 
