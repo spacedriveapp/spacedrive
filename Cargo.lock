@@ -5193,6 +5193,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
 
 [[package]]
+name = "job-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "jobserver"
 version = "0.1.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9070,6 +9079,7 @@ dependencies = [
  "iroh-blobs",
  "iroh-gossip",
  "iroh-net",
+ "job-derive",
  "keyring",
  "libc",
  "local-ip-address",
@@ -9095,7 +9105,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "snow",
- "spacedrive-jobs-derive",
  "sqlx",
  "strum 0.26.3",
  "supports-color",
@@ -10085,15 +10094,6 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
-]
-
-[[package]]
-name = "spacedrive-jobs-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.106",
 ]
 
 [[package]]

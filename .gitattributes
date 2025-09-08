@@ -5,7 +5,6 @@ pnpm-lock.yaml -diff linguist-generated
 # Mark our codegen as generated code
 /.github/actions/publish-artifacts/dist/index.js -diff linguist-generated
 /apps/desktop/src/commands.ts linguist-generated
-/core/prisma/migrations/migration_lock.toml -diff linguist-generated
 /crates/sync/example/web/src/utils/bindings.ts linguist-generated
 /packages/assets/**/index.ts linguist-generated
 /packages/client/src/core.ts linguist-generated

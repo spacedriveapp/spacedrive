@@ -78,18 +78,6 @@ zeroize             = "1.8"
 git = "https://github.com/spacedriveapp/rspc.git"
 rev = "6a77167495"
 
-[workspace.dependencies.prisma-client-rust]
-default-features = false
-features         = ["migrations", "specta", "sqlite", "sqlite-create-many"]
-git              = "https://github.com/spacedriveapp/prisma-client-rust"
-rev              = "b22ad7dc7d"
-
-[workspace.dependencies.prisma-client-rust-sdk]
-default-features = false
-features         = ["sqlite"]
-git              = "https://github.com/spacedriveapp/prisma-client-rust"
-rev              = "b22ad7dc7d"
-
 # Proper IOS Support
 # TODO: Fix the fork - it has compilation errors with TimerFuture
 # [patch.crates-io.if-watch]

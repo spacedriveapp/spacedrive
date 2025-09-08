@@ -90,10 +90,10 @@ case $COMMAND in
 
         exclude_patterns=()
         if [ "$include_design" = "false" ]; then
-            exclude_patterns+=("docs/design/*")
+            exclude_patterns+=("../docs/design/*")
         fi
 
-        combine_files "docs" "*.md" "combined_docs.txt" "Combined Documentation Files" "markdown" "false" "${exclude_patterns[@]}"
+        combine_files "../docs" "*.md" "combined_docs.txt" "Combined Documentation Files" "markdown" "false" "${exclude_patterns[@]}"
          ;;
     rust)
         root_path=${1:-.}
