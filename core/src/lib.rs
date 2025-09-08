@@ -6,6 +6,7 @@
 pub mod common;
 pub mod config;
 pub mod context;
+pub mod cqrs;
 pub mod crypto;
 pub mod device;
 pub mod domain;
@@ -28,6 +29,7 @@ pub mod networking {
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
+use crate::cqrs::{execute_command, Command, Query};
 use crate::device::DeviceManager;
 use crate::infra::action::manager::ActionManager;
 use crate::infra::event::{Event, EventBus};
@@ -367,7 +369,9 @@ impl Core {
 		);
 
 		// Start cleanup task for expired sessions
-		service::network::protocol::PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
+		service::network::protocol::PairingProtocolHandler::start_cleanup_task(
+			pairing_handler.clone(),
+		);
 
 		let messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
 		let mut file_transfer_handler =
@@ -475,6 +479,23 @@ impl Core {
 	/// Get all currently watched locations
 	pub async fn get_watched_locations(&self) -> Vec<crate::service::watcher::WatchedLocation> {
 		self.services.location_watcher.get_watched_locations().await
+	}
+
+	/// Execute a command using the enhanced CQRS API.
+	///
+	/// This method provides a unified, type-safe entry point for all write operations.
+	/// It delegates to the existing ActionManager infrastructure, preserving all
+	/// audit logging, validation, and error handling functionality.
+	pub async fn execute_command<C: Command>(&self, command: C) -> anyhow::Result<C::Output> {
+		execute_command(command, self.context.clone()).await
+	}
+
+	/// Execute a query using the enhanced CQRS API.
+	///
+	/// This method provides a unified, type-safe entry point for all read operations.
+	/// It will use the new QueryManager system once implemented.
+	pub async fn execute_query<Q: Query>(&self, query: Q) -> anyhow::Result<Q::Output> {
+		query.execute(self.context.clone()).await
 	}
 
 	/// Shutdown the core gracefully
