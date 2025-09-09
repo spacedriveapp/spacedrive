@@ -65,30 +65,12 @@ impl CommandHandler for FileHandler {
 						}
 					};
 
-					// Get the action manager
-					match core.context.get_action_manager().await {
-						Some(action_manager) => {
-
-							// Create the full Action enum
-							let full_action = crate::infra::action::Action::FileCopy {
-								library_id,
-								action,
-							};
-
-							// Dispatch the action
-							match action_manager.dispatch(full_action).await {
-								Ok(output) => {
-									// For now, just return success
-									// TODO: Extract job ID when FileCopy action returns it
-									DaemonResponse::Ok
-								}
-								Err(e) => DaemonResponse::Error(format!(
-									"Failed to start copy operation: {}",
-									e
-								)),
-							}
-						}
-						None => DaemonResponse::Error("Action manager not available".to_string()),
+					// Assign library_id to action, then execute via Core
+					let mut action_with_lib = action;
+					action_with_lib.library_id = library_id;
+					match core.execute_library_action(action_with_lib).await {
+						Ok(_job) => DaemonResponse::Ok,
+						Err(e) => DaemonResponse::Error(format!("Failed to start copy operation: {}", e)),
 					}
 				} else {
 					DaemonResponse::Error(
@@ -206,17 +188,15 @@ impl CommandHandler for FileHandler {
 									let mut success_count = 0;
 									let mut errors = Vec::new();
 
-									// Dispatch LocationIndexAction for each location
+									// Dispatch LocationRescanAction for each location
 									for location in locations {
-										let action = crate::infra::action::Action::LocationIndex {
+										let action = crate::ops::locations::rescan::action::LocationRescanAction {
 											library_id,
-											action: crate::ops::locations::index::action::LocationIndexAction {
-												location_id: location.id,
-												mode: location.index_mode.into(),
-											},
+											location_id: location.id,
+											full_rescan: false,
 										};
 
-										match action_manager.dispatch(action).await {
+										match core.execute_library_action(action).await {
 											Ok(_output) => {
 												success_count += 1;
 											}
@@ -266,17 +246,15 @@ impl CommandHandler for FileHandler {
 							// Get the action manager
 							match core.context.get_action_manager().await {
 								Some(action_manager) => {
-									// Create LocationIndexAction
-									let action = crate::infra::action::Action::LocationIndex {
+									// Create LocationRescanAction
+									let action = crate::ops::locations::rescan::action::LocationRescanAction {
 										library_id,
-										action: crate::ops::locations::index::action::LocationIndexAction {
-											location_id,
-											mode: crate::ops::indexing::IndexMode::Content,
-										},
+										location_id,
+										full_rescan: false,
 									};
 
 									// Dispatch the action
-									match action_manager.dispatch(action).await {
+									match core.execute_library_action(action).await {
 										Ok(_output) => {
 											DaemonResponse::LocationIndexed { location_id }
 										}

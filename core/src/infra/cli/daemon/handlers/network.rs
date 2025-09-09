@@ -95,17 +95,14 @@ impl CommandHandler for NetworkHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create DeviceRevokeAction
-							let action = crate::infra::action::Action::DeviceRevoke {
+							let action = crate::ops::devices::revoke::action::DeviceRevokeAction {
 								library_id,
-								action:
-									crate::ops::devices::revoke::action::DeviceRevokeAction {
-										device_id,
-										reason: Some("Revoked via CLI".to_string()),
-									},
+								device_id,
+								reason: Some("Revoked via CLI".to_string()),
 							};
 
 							// Dispatch the action
-							match action_manager.dispatch(action).await {
+							match core.execute_library_action(action).await {
 								Ok(_output) => DaemonResponse::Ok,
 								Err(e) => {
 									DaemonResponse::Error(format!("Failed to revoke device: {}", e))

@@ -2,10 +2,10 @@
 
 use crate::{
     context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
+    infra::{
+        action::{error::ActionError, LibraryAction},
+        job::handle::JobHandle,
     },
-    register_action_handler,
     domain::addressing::SdPath,
 };
 use super::job::{IndexerJob, IndexMode, IndexScope};
@@ -41,76 +41,7 @@ impl IndexingHandler {
     }
 }
 
-#[async_trait]
-impl ActionHandler for IndexingHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        if let crate::infra::action::Action::Index { action, .. } = action {
-            if action.paths.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
-
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<String> {
-        if let crate::infra::action::Action::Index { library_id, action } = action {
-            let library_manager = &context.library_manager;
-
-            let library = library_manager.get_library(library_id).await
-                .ok_or(ActionError::Internal(format!("Library not found: {}", library_id)))?;
-
-            // TODO: For multiple paths, we might want to create multiple jobs or handle this differently
-            // For now, just take the first path
-            let first_path = action.paths.into_iter().next()
-                .ok_or(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                })?;
-
-            // Create indexer job directly
-            // TODO: Need location_id - for now using a placeholder
-            let job = IndexerJob::from_location(
-                Uuid::new_v4(), // placeholder location_id
-                SdPath::local(first_path),
-                IndexMode::Content // default mode
-            );
-
-            // Dispatch the job directly
-            let job_handle = library
-                .jobs()
-                .dispatch(job)
-                .await
-                .map_err(ActionError::Job)?;
-
-            Ok("Indexing job dispatched successfully".to_string())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
-
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        matches!(action, crate::infra::action::Action::Index { .. })
-    }
-
-    fn supported_actions() -> &'static [&'static str] {
-        &["indexing.index"]
-    }
-}
-
-register_action_handler!(IndexingHandler, "indexing.index");
+// Old ActionHandler implementation removed
 
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for IndexingAction {
@@ -119,14 +50,17 @@ impl LibraryAction for IndexingAction {
     async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
         // Library is pre-validated by ActionManager - no boilerplate!
 
-        // Create indexer job
-        let scope = if self.recursive {
-            IndexScope::Recursive
-        } else {
-            IndexScope::SingleDirectory
-        };
+        // Create indexer job config for ephemeral browsing of the provided paths
+        // If multiple paths provided, index each in separate jobs sequentially
+        // For now, take the first path
+        let first_path = self.paths.get(0)
+            .cloned()
+            .ok_or(ActionError::Validation { field: "paths".to_string(), message: "At least one path must be specified".to_string() })?;
 
-        let job = IndexerJob::new(self.paths, scope, self.include_hidden);
+        let sd_path = crate::domain::addressing::SdPath::local(first_path);
+        let scope = if self.recursive { crate::ops::indexing::job::IndexScope::Recursive } else { crate::ops::indexing::job::IndexScope::Current };
+        let config = crate::ops::indexing::job::IndexerJobConfig::ephemeral_browse(sd_path, scope);
+        let job = crate::ops::indexing::job::IndexerJob::new(config);
 
         // Dispatch job and return handle directly
         let job_handle = library

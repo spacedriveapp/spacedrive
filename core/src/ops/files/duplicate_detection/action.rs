@@ -2,10 +2,10 @@
 
 use crate::{
     context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
+    infra::{
+        action::{error::ActionError, LibraryAction},
+        job::handle::JobHandle,
     },
-    register_action_handler,
     domain::addressing::{SdPath, SdPathBatch},
 };
 use super::job::{DuplicateDetectionJob, DetectionMode};
@@ -41,77 +41,7 @@ impl DuplicateDetectionHandler {
     }
 }
 
-#[async_trait]
-impl ActionHandler for DuplicateDetectionHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        if let crate::infra::action::Action::DetectDuplicates { action, .. } = action {
-            if action.paths.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
-
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<String> {
-        if let crate::infra::action::Action::DetectDuplicates { library_id, action } = action {
-            let library_manager = &context.library_manager;
-
-            let library = library_manager.get_library(library_id).await
-                .ok_or(ActionError::Internal(format!("Library not found: {}", library_id)))?;
-
-            // Convert paths to SdPath and create job
-            let search_paths = action.paths
-                .into_iter()
-                .map(|path| SdPath::local(path))
-                .collect();
-
-            // Parse algorithm to detection mode
-            let mode = match action.algorithm.as_str() {
-                "content_hash" => DetectionMode::ContentHash,
-                "size_only" => DetectionMode::SizeOnly,
-                "name_and_size" => DetectionMode::NameAndSize,
-                "deep_scan" => DetectionMode::DeepScan,
-                _ => DetectionMode::ContentHash, // default
-            };
-
-            let job = DuplicateDetectionJob::new(SdPathBatch::new(search_paths), mode);
-
-            // Dispatch the job directly
-            let job_handle = library
-                .jobs()
-                .dispatch(job)
-                .await
-                .map_err(ActionError::Job)?;
-
-            Ok("Duplicate detection job dispatched successfully".to_string())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
-
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        matches!(action, crate::infra::action::Action::DetectDuplicates { .. })
-    }
-
-    fn supported_actions() -> &'static [&'static str] {
-        &["file.detect_duplicates"]
-    }
-}
-
-register_action_handler!(DuplicateDetectionHandler, "file.detect_duplicates");
+// Old ActionHandler implementation removed
 
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for DuplicateDetectionAction {
@@ -121,8 +51,20 @@ impl LibraryAction for DuplicateDetectionAction {
         // Library is pre-validated by ActionManager - no boilerplate!
 
         // Create duplicate detection job
-        let mode = DetectionMode::from_algorithm(&self.algorithm, self.threshold);
-        let job = DuplicateDetectionJob::new(self.paths, mode);
+        let mode = match self.algorithm.as_str() {
+            "size_only" => DetectionMode::SizeOnly,
+            "name_and_size" => DetectionMode::NameAndSize,
+            "deep_scan" => DetectionMode::DeepScan,
+            _ => DetectionMode::ContentHash,
+        };
+
+        let search_paths = self.paths
+            .into_iter()
+            .map(|p| crate::domain::addressing::SdPath::local(p))
+            .collect::<Vec<_>>();
+        let search_paths = crate::domain::addressing::SdPathBatch { paths: search_paths };
+
+        let job = DuplicateDetectionJob::new(search_paths, mode);
 
         // Dispatch job and return handle directly
         let job_handle = library

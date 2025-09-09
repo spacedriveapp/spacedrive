@@ -33,35 +33,21 @@ impl CommandHandler for LocationHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create the location add action
-							let action = crate::infra::action::Action::LocationAdd {
+							let action = crate::ops::locations::add::action::LocationAddAction {
 								library_id,
-								action:
-									crate::ops::locations::add::action::LocationAddAction {
-										library_id,
-										path: path.clone(),
-										name,
-										mode: crate::ops::indexing::IndexMode::Content,
-									},
+								path: path.clone(),
+								name,
+								mode: crate::ops::indexing::IndexMode::Content,
 							};
 
 							// Dispatch the action
-							match action_manager.dispatch(action).await {
-								Ok(output) => {
-									// Extract location ID and job ID from the action output
-                                    // ActionOutput enum removed - just use the success message
-                                    let location_id = uuid::Uuid::new_v4(); // TODO: Get actual location_id from action
-                                    if true { // Simplified since ActionOutput enum is removed
-										DaemonResponse::LocationAdded {
-											location_id,
-											job_id: "".to_string(), // TODO: Get actual job_id when needed
-										}
-									} else {
-										// If we get a different output type, still return success
-										// but with empty IDs for now
-										DaemonResponse::LocationAdded {
-											location_id: Uuid::new_v4(),
-											job_id: String::new(),
-										}
+							match core.execute_library_action(action).await {
+								Ok(_output) => {
+									// Placeholder: return success; proper output can include IDs
+									let location_id = uuid::Uuid::new_v4();
+									DaemonResponse::LocationAdded {
+										location_id,
+										job_id: "".to_string(),
 									}
 								}
 								Err(e) => {
@@ -126,16 +112,13 @@ impl CommandHandler for LocationHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create the location remove action
-							let action = crate::infra::action::Action::LocationRemove {
+							let action = crate::ops::locations::remove::action::LocationRemoveAction {
 								library_id,
-								action: crate::ops::locations::remove::action::LocationRemoveAction {
-									library_id,
-									location_id: id,
-								},
+								location_id: id,
 							};
 
 							// Dispatch the action
-							match action_manager.dispatch(action).await {
+							match core.execute_library_action(action).await {
 								Ok(_) => DaemonResponse::Ok,
 								Err(e) => DaemonResponse::Error(format!(
 									"Failed to remove location: {}",
@@ -159,19 +142,16 @@ impl CommandHandler for LocationHandler {
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
 							// Create LocationRescanAction
-							let action = crate::infra::action::Action::LocationRescan {
+							let action = crate::ops::locations::rescan::action::LocationRescanAction {
 								library_id,
-								action: crate::ops::locations::rescan::action::LocationRescanAction {
-									location_id: id,
-									full_rescan: false,
-								},
+								location_id: id,
+								full_rescan: false,
 							};
 
 							// Dispatch the action
-							match action_manager.dispatch(action).await {
-								Ok(output) => {
+							match core.execute_library_action(action).await {
+								Ok(_output) => {
 									// For now, just return success
-									// TODO: Extract job ID when LocationRescan action returns it
 									DaemonResponse::Ok
 								}
 								Err(e) => DaemonResponse::Error(format!(

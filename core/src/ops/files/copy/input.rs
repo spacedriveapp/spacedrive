@@ -67,7 +67,8 @@ impl FileCopyInput {
 
     /// Create a single file copy input
     pub fn single_file<S: Into<PathBuf>, D: Into<PathBuf>>(source: S, destination: D) -> Self {
-        Self::new(vec![source.into()], destination)
+        // Placeholder: require caller to set library_id later
+        Self::new(uuid::Uuid::nil(), vec![source.into()], destination)
     }
 
     /// Set overwrite option
@@ -180,6 +181,7 @@ mod tests {
     #[test]
     fn test_new_input() {
         let input = FileCopyInput::new(
+            uuid::Uuid::nil(),
             vec!["/file1.txt".into(), "/file2.txt".into()],
             "/dest/"
         );
@@ -236,13 +238,13 @@ mod tests {
 
     #[test]
     fn test_validation_success() {
-        let input = FileCopyInput::new(vec!["/file.txt".into()], "/dest/");
+        let input = FileCopyInput::new(uuid::Uuid::nil(), vec!["/file.txt".into()], "/dest/");
         assert!(input.validate().is_ok());
     }
 
     #[test]
     fn test_summary() {
-        let input = FileCopyInput::new(vec!["/file1.txt".into(), "/file2.txt".into()], "/dest/");
+        let input = FileCopyInput::new(uuid::Uuid::nil(), vec!["/file1.txt".into(), "/file2.txt".into()], "/dest/");
         assert_eq!(input.summary(), "Copy 2 sources to /dest/");
 
         let move_input = input.with_move(true);

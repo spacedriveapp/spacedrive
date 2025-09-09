@@ -51,7 +51,7 @@ impl LibraryAction for ThumbnailAction {
         };
 
         // Create job instance directly
-        let job = ThumbnailJob::new(self.paths, config);
+        let job = ThumbnailJob::new(config);
 
         // Dispatch job and return handle directly
         let job_handle = library

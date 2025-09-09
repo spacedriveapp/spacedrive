@@ -6,7 +6,6 @@ use tracing::debug;
 
 use crate::{
 	infra::{
-		action::{manager::ActionManager, Action},
 		cli::{
 			commands::VolumeCommands,
 			daemon::{
@@ -146,23 +145,16 @@ impl CommandHandler for VolumeHandler {
 							VolumeFingerprint::from_hex(fingerprint)
 						};
 
-						let action = Action::VolumeTrack {
-							action: VolumeTrackAction {
-								fingerprint: resolved_fingerprint,
-								library_id: library.id(),
-								name,
-							},
+						let action = VolumeTrackAction {
+							fingerprint: resolved_fingerprint,
+							library_id: library.id(),
+							name,
 						};
 
-						match core.context.get_action_manager().await {
-							Some(action_manager) => match action_manager.dispatch(action).await {
-								Ok(action_output) => DaemonResponse::ActionOutput(action_output),
-								Err(e) => {
-									DaemonResponse::Error(format!("Failed to track volume: {}", e))
-								}
-							},
-							None => {
-								DaemonResponse::Error("Action manager not initialized".to_string())
+						match core.execute_library_action(action).await {
+							Ok(_out) => DaemonResponse::Ok,
+							Err(e) => {
+								DaemonResponse::Error(format!("Failed to track volume: {}", e))
 							}
 						}
 					} else {
@@ -185,24 +177,17 @@ impl CommandHandler for VolumeHandler {
 							VolumeFingerprint::from_hex(fingerprint)
 						};
 
-						let action = Action::VolumeUntrack {
-							action: VolumeUntrackAction {
-								fingerprint: resolved_fingerprint,
-								library_id: library.id(),
-							},
+						let action = VolumeUntrackAction {
+							fingerprint: resolved_fingerprint,
+							library_id: library.id(),
 						};
 
-						match core.context.get_action_manager().await {
-							Some(action_manager) => match action_manager.dispatch(action).await {
-								Ok(action_output) => DaemonResponse::ActionOutput(action_output),
-								Err(e) => DaemonResponse::Error(format!(
-									"Failed to untrack volume: {}",
-									e
-								)),
-							},
-							None => {
-								DaemonResponse::Error("Action manager not initialized".to_string())
-							}
+						match core.execute_library_action(action).await {
+							Ok(_out) => DaemonResponse::Ok,
+							Err(e) => DaemonResponse::Error(format!(
+								"Failed to untrack volume: {}",
+								e
+							)),
 						}
 					} else {
 						DaemonResponse::Error(
@@ -213,20 +198,13 @@ impl CommandHandler for VolumeHandler {
 				}
 
 				VolumeCommands::SpeedTest { fingerprint } => {
-					let action = Action::VolumeSpeedTest {
-						action: VolumeSpeedTestAction {
-							fingerprint: VolumeFingerprint(fingerprint),
-						},
+					let action = VolumeSpeedTestAction {
+						fingerprint: VolumeFingerprint(fingerprint),
 					};
 
-					match core.context.get_action_manager().await {
-						Some(action_manager) => match action_manager.dispatch(action).await {
-							Ok(output) => DaemonResponse::ActionOutput(output),
-							Err(e) => {
-								DaemonResponse::Error(format!("Failed to run speed test: {}", e))
-							}
-						},
-						None => DaemonResponse::Error("Action manager not initialized".to_string()),
+					match core.execute_core_action(action).await {
+						Ok(_out) => DaemonResponse::Ok,
+						Err(e) => DaemonResponse::Error(format!("Failed to run speed test: {}", e)),
 					}
 				}
 

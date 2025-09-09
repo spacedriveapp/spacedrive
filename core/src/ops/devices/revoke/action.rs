@@ -3,12 +3,10 @@
 use crate::{
     context::CoreContext,
     infra::action::{
-        error::{ActionError, ActionResult},
-        Action,
+        error::ActionError,
+        LibraryAction,
     },
-    register_action_handler,
 };
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -54,7 +52,7 @@ impl LibraryAction for DeviceRevokeAction {
         Ok(super::output::DeviceRevokeOutput {
             device_id: self.device_id,
             device_name,
-            reason: self.reason.unwrap_or_else(|| "No reason provided".to_string()),
+            reason: Some(self.reason.unwrap_or_else(|| "No reason provided".to_string())),
         })
     }
 

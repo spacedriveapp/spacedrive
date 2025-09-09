@@ -212,6 +212,7 @@ impl FileCopyActionBuilder {
 			))?;
 
 		Ok(FileCopyAction {
+			library_id: Uuid::nil(),
 			sources,
 			destination,
 			options,

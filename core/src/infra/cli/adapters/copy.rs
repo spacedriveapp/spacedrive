@@ -66,6 +66,7 @@ pub struct FileCopyCliArgs {
 impl From<FileCopyCliArgs> for FileCopyInput {
     fn from(args: FileCopyCliArgs) -> Self {
         Self {
+            library_id: None,
             sources: args.sources,
             destination: args.destination,
             overwrite: args.overwrite,
@@ -82,11 +83,11 @@ impl FileCopyCliArgs {
     pub fn to_input(self) -> FileCopyInput {
         self.into()
     }
-    
+
     /// Validate CLI arguments and convert to input
     pub fn validate_and_convert(self) -> Result<FileCopyInput, String> {
         let input = self.to_input();
-        
+
         match input.validate() {
             Ok(()) => Ok(input),
             Err(errors) => Err(errors.join("; ")),
