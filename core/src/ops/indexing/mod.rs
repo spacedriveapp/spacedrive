@@ -13,6 +13,7 @@ pub mod change_detection;
 pub mod entry;
 pub mod hierarchy;
 pub mod job;
+pub mod input;
 pub mod metrics;
 pub mod path_resolver;
 pub mod persistence;
@@ -29,6 +30,7 @@ pub use job::{
 	EphemeralContentIdentity, EphemeralIndex, IndexMode, IndexPersistence, IndexScope, IndexerJob,
 	IndexerJobConfig, IndexerOutput,
 };
+pub use input::IndexInput;
 pub use metrics::IndexerMetrics;
 pub use path_resolver::PathResolver;
 pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};

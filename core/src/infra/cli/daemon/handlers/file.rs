@@ -193,7 +193,7 @@ impl CommandHandler for FileHandler {
 										let action = crate::ops::locations::rescan::action::LocationRescanAction {
 											library_id,
 											location_id: location.id,
-											full_rescan: false,
+											full_rescan: force,
 										};
 
 										match core.execute_library_action(action).await {
@@ -224,9 +224,9 @@ impl CommandHandler for FileHandler {
 									"Failed to list locations: {}",
 									e
 								)),
-							}
 						}
-						None => DaemonResponse::Error("Action manager not available".to_string()),
+					}
+					None => DaemonResponse::Error("Action manager not available".to_string()),
 					}
 				} else {
 					DaemonResponse::Error(
@@ -250,7 +250,7 @@ impl CommandHandler for FileHandler {
 									let action = crate::ops::locations::rescan::action::LocationRescanAction {
 										library_id,
 										location_id,
-										full_rescan: false,
+										full_rescan: force,
 									};
 
 									// Dispatch the action

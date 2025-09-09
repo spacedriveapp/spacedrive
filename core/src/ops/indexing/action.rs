@@ -6,30 +6,21 @@ use crate::{
         action::{error::ActionError, LibraryAction},
         job::handle::JobHandle,
     },
-    domain::addressing::SdPath,
 };
-use super::job::{IndexerJob, IndexMode, IndexScope};
+use super::job::{IndexerJob, IndexMode, IndexScope, IndexerJobConfig, IndexPersistence};
+use super::IndexInput;
 use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IndexingAction {
-    pub library_id: uuid::Uuid,
-    pub paths: Vec<std::path::PathBuf>,
-    pub recursive: bool,
-    pub include_hidden: bool,
+    pub input: IndexInput,
 }
 
 impl IndexingAction {
-    /// Create a new indexing action
-    pub fn new(library_id: uuid::Uuid, paths: Vec<std::path::PathBuf>, recursive: bool, include_hidden: bool) -> Self {
-        Self {
-            library_id,
-            paths,
-            recursive,
-            include_hidden,
-        }
+    pub fn new(input: IndexInput) -> Self {
+        Self { input }
     }
 }
 
@@ -48,37 +39,46 @@ impl LibraryAction for IndexingAction {
     type Output = JobHandle;
 
     async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-        // Library is pre-validated by ActionManager - no boilerplate!
+        // Validate input first
+        if let Err(errors) = self.input.validate() { return Err(ActionError::Validation { field: "paths".to_string(), message: errors.join("; ") }); }
 
-        // Create indexer job config for ephemeral browsing of the provided paths
-        // If multiple paths provided, index each in separate jobs sequentially
-        // For now, take the first path
-        let first_path = self.paths.get(0)
-            .cloned()
-            .ok_or(ActionError::Validation { field: "paths".to_string(), message: "At least one path must be specified".to_string() })?;
+        // For now, submit one job per path (sequentially). Could be parallelized later.
+        // Return the handle of the last job submitted for convenience.
+        let mut last_handle: Option<JobHandle> = None;
 
-        let sd_path = crate::domain::addressing::SdPath::local(first_path);
-        let scope = if self.recursive { crate::ops::indexing::job::IndexScope::Recursive } else { crate::ops::indexing::job::IndexScope::Current };
-        let config = crate::ops::indexing::job::IndexerJobConfig::ephemeral_browse(sd_path, scope);
-        let job = crate::ops::indexing::job::IndexerJob::new(config);
+        for path in &self.input.paths {
+            let sd_path = crate::domain::addressing::SdPath::local(path.clone());
 
-        // Dispatch job and return handle directly
-        let job_handle = library
-            .jobs()
-            .dispatch(job)
-            .await
-            .map_err(ActionError::Job)?;
+            let mut config = match self.input.persistence {
+                IndexPersistence::Ephemeral => IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope),
+                IndexPersistence::Persistent => {
+                    // Persistent indexing expects a location context. For now, default to recursive path walk with selected mode.
+                    // If we later bind paths to a location, we can set location_id properly.
+                    // Here use ui_navigation/new with mode overridden below when possible.
+                    let mut c = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope);
+                    c.persistence = IndexPersistence::Persistent;
+                    c
+                }
+            };
 
-        Ok(job_handle)
+            // Apply selected mode
+            config.mode = self.input.mode;
+
+            // TODO: Apply include_hidden via rule_toggles when available
+
+            let job = IndexerJob::new(config);
+            let handle = library.jobs().dispatch(job).await.map_err(ActionError::Job)?;
+            last_handle = Some(handle);
+        }
+
+        last_handle.ok_or(ActionError::Validation { field: "paths".to_string(), message: "No paths provided".to_string() })
     }
 
     fn action_kind(&self) -> &'static str {
         "indexing.index"
     }
 
-    fn library_id(&self) -> Uuid {
-        self.library_id
-    }
+    fn library_id(&self) -> Uuid { self.input.library_id }
 
     async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
         // Library existence already validated by ActionManager - no boilerplate!

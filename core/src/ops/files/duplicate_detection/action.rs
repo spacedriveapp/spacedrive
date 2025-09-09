@@ -41,8 +41,6 @@ impl DuplicateDetectionHandler {
     }
 }
 
-// Old ActionHandler implementation removed
-
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for DuplicateDetectionAction {
     type Output = JobHandle;
@@ -85,8 +83,6 @@ impl LibraryAction for DuplicateDetectionAction {
     }
 
     async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
-        // Library existence already validated by ActionManager - no boilerplate!
-
         // Validate paths
         if self.paths.is_empty() {
             return Err(ActionError::Validation {

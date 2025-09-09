@@ -31,15 +31,11 @@ impl ValidationAction {
     }
 }
 
-// Old ActionHandler implementation removed
-
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for ValidationAction {
     type Output = JobHandle;
 
     async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-        // Library is pre-validated by ActionManager - no boilerplate!
-
         // Create validation job
         let mode = if self.deep_scan {
             ValidationMode::Complete
@@ -77,8 +73,6 @@ impl LibraryAction for ValidationAction {
     }
 
     async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
-        // Library existence already validated by ActionManager - no boilerplate!
-
         // Validate paths
         if self.paths.is_empty() {
             return Err(ActionError::Validation {
