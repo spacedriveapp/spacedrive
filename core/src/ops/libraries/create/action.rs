@@ -3,13 +3,10 @@
 use super::output::LibraryCreateOutput;
 use crate::{
 	context::CoreContext,
-	cqrs::Command,
 	infra::action::{
 		error::{ActionError, ActionResult},
-		handler::ActionHandler,
-		output::ActionOutput,
+		ActionTrait,
 	},
-	register_action_handler,
 };
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -22,80 +19,18 @@ pub struct LibraryCreateAction {
 	pub path: Option<PathBuf>,
 }
 
-pub struct LibraryCreateHandler;
+// LibraryCreateHandler removed - using unified ActionTrait instead
 
-impl LibraryCreateHandler {
-	pub fn new() -> Self {
-		Self
-	}
-}
-
-#[async_trait]
-impl ActionHandler for LibraryCreateHandler {
-	async fn validate(
-		&self,
-		_context: Arc<CoreContext>,
-		action: &crate::infra::action::Action,
-	) -> ActionResult<()> {
-		if let crate::infra::action::Action::LibraryCreate(action) = action {
-			if action.name.trim().is_empty() {
-				return Err(ActionError::Validation {
-					field: "name".to_string(),
-					message: "Library name cannot be empty".to_string(),
-				});
-			}
-			Ok(())
-		} else {
-			Err(ActionError::InvalidActionType)
-		}
-	}
-
-	async fn execute(
-		&self,
-		context: Arc<CoreContext>,
-		action: crate::infra::action::Action,
-	) -> ActionResult<ActionOutput> {
-		if let crate::infra::action::Action::LibraryCreate(action) = action {
-			let library_manager = &context.library_manager;
-			let new_library = library_manager
-				.create_library(action.name.clone(), action.path.clone(), context.clone())
-				.await?;
-
-			let library_name = new_library.name().await;
-			let output = LibraryCreateOutput::new(
-				new_library.id(),
-				library_name,
-				new_library.path().to_path_buf(),
-			);
-			Ok(ActionOutput::from_trait(output))
-		} else {
-			Err(ActionError::InvalidActionType)
-		}
-	}
-
-	fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-		matches!(action, crate::infra::action::Action::LibraryCreate(_))
-	}
-
-	fn supported_actions() -> &'static [&'static str] {
-		&["library.create"]
-	}
-}
-
-// Register this handler
-register_action_handler!(LibraryCreateHandler, "library.create");
-
-// Implement the modular Command trait for LibraryCreateAction
-impl Command for LibraryCreateAction {
+// Implement the new modular ActionType trait
+impl ActionTrait for LibraryCreateAction {
 	type Output = LibraryCreateOutput;
 
-	async fn execute(self, context: Arc<CoreContext>) -> anyhow::Result<Self::Output> {
-		// Delegate to existing business logic while preserving audit logging
+	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+		// Delegate to existing business logic
 		let library_manager = &context.library_manager;
 		let library = library_manager
 			.create_library(self.name.clone(), self.path.clone(), context.clone())
-			.await
-			.map_err(|e| anyhow::anyhow!("Failed to create library: {}", e))?;
+			.await?;
 
 		// Return native output directly - no ActionOutput conversion!
 		Ok(LibraryCreateOutput::new(
@@ -104,4 +39,19 @@ impl Command for LibraryCreateAction {
 			library.path().to_path_buf(),
 		))
 	}
+
+	fn action_kind(&self) -> &'static str {
+		"library.create"
+	}
+
+	async fn validate(&self, _context: Arc<CoreContext>) -> Result<(), ActionError> {
+		if self.name.trim().is_empty() {
+			return Err(ActionError::Validation {
+				field: "name".to_string(),
+				message: "Library name cannot be empty".to_string(),
+			});
+		}
+		Ok(())
+	}
 }
+

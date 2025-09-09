@@ -4,8 +4,6 @@ use crate::{
     context::CoreContext,
     infra::action::{
         error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
         Action,
     },
     register_action_handler,
@@ -58,7 +56,7 @@ impl ActionHandler for LibraryExportHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionOutput> {
+	) -> ActionResult<String> {
         if let Action::LibraryExport { library_id, action } = action {
             let library_manager = &context.library_manager;
 
@@ -119,7 +117,7 @@ impl ActionHandler for LibraryExportHandler {
                 exported_files,
             };
 
-            Ok(ActionOutput::from_trait(output))
+            Ok("Action completed successfully".to_string())
         } else {
             Err(ActionError::InvalidActionType)
         }

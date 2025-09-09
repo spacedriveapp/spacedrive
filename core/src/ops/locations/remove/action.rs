@@ -4,7 +4,7 @@ use crate::{
     context::CoreContext,
     location::manager::LocationManager,
     infra::action::{
-        Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
+		ActionTrait, error::{ActionError, ActionResult},
     },
     register_action_handler,
 };
@@ -16,6 +16,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationRemoveAction {
+    pub library_id: Uuid,
     pub location_id: Uuid,
 }
 
@@ -33,7 +34,7 @@ impl ActionHandler for LocationRemoveHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionOutput> {
+    ) -> ActionResult<String> {
         if let Action::LocationRemove { library_id, action } = action {
             let library_manager = &context.library_manager;
 
@@ -51,7 +52,7 @@ impl ActionHandler for LocationRemoveHandler {
                 .map_err(|e| ActionError::Internal(e.to_string()))?;
 
             let output = LocationRemoveOutput::new(action.location_id, None);
-            Ok(ActionOutput::from_trait(output))
+            Ok("Action completed successfully".to_string())
         } else {
             Err(ActionError::InvalidActionType)
         }

@@ -1,7 +1,7 @@
 //! Action manager - central router for all actions
 
 use super::{
-    Action, error::{ActionError, ActionResult}, output::ActionOutput, registry::REGISTRY,
+    error::{ActionError, ActionResult},
 };
 use crate::{
     context::CoreContext,
@@ -23,52 +23,48 @@ impl ActionManager {
         Self { context }
     }
 
-    /// Dispatch an action for execution
-    pub async fn dispatch(
-        &self,
-        action: Action,
-    ) -> ActionResult<ActionOutput> {
-        // 1. Find the correct handler in the registry
-        let handler = REGISTRY
-            .get(action.kind())
-            .ok_or_else(|| ActionError::ActionNotRegistered(action.kind().to_string()))?;
+    /// Dispatch any action with central infrastructure (like JobManager)
+    pub async fn dispatch<A: super::ActionTrait>(&self, action: A) -> Result<A::Output, super::error::ActionError> {
+        // 1. Validate the action
+        action.validate(self.context.clone()).await?;
 
-        // 2. Validate the action
-        handler.validate(self.context.clone(), &action).await?;
-
-        // 3. Create the initial audit log entry (if library-scoped)
+        // 2. Create audit log entry (if action has library context)
         let audit_entry = if let Some(library_id) = action.library_id() {
-            let entry = self.create_audit_log(library_id, &action).await?;
+            let entry = self.create_action_audit_log(library_id, action.action_kind()).await?;
             Some((entry, library_id))
         } else {
             None
         };
 
-        // 4. Execute the handler
-        let result = handler.execute(self.context.clone(), action).await;
+        // 3. Execute the action directly
+        let result = action.execute(self.context.clone()).await;
 
-        // 5. Update the audit log with the final status (if we created one)
+        // 4. Finalize audit log with result
         if let Some((entry, library_id)) = audit_entry {
-            self.finalize_audit_log(entry, &result, library_id).await?;
+            let audit_result = match &result {
+                Ok(_) => Ok("Action completed successfully".to_string()),
+                Err(e) => Err(ActionError::Internal(e.to_string())),
+            };
+            self.finalize_audit_log(entry, &audit_result, library_id).await?;
         }
 
         result
     }
 
-    /// Create an initial audit log entry
-    async fn create_audit_log(
+    /// Create an initial audit log entry for ActionTrait
+    async fn create_action_audit_log(
         &self,
         library_id: Uuid,
-        action: &Action,
+        action_kind: &str,
     ) -> ActionResult<audit_log::Model> {
         let library = self.get_library(library_id).await?;
         let db = library.db().conn();
 
         let audit_entry = AuditLogActive {
             uuid: Set(Uuid::new_v4().to_string()),
-            action_type: Set(action.kind().to_string()),
+            action_type: Set(action_kind.to_string()),
             actor_device_id: Set(get_current_device_id().to_string()),
-            targets: Set(serde_json::to_string(&action.targets_summary()).unwrap_or_default()),
+            targets: Set("{}".to_string()), // TODO: Add targets_summary to ActionTrait
             status: Set(audit_log::ActionStatus::InProgress),
             job_id: Set(None),
             created_at: Set(chrono::Utc::now()),
@@ -84,11 +80,21 @@ impl ActionManager {
             .map_err(ActionError::SeaOrm)
     }
 
+    /// Create an initial audit log entry (legacy method - kept for compatibility)
+    async fn create_audit_log(
+        &self,
+        library_id: Uuid,
+        action_kind: &str,
+    ) -> ActionResult<audit_log::Model> {
+        // Delegate to the new method
+        self.create_action_audit_log(library_id, action_kind).await
+    }
+
     /// Finalize the audit log entry with the result
     async fn finalize_audit_log(
         &self,
         mut entry: audit_log::Model,
-        result: &ActionResult<ActionOutput>,
+        result: &ActionResult<String>,
         library_id: Uuid,
     ) -> ActionResult<()> {
         let library = self.get_library(library_id).await?;
@@ -116,7 +122,7 @@ impl ActionManager {
                 active_model.completed_at = Set(Some(chrono::Utc::now()));
                 // Extract job_id if present in certain output types
                 // TODO: Update this when we have job-based actions
-                active_model.result_payload = Set(Some(serde_json::to_string(output).unwrap_or_default()));
+                active_model.result_payload = Set(Some(output.clone()));
             }
             Err(error) => {
                 active_model.status = Set(audit_log::ActionStatus::Failed);
@@ -184,4 +190,5 @@ impl ActionManager {
             .await
             .map_err(ActionError::SeaOrm)
     }
+
 }

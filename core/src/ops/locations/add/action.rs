@@ -5,9 +5,7 @@ use crate::{
 	context::CoreContext,
 	infra::action::{
 		error::{ActionError, ActionResult},
-		handler::ActionHandler,
-		output::ActionOutput,
-		Action,
+		ActionTrait,
 	},
 	infra::db::entities,
 	location::manager::LocationManager,
@@ -22,6 +20,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationAddAction {
+	pub library_id: Uuid,
 	pub path: PathBuf,
 	pub name: Option<String>,
 	pub mode: IndexMode,
@@ -35,110 +34,92 @@ impl LocationAddHandler {
 	}
 }
 
-#[async_trait]
-impl ActionHandler for LocationAddHandler {
-	async fn validate(&self, _context: Arc<CoreContext>, action: &Action) -> ActionResult<()> {
-		if let Action::LocationAdd {
-			library_id: _,
-			action,
-		} = action
-		{
-			if !action.path.exists() {
-				return Err(ActionError::Validation {
-					field: "path".to_string(),
-					message: "Path does not exist".to_string(),
-				});
-			}
-			if !action.path.is_dir() {
-				return Err(ActionError::Validation {
-					field: "path".to_string(),
-					message: "Path must be a directory".to_string(),
-				});
-			}
-			Ok(())
+// Note: ActionHandler implementation removed - using ActionType instead
+
+// Implement the new modular ActionType trait
+impl ActionTrait for LocationAddAction {
+	type Output = LocationAddOutput;
+
+	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+		// Get the specific library
+		let library = context
+			.library_manager
+			.get_library(self.library_id)
+			.await
+			.ok_or(ActionError::LibraryNotFound(self.library_id))?;
+
+		// Get the device UUID from the device manager
+		let device_uuid = context
+			.device_manager
+			.device_id()
+			.map_err(ActionError::device_manager_error)?;
+
+		// Get device record from database to get the integer ID
+		let db = library.db().conn();
+		let device_record = entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(device_uuid))
+			.one(db)
+			.await
+			.map_err(ActionError::SeaOrm)?
+			.ok_or_else(|| ActionError::DeviceNotFound(device_uuid))?;
+
+		// Add the location using LocationManager
+		let location_manager = LocationManager::new(context.events.as_ref().clone());
+
+		let location_mode = match self.mode {
+			IndexMode::Shallow => crate::location::IndexMode::Shallow,
+			IndexMode::Content => crate::location::IndexMode::Content,
+			IndexMode::Deep => crate::location::IndexMode::Deep,
+		};
+
+		let (location_id, job_id_string) = location_manager
+			.add_location(
+				library.clone(),
+				self.path.clone(),
+				self.name.clone(),
+				device_record.id,
+				location_mode,
+			)
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?;
+
+		// Parse the job ID from the string returned by add_location
+		let job_id = if !job_id_string.is_empty() {
+			Some(Uuid::parse_str(&job_id_string)
+				.map_err(|e| ActionError::Internal(format!("Failed to parse job ID: {}", e)))?)
 		} else {
-			Err(ActionError::InvalidActionType)
+			None
+		};
+
+		// Return native output directly
+		Ok(LocationAddOutput::new(
+			location_id,
+			self.path,
+			self.name,
+		))
+	}
+
+	fn action_kind(&self) -> &'static str {
+		"location.add"
+	}
+
+	fn library_id(&self) -> Option<Uuid> {
+		Some(self.library_id)
+	}
+
+	async fn validate(&self, _context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+		if !self.path.exists() {
+			return Err(ActionError::Validation {
+				field: "path".to_string(),
+				message: "Path does not exist".to_string(),
+			});
 		}
-	}
-
-	async fn execute(
-		&self,
-		context: Arc<CoreContext>,
-		action: Action,
-	) -> ActionResult<ActionOutput> {
-		if let Action::LocationAdd { library_id, action } = action {
-			let library_manager = &context.library_manager;
-
-			// Get the specific library
-			let library = library_manager
-				.get_library(library_id)
-				.await
-				.ok_or(ActionError::LibraryNotFound(library_id))?;
-
-			// Get the device UUID from the device manager
-			let device_uuid = context
-				.device_manager
-				.device_id()
-				.map_err(ActionError::device_manager_error)?;
-
-			// Get device record from database to get the integer ID
-			let db = library.db().conn();
-			let device_record = entities::device::Entity::find()
-				.filter(entities::device::Column::Uuid.eq(device_uuid))
-				.one(db)
-				.await
-				.map_err(ActionError::SeaOrm)?
-				.ok_or_else(|| ActionError::DeviceNotFound(device_uuid))?;
-
-			// Add the location using LocationManager
-			let location_manager = LocationManager::new(context.events.as_ref().clone());
-
-			let location_mode = match action.mode {
-				IndexMode::Shallow => crate::location::IndexMode::Shallow,
-				IndexMode::Content => crate::location::IndexMode::Content,
-				IndexMode::Deep => crate::location::IndexMode::Deep,
-			};
-
-			// Store the name to use for output since we're moving it
-			let name_for_output = action.name.clone();
-
-			let (location_id, job_id_string) = location_manager
-				.add_location(
-					library.clone(),
-					action.path.clone(),
-					action.name,
-					device_record.id,
-					location_mode,
-				)
-				.await
-				.map_err(|e| ActionError::Internal(e.to_string()))?;
-
-			// Parse the job ID from the string returned by add_location
-			let job_id = if !job_id_string.is_empty() {
-				Uuid::parse_str(&job_id_string)
-					.map_err(|e| ActionError::Internal(format!("Failed to parse job ID: {}", e)))?
-			} else {
-				// If no job was created by add_location, we should handle this case
-				return Err(ActionError::Internal("Location added but indexing failed to start".to_string()));
-			};
-
-			Ok(ActionOutput::LocationAdded {
-				location_id,
-				job_id: Some(job_id),
-			})
-		} else {
-			Err(ActionError::InvalidActionType)
+		if !self.path.is_dir() {
+			return Err(ActionError::Validation {
+				field: "path".to_string(),
+				message: "Path must be a directory".to_string(),
+			});
 		}
-	}
-
-	fn can_handle(&self, action: &Action) -> bool {
-		matches!(action, Action::LocationAdd { .. })
-	}
-
-	fn supported_actions() -> &'static [&'static str] {
-		&["location.add"]
+		Ok(())
 	}
 }
-
-// Register this handler
-register_action_handler!(LocationAddHandler, "location.add");

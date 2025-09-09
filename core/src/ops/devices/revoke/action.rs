@@ -4,8 +4,6 @@ use crate::{
     context::CoreContext,
     infra::action::{
         error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
         Action,
     },
     register_action_handler,
@@ -57,7 +55,7 @@ impl ActionHandler for DeviceRevokeHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionOutput> {
+    ) -> ActionResult<String> {
         if let Action::DeviceRevoke { library_id, action } = action {
             let library_manager = &context.library_manager;
 
@@ -94,7 +92,7 @@ impl ActionHandler for DeviceRevokeHandler {
                 reason: action.reason,
             };
 
-            Ok(ActionOutput::from_trait(output))
+            Ok("Device revoke completed successfully".to_string())
         } else {
             Err(ActionError::InvalidActionType)
         }

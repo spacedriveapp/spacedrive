@@ -4,8 +4,6 @@ use crate::{
     context::CoreContext,
     infra::action::{
         error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
     },
     register_action_handler,
 };
@@ -43,7 +41,7 @@ impl ActionHandler for ContentHandler {
         &self,
         context: Arc<CoreContext>,
         action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
+    ) -> ActionResult<String> {
         // TODO: Re-enable when ContentAnalysis variant is added back
         Err(ActionError::Internal("ContentAnalysis action not yet implemented".to_string()))
     }

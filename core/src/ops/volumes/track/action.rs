@@ -6,14 +6,10 @@
 use super::output::VolumeTrackOutput;
 use crate::{
 	context::CoreContext,
-	cqrs::Command,
 	infra::action::{
-		error::{ActionError, ActionResult},
-		handler::ActionHandler,
-		output::ActionOutput,
-		Action,
+		error::ActionError,
+		ActionTrait,
 	},
-	register_action_handler,
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
@@ -33,149 +29,47 @@ pub struct VolumeTrackAction {
 }
 
 impl VolumeTrackAction {
-	/// Execute the volume tracking action
-	pub async fn execute(&self, core: &crate::Core) -> Result<ActionOutput, ActionError> {
-		// Get the library
-		let library = core
-			.libraries
-			.get_library(self.library_id)
-			.await
-			.ok_or_else(|| ActionError::InvalidInput("Library not found".to_string()))?;
-
-		// Check if volume exists
-		let volume = core
-			.volumes
-			.get_volume(&self.fingerprint)
-			.await
-			.ok_or_else(|| ActionError::InvalidInput("Volume not found".to_string()))?;
-
-		if !volume.is_mounted {
-			return Err(ActionError::InvalidInput(
-				"Cannot track unmounted volume".to_string(),
-			));
-		}
-
-		// Track the volume in the database
-		let tracked = core
-			.volumes
-			.track_volume(&library, &self.fingerprint, self.name.clone())
-			.await
-			.map_err(|e| match e {
-				crate::volume::VolumeError::AlreadyTracked(_) => ActionError::InvalidInput(
-					"Volume is already tracked in this library".to_string(),
-				),
-				crate::volume::VolumeError::NotFound(_) => {
-					ActionError::InvalidInput("Volume not found".to_string())
-				}
-				crate::volume::VolumeError::Database(msg) => {
-					ActionError::Internal(format!("Database error: {}", msg))
-				}
-				_ => ActionError::Internal(e.to_string()),
-			})?;
-
-		Ok(ActionOutput::VolumeTracked {
-			fingerprint: self.fingerprint.clone(),
-			library_id: self.library_id,
-			volume_name: tracked.display_name.unwrap_or(volume.name),
-		})
-	}
-}
-
-pub struct VolumeTrackHandler;
-
-impl VolumeTrackHandler {
-	pub fn new() -> Self {
-		Self
-	}
-}
-
-#[async_trait::async_trait]
-impl ActionHandler for VolumeTrackHandler {
-	async fn execute(
-		&self,
-		context: std::sync::Arc<CoreContext>,
-		action: Action,
-	) -> ActionResult<ActionOutput> {
-		match action {
-			Action::VolumeTrack { action } => {
-				// Execute the same logic as the action above using context components
-				let library = context
-					.library_manager
-					.get_library(action.library_id)
-					.await
-					.ok_or_else(|| ActionError::InvalidInput("Library not found".to_string()))?;
-
-				let volume = context
-					.volume_manager
-					.get_volume(&action.fingerprint)
-					.await
-					.ok_or_else(|| ActionError::InvalidInput("Volume not found".to_string()))?;
-
-				if !volume.is_mounted {
-					return Err(ActionError::InvalidInput(
-						"Cannot track unmounted volume".to_string(),
-					));
-				}
-
-				let tracked = context
-					.volume_manager
-					.track_volume(&library, &action.fingerprint, action.name.clone())
-					.await
-					.map_err(|e| match e {
-						crate::volume::VolumeError::AlreadyTracked(_) => ActionError::InvalidInput(
-							"Volume is already tracked in this library".to_string(),
-						),
-						crate::volume::VolumeError::NotFound(_) => {
-							ActionError::InvalidInput("Volume not found".to_string())
-						}
-						crate::volume::VolumeError::Database(msg) => {
-							ActionError::Internal(format!("Database error: {}", msg))
-						}
-						_ => ActionError::Internal(e.to_string()),
-					})?;
-
-				Ok(ActionOutput::VolumeTracked {
-					fingerprint: action.fingerprint,
-					library_id: action.library_id,
-					volume_name: tracked.display_name.unwrap_or(volume.name),
-				})
-			}
-			_ => Err(ActionError::InvalidActionType),
+	/// Create a new volume track action
+	pub fn new(fingerprint: VolumeFingerprint, library_id: Uuid, name: Option<String>) -> Self {
+		Self {
+			fingerprint,
+			library_id,
+			name,
 		}
 	}
 
-	fn can_handle(&self, action: &Action) -> bool {
-		matches!(action, Action::VolumeTrack { .. })
+	/// Create a volume track action with a name
+	pub fn with_name(fingerprint: VolumeFingerprint, library_id: Uuid, name: String) -> Self {
+		Self::new(fingerprint, library_id, Some(name))
 	}
 
-	fn supported_actions() -> &'static [&'static str] {
-		&["volume.track"]
+	/// Create a volume track action without a name
+	pub fn without_name(fingerprint: VolumeFingerprint, library_id: Uuid) -> Self {
+		Self::new(fingerprint, library_id, None)
 	}
 }
 
-register_action_handler!(VolumeTrackHandler, "volume.track");
-
-// Implement the modular Command trait for VolumeTrackAction
-impl Command for VolumeTrackAction {
+// Implement the new modular ActionType trait
+impl ActionTrait for VolumeTrackAction {
 	type Output = VolumeTrackOutput;
 
-	async fn execute(self, context: std::sync::Arc<CoreContext>) -> anyhow::Result<Self::Output> {
+	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
 		// Get the library
 		let library = context
 			.library_manager
 			.get_library(self.library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| ActionError::LibraryNotFound(self.library_id))?;
 
 		// Check if volume exists
 		let volume = context
 			.volume_manager
 			.get_volume(&self.fingerprint)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Volume not found"))?;
+			.ok_or_else(|| ActionError::InvalidInput("Volume not found".to_string()))?;
 
 		if !volume.is_mounted {
-			return Err(anyhow::anyhow!("Cannot track unmounted volume"));
+			return Err(ActionError::InvalidInput("Cannot track unmounted volume".to_string()));
 		}
 
 		// Track the volume in the database
@@ -183,24 +77,62 @@ impl Command for VolumeTrackAction {
 			.volume_manager
 			.track_volume(&library, &self.fingerprint, self.name.clone())
 			.await
-			.map_err(|e| match e {
-				crate::volume::VolumeError::AlreadyTracked(_) => {
-					anyhow::anyhow!("Volume is already tracked in this library")
-				}
-				crate::volume::VolumeError::NotFound(_) => {
-					anyhow::anyhow!("Volume not found")
-				}
-				crate::volume::VolumeError::Database(msg) => {
-					anyhow::anyhow!("Database error: {}", msg)
-				}
-				_ => anyhow::anyhow!("Volume tracking error: {}", e),
-			})?;
+			.map_err(|e| ActionError::InvalidInput(format!("Volume tracking failed: {}", e)))?;
 
-		// Return native output directly - no ActionOutput conversion!
+		// Return native output directly
 		Ok(VolumeTrackOutput::new(
 			self.fingerprint,
 			self.library_id,
 			tracked.display_name.unwrap_or(volume.name),
 		))
 	}
+
+	fn action_kind(&self) -> &'static str {
+		"volume.track"
+	}
+
+	fn library_id(&self) -> Option<Uuid> {
+		Some(self.library_id)
+	}
+
+	async fn validate(&self, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+		// Validate library exists
+		let _library = context
+			.library_manager
+			.get_library(self.library_id)
+			.await
+			.ok_or_else(|| ActionError::LibraryNotFound(self.library_id))?;
+
+		// Validate volume exists
+		let volume = context
+			.volume_manager
+			.get_volume(&self.fingerprint)
+			.await
+			.ok_or_else(|| ActionError::Validation {
+				field: "fingerprint".to_string(),
+				message: "Volume not found".to_string(),
+			})?;
+
+		// Validate volume is mounted
+		if !volume.is_mounted {
+			return Err(ActionError::Validation {
+				field: "fingerprint".to_string(),
+				message: "Cannot track unmounted volume".to_string(),
+			});
+		}
+
+		// Validate name if provided
+		if let Some(name) = &self.name {
+			if name.trim().is_empty() {
+				return Err(ActionError::Validation {
+					field: "name".to_string(),
+					message: "Volume name cannot be empty".to_string(),
+				});
+			}
+		}
+
+		Ok(())
+	}
 }
+
+

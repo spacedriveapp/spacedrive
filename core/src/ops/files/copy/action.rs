@@ -11,13 +11,11 @@ use crate::{
 		action::{
 			builder::{ActionBuildError, ActionBuilder},
 			error::{ActionError, ActionResult},
-			handler::ActionHandler,
-			output::ActionOutput,
-			Action,
+			ActionTrait,
 		},
 		cli::adapters::FileCopyCliArgs,
+		job::handle::JobHandle,
 	},
-	register_action_handler,
 	domain::addressing::{SdPath, SdPathBatch},
 };
 use async_trait::async_trait;
@@ -28,6 +26,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyAction {
+	pub library_id: Uuid,
 	pub sources: Vec<SdPath>,
 	pub destination: SdPath,
 	pub options: CopyOptions,
@@ -78,6 +77,12 @@ impl FileCopyActionBuilder {
 	/// Set the destination path
 	pub fn destination<P: Into<PathBuf>>(mut self, dest: P) -> Self {
 		self.input.destination = dest.into();
+		self
+	}
+
+	/// Set the library ID for this operation
+	pub fn library_id(mut self, library_id: uuid::Uuid) -> Self {
+		self.input.library_id = Some(library_id);
 		self
 	}
 
@@ -169,6 +174,7 @@ impl ActionBuilder for FileCopyActionBuilder {
 		let destination = SdPath::local(&self.input.destination);
 
 		Ok(FileCopyAction {
+			library_id: self.input.library_id.ok_or_else(|| ActionBuildError::validation("library_id is required".to_string()))?,
 			sources,
 			destination,
 			options,
@@ -251,86 +257,52 @@ impl FileCopyHandler {
 	}
 }
 
-#[async_trait]
-impl ActionHandler for FileCopyHandler {
-	async fn validate(&self, _context: Arc<CoreContext>, action: &Action) -> ActionResult<()> {
-		if let Action::FileCopy {
-			library_id: _,
-			action,
-		} = action
-		{
-			if action.sources.is_empty() {
-				return Err(ActionError::Validation {
-					field: "sources".to_string(),
-					message: "At least one source file must be specified".to_string(),
-				});
-			}
+// Implement the unified ActionTrait (replaces ActionHandler)
+impl ActionTrait for FileCopyAction {
+	type Output = JobHandle;
 
-			// Additional validation could include:
-			// - Check if source files exist
-			// - Check permissions
-			// - Check if destination is valid
-			// - Check if it would be a cross-device operation
+	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+		// Get the specific library
+		let library = context
+			.library_manager
+			.get_library(self.library_id)
+			.await
+			.ok_or(ActionError::LibraryNotFound(self.library_id))?;
 
-			Ok(())
-		} else {
-			Err(ActionError::InvalidActionType)
+		// Create job instance directly
+		let job = FileCopyJob::new(SdPathBatch::new(self.sources), self.destination)
+			.with_options(self.options);
+
+		// Dispatch job and return handle directly - no string conversion!
+		let job_handle = library
+			.jobs()
+			.dispatch(job)
+			.await
+			.map_err(ActionError::Job)?;
+
+		Ok(job_handle)
+	}
+
+	fn action_kind(&self) -> &'static str {
+		"file.copy"
+	}
+
+	fn library_id(&self) -> Option<Uuid> {
+		Some(self.library_id)
+	}
+
+	async fn validate(&self, _context: Arc<CoreContext>) -> Result<(), ActionError> {
+		if self.sources.is_empty() {
+			return Err(ActionError::Validation {
+				field: "sources".to_string(),
+				message: "At least one source file must be specified".to_string(),
+			});
 		}
-	}
-
-	async fn execute(
-		&self,
-		context: Arc<CoreContext>,
-		action: Action,
-	) -> ActionResult<ActionOutput> {
-		if let Action::FileCopy { library_id, action } = action {
-			let library_manager = &context.library_manager;
-
-			// Get the specific library
-			let library = library_manager
-				.get_library(library_id)
-				.await
-				.ok_or(ActionError::LibraryNotFound(library_id))?;
-
-			// Create job instance directly (no JSON roundtrip)
-			let sources_count = action.sources.len();
-			let destination_display = action.destination.display().to_string();
-			let sources = action.sources;
-
-			let job =
-				FileCopyJob::new(SdPathBatch::new(sources), action.destination)
-					.with_options(action.options);
-
-			// Dispatch job directly
-			let job_handle = library
-				.jobs()
-				.dispatch(job)
-				.await
-				.map_err(ActionError::Job)?;
-
-			// Return domain-specific output
-			let output = FileCopyActionOutput::new(
-				job_handle.id().into(),
-				sources_count,
-				destination_display,
-			);
-			Ok(ActionOutput::from_trait(output))
-		} else {
-			Err(ActionError::InvalidActionType)
-		}
-	}
-
-	fn can_handle(&self, action: &Action) -> bool {
-		matches!(action, Action::FileCopy { .. })
-	}
-
-	fn supported_actions() -> &'static [&'static str] {
-		&["file.copy"]
+		Ok(())
 	}
 }
 
-// Register this handler
-register_action_handler!(FileCopyHandler, "file.copy");
+// ActionHandler removed - using unified ActionTrait instead
 
 #[cfg(test)]
 mod tests {

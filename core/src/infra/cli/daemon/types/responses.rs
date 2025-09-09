@@ -8,7 +8,7 @@ use super::common::{
 	BrowseEntry, ConnectedDeviceInfo, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo,
 	VolumeListItem,
 };
-use crate::{infra::action::output::ActionOutput, volume::Volume};
+use crate::volume::Volume;
 
 /// Responses from the daemon
 #[derive(Debug, Serialize, Deserialize)]
@@ -70,7 +70,7 @@ pub enum DaemonResponse {
 	Volume(Volume),
 
 	// Action output (generic for all action results)
-	ActionOutput(ActionOutput),
+    ActionOutput(String), // ActionOutput enum removed - using simple success message
 }
 
 #[derive(Debug, Serialize, Deserialize)]

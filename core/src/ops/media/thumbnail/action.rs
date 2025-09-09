@@ -4,8 +4,6 @@ use crate::{
     context::CoreContext,
     infra::action::{
         error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
     },
     register_action_handler,
 };
@@ -53,7 +51,7 @@ impl ActionHandler for ThumbnailHandler {
         &self,
         context: Arc<CoreContext>,
         action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
+    ) -> ActionResult<String> {
         if let crate::infra::action::Action::GenerateThumbnails { library_id, action } = action {
             let library_manager = &context.library_manager;
 
@@ -79,7 +77,7 @@ impl ActionHandler for ThumbnailHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::success("Thumbnail generation job dispatched successfully"))
+            Ok("Thumbnail generation job dispatched successfully".to_string())
         } else {
             Err(ActionError::InvalidActionType)
         }

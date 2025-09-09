@@ -29,7 +29,7 @@ pub mod networking {
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
-use crate::cqrs::{execute_command, Command, Query};
+use crate::cqrs::{Query, QueryManager};
 use crate::device::DeviceManager;
 use crate::infra::action::manager::ActionManager;
 use crate::infra::event::{Event, EventBus};
@@ -481,21 +481,23 @@ impl Core {
 		self.services.location_watcher.get_watched_locations().await
 	}
 
-	/// Execute a command using the modular CQRS API.
+	/// Execute an action using the unified CQRS API.
 	///
-	/// This method provides a unified, type-safe entry point for all write operations.
-	/// Commands return their native output types directly, eliminating centralized
-	/// enum dependencies and JSON serialization overhead.
-	pub async fn execute_command<C: Command>(&self, command: C) -> anyhow::Result<C::Output> {
-		execute_command(command, self.context.clone()).await
+	/// This method provides a unified, type-safe entry point for all operations.
+	/// Actions return their natural output types - domain objects, job handles, etc.
+	pub async fn execute_action<A: crate::infra::action::ActionTrait>(&self, action: A) -> anyhow::Result<A::Output> {
+		let action_manager = ActionManager::new(self.context.clone());
+		action_manager.dispatch(action).await
+			.map_err(|e| anyhow::anyhow!("Action execution failed: {}", e))
 	}
 
-	/// Execute a query using the modular CQRS API.
+	/// Execute a query using the CQRS API.
 	///
 	/// This method provides a unified, type-safe entry point for all read operations.
-	/// Queries return their native output types directly with no centralized dependencies.
+	/// It uses the QueryManager for consistent infrastructure (validation, logging, etc.).
 	pub async fn execute_query<Q: Query>(&self, query: Q) -> anyhow::Result<Q::Output> {
-		query.execute(self.context.clone()).await
+		let query_manager = QueryManager::new(self.context.clone());
+		query_manager.dispatch(query).await
 	}
 
 	/// Shutdown the core gracefully

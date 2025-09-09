@@ -4,8 +4,6 @@ use crate::{
     context::CoreContext,
     infra::action::{
         error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
     },
     register_action_handler,
 };
@@ -52,7 +50,7 @@ impl ActionHandler for MetadataHandler {
         &self,
         context: Arc<CoreContext>,
         action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
+    ) -> ActionResult<String> {
         if let crate::infra::action::Action::MetadataOperation { library_id, action } = action {
             let library_manager = &context.library_manager;
 
@@ -71,7 +69,7 @@ impl ActionHandler for MetadataHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::success("Metadata extraction job dispatched successfully"))
+            Ok("Metadata extraction job dispatched successfully".to_string())
         } else {
             Err(ActionError::InvalidActionType)
         }

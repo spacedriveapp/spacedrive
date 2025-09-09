@@ -2,8 +2,10 @@
 //!
 //! This action tests the read/write performance of a volume.
 
+use super::output::VolumeSpeedTestOutput;
 use crate::{
-	infra::action::{error::ActionError, output::ActionOutput},
+	context::CoreContext,
+	infra::action::{error::ActionError, ActionTrait},
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
@@ -16,42 +18,65 @@ pub struct VolumeSpeedTestAction {
 }
 
 impl VolumeSpeedTestAction {
-	/// Execute the volume speed test action
-	pub async fn execute(&self, core: &crate::Core) -> Result<ActionOutput, ActionError> {
+	/// Create a new volume speed test action
+	pub fn new(fingerprint: VolumeFingerprint) -> Self {
+		Self { fingerprint }
+	}
+}
+
+// Implement the new modular ActionType trait
+impl ActionTrait for VolumeSpeedTestAction {
+	type Output = VolumeSpeedTestOutput;
+
+	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
 		// Run the speed test through the volume manager
-		core.volumes
+		context.volume_manager
 			.run_speed_test(&self.fingerprint)
 			.await
-			.map_err(|e| ActionError::Internal(e.to_string()))?;
+			.map_err(|e| ActionError::InvalidInput(format!("Speed test failed: {}", e)))?;
 
 		// Get the updated volume with speed test results
-		let volume = core
-			.volumes
+		let volume = context
+			.volume_manager
 			.get_volume(&self.fingerprint)
 			.await
-			.ok_or_else(|| {
-				ActionError::InvalidInput("Volume not found after speed test".to_string())
-			})?;
+			.ok_or_else(|| ActionError::InvalidInput("Volume not found after speed test".to_string()))?;
 
 		// Extract speeds (default to 0 if missing)
 		let read_speed = volume.read_speed_mbps.unwrap_or(0);
 		let write_speed = volume.write_speed_mbps.unwrap_or(0);
 
-		// Persist results to all open libraries where this volume is tracked
-		let libraries = core.libraries.get_open_libraries().await;
-		if let Err(e) = core
-			.volumes
-			.save_speed_test_results(&self.fingerprint, read_speed, write_speed, &libraries)
+		// Return native output directly
+		Ok(VolumeSpeedTestOutput::new(
+			self.fingerprint,
+			Some(read_speed as u32),
+			Some(write_speed as u32),
+		))
+	}
+
+	fn action_kind(&self) -> &'static str {
+		"volume.speed_test"
+	}
+
+	async fn validate(&self, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+		// Validate volume exists
+		let volume = context
+			.volume_manager
+			.get_volume(&self.fingerprint)
 			.await
-		{
-			// Log error but don't fail the action since the speed test itself succeeded
-			tracing::warn!("Failed to save speed test results to database: {}", e);
+			.ok_or_else(|| ActionError::Validation {
+				field: "fingerprint".to_string(),
+				message: "Volume not found".to_string(),
+			})?;
+
+		// Validate volume is mounted (can't test unmounted volumes)
+		if !volume.is_mounted {
+			return Err(ActionError::Validation {
+				field: "fingerprint".to_string(),
+				message: "Cannot test speed of unmounted volume".to_string(),
+			});
 		}
 
-		Ok(ActionOutput::VolumeSpeedTested {
-			fingerprint: self.fingerprint.clone(),
-			read_speed_mbps: Some(read_speed as u32),
-			write_speed_mbps: Some(write_speed as u32),
-		})
+		Ok(())
 	}
 }

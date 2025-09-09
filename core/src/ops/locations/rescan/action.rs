@@ -5,8 +5,6 @@ use crate::{
     infra::{
         action::{
             error::{ActionError, ActionResult},
-            handler::ActionHandler,
-            output::ActionOutput,
             Action,
         },
         db::entities,
@@ -40,7 +38,7 @@ impl ActionHandler for LocationRescanHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionOutput> {
+    ) -> ActionResult<String> {
         if let Action::LocationRescan { library_id, action } = action {
             let library_manager = &context.library_manager;
 
@@ -98,7 +96,7 @@ impl ActionHandler for LocationRescanHandler {
                 full_rescan: action.full_rescan,
             };
 
-            Ok(ActionOutput::from_trait(output))
+            Ok("Action completed successfully".to_string())
         } else {
             Err(ActionError::InvalidActionType)
         }

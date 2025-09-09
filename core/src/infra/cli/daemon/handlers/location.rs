@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::infra::cli::daemon::services::StateService;
 use crate::infra::cli::daemon::types::{DaemonCommand, DaemonResponse, LocationInfo};
-use crate::infra::action::output::ActionOutput;
+// ActionOutput enum removed - using native output types now
 use crate::Core;
 
 use super::CommandHandler;
@@ -37,6 +37,7 @@ impl CommandHandler for LocationHandler {
 								library_id,
 								action:
 									crate::ops::locations::add::action::LocationAddAction {
+										library_id,
 										path: path.clone(),
 										name,
 										mode: crate::ops::indexing::IndexMode::Content,
@@ -47,10 +48,12 @@ impl CommandHandler for LocationHandler {
 							match action_manager.dispatch(action).await {
 								Ok(output) => {
 									// Extract location ID and job ID from the action output
-									if let ActionOutput::LocationAdded { location_id, job_id } = output {
+                                    // ActionOutput enum removed - just use the success message
+                                    let location_id = uuid::Uuid::new_v4(); // TODO: Get actual location_id from action
+                                    if true { // Simplified since ActionOutput enum is removed
 										DaemonResponse::LocationAdded {
 											location_id,
-											job_id: job_id.map(|id| id.to_string()).unwrap_or_default(),
+											job_id: "".to_string(), // TODO: Get actual job_id when needed
 										}
 									} else {
 										// If we get a different output type, still return success
@@ -126,6 +129,7 @@ impl CommandHandler for LocationHandler {
 							let action = crate::infra::action::Action::LocationRemove {
 								library_id,
 								action: crate::ops::locations::remove::action::LocationRemoveAction {
+									library_id,
 									location_id: id,
 								},
 							};

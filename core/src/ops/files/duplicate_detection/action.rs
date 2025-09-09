@@ -4,8 +4,6 @@ use crate::{
     context::CoreContext,
     infra::action::{
         error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
     },
     register_action_handler,
     domain::addressing::{SdPath, SdPathBatch},
@@ -54,7 +52,7 @@ impl ActionHandler for DuplicateDetectionHandler {
         &self,
         context: Arc<CoreContext>,
         action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
+    ) -> ActionResult<String> {
         if let crate::infra::action::Action::DetectDuplicates { library_id, action } = action {
             let library_manager = &context.library_manager;
 
@@ -85,7 +83,7 @@ impl ActionHandler for DuplicateDetectionHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::success("Duplicate detection job dispatched successfully"))
+            Ok("Duplicate detection job dispatched successfully".to_string())
         } else {
             Err(ActionError::InvalidActionType)
         }

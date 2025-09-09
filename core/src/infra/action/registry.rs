@@ -1,6 +1,5 @@
 //! Action registry for automatic handler discovery
 
-use super::{handler::ActionHandler, error::{ActionError, ActionResult}};
 use inventory;
 use once_cell::sync::Lazy;
 use std::{collections::HashMap, sync::Arc};
