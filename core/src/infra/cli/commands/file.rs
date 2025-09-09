@@ -83,7 +83,7 @@ pub enum IndexCommands {
 
 	/// Index a specific location
 	Location {
-		/// Location ID or name
+		/// Location ID (UUID) or name (TODO: resolve name client-side to UUID)
 		location: String,
 		/// Force re-indexing
 		#[arg(short, long)]
@@ -126,52 +126,10 @@ async fn handle_copy_command(
 
 	output.info(&input.summary())?;
 
-	// Send copy command to daemon
-	match client
-		.send_command(DaemonCommand::Copy {
-			sources: input
-				.sources
-				.iter()
-				.map(|p| p.display().to_string())
-				.collect(),
-			destination: input.destination.display().to_string(),
-			overwrite: input.overwrite,
-			verify: input.verify_checksum,
-			preserve_timestamps: input.preserve_timestamps,
-			move_files: input.move_files,
-		})
-		.await
-	{
-		Ok(DaemonResponse::CopyStarted {
-			job_id,
-			sources_count,
-		}) => {
-			output.success("Copy operation started successfully!")?;
-
-			let mut section = output
-				.section()
-				.item("Job ID", &job_id.to_string())
-				.item("Sources", &format!("{} file(s)", sources_count))
-				.item("Destination", &input.destination.display().to_string());
-
-			if input.overwrite {
-				section = section.item("Mode", "Overwrite existing files");
-			}
-			if input.verify_checksum {
-				section = section.item("Verification", "Enabled");
-			}
-			if input.move_files {
-				section = section.item("Type", "Move (delete source after copy)");
-			}
-
-			section
-				.empty_line()
-				.help()
-				.item("Monitor progress with: spacedrive job monitor")
-				.render()?;
-		}
+	// Send copy command to daemon (typed input)
+	match client.send_command(DaemonCommand::Copy(input)).await {
 		Ok(DaemonResponse::Ok) => {
-			output.success("Copy operation completed successfully!")?;
+			output.success("Copy operation started successfully!")?;
 		}
 		Ok(DaemonResponse::Error(e)) => {
 			output.error(Message::Error(format!("Failed to copy files: {}", e)))?;
@@ -204,61 +162,34 @@ async fn handle_index_command(
 			content,
 		} => {
 			output.info(&format!("Browsing {}...", path.display()))?;
-			if content {
-				output.info("Content analysis enabled")?;
-			}
+			if content { output.info("Content analysis enabled")?; }
 
-			let scope_str = match scope {
-				CliIndexScope::Full => "full",
-				CliIndexScope::Shallow => "shallow",
-				CliIndexScope::Limited => "limited",
+			let scope_core = match scope {
+				CliIndexScope::Full => crate::ops::indexing::IndexScope::Recursive,
+				CliIndexScope::Shallow => crate::ops::indexing::IndexScope::Current,
+				CliIndexScope::Limited => crate::ops::indexing::IndexScope::Current,
 			};
 
-			match client
-				.send_command(DaemonCommand::Browse {
-					path: path.clone(),
-					scope: scope_str.to_string(),
-					content,
-				})
-				.await
-			{
-				Ok(DaemonResponse::BrowseResults {
-					path: _,
-					entries,
-					total_files,
-					total_dirs,
-				}) => {
-					output.success(&format!(
-						"Found {} files and {} directories",
-						total_files, total_dirs
-					))?;
+			let mut input = crate::ops::indexing::IndexInput::single(
+				uuid::Uuid::nil(), // library_id is validated/overwritten in daemon state
+				path.clone(),
+			)
+			.with_scope(scope_core)
+			.with_mode(if content { crate::ops::indexing::IndexMode::Content } else { crate::ops::indexing::IndexMode::Shallow })
+			.with_persistence(crate::ops::indexing::IndexPersistence::Ephemeral);
 
-					// Display entries
-					for entry in entries {
-						if entry.is_dir {
-							output.info(&format!("📁 {}/", entry.name))?;
-						} else {
-							let size = entry
-								.size
-								.map(|s| format!(" ({} bytes)", s))
-								.unwrap_or_default();
-							output.info(&format!("📄 {}{}", entry.name, size))?;
-						}
-					}
+			match client.send_command(DaemonCommand::Index(input)).await {
+				Ok(DaemonResponse::Ok) => {
+					output.success("Indexing started successfully")?;
 				}
 				Ok(DaemonResponse::Error(e)) => {
-					output.error(Message::Error(format!("Browse failed: {}", e)))?;
+					output.error(Message::Error(format!("Indexing failed: {}", e)))?;
 				}
 				Err(e) => {
-					output.error(Message::Error(format!(
-						"Failed to communicate with daemon: {}",
-						e
-					)))?;
+					output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
 				}
 				_ => {
-					output.error(Message::Error(
-						"Unexpected response from daemon".to_string(),
-					))?;
+					output.error(Message::Error("Unexpected response from daemon".to_string()))?;
 				}
 			}
 		}
@@ -295,32 +226,32 @@ async fn handle_index_command(
 		} => {
 			output.info(&format!("Indexing location {}...", location))?;
 
-			match client
-				.send_command(DaemonCommand::IndexLocation {
-					location: location.clone(),
-					force,
-				})
-				.await
-			{
+			// Build typed action (UUID parsing stays here for now)
+			let action = match uuid::Uuid::parse_str(&location) {
+				Ok(location_id) => crate::ops::locations::rescan::action::LocationRescanAction {
+					library_id: uuid::Uuid::nil(), // daemon injects current library
+					location_id,
+					full_rescan: force,
+				},
+				Err(_) => {
+					output.error(Message::Error("Invalid location ID; only UUID supported for now".to_string()))?;
+					return Ok(());
+				}
+			};
+
+			match client.send_command(DaemonCommand::LocationRescan(action)).await {
 				Ok(DaemonResponse::Ok) => {
 					output.success("Location indexing started successfully")?;
-					if watch {
-						output.info("Use 'spacedrive job monitor' to track progress")?;
-					}
+					if watch { output.info("Use 'spacedrive job monitor' to track progress")?; }
 				}
 				Ok(DaemonResponse::Error(e)) => {
 					output.error(Message::Error(format!("Location indexing failed: {}", e)))?;
 				}
 				Err(e) => {
-					output.error(Message::Error(format!(
-						"Failed to communicate with daemon: {}",
-						e
-					)))?;
+					output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
 				}
 				_ => {
-					output.error(Message::Error(
-						"Unexpected response from daemon".to_string(),
-					))?;
+					output.error(Message::Error("Unexpected response from daemon".to_string()))?;
 				}
 			}
 		}

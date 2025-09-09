@@ -3,10 +3,13 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
+use crate::ops::indexing::IndexInput;
 use crate::infra::cli::commands::{
     LibraryCommands, LocationCommands, JobCommands, FileCommands,
     NetworkCommands, SystemCommands, VolumeCommands
 };
+use crate::ops::files::copy::input::FileCopyInput;
+use crate::ops::locations::rescan::action::LocationRescanAction;
 
 /// Commands that can be sent to the daemon
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,6 +18,9 @@ pub enum DaemonCommand {
 	Ping,
 	Shutdown,
 	GetStatus,
+
+	// Generic indexing via typed input
+	Index(IndexInput),
 
 	// Library commands
 	CreateLibrary {
@@ -39,6 +45,8 @@ pub enum DaemonCommand {
 	RemoveLocation {
 		id: Uuid,
 	},
+	// New typed variant (preferred)
+	LocationRescan(LocationRescanAction),
 
 	// Job commands
 	ListJobs {
@@ -58,21 +66,9 @@ pub enum DaemonCommand {
 	},
 
 	// File operations
-	Copy {
-		sources: Vec<String>, // Now supports URIs like "sd://content/uuid"
-		destination: String, // Now supports URIs like "sd://device_id/path"
-		overwrite: bool,
-		verify: bool,
-		preserve_timestamps: bool,
-		move_files: bool,
-	},
+	Copy(FileCopyInput),
 
 	// Indexing operations
-	Browse {
-		path: PathBuf,
-		scope: String,
-		content: bool,
-	},
 	IndexAll {
 		force: bool,
 	},

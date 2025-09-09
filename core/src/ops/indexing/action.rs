@@ -84,7 +84,7 @@ impl LibraryAction for IndexingAction {
         // Library existence already validated by ActionManager - no boilerplate!
 
         // Validate paths
-        if self.paths.is_empty() {
+        if self.input.paths.is_empty() {
             return Err(ActionError::Validation {
                 field: "paths".to_string(),
                 message: "At least one path must be specified".to_string(),

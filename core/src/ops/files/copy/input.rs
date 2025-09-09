@@ -23,7 +23,7 @@ impl Default for CopyMethod {
 
 /// Core input structure for file copy operations
 /// This is the canonical interface that all external APIs (CLI, GraphQL, REST) convert to
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileCopyInput {
     /// The library ID where this operation takes place
     pub library_id: Option<uuid::Uuid>,

@@ -24,51 +24,36 @@ impl CommandHandler for FileHandler {
 		state_service: &Arc<StateService>,
 	) -> DaemonResponse {
 		match cmd {
-			DaemonCommand::Copy {
-				sources,
-				destination,
-				overwrite,
-				verify,
-				preserve_timestamps,
-				move_files,
-			} => {
+			DaemonCommand::Index(mut input) => {
+				// Execute typed indexing directly
+				if let Some(library) = state_service.get_current_library(core).await {
+					// Inject current library id
+					input.library_id = library.id();
+					let action = crate::ops::indexing::IndexingAction::new(input);
+					match core.execute_library_action(action).await {
+						Ok(_handle) => DaemonResponse::Ok,
+						Err(e) => DaemonResponse::Error(format!("Indexing failed: {}", e)),
+					}
+				} else {
+					DaemonResponse::Error(
+						"No library available. Create or open a library first.".to_string(),
+					)
+				}
+			}
+			DaemonCommand::Copy(mut input) => {
 				// Get current library from CLI state
 				if let Some(library) = state_service.get_current_library(core).await {
-					let library_id = library.id();
+					// Inject current library id
+					input.library_id = Some(library.id());
 
-					// Create copy options from parameters
-					let options = crate::ops::files::copy::CopyOptions {
-						overwrite,
-						verify_checksum: verify,
-						preserve_timestamps,
-						delete_after_copy: move_files,
-						move_mode: if move_files {
-							Some(crate::ops::files::copy::MoveMode::Move)
-						} else {
-							None
-						},
-						copy_method: crate::ops::files::copy::input::CopyMethod::Auto,
+					// Build action from typed input
+					let builder = crate::ops::files::copy::action::FileCopyActionBuilder::from_input(input);
+					let action = match builder.build() {
+						Ok(a) => a,
+						Err(e) => return DaemonResponse::Error(format!("Failed to create copy action: {}", e)),
 					};
 
-					// Create action directly from URIs
-					let action = match crate::ops::files::copy::action::FileCopyActionBuilder::from_uris(
-						sources,
-						destination,
-						options,
-					) {
-						Ok(action) => action,
-						Err(e) => {
-							return DaemonResponse::Error(format!(
-								"Failed to create copy action: {}",
-								e
-							));
-						}
-					};
-
-					// Assign library_id to action, then execute via Core
-					let mut action_with_lib = action;
-					action_with_lib.library_id = library_id;
-					match core.execute_library_action(action_with_lib).await {
+					match core.execute_library_action(action).await {
 						Ok(_job) => DaemonResponse::Ok,
 						Err(e) => DaemonResponse::Error(format!("Failed to start copy operation: {}", e)),
 					}
@@ -78,90 +63,20 @@ impl CommandHandler for FileHandler {
 					)
 				}
 			}
-
-			// Indexing operations
-			DaemonCommand::Browse {
-				path,
-				scope,
-				content,
-			} => {
-				// Browse is a read-only operation that doesn't persist anything
-				// For now, we'll do a simple directory listing
-				match std::fs::read_dir(&path) {
-					Ok(entries) => {
-						let mut browse_entries = Vec::new();
-						let mut total_files = 0;
-						let mut total_dirs = 0;
-
-						for entry in entries.flatten() {
-							let metadata = entry.metadata().ok();
-							let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
-
-							if is_dir {
-								total_dirs += 1;
-							} else {
-								total_files += 1;
-							}
-
-							let file_name = entry.file_name().to_string_lossy().to_string();
-							let file_path = entry.path();
-
-							let size = if !is_dir {
-								metadata.as_ref().map(|m| m.len())
-							} else {
-								None
-							};
-
-							let modified =
-								metadata
-									.as_ref()
-									.and_then(|m| m.modified().ok())
-									.map(|time| {
-										// Convert to human-readable format
-										chrono::DateTime::<chrono::Utc>::from(time)
-											.format("%Y-%m-%d %H:%M:%S")
-											.to_string()
-									});
-
-							let file_type = if is_dir {
-								Some("directory".to_string())
-							} else {
-								// Simple file type detection based on extension
-								file_path
-									.extension()
-									.and_then(|ext| ext.to_str())
-									.map(|ext| ext.to_lowercase())
-							};
-
-							browse_entries.push(
-								crate::infra::cli::daemon::types::common::BrowseEntry {
-									name: file_name,
-									path: file_path,
-									is_dir,
-									size,
-									modified,
-									file_type,
-								},
-							);
-						}
-
-						// Sort entries: directories first, then files, alphabetically
-						browse_entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
-							(true, false) => std::cmp::Ordering::Less,
-							(false, true) => std::cmp::Ordering::Greater,
-							_ => a.name.cmp(&b.name),
-						});
-
-						DaemonResponse::BrowseResults {
-							path,
-							entries: browse_entries,
-							total_files,
-							total_dirs,
-						}
+			DaemonCommand::LocationRescan(mut action) => {
+				if let Some(library) = state_service.get_current_library(core).await {
+					// Inject current library id
+					action.library_id = library.id();
+					match core.execute_library_action(action).await {
+						Ok(_out) => DaemonResponse::Ok,
+						Err(e) => DaemonResponse::Error(format!("Location rescan failed: {}", e)),
 					}
-					Err(e) => DaemonResponse::Error(format!("Failed to browse path: {}", e)),
+				} else {
+					DaemonResponse::Error("No library available. Create or open a library first.".to_string())
 				}
 			}
+
+			// Indexing operations (legacy Browse removed in favor of typed Index)
 
 			DaemonCommand::IndexAll { force } => {
 				// Get current library from CLI state
@@ -291,6 +206,7 @@ impl CommandHandler for FileHandler {
 				| DaemonCommand::Browse { .. }
 				| DaemonCommand::IndexAll { .. }
 				| DaemonCommand::IndexLocation { .. }
+				| DaemonCommand::LocationRescan { .. }
 		)
 	}
 }
