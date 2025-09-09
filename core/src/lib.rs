@@ -18,6 +18,7 @@ pub mod ops;
 pub mod service;
 pub mod testing;
 pub mod volume;
+pub mod client;
 
 use service::network::protocol::pairing::PairingProtocolHandler;
 use service::network::utils::logging::NetworkLogger;

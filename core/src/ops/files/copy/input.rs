@@ -50,6 +50,10 @@ pub struct FileCopyInput {
     pub copy_method: CopyMethod,
 }
 
+impl crate::client::Wire for FileCopyInput {
+	const TYPE_ID: &'static str = crate::infra::daemon::types::type_ids::FILE_COPY_INPUT;
+}
+
 impl FileCopyInput {
     /// Create a new FileCopyInput with default options
     pub fn new<D: Into<PathBuf>>(library_id: uuid::Uuid, sources: Vec<PathBuf>, destination: D) -> Self {

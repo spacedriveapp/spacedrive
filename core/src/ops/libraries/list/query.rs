@@ -63,3 +63,7 @@ impl Query for ListLibrariesQuery {
 		Ok(result)
 	}
 }
+
+impl crate::client::Wire for ListLibrariesQuery {
+	const TYPE_ID: &'static str = crate::infra::daemon::types::type_ids::LIST_LIBRARIES_QUERY;
+}
