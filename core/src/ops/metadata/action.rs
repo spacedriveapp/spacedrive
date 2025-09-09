@@ -2,10 +2,13 @@
 
 use crate::{
     context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
+    infra::{
+        action::{
+            error::ActionError,
+            LibraryAction,
+        },
+        job::handle::JobHandle,
     },
-    register_action_handler,
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -13,75 +16,67 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MetadataAction {
+    pub library_id: uuid::Uuid,
     pub paths: Vec<std::path::PathBuf>,
     pub extract_exif: bool,
     pub extract_xmp: bool,
 }
 
-pub struct MetadataHandler;
-
-impl MetadataHandler {
-    pub fn new() -> Self {
-        Self
+impl MetadataAction {
+    /// Create a new metadata extraction action
+    pub fn new(library_id: uuid::Uuid, paths: Vec<std::path::PathBuf>, extract_exif: bool, extract_xmp: bool) -> Self {
+        Self {
+            library_id,
+            paths,
+            extract_exif,
+            extract_xmp,
+        }
     }
 }
 
-#[async_trait]
-impl ActionHandler for MetadataHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        if let crate::infra::action::Action::MetadataOperation { action, .. } = action {
-            if action.paths.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
+// Old ActionHandler implementation removed - using unified LibraryAction
+
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for MetadataAction {
+    type Output = JobHandle;
+
+    async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+        // Create metadata extraction job
+        let job_params = serde_json::json!({
+            "paths": self.paths,
+            "extract_exif": self.extract_exif,
+            "extract_xmp": self.extract_xmp,
+        });
+
+        // Dispatch job and return handle
+        let job_handle = library
+            .jobs()
+            .dispatch_by_name("extract_metadata", job_params)
+            .await
+            .map_err(ActionError::Job)?;
+
+        Ok(job_handle)
     }
 
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<String> {
-        if let crate::infra::action::Action::MetadataOperation { library_id, action } = action {
-            let library_manager = &context.library_manager;
+    fn action_kind(&self) -> &'static str {
+        "metadata.extract"
+    }
 
-            let job_params = serde_json::json!({
-                "paths": action.paths,
-                "extract_exif": action.extract_exif,
-                "extract_xmp": action.extract_xmp
+    fn library_id(&self) -> Uuid {
+        self.library_id
+    }
+
+    async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
+        // Library existence already validated by ActionManager - no boilerplate!
+
+        // Validate paths
+        if self.paths.is_empty() {
+            return Err(ActionError::Validation {
+                field: "paths".to_string(),
+                message: "At least one path must be specified".to_string(),
             });
-
-            let library = library_manager.get_library(library_id).await
-                .ok_or(ActionError::Internal(format!("Library not found: {}", library_id)))?;
-
-            let job_handle = library
-                .jobs()
-                .dispatch_by_name("extract_metadata", job_params)
-                .await
-                .map_err(ActionError::Job)?;
-
-            Ok("Metadata extraction job dispatched successfully".to_string())
-        } else {
-            Err(ActionError::InvalidActionType)
         }
-    }
 
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        matches!(action, crate::infra::action::Action::MetadataOperation { .. })
-    }
-
-    fn supported_actions() -> &'static [&'static str] {
-        &["metadata.extract"]
+        Ok(())
     }
 }
-
-register_action_handler!(MetadataHandler, "metadata.extract");

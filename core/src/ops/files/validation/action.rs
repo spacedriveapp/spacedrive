@@ -15,16 +15,21 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ValidationAction {
+    pub library_id: uuid::Uuid,
     pub paths: Vec<std::path::PathBuf>,
     pub verify_checksums: bool,
     pub deep_scan: bool,
 }
 
-pub struct ValidationHandler;
-
-impl ValidationHandler {
-    pub fn new() -> Self {
-        Self
+impl ValidationAction {
+    /// Create a new file validation action
+    pub fn new(library_id: uuid::Uuid, paths: Vec<std::path::PathBuf>, verify_checksums: bool, deep_scan: bool) -> Self {
+        Self {
+            library_id,
+            paths,
+            verify_checksums,
+            deep_scan,
+        }
     }
 }
 
@@ -99,3 +104,52 @@ impl ActionHandler for ValidationHandler {
 }
 
 register_action_handler!(ValidationHandler, "file.validate");
+
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for ValidationAction {
+    type Output = JobHandle;
+
+    async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+        // Library is pre-validated by ActionManager - no boilerplate!
+
+        // Create validation job
+        let mode = if self.deep_scan {
+            ValidationMode::Deep
+        } else {
+            ValidationMode::Shallow
+        };
+
+        let job = ValidationJob::new(self.paths, mode, self.verify_checksums);
+
+        // Dispatch job and return handle directly
+        let job_handle = library
+            .jobs()
+            .dispatch(job)
+            .await
+            .map_err(ActionError::Job)?;
+
+        Ok(job_handle)
+    }
+
+    fn action_kind(&self) -> &'static str {
+        "file.validate"
+    }
+
+    fn library_id(&self) -> Uuid {
+        self.library_id
+    }
+
+    async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
+        // Library existence already validated by ActionManager - no boilerplate!
+
+        // Validate paths
+        if self.paths.is_empty() {
+            return Err(ActionError::Validation {
+                field: "paths".to_string(),
+                message: "At least one path must be specified".to_string(),
+            });
+        }
+
+        Ok(())
+    }
+}

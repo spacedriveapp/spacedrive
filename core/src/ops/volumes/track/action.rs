@@ -8,7 +8,7 @@ use crate::{
 	context::CoreContext,
 	infra::action::{
 		error::ActionError,
-		ActionTrait,
+		LibraryAction,
 	},
 	volume::VolumeFingerprint,
 };
@@ -50,16 +50,11 @@ impl VolumeTrackAction {
 }
 
 // Implement the new modular ActionType trait
-impl ActionTrait for VolumeTrackAction {
+impl LibraryAction for VolumeTrackAction {
 	type Output = VolumeTrackOutput;
 
-	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		// Get the library
-		let library = context
-			.library_manager
-			.get_library(self.library_id)
-			.await
-			.ok_or_else(|| ActionError::LibraryNotFound(self.library_id))?;
+	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+		// Library is pre-validated by ActionManager - no boilerplate needed!
 
 		// Check if volume exists
 		let volume = context
@@ -91,17 +86,12 @@ impl ActionTrait for VolumeTrackAction {
 		"volume.track"
 	}
 
-	fn library_id(&self) -> Option<Uuid> {
-		Some(self.library_id)
+	fn library_id(&self) -> Uuid {
+		self.library_id
 	}
 
-	async fn validate(&self, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
-		// Validate library exists
-		let _library = context
-			.library_manager
-			.get_library(self.library_id)
-			.await
-			.ok_or_else(|| ActionError::LibraryNotFound(self.library_id))?;
+	async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+		// Library existence already validated by ActionManager - no boilerplate!
 
 		// Validate volume exists
 		let volume = context

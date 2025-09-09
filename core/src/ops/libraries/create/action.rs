@@ -4,8 +4,8 @@ use super::output::LibraryCreateOutput;
 use crate::{
 	context::CoreContext,
 	infra::action::{
-		error::{ActionError, ActionResult},
-		ActionTrait,
+		error::ActionError,
+		CoreAction,
 	},
 };
 use async_trait::async_trait;
@@ -22,7 +22,7 @@ pub struct LibraryCreateAction {
 // LibraryCreateHandler removed - using unified ActionTrait instead
 
 // Implement the new modular ActionType trait
-impl ActionTrait for LibraryCreateAction {
+impl CoreAction for LibraryCreateAction {
 	type Output = LibraryCreateOutput;
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {

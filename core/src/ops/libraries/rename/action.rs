@@ -5,7 +5,7 @@ use crate::{
     context::CoreContext,
     infra::action::{
         error::ActionError,
-        ActionTrait,
+		LibraryAction,
     },
     library::LibraryConfig,
 };
@@ -33,16 +33,11 @@ impl LibraryRenameAction {
 // Old ActionHandler implementation removed - using unified ActionTrait
 
 // Implement the new modular ActionType trait
-impl ActionTrait for LibraryRenameAction {
+impl LibraryAction for LibraryRenameAction {
     type Output = LibraryRenameOutput;
 
-    async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-        // Get the library
-        let library = context
-            .library_manager
-            .get_library(self.library_id)
-            .await
-            .ok_or_else(|| ActionError::LibraryNotFound(self.library_id))?;
+    async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+        // Library is pre-validated by ActionManager - no boilerplate!
 
         // Get current config
         let old_config = library.config().await;
@@ -66,17 +61,12 @@ impl ActionTrait for LibraryRenameAction {
         "library.rename"
     }
 
-    fn library_id(&self) -> Option<Uuid> {
-        Some(self.library_id)
+    fn library_id(&self) -> Uuid {
+        self.library_id
     }
 
-    async fn validate(&self, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
-        // Validate library exists
-        let _library = context
-            .library_manager
-            .get_library(self.library_id)
-            .await
-            .ok_or_else(|| ActionError::LibraryNotFound(self.library_id))?;
+    async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+        // Library existence already validated by ActionManager - no boilerplate!
 
         // Validate new name
         if self.new_name.trim().is_empty() {

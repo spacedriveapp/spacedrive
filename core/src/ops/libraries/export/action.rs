@@ -21,11 +21,15 @@ pub struct LibraryExportAction {
     pub include_previews: bool,
 }
 
-pub struct LibraryExportHandler;
-
-impl LibraryExportHandler {
-    pub fn new() -> Self {
-        Self
+impl LibraryExportAction {
+    /// Create a new library export action
+    pub fn new(library_id: Uuid, export_path: PathBuf, include_thumbnails: bool, include_previews: bool) -> Self {
+        Self {
+            library_id,
+            export_path,
+            include_thumbnails,
+            include_previews,
+        }
     }
 }
 

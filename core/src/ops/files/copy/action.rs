@@ -11,7 +11,7 @@ use crate::{
 		action::{
 			builder::{ActionBuildError, ActionBuilder},
 			error::{ActionError, ActionResult},
-			ActionTrait,
+			LibraryAction,
 		},
 		cli::adapters::FileCopyCliArgs,
 		job::handle::JobHandle,
@@ -258,16 +258,11 @@ impl FileCopyHandler {
 }
 
 // Implement the unified ActionTrait (replaces ActionHandler)
-impl ActionTrait for FileCopyAction {
+impl LibraryAction for FileCopyAction {
 	type Output = JobHandle;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		// Get the specific library
-		let library = context
-			.library_manager
-			.get_library(self.library_id)
-			.await
-			.ok_or(ActionError::LibraryNotFound(self.library_id))?;
+	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+		// Library is pre-validated by ActionManager - no boilerplate!
 
 		// Create job instance directly
 		let job = FileCopyJob::new(SdPathBatch::new(self.sources), self.destination)
@@ -287,11 +282,11 @@ impl ActionTrait for FileCopyAction {
 		"file.copy"
 	}
 
-	fn library_id(&self) -> Option<Uuid> {
-		Some(self.library_id)
+	fn library_id(&self) -> Uuid {
+		self.library_id
 	}
 
-	async fn validate(&self, _context: Arc<CoreContext>) -> Result<(), ActionError> {
+	async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
 		if self.sources.is_empty() {
 			return Err(ActionError::Validation {
 				field: "sources".to_string(),

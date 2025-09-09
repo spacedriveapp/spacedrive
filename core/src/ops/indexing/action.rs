@@ -15,9 +15,22 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IndexingAction {
+    pub library_id: uuid::Uuid,
     pub paths: Vec<std::path::PathBuf>,
     pub recursive: bool,
     pub include_hidden: bool,
+}
+
+impl IndexingAction {
+    /// Create a new indexing action
+    pub fn new(library_id: uuid::Uuid, paths: Vec<std::path::PathBuf>, recursive: bool, include_hidden: bool) -> Self {
+        Self {
+            library_id,
+            paths,
+            recursive,
+            include_hidden,
+        }
+    }
 }
 
 pub struct IndexingHandler;
@@ -98,3 +111,52 @@ impl ActionHandler for IndexingHandler {
 }
 
 register_action_handler!(IndexingHandler, "indexing.index");
+
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for IndexingAction {
+    type Output = JobHandle;
+
+    async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+        // Library is pre-validated by ActionManager - no boilerplate!
+
+        // Create indexer job
+        let scope = if self.recursive {
+            IndexScope::Recursive
+        } else {
+            IndexScope::SingleDirectory
+        };
+
+        let job = IndexerJob::new(self.paths, scope, self.include_hidden);
+
+        // Dispatch job and return handle directly
+        let job_handle = library
+            .jobs()
+            .dispatch(job)
+            .await
+            .map_err(ActionError::Job)?;
+
+        Ok(job_handle)
+    }
+
+    fn action_kind(&self) -> &'static str {
+        "indexing.index"
+    }
+
+    fn library_id(&self) -> Uuid {
+        self.library_id
+    }
+
+    async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
+        // Library existence already validated by ActionManager - no boilerplate!
+
+        // Validate paths
+        if self.paths.is_empty() {
+            return Err(ActionError::Validation {
+                field: "paths".to_string(),
+                message: "At least one path must be specified".to_string(),
+            });
+        }
+
+        Ok(())
+    }
+}

@@ -15,9 +15,22 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DuplicateDetectionAction {
+    pub library_id: uuid::Uuid,
     pub paths: Vec<std::path::PathBuf>,
     pub algorithm: String,
     pub threshold: f64,
+}
+
+impl DuplicateDetectionAction {
+    /// Create a new duplicate detection action
+    pub fn new(library_id: uuid::Uuid, paths: Vec<std::path::PathBuf>, algorithm: String, threshold: f64) -> Self {
+        Self {
+            library_id,
+            paths,
+            algorithm,
+            threshold,
+        }
+    }
 }
 
 pub struct DuplicateDetectionHandler;
@@ -99,3 +112,47 @@ impl ActionHandler for DuplicateDetectionHandler {
 }
 
 register_action_handler!(DuplicateDetectionHandler, "file.detect_duplicates");
+
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for DuplicateDetectionAction {
+    type Output = JobHandle;
+
+    async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+        // Library is pre-validated by ActionManager - no boilerplate!
+
+        // Create duplicate detection job
+        let mode = DetectionMode::from_algorithm(&self.algorithm, self.threshold);
+        let job = DuplicateDetectionJob::new(self.paths, mode);
+
+        // Dispatch job and return handle directly
+        let job_handle = library
+            .jobs()
+            .dispatch(job)
+            .await
+            .map_err(ActionError::Job)?;
+
+        Ok(job_handle)
+    }
+
+    fn action_kind(&self) -> &'static str {
+        "file.detect_duplicates"
+    }
+
+    fn library_id(&self) -> Uuid {
+        self.library_id
+    }
+
+    async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
+        // Library existence already validated by ActionManager - no boilerplate!
+
+        // Validate paths
+        if self.paths.is_empty() {
+            return Err(ActionError::Validation {
+                field: "paths".to_string(),
+                message: "At least one path must be specified".to_string(),
+            });
+        }
+
+        Ok(())
+    }
+}

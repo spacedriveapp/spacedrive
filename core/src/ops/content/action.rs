@@ -2,10 +2,13 @@
 
 use crate::{
     context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
+    infra::{
+        action::{
+            error::ActionError,
+            LibraryAction,
+        },
+        job::handle::JobHandle,
     },
-    register_action_handler,
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -13,6 +16,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ContentAction {
+    pub library_id: uuid::Uuid,
     pub paths: Vec<std::path::PathBuf>,
     pub analyze_content: bool,
     pub extract_metadata: bool,
@@ -26,34 +30,46 @@ impl ContentHandler {
     }
 }
 
-#[async_trait]
-impl ActionHandler for ContentHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        // TODO: Re-enable when ContentAnalysis variant is added back
-        Err(ActionError::Internal("ContentAnalysis action not yet implemented".to_string()))
-    }
 
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<String> {
-        // TODO: Re-enable when ContentAnalysis variant is added back
-        Err(ActionError::Internal("ContentAnalysis action not yet implemented".to_string()))
-    }
 
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        // TODO: Re-enable when ContentAnalysis variant is added back
-        false
-    }
-
-    fn supported_actions() -> &'static [&'static str] {
-        &["content.analyze"]
+// Add library_id to ContentAction
+impl ContentAction {
+    /// Create a new content analysis action
+    pub fn new(library_id: uuid::Uuid, paths: Vec<std::path::PathBuf>, analyze_content: bool, extract_metadata: bool) -> Self {
+        Self {
+            library_id,
+            paths,
+            analyze_content,
+            extract_metadata,
+        }
     }
 }
 
-register_action_handler!(ContentHandler, "content.analyze");
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for ContentAction {
+    type Output = JobHandle;
+
+    async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+        // TODO: Implement content analysis job dispatch
+        Err(ActionError::Internal("ContentAnalysis action not yet implemented".to_string()))
+    }
+
+    fn action_kind(&self) -> &'static str {
+        "content.analyze"
+    }
+
+    fn library_id(&self) -> Uuid {
+        self.library_id
+    }
+
+    async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
+        // Validate paths
+        if self.paths.is_empty() {
+            return Err(ActionError::Validation {
+                field: "paths".to_string(),
+                message: "At least one path must be specified".to_string(),
+            });
+        }
+        Ok(())
+    }
+}

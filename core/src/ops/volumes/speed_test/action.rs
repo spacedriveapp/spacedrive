@@ -5,7 +5,7 @@
 use super::output::VolumeSpeedTestOutput;
 use crate::{
 	context::CoreContext,
-	infra::action::{error::ActionError, ActionTrait},
+	infra::action::{error::ActionError, CoreAction},
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ impl VolumeSpeedTestAction {
 }
 
 // Implement the new modular ActionType trait
-impl ActionTrait for VolumeSpeedTestAction {
+impl CoreAction for VolumeSpeedTestAction {
 	type Output = VolumeSpeedTestOutput;
 
 	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {

@@ -30,6 +30,7 @@ pub mod networking {
 use crate::config::AppConfig;
 use crate::context::CoreContext;
 use crate::cqrs::{Query, QueryManager};
+use crate::infra::action::{CoreAction, LibraryAction};
 use crate::device::DeviceManager;
 use crate::infra::action::manager::ActionManager;
 use crate::infra::event::{Event, EventBus};
@@ -481,14 +482,23 @@ impl Core {
 		self.services.location_watcher.get_watched_locations().await
 	}
 
-	/// Execute an action using the unified CQRS API.
+	/// Execute a core-level action (no library context required).
 	///
-	/// This method provides a unified, type-safe entry point for all operations.
-	/// Actions return their natural output types - domain objects, job handles, etc.
-	pub async fn execute_action<A: crate::infra::action::ActionTrait>(&self, action: A) -> anyhow::Result<A::Output> {
+	/// Core actions operate at the global level - managing libraries, volumes, devices, etc.
+	pub async fn execute_core_action<A: CoreAction>(&self, action: A) -> anyhow::Result<A::Output> {
 		let action_manager = ActionManager::new(self.context.clone());
-		action_manager.dispatch(action).await
-			.map_err(|e| anyhow::anyhow!("Action execution failed: {}", e))
+		action_manager.dispatch_core(action).await
+			.map_err(|e| anyhow::anyhow!("Core action execution failed: {}", e))
+	}
+
+	/// Execute a library-scoped action (library context pre-validated).
+	///
+	/// Library actions operate within a specific library - files, locations, indexing, etc.
+	/// The library existence is validated automatically.
+	pub async fn execute_library_action<A: LibraryAction>(&self, action: A) -> anyhow::Result<A::Output> {
+		let action_manager = ActionManager::new(self.context.clone());
+		action_manager.dispatch_library(action).await
+			.map_err(|e| anyhow::anyhow!("Library action execution failed: {}", e))
 	}
 
 	/// Execute a query using the CQRS API.

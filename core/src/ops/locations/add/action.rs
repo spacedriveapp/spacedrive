@@ -5,12 +5,12 @@ use crate::{
 	context::CoreContext,
 	infra::action::{
 		error::{ActionError, ActionResult},
-		ActionTrait,
+		LibraryAction,
 	},
 	infra::db::entities,
 	location::manager::LocationManager,
 	ops::indexing::IndexMode,
-	register_action_handler,
+	// register_action_handler removed - using unified LibraryAction dispatch
 };
 use async_trait::async_trait;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -37,16 +37,11 @@ impl LocationAddHandler {
 // Note: ActionHandler implementation removed - using ActionType instead
 
 // Implement the new modular ActionType trait
-impl ActionTrait for LocationAddAction {
+impl LibraryAction for LocationAddAction {
 	type Output = LocationAddOutput;
 
-	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		// Get the specific library
-		let library = context
-			.library_manager
-			.get_library(self.library_id)
-			.await
-			.ok_or(ActionError::LibraryNotFound(self.library_id))?;
+	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+		// Library is pre-validated by ActionManager - no boilerplate!
 
 		// Get the device UUID from the device manager
 		let device_uuid = context
@@ -103,11 +98,11 @@ impl ActionTrait for LocationAddAction {
 		"location.add"
 	}
 
-	fn library_id(&self) -> Option<Uuid> {
-		Some(self.library_id)
+	fn library_id(&self) -> Uuid {
+		self.library_id
 	}
 
-	async fn validate(&self, _context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+	async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
 		if !self.path.exists() {
 			return Err(ActionError::Validation {
 				field: "path".to_string(),

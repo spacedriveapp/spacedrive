@@ -23,30 +23,53 @@ impl ActionManager {
         Self { context }
     }
 
-    /// Dispatch any action with central infrastructure (like JobManager)
-    pub async fn dispatch<A: super::ActionTrait>(&self, action: A) -> Result<A::Output, super::error::ActionError> {
+    /// Dispatch a core-level action (no library context required)
+    pub async fn dispatch_core<A: super::CoreAction>(&self, action: A) -> Result<A::Output, super::error::ActionError> {
         // 1. Validate the action
         action.validate(self.context.clone()).await?;
 
-        // 2. Create audit log entry (if action has library context)
-        let audit_entry = if let Some(library_id) = action.library_id() {
-            let entry = self.create_action_audit_log(library_id, action.action_kind()).await?;
-            Some((entry, library_id))
-        } else {
-            None
-        };
+        // 2. Log action execution (capture action_kind before move)
+        let action_kind = action.action_kind();
+        tracing::info!("Executing core action: {}", action_kind);
 
         // 3. Execute the action directly
         let result = action.execute(self.context.clone()).await;
 
-        // 4. Finalize audit log with result
-        if let Some((entry, library_id)) = audit_entry {
-            let audit_result = match &result {
-                Ok(_) => Ok("Action completed successfully".to_string()),
-                Err(e) => Err(ActionError::Internal(e.to_string())),
-            };
-            self.finalize_audit_log(entry, &audit_result, library_id).await?;
+        // 4. Log result
+        match &result {
+            Ok(_) => tracing::info!("Core action {} completed successfully", action_kind),
+            Err(e) => tracing::error!("Core action {} failed: {}", action_kind, e),
         }
+
+        result
+    }
+
+    /// Dispatch a library-scoped action (library context pre-validated)
+    pub async fn dispatch_library<A: super::LibraryAction>(&self, action: A) -> Result<A::Output, super::error::ActionError> {
+        // 1. Get and validate library exists (eliminates boilerplate!)
+        let library = self.context
+            .library_manager
+            .get_library(action.library_id())
+            .await
+            .ok_or_else(|| ActionError::LibraryNotFound(action.library_id()))?;
+
+        // 2. Validate the action with library context
+        action.validate(&library, self.context.clone()).await?;
+
+        // 3. Create audit log entry (capture values before move)
+        let library_id = action.library_id();
+        let action_kind = action.action_kind();
+        let audit_entry = self.create_action_audit_log(library_id, action_kind).await?;
+
+        // 4. Execute the action with validated library
+        let result = action.execute(library, self.context.clone()).await;
+
+        // 5. Finalize audit log with result
+        let audit_result = match &result {
+            Ok(_) => Ok("Action completed successfully".to_string()),
+            Err(e) => Err(ActionError::Internal(e.to_string())),
+        };
+        self.finalize_audit_log(audit_entry, &audit_result, library_id).await?;
 
         result
     }

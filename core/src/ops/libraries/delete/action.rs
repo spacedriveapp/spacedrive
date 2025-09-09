@@ -4,10 +4,9 @@ use super::output::LibraryDeleteOutput;
 use crate::{
 	context::CoreContext,
 	infra::action::{
-		error::{ActionError, ActionResult},
-		ActionTrait,
+		error::ActionError,
+		CoreAction,
 	},
-	register_action_handler,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -30,7 +29,7 @@ impl LibraryDeleteHandler {
 // Note: ActionHandler implementation removed - using ActionType instead
 
 // Implement the new modular ActionType trait
-impl ActionTrait for LibraryDeleteAction {
+impl CoreAction for LibraryDeleteAction {
 	type Output = LibraryDeleteOutput;
 
 	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
@@ -55,9 +54,7 @@ impl ActionTrait for LibraryDeleteAction {
 		"library.delete"
 	}
 
-	fn library_id(&self) -> Option<Uuid> {
-		Some(self.library_id)
-	}
+	// No library_id method - this is a CoreAction that operates on libraries themselves
 
 	async fn validate(&self, _context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
 		// Basic validation
