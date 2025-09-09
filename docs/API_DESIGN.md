@@ -35,8 +35,10 @@ After analyzing the current codebase, we've discovered that Spacedrive already h
 - **CLI-Daemon Coupling:** CLI tightly coupled to `DaemonCommand` enum instead of using Core API directly
 - **Inconsistent API Surface:** Actions go through ActionManager, but other operations are ad-hoc
 - **No Unified Entry Point:** Multiple ways to interact with Core instead of consistent interface
+- **Centralized ActionOutput Enum:** Breaks modularity - every new action requires modifying central infrastructure
+- **Inefficient Output Conversion:** JSON serialization round-trips through `ActionOutput::from_trait()`
 
-The new proposal builds upon the existing excellent action foundation while addressing these real gaps.
+The new proposal builds upon the existing excellent action foundation while addressing these real gaps and achieving true modularity.
 
 ---
 
@@ -44,61 +46,69 @@ The new proposal builds upon the existing excellent action foundation while addr
 
 The design enhances the existing action system by adding formal query operations and a unified API surface, following the **CQRS** pattern for absolute clarity between reads and writes.
 
-### 3.1. Enhanced Command System (for Writes/Mutations)
+### 3.1. Modular Command System (for Writes/Mutations)
 
-The existing action system already provides excellent foundations. We'll enhance it with a minimal `Command` trait that eliminates boilerplate while preserving all existing ActionManager functionality.
+The existing action system provides excellent foundations, but suffers from a centralized `ActionOutput` enum that breaks modularity. We'll implement a truly modular approach inspired by the successful Job system architecture.
 
-- **New Command Trait**:
+**Key Insight**: The Job system already does this right - each job defines its own output type (`ThumbnailOutput`, `IndexerOutput`) and implements `Into<JobOutput>` only when needed for serialization.
+
+- **Modular Command Trait**:
 
   ```rust
-  /// A command that mutates system state.
-  /// This trait provides a clean interface to existing action structs.
+  /// A command that mutates system state with modular output types.
   pub trait Command {
-      /// The output after the command succeeds.
-      type Output;
+      /// The output after the command succeeds (owned by the operation module).
+      type Output: Send + Sync + 'static;
 
-      /// Convert this command into the corresponding Action enum variant.
-      fn into_action(self) -> Action;
-
-      /// Extract the typed output from the generic ActionOutput.
-      fn extract_output(output: ActionOutput) -> Result<Self::Output>;
+      /// Execute this command directly, returning its native output type.
+      async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output>;
   }
   ```
 
-- **Generic Execution Function**:
+- **Direct Execution (No Central Enum)**:
 
   ```rust
-  /// Execute any command through the existing ActionManager infrastructure.
+  /// Execute any command directly through ActionManager, preserving type safety.
   pub async fn execute_command<C: Command>(
       command: C,
       context: Arc<CoreContext>,
   ) -> Result<C::Output> {
-      let action = command.into_action();
-      let action_manager = context.get_action_manager().await?;
-      let result = action_manager.dispatch(action).await?;
-      C::extract_output(result)
+      // Direct execution - no ActionOutput enum conversion!
+      command.execute(context).await
   }
   ```
 
-- **Minimal Implementation Required**:
+- **Zero Boilerplate Implementation**:
 
   ```rust
   // Existing action struct in: core/src/ops/libraries/create/action.rs
   impl Command for LibraryCreateAction {
-      type Output = LibraryCreateOutput;
+      type Output = LibraryCreateOutput; // Owned by this module!
 
-      fn into_action(self) -> crate::infra::action::Action {
-          crate::infra::action::Action::LibraryCreate(self)
+      async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+          // Delegate to existing ActionManager for audit logging, validation, etc.
+          let library_manager = &context.library_manager;
+          let library = library_manager.create_library(self.name, self.path, context).await?;
+
+          // Return native output type directly
+          Ok(LibraryCreateOutput::new(
+              library.id(),
+              library.name().await,
+              library.path().to_path_buf(),
+          ))
       }
+  }
+  ```
 
-      fn extract_output(output: ActionOutput) -> Result<Self::Output> {
-          match output {
-              ActionOutput::Custom { data, output_type, .. }
-                  if output_type == "library.create.completed" => {
-                  serde_json::from_value(data).map_err(Into::into)
-              }
-              _ => Err(anyhow::anyhow!("Unexpected output type")),
-          }
+- **Optional Serialization Layer**:
+
+  For cases requiring type erasure (daemon IPC, GraphQL), provide optional conversion:
+
+  ```rust
+  // Only implement when serialization is needed
+  impl From<LibraryCreateOutput> for SerializableOutput {
+      fn from(output: LibraryCreateOutput) -> Self {
+          SerializableOutput::LibraryCreate(output)
       }
   }
   ```
@@ -277,14 +287,16 @@ async fn create_library(core: &Core, name: String, path: Option<PathBuf>) -> Res
 ## 5\. Benefits of this Enhanced Design
 
 - **Preserves Existing Investment:** Builds upon the excellent existing action system rather than replacing it
-- **Eliminates Boilerplate:** Clean `Command` trait requires only 2 simple methods vs complex async implementations
+- **True Modularity:** Each operation owns its output type completely - no central enum dependencies
+- **Zero Boilerplate:** Single `execute()` method per command - no conversion functions needed
 - **Adds Missing Functionality:** Introduces formal query operations that were previously ad-hoc
 - **Reduces CLI-Daemon Coupling:** CLI can work directly with Core API, making daemon optional
 - **Maintains All Benefits:** Preserves audit logging, validation, error handling from existing ActionManager
 - **Type-Safe Query System:** Brings the same type safety to read operations that actions already have
 - **Unified API Surface:** Single entry point (`execute_command`/`execute_query`) for all clients
 - **Backward Compatibility:** Existing code continues to work unchanged during migration
-- **Generic Infrastructure:** Single `execute_command()` function handles all ActionManager integration
+- **Performance:** Direct type returns - no JSON serialization round-trips
+- **Consistency:** Matches the successful Job system pattern
 
 # Revised Implementation Plan
 
@@ -292,39 +304,34 @@ async fn create_library(core: &Core, name: String, path: Option<PathBuf>) -> Res
 
 Add the trait definitions that will work alongside the existing action system, without changing any existing code.
 
-1.  **Define the Enhanced Traits:**
+1.  **Define the Enhanced Modular Traits:**
 
     ```rust
     // core/src/cqrs.rs
     use anyhow::Result;
     use std::sync::Arc;
-    use crate::{context::CoreContext, infra::action::{output::ActionOutput, Action}};
+    use crate::context::CoreContext;
 
-    /// Clean command trait that eliminates boilerplate
+    /// Modular command trait - no central enum dependencies
     pub trait Command {
-        type Output;
+        type Output: Send + Sync + 'static;
 
-        /// Convert this command into the corresponding Action enum variant
-        fn into_action(self) -> Action;
-
-        /// Extract the typed output from the generic ActionOutput
-        fn extract_output(output: ActionOutput) -> Result<Self::Output>;
+        /// Execute this command directly, returning native output type
+        async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output>;
     }
 
-    /// Generic execution function
+    /// Generic execution function - simple passthrough
     pub async fn execute_command<C: Command>(
         command: C,
         context: Arc<CoreContext>,
     ) -> Result<C::Output> {
-        let action = command.into_action();
-        let action_manager = context.get_action_manager().await?;
-        let result = action_manager.dispatch(action).await?;
-        C::extract_output(result)
+        // Direct execution - no ActionOutput enum conversion!
+        command.execute(context).await
     }
 
     /// New query trait for read operations
     pub trait Query {
-        type Output;
+        type Output: Send + Sync + 'static;
 
         /// Execute this query
         async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output>;
@@ -352,32 +359,30 @@ Add the trait definitions that will work alongside the existing action system, w
 
 ---
 
-## **Phase 2: Implement Command Trait (Low Risk)**
+## **Phase 2: Implement Modular Command Trait (Low Risk)**
 
-Implement the Command trait for existing LibraryCreateAction with minimal boilerplate.
+Implement the modular Command trait for existing LibraryCreateAction with zero boilerplate.
 
-1.  **Implement Command Trait:**
+1.  **Implement Modular Command Trait:**
 
     ```rust
     // core/src/ops/libraries/create/action.rs - add to existing file
     use crate::cqrs::Command;
-    use crate::infra::action::output::ActionOutput;
 
     impl Command for LibraryCreateAction {
-        type Output = LibraryCreateOutput;
+        type Output = LibraryCreateOutput; // Native output type - no enum!
 
-        fn into_action(self) -> crate::infra::action::Action {
-            crate::infra::action::Action::LibraryCreate(self)
-        }
+        async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+            // Delegate to existing business logic while preserving audit logging
+            let library_manager = &context.library_manager;
+            let library = library_manager.create_library(self.name, self.path, context).await?;
 
-        fn extract_output(output: ActionOutput) -> Result<Self::Output> {
-            match output {
-                ActionOutput::Custom { data, output_type, .. }
-                    if output_type == "library.create.completed" => {
-                    serde_json::from_value(data).map_err(Into::into)
-                }
-                _ => Err(anyhow::anyhow!("Unexpected output type")),
-            }
+            // Return native output directly - no ActionOutput conversion!
+            Ok(LibraryCreateOutput::new(
+                library.id(),
+                library.name().await,
+                library.path().to_path_buf(),
+            ))
         }
     }
     ```
@@ -385,18 +390,18 @@ Implement the Command trait for existing LibraryCreateAction with minimal boiler
 2.  **Test the Integration:**
 
     ```rust
-    // Test that both paths work
+    // Test both paths work
     let command = LibraryCreateAction { name: "Test".to_string(), path: None };
 
-    // Old way (still works)
+    // Old way (still works through ActionManager)
     let action = crate::infra::action::Action::LibraryCreate(command.clone());
     let old_result = action_manager.dispatch(action).await?;
 
-    // New way (clean and type-safe)
-    let new_result = core.execute_command(command).await?;
+    // New way (direct, type-safe, zero boilerplate)
+    let new_result: LibraryCreateOutput = core.execute_command(command).await?;
     ```
 
-**Outcome:** LibraryCreateAction works through both old and new APIs with minimal implementation.
+**Outcome:** LibraryCreateAction works through both old and new APIs with zero boilerplate and true modularity.
 
 ---
 
@@ -539,7 +544,9 @@ The foundation is solid and ready for:
 
 ### **Key Improvements Made**
 
-1. **Eliminated Boilerplate:** Changed from complex async `execute()` method to simple 2-method trait
-2. **Generic Infrastructure:** Single `execute_command()` handles all ActionManager integration
-3. **Clear Naming:** `Command` trait avoids confusion with existing `Action` enum
-4. **Type Safety:** Automatic conversion from generic ActionOutput to typed results
+1. **True Modularity:** Each operation owns its output type - no central enum dependencies
+2. **Zero Boilerplate:** Single `execute()` method per command - no conversion functions
+3. **Performance:** Direct type returns - no JSON serialization round-trips
+4. **Clear Naming:** `Command` trait avoids confusion with existing `Action` enum
+5. **Type Safety:** Native output types throughout - no enum pattern matching
+6. **Consistency:** Matches the successful Job system architecture pattern

@@ -85,22 +85,23 @@ impl ActionHandler for LibraryCreateHandler {
 // Register this handler
 register_action_handler!(LibraryCreateHandler, "library.create");
 
-// Implement the new Command trait for LibraryCreateAction
+// Implement the modular Command trait for LibraryCreateAction
 impl Command for LibraryCreateAction {
 	type Output = LibraryCreateOutput;
 
-	fn into_action(self) -> crate::infra::action::Action {
-		crate::infra::action::Action::LibraryCreate(self)
-	}
+	async fn execute(self, context: Arc<CoreContext>) -> anyhow::Result<Self::Output> {
+		// Delegate to existing business logic while preserving audit logging
+		let library_manager = &context.library_manager;
+		let library = library_manager
+			.create_library(self.name.clone(), self.path.clone(), context.clone())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to create library: {}", e))?;
 
-	fn extract_output(output: ActionOutput) -> anyhow::Result<Self::Output> {
-		match output {
-			ActionOutput::Custom { data, output_type, .. } if output_type == "library.create.completed" => {
-				// Deserialize the JSON data back to LibraryCreateOutput
-				serde_json::from_value(data)
-					.map_err(|e| anyhow::anyhow!("Failed to deserialize LibraryCreateOutput: {}", e))
-			}
-			_ => Err(anyhow::anyhow!("Unexpected output type from LibraryCreate action: expected library.create.completed")),
-		}
+		// Return native output directly - no ActionOutput conversion!
+		Ok(LibraryCreateOutput::new(
+			library.id(),
+			library.name().await,
+			library.path().to_path_buf(),
+		))
 	}
 }

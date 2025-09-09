@@ -481,19 +481,19 @@ impl Core {
 		self.services.location_watcher.get_watched_locations().await
 	}
 
-	/// Execute a command using the enhanced CQRS API.
+	/// Execute a command using the modular CQRS API.
 	///
 	/// This method provides a unified, type-safe entry point for all write operations.
-	/// It delegates to the existing ActionManager infrastructure, preserving all
-	/// audit logging, validation, and error handling functionality.
+	/// Commands return their native output types directly, eliminating centralized
+	/// enum dependencies and JSON serialization overhead.
 	pub async fn execute_command<C: Command>(&self, command: C) -> anyhow::Result<C::Output> {
 		execute_command(command, self.context.clone()).await
 	}
 
-	/// Execute a query using the enhanced CQRS API.
+	/// Execute a query using the modular CQRS API.
 	///
 	/// This method provides a unified, type-safe entry point for all read operations.
-	/// It will use the new QueryManager system once implemented.
+	/// Queries return their native output types directly with no centralized dependencies.
 	pub async fn execute_query<Q: Query>(&self, query: Q) -> anyhow::Result<Q::Output> {
 		query.execute(self.context.clone()).await
 	}
