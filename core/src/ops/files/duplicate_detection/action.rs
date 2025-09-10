@@ -1,5 +1,6 @@
 //! File duplicate detection action handler
 
+use super::input::DuplicateDetectionInput;
 use super::job::{DetectionMode, DuplicateDetectionJob};
 use crate::{
 	context::CoreContext,
@@ -27,6 +28,12 @@ impl DuplicateDetectionAction {
 			algorithm,
 			threshold,
 		}
+	}
+}
+
+impl From<DuplicateDetectionInput> for DuplicateDetectionAction {
+	fn from(i: DuplicateDetectionInput) -> Self {
+		Self::new(i.paths, i.algorithm, i.threshold)
 	}
 }
 

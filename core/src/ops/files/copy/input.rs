@@ -1,7 +1,7 @@
 //! Core input types for file copy operations
 
+use super::action::{FileCopyAction, FileCopyActionBuilder};
 use super::job::CopyOptions;
-use crate::register_library_action_input;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -47,23 +47,6 @@ pub struct FileCopyInput {
 	/// Preferred copy method to use
 	pub copy_method: CopyMethod,
 }
-
-impl crate::client::Wire for FileCopyInput {
-	const METHOD: &'static str = "action:files.copy.input.v1";
-}
-
-impl crate::ops::registry::BuildLibraryActionInput for FileCopyInput {
-	type Action = crate::ops::files::copy::action::FileCopyAction;
-
-	fn build(self) -> Result<Self::Action, String> {
-		use crate::infra::action::builder::ActionBuilder;
-		crate::ops::files::copy::action::FileCopyActionBuilder::from_input(self)
-			.build()
-			.map_err(|e| e.to_string())
-	}
-}
-
-register_library_action_input!(FileCopyInput);
 
 impl FileCopyInput {
 	/// Create a new FileCopyInput with default options

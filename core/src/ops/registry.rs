@@ -371,6 +371,187 @@ macro_rules! register_library_action_input {
 	};
 }
 
+/// Optional convenience macro: declare Wire + BuildLibraryActionInput + register in one line
+///
+/// Usage:
+/// register_library_op!(InputType => ActionType, "action:domain.op.input.v1");
+// register_library_op! has been superseded by op!(library_action ...)
+
+/// Helper: construct action method string from a short name like "files.copy"
+#[macro_export]
+macro_rules! action_method {
+	($name:literal) => {
+		concat!("action:", $name, ".input.v1")
+	};
+}
+
+/// Helper: construct query method string from a short name like "core.status"
+#[macro_export]
+macro_rules! query_method {
+	($name:literal) => {
+		concat!("query:", $name, ".v1")
+	};
+}
+
+/// Unified op! macro for registering operations with minimal boilerplate.
+///
+/// Why this macro exists
+/// - Standardizes how operations are declared: one line per op.
+/// - Keeps inputs pure (no session / library_id) and actions context-free.
+/// - Wires method (Wire), build glue, and inventory registration.
+///
+/// Conversion requirement (Input -> Action)
+/// - The system executes Actions, not Inputs. After decoding the Input from the wire,
+///   Core must convert it to the concrete Action before dispatch.
+/// - op! does NOT attempt to "guess" this conversion. Rust has no runtime reflection,
+///   and declarative macros can’t infer how to build an Action without an explicit path.
+/// - Therefore, you must provide ONE conversion mechanism:
+///   1) Implement `TryFrom<Input> for Action` (recommended for simple ops), or
+///   2) Provide a builder type via `via = BuilderType` (when a builder already exists)
+///
+/// Precedence
+/// - With `via = BuilderType`, op! generates `TryFrom<Input> for Action` by delegating to
+///   `BuilderType::from_input(input).build()` and then wires the rest.
+/// - Without `via`, op! expects `TryFrom<Input> for Action` to exist and uses it.
+/// - (Optionally, we can add a `via_fn = path::to::convert` variant if we want to accept a
+///   plain function signature `fn(Input) -> Result<Action, String>` in the future.)
+///
+/// Variants:
+/// - op!(library_action Input => Action, "domain.op");
+/// - op!(library_action Input => Action, "domain.op", via = BuilderType);
+/// - op!(core_action Input => Action, "domain.op");
+/// - op!(core_action Input => Action, "domain.op", via = BuilderType);
+/// - op!(query QueryType, "domain.op");
+#[macro_export]
+macro_rules! op {
+	// Library action with builder
+	(library_action $input:ty => $action:ty, $name:literal, via = $builder:ty) => {
+		impl $crate::client::Wire for $input {
+			const METHOD: &'static str = $crate::action_method!($name);
+		}
+
+		impl ::core::convert::TryFrom<$input> for $action {
+			type Error = String;
+			fn try_from(input: $input) -> Result<Self, Self::Error> {
+				use $crate::infra::action::builder::ActionBuilder;
+				<$builder>::from_input(input)
+					.build()
+					.map_err(|e| e.to_string())
+			}
+		}
+
+		impl $crate::ops::registry::BuildLibraryActionInput for $input {
+			type Action = $action;
+			fn build(self) -> Result<Self::Action, String> {
+				<Self::Action as ::core::convert::TryFrom<$input>>::try_from(self)
+					.map_err(|e| e.to_string())
+			}
+		}
+
+		$crate::register_library_action_input!($input);
+	};
+
+	// Library action using existing TryFrom
+	(library_action $input:ty => $action:ty, $name:literal) => {
+		impl $crate::client::Wire for $input {
+			const METHOD: &'static str = $crate::action_method!($name);
+		}
+
+		// Fallback: if From<Input> for Action exists but TryFrom is not implemented,
+		// provide a TryFrom that delegates to From with Infallible error. This enables
+		// zero-boilerplate for simple 1:1 mappings by just implementing `From`.
+		impl ::core::convert::TryFrom<$input> for $action
+		where
+			$action: ::core::convert::From<$input>,
+		{
+			type Error = ::core::convert::Infallible;
+			fn try_from(input: $input) -> Result<Self, Self::Error> {
+				Ok(<$action as ::core::convert::From<$input>>::from(input))
+			}
+		}
+
+		impl $crate::ops::registry::BuildLibraryActionInput for $input {
+			type Action = $action;
+			fn build(self) -> Result<Self::Action, String> {
+				<Self::Action as ::core::convert::TryFrom<$input>>::try_from(self)
+					.map_err(|e| e.to_string())
+			}
+		}
+
+		$crate::register_library_action_input!($input);
+	};
+
+	// Core action with builder
+	(core_action $input:ty => $action:ty, $name:literal, via = $builder:ty) => {
+		impl $crate::client::Wire for $input {
+			const METHOD: &'static str = $crate::action_method!($name);
+		}
+
+		impl ::core::convert::TryFrom<$input> for $action {
+			type Error = String;
+			fn try_from(input: $input) -> Result<Self, Self::Error> {
+				use $crate::infra::action::builder::ActionBuilder;
+				<$builder>::from_input(input)
+					.build()
+					.map_err(|e| e.to_string())
+			}
+		}
+
+		impl $crate::ops::registry::BuildCoreActionInput for $input {
+			type Action = $action;
+			fn build(
+				self,
+				_session: &$crate::infra::daemon::state::SessionState,
+			) -> Result<Self::Action, String> {
+				<Self::Action as ::core::convert::TryFrom<$input>>::try_from(self)
+					.map_err(|e| e.to_string())
+			}
+		}
+
+		$crate::register_core_action_input!($input);
+	};
+
+	// Core action using existing TryFrom
+	(core_action $input:ty => $action:ty, $name:literal) => {
+		impl $crate::client::Wire for $input {
+			const METHOD: &'static str = $crate::action_method!($name);
+		}
+
+		// Fallback: if From<Input> for Action exists but TryFrom is not implemented,
+		// provide a TryFrom that delegates to From with Infallible error.
+		impl ::core::convert::TryFrom<$input> for $action
+		where
+			$action: ::core::convert::From<$input>,
+		{
+			type Error = ::core::convert::Infallible;
+			fn try_from(input: $input) -> Result<Self, Self::Error> {
+				Ok(<$action as ::core::convert::From<$input>>::from(input))
+			}
+		}
+
+		impl $crate::ops::registry::BuildCoreActionInput for $input {
+			type Action = $action;
+			fn build(
+				self,
+				_session: &$crate::infra::daemon::state::SessionState,
+			) -> Result<Self::Action, String> {
+				<Self::Action as ::core::convert::TryFrom<$input>>::try_from(self)
+					.map_err(|e| e.to_string())
+			}
+		}
+
+		$crate::register_core_action_input!($input);
+	};
+
+	// Query
+	(query $query:ty, $name:literal) => {
+		impl $crate::client::Wire for $query {
+			const METHOD: &'static str = $crate::query_method!($name);
+		}
+		$crate::register_query!($query);
+	};
+}
+
 /// Macro for registering core action input operations with the inventory system.
 ///
 /// This macro automatically registers a core action input type with the registry. The

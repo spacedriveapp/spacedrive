@@ -1,6 +1,6 @@
 //! Input types for file deletion operations
 
-use crate::register_library_action_input;
+use super::action::FileDeleteAction;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -17,27 +17,20 @@ pub struct FileDeleteInput {
 	pub recursive: bool,
 }
 
-impl crate::client::Wire for FileDeleteInput {
-	const METHOD: &'static str = "action:files.delete.input.v1";
-}
-
-impl crate::ops::registry::BuildLibraryActionInput for FileDeleteInput {
-	type Action = crate::ops::files::delete::action::FileDeleteAction;
-
-	fn build(self) -> Result<Self::Action, String> {
-		use crate::ops::files::delete::job::DeleteOptions;
-
-		Ok(crate::ops::files::delete::action::FileDeleteAction {
-			targets: self.targets,
-			options: DeleteOptions {
-				permanent: self.permanent,
-				recursive: self.recursive,
+impl TryFrom<FileDeleteInput> for FileDeleteAction {
+	type Error = String;
+	fn try_from(input: FileDeleteInput) -> Result<Self, Self::Error> {
+		Ok(FileDeleteAction {
+			targets: input.targets,
+			options: crate::ops::files::delete::job::DeleteOptions {
+				permanent: input.permanent,
+				recursive: input.recursive,
 			},
 		})
 	}
 }
 
-register_library_action_input!(FileDeleteInput);
+crate::op!(library_action FileDeleteInput => FileDeleteAction, "files.delete");
 
 impl FileDeleteInput {
 	/// Create a new file deletion input

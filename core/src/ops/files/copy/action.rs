@@ -29,6 +29,9 @@ pub struct FileCopyAction {
 	pub options: CopyOptions,
 }
 
+// Register with the inventory system
+crate::op!(library_action FileCopyInput => FileCopyAction, "files.copy", via = FileCopyActionBuilder);
+
 /// Builder for creating FileCopyAction instances with fluent API
 #[derive(Debug, Clone)]
 pub struct FileCopyActionBuilder {
@@ -250,7 +253,6 @@ impl FileCopyHandler {
 	}
 }
 
-// Implement the unified ActionTrait (replaces ActionHandler)
 impl LibraryAction for FileCopyAction {
 	type Output = JobHandle;
 
@@ -259,13 +261,9 @@ impl LibraryAction for FileCopyAction {
 		library: std::sync::Arc<crate::library::Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Library is pre-validated by ActionManager - no boilerplate!
-
-		// Create job instance directly
 		let job = FileCopyJob::new(SdPathBatch::new(self.sources), self.destination)
 			.with_options(self.options);
 
-		// Dispatch job and return handle directly - no string conversion!
 		let job_handle = library
 			.jobs()
 			.dispatch(job)
