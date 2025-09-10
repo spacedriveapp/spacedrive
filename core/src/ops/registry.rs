@@ -52,6 +52,36 @@ pub static ACTIONS: Lazy<HashMap<&'static str, ActionHandlerFn>> = Lazy::new(|| 
 	map
 });
 
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn list_registered_ops() {
+		// Collect and display registered actions
+		let mut action_methods: Vec<&'static str> =
+			crate::ops::registry::ACTIONS.keys().cloned().collect();
+		action_methods.sort();
+		println!("Registered actions ({}):", action_methods.len());
+		for method in &action_methods {
+			println!("  {}", method);
+		}
+
+		// Collect and display registered queries
+		let mut query_methods: Vec<&'static str> =
+			crate::ops::registry::QUERIES.keys().cloned().collect();
+		query_methods.sort();
+		println!("Registered queries ({}):", query_methods.len());
+		for method in &query_methods {
+			println!("  {}", method);
+		}
+
+		// Ensure we have at least one action or query registered
+		assert!(
+			!action_methods.is_empty() || !query_methods.is_empty(),
+			"No actions or queries registered"
+		);
+	}
+}
+
 /// Generic query handler (decode -> execute -> encode)
 pub fn handle_query<Q>(
 	core: Arc<crate::Core>,

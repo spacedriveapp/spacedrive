@@ -126,3 +126,6 @@ impl LibraryAction for LocationAddAction {
 		Ok(())
 	}
 }
+
+// Register action
+crate::register_library_action!(LocationAddAction, "locations.add");

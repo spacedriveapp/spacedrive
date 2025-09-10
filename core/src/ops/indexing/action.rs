@@ -50,14 +50,6 @@ impl crate::infra::action::builder::ActionBuilder for IndexingActionBuilder {
 	}
 }
 
-pub struct IndexingHandler;
-
-impl IndexingHandler {
-	pub fn new() -> Self {
-		Self
-	}
-}
-
 impl LibraryAction for IndexingAction {
 	type Input = IndexInput;
 	type Output = JobHandle;

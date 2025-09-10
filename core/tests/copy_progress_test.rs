@@ -3,16 +3,10 @@
 //! This test verifies that copy progress updates smoothly with byte-level
 //! granularity rather than jumping in large increments.
 
-use sd_core::domain::addressing::SdPath;
+use sd_core::domain::addressing::{SdPath, SdPathBatch};
 use sd_core::{
-	infra::{
-		action::{manager::ActionManager, Action},
-		event::Event,
-	},
-	ops::files::{
-		copy::{action::FileCopyAction, job::CopyOptions},
-		input::CopyMethod,
-	},
+	infra::{action::manager::ActionManager, event::Event},
+	ops::files::copy::{action::FileCopyAction, input::CopyMethod, job::CopyOptions},
 	Core,
 };
 use std::{
@@ -120,7 +114,7 @@ async fn test_copy_progress_monitoring_large_file() {
 
 	// Build the copy action with the exact options from the CLI command
 	let copy_action = FileCopyAction {
-		sources: vec![SdPath::local(source_file.clone())],
+		sources: SdPathBatch::new(vec![SdPath::local(source_file.clone())]),
 		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
 			overwrite: false,
@@ -132,11 +126,7 @@ async fn test_copy_progress_monitoring_large_file() {
 		},
 	};
 
-	// Create the Action enum with library context
-	let action = Action::FileCopy {
-		library_id,
-		action: copy_action,
-	};
+	// Dispatch the action directly via ActionManager (library-scoped)
 
 	// Setup progress monitoring
 	let progress_snapshots = Arc::new(Mutex::new(Vec::new()));
@@ -145,26 +135,17 @@ async fn test_copy_progress_monitoring_large_file() {
 
 	// Execute the action
 	println!("Starting copy operation...");
-	let action_output = action_manager
-		.dispatch(action)
+	let _job_handle = action_manager
+		.dispatch_library(library_id, copy_action)
 		.await
 		.expect("Action dispatch should succeed");
 
-	// Extract job ID from output
-	let job_id = match &action_output {
-		sd_core::infra::action::output::ActionOutput::Custom { data, .. } => {
-			let job_id_value = data.get("job_id").unwrap();
-			let job_id_str = job_id_value.as_str().expect("job_id should be a string");
-			Uuid::parse_str(job_id_str).expect("job_id should be valid UUID")
-		}
-		_ => panic!("Expected Custom ActionOutput variant"),
-	};
-	println!("Monitoring job ID: {}", job_id);
+	// Job ID will be read from first Job* event below
 
 	// Subscribe to events from the event bus
 	let mut event_subscriber = core.events.subscribe();
 	let expected_size_clone = expected_size;
-	let job_id_str = job_id.to_string();
+	let mut observed_job_id: Option<String> = None;
 
 	// Start monitoring task using EventBus
 	let monitor_handle = tokio::spawn(async move {
@@ -181,7 +162,15 @@ async fn test_copy_progress_monitoring_large_file() {
 					progress,
 					message,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if observed_job_id.is_none() {
+						observed_job_id = Some(event_job_id.clone());
+					}
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					}
 					let current_progress = progress * 100.0;
 
 					// Record snapshot if progress changed
@@ -208,7 +197,14 @@ async fn test_copy_progress_monitoring_large_file() {
 				Event::JobCompleted {
 					job_id: event_job_id,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					} else {
+						observed_job_id = Some(event_job_id.clone());
+					}
 					println!("Job completed! (after {} events)", event_count);
 					println!("Final progress: {:.1}%", last_progress);
 
@@ -228,14 +224,28 @@ async fn test_copy_progress_monitoring_large_file() {
 					job_id: event_job_id,
 					error,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					} else {
+						observed_job_id = Some(event_job_id.clone());
+					}
 					println!("Job failed after {} events: {}", event_count, error);
 					panic!("Job failed: {}", error);
 				}
 				Event::JobCancelled {
 					job_id: event_job_id,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					} else {
+						observed_job_id = Some(event_job_id.clone());
+					}
 					println!("Job was cancelled after {} events", event_count);
 					break;
 				}
@@ -400,7 +410,7 @@ async fn test_copy_progress_multiple_files() {
 
 	// Build copy action for multiple files
 	let copy_action = FileCopyAction {
-		sources: source_files.iter().cloned().map(SdPath::local).collect(),
+		sources: SdPathBatch::new(source_files.iter().cloned().map(SdPath::local).collect()),
 		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
 			overwrite: false,
@@ -412,10 +422,7 @@ async fn test_copy_progress_multiple_files() {
 		},
 	};
 
-	let action = Action::FileCopy {
-		library_id,
-		action: copy_action,
-	};
+	// Dispatch the action directly via ActionManager (library-scoped)
 
 	// Setup progress monitoring
 	let progress_snapshots = Arc::new(Mutex::new(Vec::new()));
@@ -423,22 +430,14 @@ async fn test_copy_progress_multiple_files() {
 
 	// Execute the action
 	println!("\nStarting multi-file copy operation...");
-	let action_output = action_manager
-		.dispatch(action)
+	let _job_handle = action_manager
+		.dispatch_library(library_id, copy_action)
 		.await
 		.expect("Action dispatch should succeed");
 
-	let job_id = match &action_output {
-		sd_core::infra::action::output::ActionOutput::Custom { data, .. } => {
-			let job_id_str = data.get("job_id").unwrap().as_str().unwrap();
-			Uuid::parse_str(job_id_str).unwrap()
-		}
-		_ => panic!("Expected Custom ActionOutput variant"),
-	};
-
 	// Subscribe to events and monitor progress using EventBus
 	let mut event_subscriber = core.events.subscribe();
-	let job_id_str = job_id.to_string();
+	let mut observed_job_id: Option<String> = None;
 
 	let monitor_handle = tokio::spawn(async move {
 		let mut last_progress = 0.0;
@@ -449,7 +448,15 @@ async fn test_copy_progress_multiple_files() {
 					job_id: event_job_id,
 					progress,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if observed_job_id.is_none() {
+						observed_job_id = Some(event_job_id.clone());
+					}
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					}
 					let current_progress = progress * 100.0;
 
 					if (current_progress - last_progress).abs() > 0.01 {
@@ -468,7 +475,14 @@ async fn test_copy_progress_multiple_files() {
 				Event::JobCompleted {
 					job_id: event_job_id,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					} else {
+						observed_job_id = Some(event_job_id.clone());
+					}
 					println!("Multi-file job completed");
 					break;
 				}
@@ -476,13 +490,27 @@ async fn test_copy_progress_multiple_files() {
 					job_id: event_job_id,
 					error,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					} else {
+						observed_job_id = Some(event_job_id.clone());
+					}
 					panic!("Multi-file job failed: {}", error);
 				}
 				Event::JobCancelled {
 					job_id: event_job_id,
 					..
-				} if event_job_id == job_id_str => {
+				} => {
+					if let Some(ref jid) = observed_job_id {
+						if &event_job_id != jid {
+							continue;
+						}
+					} else {
+						observed_job_id = Some(event_job_id.clone());
+					}
 					println!("Multi-file job was cancelled");
 					break;
 				}

@@ -98,3 +98,6 @@ impl LibraryAction for LocationRescanAction {
 		"location.rescan"
 	}
 }
+
+// Register action
+crate::register_library_action!(LocationRescanAction, "locations.rescan");

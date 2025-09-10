@@ -102,3 +102,6 @@ impl LibraryAction for VolumeSpeedTestAction {
 		Ok(())
 	}
 }
+
+// Register action
+crate::register_library_action!(VolumeSpeedTestAction, "volumes.speed_test");

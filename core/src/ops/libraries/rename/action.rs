@@ -89,3 +89,6 @@ impl LibraryAction for LibraryRenameAction {
 		Ok(())
 	}
 }
+
+// Register action
+crate::register_library_action!(LibraryRenameAction, "libraries.rename");

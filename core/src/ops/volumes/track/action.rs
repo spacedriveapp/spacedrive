@@ -124,3 +124,6 @@ impl LibraryAction for VolumeTrackAction {
 		Ok(())
 	}
 }
+
+// Register action
+crate::register_library_action!(VolumeTrackAction, "volumes.track");

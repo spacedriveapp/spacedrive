@@ -5,8 +5,7 @@
 //! Alice's device and the destination is on Bob's device.
 
 use sd_core::{
-	domain::addressing::SdPath,
-	infra::action::Action,
+	domain::addressing::{SdPath, SdPathBatch},
 	ops::files::copy::{action::FileCopyAction, CopyOptions},
 	testing::CargoTestRunner,
 	Core,
@@ -219,7 +218,7 @@ async fn alice_cross_device_copy_scenario() {
 
 		// Build the copy action directly with SdPath
 		let copy_action = FileCopyAction {
-			sources: vec![source_sdpath],
+			sources: SdPathBatch::new(vec![source_sdpath]),
 			destination: dest_sdpath,
 			options: CopyOptions {
 				overwrite: true,
@@ -231,10 +230,7 @@ async fn alice_cross_device_copy_scenario() {
 
 		// Dispatch the action
 		match action_manager
-			.dispatch(Action::FileCopy {
-				library_id,
-				action: copy_action,
-			})
+			.dispatch_library(library_id, copy_action)
 			.await
 		{
 			Ok(output) => {

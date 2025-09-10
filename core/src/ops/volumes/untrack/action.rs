@@ -76,3 +76,6 @@ impl LibraryAction for VolumeUntrackAction {
 		Ok(())
 	}
 }
+
+// Register action
+crate::register_library_action!(VolumeUntrackAction, "volumes.untrack");

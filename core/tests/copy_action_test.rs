@@ -4,7 +4,7 @@
 //! requiring a full database setup or job execution.
 
 use sd_core::{
-	domain::addressing::SdPath,
+	domain::addressing::{SdPath, SdPathBatch},
 	infra::action::builder::ActionBuilder,
 	ops::files::copy::{
 		action::FileCopyAction,
@@ -48,13 +48,11 @@ async fn test_copy_action_construction() {
 		.unwrap();
 
 	// Test 1: Basic copy action construction (modular action)
-	let library_id = Uuid::new_v4();
 	let copy_action = FileCopyAction {
-		library_id,
-		sources: vec![
+		sources: SdPathBatch::new(vec![
 			SdPath::local(source_file1.clone()),
 			SdPath::local(source_file2.clone()),
-		],
+		]),
 		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
 			overwrite: false,
@@ -67,8 +65,7 @@ async fn test_copy_action_construction() {
 	};
 
 	// Verify properties directly
-	assert_eq!(copy_action.library_id, library_id);
-	assert_eq!(copy_action.sources.len(), 2);
+	assert_eq!(copy_action.sources.paths.len(), 2);
 	assert_eq!(copy_action.options.overwrite, false);
 	assert_eq!(copy_action.options.verify_checksum, true);
 	assert_eq!(copy_action.options.preserve_timestamps, true);
@@ -86,8 +83,7 @@ async fn test_move_action_construction() {
 
 	// Test move action semantics
 	let move_action = FileCopyAction {
-		library_id: Uuid::new_v4(),
-		sources: vec![SdPath::local(source_file.clone())],
+		sources: SdPathBatch::new(vec![SdPath::local(source_file.clone())]),
 		destination: SdPath::local(dest_file.clone()),
 		options: CopyOptions {
 			copy_method: CopyMethod::Auto,

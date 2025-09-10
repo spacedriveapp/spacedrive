@@ -83,3 +83,6 @@ impl LibraryAction for ThumbnailAction {
 		Ok(())
 	}
 }
+
+// Register action
+crate::register_library_action!(ThumbnailAction, "media.thumbnail");

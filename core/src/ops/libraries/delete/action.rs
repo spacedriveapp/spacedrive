@@ -77,3 +77,6 @@ impl CoreAction for LibraryDeleteAction {
 		Ok(())
 	}
 }
+
+// Register core action
+crate::register_core_action!(LibraryDeleteAction, "libraries.delete");

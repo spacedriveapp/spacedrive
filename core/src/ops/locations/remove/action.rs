@@ -66,3 +66,6 @@ impl LibraryAction for LocationRemoveAction {
 		Ok(())
 	}
 }
+
+// Register action
+crate::register_library_action!(LocationRemoveAction, "locations.remove");

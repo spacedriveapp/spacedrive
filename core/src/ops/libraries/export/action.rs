@@ -103,3 +103,6 @@ impl LibraryAction for LibraryExportAction {
 		"library.export"
 	}
 }
+
+// Register action
+crate::register_library_action!(LibraryExportAction, "libraries.export");

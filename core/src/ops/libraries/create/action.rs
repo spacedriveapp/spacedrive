@@ -61,3 +61,6 @@ impl CoreAction for LibraryCreateAction {
 		Ok(())
 	}
 }
+
+// Register core action
+crate::register_core_action!(LibraryCreateAction, "libraries.create");
