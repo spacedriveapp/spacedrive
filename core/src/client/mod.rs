@@ -1,4 +1,6 @@
 use anyhow::Result;
+use bincode::config::standard;
+use bincode::serde::{decode_from_slice, encode_to_vec};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::path::PathBuf;
@@ -15,21 +17,31 @@ pub struct CoreClient {
 }
 
 impl CoreClient {
-	pub fn new(socket: PathBuf) -> Self { Self { daemon: DaemonClient::new(socket) } }
+	pub fn new(socket: PathBuf) -> Self {
+		Self {
+			daemon: DaemonClient::new(socket),
+		}
+	}
 
 	pub async fn action<A>(&self, action: &A) -> Result<()>
 	where
 		A: Wire + Serialize,
 	{
-		let payload = bincode::serialize(action)?;
-		match self
+		let payload = encode_to_vec(action, standard())?;
+		let resp = self
 			.daemon
-			.send(&DaemonRequest::Action { type_id: A::TYPE_ID.into(), payload })
-			.await?
-		{
+			.send(&DaemonRequest::Action {
+				type_id: A::TYPE_ID.into(),
+				payload,
+			})
+			.await;
+		match resp {
+			Ok(r) => match r {
 			DaemonResponse::Ok(_) => Ok(()),
 			DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
 			other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
+			},
+			Err(e) => Err(anyhow::anyhow!(e.to_string())),
 		}
 	}
 
@@ -38,17 +50,21 @@ impl CoreClient {
 		Q: Wire + Serialize,
 		O: DeserializeOwned,
 	{
-		let payload = bincode::serialize(query)?;
-		match self
+		let payload = encode_to_vec(query, standard())?;
+		let resp = self
 			.daemon
-			.send(&DaemonRequest::Query { type_id: Q::TYPE_ID.into(), payload })
-			.await?
-		{
-			DaemonResponse::Ok(bytes) => Ok(bincode::deserialize(&bytes)?),
-			DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
-			other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
+			.send(&DaemonRequest::Query {
+				type_id: Q::TYPE_ID.into(),
+				payload,
+			})
+			.await;
+		match resp {
+			Ok(r) => match r {
+				DaemonResponse::Ok(bytes) => Ok(decode_from_slice(&bytes, standard())?.0),
+				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
+				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
+			},
+			Err(e) => Err(anyhow::anyhow!(e.to_string())),
 		}
 	}
 }
-
-

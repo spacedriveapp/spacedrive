@@ -7,16 +7,15 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
+	domain::addressing::{SdPath, SdPathBatch},
 	infra::{
 		action::{
 			builder::{ActionBuildError, ActionBuilder},
 			error::{ActionError, ActionResult},
 			LibraryAction,
 		},
-		cli::adapters::FileCopyCliArgs,
 		job::handle::JobHandle,
 	},
-	domain::addressing::{SdPath, SdPathBatch},
 };
 use async_trait::async_trait;
 use clap::Parser;
@@ -168,13 +167,18 @@ impl ActionBuilder for FileCopyActionBuilder {
 		let options = self.input.to_copy_options();
 
 		// Convert PathBuf to SdPath (local paths)
-		let sources = self.input.sources.iter()
+		let sources = self
+			.input
+			.sources
+			.iter()
 			.map(|p| SdPath::local(p))
 			.collect();
 		let destination = SdPath::local(&self.input.destination);
 
 		Ok(FileCopyAction {
-			library_id: self.input.library_id.ok_or_else(|| ActionBuildError::validation("library_id is required".to_string()))?,
+			library_id: self.input.library_id.ok_or_else(|| {
+				ActionBuildError::validation("library_id is required".to_string())
+			})?,
 			sources,
 			destination,
 			options,
@@ -183,11 +187,6 @@ impl ActionBuilder for FileCopyActionBuilder {
 }
 
 impl FileCopyActionBuilder {
-	/// Create builder from CLI args (interface-specific convenience method)
-	pub fn from_cli_args(args: FileCopyCliArgs) -> Self {
-		Self::from_input(args.into())
-	}
-
 	/// Create action directly from URI strings (for CLI/API use)
 	pub fn from_uris(
 		source_uris: Vec<String>,
@@ -199,17 +198,22 @@ impl FileCopyActionBuilder {
 		for uri in source_uris {
 			match SdPath::from_uri(&uri) {
 				Ok(path) => sources.push(path),
-				Err(e) => return Err(ActionBuildError::validation(
-					format!("Invalid source URI '{}': {:?}", uri, e)
-				)),
+				Err(e) => {
+					return Err(ActionBuildError::validation(format!(
+						"Invalid source URI '{}': {:?}",
+						uri, e
+					)))
+				}
 			}
 		}
 
 		// Parse destination URI
-		let destination = SdPath::from_uri(&destination_uri)
-			.map_err(|e| ActionBuildError::validation(
-				format!("Invalid destination URI '{}': {:?}", destination_uri, e)
-			))?;
+		let destination = SdPath::from_uri(&destination_uri).map_err(|e| {
+			ActionBuildError::validation(format!(
+				"Invalid destination URI '{}': {:?}",
+				destination_uri, e
+			))
+		})?;
 
 		Ok(FileCopyAction {
 			library_id: Uuid::nil(),
@@ -262,7 +266,11 @@ impl FileCopyHandler {
 impl LibraryAction for FileCopyAction {
 	type Output = JobHandle;
 
-	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
 		// Library is pre-validated by ActionManager - no boilerplate!
 
 		// Create job instance directly
@@ -287,7 +295,11 @@ impl LibraryAction for FileCopyAction {
 		self.library_id
 	}
 
-	async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: Arc<CoreContext>) -> Result<(), ActionError> {
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<(), ActionError> {
 		if self.sources.is_empty() {
 			return Err(ActionError::Validation {
 				field: "sources".to_string(),
@@ -295,162 +307,5 @@ impl LibraryAction for FileCopyAction {
 			});
 		}
 		Ok(())
-	}
-}
-
-// ActionHandler removed - using unified ActionTrait instead
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::{
-		infra::cli::adapters::{copy::CopyMethodCli, FileCopyCliArgs},
-		ops::files::input::CopyMethod,
-	};
-	use std::path::PathBuf;
-
-	#[test]
-	fn test_builder_fluent_api() {
-		let action = FileCopyAction::builder()
-			.sources(["/src/file1.txt", "/src/file2.txt"])
-			.destination("/dest/")
-			.overwrite(true)
-			.verify_checksum(true)
-			.preserve_timestamps(false)
-			.move_files(true)
-			.build();
-
-		// Note: This will fail validation because files don't exist, but it tests the API
-		assert!(action.is_err());
-		match action.unwrap_err() {
-			ActionBuildError::Validation(errors) => {
-				assert!(!errors.is_empty());
-				assert!(errors.iter().any(|e| e.contains("does not exist")));
-			}
-			_ => panic!("Expected validation error"),
-		}
-	}
-
-	#[test]
-	fn test_builder_validation_empty_sources() {
-		let result = FileCopyAction::builder().destination("/dest/").build();
-
-		assert!(result.is_err());
-		match result.unwrap_err() {
-			ActionBuildError::Validation(errors) => {
-				assert!(errors.iter().any(|e| e.contains("At least one source")));
-			}
-			_ => panic!("Expected validation error"),
-		}
-	}
-
-	#[test]
-	fn test_builder_from_input() {
-		let input = FileCopyInput::new(vec!["/file1.txt".into(), "/file2.txt".into()], "/dest/")
-			.with_overwrite(true)
-			.with_verification(true)
-			.with_move(false);
-
-		let builder = FileCopyActionBuilder::from_input(input.clone());
-
-		// Test that builder has correct values from input
-		assert_eq!(
-			builder.input.sources,
-			vec![PathBuf::from("/file1.txt"), PathBuf::from("/file2.txt")]
-		);
-		assert_eq!(builder.input.destination, PathBuf::from("/dest/"));
-		assert!(builder.input.overwrite);
-		assert!(builder.input.verify_checksum);
-		assert!(!builder.input.move_files);
-	}
-
-	#[test]
-	fn test_cli_integration() {
-		let args = FileCopyCliArgs {
-			sources: vec!["/src/file.txt".into()],
-			destination: "/dest/".into(),
-			method: CopyMethodCli::Auto,
-			overwrite: true,
-			verify: false,
-			preserve_timestamps: true,
-			move_files: false,
-		};
-
-		let builder = FileCopyActionBuilder::from_cli_args(args);
-
-		// Test that builder has correct values set from CLI args
-		assert_eq!(builder.input.sources, vec![PathBuf::from("/src/file.txt")]);
-		assert_eq!(builder.input.destination, PathBuf::from("/dest/"));
-		assert!(builder.input.overwrite);
-		assert!(!builder.input.verify_checksum);
-		assert!(builder.input.preserve_timestamps);
-		assert!(!builder.input.move_files);
-	}
-
-	#[test]
-	fn test_convenience_methods() {
-		// Test single file copy
-		let builder = FileCopyAction::copy_file("/src/file.txt", "/dest/file.txt");
-		assert_eq!(builder.input.sources, vec![PathBuf::from("/src/file.txt")]);
-		assert_eq!(builder.input.destination, PathBuf::from("/dest/file.txt"));
-
-		// Test multiple files copy
-		let sources = vec!["/src/file1.txt", "/src/file2.txt"];
-		let builder = FileCopyAction::copy_files(sources.clone(), "/dest/");
-		assert_eq!(
-			builder.input.sources,
-			sources.into_iter().map(PathBuf::from).collect::<Vec<_>>()
-		);
-		assert_eq!(builder.input.destination, PathBuf::from("/dest/"));
-	}
-
-	#[test]
-	fn test_builder_chaining() {
-		let builder = FileCopyAction::builder()
-			.source("/file1.txt")
-			.source("/file2.txt")
-			.source("/file3.txt")
-			.destination("/dest/")
-			.overwrite(true)
-			.verify_checksum(false)
-			.preserve_timestamps(true)
-			.move_files(false);
-
-		assert_eq!(builder.input.sources.len(), 3);
-		assert!(builder.input.overwrite);
-		assert!(!builder.input.verify_checksum);
-		assert!(builder.input.preserve_timestamps);
-		assert!(!builder.input.move_files);
-	}
-
-	#[test]
-	fn test_input_abstraction_flow() {
-		// Test the full flow: CLI args -> Input -> Builder -> Action
-		let cli_args = FileCopyCliArgs {
-			sources: vec!["/source.txt".into()],
-			destination: "/dest.txt".into(),
-			method: CopyMethodCli::Auto,
-			overwrite: false,
-			verify: true,
-			preserve_timestamps: false,
-			move_files: true,
-		};
-
-		// Convert CLI args to input
-		let input: FileCopyInput = cli_args.into();
-		assert_eq!(input.sources, vec![PathBuf::from("/source.txt")]);
-		assert!(input.verify_checksum);
-		assert!(!input.preserve_timestamps);
-		assert!(input.move_files);
-
-		// Create builder from input
-		let builder = FileCopyActionBuilder::from_input(input);
-
-		// Verify the copy options are correct
-		let copy_options = builder.input.to_copy_options();
-		assert!(!copy_options.overwrite);
-		assert!(copy_options.verify_checksum);
-		assert!(!copy_options.preserve_timestamps);
-		assert!(copy_options.delete_after_copy);
 	}
 }

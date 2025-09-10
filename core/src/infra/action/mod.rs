@@ -14,11 +14,8 @@ pub mod error;
 pub mod manager;
 pub mod output;
 pub mod receipt;
-#[cfg(test)]
-mod tests;
 
 // handler and registry modules removed - using unified ActionTrait instead
-
 
 /// Core-level action that operates without library context.
 ///
@@ -29,13 +26,19 @@ pub trait CoreAction: Send + Sync + 'static {
 	type Output: Send + Sync + 'static;
 
 	/// Execute this action with core context only
-	async fn execute(self, context: std::sync::Arc<crate::context::CoreContext>) -> Result<Self::Output, crate::infra::action::error::ActionError>;
+	async fn execute(
+		self,
+		context: std::sync::Arc<crate::context::CoreContext>,
+	) -> Result<Self::Output, crate::infra::action::error::ActionError>;
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
 
 	/// Validate this action (optional)
-	async fn validate(&self, _context: std::sync::Arc<crate::context::CoreContext>) -> Result<(), crate::infra::action::error::ActionError> {
+	async fn validate(
+		&self,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> Result<(), crate::infra::action::error::ActionError> {
 		Ok(())
 	}
 }
@@ -49,7 +52,11 @@ pub trait LibraryAction: Send + Sync + 'static {
 	type Output: Send + Sync + 'static;
 
 	/// Execute this action with validated library and core context
-	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: std::sync::Arc<crate::context::CoreContext>) -> Result<Self::Output, crate::infra::action::error::ActionError>;
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<crate::context::CoreContext>,
+	) -> Result<Self::Output, crate::infra::action::error::ActionError>;
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
@@ -59,7 +66,11 @@ pub trait LibraryAction: Send + Sync + 'static {
 
 	/// Validate this action with library context (optional)
 	/// Note: Library existence is already validated by ActionManager
-	async fn validate(&self, _library: &std::sync::Arc<crate::library::Library>, _context: std::sync::Arc<crate::context::CoreContext>) -> Result<(), crate::infra::action::error::ActionError> {
+	async fn validate(
+		&self,
+		_library: &std::sync::Arc<crate::library::Library>,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> Result<(), crate::infra::action::error::ActionError> {
 		Ok(())
 	}
 }

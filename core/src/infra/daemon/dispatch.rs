@@ -4,8 +4,11 @@ use std::sync::Arc;
 use futures::future::BoxFuture;
 use tokio::sync::RwLock;
 
-use crate::Core;
 use super::state::SessionState;
+use crate::Core;
+use bincode::config::standard;
+use bincode::serde::{decode_from_slice, encode_to_vec};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Signature for a generic action handler: takes raw bytes, returns raw bytes
 pub type ActionHandler = Arc<
@@ -72,4 +75,50 @@ impl DispatchRegistry {
 	}
 }
 
+/// Build a generic action handler that decodes T from payload, executes, and returns empty Ok bytes
+pub fn make_action_handler<T>(
+	exec: std::sync::Arc<
+		dyn Fn(T, std::sync::Arc<Core>, SessionState) -> BoxFuture<'static, Result<(), String>>
+			+ Send
+			+ Sync
+			+ 'static,
+	>,
+) -> ActionHandler
+where
+	T: DeserializeOwned + Send + 'static,
+{
+	std::sync::Arc::new(move |payload, core, session| {
+		let exec = exec.clone();
+		Box::pin(async move {
+			let val: T = decode_from_slice(&payload, standard())
+				.map_err(|e| format!("deserialize: {}", e))?
+				.0;
+			(exec)(val, core, session).await.map(|_| Vec::new())
+		})
+	})
+}
 
+/// Build a generic query handler that decodes Q, executes to O, and encodes O
+pub fn make_query_handler<Q, O>(
+	exec: std::sync::Arc<
+		dyn Fn(Q, std::sync::Arc<Core>, SessionState) -> BoxFuture<'static, Result<O, String>>
+			+ Send
+			+ Sync
+			+ 'static,
+	>,
+) -> QueryHandler
+where
+	Q: DeserializeOwned + Send + 'static,
+	O: Serialize + Send + 'static,
+{
+	std::sync::Arc::new(move |payload, core, session| {
+		let exec = exec.clone();
+		Box::pin(async move {
+			let val: Q = decode_from_slice(&payload, standard())
+				.map_err(|e| format!("deserialize: {}", e))?
+				.0;
+			let out = (exec)(val, core, session).await?;
+			encode_to_vec(&out, standard()).map_err(|e| e.to_string())
+		})
+	})
+}

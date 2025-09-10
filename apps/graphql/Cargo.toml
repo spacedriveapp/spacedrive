@@ -14,4 +14,4 @@ serde_json         = "1"
 tokio              = { version = "1", features = ["full"] }
 uuid               = { version = "1", features = ["serde", "v4"] }
 
-spacedrive-core = { path = "../../core" }
+sd-core = { path = "../../core" }

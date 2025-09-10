@@ -21,6 +21,7 @@ pub mod metadata;
 pub mod sidecar;
 pub mod volumes;
 pub mod core;
+pub mod transport;
 
 /// Register all jobs with the job system
 ///
