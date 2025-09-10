@@ -10,6 +10,7 @@
 
 pub mod addressing;
 pub mod content;
+pub mod core;
 pub mod devices;
 pub mod entries;
 pub mod files;
@@ -19,9 +20,8 @@ pub mod locations;
 pub mod media;
 pub mod metadata;
 pub mod sidecar;
-pub mod volumes;
-pub mod core;
 pub mod transport;
+pub mod volumes;
 
 /// Register all jobs with the job system
 ///

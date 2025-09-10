@@ -3,6 +3,7 @@
 //!
 //! A unified, simplified architecture for cross-platform file management.
 
+pub mod client;
 pub mod common;
 pub mod config;
 pub mod context;
@@ -18,7 +19,6 @@ pub mod ops;
 pub mod service;
 pub mod testing;
 pub mod volume;
-pub mod client;
 
 use service::network::protocol::pairing::PairingProtocolHandler;
 use service::network::utils::logging::NetworkLogger;
@@ -31,9 +31,9 @@ pub mod networking {
 use crate::config::AppConfig;
 use crate::context::CoreContext;
 use crate::cqrs::{Query, QueryManager};
-use crate::infra::action::{CoreAction, LibraryAction};
 use crate::device::DeviceManager;
 use crate::infra::action::manager::ActionManager;
+use crate::infra::action::{CoreAction, LibraryAction};
 use crate::infra::event::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::service::Services;
@@ -488,7 +488,9 @@ impl Core {
 	/// Core actions operate at the global level - managing libraries, volumes, devices, etc.
 	pub async fn execute_core_action<A: CoreAction>(&self, action: A) -> anyhow::Result<A::Output> {
 		let action_manager = ActionManager::new(self.context.clone());
-		action_manager.dispatch_core(action).await
+		action_manager
+			.dispatch_core(action)
+			.await
 			.map_err(|e| anyhow::anyhow!("Core action execution failed: {}", e))
 	}
 
@@ -496,9 +498,14 @@ impl Core {
 	///
 	/// Library actions operate within a specific library - files, locations, indexing, etc.
 	/// The library existence is validated automatically.
-	pub async fn execute_library_action<A: LibraryAction>(&self, action: A) -> anyhow::Result<A::Output> {
+	pub async fn execute_library_action<A: LibraryAction>(
+		&self,
+		action: A,
+	) -> anyhow::Result<A::Output> {
 		let action_manager = ActionManager::new(self.context.clone());
-		action_manager.dispatch_library(action).await
+		action_manager
+			.dispatch_library(action)
+			.await
 			.map_err(|e| anyhow::anyhow!("Library action execution failed: {}", e))
 	}
 
@@ -509,6 +516,30 @@ impl Core {
 	pub async fn execute_query<Q: Query>(&self, query: Q) -> anyhow::Result<Q::Output> {
 		let query_manager = QueryManager::new(self.context.clone());
 		query_manager.dispatch(query).await
+	}
+
+	/// Temporary pass-through dispatcher by method string for daemon decoupling.
+	/// Only implemented for a single query to prove the pattern.
+	pub async fn execute_query_by_method(
+		&self,
+		method: &str,
+		payload: Vec<u8>,
+	) -> Result<Vec<u8>, String> {
+		use bincode::config::standard;
+		use bincode::serde::{decode_from_slice, encode_to_vec};
+
+		match method {
+			crate::infra::daemon::types::type_ids::CORE_STATUS_QUERY => {
+				let q: crate::ops::core::status::query::CoreStatusQuery =
+					decode_from_slice(&payload, standard())
+						.map_err(|e| format!("deserialize: {}", e))?
+						.0;
+				let out: crate::ops::core::status::output::CoreStatus =
+					self.execute_query(q).await.map_err(|e| e.to_string())?;
+				encode_to_vec(&out, standard()).map_err(|e| e.to_string())
+			}
+			_ => Err("Unknown query method".into()),
+		}
 	}
 
 	/// Shutdown the core gracefully

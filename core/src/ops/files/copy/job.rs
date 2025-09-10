@@ -2,9 +2,9 @@
 
 use super::{database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrategyRouter};
 use crate::{
+	domain::addressing::{SdPath, SdPathBatch},
 	infra::job::generic_progress::{GenericProgress, ToGenericProgress},
 	infra::job::{prelude::*, traits::Resourceful},
-	domain::addressing::{SdPath, SdPathBatch},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -16,7 +16,7 @@ use std::{
 use uuid::Uuid;
 
 /// Move operation modes for UI context
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MoveMode {
 	/// Standard move operation
 	Move,
@@ -224,8 +224,9 @@ impl JobHandler for FileCopyJob {
 			ProgressAggregator::new(&ctx, actual_file_count, estimated_total_bytes);
 
 		// Resolve destination path first if it's content-based
-		let resolved_destination = self.destination.resolve_in_job(&ctx).await
-			.map_err(|e| JobError::execution(format!("Failed to resolve destination path: {}", e)))?;
+		let resolved_destination = self.destination.resolve_in_job(&ctx).await.map_err(|e| {
+			JobError::execution(format!("Failed to resolve destination path: {}", e))
+		})?;
 
 		// Update destination to the resolved physical path
 		self.destination = resolved_destination;
@@ -235,8 +236,9 @@ impl JobHandler for FileCopyJob {
 			ctx.check_interrupt().await?;
 
 			// Resolve source path if it's content-based
-			let resolved_source = source.resolve_in_job(&ctx).await
-				.map_err(|e| JobError::execution(format!("Failed to resolve source path: {}", e)))?;
+			let resolved_source = source.resolve_in_job(&ctx).await.map_err(|e| {
+				JobError::execution(format!("Failed to resolve source path: {}", e))
+			})?;
 
 			// Skip files that have already been completed (resume logic)
 			if self.completed_indices.contains(&index) {
@@ -359,15 +361,22 @@ impl JobHandler for FileCopyJob {
 						// For same-device moves, LocalMoveStrategy handles deletion atomically
 						// For cross-volume moves, LocalStreamCopyStrategy needs manual deletion
 						if let Some(vm) = volume_manager.as_deref() {
-							if let (Some(source_path), Some(dest_path)) =
-								(resolved_source.as_local_path(), final_destination.as_local_path())
-							{
+							if let (Some(source_path), Some(dest_path)) = (
+								resolved_source.as_local_path(),
+								final_destination.as_local_path(),
+							) {
 								if !vm.same_volume(source_path, dest_path).await {
 									// Cross-volume move - delete source
 									if let Err(e) = self.delete_source_file(source_path).await {
 										failed_copies.push(CopyError {
-											source: resolved_source.path().cloned().unwrap_or_default(),
-											destination: final_destination.path().cloned().unwrap_or_default(),
+											source: resolved_source
+												.path()
+												.cloned()
+												.unwrap_or_default(),
+											destination: final_destination
+												.path()
+												.cloned()
+												.unwrap_or_default(),
 											error: format!(
 												"Copy succeeded but failed to delete source: {}",
 												e
@@ -717,12 +726,10 @@ impl FileCopyJob {
 	/// Create a rename operation
 	pub fn new_rename(source: SdPath, new_name: String) -> Self {
 		let destination = match &source {
-			SdPath::Physical { device_id, path } => {
-				SdPath::Physical {
-					device_id: *device_id,
-					path: path.with_file_name(&new_name),
-				}
-			}
+			SdPath::Physical { device_id, path } => SdPath::Physical {
+				device_id: *device_id,
+				path: path.with_file_name(&new_name),
+			},
 			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
 		};
 
@@ -964,12 +971,10 @@ impl MoveJob {
 	/// Create a rename operation
 	pub fn rename(source: SdPath, new_name: String) -> Self {
 		let destination = match &source {
-			SdPath::Physical { device_id, path } => {
-				SdPath::Physical {
-					device_id: *device_id,
-					path: path.with_file_name(&new_name),
-				}
-			}
+			SdPath::Physical { device_id, path } => SdPath::Physical {
+				device_id: *device_id,
+				path: path.with_file_name(&new_name),
+			},
 			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
 		};
 

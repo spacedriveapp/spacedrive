@@ -37,9 +37,9 @@ impl CoreClient {
 			.await;
 		match resp {
 			Ok(r) => match r {
-			DaemonResponse::Ok(_) => Ok(()),
-			DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
-			other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
+				DaemonResponse::Ok(_) => Ok(()),
+				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
+				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
 			},
 			Err(e) => Err(anyhow::anyhow!(e.to_string())),
 		}

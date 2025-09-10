@@ -74,9 +74,3 @@ pub trait LibraryAction: Send + Sync + 'static {
 		Ok(())
 	}
 }
-
-// Action enum removed! 🎉
-// Actions are now dispatched directly through ActionTrait without central enumeration.
-// This eliminates the centralization problem while preserving central dispatch infrastructure.
-
-// All Action enum methods removed with the enum itself!

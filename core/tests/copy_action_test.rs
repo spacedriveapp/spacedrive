@@ -3,15 +3,13 @@
 //! This test verifies that the action can be properly dispatched without
 //! requiring a full database setup or job execution.
 
-use sd_core::domain::addressing::SdPath;
 use sd_core::{
-	infra::action::Action,
-	ops::files::{
-		copy::{
-			action::FileCopyAction,
-			job::{CopyOptions, MoveMode},
-		},
+	domain::addressing::SdPath,
+	infra::action::builder::ActionBuilder,
+	ops::files::copy::{
+		action::FileCopyAction,
 		input::CopyMethod,
+		job::{CopyOptions, MoveMode},
 	},
 };
 use tempfile::TempDir;
@@ -49,8 +47,10 @@ async fn test_copy_action_construction() {
 		.await
 		.unwrap();
 
-	// Test 1: Basic copy action construction
+	// Test 1: Basic copy action construction (modular action)
+	let library_id = Uuid::new_v4();
 	let copy_action = FileCopyAction {
+		library_id,
 		sources: vec![
 			SdPath::local(source_file1.clone()),
 			SdPath::local(source_file2.clone()),
@@ -66,21 +66,12 @@ async fn test_copy_action_construction() {
 		},
 	};
 
-	// Create Action enum
-	let library_id = Uuid::new_v4();
-	let action = Action::FileCopy {
-		library_id,
-		action: copy_action,
-	};
-
-	// Verify action properties
-	assert_eq!(action.library_id(), Some(library_id));
-	assert_eq!(action.kind(), "file.copy");
-	assert!(action.description().contains("Copy 2 file(s)"));
-
-	let targets = action.targets_summary();
-	assert!(targets.get("sources").is_some());
-	assert!(targets.get("destination").is_some());
+	// Verify properties directly
+	assert_eq!(copy_action.library_id, library_id);
+	assert_eq!(copy_action.sources.len(), 2);
+	assert_eq!(copy_action.options.overwrite, false);
+	assert_eq!(copy_action.options.verify_checksum, true);
+	assert_eq!(copy_action.options.preserve_timestamps, true);
 
 	println!("✅ Copy action construction test passed!");
 }
@@ -93,8 +84,9 @@ async fn test_move_action_construction() {
 
 	create_test_file(&source_file, "Move me!").await.unwrap();
 
-	// Test move action (copy with delete_after_copy)
+	// Test move action semantics
 	let move_action = FileCopyAction {
+		library_id: Uuid::new_v4(),
 		sources: vec![SdPath::local(source_file.clone())],
 		destination: SdPath::local(dest_file.clone()),
 		options: CopyOptions {
@@ -102,46 +94,26 @@ async fn test_move_action_construction() {
 			overwrite: false,
 			verify_checksum: false,
 			preserve_timestamps: true,
-			delete_after_copy: true, // This makes it a move operation
+			delete_after_copy: true,
 			move_mode: Some(MoveMode::Move),
 		},
 	};
 
-	let library_id = Uuid::new_v4();
-	let action = Action::FileCopy {
-		library_id,
-		action: move_action,
-	};
-
-	// Verify action properties
-	assert_eq!(action.library_id(), Some(library_id));
-	assert_eq!(action.kind(), "file.copy");
-	assert!(action.description().contains("Copy 1 file(s)"));
+	assert!(move_action.options.delete_after_copy);
+	assert_eq!(move_action.options.move_mode, Some(MoveMode::Move));
 
 	println!("✅ Move action construction test passed!");
 }
 
 #[tokio::test]
 async fn test_action_validation_logic() {
-	// Test empty sources validation
-	let copy_action = FileCopyAction {
-		sources: vec![], // Empty sources should be invalid
-		destination: SdPath::local("/tmp/dest"),
-		options: CopyOptions::default(),
-	};
+	// Builder should reject empty sources
+	let result = sd_core::ops::files::copy::action::FileCopyAction::builder()
+		.destination("/tmp/dest")
+		.build();
+	assert!(result.is_err());
 
-	let library_id = Uuid::new_v4();
-	let action = Action::FileCopy {
-		library_id,
-		action: copy_action,
-	};
-
-	// For now, just verify the action is constructed correctly
-	// The actual validation happens in the ActionHandler
-	assert_eq!(action.library_id(), Some(library_id));
-	assert_eq!(action.kind(), "file.copy");
-
-	println!("✅ Action validation logic test passed!");
+	println!("✅ Action validation (builder) test passed!");
 }
 
 #[test]
@@ -155,14 +127,4 @@ fn test_copy_options_defaults() {
 	assert!(options.move_mode.is_none());
 
 	println!("✅ Copy options defaults test passed!");
-}
-
-#[test]
-fn test_move_mode_variants() {
-	// Test that all move modes can be constructed
-	let _move_mode = MoveMode::Move;
-	let _rename_mode = MoveMode::Rename;
-	let _cut_mode = MoveMode::Cut;
-
-	println!("✅ Move mode variants test passed!");
 }
