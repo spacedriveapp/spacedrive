@@ -55,10 +55,6 @@ impl LibraryAction for VolumeUntrackAction {
 		"volume.untrack"
 	}
 
-	fn library_id(&self) -> Uuid {
-		self.library_id
-	}
-
 	async fn validate(
 		&self,
 		library: &std::sync::Arc<crate::library::Library>,

@@ -34,10 +34,7 @@ impl crate::client::Wire for IndexInput {
 impl crate::ops::registry::BuildLibraryActionInput for IndexInput {
 	type Action = crate::ops::indexing::action::IndexingAction;
 
-	fn build(
-		self,
-		session: &crate::infra::daemon::state::SessionState,
-	) -> Result<Self::Action, String> {
+	fn build(self) -> Result<Self::Action, String> {
 		use crate::infra::action::builder::ActionBuilder;
 		crate::ops::indexing::action::IndexingActionBuilder::from_input(self)
 			.build()

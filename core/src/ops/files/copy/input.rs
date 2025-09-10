@@ -26,9 +26,6 @@ impl Default for CopyMethod {
 /// This is the canonical interface that all external APIs (CLI, GraphQL, REST) convert to
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileCopyInput {
-	/// The library ID where this operation takes place
-	pub library_id: Option<uuid::Uuid>,
-
 	/// Source files or directories to copy
 	pub sources: Vec<PathBuf>,
 
@@ -58,16 +55,9 @@ impl crate::client::Wire for FileCopyInput {
 impl crate::ops::registry::BuildLibraryActionInput for FileCopyInput {
 	type Action = crate::ops::files::copy::action::FileCopyAction;
 
-	fn build(
-		self,
-		session: &crate::infra::daemon::state::SessionState,
-	) -> Result<Self::Action, String> {
+	fn build(self) -> Result<Self::Action, String> {
 		use crate::infra::action::builder::ActionBuilder;
-		let mut input = self;
-		if input.library_id.is_none() {
-			input.library_id = session.current_library_id;
-		}
-		crate::ops::files::copy::action::FileCopyActionBuilder::from_input(input)
+		crate::ops::files::copy::action::FileCopyActionBuilder::from_input(self)
 			.build()
 			.map_err(|e| e.to_string())
 	}
@@ -77,13 +67,8 @@ register_library_action_input!(FileCopyInput);
 
 impl FileCopyInput {
 	/// Create a new FileCopyInput with default options
-	pub fn new<D: Into<PathBuf>>(
-		library_id: uuid::Uuid,
-		sources: Vec<PathBuf>,
-		destination: D,
-	) -> Self {
+	pub fn new<D: Into<PathBuf>>(sources: Vec<PathBuf>, destination: D) -> Self {
 		Self {
-			library_id: Some(library_id),
 			sources,
 			destination: destination.into(),
 			overwrite: false,
@@ -96,8 +81,7 @@ impl FileCopyInput {
 
 	/// Create a single file copy input
 	pub fn single_file<S: Into<PathBuf>, D: Into<PathBuf>>(source: S, destination: D) -> Self {
-		// Placeholder: require caller to set library_id later
-		Self::new(uuid::Uuid::nil(), vec![source.into()], destination)
+		Self::new(vec![source.into()], destination)
 	}
 
 	/// Set overwrite option
@@ -191,7 +175,6 @@ impl FileCopyInput {
 impl Default for FileCopyInput {
 	fn default() -> Self {
 		Self {
-			library_id: None,
 			sources: Vec::new(),
 			destination: PathBuf::new(),
 			overwrite: false,
@@ -209,11 +192,7 @@ mod tests {
 
 	#[test]
 	fn test_new_input() {
-		let input = FileCopyInput::new(
-			uuid::Uuid::nil(),
-			vec!["/file1.txt".into(), "/file2.txt".into()],
-			"/dest/",
-		);
+		let input = FileCopyInput::new(vec!["/file1.txt".into(), "/file2.txt".into()], "/dest/");
 
 		assert_eq!(input.sources.len(), 2);
 		assert_eq!(input.destination, PathBuf::from("/dest/"));
@@ -269,17 +248,13 @@ mod tests {
 
 	#[test]
 	fn test_validation_success() {
-		let input = FileCopyInput::new(uuid::Uuid::nil(), vec!["/file.txt".into()], "/dest/");
+		let input = FileCopyInput::new(vec!["/file.txt".into()], "/dest/");
 		assert!(input.validate().is_ok());
 	}
 
 	#[test]
 	fn test_summary() {
-		let input = FileCopyInput::new(
-			uuid::Uuid::nil(),
-			vec!["/file1.txt".into(), "/file2.txt".into()],
-			"/dest/",
-		);
+		let input = FileCopyInput::new(vec!["/file1.txt".into(), "/file2.txt".into()], "/dest/");
 		assert_eq!(input.summary(), "Copy 2 sources to /dest/");
 
 		let move_input = input.with_move(true);

@@ -119,10 +119,6 @@ impl LibraryAction for IndexingAction {
 		"indexing.index"
 	}
 
-	fn library_id(&self) -> Uuid {
-		self.input.library_id
-	}
-
 	async fn validate(
 		&self,
 		library: &std::sync::Arc<crate::library::Library>,

@@ -21,11 +21,9 @@ use async_trait::async_trait;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyAction {
-	pub library_id: Uuid,
 	pub sources: Vec<SdPath>,
 	pub destination: SdPath,
 	pub options: CopyOptions,
@@ -76,12 +74,6 @@ impl FileCopyActionBuilder {
 	/// Set the destination path
 	pub fn destination<P: Into<PathBuf>>(mut self, dest: P) -> Self {
 		self.input.destination = dest.into();
-		self
-	}
-
-	/// Set the library ID for this operation
-	pub fn library_id(mut self, library_id: uuid::Uuid) -> Self {
-		self.input.library_id = Some(library_id);
 		self
 	}
 
@@ -176,9 +168,6 @@ impl ActionBuilder for FileCopyActionBuilder {
 		let destination = SdPath::local(&self.input.destination);
 
 		Ok(FileCopyAction {
-			library_id: self.input.library_id.ok_or_else(|| {
-				ActionBuildError::validation("library_id is required".to_string())
-			})?,
 			sources,
 			destination,
 			options,
@@ -216,7 +205,6 @@ impl FileCopyActionBuilder {
 		})?;
 
 		Ok(FileCopyAction {
-			library_id: Uuid::nil(),
 			sources,
 			destination,
 			options,
@@ -289,10 +277,6 @@ impl LibraryAction for FileCopyAction {
 
 	fn action_kind(&self) -> &'static str {
 		"file.copy"
-	}
-
-	fn library_id(&self) -> Uuid {
-		self.library_id
 	}
 
 	async fn validate(

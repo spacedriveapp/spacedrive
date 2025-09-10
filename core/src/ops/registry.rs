@@ -170,18 +170,12 @@ pub trait BuildLibraryActionInput {
 	/// The action type that this input builds
 	type Action: crate::infra::action::LibraryAction;
 
-	/// Convert the input to an action using session state.
-	///
-	/// # Arguments
-	/// - `session`: Current session state (includes library ID, user context, etc.)
+	/// Convert the input to an action (pure conversion; no session/context).
 	///
 	/// # Returns
 	/// - The built action on success
 	/// - Error string on failure
-	fn build(
-		self,
-		session: &crate::infra::daemon::state::SessionState,
-	) -> Result<Self::Action, String>;
+	fn build(self) -> Result<Self::Action, String>;
 }
 
 /// Trait for converting external API input types to core actions.
@@ -248,13 +242,14 @@ where
 			.0;
 
 		// Convert input to concrete action using session state
-		let action = input.build(&session)?;
+		let action = input.build()?;
 
 		// Execute the action through ActionManager
 		let action_manager =
 			crate::infra::action::manager::ActionManager::new(core.context.clone());
+		let library_id = session.current_library_id.ok_or("No library selected")?;
 		action_manager
-			.dispatch_library(action)
+			.dispatch_library(library_id, action)
 			.await
 			.map_err(|e| e.to_string())?;
 

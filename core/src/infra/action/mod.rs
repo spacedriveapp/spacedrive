@@ -61,9 +61,6 @@ pub trait LibraryAction: Send + Sync + 'static {
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
 
-	/// Get the library ID for this action (required)
-	fn library_id(&self) -> Uuid;
-
 	/// Validate this action with library context (optional)
 	/// Note: Library existence is already validated by ActionManager
 	async fn validate(

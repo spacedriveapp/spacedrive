@@ -7,9 +7,6 @@ use std::path::PathBuf;
 /// Input for deleting files
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileDeleteInput {
-	/// The library ID where this operation takes place
-	pub library_id: Option<uuid::Uuid>,
-
 	/// Files or directories to delete
 	pub targets: Vec<PathBuf>,
 
@@ -27,19 +24,10 @@ impl crate::client::Wire for FileDeleteInput {
 impl crate::ops::registry::BuildLibraryActionInput for FileDeleteInput {
 	type Action = crate::ops::files::delete::action::FileDeleteAction;
 
-	fn build(
-		self,
-		session: &crate::infra::daemon::state::SessionState,
-	) -> Result<Self::Action, String> {
+	fn build(self) -> Result<Self::Action, String> {
 		use crate::ops::files::delete::job::DeleteOptions;
 
-		let library_id = self
-			.library_id
-			.or(session.current_library_id)
-			.ok_or("No library ID provided and no current library set")?;
-
 		Ok(crate::ops::files::delete::action::FileDeleteAction {
-			library_id,
 			targets: self.targets,
 			options: DeleteOptions {
 				permanent: self.permanent,
@@ -55,17 +43,10 @@ impl FileDeleteInput {
 	/// Create a new file deletion input
 	pub fn new(targets: Vec<PathBuf>) -> Self {
 		Self {
-			library_id: None,
 			targets,
 			permanent: false,
 			recursive: true,
 		}
-	}
-
-	/// Set the library ID
-	pub fn with_library_id(mut self, library_id: uuid::Uuid) -> Self {
-		self.library_id = Some(library_id);
-		self
 	}
 
 	/// Set permanent deletion

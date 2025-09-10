@@ -40,7 +40,11 @@ impl LocationAddHandler {
 impl LibraryAction for LocationAddAction {
 	type Output = LocationAddOutput;
 
-	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
 		// Library is pre-validated by ActionManager - no boilerplate!
 
 		// Get the device UUID from the device manager
@@ -80,29 +84,27 @@ impl LibraryAction for LocationAddAction {
 
 		// Parse the job ID from the string returned by add_location
 		let job_id = if !job_id_string.is_empty() {
-			Some(Uuid::parse_str(&job_id_string)
-				.map_err(|e| ActionError::Internal(format!("Failed to parse job ID: {}", e)))?)
+			Some(
+				Uuid::parse_str(&job_id_string)
+					.map_err(|e| ActionError::Internal(format!("Failed to parse job ID: {}", e)))?,
+			)
 		} else {
 			None
 		};
 
 		// Return native output directly
-		Ok(LocationAddOutput::new(
-			location_id,
-			self.path,
-			self.name,
-		))
+		Ok(LocationAddOutput::new(location_id, self.path, self.name))
 	}
 
 	fn action_kind(&self) -> &'static str {
 		"location.add"
 	}
 
-	fn library_id(&self) -> Uuid {
-		self.library_id
-	}
-
-	async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<(), ActionError> {
 		if !self.path.exists() {
 			return Err(ActionError::Validation {
 				field: "path".to_string(),
