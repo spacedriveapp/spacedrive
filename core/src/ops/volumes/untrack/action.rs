@@ -9,31 +9,34 @@ use crate::{
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolumeUntrackInput {
+	pub fingerprint: VolumeFingerprint,
+}
 
 /// Input for untracking a volume
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VolumeUntrackAction {
 	/// The fingerprint of the volume to untrack
-	pub fingerprint: VolumeFingerprint,
-
-	/// The library ID to untrack the volume from
-	pub library_id: Uuid,
+	input: VolumeUntrackInput,
 }
 
 impl VolumeUntrackAction {
 	/// Create a new volume untrack action
-	pub fn new(fingerprint: VolumeFingerprint, library_id: Uuid) -> Self {
-		Self {
-			fingerprint,
-			library_id,
-		}
+	pub fn new(input: VolumeUntrackInput) -> Self {
+		Self { input }
 	}
 }
 
 // Implement the unified ActionTrait (following VolumeTrackAction model)
 impl LibraryAction for VolumeUntrackAction {
+	type Input = VolumeUntrackInput;
 	type Output = VolumeUntrackOutput;
+
+	fn from_input(input: VolumeUntrackInput) -> Result<Self, String> {
+		Ok(VolumeUntrackAction::new(input))
+	}
 
 	async fn execute(
 		self,
@@ -43,12 +46,12 @@ impl LibraryAction for VolumeUntrackAction {
 		// Untrack the volume from the database
 		context
 			.volume_manager
-			.untrack_volume(&library, &self.fingerprint)
+			.untrack_volume(&library, &self.input.fingerprint)
 			.await
 			.map_err(|e| ActionError::InvalidInput(format!("Volume untracking failed: {}", e)))?;
 
 		// Return native output directly
-		Ok(VolumeUntrackOutput::new(self.fingerprint, self.library_id))
+		Ok(VolumeUntrackOutput::new(self.input.fingerprint))
 	}
 
 	fn action_kind(&self) -> &'static str {
@@ -63,7 +66,7 @@ impl LibraryAction for VolumeUntrackAction {
 		// Validate volume exists
 		let _volume = context
 			.volume_manager
-			.get_volume(&self.fingerprint)
+			.get_volume(&self.input.fingerprint)
 			.await
 			.ok_or_else(|| ActionError::Validation {
 				field: "fingerprint".to_string(),

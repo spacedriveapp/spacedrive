@@ -40,4 +40,3 @@ impl QueryManager {
 		query.execute(self.context.clone()).await
 	}
 }
-

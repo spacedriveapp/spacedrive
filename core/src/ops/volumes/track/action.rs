@@ -12,41 +12,46 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Input for tracking a volume
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VolumeTrackAction {
-	/// The fingerprint of the volume to track
+pub struct VolumeTrackInput {
 	pub fingerprint: VolumeFingerprint,
-
-	/// The library ID to track the volume in
-	pub library_id: Uuid,
-
-	/// Optional name for the tracked volume
 	pub name: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolumeTrackAction {
+	input: VolumeTrackInput,
+}
+
 impl VolumeTrackAction {
-	pub fn new(fingerprint: VolumeFingerprint, library_id: Uuid, name: Option<String>) -> Self {
-		Self {
-			fingerprint,
-			library_id,
-			name,
-		}
+	pub fn new(input: VolumeTrackInput) -> Self {
+		Self { input }
 	}
 
 	/// Create a volume track action with a name
-	pub fn with_name(fingerprint: VolumeFingerprint, library_id: Uuid, name: String) -> Self {
-		Self::new(fingerprint, library_id, Some(name))
+	pub fn with_name(fingerprint: VolumeFingerprint, name: String) -> Self {
+		Self::new(VolumeTrackInput {
+			fingerprint,
+			name: Some(name),
+		})
 	}
 
 	/// Create a volume track action without a name
-	pub fn without_name(fingerprint: VolumeFingerprint, library_id: Uuid) -> Self {
-		Self::new(fingerprint, library_id, None)
+	pub fn without_name(fingerprint: VolumeFingerprint) -> Self {
+		Self::new(VolumeTrackInput {
+			fingerprint,
+			name: None,
+		})
 	}
 }
 
 impl LibraryAction for VolumeTrackAction {
+	type Input = VolumeTrackInput;
 	type Output = VolumeTrackOutput;
+
+	fn from_input(input: VolumeTrackInput) -> Result<Self, String> {
+		Ok(VolumeTrackAction::new(input))
+	}
 
 	async fn execute(
 		self,
@@ -56,7 +61,7 @@ impl LibraryAction for VolumeTrackAction {
 		// Check if volume exists
 		let volume = context
 			.volume_manager
-			.get_volume(&self.fingerprint)
+			.get_volume(&self.input.fingerprint)
 			.await
 			.ok_or_else(|| ActionError::InvalidInput("Volume not found".to_string()))?;
 
@@ -69,13 +74,12 @@ impl LibraryAction for VolumeTrackAction {
 		// Track the volume in the database
 		let tracked = context
 			.volume_manager
-			.track_volume(&library, &self.fingerprint, self.name.clone())
+			.track_volume(&library, &self.input.fingerprint, self.input.name.clone())
 			.await
 			.map_err(|e| ActionError::InvalidInput(format!("Volume tracking failed: {}", e)))?;
 
 		Ok(VolumeTrackOutput::new(
-			self.fingerprint,
-			self.library_id,
+			self.input.fingerprint,
 			tracked.display_name.unwrap_or(volume.name),
 		))
 	}
@@ -92,7 +96,7 @@ impl LibraryAction for VolumeTrackAction {
 		// Validate volume exists
 		let volume = context
 			.volume_manager
-			.get_volume(&self.fingerprint)
+			.get_volume(&self.input.fingerprint)
 			.await
 			.ok_or_else(|| ActionError::Validation {
 				field: "fingerprint".to_string(),
@@ -108,7 +112,7 @@ impl LibraryAction for VolumeTrackAction {
 		}
 
 		// Validate name if provided
-		if let Some(name) = &self.name {
+		if let Some(name) = &self.input.name {
 			if name.trim().is_empty() {
 				return Err(ActionError::Validation {
 					field: "name".to_string(),

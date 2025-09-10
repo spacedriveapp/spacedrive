@@ -1,41 +1,33 @@
 //! Library export action handler
 
+use super::input::LibraryExportInput;
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
 };
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
-use uuid::Uuid;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LibraryExportAction {
-	pub library_id: Uuid,
-	pub export_path: PathBuf,
-	pub include_thumbnails: bool,
-	pub include_previews: bool,
+	input: LibraryExportInput,
 }
 
 impl LibraryExportAction {
 	/// Create a new library export action
-	pub fn new(
-		library_id: Uuid,
-		export_path: PathBuf,
-		include_thumbnails: bool,
-		include_previews: bool,
-	) -> Self {
-		Self {
-			library_id,
-			export_path,
-			include_thumbnails,
-			include_previews,
-		}
+	pub fn new(input: LibraryExportInput) -> Self {
+		Self { input }
 	}
 }
 
 // Implement LibraryAction
 impl LibraryAction for LibraryExportAction {
+	type Input = LibraryExportInput;
 	type Output = super::output::LibraryExportOutput;
+
+	fn from_input(input: LibraryExportInput) -> Result<Self, String> {
+		Ok(LibraryExportAction::new(input))
+	}
 
 	async fn execute(
 		self,
@@ -43,7 +35,7 @@ impl LibraryAction for LibraryExportAction {
 		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
 		// Ensure parent directory exists
-		if let Some(parent) = self.export_path.parent() {
+		if let Some(parent) = self.input.export_path.parent() {
 			if !parent.exists() {
 				return Err(ActionError::Validation {
 					field: "export_path".to_string(),
@@ -53,7 +45,7 @@ impl LibraryAction for LibraryExportAction {
 		}
 
 		// Create export directory
-		let export_dir = &self.export_path;
+		let export_dir = &self.input.export_path;
 		tokio::fs::create_dir_all(&export_dir).await.map_err(|e| {
 			ActionError::Internal(format!("Failed to create export directory: {}", e))
 		})?;
@@ -82,7 +74,7 @@ impl LibraryAction for LibraryExportAction {
 		];
 
 		// Optionally export thumbnails
-		if self.include_thumbnails {
+		if self.input.include_thumbnails {
 			let thumbnails_src = library.path().join("thumbnails");
 			if thumbnails_src.exists() {
 				// TODO: Copy thumbnails directory
@@ -91,7 +83,7 @@ impl LibraryAction for LibraryExportAction {
 		}
 
 		// Optionally export previews
-		if self.include_previews {
+		if self.input.include_previews {
 			let previews_src = library.path().join("previews");
 			if previews_src.exists() {
 				// TODO: Copy previews directory
@@ -102,7 +94,7 @@ impl LibraryAction for LibraryExportAction {
 		Ok(super::output::LibraryExportOutput {
 			library_id: library.id(),
 			library_name: config.name.clone(),
-			export_path: self.export_path,
+			export_path: self.input.export_path,
 			exported_files,
 		})
 	}

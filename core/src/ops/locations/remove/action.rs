@@ -12,24 +12,31 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocationRemoveAction {
+pub struct LocationRemoveInput {
 	pub library_id: Uuid,
 	pub location_id: Uuid,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationRemoveAction {
+	input: LocationRemoveInput,
+}
+
 impl LocationRemoveAction {
 	/// Create a new location remove action
-	pub fn new(library_id: Uuid, location_id: Uuid) -> Self {
-		Self {
-			library_id,
-			location_id,
-		}
+	pub fn new(input: LocationRemoveInput) -> Self {
+		Self { input }
 	}
 }
 
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for LocationRemoveAction {
+	type Input = LocationRemoveInput;
 	type Output = LocationRemoveOutput;
+
+	fn from_input(input: LocationRemoveInput) -> Result<Self, String> {
+		Ok(LocationRemoveAction::new(input))
+	}
 
 	async fn execute(
 		self,
@@ -39,11 +46,11 @@ impl LibraryAction for LocationRemoveAction {
 		// Remove the location
 		let location_manager = LocationManager::new(context.events.as_ref().clone());
 		location_manager
-			.remove_location(&library, self.location_id)
+			.remove_location(&library, self.input.location_id)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-		Ok(LocationRemoveOutput::new(self.location_id, None))
+		Ok(LocationRemoveOutput::new(self.input.location_id, None))
 	}
 
 	fn action_kind(&self) -> &'static str {

@@ -1,6 +1,5 @@
 //! Input types for library creation operations
 
-use crate::register_core_action_input;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -13,26 +12,6 @@ pub struct LibraryCreateInput {
 	/// Optional path for the library (if not provided, will use default location)
 	pub path: Option<PathBuf>,
 }
-
-impl crate::client::Wire for LibraryCreateInput {
-	const METHOD: &'static str = "action:libraries.create.input.v1";
-}
-
-impl crate::ops::registry::BuildCoreActionInput for LibraryCreateInput {
-	type Action = crate::ops::libraries::create::action::LibraryCreateAction;
-
-	fn build(
-		self,
-		_session: &crate::infra::daemon::state::SessionState,
-	) -> Result<Self::Action, String> {
-		Ok(crate::ops::libraries::create::action::LibraryCreateAction {
-			name: self.name,
-			path: self.path,
-		})
-	}
-}
-
-register_core_action_input!(LibraryCreateInput);
 
 impl LibraryCreateInput {
 	/// Create a new library creation input

@@ -10,7 +10,6 @@ use crate::{
 	infra::db::entities,
 	location::manager::LocationManager,
 	ops::indexing::IndexMode,
-	// register_action_handler removed - using unified LibraryAction dispatch
 };
 use async_trait::async_trait;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -19,34 +18,38 @@ use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocationAddAction {
+pub struct LocationAddInput {
 	pub library_id: Uuid,
 	pub path: PathBuf,
 	pub name: Option<String>,
 	pub mode: IndexMode,
 }
 
-pub struct LocationAddHandler;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationAddAction {
+	input: LocationAddInput,
+}
 
-impl LocationAddHandler {
-	pub fn new() -> Self {
-		Self
+impl LocationAddAction {
+	pub fn new(input: LocationAddInput) -> Self {
+		Self { input }
 	}
 }
 
-// Note: ActionHandler implementation removed - using ActionType instead
-
 // Implement the new modular ActionType trait
 impl LibraryAction for LocationAddAction {
+	type Input = LocationAddInput;
 	type Output = LocationAddOutput;
+
+	fn from_input(input: LocationAddInput) -> Result<Self, String> {
+		Ok(LocationAddAction::new(input))
+	}
 
 	async fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
 		context: std::sync::Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Library is pre-validated by ActionManager - no boilerplate!
-
 		// Get the device UUID from the device manager
 		let device_uuid = context
 			.device_manager
@@ -65,7 +68,7 @@ impl LibraryAction for LocationAddAction {
 		// Add the location using LocationManager
 		let location_manager = LocationManager::new(context.events.as_ref().clone());
 
-		let location_mode = match self.mode {
+		let location_mode = match self.input.mode {
 			IndexMode::Shallow => crate::location::IndexMode::Shallow,
 			IndexMode::Content => crate::location::IndexMode::Content,
 			IndexMode::Deep => crate::location::IndexMode::Deep,
@@ -74,8 +77,8 @@ impl LibraryAction for LocationAddAction {
 		let (location_id, job_id_string) = location_manager
 			.add_location(
 				library.clone(),
-				self.path.clone(),
-				self.name.clone(),
+				self.input.path.clone(),
+				self.input.name.clone(),
 				device_record.id,
 				location_mode,
 			)
@@ -92,8 +95,11 @@ impl LibraryAction for LocationAddAction {
 			None
 		};
 
-		// Return native output directly
-		Ok(LocationAddOutput::new(location_id, self.path, self.name))
+		Ok(LocationAddOutput::new(
+			location_id,
+			self.input.path,
+			self.input.name,
+		))
 	}
 
 	fn action_kind(&self) -> &'static str {
@@ -105,13 +111,13 @@ impl LibraryAction for LocationAddAction {
 		library: &std::sync::Arc<crate::library::Library>,
 		context: std::sync::Arc<CoreContext>,
 	) -> Result<(), ActionError> {
-		if !self.path.exists() {
+		if !self.input.path.exists() {
 			return Err(ActionError::Validation {
 				field: "path".to_string(),
 				message: "Path does not exist".to_string(),
 			});
 		}
-		if !self.path.is_dir() {
+		if !self.input.path.is_dir() {
 			return Err(ActionError::Validation {
 				field: "path".to_string(),
 				message: "Path must be a directory".to_string(),

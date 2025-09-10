@@ -5,42 +5,60 @@
 use super::output::VolumeSpeedTestOutput;
 use crate::{
 	context::CoreContext,
-	infra::action::{error::ActionError, CoreAction},
+	infra::action::{error::ActionError, LibraryAction},
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolumeSpeedTestInput {
+	pub fingerprint: VolumeFingerprint,
+}
+
 /// Input for volume speed testing
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
 pub struct VolumeSpeedTestAction {
 	/// The fingerprint of the volume to test
-	pub fingerprint: VolumeFingerprint,
+	input: VolumeSpeedTestInput,
 }
 
 impl VolumeSpeedTestAction {
 	/// Create a new volume speed test action
-	pub fn new(fingerprint: VolumeFingerprint) -> Self {
-		Self { fingerprint }
+	pub fn new(input: VolumeSpeedTestInput) -> Self {
+		Self { input }
 	}
 }
 
 // Implement the new modular ActionType trait
-impl CoreAction for VolumeSpeedTestAction {
+impl LibraryAction for VolumeSpeedTestAction {
+	type Input = VolumeSpeedTestInput;
 	type Output = VolumeSpeedTestOutput;
 
-	async fn execute(self, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+	fn from_input(input: VolumeSpeedTestInput) -> Result<Self, String> {
+		Ok(VolumeSpeedTestAction::new(input))
+	}
+
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
 		// Run the speed test through the volume manager
-		context.volume_manager
-			.run_speed_test(&self.fingerprint)
+		context
+			.volume_manager
+			.run_speed_test(&self.input.fingerprint)
 			.await
 			.map_err(|e| ActionError::InvalidInput(format!("Speed test failed: {}", e)))?;
 
 		// Get the updated volume with speed test results
 		let volume = context
 			.volume_manager
-			.get_volume(&self.fingerprint)
+			.get_volume(&self.input.fingerprint)
 			.await
-			.ok_or_else(|| ActionError::InvalidInput("Volume not found after speed test".to_string()))?;
+			.ok_or_else(|| {
+				ActionError::InvalidInput("Volume not found after speed test".to_string())
+			})?;
 
 		// Extract speeds (default to 0 if missing)
 		let read_speed = volume.read_speed_mbps.unwrap_or(0);
@@ -48,7 +66,7 @@ impl CoreAction for VolumeSpeedTestAction {
 
 		// Return native output directly
 		Ok(VolumeSpeedTestOutput::new(
-			self.fingerprint,
+			self.input.fingerprint,
 			Some(read_speed as u32),
 			Some(write_speed as u32),
 		))
@@ -58,11 +76,15 @@ impl CoreAction for VolumeSpeedTestAction {
 		"volume.speed_test"
 	}
 
-	async fn validate(&self, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<(), ActionError> {
 		// Validate volume exists
 		let volume = context
 			.volume_manager
-			.get_volume(&self.fingerprint)
+			.get_volume(&self.input.fingerprint)
 			.await
 			.ok_or_else(|| ActionError::Validation {
 				field: "fingerprint".to_string(),

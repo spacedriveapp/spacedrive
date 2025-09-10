@@ -1,7 +1,7 @@
 //! Library listing query implementation
 
 use super::output::LibraryInfo;
-use crate::{context::CoreContext, cqrs::Query, register_query};
+use crate::{context::CoreContext, cqrs::Query};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -64,8 +64,4 @@ impl Query for ListLibrariesQuery {
 	}
 }
 
-impl crate::client::Wire for ListLibrariesQuery {
-	const METHOD: &'static str = "query:libraries.list.v1";
-}
-
-register_query!(ListLibrariesQuery);
+crate::register_query!(ListLibrariesQuery, "libraries.list");

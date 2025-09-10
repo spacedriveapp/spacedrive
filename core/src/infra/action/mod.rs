@@ -24,6 +24,13 @@ pub mod receipt;
 pub trait CoreAction: Send + Sync + 'static {
 	/// The output type for this action - can be domain objects, job handles, etc.
 	type Output: Send + Sync + 'static;
+	/// The associated input type (wire contract) for this action
+	type Input: Send + Sync + 'static;
+
+	/// Build this action from its associated input
+	fn from_input(input: Self::Input) -> Result<Self, String>
+	where
+		Self: Sized;
 
 	/// Execute this action with core context only
 	async fn execute(
@@ -50,6 +57,13 @@ pub trait CoreAction: Send + Sync + 'static {
 pub trait LibraryAction: Send + Sync + 'static {
 	/// The output type for this action - can be domain objects, job handles, etc.
 	type Output: Send + Sync + 'static;
+	/// The associated input type (wire contract) for this action
+	type Input: Send + Sync + 'static;
+
+	/// Build this action from its associated input
+	fn from_input(input: Self::Input) -> Result<Self, String>
+	where
+		Self: Sized;
 
 	/// Execute this action with validated library and core context
 	async fn execute(

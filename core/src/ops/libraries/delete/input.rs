@@ -1,6 +1,5 @@
 //! Input types for library deletion operations
 
-use crate::register_core_action_input;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -14,31 +13,12 @@ pub struct LibraryDeleteInput {
 	pub delete_data: bool,
 }
 
-impl crate::client::Wire for LibraryDeleteInput {
-	const METHOD: &'static str = "action:libraries.delete.input.v1";
-}
-
-impl crate::ops::registry::BuildCoreActionInput for LibraryDeleteInput {
-	type Action = crate::ops::libraries::delete::action::LibraryDeleteAction;
-
-	fn build(
-		self,
-		_session: &crate::infra::daemon::state::SessionState,
-	) -> Result<Self::Action, String> {
-		Ok(crate::ops::libraries::delete::action::LibraryDeleteAction {
-			library_id: self.library_id,
-		})
-	}
-}
-
-register_core_action_input!(LibraryDeleteInput);
-
 impl LibraryDeleteInput {
 	/// Create a new library deletion input
 	pub fn new(library_id: Uuid) -> Self {
 		Self {
 			library_id,
-			delete_data: false,
+			delete_data: true,
 		}
 	}
 

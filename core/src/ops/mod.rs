@@ -9,16 +9,16 @@
 //! - Metadata operations (hierarchical tagging)
 
 pub mod addressing;
-pub mod content;
+// pub mod content;
 pub mod core;
-pub mod devices;
+// pub mod devices;
 pub mod entries;
 pub mod files;
 pub mod indexing;
 pub mod libraries;
 pub mod locations;
 pub mod media;
-pub mod metadata;
+// pub mod metadata;
 pub mod registry;
 pub mod sidecar;
 pub mod volumes;

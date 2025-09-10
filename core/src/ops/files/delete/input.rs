@@ -1,14 +1,14 @@
 //! Input types for file deletion operations
 
 use super::action::FileDeleteAction;
+use crate::domain::SdPathBatch;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 /// Input for deleting files
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileDeleteInput {
 	/// Files or directories to delete
-	pub targets: Vec<PathBuf>,
+	pub targets: SdPathBatch,
 
 	/// Whether to permanently delete (true) or move to trash (false)
 	pub permanent: bool,
@@ -17,24 +17,9 @@ pub struct FileDeleteInput {
 	pub recursive: bool,
 }
 
-impl TryFrom<FileDeleteInput> for FileDeleteAction {
-	type Error = String;
-	fn try_from(input: FileDeleteInput) -> Result<Self, Self::Error> {
-		Ok(FileDeleteAction {
-			targets: input.targets,
-			options: crate::ops::files::delete::job::DeleteOptions {
-				permanent: input.permanent,
-				recursive: input.recursive,
-			},
-		})
-	}
-}
-
-crate::op!(library_action FileDeleteInput => FileDeleteAction, "files.delete");
-
 impl FileDeleteInput {
 	/// Create a new file deletion input
-	pub fn new(targets: Vec<PathBuf>) -> Self {
+	pub fn new(targets: SdPathBatch) -> Self {
 		Self {
 			targets,
 			permanent: false,
@@ -58,7 +43,7 @@ impl FileDeleteInput {
 	pub fn validate(&self) -> Result<(), Vec<String>> {
 		let mut errors = Vec::new();
 
-		if self.targets.is_empty() {
+		if self.targets.paths.is_empty() {
 			errors.push("At least one target file must be specified".to_string());
 		}
 

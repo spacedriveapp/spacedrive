@@ -1,7 +1,6 @@
 //! Core input types for indexing operations
 
 use super::job::{IndexMode, IndexPersistence, IndexScope};
-use crate::register_library_action_input;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -26,23 +25,6 @@ pub struct IndexInput {
 	/// Where results are stored (ephemeral vs persistent)
 	pub persistence: IndexPersistence,
 }
-
-impl crate::client::Wire for IndexInput {
-	const METHOD: &'static str = "action:indexing.start.input.v1";
-}
-
-impl crate::ops::registry::BuildLibraryActionInput for IndexInput {
-	type Action = crate::ops::indexing::action::IndexingAction;
-
-	fn build(self) -> Result<Self::Action, String> {
-		use crate::infra::action::builder::ActionBuilder;
-		crate::ops::indexing::action::IndexingActionBuilder::from_input(self)
-			.build()
-			.map_err(|e| e.to_string())
-	}
-}
-
-register_library_action_input!(IndexInput);
 
 impl IndexInput {
 	/// Create a new input with sane defaults

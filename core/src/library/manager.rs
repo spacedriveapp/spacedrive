@@ -524,6 +524,36 @@ impl LibraryManager {
 
 		Ok(())
 	}
+
+	/// Delete a library
+	pub async fn delete_library(&self, id: Uuid, delete_data: bool) -> Result<()> {
+		let library = self
+			.get_library(id)
+			.await
+			.ok_or(LibraryError::NotFound(id.to_string()))?;
+
+		//remove from library manager
+		let mut libraries = self.libraries.write().await;
+		libraries.remove(&id);
+
+		let deleted_data_flag = if delete_data {
+			library.delete().await?;
+			true
+		} else {
+			false
+		};
+
+		// Emit event
+		self.event_bus.emit(Event::LibraryDeleted {
+			id,
+			name: library.name().await,
+			deleted_data: deleted_data_flag,
+		});
+
+		info!("Deleted library {}", id);
+
+		Ok(())
+	}
 }
 
 /// Check if a path is a library directory

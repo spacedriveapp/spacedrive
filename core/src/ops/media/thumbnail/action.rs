@@ -8,50 +8,44 @@ use crate::{
 		job::handle::JobHandle,
 	},
 };
-use async_trait::async_trait;
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ThumbnailAction {
-	pub library_id: uuid::Uuid,
+pub struct ThumbnailInput {
 	pub paths: Vec<std::path::PathBuf>,
 	pub size: u32,
 	pub quality: u8,
 }
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ThumbnailAction {
+	input: ThumbnailInput,
+}
 
 impl ThumbnailAction {
 	/// Create a new thumbnail generation action
-	pub fn new(
-		library_id: uuid::Uuid,
-		paths: Vec<std::path::PathBuf>,
-		size: u32,
-		quality: u8,
-	) -> Self {
-		Self {
-			library_id,
-			paths,
-			size,
-			quality,
-		}
+	pub fn new(input: ThumbnailInput) -> Self {
+		Self { input }
 	}
 }
 
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for ThumbnailAction {
+	type Input = ThumbnailInput;
 	type Output = JobHandle;
+
+	fn from_input(input: ThumbnailInput) -> Result<Self, String> {
+		Ok(ThumbnailAction::new(input))
+	}
 
 	async fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Library is pre-validated by ActionManager - no boilerplate!
-
 		// Create thumbnail job config
 		let config = ThumbnailJobConfig {
-			sizes: vec![self.size],
-			quality: self.quality,
+			sizes: vec![self.input.size],
+			quality: self.input.quality,
 			regenerate: false,
 			..Default::default()
 		};
@@ -78,10 +72,8 @@ impl LibraryAction for ThumbnailAction {
 		library: &std::sync::Arc<crate::library::Library>,
 		context: Arc<CoreContext>,
 	) -> Result<(), ActionError> {
-		// Library existence already validated by ActionManager - no boilerplate!
-
 		// Validate paths
-		if self.paths.is_empty() {
+		if self.input.paths.is_empty() {
 			return Err(ActionError::Validation {
 				field: "paths".to_string(),
 				message: "At least one path must be specified".to_string(),
@@ -91,4 +83,3 @@ impl LibraryAction for ThumbnailAction {
 		Ok(())
 	}
 }
-// Old ActionHandler implementation removed - using unified LibraryAction

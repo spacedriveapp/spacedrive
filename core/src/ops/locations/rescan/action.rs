@@ -15,15 +15,30 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocationRescanAction {
-	pub library_id: Uuid,
+pub struct LocationRescanInput {
 	pub location_id: Uuid,
 	pub full_rescan: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationRescanAction {
+	input: LocationRescanInput,
+}
+
+impl LocationRescanAction {
+	pub fn new(input: LocationRescanInput) -> Self {
+		Self { input }
+	}
+}
+
 // Implement LibraryAction
 impl LibraryAction for LocationRescanAction {
+	type Input = LocationRescanInput;
 	type Output = super::output::LocationRescanOutput;
+
+	fn from_input(input: LocationRescanInput) -> Result<Self, String> {
+		Ok(LocationRescanAction::new(input))
+	}
 
 	async fn execute(
 		self,
@@ -34,12 +49,12 @@ impl LibraryAction for LocationRescanAction {
 
 		// Get location details from database
 		let location = entities::location::Entity::find()
-			.filter(entities::location::Column::Uuid.eq(self.location_id))
+			.filter(entities::location::Column::Uuid.eq(self.input.location_id))
 			.one(library.db().conn())
 			.await
 			.map_err(|e| ActionError::Internal(format!("Database error: {}", e)))?
 			.ok_or_else(|| {
-				ActionError::Internal(format!("Location not found: {}", self.location_id))
+				ActionError::Internal(format!("Location not found: {}", self.input.location_id))
 			})?;
 
 		// Get the location's path using PathResolver
@@ -50,7 +65,7 @@ impl LibraryAction for LocationRescanAction {
 		let location_path = SdPath::local(location_path_buf);
 
 		// Determine index mode based on full_rescan flag
-		let mode = if self.full_rescan {
+		let mode = if self.input.full_rescan {
 			IndexMode::Deep
 		} else {
 			match location.index_mode.as_str() {
@@ -62,7 +77,7 @@ impl LibraryAction for LocationRescanAction {
 		};
 
 		// Create indexer job for rescan
-		let job = IndexerJob::from_location(self.location_id, location_path, mode);
+		let job = IndexerJob::from_location(self.input.location_id, location_path, mode);
 
 		// Dispatch the job
 		let job_handle = library
@@ -72,10 +87,10 @@ impl LibraryAction for LocationRescanAction {
 			.map_err(ActionError::Job)?;
 
 		Ok(super::output::LocationRescanOutput {
-			location_id: self.location_id,
+			location_id: self.input.location_id,
 			location_path: location_path_str,
 			job_id: job_handle.id().into(),
-			full_rescan: self.full_rescan,
+			full_rescan: self.input.full_rescan,
 		})
 	}
 

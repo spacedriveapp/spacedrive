@@ -12,18 +12,20 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LibraryRenameAction {
+pub struct LibraryRenameInput {
 	pub library_id: Uuid,
 	pub new_name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryRenameAction {
+	input: LibraryRenameInput,
+}
+
 impl LibraryRenameAction {
 	/// Create a new library rename action
-	pub fn new(library_id: Uuid, new_name: String) -> Self {
-		Self {
-			library_id,
-			new_name,
-		}
+	pub fn new(input: LibraryRenameInput) -> Self {
+		Self { input }
 	}
 }
 
@@ -31,7 +33,12 @@ impl LibraryRenameAction {
 
 // Implement the new modular ActionType trait
 impl LibraryAction for LibraryRenameAction {
+	type Input = LibraryRenameInput;
 	type Output = LibraryRenameOutput;
+
+	fn from_input(input: LibraryRenameInput) -> Result<Self, String> {
+		Ok(LibraryRenameAction::new(input))
+	}
 
 	async fn execute(
 		self,
@@ -47,16 +54,16 @@ impl LibraryAction for LibraryRenameAction {
 		// Update the library name using update_config
 		library
 			.update_config(|config| {
-				config.name = self.new_name.clone();
+				config.name = self.input.new_name.clone();
 			})
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to save config: {}", e)))?;
 
 		// Return native output directly
 		Ok(LibraryRenameOutput {
-			library_id: self.library_id,
+			library_id: self.input.library_id,
 			old_name,
-			new_name: self.new_name,
+			new_name: self.input.new_name,
 		})
 	}
 
@@ -72,7 +79,7 @@ impl LibraryAction for LibraryRenameAction {
 		// Library existence already validated by ActionManager - no boilerplate!
 
 		// Validate new name
-		if self.new_name.trim().is_empty() {
+		if self.input.new_name.trim().is_empty() {
 			return Err(ActionError::Validation {
 				field: "new_name".to_string(),
 				message: "Library name cannot be empty".to_string(),

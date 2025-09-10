@@ -59,7 +59,12 @@ impl IndexingHandler {
 }
 
 impl LibraryAction for IndexingAction {
+	type Input = IndexInput;
 	type Output = JobHandle;
+
+	fn from_input(input: IndexInput) -> Result<Self, String> {
+		Ok(IndexingAction::new(input))
+	}
 
 	async fn execute(
 		self,
@@ -135,3 +140,5 @@ impl LibraryAction for IndexingAction {
 		Ok(())
 	}
 }
+
+crate::register_library_action!(IndexingAction, "indexing.start");

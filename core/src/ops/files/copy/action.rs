@@ -3,7 +3,6 @@
 use super::{
 	input::FileCopyInput,
 	job::{CopyOptions, FileCopyJob},
-	output::FileCopyActionOutput,
 };
 use crate::{
 	context::CoreContext,
@@ -11,26 +10,21 @@ use crate::{
 	infra::{
 		action::{
 			builder::{ActionBuildError, ActionBuilder},
-			error::{ActionError, ActionResult},
+			error::ActionError,
 			LibraryAction,
 		},
 		job::handle::JobHandle,
 	},
 };
-use async_trait::async_trait;
-use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyAction {
-	pub sources: Vec<SdPath>,
+	pub sources: SdPathBatch,
 	pub destination: SdPath,
 	pub options: CopyOptions,
 }
-
-// Register with the inventory system
-crate::op!(library_action FileCopyInput => FileCopyAction, "files.copy", via = FileCopyActionBuilder);
 
 /// Builder for creating FileCopyAction instances with fluent API
 #[derive(Debug, Clone)]
@@ -56,27 +50,29 @@ impl FileCopyActionBuilder {
 		}
 	}
 
-	/// Add multiple source files
+	/// Add multiple local source files
 	pub fn sources<I, P>(mut self, sources: I) -> Self
 	where
 		I: IntoIterator<Item = P>,
 		P: Into<PathBuf>,
 	{
-		self.input
-			.sources
-			.extend(sources.into_iter().map(|p| p.into()));
+		let paths: Vec<SdPath> = sources
+			.into_iter()
+			.map(|p| SdPath::local(p.into()))
+			.collect();
+		self.input.sources.extend(paths);
 		self
 	}
 
-	/// Add a single source file
+	/// Add a single local source file
 	pub fn source<P: Into<PathBuf>>(mut self, source: P) -> Self {
-		self.input.sources.push(source.into());
+		self.input.sources.paths.push(SdPath::local(source.into()));
 		self
 	}
 
-	/// Set the destination path
+	/// Set the local destination path
 	pub fn destination<P: Into<PathBuf>>(mut self, dest: P) -> Self {
-		self.input.destination = dest.into();
+		self.input.destination = SdPath::local(dest.into());
 		self
 	}
 
@@ -112,29 +108,35 @@ impl FileCopyActionBuilder {
 			return;
 		}
 
-		// Then do filesystem validation
-		for source in &self.input.sources {
-			if !source.exists() {
-				self.errors
-					.push(format!("Source file does not exist: {}", source.display()));
-			} else if source.is_dir() && !source.read_dir().is_ok() {
-				self.errors
-					.push(format!("Cannot read directory: {}", source.display()));
-			} else if source.is_file() && std::fs::metadata(source).is_err() {
-				self.errors
-					.push(format!("Cannot access file: {}", source.display()));
+		// Then do filesystem validation for local paths only
+		for source in &self.input.sources.paths {
+			if let Some(local_path) = source.as_local_path() {
+				if !local_path.exists() {
+					self.errors.push(format!(
+						"Source file does not exist: {}",
+						local_path.display()
+					));
+				} else if local_path.is_dir() && std::fs::read_dir(local_path).is_err() {
+					self.errors
+						.push(format!("Cannot read directory: {}", local_path.display()));
+				} else if local_path.is_file() && std::fs::metadata(local_path).is_err() {
+					self.errors
+						.push(format!("Cannot access file: {}", local_path.display()));
+				}
 			}
 		}
 	}
 
 	/// Validate destination is valid
 	fn validate_destination(&mut self) {
-		if let Some(parent) = self.input.destination.parent() {
-			if !parent.exists() {
-				self.errors.push(format!(
-					"Destination directory does not exist: {}",
-					parent.display()
-				));
+		if let Some(dest_path) = self.input.destination.as_local_path() {
+			if let Some(parent) = dest_path.parent() {
+				if !parent.exists() {
+					self.errors.push(format!(
+						"Destination directory does not exist: {}",
+						parent.display()
+					));
+				}
 			}
 		}
 	}
@@ -161,55 +163,9 @@ impl ActionBuilder for FileCopyActionBuilder {
 
 		let options = self.input.to_copy_options();
 
-		// Convert PathBuf to SdPath (local paths)
-		let sources = self
-			.input
-			.sources
-			.iter()
-			.map(|p| SdPath::local(p))
-			.collect();
-		let destination = SdPath::local(&self.input.destination);
-
 		Ok(FileCopyAction {
-			sources,
-			destination,
-			options,
-		})
-	}
-}
-
-impl FileCopyActionBuilder {
-	/// Create action directly from URI strings (for CLI/API use)
-	pub fn from_uris(
-		source_uris: Vec<String>,
-		destination_uri: String,
-		options: CopyOptions,
-	) -> Result<FileCopyAction, ActionBuildError> {
-		// Parse source URIs to SdPaths
-		let mut sources = Vec::new();
-		for uri in source_uris {
-			match SdPath::from_uri(&uri) {
-				Ok(path) => sources.push(path),
-				Err(e) => {
-					return Err(ActionBuildError::validation(format!(
-						"Invalid source URI '{}': {:?}",
-						uri, e
-					)))
-				}
-			}
-		}
-
-		// Parse destination URI
-		let destination = SdPath::from_uri(&destination_uri).map_err(|e| {
-			ActionBuildError::validation(format!(
-				"Invalid destination URI '{}': {:?}",
-				destination_uri, e
-			))
-		})?;
-
-		Ok(FileCopyAction {
-			sources,
-			destination,
+			sources: self.input.sources,
+			destination: self.input.destination,
 			options,
 		})
 	}
@@ -245,24 +201,25 @@ impl FileCopyAction {
 	}
 }
 
-pub struct FileCopyHandler;
-
-impl FileCopyHandler {
-	pub fn new() -> Self {
-		Self
-	}
-}
+// Legacy handler removed; action is registered via the new action-centric registry
 
 impl LibraryAction for FileCopyAction {
 	type Output = JobHandle;
+	type Input = FileCopyInput;
+
+	fn from_input(input: Self::Input) -> Result<Self, String> {
+		use crate::infra::action::builder::ActionBuilder;
+		FileCopyActionBuilder::from_input(input)
+			.build()
+			.map_err(|e| e.to_string())
+	}
 
 	async fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
+		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let job = FileCopyJob::new(SdPathBatch::new(self.sources), self.destination)
-			.with_options(self.options);
+		let job = FileCopyJob::new(self.sources, self.destination).with_options(self.options);
 
 		let job_handle = library
 			.jobs()
@@ -274,15 +231,15 @@ impl LibraryAction for FileCopyAction {
 	}
 
 	fn action_kind(&self) -> &'static str {
-		"file.copy"
+		"files.copy"
 	}
 
 	async fn validate(
 		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
+		_library: &std::sync::Arc<crate::library::Library>,
+		_context: Arc<CoreContext>,
 	) -> Result<(), ActionError> {
-		if self.sources.is_empty() {
+		if self.sources.paths.is_empty() {
 			return Err(ActionError::Validation {
 				field: "sources".to_string(),
 				message: "At least one source file must be specified".to_string(),
@@ -291,3 +248,6 @@ impl LibraryAction for FileCopyAction {
 		Ok(())
 	}
 }
+
+// Register with the action-centric registry
+crate::register_library_action!(FileCopyAction, "files.copy");

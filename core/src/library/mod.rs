@@ -161,6 +161,17 @@ impl Library {
 		Ok(())
 	}
 
+	/// Delete the library, including all data
+	pub async fn delete(&self) -> Result<bool> {
+		// Shutdown the library
+		self.shutdown().await?;
+
+		// Delete the library directory
+		let deleted = tokio::fs::metadata(self.path()).await.is_err();
+
+		Ok(deleted)
+	}
+
 	/// Check if thumbnails exist for all specified sizes
 	pub async fn has_all_thumbnails(&self, cas_id: &str, sizes: &[u32]) -> bool {
 		for &size in sizes {
