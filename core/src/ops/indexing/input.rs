@@ -1,7 +1,7 @@
 //! Core input types for indexing operations
 
 use super::job::{IndexMode, IndexPersistence, IndexScope};
-use crate::register_action_input;
+use crate::register_library_action_input;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -45,7 +45,7 @@ impl crate::ops::registry::BuildLibraryActionInput for IndexInput {
 	}
 }
 
-register_action_input!(IndexInput);
+register_library_action_input!(IndexInput);
 
 impl IndexInput {
 	/// Create a new input with sane defaults

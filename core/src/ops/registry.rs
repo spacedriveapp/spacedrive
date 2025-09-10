@@ -7,7 +7,7 @@
 //! ## Architecture
 //!
 //! The registry system works in three layers:
-//! 1. **Registration**: Operations self-register using macros (`register_query!`, `register_action_input!`)
+//! 1. **Registration**: Operations self-register using macros (`register_query!`, `register_library_action_input!`)
 //! 2. **Storage**: Static HashMaps store method-to-handler mappings
 //! 3. **Dispatch**: Core engine looks up handlers by method string and executes them
 //!
@@ -25,7 +25,7 @@
 //!     const METHOD: &'static str = "action:my.domain.input.v1";
 //! }
 //! impl BuildLibraryActionInput for MyActionInput { /* ... */ }
-//! register_action_input!(MyActionInput);
+//! register_library_action_input!(MyActionInput);
 //!
 //! // For core actions
 //! impl BuildCoreActionInput for MyCoreActionInput { /* ... */ }
@@ -101,7 +101,7 @@ pub static QUERIES: Lazy<HashMap<&'static str, QueryHandlerFn>> = Lazy::new(|| {
 /// Static HashMap containing all registered action handlers.
 ///
 /// This is lazily initialized on first access. The `inventory` crate automatically
-/// collects all `ActionEntry` instances that were registered using `register_action_input!`
+/// collects all `ActionEntry` instances that were registered using `register_library_action_input!`
 /// or `register_core_action_input!` and builds this lookup table.
 ///
 /// Key: Method string (e.g., "action:files.copy.input.v1")
@@ -361,7 +361,7 @@ macro_rules! register_query {
 ///     type Action = MyAction;
 ///     fn build(self, session: &SessionState) -> Result<Self::Action, String> { /* ... */ }
 /// }
-/// register_action_input!(MyActionInput);
+/// register_library_action_input!(MyActionInput);
 /// ```
 ///
 /// # What it does
@@ -370,7 +370,7 @@ macro_rules! register_query {
 /// 2. Submits the entry to the `inventory` system for compile-time collection
 /// 3. The entry will be automatically included in the `ACTIONS` HashMap at runtime
 #[macro_export]
-macro_rules! register_action_input {
+macro_rules! register_library_action_input {
 	($ty:ty) => {
 		inventory::submit! { $crate::ops::registry::ActionEntry { method: < $ty as $crate::client::Wire >::METHOD, handler: $crate::ops::registry::handle_library_action_input::<$ty> } }
 	};

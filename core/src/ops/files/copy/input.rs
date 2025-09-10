@@ -1,7 +1,7 @@
 //! Core input types for file copy operations
 
 use super::job::CopyOptions;
-use crate::register_action_input;
+use crate::register_library_action_input;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -73,7 +73,7 @@ impl crate::ops::registry::BuildLibraryActionInput for FileCopyInput {
 	}
 }
 
-register_action_input!(FileCopyInput);
+register_library_action_input!(FileCopyInput);
 
 impl FileCopyInput {
 	/// Create a new FileCopyInput with default options

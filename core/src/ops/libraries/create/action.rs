@@ -3,10 +3,7 @@
 use super::output::LibraryCreateOutput;
 use crate::{
 	context::CoreContext,
-	infra::action::{
-		error::ActionError,
-		CoreAction,
-	},
+	infra::action::{error::ActionError, CoreAction},
 };
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -19,20 +16,16 @@ pub struct LibraryCreateAction {
 	pub path: Option<PathBuf>,
 }
 
-// LibraryCreateHandler removed - using unified ActionTrait instead
-
 // Implement the new modular ActionType trait
 impl CoreAction for LibraryCreateAction {
 	type Output = LibraryCreateOutput;
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		// Delegate to existing business logic
 		let library_manager = &context.library_manager;
 		let library = library_manager
 			.create_library(self.name.clone(), self.path.clone(), context.clone())
 			.await?;
 
-		// Return native output directly - no ActionOutput conversion!
 		Ok(LibraryCreateOutput::new(
 			library.id(),
 			library.name().await,
@@ -54,4 +47,3 @@ impl CoreAction for LibraryCreateAction {
 		Ok(())
 	}
 }
-

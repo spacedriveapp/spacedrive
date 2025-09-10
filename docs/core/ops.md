@@ -154,7 +154,7 @@ impl Wire for FileCopyInput {
     const METHOD: &'static str = "action:files.copy.input.v1";
 }
 
-register_action_input!(FileCopyInput);
+register_library_action_input!(FileCopyInput);
 ```
 
 #### `output.rs` - Response Types
@@ -273,7 +273,7 @@ Operations self-register using the `inventory` crate:
 register_query!(CoreStatusQuery);
 
 // For action inputs
-register_action_input!(FileCopyInput);
+register_library_action_input!(FileCopyInput);
 ```
 
 ### Method Naming Convention
