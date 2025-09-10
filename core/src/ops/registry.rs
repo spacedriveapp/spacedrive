@@ -408,3 +408,138 @@ macro_rules! register_core_action_input {
 		inventory::submit! { $crate::ops::registry::ActionEntry { method: < $ty as $crate::client::Wire >::METHOD, handler: $crate::ops::registry::handle_core_action_input::<$ty> } }
 	};
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Test function that lists all registered queries and actions.
+	///
+	/// This is useful for debugging and verifying that operations are properly
+	/// registered with the inventory system.
+	///
+	/// # Usage
+	///
+	/// ```rust
+	/// #[test]
+	/// fn test_list_registered_operations() {
+	///     list_registered_operations();
+	/// }
+	/// ```
+	pub fn list_registered_operations() {
+		println!("=== Registered Operations ===");
+
+		// List all registered queries
+		println!("\n📋 Queries ({} total):", QUERIES.len());
+		for (method, _) in QUERIES.iter() {
+			println!("  • {}", method);
+		}
+
+		// List all registered actions
+		println!("\n⚡ Actions ({} total):", ACTIONS.len());
+		for (method, _) in ACTIONS.iter() {
+			println!("  • {}", method);
+		}
+
+		println!("\n=== End Registered Operations ===");
+	}
+
+	/// Test function that verifies all registered operations have valid method strings.
+	///
+	/// This ensures that all registered operations follow the expected naming convention:
+	/// - Queries: `query:{domain}.{operation}.v{version}`
+	/// - Actions: `action:{domain}.{operation}.input.v{version}`
+	#[test]
+	fn test_method_naming_convention() {
+		// Check query naming convention
+		for method in QUERIES.keys() {
+			assert!(
+				method.starts_with("query:"),
+				"Query method '{}' should start with 'query:'",
+				method
+			);
+			assert!(
+				method.ends_with(".v1"),
+				"Query method '{}' should end with '.v1'",
+				method
+			);
+		}
+
+		// Check action naming convention
+		for method in ACTIONS.keys() {
+			assert!(
+				method.starts_with("action:"),
+				"Action method '{}' should start with 'action:'",
+				method
+			);
+			assert!(
+				method.ends_with(".input.v1"),
+				"Action method '{}' should end with '.input.v1'",
+				method
+			);
+		}
+	}
+
+	/// Test function that verifies we have at least some registered operations.
+	///
+	/// This is a basic smoke test to ensure the inventory system is working
+	/// and we have some operations registered.
+	#[test]
+	fn test_has_registered_operations() {
+		// We should have at least the core status query
+		assert!(
+			QUERIES.contains_key("query:core.status.v1"),
+			"Core status query should be registered"
+		);
+
+		// We should have at least the libraries list query
+		assert!(
+			QUERIES.contains_key("query:libraries.list.v1"),
+			"Libraries list query should be registered"
+		);
+
+		// We should have at least one action registered
+		assert!(
+			!ACTIONS.is_empty(),
+			"Should have at least one action registered"
+		);
+
+		// Print the registered operations for debugging
+		list_registered_operations();
+	}
+
+	/// Test function that verifies no duplicate method strings are registered.
+	///
+	/// This ensures that each operation has a unique method string.
+	#[test]
+	fn test_no_duplicate_methods() {
+		let mut seen_methods = std::collections::HashSet::new();
+
+		// Check for duplicates in queries
+		for method in QUERIES.keys() {
+			assert!(
+				seen_methods.insert(method),
+				"Duplicate query method found: {}",
+				method
+			);
+		}
+
+		// Check for duplicates in actions
+		for method in ACTIONS.keys() {
+			assert!(
+				seen_methods.insert(method),
+				"Duplicate action method found: {}",
+				method
+			);
+		}
+
+		// Check for cross-contamination between queries and actions
+		for method in QUERIES.keys() {
+			assert!(
+				!ACTIONS.contains_key(method),
+				"Method '{}' is registered as both query and action",
+				method
+			);
+		}
+	}
+}
