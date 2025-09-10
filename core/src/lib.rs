@@ -32,6 +32,7 @@ use crate::config::AppConfig;
 use crate::context::CoreContext;
 use crate::cqrs::{Query, QueryManager};
 use crate::device::DeviceManager;
+use crate::infra::action::builder::ActionBuilder;
 use crate::infra::action::manager::ActionManager;
 use crate::infra::action::{CoreAction, LibraryAction};
 use crate::infra::event::{Event, EventBus};
@@ -114,6 +115,7 @@ impl NetworkEventBridge {
 }
 
 /// The main context for all core operations
+#[derive(Clone)]
 pub struct Core {
 	/// Application configuration
 	pub config: Arc<RwLock<AppConfig>>,
@@ -483,32 +485,6 @@ impl Core {
 		self.services.location_watcher.get_watched_locations().await
 	}
 
-	/// Execute a core-level action (no library context required).
-	///
-	/// Core actions operate at the global level - managing libraries, volumes, devices, etc.
-	pub async fn execute_core_action<A: CoreAction>(&self, action: A) -> anyhow::Result<A::Output> {
-		let action_manager = ActionManager::new(self.context.clone());
-		action_manager
-			.dispatch_core(action)
-			.await
-			.map_err(|e| anyhow::anyhow!("Core action execution failed: {}", e))
-	}
-
-	/// Execute a library-scoped action (library context pre-validated).
-	///
-	/// Library actions operate within a specific library - files, locations, indexing, etc.
-	/// The library existence is validated automatically.
-	pub async fn execute_library_action<A: LibraryAction>(
-		&self,
-		action: A,
-	) -> anyhow::Result<A::Output> {
-		let action_manager = ActionManager::new(self.context.clone());
-		action_manager
-			.dispatch_library(action)
-			.await
-			.map_err(|e| anyhow::anyhow!("Library action execution failed: {}", e))
-	}
-
 	/// Execute a query using the CQRS API.
 	///
 	/// This method provides a unified, type-safe entry point for all read operations.
@@ -518,28 +494,29 @@ impl Core {
 		query_manager.dispatch(query).await
 	}
 
-	/// Temporary pass-through dispatcher by method string for daemon decoupling.
-	/// Only implemented for a single query to prove the pattern.
+	/// Pass-through dispatcher by method string for daemon decoupling.
 	pub async fn execute_query_by_method(
 		&self,
 		method: &str,
 		payload: Vec<u8>,
 	) -> Result<Vec<u8>, String> {
-		use bincode::config::standard;
-		use bincode::serde::{decode_from_slice, encode_to_vec};
-
-		match method {
-			crate::infra::daemon::types::type_ids::CORE_STATUS_QUERY => {
-				let q: crate::ops::core::status::query::CoreStatusQuery =
-					decode_from_slice(&payload, standard())
-						.map_err(|e| format!("deserialize: {}", e))?
-						.0;
-				let out: crate::ops::core::status::output::CoreStatus =
-					self.execute_query(q).await.map_err(|e| e.to_string())?;
-				encode_to_vec(&out, standard()).map_err(|e| e.to_string())
-			}
-			_ => Err("Unknown query method".into()),
+		if let Some(handler) = crate::ops::registry::QUERIES.get(method) {
+			return handler(Arc::new((*self).clone()), payload).await;
 		}
+		Err("Unknown query method".into())
+	}
+
+	/// Pass-through dispatcher by method string for actions.
+	pub async fn execute_action_by_method(
+		&self,
+		method: &str,
+		payload: Vec<u8>,
+		session: crate::infra::daemon::state::SessionState,
+	) -> Result<Vec<u8>, String> {
+		if let Some(handler) = crate::ops::registry::ACTIONS.get(method) {
+			return handler(Arc::new((*self).clone()), session, payload).await;
+		}
+		Err("Unknown action method".into())
 	}
 
 	/// Shutdown the core gracefully

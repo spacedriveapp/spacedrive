@@ -6,10 +6,7 @@
 use super::output::VolumeTrackOutput;
 use crate::{
 	context::CoreContext,
-	infra::action::{
-		error::ActionError,
-		LibraryAction,
-	},
+	infra::action::{error::ActionError, LibraryAction},
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
@@ -29,7 +26,6 @@ pub struct VolumeTrackAction {
 }
 
 impl VolumeTrackAction {
-	/// Create a new volume track action
 	pub fn new(fingerprint: VolumeFingerprint, library_id: Uuid, name: Option<String>) -> Self {
 		Self {
 			fingerprint,
@@ -49,13 +45,14 @@ impl VolumeTrackAction {
 	}
 }
 
-// Implement the new modular ActionType trait
 impl LibraryAction for VolumeTrackAction {
 	type Output = VolumeTrackOutput;
 
-	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		// Library is pre-validated by ActionManager - no boilerplate needed!
-
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
 		// Check if volume exists
 		let volume = context
 			.volume_manager
@@ -64,7 +61,9 @@ impl LibraryAction for VolumeTrackAction {
 			.ok_or_else(|| ActionError::InvalidInput("Volume not found".to_string()))?;
 
 		if !volume.is_mounted {
-			return Err(ActionError::InvalidInput("Cannot track unmounted volume".to_string()));
+			return Err(ActionError::InvalidInput(
+				"Cannot track unmounted volume".to_string(),
+			));
 		}
 
 		// Track the volume in the database
@@ -74,7 +73,6 @@ impl LibraryAction for VolumeTrackAction {
 			.await
 			.map_err(|e| ActionError::InvalidInput(format!("Volume tracking failed: {}", e)))?;
 
-		// Return native output directly
 		Ok(VolumeTrackOutput::new(
 			self.fingerprint,
 			self.library_id,
@@ -90,9 +88,11 @@ impl LibraryAction for VolumeTrackAction {
 		self.library_id
 	}
 
-	async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
-		// Library existence already validated by ActionManager - no boilerplate!
-
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<(), ActionError> {
 		// Validate volume exists
 		let volume = context
 			.volume_manager
@@ -124,5 +124,3 @@ impl LibraryAction for VolumeTrackAction {
 		Ok(())
 	}
 }
-
-

@@ -9,7 +9,7 @@ use crate::infra::daemon::client::DaemonClient;
 use crate::infra::daemon::types::{DaemonRequest, DaemonResponse};
 
 pub trait Wire {
-	const TYPE_ID: &'static str;
+	const METHOD: &'static str;
 }
 
 pub struct CoreClient {
@@ -31,7 +31,7 @@ impl CoreClient {
 		let resp = self
 			.daemon
 			.send(&DaemonRequest::Action {
-				type_id: A::TYPE_ID.into(),
+				method: A::METHOD.into(),
 				payload,
 			})
 			.await;
@@ -54,7 +54,7 @@ impl CoreClient {
 		let resp = self
 			.daemon
 			.send(&DaemonRequest::Query {
-				type_id: Q::TYPE_ID.into(),
+				method: Q::METHOD.into(),
 				payload,
 			})
 			.await;

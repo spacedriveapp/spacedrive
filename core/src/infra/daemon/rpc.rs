@@ -4,7 +4,6 @@ use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixListener;
 
-use crate::infra::daemon::dispatch::DispatchRegistry;
 use crate::infra::daemon::instance::CoreInstanceManager;
 use crate::infra::daemon::state::SessionStateService;
 use crate::infra::daemon::types::{DaemonRequest, DaemonResponse};
@@ -14,7 +13,6 @@ pub struct RpcServer {
 	socket_path: PathBuf,
 	instances: Arc<CoreInstanceManager>,
 	session: Arc<SessionStateService>,
-	registry: Arc<DispatchRegistry>,
 }
 
 impl RpcServer {
@@ -22,13 +20,11 @@ impl RpcServer {
 		socket_path: PathBuf,
 		instances: Arc<CoreInstanceManager>,
 		session: Arc<SessionStateService>,
-		registry: Arc<DispatchRegistry>,
 	) -> Self {
 		Self {
 			socket_path,
 			instances,
 			session,
-			registry,
 		}
 	}
 
@@ -42,49 +38,47 @@ impl RpcServer {
 			let (mut stream, _addr) = listener.accept().await?;
 			let instances = self.instances.clone();
 			let session = self.session.clone();
-			let registry = self.registry.clone();
-			tokio::spawn(async move {
+			// Handle connection without spawning to avoid Send requirements
+			{
 				let mut buf = Vec::new();
 				if stream.read_to_end(&mut buf).await.is_err() {
-					return;
+					continue;
 				}
 				let req: Result<DaemonRequest, _> = serde_json::from_slice(&buf);
 				let resp = match req {
 					Ok(DaemonRequest::Ping) => DaemonResponse::Pong,
-					Ok(DaemonRequest::Action { type_id, payload }) => {
-						let core = match instances.get_default().await {
-							Ok(c) => c,
-							Err(_) => return,
-						};
-						let session_snapshot = session.get().await;
-						match registry
-							.dispatch_action(&type_id, payload, core, session_snapshot)
-							.await
-						{
-							Ok(out) => DaemonResponse::Ok(out),
-							Err(e) => DaemonResponse::Error(e),
-						}
-					}
-					Ok(DaemonRequest::Query { type_id, payload }) => {
-						let core = match instances.get_default().await {
-							Ok(c) => c,
-							Err(_) => return,
-						};
-						// Pass-through for queries using opaque method string; fallback to registry for others
-						match core
-							.execute_query_by_method(&type_id, payload.clone())
-							.await
-						{
-							Ok(out) => DaemonResponse::Ok(out),
-							Err(_) => {
+					Ok(DaemonRequest::Action { method, payload }) => {
+						match instances.get_default().await {
+							Ok(core) => {
 								let session_snapshot = session.get().await;
-								match registry
-									.dispatch_query(&type_id, payload, core, session_snapshot)
+								match core
+									.execute_action_by_method(
+										&method,
+										payload.clone(),
+										session_snapshot.clone(),
+									)
 									.await
 								{
 									Ok(out) => DaemonResponse::Ok(out),
 									Err(e) => DaemonResponse::Error(e),
 								}
+							}
+							Err(_) => {
+								DaemonResponse::Error("Failed to get core instance".to_string())
+							}
+						}
+					}
+					Ok(DaemonRequest::Query { method, payload }) => {
+						match instances.get_default().await {
+							Ok(core) => {
+								// Pass-through for queries using opaque method string
+								match core.execute_query_by_method(&method, payload.clone()).await {
+									Ok(out) => DaemonResponse::Ok(out),
+									Err(e) => DaemonResponse::Error(e),
+								}
+							}
+							Err(_) => {
+								DaemonResponse::Error("Failed to get core instance".to_string())
 							}
 						}
 					}
@@ -93,7 +87,7 @@ impl RpcServer {
 				let _ = stream
 					.write_all(serde_json::to_string(&resp).unwrap().as_bytes())
 					.await;
-			});
+			}
 		}
 	}
 }

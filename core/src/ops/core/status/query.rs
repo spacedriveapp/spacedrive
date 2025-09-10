@@ -1,7 +1,7 @@
 //! Core status query (modular)
 
 use super::output::CoreStatus;
-use crate::{context::CoreContext, cqrs::Query};
+use crate::{context::CoreContext, cqrs::Query, register_query};
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -21,7 +21,7 @@ impl Query for CoreStatusQuery {
 }
 
 impl crate::client::Wire for CoreStatusQuery {
-	const TYPE_ID: &'static str = crate::infra::daemon::types::type_ids::CORE_STATUS_QUERY;
+	const METHOD: &'static str = "query:core.status.v1";
 }
 
-
+register_query!(CoreStatusQuery);

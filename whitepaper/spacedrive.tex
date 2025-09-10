@@ -3002,49 +3002,48 @@ Spacedrive implements intelligent rate limiting to prevent abuse while maintaini
 \item User-configurable limits for shared libraries
 \end{itemize}
 
-\subsection{Audit Log Immutability}
-\subsubsection{Cryptographic Audit Trail}
-The audit log system ensures tamper-proof record keeping through cryptographic guarantees:
+\subsection{Audit Log System}
+The audit log system provides comprehensive tracking of user actions across all devices:
 
-\textbf{Chain-Based Integrity}:
+\textbf{Action Tracking}:
 \begin{itemize}[noitemsep, topsep=0pt]
-\item Each audit entry includes hash of previous entry
-\item Merkle tree structure for efficient verification
-\item Periodic checkpoint hashes signed with device keys
-\item Distributed verification across paired devices
+\item Each action creates a detailed audit entry
+\item Cross-device synchronization of audit logs
+\item Sequence-based ordering for chronological integrity
+\item Export capability for external audit systems
 \end{itemize}
 
 \textbf{Implementation Details}:
-\begin{lstlisting}[language=Rust, caption={Audit log entry structure with cryptographic chaining}]
+\begin{lstlisting}[language=Rust, caption={Audit log entry structure}]
 pub struct AuditEntry {
     pub id: Uuid,
     pub timestamp: DateTime<Utc>,
     pub action: ActionType,
     pub device_id: DeviceId,
     pub details: serde_json::Value,
-    pub previous_hash: Blake3Hash,
-    pub entry_hash: Blake3Hash,
+    pub sequence_number: u64,
 }
 
 impl AuditEntry {
-    pub fn compute_hash(&self) -> Blake3Hash {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&self.timestamp.to_rfc3339().as_bytes());
-        hasher.update(&self.action.to_bytes());
-        hasher.update(&self.device_id.as_bytes());
-        hasher.update(&self.details.to_string().as_bytes());
-        hasher.update(&self.previous_hash.as_bytes());
-        hasher.finalize()
+    pub fn new(action: ActionType, device_id: DeviceId) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            action,
+            device_id,
+            details: serde_json::Value::Null,
+            sequence_number: 0, // Assigned during sync
+        }
     }
 }
 \end{lstlisting}
 
-\textbf{Verification Process}:
+\textbf{Sync Integration}:
 \begin{itemize}[noitemsep, topsep=0pt]
-\item Background verification runs periodically
-\item Cross-device hash comparison during sync
-\item Immediate alerts for chain violations
-\item Export capability for external audit systems
+\item Audit logs sync as UserMetadata across devices
+\item Sequence numbers ensure proper ordering
+\item Conflict resolution preserves all audit entries
+\item Background reconciliation maintains consistency
 \end{itemize}
 
 \subsection{Spacedrive Cloud Service Privacy Model}

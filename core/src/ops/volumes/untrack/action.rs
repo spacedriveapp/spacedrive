@@ -5,10 +5,7 @@
 use super::output::VolumeUntrackOutput;
 use crate::{
 	context::CoreContext,
-	infra::action::{
-		error::ActionError,
-		LibraryAction,
-	},
+	infra::action::{error::ActionError, LibraryAction},
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
@@ -38,9 +35,11 @@ impl VolumeUntrackAction {
 impl LibraryAction for VolumeUntrackAction {
 	type Output = VolumeUntrackOutput;
 
-	async fn execute(self, library: std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		// Library is pre-validated by ActionManager - no boilerplate!
-
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
 		// Untrack the volume from the database
 		context
 			.volume_manager
@@ -60,9 +59,11 @@ impl LibraryAction for VolumeUntrackAction {
 		self.library_id
 	}
 
-	async fn validate(&self, library: &std::sync::Arc<crate::library::Library>, context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
-		// Library existence already validated by ActionManager - no boilerplate!
-
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<(), ActionError> {
 		// Validate volume exists
 		let _volume = context
 			.volume_manager

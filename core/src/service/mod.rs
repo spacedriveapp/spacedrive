@@ -25,6 +25,7 @@ use sidecar_manager::SidecarManager;
 use volume_monitor::{VolumeMonitorService, VolumeMonitorConfig};
 
 /// Container for all background services
+#[derive(Clone)]
 pub struct Services {
 	/// File system watcher for locations
 	pub location_watcher: Arc<LocationWatcher>,
@@ -81,7 +82,7 @@ impl Services {
 		info!("Starting all background services");
 
 		self.location_watcher.start().await?;
-		
+
 		// Start volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {
 			monitor.start().await?;
@@ -101,7 +102,7 @@ impl Services {
 		info!("Stopping all background services");
 
 		self.location_watcher.stop().await?;
-		
+
 		// Stop volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {
 			monitor.stop().await?;
@@ -167,14 +168,14 @@ impl Services {
 		library_manager: std::sync::Weak<crate::library::LibraryManager>,
 	) {
 		info!("Initializing volume monitor service");
-		
+
 		let config = VolumeMonitorConfig::default();
 		let volume_monitor = Arc::new(VolumeMonitorService::new(
 			volume_manager,
 			library_manager,
 			config,
 		));
-		
+
 		self.volume_monitor = Some(volume_monitor);
 	}
 
