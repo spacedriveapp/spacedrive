@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use sd_core::client::CoreClient;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, ValueEnum)]
 enum OutputFormat {
@@ -36,6 +37,9 @@ enum Commands {
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCommands),
+	/// Networking and pairing
+	#[command(subcommand)]
+	Network(NetworkCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -54,6 +58,58 @@ enum FileCommands {
 	Validate(FileValidateArgs),
 	/// Detect duplicate files
 	Dedupe(FileDedupeArgs),
+}
+
+#[derive(Subcommand, Debug)]
+enum NetworkCommands {
+	/// Show networking status
+	Status,
+	/// List devices
+	Devices(NetworkDevicesArgs),
+	/// Start networking
+	Start,
+	/// Stop networking
+	Stop,
+	/// Pairing commands
+	#[command(subcommand)]
+	Pair(PairCommands),
+	/// Revoke a paired device
+	Revoke { device_id: Uuid },
+	/// Send files via Spacedrop
+	Spacedrop(SpacedropArgs),
+}
+
+#[derive(Parser, Debug, Clone)]
+struct NetworkDevicesArgs {
+	/// Only show paired devices
+	#[arg(long, default_value_t = false)]
+	paired_only: bool,
+	/// Only show connected devices
+	#[arg(long, default_value_t = false)]
+	connected_only: bool,
+}
+
+#[derive(Subcommand, Debug)]
+enum PairCommands {
+	/// Generate a pairing code (initiator)
+	Generate { #[arg(long, default_value_t = false)] auto_accept: bool },
+	/// Join using a pairing code (joiner)
+	Join { code: String },
+	/// Show pairing sessions
+	Status,
+	/// Cancel a pairing session
+	Cancel { session_id: Uuid },
+}
+
+#[derive(Parser, Debug, Clone)]
+struct SpacedropArgs {
+	/// Target device ID
+	pub device_id: Uuid,
+	/// Files or directories to share
+	pub paths: Vec<String>,
+	/// Sender name for display
+	#[arg(long)]
+	pub sender: Option<String>,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -389,6 +445,97 @@ async fn main() -> Result<()> {
 
 			core.action(&input).await?;
 			println!("Indexing request submitted");
+		}
+		Commands::Network(cmd) => {
+			use sd_core::ops::network::*;
+			match cmd {
+				NetworkCommands::Status => {
+					let status: NetworkStatus = core
+						.query(&NetworkStatusQuery)
+						.await?;
+					match cli.format {
+						OutputFormat::Human => {
+							println!("Networking: {}", if status.running { "running" } else { "stopped" });
+							if let Some(id) = status.node_id { println!("Node ID: {}", id); }
+							if !status.addresses.is_empty() {
+								println!("Addresses:");
+								for a in status.addresses { println!("  {}", a); }
+							}
+							println!("Paired: {} | Connected: {}", status.paired_devices, status.connected_devices);
+						}
+						OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&status)?),
+					}
+				}
+				NetworkCommands::Devices(args) => {
+					let q = if args.connected_only { ListDevicesQuery::connected() } else if args.paired_only { ListDevicesQuery::paired() } else { ListDevicesQuery::all() };
+					let devices: Vec<DeviceInfoLite> = core.query(&q).await?;
+					match cli.format {
+						OutputFormat::Human => {
+							if devices.is_empty() { println!("No devices found"); }
+							for d in devices { println!("- {} {} ({} | {} | {} | last seen {})", d.id, d.name, d.os_version, d.app_version, if d.is_connected { "connected" } else { "offline" }, d.last_seen); }
+						}
+						OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&devices)?),
+					}
+				}
+				NetworkCommands::Start => {
+					let out: NetworkStartOutput = core.action(&NetworkStartInput {}).await?;
+					println!("Networking {}", if out.started { "started" } else { "already running" });
+				}
+				NetworkCommands::Stop => {
+					let out: NetworkStopOutput = core.action(&NetworkStopInput {}).await?;
+					println!("Networking {}", if out.stopped { "stopped" } else { "not running" });
+				}
+				NetworkCommands::Pair(pc) => match pc {
+					PairCommands::Generate { auto_accept } => {
+						let out: PairGenerateOutput = core.action(&PairGenerateInput { auto_accept }).await?;
+						match cli.format {
+							OutputFormat::Human => {
+								println!("Pairing code: {}", out.code);
+								println!("Session: {}", out.session_id);
+								println!("Expires at: {}", out.expires_at);
+							}
+							OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&out)?),
+						}
+					}
+					PairCommands::Join { code } => {
+						let out: PairJoinOutput = core.action(&PairJoinInput { code }).await?;
+						match cli.format {
+							OutputFormat::Human => println!("Paired with {} ({})", out.device_name, out.paired_device_id),
+							OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&out)?),
+						}
+					}
+					PairCommands::Status => {
+						let out: PairStatusOutput = core.query(&PairStatusQuery).await?;
+						match cli.format {
+							OutputFormat::Human => {
+								if out.sessions.is_empty() { println!("No pairing sessions"); }
+								for s in out.sessions { println!("- {} {:?} remote={:?}", s.id, s.state, s.remote_device_id); }
+							}
+							OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&out)?),
+						}
+					}
+					PairCommands::Cancel { session_id } => {
+						let out: PairCancelOutput = core.action(&PairCancelInput { session_id }).await?;
+						println!("Cancelled: {}", out.cancelled);
+					}
+				},
+				NetworkCommands::Revoke { device_id } => {
+					let out: DeviceRevokeOutput = core.action(&DeviceRevokeInput { device_id }).await?;
+					println!("Revoked: {}", out.revoked);
+				}
+				NetworkCommands::Spacedrop(args) => {
+					use sd_core::domain::addressing::SdPath;
+					let paths = args.paths.iter().map(|s| SdPath::from_uri(s).unwrap_or_else(|_| SdPath::local(s))).collect::<Vec<_>>();
+					let out: SpacedropSendOutput = core.action(&SpacedropSendInput { device_id: args.device_id, paths, sender: args.sender }).await?;
+					match cli.format {
+						OutputFormat::Human => {
+							if let Some(j) = out.job_id { println!("Transfer job: {}", j); }
+							if let Some(sid) = out.session_id { println!("Spacedrop session: {}", sid); }
+						}
+						OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&out)?),
+					}
+				}
+			}
 		}
 	}
 
