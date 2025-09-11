@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::context::{Context, OutputFormat};
 use crate::util::output::print_json;
+use crate::util::confirm::confirm_or_abort;
 
 #[derive(Parser, Debug, Clone)]
 pub struct NetworkDevicesArgs {
@@ -52,7 +53,7 @@ pub enum NetworkCmd {
 	#[command(subcommand)]
 	Pair(PairCmd),
 	/// Revoke a paired device
-	Revoke { device_id: Uuid },
+	Revoke { device_id: Uuid, #[arg(long, short = 'y', default_value_t = false)] yes: bool },
 	/// Send files via Spacedrop
 	Spacedrop(SpacedropArgs),
 }
@@ -128,7 +129,8 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				println!("Cancelled: {}", out.cancelled);
 			}
 		},
-		NetworkCmd::Revoke { device_id } => {
+		NetworkCmd::Revoke { device_id, yes } => {
+			confirm_or_abort(&format!("This will revoke device {} and remove pairing. Continue?", device_id), yes)?;
 			let out: DeviceRevokeOutput = ctx.core.action(&DeviceRevokeInput { device_id }).await?;
 			println!("Revoked: {}", out.revoked);
 		}
