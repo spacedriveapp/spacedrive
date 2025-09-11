@@ -47,6 +47,9 @@ enum Commands {
 	/// Networking and pairing
 	#[command(subcommand)]
 	Network(NetworkCommands),
+	/// Job commands
+	#[command(subcommand)]
+	Job(JobCommands),
 }
 
 #[derive(Subcommand, Debug)]
@@ -114,6 +117,14 @@ enum PairCommands {
 	Status,
 	/// Cancel a pairing session
 	Cancel { session_id: Uuid },
+}
+
+#[derive(Subcommand, Debug)]
+enum JobCommands {
+	/// List jobs
+	List { #[arg(long)] status: Option<String> },
+	/// Job info
+	Info { job_id: Uuid },
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -554,7 +565,13 @@ async fn main() -> Result<()> {
 			println!("Added location {} -> {}", out.id, out.path.display());
 		}
 		Commands::Location(LocationCommands::List) => {
-			println!("Listing locations is not available yet in this build");
+			// If only one library exists, use it; else require --library later (omitted for brevity)
+			let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = core
+				.query(&sd_core::ops::libraries::list::query::ListLibrariesQuery::basic())
+				.await?;
+			let library_id = if libs.len() == 1 { libs[0].id } else { anyhow::bail!("Specify --library to list locations when multiple libraries exist") };
+			let out: sd_core::ops::locations::list::output::LocationsListOutput = core.query(&sd_core::ops::locations::list::query::LocationsListQuery { library_id }).await?;
+			for loc in out.locations { println!("- {} {}", loc.id, loc.path.display()); }
 		}
 		Commands::Location(LocationCommands::Remove { location_id }) => {
 			let _out: sd_core::ops::locations::remove::output::LocationRemoveOutput = core.action(&sd_core::ops::locations::remove::action::LocationRemoveInput { location_id }).await?;
@@ -652,6 +669,28 @@ async fn main() -> Result<()> {
 						}
 						OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&out)?),
 					}
+				}
+			}
+		}
+		Commands::Job(cmd) => {
+			match cmd {
+				JobCommands::List { status } => {
+					// There isn't a direct op; use library job manager via a helper query when available. For now, use running jobs
+					let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = core
+						.query(&sd_core::ops::libraries::list::query::ListLibrariesQuery::basic())
+						.await?;
+					if libs.is_empty() { println!("No libraries found"); }
+					for lib in libs {
+						let running = core.query(&sd_core::ops::indexing::state::RunningJobsQuery { library_id: lib.id }).await;
+						if let Ok(running_jobs) = running {
+							for j in running_jobs.jobs { println!("- {} {} {}%", j.id, j.name, (j.progress * 100.0) as u32); }
+						} else {
+							println!("Library {}: jobs listing not available", lib.id);
+						}
+					}
+				}
+				JobCommands::Info { job_id } => {
+					println!("Job {} info not available yet", job_id);
 				}
 			}
 		}
