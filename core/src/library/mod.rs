@@ -166,10 +166,13 @@ impl Library {
 		// Shutdown the library
 		self.shutdown().await?;
 
-		// Delete the library directory
-		let deleted = tokio::fs::metadata(self.path()).await.is_err();
+		// Delete the library directory if it exists
+		if tokio::fs::metadata(self.path()).await.is_err() {
+			return Ok(false);
+		}
 
-		Ok(deleted)
+		tokio::fs::remove_dir_all(self.path()).await?;
+		Ok(true)
 	}
 
 	/// Check if thumbnails exist for all specified sizes
