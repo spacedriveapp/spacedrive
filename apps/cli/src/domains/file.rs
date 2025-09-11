@@ -58,7 +58,7 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			if let Err(errors) = input.validate() {
 				anyhow::bail!(errors.join("; "))
 			}
-			ctx.core.action(&input).await?;
+			let _bytes = ctx.core.action(&input).await?;
 			println!("Copy request submitted");
 		}
 	}

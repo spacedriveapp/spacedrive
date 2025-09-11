@@ -9,7 +9,6 @@ members = [
 	# "apps/server",
 	"apps/cli",
 	"core",
-	"core/crates/*",
 	"crates/*"
 ]
 resolver = "2"
