@@ -103,6 +103,16 @@ impl JobHandle {
     }
 }
 
+// Serialize JobHandle as its JobId for wire transport
+impl serde::Serialize for JobHandle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.id.serialize(serializer)
+    }
+}
+
 /// Update events from a job
 #[derive(Debug)]
 pub enum JobUpdate {

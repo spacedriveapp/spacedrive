@@ -59,7 +59,7 @@ impl MutationRoot {
 		let mut input = sd_core::ops::files::copy::input::FileCopyInput::default();
 		input.sources = sources.into_iter().map(Into::into).collect();
 		input.destination = destination.into();
-		state
+		let _bytes = state
 			.core
 			.action(&input)
 			.await

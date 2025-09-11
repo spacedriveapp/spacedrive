@@ -131,7 +131,7 @@ async fn main() -> Result<()> {
 			if let Err(errors) = input.validate() {
 				anyhow::bail!(errors.join("; "));
 			}
-			core.action(&input).await?;
+			let _bytes = core.action(&input).await?;
 			println!("Copy request submitted");
 		}
 	}

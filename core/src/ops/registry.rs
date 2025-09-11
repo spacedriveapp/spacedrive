@@ -113,9 +113,10 @@ pub fn handle_library_action<A>(
 where
 	A: crate::infra::action::LibraryAction + 'static,
 	A::Input: DeserializeOwned + 'static,
+	A::Output: serde::Serialize + 'static,
 {
 	use bincode::config::standard;
-	use bincode::serde::decode_from_slice;
+	use bincode::serde::{decode_from_slice, encode_to_vec};
 	(async move {
 		let input: A::Input = decode_from_slice(&payload, standard())
 			.map_err(|e| e.to_string())?
@@ -123,11 +124,11 @@ where
 		let action = A::from_input(input)?;
 		let manager = crate::infra::action::manager::ActionManager::new(core.context.clone());
 		let library_id = session.current_library_id.ok_or("No library selected")?;
-		manager
+		let out = manager
 			.dispatch_library(library_id, action)
 			.await
 			.map_err(|e| e.to_string())?;
-		Ok(Vec::new())
+		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
 	})
 	.boxed_local()
 }
@@ -141,20 +142,21 @@ pub fn handle_core_action<A>(
 where
 	A: crate::infra::action::CoreAction + 'static,
 	A::Input: DeserializeOwned + 'static,
+	A::Output: serde::Serialize + 'static,
 {
 	use bincode::config::standard;
-	use bincode::serde::decode_from_slice;
+	use bincode::serde::{decode_from_slice, encode_to_vec};
 	(async move {
 		let input: A::Input = decode_from_slice(&payload, standard())
 			.map_err(|e| e.to_string())?
 			.0;
 		let action = A::from_input(input)?;
 		let manager = crate::infra::action::manager::ActionManager::new(core.context.clone());
-		manager
+		let out = manager
 			.dispatch_core(action)
 			.await
 			.map_err(|e| e.to_string())?;
-		Ok(Vec::new())
+		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
 	})
 	.boxed_local()
 }

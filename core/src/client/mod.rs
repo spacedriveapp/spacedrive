@@ -23,7 +23,7 @@ impl CoreClient {
 		}
 	}
 
-	pub async fn action<A>(&self, action: &A) -> Result<()>
+	pub async fn action<A>(&self, action: &A) -> Result<Vec<u8>>
 	where
 		A: Wire + Serialize,
 	{
@@ -37,7 +37,7 @@ impl CoreClient {
 			.await;
 		match resp {
 			Ok(r) => match r {
-				DaemonResponse::Ok(_) => Ok(()),
+				DaemonResponse::Ok(bytes) => Ok(bytes),
 				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
 				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
 			},
