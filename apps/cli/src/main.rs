@@ -675,22 +675,27 @@ async fn main() -> Result<()> {
 		Commands::Job(cmd) => {
 			match cmd {
 				JobCommands::List { status } => {
-					// There isn't a direct op; use library job manager via a helper query when available. For now, use running jobs
 					let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = core
 						.query(&sd_core::ops::libraries::list::query::ListLibrariesQuery::basic())
 						.await?;
 					if libs.is_empty() { println!("No libraries found"); }
 					for lib in libs {
-						let running = core.query(&sd_core::ops::indexing::state::RunningJobsQuery { library_id: lib.id }).await;
-						if let Ok(running_jobs) = running {
-							for j in running_jobs.jobs { println!("- {} {} {}%", j.id, j.name, (j.progress * 100.0) as u32); }
-						} else {
-							println!("Library {}: jobs listing not available", lib.id);
-						}
+						let status_parsed = status.as_deref().and_then(|s| s.parse::<sd_core::infra::job::types::JobStatus>().ok());
+						let out: sd_core::ops::jobs::list::output::JobListOutput = core.query(&sd_core::ops::jobs::list::query::JobListQuery { library_id: lib.id, status: status_parsed }).await?;
+						for j in out.jobs { println!("- {} {} {} {:?}", j.id, j.name, (j.progress * 100.0) as u32, j.status); }
 					}
 				}
 				JobCommands::Info { job_id } => {
-					println!("Job {} info not available yet", job_id);
+					let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = core
+						.query(&sd_core::ops::libraries::list::query::ListLibrariesQuery::basic())
+						.await?;
+					let lib = libs.get(0).ok_or_else(|| anyhow::anyhow!("No libraries found"))?;
+					let out: Option<sd_core::ops::jobs::info::output::JobInfoOutput> = core.query(&sd_core::ops::jobs::info::query::JobInfoQuery { library_id: lib.id, job_id }).await?;
+					match (cli.format, out) {
+						(OutputFormat::Human, Some(j)) => println!("{} {} {}% {:?}", j.id, j.name, (j.progress * 100.0) as u32, j.status),
+						(OutputFormat::Json, Some(j)) => println!("{}", serde_json::to_string_pretty(&j)?),
+						(_, None) => println!("Job not found"),
+					}
 				}
 			}
 		}
