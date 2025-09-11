@@ -1,0 +1,49 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+use crate::Core;
+
+/// Manages lifecycle of Core instances (by name)
+pub struct CoreInstanceManager {
+	instances: Arc<RwLock<HashMap<String, Arc<Core>>>>,
+	default_data_dir: PathBuf,
+}
+
+impl CoreInstanceManager {
+	pub fn new(default_data_dir: PathBuf) -> Self {
+		Self { instances: Arc::new(RwLock::new(HashMap::new())), default_data_dir }
+	}
+
+	/// Get or start the default instance
+	pub async fn get_default(&self) -> Result<Arc<Core>, Box<dyn std::error::Error>> {
+		self.get_or_start("default".to_string(), None).await
+	}
+
+	/// Get or start a named instance, optionally with a specific data_dir
+	pub async fn get_or_start(
+		&self,
+		name: String,
+		data_dir: Option<PathBuf>,
+	) -> Result<Arc<Core>, Box<dyn std::error::Error>> {
+		if let Some(existing) = self.instances.read().await.get(&name).cloned() {
+			return Ok(existing);
+		}
+
+		let data_dir = data_dir.unwrap_or_else(|| self.default_data_dir.clone());
+		let core = Arc::new(Core::new_with_config(data_dir).await?);
+		self.instances.write().await.insert(name, core.clone());
+		Ok(core)
+	}
+
+	/// Shutdown a named instance
+	pub async fn shutdown(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+		if let Some(core) = self.instances.write().await.remove(name) {
+			core.shutdown().await?;
+		}
+		Ok(())
+	}
+}
+
+

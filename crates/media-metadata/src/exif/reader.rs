@@ -17,7 +17,7 @@ impl ExifReader {
 	pub fn from_path(path: impl AsRef<Path>) -> Result<Self> {
 		exif::Reader::new()
 			.read_from_container(&mut BufReader::new(
-				File::open(&path).map_err(|e| FileIOError::from((path, e)))?,
+				File::open(&path).map_err(|e| FileIOError::from_std_io_err(&path, e))?,
 			))
 			.map(Self)
 			.map_err(Into::into)

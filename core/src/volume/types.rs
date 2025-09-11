@@ -1,78 +1,199 @@
-use super::error::VolumeError;
-use crate::volume::speed::SpeedTest;
-use sd_core_sync::DevicePubId;
-use sd_prisma::prisma::{
-	device,
-	volume::{self},
-	PrismaClient,
-};
+//! Volume type definitions
+
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
-use specta::Type;
 use std::fmt;
 use std::path::PathBuf;
-use std::{path::Path, sync::Arc};
-use strum_macros::Display;
 use uuid::Uuid;
 
-/// A fingerprint of a volume, used to identify it when it is not persisted in the database
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Type)]
-pub struct VolumeFingerprint(pub Vec<u8>);
+/// Spacedrive volume identifier file content
+/// This file is created in the root of writable volumes for persistent identification
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpacedriveVolumeId {
+	/// Unique identifier for this volume
+	pub id: Uuid,
+	/// When this identifier was created
+	pub created: chrono::DateTime<chrono::Utc>,
+	/// Name of the device that created this identifier
+	pub device_name: Option<String>,
+	/// Original volume name when identifier was created
+	pub volume_name: String,
+	/// Device ID that created this identifier
+	pub device_id: Uuid,
+}
+
+/// Unique fingerprint for a storage volume
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct VolumeFingerprint(pub String);
 
 impl VolumeFingerprint {
-	pub fn new(device_id: &DevicePubId, volume: &Volume) -> Self {
-		// Hash the device ID, mount point, name, total bytes capacity, and file system
+	/// Create a new volume fingerprint from volume properties
+	/// Uses intrinsic volume characteristics for cross-device portable identification
+	pub fn new(name: &str, total_bytes: u64, file_system: &str) -> Self {
 		let mut hasher = blake3::Hasher::new();
-		hasher.update(&device_id.to_db());
-		hasher.update(volume.mount_point.to_string_lossy().as_bytes());
-		hasher.update(volume.name.as_bytes());
-		hasher.update(&volume.total_bytes_capacity.to_be_bytes());
-		hasher.update(volume.file_system.to_string().as_bytes());
-		// These are all properties that are unique to a volume and unlikely to change
-		// If a .spacedrive file is found in the volume, and is fingerprint does not match,
-		// but the `pub_id` is the same, we can update the values and regenerate the fingerprint
-		// preserving the tracked instance of the volume
-		Self(hasher.finalize().as_bytes().to_vec())
+		hasher.update(b"content_based:");
+		hasher.update(name.as_bytes());
+		hasher.update(&total_bytes.to_be_bytes());
+		hasher.update(file_system.as_bytes());
+		hasher.update(&(name.len() as u64).to_be_bytes());
+
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create a fingerprint from a Spacedrive identifier UUID (preferred method)
+	/// This provides stable identification across devices, renames and remounts
+	pub fn from_spacedrive_id(spacedrive_id: Uuid) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"spacedrive_id:");
+		hasher.update(spacedrive_id.as_bytes());
+
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Generate 8-character short ID for CLI display and commands
+	pub fn short_id(&self) -> String {
+		self.0.chars().take(8).collect()
+	}
+
+	/// Generate 12-character medium ID for disambiguation
+	pub fn medium_id(&self) -> String {
+		self.0.chars().take(12).collect()
+	}
+
+	/// Create fingerprint from hex string
+	pub fn from_hex(hex: impl Into<String>) -> Self {
+		Self(hex.into())
+	}
+
+	/// Create fingerprint from string (alias for from_hex)
+	pub fn from_string(s: &str) -> Result<Self, crate::volume::VolumeError> {
+		Ok(Self(s.to_string()))
+	}
+
+	/// Check if a string could be a short ID (8 chars, hex)
+	pub fn is_short_id(s: &str) -> bool {
+		s.len() == 8 && s.chars().all(|c| c.is_ascii_hexdigit())
+	}
+
+	/// Check if a string could be a medium ID (12 chars, hex)
+	pub fn is_medium_id(s: &str) -> bool {
+		s.len() == 12 && s.chars().all(|c| c.is_ascii_hexdigit())
+	}
+
+	/// Check if this fingerprint matches a short or medium ID
+	pub fn matches_short_id(&self, short_id: &str) -> bool {
+		if Self::is_short_id(short_id) {
+			self.short_id() == short_id
+		} else if Self::is_medium_id(short_id) {
+			self.medium_id() == short_id
+		} else {
+			false
+		}
 	}
 }
 
 impl fmt::Display for VolumeFingerprint {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", hex::encode(&self.0))
+		write!(f, "{}", self.0)
 	}
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct VolumePubId(pub Vec<u8>);
+/// Classification of volume types for UX and auto-tracking decisions
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VolumeType {
+	/// Primary system drive containing OS and user data
+	/// Examples: C:\ on Windows, / on Linux, Macintosh HD on macOS
+	Primary,
 
-impl From<Vec<u8>> for VolumePubId {
-	fn from(v: Vec<u8>) -> Self {
-		Self(v)
-	}
+	/// Dedicated user data volumes (separate from OS)
+	/// Examples: /System/Volumes/Data on macOS, separate /home on Linux
+	UserData,
+
+	/// External or removable storage devices
+	/// Examples: USB drives, external HDDs, /Volumes/* on macOS
+	External,
+
+	/// Secondary internal storage (additional drives/partitions)
+	/// Examples: D:, E: drives on Windows, additional mounted drives
+	Secondary,
+
+	/// System/OS internal volumes (hidden from normal view)
+	/// Examples: /System/Volumes/* on macOS, Recovery partitions
+	System,
+
+	/// Network attached storage
+	/// Examples: SMB mounts, NFS, cloud storage
+	Network,
+
+	/// Unknown or unclassified volumes
+	Unknown,
 }
 
-impl Into<Vec<u8>> for VolumePubId {
-	fn into(self) -> Vec<u8> {
-		self.0
+impl VolumeType {
+	/// Should this volume type be auto-tracked by default?
+	pub fn auto_track_by_default(&self) -> bool {
+		match self {
+			// Only auto-track the primary system volume
+			// Users should explicitly choose to track other volumes
+			VolumeType::Primary => true,
+			VolumeType::UserData
+			| VolumeType::External
+			| VolumeType::Secondary
+			| VolumeType::Network
+			| VolumeType::System
+			| VolumeType::Unknown => false,
+		}
+	}
+
+	/// Should this volume be shown in the default UI view?
+	pub fn show_by_default(&self) -> bool {
+		!matches!(self, VolumeType::System | VolumeType::Unknown)
+	}
+
+	/// User-friendly display name for the volume type
+	pub fn display_name(&self) -> &'static str {
+		match self {
+			VolumeType::Primary => "Primary Drive",
+			VolumeType::UserData => "User Data",
+			VolumeType::External => "External Drive",
+			VolumeType::Secondary => "Secondary Drive",
+			VolumeType::System => "System Volume",
+			VolumeType::Network => "Network Drive",
+			VolumeType::Unknown => "Unknown",
+		}
+	}
+
+	/// Icon/indicator for CLI display
+	pub fn icon(&self) -> &'static str {
+		match self {
+			VolumeType::Primary => "[PRI]",
+			VolumeType::UserData => "[USR]",
+			VolumeType::External => "[EXT]",
+			VolumeType::Secondary => "[SEC]",
+			VolumeType::System => "[SYS]",
+			VolumeType::Network => "[NET]",
+			VolumeType::Unknown => "[UNK]",
+		}
 	}
 }
-
-pub type LibraryId = Uuid;
 
 /// Events emitted by the Volume Manager when volume state changes
-#[derive(Debug, Clone, Type, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VolumeEvent {
-	/// Emitted when a new volume is discovered and added
+	/// Emitted when a new volume is discovered
 	VolumeAdded(Volume),
-	/// Emitted when a volume is removed from the system
-	VolumeRemoved(Volume),
+	/// Emitted when a volume is removed/unmounted
+	VolumeRemoved { fingerprint: VolumeFingerprint },
 	/// Emitted when a volume's properties are updated
-	VolumeUpdated { old: Volume, new: Volume },
+	VolumeUpdated {
+		fingerprint: VolumeFingerprint,
+		old: VolumeInfo,
+		new: VolumeInfo,
+	},
 	/// Emitted when a volume's speed test completes
 	VolumeSpeedTested {
 		fingerprint: VolumeFingerprint,
-		read_speed: u64,
-		write_speed: u64,
+		read_speed_mbps: u64,
+		write_speed_mbps: u64,
 	},
 	/// Emitted when a volume's mount status changes
 	VolumeMountChanged {
@@ -87,272 +208,257 @@ pub enum VolumeEvent {
 }
 
 /// Represents a physical or virtual storage volume in the system
-#[serde_as]
-#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Volume {
-	/// Fingerprint of the volume as a hash of its properties, not persisted to the database
-	/// Used as the unique identifier for a volume in this module
-	pub fingerprint: Option<VolumeFingerprint>,
-	/// Database ID (None if not yet committed to database)
-	pub id: Option<i32>,
-	/// Unique public identifier
-	pub pub_id: Option<Vec<u8>>,
-	/// Database ID of the device this volume is attached to, if any
-	pub device_id: Option<i32>,
+	/// Unique fingerprint for this volume
+	pub fingerprint: VolumeFingerprint,
+
+	/// Device this volume belongs to
+	pub device_id: uuid::Uuid,
 
 	/// Human-readable volume name
 	pub name: String,
 	/// Type of mount (system, external, etc)
 	pub mount_type: MountType,
-	/// Path where the volume is mounted
-	#[specta(type = Vec<String>)]
+	/// Classification of this volume for UX decisions
+	pub volume_type: VolumeType,
+	/// Primary path where the volume is mounted
 	pub mount_point: PathBuf,
-	/// for APFS volumes like Macintosh HD, additional mount points are returned
-	#[specta(type = Vec<String>)]
+	/// Additional mount points (for APFS volumes, etc.)
 	pub mount_points: Vec<PathBuf>,
 	/// Whether the volume is currently mounted
 	pub is_mounted: bool,
+
 	/// Type of storage device (SSD, HDD, etc)
 	pub disk_type: DiskType,
 	/// Filesystem type (NTFS, EXT4, etc)
 	pub file_system: FileSystem,
 	/// Whether the volume is mounted read-only
 	pub read_only: bool,
+
+	/// Hardware identifier (platform-specific)
+	pub hardware_id: Option<String>,
 	/// Current error status if any
 	pub error_status: Option<String>,
 
-	// Performance metrics
+	// Storage information
+	/// Total storage capacity in bytes
+	pub total_bytes_capacity: u64,
+	/// Available storage space in bytes
+	pub total_bytes_available: u64,
+
+	// Performance metrics (populated by speed tests)
 	/// Read speed in megabytes per second
 	pub read_speed_mbps: Option<u64>,
 	/// Write speed in megabytes per second
 	pub write_speed_mbps: Option<u64>,
-	/// Total storage capacity in bytes
-	#[specta(type = String)]
-	#[serde_as(as = "DisplayFromStr")]
-	pub total_bytes_capacity: u64,
-	/// Available storage space in bytes
-	#[specta(type = String)]
-	#[serde_as(as = "DisplayFromStr")]
-	pub total_bytes_available: u64,
+
+	/// Whether this volume should be visible in default views
+	pub is_user_visible: bool,
+
+	/// Whether this volume should be auto-tracked
+	pub auto_track_eligible: bool,
+
+	/// When this volume information was last updated
+	pub last_updated: chrono::DateTime<chrono::Utc>,
 }
 
-// We can use this to see if a volume has changed
-impl PartialEq for Volume {
-	fn eq(&self, other: &Self) -> bool {
-		self.name == other.name
-            && self.disk_type == other.disk_type
-            && self.file_system == other.file_system
-			&& self.mount_type == other.mount_type
-			&& self.mount_point == other.mount_point
-			// Check if any mount points overlap
-			&& (self.mount_points.iter().any(|mp| other.mount_points.contains(mp))
-			|| other.mount_points.iter().any(|mp| self.mount_points.contains(mp)))
-			&& self.is_mounted == other.is_mounted
-			&& self.read_only == other.read_only
-			&& self.error_status == other.error_status
-			&& self.total_bytes_capacity == other.total_bytes_capacity
-			&& self.total_bytes_available == other.total_bytes_available
+/// Summary information about a volume (for updates and caching)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolumeInfo {
+	pub is_mounted: bool,
+	pub total_bytes_available: u64,
+	pub read_speed_mbps: Option<u64>,
+	pub write_speed_mbps: Option<u64>,
+	pub error_status: Option<String>,
+}
+
+/// Information about a tracked volume in the database
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackedVolume {
+	pub id: i32,
+	pub uuid: uuid::Uuid,
+	pub device_id: uuid::Uuid,
+	pub fingerprint: VolumeFingerprint,
+	pub display_name: Option<String>,
+	pub tracked_at: chrono::DateTime<chrono::Utc>,
+	pub last_seen_at: chrono::DateTime<chrono::Utc>,
+	pub is_online: bool,
+	pub total_capacity: Option<u64>,
+	pub available_capacity: Option<u64>,
+	pub read_speed_mbps: Option<u32>,
+	pub write_speed_mbps: Option<u32>,
+	pub last_speed_test_at: Option<chrono::DateTime<chrono::Utc>>,
+	pub file_system: Option<String>,
+	pub mount_point: Option<String>,
+	pub is_removable: Option<bool>,
+	pub is_network_drive: Option<bool>,
+	pub device_model: Option<String>,
+	pub volume_type: String,
+	pub is_user_visible: Option<bool>,
+	pub auto_track_eligible: Option<bool>,
+}
+
+impl From<&Volume> for VolumeInfo {
+	fn from(volume: &Volume) -> Self {
+		Self {
+			is_mounted: volume.is_mounted,
+			total_bytes_available: volume.total_bytes_available,
+			read_speed_mbps: volume.read_speed_mbps,
+			write_speed_mbps: volume.write_speed_mbps,
+			error_status: volume.error_status.clone(),
+		}
 	}
 }
 
-impl Eq for Volume {}
+impl TrackedVolume {
+	/// Convert a TrackedVolume back to a Volume for display purposes
+	/// This is used for offline volumes that aren't currently detected
+	pub fn to_offline_volume(&self) -> Volume {
+		use std::path::PathBuf;
 
-impl From<volume::Data> for Volume {
-	fn from(vol: volume::Data) -> Self {
 		Volume {
-			id: Some(vol.id),
-			pub_id: Some(vol.pub_id),
-			device_id: vol.device_id,
-			name: vol.name.unwrap_or_else(|| "Unknown".to_string()),
-			mount_type: vol
-				.mount_type
-				.as_deref()
-				.map(MountType::from_string)
-				.unwrap_or(MountType::System),
-			mount_point: PathBuf::from(vol.mount_point.unwrap_or_else(|| "/".to_string())),
-			mount_points: Vec::new(),
-			is_mounted: vol.is_mounted.unwrap_or(false),
-			disk_type: vol
-				.disk_type
-				.as_deref()
-				.map(DiskType::from_string)
-				.unwrap_or(DiskType::Unknown),
-			file_system: vol
-				.file_system
-				.as_deref()
-				.map(FileSystem::from_string)
-				.unwrap_or_else(|| FileSystem::Other("Unknown".to_string())),
-			read_only: vol.read_only.unwrap_or(false),
-			error_status: vol.error_status,
-			total_bytes_capacity: vol
-				.total_bytes_capacity
-				.and_then(|t| t.parse().ok())
-				.unwrap_or(0),
-			total_bytes_available: vol
-				.total_bytes_available
-				.and_then(|a| a.parse().ok())
-				.unwrap_or(0),
-			read_speed_mbps: vol.read_speed_mbps.map(|s| s as u64),
-			write_speed_mbps: vol.write_speed_mbps.map(|s| s as u64),
-			fingerprint: None,
+			fingerprint: self.fingerprint.clone(),
+			device_id: self.device_id,
+			name: self
+				.display_name
+				.clone()
+				.unwrap_or_else(|| "Unknown".to_string()),
+			mount_type: crate::volume::types::MountType::External, // Default for tracked volumes
+			volume_type: match self.volume_type.as_str() {
+				"Primary" => VolumeType::Primary,
+				"UserData" => VolumeType::UserData,
+				"External" => VolumeType::External,
+				"Secondary" => VolumeType::Secondary,
+				"System" => VolumeType::System,
+				"Network" => VolumeType::Network,
+				_ => VolumeType::Unknown,
+			},
+			mount_point: PathBuf::from(
+				self.mount_point
+					.clone()
+					.unwrap_or_else(|| "Not connected".to_string()),
+			),
+			mount_points: vec![], // Not available for offline volumes
+			disk_type: crate::volume::types::DiskType::Unknown,
+			file_system: crate::volume::types::FileSystem::from_string(
+				&self
+					.file_system
+					.clone()
+					.unwrap_or_else(|| "Unknown".to_string()),
+			),
+			total_bytes_capacity: self.total_capacity.unwrap_or(0),
+			total_bytes_available: self.available_capacity.unwrap_or(0),
+			read_only: false, // Assume not read-only for tracked volumes
+			hardware_id: self.device_model.clone(),
+			is_mounted: false, // Offline volumes are not mounted
+			error_status: None,
+			read_speed_mbps: self.read_speed_mbps.map(|s| s as u64),
+			write_speed_mbps: self.write_speed_mbps.map(|s| s as u64),
+			last_updated: self.last_seen_at,
+			is_user_visible: self.is_user_visible.unwrap_or(true),
+			auto_track_eligible: self.auto_track_eligible.unwrap_or(false),
 		}
 	}
 }
 
 impl Volume {
-	/// Creates a new Volume instance from detected system volume information
+	/// Create a new Volume instance
 	pub fn new(
+		device_id: uuid::Uuid,
 		name: String,
 		mount_type: MountType,
+		volume_type: VolumeType,
 		mount_point: PathBuf,
-		mount_points: Vec<PathBuf>,
+		additional_mount_points: Vec<PathBuf>,
 		disk_type: DiskType,
 		file_system: FileSystem,
 		total_bytes_capacity: u64,
 		total_bytes_available: u64,
 		read_only: bool,
+		hardware_id: Option<String>,
+		fingerprint: VolumeFingerprint, // Accept pre-computed fingerprint
 	) -> Self {
 		Self {
-			id: None,
-			pub_id: None,
-			device_id: None,
+			fingerprint,
+			device_id,
 			name,
 			mount_type,
+			volume_type,
 			mount_point,
-			mount_points,
+			mount_points: additional_mount_points,
 			is_mounted: true,
 			disk_type,
 			file_system,
+			total_bytes_capacity,
+			total_bytes_available,
 			read_only,
+			hardware_id,
 			error_status: None,
 			read_speed_mbps: None,
 			write_speed_mbps: None,
-			total_bytes_capacity,
-			total_bytes_available,
-			fingerprint: None,
+			auto_track_eligible: volume_type.auto_track_by_default(),
+			is_user_visible: volume_type.show_by_default(),
+			last_updated: chrono::Utc::now(),
 		}
 	}
 
-	/// Check if a path is under any of this volume's mount points
-	pub fn contains_path(&self, path: &Path) -> bool {
-		self.mount_points.iter().any(|mp| path.starts_with(mp))
+	/// Update volume information
+	pub fn update_info(&mut self, info: VolumeInfo) {
+		self.is_mounted = info.is_mounted;
+		self.total_bytes_available = info.total_bytes_available;
+		self.read_speed_mbps = info.read_speed_mbps;
+		self.write_speed_mbps = info.write_speed_mbps;
+		self.error_status = info.error_status;
+		self.last_updated = chrono::Utc::now();
 	}
 
-	/// Merge system detected volume with database volume, preferring system values for hardware info
-	pub fn merge_with_db(system_volume: &Volume, db_volume: &Volume) -> Volume {
-		Volume {
-			// Keep system-detected hardware properties
-			mount_point: system_volume.mount_point.clone(),
-			mount_points: system_volume.mount_points.clone(),
-			total_bytes_capacity: system_volume.total_bytes_capacity,
-			total_bytes_available: system_volume.total_bytes_available,
-			disk_type: system_volume.disk_type.clone(),
-			file_system: system_volume.file_system.clone(),
-			mount_type: system_volume.mount_type.clone(),
-			is_mounted: system_volume.is_mounted,
-			fingerprint: system_volume.fingerprint.clone(),
-			name: system_volume.name.clone(),
-			read_only: system_volume.read_only,
-			error_status: system_volume.error_status.clone(),
-			read_speed_mbps: system_volume.read_speed_mbps,
-			write_speed_mbps: system_volume.write_speed_mbps,
+	/// Check if this volume supports fast copy operations (CoW)
+	pub fn supports_fast_copy(&self) -> bool {
+		matches!(
+			self.file_system,
+			FileSystem::APFS | FileSystem::Btrfs | FileSystem::ZFS | FileSystem::ReFS
+		)
+	}
 
-			// Keep database-tracked properties and metadata
-			id: db_volume.id,
-			device_id: db_volume.device_id,
-			pub_id: db_volume.pub_id.clone(),
+	/// Get the optimal chunk size for copying to/from this volume
+	pub fn optimal_chunk_size(&self) -> usize {
+		match self.disk_type {
+			DiskType::SSD => 1024 * 1024,   // 1MB for SSDs
+			DiskType::HDD => 256 * 1024,    // 256KB for HDDs
+			DiskType::Unknown => 64 * 1024, // 64KB default
 		}
 	}
 
-	pub fn is_volume_tracked(&self) -> bool {
-		self.pub_id.is_some()
+	/// Estimate copy speed between this and another volume
+	pub fn estimate_copy_speed(&self, other: &Volume) -> Option<u64> {
+		let self_read = self.read_speed_mbps?;
+		let other_write = other.write_speed_mbps?;
+
+		// Bottleneck is the slower of read or write speed
+		Some(self_read.min(other_write))
 	}
 
-	/// Creates a new volume record in the database
-	pub async fn create(
-		&self,
-		db: &Arc<PrismaClient>,
-		device_pub_id: Vec<u8>,
-	) -> Result<Volume, VolumeError> {
-		let pub_id = Uuid::now_v7().as_bytes().to_vec();
+	/// Check if a path is contained within this volume
+	pub fn contains_path(&self, path: &PathBuf) -> bool {
+		// Check primary mount point
+		if path.starts_with(&self.mount_point) {
+			return true;
+		}
 
-		let device_id = db
-			.device()
-			.find_unique(device::pub_id::equals(device_pub_id.clone()))
-			.select(device::select!({ id }))
-			.exec()
-			.await?
-			.ok_or(VolumeError::DeviceNotFound(device_pub_id))?
-			.id;
+		// Check additional mount points
+		for mount_point in &self.mount_points {
+			if path.starts_with(mount_point) {
+				return true;
+			}
+		}
 
-		let volume = db
-			.volume()
-			.create(
-				pub_id,
-				vec![
-					volume::name::set(Some(self.name.clone())),
-					volume::mount_type::set(Some(self.mount_type.to_string())),
-					volume::mount_point::set(Some(self.mount_point.to_str().unwrap().to_string())),
-					volume::is_mounted::set(Some(self.is_mounted)),
-					volume::disk_type::set(Some(self.disk_type.to_string())),
-					volume::file_system::set(Some(self.file_system.to_string())),
-					volume::read_only::set(Some(self.read_only)),
-					volume::error_status::set(self.error_status.clone()),
-					volume::total_bytes_capacity::set(Some(self.total_bytes_capacity.to_string())),
-					volume::total_bytes_available::set(Some(
-						self.total_bytes_available.to_string(),
-					)),
-					volume::read_speed_mbps::set(
-						self.read_speed_mbps.filter(|&v| v != 0).map(|v| v as i64),
-					),
-					volume::write_speed_mbps::set(
-						self.write_speed_mbps.filter(|&v| v != 0).map(|v| v as i64),
-					),
-					volume::device_id::set(Some(device_id)),
-				],
-			)
-			.exec()
-			.await?;
-		Ok(volume.into())
-	}
-
-	/// Updates an existing volume record in the database
-	pub async fn update(&self, db: &PrismaClient) -> Result<(), VolumeError> {
-		let id = self.id.ok_or(VolumeError::NotInDatabase)?;
-
-		db.volume()
-			.update(
-				volume::id::equals(id),
-				vec![
-					volume::name::set(Some(self.name.clone())),
-					volume::mount_type::set(Some(self.mount_type.to_string())),
-					volume::mount_point::set(Some(self.mount_point.to_str().unwrap().to_string())),
-					volume::is_mounted::set(Some(self.is_mounted)),
-					volume::disk_type::set(Some(self.disk_type.to_string())),
-					volume::file_system::set(Some(self.file_system.to_string())),
-					volume::read_only::set(Some(self.read_only)),
-					volume::error_status::set(self.error_status.clone()),
-					volume::total_bytes_capacity::set(Some(self.total_bytes_capacity.to_string())),
-					volume::total_bytes_available::set(Some(
-						self.total_bytes_available.to_string(),
-					)),
-					volume::read_speed_mbps::set(
-						self.read_speed_mbps.filter(|&v| v != 0).map(|v| v as i64),
-					),
-					volume::write_speed_mbps::set(
-						self.write_speed_mbps.filter(|&v| v != 0).map(|v| v as i64),
-					),
-				],
-			)
-			.exec()
-			.await?;
-		Ok(())
+		false
 	}
 }
 
 /// Represents the type of physical storage device
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
-#[allow(clippy::upper_case_acronyms)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DiskType {
 	/// Solid State Drive
 	SSD,
@@ -360,6 +466,16 @@ pub enum DiskType {
 	HDD,
 	/// Unknown or virtual disk type
 	Unknown,
+}
+
+impl fmt::Display for DiskType {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			DiskType::SSD => write!(f, "SSD"),
+			DiskType::HDD => write!(f, "HDD"),
+			DiskType::Unknown => write!(f, "Unknown"),
+		}
+	}
 }
 
 impl DiskType {
@@ -373,7 +489,7 @@ impl DiskType {
 }
 
 /// Represents the filesystem type of the volume
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FileSystem {
 	/// Windows NTFS filesystem
 	NTFS,
@@ -385,25 +501,60 @@ pub enum FileSystem {
 	APFS,
 	/// ExFAT filesystem
 	ExFAT,
+	/// Btrfs filesystem (Linux)
+	Btrfs,
+	/// ZFS filesystem
+	ZFS,
+	/// Windows ReFS filesystem
+	ReFS,
 	/// Other/unknown filesystem type
 	Other(String),
+}
+
+impl fmt::Display for FileSystem {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			FileSystem::NTFS => write!(f, "NTFS"),
+			FileSystem::FAT32 => write!(f, "FAT32"),
+			FileSystem::EXT4 => write!(f, "EXT4"),
+			FileSystem::APFS => write!(f, "APFS"),
+			FileSystem::ExFAT => write!(f, "ExFAT"),
+			FileSystem::Btrfs => write!(f, "Btrfs"),
+			FileSystem::ZFS => write!(f, "ZFS"),
+			FileSystem::ReFS => write!(f, "ReFS"),
+			FileSystem::Other(name) => write!(f, "{}", name),
+		}
+	}
 }
 
 impl FileSystem {
 	pub fn from_string(fs: &str) -> Self {
 		match fs.to_uppercase().as_str() {
-			"NTFS" => FileSystem::NTFS,
-			"FAT32" => FileSystem::FAT32,
-			"EXT4" => FileSystem::EXT4,
-			"APFS" => FileSystem::APFS,
-			"EXFAT" => FileSystem::ExFAT,
-			other => FileSystem::Other(other.to_string()),
+			"NTFS" => Self::NTFS,
+			"FAT32" => Self::FAT32,
+			"EXT4" => Self::EXT4,
+			"APFS" => Self::APFS,
+			"EXFAT" => Self::ExFAT,
+			"BTRFS" => Self::Btrfs,
+			"ZFS" => Self::ZFS,
+			"REFS" => Self::ReFS,
+			other => Self::Other(other.to_string()),
 		}
+	}
+
+	/// Check if this filesystem supports reflinks/clones
+	pub fn supports_reflink(&self) -> bool {
+		matches!(self, Self::APFS | Self::Btrfs | Self::ZFS | Self::ReFS)
+	}
+
+	/// Check if this filesystem supports sendfile optimization
+	pub fn supports_sendfile(&self) -> bool {
+		matches!(self, Self::EXT4 | Self::Btrfs | Self::ZFS | Self::NTFS)
 	}
 }
 
 /// Represents how the volume is mounted in the system
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MountType {
 	/// System/boot volume
 	System,
@@ -413,6 +564,17 @@ pub enum MountType {
 	Network,
 	/// Virtual/container volume
 	Virtual,
+}
+
+impl fmt::Display for MountType {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			MountType::System => write!(f, "System"),
+			MountType::External => write!(f, "External"),
+			MountType::Network => write!(f, "Network"),
+			MountType::Virtual => write!(f, "Virtual"),
+		}
+	}
 }
 
 impl MountType {
@@ -427,48 +589,97 @@ impl MountType {
 	}
 }
 
-/// Configuration options for volume operations
+/// Configuration for volume detection and monitoring
 #[derive(Debug, Clone)]
-pub struct VolumeOptions {
+pub struct VolumeDetectionConfig {
 	/// Whether to include system volumes
 	pub include_system: bool,
 	/// Whether to include virtual volumes
 	pub include_virtual: bool,
 	/// Whether to run speed tests on discovery
 	pub run_speed_test: bool,
-	/// Maximum concurrent speed tests
-	pub max_concurrent_speed_tests: usize,
+	/// How often to refresh volume information (in seconds)
+	pub refresh_interval_secs: u64,
 }
 
-impl Default for VolumeOptions {
+impl Default for VolumeDetectionConfig {
 	fn default() -> Self {
 		Self {
 			include_system: true,
 			include_virtual: false,
-			run_speed_test: true,
-			max_concurrent_speed_tests: 2,
+			run_speed_test: false, // Expensive operation, off by default
+			refresh_interval_secs: 30,
 		}
 	}
 }
 
-impl Serialize for VolumeFingerprint {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		// Convert to hex string when serializing
-		serializer.serialize_str(&hex::encode(&self.0))
-	}
-}
+#[cfg(test)]
+mod tests {
+	use super::*;
 
-impl<'de> Deserialize<'de> for VolumeFingerprint {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		let s = String::deserialize(deserializer)?;
-		hex::decode(s)
-			.map(VolumeFingerprint)
-			.map_err(serde::de::Error::custom)
+	#[test]
+	fn test_volume_fingerprint() {
+		let volume = Volume::new(
+			uuid::Uuid::new_v4(),
+			"Test Volume".to_string(),
+			MountType::External,
+			VolumeType::External,
+			PathBuf::from("/mnt/test"),
+			vec![],
+			DiskType::SSD,
+			FileSystem::EXT4,
+			1000000000,
+			500000000,
+			false,
+			Some("test-hw-id".to_string()),
+			VolumeFingerprint::new("Test", 500000000, "ext4"),
+		);
+
+		// Test basic fingerprint creation
+		let fingerprint = VolumeFingerprint::new(
+			"Test Volume",
+			1000000000, // 1GB
+			"ext4",
+		);
+		assert!(!fingerprint.0.is_empty());
+
+		// Test Spacedrive ID fingerprint
+		let spacedrive_id = Uuid::new_v4();
+		let spacedrive_fingerprint = VolumeFingerprint::from_spacedrive_id(spacedrive_id);
+		assert!(!spacedrive_fingerprint.0.is_empty());
+		assert_ne!(fingerprint, spacedrive_fingerprint);
+	}
+
+	#[test]
+	fn test_volume_contains_path() {
+		let volume = Volume::new(
+			uuid::Uuid::new_v4(),
+			"Test".to_string(),
+			MountType::System,
+			VolumeType::System,
+			PathBuf::from("/home"),
+			vec![PathBuf::from("/home"), PathBuf::from("/mnt/home")],
+			DiskType::SSD,
+			FileSystem::EXT4,
+			1000000,
+			500000,
+			false,
+			None,
+			VolumeFingerprint::new("Test", 1000000, "ext4"),
+		);
+
+		assert!(volume.contains_path(&PathBuf::from("/home/user/file.txt")));
+		assert!(volume.contains_path(&PathBuf::from("/mnt/home/user/file.txt")));
+		assert!(!volume.contains_path(&PathBuf::from("/var/log/file.txt")));
+	}
+
+	#[test]
+	fn test_filesystem_capabilities() {
+		assert!(FileSystem::APFS.supports_reflink());
+		assert!(FileSystem::Btrfs.supports_reflink());
+		assert!(!FileSystem::FAT32.supports_reflink());
+
+		assert!(FileSystem::EXT4.supports_sendfile());
+		assert!(!FileSystem::FAT32.supports_sendfile());
 	}
 }

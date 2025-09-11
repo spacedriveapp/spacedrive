@@ -1,59 +1,62 @@
-use std::{io, path::Path};
+use std::{fmt::Display, path::Path};
 
 use thiserror::Error;
 use tracing::error;
 
-pub fn report_error<E: std::error::Error + std::fmt::Debug>(
-	message: &'static str,
-) -> impl Fn(E) -> E {
-	move |e| {
-		error!(?e, "{message}");
-		e
+/// Report an error with tracing
+pub fn report_error(res: &Result<(), impl Display>) {
+	if let Err(e) = res {
+		error!("{e:#}");
 	}
 }
 
-#[derive(Debug, Error)]
-#[error("error accessing path: '{}'", .path.display())]
+/// File I/O error that includes the path that caused the error
+#[derive(Error, Debug)]
 pub struct FileIOError {
 	pub path: Box<Path>,
 	#[source]
-	pub source: io::Error,
-	pub maybe_context: Option<&'static str>,
+	pub source: std::io::Error,
+	pub maybe_context: Option<String>,
 }
 
-impl<P: AsRef<Path>> From<(P, io::Error)> for FileIOError {
-	fn from((path, source): (P, io::Error)) -> Self {
+impl Display for FileIOError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"file I/O error{}: {}; path: '{}'",
+			self.maybe_context
+				.as_ref()
+				.map(|ctx| format!(" ({ctx})"))
+				.unwrap_or_default(),
+			self.source,
+			self.path.display()
+		)
+	}
+}
+
+impl FileIOError {
+	pub fn from_std_io_err(path: impl AsRef<Path>, source: std::io::Error) -> Self {
 		Self {
 			path: path.as_ref().into(),
 			source,
 			maybe_context: None,
 		}
 	}
-}
 
-impl<P: AsRef<Path>> From<(P, io::Error, &'static str)> for FileIOError {
-	fn from((path, source, context): (P, io::Error, &'static str)) -> Self {
+	pub fn from_std_io_err_with_msg(
+		path: impl AsRef<Path>,
+		source: std::io::Error,
+		msg: impl Into<String>,
+	) -> Self {
 		Self {
 			path: path.as_ref().into(),
 			source,
-			maybe_context: Some(context),
+			maybe_context: Some(msg.into()),
 		}
 	}
 }
 
-impl From<FileIOError> for rspc::Error {
-	fn from(value: FileIOError) -> Self {
-		Self::with_cause(
-			rspc::ErrorCode::InternalServerError,
-			value
-				.maybe_context
-				.unwrap_or("Error accessing file system")
-				.to_string(),
-			value,
-		)
-	}
-}
-
-#[derive(Debug, Error)]
-#[error("received a non UTF-8 path: <lossy_path='{}'>", .0.to_string_lossy())]
+/// Error for paths that contain non-UTF8 characters
+#[derive(Error, Debug)]
+#[error("Received a non UTF-8 path: <path='{0:?}'>")]
 pub struct NonUtf8PathError(pub Box<Path>);

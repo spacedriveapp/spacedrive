@@ -13,7 +13,6 @@ repository.workspace = true
 # Spacedrive Sub-crates
 sd-core   = { path = "../../../core", features = ["ffmpeg", "heif"] }
 sd-fda    = { path = "../../../crates/fda" }
-sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
 axum               = { workspace = true, features = ["query"] }
@@ -22,7 +21,6 @@ base64             = { workspace = true }
 futures            = { workspace = true }
 http               = { workspace = true }
 hyper              = { workspace = true }
-prisma-client-rust = { workspace = true }
 rand               = { workspace = true }
 rspc               = { workspace = true, features = ["tauri"] }
 serde              = { workspace = true }

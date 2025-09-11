@@ -1,15 +1,16 @@
 [workspace]
 members = [
-	"apps/desktop/crates/*",
-	"apps/desktop/src-tauri",
-	"apps/mobile/modules/sd-core/android/crate",
-	"apps/mobile/modules/sd-core/core",
-	"apps/mobile/modules/sd-core/ios/crate",
-	"apps/server",
+	# "apps/cloud",
+	# "apps/desktop/crates/*",
+	# "apps/desktop/src-tauri",
+	# "apps/mobile/modules/sd-core/android/crate",
+	# "apps/mobile/modules/sd-core/core",
+	# "apps/mobile/modules/sd-core/ios/crate",
+	# "apps/server",
+	"apps/cli",
 	"core",
-	"core/crates/*",
 	"crates/*"
-, "spacedrive-cloud"]
+]
 resolver = "2"
 
 [workspace.package]
@@ -20,7 +21,7 @@ rust-version = "1.81"
 
 [workspace.dependencies]
 # First party dependencies
-sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", rev = "515ba740ea" }
+# sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", rev = "515ba740ea" }
 
 # Third party dependencies used by one or more of our crates
 anyhow              = "1.0.94"
@@ -77,39 +78,13 @@ zeroize             = "1.8"
 git = "https://github.com/spacedriveapp/rspc.git"
 rev = "6a77167495"
 
-[workspace.dependencies.prisma-client-rust]
-default-features = false
-features         = ["migrations", "specta", "sqlite", "sqlite-create-many"]
-git              = "https://github.com/spacedriveapp/prisma-client-rust"
-rev              = "b22ad7dc7d"
-
-[workspace.dependencies.prisma-client-rust-sdk]
-default-features = false
-features         = ["sqlite"]
-git              = "https://github.com/spacedriveapp/prisma-client-rust"
-rev              = "b22ad7dc7d"
-
 # Proper IOS Support
-[patch.crates-io.if-watch]
-git = "https://github.com/spacedriveapp/if-watch.git"
-rev = "a92c17d3f8"
+# TODO: Fix the fork - it has compilation errors with TimerFuture
+# [patch.crates-io.if-watch]
+# git = "https://github.com/spacedriveapp/if-watch.git"
+# rev = "a92c17d3f8"
 
-# Add `Control::open_stream_with_addrs`
-[patch.crates-io.libp2p]
-git = "https://github.com/spacedriveapp/rust-libp2p"
-rev = "1024411ffa"
-[patch.crates-io.libp2p-core]
-git = "https://github.com/spacedriveapp/rust-libp2p"
-rev = "1024411ffa"
-[patch.crates-io.libp2p-identity]
-git = "https://github.com/spacedriveapp/rust-libp2p"
-rev = "1024411ffa"
-[patch.crates-io.libp2p-swarm]
-git = "https://github.com/spacedriveapp/rust-libp2p"
-rev = "1024411ffa"
-[patch.crates-io.libp2p-stream]
-git = "https://github.com/spacedriveapp/rust-libp2p"
-rev = "1024411ffa"
+# Patches removed - project migrated from libp2p to iroh
 
 [profile.dev]
 # Make compilation faster on macOS
@@ -124,13 +99,13 @@ strip           = "none"
 [profile.dev-debug]
 inherits = "dev"
 # Enables debugger
-codegen-units   = 256
-debug           = "full"
-incremental     = true
-lto             = "off"
-opt-level       = 0
-split-debuginfo = "none"
-strip           = "none"
+codegen-units = 256
+debug         = "full"
+incremental   = true
+lto           = "off"
+opt-level     = 0
+# split-debuginfo = "none"
+strip = "none"
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
