@@ -1,102 +1,136 @@
 //! Indexing action handler
 
+use super::job::{IndexMode, IndexPersistence, IndexScope, IndexerJob, IndexerJobConfig};
+use super::IndexInput;
 use crate::{
-    context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
-    },
-    register_action_handler,
-    domain::addressing::SdPath,
+	context::CoreContext,
+	infra::{
+		action::{error::ActionError, LibraryAction},
+		job::handle::JobHandle,
+	},
 };
-use super::job::{IndexerJob, IndexMode, IndexScope};
 use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IndexingAction {
-    pub paths: Vec<std::path::PathBuf>,
-    pub recursive: bool,
-    pub include_hidden: bool,
+	pub input: IndexInput,
 }
 
-pub struct IndexingHandler;
-
-impl IndexingHandler {
-    pub fn new() -> Self {
-        Self
-    }
+impl IndexingAction {
+	pub fn new(input: IndexInput) -> Self {
+		Self { input }
+	}
 }
 
-#[async_trait]
-impl ActionHandler for IndexingHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        if let crate::infra::action::Action::Index { action, .. } = action {
-            if action.paths.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
-
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
-        if let crate::infra::action::Action::Index { library_id, action } = action {
-            let library_manager = &context.library_manager;
-
-            let library = library_manager.get_library(library_id).await
-                .ok_or(ActionError::Internal(format!("Library not found: {}", library_id)))?;
-
-            // TODO: For multiple paths, we might want to create multiple jobs or handle this differently
-            // For now, just take the first path
-            let first_path = action.paths.into_iter().next()
-                .ok_or(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                })?;
-
-            // Create indexer job directly
-            // TODO: Need location_id - for now using a placeholder
-            let job = IndexerJob::from_location(
-                Uuid::new_v4(), // placeholder location_id
-                SdPath::local(first_path),
-                IndexMode::Content // default mode
-            );
-
-            // Dispatch the job directly
-            let job_handle = library
-                .jobs()
-                .dispatch(job)
-                .await
-                .map_err(ActionError::Job)?;
-
-            Ok(ActionOutput::success("Indexing job dispatched successfully"))
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
-
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        matches!(action, crate::infra::action::Action::Index { .. })
-    }
-
-    fn supported_actions() -> &'static [&'static str] {
-        &["indexing.index"]
-    }
+pub struct IndexingActionBuilder {
+	input: IndexInput,
 }
 
-register_action_handler!(IndexingHandler, "indexing.index");
+impl IndexingActionBuilder {
+	pub fn from_input(input: IndexInput) -> Self {
+		Self { input }
+	}
+}
+
+impl crate::infra::action::builder::ActionBuilder for IndexingActionBuilder {
+	type Action = IndexingAction;
+	type Error = crate::infra::action::builder::ActionBuildError;
+
+	fn validate(&self) -> Result<(), Self::Error> {
+		self.input
+			.validate()
+			.map_err(crate::infra::action::builder::ActionBuildError::validations)
+	}
+
+	fn build(self) -> Result<Self::Action, Self::Error> {
+		self.validate()?;
+		Ok(IndexingAction::new(self.input))
+	}
+}
+
+impl LibraryAction for IndexingAction {
+	type Input = IndexInput;
+	type Output = JobHandle;
+
+	fn from_input(input: IndexInput) -> Result<Self, String> {
+		Ok(IndexingAction::new(input))
+	}
+
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
+		// Validate input first
+		if let Err(errors) = self.input.validate() {
+			return Err(ActionError::Validation {
+				field: "paths".to_string(),
+				message: errors.join("; "),
+			});
+		}
+
+		// For now, submit one job per path (sequentially). Could be parallelized later.
+		// Return the handle of the last job submitted for convenience.
+		let mut last_handle: Option<JobHandle> = None;
+
+		for path in &self.input.paths {
+			let sd_path = crate::domain::addressing::SdPath::local(path.clone());
+
+			let mut config = match self.input.persistence {
+				IndexPersistence::Ephemeral => {
+					IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope)
+				}
+				IndexPersistence::Persistent => {
+					// Persistent indexing expects a location context. For now, default to recursive path walk with selected mode.
+					// If we later bind paths to a location, we can set location_id properly.
+					// Here use ui_navigation/new with mode overridden below when possible.
+					let mut c = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope);
+					c.persistence = IndexPersistence::Persistent;
+					c
+				}
+			};
+
+			// Apply selected mode
+			config.mode = self.input.mode;
+
+			// TODO: Apply include_hidden via rule_toggles when available
+
+			let job = IndexerJob::new(config);
+			let handle = library
+				.jobs()
+				.dispatch(job)
+				.await
+				.map_err(ActionError::Job)?;
+			last_handle = Some(handle);
+		}
+
+		last_handle.ok_or(ActionError::Validation {
+			field: "paths".to_string(),
+			message: "No paths provided".to_string(),
+		})
+	}
+
+	fn action_kind(&self) -> &'static str {
+		"indexing.index"
+	}
+
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<(), ActionError> {
+		// Validate paths
+		if self.input.paths.is_empty() {
+			return Err(ActionError::Validation {
+				field: "paths".to_string(),
+				message: "At least one path must be specified".to_string(),
+			});
+		}
+
+		Ok(())
+	}
+}
+
+crate::register_library_action!(IndexingAction, "indexing.start");

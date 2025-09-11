@@ -7,10 +7,10 @@ mod helpers;
 use helpers::test_volumes::{TestFileSystem, TestVolumeBuilder, TestVolumeManager};
 
 use sd_core::{
-	infra::action::{output::ActionOutput, Action},
 	ops::volumes::{
-		speed_test::action::VolumeSpeedTestAction, track::action::VolumeTrackAction,
-		untrack::action::VolumeUntrackAction,
+		speed_test::action::{VolumeSpeedTestAction, VolumeSpeedTestInput},
+		track::action::{VolumeTrackAction, VolumeTrackInput},
+		untrack::action::{VolumeUntrackAction, VolumeUntrackInput},
 	},
 	Core,
 };
@@ -91,15 +91,14 @@ async fn test_real_volume_tracking_lifecycle() {
 		.expect("Action manager should be initialized");
 
 	// Track the volume
-	let track_action = Action::VolumeTrack {
-		action: VolumeTrackAction {
-			fingerprint: fingerprint.clone(),
-			library_id: library.id(),
-			name: Some("My Custom Test Volume".to_string()),
-		},
-	};
+	let track_action = VolumeTrackAction::new(VolumeTrackInput {
+		fingerprint: fingerprint.clone(),
+		name: Some("My Custom Test Volume".to_string()),
+	});
 
-	let result = action_manager.dispatch(track_action).await;
+	let result = action_manager
+		.dispatch_library(library.id(), track_action)
+		.await;
 	assert!(result.is_ok(), "Failed to track volume: {:?}", result);
 
 	// Verify tracking
@@ -130,14 +129,13 @@ async fn test_real_volume_tracking_lifecycle() {
 	assert_eq!(tracked.total_capacity, Some(50 * 1024 * 1024)); // 50MB
 
 	// Untrack the volume
-	let untrack_action = Action::VolumeUntrack {
-		action: VolumeUntrackAction {
-			fingerprint: fingerprint.clone(),
-			library_id: library.id(),
-		},
-	};
+	let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
+		fingerprint: fingerprint.clone(),
+	});
 
-	let result = action_manager.dispatch(untrack_action).await;
+	let result = action_manager
+		.dispatch_library(library.id(), untrack_action)
+		.await;
 	assert!(result.is_ok(), "Failed to untrack volume");
 
 	// Volume cleanup happens automatically via Drop
@@ -332,14 +330,15 @@ async fn test_volume_capacity_scenarios() {
 
 			// Test speed on different sized volumes
 			let action_manager = core.context.get_action_manager().await.unwrap();
-			let speed_action = Action::VolumeSpeedTest {
-				action: VolumeSpeedTestAction {
-					fingerprint: volume.fingerprint.clone(),
-				},
-			};
+			let speed_action = VolumeSpeedTestAction::new(VolumeSpeedTestInput {
+				fingerprint: volume.fingerprint.clone(),
+			});
 
-			match action_manager.dispatch(speed_action).await {
-				Ok(ActionOutput::VolumeSpeedTested {
+			match action_manager
+				.dispatch_library(library.id(), speed_action)
+				.await
+			{
+				Ok(sd_core::ops::volumes::speed_test::output::VolumeSpeedTestOutput {
 					read_speed_mbps,
 					write_speed_mbps,
 					..
@@ -429,14 +428,15 @@ async fn test_ram_disk_performance() {
 
 		// Run speed test - should be very fast
 		let action_manager = core.context.get_action_manager().await.unwrap();
-		let speed_action = Action::VolumeSpeedTest {
-			action: VolumeSpeedTestAction {
-				fingerprint: volume.fingerprint.clone(),
-			},
-		};
+		let speed_action = VolumeSpeedTestAction::new(VolumeSpeedTestInput {
+			fingerprint: volume.fingerprint.clone(),
+		});
 
-		match action_manager.dispatch(speed_action).await {
-			Ok(ActionOutput::VolumeSpeedTested {
+		match action_manager
+			.dispatch_library(library.id(), speed_action)
+			.await
+		{
+			Ok(sd_core::ops::volumes::speed_test::output::VolumeSpeedTestOutput {
 				read_speed_mbps,
 				write_speed_mbps,
 				..

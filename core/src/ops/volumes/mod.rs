@@ -8,6 +8,6 @@ pub mod speed_test;
 pub mod track;
 pub mod untrack;
 
-pub use speed_test::action::VolumeSpeedTestAction;
-pub use track::action::VolumeTrackAction;
-pub use untrack::action::VolumeUntrackAction;
+pub use speed_test::{action::VolumeSpeedTestAction, VolumeSpeedTestOutput};
+pub use track::{action::VolumeTrackAction, VolumeTrackOutput};
+pub use untrack::{action::VolumeUntrackAction, VolumeUntrackOutput};

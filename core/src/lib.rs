@@ -3,9 +3,11 @@
 //!
 //! A unified, simplified architecture for cross-platform file management.
 
+pub mod client;
 pub mod common;
 pub mod config;
 pub mod context;
+pub mod cqrs;
 pub mod crypto;
 pub mod device;
 pub mod domain;
@@ -28,8 +30,11 @@ pub mod networking {
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
+use crate::cqrs::{Query, QueryManager};
 use crate::device::DeviceManager;
+use crate::infra::action::builder::ActionBuilder;
 use crate::infra::action::manager::ActionManager;
+use crate::infra::action::{CoreAction, LibraryAction};
 use crate::infra::event::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::service::Services;
@@ -110,6 +115,7 @@ impl NetworkEventBridge {
 }
 
 /// The main context for all core operations
+#[derive(Clone)]
 pub struct Core {
 	/// Application configuration
 	pub config: Arc<RwLock<AppConfig>>,
@@ -367,7 +373,9 @@ impl Core {
 		);
 
 		// Start cleanup task for expired sessions
-		service::network::protocol::PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
+		service::network::protocol::PairingProtocolHandler::start_cleanup_task(
+			pairing_handler.clone(),
+		);
 
 		let messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
 		let mut file_transfer_handler =
@@ -475,6 +483,40 @@ impl Core {
 	/// Get all currently watched locations
 	pub async fn get_watched_locations(&self) -> Vec<crate::service::watcher::WatchedLocation> {
 		self.services.location_watcher.get_watched_locations().await
+	}
+
+	/// Execute a query using the CQRS API.
+	///
+	/// This method provides a unified, type-safe entry point for all read operations.
+	/// It uses the QueryManager for consistent infrastructure (validation, logging, etc.).
+	pub async fn execute_query<Q: Query>(&self, query: Q) -> anyhow::Result<Q::Output> {
+		let query_manager = QueryManager::new(self.context.clone());
+		query_manager.dispatch(query).await
+	}
+
+	/// Pass-through dispatcher by method string for daemon decoupling.
+	pub async fn execute_query_by_method(
+		&self,
+		method: &str,
+		payload: Vec<u8>,
+	) -> Result<Vec<u8>, String> {
+		if let Some(handler) = crate::ops::registry::QUERIES.get(method) {
+			return handler(Arc::new((*self).clone()), payload).await;
+		}
+		Err("Unknown query method".into())
+	}
+
+	/// Pass-through dispatcher by method string for actions.
+	pub async fn execute_action_by_method(
+		&self,
+		method: &str,
+		payload: Vec<u8>,
+		session: crate::infra::daemon::state::SessionState,
+	) -> Result<Vec<u8>, String> {
+		if let Some(handler) = crate::ops::registry::ACTIONS.get(method) {
+			return handler(Arc::new((*self).clone()), session, payload).await;
+		}
+		Err("Unknown action method".into())
 	}
 
 	/// Shutdown the core gracefully

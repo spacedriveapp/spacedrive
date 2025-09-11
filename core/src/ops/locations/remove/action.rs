@@ -1,70 +1,71 @@
 //! Location remove action handler
 
-use crate::{
-    context::CoreContext,
-    location::manager::LocationManager,
-    infra::action::{
-        Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
-    },
-    register_action_handler,
-};
 use super::output::LocationRemoveOutput;
+use crate::{
+	context::CoreContext,
+	infra::action::{error::ActionError, LibraryAction},
+	location::manager::LocationManager,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationRemoveInput {
+	pub library_id: Uuid,
+	pub location_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationRemoveAction {
-    pub location_id: Uuid,
+	input: LocationRemoveInput,
 }
 
-pub struct LocationRemoveHandler;
-
-impl LocationRemoveHandler {
-    pub fn new() -> Self {
-        Self
-    }
+impl LocationRemoveAction {
+	/// Create a new location remove action
+	pub fn new(input: LocationRemoveInput) -> Self {
+		Self { input }
+	}
 }
 
-#[async_trait]
-impl ActionHandler for LocationRemoveHandler {
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: Action,
-    ) -> ActionResult<ActionOutput> {
-        if let Action::LocationRemove { library_id, action } = action {
-            let library_manager = &context.library_manager;
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for LocationRemoveAction {
+	type Input = LocationRemoveInput;
+	type Output = LocationRemoveOutput;
 
-            // Get the specific library
-            let library = library_manager
-                .get_library(library_id)
-                .await
-                .ok_or(ActionError::LibraryNotFound(library_id))?;
+	fn from_input(input: LocationRemoveInput) -> Result<Self, String> {
+		Ok(LocationRemoveAction::new(input))
+	}
 
-            // Remove the location
-            let location_manager = LocationManager::new(context.events.as_ref().clone());
-            location_manager
-                .remove_location(&library, action.location_id)
-                .await
-                .map_err(|e| ActionError::Internal(e.to_string()))?;
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
+		// Remove the location
+		let location_manager = LocationManager::new(context.events.as_ref().clone());
+		location_manager
+			.remove_location(&library, self.input.location_id)
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-            let output = LocationRemoveOutput::new(action.location_id, None);
-            Ok(ActionOutput::from_trait(output))
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+		Ok(LocationRemoveOutput::new(self.input.location_id, None))
+	}
 
-    fn can_handle(&self, action: &Action) -> bool {
-        matches!(action, Action::LocationRemove { .. })
-    }
+	fn action_kind(&self) -> &'static str {
+		"locations.remove"
+	}
 
-    fn supported_actions() -> &'static [&'static str] {
-        &["location.remove"]
-    }
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<(), ActionError> {
+		// Could add validation to check if location exists in the library
+		Ok(())
+	}
 }
 
-// Register this handler
-register_action_handler!(LocationRemoveHandler, "location.remove");
+// Register action
+crate::register_library_action!(LocationRemoveAction, "locations.remove");

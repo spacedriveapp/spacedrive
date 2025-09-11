@@ -1,15 +1,10 @@
 //! Library rename action handler
 
+use super::output::LibraryRenameOutput;
 use crate::{
-    context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
-        Action,
-    },
-    library::LibraryConfig,
-    register_action_handler,
+	context::CoreContext,
+	infra::action::{error::ActionError, LibraryAction},
+	library::LibraryConfig,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -17,82 +12,83 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryRenameInput {
+	pub library_id: Uuid,
+	pub new_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LibraryRenameAction {
-    pub library_id: Uuid,
-    pub new_name: String,
+	input: LibraryRenameInput,
 }
 
-pub struct LibraryRenameHandler;
-
-impl LibraryRenameHandler {
-    pub fn new() -> Self {
-        Self
-    }
+impl LibraryRenameAction {
+	/// Create a new library rename action
+	pub fn new(input: LibraryRenameInput) -> Self {
+		Self { input }
+	}
 }
 
-#[async_trait]
-impl ActionHandler for LibraryRenameHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &Action,
-    ) -> ActionResult<()> {
-        if let Action::LibraryRename { action, .. } = action {
-            if action.new_name.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "new_name".to_string(),
-                    message: "Library name cannot be empty".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+// Old ActionHandler implementation removed - using unified ActionTrait
 
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: Action,
-    ) -> ActionResult<ActionOutput> {
-        if let Action::LibraryRename { library_id, action } = action {
-            let library_manager = &context.library_manager;
+// Implement the new modular ActionType trait
+impl LibraryAction for LibraryRenameAction {
+	type Input = LibraryRenameInput;
+	type Output = LibraryRenameOutput;
 
-            // Get the specific library
-            let library = library_manager
-                .get_library(library_id)
-                .await
-                .ok_or(ActionError::LibraryNotFound(library_id))?;
+	fn from_input(input: LibraryRenameInput) -> Result<Self, String> {
+		Ok(LibraryRenameAction::new(input))
+	}
 
-            // Get current config
-            let old_config = library.config().await;
-            let old_name = old_config.name.clone();
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
+		// Library is pre-validated by ActionManager - no boilerplate!
 
-            // Update the library name using update_config
-            library.update_config(|config| {
-                config.name = action.new_name.clone();
-            }).await
-                .map_err(|e| ActionError::Internal(format!("Failed to save config: {}", e)))?;
+		// Get current config
+		let old_config = library.config().await;
+		let old_name = old_config.name.clone();
 
-            let output = super::output::LibraryRenameOutput {
-                library_id,
-                old_name,
-                new_name: action.new_name,
-            };
+		// Update the library name using update_config
+		library
+			.update_config(|config| {
+				config.name = self.input.new_name.clone();
+			})
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to save config: {}", e)))?;
 
-            Ok(ActionOutput::from_trait(output))
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+		// Return native output directly
+		Ok(LibraryRenameOutput {
+			library_id: self.input.library_id,
+			old_name,
+			new_name: self.input.new_name,
+		})
+	}
 
-    fn can_handle(&self, action: &Action) -> bool {
-        matches!(action, Action::LibraryRename { .. })
-    }
+	fn action_kind(&self) -> &'static str {
+		"library.rename"
+	}
 
-    fn supported_actions() -> &'static [&'static str] {
-        &["library.rename"]
-    }
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<CoreContext>,
+	) -> Result<(), ActionError> {
+		// Library existence already validated by ActionManager - no boilerplate!
+
+		// Validate new name
+		if self.input.new_name.trim().is_empty() {
+			return Err(ActionError::Validation {
+				field: "new_name".to_string(),
+				message: "Library name cannot be empty".to_string(),
+			});
+		}
+
+		Ok(())
+	}
 }
 
-register_action_handler!(LibraryRenameHandler, "library.rename");
+// Register action
+crate::register_library_action!(LibraryRenameAction, "libraries.rename");

@@ -1,97 +1,88 @@
 //! Thumbnail generation action handler
 
-use crate::{
-    context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
-    },
-    register_action_handler,
-};
 use super::job::{ThumbnailJob, ThumbnailJobConfig};
-use async_trait::async_trait;
+use crate::{
+	context::CoreContext,
+	infra::{
+		action::{error::ActionError, LibraryAction},
+		job::handle::JobHandle,
+	},
+};
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ThumbnailInput {
+	pub paths: Vec<std::path::PathBuf>,
+	pub size: u32,
+	pub quality: u8,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ThumbnailAction {
-    pub paths: Vec<std::path::PathBuf>,
-    pub size: u32,
-    pub quality: u8,
+	input: ThumbnailInput,
 }
 
-pub struct ThumbnailHandler;
-
-impl ThumbnailHandler {
-    pub fn new() -> Self {
-        Self
-    }
+impl ThumbnailAction {
+	/// Create a new thumbnail generation action
+	pub fn new(input: ThumbnailInput) -> Self {
+		Self { input }
+	}
 }
 
-#[async_trait]
-impl ActionHandler for ThumbnailHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        if let crate::infra::action::Action::GenerateThumbnails { action, .. } = action {
-            if action.paths.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for ThumbnailAction {
+	type Input = ThumbnailInput;
+	type Output = JobHandle;
 
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
-        if let crate::infra::action::Action::GenerateThumbnails { library_id, action } = action {
-            let library_manager = &context.library_manager;
+	fn from_input(input: ThumbnailInput) -> Result<Self, String> {
+		Ok(ThumbnailAction::new(input))
+	}
 
-            let library = library_manager.get_library(library_id).await
-                .ok_or(ActionError::Internal(format!("Library not found: {}", library_id)))?;
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
+		// Create thumbnail job config
+		let config = ThumbnailJobConfig {
+			sizes: vec![self.input.size],
+			quality: self.input.quality,
+			regenerate: false,
+			..Default::default()
+		};
 
-            // Create thumbnail job config
-            let config = ThumbnailJobConfig {
-                sizes: vec![action.size],
-                quality: action.quality,
-                regenerate: false,
-                ..Default::default()
-            };
+		// Create job instance directly
+		let job = ThumbnailJob::new(config);
 
-            // TODO: Convert paths to entry IDs by querying the database
-            // For now, create a job that processes all suitable entries
-            let job = ThumbnailJob::new(config);
+		// Dispatch job and return handle directly
+		let job_handle = library
+			.jobs()
+			.dispatch(job)
+			.await
+			.map_err(ActionError::Job)?;
 
-            // Dispatch the job directly
-            let job_handle = library
-                .jobs()
-                .dispatch(job)
-                .await
-                .map_err(ActionError::Job)?;
+		Ok(job_handle)
+	}
 
-            Ok(ActionOutput::success("Thumbnail generation job dispatched successfully"))
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+	fn action_kind(&self) -> &'static str {
+		"media.thumbnail"
+	}
 
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        matches!(action, crate::infra::action::Action::GenerateThumbnails { .. })
-    }
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<(), ActionError> {
+		// Validate paths
+		if self.input.paths.is_empty() {
+			return Err(ActionError::Validation {
+				field: "paths".to_string(),
+				message: "At least one path must be specified".to_string(),
+			});
+		}
 
-    fn supported_actions() -> &'static [&'static str] {
-        &["media.thumbnail"]
-    }
+		Ok(())
+	}
 }
 
-register_action_handler!(ThumbnailHandler, "media.thumbnail");
+// Register action
+crate::register_library_action!(ThumbnailAction, "media.thumbnail");

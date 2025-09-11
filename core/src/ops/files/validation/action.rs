@@ -1,103 +1,99 @@
 //! File validation action handler
 
-use crate::{
-    context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
-    },
-    register_action_handler,
-    domain::addressing::{SdPath, SdPathBatch},
-};
 use super::job::{ValidationJob, ValidationMode};
-use async_trait::async_trait;
+use crate::{
+	context::CoreContext,
+	domain::addressing::{SdPath, SdPathBatch},
+	infra::{
+		action::{error::ActionError, LibraryAction},
+		job::handle::JobHandle,
+	},
+	ops::files::FileValidationInput,
+};
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ValidationAction {
-    pub paths: Vec<std::path::PathBuf>,
-    pub verify_checksums: bool,
-    pub deep_scan: bool,
+	pub targets: SdPathBatch,
+	pub verify_checksums: bool,
+	pub deep_scan: bool,
 }
 
-pub struct ValidationHandler;
-
-impl ValidationHandler {
-    pub fn new() -> Self {
-        Self
-    }
+impl ValidationAction {
+	/// Create a new file validation action
+	pub fn new(targets: SdPathBatch, verify_checksums: bool, deep_scan: bool) -> Self {
+		Self {
+			targets,
+			verify_checksums,
+			deep_scan,
+		}
+	}
 }
 
-#[async_trait]
-impl ActionHandler for ValidationHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        if let crate::infra::action::Action::FileValidate { action, .. } = action {
-            if action.paths.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for ValidationAction {
+	type Input = FileValidationInput;
+	type Output = JobHandle;
 
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
-        if let crate::infra::action::Action::FileValidate { library_id, action } = action {
-            let library_manager = &context.library_manager;
+	fn from_input(input: Self::Input) -> Result<Self, String> {
+		let paths = input
+			.paths
+			.into_iter()
+			.map(|p| SdPath::local(p))
+			.collect::<Vec<_>>();
+		Ok(ValidationAction {
+			targets: SdPathBatch { paths },
+			verify_checksums: input.verify_checksums,
+			deep_scan: input.deep_scan,
+		})
+	}
 
-            let library = library_manager.get_library(library_id).await
-                .ok_or(ActionError::Internal(format!("Library not found: {}", library_id)))?;
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
+		// Create validation job
+		let mode = if self.deep_scan {
+			ValidationMode::Complete
+		} else if self.verify_checksums {
+			ValidationMode::Integrity
+		} else {
+			ValidationMode::Basic
+		};
 
-            // Convert paths to SdPath and create job
-            let targets = action.paths
-                .into_iter()
-                .map(|path| SdPath::local(path))
-                .collect();
+		let job = ValidationJob::new(self.targets, mode);
 
-            // Determine validation mode based on action parameters
-            let mode = if action.deep_scan {
-                ValidationMode::Complete
-            } else if action.verify_checksums {
-                ValidationMode::Integrity
-            } else {
-                ValidationMode::Basic
-            };
+		// Dispatch job and return handle directly
+		let job_handle = library
+			.jobs()
+			.dispatch(job)
+			.await
+			.map_err(ActionError::Job)?;
 
-            let job = ValidationJob::new(SdPathBatch::new(targets), mode);
+		Ok(job_handle)
+	}
 
-            // Dispatch the job directly
-            let job_handle = library
-                .jobs()
-                .dispatch(job)
-                .await
-                .map_err(ActionError::Job)?;
+	fn action_kind(&self) -> &'static str {
+		"file.validate"
+	}
 
-            Ok(ActionOutput::success("File validation job dispatched successfully"))
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<(), ActionError> {
+		// Validate paths
+		if self.targets.paths.is_empty() {
+			return Err(ActionError::Validation {
+				field: "paths".to_string(),
+				message: "At least one path must be specified".to_string(),
+			});
+		}
 
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        matches!(action, crate::infra::action::Action::FileValidate { .. })
-    }
-
-    fn supported_actions() -> &'static [&'static str] {
-        &["file.validate"]
-    }
+		Ok(())
+	}
 }
 
-register_action_handler!(ValidationHandler, "file.validate");
+// Register this action with the new registry
+crate::register_library_action!(ValidationAction, "files.validation");

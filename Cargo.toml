@@ -1,14 +1,14 @@
 [workspace]
 members = [
 	# "apps/cloud",
-	"apps/desktop/crates/*",
-	"apps/desktop/src-tauri",
-	"apps/mobile/modules/sd-core/android/crate",
-	"apps/mobile/modules/sd-core/core",
-	"apps/mobile/modules/sd-core/ios/crate",
-	"apps/server",
+	# "apps/desktop/crates/*",
+	# "apps/desktop/src-tauri",
+	# "apps/mobile/modules/sd-core/android/crate",
+	# "apps/mobile/modules/sd-core/core",
+	# "apps/mobile/modules/sd-core/ios/crate",
+	# "apps/server",
+	"apps/cli",
 	"core",
-	"core/crates/*",
 	"crates/*"
 ]
 resolver = "2"
@@ -99,13 +99,13 @@ strip           = "none"
 [profile.dev-debug]
 inherits = "dev"
 # Enables debugger
-codegen-units   = 256
-debug           = "full"
-incremental     = true
-lto             = "off"
-opt-level       = 0
-split-debuginfo = "none"
-strip           = "none"
+codegen-units = 256
+debug         = "full"
+incremental   = true
+lto           = "off"
+opt-level     = 0
+# split-debuginfo = "none"
+strip = "none"
 
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]

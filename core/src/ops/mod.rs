@@ -9,17 +9,21 @@
 //! - Metadata operations (hierarchical tagging)
 
 pub mod addressing;
-pub mod content;
-pub mod devices;
+// pub mod content;
+pub mod core;
+// pub mod devices;
 pub mod entries;
 pub mod files;
 pub mod indexing;
 pub mod libraries;
 pub mod locations;
 pub mod media;
-pub mod metadata;
+// pub mod metadata;
+pub mod registry;
 pub mod sidecar;
 pub mod volumes;
+pub mod jobs;
+pub mod network;
 
 /// Register all jobs with the job system
 ///

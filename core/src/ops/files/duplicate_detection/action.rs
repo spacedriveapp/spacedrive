@@ -1,103 +1,108 @@
 //! File duplicate detection action handler
 
+use super::input::DuplicateDetectionInput;
+use super::job::{DetectionMode, DuplicateDetectionJob};
 use crate::{
-    context::CoreContext,
-    infra::action::{
-        error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
-    },
-    register_action_handler,
-    domain::addressing::{SdPath, SdPathBatch},
+	context::CoreContext,
+	domain::addressing::{SdPath, SdPathBatch},
+	infra::{
+		action::{error::ActionError, LibraryAction},
+		job::handle::JobHandle,
+	},
 };
-use super::job::{DuplicateDetectionJob, DetectionMode};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DuplicateDetectionAction {
-    pub paths: Vec<std::path::PathBuf>,
-    pub algorithm: String,
-    pub threshold: f64,
+	pub paths: SdPathBatch,
+	pub algorithm: String,
+	pub threshold: f64,
+}
+
+impl DuplicateDetectionAction {
+	/// Create a new duplicate detection action
+	pub fn new(paths: SdPathBatch, algorithm: String, threshold: f64) -> Self {
+		Self {
+			paths,
+			algorithm,
+			threshold,
+		}
+	}
 }
 
 pub struct DuplicateDetectionHandler;
 
 impl DuplicateDetectionHandler {
-    pub fn new() -> Self {
-        Self
-    }
+	pub fn new() -> Self {
+		Self
+	}
 }
 
-#[async_trait]
-impl ActionHandler for DuplicateDetectionHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &crate::infra::action::Action,
-    ) -> ActionResult<()> {
-        if let crate::infra::action::Action::DetectDuplicates { action, .. } = action {
-            if action.paths.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "paths".to_string(),
-                    message: "At least one path must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+// Implement the unified LibraryAction (replaces ActionHandler)
+impl LibraryAction for DuplicateDetectionAction {
+	type Input = DuplicateDetectionInput;
+	type Output = JobHandle;
 
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: crate::infra::action::Action,
-    ) -> ActionResult<ActionOutput> {
-        if let crate::infra::action::Action::DetectDuplicates { library_id, action } = action {
-            let library_manager = &context.library_manager;
+	fn from_input(i: Self::Input) -> Result<Self, String> {
+		let sd_paths = i
+			.paths
+			.into_iter()
+			.map(|p| SdPath::local(p))
+			.collect::<Vec<_>>();
+		Ok(DuplicateDetectionAction {
+			paths: SdPathBatch { paths: sd_paths },
+			algorithm: i.algorithm,
+			threshold: i.threshold,
+		})
+	}
 
-            let library = library_manager.get_library(library_id).await
-                .ok_or(ActionError::Internal(format!("Library not found: {}", library_id)))?;
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
+		// Library is pre-validated by ActionManager
 
-            // Convert paths to SdPath and create job
-            let search_paths = action.paths
-                .into_iter()
-                .map(|path| SdPath::local(path))
-                .collect();
+		// Create duplicate detection job
+		let mode = match self.algorithm.as_str() {
+			"size_only" => DetectionMode::SizeOnly,
+			"name_and_size" => DetectionMode::NameAndSize,
+			"deep_scan" => DetectionMode::DeepScan,
+			_ => DetectionMode::ContentHash,
+		};
 
-            // Parse algorithm to detection mode
-            let mode = match action.algorithm.as_str() {
-                "content_hash" => DetectionMode::ContentHash,
-                "size_only" => DetectionMode::SizeOnly,
-                "name_and_size" => DetectionMode::NameAndSize,
-                "deep_scan" => DetectionMode::DeepScan,
-                _ => DetectionMode::ContentHash, // default
-            };
+		let job = DuplicateDetectionJob::new(self.paths, mode);
 
-            let job = DuplicateDetectionJob::new(SdPathBatch::new(search_paths), mode);
+		// Dispatch job and return handle directly
+		let job_handle = library
+			.jobs()
+			.dispatch(job)
+			.await
+			.map_err(ActionError::Job)?;
 
-            // Dispatch the job directly
-            let job_handle = library
-                .jobs()
-                .dispatch(job)
-                .await
-                .map_err(ActionError::Job)?;
+		Ok(job_handle)
+	}
 
-            Ok(ActionOutput::success("Duplicate detection job dispatched successfully"))
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+	fn action_kind(&self) -> &'static str {
+		"file.detect_duplicates"
+	}
 
-    fn can_handle(&self, action: &crate::infra::action::Action) -> bool {
-        matches!(action, crate::infra::action::Action::DetectDuplicates { .. })
-    }
-
-    fn supported_actions() -> &'static [&'static str] {
-        &["file.detect_duplicates"]
-    }
+	async fn validate(
+		&self,
+		library: &std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<(), ActionError> {
+		if self.paths.paths.is_empty() {
+			return Err(ActionError::Validation {
+				field: "paths".to_string(),
+				message: "At least one path must be specified".to_string(),
+			});
+		}
+		Ok(())
+	}
 }
 
-register_action_handler!(DuplicateDetectionHandler, "file.detect_duplicates");
+// Register with the registry
+crate::register_library_action!(DuplicateDetectionAction, "files.duplicate_detection");

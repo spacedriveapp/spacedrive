@@ -101,3 +101,4 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
 
 	TokenStream::from(expanded)
 }
+
