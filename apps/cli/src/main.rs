@@ -58,12 +58,12 @@ enum FileCommands {
 
 #[derive(Parser, Debug, Clone)]
 struct FileCopyArgs {
-	/// Source files or directories to copy (one or more)
-	pub sources: Vec<std::path::PathBuf>,
+	/// Source addresses to copy (SdPath URIs or local paths)
+	pub sources: Vec<String>,
 
-	/// Destination path
+	/// Destination address (SdPath URI or local path)
 	#[arg(long)]
-	pub destination: std::path::PathBuf,
+	pub destination: String,
 
 	/// Overwrite existing files
 	#[arg(long, default_value_t = false)]
@@ -84,21 +84,31 @@ struct FileCopyArgs {
 
 impl FileCopyArgs {
 	fn to_input(&self) -> sd_core::ops::files::copy::input::FileCopyInput {
+		use sd_core::domain::addressing::{SdPath, SdPathBatch};
 		use sd_core::ops::files::copy::input::{CopyMethod, FileCopyInput};
-		let mut input = FileCopyInput::new(self.sources.clone(), self.destination.clone())
-			.with_overwrite(self.overwrite)
-			.with_verification(self.verify_checksum)
-			.with_timestamp_preservation(self.preserve_timestamps)
-			.with_move(self.move_files)
-			.with_copy_method(CopyMethod::Auto);
-		input
+		let src_paths = self
+			.sources
+			.iter()
+			.map(|s| SdPath::from_uri(s).unwrap_or_else(|_| SdPath::local(s)))
+			.collect::<Vec<_>>();
+		let dest_path = SdPath::from_uri(&self.destination)
+			.unwrap_or_else(|_| SdPath::local(&self.destination));
+		FileCopyInput {
+			sources: SdPathBatch::new(src_paths),
+			destination: dest_path,
+			overwrite: self.overwrite,
+			verify_checksum: self.verify_checksum,
+			preserve_timestamps: self.preserve_timestamps,
+			move_files: self.move_files,
+			copy_method: CopyMethod::Auto,
+		}
 	}
 }
 
 #[derive(Parser, Debug, Clone)]
 struct FileDeleteArgs {
-	/// Files or directories to delete (one or more)
-	pub targets: Vec<std::path::PathBuf>,
+	/// Addresses to delete (SdPath URIs or local paths)
+	pub targets: Vec<String>,
 
 	/// Permanently delete instead of moving to trash
 	#[arg(long, default_value_t = false)]
@@ -116,8 +126,7 @@ impl FileDeleteArgs {
 		let paths = self
 			.targets
 			.iter()
-			.cloned()
-			.map(SdPath::local)
+			.map(|s| SdPath::from_uri(s).unwrap_or_else(|_| SdPath::local(s)))
 			.collect::<Vec<_>>();
 		FileDeleteInput {
 			targets: SdPathBatch::new(paths),
@@ -129,8 +138,8 @@ impl FileDeleteArgs {
 
 #[derive(Parser, Debug, Clone)]
 struct FileValidateArgs {
-	/// Paths to validate (one or more)
-	pub paths: Vec<std::path::PathBuf>,
+	/// Addresses to validate (SdPath URIs or local paths)
+	pub paths: Vec<String>,
 
 	/// Verify checksums during validation
 	#[arg(long, default_value_t = false)]
@@ -143,9 +152,19 @@ struct FileValidateArgs {
 
 impl FileValidateArgs {
 	fn to_input(&self) -> sd_core::ops::files::validation::input::FileValidationInput {
+		use sd_core::domain::addressing::SdPath;
 		use sd_core::ops::files::validation::input::FileValidationInput;
+		let mut local_paths: Vec<std::path::PathBuf> = Vec::new();
+		for s in &self.paths {
+			let sd = SdPath::from_uri(s).unwrap_or_else(|_| SdPath::local(s));
+			if let Some(p) = sd.as_local_path() {
+				local_paths.push(p.to_path_buf());
+			} else {
+				anyhow::bail!(format!("Non-local address not supported for validation: {}", s));
+			}
+		}
 		FileValidationInput {
-			paths: self.paths.clone(),
+			paths: local_paths,
 			verify_checksums: self.verify_checksums,
 			deep_scan: self.deep_scan,
 		}
@@ -173,8 +192,8 @@ impl DedupeAlgorithmArg {
 
 #[derive(Parser, Debug, Clone)]
 struct FileDedupeArgs {
-	/// Paths to scan for duplicates (one or more)
-	pub paths: Vec<std::path::PathBuf>,
+	/// Addresses to scan for duplicates (SdPath URIs or local paths)
+	pub paths: Vec<String>,
 
 	/// Detection algorithm
 	#[arg(long, value_enum, default_value = "content-hash")]
@@ -187,9 +206,19 @@ struct FileDedupeArgs {
 
 impl FileDedupeArgs {
 	fn to_input(&self) -> sd_core::ops::files::duplicate_detection::input::DuplicateDetectionInput {
+		use sd_core::domain::addressing::SdPath;
 		use sd_core::ops::files::duplicate_detection::input::DuplicateDetectionInput;
+		let mut local_paths: Vec<std::path::PathBuf> = Vec::new();
+		for s in &self.paths {
+			let sd = SdPath::from_uri(s).unwrap_or_else(|_| SdPath::local(s));
+			if let Some(p) = sd.as_local_path() {
+				local_paths.push(p.to_path_buf());
+			} else {
+				anyhow::bail!(format!("Non-local address not supported for duplicate detection: {}", s));
+			}
+		}
 		DuplicateDetectionInput {
-			paths: self.paths.clone(),
+			paths: local_paths,
 			algorithm: self.algorithm.as_str().to_string(),
 			threshold: self.threshold,
 		}
@@ -224,8 +253,8 @@ impl From<IndexScopeArg> for sd_core::ops::indexing::job::IndexScope {
 
 #[derive(Parser, Debug, Clone)]
 struct IndexStartArgs {
-	/// Paths to index (one or more)
-	pub paths: Vec<std::path::PathBuf>,
+	/// Addresses to index (SdPath URIs or local paths)
+	pub paths: Vec<String>,
 
 	/// Library ID to run indexing in (defaults to the only library if just one exists)
 	#[arg(long)]
@@ -335,7 +364,19 @@ async fn main() -> Result<()> {
 				IndexPersistence::Ephemeral
 			};
 
-			let input = IndexInput::new(library_id, args.paths.clone())
+			// Convert addresses to local paths for current IndexInput contract
+			let mut local_paths: Vec<std::path::PathBuf> = Vec::new();
+			for s in &args.paths {
+				let sd = sd_core::domain::addressing::SdPath::from_uri(s)
+					.unwrap_or_else(|_| sd_core::domain::addressing::SdPath::local(s));
+				if let Some(p) = sd.as_local_path() {
+					local_paths.push(p.to_path_buf());
+				} else {
+					anyhow::bail!(format!("Non-local address not supported for indexing yet: {}", s));
+				}
+			}
+
+			let input = IndexInput::new(library_id, local_paths)
 				.with_mode(IndexMode::from(args.mode.clone()))
 				.with_scope(IndexScope::from(args.scope.clone()))
 				.with_include_hidden(args.include_hidden)
