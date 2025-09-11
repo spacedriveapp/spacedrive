@@ -1,4 +1,4 @@
-use super::output::{PairStatusOutput, PairingSessionSummary, PairingStateLite};
+use super::output::{PairStatusOutput, PairingSessionSummary};
 use crate::{context::CoreContext, cqrs::Query};
 use anyhow::Result;
 use std::sync::Arc;
@@ -14,26 +14,9 @@ impl Query for PairStatusQuery {
 		if let Some(net) = context.get_networking().await {
 			let sessions = net.get_pairing_status().await.unwrap_or_default();
 			for s in sessions.into_iter() {
-				let state = match s.state {
-					crate::service::network::PairingState::Idle => PairingStateLite::Idle,
-					crate::service::network::PairingState::GeneratingCode => PairingStateLite::GeneratingCode,
-					crate::service::network::PairingState::Broadcasting => PairingStateLite::Broadcasting,
-					crate::service::network::PairingState::Scanning => PairingStateLite::Scanning,
-					crate::service::network::PairingState::WaitingForConnection => PairingStateLite::WaitingForConnection,
-					crate::service::network::PairingState::Connecting => PairingStateLite::Connecting,
-					crate::service::network::PairingState::Authenticating => PairingStateLite::Authenticating,
-					crate::service::network::PairingState::ExchangingKeys => PairingStateLite::ExchangingKeys,
-					crate::service::network::PairingState::AwaitingConfirmation => PairingStateLite::AwaitingConfirmation,
-					crate::service::network::PairingState::EstablishingSession => PairingStateLite::EstablishingSession,
-					crate::service::network::PairingState::ChallengeReceived { .. } => PairingStateLite::Challenge,
-					crate::service::network::PairingState::ResponsePending { .. } => PairingStateLite::ResponsePending,
-					crate::service::network::PairingState::ResponseSent => PairingStateLite::ResponseSent,
-					crate::service::network::PairingState::Completed => PairingStateLite::Completed,
-					crate::service::network::PairingState::Failed { reason } => PairingStateLite::Failed { reason },
-				};
 				sessions_out.push(PairingSessionSummary {
 					id: s.id,
-					state,
+					state: s.state,
 					remote_device_id: s.remote_device_id,
 					expires_at: None,
 				});
