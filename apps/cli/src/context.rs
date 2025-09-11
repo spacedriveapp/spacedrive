@@ -1,6 +1,6 @@
 use sd_core::client::CoreClient;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
 pub enum OutputFormat {
 	Human,
 	Json,
