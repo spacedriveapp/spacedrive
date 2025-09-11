@@ -16,6 +16,10 @@ struct Cli {
 	#[arg(long)]
 	data_dir: Option<std::path::PathBuf>,
 
+	/// Daemon instance name
+	#[arg(long)]
+	instance: Option<String>,
+
 	/// Output format
 	#[arg(long, value_enum, default_value = "human")]
 	format: OutputFormat,
@@ -37,6 +41,9 @@ enum Commands {
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCommands),
+	/// Location operations
+	#[command(subcommand)]
+	Location(LocationCommands),
 	/// Networking and pairing
 	#[command(subcommand)]
 	Network(NetworkCommands),
@@ -46,6 +53,14 @@ enum Commands {
 enum LibraryCommands {
 	/// List libraries
 	List,
+	/// Create a library
+	Create { name: String, #[arg(long)] path: Option<std::path::PathBuf> },
+	/// Rename a library
+	Rename { library_id: Uuid, new_name: String },
+	/// Delete a library
+	Delete { library_id: Uuid },
+	/// Export a library
+	Export { library_id: Uuid, #[arg(long)] dest: Option<std::path::PathBuf> },
 }
 
 #[derive(Subcommand, Debug)]
@@ -285,6 +300,10 @@ impl FileDedupeArgs {
 enum IndexCommands {
 	/// Start indexing for one or more paths
 	Start(IndexStartArgs),
+	/// Quick scan of a path (ephemeral)
+	QuickScan(QuickScanArgs),
+	/// Browse a path without adding as location
+	Browse(BrowseArgs),
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -333,11 +352,39 @@ struct IndexStartArgs {
 	pub persistent: bool,
 }
 
+#[derive(Parser, Debug, Clone)]
+struct QuickScanArgs {
+	pub path: String,
+	#[arg(long, value_enum, default_value = "current")]
+	pub scope: IndexScopeArg,
+}
+
+#[derive(Parser, Debug, Clone)]
+struct BrowseArgs {
+	pub path: String,
+	#[arg(long, value_enum, default_value = "current")]
+	pub scope: IndexScopeArg,
+	#[arg(long, default_value_t = false)]
+	pub content: bool,
+}
+
+#[derive(Subcommand, Debug)]
+enum LocationCommands {
+	Add { path: std::path::PathBuf, #[arg(long)] name: Option<String>, #[arg(long, value_enum, default_value = "content")] mode: IndexModeArg },
+	List,
+	Remove { location_id: Uuid },
+	Rescan { location_id: Uuid, #[arg(long, default_value_t = false)] force: bool },
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
 	let cli = Cli::parse();
 	let data_dir = cli.data_dir.unwrap_or(sd_core::config::default_data_dir()?);
-	let socket = data_dir.join("daemon/daemon.sock");
+	let socket = if let Some(inst) = cli.instance {
+		data_dir.join("daemon").join(format!("daemon-{}.sock", inst))
+	} else {
+		data_dir.join("daemon/daemon.sock")
+	};
 	let core = CoreClient::new(socket);
 
 	match cli.command {
@@ -368,6 +415,29 @@ async fn main() -> Result<()> {
 				}
 				OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&libs)?),
 			}
+		}
+		Commands::Library(LibraryCommands::Create { name, path }) => {
+			use sd_core::ops::libraries::create::input::LibraryCreateInput;
+			let mut input = LibraryCreateInput::new(name);
+			if let Some(p) = path { input = input.with_path(p); }
+			if let Err(errors) = input.validate() { anyhow::bail!(errors.join("; ")); }
+			let out: sd_core::ops::libraries::create::output::LibraryCreateOutput = core.action(&input).await?;
+			println!("Created library {} at {}", out.id, out.path.display());
+		}
+		Commands::Library(LibraryCommands::Rename { library_id, new_name }) => {
+			use sd_core::ops::libraries::rename::LibraryRenameInput;
+			let out: sd_core::ops::libraries::rename::output::LibraryRenameOutput = core.action(&LibraryRenameInput { library_id, new_name }).await?;
+			println!("Renamed library {}: {} -> {}", out.library_id, out.old_name, out.new_name);
+		}
+		Commands::Library(LibraryCommands::Delete { library_id }) => {
+			use sd_core::ops::libraries::delete::input::LibraryDeleteInput;
+			let _out: sd_core::ops::libraries::delete::output::LibraryDeleteOutput = core.action(&LibraryDeleteInput { library_id }).await?;
+			println!("Deleted library {}", library_id);
+		}
+		Commands::Library(LibraryCommands::Export { library_id, dest }) => {
+			use sd_core::ops::libraries::export::input::LibraryExportInput;
+			let out: sd_core::ops::libraries::export::output::LibraryExportOutput = core.action(&LibraryExportInput { library_id, destination: dest }).await?;
+			println!("Exported library {} to {}", library_id, out.destination.display());
 		}
 		Commands::File(FileCommands::Copy(args)) => {
 			let input = args.to_input();
@@ -445,6 +515,54 @@ async fn main() -> Result<()> {
 
 			core.action(&input).await?;
 			println!("Indexing request submitted");
+		}
+		Commands::Index(IndexCommands::QuickScan(args)) => {
+			// Placeholder until dedicated input exists; reuse Start with ephemeral current dir
+			use sd_core::ops::indexing::input::IndexInput;
+			use sd_core::ops::indexing::job::{IndexMode, IndexPersistence, IndexScope};
+			let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = core
+				.query(&sd_core::ops::libraries::list::query::ListLibrariesQuery::basic())
+				.await?;
+			let library_id = if libs.len() == 1 { libs[0].id } else { anyhow::bail!("Specify --library for quick-scan when multiple libraries exist") };
+			let sd = sd_core::domain::addressing::SdPath::from_uri(&args.path).unwrap_or_else(|_| sd_core::domain::addressing::SdPath::local(&args.path));
+			let p = sd.as_local_path().ok_or_else(|| anyhow::anyhow!("Non-local path not supported yet"))?;
+			let input = IndexInput::new(library_id, vec![p.to_path_buf()])
+				.with_mode(IndexMode::Shallow)
+				.with_scope(IndexScope::from(args.scope.clone()))
+				.with_persistence(IndexPersistence::Ephemeral);
+			core.action(&input).await?;
+			println!("Quick scan request submitted");
+		}
+		Commands::Index(IndexCommands::Browse(args)) => {
+			use sd_core::ops::indexing::input::IndexInput;
+			use sd_core::ops::indexing::job::{IndexMode, IndexPersistence, IndexScope};
+			let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = core
+				.query(&sd_core::ops::libraries::list::query::ListLibrariesQuery::basic())
+				.await?;
+			let library_id = if libs.len() == 1 { libs[0].id } else { anyhow::bail!("Specify --library for browse when multiple libraries exist") };
+			let sd = sd_core::domain::addressing::SdPath::from_uri(&args.path).unwrap_or_else(|_| sd_core::domain::addressing::SdPath::local(&args.path));
+			let p = sd.as_local_path().ok_or_else(|| anyhow::anyhow!("Non-local path not supported yet"))?;
+			let input = IndexInput::new(library_id, vec![p.to_path_buf()])
+				.with_mode(if args.content { IndexMode::Content } else { IndexMode::Shallow })
+				.with_scope(IndexScope::from(args.scope.clone()))
+				.with_persistence(IndexPersistence::Ephemeral);
+			core.action(&input).await?;
+			println!("Browse request submitted");
+		}
+		Commands::Location(LocationCommands::Add { path, name, mode }) => {
+			let out: sd_core::ops::locations::add::output::LocationAddOutput = core.action(&sd_core::ops::locations::add::action::LocationAddInput { path, name, mode: sd_core::ops::indexing::job::IndexMode::from(mode) }).await?;
+			println!("Added location {} -> {}", out.id, out.path.display());
+		}
+		Commands::Location(LocationCommands::List) => {
+			println!("Listing locations is not available yet in this build");
+		}
+		Commands::Location(LocationCommands::Remove { location_id }) => {
+			let _out: sd_core::ops::locations::remove::output::LocationRemoveOutput = core.action(&sd_core::ops::locations::remove::action::LocationRemoveInput { location_id }).await?;
+			println!("Removed location {}", location_id);
+		}
+		Commands::Location(LocationCommands::Rescan { location_id, force: _ }) => {
+			let _out: sd_core::ops::locations::rescan::output::LocationRescanOutput = core.action(&sd_core::ops::locations::rescan::action::LocationRescanInput { location_id }).await?;
+			println!("Rescan requested for {}", location_id);
 		}
 		Commands::Network(cmd) => {
 			use sd_core::ops::network::*;
