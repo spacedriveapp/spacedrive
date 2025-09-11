@@ -22,6 +22,8 @@ pub mod media;
 pub mod registry;
 pub mod sidecar;
 pub mod volumes;
+pub mod jobs;
+pub mod network;
 
 /// Register all jobs with the job system
 ///
