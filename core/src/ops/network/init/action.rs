@@ -4,17 +4,13 @@ use super::{input::NetworkInitInput, output::NetworkInitOutput};
 use crate::infra::action::{error::ActionError, CoreAction};
 use std::sync::Arc;
 
-pub struct NetworkInitAction {
-	password: Option<String>,
-}
+pub struct NetworkInitAction;
 
 impl CoreAction for NetworkInitAction {
 	type Output = NetworkInitOutput;
 	type Input = NetworkInitInput;
 
-	fn from_input(input: Self::Input) -> std::result::Result<Self, String> {
-		Ok(Self { password: input.password })
-	}
+	fn from_input(_input: Self::Input) -> std::result::Result<Self, String> { Ok(Self) }
 
 	async fn execute(self, context: Arc<crate::context::CoreContext>) -> std::result::Result<Self::Output, ActionError> {
 		// If networking already initialized, just return identifiers
