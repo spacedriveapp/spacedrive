@@ -54,7 +54,7 @@ impl LibraryAction for LocationRemoveAction {
 	}
 
 	fn action_kind(&self) -> &'static str {
-		"location.remove"
+		"locations.remove"
 	}
 
 	async fn validate(

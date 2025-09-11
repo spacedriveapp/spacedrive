@@ -85,7 +85,7 @@ impl LibraryAction for VolumeTrackAction {
 	}
 
 	fn action_kind(&self) -> &'static str {
-		"volume.track"
+		"volumes.track"
 	}
 
 	async fn validate(

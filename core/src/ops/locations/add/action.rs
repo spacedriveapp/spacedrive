@@ -103,7 +103,7 @@ impl LibraryAction for LocationAddAction {
 	}
 
 	fn action_kind(&self) -> &'static str {
-		"location.add"
+		"locations.add"
 	}
 
 	async fn validate(

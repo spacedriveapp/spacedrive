@@ -69,7 +69,7 @@ impl LibraryAction for FileDeleteAction {
 	}
 
 	fn action_kind(&self) -> &'static str {
-		"file.delete"
+		"files.delete"
 	}
 
 	async fn validate(
