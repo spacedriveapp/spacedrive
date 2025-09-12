@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 
 use crate::context::{Context, OutputFormat};
+use crate::util::confirm::confirm_or_abort;
 
 #[derive(clap::Parser, Debug, Clone)]
 pub struct FileCopyArgs {
@@ -27,6 +28,10 @@ pub struct FileCopyArgs {
 	/// Delete source files after copy (move)
 	#[arg(long, default_value_t = false)]
 	pub move_files: bool,
+
+	/// Assume yes to all confirmations (dangerous operations)
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
 }
 
 impl FileCopyArgs {
@@ -57,6 +62,9 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			let input = args.to_input();
 			if let Err(errors) = input.validate() {
 				anyhow::bail!(errors.join("; "))
+			}
+			if args.move_files {
+				confirm_or_abort("This will MOVE files (delete sources after copy). Continue?", args.yes)?;
 			}
 			let _bytes = ctx.core.action(&input).await?;
 			println!("Copy request submitted");
