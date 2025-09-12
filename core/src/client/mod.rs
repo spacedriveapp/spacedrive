@@ -67,4 +67,8 @@ impl CoreClient {
 			Err(e) => Err(anyhow::anyhow!(e.to_string())),
 		}
 	}
+
+	pub async fn send_raw_request(&self, req: &DaemonRequest) -> Result<DaemonResponse> {
+		self.daemon.send(req).await.map_err(|e| anyhow::anyhow!(e.to_string()))
+	}
 }

@@ -22,8 +22,7 @@ impl crate::infra::action::CoreAction for SetCurrentLibraryAction {
 		self,
 		context: std::sync::Arc<crate::context::CoreContext>,
 	) -> Result<Self::Output, crate::infra::action::error::ActionError> {
-		// Persist in daemon session state if available (requires daemon to wire it),
-		// otherwise noop. For now, this sets nothing globally; placeholder success.
+		context.session_state.set_current_library(Some(self.input.library_id)).await.map_err(|e| crate::infra::action::error::ActionError::Internal(e.to_string()))?;
 		Ok(SetCurrentLibraryOutput { success: true })
 	}
 

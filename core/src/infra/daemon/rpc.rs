@@ -47,13 +47,13 @@ impl RpcServer {
 				let req: Result<DaemonRequest, _> = serde_json::from_slice(&buf);
 				let resp = match req {
 					Ok(DaemonRequest::Ping) => DaemonResponse::Pong,
-					Ok(DaemonRequest::Action { method, payload }) => {
+					Ok(DaemonRequest::Action { ref method, ref payload }) => {
 						match instances.get_default().await {
 							Ok(core) => {
 								let session_snapshot = session.get().await;
 								match core
 									.execute_action_by_method(
-										&method,
+										method,
 										payload.clone(),
 										session_snapshot.clone(),
 									)
@@ -68,11 +68,11 @@ impl RpcServer {
 							}
 						}
 					}
-					Ok(DaemonRequest::Query { method, payload }) => {
+					Ok(DaemonRequest::Query { ref method, ref payload }) => {
 						match instances.get_default().await {
 							Ok(core) => {
 								// Pass-through for queries using opaque method string
-								match core.execute_query_by_method(&method, payload.clone()).await {
+								match core.execute_query_by_method(method, payload.clone()).await {
 									Ok(out) => DaemonResponse::Ok(out),
 									Err(e) => DaemonResponse::Error(e),
 								}
@@ -82,11 +82,20 @@ impl RpcServer {
 							}
 						}
 					}
-					Err(e) => DaemonResponse::Error(format!("Invalid request: {}", e)),
+                    Ok(DaemonRequest::Shutdown) => {
+                        // Handle shutdown request
+                        DaemonResponse::Ok(Vec::new()) // Send an OK response
+                    }
+					Err(ref e) => DaemonResponse::Error(format!("Invalid request: {}", e)), // Use ref e here
 				};
 				let _ = stream
 					.write_all(serde_json::to_string(&resp).unwrap().as_bytes())
 					.await;
+                if let Ok(ref req_inner) = req { // Use ref req_inner here
+                    if let DaemonRequest::Shutdown = req_inner {
+                        break Ok(()); // Break the loop to shut down the server
+                    }
+                }
 			}
 		}
 	}

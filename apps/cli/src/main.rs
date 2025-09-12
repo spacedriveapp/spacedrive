@@ -39,6 +39,14 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+	/// Start the Spacedrive daemon
+	Start {
+		/// Automatically start networking
+		#[arg(long)]
+		enable_networking: bool,
+	},
+	/// Stop the Spacedrive daemon
+	Stop,
 	/// Core info
 	Status,
 	/// Libraries operations
@@ -66,16 +74,36 @@ enum Commands {
 async fn main() -> Result<()> {
 	let cli = Cli::parse();
 	let data_dir = cli.data_dir.unwrap_or(sd_core::config::default_data_dir()?);
-	let socket = if let Some(inst) = cli.instance {
+	let instance = cli.instance;
+	let socket_path = if let Some(inst) = &instance {
 		data_dir.join("daemon").join(format!("daemon-{}.sock", inst))
 	} else {
 		data_dir.join("daemon/daemon.sock")
 	};
-	let core = CoreClient::new(socket);
-
-	let ctx = Context::new(core, cli.format);
 
 	match cli.command {
+		Commands::Start { enable_networking } => {
+			println!("Starting daemon...");
+			sd_core::infra::daemon::bootstrap::start_default_server(socket_path, data_dir, enable_networking).await.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+		}
+		Commands::Stop => {
+			println!("Stopping daemon...");
+            let core = CoreClient::new(socket_path.clone());
+            let _ = core.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown).await.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+			println!("Daemon stopped.");
+		}
+		_ => {
+			run_client_command(cli.command, cli.format, data_dir, socket_path).await?;
+		}
+	}
+
+	Ok(())
+}
+
+async fn run_client_command(command: Commands, format: OutputFormat, data_dir: std::path::PathBuf, socket_path: std::path::PathBuf) -> Result<()> {
+	let core = CoreClient::new(socket_path.clone());
+	let ctx = Context::new(core, format, data_dir, socket_path);
+	match command {
 		Commands::Status => {
 			let status: sd_core::ops::core::status::output::CoreStatus = ctx
 				.core
@@ -95,7 +123,7 @@ async fn main() -> Result<()> {
 		Commands::Location(cmd) => location::run(&ctx, cmd).await?,
 		Commands::Network(cmd) => network::run(&ctx, cmd).await?,
 		Commands::Job(cmd) => job::run(&ctx, cmd).await?,
+		_ => {} // Start and Stop are handled in main
 	}
-
 	Ok(())
 }

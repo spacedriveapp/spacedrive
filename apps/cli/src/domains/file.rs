@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Subcommand;
 
-use crate::context::{Context, OutputFormat};
+use crate::context::Context;
 
 #[derive(clap::Parser, Debug, Clone)]
 pub struct FileCopyArgs {
@@ -31,11 +31,13 @@ pub struct FileCopyArgs {
 
 impl FileCopyArgs {
 	pub fn to_input(&self) -> sd_core::ops::files::copy::input::FileCopyInput {
+		use sd_core::domain::addressing::{SdPath, SdPathBatch};
 		use sd_core::ops::files::copy::input::{CopyMethod, FileCopyInput};
+		let sources = self.sources.iter().map(|p| SdPath::local(p.clone())).collect::<Vec<_>>();
+		let destination = SdPath::local(self.destination.clone());
 		FileCopyInput {
-			library_id: None,
-			sources: self.sources.clone(),
-			destination: self.destination.clone(),
+			sources: SdPathBatch { paths: sources },
+			destination,
 			overwrite: self.overwrite,
 			verify_checksum: self.verify_checksum,
 			preserve_timestamps: self.preserve_timestamps,

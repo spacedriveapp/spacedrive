@@ -44,10 +44,7 @@ pub enum NetworkCmd {
 	Status,
 	/// List devices
 	Devices(NetworkDevicesArgs),
-	/// Start networking
-	Start,
-	/// Stop networking
-	Stop,
+	
 	/// Pairing commands
 	#[command(subcommand)]
 	Pair(PairCmd),
@@ -86,17 +83,11 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				OutputFormat::Json => print_json(&devices),
 			}
 		}
-		NetworkCmd::Start => {
-			let out: NetworkStartOutput = ctx.core.action(&NetworkStartInput {}).await?;
-			println!("Networking {}", if out.started { "started" } else { "already running" });
-		}
-		NetworkCmd::Stop => {
-			let out: NetworkStopOutput = ctx.core.action(&NetworkStopInput {}).await?;
-			println!("Networking {}", if out.stopped { "stopped" } else { "not running" });
-		}
+		
 		NetworkCmd::Pair(pc) => match pc {
 			PairCmd::Generate { auto_accept } => {
-				let out: PairGenerateOutput = ctx.core.action(&PairGenerateInput { auto_accept }).await?;
+				let bytes = ctx.core.action(&PairGenerateInput { auto_accept }).await?;
+				let out: PairGenerateOutput = bincode::deserialize(&bytes)?;
 				match ctx.format {
 					OutputFormat::Human => {
 						println!("Pairing code: {}", out.code);
@@ -107,7 +98,8 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				}
 			}
 			PairCmd::Join { code } => {
-				let out: PairJoinOutput = ctx.core.action(&PairJoinInput { code }).await?;
+				let bytes = ctx.core.action(&PairJoinInput { code }).await?;
+				let out: PairJoinOutput = bincode::deserialize(&bytes)?;
 				match ctx.format {
 					OutputFormat::Human => println!("Paired with {} ({})", out.device_name, out.paired_device_id),
 					OutputFormat::Json => print_json(&out),
@@ -124,18 +116,21 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				}
 			}
 			PairCmd::Cancel { session_id } => {
-				let out: PairCancelOutput = ctx.core.action(&PairCancelInput { session_id }).await?;
+				let bytes = ctx.core.action(&PairCancelInput { session_id }).await?;
+				let out: PairCancelOutput = bincode::deserialize(&bytes)?;
 				println!("Cancelled: {}", out.cancelled);
 			}
 		},
 		NetworkCmd::Revoke { device_id } => {
-			let out: DeviceRevokeOutput = ctx.core.action(&DeviceRevokeInput { device_id }).await?;
+			let bytes = ctx.core.action(&DeviceRevokeInput { device_id }).await?;
+			let out: DeviceRevokeOutput = bincode::deserialize(&bytes)?;
 			println!("Revoked: {}", out.revoked);
 		}
 		NetworkCmd::Spacedrop(args) => {
 			use sd_core::domain::addressing::SdPath;
 			let paths = args.paths.iter().map(|s| SdPath::from_uri(s).unwrap_or_else(|_| SdPath::local(s))).collect::<Vec<_>>();
-			let out: SpacedropSendOutput = ctx.core.action(&SpacedropSendInput { device_id: args.device_id, paths, sender: args.sender }).await?;
+			let bytes = ctx.core.action(&SpacedropSendInput { device_id: args.device_id, paths, sender: args.sender }).await?;
+			let out: SpacedropSendOutput = bincode::deserialize(&bytes)?;
 			match ctx.format {
 				OutputFormat::Human => {
 					if let Some(j) = out.job_id { println!("Transfer job: {}", j); }

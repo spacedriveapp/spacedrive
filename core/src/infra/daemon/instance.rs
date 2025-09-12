@@ -4,16 +4,24 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::Core;
+use crate::infra::daemon::state::SessionStateService;
 
 /// Manages lifecycle of Core instances (by name)
 pub struct CoreInstanceManager {
 	instances: Arc<RwLock<HashMap<String, Arc<Core>>>>,
 	default_data_dir: PathBuf,
+	enable_networking: bool,
+	session_state: Arc<SessionStateService>,
 }
 
 impl CoreInstanceManager {
-	pub fn new(default_data_dir: PathBuf) -> Self {
-		Self { instances: Arc::new(RwLock::new(HashMap::new())), default_data_dir }
+	pub fn new(default_data_dir: PathBuf, enable_networking: bool, session_state: Arc<SessionStateService>) -> Self {
+		Self {
+			instances: Arc::new(RwLock::new(HashMap::new())),
+			default_data_dir,
+			enable_networking,
+			session_state,
+		}
 	}
 
 	/// Get or start the default instance
@@ -32,9 +40,18 @@ impl CoreInstanceManager {
 		}
 
 		let data_dir = data_dir.unwrap_or_else(|| self.default_data_dir.clone());
-		let core = Arc::new(Core::new_with_config(data_dir).await?);
-		self.instances.write().await.insert(name, core.clone());
-		Ok(core)
+		let core = Arc::new(Core::new_with_config(data_dir, self.session_state.clone()).await?);
+		if self.enable_networking {
+			let core_with_networking = Core::init_networking_shared(core.clone(), self.session_state.clone()).await?;
+			self.instances
+				.write()
+				.await
+				.insert(name, core_with_networking.clone());
+			Ok(core_with_networking)
+		} else {
+			self.instances.write().await.insert(name, core.clone());
+			Ok(core)
+		}
 	}
 
 	/// Shutdown a named instance

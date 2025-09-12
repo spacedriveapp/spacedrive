@@ -43,6 +43,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info};
+use crate::infra::daemon::state::SessionStateService;
 
 /// Pending pairing request information
 #[derive(Debug, Clone)]
@@ -140,14 +141,10 @@ pub struct Core {
 }
 
 impl Core {
-	/// Initialize a new Core instance with default data directory
-	pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-		let data_dir = crate::config::default_data_dir()?;
-		Self::new_with_config(data_dir).await
-	}
+	
 
 	/// Initialize a new Core instance with custom data directory
-	pub async fn new_with_config(data_dir: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+	pub async fn new_with_config(data_dir: PathBuf, session_state: Arc<SessionStateService>) -> Result<Self, Box<dyn std::error::Error>> {
 		info!("Initializing Spacedrive Core at {:?}", data_dir);
 
 		// 1. Load or create app config
@@ -195,6 +192,7 @@ impl Core {
 			libraries.clone(),
 			volumes.clone(),
 			library_key_manager.clone(),
+			session_state.clone(), // Pass session_state here
 		);
 
 		// Set job logging configuration if enabled
@@ -398,12 +396,13 @@ impl Core {
 	/// Initialize networking from Arc<Core> - for daemon use
 	pub async fn init_networking_shared(
 		core: Arc<Core>,
+        session_state: Arc<SessionStateService>,
 	) -> Result<Arc<Core>, Box<dyn std::error::Error>> {
 		info!("Initializing networking for shared core...");
 
 		// Create a new Core with networking enabled
 		let mut new_core =
-			Core::new_with_config(core.config().read().await.data_dir.clone()).await?;
+			Core::new_with_config(core.config().read().await.data_dir.clone(), session_state).await?;
 
 		// Initialize networking on the new core
 		new_core.init_networking().await?;

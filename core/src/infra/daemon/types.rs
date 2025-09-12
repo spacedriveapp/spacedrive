@@ -6,6 +6,7 @@ pub enum DaemonRequest {
 	Ping,
 	Action { method: String, payload: Vec<u8> },
 	Query { method: String, payload: Vec<u8> },
+	Shutdown,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
