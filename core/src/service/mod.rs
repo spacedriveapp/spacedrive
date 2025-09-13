@@ -62,7 +62,7 @@ impl Services {
 		let device = Arc::new(DeviceService::new(context.clone()));
 		let sidecar_manager = Arc::new(SidecarManager::new(context.clone()));
 		let library_key_manager = context.library_key_manager.clone();
-		let session_state = context.session_state.clone();
+		let session_state = context.session.clone();
 		Self {
 			location_watcher,
 			file_sharing,

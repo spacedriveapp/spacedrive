@@ -56,7 +56,7 @@ impl ActionManager {
 		// An action created with a given library will always execute on that library
 		// Actions and queries should not hold their own library id state, rather receive it as context
 		let effective_library_id = library_id
-			.or(self.context.session_state.get().await.current_library_id)
+			.or(self.context.session.get().await.current_library_id)
 			.ok_or(ActionError::LibraryNotFound(library_id.unwrap_or_default()))?;
 
 		// Get and validate library exists

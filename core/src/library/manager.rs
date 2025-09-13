@@ -51,7 +51,7 @@ pub struct LibraryManager {
 	event_bus: Arc<EventBus>,
 
 	/// Dependencies needed from core
-	session_state: Arc<SessionStateService>,
+	session: Arc<SessionStateService>,
 	volume_manager: Arc<VolumeManager>,
 	device_manager: Arc<DeviceManager>,
 }
@@ -60,7 +60,7 @@ impl LibraryManager {
 	/// Create a new library manager
 	pub fn new(
 		event_bus: Arc<EventBus>,
-		session_state: Arc<SessionStateService>,
+		session: Arc<SessionStateService>,
 		volume_manager: Arc<VolumeManager>,
 		device_manager: Arc<DeviceManager>,
 	) -> Self {
@@ -76,7 +76,7 @@ impl LibraryManager {
 			libraries: Arc::new(RwLock::new(HashMap::new())),
 			search_paths,
 			event_bus,
-			session_state,
+			session,
 			volume_manager,
 			device_manager,
 		}
@@ -86,7 +86,7 @@ impl LibraryManager {
 	pub fn new_with_dir(
 		libraries_dir: PathBuf,
 		event_bus: Arc<EventBus>,
-		session_state: Arc<SessionStateService>,
+		session: Arc<SessionStateService>,
 		volume_manager: Arc<VolumeManager>,
 		device_manager: Arc<DeviceManager>,
 	) -> Self {
@@ -96,7 +96,7 @@ impl LibraryManager {
 			libraries: Arc::new(RwLock::new(HashMap::new())),
 			search_paths,
 			event_bus,
-			session_state,
+			session,
 			volume_manager,
 			device_manager,
 		}
@@ -289,7 +289,7 @@ impl LibraryManager {
 	/// Get the active library
 	/// This is the library that the session state is set to
 	pub async fn get_active_library(&self) -> Option<Arc<Library>> {
-		let session = self.session_state.get().await;
+		let session = self.session.get().await;
 		self.get_open_libraries()
 			.await
 			.into_iter()

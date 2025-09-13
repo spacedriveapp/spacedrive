@@ -22,7 +22,7 @@ pub struct CoreContext {
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
-	pub session_state: Arc<SessionStateService>,
+	pub session: Arc<SessionStateService>,
 }
 
 impl CoreContext {
@@ -33,7 +33,7 @@ impl CoreContext {
 		library_manager: Option<Arc<LibraryManager>>,
 		volume_manager: Arc<VolumeManager>,
 		library_key_manager: Arc<LibraryKeyManager>,
-		session_state: Arc<SessionStateService>,
+		session: Arc<SessionStateService>,
 	) -> Self {
 		Self {
 			events,
@@ -45,7 +45,7 @@ impl CoreContext {
 			networking: Arc::new(RwLock::new(None)),
 			job_logging_config: None,
 			job_logs_dir: None,
-			session_state,
+			session,
 		}
 	}
 

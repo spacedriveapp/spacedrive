@@ -128,7 +128,7 @@ where
 			.0;
 		let action = A::from_input(input)?;
 		let manager = crate::infra::action::manager::ActionManager::new(core.context.clone());
-		let session = core.context.session_state.get().await;
+		let session = core.context.session.get().await;
 		let library_id = session.current_library_id.ok_or("No library selected")?;
 		let out = manager
 			.dispatch_library(Some(library_id), action)

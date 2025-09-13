@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct JobInfoQuery {
-	pub library_id: uuid::Uuid,
 	pub job_id: uuid::Uuid,
 }
 
@@ -13,10 +12,16 @@ impl Query for JobInfoQuery {
 	type Output = Option<JobInfoOutput>;
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+		// Get current library ID from session
+		let session_state = context.session.get().await;
+		let library_id = session_state
+			.current_library_id
+			.ok_or_else(|| anyhow::anyhow!("No active library selected"))?;
+
 		let library = context
 			.libraries()
 			.await
-			.get_library(self.library_id)
+			.get_library(library_id)
 			.await
 			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
 		let info = library.jobs().get_job_info(self.job_id).await?;

@@ -198,7 +198,8 @@ impl JobManager {
 		// Get library from context using stored library_id
 		let library = self
 			.context
-			.library_manager
+			.libraries()
+			.await
 			.get_library(self.library_id)
 			.await
 			.ok_or_else(|| {
@@ -454,7 +455,8 @@ impl JobManager {
 		// Get library from context using stored library_id
 		let library = self
 			.context
-			.library_manager
+			.libraries()
+			.await
 			.get_library(self.library_id)
 			.await
 			.ok_or_else(|| {
@@ -928,7 +930,8 @@ impl JobManager {
 						// Get library from context using stored library_id
 						let library = self
 							.context
-							.library_manager
+							.libraries()
+							.await
 							.get_library(self.library_id)
 							.await
 							.ok_or_else(|| {
@@ -1198,7 +1201,8 @@ impl JobManager {
 			// Get library from context
 			let library = self
 				.context
-				.library_manager
+				.libraries()
+				.await
 				.get_library(self.library_id)
 				.await
 				.ok_or_else(|| {

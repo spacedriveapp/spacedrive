@@ -13,7 +13,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationRemoveInput {
-	pub library_id: Uuid,
 	pub location_id: Uuid,
 }
 

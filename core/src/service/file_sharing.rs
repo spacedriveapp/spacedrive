@@ -515,7 +515,7 @@ mod tests {
 		let context = Arc::new(CoreContext::new(
 			events,
 			device_manager,
-			library_manager,
+			Some(library_manager),
 			volume_manager,
 			library_key_manager,
 			session_state,
