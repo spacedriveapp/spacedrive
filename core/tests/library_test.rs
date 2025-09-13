@@ -65,7 +65,8 @@ async fn test_library_lifecycle() {
 	assert!(core.libraries.close_library(lib_id).await.is_err());
 
 	// Re-open library
-	let reopened = core.libraries.open_library(&lib_path).await.unwrap();
+	let device_id = core.context.device_manager.device_id().unwrap();
+	let reopened = core.libraries.open_library(&lib_path, device_id).await.unwrap();
 	assert_eq!(reopened.id(), lib_id);
 	assert_eq!(reopened.name().await, "Test Library");
 
@@ -92,7 +93,8 @@ async fn test_library_locking() {
 	let lib_path = library.path().to_path_buf();
 
 	// Try to open same library again - should fail
-	let result = core.libraries.open_library(&lib_path).await;
+	let device_id = core.context.device_manager.device_id().unwrap();
+	let result = core.libraries.open_library(&lib_path, device_id).await;
 	assert!(result.is_err());
 
 	// Close library
@@ -103,7 +105,8 @@ async fn test_library_locking() {
 	drop(library);
 
 	// Now should be able to open
-	let reopened = core.libraries.open_library(&lib_path).await.unwrap();
+	let device_id = core.context.device_manager.device_id().unwrap();
+	let reopened = core.libraries.open_library(&lib_path, device_id).await.unwrap();
 	assert_eq!(reopened.name().await, "Lock Test");
 }
 

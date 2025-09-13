@@ -158,7 +158,6 @@ impl FileSharingService {
 		// Get the current library to access its job manager
 		let library = self
 			.context
-			.library_manager
 			.get_primary_library()
 			.await
 			.ok_or(SharingError::JobError(
@@ -193,7 +192,6 @@ impl FileSharingService {
 	) -> Result<Vec<TransferId>, SharingError> {
 		let library = self
 			.context
-			.library_manager
 			.get_primary_library()
 			.await
 			.ok_or(SharingError::JobError(
@@ -317,15 +315,14 @@ impl FileSharingService {
 	) -> Result<TransferStatus, SharingError> {
 		match transfer_id {
 			TransferId::JobId { job_id, library_id } => {
-				let library = self
-					.context
-					.library_manager
-					.get_library(*library_id)
-					.await
-					.ok_or(SharingError::JobError(format!(
-						"Library {} not found",
-						library_id
-					)))?;
+				let library =
+					self.context
+						.get_library(*library_id)
+						.await
+						.ok_or(SharingError::JobError(format!(
+							"Library {} not found",
+							library_id
+						)))?;
 
 				let job_manager = library.jobs();
 
@@ -383,15 +380,14 @@ impl FileSharingService {
 	pub async fn cancel_transfer(&self, transfer_id: &TransferId) -> Result<(), SharingError> {
 		match transfer_id {
 			TransferId::JobId { job_id, library_id } => {
-				let library = self
-					.context
-					.library_manager
-					.get_library(*library_id)
-					.await
-					.ok_or(SharingError::JobError(format!(
-						"Library {} not found",
-						library_id
-					)))?;
+				let library =
+					self.context
+						.get_library(*library_id)
+						.await
+						.ok_or(SharingError::JobError(format!(
+							"Library {} not found",
+							library_id
+						)))?;
 
 				let job_manager = library.jobs();
 
@@ -414,7 +410,6 @@ impl FileSharingService {
 	pub async fn get_active_transfers(&self) -> Result<Vec<TransferStatus>, SharingError> {
 		let library = self
 			.context
-			.library_manager
 			.get_primary_library()
 			.await
 			.ok_or(SharingError::JobError(
@@ -495,7 +490,7 @@ mod tests {
 	use super::*;
 	use crate::{
 		crypto::library_key_manager::LibraryKeyManager, device::DeviceManager,
-		infra::event::EventBus, library::LibraryManager,
+		infra::event::EventBus, library::LibraryManager, service::session::SessionStateService,
 	};
 	use tempfile::tempdir;
 
@@ -503,22 +498,27 @@ mod tests {
 	async fn test_file_sharing_service_creation() {
 		let events = Arc::new(EventBus::default());
 		let device_manager = Arc::new(DeviceManager::init().unwrap());
-		let library_manager = Arc::new(LibraryManager::new_with_dir(
-			std::env::temp_dir().join("test_libraries"),
-			events.clone(),
-		));
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
 		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
+		let session_state = Arc::new(SessionStateService::new(std::env::temp_dir()));
+		let library_manager = Arc::new(LibraryManager::new_with_dir(
+			std::env::temp_dir().join("test_libraries"),
+			events.clone(),
+			session_state.clone(),
+			volume_manager.clone(),
+			device_manager.clone(),
+		));
 		let context = Arc::new(CoreContext::new(
 			events,
 			device_manager,
 			library_manager,
 			volume_manager,
 			library_key_manager,
+			session_state,
 		));
 
 		let _file_sharing = FileSharingService::new(context);
@@ -537,22 +537,27 @@ mod tests {
 	async fn test_create_file_metadata() {
 		let events = Arc::new(EventBus::default());
 		let device_manager = Arc::new(DeviceManager::init().unwrap());
-		let library_manager = Arc::new(LibraryManager::new_with_dir(
-			std::env::temp_dir().join("test_libraries"),
-			events.clone(),
-		));
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
 		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
+		let session_state = Arc::new(SessionStateService::new(std::env::temp_dir()));
+		let library_manager = Arc::new(LibraryManager::new_with_dir(
+			std::env::temp_dir().join("test_libraries"),
+			events.clone(),
+			session_state.clone(),
+			volume_manager.clone(),
+			device_manager.clone(),
+		));
 		let context = Arc::new(CoreContext::new(
 			events,
 			device_manager,
 			library_manager,
 			volume_manager,
 			library_key_manager,
+			session_state,
 		));
 		let file_sharing = FileSharingService::new(context);
 

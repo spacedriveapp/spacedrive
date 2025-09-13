@@ -21,7 +21,7 @@ pub type QueryHandlerFn = fn(
 /// Handler function signature for actions.
 pub type ActionHandlerFn = fn(
 	Arc<crate::Core>,
-	crate::infra::daemon::state::SessionState,
+	crate::service::session::SessionState,
 	Vec<u8>,
 ) -> std::pin::Pin<
 	Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>,
@@ -111,8 +111,8 @@ where
 /// Generic library action handler (decode A::Input -> A::from_input -> dispatch)
 pub fn handle_library_action<A>(
 	core: Arc<crate::Core>,
-	// TODO: Move session state to core, shouldn't be in the daemon
-	session: crate::infra::daemon::state::SessionState,
+	// this isn't used, but is required by the interface, maybe fix?
+	session: crate::service::session::SessionState,
 	payload: Vec<u8>,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
 where
@@ -128,9 +128,10 @@ where
 			.0;
 		let action = A::from_input(input)?;
 		let manager = crate::infra::action::manager::ActionManager::new(core.context.clone());
+		let session = core.context.session_state.get().await;
 		let library_id = session.current_library_id.ok_or("No library selected")?;
 		let out = manager
-			.dispatch_library(library_id, action)
+			.dispatch_library(Some(library_id), action)
 			.await
 			.map_err(|e| e.to_string())?;
 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
@@ -140,7 +141,7 @@ where
 /// Generic core action handler (decode A::Input -> A::from_input -> dispatch)
 pub fn handle_core_action<A>(
 	core: Arc<crate::Core>,
-	session: crate::infra::daemon::state::SessionState,
+	session: crate::service::session::SessionState,
 	payload: Vec<u8>,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
 where

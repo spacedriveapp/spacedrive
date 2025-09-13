@@ -14,18 +14,23 @@ impl Query for JobListQuery {
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
 		let library = context
-			.library_manager
+			.libraries()
+			.await
 			.get_library(self.library_id)
 			.await
 			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
 		let jobs = library.jobs().list_jobs(self.status).await?;
 		let items = jobs
 			.into_iter()
-			.map(|j| JobListItem { id: j.id, name: j.name, status: j.status, progress: j.progress })
+			.map(|j| JobListItem {
+				id: j.id,
+				name: j.name,
+				status: j.status,
+				progress: j.progress,
+			})
 			.collect();
 		Ok(JobListOutput { jobs: items })
 	}
 }
 
 crate::register_query!(JobListQuery, "jobs.list");
-

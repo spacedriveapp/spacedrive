@@ -8,11 +8,14 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
+	device::DeviceManager,
 	infra::{
 		db::{entities, Database},
 		event::{Event, EventBus},
 		job::manager::JobManager,
 	},
+	service::session::SessionStateService,
+	volume::VolumeManager,
 };
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
@@ -46,11 +49,21 @@ pub struct LibraryManager {
 
 	/// Event bus for library events
 	event_bus: Arc<EventBus>,
+
+	/// Dependencies needed from core
+	session_state: Arc<SessionStateService>,
+	volume_manager: Arc<VolumeManager>,
+	device_manager: Arc<DeviceManager>,
 }
 
 impl LibraryManager {
 	/// Create a new library manager
-	pub fn new(event_bus: Arc<EventBus>) -> Self {
+	pub fn new(
+		event_bus: Arc<EventBus>,
+		session_state: Arc<SessionStateService>,
+		volume_manager: Arc<VolumeManager>,
+		device_manager: Arc<DeviceManager>,
+	) -> Self {
 		// Default search paths
 		let mut search_paths = vec![];
 
@@ -63,40 +76,30 @@ impl LibraryManager {
 			libraries: Arc::new(RwLock::new(HashMap::new())),
 			search_paths,
 			event_bus,
+			session_state,
+			volume_manager,
+			device_manager,
 		}
 	}
 
 	/// Create a new library manager with a specific libraries directory
-	pub fn new_with_dir(libraries_dir: PathBuf, event_bus: Arc<EventBus>) -> Self {
+	pub fn new_with_dir(
+		libraries_dir: PathBuf,
+		event_bus: Arc<EventBus>,
+		session_state: Arc<SessionStateService>,
+		volume_manager: Arc<VolumeManager>,
+		device_manager: Arc<DeviceManager>,
+	) -> Self {
 		let search_paths = vec![libraries_dir];
 
 		Self {
 			libraries: Arc::new(RwLock::new(HashMap::new())),
 			search_paths,
 			event_bus,
+			session_state,
+			volume_manager,
+			device_manager,
 		}
-	}
-
-	/// Load all discovered libraries with context for job manager initialization
-	pub async fn load_all_with_context(&self, context: Arc<CoreContext>) -> Result<usize> {
-		let discovered = self.scan_for_libraries().await?;
-		let mut loaded_count = 0;
-
-		for disc in discovered {
-			if !disc.is_locked {
-				match self
-					.open_library_with_context(&disc.path, context.clone())
-					.await
-				{
-					Ok(_) => loaded_count += 1,
-					Err(e) => {
-						warn!("Failed to load library at {:?}: {}", disc.path, e);
-					}
-				}
-			}
-		}
-
-		Ok(loaded_count)
 	}
 
 	/// Add a search path for libraries
@@ -147,10 +150,8 @@ impl LibraryManager {
 		// Initialize library
 		self.initialize_library(&library_path, name).await?;
 
-		// Open the newly created library with context
-		let library = self
-			.open_library_with_context(&library_path, context.clone())
-			.await?;
+		// Open the newly created library
+		let library = self.open_library(&library_path, context.clone()).await?;
 
 		// Emit event
 		self.event_bus.emit(Event::LibraryCreated {
@@ -163,47 +164,18 @@ impl LibraryManager {
 	}
 
 	/// Open a library from a path
-	pub async fn open_library(&self, path: impl AsRef<Path>) -> Result<Arc<Library>> {
+	pub async fn open_library(
+		&self,
+		path: impl AsRef<Path>,
+		context: Arc<CoreContext>,
+	) -> Result<Arc<Library>> {
 		let path = path.as_ref();
+		info!("Opening library at {:?}", path);
 
 		// Validate it's a library directory
 		if !is_library_directory(path) {
 			return Err(LibraryError::NotALibrary(path.to_path_buf()));
 		}
-
-		// Acquire lock
-		let lock = LibraryLock::acquire(path)?;
-
-		// Load configuration
-		let config_path = path.join("library.json");
-		let config_data = tokio::fs::read_to_string(&config_path).await?;
-		let config: LibraryConfig = serde_json::from_str(&config_data)?;
-
-		// Check if already open
-		{
-			let libraries = self.libraries.read().await;
-			if libraries.contains_key(&config.id) {
-				return Err(LibraryError::AlreadyOpen(config.id));
-			}
-		}
-
-		// Open database
-		let db_path = path.join("database.db");
-		let db = Arc::new(Database::open(&db_path).await?);
-
-		// This method now requires context - redirect to open_library_with_context
-		return Err(LibraryError::Other(
-			"Context required for library creation".to_string(),
-		));
-	}
-
-	/// Open a library with CoreContext for job manager initialization
-	pub async fn open_library_with_context(
-		&self,
-		path: &Path,
-		context: Arc<CoreContext>,
-	) -> Result<Arc<Library>> {
-		info!("Opening library at {:?}", path);
 
 		// Acquire lock
 		let lock = LibraryLock::acquire(path)?;
@@ -215,6 +187,14 @@ impl LibraryManager {
 		// Ensure library ID is set
 		if config.id.is_nil() {
 			return Err(LibraryError::Other("Library config has nil ID".to_string()));
+		}
+
+		// Check if already open
+		{
+			let libraries = self.libraries.read().await;
+			if libraries.contains_key(&config.id) {
+				return Err(LibraryError::AlreadyOpen(config.id));
+			}
 		}
 
 		// Open database
@@ -236,7 +216,7 @@ impl LibraryManager {
 		});
 
 		// Ensure device is registered in this library
-		if let Err(e) = self.ensure_device_registered(&library, &context).await {
+		if let Err(e) = self.ensure_device_registered(&library).await {
 			warn!("Failed to register device in library {}: {}", config.id, e);
 		}
 
@@ -254,11 +234,7 @@ impl LibraryManager {
 			"Auto-tracking user-relevant volumes for library {}",
 			config.name
 		);
-		if let Err(e) = context
-			.volume_manager
-			.auto_track_user_volumes(&library)
-			.await
-		{
+		if let Err(e) = self.volume_manager.auto_track_user_volumes(&library).await {
 			warn!("Failed to auto-track user-relevant volumes: {}", e);
 		}
 
@@ -310,9 +286,14 @@ impl LibraryManager {
 		self.libraries.read().await.values().cloned().collect()
 	}
 
-	/// Get the primary library (first available library)
-	pub async fn get_primary_library(&self) -> Option<Arc<Library>> {
-		self.get_open_libraries().await.into_iter().next()
+	/// Get the active library
+	/// This is the library that the session state is set to
+	pub async fn get_active_library(&self) -> Option<Arc<Library>> {
+		let session = self.session_state.get().await;
+		self.get_open_libraries()
+			.await
+			.into_iter()
+			.find(|lib| Some(lib.id()) == session.current_library_id)
 	}
 
 	/// List all open libraries
@@ -321,7 +302,7 @@ impl LibraryManager {
 	}
 
 	/// Load all libraries from the search paths
-	pub async fn load_all(&self) -> Result<usize> {
+	pub async fn load_all(&self, context: Arc<CoreContext>) -> Result<usize> {
 		let mut loaded_count = 0;
 
 		for search_path in &self.search_paths.clone() {
@@ -336,7 +317,7 @@ impl LibraryManager {
 						let path = entry.path();
 
 						if is_library_directory(&path) {
-							match self.open_library(&path).await {
+							match self.open_library(&path, context.clone()).await {
 								Ok(_) => {
 									loaded_count += 1;
 									info!("Auto-loaded library from {:?}", path);
@@ -469,13 +450,9 @@ impl LibraryManager {
 	}
 
 	/// Ensure the current device is registered in the library
-	async fn ensure_device_registered(
-		&self,
-		library: &Arc<Library>,
-		context: &Arc<CoreContext>,
-	) -> Result<()> {
+	async fn ensure_device_registered(&self, library: &Arc<Library>) -> Result<()> {
 		let db = library.db();
-		let device = context
+		let device = self
 			.device_manager
 			.to_device()
 			.map_err(|e| LibraryError::Other(format!("Failed to get device info: {}", e)))?;

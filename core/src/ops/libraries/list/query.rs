@@ -39,7 +39,7 @@ impl Query for ListLibrariesQuery {
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
 		// Get all open libraries from the library manager
-		let libraries = context.library_manager.list().await;
+		let libraries = context.libraries().await.list().await;
 		let mut result = Vec::new();
 
 		for library in libraries {

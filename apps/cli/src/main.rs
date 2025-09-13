@@ -69,7 +69,6 @@ enum Commands {
 	Job(JobCmd),
 }
 
-
 #[tokio::main]
 async fn main() -> Result<()> {
 	let cli = Cli::parse();
@@ -83,7 +82,9 @@ async fn main() -> Result<()> {
 	}
 
 	let socket_path = if let Some(inst) = &instance {
-		data_dir.join("daemon").join(format!("daemon-{}.sock", inst))
+		data_dir
+			.join("daemon")
+			.join(format!("daemon-{}.sock", inst))
 	} else {
 		data_dir.join("daemon/daemon.sock")
 	};
@@ -91,12 +92,65 @@ async fn main() -> Result<()> {
 	match cli.command {
 		Commands::Start { enable_networking } => {
 			println!("Starting daemon...");
-			sd_core::infra::daemon::bootstrap::start_default_server(socket_path, data_dir, enable_networking).await.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+			// Check if daemon is already running
+			let client = CoreClient::new(socket_path.clone());
+			match client
+				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
+				.await
+			{
+				Ok(sd_core::infra::daemon::types::DaemonResponse::Pong) => {
+					println!("Daemon is already running");
+					return Ok(());
+				}
+				_ => {} // Daemon not running, continue
+			}
+
+			// Start daemon in background using std::process::Command
+			let current_exe = std::env::current_exe()?;
+			let daemon_path = current_exe.parent().unwrap().join("daemon");
+			let mut command = std::process::Command::new(daemon_path);
+
+			// Pass networking flag if enabled (if daemon supports it)
+			if enable_networking {
+				println!("Note: Networking flag passed but daemon may not support it yet");
+			}
+
+			// Set working directory to current directory
+			command.current_dir(std::env::current_dir()?);
+
+			match command.spawn() {
+				Ok(child) => {
+					println!("Daemon started (PID: {})", child.id());
+
+					// Wait a moment for daemon to start up
+					tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+					// Verify daemon is responding
+					match client
+						.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
+						.await
+					{
+						Ok(sd_core::infra::daemon::types::DaemonResponse::Pong) => {
+							println!("Daemon is ready and responding");
+						}
+						_ => {
+							println!("Warning: Daemon may not be fully initialized yet");
+						}
+					}
+				}
+				Err(e) => {
+					return Err(anyhow::anyhow!("Failed to start daemon: {}", e));
+				}
+			}
 		}
 		Commands::Stop => {
 			println!("Stopping daemon...");
-            let core = CoreClient::new(socket_path.clone());
-            let _ = core.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown).await.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+			let core = CoreClient::new(socket_path.clone());
+			let _ = core
+				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
+				.await
+				.map_err(|e| anyhow::anyhow!(e.to_string()))?;
 			println!("Daemon stopped.");
 		}
 		_ => {
@@ -107,7 +161,12 @@ async fn main() -> Result<()> {
 	Ok(())
 }
 
-async fn run_client_command(command: Commands, format: OutputFormat, data_dir: std::path::PathBuf, socket_path: std::path::PathBuf) -> Result<()> {
+async fn run_client_command(
+	command: Commands,
+	format: OutputFormat,
+	data_dir: std::path::PathBuf,
+	socket_path: std::path::PathBuf,
+) -> Result<()> {
 	let core = CoreClient::new(socket_path.clone());
 	let ctx = Context::new(core, format, data_dir, socket_path);
 	match command {

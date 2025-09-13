@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 
 use crate::infra::daemon::client::DaemonClient;
-use crate::infra::daemon::types::{DaemonRequest, DaemonResponse};
+use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse};
 
 pub trait Wire {
 	const METHOD: &'static str;
@@ -38,7 +38,7 @@ impl CoreClient {
 		match resp {
 			Ok(r) => match r {
 				DaemonResponse::Ok(bytes) => Ok(bytes),
-				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
+				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e.to_string())),
 				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
 			},
 			Err(e) => Err(anyhow::anyhow!(e.to_string())),
@@ -61,7 +61,7 @@ impl CoreClient {
 		match resp {
 			Ok(r) => match r {
 				DaemonResponse::Ok(bytes) => Ok(decode_from_slice(&bytes, standard())?.0),
-				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e)),
+				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e.to_string())),
 				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
 			},
 			Err(e) => Err(anyhow::anyhow!(e.to_string())),
@@ -69,6 +69,9 @@ impl CoreClient {
 	}
 
 	pub async fn send_raw_request(&self, req: &DaemonRequest) -> Result<DaemonResponse> {
-		self.daemon.send(req).await.map_err(|e| anyhow::anyhow!(e.to_string()))
+		self.daemon
+			.send(req)
+			.await
+			.map_err(|e| anyhow::anyhow!(e.to_string()))
 	}
 }

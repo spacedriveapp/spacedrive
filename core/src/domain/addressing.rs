@@ -56,7 +56,7 @@ impl SdPath {
 	/// Create an SdPath for a local file on this device
 	pub fn local(path: impl Into<PathBuf>) -> Self {
 		Self::Physical {
-			device_id: crate::common::utils::get_current_device_id(),
+			device_id: crate::device::get_current_device_id(),
 			path: path.into(),
 		}
 	}
@@ -65,7 +65,7 @@ impl SdPath {
 	pub fn is_local(&self) -> bool {
 		match self {
 			Self::Physical { device_id, .. } => {
-				*device_id == crate::common::utils::get_current_device_id()
+				*device_id == crate::device::get_current_device_id()
 			}
 			Self::Content { .. } => false, // Content paths are abstract, not inherently local
 		}
@@ -75,7 +75,7 @@ impl SdPath {
 	pub fn as_local_path(&self) -> Option<&Path> {
 		match self {
 			Self::Physical { device_id, path } => {
-				if *device_id == crate::common::utils::get_current_device_id() {
+				if *device_id == crate::device::get_current_device_id() {
 					Some(path)
 				} else {
 					None
@@ -89,7 +89,7 @@ impl SdPath {
 	pub fn display(&self) -> String {
 		match self {
 			Self::Physical { device_id, path } => {
-				if *device_id == crate::common::utils::get_current_device_id() {
+				if *device_id == crate::device::get_current_device_id() {
 					path.display().to_string()
 				} else {
 					format!("sd://{}/{}", device_id, path.display())

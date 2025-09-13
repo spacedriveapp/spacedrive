@@ -14,7 +14,8 @@ impl Query for JobInfoQuery {
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
 		let library = context
-			.library_manager
+			.libraries()
+			.await
 			.get_library(self.library_id)
 			.await
 			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
@@ -32,4 +33,3 @@ impl Query for JobInfoQuery {
 }
 
 crate::register_query!(JobInfoQuery, "jobs.info");
-

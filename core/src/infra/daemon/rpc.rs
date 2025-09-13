@@ -6,29 +6,22 @@ use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 
 use crate::infra::daemon::instance::CoreInstanceManager;
-use crate::infra::daemon::state::SessionStateService;
 use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse};
 
 /// Minimal JSON-over-UDS RPC server
 pub struct RpcServer {
 	socket_path: PathBuf,
 	instances: Arc<CoreInstanceManager>,
-	session: Arc<SessionStateService>,
 	shutdown_tx: mpsc::Sender<()>,
 	shutdown_rx: mpsc::Receiver<()>,
 }
 
 impl RpcServer {
-	pub fn new(
-		socket_path: PathBuf,
-		instances: Arc<CoreInstanceManager>,
-		session: Arc<SessionStateService>,
-	) -> Self {
+	pub fn new(socket_path: PathBuf, instances: Arc<CoreInstanceManager>) -> Self {
 		let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
 		Self {
 			socket_path,
 			instances,
-			session,
 			shutdown_tx,
 			shutdown_rx,
 		}
@@ -48,13 +41,12 @@ impl RpcServer {
 					match result {
 						Ok((stream, _addr)) => {
 							let instances = self.instances.clone();
-							let session = self.session.clone();
 							let shutdown_tx = self.shutdown_tx.clone();
 
 							// Spawn task for concurrent request handling
 							tokio::spawn(async move {
 								// Convert errors to strings to ensure Send
-								if let Err(e) = Self::handle_connection(stream, instances, session, shutdown_tx).await {
+								if let Err(e) = Self::handle_connection(stream, instances, shutdown_tx).await {
 									eprintln!("Connection error: {}", e);
 								}
 							});
@@ -81,7 +73,6 @@ impl RpcServer {
 	async fn handle_connection(
 		mut stream: tokio::net::UnixStream,
 		instances: Arc<CoreInstanceManager>,
-		session: Arc<SessionStateService>,
 		shutdown_tx: mpsc::Sender<()>,
 	) -> Result<(), String> {
 		// Request size limit (10MB)
@@ -125,7 +116,7 @@ impl RpcServer {
 
 			// Try to parse JSON - if successful, we have the complete request
 			if let Ok(req) = serde_json::from_slice::<DaemonRequest>(&buf) {
-				let resp = Self::process_request(req, &instances, &session, &shutdown_tx).await;
+				let resp = Self::process_request(req, &instances, &shutdown_tx).await;
 
 				// Send response
 				let response_bytes = serde_json::to_string(&resp)
@@ -143,28 +134,21 @@ impl RpcServer {
 	async fn process_request(
 		request: DaemonRequest,
 		instances: &Arc<CoreInstanceManager>,
-		session: &Arc<SessionStateService>,
 		shutdown_tx: &mpsc::Sender<()>,
 	) -> DaemonResponse {
 		match request {
 			DaemonRequest::Ping => DaemonResponse::Pong,
 
 			DaemonRequest::Action { method, payload } => match instances.get_default().await {
-				Ok(core) => {
-					let session_snapshot = session.get().await;
-					match core
-						.execute_action_by_method(&method, payload, session_snapshot)
-						.await
-					{
-						Ok(out) => DaemonResponse::Ok(out),
-						Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
-					}
-				}
+				Ok(core) => match core.execute_operation_by_method(&method, payload).await {
+					Ok(out) => DaemonResponse::Ok(out),
+					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
+				},
 				Err(e) => DaemonResponse::Error(DaemonError::CoreUnavailable(e)),
 			},
 
 			DaemonRequest::Query { method, payload } => match instances.get_default().await {
-				Ok(core) => match core.execute_query_by_method(&method, payload).await {
+				Ok(core) => match core.execute_operation_by_method(&method, payload).await {
 					Ok(out) => DaemonResponse::Ok(out),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
 				},

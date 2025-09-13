@@ -27,7 +27,7 @@ impl Scenario for CoreIndexingScenario {
         use sd_core_new::infrastructure::actions::handler::ActionHandler;
         let core = &boot.core;
         let context = core.context.clone();
-        let library = match core.libraries.get_primary_library().await {
+        let library = match core.libraries.get_active_library().await {
             Some(lib) => lib,
             None => core.libraries.create_library("Benchmarks", None, context.clone()).await?,
         };

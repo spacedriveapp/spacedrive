@@ -12,7 +12,7 @@ impl Query for CoreStatusQuery {
 	type Output = CoreStatus;
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
-		let libs = context.library_manager.list().await;
+		let libs = context.libraries().await.list().await;
 		Ok(CoreStatus {
 			version: env!("CARGO_PKG_VERSION").to_string(),
 			library_count: libs.len(),

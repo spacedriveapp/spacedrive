@@ -2,7 +2,6 @@
 
 use super::error::{ActionError, ActionResult};
 use crate::{
-	common::utils::get_current_device_id,
 	context::CoreContext,
 	infra::db::entities::{audit_log, AuditLog, AuditLogActive},
 };
@@ -28,17 +27,17 @@ impl ActionManager {
 		&self,
 		action: A,
 	) -> Result<A::Output, super::error::ActionError> {
-		// 1. Validate the action
+		// Validate the action
 		action.validate(self.context.clone()).await?;
 
-		// 2. Log action execution (capture action_kind before move)
+		// Log action execution (capture action_kind before move)
 		let action_kind = action.action_kind();
 		tracing::info!("Executing core action: {}", action_kind);
 
-		// 3. Execute the action directly
+		// Execute the action directly
 		let result = action.execute(self.context.clone()).await;
 
-		// 4. Log result
+		// Log result
 		match &result {
 			Ok(_) => tracing::info!("Core action {} completed successfully", action_kind),
 			Err(e) => tracing::error!("Core action {} failed: {}", action_kind, e),
@@ -50,35 +49,41 @@ impl ActionManager {
 	/// Dispatch a library-scoped action (library context pre-validated)
 	pub async fn dispatch_library<A: super::LibraryAction>(
 		&self,
-		library_id: Uuid,
+		library_id: Option<Uuid>,
 		action: A,
 	) -> Result<A::Output, super::error::ActionError> {
-		// 1. Get and validate library exists (eliminates boilerplate!)
+		// Either use the provided library_id, or the currently active one from core state
+		// An action created with a given library will always execute on that library
+		// Actions and queries should not hold their own library id state, rather receive it as context
+		let effective_library_id = library_id
+			.or(self.context.session_state.get().await.current_library_id)
+			.ok_or(ActionError::LibraryNotFound(library_id.unwrap_or_default()))?;
+
+		// Get and validate library exists
 		let library = self
 			.context
-			.library_manager
-			.get_library(library_id)
+			.get_library(effective_library_id)
 			.await
-			.ok_or_else(|| ActionError::LibraryNotFound(library_id))?;
+			.ok_or_else(|| ActionError::LibraryNotFound(effective_library_id))?;
 
-		// 2. Validate the action with library context
+		// Validate the action with library context
 		action.validate(&library, self.context.clone()).await?;
 
-		// 3. Create audit log entry (capture values before move)
+		// Create audit log entry (capture values before move)
 		let action_kind = action.action_kind();
 		let audit_entry = self
-			.create_action_audit_log(library_id, action_kind)
+			.create_action_audit_log(effective_library_id, action_kind)
 			.await?;
 
-		// 4. Execute the action with validated library
+		// Execute the action with validated library
 		let result = action.execute(library, self.context.clone()).await;
 
-		// 5. Finalize audit log with result
+		// Finalize audit log with result
 		let audit_result = match &result {
 			Ok(_) => Ok("Action completed successfully".to_string()),
 			Err(e) => Err(ActionError::Internal(e.to_string())),
 		};
-		self.finalize_audit_log(audit_entry, &audit_result, library_id)
+		self.finalize_audit_log(audit_entry, &audit_result, effective_library_id)
 			.await?;
 
 		result
@@ -93,10 +98,11 @@ impl ActionManager {
 		let library = self.get_library(library_id).await?;
 		let db = library.db().conn();
 
+		let device_id = crate::device::get_current_device_id();
 		let audit_entry = AuditLogActive {
 			uuid: Set(Uuid::new_v4().to_string()),
 			action_type: Set(action_kind.to_string()),
-			actor_device_id: Set(get_current_device_id().to_string()),
+			actor_device_id: Set(device_id.to_string()),
 			targets: Set("{}".to_string()), // TODO: Add targets_summary to ActionTrait
 			status: Set(audit_log::ActionStatus::InProgress),
 			job_id: Set(None),
@@ -108,16 +114,6 @@ impl ActionManager {
 		};
 
 		audit_entry.insert(db).await.map_err(ActionError::SeaOrm)
-	}
-
-	/// Create an initial audit log entry (legacy method - kept for compatibility)
-	async fn create_audit_log(
-		&self,
-		library_id: Uuid,
-		action_kind: &str,
-	) -> ActionResult<audit_log::Model> {
-		// Delegate to the new method
-		self.create_action_audit_log(library_id, action_kind).await
 	}
 
 	/// Finalize the audit log entry with the result
@@ -151,7 +147,6 @@ impl ActionManager {
 				active_model.status = Set(audit_log::ActionStatus::Completed);
 				active_model.completed_at = Set(Some(chrono::Utc::now()));
 				// Extract job_id if present in certain output types
-				// TODO: Update this when we have job-based actions
 				active_model.result_payload = Set(Some(output.clone()));
 			}
 			Err(error) => {
@@ -172,7 +167,6 @@ impl ActionManager {
 		library_id: Uuid,
 	) -> ActionResult<std::sync::Arc<crate::library::Library>> {
 		self.context
-			.library_manager
 			.get_library(library_id)
 			.await
 			.ok_or(ActionError::LibraryNotFound(library_id))
