@@ -75,6 +75,13 @@ async fn main() -> Result<()> {
 	let cli = Cli::parse();
 	let data_dir = cli.data_dir.unwrap_or(sd_core::config::default_data_dir()?);
 	let instance = cli.instance;
+
+	// Validate instance name for security
+	if let Some(ref inst) = instance {
+		sd_core::infra::daemon::instance::validate_instance_name(inst)
+			.map_err(|e| anyhow::anyhow!("Invalid instance name: {}", e))?;
+	}
+
 	let socket_path = if let Some(inst) = &instance {
 		data_dir.join("daemon").join(format!("daemon-{}.sock", inst))
 	} else {

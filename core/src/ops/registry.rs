@@ -11,15 +11,21 @@ use serde::de::DeserializeOwned;
 use std::{collections::HashMap, sync::Arc};
 
 /// Handler function signature for queries.
-pub type QueryHandlerFn =
-	fn(Arc<crate::Core>, Vec<u8>) -> LocalBoxFuture<'static, Result<Vec<u8>, String>>;
+pub type QueryHandlerFn = fn(
+	Arc<crate::Core>,
+	Vec<u8>,
+) -> std::pin::Pin<
+	Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>,
+>;
 
 /// Handler function signature for actions.
 pub type ActionHandlerFn = fn(
 	Arc<crate::Core>,
 	crate::infra::daemon::state::SessionState,
 	Vec<u8>,
-) -> LocalBoxFuture<'static, Result<Vec<u8>, String>>;
+) -> std::pin::Pin<
+	Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>,
+>;
 
 /// Registry entry for a query operation.
 pub struct QueryEntry {
@@ -86,21 +92,20 @@ mod tests {
 pub fn handle_query<Q>(
 	core: Arc<crate::Core>,
 	payload: Vec<u8>,
-) -> LocalBoxFuture<'static, Result<Vec<u8>, String>>
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
 where
 	Q: crate::cqrs::Query + serde::Serialize + DeserializeOwned + 'static,
 	Q::Output: serde::Serialize + 'static,
 {
 	use bincode::config::standard;
 	use bincode::serde::{decode_from_slice, encode_to_vec};
-	(async move {
+	Box::pin(async move {
 		let q: Q = decode_from_slice(&payload, standard())
 			.map_err(|e| e.to_string())?
 			.0;
 		let out: Q::Output = core.execute_query(q).await.map_err(|e| e.to_string())?;
 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
 	})
-	.boxed_local()
 }
 
 /// Generic library action handler (decode A::Input -> A::from_input -> dispatch)
@@ -109,7 +114,7 @@ pub fn handle_library_action<A>(
 	// TODO: Move session state to core, shouldn't be in the daemon
 	session: crate::infra::daemon::state::SessionState,
 	payload: Vec<u8>,
-) -> LocalBoxFuture<'static, Result<Vec<u8>, String>>
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
 where
 	A: crate::infra::action::LibraryAction + 'static,
 	A::Input: DeserializeOwned + 'static,
@@ -117,7 +122,7 @@ where
 {
 	use bincode::config::standard;
 	use bincode::serde::{decode_from_slice, encode_to_vec};
-	(async move {
+	Box::pin(async move {
 		let input: A::Input = decode_from_slice(&payload, standard())
 			.map_err(|e| e.to_string())?
 			.0;
@@ -130,7 +135,6 @@ where
 			.map_err(|e| e.to_string())?;
 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
 	})
-	.boxed_local()
 }
 
 /// Generic core action handler (decode A::Input -> A::from_input -> dispatch)
@@ -138,7 +142,7 @@ pub fn handle_core_action<A>(
 	core: Arc<crate::Core>,
 	session: crate::infra::daemon::state::SessionState,
 	payload: Vec<u8>,
-) -> LocalBoxFuture<'static, Result<Vec<u8>, String>>
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
 where
 	A: crate::infra::action::CoreAction + 'static,
 	A::Input: DeserializeOwned + 'static,
@@ -146,7 +150,7 @@ where
 {
 	use bincode::config::standard;
 	use bincode::serde::{decode_from_slice, encode_to_vec};
-	(async move {
+	Box::pin(async move {
 		let input: A::Input = decode_from_slice(&payload, standard())
 			.map_err(|e| e.to_string())?
 			.0;
@@ -158,7 +162,6 @@ where
 			.map_err(|e| e.to_string())?;
 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
 	})
-	.boxed_local()
 }
 
 /// Helper: construct action method string from a short name like "files.copy"

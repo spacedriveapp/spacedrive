@@ -33,20 +33,23 @@ pub trait CoreAction: Send + Sync + 'static {
 		Self: Sized;
 
 	/// Execute this action with core context only
-	async fn execute(
+	fn execute(
 		self,
 		context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<Self::Output, crate::infra::action::error::ActionError>;
+	) -> impl std::future::Future<
+		Output = Result<Self::Output, crate::infra::action::error::ActionError>,
+	> + Send;
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
 
 	/// Validate this action (optional)
-	async fn validate(
+	fn validate(
 		&self,
 		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), crate::infra::action::error::ActionError> {
-		Ok(())
+	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	{
+		async { Ok(()) }
 	}
 }
 
@@ -66,22 +69,25 @@ pub trait LibraryAction: Send + Sync + 'static {
 		Self: Sized;
 
 	/// Execute this action with validated library and core context
-	async fn execute(
+	fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
 		context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<Self::Output, crate::infra::action::error::ActionError>;
+	) -> impl std::future::Future<
+		Output = Result<Self::Output, crate::infra::action::error::ActionError>,
+	> + Send;
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
 
 	/// Validate this action with library context (optional)
 	/// Note: Library existence is already validated by ActionManager
-	async fn validate(
+	fn validate(
 		&self,
 		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), crate::infra::action::error::ActionError> {
-		Ok(())
+	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	{
+		async { Ok(()) }
 	}
 }

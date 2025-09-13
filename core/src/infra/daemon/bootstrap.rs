@@ -12,7 +12,11 @@ pub async fn start_default_server(
 	enable_networking: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	let session = Arc::new(SessionStateService::new(data_dir.clone()));
-	let instances = Arc::new(CoreInstanceManager::new(data_dir.clone(), enable_networking, session.clone()));
-	let server = RpcServer::new(socket_path, instances, session);
+	let instances = Arc::new(CoreInstanceManager::new(
+		data_dir.clone(),
+		enable_networking,
+		session.clone(),
+	));
+	let mut server = RpcServer::new(socket_path, instances, session);
 	server.start().await
 }
