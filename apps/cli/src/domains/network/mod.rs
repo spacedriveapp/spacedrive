@@ -128,6 +128,7 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 			}
 		},
 		NetworkCmd::Revoke(args) => {
+			confirm_or_abort(&format!("This will revoke device {} and remove pairing. Continue?", args.device_id), args.yes)?;
 			let input: DeviceRevokeInput = args.into();
 			let out: DeviceRevokeOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &DeviceRevokeOutput| {

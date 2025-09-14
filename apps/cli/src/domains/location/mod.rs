@@ -50,6 +50,7 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 			});
 		}
 		LocationCmd::Remove(args) => {
+			confirm_or_abort(&format!("This will remove location {} from the library. Continue?", args.location_id), args.yes)?;
 			let out: LocationRemoveOutput = execute_action!(ctx, args.into());
 			print_output!(ctx, &out, |o: &LocationRemoveOutput| {
 				println!("Removed location {}", o.location_id);

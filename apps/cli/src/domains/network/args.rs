@@ -106,6 +106,8 @@ impl From<SpacedropArgs> for SpacedropSendInput {
 #[derive(Args, Debug)]
 pub struct RevokeArgs {
     pub device_id: Uuid,
+    #[arg(long, short = 'y', default_value_t = false)]
+    pub yes: bool,
 }
 
 impl From<RevokeArgs> for DeviceRevokeInput {

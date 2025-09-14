@@ -34,6 +34,8 @@ impl From<LocationAddArgs> for LocationAddInput {
 #[derive(Args, Debug)]
 pub struct LocationRemoveArgs {
 	pub location_id: Uuid,
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
 }
 
 impl From<LocationRemoveArgs> for LocationRemoveInput {

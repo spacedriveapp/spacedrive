@@ -8,6 +8,7 @@ use crate::util::prelude::*;
 use crate::context::Context;
 use sd_core::ops::libraries::{
     create::output::LibraryCreateOutput,
+    delete::output::LibraryDeleteOutput,
     list::query::ListLibrariesQuery,
     session::set_current::SetCurrentLibraryOutput,
 };
@@ -22,6 +23,8 @@ pub enum LibraryCmd {
     Switch(LibrarySwitchArgs),
     /// List libraries
     List,
+    /// Delete a library
+    Delete(LibraryDeleteArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
@@ -55,6 +58,18 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
                 for l in libs {
                     println!("- {} {}", l.id, l.path.display());
                 }
+            });
+        }
+        LibraryCmd::Delete(args) => {
+            let msg = if args.delete_data {
+                format!("This will delete library {} and ALL its data. Continue?", args.library_id)
+            } else {
+                format!("This will remove library {} from Spacedrive (data will remain). Continue?", args.library_id)
+            };
+            confirm_or_abort(&msg, args.yes)?;
+            let out: LibraryDeleteOutput = execute_action!(ctx, args.into());
+            print_output!(ctx, &out, |o: &LibraryDeleteOutput| {
+                println!("Deleted library {}", o.library_id);
             });
         }
     }
