@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use sd_core::ops::libraries::{
     create::input::LibraryCreateInput,
-    delete::action::LibraryDeleteInput,
+    delete::input::LibraryDeleteInput,
     session::set_current::SetCurrentLibraryInput,
 };
 

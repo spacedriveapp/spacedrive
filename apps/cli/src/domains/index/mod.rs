@@ -6,7 +6,10 @@ use clap::Subcommand;
 use crate::util::prelude::*;
 
 use crate::{context::Context, util::error::CliError};
-use sd_core::ops::{indexing::action::IndexOutput, libraries::list::query::ListLibrariesQuery};
+use sd_core::{
+    infra::job::types::JobId,
+    ops::libraries::list::query::ListLibrariesQuery,
+};
 
 use self::args::*;
 
@@ -40,13 +43,13 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				anyhow::bail!(errors.join("; "));
 			}
 
-			let out: IndexOutput = execute_action!(ctx, input);
+			let out: JobId = execute_action!(ctx, input);
 			print_output!(ctx, out, |_| {
 				println!("Indexing request submitted");
 			});
 		}
 		IndexCmd::QuickScan(args) => {
-			let libs = execute_query!(ctx, ListLibrariesQuery::basic());
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, ListLibrariesQuery::basic());
 			let library_id = match libs.len() {
 				1 => libs[0].id,
 				_ => {
@@ -55,20 +58,20 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			};
 
 			let input = args.to_input(library_id)?;
-			let out: IndexOutput = execute_action!(ctx, input);
+			let out: JobId = execute_action!(ctx, input);
 			print_output!(ctx, out, |_| {
 				println!("Quick scan request submitted");
 			});
 		}
 		IndexCmd::Browse(args) => {
-			let libs = execute_query!(ctx, ListLibrariesQuery::basic());
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, ListLibrariesQuery::basic());
 			let library_id = match libs.len() {
 				1 => libs[0].id,
 				_ => anyhow::bail!("Specify --library for browse when multiple libraries exist"),
 			};
 
 			let input = args.to_input(library_id)?;
-			let out: IndexOutput = execute_action!(ctx, input);
+			let out: JobId = execute_action!(ctx, input);
 			print_output!(ctx, out, |_| {
 				println!("Browse request submitted");
 			});

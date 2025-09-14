@@ -7,8 +7,7 @@ use crate::util::prelude::*;
 
 use crate::context::Context;
 use sd_core::ops::locations::{
-	action::LocationAddInput,
-	add::output::LocationAddOutput,
+	add::{action::LocationAddInput, output::LocationAddOutput},
 	list::{output::LocationsListOutput, query::LocationsListQuery},
 	remove::output::LocationRemoveOutput,
 	rescan::output::LocationRescanOutput,
@@ -44,20 +43,22 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 					println!("No locations found");
 					return;
 				}
-				for loc in o.locations {
+				for loc in &o.locations {
 					println!("- {} {}", loc.id, loc.path.display());
 				}
 			});
 		}
 		LocationCmd::Remove(args) => {
 			confirm_or_abort(&format!("This will remove location {} from the library. Continue?", args.location_id), args.yes)?;
-			let out: LocationRemoveOutput = execute_action!(ctx, args.into());
+			let input: sd_core::ops::locations::remove::action::LocationRemoveInput = args.into();
+			let out: LocationRemoveOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &LocationRemoveOutput| {
 				println!("Removed location {}", o.location_id);
 			});
 		}
 		LocationCmd::Rescan(args) => {
-			let out: LocationRescanOutput = execute_action!(ctx, args.into());
+			let input: sd_core::ops::locations::rescan::action::LocationRescanInput = args.into();
+			let out: LocationRescanOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &LocationRescanOutput| {
 				println!("Rescan requested for {}", o.location_id);
 			});

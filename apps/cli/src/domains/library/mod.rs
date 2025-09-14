@@ -7,7 +7,7 @@ use crate::util::prelude::*;
 
 use crate::context::Context;
 use sd_core::ops::libraries::{
-    create::output::LibraryCreateOutput,
+    create::{input::LibraryCreateInput, output::LibraryCreateOutput},
     delete::output::LibraryDeleteOutput,
     list::query::ListLibrariesQuery,
     session::set_current::SetCurrentLibraryOutput,
@@ -30,7 +30,8 @@ pub enum LibraryCmd {
 pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
     match cmd {
         LibraryCmd::Create(args) => {
-            let out: LibraryCreateOutput = execute_action!(ctx, args.into());
+            let input: LibraryCreateInput = args.into();
+            let out: LibraryCreateOutput = execute_action!(ctx, input);
             print_output!(ctx, &out, |o: &LibraryCreateOutput| {
                 println!(
                     "Created library {} with ID {} at {}",
@@ -39,12 +40,14 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
             });
         }
         LibraryCmd::Switch(args) => {
-            let out: SetCurrentLibraryOutput = execute_action!(ctx, args.into());
+            let library_id = args.id;
+            let input: sd_core::ops::libraries::session::set_current::SetCurrentLibraryInput = args.into();
+            let out: SetCurrentLibraryOutput = execute_action!(ctx, input);
             print_output!(ctx, &out, |o: &SetCurrentLibraryOutput| {
                 if o.success {
-                    println!("Switched to library {}", args.id);
+                    println!("Switched to library {}", library_id);
                 } else {
-                    println!("Failed to switch to library {}", args.id);
+                    println!("Failed to switch to library {}", library_id);
                 }
             });
         }
@@ -67,7 +70,8 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
                 format!("This will remove library {} from Spacedrive (data will remain). Continue?", args.library_id)
             };
             confirm_or_abort(&msg, args.yes)?;
-            let out: LibraryDeleteOutput = execute_action!(ctx, args.into());
+            let input: sd_core::ops::libraries::delete::input::LibraryDeleteInput = args.into();
+            let out: LibraryDeleteOutput = execute_action!(ctx, input);
             print_output!(ctx, &out, |o: &LibraryDeleteOutput| {
                 println!("Deleted library {}", o.library_id);
             });

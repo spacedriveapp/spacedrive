@@ -16,7 +16,7 @@ pub struct JobListArgs {
 }
 
 impl JobListArgs {
-    pub fn to_query(&self, library_id: Uuid) -> JobListQuery {
+    pub fn to_query(&self, _library_id: Uuid) -> JobListQuery {
         JobListQuery {
             status: self.status.as_deref().and_then(|s| s.parse::<JobStatus>().ok()),
         }
