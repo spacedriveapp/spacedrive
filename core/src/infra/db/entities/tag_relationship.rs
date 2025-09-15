@@ -3,6 +3,7 @@
 //! SeaORM entity for managing hierarchical relationships between semantic tags
 
 use sea_orm::entity::prelude::*;
+use sea_orm::{Set, NotSet};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
@@ -25,9 +26,9 @@ pub enum Relation {
         to = "super::semantic_tag::Column::Id"
     )]
     ParentTag,
-    
+
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity", 
+        belongs_to = "super::semantic_tag::Entity",
         from = "Column::ChildTagId",
         to = "super::semantic_tag::Column::Id"
     )]
@@ -56,7 +57,7 @@ impl Model {
     pub fn would_create_cycle(&self) -> bool {
         self.parent_tag_id == self.child_tag_id
     }
-    
+
     /// Get the relationship strength as a normalized value (0.0-1.0)
     pub fn normalized_strength(&self) -> f32 {
         self.strength.clamp(0.0, 1.0)
@@ -79,7 +80,7 @@ impl RelationshipType {
             RelationshipType::Related => "related",
         }
     }
-    
+
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "parent_child" => Some(RelationshipType::ParentChild),

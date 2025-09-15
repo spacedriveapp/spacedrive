@@ -1,6 +1,6 @@
 //! Semantic Tags Migration
-//! 
-//! This migration creates the advanced semantic tagging architecture 
+//!
+//! This migration creates the advanced semantic tagging architecture
 //! described in the whitepaper.
 //!
 //! Key features:
@@ -33,39 +33,39 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(SemanticTags::Uuid).uuid().not_null().unique_key())
-                    
+
                     // Core identity
                     .col(ColumnDef::new(SemanticTags::CanonicalName).string().not_null())
                     .col(ColumnDef::new(SemanticTags::DisplayName).string())
-                    
+
                     // Semantic variants
                     .col(ColumnDef::new(SemanticTags::FormalName).string())
                     .col(ColumnDef::new(SemanticTags::Abbreviation).string())
                     .col(ColumnDef::new(SemanticTags::Aliases).json())
-                    
+
                     // Context and categorization
                     .col(ColumnDef::new(SemanticTags::Namespace).string())
                     .col(ColumnDef::new(SemanticTags::TagType).string().not_null().default("standard"))
-                    
+
                     // Visual and behavioral properties
                     .col(ColumnDef::new(SemanticTags::Color).string())
                     .col(ColumnDef::new(SemanticTags::Icon).string())
                     .col(ColumnDef::new(SemanticTags::Description).text())
-                    
+
                     // Advanced capabilities
                     .col(ColumnDef::new(SemanticTags::IsOrganizationalAnchor).boolean().default(false))
                     .col(ColumnDef::new(SemanticTags::PrivacyLevel).string().default("normal"))
                     .col(ColumnDef::new(SemanticTags::SearchWeight).integer().default(100))
-                    
+
                     // Compositional attributes
                     .col(ColumnDef::new(SemanticTags::Attributes).json())
                     .col(ColumnDef::new(SemanticTags::CompositionRules).json())
-                    
+
                     // Metadata
                     .col(ColumnDef::new(SemanticTags::CreatedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(SemanticTags::UpdatedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(SemanticTags::CreatedByDevice).uuid())
-                    
+
                     // Constraints
                     .index(
                         Index::create()
@@ -94,9 +94,9 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(TagRelationships::ParentTagId).integer().not_null())
                     .col(ColumnDef::new(TagRelationships::ChildTagId).integer().not_null())
                     .col(ColumnDef::new(TagRelationships::RelationshipType).string().not_null().default("parent_child"))
-                    .col(ColumnDef::new(TagRelationships::Strength).real().default(1.0))
+                    .col(ColumnDef::new(TagRelationships::Strength).float().default(1.0))
                     .col(ColumnDef::new(TagRelationships::CreatedAt).timestamp_with_time_zone().not_null())
-                    
+
                     .foreign_key(
                         ForeignKey::create()
                             .from(TagRelationships::Table, TagRelationships::ParentTagId)
@@ -109,7 +109,7 @@ impl MigrationTrait for Migration {
                             .to(SemanticTags::Table, SemanticTags::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    
+
                     // Prevent cycles and duplicate relationships
                     .index(
                         Index::create()
@@ -144,8 +144,8 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(TagClosure::PathStrength).real().default(1.0))
-                    
+                    .col(ColumnDef::new(TagClosure::PathStrength).float().default(1.0))
+
                     .primary_key(
                         Index::create()
                             .col(TagClosure::AncestorId)
@@ -182,21 +182,21 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(UserMetadataSemanticTags::UserMetadataId).integer().not_null())
                     .col(ColumnDef::new(UserMetadataSemanticTags::TagId).integer().not_null())
-                    
+
                     // Context for this specific tagging instance
                     .col(ColumnDef::new(UserMetadataSemanticTags::AppliedContext).string())
                     .col(ColumnDef::new(UserMetadataSemanticTags::AppliedVariant).string())
-                    .col(ColumnDef::new(UserMetadataSemanticTags::Confidence).real().default(1.0))
+                    .col(ColumnDef::new(UserMetadataSemanticTags::Confidence).float().default(1.0))
                     .col(ColumnDef::new(UserMetadataSemanticTags::Source).string().default("user"))
-                    
+
                     // Instance-specific attributes
                     .col(ColumnDef::new(UserMetadataSemanticTags::InstanceAttributes).json())
-                    
+
                     // Audit and sync
                     .col(ColumnDef::new(UserMetadataSemanticTags::CreatedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(UserMetadataSemanticTags::UpdatedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(UserMetadataSemanticTags::DeviceUuid).uuid().not_null())
-                    
+
                     .foreign_key(
                         ForeignKey::create()
                             .from(UserMetadataSemanticTags::Table, UserMetadataSemanticTags::UserMetadataId)
@@ -209,7 +209,7 @@ impl MigrationTrait for Migration {
                             .to(SemanticTags::Table, SemanticTags::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    
+
                     .index(
                         Index::create()
                             .name("idx_user_metadata_semantic_tags_unique")
@@ -238,7 +238,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(TagUsagePatterns::CoOccurrenceTagId).integer().not_null())
                     .col(ColumnDef::new(TagUsagePatterns::OccurrenceCount).integer().default(1))
                     .col(ColumnDef::new(TagUsagePatterns::LastUsedTogether).timestamp_with_time_zone().not_null())
-                    
+
                     .foreign_key(
                         ForeignKey::create()
                             .from(TagUsagePatterns::Table, TagUsagePatterns::TagId)
@@ -251,7 +251,7 @@ impl MigrationTrait for Migration {
                             .to(SemanticTags::Table, SemanticTags::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    
+
                     .index(
                         Index::create()
                             .name("idx_tag_usage_patterns_unique")
@@ -265,6 +265,7 @@ impl MigrationTrait for Migration {
 
         // Create full-text search support
         manager
+            .get_connection()
             .execute_unprepared(
                 r#"
                 CREATE VIRTUAL TABLE tag_search_fts USING fts5(
@@ -292,6 +293,7 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Drop FTS table first
         manager
+            .get_connection()
             .execute_unprepared("DROP TABLE IF EXISTS tag_search_fts;")
             .await?;
 
@@ -299,19 +301,19 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(TagUsagePatterns::Table).to_owned())
             .await?;
-        
+
         manager
             .drop_table(Table::drop().table(UserMetadataSemanticTags::Table).to_owned())
             .await?;
-        
+
         manager
             .drop_table(Table::drop().table(TagClosure::Table).to_owned())
             .await?;
-        
+
         manager
             .drop_table(Table::drop().table(TagRelationships::Table).to_owned())
             .await?;
-        
+
         manager
             .drop_table(Table::drop().table(SemanticTags::Table).to_owned())
             .await?;
@@ -321,7 +323,7 @@ impl MigrationTrait for Migration {
 }
 
 impl Migration {
-    async fn create_semantic_tag_indices(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn create_semantic_tag_indices(&self, manager: &SchemaManager<'_>) -> Result<(), DbErr> {
         // Semantic tags indices
         manager
             .create_index(

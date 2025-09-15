@@ -3,6 +3,7 @@
 //! SeaORM entity for the closure table that enables efficient hierarchical queries
 
 use sea_orm::entity::prelude::*;
+use sea_orm::{Set, NotSet};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
@@ -24,10 +25,10 @@ pub enum Relation {
         to = "super::semantic_tag::Column::Id"
     )]
     Ancestor,
-    
+
     #[sea_orm(
         belongs_to = "super::semantic_tag::Entity",
-        from = "Column::DescendantId", 
+        from = "Column::DescendantId",
         to = "super::semantic_tag::Column::Id"
     )]
     Descendant,
@@ -53,17 +54,17 @@ impl Model {
     pub fn is_self_reference(&self) -> bool {
         self.ancestor_id == self.descendant_id && self.depth == 0
     }
-    
+
     /// Check if this is a direct parent-child relationship
     pub fn is_direct_relationship(&self) -> bool {
         self.depth == 1
     }
-    
+
     /// Get the normalized path strength (0.0-1.0)
     pub fn normalized_path_strength(&self) -> f32 {
         self.path_strength.clamp(0.0, 1.0)
     }
-    
+
     /// Calculate relationship strength based on depth (closer = stronger)
     pub fn calculated_strength(&self) -> f32 {
         if self.depth == 0 {
