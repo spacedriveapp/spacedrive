@@ -6,9 +6,9 @@
 
 use crate::{
     domain::semantic_tag::{SemanticTag, TagApplication, TagType, PrivacyLevel, RelationshipType, TagSource, TagError},
-    service::{
-        semantic_tag_service::SemanticTagService,
-        user_metadata_service::UserMetadataService,
+    ops::{
+        tags::semantic_tag_manager::SemanticTagManager,
+        metadata::user_metadata_manager::UserMetadataManager,
     },
     infra::db::Database,
 };
@@ -19,19 +19,19 @@ use uuid::Uuid;
 /// High-level facade for semantic tagging operations
 #[derive(Clone)]
 pub struct SemanticTaggingFacade {
-    tag_service: Arc<SemanticTagService>,
-    metadata_service: Arc<UserMetadataService>,
+    tag_manager: Arc<SemanticTagManager>,
+    metadata_manager: Arc<UserMetadataManager>,
 }
 
 impl SemanticTaggingFacade {
     pub fn new(db: Arc<Database>) -> Self {
         let db_conn = Arc::new(db.conn().clone());
-        let tag_service = Arc::new(SemanticTagService::new(db_conn.clone()));
-        let metadata_service = Arc::new(UserMetadataService::new(db_conn));
+        let tag_manager = Arc::new(SemanticTagManager::new(db_conn.clone()));
+        let metadata_manager = Arc::new(UserMetadataManager::new(db_conn));
 
         Self {
-            tag_service,
-            metadata_service,
+            tag_manager,
+            metadata_manager,
         }
     }
 
@@ -42,7 +42,7 @@ impl SemanticTaggingFacade {
         color: Option<String>,
         device_id: Uuid,
     ) -> Result<SemanticTag, TagError> {
-        self.tag_service.create_tag(name, None, device_id).await
+        self.tag_manager.create_tag(name, None, device_id).await
     }
 
     /// Create a tag with namespace (for disambiguation)
@@ -53,7 +53,7 @@ impl SemanticTaggingFacade {
         color: Option<String>,
         device_id: Uuid,
     ) -> Result<SemanticTag, TagError> {
-        let mut tag = self.tag_service.create_tag(name, Some(namespace), device_id).await?;
+        let mut tag = self.tag_manager.create_tag(name, Some(namespace), device_id).await?;
         if let Some(color) = color {
             tag.color = Some(color);
             // TODO: Update tag in database with color
@@ -68,7 +68,7 @@ impl SemanticTaggingFacade {
         color: Option<String>,
         device_id: Uuid,
     ) -> Result<SemanticTag, TagError> {
-        let mut tag = self.tag_service.create_tag(name, None, device_id).await?;
+        let mut tag = self.tag_manager.create_tag(name, None, device_id).await?;
         tag.tag_type = TagType::Organizational;
         tag.is_organizational_anchor = true;
         if let Some(color) = color {
@@ -87,7 +87,7 @@ impl SemanticTaggingFacade {
         namespace: Option<String>,
         device_id: Uuid,
     ) -> Result<SemanticTag, TagError> {
-        let mut tag = self.tag_service.create_tag(canonical_name, namespace, device_id).await?;
+        let mut tag = self.tag_manager.create_tag(canonical_name, namespace, device_id).await?;
 
         if let Some(abbrev) = abbreviation {
             tag.abbreviation = Some(abbrev);
@@ -111,13 +111,13 @@ impl SemanticTaggingFacade {
 
         // Create all tags first
         for (name, namespace) in hierarchy {
-            let tag = self.tag_service.create_tag(name, namespace, device_id).await?;
+            let tag = self.tag_manager.create_tag(name, namespace, device_id).await?;
             created_tags.push(tag);
         }
 
         // Create parent-child relationships
         for i in 0..created_tags.len().saturating_sub(1) {
-            self.tag_service.create_relationship(
+            self.tag_manager.create_relationship(
                 created_tags[i].id,
                 created_tags[i + 1].id,
                 RelationshipType::ParentChild,
@@ -139,11 +139,11 @@ impl SemanticTaggingFacade {
 
         // Find or create tags by name
         for tag_name in tag_names {
-            let existing_tags = self.tag_service.find_tags_by_name(&tag_name).await?;
+            let existing_tags = self.tag_manager.find_tags_by_name(&tag_name).await?;
 
             let tag_id = if existing_tags.is_empty() {
                 // Create new tag if it doesn't exist
-                let new_tag = self.tag_service.create_tag(tag_name, None, device_id).await?;
+                let new_tag = self.tag_manager.create_tag(tag_name, None, device_id).await?;
                 new_tag.id
             } else if existing_tags.len() == 1 {
                 // Use existing tag if unambiguous
@@ -158,7 +158,7 @@ impl SemanticTaggingFacade {
         }
 
         // Apply all tags to the entry
-        self.metadata_service.apply_user_semantic_tags(
+        self.metadata_manager.apply_user_semantic_tags(
             entry_id,
             &applied_tag_ids,
             device_id,
@@ -178,11 +178,11 @@ impl SemanticTaggingFacade {
 
         // Find or create tags for AI suggestions
         for (tag_name, confidence, context) in ai_suggestions {
-            let existing_tags = self.tag_service.find_tags_by_name(&tag_name).await?;
+            let existing_tags = self.tag_manager.find_tags_by_name(&tag_name).await?;
 
             let tag_id = if existing_tags.is_empty() {
                 // Create new system tag for AI-discovered content
-                let mut new_tag = self.tag_service.create_tag(tag_name, None, device_id).await?;
+                let mut new_tag = self.tag_manager.create_tag(tag_name, None, device_id).await?;
                 new_tag.tag_type = TagType::System;
                 // TODO: Update tag type in database
                 new_tag.id
@@ -194,7 +194,7 @@ impl SemanticTaggingFacade {
         }
 
         // Apply AI tags with confidence scores
-        self.metadata_service.apply_ai_semantic_tags(
+        self.metadata_manager.apply_ai_semantic_tags(
             entry_id,
             tag_suggestions.clone(),
             device_id,
@@ -210,17 +210,17 @@ impl SemanticTaggingFacade {
         max_suggestions: usize,
     ) -> Result<Vec<(SemanticTag, f32)>, TagError> {
         // Get existing tags for this entry
-        let existing_applications = self.metadata_service.get_semantic_tags_for_entry(entry_id).await?;
+        let existing_applications = self.metadata_manager.get_semantic_tags_for_entry(entry_id).await?;
         let existing_tag_ids: Vec<Uuid> = existing_applications.iter().map(|app| app.tag_id).collect();
 
         if existing_tag_ids.is_empty() {
             return Ok(Vec::new());
         }
 
-        let existing_tags = self.tag_service.get_tags_by_ids(&existing_tag_ids).await?;
+        let existing_tags = self.tag_manager.get_tags_by_ids(&existing_tag_ids).await?;
 
         // Find patterns from existing tags
-        let patterns = self.tag_service.discover_organizational_patterns().await?;
+        let patterns = self.tag_manager.discover_organizational_patterns().await?;
 
         let mut suggestions = Vec::new();
 
@@ -231,7 +231,7 @@ impl SemanticTaggingFacade {
 
             for (tag1_id, tag2_id, count) in co_occurrences {
                 if tag1_id == existing_tag.id && !existing_tag_ids.contains(&tag2_id) {
-                    if let Ok(suggested_tags) = self.tag_service.get_tags_by_ids(&[tag2_id]).await {
+                    if let Ok(suggested_tags) = self.tag_manager.get_tags_by_ids(&[tag2_id]).await {
                         if let Some(suggested_tag) = suggested_tags.first() {
                             let confidence = (count as f32 / 20.0).min(1.0); // Normalize
                             suggestions.push((suggested_tag.clone(), confidence));
@@ -258,7 +258,7 @@ impl SemanticTaggingFacade {
 
         // Resolve tag names to IDs
         for tag_name in tag_names {
-            let tags = self.tag_service.find_tags_by_name(&tag_name).await?;
+            let tags = self.tag_manager.find_tags_by_name(&tag_name).await?;
             if let Some(tag) = tags.first() {
                 tag_ids.push(tag.id);
             }
@@ -268,19 +268,19 @@ impl SemanticTaggingFacade {
             return Ok(Vec::new());
         }
 
-        self.metadata_service.find_entries_by_semantic_tags(&tag_ids, include_descendants).await
+        self.metadata_manager.find_entries_by_semantic_tags(&tag_ids, include_descendants).await
     }
 
     /// Get tag hierarchy for display (organizational anchors first)
     pub async fn get_tag_hierarchy(&self) -> Result<Vec<TagHierarchyNode>, TagError> {
-        let all_tags = self.tag_service.search_tags("", None, None, true).await?;
+        let all_tags = self.tag_manager.search_tags("", None, None, true).await?;
 
         // Find root tags (organizational anchors without parents)
         let mut hierarchy = Vec::new();
 
         for tag in &all_tags {
             if tag.is_organizational_anchor {
-                let ancestors = self.tag_service.get_ancestors(tag.id).await?;
+                let ancestors = self.tag_manager.get_ancestors(tag.id).await?;
                 if ancestors.is_empty() {
                     // This is a root organizational tag
                     let node = self.build_hierarchy_node(tag, &all_tags).await?;
@@ -297,9 +297,9 @@ impl SemanticTaggingFacade {
         tag: &SemanticTag,
         all_tags: &[SemanticTag],
     ) -> Result<TagHierarchyNode, TagError> {
-        let descendant_ids = self.tag_service.get_descendants(tag.id).await?;
+        let descendant_ids = self.tag_manager.get_descendants(tag.id).await?;
         let descendant_uuid_ids: Vec<Uuid> = descendant_ids.into_iter().map(|tag| tag.id).collect();
-        let descendants = self.tag_service.get_tags_by_ids(&descendant_uuid_ids).await?;
+        let descendants = self.tag_manager.get_tags_by_ids(&descendant_uuid_ids).await?;
 
         let children = descendants
             .into_iter()

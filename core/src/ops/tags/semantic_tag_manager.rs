@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 /// Service for managing semantic tags and their relationships
 #[derive(Clone)]
-pub struct SemanticTagService {
+pub struct SemanticTagManager {
     db: Arc<DatabaseConnection>,
     context_resolver: Arc<TagContextResolver>,
     usage_analyzer: Arc<TagUsageAnalyzer>,
@@ -76,7 +76,7 @@ fn model_to_domain(model: semantic_tag::Model) -> Result<SemanticTag, TagError> 
     })
 }
 
-impl SemanticTagService {
+impl SemanticTagManager {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         let context_resolver = Arc::new(TagContextResolver::new(db.clone()));
         let usage_analyzer = Arc::new(TagUsageAnalyzer::new(db.clone()));

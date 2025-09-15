@@ -13,11 +13,8 @@ pub mod device;
 pub mod entry_state_service;
 pub mod file_sharing;
 pub mod network;
-pub mod semantic_tag_service;
-pub mod semantic_tagging_facade;
 pub mod session;
 pub mod sidecar_manager;
-pub mod user_metadata_service;
 pub mod volume_monitor;
 pub mod watcher;
 

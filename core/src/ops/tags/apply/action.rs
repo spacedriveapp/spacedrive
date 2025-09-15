@@ -6,7 +6,7 @@ use crate::{
     domain::semantic_tag::{TagApplication, TagSource},
     infra::action::{error::ActionError, LibraryAction},
     library::Library,
-    service::user_metadata_service::UserMetadataService,
+    ops::metadata::user_metadata_manager::UserMetadataManager,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,7 @@ impl LibraryAction for ApplyTagsAction {
         _context: Arc<CoreContext>,
     ) -> Result<Self::Output, ActionError> {
         let db = library.db();
-        let metadata_service = UserMetadataService::new(Arc::new(db.conn().clone()));
+        let metadata_manager = UserMetadataManager::new(Arc::new(db.conn().clone()));
         let device_id = library.id(); // Use library ID as device ID
 
         let mut warnings = Vec::new();
@@ -73,7 +73,7 @@ impl LibraryAction for ApplyTagsAction {
         for entry_id in &self.input.entry_ids {
             // TODO: Look up actual entry UUID from entry ID
             let entry_uuid = Uuid::new_v4(); // Placeholder - should look up from database
-            match metadata_service
+            match metadata_manager
                 .apply_semantic_tags(entry_uuid, tag_applications.clone(), device_id)
                 .await
             {

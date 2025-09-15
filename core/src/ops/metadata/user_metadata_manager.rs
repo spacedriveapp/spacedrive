@@ -10,7 +10,7 @@ use crate::domain::{
 };
 use crate::infra::db::entities::*;
 use sea_orm::DatabaseConnection;
-use crate::service::semantic_tag_service::SemanticTagService;
+use crate::ops::tags::semantic_tag_manager::SemanticTagManager;
 use anyhow::Result;
 use chrono::Utc;
 use sea_orm::{
@@ -22,14 +22,14 @@ use uuid::Uuid;
 
 /// Service for managing user metadata including semantic tagging
 #[derive(Clone)]
-pub struct UserMetadataService {
+pub struct UserMetadataManager {
     db: Arc<DatabaseConnection>,
-    semantic_tag_service: Arc<SemanticTagService>,
+    semantic_tag_service: Arc<SemanticTagManager>,
 }
 
-impl UserMetadataService {
+impl UserMetadataManager {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        let semantic_tag_service = Arc::new(SemanticTagService::new(db.clone()));
+        let semantic_tag_service = Arc::new(SemanticTagManager::new(db.clone()));
 
         Self {
             db,

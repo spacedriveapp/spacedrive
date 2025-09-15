@@ -6,8 +6,8 @@
 use sd_core::{
     domain::semantic_tag::{SemanticTag, TagType, PrivacyLevel, RelationshipType, TagSource, TagApplication},
     domain::semantic_tag_validation::SemanticTagValidator,
-    service::semantic_tag_service::SemanticTagService,
-    service::user_metadata_service::UserMetadataService,
+    ops::tags::semantic_tag_manager::SemanticTagManager,
+    ops::metadata::user_metadata_manager::UserMetadataManager,
     infra::db::Database,
 };
 use std::sync::Arc;

@@ -6,7 +6,7 @@ use crate::{
     domain::semantic_tag::{SemanticTag, TagType, PrivacyLevel},
     infra::action::{error::ActionError, LibraryAction},
     library::Library,
-    service::semantic_tag_service::SemanticTagService,
+    ops::tags::semantic_tag_manager::SemanticTagManager,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -38,13 +38,13 @@ impl LibraryAction for CreateTagAction {
         _context: Arc<CoreContext>,
     ) -> Result<Self::Output, ActionError> {
         let db = library.db();
-        let semantic_tag_service = SemanticTagService::new(Arc::new(db.conn().clone()));
+        let semantic_tag_manager = SemanticTagManager::new(Arc::new(db.conn().clone()));
 
         // Get current device ID from library context
         let device_id = library.id(); // Use library ID as device ID
 
         // Create the semantic tag
-        let mut tag = semantic_tag_service
+        let mut tag = semantic_tag_manager
             .create_tag(
                 self.input.canonical_name.clone(),
                 self.input.namespace.clone(),

@@ -18,7 +18,7 @@ pub mod indexing;
 pub mod libraries;
 pub mod locations;
 pub mod media;
-// pub mod metadata;
+pub mod metadata;
 pub mod tags;
 pub mod jobs;
 pub mod network;

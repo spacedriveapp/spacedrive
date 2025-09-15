@@ -6,7 +6,7 @@ use crate::{
     domain::semantic_tag::{SemanticTag, TagType},
     infra::action::{error::ActionError, LibraryAction},
     library::Library,
-    service::semantic_tag_service::SemanticTagService,
+    ops::tags::semantic_tag_manager::SemanticTagManager,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -37,12 +37,12 @@ impl LibraryAction for SearchTagsAction {
         _context: Arc<CoreContext>,
     ) -> Result<Self::Output, ActionError> {
         let db = library.db();
-        let semantic_tag_service = SemanticTagService::new(Arc::new(db.conn().clone()));
+        let semantic_tag_manager = SemanticTagManager::new(Arc::new(db.conn().clone()));
 
         let include_archived = self.input.include_archived.unwrap_or(false);
 
         // Perform the search
-        let mut search_results = semantic_tag_service
+        let mut search_results = semantic_tag_manager
             .search_tags(
                 &self.input.query,
                 self.input.namespace.as_deref(),
@@ -59,13 +59,13 @@ impl LibraryAction for SearchTagsAction {
             if let Some(context_tag_ids) = &self.input.context_tag_ids {
                 if !context_tag_ids.is_empty() {
                     // Get context tags
-                    let context_tags = semantic_tag_service
+                    let context_tags = semantic_tag_manager
                         .get_tags_by_ids(context_tag_ids)
                         .await
                         .map_err(|e| ActionError::Internal(format!("Failed to get context tags: {}", e)))?;
 
                     // Resolve ambiguous results
-                    search_results = semantic_tag_service
+                    search_results = semantic_tag_manager
                         .resolve_ambiguous_tag(&self.input.query, &context_tags)
                         .await
                         .map_err(|e| ActionError::Internal(format!("Context resolution failed: {}", e)))?;
