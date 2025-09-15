@@ -1,14 +1,15 @@
 //! Semantic Tags Migration
 //! 
-//! This migration transforms the current basic tag system into the advanced
-//! semantic tagging architecture described in the whitepaper.
+//! This migration creates the advanced semantic tagging architecture 
+//! described in the whitepaper.
 //!
-//! Key changes:
-//! - Replaces simple tags table with semantic_tags
-//! - Adds tag hierarchy and relationships
-//! - Implements closure table for efficient queries
-//! - Adds tag usage pattern tracking
-//! - Migrates existing tag data
+//! Key features:
+//! - Graph-based DAG structure with closure table
+//! - Polymorphic naming with namespace support
+//! - Semantic variants (formal names, abbreviations, aliases)
+//! - Context-aware tag applications
+//! - Usage pattern tracking for intelligent suggestions
+//! - Full-text search across all tag variants
 
 use sea_orm_migration::prelude::*;
 
@@ -285,9 +286,6 @@ impl MigrationTrait for Migration {
         // Create indices for performance
         self.create_semantic_tag_indices(manager).await?;
 
-        // Migrate existing tag data
-        self.migrate_existing_tags(manager).await?;
-
         Ok(())
     }
 
@@ -414,38 +412,6 @@ impl Migration {
                     .table(UserMetadataSemanticTags::Table)
                     .col(UserMetadataSemanticTags::Source)
                     .to_owned(),
-            )
-            .await?;
-
-        Ok(())
-    }
-
-    async fn migrate_existing_tags(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // TODO: Implement data migration from old tag system
-        // This would involve:
-        // 1. Reading from existing 'tags' table
-        // 2. Converting to SemanticTag format
-        // 3. Migrating user_metadata_tags relationships
-        // 4. Preserving existing tag assignments
-        
-        // For now, we'll just add a placeholder migration
-        manager
-            .execute_unprepared(
-                r#"
-                -- Insert system tags for demonstration
-                INSERT INTO semantic_tags (
-                    uuid, canonical_name, tag_type, privacy_level, 
-                    created_at, updated_at
-                ) VALUES 
-                (
-                    randomblob(16), 'Important', 'organizational', 'normal',
-                    datetime('now'), datetime('now')
-                ),
-                (
-                    randomblob(16), 'Archive', 'privacy', 'archive',
-                    datetime('now'), datetime('now')
-                );
-                "#,
             )
             .await?;
 

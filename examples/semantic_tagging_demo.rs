@@ -1,7 +1,9 @@
 //! Semantic Tagging Demo
 //!
 //! Demonstrates the advanced semantic tagging architecture described in the whitepaper.
-//! This example shows how to use the sophisticated graph-based tagging system.
+//! This is a clean, from-scratch implementation that showcases all the sophisticated
+//! features: polymorphic naming, semantic variants, context resolution, DAG hierarchy,
+//! AI integration, and union merge conflict resolution.
 
 use anyhow::Result;
 use spacedrive_core::{
