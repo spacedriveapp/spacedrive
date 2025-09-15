@@ -16,7 +16,7 @@ impl Query for PairStatusQuery {
 			for s in sessions.into_iter() {
 				sessions_out.push(PairingSessionSummary {
 					id: s.id,
-					state: s.state,
+					state: s.state.into(),
 					remote_device_id: s.remote_device_id,
 					expires_at: None,
 				});

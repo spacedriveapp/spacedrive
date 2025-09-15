@@ -109,8 +109,8 @@ impl Device {
 	}
 
 	/// Check if this is the current device
-	pub fn is_current(&self) -> bool {
-		self.id == crate::common::utils::get_current_device_id()
+	pub fn is_current(&self, current_device_id: Uuid) -> bool {
+		self.id == current_device_id
 	}
 
 	/// Set sync role for a library

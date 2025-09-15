@@ -8,22 +8,21 @@ use anyhow::Result;
 /// - Also respects `SD_CLI_YES=1` environment variable to skip prompting
 /// - Otherwise returns an error ("Aborted by user") to allow early exit
 pub fn confirm_or_abort(prompt: &str, assume_yes: bool) -> Result<()> {
-	if assume_yes || std::env::var("SD_CLI_YES").map(|v| v == "1" || v.eq_ignore_ascii_case("true")).unwrap_or(false) {
-		return Ok(());
-	}
+    if assume_yes || std::env::var("SD_CLI_YES").map(|v| v == "1" || v.eq_ignore_ascii_case("true")).unwrap_or(false) {
+        return Ok(());
+    }
 
-	use std::io::{self, Write};
-	let mut stderr = io::stderr();
-	writeln!(stderr, "{} [y/N]: ", prompt)?;
-	stderr.flush()?;
+    use std::io::{self, Write};
+    let mut stderr = io::stderr();
+    writeln!(stderr, "{} [y/N]: ", prompt)?;
+    stderr.flush()?;
 
-	let mut input = String::new();
-	io::stdin().read_line(&mut input)?;
-	let resp = input.trim().to_ascii_lowercase();
-	if resp == "y" || resp == "yes" {
-		Ok(())
-	} else {
-		anyhow::bail!("Aborted by user")
-	}
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let resp = input.trim().to_ascii_lowercase();
+    if resp == "y" || resp == "yes" {
+        Ok(())
+    } else {
+        anyhow::bail!("Aborted by user")
+    }
 }
-

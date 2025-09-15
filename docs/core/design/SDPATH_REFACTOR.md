@@ -128,7 +128,7 @@ async fn resolve_optimal_path(
     content_id: Uuid
 ) -> Result<SdPath, PathResolutionError> {
     // 1. Get the current library's DB connection from context
-    let library = context.library_manager.get_primary_library().await
+    let library = context.library_manager.get_active_library().await
         .ok_or(PathResolutionError::NoActiveLibrary)?;
     let db = library.db().conn();
 

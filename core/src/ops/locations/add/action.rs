@@ -19,7 +19,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationAddInput {
-	pub library_id: Uuid,
 	pub path: PathBuf,
 	pub name: Option<String>,
 	pub mode: IndexMode,

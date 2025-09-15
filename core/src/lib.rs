@@ -1,8 +1,9 @@
 #![allow(warnings)]
 //! Spacedrive Core v2
 //!
-//! A unified, simplified architecture for cross-platform file management.
+//! A complete reimplementation of Spacedrive's core with modern Rust patterns, unified file operations, and a foundation built for the Virtual Distributed File System vision.
 
+// Module declarations
 pub mod client;
 pub mod common;
 pub mod config;
@@ -20,27 +21,32 @@ pub mod service;
 pub mod testing;
 pub mod volume;
 
-use service::network::protocol::pairing::PairingProtocolHandler;
-use service::network::utils::logging::NetworkLogger;
-
 // Compatibility module for legacy networking references
 pub mod networking {
 	pub use crate::service::network::*;
 }
 
-use crate::config::AppConfig;
-use crate::context::CoreContext;
-use crate::cqrs::{Query, QueryManager};
-use crate::device::DeviceManager;
-use crate::infra::action::builder::ActionBuilder;
-use crate::infra::action::manager::ActionManager;
-use crate::infra::action::{CoreAction, LibraryAction};
-use crate::infra::event::{Event, EventBus};
-use crate::library::LibraryManager;
-use crate::service::Services;
-use crate::volume::{VolumeDetectionConfig, VolumeManager};
-use std::path::PathBuf;
-use std::sync::Arc;
+// Internal crate imports
+use crate::{
+	config::AppConfig,
+	context::CoreContext,
+	cqrs::{Query, QueryManager},
+	device::DeviceManager,
+	infra::{
+		action::{builder::ActionBuilder, manager::ActionManager, CoreAction, LibraryAction},
+		event::{Event, EventBus},
+	},
+	library::LibraryManager,
+	service::session::SessionStateService,
+	service::{
+		network::{protocol::pairing::PairingProtocolHandler, utils::logging::NetworkLogger},
+		Services,
+	},
+	volume::{VolumeDetectionConfig, VolumeManager},
+};
+
+// External crate imports
+use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info};
 
@@ -62,11 +68,8 @@ struct SpacedropRequest {
 	message: Option<String>,
 	file_size: u64,
 }
-
-// NOTE: SimplePairingUI has been moved to CLI infrastructure
-// See: src/infrastructure/cli/pairing_ui.rs for CLI-specific implementations
-
 /// Bridge between networking events and core events
+/// TODO: why? - james
 pub struct NetworkEventBridge {
 	network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
 	core_events: Arc<EventBus>,
@@ -140,61 +143,51 @@ pub struct Core {
 }
 
 impl Core {
-	/// Initialize a new Core instance with default data directory
-	pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-		let data_dir = crate::config::default_data_dir()?;
-		Self::new_with_config(data_dir).await
-	}
-
 	/// Initialize a new Core instance with custom data directory
 	pub async fn new_with_config(data_dir: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
 		info!("Initializing Spacedrive Core at {:?}", data_dir);
 
-		// 1. Load or create app config
+		// Load or create app config
 		let config = AppConfig::load_or_create(&data_dir)?;
 		config.ensure_directories()?;
 		let config = Arc::new(RwLock::new(config));
 
-		// 2. Initialize device manager
+		// Initialize device manager
 		let device = Arc::new(DeviceManager::init_with_path(&data_dir)?);
-		// Set the global device ID for legacy compatibility
-		common::utils::set_current_device_id(device.device_id()?);
 
-		// 3. Create event bus
+		// Set a global device ID for convenience
+		crate::device::set_current_device_id(device.device_id()?);
+
+		// Create event bus
 		let events = Arc::new(EventBus::default());
 
-		// 4. Initialize volume manager
+		// Initialize volume manager
 		let volume_config = VolumeDetectionConfig::default();
 		let device_id = device.device_id()?;
 		let volumes = Arc::new(VolumeManager::new(device_id, volume_config, events.clone()));
 
-		// 5. Initialize volume detection
+		// Initialize volume detection
 		// info!("Initializing volume detection...");
 		// match volumes.initialize().await {
 		// 	Ok(()) => info!("Volume manager initialized"),
 		// 	Err(e) => error!("Failed to initialize volume manager: {}", e),
 		// }
 
-		// 6. Initialize library manager with libraries directory
-		let libraries_dir = config.read().await.libraries_dir();
-		let libraries = Arc::new(LibraryManager::new_with_dir(libraries_dir, events.clone()));
-
-		// 7. Initialize library key manager
+		// Initialize library key manager
 		let library_key_manager =
 			Arc::new(crate::crypto::library_key_manager::LibraryKeyManager::new()?);
 
-		// 8. Register all job types
-		info!("Registering job types...");
-		crate::ops::register_all_jobs();
-		info!("Job types registered");
+		// Initialize session state service
+		let session_state = Arc::new(SessionStateService::new(data_dir));
 
-		// 9. Create the context that will be shared with services
+		// Create the context that will be shared with services
 		let mut context_inner = CoreContext::new(
 			events.clone(),
 			device.clone(),
-			libraries.clone(),
+			None, // Libraries will be set after context creation
 			volumes.clone(),
 			library_key_manager.clone(),
+			session_state.clone(),
 		);
 
 		// Set job logging configuration if enabled
@@ -205,15 +198,29 @@ impl Core {
 		}
 		drop(app_config);
 
+		// Create the shared context
 		let context = Arc::new(context_inner);
 
-		// 10. Initialize services first, passing them the context
+		// Initialize library manager with libraries directory and context
+		let libraries_dir = config.read().await.libraries_dir();
+		let libraries = Arc::new(LibraryManager::new_with_dir(
+			libraries_dir,
+			events.clone(),
+			session_state.clone(),
+			volumes.clone(),
+			device.clone(),
+		));
+
+		// Update context with libraries
+		context.set_libraries(libraries.clone()).await;
+
+		// Initialize services first, passing them the context
 		let services = Services::new(context.clone());
 
-		// 11. Auto-load all libraries with context for job manager initialization
+		// Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
 		let loaded_libraries: Vec<Arc<crate::library::Library>> =
-			match libraries.load_all_with_context(context.clone()).await {
+			match libraries.load_all(context.clone()).await {
 				Ok(count) => {
 					info!("Loaded {} libraries", count);
 					libraries.list().await
@@ -511,12 +518,32 @@ impl Core {
 		&self,
 		method: &str,
 		payload: Vec<u8>,
-		session: crate::infra::daemon::state::SessionState,
+		session: crate::service::session::SessionState,
 	) -> Result<Vec<u8>, String> {
 		if let Some(handler) = crate::ops::registry::ACTIONS.get(method) {
 			return handler(Arc::new((*self).clone()), session, payload).await;
 		}
 		Err("Unknown action method".into())
+	}
+
+	/// Unified dispatcher by method string for both actions and queries.
+	pub async fn execute_operation_by_method(
+		&self,
+		method: &str,
+		payload: Vec<u8>,
+	) -> Result<Vec<u8>, String> {
+		// Try actions first (they return empty bytes on success)
+		if let Some(handler) = crate::ops::registry::ACTIONS.get(method) {
+			let default_session = crate::service::session::SessionState::default();
+			return handler(Arc::new((*self).clone()), default_session, payload).await;
+		}
+
+		// Try queries next (they return serialized output)
+		if let Some(handler) = crate::ops::registry::QUERIES.get(method) {
+			return handler(Arc::new((*self).clone()), payload).await;
+		}
+
+		Err(format!("Unknown operation method: {}", method))
 	}
 
 	/// Shutdown the core gracefully

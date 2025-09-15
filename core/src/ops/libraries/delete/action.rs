@@ -46,7 +46,8 @@ impl CoreAction for LibraryDeleteAction {
 	) -> Result<Self::Output, ActionError> {
 		// Get the library to get its name before deletion
 		let library = context
-			.library_manager
+			.libraries()
+			.await
 			.get_library(self.input.library_id)
 			.await
 			.ok_or_else(|| ActionError::LibraryNotFound(self.input.library_id))?;
@@ -55,7 +56,8 @@ impl CoreAction for LibraryDeleteAction {
 
 		// Delete the library through the library manager
 		context
-			.library_manager
+			.libraries()
+			.await
 			.delete_library(self.input.library_id, self.input.delete_data)
 			.await?;
 

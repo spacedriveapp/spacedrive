@@ -31,7 +31,7 @@ impl CoreAction for LibraryCreateAction {
 	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		let library_manager = &context.library_manager;
+		let library_manager = context.libraries().await;
 		let library = library_manager
 			.create_library(
 				self.input.name.clone(),
@@ -40,11 +40,11 @@ impl CoreAction for LibraryCreateAction {
 			)
 			.await?;
 
-		Ok(LibraryCreateOutput::new(
-			library.id(),
-			library.name().await,
-			library.path().to_path_buf(),
-		))
+		// Get the name and path
+		let name = library.name().await;
+		let path = library.path().to_path_buf();
+
+		Ok(LibraryCreateOutput::new(library.id(), name, path))
 	}
 
 	fn action_kind(&self) -> &'static str {

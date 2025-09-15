@@ -1,8 +1,8 @@
 //! Background services management
 
 use crate::{
-	context::CoreContext, infra::event::EventBus,
-	crypto::library_key_manager::LibraryKeyManager,
+	context::CoreContext, crypto::library_key_manager::LibraryKeyManager, infra::event::EventBus,
+	service::session::SessionStateService,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -12,17 +12,18 @@ use tracing::info;
 pub mod device;
 pub mod entry_state_service;
 pub mod file_sharing;
-pub mod watcher;
 pub mod network;
+pub mod session;
 pub mod sidecar_manager;
 pub mod volume_monitor;
+pub mod watcher;
 
 use device::DeviceService;
 use file_sharing::FileSharingService;
-use watcher::{LocationWatcher, LocationWatcherConfig};
 use network::NetworkingService;
 use sidecar_manager::SidecarManager;
-use volume_monitor::{VolumeMonitorService, VolumeMonitorConfig};
+use volume_monitor::{VolumeMonitorConfig, VolumeMonitorService};
+use watcher::{LocationWatcher, LocationWatcherConfig};
 
 /// Container for all background services
 #[derive(Clone)]
@@ -41,6 +42,8 @@ pub struct Services {
 	pub sidecar_manager: Arc<SidecarManager>,
 	/// Library key manager
 	pub library_key_manager: Arc<LibraryKeyManager>,
+	/// Session state service
+	pub session_state: Arc<SessionStateService>,
 	/// Shared context for all services
 	context: Arc<CoreContext>,
 }
@@ -59,15 +62,16 @@ impl Services {
 		let device = Arc::new(DeviceService::new(context.clone()));
 		let sidecar_manager = Arc::new(SidecarManager::new(context.clone()));
 		let library_key_manager = context.library_key_manager.clone();
-
+		let session_state = context.session.clone();
 		Self {
 			location_watcher,
 			file_sharing,
 			device,
-			networking: None, // Initialized separately when needed
+			networking: None,     // Initialized separately when needed
 			volume_monitor: None, // Initialized after library manager is available
 			sidecar_manager,
 			library_key_manager,
+			session_state,
 			context,
 		}
 	}
@@ -126,7 +130,7 @@ impl Services {
 		library_key_manager: std::sync::Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
 		data_dir: impl AsRef<std::path::Path>,
 	) -> Result<()> {
-		use crate::service::network::{NetworkingService, utils::logging::ConsoleLogger};
+		use crate::service::network::{utils::logging::ConsoleLogger, NetworkingService};
 
 		info!("Initializing networking service");
 		let logger = std::sync::Arc::new(ConsoleLogger);

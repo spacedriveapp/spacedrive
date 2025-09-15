@@ -11,12 +11,12 @@ use std::sync::Arc;
 ///
 /// This trait provides the foundation for read-only operations with
 /// consistent infrastructure (validation, permissions, logging).
-pub trait Query {
+pub trait Query: Send + 'static {
 	/// The data structure returned by the query (owned by the operation module).
 	type Output: Send + Sync + 'static;
 
 	/// Execute this query with the given context.
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output>;
+	fn execute(self, context: Arc<CoreContext>) -> impl std::future::Future<Output = Result<Self::Output>> + Send;
 }
 
 /// QueryManager provides infrastructure for read-only operations.

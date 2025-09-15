@@ -1,10 +1,5 @@
-use crate::context::OutputFormat;
+use serde::Serialize;
 
-pub fn print_human_line(line: &str) { println!("{}", line) }
-
-pub fn print_json<T: serde::Serialize>(value: &T) {
-	println!("{}", serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_string()))
+pub fn print_json<T: Serialize>(data: &T) {
+    println!("{}", serde_json::to_string_pretty(data).unwrap());
 }
-
-
-

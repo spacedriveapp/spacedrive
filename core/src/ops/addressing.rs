@@ -106,7 +106,7 @@ impl PathResolver {
 		context: &CoreContext,
 		device_id: Uuid,
 	) -> Result<(), PathResolutionError> {
-		let current_device_id = crate::common::utils::get_current_device_id();
+		let current_device_id = crate::device::get_current_device_id();
 
 		// Local device is always "online"
 		if device_id == current_device_id {
@@ -134,7 +134,7 @@ impl PathResolver {
 
 	/// Get list of currently online devices
 	async fn get_online_devices(&self, context: &CoreContext) -> Vec<Uuid> {
-		let mut online = vec![crate::common::utils::get_current_device_id()];
+		let mut online = vec![crate::device::get_current_device_id()];
 
 		if let Some(networking) = context.get_networking().await {
 			for device in networking.get_connected_devices().await {
@@ -150,7 +150,7 @@ impl PathResolver {
 		let mut metrics = HashMap::new();
 
 		// Local device has zero latency
-		let current_device_id = crate::common::utils::get_current_device_id();
+		let current_device_id = crate::device::get_current_device_id();
 		metrics.insert(
 			current_device_id,
 			DeviceMetrics {
@@ -184,8 +184,9 @@ impl PathResolver {
 	) -> Result<SdPath, PathResolutionError> {
 		// Get the current library
 		let library = context
-			.library_manager
-			.get_primary_library()
+			.libraries()
+			.await
+			.get_active_library()
 			.await
 			.ok_or(PathResolutionError::NoActiveLibrary)?;
 
@@ -218,7 +219,7 @@ impl PathResolver {
 		let mut results = HashMap::new();
 
 		// Get the current library
-		let library = match context.library_manager.get_primary_library().await {
+		let library = match context.libraries().await.get_active_library().await {
 			Some(lib) => lib,
 			None => {
 				// Return error for all content IDs
@@ -302,10 +303,9 @@ impl PathResolver {
 				.await?
 			{
 				// Build the full path using PathResolver
-				let path = crate::ops::indexing::path_resolver::PathResolver::get_full_path(
-					db, entry.id,
-				)
-				.await?;
+				let path =
+					crate::ops::indexing::path_resolver::PathResolver::get_full_path(db, entry.id)
+						.await?;
 
 				instances.push(ContentInstance {
 					device_id: device.uuid,
@@ -397,11 +397,11 @@ impl PathResolver {
 					if let Some(location) = location_map.get(&entry.id) {
 						if let Some(device) = device_map.get(&location.device_id) {
 							// Build the full path
-							let path = crate::ops::indexing::path_resolver::PathResolver::get_full_path(
-                                db,
-                                entry.id,
-                            )
-                            .await?;
+							let path =
+								crate::ops::indexing::path_resolver::PathResolver::get_full_path(
+									db, entry.id,
+								)
+								.await?;
 
 							let instance = ContentInstance {
 								device_id: device.uuid,
@@ -428,7 +428,7 @@ impl PathResolver {
 		online_devices: &[Uuid],
 		device_metrics: &HashMap<Uuid, DeviceMetrics>,
 	) -> Option<SdPath> {
-		let current_device_id = crate::common::utils::get_current_device_id();
+		let current_device_id = crate::device::get_current_device_id();
 
 		let mut candidates: Vec<(f64, &ContentInstance)> = instances
 			.iter()

@@ -1,21 +1,19 @@
 //! Shared context providing access to core application components.
 
-//! Shared context providing access to core application components.
-
 use crate::{
-	config::JobLoggingConfig, device::DeviceManager, infra::action::manager::ActionManager,
-	infra::event::EventBus, crypto::library_key_manager::LibraryKeyManager, library::LibraryManager,
-	service::network::NetworkingService, volume::VolumeManager,
+	config::JobLoggingConfig, crypto::library_key_manager::LibraryKeyManager,
+	device::DeviceManager, infra::action::manager::ActionManager, infra::event::EventBus,
+	library::LibraryManager, service::network::NetworkingService,
+	service::session::SessionStateService, volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
-/// Shared context providing access to core application components.
 #[derive(Clone)]
 pub struct CoreContext {
 	pub events: Arc<EventBus>,
 	pub device_manager: Arc<DeviceManager>,
-	pub library_manager: Arc<LibraryManager>,
+	pub library_manager: Arc<RwLock<Option<Arc<LibraryManager>>>>,
 	pub volume_manager: Arc<VolumeManager>,
 	pub library_key_manager: Arc<LibraryKeyManager>,
 	// This is wrapped in an RwLock to allow it to be set after initialization
@@ -24,6 +22,7 @@ pub struct CoreContext {
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
+	pub session: Arc<SessionStateService>,
 }
 
 impl CoreContext {
@@ -31,21 +30,43 @@ impl CoreContext {
 	pub fn new(
 		events: Arc<EventBus>,
 		device_manager: Arc<DeviceManager>,
-		library_manager: Arc<LibraryManager>,
+		library_manager: Option<Arc<LibraryManager>>,
 		volume_manager: Arc<VolumeManager>,
 		library_key_manager: Arc<LibraryKeyManager>,
+		session: Arc<SessionStateService>,
 	) -> Self {
 		Self {
 			events,
 			device_manager,
-			library_manager,
+			library_manager: Arc::new(RwLock::new(library_manager)),
 			volume_manager,
 			library_key_manager,
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
 			job_logging_config: None,
 			job_logs_dir: None,
+			session,
 		}
+	}
+
+	/// Get the library manager
+	pub async fn libraries(&self) -> Arc<LibraryManager> {
+		self.library_manager.read().await.clone().unwrap()
+	}
+
+	/// Get a library by ID
+	pub async fn get_library(&self, id: uuid::Uuid) -> Option<Arc<crate::library::Library>> {
+		self.libraries().await.get_library(id).await
+	}
+
+	/// Get the primary library
+	pub async fn get_primary_library(&self) -> Option<Arc<crate::library::Library>> {
+		self.libraries().await.get_active_library().await
+	}
+
+	/// Method for Core to set library manager after it's initialized
+	pub async fn set_libraries(&self, library_manager: Arc<LibraryManager>) {
+		*self.library_manager.write().await = Some(library_manager);
 	}
 
 	/// Set job logging configuration
