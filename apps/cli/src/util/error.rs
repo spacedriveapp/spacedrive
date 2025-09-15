@@ -44,10 +44,10 @@ impl From<anyhow::Error> for CliError {
 	}
 }
 
-impl From<bincode::ErrorKind> for CliError {
-	fn from(err: bincode::ErrorKind) -> Self {
-		Self::SerializationError(err.to_string())
-	}
+impl From<bincode::Error> for CliError {
+    fn from(err: bincode::Error) -> Self {
+        Self::SerializationError(err.to_string())
+    }
 }
 
 /// Result type for CLI operations

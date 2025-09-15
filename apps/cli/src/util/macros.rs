@@ -9,9 +9,9 @@ macro_rules! execute_action {
 			.core
 			.action(&input)
 			.await
-			.map_err(|e| CliError::CoreError(e.to_string()))?;
+			.map_err(|e| $crate::util::error::CliError::CoreError(e.to_string()))?;
 		bincode::deserialize(&bytes).map_err(|e| {
-			CliError::SerializationError(format!("Failed to deserialize response: {}", e))
+			$crate::util::error::CliError::SerializationError(format!("Failed to deserialize response: {}", e))
 		})?
 	}};
 }
@@ -24,7 +24,7 @@ macro_rules! execute_query {
 		$ctx.core
 			.query(&input)
 			.await
-			.map_err(|e| CliError::CoreError(e.to_string()))?
+			.map_err(|e| $crate::util::error::CliError::CoreError(e.to_string()))?
 	}};
 }
 
@@ -33,11 +33,11 @@ macro_rules! execute_query {
 macro_rules! print_output {
 	($ctx:expr, $output:expr, $human:expr) => {{
 		match $ctx.format {
-			crate::context::OutputFormat::Human => {
+			$crate::context::OutputFormat::Human => {
 				$human($output);
 			}
-			crate::context::OutputFormat::Json => {
-				crate::util::output::print_json(&$output);
+			$crate::context::OutputFormat::Json => {
+				$crate::util::output::print_json(&$output);
 			}
 		}
 	}};
@@ -50,6 +50,6 @@ macro_rules! get_current_library {
 		let session = $ctx.core.session().get().await;
 		session
 			.current_library_id
-			.ok_or(CliError::NoActiveLibrary)?
+			.ok_or($crate::util::error::CliError::NoActiveLibrary)?
 	}};
 }

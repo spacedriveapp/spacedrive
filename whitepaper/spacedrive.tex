@@ -221,9 +221,10 @@ The architecture is built on seven foundational innovations that solve tradition
 
  \item \textbf{Native Storage Tiering} (Section~\ref{sec:volume-foundation}): A sophisticated, VDFS-level storage model that distinguishes between a volume's physical capabilities (e.g., SSD vs. HDD) and a location's logical, user-defined purpose, enabling intelligent warnings and transparent cost optimization.
 
- \item \textbf{Library Sync} (Section~\ref{sec:library-sync}): Domain-separated synchronization that maintains consistency without distributed consensus complexity.
+ 	 \item \textbf{Library Sync} (Section~\ref{sec:library-sync}): Domain-separated synchronization for the VDFS index and metadata, maintaining consistency without distributed consensus complexity[cite: 21].
+ 	 \item \textbf{Sync Conduits} (Section~\ref{sec:sync-conduits}): Explicit, user-created conduits for file content synchronization between any two entries (directories) in the VDFS, using a resilient state-based reconciliation model.
 
- \item \textbf{Transactional Action System} (Section~\ref{sec:action-system}): Preview-before-commit operations that prevent conflicts and guarantee completion.
+ 	 \item \textbf{Transactional Action System} (Section~\ref{sec:action-system}): Preview-before-commit operations that prevent conflicts and guarantee completion.
 
  \item \textbf{AI-Native Architecture} (Section~\ref{sec:ai-native}): Natural language commands and proactive assistance through privacy-preserving AI integration.
 \end{itemize}
@@ -1432,30 +1433,28 @@ Beyond trusted device pairing, Spacedrive implements \textbf{Spacedrop}---an eph
 
 \textbf{Relay Extension}: Spacedrop can optionally leverage relay nodes (either self-hosted or through Spacedrive Cloud) to enable asynchronous transfers. Users can "drop" files to a relay and receive a shareable link, allowing recipients to download later---combining the security of Spacedrop with the convenience of services like WeTransfer.
 
-\subsubsection{Intelligent File Synchronization}
+\subsubsection{Sync Conduits: State-Based Content Synchronization}
+\label{sec:sync-conduits}
+While Library Sync manages the replication of the VDFS index and metadata, the physical synchronization of file content is handled by an explicit, user-controlled system called \textbf{Sync Conduits}. A conduit is a durable, configurable job that defines the flow of file content between a source \texttt{Entry} and a destination \texttt{Entry}. This intentional, non-magical approach ensures users have transparent control over their data.
 
-While Spacedrive's primary function is to create a unified virtual index, this complete "world model" serves as a powerful foundation for advanced physical file synchronization. Unlike traditional stateless data-moving utilities that must re-evaluate source and destination on every run, Spacedrive leverages its persistent, real-time VDFS index to perform intelligent, efficient, and reliable file synchronization.
-
-\textbf{VDFS-Powered Sync Operations}
-
-At its core, all synchronization operations are managed by the \textbf{Transactional Action System}, ensuring they benefit from the same pre-visualization, durability, and conflict prevention mechanisms as other file operations. The key advantage lies in how Spacedrive prepares for a sync:
-
+\paragraph{The Sync Lifecycle}
+Sync Conduits are implemented using a \textbf{state-based reconciliation} model. This approach avoids a persistent sync log by leveraging the replicated VDFS index and performing live filesystem scans to determine the necessary actions. The lifecycle is as follows:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Instant Change Detection}: The Location Watcher service ensures the VDFS index is always current. When a sync is initiated, the system already knows the precise delta without needing to perform a full scan.
-    \item \textbf{Global Context and Deduplication}: The index has a global view of all content across all devices. Before transferring a file, Spacedrive checks its \textbf{Content ID} to avoid redundant transfers.
-    \item \textbf{Optimal Path Resolution}: Leveraging the \texttt{SdPath} universal addressing system, Spacedrive can find the most efficient source for a piece of content.
+    \item \textbf{Trigger}: A sync cycle is initiated by real-time events from the \texttt{LocationWatcher} service or by a user-configured timer (the "Sync Cadence").
+    \item \textbf{Delta Calculation}: The job performs a live scan of the source and destination filesystems, comparing the on-disk state against the VDFS index to generate an ephemeral list of \texttt{COPY} and \texttt{DELETE} operations.
+    \item \textbf{Execution}: The job dispatches the necessary \texttt{FileCopyAction} and \texttt{FileDeleteAction} operations. The Content Identity System ensures data is not transferred unnecessarily if it already exists on the destination device.
+    \item \textbf{Verification}: After transfer, a \textbf{Commit-Then-Verify (CTV)} step is initiated. The source device sends a \texttt{ValidationRequest} to the destination, which confirms the file's BLAKE3 hash integrity before the source copy is considered safe to delete (in Archive mode).
+    \item \textbf{Completion}: Once all actions are executed and verified, the cycle is complete and the ephemeral action list is discarded.
 \end{itemize}
 
-\textbf{Synchronization Modes}
-
-The Spacedrive architecture supports multiple synchronization policies, managed as durable relationships between Locations:
-
+\paragraph{Sync Policies}
+Users can choose from four distinct policies when creating a Sync Conduit:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Replicate (One-Way Sync)}: A target Location is made to be an exact replica of a source Location. The simulation engine calculates the delta by comparing index states and provides a clear preview before any changes are committed.
-    \item \textbf{Two-Way Sync}: Spacedrive establishes a persistent \texttt{SyncRelationship} between two Locations with real-time monitoring. When changes are detected, corresponding sync actions are automatically generated based on user-defined policies.
+    \item \textbf{Replicate (One-Way Mirror)}: Creates a robust backup of a source \texttt{Entry}, propagating all creates, modifies, and (optionally) deletes.
+    \item \textbf{Synchronize (Two-Way)}: Keeps two \texttt{Entries} identical, syncing changes bidirectionally with a "last-writer-wins" conflict resolution strategy based on modification time.
+    \item \textbf{Offload (Smart Cache)}: Frees up space on a primary device by moving the least recently used files to a destination, leaving the metadata intact in the VDFS index for on-demand retrieval.
+    \item \textbf{Archive (Move and Consolidate)}: Moves files to a long-term storage \texttt{Entry} and safely removes them from the source after cryptographic verification of the transfer.
 \end{itemize}
-
-This stateful, always-on monitoring eliminates the need for periodic manual syncs. In the event of conflicts, Spacedrive's metadata conflict resolution strategies are invoked to merge changes intelligently or prompt the user for a decision.
 
 \subsection{Practical Conflict Resolution}
 While the simulation engine prevents operational conflicts before they occur, synchronization conflicts can still arise when multiple devices modify the same data concurrently. Library Sync's domain separation significantly reduces these conflicts, but when they do occur---particularly in the User Metadata domain---the system provides transparent, user-controlled conflict resolution that maintains data integrity while preserving user intent.

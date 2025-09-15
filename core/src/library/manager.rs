@@ -139,7 +139,12 @@ impl LibraryManager {
 		});
 
 		// Ensure base path exists
-		tokio::fs::create_dir_all(&base_path).await?;
+		tokio::fs::create_dir_all(&base_path).await.map_err(|e| {
+			LibraryError::IoError(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				format!("Failed to create libraries directory: {}", e),
+			))
+		})?;
 
 		// Find unique library path
 		let library_path = find_unique_library_path(&base_path, &safe_name).await?;
