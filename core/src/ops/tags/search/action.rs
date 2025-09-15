@@ -3,10 +3,10 @@
 use super::{input::SearchTagsInput, output::SearchTagsOutput};
 use crate::{
     context::CoreContext,
-    domain::semantic_tag::{SemanticTag, TagType},
+    domain::tag::{Tag, TagType},
     infra::action::{error::ActionError, LibraryAction},
     library::Library,
-    ops::tags::semantic_tag_manager::SemanticTagManager,
+    ops::tags::manager::TagManager,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -37,7 +37,7 @@ impl LibraryAction for SearchTagsAction {
         _context: Arc<CoreContext>,
     ) -> Result<Self::Output, ActionError> {
         let db = library.db();
-        let semantic_tag_manager = SemanticTagManager::new(Arc::new(db.conn().clone()));
+        let semantic_tag_manager = TagManager::new(Arc::new(db.conn().clone()));
 
         let include_archived = self.input.include_archived.unwrap_or(false);
 

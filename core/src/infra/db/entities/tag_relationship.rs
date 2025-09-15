@@ -7,7 +7,7 @@ use sea_orm::{Set, NotSet};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "tag_relationships")]
+#[sea_orm(table_name = "tag_relationship")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
@@ -21,21 +21,21 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity",
+        belongs_to = "super::tag::Entity",
         from = "Column::ParentTagId",
-        to = "super::semantic_tag::Column::Id"
+        to = "super::tag::Column::Id"
     )]
     ParentTag,
 
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity",
+        belongs_to = "super::tag::Entity",
         from = "Column::ChildTagId",
-        to = "super::semantic_tag::Column::Id"
+        to = "super::tag::Column::Id"
     )]
     ChildTag,
 }
 
-impl Related<super::semantic_tag::Entity> for Entity {
+impl Related<super::tag::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ParentTag.def()
     }

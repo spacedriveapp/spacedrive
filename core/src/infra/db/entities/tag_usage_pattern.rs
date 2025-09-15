@@ -7,7 +7,7 @@ use sea_orm::{Set, NotSet};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "tag_usage_patterns")]
+#[sea_orm(table_name = "tag_usage_pattern")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
@@ -20,21 +20,21 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity",
+        belongs_to = "super::tag::Entity",
         from = "Column::TagId",
-        to = "super::semantic_tag::Column::Id"
+        to = "super::tag::Column::Id"
     )]
     Tag,
 
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity",
+        belongs_to = "super::tag::Entity",
         from = "Column::CoOccurrenceTagId",
-        to = "super::semantic_tag::Column::Id"
+        to = "super::tag::Column::Id"
     )]
     CoOccurrenceTag,
 }
 
-impl Related<super::semantic_tag::Entity> for Entity {
+impl Related<super::tag::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Tag.def()
     }

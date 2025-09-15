@@ -4,9 +4,9 @@
 //! database operations, hierarchy management, and context resolution.
 
 use sd_core::{
-    domain::semantic_tag::{SemanticTag, TagType, PrivacyLevel, RelationshipType, TagSource, TagApplication},
-    domain::semantic_tag_validation::SemanticTagValidator,
-    ops::tags::semantic_tag_manager::SemanticTagManager,
+    domain::tag::{Tag, TagType, PrivacyLevel, RelationshipType, TagSource, TagApplication},
+    domain::semantic_tag_validation::TagValidator,
+    ops::tags::manager::TagManager,
     ops::metadata::user_metadata_manager::UserMetadataManager,
     infra::db::Database,
 };
@@ -19,21 +19,21 @@ async fn test_semantic_tag_creation() {
     let device_id = Uuid::new_v4();
 
     // Test basic tag creation
-    let tag = SemanticTag::new("JavaScript".to_string(), device_id);
+    let tag = Tag::new("JavaScript".to_string(), device_id);
     assert_eq!(tag.canonical_name, "JavaScript");
     assert_eq!(tag.tag_type, TagType::Standard);
     assert_eq!(tag.privacy_level, PrivacyLevel::Normal);
     assert!(!tag.is_organizational_anchor);
 
     // Test validation
-    assert!(SemanticTagValidator::validate_semantic_tag(&tag).is_ok());
+    assert!(TagValidator::validate_semantic_tag(&tag).is_ok());
 }
 
 /// Test tag name variants and matching
 #[tokio::test]
 async fn test_tag_variants() {
     let device_id = Uuid::new_v4();
-    let mut tag = SemanticTag::new("JavaScript".to_string(), device_id);
+    let mut tag = Tag::new("JavaScript".to_string(), device_id);
 
     // Add variants
     tag.formal_name = Some("JavaScript Programming Language".to_string());
@@ -63,11 +63,11 @@ async fn test_polymorphic_naming() {
     let device_id = Uuid::new_v4();
 
     // Create two "Phoenix" tags in different namespaces
-    let mut phoenix_city = SemanticTag::new("Phoenix".to_string(), device_id);
+    let mut phoenix_city = Tag::new("Phoenix".to_string(), device_id);
     phoenix_city.namespace = Some("Geography".to_string());
     phoenix_city.description = Some("City in Arizona, USA".to_string());
 
-    let mut phoenix_myth = SemanticTag::new("Phoenix".to_string(), device_id);
+    let mut phoenix_myth = Tag::new("Phoenix".to_string(), device_id);
     phoenix_myth.namespace = Some("Mythology".to_string());
     phoenix_myth.description = Some("Mythical bird that rises from ashes".to_string());
 
@@ -78,33 +78,33 @@ async fn test_polymorphic_naming() {
     assert_eq!(phoenix_myth.get_qualified_name(), "Mythology::Phoenix");
 
     // Validation should pass for both
-    assert!(SemanticTagValidator::validate_semantic_tag(&phoenix_city).is_ok());
-    assert!(SemanticTagValidator::validate_semantic_tag(&phoenix_myth).is_ok());
+    assert!(TagValidator::validate_semantic_tag(&phoenix_city).is_ok());
+    assert!(TagValidator::validate_semantic_tag(&phoenix_myth).is_ok());
 }
 
 /// Test tag validation rules
 #[tokio::test]
 async fn test_tag_validation() {
     // Test valid tag names
-    assert!(SemanticTagValidator::validate_tag_name("JavaScript").is_ok());
-    assert!(SemanticTagValidator::validate_tag_name("日本語").is_ok()); // Unicode
-    assert!(SemanticTagValidator::validate_tag_name("Project-2024").is_ok());
+    assert!(TagValidator::validate_tag_name("JavaScript").is_ok());
+    assert!(TagValidator::validate_tag_name("日本語").is_ok()); // Unicode
+    assert!(TagValidator::validate_tag_name("Project-2024").is_ok());
 
     // Test invalid tag names
-    assert!(SemanticTagValidator::validate_tag_name("").is_err()); // Empty
-    assert!(SemanticTagValidator::validate_tag_name("   ").is_err()); // Whitespace only
-    assert!(SemanticTagValidator::validate_tag_name(" JavaScript ").is_err()); // Leading/trailing space
+    assert!(TagValidator::validate_tag_name("").is_err()); // Empty
+    assert!(TagValidator::validate_tag_name("   ").is_err()); // Whitespace only
+    assert!(TagValidator::validate_tag_name(" JavaScript ").is_err()); // Leading/trailing space
 
     // Test color validation
-    assert!(SemanticTagValidator::validate_color("#FF0000").is_ok());
-    assert!(SemanticTagValidator::validate_color("#123abc").is_ok());
-    assert!(SemanticTagValidator::validate_color("FF0000").is_err()); // No #
-    assert!(SemanticTagValidator::validate_color("#GG0000").is_err()); // Invalid hex
+    assert!(TagValidator::validate_color("#FF0000").is_ok());
+    assert!(TagValidator::validate_color("#123abc").is_ok());
+    assert!(TagValidator::validate_color("FF0000").is_err()); // No #
+    assert!(TagValidator::validate_color("#GG0000").is_err()); // Invalid hex
 
     // Test namespace validation
-    assert!(SemanticTagValidator::validate_namespace("Technology").is_ok());
-    assert!(SemanticTagValidator::validate_namespace("Web Development").is_ok());
-    assert!(SemanticTagValidator::validate_namespace("Tech@!#").is_err()); // Special chars
+    assert!(TagValidator::validate_namespace("Technology").is_ok());
+    assert!(TagValidator::validate_namespace("Web Development").is_ok());
+    assert!(TagValidator::validate_namespace("Tech@!#").is_err()); // Special chars
 }
 
 /// Test tag application creation
@@ -137,20 +137,20 @@ async fn test_organizational_tags() {
     let device_id = Uuid::new_v4();
 
     // Create organizational tag
-    let mut org_tag = SemanticTag::new("Projects".to_string(), device_id);
+    let mut org_tag = Tag::new("Projects".to_string(), device_id);
     org_tag.tag_type = TagType::Organizational;
     org_tag.is_organizational_anchor = true;
 
     // Should validate successfully
-    assert!(SemanticTagValidator::validate_semantic_tag(&org_tag).is_ok());
+    assert!(TagValidator::validate_semantic_tag(&org_tag).is_ok());
 
     // Test invalid organizational tag (not marked as anchor)
-    let mut invalid_org_tag = SemanticTag::new("Projects".to_string(), device_id);
+    let mut invalid_org_tag = Tag::new("Projects".to_string(), device_id);
     invalid_org_tag.tag_type = TagType::Organizational;
     invalid_org_tag.is_organizational_anchor = false;
 
     // Should fail validation
-    assert!(SemanticTagValidator::validate_semantic_tag(&invalid_org_tag).is_err());
+    assert!(TagValidator::validate_semantic_tag(&invalid_org_tag).is_err());
 }
 
 /// Test privacy tag rules
@@ -159,18 +159,18 @@ async fn test_privacy_tags() {
     let device_id = Uuid::new_v4();
 
     // Create valid archive tag
-    let mut archive_tag = SemanticTag::new("Personal".to_string(), device_id);
+    let mut archive_tag = Tag::new("Personal".to_string(), device_id);
     archive_tag.tag_type = TagType::Privacy;
     archive_tag.privacy_level = PrivacyLevel::Archive;
 
-    assert!(SemanticTagValidator::validate_semantic_tag(&archive_tag).is_ok());
+    assert!(TagValidator::validate_semantic_tag(&archive_tag).is_ok());
 
     // Create invalid privacy tag (normal privacy level)
-    let mut invalid_privacy_tag = SemanticTag::new("Personal".to_string(), device_id);
+    let mut invalid_privacy_tag = Tag::new("Personal".to_string(), device_id);
     invalid_privacy_tag.tag_type = TagType::Privacy;
     invalid_privacy_tag.privacy_level = PrivacyLevel::Normal;
 
-    assert!(SemanticTagValidator::validate_semantic_tag(&invalid_privacy_tag).is_err());
+    assert!(TagValidator::validate_semantic_tag(&invalid_privacy_tag).is_err());
 }
 
 /// Test tag searchability based on privacy level
@@ -179,22 +179,22 @@ async fn test_tag_searchability() {
     let device_id = Uuid::new_v4();
 
     // Normal tag should be searchable
-    let normal_tag = SemanticTag::new("Normal".to_string(), device_id);
+    let normal_tag = Tag::new("Normal".to_string(), device_id);
     assert!(normal_tag.is_searchable());
 
     // Archive tag should not be searchable
-    let mut archive_tag = SemanticTag::new("Archive".to_string(), device_id);
+    let mut archive_tag = Tag::new("Archive".to_string(), device_id);
     archive_tag.privacy_level = PrivacyLevel::Archive;
     assert!(!archive_tag.is_searchable());
 
     // Hidden tag should not be searchable
-    let mut hidden_tag = SemanticTag::new("Hidden".to_string(), device_id);
+    let mut hidden_tag = Tag::new("Hidden".to_string(), device_id);
     hidden_tag.privacy_level = PrivacyLevel::Hidden;
     assert!(!hidden_tag.is_searchable());
 }
 
 // Database integration tests would go here if we had a test database setup
-// These would test the actual SemanticTagService database operations:
+// These would test the actual TagService database operations:
 // - Tag creation and persistence
 // - Hierarchy creation and closure table maintenance
 // - Context resolution with real data
@@ -206,7 +206,7 @@ async fn test_tag_searchability() {
 #[tokio::test]
 async fn test_tag_creation_with_database() {
     let db = setup_test_database().await;
-    let service = SemanticTagService::new(db);
+    let service = TagService::new(db);
     let device_id = Uuid::new_v4();
 
     // Create a tag

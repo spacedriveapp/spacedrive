@@ -6,11 +6,11 @@
 
 use crate::domain::{
     user_metadata::{UserMetadata, Tag, Label},
-    semantic_tag::{TagApplication, TagSource, TagError},
+    tag::{TagApplication, TagSource, TagError},
 };
 use crate::infra::db::entities::*;
 use sea_orm::DatabaseConnection;
-use crate::ops::tags::semantic_tag_manager::SemanticTagManager;
+use crate::ops::tags::manager::TagManager;
 use anyhow::Result;
 use chrono::Utc;
 use sea_orm::{
@@ -24,12 +24,12 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct UserMetadataManager {
     db: Arc<DatabaseConnection>,
-    semantic_tag_service: Arc<SemanticTagManager>,
+    semantic_tag_service: Arc<TagManager>,
 }
 
 impl UserMetadataManager {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        let semantic_tag_service = Arc::new(SemanticTagManager::new(db.clone()));
+        let semantic_tag_service = Arc::new(TagManager::new(db.clone()));
 
         Self {
             db,
@@ -110,8 +110,8 @@ impl UserMetadataManager {
 
         // Convert tag UUIDs to database IDs
         let tag_uuids: Vec<Uuid> = tag_applications.iter().map(|app| app.tag_id).collect();
-        let tag_models = SemanticTag::find()
-            .filter(semantic_tag::Column::Uuid.is_in(tag_uuids))
+        let tag_models = crate::infra::db::entities::Tag::find()
+            .filter(crate::infra::db::entities::tag::Column::Uuid.is_in(tag_uuids))
             .all(&*db)
             .await
             .map_err(|e| TagError::DatabaseError(e.to_string()))?;
@@ -124,7 +124,7 @@ impl UserMetadataManager {
         // Insert tag applications
         for app in &tag_applications {
             if let Some(&tag_db_id) = uuid_to_db_id.get(&app.tag_id) {
-                let tag_application = user_metadata_semantic_tag::ActiveModel {
+                let tag_application = user_metadata_tag::ActiveModel {
                     id: NotSet,
                     user_metadata_id: Set(metadata_model.id),
                     tag_id: Set(tag_db_id),
@@ -145,15 +145,15 @@ impl UserMetadataManager {
                 // Insert or update if exists
                 if let Err(_) = tag_application.insert(&*db).await {
                     // If insert fails due to unique constraint, update existing
-                    let existing = user_metadata_semantic_tag::Entity::find()
-                        .filter(user_metadata_semantic_tag::Column::UserMetadataId.eq(metadata_model.id))
-                        .filter(user_metadata_semantic_tag::Column::TagId.eq(tag_db_id))
+                    let existing = user_metadata_tag::Entity::find()
+                        .filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_model.id))
+                        .filter(user_metadata_tag::Column::TagId.eq(tag_db_id))
                         .one(&*db)
                         .await
                         .map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
                     if let Some(existing_model) = existing {
-                        let mut update_model: user_metadata_semantic_tag::ActiveModel = existing_model.into();
+                        let mut update_model: user_metadata_tag::ActiveModel = existing_model.into();
                         update_model.applied_context = Set(app.applied_context.clone());
                         update_model.applied_variant = Set(app.applied_variant.clone());
                         update_model.confidence = Set(app.confidence);
@@ -202,8 +202,8 @@ impl UserMetadataManager {
             .ok_or(TagError::DatabaseError("UserMetadata not found".to_string()))?;
 
         // Get database IDs for tags to remove
-        let tag_models = semantic_tag::Entity::find()
-            .filter(semantic_tag::Column::Uuid.is_in(tag_ids.iter().map(|id| *id).collect::<Vec<_>>()))
+        let tag_models = crate::infra::db::entities::tag::Entity::find()
+            .filter(crate::infra::db::entities::tag::Column::Uuid.is_in(tag_ids.iter().map(|id| *id).collect::<Vec<_>>()))
             .all(&*db)
             .await
             .map_err(|e| TagError::DatabaseError(e.to_string()))?;
@@ -211,9 +211,9 @@ impl UserMetadataManager {
         let tag_db_ids: Vec<i32> = tag_models.into_iter().map(|m| m.id).collect();
 
         // Remove tag applications
-        user_metadata_semantic_tag::Entity::delete_many()
-            .filter(user_metadata_semantic_tag::Column::UserMetadataId.eq(metadata_model.id))
-            .filter(user_metadata_semantic_tag::Column::TagId.is_in(tag_db_ids))
+        user_metadata_tag::Entity::delete_many()
+            .filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_model.id))
+            .filter(user_metadata_tag::Column::TagId.is_in(tag_db_ids))
             .exec(&*db)
             .await
             .map_err(|e| TagError::DatabaseError(e.to_string()))?;
@@ -240,8 +240,8 @@ impl UserMetadataManager {
             .ok_or(TagError::DatabaseError("UserMetadata not found".to_string()))?;
 
         // Get all tag applications for this metadata
-        let tag_applications = user_metadata_semantic_tag::Entity::find()
-            .filter(user_metadata_semantic_tag::Column::UserMetadataId.eq(metadata_model.id))
+        let tag_applications = user_metadata_tag::Entity::find()
+            .filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_model.id))
             .all(&*db)
             .await
             .map_err(|e| TagError::DatabaseError(e.to_string()))?;
@@ -250,8 +250,8 @@ impl UserMetadataManager {
 
         for app_model in tag_applications {
             // Get the semantic tag
-            let tag_model = SemanticTag::find()
-                .filter(semantic_tag::Column::Id.eq(app_model.tag_id))
+            let tag_model = crate::infra::db::entities::Tag::find()
+                .filter(crate::infra::db::entities::tag::Column::Id.eq(app_model.tag_id))
                 .one(&*db)
                 .await
                 .map_err(|e| TagError::DatabaseError(e.to_string()))?;
@@ -433,8 +433,8 @@ impl UserMetadataManager {
         }
 
         // Get database IDs for all tags
-        let tag_models = SemanticTag::find()
-            .filter(semantic_tag::Column::Uuid.is_in(search_tag_ids))
+        let tag_models = crate::infra::db::entities::Tag::find()
+            .filter(crate::infra::db::entities::tag::Column::Uuid.is_in(search_tag_ids))
             .all(&*db)
             .await
             .map_err(|e| TagError::DatabaseError(e.to_string()))?;
@@ -446,8 +446,8 @@ impl UserMetadataManager {
         }
 
         // Find all metadata that has these tags applied
-        let tagged_metadata = user_metadata_semantic_tag::Entity::find()
-            .filter(user_metadata_semantic_tag::Column::TagId.is_in(tag_db_ids))
+        let tagged_metadata = user_metadata_tag::Entity::find()
+            .filter(user_metadata_tag::Column::TagId.is_in(tag_db_ids))
             .all(&*db)
             .await
             .map_err(|e| TagError::DatabaseError(e.to_string()))?;

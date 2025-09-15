@@ -1,12 +1,8 @@
-//! Semantic Tags Migration
+//! Migration: Create semantic tagging system
 //!
-//! This migration creates the advanced semantic tagging architecture
-//! described in the whitepaper.
-//!
-//! Key features:
-//! - Graph-based DAG structure with closure table
-//! - Polymorphic naming with namespace support
-//! - Semantic variants (formal names, abbreviations, aliases)
+//! This migration creates the complete semantic tagging infrastructure:
+//! - Enhanced tag table with polymorphic naming
+//! - Hierarchical relationships with closure table
 //! - Context-aware tag applications
 //! - Usage pattern tracking for intelligent suggestions
 //! - Full-text search across all tag variants
@@ -19,349 +15,208 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Create the enhanced semantic_tags table
+        // Create the enhanced tag table
         manager
             .create_table(
                 Table::create()
-                    .table(SemanticTags::Table)
+                    .table(Alias::new("tag"))
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(SemanticTags::Id)
+                        ColumnDef::new(Alias::new("id"))
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(SemanticTags::Uuid).uuid().not_null().unique_key())
-
-                    // Core identity
-                    .col(ColumnDef::new(SemanticTags::CanonicalName).string().not_null())
-                    .col(ColumnDef::new(SemanticTags::DisplayName).string())
-
-                    // Semantic variants
-                    .col(ColumnDef::new(SemanticTags::FormalName).string())
-                    .col(ColumnDef::new(SemanticTags::Abbreviation).string())
-                    .col(ColumnDef::new(SemanticTags::Aliases).json())
-
-                    // Context and categorization
-                    .col(ColumnDef::new(SemanticTags::Namespace).string())
-                    .col(ColumnDef::new(SemanticTags::TagType).string().not_null().default("standard"))
-
-                    // Visual and behavioral properties
-                    .col(ColumnDef::new(SemanticTags::Color).string())
-                    .col(ColumnDef::new(SemanticTags::Icon).string())
-                    .col(ColumnDef::new(SemanticTags::Description).text())
-
-                    // Advanced capabilities
-                    .col(ColumnDef::new(SemanticTags::IsOrganizationalAnchor).boolean().default(false))
-                    .col(ColumnDef::new(SemanticTags::PrivacyLevel).string().default("normal"))
-                    .col(ColumnDef::new(SemanticTags::SearchWeight).integer().default(100))
-
-                    // Compositional attributes
-                    .col(ColumnDef::new(SemanticTags::Attributes).json())
-                    .col(ColumnDef::new(SemanticTags::CompositionRules).json())
-
-                    // Metadata
-                    .col(ColumnDef::new(SemanticTags::CreatedAt).timestamp_with_time_zone().not_null())
-                    .col(ColumnDef::new(SemanticTags::UpdatedAt).timestamp_with_time_zone().not_null())
-                    .col(ColumnDef::new(SemanticTags::CreatedByDevice).uuid())
-
-                    // Constraints
-                    .index(
-                        Index::create()
-                            .name("idx_semantic_tags_canonical_namespace")
-                            .col(SemanticTags::CanonicalName)
-                            .col(SemanticTags::Namespace)
-                            .unique()
-                    )
+                    .col(ColumnDef::new(Alias::new("uuid")).uuid().not_null().unique_key())
+                    .col(ColumnDef::new(Alias::new("canonical_name")).string().not_null())
+                    .col(ColumnDef::new(Alias::new("display_name")).string())
+                    .col(ColumnDef::new(Alias::new("formal_name")).string())
+                    .col(ColumnDef::new(Alias::new("abbreviation")).string())
+                    .col(ColumnDef::new(Alias::new("aliases")).json())
+                    .col(ColumnDef::new(Alias::new("namespace")).string())
+                    .col(ColumnDef::new(Alias::new("tag_type")).string().not_null().default("standard"))
+                    .col(ColumnDef::new(Alias::new("color")).string())
+                    .col(ColumnDef::new(Alias::new("icon")).string())
+                    .col(ColumnDef::new(Alias::new("description")).text())
+                    .col(ColumnDef::new(Alias::new("is_organizational_anchor")).boolean().default(false))
+                    .col(ColumnDef::new(Alias::new("privacy_level")).string().default("normal"))
+                    .col(ColumnDef::new(Alias::new("search_weight")).integer().default(100))
+                    .col(ColumnDef::new(Alias::new("attributes")).json())
+                    .col(ColumnDef::new(Alias::new("composition_rules")).json())
+                    .col(ColumnDef::new(Alias::new("created_at")).timestamp_with_time_zone().not_null())
+                    .col(ColumnDef::new(Alias::new("updated_at")).timestamp_with_time_zone().not_null())
+                    .col(ColumnDef::new(Alias::new("created_by_device")).uuid())
                     .to_owned(),
             )
             .await?;
 
-        // Create tag relationships table for hierarchy
+        // Create indexes for the tag table
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_canonical_name")
+                    .table(Alias::new("tag"))
+                    .col(Alias::new("canonical_name"))
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_namespace")
+                    .table(Alias::new("tag"))
+                    .col(Alias::new("namespace"))
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_type")
+                    .table(Alias::new("tag"))
+                    .col(Alias::new("tag_type"))
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_privacy_level")
+                    .table(Alias::new("tag"))
+                    .col(Alias::new("privacy_level"))
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create the tag_relationship table
         manager
             .create_table(
                 Table::create()
-                    .table(TagRelationships::Table)
+                    .table(Alias::new("tag_relationship"))
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(TagRelationships::Id)
+                        ColumnDef::new(Alias::new("id"))
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(TagRelationships::ParentTagId).integer().not_null())
-                    .col(ColumnDef::new(TagRelationships::ChildTagId).integer().not_null())
-                    .col(ColumnDef::new(TagRelationships::RelationshipType).string().not_null().default("parent_child"))
-                    .col(ColumnDef::new(TagRelationships::Strength).float().default(1.0))
-                    .col(ColumnDef::new(TagRelationships::CreatedAt).timestamp_with_time_zone().not_null())
-
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(TagRelationships::Table, TagRelationships::ParentTagId)
-                            .to(SemanticTags::Table, SemanticTags::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(TagRelationships::Table, TagRelationships::ChildTagId)
-                            .to(SemanticTags::Table, SemanticTags::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-
-                    // Prevent cycles and duplicate relationships
-                    .index(
-                        Index::create()
-                            .name("idx_tag_relationships_unique")
-                            .col(TagRelationships::ParentTagId)
-                            .col(TagRelationships::ChildTagId)
-                            .col(TagRelationships::RelationshipType)
-                            .unique()
-                    )
+                    .col(ColumnDef::new(Alias::new("parent_tag_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("child_tag_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("relationship_type")).string().not_null().default("parent_child"))
+                    .col(ColumnDef::new(Alias::new("strength")).float().default(1.0))
+                    .col(ColumnDef::new(Alias::new("created_at")).timestamp_with_time_zone().not_null())
                     .to_owned(),
             )
             .await?;
 
-        // Create closure table for efficient hierarchy traversal
+        // Create foreign key constraints for tag_relationship
+        manager
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_tag_relationship_parent")
+                    .from(Alias::new("tag_relationship"), Alias::new("parent_tag_id"))
+                    .to(Alias::new("tag"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_tag_relationship_child")
+                    .from(Alias::new("tag_relationship"), Alias::new("child_tag_id"))
+                    .to(Alias::new("tag"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create indexes for tag_relationship
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_relationship_parent")
+                    .table(Alias::new("tag_relationship"))
+                    .col(Alias::new("parent_tag_id"))
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_relationship_child")
+                    .table(Alias::new("tag_relationship"))
+                    .col(Alias::new("child_tag_id"))
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_relationship_type")
+                    .table(Alias::new("tag_relationship"))
+                    .col(Alias::new("relationship_type"))
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create the tag_closure table for efficient hierarchical queries
         manager
             .create_table(
                 Table::create()
-                    .table(TagClosure::Table)
+                    .table(Alias::new("tag_closure"))
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(TagClosure::AncestorId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(TagClosure::DescendantId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(TagClosure::Depth)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(TagClosure::PathStrength).float().default(1.0))
-
+                    .col(ColumnDef::new(Alias::new("ancestor_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("descendant_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("depth")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("path_strength")).float().not_null())
                     .primary_key(
                         Index::create()
-                            .col(TagClosure::AncestorId)
-                            .col(TagClosure::DescendantId)
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(TagClosure::Table, TagClosure::AncestorId)
-                            .to(SemanticTags::Table, SemanticTags::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(TagClosure::Table, TagClosure::DescendantId)
-                            .to(SemanticTags::Table, SemanticTags::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
+                            .col(Alias::new("ancestor_id"))
+                            .col(Alias::new("descendant_id")),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // Create enhanced user metadata tagging table
+        // Create foreign key constraints for tag_closure
         manager
-            .create_table(
-                Table::create()
-                    .table(UserMetadataSemanticTags::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(UserMetadataSemanticTags::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(UserMetadataSemanticTags::UserMetadataId).integer().not_null())
-                    .col(ColumnDef::new(UserMetadataSemanticTags::TagId).integer().not_null())
-
-                    // Context for this specific tagging instance
-                    .col(ColumnDef::new(UserMetadataSemanticTags::AppliedContext).string())
-                    .col(ColumnDef::new(UserMetadataSemanticTags::AppliedVariant).string())
-                    .col(ColumnDef::new(UserMetadataSemanticTags::Confidence).float().default(1.0))
-                    .col(ColumnDef::new(UserMetadataSemanticTags::Source).string().default("user"))
-
-                    // Instance-specific attributes
-                    .col(ColumnDef::new(UserMetadataSemanticTags::InstanceAttributes).json())
-
-                    // Audit and sync
-                    .col(ColumnDef::new(UserMetadataSemanticTags::CreatedAt).timestamp_with_time_zone().not_null())
-                    .col(ColumnDef::new(UserMetadataSemanticTags::UpdatedAt).timestamp_with_time_zone().not_null())
-                    .col(ColumnDef::new(UserMetadataSemanticTags::DeviceUuid).uuid().not_null())
-
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(UserMetadataSemanticTags::Table, UserMetadataSemanticTags::UserMetadataId)
-                            .to(UserMetadata::Table, UserMetadata::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(UserMetadataSemanticTags::Table, UserMetadataSemanticTags::TagId)
-                            .to(SemanticTags::Table, SemanticTags::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-
-                    .index(
-                        Index::create()
-                            .name("idx_user_metadata_semantic_tags_unique")
-                            .col(UserMetadataSemanticTags::UserMetadataId)
-                            .col(UserMetadataSemanticTags::TagId)
-                            .unique()
-                    )
-                    .to_owned(),
-            )
-            .await?;
-
-        // Create tag usage patterns table for analytics
-        manager
-            .create_table(
-                Table::create()
-                    .table(TagUsagePatterns::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(TagUsagePatterns::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(TagUsagePatterns::TagId).integer().not_null())
-                    .col(ColumnDef::new(TagUsagePatterns::CoOccurrenceTagId).integer().not_null())
-                    .col(ColumnDef::new(TagUsagePatterns::OccurrenceCount).integer().default(1))
-                    .col(ColumnDef::new(TagUsagePatterns::LastUsedTogether).timestamp_with_time_zone().not_null())
-
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(TagUsagePatterns::Table, TagUsagePatterns::TagId)
-                            .to(SemanticTags::Table, SemanticTags::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(TagUsagePatterns::Table, TagUsagePatterns::CoOccurrenceTagId)
-                            .to(SemanticTags::Table, SemanticTags::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-
-                    .index(
-                        Index::create()
-                            .name("idx_tag_usage_patterns_unique")
-                            .col(TagUsagePatterns::TagId)
-                            .col(TagUsagePatterns::CoOccurrenceTagId)
-                            .unique()
-                    )
-                    .to_owned(),
-            )
-            .await?;
-
-        // Create full-text search support
-        manager
-            .get_connection()
-            .execute_unprepared(
-                r#"
-                CREATE VIRTUAL TABLE tag_search_fts USING fts5(
-                    tag_id,
-                    canonical_name,
-                    display_name,
-                    formal_name,
-                    abbreviation,
-                    aliases,
-                    description,
-                    namespace,
-                    content='semantic_tags',
-                    content_rowid='id'
-                );
-                "#,
-            )
-            .await?;
-
-        // Create indices for performance
-        self.create_semantic_tag_indices(manager).await?;
-
-        Ok(())
-    }
-
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Drop FTS table first
-        manager
-            .get_connection()
-            .execute_unprepared("DROP TABLE IF EXISTS tag_search_fts;")
-            .await?;
-
-        // Drop tables in reverse order
-        manager
-            .drop_table(Table::drop().table(TagUsagePatterns::Table).to_owned())
-            .await?;
-
-        manager
-            .drop_table(Table::drop().table(UserMetadataSemanticTags::Table).to_owned())
-            .await?;
-
-        manager
-            .drop_table(Table::drop().table(TagClosure::Table).to_owned())
-            .await?;
-
-        manager
-            .drop_table(Table::drop().table(TagRelationships::Table).to_owned())
-            .await?;
-
-        manager
-            .drop_table(Table::drop().table(SemanticTags::Table).to_owned())
-            .await?;
-
-        Ok(())
-    }
-}
-
-impl Migration {
-    async fn create_semantic_tag_indices(&self, manager: &SchemaManager<'_>) -> Result<(), DbErr> {
-        // Semantic tags indices
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_semantic_tags_namespace")
-                    .table(SemanticTags::Table)
-                    .col(SemanticTags::Namespace)
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_tag_closure_ancestor")
+                    .from(Alias::new("tag_closure"), Alias::new("ancestor_id"))
+                    .to(Alias::new("tag"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
                     .to_owned(),
             )
             .await?;
 
         manager
-            .create_index(
-                Index::create()
-                    .name("idx_semantic_tags_type")
-                    .table(SemanticTags::Table)
-                    .col(SemanticTags::TagType)
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_tag_closure_descendant")
+                    .from(Alias::new("tag_closure"), Alias::new("descendant_id"))
+                    .to(Alias::new("tag"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
                     .to_owned(),
             )
             .await?;
 
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_semantic_tags_privacy")
-                    .table(SemanticTags::Table)
-                    .col(SemanticTags::PrivacyLevel)
-                    .to_owned(),
-            )
-            .await?;
-
-        // Tag closure indices
+        // Create indexes for tag_closure
         manager
             .create_index(
                 Index::create()
                     .name("idx_tag_closure_ancestor")
-                    .table(TagClosure::Table)
-                    .col(TagClosure::AncestorId)
+                    .table(Alias::new("tag_closure"))
+                    .col(Alias::new("ancestor_id"))
                     .to_owned(),
             )
             .await?;
@@ -370,8 +225,8 @@ impl Migration {
             .create_index(
                 Index::create()
                     .name("idx_tag_closure_descendant")
-                    .table(TagClosure::Table)
-                    .col(TagClosure::DescendantId)
+                    .table(Alias::new("tag_closure"))
+                    .col(Alias::new("descendant_id"))
                     .to_owned(),
             )
             .await?;
@@ -380,19 +235,69 @@ impl Migration {
             .create_index(
                 Index::create()
                     .name("idx_tag_closure_depth")
-                    .table(TagClosure::Table)
-                    .col(TagClosure::Depth)
+                    .table(Alias::new("tag_closure"))
+                    .col(Alias::new("depth"))
                     .to_owned(),
             )
             .await?;
 
-        // User metadata semantic tags indices
+        // Create the user_metadata_tag table
+        manager
+            .create_table(
+                Table::create()
+                    .table(Alias::new("user_metadata_tag"))
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Alias::new("id"))
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Alias::new("user_metadata_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("tag_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("applied_context")).string())
+                    .col(ColumnDef::new(Alias::new("applied_variant")).string())
+                    .col(ColumnDef::new(Alias::new("confidence")).float().default(1.0))
+                    .col(ColumnDef::new(Alias::new("source")).string().default("user"))
+                    .col(ColumnDef::new(Alias::new("instance_attributes")).json())
+                    .col(ColumnDef::new(Alias::new("created_at")).timestamp_with_time_zone().not_null())
+                    .col(ColumnDef::new(Alias::new("updated_at")).timestamp_with_time_zone().not_null())
+                    .col(ColumnDef::new(Alias::new("device_uuid")).uuid().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create foreign key constraints for user_metadata_tag
+        manager
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_user_metadata_tag_metadata")
+                    .from(Alias::new("user_metadata_tag"), Alias::new("user_metadata_id"))
+                    .to(Alias::new("user_metadata"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_user_metadata_tag_tag")
+                    .from(Alias::new("user_metadata_tag"), Alias::new("tag_id"))
+                    .to(Alias::new("tag"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create indexes for user_metadata_tag
         manager
             .create_index(
                 Index::create()
-                    .name("idx_user_metadata_semantic_tags_metadata")
-                    .table(UserMetadataSemanticTags::Table)
-                    .col(UserMetadataSemanticTags::UserMetadataId)
+                    .name("idx_user_metadata_tag_metadata")
+                    .table(Alias::new("user_metadata_tag"))
+                    .col(Alias::new("user_metadata_id"))
                     .to_owned(),
             )
             .await?;
@@ -400,9 +305,9 @@ impl Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx_user_metadata_semantic_tags_tag")
-                    .table(UserMetadataSemanticTags::Table)
-                    .col(UserMetadataSemanticTags::TagId)
+                    .name("idx_user_metadata_tag_tag")
+                    .table(Alias::new("user_metadata_tag"))
+                    .col(Alias::new("tag_id"))
                     .to_owned(),
             )
             .await?;
@@ -410,93 +315,119 @@ impl Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx_user_metadata_semantic_tags_source")
-                    .table(UserMetadataSemanticTags::Table)
-                    .col(UserMetadataSemanticTags::Source)
+                    .name("idx_user_metadata_tag_source")
+                    .table(Alias::new("user_metadata_tag"))
+                    .col(Alias::new("source"))
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create the tag_usage_pattern table
+        manager
+            .create_table(
+                Table::create()
+                    .table(Alias::new("tag_usage_pattern"))
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Alias::new("id"))
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Alias::new("tag_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("co_occurrence_tag_id")).integer().not_null())
+                    .col(ColumnDef::new(Alias::new("occurrence_count")).integer().default(1))
+                    .col(ColumnDef::new(Alias::new("last_used_together")).timestamp_with_time_zone().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create foreign key constraints for tag_usage_pattern
+        manager
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_tag_usage_pattern_tag")
+                    .from(Alias::new("tag_usage_pattern"), Alias::new("tag_id"))
+                    .to(Alias::new("tag"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_foreign_key(
+                ForeignKey::create()
+                    .name("fk_tag_usage_pattern_co_occurrence")
+                    .from(Alias::new("tag_usage_pattern"), Alias::new("co_occurrence_tag_id"))
+                    .to(Alias::new("tag"), Alias::new("id"))
+                    .on_delete(ForeignKeyAction::Cascade)
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create indexes for tag_usage_pattern
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_usage_pattern_tag")
+                    .table(Alias::new("tag_usage_pattern"))
+                    .col(Alias::new("tag_id"))
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_usage_pattern_co_occurrence")
+                    .table(Alias::new("tag_usage_pattern"))
+                    .col(Alias::new("co_occurrence_tag_id"))
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create full-text search indexes
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tag_fulltext")
+                    .table(Alias::new("tag"))
+                    .col(Alias::new("canonical_name"))
+                    .col(Alias::new("display_name"))
+                    .col(Alias::new("formal_name"))
+                    .col(Alias::new("abbreviation"))
+                    .col(Alias::new("aliases"))
+                    .col(Alias::new("description"))
                     .to_owned(),
             )
             .await?;
 
         Ok(())
     }
-}
 
-// Table identifiers for semantic tags system
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // Drop tables in reverse order
+        manager
+            .drop_table(Table::drop().table(Alias::new("tag_usage_pattern")).to_owned())
+            .await?;
 
-#[derive(DeriveIden)]
-enum SemanticTags {
-    Table,
-    Id,
-    Uuid,
-    CanonicalName,
-    DisplayName,
-    FormalName,
-    Abbreviation,
-    Aliases,
-    Namespace,
-    TagType,
-    Color,
-    Icon,
-    Description,
-    IsOrganizationalAnchor,
-    PrivacyLevel,
-    SearchWeight,
-    Attributes,
-    CompositionRules,
-    CreatedAt,
-    UpdatedAt,
-    CreatedByDevice,
-}
+        manager
+            .drop_table(Table::drop().table(Alias::new("user_metadata_tag")).to_owned())
+            .await?;
 
-#[derive(DeriveIden)]
-enum TagRelationships {
-    Table,
-    Id,
-    ParentTagId,
-    ChildTagId,
-    RelationshipType,
-    Strength,
-    CreatedAt,
-}
+        manager
+            .drop_table(Table::drop().table(Alias::new("tag_closure")).to_owned())
+            .await?;
 
-#[derive(DeriveIden)]
-enum TagClosure {
-    Table,
-    AncestorId,
-    DescendantId,
-    Depth,
-    PathStrength,
-}
+        manager
+            .drop_table(Table::drop().table(Alias::new("tag_relationship")).to_owned())
+            .await?;
 
-#[derive(DeriveIden)]
-enum UserMetadataSemanticTags {
-    Table,
-    Id,
-    UserMetadataId,
-    TagId,
-    AppliedContext,
-    AppliedVariant,
-    Confidence,
-    Source,
-    InstanceAttributes,
-    CreatedAt,
-    UpdatedAt,
-    DeviceUuid,
-}
+        manager
+            .drop_table(Table::drop().table(Alias::new("tag")).to_owned())
+            .await?;
 
-#[derive(DeriveIden)]
-enum TagUsagePatterns {
-    Table,
-    Id,
-    TagId,
-    CoOccurrenceTagId,
-    OccurrenceCount,
-    LastUsedTogether,
-}
-
-// Reference to existing user_metadata table
-#[derive(DeriveIden)]
-enum UserMetadata {
-    Table,
-    Id,
+        Ok(())
+    }
 }

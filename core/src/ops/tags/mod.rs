@@ -9,8 +9,8 @@ pub mod search;
 pub mod manager;
 pub mod facade;
 
-pub use manager::SemanticTagManager;
-pub use facade::SemanticTaggingFacade;
+pub use manager::TagManager;
+pub use facade::TaggingFacade;
 
 // Re-export commonly used types
 pub use apply::{ApplyTagsAction, ApplyTagsInput, ApplyTagsOutput};

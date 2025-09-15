@@ -1,22 +1,22 @@
 //! Output for search semantic tags action
 
-use crate::domain::semantic_tag::SemanticTag;
+use crate::domain::tag::Tag;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchTagsOutput {
     /// Tags found by the search
     pub tags: Vec<TagSearchResult>,
-    
+
     /// Total number of results found (may be more than returned if limited)
     pub total_found: usize,
-    
+
     /// Whether results were disambiguated using context
     pub disambiguated: bool,
-    
+
     /// Search query that was executed
     pub query: String,
-    
+
     /// Applied filters
     pub filters: SearchFilters,
 }
@@ -24,14 +24,14 @@ pub struct SearchTagsOutput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TagSearchResult {
     /// The semantic tag
-    pub tag: SemanticTag,
-    
+    pub tag: Tag,
+
     /// Relevance score (0.0-1.0)
     pub relevance: f32,
-    
+
     /// Which name variant matched the search
     pub matched_variant: Option<String>,
-    
+
     /// Context score if disambiguation was used
     pub context_score: Option<f32>,
 }
@@ -47,7 +47,7 @@ pub struct SearchFilters {
 impl SearchTagsOutput {
     /// Create a successful search output
     pub fn success(
-        tags: Vec<SemanticTag>,
+        tags: Vec<Tag>,
         query: String,
         namespace: Option<String>,
         tag_type: Option<String>,
@@ -65,9 +65,9 @@ impl SearchTagsOutput {
                 context_score: None,
             })
             .collect();
-        
+
         let total_found = results.len();
-        
+
         Self {
             tags: results,
             total_found,
@@ -81,7 +81,7 @@ impl SearchTagsOutput {
             },
         }
     }
-    
+
     /// Create output with context scores for disambiguation
     pub fn with_context_scores(
         mut self,
@@ -91,18 +91,18 @@ impl SearchTagsOutput {
             result.context_score = Some(*score);
             result.relevance = *score;
         }
-        
+
         // Sort by context score
         self.tags.sort_by(|a, b| {
             b.context_score
                 .partial_cmp(&a.context_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        
+
         self.disambiguated = true;
         self
     }
-    
+
     /// Mark which variants matched for each result
     pub fn with_matched_variants(mut self, matched_variants: Vec<Option<String>>) -> Self {
         for (result, variant) in self.tags.iter_mut().zip(matched_variants.iter()) {

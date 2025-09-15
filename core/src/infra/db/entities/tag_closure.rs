@@ -20,21 +20,21 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity",
+        belongs_to = "super::tag::Entity",
         from = "Column::AncestorId",
-        to = "super::semantic_tag::Column::Id"
+        to = "super::tag::Column::Id"
     )]
     Ancestor,
 
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity",
+        belongs_to = "super::tag::Entity",
         from = "Column::DescendantId",
-        to = "super::semantic_tag::Column::Id"
+        to = "super::tag::Column::Id"
     )]
     Descendant,
 }
 
-impl Related<super::semantic_tag::Entity> for Entity {
+impl Related<super::tag::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Ancestor.def()
     }

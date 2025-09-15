@@ -5,9 +5,9 @@
 //! interface for UI and CLI integration.
 
 use crate::{
-    domain::semantic_tag::{SemanticTag, TagApplication, TagType, PrivacyLevel, RelationshipType, TagSource, TagError},
+    domain::tag::{Tag, TagApplication, TagType, PrivacyLevel, RelationshipType, TagSource, TagError},
     ops::{
-        tags::semantic_tag_manager::SemanticTagManager,
+        tags::manager::TagManager,
         metadata::user_metadata_manager::UserMetadataManager,
     },
     infra::db::Database,
@@ -18,15 +18,15 @@ use uuid::Uuid;
 
 /// High-level facade for semantic tagging operations
 #[derive(Clone)]
-pub struct SemanticTaggingFacade {
-    tag_manager: Arc<SemanticTagManager>,
+pub struct TaggingFacade {
+    tag_manager: Arc<TagManager>,
     metadata_manager: Arc<UserMetadataManager>,
 }
 
-impl SemanticTaggingFacade {
+impl TaggingFacade {
     pub fn new(db: Arc<Database>) -> Self {
         let db_conn = Arc::new(db.conn().clone());
-        let tag_manager = Arc::new(SemanticTagManager::new(db_conn.clone()));
+        let tag_manager = Arc::new(TagManager::new(db_conn.clone()));
         let metadata_manager = Arc::new(UserMetadataManager::new(db_conn));
 
         Self {
@@ -41,7 +41,7 @@ impl SemanticTaggingFacade {
         name: String,
         color: Option<String>,
         device_id: Uuid,
-    ) -> Result<SemanticTag, TagError> {
+    ) -> Result<Tag, TagError> {
         self.tag_manager.create_tag(name, None, device_id).await
     }
 
@@ -52,7 +52,7 @@ impl SemanticTaggingFacade {
         namespace: String,
         color: Option<String>,
         device_id: Uuid,
-    ) -> Result<SemanticTag, TagError> {
+    ) -> Result<Tag, TagError> {
         let mut tag = self.tag_manager.create_tag(name, Some(namespace), device_id).await?;
         if let Some(color) = color {
             tag.color = Some(color);
@@ -67,7 +67,7 @@ impl SemanticTaggingFacade {
         name: String,
         color: Option<String>,
         device_id: Uuid,
-    ) -> Result<SemanticTag, TagError> {
+    ) -> Result<Tag, TagError> {
         let mut tag = self.tag_manager.create_tag(name, None, device_id).await?;
         tag.tag_type = TagType::Organizational;
         tag.is_organizational_anchor = true;
@@ -86,7 +86,7 @@ impl SemanticTaggingFacade {
         aliases: Vec<String>,
         namespace: Option<String>,
         device_id: Uuid,
-    ) -> Result<SemanticTag, TagError> {
+    ) -> Result<Tag, TagError> {
         let mut tag = self.tag_manager.create_tag(canonical_name, namespace, device_id).await?;
 
         if let Some(abbrev) = abbreviation {
@@ -106,7 +106,7 @@ impl SemanticTaggingFacade {
         &self,
         hierarchy: Vec<(String, Option<String>)>, // (name, namespace) pairs
         device_id: Uuid,
-    ) -> Result<Vec<SemanticTag>, TagError> {
+    ) -> Result<Vec<Tag>, TagError> {
         let mut created_tags = Vec::new();
 
         // Create all tags first
@@ -208,7 +208,7 @@ impl SemanticTaggingFacade {
         &self,
         entry_id: i32,
         max_suggestions: usize,
-    ) -> Result<Vec<(SemanticTag, f32)>, TagError> {
+    ) -> Result<Vec<(Tag, f32)>, TagError> {
         // Get existing tags for this entry
         let existing_applications = self.metadata_manager.get_semantic_tags_for_entry(entry_id).await?;
         let existing_tag_ids: Vec<Uuid> = existing_applications.iter().map(|app| app.tag_id).collect();
@@ -294,8 +294,8 @@ impl SemanticTaggingFacade {
 
     async fn build_hierarchy_node(
         &self,
-        tag: &SemanticTag,
-        all_tags: &[SemanticTag],
+        tag: &Tag,
+        all_tags: &[Tag],
     ) -> Result<TagHierarchyNode, TagError> {
         let descendant_ids = self.tag_manager.get_descendants(tag.id).await?;
         let descendant_uuid_ids: Vec<Uuid> = descendant_ids.into_iter().map(|tag| tag.id).collect();
@@ -319,7 +319,7 @@ impl SemanticTaggingFacade {
 /// Hierarchical representation of tags for UI display
 #[derive(Debug, Clone)]
 pub struct TagHierarchyNode {
-    pub tag: SemanticTag,
+    pub tag: Tag,
     pub children: Vec<TagHierarchyNode>,
 }
 
@@ -334,7 +334,7 @@ impl TagHierarchyNode {
     }
 
     /// Get all tags in this subtree (flattened)
-    pub fn flatten(&self) -> Vec<&SemanticTag> {
+    pub fn flatten(&self) -> Vec<&Tag> {
         let mut result = vec![&self.tag];
         for child in &self.children {
             result.extend(child.flatten());
@@ -355,8 +355,8 @@ mod tests {
     #[test]
     fn test_hierarchy_node() {
         let device_id = Uuid::new_v4();
-        let root_tag = SemanticTag::new("Technology".to_string(), device_id);
-        let child_tag = SemanticTag::new("Programming".to_string(), device_id);
+        let root_tag = Tag::new("Technology".to_string(), device_id);
+        let child_tag = Tag::new("Programming".to_string(), device_id);
 
         let child_node = TagHierarchyNode {
             tag: child_tag,

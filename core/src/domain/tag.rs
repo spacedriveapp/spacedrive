@@ -9,39 +9,39 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// A semantic tag with advanced capabilities for contextual organization
+/// A tag with advanced capabilities for contextual organization
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct SemanticTag {
+pub struct Tag {
     /// Unique identifier
     pub id: Uuid,
-    
+
     /// Core identity
     pub canonical_name: String,
     pub display_name: Option<String>,
-    
+
     /// Semantic variants for flexible access
     pub formal_name: Option<String>,
     pub abbreviation: Option<String>,
     pub aliases: Vec<String>,
-    
+
     /// Context and categorization
     pub namespace: Option<String>,
     pub tag_type: TagType,
-    
+
     /// Visual and behavioral properties
     pub color: Option<String>,
     pub icon: Option<String>,
     pub description: Option<String>,
-    
+
     /// Advanced capabilities
     pub is_organizational_anchor: bool,
     pub privacy_level: PrivacyLevel,
     pub search_weight: i32,
-    
+
     /// Compositional attributes
     pub attributes: HashMap<String, serde_json::Value>,
     pub composition_rules: Vec<CompositionRule>,
-    
+
     /// Metadata
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -70,7 +70,7 @@ impl TagType {
             TagType::System => "system",
         }
     }
-    
+
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "standard" => Some(TagType::Standard),
@@ -101,7 +101,7 @@ impl PrivacyLevel {
             PrivacyLevel::Hidden => "hidden",
         }
     }
-    
+
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "normal" => Some(PrivacyLevel::Normal),
@@ -140,7 +140,7 @@ impl RelationshipType {
             RelationshipType::Related => "related",
         }
     }
-    
+
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "parent_child" => Some(RelationshipType::ParentChild),
@@ -256,11 +256,11 @@ pub enum PatternType {
     ContextualGrouping,
 }
 
-impl SemanticTag {
+impl Tag {
     /// Create a new semantic tag with default values
     pub fn new(canonical_name: String, created_by_device: Uuid) -> Self {
         let now = Utc::now();
-        
+
         Self {
             id: Uuid::new_v4(),
             canonical_name: canonical_name.clone(),
@@ -283,42 +283,42 @@ impl SemanticTag {
             created_by_device,
         }
     }
-    
+
     /// Get the best display name for this tag in the given context
     pub fn get_display_name(&self, context: Option<&str>) -> &str {
         // If we have a context-specific display name, use it
         if let Some(display) = &self.display_name {
             return display;
         }
-        
+
         // Otherwise use canonical name
         &self.canonical_name
     }
-    
+
     /// Get all possible names this tag can be accessed by
     pub fn get_all_names(&self) -> Vec<&str> {
         let mut names = vec![self.canonical_name.as_str()];
-        
+
         if let Some(formal) = &self.formal_name {
             names.push(formal);
         }
-        
+
         if let Some(abbrev) = &self.abbreviation {
             names.push(abbrev);
         }
-        
+
         for alias in &self.aliases {
             names.push(alias);
         }
-        
+
         names
     }
-    
+
     /// Check if this tag matches the given name in any variant
     pub fn matches_name(&self, name: &str) -> bool {
         self.get_all_names().iter().any(|&n| n.eq_ignore_ascii_case(name))
     }
-    
+
     /// Add an alias to this tag
     pub fn add_alias(&mut self, alias: String) {
         if !self.aliases.contains(&alias) {
@@ -326,7 +326,7 @@ impl SemanticTag {
             self.updated_at = Utc::now();
         }
     }
-    
+
     /// Set an attribute value
     pub fn set_attribute<T: Serialize>(&mut self, key: String, value: T) -> Result<(), serde_json::Error> {
         let json_value = serde_json::to_value(value)?;
@@ -334,7 +334,7 @@ impl SemanticTag {
         self.updated_at = Utc::now();
         Ok(())
     }
-    
+
     /// Get an attribute value
     pub fn get_attribute<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<Option<T>, serde_json::Error> {
         match self.attributes.get(key) {
@@ -342,7 +342,7 @@ impl SemanticTag {
             None => Ok(None),
         }
     }
-    
+
     /// Check if this tag should be hidden from normal search results
     pub fn is_searchable(&self) -> bool {
         match self.privacy_level {
@@ -350,7 +350,7 @@ impl SemanticTag {
             PrivacyLevel::Archive | PrivacyLevel::Hidden => false,
         }
     }
-    
+
     /// Get the fully qualified name including namespace
     pub fn get_qualified_name(&self) -> String {
         match &self.namespace {
@@ -378,26 +378,26 @@ impl TagApplication {
             device_uuid,
         }
     }
-    
+
     /// Create a user-applied tag application
     pub fn user_applied(tag_id: Uuid, device_uuid: Uuid) -> Self {
         Self::new(tag_id, TagSource::User, device_uuid)
     }
-    
+
     /// Create an AI-applied tag application with confidence
     pub fn ai_applied(tag_id: Uuid, confidence: f32, device_uuid: Uuid) -> Self {
         let mut app = Self::new(tag_id, TagSource::AI, device_uuid);
         app.confidence = confidence;
         app
     }
-    
+
     /// Set an instance-specific attribute
     pub fn set_instance_attribute<T: Serialize>(&mut self, key: String, value: T) -> Result<(), serde_json::Error> {
         let json_value = serde_json::to_value(value)?;
         self.instance_attributes.insert(key, json_value);
         Ok(())
     }
-    
+
     /// Check if this application has high confidence
     pub fn is_high_confidence(&self) -> bool {
         self.confidence >= 0.8
@@ -409,22 +409,22 @@ impl TagApplication {
 pub enum TagError {
     #[error("Tag not found")]
     TagNotFound,
-    
+
     #[error("Invalid tag relationship: {0}")]
     InvalidRelationship(String),
-    
+
     #[error("Circular reference detected")]
     CircularReference,
-    
+
     #[error("Conflicting tag names in namespace: {0}")]
     NameConflict(String),
-    
+
     #[error("Invalid composition rule: {0}")]
     InvalidCompositionRule(String),
-    
+
     #[error("Serialization error: {0}")]
     SerializationError(#[from] serde_json::Error),
-    
+
     #[error("Database error: {0}")]
     DatabaseError(String),
 }

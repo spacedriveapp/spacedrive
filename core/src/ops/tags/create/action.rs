@@ -3,10 +3,10 @@
 use super::{input::CreateTagInput, output::CreateTagOutput};
 use crate::{
     context::CoreContext,
-    domain::semantic_tag::{SemanticTag, TagType, PrivacyLevel},
+    domain::tag::{Tag, TagType, PrivacyLevel},
     infra::action::{error::ActionError, LibraryAction},
     library::Library,
-    ops::tags::semantic_tag_manager::SemanticTagManager,
+    ops::tags::manager::TagManager,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -38,7 +38,7 @@ impl LibraryAction for CreateTagAction {
         _context: Arc<CoreContext>,
     ) -> Result<Self::Output, ActionError> {
         let db = library.db();
-        let semantic_tag_manager = SemanticTagManager::new(Arc::new(db.conn().clone()));
+        let semantic_tag_manager = TagManager::new(Arc::new(db.conn().clone()));
 
         // Get current device ID from library context
         let device_id = library.id(); // Use library ID as device ID

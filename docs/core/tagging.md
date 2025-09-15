@@ -402,14 +402,14 @@ This prevents data loss and preserves all user intent during synchronization.
 
 ## Manager Layer
 
-### SemanticTagManager
+### TagManager
 
 Core manager providing high-level tag operations. Located in `ops/tags/manager.rs`:
 
 ```rust
-use crate::ops::tags::manager::SemanticTagManager;
+use crate::ops::tags::manager::TagManager;
 
-impl SemanticTagManager {
+impl TagManager {
     // Create new semantic tag
     pub async fn create_tag(
         &self,
@@ -556,10 +556,10 @@ impl UserMetadataManager {
 ### Basic Tag Creation
 
 ```rust
-use crate::ops::tags::manager::SemanticTagManager;
+use crate::ops::tags::manager::TagManager;
 use std::sync::Arc;
 
-let manager = SemanticTagManager::new(Arc::new(db.conn().clone()));
+let manager = TagManager::new(Arc::new(db.conn().clone()));
 
 // Create a basic tag
 let project_tag = manager.create_tag(

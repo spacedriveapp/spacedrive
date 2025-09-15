@@ -3,7 +3,7 @@
 use super::{input::ApplyTagsInput, output::ApplyTagsOutput};
 use crate::{
     context::CoreContext,
-    domain::semantic_tag::{TagApplication, TagSource},
+    domain::tag::{TagApplication, TagSource},
     infra::action::{error::ActionError, LibraryAction},
     library::Library,
     ops::metadata::user_metadata_manager::UserMetadataManager,

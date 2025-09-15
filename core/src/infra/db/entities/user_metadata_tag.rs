@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "user_metadata_semantic_tags")]
+#[sea_orm(table_name = "user_metadata_tag")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
@@ -40,11 +40,11 @@ pub enum Relation {
     UserMetadata,
 
     #[sea_orm(
-        belongs_to = "super::semantic_tag::Entity",
+        belongs_to = "super::tag::Entity",
         from = "Column::TagId",
-        to = "super::semantic_tag::Column::Id"
+        to = "super::tag::Column::Id"
     )]
-    SemanticTag,
+    Tag,
 
     #[sea_orm(
         belongs_to = "super::device::Entity",
@@ -60,9 +60,9 @@ impl Related<super::user_metadata::Entity> for Entity {
     }
 }
 
-impl Related<super::semantic_tag::Entity> for Entity {
+impl Related<super::tag::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::SemanticTag.def()
+        Relation::Tag.def()
     }
 }
 

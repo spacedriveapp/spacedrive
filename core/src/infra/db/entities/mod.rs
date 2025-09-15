@@ -10,17 +10,14 @@ pub mod entry;
 pub mod entry_closure;
 pub mod label;
 pub mod location;
-pub mod metadata_tag;
 pub mod mime_type;
-pub mod tag;
 pub mod user_metadata;
-pub use metadata_tag as user_metadata_tag; // Alias for hierarchical metadata operations
 
-// Semantic tagging system
-pub mod semantic_tag;
+// Tagging system
+pub mod tag;
 pub mod tag_relationship;
 pub mod tag_closure;
-pub mod user_metadata_semantic_tag;
+pub mod user_metadata_tag;
 pub mod tag_usage_pattern;
 
 pub mod audit_log;
@@ -44,18 +41,16 @@ pub use entry_closure::Entity as EntryClosure;
 pub use indexer_rule::Entity as IndexerRule;
 pub use label::Entity as Label;
 pub use location::Entity as Location;
-pub use metadata_tag::Entity as UserMetadataTag;
 pub use sidecar::Entity as Sidecar;
 pub use sidecar_availability::Entity as SidecarAvailability;
-pub use tag::Entity as Tag;
 pub use user_metadata::Entity as UserMetadata;
 pub use volume::Entity as Volume;
 
-// Semantic tagging entities
-pub use semantic_tag::Entity as SemanticTag;
+// Tagging entities
+pub use tag::Entity as Tag;
 pub use tag_relationship::Entity as TagRelationship;
 pub use tag_closure::Entity as TagClosure;
-pub use user_metadata_semantic_tag::Entity as UserMetadataSemanticTag;
+pub use user_metadata_tag::Entity as UserMetadataTag;
 pub use tag_usage_pattern::Entity as TagUsagePattern;
 
 // Re-export active models for easy access
@@ -70,16 +65,14 @@ pub use entry_closure::ActiveModel as EntryClosureActive;
 pub use indexer_rule::ActiveModel as IndexerRuleActive;
 pub use label::ActiveModel as LabelActive;
 pub use location::ActiveModel as LocationActive;
-pub use metadata_tag::ActiveModel as UserMetadataTagActive;
 pub use sidecar::ActiveModel as SidecarActive;
 pub use sidecar_availability::ActiveModel as SidecarAvailabilityActive;
-pub use tag::ActiveModel as TagActive;
 pub use user_metadata::ActiveModel as UserMetadataActive;
 pub use volume::ActiveModel as VolumeActive;
 
-// Semantic tagging active models
-pub use semantic_tag::ActiveModel as SemanticTagActive;
+// Tagging active models
+pub use tag::ActiveModel as TagActive;
 pub use tag_relationship::ActiveModel as TagRelationshipActive;
 pub use tag_closure::ActiveModel as TagClosureActive;
-pub use user_metadata_semantic_tag::ActiveModel as UserMetadataSemanticTagActive;
+pub use user_metadata_tag::ActiveModel as UserMetadataTagActive;
 pub use tag_usage_pattern::ActiveModel as TagUsagePatternActive;
