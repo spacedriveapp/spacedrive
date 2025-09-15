@@ -6,11 +6,11 @@
 pub mod apply;
 pub mod create;
 pub mod search;
-pub mod semantic_tag_manager;
-pub mod semantic_tagging_facade;
+pub mod manager;
+pub mod facade;
 
-pub use semantic_tag_manager::SemanticTagManager;
-pub use semantic_tagging_facade::SemanticTaggingFacade;
+pub use manager::SemanticTagManager;
+pub use facade::SemanticTaggingFacade;
 
 // Re-export commonly used types
 pub use apply::{ApplyTagsAction, ApplyTagsInput, ApplyTagsOutput};

@@ -36,34 +36,34 @@ The core tag entity with advanced semantic capabilities:
 ```rust
 pub struct SemanticTag {
     pub id: Uuid,
-    
+
     // Core identity
     pub canonical_name: String,           // Primary name (e.g., "JavaScript")
     pub display_name: Option<String>,     // Context-specific display
-    
+
     // Semantic variants - multiple access points
     pub formal_name: Option<String>,      // "JavaScript Programming Language"
     pub abbreviation: Option<String>,     // "JS"
     pub aliases: Vec<String>,            // ["ECMAScript", "ES"]
-    
+
     // Context and categorization
     pub namespace: Option<String>,        // "Technology", "Geography", etc.
     pub tag_type: TagType,               // Standard, Organizational, Privacy, System
-    
+
     // Visual and behavioral properties
     pub color: Option<String>,           // Hex color for UI
     pub icon: Option<String>,            // Icon identifier
     pub description: Option<String>,     // Human-readable description
-    
+
     // Advanced capabilities
     pub is_organizational_anchor: bool,   // Creates visual hierarchies in UI
     pub privacy_level: PrivacyLevel,     // Normal, Archive, Hidden
     pub search_weight: i32,              // Influence in search results
-    
+
     // Compositional attributes
     pub attributes: HashMap<String, serde_json::Value>,
     pub composition_rules: Vec<CompositionRule>,
-    
+
     // Metadata
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -76,7 +76,7 @@ pub struct SemanticTag {
 ```rust
 pub enum TagType {
     Standard,      // Regular user-created tag
-    Organizational,// Creates visual hierarchies in interface  
+    Organizational,// Creates visual hierarchies in interface
     Privacy,       // Controls visibility and search behavior
     System,        // AI or system-generated tag
 }
@@ -163,7 +163,7 @@ CREATE TABLE semantic_tags (
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     created_by_device UUID,
-    
+
     UNIQUE(canonical_name, namespace) -- Allow same name in different contexts
 );
 
@@ -175,7 +175,7 @@ CREATE TABLE tag_relationships (
     relationship_type TEXT DEFAULT 'parent_child',
     strength REAL DEFAULT 1.0,
     created_at TIMESTAMP NOT NULL,
-    
+
     FOREIGN KEY (parent_tag_id) REFERENCES semantic_tags(id) ON DELETE CASCADE,
     FOREIGN KEY (child_tag_id) REFERENCES semantic_tags(id) ON DELETE CASCADE,
     UNIQUE(parent_tag_id, child_tag_id, relationship_type)
@@ -187,7 +187,7 @@ CREATE TABLE tag_closure (
     descendant_id INTEGER NOT NULL,
     depth INTEGER NOT NULL,
     path_strength REAL DEFAULT 1.0,
-    
+
     PRIMARY KEY (ancestor_id, descendant_id),
     FOREIGN KEY (ancestor_id) REFERENCES semantic_tags(id) ON DELETE CASCADE,
     FOREIGN KEY (descendant_id) REFERENCES semantic_tags(id) ON DELETE CASCADE
@@ -206,7 +206,7 @@ CREATE TABLE user_metadata_semantic_tags (
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     device_uuid UUID NOT NULL,
-    
+
     FOREIGN KEY (user_metadata_id) REFERENCES user_metadata(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES semantic_tags(id) ON DELETE CASCADE,
     UNIQUE(user_metadata_id, tag_id)
@@ -219,7 +219,7 @@ CREATE TABLE tag_usage_patterns (
     co_occurrence_tag_id INTEGER NOT NULL,
     occurrence_count INTEGER DEFAULT 1,
     last_used_together TIMESTAMP NOT NULL,
-    
+
     FOREIGN KEY (tag_id) REFERENCES semantic_tags(id) ON DELETE CASCADE,
     FOREIGN KEY (co_occurrence_tag_id) REFERENCES semantic_tags(id) ON DELETE CASCADE,
     UNIQUE(tag_id, co_occurrence_tag_id)
@@ -247,13 +247,13 @@ The closure table enables O(1) hierarchical queries by pre-computing all ancesto
 ```sql
 -- Example: Technology → Programming → Web Development → React
 -- Direct relationships:
-INSERT INTO tag_relationships VALUES (1, 2, 'parent_child', 1.0); -- Tech → Programming  
+INSERT INTO tag_relationships VALUES (1, 2, 'parent_child', 1.0); -- Tech → Programming
 INSERT INTO tag_relationships VALUES (2, 3, 'parent_child', 1.0); -- Programming → Web Dev
 INSERT INTO tag_relationships VALUES (3, 4, 'parent_child', 1.0); -- Web Dev → React
 
 -- Closure table automatically maintains all paths:
 INSERT INTO tag_closure VALUES (1, 1, 0, 1.0); -- Tech → Tech (self)
-INSERT INTO tag_closure VALUES (1, 2, 1, 1.0); -- Tech → Programming  
+INSERT INTO tag_closure VALUES (1, 2, 1, 1.0); -- Tech → Programming
 INSERT INTO tag_closure VALUES (1, 3, 2, 1.0); -- Tech → Web Dev (via Programming)
 INSERT INTO tag_closure VALUES (1, 4, 3, 1.0); -- Tech → React (via Programming, Web Dev)
 -- ... and so on for all relationships
@@ -262,10 +262,10 @@ INSERT INTO tag_closure VALUES (1, 4, 3, 1.0); -- Tech → React (via Programmin
 This enables efficient queries like "find all content tagged with any descendant of Technology":
 
 ```sql
-SELECT DISTINCT e.* 
+SELECT DISTINCT e.*
 FROM entries e
 JOIN user_metadata_semantic_tags umst ON e.metadata_id = umst.user_metadata_id
-JOIN tag_closure tc ON umst.tag_id = tc.descendant_id  
+JOIN tag_closure tc ON umst.tag_id = tc.descendant_id
 WHERE tc.ancestor_id = (SELECT id FROM semantic_tags WHERE canonical_name = 'Technology');
 ```
 
@@ -391,7 +391,7 @@ During synchronization, tag conflicts are resolved using an additive approach:
 // Device A: Photo tagged with "vacation"
 let local_apps = vec![TagApplication::user_applied(vacation_tag_id, device_a)];
 
-// Device B: Same photo tagged with "family" 
+// Device B: Same photo tagged with "family"
 let remote_apps = vec![TagApplication::user_applied(family_tag_id, device_b)];
 
 // Union merge result: Photo tagged with BOTH "vacation" AND "family"
@@ -400,14 +400,16 @@ let merged = resolver.merge_tag_applications(local_apps, remote_apps).await?;
 
 This prevents data loss and preserves all user intent during synchronization.
 
-## Service Layer
+## Manager Layer
 
-### SemanticTagService
+### SemanticTagManager
 
-Core service providing high-level tag operations:
+Core manager providing high-level tag operations. Located in `ops/tags/manager.rs`:
 
 ```rust
-impl SemanticTagService {
+use crate::ops::tags::manager::SemanticTagManager;
+
+impl SemanticTagManager {
     // Create new semantic tag
     pub async fn create_tag(
         &self,
@@ -415,17 +417,17 @@ impl SemanticTagService {
         namespace: Option<String>,
         created_by_device: Uuid,
     ) -> Result<SemanticTag, TagError>;
-    
+
     // Find tags by name (including variants)
     pub async fn find_tags_by_name(&self, name: &str) -> Result<Vec<SemanticTag>, TagError>;
-    
+
     // Resolve ambiguous tag names using context
     pub async fn resolve_ambiguous_tag(
         &self,
         tag_name: &str,
         context_tags: &[SemanticTag],
     ) -> Result<Vec<SemanticTag>, TagError>;
-    
+
     // Create hierarchical relationship
     pub async fn create_relationship(
         &self,
@@ -434,13 +436,13 @@ impl SemanticTagService {
         relationship_type: RelationshipType,
         strength: Option<f32>,
     ) -> Result<(), TagError>;
-    
+
     // Get all descendant tags
     pub async fn get_descendants(&self, tag_id: Uuid) -> Result<Vec<SemanticTag>, TagError>;
-    
+
     // Discover organizational patterns
     pub async fn discover_organizational_patterns(&self) -> Result<Vec<OrganizationalPattern>, TagError>;
-    
+
     // Merge tag applications (for sync)
     pub async fn merge_tag_applications(
         &self,
@@ -462,28 +464,28 @@ impl TagContextResolver {
         context_tags: &[SemanticTag],
     ) -> Result<Vec<SemanticTag>, TagError> {
         let candidates = self.find_all_name_matches(tag_name).await?;
-        
+
         if candidates.len() <= 1 {
             return Ok(candidates);
         }
-        
+
         // Score candidates based on context compatibility
         let mut scored_candidates = Vec::new();
         for candidate in candidates {
             let mut score = 0.0;
-            
+
             // Namespace compatibility
             score += self.calculate_namespace_compatibility(&candidate, context_tags).await?;
-            
-            // Usage pattern compatibility  
+
+            // Usage pattern compatibility
             score += self.calculate_usage_compatibility(&candidate, context_tags).await?;
-            
+
             // Hierarchical relationship compatibility
             score += self.calculate_hierarchy_compatibility(&candidate, context_tags).await?;
-            
+
             scored_candidates.push((candidate, score));
         }
-        
+
         // Return candidates sorted by relevance score
         scored_candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         Ok(scored_candidates.into_iter().map(|(tag, _)| tag).collect())
@@ -502,13 +504,13 @@ impl TagUsageAnalyzer {
         &self,
         tag_applications: &[TagApplication],
     ) -> Result<(), TagError>;
-    
+
     // Find frequently co-occurring tag pairs
     pub async fn get_frequent_co_occurrences(
         &self,
         min_count: i32,
     ) -> Result<Vec<(Uuid, Uuid, i32)>, TagError>;
-    
+
     // Calculate how often a tag appears with context tags
     pub async fn calculate_co_occurrence_score(
         &self,
@@ -518,29 +520,63 @@ impl TagUsageAnalyzer {
 }
 ```
 
+### UserMetadataManager
+
+Manages user metadata including semantic tag applications. Located in `ops/metadata/user_metadata_manager.rs`:
+
+```rust
+use crate::ops::metadata::user_metadata_manager::UserMetadataManager;
+
+impl UserMetadataManager {
+    // Apply semantic tags to user metadata
+    pub async fn apply_semantic_tags(
+        &self,
+        entry_uuid: Uuid,
+        tag_applications: Vec<TagApplication>,
+        device_id: Uuid,
+    ) -> Result<(), TagError>;
+
+    // Get all tags applied to an entry
+    pub async fn get_applied_tags(
+        &self,
+        entry_uuid: Uuid,
+    ) -> Result<Vec<TagApplication>, TagError>;
+
+    // Remove tags from an entry
+    pub async fn remove_tags(
+        &self,
+        entry_uuid: Uuid,
+        tag_ids: Vec<Uuid>,
+    ) -> Result<(), TagError>;
+}
+```
+
 ## Usage Examples
 
 ### Basic Tag Creation
 
 ```rust
-let service = SemanticTagService::new(db);
+use crate::ops::tags::manager::SemanticTagManager;
+use std::sync::Arc;
+
+let manager = SemanticTagManager::new(Arc::new(db.conn().clone()));
 
 // Create a basic tag
-let project_tag = service.create_tag(
+let project_tag = manager.create_tag(
     "Project".to_string(),
     None,
     device_id
 ).await?;
 
 // Create contextual tags
-let phoenix_city = service.create_tag(
+let phoenix_city = manager.create_tag(
     "Phoenix".to_string(),
     Some("Geography".to_string()),
     device_id
 ).await?;
 
-let phoenix_myth = service.create_tag(
-    "Phoenix".to_string(), 
+let phoenix_myth = manager.create_tag(
+    "Phoenix".to_string(),
     Some("Mythology".to_string()),
     device_id
 ).await?;
@@ -550,27 +586,27 @@ let phoenix_myth = service.create_tag(
 
 ```rust
 // Create tag hierarchy: Technology → Programming → Web Development
-let tech_tag = service.create_tag("Technology".to_string(), None, device_id).await?;
-let prog_tag = service.create_tag("Programming".to_string(), None, device_id).await?;
-let web_tag = service.create_tag("Web Development".to_string(), None, device_id).await?;
+let tech_tag = manager.create_tag("Technology".to_string(), None, device_id).await?;
+let prog_tag = manager.create_tag("Programming".to_string(), None, device_id).await?;
+let web_tag = manager.create_tag("Web Development".to_string(), None, device_id).await?;
 
 // Create parent-child relationships
-service.create_relationship(
+manager.create_relationship(
     tech_tag.id,
-    prog_tag.id, 
+    prog_tag.id,
     RelationshipType::ParentChild,
     None
 ).await?;
 
-service.create_relationship(
+manager.create_relationship(
     prog_tag.id,
     web_tag.id,
-    RelationshipType::ParentChild, 
+    RelationshipType::ParentChild,
     None
 ).await?;
 
 // Query descendants
-let all_tech_tags = service.get_descendants(tech_tag.id).await?;
+let all_tech_tags = manager.get_descendants(tech_tag.id).await?;
 // Returns: [Programming, Web Development, and any other descendant tags]
 ```
 
@@ -586,7 +622,7 @@ ai_app.applied_context = Some("code_analysis".to_string());
 
 // Apply tags to user metadata
 let applications = vec![user_app, ai_app];
-service.record_tag_usage(&applications).await?;
+manager.record_tag_usage(&applications).await?;
 ```
 
 ### Context Resolution
@@ -594,7 +630,7 @@ service.record_tag_usage(&applications).await?;
 ```rust
 // User types "JS" while working with React files
 let context_tags = vec![react_tag, frontend_tag, web_dev_tag];
-let resolved = service.resolve_ambiguous_tag("JS", &context_tags).await?;
+let resolved = manager.resolve_ambiguous_tag("JS", &context_tags).await?;
 // Returns JavaScript tag (in Technology namespace) as best match
 ```
 
@@ -602,7 +638,7 @@ let resolved = service.resolve_ambiguous_tag("JS", &context_tags).await?;
 
 ```rust
 // Discover emergent organizational patterns
-let patterns = service.discover_organizational_patterns().await?;
+let patterns = manager.discover_organizational_patterns().await?;
 
 for pattern in patterns {
     match pattern.pattern_type {
@@ -639,6 +675,35 @@ pub struct UserMetadata {
 }
 ```
 
+### Action System Integration
+
+The semantic tagging system integrates with Spacedrive's Action System for validation, audit logging, and transactional operations:
+
+```rust
+// Tag creation through actions
+use crate::ops::tags::create::{CreateTagAction, CreateTagInput};
+
+let action = CreateTagAction::new(CreateTagInput {
+    canonical_name: "JavaScript".to_string(),
+    namespace: Some("Technology".to_string()),
+    // ... other fields
+});
+
+let result = action.execute(library, context).await?;
+```
+
+```rust
+// Tag application through actions
+use crate::ops::tags::apply::{ApplyTagsAction, ApplyTagsInput};
+
+let action = ApplyTagsAction::new(ApplyTagsInput {
+    entry_ids: vec![entry_id],
+    tag_applications: vec![tag_application],
+});
+
+let result = action.execute(library, context).await?;
+```
+
 This enables:
 - **Instant Tagging**: Files can be tagged immediately upon discovery
 - **Rich Context**: Each tag application includes confidence, source, and attributes
@@ -665,7 +730,7 @@ if entry.kind == EntryKind::File {
 
 AI analysis jobs apply semantic tags with confidence scores.
 
-### Search Integration  
+### Search Integration
 
 The Temporal-Semantic Search system leverages semantic tags for enhanced discovery:
 
@@ -708,7 +773,7 @@ let merged_tags = resolver.merge_tag_applications(
 The closure table pattern provides O(1) hierarchical queries:
 
 - **Ancestor Queries**: `SELECT * FROM tag_closure WHERE descendant_id = ?`
-- **Descendant Queries**: `SELECT * FROM tag_closure WHERE ancestor_id = ?`  
+- **Descendant Queries**: `SELECT * FROM tag_closure WHERE ancestor_id = ?`
 - **Path Queries**: `SELECT * FROM tag_closure WHERE ancestor_id = ? AND descendant_id = ?`
 - **Depth Queries**: `SELECT * FROM tag_closure WHERE depth = ?`
 
@@ -723,7 +788,7 @@ CREATE INDEX idx_semantic_tags_namespace ON semantic_tags(namespace);
 CREATE INDEX idx_semantic_tags_type ON semantic_tags(tag_type);
 CREATE INDEX idx_semantic_tags_privacy ON semantic_tags(privacy_level);
 
--- Closure table indexes  
+-- Closure table indexes
 CREATE INDEX idx_tag_closure_ancestor ON tag_closure(ancestor_id);
 CREATE INDEX idx_tag_closure_descendant ON tag_closure(descendant_id);
 CREATE INDEX idx_tag_closure_depth ON tag_closure(depth);
@@ -740,9 +805,28 @@ SQLite FTS5 provides efficient text search across all tag variants:
 
 ```sql
 -- Search across all tag text fields
-SELECT tag_id, rank FROM tag_search_fts 
+SELECT tag_id, rank FROM tag_search_fts
 WHERE tag_search_fts MATCH 'javascript OR js OR ecmascript'
 ORDER BY rank;
+```
+
+## File Organization
+
+The semantic tagging system is organized in the `ops/` directory following Spacedrive's architectural patterns:
+
+```
+core/src/ops/
+├── tags/
+│   ├── manager.rs                   # Core tag management logic
+│   ├── facade.rs                    # High-level facade for UI/CLI
+│   ├── apply/                       # Tag application actions
+│   │   └── action.rs
+│   ├── create/                      # Tag creation actions
+│   │   └── action.rs
+│   └── search/                      # Tag search actions
+│       └── action.rs
+└── metadata/
+    └── user_metadata_manager.rs     # User metadata management
 ```
 
 ## Migration Strategy
@@ -753,6 +837,7 @@ Since this is a development codebase with no existing users, the semantic taggin
 2. **Clean Implementation**: No data migration or backward compatibility needed
 3. **Feature Complete**: All whitepaper features available from day one
 4. **Performance Optimized**: Built with proper indexing and closure table
+5. **Action Integration**: Full integration with Spacedrive's Action System
 
 ## Future Enhancements
 
@@ -775,7 +860,7 @@ pub struct TagPermission {
 - **Temporal Patterns**: Time-based usage analysis for lifecycle tagging
 - **Cross-Library Learning**: Federated learning across user libraries (privacy-preserving)
 
-### Enhanced Sync Features  
+### Enhanced Sync Features
 
 - **Selective Sync**: Choose which tag namespaces to sync across devices
 - **Conflict Policies**: User-configurable resolution strategies
