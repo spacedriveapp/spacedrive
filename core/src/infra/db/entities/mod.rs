@@ -15,6 +15,14 @@ pub mod mime_type;
 pub mod tag;
 pub mod user_metadata;
 pub use metadata_tag as user_metadata_tag; // Alias for hierarchical metadata operations
+
+// Semantic tagging system
+pub mod semantic_tag;
+pub mod tag_relationship;
+pub mod tag_closure;
+pub mod user_metadata_semantic_tag;
+pub mod tag_usage_pattern;
+
 pub mod audit_log;
 pub mod collection;
 pub mod collection_entry;
@@ -43,6 +51,13 @@ pub use tag::Entity as Tag;
 pub use user_metadata::Entity as UserMetadata;
 pub use volume::Entity as Volume;
 
+// Semantic tagging entities
+pub use semantic_tag::Entity as SemanticTag;
+pub use tag_relationship::Entity as TagRelationship;
+pub use tag_closure::Entity as TagClosure;
+pub use user_metadata_semantic_tag::Entity as UserMetadataSemanticTag;
+pub use tag_usage_pattern::Entity as TagUsagePattern;
+
 // Re-export active models for easy access
 pub use audit_log::ActiveModel as AuditLogActive;
 pub use collection::ActiveModel as CollectionActive;
@@ -61,3 +76,10 @@ pub use sidecar_availability::ActiveModel as SidecarAvailabilityActive;
 pub use tag::ActiveModel as TagActive;
 pub use user_metadata::ActiveModel as UserMetadataActive;
 pub use volume::ActiveModel as VolumeActive;
+
+// Semantic tagging active models
+pub use semantic_tag::ActiveModel as SemanticTagActive;
+pub use tag_relationship::ActiveModel as TagRelationshipActive;
+pub use tag_closure::ActiveModel as TagClosureActive;
+pub use user_metadata_semantic_tag::ActiveModel as UserMetadataSemanticTagActive;
+pub use tag_usage_pattern::ActiveModel as TagUsagePatternActive;
