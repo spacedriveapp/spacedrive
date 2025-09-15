@@ -61,6 +61,27 @@ pub enum TagType {
     System,
 }
 
+impl TagType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TagType::Standard => "standard",
+            TagType::Organizational => "organizational",
+            TagType::Privacy => "privacy",
+            TagType::System => "system",
+        }
+    }
+    
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "standard" => Some(TagType::Standard),
+            "organizational" => Some(TagType::Organizational),
+            "privacy" => Some(TagType::Privacy),
+            "system" => Some(TagType::System),
+            _ => None,
+        }
+    }
+}
+
 /// Privacy levels for tag visibility control
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PrivacyLevel {
@@ -70,6 +91,25 @@ pub enum PrivacyLevel {
     Archive,
     /// Completely hidden from standard UI
     Hidden,
+}
+
+impl PrivacyLevel {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PrivacyLevel::Normal => "normal",
+            PrivacyLevel::Archive => "archive",
+            PrivacyLevel::Hidden => "hidden",
+        }
+    }
+    
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "normal" => Some(PrivacyLevel::Normal),
+            "archive" => Some(PrivacyLevel::Archive),
+            "hidden" => Some(PrivacyLevel::Hidden),
+            _ => None,
+        }
+    }
 }
 
 /// Relationship between two tags in the semantic graph
@@ -90,6 +130,25 @@ pub enum RelationshipType {
     Synonym,
     /// General semantic relatedness
     Related,
+}
+
+impl RelationshipType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RelationshipType::ParentChild => "parent_child",
+            RelationshipType::Synonym => "synonym",
+            RelationshipType::Related => "related",
+        }
+    }
+    
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "parent_child" => Some(RelationshipType::ParentChild),
+            "synonym" => Some(RelationshipType::Synonym),
+            "related" => Some(RelationshipType::Related),
+            _ => None,
+        }
+    }
 }
 
 /// Rules for composing attributes from multiple tags

@@ -8,9 +8,14 @@ use crate::domain::semantic_tag::{
     SemanticTag, TagApplication, TagRelationship, RelationshipType, TagError,
     TagMergeResult, OrganizationalPattern, PatternType, TagType, PrivacyLevel,
 };
-use crate::infra::db::DbPool;
+use crate::infra::db::{entities::*, DbPool};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QuerySelect,
+    Set, DbConn, TransactionTrait, DbErr,
+};
+use serde_json;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -22,6 +27,52 @@ pub struct SemanticTagService {
     context_resolver: Arc<TagContextResolver>,
     usage_analyzer: Arc<TagUsageAnalyzer>,
     closure_service: Arc<TagClosureService>,
+}
+
+// Helper function to convert database model to domain model
+fn model_to_domain(model: semantic_tag::Model) -> Result<SemanticTag, TagError> {
+    let aliases: Vec<String> = model.aliases
+        .as_ref()
+        .and_then(|json| serde_json::from_value(json.clone()).ok())
+        .unwrap_or_default();
+    
+    let attributes: HashMap<String, serde_json::Value> = model.attributes
+        .as_ref() 
+        .and_then(|json| serde_json::from_value(json.clone()).ok())
+        .unwrap_or_default();
+    
+    let composition_rules = model.composition_rules
+        .as_ref()
+        .and_then(|json| serde_json::from_value(json.clone()).ok()) 
+        .unwrap_or_default();
+    
+    let tag_type = TagType::from_str(&model.tag_type)
+        .ok_or_else(|| TagError::DatabaseError(format!("Invalid tag_type: {}", model.tag_type)))?;
+    
+    let privacy_level = PrivacyLevel::from_str(&model.privacy_level)
+        .ok_or_else(|| TagError::DatabaseError(format!("Invalid privacy_level: {}", model.privacy_level)))?;
+    
+    Ok(SemanticTag {
+        id: model.uuid,
+        canonical_name: model.canonical_name,
+        display_name: model.display_name,
+        formal_name: model.formal_name,
+        abbreviation: model.abbreviation,
+        aliases,
+        namespace: model.namespace,
+        tag_type,
+        color: model.color,
+        icon: model.icon,
+        description: model.description,
+        is_organizational_anchor: model.is_organizational_anchor,
+        privacy_level,
+        search_weight: model.search_weight,
+        attributes,
+        composition_rules,
+        created_at: model.created_at,
+        updated_at: model.updated_at,
+        created_by_device: model.created_by_device.unwrap_or_default(),
+    })
 }
 
 impl SemanticTagService {
@@ -45,19 +96,60 @@ impl SemanticTagService {
         namespace: Option<String>,
         created_by_device: Uuid,
     ) -> Result<SemanticTag, TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
         // Check for name conflicts in the same namespace
-        if let Some(existing) = self.find_tag_by_name_and_namespace(&canonical_name, namespace.as_deref()).await? {
+        if let Some(_existing) = self.find_tag_by_name_and_namespace(&canonical_name, namespace.as_deref()).await? {
             return Err(TagError::NameConflict(format!(
                 "Tag '{}' already exists in namespace '{:?}'",
                 canonical_name, namespace
             )));
         }
         
-        let mut tag = SemanticTag::new(canonical_name, created_by_device);
-        tag.namespace = namespace;
+        let mut tag = SemanticTag::new(canonical_name.clone(), created_by_device);
+        tag.namespace = namespace.clone();
         
-        // TODO: Insert into database
-        // self.db.insert_semantic_tag(&tag).await?;
+        // Insert into database
+        let active_model = semantic_tag::ActiveModel {
+            uuid: Set(tag.id),
+            canonical_name: Set(canonical_name),
+            display_name: Set(tag.display_name.clone()),
+            formal_name: Set(tag.formal_name.clone()),
+            abbreviation: Set(tag.abbreviation.clone()),
+            aliases: Set(if tag.aliases.is_empty() { 
+                None 
+            } else { 
+                Some(serde_json::to_value(&tag.aliases).unwrap().into()) 
+            }),
+            namespace: Set(namespace),
+            tag_type: Set(tag.tag_type.as_str().to_string()),
+            color: Set(tag.color.clone()),
+            icon: Set(tag.icon.clone()),
+            description: Set(tag.description.clone()),
+            is_organizational_anchor: Set(tag.is_organizational_anchor),
+            privacy_level: Set(tag.privacy_level.as_str().to_string()),
+            search_weight: Set(tag.search_weight),
+            attributes: Set(if tag.attributes.is_empty() { 
+                None 
+            } else { 
+                Some(serde_json::to_value(&tag.attributes).unwrap().into()) 
+            }),
+            composition_rules: Set(if tag.composition_rules.is_empty() { 
+                None 
+            } else { 
+                Some(serde_json::to_value(&tag.composition_rules).unwrap().into()) 
+            }),
+            created_at: Set(tag.created_at),
+            updated_at: Set(tag.updated_at),
+            created_by_device: Set(Some(created_by_device)),
+        };
+        
+        let result = active_model.insert(&*db).await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Update tag with database ID
+        tag.id = result.uuid;
         
         Ok(tag)
     }
@@ -68,16 +160,73 @@ impl SemanticTagService {
         name: &str,
         namespace: Option<&str>,
     ) -> Result<Option<SemanticTag>, TagError> {
-        // TODO: Implement database query
-        // self.db.find_semantic_tag_by_name_and_namespace(name, namespace).await
-        Ok(None)
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let mut query = SemanticTag::find()
+            .filter(semantic_tag::Column::CanonicalName.eq(name));
+        
+        query = match namespace {
+            Some(ns) => query.filter(semantic_tag::Column::Namespace.eq(ns)),
+            None => query.filter(semantic_tag::Column::Namespace.is_null()),
+        };
+        
+        let model = query.one(&*db).await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        match model {
+            Some(m) => Ok(Some(model_to_domain(m)?)),
+            None => Ok(None),
+        }
     }
     
     /// Find all tags matching a name (across all namespaces)
     pub async fn find_tags_by_name(&self, name: &str) -> Result<Vec<SemanticTag>, TagError> {
-        // TODO: Implement database query including aliases
-        // This should search canonical_name, formal_name, abbreviation, and aliases
-        Ok(Vec::new())
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Search across canonical_name, formal_name, and abbreviation
+        let models = SemanticTag::find()
+            .filter(
+                semantic_tag::Column::CanonicalName.eq(name)
+                    .or(semantic_tag::Column::FormalName.eq(name))
+                    .or(semantic_tag::Column::Abbreviation.eq(name))
+                    // Note: aliases are JSON, we'll handle them separately
+            )
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let mut results = Vec::new();
+        
+        // Convert models to domain objects
+        for model in models {
+            results.push(model_to_domain(model)?);
+        }
+        
+        // Also search aliases using a separate query
+        // Get all tags and filter by aliases in memory (for now)
+        // TODO: Optimize this with JSON query operators or FTS5
+        let all_models = SemanticTag::find()
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        for model in all_models {
+            if let Some(aliases_json) = &model.aliases {
+                if let Ok(aliases) = serde_json::from_value::<Vec<String>>(aliases_json.clone()) {
+                    if aliases.iter().any(|alias| alias.eq_ignore_ascii_case(name)) {
+                        let domain_tag = model_to_domain(model)?;
+                        // Avoid duplicates
+                        if !results.iter().any(|t| t.id == domain_tag.id) {
+                            results.push(domain_tag);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(results)
     }
     
     /// Resolve ambiguous tag names using context
@@ -97,6 +246,9 @@ impl SemanticTagService {
         relationship_type: RelationshipType,
         strength: Option<f32>,
     ) -> Result<(), TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
         // Check for circular references
         if self.would_create_cycle(parent_id, child_id).await? {
             return Err(TagError::CircularReference);
@@ -104,12 +256,36 @@ impl SemanticTagService {
         
         let strength = strength.unwrap_or(1.0);
         
-        // TODO: Insert relationship into database
-        // self.db.create_tag_relationship(parent_id, child_id, relationship_type, strength).await?;
+        // Get database IDs for the tags
+        let parent_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(parent_id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+        
+        let child_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(child_id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+        
+        // Insert relationship into database
+        let relationship = tag_relationship::ActiveModel {
+            parent_tag_id: Set(parent_model.id),
+            child_tag_id: Set(child_model.id),
+            relationship_type: Set(relationship_type.as_str().to_string()),
+            strength: Set(strength),
+            created_at: Set(Utc::now()),
+        };
+        
+        relationship.insert(&*db).await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
         
         // Update closure table if this is a parent-child relationship
         if relationship_type == RelationshipType::ParentChild {
-            self.closure_service.add_relationship(parent_id, child_id).await?;
+            self.closure_service.add_relationship(parent_model.id, child_model.id).await?;
         }
         
         Ok(())
@@ -120,6 +296,63 @@ impl SemanticTagService {
         // If child_id is an ancestor of parent_id, adding this relationship would create a cycle
         let ancestors = self.closure_service.get_all_ancestors(parent_id).await?;
         Ok(ancestors.contains(&child_id))
+    }
+    
+    /// Check if two tags are already related
+    async fn are_tags_related(&self, tag1_id: Uuid, tag2_id: Uuid) -> Result<bool, TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Get database IDs
+        let tag1_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(tag1_id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let tag2_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(tag2_id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        if let (Some(tag1), Some(tag2)) = (tag1_model, tag2_model) {
+            let relationship = TagRelationship::find()
+                .filter(
+                    tag_relationship::Column::ParentTagId.eq(tag1.id)
+                        .and(tag_relationship::Column::ChildTagId.eq(tag2.id))
+                        .or(
+                            tag_relationship::Column::ParentTagId.eq(tag2.id)
+                                .and(tag_relationship::Column::ChildTagId.eq(tag1.id))
+                        )
+                )
+                .one(&*db)
+                .await
+                .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+            
+            Ok(relationship.is_some())
+        } else {
+            Ok(false)
+        }
+    }
+    
+    /// Get tags by their IDs (make public for use by other services)
+    pub async fn get_tags_by_ids(&self, tag_ids: &[Uuid]) -> Result<Vec<SemanticTag>, TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let models = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.is_in(tag_ids))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let mut results = Vec::new();
+        for model in models {
+            results.push(model_to_domain(model)?);
+        }
+        
+        Ok(results)
     }
     
     /// Get all tags that are descendants of the given tag
@@ -136,8 +369,21 @@ impl SemanticTagService {
     
     /// Get tags by their IDs
     async fn get_tags_by_ids(&self, tag_ids: &[Uuid]) -> Result<Vec<SemanticTag>, TagError> {
-        // TODO: Implement batch lookup
-        Ok(Vec::new())
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let models = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.is_in(tag_ids))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let mut results = Vec::new();
+        for model in models {
+            results.push(model_to_domain(model)?);
+        }
+        
+        Ok(results)
     }
     
     /// Apply semantic discovery to find organizational patterns
@@ -192,9 +438,62 @@ impl SemanticTagService {
         tag_type_filter: Option<TagType>,
         include_archived: bool,
     ) -> Result<Vec<SemanticTag>, TagError> {
-        // TODO: Implement full-text search across all tag fields
-        // Use the FTS5 virtual table for efficient text search
-        Ok(Vec::new())
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Use FTS5 for text search first
+        let fts_query = format!("\"{}\"", query.replace("\"", "\"\""));
+        let fts_results = db.query_all(
+            sea_orm::Statement::from_string(
+                sea_orm::DatabaseBackend::Sqlite,
+                format!(
+                    "SELECT tag_id FROM tag_search_fts WHERE tag_search_fts MATCH '{}' ORDER BY rank",
+                    fts_query
+                )
+            )
+        ).await
+        .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Extract tag IDs from FTS results
+        let mut tag_db_ids = Vec::new();
+        for row in fts_results {
+            if let Ok(tag_id) = row.try_get::<i32>("", "tag_id") {
+                tag_db_ids.push(tag_id);
+            }
+        }
+        
+        if tag_db_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        // Build filtered query
+        let mut query_builder = SemanticTag::find()
+            .filter(semantic_tag::Column::Id.is_in(tag_db_ids));
+        
+        // Apply namespace filter
+        if let Some(namespace) = namespace_filter {
+            query_builder = query_builder.filter(semantic_tag::Column::Namespace.eq(namespace));
+        }
+        
+        // Apply tag type filter
+        if let Some(tag_type) = tag_type_filter {
+            query_builder = query_builder.filter(semantic_tag::Column::TagType.eq(tag_type.as_str()));
+        }
+        
+        // Apply privacy filter
+        if !include_archived {
+            query_builder = query_builder.filter(semantic_tag::Column::PrivacyLevel.eq("normal"));
+        }
+        
+        let models = query_builder.all(&*db).await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let mut results = Vec::new();
+        for model in models {
+            results.push(model_to_domain(model)?);
+        }
+        
+        Ok(results)
     }
     
     /// Update tag usage statistics
@@ -254,8 +553,45 @@ impl TagContextResolver {
     }
     
     async fn find_all_name_matches(&self, name: &str) -> Result<Vec<SemanticTag>, TagError> {
-        // TODO: Search canonical_name, formal_name, abbreviation, and aliases
-        Ok(Vec::new())
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Search across canonical_name, formal_name, and abbreviation
+        let models = SemanticTag::find()
+            .filter(
+                semantic_tag::Column::CanonicalName.eq(name)
+                    .or(semantic_tag::Column::FormalName.eq(name))
+                    .or(semantic_tag::Column::Abbreviation.eq(name))
+            )
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let mut results = Vec::new();
+        for model in models {
+            results.push(model_to_domain(model)?);
+        }
+        
+        // Also search aliases (in-memory for now)
+        let all_models = SemanticTag::find()
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        for model in all_models {
+            if let Some(aliases_json) = &model.aliases {
+                if let Ok(aliases) = serde_json::from_value::<Vec<String>>(aliases_json.clone()) {
+                    if aliases.iter().any(|alias| alias.eq_ignore_ascii_case(name)) {
+                        let domain_tag = model_to_domain(model)?;
+                        if !results.iter().any(|t| t.id == domain_tag.id) {
+                            results.push(domain_tag);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(results)
     }
     
     async fn calculate_namespace_compatibility(
@@ -272,7 +608,9 @@ impl TagContextResolver {
                 .filter(|ns| *ns == candidate_namespace)
                 .count();
             
-            score = (matching_namespaces as f32) / (context_tags.len() as f32);
+            if !context_tags.is_empty() {
+                score = (matching_namespaces as f32) / (context_tags.len() as f32);
+            }
         }
         
         Ok(score * 0.5) // Weight namespace compatibility
@@ -283,8 +621,8 @@ impl TagContextResolver {
         candidate: &SemanticTag,
         context_tags: &[SemanticTag],
     ) -> Result<f32, TagError> {
-        // TODO: Calculate based on historical co-occurrence patterns
-        Ok(0.0)
+        let usage_analyzer = TagUsageAnalyzer::new(self.db.clone());
+        usage_analyzer.calculate_co_occurrence_score(candidate, context_tags).await
     }
     
     async fn calculate_hierarchy_compatibility(
@@ -292,8 +630,27 @@ impl TagContextResolver {
         candidate: &SemanticTag,
         context_tags: &[SemanticTag],
     ) -> Result<f32, TagError> {
-        // TODO: Calculate based on shared ancestors/descendants
-        Ok(0.0)
+        let closure_service = TagClosureService::new(self.db.clone());
+        let mut compatibility_score = 0.0;
+        let mut relationship_count = 0;
+        
+        for context_tag in context_tags {
+            // Check if candidate and context tag share any ancestors or descendants
+            let candidate_ancestors = closure_service.get_all_ancestors(candidate.id).await?;
+            let candidate_descendants = closure_service.get_all_descendants(candidate.id).await?;
+            
+            if candidate_ancestors.contains(&context_tag.id) || 
+               candidate_descendants.contains(&context_tag.id) {
+                compatibility_score += 1.0;
+                relationship_count += 1;
+            }
+        }
+        
+        if relationship_count > 0 {
+            Ok((compatibility_score / context_tags.len() as f32) * 0.3) // Weight hierarchy compatibility
+        } else {
+            Ok(0.0)
+        }
     }
 }
 
@@ -312,11 +669,74 @@ impl TagUsageAnalyzer {
         &self,
         tag_applications: &[TagApplication],
     ) -> Result<(), TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Get database IDs for all tags
+        let tag_uuids: Vec<Uuid> = tag_applications.iter().map(|app| app.tag_id).collect();
+        let tag_models = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.is_in(tag_uuids))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let uuid_to_db_id: HashMap<Uuid, i32> = tag_models
+            .into_iter()
+            .map(|m| (m.uuid, m.id))
+            .collect();
+        
         // Record co-occurrence between all pairs of tags in this application set
         for (i, app1) in tag_applications.iter().enumerate() {
             for app2 in tag_applications.iter().skip(i + 1) {
-                // TODO: Increment co-occurrence count in tag_usage_patterns table
-                // self.db.increment_co_occurrence(app1.tag_id, app2.tag_id).await?;
+                if let (Some(&tag1_db_id), Some(&tag2_db_id)) = (
+                    uuid_to_db_id.get(&app1.tag_id),
+                    uuid_to_db_id.get(&app2.tag_id)
+                ) {
+                    self.increment_co_occurrence(&*db, tag1_db_id, tag2_db_id).await?;
+                    // Also record the reverse relationship
+                    self.increment_co_occurrence(&*db, tag2_db_id, tag1_db_id).await?;
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    async fn increment_co_occurrence(
+        &self,
+        db: &DbConn,
+        tag1_db_id: i32,
+        tag2_db_id: i32,
+    ) -> Result<(), TagError> {
+        // Try to find existing pattern
+        let existing = TagUsagePattern::find()
+            .filter(tag_usage_pattern::Column::TagId.eq(tag1_db_id))
+            .filter(tag_usage_pattern::Column::CoOccurrenceTagId.eq(tag2_db_id))
+            .one(db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        match existing {
+            Some(pattern) => {
+                // Update existing pattern
+                let mut active_pattern: tag_usage_pattern::ActiveModel = pattern.into();
+                active_pattern.occurrence_count = Set(active_pattern.occurrence_count.unwrap() + 1);
+                active_pattern.last_used_together = Set(Utc::now());
+                
+                active_pattern.update(db).await
+                    .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+            }
+            None => {
+                // Create new pattern
+                let new_pattern = tag_usage_pattern::ActiveModel {
+                    tag_id: Set(tag1_db_id),
+                    co_occurrence_tag_id: Set(tag2_db_id),
+                    occurrence_count: Set(1),
+                    last_used_together: Set(Utc::now()),
+                };
+                
+                new_pattern.insert(db).await
+                    .map_err(|e| TagError::DatabaseError(e.to_string()))?;
             }
         }
         
@@ -328,8 +748,37 @@ impl TagUsageAnalyzer {
         &self,
         min_count: i32,
     ) -> Result<Vec<(Uuid, Uuid, i32)>, TagError> {
-        // TODO: Query tag_usage_patterns table for frequent co-occurrences
-        Ok(Vec::new())
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let patterns = TagUsagePattern::find()
+            .filter(tag_usage_pattern::Column::OccurrenceCount.gte(min_count))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let mut results = Vec::new();
+        
+        for pattern in patterns {
+            // Get the tag UUIDs
+            let tag1_model = SemanticTag::find()
+                .filter(semantic_tag::Column::Id.eq(pattern.tag_id))
+                .one(&*db)
+                .await
+                .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+            
+            let tag2_model = SemanticTag::find()
+                .filter(semantic_tag::Column::Id.eq(pattern.co_occurrence_tag_id))
+                .one(&*db)
+                .await
+                .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+            
+            if let (Some(tag1), Some(tag2)) = (tag1_model, tag2_model) {
+                results.push((tag1.uuid, tag2.uuid, pattern.occurrence_count));
+            }
+        }
+        
+        Ok(results)
     }
     
     /// Calculate co-occurrence score between a tag and a set of context tags
@@ -357,11 +806,37 @@ impl TagUsageAnalyzer {
     
     async fn get_co_occurrence_count(
         &self,
-        tag1_id: Uuid,
-        tag2_id: Uuid,
+        tag1_uuid: Uuid,
+        tag2_uuid: Uuid,
     ) -> Result<Option<i32>, TagError> {
-        // TODO: Query tag_usage_patterns table
-        Ok(None)
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Get database IDs for both tags
+        let tag1_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(tag1_uuid))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let tag2_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(tag2_uuid))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        if let (Some(tag1), Some(tag2)) = (tag1_model, tag2_model) {
+            let pattern = TagUsagePattern::find()
+                .filter(tag_usage_pattern::Column::TagId.eq(tag1.id))
+                .filter(tag_usage_pattern::Column::CoOccurrenceTagId.eq(tag2.id))
+                .one(&*db)
+                .await
+                .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+            
+            Ok(pattern.map(|p| p.occurrence_count))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -378,13 +853,80 @@ impl TagClosureService {
     /// Add a new parent-child relationship and update closure table
     pub async fn add_relationship(
         &self,
-        parent_id: Uuid,
-        child_id: Uuid,
+        parent_db_id: i32,
+        child_db_id: i32,
     ) -> Result<(), TagError> {
-        // TODO: Update closure table with new relationship
-        // This involves:
-        // 1. Adding direct relationship (depth = 1)
-        // 2. Adding transitive relationships through existing ancestors/descendants
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let txn = db.begin().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // 1. Add direct relationship (self to self with depth 0 if not exists)
+        self.ensure_self_reference(&txn, parent_db_id).await?;
+        self.ensure_self_reference(&txn, child_db_id).await?;
+        
+        // 2. Add direct parent-child relationship (depth = 1)
+        let direct_closure = tag_closure::ActiveModel {
+            ancestor_id: Set(parent_db_id),
+            descendant_id: Set(child_db_id),
+            depth: Set(1),
+            path_strength: Set(1.0),
+        };
+        
+        direct_closure.insert(&txn).await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // 3. Add transitive relationships
+        // For all ancestors of parent, create relationships to child and its descendants
+        let parent_ancestors = TagClosure::find()
+            .filter(tag_closure::Column::DescendantId.eq(parent_db_id))
+            .all(&txn)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let child_descendants = TagClosure::find()
+            .filter(tag_closure::Column::AncestorId.eq(child_db_id))
+            .all(&txn)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Create all transitive relationships
+        for ancestor in parent_ancestors {
+            for descendant in child_descendants {
+                let new_depth = ancestor.depth + 1 + descendant.depth;
+                let new_strength = ancestor.path_strength * descendant.path_strength;
+                
+                let transitive_closure = tag_closure::ActiveModel {
+                    ancestor_id: Set(ancestor.ancestor_id),
+                    descendant_id: Set(descendant.descendant_id),
+                    depth: Set(new_depth),
+                    path_strength: Set(new_strength),
+                };
+                
+                // Insert if doesn't exist
+                if let Err(_) = transitive_closure.insert(&txn).await {
+                    // Relationship might already exist, skip
+                }
+            }
+        }
+        
+        txn.commit().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        Ok(())
+    }
+    
+    async fn ensure_self_reference(&self, db: &impl ConnectionTrait, tag_id: i32) -> Result<(), TagError> {
+        let self_ref = tag_closure::ActiveModel {
+            ancestor_id: Set(tag_id),
+            descendant_id: Set(tag_id),
+            depth: Set(0),
+            path_strength: Set(1.0),
+        };
+        
+        // Insert if doesn't exist (ignore error if already exists)
+        let _ = self_ref.insert(db).await;
         Ok(())
     }
     
@@ -399,31 +941,163 @@ impl TagClosureService {
     }
     
     /// Get all descendant tag IDs
-    pub async fn get_all_descendants(&self, ancestor_id: Uuid) -> Result<Vec<Uuid>, TagError> {
-        // TODO: Query closure table for all descendants
-        Ok(Vec::new())
+    pub async fn get_all_descendants(&self, ancestor_uuid: Uuid) -> Result<Vec<Uuid>, TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // First get the database ID for this UUID
+        let ancestor_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(ancestor_uuid))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+        
+        // Query closure table for all descendants (excluding self)
+        let descendant_closures = TagClosure::find()
+            .filter(tag_closure::Column::AncestorId.eq(ancestor_model.id))
+            .filter(tag_closure::Column::Depth.gt(0))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Get the descendant tag UUIDs
+        let descendant_db_ids: Vec<i32> = descendant_closures
+            .into_iter()
+            .map(|c| c.descendant_id)
+            .collect();
+        
+        if descendant_db_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        let descendant_models = SemanticTag::find()
+            .filter(semantic_tag::Column::Id.is_in(descendant_db_ids))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        Ok(descendant_models.into_iter().map(|m| m.uuid).collect())
     }
     
     /// Get all ancestor tag IDs
-    pub async fn get_all_ancestors(&self, descendant_id: Uuid) -> Result<Vec<Uuid>, TagError> {
-        // TODO: Query closure table for all ancestors
-        Ok(Vec::new())
+    pub async fn get_all_ancestors(&self, descendant_uuid: Uuid) -> Result<Vec<Uuid>, TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // First get the database ID for this UUID
+        let descendant_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(descendant_uuid))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+        
+        // Query closure table for all ancestors (excluding self)
+        let ancestor_closures = TagClosure::find()
+            .filter(tag_closure::Column::DescendantId.eq(descendant_model.id))
+            .filter(tag_closure::Column::Depth.gt(0))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Get the ancestor tag UUIDs
+        let ancestor_db_ids: Vec<i32> = ancestor_closures
+            .into_iter()
+            .map(|c| c.ancestor_id)
+            .collect();
+        
+        if ancestor_db_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        let ancestor_models = SemanticTag::find()
+            .filter(semantic_tag::Column::Id.is_in(ancestor_db_ids))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        Ok(ancestor_models.into_iter().map(|m| m.uuid).collect())
     }
     
     /// Get direct children only
-    pub async fn get_direct_children(&self, parent_id: Uuid) -> Result<Vec<Uuid>, TagError> {
-        // TODO: Query closure table with depth = 1
-        Ok(Vec::new())
+    pub async fn get_direct_children(&self, parent_uuid: Uuid) -> Result<Vec<Uuid>, TagError> {
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // First get the database ID for this UUID
+        let parent_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(parent_uuid))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+        
+        // Query closure table with depth = 1 (direct children only)
+        let child_closures = TagClosure::find()
+            .filter(tag_closure::Column::AncestorId.eq(parent_model.id))
+            .filter(tag_closure::Column::Depth.eq(1))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        let child_db_ids: Vec<i32> = child_closures
+            .into_iter()
+            .map(|c| c.descendant_id)
+            .collect();
+        
+        if child_db_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        let child_models = SemanticTag::find()
+            .filter(semantic_tag::Column::Id.is_in(child_db_ids))
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        Ok(child_models.into_iter().map(|m| m.uuid).collect())
     }
     
     /// Get path between two tags
     pub async fn get_path_between(
         &self,
-        from_tag_id: Uuid,
-        to_tag_id: Uuid,
+        from_tag_uuid: Uuid,
+        to_tag_uuid: Uuid,
     ) -> Result<Option<Vec<Uuid>>, TagError> {
-        // TODO: Find shortest path between tags in the hierarchy
-        Ok(None)
+        let db = self.db.get_connection().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        // Get database IDs
+        let from_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(from_tag_uuid))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+        
+        let to_model = SemanticTag::find()
+            .filter(semantic_tag::Column::Uuid.eq(to_tag_uuid))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+        
+        // Check if there's a path in the closure table
+        let path_closure = TagClosure::find()
+            .filter(tag_closure::Column::AncestorId.eq(from_model.id))
+            .filter(tag_closure::Column::DescendantId.eq(to_model.id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+        
+        if path_closure.is_none() {
+            return Ok(None);
+        }
+        
+        // For now, return just the endpoints (pathfinding would require more complex query)
+        // TODO: Implement full path reconstruction if needed
+        Ok(Some(vec![from_tag_uuid, to_tag_uuid]))
     }
 }
 
