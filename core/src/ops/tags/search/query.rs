@@ -1,41 +1,40 @@
-//! Search semantic tags action
+//! Search semantic tags query
 
 use super::{input::SearchTagsInput, output::SearchTagsOutput};
 use crate::{
     context::CoreContext,
-    domain::tag::{Tag, TagType},
-    infra::action::{error::ActionError, LibraryAction},
-    library::Library,
+    cqrs::Query,
     ops::tags::manager::TagManager,
 };
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchTagsAction {
-    input: SearchTagsInput,
+pub struct SearchTagsQuery {
+    pub input: SearchTagsInput,
 }
 
-impl SearchTagsAction {
-    pub fn new(input: SearchTagsInput) -> Self {
-        Self { input }
-    }
+impl SearchTagsQuery {
+    pub fn new(input: SearchTagsInput) -> Self { Self { input } }
 }
 
-impl LibraryAction for SearchTagsAction {
-    type Input = SearchTagsInput;
+impl Query for SearchTagsQuery {
     type Output = SearchTagsOutput;
 
-    fn from_input(input: SearchTagsInput) -> Result<Self, String> {
-        input.validate()?;
-        Ok(SearchTagsAction::new(input))
-    }
+    async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+        // Resolve current library from session
+        let session_state = context.session.get().await;
+        let library_id = session_state
+            .current_library_id
+            .ok_or_else(|| anyhow::anyhow!("No active library selected"))?;
+        let library = context
+            .libraries()
+            .await
+            .get_library(library_id)
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Library not found"))?;
 
-    async fn execute(
-        self,
-        library: Arc<Library>,
-        _context: Arc<CoreContext>,
-    ) -> Result<Self::Output, ActionError> {
         let db = library.db();
         let semantic_tag_manager = TagManager::new(Arc::new(db.conn().clone()));
 
@@ -50,7 +49,7 @@ impl LibraryAction for SearchTagsAction {
                 include_archived,
             )
             .await
-            .map_err(|e| ActionError::Internal(format!("Tag search failed: {}", e)))?;
+            .map_err(|e| anyhow::anyhow!("Tag search failed: {}", e))?;
 
         let mut disambiguated = false;
 
@@ -62,13 +61,13 @@ impl LibraryAction for SearchTagsAction {
                     let context_tags = semantic_tag_manager
                         .get_tags_by_ids(context_tag_ids)
                         .await
-                        .map_err(|e| ActionError::Internal(format!("Failed to get context tags: {}", e)))?;
+                        .map_err(|e| anyhow::anyhow!("Failed to get context tags: {}", e))?;
 
                     // Resolve ambiguous results
                     search_results = semantic_tag_manager
                         .resolve_ambiguous_tag(&self.input.query, &context_tags)
                         .await
-                        .map_err(|e| ActionError::Internal(format!("Context resolution failed: {}", e)))?;
+                        .map_err(|e| anyhow::anyhow!("Context resolution failed: {}", e))?;
 
                     disambiguated = true;
                 }
@@ -93,20 +92,7 @@ impl LibraryAction for SearchTagsAction {
 
         Ok(output)
     }
-
-    fn action_kind(&self) -> &'static str {
-        "tags.search"
-    }
-
-    async fn validate(&self, _library: &Arc<Library>, _context: Arc<CoreContext>) -> Result<(), ActionError> {
-        self.input.validate().map_err(|msg| ActionError::Validation {
-            field: "input".to_string(),
-            message: msg,
-        })?;
-
-        Ok(())
-    }
 }
 
-// Register library action
-crate::register_library_action!(SearchTagsAction, "tags.search");
+crate::register_query!(SearchTagsQuery, "tags.search");
+

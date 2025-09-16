@@ -17,4 +17,4 @@ pub use validation::TagValidator;
 // Re-export commonly used types
 pub use apply::{ApplyTagsAction, ApplyTagsInput, ApplyTagsOutput};
 pub use create::{CreateTagAction, CreateTagInput, CreateTagOutput};
-pub use search::{SearchTagsAction, SearchTagsInput, SearchTagsOutput};
+pub use search::{SearchTagsQuery, SearchTagsInput, SearchTagsOutput};
