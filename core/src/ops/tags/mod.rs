@@ -8,9 +8,11 @@ pub mod create;
 pub mod search;
 pub mod manager;
 pub mod facade;
+pub mod validation;
 
 pub use manager::TagManager;
 pub use facade::TaggingFacade;
+pub use validation::TagValidator;
 
 // Re-export commonly used types
 pub use apply::{ApplyTagsAction, ApplyTagsInput, ApplyTagsOutput};

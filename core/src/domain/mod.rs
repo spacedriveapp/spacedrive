@@ -11,7 +11,6 @@ pub mod device;
 pub mod entry;
 pub mod location;
 pub mod tag;
-pub mod semantic_tag_validation;
 pub mod user_metadata;
 pub mod volume;
 

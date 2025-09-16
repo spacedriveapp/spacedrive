@@ -5,7 +5,7 @@
 
 use sd_core::{
     domain::tag::{Tag, TagType, PrivacyLevel, RelationshipType, TagSource, TagApplication},
-    domain::semantic_tag_validation::TagValidator,
+    ops::tags::validation::TagValidator,
     ops::tags::manager::TagManager,
     ops::metadata::manager::UserMetadataManager,
     infra::db::Database,
