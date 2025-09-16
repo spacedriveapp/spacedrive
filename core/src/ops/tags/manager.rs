@@ -155,6 +155,118 @@ impl TagManager {
         Ok(tag)
     }
 
+    /// Update an existing tag with new values
+    pub async fn update_tag(&self, tag: &Tag) -> Result<Tag, TagError> {
+        let db = &*self.db;
+
+        // Find the existing tag by UUID
+        let existing_model = tag::Entity::find()
+            .filter(tag::Column::Uuid.eq(tag.id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or_else(|| TagError::TagNotFound)?;
+
+        // Create updated active model
+        let mut active_model: tag::ActiveModel = existing_model.into();
+
+        // Update all fields
+        active_model.canonical_name = Set(tag.canonical_name.clone());
+        active_model.display_name = Set(tag.display_name.clone());
+        active_model.formal_name = Set(tag.formal_name.clone());
+        active_model.abbreviation = Set(tag.abbreviation.clone());
+        active_model.aliases = Set(if tag.aliases.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_value(&tag.aliases).unwrap().into())
+        });
+        active_model.namespace = Set(tag.namespace.clone());
+        active_model.tag_type = Set(tag.tag_type.as_str().to_string());
+        active_model.color = Set(tag.color.clone());
+        active_model.icon = Set(tag.icon.clone());
+        active_model.description = Set(tag.description.clone());
+        active_model.is_organizational_anchor = Set(tag.is_organizational_anchor);
+        active_model.privacy_level = Set(tag.privacy_level.as_str().to_string());
+        active_model.search_weight = Set(tag.search_weight);
+        active_model.attributes = Set(if tag.attributes.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_value(&tag.attributes).unwrap().into())
+        });
+        active_model.composition_rules = Set(if tag.composition_rules.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_value(&tag.composition_rules).unwrap().into())
+        });
+        active_model.updated_at = Set(chrono::Utc::now());
+
+        // Save the updated tag
+        let updated_model = active_model.update(&*db).await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // Convert back to domain object
+        model_to_domain(updated_model)
+    }
+
+    /// Delete a tag and all its relationships
+    pub async fn delete_tag(&self, tag_id: Uuid) -> Result<(), TagError> {
+        let db = &*self.db;
+
+        // Find the tag first to ensure it exists
+        let existing_model = tag::Entity::find()
+            .filter(tag::Column::Uuid.eq(tag_id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or_else(|| TagError::TagNotFound)?;
+
+        // Delete all relationships where this tag is parent or child
+        tag_relationship::Entity::delete_many()
+            .filter(
+                tag_relationship::Column::ParentTagId.eq(existing_model.id)
+                    .or(tag_relationship::Column::ChildTagId.eq(existing_model.id))
+            )
+            .exec(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // Delete all closure table entries for this tag
+        tag_closure::Entity::delete_many()
+            .filter(
+                tag_closure::Column::AncestorId.eq(existing_model.id)
+                    .or(tag_closure::Column::DescendantId.eq(existing_model.id))
+            )
+            .exec(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // Delete all tag applications
+        user_metadata_tag::Entity::delete_many()
+            .filter(user_metadata_tag::Column::TagId.eq(existing_model.id))
+            .exec(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // Delete all usage patterns involving this tag
+        tag_usage_pattern::Entity::delete_many()
+            .filter(
+                tag_usage_pattern::Column::TagId.eq(existing_model.id)
+                    .or(tag_usage_pattern::Column::CoOccurrenceTagId.eq(existing_model.id))
+            )
+            .exec(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // Finally, delete the tag itself
+        tag::Entity::delete_many()
+            .filter(tag::Column::Uuid.eq(tag_id))
+            .exec(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
     /// Find a tag by its canonical name and namespace
     pub async fn find_tag_by_name_and_namespace(
         &self,
@@ -414,32 +526,49 @@ impl TagManager {
     ) -> Result<Vec<Tag>, TagError> {
         let db = &*self.db;
 
-        // Use FTS5 for text search first
-        let fts_query = format!("\"{}\"", query.replace("\"", "\"\""));
-        let fts_results = db.query_all(
+        // Try FTS5 search first, fall back to LIKE patterns if FTS5 is not available
+        let mut tag_db_ids = Vec::new();
+
+        // Attempt FTS5 search
+        if let Ok(fts_results) = db.query_all(
             sea_orm::Statement::from_string(
                 sea_orm::DatabaseBackend::Sqlite,
                 format!(
                     "SELECT tag_id FROM tag_search_fts WHERE tag_search_fts MATCH '{}' ORDER BY rank",
-                    fts_query
+                    query.replace("\"", "\"\"")
                 )
             )
-        ).await
-        .map_err(|e| TagError::DatabaseError(e.to_string()))?;
-
-        // Extract tag IDs from FTS results
-        let mut tag_db_ids = Vec::new();
-        for row in fts_results {
-            if let Ok(tag_id) = row.try_get::<i32>("", "tag_id") {
-                tag_db_ids.push(tag_id);
+        ).await {
+            for row in fts_results {
+                if let Ok(tag_id) = row.try_get::<i32>("", "tag_id") {
+                    tag_db_ids.push(tag_id);
+                }
             }
+        }
+
+        // If FTS5 didn't return results, fall back to LIKE patterns
+        if tag_db_ids.is_empty() {
+            let search_pattern = format!("%{}%", query);
+            let like_models = tag::Entity::find()
+                .filter(
+                    tag::Column::CanonicalName.like(&search_pattern)
+                        .or(tag::Column::DisplayName.like(&search_pattern))
+                        .or(tag::Column::FormalName.like(&search_pattern))
+                        .or(tag::Column::Abbreviation.like(&search_pattern))
+                        .or(tag::Column::Description.like(&search_pattern))
+                )
+                .all(&*db)
+                .await
+                .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+            tag_db_ids = like_models.into_iter().map(|m| m.id).collect();
         }
 
         if tag_db_ids.is_empty() {
             return Ok(Vec::new());
         }
 
-        // Build filtered query
+        // Build filtered query with the found tag IDs
         let mut query_builder = tag::Entity::find()
             .filter(tag::Column::Id.is_in(tag_db_ids));
 
@@ -449,7 +578,7 @@ impl TagManager {
         }
 
         // Apply tag type filter
-        if let Some(tag_type) = tag_type_filter {
+        if let Some(ref tag_type) = tag_type_filter {
             query_builder = query_builder.filter(tag::Column::TagType.eq(tag_type.as_str()));
         }
 
@@ -464,6 +593,34 @@ impl TagManager {
         let mut results = Vec::new();
         for model in models {
             results.push(model_to_domain(model)?);
+        }
+
+        // Also search aliases in memory (for now)
+        // TODO: Optimize this with JSON query operators or FTS5
+        let all_models = tag::Entity::find()
+            .all(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        for model in all_models {
+            if let Some(aliases_json) = &model.aliases {
+                if let Ok(aliases) = serde_json::from_value::<Vec<String>>(aliases_json.clone()) {
+                    if aliases.iter().any(|alias| alias.to_lowercase().contains(&query.to_lowercase())) {
+                        // Apply additional filters to alias matches before converting to domain
+                        let matches_namespace = namespace_filter.map_or(true, |ns| model.namespace.as_ref().map_or(false, |model_ns| model_ns == ns));
+                        let matches_tag_type = tag_type_filter.as_ref().map_or(true, |tt| model.tag_type == tt.as_str());
+                        let matches_privacy = include_archived || model.privacy_level == "normal";
+
+                        if matches_namespace && matches_tag_type && matches_privacy {
+                            let domain_tag = model_to_domain(model)?;
+                            // Avoid duplicates
+                            if !results.iter().any(|t| t.id == domain_tag.id) {
+                                results.push(domain_tag);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Ok(results)
@@ -905,7 +1062,74 @@ impl TagClosureService {
         parent_id: Uuid,
         child_id: Uuid,
     ) -> Result<(), TagError> {
-        // TODO: Remove relationship and recalculate affected closure paths
+        let db = &*self.db;
+
+        // Get database IDs for the tags
+        let parent_model = tag::Entity::find()
+            .filter(tag::Column::Uuid.eq(parent_id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+
+        let child_model = tag::Entity::find()
+            .filter(tag::Column::Uuid.eq(child_id))
+            .one(&*db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?
+            .ok_or(TagError::TagNotFound)?;
+
+        let txn = db.begin().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // 1. Remove the direct relationship from tag_relationship table
+        tag_relationship::Entity::delete_many()
+            .filter(tag_relationship::Column::ParentTagId.eq(parent_model.id))
+            .filter(tag_relationship::Column::ChildTagId.eq(child_model.id))
+            .exec(&txn)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // 2. Remove all closure table entries for this relationship
+        // This includes both direct and transitive relationships
+        tag_closure::Entity::delete_many()
+            .filter(tag_closure::Column::AncestorId.eq(parent_model.id))
+            .filter(tag_closure::Column::DescendantId.eq(child_model.id))
+            .exec(&txn)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // 3. Rebuild closure table for affected relationships
+        // This is a simplified approach - in a production system, you'd want to be more selective
+        self.rebuild_closure_table(&txn).await?;
+
+        txn.commit().await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Rebuild the entire closure table from scratch
+    async fn rebuild_closure_table<C: ConnectionTrait>(&self, db: &C) -> Result<(), TagError> {
+        // Clear the closure table
+        tag_closure::Entity::delete_many()
+            .exec(db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // Get all direct relationships
+        let relationships = tag_relationship::Entity::find()
+            .all(db)
+            .await
+            .map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+        // Rebuild closure table for each relationship
+        for relationship in relationships {
+            if relationship.relationship_type == "parent_child" {
+                self.add_relationship(relationship.parent_tag_id, relationship.child_tag_id).await?;
+            }
+        }
+
         Ok(())
     }
 

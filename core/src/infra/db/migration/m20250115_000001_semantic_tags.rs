@@ -403,10 +403,87 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        // Create FTS5 virtual table for full-text search
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS tag_search_fts USING fts5(
+                    tag_id UNINDEXED,
+                    canonical_name,
+                    display_name,
+                    formal_name,
+                    abbreviation,
+                    aliases,
+                    description,
+                    content='tag',
+                    content_rowid='id'
+                )"
+            )
+            .await?;
+
+        // Create triggers to maintain FTS5 table
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "CREATE TRIGGER IF NOT EXISTS tag_ai AFTER INSERT ON tag BEGIN
+                    INSERT INTO tag_search_fts(
+                        tag_id, canonical_name, display_name, formal_name,
+                        abbreviation, aliases, description
+                    ) VALUES (
+                        NEW.id, NEW.canonical_name, NEW.display_name, NEW.formal_name,
+                        NEW.abbreviation, NEW.aliases, NEW.description
+                    );
+                END"
+            )
+            .await?;
+
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "CREATE TRIGGER IF NOT EXISTS tag_au AFTER UPDATE ON tag BEGIN
+                    UPDATE tag_search_fts SET
+                        canonical_name = NEW.canonical_name,
+                        display_name = NEW.display_name,
+                        formal_name = NEW.formal_name,
+                        abbreviation = NEW.abbreviation,
+                        aliases = NEW.aliases,
+                        description = NEW.description
+                    WHERE tag_id = NEW.id;
+                END"
+            )
+            .await?;
+
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "CREATE TRIGGER IF NOT EXISTS tag_ad AFTER DELETE ON tag BEGIN
+                    DELETE FROM tag_search_fts WHERE tag_id = OLD.id;
+                END"
+            )
+            .await?;
+
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // Drop FTS5 table and triggers first
+        manager
+            .get_connection()
+            .execute_unprepared("DROP TRIGGER IF EXISTS tag_ad")
+            .await?;
+        manager
+            .get_connection()
+            .execute_unprepared("DROP TRIGGER IF EXISTS tag_au")
+            .await?;
+        manager
+            .get_connection()
+            .execute_unprepared("DROP TRIGGER IF EXISTS tag_ai")
+            .await?;
+        manager
+            .get_connection()
+            .execute_unprepared("DROP TABLE IF EXISTS tag_search_fts")
+            .await?;
+
         // Drop tables in reverse order
         manager
             .drop_table(Table::drop().table(Alias::new("tag_usage_pattern")).to_owned())

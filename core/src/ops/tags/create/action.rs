@@ -102,10 +102,13 @@ impl LibraryAction for CreateTagAction {
             tag.attributes = attributes;
         }
 
-        // TODO: Update the tag in database with the modified fields
-        // For now, the basic tag was already created
+        // Update the tag in database with the modified fields
+        let updated_tag = semantic_tag_manager
+            .update_tag(&tag)
+            .await
+            .map_err(|e| ActionError::Internal(format!("Failed to update tag: {}", e)))?;
 
-        Ok(CreateTagOutput::from_tag(&tag))
+        Ok(CreateTagOutput::from_tag(&updated_tag))
     }
 
     fn action_kind(&self) -> &'static str {

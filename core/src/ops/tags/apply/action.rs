@@ -8,6 +8,7 @@ use crate::{
     library::Library,
     ops::metadata::user_metadata_manager::UserMetadataManager,
 };
+use sea_orm::{DatabaseConnection, EntityTrait};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -71,8 +72,9 @@ impl LibraryAction for ApplyTagsAction {
 
         // Apply tags to each entry
         for entry_id in &self.input.entry_ids {
-            // TODO: Look up actual entry UUID from entry ID
-            let entry_uuid = Uuid::new_v4(); // Placeholder - should look up from database
+            // Look up actual entry UUID from entry ID
+            let entry_uuid = lookup_entry_uuid(&db.conn(), *entry_id).await
+                .map_err(|e| ActionError::Internal(format!("Failed to lookup entry UUID: {}", e)))?;
             match metadata_manager
                 .apply_semantic_tags(entry_uuid, tag_applications.clone(), device_id)
                 .await
@@ -119,3 +121,17 @@ impl LibraryAction for ApplyTagsAction {
 
 // Register library action
 crate::register_library_action!(ApplyTagsAction, "tags.apply");
+
+/// Look up entry UUID from entry database ID
+async fn lookup_entry_uuid(db: &DatabaseConnection, entry_id: i32) -> Result<Uuid, String> {
+    use crate::infra::db::entities::entry;
+
+    let entry_model = entry::Entity::find_by_id(entry_id)
+        .one(db)
+        .await
+        .map_err(|e| format!("Database error: {}", e))?
+        .ok_or_else(|| format!("Entry with ID {} not found", entry_id))?;
+
+    entry_model.uuid
+        .ok_or_else(|| format!("Entry {} has no UUID assigned", entry_id))
+}
