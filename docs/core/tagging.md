@@ -522,10 +522,10 @@ impl TagUsageAnalyzer {
 
 ### UserMetadataManager
 
-Manages user metadata including semantic tag applications. Located in `ops/metadata/user_metadata_manager.rs`:
+Manages user metadata including semantic tag applications. Located in `ops/metadata/manager.rs`:
 
 ```rust
-use crate::ops::metadata::user_metadata_manager::UserMetadataManager;
+use crate::ops::metadata::manager::UserMetadataManager;
 
 impl UserMetadataManager {
     // Apply semantic tags to user metadata
@@ -826,7 +826,7 @@ core/src/ops/
 │   └── search/                      # Tag search actions
 │       └── action.rs
 └── metadata/
-    └── user_metadata_manager.rs     # User metadata management
+    └── manager.rs     # User metadata management
 ```
 
 ## Migration Strategy

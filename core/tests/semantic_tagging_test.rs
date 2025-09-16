@@ -7,7 +7,7 @@ use sd_core::{
     domain::tag::{Tag, TagType, PrivacyLevel, RelationshipType, TagSource, TagApplication},
     domain::semantic_tag_validation::TagValidator,
     ops::tags::manager::TagManager,
-    ops::metadata::user_metadata_manager::UserMetadataManager,
+    ops::metadata::manager::UserMetadataManager,
     infra::db::Database,
 };
 use std::sync::Arc;

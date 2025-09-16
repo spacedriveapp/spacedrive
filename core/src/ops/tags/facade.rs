@@ -8,7 +8,7 @@ use crate::{
     domain::tag::{Tag, TagApplication, TagType, PrivacyLevel, RelationshipType, TagSource, TagError},
     ops::{
         tags::manager::TagManager,
-        metadata::user_metadata_manager::UserMetadataManager,
+        metadata::manager::UserMetadataManager,
     },
     infra::db::Database,
 };

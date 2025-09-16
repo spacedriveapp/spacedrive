@@ -6,7 +6,7 @@ use crate::{
     domain::tag::{TagApplication, TagSource},
     infra::action::{error::ActionError, LibraryAction},
     library::Library,
-    ops::metadata::user_metadata_manager::UserMetadataManager,
+    ops::metadata::manager::UserMetadataManager,
 };
 use sea_orm::{DatabaseConnection, EntityTrait};
 use chrono::Utc;
