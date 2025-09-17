@@ -8059,6 +8059,7 @@ dependencies = [
  "rand 0.8.5",
  "ratatui",
  "rcgen 0.11.3",
+ "regex",
  "ring 0.16.20",
  "rmp",
  "rmp-serde",

@@ -49,6 +49,9 @@ toml       = "0.8"
 anyhow    = "1.0"
 thiserror = "1.0"
 
+# Text processing
+regex = "1.11"
+
 
 # File operations
 blake3 = "1.5"  # Content addressing

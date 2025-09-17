@@ -8,6 +8,7 @@ mod m20240107_000001_create_collections;
 mod m20250109_000001_create_sidecars;
 mod m20250110_000001_refactor_volumes_table;
 mod m20250112_000001_create_indexer_rules;
+mod m20250115_000001_semantic_tags;
 
 pub struct Migrator;
 
@@ -21,6 +22,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20250109_000001_create_sidecars::Migration),
 			Box::new(m20250110_000001_refactor_volumes_table::Migration),
 			Box::new(m20250112_000001_create_indexer_rules::Migration),
+			Box::new(m20250115_000001_semantic_tags::Migration),
 		]
 	}
 }

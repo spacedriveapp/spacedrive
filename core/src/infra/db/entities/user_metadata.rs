@@ -9,11 +9,11 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub uuid: Uuid,
-    
+
     // Exactly one of these is set - defines the scope
     pub entry_uuid: Option<Uuid>, // File-specific metadata (higher priority in hierarchy)
     pub content_identity_uuid: Option<Uuid>, // Content-universal metadata (lower priority in hierarchy)
-    
+
     // All metadata types benefit from scope flexibility
     pub notes: Option<String>,
     pub favorite: bool,
@@ -53,11 +53,11 @@ impl Related<super::content_identity::Entity> for Entity {
 
 impl Related<super::tag::Entity> for Entity {
     fn to() -> RelationDef {
-        super::metadata_tag::Relation::Tag.def()
+        super::user_metadata_tag::Relation::Tag.def()
     }
-    
+
     fn via() -> Option<RelationDef> {
-        Some(super::metadata_tag::Relation::UserMetadata.def().rev())
+        Some(super::user_metadata_tag::Relation::UserMetadata.def().rev())
     }
 }
 
