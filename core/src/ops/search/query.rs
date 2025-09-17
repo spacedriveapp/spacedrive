@@ -122,7 +122,7 @@ impl FileSearchQuery {
 	}
 
 	/// Execute fast search using FTS5 with directory path joins
-	async fn execute_fast_search(
+	pub async fn execute_fast_search(
 		&self,
 		db: &DatabaseConnection,
 	) -> Result<Vec<crate::ops::search::output::FileSearchResult>> {
