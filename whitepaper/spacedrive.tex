@@ -166,7 +166,7 @@
 
 % --- ABSTRACT ---
 \begin{abstract}
-Data fragmentation across devices and clouds hinders cohesive file management. Spacedrive addresses this with a local-first~\cite{kleppmann_localfirst_2019}, AI-native Virtual Distributed File System (VDFS) that unifies data views while preserving original file locations. Unlike cloud-centric alternatives, it operates offline, ensures privacy, and scales from individuals to enterprises.
+Data fragmentation across devices and clouds hinders cohesive file management. Spacedrive addresses this with a local-first~\cite{kleppmann_localfirst_2019}, Virtual Distributed File System (VDFS) that unifies data views while preserving original file locations. Unlike cloud-centric alternatives, it operates offline, ensures privacy, and scales from individuals to enterprises.
 
 Core features include a unified data index for instant search, automatic deduplication, and safe cross-device operations. This index powers an AI layer supporting natural language queries and intelligent assistance, all processed locally.
 
@@ -208,25 +208,18 @@ This paper details Spacedrive V2's architecture, highlighting innovations like c
 
 The proliferation of computing devices and cloud services has fragmented our digital lives, scattering assets across incompatible ecosystems~\cite{bergman_fragmentation_2006, atlassian2025}. Knowledge workers waste up to 25\% of their time searching for files, with creative professionals particularly affected~\cite{atlassian2025}. Existing solutions force a choice between cloud convenience and local control, with none offering a unified, content-aware approach.
 
-Spacedrive addresses this by implementing a \textbf{local-first, AI-native Virtual Distributed File System (VDFS)} that unifies data management while files remain in their original locations~\cite{kleppmann_localfirst_2019}. Unlike cloud-centric services, it operates offline, ensures privacy, and scales from individuals to enterprises.
+Spacedrive addresses this by implementing a \textbf{local-first Virtual Distributed File System (VDFS)} that unifies data management while files remain in their original locations~\cite{kleppmann_localfirst_2019}. Unlike cloud-centric services, it operates offline, ensures privacy, and scales from individuals to enterprises.
 
-The architecture is built on seven foundational innovations that solve traditionally hard problems in distributed systems:
+The architecture is built on four foundational principles that solve traditionally hard problems in distributed systems:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Virtual Distributed File System} (Section~\ref{sec:vdfs}): Holistic view across all devices with content-aware addressing and seamless cross-device operations.
+ \item \textbf{Unified Data Model: The Content-Aware VDFS} (Section~\ref{sec:vdfs}): A single, virtual layer that unifies all data across devices by focusing on the content of files, not just their names and locations. Built on an Entry-Centric Model (Section~\ref{sec:entry-centric}) where every file and folder is a first-class object capable of holding rich metadata instantly, and a Content Identity System (Section~\ref{sec:content-identity}) that uses adaptive hashing to identify and track unique file content, enabling deduplication, redundancy tracking, and resilient content-based addressing.
 
- \item \textbf{Entry-Centric Data Model} (Section~\ref{sec:entry-centric}): Immediate metadata capabilities for every file, enabling instant organization without waiting for analysis.
+ \item \textbf{Safe \& Predictable Operations: The Transactional Action System} (Section~\ref{sec:action-system}): A system that ensures all file operations are safe, transparent, and guaranteed to complete. Every change to the VDFS is treated as a transaction that must be simulated and approved before execution, leveraging the complete VDFS index to run in-memory simulations of proposed actions with precise previews of outcomes, including conflicts or storage issues.
 
- \item \textbf{Content Identity System} (Section~\ref{sec:content-identity}): Deduplication and data redundancy protection through complete content tracking.
+ \item \textbf{Resilient Synchronization: Domain-Separated Consistency} (Section~\ref{sec:library-sync}): A pragmatic synchronization model that avoids the complexity of traditional distributed consensus by separating data into distinct domains, each with its own simple, tailored resolution strategy. The filesystem index treats each device as authority for its own files, user metadata is merged using intuitive rules, and file content transfers are handled as explicit, user-initiated jobs.
 
- \item \textbf{Native Storage Tiering} (Section~\ref{sec:volume-foundation}): A sophisticated, VDFS-level storage model that distinguishes between a volume's physical capabilities (e.g., SSD vs. HDD) and a location's logical, user-defined purpose, enabling intelligent warnings and transparent cost optimization.
-
- 	 \item \textbf{Library Sync} (Section~\ref{sec:library-sync}): Domain-separated synchronization for the VDFS index and metadata, maintaining consistency without distributed consensus complexity[cite: 21].
- 	 \item \textbf{Sync Conduits} (Section~\ref{sec:sync-conduits}): Explicit, user-created conduits for file content synchronization between any two entries (directories) in the VDFS, using a resilient state-based reconciliation model.
-
- 	 \item \textbf{Transactional Action System} (Section~\ref{sec:action-system}): Preview-before-commit operations that prevent conflicts and guarantee completion.
-
- \item \textbf{AI-Native Architecture} (Section~\ref{sec:ai-native}): Natural language commands and proactive assistance through privacy-preserving AI integration.
+ \item \textbf{Intelligent Agency: The AI-Native Architecture} (Section~\ref{sec:ai-native}): An architecture where an AI agent can proactively observe, understand, and act upon the user's data space in a collaborative way. The AI follows an "Observe, Orient, Act" loop, using the VDFS index and rich sidecar data to analyze patterns and generate the same safe, previewable Actions a human would, ensuring the user always remains in control.
 \end{itemize}
 
 We demonstrate how this architecture, implemented in Rust, delivers enterprise-grade features on consumer hardware, achieving sub-100ms semantic search, reliable synchronization via the Iroh networking stack, and a memory footprint of ~150MB for over one million files.
@@ -307,7 +300,7 @@ Spacedrive v2 represents a complete architectural reimplementation designed to f
 
 \subsection{Key Challenges in the Original Architecture}
 
-Post-mortem analysis of the v1 codebase revealed critical issues. The most significant was a \textbf{"Dual File System Problem,"} with separate, incompatible systems for indexed and non-indexed locations, which fractured the user experience and doubled development effort. The architecture also suffered from a brittle frontend/backend coupling (the \texttt{invalidate\_query} anti-pattern), an over-engineered CRDT-based synchronization system that was never shipped, excessive boilerplate in the job system, and a fragmented networking layer with poor NAT traversal success. Finally, the project relied on critical dependencies that were later abandoned by their creators.
+The development of v1 provided invaluable insights that shaped the v2 architecture. Building Spacedrive required pioneering work in an immature ecosystem—Rust application development was uncommon at the time, Tauri was in its infancy, and many essential libraries simply didn't exist. Our engineers contributed extensively upstream to Tauri, Iroh, and even the QUIC protocol, with Spacedrive serving as a real-world model for building complex Rust applications. We developed critical infrastructure including prisma-client-rust and rspc, which became foundational tools for the broader Rust ecosystem. However, this pioneering approach created architectural challenges: separate systems for indexed and non-indexed files that couldn't interoperate, tight frontend/backend coupling through query invalidation patterns, and the complexity overhead of custom CRDT-based synchronization. The experience highlighted the importance of unified addressing systems, streamlined job architectures, and the risks of maintaining custom infrastructure when mature alternatives emerge.
 
 \subsection{Spacedrive v2 as an Architectural Solution}
 
@@ -364,8 +357,7 @@ A Spacedrive Library is organized as a self-contained directory with four key co
 
 This portable structure means that backing up your entire organizational system—all metadata, tags, ratings, and file relationships—is as simple as copying a single directory. The Library acts as a complete catalog of your digital life, preserving your organizational work even if the actual files are distributed across multiple devices and locations.
 
-
-This design provides several critical advantages: its self-contained nature simplifies backup and migration, and sharing involves sending the complete Library. The Library acts as a complete catalog of your digital life, preserving your organizational work even if the actual files are distributed across multiple devices and locations. From a security perspective, this architecture ensures that each device in a paired group builds and controls its own library database, enabling granular scoping of locations and indexed data to local or select devices, thereby enhancing data sovereignty and limiting exposure.
+This design provides several critical advantages: its self-contained nature simplifies backup and migration, and sharing involves sending the complete Library. From a security perspective, this architecture ensures that each device in a paired group builds and controls its own library database, enabling granular scoping of locations and indexed data to local or select devices, thereby enhancing data sovereignty and limiting exposure.
 
 \subsubsection{The Entry-Centric Data Model}
 \label{sec:entry-centric}
