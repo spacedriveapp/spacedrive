@@ -226,12 +226,12 @@ impl LocationWatcher {
 				tokio::select! {
 					Some(event) = rx.recv() => {
 						// Process the event through platform handler
-						match platform_handler.process_event(event, &watched_locations).await {
-							Ok(processed_events) => {
-								for processed_event in processed_events {
-									events.emit(processed_event);
+							match platform_handler.process_event(event, &watched_locations).await {
+								Ok(processed_events) => {
+									for processed_event in processed_events {
+										events.emit(processed_event);
+									}
 								}
-							}
 							Err(e) => {
 								error!("Error processing watcher event: {}", e);
 							}

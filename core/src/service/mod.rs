@@ -87,6 +87,7 @@ impl Services {
 
 		self.location_watcher.start().await?;
 
+
 		// Start volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {
 			monitor.start().await?;

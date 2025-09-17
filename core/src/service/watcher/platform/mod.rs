@@ -110,7 +110,7 @@ impl EventHandler for DefaultHandler {
 					let entry_id = Uuid::new_v4();
 
 					if let Some(core_event) =
-						event.to_core_event(location.library_id, Some(entry_id))
+						event.to_raw_event(location.library_id)
 					{
 						events.push(core_event);
 					}

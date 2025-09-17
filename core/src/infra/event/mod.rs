@@ -55,6 +55,12 @@ pub enum Event {
 		new_path: String,
 	},
 
+	// Raw filesystem change events (no database IDs) - consumed by responder
+	FsRawChange {
+		library_id: Uuid,
+		kind: FsRawEventKind,
+	},
+
 	// Volume events
 	VolumeAdded(crate::volume::Volume),
 	VolumeRemoved {
@@ -179,6 +185,15 @@ pub enum Event {
 		event_type: String,
 		data: serde_json::Value,
 	},
+}
+
+/// Raw filesystem event kinds emitted by the watcher without DB resolution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FsRawEventKind {
+    Create { path: PathBuf },
+    Modify { path: PathBuf },
+    Remove { path: PathBuf },
+    Rename { from: PathBuf, to: PathBuf },
 }
 
 /// Types of file operations

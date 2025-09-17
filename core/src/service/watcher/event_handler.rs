@@ -1,6 +1,6 @@
 //! Event handling for file system changes
 
-use crate::infra::event::Event;
+use crate::infra::event::{Event, FsRawEventKind};
 use notify::{Event as NotifyEvent, EventKind};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -55,26 +55,31 @@ impl WatcherEvent {
         }
     }
 
-    /// Convert to core Event for the event bus
-    pub fn to_core_event(&self, library_id: Uuid, entry_id: Option<Uuid>) -> Option<Event> {
+    /// Convert to raw FS event for the event bus (without DB entry IDs)
+    pub fn to_raw_event(&self, library_id: Uuid) -> Option<Event> {
         match &self.kind {
             WatcherEventKind::Create => {
-                entry_id.map(|id| Event::EntryCreated { library_id, entry_id: id })
-            }
-            WatcherEventKind::Modify => {
-                entry_id.map(|id| Event::EntryModified { library_id, entry_id: id })
-            }
-            WatcherEventKind::Remove => {
-                entry_id.map(|id| Event::EntryDeleted { library_id, entry_id: id })
-            }
-            WatcherEventKind::Rename { from, to } => {
-                entry_id.map(|id| Event::EntryMoved {
+                self.primary_path().cloned().map(|p| Event::FsRawChange {
                     library_id,
-                    entry_id: id,
-                    old_path: from.to_string_lossy().to_string(),
-                    new_path: to.to_string_lossy().to_string(),
+                    kind: FsRawEventKind::Create { path: p },
                 })
             }
+            WatcherEventKind::Modify => {
+                self.primary_path().cloned().map(|p| Event::FsRawChange {
+                    library_id,
+                    kind: FsRawEventKind::Modify { path: p },
+                })
+            }
+            WatcherEventKind::Remove => {
+                self.primary_path().cloned().map(|p| Event::FsRawChange {
+                    library_id,
+                    kind: FsRawEventKind::Remove { path: p },
+                })
+            }
+            WatcherEventKind::Rename { from, to } => Some(Event::FsRawChange {
+                library_id,
+                kind: FsRawEventKind::Rename { from: from.clone(), to: to.clone() },
+            }),
             WatcherEventKind::Other(_) => None,
         }
     }

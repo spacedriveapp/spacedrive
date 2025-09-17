@@ -16,6 +16,7 @@ pub mod job;
 pub mod input;
 pub mod metrics;
 pub mod path_resolver;
+pub mod responder;
 pub mod persistence;
 pub mod phases;
 pub mod progress;
