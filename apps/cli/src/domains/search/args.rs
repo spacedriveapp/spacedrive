@@ -18,6 +18,10 @@ pub struct FileSearchArgs {
     #[arg(long, value_enum, default_value = "normal")]
     pub mode: SearchModeArg,
     
+    /// SD path to narrow search to a specific directory
+    #[arg(long)]
+    pub sd_path: Option<String>,
+    
     /// File type filter (can be specified multiple times)
     #[arg(long)]
     pub file_type: Option<Vec<String>>,
@@ -141,7 +145,16 @@ impl From<FileSearchArgs> for FileSearchInput {
             SearchModeArg::Full => SearchMode::Full,
         };
         
-        let scope = if let Some(location_id) = args.location {
+        let scope = if let Some(sd_path_str) = args.sd_path {
+            // Parse SD path from string
+            match sd_core::domain::addressing::SdPath::from_uri(&sd_path_str) {
+                Ok(sd_path) => SearchScope::Path { path: sd_path },
+                Err(_) => {
+                    eprintln!("Warning: Invalid SD path '{}', falling back to library search", sd_path_str);
+                    SearchScope::Library
+                }
+            }
+        } else if let Some(location_id) = args.location {
             SearchScope::Location { location_id }
         } else {
             SearchScope::Library

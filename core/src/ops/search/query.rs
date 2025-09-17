@@ -1,18 +1,18 @@
 //! File search query implementation
 
-use super::{input::FileSearchInput, output::FileSearchOutput};
+use super::{input::{FileSearchInput, SearchScope}, output::FileSearchOutput};
 use crate::{
     context::CoreContext,
     cqrs::Query,
     domain::Entry,
-    infra::db::entities::entry,
+    infra::db::entities::{entry, directory_paths},
     filetype::FileTypeRegistry,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, QueryOrder, Condition, ColumnTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, QueryOrder, Condition, ColumnTrait, JoinType, RelationTrait};
 use chrono::{DateTime, Utc};
 
 /// File search query
@@ -80,11 +80,46 @@ impl Query for FileSearchQuery {
 }
 
 impl FileSearchQuery {
-    /// Execute fast search using FTS5
+    /// Construct full path for an entry by joining with directory_paths
+    async fn construct_full_path(&self, entry_model: &entry::Model, db: &DatabaseConnection) -> Result<String> {
+        // If this is a root entry (no parent), return just the name
+        if entry_model.parent_id.is_none() {
+            return Ok(format!("/{}", entry_model.name));
+        }
+        
+        // Find the parent directory entry
+        if let Some(parent_id) = entry_model.parent_id {
+            // Get the parent directory entry
+            let parent_entry = entry::Entity::find_by_id(parent_id)
+                .one(db)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("Parent entry not found"))?;
+            
+            // Look up the directory path in directory_paths table
+            let directory_path = directory_paths::Entity::find()
+                .filter(directory_paths::Column::EntryId.eq(parent_id))
+                .one(db)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("Directory path not found"))?;
+            
+            // Construct full path: directory_path + "/" + filename
+            let full_path = if directory_path.path.ends_with('/') {
+                format!("{}{}", directory_path.path, entry_model.name)
+            } else {
+                format!("{}/{}", directory_path.path, entry_model.name)
+            };
+            
+            Ok(full_path)
+        } else {
+            // Fallback for entries without parent
+            Ok(format!("/{}", entry_model.name))
+        }
+    }
+
+    /// Execute fast search using FTS5 with directory path joins
     async fn execute_fast_search(&self, db: &DatabaseConnection) -> Result<Vec<crate::ops::search::output::FileSearchResult>> {
-        // For now, implement basic SQL LIKE search
+        // For now, implement basic SQL LIKE search with directory path joins
         // TODO: Implement FTS5 integration
-        let query = format!("%{}%", self.input.query);
         
         let mut condition = Condition::any()
             .add(entry::Column::Name.contains(&self.input.query))
@@ -99,22 +134,42 @@ impl FileSearchQuery {
         // Apply additional filters
         condition = self.apply_filters(condition, &registry);
         
-        let entries = entry::Entity::find()
+        // Build query with directory path join for full path construction
+        let mut query = entry::Entity::find()
             .filter(condition)
-            .filter(entry::Column::Kind.eq(0)) // Only files
+            .filter(entry::Column::Kind.eq(0)); // Only files
+        
+        // Apply SD path filtering if specified in scope
+        if let SearchScope::Path { path } = &self.input.scope {
+            if let Some(device_id) = path.device_id() {
+                if let Some(path_str) = path.path() {
+                    // Join with directory_paths to filter by path
+                    query = query
+                        .join(JoinType::LeftJoin, directory_paths::Relation::Entry.def())
+                        .filter(directory_paths::Column::Path.like(&format!("{}%", path_str.to_string_lossy())));
+                }
+            }
+        }
+        
+        let entries = query
             .limit(self.input.pagination.limit as u64)
             .offset(self.input.pagination.offset as u64)
             .all(db)
             .await?;
         
-        // Convert to search results
-        let results = entries.into_iter().map(|entry_model| {
-            // Convert database model to domain Entry
+        // Convert to search results with proper path construction
+        let mut results = Vec::new();
+        
+        for entry_model in entries {
+            // Construct the full path by joining with directory_paths
+            let full_path = self.construct_full_path(&entry_model, db).await
+                .unwrap_or_else(|_| format!("/unknown/path/{}", entry_model.name));
+            
             let entry = Entry {
                 id: entry_model.uuid.unwrap_or_else(|| Uuid::new_v4()),
                 sd_path: crate::domain::SdPathSerialized {
                     device_id: Uuid::new_v4(), // TODO: Get from device table
-                    path: format!("/path/to/{}", entry_model.name), // TODO: Proper path construction
+                    path: full_path,
                 },
                 name: entry_model.name,
                 kind: match entry_model.kind {
@@ -143,7 +198,7 @@ impl FileSearchQuery {
                 last_indexed_at: Some(entry_model.created_at),
             };
             
-            crate::ops::search::output::FileSearchResult {
+            let result = crate::ops::search::output::FileSearchResult {
                 entry,
                 score: 1.0, // TODO: Calculate actual relevance score
                 score_breakdown: crate::ops::search::output::ScoreBreakdown::new(
@@ -155,8 +210,10 @@ impl FileSearchQuery {
                 ),
                 highlights: Vec::new(),
                 matched_content: None,
-            }
-        }).collect();
+            };
+            
+            results.push(result);
+        }
         
         Ok(results)
     }
