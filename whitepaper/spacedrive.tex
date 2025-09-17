@@ -812,7 +812,7 @@ When a user adds a directory to a Spacedrive Library, it becomes a \texttt{Locat
 
 \textbf{The Location Watcher Service}
 
-The watcher service is the core of Spacedrive's real-time capabilities, providing a resilient and efficient file system monitoring solution.
+The watcher service is the core of Spacedrive's real-time capabilities, providing an efficient file system monitoring solution.
 
 \textbf{Platform-Specific Optimizations}
 
@@ -826,7 +826,7 @@ A key strength of the watcher is its use of platform-native APIs for optimal per
  \item \textbf{Windows (\texttt{ReadDirectoryChangesW})}: The implementation is designed to handle Windows-specific filesystem quirks, such as delayed file deletions caused by antivirus software or file locking. It does this by maintaining a "pending deletion" state to verify that a file is truly gone before emitting a deletion event.
 \end{itemize}
 
-\textbf{Intelligent Event Processing}
+\textbf{Event Processing Pipeline}
 
 The watcher service is more than a simple event forwarder. It includes a processing pipeline:
 
@@ -849,7 +849,7 @@ While the Location Watcher provides real-time monitoring during normal operation
 
 Spacedrive tracks its core uptime and persists the timestamp of its last shutdown. Upon startup, the system calculates the "offline window"---the period between the last shutdown time and the current time. This window defines the temporal scope within which filesystem changes may have occurred undetected. By comparing this offline period against filesystem modification times, the system can efficiently identify which portions of the filesystem require validation.
 
-\textbf{Intelligent Stale Detection}
+\textbf{Stale Detection}
 
 Rather than performing expensive full filesystem scans after every offline period, Spacedrive leverages a key property of modern filesystems: modification time propagation. On most operating systems (Windows NTFS, macOS APFS, and Linux ext4/btrfs), changes to files within nested directories update the modification timestamps of parent directories up the tree.
 
@@ -1322,7 +1322,7 @@ Performance improvements over the previous fragmented implementation:
 
 \textbf{QUIC-Based Transport Layer}
 
-Iroh's built-in QUIC transport provides integrated transport features including ChaCha20-Poly1305 encryption, stream multiplexing for concurrent operations, BBR congestion control for optimal bandwidth utilization, and zero round-trip connection resumption for seamless reconnection.
+Iroh's built-in QUIC transport provides integrated transport features including ChaCha20-Poly1305 encryption, stream multiplexing for concurrent operations, BBR congestion control for bandwidth utilization, and zero round-trip connection resumption for smooth reconnection.
 
 \textbf{Automatic Network Discovery and Connection}
 
@@ -1330,7 +1330,7 @@ Spacedrive's networking system automatically handles the complex task of connect
 
 \begin{itemize}[noitemsep, topsep=0pt]
  \item \textbf{Multi-Path Discovery}: Devices find each other through multiple channels simultaneously---local network broadcasting, DNS-based discovery, and relay server coordination.
- \item \textbf{Intelligent Relay Routing}: When direct connection isn't possible (due to firewalls or NAT), the system automatically routes through secure relay servers while maintaining end-to-end encryption.
+ \item \textbf{Relay Routing}: When direct connection isn't possible (due to firewalls or NAT), the system automatically routes through secure relay servers while maintaining end-to-end encryption.
  \item \textbf{Zero-Configuration Setup}: Users simply pair devices once---the networking layer handles all future connection establishment, routing decisions, and failover scenarios transparently.
 \end{itemize}
 
@@ -1416,7 +1416,7 @@ Beyond trusted device pairing, Spacedrive implements \textbf{Spacedrop}---an eph
 
 \textbf{User Consent Model}: Unlike automatic transfers between paired devices, every Spacedrop requires explicit receiver acceptance, maintaining user control over incoming data. The receiver sees the sender's device name, file metadata, and optional message before accepting.
 
-\textbf{Multi-Modal Discovery}: Spacedrop employs a sophisticated discovery mechanism that adapts to available connectivity:
+\textbf{Multi-Modal Discovery}: Spacedrop employs a multi-source discovery mechanism that adapts to available connectivity:
 \begin{itemize}[noitemsep, topsep=0pt]
     \item \textbf{Local Network}: mDNS broadcasts for same-network discovery
     \item \textbf{Bluetooth Low Energy}: Optional BLE advertisements for true proximity detection, enabling discovery even without shared Wi-Fi
@@ -1442,7 +1442,7 @@ Sync Conduits are implemented using a \textbf{state-based reconciliation} model.
 \paragraph{Sync Policies}
 Users can choose from four distinct policies when creating a Sync Conduit:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Replicate (One-Way Mirror)}: Creates a robust backup of a source \texttt{Entry}, propagating all creates, modifies, and (optionally) deletes.
+    \item \textbf{Replicate (One-Way Mirror)}: Creates a backup of a source \texttt{Entry}, propagating all creates, modifies, and (optionally) deletes.
     \item \textbf{Synchronize (Two-Way)}: Keeps two \texttt{Entries} identical, syncing changes bidirectionally with a "last-writer-wins" conflict resolution strategy based on modification time.
     \item \textbf{Offload (Smart Cache)}: Frees up space on a primary device by moving the least recently used files to a destination, leaving the metadata intact in the VDFS index for on-demand retrieval.
     \item \textbf{Archive (Move and Consolidate)}: Moves files to a long-term storage \texttt{Entry} and safely removes them from the source after cryptographic verification of the transfer.
@@ -1459,9 +1459,9 @@ The most common conflicts occur when multiple devices modify the same content me
 
 \textbf{Resolution Strategy}: Union merge with conflict notification, leveraging the richly-structured tag system (Section 3.3):
 
-\textbf{Intelligent Tag Conflict Resolution Process}
+\textbf{Tag Conflict Resolution Process}
 
-When tag conflicts occur, Spacedrive follows a sophisticated resolution process:
+When tag conflicts occur, Spacedrive follows a structured resolution process:
 
 \textbf{Detection Phase}
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -1575,9 +1575,9 @@ For rating conflicts, Spacedrive uses a temporal resolution approach:
 \paragraph{Complex Metadata Conflicts}
 \textbf{Scenario}: User creates custom metadata field "project" with value "website" on Device A, while Device B creates the same field with value "portfolio".
 
-\textbf{Intelligent Custom Metadata Conflict Resolution}
+\textbf{Custom Metadata Conflict Resolution}
 
-When users create conflicting custom metadata on different devices, Spacedrive provides sophisticated resolution assistance:
+When users create conflicting custom metadata on different devices, Spacedrive provides guided resolution assistance:
 
 \textbf{Conflict Analysis}
 \begin{itemize}[noitemsep, topsep=0pt]
