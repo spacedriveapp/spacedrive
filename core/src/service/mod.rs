@@ -57,6 +57,7 @@ impl Services {
 		let location_watcher = Arc::new(LocationWatcher::new(
 			location_watcher_config,
 			context.events.clone(),
+			context.clone(),
 		));
 		let file_sharing = Arc::new(FileSharingService::new(context.clone()));
 		let device = Arc::new(DeviceService::new(context.clone()));
