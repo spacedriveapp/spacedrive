@@ -1,13 +1,12 @@
 //! Entry processing and metadata extraction
 
+use super::ctx::IndexingCtx;
 use super::path_resolver::PathResolver;
 use super::state::{DirEntry, EntryKind, IndexerState};
+use crate::infra::job::prelude::{JobContext, JobError};
 use crate::{
-	filetype::FileTypeRegistry,
-	infra::{
-		db::entities::{self, directory_paths, entry_closure},
-		job::prelude::{JobContext, JobError},
-	},
+    filetype::FileTypeRegistry,
+    infra::db::entities::{self, directory_paths, entry_closure},
 };
 use sea_orm::{
 	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
@@ -116,9 +115,9 @@ impl EntryProcessor {
 
 	/// Create an entry record in the database using a provided connection/transaction
 	/// and collect related rows for bulk insertion by the caller.
-	pub async fn create_entry_in_conn<C: ConnectionTrait>(
-		state: &mut IndexerState,
-		ctx: &JobContext<'_>,
+    pub async fn create_entry_in_conn<C: ConnectionTrait>(
+        state: &mut IndexerState,
+        ctx: &impl IndexingCtx,
 		entry: &DirEntry,
 		device_id: i32,
 		location_root_path: &Path,
@@ -195,9 +194,9 @@ impl EntryProcessor {
 				// If not in cache, try to find it in the database
 				// This handles cases where parent was created in a previous run
 				let parent_path_str = parent_path.to_string_lossy().to_string();
-				if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
+                if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
 					.filter(entities::directory_paths::Column::Path.eq(&parent_path_str))
-					.one(ctx.library_db())
+                    .one(ctx.library_db())
 					.await
 				{
 					// Found parent in database, cache it
@@ -293,15 +292,15 @@ impl EntryProcessor {
 	}
 
 	/// Create an entry, starting and committing its own transaction (single insert)
-	pub async fn create_entry(
-		state: &mut IndexerState,
-		ctx: &JobContext<'_>,
+    pub async fn create_entry(
+        state: &mut IndexerState,
+        ctx: &impl IndexingCtx,
 		entry: &DirEntry,
 		device_id: i32,
 		location_root_path: &Path,
 	) -> Result<i32, JobError> {
-		let txn = ctx
-			.library_db()
+        let txn = ctx
+            .library_db()
 			.begin()
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
@@ -349,8 +348,8 @@ impl EntryProcessor {
 	}
 
 	/// Update an existing entry
-	pub async fn update_entry(
-		ctx: &JobContext<'_>,
+    pub async fn update_entry(
+        ctx: &impl IndexingCtx,
 		entry_id: i32,
 		entry: &DirEntry,
 	) -> Result<(), JobError> {
@@ -390,17 +389,17 @@ impl EntryProcessor {
 	}
 
 	/// Handle entry move operation with closure table updates
-	pub async fn move_entry(
-		state: &mut IndexerState,
-		ctx: &JobContext<'_>,
+    pub async fn move_entry(
+        state: &mut IndexerState,
+        ctx: &impl IndexingCtx,
 		entry_id: i32,
 		old_path: &Path,
 		new_path: &Path,
 		location_root_path: &Path,
 	) -> Result<(), JobError> {
-		// Begin transaction for atomic move operation
-		let txn = ctx
-			.library_db()
+        // Begin transaction for atomic move operation
+        let txn = ctx
+            .library_db()
 			.begin()
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
@@ -510,7 +509,7 @@ impl EntryProcessor {
 
 			// Spawn a background job to update descendant paths
 			// This is done outside the transaction for performance
-			let db = ctx.library_db().clone();
+            let db = ctx.library_db().clone();
 			tokio::spawn(async move {
 				if let Err(e) = PathResolver::update_descendant_paths(
 					&db,
@@ -550,8 +549,8 @@ impl EntryProcessor {
 
 	/// Create or find content identity and link to entry with deterministic UUID
 	/// This method implements the content identification phase logic
-	pub async fn link_to_content_identity(
-		ctx: &JobContext<'_>,
+    pub async fn link_to_content_identity(
+        ctx: &impl IndexingCtx,
 		entry_id: i32,
 		path: &Path,
 		content_hash: String,
