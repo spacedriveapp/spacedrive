@@ -14,6 +14,7 @@ use crate::domains::{
 	library::{self, LibraryCmd},
 	location::{self, LocationCmd},
 	network::{self, NetworkCmd},
+    search::{self, SearchCmd},
     tag::{self, TagCmd},
 };
 
@@ -68,6 +69,9 @@ enum Commands {
 	/// Job commands
 	#[command(subcommand)]
 	Job(JobCmd),
+    /// Search operations
+    #[command(subcommand)]
+    Search(SearchCmd),
     /// Tag operations
     #[command(subcommand)]
     Tag(TagCmd),
@@ -193,6 +197,7 @@ async fn run_client_command(
 		Commands::Location(cmd) => location::run(&ctx, cmd).await?,
 		Commands::Network(cmd) => network::run(&ctx, cmd).await?,
 		Commands::Job(cmd) => job::run(&ctx, cmd).await?,
+        Commands::Search(cmd) => search::run(&ctx, cmd).await?,
         Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
 		_ => {} // Start and Stop are handled in main
 	}
