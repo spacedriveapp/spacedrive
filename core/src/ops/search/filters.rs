@@ -1,6 +1,7 @@
 //! Search filter utilities
 
 use super::input::*;
+use crate::domain::ContentKind;
 use sea_orm::{Condition, ColumnTrait};
 
 /// Filter builder for search queries
@@ -89,7 +90,7 @@ impl FilterBuilder {
     }
     
     /// Apply content type filter
-    pub fn content_types(mut self, content_types: &Option<Vec<ContentType>>) -> Self {
+    pub fn content_types(mut self, content_types: &Option<Vec<ContentKind>>) -> Self {
         if let Some(types) = content_types {
             if !types.is_empty() {
                 let mut content_condition = Condition::any();
@@ -122,16 +123,25 @@ impl FilterBuilder {
 }
 
 /// Get file extensions for a content type
-pub fn get_extensions_for_content_type(content_type: &ContentType) -> Vec<&'static str> {
+pub fn get_extensions_for_content_type(content_type: &ContentKind) -> Vec<&'static str> {
     match content_type {
-        ContentType::Image => vec!["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "tiff"],
-        ContentType::Video => vec!["mp4", "avi", "mov", "wmv", "flv", "webm", "mkv", "m4v"],
-        ContentType::Audio => vec!["mp3", "wav", "flac", "aac", "ogg", "wma", "m4a"],
-        ContentType::Document => vec!["pdf", "doc", "docx", "txt", "rtf", "odt", "pages"],
-        ContentType::Code => vec!["rs", "js", "ts", "py", "java", "cpp", "c", "h", "go", "php"],
-        ContentType::Text => vec!["txt", "md", "rst", "log", "csv", "json", "xml", "yaml"],
-        ContentType::Archive => vec!["zip", "rar", "7z", "tar", "gz", "bz2", "xz"],
-        ContentType::Other => vec![],
+        ContentKind::Image => vec!["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "tiff", "ico", "tga"],
+        ContentKind::Video => vec!["mp4", "avi", "mov", "wmv", "flv", "webm", "mkv", "m4v", "3gp", "ogv"],
+        ContentKind::Audio => vec!["mp3", "wav", "flac", "aac", "ogg", "wma", "m4a", "opus", "aiff"],
+        ContentKind::Document => vec!["pdf", "doc", "docx", "txt", "rtf", "odt", "pages", "ppt", "pptx", "xls", "xlsx"],
+        ContentKind::Code => vec!["rs", "js", "ts", "py", "java", "cpp", "c", "h", "go", "php", "rb", "swift", "kt"],
+        ContentKind::Text => vec!["txt", "md", "rst", "log", "csv", "json", "xml", "yaml", "yml", "toml", "ini"],
+        ContentKind::Archive => vec!["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "lz4", "zst"],
+        ContentKind::Database => vec!["db", "sqlite", "sqlite3", "mdb", "accdb"],
+        ContentKind::Book => vec!["epub", "mobi", "azw", "azw3", "fb2"],
+        ContentKind::Font => vec!["ttf", "otf", "woff", "woff2", "eot"],
+        ContentKind::Mesh => vec!["obj", "fbx", "dae", "gltf", "glb", "ply", "stl"],
+        ContentKind::Config => vec!["conf", "cfg", "ini", "yaml", "yml", "json", "toml"],
+        ContentKind::Encrypted => vec!["gpg", "pgp", "enc", "crypt"],
+        ContentKind::Key => vec!["key", "pem", "p12", "pfx", "crt", "cer"],
+        ContentKind::Executable => vec!["exe", "app", "deb", "rpm", "msi", "dmg"],
+        ContentKind::Binary => vec!["bin", "dat", "raw"],
+        ContentKind::Unknown => vec![],
     }
 }
 

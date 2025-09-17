@@ -1,6 +1,6 @@
 //! Input for file search operations
 
-use crate::domain::SdPath;
+use crate::domain::{SdPath, ContentKind};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -95,18 +95,8 @@ pub struct SizeRangeFilter {
     pub max: Option<u64>,
 }
 
-/// Content type categories for filtering
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ContentType {
-    Image,
-    Video,
-    Audio,
-    Document,
-    Code,
-    Text,
-    Archive,
-    Other,
-}
+    /// Content type categories for filtering (using domain ContentKind)
+    pub type ContentType = ContentKind;
 
 /// Sorting options for search results
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -4,9 +4,10 @@ use chrono::{DateTime, Utc};
 
 use sd_core::ops::search::input::{
     FileSearchInput, SearchScope, SearchMode, SearchFilters, TagFilter, 
-    DateRangeFilter, DateField, SizeRangeFilter, ContentType, SortOptions, 
+    DateRangeFilter, DateField, SizeRangeFilter, SortOptions, 
     SortField, SortDirection, PaginationOptions
 };
+use sd_core::domain::ContentKind;
 
 #[derive(Args, Debug)]
 pub struct FileSearchArgs {
@@ -98,14 +99,23 @@ pub enum DateFieldArg {
 
 #[derive(clap::ValueEnum, Debug, Clone)]
 pub enum ContentTypeArg {
+    Unknown,
     Image,
     Video,
     Audio,
     Document,
+    Archive,
     Code,
     Text,
-    Archive,
-    Other,
+    Database,
+    Book,
+    Font,
+    Mesh,
+    Config,
+    Encrypted,
+    Key,
+    Executable,
+    Binary,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -171,14 +181,23 @@ impl From<FileSearchArgs> for FileSearchInput {
             locations: None, // Not used in CLI for now
             content_types: args.content_type.map(|types| {
                 types.into_iter().map(|ct| match ct {
-                    ContentTypeArg::Image => ContentType::Image,
-                    ContentTypeArg::Video => ContentType::Video,
-                    ContentTypeArg::Audio => ContentType::Audio,
-                    ContentTypeArg::Document => ContentType::Document,
-                    ContentTypeArg::Code => ContentType::Code,
-                    ContentTypeArg::Text => ContentType::Text,
-                    ContentTypeArg::Archive => ContentType::Archive,
-                    ContentTypeArg::Other => ContentType::Other,
+                    ContentTypeArg::Unknown => ContentKind::Unknown,
+                    ContentTypeArg::Image => ContentKind::Image,
+                    ContentTypeArg::Video => ContentKind::Video,
+                    ContentTypeArg::Audio => ContentKind::Audio,
+                    ContentTypeArg::Document => ContentKind::Document,
+                    ContentTypeArg::Archive => ContentKind::Archive,
+                    ContentTypeArg::Code => ContentKind::Code,
+                    ContentTypeArg::Text => ContentKind::Text,
+                    ContentTypeArg::Database => ContentKind::Database,
+                    ContentTypeArg::Book => ContentKind::Book,
+                    ContentTypeArg::Font => ContentKind::Font,
+                    ContentTypeArg::Mesh => ContentKind::Mesh,
+                    ContentTypeArg::Config => ContentKind::Config,
+                    ContentTypeArg::Encrypted => ContentKind::Encrypted,
+                    ContentTypeArg::Key => ContentKind::Key,
+                    ContentTypeArg::Executable => ContentKind::Executable,
+                    ContentTypeArg::Binary => ContentKind::Binary,
                 }).collect()
             }),
             include_hidden: Some(args.include_hidden),

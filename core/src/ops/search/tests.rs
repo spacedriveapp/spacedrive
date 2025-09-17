@@ -69,13 +69,18 @@ mod tests {
     #[test]
     fn test_content_type_extensions() {
         use crate::ops::search::filters::get_extensions_for_content_type;
+        use crate::domain::ContentKind;
         
-        let image_exts = get_extensions_for_content_type(&ContentType::Image);
+        let image_exts = get_extensions_for_content_type(&ContentKind::Image);
         assert!(image_exts.contains(&"jpg"));
         assert!(image_exts.contains(&"png"));
         
-        let code_exts = get_extensions_for_content_type(&ContentType::Code);
+        let code_exts = get_extensions_for_content_type(&ContentKind::Code);
         assert!(code_exts.contains(&"rs"));
         assert!(code_exts.contains(&"js"));
+        
+        let database_exts = get_extensions_for_content_type(&ContentKind::Database);
+        assert!(database_exts.contains(&"db"));
+        assert!(database_exts.contains(&"sqlite"));
     }
 }
