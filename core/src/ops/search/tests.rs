@@ -68,19 +68,25 @@ mod tests {
 
     #[test]
     fn test_content_type_extensions() {
-        use crate::ops::search::filters::get_extensions_for_content_type;
+        use crate::filetype::FileTypeRegistry;
         use crate::domain::ContentKind;
         
-        let image_exts = get_extensions_for_content_type(&ContentKind::Image);
+        let registry = FileTypeRegistry::new();
+        
+        let image_exts = registry.get_extensions_for_category(ContentKind::Image);
         assert!(image_exts.contains(&"jpg"));
         assert!(image_exts.contains(&"png"));
         
-        let code_exts = get_extensions_for_content_type(&ContentKind::Code);
+        let code_exts = registry.get_extensions_for_category(ContentKind::Code);
         assert!(code_exts.contains(&"rs"));
         assert!(code_exts.contains(&"js"));
         
-        let database_exts = get_extensions_for_content_type(&ContentKind::Database);
+        let database_exts = registry.get_extensions_for_category(ContentKind::Database);
         assert!(database_exts.contains(&"db"));
         assert!(database_exts.contains(&"sqlite"));
+        
+        // Test that we get more extensions than hardcoded approach
+        assert!(image_exts.len() > 5); // Should have more than basic hardcoded list
+        assert!(code_exts.len() > 10); // Should have comprehensive code extensions
     }
 }

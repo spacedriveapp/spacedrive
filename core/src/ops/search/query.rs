@@ -6,6 +6,7 @@ use crate::{
     cqrs::Query,
     domain::Entry,
     infra::db::entities::entry,
+    filetype::FileTypeRegistry,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -92,8 +93,11 @@ impl FileSearchQuery {
         // Apply scope filters
         condition = self.apply_scope_filter(condition);
         
+        // Get file type registry for content type filtering
+        let registry = FileTypeRegistry::new();
+        
         // Apply additional filters
-        condition = self.apply_filters(condition);
+        condition = self.apply_filters(condition, &registry);
         
         let entries = entry::Entity::find()
             .filter(condition)
@@ -190,7 +194,7 @@ impl FileSearchQuery {
     }
     
     /// Apply additional filters to the query condition
-    fn apply_filters(&self, mut condition: Condition) -> Condition {
+    fn apply_filters(&self, mut condition: Condition, registry: &FileTypeRegistry) -> Condition {
         // File type filter
         if let Some(file_types) = &self.input.filters.file_types {
             if !file_types.is_empty() {
@@ -225,6 +229,20 @@ impl FileSearchQuery {
             }
             if let Some(max) = size_range.max {
                 condition = condition.add(entry::Column::Size.lte(max as i64));
+            }
+        }
+        
+        // Content type filter using file type registry
+        if let Some(content_types) = &self.input.filters.content_types {
+            if !content_types.is_empty() {
+                let mut content_condition = Condition::any();
+                for content_type in content_types {
+                    let extensions = registry.get_extensions_for_category(*content_type);
+                    for extension in extensions {
+                        content_condition = content_condition.add(entry::Column::Extension.eq(extension));
+                    }
+                }
+                condition = condition.add(content_condition);
             }
         }
         
