@@ -36,6 +36,68 @@ pub async fn apply(
 	Ok(())
 }
 
+/// Apply a batch of raw FS changes with optimized processing
+pub async fn apply_batch(
+	context: &Arc<CoreContext>,
+	library_id: Uuid,
+	events: Vec<FsRawEventKind>,
+) -> Result<()> {
+	if events.is_empty() {
+		return Ok(());
+	}
+
+	// Lightweight indexing context for DB access
+	let ctx = ResponderCtx::new(context, library_id).await?;
+
+	// Group events by type for potential bulk operations
+	let mut creates = Vec::new();
+	let mut modifies = Vec::new();
+	let mut removes = Vec::new();
+	let mut renames = Vec::new();
+
+	for event in events {
+		match event {
+			FsRawEventKind::Create { path } => creates.push(path),
+			FsRawEventKind::Modify { path } => modifies.push(path),
+			FsRawEventKind::Remove { path } => removes.push(path),
+			FsRawEventKind::Rename { from, to } => renames.push((from, to)),
+		}
+	}
+
+	// Process in order: removes first, then renames, then creates, then modifies
+	// This ensures we don't try to create files that should be removed, etc.
+
+	// Process removes
+	for path in removes {
+		if let Err(e) = handle_remove(&ctx, &path).await {
+			tracing::error!("Failed to handle remove for {}: {}", path.display(), e);
+		}
+	}
+
+	// Process renames
+	for (from, to) in renames {
+		if let Err(e) = handle_rename(&ctx, &from, &to).await {
+			tracing::error!("Failed to handle rename from {} to {}: {}", from.display(), to.display(), e);
+		}
+	}
+
+	// Process creates
+	for path in creates {
+		if let Err(e) = handle_create(&ctx, &path).await {
+			tracing::error!("Failed to handle create for {}: {}", path.display(), e);
+		}
+	}
+
+	// Process modifies
+	for path in modifies {
+		if let Err(e) = handle_modify(&ctx, &path).await {
+			tracing::error!("Failed to handle modify for {}: {}", path.display(), e);
+		}
+	}
+
+	Ok(())
+}
+
 /// Handle create: extract metadata and insert via EntryProcessor
 async fn handle_create(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 	debug!("Create: {}", path.display());

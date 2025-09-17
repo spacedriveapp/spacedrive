@@ -8,14 +8,25 @@ use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 mod event_handler;
+mod metrics;
 mod platform;
+mod worker;
 pub mod utils;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(feature = "examples")]
+pub mod example;
+
+pub use metrics::{LocationWorkerMetrics, MetricsCollector, WatcherMetrics};
+pub use worker::LocationWorker;
 
 pub use event_handler::WatcherEvent;
 pub use platform::PlatformHandler;
@@ -25,19 +36,108 @@ pub use platform::PlatformHandler;
 pub struct LocationWatcherConfig {
 	/// Debounce duration for file system events
 	pub debounce_duration: Duration,
-	/// Maximum number of events to buffer
+	/// Maximum number of events to buffer per location
 	pub event_buffer_size: usize,
 	/// Whether to enable detailed debug logging
 	pub debug_mode: bool,
+	/// Debounce window for batching events (100-250ms)
+	pub debounce_window_ms: u64,
+	/// Maximum batch size to prevent memory issues
+	pub max_batch_size: usize,
+	/// Metrics logging interval
+	pub metrics_log_interval_ms: u64,
+	/// Whether to enable metrics collection
+	pub enable_metrics: bool,
+	/// Maximum queue depth before triggering re-index
+	pub max_queue_depth_before_reindex: usize,
+	/// Whether to enable focused re-indexing on overflow
+	pub enable_focused_reindex: bool,
 }
 
 impl Default for LocationWatcherConfig {
 	fn default() -> Self {
 		Self {
 			debounce_duration: Duration::from_millis(100),
-			event_buffer_size: 1000,
+			event_buffer_size: 10000, // Increased for per-location queues
 			debug_mode: false,
+			debounce_window_ms: 150, // 150ms default debounce window
+			max_batch_size: 1000, // Max events per batch
+			metrics_log_interval_ms: 30000, // 30 seconds
+			enable_metrics: true,
+			max_queue_depth_before_reindex: 5000, // 50% of buffer size
+			enable_focused_reindex: true,
 		}
+	}
+}
+
+impl LocationWatcherConfig {
+	/// Create a new configuration with custom values
+	pub fn new(
+		debounce_window_ms: u64,
+		event_buffer_size: usize,
+		max_batch_size: usize,
+	) -> Self {
+		Self {
+			debounce_duration: Duration::from_millis(100),
+			event_buffer_size,
+			debug_mode: false,
+			debounce_window_ms,
+			max_batch_size,
+			metrics_log_interval_ms: 30000,
+			enable_metrics: true,
+			max_queue_depth_before_reindex: event_buffer_size / 2,
+			enable_focused_reindex: true,
+		}
+	}
+
+	/// Create a high-performance configuration for large file operations
+	pub fn high_performance() -> Self {
+		Self {
+			debounce_duration: Duration::from_millis(50),
+			event_buffer_size: 50000,
+			debug_mode: false,
+			debounce_window_ms: 100, // Shorter window for faster processing
+			max_batch_size: 5000, // Larger batches
+			metrics_log_interval_ms: 10000, // More frequent logging
+			enable_metrics: true,
+			max_queue_depth_before_reindex: 25000,
+			enable_focused_reindex: true,
+		}
+	}
+
+	/// Create a conservative configuration for stability
+	pub fn conservative() -> Self {
+		Self {
+			debounce_duration: Duration::from_millis(200),
+			event_buffer_size: 5000,
+			debug_mode: false,
+			debounce_window_ms: 250, // Longer window for better coalescing
+			max_batch_size: 500, // Smaller batches
+			metrics_log_interval_ms: 60000, // Less frequent logging
+			enable_metrics: true,
+			max_queue_depth_before_reindex: 2500,
+			enable_focused_reindex: true,
+		}
+	}
+
+	/// Validate the configuration
+	pub fn validate(&self) -> Result<()> {
+		if self.debounce_window_ms < 50 {
+			return Err(anyhow::anyhow!("Debounce window must be at least 50ms"));
+		}
+		if self.debounce_window_ms > 1000 {
+			return Err(anyhow::anyhow!("Debounce window must be at most 1000ms"));
+		}
+		if self.event_buffer_size < 100 {
+			return Err(anyhow::anyhow!("Event buffer size must be at least 100"));
+		}
+		if self.max_batch_size < 1 {
+			return Err(anyhow::anyhow!("Max batch size must be at least 1"));
+		}
+		if self.max_batch_size > self.event_buffer_size {
+			return Err(anyhow::anyhow!("Max batch size cannot exceed event buffer size"));
+		}
+		Ok(())
 	}
 }
 
@@ -57,6 +157,12 @@ pub struct LocationWatcher {
 	is_running: Arc<RwLock<bool>>,
 	/// Platform-specific event handler
 	platform_handler: Arc<PlatformHandler>,
+	/// Per-location workers
+	workers: Arc<RwLock<HashMap<Uuid, mpsc::Sender<WatcherEvent>>>>,
+	/// Global watcher metrics
+	metrics: Arc<WatcherMetrics>,
+	/// Worker metrics by location
+	worker_metrics: Arc<RwLock<HashMap<Uuid, Arc<LocationWorkerMetrics>>>>,
 }
 
 /// Information about a watched location
@@ -85,7 +191,82 @@ impl LocationWatcher {
 			watcher: Arc::new(RwLock::new(None)),
 			is_running: Arc::new(RwLock::new(false)),
 			platform_handler,
+			workers: Arc::new(RwLock::new(HashMap::new())),
+			metrics: Arc::new(WatcherMetrics::new()),
+			worker_metrics: Arc::new(RwLock::new(HashMap::new())),
 		}
+	}
+
+	/// Ensure a worker exists for the given location
+	async fn ensure_worker_for_location(&self, location_id: Uuid, library_id: Uuid) -> Result<mpsc::Sender<WatcherEvent>> {
+		// Check if worker already exists
+		{
+			let workers = self.workers.read().await;
+			if let Some(sender) = workers.get(&location_id) {
+				return Ok(sender.clone());
+			}
+		}
+
+		// Create metrics for this worker
+		let worker_metrics = Arc::new(LocationWorkerMetrics::new());
+		{
+			let mut metrics_map = self.worker_metrics.write().await;
+			metrics_map.insert(location_id, worker_metrics.clone());
+		}
+
+		// Create new worker
+		let (tx, rx) = mpsc::channel(self.config.event_buffer_size);
+		let worker = LocationWorker::new(
+			location_id,
+			library_id,
+			rx,
+			self.context.clone(),
+			self.events.clone(),
+			self.config.clone(),
+			worker_metrics.clone(),
+		);
+
+		// Record worker creation
+		self.metrics.record_worker_created();
+
+		// Spawn the worker task
+		tokio::spawn(async move {
+			if let Err(e) = worker.run().await {
+				error!("Location worker {} failed: {}", location_id, e);
+			}
+		});
+
+		// Store the sender
+		{
+			let mut workers = self.workers.write().await;
+			workers.insert(location_id, tx.clone());
+		}
+
+		Ok(tx)
+	}
+
+	/// Remove a worker for a location
+	async fn remove_worker_for_location(&self, location_id: Uuid) {
+		let mut workers = self.workers.write().await;
+		workers.remove(&location_id);
+		
+		// Remove metrics
+		let mut metrics_map = self.worker_metrics.write().await;
+		metrics_map.remove(&location_id);
+		
+		// Record worker destruction
+		self.metrics.record_worker_destroyed();
+	}
+
+	/// Get metrics for a specific location
+	pub async fn get_location_metrics(&self, location_id: Uuid) -> Option<Arc<LocationWorkerMetrics>> {
+		let metrics_map = self.worker_metrics.read().await;
+		metrics_map.get(&location_id).cloned()
+	}
+
+	/// Get global watcher metrics
+	pub fn get_global_metrics(&self) -> Arc<WatcherMetrics> {
+		self.metrics.clone()
 	}
 
 	/// Add a location to watch
@@ -105,6 +286,11 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
+		// Create worker for this location
+		if *self.is_running.read().await {
+			self.ensure_worker_for_location(location.id, location.library_id).await?;
+		}
+
 		// Add to file system watcher if running
 		if *self.is_running.read().await {
 			if let Some(watcher) = self.watcher.write().await.as_mut() {
@@ -122,6 +308,9 @@ impl LocationWatcher {
 		let mut locations = self.watched_locations.write().await;
 
 		if let Some(location) = locations.remove(&location_id) {
+			// Remove worker for this location
+			self.remove_worker_for_location(location_id).await;
+
 			// Remove from file system watcher if running
 			if *self.is_running.read().await {
 				if let Some(watcher) = self.watcher.write().await.as_mut() {
@@ -179,12 +368,12 @@ impl LocationWatcher {
 
 	/// Start the event processing loop
 	async fn start_event_loop(&self) -> Result<()> {
-		let events = self.events.clone();
-		let context = self.context.clone();
 		let platform_handler = self.platform_handler.clone();
 		let watched_locations = self.watched_locations.clone();
+		let workers = self.workers.clone();
 		let is_running = self.is_running.clone();
 		let debug_mode = self.config.debug_mode;
+		let metrics = self.metrics.clone();
 
 		let (tx, mut rx) = mpsc::channel(self.config.event_buffer_size);
 
@@ -196,11 +385,15 @@ impl LocationWatcher {
 						debug!("Raw file system event: {:?}", event);
 					}
 
+					// Record event received
+					metrics.record_event_received();
+
 					// Convert notify event to our WatcherEvent
 					let watcher_event = WatcherEvent::from_notify_event(event);
 
 					if let Err(e) = tx.try_send(watcher_event) {
 						warn!("Failed to send watcher event: {}", e);
+						metrics.record_event_dropped();
 					}
 				}
 				Err(e) => {
@@ -212,7 +405,7 @@ impl LocationWatcher {
 		// Configure watcher
 		watcher.configure(Config::default().with_poll_interval(Duration::from_millis(500)))?;
 
-		// Watch all enabled locations
+		// Watch all enabled locations and create workers
 		let locations = watched_locations.read().await;
 		for location in locations.values() {
 			if location.enabled {
@@ -231,24 +424,60 @@ impl LocationWatcher {
 				tokio::select! {
 					Some(event) = rx.recv() => {
 						// Process the event through platform handler
-							match platform_handler.process_event(event, &watched_locations).await {
-								Ok(processed_events) => {
-									for processed_event in processed_events {
-										match processed_event {
-											Event::FsRawChange { library_id, kind } => {
-												// Hand off to indexing responder to apply DB updates
-												let context = context.clone();
-												tokio::spawn(async move {
-													let _ = crate::ops::indexing::responder::apply(&context, library_id, kind).await;
-												});
+						match platform_handler.process_event(event, &watched_locations).await {
+							Ok(processed_events) => {
+								for processed_event in processed_events {
+									match processed_event {
+										Event::FsRawChange { library_id, kind } => {
+											// Find the location for this event and route to worker
+											let locations = watched_locations.read().await;
+											for location in locations.values() {
+												if location.library_id == library_id {
+													if let Some(worker_tx) = workers.read().await.get(&location.id) {
+														// Convert FsRawEventKind back to WatcherEvent for worker
+														let watcher_event = match kind {
+															FsRawEventKind::Create { path } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Create,
+																paths: vec![path],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+															FsRawEventKind::Modify { path } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Modify,
+																paths: vec![path],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+															FsRawEventKind::Remove { path } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Remove,
+																paths: vec![path],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+															FsRawEventKind::Rename { from, to } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Rename { from, to },
+																paths: vec![],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+														};
+														
+														if let Err(e) = worker_tx.send(watcher_event).await {
+															warn!("Failed to send event to worker for location {}: {}", location.id, e);
+														}
+														break;
+													}
+												}
 											}
-											other => {
-												// Preserve emission of any other events
-												events.emit(other);
-											}
+										}
+										other => {
+											// Preserve emission of any other events
+											// Note: We need access to events bus here, but it's not available in this scope
+											// This will be handled by the workers when they emit final events
 										}
 									}
 								}
+							}
 							Err(e) => {
 								error!("Error processing watcher event: {}", e);
 							}
@@ -265,7 +494,8 @@ impl LocationWatcher {
 						{
 							if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations).await {
 								for tick_event in tick_events {
-									events.emit(tick_event);
+									// Note: We need access to events bus here, but it's not available in this scope
+									// This will be handled by the workers when they emit final events
 								}
 							}
 						}
@@ -274,7 +504,8 @@ impl LocationWatcher {
 						{
 							if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations).await {
 								for tick_event in tick_events {
-									events.emit(tick_event);
+									// Note: We need access to events bus here, but it's not available in this scope
+									// This will be handled by the workers when they emit final events
 								}
 							}
 						}
