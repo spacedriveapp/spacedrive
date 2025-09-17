@@ -255,7 +255,7 @@ Tools like Obsidian and Logseq excel at managing structured knowledge through ma
 Projects like Nextcloud provide self-hosted alternatives to commercial cloud services but retain client-server architectures that complicate deployment and maintenance. They require dedicated servers and technical expertise, limiting adoption. Spacedrive's peer-to-peer architecture eliminates server requirements while providing similar capabilities through direct device communication.
 
 \subsection{Semantic File Systems}
-Academic projects exploring semantic file organization date back to the Semantic File System~\cite{gifford_sfs_1991} and Presto~\cite{dourish_presto_1999}. While these demonstrated the value of content-based organization, they predated modern AI capabilities. Spacedrive realizes this vision with contemporary machine learning, enabling natural language queries and intelligent automation impossible in earlier systems.
+Academic projects exploring semantic file organization date back to the Semantic File System~\cite{gifford_sfs_1991} and Presto~\cite{dourish_presto_1999}. While these demonstrated the value of content-based organization, they predated modern AI capabilities. Spacedrive applies contemporary machine learning, enabling natural language queries and automated tasks that were not feasible in earlier systems.
 
 \subsection{Comparative Analysis}
 
@@ -645,13 +645,13 @@ This design allows a single file to exist in multiple collections without any da
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Dual Purpose}: Smart deduplication saves 20-30\% storage while simultaneously tracking redundancy to protect your data
-\item \textbf{Adaptive Hashing}: Full analysis for small files (<10MB), strategic sampling for large files---maintaining 99.9\% accuracy at 100x speed
-\item \textbf{Data Guardian}: Continuously monitors file redundancy and proactively suggests backups for at-risk data before disaster strikes
+\item \textbf{Dual Purpose}: Content-aware deduplication reduces storage usage and tracks redundancy to support data protection
+\item \textbf{Adaptive Hashing}: Full analysis for small files (<10MB); strategic sampling for large files—targeting 99.9\% accuracy with up to 100× speedup
+\item \textbf{Redundancy Monitoring}: Monitors file redundancy and suggests backups for at‑risk data
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's content-addressable storage system serves a dual purpose: it eliminates storage waste through intelligent deduplication~\cite{zhu_dedup_2008} while simultaneously acting as a data guardian by tracking redundancy across all devices. This unified approach transforms content identification from a technical optimization into a holistic data protection strategy:
+Spacedrive's content-addressable storage system serves a dual purpose: it reduces storage usage through content-aware deduplication~\cite{zhu_dedup_2008} and tracks redundancy across devices. This unified approach turns content identification into a practical data protection approach:
 
 \subsubsection{Adaptive Hashing Strategy}
 The system employs different strategies based on file size, inspired by systems like LBFS~\cite{muthitacharoen_lbfs_2001} that demonstrated the benefits of content-aware chunking:
@@ -659,12 +659,12 @@ The system employs different strategies based on file size, inspired by systems 
 
 \textbf{Adaptive Content Fingerprinting Strategy}
 
-Spacedrive uses an intelligent, size-based approach to create unique fingerprints for files:
+Spacedrive uses a size-based approach to create unique fingerprints for files:
 
 \textbf{Small Files (under 10MB):}
 \begin{itemize}[noitemsep, topsep=0pt]
- \item Complete content analysis for perfect accuracy
- \item Guarantees detection of identical files with 100\% certainty
+\item Complete content analysis for exact matching of identical files
+\item Detects identical files via full-hash comparison
  \item Examples: Documents, photos, configuration files
 \end{itemize}
 
@@ -676,8 +676,8 @@ Spacedrive uses an intelligent, size-based approach to create unique fingerprint
 Examples: Videos, large datasets, virtual machine images
 \end{itemize}
 
-This approach enables enterprise-level deduplication on consumer hardware---recognizing that \texttt{vacation\_video.mp4} on your laptop is identical to \texttt{backup\_copy.mp4} on your external drive, even with different names and locations.
-\textbf{Small files} (<100KB) receive full BLAKE3 hashing for perfect accuracy.
+This approach enables effective deduplication on consumer hardware—recognizing that \texttt{vacation\_video.mp4} on your laptop is identical to \texttt{backup\_copy.mp4} on your external drive, even with different names and locations.
+\textbf{Small files} (<100KB) receive full BLAKE3 hashing for bitwise accuracy.
 \textbf{Large files} use strategic sampling: an 8KB header, four evenly-spaced 10KB samples from the file body, and an 8KB footer. This approach reduces a 10GB file hash from 30+ seconds to under 100ms while maintaining 99.9\%+ deduplication accuracy in practice.
 
 The hashing function, $H(x)$, for a file $F$ of size $S_F$ can be more accurately represented as:
@@ -717,15 +717,15 @@ Timeline & First found/last verified \\
 \end{table}
 
 
-Users can execute powerful queries like "show all instances of this photo across devices" and "calculate storage savings from deduplication." The system recognizes that \texttt{/Users/alice/vacation.jpg} and \texttt{/backup/IMG\_1234.jpg} contain identical content, presenting a unified view while maintaining the actual filesystem locations.
+Users can execute expressive queries like "show all instances of this photo across devices" and "calculate storage savings from deduplication." The system recognizes that \texttt{/Users/alice/vacation.jpg} and \texttt{/backup/IMG\_1234.jpg} contain identical content, presenting a unified view while maintaining the actual filesystem locations.
 
-\subsubsection{Data Guardian: Redundancy Intelligence}
+\subsubsection{Redundancy Analysis and Protection}
 
-Beyond deduplication, the Content Identity system transforms Spacedrive into an active data guardian that ensures the safety of user data:
+Beyond deduplication, the Content Identity system adds redundancy analysis to support data protection:
 
 \textbf{Redundancy Analysis}: For any file, the system instantly reports how many copies exist and where they're located. A query might reveal: "Your wedding photos have 3 copies: MacBook Pro (SSD), Home NAS (RAID), and Cloud Backup." This transparency gives users confidence that their precious memories are protected.
 
-\textbf{Risk Assessment}: By combining redundancy data with volume classifications, Spacedrive identifies at-risk files. Critical documents with only one copy on a laptop SSD are flagged as high-risk, while files with copies on both primary and backup storage are marked as secure. This intelligence powers the AI's proactive protection suggestions.
+\textbf{Risk Assessment}: By combining redundancy data with volume classifications, Spacedrive identifies at-risk files. Critical documents with only one copy on a laptop SSD are flagged as high-risk, while files with copies on both primary and backup storage are marked as secure. These signals inform AI-generated protection suggestions.
 
 \textbf{Integrity Verification}: The system employs a two-tier hashing strategy for optimal performance. During initial indexing, only the fast content hash (sampled for large files) is generated. Full integrity verification happens lazily through background \texttt{ValidationJobs} that generate complete BLAKE3 hashes of entire file contents. This approach allows rapid indexing while still providing cryptographic integrity guarantees when needed. Any mismatch between a file's integrity hash and its actual content indicates potential corruption, triggering immediate alerts and offering restoration from known-good copies on other devices.
 
@@ -740,7 +740,7 @@ This dual approach—saving space through deduplication while protecting data th
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Five-Phase Pipeline}: Discovery → Processing → Aggregation → Content ID → Intelligence dispatch
+\item \textbf{Five-Phase Pipeline}: Discovery → Processing → Aggregation → Content ID → Analysis dispatch
 \item \textbf{Real-Time Monitoring}: Platform-native watchers keep the index closely synchronized
 \item \textbf{Flexible Scopes}: Supports both persistent indexing and ephemeral browsing modes
 \item \textbf{Remote Volume Support}: Extends to clouds/protocols via OpenDAL with ranged reads for efficiency
@@ -767,14 +767,14 @@ To manage the complexity of file system analysis, the indexer employs a multi-ph
     \node[phase, right=of discovery] (processing) {Processing};
     \node[phase, right=of processing] (aggregation) {Aggregation};
     \node[phase, below=0.8cm of processing] (content) {Content ID};
-    \node[phase, right=of content] (intelligence) {Intelligence\\Queueing};
+\node[phase, right=of content] (intelligence) {Analysis\\Queueing};
 
     \draw[arrow] (discovery) -- (processing);
     \draw[arrow] (processing) -- (aggregation);
     \draw[arrow] (aggregation.south) -- ++(0,-0.3) -| (content.north);
     \draw[arrow] (content) -- (intelligence);
 \end{tikzpicture}
-\caption{The five phases of the Spacedrive indexing pipeline, including intelligence task dispatch.}
+\caption{The five phases of the Spacedrive indexing pipeline, including analysis task dispatch.}
 \label{fig:indexing_pipeline}
 \end{figure}
 
@@ -787,7 +787,7 @@ To manage the complexity of file system analysis, the indexer employs a multi-ph
 
  \item \textbf{Content Identification Phase}: For files, this phase generates a content hash (CAS ID---Content-Addressed Storage Identifier) for deduplication. It employs BLAKE3 hashing with an adaptive strategy: small files (<100KB) are fully hashed with their size prepended, while large files use sampling---an 8KB header, four evenly-spaced 10KB samples, and an 8KB footer---to maintain performance. Only the first 16 characters of the resulting hex hash are stored. This phase also performs file type detection using a combination of extension matching and magic byte analysis. For media files, the system leverages bundled FFmpeg libraries to extract rich metadata including duration, codec information, bitrate, resolution, and frame rate---all stored in dedicated media data tables for efficient querying.
 
- \item \textbf{Intelligence Queueing Phase}: After a file's content and type are identified, this new phase dispatches specialized, asynchronous jobs for deeper analysis. For example, an Entry identified as an image may trigger an \texttt{OcrJob} and an \texttt{ImageAnalysisJob}, while video files spawn \texttt{ThumbnailJob} tasks that utilize FFmpeg to generate WebP thumbnails at multiple resolutions. Additionally, \texttt{ValidationJobs} are queued for lazy integrity verification—these low-priority background jobs generate full BLAKE3 hashes of entire file contents, updating the Content Identity's integrity\_hash field. This two-tier approach (fast content hash for deduplication, full integrity hash for validation) ensures rapid indexing performance while still providing cryptographic verification capabilities on demand. These intelligence jobs run in the background, populating the Virtual Sidecar System without blocking core indexing.
+\item \textbf{Analysis Queueing Phase}: After a file's content and type are identified, this phase dispatches specialized, asynchronous jobs for deeper analysis. For example, an Entry identified as an image may trigger an \texttt{OcrJob} and an \texttt{ImageAnalysisJob}, while video files spawn \texttt{ThumbnailJob} tasks that utilize FFmpeg to generate WebP thumbnails at multiple resolutions. Additionally, \texttt{ValidationJobs} are queued for lazy integrity verification—these low-priority background jobs generate full BLAKE3 hashes of entire file contents, updating the Content Identity's integrity\_hash field. This two-tier approach (fast content hash for deduplication, full integrity hash for validation) ensures rapid indexing performance while still providing cryptographic verification capabilities on demand. These analysis jobs run in the background, populating the Virtual Sidecar System without blocking core indexing.
 \end{itemize}
 
 This multi-phase architecture, combined with a persistent job queue, makes the indexing process fully resumable. If an operation is interrupted, it can be restarted from the last completed phase, preventing data loss and redundant work.
