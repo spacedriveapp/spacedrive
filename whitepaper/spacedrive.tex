@@ -1138,7 +1138,7 @@ The Action System employs a centralized enumeration that captures every possible
 
 \subsubsection{Type-Safe Action Construction}
 
-The system employs a \textbf{builder pattern} for type-safe action construction that integrates seamlessly with CLI and API inputs:
+The system employs a \textbf{builder pattern} for type-safe action construction that integrates with CLI and API inputs:
 
 \begin{lstlisting}[language=Rust, caption={Type-safe action construction with builder pattern}]
 // Builder pattern ensures valid action construction
@@ -1260,7 +1260,7 @@ This architecture ensures that new files are added to the user's data space in a
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's distributed architecture requires sophisticated synchronization and networking capabilities to maintain consistency across devices while preserving the local-first philosophy. This section presents the unified approach to synchronization through domain separation and the Iroh-powered networking infrastructure that enables reliable peer-to-peer communication.
+Spacedrive's distributed architecture requires capable synchronization and networking to maintain consistency across devices while preserving the local-first philosophy. This section presents the unified approach to synchronization through domain separation and the Iroh-powered networking infrastructure that enables reliable peer-to-peer communication.
 
 \subsubsection{Library Sync via Domain Separation}
 \label{sec:library-sync}
@@ -1388,7 +1388,7 @@ The Iroh-based networking supports multiple topologies:
 
     \draw[arrow] (deviceA2) -- (privateRelay);
     \draw[arrow] (privateRelay) -- (deviceB2);
-    \draw[direct, thick] (deviceA2) to[bend right=30] node[below, font=\tiny] {Direct (always preferred)} (deviceB2);
+    \draw[direct, thick] (deviceA2) to[bend right=30] node[below, font=\tiny] {Direct (preferred)} (deviceB2);
 
     % Hybrid topology
     \node[font=\small\bfseries] at (0, -6) {Hybrid:};
@@ -1721,7 +1721,7 @@ Beyond executing commands, the AI agent can proactively identify opportunities t
 \textbf{Data Guardian Mode}: The AI leverages the Data Guardian capability (Section~\ref{sec:content-identity}) to monitor file redundancy. When Alice imports her daughter's graduation photos, the system detects these as single-copy files. The AI generates a suggestion: "I noticed you've added 523 graduation photos that currently exist only on your MacBook. These precious memories could be lost if your laptop fails. Would you like me to create backups on your Home NAS and Cloud Storage?"
 The AI system analyzes user behavior patterns from the \texttt{audit\_log} table to identify organizational preferences, then suggests actions when files violate established patterns. Each suggestion includes a confidence score, human-readable description, and a complete preview of the proposed changes, maintaining full user control over the automation process.
 
-\paragraph{Intelligent Ingestion Sorting}
+\paragraph{Ingestion Sorting}
 \label{sec:ai-native-ingestion}
 The AI agent's proactive capabilities are particularly powerful when applied to the file ingestion workflow (Section~\ref{sec:ingestion-workflow}). When new files arrive in the user's designated Ingest Location, the AI's agentic loop is triggered:
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -1868,7 +1868,7 @@ These models run efficiently on CPU, produce embeddings in milliseconds, and req
 Vector Repositories are not created for every folder. The system places them based on semantic density and usage patterns:
 
 \begin{itemize}
-    \item \textbf{Location Roots}: Always created at the root of each Location as primary entry points
+\item \textbf{Location Roots}: Created at the root of each Location as primary entry points
     \item \textbf{Semantic Density}: Folders reaching thresholds of file count and semantic richness
     \item \textbf{Content Divergence}: When child folders contain semantically distinct content
     \item \textbf{Project Boundaries}: Auto-detected via markers (package.json, .git, Cargo.toml)
@@ -1976,7 +1976,7 @@ impl Location {
 \end{lstlisting}
 
 \subsubsection{Determining the Effective StorageClass}
-For any given file, the VDFS determines its \textbf{Effective StorageClass} by taking the more restrictive (colder) of the two properties. This ensures physical limitations are always respected.
+For any given file, the VDFS determines its \textbf{Effective StorageClass} by taking the more restrictive (colder) of the two properties. This ensures physical limitations are respected.
 
 \begin{table*}[h]
 \centering
@@ -2070,7 +2070,7 @@ This design offers profound architectural advantages:
     \item \textbf{Location Abstraction}: Cloud storage is not a special case. It is simply a Location (e.g., \texttt{/cloud-files}, \texttt{/backups}) within the Cloud Core's VDFS, making it universally addressable via \texttt{SdPath}.
 \end{itemize}
 
-\subsection{Seamless Integration and User Experience}
+\subsection{Integration and User Experience}
 From the user's perspective, integrating cloud storage is indistinguishable from adding a new physical device. The connection flow leverages the same native pairing process: a user's local Spacedrive client initiates pairing, and the newly provisioned Cloud Core joins the session using the provided code.
 
 Once paired, the Cloud Core appears in the user's device list alongside their other machines. Operations that span local and cloud storage become trivial. For example, copying a local file to the cloud is a standard \texttt{FileCopyAction} where the destination \texttt{SdPath} simply references the Cloud Core's device ID:
@@ -2086,7 +2086,7 @@ copy_files(
 
 This demonstrates the power of the VDFS abstraction. The underlying complexity of the network transfer is handled by the unified networking layer and the durable job system, making the cloud a natural extension of the user's personal data space.
 
-This seamless integration extends to fundamental operations like file uploads. A user accessing their Library via the Spacedrive web application can upload files directly from their browser. This action does not require a custom API endpoint; instead, it triggers the native \textbf{Ingestion Workflow} (Section~\ref{sec:ingestion-workflow}). The browser initiates a secure transfer using the same Iroh-powered P2P protocols, sending the file directly to the user's designated Ingest Location on a preferred device—which could be their Cloud Core instance itself. This illustrates the power of the unified architecture: a simple drag-and-drop in a web browser translates into a durable, transactional, and intelligent operation within the user's private VDFS, completely managed by the core engine.
+This integration extends to fundamental operations like file uploads. A user accessing their Library via the Spacedrive web application can upload files directly from their browser. This action does not require a custom API endpoint; instead, it triggers the native \textbf{Ingestion Workflow} (Section~\ref{sec:ingestion-workflow}). The browser initiates a secure transfer using the same Iroh-powered P2P protocols, sending the file directly to the user's designated Ingest Location on a preferred device—which could be their Cloud Core instance itself. This illustrates the benefits of the unified architecture: a simple drag-and-drop in a web browser translates into a durable, transactional operation within the user's private VDFS, managed by the core engine.
 
 \subsection{Cloud-Native Architecture and Data Isolation}
 The service is designed to be Kubernetes-native, leveraging container orchestration for scalability, resilience, and security. Each Cloud Core runs in its own isolated Pod, ensuring strict user data separation.
@@ -2098,7 +2098,7 @@ Kubernetes NetworkPolicies are employed to enforce cryptographic isolation at th
 \subsection{Benefits of the Hybrid Model}
 This architectural approach provides the benefits of both local-first and cloud-based systems:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Always-On Availability}: The Cloud Core acts as an always-online peer, enabling asynchronous operations like backups or file sharing even when local devices are offline.
+    \item \textbf{High Availability}: The Cloud Core can act as an online peer, enabling asynchronous operations like backups or file sharing even when local devices are offline.
     \item \textbf{Centralized Backup Target}: Users can configure local Locations to automatically back up to a Location on their Cloud Core.
     \item \textbf{Asynchronous Sharing}: The cloud instance can act as a relay for Spacedrop transfers, where a user uploads a file once to get a shareable link through the \texttt{sd.app} domain (or custom domains for self-hosted instances).
 \end{itemize}
@@ -2110,9 +2110,9 @@ The same architectural principles that enable the native cloud service provide a
 In an enterprise deployment, organizations run their own Spacedrive backend infrastructure:
 \begin{itemize}[noitemsep, topsep=0pt]
     \item \textbf{Identity Integration}: Native support for LDAP, Active Directory, and OAuth2/SAML providers
-    \item \textbf{Storage Integration}: Seamless integration with existing enterprise storage (SAN, NAS, S3-compatible object stores)
+    \item \textbf{Storage Integration}: Integration with existing enterprise storage (SAN, NAS, S3-compatible object stores)
     \item \textbf{Deployment Flexibility}: Support for bare metal, VMware, OpenStack, or Kubernetes environments
-    \item \textbf{Geographic Distribution}: Multi-site deployments with intelligent routing between locations
+    \item \textbf{Geographic Distribution}: Multi-site deployments with policy-based routing between locations
 \end{itemize}
 
 \subsubsection{Team Libraries and Collaboration}
@@ -2137,7 +2137,7 @@ This enterprise model demonstrates how Spacedrive's core architecture---designed
 
 \subsection{Collaboration and Public Sharing}
 
-The VDFS architecture enables sophisticated sharing capabilities by leveraging any core instance configured for public access. A core can act as an always-available peer, a public file host, or a transfer relay, depending on its deployment and configuration. The Spacedrive Cloud service provides a managed, pre-configured core for these roles, but any self-hosted core can be set up to perform the same functions.
+The VDFS architecture enables sharing capabilities by leveraging any core instance configured for public access. A core can act as an available peer, a public file host, or a transfer relay, depending on its deployment and configuration. The Spacedrive Cloud service provides a managed, pre-configured core for these roles, but any self-hosted core can be set up to perform the same functions.
 
 \subsubsection{Flexible Hosting Model}
 
@@ -2292,7 +2292,7 @@ Content Identification & 38.5 & 68.7 & 191.6 & 265.8 & 2922.7 & 1340.8 \\
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Production-Ready}: Built in Rust with memory safety guarantees \textbullet{} 95\%+ test coverage \textbullet{} Multi-process distributed testing framework
 % \item \textbf{Performance}: 8,500 files/sec indexing \textbullet{} 55ms keyword search \textbullet{} 95ms semantic search \textbullet{} Reliable P2P connectivity via Iroh~\cite{iroh_networking}
-\item \textbf{Full Compatibility}: Works seamlessly with existing filesystems, cloud services and tools.
+\item \textbf{Compatibility}: Works with existing filesystems, cloud services and tools.
 \end{itemize}
 \end{keytakeaways}
 
@@ -2358,7 +2358,7 @@ A custom Cargo-based subprocess framework enables testing of distributed scenari
 
 \textbf{Multi-Process Distributed Testing}
 
-Spacedrive employs a sophisticated testing framework that simulates real-world distributed scenarios:
+Spacedrive employs a testing framework that simulates real-world distributed scenarios:
 
 \textbf{Role-Based Testing}
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -2408,13 +2408,13 @@ The performance overhead of Spacedrive's advanced features is carefully optimize
 \item \textbf{CPU Usage}: Background indexing uses <5\% CPU on modern processors, with adaptive throttling on battery
 \item \textbf{Storage Cost}: 250MB database for 1M files represents <0.1\% overhead on typical 256GB+ drives
 \item \textbf{Network Efficiency}: P2P transfers eliminate redundant cloud uploads, saving 50\% bandwidth for multi-device users
-\item \textbf{Battery Impact}: Mobile devices see <2\% additional battery drain with intelligent scheduling
+\item \textbf{Battery Impact}: Mobile devices see <2\% additional battery drain with scheduled tasks
 \end{itemize}
 
-These metrics demonstrate that Spacedrive delivers enterprise-grade capabilities while maintaining consumer-friendly resource usage.
+These metrics indicate that Spacedrive provides enterprise-oriented capabilities while maintaining consumer-friendly resource usage.
 
 \subsection{Compatibility and Interoperability}
-Spacedrive is designed as a layer atop existing storage systems, not a replacement. This philosophy ensures seamless integration with users' current workflows while providing enhanced capabilities.
+Spacedrive is designed as a layer atop existing storage systems, not a replacement. This philosophy ensures integration with users' current workflows while providing enhanced capabilities.
 
 \subsubsection{Traditional Filesystem Integration}
 Spacedrive maintains full compatibility with native filesystems through several key design decisions:
@@ -2424,7 +2424,7 @@ Spacedrive maintains full compatibility with native filesystems through several 
 
  \item \textbf{Filesystem-aware operations}: The system respects platform-specific constraints (e.g., NTFS's 255-character path limits, case-insensitive but case-preserving behavior on macOS, Linux filesystem permissions). Volume detection adapts to each platform's conventions.
 
- \item \textbf{Transparent file access}: Applications continue accessing files through standard OS APIs. Spacedrive acts as an intelligent index and orchestrator, not a filesystem driver or FUSE layer.
+ \item \textbf{Transparent file access}: Applications continue accessing files through standard OS APIs. Spacedrive acts as an index and orchestrator, not a filesystem driver or FUSE layer.
 
  \item \textbf{Preserved compatibility}: Special files (symlinks, junction points, device files) are cataloged but not followed during indexing, preventing circular references while maintaining awareness of filesystem structure.
 \end{itemize}
@@ -2505,7 +2505,7 @@ For deployments exceeding these limits:
 \end{itemize}
 
 \subsection{Failure Recovery Scenarios}
-Spacedrive's architecture includes robust recovery mechanisms:
+Spacedrive's architecture includes recovery mechanisms:
 
 \subsubsection{Database Corruption Recovery}
 When database corruption is detected:
