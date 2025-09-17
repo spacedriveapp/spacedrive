@@ -109,7 +109,7 @@ impl FileSearchOutput {
     ) -> Self {
         let facets = SearchFacets::from_results(&results);
         let pagination = PaginationInfo::new(0, 50, total_found);
-        
+
         Self {
             results,
             total_found,
@@ -137,7 +137,7 @@ impl FileSearchOutput {
     /// Generate search suggestions based on query
     fn generate_suggestions(query: &str) -> Vec<String> {
         let mut suggestions = Vec::new();
-        
+
         // Add common file extensions if query doesn't have one
         if !query.contains('.') {
             suggestions.extend([
@@ -147,14 +147,14 @@ impl FileSearchOutput {
                 format!("{} .txt", query),
             ]);
         }
-        
+
         // Add common search patterns
         suggestions.extend([
             format!("{} recent", query),
             format!("{} large", query),
             format!("{} small", query),
         ]);
-        
+
         suggestions
     }
 
@@ -190,23 +190,23 @@ impl SearchFacets {
 
         for result in results {
             let entry = &result.entry;
-            
+
             // Count file types
             if let Some(extension) = entry.extension() {
                 *file_types.entry(extension.to_string()).or_insert(0) += 1;
             }
-            
+
             // Count locations
             if let Some(location_id) = entry.location_id {
                 *locations.entry(location_id).or_insert(0) += 1;
             }
-            
+
             // Count date ranges
             if let Some(modified_at) = entry.modified_at {
                 let date_range = Self::categorize_date(modified_at);
                 *date_ranges.entry(date_range).or_insert(0) += 1;
             }
-            
+
             // Count size ranges
             if let Some(size) = entry.size {
                 let size_range = Self::categorize_size(size);
@@ -227,7 +227,7 @@ impl SearchFacets {
     fn categorize_date(date: DateTime<Utc>) -> String {
         let now = Utc::now();
         let diff = now - date;
-        
+
         if diff.num_days() < 1 {
             "Today".to_string()
         } else if diff.num_days() < 7 {
@@ -260,9 +260,9 @@ impl PaginationInfo {
     pub fn new(offset: u32, limit: u32, total: u64) -> Self {
         let current_page = offset / limit;
         let total_pages = ((total as f64) / (limit as f64)).ceil() as u32;
-        let has_next = current_page < total_pages - 1;
+        let has_next = total_pages > 0 && current_page < total_pages - 1;
         let has_previous = current_page > 0;
-        
+
         Self {
             current_page,
             total_pages,
@@ -283,12 +283,12 @@ impl ScoreBreakdown {
         recency_boost: f32,
         user_preference_boost: f32,
     ) -> Self {
-        let final_score = temporal_score + 
-            semantic_score.unwrap_or(0.0) + 
-            metadata_score + 
-            recency_boost + 
+        let final_score = temporal_score +
+            semantic_score.unwrap_or(0.0) +
+            metadata_score +
+            recency_boost +
             user_preference_boost;
-            
+
         Self {
             temporal_score,
             semantic_score,
