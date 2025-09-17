@@ -49,16 +49,32 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::tag_relationship::Entity")]
+    #[sea_orm(
+        has_many = "super::tag_relationship::Entity",
+        from = "Column::Id",
+        to = "super::tag_relationship::Column::ParentTagId"
+    )]
     ParentRelationships,
 
-    #[sea_orm(has_many = "super::tag_relationship::Entity")]
+    #[sea_orm(
+        has_many = "super::tag_relationship::Entity",
+        from = "Column::Id",
+        to = "super::tag_relationship::Column::ChildTagId"
+    )]
     ChildRelationships,
 
-    #[sea_orm(has_many = "super::user_metadata_tag::Entity")]
+    #[sea_orm(
+        has_many = "super::user_metadata_tag::Entity",
+        from = "Column::Id",
+        to = "super::user_metadata_tag::Column::TagId"
+    )]
     UserMetadataTags,
 
-    #[sea_orm(has_many = "super::tag_usage_pattern::Entity")]
+    #[sea_orm(
+        has_many = "super::tag_usage_pattern::Entity",
+        from = "Column::Id",
+        to = "super::tag_usage_pattern::Column::TagId"
+    )]
     UsagePatterns,
 }
 
@@ -68,11 +84,8 @@ impl Related<super::user_metadata_tag::Entity> for Entity {
     }
 }
 
-impl Related<super::tag_relationship::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::ParentRelationships.def()
-    }
-}
+// Note: We don't implement Related for tag_relationship since it has ambiguous relationships
+// (both parent and child). Use the specific relation instead.
 
 impl Related<super::tag_usage_pattern::Entity> for Entity {
     fn to() -> RelationDef {

@@ -135,6 +135,22 @@ impl FileTypeRegistry {
             .and_then(|id| self.types.get(id))
     }
 
+    /// Get file types by content category
+    pub fn get_by_category(&self, category: ContentKind) -> Vec<&FileType> {
+        self.types
+            .values()
+            .filter(|file_type| file_type.category == category)
+            .collect()
+    }
+
+    /// Get all extensions for a content category
+    pub fn get_extensions_for_category(&self, category: ContentKind) -> Vec<&str> {
+        self.get_by_category(category)
+            .into_iter()
+            .flat_map(|file_type| file_type.extensions.iter().map(|s| s.as_str()))
+            .collect()
+    }
+
     /// Identify a file type from a path
     pub async fn identify(&self, path: &Path) -> Result<IdentificationResult> {
         // Get extension

@@ -1,5 +1,5 @@
 //! Initial database schema for Spacedrive V2
-//! 
+//!
 //! This migration creates all the tables needed for the pure hierarchical
 //! virtual location model with closure table support.
 
@@ -24,12 +24,25 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(Libraries::Uuid).uuid().not_null().unique_key())
+					.col(
+						ColumnDef::new(Libraries::Uuid)
+							.uuid()
+							.not_null()
+							.unique_key(),
+					)
 					.col(ColumnDef::new(Libraries::Name).string().not_null())
 					.col(ColumnDef::new(Libraries::DbVersion).integer().not_null())
 					.col(ColumnDef::new(Libraries::SyncId).uuid())
-					.col(ColumnDef::new(Libraries::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(Libraries::UpdatedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(Libraries::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(Libraries::UpdatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -54,16 +67,28 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(Devices::HardwareModel).string())
 					.col(ColumnDef::new(Devices::NetworkAddresses).json().not_null())
 					.col(ColumnDef::new(Devices::IsOnline).boolean().not_null())
-					.col(ColumnDef::new(Devices::LastSeenAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(Devices::LastSeenAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.col(ColumnDef::new(Devices::Capabilities).json().not_null())
 					.col(ColumnDef::new(Devices::SyncLeadership).json().not_null())
-					.col(ColumnDef::new(Devices::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(Devices::UpdatedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(Devices::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(Devices::UpdatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.to_owned(),
 			)
 			.await?;
 
-		// Create user_metadata table
+		// Create user_metadata table (modern schema for semantic tagging)
 		manager
 			.create_table(
 				Table::create()
@@ -76,20 +101,38 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(UserMetadata::Uuid).uuid().not_null().unique_key())
-					.col(ColumnDef::new(UserMetadata::Description).text())
-					.col(ColumnDef::new(UserMetadata::Album).string())
-					.col(ColumnDef::new(UserMetadata::Artist).string())
-					.col(ColumnDef::new(UserMetadata::Genre).string())
-					.col(ColumnDef::new(UserMetadata::Title).string())
-					.col(ColumnDef::new(UserMetadata::Year).integer())
-					.col(ColumnDef::new(UserMetadata::Rating).integer())
-					.col(ColumnDef::new(UserMetadata::Color).string())
-					.col(ColumnDef::new(UserMetadata::Comments).text())
-					.col(ColumnDef::new(UserMetadata::Tags).json())
-					.col(ColumnDef::new(UserMetadata::IsImportant).boolean())
-					.col(ColumnDef::new(UserMetadata::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(UserMetadata::UpdatedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(UserMetadata::Uuid)
+							.uuid()
+							.not_null()
+							.unique_key(),
+					)
+					// Exactly one of these is set - defines the scope
+					.col(ColumnDef::new(UserMetadata::EntryUuid).uuid()) // File-specific metadata (higher priority)
+					.col(ColumnDef::new(UserMetadata::ContentIdentityUuid).uuid()) // Content-universal metadata (lower priority)
+					// All metadata types benefit from scope flexibility
+					.col(ColumnDef::new(UserMetadata::Notes).text())
+					.col(
+						ColumnDef::new(UserMetadata::Favorite)
+							.boolean()
+							.default(false),
+					)
+					.col(
+						ColumnDef::new(UserMetadata::Hidden)
+							.boolean()
+							.default(false),
+					)
+					.col(ColumnDef::new(UserMetadata::CustomData).json().not_null()) // Arbitrary JSON data
+					.col(
+						ColumnDef::new(UserMetadata::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(UserMetadata::UpdatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -108,8 +151,17 @@ impl MigrationTrait for Migration {
 							.primary_key(),
 					)
 					.col(ColumnDef::new(MimeTypes::Uuid).uuid().not_null())
-					.col(ColumnDef::new(MimeTypes::MimeType).string().not_null().unique_key())
-					.col(ColumnDef::new(MimeTypes::CreatedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(MimeTypes::MimeType)
+							.string()
+							.not_null()
+							.unique_key(),
+					)
+					.col(
+						ColumnDef::new(MimeTypes::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -146,15 +198,41 @@ impl MigrationTrait for Migration {
 					)
 					.col(ColumnDef::new(ContentIdentities::Uuid).uuid())
 					.col(ColumnDef::new(ContentIdentities::IntegrityHash).string())
-					.col(ColumnDef::new(ContentIdentities::ContentHash).string().not_null().unique_key())
+					.col(
+						ColumnDef::new(ContentIdentities::ContentHash)
+							.string()
+							.not_null()
+							.unique_key(),
+					)
 					.col(ColumnDef::new(ContentIdentities::MimeTypeId).integer())
-					.col(ColumnDef::new(ContentIdentities::KindId).integer().not_null())
+					.col(
+						ColumnDef::new(ContentIdentities::KindId)
+							.integer()
+							.not_null(),
+					)
 					.col(ColumnDef::new(ContentIdentities::MediaData).json())
 					.col(ColumnDef::new(ContentIdentities::TextContent).text())
-					.col(ColumnDef::new(ContentIdentities::TotalSize).big_integer().not_null())
-					.col(ColumnDef::new(ContentIdentities::EntryCount).integer().not_null().default(1))
-					.col(ColumnDef::new(ContentIdentities::FirstSeenAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(ContentIdentities::LastVerifiedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(ContentIdentities::TotalSize)
+							.big_integer()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(ContentIdentities::EntryCount)
+							.integer()
+							.not_null()
+							.default(1),
+					)
+					.col(
+						ColumnDef::new(ContentIdentities::FirstSeenAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(ContentIdentities::LastVerifiedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.foreign_key(
 						ForeignKey::create()
 							.from(ContentIdentities::Table, ContentIdentities::MimeTypeId)
@@ -191,11 +269,23 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(Entries::MetadataId).integer())
 					.col(ColumnDef::new(Entries::ContentId).integer())
 					.col(ColumnDef::new(Entries::Size).big_integer().not_null())
-					.col(ColumnDef::new(Entries::AggregateSize).big_integer().not_null())
+					.col(
+						ColumnDef::new(Entries::AggregateSize)
+							.big_integer()
+							.not_null(),
+					)
 					.col(ColumnDef::new(Entries::ChildCount).integer().not_null())
 					.col(ColumnDef::new(Entries::FileCount).integer().not_null())
-					.col(ColumnDef::new(Entries::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(Entries::ModifiedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(Entries::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(Entries::ModifiedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.col(ColumnDef::new(Entries::AccessedAt).timestamp_with_time_zone())
 					.col(ColumnDef::new(Entries::Permissions).string())
 					.col(ColumnDef::new(Entries::Inode).big_integer())
@@ -232,15 +322,11 @@ impl MigrationTrait for Migration {
 							.integer()
 							.not_null(),
 					)
-					.col(
-						ColumnDef::new(EntryClosure::Depth)
-							.integer()
-							.not_null(),
-					)
+					.col(ColumnDef::new(EntryClosure::Depth).integer().not_null())
 					.primary_key(
 						Index::create()
 							.col(EntryClosure::AncestorId)
-							.col(EntryClosure::DescendantId)
+							.col(EntryClosure::DescendantId),
 					)
 					.foreign_key(
 						ForeignKey::create()
@@ -269,11 +355,7 @@ impl MigrationTrait for Migration {
 							.integer()
 							.primary_key(),
 					)
-					.col(
-						ColumnDef::new(DirectoryPaths::Path)
-							.text()
-							.not_null(),
-					)
+					.col(ColumnDef::new(DirectoryPaths::Path).text().not_null())
 					.foreign_key(
 						ForeignKey::create()
 							.from(DirectoryPaths::Table, DirectoryPaths::EntryId)
@@ -297,7 +379,12 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(Locations::Uuid).uuid().not_null().unique_key())
+					.col(
+						ColumnDef::new(Locations::Uuid)
+							.uuid()
+							.not_null()
+							.unique_key(),
+					)
 					.col(ColumnDef::new(Locations::DeviceId).integer().not_null())
 					.col(ColumnDef::new(Locations::EntryId).integer().not_null())
 					.col(ColumnDef::new(Locations::Name).string())
@@ -305,10 +392,26 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(Locations::ScanState).string().not_null())
 					.col(ColumnDef::new(Locations::LastScanAt).timestamp_with_time_zone())
 					.col(ColumnDef::new(Locations::ErrorMessage).text())
-					.col(ColumnDef::new(Locations::TotalFileCount).integer().not_null())
-					.col(ColumnDef::new(Locations::TotalByteSize).big_integer().not_null())
-					.col(ColumnDef::new(Locations::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(Locations::UpdatedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(Locations::TotalFileCount)
+							.integer()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(Locations::TotalByteSize)
+							.big_integer()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(Locations::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(Locations::UpdatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.foreign_key(
 						ForeignKey::create()
 							.from(Locations::Table, Locations::DeviceId)
@@ -348,9 +451,24 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(Volumes::IsEjectable).boolean())
 					.col(ColumnDef::new(Volumes::FileSystem).string())
 					.col(ColumnDef::new(Volumes::DisplayName).string())
-					.col(ColumnDef::new(Volumes::TrackedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-					.col(ColumnDef::new(Volumes::LastSeenAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-					.col(ColumnDef::new(Volumes::IsOnline).boolean().not_null().default(true))
+					.col(
+						ColumnDef::new(Volumes::TrackedAt)
+							.timestamp_with_time_zone()
+							.not_null()
+							.default(Expr::current_timestamp()),
+					)
+					.col(
+						ColumnDef::new(Volumes::LastSeenAt)
+							.timestamp_with_time_zone()
+							.not_null()
+							.default(Expr::current_timestamp()),
+					)
+					.col(
+						ColumnDef::new(Volumes::IsOnline)
+							.boolean()
+							.not_null()
+							.default(true),
+					)
 					.col(ColumnDef::new(Volumes::ReadSpeedMbps).integer())
 					.col(ColumnDef::new(Volumes::WriteSpeedMbps).integer())
 					.col(ColumnDef::new(Volumes::LastSpeedTestAt).timestamp_with_time_zone())
@@ -359,8 +477,18 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(Volumes::VolumeType).string())
 					.col(ColumnDef::new(Volumes::IsUserVisible).boolean())
 					.col(ColumnDef::new(Volumes::AutoTrackEligible).boolean())
-					.col(ColumnDef::new(Volumes::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-					.col(ColumnDef::new(Volumes::UpdatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+					.col(
+						ColumnDef::new(Volumes::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null()
+							.default(Expr::current_timestamp()),
+					)
+					.col(
+						ColumnDef::new(Volumes::UpdatedAt)
+							.timestamp_with_time_zone()
+							.not_null()
+							.default(Expr::current_timestamp()),
+					)
 					.foreign_key(
 						ForeignKey::create()
 							.from(Volumes::Table, Volumes::DeviceId)
@@ -384,13 +512,22 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(AuditLog::Uuid).string().not_null().unique_key())
+					.col(
+						ColumnDef::new(AuditLog::Uuid)
+							.string()
+							.not_null()
+							.unique_key(),
+					)
 					.col(ColumnDef::new(AuditLog::ActionType).string().not_null())
 					.col(ColumnDef::new(AuditLog::ActorDeviceId).string().not_null())
 					.col(ColumnDef::new(AuditLog::Targets).string().not_null())
 					.col(ColumnDef::new(AuditLog::Status).string().not_null())
 					.col(ColumnDef::new(AuditLog::JobId).string())
-					.col(ColumnDef::new(AuditLog::CreatedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(AuditLog::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.col(ColumnDef::new(AuditLog::CompletedAt).timestamp_with_time_zone())
 					.col(ColumnDef::new(AuditLog::ErrorMessage).string())
 					.col(ColumnDef::new(AuditLog::ResultPayload).string())
@@ -411,11 +548,28 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(SyncCheckpoints::DeviceId).integer().not_null().unique_key())
-					.col(ColumnDef::new(SyncCheckpoints::LastSync).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(SyncCheckpoints::DeviceId)
+							.integer()
+							.not_null()
+							.unique_key(),
+					)
+					.col(
+						ColumnDef::new(SyncCheckpoints::LastSync)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.col(ColumnDef::new(SyncCheckpoints::SyncData).json())
-					.col(ColumnDef::new(SyncCheckpoints::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(SyncCheckpoints::UpdatedAt).timestamp_with_time_zone().not_null())
+					.col(
+						ColumnDef::new(SyncCheckpoints::CreatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(SyncCheckpoints::UpdatedAt)
+							.timestamp_with_time_zone()
+							.not_null(),
+					)
 					.foreign_key(
 						ForeignKey::create()
 							.from(SyncCheckpoints::Table, SyncCheckpoints::DeviceId)
@@ -427,7 +581,7 @@ impl MigrationTrait for Migration {
 			.await?;
 
 		// Create indices for better query performance
-		
+
 		// Entry indices
 		manager
 			.create_index(
@@ -562,20 +716,46 @@ impl MigrationTrait for Migration {
 
 	async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
 		// Drop tables in reverse order of creation
-		manager.drop_table(Table::drop().table(SyncCheckpoints::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(AuditLog::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(Volumes::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(Locations::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(DirectoryPaths::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(EntryClosure::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(Entries::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(ContentIdentities::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(ContentKinds::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(MimeTypes::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(UserMetadata::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(Devices::Table).to_owned()).await?;
-		manager.drop_table(Table::drop().table(Libraries::Table).to_owned()).await?;
-		
+		manager
+			.drop_table(Table::drop().table(SyncCheckpoints::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(AuditLog::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(Volumes::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(Locations::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(DirectoryPaths::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(EntryClosure::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(Entries::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(ContentIdentities::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(ContentKinds::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(MimeTypes::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(UserMetadata::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(Devices::Table).to_owned())
+			.await?;
+		manager
+			.drop_table(Table::drop().table(Libraries::Table).to_owned())
+			.await?;
+
 		Ok(())
 	}
 }
@@ -633,17 +813,12 @@ enum UserMetadata {
 	Table,
 	Id,
 	Uuid,
-	Description,
-	Album,
-	Artist,
-	Genre,
-	Title,
-	Year,
-	Rating,
-	Color,
-	Comments,
-	Tags,
-	IsImportant,
+	EntryUuid,
+	ContentIdentityUuid,
+	Notes,
+	Favorite,
+	Hidden,
+	CustomData,
 	CreatedAt,
 	UpdatedAt,
 }

@@ -19,6 +19,7 @@ pub mod libraries;
 pub mod locations;
 pub mod media;
 pub mod metadata;
+pub mod search;
 pub mod tags;
 pub mod jobs;
 pub mod network;

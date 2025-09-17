@@ -97,7 +97,7 @@ async fn test_real_volume_tracking_lifecycle() {
 	});
 
 	let result = action_manager
-		.dispatch_library(library.id(), track_action)
+		.dispatch_library(Some(library.id()), track_action)
 		.await;
 	assert!(result.is_ok(), "Failed to track volume: {:?}", result);
 
@@ -134,7 +134,7 @@ async fn test_real_volume_tracking_lifecycle() {
 	});
 
 	let result = action_manager
-		.dispatch_library(library.id(), untrack_action)
+		.dispatch_library(Some(library.id()), untrack_action)
 		.await;
 	assert!(result.is_ok(), "Failed to untrack volume");
 
@@ -335,7 +335,7 @@ async fn test_volume_capacity_scenarios() {
 			});
 
 			match action_manager
-				.dispatch_library(library.id(), speed_action)
+				.dispatch_library(Some(library.id()), speed_action)
 				.await
 			{
 				Ok(sd_core::ops::volumes::speed_test::output::VolumeSpeedTestOutput {
@@ -433,7 +433,7 @@ async fn test_ram_disk_performance() {
 		});
 
 		match action_manager
-			.dispatch_library(library.id(), speed_action)
+			.dispatch_library(Some(library.id()), speed_action)
 			.await
 		{
 			Ok(sd_core::ops::volumes::speed_test::output::VolumeSpeedTestOutput {

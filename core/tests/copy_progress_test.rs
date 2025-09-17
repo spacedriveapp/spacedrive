@@ -136,7 +136,7 @@ async fn test_copy_progress_monitoring_large_file() {
 	// Execute the action
 	println!("Starting copy operation...");
 	let _job_handle = action_manager
-		.dispatch_library(library_id, copy_action)
+		.dispatch_library(Some(library_id), copy_action)
 		.await
 		.expect("Action dispatch should succeed");
 
@@ -431,7 +431,7 @@ async fn test_copy_progress_multiple_files() {
 	// Execute the action
 	println!("\nStarting multi-file copy operation...");
 	let _job_handle = action_manager
-		.dispatch_library(library_id, copy_action)
+		.dispatch_library(Some(library_id), copy_action)
 		.await
 		.expect("Action dispatch should succeed");
 

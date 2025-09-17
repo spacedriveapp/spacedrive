@@ -66,7 +66,7 @@ async fn test_core_and_library_events() -> Result<(), Box<dyn std::error::Error>
 	// Open library again by path with context
 	let library = core
 		.libraries
-		.open_library_with_context(&library_path, core.context.clone())
+		.open_library(&library_path, core.context.clone())
 		.await?;
 	tokio::time::sleep(Duration::from_millis(100)).await;
 
