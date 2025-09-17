@@ -230,7 +230,7 @@ async fn alice_cross_device_copy_scenario() {
 
 		// Dispatch the action
 		match action_manager
-			.dispatch_library(library_id, copy_action)
+			.dispatch_library(Some(library_id), copy_action)
 			.await
 		{
 			Ok(output) => {
