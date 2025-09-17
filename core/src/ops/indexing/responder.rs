@@ -8,6 +8,7 @@ use crate::context::CoreContext;
 use crate::infra::db::entities;
 use crate::infra::event::FsRawEventKind;
 use crate::ops::indexing::entry::EntryProcessor;
+use crate::ops::indexing::path_resolver::PathResolver;
 use crate::ops::indexing::state::{DirEntry, IndexerState};
 use crate::ops::indexing::{ctx::ResponderCtx, IndexingCtx};
 use anyhow::Result;
@@ -40,6 +41,11 @@ async fn handle_create(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 	debug!("Create: {}", path.display());
 	let dir_entry = build_dir_entry(path).await?;
 
+	// If inode matches an existing entry at another path, treat this as a move
+	if handle_move_by_inode(ctx, path, dir_entry.inode).await? {
+		return Ok(());
+	}
+
 	// Minimal state provides parent cache used by EntryProcessor
 	let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(path));
 	let _ = EntryProcessor::create_entry(
@@ -56,8 +62,21 @@ async fn handle_create(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 /// Handle modify: resolve entry ID by path, then update
 async fn handle_modify(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 	debug!("Modify: {}", path.display());
+
+	// If inode indicates a move, handle as a move and skip update
+	let meta = EntryProcessor::extract_metadata(path).await?;
+	if handle_move_by_inode(ctx, path, meta.inode).await? {
+		return Ok(());
+	}
+
 	if let Some(entry_id) = resolve_entry_id_by_path(ctx, path).await? {
-		let dir_entry = build_dir_entry(path).await?;
+		let dir_entry = DirEntry {
+			path: meta.path,
+			kind: meta.kind,
+			size: meta.size,
+			modified: meta.modified,
+			inode: meta.inode,
+		};
 		EntryProcessor::update_entry(ctx, entry_id, &dir_entry).await?;
 	}
 	Ok(())
@@ -194,4 +213,41 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 	}
 	txn.commit().await?;
 	Ok(())
+}
+
+/// Inode-aware move detection: if an existing entry has the same inode but a different path,
+/// treat the change as a move and update the database accordingly.
+async fn handle_move_by_inode(
+	ctx: &impl IndexingCtx,
+	new_path: &Path,
+	inode: Option<u64>,
+) -> Result<bool> {
+	let inode_val = match inode {
+		Some(i) if i != 0 => i as i64,
+		_ => return Ok(false),
+	};
+	if let Some(existing) = entities::entry::Entity::find()
+		.filter(entities::entry::Column::Inode.eq(inode_val))
+		.one(ctx.library_db())
+		.await?
+	{
+		// Resolve old full path
+		let old_path = PathResolver::get_full_path(ctx.library_db(), existing.id)
+			.await
+			.unwrap_or_else(|_| std::path::PathBuf::from(&existing.name));
+		if old_path != new_path {
+			let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(&old_path));
+			EntryProcessor::move_entry(
+				&mut state,
+				ctx,
+				existing.id,
+				&old_path,
+				new_path,
+				new_path.parent().unwrap_or_else(|| Path::new("/")),
+			)
+			.await?;
+			return Ok(true);
+		}
+	}
+	Ok(false)
 }
