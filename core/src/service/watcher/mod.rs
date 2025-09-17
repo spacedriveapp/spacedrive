@@ -1,6 +1,7 @@
 //! Location Watcher Service - Monitors file system changes in indexed locations
 
-use crate::infra::event::{Event, EventBus};
+use crate::context::CoreContext;
+use crate::infra::event::{Event, EventBus, FsRawEventKind};
 use crate::service::Service;
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
@@ -46,6 +47,8 @@ pub struct LocationWatcher {
 	config: LocationWatcherConfig,
 	/// Event bus for emitting events
 	events: Arc<EventBus>,
+	/// Core context for DB and library access
+	context: Arc<CoreContext>,
 	/// Currently watched locations
 	watched_locations: Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
 	/// File system watcher
@@ -71,12 +74,13 @@ pub struct WatchedLocation {
 
 impl LocationWatcher {
 	/// Create a new location watcher
-	pub fn new(config: LocationWatcherConfig, events: Arc<EventBus>) -> Self {
+	pub fn new(config: LocationWatcherConfig, events: Arc<EventBus>, context: Arc<CoreContext>) -> Self {
 		let platform_handler = Arc::new(PlatformHandler::new());
 
 		Self {
 			config,
 			events,
+			context,
 			watched_locations: Arc::new(RwLock::new(HashMap::new())),
 			watcher: Arc::new(RwLock::new(None)),
 			is_running: Arc::new(RwLock::new(false)),
@@ -176,6 +180,7 @@ impl LocationWatcher {
 	/// Start the event processing loop
 	async fn start_event_loop(&self) -> Result<()> {
 		let events = self.events.clone();
+		let context = self.context.clone();
 		let platform_handler = self.platform_handler.clone();
 		let watched_locations = self.watched_locations.clone();
 		let is_running = self.is_running.clone();
@@ -226,12 +231,24 @@ impl LocationWatcher {
 				tokio::select! {
 					Some(event) = rx.recv() => {
 						// Process the event through platform handler
-						match platform_handler.process_event(event, &watched_locations).await {
-							Ok(processed_events) => {
-								for processed_event in processed_events {
-									events.emit(processed_event);
+							match platform_handler.process_event(event, &watched_locations).await {
+								Ok(processed_events) => {
+									for processed_event in processed_events {
+										match processed_event {
+											Event::FsRawChange { library_id, kind } => {
+												// Hand off to indexing responder to apply DB updates
+												let context = context.clone();
+												tokio::spawn(async move {
+													let _ = crate::ops::indexing::responder::apply(&context, library_id, kind).await;
+												});
+											}
+											other => {
+												// Preserve emission of any other events
+												events.emit(other);
+											}
+										}
+									}
 								}
-							}
 							Err(e) => {
 								error!("Error processing watcher event: {}", e);
 							}

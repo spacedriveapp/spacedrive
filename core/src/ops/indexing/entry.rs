@@ -1,13 +1,12 @@
 //! Entry processing and metadata extraction
 
+use super::ctx::IndexingCtx;
 use super::path_resolver::PathResolver;
 use super::state::{DirEntry, EntryKind, IndexerState};
+use crate::infra::job::prelude::{JobContext, JobError};
 use crate::{
 	filetype::FileTypeRegistry,
-	infra::{
-		db::entities::{self, directory_paths, entry_closure},
-		job::prelude::{JobContext, JobError},
-	},
+	infra::db::entities::{self, directory_paths, entry_closure},
 };
 use sea_orm::{
 	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
@@ -118,7 +117,7 @@ impl EntryProcessor {
 	/// and collect related rows for bulk insertion by the caller.
 	pub async fn create_entry_in_conn<C: ConnectionTrait>(
 		state: &mut IndexerState,
-		ctx: &JobContext<'_>,
+		ctx: &impl IndexingCtx,
 		entry: &DirEntry,
 		device_id: i32,
 		location_root_path: &Path,
@@ -295,7 +294,7 @@ impl EntryProcessor {
 	/// Create an entry, starting and committing its own transaction (single insert)
 	pub async fn create_entry(
 		state: &mut IndexerState,
-		ctx: &JobContext<'_>,
+		ctx: &impl IndexingCtx,
 		entry: &DirEntry,
 		device_id: i32,
 		location_root_path: &Path,
@@ -350,7 +349,7 @@ impl EntryProcessor {
 
 	/// Update an existing entry
 	pub async fn update_entry(
-		ctx: &JobContext<'_>,
+		ctx: &impl IndexingCtx,
 		entry_id: i32,
 		entry: &DirEntry,
 	) -> Result<(), JobError> {
@@ -392,7 +391,7 @@ impl EntryProcessor {
 	/// Handle entry move operation with closure table updates
 	pub async fn move_entry(
 		state: &mut IndexerState,
-		ctx: &JobContext<'_>,
+		ctx: &impl IndexingCtx,
 		entry_id: i32,
 		old_path: &Path,
 		new_path: &Path,
@@ -551,7 +550,7 @@ impl EntryProcessor {
 	/// Create or find content identity and link to entry with deterministic UUID
 	/// This method implements the content identification phase logic
 	pub async fn link_to_content_identity(
-		ctx: &JobContext<'_>,
+		ctx: &impl IndexingCtx,
 		entry_id: i32,
 		path: &Path,
 		content_hash: String,

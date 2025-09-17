@@ -1,9 +1,9 @@
 //! Windows-specific file system event handling
 
 use super::EventHandler;
-use crate::infra::event::Event;
-use crate::service::location_watcher::{WatchedLocation, WatcherEvent};
-use crate::service::location_watcher::event_handler::WatcherEventKind;
+use crate::infra::event::{Event, FsRawEventKind};
+use crate::service::watcher::{WatchedLocation, WatcherEvent};
+use crate::service::watcher::event_handler::WatcherEventKind;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -91,11 +91,7 @@ impl WindowsHandler {
                     let locations = watched_locations.read().await;
                     for location in locations.values() {
                         if location.enabled && path.starts_with(&location.path) {
-                            let entry_id = Uuid::new_v4(); // TODO: Look up actual entry
-                            events.push(Event::EntryDeleted {
-                                library_id: location.library_id,
-                                entry_id,
-                            });
+                            events.push(Event::FsRawChange { library_id: location.library_id, kind: FsRawEventKind::Remove { path: path.clone() } });
                             break;
                         }
                     }
@@ -159,42 +155,26 @@ impl EventHandler for WindowsHandler {
                     continue;
                 }
 
-                let entry_id = Uuid::new_v4(); // TODO: Look up or create actual entry
-
                 match &event.kind {
                     WatcherEventKind::Create => {
-                        events.push(Event::EntryCreated {
-                            library_id: location.library_id,
-                            entry_id,
-                        });
+                        events.push(Event::FsRawChange { library_id: location.library_id, kind: FsRawEventKind::Create { path: path.clone() } });
                         trace!("Windows: Created {}", path.display());
                     }
                     WatcherEventKind::Modify => {
-                        events.push(Event::EntryModified {
-                            library_id: location.library_id,
-                            entry_id,
-                        });
+                        events.push(Event::FsRawChange { library_id: location.library_id, kind: FsRawEventKind::Modify { path: path.clone() } });
                         trace!("Windows: Modified {}", path.display());
                     }
                     WatcherEventKind::Remove => {
                         // Handle Windows delayed deletion
                         if self.handle_delayed_deletion(path).await {
-                            events.push(Event::EntryDeleted {
-                                library_id: location.library_id,
-                                entry_id,
-                            });
+                            events.push(Event::FsRawChange { library_id: location.library_id, kind: FsRawEventKind::Remove { path: path.clone() } });
                             trace!("Windows: Removed {}", path.display());
                         } else {
                             trace!("Windows: Pending deletion for {}", path.display());
                         }
                     }
                     WatcherEventKind::Rename { from, to } => {
-                        events.push(Event::EntryMoved {
-                            library_id: location.library_id,
-                            entry_id,
-                            old_path: from.to_string_lossy().to_string(),
-                            new_path: to.to_string_lossy().to_string(),
-                        });
+                        events.push(Event::FsRawChange { library_id: location.library_id, kind: FsRawEventKind::Rename { from: from.clone(), to: to.clone() } });
                         trace!("Windows: Renamed {} -> {}", from.display(), to.display());
                     }
                     _ => {

@@ -57,6 +57,7 @@ impl Services {
 		let location_watcher = Arc::new(LocationWatcher::new(
 			location_watcher_config,
 			context.events.clone(),
+			context.clone(),
 		));
 		let file_sharing = Arc::new(FileSharingService::new(context.clone()));
 		let device = Arc::new(DeviceService::new(context.clone()));
@@ -86,6 +87,7 @@ impl Services {
 		info!("Starting all background services");
 
 		self.location_watcher.start().await?;
+
 
 		// Start volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {

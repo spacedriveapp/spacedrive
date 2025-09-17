@@ -147,18 +147,12 @@ impl MacOSHandler {
 
 						// Find the matching location and generate rename event
 						let locations = watched_locations.read().await;
-						for location in locations.values() {
-							if path.starts_with(&location.path) {
-								let entry_id = Uuid::new_v4(); // TODO: Look up actual entry
-								events.push(Event::EntryMoved {
-									library_id: location.library_id,
-									entry_id,
-									old_path: old_path.to_string_lossy().to_string(),
-									new_path: path.to_string_lossy().to_string(),
-								});
-								break;
-							}
-						}
+                        for location in locations.values() {
+                            if path.starts_with(&location.path) {
+                                events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Rename { from: old_path, to: path } });
+                                break;
+                            }
+                        }
 					} else {
 						// No matching old path - store as new path for potential future match
 						trace!("Storing new path for rename: {}", path.display());
@@ -184,18 +178,12 @@ impl MacOSHandler {
 
 						// Find the matching location and generate rename event
 						let locations = watched_locations.read().await;
-						for location in locations.values() {
-							if new_path.starts_with(&location.path) {
-								let entry_id = Uuid::new_v4(); // TODO: Look up actual entry
-								events.push(Event::EntryMoved {
-									library_id: location.library_id,
-									entry_id,
-									old_path: path.to_string_lossy().to_string(),
-									new_path: new_path.to_string_lossy().to_string(),
-								});
-								break;
-							}
-						}
+                        for location in locations.values() {
+                            if new_path.starts_with(&location.path) {
+                                events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Rename { from: path, to: new_path } });
+                                break;
+                            }
+                        }
 					} else {
 						// No matching new path - store as old path for potential future match
 						trace!("Storing old path for rename: {}", path.display());
@@ -241,16 +229,12 @@ impl MacOSHandler {
 
 				// Generate modify event
 				let locations = watched_locations.read().await;
-				for location in locations.values() {
-					if path.starts_with(&location.path) {
-						let entry_id = Uuid::new_v4(); // TODO: Look up actual entry
-						events.push(Event::EntryModified {
-							library_id: location.library_id,
-							entry_id,
-						});
-						break;
-					}
-				}
+                for location in locations.values() {
+                    if path.starts_with(&location.path) {
+                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Modify { path: path.clone() } });
+                        break;
+                    }
+                }
 			}
 		}
 		*files_to_update = files_to_keep;
@@ -269,16 +253,12 @@ impl MacOSHandler {
 
 				// Generate modify event
 				let locations = watched_locations.read().await;
-				for location in locations.values() {
-					if path.starts_with(&location.path) {
-						let entry_id = Uuid::new_v4(); // TODO: Look up actual entry
-						events.push(Event::EntryModified {
-							library_id: location.library_id,
-							entry_id,
-						});
-						break;
-					}
-				}
+                for location in locations.values() {
+                    if path.starts_with(&location.path) {
+                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Modify { path: path.clone() } });
+                        break;
+                    }
+                }
 			}
 		}
 		*reincident_files = reincident_to_keep;
@@ -305,11 +285,7 @@ impl MacOSHandler {
 							let locations = watched_locations.read().await;
 							for location in locations.values() {
 								if path.starts_with(&location.path) {
-									let entry_id = Uuid::new_v4(); // TODO: Look up or create actual entry
-									events.push(Event::EntryCreated {
-										library_id: location.library_id,
-										entry_id,
-									});
+                                    events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Create { path: path.clone() } });
 
 									if let Some(parent) = path.parent() {
 										let mut to_recalc = self.to_recalculate_size.write().await;
@@ -348,11 +324,7 @@ impl MacOSHandler {
 				let locations = watched_locations.read().await;
 				for location in locations.values() {
 					if path.starts_with(&location.path) {
-						let entry_id = Uuid::new_v4(); // TODO: Look up actual entry
-						events.push(Event::EntryDeleted {
-							library_id: location.library_id,
-							entry_id,
-						});
+                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Remove { path: path.clone() } });
 
 						if let Some(parent) = path.parent() {
 							let mut to_recalc = self.to_recalculate_size.write().await;
@@ -444,13 +416,9 @@ impl EventHandler for MacOSHandler {
 			WatcherEventKind::Remove => {
 				// Generate removal event and schedule parent for size recalculation
 				let locations = watched_locations.read().await;
-				for location in locations.values() {
-					if location.enabled && path.starts_with(&location.path) {
-						let entry_id = Uuid::new_v4(); // TODO: Look up actual entry
-						events.push(Event::EntryDeleted {
-							library_id: location.library_id,
-							entry_id,
-						});
+                for location in locations.values() {
+                    if location.enabled && path.starts_with(&location.path) {
+                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Remove { path: path.clone() } });
 
 						if let Some(parent) = path.parent() {
 							let mut to_recalc = self.to_recalculate_size.write().await;
