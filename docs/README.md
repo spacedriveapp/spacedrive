@@ -13,7 +13,7 @@ Core v2 is a complete rewrite of Spacedrive's core system, designed to address t
 - **Consistent behavior** across all file management scenarios
 - **Bridge operations** between different storage modes
 
-### ✅ Event-Driven Architecture  
+### ✅ Event-Driven Architecture
 - **Replaced query invalidation** with proper event bus
 - **Type-safe events** for state changes
 - **Decoupled frontend/backend** communication
@@ -58,21 +58,21 @@ Core v2 is a complete rewrite of Spacedrive's core system, designed to address t
 ## Quick Start
 
 ```rust
-use sd_core_new::Core;
+use sd_core::Core;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize core
     let core = Core::new().await?;
-    
+
     // Create a library
     let library = core.libraries
         .create_library("My Library", None)
         .await?;
-    
+
     println!("Library created: {}", library.name().await);
     println!("Path: {}", library.path().display());
-    
+
     // Core automatically handles cleanup on drop
     Ok(())
 }
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 # Library management demo
 cargo run --example library_demo
 
-# Job system demo  
+# Job system demo
 cargo run --example job_demo
 
 # File type system demo

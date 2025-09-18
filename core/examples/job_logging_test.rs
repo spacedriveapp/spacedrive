@@ -14,7 +14,7 @@ use tokio::time::{sleep, Duration};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize logging
 	tracing_subscriber::fmt()
-		.with_env_filter("sd_core_new=debug")
+		.with_env_filter("sd_core=debug")
 		.init();
 
 	println!("🚀 Job Logging Test\n");

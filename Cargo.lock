@@ -8009,6 +8009,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode 1.3.3",
+ "chrono",
+ "clap",
+ "sd-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "sd-core"
 version = "0.1.0"
 dependencies = [
@@ -8924,21 +8939,6 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
-]
-
-[[package]]
-name = "spacedrive-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode 1.3.3",
- "chrono",
- "clap",
- "sd-core",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
 ]
 
 [[package]]

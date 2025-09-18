@@ -96,7 +96,7 @@ let config = IndexerJobConfig::ui_navigation(location_id, path);
 // Results in single-level scan optimized for UI responsiveness
 ```
 
-#### Recursive Scope  
+#### Recursive Scope
 - **Description**: Index the directory and all subdirectories
 - **Use Cases**: Full location indexing, comprehensive file discovery
 - **Performance**: Depends on directory tree size
@@ -153,7 +153,7 @@ pub struct IndexerJobConfig {
 // Fast current directory scan for UI
 let config = IndexerJobConfig::ui_navigation(location_id, path);
 // - Scope: Current (single level)
-// - Mode: Shallow (metadata only)  
+// - Mode: Shallow (metadata only)
 // - Persistence: Persistent
 // - Target: <500ms response time
 ```
@@ -354,7 +354,7 @@ Change types detected:
 ### Enhanced Indexing Jobs
 
 ```rust
-use sd_core_new::operations::indexing::{
+use sd_core::operations::indexing::{
     IndexerJob, IndexerJobConfig, IndexMode, IndexScope, IndexPersistence
 };
 
@@ -547,7 +547,7 @@ spacedrive index location <location-uuid> --scope recursive --mode deep
 ```bash
 # Add locations with different indexing modes
 spacedrive location add ~/Documents --mode shallow    # Fast metadata only
-spacedrive location add ~/Pictures --mode content     # With content hashing 
+spacedrive location add ~/Pictures --mode content     # With content hashing
 spacedrive location add ~/Videos --mode deep          # Full media analysis
 
 # Force re-indexing of a location
@@ -594,11 +594,11 @@ Enable detailed logging:
 spacedrive start --foreground -v
 
 # For development
-RUST_LOG=sd_core_new::operations::indexing=debug cargo run
+RUST_LOG=sd_core::operations::indexing=debug cargo run
 ```
 
 Common issues:
 1. **Slow indexing**: Check filter rules and batch sizes
-2. **High memory usage**: Reduce batch size  
+2. **High memory usage**: Reduce batch size
 3. **Missing files**: Verify permissions and filter rules
 4. **No progress shown**: Ensure daemon is running and use `spacedrive job monitor`

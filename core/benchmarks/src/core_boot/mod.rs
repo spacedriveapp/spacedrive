@@ -5,11 +5,11 @@ use std::sync::Arc;
 pub struct CoreBoot {
     pub data_dir: PathBuf,
     pub job_logs_dir: PathBuf,
-    pub core: Arc<sd_core_new::Core>,
+    pub core: Arc<sd_core::Core>,
 }
 
 impl CoreBoot {
-    pub fn new(data_dir: PathBuf, job_logs_dir: PathBuf, core: Arc<sd_core_new::Core>) -> Self {
+    pub fn new(data_dir: PathBuf, job_logs_dir: PathBuf, core: Arc<sd_core::Core>) -> Self {
         Self { data_dir, job_logs_dir, core }
     }
 }
@@ -27,9 +27,9 @@ pub async fn boot_isolated_with_core(
     std::fs::create_dir_all(&bench_data_dir)
         .map_err(|e| anyhow::anyhow!("create bench data dir: {}", e))?;
 
-    let mut bench_cfg = match sd_core_new::config::AppConfig::load_from(&bench_data_dir) {
+    let mut bench_cfg = match sd_core::config::AppConfig::load_from(&bench_data_dir) {
         Ok(cfg) => cfg,
-        Err(_) => sd_core_new::config::AppConfig::default_with_dir(bench_data_dir.clone()),
+        Err(_) => sd_core::config::AppConfig::default_with_dir(bench_data_dir.clone()),
     };
     bench_cfg.job_logging.enabled = true;
     bench_cfg.job_logging.include_debug = true;
@@ -39,7 +39,7 @@ pub async fn boot_isolated_with_core(
     let job_logs_dir = bench_cfg.job_logs_dir();
     bench_cfg.save().map_err(|e| anyhow::anyhow!("save bench config: {}", e))?;
 
-    let core = sd_core_new::Core::new_with_config(bench_data_dir.clone())
+    let core = sd_core::Core::new_with_config(bench_data_dir.clone())
         .await
         .map_err(|e| anyhow::anyhow!("init core: {}", e))?;
     let core = Arc::new(core);

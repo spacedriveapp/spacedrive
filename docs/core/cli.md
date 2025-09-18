@@ -44,7 +44,7 @@ cargo install --path . --bin spacedrive
 spacedrive start
 
 # Create a library and add a location
-spacedrive library create "Personal" 
+spacedrive library create "Personal"
 spacedrive location add ~/Desktop --name "Desktop"
 
 # Monitor indexing progress
@@ -319,7 +319,7 @@ spacedrive library create "Personal"
 
 # 3. Add locations with different index modes
 spacedrive location add ~/Desktop --name "Desktop" --mode content
-spacedrive location add ~/Documents --name "Documents" --mode content  
+spacedrive location add ~/Documents --name "Documents" --mode content
 spacedrive location add ~/Pictures --name "Photos" --mode deep
 
 # 4. Monitor the indexing progress
@@ -421,7 +421,7 @@ src/infrastructure/cli/daemon/
 The daemon stores data in the specified data directory:
 
 ```
-spacedrive-cli-data/
+sd-cli-data/
 ├── libraries/           # Library database files
 ├── daemon.sock         # Unix socket for communication
 ├── daemon.pid          # Process ID file
@@ -431,7 +431,7 @@ spacedrive-cli-data/
 
 For multiple instances:
 ```
-spacedrive-cli-data/
+sd-cli-data/
 ├── instance-test/
 │   ├── libraries/
 │   └── cli_state.json
@@ -479,7 +479,7 @@ spacedrive system logs --tail 100
 spacedrive daemon
 
 # Look for socket file
-ls -la spacedrive-cli-data/daemon.sock
+ls -la sd-cli-data/daemon.sock
 
 # Restart daemon if socket is missing
 spacedrive stop && spacedrive start

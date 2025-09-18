@@ -30,7 +30,7 @@
 - **Structured**: Include relevant context fields: `debug!(job_id = %self.id, "message")`
 - **Levels**: debug for detailed flow, info for user-relevant events, warn for recoverable issues, error for failures
 - **Format**: `tracing_subscriber::fmt().with_env_filter(env_filter).init()` in main/examples
-- **Environment**: Respect `RUST_LOG` env var, fallback to module-specific filters like `sd_core_new=info`
+- **Environment**: Respect `RUST_LOG` env var, fallback to module-specific filters like `sd_core=info`
 
 ## Documentation
 

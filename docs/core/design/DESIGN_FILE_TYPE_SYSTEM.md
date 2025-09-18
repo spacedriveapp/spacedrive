@@ -14,7 +14,7 @@ A modern, extensible file type identification system for Spacedrive.
 ## Usage
 
 ```rust
-use sd_core_new::file_type::FileTypeRegistry;
+use sd_core::file_type::FileTypeRegistry;
 
 // Create registry with built-in types
 let registry = FileTypeRegistry::new();

@@ -12,7 +12,7 @@ use tokio::time::timeout;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize logging
 	tracing_subscriber::fmt()
-		.with_env_filter("sd_core_new=info")
+		.with_env_filter("sd_core=info")
 		.init();
 
 	println!("=== Spacedrive Volume System Demo ===\n");

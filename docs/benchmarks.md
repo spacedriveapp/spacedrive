@@ -43,12 +43,12 @@ This document explains how to use and extend the benchmarking suite that lives i
   ```bash
   # Run all scenarios (discovery, aggregation, content-id) on both NVMe and HDD
   cargo run -p sd-bench -- run-all --locations "/tmp/benchdata" "/Volumes/Seagate/benchdata"
-  
+
   # Run specific scenarios on multiple locations
   cargo run -p sd-bench -- run-all \
     --scenarios indexing-discovery aggregation \
     --locations "/Users/me/benchdata" "/Volumes/HDD/benchdata" "/Volumes/SSD/benchdata"
-  
+
   # Filter to only shape recipes
   cargo run -p sd-bench -- run-all \
     --locations "/tmp/benchdata" "/Volumes/Seagate/benchdata" \
@@ -154,7 +154,7 @@ media:
   - For small files: full-content hashing.
 - `partial` mode writes the header/samples/footer only (deterministic pseudo-random bytes), leaving gaps as sparse zeros. This yields realistic, stable hashes without full writes.
 - `full` mode writes deterministic content for the entire file for maximum realism.
-- `magic_headers: true` uses `sd_core_new::file_type::FileTypeRegistry` to write magic byte signatures for the chosen extension when available.
+- `magic_headers: true` uses `sd_core::file_type::FileTypeRegistry` to write magic byte signatures for the chosen extension when available.
 
 ## Scenarios
 

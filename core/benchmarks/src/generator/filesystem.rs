@@ -25,7 +25,7 @@ fn write_magic_header_if_needed(
 	if !enable_magic {
 		return Ok(0);
 	}
-	let registry = sd_core_new::file_type::FileTypeRegistry::new();
+	let registry = sd_core::file_type::FileTypeRegistry::new();
 	let mut candidates = registry.get_by_extension(extension);
 	if candidates.is_empty() {
 		return Ok(0);
@@ -52,9 +52,9 @@ fn write_magic_header_if_needed(
 			.bytes
 			.iter()
 			.map(|b| match b {
-				sd_core_new::file_type::MagicByte::Exact(v) => *v,
-				sd_core_new::file_type::MagicByte::Any => 0u8,
-				sd_core_new::file_type::MagicByte::Range { min, .. } => *min,
+				sd_core::file_type::MagicByte::Exact(v) => *v,
+				sd_core::file_type::MagicByte::Any => 0u8,
+				sd_core::file_type::MagicByte::Range { min, .. } => *min,
 			})
 			.collect();
 		file.write_all(&bytes)?;
@@ -96,7 +96,7 @@ fn write_content_for_hashing(
 			const HEADER_OR_FOOTER_SIZE: u64 = 8 * 1024;
 			const SAMPLE_COUNT: u64 = 4;
 			let sample_size = sample_block_size.max(1);
-			if total_size <= sd_core_new::domain::content_identity::MINIMUM_FILE_SIZE {
+			if total_size <= sd_core::domain::content_identity::MINIMUM_FILE_SIZE {
 				// small file: write full content deterministically but lighter (10KiB chunks)
 				let mut remaining = total_size;
 				let mut pos = wrote_up_to;

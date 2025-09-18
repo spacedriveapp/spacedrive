@@ -1,8 +1,8 @@
 //! Common utilities and structures for benchmark scenarios
 use anyhow::{anyhow, Result};
-use sd_core_new::infrastructure::events::{Event, EventSubscriber};
-use sd_core_new::infrastructure::jobs::output::JobOutput;
-use sd_core_new::library::Library;
+use sd_core::infrastructure::events::{Event, EventSubscriber};
+use sd_core::infrastructure::jobs::output::JobOutput;
+use sd_core::library::Library;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;

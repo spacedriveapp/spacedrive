@@ -27,7 +27,7 @@ use tokio::time::{sleep, Duration};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize logging with more detail
 	tracing_subscriber::fmt()
-		.with_env_filter("sd_core_new=debug,desktop_indexing_demo=info")
+		.with_env_filter("sd_core=debug,desktop_indexing_demo=info")
 		.init();
 
 	println!("🚀 === Spacedrive 2 Desktop Indexing Demo ===\n");

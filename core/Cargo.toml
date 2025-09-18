@@ -167,6 +167,10 @@ libc = "0.2"
 name = "spacedrive"
 path = "src/bin/cli.rs"
 
+[[bin]]
+name = "daemon"
+path = "src/bin/daemon.rs"
+
 
 [dev-dependencies]
 pretty_assertions = "1.4"

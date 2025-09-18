@@ -35,7 +35,7 @@ Use the `--instance` flag to target commands to specific daemon instances:
 # Default instance
 spacedrive library list
 
-# Named instances  
+# Named instances
 spacedrive --instance alice library list
 spacedrive --instance bob library create "Bob's Library"
 ```
@@ -62,7 +62,7 @@ Test device pairing locally using two instances:
 # Terminal 1: Start Alice's daemon
 spacedrive start --instance alice --enable-networking --foreground
 
-# Terminal 2: Start Bob's daemon  
+# Terminal 2: Start Bob's daemon
 spacedrive start --instance bob --enable-networking --foreground
 
 # Terminal 3: Alice generates pairing code
@@ -81,8 +81,8 @@ spacedrive --instance bob network pair join "word1 word2 word3 ... word12"
 Each instance has completely isolated:
 
 - **Socket paths**: `spacedrive.sock`, `spacedrive-alice.sock`, `spacedrive-bob.sock`
-- **PID files**: `spacedrive.pid`, `spacedrive-alice.pid`, `spacedrive-bob.pid`  
-- **Data directories**: `data/spacedrive-cli-data/`, `data/spacedrive-cli-data/instance-alice/`
+- **PID files**: `spacedrive.pid`, `spacedrive-alice.pid`, `spacedrive-bob.pid`
+- **Data directories**: `data/sd-cli-data/`, `data/sd-cli-data/instance-alice/`
 - **CLI state**: Separate `cli_state.json` per instance
 
 ### File Structure
@@ -91,22 +91,22 @@ Each instance has completely isolated:
 $runtime_dir/               # /tmp or $XDG_RUNTIME_DIR
 ├── spacedrive.sock         # Default instance socket
 ├── spacedrive.pid          # Default instance PID
-├── spacedrive-alice.sock   # Alice instance socket  
+├── spacedrive-alice.sock   # Alice instance socket
 ├── spacedrive-alice.pid    # Alice instance PID
 ├── spacedrive-bob.sock     # Bob instance socket
 └── spacedrive-bob.pid      # Bob instance PID
 
-data/spacedrive-cli-data/                    # Default instance data
+data/sd-cli-data/                    # Default instance data
 ├── spacedrive.json
 ├── libraries/
 └── cli_state.json
 
-data/spacedrive-cli-data/instance-alice/     # Alice instance data
+data/sd-cli-data/instance-alice/     # Alice instance data
 ├── spacedrive.json
-├── libraries/  
+├── libraries/
 └── cli_state.json
 
-data/spacedrive-cli-data/instance-bob/       # Bob instance data
+data/sd-cli-data/instance-bob/       # Bob instance data
 ├── spacedrive.json
 ├── libraries/
 └── cli_state.json

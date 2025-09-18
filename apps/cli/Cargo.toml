@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "spacedrive-cli"
+name    = "sd-cli"
 version = "0.1.0"
 
 [dependencies]

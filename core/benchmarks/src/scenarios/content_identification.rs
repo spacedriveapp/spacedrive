@@ -6,7 +6,7 @@ use super::{hardware_hint_to_label, infer_hardware_label, Scenario};
 use crate::core_boot::CoreBoot;
 use crate::metrics::{collect_host_info, BenchmarkRun, Durations, RunMeta};
 use crate::recipe::Recipe;
-use sd_core_new::infrastructure::jobs::output::JobOutput;
+use sd_core::infrastructure::jobs::output::JobOutput;
 
 #[derive(Default)]
 pub struct ContentIdentificationScenario {
@@ -24,7 +24,7 @@ impl Scenario for ContentIdentificationScenario {
     }
 
     async fn prepare(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<()> {
-        use sd_core_new::infrastructure::actions::handler::ActionHandler;
+        use sd_core::infrastructure::actions::handler::ActionHandler;
         let core = &boot.core;
         let context = core.context.clone();
         let library = match core.libraries.get_active_library().await {
@@ -34,17 +34,17 @@ impl Scenario for ContentIdentificationScenario {
         self.base.library = Some(library.clone());
 
         for loc in &recipe.locations {
-            let action = sd_core_new::infrastructure::actions::Action::LocationAdd {
+            let action = sd_core::infrastructure::actions::Action::LocationAdd {
                 library_id: library.id(),
-                action: sd_core_new::operations::locations::add::action::LocationAddAction {
+                action: sd_core::operations::locations::add::action::LocationAddAction {
                     path: loc.path.clone(),
                     name: Some(format!("bench:{}", recipe.name)),
-                    mode: sd_core_new::operations::indexing::IndexMode::Content,
+                    mode: sd_core::operations::indexing::IndexMode::Content,
                 },
             };
-            let handler = sd_core_new::operations::locations::add::action::LocationAddHandler::new();
+            let handler = sd_core::operations::locations::add::action::LocationAddHandler::new();
             let out = handler.execute(context.clone(), action).await?;
-            if let sd_core_new::infrastructure::actions::output::ActionOutput::Custom { data, .. } = &out {
+            if let sd_core::infrastructure::actions::output::ActionOutput::Custom { data, .. } = &out {
                 if let Some(j) = data.get("job_id").and_then(|v| v.as_str()) {
                     if let Ok(id) = uuid::Uuid::parse_str(j) {
                         self.base.job_ids.push(id);
