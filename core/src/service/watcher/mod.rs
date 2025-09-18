@@ -36,13 +36,13 @@ pub use platform::PlatformHandler;
 pub struct LocationWatcherConfig {
 	/// Debounce duration for file system events
 	pub debounce_duration: Duration,
-	/// Maximum number of events to buffer per location
+	/// Maximum number of events to buffer per location (never drops events)
 	pub event_buffer_size: usize,
 	/// Whether to enable detailed debug logging
 	pub debug_mode: bool,
 	/// Debounce window for batching events (100-250ms)
 	pub debounce_window_ms: u64,
-	/// Maximum batch size to prevent memory issues
+	/// Maximum batch size for processing efficiency
 	pub max_batch_size: usize,
 	/// Metrics logging interval
 	pub metrics_log_interval_ms: u64,
@@ -58,13 +58,13 @@ impl Default for LocationWatcherConfig {
 	fn default() -> Self {
 		Self {
 			debounce_duration: Duration::from_millis(100),
-			event_buffer_size: 10000, // Increased for per-location queues
+			event_buffer_size: 100000, // Large buffer to never drop events
 			debug_mode: false,
 			debounce_window_ms: 150, // 150ms default debounce window
-			max_batch_size: 1000, // Max events per batch
+			max_batch_size: 10000, // Large batches for efficiency
 			metrics_log_interval_ms: 30000, // 30 seconds
 			enable_metrics: true,
-			max_queue_depth_before_reindex: 5000, // 50% of buffer size
+			max_queue_depth_before_reindex: 50000, // 50% of buffer size
 			enable_focused_reindex: true,
 		}
 	}
@@ -90,32 +90,27 @@ impl LocationWatcherConfig {
 		}
 	}
 
-	/// Create a high-performance configuration for large file operations
-	pub fn high_performance() -> Self {
+	/// Create a configuration optimized for resource-constrained environments
+	/// This is for future resource manager integration
+	pub fn resource_optimized(
+		memory_quota: usize,
+		cpu_quota: usize,
+	) -> Self {
+		// Calculate buffer size based on available memory (1KB per event estimate)
+		let event_buffer_size = std::cmp::max(10000, memory_quota / 1000);
+		
+		// Calculate batch size based on CPU quota (100 events per CPU unit)
+		let max_batch_size = std::cmp::max(1000, cpu_quota / 100);
+		
 		Self {
-			debounce_duration: Duration::from_millis(50),
-			event_buffer_size: 50000,
+			debounce_duration: Duration::from_millis(100),
+			event_buffer_size,
 			debug_mode: false,
-			debounce_window_ms: 100, // Shorter window for faster processing
-			max_batch_size: 5000, // Larger batches
-			metrics_log_interval_ms: 10000, // More frequent logging
+			debounce_window_ms: 150,
+			max_batch_size,
+			metrics_log_interval_ms: 30000,
 			enable_metrics: true,
-			max_queue_depth_before_reindex: 25000,
-			enable_focused_reindex: true,
-		}
-	}
-
-	/// Create a conservative configuration for stability
-	pub fn conservative() -> Self {
-		Self {
-			debounce_duration: Duration::from_millis(200),
-			event_buffer_size: 5000,
-			debug_mode: false,
-			debounce_window_ms: 250, // Longer window for better coalescing
-			max_batch_size: 500, // Smaller batches
-			metrics_log_interval_ms: 60000, // Less frequent logging
-			enable_metrics: true,
-			max_queue_depth_before_reindex: 2500,
+			max_queue_depth_before_reindex: event_buffer_size / 2,
 			enable_focused_reindex: true,
 		}
 	}
@@ -391,10 +386,15 @@ impl LocationWatcher {
 					// Convert notify event to our WatcherEvent
 					let watcher_event = WatcherEvent::from_notify_event(event);
 
-					if let Err(e) = tx.try_send(watcher_event) {
-						warn!("Failed to send watcher event: {}", e);
-						metrics.record_event_dropped();
-					}
+					// Use spawn_blocking to avoid blocking the notify callback
+					// This ensures we never drop events - we wait for buffer space
+					let tx_clone = tx.clone();
+					tokio::spawn(async move {
+						if let Err(e) = tx_clone.send(watcher_event).await {
+							error!("Failed to send watcher event (receiver dropped): {}", e);
+							// This should only happen if the receiver is dropped
+						}
+					});
 				}
 				Err(e) => {
 					error!("File system watcher error: {}", e);

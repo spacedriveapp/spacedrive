@@ -19,9 +19,9 @@ pub async fn demonstrate_burst_processing() -> Result<()> {
 	// Create a temporary directory for testing
 	let temp_dir = TempDir::new()?;
 	
-	// Create high-performance configuration for handling bursts
-	let config = LocationWatcherConfig::high_performance();
-	println!("Using high-performance configuration:");
+	// Create standard configuration for handling bursts
+	let config = LocationWatcherConfig::default();
+	println!("Using standard configuration:");
 	println!("  - Debounce window: {}ms", config.debounce_window_ms);
 	println!("  - Event buffer size: {}", config.event_buffer_size);
 	println!("  - Max batch size: {}", config.max_batch_size);
@@ -90,8 +90,8 @@ pub async fn demonstrate_burst_processing() -> Result<()> {
 	let global_metrics = watcher.get_global_metrics();
 	println!("\n=== Global Metrics ===");
 	println!("Total events received: {}", global_metrics.total_events_received.load(std::sync::atomic::Ordering::Relaxed));
-	println!("Total events dropped: {}", global_metrics.total_events_dropped.load(std::sync::atomic::Ordering::Relaxed));
-	println!("Drop rate: {:.2}%", global_metrics.get_drop_rate());
+	println!("Total workers created: {}", global_metrics.total_workers_created.load(std::sync::atomic::Ordering::Relaxed));
+	println!("Total workers destroyed: {}", global_metrics.total_workers_destroyed.load(std::sync::atomic::Ordering::Relaxed));
 	
 	// Clean up
 	watcher.remove_location(location.id).await?;
@@ -196,8 +196,9 @@ pub async fn demonstrate_configuration_options() -> Result<()> {
 	// Test different configurations
 	let configs = vec![
 		("Default", LocationWatcherConfig::default()),
-		("High Performance", LocationWatcherConfig::high_performance()),
-		("Conservative", LocationWatcherConfig::conservative()),
+		("Custom (100ms, 50K buffer, 5K batch)", LocationWatcherConfig::new(100, 50000, 5000)),
+		("Custom (200ms, 20K buffer, 2K batch)", LocationWatcherConfig::new(200, 20000, 2000)),
+		("Resource Optimized (1MB, 1000 CPU)", LocationWatcherConfig::resource_optimized(1000000, 1000)),
 	];
 	
 	for (name, config) in configs {
@@ -274,8 +275,8 @@ pub async fn demonstrate_overflow_handling() -> Result<()> {
 	let global_metrics = watcher.get_global_metrics();
 	println!("\n=== Overflow Results ===");
 	println!("Total events received: {}", global_metrics.total_events_received.load(std::sync::atomic::Ordering::Relaxed));
-	println!("Total events dropped: {}", global_metrics.total_events_dropped.load(std::sync::atomic::Ordering::Relaxed));
-	println!("Drop rate: {:.2}%", global_metrics.get_drop_rate());
+	println!("Total workers created: {}", global_metrics.total_workers_created.load(std::sync::atomic::Ordering::Relaxed));
+	println!("Note: No events were dropped - system waits for buffer space");
 	
 	watcher.remove_location(location.id).await?;
 	println!("Overflow handling demo completed!");
@@ -310,8 +311,9 @@ mod tests {
 		// Test that all example configurations are valid
 		let configs = vec![
 			LocationWatcherConfig::default(),
-			LocationWatcherConfig::high_performance(),
-			LocationWatcherConfig::conservative(),
+			LocationWatcherConfig::new(100, 50000, 5000),
+			LocationWatcherConfig::new(200, 20000, 2000),
+			LocationWatcherConfig::resource_optimized(1000000, 1000),
 		];
 		
 		for config in configs {

@@ -145,8 +145,6 @@ pub struct WatcherMetrics {
 	pub total_locations: AtomicU64,
 	/// Total events received from filesystem
 	pub total_events_received: AtomicU64,
-	/// Total events dropped due to queue overflow
-	pub total_events_dropped: AtomicU64,
 	/// Total workers created
 	pub total_workers_created: AtomicU64,
 	/// Total workers destroyed
@@ -164,11 +162,6 @@ impl WatcherMetrics {
 		self.total_events_received.fetch_add(1, Ordering::Relaxed);
 	}
 
-	/// Record an event dropped
-	pub fn record_event_dropped(&self) {
-		self.total_events_dropped.fetch_add(1, Ordering::Relaxed);
-	}
-
 	/// Record a worker created
 	pub fn record_worker_created(&self) {
 		self.total_workers_created.fetch_add(1, Ordering::Relaxed);
@@ -184,26 +177,20 @@ impl WatcherMetrics {
 		self.total_locations.store(count as u64, Ordering::Relaxed);
 	}
 
-	/// Get drop rate (percentage of events that were dropped)
-	pub fn get_drop_rate(&self) -> f64 {
+	/// Get event processing rate (events per second)
+	pub fn get_processing_rate(&self) -> f64 {
 		let received = self.total_events_received.load(Ordering::Relaxed);
-		let dropped = self.total_events_dropped.load(Ordering::Relaxed);
-		
-		if received == 0 {
-			0.0
-		} else {
-			(dropped as f64 / received as f64) * 100.0
-		}
+		// This would need to be calculated with timestamps in a real implementation
+		// For now, return 0 as a placeholder
+		0.0
 	}
 
 	/// Log current metrics
 	pub fn log_metrics(&self) {
 		info!(
-			"Watcher metrics: locations={}, events_received={}, events_dropped={}, drop_rate={:.2}%, workers_created={}, workers_destroyed={}",
+			"Watcher metrics: locations={}, events_received={}, workers_created={}, workers_destroyed={}",
 			self.total_locations.load(Ordering::Relaxed),
 			self.total_events_received.load(Ordering::Relaxed),
-			self.total_events_dropped.load(Ordering::Relaxed),
-			self.get_drop_rate(),
 			self.total_workers_created.load(Ordering::Relaxed),
 			self.total_workers_destroyed.load(Ordering::Relaxed)
 		);

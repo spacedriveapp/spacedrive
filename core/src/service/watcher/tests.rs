@@ -51,7 +51,7 @@ fn create_rename_events(count: usize, base_path: &str) -> Vec<WatcherEvent> {
 #[tokio::test]
 async fn test_burst_event_processing() {
 	let temp_dir = TempDir::new().unwrap();
-	let config = LocationWatcherConfig::high_performance();
+	let config = LocationWatcherConfig::default();
 	let events = Arc::new(EventBus::new(1000));
 	let context = create_mock_context();
 	
@@ -360,6 +360,10 @@ async fn test_configuration_validation() {
 		..Default::default()
 	};
 	assert!(invalid_config.validate().is_err());
+	
+	// Test resource-optimized configuration
+	let resource_config = LocationWatcherConfig::resource_optimized(1000000, 1000);
+	assert!(resource_config.validate().is_ok());
 }
 
 #[tokio::test]
@@ -405,7 +409,7 @@ async fn test_metrics_collection() {
 
 #[tokio::test]
 async fn test_batch_processing_performance() {
-	let config = LocationWatcherConfig::high_performance();
+	let config = LocationWatcherConfig::default();
 	let events = Arc::new(EventBus::new(1000));
 	let context = create_mock_context();
 	
@@ -454,8 +458,8 @@ async fn test_platform_parity() {
 	// Test that the same configuration works across different platforms
 	let configs = vec![
 		LocationWatcherConfig::default(),
-		LocationWatcherConfig::high_performance(),
-		LocationWatcherConfig::conservative(),
+		LocationWatcherConfig::new(100, 50000, 5000),
+		LocationWatcherConfig::new(200, 20000, 2000),
 	];
 	
 	for config in configs {
