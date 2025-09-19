@@ -30,6 +30,10 @@ pub struct FileCopyArgs {
 	/// Delete source files after copy (move)
 	#[arg(long, default_value_t = false)]
 	pub move_files: bool,
+
+	/// Copy method to use
+	#[arg(long, default_value_t = CopyMethod::Auto)]
+	pub method: CopyMethod,
 }
 
 impl From<FileCopyArgs> for FileCopyInput {
@@ -47,8 +51,7 @@ impl From<FileCopyArgs> for FileCopyInput {
 			verify_checksum: args.verify_checksum,
 			preserve_timestamps: args.preserve_timestamps,
 			move_files: args.move_files,
-			copy_method: CopyMethod::Auto,
+			copy_method: args.method,
 		}
 	}
 }
-

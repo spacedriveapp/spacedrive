@@ -97,3 +97,4 @@ crate::register_core_action!(LibraryCreateAction, "libraries.create");
 ## Debug Instructions
 
 - You can view the logs of a job in the job_logs directory in the root of the data folder
+- When testing the CLI, after compiling you must `stop` then `start` the Spacedrive daemon.

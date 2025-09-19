@@ -58,3 +58,4 @@ pub const SPINNER_CHARS: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '
 pub fn spinner_char(frame: usize) -> char {
     SPINNER_CHARS[frame % SPINNER_CHARS.len()]
 }
+

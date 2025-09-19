@@ -315,3 +315,4 @@ nc -U ~/.local/share/spacedrive/daemon/daemon.sock
 - **Structured logging**: Use `tracing` fields for filtering
 - **Log levels**: DEBUG for development, INFO for production
 - **Event correlation**: Track operations across client-daemon boundary
+

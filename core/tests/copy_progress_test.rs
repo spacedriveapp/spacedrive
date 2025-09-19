@@ -122,7 +122,7 @@ async fn test_copy_progress_monitoring_large_file() {
 			preserve_timestamps: true, // --preserve-timestamps
 			delete_after_copy: false,
 			move_mode: None,
-			copy_method: CopyMethod::StreamingCopy, // --method streaming
+			copy_method: CopyMethod::Streaming, // --method streaming
 		},
 	};
 
@@ -418,7 +418,7 @@ async fn test_copy_progress_multiple_files() {
 			preserve_timestamps: true,
 			delete_after_copy: false,
 			move_mode: None,
-			copy_method: CopyMethod::StreamingCopy,
+			copy_method: CopyMethod::Streaming,
 		},
 	};
 
