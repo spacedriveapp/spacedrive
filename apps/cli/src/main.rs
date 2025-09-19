@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use sd_core::client::CoreClient;
+use std::path::Path;
 
 mod context;
 mod domains;
@@ -16,11 +17,71 @@ use crate::domains::{
 	location::{self, LocationCmd},
 	logs::{self, LogsCmd},
 	network::{self, NetworkCmd},
-    search::{self, SearchCmd},
-    tag::{self, TagCmd},
+	search::{self, SearchCmd},
+	tag::{self, TagCmd},
 };
 
 // OutputFormat is defined in context.rs and shared across domains
+
+/// Safely reset only Spacedrive v2 specific files and directories
+/// This preserves any user data that might be in the data directory (like v1 backups)
+fn reset_spacedrive_v2_data(data_dir: &Path) -> Result<()> {
+	let mut removed_items = Vec::new();
+	let mut errors = Vec::new();
+
+	// List of specific Spacedrive v2 files and directories to remove
+	let v2_items = [
+		"spacedrive.json", // Main app config
+		"device.json",     // Device config
+		"libraries",       // All v2 libraries
+		"logs",            // Application logs
+		"job_logs",        // Job logs
+	];
+
+	for item in &v2_items {
+		let path = data_dir.join(item);
+		if path.exists() {
+			let result = if path.is_dir() {
+				std::fs::remove_dir_all(&path)
+			} else {
+				std::fs::remove_file(&path)
+			};
+
+			match result {
+				Ok(()) => {
+					removed_items.push(item.to_string());
+					println!("   ✅ Removed: {}", item);
+				}
+				Err(e) => {
+					errors.push(format!("Failed to remove {}: {}", item, e));
+					println!("   ⚠️  Failed to remove {}: {}", item, e);
+				}
+			}
+		} else {
+			println!("   ℹ️  Not found: {}", item);
+		}
+	}
+
+	if !removed_items.is_empty() {
+		println!(
+			"✅ Reset complete. Removed {} items: {}",
+			removed_items.len(),
+			removed_items.join(", ")
+		);
+	} else {
+		println!("ℹ️  No Spacedrive v2 data found to reset.");
+	}
+
+	if !errors.is_empty() {
+		println!("⚠️  {} errors occurred during reset:", errors.len());
+		for error in &errors {
+			println!("   • {}", error);
+		}
+		// Don't fail the entire operation for partial cleanup failures
+	}
+
+	Ok(())
+}
 
 #[derive(Parser, Debug)]
 #[command(name = "spacedrive", about = "Spacedrive v2 CLI (daemon client)")]
@@ -53,7 +114,23 @@ enum Commands {
 		foreground: bool,
 	},
 	/// Stop the Spacedrive daemon
-	Stop,
+	Stop {
+		/// Reset all data (requires confirmation)
+		#[arg(long)]
+		reset: bool,
+	},
+	/// Restart the Spacedrive daemon
+	Restart {
+		/// Automatically start networking after restart
+		#[arg(long)]
+		enable_networking: bool,
+		/// Run daemon in foreground after restart (show logs)
+		#[arg(long)]
+		foreground: bool,
+		/// Reset all data before restart (requires confirmation)
+		#[arg(long)]
+		reset: bool,
+	},
 	/// Core info
 	Status,
 	/// Libraries operations
@@ -77,12 +154,12 @@ enum Commands {
 	/// View and follow logs
 	#[command(subcommand)]
 	Logs(LogsCmd),
-    /// Search operations
-    #[command(subcommand)]
-    Search(SearchCmd),
-    /// Tag operations
-    #[command(subcommand)]
-    Tag(TagCmd),
+	/// Search operations
+	#[command(subcommand)]
+	Search(SearchCmd),
+	/// Tag operations
+	#[command(subcommand)]
+	Tag(TagCmd),
 }
 
 #[tokio::main]
@@ -106,7 +183,10 @@ async fn main() -> Result<()> {
 	};
 
 	match cli.command {
-		Commands::Start { enable_networking, foreground } => {
+		Commands::Start {
+			enable_networking,
+			foreground,
+		} => {
 			crate::ui::print_compact_logo();
 			println!("Starting daemon...");
 
@@ -187,14 +267,108 @@ async fn main() -> Result<()> {
 				}
 			}
 		}
-		Commands::Stop => {
+		Commands::Stop { reset } => {
+			if reset {
+				use crate::util::confirm::confirm_or_abort;
+				confirm_or_abort(
+					"⚠️  This will permanently delete Spacedrive v2 data (libraries, settings, logs). Other files in the data directory will be preserved. Are you sure?",
+					false
+				)?;
+			}
+
 			println!("Stopping daemon...");
 			let core = CoreClient::new(socket_path.clone());
-			let _ = core
+			let stop_result = core
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
-				.await
-				.map_err(|e| anyhow::anyhow!(e.to_string()))?;
-			println!("Daemon stopped.");
+				.await;
+
+			match stop_result {
+				Ok(_) => println!("Daemon stopped."),
+				Err(_) => {
+					if reset {
+						println!("ℹ️  Daemon was not running, proceeding with reset...");
+					} else {
+						println!("ℹ️  Daemon was not running or already stopped.");
+					}
+				}
+			}
+
+			if reset {
+				println!("Resetting Spacedrive v2 data...");
+				reset_spacedrive_v2_data(&data_dir)?;
+			}
+		}
+		Commands::Restart {
+			enable_networking,
+			foreground,
+			reset,
+		} => {
+			if reset {
+				use crate::util::confirm::confirm_or_abort;
+				confirm_or_abort(
+					"⚠️  This will permanently delete Spacedrive v2 data (libraries, settings, logs) before restart. Other files in the data directory will be preserved. Are you sure?",
+					false
+				)?;
+			}
+
+			// First, try to stop the daemon if it's running
+			println!("Stopping daemon...");
+			let core = CoreClient::new(socket_path.clone());
+			let stop_result = core
+				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
+				.await;
+
+			match stop_result {
+				Ok(_) => println!("Daemon stopped."),
+				Err(_) => println!("ℹ️  Daemon was not running or already stopped."),
+			}
+
+			// Reset data if requested
+			if reset {
+				println!("Resetting Spacedrive v2 data...");
+				reset_spacedrive_v2_data(&data_dir)?;
+			}
+
+			// Wait a moment for cleanup
+			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+			// Start the daemon again
+			println!("Starting daemon...");
+			let mut cmd = std::process::Command::new(std::env::current_exe()?);
+			cmd.arg("start");
+
+			if enable_networking {
+				cmd.arg("--enable-networking");
+			}
+
+			if foreground {
+				cmd.arg("--foreground");
+				// Run in foreground - this will block
+				let status = cmd.status()?;
+				if !status.success() {
+					return Err(anyhow::anyhow!("Failed to start daemon"));
+				}
+			} else {
+				// Run in background
+				let child = cmd.spawn()?;
+				println!("🚀 Daemon restarted (PID: {})", child.id());
+
+				// Wait a moment and check if it's still running
+				tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+				// Try to connect to verify it started successfully
+				let core = CoreClient::new(socket_path.clone());
+				match core
+					.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
+					.await
+				{
+					Ok(_) => println!("✅ Daemon restart successful"),
+					Err(e) => {
+						println!("⚠️  Warning: Could not verify daemon status: {}", e);
+						println!("💡 Use 'sd status' to check daemon status");
+					}
+				}
+			}
 		}
 		_ => {
 			run_client_command(cli.command, cli.format, data_dir, socket_path).await?;
@@ -224,7 +398,7 @@ async fn run_client_command(
 					println!("Core Version: {}", status.version);
 					println!("Libraries: {}", status.library_count);
 					println!("Status: Running");
-				},
+				}
 				OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&status)?),
 			}
 		}
@@ -235,8 +409,8 @@ async fn run_client_command(
 		Commands::Network(cmd) => network::run(&ctx, cmd).await?,
 		Commands::Job(cmd) => job::run(&ctx, cmd).await?,
 		Commands::Logs(cmd) => logs::run(&ctx, cmd).await?,
-        Commands::Search(cmd) => search::run(&ctx, cmd).await?,
-        Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
+		Commands::Search(cmd) => search::run(&ctx, cmd).await?,
+		Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
 		_ => {} // Start and Stop are handled in main
 	}
 	Ok(())
