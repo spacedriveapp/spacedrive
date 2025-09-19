@@ -364,4 +364,6 @@ combined_tasks.txt
 combined_docs.txt
 combined_design_docs.txt
 combined_rust_files.txt
+combined_cli_rust_files.txt
+
 

@@ -11,6 +11,8 @@ usage() {
     echo  "                           --with-design: Include the 'docs/design' directory."
     echo  "  rust [path]             Combine Rust files (.rs) from a given path (default: '.')."
     echo  "                          Respects .gitignore."
+    echo  "  cli                     Combine Rust files (.rs) from 'apps/cli'."
+    echo  "                          Respects .gitignore."
     echo  "  tasks                   Combine task files (.md) from '.tasks/'."
 
     echo ""
@@ -99,8 +101,11 @@ case $COMMAND in
         root_path=${1:-.}
         combine_files "$root_path" "*.rs" "combined_rust_files.txt" "Combined Rust Files" "rust" "true"
          ;;
+    cli)
+        combine_files "../../apps/cli" "*.rs" "combined_cli_rust_files.txt" "Combined CLI Rust Files" "rust" "true"
+         ;;
     tasks)
-        combine_files ".tasks" "*.md" "combined_tasks.txt" "Combined Task Files" "markdown" "false"
+        combine_files "../.tasks" "*.md" "combined_tasks.txt" "Combined Task Files" "markdown" "false"
          ;;
     -h|--help)
         usage
