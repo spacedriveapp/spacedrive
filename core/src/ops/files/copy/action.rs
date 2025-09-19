@@ -11,7 +11,7 @@ use crate::{
 		action::{
 			builder::{ActionBuildError, ActionBuilder},
 			error::ActionError,
-			LibraryAction,
+			LibraryAction, ValidationResult, ConfirmationRequest,
 		},
 		job::handle::JobHandle,
 	},
@@ -20,11 +20,41 @@ use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
+/// Internal enum for file conflict resolution strategies
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+enum FileConflictResolution {
+	Overwrite,
+	AutoModifyName,
+	Abort,
+}
+
+impl FileConflictResolution {
+	/// All available choices for conflict resolution
+	const CHOICES: [Self; 3] = [Self::Overwrite, Self::AutoModifyName, Self::Abort];
+
+	/// Convert to human-readable string
+	fn as_str(&self) -> &'static str {
+		match self {
+			Self::Overwrite => "Overwrite the existing file",
+			Self::AutoModifyName => "Rename the new file (e.g., file.txt -> file (1).txt)",
+			Self::Abort => "Abort this copy operation",
+		}
+	}
+
+	/// Create from choice index
+	fn from_index(index: usize) -> Option<Self> {
+		Self::CHOICES.get(index).copied()
+	}
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyAction {
 	pub sources: SdPathBatch,
 	pub destination: SdPath,
 	pub options: CopyOptions,
+	/// Conflict resolution strategy set after user confirmation
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub on_conflict: Option<FileConflictResolution>,
 }
 
 /// Builder for creating FileCopyAction instances with fluent API
@@ -195,6 +225,7 @@ impl ActionBuilder for FileCopyActionBuilder {
 			sources: this.input.sources,
 			destination: this.input.destination,
 			options,
+			on_conflict: None,
 		})
 	}
 }
@@ -247,7 +278,26 @@ impl LibraryAction for FileCopyAction {
 		library: std::sync::Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let job = FileCopyJob::new(self.sources, self.destination).with_options(self.options);
+		// Apply conflict resolution to options if set
+		let mut options = self.options;
+		if let Some(resolution) = self.on_conflict {
+			match resolution {
+				FileConflictResolution::Overwrite => {
+					options.overwrite = true;
+				}
+				FileConflictResolution::AutoModifyName => {
+					// This would be handled by the job's strategy system
+					// For now, ensure overwrite is false so the job handles naming
+					options.overwrite = false;
+				}
+				FileConflictResolution::Abort => {
+					// This should have been handled in resolve_confirmation
+					return Err(ActionError::Cancelled);
+				}
+			}
+		}
+
+		let job = FileCopyJob::new(self.sources, self.destination).with_options(options);
 
 		let job_handle = library
 			.jobs()
@@ -266,14 +316,73 @@ impl LibraryAction for FileCopyAction {
 		&self,
 		_library: &std::sync::Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<ValidationResult, ActionError> {
 		if self.sources.paths.is_empty() {
 			return Err(ActionError::Validation {
 				field: "sources".to_string(),
 				message: "At least one source file must be specified".to_string(),
 			});
 		}
-		Ok(())
+
+		// Check for file conflicts if overwrite is not enabled
+		if !self.options.overwrite {
+			if let Some(conflict_path) = self.check_for_conflicts().await? {
+				let request = ConfirmationRequest {
+					message: format!(
+						"Destination file already exists: {}",
+						conflict_path.display()
+					),
+					choices: FileConflictResolution::CHOICES
+						.iter()
+						.map(|c| c.as_str().to_string())
+						.collect(),
+				};
+				return Ok(ValidationResult::RequiresConfirmation(request));
+			}
+		}
+
+		Ok(ValidationResult::Success)
+	}
+
+	fn resolve_confirmation(&mut self, choice_index: usize) -> Result<(), ActionError> {
+		match FileConflictResolution::from_index(choice_index) {
+			Some(FileConflictResolution::Abort) => {
+				Err(ActionError::Cancelled)
+			}
+			Some(resolution) => {
+				self.on_conflict = Some(resolution);
+				Ok(())
+			}
+			None => Err(ActionError::Validation {
+				field: "choice".to_string(),
+				message: "Invalid choice selected".to_string(),
+			}),
+		}
+	}
+}
+
+impl FileCopyAction {
+	/// Check if any destination files would cause conflicts
+	async fn check_for_conflicts(&self) -> Result<Option<PathBuf>, ActionError> {
+		// For now, implement a simple check for single file destination conflicts
+		// In a full implementation, this would check each source against the destination
+		// and handle directory conflicts, etc.
+		
+		// Extract the physical path from the destination SdPath
+		let dest_path = match &self.destination {
+			SdPath::Physical { path, .. } => path.clone(),
+			SdPath::Virtual { .. } => {
+				// Virtual paths would need different conflict resolution
+				return Ok(None);
+			}
+		};
+
+		// Check if destination exists
+		if tokio::fs::metadata(&dest_path).await.is_ok() {
+			Ok(Some(dest_path))
+		} else {
+			Ok(None)
+		}
 	}
 }
 
