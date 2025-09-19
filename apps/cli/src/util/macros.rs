@@ -9,7 +9,7 @@ macro_rules! execute_action {
 			.core
 			.action(&input)
 			.await
-			.map_err(|e| $crate::util::error::CliError::CoreError(e.to_string()))?;
+			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?;
 		bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
 			.map_err(|e| {
 				$crate::util::error::CliError::SerializationError(format!(
@@ -29,7 +29,7 @@ macro_rules! execute_query {
 		$ctx.core
 			.query(&input)
 			.await
-			.map_err(|e| $crate::util::error::CliError::CoreError(e.to_string()))?
+			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?
 	}};
 }
 

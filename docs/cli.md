@@ -33,6 +33,9 @@ The refactored daemon architecture provides:
 # Build the CLI
 cargo build --release --package sd-cli --package sd-core
 
+# Or build just the CLI for development
+cd apps/cli && cargo build
+
 # Install globally (optional)
 cargo install --path apps/cli
 ```
@@ -67,6 +70,8 @@ sd job monitor
 # Check system status
 sd status
 ```
+
+**Note**: If you haven't set up the alias, use `./target/debug/sd-cli` or `./target/release/sd-cli` instead of `sd`.
 
 ## Usage
 

@@ -6,7 +6,27 @@ pub enum DaemonRequest {
 	Ping,
 	Action { method: String, payload: Vec<u8> },
 	Query { method: String, payload: Vec<u8> },
+	/// Subscribe to real-time events
+	Subscribe {
+		/// Event types to subscribe to (empty = all events)
+		event_types: Vec<String>,
+		/// Optional filter for specific library/job/etc
+		filter: Option<EventFilter>,
+	},
+	/// Unsubscribe from events
+	Unsubscribe,
 	Shutdown,
+}
+
+/// Filter criteria for event subscriptions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventFilter {
+	/// Filter by library ID
+	pub library_id: Option<uuid::Uuid>,
+	/// Filter by job ID
+	pub job_id: Option<String>,
+	/// Filter by device ID
+	pub device_id: Option<uuid::Uuid>,
 }
 
 /// Comprehensive daemon error types
@@ -63,4 +83,10 @@ pub enum DaemonResponse {
 	Pong,
 	Ok(Vec<u8>),
 	Error(DaemonError),
+	/// Real-time event from the core event bus
+	Event(crate::infra::event::Event),
+	/// Subscription acknowledgment
+	Subscribed,
+	/// Unsubscription acknowledgment
+	Unsubscribed,
 }
