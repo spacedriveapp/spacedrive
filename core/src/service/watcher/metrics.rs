@@ -1,7 +1,7 @@
 //! Metrics and observability for the location watcher
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tracing::{debug, info};
 
@@ -49,11 +49,13 @@ impl LocationWorkerMetrics {
 	/// Record a batch processed
 	pub fn record_batch_processed(&self, batch_size: usize, duration: Duration) {
 		self.batches_processed.fetch_add(1, Ordering::Relaxed);
-		self.total_batch_size.fetch_add(batch_size as u64, Ordering::Relaxed);
-		
+		self.total_batch_size
+			.fetch_add(batch_size as u64, Ordering::Relaxed);
+
 		let duration_ms = duration.as_millis() as u64;
-		self.last_batch_duration.store(duration_ms, Ordering::Relaxed);
-		
+		self.last_batch_duration
+			.store(duration_ms, Ordering::Relaxed);
+
 		// Update max duration
 		let mut current_max = self.max_batch_duration.load(Ordering::Relaxed);
 		while duration_ms > current_max {
@@ -73,7 +75,7 @@ impl LocationWorkerMetrics {
 	pub fn update_queue_depth(&self, depth: usize) {
 		let depth_u64 = depth as u64;
 		self.queue_depth.store(depth_u64, Ordering::Relaxed);
-		
+
 		// Update max depth
 		let mut current_max = self.max_queue_depth.load(Ordering::Relaxed);
 		while depth_u64 > current_max {
@@ -114,7 +116,7 @@ impl LocationWorkerMetrics {
 	pub fn get_coalescing_rate(&self) -> f64 {
 		let processed = self.events_processed.load(Ordering::Relaxed);
 		let coalesced = self.events_coalesced.load(Ordering::Relaxed);
-		
+
 		if processed == 0 {
 			0.0
 		} else {
@@ -198,9 +200,10 @@ impl WatcherMetrics {
 }
 
 /// Metrics collector that periodically logs metrics
+#[derive(Clone)]
 pub struct MetricsCollector {
 	watcher_metrics: Arc<WatcherMetrics>,
-	worker_metrics: std::collections::HashMap<uuid::Uuid, Arc<LocationWorkerMetrics>>,
+	worker_metrics: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<LocationWorkerMetrics>>>>,
 	log_interval: Duration,
 }
 
@@ -209,34 +212,40 @@ impl MetricsCollector {
 	pub fn new(watcher_metrics: Arc<WatcherMetrics>, log_interval: Duration) -> Self {
 		Self {
 			watcher_metrics,
-			worker_metrics: std::collections::HashMap::new(),
+			worker_metrics: Arc::new(Mutex::new(std::collections::HashMap::new())),
 			log_interval,
 		}
 	}
 
 	/// Add a worker's metrics
-	pub fn add_worker_metrics(&mut self, location_id: uuid::Uuid, metrics: Arc<LocationWorkerMetrics>) {
-		self.worker_metrics.insert(location_id, metrics);
+	pub fn add_worker_metrics(&self, location_id: uuid::Uuid, metrics: Arc<LocationWorkerMetrics>) {
+		if let Ok(mut worker_metrics) = self.worker_metrics.lock() {
+			worker_metrics.insert(location_id, metrics);
+		}
 	}
 
 	/// Remove a worker's metrics
-	pub fn remove_worker_metrics(&mut self, location_id: &uuid::Uuid) {
-		self.worker_metrics.remove(location_id);
+	pub fn remove_worker_metrics(&self, location_id: &uuid::Uuid) {
+		if let Ok(mut worker_metrics) = self.worker_metrics.lock() {
+			worker_metrics.remove(location_id);
+		}
 	}
 
 	/// Start the metrics collection loop
-	pub async fn start_collection(mut self) {
+	pub async fn start_collection(&self) {
 		let mut interval = tokio::time::interval(self.log_interval);
-		
+
 		loop {
 			interval.tick().await;
-			
+
 			// Log watcher metrics
 			self.watcher_metrics.log_metrics();
-			
+
 			// Log worker metrics
-			for (location_id, metrics) in &self.worker_metrics {
-				metrics.log_metrics(*location_id);
+			if let Ok(worker_metrics) = self.worker_metrics.lock() {
+				for (location_id, metrics) in worker_metrics.iter() {
+					metrics.log_metrics(*location_id);
+				}
 			}
 		}
 	}
@@ -250,11 +259,11 @@ mod tests {
 	#[test]
 	fn test_location_worker_metrics() {
 		let metrics = LocationWorkerMetrics::new();
-		
+
 		metrics.record_event_processed();
 		metrics.record_event_coalesced();
 		metrics.record_batch_processed(10, Duration::from_millis(50));
-		
+
 		assert_eq!(metrics.events_processed.load(Ordering::Relaxed), 1);
 		assert_eq!(metrics.events_coalesced.load(Ordering::Relaxed), 1);
 		assert_eq!(metrics.batches_processed.load(Ordering::Relaxed), 1);
@@ -264,7 +273,7 @@ mod tests {
 	#[test]
 	fn test_coalescing_rate() {
 		let metrics = LocationWorkerMetrics::new();
-		
+
 		// Process 10 events, coalesce 3
 		for _ in 0..10 {
 			metrics.record_event_processed();
@@ -272,7 +281,7 @@ mod tests {
 		for _ in 0..3 {
 			metrics.record_event_coalesced();
 		}
-		
+
 		assert_eq!(metrics.get_coalescing_rate(), 30.0);
 	}
 }

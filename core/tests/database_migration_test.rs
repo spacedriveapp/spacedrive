@@ -24,7 +24,7 @@ async fn test_database_creation_and_migration() {
 
 	match result {
 		Ok(()) => {
-			println!("✅ Migrations completed successfully!");
+			println!("Migrations completed successfully!");
 		}
 		Err(e) => {
 			println!("❌ Migration failed: {}", e);
@@ -51,7 +51,7 @@ async fn test_database_creation_and_migration() {
 	match result {
 		Ok(result) => {
 			println!(
-				"✅ Database query successful, {} rows affected",
+				"Database query successful, {} rows affected",
 				result.rows_affected()
 			);
 		}

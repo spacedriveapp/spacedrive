@@ -31,7 +31,7 @@ The framework uses `cargo test` itself as the subprocess executor:
 ### Basic Structure
 
 ```rust
-use sd_core_new::test_framework_new::CargoTestRunner;
+use sd_core::test_framework_new::CargoTestRunner;
 use std::env;
 
 // Device scenario - runs when TEST_ROLE matches
@@ -42,9 +42,9 @@ async fn alice_scenario() {
     if env::var("TEST_ROLE").unwrap_or_default() != "alice" {
         return;
     }
-    
+
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR required"));
-    
+
     // ALL test logic for Alice goes here
     let mut core = Core::new_with_config(data_dir).await?;
     // ... complete test implementation
@@ -57,7 +57,7 @@ async fn test_multi_device_scenario() {
         .with_timeout(Duration::from_secs(90))
         .add_subprocess("alice", "alice_scenario")
         .add_subprocess("bob", "bob_scenario");
-    
+
     runner.run_until_success(|outputs| {
         // Check for success patterns in output
         outputs.get("alice").map(|out| out.contains("SUCCESS")).unwrap_or(false) &&
@@ -88,16 +88,16 @@ Processes coordinate through:
 #[ignore]
 async fn alice_pairing_scenario() {
     if env::var("TEST_ROLE").unwrap_or_default() != "alice" { return; }
-    
+
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR required"));
     let mut core = Core::new_with_config(data_dir).await.unwrap();
-    
+
     core.init_networking("test-password").await.unwrap();
     let (pairing_code, _) = core.start_pairing_as_initiator().await.unwrap();
-    
+
     // Share pairing code with Bob
     std::fs::write("/tmp/pairing_code.txt", &pairing_code).unwrap();
-    
+
     // Wait for Bob to connect
     loop {
         let devices = core.get_connected_devices().await.unwrap();
@@ -109,17 +109,17 @@ async fn alice_pairing_scenario() {
     }
 }
 
-// Bob's role - all logic in test file  
+// Bob's role - all logic in test file
 #[tokio::test]
 #[ignore]
 async fn bob_pairing_scenario() {
     if env::var("TEST_ROLE").unwrap_or_default() != "bob" { return; }
-    
+
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR required"));
     let mut core = Core::new_with_config(data_dir).await.unwrap();
-    
+
     core.init_networking("test-password").await.unwrap();
-    
+
     // Wait for Alice's pairing code
     let pairing_code = loop {
         if let Ok(code) = std::fs::read_to_string("/tmp/pairing_code.txt") {
@@ -127,9 +127,9 @@ async fn bob_pairing_scenario() {
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
     };
-    
+
     core.start_pairing_as_joiner(&pairing_code).await.unwrap();
-    
+
     // Wait for connection
     loop {
         let devices = core.get_connected_devices().await.unwrap();

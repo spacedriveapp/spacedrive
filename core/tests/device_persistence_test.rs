@@ -41,7 +41,7 @@ async fn alice_persistence_scenario() {
 			.await
 			.unwrap()
 			.unwrap();
-		println!("✅ Alice: Core initialized successfully");
+		println!("Alice: Core initialized successfully");
 
 		// Device name should be persisted
 		let device_config = core.device.config().unwrap();
@@ -58,7 +58,7 @@ async fn alice_persistence_scenario() {
 
 		// Give time for auto-reconnection to happen - discovery takes time
 		tokio::time::sleep(Duration::from_secs(10)).await;
-		println!("✅ Alice: Networking initialized, checking for auto-reconnection...");
+		println!("Alice: Networking initialized, checking for auto-reconnection...");
 
 		// Check if Bob reconnected automatically
 		println!("⏳ Alice: Waiting for automatic reconnection to Bob...");
@@ -72,7 +72,7 @@ async fn alice_persistence_scenario() {
 			if !connected_devices.is_empty() {
 				println!("🎉 Alice: Auto-reconnection successful!");
 				println!(
-					"✅ Alice: Connected {} devices after restart",
+					"Alice: Connected {} devices after restart",
 					connected_devices.len()
 				);
 
@@ -97,7 +97,7 @@ async fn alice_persistence_scenario() {
 					"success",
 				)
 				.unwrap();
-				println!("✅ Alice: Device persistence test completed successfully");
+				println!("Alice: Device persistence test completed successfully");
 				break;
 			}
 
@@ -124,7 +124,7 @@ async fn alice_persistence_scenario() {
 			.await
 			.unwrap()
 			.unwrap();
-		println!("✅ Alice: Core initialized successfully");
+		println!("Alice: Core initialized successfully");
 
 		// Set device name
 		println!("🏷️ Alice: Setting device name...");
@@ -138,7 +138,7 @@ async fn alice_persistence_scenario() {
 			.unwrap();
 
 		tokio::time::sleep(Duration::from_secs(3)).await;
-		println!("✅ Alice: Networking initialized successfully");
+		println!("Alice: Networking initialized successfully");
 
 		// Start pairing as initiator
 		println!("🔑 Alice: Starting pairing as initiator...");
@@ -155,7 +155,7 @@ async fn alice_persistence_scenario() {
 		};
 
 		println!(
-			"✅ Alice: Pairing code generated (expires in {}s)",
+			"Alice: Pairing code generated (expires in {}s)",
 			expires_in
 		);
 
@@ -178,7 +178,7 @@ async fn alice_persistence_scenario() {
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("🎉 Alice: Initial pairing completed!");
-				println!("✅ Alice: Connected {} devices", connected_devices.len());
+				println!("Alice: Connected {} devices", connected_devices.len());
 
 				// Verify devices are properly persisted
 				if let Some(networking) = core.networking() {
@@ -189,7 +189,7 @@ async fn alice_persistence_scenario() {
 						"No paired devices found in registry"
 					);
 					println!(
-						"✅ Alice: {} devices persisted to registry",
+						"Alice: {} devices persisted to registry",
 						paired_devices.len()
 					);
 				}
@@ -216,7 +216,7 @@ async fn alice_persistence_scenario() {
 		println!("🛑 Alice: Shutting down gracefully to ensure persistence...");
 		drop(core);
 		tokio::time::sleep(Duration::from_secs(2)).await;
-		println!("✅ Alice: Initial phase completed");
+		println!("Alice: Initial phase completed");
 	}
 }
 
@@ -248,7 +248,7 @@ async fn bob_persistence_scenario() {
 			.await
 			.unwrap()
 			.unwrap();
-		println!("✅ Bob: Core initialized successfully");
+		println!("Bob: Core initialized successfully");
 
 		// Device name should be persisted
 		let current_name = core.device.config().unwrap().name;
@@ -264,7 +264,7 @@ async fn bob_persistence_scenario() {
 
 		// Give time for auto-reconnection to happen - discovery takes time
 		tokio::time::sleep(Duration::from_secs(10)).await;
-		println!("✅ Bob: Networking initialized, checking for auto-reconnection...");
+		println!("Bob: Networking initialized, checking for auto-reconnection...");
 
 		// Check if Alice reconnected automatically
 		println!("⏳ Bob: Waiting for automatic reconnection to Alice...");
@@ -278,7 +278,7 @@ async fn bob_persistence_scenario() {
 			if !connected_devices.is_empty() {
 				println!("🎉 Bob: Auto-reconnection successful!");
 				println!(
-					"✅ Bob: Connected {} devices after restart",
+					"Bob: Connected {} devices after restart",
 					connected_devices.len()
 				);
 
@@ -303,7 +303,7 @@ async fn bob_persistence_scenario() {
 					"success",
 				)
 				.unwrap();
-				println!("✅ Bob: Device persistence test completed successfully");
+				println!("Bob: Device persistence test completed successfully");
 				break;
 			}
 
@@ -330,7 +330,7 @@ async fn bob_persistence_scenario() {
 			.await
 			.unwrap()
 			.unwrap();
-		println!("✅ Bob: Core initialized successfully");
+		println!("Bob: Core initialized successfully");
 
 		// Set device name
 		println!("🏷️ Bob: Setting device name...");
@@ -344,7 +344,7 @@ async fn bob_persistence_scenario() {
 			.unwrap();
 
 		tokio::time::sleep(Duration::from_secs(3)).await;
-		println!("✅ Bob: Networking initialized successfully");
+		println!("Bob: Networking initialized successfully");
 
 		// Wait for pairing code from Alice
 		println!("🔍 Bob: Looking for pairing code...");
@@ -383,7 +383,7 @@ async fn bob_persistence_scenario() {
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("🎉 Bob: Initial pairing completed!");
-				println!("✅ Bob: Connected {} devices", connected_devices.len());
+				println!("Bob: Connected {} devices", connected_devices.len());
 
 				// Verify devices are properly persisted
 				if let Some(networking) = core.networking() {
@@ -394,7 +394,7 @@ async fn bob_persistence_scenario() {
 						"No paired devices found in registry"
 					);
 					println!(
-						"✅ Bob: {} devices persisted to registry",
+						"Bob: {} devices persisted to registry",
 						paired_devices.len()
 					);
 				}
@@ -418,7 +418,7 @@ async fn bob_persistence_scenario() {
 		println!("🛑 Bob: Shutting down gracefully to ensure persistence...");
 		drop(core);
 		tokio::time::sleep(Duration::from_secs(2)).await;
-		println!("✅ Bob: Initial phase completed");
+		println!("Bob: Initial phase completed");
 	}
 }
 
@@ -478,7 +478,7 @@ async fn test_device_persistence() {
 		panic!("Initial pairing failed - cannot proceed with persistence test");
 	}
 
-	println!("✅ Phase 1 complete: Devices paired successfully");
+	println!("Phase 1 complete: Devices paired successfully");
 
 	// Wait a bit to ensure processes have fully shut down
 	tokio::time::sleep(Duration::from_secs(5)).await;
@@ -526,7 +526,7 @@ async fn test_device_persistence() {
 	match reconnection_result {
 		Ok(_) => {
 			println!("\\n🎉 Device persistence test successful!");
-			println!("✅ Devices automatically reconnected after restart");
+			println!("Devices automatically reconnected after restart");
 		}
 		Err(e) => {
 			println!("\\n❌ Device persistence test failed: {}", e);

@@ -36,3 +36,28 @@ impl JobInfoArgs {
     }
 }
 
+#[derive(Args, Debug, Clone)]
+pub struct JobMonitorArgs {
+    /// Monitor a specific job by ID
+    #[arg(long)]
+    pub job_id: Option<Uuid>,
+    
+    /// Filter by job status
+    #[arg(long)]
+    pub status: Option<String>,
+    
+    /// Refresh interval in seconds
+    #[arg(long, default_value = "1")]
+    pub refresh: u64,
+    
+    /// Use simple progress bars instead of TUI
+    #[arg(long)]
+    pub simple: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct JobControlArgs {
+    /// Job ID to control
+    pub job_id: Uuid,
+}
+

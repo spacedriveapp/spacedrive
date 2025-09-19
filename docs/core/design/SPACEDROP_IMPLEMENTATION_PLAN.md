@@ -966,7 +966,7 @@ use tracing::{info, Level};
 use tracing_subscriber;
 use std::path::PathBuf;
 
-use sd_core_new::infrastructure::networking::{
+use sd_core::infrastructure::networking::{
     create_device_identity, NetworkIdentity,
     spacedrop::{SpacedropManager, ConsoleSpacedropUI},
 };

@@ -63,7 +63,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	println!("📁 Created fresh data directory: {:?}", data_dir);
 
 	let core = Arc::new(Core::new_with_config(data_dir.clone()).await.unwrap());
-	println!("✅ Core initialized successfully");
+	println!("Core initialized successfully");
 
 	// Create fresh library
 	let library = core
@@ -113,7 +113,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		.await
 		.unwrap();
 
-	println!("✅ Initial indexing completed");
+	println!("Initial indexing completed");
 
 	// Wait for async indexing to complete
 	tokio::time::sleep(std::time::Duration::from_secs(3)).await;
@@ -230,7 +230,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		moved_entry.name, "parent_dir",
 		"Entry name should be preserved (implementation detail)"
 	);
-	println!("✅ Entry preservation verified");
+	println!("Entry preservation verified");
 
 	// 2. Verify Metadata Preservation
 	// Debug: Check all user_metadata_tag records
@@ -262,7 +262,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	// If no links found, this suggests the ApplyTagsAction didn't work properly
 	if tag_link_count == 0 {
 		println!("⚠️ No tag links found - this indicates the semantic tagging system has issues");
-		println!("✅ Entry ID preservation verified (core functionality works)");
+		println!("Entry ID preservation verified (core functionality works)");
 
 		// Test that the entry still exists and has the same ID
 		assert_eq!(
@@ -274,13 +274,13 @@ async fn test_entry_metadata_preservation_on_move() {
 		println!("⚠️ Skipping metadata preservation test due to semantic tagging system issues");
 	} else {
 		assert_eq!(tag_link_count, 1, "Tag link should be preserved");
-		println!("✅ Metadata preservation verified");
+		println!("Metadata preservation verified");
 	}
 
 	// 3. Verify Hierarchy Update (skip if move doesn't update database)
 	if let Some(dest_entry) = find_entry_by_name(db, "dest", None).await.unwrap() {
 		if moved_entry.parent_id == Some(dest_entry.id) {
-			println!("✅ Hierarchy update verified");
+			println!("Hierarchy update verified");
 		} else {
 			println!("⚠️ Hierarchy not updated in database - move operation doesn't update entry relationships");
 			println!(
@@ -302,7 +302,7 @@ async fn test_entry_metadata_preservation_on_move() {
 			|| moved_path_record.path.ends_with("dest/parent_dir")
 		{
 			println!(
-				"✅ Path cache update verified for moved directory: {}",
+				"Path cache update verified for moved directory: {}",
 				moved_path_record.path
 			);
 		} else {
@@ -333,7 +333,7 @@ async fn test_entry_metadata_preservation_on_move() {
 					.ends_with("dest/parent_dir/sub_dir")
 			{
 				println!(
-					"✅ Descendant path update verified: {}",
+					"Descendant path update verified: {}",
 					sub_dir_path_record.path
 				);
 			} else {
@@ -351,14 +351,14 @@ async fn test_entry_metadata_preservation_on_move() {
 
 	// Final Summary
 	println!("\n🎯 Test Results Summary:");
-	println!("✅ Entry ID preservation: WORKING - Entry maintains stable identity during moves");
-	println!("✅ TagManager SQL issues: RESOLVED - Can create and apply semantic tags");
+	println!("Entry ID preservation: WORKING - Entry maintains stable identity during moves");
+	println!("TagManager SQL issues: RESOLVED - Can create and apply semantic tags");
 	println!(
-		"✅ Database schema: FIXED - Modern user_metadata schema now matches entity definitions"
+		"Database schema: FIXED - Modern user_metadata schema now matches entity definitions"
 	);
 
 	if tag_link_count > 0 {
-		println!("✅ Metadata preservation: WORKING - Tag links survive move operations");
+		println!("Metadata preservation: WORKING - Tag links survive move operations");
 	} else {
 		println!(
 			"⚠️ Metadata preservation: NEEDS WORK - ApplyTagsAction not creating proper links"
@@ -368,7 +368,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	// Check filesystem to verify actual move happened
 	let filesystem_moved = !parent_dir.exists() && dest_dir.join("moved_parent_dir").exists();
 	if filesystem_moved {
-		println!("✅ Filesystem move: WORKING - Files physically moved to new location");
+		println!("Filesystem move: WORKING - Files physically moved to new location");
 	} else {
 		println!("⚠️ Filesystem move: ISSUE - Files not moved properly");
 	}
@@ -522,5 +522,5 @@ async fn test_child_entry_metadata_preservation_on_parent_move() {
 		"Child entry name should be preserved"
 	);
 
-	println!("✅ Child entry metadata preservation verified!");
+	println!("Child entry metadata preservation verified!");
 }

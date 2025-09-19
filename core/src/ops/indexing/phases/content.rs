@@ -72,7 +72,7 @@ pub async fn run_content_phase(
                 Ok(content_hash) => {
                     match EntryProcessor::link_to_content_identity(ctx, entry_id, &path, content_hash.clone(), library_id).await {
                         Ok(()) => {
-                            ctx.log(format!("✅ Created content identity for {}: {}", path.display(), content_hash));
+                            ctx.log(format!("Created content identity for {}: {}", path.display(), content_hash));
                             success_count += 1;
                         }
                         Err(e) => {

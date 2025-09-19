@@ -167,11 +167,11 @@ impl Core {
 		let volumes = Arc::new(VolumeManager::new(device_id, volume_config, events.clone()));
 
 		// Initialize volume detection
-		// info!("Initializing volume detection...");
-		// match volumes.initialize().await {
-		// 	Ok(()) => info!("Volume manager initialized"),
-		// 	Err(e) => error!("Failed to initialize volume manager: {}", e),
-		// }
+		info!("Initializing volume detection...");
+		match volumes.initialize().await {
+			Ok(()) => info!("Volume manager initialized"),
+			Err(e) => error!("Failed to initialize volume manager: {}", e),
+		}
 
 		// Initialize library key manager
 		let library_key_manager =
@@ -190,12 +190,15 @@ impl Core {
 			session_state.clone(),
 		);
 
-		// Set job logging configuration if enabled
-		let app_config = config.read().await;
-		if app_config.job_logging.enabled {
-			context_inner
-				.set_job_logging(app_config.job_logging.clone(), app_config.job_logs_dir());
+		// Enable per-job file logging by default
+		let mut app_config = config.write().await;
+		if !app_config.job_logging.enabled {
+			app_config.job_logging.enabled = true;
 		}
+		// Ensure directory exists and apply to context
+		let logs_dir = app_config.job_logs_dir();
+		let _ = std::fs::create_dir_all(&logs_dir);
+		context_inner.set_job_logging(app_config.job_logging.clone(), logs_dir);
 		drop(app_config);
 
 		// Create the shared context
@@ -264,7 +267,10 @@ impl Core {
 		));
 		context.set_action_manager(action_manager).await;
 
-		// 13. Emit startup event
+		// 13. Set up log event emitter
+		setup_log_event_emitter(events.clone());
+
+		// 14. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -570,4 +576,25 @@ impl Core {
 		info!("Spacedrive Core shutdown complete");
 		Ok(())
 	}
+}
+
+/// Set up log event emitter to forward tracing events to the event bus
+fn setup_log_event_emitter(event_bus: Arc<crate::infra::event::EventBus>) {
+    use crate::infra::event::log_emitter::LogEventLayer;
+	use std::sync::Once;
+	use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+	static SETUP: Once = Once::new();
+
+	SETUP.call_once(|| {
+        // Create the log event layer (now global bus is set elsewhere)
+        let log_layer = LogEventLayer::new();
+
+		// Try to add it to the existing global subscriber
+		// Since we can't modify an existing subscriber, we'll set up a new one
+		// This will only work if no subscriber has been set yet
+		let _ = tracing_subscriber::registry()
+			.with(log_layer)
+			.try_init();
+	});
 }

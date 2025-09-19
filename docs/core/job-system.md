@@ -9,7 +9,7 @@ The job system provides:
 - **Automatic job discovery** at compile time
 - **API-driven job dispatch** by name
 - **Automatic serialization** using MessagePack
-- **Database persistence** with resume capabilities  
+- **Database persistence** with resume capabilities
 - **Type-safe progress reporting**
 - **Graceful error handling** and recovery
 - **Checkpointing** for long-running operations
@@ -23,7 +23,7 @@ The job system provides:
                            │          └── stores ──→ deserialize_fn
                            │
                            └── reports ──→ Progress ──→ EventBus
-                                           
+
 JobManager ─── uses ──→ JobRegistry ─── dispatches ──→ ErasedJob
      │                       │                            │
      └── manages ──→ JobDatabase ─── stores ──→ JobRecord ─┘
@@ -37,7 +37,7 @@ JobManager ─── uses ──→ JobRegistry ─── dispatches ──→ E
 - Enables API-driven job execution by name
 - Global registry accessible via `REGISTRY` static
 
-**Derive Macro** *(NEW)*  
+**Derive Macro** *(NEW)*
 - Zero-boilerplate job registration using `#[derive(Job)]`
 - Generates `JobRegistration` and `ErasedJob` implementations
 - Automatic compile-time registration via `inventory::submit!`
@@ -52,7 +52,7 @@ JobManager ─── uses ──→ JobRegistry ─── dispatches ──→ E
 - Defines job metadata and behavior
 - Minimal trait requiring only constants
 
-**JobHandler Trait**  
+**JobHandler Trait**
 - Defines the actual job execution logic
 - Handles progress reporting and checkpointing
 
@@ -71,10 +71,10 @@ The `#[derive(Job)]` macro automatically generates:
 - `ErasedJob` trait implementation for type erasure
 - Serialization/deserialization functions
 
-### Runtime: Job Registry  
+### Runtime: Job Registry
 The `JobRegistry` collects all registrations and provides:
 - Job discovery by name (`job_names()`, `has_job()`)
-- Dynamic job creation (`create_job()`, `deserialize_job()`)  
+- Dynamic job creation (`create_job()`, `deserialize_job()`)
 - Schema introspection (`get_job_schema()`)
 
 ## Creating a Job
@@ -83,14 +83,14 @@ The `JobRegistry` collects all registrations and provides:
 
 ```rust
 use serde::{Deserialize, Serialize};
-use sd_core_new::infrastructure::jobs::prelude::*;
+use sd_core::infrastructure::jobs::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, Job)]  // ← Job derive macro
 pub struct FileCopyJob {
     pub sources: SdPathBatch,
     pub destination: SdPath,
     pub options: CopyOptions,
-    
+
     // Internal state for resumption
     #[serde(skip)]
     completed_indices: Vec<usize>,
@@ -117,7 +117,7 @@ impl JobHandler for FileCopyJob {
 
     async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
         ctx.log(format!(
-            "Starting copy operation on {} files", 
+            "Starting copy operation on {} files",
             self.sources.paths.len()
         ));
 
@@ -208,7 +208,7 @@ impl FileCopyJob {
             started_at: Instant::now(),
         }
     }
-    
+
     /// Create an empty job (used by derive macro)
     pub fn empty() -> Self {
         Self {
@@ -229,7 +229,7 @@ That's it! The derive macro handles all the registration automatically.
 The `JobRegistry` provides runtime access to all registered jobs:
 
 ```rust
-use sd_core_new::infrastructure::jobs::registry::REGISTRY;
+use sd_core::infrastructure::jobs::registry::REGISTRY;
 
 // Discover all job types
 let job_types = REGISTRY.job_names();
@@ -267,16 +267,16 @@ The `JobContext` provides essential capabilities during job execution:
 impl<'a> JobContext<'a> {
     /// Log a message associated with this job
     pub fn log(&self, message: String) { /* ... */ }
-    
+
     /// Report progress to subscribers
     pub fn progress(&self, progress: Progress) { /* ... */ }
-    
+
     /// Check if the job should be interrupted
     pub async fn check_interrupt(&self) -> JobResult<()> { /* ... */ }
-    
+
     /// Save current job state to database
     pub async fn checkpoint(&self) -> JobResult<()> { /* ... */ }
-    
+
     /// Get job-specific data directory
     pub fn data_dir(&self) -> &Path { /* ... */ }
 }
@@ -290,10 +290,10 @@ Multiple progress types are supported:
 pub enum Progress {
     /// Simple percentage (0.0 to 1.0)
     Percentage(f64),
-    
+
     /// Structured progress with custom data
     Structured(serde_json::Value),
-    
+
     /// Indeterminate progress
     Indeterminate,
 }
@@ -318,16 +318,16 @@ Comprehensive error types for different failure scenarios:
 pub enum JobError {
     #[error("Job execution failed: {0}")]
     ExecutionFailed(String),
-    
+
     #[error("Job was interrupted")]
     Interrupted,
-    
+
     #[error("Database error: {0}")]
     Database(#[from] sea_orm::DbErr),
-    
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] rmp_serde::encode::Error),
 }
@@ -348,20 +348,20 @@ pub enum JobOutput {
         copied_count: u64,
         total_bytes: u64,
     },
-    
+
     /// Indexing operation results
     Indexed {
         total_files: u64,
         total_dirs: u64,
         total_bytes: u64,
     },
-    
+
     /// Media processing results
     MediaProcessed {
         thumbnails_generated: u64,
         metadata_extracted: u64,
     },
-    
+
     /// Custom operation results
     Custom(serde_json::Value),
 }
@@ -372,7 +372,7 @@ pub enum JobOutput {
 ### Creating and Running Jobs
 
 ```rust
-use sd_core_new::infrastructure::jobs::manager::JobManager;
+use sd_core::infrastructure::jobs::manager::JobManager;
 
 // Initialize job manager
 let job_manager = JobManager::new(data_dir).await?;
@@ -383,7 +383,7 @@ let handle = job_manager.dispatch(copy_job).await?;
 
 // Method 2: API-driven dispatch by name
 let job_params = serde_json::json!({
-    "sources": ["/path/to/file1", "/path/to/file2"], 
+    "sources": ["/path/to/file1", "/path/to/file2"],
     "destination": "/path/to/dest"
 });
 let handle = job_manager.dispatch_by_name("file_copy", job_params).await?;
@@ -432,7 +432,7 @@ if let Some(job_info) = job_manager.get_job_info(job_id).await? {
 ```rust
 pub enum JobStatus {
     Queued,      // Waiting to be executed
-    Running,     // Currently executing  
+    Running,     // Currently executing
     Completed,   // Finished successfully
     Failed,      // Execution failed
     Cancelled,   // Cancelled by user
@@ -490,7 +490,7 @@ impl FileCopyJob {
 }
 ```
 
-### Indexer Job  
+### Indexer Job
 
 Scans directories and builds file metadata:
 
@@ -507,7 +507,7 @@ pub struct IndexerJob {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum IndexMode {
     Metadata,    // File metadata only
-    Content,     // Metadata + content hashes  
+    Content,     // Metadata + content hashes
     Deep,        // Full analysis + media data
 }
 ```
@@ -548,7 +548,7 @@ pub struct ResumableJob {
     // Persistent state (saved/restored)
     pub total_items: usize,
     pub processed_items: usize,
-    
+
     // Transient state (recreated on resume)
     #[serde(skip)]
     pub current_connection: Option<Connection>,
@@ -565,22 +565,22 @@ The job system includes comprehensive testing utilities:
 #[tokio::test]
 async fn test_job_serialization() {
     let job = FileCopyJob::new(sources, destination);
-    
+
     // Test serialization round-trip
     let serialized = rmp_serde::to_vec(&job).unwrap();
     let deserialized: FileCopyJob = rmp_serde::from_slice(&serialized).unwrap();
-    
+
     assert_eq!(job.sources.len(), deserialized.sources.len());
 }
 
 #[tokio::test]
 async fn test_job_database_operations() {
     let job_manager = JobManager::new(temp_dir).await.unwrap();
-    
+
     // Test job listing
     let jobs = job_manager.list_jobs(None).await.unwrap();
     assert!(jobs.is_empty());
-    
+
     // Test status filtering
     let running = job_manager.list_jobs(Some(JobStatus::Running)).await.unwrap();
     assert!(running.is_empty());
@@ -598,7 +598,7 @@ impl Core {
         let job = FileCopyJob::new(sources, dest);
         self.jobs.queue(job).await
     }
-    
+
     pub async fn index_location(&self, location_id: Uuid, mode: IndexMode) -> JobResult<JobId> {
         let location = self.libraries.get_location(location_id).await?;
         let job = IndexerJob::new(location.library_id, location.path.into(), mode);

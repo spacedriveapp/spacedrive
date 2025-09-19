@@ -9,7 +9,7 @@ use uuid::Uuid;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize logging
 	tracing_subscriber::fmt()
-		.with_env_filter("sd_core_new=debug")
+		.with_env_filter("sd_core=debug")
 		.init();
 
 	println!("=== Spacedrive Core Lifecycle Demo ===\n");
@@ -155,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	core.shutdown().await?;
 	println!("   ✓ Core shutdown complete");
 
-	println!("\n✅ Lifecycle demo completed!");
+	println!("\nLifecycle demo completed!");
 	println!("\n📁 Data stored at: {:?}", data_dir);
 	println!("   Run again to see library auto-loading in action!");
 

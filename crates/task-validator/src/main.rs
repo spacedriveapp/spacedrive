@@ -195,7 +195,7 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             has_errors = true;
                         } else {
-                            println!("✅ Validated: {}", file_path);
+                            println!("Validated: {}", file_path);
                         }
                     }
                     Err(e) => {
@@ -205,7 +205,7 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-    } 
+    }
 
     if has_errors {
         eprintln!("\nCommit aborted due to validation errors in task files.");

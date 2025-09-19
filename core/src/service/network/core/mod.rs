@@ -348,7 +348,7 @@ impl NetworkingService {
 						Ok(_conn) => {
 							logger
 								.info(&format!(
-									"✅ Successfully connected to device {}",
+									"Successfully connected to device {}",
 									device_id
 								))
 								.await;

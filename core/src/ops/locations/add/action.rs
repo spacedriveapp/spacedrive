@@ -122,6 +122,48 @@ impl LibraryAction for LocationAddAction {
 				message: "Path must be a directory".to_string(),
 			});
 		}
+
+		// Check for duplicate paths on the same device
+		let device_uuid = context
+			.device_manager
+			.device_id()
+			.map_err(ActionError::device_manager_error)?;
+
+		let db = library.db().conn();
+		let device_record = entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(device_uuid))
+			.one(db)
+			.await
+			.map_err(ActionError::SeaOrm)?
+			.ok_or_else(|| ActionError::DeviceNotFound(device_uuid))?;
+
+		// Check if this path already exists as a location on this device
+		let path_str = self.input.path.to_string_lossy().to_string();
+
+		// First, find any directory_paths entries with this path
+		let path_entries = entities::directory_paths::Entity::find()
+			.filter(entities::directory_paths::Column::Path.eq(&path_str))
+			.all(db)
+			.await
+			.map_err(ActionError::SeaOrm)?;
+
+		// For each path entry, check if it belongs to a location on this device
+		for path_entry in path_entries {
+			let existing_location = entities::location::Entity::find()
+				.filter(entities::location::Column::DeviceId.eq(device_record.id))
+				.filter(entities::location::Column::EntryId.eq(path_entry.entry_id))
+				.one(db)
+				.await
+				.map_err(ActionError::SeaOrm)?;
+
+			if existing_location.is_some() {
+				return Err(ActionError::Validation {
+					field: "path".to_string(),
+					message: format!("Location already exists for path: {}", path_str),
+				});
+			}
+		}
+
 		Ok(())
 	}
 }

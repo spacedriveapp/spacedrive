@@ -1116,6 +1116,32 @@ impl JobManager {
 		}
 	}
 
+	/// Cancel a running job
+	pub async fn cancel_job(&self, job_id: JobId) -> JobResult<()> {
+		let mut running_jobs = self.running_jobs.write().await;
+
+		if let Some(running_job) = running_jobs.get_mut(&job_id) {
+			// Check if job is in a cancellable state
+			let current_status = running_job.handle.status();
+			if current_status.is_terminal() {
+				return Err(JobError::invalid_state(&format!(
+					"Cannot cancel job in {:?} state",
+					current_status
+				)));
+			}
+
+			// Cancel the task - this will cause the executor to handle cancellation
+			if let Err(e) = running_job.task_handle.cancel().await {
+				warn!("Failed to send cancel signal to job {}: {}", job_id, e);
+			}
+
+			info!("Job {} cancellation requested", job_id);
+			Ok(())
+		} else {
+			Err(JobError::NotFound(format!("Job {} not found", job_id)))
+		}
+	}
+
 	/// Resume a paused job
 	pub async fn resume_job(&self, job_id: JobId) -> JobResult<()> {
 		// First check if job exists in running jobs

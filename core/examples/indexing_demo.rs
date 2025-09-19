@@ -27,7 +27,7 @@ use tokio::time::{sleep, Duration};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize logging with more detail
 	tracing_subscriber::fmt()
-		.with_env_filter("sd_core_new=debug,desktop_indexing_demo=info")
+		.with_env_filter("sd_core=debug,desktop_indexing_demo=info")
 		.init();
 
 	println!("🚀 === Spacedrive 2 Desktop Indexing Demo ===\n");
@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	let core = Core::new_with_config(data_dir.clone()).await?;
-	println!("   ✅ Core initialized with job logging");
+	println!("   Core initialized with job logging");
 	println!("   📱 Device ID: {}", core.device.device_id()?);
 	println!("   💾 Data directory: {:?}", data_dir);
 	println!(
@@ -73,12 +73,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			.libraries
 			.create_library("Desktop Demo Library", None, core.context.clone())
 			.await?;
-		println!("   ✅ Created library: {}", lib.name().await);
+		println!("   Created library: {}", lib.name().await);
 		lib
 	} else {
 		let libs = core.libraries.list().await;
 		let lib = libs.into_iter().next().unwrap();
-		println!("   ✅ Using existing library: {}", lib.name().await);
+		println!("   Using existing library: {}", lib.name().await);
 		lib
 	};
 	println!("   🆔 Library ID: {}", library.id());
@@ -100,14 +100,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.await?
 	{
 		Some(existing) => {
-			println!("   ✅ Device already registered");
+			println!("   Device already registered");
 			existing
 		}
 		None => {
 			println!("   📱 Registering device...");
 			let device_model: entities::device::ActiveModel = device.into();
 			let inserted = device_model.insert(db.conn()).await?;
-			println!("   ✅ Device registered with ID: {}", inserted.id);
+			println!("   Device registered with ID: {}", inserted.id);
 			inserted
 		}
 	};
@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	)
 	.await?;
 
-	println!("   ✅ Location created with DB ID: {}", location_db_id);
+	println!("   Location created with DB ID: {}", location_db_id);
 	println!("   🚀 Indexer job dispatched through production job manager!");
 
 	// Add to file watcher (optional - for real-time monitoring)
@@ -161,7 +161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					total_files,
 					total_dirs,
 				} => {
-					println!("   ✅ Indexing completed for location: {}", location_id);
+					println!("   Indexing completed for location: {}", location_id);
 					println!("      📄 Files indexed: {}", total_files);
 					println!("      📁 Directories indexed: {}", total_dirs);
 					break; // Exit the event loop when indexing is done
@@ -326,10 +326,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		// Check completion conditions
 		if running_jobs.is_empty() && !completed_jobs.is_empty() {
-			println!("   ✅ All jobs completed successfully!");
+			println!("   All jobs completed successfully!");
 			break;
 		} else if running_jobs.is_empty() && events_completed {
-			println!("   ✅ No running jobs and events indicate completion!");
+			println!("   No running jobs and events indicate completion!");
 			break;
 		} else if stall_time.elapsed() > stall_timeout {
 			println!(
@@ -443,7 +443,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	if filtered_correctly {
-		println!("      ✅ All sampled entries passed filtering validation!");
+		println!("      All sampled entries passed filtering validation!");
 	}
 
 	println!("\n   📝 Sample Indexed Entries:");
@@ -473,7 +473,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	println!("\n   💼 Job System Status:");
 	println!("      🔄 Running jobs: {}", running_jobs.len());
-	println!("      ✅ Completed jobs: {}", completed_jobs.len());
+	println!("      Completed jobs: {}", completed_jobs.len());
 
 	println!("\n   ✨ Production Indexer Features Demonstrated:");
 	println!("      🚫 Smart Filtering - Automatically skipped system/cache files");
@@ -490,10 +490,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// 6. Show volume integration
 	println!("\n6. 💾 Volume Management:");
-	println!("   🔍 Volume detection: ✅ Active");
-	println!("   📊 Volume tracking: ✅ Ready");
-	println!("   ⚡ Speed testing: ✅ Available");
-	println!("   🔄 Mount monitoring: ✅ Active");
+	println!("   🔍 Volume detection: Active");
+	println!("   📊 Volume tracking: Ready");
+	println!("   ⚡ Speed testing: Available");
+	println!("   🔄 Mount monitoring: Active");
 
 	// 7. Event system demo
 	println!("\n7. 📡 Event System:");
@@ -511,14 +511,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// 8. Production indexer achievements
 	println!("\n8. 🎯 Production Indexer Achievements:");
 	println!("   This demo showcased the new production indexer:");
-	println!("   ✅ Smart filtering skipped system files automatically");
-	println!("   ✅ Inode tracking enabled incremental indexing");
-	println!("   ✅ Multi-phase processing with detailed progress");
-	println!("   ✅ Performance metrics and batch optimization");
-	println!("   ✅ Path prefix deduplication for storage efficiency");
-	println!("   ✅ Content identity generation for deduplication");
-	println!("   ✅ Full resumability with checkpoint support");
-	println!("   ✅ Non-critical error collection and reporting");
+	println!("   Smart filtering skipped system files automatically");
+	println!("   Inode tracking enabled incremental indexing");
+	println!("   Multi-phase processing with detailed progress");
+	println!("   Performance metrics and batch optimization");
+	println!("   Path prefix deduplication for storage efficiency");
+	println!("   Content identity generation for deduplication");
+	println!("   Full resumability with checkpoint support");
+	println!("   Non-critical error collection and reporting");
 
 	// Show example of what would happen on re-index
 	println!("\n   🔄 Incremental Indexing Preview:");
@@ -534,7 +534,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	println!("\n   📋 Final Job Summary:");
 	println!("      🔄 Still running: {}", final_running.len());
-	println!("      ✅ Completed: {}", final_completed.len());
+	println!("      Completed: {}", final_completed.len());
 
 	if !final_running.is_empty() {
 		println!("   💡 Remaining jobs will continue in background");
@@ -592,7 +592,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n10. 🛑 Shutting down gracefully...");
 	core.shutdown().await?;
 
-	println!("\n✅ === Desktop Indexing Demo Complete! ===");
+	println!("\n=== Desktop Indexing Demo Complete! ===");
 	println!("🎉 Spacedrive 2 Production Job System Working!");
 	println!();
 	println!("📁 Demo data stored at: {:?}", data_dir);

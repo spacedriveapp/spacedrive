@@ -37,7 +37,7 @@ async fn alice_file_transfer_scenario() {
 	.await
 	.unwrap()
 	.unwrap();
-	println!("✅ Alice: Core initialized successfully");
+	println!("Alice: Core initialized successfully");
 
 	// Set device name
 	println!("🏷️ Alice: Setting device name for testing...");
@@ -52,7 +52,7 @@ async fn alice_file_transfer_scenario() {
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
-	println!("✅ Alice: Networking initialized successfully");
+	println!("Alice: Networking initialized successfully");
 
 	// Create a library for job dispatch (required for file transfers)
 	println!("📚 Alice: Creating library for file transfer jobs...");
@@ -61,7 +61,7 @@ async fn alice_file_transfer_scenario() {
 		.create_library("Alice Transfer Library", None, core.context.clone())
 		.await
 		.unwrap();
-	println!("✅ Alice: Library created successfully");
+	println!("Alice: Library created successfully");
 
 	// Start pairing as initiator
 	println!("🔑 Alice: Starting pairing as initiator for file transfer...");
@@ -83,7 +83,7 @@ async fn alice_file_transfer_scenario() {
 		.collect::<Vec<_>>()
 		.join(" ");
 	println!(
-		"✅ Alice: Pairing code generated: {}... (expires in {}s)",
+		"Alice: Pairing code generated: {}... (expires in {}s)",
 		short_code, expires_in
 	);
 
@@ -236,7 +236,7 @@ async fn alice_file_transfer_scenario() {
 
 	match transfer_results {
 		Ok(transfer_id) => {
-			println!("✅ Alice: File transfer initiated successfully!");
+			println!("Alice: File transfer initiated successfully!");
 			println!("📋 Alice: Transfer ID: {:?}", transfer_id);
 
 			// Wait for transfer to complete
@@ -256,7 +256,7 @@ async fn alice_file_transfer_scenario() {
 						match status.state {
 							TransferState::Completed => {
 								println!(
-									"✅ Alice: Transfer {:?} completed successfully",
+									"Alice: Transfer {:?} completed successfully",
 									transfer_id
 								);
 								completed = true;
@@ -290,7 +290,7 @@ async fn alice_file_transfer_scenario() {
 
 			if completed {
 				println!(
-					"✅ Alice: All transfers completed, now waiting for Bob's confirmation..."
+					"Alice: All transfers completed, now waiting for Bob's confirmation..."
 				);
 
 				// Wait for Bob to confirm receipt and verification
@@ -303,7 +303,7 @@ async fn alice_file_transfer_scenario() {
 					.map(|content| content.starts_with("received_and_verified:"))
 					.unwrap_or(false)
 					{
-						println!("✅ Alice: Bob confirmed file receipt and verification!");
+						println!("Alice: Bob confirmed file receipt and verification!");
 						bob_confirmed = true;
 						break;
 					}
@@ -369,7 +369,7 @@ async fn bob_file_transfer_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	println!("✅ Bob: Core initialized successfully");
+	println!("Bob: Core initialized successfully");
 
 	// Set device name
 	println!("🏷️ Bob: Setting device name for testing...");
@@ -384,7 +384,7 @@ async fn bob_file_transfer_scenario() {
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
-	println!("✅ Bob: Networking initialized successfully");
+	println!("Bob: Networking initialized successfully");
 
 	// Create a library for job dispatch (required for file transfers)
 	println!("📚 Bob: Creating library for file transfer jobs...");
@@ -393,7 +393,7 @@ async fn bob_file_transfer_scenario() {
 		.create_library("Bob Transfer Library", None, core.context.clone())
 		.await
 		.unwrap();
-	println!("✅ Bob: Library created successfully");
+	println!("Bob: Library created successfully");
 
 	// Wait for Alice to create pairing code
 	println!("🔍 Bob: Looking for pairing code from Alice...");
@@ -420,7 +420,7 @@ async fn bob_file_transfer_scenario() {
 	} else {
 		panic!("Networking not initialized");
 	}
-	println!("✅ Bob: Successfully joined pairing");
+	println!("Bob: Successfully joined pairing");
 
 	// Wait for pairing completion
 	println!("⏳ Bob: Waiting for pairing to complete...");
@@ -434,7 +434,7 @@ async fn bob_file_transfer_scenario() {
 		let connected_devices = core.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			println!("🎉 Bob: Pairing completed successfully!");
-			println!("✅ Bob: Connected {} devices", connected_devices.len());
+			println!("Bob: Connected {} devices", connected_devices.len());
 
 			// Debug: Show Bob's view of connected devices
 			let bob_devices = core.get_connected_devices_info().await.unwrap();
@@ -567,7 +567,7 @@ async fn bob_file_transfer_scenario() {
 
 	// Verify all expected files were received
 	if received_files.len() == expected_files.len() {
-		println!("✅ Bob: All expected files received successfully!");
+		println!("Bob: All expected files received successfully!");
 
 		// Verify file contents and checksums
 		let mut verification_success = true;
@@ -580,7 +580,7 @@ async fn bob_file_transfer_scenario() {
 						match ContentHashGenerator::generate_content_hash(&received_path).await {
 							Ok(checksum) => {
 								println!(
-									"✅ Bob: Verified: {} (size: {} bytes, checksum: {})",
+									"Bob: Verified: {} (size: {} bytes, checksum: {})",
 									expected_name,
 									metadata.len(),
 									checksum
@@ -591,7 +591,7 @@ async fn bob_file_transfer_scenario() {
 									"⚠️ Bob: Could not generate checksum for {}: {}",
 									expected_name, e
 								);
-								println!("✅ Bob: Verified: {} (size matches)", expected_name);
+								println!("Bob: Verified: {} (size matches)", expected_name);
 							}
 						}
 					} else {
@@ -632,7 +632,7 @@ async fn bob_file_transfer_scenario() {
 				format!("received_and_verified:{}", timestamp),
 			)
 			.unwrap();
-			println!("✅ Bob: Wrote confirmation signal for Alice");
+			println!("Bob: Wrote confirmation signal for Alice");
 		} else {
 			panic!("Bob: File verification failed");
 		}

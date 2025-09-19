@@ -14,7 +14,7 @@ use tokio::time::{sleep, Duration};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize logging
 	tracing_subscriber::fmt()
-		.with_env_filter("sd_core_new=debug")
+		.with_env_filter("sd_core=debug")
 		.init();
 
 	println!("🚀 Job Logging Test\n");
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		};
 
 		config.save()?;
-		println!("   ✅ Job logging enabled");
+		println!("   Job logging enabled");
 	}
 
 	let core = Core::new_with_config(data_dir.clone()).await?;
@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	} else {
 		core.libraries.list().await.into_iter().next().unwrap()
 	};
-	println!("   ✅ Library ready");
+	println!("   Library ready");
 
 	// 3. Create a small test location
 	println!("\n3. Creating test location...");
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	)
 	.await?;
 
-	println!("   ✅ Location created, job dispatched");
+	println!("   Location created, job dispatched");
 
 	// 4. Monitor for a short time
 	println!("\n4. Monitoring job progress...");
@@ -106,7 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 						}
 					}
 					Event::IndexingCompleted { .. } => {
-						println!("   ✅ Indexing completed!");
+						println!("   Indexing completed!");
 						break;
 					}
 					_ => {}
@@ -147,7 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		if count == 0 {
 			println!("   ⚠️  No job logs found");
 		} else {
-			println!("\n   ✅ Found {} job log file(s)", count);
+			println!("\n   Found {} job log file(s)", count);
 		}
 	}
 
@@ -155,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n6. Shutting down...");
 	core.shutdown().await?;
 
-	println!("\n✅ Test complete!");
+	println!("\nTest complete!");
 	println!("📁 Data: {:?}", data_dir);
 	println!("📝 Logs: {:?}", job_logs_dir);
 

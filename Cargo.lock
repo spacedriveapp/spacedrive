@@ -1269,9 +1269,22 @@ version = "7.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a65ebfec4fb190b6f90e944a817d60499ee0744e582530e2c9900a22e591d9a"
 dependencies = [
- "crossterm",
+ "crossterm 0.28.1",
  "unicode-segmentation",
  "unicode-width 0.2.0",
+]
+
+[[package]]
+name = "compact_str"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f86b9c4c00838774a6d902ef931eff7470720c51d90c2e32cfe15dc304737b3f"
+dependencies = [
+ "castaway",
+ "cfg-if",
+ "itoa 1.0.11",
+ "ryu",
+ "static_assertions",
 ]
 
 [[package]]
@@ -1492,6 +1505,22 @@ name = "crossbeam-utils"
 version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
+
+[[package]]
+name = "crossterm"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f476fe445d41c9e991fd07515a6f463074b782242ccf4a5b7b1d1012e70824df"
+dependencies = [
+ "bitflags 2.6.0",
+ "crossterm_winapi",
+ "libc",
+ "mio 0.8.11",
+ "parking_lot",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi",
+]
 
 [[package]]
 name = "crossterm"
@@ -7196,14 +7225,34 @@ dependencies = [
 
 [[package]]
 name = "ratatui"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f44c9e68fd46eda15c646fbb85e1040b657a58cdc8c98db1d97a55930d991eef"
+dependencies = [
+ "bitflags 2.6.0",
+ "cassowary",
+ "compact_str 0.7.1",
+ "crossterm 0.27.0",
+ "itertools 0.12.1",
+ "lru",
+ "paste",
+ "stability",
+ "strum 0.26.3",
+ "unicode-segmentation",
+ "unicode-truncate",
+ "unicode-width 0.1.14",
+]
+
+[[package]]
+name = "ratatui"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eabd94c2f37801c20583fc49dd5cd6b0ba68c716787c2dd6ed18571e1e63117b"
 dependencies = [
  "bitflags 2.6.0",
  "cassowary",
- "compact_str",
- "crossterm",
+ "compact_str 0.8.1",
+ "crossterm 0.28.1",
  "indoc",
  "instability",
  "itertools 0.13.0",
@@ -8009,6 +8058,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode 2.0.0-rc.3",
+ "chrono",
+ "clap",
+ "crossterm 0.27.0",
+ "indicatif",
+ "ratatui 0.26.3",
+ "sd-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "sd-core"
 version = "0.1.0"
 dependencies = [
@@ -8027,7 +8094,7 @@ dependencies = [
  "colored",
  "comfy-table",
  "console",
- "crossterm",
+ "crossterm 0.28.1",
  "dialoguer",
  "dirs",
  "ed25519-dalek",
@@ -8057,7 +8124,7 @@ dependencies = [
  "owo-colors",
  "pretty_assertions",
  "rand 0.8.5",
- "ratatui",
+ "ratatui 0.29.0",
  "rcgen 0.11.3",
  "regex",
  "ring 0.16.20",
@@ -8084,6 +8151,7 @@ dependencies = [
  "tokio-stream",
  "toml 0.8.2",
  "tracing",
+ "tracing-appender",
  "tracing-subscriber",
  "uuid",
  "vergen",
@@ -8745,6 +8813,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34db1a06d485c9142248b7a054f034b349b212551f3dfd19c94d45a754a217cd"
 dependencies = [
  "libc",
+ "mio 0.8.11",
  "mio 1.0.2",
  "signal-hook",
 ]
@@ -8924,21 +8993,6 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
-]
-
-[[package]]
-name = "spacedrive-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode 1.3.3",
- "chrono",
- "clap",
- "sd-core",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -9282,6 +9336,16 @@ dependencies = [
  "ssh-encoding",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "stability"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d904e7009df136af5297832a3ace3370cd14ff1546a232f4f185036c2736fcac"
+dependencies = [
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -10314,6 +10378,18 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-appender"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3566e8ce28cc0a3fe42519fc80e6b4c943cc4c8cef275620eb8dac2d3d4e06cf"
+dependencies = [
+ "crossbeam-channel",
+ "thiserror 1.0.64",
+ "time",
+ "tracing-subscriber",
 ]
 
 [[package]]

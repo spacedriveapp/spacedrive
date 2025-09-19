@@ -8,18 +8,30 @@ use std::path::PathBuf;
 
 /// Copy method preference for file operations
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum CopyMethod {
 	/// Automatically select the best method based on source and destination
 	Auto,
-	/// Use atomic move (rename) for same-volume operations
-	AtomicMove,
-	/// Use streaming copy for cross-volume operations
-	StreamingCopy,
+	/// Use atomic operations (rename for moves, APFS clone for copies, etc.)
+	Atomic,
+	/// Use streaming copy/move (works across all scenarios)
+	Streaming,
 }
 
 impl Default for CopyMethod {
 	fn default() -> Self {
 		CopyMethod::Auto
+	}
+}
+
+#[cfg(feature = "cli")]
+impl std::fmt::Display for CopyMethod {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			CopyMethod::Auto => write!(f, "auto"),
+			CopyMethod::Atomic => write!(f, "atomic"),
+			CopyMethod::Streaming => write!(f, "streaming"),
+		}
 	}
 }
 

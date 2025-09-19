@@ -51,8 +51,8 @@ pub struct TestProcess {
 
 ```rust
 // tests/device_pairing_test.rs
-use sd_core_new::test_framework_new::CargoTestRunner;
-use sd_core_new::Core;
+use sd_core::test_framework_new::CargoTestRunner;
+use sd_core::Core;
 use std::path::PathBuf;
 use std::env;
 
@@ -64,24 +64,24 @@ async fn alice_pairing_scenario() {
     if env::var("TEST_ROLE").unwrap_or_default() != "alice" {
         return;
     }
-    
+
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR not set"));
     let device_name = "Alice's Test Device";
-    
+
     println!("🟦 Alice: Starting Core pairing test");
-    
+
     // All Alice-specific test logic here - stays in the test file!
     let mut core = Core::new_with_config(data_dir).await.unwrap();
     core.device.set_name(device_name.to_string()).unwrap();
-    
+
     core.init_networking("test-password").await.unwrap();
-    
+
     let (pairing_code, _) = core.start_pairing_as_initiator().await.unwrap();
-    
+
     // Write pairing code for Bob to read
     std::fs::create_dir_all("/tmp/spacedrive-pairing-test-cargo").unwrap();
     std::fs::write("/tmp/spacedrive-pairing-test-cargo/pairing_code.txt", &pairing_code).unwrap();
-    
+
     // Wait for Bob to connect
     loop {
         let connected_devices = core.get_connected_devices().await.unwrap();
@@ -101,18 +101,18 @@ async fn bob_pairing_scenario() {
     if env::var("TEST_ROLE").unwrap_or_default() != "bob" {
         return;
     }
-    
+
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR not set"));
     let device_name = "Bob's Test Device";
-    
+
     println!("🟦 Bob: Starting Core pairing test");
-    
+
     // All Bob-specific test logic here - stays in the test file!
     let mut core = Core::new_with_config(data_dir).await.unwrap();
     core.device.set_name(device_name.to_string()).unwrap();
-    
+
     core.init_networking("test-password").await.unwrap();
-    
+
     // Wait for Alice's pairing code
     let pairing_code = loop {
         if let Ok(code) = std::fs::read_to_string("/tmp/spacedrive-pairing-test-cargo/pairing_code.txt") {
@@ -120,9 +120,9 @@ async fn bob_pairing_scenario() {
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
     };
-    
+
     core.start_pairing_as_joiner(&pairing_code).await.unwrap();
-    
+
     // Wait for connection
     loop {
         let connected_devices = core.get_connected_devices().await.unwrap();
@@ -138,12 +138,12 @@ async fn bob_pairing_scenario() {
 #[tokio::test]
 async fn test_device_pairing() {
     println!("🧪 Testing device pairing with cargo test subprocess framework");
-    
+
     let mut runner = CargoTestRunner::new()
         .with_timeout(Duration::from_secs(90))
         .add_subprocess("alice", "alice_pairing_scenario")
         .add_subprocess("bob", "bob_pairing_scenario");
-    
+
     runner.run_until_success(|outputs| {
         let alice_success = outputs.get("alice")
             .map(|out| out.contains("PAIRING_SUCCESS: Alice connected to Bob successfully"))
@@ -151,10 +151,10 @@ async fn test_device_pairing() {
         let bob_success = outputs.get("bob")
             .map(|out| out.contains("PAIRING_SUCCESS: Bob connected to Alice successfully"))
             .unwrap_or(false);
-        
+
         alice_success && bob_success
     }).await.expect("Pairing test failed");
-    
+
     println!("🎉 Device pairing test successful!");
 }
 ```
@@ -171,7 +171,7 @@ impl CargoTestRunner {
             global_timeout: Duration::from_secs(60),
         }
     }
-    
+
     pub fn add_subprocess(mut self, name: &str, test_function_name: &str) -> Self {
         let process = TestProcess {
             name: name.to_string(),
@@ -180,11 +180,11 @@ impl CargoTestRunner {
             child: None,
             output: String::new(),
         };
-        
+
         self.processes.push(process);
         self
     }
-    
+
     pub async fn run_until_success<C>(&mut self, condition: C) -> Result<(), String>
     where
         C: Fn(&HashMap<String, String>) -> bool
@@ -203,10 +203,10 @@ impl CargoTestRunner {
             .env("TEST_DATA_DIR", process.data_dir.path().to_str().unwrap())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-            
+
             process.child = Some(cmd.spawn()?);
         }
-        
+
         // Monitor until condition is met
         // ... rest of monitoring logic
     }
@@ -233,9 +233,9 @@ async fn alice_scenario() {
     if env::var("TEST_ROLE").unwrap_or_default() != "alice" {
         return; // Exit early - not running as Alice
     }
-    
+
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR required"));
-    
+
     // All Alice logic here - no external scenarios!
     // ...
 }
@@ -319,7 +319,7 @@ cmd.args(&[
 - Requires custom build infrastructure
 - Maintenance burden too high
 
-### B. Container-Based Isolation  
+### B. Container-Based Isolation
 - Use Docker for process isolation
 - Adds external dependencies
 - Overkill for current needs
@@ -332,7 +332,7 @@ cmd.args(&[
 ## Success Criteria
 
 1. ✅ Test logic remains in test files
-2. ✅ No pre-compilation of test binaries required  
+2. ✅ No pre-compilation of test binaries required
 3. ✅ Subprocess isolation maintained for networking tests
 4. ✅ Easy to add new test scenarios
 5. ✅ Good debugging experience
@@ -342,7 +342,7 @@ cmd.args(&[
 ## Timeline
 
 - **Day 1**: Implement CargoTestRunner framework
-- **Day 2**: Create proof of concept with pairing test  
+- **Day 2**: Create proof of concept with pairing test
 - **Day 3**: Test and refine the approach
 - **Future**: Gradually migrate existing tests to new framework
 

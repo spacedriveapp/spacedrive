@@ -122,7 +122,7 @@ async fn test_copy_progress_monitoring_large_file() {
 			preserve_timestamps: true, // --preserve-timestamps
 			delete_after_copy: false,
 			move_mode: None,
-			copy_method: CopyMethod::StreamingCopy, // --method streaming
+			copy_method: CopyMethod::Streaming, // --method streaming
 		},
 	};
 
@@ -353,7 +353,7 @@ async fn test_copy_progress_monitoring_large_file() {
 	let mb_per_second = (file_size_mb as f64) / total_time.as_secs_f64();
 	println!("\nCopy performance: {:.1} MB/s", mb_per_second);
 
-	println!("\n✅ Copy progress monitoring test passed!");
+	println!("\nCopy progress monitoring test passed!");
 	println!("   - Progress updated smoothly with byte-level granularity");
 	println!("   - No large progress jumps detected");
 	println!("   - File copied successfully with checksum verification");
@@ -418,7 +418,7 @@ async fn test_copy_progress_multiple_files() {
 			preserve_timestamps: true,
 			delete_after_copy: false,
 			move_mode: None,
-			copy_method: CopyMethod::StreamingCopy,
+			copy_method: CopyMethod::Streaming,
 		},
 	};
 
@@ -551,5 +551,5 @@ async fn test_copy_progress_multiple_files() {
 		max_increment
 	);
 
-	println!("\n✅ Multi-file progress monitoring test passed!");
+	println!("\nMulti-file progress monitoring test passed!");
 }

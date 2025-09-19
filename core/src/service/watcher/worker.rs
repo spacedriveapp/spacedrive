@@ -78,19 +78,22 @@ impl LocationWorker {
 			let queue_depth = self.receiver.len();
 			self.metrics.update_queue_depth(queue_depth);
 
-			if self.config.enable_focused_reindex 
-				&& queue_depth > self.config.max_queue_depth_before_reindex 
+			if self.config.enable_focused_reindex
+				&& queue_depth > self.config.max_queue_depth_before_reindex
 			{
 				warn!(
 					"Queue depth {} exceeds threshold {} for location {}, triggering focused re-index",
 					queue_depth, self.config.max_queue_depth_before_reindex, self.location_id
 				);
-				
+
 				// Trigger focused re-index for this location
 				if let Err(e) = self.trigger_focused_reindex().await {
-					error!("Failed to trigger focused re-index for location {}: {}", self.location_id, e);
+					error!(
+						"Failed to trigger focused re-index for location {}: {}",
+						self.location_id, e
+					);
 				}
-				
+
 				// Clear the current batch and continue with normal processing
 				batch.clear();
 				continue;
@@ -109,15 +112,20 @@ impl LocationWorker {
 
 			// Apply parent-first ordering
 			let ordered = self.parent_first_ordering(coalesced);
+			let batch_size = ordered.len();
 
 			// Process the batch
 			if let Err(e) = self.process_batch(ordered).await {
-				error!("Failed to process batch for location {}: {}", self.location_id, e);
+				error!(
+					"Failed to process batch for location {}: {}",
+					self.location_id, e
+				);
 			}
 
 			// Record batch metrics
 			let batch_duration = batch_start.elapsed();
-			self.metrics.record_batch_processed(ordered.len(), batch_duration);
+			self.metrics
+				.record_batch_processed(batch_size, batch_duration);
 		}
 
 		info!("Location worker for location {} stopped", self.location_id);
@@ -187,7 +195,10 @@ impl LocationWorker {
 				crate::service::watcher::event_handler::WatcherEventKind::Remove => {
 					removes += 1;
 				}
-				crate::service::watcher::event_handler::WatcherEventKind::Rename { ref from, ref to } => {
+				crate::service::watcher::event_handler::WatcherEventKind::Rename {
+					ref from,
+					ref to,
+				} => {
 					renames.push((from.clone(), to.clone()));
 				}
 				_ => {} // Ignore other event types
@@ -207,8 +218,9 @@ impl LocationWorker {
 		}
 
 		// Collapse rename chains A→B, B→C → A→C
+		let renames_count = renames.len();
 		let final_rename = self.collapse_rename_chain(renames)?;
-		if renames.len() > 1 && final_rename.is_some() {
+		if renames_count > 1 && final_rename.is_some() {
 			self.metrics.record_rename_chain_collapsed();
 		}
 
@@ -247,7 +259,10 @@ impl LocationWorker {
 	}
 
 	/// Collapse rename chains A→B, B→C → A→C
-	fn collapse_rename_chain(&self, mut renames: Vec<(PathBuf, PathBuf)>) -> Result<Option<(PathBuf, PathBuf)>> {
+	fn collapse_rename_chain(
+		&self,
+		renames: Vec<(PathBuf, PathBuf)>,
+	) -> Result<Option<(PathBuf, PathBuf)>> {
 		if renames.is_empty() {
 			return Ok(None);
 		}
@@ -276,7 +291,7 @@ impl LocationWorker {
 		}
 
 		// Return the first (and should be only) chain
-		final_chain.into_iter().next()
+		Ok(final_chain.into_iter().next())
 	}
 
 	/// Apply parent-first ordering to events
@@ -295,7 +310,10 @@ impl LocationWorker {
 			} else {
 				// Rename events might not have a primary path, check both from and to
 				match &event.kind {
-					crate::service::watcher::event_handler::WatcherEventKind::Rename { from, to } => {
+					crate::service::watcher::event_handler::WatcherEventKind::Rename {
+						from,
+						to,
+					} => {
 						if from.is_dir() || to.is_dir() {
 							dir_events.push(event);
 						} else {
@@ -375,9 +393,12 @@ impl LocationWorker {
 	}
 
 	/// Trigger a focused re-index for this location when queue overflow is detected
-	async fn trigger_focused_reindex(&self) -> Result<()> {
-		info!("Triggering focused re-index for location {}", self.location_id);
-		
+	async fn trigger_focused_reindex(&mut self) -> Result<()> {
+		info!(
+			"Triggering focused re-index for location {}",
+			self.location_id
+		);
+
 		// Emit a custom event to trigger focused re-indexing
 		// This would typically be handled by a job system or indexing service
 		let reindex_event = Event::Custom {
@@ -392,22 +413,22 @@ impl LocationWorker {
 					.as_secs()
 			}),
 		};
-		
+
 		self.events.emit(reindex_event);
-		
+
 		// Clear any remaining events in the queue to prevent further overflow
 		let mut cleared_count = 0;
 		while self.receiver.try_recv().is_ok() {
 			cleared_count += 1;
 		}
-		
+
 		if cleared_count > 0 {
 			info!(
 				"Cleared {} events from queue for location {} during focused re-index",
 				cleared_count, self.location_id
 			);
 		}
-		
+
 		Ok(())
 	}
 }
@@ -428,6 +449,7 @@ mod tests {
 			context: Arc::new(create_mock_context()),
 			events: Arc::new(EventBus::default()),
 			config,
+			metrics: Arc::new(LocationWorkerMetrics::new()),
 		};
 
 		let events = vec![
@@ -458,6 +480,7 @@ mod tests {
 			receiver: mpsc::channel(10).1,
 			context: Arc::new(create_mock_context()),
 			events: Arc::new(EventBus::default()),
+			metrics: Arc::new(LocationWorkerMetrics::new()),
 			config,
 		};
 
@@ -467,11 +490,15 @@ mod tests {
 		];
 
 		let result = worker.collapse_rename_chain(renames).unwrap();
-		assert_eq!(result, Some((PathBuf::from("/test/A"), PathBuf::from("/test/C"))));
+		assert_eq!(
+			result,
+			Some((PathBuf::from("/test/A"), PathBuf::from("/test/C")))
+		);
 	}
 
 	fn create_mock_context() -> CoreContext {
-		// This would need to be implemented based on your CoreContext structure
-		todo!("Implement mock CoreContext for tests")
+		// This is a placeholder implementation for tests
+		// In a real implementation, this would create a proper CoreContext with mocked dependencies
+		unimplemented!("Mock CoreContext not yet implemented for tests")
 	}
 }

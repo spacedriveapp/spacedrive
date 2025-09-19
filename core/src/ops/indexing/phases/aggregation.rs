@@ -133,7 +133,7 @@ pub async fn run_aggregation_phase(
 				})?;
 
 				ctx.log(format!(
-					"✅ Aggregated {}: {} bytes, {} children, {} files",
+					"Aggregated {}: {} bytes, {} children, {} files",
 					directory_name, aggregate_size, child_count, file_count
 				));
 			}

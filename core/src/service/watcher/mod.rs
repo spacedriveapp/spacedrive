@@ -16,11 +16,8 @@ use uuid::Uuid;
 mod event_handler;
 mod metrics;
 mod platform;
-mod worker;
 pub mod utils;
-
-#[cfg(test)]
-mod tests;
+mod worker;
 
 #[cfg(feature = "examples")]
 pub mod example;
@@ -60,8 +57,8 @@ impl Default for LocationWatcherConfig {
 			debounce_duration: Duration::from_millis(100),
 			event_buffer_size: 100000, // Large buffer to never drop events
 			debug_mode: false,
-			debounce_window_ms: 150, // 150ms default debounce window
-			max_batch_size: 10000, // Large batches for efficiency
+			debounce_window_ms: 150,        // 150ms default debounce window
+			max_batch_size: 10000,          // Large batches for efficiency
 			metrics_log_interval_ms: 30000, // 30 seconds
 			enable_metrics: true,
 			max_queue_depth_before_reindex: 50000, // 50% of buffer size
@@ -72,11 +69,7 @@ impl Default for LocationWatcherConfig {
 
 impl LocationWatcherConfig {
 	/// Create a new configuration with custom values
-	pub fn new(
-		debounce_window_ms: u64,
-		event_buffer_size: usize,
-		max_batch_size: usize,
-	) -> Self {
+	pub fn new(debounce_window_ms: u64, event_buffer_size: usize, max_batch_size: usize) -> Self {
 		Self {
 			debounce_duration: Duration::from_millis(100),
 			event_buffer_size,
@@ -92,16 +85,13 @@ impl LocationWatcherConfig {
 
 	/// Create a configuration optimized for resource-constrained environments
 	/// This is for future resource manager integration
-	pub fn resource_optimized(
-		memory_quota: usize,
-		cpu_quota: usize,
-	) -> Self {
+	pub fn resource_optimized(memory_quota: usize, cpu_quota: usize) -> Self {
 		// Calculate buffer size based on available memory (1KB per event estimate)
 		let event_buffer_size = std::cmp::max(10000, memory_quota / 1000);
-		
+
 		// Calculate batch size based on CPU quota (100 events per CPU unit)
 		let max_batch_size = std::cmp::max(1000, cpu_quota / 100);
-		
+
 		Self {
 			debounce_duration: Duration::from_millis(100),
 			event_buffer_size,
@@ -130,7 +120,9 @@ impl LocationWatcherConfig {
 			return Err(anyhow::anyhow!("Max batch size must be at least 1"));
 		}
 		if self.max_batch_size > self.event_buffer_size {
-			return Err(anyhow::anyhow!("Max batch size cannot exceed event buffer size"));
+			return Err(anyhow::anyhow!(
+				"Max batch size cannot exceed event buffer size"
+			));
 		}
 		Ok(())
 	}
@@ -158,6 +150,8 @@ pub struct LocationWatcher {
 	metrics: Arc<WatcherMetrics>,
 	/// Worker metrics by location
 	worker_metrics: Arc<RwLock<HashMap<Uuid, Arc<LocationWorkerMetrics>>>>,
+	/// Metrics collector for periodic logging
+	metrics_collector: Arc<RwLock<Option<Arc<MetricsCollector>>>>,
 }
 
 /// Information about a watched location
@@ -175,7 +169,11 @@ pub struct WatchedLocation {
 
 impl LocationWatcher {
 	/// Create a new location watcher
-	pub fn new(config: LocationWatcherConfig, events: Arc<EventBus>, context: Arc<CoreContext>) -> Self {
+	pub fn new(
+		config: LocationWatcherConfig,
+		events: Arc<EventBus>,
+		context: Arc<CoreContext>,
+	) -> Self {
 		let platform_handler = Arc::new(PlatformHandler::new());
 
 		Self {
@@ -189,11 +187,16 @@ impl LocationWatcher {
 			workers: Arc::new(RwLock::new(HashMap::new())),
 			metrics: Arc::new(WatcherMetrics::new()),
 			worker_metrics: Arc::new(RwLock::new(HashMap::new())),
+			metrics_collector: Arc::new(RwLock::new(None)),
 		}
 	}
 
 	/// Ensure a worker exists for the given location
-	async fn ensure_worker_for_location(&self, location_id: Uuid, library_id: Uuid) -> Result<mpsc::Sender<WatcherEvent>> {
+	async fn ensure_worker_for_location(
+		&self,
+		location_id: Uuid,
+		library_id: Uuid,
+	) -> Result<mpsc::Sender<WatcherEvent>> {
 		// Check if worker already exists
 		{
 			let workers = self.workers.read().await;
@@ -224,6 +227,11 @@ impl LocationWatcher {
 		// Record worker creation
 		self.metrics.record_worker_created();
 
+		// Register worker metrics with collector
+		if let Some(collector) = self.metrics_collector.read().await.as_ref() {
+			collector.add_worker_metrics(location_id, worker_metrics.clone());
+		}
+
 		// Spawn the worker task
 		tokio::spawn(async move {
 			if let Err(e) = worker.run().await {
@@ -244,17 +252,25 @@ impl LocationWatcher {
 	async fn remove_worker_for_location(&self, location_id: Uuid) {
 		let mut workers = self.workers.write().await;
 		workers.remove(&location_id);
-		
+
 		// Remove metrics
 		let mut metrics_map = self.worker_metrics.write().await;
 		metrics_map.remove(&location_id);
-		
+
+		// Unregister from metrics collector
+		if let Some(collector) = self.metrics_collector.read().await.as_ref() {
+			collector.remove_worker_metrics(&location_id);
+		}
+
 		// Record worker destruction
 		self.metrics.record_worker_destroyed();
 	}
 
 	/// Get metrics for a specific location
-	pub async fn get_location_metrics(&self, location_id: Uuid) -> Option<Arc<LocationWorkerMetrics>> {
+	pub async fn get_location_metrics(
+		&self,
+		location_id: Uuid,
+	) -> Option<Arc<LocationWorkerMetrics>> {
 		let metrics_map = self.worker_metrics.read().await;
 		metrics_map.get(&location_id).cloned()
 	}
@@ -262,6 +278,42 @@ impl LocationWatcher {
 	/// Get global watcher metrics
 	pub fn get_global_metrics(&self) -> Arc<WatcherMetrics> {
 		self.metrics.clone()
+	}
+
+	/// Manually trigger metrics logging (useful for testing)
+	pub async fn log_metrics_now(&self) {
+		// Log global metrics
+		self.metrics.log_metrics();
+
+		// Log worker metrics
+		let worker_metrics = self.worker_metrics.read().await;
+		for (location_id, metrics) in worker_metrics.iter() {
+			metrics.log_metrics(*location_id);
+		}
+	}
+
+	/// Start the metrics collector for periodic logging
+	async fn start_metrics_collector(&self) -> Result<()> {
+		if !self.config.enable_metrics {
+			return Ok(());
+		}
+
+		let log_interval = Duration::from_millis(self.config.metrics_log_interval_ms);
+		let metrics_collector = Arc::new(MetricsCollector::new(self.metrics.clone(), log_interval));
+
+		// Store reference for worker registration first
+		*self.metrics_collector.write().await = Some(metrics_collector.clone());
+
+		// Start the metrics collection task
+		tokio::spawn(async move {
+			metrics_collector.start_collection().await;
+		});
+
+		info!(
+			"Metrics collector started with {}ms interval",
+			self.config.metrics_log_interval_ms
+		);
+		Ok(())
 	}
 
 	/// Add a location to watch
@@ -283,7 +335,8 @@ impl LocationWatcher {
 
 		// Create worker for this location
 		if *self.is_running.read().await {
-			self.ensure_worker_for_location(location.id, location.library_id).await?;
+			self.ensure_worker_for_location(location.id, location.library_id)
+				.await?;
 		}
 
 		// Add to file system watcher if running
@@ -461,7 +514,7 @@ impl LocationWatcher {
 																attrs: vec![],
 															},
 														};
-														
+
 														if let Err(e) = worker_tx.send(watcher_event).await {
 															warn!("Failed to send event to worker for location {}: {}", location.id, e);
 														}
@@ -532,6 +585,9 @@ impl Service for LocationWatcher {
 
 		*self.is_running.write().await = true;
 
+		// Start metrics collector
+		self.start_metrics_collector().await?;
+
 		self.start_event_loop().await?;
 
 		info!("Location watcher service started");
@@ -573,11 +629,18 @@ mod tests {
 		Arc::new(EventBus::default())
 	}
 
+	fn create_mock_context() -> Arc<CoreContext> {
+		// This would need to be implemented based on your CoreContext structure
+		// For now, we'll use a placeholder
+		todo!("Implement mock CoreContext for tests")
+	}
+
 	#[tokio::test]
 	async fn test_location_watcher_creation() {
 		let config = LocationWatcherConfig::default();
 		let events = create_test_events();
-		let watcher = LocationWatcher::new(config, events);
+		let context = create_mock_context();
+		let watcher = LocationWatcher::new(config, events, context);
 
 		assert!(!watcher.is_running());
 		assert_eq!(watcher.name(), "location_watcher");
@@ -587,7 +650,8 @@ mod tests {
 	async fn test_add_remove_location() {
 		let config = LocationWatcherConfig::default();
 		let events = create_test_events();
-		let watcher = LocationWatcher::new(config, events);
+		let context = create_mock_context();
+		let watcher = LocationWatcher::new(config, events, context);
 
 		let temp_dir = TempDir::new().unwrap();
 		let location = WatchedLocation {

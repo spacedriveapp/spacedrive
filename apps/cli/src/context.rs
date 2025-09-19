@@ -7,6 +7,7 @@ pub enum OutputFormat {
 	Json,
 }
 
+#[derive(Clone)]
 pub struct Context {
 	pub core: CoreClient,
 	pub format: OutputFormat,

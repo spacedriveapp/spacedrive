@@ -1,5 +1,7 @@
 //! Event bus for decoupled communication
 
+pub mod log_emitter;
+
 use crate::infra::job::output::JobOutput;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -178,6 +180,16 @@ pub enum Event {
 	FilesModified {
 		library_id: Uuid,
 		paths: Vec<PathBuf>,
+	},
+
+	// Log events
+	LogMessage {
+		timestamp: chrono::DateTime<chrono::Utc>,
+		level: String,
+		target: String,
+		message: String,
+		job_id: Option<String>,
+		library_id: Option<Uuid>,
 	},
 
 	// Custom events for extensibility

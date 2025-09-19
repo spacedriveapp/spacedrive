@@ -111,7 +111,7 @@ sequenceDiagram
     participant Alice
     participant Network
     participant Bob
-    
+
     Alice->>Alice: Calculate file checksum
     Alice->>Network: TransferRequest{id, metadata, chunks}
     Network->>Bob: Route message
@@ -127,7 +127,7 @@ sequenceDiagram
     participant Alice
     participant Network
     participant Bob
-    
+
     loop For each 64KB chunk
         Alice->>Alice: Read chunk + calculate checksum
         Alice->>Network: FileChunk{index, data, checksum}
@@ -136,7 +136,7 @@ sequenceDiagram
         Bob->>Network: ChunkAck{index, next_expected}
         Network->>Alice: Confirm receipt
     end
-    
+
     Alice->>Network: TransferComplete{final_checksum}
     Network->>Bob: Transfer completion
     Bob->>Bob: Verify final file integrity
@@ -273,7 +273,7 @@ Enable detailed logging:
 ```rust
 // In development, transfers log detailed progress
 // Production logs can be configured via environment variables
-RUST_LOG=sd_core_new::operations::file_ops=debug
+RUST_LOG=sd_core::operations::file_ops=debug
 ```
 
 ## Conclusion

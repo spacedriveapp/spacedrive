@@ -1,9 +1,12 @@
 use std::path::PathBuf;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncBufReadExt, BufReader};
 use tokio::net::UnixStream;
+use tokio::sync::mpsc;
 
 use crate::infra::daemon::types::{DaemonRequest, DaemonResponse};
+use crate::infra::event::Event;
 
+#[derive(Clone)]
 pub struct DaemonClient {
 	socket_path: PathBuf,
 }
@@ -48,5 +51,67 @@ impl DaemonClient {
 			.map_err(|e| format!("Failed to deserialize daemon response: {}", e))?;
 
 		Ok(response)
+	}
+
+	/// Start a streaming connection for real-time events
+	pub async fn stream(
+		&self,
+		request: &DaemonRequest,
+		event_tx: mpsc::UnboundedSender<Event>,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+		let mut stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
+			format!(
+				"Failed to connect to daemon socket at {}: {}",
+				self.socket_path.display(),
+				e
+			)
+		})?;
+
+		// Send subscription request
+		let payload = serde_json::to_string(request)
+			.map_err(|e| format!("Failed to serialize request: {}", e))?;
+
+		stream
+			.write_all((payload + "\n").as_bytes())
+			.await
+			.map_err(|e| format!("Failed to send request to daemon: {}", e))?;
+
+		// Split stream for reading responses
+		let (reader, _writer) = stream.into_split();
+		let mut buf_reader = BufReader::new(reader);
+		let mut line = String::new();
+
+		// Read streaming responses
+		loop {
+			line.clear();
+			match buf_reader.read_line(&mut line).await {
+				Ok(0) => break, // EOF
+				Ok(_) => {
+					if let Ok(response) = serde_json::from_str::<DaemonResponse>(&line.trim()) {
+						match response {
+							DaemonResponse::Event(event) => {
+								if event_tx.send(event).is_err() {
+									break; // Receiver dropped
+								}
+							}
+							DaemonResponse::Subscribed => {
+								// Subscription confirmed, continue listening
+							}
+							DaemonResponse::Error(e) => {
+								eprintln!("Daemon error: {}", e);
+								break;
+							}
+							_ => {
+								// Unexpected response type
+								break;
+							}
+						}
+					}
+				}
+				Err(_) => break, // Connection error
+			}
+		}
+
+		Ok(())
 	}
 }

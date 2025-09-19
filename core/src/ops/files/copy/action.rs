@@ -18,6 +18,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyAction {
@@ -102,6 +103,8 @@ impl FileCopyActionBuilder {
 
 	/// Validate sources exist and are readable
 	fn validate_sources(&mut self) {
+		// Normalize any nil-device local paths to the current device before validation
+		self.normalize_local_device_ids();
 		// First do basic validation from input
 		if let Err(basic_errors) = self.input.validate() {
 			self.errors.extend(basic_errors);
@@ -129,6 +132,8 @@ impl FileCopyActionBuilder {
 
 	/// Validate destination is valid
 	fn validate_destination(&mut self) {
+		// Ensure destination device id is normalized for local paths
+		self.normalize_local_device_ids();
 		if let Some(dest_path) = self.input.destination.as_local_path() {
 			if let Some(parent) = dest_path.parent() {
 				if !parent.exists() {
@@ -140,6 +145,25 @@ impl FileCopyActionBuilder {
 			}
 		}
 	}
+
+	/// Replace nil device IDs on Physical paths with the daemon's current device ID
+	fn normalize_local_device_ids(&mut self) {
+		let current = crate::device::get_current_device_id();
+		// Sources
+		for path in &mut self.input.sources.paths {
+			if let crate::domain::addressing::SdPath::Physical { device_id, .. } = path {
+				if device_id.is_nil() {
+					*device_id = current;
+				}
+			}
+		}
+		// Destination
+		if let crate::domain::addressing::SdPath::Physical { device_id, .. } = &mut self.input.destination {
+			if device_id.is_nil() {
+				*device_id = current;
+			}
+		}
+	}
 }
 
 impl ActionBuilder for FileCopyActionBuilder {
@@ -148,6 +172,7 @@ impl ActionBuilder for FileCopyActionBuilder {
 
 	fn validate(&self) -> Result<(), Self::Error> {
 		let mut builder = self.clone();
+		builder.normalize_local_device_ids();
 		builder.validate_sources();
 		builder.validate_destination();
 
@@ -161,11 +186,14 @@ impl ActionBuilder for FileCopyActionBuilder {
 	fn build(self) -> Result<Self::Action, Self::Error> {
 		self.validate()?;
 
-		let options = self.input.to_copy_options();
+		let mut this = self;
+		this.normalize_local_device_ids();
+
+		let options = this.input.to_copy_options();
 
 		Ok(FileCopyAction {
-			sources: self.input.sources,
-			destination: self.input.destination,
+			sources: this.input.sources,
+			destination: this.input.destination,
 			options,
 		})
 	}

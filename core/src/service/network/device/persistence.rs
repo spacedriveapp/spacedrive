@@ -550,6 +550,6 @@ mod tests {
 		assert!(raw_content.contains("\"salt\""));
 		assert!(raw_content.contains("\"version\": 1"));
 
-		println!("✅ Device data is properly encrypted on disk");
+		println!("Device data is properly encrypted on disk");
 	}
 }
