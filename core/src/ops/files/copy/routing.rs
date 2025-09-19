@@ -53,25 +53,32 @@ impl CopyStrategyRouter {
 						}
 					};
 
-				// Check if paths are on the same volume
-				let same_volume = if let Some(vm) = volume_manager {
-					vm.same_volume(source_path, dest_path).await
+				// Check if paths are on the same physical storage (filesystem-aware)
+				let same_storage = if let Some(vm) = volume_manager {
+					vm.same_physical_storage(source_path, dest_path).await
 				} else {
-					// Fallback: if no volume manager, assume same-device local paths are same-volume
-					Self::paths_likely_same_volume(source_path, dest_path)
+					// Fallback: if no volume manager, assume same-device local paths are different storage
+					// This is safer than assuming same storage
+					false
 				};
 
-				if same_volume {
-					// Same volume
+				if same_storage {
+					// Same physical storage - use filesystem-specific strategy
 					if is_move {
-						// Use atomic move for same-volume moves
+						// Use atomic move for same-storage moves
 						return Box::new(LocalMoveStrategy);
 					} else {
-						// Same-volume copy - use fast copy strategy (std::fs::copy handles optimizations)
+						// Same-storage copy - get filesystem-specific strategy
+						if let Some(vm) = volume_manager {
+							if let Some(volume) = vm.volume_for_path(source_path).await {
+								return crate::volume::fs::get_copy_strategy(&volume.file_system);
+							}
+						}
+						// Fallback to fast copy strategy
 						return Box::new(FastCopyStrategy);
 					}
 				} else {
-					// Cross-volume operation - use streaming copy
+					// Cross-storage operation - use streaming copy
 					return Box::new(LocalStreamCopyStrategy);
 				}
 
@@ -79,53 +86,6 @@ impl CopyStrategyRouter {
 				Box::new(LocalStreamCopyStrategy)
 			}
 		}
-	}
-
-	/// Heuristic to determine if two local paths are likely on the same volume
-	/// Used as fallback when VolumeManager is unavailable or incomplete
-	fn paths_likely_same_volume(path1: &std::path::Path, path2: &std::path::Path) -> bool {
-		// On macOS, paths under the same root are typically same volume
-		#[cfg(target_os = "macos")]
-		{
-			// Both under /Users, /Applications, /System, etc. are likely same volume
-			let common_roots = ["/Users", "/Applications", "/System", "/Library", "/private"];
-			for root in &common_roots {
-				if path1.starts_with(root) && path2.starts_with(root) {
-					return true;
-				}
-			}
-			// Both directly under / (like /tmp, /var) are likely same volume
-			if path1.parent() == Some(std::path::Path::new("/"))
-				&& path2.parent() == Some(std::path::Path::new("/"))
-			{
-				return true;
-			}
-		}
-
-		// On Linux, similar heuristics
-		#[cfg(target_os = "linux")]
-		{
-			let common_roots = ["/home", "/usr", "/var", "/opt", "/tmp"];
-			for root in &common_roots {
-				if path1.starts_with(root) && path2.starts_with(root) {
-					return true;
-				}
-			}
-		}
-
-		// On Windows, same drive letter
-		#[cfg(target_os = "windows")]
-		{
-			if let (Some(s1), Some(s2)) = (path1.to_str(), path2.to_str()) {
-				if s1.len() >= 2 && s2.len() >= 2 {
-					return s1.chars().nth(0) == s2.chars().nth(0)
-						&& s1.chars().nth(1) == Some(':')
-						&& s2.chars().nth(1) == Some(':');
-				}
-			}
-		}
-
-		false
 	}
 
 	/// Provides a human-readable description of the selected strategy
@@ -176,25 +136,44 @@ impl CopyStrategyRouter {
 						}
 					};
 
-				// Check if paths are on the same volume (same logic as select_strategy)
-				let same_volume = if let Some(vm) = volume_manager {
-					vm.same_volume(source_path, dest_path).await
+				// Check if paths are on the same physical storage (same logic as select_strategy)
+				let same_storage = if let Some(vm) = volume_manager {
+					vm.same_physical_storage(source_path, dest_path).await
 				} else {
-					Self::paths_likely_same_volume(source_path, dest_path)
+					false // Conservative fallback
 				};
 
-				if same_volume {
+				if same_storage {
 					if is_move {
-						"Atomic move".to_string()
+						"Atomic move (same storage)".to_string()
 					} else {
-						// Same-volume copy - use fast copy
-						"Fast copy".to_string()
+						// Same-storage copy - describe based on filesystem
+						if let Some(vm) = volume_manager {
+							if let Some(volume) = vm.volume_for_path(source_path).await {
+								return match volume.file_system {
+									crate::volume::types::FileSystem::APFS => {
+										"Fast copy (APFS clone)".to_string()
+									}
+									crate::volume::types::FileSystem::Btrfs => {
+										"Fast copy (Btrfs reflink)".to_string()
+									}
+									crate::volume::types::FileSystem::ZFS => {
+										"Fast copy (ZFS clone)".to_string()
+									}
+									crate::volume::types::FileSystem::ReFS => {
+										"Fast copy (ReFS block clone)".to_string()
+									}
+									_ => "Fast copy (same storage)".to_string(),
+								};
+							}
+						}
+						"Fast copy (same storage)".to_string()
 					}
 				} else {
 					if is_move {
-						"Cross-volume move".to_string()
+						"Streaming move (cross-storage)".to_string()
 					} else {
-						"Cross-volume streaming copy".to_string()
+						"Streaming copy (cross-storage)".to_string()
 					}
 				}
 			}
@@ -260,14 +239,14 @@ impl CopyStrategyRouter {
 						}
 					};
 
-				// Check if paths are on the same volume (same logic as select_strategy)
-				let same_volume = if let Some(vm) = volume_manager {
-					vm.same_volume(source_path, dest_path).await
+				// Check if paths are on the same physical storage (same logic as select_strategy)
+				let same_storage = if let Some(vm) = volume_manager {
+					vm.same_physical_storage(source_path, dest_path).await
 				} else {
-					Self::paths_likely_same_volume(source_path, dest_path)
+					false // Conservative fallback
 				};
 
-				if same_volume {
+				if same_storage {
 					if is_move {
 						PerformanceEstimate {
 							speed_category: SpeedCategory::Instant,
@@ -276,16 +255,16 @@ impl CopyStrategyRouter {
 							is_atomic: true,
 						}
 					} else {
-						// Same-volume copy - use fast copy
+						// Same-storage copy - use fast copy (APFS clone, etc.)
 						PerformanceEstimate {
-							speed_category: SpeedCategory::FastLocal,
+							speed_category: SpeedCategory::Instant, // APFS clones are instant
 							supports_resume: false,
 							requires_network: false,
 							is_atomic: true,
 						}
 					}
 				} else {
-					// Cross-volume on same device
+					// Cross-storage on same device
 					PerformanceEstimate {
 						speed_category: SpeedCategory::LocalDisk,
 						supports_resume: true,

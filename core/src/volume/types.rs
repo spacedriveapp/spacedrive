@@ -5,6 +5,85 @@ use std::fmt;
 use std::path::PathBuf;
 use uuid::Uuid;
 
+/// Represents an APFS container (physical storage with multiple volumes)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ApfsContainer {
+	/// Container identifier (e.g., "disk3")
+	pub container_id: String,
+	/// Container UUID
+	pub uuid: String,
+	/// Physical store device (e.g., "disk0s2")
+	pub physical_store: String,
+	/// Total container capacity in bytes
+	pub total_capacity: u64,
+	/// Capacity in use by all volumes in bytes
+	pub capacity_in_use: u64,
+	/// Capacity not allocated in bytes
+	pub capacity_free: u64,
+	/// All volumes in this container
+	pub volumes: Vec<ApfsVolumeInfo>,
+}
+
+/// APFS volume information within a container
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ApfsVolumeInfo {
+	/// Volume disk identifier (e.g., "disk3s5")
+	pub disk_id: String,
+	/// Volume UUID
+	pub uuid: String,
+	/// Volume role (System, Data, Preboot, etc.)
+	pub role: ApfsVolumeRole,
+	/// Volume name
+	pub name: String,
+	/// Mount point (if mounted)
+	pub mount_point: Option<PathBuf>,
+	/// Capacity consumed by this volume in bytes
+	pub capacity_consumed: u64,
+	/// Whether the volume is sealed
+	pub sealed: bool,
+	/// Whether FileVault is enabled
+	pub filevault: bool,
+}
+
+/// APFS volume roles in the container
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ApfsVolumeRole {
+	/// System volume (read-only system files)
+	System,
+	/// Data volume (user data and applications)
+	Data,
+	/// Preboot volume (boot support files)
+	Preboot,
+	/// Recovery volume (recovery environment)
+	Recovery,
+	/// VM volume (virtual memory)
+	VM,
+	/// Other role or no specific role
+	Other(String),
+}
+
+impl fmt::Display for ApfsVolumeRole {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			ApfsVolumeRole::System => write!(f, "System"),
+			ApfsVolumeRole::Data => write!(f, "Data"),
+			ApfsVolumeRole::Preboot => write!(f, "Preboot"),
+			ApfsVolumeRole::Recovery => write!(f, "Recovery"),
+			ApfsVolumeRole::VM => write!(f, "VM"),
+			ApfsVolumeRole::Other(role) => write!(f, "{}", role),
+		}
+	}
+}
+
+/// Path mapping for resolving virtual paths to actual storage locations
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PathMapping {
+	/// Virtual path (e.g., "/Users")
+	pub virtual_path: PathBuf,
+	/// Actual storage path (e.g., "/System/Volumes/Data/Users")
+	pub actual_path: PathBuf,
+}
+
 /// Spacedrive volume identifier file content
 /// This file is created in the root of writable volumes for persistent identification
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -241,6 +320,13 @@ pub struct Volume {
 	/// Current error status if any
 	pub error_status: Option<String>,
 
+	/// APFS container information (macOS only)
+	pub apfs_container: Option<ApfsContainer>,
+	/// Container-relative volume ID for same-container detection
+	pub container_volume_id: Option<String>,
+	/// Path resolution mappings (for firmlinks/symlinks)
+	pub path_mappings: Vec<PathMapping>,
+
 	// Storage information
 	/// Total storage capacity in bytes
 	pub total_bytes_capacity: u64,
@@ -353,6 +439,9 @@ impl TrackedVolume {
 			hardware_id: self.device_model.clone(),
 			is_mounted: false, // Offline volumes are not mounted
 			error_status: None,
+			apfs_container: None,      // Not available for offline volumes
+			container_volume_id: None, // Not available for offline volumes
+			path_mappings: Vec::new(), // Not available for offline volumes
 			read_speed_mbps: self.read_speed_mbps.map(|s| s as u64),
 			write_speed_mbps: self.write_speed_mbps.map(|s| s as u64),
 			last_updated: self.last_seen_at,
@@ -395,6 +484,55 @@ impl Volume {
 			read_only,
 			hardware_id,
 			error_status: None,
+			apfs_container: None,
+			container_volume_id: None,
+			path_mappings: Vec::new(),
+			read_speed_mbps: None,
+			write_speed_mbps: None,
+			auto_track_eligible: volume_type.auto_track_by_default(),
+			is_user_visible: volume_type.show_by_default(),
+			last_updated: chrono::Utc::now(),
+		}
+	}
+
+	/// Create a new APFS Volume instance with container information
+	pub fn new_with_apfs_container(
+		device_id: uuid::Uuid,
+		name: String,
+		mount_type: MountType,
+		volume_type: VolumeType,
+		mount_point: PathBuf,
+		additional_mount_points: Vec<PathBuf>,
+		disk_type: DiskType,
+		file_system: FileSystem,
+		total_bytes_capacity: u64,
+		total_bytes_available: u64,
+		read_only: bool,
+		hardware_id: Option<String>,
+		fingerprint: VolumeFingerprint,
+		apfs_container: ApfsContainer,
+		container_volume_id: String,
+		path_mappings: Vec<PathMapping>,
+	) -> Self {
+		Self {
+			fingerprint,
+			device_id,
+			name,
+			mount_type,
+			volume_type,
+			mount_point,
+			mount_points: additional_mount_points,
+			is_mounted: true,
+			disk_type,
+			file_system,
+			total_bytes_capacity,
+			total_bytes_available,
+			read_only,
+			hardware_id,
+			error_status: None,
+			apfs_container: Some(apfs_container),
+			container_volume_id: Some(container_volume_id),
+			path_mappings,
 			read_speed_mbps: None,
 			write_speed_mbps: None,
 			auto_track_eligible: volume_type.auto_track_by_default(),
@@ -441,19 +579,8 @@ impl Volume {
 
 	/// Check if a path is contained within this volume
 	pub fn contains_path(&self, path: &PathBuf) -> bool {
-		// Check primary mount point
-		if path.starts_with(&self.mount_point) {
-			return true;
-		}
-
-		// Check additional mount points
-		for mount_point in &self.mount_points {
-			if path.starts_with(mount_point) {
-				return true;
-			}
-		}
-
-		false
+		// Use filesystem-specific logic for path resolution
+		crate::volume::fs::contains_path(self, path)
 	}
 }
 

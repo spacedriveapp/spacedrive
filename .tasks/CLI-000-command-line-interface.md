@@ -1,7 +1,7 @@
 ---
 id: CLI-000
 title: "Epic: Command-Line Interface"
-status: To Do
+status: In Progress
 assignee: unassigned
 priority: High
 tags: [epic, cli]

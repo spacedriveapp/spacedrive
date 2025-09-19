@@ -1,7 +1,7 @@
 ---
 id: SEARCH-000
 title: "Epic: Temporal-Semantic Search"
-status: To Do
+status: In Progress
 assignee: unassigned
 priority: High
 tags: [epic, search, ai, fts]

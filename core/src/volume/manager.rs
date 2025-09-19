@@ -4,12 +4,13 @@ use crate::infra::db::entities;
 use crate::infra::event::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::volume::{
+	detection,
 	error::{VolumeError, VolumeResult},
-	os_detection,
 	types::{
 		SpacedriveVolumeId, TrackedVolume, Volume, VolumeDetectionConfig, VolumeFingerprint,
 		VolumeInfo,
 	},
+	VolumeExt,
 };
 use crate::Core;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -303,7 +304,7 @@ impl VolumeManager {
 		debug!("Refreshing volumes for device {}", device_id);
 
 		// Detect current volumes
-		let detected_volumes = os_detection::detect_volumes(device_id, config).await?;
+		let detected_volumes = detection::detect_volumes(device_id, config).await?;
 		let mut current_volumes = volumes.write().await;
 		let mut cache = path_cache.write().await;
 
@@ -506,6 +507,50 @@ impl VolumeManager {
 		match (vol1, vol2) {
 			(Some(v1), Some(v2)) => v1.fingerprint == v2.fingerprint,
 			_ => false,
+		}
+	}
+
+	/// Check if two paths are on the same physical storage (filesystem-aware)
+	/// This is the enhanced version that uses filesystem-specific handlers
+	pub async fn same_physical_storage(&self, path1: &Path, path2: &Path) -> bool {
+		// 1. Get volumes for both paths
+		let vol1 = self.volume_for_path(path1).await;
+		let vol2 = self.volume_for_path(path2).await;
+
+		match (&vol1, &vol2) {
+			(Some(v1), Some(v2)) => {
+				// 2. Check if same volume first (fast path)
+				if v1.fingerprint == v2.fingerprint {
+					debug!("Paths are on the same volume: {}", v1.fingerprint);
+					return true;
+				}
+
+				// 3. Use filesystem-specific logic for cross-volume checks
+				if v1.file_system == v2.file_system {
+					debug!(
+						"Using filesystem-specific handler for {} to check paths: {} vs {}",
+						v1.file_system,
+						path1.display(),
+						path2.display()
+					);
+					return crate::volume::fs::same_physical_storage(path1, path2, &v1.file_system)
+						.await;
+				}
+
+				debug!(
+					"Different filesystems: {} vs {}",
+					v1.file_system, v2.file_system
+				);
+				false
+			}
+			_ => {
+				debug!(
+					"Could not find volumes for paths: {:?}, {:?}",
+					vol1.is_some(),
+					vol2.is_some()
+				);
+				false
+			}
 		}
 	}
 

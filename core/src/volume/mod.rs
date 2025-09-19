@@ -5,21 +5,24 @@
 //! file operation routing.
 
 pub mod classification;
+pub mod detection;
 pub mod error;
+pub mod fs;
 pub mod manager;
-pub mod os_detection;
+pub mod platform;
 pub mod speed;
 pub mod types;
+pub mod utils;
 
 pub use error::VolumeError;
 pub use manager::VolumeManager;
 pub use types::{
-	DiskType, FileSystem, MountType, Volume, VolumeDetectionConfig, VolumeEvent, VolumeFingerprint,
-	VolumeInfo,
+	ApfsContainer, ApfsVolumeInfo, ApfsVolumeRole, DiskType, FileSystem, MountType, PathMapping,
+	Volume, VolumeDetectionConfig, VolumeEvent, VolumeFingerprint, VolumeInfo,
 };
 
-// Re-export platform-specific detection
-pub use os_detection::detect_volumes;
+// Re-export detection functions
+pub use detection::detect_volumes;
 
 /// Extension trait for Volume operations
 pub trait VolumeExt {
@@ -43,13 +46,8 @@ impl VolumeExt for Volume {
 	}
 
 	fn contains_path(&self, path: &std::path::Path) -> bool {
-		// Check primary mount point
-		if path.starts_with(&self.mount_point) {
-			return true;
-		}
-
-		// Check additional mount points (for APFS volumes)
-		self.mount_points.iter().any(|mp| path.starts_with(mp))
+		// Use filesystem-specific logic for path resolution
+		self.contains_path(&path.to_path_buf())
 	}
 }
 

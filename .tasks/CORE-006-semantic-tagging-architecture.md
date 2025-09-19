@@ -1,7 +1,7 @@
 ---
 id: CORE-006
 title: Semantic Tagging Architecture
-status: To Do
+status: Done
 assignee: unassigned
 parent: CORE-000
 priority: Medium
