@@ -10,9 +10,14 @@ macro_rules! execute_action {
 			.action(&input)
 			.await
 			.map_err(|e| $crate::util::error::CliError::CoreError(e.to_string()))?;
-		bincode::deserialize(&bytes).map_err(|e| {
-			$crate::util::error::CliError::SerializationError(format!("Failed to deserialize response: {}", e))
-		})?
+		bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
+			.map_err(|e| {
+				$crate::util::error::CliError::SerializationError(format!(
+					"Failed to deserialize response: {}",
+					e
+				))
+			})?
+			.0
 	}};
 }
 

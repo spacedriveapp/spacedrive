@@ -8013,7 +8013,7 @@ name = "sd-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode 1.3.3",
+ "bincode 2.0.0-rc.3",
  "chrono",
  "clap",
  "sd-core",
