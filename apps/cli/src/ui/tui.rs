@@ -54,14 +54,14 @@ impl JobMonitorTui {
     pub fn update_jobs(&mut self, jobs: Vec<JobListItem>) {
         self.jobs = jobs;
         self.last_update = Instant::now();
-        
+
         // Update selection if needed
         if let Some(selected) = self.selected_job {
             if selected >= self.jobs.len() {
                 self.selected_job = if self.jobs.is_empty() { None } else { Some(0) };
             }
         }
-        
+
         // Update list state
         if let Some(selected) = self.selected_job {
             self.list_state.select(Some(selected));
@@ -73,7 +73,7 @@ impl JobMonitorTui {
         if self.jobs.is_empty() {
             return;
         }
-        
+
         let selected = match self.selected_job {
             Some(i) => {
                 if i == 0 {
@@ -84,7 +84,7 @@ impl JobMonitorTui {
             }
             None => 0,
         };
-        
+
         self.selected_job = Some(selected);
         self.list_state.select(Some(selected));
     }
@@ -94,7 +94,7 @@ impl JobMonitorTui {
         if self.jobs.is_empty() {
             return;
         }
-        
+
         let selected = match self.selected_job {
             Some(i) => {
                 if i >= self.jobs.len() - 1 {
@@ -105,7 +105,7 @@ impl JobMonitorTui {
             }
             None => 0,
         };
-        
+
         self.selected_job = Some(selected);
         self.list_state.select(Some(selected));
     }
@@ -176,7 +176,7 @@ pub fn render_job_monitor<B: Backend>(f: &mut Frame<B>, app: &mut JobMonitorTui)
 /// Render the header section
 fn render_header<B: Backend>(f: &mut Frame<B>, area: Rect, app: &JobMonitorTui) {
     let spinner_char = super::colors::spinner_char(app.spinner_frame);
-    
+
     let title = format!(
         "{} Spacedrive Job Monitor - {} jobs",
         spinner_char,
@@ -198,7 +198,7 @@ fn render_header<B: Backend>(f: &mut Frame<B>, area: Rect, app: &JobMonitorTui) 
 /// Render the job list
 fn render_job_list<B: Backend>(f: &mut Frame<B>, area: Rect, app: &mut JobMonitorTui) {
     let jobs = app.get_filtered_jobs();
-    
+
     // Create job list items
     let items: Vec<ListItem> = jobs
         .iter()
@@ -206,7 +206,7 @@ fn render_job_list<B: Backend>(f: &mut Frame<B>, area: Rect, app: &mut JobMonito
             let progress_bar = create_progress_bar(job.progress, 20);
             let status_color = job_status_color(job.status);
             let status_icon = job_status_icon(job.status);
-            
+
             let line = Line::from(vec![
                 Span::styled(
                     format!("{} ", status_icon),
@@ -229,7 +229,7 @@ fn render_job_list<B: Backend>(f: &mut Frame<B>, area: Rect, app: &mut JobMonito
                     Style::default().fg(Color::DarkGray)
                 ),
             ]);
-            
+
             ListItem::new(line)
         })
         .collect();
@@ -265,9 +265,9 @@ fn render_job_list<B: Backend>(f: &mut Frame<B>, area: Rect, app: &mut JobMonito
 /// Render job details popup
 fn render_job_details<B: Backend>(f: &mut Frame<B>, area: Rect, job: &JobListItem) {
     let popup_area = centered_rect(60, 40, area);
-    
+
     f.render_widget(Clear, popup_area);
-    
+
     let details = vec![
         Line::from(vec![
             Span::styled("ID: ", Style::default().add_modifier(Modifier::BOLD)),
@@ -318,7 +318,7 @@ fn render_help<B: Backend>(f: &mut Frame<B>, area: Rect) {
         Line::from(""),
         Line::from("Job Status Icons:"),
         Line::from("  ⏳ Queued    ⚡ Running    ⏸️ Paused"),
-        Line::from("  ✅ Completed ❌ Failed    🚫 Cancelled"),
+        Line::from("  Completed ❌ Failed    🚫 Cancelled"),
     ];
 
     let help = Paragraph::new(help_text)
@@ -338,7 +338,7 @@ fn render_footer<B: Backend>(f: &mut Frame<B>, area: Rect, app: &JobMonitorTui) 
     let running_count = app.jobs.iter().filter(|j| j.status == JobStatus::Running).count();
     let completed_count = app.jobs.iter().filter(|j| j.status == JobStatus::Completed).count();
     let failed_count = app.jobs.iter().filter(|j| j.status == JobStatus::Failed).count();
-    
+
     let status_text = format!(
         "Running: {} | Completed: {} | Failed: {} | Press 'h' for help, 'q' to quit",
         running_count, completed_count, failed_count
@@ -360,7 +360,7 @@ fn render_footer<B: Backend>(f: &mut Frame<B>, area: Rect, app: &JobMonitorTui) 
 fn create_progress_bar(progress: f32, width: usize) -> String {
     let filled = ((progress * width as f32) as usize).min(width);
     let empty = width - filled;
-    
+
     format!(
         "[{}{}]",
         "█".repeat(filled),

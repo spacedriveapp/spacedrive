@@ -70,7 +70,7 @@ impl JobProgressBar {
             }
             JobStatus::Completed => {
                 ProgressStyle::with_template(
-                    "✅ {msg} [{bar:40.green/grey}] {percent}%"
+                    "{msg} [{bar:40.green/grey}] {percent}%"
                 )
                 .unwrap()
                 .progress_chars("█▉▊▋▌▍▎▏ ")

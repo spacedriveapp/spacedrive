@@ -298,7 +298,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	}
 
-	println!("\n✅ Volume system demo completed!");
+	println!("\nVolume system demo completed!");
 	println!("\nThe volume system provides:");
 	println!("• Cross-platform volume detection");
 	println!("• Real-time monitoring and event emission");

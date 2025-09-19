@@ -88,7 +88,7 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
             let out: JobPauseOutput = execute_action!(ctx, input);
             print_output!(ctx, &out, |o: &JobPauseOutput| {
                 if o.success {
-                    println!("✅ Job {} paused successfully", o.job_id);
+                    println!("Job {} paused successfully", o.job_id);
                 } else {
                     println!("❌ Failed to pause job {}", o.job_id);
                 }
@@ -99,7 +99,7 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
             let out: JobResumeOutput = execute_action!(ctx, input);
             print_output!(ctx, &out, |o: &JobResumeOutput| {
                 if o.success {
-                    println!("✅ Job {} resumed successfully", o.job_id);
+                    println!("Job {} resumed successfully", o.job_id);
                 } else {
                     println!("❌ Failed to resume job {}", o.job_id);
                 }
@@ -110,7 +110,7 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
             let out: JobCancelOutput = execute_action!(ctx, input);
             print_output!(ctx, &out, |o: &JobCancelOutput| {
                 if o.success {
-                    println!("✅ Job {} cancelled successfully", o.job_id);
+                    println!("Job {} cancelled successfully", o.job_id);
                 } else {
                     println!("❌ Failed to cancel job {}", o.job_id);
                 }
@@ -163,9 +163,33 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
     // Try to subscribe to events, fall back to polling if not supported
     match ctx.core.subscribe_events(event_types, filter).await {
         Ok(mut event_stream) => {
-            println!("✅ Connected to real-time event stream");
+            println!("Connected to real-time event stream");
 
             let mut progress_bars = HashMap::new();
+
+            // Preload currently running jobs so we see in-progress jobs that started earlier
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> =
+                execute_query!(ctx, ListLibrariesQuery::basic());
+
+            for lib in libs {
+                let query = JobListArgs { status: args.status.clone() }.to_query(lib.id);
+                let job_list: sd_core::ops::jobs::list::output::JobListOutput = execute_query!(ctx, query);
+
+                for job in job_list.jobs {
+                    // If monitoring a specific job, skip others
+                    if let Some(target_id) = args.job_id {
+                        if job.id != target_id { continue; }
+                    }
+
+                    // Only show non-terminal jobs
+                    if !job.status.is_terminal() && !progress_bars.contains_key(&job.id.to_string()) {
+                        let pb = crate::ui::create_simple_progress(&job.name, 100);
+                        pb.set_message(format!("{} [{}] - Resuming...", job.name, &job.id.to_string()[..8]));
+                        pb.set_position((job.progress * 100.0) as u64);
+                        progress_bars.insert(job.id.to_string(), pb);
+                    }
+                }
+            }
 
             // Listen for events
             while let Some(event) = event_stream.recv().await {
@@ -178,19 +202,24 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
                     }
 
                     Event::JobProgress { job_id, job_type, progress, message, .. } => {
-                        if let Some(pb) = progress_bars.get(&job_id) {
-                            let msg = message.unwrap_or_else(|| "Processing...".to_string());
-                            pb.set_message(format!("{} [{}] - {}", job_type, &job_id[..8], msg));
-                            pb.set_position((progress * 100.0) as u64);
-                        }
+                        // If we connected mid-job, create a bar on first progress event
+                        let pb = progress_bars.entry(job_id.clone()).or_insert_with(|| {
+                            let pb = crate::ui::create_simple_progress(&job_type, 100);
+                            pb.set_message(format!("{} [{}] - Starting...", job_type, &job_id[..8]));
+                            pb
+                        });
+
+                        let msg = message.unwrap_or_else(|| "Processing...".to_string());
+                        pb.set_message(format!("{} [{}] - {}", job_type, &job_id[..8], msg));
+                        pb.set_position((progress * 100.0) as u64);
                     }
 
                     Event::JobCompleted { job_id, job_type, .. } => {
                         if let Some(pb) = progress_bars.get(&job_id) {
-                            pb.finish_with_message(format!("✅ {} [{}] - Completed", job_type, &job_id[..8]));
+                            pb.finish_with_message(format!("{} [{}] - Completed", job_type, &job_id[..8]));
                             progress_bars.remove(&job_id);
                         }
-                        println!("✅ Job completed: {} [{}]", job_type, &job_id[..8]);
+                        println!("Job completed: {} [{}]", job_type, &job_id[..8]);
                     }
 
                     Event::JobFailed { job_id, job_type, error } => {

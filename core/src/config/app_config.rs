@@ -13,22 +13,22 @@ use tracing::{info, warn};
 pub struct AppConfig {
     /// Config schema version
     pub version: u32,
-    
+
     /// Data directory path
     pub data_dir: PathBuf,
-    
+
     /// Logging level
     pub log_level: String,
-    
+
     /// Whether telemetry is enabled
     pub telemetry_enabled: bool,
-    
+
     /// P2P configuration
     pub p2p: P2PConfig,
-    
+
     /// User preferences
     pub preferences: Preferences,
-    
+
     /// Job logging configuration
     #[serde(default)]
     pub job_logging: JobLoggingConfig,
@@ -39,13 +39,13 @@ pub struct AppConfig {
 pub struct JobLoggingConfig {
     /// Whether job logging is enabled
     pub enabled: bool,
-    
+
     /// Directory for job logs (relative to data_dir)
     pub log_directory: String,
-    
+
     /// Maximum log file size in bytes (0 = unlimited)
     pub max_file_size: u64,
-    
+
     /// Whether to include debug logs
     pub include_debug: bool,
 }
@@ -53,7 +53,7 @@ pub struct JobLoggingConfig {
 impl Default for JobLoggingConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             log_directory: "job_logs".to_string(),
             max_file_size: 10 * 1024 * 1024, // 10MB default
             include_debug: false,
@@ -67,23 +67,23 @@ impl AppConfig {
         let data_dir = default_data_dir()?;
         Self::load_from(&data_dir)
     }
-    
+
     /// Load configuration from a specific data directory
     pub fn load_from(data_dir: &PathBuf) -> Result<Self> {
         let config_path = data_dir.join("spacedrive.json");
-        
+
         if config_path.exists() {
             info!("Loading config from {:?}", config_path);
             let json = fs::read_to_string(&config_path)?;
             let mut config: AppConfig = serde_json::from_str(&json)?;
-            
+
             // Apply migrations if needed
             if config.version < Self::target_version() {
                 info!("Migrating config from v{} to v{}", config.version, Self::target_version());
                 config.migrate()?;
                 config.save()?;
             }
-            
+
             Ok(config)
         } else {
             warn!("No config found, creating default at {:?}", config_path);
@@ -92,7 +92,7 @@ impl AppConfig {
             Ok(config)
         }
     }
-    
+
     /// Load or create configuration
     pub fn load_or_create(data_dir: &PathBuf) -> Result<Self> {
         Self::load_from(data_dir).or_else(|_| {
@@ -101,7 +101,7 @@ impl AppConfig {
             Ok(config)
         })
     }
-    
+
     /// Create default configuration with specific data directory
     pub fn default_with_dir(data_dir: PathBuf) -> Self {
         Self {
@@ -114,34 +114,34 @@ impl AppConfig {
             job_logging: JobLoggingConfig::default(),
         }
     }
-    
+
     /// Save configuration to disk
     pub fn save(&self) -> Result<()> {
         // Ensure directory exists
         fs::create_dir_all(&self.data_dir)?;
-        
+
         let config_path = self.data_dir.join("spacedrive.json");
         let json = serde_json::to_string_pretty(self)?;
         fs::write(&config_path, json)?;
         info!("Saved config to {:?}", config_path);
         Ok(())
     }
-    
+
     /// Get the path for logs directory
     pub fn logs_dir(&self) -> PathBuf {
         self.data_dir.join("logs")
     }
-    
+
     /// Get the path for libraries directory
     pub fn libraries_dir(&self) -> PathBuf {
         self.data_dir.join("libraries")
     }
-    
+
     /// Get the path for job logs directory
     pub fn job_logs_dir(&self) -> PathBuf {
         self.data_dir.join(&self.job_logging.log_directory)
     }
-    
+
     /// Ensure all required directories exist
     pub fn ensure_directories(&self) -> Result<()> {
         fs::create_dir_all(&self.data_dir)?;
@@ -165,11 +165,11 @@ impl Migrate for AppConfig {
     fn current_version(&self) -> u32 {
         self.version
     }
-    
+
     fn target_version() -> u32 {
         2 // Updated schema version for job logging
     }
-    
+
     fn migrate(&mut self) -> Result<()> {
         match self.version {
             0 => {

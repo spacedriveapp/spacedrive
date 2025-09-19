@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
 	)
 	.await?;
 
-	println!("   ✅ Location created with DB ID: {}", location_db_id);
+	println!("   Location created with DB ID: {}", location_db_id);
 	println!("   🚀 Indexer job dispatched!");
 
 	// Wait a bit for indexing to start
@@ -266,10 +266,10 @@ async fn main() -> Result<()> {
 	}
 
 	println!("\n🎉 End-to-end search test completed!");
-	println!("✅ Search module is fully functional with real data");
-	println!("✅ FTS5 integration working with actual file indexing");
-	println!("✅ Multiple search modes and scopes tested");
-	println!("✅ Filtering and faceting working correctly");
+	println!("Search module is fully functional with real data");
+	println!("FTS5 integration working with actual file indexing");
+	println!("Multiple search modes and scopes tested");
+	println!("Filtering and faceting working correctly");
 
 	Ok(())
 }

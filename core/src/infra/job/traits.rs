@@ -64,12 +64,13 @@ pub trait JobHandler: Job {
 pub trait SerializableJob: Job {
 	/// Serialize job state
 	fn serialize_state(&self) -> JobResult<Vec<u8>> {
-		rmp_serde::to_vec(self).map_err(|e| super::error::JobError::serialization(format!("{}", e)))
+		rmp_serde::to_vec_named(self).map_err(|e| super::error::JobError::serialization(format!("{}", e)))
 	}
 
 	/// Deserialize job state
 	fn deserialize_state(data: &[u8]) -> JobResult<Self> {
-		rmp_serde::from_slice(data)
+		// Try named first (more robust to field reordering/additions), fallback to non-named for legacy
+		rmp_serde::from_slice::<Self>(data)
 			.map_err(|e| super::error::JobError::serialization(format!("{}", e)))
 	}
 }

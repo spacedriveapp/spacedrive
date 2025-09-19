@@ -196,7 +196,7 @@ pub async fn run_processing_phase(
 					{
 						Ok(entry_id) => {
 							ctx.log(format!(
-								"✅ Created entry {}: {}",
+								"Created entry {}: {}",
 								entry_id,
 								entry.path.display()
 							));
@@ -274,7 +274,7 @@ pub async fn run_processing_phase(
 					{
 						Ok(()) => {
 							ctx.log(format!(
-								"✅ Moved entry {}: {} -> {}",
+								"Moved entry {}: {} -> {}",
 								entry_id,
 								old_path.display(),
 								new_path.display()
@@ -427,7 +427,7 @@ pub async fn run_processing_phase(
 					// Update in-memory caches
 					state.entry_id_cache.remove(&path);
 					ctx.log(format!(
-						"✅ Deleted entry {} (and subtree if any)",
+						"Deleted entry {} (and subtree if any)",
 						entry_id
 					));
 				}

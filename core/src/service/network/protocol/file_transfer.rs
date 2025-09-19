@@ -631,14 +631,14 @@ impl FileTransferProtocolHandler {
 					});
 				}
 
-				println!("✅ File checksum verified: {}", received_checksum);
+				println!("File checksum verified: {}", received_checksum);
 			}
 
 			// Mark transfer as completed
 			self.update_session_state(&transfer_id, TransferState::Completed)?;
 
 			println!(
-				"✅ File transfer {} completed: {} bytes",
+				"File transfer {} completed: {} bytes",
 				transfer_id, total_bytes
 			);
 

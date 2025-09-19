@@ -34,7 +34,7 @@ async fn alice_pairing_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	println!("✅ Alice: Core initialized successfully");
+	println!("Alice: Core initialized successfully");
 
 	// Set device name
 	println!("🏷️ Alice: Setting device name for testing...");
@@ -49,7 +49,7 @@ async fn alice_pairing_scenario() {
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
-	println!("✅ Alice: Networking initialized successfully");
+	println!("Alice: Networking initialized successfully");
 
 	// Start pairing as initiator
 	println!("🔑 Alice: Starting pairing as initiator...");
@@ -71,7 +71,7 @@ async fn alice_pairing_scenario() {
 		.collect::<Vec<_>>()
 		.join(" ");
 	println!(
-		"✅ Alice: Pairing code generated: {}... (expires in {}s)",
+		"Alice: Pairing code generated: {}... (expires in {}s)",
 		short_code, expires_in
 	);
 
@@ -96,7 +96,7 @@ async fn alice_pairing_scenario() {
 		if !connected_devices.is_empty() {
 			println!("🎉 Alice: Pairing completed successfully!");
 			println!("🔗 Alice: Checking connected devices...");
-			println!("✅ Alice: Connected {} devices", connected_devices.len());
+			println!("Alice: Connected {} devices", connected_devices.len());
 
 			// Get detailed device info
 			let device_info = core.get_connected_devices_info().await.unwrap();
@@ -155,7 +155,7 @@ async fn bob_pairing_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	println!("✅ Bob: Core initialized successfully");
+	println!("Bob: Core initialized successfully");
 
 	// Set device name
 	println!("🏷️ Bob: Setting device name for testing...");
@@ -170,7 +170,7 @@ async fn bob_pairing_scenario() {
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
-	println!("✅ Bob: Networking initialized successfully");
+	println!("Bob: Networking initialized successfully");
 
 	// Wait for initiator to create pairing code
 	println!("🔍 Bob: Looking for pairing code...");
@@ -195,7 +195,7 @@ async fn bob_pairing_scenario() {
 	} else {
 		panic!("Networking not initialized");
 	}
-	println!("✅ Bob: Successfully joined pairing");
+	println!("Bob: Successfully joined pairing");
 
 	// Wait for pairing completion
 	println!("⏳ Bob: Waiting for pairing to complete...");
@@ -210,7 +210,7 @@ async fn bob_pairing_scenario() {
 		if !connected_devices.is_empty() {
 			println!("🎉 Bob: Pairing completed successfully!");
 			println!("🔗 Bob: Checking connected devices...");
-			println!("✅ Bob: Connected {} devices", connected_devices.len());
+			println!("Bob: Connected {} devices", connected_devices.len());
 
 			// Get detailed device info
 			let device_info = core.get_connected_devices_info().await.unwrap();

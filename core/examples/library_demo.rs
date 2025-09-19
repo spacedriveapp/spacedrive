@@ -155,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	core.shutdown().await?;
 	println!("   ✓ Core shutdown complete");
 
-	println!("\n✅ Lifecycle demo completed!");
+	println!("\nLifecycle demo completed!");
 	println!("\n📁 Data stored at: {:?}", data_dir);
 	println!("   Run again to see library auto-loading in action!");
 

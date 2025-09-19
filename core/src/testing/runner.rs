@@ -193,7 +193,7 @@ impl CargoTestRunner {
 
 					// Check condition
 					if condition(&outputs) {
-						println!("✅ Success condition met after {:?}", start_time.elapsed());
+						println!("Success condition met after {:?}", start_time.elapsed());
 						return Ok(());
 					}
 

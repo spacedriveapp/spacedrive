@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::infra::daemon::instance::CoreInstanceManager;
 use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter};
 use crate::infra::event::{Event, EventSubscriber};
+use crate::infra::event::log_emitter::set_global_log_event_bus;
 
 /// Connection information for event streaming
 #[derive(Debug)]
@@ -43,14 +44,18 @@ impl RpcServer {
 	}
 
 	pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+		tracing::info!("Starting RPC server...");
 		if std::fs::remove_file(&self.socket_path).is_ok() {}
 		if let Some(parent) = self.socket_path.parent() {
 			std::fs::create_dir_all(parent)?;
 		}
 		let listener = UnixListener::bind(&self.socket_path)?;
+		tracing::info!("RPC server bound to socket: {:?}", self.socket_path);
 
 		// Start event broadcaster
+		tracing::info!("Starting event broadcaster...");
 		self.start_event_broadcaster().await?;
+		tracing::info!("Event broadcaster started successfully");
 
 		loop {
 			tokio::select! {
@@ -91,8 +96,14 @@ impl RpcServer {
 	/// Start the event broadcaster that forwards core events to subscribed connections
 	async fn start_event_broadcaster(&self) -> Result<(), Box<dyn std::error::Error>> {
 		let core = self.instances.get_default().await?;
+
+		// Make the core's EventBus globally available to the LogEventLayer
+		set_global_log_event_bus(core.events.clone());
 		let mut event_subscriber = core.events.subscribe();
 		let connections = self.connections.clone();
+
+        // Optional: can emit a one-off info to prove the pipe works
+        tracing::info!("Log event bus registered for realtime streaming");
 
 		tokio::spawn(async move {
 			while let Ok(event) = event_subscriber.recv().await {
@@ -109,6 +120,72 @@ impl RpcServer {
 		});
 
 		Ok(())
+	}
+
+	/// Emit test log events to demonstrate the log streaming functionality
+	async fn emit_test_log_events(event_bus: &Arc<crate::infra::event::EventBus>) {
+		use crate::infra::event::Event;
+		use chrono::Utc;
+
+		tracing::info!("Emitting test log events to event bus");
+
+		// Emit a series of test log events
+		let events = vec![
+			Event::LogMessage {
+				timestamp: Utc::now(),
+				level: "INFO".to_string(),
+				target: "sd_core::daemon".to_string(),
+				message: "🚀 Spacedrive daemon started successfully".to_string(),
+				job_id: None,
+				library_id: None,
+			},
+			Event::LogMessage {
+				timestamp: Utc::now(),
+				level: "INFO".to_string(),
+				target: "sd_core::event".to_string(),
+				message: "📡 Log event streaming initialized".to_string(),
+				job_id: None,
+				library_id: None,
+			},
+			Event::LogMessage {
+				timestamp: Utc::now(),
+				level: "DEBUG".to_string(),
+				target: "sd_core::rpc".to_string(),
+				message: "RPC server listening for connections".to_string(),
+				job_id: None,
+				library_id: None,
+			},
+		];
+
+		for (i, event) in events.into_iter().enumerate() {
+			tracing::info!("Emitting test event {}: {:?}", i + 1, event);
+			event_bus.emit(event);
+			// Small delay between events
+			tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+		}
+
+		// Emit periodic heartbeat events every 10 seconds for testing
+		tokio::spawn({
+			let event_bus = event_bus.clone();
+			async move {
+				let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+				loop {
+					interval.tick().await;
+					let heartbeat_event = Event::LogMessage {
+						timestamp: Utc::now(),
+						level: "DEBUG".to_string(),
+						target: "sd_core::daemon".to_string(),
+						message: "💓 Daemon heartbeat".to_string(),
+						job_id: None,
+						library_id: None,
+					};
+					tracing::info!("Emitting heartbeat event: {:?}", heartbeat_event);
+					event_bus.emit(heartbeat_event);
+				}
+			}
+		});
+
+		tracing::info!("Test log events setup complete");
 	}
 
 	/// Check if an event should be forwarded to a connection based on filters

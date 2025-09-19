@@ -164,7 +164,7 @@ impl DeviceRegistry {
 			self.logger.warn(&format!("⚠️ Failed to persist paired device {}: {}", device_id, e)).await;
 			// Continue anyway - pairing succeeded even if persistence failed
 		} else {
-			self.logger.debug(&format!("✅ Persisted paired device: {}", device_id)).await;
+			self.logger.debug(&format!("Persisted paired device: {}", device_id)).await;
 		}
 
 		Ok(())

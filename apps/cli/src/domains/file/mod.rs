@@ -6,7 +6,7 @@ use clap::Subcommand;
 use crate::util::prelude::*;
 
 use crate::context::Context;
-use sd_core::ops::files::copy::job::FileCopyOutput;
+use sd_core::infra::job::types::JobId;
 
 use self::args::*;
 
@@ -23,12 +23,9 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			if let Err(errors) = input.validate() {
 				anyhow::bail!(errors.join("; "))
 			}
-			let out: FileCopyOutput = execute_action!(ctx, input);
-			print_output!(ctx, &out, |o: &FileCopyOutput| {
-				println!(
-					"Copy request submitted - {} files copied ({} bytes)",
-					o.copied_count, o.total_bytes
-				);
+			let job_id: JobId = execute_action!(ctx, input);
+			print_output!(ctx, &job_id, |id: &JobId| {
+				println!("Dispatched copy job {}", id);
 			});
 		}
 	}

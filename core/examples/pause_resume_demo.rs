@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		match job_info.status {
 			JobStatus::Completed => {
-				println!("\n✅ Job completed successfully!");
+				println!("\nJob completed successfully!");
 				break;
 			}
 			JobStatus::Failed => {

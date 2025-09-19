@@ -2,20 +2,24 @@
 
 use super::{Event, EventBus};
 use chrono::Utc;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tracing::{field::Visit, Event as TracingEvent, Level, Subscriber};
 use tracing_subscriber::{layer::Context, Layer};
 use uuid::Uuid;
 
-/// A tracing layer that emits log events to the event bus
-pub struct LogEventLayer {
-    event_bus: Arc<EventBus>,
+/// Global holder for the daemon's EventBus used for log streaming
+static LOG_EVENT_BUS: OnceLock<Arc<EventBus>> = OnceLock::new();
+
+/// Set the global EventBus for log streaming. Safe to call once.
+pub fn set_global_log_event_bus(event_bus: Arc<EventBus>) {
+    let _ = LOG_EVENT_BUS.set(event_bus);
 }
 
+/// A tracing layer that emits log events to the event bus (if available)
+pub struct LogEventLayer;
+
 impl LogEventLayer {
-    pub fn new(event_bus: Arc<EventBus>) -> Self {
-        Self { event_bus }
-    }
+    pub fn new() -> Self { Self }
 }
 
 impl<S> Layer<S> for LogEventLayer
@@ -23,6 +27,9 @@ where
     S: Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
 {
     fn on_event(&self, event: &TracingEvent<'_>, ctx: Context<'_, S>) {
+        // If no global bus set yet, skip
+        let Some(event_bus) = LOG_EVENT_BUS.get() else { return; };
+
         // Only emit events for INFO level and above to avoid spam
         if event.metadata().level() > &Level::INFO {
             return;
@@ -46,7 +53,7 @@ where
         };
 
         // Emit to event bus (ignore errors to avoid logging loops)
-        let _ = self.event_bus.emit(log_event);
+        let _ = event_bus.emit(log_event);
     }
 }
 

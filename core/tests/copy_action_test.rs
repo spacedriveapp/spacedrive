@@ -70,7 +70,7 @@ async fn test_copy_action_construction() {
 	assert_eq!(copy_action.options.verify_checksum, true);
 	assert_eq!(copy_action.options.preserve_timestamps, true);
 
-	println!("✅ Copy action construction test passed!");
+	println!("Copy action construction test passed!");
 }
 
 #[tokio::test]
@@ -98,7 +98,7 @@ async fn test_move_action_construction() {
 	assert!(move_action.options.delete_after_copy);
 	assert_eq!(move_action.options.move_mode, Some(MoveMode::Move));
 
-	println!("✅ Move action construction test passed!");
+	println!("Move action construction test passed!");
 }
 
 #[tokio::test]
@@ -109,7 +109,7 @@ async fn test_action_validation_logic() {
 		.build();
 	assert!(result.is_err());
 
-	println!("✅ Action validation (builder) test passed!");
+	println!("Action validation (builder) test passed!");
 }
 
 #[test]
@@ -122,5 +122,5 @@ fn test_copy_options_defaults() {
 	assert!(!options.delete_after_copy);
 	assert!(options.move_mode.is_none());
 
-	println!("✅ Copy options defaults test passed!");
+	println!("Copy options defaults test passed!");
 }

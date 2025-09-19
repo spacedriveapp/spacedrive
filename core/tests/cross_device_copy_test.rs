@@ -43,7 +43,7 @@ async fn alice_cross_device_copy_scenario() {
 	.await
 	.unwrap()
 	.unwrap();
-	println!("✅ Alice: Core initialized successfully");
+	println!("Alice: Core initialized successfully");
 
 	// Set device name
 	println!("🏷️ Alice: Setting device name for testing...");
@@ -58,7 +58,7 @@ async fn alice_cross_device_copy_scenario() {
 
 	// Wait longer for networking to fully initialize
 	tokio::time::sleep(Duration::from_secs(3)).await;
-	println!("✅ Alice: Networking initialized successfully");
+	println!("Alice: Networking initialized successfully");
 
 	// Create a library for job dispatch
 	println!("📚 Alice: Creating library for copy operations...");
@@ -69,7 +69,7 @@ async fn alice_cross_device_copy_scenario() {
 		.unwrap();
 	let library_id = library.id();
 	println!(
-		"✅ Alice: Library created successfully (ID: {})",
+		"Alice: Library created successfully (ID: {})",
 		library_id
 	);
 
@@ -93,7 +93,7 @@ async fn alice_cross_device_copy_scenario() {
 		.collect::<Vec<_>>()
 		.join(" ");
 	println!(
-		"✅ Alice: Pairing code generated: {}... (expires in {}s)",
+		"Alice: Pairing code generated: {}... (expires in {}s)",
 		short_code, expires_in
 	);
 
@@ -234,7 +234,7 @@ async fn alice_cross_device_copy_scenario() {
 			.await
 		{
 			Ok(output) => {
-				println!("✅ Alice: Copy action {} dispatched successfully", i + 1);
+				println!("Alice: Copy action {} dispatched successfully", i + 1);
 				println!("  📊 Output: {:?}", output);
 			}
 			Err(e) => {
@@ -255,7 +255,7 @@ async fn alice_cross_device_copy_scenario() {
 			.map(|content| content.starts_with("verified:"))
 			.unwrap_or(false)
 		{
-			println!("✅ Alice: Bob confirmed file receipt and verification!");
+			println!("Alice: Bob confirmed file receipt and verification!");
 			bob_confirmed = true;
 			break;
 		}
@@ -310,7 +310,7 @@ async fn bob_cross_device_copy_scenario() {
 		.await
 		.unwrap()
 		.unwrap();
-	println!("✅ Bob: Core initialized successfully");
+	println!("Bob: Core initialized successfully");
 
 	// Set device name
 	println!("🏷️ Bob: Setting device name for testing...");
@@ -325,7 +325,7 @@ async fn bob_cross_device_copy_scenario() {
 
 	// Wait longer for networking to fully initialize
 	tokio::time::sleep(Duration::from_secs(3)).await;
-	println!("✅ Bob: Networking initialized successfully");
+	println!("Bob: Networking initialized successfully");
 
 	// Create a library for job dispatch
 	println!("📚 Bob: Creating library for copy operations...");
@@ -334,7 +334,7 @@ async fn bob_cross_device_copy_scenario() {
 		.create_library("Bob Copy Library", None, core.context.clone())
 		.await
 		.unwrap();
-	println!("✅ Bob: Library created successfully");
+	println!("Bob: Library created successfully");
 
 	// Wait for Alice to create pairing code
 	println!("🔍 Bob: Looking for pairing code from Alice...");
@@ -361,7 +361,7 @@ async fn bob_cross_device_copy_scenario() {
 	} else {
 		panic!("Networking not initialized");
 	}
-	println!("✅ Bob: Successfully joined pairing");
+	println!("Bob: Successfully joined pairing");
 
 	// Wait for pairing completion
 	println!("⏳ Bob: Waiting for pairing to complete...");
@@ -456,7 +456,7 @@ async fn bob_cross_device_copy_scenario() {
 								expected_files.iter().find(|(name, _)| name == &filename)
 							{
 								if metadata.len() == *expected_size as u64 {
-									println!("  ✅ Size verified: {} bytes", metadata.len());
+									println!("  Size verified: {} bytes", metadata.len());
 								} else {
 									println!(
 										"  ❌ Size mismatch: expected {}, got {}",
@@ -479,7 +479,7 @@ async fn bob_cross_device_copy_scenario() {
 
 	// Verify all expected files were received
 	if received_files.len() == expected_files.len() {
-		println!("✅ Bob: All expected files received successfully!");
+		println!("Bob: All expected files received successfully!");
 
 		// Write verification confirmation
 		std::fs::write(

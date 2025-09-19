@@ -12,7 +12,7 @@
 ## Code Style
 
 - **Imports**: Group std, external crates, then local modules with blank lines between
-- **Formatting**: Use `cargo fmt` - tabs for indentation, snake_case for variables/functions
+- **Formatting**: Use `cargo fmt` - tabs for indentation, snake_case for variables/functions. DO NOT use emojis in logs.
 - **Types**: Explicit types preferred, use `Result<T, E>` for error handling with `thiserror`
 - **Naming**: snake_case for functions/variables, PascalCase for types, SCREAMING_SNAKE_CASE for constants
 - **Error Handling**: Use `Result` types, `thiserror` for custom errors, `anyhow` for application errors
@@ -92,3 +92,8 @@ crate::register_core_action!(LibraryCreateAction, "libraries.create");
 - **Core design docs**: Live in `/docs/core/design` - planning documents, RFCs, and design decisions
 - **Application level docs**: Live in `/docs`
 - **Code docs**: Use `///` for public APIs, `//!` for module overviews, include examples
+
+
+## Debug Instructions
+
+- You can view the logs of a job in the job_logs directory in the root of the data folder

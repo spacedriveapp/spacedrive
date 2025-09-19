@@ -141,7 +141,7 @@ async fn main() -> Result<()> {
 				println!("Starting daemon in foreground mode...");
 				println!("Press Ctrl+C to stop the daemon");
 				println!("═══════════════════════════════════════════════════════");
-				
+
 				match command.status() {
 					Ok(status) => {
 						if status.success() {
@@ -223,7 +223,7 @@ async fn run_client_command(
 					crate::ui::print_logo();
 					println!("Core Version: {}", status.version);
 					println!("Libraries: {}", status.library_count);
-					println!("Status: ✅ Running");
+					println!("Status: Running");
 				},
 				OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&status)?),
 			}

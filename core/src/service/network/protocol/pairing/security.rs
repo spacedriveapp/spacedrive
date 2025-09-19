@@ -176,7 +176,7 @@ mod tests {
 		assert!(result.is_ok());
 		assert!(result.unwrap());
 
-		println!("✅ REAL cryptographic signature verification PASSED!");
+		println!("REAL cryptographic signature verification PASSED!");
 	}
 
 	#[test]
@@ -203,7 +203,7 @@ mod tests {
 		assert!(result.is_ok());
 		assert!(!result.unwrap()); // Should be false
 
-		println!("✅ REAL cryptographic signature rejection PASSED!");
+		println!("REAL cryptographic signature rejection PASSED!");
 		println!("   🎯 This proves we're doing REAL crypto verification!");
 	}
 }
