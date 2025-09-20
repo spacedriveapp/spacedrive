@@ -189,7 +189,7 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
                 match serde_yaml::from_str::<Value>(front_matter_str) {
                     Ok(yaml_value) => {
                         if let Err(errors) = compiled_schema.validate(&yaml_value) {
-                            eprintln!("❌ ERROR in {}:", file_path);
+                            eprintln!("ERROR in {}:", file_path);
                             for error in errors {
                                 eprintln!("   - {}", error);
                             }
@@ -199,7 +199,7 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     Err(e) => {
-                        eprintln!("❌ ERROR parsing YAML in {}:\n   {}", file_path, e);
+                        eprintln!("ERROR parsing YAML in {}:\n   {}", file_path, e);
                         has_errors = true;
                     }
                 }

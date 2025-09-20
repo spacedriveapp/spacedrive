@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				break;
 			}
 			JobStatus::Failed => {
-				println!("\n❌ Job failed: {:?}", job_info.error_message);
+				println!("\nJob failed: {:?}", job_info.error_message);
 				break;
 			}
 			_ => continue,
@@ -145,7 +145,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("   Files indexed: {}", indexed_count);
 	println!("   Expected: 50");
 
-	println!("\n✨ Demo completed successfully!");
+	println!("\nDemo completed successfully!");
 
 	Ok(())
 }

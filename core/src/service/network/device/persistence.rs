@@ -245,7 +245,7 @@ impl DevicePersistence {
 					}
 				}
 				Err(e) => {
-					eprintln!("⚠️ Failed to decrypt device {}: {}", device_id, e);
+					eprintln!("Failed to decrypt device {}: {}", device_id, e);
 					// Continue loading other devices even if one fails
 				}
 			}

@@ -77,7 +77,7 @@ impl JobProgressBar {
             }
             JobStatus::Failed => {
                 ProgressStyle::with_template(
-                    "❌ {msg} [{bar:40.red/grey}] {percent}%"
+                    "{msg} [{bar:40.red/grey}] {percent}%"
                 )
                 .unwrap()
                 .progress_chars("█▉▊▋▌▍▎▏ ")
@@ -91,14 +91,14 @@ impl JobProgressBar {
             }
             JobStatus::Paused => {
                 ProgressStyle::with_template(
-                    "⏸️ {msg} [{bar:40.cyan/grey}] {percent}% | Paused"
+                    "{msg} [{bar:40.cyan/grey}] {percent}% | Paused"
                 )
                 .unwrap()
                 .progress_chars("█▉▊▋▌▍▎▏ ")
             }
             JobStatus::Queued => {
                 ProgressStyle::with_template(
-                    "⏳ {msg} [{bar:40.grey/grey}] Queued"
+                    "{msg} [{bar:40.grey/grey}] Queued"
                 )
                 .unwrap()
                 .progress_chars("░░░░░░░░░░")

@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// 3. Set up desktop location
 	println!("3. Adding Desktop as a location...");
 	let desktop_path = dirs::desktop_dir().ok_or("Could not find desktop directory")?;
-	println!("   🖥️  Desktop path: {}", desktop_path.display());
+	println!("    Desktop path: {}", desktop_path.display());
 
 	// Register device in the database first
 	let db = library.db();
@@ -134,11 +134,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Add to file watcher (optional - for real-time monitoring)
 	// Note: location_id here would need to be retrieved from the database record
 	// For simplicity, we'll skip the file watcher for now since the main demo is indexing
-	println!("   👁️  Production job system is now running indexing...\n");
+	println!("    Production job system is now running indexing...\n");
 
 	// 4. Monitor production indexer with new features
 	println!("4. Production Indexer in Action!");
-	println!("   ✨ New Features Showcase:");
+	println!("   New Features Showcase:");
 	println!("      Smart Filtering - Skips system files, caches, node_modules");
 	println!("      Incremental Indexing - Detects changes via inode tracking");
 	println!("      Performance Metrics - Detailed timing and throughput");
@@ -168,7 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				}
 				Event::IndexingFailed { location_id, error } => {
 					println!(
-						"   ❌ Indexing failed for location: {} - {}",
+						"   Indexing failed for location: {} - {}",
 						location_id, error
 					);
 					break;
@@ -206,7 +206,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	});
 
-	println!("   ⏳ Waiting for indexing to complete...");
+	println!("   Waiting for indexing to complete...");
 	println!("   Production Indexer Features Active:");
 	println!("      Smart Filtering - Automatically skipping:");
 	println!("         • Hidden files (.DS_Store, Thumbs.db)");
@@ -266,7 +266,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 
 	// Smart job completion monitoring with checkpoint-based timeout
-	println!("\n   ⏰ Monitoring job completion with smart timeout...");
+	println!("\n   Monitoring job completion with smart timeout...");
 	println!("   Will track checkpoint progress and wait for actual completion");
 
 	let mut last_checkpoint_size = 0u64;
@@ -333,7 +333,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			break;
 		} else if stall_time.elapsed() > stall_timeout {
 			println!(
-				"   ⚠️  Job appears stalled (no progress for {} seconds)",
+				"    Job appears stalled (no progress for {} seconds)",
 				stall_timeout.as_secs()
 			);
 			println!("   Final checkpoint size: {} bytes", checkpoint_estimate);
@@ -428,14 +428,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		// Check if any system files got through
 		if entry.name == ".DS_Store" || entry.name == "Thumbs.db" {
 			println!(
-				"      ❌ Found system file that should be filtered: {}",
+				"      Found system file that should be filtered: {}",
 				entry.name
 			);
 			filtered_correctly = false;
 		}
 		if entry.name == "node_modules" || entry.name == ".git" || entry.name == "__pycache__" {
 			println!(
-				"      ❌ Found dev directory that should be filtered: {}",
+				"      Found dev directory that should be filtered: {}",
 				entry.name
 			);
 			filtered_correctly = false;
@@ -475,7 +475,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("      Running jobs: {}", running_jobs.len());
 	println!("      Completed jobs: {}", completed_jobs.len());
 
-	println!("\n   ✨ Production Indexer Features Demonstrated:");
+	println!("\n   Production Indexer Features Demonstrated:");
 	println!("      Smart Filtering - Automatically skipped system/cache files");
 	println!(
 		"      Incremental Ready - {} entries have inode tracking",
@@ -492,7 +492,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n6. Volume Management:");
 	println!("   Volume detection: Active");
 	println!("   Volume tracking: Ready");
-	println!("   ⚡ Speed testing: Available");
+	println!("   Speed testing: Available");
 	println!("   Mount monitoring: Active");
 
 	// 7. Event system demo
@@ -584,7 +584,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			}
 			println!("\n   Full logs available at: {:?}", job_logs_dir);
 		} else {
-			println!("   ⚠️  No job logs found (jobs may have completed too quickly)");
+			println!("    No job logs found (jobs may have completed too quickly)");
 		}
 	}
 
@@ -600,15 +600,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("Run again to see library auto-loading and job persistence!");
 	println!();
 	println!("Production system achievements:");
-	println!("  ✨ Full core lifecycle with real job dispatch");
-	println!("  🗄️  Database integration with actual file indexing");
+	println!("  Full core lifecycle with real job dispatch");
+	println!("   Database integration with actual file indexing");
 	println!("  Production job manager dispatching real jobs");
 	println!("  Real-time progress monitoring via events");
 	println!("  Event system with live job status updates");
-	println!("  👁️  File watching integration ready");
-	println!("  🏷️  User metadata innovation (every file taggable)");
+	println!("   File watching integration ready");
+	println!("   User metadata innovation (every file taggable)");
 	println!("  Content deduplication with CAS IDs");
-	println!("  🗂️  Path optimization for efficient storage");
+	println!("   Path optimization for efficient storage");
 	println!("  Production-ready architecture patterns");
 
 	Ok(())

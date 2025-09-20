@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	match job_manager.pause_job(job_id).await {
 		Ok(_) => println!("✓ Job paused successfully"),
 		Err(e) => {
-			println!("✗ Failed to pause job: {}", e);
+			println!("Failed to pause job: {}", e);
 			return Ok(());
 		}
 	}
@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	match job_manager.resume_job(job_id).await {
 		Ok(_) => println!("✓ Job resumed successfully"),
 		Err(e) => {
-			println!("✗ Failed to resume job: {}", e);
+			println!("Failed to resume job: {}", e);
 			return Ok(());
 		}
 	}
@@ -106,7 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	}
 
-	println!("\n✨ Demo completed!");
+	println!("\nDemo completed!");
 
 	Ok(())
 }

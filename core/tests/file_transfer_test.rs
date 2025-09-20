@@ -40,7 +40,7 @@ async fn alice_file_transfer_scenario() {
 	println!("Alice: Core initialized successfully");
 
 	// Set device name
-	println!("🏷️ Alice: Setting device name for testing...");
+	println!("Alice: Setting device name for testing...");
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
@@ -99,7 +99,7 @@ async fn alice_file_transfer_scenario() {
 	);
 
 	// Wait for pairing completion
-	println!("⏳ Alice: Waiting for Bob to connect...");
+	println!("Alice: Waiting for Bob to connect...");
 	let mut receiver_device_id = None;
 	let mut attempts = 0;
 	let max_attempts = 45; // 45 seconds
@@ -240,7 +240,7 @@ async fn alice_file_transfer_scenario() {
 			println!("Alice: Transfer ID: {:?}", transfer_id);
 
 			// Wait for transfer to complete
-			println!("⏳ Alice: Waiting for transfer to complete...");
+			println!("Alice: Waiting for transfer to complete...");
 			let mut completed = false;
 			for _ in 0..30 {
 				// Wait up to 30 seconds
@@ -264,7 +264,7 @@ async fn alice_file_transfer_scenario() {
 							}
 							TransferState::Failed => {
 								println!(
-									"❌ Alice: Transfer {:?} failed: {:?}",
+									"Alice: Transfer {:?} failed: {:?}",
 									transfer_id, status.error
 								);
 								completed = false;
@@ -283,7 +283,7 @@ async fn alice_file_transfer_scenario() {
 						}
 					}
 					Err(e) => {
-						println!("⚠️ Alice: Could not get transfer status: {}", e);
+						println!("Alice: Could not get transfer status: {}", e);
 					}
 				}
 			}
@@ -330,14 +330,14 @@ async fn alice_file_transfer_scenario() {
 				}
 			} else {
 				println!(
-					"⚠️ Alice: Transfer {:?} did not complete in time",
+					"Alice: Transfer {:?} did not complete in time",
 					transfer_id
 				);
 				panic!("Alice: File transfer did not complete in time");
 			}
 		}
 		Err(e) => {
-			println!("❌ Alice: File transfer failed: {}", e);
+			println!("Alice: File transfer failed: {}", e);
 			panic!("Alice: File transfer initiation failed: {}", e);
 		}
 	}
@@ -372,7 +372,7 @@ async fn bob_file_transfer_scenario() {
 	println!("Bob: Core initialized successfully");
 
 	// Set device name
-	println!("🏷️ Bob: Setting device name for testing...");
+	println!("Bob: Setting device name for testing...");
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
@@ -423,7 +423,7 @@ async fn bob_file_transfer_scenario() {
 	println!("Bob: Successfully joined pairing");
 
 	// Wait for pairing completion
-	println!("⏳ Bob: Waiting for pairing to complete...");
+	println!("Bob: Waiting for pairing to complete...");
 	let mut attempts = 0;
 	let max_attempts = 30; // 30 seconds
 
@@ -481,7 +481,7 @@ async fn bob_file_transfer_scenario() {
 	}
 
 	// Wait for file transfers
-	println!("⏳ Bob: Waiting for file transfers...");
+	println!("Bob: Waiting for file transfers...");
 
 	// Create directory for received files
 	let received_dir = std::path::Path::new("/tmp/received_files");
@@ -588,7 +588,7 @@ async fn bob_file_transfer_scenario() {
 							}
 							Err(e) => {
 								println!(
-									"⚠️ Bob: Could not generate checksum for {}: {}",
+									"Bob: Could not generate checksum for {}: {}",
 									expected_name, e
 								);
 								println!("Bob: Verified: {} (size matches)", expected_name);
@@ -596,7 +596,7 @@ async fn bob_file_transfer_scenario() {
 						}
 					} else {
 						println!(
-							"❌ Bob: Size mismatch for {}: expected {}, got {}",
+							"Bob: Size mismatch for {}: expected {}, got {}",
 							expected_name,
 							expected_size,
 							metadata.len()
@@ -604,11 +604,11 @@ async fn bob_file_transfer_scenario() {
 						verification_success = false;
 					}
 				} else {
-					println!("❌ Bob: Could not read metadata for {}", expected_name);
+					println!("Bob: Could not read metadata for {}", expected_name);
 					verification_success = false;
 				}
 			} else {
-				println!("❌ Bob: Expected file not found: {}", expected_name);
+				println!("Bob: Expected file not found: {}", expected_name);
 				verification_success = false;
 			}
 		}
@@ -638,7 +638,7 @@ async fn bob_file_transfer_scenario() {
 		}
 	} else {
 		println!(
-			"❌ Bob: Only received {}/{} expected files",
+			"Bob: Only received {}/{} expected files",
 			received_files.len(),
 			expected_files.len()
 		);
@@ -703,7 +703,7 @@ async fn test_file_transfer() {
 			);
 		}
 		Err(e) => {
-			println!("❌ Cargo test subprocess file transfer test failed: {}", e);
+			println!("Cargo test subprocess file transfer test failed: {}", e);
 			for (name, output) in runner.get_all_outputs() {
 				println!("\\n{} output:\\n{}", name, output);
 			}

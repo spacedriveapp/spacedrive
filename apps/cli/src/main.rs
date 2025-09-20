@@ -50,30 +50,30 @@ fn reset_spacedrive_v2_data(data_dir: &Path) -> Result<()> {
 			match result {
 				Ok(()) => {
 					removed_items.push(item.to_string());
-					println!("   ✅ Removed: {}", item);
+					println!("   Removed: {}", item);
 				}
 				Err(e) => {
 					errors.push(format!("Failed to remove {}: {}", item, e));
-					println!("   ⚠️  Failed to remove {}: {}", item, e);
+					println!("    Failed to remove {}: {}", item, e);
 				}
 			}
 		} else {
-			println!("   ℹ️  Not found: {}", item);
+			println!("    Not found: {}", item);
 		}
 	}
 
 	if !removed_items.is_empty() {
 		println!(
-			"✅ Reset complete. Removed {} items: {}",
+			"Reset complete. Removed {} items: {}",
 			removed_items.len(),
 			removed_items.join(", ")
 		);
 	} else {
-		println!("ℹ️  No Spacedrive v2 data found to reset.");
+		println!(" No Spacedrive v2 data found to reset.");
 	}
 
 	if !errors.is_empty() {
-		println!("⚠️  {} errors occurred during reset:", errors.len());
+		println!(" {} errors occurred during reset:", errors.len());
 		for error in &errors {
 			println!("   • {}", error);
 		}
@@ -271,7 +271,7 @@ async fn main() -> Result<()> {
 			if reset {
 				use crate::util::confirm::confirm_or_abort;
 				confirm_or_abort(
-					"⚠️  This will permanently delete Spacedrive v2 data (libraries, settings, logs). Other files in the data directory will be preserved. Are you sure?",
+					" This will permanently delete Spacedrive v2 data (libraries, settings, logs). Other files in the data directory will be preserved. Are you sure?",
 					false
 				)?;
 			}
@@ -286,9 +286,9 @@ async fn main() -> Result<()> {
 				Ok(_) => println!("Daemon stopped."),
 				Err(_) => {
 					if reset {
-						println!("ℹ️  Daemon was not running, proceeding with reset...");
+						println!(" Daemon was not running, proceeding with reset...");
 					} else {
-						println!("ℹ️  Daemon was not running or already stopped.");
+						println!(" Daemon was not running or already stopped.");
 					}
 				}
 			}
@@ -306,7 +306,7 @@ async fn main() -> Result<()> {
 			if reset {
 				use crate::util::confirm::confirm_or_abort;
 				confirm_or_abort(
-					"⚠️  This will permanently delete Spacedrive v2 data (libraries, settings, logs) before restart. Other files in the data directory will be preserved. Are you sure?",
+					" This will permanently delete Spacedrive v2 data (libraries, settings, logs) before restart. Other files in the data directory will be preserved. Are you sure?",
 					false
 				)?;
 			}
@@ -320,7 +320,7 @@ async fn main() -> Result<()> {
 
 			match stop_result {
 				Ok(_) => println!("Daemon stopped."),
-				Err(_) => println!("ℹ️  Daemon was not running or already stopped."),
+				Err(_) => println!(" Daemon was not running or already stopped."),
 			}
 
 			// Reset data if requested
@@ -362,9 +362,9 @@ async fn main() -> Result<()> {
 					.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
 					.await
 				{
-					Ok(_) => println!("✅ Daemon restart successful"),
+					Ok(_) => println!("Daemon restart successful"),
 					Err(e) => {
-						println!("⚠️  Warning: Could not verify daemon status: {}", e);
+						println!(" Warning: Could not verify daemon status: {}", e);
 						println!("Use 'sd status' to check daemon status");
 					}
 				}

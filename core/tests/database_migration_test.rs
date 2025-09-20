@@ -27,7 +27,7 @@ async fn test_database_creation_and_migration() {
 			println!("Migrations completed successfully!");
 		}
 		Err(e) => {
-			println!("❌ Migration failed: {}", e);
+			println!("Migration failed: {}", e);
 			panic!("Migration failed: {}", e);
 		}
 	}
@@ -56,7 +56,7 @@ async fn test_database_creation_and_migration() {
 			);
 		}
 		Err(e) => {
-			println!("❌ Database query failed: {}", e);
+			println!("Database query failed: {}", e);
 			panic!("Database query failed: {}", e);
 		}
 	}

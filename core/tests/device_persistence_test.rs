@@ -46,7 +46,7 @@ async fn alice_persistence_scenario() {
 		// Device name should be persisted
 		let device_config = core.device.config().unwrap();
 		let current_name = device_config.name;
-		println!("🏷️ Alice: Device name after restart: {}", current_name);
+		println!("Alice: Device name after restart: {}", current_name);
 		assert_eq!(current_name, device_name, "Device name not persisted");
 
 		// Initialize networking - this should trigger auto-reconnection
@@ -61,7 +61,7 @@ async fn alice_persistence_scenario() {
 		println!("Alice: Networking initialized, checking for auto-reconnection...");
 
 		// Check if Bob reconnected automatically
-		println!("⏳ Alice: Waiting for automatic reconnection to Bob...");
+		println!("Alice: Waiting for automatic reconnection to Bob...");
 		let mut attempts = 0;
 		let max_attempts = 60; // 60 seconds - give more time for discovery
 
@@ -127,7 +127,7 @@ async fn alice_persistence_scenario() {
 		println!("Alice: Core initialized successfully");
 
 		// Set device name
-		println!("🏷️ Alice: Setting device name...");
+		println!("Alice: Setting device name...");
 		core.device.set_name(device_name.to_string()).unwrap();
 
 		// Initialize networking
@@ -168,7 +168,7 @@ async fn alice_persistence_scenario() {
 		.unwrap();
 
 		// Wait for Bob to connect
-		println!("⏳ Alice: Waiting for Bob to connect...");
+		println!("Alice: Waiting for Bob to connect...");
 		let mut attempts = 0;
 		let max_attempts = 45;
 
@@ -252,7 +252,7 @@ async fn bob_persistence_scenario() {
 
 		// Device name should be persisted
 		let current_name = core.device.config().unwrap().name;
-		println!("🏷️ Bob: Device name after restart: {}", current_name);
+		println!("Bob: Device name after restart: {}", current_name);
 		assert_eq!(current_name, device_name, "Device name not persisted");
 
 		// Initialize networking - this should trigger auto-reconnection
@@ -267,7 +267,7 @@ async fn bob_persistence_scenario() {
 		println!("Bob: Networking initialized, checking for auto-reconnection...");
 
 		// Check if Alice reconnected automatically
-		println!("⏳ Bob: Waiting for automatic reconnection to Alice...");
+		println!("Bob: Waiting for automatic reconnection to Alice...");
 		let mut attempts = 0;
 		let max_attempts = 60; // 60 seconds - give more time for discovery
 
@@ -333,7 +333,7 @@ async fn bob_persistence_scenario() {
 		println!("Bob: Core initialized successfully");
 
 		// Set device name
-		println!("🏷️ Bob: Setting device name...");
+		println!("Bob: Setting device name...");
 		core.device.set_name(device_name.to_string()).unwrap();
 
 		// Initialize networking
@@ -373,7 +373,7 @@ async fn bob_persistence_scenario() {
 		}
 
 		// Wait for connection
-		println!("⏳ Bob: Waiting for connection to Alice...");
+		println!("Bob: Waiting for connection to Alice...");
 		let mut attempts = 0;
 		let max_attempts = 30;
 
@@ -471,7 +471,7 @@ async fn test_device_persistence() {
 		.await;
 
 	if pairing_result.is_err() {
-		println!("❌ Initial pairing failed");
+		println!("Initial pairing failed");
 		for (name, output) in runner.get_all_outputs() {
 			println!("\\n{} output:\\n{}", name, output);
 		}
@@ -529,7 +529,7 @@ async fn test_device_persistence() {
 			println!("Devices automatically reconnected after restart");
 		}
 		Err(e) => {
-			println!("\\n❌ Device persistence test failed: {}", e);
+			println!("\\nDevice persistence test failed: {}", e);
 			for (name, output) in runner.get_all_outputs() {
 				println!("\\n{} output:\\n{}", name, output);
 			}

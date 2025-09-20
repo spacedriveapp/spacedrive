@@ -75,7 +75,7 @@ impl<'a> JobContext<'a> {
             let _ = logger.log("WARN", &msg);
         }
         
-        self.progress(Progress::indeterminate(format!("⚠️ {}", msg)));
+        self.progress(Progress::indeterminate(format!("{}", msg)));
     }
     
     /// Add a non-critical error
@@ -87,7 +87,7 @@ impl<'a> JobContext<'a> {
             let _ = logger.log("ERROR", &error_msg);
         }
         
-        self.progress(Progress::indeterminate(format!("❌ {}", error_msg)));
+        self.progress(Progress::indeterminate(format!("{}", error_msg)));
         
         // Increment error count
         if let Ok(mut metrics) = self.metrics.try_lock() {

@@ -85,7 +85,7 @@ async fn test_macos_volume_detection() {
 		!apfs_volumes.is_empty(),
 		"No APFS volumes detected on macOS"
 	);
-	println!("✅ Found {} APFS volumes", apfs_volumes.len());
+	println!("Found {} APFS volumes", apfs_volumes.len());
 
 	// Check for Data volume with path mappings
 	let data_volumes: Vec<_> = apfs_volumes
@@ -95,7 +95,7 @@ async fn test_macos_volume_detection() {
 
 	if !data_volumes.is_empty() {
 		println!(
-			"✅ Found {} APFS Data volumes with path mappings",
+			"Found {} APFS Data volumes with path mappings",
 			data_volumes.len()
 		);
 	}
@@ -214,7 +214,7 @@ async fn test_same_physical_storage_detection() {
 			}
 		} else {
 			println!(
-				"  ⏭️  {} <-> {} - Skipped (paths don't exist)",
+				"   {} <-> {} - Skipped (paths don't exist)",
 				path1_str, path2_str
 			);
 		}
@@ -297,7 +297,7 @@ async fn test_copy_strategy_selection() {
 			}
 		} else {
 			println!(
-				"  ⏭️  {} -> {} - Skipped (paths don't exist)",
+				"   {} -> {} - Skipped (paths don't exist)",
 				source_str, dest_str
 			);
 		}
@@ -350,7 +350,7 @@ async fn test_apfs_container_detection() {
 	});
 
 	assert!(has_data_volume, "No APFS Data volume found");
-	println!("✅ Found APFS Data volume");
+	println!("Found APFS Data volume");
 }
 
 /// Test filesystem handler selection
@@ -459,17 +459,17 @@ async fn test_full_copy_workflow_simulation() {
 							description
 						);
 						println!(
-							"  ✅ Correctly selected fast copy for same-storage APFS operation"
+							"  Correctly selected fast copy for same-storage APFS operation"
 						);
 					}
 				}
 				_ => {
-					println!("  ❌ Could not find volumes for one or both paths");
+					println!("  Could not find volumes for one or both paths");
 				}
 			}
 		} else {
 			println!(
-				"  ⏭️  Scenario '{}' skipped (paths don't exist)",
+				"   Scenario '{}' skipped (paths don't exist)",
 				scenario_name
 			);
 		}

@@ -211,7 +211,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				}
 			}
 			Err(e) => {
-				println!("   ⚠ Speed test failed: {}", e);
+				println!("   Speed test failed: {}", e);
 			}
 		}
 	} else {

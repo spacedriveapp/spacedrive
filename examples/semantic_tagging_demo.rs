@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🏷️  Spacedrive Semantic Tagging Demo");
+    println!(" Spacedrive Semantic Tagging Demo");
     println!("=====================================\n");
 
     // This is a conceptual demo showing how the semantic tagging system would work
@@ -225,7 +225,7 @@ async fn demo_conflict_resolution() -> Result<()> {
         TagApplication::user_applied(family_tag_id, device_id_b)
     ];
 
-    println!("⚡ Sync conflict scenario:");
+    println!("Sync conflict scenario:");
     println!("   Device A tagged photo: 'vacation'");
     println!("   Device B tagged same photo: 'family'");
     println!();
@@ -277,7 +277,7 @@ async fn demo_organizational_patterns() -> Result<()> {
     println!("   'Hidden' tag completely invisible except to admin users");
     println!();
 
-    println!("⚡ Compositional Attributes:");
+    println!("Compositional Attributes:");
     println!("   'Technical Document' WITH 'Confidential' AND '2024 Q3'");
     println!("   → Creates dynamic queries combining multiple tag properties");
     println!();
@@ -293,7 +293,7 @@ async fn demo_advanced_features() -> Result<()> {
     println!("What makes this semantic tagging special:");
     println!();
 
-    println!("🏗️  Graph-Based Architecture:");
+    println!(" Graph-Based Architecture:");
     println!("   • DAG structure with closure table for O(1) hierarchy queries");
     println!("   • Multiple inheritance paths supported");
     println!("   • Relationship strengths for nuanced connections");
@@ -317,7 +317,7 @@ async fn demo_advanced_features() -> Result<()> {
     println!("   • Privacy-first: local models supported");
     println!();
 
-    println!("⚡ Enterprise-Grade Features:");
+    println!("Enterprise-Grade Features:");
     println!("   • RBAC integration ready");
     println!("   • Audit logging and compliance");
     println!("   • Compositional attribute system");

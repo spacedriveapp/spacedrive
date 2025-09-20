@@ -46,7 +46,7 @@ async fn alice_cross_device_copy_scenario() {
 	println!("Alice: Core initialized successfully");
 
 	// Set device name
-	println!("🏷️ Alice: Setting device name for testing...");
+	println!("Alice: Setting device name for testing...");
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
@@ -109,7 +109,7 @@ async fn alice_cross_device_copy_scenario() {
 	);
 
 	// Wait for pairing completion
-	println!("⏳ Alice: Waiting for Bob to connect...");
+	println!("Alice: Waiting for Bob to connect...");
 	let mut bob_device_id = None;
 	let mut attempts = 0;
 	let max_attempts = 45; // 45 seconds
@@ -238,7 +238,7 @@ async fn alice_cross_device_copy_scenario() {
 				println!("  Output: {:?}", output);
 			}
 			Err(e) => {
-				println!("❌ Alice: Copy action {} failed: {}", i + 1, e);
+				println!("Alice: Copy action {} failed: {}", i + 1, e);
 				panic!("Failed to dispatch copy action: {}", e);
 			}
 		}
@@ -248,7 +248,7 @@ async fn alice_cross_device_copy_scenario() {
 	}
 
 	// Wait for Bob to confirm receipt
-	println!("⏳ Alice: Waiting for Bob to confirm file receipt...");
+	println!("Alice: Waiting for Bob to confirm file receipt...");
 	let mut bob_confirmed = false;
 	for attempt in 1..=60 {
 		if std::fs::read_to_string("/tmp/spacedrive-cross-device-copy-test/bob_verified.txt")
@@ -313,7 +313,7 @@ async fn bob_cross_device_copy_scenario() {
 	println!("Bob: Core initialized successfully");
 
 	// Set device name
-	println!("🏷️ Bob: Setting device name for testing...");
+	println!("Bob: Setting device name for testing...");
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
@@ -364,7 +364,7 @@ async fn bob_cross_device_copy_scenario() {
 	println!("Bob: Successfully joined pairing");
 
 	// Wait for pairing completion
-	println!("⏳ Bob: Waiting for pairing to complete...");
+	println!("Bob: Waiting for pairing to complete...");
 	let mut attempts = 0;
 	let max_attempts = 30;
 
@@ -429,7 +429,7 @@ async fn bob_cross_device_copy_scenario() {
 	}
 
 	// Monitor for received files
-	println!("⏳ Bob: Waiting for files to arrive via action system...");
+	println!("Bob: Waiting for files to arrive via action system...");
 	let mut received_files = Vec::new();
 	let start_time = std::time::Instant::now();
 	let timeout_duration = Duration::from_secs(60);
@@ -459,7 +459,7 @@ async fn bob_cross_device_copy_scenario() {
 									println!("  Size verified: {} bytes", metadata.len());
 								} else {
 									println!(
-										"  ❌ Size mismatch: expected {}, got {}",
+										"  Size mismatch: expected {}, got {}",
 										expected_size,
 										metadata.len()
 									);
@@ -498,7 +498,7 @@ async fn bob_cross_device_copy_scenario() {
 		println!("CROSS_DEVICE_COPY_SUCCESS: Bob verified all received files");
 	} else {
 		println!(
-			"❌ Bob: Only received {}/{} expected files",
+			"Bob: Only received {}/{} expected files",
 			received_files.len(),
 			expected_files.len()
 		);
@@ -563,7 +563,7 @@ async fn test_cross_device_copy() {
 			);
 		}
 		Err(e) => {
-			println!("❌ Cross-device copy test failed: {}", e);
+			println!("Cross-device copy test failed: {}", e);
 			for (name, output) in runner.get_all_outputs() {
 				println!("\n{} output:\n{}", name, output);
 			}

@@ -213,7 +213,7 @@ pub async fn demonstrate_configuration_options() -> Result<()> {
 		// Validate configuration
 		match config.validate() {
 			Ok(_) => println!("  ✓ Configuration is valid"),
-			Err(e) => println!("  ✗ Configuration is invalid: {}", e),
+			Err(e) => println!("  Configuration is invalid: {}", e),
 		}
 	}
 	

@@ -57,7 +57,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	let data_dir = std::path::PathBuf::from("core/data/move-integrity-test");
 	if data_dir.exists() {
 		std::fs::remove_dir_all(&data_dir).unwrap();
-		println!("🗑️ Deleted existing data directory for clean test");
+		println!("Deleted existing data directory for clean test");
 	}
 	std::fs::create_dir_all(&data_dir).unwrap();
 	println!("Created fresh data directory: {:?}", data_dir);
@@ -129,7 +129,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		.unwrap();
 	let tag_id = tag_output.tag_id;
 
-	println!("🏷️ Created tag 'Project Alpha' with ID: {}", tag_id);
+	println!("Created tag 'Project Alpha' with ID: {}", tag_id);
 
 	// 5. Find the Entry ID for 'parent_dir'
 	let db = library.db().conn();
@@ -175,7 +175,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		.await
 		.unwrap();
 
-	println!("🏷️ Applied tag to parent_dir");
+	println!("Applied tag to parent_dir");
 
 	// Verify tag was applied by checking the metadata was created
 	let updated_parent_entry = entry::Entity::find_by_id(original_parent_dir_id)
@@ -261,7 +261,7 @@ async fn test_entry_metadata_preservation_on_move() {
 
 	// If no links found, this suggests the ApplyTagsAction didn't work properly
 	if tag_link_count == 0 {
-		println!("⚠️ No tag links found - this indicates the semantic tagging system has issues");
+		println!("No tag links found - this indicates the semantic tagging system has issues");
 		println!("Entry ID preservation verified (core functionality works)");
 
 		// Test that the entry still exists and has the same ID
@@ -271,7 +271,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		);
 
 		// Skip metadata verification for now - the semantic tagging system needs more work
-		println!("⚠️ Skipping metadata preservation test due to semantic tagging system issues");
+		println!("Skipping metadata preservation test due to semantic tagging system issues");
 	} else {
 		assert_eq!(tag_link_count, 1, "Tag link should be preserved");
 		println!("Metadata preservation verified");
@@ -282,14 +282,14 @@ async fn test_entry_metadata_preservation_on_move() {
 		if moved_entry.parent_id == Some(dest_entry.id) {
 			println!("Hierarchy update verified");
 		} else {
-			println!("⚠️ Hierarchy not updated in database - move operation doesn't update entry relationships");
+			println!("Hierarchy not updated in database - move operation doesn't update entry relationships");
 			println!(
 				"  Expected parent: {}, Actual parent: {:?}",
 				dest_entry.id, moved_entry.parent_id
 			);
 		}
 	} else {
-		println!("⚠️ Destination directory not found in database - move operation doesn't update database");
+		println!("Destination directory not found in database - move operation doesn't update database");
 	}
 
 	// 4. Verify Path Cache Update for the moved directory
@@ -307,12 +307,12 @@ async fn test_entry_metadata_preservation_on_move() {
 			);
 		} else {
 			println!(
-				"⚠️ Path cache not updated properly. Got: {}",
+				"Path cache not updated properly. Got: {}",
 				moved_path_record.path
 			);
 		}
 	} else {
-		println!("⚠️ No path cache record found for moved directory");
+		println!("No path cache record found for moved directory");
 	}
 
 	// 5. Verify Descendant Path Update
@@ -338,15 +338,15 @@ async fn test_entry_metadata_preservation_on_move() {
 				);
 			} else {
 				println!(
-					"⚠️ Descendant path not updated properly. Got: {}",
+					"Descendant path not updated properly. Got: {}",
 					sub_dir_path_record.path
 				);
 			}
 		} else {
-			println!("⚠️ No path cache record found for sub_dir");
+			println!("No path cache record found for sub_dir");
 		}
 	} else {
-		println!("⚠️ sub_dir entry not found");
+		println!("sub_dir entry not found");
 	}
 
 	// Final Summary
@@ -361,7 +361,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		println!("Metadata preservation: WORKING - Tag links survive move operations");
 	} else {
 		println!(
-			"⚠️ Metadata preservation: NEEDS WORK - ApplyTagsAction not creating proper links"
+			"Metadata preservation: NEEDS WORK - ApplyTagsAction not creating proper links"
 		);
 	}
 
@@ -370,7 +370,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	if filesystem_moved {
 		println!("Filesystem move: WORKING - Files physically moved to new location");
 	} else {
-		println!("⚠️ Filesystem move: ISSUE - Files not moved properly");
+		println!("Filesystem move: ISSUE - Files not moved properly");
 	}
 
 	println!("\nTest Framework: COMPLETE");

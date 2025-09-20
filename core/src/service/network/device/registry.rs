@@ -161,7 +161,7 @@ impl DeviceRegistry {
 
 		// Persist the paired device for future reconnection
 		if let Err(e) = self.persistence.add_paired_device(device_id, info.clone(), session_keys.clone(), addresses).await {
-			self.logger.warn(&format!("⚠️ Failed to persist paired device {}: {}", device_id, e)).await;
+			self.logger.warn(&format!("Failed to persist paired device {}: {}", device_id, e)).await;
 			// Continue anyway - pairing succeeded even if persistence failed
 		} else {
 			self.logger.debug(&format!("Persisted paired device: {}", device_id)).await;
@@ -218,7 +218,7 @@ impl DeviceRegistry {
 
 		// Update persistence - device connected successfully with current addresses
 		if let Err(e) = self.persistence.update_device_connection(device_id, true, Some(addresses)).await {
-			self.logger.warn(&format!("⚠️ Failed to update device connection status {}: {}", device_id, e)).await;
+			self.logger.warn(&format!("Failed to update device connection status {}: {}", device_id, e)).await;
 		}
 
 		Ok(())
@@ -255,7 +255,7 @@ impl DeviceRegistry {
 
 		// Update persistence - device disconnected
 		if let Err(e) = self.persistence.update_device_connection(device_id, false, None).await {
-			self.logger.warn(&format!("⚠️ Failed to update device disconnection status {}: {}", device_id, e)).await;
+			self.logger.warn(&format!("Failed to update device disconnection status {}: {}", device_id, e)).await;
 		}
 
 		Ok(())

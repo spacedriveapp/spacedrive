@@ -104,7 +104,7 @@ async fn main() -> Result<()> {
 	println!("   Indexer job dispatched!");
 
 	// Wait a bit for indexing to start
-	println!("\n⏳ Waiting for indexing to process some files...");
+	println!("\nWaiting for indexing to process some files...");
 	tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
 	// Now let's search for "screenshot" files
@@ -186,11 +186,11 @@ async fn main() -> Result<()> {
 						}
 					}
 				} else {
-					println!("   ℹ No screenshot files found");
+					println!("   No screenshot files found");
 				}
 			}
 			Err(e) => {
-				println!("   ❌ {} search failed: {}", mode_name, e);
+				println!("   {} search failed: {}", mode_name, e);
 			}
 		}
 	}
@@ -225,7 +225,7 @@ async fn main() -> Result<()> {
 			);
 		}
 		Err(e) => {
-			println!("   ❌ Location-specific search failed: {}", e);
+			println!("   Location-specific search failed: {}", e);
 		}
 	}
 
@@ -261,7 +261,7 @@ async fn main() -> Result<()> {
 			);
 		}
 		Err(e) => {
-			println!("   ❌ Filtered search failed: {}", e);
+			println!("   Filtered search failed: {}", e);
 		}
 	}
 

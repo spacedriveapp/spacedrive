@@ -365,7 +365,7 @@ impl NetworkingService {
 							if retry_count >= max_retries {
 								logger
 									.error(&format!(
-										"❌ Failed to connect to device {} after {} attempts: {}",
+										"Failed to connect to device {} after {} attempts: {}",
 										device_id, max_retries, e
 									))
 									.await;
@@ -373,7 +373,7 @@ impl NetworkingService {
 							} else {
 								logger
 									.info(&format!(
-										"⏳ Connection attempt {} of {} failed for device {}, retrying in {:?}...",
+										"Connection attempt {} of {} failed for device {}, retrying in {:?}...",
 										retry_count, max_retries, device_id, retry_delay
 									))
 									.await;

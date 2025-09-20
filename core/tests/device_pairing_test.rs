@@ -37,7 +37,7 @@ async fn alice_pairing_scenario() {
 	println!("Alice: Core initialized successfully");
 
 	// Set device name
-	println!("🏷️ Alice: Setting device name for testing...");
+	println!("Alice: Setting device name for testing...");
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
@@ -85,7 +85,7 @@ async fn alice_pairing_scenario() {
 	println!("Alice: Pairing code written to /tmp/spacedrive-pairing-test/pairing_code.txt");
 
 	// Wait for pairing completion (Alice waits for Bob to connect)
-	println!("⏳ Alice: Waiting for pairing to complete...");
+	println!("Alice: Waiting for pairing to complete...");
 	let mut attempts = 0;
 	let max_attempts = 45; // 45 seconds
 
@@ -113,7 +113,7 @@ async fn alice_pairing_scenario() {
 			std::fs::write("/tmp/spacedrive-pairing-test/alice_success.txt", "success").unwrap();
 
 			// Wait a bit longer to give Bob time to detect the connection before Alice exits
-			println!("⏳ Alice: Waiting for Bob to also detect the connection...");
+			println!("Alice: Waiting for Bob to also detect the connection...");
 			tokio::time::sleep(Duration::from_secs(5)).await;
 			break;
 		}
@@ -158,7 +158,7 @@ async fn bob_pairing_scenario() {
 	println!("Bob: Core initialized successfully");
 
 	// Set device name
-	println!("🏷️ Bob: Setting device name for testing...");
+	println!("Bob: Setting device name for testing...");
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
@@ -198,7 +198,7 @@ async fn bob_pairing_scenario() {
 	println!("Bob: Successfully joined pairing");
 
 	// Wait for pairing completion
-	println!("⏳ Bob: Waiting for pairing to complete...");
+	println!("Bob: Waiting for pairing to complete...");
 	let mut attempts = 0;
 	let max_attempts = 30; // 30 seconds
 
@@ -303,7 +303,7 @@ async fn test_device_pairing() {
 			);
 		}
 		Err(e) => {
-			println!("❌ Cargo test subprocess pairing test failed: {}", e);
+			println!("Cargo test subprocess pairing test failed: {}", e);
 			for (name, output) in runner.get_all_outputs() {
 				println!("\\n{} output:\\n{}", name, output);
 			}

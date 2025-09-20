@@ -145,7 +145,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 
 		if count == 0 {
-			println!("   ⚠️  No job logs found");
+			println!("    No job logs found");
 		} else {
 			println!("\n   Found {} job log file(s)", count);
 		}

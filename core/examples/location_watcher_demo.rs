@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					entry_id,
 				} => {
 					info!(
-						"✏️  File modified - Library: {}, Entry: {}",
+						" File modified - Library: {}, Entry: {}",
 						library_id, entry_id
 					);
 				}
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					entry_id,
 				} => {
 					info!(
-						"🗑️  File deleted - Library: {}, Entry: {}",
+						" File deleted - Library: {}, Entry: {}",
 						library_id, entry_id
 					);
 				}

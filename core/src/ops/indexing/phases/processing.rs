@@ -304,7 +304,7 @@ pub async fn run_processing_phase(
 
 				None => {
 					// No change - skip
-					ctx.log(format!("⏭️  No change for: {}", entry.path.display()));
+					ctx.log(format!(" No change for: {}", entry.path.display()));
 				}
 			}
 		}
@@ -352,7 +352,7 @@ pub async fn run_processing_phase(
 			for change in deleted {
 				if let Change::Deleted { path, entry_id } = change {
 					ctx.log(format!(
-						"❌ Deleting missing entry from database: {} (id: {})",
+						"Deleting missing entry from database: {} (id: {})",
 						path.display(),
 						entry_id
 					));

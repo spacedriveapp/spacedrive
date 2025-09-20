@@ -90,7 +90,7 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
                 if o.success {
                     println!("Job {} paused successfully", o.job_id);
                 } else {
-                    println!("❌ Failed to pause job {}", o.job_id);
+                    println!("Failed to pause job {}", o.job_id);
                 }
             });
         }
@@ -101,7 +101,7 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
                 if o.success {
                     println!("Job {} resumed successfully", o.job_id);
                 } else {
-                    println!("❌ Failed to resume job {}", o.job_id);
+                    println!("Failed to resume job {}", o.job_id);
                 }
             });
         }
@@ -112,7 +112,7 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
                 if o.success {
                     println!("Job {} cancelled successfully", o.job_id);
                 } else {
-                    println!("❌ Failed to cancel job {}", o.job_id);
+                    println!("Failed to cancel job {}", o.job_id);
                 }
             });
         }
@@ -224,10 +224,10 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 
                     Event::JobFailed { job_id, job_type, error } => {
                         if let Some(pb) = progress_bars.get(&job_id) {
-                            pb.finish_with_message(format!("❌ {} [{}] - Failed", job_type, &job_id[..8]));
+                            pb.finish_with_message(format!("{} [{}] - Failed", job_type, &job_id[..8]));
                             progress_bars.remove(&job_id);
                         }
-                        println!("❌ Job failed: {} [{}] - {}", job_type, &job_id[..8], error);
+                        println!("Job failed: {} [{}] - {}", job_type, &job_id[..8], error);
                     }
 
                     Event::JobCancelled { job_id, job_type } => {
@@ -240,9 +240,9 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 
                     Event::JobPaused { job_id } => {
                         if let Some(pb) = progress_bars.get(&job_id) {
-                            pb.set_message(format!("⏸️ Job paused [{}]", &job_id[..8]));
+                            pb.set_message(format!("Job paused [{}]", &job_id[..8]));
                         }
-                        println!("⏸️ Job paused: [{}]", &job_id[..8]);
+                        println!("Job paused: [{}]", &job_id[..8]);
                     }
 
                     Event::JobResumed { job_id } => {
@@ -259,7 +259,7 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 
         Err(_) => {
             // Fall back to polling mode
-            println!("⚠️ Real-time events not available, using polling mode");
+            println!("Real-time events not available, using polling mode");
             run_polling_job_monitor(ctx, args).await?;
         }
     }
