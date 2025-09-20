@@ -85,6 +85,13 @@ impl RpcServer {
 				// Handle shutdown signal
 				_ = self.shutdown_rx.recv() => {
 					eprintln!("Shutdown signal received, stopping RPC server");
+
+					// Perform graceful shutdown of the core
+					tracing::info!("Performing graceful core shutdown...");
+					if let Err(e) = self.core.shutdown().await {
+						tracing::error!("Error during core shutdown: {}", e);
+					}
+
 					break;
 				}
 			}

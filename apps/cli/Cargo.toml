@@ -4,15 +4,16 @@ name    = "sd-cli"
 version = "0.1.0"
 
 [dependencies]
-anyhow     = "1"
-bincode    = { version = "2.0.0-rc.3", features = ["serde"] }
-chrono     = { version = "0.4", features = ["serde"] }
-clap       = { version = "4", features = ["derive"] }
-crossterm  = "0.27"
-indicatif  = "0.17"
-ratatui    = "0.26"
-sd-core    = { path = "../../core", features = ["cli"] }
-serde      = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio      = { version = "1", features = ["full"] }
-uuid       = { version = "1", features = ["serde", "v4"] }
+anyhow      = "1"
+bincode     = { version = "2.0.0-rc.3", features = ["serde"] }
+chrono      = { version = "0.4", features = ["serde"] }
+clap        = { version = "4", features = ["derive"] }
+comfy-table = "7.1"
+crossterm   = "0.27"
+indicatif   = "0.17"
+ratatui     = "0.26"
+sd-core     = { path = "../../core", features = ["cli"] }
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+tokio       = { version = "1", features = ["full"] }
+uuid        = { version = "1", features = ["serde", "v4"] }

@@ -8065,6 +8065,7 @@ dependencies = [
  "bincode 2.0.0-rc.3",
  "chrono",
  "clap",
+ "comfy-table",
  "crossterm 0.27.0",
  "indicatif",
  "ratatui 0.26.3",

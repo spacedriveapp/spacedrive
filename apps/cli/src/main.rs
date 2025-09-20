@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
 use sd_core::client::CoreClient;
 use std::path::Path;
 
@@ -294,7 +295,11 @@ async fn main() -> Result<()> {
 				.await;
 
 			match stop_result {
-				Ok(_) => println!("Daemon stopped."),
+				Ok(_) => {
+					println!("Daemon shutdown initiated.");
+					println!("Note: If jobs are running, the daemon will wait for them to pause before fully shutting down.");
+					println!("Use 'sd logs follow' to monitor shutdown progress.");
+				},
 				Err(_) => {
 					if reset {
 						println!(" Daemon was not running, proceeding with reset...");
@@ -326,7 +331,12 @@ async fn main() -> Result<()> {
 				.await;
 
 			match stop_result {
-				Ok(_) => println!("Daemon stopped."),
+				Ok(_) => {
+					println!("Daemon shutdown initiated.");
+					println!("Waiting for daemon to fully shut down before restart...");
+					// Give some time for shutdown to complete
+					tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+				},
 				Err(_) => println!(" Daemon was not running or already stopped."),
 			}
 
@@ -423,10 +433,181 @@ async fn run_client_command(
 				.await?;
 			match ctx.format {
 				OutputFormat::Human => {
-					crate::ui::print_logo();
-					println!("Core Version: {}", status.version);
-					println!("Libraries: {}", status.library_count);
-					println!("Status: Running");
+					// Display logo
+					crate::ui::logo::print_logo_colored();
+					println!();
+
+					// Device Information
+					let mut device_table = Table::new();
+					device_table.load_preset(UTF8_BORDERS_ONLY);
+					device_table.set_header(vec![
+						Cell::new("Device Information").add_attribute(Attribute::Bold),
+						Cell::new(""),
+					]);
+					device_table.add_row(vec!["Name", &status.device_info.name]);
+					device_table.add_row(vec!["ID", &status.device_info.id.to_string()]);
+					device_table.add_row(vec!["OS", &status.device_info.os]);
+					if let Some(model) = &status.device_info.hardware_model {
+						device_table.add_row(vec!["Hardware", model]);
+					}
+					device_table.add_row(vec![
+						"Created",
+						&status
+							.device_info
+							.created_at
+							.format("%Y-%m-%d %H:%M:%S UTC")
+							.to_string(),
+					]);
+					println!("{}", device_table);
+					println!();
+
+					// System Status
+					let mut system_table = Table::new();
+					system_table.load_preset(UTF8_BORDERS_ONLY);
+					system_table.set_header(vec![
+						Cell::new("System Status").add_attribute(Attribute::Bold),
+						Cell::new(""),
+					]);
+					system_table.add_row(vec!["Core Version", &status.version]);
+					system_table.add_row(vec!["Data Directory", &status.system.data_directory]);
+					if let Some(instance) = &status.system.instance_name {
+						system_table.add_row(vec!["Instance", instance]);
+					}
+					if let Some(current_lib) = &status.system.current_library {
+						system_table.add_row(vec!["Current Library", current_lib]);
+					} else {
+						system_table.add_row(vec!["Current Library", "None"]);
+					}
+					if let Some(uptime) = status.system.uptime {
+						let hours = uptime / 3600;
+						let minutes = (uptime % 3600) / 60;
+						system_table.add_row(vec!["Uptime", &format!("{}h {}m", hours, minutes)]);
+					}
+					system_table.add_row(vec!["Status", "● Running"]);
+					println!("{}", system_table);
+					println!();
+
+					// Libraries
+					let mut libraries_table = Table::new();
+					libraries_table.load_preset(UTF8_BORDERS_ONLY);
+					libraries_table.set_header(vec![
+						Cell::new(format!("Libraries ({})", status.library_count))
+							.add_attribute(Attribute::Bold),
+						Cell::new(""),
+					]);
+					if status.libraries.is_empty() {
+						libraries_table
+							.add_row(vec!["No libraries found".to_string(), "".to_string()]);
+					} else {
+						for lib in &status.libraries {
+							let active_indicator = if lib.is_active { "●" } else { "○" };
+							let lib_name = format!("{} {}", active_indicator, lib.name);
+							libraries_table.add_row(vec![lib_name, lib.id.to_string()]);
+							libraries_table.add_row(vec![
+								format!("  Locations: {}", lib.location_count),
+								"".to_string(),
+							]);
+							if let Some(entries) = lib.total_entries {
+								libraries_table.add_row(vec![
+									format!("  Entries: {}", entries),
+									"".to_string(),
+								]);
+							}
+						}
+					}
+					println!("{}", libraries_table);
+					println!();
+
+					// Services
+					let mut services_table = Table::new();
+					services_table.load_preset(UTF8_BORDERS_ONLY);
+					services_table.set_header(vec![
+						Cell::new("Services").add_attribute(Attribute::Bold),
+						Cell::new(""),
+					]);
+					let services = &status.services;
+
+					let watcher_status = if services.location_watcher.running {
+						"● Running"
+					} else {
+						"○ Stopped"
+					};
+					services_table.add_row(vec!["Location Watcher", watcher_status]);
+
+					let net_status = if services.networking.running {
+						"● Running"
+					} else {
+						"○ Stopped"
+					};
+					services_table.add_row(vec!["Networking", net_status]);
+
+					let vol_status = if services.volume_monitor.running {
+						"● Running"
+					} else {
+						"○ Stopped"
+					};
+					services_table.add_row(vec!["Volume Monitor", vol_status]);
+
+					let share_status = if services.file_sharing.running {
+						"● Running"
+					} else {
+						"○ Stopped"
+					};
+					services_table.add_row(vec!["File Sharing", share_status]);
+					println!("{}", services_table);
+					println!();
+
+					// Network
+					let mut network_table = Table::new();
+					network_table.load_preset(UTF8_BORDERS_ONLY);
+					network_table.set_header(vec![
+						Cell::new("Network").add_attribute(Attribute::Bold),
+						Cell::new(""),
+					]);
+					if status.network.enabled {
+						network_table.add_row(vec!["Status", "● Enabled"]);
+
+						if let Some(node_id) = &status.network.node_id {
+							let node_id_display = if node_id.len() > 50 {
+								format!("{}...", &node_id[..47])
+							} else {
+								node_id.clone()
+							};
+							network_table.add_row(vec!["Node ID", &node_id_display]);
+						}
+
+						network_table.add_row(vec![
+							"Connections",
+							&status.network.active_connections.to_string(),
+						]);
+
+						let discovery_status = if status.network.discovery_enabled {
+							"● Enabled"
+						} else {
+							"○ Disabled"
+						};
+						network_table.add_row(vec!["Discovery", discovery_status]);
+
+						if status.network.paired_devices.is_empty() {
+							network_table.add_row(vec!["Paired Devices", "None"]);
+						} else {
+							network_table.add_row(vec![
+								"Paired Devices",
+								&format!("{} device(s)", status.network.paired_devices.len()),
+							]);
+							for device in &status.network.paired_devices {
+								let online_indicator = if device.is_online { "●" } else { "○" };
+								let device_name = format!(
+									"  {} {} ({})",
+									online_indicator, device.name, device.os
+								);
+								network_table.add_row(vec![device_name, "".to_string()]);
+							}
+						}
+					} else {
+						network_table.add_row(vec!["Status", "○ Disabled"]);
+					}
+					println!("{}", network_table);
 				}
 				OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&status)?),
 			}

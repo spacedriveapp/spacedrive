@@ -15,19 +15,18 @@ pub async fn start_default_server(
 	initialize_tracing_with_file_logging(&data_dir)?;
 
 	// Create a single Core instance
-	let core = Arc::new(
-		Core::new_with_config(data_dir.clone())
-			.await
-			.map_err(|e| format!("Failed to create core: {}", e))?,
-	);
+	let mut core = Core::new_with_config(data_dir.clone())
+		.await
+		.map_err(|e| format!("Failed to create core: {}", e))?;
 
-	let core = if enable_networking {
-		Core::init_networking_shared(core)
+	// Initialize networking if enabled
+	if enable_networking {
+		core.init_networking()
 			.await
-			.map_err(|e| format!("Failed to initialize networking: {}", e))?
-	} else {
-		core
-	};
+			.map_err(|e| format!("Failed to initialize networking: {}", e))?;
+	}
+
+	let core = Arc::new(core);
 
 	info!("Starting Spacedrive daemon");
 	info!("Data directory: {:?}", data_dir);

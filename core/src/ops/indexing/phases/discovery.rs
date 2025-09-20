@@ -76,6 +76,9 @@ pub async fn run_discovery_phase(
 				let mut added_count = 0;
 
 				for entry in entries {
+					// Check for interruption during entry processing
+					ctx.check_interrupt().await?;
+
 					// Skip filtered entries via rules engine (match against basename to avoid ancestor effects)
 					let name_path = entry
 						.path

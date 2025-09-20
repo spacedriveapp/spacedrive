@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::path::PathBuf;
+use tokio::signal;
 
 /// Validate instance name to prevent path traversal attacks
 fn validate_instance_name(instance: &str) -> Result<(), String> {
@@ -57,10 +58,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		(base_data_dir.clone(), socket_path)
 	};
 
-	sd_core::infra::daemon::bootstrap::start_default_server(
-		socket_path,
-		data_dir,
-		true, // Always enable networking
-	)
-	.await
+	// Set up signal handling for graceful shutdown
+	let ctrl_c = async {
+		signal::ctrl_c()
+			.await
+			.expect("failed to install Ctrl+C handler");
+	};
+
+	#[cfg(unix)]
+	let terminate = async {
+		signal::unix::signal(signal::unix::SignalKind::terminate())
+			.expect("failed to install signal handler")
+			.recv()
+			.await;
+	};
+
+	#[cfg(not(unix))]
+	let terminate = std::future::pending::<()>();
+
+	// Run the daemon server with signal handling
+	tokio::select! {
+		result = sd_core::infra::daemon::bootstrap::start_default_server(
+			socket_path,
+			data_dir,
+			true, // Always enable networking
+		) => {
+			result
+		}
+		() = ctrl_c => {
+			println!("Received Ctrl+C, shutting down gracefully...");
+			Ok(())
+		}
+		() = terminate => {
+			println!("Received SIGTERM, shutting down gracefully...");
+			Ok(())
+		}
+	}
 }

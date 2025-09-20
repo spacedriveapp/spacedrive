@@ -68,6 +68,9 @@ pub async fn run_content_phase(
 
         // Process results
         for (entry_id, path, hash_result) in hash_results {
+            // Check for interruption during result processing
+            ctx.check_interrupt().await?;
+
             match hash_result {
                 Ok(content_hash) => {
                     match EntryProcessor::link_to_content_identity(ctx, entry_id, &path, content_hash.clone(), library_id).await {

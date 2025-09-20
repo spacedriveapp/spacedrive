@@ -1073,9 +1073,9 @@ impl JobManager {
 
 	/// Pause a running job
 	pub async fn pause_job(&self, job_id: JobId) -> JobResult<()> {
-		let mut running_jobs = self.running_jobs.write().await;
+		let running_jobs = self.running_jobs.read().await;
 
-		if let Some(running_job) = running_jobs.get_mut(&job_id) {
+		if let Some(running_job) = running_jobs.get(&job_id) {
 			// Check if job is in a pausable state
 			let current_status = running_job.handle.status();
 			if current_status != JobStatus::Running {
@@ -1085,14 +1085,19 @@ impl JobManager {
 				)));
 			}
 
-			// Update status to Paused
+			// Update status to Paused FIRST (before triggering interrupt)
 			running_job
 				.status_tx
 				.send(JobStatus::Paused)
 				.map_err(|e| JobError::Other(format!("Failed to update status: {}", e).into()))?;
 
-			// The task will check status and interrupt itself when it sees Paused status
-			// This happens through the executor checking the status channel
+			// Trigger the actual task interruption through the task system
+			if let Err(e) = running_job.task_handle.pause().await {
+				warn!("Failed to pause task for job {}: {}", job_id, e);
+				// Reset status back to Running if task pause failed
+				let _ = running_job.status_tx.send(JobStatus::Running);
+				return Err(JobError::Other(format!("Failed to pause task: {}", e).into()));
+			}
 
 			// Update database
 			use sea_orm::{ActiveModelTrait, ActiveValue::Set};
@@ -1402,21 +1407,52 @@ impl JobManager {
 
 		// Wait for all jobs to finish pausing
 		let start_time = tokio::time::Instant::now();
-		let timeout = std::time::Duration::from_secs(10);
+		let timeout = std::time::Duration::from_secs(30); // Increased timeout for large jobs
+		let mut last_logged_count = 0;
 
 		loop {
-			let running_count = self.running_jobs.read().await.len();
-			if running_count == 0 {
-				info!("All jobs have stopped");
+			let running_jobs = self.running_jobs.read().await;
+			let total_count = running_jobs.len();
+
+			// Count jobs that are actually still running (not paused)
+			let still_running_count = running_jobs.values()
+				.filter(|job| {
+					let status = job.handle.status();
+					status == JobStatus::Running
+				})
+				.count();
+
+			if still_running_count == 0 {
+				info!("All jobs have been paused or stopped (total jobs: {}, still running: {})",
+					total_count, still_running_count);
 				break;
+			}
+
+			// Log progress every 5 seconds or when count changes
+			if still_running_count != last_logged_count || start_time.elapsed().as_secs() % 5 == 0 {
+				info!("Waiting for {} jobs to pause... ({:.1}s elapsed) (total jobs: {}, still running: {})",
+					still_running_count, start_time.elapsed().as_secs_f32(), total_count, still_running_count);
+				last_logged_count = still_running_count;
 			}
 
 			if start_time.elapsed() > timeout {
-				warn!("Timeout waiting for {} jobs to stop", running_count);
+				warn!("Timeout waiting for {} jobs to stop after {}s - forcing shutdown",
+					still_running_count, timeout.as_secs());
+
+				// Log which jobs are still running
+				for (job_id, running_job) in running_jobs.iter() {
+					let status = running_job.handle.status();
+					if status == JobStatus::Running {
+						warn!("Job {} still running with status: {:?}", job_id, status);
+					} else {
+						info!("Job {} has status: {:?} (not blocking shutdown)", job_id, status);
+					}
+				}
 				break;
 			}
 
-			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+			drop(running_jobs); // Release the lock before sleeping
+			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 		}
 
 		Ok(())

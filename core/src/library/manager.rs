@@ -310,7 +310,12 @@ impl LibraryManager {
 	pub async fn load_all(&self, context: Arc<CoreContext>) -> Result<usize> {
 		let mut loaded_count = 0;
 
+		info!(
+			"Searching for libraries in {} paths",
+			self.search_paths.len()
+		);
 		for search_path in &self.search_paths.clone() {
+			info!("Checking search path: {:?}", search_path);
 			if !search_path.exists() {
 				info!("Search path {:?} does not exist, skipping", search_path);
 				continue;
@@ -318,10 +323,14 @@ impl LibraryManager {
 
 			match tokio::fs::read_dir(search_path).await {
 				Ok(mut entries) => {
+					let mut entry_count = 0;
 					while let Some(entry) = entries.next_entry().await? {
+						entry_count += 1;
 						let path = entry.path();
+						info!("Found entry: {:?}", path);
 
 						if is_library_directory(&path) {
+							info!("Entry is a library directory: {:?}", path);
 							match self.open_library(&path, context.clone()).await {
 								Ok(_) => {
 									loaded_count += 1;
@@ -329,13 +338,17 @@ impl LibraryManager {
 								}
 								Err(LibraryError::AlreadyOpen(_)) => {
 									// Library is already open, skip
+									info!("Library already open, skipping: {:?}", path);
 								}
 								Err(e) => {
 									warn!("Failed to auto-load library from {:?}: {}", path, e);
 								}
 							}
+						} else {
+							info!("Entry is not a library directory: {:?}", path);
 						}
 					}
+					info!("Found {} entries in {:?}", entry_count, search_path);
 				}
 				Err(e) => {
 					warn!("Failed to read directory {:?}: {}", search_path, e);

@@ -163,6 +163,8 @@ pub async fn run_processing_phase(
 		// Process batch - check for changes and create/update entries
 		// (Already sorted globally by depth)
 		for entry in batch {
+			// Check for interruption during batch processing
+			ctx.check_interrupt().await?;
 			// Get metadata for change detection
 			let metadata = match std::fs::metadata(&entry.path) {
 				Ok(m) => m,

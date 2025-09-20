@@ -408,23 +408,6 @@ impl Core {
 		Ok(())
 	}
 
-	/// Initialize networking from Arc<Core> - for daemon use
-	pub async fn init_networking_shared(
-		core: Arc<Core>,
-	) -> Result<Arc<Core>, Box<dyn std::error::Error>> {
-		info!("Initializing networking for shared core...");
-
-		// Create a new Core with networking enabled
-		let mut new_core =
-			Core::new_with_config(core.config().read().await.data_dir.clone()).await?;
-
-		// Initialize networking on the new core
-		new_core.init_networking().await?;
-
-		info!("Networking initialized successfully for shared core");
-		Ok(Arc::new(new_core))
-	}
-
 	/// Get the networking service (if initialized)
 	pub fn networking(&self) -> Option<Arc<service::network::NetworkingService>> {
 		self.services.networking()
@@ -580,21 +563,19 @@ impl Core {
 
 /// Set up log event emitter to forward tracing events to the event bus
 fn setup_log_event_emitter(event_bus: Arc<crate::infra::event::EventBus>) {
-    use crate::infra::event::log_emitter::LogEventLayer;
+	use crate::infra::event::log_emitter::LogEventLayer;
 	use std::sync::Once;
 	use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 	static SETUP: Once = Once::new();
 
 	SETUP.call_once(|| {
-        // Create the log event layer (now global bus is set elsewhere)
-        let log_layer = LogEventLayer::new();
+		// Create the log event layer (now global bus is set elsewhere)
+		let log_layer = LogEventLayer::new();
 
 		// Try to add it to the existing global subscriber
 		// Since we can't modify an existing subscriber, we'll set up a new one
 		// This will only work if no subscriber has been set yet
-		let _ = tracing_subscriber::registry()
-			.with(log_layer)
-			.try_init();
+		let _ = tracing_subscriber::registry().with(log_layer).try_init();
 	});
 }

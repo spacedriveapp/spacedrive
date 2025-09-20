@@ -13,8 +13,8 @@ ai = []
 heif = []
 # Mobile platform support
 mobile = []
-# CLI support
-cli = ["dep:clap"]
+# CLI support (clap is now always available)
+cli = []
 
 
 [dependencies]
@@ -142,7 +142,7 @@ whoami    = "1.5"
 keyring = "3.6"
 
 # CLI dependencies
-clap           = { version = "4.5", features = ["derive", "env"], optional = true }
+clap           = { version = "4.5", features = ["derive", "env"] }
 colored        = "2.1"
 comfy-table    = "7.1"
 console        = "0.15"
