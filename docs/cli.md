@@ -82,7 +82,7 @@ sd status
 sd start
 
 # Start daemon with networking enabled
-sd start --enable-networking
+sd start
 
 # Start daemon in foreground (for debugging)
 sd start --foreground
@@ -269,7 +269,7 @@ sd system logs --tail 50
 ### Networking & Device Management
 
 ```bash
-# Initialize networking (if daemon wasn't started with --enable-networking)
+# Initialize networking (if daemon wasn't started with)
 sd network init
 
 # Start/stop networking

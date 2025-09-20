@@ -23,8 +23,8 @@ spacedrive start --instance alice
 spacedrive start --instance bob
 
 # Start with networking enabled
-spacedrive start --instance alice --enable-networking
-spacedrive start --instance bob --enable-networking
+spacedrive start --instance alice
+spacedrive start --instance bob
 ```
 
 ### Targeting Specific Instances
@@ -60,10 +60,10 @@ Test device pairing locally using two instances:
 
 ```bash
 # Terminal 1: Start Alice's daemon
-spacedrive start --instance alice --enable-networking --foreground
+spacedrive start --instance alice --foreground
 
 # Terminal 2: Start Bob's daemon
-spacedrive start --instance bob --enable-networking --foreground
+spacedrive start --instance bob --foreground
 
 # Terminal 3: Alice generates pairing code
 spacedrive --instance alice network init --password "test123"
@@ -118,8 +118,8 @@ data/sd-cli-data/instance-bob/       # Bob instance data
 
 ```bash
 # Start two instances for pairing test
-spacedrive start --instance initiator --enable-networking --foreground &
-spacedrive start --instance joiner --enable-networking --foreground &
+spacedrive start --instance initiator --foreground &
+spacedrive start --instance joiner --foreground &
 
 # Initialize networking
 spacedrive --instance initiator network init --password "dev123"

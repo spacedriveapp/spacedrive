@@ -36,7 +36,7 @@ impl fmt::Display for CliError {
                 write!(f, "To start the daemon, run:\n")?;
                 write!(f, "   sd start\n\n")?;
                 write!(f, "   Or start with networking enabled:\n")?;
-                write!(f, "   sd start --enable-networking")
+                write!(f, "   sd start")
             },
             Self::CoreError(msg) => write!(f, "Core operation failed: {}", msg),
             Self::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
@@ -64,17 +64,17 @@ pub type CliResult<T> = Result<T, CliError>;
 
 /// Check if an error message indicates the daemon is not running
 pub fn is_daemon_connection_error(error_msg: &str) -> bool {
-    error_msg.contains("Failed to connect to daemon socket")
-        || error_msg.contains("Connection refused")
-        || error_msg.contains("No such file or directory")
-        || error_msg.contains("daemon socket")
+	error_msg.contains("Failed to connect to daemon socket")
+		|| error_msg.contains("Connection refused")
+		|| error_msg.contains("No such file or directory")
+		|| error_msg.contains("daemon socket")
 }
 
 /// Convert a core error to a more user-friendly CLI error
 pub fn improve_core_error(error_msg: String) -> CliError {
-    if is_daemon_connection_error(&error_msg) {
-        CliError::DaemonNotRunning
-    } else {
-        CliError::CoreError(error_msg)
-    }
+	if is_daemon_connection_error(&error_msg) {
+		CliError::DaemonNotRunning
+	} else {
+		CliError::CoreError(error_msg)
+	}
 }

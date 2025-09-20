@@ -123,9 +123,6 @@ struct Cli {
 enum Commands {
 	/// Start the Spacedrive daemon
 	Start {
-		/// Automatically start networking
-		#[arg(long)]
-		enable_networking: bool,
 		/// Run daemon in foreground (show logs)
 		#[arg(long)]
 		foreground: bool,
@@ -138,9 +135,6 @@ enum Commands {
 	},
 	/// Restart the Spacedrive daemon
 	Restart {
-		/// Automatically start networking after restart
-		#[arg(long)]
-		enable_networking: bool,
 		/// Run daemon in foreground after restart (show logs)
 		#[arg(long)]
 		foreground: bool,
@@ -200,10 +194,7 @@ async fn main() -> Result<()> {
 	};
 
 	match cli.command {
-		Commands::Start {
-			enable_networking,
-			foreground,
-		} => {
+		Commands::Start { foreground } => {
 			crate::ui::print_compact_logo();
 			println!("Starting daemon...");
 
@@ -231,11 +222,6 @@ async fn main() -> Result<()> {
 			// Pass instance name if specified
 			if let Some(ref inst) = instance {
 				command.arg("--instance").arg(inst);
-			}
-
-			// Pass networking flag if enabled
-			if enable_networking {
-				command.arg("--enable-networking");
 			}
 
 			// Set working directory to current directory
@@ -323,11 +309,7 @@ async fn main() -> Result<()> {
 				reset_spacedrive_v2_data(&data_dir)?;
 			}
 		}
-		Commands::Restart {
-			enable_networking,
-			foreground,
-			reset,
-		} => {
+		Commands::Restart { foreground, reset } => {
 			if reset {
 				use crate::util::confirm::confirm_or_abort;
 				confirm_or_abort(
@@ -361,10 +343,6 @@ async fn main() -> Result<()> {
 			println!("Starting daemon...");
 			let mut cmd = std::process::Command::new(std::env::current_exe()?);
 			cmd.arg("start");
-
-			if enable_networking {
-				cmd.arg("--enable-networking");
-			}
 
 			if foreground {
 				cmd.arg("--foreground");

@@ -28,10 +28,6 @@ struct Args {
 	/// Daemon instance name
 	#[arg(long)]
 	instance: Option<String>,
-
-	/// Enable networking
-	#[arg(long)]
-	enable_networking: bool,
 }
 
 #[tokio::main]
@@ -46,8 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Calculate socket path based on instance
 	let socket_path = if let Some(instance) = args.instance {
 		// Validate instance name for security
-		validate_instance_name(&instance)
-			.map_err(|e| format!("Invalid instance name: {}", e))?;
+		validate_instance_name(&instance).map_err(|e| format!("Invalid instance name: {}", e))?;
 		data_dir
 			.join("daemon")
 			.join(format!("daemon-{}.sock", instance))
@@ -58,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	sd_core::infra::daemon::bootstrap::start_default_server(
 		socket_path,
 		data_dir,
-		args.enable_networking,
+		true, // Always enable networking
 	)
 	.await
 }
