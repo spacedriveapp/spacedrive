@@ -84,7 +84,7 @@ impl JobProgressBar {
             }
             JobStatus::Cancelled => {
                 ProgressStyle::with_template(
-                    "🚫 {msg} [{bar:40.grey/grey}] {percent}%"
+                    "{msg} [{bar:40.grey/grey}] {percent}%"
                 )
                 .unwrap()
                 .progress_chars("█▉▊▋▌▍▎▏ ")

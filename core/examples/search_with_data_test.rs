@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
 	println!("✓ FTS5 migration completed");
 
 	// Add desktop as a location
-	println!("\n📍 Adding Desktop as a location...");
+	println!("\nAdding Desktop as a location...");
 	let desktop_path =
 		dirs::desktop_dir().ok_or_else(|| anyhow::anyhow!("Could not find desktop directory"))?;
 	println!("   Desktop path: {}", desktop_path.display());
@@ -77,7 +77,7 @@ async fn main() -> Result<()> {
 			existing
 		}
 		None => {
-			println!("   📱 Registering device...");
+			println!("   Registering device...");
 			let device_model: entities::device::ActiveModel = device.into();
 			let inserted = device_model.insert(db.conn()).await?;
 			println!("   ✓ Device registered with ID: {}", inserted.id);
@@ -101,14 +101,14 @@ async fn main() -> Result<()> {
 	.await?;
 
 	println!("   Location created with DB ID: {}", location_db_id);
-	println!("   🚀 Indexer job dispatched!");
+	println!("   Indexer job dispatched!");
 
 	// Wait a bit for indexing to start
 	println!("\n⏳ Waiting for indexing to process some files...");
 	tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
 	// Now let's search for "screenshot" files
-	println!("\n🔍 Searching for 'screenshot' files...");
+	println!("\nSearching for 'screenshot' files...");
 
 	// Test different search modes
 	let search_modes = vec![
@@ -141,13 +141,13 @@ async fn main() -> Result<()> {
 					mode_name, output.execution_time_ms
 				);
 				println!(
-					"   📊 Found {} results ({} total)",
+					"   Found {} results ({} total)",
 					output.results.len(),
 					output.total_found
 				);
 
 				if !output.results.is_empty() {
-					println!("   📁 Top results:");
+					println!("   Top results:");
 					for (i, result) in output.results.iter().take(5).enumerate() {
 						println!(
 							"      {}. {} (score: {:.2})",
@@ -172,7 +172,7 @@ async fn main() -> Result<()> {
 
 					// Show facets if available
 					if !output.facets.file_types.is_empty() {
-						println!("   📈 File types found:");
+						println!("   File types found:");
 						for (file_type, count) in &output.facets.file_types {
 							println!("      {}: {}", file_type, count);
 						}
@@ -180,7 +180,7 @@ async fn main() -> Result<()> {
 
 					// Show suggestions
 					if !output.suggestions.is_empty() {
-						println!("   💡 Suggestions:");
+						println!("   Suggestions:");
 						for suggestion in &output.suggestions {
 							println!("      {}", suggestion);
 						}
@@ -196,7 +196,7 @@ async fn main() -> Result<()> {
 	}
 
 	// Test with different search scopes
-	println!("\n🎯 Testing different search scopes...");
+	println!("\nTesting different search scopes...");
 
 	// Test location-specific search
 	// Note: We need to get the UUID from the database record
@@ -230,7 +230,7 @@ async fn main() -> Result<()> {
 	}
 
 	// Test with file type filters
-	println!("\n🔧 Testing with file type filters...");
+	println!("\nTesting with file type filters...");
 
 	let mut filters = sd_core::ops::search::input::SearchFilters::default();
 	filters.file_types = Some(vec![
@@ -265,7 +265,7 @@ async fn main() -> Result<()> {
 		}
 	}
 
-	println!("\n🎉 End-to-end search test completed!");
+	println!("\nEnd-to-end search test completed!");
 	println!("Search module is fully functional with real data");
 	println!("FTS5 integration working with actual file indexing");
 	println!("Multiple search modes and scopes tested");

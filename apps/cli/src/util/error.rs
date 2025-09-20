@@ -32,8 +32,8 @@ impl fmt::Display for CliError {
                 "Multiple libraries exist. Please specify one with --library or switch to it with 'library switch'"
             ),
             Self::DaemonNotRunning => {
-                write!(f, "🚫 Spacedrive daemon is not running\n\n")?;
-                write!(f, "💡 To start the daemon, run:\n")?;
+                write!(f, "Spacedrive daemon is not running\n\n")?;
+                write!(f, "To start the daemon, run:\n")?;
                 write!(f, "   sd start\n\n")?;
                 write!(f, "   Or start with networking enabled:\n")?;
                 write!(f, "   sd start --enable-networking")

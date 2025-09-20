@@ -253,11 +253,11 @@ async fn main() -> Result<()> {
 						{
 							Ok(sd_core::infra::daemon::types::DaemonResponse::Pong) => {
 								println!("Daemon is ready and responding");
-								println!("💡 Use 'sd logs follow' to view daemon logs");
+								println!("Use 'sd logs follow' to view daemon logs");
 							}
 							_ => {
 								println!("Warning: Daemon may not be fully initialized yet");
-								println!("💡 Use 'sd logs follow' to check daemon status");
+								println!("Use 'sd logs follow' to check daemon status");
 							}
 						}
 					}
@@ -351,7 +351,7 @@ async fn main() -> Result<()> {
 			} else {
 				// Run in background
 				let child = cmd.spawn()?;
-				println!("🚀 Daemon restarted (PID: {})", child.id());
+				println!("Daemon restarted (PID: {})", child.id());
 
 				// Wait a moment and check if it's still running
 				tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
@@ -365,7 +365,7 @@ async fn main() -> Result<()> {
 					Ok(_) => println!("✅ Daemon restart successful"),
 					Err(e) => {
 						println!("⚠️  Warning: Could not verify daemon status: {}", e);
-						println!("💡 Use 'sd status' to check daemon status");
+						println!("Use 'sd status' to check daemon status");
 					}
 				}
 			}

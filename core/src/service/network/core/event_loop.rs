@@ -136,7 +136,7 @@ impl NetworkingEventLoop {
 
 	/// Main event loop
 	async fn run(&mut self) -> Result<()> {
-		self.logger.info("🚀 Networking event loop started").await;
+		self.logger.info("Networking event loop started").await;
 
 		loop {
 			tokio::select! {

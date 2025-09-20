@@ -30,10 +30,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.with_env_filter("sd_core=debug,desktop_indexing_demo=info")
 		.init();
 
-	println!("🚀 === Spacedrive 2 Desktop Indexing Demo ===\n");
+	println!("=== Spacedrive 2 Desktop Indexing Demo ===\n");
 
 	// 1. Initialize Spacedrive Core with job logging enabled
-	println!("1. 🔧 Initializing Spacedrive Core...");
+	println!("1. Initializing Spacedrive Core...");
 	let data_dir = PathBuf::from("./data/spacedrive-desktop-demo");
 
 	// Enable job logging by modifying the config before core initialization
@@ -51,22 +51,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		config.save()?;
 		println!(
-			"   📝 Job logging enabled to: {}",
+			"   Job logging enabled to: {}",
 			config.job_logs_dir().display()
 		);
 	}
 
 	let core = Core::new_with_config(data_dir.clone()).await?;
 	println!("   Core initialized with job logging");
-	println!("   📱 Device ID: {}", core.device.device_id()?);
-	println!("   💾 Data directory: {:?}", data_dir);
+	println!("   Device ID: {}", core.device.device_id()?);
+	println!("   Data directory: {:?}", data_dir);
 	println!(
-		"   📝 Job logs directory: {:?}\n",
+		"   Job logs directory: {:?}\n",
 		data_dir.join("job_logs")
 	);
 
 	// 2. Get or create library
-	println!("2. 📚 Setting up library...");
+	println!("2. Setting up library...");
 	let library = if core.libraries.list().await.is_empty() {
 		println!("   Creating new library...");
 		let lib = core
@@ -82,10 +82,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		lib
 	};
 	println!("   🆔 Library ID: {}", library.id());
-	println!("   📂 Library path: {}\n", library.path().display());
+	println!("   Library path: {}\n", library.path().display());
 
 	// 3. Set up desktop location
-	println!("3. 📍 Adding Desktop as a location...");
+	println!("3. Adding Desktop as a location...");
 	let desktop_path = dirs::desktop_dir().ok_or("Could not find desktop directory")?;
 	println!("   🖥️  Desktop path: {}", desktop_path.display());
 
@@ -104,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			existing
 		}
 		None => {
-			println!("   📱 Registering device...");
+			println!("   Registering device...");
 			let device_model: entities::device::ActiveModel = device.into();
 			let inserted = device_model.insert(db.conn()).await?;
 			println!("   Device registered with ID: {}", inserted.id);
@@ -113,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	};
 
 	// Use production location management to create location and dispatch indexer job
-	println!("   📍 Creating location with production job dispatch...");
+	println!("   Creating location with production job dispatch...");
 	let location_args = LocationCreateArgs {
 		path: desktop_path.clone(),
 		name: Some("Desktop".to_string()),
@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	.await?;
 
 	println!("   Location created with DB ID: {}", location_db_id);
-	println!("   🚀 Indexer job dispatched through production job manager!");
+	println!("   Indexer job dispatched through production job manager!");
 
 	// Add to file watcher (optional - for real-time monitoring)
 	// Note: location_id here would need to be retrieved from the database record
@@ -137,16 +137,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("   👁️  Production job system is now running indexing...\n");
 
 	// 4. Monitor production indexer with new features
-	println!("4. 🔍 Production Indexer in Action!");
+	println!("4. Production Indexer in Action!");
 	println!("   ✨ New Features Showcase:");
-	println!("      📁 Smart Filtering - Skips system files, caches, node_modules");
-	println!("      🔄 Incremental Indexing - Detects changes via inode tracking");
-	println!("      📊 Performance Metrics - Detailed timing and throughput");
-	println!("      🎯 Multi-phase Processing - Discovery → Processing → Content");
-	println!("   📂 Target: {}", desktop_path.display());
+	println!("      Smart Filtering - Skips system files, caches, node_modules");
+	println!("      Incremental Indexing - Detects changes via inode tracking");
+	println!("      Performance Metrics - Detailed timing and throughput");
+	println!("      Multi-phase Processing - Discovery → Processing → Content");
+	println!("   Target: {}", desktop_path.display());
 
 	// Set up event monitoring to track job progress
-	println!("   📡 Setting up real-time job monitoring...");
+	println!("   Setting up real-time job monitoring...");
 	let mut event_subscriber = core.events.subscribe();
 
 	// Spawn event listener to monitor indexing progress
@@ -154,7 +154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		while let Ok(event) = event_subscriber.recv().await {
 			match event {
 				Event::IndexingStarted { location_id } => {
-					println!("   🔄 Indexing started for location: {}", location_id);
+					println!("   Indexing started for location: {}", location_id);
 				}
 				Event::IndexingCompleted {
 					location_id,
@@ -162,8 +162,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					total_dirs,
 				} => {
 					println!("   Indexing completed for location: {}", location_id);
-					println!("      📄 Files indexed: {}", total_files);
-					println!("      📁 Directories indexed: {}", total_dirs);
+					println!("      Files indexed: {}", total_files);
+					println!("      Directories indexed: {}", total_dirs);
 					break; // Exit the event loop when indexing is done
 				}
 				Event::IndexingFailed { location_id, error } => {
@@ -174,7 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					break;
 				}
 				Event::FilesIndexed { count, .. } => {
-					println!("   📈 Progress: {} files processed", count);
+					println!("   Progress: {} files processed", count);
 				}
 				Event::JobProgress {
 					job_id,
@@ -186,7 +186,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					// Show production indexer progress details
 					if let Some(msg) = message {
 						println!(
-							"   📊 Job {} [{}]: {} ({}%)",
+							"   Job {} [{}]: {} ({}%)",
 							job_id,
 							job_type,
 							msg,
@@ -194,7 +194,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 						);
 					} else {
 						println!(
-							"   📊 Job {} [{}]: {}%",
+							"   Job {} [{}]: {}%",
 							job_id,
 							job_type,
 							(progress * 100.0) as u8
@@ -207,23 +207,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	});
 
 	println!("   ⏳ Waiting for indexing to complete...");
-	println!("   💡 Production Indexer Features Active:");
-	println!("      🚫 Smart Filtering - Automatically skipping:");
+	println!("   Production Indexer Features Active:");
+	println!("      Smart Filtering - Automatically skipping:");
 	println!("         • Hidden files (.DS_Store, Thumbs.db)");
 	println!("         • Dev directories (node_modules, .git, target)");
 	println!("         • Cache folders (__pycache__, .cache)");
 	println!("         • Large files (>4GB)");
-	println!("      🔄 Change Detection - Using inode tracking for:");
+	println!("      Change Detection - Using inode tracking for:");
 	println!("         • Fast incremental updates");
 	println!("         • Move/rename detection");
 	println!("         • Modified file tracking");
-	println!("      📊 Performance Optimization:");
+	println!("      Performance Optimization:");
 	println!("         • Batch processing (1000 items/batch)");
 	println!("         • Path prefix deduplication");
 	println!("         • Parallel content processing");
 
 	// Let's show what files are actually in the desktop
-	println!("\n   📁 Desktop contents preview:");
+	println!("\n   Desktop contents preview:");
 	let mut file_count = 0;
 	let mut dir_count = 0;
 	let mut total_size = 0u64;
@@ -237,13 +237,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					total_size += metadata.len();
 					if file_count <= 5 {
 						// Show first 5 files
-						println!("      📄 {}", entry.file_name().to_string_lossy());
+						println!("      {}", entry.file_name().to_string_lossy());
 					}
 				} else if metadata.is_dir() {
 					dir_count += 1;
 					if dir_count <= 3 {
 						// Show first 3 dirs
-						println!("      📁 {}/", entry.file_name().to_string_lossy());
+						println!("      {}/", entry.file_name().to_string_lossy());
 					}
 				}
 			}
@@ -257,17 +257,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		println!("      ... and {} more directories", dir_count - 3);
 	}
 
-	println!("\n   📊 Discovery Summary:");
-	println!("      📄 Files found: {}", file_count);
-	println!("      📁 Directories found: {}", dir_count);
+	println!("\n   Discovery Summary:");
+	println!("      Files found: {}", file_count);
+	println!("      Directories found: {}", dir_count);
 	println!(
-		"      💾 Total size: {:.2} MB",
+		"      Total size: {:.2} MB",
 		total_size as f64 / 1024.0 / 1024.0
 	);
 
 	// Smart job completion monitoring with checkpoint-based timeout
 	println!("\n   ⏰ Monitoring job completion with smart timeout...");
-	println!("   💡 Will track checkpoint progress and wait for actual completion");
+	println!("   Will track checkpoint progress and wait for actual completion");
 
 	let mut last_checkpoint_size = 0u64;
 	let mut stall_time = std::time::Instant::now();
@@ -281,7 +281,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		// Check if the event listener got completion
 		if !events_completed && events_handle.is_finished() {
 			events_completed = true;
-			println!("   🎯 Event listener detected job completion!");
+			println!("   Event listener detected job completion!");
 		}
 
 		// Poll job status from the job manager
@@ -296,12 +296,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			.unwrap_or(0);
 
 		println!(
-			"   📊 Job Status: {} running, {} completed, {} total",
+			"   Job Status: {} running, {} completed, {} total",
 			running_jobs.len(),
 			completed_jobs.len(),
 			job_status.len()
 		);
-		println!("   📄 Database entries so far: {}", current_entry_count);
+		println!("   Database entries so far: {}", current_entry_count);
 
 		// Check checkpoint progress by querying actual checkpoint data
 		let checkpoint_estimate = {
@@ -317,7 +317,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 		if checkpoint_estimate > last_checkpoint_size {
 			println!(
-				"   📈 Progress detected: {} bytes checkpoint data",
+				"   Progress detected: {} bytes checkpoint data",
 				checkpoint_estimate
 			);
 			last_checkpoint_size = checkpoint_estimate;
@@ -336,7 +336,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				"   ⚠️  Job appears stalled (no progress for {} seconds)",
 				stall_timeout.as_secs()
 			);
-			println!("   📊 Final checkpoint size: {} bytes", checkpoint_estimate);
+			println!("   Final checkpoint size: {} bytes", checkpoint_estimate);
 			break;
 		}
 
@@ -350,7 +350,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	// 5. Show production indexer results
-	println!("\n5. 🎯 Production Indexer Results:");
+	println!("\n5. Production Indexer Results:");
 
 	// Check database for our location
 	let location_record = entities::location::Entity::find()
@@ -407,20 +407,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.count(db.conn())
 		.await?;
 
-	println!("   📊 Indexing Statistics:");
-	println!("      📄 Files indexed: {}", file_count_db);
-	println!("      📁 Directories indexed: {}", dir_count_db);
+	println!("   Indexing Statistics:");
+	println!("      Files indexed: {}", file_count_db);
+	println!("      Directories indexed: {}", dir_count_db);
 	println!(
-		"      🔄 Entries with inode tracking: {} ({:.1}%)",
+		"      Entries with inode tracking: {} ({:.1}%)",
 		entries_with_inodes,
 		(entries_with_inodes as f64 / entry_count.max(1) as f64) * 100.0
 	);
 	println!(
-		"      🔗 Content identities created: {}",
+		"      Content identities created: {}",
 		content_identity_count
 	);
 
-	println!("\n   🚫 Smart Filtering Validation:");
+	println!("\n   Smart Filtering Validation:");
 	println!("      Checking indexed files don't include filtered patterns...");
 
 	let mut filtered_correctly = true;
@@ -446,7 +446,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		println!("      All sampled entries passed filtering validation!");
 	}
 
-	println!("\n   📝 Sample Indexed Entries:");
+	println!("\n   Sample Indexed Entries:");
 	for (i, entry) in sample_entries.iter().take(5).enumerate() {
 		let kind = match entry.kind {
 			0 => "📄",
@@ -471,37 +471,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let running_jobs = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
 	let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
-	println!("\n   💼 Job System Status:");
-	println!("      🔄 Running jobs: {}", running_jobs.len());
+	println!("\n   Job System Status:");
+	println!("      Running jobs: {}", running_jobs.len());
 	println!("      Completed jobs: {}", completed_jobs.len());
 
 	println!("\n   ✨ Production Indexer Features Demonstrated:");
-	println!("      🚫 Smart Filtering - Automatically skipped system/cache files");
+	println!("      Smart Filtering - Automatically skipped system/cache files");
 	println!(
-		"      🔄 Incremental Ready - {} entries have inode tracking",
+		"      Incremental Ready - {} entries have inode tracking",
 		entries_with_inodes
 	);
-	println!("      📊 Batch Processing - Efficient memory usage");
-	println!("      🎯 Multi-phase - Discovery → Processing → Content");
+	println!("      Batch Processing - Efficient memory usage");
+	println!("      Multi-phase - Discovery → Processing → Content");
 	println!(
-		"      🔍 Content Deduplication - {} unique content IDs",
+		"      Content Deduplication - {} unique content IDs",
 		content_identity_count
 	);
 
 	// 6. Show volume integration
-	println!("\n6. 💾 Volume Management:");
-	println!("   🔍 Volume detection: Active");
-	println!("   📊 Volume tracking: Ready");
+	println!("\n6. Volume Management:");
+	println!("   Volume detection: Active");
+	println!("   Volume tracking: Ready");
 	println!("   ⚡ Speed testing: Available");
-	println!("   🔄 Mount monitoring: Active");
+	println!("   Mount monitoring: Active");
 
 	// 7. Event system demo
-	println!("\n7. 📡 Event System:");
+	println!("\n7. Event System:");
 	println!(
-		"   🎯 Event subscribers: {}",
+		"   Event subscribers: {}",
 		core.events.subscriber_count()
 	);
-	println!("   📨 Events ready for:");
+	println!("   Events ready for:");
 	println!("      - File operations (copy, move, delete)");
 	println!("      - Library changes");
 	println!("      - Volume events");
@@ -509,7 +509,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("      - Job status updates");
 
 	// 8. Production indexer achievements
-	println!("\n8. 🎯 Production Indexer Achievements:");
+	println!("\n8. Production Indexer Achievements:");
 	println!("   This demo showcased the new production indexer:");
 	println!("   Smart filtering skipped system files automatically");
 	println!("   Inode tracking enabled incremental indexing");
@@ -521,7 +521,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("   Non-critical error collection and reporting");
 
 	// Show example of what would happen on re-index
-	println!("\n   🔄 Incremental Indexing Preview:");
+	println!("\n   Incremental Indexing Preview:");
 	println!("   Next run would:");
 	println!("   • Use inode tracking to detect moved/renamed files");
 	println!("   • Only process modified files (compare timestamps)");
@@ -532,20 +532,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let final_running = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
 	let final_completed = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
-	println!("\n   📋 Final Job Summary:");
-	println!("      🔄 Still running: {}", final_running.len());
+	println!("\n   Final Job Summary:");
+	println!("      Still running: {}", final_running.len());
 	println!("      Completed: {}", final_completed.len());
 
 	if !final_running.is_empty() {
-		println!("   💡 Remaining jobs will continue in background");
-		println!("   🔄 Run the demo again to see persisted results!");
+		println!("   Remaining jobs will continue in background");
+		println!("   Run the demo again to see persisted results!");
 	}
 
 	// Brief pause to see final status
 	sleep(Duration::from_secs(2)).await;
 
 	// 9. Show job logs created during the demo
-	println!("\n9. 📋 Job Logs Created:");
+	println!("\n9. Job Logs Created:");
 	let job_logs_dir = data_dir.join("job_logs");
 	if let Ok(mut entries) = tokio::fs::read_dir(&job_logs_dir).await {
 		let mut log_files = Vec::new();
@@ -558,7 +558,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 
 		if !log_files.is_empty() {
-			println!("   📝 Found {} job log file(s):", log_files.len());
+			println!("   Found {} job log file(s):", log_files.len());
 			for (i, log_file) in log_files.iter().enumerate() {
 				let log_path = job_logs_dir.join(log_file);
 				if let Ok(metadata) = tokio::fs::metadata(&log_path).await {
@@ -582,34 +582,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					}
 				}
 			}
-			println!("\n   💡 Full logs available at: {:?}", job_logs_dir);
+			println!("\n   Full logs available at: {:?}", job_logs_dir);
 		} else {
 			println!("   ⚠️  No job logs found (jobs may have completed too quickly)");
 		}
 	}
 
 	// 10. Graceful shutdown
-	println!("\n10. 🛑 Shutting down gracefully...");
+	println!("\n10. Shutting down gracefully...");
 	core.shutdown().await?;
 
 	println!("\n=== Desktop Indexing Demo Complete! ===");
-	println!("🎉 Spacedrive 2 Production Job System Working!");
+	println!("Spacedrive 2 Production Job System Working!");
 	println!();
-	println!("📁 Demo data stored at: {:?}", data_dir);
-	println!("📝 Job logs stored at: {:?}", job_logs_dir);
-	println!("🔄 Run again to see library auto-loading and job persistence!");
+	println!("Demo data stored at: {:?}", data_dir);
+	println!("Job logs stored at: {:?}", job_logs_dir);
+	println!("Run again to see library auto-loading and job persistence!");
 	println!();
-	println!("🚀 Production system achievements:");
+	println!("Production system achievements:");
 	println!("  ✨ Full core lifecycle with real job dispatch");
 	println!("  🗄️  Database integration with actual file indexing");
-	println!("  📂 Production job manager dispatching real jobs");
-	println!("  💾 Real-time progress monitoring via events");
-	println!("  📡 Event system with live job status updates");
+	println!("  Production job manager dispatching real jobs");
+	println!("  Real-time progress monitoring via events");
+	println!("  Event system with live job status updates");
 	println!("  👁️  File watching integration ready");
 	println!("  🏷️  User metadata innovation (every file taggable)");
-	println!("  🔄 Content deduplication with CAS IDs");
+	println!("  Content deduplication with CAS IDs");
 	println!("  🗂️  Path optimization for efficient storage");
-	println!("  🔧 Production-ready architecture patterns");
+	println!("  Production-ready architecture patterns");
 
 	Ok(())
 }

@@ -209,7 +209,7 @@ impl DevicePersistence {
 			.await
 			.map_err(NetworkingError::Io)?;
 
-		println!("🔐 Saved {} paired devices (encrypted)", devices.len());
+		println!("Saved {} paired devices (encrypted)", devices.len());
 		Ok(())
 	}
 

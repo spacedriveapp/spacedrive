@@ -318,7 +318,7 @@ fn render_help<B: Backend>(f: &mut Frame<B>, area: Rect) {
         Line::from(""),
         Line::from("Job Status Icons:"),
         Line::from("  ⏳ Queued    ⚡ Running    ⏸️ Paused"),
-        Line::from("  Completed ❌ Failed    🚫 Cancelled"),
+        Line::from("  Completed ❌ Failed    Cancelled"),
     ];
 
     let help = Paragraph::new(help_text)

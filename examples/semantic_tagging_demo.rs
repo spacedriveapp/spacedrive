@@ -102,7 +102,7 @@ async fn demo_semantic_variants() -> Result<()> {
     println!();
 
     // Test name matching
-    println!("🔍 Name matching tests:");
+    println!("Name matching tests:");
     println!("   Matches 'JavaScript': {}", js_tag.matches_name("JavaScript"));
     println!("   Matches 'js' (case insensitive): {}", js_tag.matches_name("js"));
     println!("   Matches 'ECMAScript': {}", js_tag.matches_name("ECMAScript"));
@@ -138,7 +138,7 @@ async fn demo_hierarchical_relationships() -> Result<()> {
     // service.create_relationship(programming.id, web_dev.id, RelationshipType::ParentChild, None).await?;
     // etc.
 
-    println!("📊 Benefits of hierarchy:");
+    println!("Benefits of hierarchy:");
     println!("   • Tagging 'Quarterly Report' with 'Business Documents' automatically inherits 'Documents'");
     println!("   • Searching 'Technology' finds all descendant content (React components, etc.)");
     println!("   • Emergent patterns reveal organizational connections");
@@ -154,7 +154,7 @@ async fn demo_context_resolution() -> Result<()> {
     let device_id = Uuid::new_v4();
 
     // Simulate context resolution scenario
-    println!("🤔 Scenario: User types 'Phoenix' while working with geographic data");
+    println!("Scenario: User types 'Phoenix' while working with geographic data");
     println!();
 
     // Context tags that user already has on this file
@@ -162,12 +162,12 @@ async fn demo_context_resolution() -> Result<()> {
     let usa_tag = SemanticTag::new("USA".to_string(), device_id);
     let context_tags = vec![arizona_tag, usa_tag];
 
-    println!("📍 Context tags already present: Arizona, USA");
-    println!("🎯 System would resolve 'Phoenix' to 'Geography::Phoenix' (city)");
+    println!("Context tags already present: Arizona, USA");
+    println!("System would resolve 'Phoenix' to 'Geography::Phoenix' (city)");
     println!("   rather than 'Mythology::Phoenix' (mythical bird)");
     println!();
 
-    println!("🧠 Resolution factors:");
+    println!("Resolution factors:");
     println!("   • Namespace compatibility (Geography matches Arizona/USA)");
     println!("   • Usage patterns (Phoenix often used with Arizona)");
     println!("   • Hierarchical relationships (Phoenix is a US city)");
@@ -189,7 +189,7 @@ async fn demo_ai_tagging() -> Result<()> {
     ai_tag_app.set_instance_attribute("detected_objects".to_string(), vec!["dog", "beach", "sunset"]).unwrap();
     ai_tag_app.set_instance_attribute("model_version".to_string(), "v2.1").unwrap();
 
-    println!("🤖 AI analyzed vacation photo and applied tag:");
+    println!("AI analyzed vacation photo and applied tag:");
     println!("   Confidence: {:.1}%", ai_tag_app.confidence * 100.0);
     println!("   Context: {}", ai_tag_app.applied_context.as_ref().unwrap());
     println!("   Detected objects: {:?}", ai_tag_app.get_attribute::<Vec<String>>("detected_objects").unwrap());
@@ -197,7 +197,7 @@ async fn demo_ai_tagging() -> Result<()> {
     println!();
 
     // User can review and modify AI suggestions
-    println!("👤 User can:");
+    println!("User can:");
     println!("   • Accept AI tags automatically (high confidence)");
     println!("   • Review low confidence tags before accepting");
     println!("   • Add additional context-specific tags");
@@ -230,13 +230,13 @@ async fn demo_conflict_resolution() -> Result<()> {
     println!("   Device B tagged same photo: 'family'");
     println!();
 
-    println!("🔄 Union merge resolution:");
+    println!("Union merge resolution:");
     println!("   Result: Photo tagged with both 'vacation' AND 'family'");
-    println!("   📝 User notification: 'Combined tags for sunset.jpg from multiple devices'");
-    println!("   🔍 User can review and modify if needed");
+    println!("   User notification: 'Combined tags for sunset.jpg from multiple devices'");
+    println!("   User can review and modify if needed");
     println!();
 
-    println!("🎯 Conflict resolution benefits:");
+    println!("Conflict resolution benefits:");
     println!("   • No data loss - all user intent preserved");
     println!("   • Additive approach - tags complement each other");
     println!("   • Transparent process - user knows what happened");
@@ -250,28 +250,28 @@ async fn demo_organizational_patterns() -> Result<()> {
     println!("8. Emergent Organizational Patterns");
     println!("-----------------------------------");
 
-    println!("🔍 Pattern Discovery Examples:");
+    println!("Pattern Discovery Examples:");
     println!();
 
-    println!("📊 Frequent Co-occurrence:");
+    println!("Frequent Co-occurrence:");
     println!("   System notices 'Tax' and '2024' often used together");
     println!("   → Suggests creating 'Tax Documents 2024' organizational tag");
     println!();
 
-    println!("🌳 Hierarchical Suggestions:");
+    println!("Hierarchical Suggestions:");
     println!("   Files tagged 'JavaScript' also often have 'React'");
     println!("   → Suggests React as child of JavaScript in hierarchy");
     println!();
 
-    println!("🎨 Visual Hierarchies:");
+    println!("Visual Hierarchies:");
     println!("   Tags marked as 'organizational anchors' create visual structure:");
-    println!("   📁 Projects (organizational anchor)");
-    println!("   ├── 🌐 Website Redesign");
-    println!("   ├── 📱 Mobile App");
-    println!("   └── 📊 Analytics Dashboard");
+    println!("   Projects (organizational anchor)");
+    println!("   ├── Website Redesign");
+    println!("   ├── Mobile App");
+    println!("   └── Analytics Dashboard");
     println!();
 
-    println!("🔒 Privacy Controls:");
+    println!("Privacy Controls:");
     println!("   'Personal' privacy tag hides content from standard searches");
     println!("   'Archive' tag available via direct query but hidden from UI");
     println!("   'Hidden' tag completely invisible except to admin users");
@@ -290,7 +290,7 @@ async fn demo_advanced_features() -> Result<()> {
     println!("9. Advanced Features Summary");
     println!("---------------------------");
 
-    println!("🎯 What makes this semantic tagging special:");
+    println!("What makes this semantic tagging special:");
     println!();
 
     println!("🏗️  Graph-Based Architecture:");
@@ -299,19 +299,19 @@ async fn demo_advanced_features() -> Result<()> {
     println!("   • Relationship strengths for nuanced connections");
     println!();
 
-    println!("🌍 Unicode-Native & International:");
+    println!("Unicode-Native & International:");
     println!("   • Full support for any language/script");
     println!("   • Polymorphic naming across cultural contexts");
     println!("   • Namespace-based disambiguation");
     println!();
 
-    println!("🤝 Sync-Friendly:");
+    println!("Sync-Friendly:");
     println!("   • Union merge prevents data loss");
     println!("   • Conflict-free replication for tag assignments");
     println!("   • Audit trail for all tag operations");
     println!();
 
-    println!("🧠 AI-Enhanced but User-Controlled:");
+    println!("AI-Enhanced but User-Controlled:");
     println!("   • AI suggestions with confidence scoring");
     println!("   • User review and correction improves future AI");
     println!("   • Privacy-first: local models supported");

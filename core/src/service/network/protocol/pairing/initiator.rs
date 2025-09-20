@@ -39,10 +39,10 @@ impl PairingProtocolHandler {
 
         // Hold the write lock for the entire duration to prevent any scoping issues
         let mut sessions = self.active_sessions.write().await;
-        self.log_debug(&format!("🔍 INITIATOR_HANDLER_DEBUG: Looking for session {} in {} total sessions", session_id, sessions.len())).await;
+        self.log_debug(&format!("INITIATOR_HANDLER_DEBUG: Looking for session {} in {} total sessions", session_id, sessions.len())).await;
 
         if let Some(existing_session) = sessions.get_mut(&session_id) {
-            self.log_debug(&format!("🔍 INITIATOR_HANDLER_DEBUG: Found existing session {} in state {:?}", session_id, existing_session.state)).await;
+            self.log_debug(&format!("INITIATOR_HANDLER_DEBUG: Found existing session {} in state {:?}", session_id, existing_session.state)).await;
             self.log_debug(&format!("Transitioning existing session {} to ChallengeReceived", session_id)).await;
 
             // Update the existing session in place
@@ -53,7 +53,7 @@ impl PairingProtocolHandler {
             existing_session.remote_device_info = Some(device_info.clone());
             existing_session.remote_public_key = Some(public_key.clone());
         } else {
-            self.log_debug(&format!("🔍 INITIATOR_HANDLER_DEBUG: No existing session found for {}, creating new session", session_id)).await;
+            self.log_debug(&format!("INITIATOR_HANDLER_DEBUG: No existing session found for {}, creating new session", session_id)).await;
             self.log_debug(&format!("Creating new session {} for pairing request", session_id)).await;
 
             // Create new session only if none exists

@@ -15,12 +15,12 @@ pub fn print_logo() {
 	//             [48;2;220;180;255m        [48;2;180;120;255m          [48;2;220;180;255m        [0m
 	//                 [48;2;235;220;255m    [48;2;220;180;255m      [48;2;235;220;255m    [0m"#);
 	println!();
-	println!("                           🚀 Spacedrive CLI v2");
+	println!("                           Spacedrive CLI v2");
 	println!("                      Cross-platform file management");
 	println!();
 }
 
 /// Display a compact version of the logo
 pub fn print_compact_logo() {
-	println!("🚀 Spacedrive CLI v2");
+	println!("Spacedrive CLI v2");
 }

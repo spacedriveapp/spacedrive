@@ -32,11 +32,11 @@ async fn alice_persistence_scenario() {
 	let is_restart = role == "alice_restart";
 
 	if is_restart {
-		println!("🔄 Alice: RESTART PHASE - Testing automatic reconnection");
-		println!("📁 Alice: Data dir: {:?}", data_dir);
+		println!("Alice: RESTART PHASE - Testing automatic reconnection");
+		println!("Alice: Data dir: {:?}", data_dir);
 
 		// Initialize Core - this should load persisted devices
-		println!("🔧 Alice: Initializing Core after restart...");
+		println!("Alice: Initializing Core after restart...");
 		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 			.await
 			.unwrap()
@@ -50,7 +50,7 @@ async fn alice_persistence_scenario() {
 		assert_eq!(current_name, device_name, "Device name not persisted");
 
 		// Initialize networking - this should trigger auto-reconnection
-		println!("🌐 Alice: Initializing networking (should auto-reconnect)...");
+		println!("Alice: Initializing networking (should auto-reconnect)...");
 		timeout(Duration::from_secs(10), core.init_networking())
 			.await
 			.unwrap()
@@ -70,7 +70,7 @@ async fn alice_persistence_scenario() {
 
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
-				println!("🎉 Alice: Auto-reconnection successful!");
+				println!("Alice: Auto-reconnection successful!");
 				println!(
 					"Alice: Connected {} devices after restart",
 					connected_devices.len()
@@ -86,7 +86,7 @@ async fn alice_persistence_scenario() {
 
 				for device in &device_info {
 					println!(
-						"📱 Alice sees after restart: {} (ID: {})",
+						"Alice sees after restart: {} (ID: {})",
 						device.device_name, device.device_id
 					);
 				}
@@ -108,18 +108,18 @@ async fn alice_persistence_scenario() {
 
 			if attempts % 5 == 0 {
 				println!(
-					"🔍 Alice: Auto-reconnection check {} - waiting for Bob",
+					"Alice: Auto-reconnection check {} - waiting for Bob",
 					attempts / 5
 				);
 			}
 		}
 	} else {
 		// Initial pairing phase
-		println!("🟦 Alice: INITIAL PHASE - Starting pairing");
-		println!("📁 Alice: Data dir: {:?}", data_dir);
+		println!("Alice: INITIAL PHASE - Starting pairing");
+		println!("Alice: Data dir: {:?}", data_dir);
 
 		// Initialize Core
-		println!("🔧 Alice: Initializing Core...");
+		println!("Alice: Initializing Core...");
 		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 			.await
 			.unwrap()
@@ -131,7 +131,7 @@ async fn alice_persistence_scenario() {
 		core.device.set_name(device_name.to_string()).unwrap();
 
 		// Initialize networking
-		println!("🌐 Alice: Initializing networking...");
+		println!("Alice: Initializing networking...");
 		timeout(Duration::from_secs(10), core.init_networking())
 			.await
 			.unwrap()
@@ -141,7 +141,7 @@ async fn alice_persistence_scenario() {
 		println!("Alice: Networking initialized successfully");
 
 		// Start pairing as initiator
-		println!("🔑 Alice: Starting pairing as initiator...");
+		println!("Alice: Starting pairing as initiator...");
 		let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
 			timeout(
 				Duration::from_secs(15),
@@ -177,7 +177,7 @@ async fn alice_persistence_scenario() {
 
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
-				println!("🎉 Alice: Initial pairing completed!");
+				println!("Alice: Initial pairing completed!");
 				println!("Alice: Connected {} devices", connected_devices.len());
 
 				// Verify devices are properly persisted
@@ -213,7 +213,7 @@ async fn alice_persistence_scenario() {
 		}
 
 		// Gracefully shutdown to ensure persistence
-		println!("🛑 Alice: Shutting down gracefully to ensure persistence...");
+		println!("Alice: Shutting down gracefully to ensure persistence...");
 		drop(core);
 		tokio::time::sleep(Duration::from_secs(2)).await;
 		println!("Alice: Initial phase completed");
@@ -239,11 +239,11 @@ async fn bob_persistence_scenario() {
 	let is_restart = role == "bob_restart";
 
 	if is_restart {
-		println!("🔄 Bob: RESTART PHASE - Testing automatic reconnection");
-		println!("📁 Bob: Data dir: {:?}", data_dir);
+		println!("Bob: RESTART PHASE - Testing automatic reconnection");
+		println!("Bob: Data dir: {:?}", data_dir);
 
 		// Initialize Core - this should load persisted devices
-		println!("🔧 Bob: Initializing Core after restart...");
+		println!("Bob: Initializing Core after restart...");
 		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 			.await
 			.unwrap()
@@ -256,7 +256,7 @@ async fn bob_persistence_scenario() {
 		assert_eq!(current_name, device_name, "Device name not persisted");
 
 		// Initialize networking - this should trigger auto-reconnection
-		println!("🌐 Bob: Initializing networking (should auto-reconnect)...");
+		println!("Bob: Initializing networking (should auto-reconnect)...");
 		timeout(Duration::from_secs(10), core.init_networking())
 			.await
 			.unwrap()
@@ -276,7 +276,7 @@ async fn bob_persistence_scenario() {
 
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
-				println!("🎉 Bob: Auto-reconnection successful!");
+				println!("Bob: Auto-reconnection successful!");
 				println!(
 					"Bob: Connected {} devices after restart",
 					connected_devices.len()
@@ -292,7 +292,7 @@ async fn bob_persistence_scenario() {
 
 				for device in &device_info {
 					println!(
-						"📱 Bob sees after restart: {} (ID: {})",
+						"Bob sees after restart: {} (ID: {})",
 						device.device_name, device.device_id
 					);
 				}
@@ -314,18 +314,18 @@ async fn bob_persistence_scenario() {
 
 			if attempts % 5 == 0 {
 				println!(
-					"🔍 Bob: Auto-reconnection check {} - waiting for Alice",
+					"Bob: Auto-reconnection check {} - waiting for Alice",
 					attempts / 5
 				);
 			}
 		}
 	} else {
 		// Initial pairing phase
-		println!("🟦 Bob: INITIAL PHASE - Starting pairing");
-		println!("📁 Bob: Data dir: {:?}", data_dir);
+		println!("Bob: INITIAL PHASE - Starting pairing");
+		println!("Bob: Data dir: {:?}", data_dir);
 
 		// Initialize Core
-		println!("🔧 Bob: Initializing Core...");
+		println!("Bob: Initializing Core...");
 		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 			.await
 			.unwrap()
@@ -337,7 +337,7 @@ async fn bob_persistence_scenario() {
 		core.device.set_name(device_name.to_string()).unwrap();
 
 		// Initialize networking
-		println!("🌐 Bob: Initializing networking...");
+		println!("Bob: Initializing networking...");
 		timeout(Duration::from_secs(10), core.init_networking())
 			.await
 			.unwrap()
@@ -347,7 +347,7 @@ async fn bob_persistence_scenario() {
 		println!("Bob: Networking initialized successfully");
 
 		// Wait for pairing code from Alice
-		println!("🔍 Bob: Looking for pairing code...");
+		println!("Bob: Looking for pairing code...");
 		let pairing_code = loop {
 			if let Ok(code) =
 				std::fs::read_to_string("/tmp/spacedrive-persistence-test/pairing_code.txt")
@@ -356,10 +356,10 @@ async fn bob_persistence_scenario() {
 			}
 			tokio::time::sleep(Duration::from_millis(500)).await;
 		};
-		println!("📋 Bob: Found pairing code");
+		println!("Bob: Found pairing code");
 
 		// Join pairing session
-		println!("🤝 Bob: Joining pairing session...");
+		println!("Bob: Joining pairing session...");
 		if let Some(networking) = core.networking() {
 			timeout(
 				Duration::from_secs(15),
@@ -382,7 +382,7 @@ async fn bob_persistence_scenario() {
 
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
-				println!("🎉 Bob: Initial pairing completed!");
+				println!("Bob: Initial pairing completed!");
 				println!("Bob: Connected {} devices", connected_devices.len());
 
 				// Verify devices are properly persisted
@@ -415,7 +415,7 @@ async fn bob_persistence_scenario() {
 		}
 
 		// Gracefully shutdown to ensure persistence
-		println!("🛑 Bob: Shutting down gracefully to ensure persistence...");
+		println!("Bob: Shutting down gracefully to ensure persistence...");
 		drop(core);
 		tokio::time::sleep(Duration::from_secs(2)).await;
 		println!("Bob: Initial phase completed");
@@ -425,7 +425,7 @@ async fn bob_persistence_scenario() {
 /// Main test orchestrator - tests device persistence and auto-reconnection
 #[tokio::test]
 async fn test_device_persistence() {
-	println!("🧪 Testing device persistence and automatic reconnection");
+	println!("Testing device persistence and automatic reconnection");
 
 	// Clean up any previous test artifacts
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-persistence-test");
@@ -439,8 +439,8 @@ async fn test_device_persistence() {
 		.add_subprocess("bob_restart", "bob_persistence_scenario");
 
 	// Phase 1: Initial pairing
-	println!("\\n📍 PHASE 1: Initial pairing");
-	println!("🚀 Starting Alice for initial pairing...");
+	println!("\\nPHASE 1: Initial pairing");
+	println!("Starting Alice for initial pairing...");
 	runner
 		.spawn_single_process("alice")
 		.await
@@ -449,7 +449,7 @@ async fn test_device_persistence() {
 	// Wait for Alice to initialize
 	tokio::time::sleep(Duration::from_secs(8)).await;
 
-	println!("🚀 Starting Bob for initial pairing...");
+	println!("Starting Bob for initial pairing...");
 	runner
 		.spawn_single_process("bob")
 		.await
@@ -484,12 +484,12 @@ async fn test_device_persistence() {
 	tokio::time::sleep(Duration::from_secs(5)).await;
 
 	// Phase 2: Restart both devices and verify auto-reconnection
-	println!("\\n📍 PHASE 2: Testing automatic reconnection after restart");
+	println!("\\nPHASE 2: Testing automatic reconnection after restart");
 
 	// Clear the pairing code to ensure devices aren't re-pairing
 	let _ = std::fs::remove_file("/tmp/spacedrive-persistence-test/pairing_code.txt");
 
-	println!("🔄 Restarting Alice...");
+	println!("Restarting Alice...");
 	runner
 		.spawn_single_process("alice_restart")
 		.await
@@ -498,7 +498,7 @@ async fn test_device_persistence() {
 	// Give Alice just a small head start
 	tokio::time::sleep(Duration::from_secs(2)).await;
 
-	println!("🔄 Restarting Bob...");
+	println!("Restarting Bob...");
 	runner
 		.spawn_single_process("bob_restart")
 		.await
@@ -525,7 +525,7 @@ async fn test_device_persistence() {
 
 	match reconnection_result {
 		Ok(_) => {
-			println!("\\n🎉 Device persistence test successful!");
+			println!("\\nDevice persistence test successful!");
 			println!("Devices automatically reconnected after restart");
 		}
 		Err(e) => {

@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					entry_id,
 				} => {
 					info!(
-						"📁 File created - Library: {}, Entry: {}",
+						"File created - Library: {}, Entry: {}",
 						library_id, entry_id
 					);
 				}
@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					new_path,
 				} => {
 					info!(
-						"📦 File moved - Library: {}, Entry: {}, {} -> {}",
+						"File moved - Library: {}, Entry: {}, {} -> {}",
 						library_id, entry_id, old_path, new_path
 					);
 				}

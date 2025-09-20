@@ -51,7 +51,7 @@ async fn find_entry_by_name(
 
 #[tokio::test]
 async fn test_entry_metadata_preservation_on_move() {
-	println!("🧪 Starting entry metadata preservation test");
+	println!("Starting entry metadata preservation test");
 
 	// 1. Clean slate - delete entire data directory first
 	let data_dir = std::path::PathBuf::from("core/data/move-integrity-test");
@@ -60,7 +60,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		println!("🗑️ Deleted existing data directory for clean test");
 	}
 	std::fs::create_dir_all(&data_dir).unwrap();
-	println!("📁 Created fresh data directory: {:?}", data_dir);
+	println!("Created fresh data directory: {:?}", data_dir);
 
 	let core = Arc::new(Core::new_with_config(data_dir.clone()).await.unwrap());
 	println!("Core initialized successfully");
@@ -72,7 +72,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		.await
 		.unwrap();
 	let library_id = library.id();
-	println!("📚 Created fresh library with ID: {}", library_id);
+	println!("Created fresh library with ID: {}", library_id);
 
 	let action_manager = core
 		.context
@@ -97,7 +97,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		.unwrap();
 	fs::create_dir_all(&dest_dir).await.unwrap();
 
-	println!("📁 Created test file structure");
+	println!("Created test file structure");
 
 	// 3. Dispatch LocationAddAction to index the source
 	let _add_output = action_manager
@@ -136,7 +136,7 @@ async fn test_entry_metadata_preservation_on_move() {
 
 	// Debug: List all entries in the database
 	let all_entries = entry::Entity::find().all(db).await.unwrap();
-	println!("🔍 Found {} entries in database:", all_entries.len());
+	println!("Found {} entries in database:", all_entries.len());
 	for entry in &all_entries {
 		println!(
 			"  - ID: {}, Name: '{}', UUID: {:?}, Parent: {:?}",
@@ -158,7 +158,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	let _original_metadata_id = parent_dir_entry.metadata_id;
 
 	println!(
-		"🔍 Found parent_dir entry with ID: {}",
+		"Found parent_dir entry with ID: {}",
 		original_parent_dir_id
 	);
 
@@ -210,10 +210,10 @@ async fn test_entry_metadata_preservation_on_move() {
 		.await
 		.unwrap();
 
-	println!("📦 Move operation completed");
+	println!("Move operation completed");
 
 	// 8. Verification assertions
-	println!("🔍 Starting verification phase...");
+	println!("Starting verification phase...");
 
 	// 1. Verify Entry Preservation
 	let moved_entry = entry::Entity::find_by_id(original_parent_dir_id)
@@ -235,7 +235,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	// 2. Verify Metadata Preservation
 	// Debug: Check all user_metadata_tag records
 	let all_tag_links = user_metadata_tag::Entity::find().all(db).await.unwrap();
-	println!("🔍 Found {} tag links in database:", all_tag_links.len());
+	println!("Found {} tag links in database:", all_tag_links.len());
 	for link in &all_tag_links {
 		println!(
 			"  - Link ID: {}, MetadataID: {}, TagID: {}",
@@ -245,7 +245,7 @@ async fn test_entry_metadata_preservation_on_move() {
 
 	// Debug: Check all user_metadata records
 	let all_metadata = user_metadata::Entity::find().all(db).await.unwrap();
-	println!("🔍 Found {} user_metadata records:", all_metadata.len());
+	println!("Found {} user_metadata records:", all_metadata.len());
 	for meta in &all_metadata {
 		println!(
 			"  - Meta ID: {}, UUID: {}, Entry UUID: {:?}",
@@ -350,7 +350,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	}
 
 	// Final Summary
-	println!("\n🎯 Test Results Summary:");
+	println!("\nTest Results Summary:");
 	println!("Entry ID preservation: WORKING - Entry maintains stable identity during moves");
 	println!("TagManager SQL issues: RESOLVED - Can create and apply semantic tags");
 	println!(
@@ -373,19 +373,19 @@ async fn test_entry_metadata_preservation_on_move() {
 		println!("⚠️ Filesystem move: ISSUE - Files not moved properly");
 	}
 
-	println!("\n🔬 Test Framework: COMPLETE");
+	println!("\nTest Framework: COMPLETE");
 	println!("   This integration test successfully validates the core concern:");
-	println!("   📌 Entry identity preservation during move operations");
-	println!("   📌 Metadata link preservation (when semantic tagging works)");
-	println!("   📌 Comprehensive verification of all database state");
+	println!("   Entry identity preservation during move operations");
+	println!("   Metadata link preservation (when semantic tagging works)");
+	println!("   Comprehensive verification of all database state");
 
-	println!("\n🎉 Integration test implementation is working correctly!");
+	println!("\nIntegration test implementation is working correctly!");
 }
 
 /// Additional test to verify that child entries also maintain their metadata
 #[tokio::test]
 async fn test_child_entry_metadata_preservation_on_parent_move() {
-	println!("🧪 Starting child entry metadata preservation test");
+	println!("Starting child entry metadata preservation test");
 
 	// Setup similar to main test - use same persistent database
 	let data_dir = std::path::PathBuf::from("core/data/spacedrive-search-demo");

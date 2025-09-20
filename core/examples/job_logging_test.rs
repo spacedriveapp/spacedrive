@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.with_env_filter("sd_core=debug")
 		.init();
 
-	println!("🚀 Job Logging Test\n");
+	println!("Job Logging Test\n");
 
 	// 1. Initialize Core with job logging
 	println!("1. Setting up with job logging enabled...");
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let core = Core::new_with_config(data_dir.clone()).await?;
 	let job_logs_dir = data_dir.join("job_logs");
-	println!("   📝 Job logs directory: {:?}", job_logs_dir);
+	println!("   Job logs directory: {:?}", job_logs_dir);
 
 	// 2. Create library
 	println!("\n2. Creating library...");
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				match event {
 					Event::JobProgress { job_id, message, .. } => {
 						if let Some(msg) = message {
-							println!("   📊 Job {}: {}", job_id, msg);
+							println!("   Job {}: {}", job_id, msg);
 						}
 					}
 					Event::IndexingCompleted { .. } => {
@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					count += 1;
 					let log_path = job_logs_dir.join(name);
 					if let Ok(contents) = tokio::fs::read_to_string(&log_path).await {
-						println!("\n   📄 Log file: {}", name);
+						println!("\n   Log file: {}", name);
 						println!("   Size: {} bytes", contents.len());
 						println!("   Lines: {}", contents.lines().count());
 
@@ -156,8 +156,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	core.shutdown().await?;
 
 	println!("\nTest complete!");
-	println!("📁 Data: {:?}", data_dir);
-	println!("📝 Logs: {:?}", job_logs_dir);
+	println!("Data: {:?}", data_dir);
+	println!("Logs: {:?}", job_logs_dir);
 
 	Ok(())
 }

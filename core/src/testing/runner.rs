@@ -118,7 +118,7 @@ impl CargoTestRunner {
 
 		process.child = Some(child);
 		println!(
-			"🚀 Spawned cargo test process: {} (test: {})",
+			"Spawned cargo test process: {} (test: {})",
 			process.name, process.test_function_name
 		);
 
@@ -164,7 +164,7 @@ impl CargoTestRunner {
 
 			process.child = Some(child);
 			println!(
-				"🚀 Spawned cargo test process: {} (test: {})",
+				"Spawned cargo test process: {} (test: {})",
 				process.name, process.test_function_name
 			);
 		}
@@ -248,7 +248,7 @@ impl CargoTestRunner {
 				let _ = child.wait().await;
 			}
 		}
-		println!("🧹 Killed all cargo test processes");
+		println!("Killed all cargo test processes");
 	}
 
 	/// Get output from a specific process

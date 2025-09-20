@@ -140,7 +140,7 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
     use sd_core::infra::event::Event;
     use std::collections::HashMap;
 
-    println!("📡 Monitoring jobs (real-time mode) - Press Ctrl+C to exit");
+    println!("Monitoring jobs (real-time mode) - Press Ctrl+C to exit");
     println!("═══════════════════════════════════════════════════════");
 
     // Subscribe to job events
@@ -195,7 +195,7 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
             while let Some(event) = event_stream.recv().await {
                 match event {
                     Event::JobStarted { job_id, job_type } => {
-                        println!("🚀 Job started: {} [{}]", job_type, &job_id[..8]);
+                        println!("Job started: {} [{}]", job_type, &job_id[..8]);
                         let pb = crate::ui::create_simple_progress(&job_type, 100);
                         pb.set_message(format!("{} [{}] - Starting...", job_type, &job_id[..8]));
                         progress_bars.insert(job_id, pb);
@@ -232,10 +232,10 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 
                     Event::JobCancelled { job_id, job_type } => {
                         if let Some(pb) = progress_bars.get(&job_id) {
-                            pb.finish_with_message(format!("🚫 {} [{}] - Cancelled", job_type, &job_id[..8]));
+                            pb.finish_with_message(format!("{} [{}] - Cancelled", job_type, &job_id[..8]));
                             progress_bars.remove(&job_id);
                         }
-                        println!("🚫 Job cancelled: {} [{}]", job_type, &job_id[..8]);
+                        println!("Job cancelled: {} [{}]", job_type, &job_id[..8]);
                     }
 
                     Event::JobPaused { job_id } => {
@@ -331,7 +331,7 @@ async fn run_polling_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<
 
 /// Run TUI job monitor
 async fn run_tui_job_monitor(_ctx: &Context, _args: JobMonitorArgs) -> Result<()> {
-    println!("📡 TUI Job Monitor");
+    println!("TUI Job Monitor");
     println!("TUI implementation is being refined. Use --simple for now:");
     println!("  sd job monitor --simple");
     Ok(())

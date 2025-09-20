@@ -25,11 +25,11 @@ async fn alice_pairing_scenario() {
 	let data_dir = PathBuf::from("/tmp/spacedrive-pairing-test/alice");
 	let device_name = "Alice's Test Device";
 
-	println!("🟦 Alice: Starting Core pairing test");
-	println!("📁 Alice: Data dir: {:?}", data_dir);
+	println!("Alice: Starting Core pairing test");
+	println!("Alice: Data dir: {:?}", data_dir);
 
 	// Initialize Core
-	println!("🔧 Alice: Initializing Core...");
+	println!("Alice: Initializing Core...");
 	let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 		.await
 		.unwrap()
@@ -41,7 +41,7 @@ async fn alice_pairing_scenario() {
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
-	println!("🌐 Alice: Initializing networking...");
+	println!("Alice: Initializing networking...");
 	timeout(Duration::from_secs(10), core.init_networking())
 		.await
 		.unwrap()
@@ -52,7 +52,7 @@ async fn alice_pairing_scenario() {
 	println!("Alice: Networking initialized successfully");
 
 	// Start pairing as initiator
-	println!("🔑 Alice: Starting pairing as initiator...");
+	println!("Alice: Starting pairing as initiator...");
 	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
@@ -82,7 +82,7 @@ async fn alice_pairing_scenario() {
 		&pairing_code,
 	)
 	.unwrap();
-	println!("📝 Alice: Pairing code written to /tmp/spacedrive-pairing-test/pairing_code.txt");
+	println!("Alice: Pairing code written to /tmp/spacedrive-pairing-test/pairing_code.txt");
 
 	// Wait for pairing completion (Alice waits for Bob to connect)
 	println!("⏳ Alice: Waiting for pairing to complete...");
@@ -94,15 +94,15 @@ async fn alice_pairing_scenario() {
 
 		let connected_devices = core.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
-			println!("🎉 Alice: Pairing completed successfully!");
-			println!("🔗 Alice: Checking connected devices...");
+			println!("Alice: Pairing completed successfully!");
+			println!("Alice: Checking connected devices...");
 			println!("Alice: Connected {} devices", connected_devices.len());
 
 			// Get detailed device info
 			let device_info = core.get_connected_devices_info().await.unwrap();
 			for device in &device_info {
 				println!(
-					"📱 Alice sees: {} (ID: {}, OS: {}, App: {})",
+					"Alice sees: {} (ID: {}, OS: {}, App: {})",
 					device.device_name, device.device_id, device.os_version, device.app_version
 				);
 			}
@@ -124,11 +124,11 @@ async fn alice_pairing_scenario() {
 		}
 
 		if attempts % 5 == 0 {
-			println!("🔍 Alice: Pairing status check {} - waiting", attempts / 5);
+			println!("Alice: Pairing status check {} - waiting", attempts / 5);
 		}
 	}
 
-	println!("🧹 Alice: Test completed");
+	println!("Alice: Test completed");
 }
 
 /// Bob's pairing scenario - ALL logic stays in this test file!
@@ -146,11 +146,11 @@ async fn bob_pairing_scenario() {
 	let data_dir = PathBuf::from("/tmp/spacedrive-pairing-test/bob");
 	let device_name = "Bob's Test Device";
 
-	println!("🟦 Bob: Starting Core pairing test");
-	println!("📁 Bob: Data dir: {:?}", data_dir);
+	println!("Bob: Starting Core pairing test");
+	println!("Bob: Data dir: {:?}", data_dir);
 
 	// Initialize Core
-	println!("🔧 Bob: Initializing Core...");
+	println!("Bob: Initializing Core...");
 	let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 		.await
 		.unwrap()
@@ -162,7 +162,7 @@ async fn bob_pairing_scenario() {
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
-	println!("🌐 Bob: Initializing networking...");
+	println!("Bob: Initializing networking...");
 	timeout(Duration::from_secs(10), core.init_networking())
 		.await
 		.unwrap()
@@ -173,17 +173,17 @@ async fn bob_pairing_scenario() {
 	println!("Bob: Networking initialized successfully");
 
 	// Wait for initiator to create pairing code
-	println!("🔍 Bob: Looking for pairing code...");
+	println!("Bob: Looking for pairing code...");
 	let pairing_code = loop {
 		if let Ok(code) = std::fs::read_to_string("/tmp/spacedrive-pairing-test/pairing_code.txt") {
 			break code.trim().to_string();
 		}
 		tokio::time::sleep(Duration::from_millis(500)).await;
 	};
-	println!("📋 Bob: Found pairing code");
+	println!("Bob: Found pairing code");
 
 	// Join pairing session
-	println!("🤝 Bob: Joining pairing with code...");
+	println!("Bob: Joining pairing with code...");
 	if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
@@ -208,15 +208,15 @@ async fn bob_pairing_scenario() {
 		// Check pairing status by looking at connected devices
 		let connected_devices = core.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
-			println!("🎉 Bob: Pairing completed successfully!");
-			println!("🔗 Bob: Checking connected devices...");
+			println!("Bob: Pairing completed successfully!");
+			println!("Bob: Checking connected devices...");
 			println!("Bob: Connected {} devices", connected_devices.len());
 
 			// Get detailed device info
 			let device_info = core.get_connected_devices_info().await.unwrap();
 			for device in &device_info {
 				println!(
-					"📱 Bob sees: {} (ID: {}, OS: {}, App: {})",
+					"Bob sees: {} (ID: {}, OS: {}, App: {})",
 					device.device_name, device.device_id, device.os_version, device.app_version
 				);
 			}
@@ -234,11 +234,11 @@ async fn bob_pairing_scenario() {
 		}
 
 		if attempts % 5 == 0 {
-			println!("🔍 Bob: Pairing status check {} - waiting", attempts / 5);
+			println!("Bob: Pairing status check {} - waiting", attempts / 5);
 		}
 	}
 
-	println!("🧹 Bob: Test completed");
+	println!("Bob: Test completed");
 }
 
 /// Main test orchestrator - spawns cargo test subprocesses
@@ -250,9 +250,9 @@ async fn test_device_pairing() {
 	// This prevents Bob from reading old data and fixes the file I/O race condition
 	if std::path::Path::new(PAIRING_CODE_PATH).exists() {
 		let _ = std::fs::remove_file(PAIRING_CODE_PATH);
-		println!("🧹 Cleaned up stale pairing code file");
+		println!("Cleaned up stale pairing code file");
 	}
-	println!("🧪 Testing Core pairing with cargo test subprocess framework");
+	println!("Testing Core pairing with cargo test subprocess framework");
 
 	// Clean up any old pairing files to avoid race conditions
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-pairing-test");
@@ -264,7 +264,7 @@ async fn test_device_pairing() {
 		.add_subprocess("bob", "bob_pairing_scenario");
 
 	// Spawn Alice first
-	println!("🚀 Starting Alice as initiator...");
+	println!("Starting Alice as initiator...");
 	runner
 		.spawn_single_process("alice")
 		.await
@@ -274,7 +274,7 @@ async fn test_device_pairing() {
 	tokio::time::sleep(Duration::from_secs(8)).await;
 
 	// Start Bob as joiner
-	println!("🚀 Starting Bob as joiner...");
+	println!("Starting Bob as joiner...");
 	runner
 		.spawn_single_process("bob")
 		.await
@@ -299,7 +299,7 @@ async fn test_device_pairing() {
 	match result {
 		Ok(_) => {
 			println!(
-				"🎉 Cargo test subprocess pairing test successful with mutual device recognition!"
+				"Cargo test subprocess pairing test successful with mutual device recognition!"
 			);
 		}
 		Err(e) => {

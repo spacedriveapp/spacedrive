@@ -31,11 +31,11 @@ async fn alice_cross_device_copy_scenario() {
 	let data_dir = PathBuf::from("/tmp/spacedrive-cross-device-copy-test/alice");
 	let device_name = "Alice's Test Device";
 
-	println!("🟦 Alice: Starting Core cross-device copy test (sender)");
-	println!("📁 Alice: Data dir: {:?}", data_dir);
+	println!("Alice: Starting Core cross-device copy test (sender)");
+	println!("Alice: Data dir: {:?}", data_dir);
 
 	// Initialize Core
-	println!("🔧 Alice: Initializing Core...");
+	println!("Alice: Initializing Core...");
 	let mut core = timeout(
 		Duration::from_secs(10),
 		Core::new_with_config(data_dir.clone()),
@@ -50,7 +50,7 @@ async fn alice_cross_device_copy_scenario() {
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
-	println!("🌐 Alice: Initializing networking...");
+	println!("Alice: Initializing networking...");
 	timeout(Duration::from_secs(10), core.init_networking())
 		.await
 		.unwrap()
@@ -61,7 +61,7 @@ async fn alice_cross_device_copy_scenario() {
 	println!("Alice: Networking initialized successfully");
 
 	// Create a library for job dispatch
-	println!("📚 Alice: Creating library for copy operations...");
+	println!("Alice: Creating library for copy operations...");
 	let library = core
 		.libraries
 		.create_library("Alice Copy Library", None, core.context.clone())
@@ -74,7 +74,7 @@ async fn alice_cross_device_copy_scenario() {
 	);
 
 	// Start pairing as initiator
-	println!("🔑 Alice: Starting pairing as initiator...");
+	println!("Alice: Starting pairing as initiator...");
 	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
@@ -105,7 +105,7 @@ async fn alice_cross_device_copy_scenario() {
 	)
 	.unwrap();
 	println!(
-		"📝 Alice: Pairing code written to /tmp/spacedrive-cross-device-copy-test/pairing_code.txt"
+		"Alice: Pairing code written to /tmp/spacedrive-cross-device-copy-test/pairing_code.txt"
 	);
 
 	// Wait for pairing completion
@@ -121,16 +121,16 @@ async fn alice_cross_device_copy_scenario() {
 		if !connected_devices.is_empty() {
 			bob_device_id = Some(connected_devices[0].device_id);
 			println!(
-				"🎉 Alice: Bob connected! Device ID: {}",
+				"Alice: Bob connected! Device ID: {}",
 				connected_devices[0].device_id
 			);
 			println!(
-				"📱 Alice: Connected device: {} ({})",
+				"Alice: Connected device: {} ({})",
 				connected_devices[0].device_name, connected_devices[0].device_id
 			);
 
 			// Wait for session keys to be established
-			println!("🔑 Alice: Allowing extra time for session key establishment...");
+			println!("Alice: Allowing extra time for session key establishment...");
 			tokio::time::sleep(Duration::from_secs(2)).await;
 			break;
 		}
@@ -141,14 +141,14 @@ async fn alice_cross_device_copy_scenario() {
 		}
 
 		if attempts % 5 == 0 {
-			println!("🔍 Alice: Pairing status check {} - waiting", attempts / 5);
+			println!("Alice: Pairing status check {} - waiting", attempts / 5);
 		}
 	}
 
 	let bob_id = bob_device_id.unwrap();
 
 	// Create test files to copy
-	println!("📝 Alice: Creating test files for cross-device copy...");
+	println!("Alice: Creating test files for cross-device copy...");
 	let test_files_dir = data_dir.join("test_files");
 	std::fs::create_dir_all(&test_files_dir).unwrap();
 
@@ -165,7 +165,7 @@ async fn alice_cross_device_copy_scenario() {
 	for (filename, content) in &test_files {
 		let file_path = test_files_dir.join(filename);
 		std::fs::write(&file_path, content).unwrap();
-		println!("  📄 Created: {} ({} bytes)", filename, content.len());
+		println!("  Created: {} ({} bytes)", filename, content.len());
 		source_paths.push(file_path);
 	}
 
@@ -185,7 +185,7 @@ async fn alice_cross_device_copy_scenario() {
 	println!("🆔 Alice: My device ID is {}", alice_device_id);
 
 	// Prepare copy operations using the action system
-	println!("🚀 Alice: Dispatching cross-device copy actions...");
+	println!("Alice: Dispatching cross-device copy actions...");
 
 	// Get the action manager from context
 	let action_manager = core
@@ -196,7 +196,7 @@ async fn alice_cross_device_copy_scenario() {
 
 	// Copy each file individually to test the routing
 	for (i, (source_path, (filename, _))) in source_paths.iter().zip(&test_files).enumerate() {
-		println!("📋 Alice: Preparing copy action {} for {}", i + 1, filename);
+		println!("Alice: Preparing copy action {} for {}", i + 1, filename);
 
 		// Create source SdPath (on Alice's device)
 		let source_sdpath = SdPath::physical(alice_device_id, source_path);
@@ -206,12 +206,12 @@ async fn alice_cross_device_copy_scenario() {
 		let dest_sdpath = SdPath::physical(bob_id, &dest_path);
 
 		println!(
-			"  📍 Source: {} (device: {})",
+			"  Source: {} (device: {})",
 			source_path.display(),
 			alice_device_id
 		);
 		println!(
-			"  📍 Destination: {} (device: {})",
+			"  Destination: {} (device: {})",
 			dest_path.display(),
 			bob_id
 		);
@@ -235,7 +235,7 @@ async fn alice_cross_device_copy_scenario() {
 		{
 			Ok(output) => {
 				println!("Alice: Copy action {} dispatched successfully", i + 1);
-				println!("  📊 Output: {:?}", output);
+				println!("  Output: {:?}", output);
 			}
 			Err(e) => {
 				println!("❌ Alice: Copy action {} failed: {}", i + 1, e);
@@ -262,7 +262,7 @@ async fn alice_cross_device_copy_scenario() {
 
 		if attempt % 10 == 0 {
 			println!(
-				"🔍 Alice: Still waiting for Bob's confirmation... ({}s)",
+				"Alice: Still waiting for Bob's confirmation... ({}s)",
 				attempt
 			);
 		}
@@ -280,7 +280,7 @@ async fn alice_cross_device_copy_scenario() {
 		panic!("Alice: Bob did not confirm file receipt within timeout");
 	}
 
-	println!("🧹 Alice: Cross-device copy test completed");
+	println!("Alice: Cross-device copy test completed");
 }
 
 /// Bob's cross-device copy scenario - receiver role
@@ -301,11 +301,11 @@ async fn bob_cross_device_copy_scenario() {
 	let data_dir = PathBuf::from("/tmp/spacedrive-cross-device-copy-test/bob");
 	let device_name = "Bob's Test Device";
 
-	println!("🟦 Bob: Starting Core cross-device copy test (receiver)");
-	println!("📁 Bob: Data dir: {:?}", data_dir);
+	println!("Bob: Starting Core cross-device copy test (receiver)");
+	println!("Bob: Data dir: {:?}", data_dir);
 
 	// Initialize Core
-	println!("🔧 Bob: Initializing Core...");
+	println!("Bob: Initializing Core...");
 	let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 		.await
 		.unwrap()
@@ -317,7 +317,7 @@ async fn bob_cross_device_copy_scenario() {
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
-	println!("🌐 Bob: Initializing networking...");
+	println!("Bob: Initializing networking...");
 	timeout(Duration::from_secs(10), core.init_networking())
 		.await
 		.unwrap()
@@ -328,7 +328,7 @@ async fn bob_cross_device_copy_scenario() {
 	println!("Bob: Networking initialized successfully");
 
 	// Create a library for job dispatch
-	println!("📚 Bob: Creating library for copy operations...");
+	println!("Bob: Creating library for copy operations...");
 	let _library = core
 		.libraries
 		.create_library("Bob Copy Library", None, core.context.clone())
@@ -337,7 +337,7 @@ async fn bob_cross_device_copy_scenario() {
 	println!("Bob: Library created successfully");
 
 	// Wait for Alice to create pairing code
-	println!("🔍 Bob: Looking for pairing code from Alice...");
+	println!("Bob: Looking for pairing code from Alice...");
 	let pairing_code = loop {
 		if let Ok(code) =
 			std::fs::read_to_string("/tmp/spacedrive-cross-device-copy-test/pairing_code.txt")
@@ -346,10 +346,10 @@ async fn bob_cross_device_copy_scenario() {
 		}
 		tokio::time::sleep(Duration::from_millis(500)).await;
 	};
-	println!("📋 Bob: Found pairing code");
+	println!("Bob: Found pairing code");
 
 	// Join pairing session
-	println!("🤝 Bob: Joining pairing with Alice...");
+	println!("Bob: Joining pairing with Alice...");
 	if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
@@ -373,14 +373,14 @@ async fn bob_cross_device_copy_scenario() {
 
 		let connected_devices = core.get_connected_devices_info().await.unwrap();
 		if !connected_devices.is_empty() {
-			println!("🎉 Bob: Pairing completed successfully!");
+			println!("Bob: Pairing completed successfully!");
 			println!(
-				"📱 Bob: Connected to {} ({})",
+				"Bob: Connected to {} ({})",
 				connected_devices[0].device_name, connected_devices[0].device_id
 			);
 
 			// Wait for session keys
-			println!("🔑 Bob: Allowing extra time for session key establishment...");
+			println!("Bob: Allowing extra time for session key establishment...");
 			tokio::time::sleep(Duration::from_secs(2)).await;
 			break;
 		}
@@ -391,7 +391,7 @@ async fn bob_cross_device_copy_scenario() {
 		}
 
 		if attempts % 5 == 0 {
-			println!("🔍 Bob: Pairing status check {} - waiting", attempts / 5);
+			println!("Bob: Pairing status check {} - waiting", attempts / 5);
 		}
 	}
 
@@ -399,12 +399,12 @@ async fn bob_cross_device_copy_scenario() {
 	let received_dir = std::path::Path::new("/tmp/received_files");
 	std::fs::create_dir_all(received_dir).unwrap();
 	println!(
-		"📁 Bob: Created directory for received files: {:?}",
+		"Bob: Created directory for received files: {:?}",
 		received_dir
 	);
 
 	// Load expected files
-	println!("📋 Bob: Loading expected file list...");
+	println!("Bob: Loading expected file list...");
 	let expected_files = loop {
 		if let Ok(content) =
 			std::fs::read_to_string("/tmp/spacedrive-cross-device-copy-test/expected_files.txt")
@@ -421,11 +421,11 @@ async fn bob_cross_device_copy_scenario() {
 	};
 
 	println!(
-		"📋 Bob: Expecting {} files via cross-device copy",
+		"Bob: Expecting {} files via cross-device copy",
 		expected_files.len()
 	);
 	for (filename, size) in &expected_files {
-		println!("  📄 Expecting: {} ({} bytes)", filename, size);
+		println!("  Expecting: {} ({} bytes)", filename, size);
 	}
 
 	// Monitor for received files
@@ -446,7 +446,7 @@ async fn bob_cross_device_copy_scenario() {
 						if let Ok(metadata) = entry.metadata() {
 							received_files.push(filename.clone());
 							println!(
-								"📥 Bob: Received file: {} ({} bytes)",
+								"Bob: Received file: {} ({} bytes)",
 								filename,
 								metadata.len()
 							);
@@ -473,7 +473,7 @@ async fn bob_cross_device_copy_scenario() {
 
 		let elapsed = start_time.elapsed().as_secs();
 		if elapsed > 0 && elapsed % 10 == 0 && received_files.is_empty() {
-			println!("🔍 Bob: Still waiting for files... ({}s elapsed)", elapsed);
+			println!("Bob: Still waiting for files... ({}s elapsed)", elapsed);
 		}
 	}
 
@@ -505,7 +505,7 @@ async fn bob_cross_device_copy_scenario() {
 		panic!("Bob: Not all files were received");
 	}
 
-	println!("🧹 Bob: Cross-device copy test completed");
+	println!("Bob: Cross-device copy test completed");
 }
 
 /// Main test orchestrator - spawns cargo test subprocesses
@@ -516,7 +516,7 @@ async fn test_cross_device_copy() {
 	let _ = std::fs::remove_dir_all("/tmp/received_files");
 	std::fs::create_dir_all("/tmp/spacedrive-cross-device-copy-test").unwrap();
 
-	println!("🧪 Testing cross-device copy with action system routing");
+	println!("Testing cross-device copy with action system routing");
 
 	let mut runner = CargoTestRunner::for_test_file("cross_device_copy_test")
 		.with_timeout(Duration::from_secs(180))
@@ -524,7 +524,7 @@ async fn test_cross_device_copy() {
 		.add_subprocess("bob", "bob_cross_device_copy_scenario");
 
 	// Spawn Alice first
-	println!("🚀 Starting Alice as copy action dispatcher...");
+	println!("Starting Alice as copy action dispatcher...");
 	runner
 		.spawn_single_process("alice")
 		.await
@@ -534,7 +534,7 @@ async fn test_cross_device_copy() {
 	tokio::time::sleep(Duration::from_secs(8)).await;
 
 	// Start Bob as receiver
-	println!("🚀 Starting Bob as copy receiver...");
+	println!("Starting Bob as copy receiver...");
 	runner
 		.spawn_single_process("bob")
 		.await
@@ -559,7 +559,7 @@ async fn test_cross_device_copy() {
 	match result {
 		Ok(_) => {
 			println!(
-				"🎉 Cross-device copy test successful! Action system routing works correctly."
+				"Cross-device copy test successful! Action system routing works correctly."
 			);
 		}
 		Err(e) => {

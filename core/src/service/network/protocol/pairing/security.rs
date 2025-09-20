@@ -162,7 +162,7 @@ mod tests {
 		let challenge = [2u8; 32];
 		let signature = signing_key.sign(&challenge);
 
-		println!("🔐 Testing REAL Ed25519 signature verification:");
+		println!("Testing REAL Ed25519 signature verification:");
 		println!("   Public key: {} bytes", public_key_bytes.len());
 		println!("   Challenge: {} bytes", challenge.len());
 		println!("   Signature: {} bytes", signature.to_bytes().len());
@@ -190,7 +190,7 @@ mod tests {
 		let wrong_challenge = [3u8; 32];
 		let signature = signing_key.sign(&wrong_challenge);
 
-		println!("🔒 Testing REAL Ed25519 signature rejection:");
+		println!("Testing REAL Ed25519 signature rejection:");
 		println!("   Signed data: {:?}", &wrong_challenge[..4]);
 		println!("   Verify data: {:?}", &challenge[..4]);
 
@@ -204,6 +204,6 @@ mod tests {
 		assert!(!result.unwrap()); // Should be false
 
 		println!("REAL cryptographic signature rejection PASSED!");
-		println!("   🎯 This proves we're doing REAL crypto verification!");
+		println!("   This proves we're doing REAL crypto verification!");
 	}
 }

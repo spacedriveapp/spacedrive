@@ -228,7 +228,7 @@ pub async fn run_processing_phase(
 					match EntryProcessor::update_entry(ctx, entry_id, &entry).await {
 						Ok(()) => {
 							ctx.log(format!(
-								"📝 Updated entry {}: {}",
+								"Updated entry {}: {}",
 								entry_id,
 								entry.path.display()
 							));
@@ -258,7 +258,7 @@ pub async fn run_processing_phase(
 				}) => {
 					// Handle move - update path in database
 					ctx.log(format!(
-						"🔄 Detected move: {} -> {}",
+						"Detected move: {} -> {}",
 						old_path.display(),
 						new_path.display()
 					));

@@ -412,7 +412,7 @@ async fn test_full_copy_workflow_simulation() {
 
 		// Only test if both paths exist
 		if source_path.exists() && dest_path.exists() {
-			println!("\n📋 Scenario: {}", scenario_name);
+			println!("\nScenario: {}", scenario_name);
 
 			// Step 1: Check if paths are on same physical storage
 			let same_storage = volume_manager

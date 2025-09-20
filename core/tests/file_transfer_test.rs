@@ -25,11 +25,11 @@ async fn alice_file_transfer_scenario() {
 	let data_dir = PathBuf::from("/tmp/spacedrive-file-transfer-test/alice");
 	let device_name = "Alice's Test Device";
 
-	println!("🟦 Alice: Starting Core file transfer test (sender)");
-	println!("📁 Alice: Data dir: {:?}", data_dir);
+	println!("Alice: Starting Core file transfer test (sender)");
+	println!("Alice: Data dir: {:?}", data_dir);
 
 	// Initialize Core
-	println!("🔧 Alice: Initializing Core...");
+	println!("Alice: Initializing Core...");
 	let mut core = timeout(
 		Duration::from_secs(10),
 		Core::new_with_config(data_dir.clone()),
@@ -44,7 +44,7 @@ async fn alice_file_transfer_scenario() {
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
-	println!("🌐 Alice: Initializing networking...");
+	println!("Alice: Initializing networking...");
 	timeout(Duration::from_secs(10), core.init_networking())
 		.await
 		.unwrap()
@@ -55,7 +55,7 @@ async fn alice_file_transfer_scenario() {
 	println!("Alice: Networking initialized successfully");
 
 	// Create a library for job dispatch (required for file transfers)
-	println!("📚 Alice: Creating library for file transfer jobs...");
+	println!("Alice: Creating library for file transfer jobs...");
 	let _library = core
 		.libraries
 		.create_library("Alice Transfer Library", None, core.context.clone())
@@ -64,7 +64,7 @@ async fn alice_file_transfer_scenario() {
 	println!("Alice: Library created successfully");
 
 	// Start pairing as initiator
-	println!("🔑 Alice: Starting pairing as initiator for file transfer...");
+	println!("Alice: Starting pairing as initiator for file transfer...");
 	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
@@ -95,7 +95,7 @@ async fn alice_file_transfer_scenario() {
 	)
 	.unwrap();
 	println!(
-		"📝 Alice: Pairing code written to /tmp/spacedrive-file-transfer-test/pairing_code.txt"
+		"Alice: Pairing code written to /tmp/spacedrive-file-transfer-test/pairing_code.txt"
 	);
 
 	// Wait for pairing completion
@@ -111,12 +111,12 @@ async fn alice_file_transfer_scenario() {
 		if !connected_devices.is_empty() {
 			receiver_device_id = Some(connected_devices[0]);
 			println!(
-				"🎉 Alice: Bob connected! Device ID: {}",
+				"Alice: Bob connected! Device ID: {}",
 				connected_devices[0]
 			);
 
 			// Wait a bit longer to ensure session keys are properly established
-			println!("🔑 Alice: Allowing extra time for session key establishment...");
+			println!("Alice: Allowing extra time for session key establishment...");
 			tokio::time::sleep(Duration::from_secs(2)).await;
 			break;
 		}
@@ -127,17 +127,17 @@ async fn alice_file_transfer_scenario() {
 			let registry = device_registry.read().await;
 			let paired_devices = registry.get_paired_devices();
 			if !paired_devices.is_empty() {
-				println!("🎉 Alice: Found {} paired devices!", paired_devices.len());
+				println!("Alice: Found {} paired devices!", paired_devices.len());
 				for device in &paired_devices {
 					println!(
-						"  📱 Paired: {} (ID: {})",
+						"  Paired: {} (ID: {})",
 						device.device_name, device.device_id
 					);
 				}
 				// Use the first paired device as the receiver
 				receiver_device_id = Some(paired_devices[0].device_id);
 				println!(
-					"🔑 Alice: Using paired device as receiver: {}",
+					"Alice: Using paired device as receiver: {}",
 					paired_devices[0].device_id
 				);
 				break;
@@ -150,14 +150,14 @@ async fn alice_file_transfer_scenario() {
 		}
 
 		if attempts % 5 == 0 {
-			println!("🔍 Alice: Pairing status check {} - waiting", attempts / 5);
+			println!("Alice: Pairing status check {} - waiting", attempts / 5);
 		}
 	}
 
 	let receiver_id = receiver_device_id.unwrap();
 
 	// Create test files to transfer
-	println!("📝 Alice: Creating test files for transfer...");
+	println!("Alice: Creating test files for transfer...");
 	let test_files_dir = data_dir.join("test_files");
 	std::fs::create_dir_all(&test_files_dir).unwrap();
 
@@ -180,7 +180,7 @@ async fn alice_file_transfer_scenario() {
 		match ContentHashGenerator::generate_content_hash(&file_path).await {
 			Ok(checksum) => {
 				println!(
-					"  📄 Created: {} ({} bytes, checksum: {})",
+					"  Created: {} ({} bytes, checksum: {})",
 					filename,
 					content.len(),
 					checksum
@@ -188,7 +188,7 @@ async fn alice_file_transfer_scenario() {
 			}
 			Err(e) => {
 				println!(
-					"  📄 Created: {} ({} bytes, checksum error: {})",
+					"  Created: {} ({} bytes, checksum error: {})",
 					filename,
 					content.len(),
 					e
@@ -212,17 +212,17 @@ async fn alice_file_transfer_scenario() {
 
 	// Debug: Show Alice's view of connected devices
 	let alice_devices = core.get_connected_devices_info().await.unwrap();
-	println!("🔍 Alice: Connected devices before transfer:");
+	println!("Alice: Connected devices before transfer:");
 	for device in &alice_devices {
 		println!(
-			"  📱 Device: {} (ID: {})",
+			"  Device: {} (ID: {})",
 			device.device_name, device.device_id
 		);
 	}
 
 	// Initiate cross-device file transfer
-	println!("🚀 Alice: Starting cross-device file transfer...");
-	println!("🎯 Alice: Sending files to device ID: {}", receiver_id);
+	println!("Alice: Starting cross-device file transfer...");
+	println!("Alice: Sending files to device ID: {}", receiver_id);
 
 	let transfer_results = core
 		.services
@@ -237,7 +237,7 @@ async fn alice_file_transfer_scenario() {
 	match transfer_results {
 		Ok(transfer_id) => {
 			println!("Alice: File transfer initiated successfully!");
-			println!("📋 Alice: Transfer ID: {:?}", transfer_id);
+			println!("Alice: Transfer ID: {:?}", transfer_id);
 
 			// Wait for transfer to complete
 			println!("⏳ Alice: Waiting for transfer to complete...");
@@ -274,7 +274,7 @@ async fn alice_file_transfer_scenario() {
 								// Still in progress
 								if status.progress.bytes_transferred > 0 {
 									println!(
-										"📊 Alice: Transfer progress: {} / {} bytes",
+										"Alice: Transfer progress: {} / {} bytes",
 										status.progress.bytes_transferred,
 										status.progress.total_bytes
 									);
@@ -310,7 +310,7 @@ async fn alice_file_transfer_scenario() {
 
 					if attempt % 10 == 0 {
 						println!(
-							"🔍 Alice: Still waiting for Bob's confirmation... ({}s)",
+							"Alice: Still waiting for Bob's confirmation... ({}s)",
 							attempt
 						);
 					}
@@ -342,7 +342,7 @@ async fn alice_file_transfer_scenario() {
 		}
 	}
 
-	println!("🧹 Alice: File transfer sender test completed");
+	println!("Alice: File transfer sender test completed");
 }
 
 /// Bob's file transfer scenario - receiver role
@@ -360,11 +360,11 @@ async fn bob_file_transfer_scenario() {
 	let data_dir = PathBuf::from("/tmp/spacedrive-file-transfer-test/bob");
 	let device_name = "Bob's Test Device";
 
-	println!("🟦 Bob: Starting Core file transfer test (receiver)");
-	println!("📁 Bob: Data dir: {:?}", data_dir);
+	println!("Bob: Starting Core file transfer test (receiver)");
+	println!("Bob: Data dir: {:?}", data_dir);
 
 	// Initialize Core
-	println!("🔧 Bob: Initializing Core...");
+	println!("Bob: Initializing Core...");
 	let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
 		.await
 		.unwrap()
@@ -376,7 +376,7 @@ async fn bob_file_transfer_scenario() {
 	core.device.set_name(device_name.to_string()).unwrap();
 
 	// Initialize networking
-	println!("🌐 Bob: Initializing networking...");
+	println!("Bob: Initializing networking...");
 	timeout(Duration::from_secs(10), core.init_networking())
 		.await
 		.unwrap()
@@ -387,7 +387,7 @@ async fn bob_file_transfer_scenario() {
 	println!("Bob: Networking initialized successfully");
 
 	// Create a library for job dispatch (required for file transfers)
-	println!("📚 Bob: Creating library for file transfer jobs...");
+	println!("Bob: Creating library for file transfer jobs...");
 	let _library = core
 		.libraries
 		.create_library("Bob Transfer Library", None, core.context.clone())
@@ -396,7 +396,7 @@ async fn bob_file_transfer_scenario() {
 	println!("Bob: Library created successfully");
 
 	// Wait for Alice to create pairing code
-	println!("🔍 Bob: Looking for pairing code from Alice...");
+	println!("Bob: Looking for pairing code from Alice...");
 	let pairing_code = loop {
 		if let Ok(code) =
 			std::fs::read_to_string("/tmp/spacedrive-file-transfer-test/pairing_code.txt")
@@ -405,10 +405,10 @@ async fn bob_file_transfer_scenario() {
 		}
 		tokio::time::sleep(Duration::from_millis(500)).await;
 	};
-	println!("📋 Bob: Found pairing code");
+	println!("Bob: Found pairing code");
 
 	// Join pairing session
-	println!("🤝 Bob: Joining pairing with Alice...");
+	println!("Bob: Joining pairing with Alice...");
 	if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
@@ -433,21 +433,21 @@ async fn bob_file_transfer_scenario() {
 		// Check pairing status by looking at connected devices
 		let connected_devices = core.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
-			println!("🎉 Bob: Pairing completed successfully!");
+			println!("Bob: Pairing completed successfully!");
 			println!("Bob: Connected {} devices", connected_devices.len());
 
 			// Debug: Show Bob's view of connected devices
 			let bob_devices = core.get_connected_devices_info().await.unwrap();
-			println!("🔍 Bob: Connected devices after pairing:");
+			println!("Bob: Connected devices after pairing:");
 			for device in &bob_devices {
 				println!(
-					"  📱 Device: {} (ID: {})",
+					"  Device: {} (ID: {})",
 					device.device_name, device.device_id
 				);
 			}
 
 			// Wait a bit longer to ensure session keys are properly established
-			println!("🔑 Bob: Allowing extra time for session key establishment...");
+			println!("Bob: Allowing extra time for session key establishment...");
 			tokio::time::sleep(Duration::from_secs(2)).await;
 			break;
 		}
@@ -458,10 +458,10 @@ async fn bob_file_transfer_scenario() {
 			let registry = device_registry.read().await;
 			let paired_devices = registry.get_paired_devices();
 			if !paired_devices.is_empty() {
-				println!("🎉 Bob: Found {} paired devices!", paired_devices.len());
+				println!("Bob: Found {} paired devices!", paired_devices.len());
 				for device in &paired_devices {
 					println!(
-						"  📱 Paired: {} (ID: {})",
+						"  Paired: {} (ID: {})",
 						device.device_name, device.device_id
 					);
 				}
@@ -476,7 +476,7 @@ async fn bob_file_transfer_scenario() {
 		}
 
 		if attempts % 5 == 0 {
-			println!("🔍 Bob: Pairing status check {} - waiting", attempts / 5);
+			println!("Bob: Pairing status check {} - waiting", attempts / 5);
 		}
 	}
 
@@ -487,7 +487,7 @@ async fn bob_file_transfer_scenario() {
 	let received_dir = std::path::Path::new("/tmp/received_files");
 	std::fs::create_dir_all(received_dir).unwrap();
 	println!(
-		"📁 Bob: Created directory for received files: {:?}",
+		"Bob: Created directory for received files: {:?}",
 		received_dir
 	);
 
@@ -508,11 +508,11 @@ async fn bob_file_transfer_scenario() {
 	};
 
 	println!(
-		"📋 Bob: Expecting {} files to be received",
+		"Bob: Expecting {} files to be received",
 		expected_files.len()
 	);
 	for (filename, size) in &expected_files {
-		println!("  📄 Expecting: {} ({} bytes)", filename, size);
+		println!("  Expecting: {} ({} bytes)", filename, size);
 	}
 
 	// Monitor for received files
@@ -532,7 +532,7 @@ async fn bob_file_transfer_scenario() {
 						if let Ok(metadata) = entry.metadata() {
 							received_files.push(filename.clone());
 							println!(
-								"📥 Bob: Received file: {} ({} bytes)",
+								"Bob: Received file: {} ({} bytes)",
 								filename,
 								metadata.len()
 							);
@@ -545,11 +545,11 @@ async fn bob_file_transfer_scenario() {
 		// Debug: Show directory contents periodically
 		let elapsed = start_time.elapsed().as_secs();
 		if elapsed > 0 && elapsed % 10 == 0 && received_files.is_empty() {
-			println!("🔍 Bob: Still waiting for files... checking directory:");
+			println!("Bob: Still waiting for files... checking directory:");
 			if let Ok(entries) = std::fs::read_dir(received_dir) {
 				let file_count = entries.count();
 				println!(
-					"  📁 Found {} items in {}",
+					"  Found {} items in {}",
 					file_count,
 					received_dir.display()
 				);
@@ -558,7 +558,7 @@ async fn bob_file_transfer_scenario() {
 
 		if received_files.len() > 0 && received_files.len() % 2 == 0 {
 			println!(
-				"📊 Bob: Progress: {}/{} files received",
+				"Bob: Progress: {}/{} files received",
 				received_files.len(),
 				expected_files.len()
 			);
@@ -645,7 +645,7 @@ async fn bob_file_transfer_scenario() {
 		panic!("Bob: Not all files were received");
 	}
 
-	println!("🧹 Bob: File transfer receiver test completed");
+	println!("Bob: File transfer receiver test completed");
 }
 
 /// Main test orchestrator - spawns cargo test subprocesses for file transfer
@@ -656,7 +656,7 @@ async fn test_file_transfer() {
 	let _ = std::fs::remove_dir_all("/tmp/received_files");
 	std::fs::create_dir_all("/tmp/spacedrive-file-transfer-test").unwrap();
 
-	println!("🧪 Testing Core file transfer with cargo test subprocess framework");
+	println!("Testing Core file transfer with cargo test subprocess framework");
 
 	let mut runner = CargoTestRunner::for_test_file("file_transfer_test")
 		.with_timeout(Duration::from_secs(240)) // 4 minutes for file transfer test
@@ -664,7 +664,7 @@ async fn test_file_transfer() {
 		.add_subprocess("bob", "bob_file_transfer_scenario");
 
 	// Spawn Alice first (sender)
-	println!("🚀 Starting Alice as file sender...");
+	println!("Starting Alice as file sender...");
 	runner
 		.spawn_single_process("alice")
 		.await
@@ -674,7 +674,7 @@ async fn test_file_transfer() {
 	tokio::time::sleep(Duration::from_secs(8)).await;
 
 	// Start Bob as receiver
-	println!("🚀 Starting Bob as file receiver...");
+	println!("Starting Bob as file receiver...");
 	runner
 		.spawn_single_process("bob")
 		.await
@@ -699,7 +699,7 @@ async fn test_file_transfer() {
 	match result {
 		Ok(_) => {
 			println!(
-				"🎉 Cargo test subprocess file transfer test successful with complete file verification!"
+				"Cargo test subprocess file transfer test successful with complete file verification!"
 			);
 		}
 		Err(e) => {
