@@ -73,8 +73,8 @@ impl LibraryAction for LibraryRenameAction {
 
 	async fn validate(
 		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
+		_library: std::sync::Arc<crate::library::Library>,
+		_context: std::sync::Arc<crate::context::CoreContext>,
 	) -> Result<(), ActionError> {
 		// Library existence already validated by ActionManager - no boilerplate!
 

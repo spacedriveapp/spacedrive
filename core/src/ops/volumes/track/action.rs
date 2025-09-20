@@ -88,41 +88,6 @@ impl LibraryAction for VolumeTrackAction {
 		"volumes.track"
 	}
 
-	async fn validate(
-		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
-	) -> Result<(), ActionError> {
-		// Validate volume exists
-		let volume = context
-			.volume_manager
-			.get_volume(&self.input.fingerprint)
-			.await
-			.ok_or_else(|| ActionError::Validation {
-				field: "fingerprint".to_string(),
-				message: "Volume not found".to_string(),
-			})?;
-
-		// Validate volume is mounted
-		if !volume.is_mounted {
-			return Err(ActionError::Validation {
-				field: "fingerprint".to_string(),
-				message: "Cannot track unmounted volume".to_string(),
-			});
-		}
-
-		// Validate name if provided
-		if let Some(name) = &self.input.name {
-			if name.trim().is_empty() {
-				return Err(ActionError::Validation {
-					field: "name".to_string(),
-					message: "Volume name cannot be empty".to_string(),
-				});
-			}
-		}
-
-		Ok(())
-	}
 }
 
 // Register action

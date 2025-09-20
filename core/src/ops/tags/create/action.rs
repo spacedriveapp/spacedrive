@@ -111,20 +111,6 @@ impl LibraryAction for CreateTagAction {
 		"tags.create"
 	}
 
-	async fn validate(
-		&self,
-		_library: &Arc<Library>,
-		_context: Arc<CoreContext>,
-	) -> Result<(), ActionError> {
-		self.input
-			.validate()
-			.map_err(|msg| ActionError::Validation {
-				field: "input".to_string(),
-				message: msg,
-			})?;
-
-		Ok(())
-	}
 }
 
 // Register library action

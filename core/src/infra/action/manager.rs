@@ -27,12 +27,12 @@ impl ActionManager {
 		&self,
 		action: A,
 	) -> Result<A::Output, super::error::ActionError> {
-		// Validate the action
-		action.validate(self.context.clone()).await?;
-
 		// Log action execution (capture action_kind before move)
 		let action_kind = action.action_kind();
 		tracing::info!("Executing core action: {}", action_kind);
+
+		// Validate the action first
+		action.validate(self.context.clone()).await?;
 
 		// Execute the action directly
 		let result = action.execute(self.context.clone()).await;
@@ -66,13 +66,15 @@ impl ActionManager {
 			.await
 			.ok_or_else(|| ActionError::LibraryNotFound(effective_library_id))?;
 
-		// Validate the action with library context
-		action.validate(&library, self.context.clone()).await?;
-
 		// Create audit log entry (capture values before move)
 		let action_kind = action.action_kind();
 		let audit_entry = self
 			.create_action_audit_log(effective_library_id, action_kind)
+			.await?;
+
+		// Validate the action first
+		action
+			.validate(library.clone(), self.context.clone())
 			.await?;
 
 		// Execute the action with validated library

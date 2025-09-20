@@ -59,6 +59,9 @@ pub struct FileCopyInput {
 
 	/// Preferred copy method to use
 	pub copy_method: CopyMethod,
+
+	/// How to handle file conflicts (set by CLI confirmation)
+	pub on_conflict: Option<super::action::FileConflictResolution>,
 }
 
 impl FileCopyInput {
@@ -73,6 +76,7 @@ impl FileCopyInput {
 			preserve_timestamps: true,
 			move_files: false,
 			copy_method: CopyMethod::Auto,
+			on_conflict: None,
 		}
 	}
 
@@ -162,6 +166,7 @@ impl Default for FileCopyInput {
 			preserve_timestamps: true,
 			move_files: false,
 			copy_method: CopyMethod::Auto,
+			on_conflict: None,
 		}
 	}
 }

@@ -15,6 +15,24 @@ pub mod manager;
 pub mod output;
 pub mod receipt;
 
+/// The result of an action's validation step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ValidationResult {
+	/// The action is valid and can proceed without user interaction.
+	Success,
+	/// The action is valid, but requires user confirmation to proceed.
+	RequiresConfirmation(ConfirmationRequest),
+}
+
+/// A request for user confirmation with a set of choices.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfirmationRequest {
+	/// The message to display to the user (e.g., "File '...' already exists.").
+	pub message: String,
+	/// A list of choices to present to the user.
+	pub choices: Vec<String>,
+}
+
 // handler and registry modules removed - using unified ActionTrait instead
 
 /// Core-level action that operates without library context.
@@ -32,6 +50,15 @@ pub trait CoreAction: Send + Sync + 'static {
 	where
 		Self: Sized;
 
+	/// Validate the action before execution (optional)
+	fn validate(
+		&self,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	{
+		async { Ok(()) }
+	}
+
 	/// Execute this action with core context only
 	fn execute(
 		self,
@@ -42,15 +69,6 @@ pub trait CoreAction: Send + Sync + 'static {
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
-
-	/// Validate this action (optional)
-	fn validate(
-		&self,
-		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
-	{
-		async { Ok(()) }
-	}
 }
 
 /// Library-scoped action that operates within a specific library context.
@@ -68,6 +86,16 @@ pub trait LibraryAction: Send + Sync + 'static {
 	where
 		Self: Sized;
 
+	/// Validate the action before execution (optional)
+	fn validate(
+		&self,
+		_library: std::sync::Arc<crate::library::Library>,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	{
+		async { Ok(()) }
+	}
+
 	/// Execute this action with validated library and core context
 	fn execute(
 		self,
@@ -79,15 +107,4 @@ pub trait LibraryAction: Send + Sync + 'static {
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
-
-	/// Validate this action with library context (optional)
-	/// Note: Library existence is already validated by ActionManager
-	fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
-	{
-		async { Ok(()) }
-	}
 }

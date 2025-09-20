@@ -11,7 +11,7 @@ use crate::{
 		action::{
 			builder::{ActionBuildError, ActionBuilder},
 			error::ActionError,
-			LibraryAction,
+			ConfirmationRequest, LibraryAction, ValidationResult,
 		},
 		job::handle::JobHandle,
 	},
@@ -20,11 +20,41 @@ use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
+/// Internal enum for file conflict resolution strategies
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FileConflictResolution {
+	Overwrite,
+	AutoModifyName,
+	Abort,
+}
+
+impl FileConflictResolution {
+	/// All available choices for conflict resolution
+	const CHOICES: [Self; 3] = [Self::Overwrite, Self::AutoModifyName, Self::Abort];
+
+	/// Convert to human-readable string
+	fn as_str(&self) -> &'static str {
+		match self {
+			Self::Overwrite => "Overwrite the existing file",
+			Self::AutoModifyName => "Rename the new file (e.g., file.txt -> file (1).txt)",
+			Self::Abort => "Abort this copy operation",
+		}
+	}
+
+	/// Create from choice index
+	fn from_index(index: usize) -> Option<Self> {
+		Self::CHOICES.get(index).copied()
+	}
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyAction {
 	pub sources: SdPathBatch,
 	pub destination: SdPath,
 	pub options: CopyOptions,
+	/// Conflict resolution strategy set after user confirmation
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub on_conflict: Option<FileConflictResolution>,
 }
 
 /// Builder for creating FileCopyAction instances with fluent API
@@ -158,7 +188,9 @@ impl FileCopyActionBuilder {
 			}
 		}
 		// Destination
-		if let crate::domain::addressing::SdPath::Physical { device_id, .. } = &mut self.input.destination {
+		if let crate::domain::addressing::SdPath::Physical { device_id, .. } =
+			&mut self.input.destination
+		{
 			if device_id.is_nil() {
 				*device_id = current;
 			}
@@ -195,6 +227,7 @@ impl ActionBuilder for FileCopyActionBuilder {
 			sources: this.input.sources,
 			destination: this.input.destination,
 			options,
+			on_conflict: this.input.on_conflict,
 		})
 	}
 }
@@ -243,11 +276,30 @@ impl LibraryAction for FileCopyAction {
 	}
 
 	async fn execute(
-		self,
+		mut self,
 		library: std::sync::Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let job = FileCopyJob::new(self.sources, self.destination).with_options(self.options);
+		// Apply conflict resolution to options if set
+		let mut options = self.options.clone();
+		if let Some(resolution) = self.on_conflict {
+			match resolution {
+				FileConflictResolution::Overwrite => {
+					options.overwrite = true;
+				}
+				FileConflictResolution::AutoModifyName => {
+					// Generate a unique destination path to avoid conflicts
+					self.destination = self.generate_unique_destination().await?;
+					options.overwrite = false;
+				}
+				FileConflictResolution::Abort => {
+					// This should have been handled in resolve_confirmation
+					return Err(ActionError::Cancelled);
+				}
+			}
+		}
+
+		let job = FileCopyJob::new(self.sources, self.destination).with_options(options);
 
 		let job_handle = library
 			.jobs()
@@ -261,19 +313,182 @@ impl LibraryAction for FileCopyAction {
 	fn action_kind(&self) -> &'static str {
 		"files.copy"
 	}
+}
 
-	async fn validate(
+impl FileCopyAction {
+	/// Validate this action and check for conflicts that require user confirmation
+	pub async fn validate(
 		&self,
 		_library: &std::sync::Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<ValidationResult, ActionError> {
 		if self.sources.paths.is_empty() {
 			return Err(ActionError::Validation {
 				field: "sources".to_string(),
 				message: "At least one source file must be specified".to_string(),
 			});
 		}
-		Ok(())
+
+		// Check for file conflicts if overwrite is not enabled
+		if !self.options.overwrite {
+			if let Some(conflict_path) = self.check_for_conflicts().await? {
+				let request = ConfirmationRequest {
+					message: format!(
+						"Destination file already exists: {}",
+						conflict_path.display()
+					),
+					choices: FileConflictResolution::CHOICES
+						.iter()
+						.map(|c| c.as_str().to_string())
+						.collect(),
+				};
+				return Ok(ValidationResult::RequiresConfirmation(request));
+			}
+		}
+
+		Ok(ValidationResult::Success)
+	}
+
+	/// Resolve user confirmation by applying the selected choice
+	pub fn resolve_confirmation(&mut self, choice_index: usize) -> Result<(), ActionError> {
+		match FileConflictResolution::from_index(choice_index) {
+			Some(FileConflictResolution::Abort) => Err(ActionError::Cancelled),
+			Some(resolution) => {
+				self.on_conflict = Some(resolution);
+				Ok(())
+			}
+			None => Err(ActionError::Validation {
+				field: "choice".to_string(),
+				message: "Invalid choice selected".to_string(),
+			}),
+		}
+	}
+
+	/// Check if any destination files would cause conflicts
+	async fn check_for_conflicts(&self) -> Result<Option<PathBuf>, ActionError> {
+		// For now, implement a simple check for single file destination conflicts
+		// In a full implementation, this would check each source against the destination
+		// and handle directory conflicts, etc.
+
+		// Extract the physical path from the destination SdPath
+		let dest_path = match &self.destination {
+			SdPath::Physical { path, .. } => path.clone(),
+			SdPath::Content { .. } => {
+				// Content paths cannot be destinations for copy operations
+				return Ok(None);
+			}
+		};
+
+		// Check if destination exists
+		if tokio::fs::metadata(&dest_path).await.is_ok() {
+			Ok(Some(dest_path))
+		} else {
+			Ok(None)
+		}
+	}
+
+	/// Generate a unique destination path by appending a number if the original exists
+	async fn generate_unique_destination(&self) -> Result<SdPath, ActionError> {
+		use std::path::Path;
+
+		let SdPath::Physical { device_id, path } = &self.destination else {
+			// For non-physical paths, just return the original
+			return Ok(self.destination.clone());
+		};
+
+		// First, resolve the actual destination path using the same logic as the job
+		let resolved_destination = self.resolve_final_destination_path(path)?;
+
+		let mut counter = 1;
+		let mut new_path = resolved_destination.clone();
+
+		// Keep trying until we find a path that doesn't exist
+		while tokio::fs::metadata(&new_path).await.is_ok() {
+			// Generate new name with counter
+			if let Some(parent) = resolved_destination.parent() {
+				if let Some(file_name) = resolved_destination.file_name() {
+					let file_name_str = file_name.to_string_lossy();
+
+					// Split filename and extension
+					if let Some(dot_pos) = file_name_str.rfind('.') {
+						let name = &file_name_str[..dot_pos];
+						let ext = &file_name_str[dot_pos..];
+						new_path = parent.join(format!("{} ({}){}", name, counter, ext));
+					} else {
+						// No extension
+						new_path = parent.join(format!("{} ({})", file_name_str, counter));
+					}
+				} else {
+					// Fallback if we can't get filename
+					new_path = resolved_destination.with_file_name(format!("copy_{}", counter));
+				}
+			} else {
+				// Fallback if we can't get parent
+				new_path = Path::new(&format!(
+					"{}_copy_{}",
+					resolved_destination.display(),
+					counter
+				))
+				.to_path_buf();
+			}
+
+			counter += 1;
+
+			// Safety check to avoid infinite loops
+			if counter > 1000 {
+				return Err(ActionError::Internal(
+					"Could not generate unique filename after 1000 attempts".to_string(),
+				));
+			}
+		}
+
+		Ok(SdPath::Physical {
+			device_id: *device_id,
+			path: new_path,
+		})
+	}
+
+	/// Resolve the final destination path using the same logic as the job
+	/// This handles the case where destination is a directory vs a file path
+	fn resolve_final_destination_path(
+		&self,
+		dest_path: &std::path::PathBuf,
+	) -> Result<std::path::PathBuf, ActionError> {
+		if self.sources.paths.len() > 1 {
+			// Multiple sources: destination must be a directory
+			if let Some(first_source) = self.sources.paths.first() {
+				if let SdPath::Physical {
+					path: source_path, ..
+				} = first_source
+				{
+					if let Some(filename) = source_path.file_name() {
+						return Ok(dest_path.join(filename));
+					}
+				}
+			}
+			// Fallback
+			return Ok(dest_path.clone());
+		} else {
+			// Single source: check if destination is a directory
+			if dest_path.is_dir() {
+				// Destination is a directory, join with source filename
+				if let Some(source) = self.sources.paths.first() {
+					if let SdPath::Physical {
+						path: source_path, ..
+					} = source
+					{
+						if let Some(filename) = source_path.file_name() {
+							return Ok(dest_path.join(filename));
+						}
+					}
+				}
+				// Fallback
+				return Ok(dest_path.clone());
+			} else {
+				// Destination is a file path, use as-is
+				return Ok(dest_path.clone());
+			}
+		}
 	}
 }
 

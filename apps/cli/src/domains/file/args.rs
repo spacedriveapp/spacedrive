@@ -52,6 +52,7 @@ impl From<FileCopyArgs> for FileCopyInput {
 			preserve_timestamps: args.preserve_timestamps,
 			move_files: args.move_files,
 			copy_method: args.method,
+			on_conflict: None,
 		}
 	}
 }

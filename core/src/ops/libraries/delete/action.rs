@@ -74,10 +74,6 @@ impl CoreAction for LibraryDeleteAction {
 
 	// No library_id method - this is a CoreAction that operates on libraries themselves
 
-	async fn validate(&self, _context: std::sync::Arc<CoreContext>) -> Result<(), ActionError> {
-		// Basic validation
-		Ok(())
-	}
 }
 
 // Register core action

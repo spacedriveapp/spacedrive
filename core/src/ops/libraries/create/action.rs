@@ -51,7 +51,10 @@ impl CoreAction for LibraryCreateAction {
 		"library.create"
 	}
 
-	async fn validate(&self, _context: Arc<CoreContext>) -> Result<(), ActionError> {
+	async fn validate(
+		&self,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> Result<(), ActionError> {
 		if self.input.name.trim().is_empty() {
 			return Err(ActionError::Validation {
 				field: "name".to_string(),

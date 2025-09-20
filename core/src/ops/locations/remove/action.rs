@@ -56,14 +56,6 @@ impl LibraryAction for LocationRemoveAction {
 		"locations.remove"
 	}
 
-	async fn validate(
-		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
-	) -> Result<(), ActionError> {
-		// Could add validation to check if location exists in the library
-		Ok(())
-	}
 }
 
 // Register action
