@@ -123,6 +123,7 @@ async fn test_copy_progress_monitoring_large_file() {
 			delete_after_copy: false,
 			move_mode: None,
 			copy_method: CopyMethod::Streaming, // --method streaming
+			on_conflict: None,
 		},
 	};
 

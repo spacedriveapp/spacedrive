@@ -157,10 +157,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	let original_parent_dir_id = parent_dir_entry.id;
 	let _original_metadata_id = parent_dir_entry.metadata_id;
 
-	println!(
-		"Found parent_dir entry with ID: {}",
-		original_parent_dir_id
-	);
+	println!("Found parent_dir entry with ID: {}", original_parent_dir_id);
 
 	// 6. Dispatch ApplyTagsAction
 	let _apply_output = action_manager
@@ -203,6 +200,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		preserve_timestamps: true,
 		move_files: true, // This makes it a move operation
 		copy_method: sd_core::ops::files::copy::input::CopyMethod::Auto,
+		on_conflict: OnConflict::None,
 	};
 	let move_action = FileCopyAction::from_input(move_input).unwrap();
 	let _move_output = action_manager
@@ -289,7 +287,9 @@ async fn test_entry_metadata_preservation_on_move() {
 			);
 		}
 	} else {
-		println!("Destination directory not found in database - move operation doesn't update database");
+		println!(
+			"Destination directory not found in database - move operation doesn't update database"
+		);
 	}
 
 	// 4. Verify Path Cache Update for the moved directory
@@ -353,16 +353,12 @@ async fn test_entry_metadata_preservation_on_move() {
 	println!("\nTest Results Summary:");
 	println!("Entry ID preservation: WORKING - Entry maintains stable identity during moves");
 	println!("TagManager SQL issues: RESOLVED - Can create and apply semantic tags");
-	println!(
-		"Database schema: FIXED - Modern user_metadata schema now matches entity definitions"
-	);
+	println!("Database schema: FIXED - Modern user_metadata schema now matches entity definitions");
 
 	if tag_link_count > 0 {
 		println!("Metadata preservation: WORKING - Tag links survive move operations");
 	} else {
-		println!(
-			"Metadata preservation: NEEDS WORK - ApplyTagsAction not creating proper links"
-		);
+		println!("Metadata preservation: NEEDS WORK - ApplyTagsAction not creating proper links");
 	}
 
 	// Check filesystem to verify actual move happened
@@ -489,6 +485,7 @@ async fn test_child_entry_metadata_preservation_on_parent_move() {
 		preserve_timestamps: true,
 		move_files: true,
 		copy_method: sd_core::ops::files::copy::input::CopyMethod::Auto,
+		on_conflict: None,
 	};
 	let move_action = FileCopyAction::from_input(move_input).unwrap();
 	let _move_output = action_manager

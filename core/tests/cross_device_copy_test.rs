@@ -68,10 +68,7 @@ async fn alice_cross_device_copy_scenario() {
 		.await
 		.unwrap();
 	let library_id = library.id();
-	println!(
-		"Alice: Library created successfully (ID: {})",
-		library_id
-	);
+	println!("Alice: Library created successfully (ID: {})", library_id);
 
 	// Start pairing as initiator
 	println!("Alice: Starting pairing as initiator...");
@@ -224,6 +221,7 @@ async fn alice_cross_device_copy_scenario() {
 				overwrite: true,
 				verify_checksum: true,
 				preserve_timestamps: true,
+				on_conflict: None,
 				..Default::default()
 			},
 		};
@@ -558,9 +556,7 @@ async fn test_cross_device_copy() {
 
 	match result {
 		Ok(_) => {
-			println!(
-				"Cross-device copy test successful! Action system routing works correctly."
-			);
+			println!("Cross-device copy test successful! Action system routing works correctly.");
 		}
 		Err(e) => {
 			println!("Cross-device copy test failed: {}", e);

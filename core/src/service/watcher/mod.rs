@@ -5,6 +5,7 @@ use crate::infra::event::{Event, EventBus, FsRawEventKind};
 use crate::service::Service;
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
+use sea_orm::EntityTrait;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -414,6 +415,80 @@ impl LocationWatcher {
 			.collect()
 	}
 
+	/// Load existing locations from the database and add them to the watcher
+	async fn load_existing_locations(&self) -> Result<()> {
+		info!("Loading existing locations from database...");
+
+		// Get all libraries from the context
+		let libraries = self.context.libraries().await;
+		let library_list = libraries.list().await;
+
+		let mut total_locations = 0;
+
+		for library in library_list {
+			// Query locations for this library
+			let db = library.db().conn();
+			match crate::infra::db::entities::location::Entity::find()
+				.all(db)
+				.await
+			{
+				Ok(locations) => {
+					for location in locations {
+						// Get the full path using PathResolver
+						match crate::ops::indexing::path_resolver::PathResolver::get_full_path(
+							db,
+							location.entry_id,
+						)
+						.await
+						{
+							Ok(path) => {
+								// Convert database location to WatchedLocation
+								let watched_location = WatchedLocation {
+									id: location.uuid,
+									library_id: library.id(),
+									path: path.clone(),
+									enabled: true, // TODO: Add enabled field to database schema
+								};
+
+								// Add to watched locations
+								if let Err(e) = self.add_location(watched_location).await {
+									error!(
+										"Failed to add location {} to watcher: {}",
+										location.uuid, e
+									);
+								} else {
+									total_locations += 1;
+									debug!(
+										"Added location {} to watcher: {}",
+										location.uuid,
+										path.display()
+									);
+								}
+							}
+							Err(e) => {
+								error!("Failed to get path for location {}: {}", location.uuid, e);
+							}
+						}
+					}
+				}
+				Err(e) => {
+					error!(
+						"Failed to load locations for library {}: {}",
+						library.id(),
+						e
+					);
+				}
+			}
+		}
+
+		info!("Loaded {} locations from database", total_locations);
+
+		// Update metrics with the total count
+		self.metrics.update_total_locations(total_locations);
+
+		Ok(())
+	}
+
 	/// Start the event processing loop
 	async fn start_event_loop(&self) -> Result<()> {
 		let platform_handler = self.platform_handler.clone();
@@ -584,6 +659,12 @@ impl Service for LocationWatcher {
 		info!("Starting location watcher service");
 
 		*self.is_running.write().await = true;
+
+		// Load existing locations from database
+		if let Err(e) = self.load_existing_locations().await {
+			error!("Failed to load existing locations: {}", e);
+			// Continue starting the service even if loading locations fails
+		}
 
 		// Start metrics collector
 		self.start_metrics_collector().await?;

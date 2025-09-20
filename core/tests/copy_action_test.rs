@@ -92,6 +92,7 @@ async fn test_move_action_construction() {
 			preserve_timestamps: true,
 			delete_after_copy: true,
 			move_mode: Some(MoveMode::Move),
+			on_conflict: None,
 		},
 	};
 
