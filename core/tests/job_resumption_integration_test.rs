@@ -27,6 +27,9 @@ use tracing::{info, warn};
 // use std::process::Command;
 use uuid::Uuid;
 use sd_core::config::{AppConfig, ServiceConfig, JobLoggingConfig, Preferences};
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use std::sync::Once;
 
 /// Test data directory in the repo for inspection
 const TEST_DATA_DIR: &str = "data";
@@ -62,6 +65,57 @@ struct TestResult {
     daemon_log_path: Option<PathBuf>,
 }
 
+/// Initialize tracing with both console and file logging for test debugging
+fn initialize_test_tracing() -> Result<(), Box<dyn std::error::Error>> {
+    static INIT: Once = Once::new();
+    let mut result: Result<(), Box<dyn std::error::Error>> = Ok(());
+
+    INIT.call_once(|| {
+        // Ensure test logs directory exists
+        let test_logs_dir = PathBuf::from(TEST_DATA_DIR).join("test_logs");
+        if let Err(e) = std::fs::create_dir_all(&test_logs_dir) {
+            result = Err(format!("Failed to create test logs directory: {}", e).into());
+            return;
+        }
+
+        // Set up environment filter with detailed logging for tests
+        let env_filter = std::env::var("RUST_LOG")
+            .unwrap_or_else(|_| "warn,sd_core=info,job_resumption_integration_test=info".to_string());
+
+        // Create file appender that rotates daily
+        let file_appender = RollingFileAppender::new(
+            Rotation::DAILY,
+            test_logs_dir,
+            "job_resumption_test.log"
+        );
+
+        // Set up layered subscriber with stdout, file output
+        if let Err(e) = tracing_subscriber::registry()
+            .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter)))
+            .with(
+                fmt::layer()
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_line_number(true)
+                    .with_writer(std::io::stdout),
+            )
+            .with(
+                fmt::layer()
+                    .with_target(true)
+                    .with_thread_ids(true)
+                    .with_line_number(true)
+                    .with_ansi(false) // No ANSI colors in log files
+                    .with_writer(file_appender),
+            )
+            .try_init()
+        {
+            result = Err(format!("Failed to initialize tracing: {}", e).into());
+        }
+    });
+
+    result
+}
+
 /// Main integration test for job resumption with realistic desktop-scale data
 ///
 /// This test uses the desktop_complex recipe (500k files, 8 levels deep) to simulate
@@ -76,10 +130,8 @@ struct TestResult {
 /// - Each interrupted job should cleanly pause and resume from where it left off
 #[tokio::test]
 async fn test_job_resumption_at_various_points() {
-    // Initialize tracing for test debugging
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter("warn,sd_core=info,job_resumption_integration_test=info")
-        .try_init();
+    // Initialize tracing for test debugging with file logging
+    initialize_test_tracing().expect("Failed to initialize tracing");
 
     info!("Starting job resumption integration test");
 
@@ -131,6 +183,7 @@ async fn test_job_resumption_at_various_points() {
     }
 
     info!("All job resumption tests passed! 🎉");
+    info!("Test logs available at: {}/test_logs/job_resumption_test.log", TEST_DATA_DIR);
 }
 
 /// Generate test data using benchmark data generation
@@ -560,7 +613,7 @@ async fn resume_and_complete_job(
 
             // Collect log paths for inspection
             let job_log_path = core_data_path.join("job_logs").join(format!("{}.log", job_id));
-            let daemon_log_path = core_data_path.join("daemon.log");
+            let daemon_log_path = PathBuf::from(TEST_DATA_DIR).join("test_logs").join("job_resumption_test.log");
 
             // Shutdown core
             core.shutdown().await?;

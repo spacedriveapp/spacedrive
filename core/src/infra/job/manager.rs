@@ -918,9 +918,13 @@ impl JobManager {
 
 				// Deserialize job from binary data
 				warn!("DEBUG: Attempting to deserialize job {} of type {}", job_id, job_record.name);
+				info!("RESUME_STATE_LOAD: Job {} loading {} bytes of state from database",
+					job_id, job_record.state.len());
 				match REGISTRY.deserialize_job(&job_record.name, &job_record.state) {
 					Ok(erased_job) => {
 						warn!("DEBUG: Successfully deserialized job {}", job_id);
+						info!("RESUME_STATE_LOAD: Job {} successfully deserialized {} bytes of state",
+							job_id, job_record.state.len());
 						// Create channels for the resumed job
 						let (status_tx, status_rx) = watch::channel(JobStatus::Paused);
 						let (progress_tx, progress_rx) = mpsc::unbounded_channel();
@@ -1287,7 +1291,11 @@ impl JobManager {
 		// If job was not in memory, recreate and dispatch it
 		if let Some((job_name, job_state)) = job_info {
 			// Deserialize job from binary data
+			info!("RESUME_STATE_LOAD: Job {} loading {} bytes of state from database (manual resume)",
+				job_id, job_state.len());
 			let erased_job = REGISTRY.deserialize_job(&job_name, &job_state)?;
+			info!("RESUME_STATE_LOAD: Job {} successfully deserialized {} bytes of state (manual resume)",
+				job_id, job_state.len());
 
 			// Update database status to Running
 			use sea_orm::{ActiveModelTrait, ActiveValue::Set};

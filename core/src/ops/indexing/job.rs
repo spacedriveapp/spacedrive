@@ -12,7 +12,7 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
-use tracing::warn;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::{
@@ -276,13 +276,20 @@ impl JobHandler for IndexerJob {
 				"Starting new indexer job (scope: {}, persistence: {:?})",
 				self.config.scope, self.config.persistence
 			));
+			info!("INDEXER_STATE: Job starting with NO saved state - creating new state");
 			self.state = Some(IndexerState::new(&self.config.path));
 		} else {
 			ctx.log("Resuming indexer from saved state");
+			let state = self.state.as_ref().unwrap();
+			info!("INDEXER_STATE: Job resuming with saved state - phase: {:?}, entry_batches: {}, entries_for_content: {}, seen_paths: {}",
+				state.phase,
+				state.entry_batches.len(),
+				state.entries_for_content.len(),
+				state.seen_paths.len());
 			warn!("DEBUG: Resumed state - phase: {:?}, entry_batches: {}, entries_for_content: {}",
-				self.state.as_ref().unwrap().phase,
-				self.state.as_ref().unwrap().entry_batches.len(),
-				self.state.as_ref().unwrap().entries_for_content.len());
+				state.phase,
+				state.entry_batches.len(),
+				state.entries_for_content.len());
 		}
 
 		let state = self.state.as_mut().unwrap();

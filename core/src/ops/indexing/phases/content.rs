@@ -107,10 +107,7 @@ pub async fn run_content_phase(
         // Update rate tracking
         state.items_since_last_update += chunk_len as u64;
 
-        // Periodic checkpoint
-        if processed % 1000 == 0 || processed == total {
-            ctx.checkpoint_with_state(state).await?;
-        }
+        // State is automatically saved during job serialization on shutdown
     }
 
     ctx.log(format!(

@@ -288,17 +288,27 @@ impl<J: JobHandler> JobExecutor<J> {
 						let job_state = rmp_serde::to_vec(&self.job)
 							.map_err(|e| JobError::serialization(format!("{}", e)))?;
 
+						info!("PAUSE_STATE_SAVE: Job {} serialized {} bytes of state for pause",
+							self.state.job_id, job_state.len());
+
 						let mut job_model = super::database::jobs::ActiveModel {
 							id: Set(self.state.job_id.to_string()),
-							state: Set(job_state),
+							state: Set(job_state.clone()),
 							..Default::default()
 						};
 
-						if let Err(e) = job_model.update(self.state.job_db.conn()).await {
-							error!("Failed to save paused job state: {}", e);
+						match job_model.update(self.state.job_db.conn()).await {
+							Ok(_) => {
+								info!("PAUSE_STATE_SAVE: Job {} successfully saved {} bytes to database",
+									self.state.job_id, job_state.len());
+							}
+							Err(e) => {
+								error!("PAUSE_STATE_SAVE: Failed to save paused job state for {}: {}",
+									self.state.job_id, e);
+							}
 						}
 
-						Ok(ExecStatus::Canceled)
+						Ok(ExecStatus::Paused)
 					} else {
 						// Job was cancelled
 						let _ = self.state.status_tx.send(JobStatus::Cancelled);

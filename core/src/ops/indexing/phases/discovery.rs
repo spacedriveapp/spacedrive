@@ -155,10 +155,7 @@ pub async fn run_discovery_phase(
 		// Update rate tracking
 		state.items_since_last_update += 1;
 
-		// Periodic checkpoint
-		if state.stats.files % 5000 == 0 {
-			ctx.checkpoint_with_state(state).await?;
-		}
+		// State is automatically saved during job serialization on shutdown
 	}
 
 	// Final batch
