@@ -9,5 +9,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .cargo_opt_level()
         .cargo_target_triple()
         .emit()?;
+    
+    // Emit build timestamp manually
+    println!("cargo:rustc-env=BUILD_TIMESTAMP={}", chrono::Utc::now().to_rfc3339());
     Ok(())
 }

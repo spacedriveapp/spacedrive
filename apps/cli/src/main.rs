@@ -469,6 +469,7 @@ async fn run_client_command(
 						Cell::new(""),
 					]);
 					system_table.add_row(vec!["Core Version", &status.version]);
+					system_table.add_row(vec!["Built At", &status.built_at]);
 					system_table.add_row(vec!["Data Directory", &status.system.data_directory]);
 					if let Some(instance) = &status.system.instance_name {
 						system_table.add_row(vec!["Instance", instance]);

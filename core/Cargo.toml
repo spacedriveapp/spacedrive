@@ -152,6 +152,7 @@ owo-colors     = "4.1"
 supports-color = "3.0"
 
 [build-dependencies]
+chrono         = { version = "0.4", features = ["serde"] }
 colored        = "2.1"
 comfy-table    = "7.1"
 console        = "0.15"

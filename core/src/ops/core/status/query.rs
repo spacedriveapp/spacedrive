@@ -122,6 +122,7 @@ impl Query for CoreStatusQuery {
 
 		Ok(CoreStatus {
 			version: env!("CARGO_PKG_VERSION").to_string(),
+			built_at: env!("BUILD_TIMESTAMP").to_string(),
 			library_count: libs.len(),
 			device_info,
 			libraries,

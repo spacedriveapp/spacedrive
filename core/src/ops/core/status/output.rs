@@ -5,6 +5,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoreStatus {
 	pub version: String,
+	pub built_at: String,
 	pub library_count: usize,
 	pub device_info: DeviceInfo,
 	pub libraries: Vec<LibraryInfo>,
