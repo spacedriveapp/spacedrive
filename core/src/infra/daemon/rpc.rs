@@ -1,16 +1,16 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::collections::HashMap;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
-use crate::infra::daemon::instance::CoreInstanceManager;
 use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter};
-use crate::infra::event::{Event, EventSubscriber};
 use crate::infra::event::log_emitter::set_global_log_event_bus;
+use crate::infra::event::{Event, EventSubscriber};
+use crate::Core;
 
 /// Connection information for event streaming
 #[derive(Debug)]
@@ -24,7 +24,7 @@ struct Connection {
 /// Minimal JSON-over-UDS RPC server with event streaming support
 pub struct RpcServer {
 	socket_path: PathBuf,
-	instances: Arc<CoreInstanceManager>,
+	core: Arc<Core>,
 	shutdown_tx: mpsc::Sender<()>,
 	shutdown_rx: mpsc::Receiver<()>,
 	/// Active connections for event streaming
@@ -32,11 +32,11 @@ pub struct RpcServer {
 }
 
 impl RpcServer {
-	pub fn new(socket_path: PathBuf, instances: Arc<CoreInstanceManager>) -> Self {
+	pub fn new(socket_path: PathBuf, core: Arc<Core>) -> Self {
 		let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
 		Self {
 			socket_path,
-			instances,
+			core,
 			shutdown_tx,
 			shutdown_rx,
 			connections: Arc::new(RwLock::new(HashMap::new())),
@@ -63,14 +63,14 @@ impl RpcServer {
 				result = listener.accept() => {
 					match result {
 						Ok((stream, _addr)) => {
-							let instances = self.instances.clone();
+							let core = self.core.clone();
 							let shutdown_tx = self.shutdown_tx.clone();
 							let connections = self.connections.clone();
 
 							// Spawn task for concurrent request handling
 							tokio::spawn(async move {
 								// Convert errors to strings to ensure Send
-								if let Err(e) = Self::handle_connection(stream, instances, shutdown_tx, connections).await {
+								if let Err(e) = Self::handle_connection(stream, core, shutdown_tx, connections).await {
 									eprintln!("Connection error: {}", e);
 								}
 							});
@@ -95,15 +95,15 @@ impl RpcServer {
 
 	/// Start the event broadcaster that forwards core events to subscribed connections
 	async fn start_event_broadcaster(&self) -> Result<(), Box<dyn std::error::Error>> {
-		let core = self.instances.get_default().await?;
+		let core = self.core.clone();
 
 		// Make the core's EventBus globally available to the LogEventLayer
 		set_global_log_event_bus(core.events.clone());
 		let mut event_subscriber = core.events.subscribe();
 		let connections = self.connections.clone();
 
-        // Optional: can emit a one-off info to prove the pipe works
-        tracing::info!("Log event bus registered for realtime streaming");
+		// Optional: can emit a one-off info to prove the pipe works
+		tracing::info!("Log event bus registered for realtime streaming");
 
 		tokio::spawn(async move {
 			while let Ok(event) = event_subscriber.recv().await {
@@ -111,7 +111,11 @@ impl RpcServer {
 
 				// Broadcast event to all subscribed connections
 				for connection in connections_read.values() {
-					if Self::should_forward_event(&event, &connection.event_types, &connection.filter) {
+					if Self::should_forward_event(
+						&event,
+						&connection.event_types,
+						&connection.filter,
+					) {
 						// Ignore errors if connection is closed
 						let _ = connection.event_tx.send(event.clone());
 					}
@@ -189,7 +193,11 @@ impl RpcServer {
 	}
 
 	/// Check if an event should be forwarded to a connection based on filters
-	fn should_forward_event(event: &Event, event_types: &[String], filter: &Option<EventFilter>) -> bool {
+	fn should_forward_event(
+		event: &Event,
+		event_types: &[String],
+		filter: &Option<EventFilter>,
+	) -> bool {
 		// If no specific event types requested, forward all events
 		if event_types.is_empty() {
 			return true;
@@ -221,23 +229,25 @@ impl RpcServer {
 		// Apply additional filters if specified
 		if let Some(filter) = filter {
 			match event {
-				Event::JobProgress { job_id, .. } |
-				Event::JobStarted { job_id, .. } |
-				Event::JobCompleted { job_id, .. } |
-				Event::JobFailed { job_id, .. } |
-				Event::JobCancelled { job_id, .. } => {
+				Event::JobProgress { job_id, .. }
+				| Event::JobStarted { job_id, .. }
+				| Event::JobCompleted { job_id, .. }
+				| Event::JobFailed { job_id, .. }
+				| Event::JobCancelled { job_id, .. } => {
 					if let Some(filter_job_id) = &filter.job_id {
 						return job_id == filter_job_id;
 					}
 				}
-				Event::LibraryCreated { id, .. } |
-				Event::LibraryOpened { id, .. } |
-				Event::LibraryClosed { id, .. } => {
+				Event::LibraryCreated { id, .. }
+				| Event::LibraryOpened { id, .. }
+				| Event::LibraryClosed { id, .. } => {
 					if let Some(filter_library_id) = &filter.library_id {
 						return id == filter_library_id;
 					}
 				}
-				Event::LogMessage { job_id, library_id, .. } => {
+				Event::LogMessage {
+					job_id, library_id, ..
+				} => {
 					// Filter by job ID if specified
 					if let Some(filter_job_id) = &filter.job_id {
 						if let Some(log_job_id) = job_id {
@@ -266,7 +276,7 @@ impl RpcServer {
 	/// Handle individual client connection concurrently
 	async fn handle_connection(
 		stream: tokio::net::UnixStream,
-		instances: Arc<CoreInstanceManager>,
+		core: Arc<Core>,
 		shutdown_tx: mpsc::Sender<()>,
 		connections: Arc<RwLock<HashMap<Uuid, Connection>>>,
 	) -> Result<(), String> {
@@ -292,7 +302,7 @@ impl RpcServer {
 							if let Ok(request) = serde_json::from_str::<DaemonRequest>(&line.trim()) {
 								let response = Self::process_request(
 									request,
-									&instances,
+									&core,
 									&shutdown_tx,
 									&connections,
 									connection_id,
@@ -352,7 +362,7 @@ impl RpcServer {
 	/// Process a parsed daemon request
 	async fn process_request(
 		request: DaemonRequest,
-		instances: &Arc<CoreInstanceManager>,
+		core: &Arc<Core>,
 		shutdown_tx: &mpsc::Sender<()>,
 		connections: &Arc<RwLock<HashMap<Uuid, Connection>>>,
 		connection_id: Uuid,
@@ -361,23 +371,24 @@ impl RpcServer {
 		match request {
 			DaemonRequest::Ping => DaemonResponse::Pong,
 
-			DaemonRequest::Action { method, payload } => match instances.get_default().await {
-				Ok(core) => match core.execute_operation_by_method(&method, payload).await {
+			DaemonRequest::Action { method, payload } => {
+				match core.execute_operation_by_method(&method, payload).await {
 					Ok(out) => DaemonResponse::Ok(out),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
-				},
-				Err(e) => DaemonResponse::Error(DaemonError::CoreUnavailable(e)),
-			},
+				}
+			}
 
-			DaemonRequest::Query { method, payload } => match instances.get_default().await {
-				Ok(core) => match core.execute_operation_by_method(&method, payload).await {
+			DaemonRequest::Query { method, payload } => {
+				match core.execute_operation_by_method(&method, payload).await {
 					Ok(out) => DaemonResponse::Ok(out),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
-				},
-				Err(e) => DaemonResponse::Error(DaemonError::CoreUnavailable(e)),
-			},
+				}
+			}
 
-			DaemonRequest::Subscribe { event_types, filter } => {
+			DaemonRequest::Subscribe {
+				event_types,
+				filter,
+			} => {
 				// Register connection for event streaming
 				let connection = Connection {
 					id: connection_id,

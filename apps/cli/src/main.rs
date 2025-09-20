@@ -3,6 +3,23 @@ use clap::{Parser, Subcommand};
 use sd_core::client::CoreClient;
 use std::path::Path;
 
+/// Validate instance name to prevent path traversal attacks
+fn validate_instance_name(instance: &str) -> Result<(), String> {
+	if instance.is_empty() {
+		return Err("Instance name cannot be empty".to_string());
+	}
+	if instance.len() > 64 {
+		return Err("Instance name too long (max 64 characters)".to_string());
+	}
+	if !instance
+		.chars()
+		.all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+	{
+		return Err("Instance name contains invalid characters. Only alphanumeric, dash, and underscore allowed".to_string());
+	}
+	Ok(())
+}
+
 mod context;
 mod domains;
 mod ui;
@@ -170,7 +187,7 @@ async fn main() -> Result<()> {
 
 	// Validate instance name for security
 	if let Some(ref inst) = instance {
-		sd_core::infra::daemon::instance::validate_instance_name(inst)
+		validate_instance_name(inst)
 			.map_err(|e| anyhow::anyhow!("Invalid instance name: {}", e))?;
 	}
 
@@ -208,9 +225,17 @@ async fn main() -> Result<()> {
 			let daemon_path = current_exe.parent().unwrap().join("daemon");
 			let mut command = std::process::Command::new(daemon_path);
 
-			// Pass networking flag if enabled (if daemon supports it)
+			// Pass data directory
+			command.arg("--data-dir").arg(&data_dir);
+
+			// Pass instance name if specified
+			if let Some(ref inst) = instance {
+				command.arg("--instance").arg(inst);
+			}
+
+			// Pass networking flag if enabled
 			if enable_networking {
-				println!("Note: Networking flag passed but daemon may not support it yet");
+				command.arg("--enable-networking");
 			}
 
 			// Set working directory to current directory
