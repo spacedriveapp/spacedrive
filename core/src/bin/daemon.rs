@@ -34,20 +34,27 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let args = Args::parse();
 
-	// Resolve data directory
-	let data_dir = args
+	// Resolve base data directory
+	let base_data_dir = args
 		.data_dir
 		.unwrap_or(sd_core::config::default_data_dir()?);
 
-	// Calculate socket path based on instance
-	let socket_path = if let Some(instance) = args.instance {
+	// Calculate instance-specific data directory and socket path
+	let (data_dir, socket_path) = if let Some(instance) = args.instance {
 		// Validate instance name for security
 		validate_instance_name(&instance).map_err(|e| format!("Invalid instance name: {}", e))?;
-		data_dir
+
+		// Each instance gets its own data directory
+		let instance_data_dir = base_data_dir.join("instances").join(&instance);
+		let socket_path = base_data_dir
 			.join("daemon")
-			.join(format!("daemon-{}.sock", instance))
+			.join(format!("daemon-{}.sock", instance));
+
+		(instance_data_dir, socket_path)
 	} else {
-		data_dir.join("daemon/daemon.sock")
+		// Default instance uses the base data directory
+		let socket_path = base_data_dir.join("daemon/daemon.sock");
+		(base_data_dir.clone(), socket_path)
 	};
 
 	sd_core::infra::daemon::bootstrap::start_default_server(

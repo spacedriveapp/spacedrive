@@ -341,18 +341,44 @@ async fn main() -> Result<()> {
 
 			// Start the daemon again
 			println!("Starting daemon...");
-			let mut cmd = std::process::Command::new(std::env::current_exe()?);
-			cmd.arg("start");
+			let current_exe = std::env::current_exe()?;
+			let daemon_path = current_exe.parent().unwrap().join("daemon");
+			let mut cmd = std::process::Command::new(daemon_path);
+
+			// Pass data directory
+			cmd.arg("--data-dir").arg(&data_dir);
+
+			// Pass instance name if specified
+			if let Some(ref inst) = instance {
+				cmd.arg("--instance").arg(inst);
+			}
+
+			// Set working directory to current directory
+			cmd.current_dir(std::env::current_dir()?);
 
 			if foreground {
-				cmd.arg("--foreground");
-				// Run in foreground - this will block
-				let status = cmd.status()?;
-				if !status.success() {
-					return Err(anyhow::anyhow!("Failed to start daemon"));
+				// Foreground mode: inherit stdout/stderr so logs are visible
+				println!("Starting daemon in foreground mode...");
+				println!("Press Ctrl+C to stop the daemon");
+				println!("═══════════════════════════════════════════════════════");
+
+				match cmd.status() {
+					Ok(status) => {
+						if status.success() {
+							println!("Daemon exited successfully");
+						} else {
+							return Err(anyhow::anyhow!("Daemon exited with error: {}", status));
+						}
+					}
+					Err(e) => {
+						return Err(anyhow::anyhow!("Failed to start daemon: {}", e));
+					}
 				}
 			} else {
 				// Run in background
+				cmd.stdout(std::process::Stdio::null());
+				cmd.stderr(std::process::Stdio::null());
+
 				let child = cmd.spawn()?;
 				println!("Daemon restarted (PID: {})", child.id());
 
