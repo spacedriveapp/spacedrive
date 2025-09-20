@@ -71,8 +71,15 @@ impl JobManager {
 		Ok(manager)
 	}
 
-	/// Initialize job manager (resume interrupted jobs)
+	/// Initialize job manager (without resuming jobs)
 	pub async fn initialize(&self) -> JobResult<()> {
+		info!("Job manager initialized for library {}", self.library_id);
+		Ok(())
+	}
+
+	/// Resume interrupted jobs - should be called after library is fully loaded
+	pub async fn resume_interrupted_jobs_after_load(&self) -> JobResult<()> {
+		info!("Resuming interrupted jobs for library {}", self.library_id);
 		if let Err(e) = self.resume_interrupted_jobs().await {
 			error!("Failed to resume interrupted jobs: {}", e);
 		}
@@ -891,6 +898,7 @@ impl JobManager {
 
 	/// Resume interrupted jobs from the last run
 	async fn resume_interrupted_jobs(&self) -> JobResult<()> {
+		warn!("DEBUG: resume_interrupted_jobs called for library {}", self.library_id);
 		info!("Checking for interrupted jobs to resume");
 
 		use sea_orm::{ColumnTrait, QueryFilter};
@@ -902,13 +910,17 @@ impl JobManager {
 			.all(self.db.conn())
 			.await?;
 
+		warn!("DEBUG: Found {} interrupted jobs to resume", interrupted.len());
 		for job_record in interrupted {
 			if let Ok(job_id) = job_record.id.parse::<Uuid>().map(JobId) {
+				warn!("DEBUG: Processing interrupted job {}: {} with status {}", job_id, job_record.name, job_record.status);
 				info!("Resuming job {}: {}", job_id, job_record.name);
 
 				// Deserialize job from binary data
+				warn!("DEBUG: Attempting to deserialize job {} of type {}", job_id, job_record.name);
 				match REGISTRY.deserialize_job(&job_record.name, &job_record.state) {
 					Ok(erased_job) => {
+						warn!("DEBUG: Successfully deserialized job {}", job_id);
 						// Create channels for the resumed job
 						let (status_tx, status_rx) = watch::channel(JobStatus::Paused);
 						let (progress_tx, progress_rx) = mpsc::unbounded_channel();
@@ -1005,14 +1017,16 @@ impl JobManager {
 												// Get the final output from the handle
 												let output = {
 													let jobs = running_jobs.read().await;
-													jobs.get(&job_id_clone)
-														.and_then(|job| {
-															job.handle
-																.output
-																.blocking_lock()
-																.clone()
-														})
-														.unwrap_or(Ok(JobOutput::Success))
+													if let Some(job) = jobs.get(&job_id_clone) {
+														job.handle
+															.output
+															.lock()
+															.await
+															.clone()
+															.unwrap_or(Ok(JobOutput::Success))
+													} else {
+														Ok(JobOutput::Success)
+													}
 												};
 
 												// Emit completion event
@@ -1054,6 +1068,33 @@ impl JobManager {
 									}
 								});
 
+								// Update status to Running after successful dispatch
+								warn!("DEBUG: Attempting to update resumed job {} status to Running", job_id);
+								if let Some(running_job) = self.running_jobs.read().await.get(&job_id) {
+									if let Err(e) = running_job.status_tx.send(JobStatus::Running) {
+										warn!("Failed to update resumed job status: {}", e);
+									} else {
+										warn!("DEBUG: Successfully sent Running status to job {}", job_id);
+									}
+								} else {
+									warn!("DEBUG: Job {} not found in running_jobs when trying to update status", job_id);
+								}
+
+								// Update database status
+								warn!("DEBUG: Attempting to update database status for job {} to Running", job_id);
+								use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+								let mut job_model = database::jobs::ActiveModel {
+									id: Set(job_id.to_string()),
+									status: Set(JobStatus::Running.to_string()),
+									paused_at: Set(None),
+									..Default::default()
+								};
+								if let Err(e) = job_model.update(self.db.conn()).await {
+									warn!("Failed to update resumed job status in database: {}", e);
+								} else {
+									warn!("DEBUG: Successfully updated database status for job {} to Running", job_id);
+								}
+
 								info!("Successfully resumed job {}: {}", job_id, job_record.name);
 							}
 							Err(e) => {
@@ -1062,6 +1103,7 @@ impl JobManager {
 						}
 					}
 					Err(e) => {
+						warn!("DEBUG: Failed to deserialize job {}: {:?}", job_id, e);
 						error!("Failed to create job {} for resumption: {}", job_id, e);
 					}
 				}
@@ -1303,9 +1345,16 @@ impl JobManager {
 						JobStatus::Completed => {
 							let output = {
 								let jobs = running_jobs.read().await;
-								jobs.get(&job_id_clone)
-									.and_then(|job| job.handle.output.blocking_lock().clone())
-									.unwrap_or(Ok(JobOutput::Success))
+								if let Some(job) = jobs.get(&job_id_clone) {
+									job.handle
+										.output
+										.lock()
+										.await
+										.clone()
+										.unwrap_or(Ok(JobOutput::Success))
+								} else {
+									Ok(JobOutput::Success)
+								}
 							};
 							event_bus.emit(Event::JobCompleted {
 								job_id: job_id_clone.to_string(),
@@ -1453,6 +1502,26 @@ impl JobManager {
 
 			drop(running_jobs); // Release the lock before sleeping
 			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+		}
+
+		// Close database connection properly
+		info!("Closing job database connection");
+
+		// First, checkpoint the WAL file to merge it back into the main database
+		use sea_orm::{ConnectionTrait, Statement};
+		if let Err(e) = self.db.conn().execute(Statement::from_string(
+			sea_orm::DatabaseBackend::Sqlite,
+			"PRAGMA wal_checkpoint(TRUNCATE)",
+		)).await {
+			warn!("Failed to checkpoint job database WAL file: {}", e);
+		} else {
+			info!("Job database WAL file checkpointed successfully");
+		}
+
+		if let Err(e) = self.db.conn().clone().close().await {
+			warn!("Failed to close job database connection: {}", e);
+		} else {
+			info!("Job database connection closed successfully");
 		}
 
 		Ok(())

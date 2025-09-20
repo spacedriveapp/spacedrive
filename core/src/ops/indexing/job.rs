@@ -12,6 +12,7 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
+use tracing::warn;
 use uuid::Uuid;
 
 use super::{
@@ -213,7 +214,7 @@ pub struct IndexerJob {
 	pub config: IndexerJobConfig,
 
 	// Resumable state
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none", default)]
 	state: Option<IndexerState>,
 
 	// Ephemeral storage for non-persistent jobs
@@ -273,6 +274,8 @@ impl JobHandler for IndexerJob {
 		let state = match &mut self.state {
 			Some(state) => {
 				ctx.log("Resuming indexer from saved state");
+				warn!("DEBUG: Resumed state - phase: {:?}, entry_batches: {}, entries_for_content: {}",
+					state.phase, state.entry_batches.len(), state.entries_for_content.len());
 				state
 			}
 			None => {
@@ -321,6 +324,7 @@ impl JobHandler for IndexerJob {
 			ctx.check_interrupt().await?;
 
 			let current_phase = state.phase.clone();
+			warn!("DEBUG: IndexerJob entering phase: {:?}", current_phase);
 			match current_phase {
 				Phase::Discovery => {
 					// Use scope-aware discovery
@@ -347,6 +351,7 @@ impl JobHandler for IndexerJob {
 				}
 
 				Phase::Processing => {
+					warn!("DEBUG: IndexerJob starting Processing phase");
 					if self.config.is_ephemeral() {
 						let ephemeral_index = self.ephemeral_index.clone().ok_or_else(|| {
 							JobError::execution("Ephemeral index not initialized".to_string())
@@ -419,8 +424,10 @@ impl JobHandler for IndexerJob {
 
 			// Checkpoint after each phase (only for persistent jobs)
 			if !self.config.is_ephemeral() {
+				warn!("DEBUG: IndexerJob checkpointing after phase: {:?}", state.phase);
 				ctx.checkpoint().await?;
 			}
+			warn!("DEBUG: IndexerJob completed phase: {:?}, next phase will be: {:?}", current_phase, state.phase);
 		}
 
 		// Send final progress update
@@ -463,7 +470,9 @@ impl JobHandler for IndexerJob {
 
 	async fn on_resume(&mut self, ctx: &JobContext<'_>) -> JobResult {
 		// State is already loaded from serialization
+		warn!("DEBUG: IndexerJob on_resume called");
 		if let Some(state) = &self.state {
+			warn!("DEBUG: IndexerJob has state, resuming in {:?} phase", state.phase);
 			ctx.log(format!("Resuming indexer in {:?} phase", state.phase));
 			ctx.log(format!(
 				"Progress: {} files, {} dirs, {} errors so far",
@@ -472,6 +481,8 @@ impl JobHandler for IndexerJob {
 
 			// Reinitialize timer for resumed job
 			self.timer = Some(PhaseTimer::new());
+		} else {
+			warn!("DEBUG: IndexerJob has no state during resume!");
 		}
 		Ok(())
 	}
@@ -490,6 +501,11 @@ impl JobHandler for IndexerJob {
 			));
 		}
 		Ok(())
+	}
+
+	fn is_resuming(&self) -> bool {
+		// If we have existing state, we're resuming
+		self.state.is_some()
 	}
 }
 

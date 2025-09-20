@@ -58,6 +58,11 @@ pub trait JobHandler: Job {
 	async fn on_cancel(&mut self, _ctx: &JobContext<'_>) -> JobResult {
 		Ok(())
 	}
+
+	/// Check if this job is resuming from a previous state (optional)
+	fn is_resuming(&self) -> bool {
+		false // Default implementation for non-resumable jobs
+	}
 }
 
 /// Trait for jobs that can be serialized

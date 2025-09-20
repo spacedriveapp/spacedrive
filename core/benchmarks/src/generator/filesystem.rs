@@ -25,7 +25,7 @@ fn write_magic_header_if_needed(
 	if !enable_magic {
 		return Ok(0);
 	}
-	let registry = sd_core::file_type::FileTypeRegistry::new();
+	let registry = sd_core::filetype::FileTypeRegistry::new();
 	let mut candidates = registry.get_by_extension(extension);
 	if candidates.is_empty() {
 		return Ok(0);
@@ -52,9 +52,9 @@ fn write_magic_header_if_needed(
 			.bytes
 			.iter()
 			.map(|b| match b {
-				sd_core::file_type::MagicByte::Exact(v) => *v,
-				sd_core::file_type::MagicByte::Any => 0u8,
-				sd_core::file_type::MagicByte::Range { min, .. } => *min,
+				sd_core::filetype::MagicByte::Exact(v) => *v,
+				sd_core::filetype::MagicByte::Any => 0u8,
+				sd_core::filetype::MagicByte::Range { min, .. } => *min,
 			})
 			.collect();
 		file.write_all(&bytes)?;

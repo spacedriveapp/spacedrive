@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use sd_task_system::{ExecStatus, Interrupter, Task, TaskId};
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{broadcast, mpsc, watch, Mutex};
-use tracing::{debug, error, info, span, Level};
+use tracing::{debug, error, info, span, warn, Level};
 
 /// Executor that wraps a job for task system execution
 pub struct JobExecutor<J: JobHandler> {
@@ -176,14 +176,18 @@ impl<J: JobHandler> JobExecutor<J> {
 		info!("Starting job {}: {}", self.state.job_id, J::NAME);
 
 		// Update status to running
+		warn!("DEBUG: JobExecutor setting status to Running for job {}", self.state.job_id);
 		let _ = self.state.status_tx.send(super::types::JobStatus::Running);
 
 		// Also persist status to database
+		warn!("DEBUG: JobExecutor updating database status to Running for job {}", self.state.job_id);
 		if let Err(e) = self
 			.update_job_status_in_db(super::types::JobStatus::Running)
 			.await
 		{
 			error!("Failed to update job status in database: {}", e);
+		} else {
+			warn!("DEBUG: JobExecutor successfully updated database status to Running for job {}", self.state.job_id);
 		}
 
 		// Create job context
@@ -202,8 +206,19 @@ impl<J: JobHandler> JobExecutor<J> {
 
 		// Progress forwarding is handled by JobManager
 
-		// Check if we're resuming
-		// TODO: Implement proper resume detection
+		// Check if we're resuming by checking if the job has existing state
+		// This is a heuristic - if the job implements resumable logic, it should have state
+		let is_resuming = self.job.is_resuming();
+		warn!("DEBUG: Job {} is_resuming: {}", self.state.job_id, is_resuming);
+
+		if is_resuming {
+			warn!("DEBUG: Calling on_resume for job {}", self.state.job_id);
+			if let Err(e) = self.job.on_resume(&ctx).await {
+				error!("Job {} on_resume failed: {}", self.state.job_id, e);
+				return Err(e);
+			}
+		}
+
 		debug!("Starting job {}", self.state.job_id);
 
 		// Store metrics reference for later update

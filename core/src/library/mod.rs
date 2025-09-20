@@ -158,6 +158,27 @@ impl Library {
 		let config = self.config.read().await;
 		self.save_config(&*config).await?;
 
+		// Close library database connection properly
+		use tracing::{info, warn};
+		info!("Closing library database connection");
+
+		// First, checkpoint the WAL file to merge it back into the main database
+		use sea_orm::{ConnectionTrait, Statement};
+		if let Err(e) = self.db.as_ref().conn().execute(Statement::from_string(
+			sea_orm::DatabaseBackend::Sqlite,
+			"PRAGMA wal_checkpoint(TRUNCATE)",
+		)).await {
+			warn!("Failed to checkpoint WAL file: {}", e);
+		} else {
+			info!("WAL file checkpointed successfully");
+		}
+
+		if let Err(e) = self.db.as_ref().conn().clone().close().await {
+			warn!("Failed to close library database connection: {}", e);
+		} else {
+			info!("Library database connection closed successfully");
+		}
+
 		Ok(())
 	}
 

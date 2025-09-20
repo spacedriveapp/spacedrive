@@ -134,6 +134,14 @@ impl ChangeDetector {
 			self.path_to_entry.len()
 		));
 
+		// DEBUG: Log if we failed to load entries
+		use tracing::warn;
+		if self.path_to_entry.is_empty() {
+			warn!("DEBUG: ChangeDetector loaded 0 entries - database may be locked or empty");
+		} else {
+			warn!("DEBUG: ChangeDetector loaded {} entries successfully", self.path_to_entry.len());
+		}
+
 		Ok(())
 	}
 
@@ -166,6 +174,9 @@ impl ChangeDetector {
 				if old_path != path {
 					// Same inode, different path - it's a move
 					if let Some(db_entry) = self.path_to_entry.get(old_path) {
+						// DEBUG: Log false move detection
+						use tracing::warn;
+						warn!("DEBUG: Detected move - old: {:?}, new: {:?}, inode: {}", old_path, path, inode_val);
 						return Some(Change::Moved {
 							old_path: old_path.clone(),
 							new_path: path.to_path_buf(),

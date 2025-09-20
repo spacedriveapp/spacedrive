@@ -15,6 +15,7 @@ use crate::{
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
 use std::path::Path;
+use tracing::warn;
 use uuid::Uuid;
 
 /// Run the processing phase of indexing
@@ -30,6 +31,12 @@ pub async fn run_processing_phase(
 		"Processing phase starting with {} batches",
 		total_batches
 	));
+
+	if total_batches == 0 {
+		ctx.log("No batches to process - transitioning to Aggregation phase");
+		state.phase = crate::ops::indexing::state::Phase::Aggregation;
+		return Ok(());
+	}
 
 	// Get the actual location record from database
 	let location_record = entities::location::Entity::find()
@@ -165,6 +172,9 @@ pub async fn run_processing_phase(
 		for entry in batch {
 			// Check for interruption during batch processing
 			ctx.check_interrupt().await?;
+
+			// Add to seen_paths for delete detection (important for resumed jobs)
+			state.seen_paths.insert(entry.path.clone());
 			// Get metadata for change detection
 			let metadata = match std::fs::metadata(&entry.path) {
 				Ok(m) => m,

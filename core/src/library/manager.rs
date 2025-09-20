@@ -231,6 +231,11 @@ impl LibraryManager {
 			libraries.insert(config.id, library.clone());
 		}
 
+		// Now that the library is registered in the context, resume interrupted jobs
+		if let Err(e) = library.jobs.resume_interrupted_jobs_after_load().await {
+			warn!("Failed to resume interrupted jobs for library {}: {}", config.id, e);
+		}
+
 		// Note: Sidecar manager initialization should be done by the Core when libraries are loaded
 		// This allows Core to pass its services reference
 
