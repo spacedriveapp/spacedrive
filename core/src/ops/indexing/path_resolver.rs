@@ -37,7 +37,7 @@ impl PathResolver {
 				Ok(PathBuf::from(dir_path.path))
 			}
 			_ => {
-				// For files, get parent directory path and append file name
+				// For files, get parent directory path and append full filename (name + extension)
 				if let Some(parent_id) = entry.parent_id {
 					let parent_path = DirectoryPaths::find_by_id(parent_id)
 						.one(db)
@@ -48,10 +48,24 @@ impl PathResolver {
 								parent_id
 							))
 						})?;
-					Ok(PathBuf::from(parent_path.path).join(&entry.name))
+
+					// Reconstruct full filename: name + extension
+					let full_filename = if let Some(ext) = &entry.extension {
+						format!("{}.{}", entry.name, ext)
+					} else {
+						entry.name.clone()
+					};
+
+					Ok(PathBuf::from(parent_path.path).join(full_filename))
 				} else {
 					// Root file (shouldn't normally happen)
-					Ok(PathBuf::from(&entry.name))
+					// Still need to add extension if present
+					let full_filename = if let Some(ext) = &entry.extension {
+						format!("{}.{}", entry.name, ext)
+					} else {
+						entry.name.clone()
+					};
+					Ok(PathBuf::from(full_filename))
 				}
 			}
 		}

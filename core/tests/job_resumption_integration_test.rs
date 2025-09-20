@@ -91,8 +91,8 @@ async fn test_job_resumption_at_various_points() {
     // With 500k files, we expect many more progress events in each phase
     // For quick testing during development, comment out all but one interruption point
     let interruption_points = vec![
-        InterruptionPoint::DiscoveryAfterEvents(50),              // Interrupt after 50 discovery events (should hit with 500k files)
-        // InterruptionPoint::ProcessingAfterEvents(100),            // Interrupt after 100 processing events
+        // InterruptionPoint::DiscoveryAfterEvents(50),              // Interrupt after 50 discovery events (should hit with 500k files)
+        InterruptionPoint::ProcessingAfterEvents(100),            // Interrupt after 100 processing events
         // InterruptionPoint::ContentIdentificationAfterEvents(200), // Interrupt after 200 content ID events (most likely to hit)
         // InterruptionPoint::ContentIdentificationAfterEvents(500), // Interrupt later in content ID phase
         // InterruptionPoint::Aggregation,                        // Interrupt immediately when aggregation starts

@@ -9,7 +9,7 @@ use crate::{
 	infra::db::entities::{self, directory_paths, entry_closure},
 };
 use sea_orm::{
-	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
+	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait,
 	IntoActiveModel, QueryFilter, QuerySelect, Statement, TransactionTrait,
 };
 use std::path::{Path, PathBuf};
@@ -388,7 +388,7 @@ impl EntryProcessor {
 		Ok(())
 	}
 
-	/// Handle entry move operation with closure table updates
+	/// Handle entry move operation with closure table updates (creates own transaction)
 	pub async fn move_entry(
 		state: &mut IndexerState,
 		ctx: &impl IndexingCtx,
@@ -404,9 +404,34 @@ impl EntryProcessor {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
 
+		let result = Self::move_entry_in_conn(state, ctx, entry_id, old_path, new_path, location_root_path, &txn).await;
+
+		match result {
+			Ok(()) => {
+				txn.commit().await.map_err(|e| JobError::execution(format!("Failed to commit move transaction: {}", e)))?;
+				Ok(())
+			}
+			Err(e) => {
+				let _ = txn.rollback().await;
+				Err(e)
+			}
+		}
+	}
+
+	/// Handle entry move operation within existing transaction
+	pub async fn move_entry_in_conn(
+		state: &mut IndexerState,
+		ctx: &impl IndexingCtx,
+		entry_id: i32,
+		old_path: &Path,
+		new_path: &Path,
+		location_root_path: &Path,
+		txn: &DatabaseTransaction,
+	) -> Result<(), JobError> {
+
 		// Get the entry
 		let db_entry = entities::entry::Entity::find_by_id(entry_id)
-			.one(&txn)
+			.one(txn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to find entry: {}", e)))?
 			.ok_or_else(|| JobError::execution("Entry not found for move".to_string()))?;
@@ -434,7 +459,7 @@ impl EntryProcessor {
 
 		// Save the updated entry
 		entry_active
-			.update(&txn)
+			.update(txn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
 
@@ -477,14 +502,14 @@ impl EntryProcessor {
 
 			// Build the new path
 			let new_directory_path =
-				PathResolver::build_directory_path(&txn, new_parent_id, &new_name)
+				PathResolver::build_directory_path(txn, new_parent_id, &new_name)
 					.await
 					.map_err(|e| {
 						JobError::execution(format!("Failed to build new directory path: {}", e))
 					})?;
 
 			// Get the old path for descendant updates
-			let old_directory_path = PathResolver::get_directory_path(&txn, entry_id)
+			let old_directory_path = PathResolver::get_directory_path(txn, entry_id)
 				.await
 				.map_err(|e| {
 					JobError::execution(format!("Failed to get old directory path: {}", e))
@@ -492,41 +517,28 @@ impl EntryProcessor {
 
 			// Update the directory's own path
 			let mut dir_path_active = directory_paths::Entity::find_by_id(entry_id)
-				.one(&txn)
+				.one(txn)
 				.await
 				.map_err(|e| JobError::execution(format!("Failed to find directory path: {}", e)))?
 				.ok_or_else(|| JobError::execution("Directory path not found".to_string()))?
 				.into_active_model();
 			dir_path_active.path = Set(new_directory_path.clone());
-			dir_path_active.update(&txn).await.map_err(|e| {
+			dir_path_active.update(txn).await.map_err(|e| {
 				JobError::execution(format!("Failed to update directory path: {}", e))
 			})?;
 
-			// Commit transaction first to ensure the move is persisted
-			txn.commit()
-				.await
-				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
-
-			// Spawn a background job to update descendant paths
-			// This is done outside the transaction for performance
-			let db = ctx.library_db().clone();
-			tokio::spawn(async move {
-				if let Err(e) = PathResolver::update_descendant_paths(
-					&db,
-					entry_id,
-					&old_directory_path,
-					&new_directory_path,
-				)
-				.await
-				{
-					tracing::error!("Failed to update descendant paths: {}", e);
-				}
-			});
-		} else {
-			// For files, just commit the transaction
-			txn.commit()
-				.await
-				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
+			// Update descendant directory paths within the same transaction
+			// Note: This is done synchronously within the batch transaction for consistency
+			if let Err(e) = PathResolver::update_descendant_paths(
+				txn,
+				entry_id,
+				&old_directory_path,
+				&new_directory_path,
+			)
+			.await
+			{
+				tracing::error!("Failed to update descendant paths: {}", e);
+			}
 		}
 
 		// Update cache
@@ -766,4 +778,137 @@ impl EntryProcessor {
 	//
 	//     Ok(())
 	// }
+
+	/// Simple move entry within existing transaction (no directory path cascade updates)
+	pub async fn simple_move_entry_in_conn(
+		state: &mut IndexerState,
+		ctx: &impl IndexingCtx,
+		entry_id: i32,
+		old_path: &Path,
+		new_path: &Path,
+		txn: &DatabaseTransaction,
+	) -> Result<(), JobError> {
+
+		// Get the entry
+		let db_entry = entities::entry::Entity::find_by_id(entry_id)
+			.one(txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to find entry: {}", e)))?
+			.ok_or_else(|| JobError::execution("Entry not found for move".to_string()))?;
+
+		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
+
+		// Find new parent entry ID
+		let new_parent_id = if let Some(parent_path) = new_path.parent() {
+			state.entry_id_cache.get(parent_path).copied()
+		} else {
+			None
+		};
+
+		// Update entry fields
+		entry_active.parent_id = Set(new_parent_id);
+
+		// Extract new name and extension for files
+		match new_path.extension() {
+			Some(ext) => {
+				// File with extension
+				if let Some(stem) = new_path.file_stem() {
+					entry_active.name = Set(stem.to_string_lossy().to_string());
+					entry_active.extension = Set(Some(ext.to_string_lossy().to_lowercase()));
+				}
+			}
+			None => {
+				// File without extension or directory
+				if let Some(name) = new_path.file_name() {
+					entry_active.name = Set(name.to_string_lossy().to_string());
+					entry_active.extension = Set(None);
+				}
+			}
+		}
+
+		// Save the updated entry
+		entry_active
+			.update(txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
+
+		// Update cache
+		state.entry_id_cache.remove(old_path);
+		state.entry_id_cache.insert(new_path.to_path_buf(), entry_id);
+
+		Ok(())
+	}
+
+	/// Bulk move entries within a single transaction for better performance
+	pub async fn bulk_move_entries(
+		state: &mut IndexerState,
+		ctx: &impl IndexingCtx,
+		moves: &[(i32, PathBuf, PathBuf, super::state::DirEntry)],
+		_location_root_path: &Path,
+		txn: &DatabaseTransaction,
+	) -> Result<usize, JobError> {
+		let mut moved_count = 0;
+
+		for (entry_id, old_path, new_path, _) in moves {
+			match Self::simple_move_entry_in_conn(state, ctx, *entry_id, old_path, new_path, txn).await {
+				Ok(()) => {
+					moved_count += 1;
+				}
+				Err(e) => {
+					// Log error but continue with other moves
+					ctx.log(format!(
+						"Failed to move entry {} from {} to {}: {}",
+						entry_id,
+						old_path.display(),
+						new_path.display(),
+						e
+					));
+				}
+			}
+		}
+
+		Ok(moved_count)
+	}
+
+	/// Update entry within existing transaction
+	pub async fn update_entry_in_conn(
+		ctx: &impl IndexingCtx,
+		entry_id: i32,
+		entry: &super::state::DirEntry,
+		txn: &DatabaseTransaction,
+	) -> Result<(), JobError> {
+
+		// Get the existing entry
+		let db_entry = entities::entry::Entity::find_by_id(entry_id)
+			.one(txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to find entry: {}", e)))?
+			.ok_or_else(|| JobError::execution("Entry not found for update".to_string()))?;
+
+		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
+
+		// Update size if it changed
+		if let Ok(metadata) = std::fs::metadata(&entry.path) {
+			entry_active.size = Set(metadata.len() as i64);
+
+			// Update modified time
+			if let Ok(modified) = metadata.modified() {
+				if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
+					entry_active.modified_at = Set(chrono::DateTime::from_timestamp(
+						duration.as_secs() as i64,
+						0,
+					)
+					.unwrap_or_default());
+				}
+			}
+		}
+
+		// Save the updated entry
+		entry_active
+			.update(txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
+
+		Ok(())
+	}
 }

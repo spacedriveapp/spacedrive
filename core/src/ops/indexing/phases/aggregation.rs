@@ -145,10 +145,7 @@ pub async fn run_aggregation_phase(
 			}
 		}
 
-		// Checkpoint periodically
-		if processed % 100 == 0 {
-			ctx.checkpoint_with_state(state).await?;
-		}
+		// State is automatically saved during job serialization on shutdown
 	}
 
 	ctx.log(format!(

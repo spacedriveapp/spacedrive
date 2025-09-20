@@ -214,7 +214,6 @@ pub struct IndexerJob {
 	pub config: IndexerJobConfig,
 
 	// Resumable state
-	#[serde(skip_serializing_if = "Option::is_none", default)]
 	state: Option<IndexerState>,
 
 	// Ephemeral storage for non-persistent jobs
@@ -271,22 +270,22 @@ impl JobHandler for IndexerJob {
 		}
 
 		// Initialize or restore state
-		let state = match &mut self.state {
-			Some(state) => {
-				ctx.log("Resuming indexer from saved state");
-				warn!("DEBUG: Resumed state - phase: {:?}, entry_batches: {}, entries_for_content: {}",
-					state.phase, state.entry_batches.len(), state.entries_for_content.len());
-				state
-			}
-			None => {
-				ctx.log(format!(
-					"Starting new indexer job (scope: {}, persistence: {:?})",
-					self.config.scope, self.config.persistence
-				));
-				self.state = Some(IndexerState::new(&self.config.path));
-				self.state.as_mut().unwrap()
-			}
-		};
+		// Ensure state is always created early to avoid serialization issues
+		if self.state.is_none() {
+			ctx.log(format!(
+				"Starting new indexer job (scope: {}, persistence: {:?})",
+				self.config.scope, self.config.persistence
+			));
+			self.state = Some(IndexerState::new(&self.config.path));
+		} else {
+			ctx.log("Resuming indexer from saved state");
+			warn!("DEBUG: Resumed state - phase: {:?}, entry_batches: {}, entries_for_content: {}",
+				self.state.as_ref().unwrap().phase,
+				self.state.as_ref().unwrap().entry_batches.len(),
+				self.state.as_ref().unwrap().entries_for_content.len());
+		}
+
+		let state = self.state.as_mut().unwrap();
 
 		// Get local path for operations (fallback to DB path if device ID hasn't been initialized yet)
 		let root_path_buf = if let Some(p) = self.config.path.as_local_path() {
@@ -422,11 +421,7 @@ impl JobHandler for IndexerJob {
 				Phase::Complete => break,
 			}
 
-			// Checkpoint after each phase (only for persistent jobs)
-			if !self.config.is_ephemeral() {
-				warn!("DEBUG: IndexerJob checkpointing after phase: {:?}", state.phase);
-				ctx.checkpoint().await?;
-			}
+			// State is automatically saved during job serialization on shutdown
 			warn!("DEBUG: IndexerJob completed phase: {:?}, next phase will be: {:?}", current_phase, state.phase);
 		}
 
@@ -482,7 +477,9 @@ impl JobHandler for IndexerJob {
 			// Reinitialize timer for resumed job
 			self.timer = Some(PhaseTimer::new());
 		} else {
-			warn!("DEBUG: IndexerJob has no state during resume!");
+			warn!("DEBUG: IndexerJob has no state during resume - creating new state!");
+			// If state is missing, create it now (this shouldn't happen in normal operation)
+			self.state = Some(IndexerState::new(&self.config.path));
 		}
 		Ok(())
 	}

@@ -158,6 +158,9 @@ pub async fn run_processing_phase(
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
+		// Check for interruption before starting transaction
+		ctx.check_interrupt().await?;
+
 		// Begin a single transaction for all new entry creations in this batch
 		let txn = ctx.library_db().begin().await.map_err(|e| {
 			JobError::execution(format!("Failed to begin processing transaction: {}", e))
@@ -171,7 +174,13 @@ pub async fn run_processing_phase(
 		// (Already sorted globally by depth)
 		for entry in batch {
 			// Check for interruption during batch processing
-			ctx.check_interrupt().await?;
+			if let Err(e) = ctx.check_interrupt().await {
+				// Rollback transaction before propagating interruption
+				if let Err(rollback_err) = txn.rollback().await {
+					warn!("Failed to rollback transaction during interruption: {}", rollback_err);
+				}
+				return Err(e);
+			}
 
 			// Add to seen_paths for delete detection (important for resumed jobs)
 			state.seen_paths.insert(entry.path.clone());
@@ -236,8 +245,8 @@ pub async fn run_processing_phase(
 				}
 
 				Some(Change::Modified { entry_id, .. }) => {
-					// Update existing entry
-					match EntryProcessor::update_entry(ctx, entry_id, &entry).await {
+					// Update existing entry within batch transaction
+					match EntryProcessor::update_entry_in_conn(ctx, entry_id, &entry, &txn).await {
 						Ok(()) => {
 							ctx.log(format!(
 								"Updated entry {}: {}",
@@ -274,13 +283,13 @@ pub async fn run_processing_phase(
 						old_path.display(),
 						new_path.display()
 					));
-					match EntryProcessor::move_entry(
+					match EntryProcessor::simple_move_entry_in_conn(
 						state,
 						ctx,
 						entry_id,
 						&old_path,
 						&new_path,
-						location_root_path,
+						&txn,
 					)
 					.await
 					{
@@ -350,7 +359,8 @@ pub async fn run_processing_phase(
 			"Processed batch {}/{}: {} entries",
 			batch_number, total_batches, batch_size
 		));
-		ctx.checkpoint_with_state(state).await?;
+
+		// Note: State will be automatically saved during job serialization on shutdown
 	}
 
 	// Handle deleted entries
@@ -368,6 +378,9 @@ pub async fn run_processing_phase(
 						path.display(),
 						entry_id
 					));
+
+					// Check for interruption before deletion transaction
+					ctx.check_interrupt().await?;
 
 					// Best-effort subtree deletion: remove closure links, directory path cache, and entries
 					let txn = ctx.library_db().begin().await.map_err(|e| {
