@@ -1,6 +1,6 @@
 //! Application configuration
 
-use super::{P2PConfig, Preferences, default_data_dir};
+use super::{Preferences, default_data_dir};
 use crate::config::migration::Migrate;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -23,8 +23,6 @@ pub struct AppConfig {
     /// Whether telemetry is enabled
     pub telemetry_enabled: bool,
 
-    /// P2P configuration
-    pub p2p: P2PConfig,
 
     /// User preferences
     pub preferences: Preferences,
@@ -32,6 +30,33 @@ pub struct AppConfig {
     /// Job logging configuration
     #[serde(default)]
     pub job_logging: JobLoggingConfig,
+
+    /// Service configuration
+    #[serde(default)]
+    pub services: ServiceConfig,
+}
+
+/// Configuration for core services
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceConfig {
+    /// Whether networking is enabled
+    pub networking_enabled: bool,
+
+    /// Whether volume monitoring is enabled
+    pub volume_monitoring_enabled: bool,
+
+    /// Whether location watcher is enabled
+    pub location_watcher_enabled: bool,
+}
+
+impl Default for ServiceConfig {
+    fn default() -> Self {
+        Self {
+            networking_enabled: true,
+            volume_monitoring_enabled: true,
+            location_watcher_enabled: true,
+        }
+    }
 }
 
 /// Configuration for job-specific logging
@@ -109,9 +134,9 @@ impl AppConfig {
             data_dir,
             log_level: "info".to_string(),
             telemetry_enabled: true,
-            p2p: P2PConfig::default(),
             preferences: Preferences::default(),
             job_logging: JobLoggingConfig::default(),
+            services: ServiceConfig::default(),
         }
     }
 
@@ -167,7 +192,7 @@ impl Migrate for AppConfig {
     }
 
     fn target_version() -> u32 {
-        2 // Updated schema version for job logging
+        3 // Updated schema version for service configuration
     }
 
     fn migrate(&mut self) -> Result<()> {
@@ -183,7 +208,13 @@ impl Migrate for AppConfig {
                 self.version = 2;
                 Ok(())
             }
-            2 => Ok(()), // Already at target version
+            2 => {
+                // Migration from v2 to v3: Add service configuration and remove P2P config
+                self.services = ServiceConfig::default();
+                self.version = 3;
+                Ok(())
+            }
+            3 => Ok(()), // Already at target version
             v => Err(anyhow!("Unknown config version: {}", v)),
         }
     }

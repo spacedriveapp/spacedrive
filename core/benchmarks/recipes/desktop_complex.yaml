@@ -1,0 +1,38 @@
+name: desktop_complex
+seed: 42424242
+locations:
+  - path: benchdata/desktop_complex
+    structure:
+      depth: 8  # Much deeper nesting like real file systems (Documents/Projects/2024/Client/Assets/Images/Raw/...)
+      fanout_per_dir: 25  # More directories per level
+    files:
+      total: 50000  # 50k files - realistic but manageable size (~2-5GB total)
+      size_buckets:
+        # Toned down but still realistic distribution
+        tiny: { range: [0, 4096], share: 0.30 }        # Config files, text files, small scripts
+        small: { range: [4096, 1048576], share: 0.40 }  # Documents, code files, small images
+        medium: { range: [1048576, 10000000], share: 0.25 }  # Photos, music, small videos (max 10MB)
+        large: { range: [10000000, 100000000], share: 0.05 }  # Large videos, archives (max 100MB)
+      extensions: [
+        # Documents
+        txt, md, pdf, doc, docx, xls, xlsx, ppt, pptx, rtf, odt,
+        # Images
+        jpg, jpeg, png, gif, bmp, tiff, webp, svg, raw, cr2, nef, dng,
+        # Videos
+        mp4, mkv, avi, mov, wmv, flv, webm, m4v,
+        # Audio
+        mp3, flac, wav, aac, ogg, m4a, wma,
+        # Code
+        js, ts, py, rs, go, java, cpp, c, h, css, html, json, xml, yaml, toml,
+        # Archives
+        zip, rar, 7z, tar, gz, bz2, xz,
+        # Other
+        exe, dmg, pkg, deb, rpm, iso, bin, log, db, sqlite
+      ]
+      duplicate_ratio: 0.15  # Higher duplicate ratio - more realistic for desktops
+      content_gen:
+        mode: partial  # Faster generation while still providing realistic content hashing
+        sample_block_size: 10240
+        magic_headers: true
+media:
+  generate_thumbnails: false  # Keep generation fast for testing

@@ -1,0 +1,37 @@
+name: desktop_extreme
+seed: 99999999
+locations:
+  - path: benchdata/desktop_extreme
+    structure:
+      depth: 12  # Very deep nesting like real complex file systems
+      fanout_per_dir: 30  # Many directories per level
+    files:
+      total: 100000  # 100k files - still complex but manageable (~5-10GB total)
+      size_buckets:
+        # Realistic but toned down distribution
+        tiny: { range: [0, 1024], share: 0.35 }        # Lots of small config/cache files
+        small: { range: [1024, 65536], share: 0.30 }   # Text files, small images, code
+        medium: { range: [65536, 5000000], share: 0.25 }  # Documents, photos, music (max 5MB)
+        large: { range: [5000000, 200000000], share: 0.10 }  # Videos, large archives (max 200MB)
+      extensions: [
+        # Comprehensive file type list for realistic desktop
+        txt, md, pdf, doc, docx, xls, xlsx, ppt, pptx, rtf, odt, pages, numbers, keynote,
+        jpg, jpeg, png, gif, bmp, tiff, webp, svg, raw, cr2, nef, dng, arw, orf, rw2, psd, ai, eps,
+        mp4, mkv, avi, mov, wmv, flv, webm, m4v, mpg, mpeg, 3gp, f4v, asf, rm, rmvb,
+        mp3, flac, wav, aac, ogg, m4a, wma, ape, opus, ac3, dts,
+        js, ts, jsx, tsx, py, rs, go, java, cpp, c, h, hpp, cs, php, rb, swift, kt, dart, scala,
+        css, scss, sass, less, html, htm, xml, json, yaml, yml, toml, ini, cfg, conf,
+        zip, rar, 7z, tar, gz, bz2, xz, lz4, zst, cab, ace, arj,
+        exe, msi, dmg, pkg, deb, rpm, snap, appimage, flatpak, iso, img, bin, app,
+        log, db, sqlite, sql, csv, tsv, parquet, avro, proto, thrift,
+        ttf, otf, woff, woff2, eot, fon, pfb, pfm,
+        blend, fbx, obj, dae, 3ds, max, ma, mb, c4d, skp, dwg, dxf,
+        sketch, fig, xd, indd, qxd, afdesign, afphoto, afpub
+      ]
+      duplicate_ratio: 0.20  # High duplicate ratio - very realistic for desktops with backups/copies
+      content_gen:
+        mode: partial  # Keep generation reasonable while providing realistic content
+        sample_block_size: 10240
+        magic_headers: true
+media:
+  generate_thumbnails: false  # Keep generation fast for testing

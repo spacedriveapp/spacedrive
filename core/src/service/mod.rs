@@ -88,17 +88,33 @@ impl Services {
 
 		self.location_watcher.start().await?;
 
-
 		// Start volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {
 			monitor.start().await?;
 		}
 
-		// Networking service is already started during initialization
+		Ok(())
+	}
 
-		// TODO: Start other services
-		// self.jobs.start().await?;
-		// self.thumbnails.start().await?;
+	/// Start services based on configuration
+	pub async fn start_all_with_config(&self, config: &crate::config::ServiceConfig) -> Result<()> {
+		info!("Starting background services based on configuration");
+
+		if config.location_watcher_enabled {
+			self.location_watcher.start().await?;
+		} else {
+			info!("Location watcher disabled in configuration");
+		}
+
+		// Start volume monitor if initialized and enabled
+		if config.volume_monitoring_enabled {
+			if let Some(monitor) = &self.volume_monitor {
+				monitor.start().await?;
+			}
+		} else {
+			info!("Volume monitoring disabled in configuration");
+		}
+
 
 		Ok(())
 	}

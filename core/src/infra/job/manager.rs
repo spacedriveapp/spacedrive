@@ -928,14 +928,72 @@ impl JobManager {
 
 						let latest_progress = Arc::new(Mutex::new(None));
 
-						// Create progress forwarding task
+						// Create progress forwarding task with event bus emission
 						let broadcast_tx_clone = broadcast_tx.clone();
 						let latest_progress_clone = latest_progress.clone();
+						let event_bus = self.context.events.clone();
+						let job_id_clone = job_id;
+						let job_type_str = job_record.name.clone();
+						let job_db_clone = self.db.clone();
 						tokio::spawn(async move {
 							let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
+							let mut last_db_update = std::time::Instant::now();
+							const DB_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+
 							while let Some(progress) = progress_rx.recv().await {
+								// Store latest progress
 								*latest_progress_clone.lock().await = Some(progress.clone());
-								let _ = broadcast_tx_clone.send(progress);
+
+								// Forward progress from mpsc to broadcast
+								let _ = broadcast_tx_clone.send(progress.clone());
+
+								// Persist progress to database with throttling
+								if last_db_update.elapsed() >= DB_UPDATE_INTERVAL {
+									if let Err(e) = job_db_clone.update_progress(job_id_clone, &progress).await {
+										debug!("Failed to persist job progress to database: {}", e);
+									}
+									last_db_update = std::time::Instant::now();
+								}
+
+								// Emit enhanced progress event (THIS WAS MISSING!)
+								use crate::infra::event::Event;
+
+								// Extract generic progress data if available
+								let generic_progress = match &progress {
+									Progress::Structured(value) => {
+										// Try to deserialize CopyProgress and convert to GenericProgress
+										if let Ok(copy_progress) = serde_json::from_value::<
+											crate::ops::files::copy::CopyProgress,
+										>(value.clone())
+										{
+											use crate::infra::job::generic_progress::ToGenericProgress;
+											Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
+										} else {
+											None
+										}
+									}
+									Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
+									_ => None,
+								}
+								.flatten();
+
+								event_bus.emit(Event::JobProgress {
+									job_id: job_id_clone.to_string(),
+									job_type: job_type_str.to_string(),
+									progress: progress.as_percentage().unwrap_or(0.0) as f64,
+									message: Some(progress.to_string()),
+									generic_progress,
+								});
+							}
+
+							// Final progress update when channel closes
+							if let Some(final_progress) = &*latest_progress_clone.lock().await {
+								if let Err(e) = job_db_clone
+									.update_progress(job_id_clone, final_progress)
+									.await
+								{
+									debug!("Failed to persist final job progress to database: {}", e);
+								}
 							}
 						});
 

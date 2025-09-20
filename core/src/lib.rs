@@ -166,12 +166,18 @@ impl Core {
 		let device_id = device.device_id()?;
 		let volumes = Arc::new(VolumeManager::new(device_id, volume_config, events.clone()));
 
-		// Initialize volume detection
-		info!("Initializing volume detection...");
-		match volumes.initialize().await {
-			Ok(()) => info!("Volume manager initialized"),
-			Err(e) => error!("Failed to initialize volume manager: {}", e),
+		// Initialize volume detection (if enabled)
+		let config_read = config.read().await;
+		if config_read.services.volume_monitoring_enabled {
+			info!("Initializing volume detection...");
+			match volumes.initialize().await {
+				Ok(()) => info!("Volume manager initialized"),
+				Err(e) => error!("Failed to initialize volume manager: {}", e),
+			}
+		} else {
+			info!("Volume monitoring disabled in configuration");
 		}
+		drop(config_read);
 
 		// Initialize library key manager
 		let library_key_manager =
@@ -256,7 +262,8 @@ impl Core {
 		}
 
 		info!("Starting background services...");
-		match services.start_all().await {
+		let service_config = config.read().await.services.clone();
+		match services.start_all_with_config(&service_config).await {
 			Ok(()) => info!("Background services started"),
 			Err(e) => error!("Failed to start services: {}", e),
 		}

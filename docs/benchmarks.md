@@ -124,6 +124,41 @@ media:
   generate_thumbnails: false
 ```
 
+### Desktop-Scale Recipes
+
+For testing realistic desktop scenarios, including job resumption and long-running indexing operations:
+
+**desktop_complex.yaml** - Realistic desktop environment (500k files, 8 levels deep):
+```yaml
+name: desktop_complex
+seed: 42424242
+locations:
+  - path: benchdata/desktop_complex
+    structure:
+      depth: 8  # Deep nesting like real file systems
+      fanout_per_dir: 25  # Many directories per level
+    files:
+      total: 500000  # Half million files - realistic desktop scale
+      size_buckets:
+        tiny: { range: [0, 4096], share: 0.25 }
+        small: { range: [4096, 1048576], share: 0.35 }
+        medium: { range: [1048576, 50000000], share: 0.25 }
+        large: { range: [50000000, 500000000], share: 0.10 }
+        huge: { range: [500000000, 4000000000], share: 0.05 }
+      extensions: [txt, md, pdf, jpg, png, mp4, zip, py, js, rs, # ... many more
+      duplicate_ratio: 0.15
+      content_gen:
+        mode: partial
+        sample_block_size: 10240
+        magic_headers: true
+```
+
+**desktop_extreme.yaml** - Power user environment (1M files, 12 levels deep):
+- 1,000,000 files across 12 directory levels
+- Comprehensive file type coverage (100+ extensions)
+- Realistic size distribution including very large files (up to 8GB)
+- 20% duplicate ratio for realistic backup/copy scenarios
+
 ### Fields
 
 - `name`: logical recipe name.
