@@ -1,6 +1,6 @@
 //! Action manager - central router for all actions
 
-use super::{error::{ActionError, ActionResult}, ValidationResult};
+use super::error::{ActionError, ActionResult};
 use crate::{
 	context::CoreContext,
 	infra::db::entities::{audit_log, AuditLog, AuditLogActive},
@@ -27,17 +27,12 @@ impl ActionManager {
 		&self,
 		action: A,
 	) -> Result<A::Output, super::error::ActionError> {
-		// Validate the action - for CLI interactions, confirmation should be handled before this point
-		let validation_result = action.validate(self.context.clone()).await?;
-		if let ValidationResult::RequiresConfirmation(_) = validation_result {
-			return Err(ActionError::Internal(
-				"Action requires confirmation but none was provided".to_string()
-			));
-		}
-
 		// Log action execution (capture action_kind before move)
 		let action_kind = action.action_kind();
 		tracing::info!("Executing core action: {}", action_kind);
+
+		// Validate the action first
+		action.validate(self.context.clone()).await?;
 
 		// Execute the action directly
 		let result = action.execute(self.context.clone()).await;
@@ -71,18 +66,15 @@ impl ActionManager {
 			.await
 			.ok_or_else(|| ActionError::LibraryNotFound(effective_library_id))?;
 
-		// Validate the action with library context - for CLI interactions, confirmation should be handled before this point
-		let validation_result = action.validate(&library, self.context.clone()).await?;
-		if let ValidationResult::RequiresConfirmation(_) = validation_result {
-			return Err(ActionError::Internal(
-				"Action requires confirmation but none was provided".to_string()
-			));
-		}
-
 		// Create audit log entry (capture values before move)
 		let action_kind = action.action_kind();
 		let audit_entry = self
 			.create_action_audit_log(effective_library_id, action_kind)
+			.await?;
+
+		// Validate the action first
+		action
+			.validate(library.clone(), self.context.clone())
 			.await?;
 
 		// Execute the action with validated library

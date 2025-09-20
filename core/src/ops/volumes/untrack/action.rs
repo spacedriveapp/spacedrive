@@ -58,23 +58,6 @@ impl LibraryAction for VolumeUntrackAction {
 		"volumes.untrack"
 	}
 
-	async fn validate(
-		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
-	) -> Result<(), ActionError> {
-		// Validate volume exists
-		let _volume = context
-			.volume_manager
-			.get_volume(&self.input.fingerprint)
-			.await
-			.ok_or_else(|| ActionError::Validation {
-				field: "fingerprint".to_string(),
-				message: "Volume not found".to_string(),
-			})?;
-
-		Ok(())
-	}
 }
 
 // Register action

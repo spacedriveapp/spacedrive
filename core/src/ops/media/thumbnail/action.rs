@@ -67,21 +67,6 @@ impl LibraryAction for ThumbnailAction {
 		"media.thumbnail"
 	}
 
-	async fn validate(
-		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
-	) -> Result<(), ActionError> {
-		// Validate paths
-		if self.input.paths.is_empty() {
-			return Err(ActionError::Validation {
-				field: "paths".to_string(),
-				message: "At least one path must be specified".to_string(),
-			});
-		}
-
-		Ok(())
-	}
 }
 
 // Register action

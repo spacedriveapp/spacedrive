@@ -80,8 +80,8 @@ impl LibraryAction for ValidationAction {
 
 	async fn validate(
 		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
+		_library: std::sync::Arc<crate::library::Library>,
+		_context: std::sync::Arc<crate::context::CoreContext>,
 	) -> Result<(), ActionError> {
 		// Validate paths
 		if self.targets.paths.is_empty() {

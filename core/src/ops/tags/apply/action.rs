@@ -105,18 +105,6 @@ impl LibraryAction for ApplyTagsAction {
     fn action_kind(&self) -> &'static str {
         "tags.apply"
     }
-
-    async fn validate(&self, _library: &Arc<Library>, _context: Arc<CoreContext>) -> Result<(), ActionError> {
-        self.input.validate().map_err(|msg| ActionError::Validation {
-            field: "input".to_string(),
-            message: msg,
-        })?;
-
-        // TODO: Validate that tag IDs exist
-        // TODO: Validate that entry IDs exist
-
-        Ok(())
-    }
 }
 
 // Register library action

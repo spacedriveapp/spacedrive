@@ -50,6 +50,15 @@ pub trait CoreAction: Send + Sync + 'static {
 	where
 		Self: Sized;
 
+	/// Validate the action before execution (optional)
+	fn validate(
+		&self,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	{
+		async { Ok(()) }
+	}
+
 	/// Execute this action with core context only
 	fn execute(
 		self,
@@ -60,21 +69,6 @@ pub trait CoreAction: Send + Sync + 'static {
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
-
-	/// Validate this action. It may return a request for user confirmation.
-	fn validate(
-		&self,
-		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> impl std::future::Future<Output = Result<ValidationResult, crate::infra::action::error::ActionError>> + Send
-	{
-		async { Ok(ValidationResult::Success) }
-	}
-
-	/// Modifies the action's state based on the user's choice from a confirmation prompt.
-	/// This method is only called if `validate` returned `RequiresConfirmation`.
-	fn resolve_confirmation(&mut self, _choice_index: usize) -> Result<(), crate::infra::action::error::ActionError> {
-		Ok(())
-	}
 }
 
 /// Library-scoped action that operates within a specific library context.
@@ -92,6 +86,16 @@ pub trait LibraryAction: Send + Sync + 'static {
 	where
 		Self: Sized;
 
+	/// Validate the action before execution (optional)
+	fn validate(
+		&self,
+		_library: std::sync::Arc<crate::library::Library>,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	{
+		async { Ok(()) }
+	}
+
 	/// Execute this action with validated library and core context
 	fn execute(
 		self,
@@ -103,21 +107,4 @@ pub trait LibraryAction: Send + Sync + 'static {
 
 	/// Get the action kind for logging/identification
 	fn action_kind(&self) -> &'static str;
-
-	/// Validate this action with library context. It may return a request for user confirmation.
-	/// Note: Library existence is already validated by ActionManager
-	fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> impl std::future::Future<Output = Result<ValidationResult, crate::infra::action::error::ActionError>> + Send
-	{
-		async { Ok(ValidationResult::Success) }
-	}
-
-	/// Modifies the action's state based on the user's choice from a confirmation prompt.
-	/// This method is only called if `validate` returned `RequiresConfirmation`.
-	fn resolve_confirmation(&mut self, _choice_index: usize) -> Result<(), crate::infra::action::error::ActionError> {
-		Ok(())
-	}
 }

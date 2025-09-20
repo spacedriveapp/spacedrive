@@ -107,8 +107,8 @@ impl LibraryAction for LocationAddAction {
 
 	async fn validate(
 		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
+		library: std::sync::Arc<crate::library::Library>,
+		context: std::sync::Arc<crate::context::CoreContext>,
 	) -> Result<(), ActionError> {
 		if !self.input.path.exists() {
 			return Err(ActionError::Validation {

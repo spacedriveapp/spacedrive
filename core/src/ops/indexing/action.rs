@@ -58,18 +58,27 @@ impl LibraryAction for IndexingAction {
 		Ok(IndexingAction::new(input))
 	}
 
-	async fn execute(
-		self,
-		library: std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
-	) -> Result<Self::Output, ActionError> {
-		// Validate input first
+	async fn validate(
+		&self,
+		_library: std::sync::Arc<crate::library::Library>,
+		_context: std::sync::Arc<crate::context::CoreContext>,
+	) -> Result<(), ActionError> {
+		// Validate input
 		if let Err(errors) = self.input.validate() {
 			return Err(ActionError::Validation {
 				field: "paths".to_string(),
 				message: errors.join("; "),
 			});
 		}
+		Ok(())
+	}
+
+	async fn execute(
+		self,
+		library: std::sync::Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> Result<Self::Output, ActionError> {
+		// Validation is now handled by ActionManager before execute
 
 		// For now, submit one job per path (sequentially). Could be parallelized later.
 		// Return the handle of the last job submitted for convenience.
@@ -116,21 +125,6 @@ impl LibraryAction for IndexingAction {
 		"indexing.index"
 	}
 
-	async fn validate(
-		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
-	) -> Result<(), ActionError> {
-		// Validate paths
-		if self.input.paths.is_empty() {
-			return Err(ActionError::Validation {
-				field: "paths".to_string(),
-				message: "At least one path must be specified".to_string(),
-			});
-		}
-
-		Ok(())
-	}
 }
 
 crate::register_library_action!(IndexingAction, "indexing.start");
