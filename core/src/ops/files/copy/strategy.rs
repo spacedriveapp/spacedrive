@@ -1,4 +1,55 @@
 //! Copy strategy implementations for different file operation scenarios
+//!
+//! This module implements 4 distinct copy strategies, each optimized for specific scenarios.
+//! The strategy selection is handled by `CopyStrategyRouter` based on user preferences
+//! (`CopyMethod`) and system analysis (device topology, filesystem capabilities).
+//!
+//! ## Strategy Overview
+//!
+//! ### User-Facing Methods (3 options in `CopyMethod` enum):
+//! - `Auto`: Automatically selects the best strategy based on analysis
+//! - `Atomic`: Prefers instant/atomic operations when possible
+//! - `Streaming`: Forces streaming with progress tracking and cancellation
+//!
+//! ### Implementation Strategies (4 strategies in this file):
+//!
+//! 1. **`LocalMoveStrategy`** - Atomic filesystem rename
+//!    - **When**: Moving files on the same volume/filesystem
+//!    - **How**: Uses `fs::rename()` syscall - instant metadata update
+//!    - **Performance**: Microseconds, regardless of file size
+//!    - **Example**: Moving `/home/user/file.txt` → `/home/user/Documents/file.txt`
+//!
+//! 2. **`FastCopyStrategy`** - Filesystem-optimized copying
+//!    - **When**: Copying on modern filesystems with optimization support
+//!    - **How**: Uses `std::fs::copy()` which leverages APFS clones, Btrfs reflinks, etc.
+//!    - **Performance**: Near-instant for compatible filesystems, falls back to normal copy
+//!    - **Example**: Copying large files on macOS APFS or Linux Btrfs
+//!
+//! 3. **`LocalStreamCopyStrategy`** - Cross-volume streaming with progress
+//!    - **When**: Copying between different local volumes or when user wants progress
+//!    - **How**: Chunked streaming with volume-aware buffer sizes, checksum verification
+//!    - **Performance**: Depends on storage speeds, provides real-time progress
+//!    - **Example**: Copying from internal SSD to external USB drive
+//!
+//! 4. **`RemoteTransferStrategy`** - Encrypted network transfer
+//!    - **When**: Copying to another device (automatically detected by different device IDs)
+//!    - **How**: Encrypted chunked streaming over network protocols
+//!    - **Performance**: Network-dependent, fault-tolerant with retry logic
+//!    - **Example**: Syncing files between laptop and desktop over WiFi
+//!
+//! ## Strategy Selection Logic
+//!
+//! ```rust
+//! match (copy_method, cross_device, same_storage, is_move) {
+//!     (_, true, _, _) => RemoteTransferStrategy,           // Cross-device always uses network
+//!     (Atomic, _, _, true) => LocalMoveStrategy,           // Atomic move preference
+//!     (Atomic, _, _, false) => FastCopyStrategy,           // Atomic copy preference
+//!     (Streaming, _, _, _) => LocalStreamCopyStrategy,     // Streaming preference
+//!     (Auto, _, true, true) => LocalMoveStrategy,          // Auto: same storage move
+//!     (Auto, _, true, false) => FastCopyStrategy,          // Auto: same storage copy
+//!     (Auto, _, false, _) => LocalStreamCopyStrategy,      // Auto: cross storage
+//! }
+//! ```
 
 use crate::{
 	domain::addressing::SdPath, infra::job::prelude::*, ops::files::copy::job::CopyPhase,
