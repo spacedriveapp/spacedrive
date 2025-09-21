@@ -40,6 +40,7 @@ pub struct JobExecutorState {
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
 	pub file_logger: Option<Arc<super::logger::FileJobLogger>>,
+	pub persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
 impl<J: JobHandler> JobExecutor<J> {
@@ -57,6 +58,7 @@ impl<J: JobHandler> JobExecutor<J> {
 		volume_manager: Option<Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<JobLoggingConfig>,
 		job_logs_dir: Option<PathBuf>,
+		persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
 	) -> Self {
 		// Create file logger if job logging is enabled
 		let file_logger = if let (Some(config), Some(logs_dir)) = (&job_logging_config, &job_logs_dir) {
@@ -93,6 +95,7 @@ impl<J: JobHandler> JobExecutor<J> {
 				job_logging_config,
 				job_logs_dir,
 				file_logger,
+				persistence_complete_tx,
 			},
 		}
 	}
@@ -308,6 +311,12 @@ impl<J: JobHandler> JobExecutor<J> {
 							}
 						}
 
+						// Signal that persistence is complete
+						if let Some(tx) = self.state.persistence_complete_tx.take() {
+							let _ = tx.send(());
+							info!("PAUSE_STATE_SAVE: Job {} signaled persistence completion", self.state.job_id);
+						}
+
 						Ok(ExecStatus::Paused)
 					} else {
 						// Job was cancelled
@@ -369,9 +378,22 @@ impl<J: JobHandler> JobExecutor<J> {
 					.checkpoint_handler
 					.delete_checkpoint(self.state.job_id)
 					.await;
+
+				// Consume persistence channel if it wasn't used (job completed normally)
+				if let Some(tx) = self.state.persistence_complete_tx.take() {
+					let _ = tx.send(());
+				}
+
 				Ok(ExecStatus::Done(().into()))
 			}
-			Err(e) => Err(e.clone()),
+			Err(e) => {
+				// Consume persistence channel if it wasn't used (job failed)
+				if let Some(tx) = self.state.persistence_complete_tx.take() {
+					let _ = tx.send(());
+				}
+
+				Err(e.clone())
+			}
 		}
 	}
 }
@@ -400,6 +422,7 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<crate::config::JobLoggingConfig>,
 		job_logs_dir: Option<std::path::PathBuf>,
+		persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
 	) -> Box<dyn sd_task_system::Task<JobError>> {
 		// Update the executor's state with the new parameters
 		let mut executor = *self;
@@ -436,6 +459,7 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 			job_logging_config,
 			job_logs_dir,
 			file_logger,
+			persistence_complete_tx,
 		};
 
 		Box::new(executor)

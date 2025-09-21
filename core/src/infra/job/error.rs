@@ -12,35 +12,39 @@ pub enum JobError {
     /// Job was interrupted (paused or cancelled)
     #[error("Job was interrupted")]
     Interrupted,
-    
+
     /// Job execution failed
     #[error("Job execution failed: {0}")]
     ExecutionFailed(String),
-    
+
+	 /// Job execution failed
+	 #[error("Error in job execution: {0}")]
+	 ErrorInExecution(String),
+
     /// Database operation failed
     #[error("Database error: {0}")]
     Database(String),
-    
+
     /// Serialization/deserialization error
     #[error("Serialization error: {0}")]
     Serialization(String),
-    
+
     /// Job not found
     #[error("Job not found: {0}")]
     NotFound(String),
-    
+
     /// Invalid job state
     #[error("Invalid job state: {0}")]
     InvalidState(String),
-    
+
     /// Task system error
     #[error("Task system error: {0}")]
     TaskSystem(String),
-    
+
     /// I/O error
     #[error("I/O error: {0}")]
     Io(String),
-    
+
     /// Other errors
     #[error("{0}")]
     Other(String),
@@ -48,7 +52,7 @@ pub enum JobError {
 
 impl From<String> for JobError {
     fn from(msg: String) -> Self {
-        Self::ExecutionFailed(msg)
+        Self::ErrorInExecution(msg)
     }
 }
 
@@ -67,24 +71,24 @@ impl From<sea_orm::DbErr> for JobError {
 impl JobError {
     /// Create an execution failed error
     pub fn execution<T: fmt::Display>(msg: T) -> Self {
-        Self::ExecutionFailed(msg.to_string())
+        Self::ErrorInExecution(msg.to_string())
     }
-    
+
     /// Create a serialization error
     pub fn serialization<T: fmt::Display>(msg: T) -> Self {
         Self::Serialization(msg.to_string())
     }
-    
+
     /// Create an invalid state error
     pub fn invalid_state<T: fmt::Display>(msg: T) -> Self {
         Self::InvalidState(msg.to_string())
     }
-    
+
     /// Create a task system error
     pub fn task_system<T: fmt::Display>(msg: T) -> Self {
         Self::TaskSystem(msg.to_string())
     }
-    
+
     /// Check if this error is due to interruption
     pub fn is_interrupted(&self) -> bool {
         matches!(self, Self::Interrupted)

@@ -41,6 +41,7 @@ struct RunningJob {
 	task_handle: TaskHandle<JobError>,
 	status_tx: watch::Sender<JobStatus>,
 	latest_progress: Arc<Mutex<Option<Progress>>>,
+	persistence_complete_rx: Option<tokio::sync::oneshot::Receiver<()>>,
 }
 
 impl JobManager {
@@ -226,6 +227,9 @@ impl JobManager {
 			output: Arc::new(Mutex::new(None)),
 		};
 
+		// Create persistence completion channel
+		let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
@@ -242,6 +246,7 @@ impl JobManager {
 			volume_manager,
 			self.context.job_logging_config.clone(),
 			self.context.job_logs_dir.clone(),
+			Some(persistence_complete_tx),
 		);
 
 		// Dispatch to task system
@@ -261,6 +266,7 @@ impl JobManager {
 						task_handle: handle_result,
 						status_tx: status_tx.clone(),
 						latest_progress,
+						persistence_complete_rx: Some(persistence_complete_rx),
 					},
 				);
 
@@ -486,6 +492,9 @@ impl JobManager {
 			output: Arc::new(Mutex::new(None)),
 		};
 
+		// Create persistence completion channel
+		let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+
 		// Create executor
 		let executor = JobExecutor::new(
 			job,
@@ -503,6 +512,7 @@ impl JobManager {
 			volume_manager,
 			self.context.job_logging_config.clone(),
 			self.context.job_logs_dir.clone(),
+			Some(persistence_complete_tx),
 		);
 
 		// Dispatch to task system
@@ -521,6 +531,7 @@ impl JobManager {
 						task_handle: handle_result,
 						status_tx: status_tx.clone(),
 						latest_progress: latest_progress.clone(),
+						persistence_complete_rx: Some(persistence_complete_rx),
 					},
 				);
 
@@ -1028,6 +1039,9 @@ impl JobManager {
 							output: Arc::new(Mutex::new(None)),
 						};
 
+						// Create persistence completion channel
+						let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
 							job_id,
@@ -1044,6 +1058,7 @@ impl JobManager {
 							volume_manager,
 							self.context.job_logging_config.clone(),
 							self.context.job_logs_dir.clone(),
+							Some(persistence_complete_tx),
 						);
 
 						// Dispatch to task system
@@ -1062,6 +1077,7 @@ impl JobManager {
 										task_handle,
 										status_tx: status_tx.clone(),
 										latest_progress,
+										persistence_complete_rx: Some(persistence_complete_rx),
 									},
 								);
 
@@ -1361,6 +1377,9 @@ impl JobManager {
 				output: Arc::new(Mutex::new(None)),
 			};
 
+			// Create persistence completion channel
+			let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+
 			// Create executor
 			let executor = erased_job.create_executor(
 				job_id,
@@ -1377,6 +1396,7 @@ impl JobManager {
 				volume_manager,
 				self.context.job_logging_config.clone(),
 				self.context.job_logs_dir.clone(),
+				Some(persistence_complete_tx),
 			);
 
 			// Dispatch to task system
@@ -1395,6 +1415,7 @@ impl JobManager {
 					task_handle,
 					status_tx: status_tx.clone(),
 					latest_progress,
+					persistence_complete_rx: Some(persistence_complete_rx),
 				},
 			);
 
@@ -1569,6 +1590,48 @@ impl JobManager {
 			drop(running_jobs); // Release the lock before sleeping
 			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 		}
+
+		// Wait for all paused jobs to complete state persistence
+		info!("Waiting for job state persistence to complete...");
+		let persistence_start_time = tokio::time::Instant::now();
+		let persistence_timeout = std::time::Duration::from_secs(10); // Shorter timeout for persistence
+
+		// Collect all persistence receivers
+		let mut persistence_receivers = Vec::new();
+		{
+			let mut running_jobs = self.running_jobs.write().await;
+			for (job_id, running_job) in running_jobs.iter_mut() {
+				if let Some(rx) = running_job.persistence_complete_rx.take() {
+					persistence_receivers.push((*job_id, rx));
+				}
+			}
+		}
+
+		info!("Waiting for {} jobs to complete state persistence", persistence_receivers.len());
+
+		// Wait for all persistence operations to complete
+		for (job_id, rx) in persistence_receivers {
+			tokio::select! {
+				result = rx => {
+					match result {
+						Ok(()) => {
+							info!("Job {} completed state persistence", job_id);
+						}
+						Err(_) => {
+							warn!("Job {} persistence channel closed without signal", job_id);
+						}
+					}
+				}
+				_ = tokio::time::sleep(persistence_timeout) => {
+					warn!("Timeout waiting for job {} state persistence after {}s",
+						job_id, persistence_timeout.as_secs());
+					break;
+				}
+			}
+		}
+
+		let persistence_elapsed = persistence_start_time.elapsed();
+		info!("State persistence completed in {:.2}s", persistence_elapsed.as_secs_f32());
 
 		// Close database connection properly
 		info!("Closing job database connection");
