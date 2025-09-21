@@ -13,12 +13,14 @@ let package = Package(
         ),
     ],
     dependencies: [
-        // Add any external dependencies here if needed
+        .package(path: "../../packages/swift-client")
     ],
     targets: [
         .executableTarget(
             name: "SpacedriveCompanion",
-            dependencies: [],
+            dependencies: [
+                .product(name: "SpacedriveClient", package: "swift-client")
+            ],
             path: "Sources"
         ),
     ]

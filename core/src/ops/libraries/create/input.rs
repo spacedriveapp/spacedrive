@@ -1,10 +1,11 @@
 //! Input types for library creation operations
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Input for creating a new library
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct LibraryCreateInput {
 	/// Name of the library
 	pub name: String,

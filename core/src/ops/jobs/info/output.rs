@@ -1,7 +1,8 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct JobInfoOutput {
 	pub id: Uuid,
 	pub name: String,
@@ -11,4 +12,3 @@ pub struct JobInfoOutput {
 	pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
 	pub error_message: Option<String>,
 }
-

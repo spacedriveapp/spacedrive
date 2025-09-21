@@ -34,7 +34,7 @@ impl From<JobId> for Uuid {
 
 /// Current status of a job
 #[derive(
-	Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString,
+	Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "lowercase")]

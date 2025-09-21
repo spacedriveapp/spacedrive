@@ -1,0 +1,583 @@
+{
+  "actions": [
+    {
+      "input": true,
+      "method": "action:media.thumbnail.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:locations.rescan.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.session.set_current.input.v1",
+      "output": true,
+      "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.stop.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:locations.remove.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:files.copy.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.create.input.v1",
+      "output": true,
+      "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:tags.create.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:jobs.cancel.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:volumes.speed_test.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:tags.apply.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:files.delete.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:jobs.pause.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.pair.join.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.delete.input.v1",
+      "output": true,
+      "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.pair.cancel.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:jobs.resume.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:volumes.track.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.spacedrop.send.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.rename.input.v1",
+      "output": true,
+      "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:locations.add.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.device.revoke.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.pair.generate.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:files.duplicate_detection.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:volumes.untrack.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.start.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:files.validation.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.export.input.v1",
+      "output": true,
+      "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:indexing.start.input.v1",
+      "output": true,
+      "type": "library_action"
+    }
+  ],
+  "events": true,
+  "queries": [
+    {
+      "input": null,
+      "method": "query:jobs.info.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:libraries.list.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:libraries.info.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:network.status.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:network.pair.status.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:core.status.v1",
+      "output": {
+        "properties": {
+          "built_at": {
+            "type": "string"
+          },
+          "device_info": {
+            "$ref": "#/definitions/DeviceInfo"
+          },
+          "libraries": {
+            "items": {
+              "$ref": "#/definitions/LibraryInfo"
+            },
+            "type": "array"
+          },
+          "library_count": {
+            "format": "uint",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "network": {
+            "$ref": "#/definitions/NetworkStatus"
+          },
+          "services": {
+            "$ref": "#/definitions/ServiceStatus"
+          },
+          "system": {
+            "$ref": "#/definitions/SystemInfo"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "built_at",
+          "device_info",
+          "libraries",
+          "library_count",
+          "network",
+          "services",
+          "system",
+          "version"
+        ],
+        "title": "CoreStatus",
+        "type": "object"
+      },
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:locations.list.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:libraries.session.current.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:search.files.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:network.devices.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:jobs.list.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:tags.search.v1",
+      "output": true,
+      "type": "query"
+    }
+  ],
+  "types": {
+    "FileCopyActionOutput": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "description": "Output from file copy action dispatch",
+      "properties": {
+        "destination": {
+          "type": "string"
+        },
+        "job_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "sources_count": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "destination",
+        "job_id",
+        "sources_count"
+      ],
+      "title": "FileCopyActionOutput",
+      "type": "object"
+    },
+    "JobInfoOutput": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "JobStatus": {
+          "description": "Current status of a job",
+          "oneOf": [
+            {
+              "description": "Job is waiting to be executed",
+              "enum": [
+                "queued"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job is currently running",
+              "enum": [
+                "running"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job has been paused",
+              "enum": [
+                "paused"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job completed successfully",
+              "enum": [
+                "completed"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job failed with an error",
+              "enum": [
+                "failed"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job was cancelled",
+              "enum": [
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "error_message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "progress": {
+          "format": "float",
+          "type": "number"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/JobStatus"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "progress",
+        "started_at",
+        "status"
+      ],
+      "title": "JobInfoOutput",
+      "type": "object"
+    },
+    "LocationAddOutput": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "description": "Output from location add action dispatch",
+      "properties": {
+        "job_id": {
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location_id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "location_id",
+        "path"
+      ],
+      "title": "LocationAddOutput",
+      "type": "object"
+    },
+    "SdPath": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "description": "A path within the Spacedrive Virtual Distributed File System\n\nThis is the core abstraction that enables cross-device operations. An SdPath can represent: - A physical file at a specific path on a specific device - A content-addressed file that can be sourced from any device\n\nThis enum-based approach enables resilient file operations by allowing content-based paths to be resolved to optimal physical locations at runtime.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A direct pointer to a file at a specific path on a specific device",
+          "properties": {
+            "Physical": {
+              "properties": {
+                "device_id": {
+                  "description": "The device where this file exists",
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "path": {
+                  "description": "The local path on that device",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "device_id",
+                "path"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Physical"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An abstract, location-independent handle that refers to file content",
+          "properties": {
+            "Content": {
+              "properties": {
+                "content_id": {
+                  "description": "The unique content identifier",
+                  "format": "uuid",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "content_id"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Content"
+          ],
+          "type": "object"
+        }
+      ],
+      "title": "SdPath"
+    },
+    "SdPathBatch": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "SdPath": {
+          "description": "A path within the Spacedrive Virtual Distributed File System\n\nThis is the core abstraction that enables cross-device operations. An SdPath can represent: - A physical file at a specific path on a specific device - A content-addressed file that can be sourced from any device\n\nThis enum-based approach enables resilient file operations by allowing content-based paths to be resolved to optimal physical locations at runtime.",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "description": "A direct pointer to a file at a specific path on a specific device",
+              "properties": {
+                "Physical": {
+                  "properties": {
+                    "device_id": {
+                      "description": "The device where this file exists",
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "path": {
+                      "description": "The local path on that device",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "device_id",
+                    "path"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "Physical"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "description": "An abstract, location-independent handle that refers to file content",
+              "properties": {
+                "Content": {
+                  "properties": {
+                    "content_id": {
+                      "description": "The unique content identifier",
+                      "format": "uuid",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "content_id"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "Content"
+              ],
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "description": "A batch of SdPaths, useful for operations on multiple files",
+      "properties": {
+        "paths": {
+          "items": {
+            "$ref": "#/definitions/SdPath"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "title": "SdPathBatch",
+      "type": "object"
+    }
+  }
+}

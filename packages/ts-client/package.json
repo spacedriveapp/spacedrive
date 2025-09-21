@@ -1,0 +1,36 @@
+{
+  "name": "@spacedrive/client",
+  "version": "0.1.0",
+  "description": "Type-safe TypeScript client for Spacedrive daemon",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "generate": "./generate_client.sh",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "spacedrive",
+    "client",
+    "typescript",
+    "type-safe"
+  ],
+  "author": "Spacedrive",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "quicktype": "^23.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*",
+    "README.md"
+  ]
+}

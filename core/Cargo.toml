@@ -41,11 +41,15 @@ sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
 # async-graphql-axum = "7.0"
 
 # Serialization
-int-enum   = "1.1"
-serde      = { version = "1.0", features = ["derive"] }
+int-enum = "1.1"
+schemars = { version = "0.8", features = [
+	"chrono",
+	"uuid1"
+] } # JSON Schema generation for client types
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-strum      = { version = "0.26", features = ["derive"] }
-toml       = "0.8"
+strum = { version = "0.26", features = ["derive"] }
+toml = "0.8"
 
 
 # Error handling
@@ -161,6 +165,7 @@ dialoguer      = "0.11"
 indicatif      = "0.17"
 owo-colors     = "4.1"
 ratatui        = "0.29"
+serde_json     = "1.0"
 supports-color = "3.0"
 vergen         = { version = "8", features = ["cargo", "git", "gitcl"] }
 
@@ -175,6 +180,10 @@ path = "src/bin/cli.rs"
 [[bin]]
 name = "daemon"
 path = "src/bin/daemon.rs"
+
+[[bin]]
+name = "generate-schemas"
+path = "src/bin/generate_schemas.rs"
 
 
 [dev-dependencies]

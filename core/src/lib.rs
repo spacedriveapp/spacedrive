@@ -5,6 +5,7 @@
 
 // Module declarations
 pub mod client;
+pub mod codegen;
 pub mod common;
 pub mod config;
 pub mod context;

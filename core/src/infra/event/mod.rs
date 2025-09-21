@@ -3,6 +3,7 @@
 pub mod log_emitter;
 
 use crate::infra::job::output::JobOutput;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::sync::broadcast;
@@ -10,6 +11,7 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 /// Core events that can be emitted throughout the system
+/// TODO: Add JsonSchema derive once all dependencies support it
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Event {
 	// Core lifecycle events
@@ -202,10 +204,10 @@ pub enum Event {
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FsRawEventKind {
-    Create { path: PathBuf },
-    Modify { path: PathBuf },
-    Remove { path: PathBuf },
-    Rename { from: PathBuf, to: PathBuf },
+	Create { path: PathBuf },
+	Modify { path: PathBuf },
+	Remove { path: PathBuf },
+	Rename { from: PathBuf, to: PathBuf },
 }
 
 /// Types of file operations

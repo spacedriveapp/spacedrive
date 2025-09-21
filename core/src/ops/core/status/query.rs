@@ -4,9 +4,10 @@ use super::output::*;
 use crate::{context::CoreContext, cqrs::Query, service::Service};
 use anyhow::Result;
 use chrono::Utc;
+use schemars::JsonSchema;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, JsonSchema)]
 pub struct CoreStatusQuery;
 
 impl Query for CoreStatusQuery {
@@ -133,4 +134,4 @@ impl Query for CoreStatusQuery {
 	}
 }
 
-crate::register_query!(CoreStatusQuery, "core.status");
+crate::register_query_with_schema!(CoreStatusQuery, "core.status");

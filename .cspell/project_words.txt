@@ -59,6 +59,7 @@ rspc
 rspcws
 rywalker
 sanjay
+schemars
 sdvol
 sharma
 skippable

@@ -34,7 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
 
-        window?.title = "Spacedrive Jobs"
+        window?.title = "Spacedrive"
         window?.contentView = NSHostingView(rootView: contentView)
         window?.makeKeyAndOrderFront(nil)
         window?.level = .floating
