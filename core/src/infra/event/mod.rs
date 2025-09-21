@@ -10,7 +10,7 @@ use tokio::sync::broadcast;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-/// Core events that can be emitted throughout the system
+/// A central event type that represents all events that can be emitted throughout the system
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum Event {
 	// Core lifecycle events

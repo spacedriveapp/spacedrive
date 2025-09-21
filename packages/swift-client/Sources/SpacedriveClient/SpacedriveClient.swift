@@ -101,9 +101,9 @@ public class SpacedriveClient {
     /// - Returns: An async stream of events
     public func subscribe(
         to eventTypes: [String] = []
-    ) -> AsyncThrowingStream<SpacedriveEvent, Error> {
+    ) -> AsyncThrowingStream<EventElement, Error> {
         AsyncThrowingStream { continuation in
-            Task {
+            Task { [self] in
                 do {
                     // 1. Establish persistent connection to daemon
                     let connection = try await createConnection()
@@ -114,13 +114,14 @@ public class SpacedriveClient {
 
                     // 3. Stream events as they arrive
                     while true {
-                        let response = try await readResponseFromConnection(connection)
+                        let response = try await readStreamingResponseFromConnection(connection)
                         if case .event(let eventData) = response {
-                            let event = try JSONDecoder().decode(SpacedriveEvent.self, from: eventData)
+                            let event = try JSONDecoder().decode(EventElement.self, from: eventData)
                             continuation.yield(event)
                         }
                     }
                 } catch {
+                    print("❌ Event subscription error: \(error)")
                     continuation.finish(throwing: error)
                 }
             }
@@ -254,6 +255,67 @@ public class SpacedriveClient {
             }
         }
     }
+
+    /// Read a complete line-delimited JSON response from a streaming connection
+    /// This properly handles JSON messages that span multiple socket reads
+    private func readStreamingResponseFromConnection(_ connection: Int32) async throws -> DaemonResponse {
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global().async {
+                var lineBuffer = Data()
+                var tempBuffer = [UInt8](repeating: 0, count: 1024)
+
+                // Read byte by byte until we find a complete line (ending with \n)
+                while true {
+                    let readResult = recv(connection, &tempBuffer, 1, 0) // Read 1 byte at a time
+
+                    guard readResult > 0 else {
+                        let errorMsg = String(cString: strerror(errno))
+                        print("❌ Stream receive failed: \(errorMsg)")
+                        continuation.resume(throwing: SpacedriveError.connectionFailed("Stream receive failed: \(errorMsg)"))
+                        return
+                    }
+
+                    let byte = tempBuffer[0]
+
+                    // Check for newline (end of JSON message)
+                    if byte == 10 { // ASCII newline
+                        // We have a complete line, try to parse it
+                        if let lineString = String(data: lineBuffer, encoding: .utf8) {
+                            let trimmedLine = lineString.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !trimmedLine.isEmpty {
+                                print("📥 Received complete JSON line (\(lineBuffer.count) bytes): \(trimmedLine)")
+
+                                do {
+                                    let response = try JSONDecoder().decode(DaemonResponse.self, from: Data(trimmedLine.utf8))
+                                    continuation.resume(returning: response)
+                                    return
+                                } catch {
+                                    print("❌ Failed to decode JSON line: \(error)")
+                                    print("❌ Raw line: \(trimmedLine)")
+                                    continuation.resume(throwing: SpacedriveError.serializationError("Failed to decode JSON: \(error)"))
+                                    return
+                                }
+                            }
+                        } else {
+                            print("❌ Invalid UTF-8 in line buffer")
+                            continuation.resume(throwing: SpacedriveError.invalidResponse("Invalid UTF-8 in response"))
+                            return
+                        }
+                    } else {
+                        // Accumulate byte into line buffer
+                        lineBuffer.append(byte)
+
+                        // Safety check to prevent infinite accumulation
+                        if lineBuffer.count > 10 * 1024 * 1024 { // 10MB limit
+                            print("❌ JSON line too large (\(lineBuffer.count) bytes)")
+                            continuation.resume(throwing: SpacedriveError.invalidResponse("JSON line too large"))
+                            return
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Daemon Protocol Types
@@ -355,7 +417,8 @@ internal enum DaemonResponse: Codable {
             let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
             self = .error(errorMsg)
         } else if variantContainer.contains(.event) {
-            let eventData = try variantContainer.decode(Data.self, forKey: .event)
+            let event = try variantContainer.decode(EventElement.self, forKey: .event)
+            let eventData = try JSONEncoder().encode(event)
             self = .event(eventData)
         } else {
             throw DecodingError.dataCorrupted(
@@ -409,10 +472,8 @@ public enum SpacedriveError: Error, LocalizedError {
 
 // MARK: - Convenience Types
 
-/// Placeholder event type until types.swift is generated
-public struct SpacedriveEvent: Codable {
-    // This will be replaced by the generated Event type
-}
+/// Type alias for the generated Event type from types.swift
+public typealias SpacedriveEvent = EventElement
 
 // MARK: - Convenience Methods
 

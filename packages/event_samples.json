@@ -1,0 +1,229 @@
+[
+  "CoreStarted",
+  "CoreShutdown",
+  {
+    "LibraryCreated": {
+      "id": "fd942ed5-1811-4a52-9bfd-c025fbdf66f6",
+      "name": "Sample Library",
+      "path": "/sample/path"
+    }
+  },
+  {
+    "LibraryOpened": {
+      "id": "2084f318-2bba-49d6-bd3c-1c55719dae9c",
+      "name": "Sample Library",
+      "path": "/sample/path"
+    }
+  },
+  {
+    "LibraryClosed": {
+      "id": "1e7b976b-6e49-436d-b5e1-6b7823631c32",
+      "name": "Sample Library"
+    }
+  },
+  {
+    "LibraryDeleted": {
+      "id": "dc74693f-86b5-4490-8fd8-f074e9561eb1",
+      "name": "Sample Library",
+      "deleted_data": true
+    }
+  },
+  {
+    "EntryCreated": {
+      "library_id": "187cbc26-b27a-461e-9e1b-f175c84e9e6d",
+      "entry_id": "5c1a42b4-8f0c-4ace-8e91-9f4624d00233"
+    }
+  },
+  {
+    "EntryModified": {
+      "library_id": "e355c9e3-0552-45b0-b981-87fb240c723a",
+      "entry_id": "411798e0-ee68-4107-97e5-53e55a117792"
+    }
+  },
+  {
+    "EntryDeleted": {
+      "library_id": "2854b18c-4f44-4b7a-8f91-dba0d53e2c2e",
+      "entry_id": "e4d169aa-0a45-4ca6-9a84-db1892b5246a"
+    }
+  },
+  {
+    "EntryMoved": {
+      "library_id": "48db38ad-2b11-452a-b1ef-eb8106f7ed88",
+      "entry_id": "4f480935-47ac-4a68-b92d-644273f49c39",
+      "old_path": "/old/path",
+      "new_path": "/new/path"
+    }
+  },
+  {
+    "JobQueued": {
+      "job_id": "job-123",
+      "job_type": "Indexing"
+    }
+  },
+  {
+    "JobStarted": {
+      "job_id": "job-123",
+      "job_type": "Indexing"
+    }
+  },
+  {
+    "JobProgress": {
+      "job_id": "job-123",
+      "job_type": "Indexing",
+      "progress": 0.5,
+      "message": "Processing files...",
+      "generic_progress": null
+    }
+  },
+  {
+    "JobProgress": {
+      "job_id": "job-456",
+      "job_type": "FileCopy",
+      "progress": 0.75,
+      "message": "Copying files...",
+      "generic_progress": {
+        "message": "Copying files...",
+        "percentage": 0.75,
+        "phase": "Processing"
+      }
+    }
+  },
+  {
+    "JobCompleted": {
+      "job_id": "job-123",
+      "job_type": "Indexing",
+      "output": {
+        "type": "Success"
+      }
+    }
+  },
+  {
+    "JobFailed": {
+      "job_id": "job-123",
+      "job_type": "Indexing",
+      "error": "Sample error"
+    }
+  },
+  {
+    "JobCancelled": {
+      "job_id": "job-123",
+      "job_type": "Indexing"
+    }
+  },
+  {
+    "JobPaused": {
+      "job_id": "job-123"
+    }
+  },
+  {
+    "JobResumed": {
+      "job_id": "job-123"
+    }
+  },
+  {
+    "IndexingStarted": {
+      "location_id": "c30d528e-eb5e-4bec-8a72-9aa5abba92eb"
+    }
+  },
+  {
+    "IndexingProgress": {
+      "location_id": "ddd9339e-ce98-48fc-bc40-3a43e4435245",
+      "processed": 100,
+      "total": 200
+    }
+  },
+  {
+    "IndexingCompleted": {
+      "location_id": "41178bab-a1e9-4d07-9db3-42c0708f5de4",
+      "total_files": 150,
+      "total_dirs": 20
+    }
+  },
+  {
+    "IndexingFailed": {
+      "location_id": "d7fcf802-d89b-4828-a670-f1f4ba414255",
+      "error": "Sample indexing error"
+    }
+  },
+  {
+    "DeviceConnected": {
+      "device_id": "acc15b55-44b7-4e85-9447-4242add8db02",
+      "device_name": "Sample Device"
+    }
+  },
+  {
+    "DeviceDisconnected": {
+      "device_id": "961838e5-2713-4368-8a05-2306db79303a"
+    }
+  },
+  {
+    "FsRawChange": {
+      "library_id": "c0377030-af2e-4ec1-a90d-103d921d92e9",
+      "kind": {
+        "Create": {
+          "path": "/sample/file.txt"
+        }
+      }
+    }
+  },
+  {
+    "LocationAdded": {
+      "library_id": "c4ccbf95-5eec-4274-a947-caaa19df5e66",
+      "location_id": "099b3f70-07e0-43e5-9138-f8f9ee34bc24",
+      "path": "/sample/location"
+    }
+  },
+  {
+    "LocationRemoved": {
+      "library_id": "ed217dff-f768-4166-ba2d-df279acbc93f",
+      "location_id": "c8e2b3f4-41cd-4455-95f7-e03a245d58c1"
+    }
+  },
+  {
+    "FilesIndexed": {
+      "library_id": "1dfdc830-84c4-42ed-96b7-ef31faedc8ab",
+      "location_id": "6b64c930-200f-484a-89a2-4df0c8d50a2c",
+      "count": 42
+    }
+  },
+  {
+    "ThumbnailsGenerated": {
+      "library_id": "63f93c25-eed0-4868-879b-80b94772baf7",
+      "count": 15
+    }
+  },
+  {
+    "FileOperationCompleted": {
+      "library_id": "bf42b747-8255-40fc-8fe1-60879de36063",
+      "operation": "Copy",
+      "affected_files": 10
+    }
+  },
+  {
+    "FilesModified": {
+      "library_id": "120328f2-c501-4d25-bfb6-8245d8999647",
+      "paths": [
+        "/file1.txt",
+        "/file2.txt"
+      ]
+    }
+  },
+  {
+    "LogMessage": {
+      "timestamp": "2025-09-21T18:36:52.741191Z",
+      "level": "info",
+      "target": "sd_core",
+      "message": "Sample log message",
+      "job_id": "job-123",
+      "library_id": "c6ce5193-2095-40b0-9bab-9a7273c24ca7"
+    }
+  },
+  {
+    "Custom": {
+      "event_type": "sample_custom",
+      "data": {
+        "key": "value"
+      }
+    }
+  }
+]

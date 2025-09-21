@@ -29,12 +29,27 @@ if ! command -v quicktype &> /dev/null; then
     exit 1
 fi
 
-# Step 1: Generate Swift types from unified schema
-echo -e "${BLUE}Generating Swift types from unified schema...${NC}"
+# Step 1: Generate Event samples for proper enum generation
+echo -e "${BLUE}Generating Event samples...${NC}"
+cd ../.. && cargo run --bin generate_event_samples -p sd-core
+cd packages/swift-client
 
-quicktype "$SCHEMA_FILE" \
+# Step 2: Generate Swift Event enum from samples
+echo -e "${BLUE}Generating Swift Event enum from samples...${NC}"
+EVENT_SAMPLES_FILE="../event_samples.json"
+
+if [ ! -f "$EVENT_SAMPLES_FILE" ]; then
+    echo -e "${RED}❌ Event samples file not found: $EVENT_SAMPLES_FILE${NC}"
+    exit 1
+fi
+
+quicktype "$EVENT_SAMPLES_FILE" \
     -o "$GENERATED_TYPES_FILE" \
-    --lang swift
+    --lang swift \
+    --top-level Event \
+    --struct-or-class struct \
+    --access-level public \
+    --protocol none
 
 if [ ! -f "$GENERATED_TYPES_FILE" ]; then
     echo -e "${RED}❌ Failed to generate types.swift${NC}"
