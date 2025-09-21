@@ -3,53 +3,53 @@
   "CoreShutdown",
   {
     "LibraryCreated": {
-      "id": "fd942ed5-1811-4a52-9bfd-c025fbdf66f6",
+      "id": "e86b94c0-e217-497d-a42f-3ca834d1ddeb",
       "name": "Sample Library",
       "path": "/sample/path"
     }
   },
   {
     "LibraryOpened": {
-      "id": "2084f318-2bba-49d6-bd3c-1c55719dae9c",
+      "id": "1a2168ae-0b1e-4390-b871-984ee5cd8a93",
       "name": "Sample Library",
       "path": "/sample/path"
     }
   },
   {
     "LibraryClosed": {
-      "id": "1e7b976b-6e49-436d-b5e1-6b7823631c32",
+      "id": "eb719a2e-cba9-4225-be0c-8e9cc23c44e9",
       "name": "Sample Library"
     }
   },
   {
     "LibraryDeleted": {
-      "id": "dc74693f-86b5-4490-8fd8-f074e9561eb1",
+      "id": "d3fc8b89-e459-4577-8a58-819ae8910d20",
       "name": "Sample Library",
       "deleted_data": true
     }
   },
   {
     "EntryCreated": {
-      "library_id": "187cbc26-b27a-461e-9e1b-f175c84e9e6d",
-      "entry_id": "5c1a42b4-8f0c-4ace-8e91-9f4624d00233"
+      "library_id": "4532c3ab-174f-4326-b60e-58b80c46f4db",
+      "entry_id": "bbb5d740-829e-4d17-9f30-7519e82bb2bc"
     }
   },
   {
     "EntryModified": {
-      "library_id": "e355c9e3-0552-45b0-b981-87fb240c723a",
-      "entry_id": "411798e0-ee68-4107-97e5-53e55a117792"
+      "library_id": "68bbeb2e-bc33-4cc3-bbd2-f4f42824020a",
+      "entry_id": "76a8a243-f094-41eb-a807-91ceccc96f5e"
     }
   },
   {
     "EntryDeleted": {
-      "library_id": "2854b18c-4f44-4b7a-8f91-dba0d53e2c2e",
-      "entry_id": "e4d169aa-0a45-4ca6-9a84-db1892b5246a"
+      "library_id": "bac72f7c-27d6-45fc-ab3c-beb886f53b3a",
+      "entry_id": "0ef9b7f7-e31e-4e28-9a15-bba1574858b2"
     }
   },
   {
     "EntryMoved": {
-      "library_id": "48db38ad-2b11-452a-b1ef-eb8106f7ed88",
-      "entry_id": "4f480935-47ac-4a68-b92d-644273f49c39",
+      "library_id": "7a060540-e8e1-4f03-837d-2cf539ed53d7",
+      "entry_id": "49bd1da1-d1d4-4a66-b867-e5f972294f70",
       "old_path": "/old/path",
       "new_path": "/new/path"
     }
@@ -122,43 +122,43 @@
   },
   {
     "IndexingStarted": {
-      "location_id": "c30d528e-eb5e-4bec-8a72-9aa5abba92eb"
+      "location_id": "4be366ec-dcd8-40e6-8205-4ae9fb02c931"
     }
   },
   {
     "IndexingProgress": {
-      "location_id": "ddd9339e-ce98-48fc-bc40-3a43e4435245",
+      "location_id": "bf9688bc-4a90-405e-8a91-92319300728b",
       "processed": 100,
       "total": 200
     }
   },
   {
     "IndexingCompleted": {
-      "location_id": "41178bab-a1e9-4d07-9db3-42c0708f5de4",
+      "location_id": "b773872b-dab1-4d41-b821-6d1d9c978e3a",
       "total_files": 150,
       "total_dirs": 20
     }
   },
   {
     "IndexingFailed": {
-      "location_id": "d7fcf802-d89b-4828-a670-f1f4ba414255",
+      "location_id": "40884b1f-6ab3-4b0a-8a9e-4157cc5b51a0",
       "error": "Sample indexing error"
     }
   },
   {
     "DeviceConnected": {
-      "device_id": "acc15b55-44b7-4e85-9447-4242add8db02",
+      "device_id": "b15a0f33-6ec6-42db-ba16-9a34ee3311b8",
       "device_name": "Sample Device"
     }
   },
   {
     "DeviceDisconnected": {
-      "device_id": "961838e5-2713-4368-8a05-2306db79303a"
+      "device_id": "11550561-97d4-4d89-9078-68d8cc53eb86"
     }
   },
   {
     "FsRawChange": {
-      "library_id": "c0377030-af2e-4ec1-a90d-103d921d92e9",
+      "library_id": "e4d5483c-d0c4-43b7-859f-fb8f2330eed3",
       "kind": {
         "Create": {
           "path": "/sample/file.txt"
@@ -168,40 +168,40 @@
   },
   {
     "LocationAdded": {
-      "library_id": "c4ccbf95-5eec-4274-a947-caaa19df5e66",
-      "location_id": "099b3f70-07e0-43e5-9138-f8f9ee34bc24",
+      "library_id": "ca10555e-7cdf-4281-9f46-88296c3498e8",
+      "location_id": "199e877b-ca8e-4cb3-98c9-cf0aba04c004",
       "path": "/sample/location"
     }
   },
   {
     "LocationRemoved": {
-      "library_id": "ed217dff-f768-4166-ba2d-df279acbc93f",
-      "location_id": "c8e2b3f4-41cd-4455-95f7-e03a245d58c1"
+      "library_id": "9c9477aa-b429-40b1-b3f0-0a77ceea67e6",
+      "location_id": "ad90f62f-ea0c-440f-88d9-bb052a4a77e5"
     }
   },
   {
     "FilesIndexed": {
-      "library_id": "1dfdc830-84c4-42ed-96b7-ef31faedc8ab",
-      "location_id": "6b64c930-200f-484a-89a2-4df0c8d50a2c",
+      "library_id": "12235993-914e-486c-9f71-7ef3a2ad2e48",
+      "location_id": "5ebdc0e7-55ff-4979-a849-11d6ce2e66a7",
       "count": 42
     }
   },
   {
     "ThumbnailsGenerated": {
-      "library_id": "63f93c25-eed0-4868-879b-80b94772baf7",
+      "library_id": "c3e2a208-6c25-414e-97a8-685179373fbe",
       "count": 15
     }
   },
   {
     "FileOperationCompleted": {
-      "library_id": "bf42b747-8255-40fc-8fe1-60879de36063",
+      "library_id": "825bd0a9-5070-48ea-a249-33783cd539cd",
       "operation": "Copy",
       "affected_files": 10
     }
   },
   {
     "FilesModified": {
-      "library_id": "120328f2-c501-4d25-bfb6-8245d8999647",
+      "library_id": "9fb00ab3-334a-40dd-90ff-99e084aa9f20",
       "paths": [
         "/file1.txt",
         "/file2.txt"
@@ -210,12 +210,12 @@
   },
   {
     "LogMessage": {
-      "timestamp": "2025-09-21T18:36:52.741191Z",
+      "timestamp": "2025-09-21T20:34:22.433703Z",
       "level": "info",
       "target": "sd_core",
       "message": "Sample log message",
       "job_id": "job-123",
-      "library_id": "c6ce5193-2095-40b0-9bab-9a7273c24ca7"
+      "library_id": "e90c86e9-dbbb-4e8d-a663-900b98cee3f4"
     }
   },
   {

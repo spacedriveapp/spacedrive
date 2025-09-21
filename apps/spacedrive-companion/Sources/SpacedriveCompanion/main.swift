@@ -16,6 +16,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var jobListViewModel: JobListViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        print("🚀 Spacedrive Companion app launched!")
         setupWindow()
     }
 

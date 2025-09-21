@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let schema = UnifiedSchema::extract()?;
 
 	// Write to packages/types.json
-	let output_path = Path::new("../packages/types.json");
+	let output_path = Path::new("packages/types.json");
 	schema.write_unified_schema(output_path)?;
 
 	println!(

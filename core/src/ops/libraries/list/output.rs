@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Information about a library for listing purposes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct LibraryInfo {
 	/// Library unique identifier
 	pub id: Uuid,

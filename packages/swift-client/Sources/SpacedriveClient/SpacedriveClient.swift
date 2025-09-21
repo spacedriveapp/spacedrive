@@ -35,23 +35,39 @@ public class SpacedriveClient {
             throw SpacedriveError.serializationError("Failed to encode query: \(error)")
         }
 
-        // 2. Create daemon request
-        let request = DaemonRequest.query(method: method, payload: queryData)
+        // 2. Create daemon request using JSON API
+        let jsonPayload = try JSONSerialization.jsonObject(with: queryData) as! [String: Any]
+        let request = DaemonRequest.jsonQuery(method: method, payload: jsonPayload)
 
         // 3. Send to daemon and get response
+        print("🔍 Executing query: \(method)")
         let response = try await sendRequest(request)
+        print("🔍 Query response received: \(response)")
 
         // 4. Handle response
         switch response {
         case .ok(let data):
+            print("🔍 Query successful (bincode), decoding \(data.count) bytes")
             do {
                 return try JSONDecoder().decode(responseType, from: data)
             } catch {
+                print("❌ Query decode error: \(error)")
                 throw SpacedriveError.serializationError("Failed to decode response: \(error)")
             }
+        case .jsonOk(let jsonData):
+            print("🔍 Query successful (JSON), decoding response")
+            do {
+                let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
+                return try JSONDecoder().decode(responseType, from: jsonResponseData)
+            } catch {
+                print("❌ JSON query decode error: \(error)")
+                throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
+            }
         case .error(let error):
+            print("❌ Query daemon error: \(error)")
             throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed:
+        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
+            print("❌ Query unexpected response: \(response)")
             throw SpacedriveError.invalidResponse("Unexpected response to query")
         }
     }
@@ -75,8 +91,9 @@ public class SpacedriveClient {
             throw SpacedriveError.serializationError("Failed to encode action: \(error)")
         }
 
-        // 2. Create daemon request
-        let request = DaemonRequest.action(method: method, payload: actionData)
+        // 2. Create daemon request using JSON API
+        let jsonPayload = try JSONSerialization.jsonObject(with: actionData) as! [String: Any]
+        let request = DaemonRequest.jsonAction(method: method, payload: jsonPayload)
 
         // 3. Send to daemon and get response
         let response = try await sendRequest(request)
@@ -89,9 +106,16 @@ public class SpacedriveClient {
             } catch {
                 throw SpacedriveError.serializationError("Failed to decode response: \(error)")
             }
+        case .jsonOk(let jsonData):
+            do {
+                let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
+                return try JSONDecoder().decode(responseType, from: jsonResponseData)
+            } catch {
+                throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
+            }
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed:
+        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
             throw SpacedriveError.invalidResponse("Unexpected response to action")
         }
     }
@@ -197,7 +221,44 @@ public class SpacedriveClient {
 
     /// Send a request over an existing connection
     private func sendRequestOverConnection(_ request: DaemonRequest, connection: Int32) async throws {
-        let requestData = try JSONEncoder().encode(request)
+        let requestData: Data
+
+        // Handle JSON requests manually to avoid Swift Codable issues with Any types
+        switch request {
+        case .ping:
+            requestData = Data("\"Ping\"".utf8)
+
+        case .jsonQuery(let method, let payload):
+            let jsonString = """
+            {"JsonQuery":{"method":"\(method)","payload":\(try jsonStringFromDictionary(payload))}}
+            """
+            requestData = Data(jsonString.utf8)
+
+        case .jsonAction(let method, let payload):
+            let jsonString = """
+            {"JsonAction":{"method":"\(method)","payload":\(try jsonStringFromDictionary(payload))}}
+            """
+            requestData = Data(jsonString.utf8)
+
+        case .subscribe(let eventTypes, let filter):
+            let subscribeRequest = SubscribeRequest(event_types: eventTypes, filter: filter)
+            requestData = try JSONEncoder().encode(["Subscribe": subscribeRequest])
+
+        case .unsubscribe:
+            requestData = Data("\"Unsubscribe\"".utf8)
+
+        case .shutdown:
+            requestData = Data("\"Shutdown\"".utf8)
+
+        case .action(let method, let payload):
+            let actionRequest = ActionRequest(method: method, payload: payload.base64EncodedString())
+            requestData = try JSONEncoder().encode(["Action": actionRequest])
+
+        case .query(let method, let payload):
+            let queryRequest = QueryRequest(method: method, payload: payload.base64EncodedString())
+            requestData = try JSONEncoder().encode(["Query": queryRequest])
+        }
+
         let requestLine = requestData + Data("\n".utf8)
 
         print("📤 Sending request: \(String(data: requestData, encoding: .utf8) ?? "invalid")")
@@ -316,48 +377,26 @@ public class SpacedriveClient {
             }
         }
     }
+
+    /// Helper to convert dictionary to JSON string
+    private func jsonStringFromDictionary(_ dict: [String: Any]) throws -> String {
+        let jsonData = try JSONSerialization.data(withJSONObject: dict)
+        return String(data: jsonData, encoding: .utf8) ?? "{}"
+    }
 }
 
 // MARK: - Daemon Protocol Types
 
 /// Request types that match the Rust daemon protocol
-internal enum DaemonRequest: Codable {
+internal enum DaemonRequest {
     case ping
     case action(method: String, payload: Data)
     case query(method: String, payload: Data)
+    case jsonAction(method: String, payload: [String: Any])
+    case jsonQuery(method: String, payload: [String: Any])
     case subscribe(eventTypes: [String], filter: EventFilter?)
     case unsubscribe
     case shutdown
-
-    enum CodingKeys: String, CodingKey {
-        case ping = "Ping"
-        case action = "Action"
-        case query = "Query"
-        case subscribe = "Subscribe"
-        case unsubscribe = "Unsubscribe"
-        case shutdown = "Shutdown"
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .ping:
-            try container.encode("Ping")
-        case .action(let method, let payload):
-            let actionRequest = ActionRequest(method: method, payload: payload.base64EncodedString())
-            try container.encode(["Action": actionRequest])
-        case .query(let method, let payload):
-            let queryRequest = QueryRequest(method: method, payload: payload.base64EncodedString())
-            try container.encode(["Query": queryRequest])
-        case .subscribe(let eventTypes, let filter):
-            let subscribeRequest = SubscribeRequest(event_types: eventTypes, filter: filter)
-            try container.encode(["Subscribe": subscribeRequest])
-        case .unsubscribe:
-            try container.encode("Unsubscribe")
-        case .shutdown:
-            try container.encode("Shutdown")
-        }
-    }
 }
 
 /// Helper structs for proper JSON encoding
@@ -371,6 +410,8 @@ private struct QueryRequest: Codable {
     let payload: String
 }
 
+
+
 private struct SubscribeRequest: Codable {
     let event_types: [String]
     let filter: EventFilter?
@@ -380,6 +421,7 @@ private struct SubscribeRequest: Codable {
 internal enum DaemonResponse: Codable {
     case pong
     case ok(Data)
+    case jsonOk(AnyCodable)
     case error(String)
     case event(Data)
     case subscribed
@@ -411,6 +453,10 @@ internal enum DaemonResponse: Codable {
         if variantContainer.contains(.ok) {
             let okData = try variantContainer.decode([UInt8].self, forKey: .ok)
             self = .ok(Data(okData))
+        } else if variantContainer.contains(.jsonOk) {
+            // JsonOk contains a JSON value that we need to decode manually
+            let jsonValue = try variantContainer.decode(AnyCodable.self, forKey: .jsonOk)
+            self = .jsonOk(jsonValue)
         } else if variantContainer.contains(.error) {
             // For now, decode error as a string - we can improve this later
             let errorData = try variantContainer.decode(Data.self, forKey: .error)
@@ -429,6 +475,7 @@ internal enum DaemonResponse: Codable {
 
     enum VariantKeys: String, CodingKey {
         case ok = "Ok"
+        case jsonOk = "JsonOk"
         case error = "Error"
         case event = "Event"
     }
@@ -475,6 +522,36 @@ public enum SpacedriveError: Error, LocalizedError {
 /// Type alias for the generated Event type from types.swift
 public typealias SpacedriveEvent = EventElement
 
+/// Helper for decoding Any values from JSON
+internal struct AnyCodable: Codable {
+    let value: Any
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+
+        if let intValue = try? container.decode(Int.self) {
+            value = intValue
+        } else if let doubleValue = try? container.decode(Double.self) {
+            value = doubleValue
+        } else if let stringValue = try? container.decode(String.self) {
+            value = stringValue
+        } else if let boolValue = try? container.decode(Bool.self) {
+            value = boolValue
+        } else if let arrayValue = try? container.decode([AnyCodable].self) {
+            value = arrayValue.map { $0.value }
+        } else if let dictValue = try? container.decode([String: AnyCodable].self) {
+            value = dictValue.mapValues { $0.value }
+        } else {
+            value = NSNull()
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        // Not needed for our use case
+        throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "AnyCodable encoding not implemented"))
+    }
+}
+
 // MARK: - Convenience Methods
 
 extension SpacedriveClient {
@@ -493,7 +570,7 @@ extension SpacedriveClient {
             return data
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed:
+        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
             throw SpacedriveError.invalidResponse("Unexpected response")
         }
     }
@@ -516,7 +593,7 @@ extension SpacedriveClient {
             return data
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed:
+        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
             throw SpacedriveError.invalidResponse("Unexpected response")
         }
     }
@@ -533,7 +610,7 @@ extension SpacedriveClient {
         case .error(let error):
             print("❌ Ping failed with daemon error: \(error)")
             throw SpacedriveError.daemonError("Ping failed: \(error)")
-        case .ok, .event, .subscribed, .unsubscribed:
+        case .ok, .event, .subscribed, .unsubscribed, .jsonOk:
             print("❌ Ping received unexpected response")
             throw SpacedriveError.invalidResponse("Unexpected response to ping")
         }

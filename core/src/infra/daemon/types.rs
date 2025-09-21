@@ -4,8 +4,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub enum DaemonRequest {
 	Ping,
-	Action { method: String, payload: Vec<u8> },
-	Query { method: String, payload: Vec<u8> },
+	Action {
+		method: String,
+		payload: Vec<u8>,
+	},
+	Query {
+		method: String,
+		payload: Vec<u8>,
+	},
+	/// JSON-based action for external clients (automatically converts to bincode)
+	JsonAction {
+		method: String,
+		payload: serde_json::Value,
+	},
+	/// JSON-based query for external clients (automatically converts to bincode)
+	JsonQuery {
+		method: String,
+		payload: serde_json::Value,
+	},
 	/// Subscribe to real-time events
 	Subscribe {
 		/// Event types to subscribe to (empty = all events)
@@ -82,6 +98,8 @@ impl std::error::Error for DaemonError {}
 pub enum DaemonResponse {
 	Pong,
 	Ok(Vec<u8>),
+	/// JSON response for external clients (converted from bincode)
+	JsonOk(serde_json::Value),
 	Error(DaemonError),
 	/// Real-time event from the core event bus
 	Event(crate::infra::event::Event),

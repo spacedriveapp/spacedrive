@@ -2,97 +2,7 @@
   "actions": [
     {
       "input": true,
-      "method": "action:tags.apply.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:network.spacedrop.send.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:locations.add.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:jobs.resume.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:volumes.speed_test.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:libraries.delete.input.v1",
-      "output": true,
-      "type": "core_action"
-    },
-    {
-      "input": true,
-      "method": "action:locations.remove.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:network.device.revoke.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
       "method": "action:network.pair.generate.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:network.pair.join.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:network.start.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:volumes.untrack.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:locations.rescan.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:libraries.export.input.v1",
-      "output": true,
-      "type": "core_action"
-    },
-    {
-      "input": true,
-      "method": "action:media.thumbnail.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:tags.create.input.v1",
       "output": true,
       "type": "library_action"
     },
@@ -104,33 +14,15 @@
     },
     {
       "input": true,
-      "method": "action:files.delete.input.v1",
+      "method": "action:volumes.untrack.input.v1",
       "output": true,
       "type": "library_action"
     },
     {
       "input": true,
-      "method": "action:jobs.pause.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:libraries.create.input.v1",
+      "method": "action:libraries.session.set_current.input.v1",
       "output": true,
       "type": "core_action"
-    },
-    {
-      "input": true,
-      "method": "action:jobs.cancel.input.v1",
-      "output": true,
-      "type": "library_action"
-    },
-    {
-      "input": true,
-      "method": "action:network.stop.input.v1",
-      "output": true,
-      "type": "library_action"
     },
     {
       "input": true,
@@ -140,13 +32,19 @@
     },
     {
       "input": true,
-      "method": "action:volumes.track.input.v1",
+      "method": "action:locations.remove.input.v1",
       "output": true,
       "type": "library_action"
     },
     {
       "input": true,
-      "method": "action:files.copy.input.v1",
+      "method": "action:network.start.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:locations.rescan.input.v1",
       "output": true,
       "type": "library_action"
     },
@@ -158,7 +56,67 @@
     },
     {
       "input": true,
+      "method": "action:files.delete.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
       "method": "action:files.duplicate_detection.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.delete.input.v1",
+      "output": true,
+      "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.pair.join.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:jobs.pause.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:locations.add.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:jobs.cancel.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:volumes.speed_test.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:jobs.resume.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:media.thumbnail.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:files.copy.input.v1",
       "output": true,
       "type": "library_action"
     },
@@ -170,13 +128,73 @@
     },
     {
       "input": true,
-      "method": "action:libraries.session.set_current.input.v1",
+      "method": "action:volumes.track.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:tags.create.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.export.input.v1",
       "output": true,
       "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:libraries.create.input.v1",
+      "output": true,
+      "type": "core_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.stop.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:tags.apply.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.device.revoke.input.v1",
+      "output": true,
+      "type": "library_action"
+    },
+    {
+      "input": true,
+      "method": "action:network.spacedrop.send.input.v1",
+      "output": true,
+      "type": "library_action"
     }
   ],
   "events": true,
   "queries": [
+    {
+      "input": null,
+      "method": "query:jobs.list.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:network.devices.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:jobs.info.v1",
+      "output": true,
+      "type": "query"
+    },
     {
       "input": null,
       "method": "query:libraries.session.current.v1",
@@ -185,13 +203,19 @@
     },
     {
       "input": null,
-      "method": "query:libraries.list.v1",
+      "method": "query:network.pair.status.v1",
       "output": true,
       "type": "query"
     },
     {
       "input": null,
-      "method": "query:locations.list.v1",
+      "method": "query:libraries.info.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
+      "method": "query:tags.search.v1",
       "output": true,
       "type": "query"
     },
@@ -247,13 +271,7 @@
     },
     {
       "input": null,
-      "method": "query:tags.search.v1",
-      "output": true,
-      "type": "query"
-    },
-    {
-      "input": null,
-      "method": "query:jobs.info.v1",
+      "method": "query:locations.list.v1",
       "output": true,
       "type": "query"
     },
@@ -265,31 +283,13 @@
     },
     {
       "input": null,
+      "method": "query:libraries.list.v1",
+      "output": true,
+      "type": "query"
+    },
+    {
+      "input": null,
       "method": "query:network.status.v1",
-      "output": true,
-      "type": "query"
-    },
-    {
-      "input": null,
-      "method": "query:jobs.list.v1",
-      "output": true,
-      "type": "query"
-    },
-    {
-      "input": null,
-      "method": "query:network.pair.status.v1",
-      "output": true,
-      "type": "query"
-    },
-    {
-      "input": null,
-      "method": "query:network.devices.v1",
-      "output": true,
-      "type": "query"
-    },
-    {
-      "input": null,
-      "method": "query:libraries.info.v1",
       "output": true,
       "type": "query"
     }
@@ -1858,7 +1858,7 @@
           ]
         }
       },
-      "description": "Core events that can be emitted throughout the system",
+      "description": "A central event type that represents all events that can be emitted throughout the system",
       "oneOf": [
         {
           "enum": [
@@ -3560,6 +3560,172 @@
       "title": "JobInfoOutput",
       "type": "object"
     },
+    "JobListItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "JobStatus": {
+          "description": "Current status of a job",
+          "oneOf": [
+            {
+              "description": "Job is waiting to be executed",
+              "enum": [
+                "queued"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job is currently running",
+              "enum": [
+                "running"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job has been paused",
+              "enum": [
+                "paused"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job completed successfully",
+              "enum": [
+                "completed"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job failed with an error",
+              "enum": [
+                "failed"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job was cancelled",
+              "enum": [
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "progress": {
+          "format": "float",
+          "type": "number"
+        },
+        "status": {
+          "$ref": "#/definitions/JobStatus"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "progress",
+        "status"
+      ],
+      "title": "JobListItem",
+      "type": "object"
+    },
+    "JobListOutput": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "JobListItem": {
+          "properties": {
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "progress": {
+              "format": "float",
+              "type": "number"
+            },
+            "status": {
+              "$ref": "#/definitions/JobStatus"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "progress",
+            "status"
+          ],
+          "type": "object"
+        },
+        "JobStatus": {
+          "description": "Current status of a job",
+          "oneOf": [
+            {
+              "description": "Job is waiting to be executed",
+              "enum": [
+                "queued"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job is currently running",
+              "enum": [
+                "running"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job has been paused",
+              "enum": [
+                "paused"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job completed successfully",
+              "enum": [
+                "completed"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job failed with an error",
+              "enum": [
+                "failed"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Job was cancelled",
+              "enum": [
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "properties": {
+        "jobs": {
+          "items": {
+            "$ref": "#/definitions/JobListItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "jobs"
+      ],
+      "title": "JobListOutput",
+      "type": "object"
+    },
     "JobOutput": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "definitions": {
@@ -4126,6 +4292,102 @@
         }
       ],
       "title": "JobStatus"
+    },
+    "LibraryInfo": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "definitions": {
+        "LibraryStatistics": {
+          "description": "Library statistics",
+          "properties": {
+            "last_indexed": {
+              "description": "Last time the library was fully indexed",
+              "format": "date-time",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "location_count": {
+              "description": "Number of locations in this library",
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "tag_count": {
+              "description": "Number of tags created",
+              "format": "uint32",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "thumbnail_count": {
+              "description": "Number of thumbnails generated",
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "total_files": {
+              "description": "Total number of files indexed",
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "total_size": {
+              "description": "Total size of all files in bytes",
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "updated_at": {
+              "description": "When these statistics were last updated",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          "required": [
+            "location_count",
+            "tag_count",
+            "thumbnail_count",
+            "total_files",
+            "total_size",
+            "updated_at"
+          ],
+          "type": "object"
+        }
+      },
+      "description": "Information about a library for listing purposes",
+      "properties": {
+        "id": {
+          "description": "Library unique identifier",
+          "format": "uuid",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable library name",
+          "type": "string"
+        },
+        "path": {
+          "description": "Path to the library directory",
+          "type": "string"
+        },
+        "stats": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LibraryStatistics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional statistics if requested"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "path"
+      ],
+      "title": "LibraryInfo",
+      "type": "object"
     },
     "LocationAddOutput": {
       "$schema": "http://json-schema.org/draft-07/schema#",

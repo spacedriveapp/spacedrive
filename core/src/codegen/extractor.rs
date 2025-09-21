@@ -213,6 +213,15 @@ impl UnifiedSchema {
 			self.core_types,
 			crate::ops::locations::add::output::LocationAddOutput
 		);
+		register_schema_type!(
+			self.core_types,
+			crate::ops::jobs::list::output::JobListOutput
+		);
+		register_schema_type!(self.core_types, crate::ops::jobs::list::output::JobListItem);
+		register_schema_type!(
+			self.core_types,
+			crate::ops::libraries::list::output::LibraryInfo
+		);
 
 		Ok(())
 	}

@@ -142,7 +142,7 @@ impl Default for IndexerSettings {
 }
 
 /// Library statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct LibraryStatistics {
 	/// Total number of files indexed
 	pub total_files: u64,

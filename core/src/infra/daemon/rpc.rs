@@ -199,6 +199,59 @@ impl RpcServer {
 		tracing::info!("Test log events setup complete");
 	}
 
+	/// Execute a JSON operation directly without bincode conversion
+	/// This is more efficient and avoids serialization issues
+	async fn execute_json_operation(
+		method: &str,
+		json_payload: serde_json::Value,
+		core: &Arc<crate::Core>,
+	) -> Result<serde_json::Value, String> {
+		// For now, we'll implement specific handlers for known operations
+		// This is more maintainable than trying to do generic bincode conversion
+
+		match method {
+			"query:libraries.list.v1" => {
+				// Handle libraries.list query
+				use crate::ops::libraries::list::{output::LibraryInfo, query::ListLibrariesQuery};
+
+				// Deserialize JSON payload to query type
+				let query: ListLibrariesQuery = serde_json::from_value(json_payload)
+					.map_err(|e| format!("Failed to deserialize libraries.list query: {}", e))?;
+
+				// Execute the query using the CQRS interface
+				let result: Vec<LibraryInfo> = core
+					.execute_query(query)
+					.await
+					.map_err(|e| format!("Failed to execute libraries.list query: {}", e))?;
+
+				// Serialize result to JSON
+				serde_json::to_value(result)
+					.map_err(|e| format!("Failed to serialize libraries.list result: {}", e))
+			}
+
+			"query:jobs.list.v1" => {
+				// Handle jobs.list query
+				use crate::ops::jobs::list::{output::JobListOutput, query::JobListQuery};
+
+				// Deserialize JSON payload to query type
+				let query: JobListQuery = serde_json::from_value(json_payload)
+					.map_err(|e| format!("Failed to deserialize jobs.list query: {}", e))?;
+
+				// Execute the query using the CQRS interface
+				let result: JobListOutput = core
+					.execute_query(query)
+					.await
+					.map_err(|e| format!("Failed to execute jobs.list query: {}", e))?;
+
+				// Serialize result to JSON
+				serde_json::to_value(result)
+					.map_err(|e| format!("Failed to serialize jobs.list result: {}", e))
+			}
+
+			_ => Err(format!("JSON API not implemented for method: {}", method)),
+		}
+	}
+
 	/// Check if an event should be forwarded to a connection based on filters
 	fn should_forward_event(
 		event: &Event,
@@ -388,6 +441,22 @@ impl RpcServer {
 			DaemonRequest::Query { method, payload } => {
 				match core.execute_operation_by_method(&method, payload).await {
 					Ok(out) => DaemonResponse::Ok(out),
+					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
+				}
+			}
+
+			DaemonRequest::JsonAction { method, payload } => {
+				// Handle JSON actions with direct JSON-to-JSON processing
+				match Self::execute_json_operation(&method, payload, core).await {
+					Ok(json_result) => DaemonResponse::JsonOk(json_result),
+					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
+				}
+			}
+
+			DaemonRequest::JsonQuery { method, payload } => {
+				// Handle JSON queries with direct JSON-to-JSON processing
+				match Self::execute_json_operation(&method, payload, core).await {
+					Ok(json_result) => DaemonResponse::JsonOk(json_result),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
 				}
 			}

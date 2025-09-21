@@ -5,12 +5,12 @@ import SpacedriveClient
 
 struct JobInfo: Codable, Identifiable {
     let id: String
-    let name: String
-    let status: JobStatus
-    let progress: Double
+    var name: String
+    var status: JobStatus
+    var progress: Double
     let startedAt: Date
-    let completedAt: Date?
-    let errorMessage: String?
+    var completedAt: Date?
+    var errorMessage: String?
 
     enum CodingKeys: String, CodingKey {
         case id
