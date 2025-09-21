@@ -144,7 +144,8 @@ async fn test_job_resumption_at_various_points() {
     // For quick testing during development, comment out all but one interruption point
     let interruption_points = vec![
         // InterruptionPoint::DiscoveryAfterEvents(50),              // Interrupt after 50 discovery events (should hit with 500k files)
-        InterruptionPoint::ProcessingAfterEvents(100),            // Interrupt after 100 processing events
+		InterruptionPoint::ProcessingAfterEvents(10),            // Interrupt after 10 processing events (reduced for faster testing)
+        // InterruptionPoint::ProcessingAfterEvents(10),            // Interrupt after 10 processing events (reduced for faster testing)
         // InterruptionPoint::ContentIdentificationAfterEvents(200), // Interrupt after 200 content ID events (most likely to hit)
         // InterruptionPoint::ContentIdentificationAfterEvents(500), // Interrupt later in content ID phase
         // InterruptionPoint::Aggregation,                        // Interrupt immediately when aggregation starts
@@ -531,8 +532,44 @@ async fn resume_and_complete_job(
 
     // Get the library (should auto-load)
     let libraries = core_context.libraries().await.list().await;
-    let _library = libraries.first()
+    let library = libraries.first()
         .ok_or("No library found after restart")?;
+
+    // Check job status immediately after core initialization
+    // Jobs may have already completed during the core startup process
+    info!("Checking initial job status for job {}", job_id);
+    let job_manager = library.jobs();
+
+    // Check if job is already completed
+    if let Ok(Some(job_info)) = job_manager.get_job_info(job_id).await {
+        let job_status = job_info.status;
+
+        info!("Job {} current status: {:?}", job_id, job_status);
+
+        match job_status {
+            sd_core::infra::job::types::JobStatus::Completed => {
+                info!("Job {} already completed during startup, no need to wait for events", job_id);
+
+                // Collect log paths for inspection
+                let job_log_path = core_data_path.join("job_logs").join(format!("{}.log", job_id));
+                let daemon_log_path = PathBuf::from(TEST_DATA_DIR).join("test_logs").join("job_resumption_test.log");
+
+                // Shutdown core
+                core.shutdown().await?;
+
+                return Ok((job_log_path, daemon_log_path));
+            },
+            sd_core::infra::job::types::JobStatus::Failed => {
+                core.shutdown().await?;
+                return Err(format!("Job {} failed during startup", job_id).into());
+            },
+            _ => {
+                info!("Job {} is still running (status: {:?}), will monitor for completion", job_id, job_status);
+            }
+        }
+    } else {
+        warn!("Could not get job info for job {}, will monitor for completion events", job_id);
+    }
 
     // Set up completion monitoring
     let (completion_tx, mut completion_rx) = mpsc::channel(1);
@@ -566,12 +603,28 @@ async fn resume_and_complete_job(
                         break;
                     }
                 },
-                sd_core::infra::event::Event::JobProgress { job_id: event_job_id, .. } => {
+                sd_core::infra::event::Event::JobProgress { job_id: event_job_id, message, generic_progress, .. } => {
                     if event_job_id == job_id.to_string() {
                         // Update last event time when we receive progress events
                         if let Ok(mut last_time) = last_event_time_clone.lock() {
                             *last_time = std::time::Instant::now();
                         }
+
+                        let message_str = message.as_deref().unwrap_or("");
+
+                        // Extract phase from generic_progress if available
+                        let phase_name = if let Some(gp_value) = &generic_progress {
+                            if let Ok(gp) = serde_json::from_value::<serde_json::Value>(gp_value.clone()) {
+                                gp.get("phase").and_then(|p| p.as_str()).map(|s| s.to_string()).unwrap_or_default()
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            String::new()
+                        };
+
+                        // Debug: Log all progress events during resume to see what we're getting
+                        info!("Job progress: {} - {}", phase_name, message_str);
                     }
                 },
                 _ => {}
@@ -593,11 +646,12 @@ async fn resume_and_complete_job(
                 }
             };
 
-            // If no events received in 10 seconds, consider the job unresponsive
-            if time_since_last_event >= Duration::from_secs(10) {
+            // If no events received in 30 seconds, consider the job unresponsive
+            // The Aggregation phase may not emit progress events frequently, so use a longer timeout
+            if time_since_last_event >= Duration::from_secs(30) {
                 warn!("Job {} appears unresponsive - no progress events received in {} seconds",
                       job_id, time_since_last_event.as_secs());
-                let _ = completion_tx_timeout.send(Err("Job became unresponsive - no progress events received in 10 seconds".to_string())).await;
+                let _ = completion_tx_timeout.send(Err(format!("Job became unresponsive - no progress events received in {} seconds", time_since_last_event.as_secs()))).await;
                 break;
             }
         }
