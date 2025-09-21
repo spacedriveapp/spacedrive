@@ -102,7 +102,7 @@ case $COMMAND in
         combine_files "$root_path" "*.rs" "combined_rust_files.txt" "Combined Rust Files" "rust" "true"
          ;;
     cli)
-        combine_files "../../apps/cli" "*.rs" "combined_cli_rust_files.txt" "Combined CLI Rust Files" "rust" "true"
+        combine_files "./apps/cli" "*.rs" "combined_cli_rust_files.txt" "Combined CLI Rust Files" "rust" "true"
          ;;
     tasks)
         combine_files "../.tasks" "*.md" "combined_tasks.txt" "Combined Task Files" "markdown" "false"

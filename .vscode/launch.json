@@ -19,9 +19,10 @@
 			},
 			"env": {
 				"RUST_BACKTRACE": "short"
-				// "RUST_LOG": "sd_core::invalidate-query=trace"
 			},
-			"sourceLanguages": ["rust"],
+			"sourceLanguages": [
+				"rust"
+			],
 			"preLaunchTask": "ui:dev"
 		},
 		{
@@ -36,7 +37,9 @@
 				],
 				"problemMatcher": "$rustc"
 			},
-			"sourceLanguages": ["rust"],
+			"sourceLanguages": [
+				"rust"
+			],
 			"preLaunchTask": "ui:build"
 		},
 		{
@@ -44,7 +47,12 @@
 			"request": "launch",
 			"name": "Debug unit tests in library 'sd-core'",
 			"cargo": {
-				"args": ["test", "--no-run", "--lib", "--package=sd-core"],
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=sd-core"
+				],
 				"filter": {
 					"name": "sd-core",
 					"kind": "lib"
@@ -58,7 +66,12 @@
 			"request": "launch",
 			"name": "Debug unit tests in library 'sd-crypto'",
 			"cargo": {
-				"args": ["test", "--no-run", "--lib", "--package=sd-crypto"],
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=sd-crypto"
+				],
 				"filter": {
 					"name": "sd-crypto",
 					"kind": "lib"
@@ -66,6 +79,24 @@
 			},
 			"args": [],
 			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "swift",
+			"request": "launch",
+			"args": [],
+			"cwd": "${workspaceFolder:spacedrive}/apps/spacedrive-companion",
+			"name": "Debug SpacedriveCompanion (apps/spacedrive-companion)",
+			"program": "${workspaceFolder:spacedrive}/apps/spacedrive-companion/.build/debug/SpacedriveCompanion",
+			"preLaunchTask": "swift: Build Debug SpacedriveCompanion (apps/spacedrive-companion)"
+		},
+		{
+			"type": "swift",
+			"request": "launch",
+			"args": [],
+			"cwd": "${workspaceFolder:spacedrive}/apps/spacedrive-companion",
+			"name": "Release SpacedriveCompanion (apps/spacedrive-companion)",
+			"program": "${workspaceFolder:spacedrive}/apps/spacedrive-companion/.build/release/SpacedriveCompanion",
+			"preLaunchTask": "swift: Build Release SpacedriveCompanion (apps/spacedrive-companion)"
 		}
 	]
 }

@@ -10,6 +10,7 @@ use sd_core::{
         indexing::IndexMode,
         locations::add::{action::LocationAddAction, action::LocationAddInput},
     },
+    testing::integration_utils::IntegrationTestSetup,
 };
 use std::{
     path::PathBuf,
@@ -24,15 +25,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tracing::{info, warn};
-// use std::process::Command;
 use uuid::Uuid;
-use sd_core::config::{AppConfig, ServiceConfig, JobLoggingConfig, Preferences};
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-use std::sync::Once;
-
-/// Test data directory in the repo for inspection
-const TEST_DATA_DIR: &str = "data";
 
 /// Benchmark recipe name to use for test data generation
 /// Using existing generated data from desktop_complex (or fallback to shape_medium if available)
@@ -62,59 +55,9 @@ struct TestResult {
     success: bool,
     error: Option<String>,
     job_log_path: Option<PathBuf>,
-    daemon_log_path: Option<PathBuf>,
+    test_log_path: Option<PathBuf>,
 }
 
-/// Initialize tracing with both console and file logging for test debugging
-fn initialize_test_tracing() -> Result<(), Box<dyn std::error::Error>> {
-    static INIT: Once = Once::new();
-    let mut result: Result<(), Box<dyn std::error::Error>> = Ok(());
-
-    INIT.call_once(|| {
-        // Ensure test logs directory exists
-        let test_logs_dir = PathBuf::from(TEST_DATA_DIR).join("test_logs");
-        if let Err(e) = std::fs::create_dir_all(&test_logs_dir) {
-            result = Err(format!("Failed to create test logs directory: {}", e).into());
-            return;
-        }
-
-        // Set up environment filter with detailed logging for tests
-        let env_filter = std::env::var("RUST_LOG")
-            .unwrap_or_else(|_| "warn,sd_core=info,job_resumption_integration_test=info".to_string());
-
-        // Create file appender that rotates daily
-        let file_appender = RollingFileAppender::new(
-            Rotation::DAILY,
-            test_logs_dir,
-            "job_resumption_test.log"
-        );
-
-        // Set up layered subscriber with stdout, file output
-        if let Err(e) = tracing_subscriber::registry()
-            .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter)))
-            .with(
-                fmt::layer()
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_line_number(true)
-                    .with_writer(std::io::stdout),
-            )
-            .with(
-                fmt::layer()
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_line_number(true)
-                    .with_ansi(false) // No ANSI colors in log files
-                    .with_writer(file_appender),
-            )
-            .try_init()
-        {
-            result = Err(format!("Failed to initialize tracing: {}", e).into());
-        }
-    });
-
-    result
-}
 
 /// Main integration test for job resumption with realistic desktop-scale data
 ///
@@ -130,9 +73,6 @@ fn initialize_test_tracing() -> Result<(), Box<dyn std::error::Error>> {
 /// - Each interrupted job should cleanly pause and resume from where it left off
 #[tokio::test]
 async fn test_job_resumption_at_various_points() {
-    // Initialize tracing for test debugging with file logging
-    initialize_test_tracing().expect("Failed to initialize tracing");
-
     info!("Starting job resumption integration test");
 
     // Generate benchmark data (or use existing data)
@@ -184,7 +124,7 @@ async fn test_job_resumption_at_various_points() {
     }
 
     info!("All job resumption tests passed! 🎉");
-    info!("Test logs available at: {}/test_logs/job_resumption_test.log", TEST_DATA_DIR);
+    info!("Test logs and data available in: test_data/");
 }
 
 /// Generate test data using benchmark data generation
@@ -241,31 +181,6 @@ async fn generate_test_data() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(indexing_data_path)
 }
 
-/// Create a test configuration with services disabled for faster testing
-async fn create_test_config(data_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    let config = AppConfig {
-        version: 3,
-        data_dir: data_dir.clone(),
-        log_level: "warn".to_string(), // Reduce log noise
-        telemetry_enabled: false,
-        preferences: Preferences::default(),
-        job_logging: JobLoggingConfig {
-            enabled: true,
-            log_directory: "job_logs".to_string(),
-            max_file_size: 10 * 1024 * 1024,
-            include_debug: false,
-        },
-        services: ServiceConfig {
-            networking_enabled: false,      // Disable networking for faster tests
-            volume_monitoring_enabled: false, // Disable volume monitoring
-            location_watcher_enabled: true,   // Keep location watcher for indexing
-        },
-    };
-
-    config.save()?;
-    info!("Created test configuration with disabled services at: {}", data_dir.display());
-    Ok(())
-}
 
 /// Test a single interruption point scenario
 async fn test_single_interruption_point(
@@ -274,20 +189,29 @@ async fn test_single_interruption_point(
     test_index: usize,
 ) -> TestResult {
     let test_name = format!("test_{:02}_{:?}", test_index, interruption_point);
-    let test_data_path = PathBuf::from(TEST_DATA_DIR);
-    let core_data_path = test_data_path.join(&test_name);
 
-    // Clean core data directory for this test
-    if core_data_path.exists() {
-        let _ = std::fs::remove_dir_all(&core_data_path);
-    }
-    std::fs::create_dir_all(&core_data_path).expect("Failed to create core data directory");
+    // Create test environment with custom tracing
+    let test_setup = match IntegrationTestSetup::with_tracing(
+        &test_name,
+        "warn,sd_core=info,job_resumption_integration_test=info"
+    ).await {
+        Ok(setup) => setup,
+        Err(error) => {
+            return TestResult {
+                interruption_point,
+                success: false,
+                error: Some(format!("Failed to create test setup: {}", error)),
+                job_log_path: None,
+                test_log_path: None,
+            };
+        }
+    };
 
     info!("Testing {} with data at {}", test_name, indexing_data_path.display());
 
     // Phase 1: Start indexing and interrupt at specified point
     let interrupt_result = start_and_interrupt_job(
-        &core_data_path,
+        &test_setup,
         indexing_data_path,
         &interruption_point,
     ).await;
@@ -300,7 +224,7 @@ async fn test_single_interruption_point(
                 success: false,
                 error: Some(format!("Failed to interrupt job: {}", error)),
                 job_log_path: None,
-                daemon_log_path: None,
+                test_log_path: None,
             };
         }
     };
@@ -310,42 +234,39 @@ async fn test_single_interruption_point(
 
     // Phase 2: Resume and complete the job
     let resume_result = resume_and_complete_job(
-        &core_data_path,
+        &test_setup,
         indexing_data_path,
         job_id,
     ).await;
 
     match resume_result {
-        Ok((job_log_path, daemon_log_path)) => TestResult {
+        Ok((job_log_path, test_log_path)) => TestResult {
             interruption_point,
             success: true,
             error: None,
             job_log_path: Some(job_log_path),
-            daemon_log_path: Some(daemon_log_path),
+            test_log_path: Some(test_log_path),
         },
         Err(error) => TestResult {
             interruption_point,
             success: false,
             error: Some(format!("Failed to resume job: {}", error)),
             job_log_path: None,
-            daemon_log_path: None,
+            test_log_path: None,
         },
     }
 }
 
 /// Start indexing job and interrupt at specified point
 async fn start_and_interrupt_job(
-    core_data_path: &PathBuf,
+    test_setup: &IntegrationTestSetup,
     indexing_data_path: &PathBuf,
     interruption_point: &InterruptionPoint,
 ) -> Result<Uuid, Box<dyn std::error::Error>> {
     info!("Starting job and waiting for interruption point: {:?}", interruption_point);
 
-    // Create custom config with services disabled for faster testing
-    create_test_config(core_data_path).await?;
-
-    // Create core with isolated data directory
-    let core = sd_core::Core::new_with_config(core_data_path.clone()).await?;
+    // Create core using the test setup's configuration
+    let core = test_setup.create_core().await?;
     let core_context = core.context.clone();
 
     // Create library
@@ -494,9 +415,8 @@ async fn start_and_interrupt_job(
         }
     });
 
-    // Wait for interruption point or timeout (increased for large dataset)
-    // With 500k files, indexing can take 10+ minutes, so allow plenty of time for interruption
-    let interrupt_timeout = timeout(Duration::from_secs(600), interrupt_rx.recv()).await;
+    // Wait for interruption point or timeout
+    let interrupt_timeout = timeout(Duration::from_secs(30), interrupt_rx.recv()).await;
 
     match interrupt_timeout {
         Ok(Some(())) => {
@@ -519,15 +439,14 @@ async fn start_and_interrupt_job(
 
 /// Resume and complete the interrupted job
 async fn resume_and_complete_job(
-    core_data_path: &PathBuf,
+    test_setup: &IntegrationTestSetup,
     _indexing_data_path: &PathBuf,
     job_id: Uuid,
 ) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
     info!("Resuming job {} and waiting for completion", job_id);
 
-    // The test config should already exist from the first phase
     // Create core again (simulating daemon restart)
-    let core = sd_core::Core::new_with_config(core_data_path.clone()).await?;
+    let core = test_setup.create_core().await?;
     let core_context = core.context.clone();
 
     // Get the library (should auto-load)
@@ -551,13 +470,13 @@ async fn resume_and_complete_job(
                 info!("Job {} already completed during startup, no need to wait for events", job_id);
 
                 // Collect log paths for inspection
-                let job_log_path = core_data_path.join("job_logs").join(format!("{}.log", job_id));
-                let daemon_log_path = PathBuf::from(TEST_DATA_DIR).join("test_logs").join("job_resumption_test.log");
+                let job_log_path = test_setup.env().job_log_path(job_id);
+                let test_log_path = test_setup.env().log_file_path(&format!("{}.log", test_setup.env().test_name));
 
                 // Shutdown core
                 core.shutdown().await?;
 
-                return Ok((job_log_path, daemon_log_path));
+                return Ok((job_log_path, test_log_path));
             },
             sd_core::infra::job::types::JobStatus::Failed => {
                 core.shutdown().await?;
@@ -666,13 +585,13 @@ async fn resume_and_complete_job(
             info!("Job completed successfully");
 
             // Collect log paths for inspection
-            let job_log_path = core_data_path.join("job_logs").join(format!("{}.log", job_id));
-            let daemon_log_path = PathBuf::from(TEST_DATA_DIR).join("test_logs").join("job_resumption_test.log");
+            let job_log_path = test_setup.env().job_log_path(job_id);
+            let test_log_path = test_setup.env().log_file_path(&format!("{}.log", test_setup.env().test_name));
 
             // Shutdown core
             core.shutdown().await?;
 
-            Ok((job_log_path, daemon_log_path))
+            Ok((job_log_path, test_log_path))
         },
         Ok(Some(Err(error))) => {
             core.shutdown().await?;
@@ -710,8 +629,8 @@ fn analyze_test_results(results: &[TestResult]) {
             if let Some(job_log) = &result.job_log_path {
                 warn!("    Job log: {}", job_log.display());
             }
-            if let Some(daemon_log) = &result.daemon_log_path {
-                warn!("    Daemon log: {}", daemon_log.display());
+            if let Some(test_log) = &result.test_log_path {
+                warn!("    Test log: {}", test_log.display());
             }
         }
     }
@@ -735,6 +654,6 @@ fn analyze_test_results(results: &[TestResult]) {
         info!("  {}: {}/{} passed", phase, phase_passed, phase_total);
     }
 
-    info!("Test data and logs available in: {}", TEST_DATA_DIR);
+    info!("Test data and logs available in: test_data/");
 }
 

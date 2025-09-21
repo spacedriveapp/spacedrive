@@ -5,5 +5,6 @@
 //! as the subprocess executor, coordinated via environment variables.
 
 pub mod runner;
+pub mod integration_utils;
 
 pub use runner::CargoTestRunner;
