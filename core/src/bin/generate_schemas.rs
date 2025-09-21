@@ -20,9 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		"✅ Generated types.json with {} queries, {} actions, and {} common types",
 		schema.queries.len(),
 		schema.actions.len(),
-		schema.common_types.len()
+		schema.core_types.len()
 	);
 
 	Ok(())
 }
-

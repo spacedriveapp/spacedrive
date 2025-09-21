@@ -8,6 +8,19 @@ use schemars::{schema_for, JsonSchema};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
+
+/// Macro to automatically register a type for schema extraction
+macro_rules! register_schema_type {
+	($map:expr, $type:ty) => {
+		$map.insert(
+			stringify!($type).split("::").last().unwrap().to_string(),
+			schema_for!($type),
+		);
+	};
+	($map:expr, $name:expr, $type:ty) => {
+		$map.insert($name.to_string(), schema_for!($type));
+	};
+}
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -42,7 +55,7 @@ pub struct UnifiedSchema {
 	pub queries: Vec<OperationMetadata>,
 	pub actions: Vec<OperationMetadata>,
 	pub events: Schema,
-	pub common_types: HashMap<String, RootSchema>,
+	pub core_types: HashMap<String, RootSchema>,
 }
 
 impl UnifiedSchema {
@@ -52,7 +65,7 @@ impl UnifiedSchema {
 			queries: Vec::new(),
 			actions: Vec::new(),
 			events: Schema::Bool(true), // Placeholder until Event supports JsonSchema
-			common_types: HashMap::new(),
+			core_types: HashMap::new(),
 		};
 
 		// Extract query metadata
@@ -62,7 +75,7 @@ impl UnifiedSchema {
 		schema.extract_actions()?;
 
 		// Extract common types used across operations
-		schema.extract_common_types()?;
+		schema.extract_core_types()?;
 
 		Ok(schema)
 	}
@@ -137,29 +150,68 @@ impl UnifiedSchema {
 	}
 
 	/// Extract common types used across operations
-	fn extract_common_types(&mut self) -> Result<(), ExtractionError> {
-		// Add commonly used domain types
-		self.common_types.insert(
-			"SdPath".to_string(),
-			schema_for!(crate::domain::addressing::SdPath),
-		);
-		self.common_types.insert(
-			"SdPathBatch".to_string(),
-			schema_for!(crate::domain::addressing::SdPathBatch),
-		);
+	fn extract_core_types(&mut self) -> Result<(), ExtractionError> {
+		// Auto-register all important types that have JsonSchema derives
+		// This is much cleaner and easier to maintain!
 
-		// Add output types that we know have JsonSchema derives
-		self.common_types.insert(
-			"JobInfoOutput".to_string(),
-			schema_for!(crate::ops::jobs::info::output::JobInfoOutput),
+		// Core event system - THE MAIN TYPE WE NEEDED!
+		register_schema_type!(self.core_types, crate::infra::event::Event);
+		register_schema_type!(self.core_types, crate::infra::event::FsRawEventKind);
+		register_schema_type!(self.core_types, crate::infra::event::FileOperation);
+
+		// Domain types
+		register_schema_type!(self.core_types, crate::domain::addressing::SdPath);
+		register_schema_type!(self.core_types, crate::domain::addressing::SdPathBatch);
+
+		// Job system types
+		register_schema_type!(self.core_types, crate::infra::job::output::JobOutput);
+		register_schema_type!(self.core_types, crate::infra::job::types::JobStatus);
+		register_schema_type!(
+			self.core_types,
+			crate::infra::job::generic_progress::GenericProgress
 		);
-		self.common_types.insert(
-			"FileCopyActionOutput".to_string(),
-			schema_for!(crate::ops::files::copy::output::FileCopyActionOutput),
+		register_schema_type!(
+			self.core_types,
+			crate::infra::job::generic_progress::ProgressCompletion
 		);
-		self.common_types.insert(
-			"LocationAddOutput".to_string(),
-			schema_for!(crate::ops::locations::add::output::LocationAddOutput),
+		register_schema_type!(
+			self.core_types,
+			crate::infra::job::generic_progress::PerformanceMetrics
+		);
+		register_schema_type!(self.core_types, crate::infra::job::progress::Progress);
+
+		// Volume system types
+		register_schema_type!(self.core_types, crate::volume::types::Volume);
+		register_schema_type!(self.core_types, crate::volume::types::VolumeFingerprint);
+		register_schema_type!(self.core_types, crate::volume::types::VolumeInfo);
+		register_schema_type!(self.core_types, crate::volume::types::VolumeType);
+		register_schema_type!(self.core_types, crate::volume::types::MountType);
+		register_schema_type!(self.core_types, crate::volume::types::DiskType);
+		register_schema_type!(self.core_types, crate::volume::types::FileSystem);
+		register_schema_type!(self.core_types, crate::volume::types::ApfsContainer);
+		register_schema_type!(self.core_types, crate::volume::types::ApfsVolumeInfo);
+		register_schema_type!(self.core_types, crate::volume::types::ApfsVolumeRole);
+		register_schema_type!(self.core_types, crate::volume::types::PathMapping);
+
+		// Indexing types
+		register_schema_type!(
+			self.core_types,
+			crate::ops::indexing::metrics::IndexerMetrics
+		);
+		register_schema_type!(self.core_types, crate::ops::indexing::state::IndexerStats);
+
+		// Output types that we know have JsonSchema derives
+		register_schema_type!(
+			self.core_types,
+			crate::ops::jobs::info::output::JobInfoOutput
+		);
+		register_schema_type!(
+			self.core_types,
+			crate::ops::files::copy::output::FileCopyActionOutput
+		);
+		register_schema_type!(
+			self.core_types,
+			crate::ops::locations::add::output::LocationAddOutput
 		);
 
 		Ok(())
@@ -189,7 +241,7 @@ impl UnifiedSchema {
 				}
 			})).collect::<Vec<_>>(),
 			"events": self.events,
-			"types": self.common_types
+			"types": self.core_types
 		});
 
 		std::fs::write(output_path, serde_json::to_string_pretty(&unified)?)?;

@@ -43,7 +43,7 @@ public class SpacedriveClient {
 
         // 4. Handle response
         switch response {
-        case .success(let data):
+        case .ok(let data):
             do {
                 return try JSONDecoder().decode(responseType, from: data)
             } catch {
@@ -51,8 +51,8 @@ public class SpacedriveClient {
             }
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .event:
-            throw SpacedriveError.invalidResponse("Unexpected event response to query")
+        case .pong, .event, .subscribed, .unsubscribed:
+            throw SpacedriveError.invalidResponse("Unexpected response to query")
         }
     }
 
@@ -83,7 +83,7 @@ public class SpacedriveClient {
 
         // 4. Handle response
         switch response {
-        case .success(let data):
+        case .ok(let data):
             do {
                 return try JSONDecoder().decode(responseType, from: data)
             } catch {
@@ -91,8 +91,8 @@ public class SpacedriveClient {
             }
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .event:
-            throw SpacedriveError.invalidResponse("Unexpected event response to action")
+        case .pong, .event, .subscribed, .unsubscribed:
+            throw SpacedriveError.invalidResponse("Unexpected response to action")
         }
     }
 
@@ -133,7 +133,7 @@ public class SpacedriveClient {
     private func sendRequest(_ request: DaemonRequest) async throws -> DaemonResponse {
         let connection = try await createConnection()
         defer { close(connection) }
-        
+
         try await sendRequestOverConnection(request, connection: connection)
         return try await readResponseFromConnection(connection)
     }
@@ -141,7 +141,7 @@ public class SpacedriveClient {
     /// Create a Unix domain socket connection to the daemon
     private func createConnection() async throws -> Int32 {
         print("🔗 Creating BSD socket connection to: \(socketPath)")
-        
+
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
                 do {
@@ -151,7 +151,7 @@ public class SpacedriveClient {
                         continuation.resume(throwing: SpacedriveError.connectionFailed("Failed to create socket"))
                         return
                     }
-                    
+
                     // Set up address
                     var addr = sockaddr_un()
                     addr.sun_family = sa_family_t(AF_UNIX)
@@ -162,7 +162,7 @@ public class SpacedriveClient {
                         continuation.resume(throwing: SpacedriveError.connectionFailed("Socket path too long"))
                         return
                     }
-                    
+
                     // Copy path bytes to sun_path
                     withUnsafeMutablePointer(to: &addr.sun_path.0) { pathPtr in
                         for (index, byte) in pathBytes.enumerated() {
@@ -170,21 +170,21 @@ public class SpacedriveClient {
                             pathPtr.advanced(by: index).pointee = byte
                         }
                     }
-                    
+
                     // Connect
                     let connectResult = withUnsafePointer(to: &addr) { ptr in
                         ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
                             Darwin.connect(socketFD, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
                         }
                     }
-                    
+
                     guard connectResult == 0 else {
                         let errorMsg = String(cString: strerror(errno))
                         close(socketFD)
                         continuation.resume(throwing: SpacedriveError.connectionFailed("Failed to connect: \(errorMsg)"))
                         return
                     }
-                    
+
                     print("✅ BSD socket connected successfully!")
                     continuation.resume(returning: socketFD)
                 } catch {
@@ -198,15 +198,15 @@ public class SpacedriveClient {
     private func sendRequestOverConnection(_ request: DaemonRequest, connection: Int32) async throws {
         let requestData = try JSONEncoder().encode(request)
         let requestLine = requestData + Data("\n".utf8)
-        
+
         print("📤 Sending request: \(String(data: requestData, encoding: .utf8) ?? "invalid")")
-        
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global().async {
                 let sendResult = requestLine.withUnsafeBytes { bytes in
                     send(connection, bytes.bindMemory(to: UInt8.self).baseAddress, requestLine.count, 0)
                 }
-                
+
                 if sendResult == -1 {
                     let errorMsg = String(cString: strerror(errno))
                     continuation.resume(throwing: SpacedriveError.connectionFailed("Send failed: \(errorMsg)"))
@@ -217,23 +217,23 @@ public class SpacedriveClient {
             }
         }
     }
-    
+
     /// Read a response from an existing connection
     private func readResponseFromConnection(_ connection: Int32) async throws -> DaemonResponse {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
                 var buffer = [UInt8](repeating: 0, count: 4096)
                 let readResult = recv(connection, &buffer, buffer.count, 0)
-                
+
                 guard readResult > 0 else {
                     let errorMsg = String(cString: strerror(errno))
                     continuation.resume(throwing: SpacedriveError.connectionFailed("Receive failed: \(errorMsg)"))
                     return
                 }
-                
+
                 let responseData = Data(buffer.prefix(readResult))
                 print("📥 Received \(readResult) bytes: \(String(data: responseData, encoding: .utf8) ?? "invalid")")
-                
+
                 do {
                     // Find the newline delimiter and parse JSON
                     if let responseString = String(data: responseData, encoding: .utf8) {
@@ -316,38 +316,58 @@ private struct SubscribeRequest: Codable {
 
 /// Response types that match the Rust daemon protocol
 internal enum DaemonResponse: Codable {
-    case success(Data)
+    case pong
+    case ok(Data)
     case error(String)
     case event(Data)
-
-    enum CodingKeys: String, CodingKey {
-        case success = "Success"
-        case error = "Error"
-        case event = "Event"
-    }
+    case subscribed
+    case unsubscribed
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
 
-        if let dict = try? container.decode([String: String].self) {
-            if let successData = dict["Success"] {
-                self = .success(Data(successData.utf8))
-            } else if let errorMsg = dict["Error"] {
-                self = .error(errorMsg)
-            } else if let eventData = dict["Event"] {
-                self = .event(Data(eventData.utf8))
-            } else {
-                throw DecodingError.dataCorrupted(DecodingError.Context(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Unknown response type"
-                ))
+        // Try to decode as a simple string first (for Pong, Subscribed, Unsubscribed)
+        if let stringValue = try? container.decode(String.self) {
+            switch stringValue {
+            case "Pong":
+                self = .pong
+            case "Subscribed":
+                self = .subscribed
+            case "Unsubscribed":
+                self = .unsubscribed
+            default:
+                throw DecodingError.dataCorrupted(
+                    DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unknown string response: \(stringValue)")
+                )
             }
-        } else {
-            throw DecodingError.dataCorrupted(DecodingError.Context(
-                codingPath: decoder.codingPath,
-                debugDescription: "Invalid response format"
-            ))
+            return
         }
+
+        // Try to decode as an object with variants
+        let variantContainer = try decoder.container(keyedBy: VariantKeys.self)
+
+        if variantContainer.contains(.ok) {
+            let okData = try variantContainer.decode([UInt8].self, forKey: .ok)
+            self = .ok(Data(okData))
+        } else if variantContainer.contains(.error) {
+            // For now, decode error as a string - we can improve this later
+            let errorData = try variantContainer.decode(Data.self, forKey: .error)
+            let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
+            self = .error(errorMsg)
+        } else if variantContainer.contains(.event) {
+            let eventData = try variantContainer.decode(Data.self, forKey: .event)
+            self = .event(eventData)
+        } else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unknown variant response")
+            )
+        }
+    }
+
+    enum VariantKeys: String, CodingKey {
+        case ok = "Ok"
+        case error = "Error"
+        case event = "Event"
     }
 }
 
@@ -408,12 +428,12 @@ extension SpacedriveClient {
         let response = try await sendRequest(request)
 
         switch response {
-        case .success(let data):
+        case .ok(let data):
             return data
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .event:
-            throw SpacedriveError.invalidResponse("Unexpected event response")
+        case .pong, .event, .subscribed, .unsubscribed:
+            throw SpacedriveError.invalidResponse("Unexpected response")
         }
     }
 
@@ -431,12 +451,12 @@ extension SpacedriveClient {
         let response = try await sendRequest(request)
 
         switch response {
-        case .success(let data):
+        case .ok(let data):
             return data
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .event:
-            throw SpacedriveError.invalidResponse("Unexpected event response")
+        case .pong, .event, .subscribed, .unsubscribed:
+            throw SpacedriveError.invalidResponse("Unexpected response")
         }
     }
 
@@ -446,15 +466,15 @@ extension SpacedriveClient {
         let response = try await sendRequest(.ping)
         print("🏓 Received ping response: \(response)")
         switch response {
-        case .success:
+        case .pong:
             print("✅ Ping successful!")
             return
         case .error(let error):
             print("❌ Ping failed with daemon error: \(error)")
             throw SpacedriveError.daemonError("Ping failed: \(error)")
-        case .event:
-            print("❌ Ping received unexpected event response")
-            throw SpacedriveError.invalidResponse("Unexpected event response to ping")
+        case .ok, .event, .subscribed, .unsubscribed:
+            print("❌ Ping received unexpected response")
+            throw SpacedriveError.invalidResponse("Unexpected response to ping")
         }
     }
 }

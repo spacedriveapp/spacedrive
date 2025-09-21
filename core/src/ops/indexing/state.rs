@@ -1,6 +1,7 @@
 //! Indexer state management and progress tracking
 
 use crate::domain::addressing::SdPath;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
@@ -24,7 +25,7 @@ pub struct IndexerProgress {
 }
 
 /// Statistics collected during indexing
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema)]
 pub struct IndexerStats {
 	pub files: u64,
 	pub dirs: u64,

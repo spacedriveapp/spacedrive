@@ -11,8 +11,7 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 /// Core events that can be emitted throughout the system
-/// TODO: Add JsonSchema derive once all dependencies support it
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum Event {
 	// Core lifecycle events
 	CoreStarted,
@@ -202,7 +201,7 @@ pub enum Event {
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum FsRawEventKind {
 	Create { path: PathBuf },
 	Modify { path: PathBuf },
@@ -211,7 +210,7 @@ pub enum FsRawEventKind {
 }
 
 /// Types of file operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum FileOperation {
 	Copy,
 	Move,

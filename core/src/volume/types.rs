@@ -1,12 +1,13 @@
 //! Volume type definitions
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Represents an APFS container (physical storage with multiple volumes)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ApfsContainer {
 	/// Container identifier (e.g., "disk3")
 	pub container_id: String,
@@ -25,7 +26,7 @@ pub struct ApfsContainer {
 }
 
 /// APFS volume information within a container
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ApfsVolumeInfo {
 	/// Volume disk identifier (e.g., "disk3s5")
 	pub disk_id: String,
@@ -46,7 +47,7 @@ pub struct ApfsVolumeInfo {
 }
 
 /// APFS volume roles in the container
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub enum ApfsVolumeRole {
 	/// System volume (read-only system files)
 	System,
@@ -76,7 +77,7 @@ impl fmt::Display for ApfsVolumeRole {
 }
 
 /// Path mapping for resolving virtual paths to actual storage locations
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct PathMapping {
 	/// Virtual path (e.g., "/Users")
 	pub virtual_path: PathBuf,
@@ -101,7 +102,7 @@ pub struct SpacedriveVolumeId {
 }
 
 /// Unique fingerprint for a storage volume
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, JsonSchema)]
 pub struct VolumeFingerprint(pub String);
 
 impl VolumeFingerprint {
@@ -177,7 +178,7 @@ impl fmt::Display for VolumeFingerprint {
 }
 
 /// Classification of volume types for UX and auto-tracking decisions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum VolumeType {
 	/// Primary system drive containing OS and user data
 	/// Examples: C:\ on Windows, / on Linux, Macintosh HD on macOS
@@ -287,7 +288,7 @@ pub enum VolumeEvent {
 }
 
 /// Represents a physical or virtual storage volume in the system
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 pub struct Volume {
 	/// Unique fingerprint for this volume
 	pub fingerprint: VolumeFingerprint,
@@ -350,7 +351,7 @@ pub struct Volume {
 }
 
 /// Summary information about a volume (for updates and caching)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct VolumeInfo {
 	pub is_mounted: bool,
 	pub total_bytes_available: u64,
@@ -585,7 +586,7 @@ impl Volume {
 }
 
 /// Represents the type of physical storage device
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, JsonSchema)]
 pub enum DiskType {
 	/// Solid State Drive
 	SSD,
@@ -616,7 +617,7 @@ impl DiskType {
 }
 
 /// Represents the filesystem type of the volume
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, JsonSchema)]
 pub enum FileSystem {
 	/// Windows NTFS filesystem
 	NTFS,
@@ -681,7 +682,7 @@ impl FileSystem {
 }
 
 /// Represents how the volume is mounted in the system
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, JsonSchema)]
 pub enum MountType {
 	/// System/boot volume
 	System,

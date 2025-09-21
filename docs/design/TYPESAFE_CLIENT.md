@@ -165,7 +165,7 @@ pub struct UnifiedSchema {
     pub queries: Vec<OperationMetadata>,
     pub actions: Vec<OperationMetadata>,
     pub events: Schema,
-    pub common_types: HashMap<String, Schema>,
+    pub core_types: HashMap<String, Schema>,
 }
 
 impl UnifiedSchema {
@@ -174,7 +174,7 @@ impl UnifiedSchema {
             queries: Vec::new(),
             actions: Vec::new(),
             events: schema_for!(Event),
-            common_types: HashMap::new(),
+            core_types: HashMap::new(),
         };
 
         // Extract query metadata
@@ -184,7 +184,7 @@ impl UnifiedSchema {
         schema.extract_actions()?;
 
         // Extract common types used across operations
-        schema.extract_common_types()?;
+        schema.extract_core_types()?;
 
         Ok(schema)
     }
@@ -220,7 +220,7 @@ impl UnifiedSchema {
                 "output": a.output_schema
             })).collect::<Vec<_>>(),
             "events": self.events,
-            "types": self.common_types
+            "types": self.core_types
         });
 
         std::fs::write(output_path, serde_json::to_string_pretty(&unified)?)?;

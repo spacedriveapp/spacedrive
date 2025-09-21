@@ -1,12 +1,13 @@
 //! Job output types
 
 use crate::ops::indexing::{metrics::IndexerMetrics, state::IndexerStats};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use super::progress::Progress;
 
 /// Output from a completed job
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", content = "data")]
 pub enum JobOutput {
     /// Job completed successfully with no specific output
