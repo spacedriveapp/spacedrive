@@ -1,6 +1,7 @@
 //! Core types for the job system
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::fmt;
 use uuid::Uuid;
 
@@ -34,9 +35,19 @@ impl From<JobId> for Uuid {
 
 /// Current status of a job
 #[derive(
-	Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::EnumString, schemars::JsonSchema,
+	Debug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Serialize,
+	Deserialize,
+	strum::Display,
+	strum::EnumString,
+	Type,
 )]
 #[serde(rename_all = "snake_case")]
+#[specta(rename_all = "snake_case")] // Tell Specta to match serde serialization
 #[strum(serialize_all = "lowercase")]
 pub enum JobStatus {
 	/// Job is waiting to be executed

@@ -2,16 +2,17 @@
 
 pub mod log_emitter;
 
-use crate::infra::job::output::JobOutput;
-use schemars::JsonSchema;
+use crate::infra::job::{generic_progress::GenericProgress, output::JobOutput};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 use tokio::sync::broadcast;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
 /// A central event type that represents all events that can be emitted throughout the system
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all_fields = "snake_case")]
 pub enum Event {
 	// Core lifecycle events
 	CoreStarted,
@@ -103,7 +104,7 @@ pub enum Event {
 		progress: f64,
 		message: Option<String>,
 		// Enhanced progress data - serialized GenericProgress
-		generic_progress: Option<serde_json::Value>,
+		generic_progress: Option<GenericProgress>,
 	},
 	JobCompleted {
 		job_id: String,
@@ -196,12 +197,13 @@ pub enum Event {
 	// Custom events for extensibility
 	Custom {
 		event_type: String,
+		#[specta(skip)]
 		data: serde_json::Value,
 	},
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum FsRawEventKind {
 	Create { path: PathBuf },
 	Modify { path: PathBuf },
@@ -210,7 +212,7 @@ pub enum FsRawEventKind {
 }
 
 /// Types of file operations
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum FileOperation {
 	Copy,
 	Move,

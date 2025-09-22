@@ -48,15 +48,15 @@ enum JobStatus: String, Codable, CaseIterable {
     var icon: String {
         switch self {
         case .running:
-            return "⚡️"
+            return "circle.fill"
         case .completed:
-            return "✅"
+            return "checkmark.circle.fill"
         case .failed:
-            return "❌"
+            return "xmark.circle.fill"
         case .paused:
-            return "⏸️"
+            return "pause.circle.fill"
         case .queued:
-            return "⏳"
+            return "clock.fill"
         }
     }
 }

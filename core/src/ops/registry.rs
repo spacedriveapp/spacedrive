@@ -31,20 +31,12 @@ pub type ActionHandlerFn = fn(
 pub struct QueryEntry {
 	pub method: &'static str,
 	pub handler: QueryHandlerFn,
-	pub schema_generator: Option<
-		fn() -> (
-			Option<schemars::schema::RootSchema>,
-			schemars::schema::RootSchema,
-		),
-	>,
 }
 
 /// Registry entry for an action operation.
 pub struct ActionEntry {
 	pub method: &'static str,
 	pub handler: ActionHandlerFn,
-	pub schema_generator:
-		Option<fn() -> (schemars::schema::RootSchema, schemars::schema::RootSchema)>,
 }
 
 inventory::collect!(QueryEntry);
@@ -200,30 +192,6 @@ macro_rules! register_query {
 			$crate::ops::registry::QueryEntry {
 				method: < $query as $crate::client::Wire >::METHOD,
 				handler: $crate::ops::registry::handle_query::<$query>,
-				schema_generator: None, // TODO: Enable once all query outputs implement JsonSchema
-			}
-		}
-	};
-}
-
-/// Register a query with schema generation (for queries with JsonSchema support)
-#[macro_export]
-macro_rules! register_query_with_schema {
-	($query:ty, $name:literal) => {
-		impl $crate::client::Wire for $query {
-			const METHOD: &'static str = $crate::query_method!($name);
-		}
-		inventory::submit! {
-			$crate::ops::registry::QueryEntry {
-				method: < $query as $crate::client::Wire >::METHOD,
-				handler: $crate::ops::registry::handle_query::<$query>,
-				schema_generator: Some(|| {
-					use schemars::schema_for;
-					(
-						None, // Query input is the query type itself, often empty
-						schema_for!(<$query as $crate::cqrs::Query>::Output)
-					)
-				}),
 			}
 		}
 	};
@@ -240,7 +208,6 @@ macro_rules! register_library_action {
 			$crate::ops::registry::ActionEntry {
 				method: << $action as $crate::infra::action::LibraryAction >::Input as $crate::client::Wire >::METHOD,
 				handler: $crate::ops::registry::handle_library_action::<$action>,
-				schema_generator: None, // TODO: Enable once all library action inputs/outputs implement JsonSchema
 			}
 		}
 	};
@@ -257,7 +224,6 @@ macro_rules! register_core_action {
 			$crate::ops::registry::ActionEntry {
 				method: << $action as $crate::infra::action::CoreAction >::Input as $crate::client::Wire >::METHOD,
 				handler: $crate::ops::registry::handle_core_action::<$action>,
-				schema_generator: None, // TODO: Enable once all core action inputs/outputs implement JsonSchema
 			}
 		}
 	};

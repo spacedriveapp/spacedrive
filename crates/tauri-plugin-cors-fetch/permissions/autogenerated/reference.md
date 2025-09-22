@@ -2,6 +2,8 @@
 
 Allows all fetch operations
 
+#### This default permission set includes the following:
+
 - `allow-cancel-cors-request`
 - `allow-cors-request`
 

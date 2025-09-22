@@ -23,18 +23,18 @@ struct JobMonitorView: View {
 
     private var headerView: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Spacedrive Jobs")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.primary)
 
                 HStack(spacing: 6) {
                     Circle()
                         .fill(connectionStatusColor)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 6, height: 6)
 
                     Text(viewModel.connectionStatus.displayName)
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
             }
@@ -46,14 +46,14 @@ struct JobMonitorView: View {
                 viewModel.reconnect()
             }) {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
             }
             .buttonStyle(PlainButtonStyle())
             .help("Reconnect to daemon")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     private var connectionStatusColor: Color {
@@ -90,7 +90,7 @@ struct JobMonitorView: View {
 
     private var jobListView: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 4) {
                 ForEach(viewModel.jobs) { job in
                     JobRowView(job: job)
                         .transition(.asymmetric(
@@ -99,10 +99,10 @@ struct JobMonitorView: View {
                         ))
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
-        .animation(.easeInOut(duration: 0.3), value: viewModel.jobs.count)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.jobs.count)
     }
 }
 

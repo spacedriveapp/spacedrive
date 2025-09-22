@@ -41,7 +41,7 @@ pub enum Error {
 
 	#[error("hex error: {0}")]
 	Hex(#[from] hex::FromHexError),
-
-	#[error("Entropy source error: {0}")]
-	EntropySource(#[from] rand_core::getrandom::Error),
+	// EntropySource error temporarily removed due to rand_core version conflicts
+	// #[error("Entropy source error: {0}")]
+	// EntropySource(#[from] rand_core::Error),
 }

@@ -6,31 +6,31 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "jest",
-    "generate": "./generate_client.sh",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "test": "jest",
+    "generate-types": "cargo run --bin generate_typescript_types --manifest-path ../../core/Cargo.toml"
   },
   "keywords": [
     "spacedrive",
     "client",
     "typescript",
-    "type-safe"
+    "daemon"
   ],
   "author": "Spacedrive",
-  "license": "MIT",
-  "dependencies": {},
+  "license": "GPL-3.0",
   "devDependencies": {
-    "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
+    "@types/jest": "^29.0.0",
     "jest": "^29.0.0",
-    "quicktype": "^23.0.0",
     "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"
   },
+  "dependencies": {
+    "ws": "^8.0.0",
+    "@types/ws": "^8.0.0"
+  },
   "files": [
     "dist/**/*",
-    "src/**/*",
-    "README.md"
+    "src/**/*"
   ]
 }

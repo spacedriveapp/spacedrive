@@ -1,13 +1,14 @@
 //! Job output types
 
 use crate::ops::indexing::{metrics::IndexerMetrics, state::IndexerStats};
-use schemars::JsonSchema;
+
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::fmt;
 use super::progress::Progress;
 
 /// Output from a completed job
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "type", content = "data")]
 pub enum JobOutput {
     /// Job completed successfully with no specific output
@@ -68,7 +69,8 @@ pub enum JobOutput {
     },
 
     /// Generic output with custom data
-    Custom(serde_json::Value),
+	#[specta(skip)]
+	Custom(serde_json::Value),
 }
 
 impl JobOutput {

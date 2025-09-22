@@ -1,13 +1,13 @@
 //! Location add operation output types
 
 use crate::infra::action::output::ActionOutputTrait;
-use schemars::JsonSchema;
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Output from location add action dispatch
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationAddOutput {
     pub location_id: Uuid,
     pub path: PathBuf,

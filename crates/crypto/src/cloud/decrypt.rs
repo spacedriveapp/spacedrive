@@ -5,9 +5,13 @@ use crate::{
 
 use std::future::Future;
 
-use aead::{stream::DecryptorLE31, Aead, KeyInit};
+// Stream functionality temporarily disabled
+// use aead::{stream::DecryptorLE31, Aead, KeyInit};
+use aead::{Aead, KeyInit};
 use chacha20poly1305::XChaCha20Poly1305;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader, BufWriter};
+use tokio::io::{AsyncRead, AsyncWrite};
+// Unused imports commented out due to stream functionality being disabled
+// use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 
 use super::secret_key::SecretKey;
 
@@ -45,6 +49,8 @@ impl OneShotDecryption for SecretKey {
 	}
 }
 
+// Stream decryption temporarily disabled due to aead::stream removal
+/*
 impl StreamDecryption for SecretKey {
 	async fn decrypt(
 		&self,
@@ -113,3 +119,4 @@ impl StreamDecryption for SecretKey {
 		Ok(())
 	}
 }
+*/

@@ -34,10 +34,10 @@ tracing-test = { workspace = true }
 zeroize      = { workspace = true, features = ["derive"] }
 
 # External dependencies
-aead             = { version = "0.6.0-rc.0", default-features = false, features = ["stream"] }
-chacha20poly1305 = "0.11.0-pre.1"
+aead             = { version = "0.6.0-rc.2", default-features = false }
+chacha20poly1305 = "0.11.0-rc.1"
 cmov             = "0.3.1"
-generic-array    = { version = "=0.14.7", features = ["serde", "zeroize"] }                    # Update blocked by aead
+generic-array    = { version = "=0.14.7", features = ["serde", "zeroize"] } # Update blocked by aead
 hex              = "0.4.3"
 rand_chacha      = "0.9.0-alpha.2"
 rand_core        = "0.9.0-alpha.2"

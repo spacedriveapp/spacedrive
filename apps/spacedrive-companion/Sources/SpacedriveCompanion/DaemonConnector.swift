@@ -1,30 +1,7 @@
 import Foundation
 import SpacedriveClient
 
-// Response types that match the Rust daemon output
-struct LibraryInfo: Codable {
-    let id: String
-    let name: String
-    let path: String
-    let stats: LibraryStatistics?
-}
-
-struct LibraryStatistics: Codable {
-    let total_files: UInt64
-    let total_size: UInt64
-    let location_count: UInt32
-}
-
-struct JobListOutput: Codable {
-    let jobs: [JobListItem]
-}
-
-struct JobListItem: Codable {
-    let id: String
-    let name: String
-    let status: String
-    let progress: Float
-}
+// Now using generated types from SpacedriveClient - no manual definitions needed!
 
 class DaemonConnector: ObservableObject {
     @Published var connectionStatus: ConnectionStatus = .disconnected
@@ -153,43 +130,50 @@ class DaemonConnector: ObservableObject {
     private func handleEvent(_ event: SpacedriveEvent) async {
         print("Received event: \(event)")
 
-        // Parse the event and update existing jobs based on the event type
-        switch event {
-        case .string(let stringEvent):
-            // Handle simple string events like "CoreStarted", "CoreShutdown"
-            print("📡 Core event: \(stringEvent)")
-
-        case .eventClass(let eventData):
-            // Handle structured events
-            await handleStructuredEvent(eventData)
-        }
-    }
-
-    private func handleStructuredEvent(_ eventData: EventClass) async {
+        // Handle events using the new type-safe Event enum
         DispatchQueue.main.async {
-            // Handle job events by updating existing jobs
-            if let jobStarted = eventData.jobStarted {
-                self.handleJobStarted(jobId: jobStarted.jobID, jobType: jobStarted.jobType)
-            } else if let jobProgress = eventData.jobProgress {
-                self.handleJobProgress(
-                    jobId: jobProgress.jobID,
-                    jobType: jobProgress.jobType,
-                    progress: jobProgress.progress,
-                    message: jobProgress.message
-                )
-            } else if let jobCompleted = eventData.jobCompleted {
-                self.handleJobCompleted(jobId: jobCompleted.jobID, jobType: jobCompleted.jobType)
-            } else if let jobFailed = eventData.jobFailed {
-                self.handleJobFailed(jobId: jobFailed.jobID, jobType: jobFailed.jobType, error: jobFailed.error)
-            } else if let jobPaused = eventData.jobPaused {
-                self.handleJobPaused(jobId: jobPaused.jobID)
-            } else if let jobResumed = eventData.jobResumed {
-                self.handleJobResumed(jobId: jobResumed.jobID)
-            }
+            switch event {
+            // Core lifecycle events
+            case .coreStarted:
+                print("📡 Core started")
 
-            // Handle other event types as needed
-            if let libraryCreated = eventData.libraryCreated {
-                print("📚 Library created: \(libraryCreated.name) at \(libraryCreated.path)")
+            case .coreShutdown:
+                print("📡 Core shutdown")
+
+            // Job events - update existing jobs in real-time
+            case .jobStarted(let data):
+                self.handleJobStarted(jobId: data.jobId, jobType: data.jobType)
+
+            case .jobProgress(let data):
+                self.handleJobProgress(
+                    jobId: data.jobId,
+                    jobType: data.jobType,
+                    progress: data.progress,
+                    message: data.message
+                )
+
+            case .jobCompleted(let data):
+                self.handleJobCompleted(jobId: data.jobId, jobType: data.jobType, output: data.output)
+
+            case .jobFailed(let data):
+                self.handleJobFailed(jobId: data.jobId, jobType: data.jobType, error: data.error)
+
+            case .jobPaused(let data):
+                self.handleJobPaused(jobId: data.jobId)
+
+            case .jobResumed(let data):
+                self.handleJobResumed(jobId: data.jobId)
+
+            // Library events
+            case .libraryCreated(let data):
+                print("📚 Library created: \(data.name) at \(data.path)")
+
+            case .libraryOpened(let data):
+                print("📚 Library opened: \(data.name)")
+
+            // Other events can be handled as needed
+            default:
+                print("📡 Other event: \(event)")
             }
         }
     }
@@ -238,7 +222,7 @@ class DaemonConnector: ObservableObject {
         }
     }
 
-    private func handleJobCompleted(jobId: String, jobType: String) {
+    private func handleJobCompleted(jobId: String, jobType: String, output: JobOutput) {
         if var existingJob = job(withId: jobId) {
             existingJob.status = .completed
             existingJob.progress = 1.0
@@ -299,71 +283,44 @@ class DaemonConnector: ObservableObject {
 
     private func fetchJobList() async {
         do {
-            print("📋 Fetching current job list...")
+            // Get libraries using the new type-safe method
+            print("📚 Getting libraries list...")
+            let librariesResponse = try await client.getLibraries(includeStats: false)
 
-            // Also write to a file for debugging
-            var debugLog = "📋 Fetching current job list at \(Date())\n"
-
-            func appendLog(_ message: String) {
-                debugLog += message + "\n"
-                print(message)
-                try? debugLog.write(to: URL(fileURLWithPath: "/tmp/companion_debug.log"), atomically: false, encoding: .utf8)
-            }
-
-            // First, get the list of libraries (following CLI approach)
-            struct ListLibrariesQuery: Codable {
-                let include_stats: Bool
-
-                init() {
-                    self.include_stats = false // Basic query like CLI
-                }
-            }
-
-            // Get libraries list like the CLI does
-            appendLog("📚 Getting libraries list...")
-            let librariesQuery = ListLibrariesQuery()
-            let librariesResponse = try await client.executeQuery(
-                librariesQuery,
-                method: "query:libraries.list.v1",
-                responseType: [LibraryInfo].self
-            )
-
-            appendLog("📚 Received libraries response (\(librariesResponse.count) libraries)")
+            print("📚 Received libraries response (\(librariesResponse.count) libraries)")
 
             if librariesResponse.isEmpty {
-                appendLog("📚 No libraries found - skipping job list")
+                print("📚 No libraries found - skipping job list")
                 return
             }
 
             // Use the first library from the response
             let firstLibrary = librariesResponse[0]
-            appendLog("📚 Using library: \(firstLibrary.name) (ID: \(firstLibrary.id))")
+            print("📚 Using library: \(firstLibrary.name) (ID: \(firstLibrary.id))")
 
-            // Now query jobs for this library
-            // JobListQuery takes an optional status filter
-            struct JobListQuery: Codable {
-                let status: String?
+            // Get jobs using the new type-safe method
+            let jobsResponse = try await client.getJobs()
 
-                init() {
-                    self.status = nil
-                }
-            }
-
-            let jobQuery = JobListQuery()
-            let jobsResponse = try await client.executeQuery(
-                jobQuery,
-                method: "query:jobs.list.v1",
-                responseType: JobListOutput.self
-            )
-
-            appendLog("📋 Received job list response (\(jobsResponse.jobs.count) jobs)")
+            print("📋 Received job list response (\(jobsResponse.jobs.count) jobs)")
 
             // Convert JobListItem to JobInfo for the UI
             let convertedJobs = jobsResponse.jobs.map { jobItem in
-                JobInfo(
+                // Convert from generated SpacedriveClient.JobStatus to local JobStatus
+                let localStatus: SpacedriveCompanion.JobStatus = {
+                    switch jobItem.status {
+                    case .queued: return .queued
+                    case .running: return .running
+                    case .paused: return .paused
+                    case .completed: return .completed
+                    case .failed: return .failed
+                    case .cancelled: return .failed // Map cancelled to failed for now
+                    }
+                }()
+
+                return JobInfo(
                     id: jobItem.id,
                     name: jobItem.name,
-                    status: JobStatus(rawValue: jobItem.status.lowercased()) ?? .queued,
+                    status: localStatus,
                     progress: Double(jobItem.progress),
                     startedAt: Date(), // TODO: Get actual start time from daemon
                     completedAt: nil,  // TODO: Get actual completion time from daemon
@@ -378,7 +335,7 @@ class DaemonConnector: ObservableObject {
 
             // Log the jobs for debugging
             for (index, job) in convertedJobs.enumerated() {
-                appendLog("  \(index + 1). \(job.id) \(job.name) \(Int(job.progress * 100))% \(job.status.displayName)")
+                print("  \(index + 1). \(job.id) \(job.name) \(Int(job.progress * 100))% \(job.status.displayName)")
             }
 
         } catch {

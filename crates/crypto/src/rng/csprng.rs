@@ -2,7 +2,7 @@ use crate::Error;
 
 use rand::RngCore;
 use rand_chacha::ChaCha20Rng;
-use rand_core::{impl_try_crypto_rng_from_crypto_rng, SeedableRng};
+use rand_core::SeedableRng;
 use zeroize::{Zeroize, Zeroizing};
 
 /// This RNG should be used throughout the entire crate.
@@ -17,7 +17,9 @@ impl CryptoRng {
 	/// (via the [getrandom](https://docs.rs/getrandom) crate).
 	#[inline]
 	pub fn new() -> Result<Self, Error> {
-		ChaCha20Rng::try_from_os_rng().map(Self).map_err(Into::into)
+		ChaCha20Rng::try_from_os_rng()
+			.map(Self)
+			.map_err(|_| Error::Encrypt) // Convert getrandom error to our error type
 	}
 
 	/// Used to generate completely random bytes, with the use of [`ChaCha20Rng`]
@@ -78,7 +80,7 @@ impl Zeroize for CryptoRng {
 
 impl rand::CryptoRng for CryptoRng {}
 
-impl_try_crypto_rng_from_crypto_rng!(CryptoRng);
+// impl_try_crypto_rng_from_crypto_rng macro is no longer available in rand_core 0.9
 
 impl Drop for CryptoRng {
 	#[inline]
