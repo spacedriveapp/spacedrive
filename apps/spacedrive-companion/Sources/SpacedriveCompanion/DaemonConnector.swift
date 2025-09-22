@@ -283,36 +283,25 @@ class DaemonConnector: ObservableObject {
 
     private func fetchJobList() async {
         do {
-            print("📋 Fetching current job list...")
-
-            // Also write to a file for debugging
-            var debugLog = "📋 Fetching current job list at \(Date())\n"
-
-            func appendLog(_ message: String) {
-                debugLog += message + "\n"
-                print(message)
-                try? debugLog.write(to: URL(fileURLWithPath: "/tmp/companion_debug.log"), atomically: false, encoding: .utf8)
-            }
-
             // Get libraries using the new type-safe method
-            appendLog("📚 Getting libraries list...")
+            print("📚 Getting libraries list...")
             let librariesResponse = try await client.getLibraries(includeStats: false)
 
-            appendLog("📚 Received libraries response (\(librariesResponse.count) libraries)")
+            print("📚 Received libraries response (\(librariesResponse.count) libraries)")
 
             if librariesResponse.isEmpty {
-                appendLog("📚 No libraries found - skipping job list")
+                print("📚 No libraries found - skipping job list")
                 return
             }
 
             // Use the first library from the response
             let firstLibrary = librariesResponse[0]
-            appendLog("📚 Using library: \(firstLibrary.name) (ID: \(firstLibrary.id))")
+            print("📚 Using library: \(firstLibrary.name) (ID: \(firstLibrary.id))")
 
             // Get jobs using the new type-safe method
             let jobsResponse = try await client.getJobs()
 
-            appendLog("📋 Received job list response (\(jobsResponse.jobs.count) jobs)")
+            print("📋 Received job list response (\(jobsResponse.jobs.count) jobs)")
 
             // Convert JobListItem to JobInfo for the UI
             let convertedJobs = jobsResponse.jobs.map { jobItem in
@@ -346,7 +335,7 @@ class DaemonConnector: ObservableObject {
 
             // Log the jobs for debugging
             for (index, job) in convertedJobs.enumerated() {
-                appendLog("  \(index + 1). \(job.id) \(job.name) \(Int(job.progress * 100))% \(job.status.displayName)")
+                print("  \(index + 1). \(job.id) \(job.name) \(Int(job.progress * 100))% \(job.status.displayName)")
             }
 
         } catch {

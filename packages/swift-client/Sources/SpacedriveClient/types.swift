@@ -13,7 +13,6 @@ public struct RustDuration: Codable {
 }
 
 // MARK: - Generated Types
-import Foundation
 
 /// Represents an APFS container (physical storage with multiple volumes)
 public struct ApfsContainer: Codable {
@@ -77,7 +76,7 @@ public enum DiskType: Codable {
 }
 
 /// A central event type that represents all events that can be emitted throughout the system
-public enum Event {
+public enum Event: Codable {
     case coreStarted
     case coreShutdown
     case libraryCreated(EventLibraryCreatedData)
@@ -765,7 +764,7 @@ public enum FileSystem: Codable {
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
-public enum FsRawEventKind {
+public enum FsRawEventKind: Codable {
     case create(FsRawEventKindCreateData)
     case modify(FsRawEventKindModifyData)
     case remove(FsRawEventKindRemoveData)
@@ -922,7 +921,7 @@ public struct JobListOutput: Codable {
 }
 
 /// Output from a completed job
-public enum JobOutput {
+public enum JobOutput: Codable {
     case success
     case fileCopy(JobOutputFileCopyData)
     case indexed(JobOutputIndexedData)
@@ -1203,7 +1202,7 @@ public struct PerformanceMetrics: Codable {
 }
 
 /// Progress information for a job
-public enum Progress {
+public enum Progress: Codable {
     case count(ProgressCountData)
     case percentage(Float)
     case indeterminate(String)
@@ -1300,7 +1299,7 @@ public struct ProgressCompletion: Codable {
 /// 
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
-public enum SdPath {
+public enum SdPath: Codable {
     case physical(SdPathPhysicalData)
     case content(SdPathContentData)
 }
