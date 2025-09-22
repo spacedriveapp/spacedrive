@@ -46,14 +46,6 @@ public class SpacedriveClient {
 
         // 4. Handle response
         switch response {
-        case .ok(let data):
-            print("🔍 Query successful (bincode), decoding \(data.count) bytes")
-            do {
-                return try JSONDecoder().decode(responseType, from: data)
-            } catch {
-                print("❌ Query decode error: \(error)")
-                throw SpacedriveError.serializationError("Failed to decode response: \(error)")
-            }
         case .jsonOk(let jsonData):
             print("🔍 Query successful (JSON), decoding response")
             do {
@@ -66,7 +58,7 @@ public class SpacedriveClient {
         case .error(let error):
             print("❌ Query daemon error: \(error)")
             throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
+        case .pong, .event, .subscribed, .unsubscribed:
             print("❌ Query unexpected response: \(response)")
             throw SpacedriveError.invalidResponse("Unexpected response to query")
         }
@@ -100,12 +92,6 @@ public class SpacedriveClient {
 
         // 4. Handle response
         switch response {
-        case .ok(let data):
-            do {
-                return try JSONDecoder().decode(responseType, from: data)
-            } catch {
-                throw SpacedriveError.serializationError("Failed to decode response: \(error)")
-            }
         case .jsonOk(let jsonData):
             do {
                 let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
@@ -115,7 +101,7 @@ public class SpacedriveClient {
             }
         case .error(let error):
             throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
+        case .pong, .event, .subscribed, .unsubscribed:
             throw SpacedriveError.invalidResponse("Unexpected response to action")
         }
     }
@@ -248,14 +234,6 @@ public class SpacedriveClient {
 
         case .shutdown:
             requestData = Data("\"Shutdown\"".utf8)
-
-        case .action(let method, let payload):
-            let actionRequest = ActionRequest(method: method, payload: payload.base64EncodedString())
-            requestData = try JSONEncoder().encode(["Action": actionRequest])
-
-        case .query(let method, let payload):
-            let queryRequest = QueryRequest(method: method, payload: payload.base64EncodedString())
-            requestData = try JSONEncoder().encode(["Query": queryRequest])
         }
 
         let requestLine = requestData + Data("\n".utf8)
@@ -389,8 +367,6 @@ public class SpacedriveClient {
 /// Request types that match the Rust daemon protocol
 internal enum DaemonRequest {
     case ping
-    case action(method: String, payload: Data)
-    case query(method: String, payload: Data)
     case jsonAction(method: String, payload: [String: Any])
     case jsonQuery(method: String, payload: [String: Any])
     case subscribe(eventTypes: [String], filter: EventFilter?)
@@ -399,15 +375,6 @@ internal enum DaemonRequest {
 }
 
 /// Helper structs for proper JSON encoding
-private struct ActionRequest: Codable {
-    let method: String
-    let payload: String
-}
-
-private struct QueryRequest: Codable {
-    let method: String
-    let payload: String
-}
 
 
 
@@ -419,7 +386,6 @@ private struct SubscribeRequest: Codable {
 /// Response types that match the Rust daemon protocol
 internal enum DaemonResponse: Codable {
     case pong
-    case ok(Data)
     case jsonOk(AnyCodable)
     case error(String)
     case event(Event)
@@ -449,10 +415,7 @@ internal enum DaemonResponse: Codable {
         // Try to decode as an object with variants
         let variantContainer = try decoder.container(keyedBy: VariantKeys.self)
 
-        if variantContainer.contains(.ok) {
-            let okData = try variantContainer.decode([UInt8].self, forKey: .ok)
-            self = .ok(Data(okData))
-        } else if variantContainer.contains(.jsonOk) {
+        if variantContainer.contains(.jsonOk) {
             // JsonOk contains a JSON value that we need to decode manually
             let jsonValue = try variantContainer.decode(AnyCodable.self, forKey: .jsonOk)
             self = .jsonOk(jsonValue)
@@ -472,7 +435,6 @@ internal enum DaemonResponse: Codable {
     }
 
     enum VariantKeys: String, CodingKey {
-        case ok = "Ok"
         case jsonOk = "JsonOk"
         case error = "Error"
         case event = "Event"
@@ -553,25 +515,6 @@ internal struct AnyCodable: Codable {
 // MARK: - Convenience Methods
 
 extension SpacedriveClient {
-    /// Get core status - demonstrates real type-safe API usage
-    /// Once types.swift is generated, this can use the actual OutputProperties type
-    public func getCoreStatus() async throws -> Data {
-        struct EmptyQuery: Codable {}
-
-        // Return raw data until we have the generated types
-        let queryData = try JSONEncoder().encode(EmptyQuery())
-        let request = DaemonRequest.query(method: "query:core.status.v1", payload: queryData)
-        let response = try await sendRequest(request)
-
-        switch response {
-        case .ok(let data):
-            return data
-        case .error(let error):
-            throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
-            throw SpacedriveError.invalidResponse("Unexpected response")
-        }
-    }
 
     /// Create a library using generated types
     public func createLibrary(name: String, path: String? = nil) async throws -> LibraryCreateOutput {
@@ -626,7 +569,7 @@ extension SpacedriveClient {
         case .error(let error):
             print("❌ Ping failed with daemon error: \(error)")
             throw SpacedriveError.daemonError("Ping failed: \(error)")
-        case .ok, .event, .subscribed, .unsubscribed, .jsonOk:
+        case .jsonOk, .event, .subscribed, .unsubscribed:
             print("❌ Ping received unexpected response")
             throw SpacedriveError.invalidResponse("Unexpected response to ping")
         }
