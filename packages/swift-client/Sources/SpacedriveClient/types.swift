@@ -76,7 +76,7 @@ public enum DiskType: Codable {
 }
 
 /// A central event type that represents all events that can be emitted throughout the system
-public enum Event: Codable {
+public enum Event {
     case coreStarted
     case coreShutdown
     case libraryCreated(EventLibraryCreatedData)
@@ -764,7 +764,7 @@ public enum FileSystem: Codable {
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
-public enum FsRawEventKind: Codable {
+public enum FsRawEventKind {
     case create(FsRawEventKindCreateData)
     case modify(FsRawEventKindModifyData)
     case remove(FsRawEventKindRemoveData)
@@ -921,7 +921,7 @@ public struct JobListOutput: Codable {
 }
 
 /// Output from a completed job
-public enum JobOutput: Codable {
+public enum JobOutput {
     case success
     case fileCopy(JobOutputFileCopyData)
     case indexed(JobOutputIndexedData)
@@ -1202,7 +1202,7 @@ public struct PerformanceMetrics: Codable {
 }
 
 /// Progress information for a job
-public enum Progress: Codable {
+public enum Progress {
     case count(ProgressCountData)
     case percentage(Float)
     case indeterminate(String)
@@ -1299,7 +1299,7 @@ public struct ProgressCompletion: Codable {
 /// 
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
-public enum SdPath: Codable {
+public enum SdPath {
     case physical(SdPathPhysicalData)
     case content(SdPathContentData)
 }
