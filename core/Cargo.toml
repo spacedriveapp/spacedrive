@@ -180,10 +180,6 @@ path = "src/bin/cli.rs"
 name = "daemon"
 path = "src/bin/daemon.rs"
 
-[[bin]]
-name = "generate-schemas"
-path = "src/bin/generate_schemas.rs"
-
 
 [dev-dependencies]
 pretty_assertions = "1.4"

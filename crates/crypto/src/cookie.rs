@@ -67,7 +67,7 @@ impl CookieCipher {
 	pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>, CryptoCookieError> {
 		debug!("Starting encryption of {} bytes", data.len());
 
-		let nonce = ChaCha20Poly1305::generate_nonce_with_rng(&mut aead::OsRng).map_err(|e| {
+		let nonce = ChaCha20Poly1305::generate_nonce().map_err(|e| {
 			error!("Nonce generation failed: {}", e);
 			CryptoCookieError::Encryption(e.to_string())
 		})?;

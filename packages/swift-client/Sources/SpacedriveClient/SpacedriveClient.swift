@@ -125,7 +125,7 @@ public class SpacedriveClient {
     /// - Returns: An async stream of events
     public func subscribe(
         to eventTypes: [String] = []
-    ) -> AsyncThrowingStream<EventElement, Error> {
+    ) -> AsyncThrowingStream<Event, Error> {
         AsyncThrowingStream { continuation in
             Task { [self] in
                 do {
@@ -140,7 +140,7 @@ public class SpacedriveClient {
                     while true {
                         let response = try await readStreamingResponseFromConnection(connection)
                         if case .event(let eventData) = response {
-                            let event = try JSONDecoder().decode(EventElement.self, from: eventData)
+                            let event = try JSONDecoder().decode(Event.self, from: eventData)
                             continuation.yield(event)
                         }
                     }
@@ -463,7 +463,7 @@ internal enum DaemonResponse: Codable {
             let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
             self = .error(errorMsg)
         } else if variantContainer.contains(.event) {
-            let event = try variantContainer.decode(EventElement.self, forKey: .event)
+            let event = try variantContainer.decode(Event.self, forKey: .event)
             let eventData = try JSONEncoder().encode(event)
             self = .event(eventData)
         } else {
@@ -520,7 +520,7 @@ public enum SpacedriveError: Error, LocalizedError {
 // MARK: - Convenience Types
 
 /// Type alias for the generated Event type from types.swift
-public typealias SpacedriveEvent = EventElement
+public typealias SpacedriveEvent = Event
 
 /// Helper for decoding Any values from JSON
 internal struct AnyCodable: Codable {
@@ -575,27 +575,45 @@ extension SpacedriveClient {
         }
     }
 
-    /// Create a library - demonstrates action usage
-    /// Once types.swift is generated, this can use the actual LibraryCreateInput/Output types
-    public func createLibrary(name: String, path: String? = nil) async throws -> Data {
-        struct LibraryCreateInput: Codable {
-            let name: String
-            let path: String?
-        }
-
+    /// Create a library using generated types
+    public func createLibrary(name: String, path: String? = nil) async throws -> LibraryCreateOutput {
         let input = LibraryCreateInput(name: name, path: path)
-        let actionData = try JSONEncoder().encode(input)
-        let request = DaemonRequest.action(method: "action:libraries.create.input.v1", payload: actionData)
-        let response = try await sendRequest(request)
 
-        switch response {
-        case .ok(let data):
-            return data
-        case .error(let error):
-            throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed, .jsonOk:
-            throw SpacedriveError.invalidResponse("Unexpected response")
+        return try await executeAction(
+            input,
+            method: "action:libraries.create.input.v1",
+            responseType: LibraryCreateOutput.self
+        )
+    }
+
+    /// Get list of libraries using generated types
+    public func getLibraries(includeStats: Bool = false) async throws -> [LibraryInfo] {
+        struct LibraryListQuery: Codable {
+            let include_stats: Bool
         }
+
+        let query = LibraryListQuery(include_stats: includeStats)
+
+        return try await executeQuery(
+            query,
+            method: "query:libraries.list.v1",
+            responseType: [LibraryInfo].self
+        )
+    }
+
+    /// Get list of jobs using generated types
+    public func getJobs(status: JobStatus? = nil) async throws -> JobListOutput {
+        struct JobListQuery: Codable {
+            let status: String?
+        }
+
+        let query = JobListQuery(status: nil) // TODO: Convert JobStatus to string
+
+        return try await executeQuery(
+            query,
+            method: "query:jobs.list.v1",
+            responseType: JobListOutput.self
+        )
     }
 
     /// Ping the daemon to test connectivity

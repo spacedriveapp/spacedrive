@@ -299,7 +299,7 @@ async fn main() -> Result<()> {
 					println!("Daemon shutdown initiated.");
 					println!("Note: If jobs are running, the daemon will wait for them to pause before fully shutting down.");
 					println!("Use 'sd logs follow' to monitor shutdown progress.");
-				},
+				}
 				Err(_) => {
 					if reset {
 						println!(" Daemon was not running, proceeding with reset...");
@@ -336,7 +336,7 @@ async fn main() -> Result<()> {
 					println!("Waiting for daemon to fully shut down before restart...");
 					// Give some time for shutdown to complete
 					tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-				},
+				}
 				Err(_) => println!(" Daemon was not running or already stopped."),
 			}
 

@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 /// A central event type that represents all events that can be emitted throughout the system
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all_fields = "snake_case")]
 pub enum Event {
 	// Core lifecycle events
 	CoreStarted,

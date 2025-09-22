@@ -3,12 +3,16 @@ use crate::{
 	Error,
 };
 
-use aead::{stream::EncryptorLE31, Aead, KeyInit};
-use async_stream::stream;
+// Stream functionality temporarily disabled
+// use aead::{stream::EncryptorLE31, Aead, KeyInit};
+use aead::{Aead, KeyInit};
+// Unused imports commented out due to stream functionality being disabled
+// use async_stream::stream;
 use chacha20poly1305::{Tag, XChaCha20Poly1305, XNonce};
 use futures::Stream;
 use rand::CryptoRng;
-use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+use tokio::io::AsyncRead;
+// use tokio::io::{AsyncBufReadExt, BufReader};
 
 use super::secret_key::SecretKey;
 
@@ -57,6 +61,8 @@ impl OneShotEncryption for SecretKey {
 	}
 }
 
+// Stream encryption temporarily disabled due to aead::stream removal
+/*
 impl StreamEncryption for SecretKey {
 	fn encrypt(
 		&self,
@@ -108,3 +114,4 @@ impl StreamEncryption for SecretKey {
 		)
 	}
 }
+*/

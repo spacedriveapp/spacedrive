@@ -8,32 +8,50 @@ use specta_swift::Swift;
 use std::path::Path;
 
 // Import the types we want to export
-use sd_core::domain::addressing::SdPath;
-use sd_core::infra::event::{FileOperation, FsRawEventKind};
-use sd_core::infra::job::{output::JobOutput, types::JobStatus};
+use sd_core::domain::addressing::{SdPath, SdPathBatch};
+use sd_core::infra::event::{Event, FileOperation, FsRawEventKind};
+use sd_core::infra::job::{
+	generic_progress::GenericProgress, output::JobOutput, progress::Progress, types::JobStatus,
+};
+// use sd_core::library::config::LibraryStatistics; // Private module
+use sd_core::ops::indexing::{metrics::IndexerMetrics, state::IndexerStats};
+use sd_core::ops::jobs::list::output::{JobListItem, JobListOutput};
 use sd_core::ops::libraries::create::{input::LibraryCreateInput, output::LibraryCreateOutput};
+use sd_core::ops::libraries::list::output::LibraryInfo;
 use sd_core::volume::types::{DiskType, FileSystem, MountType, VolumeFingerprint, VolumeType};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("🦀➡️🍎 Generating Swift types using Specta...");
 
-	// Register all the important union and struct types
+	// Register comprehensive types for complete API coverage
 	let types = TypeCollection::default()
+		// Core Event System - THE MAIN TYPE!
+		.register::<Event>()
 		// Union types (enums)
 		.register::<FileOperation>()
 		.register::<FsRawEventKind>()
 		.register::<SdPath>()
+		.register::<SdPathBatch>()
 		.register::<JobOutput>()
 		.register::<JobStatus>()
+		.register::<Progress>()
 		// Volume types
 		.register::<VolumeFingerprint>()
 		.register::<VolumeType>()
 		.register::<DiskType>()
 		.register::<FileSystem>()
 		.register::<MountType>()
-		// Action/Query types
+		// Job system types
+		.register::<GenericProgress>()
+		.register::<IndexerMetrics>()
+		.register::<IndexerStats>()
+		// Library API types
 		.register::<LibraryCreateInput>()
-		.register::<LibraryCreateOutput>();
+		.register::<LibraryCreateOutput>()
+		.register::<LibraryInfo>()
+		// Job API types
+		.register::<JobListItem>()
+		.register::<JobListOutput>();
 
 	println!("📊 Registered {} types to export", types.len());
 
@@ -52,6 +70,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.map(|line| {
 			if line.starts_with("enum ") || line.starts_with("struct ") {
 				format!("public {}", line)
+			} else if line.trim().starts_with("let ") {
+				// Make struct properties public too
+				line.replace("let ", "public let ")
 			} else {
 				line.to_string()
 			}
