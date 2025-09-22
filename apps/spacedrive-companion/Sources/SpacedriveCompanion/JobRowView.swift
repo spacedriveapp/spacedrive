@@ -4,7 +4,7 @@ struct JobRowView: View {
     let job: JobInfo
 
     private var progressPercentage: String {
-        return String(format: "%.1f%%", job.progress * 100)
+        return String(format: "%.0f%%", job.progress * 100)
     }
 
     private var timeAgo: String {
@@ -18,95 +18,93 @@ struct JobRowView: View {
         let duration = completedAt.timeIntervalSince(job.startedAt)
 
         if duration < 60 {
-            return String(format: "%.1fs", duration)
+            return String(format: "%.0fs", duration)
         } else if duration < 3600 {
-            return String(format: "%.1fm", duration / 60)
+            return String(format: "%.0fm", duration / 60)
         } else {
             return String(format: "%.1fh", duration / 3600)
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Header with job name and status
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 12) {
+            // Status indicator - simple colored circle
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+                .opacity(job.status == .completed ? 1.0 : 0.8)
+
+            // Main content area
+            VStack(alignment: .leading, spacing: 3) {
+                // Top row: Job name and status/progress
+                HStack {
                     Text(job.name)
-                        .font(.headline)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-                    Text("ID: \(String(job.id.prefix(8)))...")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                    Spacer()
 
-                Spacer()
+                    // Status and progress info
+                    HStack(spacing: 6) {
+                        if job.status == .running {
+                            Text(progressPercentage)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text(job.status.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(job.status == .failed ? .red : .secondary)
+                        }
 
-                HStack(spacing: 4) {
-                    Text(job.status.icon)
-                        .font(.title2)
-
-                    Text(job.status.displayName)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(statusColor)
-                }
-            }
-
-            // Progress bar (only show for running jobs)
-            if job.status == .running {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Progress")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Spacer()
-
-                        Text(progressPercentage)
-                            .font(.caption)
-                            .fontWeight(.medium)
+                        if let duration = duration {
+                            Text("• \(duration)")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .opacity(0.7)
+                        } else if job.status == .running {
+                            Text("• \(timeAgo)")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .opacity(0.7)
+                        }
                     }
-
-                    ProgressView(value: job.progress, total: 1.0)
-                        .progressViewStyle(LinearProgressViewStyle())
-                        .scaleEffect(x: 1, y: 0.8, anchor: .center)
                 }
-            }
 
-            // Error message (if any)
-            if let errorMessage = job.errorMessage, !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.red.opacity(0.1))
-                    .cornerRadius(4)
-            }
+                // Progress bar for active jobs
+                if job.status == .running || job.status == .paused {
+                    ProgressView(value: job.progress, total: 1.0)
+                        .progressViewStyle(LinearProgressViewStyle(tint: statusColor))
+                        .scaleEffect(x: 1, y: 0.6, anchor: .center)
+                } else if job.status == .completed {
+                    // Completed indicator line
+                    Rectangle()
+                        .fill(Color.green.opacity(0.3))
+                        .frame(height: 2)
+                        .cornerRadius(1)
+                }
 
-            // Timestamps
-            HStack {
-                Text("Started \(timeAgo)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                if let duration = duration {
-                    Text("Duration: \(duration)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                // Error message (compact display)
+                if let errorMessage = job.errorMessage, !errorMessage.isEmpty {
+                    Text(errorMessage)
+                        .font(.system(size: 11))
+                        .foregroundColor(.red)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
         }
+        .frame(height: 44) // Fixed height for uniform appearance
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(backgroundColorForStatus)
-        .cornerRadius(8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.primary.opacity(0.03))
+        )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(borderColorForStatus, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
         )
     }
 
@@ -122,36 +120,6 @@ struct JobRowView: View {
             return .orange
         case .queued:
             return .gray
-        }
-    }
-
-    private var backgroundColorForStatus: Color {
-        switch job.status {
-        case .running:
-            return Color.blue.opacity(0.05)
-        case .completed:
-            return Color.green.opacity(0.05)
-        case .failed:
-            return Color.red.opacity(0.05)
-        case .paused:
-            return Color.orange.opacity(0.05)
-        case .queued:
-            return Color.gray.opacity(0.05)
-        }
-    }
-
-    private var borderColorForStatus: Color {
-        switch job.status {
-        case .running:
-            return Color.blue.opacity(0.2)
-        case .completed:
-            return Color.green.opacity(0.2)
-        case .failed:
-            return Color.red.opacity(0.2)
-        case .paused:
-            return Color.orange.opacity(0.2)
-        case .queued:
-            return Color.gray.opacity(0.2)
         }
     }
 }
