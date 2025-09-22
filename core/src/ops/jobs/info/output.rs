@@ -1,8 +1,8 @@
-use schemars::JsonSchema;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobInfoOutput {
 	pub id: Uuid,
 	pub name: String,

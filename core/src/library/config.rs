@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 /// Library configuration stored in library.json
@@ -142,7 +143,7 @@ impl Default for IndexerSettings {
 }
 
 /// Library statistics
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryStatistics {
 	/// Total number of files indexed
 	pub total_files: u64,

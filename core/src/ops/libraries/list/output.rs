@@ -2,11 +2,12 @@
 
 use crate::library::config::LibraryStatistics;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Information about a library for listing purposes
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryInfo {
 	/// Library unique identifier
 	pub id: Uuid,

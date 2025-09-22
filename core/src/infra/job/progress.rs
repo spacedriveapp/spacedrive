@@ -1,12 +1,13 @@
 //! Progress reporting for jobs
 
 use crate::infra::job::generic_progress::GenericProgress;
-use schemars::JsonSchema;
+
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::fmt;
 
 /// Progress information for a job
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "type", content = "data")]
 pub enum Progress {
     /// Simple count-based progress
@@ -22,7 +23,8 @@ pub enum Progress {
     Bytes { current: u64, total: u64 },
 
     /// Custom structured progress
-    Structured(serde_json::Value),
+	#[specta(skip)]
+	Structured(serde_json::Value),
 
     /// Generic progress (recommended for all jobs)
     Generic(GenericProgress),

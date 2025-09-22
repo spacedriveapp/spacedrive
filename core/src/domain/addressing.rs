@@ -4,8 +4,8 @@
 //! the data structures that represent paths in Spacedrive's distributed
 //! file system.
 
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -19,7 +19,7 @@ use uuid::Uuid;
 ///
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 pub enum SdPath {
 	/// A direct pointer to a file at a specific path on a specific device
 	Physical {
@@ -341,7 +341,7 @@ impl fmt::Display for SdPath {
 }
 
 /// A batch of SdPaths, useful for operations on multiple files
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
 pub struct SdPathBatch {
 	pub paths: Vec<SdPath>,
 }

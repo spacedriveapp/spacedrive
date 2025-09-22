@@ -1,13 +1,13 @@
 //! Library create operation output types
 
 use crate::infra::action::output::ActionOutputTrait;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Output from library create action dispatch
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryCreateOutput {
 	pub library_id: Uuid,
 	pub name: String,

@@ -1,12 +1,12 @@
 //! File copy operation output types
 
 use crate::infra::action::output::ActionOutputTrait;
-use schemars::JsonSchema;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Output from file copy action dispatch
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyActionOutput {
 	pub job_id: Uuid,
 	pub sources_count: usize,

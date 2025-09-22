@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobListItem {
 	pub id: Uuid,
 	pub name: String,
@@ -9,7 +10,7 @@ pub struct JobListItem {
 	pub progress: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobListOutput {
 	pub jobs: Vec<JobListItem>,
 }

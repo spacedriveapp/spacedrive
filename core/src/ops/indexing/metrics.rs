@@ -1,11 +1,12 @@
 //! Performance metrics and monitoring for the indexer
 
-use schemars::JsonSchema;
+
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::time::{Duration, Instant};
 
 /// Comprehensive metrics for indexing operations
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexerMetrics {
 	// Timing
 	pub total_duration: Duration,

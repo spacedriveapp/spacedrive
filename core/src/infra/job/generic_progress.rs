@@ -5,12 +5,13 @@
 //! with the job monitoring system while preserving rich information.
 
 use crate::domain::addressing::SdPath;
-use schemars::JsonSchema;
+
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::time::Duration;
 
 /// Generic progress information that all job types can convert into
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct GenericProgress {
 	/// Current progress as a percentage (0.0 to 1.0)
 	pub percentage: f32,
@@ -31,11 +32,12 @@ pub struct GenericProgress {
 	pub performance: PerformanceMetrics,
 
 	/// Extended metadata specific to job type
+	#[specta(skip)]
 	pub metadata: serde_json::Value,
 }
 
 /// Progress completion information
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ProgressCompletion {
 	/// Items completed (files, entries, operations, etc.)
 	pub completed: u64,
@@ -51,7 +53,7 @@ pub struct ProgressCompletion {
 }
 
 /// Performance and timing metrics
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PerformanceMetrics {
 	/// Processing rate (items per second)
 	pub rate: f32,
