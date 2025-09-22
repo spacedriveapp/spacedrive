@@ -134,42 +134,42 @@ class DaemonConnector: ObservableObject {
         DispatchQueue.main.async {
             switch event {
             // Core lifecycle events
-            case .corestarted:
+            case .coreStarted:
                 print("📡 Core started")
 
-            case .coreshutdown:
+            case .coreShutdown:
                 print("📡 Core shutdown")
 
             // Job events - update existing jobs in real-time
-            case .jobstarted(let jobId, let jobType):
-                self.handleJobStarted(jobId: jobId, jobType: jobType)
+            case .jobStarted(let data):
+                self.handleJobStarted(jobId: data.jobId, jobType: data.jobType)
 
-            case .jobprogress(let jobId, let jobType, let progress, let message):
+            case .jobProgress(let data):
                 self.handleJobProgress(
-                    jobId: jobId,
-                    jobType: jobType,
-                    progress: progress,
-                    message: message
+                    jobId: data.jobId,
+                    jobType: data.jobType,
+                    progress: data.progress,
+                    message: data.message
                 )
 
-            case .jobcompleted(let jobId, let jobType, let output):
-                self.handleJobCompleted(jobId: jobId, jobType: jobType, output: output)
+            case .jobCompleted(let data):
+                self.handleJobCompleted(jobId: data.jobId, jobType: data.jobType, output: data.output)
 
-            case .jobfailed(let jobId, let jobType, let error):
-                self.handleJobFailed(jobId: jobId, jobType: jobType, error: error)
+            case .jobFailed(let data):
+                self.handleJobFailed(jobId: data.jobId, jobType: data.jobType, error: data.error)
 
-            case .jobpaused(let jobId):
-                self.handleJobPaused(jobId: jobId)
+            case .jobPaused(let data):
+                self.handleJobPaused(jobId: data.jobId)
 
-            case .jobresumed(let jobId):
-                self.handleJobResumed(jobId: jobId)
+            case .jobResumed(let data):
+                self.handleJobResumed(jobId: data.jobId)
 
             // Library events
-            case .librarycreated(let id, let name, let path):
-                print("📚 Library created: \(name) at \(path)")
+            case .libraryCreated(let data):
+                print("📚 Library created: \(data.name) at \(data.path)")
 
-            case .libraryopened(let id, let name, let path):
-                print("📚 Library opened: \(name)")
+            case .libraryOpened(let data):
+                print("📚 Library opened: \(data.name)")
 
             // Other events can be handled as needed
             default:

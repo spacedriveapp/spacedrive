@@ -2,7 +2,7 @@
 
 pub mod log_emitter;
 
-use crate::infra::job::output::JobOutput;
+use crate::infra::job::{generic_progress::GenericProgress, output::JobOutput};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::PathBuf;
@@ -104,8 +104,7 @@ pub enum Event {
 		progress: f64,
 		message: Option<String>,
 		// Enhanced progress data - serialized GenericProgress
-		#[specta(skip)]
-		generic_progress: Option<serde_json::Value>,
+		generic_progress: Option<GenericProgress>,
 	},
 	JobCompleted {
 		job_id: String,

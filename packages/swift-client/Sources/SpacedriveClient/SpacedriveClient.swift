@@ -139,8 +139,7 @@ public class SpacedriveClient {
                     // 3. Stream events as they arrive
                     while true {
                         let response = try await readStreamingResponseFromConnection(connection)
-                        if case .event(let eventData) = response {
-                            let event = try JSONDecoder().decode(Event.self, from: eventData)
+                        if case .event(let event) = response {
                             continuation.yield(event)
                         }
                     }
@@ -423,7 +422,7 @@ internal enum DaemonResponse: Codable {
     case ok(Data)
     case jsonOk(AnyCodable)
     case error(String)
-    case event(Data)
+    case event(Event)
     case subscribed
     case unsubscribed
 
@@ -464,8 +463,7 @@ internal enum DaemonResponse: Codable {
             self = .error(errorMsg)
         } else if variantContainer.contains(.event) {
             let event = try variantContainer.decode(Event.self, forKey: .event)
-            let eventData = try JSONEncoder().encode(event)
-            self = .event(eventData)
+            self = .event(event)
         } else {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unknown variant response")

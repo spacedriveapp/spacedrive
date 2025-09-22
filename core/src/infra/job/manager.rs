@@ -183,15 +183,14 @@ impl JobManager {
 						>(value.clone())
 						{
 							use crate::infra::job::generic_progress::ToGenericProgress;
-							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
+							Some(copy_progress.to_generic_progress())
 						} else {
 							None
 						}
 					}
-					Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
+					Progress::Generic(gp) => Some(gp.clone()),
 					_ => None,
-				}
-				.flatten();
+				};
 
 				event_bus.emit(Event::JobProgress {
 					job_id: job_id_clone.to_string(),
@@ -435,15 +434,14 @@ impl JobManager {
 						>(value.clone())
 						{
 							use crate::infra::job::generic_progress::ToGenericProgress;
-							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
+							Some(copy_progress.to_generic_progress())
 						} else {
 							None
 						}
 					}
-					Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
+					Progress::Generic(gp) => Some(gp.clone()),
 					_ => None,
-				}
-				.flatten();
+				};
 
 				event_bus.emit(Event::JobProgress {
 					job_id: job_id_clone.to_string(),
@@ -909,7 +907,10 @@ impl JobManager {
 
 	/// Resume interrupted jobs from the last run
 	async fn resume_interrupted_jobs(&self) -> JobResult<()> {
-		warn!("DEBUG: resume_interrupted_jobs called for library {}", self.library_id);
+		warn!(
+			"DEBUG: resume_interrupted_jobs called for library {}",
+			self.library_id
+		);
 		info!("Checking for interrupted jobs to resume");
 
 		use sea_orm::{ColumnTrait, QueryFilter};
@@ -921,21 +922,36 @@ impl JobManager {
 			.all(self.db.conn())
 			.await?;
 
-		warn!("DEBUG: Found {} interrupted jobs to resume", interrupted.len());
+		warn!(
+			"DEBUG: Found {} interrupted jobs to resume",
+			interrupted.len()
+		);
 		for job_record in interrupted {
 			if let Ok(job_id) = job_record.id.parse::<Uuid>().map(JobId) {
-				warn!("DEBUG: Processing interrupted job {}: {} with status {}", job_id, job_record.name, job_record.status);
+				warn!(
+					"DEBUG: Processing interrupted job {}: {} with status {}",
+					job_id, job_record.name, job_record.status
+				);
 				info!("Resuming job {}: {}", job_id, job_record.name);
 
 				// Deserialize job from binary data
-				warn!("DEBUG: Attempting to deserialize job {} of type {}", job_id, job_record.name);
-				info!("RESUME_STATE_LOAD: Job {} loading {} bytes of state from database",
-					job_id, job_record.state.len());
+				warn!(
+					"DEBUG: Attempting to deserialize job {} of type {}",
+					job_id, job_record.name
+				);
+				info!(
+					"RESUME_STATE_LOAD: Job {} loading {} bytes of state from database",
+					job_id,
+					job_record.state.len()
+				);
 				match REGISTRY.deserialize_job(&job_record.name, &job_record.state) {
 					Ok(erased_job) => {
 						warn!("DEBUG: Successfully deserialized job {}", job_id);
-						info!("RESUME_STATE_LOAD: Job {} successfully deserialized {} bytes of state",
-							job_id, job_record.state.len());
+						info!(
+							"RESUME_STATE_LOAD: Job {} successfully deserialized {} bytes of state",
+							job_id,
+							job_record.state.len()
+						);
 						// Create channels for the resumed job
 						let (status_tx, status_rx) = watch::channel(JobStatus::Paused);
 						let (progress_tx, progress_rx) = mpsc::unbounded_channel();
@@ -953,7 +969,8 @@ impl JobManager {
 						tokio::spawn(async move {
 							let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 							let mut last_db_update = std::time::Instant::now();
-							const DB_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+							const DB_UPDATE_INTERVAL: std::time::Duration =
+								std::time::Duration::from_secs(2);
 
 							while let Some(progress) = progress_rx.recv().await {
 								// Store latest progress
@@ -964,7 +981,9 @@ impl JobManager {
 
 								// Persist progress to database with throttling
 								if last_db_update.elapsed() >= DB_UPDATE_INTERVAL {
-									if let Err(e) = job_db_clone.update_progress(job_id_clone, &progress).await {
+									if let Err(e) =
+										job_db_clone.update_progress(job_id_clone, &progress).await
+									{
 										debug!("Failed to persist job progress to database: {}", e);
 									}
 									last_db_update = std::time::Instant::now();
@@ -982,15 +1001,14 @@ impl JobManager {
 										>(value.clone())
 										{
 											use crate::infra::job::generic_progress::ToGenericProgress;
-											Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
+											Some(copy_progress.to_generic_progress())
 										} else {
 											None
 										}
 									}
-									Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
+									Progress::Generic(gp) => Some(gp.clone()),
 									_ => None,
-								}
-								.flatten();
+								};
 
 								event_bus.emit(Event::JobProgress {
 									job_id: job_id_clone.to_string(),
@@ -1007,7 +1025,10 @@ impl JobManager {
 									.update_progress(job_id_clone, final_progress)
 									.await
 								{
-									debug!("Failed to persist final job progress to database: {}", e);
+									debug!(
+										"Failed to persist final job progress to database: {}",
+										e
+									);
 								}
 							}
 						});
@@ -1040,7 +1061,8 @@ impl JobManager {
 						};
 
 						// Create persistence completion channel
-						let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+						let (persistence_complete_tx, persistence_complete_rx) =
+							tokio::sync::oneshot::channel();
 
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
@@ -1147,12 +1169,20 @@ impl JobManager {
 								});
 
 								// Update status to Running after successful dispatch
-								warn!("DEBUG: Attempting to update resumed job {} status to Running", job_id);
-								if let Some(running_job) = self.running_jobs.read().await.get(&job_id) {
+								warn!(
+									"DEBUG: Attempting to update resumed job {} status to Running",
+									job_id
+								);
+								if let Some(running_job) =
+									self.running_jobs.read().await.get(&job_id)
+								{
 									if let Err(e) = running_job.status_tx.send(JobStatus::Running) {
 										warn!("Failed to update resumed job status: {}", e);
 									} else {
-										warn!("DEBUG: Successfully sent Running status to job {}", job_id);
+										warn!(
+											"DEBUG: Successfully sent Running status to job {}",
+											job_id
+										);
 									}
 								} else {
 									warn!("DEBUG: Job {} not found in running_jobs when trying to update status", job_id);
@@ -1216,7 +1246,9 @@ impl JobManager {
 				warn!("Failed to pause task for job {}: {}", job_id, e);
 				// Reset status back to Running if task pause failed
 				let _ = running_job.status_tx.send(JobStatus::Running);
-				return Err(JobError::Other(format!("Failed to pause task: {}", e).into()));
+				return Err(JobError::Other(
+					format!("Failed to pause task: {}", e).into(),
+				));
 			}
 
 			// Update database
@@ -1307,8 +1339,11 @@ impl JobManager {
 		// If job was not in memory, recreate and dispatch it
 		if let Some((job_name, job_state)) = job_info {
 			// Deserialize job from binary data
-			info!("RESUME_STATE_LOAD: Job {} loading {} bytes of state from database (manual resume)",
-				job_id, job_state.len());
+			info!(
+				"RESUME_STATE_LOAD: Job {} loading {} bytes of state from database (manual resume)",
+				job_id,
+				job_state.len()
+			);
 			let erased_job = REGISTRY.deserialize_job(&job_name, &job_state)?;
 			info!("RESUME_STATE_LOAD: Job {} successfully deserialized {} bytes of state (manual resume)",
 				job_id, job_state.len());
@@ -1378,7 +1413,8 @@ impl JobManager {
 			};
 
 			// Create persistence completion channel
-			let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+			let (persistence_complete_tx, persistence_complete_rx) =
+				tokio::sync::oneshot::channel();
 
 			// Create executor
 			let executor = erased_job.create_executor(
@@ -1551,7 +1587,8 @@ impl JobManager {
 			let total_count = running_jobs.len();
 
 			// Count jobs that are actually still running (not paused)
-			let still_running_count = running_jobs.values()
+			let still_running_count = running_jobs
+				.values()
 				.filter(|job| {
 					let status = job.handle.status();
 					status == JobStatus::Running
@@ -1559,8 +1596,10 @@ impl JobManager {
 				.count();
 
 			if still_running_count == 0 {
-				info!("All jobs have been paused or stopped (total jobs: {}, still running: {})",
-					total_count, still_running_count);
+				info!(
+					"All jobs have been paused or stopped (total jobs: {}, still running: {})",
+					total_count, still_running_count
+				);
 				break;
 			}
 
@@ -1572,8 +1611,11 @@ impl JobManager {
 			}
 
 			if start_time.elapsed() > timeout {
-				warn!("Timeout waiting for {} jobs to stop after {}s - forcing shutdown",
-					still_running_count, timeout.as_secs());
+				warn!(
+					"Timeout waiting for {} jobs to stop after {}s - forcing shutdown",
+					still_running_count,
+					timeout.as_secs()
+				);
 
 				// Log which jobs are still running
 				for (job_id, running_job) in running_jobs.iter() {
@@ -1581,7 +1623,10 @@ impl JobManager {
 					if status == JobStatus::Running {
 						warn!("Job {} still running with status: {:?}", job_id, status);
 					} else {
-						info!("Job {} has status: {:?} (not blocking shutdown)", job_id, status);
+						info!(
+							"Job {} has status: {:?} (not blocking shutdown)",
+							job_id, status
+						);
 					}
 				}
 				break;
@@ -1607,7 +1652,10 @@ impl JobManager {
 			}
 		}
 
-		info!("Waiting for {} jobs to complete state persistence", persistence_receivers.len());
+		info!(
+			"Waiting for {} jobs to complete state persistence",
+			persistence_receivers.len()
+		);
 
 		// Wait for all persistence operations to complete
 		for (job_id, rx) in persistence_receivers {
@@ -1631,17 +1679,25 @@ impl JobManager {
 		}
 
 		let persistence_elapsed = persistence_start_time.elapsed();
-		info!("State persistence completed in {:.2}s", persistence_elapsed.as_secs_f32());
+		info!(
+			"State persistence completed in {:.2}s",
+			persistence_elapsed.as_secs_f32()
+		);
 
 		// Close database connection properly
 		info!("Closing job database connection");
 
 		// First, checkpoint the WAL file to merge it back into the main database
 		use sea_orm::{ConnectionTrait, Statement};
-		if let Err(e) = self.db.conn().execute(Statement::from_string(
-			sea_orm::DatabaseBackend::Sqlite,
-			"PRAGMA wal_checkpoint(TRUNCATE)",
-		)).await {
+		if let Err(e) = self
+			.db
+			.conn()
+			.execute(Statement::from_string(
+				sea_orm::DatabaseBackend::Sqlite,
+				"PRAGMA wal_checkpoint(TRUNCATE)",
+			))
+			.await
+		{
 			warn!("Failed to checkpoint job database WAL file: {}", e);
 		} else {
 			info!("Job database WAL file checkpointed successfully");

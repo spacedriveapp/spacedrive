@@ -10,6 +10,16 @@ public struct ApfsContainer: Codable {
     public let capacityInUse: UInt64
     public let capacityFree: UInt64
     public let volumes: [ApfsVolumeInfo]
+
+    private enum CodingKeys: String, CodingKey {
+        case containerId = "container_id"
+        case uuid = "uuid"
+        case physicalStore = "physical_store"
+        case totalCapacity = "total_capacity"
+        case capacityInUse = "capacity_in_use"
+        case capacityFree = "capacity_free"
+        case volumes = "volumes"
+    }
 }
 
 /// APFS volume information within a container
@@ -22,6 +32,17 @@ public struct ApfsVolumeInfo: Codable {
     public let capacityConsumed: UInt64
     public let sealed: Bool
     public let filevault: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case diskId = "disk_id"
+        case uuid = "uuid"
+        case role = "role"
+        case name = "name"
+        case mountPoint = "mount_point"
+        case capacityConsumed = "capacity_consumed"
+        case sealed = "sealed"
+        case filevault = "filevault"
+    }
 }
 
 /// APFS volume roles in the container
@@ -30,59 +51,683 @@ public enum ApfsVolumeRole: Codable {
     case data
     case preboot
     case recovery
-    case vm
+    case vM
     case other(String)
 }
 
 /// Represents the type of physical storage device
 public enum DiskType: Codable {
-    case ssd
-    case hdd
+    case sSD
+    case hDD
     case unknown
 }
 
 /// A central event type that represents all events that can be emitted throughout the system
-public enum Event: Codable {
-    case corestarted
-    case coreshutdown
-    case librarycreated(id: String, name: String, path: String)
-    case libraryopened(id: String, name: String, path: String)
-    case libraryclosed(id: String, name: String)
-    case librarydeleted(id: String, name: String, deletedData: Bool)
-    case entrycreated(libraryId: String, entryId: String)
-    case entrymodified(libraryId: String, entryId: String)
-    case entrydeleted(libraryId: String, entryId: String)
-    case entrymoved(libraryId: String, entryId: String, oldPath: String, newPath: String)
-    case fsrawchange(libraryId: String, kind: FsRawEventKind)
-    case volumeadded(Volume)
-    case volumeremoved(fingerprint: VolumeFingerprint)
-    case volumeupdated(fingerprint: VolumeFingerprint, oldInfo: VolumeInfo, newInfo: VolumeInfo)
-    case volumespeedtested(fingerprint: VolumeFingerprint, readSpeedMbps: UInt64, writeSpeedMbps: UInt64)
-    case volumemountchanged(fingerprint: VolumeFingerprint, isMounted: Bool)
-    case volumeerror(fingerprint: VolumeFingerprint, error: String)
-    case jobqueued(jobId: String, jobType: String)
-    case jobstarted(jobId: String, jobType: String)
-    case jobprogress(jobId: String, jobType: String, progress: Double, message: String?)
-    case jobcompleted(jobId: String, jobType: String, output: JobOutput)
-    case jobfailed(jobId: String, jobType: String, error: String)
-    case jobcancelled(jobId: String, jobType: String)
-    case jobpaused(jobId: String)
-    case jobresumed(jobId: String)
-    case indexingstarted(locationId: String)
-    case indexingprogress(locationId: String, processed: UInt64, total: UInt64?)
-    case indexingcompleted(locationId: String, totalFiles: UInt64, totalDirs: UInt64)
-    case indexingfailed(locationId: String, error: String)
-    case deviceconnected(deviceId: String, deviceName: String)
-    case devicedisconnected(deviceId: String)
-    case locationadded(libraryId: String, locationId: String, path: String)
-    case locationremoved(libraryId: String, locationId: String)
-    case filesindexed(libraryId: String, locationId: String, count: UInt)
-    case thumbnailsgenerated(libraryId: String, count: UInt)
-    case fileoperationcompleted(libraryId: String, operation: FileOperation, affectedFiles: UInt)
-    case filesmodified(libraryId: String, paths: [String])
-    case logmessage(timestamp: String, level: String, target: String, message: String, jobId: String?, libraryId: String?)
-    case custom(eventType: String)
+public enum Event {
+    case coreStarted
+    case coreShutdown
+    case libraryCreated(EventLibraryCreatedData)
+    case libraryOpened(EventLibraryOpenedData)
+    case libraryClosed(EventLibraryClosedData)
+    case libraryDeleted(EventLibraryDeletedData)
+    case entryCreated(EventEntryCreatedData)
+    case entryModified(EventEntryModifiedData)
+    case entryDeleted(EventEntryDeletedData)
+    case entryMoved(EventEntryMovedData)
+    case fsRawChange(EventFsRawChangeData)
+    case volumeAdded(Volume)
+    case volumeRemoved(EventVolumeRemovedData)
+    case volumeUpdated(EventVolumeUpdatedData)
+    case volumeSpeedTested(EventVolumeSpeedTestedData)
+    case volumeMountChanged(EventVolumeMountChangedData)
+    case volumeError(EventVolumeErrorData)
+    case jobQueued(EventJobQueuedData)
+    case jobStarted(EventJobStartedData)
+    case jobProgress(EventJobProgressData)
+    case jobCompleted(EventJobCompletedData)
+    case jobFailed(EventJobFailedData)
+    case jobCancelled(EventJobCancelledData)
+    case jobPaused(EventJobPausedData)
+    case jobResumed(EventJobResumedData)
+    case indexingStarted(EventIndexingStartedData)
+    case indexingProgress(EventIndexingProgressData)
+    case indexingCompleted(EventIndexingCompletedData)
+    case indexingFailed(EventIndexingFailedData)
+    case deviceConnected(EventDeviceConnectedData)
+    case deviceDisconnected(EventDeviceDisconnectedData)
+    case locationAdded(EventLocationAddedData)
+    case locationRemoved(EventLocationRemovedData)
+    case filesIndexed(EventFilesIndexedData)
+    case thumbnailsGenerated(EventThumbnailsGeneratedData)
+    case fileOperationCompleted(EventFileOperationCompletedData)
+    case filesModified(EventFilesModifiedData)
+    case logMessage(EventLogMessageData)
+    case custom(EventCustomData)
 }
+public struct EventLibraryCreatedData: Codable {
+    public let id: String
+    public let name: String
+    public let path: String
+}
+
+public struct EventLibraryOpenedData: Codable {
+    public let id: String
+    public let name: String
+    public let path: String
+}
+
+public struct EventLibraryClosedData: Codable {
+    public let id: String
+    public let name: String
+}
+
+public struct EventLibraryDeletedData: Codable {
+    public let id: String
+    public let name: String
+    public let deletedData: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case deletedData = "deleted_data"
+    }
+}
+
+public struct EventEntryCreatedData: Codable {
+    public let libraryId: String
+    public let entryId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+    }
+}
+
+public struct EventEntryModifiedData: Codable {
+    public let libraryId: String
+    public let entryId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+    }
+}
+
+public struct EventEntryDeletedData: Codable {
+    public let libraryId: String
+    public let entryId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+    }
+}
+
+public struct EventEntryMovedData: Codable {
+    public let libraryId: String
+    public let entryId: String
+    public let oldPath: String
+    public let newPath: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+        case oldPath = "old_path"
+        case newPath = "new_path"
+    }
+}
+
+public struct EventFsRawChangeData: Codable {
+    public let libraryId: String
+    public let kind: FsRawEventKind
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case kind = "kind"
+    }
+}
+
+public struct EventVolumeRemovedData: Codable {
+    public let fingerprint: VolumeFingerprint
+}
+
+public struct EventVolumeUpdatedData: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let oldInfo: VolumeInfo
+    public let newInfo: VolumeInfo
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case oldInfo = "old_info"
+        case newInfo = "new_info"
+    }
+}
+
+public struct EventVolumeSpeedTestedData: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let readSpeedMbps: UInt64
+    public let writeSpeedMbps: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case readSpeedMbps = "read_speed_mbps"
+        case writeSpeedMbps = "write_speed_mbps"
+    }
+}
+
+public struct EventVolumeMountChangedData: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let isMounted: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case isMounted = "is_mounted"
+    }
+}
+
+public struct EventVolumeErrorData: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let error: String
+}
+
+public struct EventJobQueuedData: Codable {
+    public let jobId: String
+    public let jobType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+    }
+}
+
+public struct EventJobStartedData: Codable {
+    public let jobId: String
+    public let jobType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+    }
+}
+
+public struct EventJobProgressData: Codable {
+    public let jobId: String
+    public let jobType: String
+    public let progress: Double
+    public let message: String?
+    public let genericProgress: GenericProgress?
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+        case progress = "progress"
+        case message = "message"
+        case genericProgress = "generic_progress"
+    }
+}
+
+public struct EventJobCompletedData: Codable {
+    public let jobId: String
+    public let jobType: String
+    public let output: JobOutput
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+        case output = "output"
+    }
+}
+
+public struct EventJobFailedData: Codable {
+    public let jobId: String
+    public let jobType: String
+    public let error: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+        case error = "error"
+    }
+}
+
+public struct EventJobCancelledData: Codable {
+    public let jobId: String
+    public let jobType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+    }
+}
+
+public struct EventJobPausedData: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+}
+
+public struct EventJobResumedData: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+}
+
+public struct EventIndexingStartedData: Codable {
+    public let locationId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+    }
+}
+
+public struct EventIndexingProgressData: Codable {
+    public let locationId: String
+    public let processed: UInt64
+    public let total: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case processed = "processed"
+        case total = "total"
+    }
+}
+
+public struct EventIndexingCompletedData: Codable {
+    public let locationId: String
+    public let totalFiles: UInt64
+    public let totalDirs: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case totalFiles = "total_files"
+        case totalDirs = "total_dirs"
+    }
+}
+
+public struct EventIndexingFailedData: Codable {
+    public let locationId: String
+    public let error: String
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case error = "error"
+    }
+}
+
+public struct EventDeviceConnectedData: Codable {
+    public let deviceId: String
+    public let deviceName: String
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case deviceName = "device_name"
+    }
+}
+
+public struct EventDeviceDisconnectedData: Codable {
+    public let deviceId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+    }
+}
+
+public struct EventLocationAddedData: Codable {
+    public let libraryId: String
+    public let locationId: String
+    public let path: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case locationId = "location_id"
+        case path = "path"
+    }
+}
+
+public struct EventLocationRemovedData: Codable {
+    public let libraryId: String
+    public let locationId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case locationId = "location_id"
+    }
+}
+
+public struct EventFilesIndexedData: Codable {
+    public let libraryId: String
+    public let locationId: String
+    public let count: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case locationId = "location_id"
+        case count = "count"
+    }
+}
+
+public struct EventThumbnailsGeneratedData: Codable {
+    public let libraryId: String
+    public let count: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case count = "count"
+    }
+}
+
+public struct EventFileOperationCompletedData: Codable {
+    public let libraryId: String
+    public let operation: FileOperation
+    public let affectedFiles: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case operation = "operation"
+        case affectedFiles = "affected_files"
+    }
+}
+
+public struct EventFilesModifiedData: Codable {
+    public let libraryId: String
+    public let paths: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case paths = "paths"
+    }
+}
+
+public struct EventLogMessageData: Codable {
+    public let timestamp: String
+    public let level: String
+    public let target: String
+    public let message: String
+    public let jobId: String?
+    public let libraryId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case timestamp = "timestamp"
+        case level = "level"
+        case target = "target"
+        case message = "message"
+        case jobId = "job_id"
+        case libraryId = "library_id"
+    }
+}
+
+public struct EventCustomData: Codable {
+    public let eventType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+    }
+}
+
+// MARK: - Event Codable Implementation
+extension Event: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case coreStarted = "CoreStarted"
+        case coreShutdown = "CoreShutdown"
+        case libraryCreated = "LibraryCreated"
+        case libraryOpened = "LibraryOpened"
+        case libraryClosed = "LibraryClosed"
+        case libraryDeleted = "LibraryDeleted"
+        case entryCreated = "EntryCreated"
+        case entryModified = "EntryModified"
+        case entryDeleted = "EntryDeleted"
+        case entryMoved = "EntryMoved"
+        case fsRawChange = "FsRawChange"
+        case volumeAdded = "VolumeAdded"
+        case volumeRemoved = "VolumeRemoved"
+        case volumeUpdated = "VolumeUpdated"
+        case volumeSpeedTested = "VolumeSpeedTested"
+        case volumeMountChanged = "VolumeMountChanged"
+        case volumeError = "VolumeError"
+        case jobQueued = "JobQueued"
+        case jobStarted = "JobStarted"
+        case jobProgress = "JobProgress"
+        case jobCompleted = "JobCompleted"
+        case jobFailed = "JobFailed"
+        case jobCancelled = "JobCancelled"
+        case jobPaused = "JobPaused"
+        case jobResumed = "JobResumed"
+        case indexingStarted = "IndexingStarted"
+        case indexingProgress = "IndexingProgress"
+        case indexingCompleted = "IndexingCompleted"
+        case indexingFailed = "IndexingFailed"
+        case deviceConnected = "DeviceConnected"
+        case deviceDisconnected = "DeviceDisconnected"
+        case locationAdded = "LocationAdded"
+        case locationRemoved = "LocationRemoved"
+        case filesIndexed = "FilesIndexed"
+        case thumbnailsGenerated = "ThumbnailsGenerated"
+        case fileOperationCompleted = "FileOperationCompleted"
+        case filesModified = "FilesModified"
+        case logMessage = "LogMessage"
+        case custom = "Custom"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .coreStarted:
+            self = .coreStarted
+        case .coreShutdown:
+            self = .coreShutdown
+        case .libraryCreated:
+            let data = try container.decode(EventLibraryCreatedData.self, forKey: .libraryCreated)
+            self = .libraryCreated(data)
+        case .libraryOpened:
+            let data = try container.decode(EventLibraryOpenedData.self, forKey: .libraryOpened)
+            self = .libraryOpened(data)
+        case .libraryClosed:
+            let data = try container.decode(EventLibraryClosedData.self, forKey: .libraryClosed)
+            self = .libraryClosed(data)
+        case .libraryDeleted:
+            let data = try container.decode(EventLibraryDeletedData.self, forKey: .libraryDeleted)
+            self = .libraryDeleted(data)
+        case .entryCreated:
+            let data = try container.decode(EventEntryCreatedData.self, forKey: .entryCreated)
+            self = .entryCreated(data)
+        case .entryModified:
+            let data = try container.decode(EventEntryModifiedData.self, forKey: .entryModified)
+            self = .entryModified(data)
+        case .entryDeleted:
+            let data = try container.decode(EventEntryDeletedData.self, forKey: .entryDeleted)
+            self = .entryDeleted(data)
+        case .entryMoved:
+            let data = try container.decode(EventEntryMovedData.self, forKey: .entryMoved)
+            self = .entryMoved(data)
+        case .fsRawChange:
+            let data = try container.decode(EventFsRawChangeData.self, forKey: .fsRawChange)
+            self = .fsRawChange(data)
+        case .volumeAdded:
+            // TODO: Implement tuple variant decoding for volumeAdded
+            fatalError("Tuple variant decoding not implemented")
+        case .volumeRemoved:
+            let data = try container.decode(EventVolumeRemovedData.self, forKey: .volumeRemoved)
+            self = .volumeRemoved(data)
+        case .volumeUpdated:
+            let data = try container.decode(EventVolumeUpdatedData.self, forKey: .volumeUpdated)
+            self = .volumeUpdated(data)
+        case .volumeSpeedTested:
+            let data = try container.decode(EventVolumeSpeedTestedData.self, forKey: .volumeSpeedTested)
+            self = .volumeSpeedTested(data)
+        case .volumeMountChanged:
+            let data = try container.decode(EventVolumeMountChangedData.self, forKey: .volumeMountChanged)
+            self = .volumeMountChanged(data)
+        case .volumeError:
+            let data = try container.decode(EventVolumeErrorData.self, forKey: .volumeError)
+            self = .volumeError(data)
+        case .jobQueued:
+            let data = try container.decode(EventJobQueuedData.self, forKey: .jobQueued)
+            self = .jobQueued(data)
+        case .jobStarted:
+            let data = try container.decode(EventJobStartedData.self, forKey: .jobStarted)
+            self = .jobStarted(data)
+        case .jobProgress:
+            let data = try container.decode(EventJobProgressData.self, forKey: .jobProgress)
+            self = .jobProgress(data)
+        case .jobCompleted:
+            let data = try container.decode(EventJobCompletedData.self, forKey: .jobCompleted)
+            self = .jobCompleted(data)
+        case .jobFailed:
+            let data = try container.decode(EventJobFailedData.self, forKey: .jobFailed)
+            self = .jobFailed(data)
+        case .jobCancelled:
+            let data = try container.decode(EventJobCancelledData.self, forKey: .jobCancelled)
+            self = .jobCancelled(data)
+        case .jobPaused:
+            let data = try container.decode(EventJobPausedData.self, forKey: .jobPaused)
+            self = .jobPaused(data)
+        case .jobResumed:
+            let data = try container.decode(EventJobResumedData.self, forKey: .jobResumed)
+            self = .jobResumed(data)
+        case .indexingStarted:
+            let data = try container.decode(EventIndexingStartedData.self, forKey: .indexingStarted)
+            self = .indexingStarted(data)
+        case .indexingProgress:
+            let data = try container.decode(EventIndexingProgressData.self, forKey: .indexingProgress)
+            self = .indexingProgress(data)
+        case .indexingCompleted:
+            let data = try container.decode(EventIndexingCompletedData.self, forKey: .indexingCompleted)
+            self = .indexingCompleted(data)
+        case .indexingFailed:
+            let data = try container.decode(EventIndexingFailedData.self, forKey: .indexingFailed)
+            self = .indexingFailed(data)
+        case .deviceConnected:
+            let data = try container.decode(EventDeviceConnectedData.self, forKey: .deviceConnected)
+            self = .deviceConnected(data)
+        case .deviceDisconnected:
+            let data = try container.decode(EventDeviceDisconnectedData.self, forKey: .deviceDisconnected)
+            self = .deviceDisconnected(data)
+        case .locationAdded:
+            let data = try container.decode(EventLocationAddedData.self, forKey: .locationAdded)
+            self = .locationAdded(data)
+        case .locationRemoved:
+            let data = try container.decode(EventLocationRemovedData.self, forKey: .locationRemoved)
+            self = .locationRemoved(data)
+        case .filesIndexed:
+            let data = try container.decode(EventFilesIndexedData.self, forKey: .filesIndexed)
+            self = .filesIndexed(data)
+        case .thumbnailsGenerated:
+            let data = try container.decode(EventThumbnailsGeneratedData.self, forKey: .thumbnailsGenerated)
+            self = .thumbnailsGenerated(data)
+        case .fileOperationCompleted:
+            let data = try container.decode(EventFileOperationCompletedData.self, forKey: .fileOperationCompleted)
+            self = .fileOperationCompleted(data)
+        case .filesModified:
+            let data = try container.decode(EventFilesModifiedData.self, forKey: .filesModified)
+            self = .filesModified(data)
+        case .logMessage:
+            let data = try container.decode(EventLogMessageData.self, forKey: .logMessage)
+            self = .logMessage(data)
+        case .custom:
+            let data = try container.decode(EventCustomData.self, forKey: .custom)
+            self = .custom(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .coreStarted:
+            try container.encodeNil(forKey: .coreStarted)
+        case .coreShutdown:
+            try container.encodeNil(forKey: .coreShutdown)
+        case .libraryCreated(let data):
+            try container.encode(data, forKey: .libraryCreated)
+        case .libraryOpened(let data):
+            try container.encode(data, forKey: .libraryOpened)
+        case .libraryClosed(let data):
+            try container.encode(data, forKey: .libraryClosed)
+        case .libraryDeleted(let data):
+            try container.encode(data, forKey: .libraryDeleted)
+        case .entryCreated(let data):
+            try container.encode(data, forKey: .entryCreated)
+        case .entryModified(let data):
+            try container.encode(data, forKey: .entryModified)
+        case .entryDeleted(let data):
+            try container.encode(data, forKey: .entryDeleted)
+        case .entryMoved(let data):
+            try container.encode(data, forKey: .entryMoved)
+        case .fsRawChange(let data):
+            try container.encode(data, forKey: .fsRawChange)
+        case .volumeAdded:
+            // TODO: Implement tuple variant encoding for volumeAdded
+            fatalError("Tuple variant encoding not implemented")
+        case .volumeRemoved(let data):
+            try container.encode(data, forKey: .volumeRemoved)
+        case .volumeUpdated(let data):
+            try container.encode(data, forKey: .volumeUpdated)
+        case .volumeSpeedTested(let data):
+            try container.encode(data, forKey: .volumeSpeedTested)
+        case .volumeMountChanged(let data):
+            try container.encode(data, forKey: .volumeMountChanged)
+        case .volumeError(let data):
+            try container.encode(data, forKey: .volumeError)
+        case .jobQueued(let data):
+            try container.encode(data, forKey: .jobQueued)
+        case .jobStarted(let data):
+            try container.encode(data, forKey: .jobStarted)
+        case .jobProgress(let data):
+            try container.encode(data, forKey: .jobProgress)
+        case .jobCompleted(let data):
+            try container.encode(data, forKey: .jobCompleted)
+        case .jobFailed(let data):
+            try container.encode(data, forKey: .jobFailed)
+        case .jobCancelled(let data):
+            try container.encode(data, forKey: .jobCancelled)
+        case .jobPaused(let data):
+            try container.encode(data, forKey: .jobPaused)
+        case .jobResumed(let data):
+            try container.encode(data, forKey: .jobResumed)
+        case .indexingStarted(let data):
+            try container.encode(data, forKey: .indexingStarted)
+        case .indexingProgress(let data):
+            try container.encode(data, forKey: .indexingProgress)
+        case .indexingCompleted(let data):
+            try container.encode(data, forKey: .indexingCompleted)
+        case .indexingFailed(let data):
+            try container.encode(data, forKey: .indexingFailed)
+        case .deviceConnected(let data):
+            try container.encode(data, forKey: .deviceConnected)
+        case .deviceDisconnected(let data):
+            try container.encode(data, forKey: .deviceDisconnected)
+        case .locationAdded(let data):
+            try container.encode(data, forKey: .locationAdded)
+        case .locationRemoved(let data):
+            try container.encode(data, forKey: .locationRemoved)
+        case .filesIndexed(let data):
+            try container.encode(data, forKey: .filesIndexed)
+        case .thumbnailsGenerated(let data):
+            try container.encode(data, forKey: .thumbnailsGenerated)
+        case .fileOperationCompleted(let data):
+            try container.encode(data, forKey: .fileOperationCompleted)
+        case .filesModified(let data):
+            try container.encode(data, forKey: .filesModified)
+        case .logMessage(let data):
+            try container.encode(data, forKey: .logMessage)
+        case .custom(let data):
+            try container.encode(data, forKey: .custom)
+        }
+    }
+}
+
 
 /// Types of file operations
 public enum FileOperation: Codable {
@@ -94,24 +739,92 @@ public enum FileOperation: Codable {
 
 /// Represents the filesystem type of the volume
 public enum FileSystem: Codable {
-    case ntfs
-    case fat32
-    case ext4
-    case apfs
-    case exfat
+    case nTFS
+    case fAT32
+    case eXT4
+    case aPFS
+    case exFAT
     case btrfs
-    case zfs
-    case refs
+    case zFS
+    case reFS
     case other(String)
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
-public enum FsRawEventKind: Codable {
-    case create(path: String)
-    case modify(path: String)
-    case remove(path: String)
-    case rename(from: String, to: String)
+public enum FsRawEventKind {
+    case create(FsRawEventKindCreateData)
+    case modify(FsRawEventKindModifyData)
+    case remove(FsRawEventKindRemoveData)
+    case rename(FsRawEventKindRenameData)
 }
+public struct FsRawEventKindCreateData: Codable {
+    public let path: String
+}
+
+public struct FsRawEventKindModifyData: Codable {
+    public let path: String
+}
+
+public struct FsRawEventKindRemoveData: Codable {
+    public let path: String
+}
+
+public struct FsRawEventKindRenameData: Codable {
+    public let from: String
+    public let to: String
+}
+
+// MARK: - FsRawEventKind Codable Implementation
+extension FsRawEventKind: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case create = "Create"
+        case modify = "Modify"
+        case remove = "Remove"
+        case rename = "Rename"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .create:
+            let data = try container.decode(FsRawEventKindCreateData.self, forKey: .create)
+            self = .create(data)
+        case .modify:
+            let data = try container.decode(FsRawEventKindModifyData.self, forKey: .modify)
+            self = .modify(data)
+        case .remove:
+            let data = try container.decode(FsRawEventKindRemoveData.self, forKey: .remove)
+            self = .remove(data)
+        case .rename:
+            let data = try container.decode(FsRawEventKindRenameData.self, forKey: .rename)
+            self = .rename(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .create(let data):
+            try container.encode(data, forKey: .create)
+        case .modify(let data):
+            try container.encode(data, forKey: .modify)
+        case .remove(let data):
+            try container.encode(data, forKey: .remove)
+        case .rename(let data):
+            try container.encode(data, forKey: .rename)
+        }
+    }
+}
+
 
 /// Generic progress information that all job types can convert into
 public struct GenericProgress: Codable {
@@ -121,6 +834,15 @@ public struct GenericProgress: Codable {
     public let message: String
     public let completion: ProgressCompletion
     public let performance: PerformanceMetrics
+
+    private enum CodingKeys: String, CodingKey {
+        case percentage = "percentage"
+        case phase = "phase"
+        case currentPath = "current_path"
+        case message = "message"
+        case completion = "completion"
+        case performance = "performance"
+    }
 }
 
 /// Comprehensive metrics for indexing operations
@@ -142,6 +864,26 @@ public struct IndexerMetrics: Codable {
     public let skippedPaths: UInt64
     public let peakMemoryBytes: UInt64?
     public let avgMemoryBytes: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case totalDuration = "total_duration"
+        case discoveryDuration = "discovery_duration"
+        case processingDuration = "processing_duration"
+        case contentDuration = "content_duration"
+        case filesPerSecond = "files_per_second"
+        case bytesPerSecond = "bytes_per_second"
+        case dirsPerSecond = "dirs_per_second"
+        case dbWrites = "db_writes"
+        case dbReads = "db_reads"
+        case batchCount = "batch_count"
+        case avgBatchSize = "avg_batch_size"
+        case totalErrors = "total_errors"
+        case criticalErrors = "critical_errors"
+        case nonCriticalErrors = "non_critical_errors"
+        case skippedPaths = "skipped_paths"
+        case peakMemoryBytes = "peak_memory_bytes"
+        case avgMemoryBytes = "avg_memory_bytes"
+    }
 }
 
 /// Statistics collected during indexing
@@ -166,17 +908,184 @@ public struct JobListOutput: Codable {
 }
 
 /// Output from a completed job
-public enum JobOutput: Codable {
+public enum JobOutput {
     case success
-    case filecopy(copiedCount: UInt, totalBytes: UInt64)
-    case indexed(stats: IndexerStats, metrics: IndexerMetrics)
-    case thumbnailsgenerated(generatedCount: UInt, failedCount: UInt)
-    case thumbnailgeneration(generatedCount: UInt64, skippedCount: UInt64, errorCount: UInt64, totalSizeBytes: UInt64)
-    case filemove(movedCount: UInt, failedCount: UInt, totalBytes: UInt64)
-    case filedelete(deletedCount: UInt, failedCount: UInt, totalBytes: UInt64)
-    case duplicatedetection(duplicateGroups: UInt, totalDuplicates: UInt, potentialSavings: UInt64)
-    case filevalidation(validatedCount: UInt, issuesFound: UInt, totalBytesValidated: UInt64)
+    case fileCopy(JobOutputFileCopyData)
+    case indexed(JobOutputIndexedData)
+    case thumbnailsGenerated(JobOutputThumbnailsGeneratedData)
+    case thumbnailGeneration(JobOutputThumbnailGenerationData)
+    case fileMove(JobOutputFileMoveData)
+    case fileDelete(JobOutputFileDeleteData)
+    case duplicateDetection(JobOutputDuplicateDetectionData)
+    case fileValidation(JobOutputFileValidationData)
 }
+public struct JobOutputFileCopyData: Codable {
+    public let copiedCount: UInt
+    public let totalBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case copiedCount = "copied_count"
+        case totalBytes = "total_bytes"
+    }
+}
+
+public struct JobOutputIndexedData: Codable {
+    public let stats: IndexerStats
+    public let metrics: IndexerMetrics
+}
+
+public struct JobOutputThumbnailsGeneratedData: Codable {
+    public let generatedCount: UInt
+    public let failedCount: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case generatedCount = "generated_count"
+        case failedCount = "failed_count"
+    }
+}
+
+public struct JobOutputThumbnailGenerationData: Codable {
+    public let generatedCount: UInt64
+    public let skippedCount: UInt64
+    public let errorCount: UInt64
+    public let totalSizeBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case generatedCount = "generated_count"
+        case skippedCount = "skipped_count"
+        case errorCount = "error_count"
+        case totalSizeBytes = "total_size_bytes"
+    }
+}
+
+public struct JobOutputFileMoveData: Codable {
+    public let movedCount: UInt
+    public let failedCount: UInt
+    public let totalBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case movedCount = "moved_count"
+        case failedCount = "failed_count"
+        case totalBytes = "total_bytes"
+    }
+}
+
+public struct JobOutputFileDeleteData: Codable {
+    public let deletedCount: UInt
+    public let failedCount: UInt
+    public let totalBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case deletedCount = "deleted_count"
+        case failedCount = "failed_count"
+        case totalBytes = "total_bytes"
+    }
+}
+
+public struct JobOutputDuplicateDetectionData: Codable {
+    public let duplicateGroups: UInt
+    public let totalDuplicates: UInt
+    public let potentialSavings: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case duplicateGroups = "duplicate_groups"
+        case totalDuplicates = "total_duplicates"
+        case potentialSavings = "potential_savings"
+    }
+}
+
+public struct JobOutputFileValidationData: Codable {
+    public let validatedCount: UInt
+    public let issuesFound: UInt
+    public let totalBytesValidated: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case validatedCount = "validated_count"
+        case issuesFound = "issues_found"
+        case totalBytesValidated = "total_bytes_validated"
+    }
+}
+
+// MARK: - JobOutput Codable Implementation
+extension JobOutput: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case success = "Success"
+        case fileCopy = "FileCopy"
+        case indexed = "Indexed"
+        case thumbnailsGenerated = "ThumbnailsGenerated"
+        case thumbnailGeneration = "ThumbnailGeneration"
+        case fileMove = "FileMove"
+        case fileDelete = "FileDelete"
+        case duplicateDetection = "DuplicateDetection"
+        case fileValidation = "FileValidation"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .success:
+            self = .success
+        case .fileCopy:
+            let data = try container.decode(JobOutputFileCopyData.self, forKey: .fileCopy)
+            self = .fileCopy(data)
+        case .indexed:
+            let data = try container.decode(JobOutputIndexedData.self, forKey: .indexed)
+            self = .indexed(data)
+        case .thumbnailsGenerated:
+            let data = try container.decode(JobOutputThumbnailsGeneratedData.self, forKey: .thumbnailsGenerated)
+            self = .thumbnailsGenerated(data)
+        case .thumbnailGeneration:
+            let data = try container.decode(JobOutputThumbnailGenerationData.self, forKey: .thumbnailGeneration)
+            self = .thumbnailGeneration(data)
+        case .fileMove:
+            let data = try container.decode(JobOutputFileMoveData.self, forKey: .fileMove)
+            self = .fileMove(data)
+        case .fileDelete:
+            let data = try container.decode(JobOutputFileDeleteData.self, forKey: .fileDelete)
+            self = .fileDelete(data)
+        case .duplicateDetection:
+            let data = try container.decode(JobOutputDuplicateDetectionData.self, forKey: .duplicateDetection)
+            self = .duplicateDetection(data)
+        case .fileValidation:
+            let data = try container.decode(JobOutputFileValidationData.self, forKey: .fileValidation)
+            self = .fileValidation(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .success:
+            try container.encodeNil(forKey: .success)
+        case .fileCopy(let data):
+            try container.encode(data, forKey: .fileCopy)
+        case .indexed(let data):
+            try container.encode(data, forKey: .indexed)
+        case .thumbnailsGenerated(let data):
+            try container.encode(data, forKey: .thumbnailsGenerated)
+        case .thumbnailGeneration(let data):
+            try container.encode(data, forKey: .thumbnailGeneration)
+        case .fileMove(let data):
+            try container.encode(data, forKey: .fileMove)
+        case .fileDelete(let data):
+            try container.encode(data, forKey: .fileDelete)
+        case .duplicateDetection(let data):
+            try container.encode(data, forKey: .duplicateDetection)
+        case .fileValidation(let data):
+            try container.encode(data, forKey: .fileValidation)
+        }
+    }
+}
+
 
 /// Current status of a job
 public enum JobStatus: String, Codable {
@@ -199,6 +1108,12 @@ public struct LibraryCreateOutput: Codable {
     public let libraryId: String
     public let name: String
     public let path: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case name = "name"
+        case path = "path"
+    }
 }
 
 /// Information about a library for listing purposes
@@ -218,6 +1133,16 @@ public struct LibraryStatistics: Codable {
     public let thumbnailCount: UInt64
     public let lastIndexed: String?
     public let updatedAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case totalFiles = "total_files"
+        case totalSize = "total_size"
+        case locationCount = "location_count"
+        case tagCount = "tag_count"
+        case thumbnailCount = "thumbnail_count"
+        case lastIndexed = "last_indexed"
+        case updatedAt = "updated_at"
+    }
 }
 
 /// Represents how the volume is mounted in the system
@@ -232,6 +1157,11 @@ public enum MountType: Codable {
 public struct PathMapping: Codable {
     public let virtualPath: String
     public let actualPath: String
+
+    private enum CodingKeys: String, CodingKey {
+        case virtualPath = "virtual_path"
+        case actualPath = "actual_path"
+    }
 }
 
 /// Performance and timing metrics
@@ -241,16 +1171,94 @@ public struct PerformanceMetrics: Codable {
     public let elapsed: TimeInterval?
     public let errorCount: UInt64
     public let warningCount: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case rate = "rate"
+        case estimatedRemaining = "estimated_remaining"
+        case elapsed = "elapsed"
+        case errorCount = "error_count"
+        case warningCount = "warning_count"
+    }
 }
 
 /// Progress information for a job
-public enum Progress: Codable {
-    case count(current: UInt, total: UInt)
+public enum Progress {
+    case count(ProgressCountData)
     case percentage(Float)
     case indeterminate(String)
-    case bytes(current: UInt64, total: UInt64)
+    case bytes(ProgressBytesData)
     case generic(GenericProgress)
 }
+public struct ProgressCountData: Codable {
+    public let current: UInt
+    public let total: UInt
+}
+
+public struct ProgressBytesData: Codable {
+    public let current: UInt64
+    public let total: UInt64
+}
+
+// MARK: - Progress Codable Implementation
+extension Progress: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case count = "Count"
+        case percentage = "Percentage"
+        case indeterminate = "Indeterminate"
+        case bytes = "Bytes"
+        case generic = "Generic"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .count:
+            let data = try container.decode(ProgressCountData.self, forKey: .count)
+            self = .count(data)
+        case .percentage:
+            // TODO: Implement tuple variant decoding for percentage
+            fatalError("Tuple variant decoding not implemented")
+        case .indeterminate:
+            // TODO: Implement tuple variant decoding for indeterminate
+            fatalError("Tuple variant decoding not implemented")
+        case .bytes:
+            let data = try container.decode(ProgressBytesData.self, forKey: .bytes)
+            self = .bytes(data)
+        case .generic:
+            // TODO: Implement tuple variant decoding for generic
+            fatalError("Tuple variant decoding not implemented")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .count(let data):
+            try container.encode(data, forKey: .count)
+        case .percentage:
+            // TODO: Implement tuple variant encoding for percentage
+            fatalError("Tuple variant encoding not implemented")
+        case .indeterminate:
+            // TODO: Implement tuple variant encoding for indeterminate
+            fatalError("Tuple variant encoding not implemented")
+        case .bytes(let data):
+            try container.encode(data, forKey: .bytes)
+        case .generic:
+            // TODO: Implement tuple variant encoding for generic
+            fatalError("Tuple variant encoding not implemented")
+        }
+    }
+}
+
 
 /// Progress completion information
 public struct ProgressCompletion: Codable {
@@ -258,6 +1266,13 @@ public struct ProgressCompletion: Codable {
     public let total: UInt64
     public let bytesCompleted: UInt64?
     public let totalBytes: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case completed = "completed"
+        case total = "total"
+        case bytesCompleted = "bytes_completed"
+        case totalBytes = "total_bytes"
+    }
 }
 
 /// A path within the Spacedrive Virtual Distributed File System
@@ -269,10 +1284,67 @@ public struct ProgressCompletion: Codable {
 /// 
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
-public enum SdPath: Codable {
-    case physical(deviceId: String, path: String)
-    case content(contentId: String)
+public enum SdPath {
+    case physical(SdPathPhysicalData)
+    case content(SdPathContentData)
 }
+public struct SdPathPhysicalData: Codable {
+    public let deviceId: String
+    public let path: String
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case path = "path"
+    }
+}
+
+public struct SdPathContentData: Codable {
+    public let contentId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case contentId = "content_id"
+    }
+}
+
+// MARK: - SdPath Codable Implementation
+extension SdPath: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case physical = "Physical"
+        case content = "Content"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .physical:
+            let data = try container.decode(SdPathPhysicalData.self, forKey: .physical)
+            self = .physical(data)
+        case .content:
+            let data = try container.decode(SdPathContentData.self, forKey: .content)
+            self = .content(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .physical(let data):
+            try container.encode(data, forKey: .physical)
+        case .content(let data):
+            try container.encode(data, forKey: .content)
+        }
+    }
+}
+
 
 /// A batch of SdPaths, useful for operations on multiple files
 public struct SdPathBatch: Codable {
@@ -304,11 +1376,37 @@ public struct Volume: Codable {
     public let isUserVisible: Bool
     public let autoTrackEligible: Bool
     public let lastUpdated: String
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case deviceId = "device_id"
+        case name = "name"
+        case mountType = "mount_type"
+        case volumeType = "volume_type"
+        case mountPoint = "mount_point"
+        case mountPoints = "mount_points"
+        case isMounted = "is_mounted"
+        case diskType = "disk_type"
+        case fileSystem = "file_system"
+        case readOnly = "read_only"
+        case hardwareId = "hardware_id"
+        case errorStatus = "error_status"
+        case apfsContainer = "apfs_container"
+        case containerVolumeId = "container_volume_id"
+        case pathMappings = "path_mappings"
+        case totalBytesCapacity = "total_bytes_capacity"
+        case totalBytesAvailable = "total_bytes_available"
+        case readSpeedMbps = "read_speed_mbps"
+        case writeSpeedMbps = "write_speed_mbps"
+        case isUserVisible = "is_user_visible"
+        case autoTrackEligible = "auto_track_eligible"
+        case lastUpdated = "last_updated"
+    }
 }
 
 /// Unique fingerprint for a storage volume
 public struct VolumeFingerprint: Codable {
-    public let value: String
+    let value: String
 }
 
 /// Summary information about a volume (for updates and caching)
@@ -318,15 +1416,24 @@ public struct VolumeInfo: Codable {
     public let readSpeedMbps: UInt64?
     public let writeSpeedMbps: UInt64?
     public let errorStatus: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case isMounted = "is_mounted"
+        case totalBytesAvailable = "total_bytes_available"
+        case readSpeedMbps = "read_speed_mbps"
+        case writeSpeedMbps = "write_speed_mbps"
+        case errorStatus = "error_status"
+    }
 }
 
 /// Classification of volume types for UX and auto-tracking decisions
 public enum VolumeType: Codable {
     case primary
-    case userdata
+    case userData
     case external
     case secondary
     case system
     case network
     case unknown
 }
+

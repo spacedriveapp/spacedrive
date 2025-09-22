@@ -64,31 +64,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Generate Swift content
 	let generated_content = swift.export(&types)?;
 
-	// Post-process to add public visibility
-	let public_content = generated_content
-		.lines()
-		.map(|line| {
-			if line.starts_with("enum ") || line.starts_with("struct ") {
-				format!("public {}", line)
-			} else if line.trim().starts_with("let ") {
-				// Make struct properties public too
-				line.replace("let ", "public let ")
-			} else {
-				line.to_string()
-			}
-		})
-		.collect::<Vec<String>>()
-		.join("\n");
-
 	// Export to the Swift client package
 	let output_path = Path::new("packages/swift-client/Sources/SpacedriveClient/Types.swift");
-	std::fs::write(output_path, &public_content)?;
+	std::fs::write(output_path, &generated_content)?;
 
 	println!("✅ Generated Swift types to: {}", output_path.display());
 	println!("🎉 Specta Swift generation completed!");
 
 	// Print the generated content for inspection
-	println!("\n📄 Generated Swift code:\n{}", public_content);
+	println!("\n📄 Generated Swift code:\n{}", generated_content);
 
 	Ok(())
 }

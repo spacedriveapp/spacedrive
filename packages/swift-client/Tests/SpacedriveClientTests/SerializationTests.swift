@@ -46,8 +46,8 @@ final class SerializationTests: XCTestCase {
 
     func testUnionTypeSerialization() throws {
         // Test union types (enums with associated values)
-        let physicalPath = SdPath.physical(deviceId: "device-123", path: "/test/file.txt")
-        let contentPath = SdPath.content(contentId: "content-456")
+        let physicalPath = SdPath.physical(SdPathPhysicalData(deviceId: "device-123", path: "/test/file.txt"))
+        let contentPath = SdPath.content(SdPathContentData(contentId: "content-456"))
 
         // Test physical path serialization
         let physicalData = try JSONEncoder().encode(physicalPath)
@@ -65,16 +65,16 @@ final class SerializationTests: XCTestCase {
 
         // Verify the decoded values match
         switch decodedPhysical {
-        case .physical(let deviceId, let path):
-            XCTAssertEqual(deviceId, "device-123")
-            XCTAssertEqual(path, "/test/file.txt")
+        case .physical(let data):
+            XCTAssertEqual(data.deviceId, "device-123")
+            XCTAssertEqual(data.path, "/test/file.txt")
         case .content:
             XCTFail("Expected physical path")
         }
 
         switch decodedContent {
-        case .content(let contentId):
-            XCTAssertEqual(contentId, "content-456")
+        case .content(let data):
+            XCTAssertEqual(data.contentId, "content-456")
         case .physical:
             XCTFail("Expected content path")
         }
@@ -96,7 +96,7 @@ final class SerializationTests: XCTestCase {
 
     func testJobOutputSerialization() throws {
         // Test complex enum with associated values
-        let indexedOutput = JobOutput.indexed(
+        let indexedOutput = JobOutput.indexed(JobOutputIndexedData(
             stats: IndexerStats(files: 100, dirs: 10, bytes: 1024000, symlinks: 5, skipped: 2, errors: 0),
             metrics: IndexerMetrics(
                 totalDuration: 30.5,
@@ -117,7 +117,7 @@ final class SerializationTests: XCTestCase {
                 peakMemoryBytes: 1048576,
                 avgMemoryBytes: 524288
             )
-        )
+        ))
 
         // Test serialization
         let data = try JSONEncoder().encode(indexedOutput)
@@ -128,9 +128,9 @@ final class SerializationTests: XCTestCase {
         let decoded = try JSONDecoder().decode(JobOutput.self, from: data)
 
         switch decoded {
-        case .indexed(let stats, let metrics):
-            XCTAssertEqual(stats.files, 100)
-            XCTAssertEqual(metrics.filesPerSecond, 3.33, accuracy: 0.01)
+        case .indexed(let data):
+            XCTAssertEqual(data.stats.files, 100)
+            XCTAssertEqual(data.metrics.filesPerSecond, 3.33, accuracy: 0.01)
         default:
             XCTFail("Expected indexed output")
         }
@@ -138,7 +138,7 @@ final class SerializationTests: XCTestCase {
 
     func testFileSystemEnumSerialization() throws {
         // Test enum with associated values
-        let apfs = FileSystem.apfs
+        let apfs = FileSystem.aPFS
         let other = FileSystem.other("custom-fs")
 
         // Test simple variant
