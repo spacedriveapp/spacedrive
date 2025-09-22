@@ -1,116 +1,132 @@
-# Spacedrive TypeScript Client
+# @spacedrive/client
 
-A type-safe TypeScript client for interacting with the Spacedrive daemon.
+Type-safe TypeScript client for the Spacedrive daemon, automatically generated from Rust core types using Specta.
 
 ## Features
 
-- **Type Safety**: Full compile-time type checking with generated TypeScript types
-- **Automatic Generation**: Types are automatically generated from Rust definitions
-- **Simple API**: Three core methods: `executeQuery`, `executeAction`, and `subscribe`
-- **Modern TypeScript**: Uses async/await and AsyncGenerator for clean asynchronous code
+- 🔒 **Fully Type-Safe** - All types generated directly from Rust core
+- 🚀 **Real-time Events** - Subscribe to daemon events with full type safety
+- 📡 **Unix Domain Sockets** - Direct communication with daemon
+- 🔄 **Auto-Generated** - Types stay in sync with Rust core automatically
+- 📝 **Rich Documentation** - JSDoc comments from Rust code
 
 ## Installation
-
-### npm
 
 ```bash
 npm install @spacedrive/client
 ```
 
-### yarn
-
-```bash
-yarn add @spacedrive/client
-```
-
-## Usage
+## Quick Start
 
 ```typescript
 import { SpacedriveClient } from '@spacedrive/client';
 
-// Initialize the client
-const client = new SpacedriveClient('/path/to/daemon.sock');
+const client = new SpacedriveClient();
 
-// Execute a query
-const status = await client.executeQuery(
-    {}, // CoreStatusQuery has no fields
-    "query:core.status.v1"
-);
+// Test connection
+await client.ping();
 
-// Execute an action
-const result = await client.executeAction(
-    { name: "My Library", path: null },
-    "action:libraries.create.input.v1"
-);
+// Get libraries (fully typed)
+const libraries = await client.getLibraries();
+console.log('Libraries:', libraries);
 
-// Subscribe to events
-for await (const event of client.subscribe(["JobProgress", "JobCompleted"])) {
-    console.log("Received event:", event);
-}
+// Get jobs with status filtering
+const jobs = await client.getJobs('running');
+console.log('Running jobs:', jobs);
+
+// Create a new library
+const newLibrary = await client.createLibrary('My Photos', '/Users/me/Photos');
+console.log('Created library:', newLibrary);
 ```
 
-## Development
+## Event Subscription
 
-### Building
+```typescript
+// Subscribe to specific event types
+await client.subscribe(['JobStarted', 'JobProgress', 'JobCompleted']);
+
+// Listen for events (fully typed)
+client.on('event', (event) => {
+  switch (event) {
+    case 'CoreStarted':
+      console.log('Daemon started');
+      break;
+    default:
+      if ('JobStarted' in event) {
+        console.log(`Job started: ${event.JobStarted.job_type} (${event.JobStarted.job_id})`);
+      } else if ('JobProgress' in event) {
+        console.log(`Job progress: ${event.JobProgress.progress * 100}%`);
+      } else if ('JobCompleted' in event) {
+        console.log(`Job completed: ${event.JobCompleted.job_type}`);
+        console.log('Output:', event.JobCompleted.output);
+      }
+      break;
+  }
+});
+
+client.on('error', (error) => {
+  console.error('Client error:', error);
+});
+
+client.on('disconnected', () => {
+  console.log('Disconnected from daemon');
+});
+```
+
+## Type Generation
+
+Types are automatically generated from the Rust core using Specta. To regenerate types:
 
 ```bash
-npm run build
+npm run generate-types
 ```
 
-### Testing
+## API Reference
 
-```bash
-npm test
-```
+### Core Methods
 
-### Regenerating Types
+- `ping()` - Test daemon connectivity
+- `executeQuery<Q, R>(query: Q, method: string): Promise<R>` - Execute a query operation
+- `executeAction<A, R>(action: A, method: string): Promise<R>` - Execute an action operation
+- `subscribe(eventTypes?: string[]): Promise<void>` - Subscribe to daemon events
 
-After making changes to Rust types in the core:
+### Convenience Methods
 
-1. Build the core to generate the schema:
-   ```bash
-   cd core && cargo build
-   ```
+- `getLibraries(includeStats?: boolean): Promise<LibraryInfo[]>` - Get all libraries
+- `createLibrary(name: string, path?: string): Promise<LibraryCreateOutput>` - Create a new library
+- `getJobs(status?: JobStatus): Promise<JobListOutput>` - Get job list with optional filtering
 
-2. Regenerate the TypeScript client:
-   ```bash
-   cd packages/ts-client
-   ./generate_client.sh
-   ```
+### Event Types
 
-### Requirements
+All event types are fully typed TypeScript unions:
 
-- Node.js 18+
-- TypeScript 5.0+
-- quicktype (for type generation): `npm install -g quicktype`
+- `Event` - Main event union type
+- `JobOutput` - Job completion output (adjacently tagged)
+- `JobStatus` - Job status enum (`"queued" | "running" | "completed" | ...`)
+- `FileOperation` - File operation types
+- `Progress` - Progress information with multiple formats
 
 ## Architecture
 
-The client uses a clean, modular architecture:
+This client uses the same architecture as the Swift client:
 
-1. **Generated Types**: `types.ts` contains all the generated types from quicktype
-2. **Client API**: `client.ts` provides the main SpacedriveClient class
-3. **Transport Layer**: `transport.ts` handles communication with the daemon
-4. **Index**: `index.ts` provides the public API exports
+1. **JSON API Layer** - Communicates via JSON instead of bincode for external clients
+2. **Unix Domain Sockets** - Direct, efficient communication with daemon
+3. **Type Generation** - Rust types → TypeScript via Specta
+4. **Event Streaming** - Real-time event subscription with line-delimited JSON
 
-This separation ensures that the generated types don't pollute the main API and can be regenerated without affecting user code.
+## Development
 
-## Error Handling
+```bash
+# Install dependencies
+npm install
 
-The client provides structured error handling with the `SpacedriveError` class:
+# Build the client
+npm run build
 
-```typescript
-try {
-    const result = await client.executeQuery(query, method);
-} catch (error) {
-    if (error instanceof SpacedriveError) {
-        console.error(`${error.type}: ${error.message}`);
-    }
-}
+# Run tests
+npm test
+
+# Watch mode for development
+npm run dev
 ```
-
-Error types include:
-- `connection`: Connection to daemon failed
-- `serialization`: Failed to serialize/deserialize data
-- `daemon`: Error from the daemon itself
-- `invalid_response`: Unexpected response format

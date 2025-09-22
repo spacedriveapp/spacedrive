@@ -13,8 +13,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true
   },
   "include": [
     "src/**/*"
@@ -22,6 +22,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "tests"
+    "**/*.test.ts"
   ]
 }

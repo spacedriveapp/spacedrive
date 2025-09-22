@@ -8065,7 +8065,7 @@ dependencies = [
  "specta 2.0.0-rc.20",
  "specta-datatype-from",
  "specta-serde 0.0.7",
- "specta-typescript",
+ "specta-typescript 0.0.7",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -8523,6 +8523,7 @@ dependencies = [
  "specta 2.0.0-rc.22",
  "specta-serde 0.0.9",
  "specta-swift",
+ "specta-typescript 0.0.9",
  "sqlx",
  "strum 0.26.3",
  "supports-color",
@@ -9513,6 +9514,14 @@ dependencies = [
  "specta 2.0.0-rc.20",
  "specta-serde 0.0.7",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "specta-typescript"
+version = "0.0.9"
+dependencies = [
+ "specta 2.0.0-rc.22",
+ "specta-serde 0.0.9",
 ]
 
 [[package]]
