@@ -153,3 +153,4 @@ fn demo_enhanced_progress_event() {
     println!("✅ Rich debugging info: location_id, device_id, trigger method");
     println!("✅ Full audit trail: user action → job → progress → completion");
 }
+

@@ -115,6 +115,24 @@
 			"name": "Release SwiftUIDemo (packages/rust-swift/swift-ui)",
 			"program": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui/.build/release/SwiftUIDemo",
 			"preLaunchTask": "swift: Build Release SwiftUIDemo (packages/rust-swift/swift-ui)"
+		},
+		{
+			"type": "swift",
+			"request": "launch",
+			"args": [],
+			"cwd": "${workspaceFolder:spacedrive}/apps/macos",
+			"name": "Debug Spacedrive (apps/macos)",
+			"program": "${workspaceFolder:spacedrive}/apps/macos/.build/debug/Spacedrive",
+			"preLaunchTask": "swift: Build Debug Spacedrive (apps/macos)"
+		},
+		{
+			"type": "swift",
+			"request": "launch",
+			"args": [],
+			"cwd": "${workspaceFolder:spacedrive}/apps/macos",
+			"name": "Release Spacedrive (apps/macos)",
+			"program": "${workspaceFolder:spacedrive}/apps/macos/.build/release/Spacedrive",
+			"preLaunchTask": "swift: Build Release Spacedrive (apps/macos)"
 		}
 	]
 }
