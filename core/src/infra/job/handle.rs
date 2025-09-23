@@ -6,28 +6,36 @@ use super::{
     progress::Progress,
     types::{JobId, JobStatus},
 };
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 use sd_task_system::TaskHandle;
 use tokio::sync::{broadcast, watch, Mutex};
 
-/// Handle to a running job
-#[derive(Debug)]
+/// Handle to a running job (simplified for Swift export)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobHandle {
-    pub(crate) id: JobId,
+    pub id: JobId,
+    pub job_name: String,
+    #[serde(skip)]
     pub(crate) task_handle: Arc<Mutex<Option<TaskHandle<JobError>>>>,
+    #[serde(skip)]
     pub(crate) status_rx: watch::Receiver<JobStatus>,
+    #[serde(skip)]
     pub(crate) progress_rx: broadcast::Receiver<Progress>,
+    #[serde(skip)]
     pub(crate) output: Arc<Mutex<Option<JobResult<JobOutput>>>>,
 }
 
-impl Clone for JobHandle {
-    fn clone(&self) -> Self {
+impl JobHandle {
+    pub fn new(id: JobId, job_name: String, task_handle: Arc<Mutex<Option<TaskHandle<JobError>>>>, status_rx: watch::Receiver<JobStatus>, progress_rx: broadcast::Receiver<Progress>, output: Arc<Mutex<Option<JobResult<JobOutput>>>>) -> Self {
         Self {
-            id: self.id,
-            task_handle: self.task_handle.clone(),
-            status_rx: self.status_rx.clone(),
-            progress_rx: self.progress_rx.resubscribe(),
-            output: self.output.clone(),
+            id,
+            job_name,
+            task_handle,
+            status_rx,
+            progress_rx,
+            output,
         }
     }
 }
@@ -37,22 +45,22 @@ impl JobHandle {
     pub fn id(&self) -> JobId {
         self.id
     }
-    
+
     /// Get the current status
     pub fn status(&self) -> JobStatus {
         *self.status_rx.borrow()
     }
-    
+
     /// Subscribe to status updates
     pub fn subscribe_status(&self) -> watch::Receiver<JobStatus> {
         self.status_rx.clone()
     }
-    
+
     /// Subscribe to progress updates
     pub fn subscribe_progress(&self) -> broadcast::Receiver<Progress> {
         self.progress_rx.resubscribe()
     }
-    
+
     /// Wait for the job to complete
     pub async fn wait(&self) -> JobResult<JobOutput> {
         // Wait for terminal status
@@ -61,7 +69,7 @@ impl JobHandle {
             status_rx.changed().await
                 .map_err(|_| JobError::Other("Status channel closed".into()))?;
         }
-        
+
         // Check final status
         let final_status = *status_rx.borrow();
         match final_status {
@@ -79,24 +87,24 @@ impl JobHandle {
             _ => unreachable!("Non-terminal status after wait"),
         }
     }
-    
+
     /// Pause the job
     pub async fn pause(&self) -> JobResult<()> {
         // For now, these operations need to be implemented through JobManager
         // since the TaskHandle is stored there, not in JobHandle
         todo!("Job control operations will be implemented through JobManager")
     }
-    
+
     /// Resume the job
     pub async fn resume(&self) -> JobResult<()> {
         todo!("Job control operations will be implemented through JobManager")
     }
-    
+
     /// Cancel the job
     pub async fn cancel(&self) -> JobResult<()> {
         todo!("Job control operations will be implemented through JobManager")
     }
-    
+
     /// Force abort the job
     pub async fn force_abort(&self) -> JobResult<()> {
         todo!("Job control operations will be implemented through JobManager")
@@ -151,7 +159,7 @@ impl JobUpdateStream {
             // Status changes
             Ok(_) = self.status_rx.changed() => {
                 let status = *self.status_rx.borrow();
-                
+
                 match status {
                     JobStatus::Completed => {
                         let result = self.handle.output.lock().await.clone();
@@ -167,12 +175,12 @@ impl JobUpdateStream {
                     _ => Some(JobUpdate::StatusChanged(status)),
                 }
             }
-            
+
             // Progress updates
             Ok(progress) = self.progress_rx.recv() => {
                 Some(JobUpdate::Progress(progress))
             }
-            
+
             else => None,
         }
     }

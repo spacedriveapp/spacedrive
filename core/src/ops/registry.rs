@@ -182,6 +182,7 @@ macro_rules! query_method {
 }
 
 /// Register a query type by action-style name, binding its Wire method automatically.
+/// ENHANCED: Now also implements QueryTypeInfo trait for automatic type extraction
 #[macro_export]
 macro_rules! register_query {
 	($query:ty, $name:literal) => {
@@ -194,10 +195,33 @@ macro_rules! register_query {
 				handler: $crate::ops::registry::handle_query::<$query>,
 			}
 		}
+
+		// NEW: Automatic QueryTypeInfo implementation for type extraction
+		impl $crate::ops::type_extraction::QueryTypeInfo for $query {
+			type Input = $query;  // Query type is both the input and the container
+			type Output = <$query as $crate::cqrs::Query>::Output;
+
+			fn identifier() -> &'static str {
+				$name
+			}
+
+			fn wire_method() -> String {
+				format!("query:{}.v1", $name)
+			}
+		}
+
+		// NEW: Submit query type extractor to inventory
+		inventory::submit! {
+			$crate::ops::type_extraction::QueryExtractorEntry {
+				extractor: <$query as $crate::ops::type_extraction::QueryTypeInfo>::extract_types,
+				identifier: $name,
+			}
+		}
 	};
 }
 
 /// Register a library action `A` by short name; binds method to `A::Input` and handler to `handle_library_action::<A>`.
+/// ENHANCED: Now also implements OperationTypeInfo trait for automatic type extraction
 #[macro_export]
 macro_rules! register_library_action {
 	($action:ty, $name:literal) => {
@@ -210,10 +234,29 @@ macro_rules! register_library_action {
 				handler: $crate::ops::registry::handle_library_action::<$action>,
 			}
 		}
+
+		// NEW: Automatic OperationTypeInfo implementation for type extraction
+		impl $crate::ops::type_extraction::OperationTypeInfo for $action {
+			type Input = <$action as $crate::infra::action::LibraryAction>::Input;
+			type Output = $crate::infra::job::handle::JobHandle;
+
+			fn identifier() -> &'static str {
+				$name
+			}
+		}
+
+		// NEW: Submit type extractor to inventory for compile-time collection
+		inventory::submit! {
+			$crate::ops::type_extraction::TypeExtractorEntry {
+				extractor: <$action as $crate::ops::type_extraction::OperationTypeInfo>::extract_types,
+				identifier: $name,
+			}
+		}
 	};
 }
 
 /// Register a core action `A` similarly.
+/// ENHANCED: Now also implements OperationTypeInfo trait for automatic type extraction
 #[macro_export]
 macro_rules! register_core_action {
 	($action:ty, $name:literal) => {
@@ -224,6 +267,24 @@ macro_rules! register_core_action {
 			$crate::ops::registry::ActionEntry {
 				method: << $action as $crate::infra::action::CoreAction >::Input as $crate::client::Wire >::METHOD,
 				handler: $crate::ops::registry::handle_core_action::<$action>,
+			}
+		}
+
+		// NEW: Automatic OperationTypeInfo implementation for core actions
+		impl $crate::ops::type_extraction::OperationTypeInfo for $action {
+			type Input = <$action as $crate::infra::action::CoreAction>::Input;
+			type Output = <$action as $crate::infra::action::CoreAction>::Output;
+
+			fn identifier() -> &'static str {
+				$name
+			}
+		}
+
+		// NEW: Submit type extractor to inventory for compile-time collection
+		inventory::submit! {
+			$crate::ops::type_extraction::TypeExtractorEntry {
+				extractor: <$action as $crate::ops::type_extraction::OperationTypeInfo>::extract_types,
+				identifier: $name,
 			}
 		}
 	};
