@@ -6,8 +6,8 @@
 
 use super::{
 	error::{JobError, JobResult},
-	types::{JobId, JobMetrics, JobStatus},
 	progress::Progress,
+	types::{JobId, JobMetrics, JobStatus},
 };
 use chrono::{DateTime, Utc};
 use sea_orm::{
@@ -214,8 +214,7 @@ impl JobDb {
 
 	/// Update job progress in database
 	pub async fn update_progress(&self, job_id: JobId, progress: &Progress) -> JobResult<()> {
-		let progress_data = rmp_serde::to_vec(progress)
-			.map_err(|e| JobError::serialization(e))?;
+		let progress_data = rmp_serde::to_vec(progress).map_err(|e| JobError::serialization(e))?;
 
 		let mut job = jobs::ActiveModel {
 			id: Set(job_id.to_string()),
@@ -242,8 +241,7 @@ impl JobDb {
 
 		// Update progress if provided
 		if let Some(prog) = progress {
-			let progress_data = rmp_serde::to_vec(prog)
-				.map_err(|e| JobError::serialization(e))?;
+			let progress_data = rmp_serde::to_vec(prog).map_err(|e| JobError::serialization(e))?;
 			update = update.col_expr(jobs::Column::ProgressData, Expr::value(progress_data));
 		}
 
@@ -270,7 +268,10 @@ impl JobDb {
 		let result = update.exec(&self.conn).await?;
 
 		if result.rows_affected == 0 {
-			return Err(JobError::NotFound(format!("Job {} not found or update failed", job_id)));
+			return Err(JobError::NotFound(format!(
+				"Job {} not found or update failed",
+				job_id
+			)));
 		}
 
 		Ok(())

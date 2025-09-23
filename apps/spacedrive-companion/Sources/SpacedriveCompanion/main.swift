@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-struct SpacedriveCompanionApp: App {
+struct SpacedriveApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -16,7 +16,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var jobListViewModel: JobListViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("🚀 Spacedrive Companion app launched!")
+        print("🚀 Spacedrive app launched!")
 
         // Configure app as foreground application
         NSApp.setActivationPolicy(.regular)
@@ -72,4 +72,4 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 // Main entry point
-SpacedriveCompanionApp.main()
+SpacedriveApp.main()

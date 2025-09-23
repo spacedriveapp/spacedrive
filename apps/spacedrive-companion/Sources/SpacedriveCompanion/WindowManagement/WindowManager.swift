@@ -86,7 +86,7 @@ class WindowManager: ObservableObject {
         // Configure window based on type
         window.minSize = type.minSize
         window.level = type.isFloating ? .floating : .normal
-        window.title = type.rawValue.capitalized
+        window.title = "Spacedrive"
 
         // Create content with shared environment
         let contentView = content()

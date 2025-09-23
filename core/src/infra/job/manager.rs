@@ -122,12 +122,14 @@ impl JobManager {
 		let job_id = JobId::new();
 		info!(
 			"Dispatching job {}: {} (from action: {})",
-			job_id, J::NAME, action_context.action_type
+			job_id,
+			J::NAME,
+			action_context.action_type
 		);
 
 		// Serialize job state and action context
-		let state = rmp_serde::to_vec(&job)
-			.map_err(|e| JobError::serialization(format!("{}", e)))?;
+		let state =
+			rmp_serde::to_vec(&job).map_err(|e| JobError::serialization(format!("{}", e)))?;
 		let serialized_action_context = rmp_serde::to_vec(&action_context)
 			.map_err(|e| JobError::serialization(format!("{}", e)))?;
 
