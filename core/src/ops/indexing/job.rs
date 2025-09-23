@@ -10,6 +10,7 @@ use crate::{
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
@@ -24,7 +25,7 @@ use super::{
 };
 
 /// Indexing mode determines the depth of indexing
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Type)]
 pub enum IndexMode {
 	/// Just filesystem metadata (fastest)
 	Shallow,
@@ -35,7 +36,7 @@ pub enum IndexMode {
 }
 
 /// Indexing scope determines how much of the directory tree to process
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum IndexScope {
 	/// Index only the current directory (single level)
 	Current,
@@ -69,7 +70,7 @@ impl std::fmt::Display for IndexScope {
 }
 
 /// Determines whether indexing results are persisted to database or kept in memory
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum IndexPersistence {
 	/// Write all results to database (normal operation)
 	Persistent,
@@ -84,7 +85,7 @@ impl Default for IndexPersistence {
 }
 
 /// Enhanced configuration for indexer jobs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexerJobConfig {
 	pub location_id: Option<Uuid>, // None for ephemeral indexing
 	pub path: SdPath,

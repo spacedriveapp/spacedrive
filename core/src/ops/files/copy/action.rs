@@ -17,11 +17,12 @@ use crate::{
 	},
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
 /// Internal enum for file conflict resolution strategies
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum FileConflictResolution {
 	Overwrite,
 	AutoModifyName,

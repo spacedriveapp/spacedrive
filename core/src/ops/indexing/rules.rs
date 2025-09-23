@@ -12,6 +12,7 @@ use once_cell::sync::Lazy;
 use rmp::Marker;
 use rmp_serde::{decode, encode};
 use serde::{de::VariantAccess, Deserialize, Serialize};
+use specta::Type;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -662,7 +663,7 @@ pub static ONLY_IMAGES: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule
 	.expect("valid")],
 });
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Type)]
 pub struct RuleToggles {
 	pub no_system_files: bool,
 	pub no_hidden: bool,

@@ -2,10 +2,11 @@
 
 use super::action::DuplicateDetectionAction;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 
 /// Input for file duplicate detection operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DuplicateDetectionInput {
 	/// Paths to search for duplicates
 	pub paths: Vec<PathBuf>,

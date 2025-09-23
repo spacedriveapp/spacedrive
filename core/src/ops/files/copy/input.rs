@@ -4,10 +4,11 @@ use super::action::{FileCopyAction, FileCopyActionBuilder};
 use super::job::CopyOptions;
 use crate::domain::addressing::{SdPath, SdPathBatch};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 
 /// Copy method preference for file operations
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum CopyMethod {
 	/// Automatically select the best method based on source and destination
@@ -37,7 +38,7 @@ impl std::fmt::Display for CopyMethod {
 
 /// Core input structure for file copy operations
 /// This is the canonical interface that all external APIs (CLI, GraphQL, REST) convert to
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct FileCopyInput {
 	/// Source files or directories to copy (domain addressing)
 	pub sources: SdPathBatch,

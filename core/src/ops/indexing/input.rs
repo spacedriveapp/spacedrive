@@ -2,10 +2,11 @@
 
 use super::job::{IndexMode, IndexPersistence, IndexScope};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 
 /// Canonical input for indexing requests from any interface (CLI, API, etc.)
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct IndexInput {
 	/// The library within which the operation runs
 	pub library_id: uuid::Uuid,

@@ -1,10 +1,11 @@
 //! File validation input for external API
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 
 /// Input for file validation operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileValidationInput {
 	/// Paths to validate
 	pub paths: Vec<PathBuf>,

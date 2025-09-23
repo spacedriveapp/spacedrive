@@ -3,9 +3,10 @@
 use super::action::FileDeleteAction;
 use crate::domain::SdPathBatch;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// Input for deleting files
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileDeleteInput {
 	/// Files or directories to delete
 	pub targets: SdPathBatch,
