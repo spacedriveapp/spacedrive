@@ -13,6 +13,7 @@ use super::{
 	traits::{DynJob, Job, JobHandler},
 	types::{ErasedJob, JobId, JobInfo, JobPriority, JobStatus},
 };
+use crate::infra::action::context::ActionContext;
 use crate::{
 	context::CoreContext,
 	infra::event::{Event, EventBus},
@@ -95,6 +96,75 @@ impl JobManager {
 		self.dispatch_with_priority(job, JobPriority::NORMAL).await
 	}
 
+	/// Dispatch a job with action context
+	pub async fn dispatch_with_action<J>(
+		&self,
+		job: J,
+		action_context: ActionContext,
+	) -> JobResult<JobHandle>
+	where
+		J: Job + JobHandler,
+	{
+		self.dispatch_with_action_and_priority(job, action_context, JobPriority::NORMAL)
+			.await
+	}
+
+	/// Dispatch a job with action context and priority
+	pub async fn dispatch_with_action_and_priority<J>(
+		&self,
+		job: J,
+		action_context: ActionContext,
+		priority: JobPriority,
+	) -> JobResult<JobHandle>
+	where
+		J: Job + JobHandler,
+	{
+		let job_id = JobId::new();
+		info!(
+			"Dispatching job {}: {} (from action: {})",
+			job_id, J::NAME, action_context.action_type
+		);
+
+		// Serialize job state and action context
+		let state = rmp_serde::to_vec(&job)
+			.map_err(|e| JobError::serialization(format!("{}", e)))?;
+		let serialized_action_context = rmp_serde::to_vec(&action_context)
+			.map_err(|e| JobError::serialization(format!("{}", e)))?;
+
+		// Create database record with action context
+		let job_model = database::jobs::ActiveModel {
+			id: Set(job_id.to_string()),
+			name: Set(J::NAME.to_string()),
+			state: Set(state),
+			status: Set(JobStatus::Queued.to_string()),
+			priority: Set(priority.0),
+			progress_type: Set(None),
+			progress_data: Set(None),
+			parent_job_id: Set(None),
+			created_at: Set(Utc::now()),
+			started_at: Set(None),
+			completed_at: Set(None),
+			paused_at: Set(None),
+			error_message: Set(None),
+			warnings: Set(None),
+			non_critical_errors: Set(None),
+			metrics: Set(None),
+			action_context: Set(Some(serialized_action_context)),
+			action_type: Set(Some(action_context.action_type.clone())),
+		};
+
+		job_model.insert(self.db.conn()).await?;
+
+		// Create channels
+		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
+		let (progress_tx, progress_rx) = mpsc::unbounded_channel::<Progress>();
+		let (broadcast_tx, broadcast_rx) = broadcast::channel::<Progress>(100);
+
+		// Continue with rest of the dispatch logic like in dispatch_with_priority...
+		// For now, just implement the basic structure
+		todo!("Complete action-aware dispatch implementation")
+	}
+
 	/// Dispatch a job by name and parameters (useful for APIs)
 	pub async fn dispatch_by_name(
 		&self,
@@ -147,14 +217,16 @@ impl JobManager {
 			warnings: Set(None),
 			non_critical_errors: Set(None),
 			metrics: Set(None),
+			action_context: Set(None),
+			action_type: Set(None),
 		};
 
 		job_model.insert(self.db.conn()).await?;
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
-		let (progress_tx, progress_rx) = mpsc::unbounded_channel();
-		let (broadcast_tx, broadcast_rx) = broadcast::channel(100);
+		let (progress_tx, progress_rx) = mpsc::unbounded_channel::<Progress>();
+		let (broadcast_tx, broadcast_rx) = broadcast::channel::<Progress>(100);
 
 		// Create storage for latest progress
 		let latest_progress = Arc::new(Mutex::new(None));
@@ -381,14 +453,16 @@ impl JobManager {
 			warnings: Set(None),
 			non_critical_errors: Set(None),
 			metrics: Set(None),
+			action_context: Set(None),
+			action_type: Set(None),
 		};
 
 		job_model.insert(self.db.conn()).await?;
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
-		let (progress_tx, progress_rx) = mpsc::unbounded_channel();
-		let (broadcast_tx, broadcast_rx) = broadcast::channel(100);
+		let (progress_tx, progress_rx) = mpsc::unbounded_channel::<Progress>();
+		let (broadcast_tx, broadcast_rx) = broadcast::channel::<Progress>(100);
 
 		// Create storage for latest progress
 		let latest_progress = Arc::new(Mutex::new(None));
@@ -954,8 +1028,8 @@ impl JobManager {
 						);
 						// Create channels for the resumed job
 						let (status_tx, status_rx) = watch::channel(JobStatus::Paused);
-						let (progress_tx, progress_rx) = mpsc::unbounded_channel();
-						let (broadcast_tx, broadcast_rx) = broadcast::channel(100);
+						let (progress_tx, progress_rx) = mpsc::unbounded_channel::<Progress>();
+						let (broadcast_tx, broadcast_rx) = broadcast::channel::<Progress>(100);
 
 						let latest_progress = Arc::new(Mutex::new(None));
 
@@ -1360,8 +1434,8 @@ impl JobManager {
 
 			// Create channels
 			let (status_tx, status_rx) = watch::channel(JobStatus::Running);
-			let (progress_tx, progress_rx) = mpsc::unbounded_channel();
-			let (broadcast_tx, broadcast_rx) = broadcast::channel(100);
+			let (progress_tx, progress_rx) = mpsc::unbounded_channel::<Progress>();
+			let (broadcast_tx, broadcast_rx) = broadcast::channel::<Progress>(100);
 
 			let latest_progress = Arc::new(Mutex::new(None));
 

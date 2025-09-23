@@ -286,10 +286,12 @@ impl JobHandler for IndexerJob {
 				state.entry_batches.len(),
 				state.entries_for_content.len(),
 				state.seen_paths.len());
-			warn!("DEBUG: Resumed state - phase: {:?}, entry_batches: {}, entries_for_content: {}",
+			warn!(
+				"DEBUG: Resumed state - phase: {:?}, entry_batches: {}, entries_for_content: {}",
 				state.phase,
 				state.entry_batches.len(),
-				state.entries_for_content.len());
+				state.entries_for_content.len()
+			);
 		}
 
 		let state = self.state.as_mut().unwrap();
@@ -429,12 +431,18 @@ impl JobHandler for IndexerJob {
 			}
 
 			// State is automatically saved during job serialization on shutdown
-			warn!("DEBUG: IndexerJob completed phase: {:?}, next phase will be: {:?}", current_phase, state.phase);
+			warn!(
+				"DEBUG: IndexerJob completed phase: {:?}, next phase will be: {:?}",
+				current_phase, state.phase
+			);
 		}
 
 		// Send final progress update
 		let final_progress = IndexerProgress {
-			phase: IndexPhase::Finalizing,
+			phase: IndexPhase::Finalizing {
+				processed: 0,
+				total: 0,
+			},
 			current_path: "Completed".to_string(),
 			total_found: state.stats,
 			processing_rate: 0.0,
@@ -442,6 +450,7 @@ impl JobHandler for IndexerJob {
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None, // TODO: Pass action context from job state
 		};
 		ctx.progress(Progress::generic(final_progress.to_generic_progress()));
 
@@ -474,7 +483,10 @@ impl JobHandler for IndexerJob {
 		// State is already loaded from serialization
 		warn!("DEBUG: IndexerJob on_resume called");
 		if let Some(state) = &self.state {
-			warn!("DEBUG: IndexerJob has state, resuming in {:?} phase", state.phase);
+			warn!(
+				"DEBUG: IndexerJob has state, resuming in {:?} phase",
+				state.phase
+			);
 			ctx.log(format!("Resuming indexer in {:?} phase", state.phase));
 			ctx.log(format!(
 				"Progress: {} files, {} dirs, {} errors so far",

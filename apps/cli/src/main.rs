@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};

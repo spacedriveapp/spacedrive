@@ -56,6 +56,13 @@ pub mod jobs {
 
 		// Metrics
 		pub metrics: Option<Vec<u8>>,
+
+		// Action context
+		/// Serialized ActionContext that spawned this job
+		pub action_context: Option<Vec<u8>>,
+
+		/// Action type for efficient querying
+		pub action_type: Option<String>,
 	}
 
 	#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

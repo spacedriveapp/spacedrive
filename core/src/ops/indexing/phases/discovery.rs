@@ -66,6 +66,7 @@ pub async fn run_discovery_phase(
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None, // TODO: Pass action context from job state
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 

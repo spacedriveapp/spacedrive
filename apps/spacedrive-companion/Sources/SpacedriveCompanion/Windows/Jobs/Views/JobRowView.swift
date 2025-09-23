@@ -26,8 +26,38 @@ struct JobRowView: View {
         }
     }
 
+    private var subtextForJob: String {
+        // Show current path when available and job is running
+        if job.status == .running, let currentPath = job.currentPath, !currentPath.isEmpty {
+            return currentPath
+        }
+
+        // Default subtext based on job status and type
+        switch job.status {
+        case .running:
+            if let phase = job.currentPhase {
+                return phase
+            } else {
+                return "Processing..."
+            }
+        case .completed:
+            if let duration = duration {
+                return "Completed in \(duration)"
+            } else {
+                return "Completed successfully"
+            }
+        case .failed:
+            return job.errorMessage ?? "Job failed"
+        case .paused:
+            return "Paused"
+        case .queued:
+            return "Waiting to start"
+        }
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
+        SDJobCard {
+            HStack(spacing: 12) {
             // Status indicator - simple colored circle
             Circle()
                 .fill(statusColor)
@@ -35,30 +65,54 @@ struct JobRowView: View {
                 .opacity(job.status == .completed ? 1.0 : 0.8)
 
             // Main content area
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 // Top row: Job name and status/progress
                 HStack {
-                    Text(job.name)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    VStack(alignment: .leading, spacing: 1) {
+                        // Job title
+                        Text(job.name)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+
+                        // Subtext: Current path or default text to maintain consistent layout
+                        Text(subtextForJob)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .opacity(0.7)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
 
                     Spacer()
 
                     // Status and progress info
                     HStack(spacing: 6) {
                         if job.status == .running {
-                            Text(progressPercentage)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.secondary)
+                            // Show phase if available, otherwise percentage
+                            if let phase = job.currentPhase, !phase.isEmpty {
+                                Text(phase)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text(progressPercentage)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
                         } else {
                             Text(job.status.displayName)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(job.status == .failed ? .red : .secondary)
                         }
 
-                        if let duration = duration {
+                        // Show completion info or time info
+                        if let completionInfo = job.completionInfo, !completionInfo.isEmpty, job.status == .running {
+                            Text("• \(completionInfo)")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .opacity(0.7)
+                        } else if let duration = duration {
                             Text("• \(duration)")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
@@ -68,6 +122,14 @@ struct JobRowView: View {
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                                 .opacity(0.7)
+                        }
+
+                        // Show issues indicator if present
+                        if job.hasIssues, let issuesInfo = job.issuesInfo {
+                            Text("⚠️")
+                                .font(.system(size: 10))
+                                .foregroundColor(.orange)
+                                .help(issuesInfo)
                         }
                     }
                 }
@@ -94,32 +156,22 @@ struct JobRowView: View {
                         .truncationMode(.tail)
                 }
             }
+            }
         }
-        .frame(height: 44) // Fixed height for uniform appearance
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color.primary.opacity(0.03))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
-        )
     }
 
     private var statusColor: Color {
         switch job.status {
         case .running:
-            return .blue
+            return SpacedriveColors.Accent.info
         case .completed:
-            return .green
+            return SpacedriveColors.Accent.success
         case .failed:
-            return .red
+            return SpacedriveColors.Accent.error
         case .paused:
-            return .orange
+            return SpacedriveColors.Accent.warning
         case .queued:
-            return .gray
+            return SpacedriveColors.Text.tertiary
         }
     }
 }

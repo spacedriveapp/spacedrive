@@ -155,6 +155,7 @@ pub async fn run_processing_phase(
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None, // TODO: Pass action context from job state
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
@@ -177,7 +178,10 @@ pub async fn run_processing_phase(
 			if let Err(e) = ctx.check_interrupt().await {
 				// Rollback transaction before propagating interruption
 				if let Err(rollback_err) = txn.rollback().await {
-					warn!("Failed to rollback transaction during interruption: {}", rollback_err);
+					warn!(
+						"Failed to rollback transaction during interruption: {}",
+						rollback_err
+					);
 				}
 				return Err(e);
 			}
@@ -284,12 +288,7 @@ pub async fn run_processing_phase(
 						new_path.display()
 					));
 					match EntryProcessor::simple_move_entry_in_conn(
-						state,
-						ctx,
-						entry_id,
-						&old_path,
-						&new_path,
-						&txn,
+						state, ctx, entry_id, &old_path, &new_path, &txn,
 					)
 					.await
 					{
@@ -451,10 +450,7 @@ pub async fn run_processing_phase(
 
 					// Update in-memory caches
 					state.entry_id_cache.remove(&path);
-					ctx.log(format!(
-						"Deleted entry {} (and subtree if any)",
-						entry_id
-					));
+					ctx.log(format!("Deleted entry {} (and subtree if any)", entry_id));
 				}
 			}
 		}

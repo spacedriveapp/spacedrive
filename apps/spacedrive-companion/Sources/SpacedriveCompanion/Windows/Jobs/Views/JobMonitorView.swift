@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct JobMonitorView: View {
-    @ObservedObject var viewModel: JobListViewModel
+    @EnvironmentObject var appState: SharedAppState
 
     var body: some View {
         VStack(spacing: 0) {
@@ -9,10 +9,10 @@ struct JobMonitorView: View {
             headerView
 
             Divider()
-                .background(Color.gray.opacity(0.3))
+                .background(SpacedriveColors.Border.secondary)
 
             // Job list
-            if viewModel.jobs.isEmpty {
+            if appState.globalJobs.isEmpty {
                 emptyStateView
             } else {
                 jobListView
@@ -25,45 +25,42 @@ struct JobMonitorView: View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Spacedrive Jobs")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .h5()
 
                 HStack(spacing: 6) {
                     Circle()
                         .fill(connectionStatusColor)
                         .frame(width: 6, height: 6)
 
-                    Text(viewModel.connectionStatus.displayName)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                    Text(appState.connectionStatus.displayName)
+                        .labelSmall()
                 }
             }
 
             Spacer()
 
-            // Refresh button
-            Button(action: {
-                viewModel.reconnect()
-            }) {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
+            // Refresh button using new design system
+            SDButton(
+                "",
+                style: .ghost,
+                size: .small,
+                icon: "arrow.clockwise"
+            ) {
+                appState.dispatch(.refreshJobs)
             }
-            .buttonStyle(PlainButtonStyle())
-            .help("Reconnect to daemon")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
     }
 
     private var connectionStatusColor: Color {
-        switch viewModel.connectionStatus {
+        switch appState.connectionStatus {
         case .connected:
-            return .green
+            return SpacedriveColors.Accent.success
         case .connecting:
-            return .yellow
+            return SpacedriveColors.Accent.warning
         case .disconnected, .error:
-            return .red
+            return SpacedriveColors.Accent.error
         }
     }
 
@@ -71,16 +68,14 @@ struct JobMonitorView: View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle")
                 .font(.system(size: 48))
-                .foregroundColor(.green.opacity(0.6))
+                .foregroundColor(SpacedriveColors.Accent.success.opacity(0.6))
 
             VStack(spacing: 8) {
                 Text("No Active Jobs")
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .h4()
 
                 Text("All jobs are completed or no jobs are currently running.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .bodySmall(color: SpacedriveColors.Text.secondary)
                     .multilineTextAlignment(.center)
             }
         }
@@ -91,7 +86,7 @@ struct JobMonitorView: View {
     private var jobListView: some View {
         ScrollView {
             LazyVStack(spacing: 4) {
-                ForEach(viewModel.jobs) { job in
+                ForEach(appState.globalJobs) { job in
                     JobRowView(job: job)
                         .transition(.asymmetric(
                             insertion: .scale.combined(with: .opacity),
@@ -102,15 +97,15 @@ struct JobMonitorView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .animation(.easeInOut(duration: 0.2), value: viewModel.jobs.count)
+        .animation(.easeInOut(duration: 0.2), value: appState.globalJobs.count)
     }
 }
 
 #Preview {
-    let viewModel = JobListViewModel()
+    let appState = SharedAppState.shared
 
     // Add some sample jobs for preview
-    viewModel.jobs = [
+    appState.globalJobs = [
         JobInfo(
             id: "1",
             name: "file_indexer",
@@ -140,9 +135,10 @@ struct JobMonitorView: View {
         )
     ]
 
-    return JobMonitorView(viewModel: viewModel)
+    return JobMonitorView()
+        .environmentObject(appState)
         .frame(width: 400, height: 600)
-        .background(Color.black.opacity(0.1))
+        .background(SpacedriveColors.Background.primary)
 }
 
 

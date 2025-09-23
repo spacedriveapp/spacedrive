@@ -104,7 +104,10 @@ pub async fn run_aggregation_phase(
 
 		processed += 1;
 		let indexer_progress = IndexerProgress {
-			phase: IndexPhase::Finalizing,
+			phase: IndexPhase::Finalizing {
+				processed: processed,
+				total: total_dirs
+			},
 			current_path: format!(
 				"Aggregating directory {}/{}: {}",
 				processed, total_dirs, directory.name
@@ -115,6 +118,7 @@ pub async fn run_aggregation_phase(
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None, // TODO: Pass action context from job state
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 

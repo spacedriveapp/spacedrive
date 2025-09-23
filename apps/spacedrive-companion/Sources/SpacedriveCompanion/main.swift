@@ -17,6 +17,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("🚀 Spacedrive Companion app launched!")
+
+        // Configure app as foreground application
+        NSApp.setActivationPolicy(.regular)
+
+        setupMenuBar()
         setupWindow()
     }
 
@@ -24,24 +29,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // When clicking on dock icon or app, activate and show window
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = window {
+            window.makeKeyAndOrderFront(nil)
+        }
+        return true
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // Ensure window is visible when app becomes active
+        if let window = window {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    @MainActor
+    private func setupMenuBar() {
+        MenuBarManager.shared.setupMenuBar()
+    }
+
+    @MainActor
     private func setupWindow() {
-        let contentView = ContentView()
+        // Initialize shared app state
+        SharedAppState.shared.initializeDaemonConnection()
 
-        // Create the translucent window
-        window = TranslucentWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 400, height: 600),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
+        // Create the companion window using WindowManager
+        window = WindowManager.shared.createWindow(type: .companion, id: "main-companion") {
+            JobCompanionView()
+                .withSharedState()
+        }
 
-        window?.title = "Spacedrive"
-        window?.contentView = NSHostingView(rootView: contentView)
         window?.makeKeyAndOrderFront(nil)
-        window?.level = .floating
 
-        // Keep window on top
-        window?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Force app to become active and show menu bar
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+            self.window?.makeKeyAndOrderFront(nil)
+        }
     }
 }
 

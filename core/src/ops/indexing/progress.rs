@@ -2,21 +2,20 @@
 
 use super::state::{IndexPhase, IndexerProgress};
 use crate::{
-	infra::job::generic_progress::{GenericProgress, ToGenericProgress},
 	domain::addressing::SdPath,
+	infra::job::generic_progress::{GenericProgress, ToGenericProgress},
 };
 use std::path::PathBuf;
 
 impl ToGenericProgress for IndexerProgress {
 	fn to_generic_progress(&self) -> GenericProgress {
-		let (percentage, completion_info, phase_name) = match &self.phase {
+		let (percentage, completion_info, phase_name, phase_message) = match &self.phase {
 			IndexPhase::Discovery { dirs_queued } => {
 				// Discovery phase - 0-20% range
-				let _message =
-					format!("Discovering files and directories ({} queued)", dirs_queued);
-				// Start at 5% to show immediate progress
-				let percentage = if *dirs_queued > 0 { 0.05 } else { 0.1 };
-				(percentage, (0, 0), "Discovery".to_string())
+				let message = format!("Discovering files and directories ({} queued)", dirs_queued);
+				// Start at very beginning for discovery
+				let percentage = if *dirs_queued > 0 { 0.0 } else { 0.05 };
+				(percentage, (0, 0), "Discovery".to_string(), message)
 			}
 			IndexPhase::Processing {
 				batch,
@@ -30,11 +29,12 @@ impl ToGenericProgress for IndexerProgress {
 				};
 				// Map to 20-60% range
 				let percentage = 0.2 + (batch_progress * 0.4);
-				let _message = format!("Processing entries (batch {}/{})", batch, total_batches);
+				let message = format!("Processing entries (batch {}/{})", batch, total_batches);
 				(
 					percentage,
 					(*batch as u64, *total_batches as u64),
 					"Processing".to_string(),
+					message,
 				)
 			}
 			IndexPhase::ContentIdentification { current, total } => {
@@ -46,34 +46,62 @@ impl ToGenericProgress for IndexerProgress {
 				};
 				// Map to 70-98% range, never reach 100% in this phase
 				let percentage = 0.7 + (content_progress * 0.28);
-				let _message = format!("Generating content identities ({}/{})", current, total);
+				let message = format!("Generating content identities ({}/{})", current, total);
 				(
 					percentage,
 					(*current as u64, *total as u64),
 					"Content Identification".to_string(),
+					message,
 				)
 			}
-			IndexPhase::Finalizing => {
-				// Final phase - 99% (reserve 100% for actual completion)
-				let _message = "Finalizing index data...".to_string();
-				(0.99, (0, 0), "Finalizing".to_string())
+			IndexPhase::Finalizing { processed, total } => {
+				// Final phase - show actual progress of directory aggregation
+				let finalizing_progress = if *total > 0 {
+					(*processed as f32 / *total as f32).min(0.99) // Cap at 99% until truly complete
+				} else {
+					0.99
+				};
+				// Map to 99-100% range but reserve 100% for completion
+				let percentage = 0.99 + (finalizing_progress * 0.01);
+				let message = format!("Finalizing ({}/{})", processed, total);
+				(
+					percentage,
+					(*processed as u64, *total as u64),
+					"Finalizing".to_string(),
+					message,
+				)
 			}
 		};
 
-		// Convert current_path string to SdPath if possible
-		let current_path = if !self.current_path.is_empty() {
-			// For now, create a simple SdPath - this would need proper device UUID in real implementation
-			Some(SdPath::new(
-				uuid::Uuid::nil(), // TODO: Get actual device UUID
-				PathBuf::from(&self.current_path),
-			))
+		// Convert current_path string to SdPath only if it's a real filesystem path
+		// During aggregation, current_path contains status messages like "Aggregating directory 3846/3877: info"
+		// During other phases, it might contain actual file paths
+		let current_path = if !self.current_path.is_empty()
+			&& !self.current_path.starts_with("Aggregating directory")
+			&& !self.current_path.starts_with("Finalizing")
+		{
+			// Only create SdPath if it looks like a real path (absolute or relative with separators)
+			let path_buf = PathBuf::from(&self.current_path);
+			if path_buf.is_absolute()
+				|| self.current_path.contains('/')
+				|| self.current_path.contains('\\')
+			{
+				Some(SdPath::new(
+					uuid::Uuid::nil(), // TODO: Get actual device UUID
+					path_buf,
+				))
+			} else {
+				None
+			}
 		} else {
 			None
 		};
 
+		// completion_info is already set correctly from phase matching above
+		let final_completion = completion_info;
+
 		// Create the generic progress
-		let mut progress = GenericProgress::new(percentage, &phase_name, &self.current_path)
-			.with_completion(completion_info.0, completion_info.1)
+		let mut progress = GenericProgress::new(percentage, &phase_name, &phase_message)
 			.with_bytes(self.total_found.bytes, self.total_found.bytes) // Total bytes found so far
 			.with_performance(
 				self.processing_rate,
@@ -82,6 +110,19 @@ impl ToGenericProgress for IndexerProgress {
 			)
 			.with_errors(self.total_found.errors, 0) // No separate warning count in IndexerStats
 			.with_metadata(self); // Include original indexer progress as metadata
+
+		// Set completion data - for finalizing phase, manually set to avoid auto-percentage calculation
+		match &self.phase {
+			IndexPhase::Finalizing { .. } => {
+				// Manually set completion to preserve our custom percentage calculation
+				progress.completion.completed = final_completion.0;
+				progress.completion.total = final_completion.1;
+			}
+			_ => {
+				// For other phases, use normal with_completion which auto-calculates percentage
+				progress = progress.with_completion(final_completion.0, final_completion.1);
+			}
+		}
 
 		// Set current path if available
 		if let Some(path) = current_path {
@@ -109,6 +150,7 @@ mod tests {
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();
@@ -138,6 +180,7 @@ mod tests {
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();
@@ -167,6 +210,7 @@ mod tests {
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();
@@ -179,7 +223,10 @@ mod tests {
 	#[test]
 	fn test_finalizing_phase_conversion() {
 		let indexer_progress = IndexerProgress {
-			phase: IndexPhase::Finalizing,
+			phase: IndexPhase::Finalizing {
+				processed: 95,
+				total: 100,
+			},
 			current_path: "Aggregating directory data...".to_string(),
 			total_found: IndexerStats::default(),
 			processing_rate: 0.0,
@@ -187,10 +234,14 @@ mod tests {
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
+			action_context: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();
 		assert_eq!(generic.phase, "Finalizing");
-		assert_eq!(generic.percentage, 0.95); // Nearly complete
+		// With 95/100 progress: 0.99 + (0.95 * 0.01) = 0.9995
+		assert!((generic.percentage - 0.9995).abs() < 0.0001);
+		assert_eq!(generic.completion.completed, 95);
+		assert_eq!(generic.completion.total, 100);
 	}
 }

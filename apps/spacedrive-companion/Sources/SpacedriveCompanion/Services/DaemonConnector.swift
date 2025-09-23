@@ -149,7 +149,8 @@ class DaemonConnector: ObservableObject {
                     jobId: data.jobId,
                     jobType: data.jobType,
                     progress: data.progress,
-                    message: data.message
+                    message: data.message,
+                    genericProgress: data.genericProgress
                 )
 
             case .jobCompleted(let data):
@@ -197,30 +198,104 @@ class DaemonConnector: ObservableObject {
         }
     }
 
-    private func handleJobProgress(jobId: String, jobType: String, progress: Double, message: String?) {
+    private func handleJobProgress(jobId: String, jobType: String, progress: Double, message: String?, genericProgress: GenericProgress?) {
         if var existingJob = job(withId: jobId) {
             existingJob.progress = progress
-            if let msg = message {
-                existingJob.name = msg // Use the progress message as the job name for better UX
+
+            // Keep the actual job type as the title
+            existingJob.name = formatJobTitle(jobType)
+            existingJob.jobType = jobType
+
+            // Use enhanced progress information for better UX
+            if let generic = genericProgress {
+                // Store additional progress details
+                existingJob.currentPhase = generic.phase
+                existingJob.completionInfo = "\(generic.completion.completed)/\(generic.completion.total)"
+
+                // Extract current path from genericProgress, avoiding fake status messages
+                existingJob.currentPath = extractCurrentPath(from: generic)
+
+                // Check for errors/warnings
+                if generic.performance.errorCount > 0 || generic.performance.warningCount > 0 {
+                    existingJob.hasIssues = true
+                    existingJob.issuesInfo = "⚠️ \(generic.performance.errorCount) errors, \(generic.performance.warningCount) warnings"
+                }
             }
+
             existingJob.status = .running
             updateOrAddJob(existingJob)
-            print("📊 Job progress: \(jobType) (\(jobId)) - \(Int(progress * 100))%")
+
+            // Enhanced logging with more details
+            if let generic = genericProgress {
+                print("📊 Job progress: \(jobType) (\(jobId)) - \(generic.phase) \(Int(generic.percentage * 100))% (\(generic.completion.completed)/\(generic.completion.total))")
+            } else {
+                print("📊 Job progress: \(jobType) (\(jobId)) - \(Int(progress * 100))%")
+            }
         } else {
             // If we receive progress for a job we don't know about, create it
             let newJob = JobInfo(
                 id: jobId,
-                name: message ?? jobType.capitalized,
+                name: formatJobTitle(jobType),
                 status: .running,
                 progress: progress,
                 startedAt: Date(),
                 completedAt: nil,
-                errorMessage: nil
+                errorMessage: nil,
+                currentPhase: genericProgress?.phase,
+                completionInfo: genericProgress != nil ? "\(genericProgress!.completion.completed)/\(genericProgress!.completion.total)" : nil,
+                hasIssues: false,
+                issuesInfo: nil,
+                currentPath: genericProgress != nil ? extractCurrentPath(from: genericProgress!) : nil,
+                jobType: jobType
             )
             updateOrAddJob(newJob)
             print("📊 New job from progress event: \(jobType) (\(jobId))")
         }
     }
+
+    // Helper to format job type into a user-friendly title
+    private func formatJobTitle(_ jobType: String) -> String {
+        switch jobType.lowercased() {
+        case "indexer":
+            return "File Indexer"
+        case "file_copy":
+            return "File Copy"
+        case "thumbnail_generator":
+            return "Thumbnail Generator"
+        case "file_move":
+            return "File Move"
+        case "file_delete":
+            return "File Delete"
+        case "media_processor":
+            return "Media Processor"
+        default:
+            return jobType.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    // Helper to extract real current path from genericProgress, avoiding fake status messages
+    private func extractCurrentPath(from genericProgress: GenericProgress) -> String? {
+        guard let currentPath = genericProgress.currentPath else { return nil }
+
+        switch currentPath {
+        case .physical(let pathData):
+            let path = pathData.path
+
+            // Check if this looks like a real file path vs a status message
+            // Status messages often contain patterns like "(X/Y)" or "- XX.X%"
+            let isStatusMessage = path.contains(#"\(\d+/\d+\)"#) ||
+                                path.contains(#" - \d+\.?\d*%"#) ||
+                                path.hasPrefix("Generating content identities") ||
+                                path.hasPrefix("Aggregating directory")
+
+            // Only return if it looks like a real file path
+            return isStatusMessage ? nil : path
+
+        default:
+            return nil
+        }
+    }
+
 
     private func handleJobCompleted(jobId: String, jobType: String, output: JobOutput) {
         if var existingJob = job(withId: jobId) {

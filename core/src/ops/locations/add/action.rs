@@ -4,6 +4,7 @@ use super::output::LocationAddOutput;
 use crate::{
 	context::CoreContext,
 	infra::action::{
+		context::ActionContextProvider,
 		error::{ActionError, ActionResult},
 		LibraryAction,
 	},
@@ -14,6 +15,7 @@ use crate::{
 use async_trait::async_trait;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
@@ -171,6 +173,31 @@ impl LibraryAction for LocationAddAction {
 		}
 
 		Ok(())
+	}
+}
+
+impl ActionContextProvider for LocationAddAction {
+	fn create_action_context(&self) -> crate::infra::action::context::ActionContext {
+		use crate::infra::action::context::{sanitize_action_input, ActionContext};
+
+		ActionContext::new(
+			Self::action_type_name(),
+			sanitize_action_input(&self.input),
+			json!({
+				"operation": "add_location",
+				"trigger": "user_action",
+				"path": self.input.path.to_string_lossy(),
+				"name": self.input.name,
+				"mode": self.input.mode
+			}),
+		)
+	}
+
+	fn action_type_name() -> &'static str
+	where
+		Self: Sized,
+	{
+		"locations.add"
 	}
 }
 

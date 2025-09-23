@@ -10,6 +10,9 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 pub mod builder;
+pub mod context;
+#[cfg(test)]
+mod context_test;
 pub mod error;
 pub mod manager;
 pub mod output;

@@ -23,6 +23,10 @@ pub struct IndexerProgress {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub persistence: Option<super::job::IndexPersistence>,
 	pub is_ephemeral: bool,
+
+	/// Action context that spawned this job (if available)
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub action_context: Option<crate::infra::action::context::ActionContext>,
 }
 
 /// Statistics collected during indexing
@@ -42,7 +46,7 @@ pub enum IndexPhase {
 	Discovery { dirs_queued: usize },
 	Processing { batch: usize, total_batches: usize },
 	ContentIdentification { current: usize, total: usize },
-	Finalizing,
+	Finalizing { processed: usize, total: usize },
 }
 
 /// Internal phases for state machine

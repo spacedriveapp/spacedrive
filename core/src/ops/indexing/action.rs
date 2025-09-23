@@ -5,11 +5,12 @@ use super::IndexInput;
 use crate::{
 	context::CoreContext,
 	infra::{
-		action::{error::ActionError, LibraryAction},
+		action::{context::ActionContextProvider, error::ActionError, LibraryAction},
 		job::handle::JobHandle,
 	},
 };
 use async_trait::async_trait;
+use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -124,7 +125,32 @@ impl LibraryAction for IndexingAction {
 	fn action_kind(&self) -> &'static str {
 		"indexing.index"
 	}
+}
 
+impl ActionContextProvider for IndexingAction {
+	fn create_action_context(&self) -> crate::infra::action::context::ActionContext {
+		use crate::infra::action::context::{sanitize_action_input, ActionContext};
+
+		ActionContext::new(
+			Self::action_type_name(),
+			sanitize_action_input(&self.input),
+			json!({
+				"operation": "manual_scan",
+				"trigger": "user_action",
+				"paths_count": self.input.paths.len(),
+				"mode": self.input.mode,
+				"scope": self.input.scope,
+				"persistence": self.input.persistence
+			}),
+		)
+	}
+
+	fn action_type_name() -> &'static str
+	where
+		Self: Sized,
+	{
+		"indexing.scan"
+	}
 }
 
 crate::register_library_action!(IndexingAction, "indexing.start");
