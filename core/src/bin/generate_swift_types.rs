@@ -107,86 +107,8 @@ fn generate_swift_api_code(
 
 	let mut individual_types = swift.export(types)?;
 
-	// Fix JsonValue recursive definition issue
-	individual_types = individual_types.replace("case number(JsonValue)", "case number(Double)");
-
-	// Replace JsonValue and RawJson with JSONValue for better JSON handling
+	// Post-process to replace JsonValue with JSONValue (Specta generates the helper but field types still reference JsonValue)
 	individual_types = individual_types.replace("JsonValue", "JSONValue");
-	individual_types = individual_types.replace("RawJson", "JSONValue");
-
-	// Make actionInput and context optional in ActionContextInfo
-	individual_types = individual_types.replace(
-		"public let actionInput: JSONValue",
-		"public let actionInput: JSONValue?",
-	);
-	individual_types = individual_types.replace(
-		"public let context: JSONValue",
-		"public let context: JSONValue?",
-	);
-
-	// Fix the initializer to use optional parameters
-	individual_types = individual_types.replace(
-		"public init(actionType: String, initiatedAt: String, initiatedBy: String?, actionInput: JSONValue, context: JSONValue)",
-		"public init(actionType: String, initiatedAt: String, initiatedBy: String?, actionInput: JSONValue?, context: JSONValue?)",
-	);
-
-	// Remove duplicate JSONValue struct (the old RawJson struct)
-	individual_types = individual_types.replace(
-		"public struct JSONValue: Codable {\n    let value: JSONValue\n}",
-		"",
-	);
-
-	// Add custom Codable implementation for JSONValue to serialize as raw JSON
-	let jsonvalue_codable_impl = r#"
-extension JSONValue: Codable {
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-
-        if container.decodeNil() {
-            self = .null
-        } else if let bool = try? container.decode(Bool.self) {
-            self = .bool(bool)
-        } else if let int = try? container.decode(Int.self) {
-            self = .number(Double(int))
-        } else if let double = try? container.decode(Double.self) {
-            self = .number(double)
-        } else if let string = try? container.decode(String.self) {
-            self = .string(string)
-        } else if let array = try? container.decode([JSONValue].self) {
-            self = .array(array)
-        } else if let object = try? container.decode([String: JSONValue].self) {
-            self = .object(object)
-        } else {
-            throw DecodingError.typeMismatch(JSONValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid JSONValue"))
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-
-        switch self {
-        case .null:
-            try container.encodeNil()
-        case .bool(let bool):
-            try container.encode(bool)
-        case .number(let double):
-            try container.encode(double)
-        case .string(let string):
-            try container.encode(string)
-        case .array(let array):
-            try container.encode(array)
-        case .object(let object):
-            try container.encode(object)
-        }
-    }
-}
-"#;
-
-	// Remove Codable conformance from enum declaration and add custom implementation
-	individual_types = individual_types.replace(
-		"public indirect enum JSONValue: Codable {\n    case null\n    case bool(Bool)\n    case number(Double)\n    case string(String)\n    case array([JSONValue])\n    case object([String: JSONValue])\n}",
-		&format!("public indirect enum JSONValue {{\n    case null\n    case bool(Bool)\n    case number(Double)\n    case string(String)\n    case array([JSONValue])\n    case object([String: JSONValue])\n}}{}", jsonvalue_codable_impl),
-	);
 
 	swift_code.push_str(&individual_types);
 	swift_code.push_str("\n");
