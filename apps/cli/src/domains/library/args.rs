@@ -43,7 +43,10 @@ pub struct LibraryInfoArgs {
 
 impl LibraryInfoArgs {
 	/// Create an input for the specified library ID or current library
-	pub fn to_input(&self, current_library_id: Option<Uuid>) -> anyhow::Result<LibraryInfoQueryInput> {
+	pub fn to_input(
+		&self,
+		current_library_id: Option<Uuid>,
+	) -> anyhow::Result<LibraryInfoQueryInput> {
 		let _library_id = self
 			.library_id
 			.or(current_library_id)
