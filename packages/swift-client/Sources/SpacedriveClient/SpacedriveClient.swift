@@ -8,6 +8,13 @@ import Darwin
 public class SpacedriveClient {
     private let socketPath: String
 
+    /// The currently active library ID
+    /// This is used for library-scoped operations
+    private var currentLibraryId: String?
+
+    /// Thread-safe access to current library ID
+    private let libraryIdQueue = DispatchQueue(label: "com.spacedrive.library-id", attributes: .concurrent)
+
     /// Initialize a new Spacedrive client
     /// - Parameter socketPath: Path to the Unix domain socket for the daemon
     public init(socketPath: String) {
@@ -43,6 +50,95 @@ public class SpacedriveClient {
     /// Volume operations
     public lazy var volumes = VolumesAPI(client: self)
 
+    // MARK: - Library Management
+
+    /// Get the currently active library ID
+    /// - Returns: The current library ID, or nil if no library is active
+    public func getCurrentLibraryId() -> String? {
+        return libraryIdQueue.sync { currentLibraryId }
+    }
+
+    /// Set the currently active library
+    /// - Parameter libraryId: The ID of the library to make active
+    public func setCurrentLibrary(_ libraryId: String) {
+        libraryIdQueue.async(flags: .barrier) {
+            self.currentLibraryId = libraryId
+        }
+    }
+
+    /// Clear the currently active library (set to nil)
+    public func clearCurrentLibrary() {
+        libraryIdQueue.async(flags: .barrier) {
+            self.currentLibraryId = nil
+        }
+    }
+
+    /// Switch to a library by ID
+    /// - Parameter libraryId: The ID of the library to switch to
+    /// - Throws: SpacedriveError if the library doesn't exist or can't be accessed
+    public func switchToLibrary(_ libraryId: String) async throws {
+        // First verify the library exists by getting its info
+        let libraryInfo = try await libraries.info(LibrariesInfoInput())
+
+        // Check if the library exists in the list
+        let libraries = try await getLibraries()
+        let libraryExists = libraries.contains { $0.id == libraryId }
+
+        if !libraryExists {
+            throw SpacedriveError.invalidResponse("Library with ID '\(libraryId)' not found")
+        }
+
+        // Set as current library
+        setCurrentLibrary(libraryId)
+    }
+
+    /// Switch to a library by name
+    /// - Parameter libraryName: The name of the library to switch to
+    /// - Throws: SpacedriveError if the library doesn't exist or multiple libraries have the same name
+    public func switchToLibrary(named libraryName: String) async throws {
+        let libraries = try await getLibraries()
+        let matchingLibraries = libraries.filter { $0.name == libraryName }
+
+        switch matchingLibraries.count {
+        case 0:
+            throw SpacedriveError.invalidResponse("No library found with name '\(libraryName)'")
+        case 1:
+            setCurrentLibrary(matchingLibraries[0].id)
+        default:
+            throw SpacedriveError.invalidResponse("Multiple libraries found with name '\(libraryName)'. Use switchToLibrary(id:) instead.")
+        }
+    }
+
+    /// Get information about the currently active library
+    /// - Returns: LibraryInfo for the current library, or nil if no library is active
+    /// - Throws: SpacedriveError if the library can't be accessed
+    public func getCurrentLibraryInfo() async throws -> LibraryInfo? {
+        guard let libraryId = getCurrentLibraryId() else {
+            return nil
+        }
+
+        let libraries = try await getLibraries()
+        return libraries.first { $0.id == libraryId }
+    }
+
+    /// Check if a library operation can be performed (requires current library)
+    /// - Throws: SpacedriveError if no library is currently active
+    private func requireCurrentLibrary() throws {
+        guard getCurrentLibraryId() != nil else {
+            throw SpacedriveError.invalidResponse("This operation requires an active library. Use switchToLibrary() or createAndSwitchToLibrary() first.")
+        }
+    }
+
+    /// Get the current library ID or throw an error if none is set
+    /// - Returns: The current library ID
+    /// - Throws: SpacedriveError if no library is currently active
+    private func getCurrentLibraryIdOrThrow() throws -> String {
+        guard let libraryId = getCurrentLibraryId() else {
+            throw SpacedriveError.invalidResponse("This operation requires an active library. Use switchToLibrary() or createAndSwitchToLibrary() first.")
+        }
+        return libraryId
+    }
+
     // MARK: - Core API Methods
 
     /// Internal method to execute both queries and actions
@@ -50,11 +146,13 @@ public class SpacedriveClient {
     ///   - requestPayload: The input payload (can be empty struct for parameterless operations)
     ///   - method: The method identifier (e.g., "query:core.status.v1" or "action:libraries.create.input.v1")
     ///   - responseType: The expected response type
+    ///   - libraryId: Optional library ID to override the current library (for library-scoped operations)
     /// - Returns: The operation result
     internal func execute<Request: Codable, Response: Codable>(
         _ requestPayload: Request,
         method: String,
-        responseType: Response.Type
+        responseType: Response.Type,
+        libraryId: String? = nil
     ) async throws -> Response {
         // 1. Encode input to JSON
         let requestData: Data
@@ -67,12 +165,14 @@ public class SpacedriveClient {
         // 2. Create daemon request using JSON API
         let jsonPayload = try JSONSerialization.jsonObject(with: requestData) as! [String: Any]
 
-        // 3. Determine request type from method prefix
+        // 3. Determine request type from method prefix and include library ID if needed
         let request: DaemonRequest
+        let effectiveLibraryId = libraryId ?? getCurrentLibraryId()
+
         if method.hasPrefix("query:") {
-            request = DaemonRequest.jsonQuery(method: method, payload: jsonPayload)
+            request = DaemonRequest.jsonQuery(method: method, payload: jsonPayload, libraryId: effectiveLibraryId)
         } else if method.hasPrefix("action:") {
-            request = DaemonRequest.jsonAction(method: method, payload: jsonPayload)
+            request = DaemonRequest.jsonAction(method: method, payload: jsonPayload, libraryId: effectiveLibraryId)
         } else {
             throw SpacedriveError.invalidResponse("Invalid method format: \(method)")
         }
@@ -209,15 +309,17 @@ public class SpacedriveClient {
         case .ping:
             requestData = Data("\"Ping\"".utf8)
 
-        case .jsonQuery(let method, let payload):
+        case .jsonQuery(let method, let payload, let libraryId):
+            let libraryIdJson = libraryId.map { "\"library_id\":\"\($0)\"," } ?? ""
             let jsonString = """
-            {"JsonQuery":{"method":"\(method)","payload":\(try jsonStringFromDictionary(payload))}}
+            {"JsonQuery":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
             """
             requestData = Data(jsonString.utf8)
 
-        case .jsonAction(let method, let payload):
+        case .jsonAction(let method, let payload, let libraryId):
+            let libraryIdJson = libraryId.map { "\"library_id\":\"\($0)\"," } ?? ""
             let jsonString = """
-            {"JsonAction":{"method":"\(method)","payload":\(try jsonStringFromDictionary(payload))}}
+            {"JsonAction":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
             """
             requestData = Data(jsonString.utf8)
 
@@ -363,8 +465,8 @@ public class SpacedriveClient {
 /// Request types that match the Rust daemon protocol
 internal enum DaemonRequest {
     case ping
-    case jsonAction(method: String, payload: [String: Any])
-    case jsonQuery(method: String, payload: [String: Any])
+    case jsonAction(method: String, payload: [String: Any], libraryId: String?)
+    case jsonQuery(method: String, payload: [String: Any], libraryId: String?)
     case subscribe(eventTypes: [String], filter: EventFilter?)
     case unsubscribe
     case shutdown
@@ -530,6 +632,23 @@ extension SpacedriveClient {
         )
     }
 
+    /// Create a library and automatically set it as the current library
+    /// - Parameters:
+    ///   - name: The name of the library to create
+    ///   - path: Optional path for the library
+    ///   - setAsCurrent: Whether to automatically set the new library as current (default: true)
+    /// - Returns: The created library information
+    /// - Throws: SpacedriveError if creation fails
+    public func createAndSwitchToLibrary(name: String, path: String? = nil, setAsCurrent: Bool = true) async throws -> LibraryCreateOutput {
+        let result = try await createLibrary(name: name, path: path)
+
+        if setAsCurrent {
+            setCurrentLibrary(result.libraryId)
+        }
+
+        return result
+    }
+
     /// Get list of libraries using generated types
     public func getLibraries(includeStats: Bool = false) async throws -> [LibraryInfo] {
         struct LibraryListQuery: Codable {
@@ -558,6 +677,42 @@ extension SpacedriveClient {
             method: "query:jobs.list.v1",
             responseType: JobListOutput.self
         )
+    }
+
+    /// Get jobs for the current library
+    /// - Parameter status: Optional job status filter
+    /// - Returns: List of jobs for the current library
+    /// - Throws: SpacedriveError if no library is active or operation fails
+    public func getCurrentLibraryJobs(status: JobStatus? = nil) async throws -> JobListOutput {
+        let libraryId = try getCurrentLibraryIdOrThrow()
+
+        struct JobListQuery: Codable {
+            let status: String?
+        }
+
+        let query = JobListQuery(status: nil) // TODO: Convert JobStatus to string
+
+        return try await execute(
+            query,
+            method: "query:jobs.list.v1",
+            responseType: JobListOutput.self,
+            libraryId: libraryId
+        )
+    }
+
+    /// Get the current library status
+    /// - Returns: A string describing the current library state
+    public func getCurrentLibraryStatus() -> String {
+        guard let libraryId = getCurrentLibraryId() else {
+            return "No library is currently active"
+        }
+        return "Library '\(libraryId)' is currently active"
+    }
+
+    /// Check if a library is currently active
+    /// - Returns: True if a library is active, false otherwise
+    public func hasActiveLibrary() -> Bool {
+        return getCurrentLibraryId() != nil
     }
 
     /// Ping the daemon to test connectivity
