@@ -334,8 +334,12 @@ macro_rules! register_library_query {
 				$name
 			}
 
+			fn scope() -> $crate::ops::type_extraction::QueryScope {
+				$crate::ops::type_extraction::QueryScope::Library
+			}
+
 			fn wire_method() -> String {
-				format!("query:{}.v1", $name)
+				$crate::query_method!($name).to_string()
 			}
 		}
 
@@ -373,8 +377,12 @@ macro_rules! register_core_query {
 				$name
 			}
 
+			fn scope() -> $crate::ops::type_extraction::QueryScope {
+				$crate::ops::type_extraction::QueryScope::Core
+			}
+
 			fn wire_method() -> String {
-				format!("query:{}.v1", $name)
+				$crate::query_method!($name).to_string()
 			}
 		}
 
@@ -411,6 +419,14 @@ macro_rules! register_library_action {
 			fn identifier() -> &'static str {
 				$name
 			}
+
+			fn scope() -> $crate::ops::type_extraction::OperationScope {
+				$crate::ops::type_extraction::OperationScope::Library
+			}
+
+			fn wire_method() -> String {
+				$crate::action_method!($name).to_string()
+			}
 		}
 
 		// Submit type extractor to inventory for compile-time collection
@@ -445,6 +461,14 @@ macro_rules! register_core_action {
 
 			fn identifier() -> &'static str {
 				$name
+			}
+
+			fn scope() -> $crate::ops::type_extraction::OperationScope {
+				$crate::ops::type_extraction::OperationScope::Core
+			}
+
+			fn wire_method() -> String {
+				$crate::action_method!($name).to_string()
 			}
 		}
 

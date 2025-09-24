@@ -6,6 +6,20 @@
 use serde::{de::DeserializeOwned, Serialize};
 use specta::{DataType, Type, TypeCollection};
 
+/// Operation scope - automatically determined by registration macro
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperationScope {
+	Core,
+	Library,
+}
+
+/// Query scope - automatically determined by registration macro
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueryScope {
+	Core,
+	Library,
+}
+
 /// Core trait that provides compile-time type information for operations
 ///
 /// This is inspired by rspc's resolver trait system and enables automatic
@@ -20,10 +34,11 @@ pub trait OperationTypeInfo {
 	/// The operation identifier (e.g., "files.copy", "libraries.create")
 	fn identifier() -> &'static str;
 
+	/// The operation scope (Core or Library) - automatically determined by registration macro
+	fn scope() -> OperationScope;
+
 	/// Generate the wire method string for this operation
-	fn wire_method() -> String {
-		format!("action:{}.input.v1", Self::identifier())
-	}
+	fn wire_method() -> String;
 
 	/// Extract type metadata and register with Specta's TypeCollection
 	/// This is the key method that enables automatic type discovery
@@ -37,6 +52,7 @@ pub trait OperationTypeInfo {
 			wire_method: Self::wire_method(),
 			input_type,
 			output_type,
+			scope: Self::scope(),
 		}
 	}
 }
@@ -52,10 +68,11 @@ pub trait QueryTypeInfo {
 	/// Query identifier (e.g., "jobs.list", "libraries.list")
 	fn identifier() -> &'static str;
 
+	/// The query scope (Core or Library) - automatically determined by registration macro
+	fn scope() -> QueryScope;
+
 	/// Generate wire method for queries
-	fn wire_method() -> String {
-		format!("query:{}.v1", Self::identifier())
-	}
+	fn wire_method() -> String;
 
 	/// Extract query type metadata
 	fn extract_types(collection: &mut TypeCollection) -> QueryMetadata {
@@ -68,6 +85,7 @@ pub trait QueryTypeInfo {
 			wire_method: Self::wire_method(),
 			input_type,
 			output_type,
+			scope: Self::scope(),
 		}
 	}
 }
@@ -79,6 +97,7 @@ pub struct OperationMetadata {
 	pub wire_method: String,
 	pub input_type: DataType,
 	pub output_type: DataType,
+	pub scope: OperationScope,
 }
 
 /// Metadata extracted from a query
@@ -88,6 +107,7 @@ pub struct QueryMetadata {
 	pub wire_method: String,
 	pub input_type: DataType,
 	pub output_type: DataType,
+	pub scope: QueryScope,
 }
 
 /// Entry for collecting type extractors via inventory
@@ -152,11 +172,11 @@ mod tests {
 		if !operations.is_empty() {
 			println!("✅ Type extraction system is working!");
 
-			// Show some examples
+			// Show some examples with scope information
 			for op in operations.iter().take(3) {
 				println!(
-					"   Operation: {} -> wire: {}",
-					op.identifier, op.wire_method
+					"   Operation: {} -> wire: {} -> scope: {:?}",
+					op.identifier, op.wire_method, op.scope
 				);
 			}
 		}
@@ -164,8 +184,8 @@ mod tests {
 		if !queries.is_empty() {
 			for query in queries.iter().take(3) {
 				println!(
-					"   Query: {} -> wire: {}",
-					query.identifier, query.wire_method
+					"   Query: {} -> wire: {} -> scope: {:?}",
+					query.identifier, query.wire_method, query.scope
 				);
 			}
 		}
