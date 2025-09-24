@@ -1,105 +1,5 @@
 import Foundation
 
-/// Network operations
-public struct NetworkAPI {
-    private let client: SpacedriveClient
-
-    init(client: SpacedriveClient) {
-        self.client = client
-    }
-
-    /// Execute action: network.device.revoke
-    public func deviceRevoke(_ input: NetworkDeviceRevokeInput) async throws -> NetworkDeviceRevokeOutput {
-        return try await client.execute(
-            input,
-            method: "action:network.device.revoke.input.v1",
-            responseType: NetworkDeviceRevokeOutput.self
-        )
-    }
-
-    /// Execute action: network.pair.join
-    public func pairJoin(_ input: NetworkPairJoinInput) async throws -> NetworkPairJoinOutput {
-        return try await client.execute(
-            input,
-            method: "action:network.pair.join.input.v1",
-            responseType: NetworkPairJoinOutput.self
-        )
-    }
-
-    /// Execute action: network.start
-    public func start(_ input: NetworkStartInput) async throws -> NetworkStartOutput {
-        return try await client.execute(
-            input,
-            method: "action:network.start.input.v1",
-            responseType: NetworkStartOutput.self
-        )
-    }
-
-    /// Execute action: network.pair.generate
-    public func pairGenerate(_ input: NetworkPairGenerateInput) async throws -> NetworkPairGenerateOutput {
-        return try await client.execute(
-            input,
-            method: "action:network.pair.generate.input.v1",
-            responseType: NetworkPairGenerateOutput.self
-        )
-    }
-
-    /// Execute action: network.pair.cancel
-    public func pairCancel(_ input: NetworkPairCancelInput) async throws -> NetworkPairCancelOutput {
-        return try await client.execute(
-            input,
-            method: "action:network.pair.cancel.input.v1",
-            responseType: NetworkPairCancelOutput.self
-        )
-    }
-
-    /// Execute action: network.spacedrop.send
-    public func spacedropSend(_ input: NetworkSpacedropSendInput) async throws -> NetworkSpacedropSendOutput {
-        return try await client.execute(
-            input,
-            method: "action:network.spacedrop.send.input.v1",
-            responseType: NetworkSpacedropSendOutput.self
-        )
-    }
-
-    /// Execute action: network.stop
-    public func stop(_ input: NetworkStopInput) async throws -> NetworkStopOutput {
-        return try await client.execute(
-            input,
-            method: "action:network.stop.input.v1",
-            responseType: NetworkStopOutput.self
-        )
-    }
-
-    /// Execute query: network.devices
-    public func devices(_ input: NetworkDevicesInput) async throws -> NetworkDevicesOutput {
-        return try await client.execute(
-            input,
-            method: "query:network.devices.v1",
-            responseType: NetworkDevicesOutput.self
-        )
-    }
-
-    /// Execute query: network.status
-    public func status(_ input: NetworkStatusInput) async throws -> NetworkStatusOutput {
-        return try await client.execute(
-            input,
-            method: "query:network.status.v1",
-            responseType: NetworkStatusOutput.self
-        )
-    }
-
-    /// Execute query: network.pair.status
-    public func pairStatus(_ input: NetworkPairStatusInput) async throws -> NetworkPairStatusOutput {
-        return try await client.execute(
-            input,
-            method: "query:network.pair.status.v1",
-            responseType: NetworkPairStatusOutput.self
-        )
-    }
-
-}
-
 /// Libraries operations
 public struct LibrariesAPI {
     private let client: SpacedriveClient
@@ -108,160 +8,57 @@ public struct LibrariesAPI {
         self.client = client
     }
 
-    /// Execute action: libraries.delete
-    public func delete(_ input: LibrariesDeleteInput) async throws -> LibrariesDeleteOutput {
-        return try await client.execute(
-            input,
-            method: "action:libraries.delete.input.v1",
-            responseType: LibrariesDeleteOutput.self
-        )
-    }
-
     /// Execute action: libraries.rename
-    public func rename(_ input: LibrariesRenameInput) async throws -> LibrariesRenameOutput {
+    public func rename(_ input: LibraryRenameInput) async throws -> LibraryRenameOutput {
         return try await client.execute(
             input,
             method: "action:libraries.rename.input.v1",
-            responseType: LibrariesRenameOutput.self
+            responseType: LibraryRenameOutput.self
         )
     }
 
-    /// Execute action: libraries.export
-    public func export(_ input: LibrariesExportInput) async throws -> LibrariesExportOutput {
+    /// Execute action: libraries.delete
+    public func delete(_ input: LibraryDeleteInput) async throws -> LibraryDeleteOutput {
         return try await client.execute(
             input,
-            method: "action:libraries.export.input.v1",
-            responseType: LibrariesExportOutput.self
+            method: "action:libraries.delete.input.v1",
+            responseType: LibraryDeleteOutput.self
         )
     }
 
     /// Execute action: libraries.create
-    public func create(_ input: LibrariesCreateInput) async throws -> LibrariesCreateOutput {
+    public func create(_ input: LibraryCreateInput) async throws -> LibraryCreateOutput {
         return try await client.execute(
             input,
             method: "action:libraries.create.input.v1",
-            responseType: LibrariesCreateOutput.self
+            responseType: LibraryCreateOutput.self
         )
     }
 
-    /// Execute query: libraries.info
-    public func info(_ input: LibrariesInfoInput) async throws -> LibrariesInfoOutput {
+    /// Execute action: libraries.export
+    public func export(_ input: LibraryExportInput) async throws -> LibraryExportOutput {
         return try await client.execute(
             input,
-            method: "query:libraries.info.v1",
-            responseType: LibrariesInfoOutput.self
+            method: "action:libraries.export.input.v1",
+            responseType: LibraryExportOutput.self
         )
     }
 
     /// Execute query: libraries.list
-    public func list(_ input: LibrariesListInput) async throws -> LibrariesListOutput {
+    public func list(_ input: ListLibrariesInput) async throws -> [LibraryInfo] {
         return try await client.execute(
             input,
             method: "query:libraries.list.v1",
-            responseType: LibrariesListOutput.self
+            responseType: [LibraryInfo].self
         )
     }
 
-}
-
-/// Indexing operations
-public struct IndexingAPI {
-    private let client: SpacedriveClient
-
-    init(client: SpacedriveClient) {
-        self.client = client
-    }
-
-    /// Execute action: indexing.start
-    public func start(_ input: IndexingStartInput) async throws -> IndexingStartOutput {
+    /// Execute query: libraries.info
+    public func info(_ input: LibraryInfoQueryInput) async throws -> LibraryInfoOutput {
         return try await client.execute(
             input,
-            method: "action:indexing.start.input.v1",
-            responseType: IndexingStartOutput.self
-        )
-    }
-
-}
-
-/// Core operations
-public struct CoreAPI {
-    private let client: SpacedriveClient
-
-    init(client: SpacedriveClient) {
-        self.client = client
-    }
-
-    /// Execute query: core.status
-    public func status(_ input: CoreStatusInput) async throws -> CoreStatusOutput {
-        return try await client.execute(
-            input,
-            method: "query:core.status.v1",
-            responseType: CoreStatusOutput.self
-        )
-    }
-
-}
-
-/// Locations operations
-public struct LocationsAPI {
-    private let client: SpacedriveClient
-
-    init(client: SpacedriveClient) {
-        self.client = client
-    }
-
-    /// Execute action: locations.add
-    public func add(_ input: LocationsAddInput) async throws -> LocationsAddOutput {
-        return try await client.execute(
-            input,
-            method: "action:locations.add.input.v1",
-            responseType: LocationsAddOutput.self
-        )
-    }
-
-    /// Execute action: locations.remove
-    public func remove(_ input: LocationsRemoveInput) async throws -> LocationsRemoveOutput {
-        return try await client.execute(
-            input,
-            method: "action:locations.remove.input.v1",
-            responseType: LocationsRemoveOutput.self
-        )
-    }
-
-    /// Execute action: locations.rescan
-    public func rescan(_ input: LocationsRescanInput) async throws -> LocationsRescanOutput {
-        return try await client.execute(
-            input,
-            method: "action:locations.rescan.input.v1",
-            responseType: LocationsRescanOutput.self
-        )
-    }
-
-    /// Execute query: locations.list
-    public func list(_ input: LocationsListInput) async throws -> LocationsListOutput {
-        return try await client.execute(
-            input,
-            method: "query:locations.list.v1",
-            responseType: LocationsListOutput.self
-        )
-    }
-
-}
-
-/// Search operations
-public struct SearchAPI {
-    private let client: SpacedriveClient
-
-    init(client: SpacedriveClient) {
-        self.client = client
-    }
-
-    /// Execute query: search.files
-    public func files(_ input: SearchFilesInput) async throws -> SearchFilesOutput {
-        return try await client.execute(
-            input,
-            method: "query:search.files.v1",
-            responseType: SearchFilesOutput.self
+            method: "query:libraries.info.v1",
+            responseType: LibraryInfoOutput.self
         )
     }
 
@@ -276,29 +73,48 @@ public struct TagsAPI {
     }
 
     /// Execute action: tags.apply
-    public func apply(_ input: TagsApplyInput) async throws -> TagsApplyOutput {
+    public func apply(_ input: ApplyTagsInput) async throws -> ApplyTagsOutput {
         return try await client.execute(
             input,
             method: "action:tags.apply.input.v1",
-            responseType: TagsApplyOutput.self
+            responseType: ApplyTagsOutput.self
         )
     }
 
     /// Execute action: tags.create
-    public func create(_ input: TagsCreateInput) async throws -> TagsCreateOutput {
+    public func create(_ input: CreateTagInput) async throws -> CreateTagOutput {
         return try await client.execute(
             input,
             method: "action:tags.create.input.v1",
-            responseType: TagsCreateOutput.self
+            responseType: CreateTagOutput.self
         )
     }
 
     /// Execute query: tags.search
-    public func search(_ input: TagsSearchInput) async throws -> TagsSearchOutput {
+    public func search(_ input: SearchTagsInput) async throws -> SearchTagsOutput {
         return try await client.execute(
             input,
             method: "query:tags.search.v1",
-            responseType: TagsSearchOutput.self
+            responseType: SearchTagsOutput.self
+        )
+    }
+
+}
+
+/// Search operations
+public struct SearchAPI {
+    private let client: SpacedriveClient
+
+    init(client: SpacedriveClient) {
+        self.client = client
+    }
+
+    /// Execute query: search.files
+    public func files(_ input: FileSearchInput) async throws -> FileSearchOutput {
+        return try await client.execute(
+            input,
+            method: "query:search.files.v1",
+            responseType: FileSearchOutput.self
         )
     }
 
@@ -312,39 +128,39 @@ public struct FilesAPI {
         self.client = client
     }
 
-    /// Execute action: files.copy
-    public func copy(_ input: FilesCopyInput) async throws -> FilesCopyOutput {
-        return try await client.execute(
-            input,
-            method: "action:files.copy.input.v1",
-            responseType: FilesCopyOutput.self
-        )
-    }
-
     /// Execute action: files.validation
-    public func validation(_ input: FilesValidationInput) async throws -> FilesValidationOutput {
+    public func validation(_ input: FileValidationInput) async throws -> JobReceipt {
         return try await client.execute(
             input,
             method: "action:files.validation.input.v1",
-            responseType: FilesValidationOutput.self
+            responseType: JobReceipt.self
+        )
+    }
+
+    /// Execute action: files.copy
+    public func copy(_ input: FileCopyInput) async throws -> JobReceipt {
+        return try await client.execute(
+            input,
+            method: "action:files.copy.input.v1",
+            responseType: JobReceipt.self
         )
     }
 
     /// Execute action: files.delete
-    public func delete(_ input: FilesDeleteInput) async throws -> FilesDeleteOutput {
+    public func delete(_ input: FileDeleteInput) async throws -> JobReceipt {
         return try await client.execute(
             input,
             method: "action:files.delete.input.v1",
-            responseType: FilesDeleteOutput.self
+            responseType: JobReceipt.self
         )
     }
 
     /// Execute action: files.duplicate_detection
-    public func duplicateDetection(_ input: FilesDuplicateDetectionInput) async throws -> FilesDuplicateDetectionOutput {
+    public func duplicateDetection(_ input: DuplicateDetectionInput) async throws -> JobReceipt {
         return try await client.execute(
             input,
             method: "action:files.duplicate_detection.input.v1",
-            responseType: FilesDuplicateDetectionOutput.self
+            responseType: JobReceipt.self
         )
     }
 
@@ -358,48 +174,94 @@ public struct JobsAPI {
         self.client = client
     }
 
+    /// Execute action: jobs.resume
+    public func resume(_ input: JobResumeInput) async throws -> JobResumeOutput {
+        return try await client.execute(
+            input,
+            method: "action:jobs.resume.input.v1",
+            responseType: JobResumeOutput.self
+        )
+    }
+
     /// Execute action: jobs.pause
-    public func pause(_ input: JobsPauseInput) async throws -> JobsPauseOutput {
+    public func pause(_ input: JobPauseInput) async throws -> JobPauseOutput {
         return try await client.execute(
             input,
             method: "action:jobs.pause.input.v1",
-            responseType: JobsPauseOutput.self
+            responseType: JobPauseOutput.self
         )
     }
 
     /// Execute action: jobs.cancel
-    public func cancel(_ input: JobsCancelInput) async throws -> JobsCancelOutput {
+    public func cancel(_ input: JobCancelInput) async throws -> JobCancelOutput {
         return try await client.execute(
             input,
             method: "action:jobs.cancel.input.v1",
-            responseType: JobsCancelOutput.self
-        )
-    }
-
-    /// Execute action: jobs.resume
-    public func resume(_ input: JobsResumeInput) async throws -> JobsResumeOutput {
-        return try await client.execute(
-            input,
-            method: "action:jobs.resume.input.v1",
-            responseType: JobsResumeOutput.self
+            responseType: JobCancelOutput.self
         )
     }
 
     /// Execute query: jobs.info
-    public func info(_ input: JobsInfoInput) async throws -> JobsInfoOutput {
+    public func info(_ input: JobInfoQueryInput) async throws -> JobInfoOutput {
         return try await client.execute(
             input,
             method: "query:jobs.info.v1",
-            responseType: JobsInfoOutput.self
+            responseType: JobInfoOutput.self
         )
     }
 
     /// Execute query: jobs.list
-    public func list(_ input: JobsListInput) async throws -> JobsListOutput {
+    public func list(_ input: JobListInput) async throws -> JobListOutput {
         return try await client.execute(
             input,
             method: "query:jobs.list.v1",
-            responseType: JobsListOutput.self
+            responseType: JobListOutput.self
+        )
+    }
+
+}
+
+/// Locations operations
+public struct LocationsAPI {
+    private let client: SpacedriveClient
+
+    init(client: SpacedriveClient) {
+        self.client = client
+    }
+
+    /// Execute action: locations.add
+    public func add(_ input: LocationAddInput) async throws -> LocationAddOutput {
+        return try await client.execute(
+            input,
+            method: "action:locations.add.input.v1",
+            responseType: LocationAddOutput.self
+        )
+    }
+
+    /// Execute action: locations.remove
+    public func remove(_ input: LocationRemoveInput) async throws -> LocationRemoveOutput {
+        return try await client.execute(
+            input,
+            method: "action:locations.remove.input.v1",
+            responseType: LocationRemoveOutput.self
+        )
+    }
+
+    /// Execute action: locations.rescan
+    public func rescan(_ input: LocationRescanInput) async throws -> LocationRescanOutput {
+        return try await client.execute(
+            input,
+            method: "action:locations.rescan.input.v1",
+            responseType: LocationRescanOutput.self
+        )
+    }
+
+    /// Execute query: locations.list
+    public func list(_ input: LocationsListQueryInput) async throws -> LocationsListOutput {
+        return try await client.execute(
+            input,
+            method: "query:locations.list.v1",
+            responseType: LocationsListOutput.self
         )
     }
 
@@ -414,11 +276,49 @@ public struct MediaAPI {
     }
 
     /// Execute action: media.thumbnail
-    public func thumbnail(_ input: MediaThumbnailInput) async throws -> MediaThumbnailOutput {
+    public func thumbnail(_ input: ThumbnailInput) async throws -> JobReceipt {
         return try await client.execute(
             input,
             method: "action:media.thumbnail.input.v1",
-            responseType: MediaThumbnailOutput.self
+            responseType: JobReceipt.self
+        )
+    }
+
+}
+
+/// Indexing operations
+public struct IndexingAPI {
+    private let client: SpacedriveClient
+
+    init(client: SpacedriveClient) {
+        self.client = client
+    }
+
+    /// Execute action: indexing.start
+    public func start(_ input: IndexInput) async throws -> JobReceipt {
+        return try await client.execute(
+            input,
+            method: "action:indexing.start.input.v1",
+            responseType: JobReceipt.self
+        )
+    }
+
+}
+
+/// Core operations
+public struct CoreAPI {
+    private let client: SpacedriveClient
+
+    init(client: SpacedriveClient) {
+        self.client = client
+    }
+
+    /// Execute query: core.status
+    public func status(_ input: Empty) async throws -> CoreStatus {
+        return try await client.execute(
+            input,
+            method: "query:core.status.v1",
+            responseType: CoreStatus.self
         )
     }
 
@@ -433,29 +333,129 @@ public struct VolumesAPI {
     }
 
     /// Execute action: volumes.untrack
-    public func untrack(_ input: VolumesUntrackInput) async throws -> VolumesUntrackOutput {
+    public func untrack(_ input: VolumeUntrackInput) async throws -> VolumeUntrackOutput {
         return try await client.execute(
             input,
             method: "action:volumes.untrack.input.v1",
-            responseType: VolumesUntrackOutput.self
+            responseType: VolumeUntrackOutput.self
         )
     }
 
     /// Execute action: volumes.track
-    public func track(_ input: VolumesTrackInput) async throws -> VolumesTrackOutput {
+    public func track(_ input: VolumeTrackInput) async throws -> VolumeTrackOutput {
         return try await client.execute(
             input,
             method: "action:volumes.track.input.v1",
-            responseType: VolumesTrackOutput.self
+            responseType: VolumeTrackOutput.self
         )
     }
 
     /// Execute action: volumes.speed_test
-    public func speedTest(_ input: VolumesSpeedTestInput) async throws -> VolumesSpeedTestOutput {
+    public func speedTest(_ input: VolumeSpeedTestInput) async throws -> VolumeSpeedTestOutput {
         return try await client.execute(
             input,
             method: "action:volumes.speed_test.input.v1",
-            responseType: VolumesSpeedTestOutput.self
+            responseType: VolumeSpeedTestOutput.self
+        )
+    }
+
+}
+
+/// Network operations
+public struct NetworkAPI {
+    private let client: SpacedriveClient
+
+    init(client: SpacedriveClient) {
+        self.client = client
+    }
+
+    /// Execute action: network.pair.join
+    public func pairJoin(_ input: PairJoinInput) async throws -> PairJoinOutput {
+        return try await client.execute(
+            input,
+            method: "action:network.pair.join.input.v1",
+            responseType: PairJoinOutput.self
+        )
+    }
+
+    /// Execute action: network.pair.generate
+    public func pairGenerate(_ input: PairGenerateInput) async throws -> PairGenerateOutput {
+        return try await client.execute(
+            input,
+            method: "action:network.pair.generate.input.v1",
+            responseType: PairGenerateOutput.self
+        )
+    }
+
+    /// Execute action: network.pair.cancel
+    public func pairCancel(_ input: PairCancelInput) async throws -> PairCancelOutput {
+        return try await client.execute(
+            input,
+            method: "action:network.pair.cancel.input.v1",
+            responseType: PairCancelOutput.self
+        )
+    }
+
+    /// Execute action: network.start
+    public func start(_ input: NetworkStartInput) async throws -> NetworkStartOutput {
+        return try await client.execute(
+            input,
+            method: "action:network.start.input.v1",
+            responseType: NetworkStartOutput.self
+        )
+    }
+
+    /// Execute action: network.spacedrop.send
+    public func spacedropSend(_ input: SpacedropSendInput) async throws -> SpacedropSendOutput {
+        return try await client.execute(
+            input,
+            method: "action:network.spacedrop.send.input.v1",
+            responseType: SpacedropSendOutput.self
+        )
+    }
+
+    /// Execute action: network.device.revoke
+    public func deviceRevoke(_ input: DeviceRevokeInput) async throws -> DeviceRevokeOutput {
+        return try await client.execute(
+            input,
+            method: "action:network.device.revoke.input.v1",
+            responseType: DeviceRevokeOutput.self
+        )
+    }
+
+    /// Execute action: network.stop
+    public func stop(_ input: NetworkStopInput) async throws -> NetworkStopOutput {
+        return try await client.execute(
+            input,
+            method: "action:network.stop.input.v1",
+            responseType: NetworkStopOutput.self
+        )
+    }
+
+    /// Execute query: network.status
+    public func status(_ input: NetworkStatusQueryInput) async throws -> NetworkStatus {
+        return try await client.execute(
+            input,
+            method: "query:network.status.v1",
+            responseType: NetworkStatus.self
+        )
+    }
+
+    /// Execute query: network.devices
+    public func devices(_ input: ListDevicesInput) async throws -> [DeviceInfoLite] {
+        return try await client.execute(
+            input,
+            method: "query:network.devices.v1",
+            responseType: [DeviceInfoLite].self
+        )
+    }
+
+    /// Execute query: network.pair.status
+    public func pairStatus(_ input: PairStatusQueryInput) async throws -> PairStatusOutput {
+        return try await client.execute(
+            input,
+            method: "query:network.pair.status.v1",
+            responseType: PairStatusOutput.self
         )
     }
 

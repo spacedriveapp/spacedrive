@@ -78,7 +78,7 @@ public class SpacedriveClient {
     /// - Throws: SpacedriveError if the library doesn't exist or can't be accessed
     public func switchToLibrary(_ libraryId: String) async throws {
         // First verify the library exists by getting its info
-        let libraryInfo = try await libraries.info(LibrariesInfoInput())
+        let libraryInfo = try await libraries.info(LibraryInfoQueryInput())
 
         // Check if the library exists in the list
         let libraries = try await getLibraries()

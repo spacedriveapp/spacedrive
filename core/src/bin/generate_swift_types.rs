@@ -133,8 +133,8 @@ fn generate_swift_api_code(
 	for action in &api_structure.core_actions {
 		let variant_name = to_pascal_case(&action.identifier);
 		swift_code.push_str(&format!(
-			"    case {}(input: {}Input, output: {}Output)\n",
-			variant_name, variant_name, variant_name
+			"    case {}(input: {}, output: {})\n",
+			variant_name, action.input_type_name, action.output_type_name
 		));
 	}
 	swift_code.push_str("}\n\n");
@@ -160,8 +160,8 @@ fn generate_swift_api_code(
 	for action in &api_structure.library_actions {
 		let variant_name = to_pascal_case(&action.identifier);
 		swift_code.push_str(&format!(
-			"    case {}(input: {}Input, output: {}Output)\n",
-			variant_name, variant_name, variant_name
+			"    case {}(input: {}, output: {})\n",
+			variant_name, action.input_type_name, action.output_type_name
 		));
 	}
 	swift_code.push_str("}\n\n");
@@ -187,8 +187,8 @@ fn generate_swift_api_code(
 	for query in &api_structure.core_queries {
 		let variant_name = to_pascal_case(&query.identifier);
 		swift_code.push_str(&format!(
-			"    case {}(input: {}QueryInput, output: {}Output)\n",
-			variant_name, variant_name, variant_name
+			"    case {}(input: {}, output: {})\n",
+			variant_name, query.input_type_name, query.output_type_name
 		));
 	}
 	swift_code.push_str("}\n\n");
@@ -214,8 +214,8 @@ fn generate_swift_api_code(
 	for query in &api_structure.library_queries {
 		let variant_name = to_pascal_case(&query.identifier);
 		swift_code.push_str(&format!(
-			"    case {}(input: {}QueryInput, output: {}Output)\n",
-			variant_name, variant_name, variant_name
+			"    case {}(input: {}, output: {})\n",
+			variant_name, query.input_type_name, query.output_type_name
 		));
 	}
 	swift_code.push_str("}\n\n");
