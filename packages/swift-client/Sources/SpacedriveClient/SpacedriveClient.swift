@@ -751,11 +751,18 @@ extension SpacedriveClient {
         let response = try await sendRequest(.query(method: wireMethod, libraryId: getCurrentLibraryId(), payload: queryDict))
 
         switch response {
-        case .jsonOk(let anyCodable):
-            // Convert AnyCodable to Data, then decode to File?
-            let data = try JSONEncoder().encode(anyCodable)
-            let result = try JSONDecoder().decode(File?.self, from: data)
-            return result
+        case .jsonOk(let jsonData):
+            print("🔍 Decoding File from JSON data: \(jsonData.value)")
+            do {
+                let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
+                let result = try JSONDecoder().decode(File.self, from: jsonResponseData)
+                print("✅ Successfully decoded File: \(result.name)")
+                return result
+            } catch {
+                print("❌ Failed to decode File: \(error)")
+                print("❌ JSON data: \(jsonData.value)")
+                throw SpacedriveError.invalidResponse("Failed to decode File: \(error)")
+            }
         case .error(let error):
             throw SpacedriveError.daemonError("Query failed: \(error)")
         default:
