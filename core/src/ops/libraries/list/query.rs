@@ -14,9 +14,20 @@ pub struct ListLibrariesInput {
 }
 
 /// Query to list all available libraries
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ListLibrariesQuery {
 	pub input: ListLibrariesInput,
+}
+
+impl ListLibrariesQuery {
+	/// Create a basic library list query without statistics
+	pub fn basic() -> Self {
+		Self {
+			input: ListLibrariesInput {
+				include_stats: false,
+			},
+		}
+	}
 }
 
 impl CoreQuery for ListLibrariesQuery {
@@ -27,7 +38,11 @@ impl CoreQuery for ListLibrariesQuery {
 		Ok(Self { input })
 	}
 
-	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
 		// Get all open libraries from the library manager
 		let libraries = context.libraries().await.list().await;
 		let mut result = Vec::new();

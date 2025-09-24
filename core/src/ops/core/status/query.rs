@@ -8,10 +8,12 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CoreStatusQuery;
 
 impl CoreQuery for CoreStatusQuery {

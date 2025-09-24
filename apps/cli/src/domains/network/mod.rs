@@ -41,7 +41,7 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 	match cmd {
 		NetworkCmd::Status => {
 			let status: sd_core::ops::network::status::NetworkStatus =
-				execute_query!(ctx, NetworkStatusQuery);
+				execute_query!(ctx, sd_core::ops::network::status::query::NetworkStatusQueryInput);
 			print_output!(
 				ctx,
 				&status,
@@ -67,7 +67,7 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 			);
 		}
 		NetworkCmd::Devices(args) => {
-			let devices: Vec<DeviceInfoLite> = execute_query!(ctx, args.to_query());
+			let devices: Vec<DeviceInfoLite> = execute_query!(ctx, args.to_input());
 			print_output!(ctx, &devices, |devs: &Vec<DeviceInfoLite>| {
 				if devs.is_empty() {
 					println!("No devices found");
@@ -108,7 +108,7 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				});
 			}
 			PairCmd::Status => {
-				let out: PairStatusOutput = execute_query!(ctx, PairStatusQuery);
+				let out: PairStatusOutput = execute_query!(ctx, sd_core::ops::network::pair::status::query::PairStatusQueryInput);
 				print_output!(ctx, &out, |o: &PairStatusOutput| {
 					if o.sessions.is_empty() {
 						println!("No pairing sessions");

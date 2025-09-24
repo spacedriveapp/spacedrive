@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use sd_core::ops::libraries::{
 	create::input::LibraryCreateInput, delete::input::LibraryDeleteInput,
-	info::query::LibraryInfoQuery, session::set_current::SetCurrentLibraryInput,
+	info::query::LibraryInfoQueryInput,
 };
 
 #[derive(Args, Debug)]
@@ -14,19 +14,6 @@ pub struct LibraryCreateArgs {
 impl From<LibraryCreateArgs> for LibraryCreateInput {
 	fn from(args: LibraryCreateArgs) -> Self {
 		Self::new(args.name)
-	}
-}
-
-#[derive(Args, Debug)]
-pub struct LibrarySwitchArgs {
-	pub id: Uuid,
-}
-
-impl From<LibrarySwitchArgs> for SetCurrentLibraryInput {
-	fn from(args: LibrarySwitchArgs) -> Self {
-		Self {
-			library_id: args.id,
-		}
 	}
 }
 
@@ -55,13 +42,13 @@ pub struct LibraryInfoArgs {
 }
 
 impl LibraryInfoArgs {
-	/// Create a query for the specified library ID or current library
-	pub fn to_query(&self, current_library_id: Option<Uuid>) -> anyhow::Result<LibraryInfoQuery> {
+	/// Create an input for the specified library ID or current library
+	pub fn to_input(&self, current_library_id: Option<Uuid>) -> anyhow::Result<LibraryInfoQueryInput> {
 		let library_id = self
 			.library_id
 			.or(current_library_id)
 			.ok_or_else(|| anyhow::anyhow!("No library specified and no current library set"))?;
 
-		Ok(LibraryInfoQuery::new(library_id))
+		Ok(LibraryInfoQueryInput)
 	}
 }

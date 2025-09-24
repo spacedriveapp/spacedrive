@@ -15,7 +15,7 @@ pub struct ListDevicesInput {
 	pub connected_only: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ListDevicesQuery {
 	input: ListDevicesInput,
 }

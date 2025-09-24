@@ -8,7 +8,7 @@ use specta::Type;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SearchTagsQuery {
 	pub input: SearchTagsInput,
 }

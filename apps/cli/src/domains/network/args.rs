@@ -4,7 +4,7 @@ use uuid::Uuid;
 use sd_core::{
     domain::addressing::SdPath,
     ops::network::{
-        devices::query::ListDevicesQuery,
+        devices::query::ListDevicesInput,
         pair::{
             cancel::input::PairCancelInput,
             generate::input::PairGenerateInput,
@@ -26,13 +26,10 @@ pub struct NetworkDevicesArgs {
 }
 
 impl NetworkDevicesArgs {
-    pub fn to_query(&self) -> ListDevicesQuery {
-        if self.connected_only {
-            ListDevicesQuery::connected()
-        } else if self.paired_only {
-            ListDevicesQuery::paired()
-        } else {
-            ListDevicesQuery::all()
+    pub fn to_input(&self) -> ListDevicesInput {
+        ListDevicesInput {
+            paired_only: self.paired_only,
+            connected_only: self.connected_only,
         }
     }
 }

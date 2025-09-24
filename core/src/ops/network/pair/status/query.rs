@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PairStatusQueryInput;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PairStatusQuery;
 
 impl CoreQuery for PairStatusQuery {

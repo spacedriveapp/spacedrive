@@ -41,14 +41,14 @@ pub enum JobCmd {
 pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
     match cmd {
         JobCmd::List(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, ListLibrariesQuery::basic());
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
             if libs.is_empty() {
                 println!("No libraries found");
                 return Ok(());
             }
 
             for lib in libs {
-                let out: JobListOutput = execute_query!(ctx, args.to_query(lib.id));
+                let out: JobListOutput = execute_query!(ctx, args.to_input(lib.id));
                 print_output!(ctx, &out, |o: &JobListOutput| {
                     for j in &o.jobs {
                         println!(
@@ -63,10 +63,10 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
             }
         }
         JobCmd::Info(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, ListLibrariesQuery::basic());
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
             let _lib = libs.get(0).ok_or_else(|| anyhow::anyhow!("No libraries found"))?;
 
-            let out: Option<JobInfoOutput> = execute_query!(ctx, args.to_query());
+            let out: Option<JobInfoOutput> = execute_query!(ctx, args.to_input());
             print_output!(ctx, &out, |o: &Option<JobInfoOutput>| {
                 match o {
                     Some(j) => println!(
@@ -169,11 +169,11 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 
             // Preload currently running jobs so we see in-progress jobs that started earlier
             let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> =
-                execute_query!(ctx, ListLibrariesQuery::basic());
+                execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
 
             for lib in libs {
-                let query = JobListArgs { status: args.status.clone() }.to_query(lib.id);
-                let job_list: sd_core::ops::jobs::list::output::JobListOutput = execute_query!(ctx, query);
+                let input = JobListArgs { status: args.status.clone() }.to_input(lib.id);
+                let job_list: sd_core::ops::jobs::list::output::JobListOutput = execute_query!(ctx, input);
 
                 for job in job_list.jobs {
                     // If monitoring a specific job, skip others
@@ -280,7 +280,7 @@ async fn run_polling_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<
     loop {
         // Get current jobs
         let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> =
-            execute_query!(ctx, ListLibrariesQuery::basic());
+            execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
 
         if libs.is_empty() {
             println!("No libraries found");
@@ -288,11 +288,11 @@ async fn run_polling_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<
         }
 
         for lib in libs {
-            let query = JobListArgs {
+            let input = JobListArgs {
                 status: args.status.clone()
-            }.to_query(lib.id);
+            }.to_input(lib.id);
 
-            let job_list: JobListOutput = execute_query!(ctx, query);
+            let job_list: JobListOutput = execute_query!(ctx, input);
 
             for job in job_list.jobs {
                 if let Some(target_id) = args.job_id {

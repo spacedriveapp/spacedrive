@@ -13,8 +13,15 @@ use uuid::Uuid;
 pub struct LibraryInfoQueryInput;
 
 /// Query to get detailed information about a specific library
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryInfoQuery;
+
+impl LibraryInfoQuery {
+	/// Create a new library info query
+	pub fn new(_library_id: uuid::Uuid) -> Self {
+		Self
+	}
+}
 
 impl LibraryQuery for LibraryInfoQuery {
 	type Input = LibraryInfoQueryInput;

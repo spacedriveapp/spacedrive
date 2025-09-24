@@ -10,7 +10,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NetworkStatusQueryInput;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NetworkStatusQuery;
 
 impl CoreQuery for NetworkStatusQuery {

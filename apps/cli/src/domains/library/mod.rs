@@ -11,7 +11,6 @@ use sd_core::ops::libraries::{
     delete::output::LibraryDeleteOutput,
     info::{output::LibraryInfoOutput, query::LibraryInfoQuery},
     list::query::ListLibrariesQuery,
-    session::{get_current::GetCurrentLibraryQuery, set_current::SetCurrentLibraryOutput},
 };
 
 use self::args::*;
@@ -20,8 +19,6 @@ use self::args::*;
 pub enum LibraryCmd {
     /// Create a new library
     Create(LibraryCreateArgs),
-    /// Switch to a different library
-    Switch(LibrarySwitchArgs),
     /// List libraries
     List,
     /// Show detailed information about a library
@@ -42,20 +39,8 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
                 );
             });
         }
-        LibraryCmd::Switch(args) => {
-            let library_id = args.id;
-            let input: sd_core::ops::libraries::session::set_current::SetCurrentLibraryInput = args.into();
-            let out: SetCurrentLibraryOutput = execute_action!(ctx, input);
-            print_output!(ctx, &out, |o: &SetCurrentLibraryOutput| {
-                if o.success {
-                    println!("Switched to library {}", library_id);
-                } else {
-                    println!("Failed to switch to library {}", library_id);
-                }
-            });
-        }
         LibraryCmd::List => {
-            let out: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, ListLibrariesQuery::basic());
+            let out: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
             print_output!(ctx, &out, |libs: &Vec<sd_core::ops::libraries::list::output::LibraryInfo>| {
                 if libs.is_empty() {
                     println!("No libraries found");
@@ -67,10 +52,10 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
             });
         }
         LibraryCmd::Info(args) => {
-            // Get current library ID if not specified
-            let current_library: sd_core::ops::libraries::session::get_current::GetCurrentLibraryOutput = execute_query!(ctx, GetCurrentLibraryQuery);
-            let query = args.to_query(current_library.library_id)?;
-            let out: LibraryInfoOutput = execute_query!(ctx, query);
+            // Get current library ID from CLI context if not specified
+            let current_library_id = ctx.library_id;
+            let input = args.to_input(current_library_id)?;
+            let out: LibraryInfoOutput = execute_query!(ctx, input);
             print_output!(ctx, &out, |info: &LibraryInfoOutput| {
                 println!("Library Information");
                 println!("==================");

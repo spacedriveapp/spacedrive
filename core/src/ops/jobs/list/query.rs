@@ -11,7 +11,7 @@ pub struct JobListInput {
 	pub status: Option<JobStatus>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobListQuery {
 	pub input: JobListInput,
 }
@@ -29,7 +29,8 @@ impl LibraryQuery for JobListQuery {
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
 	) -> Result<Self::Output> {
-		let library_id = session.current_library_id
+		let library_id = session
+			.current_library_id
 			.ok_or_else(|| anyhow::anyhow!("No library selected"))?;
 		let library = context
 			.libraries()

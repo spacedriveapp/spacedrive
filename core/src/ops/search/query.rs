@@ -18,11 +18,12 @@ use sea_orm::{
 	QueryFilter, QueryOrder, QuerySelect, RelationTrait, Statement,
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 use uuid::Uuid;
 
 /// File search query
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileSearchQuery {
 	pub input: FileSearchInput,
 }

@@ -8,7 +8,7 @@ use crate::util::prelude::*;
 use crate::context::Context;
 use sd_core::ops::locations::{
 	add::{action::LocationAddInput, output::LocationAddOutput},
-	list::{output::LocationsListOutput, query::LocationsListQuery},
+	list::{query::LocationsListQueryInput, output::LocationsListOutput},
 	remove::output::LocationRemoveOutput,
 	rescan::output::LocationRescanOutput,
 };
@@ -37,7 +37,7 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 		}
 		LocationCmd::List => {
 			let out: sd_core::ops::locations::list::output::LocationsListOutput =
-				execute_query!(ctx, LocationsListQuery {});
+				execute_query!(ctx, LocationsListQueryInput {});
 			print_output!(ctx, &out, |o: &LocationsListOutput| {
 				if o.locations.is_empty() {
 					println!("No locations found");

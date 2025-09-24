@@ -10,7 +10,7 @@ pub struct JobInfoQueryInput {
 	pub job_id: uuid::Uuid,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobInfoQuery {
 	pub input: JobInfoQueryInput,
 }
