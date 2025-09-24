@@ -40,8 +40,10 @@ pub enum NetworkCmd {
 pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 	match cmd {
 		NetworkCmd::Status => {
-			let status: sd_core::ops::network::status::NetworkStatus =
-				execute_query!(ctx, sd_core::ops::network::status::query::NetworkStatusQueryInput);
+			let status: sd_core::ops::network::status::NetworkStatus = execute_core_query!(
+				ctx,
+				sd_core::ops::network::status::query::NetworkStatusQueryInput
+			);
 			print_output!(
 				ctx,
 				&status,
@@ -67,7 +69,7 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 			);
 		}
 		NetworkCmd::Devices(args) => {
-			let devices: Vec<DeviceInfoLite> = execute_query!(ctx, args.to_input());
+			let devices: Vec<DeviceInfoLite> = execute_core_query!(ctx, args.to_input());
 			print_output!(ctx, &devices, |devs: &Vec<DeviceInfoLite>| {
 				if devs.is_empty() {
 					println!("No devices found");
@@ -108,7 +110,10 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				});
 			}
 			PairCmd::Status => {
-				let out: PairStatusOutput = execute_query!(ctx, sd_core::ops::network::pair::status::query::PairStatusQueryInput);
+				let out: PairStatusOutput = execute_core_query!(
+					ctx,
+					sd_core::ops::network::pair::status::query::PairStatusQueryInput
+				);
 				print_output!(ctx, &out, |o: &PairStatusOutput| {
 					if o.sessions.is_empty() {
 						println!("No pairing sessions");
@@ -128,7 +133,13 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 			}
 		},
 		NetworkCmd::Revoke(args) => {
-			confirm_or_abort(&format!("This will revoke device {} and remove pairing. Continue?", args.device_id), args.yes)?;
+			confirm_or_abort(
+				&format!(
+					"This will revoke device {} and remove pairing. Continue?",
+					args.device_id
+				),
+				args.yes,
+			)?;
 			let input: DeviceRevokeInput = args.into();
 			let out: DeviceRevokeOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &DeviceRevokeOutput| {

@@ -428,7 +428,8 @@ async fn run_client_command(
 	let ctx = Context::new(core, format, data_dir, socket_path);
 	match command {
 		Commands::Status => {
-			let status: sd_core::ops::core::status::output::CoreStatus = execute_query!(ctx, ());
+			let status: sd_core::ops::core::status::output::CoreStatus =
+				execute_core_query!(ctx, ());
 			match ctx.format {
 				OutputFormat::Human => {
 					// Display logo

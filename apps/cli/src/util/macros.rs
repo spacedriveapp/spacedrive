@@ -1,6 +1,6 @@
 //! Macros for handling CLI command execution
 
-/// Execute a core action and handle serialization/deserialization
+/// Execute a library action and handle serialization/deserialization
 #[macro_export]
 macro_rules! execute_action {
 	($ctx:expr, $input:expr) => {{
@@ -22,7 +22,28 @@ macro_rules! execute_action {
 	}};
 }
 
-/// Execute a core query and handle serialization/deserialization
+/// Execute a core action (no library ID required) and handle serialization/deserialization
+#[macro_export]
+macro_rules! execute_core_action {
+	($ctx:expr, $input:expr) => {{
+		let input = $input;
+		let json_response = $ctx
+			.core
+			.action(&input, None)
+			.await
+			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?;
+
+		// Deserialize the JSON response to the expected type
+		serde_json::from_value(json_response).map_err(|e| {
+			$crate::util::error::CliError::SerializationError(format!(
+				"Failed to deserialize response: {}",
+				e
+			))
+		})?
+	}};
+}
+
+/// Execute a library query and handle serialization/deserialization
 #[macro_export]
 macro_rules! execute_query {
 	($ctx:expr, $input:expr) => {{
@@ -31,6 +52,27 @@ macro_rules! execute_query {
 		let json_response = $ctx
 			.core
 			.query(&input, Some(library_id))
+			.await
+			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?;
+
+		// Deserialize the JSON response to the expected type
+		serde_json::from_value(json_response).map_err(|e| {
+			$crate::util::error::CliError::SerializationError(format!(
+				"Failed to deserialize response: {}",
+				e
+			))
+		})?
+	}};
+}
+
+/// Execute a core query (no library ID required) and handle serialization/deserialization
+#[macro_export]
+macro_rules! execute_core_query {
+	($ctx:expr, $input:expr) => {{
+		let input = $input;
+		let json_response = $ctx
+			.core
+			.query(&input, None)
 			.await
 			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?;
 

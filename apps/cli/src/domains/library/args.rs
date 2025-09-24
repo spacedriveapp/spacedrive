@@ -44,11 +44,21 @@ pub struct LibraryInfoArgs {
 impl LibraryInfoArgs {
 	/// Create an input for the specified library ID or current library
 	pub fn to_input(&self, current_library_id: Option<Uuid>) -> anyhow::Result<LibraryInfoQueryInput> {
-		let library_id = self
+		let _library_id = self
 			.library_id
 			.or(current_library_id)
 			.ok_or_else(|| anyhow::anyhow!("No library specified and no current library set"))?;
 
-		Ok(LibraryInfoQueryInput)
+		Ok(LibraryInfoQueryInput {})
 	}
+}
+
+#[derive(Args, Debug)]
+pub struct LibrarySwitchArgs {
+	/// Library ID to switch to
+	#[arg(long)]
+	pub library_id: Option<Uuid>,
+	/// Library name to switch to
+	#[arg(long)]
+	pub name: Option<String>,
 }

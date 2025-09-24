@@ -41,7 +41,7 @@ pub enum JobCmd {
 pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
     match cmd {
         JobCmd::List(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
             if libs.is_empty() {
                 println!("No libraries found");
                 return Ok(());
@@ -63,7 +63,7 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
             }
         }
         JobCmd::Info(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
             let _lib = libs.get(0).ok_or_else(|| anyhow::anyhow!("No libraries found"))?;
 
             let out: Option<JobInfoOutput> = execute_query!(ctx, args.to_input());
@@ -280,7 +280,7 @@ async fn run_polling_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<
     loop {
         // Get current jobs
         let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> =
-            execute_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
+            execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
 
         if libs.is_empty() {
             println!("No libraries found");
