@@ -77,10 +77,7 @@ public class SpacedriveClient {
     /// - Parameter libraryId: The ID of the library to switch to
     /// - Throws: SpacedriveError if the library doesn't exist or can't be accessed
     public func switchToLibrary(_ libraryId: String) async throws {
-        // First verify the library exists by getting its info
-        let libraryInfo = try await libraries.info(LibraryInfoQueryInput())
-
-        // Check if the library exists in the list
+        // Check if the library exists in the list (core-scoped query)
         let libraries = try await getLibraries()
         let libraryExists = libraries.contains { $0.id == libraryId }
 
@@ -170,9 +167,9 @@ public class SpacedriveClient {
         let effectiveLibraryId = libraryId ?? getCurrentLibraryId()
 
         if method.hasPrefix("query:") {
-            request = DaemonRequest.jsonQuery(method: method, payload: jsonPayload, libraryId: effectiveLibraryId)
+            request = DaemonRequest.query(method: method, libraryId: effectiveLibraryId, payload: jsonPayload)
         } else if method.hasPrefix("action:") {
-            request = DaemonRequest.jsonAction(method: method, payload: jsonPayload, libraryId: effectiveLibraryId)
+            request = DaemonRequest.action(method: method, libraryId: effectiveLibraryId, payload: jsonPayload)
         } else {
             throw SpacedriveError.invalidResponse("Invalid method format: \(method)")
         }
@@ -309,17 +306,17 @@ public class SpacedriveClient {
         case .ping:
             requestData = Data("\"Ping\"".utf8)
 
-        case .jsonQuery(let method, let payload, let libraryId):
+        case .query(let method, let libraryId, let payload):
             let libraryIdJson = libraryId.map { "\"library_id\":\"\($0)\"," } ?? ""
             let jsonString = """
-            {"JsonQuery":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
+            {"Query":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
             """
             requestData = Data(jsonString.utf8)
 
-        case .jsonAction(let method, let payload, let libraryId):
+        case .action(let method, let libraryId, let payload):
             let libraryIdJson = libraryId.map { "\"library_id\":\"\($0)\"," } ?? ""
             let jsonString = """
-            {"JsonAction":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
+            {"Action":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
             """
             requestData = Data(jsonString.utf8)
 
@@ -465,8 +462,8 @@ public class SpacedriveClient {
 /// Request types that match the Rust daemon protocol
 internal enum DaemonRequest {
     case ping
-    case jsonAction(method: String, payload: [String: Any], libraryId: String?)
-    case jsonQuery(method: String, payload: [String: Any], libraryId: String?)
+    case action(method: String, libraryId: String?, payload: [String: Any])
+    case query(method: String, libraryId: String?, payload: [String: Any])
     case subscribe(eventTypes: [String], filter: EventFilter?)
     case unsubscribe
     case shutdown
