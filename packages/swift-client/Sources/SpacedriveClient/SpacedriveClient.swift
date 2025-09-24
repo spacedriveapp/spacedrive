@@ -713,6 +713,56 @@ extension SpacedriveClient {
         return getCurrentLibraryId() != nil
     }
 
+    /// Execute a library query
+    /// - Parameter query: The query object to execute
+    /// - Returns: The query result
+    public func query<T: Codable>(_ query: T) async throws -> T {
+        // For now, we'll use a simple approach - this should be improved
+        // to automatically determine the wire method from the query type
+        let wireMethod = "query:files.by_path.v1" // This should be dynamic
+
+        // Encode the query to JSON
+        let queryData = try JSONEncoder().encode(query)
+        let queryDict = try JSONSerialization.jsonObject(with: queryData) as? [String: Any] ?? [:]
+
+        let response = try await sendRequest(.query(method: wireMethod, libraryId: getCurrentLibraryId(), payload: queryDict))
+
+        switch response {
+        case .jsonOk(let anyCodable):
+            // Convert AnyCodable to Data, then decode
+            let data = try JSONEncoder().encode(anyCodable)
+            let result = try JSONDecoder().decode(T.self, from: data)
+            return result
+        case .error(let error):
+            throw SpacedriveError.daemonError("Query failed: \(error)")
+        default:
+            throw SpacedriveError.invalidResponse("Unexpected response to query")
+        }
+    }
+
+    /// Execute a FileByPathQuery and return the File result
+    public func queryFileByPath(_ query: FileByPathQuery) async throws -> File? {
+        let wireMethod = "query:files.by_path.v1"
+
+        // Encode the query to JSON
+        let queryData = try JSONEncoder().encode(query)
+        let queryDict = try JSONSerialization.jsonObject(with: queryData) as? [String: Any] ?? [:]
+
+        let response = try await sendRequest(.query(method: wireMethod, libraryId: getCurrentLibraryId(), payload: queryDict))
+
+        switch response {
+        case .jsonOk(let anyCodable):
+            // Convert AnyCodable to Data, then decode to File?
+            let data = try JSONEncoder().encode(anyCodable)
+            let result = try JSONDecoder().decode(File?.self, from: data)
+            return result
+        case .error(let error):
+            throw SpacedriveError.daemonError("Query failed: \(error)")
+        default:
+            throw SpacedriveError.invalidResponse("Unexpected response to query")
+        }
+    }
+
     /// Ping the daemon to test connectivity
     public func ping() async throws {
         print("🏓 Sending ping request...")

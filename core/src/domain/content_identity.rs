@@ -8,6 +8,7 @@ use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use specta::Type;
+use uuid::Uuid;
 
 /// Type of content
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, IntEnum, Type)]
@@ -262,4 +263,36 @@ pub enum ContentHashError {
 
 	#[error("File too large to process")]
 	FileTooLarge,
+}
+
+/// Domain representation of content identity
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ContentIdentity {
+	pub uuid: Uuid,
+	pub kind: ContentKind,
+	pub hash: String,
+	pub media_data: Option<MediaData>,
+	pub created_at: DateTime<Utc>,
+}
+
+impl From<crate::infra::db::entities::content_identity::Model> for ContentIdentity {
+	fn from(model: crate::infra::db::entities::content_identity::Model) -> Self {
+		Self {
+			uuid: model.uuid.unwrap_or_else(Uuid::new_v4),
+			kind: ContentKind::Unknown, // TODO: Implement proper conversion from kind_id
+			hash: model.content_hash,
+			media_data: model.media_data.map(|json| {
+				serde_json::from_value(json).unwrap_or_else(|_| MediaData {
+					width: None,
+					height: None,
+					duration: None,
+					bitrate: None,
+					fps: None,
+					exif: None,
+					extra: serde_json::Value::Null,
+				})
+			}),
+			created_at: model.first_seen_at,
+		}
+	}
 }

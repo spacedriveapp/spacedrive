@@ -56,3 +56,9 @@ impl From<FileCopyArgs> for FileCopyInput {
 		}
 	}
 }
+
+#[derive(Args, Debug, Clone)]
+pub struct FileInfoArgs {
+	/// File path to get information about
+	pub path: PathBuf,
+}

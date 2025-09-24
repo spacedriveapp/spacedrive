@@ -14,6 +14,8 @@ use self::args::*;
 pub enum FileCmd {
 	/// Copy files
 	Copy(FileCopyArgs),
+	/// Get file information
+	Info(FileInfoArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
@@ -28,6 +30,19 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			let job_id: JobId = run_copy_with_confirmation(ctx, input).await?;
 			print_output!(ctx, &job_id, |id: &JobId| {
 				println!("Dispatched copy job {}", id);
+			});
+		}
+		FileCmd::Info(args) => {
+			let file_info = get_file_info(ctx, &args.path).await?;
+			print_output!(ctx, &file_info, |info: &Option<sd_core::domain::File>| {
+				match info {
+					Some(file) => {
+						println!("{}", serde_json::to_string_pretty(file).unwrap());
+					}
+					None => {
+						println!("File not found or not indexed in Spacedrive");
+					}
+				}
 			});
 		}
 	}
@@ -162,4 +177,21 @@ fn resolve_final_destination_path(
 			return Ok(dest_path.clone());
 		}
 	}
+}
+
+/// Get file information using the FileByPathQuery
+async fn get_file_info(
+	ctx: &Context,
+	path: &std::path::Path,
+) -> Result<Option<sd_core::domain::File>> {
+	use sd_core::ops::files::query::FileByPathQuery;
+
+	// Create the query with the local path
+	let query = FileByPathQuery::new(path.to_path_buf());
+
+	// Execute the query using the core client
+	let json_response = ctx.core.query(&query, ctx.library_id).await?;
+	let result: Option<sd_core::domain::File> = serde_json::from_value(json_response)?;
+
+	Ok(result)
 }

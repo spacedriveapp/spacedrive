@@ -1,11 +1,6 @@
-//! File operations
+//! File operations - queries and actions for the File domain
 
 pub mod copy;
-pub mod delete;
-pub mod validation;
-pub mod duplicate_detection;
+pub mod query;
 
-pub use copy::*;
-pub use delete::*;
-pub use validation::*;
-pub use duplicate_detection::*;
+pub use query::*;

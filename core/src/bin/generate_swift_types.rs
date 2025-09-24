@@ -97,10 +97,13 @@ fn generate_swift_api_code(
 	);
 
 	// Generate all types using Specta Swift (single export call with deduplication)
-	let swift = specta_swift::Swift::new()
+	let mut swift = specta_swift::Swift::new()
 		.header("")
 		.naming(specta_swift::NamingConvention::PascalCase)
 		.optionals(specta_swift::OptionalStyle::QuestionMark);
+
+	// Enable initializer generation for structs
+	swift.generate_initializers = true;
 
 	let individual_types = swift.export(types)?;
 	swift_code.push_str(&individual_types);
@@ -242,11 +245,16 @@ fn generate_swift_api_code(
 fn to_pascal_case(s: &str) -> String {
 	s.split('.')
 		.map(|part| {
-			let mut chars = part.chars();
-			match chars.next() {
-				None => String::new(),
-				Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str(),
-			}
+			// Split each part on underscores and convert to PascalCase
+			part.split('_')
+				.map(|subpart| {
+					let mut chars = subpart.chars();
+					match chars.next() {
+						None => String::new(),
+						Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str(),
+					}
+				})
+				.collect::<String>()
 		})
 		.collect::<Vec<_>>()
 		.join("")

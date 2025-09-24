@@ -425,6 +425,17 @@ async fn run_client_command(
 	data_dir: std::path::PathBuf,
 	socket_path: std::path::PathBuf,
 ) -> Result<()> {
+	// Initialize device ID from device.json if it exists
+	if let Ok(device_config) = std::fs::read_to_string(data_dir.join("device.json")) {
+		if let Ok(device_json) = serde_json::from_str::<serde_json::Value>(&device_config) {
+			if let Some(device_id_str) = device_json.get("id").and_then(|v| v.as_str()) {
+				if let Ok(device_id) = uuid::Uuid::parse_str(device_id_str) {
+					sd_core::device::set_current_device_id(device_id);
+				}
+			}
+		}
+	}
+
 	let core = CoreClient::new(socket_path.clone());
 	let ctx = Context::new(core, format, data_dir, socket_path)?;
 	match command {

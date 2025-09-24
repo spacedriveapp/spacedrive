@@ -6,7 +6,7 @@ import Foundation
 public struct RustDuration: Codable {
     public let secs: UInt64
     public let nanos: UInt32
-
+    
     public var timeInterval: TimeInterval {
         return Double(secs) + Double(nanos) / 1_000_000_000.0
     }
@@ -33,6 +33,16 @@ public struct ApfsContainer: Codable {
         case capacityFree = "capacity_free"
         case volumes = "volumes"
     }
+
+    public init(containerId: String, uuid: String, physicalStore: String, totalCapacity: UInt64, capacityInUse: UInt64, capacityFree: UInt64, volumes: [ApfsVolumeInfo]) {
+        self.containerId = containerId
+        self.uuid = uuid
+        self.physicalStore = physicalStore
+        self.totalCapacity = totalCapacity
+        self.capacityInUse = capacityInUse
+        self.capacityFree = capacityFree
+        self.volumes = volumes
+    }
 }
 
 /// APFS volume information within a container
@@ -55,6 +65,17 @@ public struct ApfsVolumeInfo: Codable {
         case capacityConsumed = "capacity_consumed"
         case sealed = "sealed"
         case filevault = "filevault"
+    }
+
+    public init(diskId: String, uuid: String, role: ApfsVolumeRole, name: String, mountPoint: String?, capacityConsumed: UInt64, sealed: Bool, filevault: Bool) {
+        self.diskId = diskId
+        self.uuid = uuid
+        self.role = role
+        self.name = name
+        self.mountPoint = mountPoint
+        self.capacityConsumed = capacityConsumed
+        self.sealed = sealed
+        self.filevault = filevault
     }
 }
 
@@ -84,6 +105,15 @@ public struct ApplyTagsInput: Codable {
         case appliedContext = "applied_context"
         case instanceAttributes = "instance_attributes"
     }
+
+    public init(entryIds: [Int32], tagIds: [String], source: TagSource?, confidence: Float?, appliedContext: String?, instanceAttributes: [String: JsonValue]?) {
+        self.entryIds = entryIds
+        self.tagIds = tagIds
+        self.source = source
+        self.confidence = confidence
+        self.appliedContext = appliedContext
+        self.instanceAttributes = instanceAttributes
+    }
 }
 
 public struct ApplyTagsOutput: Codable {
@@ -101,6 +131,15 @@ public struct ApplyTagsOutput: Codable {
         case taggedEntryIds = "tagged_entry_ids"
         case warnings = "warnings"
         case message = "message"
+    }
+
+    public init(entriesAffected: UInt, tagsApplied: UInt, appliedTagIds: [String], taggedEntryIds: [Int32], warnings: [String], message: String) {
+        self.entriesAffected = entriesAffected
+        self.tagsApplied = tagsApplied
+        self.appliedTagIds = appliedTagIds
+        self.taggedEntryIds = taggedEntryIds
+        self.warnings = warnings
+        self.message = message
     }
 }
 
@@ -122,6 +161,37 @@ public struct CompositionRule: Codable {
         case `operator` = "operator"
         case operands = "operands"
         case resultAttribute = "result_attribute"
+    }
+
+    public init(`operator`: CompositionOperator, operands: [String], resultAttribute: String) {
+        self.`operator` = `operator`
+        self.operands = operands
+        self.resultAttribute = resultAttribute
+    }
+}
+
+/// Domain representation of content identity
+public struct ContentIdentity: Codable {
+    public let uuid: String
+    public let kind: ContentKind
+    public let hash: String
+    public let mediaData: MediaData?
+    public let createdAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case uuid = "uuid"
+        case kind = "kind"
+        case hash = "hash"
+        case mediaData = "media_data"
+        case createdAt = "created_at"
+    }
+
+    public init(uuid: String, kind: ContentKind, hash: String, mediaData: MediaData?, createdAt: String) {
+        self.uuid = uuid
+        self.kind = kind
+        self.hash = hash
+        self.mediaData = mediaData
+        self.createdAt = createdAt
     }
 }
 
@@ -173,6 +243,17 @@ public struct CoreStatus: Codable {
         case network = "network"
         case system = "system"
     }
+
+    public init(version: String, builtAt: String, libraryCount: UInt, deviceInfo: DeviceInfo, libraries: [LibraryInfo], services: ServiceStatus, network: NetworkStatus, system: SystemInfo) {
+        self.version = version
+        self.builtAt = builtAt
+        self.libraryCount = libraryCount
+        self.deviceInfo = deviceInfo
+        self.libraries = libraries
+        self.services = services
+        self.network = network
+        self.system = system
+    }
 }
 
 public struct CreateTagInput: Codable {
@@ -207,6 +288,23 @@ public struct CreateTagInput: Codable {
         case searchWeight = "search_weight"
         case attributes = "attributes"
     }
+
+    public init(canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType?, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool?, privacyLevel: PrivacyLevel?, searchWeight: Int32?, attributes: [String: JsonValue]?) {
+        self.canonicalName = canonicalName
+        self.displayName = displayName
+        self.formalName = formalName
+        self.abbreviation = abbreviation
+        self.aliases = aliases
+        self.namespace = namespace
+        self.tagType = tagType
+        self.color = color
+        self.icon = icon
+        self.description = description
+        self.isOrganizationalAnchor = isOrganizationalAnchor
+        self.privacyLevel = privacyLevel
+        self.searchWeight = searchWeight
+        self.attributes = attributes
+    }
 }
 
 public struct CreateTagOutput: Codable {
@@ -220,6 +318,13 @@ public struct CreateTagOutput: Codable {
         case canonicalName = "canonical_name"
         case namespace = "namespace"
         case message = "message"
+    }
+
+    public init(tagId: String, canonicalName: String, namespace: String?, message: String) {
+        self.tagId = tagId
+        self.canonicalName = canonicalName
+        self.namespace = namespace
+        self.message = message
     }
 }
 
@@ -235,6 +340,12 @@ public struct DateRangeFilter: Codable {
     public let field: DateField
     public let start: String?
     public let end: String?
+
+    public init(field: DateField, start: String?, end: String?) {
+        self.field = field
+        self.start = start
+        self.end = end
+    }
 }
 
 public struct DeviceInfo: Codable {
@@ -250,6 +361,14 @@ public struct DeviceInfo: Codable {
         case os = "os"
         case hardwareModel = "hardware_model"
         case createdAt = "created_at"
+    }
+
+    public init(id: String, name: String, os: String, hardwareModel: String?, createdAt: String) {
+        self.id = id
+        self.name = name
+        self.os = os
+        self.hardwareModel = hardwareModel
+        self.createdAt = createdAt
     }
 }
 
@@ -269,6 +388,15 @@ public struct DeviceInfoLite: Codable {
         case isConnected = "is_connected"
         case lastSeen = "last_seen"
     }
+
+    public init(id: String, name: String, osVersion: String, appVersion: String, isConnected: Bool, lastSeen: String) {
+        self.id = id
+        self.name = name
+        self.osVersion = osVersion
+        self.appVersion = appVersion
+        self.isConnected = isConnected
+        self.lastSeen = lastSeen
+    }
 }
 
 public struct DeviceRevokeInput: Codable {
@@ -277,10 +405,18 @@ public struct DeviceRevokeInput: Codable {
     private enum CodingKeys: String, CodingKey {
         case deviceId = "device_id"
     }
+
+    public init(deviceId: String) {
+        self.deviceId = deviceId
+    }
 }
 
 public struct DeviceRevokeOutput: Codable {
     public let revoked: Bool
+
+    public init(revoked: Bool) {
+        self.revoked = revoked
+    }
 }
 
 /// Represents the type of physical storage device
@@ -288,13 +424,6 @@ public enum DiskType: Codable {
     case sSD
     case hDD
     case unknown
-}
-
-/// Input for file duplicate detection operations
-public struct DuplicateDetectionInput: Codable {
-    public let paths: [String]
-    public let algorithm: String
-    public let threshold: Double
 }
 
 /// Represents any filesystem entry (file or directory) in the VDFS
@@ -334,6 +463,25 @@ public struct Entry: Codable {
         case firstSeenAt = "first_seen_at"
         case lastIndexedAt = "last_indexed_at"
     }
+
+    public init(id: String, sdPath: SdPathSerialized, name: String, kind: EntryKind, size: UInt64?, createdAt: String?, modifiedAt: String?, accessedAt: String?, inode: UInt64?, fileId: UInt64?, parentId: String?, locationId: String?, metadataId: String, contentId: String?, firstSeenAt: String, lastIndexedAt: String?) {
+        self.id = id
+        self.sdPath = sdPath
+        self.name = name
+        self.kind = kind
+        self.size = size
+        self.createdAt = createdAt
+        self.modifiedAt = modifiedAt
+        self.accessedAt = accessedAt
+        self.inode = inode
+        self.fileId = fileId
+        self.parentId = parentId
+        self.locationId = locationId
+        self.metadataId = metadataId
+        self.contentId = contentId
+        self.firstSeenAt = firstSeenAt
+        self.lastIndexedAt = lastIndexedAt
+    }
 }
 
 /// Type of filesystem entry
@@ -364,7 +512,7 @@ extension EntryKind: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
+        
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -386,7 +534,7 @@ extension EntryKind: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-
+        
         switch self {
         case .file(let data):
             try container.encode(data, forKey: .file)
@@ -851,7 +999,7 @@ extension Event: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
+        
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -980,7 +1128,7 @@ extension Event: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-
+        
         switch self {
         case .coreStarted:
             try container.encodeNil(forKey: .coreStarted)
@@ -1066,6 +1214,118 @@ extension Event: Codable {
 }
 
 
+/// EXIF metadata for images
+public struct ExifData: Codable {
+    public let make: String?
+    public let model: String?
+    public let dateTaken: String?
+    public let gps: GpsCoordinates?
+    public let iso: UInt32?
+    public let aperture: Float?
+    public let shutterSpeed: Float?
+    public let focalLength: Float?
+
+    private enum CodingKeys: String, CodingKey {
+        case make = "make"
+        case model = "model"
+        case dateTaken = "date_taken"
+        case gps = "gps"
+        case iso = "iso"
+        case aperture = "aperture"
+        case shutterSpeed = "shutter_speed"
+        case focalLength = "focal_length"
+    }
+
+    public init(make: String?, model: String?, dateTaken: String?, gps: GpsCoordinates?, iso: UInt32?, aperture: Float?, shutterSpeed: Float?, focalLength: Float?) {
+        self.make = make
+        self.model = model
+        self.dateTaken = dateTaken
+        self.gps = gps
+        self.iso = iso
+        self.aperture = aperture
+        self.shutterSpeed = shutterSpeed
+        self.focalLength = focalLength
+    }
+}
+
+/// Represents a file within the Spacedrive VDFS.
+/// 
+/// This is a computed domain model that aggregates data from Entry, ContentIdentity,
+/// Tags, and Sidecars. It provides a rich, developer-friendly interface without
+/// duplicating data in the database.
+public struct File: Codable {
+    public let id: String
+    public let sdPath: SdPath
+    public let name: String
+    public let size: UInt64
+    public let contentIdentity: ContentIdentity?
+    public let alternatePaths: [SdPath]
+    public let tags: [Tag]
+    public let sidecars: [Sidecar]
+    public let createdAt: String
+    public let modifiedAt: String
+    public let accessedAt: String?
+    public let contentKind: ContentKind
+    public let `extension`: String?
+    public let isLocal: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case sdPath = "sd_path"
+        case name = "name"
+        case size = "size"
+        case contentIdentity = "content_identity"
+        case alternatePaths = "alternate_paths"
+        case tags = "tags"
+        case sidecars = "sidecars"
+        case createdAt = "created_at"
+        case modifiedAt = "modified_at"
+        case accessedAt = "accessed_at"
+        case contentKind = "content_kind"
+        case `extension` = "extension"
+        case isLocal = "is_local"
+    }
+
+    public init(id: String, sdPath: SdPath, name: String, size: UInt64, contentIdentity: ContentIdentity?, alternatePaths: [SdPath], tags: [Tag], sidecars: [Sidecar], createdAt: String, modifiedAt: String, accessedAt: String?, contentKind: ContentKind, `extension`: String?, isLocal: Bool) {
+        self.id = id
+        self.sdPath = sdPath
+        self.name = name
+        self.size = size
+        self.contentIdentity = contentIdentity
+        self.alternatePaths = alternatePaths
+        self.tags = tags
+        self.sidecars = sidecars
+        self.createdAt = createdAt
+        self.modifiedAt = modifiedAt
+        self.accessedAt = accessedAt
+        self.contentKind = contentKind
+        self.`extension` = `extension`
+        self.isLocal = isLocal
+    }
+}
+
+/// Query to get a file by its ID with all related data
+public struct FileByIdQuery: Codable {
+    public let fileId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case fileId = "file_id"
+    }
+
+    public init(fileId: String) {
+        self.fileId = fileId
+    }
+}
+
+/// Query to get a file by its local path with all related data
+public struct FileByPathQuery: Codable {
+    public let path: String
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
 /// Internal enum for file conflict resolution strategies
 public enum FileConflictResolution: Codable {
     case overwrite
@@ -1095,13 +1355,17 @@ public struct FileCopyInput: Codable {
         case copyMethod = "copy_method"
         case onConflict = "on_conflict"
     }
-}
 
-/// Input for deleting files
-public struct FileDeleteInput: Codable {
-    public let targets: SdPathBatch
-    public let permanent: Bool
-    public let recursive: Bool
+    public init(sources: SdPathBatch, destination: SdPath, overwrite: Bool, verifyChecksum: Bool, preserveTimestamps: Bool, moveFiles: Bool, copyMethod: CopyMethod, onConflict: FileConflictResolution?) {
+        self.sources = sources
+        self.destination = destination
+        self.overwrite = overwrite
+        self.verifyChecksum = verifyChecksum
+        self.preserveTimestamps = preserveTimestamps
+        self.moveFiles = moveFiles
+        self.copyMethod = copyMethod
+        self.onConflict = onConflict
+    }
 }
 
 /// Types of file operations
@@ -1120,6 +1384,15 @@ public struct FileSearchInput: Codable {
     public let filters: SearchFilters
     public let sort: SortOptions
     public let pagination: PaginationOptions
+
+    public init(query: String, scope: SearchScope, mode: SearchMode, filters: SearchFilters, sort: SortOptions, pagination: PaginationOptions) {
+        self.query = query
+        self.scope = scope
+        self.mode = mode
+        self.filters = filters
+        self.sort = sort
+        self.pagination = pagination
+    }
 }
 
 /// Main output structure for file search operations
@@ -1141,6 +1414,16 @@ public struct FileSearchOutput: Codable {
         case pagination = "pagination"
         case executionTimeMs = "execution_time_ms"
     }
+
+    public init(results: [FileSearchResult], totalFound: UInt64, searchId: String, facets: SearchFacets, suggestions: [String], pagination: PaginationInfo, executionTimeMs: UInt64) {
+        self.results = results
+        self.totalFound = totalFound
+        self.searchId = searchId
+        self.facets = facets
+        self.suggestions = suggestions
+        self.pagination = pagination
+        self.executionTimeMs = executionTimeMs
+    }
 }
 
 /// Individual search result
@@ -1158,6 +1441,14 @@ public struct FileSearchResult: Codable {
         case highlights = "highlights"
         case matchedContent = "matched_content"
     }
+
+    public init(entry: Entry, score: Float, scoreBreakdown: ScoreBreakdown, highlights: [TextHighlight], matchedContent: String?) {
+        self.entry = entry
+        self.score = score
+        self.scoreBreakdown = scoreBreakdown
+        self.highlights = highlights
+        self.matchedContent = matchedContent
+    }
 }
 
 /// Represents the filesystem type of the volume
@@ -1171,19 +1462,6 @@ public enum FileSystem: Codable {
     case zFS
     case reFS
     case other(String)
-}
-
-/// Input for file validation operations
-public struct FileValidationInput: Codable {
-    public let paths: [String]
-    public let verifyChecksums: Bool
-    public let deepScan: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case paths = "paths"
-        case verifyChecksums = "verify_checksums"
-        case deepScan = "deep_scan"
-    }
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
@@ -1221,7 +1499,7 @@ extension FsRawEventKind: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
+        
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -1247,7 +1525,7 @@ extension FsRawEventKind: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-
+        
         switch self {
         case .create(let data):
             try container.encode(data, forKey: .create)
@@ -1279,6 +1557,28 @@ public struct GenericProgress: Codable {
         case completion = "completion"
         case performance = "performance"
     }
+
+    public init(percentage: Float, phase: String, currentPath: SdPath?, message: String, completion: ProgressCompletion, performance: PerformanceMetrics) {
+        self.percentage = percentage
+        self.phase = phase
+        self.currentPath = currentPath
+        self.message = message
+        self.completion = completion
+        self.performance = performance
+    }
+}
+
+/// GPS coordinates
+public struct GpsCoordinates: Codable {
+    public let latitude: Double
+    public let longitude: Double
+    public let altitude: Float?
+
+    public init(latitude: Double, longitude: Double, altitude: Float?) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.altitude = altitude
+    }
 }
 
 /// Canonical input for indexing requests from any interface (CLI, API, etc.)
@@ -1297,6 +1597,15 @@ public struct IndexInput: Codable {
         case mode = "mode"
         case includeHidden = "include_hidden"
         case persistence = "persistence"
+    }
+
+    public init(libraryId: String, paths: [String], scope: IndexScope, mode: IndexMode, includeHidden: Bool, persistence: IndexPersistence) {
+        self.libraryId = libraryId
+        self.paths = paths
+        self.scope = scope
+        self.mode = mode
+        self.includeHidden = includeHidden
+        self.persistence = persistence
     }
 }
 
@@ -1358,6 +1667,26 @@ public struct IndexerMetrics: Codable {
         case peakMemoryBytes = "peak_memory_bytes"
         case avgMemoryBytes = "avg_memory_bytes"
     }
+
+    public init(totalDuration: RustDuration, discoveryDuration: RustDuration, processingDuration: RustDuration, contentDuration: RustDuration, filesPerSecond: Float, bytesPerSecond: Double, dirsPerSecond: Float, dbWrites: UInt64, dbReads: UInt64, batchCount: UInt64, avgBatchSize: Float, totalErrors: UInt64, criticalErrors: UInt64, nonCriticalErrors: UInt64, skippedPaths: UInt64, peakMemoryBytes: UInt64?, avgMemoryBytes: UInt64?) {
+        self.totalDuration = totalDuration
+        self.discoveryDuration = discoveryDuration
+        self.processingDuration = processingDuration
+        self.contentDuration = contentDuration
+        self.filesPerSecond = filesPerSecond
+        self.bytesPerSecond = bytesPerSecond
+        self.dirsPerSecond = dirsPerSecond
+        self.dbWrites = dbWrites
+        self.dbReads = dbReads
+        self.batchCount = batchCount
+        self.avgBatchSize = avgBatchSize
+        self.totalErrors = totalErrors
+        self.criticalErrors = criticalErrors
+        self.nonCriticalErrors = nonCriticalErrors
+        self.skippedPaths = skippedPaths
+        self.peakMemoryBytes = peakMemoryBytes
+        self.avgMemoryBytes = avgMemoryBytes
+    }
 }
 
 /// Indexer settings controlling rule toggles
@@ -1377,6 +1706,15 @@ public struct IndexerSettings: Codable {
         case gitignore = "gitignore"
         case onlyImages = "only_images"
     }
+
+    public init(noSystemFiles: Bool?, noGit: Bool?, noDevDirs: Bool?, noHidden: Bool?, gitignore: Bool?, onlyImages: Bool?) {
+        self.noSystemFiles = noSystemFiles
+        self.noGit = noGit
+        self.noDevDirs = noDevDirs
+        self.noHidden = noHidden
+        self.gitignore = gitignore
+        self.onlyImages = onlyImages
+    }
 }
 
 /// Statistics collected during indexing
@@ -1387,6 +1725,15 @@ public struct IndexerStats: Codable {
     public let symlinks: UInt64
     public let skipped: UInt64
     public let errors: UInt64
+
+    public init(files: UInt64, dirs: UInt64, bytes: UInt64, symlinks: UInt64, skipped: UInt64, errors: UInt64) {
+        self.files = files
+        self.dirs = dirs
+        self.bytes = bytes
+        self.symlinks = symlinks
+        self.skipped = skipped
+        self.errors = errors
+    }
 }
 
 public struct JobCancelInput: Codable {
@@ -1394,6 +1741,10 @@ public struct JobCancelInput: Codable {
 
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
     }
 }
 
@@ -1404,6 +1755,11 @@ public struct JobCancelOutput: Codable {
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
         case success = "success"
+    }
+
+    public init(jobId: String, success: Bool) {
+        self.jobId = jobId
+        self.success = success
     }
 }
 
@@ -1430,6 +1786,16 @@ public struct JobInfoOutput: Codable {
         case completedAt = "completed_at"
         case errorMessage = "error_message"
     }
+
+    public init(id: String, name: String, status: JobStatus, progress: Float, startedAt: String, completedAt: String?, errorMessage: String?) {
+        self.id = id
+        self.name = name
+        self.status = status
+        self.progress = progress
+        self.startedAt = startedAt
+        self.completedAt = completedAt
+        self.errorMessage = errorMessage
+    }
 }
 
 public struct JobInfoQueryInput: Codable {
@@ -1437,6 +1803,10 @@ public struct JobInfoQueryInput: Codable {
 
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
     }
 }
 
@@ -1453,10 +1823,21 @@ public struct JobListItem: Codable {
     public let name: String
     public let status: JobStatus
     public let progress: Float
+
+    public init(id: String, name: String, status: JobStatus, progress: Float) {
+        self.id = id
+        self.name = name
+        self.status = status
+        self.progress = progress
+    }
 }
 
 public struct JobListOutput: Codable {
     public let jobs: [JobListItem]
+
+    public init(jobs: [JobListItem]) {
+        self.jobs = jobs
+    }
 }
 
 /// Output from a completed job
@@ -1580,7 +1961,7 @@ extension JobOutput: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: TypeKeys.self)
         let variantType = try container.decode(VariantType.self, forKey: .tag)
-
+        
         switch variantType {
         case .success:
             self = .success
@@ -1613,7 +1994,7 @@ extension JobOutput: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: TypeKeys.self)
-
+        
         switch self {
         case .success:
             try container.encode(VariantType.success, forKey: .tag)
@@ -1649,12 +2030,12 @@ extension JobOutput: Codable {
 public struct JobPauseInput: Codable {
     public let jobId: String
 
-    public init(jobId: String) {
-        self.jobId = jobId
-    }
-
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
     }
 }
 
@@ -1666,6 +2047,11 @@ public struct JobPauseOutput: Codable {
         case jobId = "job_id"
         case success = "success"
     }
+
+    public init(jobId: String, success: Bool) {
+        self.jobId = jobId
+        self.success = success
+    }
 }
 
 public struct JobReceipt: Codable {
@@ -1676,17 +2062,22 @@ public struct JobReceipt: Codable {
         case id = "id"
         case jobName = "job_name"
     }
+
+    public init(id: JobId, jobName: String) {
+        self.id = id
+        self.jobName = jobName
+    }
 }
 
 public struct JobResumeInput: Codable {
     public let jobId: String
 
-    public init(jobId: String) {
-        self.jobId = jobId
-    }
-
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
     }
 }
 
@@ -1697,6 +2088,11 @@ public struct JobResumeOutput: Codable {
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
         case success = "success"
+    }
+
+    public init(jobId: String, success: Bool) {
+        self.jobId = jobId
+        self.success = success
     }
 }
 
@@ -1723,6 +2119,11 @@ public indirect enum JsonValue: Codable {
 public struct LibraryCreateInput: Codable {
     public let name: String
     public let path: String?
+
+    public init(name: String, path: String?) {
+        self.name = name
+        self.path = path
+    }
 }
 
 /// Output from library create action dispatch
@@ -1736,6 +2137,12 @@ public struct LibraryCreateOutput: Codable {
         case name = "name"
         case path = "path"
     }
+
+    public init(libraryId: String, name: String, path: String) {
+        self.libraryId = libraryId
+        self.name = name
+        self.path = path
+    }
 }
 
 /// Input for deleting a library
@@ -1747,6 +2154,11 @@ public struct LibraryDeleteInput: Codable {
         case libraryId = "library_id"
         case deleteData = "delete_data"
     }
+
+    public init(libraryId: String, deleteData: Bool) {
+        self.libraryId = libraryId
+        self.deleteData = deleteData
+    }
 }
 
 /// Output from library delete action dispatch
@@ -1757,6 +2169,11 @@ public struct LibraryDeleteOutput: Codable {
     private enum CodingKeys: String, CodingKey {
         case libraryId = "library_id"
         case name = "name"
+    }
+
+    public init(libraryId: String, name: String) {
+        self.libraryId = libraryId
+        self.name = name
     }
 }
 
@@ -1773,6 +2190,13 @@ public struct LibraryExportInput: Codable {
         case includeThumbnails = "include_thumbnails"
         case includePreviews = "include_previews"
     }
+
+    public init(libraryId: String, exportPath: String, includeThumbnails: Bool, includePreviews: Bool) {
+        self.libraryId = libraryId
+        self.exportPath = exportPath
+        self.includeThumbnails = includeThumbnails
+        self.includePreviews = includePreviews
+    }
 }
 
 public struct LibraryExportOutput: Codable {
@@ -1787,6 +2211,13 @@ public struct LibraryExportOutput: Codable {
         case exportPath = "export_path"
         case exportedFiles = "exported_files"
     }
+
+    public init(libraryId: String, libraryName: String, exportPath: String, exportedFiles: [String]) {
+        self.libraryId = libraryId
+        self.libraryName = libraryName
+        self.exportPath = exportPath
+        self.exportedFiles = exportedFiles
+    }
 }
 
 /// Information about a library for listing purposes
@@ -1795,6 +2226,13 @@ public struct LibraryInfo: Codable {
     public let name: String
     public let path: String
     public let stats: LibraryStatistics?
+
+    public init(id: String, name: String, path: String, stats: LibraryStatistics?) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.stats = stats
+    }
 }
 
 /// Detailed information about a library
@@ -1818,6 +2256,17 @@ public struct LibraryInfoOutput: Codable {
         case settings = "settings"
         case statistics = "statistics"
     }
+
+    public init(id: String, name: String, description: String?, path: String, createdAt: String, updatedAt: String, settings: LibrarySettings, statistics: LibraryStatistics) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.path = path
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.settings = settings
+        self.statistics = statistics
+    }
 }
 
 /// Input for library info query
@@ -1832,6 +2281,11 @@ public struct LibraryRenameInput: Codable {
         case libraryId = "library_id"
         case newName = "new_name"
     }
+
+    public init(libraryId: String, newName: String) {
+        self.libraryId = libraryId
+        self.newName = newName
+    }
 }
 
 public struct LibraryRenameOutput: Codable {
@@ -1843,6 +2297,12 @@ public struct LibraryRenameOutput: Codable {
         case libraryId = "library_id"
         case oldName = "old_name"
         case newName = "new_name"
+    }
+
+    public init(libraryId: String, oldName: String, newName: String) {
+        self.libraryId = libraryId
+        self.oldName = oldName
+        self.newName = newName
     }
 }
 
@@ -1873,6 +2333,20 @@ public struct LibrarySettings: Codable {
         case autoTrackExternalVolumes = "auto_track_external_volumes"
         case indexer = "indexer"
     }
+
+    public init(generateThumbnails: Bool, thumbnailQuality: UInt8, enableAiTagging: Bool, syncEnabled: Bool, encryptionEnabled: Bool, thumbnailSizes: [UInt32], ignoredExtensions: [String], maxFileSize: UInt64?, autoTrackSystemVolumes: Bool, autoTrackExternalVolumes: Bool, indexer: IndexerSettings?) {
+        self.generateThumbnails = generateThumbnails
+        self.thumbnailQuality = thumbnailQuality
+        self.enableAiTagging = enableAiTagging
+        self.syncEnabled = syncEnabled
+        self.encryptionEnabled = encryptionEnabled
+        self.thumbnailSizes = thumbnailSizes
+        self.ignoredExtensions = ignoredExtensions
+        self.maxFileSize = maxFileSize
+        self.autoTrackSystemVolumes = autoTrackSystemVolumes
+        self.autoTrackExternalVolumes = autoTrackExternalVolumes
+        self.indexer = indexer
+    }
 }
 
 /// Library statistics
@@ -1894,6 +2368,16 @@ public struct LibraryStatistics: Codable {
         case lastIndexed = "last_indexed"
         case updatedAt = "updated_at"
     }
+
+    public init(totalFiles: UInt64, totalSize: UInt64, locationCount: UInt32, tagCount: UInt32, thumbnailCount: UInt64, lastIndexed: String?, updatedAt: String) {
+        self.totalFiles = totalFiles
+        self.totalSize = totalSize
+        self.locationCount = locationCount
+        self.tagCount = tagCount
+        self.thumbnailCount = thumbnailCount
+        self.lastIndexed = lastIndexed
+        self.updatedAt = updatedAt
+    }
 }
 
 public struct ListDevicesInput: Codable {
@@ -1904,17 +2388,22 @@ public struct ListDevicesInput: Codable {
         case pairedOnly = "paired_only"
         case connectedOnly = "connected_only"
     }
+
+    public init(pairedOnly: Bool, connectedOnly: Bool) {
+        self.pairedOnly = pairedOnly
+        self.connectedOnly = connectedOnly
+    }
 }
 
 public struct ListLibrariesInput: Codable {
     public let includeStats: Bool
 
-    public init(includeStats: Bool) {
-        self.includeStats = includeStats
-    }
-
     private enum CodingKeys: String, CodingKey {
         case includeStats = "include_stats"
+    }
+
+    public init(includeStats: Bool) {
+        self.includeStats = includeStats
     }
 }
 
@@ -1922,6 +2411,12 @@ public struct LocationAddInput: Codable {
     public let path: String
     public let name: String?
     public let mode: IndexMode
+
+    public init(path: String, name: String?, mode: IndexMode) {
+        self.path = path
+        self.name = name
+        self.mode = mode
+    }
 }
 
 /// Output from location add action dispatch
@@ -1937,12 +2432,25 @@ public struct LocationAddOutput: Codable {
         case name = "name"
         case jobId = "job_id"
     }
+
+    public init(locationId: String, path: String, name: String?, jobId: String?) {
+        self.locationId = locationId
+        self.path = path
+        self.name = name
+        self.jobId = jobId
+    }
 }
 
 public struct LocationInfo: Codable {
     public let id: String
     public let path: String
     public let name: String?
+
+    public init(id: String, path: String, name: String?) {
+        self.id = id
+        self.path = path
+        self.name = name
+    }
 }
 
 public struct LocationRemoveInput: Codable {
@@ -1950,6 +2458,10 @@ public struct LocationRemoveInput: Codable {
 
     private enum CodingKeys: String, CodingKey {
         case locationId = "location_id"
+    }
+
+    public init(locationId: String) {
+        self.locationId = locationId
     }
 }
 
@@ -1962,6 +2474,11 @@ public struct LocationRemoveOutput: Codable {
         case locationId = "location_id"
         case path = "path"
     }
+
+    public init(locationId: String, path: String?) {
+        self.locationId = locationId
+        self.path = path
+    }
 }
 
 public struct LocationRescanInput: Codable {
@@ -1971,6 +2488,11 @@ public struct LocationRescanInput: Codable {
     private enum CodingKeys: String, CodingKey {
         case locationId = "location_id"
         case fullRescan = "full_rescan"
+    }
+
+    public init(locationId: String, fullRescan: Bool) {
+        self.locationId = locationId
+        self.fullRescan = fullRescan
     }
 }
 
@@ -1986,13 +2508,45 @@ public struct LocationRescanOutput: Codable {
         case jobId = "job_id"
         case fullRescan = "full_rescan"
     }
+
+    public init(locationId: String, locationPath: String, jobId: String, fullRescan: Bool) {
+        self.locationId = locationId
+        self.locationPath = locationPath
+        self.jobId = jobId
+        self.fullRescan = fullRescan
+    }
 }
 
 public struct LocationsListOutput: Codable {
     public let locations: [LocationInfo]
+
+    public init(locations: [LocationInfo]) {
+        self.locations = locations
+    }
 }
 
 public struct LocationsListQueryInput: Codable {
+}
+
+/// Media-specific metadata
+public struct MediaData: Codable {
+    public let width: UInt32?
+    public let height: UInt32?
+    public let duration: Double?
+    public let bitrate: UInt32?
+    public let fps: Float?
+    public let exif: ExifData?
+    public let extra: JsonValue
+
+    public init(width: UInt32?, height: UInt32?, duration: Double?, bitrate: UInt32?, fps: Float?, exif: ExifData?, extra: JsonValue) {
+        self.width = width
+        self.height = height
+        self.duration = duration
+        self.bitrate = bitrate
+        self.fps = fps
+        self.exif = exif
+        self.extra = extra
+    }
 }
 
 /// Represents how the volume is mounted in the system
@@ -2008,6 +2562,10 @@ public struct NetworkStartInput: Codable {
 
 public struct NetworkStartOutput: Codable {
     public let started: Bool
+
+    public init(started: Bool) {
+        self.started = started
+    }
 }
 
 public struct NetworkStatus: Codable {
@@ -2026,6 +2584,15 @@ public struct NetworkStatus: Codable {
         case connectedDevices = "connected_devices"
         case version = "version"
     }
+
+    public init(running: Bool, nodeId: String?, addresses: [String], pairedDevices: UInt, connectedDevices: UInt, version: String) {
+        self.running = running
+        self.nodeId = nodeId
+        self.addresses = addresses
+        self.pairedDevices = pairedDevices
+        self.connectedDevices = connectedDevices
+        self.version = version
+    }
 }
 
 public struct NetworkStatusQueryInput: Codable {
@@ -2036,6 +2603,10 @@ public struct NetworkStopInput: Codable {
 
 public struct NetworkStopOutput: Codable {
     public let stopped: Bool
+
+    public init(stopped: Bool) {
+        self.stopped = stopped
+    }
 }
 
 /// Pagination information
@@ -2055,12 +2626,26 @@ public struct PaginationInfo: Codable {
         case limit = "limit"
         case offset = "offset"
     }
+
+    public init(currentPage: UInt32, totalPages: UInt32, hasNext: Bool, hasPrevious: Bool, limit: UInt32, offset: UInt32) {
+        self.currentPage = currentPage
+        self.totalPages = totalPages
+        self.hasNext = hasNext
+        self.hasPrevious = hasPrevious
+        self.limit = limit
+        self.offset = offset
+    }
 }
 
 /// Pagination options
 public struct PaginationOptions: Codable {
     public let limit: UInt32
     public let offset: UInt32
+
+    public init(limit: UInt32, offset: UInt32) {
+        self.limit = limit
+        self.offset = offset
+    }
 }
 
 public struct PairCancelInput: Codable {
@@ -2069,10 +2654,18 @@ public struct PairCancelInput: Codable {
     private enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
     }
+
+    public init(sessionId: String) {
+        self.sessionId = sessionId
+    }
 }
 
 public struct PairCancelOutput: Codable {
     public let cancelled: Bool
+
+    public init(cancelled: Bool) {
+        self.cancelled = cancelled
+    }
 }
 
 public struct PairGenerateInput: Codable {
@@ -2080,6 +2673,10 @@ public struct PairGenerateInput: Codable {
 
     private enum CodingKeys: String, CodingKey {
         case autoAccept = "auto_accept"
+    }
+
+    public init(autoAccept: Bool) {
+        self.autoAccept = autoAccept
     }
 }
 
@@ -2093,10 +2690,20 @@ public struct PairGenerateOutput: Codable {
         case sessionId = "session_id"
         case expiresAt = "expires_at"
     }
+
+    public init(code: String, sessionId: String, expiresAt: String) {
+        self.code = code
+        self.sessionId = sessionId
+        self.expiresAt = expiresAt
+    }
 }
 
 public struct PairJoinInput: Codable {
     public let code: String
+
+    public init(code: String) {
+        self.code = code
+    }
 }
 
 public struct PairJoinOutput: Codable {
@@ -2107,10 +2714,19 @@ public struct PairJoinOutput: Codable {
         case pairedDeviceId = "paired_device_id"
         case deviceName = "device_name"
     }
+
+    public init(pairedDeviceId: String, deviceName: String) {
+        self.pairedDeviceId = pairedDeviceId
+        self.deviceName = deviceName
+    }
 }
 
 public struct PairStatusOutput: Codable {
     public let sessions: [PairingSessionSummary]
+
+    public init(sessions: [PairingSessionSummary]) {
+        self.sessions = sessions
+    }
 }
 
 public struct PairStatusQueryInput: Codable {
@@ -2132,6 +2748,15 @@ public struct PairedDeviceInfo: Codable {
         case lastSeen = "last_seen"
         case pairedAt = "paired_at"
     }
+
+    public init(id: String, name: String, os: String, isOnline: Bool, lastSeen: String, pairedAt: String) {
+        self.id = id
+        self.name = name
+        self.os = os
+        self.isOnline = isOnline
+        self.lastSeen = lastSeen
+        self.pairedAt = pairedAt
+    }
 }
 
 public struct PairingSessionSummary: Codable {
@@ -2146,6 +2771,13 @@ public struct PairingSessionSummary: Codable {
         case remoteDeviceId = "remote_device_id"
         case expiresAt = "expires_at"
     }
+
+    public init(id: String, state: SerializablePairingState, remoteDeviceId: String?, expiresAt: String?) {
+        self.id = id
+        self.state = state
+        self.remoteDeviceId = remoteDeviceId
+        self.expiresAt = expiresAt
+    }
 }
 
 /// Path mapping for resolving virtual paths to actual storage locations
@@ -2156,6 +2788,11 @@ public struct PathMapping: Codable {
     private enum CodingKeys: String, CodingKey {
         case virtualPath = "virtual_path"
         case actualPath = "actual_path"
+    }
+
+    public init(virtualPath: String, actualPath: String) {
+        self.virtualPath = virtualPath
+        self.actualPath = actualPath
     }
 }
 
@@ -2173,6 +2810,14 @@ public struct PerformanceMetrics: Codable {
         case elapsed = "elapsed"
         case errorCount = "error_count"
         case warningCount = "warning_count"
+    }
+
+    public init(rate: Float, estimatedRemaining: RustDuration?, elapsed: RustDuration?, errorCount: UInt64, warningCount: UInt64) {
+        self.rate = rate
+        self.estimatedRemaining = estimatedRemaining
+        self.elapsed = elapsed
+        self.errorCount = errorCount
+        self.warningCount = warningCount
     }
 }
 
@@ -2196,6 +2841,13 @@ public struct ProgressCompletion: Codable {
         case bytesCompleted = "bytes_completed"
         case totalBytes = "total_bytes"
     }
+
+    public init(completed: UInt64, total: UInt64, bytesCompleted: UInt64?, totalBytes: UInt64?) {
+        self.completed = completed
+        self.total = total
+        self.bytesCompleted = bytesCompleted
+        self.totalBytes = totalBytes
+    }
 }
 
 /// Detailed breakdown of how the score was calculated
@@ -2215,15 +2867,24 @@ public struct ScoreBreakdown: Codable {
         case userPreferenceBoost = "user_preference_boost"
         case finalScore = "final_score"
     }
+
+    public init(temporalScore: Float, semanticScore: Float?, metadataScore: Float, recencyBoost: Float, userPreferenceBoost: Float, finalScore: Float) {
+        self.temporalScore = temporalScore
+        self.semanticScore = semanticScore
+        self.metadataScore = metadataScore
+        self.recencyBoost = recencyBoost
+        self.userPreferenceBoost = userPreferenceBoost
+        self.finalScore = finalScore
+    }
 }
 
 /// A path within the Spacedrive Virtual Distributed File System
-///
+/// 
 /// This is the core abstraction that enables cross-device operations.
 /// An SdPath can represent:
 /// - A physical file at a specific path on a specific device
 /// - A content-addressed file that can be sourced from any device
-///
+/// 
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
 public enum SdPath {
@@ -2257,7 +2918,7 @@ extension SdPath: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
+        
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2277,7 +2938,7 @@ extension SdPath: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-
+        
         switch self {
         case .physical(let data):
             try container.encode(data, forKey: .physical)
@@ -2291,6 +2952,10 @@ extension SdPath: Codable {
 /// A batch of SdPaths, useful for operations on multiple files
 public struct SdPathBatch: Codable {
     public let paths: [SdPath]
+
+    public init(paths: [SdPath]) {
+        self.paths = paths
+    }
 }
 
 /// How SdPath is stored in the database
@@ -2301,6 +2966,11 @@ public struct SdPathSerialized: Codable {
     private enum CodingKeys: String, CodingKey {
         case deviceId = "device_id"
         case path = "path"
+    }
+
+    public init(deviceId: String, path: String) {
+        self.deviceId = deviceId
+        self.path = path
     }
 }
 
@@ -2318,6 +2988,14 @@ public struct SearchFacets: Codable {
         case locations = "locations"
         case dateRanges = "date_ranges"
         case sizeRanges = "size_ranges"
+    }
+
+    public init(fileTypes: [String: UInt64], tags: [String: UInt64], locations: [String: UInt64], dateRanges: [String: UInt64], sizeRanges: [String: UInt64]) {
+        self.fileTypes = fileTypes
+        self.tags = tags
+        self.locations = locations
+        self.dateRanges = dateRanges
+        self.sizeRanges = sizeRanges
     }
 }
 
@@ -2341,6 +3019,17 @@ public struct SearchFilters: Codable {
         case contentTypes = "content_types"
         case includeHidden = "include_hidden"
         case includeArchived = "include_archived"
+    }
+
+    public init(fileTypes: [String]?, tags: TagFilter?, dateRange: DateRangeFilter?, sizeRange: SizeRangeFilter?, locations: [String]?, contentTypes: [ContentKind]?, includeHidden: Bool?, includeArchived: Bool?) {
+        self.fileTypes = fileTypes
+        self.tags = tags
+        self.dateRange = dateRange
+        self.sizeRange = sizeRange
+        self.locations = locations
+        self.contentTypes = contentTypes
+        self.includeHidden = includeHidden
+        self.includeArchived = includeArchived
     }
 }
 
@@ -2379,7 +3068,7 @@ extension SearchScope: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
+        
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2401,7 +3090,7 @@ extension SearchScope: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-
+        
         switch self {
         case .library:
             try container.encodeNil(forKey: .library)
@@ -2432,6 +3121,16 @@ public struct SearchTagsInput: Codable {
         case resolveAmbiguous = "resolve_ambiguous"
         case contextTagIds = "context_tag_ids"
     }
+
+    public init(query: String, namespace: String?, tagType: TagType?, includeArchived: Bool?, limit: UInt?, resolveAmbiguous: Bool?, contextTagIds: [String]?) {
+        self.query = query
+        self.namespace = namespace
+        self.tagType = tagType
+        self.includeArchived = includeArchived
+        self.limit = limit
+        self.resolveAmbiguous = resolveAmbiguous
+        self.contextTagIds = contextTagIds
+    }
 }
 
 public struct SearchTagsOutput: Codable {
@@ -2447,6 +3146,14 @@ public struct SearchTagsOutput: Codable {
         case disambiguated = "disambiguated"
         case query = "query"
         case filters = "filters"
+    }
+
+    public init(tags: [TagSearchResult], totalFound: UInt, disambiguated: Bool, query: String, filters: SearchFilters) {
+        self.tags = tags
+        self.totalFound = totalFound
+        self.disambiguated = disambiguated
+        self.query = query
+        self.filters = filters
     }
 }
 
@@ -2493,7 +3200,7 @@ extension SerializablePairingState: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
+        
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2538,7 +3245,7 @@ extension SerializablePairingState: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-
+        
         switch self {
         case .idle:
             try container.encodeNil(forKey: .idle)
@@ -2578,6 +3285,11 @@ extension SerializablePairingState: Codable {
 public struct ServiceState: Codable {
     public let running: Bool
     public let details: String?
+
+    public init(running: Bool, details: String?) {
+        self.running = running
+        self.details = details
+    }
 }
 
 public struct ServiceStatus: Codable {
@@ -2592,12 +3304,61 @@ public struct ServiceStatus: Codable {
         case volumeMonitor = "volume_monitor"
         case fileSharing = "file_sharing"
     }
+
+    public init(locationWatcher: ServiceState, networking: ServiceState, volumeMonitor: ServiceState, fileSharing: ServiceState) {
+        self.locationWatcher = locationWatcher
+        self.networking = networking
+        self.volumeMonitor = volumeMonitor
+        self.fileSharing = fileSharing
+    }
+}
+
+/// Domain representation of a sidecar
+public struct Sidecar: Codable {
+    public let id: Int32
+    public let contentUuid: String
+    public let kind: String
+    public let variant: String
+    public let format: String
+    public let status: String
+    public let size: Int64
+    public let createdAt: String
+    public let updatedAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case contentUuid = "content_uuid"
+        case kind = "kind"
+        case variant = "variant"
+        case format = "format"
+        case status = "status"
+        case size = "size"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    public init(id: Int32, contentUuid: String, kind: String, variant: String, format: String, status: String, size: Int64, createdAt: String, updatedAt: String) {
+        self.id = id
+        self.contentUuid = contentUuid
+        self.kind = kind
+        self.variant = variant
+        self.format = format
+        self.status = status
+        self.size = size
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 }
 
 /// Filter for file size in bytes
 public struct SizeRangeFilter: Codable {
     public let min: UInt64?
     public let max: UInt64?
+
+    public init(min: UInt64?, max: UInt64?) {
+        self.min = min
+        self.max = max
+    }
 }
 
 /// Sort direction
@@ -2619,6 +3380,11 @@ public enum SortField: Codable {
 public struct SortOptions: Codable {
     public let field: SortField
     public let direction: SortDirection
+
+    public init(field: SortField, direction: SortDirection) {
+        self.field = field
+        self.direction = direction
+    }
 }
 
 public struct SpacedropSendInput: Codable {
@@ -2631,6 +3397,12 @@ public struct SpacedropSendInput: Codable {
         case paths = "paths"
         case sender = "sender"
     }
+
+    public init(deviceId: String, paths: [SdPath], sender: String?) {
+        self.deviceId = deviceId
+        self.paths = paths
+        self.sender = sender
+    }
 }
 
 public struct SpacedropSendOutput: Codable {
@@ -2640,6 +3412,11 @@ public struct SpacedropSendOutput: Codable {
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
         case sessionId = "session_id"
+    }
+
+    public init(jobId: String?, sessionId: String?) {
+        self.jobId = jobId
+        self.sessionId = sessionId
     }
 }
 
@@ -2654,6 +3431,13 @@ public struct SystemInfo: Codable {
         case dataDirectory = "data_directory"
         case instanceName = "instance_name"
         case currentLibrary = "current_library"
+    }
+
+    public init(uptime: UInt64?, dataDirectory: String, instanceName: String?, currentLibrary: String?) {
+        self.uptime = uptime
+        self.dataDirectory = dataDirectory
+        self.instanceName = instanceName
+        self.currentLibrary = currentLibrary
     }
 }
 
@@ -2700,12 +3484,39 @@ public struct Tag: Codable {
         case updatedAt = "updated_at"
         case createdByDevice = "created_by_device"
     }
+
+    public init(id: String, canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool, privacyLevel: PrivacyLevel, searchWeight: Int32, attributes: [String: JsonValue], compositionRules: [CompositionRule], createdAt: String, updatedAt: String, createdByDevice: String) {
+        self.id = id
+        self.canonicalName = canonicalName
+        self.displayName = displayName
+        self.formalName = formalName
+        self.abbreviation = abbreviation
+        self.aliases = aliases
+        self.namespace = namespace
+        self.tagType = tagType
+        self.color = color
+        self.icon = icon
+        self.description = description
+        self.isOrganizationalAnchor = isOrganizationalAnchor
+        self.privacyLevel = privacyLevel
+        self.searchWeight = searchWeight
+        self.attributes = attributes
+        self.compositionRules = compositionRules
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.createdByDevice = createdByDevice
+    }
 }
 
 /// Filter for tags, supporting complex boolean logic
 public struct TagFilter: Codable {
     public let include: [String]
     public let exclude: [String]
+
+    public init(include: [String], exclude: [String]) {
+        self.include = include
+        self.exclude = exclude
+    }
 }
 
 public struct TagSearchResult: Codable {
@@ -2719,6 +3530,13 @@ public struct TagSearchResult: Codable {
         case relevance = "relevance"
         case matchedVariant = "matched_variant"
         case contextScore = "context_score"
+    }
+
+    public init(tag: Tag, relevance: Float, matchedVariant: String?, contextScore: Float?) {
+        self.tag = tag
+        self.relevance = relevance
+        self.matchedVariant = matchedVariant
+        self.contextScore = contextScore
     }
 }
 
@@ -2744,12 +3562,25 @@ public struct TextHighlight: Codable {
     public let text: String
     public let start: UInt
     public let end: UInt
+
+    public init(field: String, text: String, start: UInt, end: UInt) {
+        self.field = field
+        self.text = text
+        self.start = start
+        self.end = end
+    }
 }
 
 public struct ThumbnailInput: Codable {
     public let paths: [String]
     public let size: UInt32
     public let quality: UInt8
+
+    public init(paths: [String], size: UInt32, quality: UInt8) {
+        self.paths = paths
+        self.size = size
+        self.quality = quality
+    }
 }
 
 /// Represents a physical or virtual storage volume in the system
@@ -2803,6 +3634,32 @@ public struct Volume: Codable {
         case autoTrackEligible = "auto_track_eligible"
         case lastUpdated = "last_updated"
     }
+
+    public init(fingerprint: VolumeFingerprint, deviceId: String, name: String, mountType: MountType, volumeType: VolumeType, mountPoint: String, mountPoints: [String], isMounted: Bool, diskType: DiskType, fileSystem: FileSystem, readOnly: Bool, hardwareId: String?, errorStatus: String?, apfsContainer: ApfsContainer?, containerVolumeId: String?, pathMappings: [PathMapping], totalBytesCapacity: UInt64, totalBytesAvailable: UInt64, readSpeedMbps: UInt64?, writeSpeedMbps: UInt64?, isUserVisible: Bool, autoTrackEligible: Bool, lastUpdated: String) {
+        self.fingerprint = fingerprint
+        self.deviceId = deviceId
+        self.name = name
+        self.mountType = mountType
+        self.volumeType = volumeType
+        self.mountPoint = mountPoint
+        self.mountPoints = mountPoints
+        self.isMounted = isMounted
+        self.diskType = diskType
+        self.fileSystem = fileSystem
+        self.readOnly = readOnly
+        self.hardwareId = hardwareId
+        self.errorStatus = errorStatus
+        self.apfsContainer = apfsContainer
+        self.containerVolumeId = containerVolumeId
+        self.pathMappings = pathMappings
+        self.totalBytesCapacity = totalBytesCapacity
+        self.totalBytesAvailable = totalBytesAvailable
+        self.readSpeedMbps = readSpeedMbps
+        self.writeSpeedMbps = writeSpeedMbps
+        self.isUserVisible = isUserVisible
+        self.autoTrackEligible = autoTrackEligible
+        self.lastUpdated = lastUpdated
+    }
 }
 
 /// Unique fingerprint for a storage volume
@@ -2825,10 +3682,22 @@ public struct VolumeInfo: Codable {
         case writeSpeedMbps = "write_speed_mbps"
         case errorStatus = "error_status"
     }
+
+    public init(isMounted: Bool, totalBytesAvailable: UInt64, readSpeedMbps: UInt64?, writeSpeedMbps: UInt64?, errorStatus: String?) {
+        self.isMounted = isMounted
+        self.totalBytesAvailable = totalBytesAvailable
+        self.readSpeedMbps = readSpeedMbps
+        self.writeSpeedMbps = writeSpeedMbps
+        self.errorStatus = errorStatus
+    }
 }
 
 public struct VolumeSpeedTestInput: Codable {
     public let fingerprint: VolumeFingerprint
+
+    public init(fingerprint: VolumeFingerprint) {
+        self.fingerprint = fingerprint
+    }
 }
 
 /// Output from volume speed test operation
@@ -2842,11 +3711,22 @@ public struct VolumeSpeedTestOutput: Codable {
         case readSpeedMbps = "read_speed_mbps"
         case writeSpeedMbps = "write_speed_mbps"
     }
+
+    public init(fingerprint: VolumeFingerprint, readSpeedMbps: UInt32?, writeSpeedMbps: UInt32?) {
+        self.fingerprint = fingerprint
+        self.readSpeedMbps = readSpeedMbps
+        self.writeSpeedMbps = writeSpeedMbps
+    }
 }
 
 public struct VolumeTrackInput: Codable {
     public let fingerprint: VolumeFingerprint
     public let name: String?
+
+    public init(fingerprint: VolumeFingerprint, name: String?) {
+        self.fingerprint = fingerprint
+        self.name = name
+    }
 }
 
 /// Output from volume track operation
@@ -2857,6 +3737,11 @@ public struct VolumeTrackOutput: Codable {
     private enum CodingKeys: String, CodingKey {
         case fingerprint = "fingerprint"
         case volumeName = "volume_name"
+    }
+
+    public init(fingerprint: VolumeFingerprint, volumeName: String) {
+        self.fingerprint = fingerprint
+        self.volumeName = volumeName
     }
 }
 
@@ -2873,11 +3758,19 @@ public enum VolumeType: Codable {
 
 public struct VolumeUntrackInput: Codable {
     public let fingerprint: VolumeFingerprint
+
+    public init(fingerprint: VolumeFingerprint) {
+        self.fingerprint = fingerprint
+    }
 }
 
 /// Output from volume untrack operation
 public struct VolumeUntrackOutput: Codable {
     public let fingerprint: VolumeFingerprint
+
+    public init(fingerprint: VolumeFingerprint) {
+        self.fingerprint = fingerprint
+    }
 }
 
 
@@ -2903,121 +3796,119 @@ extension SpacedriveApi: Codable {
 /// Core-scoped actions
 public enum CoreAction {
     case NetworkPairJoin(input: PairJoinInput, output: PairJoinOutput)
-    case NetworkPairGenerate(input: PairGenerateInput, output: PairGenerateOutput)
-    case NetworkPairCancel(input: PairCancelInput, output: PairCancelOutput)
-    case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
     case NetworkSpacedropSend(input: SpacedropSendInput, output: SpacedropSendOutput)
-    case NetworkDeviceRevoke(input: DeviceRevokeInput, output: DeviceRevokeOutput)
+    case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
+    case NetworkPairCancel(input: PairCancelInput, output: PairCancelOutput)
     case LibrariesDelete(input: LibraryDeleteInput, output: LibraryDeleteOutput)
+    case NetworkDeviceRevoke(input: DeviceRevokeInput, output: DeviceRevokeOutput)
     case LibrariesCreate(input: LibraryCreateInput, output: LibraryCreateOutput)
     case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
+    case NetworkPairGenerate(input: PairGenerateInput, output: PairGenerateOutput)
 }
 
 extension CoreAction: Codable {
     public var wireMethod: String {
         switch self {
         case .NetworkPairJoin: return "action:network.pair.join.input.v1"
-        case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
-        case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
-        case .NetworkStart: return "action:network.start.input.v1"
         case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
-        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
+        case .NetworkStart: return "action:network.start.input.v1"
+        case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
         case .LibrariesDelete: return "action:libraries.delete.input.v1"
+        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
         case .LibrariesCreate: return "action:libraries.create.input.v1"
         case .NetworkStop: return "action:network.stop.input.v1"
+        case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
         }
     }
 }
 
 /// Library-scoped actions
 public enum LibraryAction {
+    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
+    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
+    case LocationsRemove(input: LocationRemoveInput, output: LocationRemoveOutput)
+    case TagsCreate(input: CreateTagInput, output: CreateTagOutput)
+    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
+    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
     case TagsApply(input: ApplyTagsInput, output: ApplyTagsOutput)
+    case LocationsRescan(input: LocationRescanInput, output: LocationRescanOutput)
+    case VolumesTrack(input: VolumeTrackInput, output: VolumeTrackOutput)
     case LocationsAdd(input: LocationAddInput, output: LocationAddOutput)
     case IndexingStart(input: IndexInput, output: JobReceipt)
-    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
-    case LocationsRemove(input: LocationRemoveInput, output: LocationRemoveOutput)
-    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
-    case FilesValidation(input: FileValidationInput, output: JobReceipt)
-    case FilesCopy(input: FileCopyInput, output: JobReceipt)
-    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
-    case TagsCreate(input: CreateTagInput, output: CreateTagOutput)
-    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
-    case VolumesTrack(input: VolumeTrackInput, output: VolumeTrackOutput)
-    case VolumesSpeed_test(input: VolumeSpeedTestInput, output: VolumeSpeedTestOutput)
-    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
-    case LocationsRescan(input: LocationRescanInput, output: LocationRescanOutput)
     case LibrariesExport(input: LibraryExportInput, output: LibraryExportOutput)
-    case FilesDelete(input: FileDeleteInput, output: JobReceipt)
+    case VolumesSpeedTest(input: VolumeSpeedTestInput, output: VolumeSpeedTestOutput)
+    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
     case JobsCancel(input: JobCancelInput, output: JobCancelOutput)
-    case FilesDuplicate_detection(input: DuplicateDetectionInput, output: JobReceipt)
+    case FilesCopy(input: FileCopyInput, output: JobReceipt)
 }
 
 extension LibraryAction: Codable {
     public var wireMethod: String {
         switch self {
+        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
+        case .JobsPause: return "action:jobs.pause.input.v1"
+        case .LocationsRemove: return "action:locations.remove.input.v1"
+        case .TagsCreate: return "action:tags.create.input.v1"
+        case .JobsResume: return "action:jobs.resume.input.v1"
+        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
         case .TagsApply: return "action:tags.apply.input.v1"
+        case .LocationsRescan: return "action:locations.rescan.input.v1"
+        case .VolumesTrack: return "action:volumes.track.input.v1"
         case .LocationsAdd: return "action:locations.add.input.v1"
         case .IndexingStart: return "action:indexing.start.input.v1"
-        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
-        case .LocationsRemove: return "action:locations.remove.input.v1"
-        case .LibrariesRename: return "action:libraries.rename.input.v1"
-        case .FilesValidation: return "action:files.validation.input.v1"
-        case .FilesCopy: return "action:files.copy.input.v1"
-        case .JobsResume: return "action:jobs.resume.input.v1"
-        case .TagsCreate: return "action:tags.create.input.v1"
-        case .JobsPause: return "action:jobs.pause.input.v1"
-        case .VolumesTrack: return "action:volumes.track.input.v1"
-        case .VolumesSpeed_test: return "action:volumes.speed_test.input.v1"
-        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
-        case .LocationsRescan: return "action:locations.rescan.input.v1"
         case .LibrariesExport: return "action:libraries.export.input.v1"
-        case .FilesDelete: return "action:files.delete.input.v1"
+        case .VolumesSpeedTest: return "action:volumes.speed_test.input.v1"
+        case .LibrariesRename: return "action:libraries.rename.input.v1"
         case .JobsCancel: return "action:jobs.cancel.input.v1"
-        case .FilesDuplicate_detection: return "action:files.duplicate_detection.input.v1"
+        case .FilesCopy: return "action:files.copy.input.v1"
         }
     }
 }
 
 /// Core-scoped queries
 public enum CoreQuery {
-    case CoreStatus(input: Empty, output: CoreStatus)
     case NetworkStatus(input: NetworkStatusQueryInput, output: NetworkStatus)
-    case NetworkDevices(input: ListDevicesInput, output: [DeviceInfoLite])
-    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
     case LibrariesList(input: ListLibrariesInput, output: [LibraryInfo])
+    case CoreStatus(input: Empty, output: CoreStatus)
+    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
+    case NetworkDevices(input: ListDevicesInput, output: [DeviceInfoLite])
 }
 
 extension CoreQuery: Codable {
     public var wireMethod: String {
         switch self {
-        case .CoreStatus: return "query:core.status.v1"
         case .NetworkStatus: return "query:network.status.v1"
-        case .NetworkDevices: return "query:network.devices.v1"
-        case .NetworkPairStatus: return "query:network.pair.status.v1"
         case .LibrariesList: return "query:libraries.list.v1"
+        case .CoreStatus: return "query:core.status.v1"
+        case .NetworkPairStatus: return "query:network.pair.status.v1"
+        case .NetworkDevices: return "query:network.devices.v1"
         }
     }
 }
 
 /// Library-scoped queries
 public enum LibraryQuery {
-    case LocationsList(input: LocationsListQueryInput, output: LocationsListOutput)
-    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
+    case TagsSearch(input: SearchTagsInput, output: SearchTagsOutput)
+    case FilesById(input: FileByIdQuery, output: File)
     case JobsList(input: JobListInput, output: JobListOutput)
     case SearchFiles(input: FileSearchInput, output: FileSearchOutput)
+    case FilesByPath(input: FileByPathQuery, output: File)
+    case LocationsList(input: LocationsListQueryInput, output: LocationsListOutput)
+    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
     case LibrariesInfo(input: LibraryInfoQueryInput, output: LibraryInfoOutput)
-    case TagsSearch(input: SearchTagsInput, output: SearchTagsOutput)
 }
 
 extension LibraryQuery: Codable {
     public var wireMethod: String {
         switch self {
-        case .LocationsList: return "query:locations.list.v1"
-        case .JobsInfo: return "query:jobs.info.v1"
+        case .TagsSearch: return "query:tags.search.v1"
+        case .FilesById: return "query:files.by_id.v1"
         case .JobsList: return "query:jobs.list.v1"
         case .SearchFiles: return "query:search.files.v1"
+        case .FilesByPath: return "query:files.by_path.v1"
+        case .LocationsList: return "query:locations.list.v1"
+        case .JobsInfo: return "query:jobs.info.v1"
         case .LibrariesInfo: return "query:libraries.info.v1"
-        case .TagsSearch: return "query:tags.search.v1"
         }
     }
 }
