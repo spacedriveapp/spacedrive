@@ -153,6 +153,95 @@ pub fn generate_spacedrive_api() -> (Vec<OperationMetadata>, Vec<QueryMetadata>,
 	(operations, queries, collection)
 }
 
+/// Generate the complete Spacedrive API structure as a Specta-compatible type
+///
+/// This creates a runtime representation of our API structure that Specta can export.
+/// Similar to rspc's approach with TypesOrType, but tailored for Spacedrive's needs.
+pub fn create_spacedrive_api_structure(
+	operations: &[OperationMetadata],
+	queries: &[QueryMetadata],
+) -> SpacedriveApiStructure {
+	let mut core_actions = Vec::new();
+	let mut library_actions = Vec::new();
+	let mut core_queries = Vec::new();
+	let mut library_queries = Vec::new();
+
+	// Group operations by scope - preserve the actual DataType objects!
+	for op in operations {
+		match op.scope {
+			OperationScope::Core => {
+				core_actions.push(ApiOperationType {
+					identifier: op.identifier.to_string(),
+					wire_method: op.wire_method.clone(),
+					input_type: op.input_type.clone(),
+					output_type: op.output_type.clone(),
+				});
+			}
+			OperationScope::Library => {
+				library_actions.push(ApiOperationType {
+					identifier: op.identifier.to_string(),
+					wire_method: op.wire_method.clone(),
+					input_type: op.input_type.clone(),
+					output_type: op.output_type.clone(),
+				});
+			}
+		}
+	}
+
+	// Group queries by scope - preserve the actual DataType objects!
+	for query in queries {
+		match query.scope {
+			QueryScope::Core => {
+				core_queries.push(ApiQueryType {
+					identifier: query.identifier.to_string(),
+					wire_method: query.wire_method.clone(),
+					input_type: query.input_type.clone(),
+					output_type: query.output_type.clone(),
+				});
+			}
+			QueryScope::Library => {
+				library_queries.push(ApiQueryType {
+					identifier: query.identifier.to_string(),
+					wire_method: query.wire_method.clone(),
+					input_type: query.input_type.clone(),
+					output_type: query.output_type.clone(),
+				});
+			}
+		}
+	}
+
+	SpacedriveApiStructure {
+		core_actions,
+		library_actions,
+		core_queries,
+		library_queries,
+	}
+}
+
+/// Represents the complete Spacedrive API structure for code generation
+pub struct SpacedriveApiStructure {
+	pub core_actions: Vec<ApiOperationType>,
+	pub library_actions: Vec<ApiOperationType>,
+	pub core_queries: Vec<ApiQueryType>,
+	pub library_queries: Vec<ApiQueryType>,
+}
+
+/// Represents a single API operation with actual type information
+pub struct ApiOperationType {
+	pub identifier: String,
+	pub wire_method: String,
+	pub input_type: specta::datatype::DataType,
+	pub output_type: specta::datatype::DataType,
+}
+
+/// Represents a single API query with actual type information
+pub struct ApiQueryType {
+	pub identifier: String,
+	pub wire_method: String,
+	pub input_type: specta::datatype::DataType,
+	pub output_type: specta::datatype::DataType,
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
