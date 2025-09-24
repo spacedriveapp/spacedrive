@@ -9442,6 +9442,7 @@ dependencies = [
  "chrono",
  "ctor 0.4.3",
  "serde",
+ "serde_json",
  "specta-macros 2.0.0-rc.18",
  "uuid",
 ]

@@ -8,10 +8,11 @@ use crate::{
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryRenameInput {
 	pub library_id: Uuid,
 	pub new_name: String,

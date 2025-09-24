@@ -1,12 +1,14 @@
 //! Search semantic tags query
 
 use super::{input::SearchTagsInput, output::SearchTagsOutput};
-use crate::{context::CoreContext, cqrs::Query, ops::tags::manager::TagManager};
+use crate::{context::CoreContext, cqrs::LibraryQuery, ops::tags::manager::TagManager};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
+use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SearchTagsQuery {
 	pub input: SearchTagsInput,
 }
@@ -17,16 +19,16 @@ impl SearchTagsQuery {
 	}
 }
 
-impl Query for SearchTagsQuery {
+impl LibraryQuery for SearchTagsQuery {
 	type Input = SearchTagsInput;
 	type Output = SearchTagsOutput;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
-		// Resolve current library from session
-		let session_state = context.session.get().await;
-		let library_id = session_state
-			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No active library selected"))?;
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self { input })
+	}
+
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
+		let library_id = session.current_library_id.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
 		let library = context
 			.libraries()
 			.await

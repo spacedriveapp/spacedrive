@@ -1130,9 +1130,10 @@ impl JobManager {
 						let volume_manager = Some(self.context.volume_manager.clone());
 
 						// Create handle
+						let job_name = job_record.name.clone();
 						let handle = JobHandle {
 							id: job_id,
-							job_name: job_record.name,
+							job_name,
 							task_handle: Arc::new(Mutex::new(None)),
 							status_rx,
 							progress_rx: broadcast_rx,
@@ -1186,7 +1187,7 @@ impl JobManager {
 								let running_jobs = self.running_jobs.clone();
 								let job_id_clone = job_id.clone();
 								let event_bus = self.context.events.clone();
-								let job_type_str = job_record.name.clone();
+								let job_type_str = job_record.name.to_string();
 								tokio::spawn(async move {
 									let mut status_rx = status_tx.subscribe();
 									while status_rx.changed().await.is_ok() {

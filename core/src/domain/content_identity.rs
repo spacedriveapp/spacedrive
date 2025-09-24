@@ -7,9 +7,10 @@ use chrono::{DateTime, Utc};
 use int_enum::IntEnum;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use specta::Type;
 
 /// Type of content
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, IntEnum)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, IntEnum, Type)]
 #[serde(rename_all = "snake_case")]
 #[repr(i32)]
 pub enum ContentKind {
@@ -58,7 +59,7 @@ impl std::fmt::Display for ContentKind {
 }
 
 /// Media-specific metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct MediaData {
 	/// Width in pixels (for images/video)
 	pub width: Option<u32>,
@@ -83,7 +84,7 @@ pub struct MediaData {
 }
 
 /// EXIF metadata for images
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ExifData {
 	/// Camera make
 	pub make: Option<String>,
@@ -111,7 +112,7 @@ pub struct ExifData {
 }
 
 /// GPS coordinates
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct GpsCoordinates {
 	pub latitude: f64,
 	pub longitude: f64,
@@ -166,7 +167,10 @@ impl ContentHashGenerator {
 	}
 
 	/// Generate full BLAKE3 hash for small files
-	pub async fn generate_full_hash(path: &std::path::Path, size: u64) -> Result<String, ContentHashError> {
+	pub async fn generate_full_hash(
+		path: &std::path::Path,
+		size: u64,
+	) -> Result<String, ContentHashError> {
 		use blake3::Hasher;
 
 		let mut hasher = Hasher::new();
@@ -211,7 +215,9 @@ impl ContentHashGenerator {
 				break;
 			}
 
-			current_pos = file.seek(std::io::SeekFrom::Start(current_pos + seek_jump)).await?;
+			current_pos = file
+				.seek(std::io::SeekFrom::Start(current_pos + seek_jump))
+				.await?;
 		}
 
 		// Hashing the footer

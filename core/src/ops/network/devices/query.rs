@@ -56,7 +56,7 @@ impl CoreQuery for ListDevicesQuery {
 
 	type Output = Vec<DeviceInfoLite>;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		let mut out: Vec<DeviceInfoLite> = Vec::new();
 		if let Some(net) = context.get_networking().await {
 			let reg = net.device_registry();

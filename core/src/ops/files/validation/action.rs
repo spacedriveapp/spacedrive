@@ -33,7 +33,7 @@ impl ValidationAction {
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for ValidationAction {
 	type Input = FileValidationInput;
-	type Output = JobHandle;
+	type Output = crate::infra::job::handle::JobReceipt;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
 		let paths = input
@@ -71,7 +71,7 @@ impl LibraryAction for ValidationAction {
 			.await
 			.map_err(ActionError::Job)?;
 
-		Ok(job_handle)
+		Ok(job_handle.into())
 	}
 
 	fn action_kind(&self) -> &'static str {

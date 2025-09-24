@@ -22,7 +22,7 @@ impl CoreQuery for CoreStatusQuery {
 		Ok(Self)
 	}
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		// Get basic library information
 		let library_manager = context.libraries().await;
 		let libs = library_manager.list().await;

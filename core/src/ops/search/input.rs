@@ -59,7 +59,7 @@ pub struct SearchFilters {
 	pub date_range: Option<DateRangeFilter>,
 	pub size_range: Option<SizeRangeFilter>,
 	pub locations: Option<Vec<Uuid>>,
-	pub content_types: Option<Vec<ContentType>>,
+	pub content_types: Option<Vec<ContentKind>>,
 	pub include_hidden: Option<bool>,
 	pub include_archived: Option<bool>,
 }
@@ -95,9 +95,6 @@ pub struct SizeRangeFilter {
 	pub min: Option<u64>,
 	pub max: Option<u64>,
 }
-
-/// Content type categories for filtering (using domain ContentKind)
-pub type ContentType = ContentKind;
 
 /// Sorting options for search results
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

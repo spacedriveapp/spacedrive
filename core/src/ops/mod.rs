@@ -22,7 +22,6 @@ pub mod locations;
 pub mod media;
 pub mod metadata;
 pub mod network;
-pub mod proof_of_concept;
 pub mod registry;
 pub mod search;
 pub mod sidecar;

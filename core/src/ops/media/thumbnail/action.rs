@@ -8,9 +8,10 @@ use crate::{
 		job::handle::JobHandle,
 	},
 };
+use specta::Type;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct ThumbnailInput {
 	pub paths: Vec<std::path::PathBuf>,
 	pub size: u32,
@@ -31,7 +32,7 @@ impl ThumbnailAction {
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for ThumbnailAction {
 	type Input = ThumbnailInput;
-	type Output = JobHandle;
+	type Output = crate::infra::job::handle::JobReceipt;
 
 	fn from_input(input: ThumbnailInput) -> Result<Self, String> {
 		Ok(ThumbnailAction::new(input))
@@ -60,7 +61,7 @@ impl LibraryAction for ThumbnailAction {
 			.await
 			.map_err(ActionError::Job)?;
 
-		Ok(job_handle)
+		Ok(job_handle.into())
 	}
 
 	fn action_kind(&self) -> &'static str {

@@ -26,8 +26,11 @@ impl LibraryQuery for JobInfoQuery {
 	async fn execute(
 		self,
 		context: Arc<CoreContext>,
-		library_id: uuid::Uuid,
+		session: crate::infra::api::SessionContext,
 	) -> Result<Self::Output> {
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| anyhow::anyhow!("No library selected"))?;
 		let library = context
 			.libraries()
 			.await

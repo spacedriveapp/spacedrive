@@ -41,7 +41,7 @@ impl LibraryQuery for FileSearchQuery {
 		Ok(Self { input })
 	}
 
-	async fn execute(self, context: Arc<CoreContext>, library_id: Uuid) -> Result<Self::Output> {
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		let start_time = std::time::Instant::now();
 
 		// Validate input
@@ -49,6 +49,7 @@ impl LibraryQuery for FileSearchQuery {
 			.validate()
 			.map_err(|e| anyhow::anyhow!("Invalid search input: {}", e))?;
 
+		let library_id = session.current_library_id.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
 		let library = context
 			.libraries()
 			.await

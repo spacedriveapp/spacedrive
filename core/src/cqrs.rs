@@ -7,6 +7,7 @@
 use crate::context::CoreContext;
 use anyhow::Result;
 use std::sync::Arc;
+use uuid::Uuid;
 
 /// A query that retrieves data without mutating state.
 ///
@@ -36,11 +37,14 @@ pub trait LibraryQuery: Send + 'static {
 	where
 		Self: Sized;
 
-	/// Execute this query with the given context and library
+	/// Execute this query with rich session context
+	///
+	/// The session provides authentication, permissions, audit context,
+	/// and library context when needed
 	fn execute(
 		self,
 		context: Arc<CoreContext>,
-		library_id: uuid::Uuid,
+		session: crate::infra::api::SessionContext,
 	) -> impl std::future::Future<Output = Result<Self::Output>> + Send;
 }
 
@@ -56,10 +60,13 @@ pub trait CoreQuery: Send + 'static {
 	where
 		Self: Sized;
 
-	/// Execute this query with the given context
+	/// Execute this query with rich session context
+	///
+	/// The session provides authentication, permissions, and audit context
 	fn execute(
 		self,
 		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
 	) -> impl std::future::Future<Output = Result<Self::Output>> + Send;
 }
 
@@ -84,15 +91,22 @@ impl QueryManager {
 
 	/// Dispatch a core-scoped query for execution with full infrastructure support
 	pub async fn dispatch_core<Q: CoreQuery>(&self, query: Q) -> Result<Q::Output> {
-		query.execute(self.context.clone()).await
+		// Create session context for core queries
+		let device_id = self.context.device_manager.device_id()?;
+		let session = crate::infra::api::SessionContext::device_session(device_id, "Core Device".to_string());
+		query.execute(self.context.clone(), session).await
 	}
 
 	/// Dispatch a library-scoped query for execution with full infrastructure support
 	pub async fn dispatch_library<Q: LibraryQuery>(
 		&self,
 		query: Q,
-		library_id: uuid::Uuid,
+		library_id: Uuid,
 	) -> Result<Q::Output> {
-		query.execute(self.context.clone(), library_id).await
+		// Create session context for library queries with library context
+		let device_id = self.context.device_manager.device_id()?;
+		let mut session = crate::infra::api::SessionContext::device_session(device_id, "Core Device".to_string());
+		session = session.with_library(library_id);
+		query.execute(self.context.clone(), session).await
 	}
 }

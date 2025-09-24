@@ -199,57 +199,42 @@ impl RpcServer {
 		tracing::info!("Test log events setup complete");
 	}
 
-	/// Execute a JSON operation directly without bincode conversion
-	/// This is more efficient and avoids serialization issues
+	/// Execute a JSON operation using the registry handlers
 	async fn execute_json_operation(
 		method: &str,
+		library_id: Option<uuid::Uuid>,
 		json_payload: serde_json::Value,
 		core: &Arc<crate::Core>,
 	) -> Result<serde_json::Value, String> {
-		// For now, we'll implement specific handlers for known operations
-		// This is more maintainable than trying to do generic bincode conversion
+		// Create base session context
+		let base_session = core.api_dispatcher.create_base_session()?;
 
-		match method {
-			"query:libraries.list.v1" => {
-				// Handle libraries.list query
-				use crate::ops::libraries::list::{output::LibraryInfo, query::ListLibrariesQuery};
-
-				// Deserialize JSON payload to query type
-				let query: ListLibrariesQuery = serde_json::from_value(json_payload)
-					.map_err(|e| format!("Failed to deserialize libraries.list query: {}", e))?;
-
-				// Execute the query using the CQRS interface
-				let result: Vec<LibraryInfo> = core
-					.execute_query(query)
-					.await
-					.map_err(|e| format!("Failed to execute libraries.list query: {}", e))?;
-
-				// Serialize result to JSON
-				serde_json::to_value(result)
-					.map_err(|e| format!("Failed to serialize libraries.list result: {}", e))
-			}
-
-			"query:jobs.list.v1" => {
-				// Handle jobs.list query
-				use crate::ops::jobs::list::{output::JobListOutput, query::JobListQuery};
-
-				// Deserialize JSON payload to query type
-				let query: JobListQuery = serde_json::from_value(json_payload)
-					.map_err(|e| format!("Failed to deserialize jobs.list query: {}", e))?;
-
-				// Execute the query using the CQRS interface
-				let result: JobListOutput = core
-					.execute_query(query)
-					.await
-					.map_err(|e| format!("Failed to execute jobs.list query: {}", e))?;
-
-				// Serialize result to JSON
-				serde_json::to_value(result)
-					.map_err(|e| format!("Failed to serialize jobs.list result: {}", e))
-			}
-
-			_ => Err(format!("JSON API not implemented for method: {}", method)),
+		// Try library queries first
+		if let Some(handler) = crate::ops::registry::LIBRARY_QUERIES.get(method) {
+			let library_id =
+				library_id.ok_or_else(|| "Library ID required for library query".to_string())?;
+			let session = base_session.with_library(library_id);
+			return handler(core.context.clone(), session, json_payload).await;
 		}
+
+		// Try core queries
+		if let Some(handler) = crate::ops::registry::CORE_QUERIES.get(method) {
+			return handler(core.context.clone(), base_session, json_payload).await;
+		}
+
+		// Try library actions
+		if let Some(handler) = crate::ops::registry::LIBRARY_ACTIONS.get(method) {
+			let library_id =
+				library_id.ok_or_else(|| "Library ID required for library action".to_string())?;
+			return handler(core.context.clone(), library_id, json_payload).await;
+		}
+
+		// Try core actions
+		if let Some(handler) = crate::ops::registry::CORE_ACTIONS.get(method) {
+			return handler(core.context.clone(), json_payload).await;
+		}
+
+		Err(format!("Unknown method: {}", method))
 	}
 
 	/// Check if an event should be forwarded to a connection based on filters
@@ -431,31 +416,25 @@ impl RpcServer {
 		match request {
 			DaemonRequest::Ping => DaemonResponse::Pong,
 
-			DaemonRequest::Action { method, payload } => {
-				match core.execute_operation_by_method(&method, payload).await {
-					Ok(out) => DaemonResponse::Ok(out),
-					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
-				}
-			}
-
-			DaemonRequest::Query { method, payload } => {
-				match core.execute_operation_by_method(&method, payload).await {
-					Ok(out) => DaemonResponse::Ok(out),
-					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
-				}
-			}
-
-			DaemonRequest::JsonAction { method, payload } => {
+			DaemonRequest::Action {
+				method,
+				library_id,
+				payload,
+			} => {
 				// Handle JSON actions with direct JSON-to-JSON processing
-				match Self::execute_json_operation(&method, payload, core).await {
+				match Self::execute_json_operation(&method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
 				}
 			}
 
-			DaemonRequest::JsonQuery { method, payload } => {
+			DaemonRequest::Query {
+				method,
+				library_id,
+				payload,
+			} => {
 				// Handle JSON queries with direct JSON-to-JSON processing
-				match Self::execute_json_operation(&method, payload, core).await {
+				match Self::execute_json_operation(&method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
 				}

@@ -7,10 +7,13 @@ use specta::Type;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LocationsListQueryInput;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationsListQuery;
 
 impl LibraryQuery for LocationsListQuery {
-	type Input = ();
+	type Input = LocationsListQueryInput;
 	type Output = LocationsListOutput;
 
 	fn from_input(input: Self::Input) -> anyhow::Result<Self> {
@@ -20,8 +23,11 @@ impl LibraryQuery for LocationsListQuery {
 	async fn execute(
 		self,
 		context: Arc<CoreContext>,
-		library_id: uuid::Uuid,
+		session: crate::infra::api::SessionContext,
 	) -> Result<Self::Output> {
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| anyhow::anyhow!("No library selected"))?;
 		// Fetch library and query locations table
 		let library = context
 			.libraries()

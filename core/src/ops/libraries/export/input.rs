@@ -1,11 +1,12 @@
 //! Input types for library export operations
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Input for exporting a library
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryExportInput {
 	pub library_id: Uuid,
 	pub export_path: PathBuf,

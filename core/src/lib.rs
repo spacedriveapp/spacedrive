@@ -34,6 +34,7 @@ use crate::{
 	device::DeviceManager,
 	infra::{
 		action::{builder::ActionBuilder, manager::ActionManager, CoreAction, LibraryAction},
+		api::ApiDispatcher,
 		event::{Event, EventBus},
 	},
 	library::LibraryManager,
@@ -49,6 +50,7 @@ use crate::{
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info};
+use uuid::Uuid;
 
 /// Pending pairing request information
 #[derive(Debug, Clone)]
@@ -140,6 +142,9 @@ pub struct Core {
 
 	/// Shared context for core components
 	pub context: Arc<CoreContext>,
+
+	/// Unified API dispatcher for enhanced operations
+	api_dispatcher: ApiDispatcher,
 }
 
 impl Core {
@@ -277,7 +282,10 @@ impl Core {
 		// 13. Set up log event emitter
 		setup_log_event_emitter(events.clone());
 
-		// 14. Emit startup event
+		// 14. Initialize API dispatcher
+		let api_dispatcher = ApiDispatcher::new(context.clone());
+
+		// 15. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -288,6 +296,7 @@ impl Core {
 			events,
 			services,
 			context,
+			api_dispatcher,
 		})
 	}
 
@@ -420,72 +429,12 @@ impl Core {
 		self.services.networking()
 	}
 
-	/// Get list of connected devices
-	pub async fn get_connected_devices(
-		&self,
-	) -> Result<Vec<uuid::Uuid>, Box<dyn std::error::Error>> {
-		Ok(self.services.device.get_connected_devices().await?)
-	}
-
-	/// Get detailed information about connected devices
-	pub async fn get_connected_devices_info(
-		&self,
-	) -> Result<Vec<service::network::DeviceInfo>, Box<dyn std::error::Error>> {
-		Ok(self.services.device.get_connected_devices_info().await?)
-	}
-
-	/// Add a location to the file system watcher
-	pub async fn add_watched_location(
-		&self,
-		location_id: uuid::Uuid,
-		library_id: uuid::Uuid,
-		path: std::path::PathBuf,
-		enabled: bool,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		use crate::service::watcher::WatchedLocation;
-
-		let watched_location = WatchedLocation {
-			id: location_id,
-			library_id,
-			path,
-			enabled,
-		};
-
-		Ok(self
-			.services
-			.location_watcher
-			.add_location(watched_location)
-			.await?)
-	}
-
-	/// Remove a location from the file system watcher
-	pub async fn remove_watched_location(
-		&self,
-		location_id: uuid::Uuid,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		Ok(self
-			.services
-			.location_watcher
-			.remove_location(location_id)
-			.await?)
-	}
-
-	/// Update file watching settings for a location
-	pub async fn update_watched_location(
-		&self,
-		location_id: uuid::Uuid,
-		enabled: bool,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		Ok(self
-			.services
-			.location_watcher
-			.update_location(location_id, enabled)
-			.await?)
-	}
-
-	/// Get all currently watched locations
-	pub async fn get_watched_locations(&self) -> Vec<crate::service::watcher::WatchedLocation> {
-		self.services.location_watcher.get_watched_locations().await
+	/// Get the unified API dispatcher
+	///
+	/// This is the main entry point for enhanced operations with session context,
+	/// permissions, and audit trails. Prefer this over direct registry access.
+	pub fn api(&self) -> &ApiDispatcher {
+		&self.api_dispatcher
 	}
 
 	/// Execute a query using the CQRS API.
@@ -495,51 +444,6 @@ impl Core {
 	pub async fn execute_query<Q: Query>(&self, query: Q) -> anyhow::Result<Q::Output> {
 		let query_manager = QueryManager::new(self.context.clone());
 		query_manager.dispatch(query).await
-	}
-
-	/// Pass-through dispatcher by method string for daemon decoupling.
-	pub async fn execute_query_by_method(
-		&self,
-		method: &str,
-		payload: Vec<u8>,
-	) -> Result<Vec<u8>, String> {
-		if let Some(handler) = crate::ops::registry::QUERIES.get(method) {
-			return handler(Arc::new((*self).clone()), payload).await;
-		}
-		Err("Unknown query method".into())
-	}
-
-	/// Pass-through dispatcher by method string for actions.
-	pub async fn execute_action_by_method(
-		&self,
-		method: &str,
-		payload: Vec<u8>,
-		session: crate::service::session::SessionState,
-	) -> Result<Vec<u8>, String> {
-		if let Some(handler) = crate::ops::registry::ACTIONS.get(method) {
-			return handler(Arc::new((*self).clone()), session, payload).await;
-		}
-		Err("Unknown action method".into())
-	}
-
-	/// Unified dispatcher by method string for both actions and queries.
-	pub async fn execute_operation_by_method(
-		&self,
-		method: &str,
-		payload: Vec<u8>,
-	) -> Result<Vec<u8>, String> {
-		// Try actions first (they return empty bytes on success)
-		if let Some(handler) = crate::ops::registry::ACTIONS.get(method) {
-			let default_session = crate::service::session::SessionState::default();
-			return handler(Arc::new((*self).clone()), default_session, payload).await;
-		}
-
-		// Try queries next (they return serialized output)
-		if let Some(handler) = crate::ops::registry::QUERIES.get(method) {
-			return handler(Arc::new((*self).clone()), payload).await;
-		}
-
-		Err(format!("Unknown operation method: {}", method))
 	}
 
 	/// Shutdown the core gracefully

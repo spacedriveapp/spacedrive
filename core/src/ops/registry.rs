@@ -9,50 +9,99 @@ use futures::future::{FutureExt, LocalBoxFuture};
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use std::{collections::HashMap, sync::Arc};
+use uuid::Uuid;
 
-/// Handler function signature for queries.
-pub type QueryHandlerFn = fn(
-	Arc<crate::Core>,
-	Vec<u8>,
+/// Handler function signature for library queries.
+pub type LibraryQueryHandlerFn = fn(
+	Arc<crate::context::CoreContext>,
+	crate::infra::api::SessionContext, // session with library context
+	serde_json::Value,                 // payload with Q::Input as JSON
 ) -> std::pin::Pin<
-	Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>,
+	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
 >;
 
-/// Handler function signature for actions.
-pub type ActionHandlerFn = fn(
-	Arc<crate::Core>,
-	crate::service::session::SessionState,
-	Vec<u8>,
+/// Handler function signature for core queries.
+pub type CoreQueryHandlerFn = fn(
+	Arc<crate::context::CoreContext>,
+	crate::infra::api::SessionContext, // session context
+	serde_json::Value,                 // payload with Q::Input as JSON
 ) -> std::pin::Pin<
-	Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>,
+	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
 >;
 
-/// Registry entry for a query operation.
-pub struct QueryEntry {
+/// Handler function signature for library actions.
+pub type LibraryActionHandlerFn = fn(
+	Arc<crate::context::CoreContext>,
+	Uuid,              // library_id passed separately
+	serde_json::Value, // payload with A::Input as JSON
+) -> std::pin::Pin<
+	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
+>;
+
+/// Handler function signature for core actions.
+pub type CoreActionHandlerFn = fn(
+	Arc<crate::context::CoreContext>,
+	serde_json::Value, // payload with A::Input as JSON
+) -> std::pin::Pin<
+	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
+>;
+
+/// Registry entry for a library query operation.
+pub struct LibraryQueryEntry {
 	pub method: &'static str,
-	pub handler: QueryHandlerFn,
+	pub handler: LibraryQueryHandlerFn,
 }
 
-/// Registry entry for an action operation.
-pub struct ActionEntry {
+/// Registry entry for a core query operation.
+pub struct CoreQueryEntry {
 	pub method: &'static str,
-	pub handler: ActionHandlerFn,
+	pub handler: CoreQueryHandlerFn,
 }
 
-inventory::collect!(QueryEntry);
-inventory::collect!(ActionEntry);
+/// Registry entry for a library action operation.
+pub struct LibraryActionEntry {
+	pub method: &'static str,
+	pub handler: LibraryActionHandlerFn,
+}
 
-pub static QUERIES: Lazy<HashMap<&'static str, QueryHandlerFn>> = Lazy::new(|| {
+/// Registry entry for a core action operation.
+pub struct CoreActionEntry {
+	pub method: &'static str,
+	pub handler: CoreActionHandlerFn,
+}
+
+inventory::collect!(LibraryQueryEntry);
+inventory::collect!(CoreQueryEntry);
+inventory::collect!(LibraryActionEntry);
+inventory::collect!(CoreActionEntry);
+
+pub static LIBRARY_QUERIES: Lazy<HashMap<&'static str, LibraryQueryHandlerFn>> = Lazy::new(|| {
 	let mut map = HashMap::new();
-	for entry in inventory::iter::<QueryEntry>() {
+	for entry in inventory::iter::<LibraryQueryEntry>() {
 		map.insert(entry.method, entry.handler);
 	}
 	map
 });
 
-pub static ACTIONS: Lazy<HashMap<&'static str, ActionHandlerFn>> = Lazy::new(|| {
+pub static CORE_QUERIES: Lazy<HashMap<&'static str, CoreQueryHandlerFn>> = Lazy::new(|| {
 	let mut map = HashMap::new();
-	for entry in inventory::iter::<ActionEntry>() {
+	for entry in inventory::iter::<CoreQueryEntry>() {
+		map.insert(entry.method, entry.handler);
+	}
+	map
+});
+
+pub static LIBRARY_ACTIONS: Lazy<HashMap<&'static str, LibraryActionHandlerFn>> = Lazy::new(|| {
+	let mut map = HashMap::new();
+	for entry in inventory::iter::<LibraryActionEntry>() {
+		map.insert(entry.method, entry.handler);
+	}
+	map
+});
+
+pub static CORE_ACTIONS: Lazy<HashMap<&'static str, CoreActionHandlerFn>> = Lazy::new(|| {
+	let mut map = HashMap::new();
+	for entry in inventory::iter::<CoreActionEntry>() {
 		map.insert(entry.method, entry.handler);
 	}
 	map
@@ -64,141 +113,172 @@ mod tests {
 	fn list_registered_ops() {
 		// Collect and display registered actions
 		let mut action_methods: Vec<&'static str> =
-			crate::ops::registry::ACTIONS.keys().cloned().collect();
+			crate::ops::registry::CORE_ACTIONS.keys().cloned().collect();
 		action_methods.sort();
 		println!("Registered actions ({}):", action_methods.len());
 		for method in &action_methods {
 			println!("  {}", method);
 		}
 
+		let mut library_action_methods: Vec<&'static str> = crate::ops::registry::LIBRARY_ACTIONS
+			.keys()
+			.cloned()
+			.collect();
+		library_action_methods.sort();
+		println!(
+			"Registered library actions ({}):",
+			library_action_methods.len()
+		);
+		for method in &library_action_methods {
+			println!("  {}", method);
+		}
+
 		// Collect and display registered queries
 		let mut query_methods: Vec<&'static str> =
-			crate::ops::registry::QUERIES.keys().cloned().collect();
+			crate::ops::registry::CORE_QUERIES.keys().cloned().collect();
 		query_methods.sort();
 		println!("Registered queries ({}):", query_methods.len());
 		for method in &query_methods {
 			println!("  {}", method);
 		}
 
+		let mut library_query_methods: Vec<&'static str> = crate::ops::registry::LIBRARY_QUERIES
+			.keys()
+			.cloned()
+			.collect();
+		library_query_methods.sort();
+		println!(
+			"Registered library queries ({}):",
+			library_query_methods.len()
+		);
+		for method in &library_query_methods {
+			println!("  {}", method);
+		}
+
 		// Ensure we have at least one action or query registered
 		assert!(
-			!action_methods.is_empty() || !query_methods.is_empty(),
+			!action_methods.is_empty()
+				|| !query_methods.is_empty()
+				|| !library_action_methods.is_empty()
+				|| !library_query_methods.is_empty(),
 			"No actions or queries registered"
 		);
 	}
 }
 
-/// Generic library query handler (decode Q::Input -> Q::from_input -> execute)
-pub fn handle_library_query<Q>(
-	core: Arc<crate::Core>,
-	payload: Vec<u8>,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
-where
-	Q: crate::cqrs::LibraryQuery + 'static,
-	Q::Input: DeserializeOwned + 'static,
-	Q::Output: serde::Serialize + 'static,
-{
-	use bincode::config::standard;
-	use bincode::serde::{decode_from_slice, encode_to_vec};
-	Box::pin(async move {
-		let input: Q::Input = decode_from_slice(&payload, standard())
-			.map_err(|e| e.to_string())?
-			.0;
-		let query = Q::from_input(input).map_err(|e| e.to_string())?;
+// /// Library query handler (decode Q::Input -> Q::from_input -> execute with session)
+// pub fn handle_library_query<Q>(
+// 	context: Arc<crate::context::CoreContext>,
+// 	session: crate::infra::api::SessionContext, // Session with library context
+// 	payload: Vec<u8>,                           // Payload contains Q::Input
+// ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
+// where
+// 	Q: crate::cqrs::LibraryQuery + 'static,
+// 	Q::Input: DeserializeOwned + 'static,
+// 	Q::Output: serde::Serialize + 'static,
+// {
+// 	use bincode::config::standard;
+// 	use bincode::serde::{decode_from_slice, encode_to_vec};
+// 	Box::pin(async move {
+// 		let input: Q::Input = decode_from_slice(&payload, standard())
+// 			.map_err(|e| e.to_string())?
+// 			.0;
+// 		let query = Q::from_input(input).map_err(|e| e.to_string())?;
 
-		// Get current library from session
-		let session = core.context.session.get().await;
-		let library_id = session.current_library_id.ok_or("No library selected")?;
+// 		let out = query
+// 			.execute(context.clone(), session)
+// 			.await
+// 			.map_err(|e| e.to_string())?;
+// 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
+// 	})
+// }
 
-		let out = query
-			.execute(core.context.clone(), library_id)
-			.await
-			.map_err(|e| e.to_string())?;
-		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
-	})
-}
+// /// Core query handler (decode Q::Input -> Q::from_input -> execute with session)
+// pub fn handle_core_query<Q>(
+// 	context: Arc<crate::context::CoreContext>,
+// 	session: crate::infra::api::SessionContext, // Session context
+// 	payload: Vec<u8>,                           // Payload contains Q::Input
+// ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
+// where
+// 	Q: crate::cqrs::CoreQuery + 'static,
+// 	Q::Input: DeserializeOwned + 'static,
+// 	Q::Output: serde::Serialize + 'static,
+// {
+// 	use bincode::config::standard;
+// 	use bincode::serde::{decode_from_slice, encode_to_vec};
+// 	Box::pin(async move {
+// 		let input: Q::Input = decode_from_slice(&payload, standard())
+// 			.map_err(|e| e.to_string())?
+// 			.0;
+// 		let query = Q::from_input(input).map_err(|e| e.to_string())?;
 
-/// Generic core query handler (decode Q::Input -> Q::from_input -> execute)
-pub fn handle_core_query<Q>(
-	core: Arc<crate::Core>,
-	payload: Vec<u8>,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
-where
-	Q: crate::cqrs::CoreQuery + 'static,
-	Q::Input: DeserializeOwned + 'static,
-	Q::Output: serde::Serialize + 'static,
-{
-	use bincode::config::standard;
-	use bincode::serde::{decode_from_slice, encode_to_vec};
-	Box::pin(async move {
-		let input: Q::Input = decode_from_slice(&payload, standard())
-			.map_err(|e| e.to_string())?
-			.0;
-		let query = Q::from_input(input).map_err(|e| e.to_string())?;
-		let out = query
-			.execute(core.context.clone())
-			.await
-			.map_err(|e| e.to_string())?;
-		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
-	})
-}
+// 		let out = query
+// 			.execute(context.clone(), session)
+// 			.await
+// 			.map_err(|e| e.to_string())?;
+// 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
+// 	})
+// }
 
-/// Generic library action handler (decode A::Input -> A::from_input -> dispatch)
-pub fn handle_library_action<A>(
-	core: Arc<crate::Core>,
-	// this isn't used, but is required by the interface, maybe fix?
-	session: crate::service::session::SessionState,
-	payload: Vec<u8>,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
-where
-	A: crate::infra::action::LibraryAction + 'static,
-	A::Input: DeserializeOwned + 'static,
-	A::Output: serde::Serialize + 'static,
-{
-	use bincode::config::standard;
-	use bincode::serde::{decode_from_slice, encode_to_vec};
-	Box::pin(async move {
-		let input: A::Input = decode_from_slice(&payload, standard())
-			.map_err(|e| e.to_string())?
-			.0;
-		let action = A::from_input(input)?;
-		let manager = crate::infra::action::manager::ActionManager::new(core.context.clone());
-		let session = core.context.session.get().await;
-		let library_id = session.current_library_id.ok_or("No library selected")?;
-		let out = manager
-			.dispatch_library(Some(library_id), action)
-			.await
-			.map_err(|e| e.to_string())?;
-		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
-	})
-}
+// /// Library action handler (decode A::Input -> A::from_input -> execute with library_id)
+// pub fn handle_library_action<A>(
+// 	context: Arc<crate::context::CoreContext>,
+// 	library_id: Uuid, // Client provides library_id
+// 	payload: Vec<u8>, // Payload contains A::Input (no library_id)
+// ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
+// where
+// 	A: crate::infra::action::LibraryAction + 'static,
+// 	A::Input: DeserializeOwned + 'static,
+// 	A::Output: serde::Serialize + 'static,
+// {
+// 	use bincode::config::standard;
+// 	use bincode::serde::{decode_from_slice, encode_to_vec};
+// 	Box::pin(async move {
+// 		let input: A::Input = decode_from_slice(&payload, standard())
+// 			.map_err(|e| e.to_string())?
+// 			.0;
+// 		let action = A::from_input(input).map_err(|e| e.to_string())?;
 
-/// Generic core action handler (decode A::Input -> A::from_input -> dispatch)
-pub fn handle_core_action<A>(
-	core: Arc<crate::Core>,
-	session: crate::service::session::SessionState,
-	payload: Vec<u8>,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
-where
-	A: crate::infra::action::CoreAction + 'static,
-	A::Input: DeserializeOwned + 'static,
-	A::Output: serde::Serialize + 'static,
-{
-	use bincode::config::standard;
-	use bincode::serde::{decode_from_slice, encode_to_vec};
-	Box::pin(async move {
-		let input: A::Input = decode_from_slice(&payload, standard())
-			.map_err(|e| e.to_string())?
-			.0;
-		let action = A::from_input(input)?;
-		let manager = crate::infra::action::manager::ActionManager::new(core.context.clone());
-		let out = manager
-			.dispatch_core(action)
-			.await
-			.map_err(|e| e.to_string())?;
-		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
-	})
-}
+// 		// Get the library object
+// 		let library = context
+// 			.libraries()
+// 			.await
+// 			.get_library(library_id)
+// 			.await
+// 			.ok_or_else(|| "Library not found".to_string())?;
+
+// 		let out = action
+// 			.execute(library, context.clone())
+// 			.await
+// 			.map_err(|e| e.to_string())?;
+// 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
+// 	})
+// }
+
+// /// Core action handler (decode A::Input -> A::from_input -> execute)
+// pub fn handle_core_action<A>(
+// 	context: Arc<crate::context::CoreContext>,
+// 	payload: Vec<u8>, // Payload contains A::Input
+// ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, String>> + Send + 'static>>
+// where
+// 	A: crate::infra::action::CoreAction + 'static,
+// 	A::Input: DeserializeOwned + 'static,
+// 	A::Output: serde::Serialize + 'static,
+// {
+// 	use bincode::config::standard;
+// 	use bincode::serde::{decode_from_slice, encode_to_vec};
+// 	Box::pin(async move {
+// 		let input: A::Input = decode_from_slice(&payload, standard())
+// 			.map_err(|e| e.to_string())?
+// 			.0;
+// 		let action = A::from_input(input).map_err(|e| e.to_string())?;
+// 		let out = action
+// 			.execute(context.clone())
+// 			.await
+// 			.map_err(|e| e.to_string())?;
+// 		encode_to_vec(&out, standard()).map_err(|e| e.to_string())
+// 	})
+// }
 
 /// Helper: construct action method string from a short name like "files.copy"
 #[macro_export]
@@ -225,9 +305,9 @@ macro_rules! register_library_query {
 			const METHOD: &'static str = $crate::query_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::QueryEntry {
+			$crate::ops::registry::LibraryQueryEntry {
 				method: <<$query as $crate::cqrs::LibraryQuery>::Input as $crate::client::Wire>::METHOD,
-				handler: $crate::ops::registry::handle_library_query::<$query>,
+				handler: $crate::infra::api::dispatcher::ApiDispatcher::handle_library_query_json::<$query>,
 			}
 		}
 
@@ -264,9 +344,9 @@ macro_rules! register_core_query {
 			const METHOD: &'static str = $crate::query_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::QueryEntry {
+			$crate::ops::registry::CoreQueryEntry {
 				method: <<$query as $crate::cqrs::CoreQuery>::Input as $crate::client::Wire>::METHOD,
-				handler: $crate::ops::registry::handle_core_query::<$query>,
+				handler: $crate::infra::api::dispatcher::ApiDispatcher::handle_core_query_json::<$query>,
 			}
 		}
 
@@ -299,13 +379,13 @@ macro_rules! register_core_query {
 #[macro_export]
 macro_rules! register_library_action {
 	($action:ty, $name:literal) => {
-		impl $crate::client::Wire for < $action as $crate::infra::action::LibraryAction >::Input {
+		impl $crate::client::Wire for <$action as $crate::infra::action::LibraryAction>::Input {
 			const METHOD: &'static str = $crate::action_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::ActionEntry {
-				method: << $action as $crate::infra::action::LibraryAction >::Input as $crate::client::Wire >::METHOD,
-				handler: $crate::ops::registry::handle_library_action::<$action>,
+			$crate::ops::registry::LibraryActionEntry {
+				method: <<$action as $crate::infra::action::LibraryAction>::Input as $crate::client::Wire>::METHOD,
+				handler: $crate::infra::api::dispatcher::ApiDispatcher::handle_library_action_json::<$action>,
 			}
 		}
 
@@ -334,13 +414,13 @@ macro_rules! register_library_action {
 #[macro_export]
 macro_rules! register_core_action {
 	($action:ty, $name:literal) => {
-		impl $crate::client::Wire for < $action as $crate::infra::action::CoreAction >::Input {
+		impl $crate::client::Wire for <$action as $crate::infra::action::CoreAction>::Input {
 			const METHOD: &'static str = $crate::action_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::ActionEntry {
-				method: << $action as $crate::infra::action::CoreAction >::Input as $crate::client::Wire >::METHOD,
-				handler: $crate::ops::registry::handle_core_action::<$action>,
+			$crate::ops::registry::CoreActionEntry {
+				method: <<$action as $crate::infra::action::CoreAction>::Input as $crate::client::Wire>::METHOD,
+				handler: $crate::infra::api::dispatcher::ApiDispatcher::handle_core_action_json::<$action>,
 			}
 		}
 

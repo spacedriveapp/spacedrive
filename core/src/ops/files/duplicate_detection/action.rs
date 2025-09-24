@@ -43,7 +43,7 @@ impl DuplicateDetectionHandler {
 // Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for DuplicateDetectionAction {
 	type Input = DuplicateDetectionInput;
-	type Output = JobHandle;
+	type Output = crate::infra::job::handle::JobReceipt;
 
 	fn from_input(i: Self::Input) -> Result<Self, String> {
 		let sd_paths = i
@@ -82,7 +82,7 @@ impl LibraryAction for DuplicateDetectionAction {
 			.await
 			.map_err(ActionError::Job)?;
 
-		Ok(job_handle)
+		Ok(job_handle.into())
 	}
 
 	fn action_kind(&self) -> &'static str {

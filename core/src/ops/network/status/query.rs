@@ -3,20 +3,25 @@
 use super::output::NetworkStatus;
 use crate::{context::CoreContext, cqrs::CoreQuery};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct NetworkStatusQueryInput;
 
 #[derive(Debug, Clone)]
 pub struct NetworkStatusQuery;
 
 impl CoreQuery for NetworkStatusQuery {
-	type Input = ();
+	type Input = NetworkStatusQueryInput;
 	type Output = NetworkStatus;
 
 	fn from_input(input: Self::Input) -> Result<Self> {
 		Ok(Self)
 	}
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		let networking = context.get_networking().await;
 		if let Some(net) = networking {
 			let node_id = net.node_id().to_string();

@@ -3,23 +3,30 @@
 use super::output::LibraryInfoOutput;
 use crate::{context::CoreContext, cqrs::LibraryQuery};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// Input for library info query
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LibraryInfoQueryInput;
 
 /// Query to get detailed information about a specific library
 #[derive(Debug, Clone)]
 pub struct LibraryInfoQuery;
 
 impl LibraryQuery for LibraryInfoQuery {
-	type Input = ();
+	type Input = LibraryInfoQueryInput;
 	type Output = LibraryInfoOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self> {
 		Ok(Self)
 	}
 
-	async fn execute(self, context: Arc<CoreContext>, library_id: Uuid) -> Result<Self::Output> {
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		// Get the specific library from the library manager
+		let library_id = session.current_library_id.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
 		let library = context
 			.libraries()
 			.await

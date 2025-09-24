@@ -2,9 +2,10 @@
 
 use crate::volume::VolumeFingerprint;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// Output from volume speed test operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeSpeedTestOutput {
 	/// The fingerprint of the tested volume
 	pub fingerprint: VolumeFingerprint,

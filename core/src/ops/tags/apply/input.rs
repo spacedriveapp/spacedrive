@@ -2,10 +2,11 @@
 
 use crate::domain::tag::TagSource;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ApplyTagsInput {
     /// Entry IDs to apply tags to
     pub entry_ids: Vec<i32>,

@@ -49,6 +49,7 @@ specta = { path = "../../specta/specta", features = [
 	"derive",
 	"export",
 	"serde",
+	"serde_json",
 	"uuid"
 ] }
 specta-serde = { path = "../../specta/specta-serde" }
