@@ -226,7 +226,8 @@ impl RpcServer {
 		if let Some(handler) = crate::ops::registry::LIBRARY_ACTIONS.get(method) {
 			let library_id =
 				library_id.ok_or_else(|| "Library ID required for library action".to_string())?;
-			return handler(core.context.clone(), library_id, json_payload).await;
+			let session = base_session.with_library(library_id);
+			return handler(core.context.clone(), session, json_payload).await;
 		}
 
 		// Try core actions
