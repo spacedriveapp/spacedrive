@@ -266,7 +266,7 @@ impl FileCopyAction {
 // Legacy handler removed; action is registered via the new action-centric registry
 
 impl LibraryAction for FileCopyAction {
-	type Output = JobHandle;
+	type Output = crate::infra::job::handle::JobReceipt;
 	type Input = FileCopyInput;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
@@ -308,7 +308,7 @@ impl LibraryAction for FileCopyAction {
 			.await
 			.map_err(ActionError::Job)?;
 
-		Ok(job_handle)
+		Ok(job_handle.into())
 	}
 
 	fn action_kind(&self) -> &'static str {

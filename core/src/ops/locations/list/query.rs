@@ -1,22 +1,33 @@
 use super::output::{LocationInfo, LocationsListOutput};
-use crate::{context::CoreContext, cqrs::Query};
+use crate::{context::CoreContext, cqrs::LibraryQuery};
 use anyhow::Result;
 use sea_orm::EntityTrait;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct LocationsListQuery {}
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LocationsListQueryInput;
 
-impl Query for LocationsListQuery {
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LocationsListQuery;
+
+impl LibraryQuery for LocationsListQuery {
+	type Input = LocationsListQueryInput;
 	type Output = LocationsListOutput;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
-		// Get current library ID from session
-		let session_state = context.session.get().await;
-		let library_id = session_state
-			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No active library selected"))?;
+	fn from_input(input: Self::Input) -> anyhow::Result<Self> {
+		Ok(Self {})
+	}
 
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| anyhow::anyhow!("No library selected"))?;
 		// Fetch library and query locations table
 		let library = context
 			.libraries()
@@ -40,4 +51,4 @@ impl Query for LocationsListQuery {
 	}
 }
 
-crate::register_query!(LocationsListQuery, "locations.list");
+crate::register_library_query!(LocationsListQuery, "locations.list");

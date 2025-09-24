@@ -53,7 +53,7 @@ impl crate::infra::action::builder::ActionBuilder for IndexingActionBuilder {
 
 impl LibraryAction for IndexingAction {
 	type Input = IndexInput;
-	type Output = JobHandle;
+	type Output = crate::infra::job::handle::JobReceipt;
 
 	fn from_input(input: IndexInput) -> Result<Self, String> {
 		Ok(IndexingAction::new(input))
@@ -116,10 +116,12 @@ impl LibraryAction for IndexingAction {
 			last_handle = Some(handle);
 		}
 
-		last_handle.ok_or(ActionError::Validation {
-			field: "paths".to_string(),
-			message: "No paths provided".to_string(),
-		})
+		last_handle
+			.ok_or(ActionError::Validation {
+				field: "paths".to_string(),
+				message: "No paths provided".to_string(),
+			})
+			.map(|handle| handle.into())
 	}
 
 	fn action_kind(&self) -> &'static str {

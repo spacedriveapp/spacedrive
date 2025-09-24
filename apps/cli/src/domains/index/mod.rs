@@ -30,7 +30,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				id
 			} else {
 				let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> =
-					execute_query!(ctx, ListLibrariesQuery::basic());
+					execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
 				match libs.len() {
 					0 => anyhow::bail!("No libraries found; specify --library after creating one"),
 					1 => libs[0].id,
@@ -49,7 +49,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			});
 		}
 		IndexCmd::QuickScan(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, ListLibrariesQuery::basic());
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
 			let library_id = match libs.len() {
 				1 => libs[0].id,
 				_ => {
@@ -64,7 +64,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			});
 		}
 		IndexCmd::Browse(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_query!(ctx, ListLibrariesQuery::basic());
+            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
 			let library_id = match libs.len() {
 				1 => libs[0].id,
 				_ => anyhow::bail!("Specify --library for browse when multiple libraries exist"),

@@ -2,9 +2,10 @@
 
 use crate::volume::VolumeFingerprint;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
 /// Output from volume track operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeTrackOutput {
 	/// The fingerprint of the tracked volume
 	pub fingerprint: VolumeFingerprint,

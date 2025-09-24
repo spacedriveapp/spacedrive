@@ -1,10 +1,11 @@
 //! Input types for library deletion operations
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 /// Input for deleting a library
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryDeleteInput {
 	/// ID of the library to delete
 	pub library_id: Uuid,

@@ -6,7 +6,7 @@ use specta::Type;
 use uuid::Uuid;
 
 /// Library configuration stored in library.json
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryConfig {
 	/// Version of the configuration format
 	pub version: u32,
@@ -34,7 +34,7 @@ pub struct LibraryConfig {
 }
 
 /// Library-specific settings
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibrarySettings {
 	/// Whether to generate thumbnails for media files
 	pub generate_thumbnails: bool,
@@ -107,7 +107,7 @@ impl Default for LibrarySettings {
 }
 
 /// Indexer settings controlling rule toggles
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexerSettings {
 	#[serde(default = "IndexerSettings::default_true")]
 	pub no_system_files: bool,

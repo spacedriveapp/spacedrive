@@ -16,10 +16,11 @@ use async_trait::async_trait;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use specta::Type;
 use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationAddInput {
 	pub path: PathBuf,
 	pub name: Option<String>,

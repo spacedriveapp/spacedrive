@@ -1,19 +1,30 @@
 //! Core status query (modular)
 
 use super::output::*;
-use crate::{context::CoreContext, cqrs::Query, service::Service};
+use crate::{
+	context::CoreContext,
+	cqrs::{CoreQuery, Query},
+	service::Service,
+};
 use anyhow::Result;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CoreStatusQuery;
 
-impl Query for CoreStatusQuery {
+impl CoreQuery for CoreStatusQuery {
+	type Input = ();
 	type Output = CoreStatus;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self)
+	}
+
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		// Get basic library information
 		let library_manager = context.libraries().await;
 		let libs = library_manager.list().await;
@@ -134,4 +145,4 @@ impl Query for CoreStatusQuery {
 	}
 }
 
-crate::register_query!(CoreStatusQuery, "core.status");
+crate::register_core_query!(CoreStatusQuery, "core.status");

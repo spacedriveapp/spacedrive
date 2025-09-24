@@ -1,25 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-/// Action/Query envelopes for client-agnostic RPC
+/// Action/Query envelopes for JSON-based RPC
 #[derive(Debug, Serialize, Deserialize)]
 pub enum DaemonRequest {
 	Ping,
 	Action {
 		method: String,
-		payload: Vec<u8>,
+		library_id: Option<uuid::Uuid>,
+		payload: serde_json::Value,
 	},
 	Query {
 		method: String,
-		payload: Vec<u8>,
-	},
-	/// JSON-based action for external clients (automatically converts to bincode)
-	JsonAction {
-		method: String,
-		payload: serde_json::Value,
-	},
-	/// JSON-based query for external clients (automatically converts to bincode)
-	JsonQuery {
-		method: String,
+		library_id: Option<uuid::Uuid>,
 		payload: serde_json::Value,
 	},
 	/// Subscribe to real-time events

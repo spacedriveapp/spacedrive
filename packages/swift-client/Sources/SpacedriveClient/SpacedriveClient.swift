@@ -8,101 +8,194 @@ import Darwin
 public class SpacedriveClient {
     private let socketPath: String
 
+    /// The currently active library ID
+    /// This is used for library-scoped operations
+    private var currentLibraryId: String?
+
+    /// Thread-safe access to current library ID
+    private let libraryIdQueue = DispatchQueue(label: "com.spacedrive.library-id", attributes: .concurrent)
+
     /// Initialize a new Spacedrive client
     /// - Parameter socketPath: Path to the Unix domain socket for the daemon
     public init(socketPath: String) {
         self.socketPath = socketPath
     }
 
-    // MARK: - Core API Methods
+    // MARK: - API Namespaces
 
-    /// Execute a query operation
-    /// - Parameters:
-    ///   - query: The query input (can be empty struct for parameterless queries)
-    ///   - method: The method identifier (e.g., "query:core.status.v1")
-    ///   - responseType: The expected response type
-    /// - Returns: The query result
-    public func executeQuery<Q: Codable, R: Codable>(
-        _ query: Q,
-        method: String,
-        responseType: R.Type
-    ) async throws -> R {
-        // 1. Encode input to JSON
-        let queryData: Data
-        do {
-            queryData = try JSONEncoder().encode(query)
-        } catch {
-            throw SpacedriveError.serializationError("Failed to encode query: \(error)")
-        }
+    /// Core API operations (device management, network, etc.)
+    public lazy var core = CoreAPI(client: self)
 
-        // 2. Create daemon request using JSON API
-        let jsonPayload = try JSONSerialization.jsonObject(with: queryData) as! [String: Any]
-        let request = DaemonRequest.jsonQuery(method: method, payload: jsonPayload)
+    /// Library management operations
+    public lazy var libraries = LibrariesAPI(client: self)
 
-        // 3. Send to daemon and get response
-        print("🔍 Executing query: \(method)")
-        let response = try await sendRequest(request)
-        print("🔍 Query response received: \(response)")
+    /// Job management operations
+    public lazy var jobs = JobsAPI(client: self)
 
-        // 4. Handle response
-        switch response {
-        case .jsonOk(let jsonData):
-            print("🔍 Query successful (JSON), decoding response")
-            do {
-                let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
-                return try JSONDecoder().decode(responseType, from: jsonResponseData)
-            } catch {
-                print("❌ JSON query decode error: \(error)")
-                throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
-            }
-        case .error(let error):
-            print("❌ Query daemon error: \(error)")
-            throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed:
-            print("❌ Query unexpected response: \(response)")
-            throw SpacedriveError.invalidResponse("Unexpected response to query")
+    /// Location management operations
+    public lazy var locations = LocationsAPI(client: self)
+
+    /// Media operations
+    public lazy var media = MediaAPI(client: self)
+
+    /// Network operations
+    public lazy var network = NetworkAPI(client: self)
+
+    /// Search operations
+    public lazy var search = SearchAPI(client: self)
+
+    /// Tag operations
+    public lazy var tags = TagsAPI(client: self)
+
+    /// Volume operations
+    public lazy var volumes = VolumesAPI(client: self)
+
+    // MARK: - Library Management
+
+    /// Get the currently active library ID
+    /// - Returns: The current library ID, or nil if no library is active
+    public func getCurrentLibraryId() -> String? {
+        return libraryIdQueue.sync { currentLibraryId }
+    }
+
+    /// Set the currently active library
+    /// - Parameter libraryId: The ID of the library to make active
+    public func setCurrentLibrary(_ libraryId: String) {
+        libraryIdQueue.async(flags: .barrier) {
+            self.currentLibraryId = libraryId
         }
     }
 
-    /// Execute an action operation
+    /// Clear the currently active library (set to nil)
+    public func clearCurrentLibrary() {
+        libraryIdQueue.async(flags: .barrier) {
+            self.currentLibraryId = nil
+        }
+    }
+
+    /// Switch to a library by ID
+    /// - Parameter libraryId: The ID of the library to switch to
+    /// - Throws: SpacedriveError if the library doesn't exist or can't be accessed
+    public func switchToLibrary(_ libraryId: String) async throws {
+        // Check if the library exists in the list (core-scoped query)
+        let libraries = try await getLibraries()
+        let libraryExists = libraries.contains { $0.id == libraryId }
+
+        if !libraryExists {
+            throw SpacedriveError.invalidResponse("Library with ID '\(libraryId)' not found")
+        }
+
+        // Set as current library
+        setCurrentLibrary(libraryId)
+    }
+
+    /// Switch to a library by name
+    /// - Parameter libraryName: The name of the library to switch to
+    /// - Throws: SpacedriveError if the library doesn't exist or multiple libraries have the same name
+    public func switchToLibrary(named libraryName: String) async throws {
+        let libraries = try await getLibraries()
+        let matchingLibraries = libraries.filter { $0.name == libraryName }
+
+        switch matchingLibraries.count {
+        case 0:
+            throw SpacedriveError.invalidResponse("No library found with name '\(libraryName)'")
+        case 1:
+            setCurrentLibrary(matchingLibraries[0].id)
+        default:
+            throw SpacedriveError.invalidResponse("Multiple libraries found with name '\(libraryName)'. Use switchToLibrary(id:) instead.")
+        }
+    }
+
+    /// Get information about the currently active library
+    /// - Returns: LibraryInfo for the current library, or nil if no library is active
+    /// - Throws: SpacedriveError if the library can't be accessed
+    public func getCurrentLibraryInfo() async throws -> LibraryInfo? {
+        guard let libraryId = getCurrentLibraryId() else {
+            return nil
+        }
+
+        let libraries = try await getLibraries()
+        return libraries.first { $0.id == libraryId }
+    }
+
+    /// Check if a library operation can be performed (requires current library)
+    /// - Throws: SpacedriveError if no library is currently active
+    private func requireCurrentLibrary() throws {
+        guard getCurrentLibraryId() != nil else {
+            throw SpacedriveError.invalidResponse("This operation requires an active library. Use switchToLibrary() or createAndSwitchToLibrary() first.")
+        }
+    }
+
+    /// Get the current library ID or throw an error if none is set
+    /// - Returns: The current library ID
+    /// - Throws: SpacedriveError if no library is currently active
+    private func getCurrentLibraryIdOrThrow() throws -> String {
+        guard let libraryId = getCurrentLibraryId() else {
+            throw SpacedriveError.invalidResponse("This operation requires an active library. Use switchToLibrary() or createAndSwitchToLibrary() first.")
+        }
+        return libraryId
+    }
+
+    // MARK: - Core API Methods
+
+    /// Internal method to execute both queries and actions
     /// - Parameters:
-    ///   - action: The action input
-    ///   - method: The method identifier (e.g., "action:libraries.create.input.v1")
+    ///   - requestPayload: The input payload (can be empty struct for parameterless operations)
+    ///   - method: The method identifier (e.g., "query:core.status.v1" or "action:libraries.create.input.v1")
     ///   - responseType: The expected response type
-    /// - Returns: The action result
-    public func executeAction<A: Codable, R: Codable>(
-        _ action: A,
+    ///   - libraryId: Optional library ID to override the current library (for library-scoped operations)
+    /// - Returns: The operation result
+    internal func execute<Request: Codable, Response: Codable>(
+        _ requestPayload: Request,
         method: String,
-        responseType: R.Type
-    ) async throws -> R {
+        responseType: Response.Type,
+        libraryId: String? = nil
+    ) async throws -> Response {
         // 1. Encode input to JSON
-        let actionData: Data
+        let requestData: Data
         do {
-            actionData = try JSONEncoder().encode(action)
+            requestData = try JSONEncoder().encode(requestPayload)
         } catch {
-            throw SpacedriveError.serializationError("Failed to encode action: \(error)")
+            throw SpacedriveError.serializationError("Failed to encode request: \(error)")
         }
 
         // 2. Create daemon request using JSON API
-        let jsonPayload = try JSONSerialization.jsonObject(with: actionData) as! [String: Any]
-        let request = DaemonRequest.jsonAction(method: method, payload: jsonPayload)
+        let jsonPayload = try JSONSerialization.jsonObject(with: requestData) as! [String: Any]
 
-        // 3. Send to daemon and get response
+        // 3. Determine request type from method prefix and include library ID if needed
+        let request: DaemonRequest
+        let effectiveLibraryId = libraryId ?? getCurrentLibraryId()
+
+        if method.hasPrefix("query:") {
+            request = DaemonRequest.query(method: method, libraryId: effectiveLibraryId, payload: jsonPayload)
+        } else if method.hasPrefix("action:") {
+            request = DaemonRequest.action(method: method, libraryId: effectiveLibraryId, payload: jsonPayload)
+        } else {
+            throw SpacedriveError.invalidResponse("Invalid method format: \(method)")
+        }
+
+        // 4. Send to daemon and get response
+        print("🔍 Executing \(method.hasPrefix("query:") ? "query" : "action"): \(method)")
         let response = try await sendRequest(request)
+        print("🔍 Response received: \(response)")
 
-        // 4. Handle response
+        // 5. Handle response
         switch response {
         case .jsonOk(let jsonData):
+            print("🔍 Operation successful (JSON), decoding response")
             do {
                 let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
                 return try JSONDecoder().decode(responseType, from: jsonResponseData)
             } catch {
+                print("❌ JSON decode error: \(error)")
                 throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
             }
         case .error(let error):
+            print("❌ Daemon error: \(error)")
             throw SpacedriveError.daemonError(error)
         case .pong, .event, .subscribed, .unsubscribed:
-            throw SpacedriveError.invalidResponse("Unexpected response to action")
+            print("❌ Unexpected response: \(response)")
+            throw SpacedriveError.invalidResponse("Unexpected response to operation")
         }
     }
 
@@ -213,15 +306,18 @@ public class SpacedriveClient {
         case .ping:
             requestData = Data("\"Ping\"".utf8)
 
-        case .jsonQuery(let method, let payload):
+        case .query(let method, let libraryId, let payload):
+            let libraryIdJson = libraryId.map { "\"library_id\":\"\($0)\"," } ?? ""
             let jsonString = """
-            {"JsonQuery":{"method":"\(method)","payload":\(try jsonStringFromDictionary(payload))}}
+            {"Query":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
             """
+            print("🔍 Sending query request: \(jsonString)")
             requestData = Data(jsonString.utf8)
 
-        case .jsonAction(let method, let payload):
+        case .action(let method, let libraryId, let payload):
+            let libraryIdJson = libraryId.map { "\"library_id\":\"\($0)\"," } ?? ""
             let jsonString = """
-            {"JsonAction":{"method":"\(method)","payload":\(try jsonStringFromDictionary(payload))}}
+            {"Action":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
             """
             requestData = Data(jsonString.utf8)
 
@@ -367,8 +463,8 @@ public class SpacedriveClient {
 /// Request types that match the Rust daemon protocol
 internal enum DaemonRequest {
     case ping
-    case jsonAction(method: String, payload: [String: Any])
-    case jsonQuery(method: String, payload: [String: Any])
+    case action(method: String, libraryId: String?, payload: [String: Any])
+    case query(method: String, libraryId: String?, payload: [String: Any])
     case subscribe(eventTypes: [String], filter: EventFilter?)
     case unsubscribe
     case shutdown
@@ -482,6 +578,13 @@ public enum SpacedriveError: Error, LocalizedError {
 /// Type alias for the generated Event type from types.swift
 public typealias SpacedriveEvent = Event
 
+/// Helper struct for requests with no parameters
+public struct Empty: Codable {}
+
+// MARK: - API Namespace Structs
+// These are automatically generated by the Rust build process
+// See SpacedriveAPI.swift for the actual implementations
+
 /// Helper for decoding Any values from JSON
 internal struct AnyCodable: Codable {
     let value: Any
@@ -520,11 +623,28 @@ extension SpacedriveClient {
     public func createLibrary(name: String, path: String? = nil) async throws -> LibraryCreateOutput {
         let input = LibraryCreateInput(name: name, path: path)
 
-        return try await executeAction(
+        return try await execute(
             input,
             method: "action:libraries.create.input.v1",
             responseType: LibraryCreateOutput.self
         )
+    }
+
+    /// Create a library and automatically set it as the current library
+    /// - Parameters:
+    ///   - name: The name of the library to create
+    ///   - path: Optional path for the library
+    ///   - setAsCurrent: Whether to automatically set the new library as current (default: true)
+    /// - Returns: The created library information
+    /// - Throws: SpacedriveError if creation fails
+    public func createAndSwitchToLibrary(name: String, path: String? = nil, setAsCurrent: Bool = true) async throws -> LibraryCreateOutput {
+        let result = try await createLibrary(name: name, path: path)
+
+        if setAsCurrent {
+            setCurrentLibrary(result.libraryId)
+        }
+
+        return result
     }
 
     /// Get list of libraries using generated types
@@ -535,7 +655,7 @@ extension SpacedriveClient {
 
         let query = LibraryListQuery(include_stats: includeStats)
 
-        return try await executeQuery(
+        return try await execute(
             query,
             method: "query:libraries.list.v1",
             responseType: [LibraryInfo].self
@@ -550,11 +670,47 @@ extension SpacedriveClient {
 
         let query = JobListQuery(status: nil) // TODO: Convert JobStatus to string
 
-        return try await executeQuery(
+        return try await execute(
             query,
             method: "query:jobs.list.v1",
             responseType: JobListOutput.self
         )
+    }
+
+    /// Get jobs for the current library
+    /// - Parameter status: Optional job status filter
+    /// - Returns: List of jobs for the current library
+    /// - Throws: SpacedriveError if no library is active or operation fails
+    public func getCurrentLibraryJobs(status: JobStatus? = nil) async throws -> JobListOutput {
+        let libraryId = try getCurrentLibraryIdOrThrow()
+
+        struct JobListQuery: Codable {
+            let status: String?
+        }
+
+        let query = JobListQuery(status: nil) // TODO: Convert JobStatus to string
+
+        return try await execute(
+            query,
+            method: "query:jobs.list.v1",
+            responseType: JobListOutput.self,
+            libraryId: libraryId
+        )
+    }
+
+    /// Get the current library status
+    /// - Returns: A string describing the current library state
+    public func getCurrentLibraryStatus() -> String {
+        guard let libraryId = getCurrentLibraryId() else {
+            return "No library is currently active"
+        }
+        return "Library '\(libraryId)' is currently active"
+    }
+
+    /// Check if a library is currently active
+    /// - Returns: True if a library is active, false otherwise
+    public func hasActiveLibrary() -> Bool {
+        return getCurrentLibraryId() != nil
     }
 
     /// Ping the daemon to test connectivity

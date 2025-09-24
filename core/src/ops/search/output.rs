@@ -2,12 +2,13 @@
 
 use crate::domain::Entry;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
 /// Main output structure for file search operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileSearchOutput {
     pub results: Vec<FileSearchResult>,
     pub total_found: u64,
@@ -19,7 +20,7 @@ pub struct FileSearchOutput {
 }
 
 /// Individual search result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileSearchResult {
     pub entry: Entry,
     pub score: f32,
@@ -29,7 +30,7 @@ pub struct FileSearchResult {
 }
 
 /// Detailed breakdown of how the score was calculated
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ScoreBreakdown {
     pub temporal_score: f32,
     pub semantic_score: Option<f32>,
@@ -40,7 +41,7 @@ pub struct ScoreBreakdown {
 }
 
 /// Text highlighting information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TextHighlight {
     pub field: String,
     pub text: String,
@@ -49,7 +50,7 @@ pub struct TextHighlight {
 }
 
 /// Search facets for filtering UI
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Type)]
 pub struct SearchFacets {
     pub file_types: HashMap<String, u64>,
     pub tags: HashMap<Uuid, u64>,
@@ -59,7 +60,7 @@ pub struct SearchFacets {
 }
 
 /// Pagination information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PaginationInfo {
     pub current_page: u32,
     pub total_pages: u32,
@@ -70,7 +71,7 @@ pub struct PaginationInfo {
 }
 
 /// Tag facet with count
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TagFacetCount {
     pub tag_id: Uuid,
     pub tag_name: String,
@@ -78,7 +79,7 @@ pub struct TagFacetCount {
 }
 
 /// Location facet with count
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationFacetCount {
     pub location_id: Uuid,
     pub location_name: String,
@@ -86,14 +87,14 @@ pub struct LocationFacetCount {
 }
 
 /// Date range facet with count
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DateRangeFacetCount {
     pub range: String,
     pub count: u64,
 }
 
 /// Size range facet with count
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SizeRangeFacetCount {
     pub range: String,
     pub count: u64,

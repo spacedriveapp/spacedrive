@@ -2,10 +2,11 @@
 
 use crate::infra::action::output::ActionOutputTrait;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 /// Output from location remove action dispatch
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationRemoveOutput {
     pub location_id: Uuid,
     pub path: Option<String>,

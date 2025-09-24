@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 use crate::service::network::PairingState;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum SerializablePairingState {
 	Idle,
     GeneratingCode,
@@ -44,7 +45,7 @@ impl From<PairingState> for SerializablePairingState {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PairingSessionSummary {
 	pub id: Uuid,
 	pub state: SerializablePairingState,
@@ -52,7 +53,7 @@ pub struct PairingSessionSummary {
 	pub expires_at: Option<DateTime<Utc>>, // optional if available
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PairStatusOutput {
 	pub sessions: Vec<PairingSessionSummary>,
 }

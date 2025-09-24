@@ -9,14 +9,15 @@ use crate::{
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeUntrackInput {
 	pub fingerprint: VolumeFingerprint,
 }
 
 /// Input for untracking a volume
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeUntrackAction {
 	/// The fingerprint of the volume to untrack
 	input: VolumeUntrackInput,
@@ -57,7 +58,6 @@ impl LibraryAction for VolumeUntrackAction {
 	fn action_kind(&self) -> &'static str {
 		"volumes.untrack"
 	}
-
 }
 
 // Register action

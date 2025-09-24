@@ -2,9 +2,10 @@
 
 use crate::infra::action::output::ActionOutputTrait;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationRescanOutput {
 	pub location_id: Uuid,
 	pub location_path: String,

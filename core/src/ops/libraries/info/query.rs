@@ -1,37 +1,45 @@
 //! Library information query implementation
 
 use super::output::LibraryInfoOutput;
-use crate::{context::CoreContext, cqrs::Query};
+use crate::{context::CoreContext, cqrs::LibraryQuery};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// Input for library info query
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LibraryInfoQueryInput;
+
 /// Query to get detailed information about a specific library
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LibraryInfoQuery {
-	/// ID of the library to get information about
-	pub library_id: Uuid,
-}
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LibraryInfoQuery;
 
 impl LibraryInfoQuery {
-	/// Create a new query
-	pub fn new(library_id: Uuid) -> Self {
-		Self { library_id }
+	/// Create a new library info query
+	pub fn new(_library_id: uuid::Uuid) -> Self {
+		Self
 	}
 }
 
-impl Query for LibraryInfoQuery {
+impl LibraryQuery for LibraryInfoQuery {
+	type Input = LibraryInfoQueryInput;
 	type Output = LibraryInfoOutput;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self)
+	}
+
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		// Get the specific library from the library manager
+		let library_id = session.current_library_id.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
 		let library = context
 			.libraries()
 			.await
-			.get_library(self.library_id)
+			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found: {}", self.library_id))?;
+			.ok_or_else(|| anyhow::anyhow!("Library not found: {}", library_id))?;
 
 		// Get library configuration which contains all the details
 		let config = library.config().await;
@@ -52,4 +60,4 @@ impl Query for LibraryInfoQuery {
 	}
 }
 
-crate::register_query!(LibraryInfoQuery, "libraries.info");
+crate::register_library_query!(LibraryInfoQuery, "libraries.info");

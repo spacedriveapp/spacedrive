@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	cqrs::Query,
+	cqrs::LibraryQuery,
 	domain::Entry,
 	filetype::FileTypeRegistry,
 	infra::db::entities::{directory_paths, entry},
@@ -18,11 +18,12 @@ use sea_orm::{
 	QueryFilter, QueryOrder, QuerySelect, RelationTrait, Statement,
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 use uuid::Uuid;
 
 /// File search query
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileSearchQuery {
 	pub input: FileSearchInput,
 }
@@ -33,10 +34,15 @@ impl FileSearchQuery {
 	}
 }
 
-impl Query for FileSearchQuery {
+impl LibraryQuery for FileSearchQuery {
+	type Input = FileSearchInput;
 	type Output = FileSearchOutput;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self { input })
+	}
+
+	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
 		let start_time = std::time::Instant::now();
 
 		// Validate input
@@ -44,11 +50,7 @@ impl Query for FileSearchQuery {
 			.validate()
 			.map_err(|e| anyhow::anyhow!("Invalid search input: {}", e))?;
 
-		// Resolve current library from session
-		let session_state = context.session.get().await;
-		let library_id = session_state
-			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No active library selected"))?;
+		let library_id = session.current_library_id.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
 		let library = context
 			.libraries()
 			.await
@@ -834,4 +836,4 @@ impl FileSearchQuery {
 	}
 }
 
-crate::register_query!(FileSearchQuery, "search.files");
+crate::register_library_query!(FileSearchQuery, "search.files");

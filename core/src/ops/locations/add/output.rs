@@ -3,11 +3,12 @@
 use crate::infra::action::output::ActionOutputTrait;
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Output from location add action dispatch
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationAddOutput {
     pub location_id: Uuid,
     pub path: PathBuf,

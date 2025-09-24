@@ -2,10 +2,11 @@
 
 use crate::infra::action::output::ActionOutputTrait;
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 /// Output from library delete action dispatch
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryDeleteOutput {
     pub library_id: Uuid,
     pub name: String,

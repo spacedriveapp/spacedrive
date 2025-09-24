@@ -44,7 +44,7 @@ pub async fn run(ctx: &Context, cmd: TagCmd) -> Result<()> {
 		}
 		TagCmd::Search(args) => {
 			let input: sd_core::ops::tags::search::input::SearchTagsInput = args.into();
-			let out: SearchTagsOutput = execute_query!(ctx, SearchTagsQuery { input });
+			let out: SearchTagsOutput = execute_query!(ctx, input);
 			print_output!(ctx, &out, |o: &SearchTagsOutput| {
 				if o.tags.is_empty() {
 					println!("No tags found");

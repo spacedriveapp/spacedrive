@@ -1,30 +1,43 @@
 use super::output::JobInfoOutput;
-use crate::{context::CoreContext, cqrs::Query};
+use crate::{context::CoreContext, cqrs::LibraryQuery};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct JobInfoQuery {
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct JobInfoQueryInput {
 	pub job_id: uuid::Uuid,
 }
 
-impl Query for JobInfoQuery {
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct JobInfoQuery {
+	pub input: JobInfoQueryInput,
+}
+
+impl LibraryQuery for JobInfoQuery {
+	type Input = JobInfoQueryInput;
 	type Output = Option<JobInfoOutput>;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
-		// Get current library ID from session
-		let session_state = context.session.get().await;
-		let library_id = session_state
-			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No active library selected"))?;
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self { input })
+	}
 
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| anyhow::anyhow!("No library selected"))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
-		let info = library.jobs().get_job_info(self.job_id).await?;
+		let info = library.jobs().get_job_info(self.input.job_id).await?;
 		Ok(info.map(|j| JobInfoOutput {
 			id: j.id,
 			name: j.name,
@@ -37,4 +50,4 @@ impl Query for JobInfoQuery {
 	}
 }
 
-crate::register_query!(JobInfoQuery, "jobs.info");
+crate::register_library_query!(JobInfoQuery, "jobs.info");

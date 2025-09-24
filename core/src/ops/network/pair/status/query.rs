@@ -1,15 +1,29 @@
 use super::output::{PairStatusOutput, PairingSessionSummary};
-use crate::{context::CoreContext, cqrs::Query};
+use crate::{context::CoreContext, cqrs::CoreQuery};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct PairStatusQueryInput;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PairStatusQuery;
 
-impl Query for PairStatusQuery {
+impl CoreQuery for PairStatusQuery {
+	type Input = PairStatusQueryInput;
 	type Output = PairStatusOutput;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self)
+	}
+
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
 		let mut sessions_out = Vec::new();
 		if let Some(net) = context.get_networking().await {
 			let sessions = net.get_pairing_status().await.unwrap_or_default();
@@ -22,9 +36,10 @@ impl Query for PairStatusQuery {
 				});
 			}
 		}
-		Ok(PairStatusOutput { sessions: sessions_out })
+		Ok(PairStatusOutput {
+			sessions: sessions_out,
+		})
 	}
 }
 
-crate::register_query!(PairStatusQuery, "network.pair.status");
-
+crate::register_core_query!(PairStatusQuery, "network.pair.status");

@@ -34,7 +34,7 @@ impl FileDeleteAction {
 // Implement the unified LibraryAction
 impl LibraryAction for FileDeleteAction {
 	type Input = FileDeleteInput;
-	type Output = JobHandle;
+	type Output = crate::infra::job::handle::JobReceipt;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
 		Ok(FileDeleteAction {
@@ -65,7 +65,7 @@ impl LibraryAction for FileDeleteAction {
 			.await
 			.map_err(ActionError::Job)?;
 
-		Ok(job_handle)
+		Ok(job_handle.into())
 	}
 
 	fn action_kind(&self) -> &'static str {

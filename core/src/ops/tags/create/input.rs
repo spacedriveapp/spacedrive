@@ -2,10 +2,11 @@
 
 use crate::domain::tag::{TagType, PrivacyLevel};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateTagInput {
     /// The canonical name for this tag
     pub canonical_name: String,

@@ -8,10 +8,11 @@ use crate::{
     },
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobCancelInput {
     pub job_id: Uuid,
 }
@@ -22,7 +23,7 @@ impl JobCancelInput {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobCancelOutput {
     pub job_id: Uuid,
     pub success: bool,
