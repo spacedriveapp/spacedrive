@@ -22,6 +22,7 @@ fn validate_instance_name(instance: &str) -> Result<(), String> {
 	Ok(())
 }
 
+mod config;
 mod context;
 mod domains;
 mod ui;
@@ -425,7 +426,7 @@ async fn run_client_command(
 	socket_path: std::path::PathBuf,
 ) -> Result<()> {
 	let core = CoreClient::new(socket_path.clone());
-	let ctx = Context::new(core, format, data_dir, socket_path);
+	let ctx = Context::new(core, format, data_dir, socket_path)?;
 	match command {
 		Commands::Status => {
 			let status: sd_core::ops::core::status::output::CoreStatus =

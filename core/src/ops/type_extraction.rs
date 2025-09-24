@@ -52,12 +52,28 @@ pub trait OperationTypeInfo {
 
 		// Debug output for type names
 		if Self::identifier() == "jobs.info" {
-			println!("DEBUG: jobs.info input type: {} -> {}", std::any::type_name::<Self::Input>(), input_type_name);
-			println!("DEBUG: jobs.info output type: {} -> {}", std::any::type_name::<Self::Output>(), output_type_name);
+			println!(
+				"DEBUG: jobs.info input type: {} -> {}",
+				std::any::type_name::<Self::Input>(),
+				input_type_name
+			);
+			println!(
+				"DEBUG: jobs.info output type: {} -> {}",
+				std::any::type_name::<Self::Output>(),
+				output_type_name
+			);
 		}
 		if Self::identifier() == "jobs.list" {
-			println!("DEBUG: jobs.list input type: {} -> {}", std::any::type_name::<Self::Input>(), input_type_name);
-			println!("DEBUG: jobs.list output type: {} -> {}", std::any::type_name::<Self::Output>(), output_type_name);
+			println!(
+				"DEBUG: jobs.list input type: {} -> {}",
+				std::any::type_name::<Self::Input>(),
+				input_type_name
+			);
+			println!(
+				"DEBUG: jobs.list output type: {} -> {}",
+				std::any::type_name::<Self::Output>(),
+				output_type_name
+			);
 		}
 
 		OperationMetadata {
@@ -195,26 +211,26 @@ pub fn create_spacedrive_api_structure(
 	// Group operations by scope - preserve the actual DataType objects!
 	for op in operations {
 		match op.scope {
-		OperationScope::Core => {
-			core_actions.push(ApiOperationType {
-				identifier: op.identifier.to_string(),
-				wire_method: op.wire_method.clone(),
-				input_type: op.input_type.clone(),
-				output_type: op.output_type.clone(),
-				input_type_name: op.input_type_name.clone(),
-				output_type_name: op.output_type_name.clone(),
-			});
-		}
-		OperationScope::Library => {
-			library_actions.push(ApiOperationType {
-				identifier: op.identifier.to_string(),
-				wire_method: op.wire_method.clone(),
-				input_type: op.input_type.clone(),
-				output_type: op.output_type.clone(),
-				input_type_name: op.input_type_name.clone(),
-				output_type_name: op.output_type_name.clone(),
-			});
-		}
+			OperationScope::Core => {
+				core_actions.push(ApiOperationType {
+					identifier: op.identifier.to_string(),
+					wire_method: op.wire_method.clone(),
+					input_type: op.input_type.clone(),
+					output_type: op.output_type.clone(),
+					input_type_name: op.input_type_name.clone(),
+					output_type_name: op.output_type_name.clone(),
+				});
+			}
+			OperationScope::Library => {
+				library_actions.push(ApiOperationType {
+					identifier: op.identifier.to_string(),
+					wire_method: op.wire_method.clone(),
+					input_type: op.input_type.clone(),
+					output_type: op.output_type.clone(),
+					input_type_name: op.input_type_name.clone(),
+					output_type_name: op.output_type_name.clone(),
+				});
+			}
 		}
 	}
 
@@ -381,16 +397,14 @@ fn to_pascal_case(s: &str) -> String {
 
 /// Extract just the type name from a full Rust type path
 fn extract_type_name(full_type_name: &str) -> String {
-	// Debug output
-	if full_type_name.contains("JobInfo") || full_type_name.contains("Vec") || full_type_name.contains("()") {
-		println!("DEBUG: extract_type_name input: '{}'", full_type_name);
-	}
-
 	// Handle unit type () - use Empty struct for Swift
 	if full_type_name == "()" {
 		let result = "Empty".to_string();
 		if full_type_name.contains("()") {
-			println!("DEBUG: Unit case: '{}' -> result: '{}'", full_type_name, result);
+			println!(
+				"DEBUG: Unit case: '{}' -> result: '{}'",
+				full_type_name, result
+			);
 		}
 		return result;
 	}
@@ -403,8 +417,14 @@ fn extract_type_name(full_type_name: &str) -> String {
 		let end = full_type_name.rfind(">").unwrap();
 		let inner = &full_type_name[start..end];
 		let result = extract_type_name(inner); // Recursively extract the inner type
-		if full_type_name.contains("JobInfo") || full_type_name.contains("Vec") || full_type_name.contains("()") {
-			println!("DEBUG: Option case: '{}' -> inner: '{}' -> result: '{}'", full_type_name, inner, result);
+		if full_type_name.contains("JobInfo")
+			|| full_type_name.contains("Vec")
+			|| full_type_name.contains("()")
+		{
+			println!(
+				"DEBUG: Option case: '{}' -> inner: '{}' -> result: '{}'",
+				full_type_name, inner, result
+			);
 		}
 		return result;
 	}
@@ -417,8 +437,14 @@ fn extract_type_name(full_type_name: &str) -> String {
 		let inner = &full_type_name[start..end];
 		let inner_type = extract_type_name(inner); // Recursively extract the inner type
 		let result = format!("[{}]", inner_type); // Convert to Swift array syntax
-		if full_type_name.contains("JobInfo") || full_type_name.contains("Vec") || full_type_name.contains("()") {
-			println!("DEBUG: Vec case: '{}' -> inner: '{}' -> inner_type: '{}' -> result: '{}'", full_type_name, inner, inner_type, result);
+		if full_type_name.contains("JobInfo")
+			|| full_type_name.contains("Vec")
+			|| full_type_name.contains("()")
+		{
+			println!(
+				"DEBUG: Vec case: '{}' -> inner: '{}' -> inner_type: '{}' -> result: '{}'",
+				full_type_name, inner, inner_type, result
+			);
 		}
 		return result;
 	}
@@ -427,21 +453,30 @@ fn extract_type_name(full_type_name: &str) -> String {
 	if full_type_name.contains('<') {
 		let base_name = full_type_name.split('<').next().unwrap_or(full_type_name);
 		let result = base_name.to_string();
-		if full_type_name.contains("JobInfo") || full_type_name.contains("Vec") || full_type_name.contains("()") {
-			println!("DEBUG: Generic case: '{}' -> base_name: '{}' -> result: '{}'", full_type_name, base_name, result);
+		if full_type_name.contains("JobInfo")
+			|| full_type_name.contains("Vec")
+			|| full_type_name.contains("()")
+		{
+			println!(
+				"DEBUG: Generic case: '{}' -> base_name: '{}' -> result: '{}'",
+				full_type_name, base_name, result
+			);
 		}
 		return result;
 	}
 
 	// For simple types, extract just the type name from the path
-	let type_name = full_type_name
-		.split("::")
-		.last()
-		.unwrap_or(full_type_name);
+	let type_name = full_type_name.split("::").last().unwrap_or(full_type_name);
 
 	let result = type_name.to_string();
-	if full_type_name.contains("JobInfo") || full_type_name.contains("Vec") || full_type_name.contains("()") {
-		println!("DEBUG: Simple case: '{}' -> type_name: '{}' -> result: '{}'", full_type_name, type_name, result);
+	if full_type_name.contains("JobInfo")
+		|| full_type_name.contains("Vec")
+		|| full_type_name.contains("()")
+	{
+		println!(
+			"DEBUG: Simple case: '{}' -> type_name: '{}' -> result: '{}'",
+			full_type_name, type_name, result
+		);
 	}
 	result
 }

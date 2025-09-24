@@ -32,8 +32,13 @@ pub enum LibraryCmd {
 pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 	match cmd {
 		LibraryCmd::Create(args) => {
+			let mut ctx = ctx.clone(); // Clone to allow mutation
 			let input: LibraryCreateInput = args.into();
-			let out: LibraryCreateOutput = execute_action!(ctx, input);
+			let out: LibraryCreateOutput = execute_core_action!(ctx, input);
+
+			// Automatically switch to the newly created library
+			ctx.set_library_id(out.library_id)?;
+
 			print_output!(ctx, &out, |o: &LibraryCreateOutput| {
 				println!(
 					"Created library {} with ID {} at {}",
@@ -41,6 +46,7 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 					o.library_id,
 					o.path.display()
 				);
+				println!("Switched to library {}", o.library_id);
 			});
 		}
 		LibraryCmd::List => {
@@ -132,7 +138,7 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 		LibraryCmd::Switch(args) => {
 			let mut ctx = ctx.clone(); // Clone to allow mutation
 			if let Some(library_id) = args.library_id {
-				ctx.switch_to_library(library_id);
+				ctx.switch_to_library(library_id)?;
 				println!("Switched to library {}", library_id);
 			} else if let Some(name) = args.name {
 				ctx.switch_to_library_named(&name).await?;

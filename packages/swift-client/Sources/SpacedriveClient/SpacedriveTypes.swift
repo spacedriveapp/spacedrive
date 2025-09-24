@@ -6,7 +6,7 @@ import Foundation
 public struct RustDuration: Codable {
     public let secs: UInt64
     public let nanos: UInt32
-    
+
     public var timeInterval: TimeInterval {
         return Double(secs) + Double(nanos) / 1_000_000_000.0
     }
@@ -364,7 +364,7 @@ extension EntryKind: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -386,7 +386,7 @@ extension EntryKind: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .file(let data):
             try container.encode(data, forKey: .file)
@@ -851,7 +851,7 @@ extension Event: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -980,7 +980,7 @@ extension Event: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .coreStarted:
             try container.encodeNil(forKey: .coreStarted)
@@ -1221,7 +1221,7 @@ extension FsRawEventKind: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -1247,7 +1247,7 @@ extension FsRawEventKind: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .create(let data):
             try container.encode(data, forKey: .create)
@@ -1442,6 +1442,10 @@ public struct JobInfoQueryInput: Codable {
 
 public struct JobListInput: Codable {
     public let status: JobStatus?
+
+    public init(status: JobStatus?) {
+        self.status = status
+    }
 }
 
 public struct JobListItem: Codable {
@@ -1576,7 +1580,7 @@ extension JobOutput: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: TypeKeys.self)
         let variantType = try container.decode(VariantType.self, forKey: .tag)
-        
+
         switch variantType {
         case .success:
             self = .success
@@ -1609,7 +1613,7 @@ extension JobOutput: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: TypeKeys.self)
-        
+
         switch self {
         case .success:
             try container.encode(VariantType.success, forKey: .tag)
@@ -1645,6 +1649,10 @@ extension JobOutput: Codable {
 public struct JobPauseInput: Codable {
     public let jobId: String
 
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
     }
@@ -1672,6 +1680,10 @@ public struct JobReceipt: Codable {
 
 public struct JobResumeInput: Codable {
     public let jobId: String
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
 
     private enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
@@ -1896,6 +1908,10 @@ public struct ListDevicesInput: Codable {
 
 public struct ListLibrariesInput: Codable {
     public let includeStats: Bool
+
+    public init(includeStats: Bool) {
+        self.includeStats = includeStats
+    }
 
     private enum CodingKeys: String, CodingKey {
         case includeStats = "include_stats"
@@ -2202,12 +2218,12 @@ public struct ScoreBreakdown: Codable {
 }
 
 /// A path within the Spacedrive Virtual Distributed File System
-/// 
+///
 /// This is the core abstraction that enables cross-device operations.
 /// An SdPath can represent:
 /// - A physical file at a specific path on a specific device
 /// - A content-addressed file that can be sourced from any device
-/// 
+///
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
 public enum SdPath {
@@ -2241,7 +2257,7 @@ extension SdPath: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2261,7 +2277,7 @@ extension SdPath: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .physical(let data):
             try container.encode(data, forKey: .physical)
@@ -2363,7 +2379,7 @@ extension SearchScope: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2385,7 +2401,7 @@ extension SearchScope: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .library:
             try container.encodeNil(forKey: .library)
@@ -2477,7 +2493,7 @@ extension SerializablePairingState: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2522,7 +2538,7 @@ extension SerializablePairingState: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .idle:
             try container.encodeNil(forKey: .idle)

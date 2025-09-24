@@ -1,3 +1,4 @@
+use crate::config::CliConfig;
 use crate::util::prelude::*;
 use anyhow::Result;
 use sd_core::client::CoreClient;
@@ -17,6 +18,7 @@ pub struct Context {
 	pub data_dir: PathBuf,
 	pub socket_path: PathBuf,
 	pub library_id: Option<Uuid>,
+	pub cli_config: CliConfig,
 }
 
 impl Context {
@@ -25,14 +27,18 @@ impl Context {
 		format: OutputFormat,
 		data_dir: PathBuf,
 		socket_path: PathBuf,
-	) -> Self {
-		Self {
+	) -> Result<Self> {
+		let cli_config = CliConfig::load(&data_dir)?;
+		let library_id = cli_config.current_library_id;
+
+		Ok(Self {
 			core,
 			format,
 			data_dir,
 			socket_path,
-			library_id: None,
-		}
+			library_id,
+			cli_config,
+		})
 	}
 
 	pub fn with_library_id(mut self, library_id: Uuid) -> Self {
@@ -40,8 +46,10 @@ impl Context {
 		self
 	}
 
-	pub fn set_library_id(&mut self, library_id: Uuid) {
+	pub fn set_library_id(&mut self, library_id: Uuid) -> Result<()> {
 		self.library_id = Some(library_id);
+		self.cli_config
+			.set_current_library(library_id, &self.data_dir)
 	}
 
 	/// Get the current library ID
@@ -50,18 +58,23 @@ impl Context {
 	}
 
 	/// Set the current library by ID
-	pub fn set_current_library(&mut self, library_id: Uuid) {
+	pub fn set_current_library(&mut self, library_id: Uuid) -> Result<()> {
 		self.library_id = Some(library_id);
+		self.cli_config
+			.set_current_library(library_id, &self.data_dir)
 	}
 
 	/// Clear the current library
-	pub fn clear_current_library(&mut self) {
+	pub fn clear_current_library(&mut self) -> Result<()> {
 		self.library_id = None;
+		self.cli_config.clear_current_library(&self.data_dir)
 	}
 
 	/// Switch to a library by ID
-	pub fn switch_to_library(&mut self, library_id: Uuid) {
+	pub fn switch_to_library(&mut self, library_id: Uuid) -> Result<()> {
 		self.library_id = Some(library_id);
+		self.cli_config
+			.set_current_library(library_id, &self.data_dir)
 	}
 
 	/// Switch to a library by name
@@ -75,6 +88,8 @@ impl Context {
 
 		if let Some(lib) = libs.iter().find(|lib| lib.name == name) {
 			self.library_id = Some(lib.id);
+			self.cli_config
+				.set_current_library(lib.id, &self.data_dir)?;
 			Ok(())
 		} else {
 			anyhow::bail!("Library '{}' not found", name)
