@@ -41,10 +41,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let generated_content = generate_swift_api_code(&api_structure, &types)?;
 
 	// Export to the Swift client package
-	let output_path = Path::new("packages/swift-client/Sources/SpacedriveClient/Types.swift");
+	let output_path =
+		Path::new("packages/swift-client/Sources/SpacedriveClient/SpacedriveTypes.swift");
 	std::fs::write(output_path, &generated_content)?;
 
 	println!("✅ Generated Swift types to: {}", output_path.display());
+
+	// Generate API code using our new functions
+	let functions = sd_core::ops::type_extraction::extract_api_functions(&operations, &queries);
+	let api_code = sd_core::ops::type_extraction::generate_swift_api_code(&functions);
+
+	// Write API code to a separate file
+	let api_output_path =
+		Path::new("packages/swift-client/Sources/SpacedriveClient/SpacedriveAPI.swift");
+	std::fs::write(api_output_path, &api_code)?;
+
+	println!(
+		"✅ Generated Swift API code to: {}",
+		api_output_path.display()
+	);
 	println!("🎉 Specta Swift generation completed!");
 	println!(
 		"🚀 All {} operations and {} queries automatically discovered and exported!",

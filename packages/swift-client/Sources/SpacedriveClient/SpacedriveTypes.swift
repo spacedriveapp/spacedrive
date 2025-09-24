@@ -286,7 +286,7 @@ extension EntryKind: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -308,7 +308,7 @@ extension EntryKind: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .file(let data):
             try container.encode(data, forKey: .file)
@@ -1086,12 +1086,12 @@ public struct ScoreBreakdown: Codable {
 }
 
 /// A path within the Spacedrive Virtual Distributed File System
-/// 
+///
 /// This is the core abstraction that enables cross-device operations.
 /// An SdPath can represent:
 /// - A physical file at a specific path on a specific device
 /// - A content-addressed file that can be sourced from any device
-/// 
+///
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
 public enum SdPath {
@@ -1125,7 +1125,7 @@ extension SdPath: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -1145,7 +1145,7 @@ extension SdPath: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .physical(let data):
             try container.encode(data, forKey: .physical)
@@ -1261,7 +1261,7 @@ extension SearchScope: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -1283,7 +1283,7 @@ extension SearchScope: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .library:
             try container.encodeNil(forKey: .library)
@@ -1375,7 +1375,7 @@ extension SerializablePairingState: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -1420,7 +1420,7 @@ extension SerializablePairingState: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .idle:
             try container.encodeNil(forKey: .idle)
@@ -1689,7 +1689,7 @@ import Foundation
 public struct RustDuration: Codable {
     public let secs: UInt64
     public let nanos: UInt32
-    
+
     public var timeInterval: TimeInterval {
         return Double(secs) + Double(nanos) / 1_000_000_000.0
     }
@@ -2210,7 +2210,7 @@ extension Event: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2339,7 +2339,7 @@ extension Event: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .coreStarted:
             try container.encodeNil(forKey: .coreStarted)
@@ -2481,7 +2481,7 @@ extension FsRawEventKind: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2507,7 +2507,7 @@ extension FsRawEventKind: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .create(let data):
             try container.encode(data, forKey: .create)
@@ -2713,7 +2713,7 @@ extension JobOutput: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: TypeKeys.self)
         let variantType = try container.decode(VariantType.self, forKey: .tag)
-        
+
         switch variantType {
         case .success:
             self = .success
@@ -2746,7 +2746,7 @@ extension JobOutput: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: TypeKeys.self)
-        
+
         switch self {
         case .success:
             try container.encode(VariantType.success, forKey: .tag)
@@ -2831,12 +2831,12 @@ public struct ProgressCompletion: Codable {
 }
 
 /// A path within the Spacedrive Virtual Distributed File System
-/// 
+///
 /// This is the core abstraction that enables cross-device operations.
 /// An SdPath can represent:
 /// - A physical file at a specific path on a specific device
 /// - A content-addressed file that can be sourced from any device
-/// 
+///
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
 public enum SdPath {
@@ -2870,7 +2870,7 @@ extension SdPath: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         if container.allKeys.count != 1 {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
@@ -2890,7 +2890,7 @@ extension SdPath: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         switch self {
         case .physical(let data):
             try container.encode(data, forKey: .physical)
@@ -3009,78 +3009,78 @@ extension SpacedriveApi: Codable {
 
 /// Core-scoped actions
 public enum CoreAction {
-    case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
-    case NetworkDeviceRevoke(input: NetworkDeviceRevokeInput, output: NetworkDeviceRevokeOutput)
-    case NetworkSpacedropSend(input: NetworkSpacedropSendInput, output: NetworkSpacedropSendOutput)
-    case NetworkPairJoin(input: NetworkPairJoinInput, output: NetworkPairJoinOutput)
     case LibrariesDelete(input: LibrariesDeleteInput, output: LibrariesDeleteOutput)
-    case NetworkPairGenerate(input: NetworkPairGenerateInput, output: NetworkPairGenerateOutput)
     case LibrariesCreate(input: LibrariesCreateInput, output: LibrariesCreateOutput)
     case NetworkPairCancel(input: NetworkPairCancelInput, output: NetworkPairCancelOutput)
+    case NetworkDeviceRevoke(input: NetworkDeviceRevokeInput, output: NetworkDeviceRevokeOutput)
+    case NetworkPairGenerate(input: NetworkPairGenerateInput, output: NetworkPairGenerateOutput)
     case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
+    case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
+    case NetworkPairJoin(input: NetworkPairJoinInput, output: NetworkPairJoinOutput)
+    case NetworkSpacedropSend(input: NetworkSpacedropSendInput, output: NetworkSpacedropSendOutput)
 }
 
 extension CoreAction: Codable {
     public var wireMethod: String {
         switch self {
-        case .NetworkStart: return "action:network.start.input.v1"
-        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
-        case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
-        case .NetworkPairJoin: return "action:network.pair.join.input.v1"
         case .LibrariesDelete: return "action:libraries.delete.input.v1"
-        case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
         case .LibrariesCreate: return "action:libraries.create.input.v1"
         case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
+        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
+        case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
         case .NetworkStop: return "action:network.stop.input.v1"
+        case .NetworkStart: return "action:network.start.input.v1"
+        case .NetworkPairJoin: return "action:network.pair.join.input.v1"
+        case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
         }
     }
 }
 
 /// Library-scoped actions
 public enum LibraryAction {
-    case FilesCopy(input: FilesCopyInput, output: FilesCopyOutput)
-    case FilesDuplicate_detection(input: FilesDuplicate_detectionInput, output: FilesDuplicate_detectionOutput)
-    case JobsCancel(input: JobsCancelInput, output: JobsCancelOutput)
-    case LibrariesExport(input: LibrariesExportInput, output: LibrariesExportOutput)
-    case LibrariesRename(input: LibrariesRenameInput, output: LibrariesRenameOutput)
-    case LocationsRemove(input: LocationsRemoveInput, output: LocationsRemoveOutput)
-    case VolumesTrack(input: VolumesTrackInput, output: VolumesTrackOutput)
-    case FilesValidation(input: FilesValidationInput, output: FilesValidationOutput)
-    case VolumesSpeed_test(input: VolumesSpeed_testInput, output: VolumesSpeed_testOutput)
     case JobsPause(input: JobsPauseInput, output: JobsPauseOutput)
-    case JobsResume(input: JobsResumeInput, output: JobsResumeOutput)
+    case FilesDelete(input: FilesDeleteInput, output: FilesDeleteOutput)
+    case FilesDuplicate_detection(input: FilesDuplicate_detectionInput, output: FilesDuplicate_detectionOutput)
+    case LocationsRescan(input: LocationsRescanInput, output: LocationsRescanOutput)
     case TagsApply(input: TagsApplyInput, output: TagsApplyOutput)
-    case VolumesUntrack(input: VolumesUntrackInput, output: VolumesUntrackOutput)
-    case MediaThumbnail(input: MediaThumbnailInput, output: MediaThumbnailOutput)
+    case VolumesSpeed_test(input: VolumesSpeed_testInput, output: VolumesSpeed_testOutput)
+    case FilesValidation(input: FilesValidationInput, output: FilesValidationOutput)
     case LocationsAdd(input: LocationsAddInput, output: LocationsAddOutput)
     case IndexingStart(input: IndexingStartInput, output: IndexingStartOutput)
+    case MediaThumbnail(input: MediaThumbnailInput, output: MediaThumbnailOutput)
+    case JobsResume(input: JobsResumeInput, output: JobsResumeOutput)
     case TagsCreate(input: TagsCreateInput, output: TagsCreateOutput)
-    case LocationsRescan(input: LocationsRescanInput, output: LocationsRescanOutput)
-    case FilesDelete(input: FilesDeleteInput, output: FilesDeleteOutput)
+    case LibrariesRename(input: LibrariesRenameInput, output: LibrariesRenameOutput)
+    case LibrariesExport(input: LibrariesExportInput, output: LibrariesExportOutput)
+    case LocationsRemove(input: LocationsRemoveInput, output: LocationsRemoveOutput)
+    case FilesCopy(input: FilesCopyInput, output: FilesCopyOutput)
+    case JobsCancel(input: JobsCancelInput, output: JobsCancelOutput)
+    case VolumesTrack(input: VolumesTrackInput, output: VolumesTrackOutput)
+    case VolumesUntrack(input: VolumesUntrackInput, output: VolumesUntrackOutput)
 }
 
 extension LibraryAction: Codable {
     public var wireMethod: String {
         switch self {
-        case .FilesCopy: return "action:files.copy.input.v1"
-        case .FilesDuplicate_detection: return "action:files.duplicate_detection.input.v1"
-        case .JobsCancel: return "action:jobs.cancel.input.v1"
-        case .LibrariesExport: return "action:libraries.export.input.v1"
-        case .LibrariesRename: return "action:libraries.rename.input.v1"
-        case .LocationsRemove: return "action:locations.remove.input.v1"
-        case .VolumesTrack: return "action:volumes.track.input.v1"
-        case .FilesValidation: return "action:files.validation.input.v1"
-        case .VolumesSpeed_test: return "action:volumes.speed_test.input.v1"
         case .JobsPause: return "action:jobs.pause.input.v1"
-        case .JobsResume: return "action:jobs.resume.input.v1"
+        case .FilesDelete: return "action:files.delete.input.v1"
+        case .FilesDuplicate_detection: return "action:files.duplicate_detection.input.v1"
+        case .LocationsRescan: return "action:locations.rescan.input.v1"
         case .TagsApply: return "action:tags.apply.input.v1"
-        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
-        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
+        case .VolumesSpeed_test: return "action:volumes.speed_test.input.v1"
+        case .FilesValidation: return "action:files.validation.input.v1"
         case .LocationsAdd: return "action:locations.add.input.v1"
         case .IndexingStart: return "action:indexing.start.input.v1"
+        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
+        case .JobsResume: return "action:jobs.resume.input.v1"
         case .TagsCreate: return "action:tags.create.input.v1"
-        case .LocationsRescan: return "action:locations.rescan.input.v1"
-        case .FilesDelete: return "action:files.delete.input.v1"
+        case .LibrariesRename: return "action:libraries.rename.input.v1"
+        case .LibrariesExport: return "action:libraries.export.input.v1"
+        case .LocationsRemove: return "action:locations.remove.input.v1"
+        case .FilesCopy: return "action:files.copy.input.v1"
+        case .JobsCancel: return "action:jobs.cancel.input.v1"
+        case .VolumesTrack: return "action:volumes.track.input.v1"
+        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
         }
     }
 }
@@ -3088,20 +3088,20 @@ extension LibraryAction: Codable {
 /// Core-scoped queries
 public enum CoreQuery {
     case NetworkStatus(input: NetworkStatusQueryInput, output: NetworkStatusOutput)
-    case CoreStatus(input: CoreStatusQueryInput, output: CoreStatusOutput)
-    case NetworkDevices(input: NetworkDevicesQueryInput, output: NetworkDevicesOutput)
-    case LibrariesList(input: LibrariesListQueryInput, output: LibrariesListOutput)
     case NetworkPairStatus(input: NetworkPairStatusQueryInput, output: NetworkPairStatusOutput)
+    case NetworkDevices(input: NetworkDevicesQueryInput, output: NetworkDevicesOutput)
+    case CoreStatus(input: CoreStatusQueryInput, output: CoreStatusOutput)
+    case LibrariesList(input: LibrariesListQueryInput, output: LibrariesListOutput)
 }
 
 extension CoreQuery: Codable {
     public var wireMethod: String {
         switch self {
         case .NetworkStatus: return "query:network.status.v1"
-        case .CoreStatus: return "query:core.status.v1"
-        case .NetworkDevices: return "query:network.devices.v1"
-        case .LibrariesList: return "query:libraries.list.v1"
         case .NetworkPairStatus: return "query:network.pair.status.v1"
+        case .NetworkDevices: return "query:network.devices.v1"
+        case .CoreStatus: return "query:core.status.v1"
+        case .LibrariesList: return "query:libraries.list.v1"
         }
     }
 }
@@ -3110,10 +3110,10 @@ extension CoreQuery: Codable {
 public enum LibraryQuery {
     case JobsList(input: JobsListQueryInput, output: JobsListOutput)
     case JobsInfo(input: JobsInfoQueryInput, output: JobsInfoOutput)
-    case LibrariesInfo(input: LibrariesInfoQueryInput, output: LibrariesInfoOutput)
     case LocationsList(input: LocationsListQueryInput, output: LocationsListOutput)
-    case TagsSearch(input: TagsSearchQueryInput, output: TagsSearchOutput)
     case SearchFiles(input: SearchFilesQueryInput, output: SearchFilesOutput)
+    case LibrariesInfo(input: LibrariesInfoQueryInput, output: LibrariesInfoOutput)
+    case TagsSearch(input: TagsSearchQueryInput, output: TagsSearchOutput)
 }
 
 extension LibraryQuery: Codable {
@@ -3121,10 +3121,10 @@ extension LibraryQuery: Codable {
         switch self {
         case .JobsList: return "query:jobs.list.v1"
         case .JobsInfo: return "query:jobs.info.v1"
-        case .LibrariesInfo: return "query:libraries.info.v1"
         case .LocationsList: return "query:locations.list.v1"
-        case .TagsSearch: return "query:tags.search.v1"
         case .SearchFiles: return "query:search.files.v1"
+        case .LibrariesInfo: return "query:libraries.info.v1"
+        case .TagsSearch: return "query:tags.search.v1"
         }
     }
 }

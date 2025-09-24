@@ -242,6 +242,208 @@ pub struct ApiQueryType {
 	pub output_type: specta::datatype::DataType,
 }
 
+/// Intermediate struct to hold API function metadata for Swift code generation
+/// This is used to organize operations and queries into namespaces and methods
+#[derive(Debug, Clone)]
+pub struct ApiFunction {
+	/// The namespace this function belongs to (e.g., "core", "libraries", "jobs")
+	pub namespace: String,
+	/// The method name within the namespace (e.g., "create", "list", "start")
+	pub method_name: String,
+	/// The full identifier (e.g., "libraries.create", "jobs.list")
+	pub identifier: String,
+	/// The wire method string (e.g., "action:libraries.create.input.v1")
+	pub wire_method: String,
+	/// Whether this is an action (true) or query (false)
+	pub is_action: bool,
+	/// The scope (Core or Library)
+	pub scope: String,
+	/// Input type name for Swift generation
+	pub input_type_name: String,
+	/// Output type name for Swift generation
+	pub output_type_name: String,
+}
+
+/// Extract API functions from the collected metadata
+/// This organizes operations and queries into a flat list of functions with namespace information
+pub fn extract_api_functions(
+	operations: &[OperationMetadata],
+	queries: &[QueryMetadata],
+) -> Vec<ApiFunction> {
+	let mut functions = Vec::new();
+
+	// Process operations (actions)
+	for op in operations {
+		let namespace = extract_namespace(&op.identifier);
+		let method_name = extract_method_name(&op.identifier);
+		let scope = match op.scope {
+			OperationScope::Core => "Core",
+			OperationScope::Library => "Library",
+		};
+
+		functions.push(ApiFunction {
+			namespace,
+			method_name,
+			identifier: op.identifier.to_string(),
+			wire_method: op.wire_method.clone(),
+			is_action: true,
+			scope: scope.to_string(),
+			input_type_name: format!("{}Input", to_pascal_case(&op.identifier)),
+			output_type_name: format!("{}Output", to_pascal_case(&op.identifier)),
+		});
+	}
+
+	// Process queries
+	for query in queries {
+		let namespace = extract_namespace(&query.identifier);
+		let method_name = extract_method_name(&query.identifier);
+		let scope = match query.scope {
+			QueryScope::Core => "Core",
+			QueryScope::Library => "Library",
+		};
+
+		functions.push(ApiFunction {
+			namespace,
+			method_name,
+			identifier: query.identifier.to_string(),
+			wire_method: query.wire_method.clone(),
+			is_action: false,
+			scope: scope.to_string(),
+			input_type_name: format!("{}Input", to_pascal_case(&query.identifier)),
+			output_type_name: format!("{}Output", to_pascal_case(&query.identifier)),
+		});
+	}
+
+	functions
+}
+
+/// Extract namespace from identifier (e.g., "libraries.create" -> "libraries")
+fn extract_namespace(identifier: &str) -> String {
+	identifier.split('.').next().unwrap_or("core").to_string()
+}
+
+/// Extract method name from identifier (e.g., "libraries.create" -> "create")
+fn extract_method_name(identifier: &str) -> String {
+	identifier.split('.').skip(1).collect::<Vec<_>>().join("_")
+}
+
+/// Convert snake_case to PascalCase for Swift type names
+fn to_pascal_case(s: &str) -> String {
+	s.split(&['.', '_'][..])
+		.map(|word| {
+			let mut chars = word.chars();
+			match chars.next() {
+				None => String::new(),
+				Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str(),
+			}
+		})
+		.collect::<Vec<_>>()
+		.join("")
+}
+
+/// Convert snake_case to camelCase for Swift method names
+fn to_camel_case(s: &str) -> String {
+	let mut words = s.split('_');
+	let first_word = words.next().unwrap_or("");
+	let rest_words: String = words
+		.map(|word| {
+			let mut chars = word.chars();
+			match chars.next() {
+				None => String::new(),
+				Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str(),
+			}
+		})
+		.collect();
+	first_word.to_lowercase() + &rest_words
+}
+
+/// Generate Swift code for API namespace structs and their methods
+pub fn generate_swift_api_code(functions: &[ApiFunction]) -> String {
+	let mut swift_code = String::new();
+
+	// Add import statement for Foundation (needed for async/await)
+	swift_code.push_str("import Foundation\n\n");
+
+	// Group functions by namespace
+	let mut namespaces: std::collections::HashMap<String, Vec<&ApiFunction>> =
+		std::collections::HashMap::new();
+	for func in functions {
+		namespaces
+			.entry(func.namespace.clone())
+			.or_default()
+			.push(func);
+	}
+
+	// Generate code for each namespace
+	for (namespace, funcs) in namespaces {
+		let namespace_struct_name = format!("{}API", to_pascal_case(&namespace));
+
+		swift_code.push_str(&format!("/// {} operations\n", to_pascal_case(&namespace)));
+		swift_code.push_str(&format!("public struct {} {{\n", namespace_struct_name));
+		swift_code.push_str("    private let client: SpacedriveClient\n");
+		swift_code.push_str("\n");
+		swift_code.push_str("    init(client: SpacedriveClient) {\n");
+		swift_code.push_str("        self.client = client\n");
+		swift_code.push_str("    }\n");
+		swift_code.push_str("\n");
+
+		// Generate methods for each function in this namespace
+		for func in funcs {
+			swift_code.push_str(&generate_swift_method(func));
+			swift_code.push_str("\n");
+		}
+
+		swift_code.push_str("}\n\n");
+	}
+
+	swift_code
+}
+
+/// Generate Swift method code for a single API function
+fn generate_swift_method(func: &ApiFunction) -> String {
+	let method_name = to_camel_case(&func.method_name);
+	let input_type = &func.input_type_name;
+	let output_type = &func.output_type_name;
+	let wire_method = &func.wire_method;
+
+	// Determine if this is an action or query for documentation
+	let operation_type = if func.is_action { "action" } else { "query" };
+
+	let mut method_code = String::new();
+
+	// Add documentation comment
+	method_code.push_str(&format!(
+		"    /// Execute {}: {}\n",
+		operation_type, func.identifier
+	));
+
+	// Generate method signature
+	if input_type == "EmptyInput" {
+		// For operations with no input, use Empty struct
+		method_code.push_str(&format!(
+			"    public func {}() async throws -> {} {{\n",
+			method_name, output_type
+		));
+		method_code.push_str("        let input = Empty()\n");
+	} else {
+		// For operations with input, take the input as parameter
+		method_code.push_str(&format!(
+			"    public func {}(_ input: {}) async throws -> {} {{\n",
+			method_name, input_type, output_type
+		));
+	}
+
+	// Generate method body
+	method_code.push_str(&format!("        return try await client.execute(\n"));
+	method_code.push_str("            input,\n");
+	method_code.push_str(&format!("            method: \"{}\",\n", wire_method));
+	method_code.push_str(&format!("            responseType: {}.self\n", output_type));
+	method_code.push_str("        )\n");
+	method_code.push_str("    }\n");
+
+	method_code
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -278,5 +480,78 @@ mod tests {
 				);
 			}
 		}
+	}
+
+	#[test]
+	fn test_api_functions_extraction() {
+		let (operations, queries, _collection) = generate_spacedrive_api();
+		let functions = extract_api_functions(&operations, &queries);
+
+		println!("🔍 Extracted {} API functions", functions.len());
+
+		// Group functions by namespace to show organization
+		let mut namespaces: std::collections::HashMap<String, Vec<&ApiFunction>> =
+			std::collections::HashMap::new();
+		for func in &functions {
+			namespaces
+				.entry(func.namespace.clone())
+				.or_default()
+				.push(func);
+		}
+
+		for (namespace, funcs) in namespaces {
+			println!("📁 Namespace '{}': {} functions", namespace, funcs.len());
+			for func in funcs.iter().take(3) {
+				println!(
+					"   {}: {} -> {} ({})",
+					func.method_name,
+					func.input_type_name,
+					func.output_type_name,
+					if func.is_action { "action" } else { "query" }
+				);
+			}
+		}
+
+		// Verify some basic properties
+		assert!(
+			!functions.is_empty(),
+			"Should have extracted some API functions"
+		);
+
+		// Check that namespaces are properly extracted
+		let has_libraries = functions.iter().any(|f| f.namespace == "libraries");
+		let has_jobs = functions.iter().any(|f| f.namespace == "jobs");
+		println!("✅ Found libraries namespace: {}", has_libraries);
+		println!("✅ Found jobs namespace: {}", has_jobs);
+	}
+
+	#[test]
+	fn test_swift_code_generation() {
+		let (operations, queries, _collection) = generate_spacedrive_api();
+		let functions = extract_api_functions(&operations, &queries);
+		let swift_code = generate_swift_api_code(&functions);
+
+		println!("🔍 Generated Swift code (first 1000 chars):");
+		println!("{}", &swift_code[..swift_code.len().min(1000)]);
+
+		// Verify basic structure
+		assert!(swift_code.contains("public struct LibrariesAPI"));
+		assert!(swift_code.contains("public struct JobsAPI"));
+		assert!(swift_code.contains("public struct NetworkAPI"));
+
+		// Verify method generation
+		assert!(swift_code.contains("public func create("));
+		assert!(swift_code.contains("public func list("));
+		assert!(swift_code.contains("public func start("));
+
+		// Verify method calls to client.execute
+		assert!(swift_code.contains("client.execute("));
+		assert!(swift_code.contains("responseType:"));
+
+		// Verify wire method strings are included
+		assert!(swift_code.contains("action:libraries.create.input.v1"));
+		assert!(swift_code.contains("query:jobs.list.v1"));
+
+		println!("✅ Swift code generation test passed!");
 	}
 }

@@ -14,95 +14,91 @@ public class SpacedriveClient {
         self.socketPath = socketPath
     }
 
+    // MARK: - API Namespaces
+
+    /// Core API operations (device management, network, etc.)
+    public lazy var core = CoreAPI(client: self)
+
+    /// Library management operations
+    public lazy var libraries = LibrariesAPI(client: self)
+
+    /// Job management operations
+    public lazy var jobs = JobsAPI(client: self)
+
+    /// Location management operations
+    public lazy var locations = LocationsAPI(client: self)
+
+    /// Media operations
+    public lazy var media = MediaAPI(client: self)
+
+    /// Network operations
+    public lazy var network = NetworkAPI(client: self)
+
+    /// Search operations
+    public lazy var search = SearchAPI(client: self)
+
+    /// Tag operations
+    public lazy var tags = TagsAPI(client: self)
+
+    /// Volume operations
+    public lazy var volumes = VolumesAPI(client: self)
+
     // MARK: - Core API Methods
 
-    /// Execute a query operation
+    /// Internal method to execute both queries and actions
     /// - Parameters:
-    ///   - query: The query input (can be empty struct for parameterless queries)
-    ///   - method: The method identifier (e.g., "query:core.status.v1")
+    ///   - requestPayload: The input payload (can be empty struct for parameterless operations)
+    ///   - method: The method identifier (e.g., "query:core.status.v1" or "action:libraries.create.input.v1")
     ///   - responseType: The expected response type
-    /// - Returns: The query result
-    public func executeQuery<Q: Codable, R: Codable>(
-        _ query: Q,
+    /// - Returns: The operation result
+    internal func execute<Request: Codable, Response: Codable>(
+        _ requestPayload: Request,
         method: String,
-        responseType: R.Type
-    ) async throws -> R {
+        responseType: Response.Type
+    ) async throws -> Response {
         // 1. Encode input to JSON
-        let queryData: Data
+        let requestData: Data
         do {
-            queryData = try JSONEncoder().encode(query)
+            requestData = try JSONEncoder().encode(requestPayload)
         } catch {
-            throw SpacedriveError.serializationError("Failed to encode query: \(error)")
+            throw SpacedriveError.serializationError("Failed to encode request: \(error)")
         }
 
         // 2. Create daemon request using JSON API
-        let jsonPayload = try JSONSerialization.jsonObject(with: queryData) as! [String: Any]
-        let request = DaemonRequest.jsonQuery(method: method, payload: jsonPayload)
+        let jsonPayload = try JSONSerialization.jsonObject(with: requestData) as! [String: Any]
 
-        // 3. Send to daemon and get response
-        print("🔍 Executing query: \(method)")
+        // 3. Determine request type from method prefix
+        let request: DaemonRequest
+        if method.hasPrefix("query:") {
+            request = DaemonRequest.jsonQuery(method: method, payload: jsonPayload)
+        } else if method.hasPrefix("action:") {
+            request = DaemonRequest.jsonAction(method: method, payload: jsonPayload)
+        } else {
+            throw SpacedriveError.invalidResponse("Invalid method format: \(method)")
+        }
+
+        // 4. Send to daemon and get response
+        print("🔍 Executing \(method.hasPrefix("query:") ? "query" : "action"): \(method)")
         let response = try await sendRequest(request)
-        print("🔍 Query response received: \(response)")
+        print("🔍 Response received: \(response)")
 
-        // 4. Handle response
+        // 5. Handle response
         switch response {
         case .jsonOk(let jsonData):
-            print("🔍 Query successful (JSON), decoding response")
+            print("🔍 Operation successful (JSON), decoding response")
             do {
                 let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
                 return try JSONDecoder().decode(responseType, from: jsonResponseData)
             } catch {
-                print("❌ JSON query decode error: \(error)")
+                print("❌ JSON decode error: \(error)")
                 throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
             }
         case .error(let error):
-            print("❌ Query daemon error: \(error)")
+            print("❌ Daemon error: \(error)")
             throw SpacedriveError.daemonError(error)
         case .pong, .event, .subscribed, .unsubscribed:
-            print("❌ Query unexpected response: \(response)")
-            throw SpacedriveError.invalidResponse("Unexpected response to query")
-        }
-    }
-
-    /// Execute an action operation
-    /// - Parameters:
-    ///   - action: The action input
-    ///   - method: The method identifier (e.g., "action:libraries.create.input.v1")
-    ///   - responseType: The expected response type
-    /// - Returns: The action result
-    public func executeAction<A: Codable, R: Codable>(
-        _ action: A,
-        method: String,
-        responseType: R.Type
-    ) async throws -> R {
-        // 1. Encode input to JSON
-        let actionData: Data
-        do {
-            actionData = try JSONEncoder().encode(action)
-        } catch {
-            throw SpacedriveError.serializationError("Failed to encode action: \(error)")
-        }
-
-        // 2. Create daemon request using JSON API
-        let jsonPayload = try JSONSerialization.jsonObject(with: actionData) as! [String: Any]
-        let request = DaemonRequest.jsonAction(method: method, payload: jsonPayload)
-
-        // 3. Send to daemon and get response
-        let response = try await sendRequest(request)
-
-        // 4. Handle response
-        switch response {
-        case .jsonOk(let jsonData):
-            do {
-                let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
-                return try JSONDecoder().decode(responseType, from: jsonResponseData)
-            } catch {
-                throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
-            }
-        case .error(let error):
-            throw SpacedriveError.daemonError(error)
-        case .pong, .event, .subscribed, .unsubscribed:
-            throw SpacedriveError.invalidResponse("Unexpected response to action")
+            print("❌ Unexpected response: \(response)")
+            throw SpacedriveError.invalidResponse("Unexpected response to operation")
         }
     }
 
@@ -482,6 +478,13 @@ public enum SpacedriveError: Error, LocalizedError {
 /// Type alias for the generated Event type from types.swift
 public typealias SpacedriveEvent = Event
 
+/// Helper struct for requests with no parameters
+public struct Empty: Codable {}
+
+// MARK: - API Namespace Structs
+// These are automatically generated by the Rust build process
+// See SpacedriveAPI.swift for the actual implementations
+
 /// Helper for decoding Any values from JSON
 internal struct AnyCodable: Codable {
     let value: Any
@@ -520,7 +523,7 @@ extension SpacedriveClient {
     public func createLibrary(name: String, path: String? = nil) async throws -> LibraryCreateOutput {
         let input = LibraryCreateInput(name: name, path: path)
 
-        return try await executeAction(
+        return try await execute(
             input,
             method: "action:libraries.create.input.v1",
             responseType: LibraryCreateOutput.self
@@ -535,7 +538,7 @@ extension SpacedriveClient {
 
         let query = LibraryListQuery(include_stats: includeStats)
 
-        return try await executeQuery(
+        return try await execute(
             query,
             method: "query:libraries.list.v1",
             responseType: [LibraryInfo].self
@@ -550,7 +553,7 @@ extension SpacedriveClient {
 
         let query = JobListQuery(status: nil) // TODO: Convert JobStatus to string
 
-        return try await executeQuery(
+        return try await execute(
             query,
             method: "query:jobs.list.v1",
             responseType: JobListOutput.self
