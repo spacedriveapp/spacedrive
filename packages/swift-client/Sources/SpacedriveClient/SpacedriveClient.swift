@@ -311,6 +311,7 @@ public class SpacedriveClient {
             let jsonString = """
             {"Query":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
             """
+            print("🔍 Sending query request: \(jsonString)")
             requestData = Data(jsonString.utf8)
 
         case .action(let method, let libraryId, let payload):

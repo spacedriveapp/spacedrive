@@ -206,6 +206,10 @@ impl RpcServer {
 		json_payload: serde_json::Value,
 		core: &Arc<crate::Core>,
 	) -> Result<serde_json::Value, String> {
+		println!(
+			"🔍 Executing operation: method={}, library_id={:?}",
+			method, library_id
+		);
 		// Create base session context
 		let base_session = core.api_dispatcher.create_base_session()?;
 
@@ -345,6 +349,7 @@ impl RpcServer {
 						}
 						Ok(_) => {
 							// Parse request
+							println!("🔍 Daemon received request: {}", line.trim());
 							if let Ok(request) = serde_json::from_str::<DaemonRequest>(&line.trim()) {
 								let response = Self::process_request(
 									request,
