@@ -153,7 +153,7 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 }
 
 /// Information about a job (for display/querying)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobInfo {
 	pub id: Uuid,
 	pub name: String,
@@ -163,4 +163,15 @@ pub struct JobInfo {
 	pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
 	pub error_message: Option<String>,
 	pub parent_job_id: Option<Uuid>,
+	pub action_type: Option<String>,
+	pub action_context: Option<ActionContextInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ActionContextInfo {
+	pub action_type: String,
+	pub initiated_at: chrono::DateTime<chrono::Utc>,
+	pub initiated_by: Option<String>,
+	pub action_input: serde_json::Value,
+	pub context: serde_json::Value,
 }

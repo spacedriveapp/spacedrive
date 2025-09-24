@@ -14,6 +14,30 @@ public struct RustDuration: Codable {
 
 // MARK: - Generated Types
 
+public struct ActionContextInfo: Codable {
+    public let actionType: String
+    public let initiatedAt: String
+    public let initiatedBy: String?
+    public let actionInput: JsonValue
+    public let context: JsonValue
+
+    private enum CodingKeys: String, CodingKey {
+        case actionType = "action_type"
+        case initiatedAt = "initiated_at"
+        case initiatedBy = "initiated_by"
+        case actionInput = "action_input"
+        case context = "context"
+    }
+
+    public init(actionType: String, initiatedAt: String, initiatedBy: String?, actionInput: JsonValue, context: JsonValue) {
+        self.actionType = actionType
+        self.initiatedAt = initiatedAt
+        self.initiatedBy = initiatedBy
+        self.actionInput = actionInput
+        self.context = context
+    }
+}
+
 /// Represents an APFS container (physical storage with multiple volumes)
 public struct ApfsContainer: Codable {
     public let containerId: String
@@ -1823,12 +1847,25 @@ public struct JobListItem: Codable {
     public let name: String
     public let status: JobStatus
     public let progress: Float
+    public let actionType: String?
+    public let actionContext: ActionContextInfo?
 
-    public init(id: String, name: String, status: JobStatus, progress: Float) {
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case status = "status"
+        case progress = "progress"
+        case actionType = "action_type"
+        case actionContext = "action_context"
+    }
+
+    public init(id: String, name: String, status: JobStatus, progress: Float, actionType: String?, actionContext: ActionContextInfo?) {
         self.id = id
         self.name = name
         self.status = status
         self.progress = progress
+        self.actionType = actionType
+        self.actionContext = actionContext
     }
 }
 
@@ -3796,13 +3833,13 @@ extension SpacedriveApi: Codable {
 /// Core-scoped actions
 public enum CoreAction {
     case NetworkPairJoin(input: PairJoinInput, output: PairJoinOutput)
-    case NetworkSpacedropSend(input: SpacedropSendInput, output: SpacedropSendOutput)
-    case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
-    case NetworkPairCancel(input: PairCancelInput, output: PairCancelOutput)
     case LibrariesDelete(input: LibraryDeleteInput, output: LibraryDeleteOutput)
+    case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
+    case NetworkPairCancel(input: PairCancelInput, output: PairCancelOutput)
+    case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
     case NetworkDeviceRevoke(input: DeviceRevokeInput, output: DeviceRevokeOutput)
     case LibrariesCreate(input: LibraryCreateInput, output: LibraryCreateOutput)
-    case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
+    case NetworkSpacedropSend(input: SpacedropSendInput, output: SpacedropSendOutput)
     case NetworkPairGenerate(input: PairGenerateInput, output: PairGenerateOutput)
 }
 
@@ -3810,13 +3847,13 @@ extension CoreAction: Codable {
     public var wireMethod: String {
         switch self {
         case .NetworkPairJoin: return "action:network.pair.join.input.v1"
-        case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
-        case .NetworkStart: return "action:network.start.input.v1"
-        case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
         case .LibrariesDelete: return "action:libraries.delete.input.v1"
+        case .NetworkStop: return "action:network.stop.input.v1"
+        case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
+        case .NetworkStart: return "action:network.start.input.v1"
         case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
         case .LibrariesCreate: return "action:libraries.create.input.v1"
-        case .NetworkStop: return "action:network.stop.input.v1"
+        case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
         case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
         }
     }
@@ -3824,91 +3861,91 @@ extension CoreAction: Codable {
 
 /// Library-scoped actions
 public enum LibraryAction {
-    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
-    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
-    case LocationsRemove(input: LocationRemoveInput, output: LocationRemoveOutput)
-    case TagsCreate(input: CreateTagInput, output: CreateTagOutput)
-    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
-    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
-    case TagsApply(input: ApplyTagsInput, output: ApplyTagsOutput)
     case LocationsRescan(input: LocationRescanInput, output: LocationRescanOutput)
-    case VolumesTrack(input: VolumeTrackInput, output: VolumeTrackOutput)
-    case LocationsAdd(input: LocationAddInput, output: LocationAddOutput)
-    case IndexingStart(input: IndexInput, output: JobReceipt)
     case LibrariesExport(input: LibraryExportInput, output: LibraryExportOutput)
     case VolumesSpeedTest(input: VolumeSpeedTestInput, output: VolumeSpeedTestOutput)
-    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
+    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
+    case TagsCreate(input: CreateTagInput, output: CreateTagOutput)
+    case VolumesTrack(input: VolumeTrackInput, output: VolumeTrackOutput)
+    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
     case JobsCancel(input: JobCancelInput, output: JobCancelOutput)
     case FilesCopy(input: FileCopyInput, output: JobReceipt)
+    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
+    case LocationsRemove(input: LocationRemoveInput, output: LocationRemoveOutput)
+    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
+    case TagsApply(input: ApplyTagsInput, output: ApplyTagsOutput)
+    case LocationsAdd(input: LocationAddInput, output: LocationAddOutput)
+    case IndexingStart(input: IndexInput, output: JobReceipt)
+    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
 }
 
 extension LibraryAction: Codable {
     public var wireMethod: String {
         switch self {
-        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
-        case .JobsPause: return "action:jobs.pause.input.v1"
-        case .LocationsRemove: return "action:locations.remove.input.v1"
-        case .TagsCreate: return "action:tags.create.input.v1"
-        case .JobsResume: return "action:jobs.resume.input.v1"
-        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
-        case .TagsApply: return "action:tags.apply.input.v1"
         case .LocationsRescan: return "action:locations.rescan.input.v1"
-        case .VolumesTrack: return "action:volumes.track.input.v1"
-        case .LocationsAdd: return "action:locations.add.input.v1"
-        case .IndexingStart: return "action:indexing.start.input.v1"
         case .LibrariesExport: return "action:libraries.export.input.v1"
         case .VolumesSpeedTest: return "action:volumes.speed_test.input.v1"
-        case .LibrariesRename: return "action:libraries.rename.input.v1"
+        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
+        case .TagsCreate: return "action:tags.create.input.v1"
+        case .VolumesTrack: return "action:volumes.track.input.v1"
+        case .JobsResume: return "action:jobs.resume.input.v1"
         case .JobsCancel: return "action:jobs.cancel.input.v1"
         case .FilesCopy: return "action:files.copy.input.v1"
+        case .JobsPause: return "action:jobs.pause.input.v1"
+        case .LocationsRemove: return "action:locations.remove.input.v1"
+        case .LibrariesRename: return "action:libraries.rename.input.v1"
+        case .TagsApply: return "action:tags.apply.input.v1"
+        case .LocationsAdd: return "action:locations.add.input.v1"
+        case .IndexingStart: return "action:indexing.start.input.v1"
+        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
         }
     }
 }
 
 /// Core-scoped queries
 public enum CoreQuery {
-    case NetworkStatus(input: NetworkStatusQueryInput, output: NetworkStatus)
-    case LibrariesList(input: ListLibrariesInput, output: [LibraryInfo])
-    case CoreStatus(input: Empty, output: CoreStatus)
-    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
     case NetworkDevices(input: ListDevicesInput, output: [DeviceInfoLite])
+    case LibrariesList(input: ListLibrariesInput, output: [LibraryInfo])
+    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
+    case NetworkStatus(input: NetworkStatusQueryInput, output: NetworkStatus)
+    case CoreStatus(input: Empty, output: CoreStatus)
 }
 
 extension CoreQuery: Codable {
     public var wireMethod: String {
         switch self {
-        case .NetworkStatus: return "query:network.status.v1"
-        case .LibrariesList: return "query:libraries.list.v1"
-        case .CoreStatus: return "query:core.status.v1"
-        case .NetworkPairStatus: return "query:network.pair.status.v1"
         case .NetworkDevices: return "query:network.devices.v1"
+        case .LibrariesList: return "query:libraries.list.v1"
+        case .NetworkPairStatus: return "query:network.pair.status.v1"
+        case .NetworkStatus: return "query:network.status.v1"
+        case .CoreStatus: return "query:core.status.v1"
         }
     }
 }
 
 /// Library-scoped queries
 public enum LibraryQuery {
-    case TagsSearch(input: SearchTagsInput, output: SearchTagsOutput)
-    case FilesById(input: FileByIdQuery, output: File)
-    case JobsList(input: JobListInput, output: JobListOutput)
-    case SearchFiles(input: FileSearchInput, output: FileSearchOutput)
-    case FilesByPath(input: FileByPathQuery, output: File)
     case LocationsList(input: LocationsListQueryInput, output: LocationsListOutput)
-    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
+    case TagsSearch(input: SearchTagsInput, output: SearchTagsOutput)
+    case FilesByPath(input: FileByPathQuery, output: File)
+    case SearchFiles(input: FileSearchInput, output: FileSearchOutput)
+    case JobsList(input: JobListInput, output: JobListOutput)
     case LibrariesInfo(input: LibraryInfoQueryInput, output: LibraryInfoOutput)
+    case FilesById(input: FileByIdQuery, output: File)
+    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
 }
 
 extension LibraryQuery: Codable {
     public var wireMethod: String {
         switch self {
-        case .TagsSearch: return "query:tags.search.v1"
-        case .FilesById: return "query:files.by_id.v1"
-        case .JobsList: return "query:jobs.list.v1"
-        case .SearchFiles: return "query:search.files.v1"
-        case .FilesByPath: return "query:files.by_path.v1"
         case .LocationsList: return "query:locations.list.v1"
-        case .JobsInfo: return "query:jobs.info.v1"
+        case .TagsSearch: return "query:tags.search.v1"
+        case .FilesByPath: return "query:files.by_path.v1"
+        case .SearchFiles: return "query:search.files.v1"
+        case .JobsList: return "query:jobs.list.v1"
         case .LibrariesInfo: return "query:libraries.info.v1"
+        case .FilesById: return "query:files.by_id.v1"
+        case .JobsInfo: return "query:jobs.info.v1"
         }
     }
 }

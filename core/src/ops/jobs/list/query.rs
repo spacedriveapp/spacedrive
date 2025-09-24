@@ -47,6 +47,8 @@ impl LibraryQuery for JobListQuery {
 				name: j.name,
 				status: j.status,
 				progress: j.progress,
+				action_type: j.action_type,
+				action_context: j.action_context,
 			})
 			.collect();
 		Ok(JobListOutput { jobs: items })

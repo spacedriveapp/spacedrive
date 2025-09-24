@@ -76,6 +76,9 @@ impl LibraryAction for LocationAddAction {
 			IndexMode::Deep => crate::location::IndexMode::Deep,
 		};
 
+		// Create action context for job tracking
+		let action_context = self.create_action_context();
+
 		let (location_id, job_id_string) = location_manager
 			.add_location(
 				library.clone(),
@@ -83,6 +86,7 @@ impl LibraryAction for LocationAddAction {
 				self.input.name.clone(),
 				device_record.id,
 				location_mode,
+				Some(action_context),
 			)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;

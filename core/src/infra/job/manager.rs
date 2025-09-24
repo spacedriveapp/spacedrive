@@ -11,7 +11,7 @@ use super::{
 	progress::Progress,
 	registry::REGISTRY,
 	traits::{DynJob, Job, JobHandler},
-	types::{ErasedJob, JobId, JobInfo, JobPriority, JobStatus},
+	types::{ActionContextInfo, ErasedJob, JobId, JobInfo, JobPriority, JobStatus},
 };
 use crate::infra::action::context::ActionContext;
 use crate::{
@@ -93,78 +93,8 @@ impl JobManager {
 	where
 		J: Job + JobHandler,
 	{
-		self.dispatch_with_priority(job, JobPriority::NORMAL).await
-	}
-
-	/// Dispatch a job with action context
-	pub async fn dispatch_with_action<J>(
-		&self,
-		job: J,
-		action_context: ActionContext,
-	) -> JobResult<JobHandle>
-	where
-		J: Job + JobHandler,
-	{
-		self.dispatch_with_action_and_priority(job, action_context, JobPriority::NORMAL)
+		self.dispatch_with_priority(job, JobPriority::NORMAL, None)
 			.await
-	}
-
-	/// Dispatch a job with action context and priority
-	pub async fn dispatch_with_action_and_priority<J>(
-		&self,
-		job: J,
-		action_context: ActionContext,
-		priority: JobPriority,
-	) -> JobResult<JobHandle>
-	where
-		J: Job + JobHandler,
-	{
-		let job_id = JobId::new();
-		info!(
-			"Dispatching job {}: {} (from action: {})",
-			job_id,
-			J::NAME,
-			action_context.action_type
-		);
-
-		// Serialize job state and action context
-		let state =
-			rmp_serde::to_vec(&job).map_err(|e| JobError::serialization(format!("{}", e)))?;
-		let serialized_action_context = rmp_serde::to_vec(&action_context)
-			.map_err(|e| JobError::serialization(format!("{}", e)))?;
-
-		// Create database record with action context
-		let job_model = database::jobs::ActiveModel {
-			id: Set(job_id.to_string()),
-			name: Set(J::NAME.to_string()),
-			state: Set(state),
-			status: Set(JobStatus::Queued.to_string()),
-			priority: Set(priority.0),
-			progress_type: Set(None),
-			progress_data: Set(None),
-			parent_job_id: Set(None),
-			created_at: Set(Utc::now()),
-			started_at: Set(None),
-			completed_at: Set(None),
-			paused_at: Set(None),
-			error_message: Set(None),
-			warnings: Set(None),
-			non_critical_errors: Set(None),
-			metrics: Set(None),
-			action_context: Set(Some(serialized_action_context)),
-			action_type: Set(Some(action_context.action_type.clone())),
-		};
-
-		job_model.insert(self.db.conn()).await?;
-
-		// Create channels
-		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
-		let (progress_tx, progress_rx) = mpsc::unbounded_channel::<Progress>();
-		let (broadcast_tx, broadcast_rx) = broadcast::channel::<Progress>(100);
-
-		// Continue with rest of the dispatch logic like in dispatch_with_priority...
-		// For now, just implement the basic structure
-		todo!("Complete action-aware dispatch implementation")
 	}
 
 	/// Dispatch a job by name and parameters (useful for APIs)
@@ -422,21 +352,38 @@ impl JobManager {
 		}
 	}
 
-	/// Dispatch a job with specific priority
+	/// Dispatch a job with specific priority and optional action context
 	pub async fn dispatch_with_priority<J>(
 		&self,
 		job: J,
 		priority: JobPriority,
+		action_context: Option<ActionContext>,
 	) -> JobResult<JobHandle>
 	where
 		J: Job + JobHandler,
 	{
 		let job_id = JobId::new();
-		info!("Dispatching job {}: {}", job_id, J::NAME);
+		if let Some(ref ctx) = action_context {
+			info!(
+				"Dispatching job {}: {} (from action: {})",
+				job_id,
+				J::NAME,
+				ctx.action_type
+			);
+		} else {
+			info!("Dispatching job {}: {}", job_id, J::NAME);
+		}
 
 		// Serialize job state
 		let state =
 			rmp_serde::to_vec(&job).map_err(|e| JobError::serialization(format!("{}", e)))?;
+
+		// Serialize action context if provided
+		let serialized_action_context = if let Some(ref ctx) = action_context {
+			Some(rmp_serde::to_vec(ctx).map_err(|e| JobError::serialization(format!("{}", e)))?)
+		} else {
+			None
+		};
 
 		// Create database record
 		let job_model = database::jobs::ActiveModel {
@@ -456,8 +403,8 @@ impl JobManager {
 			warnings: Set(None),
 			non_critical_errors: Set(None),
 			metrics: Set(None),
-			action_context: Set(None),
-			action_type: Set(None),
+			action_context: Set(serialized_action_context),
+			action_type: Set(action_context.as_ref().map(|ctx| ctx.action_type.clone())),
 		};
 
 		job_model.insert(self.db.conn()).await?;
@@ -739,6 +686,8 @@ impl JobManager {
 					completed_at: None,
 					error_message: None,
 					parent_job_id: None,
+					action_type: None,
+					action_context: None,
 				};
 
 				job_infos.push(job_info);
@@ -829,14 +778,34 @@ impl JobManager {
 					0.0
 				};
 
-			// Get job name from database for complete info
-			let job_name = match database::jobs::Entity::find_by_id(job_id.0.to_string())
-				.one(self.db.conn())
-				.await?
-			{
-				Some(db_job) => db_job.name,
-				None => format!("Job {}", job_id.0),
-			};
+			// Get job data from database for complete info
+			let (job_name, action_type, action_context) =
+				match database::jobs::Entity::find_by_id(job_id.0.to_string())
+					.one(self.db.conn())
+					.await?
+				{
+					Some(db_job) => {
+						let action_context = if let Some(context_data) = &db_job.action_context {
+							match rmp_serde::from_slice::<
+								crate::infra::action::context::ActionContext,
+							>(context_data)
+							{
+								Ok(ctx) => Some(ActionContextInfo {
+									action_type: ctx.action_type.clone(),
+									initiated_at: ctx.initiated_at,
+									initiated_by: ctx.initiated_by.clone(),
+									action_input: ctx.action_input,
+									context: ctx.context,
+								}),
+								Err(_) => None,
+							}
+						} else {
+							None
+						};
+						(db_job.name, db_job.action_type, action_context)
+					}
+					None => (format!("Job {}", job_id.0), None, None),
+				};
 
 			all_jobs.push(JobInfo {
 				id: job_id.0,
@@ -847,6 +816,8 @@ impl JobManager {
 				completed_at: None,
 				error_message: None,
 				parent_job_id: None,
+				action_type,
+				action_context,
 			});
 		}
 		drop(running_jobs_map);
@@ -893,6 +864,24 @@ impl JobManager {
 				0.0
 			};
 
+			// Parse action context from database
+			let action_context = if let Some(context_data) = &j.action_context {
+				match rmp_serde::from_slice::<crate::infra::action::context::ActionContext>(
+					context_data,
+				) {
+					Ok(ctx) => Some(ActionContextInfo {
+						action_type: ctx.action_type.clone(),
+						initiated_at: ctx.initiated_at,
+						initiated_by: ctx.initiated_by.clone(),
+						action_input: ctx.action_input,
+						context: ctx.context,
+					}),
+					Err(_) => None,
+				}
+			} else {
+				None
+			};
+
 			all_jobs.push(JobInfo {
 				id,
 				name: j.name,
@@ -902,6 +891,8 @@ impl JobManager {
 				completed_at: j.completed_at,
 				error_message: j.error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
+				action_type: j.action_type,
+				action_context,
 			});
 		}
 
@@ -942,6 +933,8 @@ impl JobManager {
 				completed_at: None,             // Running jobs aren't completed yet
 				error_message: None,            // TODO: Get from handle if failed
 				parent_job_id: None,            // TODO: Get from DB if needed
+				action_type: None,
+				action_context: None,
 			}));
 		}
 
@@ -979,6 +972,8 @@ impl JobManager {
 				completed_at: j.completed_at,
 				error_message: j.error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
+				action_type: j.action_type,
+				action_context: None, // TODO: Parse action context from j.action_context
 			})
 		}))
 	}
