@@ -28,15 +28,15 @@ pub trait OperationTypeInfo {
 	/// Extract type metadata and register with Specta's TypeCollection
 	/// This is the key method that enables automatic type discovery
 	fn extract_types(collection: &mut TypeCollection) -> OperationMetadata {
-		// Register the types with Specta and get their references
-		let input_ref = Self::Input::reference(collection, &[]);
-		let output_ref = Self::Output::reference(collection, &[]);
+		// Register the types with Specta and get their DataType definitions
+		let input_type = Self::Input::definition(collection);
+		let output_type = Self::Output::definition(collection);
 
 		OperationMetadata {
 			identifier: Self::identifier(),
 			wire_method: Self::wire_method(),
-			input_type: input_ref.inner,
-			output_type: output_ref.inner,
+			input_type,
+			output_type,
 		}
 	}
 }
@@ -59,15 +59,15 @@ pub trait QueryTypeInfo {
 
 	/// Extract query type metadata
 	fn extract_types(collection: &mut TypeCollection) -> QueryMetadata {
-		// Register the types with Specta and get their references
-		let input_ref = Self::Input::reference(collection, &[]);
-		let output_ref = Self::Output::reference(collection, &[]);
+		// Register the types with Specta and get their DataType definitions
+		let input_type = Self::Input::definition(collection);
+		let output_type = Self::Output::definition(collection);
 
 		QueryMetadata {
 			identifier: Self::identifier(),
 			wire_method: Self::wire_method(),
-			input_type: input_ref.inner,
-			output_type: output_ref.inner,
+			input_type,
+			output_type,
 		}
 	}
 }
@@ -141,7 +141,11 @@ mod tests {
 	fn test_type_extraction_system() {
 		let (operations, queries, collection) = generate_spacedrive_api();
 
-		println!("🔍 Discovered {} operations and {} queries", operations.len(), queries.len());
+		println!(
+			"🔍 Discovered {} operations and {} queries",
+			operations.len(),
+			queries.len()
+		);
 		println!("📊 Type collection has {} types", collection.len());
 
 		// Should have some operations if the system is working
@@ -150,13 +154,19 @@ mod tests {
 
 			// Show some examples
 			for op in operations.iter().take(3) {
-				println!("   Operation: {} -> wire: {}", op.identifier, op.wire_method);
+				println!(
+					"   Operation: {} -> wire: {}",
+					op.identifier, op.wire_method
+				);
 			}
 		}
 
 		if !queries.is_empty() {
 			for query in queries.iter().take(3) {
-				println!("   Query: {} -> wire: {}", query.identifier, query.wire_method);
+				println!(
+					"   Query: {} -> wire: {}",
+					query.identifier, query.wire_method
+				);
 			}
 		}
 	}

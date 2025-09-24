@@ -9,6 +9,7 @@
 //! - Metadata operations (hierarchical tagging)
 
 pub mod addressing;
+pub mod api_types;
 // pub mod content;
 pub mod core;
 // pub mod devices;
@@ -20,8 +21,8 @@ pub mod libraries;
 pub mod locations;
 pub mod media;
 pub mod metadata;
-pub mod minimal_test;
 pub mod network;
+pub mod proof_of_concept;
 pub mod registry;
 pub mod search;
 pub mod sidecar;

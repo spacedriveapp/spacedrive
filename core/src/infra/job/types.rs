@@ -6,7 +6,7 @@ use std::fmt;
 use uuid::Uuid;
 
 /// Unique identifier for a job
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 pub struct JobId(pub Uuid);
 
 impl JobId {

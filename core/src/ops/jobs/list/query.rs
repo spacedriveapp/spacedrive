@@ -1,30 +1,42 @@
 use super::output::{JobListItem, JobListOutput};
-use crate::{context::CoreContext, cqrs::Query};
+use crate::infra::job::types::JobStatus;
+use crate::{context::CoreContext, cqrs::LibraryQuery};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct JobListQuery {
-	pub status: Option<crate::infra::job::types::JobStatus>,
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct JobListInput {
+	pub status: Option<JobStatus>,
 }
 
-impl Query for JobListQuery {
+#[derive(Debug, Clone)]
+pub struct JobListQuery {
+	pub input: JobListInput,
+}
+
+impl LibraryQuery for JobListQuery {
+	type Input = JobListInput;
 	type Output = JobListOutput;
 
-	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
-		// Get current library ID from session
-		let session_state = context.session.get().await;
-		let library_id = session_state
-			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No active library selected"))?;
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self { input })
+	}
 
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		library_id: uuid::Uuid,
+	) -> Result<Self::Output> {
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
-		let jobs = library.jobs().list_jobs(self.status).await?;
+
+		let jobs = library.jobs().list_jobs(self.input.status).await?;
 		let items = jobs
 			.into_iter()
 			.map(|j| JobListItem {
@@ -38,4 +50,4 @@ impl Query for JobListQuery {
 	}
 }
 
-crate::register_query!(JobListQuery, "jobs.list");
+crate::register_library_query!(JobListQuery, "jobs.list");

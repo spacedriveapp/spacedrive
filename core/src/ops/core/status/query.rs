@@ -1,17 +1,26 @@
 //! Core status query (modular)
 
 use super::output::*;
-use crate::{context::CoreContext, cqrs::Query, service::Service};
+use crate::{
+	context::CoreContext,
+	cqrs::{CoreQuery, Query},
+	service::Service,
+};
 use anyhow::Result;
 use chrono::Utc;
 
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug)]
 pub struct CoreStatusQuery;
 
-impl Query for CoreStatusQuery {
+impl CoreQuery for CoreStatusQuery {
+	type Input = ();
 	type Output = CoreStatus;
+
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self)
+	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
 		// Get basic library information
@@ -134,4 +143,4 @@ impl Query for CoreStatusQuery {
 	}
 }
 
-crate::register_query!(CoreStatusQuery, "core.status");
+crate::register_core_query!(CoreStatusQuery, "core.status");

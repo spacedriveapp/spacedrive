@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CoreStatus {
 	pub version: String,
 	pub built_at: String,
@@ -15,7 +16,7 @@ pub struct CoreStatus {
 	pub system: SystemInfo,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DeviceInfo {
 	pub id: Uuid,
 	pub name: String,
@@ -24,7 +25,7 @@ pub struct DeviceInfo {
 	pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryInfo {
 	pub id: Uuid,
 	pub name: String,
@@ -34,7 +35,7 @@ pub struct LibraryInfo {
 	pub last_sync: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ServiceStatus {
 	pub location_watcher: ServiceState,
 	pub networking: ServiceState,
@@ -42,13 +43,13 @@ pub struct ServiceStatus {
 	pub file_sharing: ServiceState,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ServiceState {
 	pub running: bool,
 	pub details: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NetworkStatus {
 	pub enabled: bool,
 	pub node_id: Option<String>,
@@ -57,7 +58,7 @@ pub struct NetworkStatus {
 	pub discovery_enabled: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PairedDeviceInfo {
 	pub id: Uuid,
 	pub name: String,
@@ -67,7 +68,7 @@ pub struct PairedDeviceInfo {
 	pub paired_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SystemInfo {
 	pub uptime: Option<u64>, // seconds
 	pub data_directory: String,

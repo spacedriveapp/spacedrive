@@ -294,6 +294,7 @@ impl JobManager {
 		// Create handle
 		let handle = JobHandle {
 			id: job_id,
+			job_name: job_name.to_string(),
 			task_handle: Arc::new(Mutex::new(None)),
 			status_rx,
 			progress_rx: broadcast_rx,
@@ -560,6 +561,7 @@ impl JobManager {
 		// Create handle
 		let handle = JobHandle {
 			id: job_id,
+			job_name: J::NAME.to_string(),
 			task_handle: Arc::new(Mutex::new(None)),
 			status_rx,
 			progress_rx: broadcast_rx,
@@ -1130,6 +1132,7 @@ impl JobManager {
 						// Create handle
 						let handle = JobHandle {
 							id: job_id,
+							job_name: job_record.name,
 							task_handle: Arc::new(Mutex::new(None)),
 							status_rx,
 							progress_rx: broadcast_rx,
@@ -1482,6 +1485,7 @@ impl JobManager {
 			// Create handle
 			let handle = JobHandle {
 				id: job_id,
+				job_name: job_name.clone(),
 				task_handle: Arc::new(Mutex::new(None)),
 				status_rx,
 				progress_rx: broadcast_rx,

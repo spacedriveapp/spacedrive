@@ -1,23 +1,27 @@
 //! Network status query
 
 use super::output::NetworkStatus;
-use crate::{context::CoreContext, cqrs::Query};
+use crate::{context::CoreContext, cqrs::CoreQuery};
 use anyhow::Result;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
 pub struct NetworkStatusQuery;
 
-impl Query for NetworkStatusQuery {
+impl CoreQuery for NetworkStatusQuery {
+	type Input = ();
 	type Output = NetworkStatus;
+
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self)
+	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output> {
 		let networking = context.get_networking().await;
 		if let Some(net) = networking {
 			let node_id = net.node_id().to_string();
 			let addresses = if let Ok(addr) = net.get_node_addr().await {
-				addr
-					.direct_addresses()
+				addr.direct_addresses()
 					.map(|a| a.to_string())
 					.collect::<Vec<_>>()
 			} else {
@@ -50,5 +54,4 @@ impl Query for NetworkStatusQuery {
 	}
 }
 
-crate::register_query!(NetworkStatusQuery, "network.status");
-
+crate::register_core_query!(NetworkStatusQuery, "network.status");

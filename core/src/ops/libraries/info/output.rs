@@ -1,13 +1,14 @@
 //! Library information output types
 
 use crate::library::config::{LibrarySettings, LibraryStatistics};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::path::PathBuf;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Detailed information about a library
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryInfoOutput {
 	/// Library unique identifier
 	pub id: Uuid,

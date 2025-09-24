@@ -1,13 +1,21 @@
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+use serde::{Deserialize, Serialize};
+use specta::Type;
+
+#[derive(Debug, Clone)]
 pub struct GetCurrentLibraryQuery;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct GetCurrentLibraryOutput {
 	pub library_id: Option<uuid::Uuid>,
 }
 
-impl crate::cqrs::Query for GetCurrentLibraryQuery {
+impl crate::cqrs::CoreQuery for GetCurrentLibraryQuery {
+	type Input = ();
 	type Output = GetCurrentLibraryOutput;
+
+	fn from_input(input: Self::Input) -> anyhow::Result<Self> {
+		Ok(Self)
+	}
 
 	async fn execute(
 		self,
@@ -20,4 +28,4 @@ impl crate::cqrs::Query for GetCurrentLibraryQuery {
 	}
 }
 
-crate::register_query!(GetCurrentLibraryQuery, "libraries.session.current");
+crate::register_core_query!(GetCurrentLibraryQuery, "libraries.session.current");
