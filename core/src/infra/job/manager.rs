@@ -794,8 +794,8 @@ impl JobManager {
 									action_type: ctx.action_type.clone(),
 									initiated_at: ctx.initiated_at,
 									initiated_by: ctx.initiated_by.clone(),
-									action_input: ctx.action_input,
-									context: ctx.context,
+									action_input: ctx.action_input.into(),
+									context: ctx.context.into(),
 								}),
 								Err(_) => None,
 							}
@@ -873,8 +873,8 @@ impl JobManager {
 						action_type: ctx.action_type.clone(),
 						initiated_at: ctx.initiated_at,
 						initiated_by: ctx.initiated_by.clone(),
-						action_input: ctx.action_input,
-						context: ctx.context,
+						action_input: ctx.action_input.into(),
+						context: ctx.context.into(),
 					}),
 					Err(_) => None,
 				}

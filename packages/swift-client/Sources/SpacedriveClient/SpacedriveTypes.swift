@@ -18,8 +18,8 @@ public struct ActionContextInfo: Codable {
     public let actionType: String
     public let initiatedAt: String
     public let initiatedBy: String?
-    public let actionInput: JsonValue
-    public let context: JsonValue
+    public let actionInput: JSONValue?
+    public let context: JSONValue?
 
     private enum CodingKeys: String, CodingKey {
         case actionType = "action_type"
@@ -29,7 +29,7 @@ public struct ActionContextInfo: Codable {
         case context = "context"
     }
 
-    public init(actionType: String, initiatedAt: String, initiatedBy: String?, actionInput: JsonValue, context: JsonValue) {
+    public init(actionType: String, initiatedAt: String, initiatedBy: String?, actionInput: JSONValue?, context: JSONValue?) {
         self.actionType = actionType
         self.initiatedAt = initiatedAt
         self.initiatedBy = initiatedBy
@@ -119,7 +119,7 @@ public struct ApplyTagsInput: Codable {
     public let source: TagSource?
     public let confidence: Float?
     public let appliedContext: String?
-    public let instanceAttributes: [String: JsonValue]?
+    public let instanceAttributes: [String: JSONValue]?
 
     private enum CodingKeys: String, CodingKey {
         case entryIds = "entry_ids"
@@ -130,7 +130,7 @@ public struct ApplyTagsInput: Codable {
         case instanceAttributes = "instance_attributes"
     }
 
-    public init(entryIds: [Int32], tagIds: [String], source: TagSource?, confidence: Float?, appliedContext: String?, instanceAttributes: [String: JsonValue]?) {
+    public init(entryIds: [Int32], tagIds: [String], source: TagSource?, confidence: Float?, appliedContext: String?, instanceAttributes: [String: JSONValue]?) {
         self.entryIds = entryIds
         self.tagIds = tagIds
         self.source = source
@@ -294,7 +294,7 @@ public struct CreateTagInput: Codable {
     public let isOrganizationalAnchor: Bool?
     public let privacyLevel: PrivacyLevel?
     public let searchWeight: Int32?
-    public let attributes: [String: JsonValue]?
+    public let attributes: [String: JSONValue]?
 
     private enum CodingKeys: String, CodingKey {
         case canonicalName = "canonical_name"
@@ -313,7 +313,7 @@ public struct CreateTagInput: Codable {
         case attributes = "attributes"
     }
 
-    public init(canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType?, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool?, privacyLevel: PrivacyLevel?, searchWeight: Int32?, attributes: [String: JsonValue]?) {
+    public init(canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType?, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool?, privacyLevel: PrivacyLevel?, searchWeight: Int32?, attributes: [String: JSONValue]?) {
         self.canonicalName = canonicalName
         self.displayName = displayName
         self.formalName = formalName
@@ -2143,14 +2143,57 @@ public enum JobStatus: String, Codable {
     case cancelled = "cancelled"
 }
 
-public indirect enum JsonValue: Codable {
+public indirect enum JSONValue {
     case null
     case bool(Bool)
-    case number(JsonValue)
+    case number(Double)
     case string(String)
-    case array([JsonValue])
-    case object([String: JsonValue])
+    case array([JSONValue])
+    case object([String: JSONValue])
 }
+extension JSONValue: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        
+        if container.decodeNil() {
+            self = .null
+        } else if let bool = try? container.decode(Bool.self) {
+            self = .bool(bool)
+        } else if let int = try? container.decode(Int.self) {
+            self = .number(Double(int))
+        } else if let double = try? container.decode(Double.self) {
+            self = .number(double)
+        } else if let string = try? container.decode(String.self) {
+            self = .string(string)
+        } else if let array = try? container.decode([JSONValue].self) {
+            self = .array(array)
+        } else if let object = try? container.decode([String: JSONValue].self) {
+            self = .object(object)
+        } else {
+            throw DecodingError.typeMismatch(JSONValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid JSONValue"))
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        
+        switch self {
+        case .null:
+            try container.encodeNil()
+        case .bool(let bool):
+            try container.encode(bool)
+        case .number(let double):
+            try container.encode(double)
+        case .string(let string):
+            try container.encode(string)
+        case .array(let array):
+            try container.encode(array)
+        case .object(let object):
+            try container.encode(object)
+        }
+    }
+}
+
 
 /// Input for creating a new library
 public struct LibraryCreateInput: Codable {
@@ -2573,9 +2616,9 @@ public struct MediaData: Codable {
     public let bitrate: UInt32?
     public let fps: Float?
     public let exif: ExifData?
-    public let extra: JsonValue
+    public let extra: JSONValue
 
-    public init(width: UInt32?, height: UInt32?, duration: Double?, bitrate: UInt32?, fps: Float?, exif: ExifData?, extra: JsonValue) {
+    public init(width: UInt32?, height: UInt32?, duration: Double?, bitrate: UInt32?, fps: Float?, exif: ExifData?, extra: JSONValue) {
         self.width = width
         self.height = height
         self.duration = duration
@@ -3494,7 +3537,7 @@ public struct Tag: Codable {
     public let isOrganizationalAnchor: Bool
     public let privacyLevel: PrivacyLevel
     public let searchWeight: Int32
-    public let attributes: [String: JsonValue]
+    public let attributes: [String: JSONValue]
     public let compositionRules: [CompositionRule]
     public let createdAt: String
     public let updatedAt: String
@@ -3522,7 +3565,7 @@ public struct Tag: Codable {
         case createdByDevice = "created_by_device"
     }
 
-    public init(id: String, canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool, privacyLevel: PrivacyLevel, searchWeight: Int32, attributes: [String: JsonValue], compositionRules: [CompositionRule], createdAt: String, updatedAt: String, createdByDevice: String) {
+    public init(id: String, canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool, privacyLevel: PrivacyLevel, searchWeight: Int32, attributes: [String: JSONValue], compositionRules: [CompositionRule], createdAt: String, updatedAt: String, createdByDevice: String) {
         self.id = id
         self.canonicalName = canonicalName
         self.displayName = displayName
