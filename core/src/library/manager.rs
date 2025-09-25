@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 /// Information about a discovered library
@@ -217,6 +217,7 @@ impl LibraryManager {
 			config: RwLock::new(config.clone()),
 			db,
 			jobs: job_manager,
+			event_bus: self.event_bus.clone(),
 			_lock: lock,
 		});
 
@@ -233,7 +234,10 @@ impl LibraryManager {
 
 		// Now that the library is registered in the context, resume interrupted jobs
 		if let Err(e) = library.jobs.resume_interrupted_jobs_after_load().await {
-			warn!("Failed to resume interrupted jobs for library {}: {}", config.id, e);
+			warn!(
+				"Failed to resume interrupted jobs for library {}: {}",
+				config.id, e
+			);
 		}
 
 		// Note: Sidecar manager initialization should be done by the Core when libraries are loaded
@@ -249,6 +253,7 @@ impl LibraryManager {
 		}
 
 		// Emit event
+		let library_name = config.name.clone();
 		self.event_bus.emit(Event::LibraryOpened {
 			id: config.id,
 			name: config.name,

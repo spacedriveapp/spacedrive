@@ -160,6 +160,9 @@ pub struct LibraryStatistics {
 	/// Number of thumbnails generated
 	pub thumbnail_count: u64,
 
+	/// Database file size in bytes
+	pub database_size: u64,
+
 	/// Last time the library was fully indexed
 	pub last_indexed: Option<DateTime<Utc>>,
 
@@ -175,6 +178,7 @@ impl Default for LibraryStatistics {
 			location_count: 0,
 			tag_count: 0,
 			thumbnail_count: 0,
+			database_size: 0,
 			last_indexed: None,
 			updated_at: Utc::now(),
 		}

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
@@ -29,6 +30,10 @@ pub struct RpcServer {
 	shutdown_rx: mpsc::Receiver<()>,
 	/// Active connections for event streaming
 	connections: Arc<RwLock<HashMap<Uuid, Connection>>>,
+	/// Connection counter for monitoring
+	connection_count: Arc<AtomicUsize>,
+	/// Maximum number of concurrent connections
+	max_connections: usize,
 }
 
 impl RpcServer {
@@ -40,6 +45,8 @@ impl RpcServer {
 			shutdown_tx,
 			shutdown_rx,
 			connections: Arc::new(RwLock::new(HashMap::new())),
+			connection_count: Arc::new(AtomicUsize::new(0)),
+			max_connections: 100, // Reasonable limit for concurrent connections
 		}
 	}
 
@@ -62,21 +69,44 @@ impl RpcServer {
 				// Handle new connections
 				result = listener.accept() => {
 					match result {
-						Ok((stream, _addr)) => {
+						Ok((mut stream, _addr)) => {
+							// Check connection limit
+							let current_connections = self.connection_count.load(Ordering::Relaxed);
+							if current_connections >= self.max_connections {
+								tracing::warn!(
+									"Connection limit reached ({}), rejecting new connection",
+									self.max_connections
+								);
+								// Close the stream immediately to free the file descriptor
+								let _ = stream.shutdown().await;
+								continue;
+							}
+
 							let core = self.core.clone();
 							let shutdown_tx = self.shutdown_tx.clone();
 							let connections = self.connections.clone();
+							let connection_count = self.connection_count.clone();
+
+							// Increment connection counter
+							connection_count.fetch_add(1, Ordering::Relaxed);
 
 							// Spawn task for concurrent request handling
 							tokio::spawn(async move {
 								// Convert errors to strings to ensure Send
-								if let Err(e) = Self::handle_connection(stream, core, shutdown_tx, connections).await {
+								if let Err(e) = Self::handle_connection(stream, core, shutdown_tx, connections, connection_count).await {
 									eprintln!("Connection error: {}", e);
 								}
 							});
 						}
 						Err(e) => {
-							eprintln!("Accept error: {}", e);
+							// Handle specific "too many open files" error
+							if e.raw_os_error() == Some(24) {
+								tracing::error!("Too many open files error (EMFILE) - system file descriptor limit reached");
+								tracing::error!("Current connections: {}", self.connection_count.load(Ordering::Relaxed));
+								tracing::error!("Consider increasing system limits or reducing concurrent connections");
+							} else {
+								eprintln!("Accept error: {}", e);
+							}
 							continue;
 						}
 					}
@@ -206,9 +236,10 @@ impl RpcServer {
 		json_payload: serde_json::Value,
 		core: &Arc<crate::Core>,
 	) -> Result<serde_json::Value, String> {
-		println!(
-			"🔍 Executing operation: method={}, library_id={:?}",
-			method, library_id
+		tracing::info!(
+			"[RPC Operation]: method={}, library_id={:?}",
+			method,
+			library_id
 		);
 		// Create base session context
 		let base_session = core.api_dispatcher.create_base_session()?;
@@ -223,7 +254,6 @@ impl RpcServer {
 
 		// Try core queries
 		if let Some(handler) = crate::ops::registry::CORE_QUERIES.get(method) {
-			tracing::info!("🔍 Found core query handler for method: {}", method);
 			return handler(core.context.clone(), base_session, json_payload).await;
 		}
 
@@ -330,6 +360,7 @@ impl RpcServer {
 		core: Arc<Core>,
 		shutdown_tx: mpsc::Sender<()>,
 		connections: Arc<RwLock<HashMap<Uuid, Connection>>>,
+		connection_count: Arc<AtomicUsize>,
 	) -> Result<(), String> {
 		let connection_id = Uuid::new_v4();
 		let (mut reader, mut writer) = stream.into_split();
@@ -350,10 +381,8 @@ impl RpcServer {
 						}
 						Ok(_) => {
 							// Parse request
-							tracing::info!("🔍 Daemon received request: {}", line.trim());
 							match serde_json::from_str::<DaemonRequest>(&line.trim()) {
 								Ok(request) => {
-									tracing::info!("🔍 Daemon parsed request successfully: {:?}", request);
 									let response = Self::process_request(
 										request,
 										&core,
@@ -364,15 +393,12 @@ impl RpcServer {
 									).await;
 
 									// Send response
-									tracing::info!("🔍 Daemon sending response: {:?}", response);
 									let response_json = serde_json::to_string(&response)
 										.map_err(|e| DaemonError::SerializationError(e.to_string()).to_string())?;
-									tracing::info!("🔍 Daemon response JSON: {}", response_json);
 
 									if let Err(_) = writer.write_all((response_json + "\n").as_bytes()).await {
 										break; // Connection closed
 									}
-									tracing::info!("🔍 Daemon response sent successfully");
 
 									// For non-streaming requests, close connection after response
 									match response {
@@ -426,6 +452,10 @@ impl RpcServer {
 
 		// Clean up connection
 		connections.write().await.remove(&connection_id);
+
+		// Decrement connection counter
+		connection_count.fetch_sub(1, Ordering::Relaxed);
+
 		Ok(())
 	}
 
@@ -493,5 +523,12 @@ impl RpcServer {
 				DaemonResponse::Ok(Vec::new())
 			}
 		}
+	}
+
+	/// Get current connection statistics
+	pub fn get_connection_stats(&self) -> (usize, usize) {
+		let current = self.connection_count.load(Ordering::Relaxed);
+		let max = self.max_connections;
+		(current, max)
 	}
 }

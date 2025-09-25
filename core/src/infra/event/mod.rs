@@ -38,6 +38,10 @@ pub enum Event {
 		name: String,
 		deleted_data: bool,
 	},
+	LibraryStatisticsUpdated {
+		library_id: Uuid,
+		statistics: crate::library::config::LibraryStatistics,
+	},
 
 	// Entry events (file/directory operations)
 	EntryCreated {

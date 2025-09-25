@@ -17,9 +17,9 @@ pub struct Database {
 }
 
 impl AsRef<DatabaseConnection> for Database {
-    fn as_ref(&self) -> &DatabaseConnection {
-        &self.conn
-    }
+	fn as_ref(&self) -> &DatabaseConnection {
+		&self.conn
+	}
 }
 
 impl Database {
@@ -34,8 +34,8 @@ impl Database {
 		let db_url = format!("sqlite://{}?mode=rwc", path.display());
 
 		let mut opt = ConnectOptions::new(db_url);
-		opt.max_connections(10)
-			.min_connections(5)
+		opt.max_connections(5) // Reduced from 10 to 5
+			.min_connections(1) // Reduced from 5 to 1
 			.connect_timeout(Duration::from_secs(8))
 			.idle_timeout(Duration::from_secs(8))
 			.max_lifetime(Duration::from_secs(8))
@@ -92,8 +92,8 @@ impl Database {
 		let db_url = format!("sqlite://{}", path.display());
 
 		let mut opt = ConnectOptions::new(db_url);
-		opt.max_connections(10)
-			.min_connections(5)
+		opt.max_connections(5) // Reduced from 10 to 5
+			.min_connections(1) // Reduced from 5 to 1
 			.connect_timeout(Duration::from_secs(8))
 			.idle_timeout(Duration::from_secs(8))
 			.max_lifetime(Duration::from_secs(8))

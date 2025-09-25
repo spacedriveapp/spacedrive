@@ -33,6 +33,22 @@ pub async fn start_default_server(
 	info!("Socket path: {:?}", socket_path);
 	info!("Networking enabled: {}", enable_networking);
 
+	// Log file descriptor limits for debugging
+	#[cfg(unix)]
+	{
+		use std::process::Command;
+		if let Ok(output) = Command::new("sh").arg("-c").arg("ulimit -n").output() {
+			if let Ok(limit_str) = String::from_utf8(output.stdout) {
+				if let Ok(limit) = limit_str.trim().parse::<u64>() {
+					info!("System file descriptor limit: {}", limit);
+					if limit < 10000 {
+						warn!("File descriptor limit is low ({}), consider increasing with 'ulimit -n 65536'", limit);
+					}
+				}
+			}
+		}
+	}
+
 	let mut server = RpcServer::new(socket_path, core.clone());
 
 	// Start the server, which will initialize event streaming

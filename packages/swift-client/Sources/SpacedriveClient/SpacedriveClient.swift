@@ -151,7 +151,6 @@ public class SpacedriveClient {
         responseType: Response.Type,
         libraryId: String? = nil
     ) async throws -> Response {
-        print("🔍 [SpacedriveClient] execute() called with method: \(method)")
         // 1. Handle unit types (Empty) specially - they should send no payload
         let jsonPayload: [String: Any]
         if requestPayload is Empty {
@@ -182,19 +181,15 @@ public class SpacedriveClient {
         }
 
         // 4. Send to daemon and get response
-        print("🔍 Executing \(method.hasPrefix("query:") ? "query" : "action"): \(method)")
         let response = try await sendRequest(request)
-        print("🔍 Response received: \(response)")
 
         // 5. Handle response
         switch response {
         case .jsonOk(let jsonData):
-            print("🔍 Operation successful (JSON), decoding response")
             do {
                 let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
                 return try JSONDecoder().decode(responseType, from: jsonResponseData)
             } catch {
-                print("❌ JSON decode error: \(error)")
                 throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
             }
         case .error(let error):
@@ -241,19 +236,22 @@ public class SpacedriveClient {
 
     /// Send a request to the daemon and wait for response
     private func sendRequest(_ request: DaemonRequest) async throws -> DaemonResponse {
-        print("🔍 [SpacedriveClient] Starting sendRequest")
         let connection = try await createConnection()
-        print("🔍 [SpacedriveClient] Connection created, fd: \(connection)")
         defer {
-            print("🔍 [SpacedriveClient] Closing connection fd: \(connection)")
             close(connection)
         }
 
-        print("🔍 [SpacedriveClient] About to send request over connection")
+        // Extract method for logging
+        let method: String?
+        switch request {
+        case .query(let m, _, _), .action(let m, _, _):
+            method = m
+        case .ping, .subscribe, .unsubscribe, .shutdown:
+            method = nil
+        }
+
         try await sendRequestOverConnection(request, connection: connection)
-        print("🔍 [SpacedriveClient] Request sent, about to read response")
-        let response = try await readResponseFromConnection(connection)
-        print("🔍 [SpacedriveClient] Response read successfully")
+        let response = try await readResponseFromConnection(connection, method: method)
         return response
     }
 
@@ -364,7 +362,6 @@ public class SpacedriveClient {
 
         let requestLine = requestData + Data("\n".utf8)
 
-        print("📤 Sending request: \(String(data: requestData, encoding: .utf8) ?? "invalid")")
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             DispatchQueue.global().async {
@@ -376,7 +373,6 @@ public class SpacedriveClient {
                     let errorMsg = String(cString: strerror(errno))
                     continuation.resume(throwing: SpacedriveError.connectionFailed("Send failed: \(errorMsg)"))
                 } else {
-                    print("📤 Sent \(sendResult) bytes")
                     continuation.resume()
                 }
             }
@@ -384,14 +380,11 @@ public class SpacedriveClient {
     }
 
     /// Read a response from an existing connection
-    private func readResponseFromConnection(_ connection: Int32) async throws -> DaemonResponse {
-        print("🔍 [SpacedriveClient] Starting readResponseFromConnection, fd: \(connection)")
+    private func readResponseFromConnection(_ connection: Int32, method: String? = nil) async throws -> DaemonResponse {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
-                print("🔍 [SpacedriveClient] About to call recv()")
                 var buffer = [UInt8](repeating: 0, count: 4096)
                 let readResult = recv(connection, &buffer, buffer.count, 0)
-                print("🔍 [SpacedriveClient] recv() returned: \(readResult)")
 
                 guard readResult > 0 else {
                     let errorMsg = String(cString: strerror(errno))
@@ -400,21 +393,22 @@ public class SpacedriveClient {
                 }
 
                 let responseData = Data(buffer.prefix(readResult))
-                print("📥 Received \(readResult) bytes: \(String(data: responseData, encoding: .utf8) ?? "invalid")")
+
 
                 do {
-                    print("🔍 [SpacedriveClient] About to parse response JSON")
                     // Find the newline delimiter and parse JSON
                     if let responseString = String(data: responseData, encoding: .utf8) {
                         let lines = responseString.components(separatedBy: .newlines).filter { !$0.isEmpty }
                         if let firstLine = lines.first {
-                            print("🔍 [SpacedriveClient] Parsing first line: \(firstLine)")
                             let lineData = Data(firstLine.utf8)
                             let response = try JSONDecoder().decode(DaemonResponse.self, from: lineData)
-                            print("🔍 [SpacedriveClient] Response parsed successfully")
+                            if let method = method {
+                                print("Daemon response for \(method): \(response)")
+                            } else {
+                                print("Daemon response: \(response)")
+                            }
                             continuation.resume(returning: response)
                         } else {
-                            print("🔍 [SpacedriveClient] No valid response line found")
                             continuation.resume(throwing: SpacedriveError.invalidResponse("No valid response line"))
                         }
                     } else {
@@ -454,7 +448,6 @@ public class SpacedriveClient {
                         if let lineString = String(data: lineBuffer, encoding: .utf8) {
                             let trimmedLine = lineString.trimmingCharacters(in: .whitespacesAndNewlines)
                             if !trimmedLine.isEmpty {
-                                print("📥 Received complete JSON line (\(lineBuffer.count) bytes): \(trimmedLine)")
 
                                 do {
                                     let response = try JSONDecoder().decode(DaemonResponse.self, from: Data(trimmedLine.utf8))

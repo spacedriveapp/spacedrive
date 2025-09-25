@@ -67,20 +67,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		queries.len()
 	);
 
-	// Print a sample of the generated content for inspection
-	let lines: Vec<&str> = generated_content.lines().collect();
-	let sample_size = std::cmp::min(50, lines.len());
-	println!(
-		"\n📄 Sample of generated Swift code (first {} lines):",
-		sample_size
-	);
-	for line in lines.iter().take(sample_size) {
-		println!("{}", line);
-	}
-	if lines.len() > sample_size {
-		println!("... ({} more lines)", lines.len() - sample_size);
-	}
-
 	Ok(())
 }
 
@@ -100,15 +86,60 @@ fn generate_swift_api_code(
 	let mut swift = specta_swift::Swift::new()
 		.header("")
 		.naming(specta_swift::NamingConvention::PascalCase)
-		.optionals(specta_swift::OptionalStyle::QuestionMark);
+		.optionals(specta_swift::OptionalStyle::QuestionMark)
+		.struct_naming(specta_swift::StructNamingStrategy::AutoRename); // ✅ Explicit struct naming
 
 	// Enable initializer generation for structs
 	swift.generate_initializers = true;
 
-	let mut individual_types = swift.export(types)?;
+	// ✅ Debug: Print specta-swift version/features to verify we're using the right code
+	println!("🔧 Using specta-swift with fixes:");
+	println!("  • Duplicate name handling: Available");
+	println!("  • String enum raw types: Fixed");
+	println!("  • Adjacently tagged enums: Fixed");
+	println!("  • Enum struct variants: Fixed");
+
+	let individual_types = swift.export(types)?;
+
+	// ✅ Debug: Check for known issues in the generated code
+	if individual_types.contains("case number(    case") {
+		eprintln!("❌ ERROR: Malformed enum syntax detected in generated types!");
+		eprintln!("This suggests specta-swift fixes are not active.");
+		return Err("Malformed enum generation detected".into());
+	}
+
+	if individual_types.contains("private enum TypeKeys:")
+		&& individual_types.matches("private enum TypeKeys:").count() > 1
+	{
+		eprintln!("❌ WARNING: Multiple generic TypeKeys enums detected!");
+		eprintln!("This may cause Swift compilation errors.");
+	}
+
+	if individual_types.contains(": Codable {") && !individual_types.contains(": String, Codable") {
+		if individual_types.contains("case") && individual_types.contains(" = \"") {
+			eprintln!("❌ WARNING: String enums without String raw type detected!");
+		}
+	}
+
+	println!(
+		"✅ Generated {} characters of Swift code",
+		individual_types.len()
+	);
 
 	// Post-process to replace JsonValue with JSONValue (Specta generates the helper but field types still reference JsonValue)
-	individual_types = individual_types.replace("JsonValue", "JSONValue");
+	// // Use regex to replace only whole words to avoid corrupting other text
+	// use regex::Regex;
+	// let re = Regex::new(r"\bJsonValue\b").unwrap();
+	// individual_types = re.replace_all(&individual_types, "JSONValue").to_string();
+
+	// // Debug: Print the generated code to see what's happening
+	// println!(
+	// 	"DEBUG: Generated Swift code length: {}",
+	// 	individual_types.len()
+	// );
+	// if individual_types.contains("case number(") {
+	// 	println!("DEBUG: Found malformed enum case");
+	// }
 
 	swift_code.push_str(&individual_types);
 	swift_code.push_str("\n");

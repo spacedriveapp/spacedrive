@@ -6,6 +6,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
+use tracing;
 use uuid::Uuid;
 
 /// Input for library info query
@@ -31,9 +32,15 @@ impl LibraryQuery for LibraryInfoQuery {
 		Ok(Self)
 	}
 
-	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
 		// Get the specific library from the library manager
-		let library_id = session.current_library_id.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
 		let library = context
 			.libraries()
 			.await
@@ -47,6 +54,19 @@ impl LibraryQuery for LibraryInfoQuery {
 		// Get library path
 		let path = library.path().to_path_buf();
 
+		// Get updated statistics (reloads from disk)
+		let statistics = library.get_statistics().await;
+
+		tracing::debug!(
+			library_id = %config.id,
+			library_name = %config.name,
+			total_files = statistics.total_files,
+			total_size = statistics.total_size,
+			database_size = statistics.database_size,
+			updated_at = %statistics.updated_at,
+			"Returning library info with updated statistics"
+		);
+
 		Ok(LibraryInfoOutput {
 			id: config.id,
 			name: config.name,
@@ -55,7 +75,7 @@ impl LibraryQuery for LibraryInfoQuery {
 			created_at: config.created_at,
 			updated_at: config.updated_at,
 			settings: config.settings,
-			statistics: config.statistics,
+			statistics,
 		})
 	}
 }

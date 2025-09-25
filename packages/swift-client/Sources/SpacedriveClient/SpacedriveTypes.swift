@@ -16,13 +16,13 @@ public struct RustDuration: Codable {
 
 // MARK: - JSON Value Helper
 /// Helper enum to represent arbitrary JSON values
-public indirect enum JSONValue: Codable {
+public indirect enum JsonValue: Codable {
     case null
     case bool(Bool)
     case number(Double)
     case string(String)
-    case array([JSONValue])
-    case object([String: JSONValue])
+    case array([JsonValue])
+    case object([String: JsonValue])
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -37,12 +37,12 @@ public indirect enum JSONValue: Codable {
             self = .number(double)
         } else if let string = try? container.decode(String.self) {
             self = .string(string)
-        } else if let array = try? container.decode([JSONValue].self) {
+        } else if let array = try? container.decode([JsonValue].self) {
             self = .array(array)
-        } else if let object = try? container.decode([String: JSONValue].self) {
+        } else if let object = try? container.decode([String: JsonValue].self) {
             self = .object(object)
         } else {
-            throw DecodingError.typeMismatch(JSONValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid JSONValue"))
+            throw DecodingError.typeMismatch(JsonValue.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid JsonValue"))
         }
     }
     
@@ -64,1635 +64,18 @@ public indirect enum JSONValue: Codable {
             try container.encode(object)
         }
     }
+    
+    // MARK: - Convenience Constructors
+    public static func nullValue() -> JsonValue { .null }
+    public static func boolValue(_ value: Bool) -> JsonValue { .bool(value) }
+    public static func numberValue(_ value: Double) -> JsonValue { .number(value) }
+    public static func numberValue(_ value: Int) -> JsonValue { .number(Double(value)) }
+    public static func stringValue(_ value: String) -> JsonValue { .string(value) }
+    public static func arrayValue(_ value: [JsonValue]) -> JsonValue { .array(value) }
+    public static func objectValue(_ value: [String: JsonValue]) -> JsonValue { .object(value) }
 }
 
 // MARK: - Generated Types
-
-public struct ActionContextInfo: Codable {
-    public let actionType: String
-    public let initiatedAt: String
-    public let initiatedBy: String?
-    public let actionInput: JSONValue
-    public let context: JSONValue
-
-    private enum CodingKeys: String, CodingKey {
-        case actionType = "action_type"
-        case initiatedAt = "initiated_at"
-        case initiatedBy = "initiated_by"
-        case actionInput = "action_input"
-        case context = "context"
-    }
-
-    public init(actionType: String, initiatedAt: String, initiatedBy: String?, actionInput: JSONValue, context: JSONValue) {
-        self.actionType = actionType
-        self.initiatedAt = initiatedAt
-        self.initiatedBy = initiatedBy
-        self.actionInput = actionInput
-        self.context = context
-    }
-}
-
-/// Represents an APFS container (physical storage with multiple volumes)
-public struct ApfsContainer: Codable {
-    public let containerId: String
-    public let uuid: String
-    public let physicalStore: String
-    public let totalCapacity: UInt64
-    public let capacityInUse: UInt64
-    public let capacityFree: UInt64
-    public let volumes: [ApfsVolumeInfo]
-
-    private enum CodingKeys: String, CodingKey {
-        case containerId = "container_id"
-        case uuid = "uuid"
-        case physicalStore = "physical_store"
-        case totalCapacity = "total_capacity"
-        case capacityInUse = "capacity_in_use"
-        case capacityFree = "capacity_free"
-        case volumes = "volumes"
-    }
-
-    public init(containerId: String, uuid: String, physicalStore: String, totalCapacity: UInt64, capacityInUse: UInt64, capacityFree: UInt64, volumes: [ApfsVolumeInfo]) {
-        self.containerId = containerId
-        self.uuid = uuid
-        self.physicalStore = physicalStore
-        self.totalCapacity = totalCapacity
-        self.capacityInUse = capacityInUse
-        self.capacityFree = capacityFree
-        self.volumes = volumes
-    }
-}
-
-/// APFS volume information within a container
-public struct ApfsVolumeInfo: Codable {
-    public let diskId: String
-    public let uuid: String
-    public let role: ApfsVolumeRole
-    public let name: String
-    public let mountPoint: String?
-    public let capacityConsumed: UInt64
-    public let sealed: Bool
-    public let filevault: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case diskId = "disk_id"
-        case uuid = "uuid"
-        case role = "role"
-        case name = "name"
-        case mountPoint = "mount_point"
-        case capacityConsumed = "capacity_consumed"
-        case sealed = "sealed"
-        case filevault = "filevault"
-    }
-
-    public init(diskId: String, uuid: String, role: ApfsVolumeRole, name: String, mountPoint: String?, capacityConsumed: UInt64, sealed: Bool, filevault: Bool) {
-        self.diskId = diskId
-        self.uuid = uuid
-        self.role = role
-        self.name = name
-        self.mountPoint = mountPoint
-        self.capacityConsumed = capacityConsumed
-        self.sealed = sealed
-        self.filevault = filevault
-    }
-}
-
-/// APFS volume roles in the container
-public enum ApfsVolumeRole: Codable {
-    case system
-    case data
-    case preboot
-    case recovery
-    case vM
-    case other(String)
-}
-
-public struct ApplyTagsInput: Codable {
-    public let entryIds: [Int32]
-    public let tagIds: [String]
-    public let source: TagSource?
-    public let confidence: Float?
-    public let appliedContext: String?
-    public let instanceAttributes: [String: JSONValue]?
-
-    private enum CodingKeys: String, CodingKey {
-        case entryIds = "entry_ids"
-        case tagIds = "tag_ids"
-        case source = "source"
-        case confidence = "confidence"
-        case appliedContext = "applied_context"
-        case instanceAttributes = "instance_attributes"
-    }
-
-    public init(entryIds: [Int32], tagIds: [String], source: TagSource?, confidence: Float?, appliedContext: String?, instanceAttributes: [String: JSONValue]?) {
-        self.entryIds = entryIds
-        self.tagIds = tagIds
-        self.source = source
-        self.confidence = confidence
-        self.appliedContext = appliedContext
-        self.instanceAttributes = instanceAttributes
-    }
-}
-
-public struct ApplyTagsOutput: Codable {
-    public let entriesAffected: UInt
-    public let tagsApplied: UInt
-    public let appliedTagIds: [String]
-    public let taggedEntryIds: [Int32]
-    public let warnings: [String]
-    public let message: String
-
-    private enum CodingKeys: String, CodingKey {
-        case entriesAffected = "entries_affected"
-        case tagsApplied = "tags_applied"
-        case appliedTagIds = "applied_tag_ids"
-        case taggedEntryIds = "tagged_entry_ids"
-        case warnings = "warnings"
-        case message = "message"
-    }
-
-    public init(entriesAffected: UInt, tagsApplied: UInt, appliedTagIds: [String], taggedEntryIds: [Int32], warnings: [String], message: String) {
-        self.entriesAffected = entriesAffected
-        self.tagsApplied = tagsApplied
-        self.appliedTagIds = appliedTagIds
-        self.taggedEntryIds = taggedEntryIds
-        self.warnings = warnings
-        self.message = message
-    }
-}
-
-/// Operators for combining tag attributes
-public enum CompositionOperator: Codable {
-    case and
-    case or
-    case with
-    case without
-}
-
-/// Rules for composing attributes from multiple tags
-public struct CompositionRule: Codable {
-    public let `operator`: CompositionOperator
-    public let operands: [String]
-    public let resultAttribute: String
-
-    private enum CodingKeys: String, CodingKey {
-        case `operator` = "operator"
-        case operands = "operands"
-        case resultAttribute = "result_attribute"
-    }
-
-    public init(`operator`: CompositionOperator, operands: [String], resultAttribute: String) {
-        self.`operator` = `operator`
-        self.operands = operands
-        self.resultAttribute = resultAttribute
-    }
-}
-
-/// Domain representation of content identity
-public struct ContentIdentity: Codable {
-    public let uuid: String
-    public let kind: ContentKind
-    public let hash: String
-    public let mediaData: MediaData?
-    public let createdAt: String
-
-    private enum CodingKeys: String, CodingKey {
-        case uuid = "uuid"
-        case kind = "kind"
-        case hash = "hash"
-        case mediaData = "media_data"
-        case createdAt = "created_at"
-    }
-
-    public init(uuid: String, kind: ContentKind, hash: String, mediaData: MediaData?, createdAt: String) {
-        self.uuid = uuid
-        self.kind = kind
-        self.hash = hash
-        self.mediaData = mediaData
-        self.createdAt = createdAt
-    }
-}
-
-/// Type of content
-public enum ContentKind: String, Codable {
-    case unknown = "unknown"
-    case image = "image"
-    case video = "video"
-    case audio = "audio"
-    case document = "document"
-    case archive = "archive"
-    case code = "code"
-    case text = "text"
-    case database = "database"
-    case book = "book"
-    case font = "font"
-    case mesh = "mesh"
-    case config = "config"
-    case encrypted = "encrypted"
-    case key = "key"
-    case executable = "executable"
-    case binary = "binary"
-}
-
-/// Copy method preference for file operations
-public enum CopyMethod: Codable {
-    case auto
-    case atomic
-    case streaming
-}
-
-public struct CoreStatus: Codable {
-    public let version: String
-    public let builtAt: String
-    public let libraryCount: UInt
-    public let deviceInfo: DeviceInfo
-    public let libraries: [LibraryInfo]
-    public let services: ServiceStatus
-    public let network: NetworkStatus
-    public let system: SystemInfo
-
-    private enum CodingKeys: String, CodingKey {
-        case version = "version"
-        case builtAt = "built_at"
-        case libraryCount = "library_count"
-        case deviceInfo = "device_info"
-        case libraries = "libraries"
-        case services = "services"
-        case network = "network"
-        case system = "system"
-    }
-
-    public init(version: String, builtAt: String, libraryCount: UInt, deviceInfo: DeviceInfo, libraries: [LibraryInfo], services: ServiceStatus, network: NetworkStatus, system: SystemInfo) {
-        self.version = version
-        self.builtAt = builtAt
-        self.libraryCount = libraryCount
-        self.deviceInfo = deviceInfo
-        self.libraries = libraries
-        self.services = services
-        self.network = network
-        self.system = system
-    }
-}
-
-public struct CreateTagInput: Codable {
-    public let canonicalName: String
-    public let displayName: String?
-    public let formalName: String?
-    public let abbreviation: String?
-    public let aliases: [String]
-    public let namespace: String?
-    public let tagType: TagType?
-    public let color: String?
-    public let icon: String?
-    public let description: String?
-    public let isOrganizationalAnchor: Bool?
-    public let privacyLevel: PrivacyLevel?
-    public let searchWeight: Int32?
-    public let attributes: [String: JSONValue]?
-
-    private enum CodingKeys: String, CodingKey {
-        case canonicalName = "canonical_name"
-        case displayName = "display_name"
-        case formalName = "formal_name"
-        case abbreviation = "abbreviation"
-        case aliases = "aliases"
-        case namespace = "namespace"
-        case tagType = "tag_type"
-        case color = "color"
-        case icon = "icon"
-        case description = "description"
-        case isOrganizationalAnchor = "is_organizational_anchor"
-        case privacyLevel = "privacy_level"
-        case searchWeight = "search_weight"
-        case attributes = "attributes"
-    }
-
-    public init(canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType?, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool?, privacyLevel: PrivacyLevel?, searchWeight: Int32?, attributes: [String: JSONValue]?) {
-        self.canonicalName = canonicalName
-        self.displayName = displayName
-        self.formalName = formalName
-        self.abbreviation = abbreviation
-        self.aliases = aliases
-        self.namespace = namespace
-        self.tagType = tagType
-        self.color = color
-        self.icon = icon
-        self.description = description
-        self.isOrganizationalAnchor = isOrganizationalAnchor
-        self.privacyLevel = privacyLevel
-        self.searchWeight = searchWeight
-        self.attributes = attributes
-    }
-}
-
-public struct CreateTagOutput: Codable {
-    public let tagId: String
-    public let canonicalName: String
-    public let namespace: String?
-    public let message: String
-
-    private enum CodingKeys: String, CodingKey {
-        case tagId = "tag_id"
-        case canonicalName = "canonical_name"
-        case namespace = "namespace"
-        case message = "message"
-    }
-
-    public init(tagId: String, canonicalName: String, namespace: String?, message: String) {
-        self.tagId = tagId
-        self.canonicalName = canonicalName
-        self.namespace = namespace
-        self.message = message
-    }
-}
-
-/// Time-based fields that can be filtered
-public enum DateField: Codable {
-    case createdAt
-    case modifiedAt
-    case accessedAt
-}
-
-/// Filter for a time-based field
-public struct DateRangeFilter: Codable {
-    public let field: DateField
-    public let start: String?
-    public let end: String?
-
-    public init(field: DateField, start: String?, end: String?) {
-        self.field = field
-        self.start = start
-        self.end = end
-    }
-}
-
-public struct DeviceInfo: Codable {
-    public let id: String
-    public let name: String
-    public let os: String
-    public let hardwareModel: String?
-    public let createdAt: String
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case name = "name"
-        case os = "os"
-        case hardwareModel = "hardware_model"
-        case createdAt = "created_at"
-    }
-
-    public init(id: String, name: String, os: String, hardwareModel: String?, createdAt: String) {
-        self.id = id
-        self.name = name
-        self.os = os
-        self.hardwareModel = hardwareModel
-        self.createdAt = createdAt
-    }
-}
-
-public struct DeviceInfoLite: Codable {
-    public let id: String
-    public let name: String
-    public let osVersion: String
-    public let appVersion: String
-    public let isConnected: Bool
-    public let lastSeen: String
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case name = "name"
-        case osVersion = "os_version"
-        case appVersion = "app_version"
-        case isConnected = "is_connected"
-        case lastSeen = "last_seen"
-    }
-
-    public init(id: String, name: String, osVersion: String, appVersion: String, isConnected: Bool, lastSeen: String) {
-        self.id = id
-        self.name = name
-        self.osVersion = osVersion
-        self.appVersion = appVersion
-        self.isConnected = isConnected
-        self.lastSeen = lastSeen
-    }
-}
-
-public struct DeviceRevokeInput: Codable {
-    public let deviceId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case deviceId = "device_id"
-    }
-
-    public init(deviceId: String) {
-        self.deviceId = deviceId
-    }
-}
-
-public struct DeviceRevokeOutput: Codable {
-    public let revoked: Bool
-
-    public init(revoked: Bool) {
-        self.revoked = revoked
-    }
-}
-
-/// Represents the type of physical storage device
-public enum DiskType: Codable {
-    case sSD
-    case hDD
-    case unknown
-}
-
-/// Represents any filesystem entry (file or directory) in the VDFS
-public struct Entry: Codable {
-    public let id: String
-    public let sdPath: SdPathSerialized
-    public let name: String
-    public let kind: EntryKind
-    public let size: UInt64?
-    public let createdAt: String?
-    public let modifiedAt: String?
-    public let accessedAt: String?
-    public let inode: UInt64?
-    public let fileId: UInt64?
-    public let parentId: String?
-    public let locationId: String?
-    public let metadataId: String
-    public let contentId: String?
-    public let firstSeenAt: String
-    public let lastIndexedAt: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case sdPath = "sd_path"
-        case name = "name"
-        case kind = "kind"
-        case size = "size"
-        case createdAt = "created_at"
-        case modifiedAt = "modified_at"
-        case accessedAt = "accessed_at"
-        case inode = "inode"
-        case fileId = "file_id"
-        case parentId = "parent_id"
-        case locationId = "location_id"
-        case metadataId = "metadata_id"
-        case contentId = "content_id"
-        case firstSeenAt = "first_seen_at"
-        case lastIndexedAt = "last_indexed_at"
-    }
-
-    public init(id: String, sdPath: SdPathSerialized, name: String, kind: EntryKind, size: UInt64?, createdAt: String?, modifiedAt: String?, accessedAt: String?, inode: UInt64?, fileId: UInt64?, parentId: String?, locationId: String?, metadataId: String, contentId: String?, firstSeenAt: String, lastIndexedAt: String?) {
-        self.id = id
-        self.sdPath = sdPath
-        self.name = name
-        self.kind = kind
-        self.size = size
-        self.createdAt = createdAt
-        self.modifiedAt = modifiedAt
-        self.accessedAt = accessedAt
-        self.inode = inode
-        self.fileId = fileId
-        self.parentId = parentId
-        self.locationId = locationId
-        self.metadataId = metadataId
-        self.contentId = contentId
-        self.firstSeenAt = firstSeenAt
-        self.lastIndexedAt = lastIndexedAt
-    }
-}
-
-/// Type of filesystem entry
-public enum EntryKind {
-    case file(EntryKindFileData)
-    case directory
-    case symlink(EntryKindSymlinkData)
-}
-public struct EntryKindFileData: Codable {
-    public let `extension`: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case `extension` = "extension"
-    }
-}
-
-public struct EntryKindSymlinkData: Codable {
-    public let target: String
-}
-
-// MARK: - EntryKind Codable Implementation
-extension EntryKind: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case file = "File"
-        case directory = "Directory"
-        case symlink = "Symlink"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        if container.allKeys.count != 1 {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
-            )
-        }
-
-        let key = container.allKeys.first!
-        switch key {
-        case .file:
-            let data = try container.decode(EntryKindFileData.self, forKey: .file)
-            self = .file(data)
-        case .directory:
-            self = .directory
-        case .symlink:
-            let data = try container.decode(EntryKindSymlinkData.self, forKey: .symlink)
-            self = .symlink(data)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        switch self {
-        case .file(let data):
-            try container.encode(data, forKey: .file)
-        case .directory:
-            try container.encodeNil(forKey: .directory)
-        case .symlink(let data):
-            try container.encode(data, forKey: .symlink)
-        }
-    }
-}
-
-
-/// A central event type that represents all events that can be emitted throughout the system
-public enum Event {
-    case coreStarted
-    case coreShutdown
-    case libraryCreated(EventLibraryCreatedData)
-    case libraryOpened(EventLibraryOpenedData)
-    case libraryClosed(EventLibraryClosedData)
-    case libraryDeleted(EventLibraryDeletedData)
-    case entryCreated(EventEntryCreatedData)
-    case entryModified(EventEntryModifiedData)
-    case entryDeleted(EventEntryDeletedData)
-    case entryMoved(EventEntryMovedData)
-    case fsRawChange(EventFsRawChangeData)
-    case volumeAdded(Volume)
-    case volumeRemoved(EventVolumeRemovedData)
-    case volumeUpdated(EventVolumeUpdatedData)
-    case volumeSpeedTested(EventVolumeSpeedTestedData)
-    case volumeMountChanged(EventVolumeMountChangedData)
-    case volumeError(EventVolumeErrorData)
-    case jobQueued(EventJobQueuedData)
-    case jobStarted(EventJobStartedData)
-    case jobProgress(EventJobProgressData)
-    case jobCompleted(EventJobCompletedData)
-    case jobFailed(EventJobFailedData)
-    case jobCancelled(EventJobCancelledData)
-    case jobPaused(EventJobPausedData)
-    case jobResumed(EventJobResumedData)
-    case indexingStarted(EventIndexingStartedData)
-    case indexingProgress(EventIndexingProgressData)
-    case indexingCompleted(EventIndexingCompletedData)
-    case indexingFailed(EventIndexingFailedData)
-    case deviceConnected(EventDeviceConnectedData)
-    case deviceDisconnected(EventDeviceDisconnectedData)
-    case locationAdded(EventLocationAddedData)
-    case locationRemoved(EventLocationRemovedData)
-    case filesIndexed(EventFilesIndexedData)
-    case thumbnailsGenerated(EventThumbnailsGeneratedData)
-    case fileOperationCompleted(EventFileOperationCompletedData)
-    case filesModified(EventFilesModifiedData)
-    case logMessage(EventLogMessageData)
-    case custom(EventCustomData)
-}
-public struct EventLibraryCreatedData: Codable {
-    public let id: String
-    public let name: String
-    public let path: String
-}
-
-public struct EventLibraryOpenedData: Codable {
-    public let id: String
-    public let name: String
-    public let path: String
-}
-
-public struct EventLibraryClosedData: Codable {
-    public let id: String
-    public let name: String
-}
-
-public struct EventLibraryDeletedData: Codable {
-    public let id: String
-    public let name: String
-    public let deletedData: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case name = "name"
-        case deletedData = "deleted_data"
-    }
-}
-
-public struct EventEntryCreatedData: Codable {
-    public let libraryId: String
-    public let entryId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case entryId = "entry_id"
-    }
-}
-
-public struct EventEntryModifiedData: Codable {
-    public let libraryId: String
-    public let entryId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case entryId = "entry_id"
-    }
-}
-
-public struct EventEntryDeletedData: Codable {
-    public let libraryId: String
-    public let entryId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case entryId = "entry_id"
-    }
-}
-
-public struct EventEntryMovedData: Codable {
-    public let libraryId: String
-    public let entryId: String
-    public let oldPath: String
-    public let newPath: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case entryId = "entry_id"
-        case oldPath = "old_path"
-        case newPath = "new_path"
-    }
-}
-
-public struct EventFsRawChangeData: Codable {
-    public let libraryId: String
-    public let kind: FsRawEventKind
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case kind = "kind"
-    }
-}
-
-public struct EventVolumeRemovedData: Codable {
-    public let fingerprint: VolumeFingerprint
-}
-
-public struct EventVolumeUpdatedData: Codable {
-    public let fingerprint: VolumeFingerprint
-    public let oldInfo: VolumeInfo
-    public let newInfo: VolumeInfo
-
-    private enum CodingKeys: String, CodingKey {
-        case fingerprint = "fingerprint"
-        case oldInfo = "old_info"
-        case newInfo = "new_info"
-    }
-}
-
-public struct EventVolumeSpeedTestedData: Codable {
-    public let fingerprint: VolumeFingerprint
-    public let readSpeedMbps: UInt64
-    public let writeSpeedMbps: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case fingerprint = "fingerprint"
-        case readSpeedMbps = "read_speed_mbps"
-        case writeSpeedMbps = "write_speed_mbps"
-    }
-}
-
-public struct EventVolumeMountChangedData: Codable {
-    public let fingerprint: VolumeFingerprint
-    public let isMounted: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case fingerprint = "fingerprint"
-        case isMounted = "is_mounted"
-    }
-}
-
-public struct EventVolumeErrorData: Codable {
-    public let fingerprint: VolumeFingerprint
-    public let error: String
-}
-
-public struct EventJobQueuedData: Codable {
-    public let jobId: String
-    public let jobType: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case jobType = "job_type"
-    }
-}
-
-public struct EventJobStartedData: Codable {
-    public let jobId: String
-    public let jobType: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case jobType = "job_type"
-    }
-}
-
-public struct EventJobProgressData: Codable {
-    public let jobId: String
-    public let jobType: String
-    public let progress: Double
-    public let message: String?
-    public let genericProgress: GenericProgress?
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case jobType = "job_type"
-        case progress = "progress"
-        case message = "message"
-        case genericProgress = "generic_progress"
-    }
-}
-
-public struct EventJobCompletedData: Codable {
-    public let jobId: String
-    public let jobType: String
-    public let output: JobOutput
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case jobType = "job_type"
-        case output = "output"
-    }
-}
-
-public struct EventJobFailedData: Codable {
-    public let jobId: String
-    public let jobType: String
-    public let error: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case jobType = "job_type"
-        case error = "error"
-    }
-}
-
-public struct EventJobCancelledData: Codable {
-    public let jobId: String
-    public let jobType: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case jobType = "job_type"
-    }
-}
-
-public struct EventJobPausedData: Codable {
-    public let jobId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-    }
-}
-
-public struct EventJobResumedData: Codable {
-    public let jobId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-    }
-}
-
-public struct EventIndexingStartedData: Codable {
-    public let locationId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-    }
-}
-
-public struct EventIndexingProgressData: Codable {
-    public let locationId: String
-    public let processed: UInt64
-    public let total: UInt64?
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-        case processed = "processed"
-        case total = "total"
-    }
-}
-
-public struct EventIndexingCompletedData: Codable {
-    public let locationId: String
-    public let totalFiles: UInt64
-    public let totalDirs: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-        case totalFiles = "total_files"
-        case totalDirs = "total_dirs"
-    }
-}
-
-public struct EventIndexingFailedData: Codable {
-    public let locationId: String
-    public let error: String
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-        case error = "error"
-    }
-}
-
-public struct EventDeviceConnectedData: Codable {
-    public let deviceId: String
-    public let deviceName: String
-
-    private enum CodingKeys: String, CodingKey {
-        case deviceId = "device_id"
-        case deviceName = "device_name"
-    }
-}
-
-public struct EventDeviceDisconnectedData: Codable {
-    public let deviceId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case deviceId = "device_id"
-    }
-}
-
-public struct EventLocationAddedData: Codable {
-    public let libraryId: String
-    public let locationId: String
-    public let path: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case locationId = "location_id"
-        case path = "path"
-    }
-}
-
-public struct EventLocationRemovedData: Codable {
-    public let libraryId: String
-    public let locationId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case locationId = "location_id"
-    }
-}
-
-public struct EventFilesIndexedData: Codable {
-    public let libraryId: String
-    public let locationId: String
-    public let count: UInt
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case locationId = "location_id"
-        case count = "count"
-    }
-}
-
-public struct EventThumbnailsGeneratedData: Codable {
-    public let libraryId: String
-    public let count: UInt
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case count = "count"
-    }
-}
-
-public struct EventFileOperationCompletedData: Codable {
-    public let libraryId: String
-    public let operation: FileOperation
-    public let affectedFiles: UInt
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case operation = "operation"
-        case affectedFiles = "affected_files"
-    }
-}
-
-public struct EventFilesModifiedData: Codable {
-    public let libraryId: String
-    public let paths: [String]
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case paths = "paths"
-    }
-}
-
-public struct EventLogMessageData: Codable {
-    public let timestamp: String
-    public let level: String
-    public let target: String
-    public let message: String
-    public let jobId: String?
-    public let libraryId: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case timestamp = "timestamp"
-        case level = "level"
-        case target = "target"
-        case message = "message"
-        case jobId = "job_id"
-        case libraryId = "library_id"
-    }
-}
-
-public struct EventCustomData: Codable {
-    public let eventType: String
-
-    private enum CodingKeys: String, CodingKey {
-        case eventType = "event_type"
-    }
-}
-
-// MARK: - Event Codable Implementation
-extension Event: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case coreStarted = "CoreStarted"
-        case coreShutdown = "CoreShutdown"
-        case libraryCreated = "LibraryCreated"
-        case libraryOpened = "LibraryOpened"
-        case libraryClosed = "LibraryClosed"
-        case libraryDeleted = "LibraryDeleted"
-        case entryCreated = "EntryCreated"
-        case entryModified = "EntryModified"
-        case entryDeleted = "EntryDeleted"
-        case entryMoved = "EntryMoved"
-        case fsRawChange = "FsRawChange"
-        case volumeAdded = "VolumeAdded"
-        case volumeRemoved = "VolumeRemoved"
-        case volumeUpdated = "VolumeUpdated"
-        case volumeSpeedTested = "VolumeSpeedTested"
-        case volumeMountChanged = "VolumeMountChanged"
-        case volumeError = "VolumeError"
-        case jobQueued = "JobQueued"
-        case jobStarted = "JobStarted"
-        case jobProgress = "JobProgress"
-        case jobCompleted = "JobCompleted"
-        case jobFailed = "JobFailed"
-        case jobCancelled = "JobCancelled"
-        case jobPaused = "JobPaused"
-        case jobResumed = "JobResumed"
-        case indexingStarted = "IndexingStarted"
-        case indexingProgress = "IndexingProgress"
-        case indexingCompleted = "IndexingCompleted"
-        case indexingFailed = "IndexingFailed"
-        case deviceConnected = "DeviceConnected"
-        case deviceDisconnected = "DeviceDisconnected"
-        case locationAdded = "LocationAdded"
-        case locationRemoved = "LocationRemoved"
-        case filesIndexed = "FilesIndexed"
-        case thumbnailsGenerated = "ThumbnailsGenerated"
-        case fileOperationCompleted = "FileOperationCompleted"
-        case filesModified = "FilesModified"
-        case logMessage = "LogMessage"
-        case custom = "Custom"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        if container.allKeys.count != 1 {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
-            )
-        }
-
-        let key = container.allKeys.first!
-        switch key {
-        case .coreStarted:
-            self = .coreStarted
-        case .coreShutdown:
-            self = .coreShutdown
-        case .libraryCreated:
-            let data = try container.decode(EventLibraryCreatedData.self, forKey: .libraryCreated)
-            self = .libraryCreated(data)
-        case .libraryOpened:
-            let data = try container.decode(EventLibraryOpenedData.self, forKey: .libraryOpened)
-            self = .libraryOpened(data)
-        case .libraryClosed:
-            let data = try container.decode(EventLibraryClosedData.self, forKey: .libraryClosed)
-            self = .libraryClosed(data)
-        case .libraryDeleted:
-            let data = try container.decode(EventLibraryDeletedData.self, forKey: .libraryDeleted)
-            self = .libraryDeleted(data)
-        case .entryCreated:
-            let data = try container.decode(EventEntryCreatedData.self, forKey: .entryCreated)
-            self = .entryCreated(data)
-        case .entryModified:
-            let data = try container.decode(EventEntryModifiedData.self, forKey: .entryModified)
-            self = .entryModified(data)
-        case .entryDeleted:
-            let data = try container.decode(EventEntryDeletedData.self, forKey: .entryDeleted)
-            self = .entryDeleted(data)
-        case .entryMoved:
-            let data = try container.decode(EventEntryMovedData.self, forKey: .entryMoved)
-            self = .entryMoved(data)
-        case .fsRawChange:
-            let data = try container.decode(EventFsRawChangeData.self, forKey: .fsRawChange)
-            self = .fsRawChange(data)
-        case .volumeAdded:
-            // TODO: Implement tuple variant decoding for volumeAdded
-            fatalError("Tuple variant decoding not implemented")
-        case .volumeRemoved:
-            let data = try container.decode(EventVolumeRemovedData.self, forKey: .volumeRemoved)
-            self = .volumeRemoved(data)
-        case .volumeUpdated:
-            let data = try container.decode(EventVolumeUpdatedData.self, forKey: .volumeUpdated)
-            self = .volumeUpdated(data)
-        case .volumeSpeedTested:
-            let data = try container.decode(EventVolumeSpeedTestedData.self, forKey: .volumeSpeedTested)
-            self = .volumeSpeedTested(data)
-        case .volumeMountChanged:
-            let data = try container.decode(EventVolumeMountChangedData.self, forKey: .volumeMountChanged)
-            self = .volumeMountChanged(data)
-        case .volumeError:
-            let data = try container.decode(EventVolumeErrorData.self, forKey: .volumeError)
-            self = .volumeError(data)
-        case .jobQueued:
-            let data = try container.decode(EventJobQueuedData.self, forKey: .jobQueued)
-            self = .jobQueued(data)
-        case .jobStarted:
-            let data = try container.decode(EventJobStartedData.self, forKey: .jobStarted)
-            self = .jobStarted(data)
-        case .jobProgress:
-            let data = try container.decode(EventJobProgressData.self, forKey: .jobProgress)
-            self = .jobProgress(data)
-        case .jobCompleted:
-            let data = try container.decode(EventJobCompletedData.self, forKey: .jobCompleted)
-            self = .jobCompleted(data)
-        case .jobFailed:
-            let data = try container.decode(EventJobFailedData.self, forKey: .jobFailed)
-            self = .jobFailed(data)
-        case .jobCancelled:
-            let data = try container.decode(EventJobCancelledData.self, forKey: .jobCancelled)
-            self = .jobCancelled(data)
-        case .jobPaused:
-            let data = try container.decode(EventJobPausedData.self, forKey: .jobPaused)
-            self = .jobPaused(data)
-        case .jobResumed:
-            let data = try container.decode(EventJobResumedData.self, forKey: .jobResumed)
-            self = .jobResumed(data)
-        case .indexingStarted:
-            let data = try container.decode(EventIndexingStartedData.self, forKey: .indexingStarted)
-            self = .indexingStarted(data)
-        case .indexingProgress:
-            let data = try container.decode(EventIndexingProgressData.self, forKey: .indexingProgress)
-            self = .indexingProgress(data)
-        case .indexingCompleted:
-            let data = try container.decode(EventIndexingCompletedData.self, forKey: .indexingCompleted)
-            self = .indexingCompleted(data)
-        case .indexingFailed:
-            let data = try container.decode(EventIndexingFailedData.self, forKey: .indexingFailed)
-            self = .indexingFailed(data)
-        case .deviceConnected:
-            let data = try container.decode(EventDeviceConnectedData.self, forKey: .deviceConnected)
-            self = .deviceConnected(data)
-        case .deviceDisconnected:
-            let data = try container.decode(EventDeviceDisconnectedData.self, forKey: .deviceDisconnected)
-            self = .deviceDisconnected(data)
-        case .locationAdded:
-            let data = try container.decode(EventLocationAddedData.self, forKey: .locationAdded)
-            self = .locationAdded(data)
-        case .locationRemoved:
-            let data = try container.decode(EventLocationRemovedData.self, forKey: .locationRemoved)
-            self = .locationRemoved(data)
-        case .filesIndexed:
-            let data = try container.decode(EventFilesIndexedData.self, forKey: .filesIndexed)
-            self = .filesIndexed(data)
-        case .thumbnailsGenerated:
-            let data = try container.decode(EventThumbnailsGeneratedData.self, forKey: .thumbnailsGenerated)
-            self = .thumbnailsGenerated(data)
-        case .fileOperationCompleted:
-            let data = try container.decode(EventFileOperationCompletedData.self, forKey: .fileOperationCompleted)
-            self = .fileOperationCompleted(data)
-        case .filesModified:
-            let data = try container.decode(EventFilesModifiedData.self, forKey: .filesModified)
-            self = .filesModified(data)
-        case .logMessage:
-            let data = try container.decode(EventLogMessageData.self, forKey: .logMessage)
-            self = .logMessage(data)
-        case .custom:
-            let data = try container.decode(EventCustomData.self, forKey: .custom)
-            self = .custom(data)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        switch self {
-        case .coreStarted:
-            try container.encodeNil(forKey: .coreStarted)
-        case .coreShutdown:
-            try container.encodeNil(forKey: .coreShutdown)
-        case .libraryCreated(let data):
-            try container.encode(data, forKey: .libraryCreated)
-        case .libraryOpened(let data):
-            try container.encode(data, forKey: .libraryOpened)
-        case .libraryClosed(let data):
-            try container.encode(data, forKey: .libraryClosed)
-        case .libraryDeleted(let data):
-            try container.encode(data, forKey: .libraryDeleted)
-        case .entryCreated(let data):
-            try container.encode(data, forKey: .entryCreated)
-        case .entryModified(let data):
-            try container.encode(data, forKey: .entryModified)
-        case .entryDeleted(let data):
-            try container.encode(data, forKey: .entryDeleted)
-        case .entryMoved(let data):
-            try container.encode(data, forKey: .entryMoved)
-        case .fsRawChange(let data):
-            try container.encode(data, forKey: .fsRawChange)
-        case .volumeAdded:
-            // TODO: Implement tuple variant encoding for volumeAdded
-            fatalError("Tuple variant encoding not implemented")
-        case .volumeRemoved(let data):
-            try container.encode(data, forKey: .volumeRemoved)
-        case .volumeUpdated(let data):
-            try container.encode(data, forKey: .volumeUpdated)
-        case .volumeSpeedTested(let data):
-            try container.encode(data, forKey: .volumeSpeedTested)
-        case .volumeMountChanged(let data):
-            try container.encode(data, forKey: .volumeMountChanged)
-        case .volumeError(let data):
-            try container.encode(data, forKey: .volumeError)
-        case .jobQueued(let data):
-            try container.encode(data, forKey: .jobQueued)
-        case .jobStarted(let data):
-            try container.encode(data, forKey: .jobStarted)
-        case .jobProgress(let data):
-            try container.encode(data, forKey: .jobProgress)
-        case .jobCompleted(let data):
-            try container.encode(data, forKey: .jobCompleted)
-        case .jobFailed(let data):
-            try container.encode(data, forKey: .jobFailed)
-        case .jobCancelled(let data):
-            try container.encode(data, forKey: .jobCancelled)
-        case .jobPaused(let data):
-            try container.encode(data, forKey: .jobPaused)
-        case .jobResumed(let data):
-            try container.encode(data, forKey: .jobResumed)
-        case .indexingStarted(let data):
-            try container.encode(data, forKey: .indexingStarted)
-        case .indexingProgress(let data):
-            try container.encode(data, forKey: .indexingProgress)
-        case .indexingCompleted(let data):
-            try container.encode(data, forKey: .indexingCompleted)
-        case .indexingFailed(let data):
-            try container.encode(data, forKey: .indexingFailed)
-        case .deviceConnected(let data):
-            try container.encode(data, forKey: .deviceConnected)
-        case .deviceDisconnected(let data):
-            try container.encode(data, forKey: .deviceDisconnected)
-        case .locationAdded(let data):
-            try container.encode(data, forKey: .locationAdded)
-        case .locationRemoved(let data):
-            try container.encode(data, forKey: .locationRemoved)
-        case .filesIndexed(let data):
-            try container.encode(data, forKey: .filesIndexed)
-        case .thumbnailsGenerated(let data):
-            try container.encode(data, forKey: .thumbnailsGenerated)
-        case .fileOperationCompleted(let data):
-            try container.encode(data, forKey: .fileOperationCompleted)
-        case .filesModified(let data):
-            try container.encode(data, forKey: .filesModified)
-        case .logMessage(let data):
-            try container.encode(data, forKey: .logMessage)
-        case .custom(let data):
-            try container.encode(data, forKey: .custom)
-        }
-    }
-}
-
-
-/// EXIF metadata for images
-public struct ExifData: Codable {
-    public let make: String?
-    public let model: String?
-    public let dateTaken: String?
-    public let gps: GpsCoordinates?
-    public let iso: UInt32?
-    public let aperture: Float?
-    public let shutterSpeed: Float?
-    public let focalLength: Float?
-
-    private enum CodingKeys: String, CodingKey {
-        case make = "make"
-        case model = "model"
-        case dateTaken = "date_taken"
-        case gps = "gps"
-        case iso = "iso"
-        case aperture = "aperture"
-        case shutterSpeed = "shutter_speed"
-        case focalLength = "focal_length"
-    }
-
-    public init(make: String?, model: String?, dateTaken: String?, gps: GpsCoordinates?, iso: UInt32?, aperture: Float?, shutterSpeed: Float?, focalLength: Float?) {
-        self.make = make
-        self.model = model
-        self.dateTaken = dateTaken
-        self.gps = gps
-        self.iso = iso
-        self.aperture = aperture
-        self.shutterSpeed = shutterSpeed
-        self.focalLength = focalLength
-    }
-}
-
-/// Represents a file within the Spacedrive VDFS.
-/// 
-/// This is a computed domain model that aggregates data from Entry, ContentIdentity,
-/// Tags, and Sidecars. It provides a rich, developer-friendly interface without
-/// duplicating data in the database.
-public struct File: Codable {
-    public let id: String
-    public let sdPath: SdPath
-    public let name: String
-    public let size: UInt64
-    public let contentIdentity: ContentIdentity?
-    public let alternatePaths: [SdPath]
-    public let tags: [Tag]
-    public let sidecars: [Sidecar]
-    public let createdAt: String
-    public let modifiedAt: String
-    public let accessedAt: String?
-    public let contentKind: ContentKind
-    public let `extension`: String?
-    public let isLocal: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case sdPath = "sd_path"
-        case name = "name"
-        case size = "size"
-        case contentIdentity = "content_identity"
-        case alternatePaths = "alternate_paths"
-        case tags = "tags"
-        case sidecars = "sidecars"
-        case createdAt = "created_at"
-        case modifiedAt = "modified_at"
-        case accessedAt = "accessed_at"
-        case contentKind = "content_kind"
-        case `extension` = "extension"
-        case isLocal = "is_local"
-    }
-
-    public init(id: String, sdPath: SdPath, name: String, size: UInt64, contentIdentity: ContentIdentity?, alternatePaths: [SdPath], tags: [Tag], sidecars: [Sidecar], createdAt: String, modifiedAt: String, accessedAt: String?, contentKind: ContentKind, `extension`: String?, isLocal: Bool) {
-        self.id = id
-        self.sdPath = sdPath
-        self.name = name
-        self.size = size
-        self.contentIdentity = contentIdentity
-        self.alternatePaths = alternatePaths
-        self.tags = tags
-        self.sidecars = sidecars
-        self.createdAt = createdAt
-        self.modifiedAt = modifiedAt
-        self.accessedAt = accessedAt
-        self.contentKind = contentKind
-        self.`extension` = `extension`
-        self.isLocal = isLocal
-    }
-}
-
-/// Query to get a file by its ID with all related data
-public struct FileByIdQuery: Codable {
-    public let fileId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case fileId = "file_id"
-    }
-
-    public init(fileId: String) {
-        self.fileId = fileId
-    }
-}
-
-/// Query to get a file by its local path with all related data
-public struct FileByPathQuery: Codable {
-    public let path: String
-
-    public init(path: String) {
-        self.path = path
-    }
-}
-
-/// Internal enum for file conflict resolution strategies
-public enum FileConflictResolution: Codable {
-    case overwrite
-    case autoModifyName
-    case abort
-}
-
-/// Core input structure for file copy operations
-/// This is the canonical interface that all external APIs (CLI, GraphQL, REST) convert to
-public struct FileCopyInput: Codable {
-    public let sources: SdPathBatch
-    public let destination: SdPath
-    public let overwrite: Bool
-    public let verifyChecksum: Bool
-    public let preserveTimestamps: Bool
-    public let moveFiles: Bool
-    public let copyMethod: CopyMethod
-    public let onConflict: FileConflictResolution?
-
-    private enum CodingKeys: String, CodingKey {
-        case sources = "sources"
-        case destination = "destination"
-        case overwrite = "overwrite"
-        case verifyChecksum = "verify_checksum"
-        case preserveTimestamps = "preserve_timestamps"
-        case moveFiles = "move_files"
-        case copyMethod = "copy_method"
-        case onConflict = "on_conflict"
-    }
-
-    public init(sources: SdPathBatch, destination: SdPath, overwrite: Bool, verifyChecksum: Bool, preserveTimestamps: Bool, moveFiles: Bool, copyMethod: CopyMethod, onConflict: FileConflictResolution?) {
-        self.sources = sources
-        self.destination = destination
-        self.overwrite = overwrite
-        self.verifyChecksum = verifyChecksum
-        self.preserveTimestamps = preserveTimestamps
-        self.moveFiles = moveFiles
-        self.copyMethod = copyMethod
-        self.onConflict = onConflict
-    }
-}
-
-/// Types of file operations
-public enum FileOperation: Codable {
-    case copy
-    case move
-    case delete
-    case rename
-}
-
-/// Main input structure for file search operations
-public struct FileSearchInput: Codable {
-    public let query: String
-    public let scope: SearchScope
-    public let mode: SearchMode
-    public let filters: SearchFilters
-    public let sort: SortOptions
-    public let pagination: PaginationOptions
-
-    public init(query: String, scope: SearchScope, mode: SearchMode, filters: SearchFilters, sort: SortOptions, pagination: PaginationOptions) {
-        self.query = query
-        self.scope = scope
-        self.mode = mode
-        self.filters = filters
-        self.sort = sort
-        self.pagination = pagination
-    }
-}
-
-/// Main output structure for file search operations
-public struct FileSearchOutput: Codable {
-    public let results: [FileSearchResult]
-    public let totalFound: UInt64
-    public let searchId: String
-    public let facets: SearchFacets
-    public let suggestions: [String]
-    public let pagination: PaginationInfo
-    public let executionTimeMs: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case results = "results"
-        case totalFound = "total_found"
-        case searchId = "search_id"
-        case facets = "facets"
-        case suggestions = "suggestions"
-        case pagination = "pagination"
-        case executionTimeMs = "execution_time_ms"
-    }
-
-    public init(results: [FileSearchResult], totalFound: UInt64, searchId: String, facets: SearchFacets, suggestions: [String], pagination: PaginationInfo, executionTimeMs: UInt64) {
-        self.results = results
-        self.totalFound = totalFound
-        self.searchId = searchId
-        self.facets = facets
-        self.suggestions = suggestions
-        self.pagination = pagination
-        self.executionTimeMs = executionTimeMs
-    }
-}
-
-/// Individual search result
-public struct FileSearchResult: Codable {
-    public let entry: Entry
-    public let score: Float
-    public let scoreBreakdown: ScoreBreakdown
-    public let highlights: [TextHighlight]
-    public let matchedContent: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case entry = "entry"
-        case score = "score"
-        case scoreBreakdown = "score_breakdown"
-        case highlights = "highlights"
-        case matchedContent = "matched_content"
-    }
-
-    public init(entry: Entry, score: Float, scoreBreakdown: ScoreBreakdown, highlights: [TextHighlight], matchedContent: String?) {
-        self.entry = entry
-        self.score = score
-        self.scoreBreakdown = scoreBreakdown
-        self.highlights = highlights
-        self.matchedContent = matchedContent
-    }
-}
-
-/// Represents the filesystem type of the volume
-public enum FileSystem: Codable {
-    case nTFS
-    case fAT32
-    case eXT4
-    case aPFS
-    case exFAT
-    case btrfs
-    case zFS
-    case reFS
-    case other(String)
-}
-
-/// Raw filesystem event kinds emitted by the watcher without DB resolution
-public enum FsRawEventKind {
-    case create(FsRawEventKindCreateData)
-    case modify(FsRawEventKindModifyData)
-    case remove(FsRawEventKindRemoveData)
-    case rename(FsRawEventKindRenameData)
-}
-public struct FsRawEventKindCreateData: Codable {
-    public let path: String
-}
-
-public struct FsRawEventKindModifyData: Codable {
-    public let path: String
-}
-
-public struct FsRawEventKindRemoveData: Codable {
-    public let path: String
-}
-
-public struct FsRawEventKindRenameData: Codable {
-    public let from: String
-    public let to: String
-}
-
-// MARK: - FsRawEventKind Codable Implementation
-extension FsRawEventKind: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case create = "Create"
-        case modify = "Modify"
-        case remove = "Remove"
-        case rename = "Rename"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        if container.allKeys.count != 1 {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
-            )
-        }
-
-        let key = container.allKeys.first!
-        switch key {
-        case .create:
-            let data = try container.decode(FsRawEventKindCreateData.self, forKey: .create)
-            self = .create(data)
-        case .modify:
-            let data = try container.decode(FsRawEventKindModifyData.self, forKey: .modify)
-            self = .modify(data)
-        case .remove:
-            let data = try container.decode(FsRawEventKindRemoveData.self, forKey: .remove)
-            self = .remove(data)
-        case .rename:
-            let data = try container.decode(FsRawEventKindRenameData.self, forKey: .rename)
-            self = .rename(data)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        switch self {
-        case .create(let data):
-            try container.encode(data, forKey: .create)
-        case .modify(let data):
-            try container.encode(data, forKey: .modify)
-        case .remove(let data):
-            try container.encode(data, forKey: .remove)
-        case .rename(let data):
-            try container.encode(data, forKey: .rename)
-        }
-    }
-}
-
-
-/// Generic progress information that all job types can convert into
-public struct GenericProgress: Codable {
-    public let percentage: Float
-    public let phase: String
-    public let currentPath: SdPath?
-    public let message: String
-    public let completion: ProgressCompletion
-    public let performance: PerformanceMetrics
-
-    private enum CodingKeys: String, CodingKey {
-        case percentage = "percentage"
-        case phase = "phase"
-        case currentPath = "current_path"
-        case message = "message"
-        case completion = "completion"
-        case performance = "performance"
-    }
-
-    public init(percentage: Float, phase: String, currentPath: SdPath?, message: String, completion: ProgressCompletion, performance: PerformanceMetrics) {
-        self.percentage = percentage
-        self.phase = phase
-        self.currentPath = currentPath
-        self.message = message
-        self.completion = completion
-        self.performance = performance
-    }
-}
-
-/// GPS coordinates
-public struct GpsCoordinates: Codable {
-    public let latitude: Double
-    public let longitude: Double
-    public let altitude: Float?
-
-    public init(latitude: Double, longitude: Double, altitude: Float?) {
-        self.latitude = latitude
-        self.longitude = longitude
-        self.altitude = altitude
-    }
-}
-
-/// Canonical input for indexing requests from any interface (CLI, API, etc.)
-public struct IndexInput: Codable {
-    public let libraryId: String
-    public let paths: [String]
-    public let scope: IndexScope
-    public let mode: IndexMode
-    public let includeHidden: Bool
-    public let persistence: IndexPersistence
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case paths = "paths"
-        case scope = "scope"
-        case mode = "mode"
-        case includeHidden = "include_hidden"
-        case persistence = "persistence"
-    }
-
-    public init(libraryId: String, paths: [String], scope: IndexScope, mode: IndexMode, includeHidden: Bool, persistence: IndexPersistence) {
-        self.libraryId = libraryId
-        self.paths = paths
-        self.scope = scope
-        self.mode = mode
-        self.includeHidden = includeHidden
-        self.persistence = persistence
-    }
-}
-
-/// Indexing mode determines the depth of indexing
-public enum IndexMode: Codable {
-    case shallow
-    case content
-    case deep
-}
 
 /// Determines whether indexing results are persisted to database or kept in memory
 public enum IndexPersistence: Codable {
@@ -1700,767 +83,6 @@ public enum IndexPersistence: Codable {
     case ephemeral
 }
 
-/// Indexing scope determines how much of the directory tree to process
-public enum IndexScope: Codable {
-    case current
-    case recursive
-}
-
-/// Comprehensive metrics for indexing operations
-public struct IndexerMetrics: Codable {
-    public let totalDuration: RustDuration
-    public let discoveryDuration: RustDuration
-    public let processingDuration: RustDuration
-    public let contentDuration: RustDuration
-    public let filesPerSecond: Float
-    public let bytesPerSecond: Double
-    public let dirsPerSecond: Float
-    public let dbWrites: UInt64
-    public let dbReads: UInt64
-    public let batchCount: UInt64
-    public let avgBatchSize: Float
-    public let totalErrors: UInt64
-    public let criticalErrors: UInt64
-    public let nonCriticalErrors: UInt64
-    public let skippedPaths: UInt64
-    public let peakMemoryBytes: UInt64?
-    public let avgMemoryBytes: UInt64?
-
-    private enum CodingKeys: String, CodingKey {
-        case totalDuration = "total_duration"
-        case discoveryDuration = "discovery_duration"
-        case processingDuration = "processing_duration"
-        case contentDuration = "content_duration"
-        case filesPerSecond = "files_per_second"
-        case bytesPerSecond = "bytes_per_second"
-        case dirsPerSecond = "dirs_per_second"
-        case dbWrites = "db_writes"
-        case dbReads = "db_reads"
-        case batchCount = "batch_count"
-        case avgBatchSize = "avg_batch_size"
-        case totalErrors = "total_errors"
-        case criticalErrors = "critical_errors"
-        case nonCriticalErrors = "non_critical_errors"
-        case skippedPaths = "skipped_paths"
-        case peakMemoryBytes = "peak_memory_bytes"
-        case avgMemoryBytes = "avg_memory_bytes"
-    }
-
-    public init(totalDuration: RustDuration, discoveryDuration: RustDuration, processingDuration: RustDuration, contentDuration: RustDuration, filesPerSecond: Float, bytesPerSecond: Double, dirsPerSecond: Float, dbWrites: UInt64, dbReads: UInt64, batchCount: UInt64, avgBatchSize: Float, totalErrors: UInt64, criticalErrors: UInt64, nonCriticalErrors: UInt64, skippedPaths: UInt64, peakMemoryBytes: UInt64?, avgMemoryBytes: UInt64?) {
-        self.totalDuration = totalDuration
-        self.discoveryDuration = discoveryDuration
-        self.processingDuration = processingDuration
-        self.contentDuration = contentDuration
-        self.filesPerSecond = filesPerSecond
-        self.bytesPerSecond = bytesPerSecond
-        self.dirsPerSecond = dirsPerSecond
-        self.dbWrites = dbWrites
-        self.dbReads = dbReads
-        self.batchCount = batchCount
-        self.avgBatchSize = avgBatchSize
-        self.totalErrors = totalErrors
-        self.criticalErrors = criticalErrors
-        self.nonCriticalErrors = nonCriticalErrors
-        self.skippedPaths = skippedPaths
-        self.peakMemoryBytes = peakMemoryBytes
-        self.avgMemoryBytes = avgMemoryBytes
-    }
-}
-
-/// Indexer settings controlling rule toggles
-public struct IndexerSettings: Codable {
-    public let noSystemFiles: Bool?
-    public let noGit: Bool?
-    public let noDevDirs: Bool?
-    public let noHidden: Bool?
-    public let gitignore: Bool?
-    public let onlyImages: Bool?
-
-    private enum CodingKeys: String, CodingKey {
-        case noSystemFiles = "no_system_files"
-        case noGit = "no_git"
-        case noDevDirs = "no_dev_dirs"
-        case noHidden = "no_hidden"
-        case gitignore = "gitignore"
-        case onlyImages = "only_images"
-    }
-
-    public init(noSystemFiles: Bool?, noGit: Bool?, noDevDirs: Bool?, noHidden: Bool?, gitignore: Bool?, onlyImages: Bool?) {
-        self.noSystemFiles = noSystemFiles
-        self.noGit = noGit
-        self.noDevDirs = noDevDirs
-        self.noHidden = noHidden
-        self.gitignore = gitignore
-        self.onlyImages = onlyImages
-    }
-}
-
-/// Statistics collected during indexing
-public struct IndexerStats: Codable {
-    public let files: UInt64
-    public let dirs: UInt64
-    public let bytes: UInt64
-    public let symlinks: UInt64
-    public let skipped: UInt64
-    public let errors: UInt64
-
-    public init(files: UInt64, dirs: UInt64, bytes: UInt64, symlinks: UInt64, skipped: UInt64, errors: UInt64) {
-        self.files = files
-        self.dirs = dirs
-        self.bytes = bytes
-        self.symlinks = symlinks
-        self.skipped = skipped
-        self.errors = errors
-    }
-}
-
-public struct JobCancelInput: Codable {
-    public let jobId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-    }
-
-    public init(jobId: String) {
-        self.jobId = jobId
-    }
-}
-
-public struct JobCancelOutput: Codable {
-    public let jobId: String
-    public let success: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case success = "success"
-    }
-
-    public init(jobId: String, success: Bool) {
-        self.jobId = jobId
-        self.success = success
-    }
-}
-
-/// Unique identifier for a job
-public struct JobId: Codable {
-    let value: String
-}
-
-public struct JobInfoOutput: Codable {
-    public let id: String
-    public let name: String
-    public let status: JobStatus
-    public let progress: Float
-    public let startedAt: String
-    public let completedAt: String?
-    public let errorMessage: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case name = "name"
-        case status = "status"
-        case progress = "progress"
-        case startedAt = "started_at"
-        case completedAt = "completed_at"
-        case errorMessage = "error_message"
-    }
-
-    public init(id: String, name: String, status: JobStatus, progress: Float, startedAt: String, completedAt: String?, errorMessage: String?) {
-        self.id = id
-        self.name = name
-        self.status = status
-        self.progress = progress
-        self.startedAt = startedAt
-        self.completedAt = completedAt
-        self.errorMessage = errorMessage
-    }
-}
-
-public struct JobInfoQueryInput: Codable {
-    public let jobId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-    }
-
-    public init(jobId: String) {
-        self.jobId = jobId
-    }
-}
-
-public struct JobListInput: Codable {
-    public let status: JobStatus?
-
-    public init(status: JobStatus?) {
-        self.status = status
-    }
-}
-
-public struct JobListItem: Codable {
-    public let id: String
-    public let name: String
-    public let status: JobStatus
-    public let progress: Float
-    public let actionType: String?
-    public let actionContext: ActionContextInfo?
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case name = "name"
-        case status = "status"
-        case progress = "progress"
-        case actionType = "action_type"
-        case actionContext = "action_context"
-    }
-
-    public init(id: String, name: String, status: JobStatus, progress: Float, actionType: String?, actionContext: ActionContextInfo?) {
-        self.id = id
-        self.name = name
-        self.status = status
-        self.progress = progress
-        self.actionType = actionType
-        self.actionContext = actionContext
-    }
-}
-
-public struct JobListOutput: Codable {
-    public let jobs: [JobListItem]
-
-    public init(jobs: [JobListItem]) {
-        self.jobs = jobs
-    }
-}
-
-/// Output from a completed job
-public enum JobOutput {
-    case success
-    case fileCopy(JobOutputFileCopyData)
-    case indexed(JobOutputIndexedData)
-    case thumbnailsGenerated(JobOutputThumbnailsGeneratedData)
-    case thumbnailGeneration(JobOutputThumbnailGenerationData)
-    case fileMove(JobOutputFileMoveData)
-    case fileDelete(JobOutputFileDeleteData)
-    case duplicateDetection(JobOutputDuplicateDetectionData)
-    case fileValidation(JobOutputFileValidationData)
-}
-public struct JobOutputFileCopyData: Codable {
-    public let copiedCount: UInt
-    public let totalBytes: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case copiedCount = "copied_count"
-        case totalBytes = "total_bytes"
-    }
-}
-
-public struct JobOutputIndexedData: Codable {
-    public let stats: IndexerStats
-    public let metrics: IndexerMetrics
-}
-
-public struct JobOutputThumbnailsGeneratedData: Codable {
-    public let generatedCount: UInt
-    public let failedCount: UInt
-
-    private enum CodingKeys: String, CodingKey {
-        case generatedCount = "generated_count"
-        case failedCount = "failed_count"
-    }
-}
-
-public struct JobOutputThumbnailGenerationData: Codable {
-    public let generatedCount: UInt64
-    public let skippedCount: UInt64
-    public let errorCount: UInt64
-    public let totalSizeBytes: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case generatedCount = "generated_count"
-        case skippedCount = "skipped_count"
-        case errorCount = "error_count"
-        case totalSizeBytes = "total_size_bytes"
-    }
-}
-
-public struct JobOutputFileMoveData: Codable {
-    public let movedCount: UInt
-    public let failedCount: UInt
-    public let totalBytes: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case movedCount = "moved_count"
-        case failedCount = "failed_count"
-        case totalBytes = "total_bytes"
-    }
-}
-
-public struct JobOutputFileDeleteData: Codable {
-    public let deletedCount: UInt
-    public let failedCount: UInt
-    public let totalBytes: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case deletedCount = "deleted_count"
-        case failedCount = "failed_count"
-        case totalBytes = "total_bytes"
-    }
-}
-
-public struct JobOutputDuplicateDetectionData: Codable {
-    public let duplicateGroups: UInt
-    public let totalDuplicates: UInt
-    public let potentialSavings: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case duplicateGroups = "duplicate_groups"
-        case totalDuplicates = "total_duplicates"
-        case potentialSavings = "potential_savings"
-    }
-}
-
-public struct JobOutputFileValidationData: Codable {
-    public let validatedCount: UInt
-    public let issuesFound: UInt
-    public let totalBytesValidated: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case validatedCount = "validated_count"
-        case issuesFound = "issues_found"
-        case totalBytesValidated = "total_bytes_validated"
-    }
-}
-
-// MARK: - JobOutput Adjacently Tagged Codable Implementation
-extension JobOutput: Codable {
-    private enum TypeKeys: String, CodingKey {
-        case tag = "type"
-        case content = "data"
-    }
-
-    private enum VariantType: String, Codable {
-        case success = "Success"
-        case fileCopy = "FileCopy"
-        case indexed = "Indexed"
-        case thumbnailsGenerated = "ThumbnailsGenerated"
-        case thumbnailGeneration = "ThumbnailGeneration"
-        case fileMove = "FileMove"
-        case fileDelete = "FileDelete"
-        case duplicateDetection = "DuplicateDetection"
-        case fileValidation = "FileValidation"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: TypeKeys.self)
-        let variantType = try container.decode(VariantType.self, forKey: .tag)
-        
-        switch variantType {
-        case .success:
-            self = .success
-        case .fileCopy:
-            let data = try container.decode(JobOutputFileCopyData.self, forKey: .content)
-            self = .fileCopy(data)
-        case .indexed:
-            let data = try container.decode(JobOutputIndexedData.self, forKey: .content)
-            self = .indexed(data)
-        case .thumbnailsGenerated:
-            let data = try container.decode(JobOutputThumbnailsGeneratedData.self, forKey: .content)
-            self = .thumbnailsGenerated(data)
-        case .thumbnailGeneration:
-            let data = try container.decode(JobOutputThumbnailGenerationData.self, forKey: .content)
-            self = .thumbnailGeneration(data)
-        case .fileMove:
-            let data = try container.decode(JobOutputFileMoveData.self, forKey: .content)
-            self = .fileMove(data)
-        case .fileDelete:
-            let data = try container.decode(JobOutputFileDeleteData.self, forKey: .content)
-            self = .fileDelete(data)
-        case .duplicateDetection:
-            let data = try container.decode(JobOutputDuplicateDetectionData.self, forKey: .content)
-            self = .duplicateDetection(data)
-        case .fileValidation:
-            let data = try container.decode(JobOutputFileValidationData.self, forKey: .content)
-            self = .fileValidation(data)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: TypeKeys.self)
-        
-        switch self {
-        case .success:
-            try container.encode(VariantType.success, forKey: .tag)
-        case .fileCopy(let data):
-            try container.encode(VariantType.fileCopy, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        case .indexed(let data):
-            try container.encode(VariantType.indexed, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        case .thumbnailsGenerated(let data):
-            try container.encode(VariantType.thumbnailsGenerated, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        case .thumbnailGeneration(let data):
-            try container.encode(VariantType.thumbnailGeneration, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        case .fileMove(let data):
-            try container.encode(VariantType.fileMove, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        case .fileDelete(let data):
-            try container.encode(VariantType.fileDelete, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        case .duplicateDetection(let data):
-            try container.encode(VariantType.duplicateDetection, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        case .fileValidation(let data):
-            try container.encode(VariantType.fileValidation, forKey: .tag)
-            try container.encode(data, forKey: .content)
-        }
-    }
-}
-
-
-public struct JobPauseInput: Codable {
-    public let jobId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-    }
-
-    public init(jobId: String) {
-        self.jobId = jobId
-    }
-}
-
-public struct JobPauseOutput: Codable {
-    public let jobId: String
-    public let success: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case success = "success"
-    }
-
-    public init(jobId: String, success: Bool) {
-        self.jobId = jobId
-        self.success = success
-    }
-}
-
-public struct JobReceipt: Codable {
-    public let id: JobId
-    public let jobName: String
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case jobName = "job_name"
-    }
-
-    public init(id: JobId, jobName: String) {
-        self.id = id
-        self.jobName = jobName
-    }
-}
-
-public struct JobResumeInput: Codable {
-    public let jobId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-    }
-
-    public init(jobId: String) {
-        self.jobId = jobId
-    }
-}
-
-public struct JobResumeOutput: Codable {
-    public let jobId: String
-    public let success: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case success = "success"
-    }
-
-    public init(jobId: String, success: Bool) {
-        self.jobId = jobId
-        self.success = success
-    }
-}
-
-/// Current status of a job
-public enum JobStatus: String, Codable {
-    case queued = "queued"
-    case running = "running"
-    case paused = "paused"
-    case completed = "completed"
-    case failed = "failed"
-    case cancelled = "cancelled"
-}
-
-/// Input for creating a new library
-public struct LibraryCreateInput: Codable {
-    public let name: String
-    public let path: String?
-
-    public init(name: String, path: String?) {
-        self.name = name
-        self.path = path
-    }
-}
-
-/// Output from library create action dispatch
-public struct LibraryCreateOutput: Codable {
-    public let libraryId: String
-    public let name: String
-    public let path: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case name = "name"
-        case path = "path"
-    }
-
-    public init(libraryId: String, name: String, path: String) {
-        self.libraryId = libraryId
-        self.name = name
-        self.path = path
-    }
-}
-
-/// Input for deleting a library
-public struct LibraryDeleteInput: Codable {
-    public let libraryId: String
-    public let deleteData: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case deleteData = "delete_data"
-    }
-
-    public init(libraryId: String, deleteData: Bool) {
-        self.libraryId = libraryId
-        self.deleteData = deleteData
-    }
-}
-
-/// Output from library delete action dispatch
-public struct LibraryDeleteOutput: Codable {
-    public let libraryId: String
-    public let name: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case name = "name"
-    }
-
-    public init(libraryId: String, name: String) {
-        self.libraryId = libraryId
-        self.name = name
-    }
-}
-
-/// Input for exporting a library
-public struct LibraryExportInput: Codable {
-    public let libraryId: String
-    public let exportPath: String
-    public let includeThumbnails: Bool
-    public let includePreviews: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case exportPath = "export_path"
-        case includeThumbnails = "include_thumbnails"
-        case includePreviews = "include_previews"
-    }
-
-    public init(libraryId: String, exportPath: String, includeThumbnails: Bool, includePreviews: Bool) {
-        self.libraryId = libraryId
-        self.exportPath = exportPath
-        self.includeThumbnails = includeThumbnails
-        self.includePreviews = includePreviews
-    }
-}
-
-public struct LibraryExportOutput: Codable {
-    public let libraryId: String
-    public let libraryName: String
-    public let exportPath: String
-    public let exportedFiles: [String]
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case libraryName = "library_name"
-        case exportPath = "export_path"
-        case exportedFiles = "exported_files"
-    }
-
-    public init(libraryId: String, libraryName: String, exportPath: String, exportedFiles: [String]) {
-        self.libraryId = libraryId
-        self.libraryName = libraryName
-        self.exportPath = exportPath
-        self.exportedFiles = exportedFiles
-    }
-}
-
-/// Information about a library for listing purposes
-public struct LibraryInfo: Codable {
-    public let id: String
-    public let name: String
-    public let path: String
-    public let stats: LibraryStatistics?
-
-    public init(id: String, name: String, path: String, stats: LibraryStatistics?) {
-        self.id = id
-        self.name = name
-        self.path = path
-        self.stats = stats
-    }
-}
-
-/// Detailed information about a library
-public struct LibraryInfoOutput: Codable {
-    public let id: String
-    public let name: String
-    public let description: String?
-    public let path: String
-    public let createdAt: String
-    public let updatedAt: String
-    public let settings: LibrarySettings
-    public let statistics: LibraryStatistics
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case name = "name"
-        case description = "description"
-        case path = "path"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case settings = "settings"
-        case statistics = "statistics"
-    }
-
-    public init(id: String, name: String, description: String?, path: String, createdAt: String, updatedAt: String, settings: LibrarySettings, statistics: LibraryStatistics) {
-        self.id = id
-        self.name = name
-        self.description = description
-        self.path = path
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-        self.settings = settings
-        self.statistics = statistics
-    }
-}
-
-/// Input for library info query
-public struct LibraryInfoQueryInput: Codable {
-}
-
-public struct LibraryRenameInput: Codable {
-    public let libraryId: String
-    public let newName: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case newName = "new_name"
-    }
-
-    public init(libraryId: String, newName: String) {
-        self.libraryId = libraryId
-        self.newName = newName
-    }
-}
-
-public struct LibraryRenameOutput: Codable {
-    public let libraryId: String
-    public let oldName: String
-    public let newName: String
-
-    private enum CodingKeys: String, CodingKey {
-        case libraryId = "library_id"
-        case oldName = "old_name"
-        case newName = "new_name"
-    }
-
-    public init(libraryId: String, oldName: String, newName: String) {
-        self.libraryId = libraryId
-        self.oldName = oldName
-        self.newName = newName
-    }
-}
-
-/// Library-specific settings
-public struct LibrarySettings: Codable {
-    public let generateThumbnails: Bool
-    public let thumbnailQuality: UInt8
-    public let enableAiTagging: Bool
-    public let syncEnabled: Bool
-    public let encryptionEnabled: Bool
-    public let thumbnailSizes: [UInt32]
-    public let ignoredExtensions: [String]
-    public let maxFileSize: UInt64?
-    public let autoTrackSystemVolumes: Bool
-    public let autoTrackExternalVolumes: Bool
-    public let indexer: IndexerSettings?
-
-    private enum CodingKeys: String, CodingKey {
-        case generateThumbnails = "generate_thumbnails"
-        case thumbnailQuality = "thumbnail_quality"
-        case enableAiTagging = "enable_ai_tagging"
-        case syncEnabled = "sync_enabled"
-        case encryptionEnabled = "encryption_enabled"
-        case thumbnailSizes = "thumbnail_sizes"
-        case ignoredExtensions = "ignored_extensions"
-        case maxFileSize = "max_file_size"
-        case autoTrackSystemVolumes = "auto_track_system_volumes"
-        case autoTrackExternalVolumes = "auto_track_external_volumes"
-        case indexer = "indexer"
-    }
-
-    public init(generateThumbnails: Bool, thumbnailQuality: UInt8, enableAiTagging: Bool, syncEnabled: Bool, encryptionEnabled: Bool, thumbnailSizes: [UInt32], ignoredExtensions: [String], maxFileSize: UInt64?, autoTrackSystemVolumes: Bool, autoTrackExternalVolumes: Bool, indexer: IndexerSettings?) {
-        self.generateThumbnails = generateThumbnails
-        self.thumbnailQuality = thumbnailQuality
-        self.enableAiTagging = enableAiTagging
-        self.syncEnabled = syncEnabled
-        self.encryptionEnabled = encryptionEnabled
-        self.thumbnailSizes = thumbnailSizes
-        self.ignoredExtensions = ignoredExtensions
-        self.maxFileSize = maxFileSize
-        self.autoTrackSystemVolumes = autoTrackSystemVolumes
-        self.autoTrackExternalVolumes = autoTrackExternalVolumes
-        self.indexer = indexer
-    }
-}
-
-/// Library statistics
-public struct LibraryStatistics: Codable {
-    public let totalFiles: UInt64
-    public let totalSize: UInt64
-    public let locationCount: UInt32
-    public let tagCount: UInt32
-    public let thumbnailCount: UInt64
-    public let lastIndexed: String?
-    public let updatedAt: String
-
-    private enum CodingKeys: String, CodingKey {
-        case totalFiles = "total_files"
-        case totalSize = "total_size"
-        case locationCount = "location_count"
-        case tagCount = "tag_count"
-        case thumbnailCount = "thumbnail_count"
-        case lastIndexed = "last_indexed"
-        case updatedAt = "updated_at"
-    }
-
-    public init(totalFiles: UInt64, totalSize: UInt64, locationCount: UInt32, tagCount: UInt32, thumbnailCount: UInt64, lastIndexed: String?, updatedAt: String) {
-        self.totalFiles = totalFiles
-        self.totalSize = totalSize
-        self.locationCount = locationCount
-        self.tagCount = tagCount
-        self.thumbnailCount = thumbnailCount
-        self.lastIndexed = lastIndexed
-        self.updatedAt = updatedAt
-    }
-}
 
 public struct ListDevicesInput: Codable {
     public let pairedOnly: Bool
@@ -2474,1194 +96,6 @@ public struct ListDevicesInput: Codable {
     public init(pairedOnly: Bool, connectedOnly: Bool) {
         self.pairedOnly = pairedOnly
         self.connectedOnly = connectedOnly
-    }
-}
-
-public struct ListLibrariesInput: Codable {
-    public let includeStats: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case includeStats = "include_stats"
-    }
-
-    public init(includeStats: Bool) {
-        self.includeStats = includeStats
-    }
-}
-
-public struct LocationAddInput: Codable {
-    public let path: String
-    public let name: String?
-    public let mode: IndexMode
-
-    public init(path: String, name: String?, mode: IndexMode) {
-        self.path = path
-        self.name = name
-        self.mode = mode
-    }
-}
-
-/// Output from location add action dispatch
-public struct LocationAddOutput: Codable {
-    public let locationId: String
-    public let path: String
-    public let name: String?
-    public let jobId: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-        case path = "path"
-        case name = "name"
-        case jobId = "job_id"
-    }
-
-    public init(locationId: String, path: String, name: String?, jobId: String?) {
-        self.locationId = locationId
-        self.path = path
-        self.name = name
-        self.jobId = jobId
-    }
-}
-
-public struct LocationInfo: Codable {
-    public let id: String
-    public let path: String
-    public let name: String?
-
-    public init(id: String, path: String, name: String?) {
-        self.id = id
-        self.path = path
-        self.name = name
-    }
-}
-
-public struct LocationRemoveInput: Codable {
-    public let locationId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-    }
-
-    public init(locationId: String) {
-        self.locationId = locationId
-    }
-}
-
-/// Output from location remove action dispatch
-public struct LocationRemoveOutput: Codable {
-    public let locationId: String
-    public let path: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-        case path = "path"
-    }
-
-    public init(locationId: String, path: String?) {
-        self.locationId = locationId
-        self.path = path
-    }
-}
-
-public struct LocationRescanInput: Codable {
-    public let locationId: String
-    public let fullRescan: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-        case fullRescan = "full_rescan"
-    }
-
-    public init(locationId: String, fullRescan: Bool) {
-        self.locationId = locationId
-        self.fullRescan = fullRescan
-    }
-}
-
-public struct LocationRescanOutput: Codable {
-    public let locationId: String
-    public let locationPath: String
-    public let jobId: String
-    public let fullRescan: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-        case locationPath = "location_path"
-        case jobId = "job_id"
-        case fullRescan = "full_rescan"
-    }
-
-    public init(locationId: String, locationPath: String, jobId: String, fullRescan: Bool) {
-        self.locationId = locationId
-        self.locationPath = locationPath
-        self.jobId = jobId
-        self.fullRescan = fullRescan
-    }
-}
-
-public struct LocationsListOutput: Codable {
-    public let locations: [LocationInfo]
-
-    public init(locations: [LocationInfo]) {
-        self.locations = locations
-    }
-}
-
-public struct LocationsListQueryInput: Codable {
-}
-
-/// Media-specific metadata
-public struct MediaData: Codable {
-    public let width: UInt32?
-    public let height: UInt32?
-    public let duration: Double?
-    public let bitrate: UInt32?
-    public let fps: Float?
-    public let exif: ExifData?
-    public let extra: JSONValue
-
-    public init(width: UInt32?, height: UInt32?, duration: Double?, bitrate: UInt32?, fps: Float?, exif: ExifData?, extra: JSONValue) {
-        self.width = width
-        self.height = height
-        self.duration = duration
-        self.bitrate = bitrate
-        self.fps = fps
-        self.exif = exif
-        self.extra = extra
-    }
-}
-
-/// Represents how the volume is mounted in the system
-public enum MountType: Codable {
-    case system
-    case external
-    case network
-    case virtual
-}
-
-public struct NetworkStartInput: Codable {
-}
-
-public struct NetworkStartOutput: Codable {
-    public let started: Bool
-
-    public init(started: Bool) {
-        self.started = started
-    }
-}
-
-public struct NetworkStatus: Codable {
-    public let running: Bool
-    public let nodeId: String?
-    public let addresses: [String]
-    public let pairedDevices: UInt
-    public let connectedDevices: UInt
-    public let version: String
-
-    private enum CodingKeys: String, CodingKey {
-        case running = "running"
-        case nodeId = "node_id"
-        case addresses = "addresses"
-        case pairedDevices = "paired_devices"
-        case connectedDevices = "connected_devices"
-        case version = "version"
-    }
-
-    public init(running: Bool, nodeId: String?, addresses: [String], pairedDevices: UInt, connectedDevices: UInt, version: String) {
-        self.running = running
-        self.nodeId = nodeId
-        self.addresses = addresses
-        self.pairedDevices = pairedDevices
-        self.connectedDevices = connectedDevices
-        self.version = version
-    }
-}
-
-public struct NetworkStatusQueryInput: Codable {
-}
-
-public struct NetworkStopInput: Codable {
-}
-
-public struct NetworkStopOutput: Codable {
-    public let stopped: Bool
-
-    public init(stopped: Bool) {
-        self.stopped = stopped
-    }
-}
-
-/// Pagination information
-public struct PaginationInfo: Codable {
-    public let currentPage: UInt32
-    public let totalPages: UInt32
-    public let hasNext: Bool
-    public let hasPrevious: Bool
-    public let limit: UInt32
-    public let offset: UInt32
-
-    private enum CodingKeys: String, CodingKey {
-        case currentPage = "current_page"
-        case totalPages = "total_pages"
-        case hasNext = "has_next"
-        case hasPrevious = "has_previous"
-        case limit = "limit"
-        case offset = "offset"
-    }
-
-    public init(currentPage: UInt32, totalPages: UInt32, hasNext: Bool, hasPrevious: Bool, limit: UInt32, offset: UInt32) {
-        self.currentPage = currentPage
-        self.totalPages = totalPages
-        self.hasNext = hasNext
-        self.hasPrevious = hasPrevious
-        self.limit = limit
-        self.offset = offset
-    }
-}
-
-/// Pagination options
-public struct PaginationOptions: Codable {
-    public let limit: UInt32
-    public let offset: UInt32
-
-    public init(limit: UInt32, offset: UInt32) {
-        self.limit = limit
-        self.offset = offset
-    }
-}
-
-public struct PairCancelInput: Codable {
-    public let sessionId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case sessionId = "session_id"
-    }
-
-    public init(sessionId: String) {
-        self.sessionId = sessionId
-    }
-}
-
-public struct PairCancelOutput: Codable {
-    public let cancelled: Bool
-
-    public init(cancelled: Bool) {
-        self.cancelled = cancelled
-    }
-}
-
-public struct PairGenerateInput: Codable {
-    public let autoAccept: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case autoAccept = "auto_accept"
-    }
-
-    public init(autoAccept: Bool) {
-        self.autoAccept = autoAccept
-    }
-}
-
-public struct PairGenerateOutput: Codable {
-    public let code: String
-    public let sessionId: String
-    public let expiresAt: String
-
-    private enum CodingKeys: String, CodingKey {
-        case code = "code"
-        case sessionId = "session_id"
-        case expiresAt = "expires_at"
-    }
-
-    public init(code: String, sessionId: String, expiresAt: String) {
-        self.code = code
-        self.sessionId = sessionId
-        self.expiresAt = expiresAt
-    }
-}
-
-public struct PairJoinInput: Codable {
-    public let code: String
-
-    public init(code: String) {
-        self.code = code
-    }
-}
-
-public struct PairJoinOutput: Codable {
-    public let pairedDeviceId: String
-    public let deviceName: String
-
-    private enum CodingKeys: String, CodingKey {
-        case pairedDeviceId = "paired_device_id"
-        case deviceName = "device_name"
-    }
-
-    public init(pairedDeviceId: String, deviceName: String) {
-        self.pairedDeviceId = pairedDeviceId
-        self.deviceName = deviceName
-    }
-}
-
-public struct PairStatusOutput: Codable {
-    public let sessions: [PairingSessionSummary]
-
-    public init(sessions: [PairingSessionSummary]) {
-        self.sessions = sessions
-    }
-}
-
-public struct PairStatusQueryInput: Codable {
-}
-
-public struct PairedDeviceInfo: Codable {
-    public let id: String
-    public let name: String
-    public let os: String
-    public let isOnline: Bool
-    public let lastSeen: String
-    public let pairedAt: String
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case name = "name"
-        case os = "os"
-        case isOnline = "is_online"
-        case lastSeen = "last_seen"
-        case pairedAt = "paired_at"
-    }
-
-    public init(id: String, name: String, os: String, isOnline: Bool, lastSeen: String, pairedAt: String) {
-        self.id = id
-        self.name = name
-        self.os = os
-        self.isOnline = isOnline
-        self.lastSeen = lastSeen
-        self.pairedAt = pairedAt
-    }
-}
-
-public struct PairingSessionSummary: Codable {
-    public let id: String
-    public let state: SerializablePairingState
-    public let remoteDeviceId: String?
-    public let expiresAt: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case state = "state"
-        case remoteDeviceId = "remote_device_id"
-        case expiresAt = "expires_at"
-    }
-
-    public init(id: String, state: SerializablePairingState, remoteDeviceId: String?, expiresAt: String?) {
-        self.id = id
-        self.state = state
-        self.remoteDeviceId = remoteDeviceId
-        self.expiresAt = expiresAt
-    }
-}
-
-/// Path mapping for resolving virtual paths to actual storage locations
-public struct PathMapping: Codable {
-    public let virtualPath: String
-    public let actualPath: String
-
-    private enum CodingKeys: String, CodingKey {
-        case virtualPath = "virtual_path"
-        case actualPath = "actual_path"
-    }
-
-    public init(virtualPath: String, actualPath: String) {
-        self.virtualPath = virtualPath
-        self.actualPath = actualPath
-    }
-}
-
-/// Performance and timing metrics
-public struct PerformanceMetrics: Codable {
-    public let rate: Float
-    public let estimatedRemaining: RustDuration?
-    public let elapsed: RustDuration?
-    public let errorCount: UInt64
-    public let warningCount: UInt64
-
-    private enum CodingKeys: String, CodingKey {
-        case rate = "rate"
-        case estimatedRemaining = "estimated_remaining"
-        case elapsed = "elapsed"
-        case errorCount = "error_count"
-        case warningCount = "warning_count"
-    }
-
-    public init(rate: Float, estimatedRemaining: RustDuration?, elapsed: RustDuration?, errorCount: UInt64, warningCount: UInt64) {
-        self.rate = rate
-        self.estimatedRemaining = estimatedRemaining
-        self.elapsed = elapsed
-        self.errorCount = errorCount
-        self.warningCount = warningCount
-    }
-}
-
-/// Privacy levels for tag visibility control
-public enum PrivacyLevel: Codable {
-    case normal
-    case archive
-    case hidden
-}
-
-/// Progress completion information
-public struct ProgressCompletion: Codable {
-    public let completed: UInt64
-    public let total: UInt64
-    public let bytesCompleted: UInt64?
-    public let totalBytes: UInt64?
-
-    private enum CodingKeys: String, CodingKey {
-        case completed = "completed"
-        case total = "total"
-        case bytesCompleted = "bytes_completed"
-        case totalBytes = "total_bytes"
-    }
-
-    public init(completed: UInt64, total: UInt64, bytesCompleted: UInt64?, totalBytes: UInt64?) {
-        self.completed = completed
-        self.total = total
-        self.bytesCompleted = bytesCompleted
-        self.totalBytes = totalBytes
-    }
-}
-
-/// Detailed breakdown of how the score was calculated
-public struct ScoreBreakdown: Codable {
-    public let temporalScore: Float
-    public let semanticScore: Float?
-    public let metadataScore: Float
-    public let recencyBoost: Float
-    public let userPreferenceBoost: Float
-    public let finalScore: Float
-
-    private enum CodingKeys: String, CodingKey {
-        case temporalScore = "temporal_score"
-        case semanticScore = "semantic_score"
-        case metadataScore = "metadata_score"
-        case recencyBoost = "recency_boost"
-        case userPreferenceBoost = "user_preference_boost"
-        case finalScore = "final_score"
-    }
-
-    public init(temporalScore: Float, semanticScore: Float?, metadataScore: Float, recencyBoost: Float, userPreferenceBoost: Float, finalScore: Float) {
-        self.temporalScore = temporalScore
-        self.semanticScore = semanticScore
-        self.metadataScore = metadataScore
-        self.recencyBoost = recencyBoost
-        self.userPreferenceBoost = userPreferenceBoost
-        self.finalScore = finalScore
-    }
-}
-
-/// A path within the Spacedrive Virtual Distributed File System
-/// 
-/// This is the core abstraction that enables cross-device operations.
-/// An SdPath can represent:
-/// - A physical file at a specific path on a specific device
-/// - A content-addressed file that can be sourced from any device
-/// 
-/// This enum-based approach enables resilient file operations by allowing
-/// content-based paths to be resolved to optimal physical locations at runtime.
-public enum SdPath {
-    case physical(SdPathPhysicalData)
-    case content(SdPathContentData)
-}
-public struct SdPathPhysicalData: Codable {
-    public let deviceId: String
-    public let path: String
-
-    private enum CodingKeys: String, CodingKey {
-        case deviceId = "device_id"
-        case path = "path"
-    }
-}
-
-public struct SdPathContentData: Codable {
-    public let contentId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case contentId = "content_id"
-    }
-}
-
-// MARK: - SdPath Codable Implementation
-extension SdPath: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case physical = "Physical"
-        case content = "Content"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        if container.allKeys.count != 1 {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
-            )
-        }
-
-        let key = container.allKeys.first!
-        switch key {
-        case .physical:
-            let data = try container.decode(SdPathPhysicalData.self, forKey: .physical)
-            self = .physical(data)
-        case .content:
-            let data = try container.decode(SdPathContentData.self, forKey: .content)
-            self = .content(data)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        switch self {
-        case .physical(let data):
-            try container.encode(data, forKey: .physical)
-        case .content(let data):
-            try container.encode(data, forKey: .content)
-        }
-    }
-}
-
-
-/// A batch of SdPaths, useful for operations on multiple files
-public struct SdPathBatch: Codable {
-    public let paths: [SdPath]
-
-    public init(paths: [SdPath]) {
-        self.paths = paths
-    }
-}
-
-/// How SdPath is stored in the database
-public struct SdPathSerialized: Codable {
-    public let deviceId: String
-    public let path: String
-
-    private enum CodingKeys: String, CodingKey {
-        case deviceId = "device_id"
-        case path = "path"
-    }
-
-    public init(deviceId: String, path: String) {
-        self.deviceId = deviceId
-        self.path = path
-    }
-}
-
-/// Search facets for filtering UI
-public struct SearchFacets: Codable {
-    public let fileTypes: [String: UInt64]
-    public let tags: [String: UInt64]
-    public let locations: [String: UInt64]
-    public let dateRanges: [String: UInt64]
-    public let sizeRanges: [String: UInt64]
-
-    private enum CodingKeys: String, CodingKey {
-        case fileTypes = "file_types"
-        case tags = "tags"
-        case locations = "locations"
-        case dateRanges = "date_ranges"
-        case sizeRanges = "size_ranges"
-    }
-
-    public init(fileTypes: [String: UInt64], tags: [String: UInt64], locations: [String: UInt64], dateRanges: [String: UInt64], sizeRanges: [String: UInt64]) {
-        self.fileTypes = fileTypes
-        self.tags = tags
-        self.locations = locations
-        self.dateRanges = dateRanges
-        self.sizeRanges = sizeRanges
-    }
-}
-
-/// Container for all structured filters
-public struct SearchFilters: Codable {
-    public let fileTypes: [String]?
-    public let tags: TagFilter?
-    public let dateRange: DateRangeFilter?
-    public let sizeRange: SizeRangeFilter?
-    public let locations: [String]?
-    public let contentTypes: [ContentKind]?
-    public let includeHidden: Bool?
-    public let includeArchived: Bool?
-
-    private enum CodingKeys: String, CodingKey {
-        case fileTypes = "file_types"
-        case tags = "tags"
-        case dateRange = "date_range"
-        case sizeRange = "size_range"
-        case locations = "locations"
-        case contentTypes = "content_types"
-        case includeHidden = "include_hidden"
-        case includeArchived = "include_archived"
-    }
-
-    public init(fileTypes: [String]?, tags: TagFilter?, dateRange: DateRangeFilter?, sizeRange: SizeRangeFilter?, locations: [String]?, contentTypes: [ContentKind]?, includeHidden: Bool?, includeArchived: Bool?) {
-        self.fileTypes = fileTypes
-        self.tags = tags
-        self.dateRange = dateRange
-        self.sizeRange = sizeRange
-        self.locations = locations
-        self.contentTypes = contentTypes
-        self.includeHidden = includeHidden
-        self.includeArchived = includeArchived
-    }
-}
-
-/// Defines the search mode and performance characteristics
-public enum SearchMode: Codable {
-    case fast
-    case normal
-    case full
-}
-
-/// Defines the scope of the filesystem to search within
-public enum SearchScope {
-    case library
-    case location(SearchScopeLocationData)
-    case path(SearchScopePathData)
-}
-public struct SearchScopeLocationData: Codable {
-    public let locationId: String
-
-    private enum CodingKeys: String, CodingKey {
-        case locationId = "location_id"
-    }
-}
-
-public struct SearchScopePathData: Codable {
-    public let path: SdPath
-}
-
-// MARK: - SearchScope Codable Implementation
-extension SearchScope: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case library = "Library"
-        case location = "Location"
-        case path = "Path"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        if container.allKeys.count != 1 {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
-            )
-        }
-
-        let key = container.allKeys.first!
-        switch key {
-        case .library:
-            self = .library
-        case .location:
-            let data = try container.decode(SearchScopeLocationData.self, forKey: .location)
-            self = .location(data)
-        case .path:
-            let data = try container.decode(SearchScopePathData.self, forKey: .path)
-            self = .path(data)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        switch self {
-        case .library:
-            try container.encodeNil(forKey: .library)
-        case .location(let data):
-            try container.encode(data, forKey: .location)
-        case .path(let data):
-            try container.encode(data, forKey: .path)
-        }
-    }
-}
-
-
-public struct SearchTagsInput: Codable {
-    public let query: String
-    public let namespace: String?
-    public let tagType: TagType?
-    public let includeArchived: Bool?
-    public let limit: UInt?
-    public let resolveAmbiguous: Bool?
-    public let contextTagIds: [String]?
-
-    private enum CodingKeys: String, CodingKey {
-        case query = "query"
-        case namespace = "namespace"
-        case tagType = "tag_type"
-        case includeArchived = "include_archived"
-        case limit = "limit"
-        case resolveAmbiguous = "resolve_ambiguous"
-        case contextTagIds = "context_tag_ids"
-    }
-
-    public init(query: String, namespace: String?, tagType: TagType?, includeArchived: Bool?, limit: UInt?, resolveAmbiguous: Bool?, contextTagIds: [String]?) {
-        self.query = query
-        self.namespace = namespace
-        self.tagType = tagType
-        self.includeArchived = includeArchived
-        self.limit = limit
-        self.resolveAmbiguous = resolveAmbiguous
-        self.contextTagIds = contextTagIds
-    }
-}
-
-public struct SearchTagsOutput: Codable {
-    public let tags: [TagSearchResult]
-    public let totalFound: UInt
-    public let disambiguated: Bool
-    public let query: String
-    public let filters: SearchFilters
-
-    private enum CodingKeys: String, CodingKey {
-        case tags = "tags"
-        case totalFound = "total_found"
-        case disambiguated = "disambiguated"
-        case query = "query"
-        case filters = "filters"
-    }
-
-    public init(tags: [TagSearchResult], totalFound: UInt, disambiguated: Bool, query: String, filters: SearchFilters) {
-        self.tags = tags
-        self.totalFound = totalFound
-        self.disambiguated = disambiguated
-        self.query = query
-        self.filters = filters
-    }
-}
-
-public enum SerializablePairingState {
-    case idle
-    case generatingCode
-    case broadcasting
-    case scanning
-    case waitingForConnection
-    case connecting
-    case authenticating
-    case exchangingKeys
-    case awaitingConfirmation
-    case establishingSession
-    case challengeReceived
-    case responsePending
-    case responseSent
-    case completed
-    case failed(SerializablePairingStateFailedData)
-}
-public struct SerializablePairingStateFailedData: Codable {
-    public let reason: String
-}
-
-// MARK: - SerializablePairingState Codable Implementation
-extension SerializablePairingState: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case idle = "Idle"
-        case generatingCode = "GeneratingCode"
-        case broadcasting = "Broadcasting"
-        case scanning = "Scanning"
-        case waitingForConnection = "WaitingForConnection"
-        case connecting = "Connecting"
-        case authenticating = "Authenticating"
-        case exchangingKeys = "ExchangingKeys"
-        case awaitingConfirmation = "AwaitingConfirmation"
-        case establishingSession = "EstablishingSession"
-        case challengeReceived = "ChallengeReceived"
-        case responsePending = "ResponsePending"
-        case responseSent = "ResponseSent"
-        case completed = "Completed"
-        case failed = "Failed"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        if container.allKeys.count != 1 {
-            throw DecodingError.dataCorrupted(
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
-            )
-        }
-
-        let key = container.allKeys.first!
-        switch key {
-        case .idle:
-            self = .idle
-        case .generatingCode:
-            self = .generatingCode
-        case .broadcasting:
-            self = .broadcasting
-        case .scanning:
-            self = .scanning
-        case .waitingForConnection:
-            self = .waitingForConnection
-        case .connecting:
-            self = .connecting
-        case .authenticating:
-            self = .authenticating
-        case .exchangingKeys:
-            self = .exchangingKeys
-        case .awaitingConfirmation:
-            self = .awaitingConfirmation
-        case .establishingSession:
-            self = .establishingSession
-        case .challengeReceived:
-            self = .challengeReceived
-        case .responsePending:
-            self = .responsePending
-        case .responseSent:
-            self = .responseSent
-        case .completed:
-            self = .completed
-        case .failed:
-            let data = try container.decode(SerializablePairingStateFailedData.self, forKey: .failed)
-            self = .failed(data)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        switch self {
-        case .idle:
-            try container.encodeNil(forKey: .idle)
-        case .generatingCode:
-            try container.encodeNil(forKey: .generatingCode)
-        case .broadcasting:
-            try container.encodeNil(forKey: .broadcasting)
-        case .scanning:
-            try container.encodeNil(forKey: .scanning)
-        case .waitingForConnection:
-            try container.encodeNil(forKey: .waitingForConnection)
-        case .connecting:
-            try container.encodeNil(forKey: .connecting)
-        case .authenticating:
-            try container.encodeNil(forKey: .authenticating)
-        case .exchangingKeys:
-            try container.encodeNil(forKey: .exchangingKeys)
-        case .awaitingConfirmation:
-            try container.encodeNil(forKey: .awaitingConfirmation)
-        case .establishingSession:
-            try container.encodeNil(forKey: .establishingSession)
-        case .challengeReceived:
-            try container.encodeNil(forKey: .challengeReceived)
-        case .responsePending:
-            try container.encodeNil(forKey: .responsePending)
-        case .responseSent:
-            try container.encodeNil(forKey: .responseSent)
-        case .completed:
-            try container.encodeNil(forKey: .completed)
-        case .failed(let data):
-            try container.encode(data, forKey: .failed)
-        }
-    }
-}
-
-
-public struct ServiceState: Codable {
-    public let running: Bool
-    public let details: String?
-
-    public init(running: Bool, details: String?) {
-        self.running = running
-        self.details = details
-    }
-}
-
-public struct ServiceStatus: Codable {
-    public let locationWatcher: ServiceState
-    public let networking: ServiceState
-    public let volumeMonitor: ServiceState
-    public let fileSharing: ServiceState
-
-    private enum CodingKeys: String, CodingKey {
-        case locationWatcher = "location_watcher"
-        case networking = "networking"
-        case volumeMonitor = "volume_monitor"
-        case fileSharing = "file_sharing"
-    }
-
-    public init(locationWatcher: ServiceState, networking: ServiceState, volumeMonitor: ServiceState, fileSharing: ServiceState) {
-        self.locationWatcher = locationWatcher
-        self.networking = networking
-        self.volumeMonitor = volumeMonitor
-        self.fileSharing = fileSharing
-    }
-}
-
-/// Domain representation of a sidecar
-public struct Sidecar: Codable {
-    public let id: Int32
-    public let contentUuid: String
-    public let kind: String
-    public let variant: String
-    public let format: String
-    public let status: String
-    public let size: Int64
-    public let createdAt: String
-    public let updatedAt: String
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case contentUuid = "content_uuid"
-        case kind = "kind"
-        case variant = "variant"
-        case format = "format"
-        case status = "status"
-        case size = "size"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
-
-    public init(id: Int32, contentUuid: String, kind: String, variant: String, format: String, status: String, size: Int64, createdAt: String, updatedAt: String) {
-        self.id = id
-        self.contentUuid = contentUuid
-        self.kind = kind
-        self.variant = variant
-        self.format = format
-        self.status = status
-        self.size = size
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-    }
-}
-
-/// Filter for file size in bytes
-public struct SizeRangeFilter: Codable {
-    public let min: UInt64?
-    public let max: UInt64?
-
-    public init(min: UInt64?, max: UInt64?) {
-        self.min = min
-        self.max = max
-    }
-}
-
-/// Sort direction
-public enum SortDirection: Codable {
-    case asc
-    case desc
-}
-
-/// Fields that can be used for sorting
-public enum SortField: Codable {
-    case relevance
-    case name
-    case size
-    case modifiedAt
-    case createdAt
-}
-
-/// Sorting options for search results
-public struct SortOptions: Codable {
-    public let field: SortField
-    public let direction: SortDirection
-
-    public init(field: SortField, direction: SortDirection) {
-        self.field = field
-        self.direction = direction
-    }
-}
-
-public struct SpacedropSendInput: Codable {
-    public let deviceId: String
-    public let paths: [SdPath]
-    public let sender: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case deviceId = "device_id"
-        case paths = "paths"
-        case sender = "sender"
-    }
-
-    public init(deviceId: String, paths: [SdPath], sender: String?) {
-        self.deviceId = deviceId
-        self.paths = paths
-        self.sender = sender
-    }
-}
-
-public struct SpacedropSendOutput: Codable {
-    public let jobId: String?
-    public let sessionId: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case jobId = "job_id"
-        case sessionId = "session_id"
-    }
-
-    public init(jobId: String?, sessionId: String?) {
-        self.jobId = jobId
-        self.sessionId = sessionId
-    }
-}
-
-public struct SystemInfo: Codable {
-    public let uptime: UInt64?
-    public let dataDirectory: String
-    public let instanceName: String?
-    public let currentLibrary: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case uptime = "uptime"
-        case dataDirectory = "data_directory"
-        case instanceName = "instance_name"
-        case currentLibrary = "current_library"
-    }
-
-    public init(uptime: UInt64?, dataDirectory: String, instanceName: String?, currentLibrary: String?) {
-        self.uptime = uptime
-        self.dataDirectory = dataDirectory
-        self.instanceName = instanceName
-        self.currentLibrary = currentLibrary
-    }
-}
-
-/// A tag with advanced capabilities for contextual organization
-public struct Tag: Codable {
-    public let id: String
-    public let canonicalName: String
-    public let displayName: String?
-    public let formalName: String?
-    public let abbreviation: String?
-    public let aliases: [String]
-    public let namespace: String?
-    public let tagType: TagType
-    public let color: String?
-    public let icon: String?
-    public let description: String?
-    public let isOrganizationalAnchor: Bool
-    public let privacyLevel: PrivacyLevel
-    public let searchWeight: Int32
-    public let attributes: [String: JSONValue]
-    public let compositionRules: [CompositionRule]
-    public let createdAt: String
-    public let updatedAt: String
-    public let createdByDevice: String
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case canonicalName = "canonical_name"
-        case displayName = "display_name"
-        case formalName = "formal_name"
-        case abbreviation = "abbreviation"
-        case aliases = "aliases"
-        case namespace = "namespace"
-        case tagType = "tag_type"
-        case color = "color"
-        case icon = "icon"
-        case description = "description"
-        case isOrganizationalAnchor = "is_organizational_anchor"
-        case privacyLevel = "privacy_level"
-        case searchWeight = "search_weight"
-        case attributes = "attributes"
-        case compositionRules = "composition_rules"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case createdByDevice = "created_by_device"
-    }
-
-    public init(id: String, canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool, privacyLevel: PrivacyLevel, searchWeight: Int32, attributes: [String: JSONValue], compositionRules: [CompositionRule], createdAt: String, updatedAt: String, createdByDevice: String) {
-        self.id = id
-        self.canonicalName = canonicalName
-        self.displayName = displayName
-        self.formalName = formalName
-        self.abbreviation = abbreviation
-        self.aliases = aliases
-        self.namespace = namespace
-        self.tagType = tagType
-        self.color = color
-        self.icon = icon
-        self.description = description
-        self.isOrganizationalAnchor = isOrganizationalAnchor
-        self.privacyLevel = privacyLevel
-        self.searchWeight = searchWeight
-        self.attributes = attributes
-        self.compositionRules = compositionRules
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
-        self.createdByDevice = createdByDevice
-    }
-}
-
-/// Filter for tags, supporting complex boolean logic
-public struct TagFilter: Codable {
-    public let include: [String]
-    public let exclude: [String]
-
-    public init(include: [String], exclude: [String]) {
-        self.include = include
-        self.exclude = exclude
-    }
-}
-
-public struct TagSearchResult: Codable {
-    public let tag: Tag
-    public let relevance: Float
-    public let matchedVariant: String?
-    public let contextScore: Float?
-
-    private enum CodingKeys: String, CodingKey {
-        case tag = "tag"
-        case relevance = "relevance"
-        case matchedVariant = "matched_variant"
-        case contextScore = "context_score"
-    }
-
-    public init(tag: Tag, relevance: Float, matchedVariant: String?, contextScore: Float?) {
-        self.tag = tag
-        self.relevance = relevance
-        self.matchedVariant = matchedVariant
-        self.contextScore = contextScore
-    }
-}
-
-/// Source of tag application
-public enum TagSource: Codable {
-    case user
-    case aI
-    case `import`
-    case sync
-}
-
-/// Types of semantic tags with different behaviors
-public enum TagType: Codable {
-    case standard
-    case organizational
-    case privacy
-    case system
-}
-
-/// Text highlighting information
-public struct TextHighlight: Codable {
-    public let field: String
-    public let text: String
-    public let start: UInt
-    public let end: UInt
-
-    public init(field: String, text: String, start: UInt, end: UInt) {
-        self.field = field
-        self.text = text
-        self.start = start
-        self.end = end
-    }
-}
-
-public struct ThumbnailInput: Codable {
-    public let paths: [String]
-    public let size: UInt32
-    public let quality: UInt8
-
-    public init(paths: [String], size: UInt32, quality: UInt8) {
-        self.paths = paths
-        self.size = size
-        self.quality = quality
     }
 }
 
@@ -3744,9 +178,3656 @@ public struct Volume: Codable {
     }
 }
 
+public struct ActionContextInfo: Codable {
+    public let actionType: String
+    public let initiatedAt: String
+    public let initiatedBy: String?
+    public let actionInput: JsonValue
+    public let context: JsonValue
+
+    private enum CodingKeys: String, CodingKey {
+        case actionType = "action_type"
+        case initiatedAt = "initiated_at"
+        case initiatedBy = "initiated_by"
+        case actionInput = "action_input"
+        case context = "context"
+    }
+
+    public init(actionType: String, initiatedAt: String, initiatedBy: String?, actionInput: JsonValue, context: JsonValue) {
+        self.actionType = actionType
+        self.initiatedAt = initiatedAt
+        self.initiatedBy = initiatedBy
+        self.actionInput = actionInput
+        self.context = context
+    }
+}
+
+/// Copy method preference for file operations
+public enum CopyMethod: Codable {
+    case auto
+    case atomic
+    case streaming
+}
+
+
+/// Pagination information
+public struct PaginationInfo: Codable {
+    public let currentPage: UInt32
+    public let totalPages: UInt32
+    public let hasNext: Bool
+    public let hasPrevious: Bool
+    public let limit: UInt32
+    public let offset: UInt32
+
+    private enum CodingKeys: String, CodingKey {
+        case currentPage = "current_page"
+        case totalPages = "total_pages"
+        case hasNext = "has_next"
+        case hasPrevious = "has_previous"
+        case limit = "limit"
+        case offset = "offset"
+    }
+
+    public init(currentPage: UInt32, totalPages: UInt32, hasNext: Bool, hasPrevious: Bool, limit: UInt32, offset: UInt32) {
+        self.currentPage = currentPage
+        self.totalPages = totalPages
+        self.hasNext = hasNext
+        self.hasPrevious = hasPrevious
+        self.limit = limit
+        self.offset = offset
+    }
+}
+
+/// Input for deleting a library
+public struct LibraryDeleteInput: Codable {
+    public let libraryId: String
+    public let deleteData: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case deleteData = "delete_data"
+    }
+
+    public init(libraryId: String, deleteData: Bool) {
+        self.libraryId = libraryId
+        self.deleteData = deleteData
+    }
+}
+
+public struct LocationRemoveInput: Codable {
+    public let locationId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+    }
+
+    public init(locationId: String) {
+        self.locationId = locationId
+    }
+}
+
+/// Filter for file size in bytes
+public struct SizeRangeFilter: Codable {
+    public let min: UInt64?
+    public let max: UInt64?
+
+    public init(min: UInt64?, max: UInt64?) {
+        self.min = min
+        self.max = max
+    }
+}
+
+/// Main output structure for file search operations
+public struct FileSearchOutput: Codable {
+    public let results: [FileSearchResult]
+    public let totalFound: UInt64
+    public let searchId: String
+    public let facets: SearchFacets
+    public let suggestions: [String]
+    public let pagination: PaginationInfo
+    public let executionTimeMs: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case results = "results"
+        case totalFound = "total_found"
+        case searchId = "search_id"
+        case facets = "facets"
+        case suggestions = "suggestions"
+        case pagination = "pagination"
+        case executionTimeMs = "execution_time_ms"
+    }
+
+    public init(results: [FileSearchResult], totalFound: UInt64, searchId: String, facets: SearchFacets, suggestions: [String], pagination: PaginationInfo, executionTimeMs: UInt64) {
+        self.results = results
+        self.totalFound = totalFound
+        self.searchId = searchId
+        self.facets = facets
+        self.suggestions = suggestions
+        self.pagination = pagination
+        self.executionTimeMs = executionTimeMs
+    }
+}
+
+/// Types of semantic tags with different behaviors
+public enum TagType: Codable {
+    case standard
+    case organizational
+    case privacy
+    case system
+}
+
+
+/// EXIF metadata for images
+public struct ExifData: Codable {
+    public let make: String?
+    public let model: String?
+    public let dateTaken: String?
+    public let gps: GpsCoordinates?
+    public let iso: UInt32?
+    public let aperture: Float?
+    public let shutterSpeed: Float?
+    public let focalLength: Float?
+
+    private enum CodingKeys: String, CodingKey {
+        case make = "make"
+        case model = "model"
+        case dateTaken = "date_taken"
+        case gps = "gps"
+        case iso = "iso"
+        case aperture = "aperture"
+        case shutterSpeed = "shutter_speed"
+        case focalLength = "focal_length"
+    }
+
+    public init(make: String?, model: String?, dateTaken: String?, gps: GpsCoordinates?, iso: UInt32?, aperture: Float?, shutterSpeed: Float?, focalLength: Float?) {
+        self.make = make
+        self.model = model
+        self.dateTaken = dateTaken
+        self.gps = gps
+        self.iso = iso
+        self.aperture = aperture
+        self.shutterSpeed = shutterSpeed
+        self.focalLength = focalLength
+    }
+}
+
+/// Pagination options
+public struct PaginationOptions: Codable {
+    public let limit: UInt32
+    public let offset: UInt32
+
+    public init(limit: UInt32, offset: UInt32) {
+        self.limit = limit
+        self.offset = offset
+    }
+}
+
+/// Media-specific metadata
+public struct MediaData: Codable {
+    public let width: UInt32?
+    public let height: UInt32?
+    public let duration: Double?
+    public let bitrate: UInt32?
+    public let fps: Float?
+    public let exif: ExifData?
+    public let extra: JsonValue
+
+    public init(width: UInt32?, height: UInt32?, duration: Double?, bitrate: UInt32?, fps: Float?, exif: ExifData?, extra: JsonValue) {
+        self.width = width
+        self.height = height
+        self.duration = duration
+        self.bitrate = bitrate
+        self.fps = fps
+        self.exif = exif
+        self.extra = extra
+    }
+}
+
+/// Individual search result
+public struct FileSearchResult: Codable {
+    public let entry: Entry
+    public let score: Float
+    public let scoreBreakdown: ScoreBreakdown
+    public let highlights: [TextHighlight]
+    public let matchedContent: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case entry = "entry"
+        case score = "score"
+        case scoreBreakdown = "score_breakdown"
+        case highlights = "highlights"
+        case matchedContent = "matched_content"
+    }
+
+    public init(entry: Entry, score: Float, scoreBreakdown: ScoreBreakdown, highlights: [TextHighlight], matchedContent: String?) {
+        self.entry = entry
+        self.score = score
+        self.scoreBreakdown = scoreBreakdown
+        self.highlights = highlights
+        self.matchedContent = matchedContent
+    }
+}
+
+public struct LocationAddInput: Codable {
+    public let path: String
+    public let name: String?
+    public let mode: IndexMode
+
+    public init(path: String, name: String?, mode: IndexMode) {
+        self.path = path
+        self.name = name
+        self.mode = mode
+    }
+}
+
+/// A batch of SdPaths, useful for operations on multiple files
+public struct SdPathBatch: Codable {
+    public let paths: [SdPath]
+
+    public init(paths: [SdPath]) {
+        self.paths = paths
+    }
+}
+
+public struct SpacedropSendOutput: Codable {
+    public let jobId: String?
+    public let sessionId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case sessionId = "session_id"
+    }
+
+    public init(jobId: String?, sessionId: String?) {
+        self.jobId = jobId
+        self.sessionId = sessionId
+    }
+}
+
+/// Time-based fields that can be filtered
+public enum DateField: Codable {
+    case createdAt
+    case modifiedAt
+    case accessedAt
+}
+
+
+public struct LibraryRenameOutput: Codable {
+    public let libraryId: String
+    public let oldName: String
+    public let newName: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case oldName = "old_name"
+        case newName = "new_name"
+    }
+
+    public init(libraryId: String, oldName: String, newName: String) {
+        self.libraryId = libraryId
+        self.oldName = oldName
+        self.newName = newName
+    }
+}
+
+public struct NetworkStartOutput: Codable {
+    public let started: Bool
+
+    public init(started: Bool) {
+        self.started = started
+    }
+}
+
+public struct JobCancelOutput: Codable {
+    public let jobId: String
+    public let success: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case success = "success"
+    }
+
+    public init(jobId: String, success: Bool) {
+        self.jobId = jobId
+        self.success = success
+    }
+}
+
+/// Core input structure for file copy operations
+/// This is the canonical interface that all external APIs (CLI, GraphQL, REST) convert to
+public struct FileCopyInput: Codable {
+    public let sources: SdPathBatch
+    public let destination: SdPath
+    public let overwrite: Bool
+    public let verifyChecksum: Bool
+    public let preserveTimestamps: Bool
+    public let moveFiles: Bool
+    public let copyMethod: CopyMethod
+    public let onConflict: FileConflictResolution?
+
+    private enum CodingKeys: String, CodingKey {
+        case sources = "sources"
+        case destination = "destination"
+        case overwrite = "overwrite"
+        case verifyChecksum = "verify_checksum"
+        case preserveTimestamps = "preserve_timestamps"
+        case moveFiles = "move_files"
+        case copyMethod = "copy_method"
+        case onConflict = "on_conflict"
+    }
+
+    public init(sources: SdPathBatch, destination: SdPath, overwrite: Bool, verifyChecksum: Bool, preserveTimestamps: Bool, moveFiles: Bool, copyMethod: CopyMethod, onConflict: FileConflictResolution?) {
+        self.sources = sources
+        self.destination = destination
+        self.overwrite = overwrite
+        self.verifyChecksum = verifyChecksum
+        self.preserveTimestamps = preserveTimestamps
+        self.moveFiles = moveFiles
+        self.copyMethod = copyMethod
+        self.onConflict = onConflict
+    }
+}
+
+/// Domain representation of a sidecar
+public struct Sidecar: Codable {
+    public let id: Int32
+    public let contentUuid: String
+    public let kind: String
+    public let variant: String
+    public let format: String
+    public let status: String
+    public let size: Int64
+    public let createdAt: String
+    public let updatedAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case contentUuid = "content_uuid"
+        case kind = "kind"
+        case variant = "variant"
+        case format = "format"
+        case status = "status"
+        case size = "size"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    public init(id: Int32, contentUuid: String, kind: String, variant: String, format: String, status: String, size: Int64, createdAt: String, updatedAt: String) {
+        self.id = id
+        self.contentUuid = contentUuid
+        self.kind = kind
+        self.variant = variant
+        self.format = format
+        self.status = status
+        self.size = size
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct CreateTagOutput: Codable {
+    public let tagId: String
+    public let canonicalName: String
+    public let namespace: String?
+    public let message: String
+
+    private enum CodingKeys: String, CodingKey {
+        case tagId = "tag_id"
+        case canonicalName = "canonical_name"
+        case namespace = "namespace"
+        case message = "message"
+    }
+
+    public init(tagId: String, canonicalName: String, namespace: String?, message: String) {
+        self.tagId = tagId
+        self.canonicalName = canonicalName
+        self.namespace = namespace
+        self.message = message
+    }
+}
+
+/// Output from library delete action dispatch
+public struct LibraryDeleteOutput: Codable {
+    public let libraryId: String
+    public let name: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case name = "name"
+    }
+
+    public init(libraryId: String, name: String) {
+        self.libraryId = libraryId
+        self.name = name
+    }
+}
+
+public struct SearchTagsInput: Codable {
+    public let query: String
+    public let namespace: String?
+    public let tagType: TagType?
+    public let includeArchived: Bool?
+    public let limit: UInt?
+    public let resolveAmbiguous: Bool?
+    public let contextTagIds: [String]?
+
+    private enum CodingKeys: String, CodingKey {
+        case query = "query"
+        case namespace = "namespace"
+        case tagType = "tag_type"
+        case includeArchived = "include_archived"
+        case limit = "limit"
+        case resolveAmbiguous = "resolve_ambiguous"
+        case contextTagIds = "context_tag_ids"
+    }
+
+    public init(query: String, namespace: String?, tagType: TagType?, includeArchived: Bool?, limit: UInt?, resolveAmbiguous: Bool?, contextTagIds: [String]?) {
+        self.query = query
+        self.namespace = namespace
+        self.tagType = tagType
+        self.includeArchived = includeArchived
+        self.limit = limit
+        self.resolveAmbiguous = resolveAmbiguous
+        self.contextTagIds = contextTagIds
+    }
+}
+
+public struct NetworkStatusQueryInput: Codable {
+}
+
+public struct SearchTagsOutput: Codable {
+    public let tags: [TagSearchResult]
+    public let totalFound: UInt
+    public let disambiguated: Bool
+    public let query: String
+    public let filters: TagSearchFilters
+
+    private enum CodingKeys: String, CodingKey {
+        case tags = "tags"
+        case totalFound = "total_found"
+        case disambiguated = "disambiguated"
+        case query = "query"
+        case filters = "filters"
+    }
+
+    public init(tags: [TagSearchResult], totalFound: UInt, disambiguated: Bool, query: String, filters: TagSearchFilters) {
+        self.tags = tags
+        self.totalFound = totalFound
+        self.disambiguated = disambiguated
+        self.query = query
+        self.filters = filters
+    }
+}
+
+public struct JobListItem: Codable {
+    public let id: String
+    public let name: String
+    public let status: JobStatus
+    public let progress: Float
+    public let actionType: String?
+    public let actionContext: ActionContextInfo?
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case status = "status"
+        case progress = "progress"
+        case actionType = "action_type"
+        case actionContext = "action_context"
+    }
+
+    public init(id: String, name: String, status: JobStatus, progress: Float, actionType: String?, actionContext: ActionContextInfo?) {
+        self.id = id
+        self.name = name
+        self.status = status
+        self.progress = progress
+        self.actionType = actionType
+        self.actionContext = actionContext
+    }
+}
+
+/// Defines the scope of the filesystem to search within
+public enum SearchScope {
+    case library
+    case location(SearchScopeLocation)
+    case path(SearchScopePath)
+}
+public struct SearchScopeLocation: Codable {
+    public let locationId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+    }
+}
+
+public struct SearchScopePath: Codable {
+    public let path: SdPath
+}
+
+
+// MARK: - SearchScope Codable Implementation
+extension SearchScope: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case library = "Library"
+        case location = "Location"
+        case path = "Path"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .library:
+            self = .library
+        case .location:
+            let data = try container.decode(SearchScopeLocation.self, forKey: .location)
+            self = .location(data)
+        case .path:
+            let data = try container.decode(SearchScopePath.self, forKey: .path)
+            self = .path(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .library:
+            try container.encodeNil(forKey: .library)
+        case .location(let data):
+            try container.encode(data, forKey: .location)
+        case .path(let data):
+            try container.encode(data, forKey: .path)
+        }
+    }
+}
+
+
+/// Indexing mode determines the depth of indexing
+public enum IndexMode: Codable {
+    case shallow
+    case content
+    case deep
+}
+
+
+public struct JobInfoOutput: Codable {
+    public let id: String
+    public let name: String
+    public let status: JobStatus
+    public let progress: Float
+    public let startedAt: String
+    public let completedAt: String?
+    public let errorMessage: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case status = "status"
+        case progress = "progress"
+        case startedAt = "started_at"
+        case completedAt = "completed_at"
+        case errorMessage = "error_message"
+    }
+
+    public init(id: String, name: String, status: JobStatus, progress: Float, startedAt: String, completedAt: String?, errorMessage: String?) {
+        self.id = id
+        self.name = name
+        self.status = status
+        self.progress = progress
+        self.startedAt = startedAt
+        self.completedAt = completedAt
+        self.errorMessage = errorMessage
+    }
+}
+
+/// Output from location add action dispatch
+public struct LocationAddOutput: Codable {
+    public let locationId: String
+    public let path: String
+    public let name: String?
+    public let jobId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case path = "path"
+        case name = "name"
+        case jobId = "job_id"
+    }
+
+    public init(locationId: String, path: String, name: String?, jobId: String?) {
+        self.locationId = locationId
+        self.path = path
+        self.name = name
+        self.jobId = jobId
+    }
+}
+
+public struct ServiceStatus: Codable {
+    public let locationWatcher: ServiceState
+    public let networking: ServiceState
+    public let volumeMonitor: ServiceState
+    public let fileSharing: ServiceState
+
+    private enum CodingKeys: String, CodingKey {
+        case locationWatcher = "location_watcher"
+        case networking = "networking"
+        case volumeMonitor = "volume_monitor"
+        case fileSharing = "file_sharing"
+    }
+
+    public init(locationWatcher: ServiceState, networking: ServiceState, volumeMonitor: ServiceState, fileSharing: ServiceState) {
+        self.locationWatcher = locationWatcher
+        self.networking = networking
+        self.volumeMonitor = volumeMonitor
+        self.fileSharing = fileSharing
+    }
+}
+
+public struct JobListOutput: Codable {
+    public let jobs: [JobListItem]
+
+    public init(jobs: [JobListItem]) {
+        self.jobs = jobs
+    }
+}
+
+public struct SpacedropSendInput: Codable {
+    public let deviceId: String
+    public let paths: [SdPath]
+    public let sender: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case paths = "paths"
+        case sender = "sender"
+    }
+
+    public init(deviceId: String, paths: [SdPath], sender: String?) {
+        self.deviceId = deviceId
+        self.paths = paths
+        self.sender = sender
+    }
+}
+
+/// Privacy levels for tag visibility control
+public enum PrivacyLevel: Codable {
+    case normal
+    case archive
+    case hidden
+}
+
+
+/// Output from library create action dispatch
+public struct LibraryCreateOutput: Codable {
+    public let libraryId: String
+    public let name: String
+    public let path: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case name = "name"
+        case path = "path"
+    }
+
+    public init(libraryId: String, name: String, path: String) {
+        self.libraryId = libraryId
+        self.name = name
+        self.path = path
+    }
+}
+
+public struct DeviceInfoLite: Codable {
+    public let id: String
+    public let name: String
+    public let osVersion: String
+    public let appVersion: String
+    public let isConnected: Bool
+    public let lastSeen: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case osVersion = "os_version"
+        case appVersion = "app_version"
+        case isConnected = "is_connected"
+        case lastSeen = "last_seen"
+    }
+
+    public init(id: String, name: String, osVersion: String, appVersion: String, isConnected: Bool, lastSeen: String) {
+        self.id = id
+        self.name = name
+        self.osVersion = osVersion
+        self.appVersion = appVersion
+        self.isConnected = isConnected
+        self.lastSeen = lastSeen
+    }
+}
+
+public struct PairJoinInput: Codable {
+    public let code: String
+
+    public init(code: String) {
+        self.code = code
+    }
+}
+
+public struct ApplyTagsOutput: Codable {
+    public let entriesAffected: UInt
+    public let tagsApplied: UInt
+    public let appliedTagIds: [String]
+    public let taggedEntryIds: [Int32]
+    public let warnings: [String]
+    public let message: String
+
+    private enum CodingKeys: String, CodingKey {
+        case entriesAffected = "entries_affected"
+        case tagsApplied = "tags_applied"
+        case appliedTagIds = "applied_tag_ids"
+        case taggedEntryIds = "tagged_entry_ids"
+        case warnings = "warnings"
+        case message = "message"
+    }
+
+    public init(entriesAffected: UInt, tagsApplied: UInt, appliedTagIds: [String], taggedEntryIds: [Int32], warnings: [String], message: String) {
+        self.entriesAffected = entriesAffected
+        self.tagsApplied = tagsApplied
+        self.appliedTagIds = appliedTagIds
+        self.taggedEntryIds = taggedEntryIds
+        self.warnings = warnings
+        self.message = message
+    }
+}
+
+public struct JobInfoQueryInput: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+}
+
+/// Detailed breakdown of how the score was calculated
+public struct ScoreBreakdown: Codable {
+    public let temporalScore: Float
+    public let semanticScore: Float?
+    public let metadataScore: Float
+    public let recencyBoost: Float
+    public let userPreferenceBoost: Float
+    public let finalScore: Float
+
+    private enum CodingKeys: String, CodingKey {
+        case temporalScore = "temporal_score"
+        case semanticScore = "semantic_score"
+        case metadataScore = "metadata_score"
+        case recencyBoost = "recency_boost"
+        case userPreferenceBoost = "user_preference_boost"
+        case finalScore = "final_score"
+    }
+
+    public init(temporalScore: Float, semanticScore: Float?, metadataScore: Float, recencyBoost: Float, userPreferenceBoost: Float, finalScore: Float) {
+        self.temporalScore = temporalScore
+        self.semanticScore = semanticScore
+        self.metadataScore = metadataScore
+        self.recencyBoost = recencyBoost
+        self.userPreferenceBoost = userPreferenceBoost
+        self.finalScore = finalScore
+    }
+}
+
+public struct LibraryExportOutput: Codable {
+    public let libraryId: String
+    public let libraryName: String
+    public let exportPath: String
+    public let exportedFiles: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case libraryName = "library_name"
+        case exportPath = "export_path"
+        case exportedFiles = "exported_files"
+    }
+
+    public init(libraryId: String, libraryName: String, exportPath: String, exportedFiles: [String]) {
+        self.libraryId = libraryId
+        self.libraryName = libraryName
+        self.exportPath = exportPath
+        self.exportedFiles = exportedFiles
+    }
+}
+
+/// Fields that can be used for sorting
+public enum SortField: Codable {
+    case relevance
+    case name
+    case size
+    case modifiedAt
+    case createdAt
+}
+
+
+public struct LibraryRenameInput: Codable {
+    public let libraryId: String
+    public let newName: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case newName = "new_name"
+    }
+
+    public init(libraryId: String, newName: String) {
+        self.libraryId = libraryId
+        self.newName = newName
+    }
+}
+
+/// Input for creating a new library
+public struct LibraryCreateInput: Codable {
+    public let name: String
+    public let path: String?
+
+    public init(name: String, path: String?) {
+        self.name = name
+        self.path = path
+    }
+}
+
+/// Indexer settings controlling rule toggles
+public struct IndexerSettings: Codable {
+    public let noSystemFiles: Bool?
+    public let noGit: Bool?
+    public let noDevDirs: Bool?
+    public let noHidden: Bool?
+    public let gitignore: Bool?
+    public let onlyImages: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case noSystemFiles = "no_system_files"
+        case noGit = "no_git"
+        case noDevDirs = "no_dev_dirs"
+        case noHidden = "no_hidden"
+        case gitignore = "gitignore"
+        case onlyImages = "only_images"
+    }
+
+    public init(noSystemFiles: Bool?, noGit: Bool?, noDevDirs: Bool?, noHidden: Bool?, gitignore: Bool?, onlyImages: Bool?) {
+        self.noSystemFiles = noSystemFiles
+        self.noGit = noGit
+        self.noDevDirs = noDevDirs
+        self.noHidden = noHidden
+        self.gitignore = gitignore
+        self.onlyImages = onlyImages
+    }
+}
+
+/// Library-specific settings
+public struct LibrarySettings: Codable {
+    public let generateThumbnails: Bool
+    public let thumbnailQuality: UInt8
+    public let enableAiTagging: Bool
+    public let syncEnabled: Bool
+    public let encryptionEnabled: Bool
+    public let thumbnailSizes: [UInt32]
+    public let ignoredExtensions: [String]
+    public let maxFileSize: UInt64?
+    public let autoTrackSystemVolumes: Bool
+    public let autoTrackExternalVolumes: Bool
+    public let indexer: IndexerSettings?
+
+    private enum CodingKeys: String, CodingKey {
+        case generateThumbnails = "generate_thumbnails"
+        case thumbnailQuality = "thumbnail_quality"
+        case enableAiTagging = "enable_ai_tagging"
+        case syncEnabled = "sync_enabled"
+        case encryptionEnabled = "encryption_enabled"
+        case thumbnailSizes = "thumbnail_sizes"
+        case ignoredExtensions = "ignored_extensions"
+        case maxFileSize = "max_file_size"
+        case autoTrackSystemVolumes = "auto_track_system_volumes"
+        case autoTrackExternalVolumes = "auto_track_external_volumes"
+        case indexer = "indexer"
+    }
+
+    public init(generateThumbnails: Bool, thumbnailQuality: UInt8, enableAiTagging: Bool, syncEnabled: Bool, encryptionEnabled: Bool, thumbnailSizes: [UInt32], ignoredExtensions: [String], maxFileSize: UInt64?, autoTrackSystemVolumes: Bool, autoTrackExternalVolumes: Bool, indexer: IndexerSettings?) {
+        self.generateThumbnails = generateThumbnails
+        self.thumbnailQuality = thumbnailQuality
+        self.enableAiTagging = enableAiTagging
+        self.syncEnabled = syncEnabled
+        self.encryptionEnabled = encryptionEnabled
+        self.thumbnailSizes = thumbnailSizes
+        self.ignoredExtensions = ignoredExtensions
+        self.maxFileSize = maxFileSize
+        self.autoTrackSystemVolumes = autoTrackSystemVolumes
+        self.autoTrackExternalVolumes = autoTrackExternalVolumes
+        self.indexer = indexer
+    }
+}
+
+public struct NetworkStopInput: Codable {
+}
+
+public struct TagSearchFilters: Codable {
+    public let namespace: String?
+    public let tagType: String?
+    public let includeArchived: Bool
+    public let limit: UInt?
+
+    private enum CodingKeys: String, CodingKey {
+        case namespace = "namespace"
+        case tagType = "tag_type"
+        case includeArchived = "include_archived"
+        case limit = "limit"
+    }
+
+    public init(namespace: String?, tagType: String?, includeArchived: Bool, limit: UInt?) {
+        self.namespace = namespace
+        self.tagType = tagType
+        self.includeArchived = includeArchived
+        self.limit = limit
+    }
+}
+
+/// Input for library info query
+public struct LibraryInfoQueryInput: Codable {
+}
+
+/// Output from volume speed test operation
+public struct VolumeSpeedTestOutput: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let readSpeedMbps: UInt32?
+    public let writeSpeedMbps: UInt32?
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case readSpeedMbps = "read_speed_mbps"
+        case writeSpeedMbps = "write_speed_mbps"
+    }
+
+    public init(fingerprint: VolumeFingerprint, readSpeedMbps: UInt32?, writeSpeedMbps: UInt32?) {
+        self.fingerprint = fingerprint
+        self.readSpeedMbps = readSpeedMbps
+        self.writeSpeedMbps = writeSpeedMbps
+    }
+}
+
+/// Types of file operations
+public enum FileOperation: Codable {
+    case copy
+    case move
+    case delete
+    case rename
+}
+
+
+/// Unique identifier for a job
+public struct JobId: Codable {
+    let value: String
+}
+
+/// Container for all structured filters
+public struct SearchFilters: Codable {
+    public let fileTypes: [String]?
+    public let tags: TagFilter?
+    public let dateRange: DateRangeFilter?
+    public let sizeRange: SizeRangeFilter?
+    public let locations: [String]?
+    public let contentTypes: [ContentKind]?
+    public let includeHidden: Bool?
+    public let includeArchived: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case fileTypes = "file_types"
+        case tags = "tags"
+        case dateRange = "date_range"
+        case sizeRange = "size_range"
+        case locations = "locations"
+        case contentTypes = "content_types"
+        case includeHidden = "include_hidden"
+        case includeArchived = "include_archived"
+    }
+
+    public init(fileTypes: [String]?, tags: TagFilter?, dateRange: DateRangeFilter?, sizeRange: SizeRangeFilter?, locations: [String]?, contentTypes: [ContentKind]?, includeHidden: Bool?, includeArchived: Bool?) {
+        self.fileTypes = fileTypes
+        self.tags = tags
+        self.dateRange = dateRange
+        self.sizeRange = sizeRange
+        self.locations = locations
+        self.contentTypes = contentTypes
+        self.includeHidden = includeHidden
+        self.includeArchived = includeArchived
+    }
+}
+
+public struct PairStatusOutput: Codable {
+    public let sessions: [PairingSessionSummary]
+
+    public init(sessions: [PairingSessionSummary]) {
+        self.sessions = sessions
+    }
+}
+
+/// A path within the Spacedrive Virtual Distributed File System
+/// 
+/// This is the core abstraction that enables cross-device operations.
+/// An SdPath can represent:
+/// - A physical file at a specific path on a specific device
+/// - A content-addressed file that can be sourced from any device
+/// 
+/// This enum-based approach enables resilient file operations by allowing
+/// content-based paths to be resolved to optimal physical locations at runtime.
+public enum SdPath {
+    case physical(SdPathPhysical)
+    case content(SdPathContent)
+}
+public struct SdPathPhysical: Codable {
+    public let deviceId: String
+    public let path: String
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case path = "path"
+    }
+}
+
+public struct SdPathContent: Codable {
+    public let contentId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case contentId = "content_id"
+    }
+}
+
+
+// MARK: - SdPath Codable Implementation
+extension SdPath: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case physical = "Physical"
+        case content = "Content"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .physical:
+            let data = try container.decode(SdPathPhysical.self, forKey: .physical)
+            self = .physical(data)
+        case .content:
+            let data = try container.decode(SdPathContent.self, forKey: .content)
+            self = .content(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .physical(let data):
+            try container.encode(data, forKey: .physical)
+        case .content(let data):
+            try container.encode(data, forKey: .content)
+        }
+    }
+}
+
+
+public struct PairStatusQueryInput: Codable {
+}
+
+public struct PairingSessionSummary: Codable {
+    public let id: String
+    public let state: SerializablePairingState
+    public let remoteDeviceId: String?
+    public let expiresAt: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case state = "state"
+        case remoteDeviceId = "remote_device_id"
+        case expiresAt = "expires_at"
+    }
+
+    public init(id: String, state: SerializablePairingState, remoteDeviceId: String?, expiresAt: String?) {
+        self.id = id
+        self.state = state
+        self.remoteDeviceId = remoteDeviceId
+        self.expiresAt = expiresAt
+    }
+}
+
+/// A tag with advanced capabilities for contextual organization
+public struct Tag: Codable {
+    public let id: String
+    public let canonicalName: String
+    public let displayName: String?
+    public let formalName: String?
+    public let abbreviation: String?
+    public let aliases: [String]
+    public let namespace: String?
+    public let tagType: TagType
+    public let color: String?
+    public let icon: String?
+    public let description: String?
+    public let isOrganizationalAnchor: Bool
+    public let privacyLevel: PrivacyLevel
+    public let searchWeight: Int32
+    public let attributes: [String: JsonValue]
+    public let compositionRules: [CompositionRule]
+    public let createdAt: String
+    public let updatedAt: String
+    public let createdByDevice: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case canonicalName = "canonical_name"
+        case displayName = "display_name"
+        case formalName = "formal_name"
+        case abbreviation = "abbreviation"
+        case aliases = "aliases"
+        case namespace = "namespace"
+        case tagType = "tag_type"
+        case color = "color"
+        case icon = "icon"
+        case description = "description"
+        case isOrganizationalAnchor = "is_organizational_anchor"
+        case privacyLevel = "privacy_level"
+        case searchWeight = "search_weight"
+        case attributes = "attributes"
+        case compositionRules = "composition_rules"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case createdByDevice = "created_by_device"
+    }
+
+    public init(id: String, canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool, privacyLevel: PrivacyLevel, searchWeight: Int32, attributes: [String: JsonValue], compositionRules: [CompositionRule], createdAt: String, updatedAt: String, createdByDevice: String) {
+        self.id = id
+        self.canonicalName = canonicalName
+        self.displayName = displayName
+        self.formalName = formalName
+        self.abbreviation = abbreviation
+        self.aliases = aliases
+        self.namespace = namespace
+        self.tagType = tagType
+        self.color = color
+        self.icon = icon
+        self.description = description
+        self.isOrganizationalAnchor = isOrganizationalAnchor
+        self.privacyLevel = privacyLevel
+        self.searchWeight = searchWeight
+        self.attributes = attributes
+        self.compositionRules = compositionRules
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.createdByDevice = createdByDevice
+    }
+}
+
+/// APFS volume information within a container
+public struct ApfsVolumeInfo: Codable {
+    public let diskId: String
+    public let uuid: String
+    public let role: ApfsVolumeRole
+    public let name: String
+    public let mountPoint: String?
+    public let capacityConsumed: UInt64
+    public let sealed: Bool
+    public let filevault: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case diskId = "disk_id"
+        case uuid = "uuid"
+        case role = "role"
+        case name = "name"
+        case mountPoint = "mount_point"
+        case capacityConsumed = "capacity_consumed"
+        case sealed = "sealed"
+        case filevault = "filevault"
+    }
+
+    public init(diskId: String, uuid: String, role: ApfsVolumeRole, name: String, mountPoint: String?, capacityConsumed: UInt64, sealed: Bool, filevault: Bool) {
+        self.diskId = diskId
+        self.uuid = uuid
+        self.role = role
+        self.name = name
+        self.mountPoint = mountPoint
+        self.capacityConsumed = capacityConsumed
+        self.sealed = sealed
+        self.filevault = filevault
+    }
+}
+
+/// Current status of a job
+public enum JobStatus: String, Codable {
+    case queued = "queued"
+    case running = "running"
+    case paused = "paused"
+    case completed = "completed"
+    case failed = "failed"
+    case cancelled = "cancelled"
+}
+
+/// GPS coordinates
+public struct GpsCoordinates: Codable {
+    public let latitude: Double
+    public let longitude: Double
+    public let altitude: Float?
+
+    public init(latitude: Double, longitude: Double, altitude: Float?) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.altitude = altitude
+    }
+}
+
+/// Performance and timing metrics
+public struct PerformanceMetrics: Codable {
+    public let rate: Float
+    public let estimatedRemaining: RustDuration?
+    public let elapsed: RustDuration?
+    public let errorCount: UInt64
+    public let warningCount: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case rate = "rate"
+        case estimatedRemaining = "estimated_remaining"
+        case elapsed = "elapsed"
+        case errorCount = "error_count"
+        case warningCount = "warning_count"
+    }
+
+    public init(rate: Float, estimatedRemaining: RustDuration?, elapsed: RustDuration?, errorCount: UInt64, warningCount: UInt64) {
+        self.rate = rate
+        self.estimatedRemaining = estimatedRemaining
+        self.elapsed = elapsed
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+    }
+}
+
+/// Raw filesystem event kinds emitted by the watcher without DB resolution
+public enum FsRawEventKind {
+    case create(FsRawEventKindCreate)
+    case modify(FsRawEventKindModify)
+    case remove(FsRawEventKindRemove)
+    case rename(FsRawEventKindRename)
+}
+public struct FsRawEventKindCreate: Codable {
+    public let path: String
+}
+
+public struct FsRawEventKindModify: Codable {
+    public let path: String
+}
+
+public struct FsRawEventKindRemove: Codable {
+    public let path: String
+}
+
+public struct FsRawEventKindRename: Codable {
+    public let from: String
+    public let to: String
+}
+
+
+// MARK: - FsRawEventKind Codable Implementation
+extension FsRawEventKind: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case create = "Create"
+        case modify = "Modify"
+        case remove = "Remove"
+        case rename = "Rename"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .create:
+            let data = try container.decode(FsRawEventKindCreate.self, forKey: .create)
+            self = .create(data)
+        case .modify:
+            let data = try container.decode(FsRawEventKindModify.self, forKey: .modify)
+            self = .modify(data)
+        case .remove:
+            let data = try container.decode(FsRawEventKindRemove.self, forKey: .remove)
+            self = .remove(data)
+        case .rename:
+            let data = try container.decode(FsRawEventKindRename.self, forKey: .rename)
+            self = .rename(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .create(let data):
+            try container.encode(data, forKey: .create)
+        case .modify(let data):
+            try container.encode(data, forKey: .modify)
+        case .remove(let data):
+            try container.encode(data, forKey: .remove)
+        case .rename(let data):
+            try container.encode(data, forKey: .rename)
+        }
+    }
+}
+
+
+/// Output from location remove action dispatch
+public struct LocationRemoveOutput: Codable {
+    public let locationId: String
+    public let path: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case path = "path"
+    }
+
+    public init(locationId: String, path: String?) {
+        self.locationId = locationId
+        self.path = path
+    }
+}
+
+/// Rules for composing attributes from multiple tags
+public struct CompositionRule: Codable {
+    public let `operator`: CompositionOperator
+    public let operands: [String]
+    public let resultAttribute: String
+
+    private enum CodingKeys: String, CodingKey {
+        case `operator` = "operator"
+        case operands = "operands"
+        case resultAttribute = "result_attribute"
+    }
+
+    public init(`operator`: CompositionOperator, operands: [String], resultAttribute: String) {
+        self.`operator` = `operator`
+        self.operands = operands
+        self.resultAttribute = resultAttribute
+    }
+}
+
+/// Input for exporting a library
+public struct LibraryExportInput: Codable {
+    public let libraryId: String
+    public let exportPath: String
+    public let includeThumbnails: Bool
+    public let includePreviews: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case exportPath = "export_path"
+        case includeThumbnails = "include_thumbnails"
+        case includePreviews = "include_previews"
+    }
+
+    public init(libraryId: String, exportPath: String, includeThumbnails: Bool, includePreviews: Bool) {
+        self.libraryId = libraryId
+        self.exportPath = exportPath
+        self.includeThumbnails = includeThumbnails
+        self.includePreviews = includePreviews
+    }
+}
+
+public struct PairGenerateOutput: Codable {
+    public let code: String
+    public let sessionId: String
+    public let expiresAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case code = "code"
+        case sessionId = "session_id"
+        case expiresAt = "expires_at"
+    }
+
+    public init(code: String, sessionId: String, expiresAt: String) {
+        self.code = code
+        self.sessionId = sessionId
+        self.expiresAt = expiresAt
+    }
+}
+
+public struct SystemInfo: Codable {
+    public let uptime: UInt64?
+    public let dataDirectory: String
+    public let instanceName: String?
+    public let currentLibrary: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case uptime = "uptime"
+        case dataDirectory = "data_directory"
+        case instanceName = "instance_name"
+        case currentLibrary = "current_library"
+    }
+
+    public init(uptime: UInt64?, dataDirectory: String, instanceName: String?, currentLibrary: String?) {
+        self.uptime = uptime
+        self.dataDirectory = dataDirectory
+        self.instanceName = instanceName
+        self.currentLibrary = currentLibrary
+    }
+}
+
+public struct LocationRescanOutput: Codable {
+    public let locationId: String
+    public let locationPath: String
+    public let jobId: String
+    public let fullRescan: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case locationPath = "location_path"
+        case jobId = "job_id"
+        case fullRescan = "full_rescan"
+    }
+
+    public init(locationId: String, locationPath: String, jobId: String, fullRescan: Bool) {
+        self.locationId = locationId
+        self.locationPath = locationPath
+        self.jobId = jobId
+        self.fullRescan = fullRescan
+    }
+}
+
+public struct JobPauseOutput: Codable {
+    public let jobId: String
+    public let success: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case success = "success"
+    }
+
+    public init(jobId: String, success: Bool) {
+        self.jobId = jobId
+        self.success = success
+    }
+}
+
+/// Filter for tags, supporting complex boolean logic
+public struct TagFilter: Codable {
+    public let include: [String]
+    public let exclude: [String]
+
+    public init(include: [String], exclude: [String]) {
+        self.include = include
+        self.exclude = exclude
+    }
+}
+
 /// Unique fingerprint for a storage volume
 public struct VolumeFingerprint: Codable {
     let value: String
+}
+
+public struct ThumbnailInput: Codable {
+    public let paths: [String]
+    public let size: UInt32
+    public let quality: UInt8
+
+    public init(paths: [String], size: UInt32, quality: UInt8) {
+        self.paths = paths
+        self.size = size
+        self.quality = quality
+    }
+}
+
+/// Comprehensive metrics for indexing operations
+public struct IndexerMetrics: Codable {
+    public let totalDuration: RustDuration
+    public let discoveryDuration: RustDuration
+    public let processingDuration: RustDuration
+    public let contentDuration: RustDuration
+    public let filesPerSecond: Float
+    public let bytesPerSecond: Double
+    public let dirsPerSecond: Float
+    public let dbWrites: UInt64
+    public let dbReads: UInt64
+    public let batchCount: UInt64
+    public let avgBatchSize: Float
+    public let totalErrors: UInt64
+    public let criticalErrors: UInt64
+    public let nonCriticalErrors: UInt64
+    public let skippedPaths: UInt64
+    public let peakMemoryBytes: UInt64?
+    public let avgMemoryBytes: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case totalDuration = "total_duration"
+        case discoveryDuration = "discovery_duration"
+        case processingDuration = "processing_duration"
+        case contentDuration = "content_duration"
+        case filesPerSecond = "files_per_second"
+        case bytesPerSecond = "bytes_per_second"
+        case dirsPerSecond = "dirs_per_second"
+        case dbWrites = "db_writes"
+        case dbReads = "db_reads"
+        case batchCount = "batch_count"
+        case avgBatchSize = "avg_batch_size"
+        case totalErrors = "total_errors"
+        case criticalErrors = "critical_errors"
+        case nonCriticalErrors = "non_critical_errors"
+        case skippedPaths = "skipped_paths"
+        case peakMemoryBytes = "peak_memory_bytes"
+        case avgMemoryBytes = "avg_memory_bytes"
+    }
+
+    public init(totalDuration: RustDuration, discoveryDuration: RustDuration, processingDuration: RustDuration, contentDuration: RustDuration, filesPerSecond: Float, bytesPerSecond: Double, dirsPerSecond: Float, dbWrites: UInt64, dbReads: UInt64, batchCount: UInt64, avgBatchSize: Float, totalErrors: UInt64, criticalErrors: UInt64, nonCriticalErrors: UInt64, skippedPaths: UInt64, peakMemoryBytes: UInt64?, avgMemoryBytes: UInt64?) {
+        self.totalDuration = totalDuration
+        self.discoveryDuration = discoveryDuration
+        self.processingDuration = processingDuration
+        self.contentDuration = contentDuration
+        self.filesPerSecond = filesPerSecond
+        self.bytesPerSecond = bytesPerSecond
+        self.dirsPerSecond = dirsPerSecond
+        self.dbWrites = dbWrites
+        self.dbReads = dbReads
+        self.batchCount = batchCount
+        self.avgBatchSize = avgBatchSize
+        self.totalErrors = totalErrors
+        self.criticalErrors = criticalErrors
+        self.nonCriticalErrors = nonCriticalErrors
+        self.skippedPaths = skippedPaths
+        self.peakMemoryBytes = peakMemoryBytes
+        self.avgMemoryBytes = avgMemoryBytes
+    }
+}
+
+/// Classification of volume types for UX and auto-tracking decisions
+public enum VolumeType: Codable {
+    case primary
+    case userData
+    case external
+    case secondary
+    case system
+    case network
+    case unknown
+}
+
+
+/// Canonical input for indexing requests from any interface (CLI, API, etc.)
+public struct IndexInput: Codable {
+    public let libraryId: String
+    public let paths: [String]
+    public let scope: IndexScope
+    public let mode: IndexMode
+    public let includeHidden: Bool
+    public let persistence: IndexPersistence
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case paths = "paths"
+        case scope = "scope"
+        case mode = "mode"
+        case includeHidden = "include_hidden"
+        case persistence = "persistence"
+    }
+
+    public init(libraryId: String, paths: [String], scope: IndexScope, mode: IndexMode, includeHidden: Bool, persistence: IndexPersistence) {
+        self.libraryId = libraryId
+        self.paths = paths
+        self.scope = scope
+        self.mode = mode
+        self.includeHidden = includeHidden
+        self.persistence = persistence
+    }
+}
+
+/// Query to get a file by its ID with all related data
+public struct FileByIdQuery: Codable {
+    public let fileId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case fileId = "file_id"
+    }
+
+    public init(fileId: String) {
+        self.fileId = fileId
+    }
+}
+
+/// Sort direction
+public enum SortDirection: Codable {
+    case asc
+    case desc
+}
+
+
+public struct LocationInfo: Codable {
+    public let id: String
+    public let path: String
+    public let name: String?
+
+    public init(id: String, path: String, name: String?) {
+        self.id = id
+        self.path = path
+        self.name = name
+    }
+}
+
+public struct PairGenerateInput: Codable {
+    public let autoAccept: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case autoAccept = "auto_accept"
+    }
+
+    public init(autoAccept: Bool) {
+        self.autoAccept = autoAccept
+    }
+}
+
+/// Internal enum for file conflict resolution strategies
+public enum FileConflictResolution: Codable {
+    case overwrite
+    case autoModifyName
+    case abort
+}
+
+
+public struct DeviceRevokeOutput: Codable {
+    public let revoked: Bool
+
+    public init(revoked: Bool) {
+        self.revoked = revoked
+    }
+}
+
+/// Type of content
+public enum ContentKind: String, Codable {
+    case unknown = "unknown"
+    case image = "image"
+    case video = "video"
+    case audio = "audio"
+    case document = "document"
+    case archive = "archive"
+    case code = "code"
+    case text = "text"
+    case database = "database"
+    case book = "book"
+    case font = "font"
+    case mesh = "mesh"
+    case config = "config"
+    case encrypted = "encrypted"
+    case key = "key"
+    case executable = "executable"
+    case binary = "binary"
+}
+
+/// Operators for combining tag attributes
+public enum CompositionOperator: Codable {
+    case and
+    case or
+    case with
+    case without
+}
+
+
+/// Represents the type of physical storage device
+public enum DiskType: Codable {
+    case sSD
+    case hDD
+    case unknown
+}
+
+
+/// Represents an APFS container (physical storage with multiple volumes)
+public struct ApfsContainer: Codable {
+    public let containerId: String
+    public let uuid: String
+    public let physicalStore: String
+    public let totalCapacity: UInt64
+    public let capacityInUse: UInt64
+    public let capacityFree: UInt64
+    public let volumes: [ApfsVolumeInfo]
+
+    private enum CodingKeys: String, CodingKey {
+        case containerId = "container_id"
+        case uuid = "uuid"
+        case physicalStore = "physical_store"
+        case totalCapacity = "total_capacity"
+        case capacityInUse = "capacity_in_use"
+        case capacityFree = "capacity_free"
+        case volumes = "volumes"
+    }
+
+    public init(containerId: String, uuid: String, physicalStore: String, totalCapacity: UInt64, capacityInUse: UInt64, capacityFree: UInt64, volumes: [ApfsVolumeInfo]) {
+        self.containerId = containerId
+        self.uuid = uuid
+        self.physicalStore = physicalStore
+        self.totalCapacity = totalCapacity
+        self.capacityInUse = capacityInUse
+        self.capacityFree = capacityFree
+        self.volumes = volumes
+    }
+}
+
+/// APFS volume roles in the container
+public enum ApfsVolumeRole: Codable {
+    case system
+    case data
+    case preboot
+    case recovery
+    case vM
+    case other(String)
+}
+
+
+public struct JobReceipt: Codable {
+    public let id: JobId
+    public let jobName: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case jobName = "job_name"
+    }
+
+    public init(id: JobId, jobName: String) {
+        self.id = id
+        self.jobName = jobName
+    }
+}
+
+public struct JobCancelInput: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+}
+
+/// Information about a library for listing purposes
+public struct LibraryInfo: Codable {
+    public let id: String
+    public let name: String
+    public let path: String
+    public let stats: LibraryStatistics?
+
+    public init(id: String, name: String, path: String, stats: LibraryStatistics?) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.stats = stats
+    }
+}
+
+/// Library statistics
+public struct LibraryStatistics: Codable {
+    public let totalFiles: UInt64
+    public let totalSize: UInt64
+    public let locationCount: UInt32
+    public let tagCount: UInt32
+    public let thumbnailCount: UInt64
+    public let databaseSize: UInt64
+    public let lastIndexed: String?
+    public let updatedAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case totalFiles = "total_files"
+        case totalSize = "total_size"
+        case locationCount = "location_count"
+        case tagCount = "tag_count"
+        case thumbnailCount = "thumbnail_count"
+        case databaseSize = "database_size"
+        case lastIndexed = "last_indexed"
+        case updatedAt = "updated_at"
+    }
+
+    public init(totalFiles: UInt64, totalSize: UInt64, locationCount: UInt32, tagCount: UInt32, thumbnailCount: UInt64, databaseSize: UInt64, lastIndexed: String?, updatedAt: String) {
+        self.totalFiles = totalFiles
+        self.totalSize = totalSize
+        self.locationCount = locationCount
+        self.tagCount = tagCount
+        self.thumbnailCount = thumbnailCount
+        self.databaseSize = databaseSize
+        self.lastIndexed = lastIndexed
+        self.updatedAt = updatedAt
+    }
+}
+
+/// Query to get a file by its local path with all related data
+public struct FileByPathQuery: Codable {
+    public let path: String
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+/// Source of tag application
+public enum TagSource: Codable {
+    case user
+    case aI
+    case `import`
+    case sync
+}
+
+
+/// Represents how the volume is mounted in the system
+public enum MountType: Codable {
+    case system
+    case external
+    case network
+    case virtual
+}
+
+
+public struct NetworkStopOutput: Codable {
+    public let stopped: Bool
+
+    public init(stopped: Bool) {
+        self.stopped = stopped
+    }
+}
+
+public struct JobPauseInput: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+}
+
+/// Output from volume untrack operation
+public struct VolumeUntrackOutput: Codable {
+    public let fingerprint: VolumeFingerprint
+
+    public init(fingerprint: VolumeFingerprint) {
+        self.fingerprint = fingerprint
+    }
+}
+
+/// Detailed information about a library
+public struct LibraryInfoOutput: Codable {
+    public let id: String
+    public let name: String
+    public let description: String?
+    public let path: String
+    public let createdAt: String
+    public let updatedAt: String
+    public let settings: LibrarySettings
+    public let statistics: LibraryStatistics
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case description = "description"
+        case path = "path"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case settings = "settings"
+        case statistics = "statistics"
+    }
+
+    public init(id: String, name: String, description: String?, path: String, createdAt: String, updatedAt: String, settings: LibrarySettings, statistics: LibraryStatistics) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.path = path
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.settings = settings
+        self.statistics = statistics
+    }
+}
+
+/// Domain representation of content identity
+public struct ContentIdentity: Codable {
+    public let uuid: String
+    public let kind: ContentKind
+    public let hash: String
+    public let mediaData: MediaData?
+    public let createdAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case uuid = "uuid"
+        case kind = "kind"
+        case hash = "hash"
+        case mediaData = "media_data"
+        case createdAt = "created_at"
+    }
+
+    public init(uuid: String, kind: ContentKind, hash: String, mediaData: MediaData?, createdAt: String) {
+        self.uuid = uuid
+        self.kind = kind
+        self.hash = hash
+        self.mediaData = mediaData
+        self.createdAt = createdAt
+    }
+}
+
+public struct PairCancelInput: Codable {
+    public let sessionId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionId = "session_id"
+    }
+
+    public init(sessionId: String) {
+        self.sessionId = sessionId
+    }
+}
+
+public struct DeviceRevokeInput: Codable {
+    public let deviceId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+    }
+
+    public init(deviceId: String) {
+        self.deviceId = deviceId
+    }
+}
+
+public struct NetworkStartInput: Codable {
+}
+
+/// Defines the search mode and performance characteristics
+public enum SearchMode: Codable {
+    case fast
+    case normal
+    case full
+}
+
+
+/// Type of filesystem entry
+public enum EntryKind {
+    case file(EntryKindFile)
+    case directory
+    case symlink(EntryKindSymlink)
+}
+public struct EntryKindFile: Codable {
+    public let `extension`: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case `extension` = "extension"
+    }
+}
+
+public struct EntryKindSymlink: Codable {
+    public let target: String
+}
+
+
+// MARK: - EntryKind Codable Implementation
+extension EntryKind: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case file = "File"
+        case directory = "Directory"
+        case symlink = "Symlink"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .file:
+            let data = try container.decode(EntryKindFile.self, forKey: .file)
+            self = .file(data)
+        case .directory:
+            self = .directory
+        case .symlink:
+            let data = try container.decode(EntryKindSymlink.self, forKey: .symlink)
+            self = .symlink(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .file(let data):
+            try container.encode(data, forKey: .file)
+        case .directory:
+            try container.encodeNil(forKey: .directory)
+        case .symlink(let data):
+            try container.encode(data, forKey: .symlink)
+        }
+    }
+}
+
+
+/// Output from volume track operation
+public struct VolumeTrackOutput: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let volumeName: String
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case volumeName = "volume_name"
+    }
+
+    public init(fingerprint: VolumeFingerprint, volumeName: String) {
+        self.fingerprint = fingerprint
+        self.volumeName = volumeName
+    }
+}
+
+/// Output from a completed job
+public enum JobOutput {
+    case success
+    case fileCopy(JobOutputFileCopy)
+    case indexed(JobOutputIndexed)
+    case thumbnailsGenerated(JobOutputThumbnailsGenerated)
+    case thumbnailGeneration(JobOutputThumbnailGeneration)
+    case fileMove(JobOutputFileMove)
+    case fileDelete(JobOutputFileDelete)
+    case duplicateDetection(JobOutputDuplicateDetection)
+    case fileValidation(JobOutputFileValidation)
+}
+public struct JobOutputFileCopy: Codable {
+    public let copiedCount: UInt
+    public let totalBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case copiedCount = "copied_count"
+        case totalBytes = "total_bytes"
+    }
+}
+
+public struct JobOutputIndexed: Codable {
+    public let stats: IndexerStats
+    public let metrics: IndexerMetrics
+}
+
+public struct JobOutputThumbnailsGenerated: Codable {
+    public let generatedCount: UInt
+    public let failedCount: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case generatedCount = "generated_count"
+        case failedCount = "failed_count"
+    }
+}
+
+public struct JobOutputThumbnailGeneration: Codable {
+    public let generatedCount: UInt64
+    public let skippedCount: UInt64
+    public let errorCount: UInt64
+    public let totalSizeBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case generatedCount = "generated_count"
+        case skippedCount = "skipped_count"
+        case errorCount = "error_count"
+        case totalSizeBytes = "total_size_bytes"
+    }
+}
+
+public struct JobOutputFileMove: Codable {
+    public let movedCount: UInt
+    public let failedCount: UInt
+    public let totalBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case movedCount = "moved_count"
+        case failedCount = "failed_count"
+        case totalBytes = "total_bytes"
+    }
+}
+
+public struct JobOutputFileDelete: Codable {
+    public let deletedCount: UInt
+    public let failedCount: UInt
+    public let totalBytes: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case deletedCount = "deleted_count"
+        case failedCount = "failed_count"
+        case totalBytes = "total_bytes"
+    }
+}
+
+public struct JobOutputDuplicateDetection: Codable {
+    public let duplicateGroups: UInt
+    public let totalDuplicates: UInt
+    public let potentialSavings: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case duplicateGroups = "duplicate_groups"
+        case totalDuplicates = "total_duplicates"
+        case potentialSavings = "potential_savings"
+    }
+}
+
+public struct JobOutputFileValidation: Codable {
+    public let validatedCount: UInt
+    public let issuesFound: UInt
+    public let totalBytesValidated: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case validatedCount = "validated_count"
+        case issuesFound = "issues_found"
+        case totalBytesValidated = "total_bytes_validated"
+    }
+}
+
+
+// MARK: - JobOutput Adjacently Tagged Codable Implementation
+extension JobOutput: Codable {
+    private enum JobOutputTypeKeys: String, CodingKey {
+        case tag = "type"
+        case content = "data"
+    }
+
+    private enum VariantType: String, Codable {
+        case success = "Success"
+        case fileCopy = "FileCopy"
+        case indexed = "Indexed"
+        case thumbnailsGenerated = "ThumbnailsGenerated"
+        case thumbnailGeneration = "ThumbnailGeneration"
+        case fileMove = "FileMove"
+        case fileDelete = "FileDelete"
+        case duplicateDetection = "DuplicateDetection"
+        case fileValidation = "FileValidation"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: JobOutputTypeKeys.self)
+        let variantType = try container.decode(VariantType.self, forKey: .tag)
+        
+        switch variantType {
+        case .success:
+            self = .success
+        case .fileCopy:
+            let data = try container.decode(JobOutputFileCopy.self, forKey: .content)
+            self = .fileCopy(data)
+        case .indexed:
+            let data = try container.decode(JobOutputIndexed.self, forKey: .content)
+            self = .indexed(data)
+        case .thumbnailsGenerated:
+            let data = try container.decode(JobOutputThumbnailsGenerated.self, forKey: .content)
+            self = .thumbnailsGenerated(data)
+        case .thumbnailGeneration:
+            let data = try container.decode(JobOutputThumbnailGeneration.self, forKey: .content)
+            self = .thumbnailGeneration(data)
+        case .fileMove:
+            let data = try container.decode(JobOutputFileMove.self, forKey: .content)
+            self = .fileMove(data)
+        case .fileDelete:
+            let data = try container.decode(JobOutputFileDelete.self, forKey: .content)
+            self = .fileDelete(data)
+        case .duplicateDetection:
+            let data = try container.decode(JobOutputDuplicateDetection.self, forKey: .content)
+            self = .duplicateDetection(data)
+        case .fileValidation:
+            let data = try container.decode(JobOutputFileValidation.self, forKey: .content)
+            self = .fileValidation(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: JobOutputTypeKeys.self)
+        
+        switch self {
+        case .success:
+            try container.encode(VariantType.success, forKey: .tag)
+        case .fileCopy(let data):
+            try container.encode(VariantType.fileCopy, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        case .indexed(let data):
+            try container.encode(VariantType.indexed, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        case .thumbnailsGenerated(let data):
+            try container.encode(VariantType.thumbnailsGenerated, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        case .thumbnailGeneration(let data):
+            try container.encode(VariantType.thumbnailGeneration, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        case .fileMove(let data):
+            try container.encode(VariantType.fileMove, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        case .fileDelete(let data):
+            try container.encode(VariantType.fileDelete, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        case .duplicateDetection(let data):
+            try container.encode(VariantType.duplicateDetection, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        case .fileValidation(let data):
+            try container.encode(VariantType.fileValidation, forKey: .tag)
+            try container.encode(data, forKey: .content)
+        }
+    }
+}
+
+
+public struct DeviceInfo: Codable {
+    public let id: String
+    public let name: String
+    public let os: String
+    public let hardwareModel: String?
+    public let createdAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case os = "os"
+        case hardwareModel = "hardware_model"
+        case createdAt = "created_at"
+    }
+
+    public init(id: String, name: String, os: String, hardwareModel: String?, createdAt: String) {
+        self.id = id
+        self.name = name
+        self.os = os
+        self.hardwareModel = hardwareModel
+        self.createdAt = createdAt
+    }
+}
+
+/// Generic progress information that all job types can convert into
+public struct GenericProgress: Codable {
+    public let percentage: Float
+    public let phase: String
+    public let currentPath: SdPath?
+    public let message: String
+    public let completion: ProgressCompletion
+    public let performance: PerformanceMetrics
+
+    private enum CodingKeys: String, CodingKey {
+        case percentage = "percentage"
+        case phase = "phase"
+        case currentPath = "current_path"
+        case message = "message"
+        case completion = "completion"
+        case performance = "performance"
+    }
+
+    public init(percentage: Float, phase: String, currentPath: SdPath?, message: String, completion: ProgressCompletion, performance: PerformanceMetrics) {
+        self.percentage = percentage
+        self.phase = phase
+        self.currentPath = currentPath
+        self.message = message
+        self.completion = completion
+        self.performance = performance
+    }
+}
+
+public struct NetworkStatus: Codable {
+    public let running: Bool
+    public let nodeId: String?
+    public let addresses: [String]
+    public let pairedDevices: UInt
+    public let connectedDevices: UInt
+    public let version: String
+
+    private enum CodingKeys: String, CodingKey {
+        case running = "running"
+        case nodeId = "node_id"
+        case addresses = "addresses"
+        case pairedDevices = "paired_devices"
+        case connectedDevices = "connected_devices"
+        case version = "version"
+    }
+
+    public init(running: Bool, nodeId: String?, addresses: [String], pairedDevices: UInt, connectedDevices: UInt, version: String) {
+        self.running = running
+        self.nodeId = nodeId
+        self.addresses = addresses
+        self.pairedDevices = pairedDevices
+        self.connectedDevices = connectedDevices
+        self.version = version
+    }
+}
+
+/// Path mapping for resolving virtual paths to actual storage locations
+public struct PathMapping: Codable {
+    public let virtualPath: String
+    public let actualPath: String
+
+    private enum CodingKeys: String, CodingKey {
+        case virtualPath = "virtual_path"
+        case actualPath = "actual_path"
+    }
+
+    public init(virtualPath: String, actualPath: String) {
+        self.virtualPath = virtualPath
+        self.actualPath = actualPath
+    }
+}
+
+/// Text highlighting information
+public struct TextHighlight: Codable {
+    public let field: String
+    public let text: String
+    public let start: UInt
+    public let end: UInt
+
+    public init(field: String, text: String, start: UInt, end: UInt) {
+        self.field = field
+        self.text = text
+        self.start = start
+        self.end = end
+    }
+}
+
+public struct CreateTagInput: Codable {
+    public let canonicalName: String
+    public let displayName: String?
+    public let formalName: String?
+    public let abbreviation: String?
+    public let aliases: [String]
+    public let namespace: String?
+    public let tagType: TagType?
+    public let color: String?
+    public let icon: String?
+    public let description: String?
+    public let isOrganizationalAnchor: Bool?
+    public let privacyLevel: PrivacyLevel?
+    public let searchWeight: Int32?
+    public let attributes: [String: JsonValue]?
+
+    private enum CodingKeys: String, CodingKey {
+        case canonicalName = "canonical_name"
+        case displayName = "display_name"
+        case formalName = "formal_name"
+        case abbreviation = "abbreviation"
+        case aliases = "aliases"
+        case namespace = "namespace"
+        case tagType = "tag_type"
+        case color = "color"
+        case icon = "icon"
+        case description = "description"
+        case isOrganizationalAnchor = "is_organizational_anchor"
+        case privacyLevel = "privacy_level"
+        case searchWeight = "search_weight"
+        case attributes = "attributes"
+    }
+
+    public init(canonicalName: String, displayName: String?, formalName: String?, abbreviation: String?, aliases: [String], namespace: String?, tagType: TagType?, color: String?, icon: String?, description: String?, isOrganizationalAnchor: Bool?, privacyLevel: PrivacyLevel?, searchWeight: Int32?, attributes: [String: JsonValue]?) {
+        self.canonicalName = canonicalName
+        self.displayName = displayName
+        self.formalName = formalName
+        self.abbreviation = abbreviation
+        self.aliases = aliases
+        self.namespace = namespace
+        self.tagType = tagType
+        self.color = color
+        self.icon = icon
+        self.description = description
+        self.isOrganizationalAnchor = isOrganizationalAnchor
+        self.privacyLevel = privacyLevel
+        self.searchWeight = searchWeight
+        self.attributes = attributes
+    }
+}
+
+/// Indexing scope determines how much of the directory tree to process
+public enum IndexScope: Codable {
+    case current
+    case recursive
+}
+
+
+/// Represents a file within the Spacedrive VDFS.
+/// 
+/// This is a computed domain model that aggregates data from Entry, ContentIdentity,
+/// Tags, and Sidecars. It provides a rich, developer-friendly interface without
+/// duplicating data in the database.
+public struct File: Codable {
+    public let id: String
+    public let sdPath: SdPath
+    public let name: String
+    public let size: UInt64
+    public let contentIdentity: ContentIdentity?
+    public let alternatePaths: [SdPath]
+    public let tags: [Tag]
+    public let sidecars: [Sidecar]
+    public let createdAt: String
+    public let modifiedAt: String
+    public let accessedAt: String?
+    public let contentKind: ContentKind
+    public let `extension`: String?
+    public let isLocal: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case sdPath = "sd_path"
+        case name = "name"
+        case size = "size"
+        case contentIdentity = "content_identity"
+        case alternatePaths = "alternate_paths"
+        case tags = "tags"
+        case sidecars = "sidecars"
+        case createdAt = "created_at"
+        case modifiedAt = "modified_at"
+        case accessedAt = "accessed_at"
+        case contentKind = "content_kind"
+        case `extension` = "extension"
+        case isLocal = "is_local"
+    }
+
+    public init(id: String, sdPath: SdPath, name: String, size: UInt64, contentIdentity: ContentIdentity?, alternatePaths: [SdPath], tags: [Tag], sidecars: [Sidecar], createdAt: String, modifiedAt: String, accessedAt: String?, contentKind: ContentKind, `extension`: String?, isLocal: Bool) {
+        self.id = id
+        self.sdPath = sdPath
+        self.name = name
+        self.size = size
+        self.contentIdentity = contentIdentity
+        self.alternatePaths = alternatePaths
+        self.tags = tags
+        self.sidecars = sidecars
+        self.createdAt = createdAt
+        self.modifiedAt = modifiedAt
+        self.accessedAt = accessedAt
+        self.contentKind = contentKind
+        self.`extension` = `extension`
+        self.isLocal = isLocal
+    }
+}
+
+public struct ApplyTagsInput: Codable {
+    public let entryIds: [Int32]
+    public let tagIds: [String]
+    public let source: TagSource?
+    public let confidence: Float?
+    public let appliedContext: String?
+    public let instanceAttributes: [String: JsonValue]?
+
+    private enum CodingKeys: String, CodingKey {
+        case entryIds = "entry_ids"
+        case tagIds = "tag_ids"
+        case source = "source"
+        case confidence = "confidence"
+        case appliedContext = "applied_context"
+        case instanceAttributes = "instance_attributes"
+    }
+
+    public init(entryIds: [Int32], tagIds: [String], source: TagSource?, confidence: Float?, appliedContext: String?, instanceAttributes: [String: JsonValue]?) {
+        self.entryIds = entryIds
+        self.tagIds = tagIds
+        self.source = source
+        self.confidence = confidence
+        self.appliedContext = appliedContext
+        self.instanceAttributes = instanceAttributes
+    }
+}
+
+/// Statistics collected during indexing
+public struct IndexerStats: Codable {
+    public let files: UInt64
+    public let dirs: UInt64
+    public let bytes: UInt64
+    public let symlinks: UInt64
+    public let skipped: UInt64
+    public let errors: UInt64
+
+    public init(files: UInt64, dirs: UInt64, bytes: UInt64, symlinks: UInt64, skipped: UInt64, errors: UInt64) {
+        self.files = files
+        self.dirs = dirs
+        self.bytes = bytes
+        self.symlinks = symlinks
+        self.skipped = skipped
+        self.errors = errors
+    }
+}
+
+public struct ListLibrariesInput: Codable {
+    public let includeStats: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case includeStats = "include_stats"
+    }
+
+    public init(includeStats: Bool) {
+        self.includeStats = includeStats
+    }
+}
+
+public struct LocationsListQueryInput: Codable {
+}
+
+public struct PairJoinOutput: Codable {
+    public let pairedDeviceId: String
+    public let deviceName: String
+
+    private enum CodingKeys: String, CodingKey {
+        case pairedDeviceId = "paired_device_id"
+        case deviceName = "device_name"
+    }
+
+    public init(pairedDeviceId: String, deviceName: String) {
+        self.pairedDeviceId = pairedDeviceId
+        self.deviceName = deviceName
+    }
+}
+
+/// Search facets for filtering UI
+public struct SearchFacets: Codable {
+    public let fileTypes: [String: UInt64]
+    public let tags: [String: UInt64]
+    public let locations: [String: UInt64]
+    public let dateRanges: [String: UInt64]
+    public let sizeRanges: [String: UInt64]
+
+    private enum CodingKeys: String, CodingKey {
+        case fileTypes = "file_types"
+        case tags = "tags"
+        case locations = "locations"
+        case dateRanges = "date_ranges"
+        case sizeRanges = "size_ranges"
+    }
+
+    public init(fileTypes: [String: UInt64], tags: [String: UInt64], locations: [String: UInt64], dateRanges: [String: UInt64], sizeRanges: [String: UInt64]) {
+        self.fileTypes = fileTypes
+        self.tags = tags
+        self.locations = locations
+        self.dateRanges = dateRanges
+        self.sizeRanges = sizeRanges
+    }
+}
+
+/// Sorting options for search results
+public struct SortOptions: Codable {
+    public let field: SortField
+    public let direction: SortDirection
+
+    public init(field: SortField, direction: SortDirection) {
+        self.field = field
+        self.direction = direction
+    }
+}
+
+public struct VolumeUntrackInput: Codable {
+    public let fingerprint: VolumeFingerprint
+
+    public init(fingerprint: VolumeFingerprint) {
+        self.fingerprint = fingerprint
+    }
+}
+
+/// Progress completion information
+public struct ProgressCompletion: Codable {
+    public let completed: UInt64
+    public let total: UInt64
+    public let bytesCompleted: UInt64?
+    public let totalBytes: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case completed = "completed"
+        case total = "total"
+        case bytesCompleted = "bytes_completed"
+        case totalBytes = "total_bytes"
+    }
+
+    public init(completed: UInt64, total: UInt64, bytesCompleted: UInt64?, totalBytes: UInt64?) {
+        self.completed = completed
+        self.total = total
+        self.bytesCompleted = bytesCompleted
+        self.totalBytes = totalBytes
+    }
+}
+
+public struct JobResumeInput: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+}
+
+public struct CoreStatus: Codable {
+    public let version: String
+    public let builtAt: String
+    public let libraryCount: UInt
+    public let deviceInfo: DeviceInfo
+    public let libraries: [LibraryInfo]
+    public let services: ServiceStatus
+    public let network: NetworkStatus
+    public let system: SystemInfo
+
+    private enum CodingKeys: String, CodingKey {
+        case version = "version"
+        case builtAt = "built_at"
+        case libraryCount = "library_count"
+        case deviceInfo = "device_info"
+        case libraries = "libraries"
+        case services = "services"
+        case network = "network"
+        case system = "system"
+    }
+
+    public init(version: String, builtAt: String, libraryCount: UInt, deviceInfo: DeviceInfo, libraries: [LibraryInfo], services: ServiceStatus, network: NetworkStatus, system: SystemInfo) {
+        self.version = version
+        self.builtAt = builtAt
+        self.libraryCount = libraryCount
+        self.deviceInfo = deviceInfo
+        self.libraries = libraries
+        self.services = services
+        self.network = network
+        self.system = system
+    }
+}
+
+/// A central event type that represents all events that can be emitted throughout the system
+public enum Event {
+    case coreStarted
+    case coreShutdown
+    case libraryCreated(EventLibraryCreated)
+    case libraryOpened(EventLibraryOpened)
+    case libraryClosed(EventLibraryClosed)
+    case libraryDeleted(EventLibraryDeleted)
+    case libraryStatisticsUpdated(EventLibraryStatisticsUpdated)
+    case entryCreated(EventEntryCreated)
+    case entryModified(EventEntryModified)
+    case entryDeleted(EventEntryDeleted)
+    case entryMoved(EventEntryMoved)
+    case fsRawChange(EventFsRawChange)
+    case volumeAdded(Volume)
+    case volumeRemoved(EventVolumeRemoved)
+    case volumeUpdated(EventVolumeUpdated)
+    case volumeSpeedTested(EventVolumeSpeedTested)
+    case volumeMountChanged(EventVolumeMountChanged)
+    case volumeError(EventVolumeError)
+    case jobQueued(EventJobQueued)
+    case jobStarted(EventJobStarted)
+    case jobProgress(EventJobProgress)
+    case jobCompleted(EventJobCompleted)
+    case jobFailed(EventJobFailed)
+    case jobCancelled(EventJobCancelled)
+    case jobPaused(EventJobPaused)
+    case jobResumed(EventJobResumed)
+    case indexingStarted(EventIndexingStarted)
+    case indexingProgress(EventIndexingProgress)
+    case indexingCompleted(EventIndexingCompleted)
+    case indexingFailed(EventIndexingFailed)
+    case deviceConnected(EventDeviceConnected)
+    case deviceDisconnected(EventDeviceDisconnected)
+    case locationAdded(EventLocationAdded)
+    case locationRemoved(EventLocationRemoved)
+    case filesIndexed(EventFilesIndexed)
+    case thumbnailsGenerated(EventThumbnailsGenerated)
+    case fileOperationCompleted(EventFileOperationCompleted)
+    case filesModified(EventFilesModified)
+    case logMessage(EventLogMessage)
+    case custom(EventCustom)
+}
+public struct EventLibraryCreated: Codable {
+    public let id: String
+    public let name: String
+    public let path: String
+}
+
+public struct EventLibraryOpened: Codable {
+    public let id: String
+    public let name: String
+    public let path: String
+}
+
+public struct EventLibraryClosed: Codable {
+    public let id: String
+    public let name: String
+}
+
+public struct EventLibraryDeleted: Codable {
+    public let id: String
+    public let name: String
+    public let deletedData: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case deletedData = "deleted_data"
+    }
+}
+
+public struct EventLibraryStatisticsUpdated: Codable {
+    public let libraryId: String
+    public let statistics: LibraryStatistics
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case statistics = "statistics"
+    }
+}
+
+public struct EventEntryCreated: Codable {
+    public let libraryId: String
+    public let entryId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+    }
+}
+
+public struct EventEntryModified: Codable {
+    public let libraryId: String
+    public let entryId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+    }
+}
+
+public struct EventEntryDeleted: Codable {
+    public let libraryId: String
+    public let entryId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+    }
+}
+
+public struct EventEntryMoved: Codable {
+    public let libraryId: String
+    public let entryId: String
+    public let oldPath: String
+    public let newPath: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case entryId = "entry_id"
+        case oldPath = "old_path"
+        case newPath = "new_path"
+    }
+}
+
+public struct EventFsRawChange: Codable {
+    public let libraryId: String
+    public let kind: FsRawEventKind
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case kind = "kind"
+    }
+}
+
+public struct EventVolumeRemoved: Codable {
+    public let fingerprint: VolumeFingerprint
+}
+
+public struct EventVolumeUpdated: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let oldInfo: VolumeInfo
+    public let newInfo: VolumeInfo
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case oldInfo = "old_info"
+        case newInfo = "new_info"
+    }
+}
+
+public struct EventVolumeSpeedTested: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let readSpeedMbps: UInt64
+    public let writeSpeedMbps: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case readSpeedMbps = "read_speed_mbps"
+        case writeSpeedMbps = "write_speed_mbps"
+    }
+}
+
+public struct EventVolumeMountChanged: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let isMounted: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case fingerprint = "fingerprint"
+        case isMounted = "is_mounted"
+    }
+}
+
+public struct EventVolumeError: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let error: String
+}
+
+public struct EventJobQueued: Codable {
+    public let jobId: String
+    public let jobType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+    }
+}
+
+public struct EventJobStarted: Codable {
+    public let jobId: String
+    public let jobType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+    }
+}
+
+public struct EventJobProgress: Codable {
+    public let jobId: String
+    public let jobType: String
+    public let progress: Double
+    public let message: String?
+    public let genericProgress: GenericProgress?
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+        case progress = "progress"
+        case message = "message"
+        case genericProgress = "generic_progress"
+    }
+}
+
+public struct EventJobCompleted: Codable {
+    public let jobId: String
+    public let jobType: String
+    public let output: JobOutput
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+        case output = "output"
+    }
+}
+
+public struct EventJobFailed: Codable {
+    public let jobId: String
+    public let jobType: String
+    public let error: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+        case error = "error"
+    }
+}
+
+public struct EventJobCancelled: Codable {
+    public let jobId: String
+    public let jobType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case jobType = "job_type"
+    }
+}
+
+public struct EventJobPaused: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+}
+
+public struct EventJobResumed: Codable {
+    public let jobId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+    }
+}
+
+public struct EventIndexingStarted: Codable {
+    public let locationId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+    }
+}
+
+public struct EventIndexingProgress: Codable {
+    public let locationId: String
+    public let processed: UInt64
+    public let total: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case processed = "processed"
+        case total = "total"
+    }
+}
+
+public struct EventIndexingCompleted: Codable {
+    public let locationId: String
+    public let totalFiles: UInt64
+    public let totalDirs: UInt64
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case totalFiles = "total_files"
+        case totalDirs = "total_dirs"
+    }
+}
+
+public struct EventIndexingFailed: Codable {
+    public let locationId: String
+    public let error: String
+
+    private enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case error = "error"
+    }
+}
+
+public struct EventDeviceConnected: Codable {
+    public let deviceId: String
+    public let deviceName: String
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+        case deviceName = "device_name"
+    }
+}
+
+public struct EventDeviceDisconnected: Codable {
+    public let deviceId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case deviceId = "device_id"
+    }
+}
+
+public struct EventLocationAdded: Codable {
+    public let libraryId: String
+    public let locationId: String
+    public let path: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case locationId = "location_id"
+        case path = "path"
+    }
+}
+
+public struct EventLocationRemoved: Codable {
+    public let libraryId: String
+    public let locationId: String
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case locationId = "location_id"
+    }
+}
+
+public struct EventFilesIndexed: Codable {
+    public let libraryId: String
+    public let locationId: String
+    public let count: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case locationId = "location_id"
+        case count = "count"
+    }
+}
+
+public struct EventThumbnailsGenerated: Codable {
+    public let libraryId: String
+    public let count: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case count = "count"
+    }
+}
+
+public struct EventFileOperationCompleted: Codable {
+    public let libraryId: String
+    public let operation: FileOperation
+    public let affectedFiles: UInt
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case operation = "operation"
+        case affectedFiles = "affected_files"
+    }
+}
+
+public struct EventFilesModified: Codable {
+    public let libraryId: String
+    public let paths: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case libraryId = "library_id"
+        case paths = "paths"
+    }
+}
+
+public struct EventLogMessage: Codable {
+    public let timestamp: String
+    public let level: String
+    public let target: String
+    public let message: String
+    public let jobId: String?
+    public let libraryId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case timestamp = "timestamp"
+        case level = "level"
+        case target = "target"
+        case message = "message"
+        case jobId = "job_id"
+        case libraryId = "library_id"
+    }
+}
+
+public struct EventCustom: Codable {
+    public let eventType: String
+
+    private enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+    }
+}
+
+
+// MARK: - Event Codable Implementation
+extension Event: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case coreStarted = "CoreStarted"
+        case coreShutdown = "CoreShutdown"
+        case libraryCreated = "LibraryCreated"
+        case libraryOpened = "LibraryOpened"
+        case libraryClosed = "LibraryClosed"
+        case libraryDeleted = "LibraryDeleted"
+        case libraryStatisticsUpdated = "LibraryStatisticsUpdated"
+        case entryCreated = "EntryCreated"
+        case entryModified = "EntryModified"
+        case entryDeleted = "EntryDeleted"
+        case entryMoved = "EntryMoved"
+        case fsRawChange = "FsRawChange"
+        case volumeAdded = "VolumeAdded"
+        case volumeRemoved = "VolumeRemoved"
+        case volumeUpdated = "VolumeUpdated"
+        case volumeSpeedTested = "VolumeSpeedTested"
+        case volumeMountChanged = "VolumeMountChanged"
+        case volumeError = "VolumeError"
+        case jobQueued = "JobQueued"
+        case jobStarted = "JobStarted"
+        case jobProgress = "JobProgress"
+        case jobCompleted = "JobCompleted"
+        case jobFailed = "JobFailed"
+        case jobCancelled = "JobCancelled"
+        case jobPaused = "JobPaused"
+        case jobResumed = "JobResumed"
+        case indexingStarted = "IndexingStarted"
+        case indexingProgress = "IndexingProgress"
+        case indexingCompleted = "IndexingCompleted"
+        case indexingFailed = "IndexingFailed"
+        case deviceConnected = "DeviceConnected"
+        case deviceDisconnected = "DeviceDisconnected"
+        case locationAdded = "LocationAdded"
+        case locationRemoved = "LocationRemoved"
+        case filesIndexed = "FilesIndexed"
+        case thumbnailsGenerated = "ThumbnailsGenerated"
+        case fileOperationCompleted = "FileOperationCompleted"
+        case filesModified = "FilesModified"
+        case logMessage = "LogMessage"
+        case custom = "Custom"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .coreStarted:
+            self = .coreStarted
+        case .coreShutdown:
+            self = .coreShutdown
+        case .libraryCreated:
+            let data = try container.decode(EventLibraryCreated.self, forKey: .libraryCreated)
+            self = .libraryCreated(data)
+        case .libraryOpened:
+            let data = try container.decode(EventLibraryOpened.self, forKey: .libraryOpened)
+            self = .libraryOpened(data)
+        case .libraryClosed:
+            let data = try container.decode(EventLibraryClosed.self, forKey: .libraryClosed)
+            self = .libraryClosed(data)
+        case .libraryDeleted:
+            let data = try container.decode(EventLibraryDeleted.self, forKey: .libraryDeleted)
+            self = .libraryDeleted(data)
+        case .libraryStatisticsUpdated:
+            let data = try container.decode(EventLibraryStatisticsUpdated.self, forKey: .libraryStatisticsUpdated)
+            self = .libraryStatisticsUpdated(data)
+        case .entryCreated:
+            let data = try container.decode(EventEntryCreated.self, forKey: .entryCreated)
+            self = .entryCreated(data)
+        case .entryModified:
+            let data = try container.decode(EventEntryModified.self, forKey: .entryModified)
+            self = .entryModified(data)
+        case .entryDeleted:
+            let data = try container.decode(EventEntryDeleted.self, forKey: .entryDeleted)
+            self = .entryDeleted(data)
+        case .entryMoved:
+            let data = try container.decode(EventEntryMoved.self, forKey: .entryMoved)
+            self = .entryMoved(data)
+        case .fsRawChange:
+            let data = try container.decode(EventFsRawChange.self, forKey: .fsRawChange)
+            self = .fsRawChange(data)
+        case .volumeAdded:
+            // TODO: Implement tuple variant decoding for volumeAdded
+            fatalError("Tuple variant decoding not implemented")
+        case .volumeRemoved:
+            let data = try container.decode(EventVolumeRemoved.self, forKey: .volumeRemoved)
+            self = .volumeRemoved(data)
+        case .volumeUpdated:
+            let data = try container.decode(EventVolumeUpdated.self, forKey: .volumeUpdated)
+            self = .volumeUpdated(data)
+        case .volumeSpeedTested:
+            let data = try container.decode(EventVolumeSpeedTested.self, forKey: .volumeSpeedTested)
+            self = .volumeSpeedTested(data)
+        case .volumeMountChanged:
+            let data = try container.decode(EventVolumeMountChanged.self, forKey: .volumeMountChanged)
+            self = .volumeMountChanged(data)
+        case .volumeError:
+            let data = try container.decode(EventVolumeError.self, forKey: .volumeError)
+            self = .volumeError(data)
+        case .jobQueued:
+            let data = try container.decode(EventJobQueued.self, forKey: .jobQueued)
+            self = .jobQueued(data)
+        case .jobStarted:
+            let data = try container.decode(EventJobStarted.self, forKey: .jobStarted)
+            self = .jobStarted(data)
+        case .jobProgress:
+            let data = try container.decode(EventJobProgress.self, forKey: .jobProgress)
+            self = .jobProgress(data)
+        case .jobCompleted:
+            let data = try container.decode(EventJobCompleted.self, forKey: .jobCompleted)
+            self = .jobCompleted(data)
+        case .jobFailed:
+            let data = try container.decode(EventJobFailed.self, forKey: .jobFailed)
+            self = .jobFailed(data)
+        case .jobCancelled:
+            let data = try container.decode(EventJobCancelled.self, forKey: .jobCancelled)
+            self = .jobCancelled(data)
+        case .jobPaused:
+            let data = try container.decode(EventJobPaused.self, forKey: .jobPaused)
+            self = .jobPaused(data)
+        case .jobResumed:
+            let data = try container.decode(EventJobResumed.self, forKey: .jobResumed)
+            self = .jobResumed(data)
+        case .indexingStarted:
+            let data = try container.decode(EventIndexingStarted.self, forKey: .indexingStarted)
+            self = .indexingStarted(data)
+        case .indexingProgress:
+            let data = try container.decode(EventIndexingProgress.self, forKey: .indexingProgress)
+            self = .indexingProgress(data)
+        case .indexingCompleted:
+            let data = try container.decode(EventIndexingCompleted.self, forKey: .indexingCompleted)
+            self = .indexingCompleted(data)
+        case .indexingFailed:
+            let data = try container.decode(EventIndexingFailed.self, forKey: .indexingFailed)
+            self = .indexingFailed(data)
+        case .deviceConnected:
+            let data = try container.decode(EventDeviceConnected.self, forKey: .deviceConnected)
+            self = .deviceConnected(data)
+        case .deviceDisconnected:
+            let data = try container.decode(EventDeviceDisconnected.self, forKey: .deviceDisconnected)
+            self = .deviceDisconnected(data)
+        case .locationAdded:
+            let data = try container.decode(EventLocationAdded.self, forKey: .locationAdded)
+            self = .locationAdded(data)
+        case .locationRemoved:
+            let data = try container.decode(EventLocationRemoved.self, forKey: .locationRemoved)
+            self = .locationRemoved(data)
+        case .filesIndexed:
+            let data = try container.decode(EventFilesIndexed.self, forKey: .filesIndexed)
+            self = .filesIndexed(data)
+        case .thumbnailsGenerated:
+            let data = try container.decode(EventThumbnailsGenerated.self, forKey: .thumbnailsGenerated)
+            self = .thumbnailsGenerated(data)
+        case .fileOperationCompleted:
+            let data = try container.decode(EventFileOperationCompleted.self, forKey: .fileOperationCompleted)
+            self = .fileOperationCompleted(data)
+        case .filesModified:
+            let data = try container.decode(EventFilesModified.self, forKey: .filesModified)
+            self = .filesModified(data)
+        case .logMessage:
+            let data = try container.decode(EventLogMessage.self, forKey: .logMessage)
+            self = .logMessage(data)
+        case .custom:
+            let data = try container.decode(EventCustom.self, forKey: .custom)
+            self = .custom(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .coreStarted:
+            try container.encodeNil(forKey: .coreStarted)
+        case .coreShutdown:
+            try container.encodeNil(forKey: .coreShutdown)
+        case .libraryCreated(let data):
+            try container.encode(data, forKey: .libraryCreated)
+        case .libraryOpened(let data):
+            try container.encode(data, forKey: .libraryOpened)
+        case .libraryClosed(let data):
+            try container.encode(data, forKey: .libraryClosed)
+        case .libraryDeleted(let data):
+            try container.encode(data, forKey: .libraryDeleted)
+        case .libraryStatisticsUpdated(let data):
+            try container.encode(data, forKey: .libraryStatisticsUpdated)
+        case .entryCreated(let data):
+            try container.encode(data, forKey: .entryCreated)
+        case .entryModified(let data):
+            try container.encode(data, forKey: .entryModified)
+        case .entryDeleted(let data):
+            try container.encode(data, forKey: .entryDeleted)
+        case .entryMoved(let data):
+            try container.encode(data, forKey: .entryMoved)
+        case .fsRawChange(let data):
+            try container.encode(data, forKey: .fsRawChange)
+        case .volumeAdded:
+            // TODO: Implement tuple variant encoding for volumeAdded
+            fatalError("Tuple variant encoding not implemented")
+        case .volumeRemoved(let data):
+            try container.encode(data, forKey: .volumeRemoved)
+        case .volumeUpdated(let data):
+            try container.encode(data, forKey: .volumeUpdated)
+        case .volumeSpeedTested(let data):
+            try container.encode(data, forKey: .volumeSpeedTested)
+        case .volumeMountChanged(let data):
+            try container.encode(data, forKey: .volumeMountChanged)
+        case .volumeError(let data):
+            try container.encode(data, forKey: .volumeError)
+        case .jobQueued(let data):
+            try container.encode(data, forKey: .jobQueued)
+        case .jobStarted(let data):
+            try container.encode(data, forKey: .jobStarted)
+        case .jobProgress(let data):
+            try container.encode(data, forKey: .jobProgress)
+        case .jobCompleted(let data):
+            try container.encode(data, forKey: .jobCompleted)
+        case .jobFailed(let data):
+            try container.encode(data, forKey: .jobFailed)
+        case .jobCancelled(let data):
+            try container.encode(data, forKey: .jobCancelled)
+        case .jobPaused(let data):
+            try container.encode(data, forKey: .jobPaused)
+        case .jobResumed(let data):
+            try container.encode(data, forKey: .jobResumed)
+        case .indexingStarted(let data):
+            try container.encode(data, forKey: .indexingStarted)
+        case .indexingProgress(let data):
+            try container.encode(data, forKey: .indexingProgress)
+        case .indexingCompleted(let data):
+            try container.encode(data, forKey: .indexingCompleted)
+        case .indexingFailed(let data):
+            try container.encode(data, forKey: .indexingFailed)
+        case .deviceConnected(let data):
+            try container.encode(data, forKey: .deviceConnected)
+        case .deviceDisconnected(let data):
+            try container.encode(data, forKey: .deviceDisconnected)
+        case .locationAdded(let data):
+            try container.encode(data, forKey: .locationAdded)
+        case .locationRemoved(let data):
+            try container.encode(data, forKey: .locationRemoved)
+        case .filesIndexed(let data):
+            try container.encode(data, forKey: .filesIndexed)
+        case .thumbnailsGenerated(let data):
+            try container.encode(data, forKey: .thumbnailsGenerated)
+        case .fileOperationCompleted(let data):
+            try container.encode(data, forKey: .fileOperationCompleted)
+        case .filesModified(let data):
+            try container.encode(data, forKey: .filesModified)
+        case .logMessage(let data):
+            try container.encode(data, forKey: .logMessage)
+        case .custom(let data):
+            try container.encode(data, forKey: .custom)
+        }
+    }
+}
+
+
+public struct TagSearchResult: Codable {
+    public let tag: Tag
+    public let relevance: Float
+    public let matchedVariant: String?
+    public let contextScore: Float?
+
+    private enum CodingKeys: String, CodingKey {
+        case tag = "tag"
+        case relevance = "relevance"
+        case matchedVariant = "matched_variant"
+        case contextScore = "context_score"
+    }
+
+    public init(tag: Tag, relevance: Float, matchedVariant: String?, contextScore: Float?) {
+        self.tag = tag
+        self.relevance = relevance
+        self.matchedVariant = matchedVariant
+        self.contextScore = contextScore
+    }
+}
+
+public struct JobListInput: Codable {
+    public let status: JobStatus?
+
+    public init(status: JobStatus?) {
+        self.status = status
+    }
+}
+
+public struct VolumeTrackInput: Codable {
+    public let fingerprint: VolumeFingerprint
+    public let name: String?
+
+    public init(fingerprint: VolumeFingerprint, name: String?) {
+        self.fingerprint = fingerprint
+        self.name = name
+    }
+}
+
+/// Represents the filesystem type of the volume
+public enum FileSystem: Codable {
+    case nTFS
+    case fAT32
+    case eXT4
+    case aPFS
+    case exFAT
+    case btrfs
+    case zFS
+    case reFS
+    case other(String)
+}
+
+
+/// Represents any filesystem entry (file or directory) in the VDFS
+public struct Entry: Codable {
+    public let id: String
+    public let sdPath: SdPathSerialized
+    public let name: String
+    public let kind: EntryKind
+    public let size: UInt64?
+    public let createdAt: String?
+    public let modifiedAt: String?
+    public let accessedAt: String?
+    public let inode: UInt64?
+    public let fileId: UInt64?
+    public let parentId: String?
+    public let locationId: String?
+    public let metadataId: String
+    public let contentId: String?
+    public let firstSeenAt: String
+    public let lastIndexedAt: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case sdPath = "sd_path"
+        case name = "name"
+        case kind = "kind"
+        case size = "size"
+        case createdAt = "created_at"
+        case modifiedAt = "modified_at"
+        case accessedAt = "accessed_at"
+        case inode = "inode"
+        case fileId = "file_id"
+        case parentId = "parent_id"
+        case locationId = "location_id"
+        case metadataId = "metadata_id"
+        case contentId = "content_id"
+        case firstSeenAt = "first_seen_at"
+        case lastIndexedAt = "last_indexed_at"
+    }
+
+    public init(id: String, sdPath: SdPathSerialized, name: String, kind: EntryKind, size: UInt64?, createdAt: String?, modifiedAt: String?, accessedAt: String?, inode: UInt64?, fileId: UInt64?, parentId: String?, locationId: String?, metadataId: String, contentId: String?, firstSeenAt: String, lastIndexedAt: String?) {
+        self.id = id
+        self.sdPath = sdPath
+        self.name = name
+        self.kind = kind
+        self.size = size
+        self.createdAt = createdAt
+        self.modifiedAt = modifiedAt
+        self.accessedAt = accessedAt
+        self.inode = inode
+        self.fileId = fileId
+        self.parentId = parentId
+        self.locationId = locationId
+        self.metadataId = metadataId
+        self.contentId = contentId
+        self.firstSeenAt = firstSeenAt
+        self.lastIndexedAt = lastIndexedAt
+    }
+}
+
+/// Filter for a time-based field
+public struct DateRangeFilter: Codable {
+    public let field: DateField
+    public let start: String?
+    public let end: String?
+
+    public init(field: DateField, start: String?, end: String?) {
+        self.field = field
+        self.start = start
+        self.end = end
+    }
+}
+
+public struct VolumeSpeedTestInput: Codable {
+    public let fingerprint: VolumeFingerprint
+
+    public init(fingerprint: VolumeFingerprint) {
+        self.fingerprint = fingerprint
+    }
+}
+
+public struct JobResumeOutput: Codable {
+    public let jobId: String
+    public let success: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case success = "success"
+    }
+
+    public init(jobId: String, success: Bool) {
+        self.jobId = jobId
+        self.success = success
+    }
+}
+
+public enum SerializablePairingState {
+    case idle
+    case generatingCode
+    case broadcasting
+    case scanning
+    case waitingForConnection
+    case connecting
+    case authenticating
+    case exchangingKeys
+    case awaitingConfirmation
+    case establishingSession
+    case challengeReceived
+    case responsePending
+    case responseSent
+    case completed
+    case failed(SerializablePairingStateFailed)
+}
+public struct SerializablePairingStateFailed: Codable {
+    public let reason: String
+}
+
+
+// MARK: - SerializablePairingState Codable Implementation
+extension SerializablePairingState: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case idle = "Idle"
+        case generatingCode = "GeneratingCode"
+        case broadcasting = "Broadcasting"
+        case scanning = "Scanning"
+        case waitingForConnection = "WaitingForConnection"
+        case connecting = "Connecting"
+        case authenticating = "Authenticating"
+        case exchangingKeys = "ExchangingKeys"
+        case awaitingConfirmation = "AwaitingConfirmation"
+        case establishingSession = "EstablishingSession"
+        case challengeReceived = "ChallengeReceived"
+        case responsePending = "ResponsePending"
+        case responseSent = "ResponseSent"
+        case completed = "Completed"
+        case failed = "Failed"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        if container.allKeys.count != 1 {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Invalid number of keys found, expected one.")
+            )
+        }
+
+        let key = container.allKeys.first!
+        switch key {
+        case .idle:
+            self = .idle
+        case .generatingCode:
+            self = .generatingCode
+        case .broadcasting:
+            self = .broadcasting
+        case .scanning:
+            self = .scanning
+        case .waitingForConnection:
+            self = .waitingForConnection
+        case .connecting:
+            self = .connecting
+        case .authenticating:
+            self = .authenticating
+        case .exchangingKeys:
+            self = .exchangingKeys
+        case .awaitingConfirmation:
+            self = .awaitingConfirmation
+        case .establishingSession:
+            self = .establishingSession
+        case .challengeReceived:
+            self = .challengeReceived
+        case .responsePending:
+            self = .responsePending
+        case .responseSent:
+            self = .responseSent
+        case .completed:
+            self = .completed
+        case .failed:
+            let data = try container.decode(SerializablePairingStateFailed.self, forKey: .failed)
+            self = .failed(data)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        switch self {
+        case .idle:
+            try container.encodeNil(forKey: .idle)
+        case .generatingCode:
+            try container.encodeNil(forKey: .generatingCode)
+        case .broadcasting:
+            try container.encodeNil(forKey: .broadcasting)
+        case .scanning:
+            try container.encodeNil(forKey: .scanning)
+        case .waitingForConnection:
+            try container.encodeNil(forKey: .waitingForConnection)
+        case .connecting:
+            try container.encodeNil(forKey: .connecting)
+        case .authenticating:
+            try container.encodeNil(forKey: .authenticating)
+        case .exchangingKeys:
+            try container.encodeNil(forKey: .exchangingKeys)
+        case .awaitingConfirmation:
+            try container.encodeNil(forKey: .awaitingConfirmation)
+        case .establishingSession:
+            try container.encodeNil(forKey: .establishingSession)
+        case .challengeReceived:
+            try container.encodeNil(forKey: .challengeReceived)
+        case .responsePending:
+            try container.encodeNil(forKey: .responsePending)
+        case .responseSent:
+            try container.encodeNil(forKey: .responseSent)
+        case .completed:
+            try container.encodeNil(forKey: .completed)
+        case .failed(let data):
+            try container.encode(data, forKey: .failed)
+        }
+    }
+}
+
+
+/// Main input structure for file search operations
+public struct FileSearchInput: Codable {
+    public let query: String
+    public let scope: SearchScope
+    public let mode: SearchMode
+    public let filters: SearchFilters
+    public let sort: SortOptions
+    public let pagination: PaginationOptions
+
+    public init(query: String, scope: SearchScope, mode: SearchMode, filters: SearchFilters, sort: SortOptions, pagination: PaginationOptions) {
+        self.query = query
+        self.scope = scope
+        self.mode = mode
+        self.filters = filters
+        self.sort = sort
+        self.pagination = pagination
+    }
+}
+
+public struct PairCancelOutput: Codable {
+    public let cancelled: Bool
+
+    public init(cancelled: Bool) {
+        self.cancelled = cancelled
+    }
 }
 
 /// Summary information about a volume (for updates and caching)
@@ -3774,84 +3855,52 @@ public struct VolumeInfo: Codable {
     }
 }
 
-public struct VolumeSpeedTestInput: Codable {
-    public let fingerprint: VolumeFingerprint
-
-    public init(fingerprint: VolumeFingerprint) {
-        self.fingerprint = fingerprint
-    }
-}
-
-/// Output from volume speed test operation
-public struct VolumeSpeedTestOutput: Codable {
-    public let fingerprint: VolumeFingerprint
-    public let readSpeedMbps: UInt32?
-    public let writeSpeedMbps: UInt32?
+/// How SdPath is stored in the database
+public struct SdPathSerialized: Codable {
+    public let deviceId: String
+    public let path: String
 
     private enum CodingKeys: String, CodingKey {
-        case fingerprint = "fingerprint"
-        case readSpeedMbps = "read_speed_mbps"
-        case writeSpeedMbps = "write_speed_mbps"
+        case deviceId = "device_id"
+        case path = "path"
     }
 
-    public init(fingerprint: VolumeFingerprint, readSpeedMbps: UInt32?, writeSpeedMbps: UInt32?) {
-        self.fingerprint = fingerprint
-        self.readSpeedMbps = readSpeedMbps
-        self.writeSpeedMbps = writeSpeedMbps
+    public init(deviceId: String, path: String) {
+        self.deviceId = deviceId
+        self.path = path
     }
 }
 
-public struct VolumeTrackInput: Codable {
-    public let fingerprint: VolumeFingerprint
-    public let name: String?
-
-    public init(fingerprint: VolumeFingerprint, name: String?) {
-        self.fingerprint = fingerprint
-        self.name = name
-    }
-}
-
-/// Output from volume track operation
-public struct VolumeTrackOutput: Codable {
-    public let fingerprint: VolumeFingerprint
-    public let volumeName: String
+public struct LocationRescanInput: Codable {
+    public let locationId: String
+    public let fullRescan: Bool
 
     private enum CodingKeys: String, CodingKey {
-        case fingerprint = "fingerprint"
-        case volumeName = "volume_name"
+        case locationId = "location_id"
+        case fullRescan = "full_rescan"
     }
 
-    public init(fingerprint: VolumeFingerprint, volumeName: String) {
-        self.fingerprint = fingerprint
-        self.volumeName = volumeName
-    }
-}
-
-/// Classification of volume types for UX and auto-tracking decisions
-public enum VolumeType: Codable {
-    case primary
-    case userData
-    case external
-    case secondary
-    case system
-    case network
-    case unknown
-}
-
-public struct VolumeUntrackInput: Codable {
-    public let fingerprint: VolumeFingerprint
-
-    public init(fingerprint: VolumeFingerprint) {
-        self.fingerprint = fingerprint
+    public init(locationId: String, fullRescan: Bool) {
+        self.locationId = locationId
+        self.fullRescan = fullRescan
     }
 }
 
-/// Output from volume untrack operation
-public struct VolumeUntrackOutput: Codable {
-    public let fingerprint: VolumeFingerprint
+public struct LocationsListOutput: Codable {
+    public let locations: [LocationInfo]
 
-    public init(fingerprint: VolumeFingerprint) {
-        self.fingerprint = fingerprint
+    public init(locations: [LocationInfo]) {
+        self.locations = locations
+    }
+}
+
+public struct ServiceState: Codable {
+    public let running: Bool
+    public let details: String?
+
+    public init(running: Bool, details: String?) {
+        self.running = running
+        self.details = details
     }
 }
 
@@ -3877,120 +3926,120 @@ extension SpacedriveApi: Codable {
 
 /// Core-scoped actions
 public enum CoreAction {
+    case LibrariesCreate(input: LibraryCreateInput, output: LibraryCreateOutput)
+    case NetworkPairGenerate(input: PairGenerateInput, output: PairGenerateOutput)
     case NetworkPairJoin(input: PairJoinInput, output: PairJoinOutput)
-    case LibrariesDelete(input: LibraryDeleteInput, output: LibraryDeleteOutput)
-    case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
+    case NetworkDeviceRevoke(input: DeviceRevokeInput, output: DeviceRevokeOutput)
     case NetworkPairCancel(input: PairCancelInput, output: PairCancelOutput)
     case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
-    case NetworkDeviceRevoke(input: DeviceRevokeInput, output: DeviceRevokeOutput)
-    case LibrariesCreate(input: LibraryCreateInput, output: LibraryCreateOutput)
+    case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
+    case LibrariesDelete(input: LibraryDeleteInput, output: LibraryDeleteOutput)
     case NetworkSpacedropSend(input: SpacedropSendInput, output: SpacedropSendOutput)
-    case NetworkPairGenerate(input: PairGenerateInput, output: PairGenerateOutput)
 }
 
 extension CoreAction: Codable {
     public var wireMethod: String {
         switch self {
+        case .LibrariesCreate: return "action:libraries.create.input.v1"
+        case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
         case .NetworkPairJoin: return "action:network.pair.join.input.v1"
-        case .LibrariesDelete: return "action:libraries.delete.input.v1"
-        case .NetworkStop: return "action:network.stop.input.v1"
+        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
         case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
         case .NetworkStart: return "action:network.start.input.v1"
-        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
-        case .LibrariesCreate: return "action:libraries.create.input.v1"
+        case .NetworkStop: return "action:network.stop.input.v1"
+        case .LibrariesDelete: return "action:libraries.delete.input.v1"
         case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
-        case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
         }
     }
 }
 
 /// Library-scoped actions
 public enum LibraryAction {
-    case LocationsRescan(input: LocationRescanInput, output: LocationRescanOutput)
-    case LibrariesExport(input: LibraryExportInput, output: LibraryExportOutput)
     case VolumesSpeedTest(input: VolumeSpeedTestInput, output: VolumeSpeedTestOutput)
-    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
-    case TagsCreate(input: CreateTagInput, output: CreateTagOutput)
+    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
     case VolumesTrack(input: VolumeTrackInput, output: VolumeTrackOutput)
-    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
-    case JobsCancel(input: JobCancelInput, output: JobCancelOutput)
-    case FilesCopy(input: FileCopyInput, output: JobReceipt)
-    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
-    case LocationsRemove(input: LocationRemoveInput, output: LocationRemoveOutput)
-    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
-    case TagsApply(input: ApplyTagsInput, output: ApplyTagsOutput)
     case LocationsAdd(input: LocationAddInput, output: LocationAddOutput)
     case IndexingStart(input: IndexInput, output: JobReceipt)
-    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
+    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
+    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
+    case LibrariesExport(input: LibraryExportInput, output: LibraryExportOutput)
+    case TagsApply(input: ApplyTagsInput, output: ApplyTagsOutput)
+    case TagsCreate(input: CreateTagInput, output: CreateTagOutput)
+    case LocationsRemove(input: LocationRemoveInput, output: LocationRemoveOutput)
+    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
+    case LocationsRescan(input: LocationRescanInput, output: LocationRescanOutput)
+    case JobsCancel(input: JobCancelInput, output: JobCancelOutput)
+    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
+    case FilesCopy(input: FileCopyInput, output: JobReceipt)
 }
 
 extension LibraryAction: Codable {
     public var wireMethod: String {
         switch self {
-        case .LocationsRescan: return "action:locations.rescan.input.v1"
-        case .LibrariesExport: return "action:libraries.export.input.v1"
         case .VolumesSpeedTest: return "action:volumes.speed_test.input.v1"
-        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
-        case .TagsCreate: return "action:tags.create.input.v1"
+        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
         case .VolumesTrack: return "action:volumes.track.input.v1"
-        case .JobsResume: return "action:jobs.resume.input.v1"
-        case .JobsCancel: return "action:jobs.cancel.input.v1"
-        case .FilesCopy: return "action:files.copy.input.v1"
-        case .JobsPause: return "action:jobs.pause.input.v1"
-        case .LocationsRemove: return "action:locations.remove.input.v1"
-        case .LibrariesRename: return "action:libraries.rename.input.v1"
-        case .TagsApply: return "action:tags.apply.input.v1"
         case .LocationsAdd: return "action:locations.add.input.v1"
         case .IndexingStart: return "action:indexing.start.input.v1"
-        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
+        case .JobsPause: return "action:jobs.pause.input.v1"
+        case .JobsResume: return "action:jobs.resume.input.v1"
+        case .LibrariesExport: return "action:libraries.export.input.v1"
+        case .TagsApply: return "action:tags.apply.input.v1"
+        case .TagsCreate: return "action:tags.create.input.v1"
+        case .LocationsRemove: return "action:locations.remove.input.v1"
+        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
+        case .LocationsRescan: return "action:locations.rescan.input.v1"
+        case .JobsCancel: return "action:jobs.cancel.input.v1"
+        case .LibrariesRename: return "action:libraries.rename.input.v1"
+        case .FilesCopy: return "action:files.copy.input.v1"
         }
     }
 }
 
 /// Core-scoped queries
 public enum CoreQuery {
-    case NetworkDevices(input: ListDevicesInput, output: [DeviceInfoLite])
-    case LibrariesList(input: ListLibrariesInput, output: [LibraryInfo])
-    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
     case NetworkStatus(input: NetworkStatusQueryInput, output: NetworkStatus)
     case CoreStatus(input: Empty, output: CoreStatus)
+    case LibrariesList(input: ListLibrariesInput, output: [LibraryInfo])
+    case NetworkDevices(input: ListDevicesInput, output: [DeviceInfoLite])
+    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
 }
 
 extension CoreQuery: Codable {
     public var wireMethod: String {
         switch self {
-        case .NetworkDevices: return "query:network.devices.v1"
-        case .LibrariesList: return "query:libraries.list.v1"
-        case .NetworkPairStatus: return "query:network.pair.status.v1"
         case .NetworkStatus: return "query:network.status.v1"
         case .CoreStatus: return "query:core.status.v1"
+        case .LibrariesList: return "query:libraries.list.v1"
+        case .NetworkDevices: return "query:network.devices.v1"
+        case .NetworkPairStatus: return "query:network.pair.status.v1"
         }
     }
 }
 
 /// Library-scoped queries
 public enum LibraryQuery {
+    case FilesByPath(input: FileByPathQuery, output: File)
+    case JobsList(input: JobListInput, output: JobListOutput)
+    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
+    case SearchFiles(input: FileSearchInput, output: FileSearchOutput)
+    case FilesById(input: FileByIdQuery, output: File)
     case LocationsList(input: LocationsListQueryInput, output: LocationsListOutput)
     case TagsSearch(input: SearchTagsInput, output: SearchTagsOutput)
-    case FilesByPath(input: FileByPathQuery, output: File)
-    case SearchFiles(input: FileSearchInput, output: FileSearchOutput)
-    case JobsList(input: JobListInput, output: JobListOutput)
     case LibrariesInfo(input: LibraryInfoQueryInput, output: LibraryInfoOutput)
-    case FilesById(input: FileByIdQuery, output: File)
-    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
 }
 
 extension LibraryQuery: Codable {
     public var wireMethod: String {
         switch self {
+        case .FilesByPath: return "query:files.by_path.v1"
+        case .JobsList: return "query:jobs.list.v1"
+        case .JobsInfo: return "query:jobs.info.v1"
+        case .SearchFiles: return "query:search.files.v1"
+        case .FilesById: return "query:files.by_id.v1"
         case .LocationsList: return "query:locations.list.v1"
         case .TagsSearch: return "query:tags.search.v1"
-        case .FilesByPath: return "query:files.by_path.v1"
-        case .SearchFiles: return "query:search.files.v1"
-        case .JobsList: return "query:jobs.list.v1"
         case .LibrariesInfo: return "query:libraries.info.v1"
-        case .FilesById: return "query:files.by_id.v1"
-        case .JobsInfo: return "query:jobs.info.v1"
         }
     }
 }

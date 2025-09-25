@@ -19,7 +19,7 @@ pub struct SearchTagsOutput {
 	pub query: String,
 
 	/// Applied filters
-	pub filters: SearchFilters,
+	pub filters: TagSearchFilters,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -38,7 +38,7 @@ pub struct TagSearchResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct SearchFilters {
+pub struct TagSearchFilters {
 	pub namespace: Option<String>,
 	pub tag_type: Option<String>,
 	pub include_archived: bool,
@@ -74,7 +74,7 @@ impl SearchTagsOutput {
 			total_found,
 			disambiguated,
 			query,
-			filters: SearchFilters {
+			filters: TagSearchFilters {
 				namespace,
 				tag_type,
 				include_archived,
