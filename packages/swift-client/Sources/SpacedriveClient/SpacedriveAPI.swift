@@ -10,6 +10,7 @@ public struct CoreAPI {
 
     /// Execute query: core.status
     public func status(_ input: Empty) async throws -> CoreStatus {
+        print("🔍 [CoreAPI] status() called with method: query:core.status.v1")
         return try await client.execute(
             input,
             method: "query:core.status.v1",

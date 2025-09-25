@@ -223,6 +223,7 @@ impl RpcServer {
 
 		// Try core queries
 		if let Some(handler) = crate::ops::registry::CORE_QUERIES.get(method) {
+			tracing::info!("🔍 Found core query handler for method: {}", method);
 			return handler(core.context.clone(), base_session, json_payload).await;
 		}
 
@@ -349,41 +350,59 @@ impl RpcServer {
 						}
 						Ok(_) => {
 							// Parse request
-							println!("🔍 Daemon received request: {}", line.trim());
-							if let Ok(request) = serde_json::from_str::<DaemonRequest>(&line.trim()) {
-								let response = Self::process_request(
-									request,
-									&core,
-									&shutdown_tx,
-									&connections,
-									connection_id,
-									&event_tx
-								).await;
+							tracing::info!("🔍 Daemon received request: {}", line.trim());
+							match serde_json::from_str::<DaemonRequest>(&line.trim()) {
+								Ok(request) => {
+									tracing::info!("🔍 Daemon parsed request successfully: {:?}", request);
+									let response = Self::process_request(
+										request,
+										&core,
+										&shutdown_tx,
+										&connections,
+										connection_id,
+										&event_tx
+									).await;
 
-								// Send response
-								let response_json = serde_json::to_string(&response)
-									.map_err(|e| DaemonError::SerializationError(e.to_string()).to_string())?;
+									// Send response
+									tracing::info!("🔍 Daemon sending response: {:?}", response);
+									let response_json = serde_json::to_string(&response)
+										.map_err(|e| DaemonError::SerializationError(e.to_string()).to_string())?;
+									tracing::info!("🔍 Daemon response JSON: {}", response_json);
 
-								if let Err(_) = writer.write_all((response_json + "\n").as_bytes()).await {
-									break; // Connection closed
+									if let Err(_) = writer.write_all((response_json + "\n").as_bytes()).await {
+										break; // Connection closed
+									}
+									tracing::info!("🔍 Daemon response sent successfully");
+
+									// For non-streaming requests, close connection after response
+									match response {
+										DaemonResponse::Subscribed => {
+											// Keep connection open for streaming
+										}
+										DaemonResponse::Unsubscribed => {
+											// Close connection after unsubscribe
+											break;
+										}
+										DaemonResponse::Event(_) => {
+											// This shouldn't happen in request processing
+										}
+										_ => {
+											// Regular request-response, close connection
+											break;
+										}
+									}
 								}
-
-								// For non-streaming requests, close connection after response
-								match response {
-									DaemonResponse::Subscribed => {
-										// Keep connection open for streaming
+								Err(e) => {
+									tracing::error!("🔍 Failed to parse daemon request: {}", e);
+									tracing::error!("🔍 Raw request: {}", line.trim());
+									// Send error response
+									let error_response = DaemonResponse::Error(DaemonError::SerializationError(e.to_string()));
+									let response_json = serde_json::to_string(&error_response)
+										.map_err(|e| DaemonError::SerializationError(e.to_string()).to_string())?;
+									if let Err(_) = writer.write_all((response_json + "\n").as_bytes()).await {
+										break; // Connection closed
 									}
-									DaemonResponse::Unsubscribed => {
-										// Close connection after unsubscribe
-										break;
-									}
-									DaemonResponse::Event(_) => {
-										// This shouldn't happen in request processing
-									}
-									_ => {
-										// Regular request-response, close connection
-										break;
-									}
+									break; // Close connection after error
 								}
 							}
 							line.clear();

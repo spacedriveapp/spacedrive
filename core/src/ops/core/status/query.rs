@@ -11,7 +11,10 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
+
+use crate::ops::libraries::list::output::LibraryInfo;
+use crate::ops::network::status::output::NetworkStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CoreStatusQuery;
@@ -24,7 +27,11 @@ impl CoreQuery for CoreStatusQuery {
 		Ok(Self)
 	}
 
-	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
 		// Get basic library information
 		let library_manager = context.libraries().await;
 		let libs = library_manager.list().await;
@@ -43,28 +50,18 @@ impl CoreQuery for CoreStatusQuery {
 		// Collect detailed library information
 		let mut libraries = Vec::new();
 		for lib in &libs {
-			let is_active = active_library
-				.as_ref()
-				.map(|al| al.id() == lib.id())
-				.unwrap_or(false);
+			// Get library path (not async)
+			let library_path = lib.path().to_path_buf();
 
-			// Get location count for this library
-			let location_count = match crate::location::list_locations(lib.clone()).await {
-				Ok(locations) => locations.len(),
-				Err(_) => 0,
-			};
-
-			// TODO: Get total entries count from database
-			// This would require a database query to count entries in this library
-			let total_entries = None;
+			// Get library statistics from config
+			let config = lib.config().await;
+			let stats = Some(config.statistics);
 
 			libraries.push(LibraryInfo {
 				id: lib.id(),
 				name: lib.name().await,
-				is_active,
-				location_count,
-				total_entries,
-				last_sync: None, // TODO: Get last sync time from library metadata
+				path: library_path,
+				stats,
 			});
 		}
 
@@ -96,23 +93,22 @@ impl CoreQuery for CoreStatusQuery {
 
 		// Get network status and paired devices
 		let network_status = if let Some(networking) = context.get_networking().await {
-			// Get paired devices from networking service
-			let paired_devices = Vec::new(); // TODO: Implement getting paired devices
-
 			NetworkStatus {
-				enabled: true,
+				running: true,
 				node_id: Some(networking.node_id().to_string()),
-				paired_devices,
-				active_connections: 0,   // TODO: Get actual connection count
-				discovery_enabled: true, // TODO: Get actual discovery status
+				addresses: Vec::new(), // TODO: Get actual addresses
+				paired_devices: 0,     // TODO: Get actual paired device count
+				connected_devices: 0,  // TODO: Get actual connected device count
+				version: env!("CARGO_PKG_VERSION").to_string(),
 			}
 		} else {
 			NetworkStatus {
-				enabled: false,
+				running: false,
 				node_id: None,
-				paired_devices: Vec::new(),
-				active_connections: 0,
-				discovery_enabled: false,
+				addresses: Vec::new(),
+				paired_devices: 0,
+				connected_devices: 0,
+				version: env!("CARGO_PKG_VERSION").to_string(),
 			}
 		};
 

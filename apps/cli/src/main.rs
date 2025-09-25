@@ -5,6 +5,23 @@ use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
 use sd_core::client::CoreClient;
 use std::path::Path;
 
+fn format_bytes(bytes: u64) -> String {
+	const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+	let mut size = bytes as f64;
+	let mut unit_index = 0;
+
+	while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+		size /= 1024.0;
+		unit_index += 1;
+	}
+
+	if unit_index == 0 {
+		format!("{} {}", bytes, UNITS[unit_index])
+	} else {
+		format!("{:.1} {}", size, UNITS[unit_index])
+	}
+}
+
 /// Validate instance name to prevent path traversal attacks
 fn validate_instance_name(instance: &str) -> Result<(), String> {
 	if instance.is_empty() {
@@ -512,16 +529,23 @@ async fn run_client_command(
 							.add_row(vec!["No libraries found".to_string(), "".to_string()]);
 					} else {
 						for lib in &status.libraries {
-							let active_indicator = if lib.is_active { "●" } else { "○" };
-							let lib_name = format!("{} {}", active_indicator, lib.name);
+							let lib_name = format!("● {}", lib.name);
 							libraries_table.add_row(vec![lib_name, lib.id.to_string()]);
 							libraries_table.add_row(vec![
-								format!("  Locations: {}", lib.location_count),
+								format!("  Path: {}", lib.path.display()),
 								"".to_string(),
 							]);
-							if let Some(entries) = lib.total_entries {
+							if let Some(stats) = &lib.stats {
 								libraries_table.add_row(vec![
-									format!("  Entries: {}", entries),
+									format!("  Files: {}", stats.total_files),
+									"".to_string(),
+								]);
+								libraries_table.add_row(vec![
+									format!("  Size: {}", format_bytes(stats.total_size)),
+									"".to_string(),
+								]);
+								libraries_table.add_row(vec![
+									format!("  Locations: {}", stats.location_count),
 									"".to_string(),
 								]);
 							}
@@ -576,8 +600,8 @@ async fn run_client_command(
 						Cell::new("Network").add_attribute(Attribute::Bold),
 						Cell::new(""),
 					]);
-					if status.network.enabled {
-						network_table.add_row(vec!["Status", "● Enabled"]);
+					if status.network.running {
+						network_table.add_row(vec!["Status", "● Running"]);
 
 						if let Some(node_id) = &status.network.node_id {
 							let node_id_display = if node_id.len() > 50 {
@@ -589,35 +613,28 @@ async fn run_client_command(
 						}
 
 						network_table.add_row(vec![
-							"Connections",
-							&status.network.active_connections.to_string(),
+							"Connected Devices",
+							&status.network.connected_devices.to_string(),
 						]);
 
-						let discovery_status = if status.network.discovery_enabled {
-							"● Enabled"
-						} else {
-							"○ Disabled"
-						};
-						network_table.add_row(vec!["Discovery", discovery_status]);
+						network_table.add_row(vec![
+							"Paired Devices",
+							&status.network.paired_devices.to_string(),
+						]);
 
-						if status.network.paired_devices.is_empty() {
-							network_table.add_row(vec!["Paired Devices", "None"]);
-						} else {
+						if !status.network.addresses.is_empty() {
 							network_table.add_row(vec![
-								"Paired Devices",
-								&format!("{} device(s)", status.network.paired_devices.len()),
+								"Addresses",
+								&format!("{} address(es)", status.network.addresses.len()),
 							]);
-							for device in &status.network.paired_devices {
-								let online_indicator = if device.is_online { "●" } else { "○" };
-								let device_name = format!(
-									"  {} {} ({})",
-									online_indicator, device.name, device.os
-								);
-								network_table.add_row(vec![device_name, "".to_string()]);
+							for addr in &status.network.addresses {
+								network_table.add_row(vec![format!("  {}", addr), "".to_string()]);
 							}
 						}
+
+						network_table.add_row(vec!["Version", &status.network.version]);
 					} else {
-						network_table.add_row(vec!["Status", "○ Disabled"]);
+						network_table.add_row(vec!["Status", "○ Stopped"]);
 					}
 					println!("{}", network_table);
 				}

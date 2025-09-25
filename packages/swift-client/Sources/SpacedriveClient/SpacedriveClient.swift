@@ -151,24 +151,31 @@ public class SpacedriveClient {
         responseType: Response.Type,
         libraryId: String? = nil
     ) async throws -> Response {
-        // 1. Encode input to JSON
-        let requestData: Data
-        do {
-            requestData = try JSONEncoder().encode(requestPayload)
-        } catch {
-            throw SpacedriveError.serializationError("Failed to encode request: \(error)")
+        print("🔍 [SpacedriveClient] execute() called with method: \(method)")
+        // 1. Handle unit types (Empty) specially - they should send no payload
+        let jsonPayload: [String: Any]
+        if requestPayload is Empty {
+            jsonPayload = [:]
+        } else {
+            // Encode input to JSON for non-unit types
+            let requestData: Data
+            do {
+                requestData = try JSONEncoder().encode(requestPayload)
+            } catch {
+                throw SpacedriveError.serializationError("Failed to encode request: \(error)")
+            }
+            jsonPayload = try JSONSerialization.jsonObject(with: requestData) as! [String: Any]
         }
-
-        // 2. Create daemon request using JSON API
-        let jsonPayload = try JSONSerialization.jsonObject(with: requestData) as! [String: Any]
 
         // 3. Determine request type from method prefix and include library ID if needed
         let request: DaemonRequest
         let effectiveLibraryId = libraryId ?? getCurrentLibraryId()
 
-        if method.hasPrefix("query:") {
-            request = DaemonRequest.query(method: method, libraryId: effectiveLibraryId, payload: jsonPayload)
-        } else if method.hasPrefix("action:") {
+            if method.hasPrefix("query:") {
+                // Core queries (like core.status) don't need library ID
+                let queryLibraryId = method.hasPrefix("query:core.") ? nil : effectiveLibraryId
+                request = DaemonRequest.query(method: method, libraryId: queryLibraryId, payload: jsonPayload)
+            } else if method.hasPrefix("action:") {
             request = DaemonRequest.action(method: method, libraryId: effectiveLibraryId, payload: jsonPayload)
         } else {
             throw SpacedriveError.invalidResponse("Invalid method format: \(method)")
@@ -234,11 +241,20 @@ public class SpacedriveClient {
 
     /// Send a request to the daemon and wait for response
     private func sendRequest(_ request: DaemonRequest) async throws -> DaemonResponse {
+        print("🔍 [SpacedriveClient] Starting sendRequest")
         let connection = try await createConnection()
-        defer { close(connection) }
+        print("🔍 [SpacedriveClient] Connection created, fd: \(connection)")
+        defer {
+            print("🔍 [SpacedriveClient] Closing connection fd: \(connection)")
+            close(connection)
+        }
 
+        print("🔍 [SpacedriveClient] About to send request over connection")
         try await sendRequestOverConnection(request, connection: connection)
-        return try await readResponseFromConnection(connection)
+        print("🔍 [SpacedriveClient] Request sent, about to read response")
+        let response = try await readResponseFromConnection(connection)
+        print("🔍 [SpacedriveClient] Response read successfully")
+        return response
     }
 
     /// Create a Unix domain socket connection to the daemon
@@ -307,9 +323,23 @@ public class SpacedriveClient {
             requestData = Data("\"Ping\"".utf8)
 
         case .query(let method, let libraryId, let payload):
-            let libraryIdJson = libraryId.map { "\"library_id\":\"\($0)\"," } ?? ""
+            // Build the JSON string properly, handling trailing commas
+            var queryParts: [String] = ["\"method\":\"\(method)\""]
+            if let libraryId = libraryId {
+                queryParts.append("\"library_id\":\"\(libraryId)\"")
+            } else {
+                // Always include library_id field, even if null
+                queryParts.append("\"library_id\":null")
+            }
+            // Include payload field - send null only for core.status.v1 (unit type)
+            if method == "query:core.status.v1" {
+                queryParts.append("\"payload\":null")
+            } else {
+                queryParts.append("\"payload\":\(try jsonStringFromDictionary(payload))")
+            }
+
             let jsonString = """
-            {"Query":{"method":"\(method)",\(libraryIdJson)"payload":\(try jsonStringFromDictionary(payload))}}
+            {"Query":{\(queryParts.joined(separator: ","))}}
             """
             print("🔍 Sending query request: \(jsonString)")
             requestData = Data(jsonString.utf8)
@@ -355,10 +385,13 @@ public class SpacedriveClient {
 
     /// Read a response from an existing connection
     private func readResponseFromConnection(_ connection: Int32) async throws -> DaemonResponse {
+        print("🔍 [SpacedriveClient] Starting readResponseFromConnection, fd: \(connection)")
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
+                print("🔍 [SpacedriveClient] About to call recv()")
                 var buffer = [UInt8](repeating: 0, count: 4096)
                 let readResult = recv(connection, &buffer, buffer.count, 0)
+                print("🔍 [SpacedriveClient] recv() returned: \(readResult)")
 
                 guard readResult > 0 else {
                     let errorMsg = String(cString: strerror(errno))
@@ -370,14 +403,18 @@ public class SpacedriveClient {
                 print("📥 Received \(readResult) bytes: \(String(data: responseData, encoding: .utf8) ?? "invalid")")
 
                 do {
+                    print("🔍 [SpacedriveClient] About to parse response JSON")
                     // Find the newline delimiter and parse JSON
                     if let responseString = String(data: responseData, encoding: .utf8) {
                         let lines = responseString.components(separatedBy: .newlines).filter { !$0.isEmpty }
                         if let firstLine = lines.first {
+                            print("🔍 [SpacedriveClient] Parsing first line: \(firstLine)")
                             let lineData = Data(firstLine.utf8)
                             let response = try JSONDecoder().decode(DaemonResponse.self, from: lineData)
+                            print("🔍 [SpacedriveClient] Response parsed successfully")
                             continuation.resume(returning: response)
                         } else {
+                            print("🔍 [SpacedriveClient] No valid response line found")
                             continuation.resume(throwing: SpacedriveError.invalidResponse("No valid response line"))
                         }
                     } else {

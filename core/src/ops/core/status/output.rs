@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
+use crate::ops::libraries::list::output::LibraryInfo;
+use crate::ops::network::status::output::NetworkStatus;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CoreStatus {
 	pub version: String,
@@ -26,16 +29,6 @@ pub struct DeviceInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct LibraryInfo {
-	pub id: Uuid,
-	pub name: String,
-	pub is_active: bool,
-	pub location_count: usize,
-	pub total_entries: Option<u64>,
-	pub last_sync: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ServiceStatus {
 	pub location_watcher: ServiceState,
 	pub networking: ServiceState,
@@ -47,15 +40,6 @@ pub struct ServiceStatus {
 pub struct ServiceState {
 	pub running: bool,
 	pub details: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct NetworkStatus {
-	pub enabled: bool,
-	pub node_id: Option<String>,
-	pub paired_devices: Vec<PairedDeviceInfo>,
-	pub active_connections: usize,
-	pub discovery_enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
