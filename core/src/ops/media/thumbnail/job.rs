@@ -1,6 +1,6 @@
 //! Thumbnail generation job implementation
 
-use crate::infra::job::{prelude::*, traits::Resourceful};
+use crate::infra::job::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
@@ -81,9 +81,6 @@ impl crate::infra::job::traits::DynJob for ThumbnailJob {
 		Self::NAME
 	}
 
-	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
-		Some(self.get_affected_resources())
-	}
 }
 
 /// Output from thumbnail generation job
@@ -501,12 +498,3 @@ impl ThumbnailJob {
 	}
 }
 
-impl Resourceful for ThumbnailJob {
-	fn get_affected_resources(&self) -> Vec<i32> {
-		// ThumbnailJob has UUIDs but we need to return i32 database IDs.
-		// For now, return an empty vector since we'd need database access
-		// to convert UUIDs to entry IDs.
-		// The JobManager will need to handle this conversion.
-		vec![]
-	}
-}

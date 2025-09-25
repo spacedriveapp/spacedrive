@@ -3,10 +3,7 @@
 use crate::{
 	domain::addressing::SdPath,
 	infra::db::entities,
-	infra::job::{
-		prelude::*,
-		traits::{DynJob, Resourceful},
-	},
+	infra::job::{prelude::*, traits::DynJob},
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
@@ -239,10 +236,6 @@ impl Job for IndexerJob {
 impl DynJob for IndexerJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
-	}
-
-	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
-		Some(self.get_affected_resources())
 	}
 }
 
@@ -709,20 +702,5 @@ impl From<IndexerOutput> for JobOutput {
 			stats: output.stats,
 			metrics: output.metrics.unwrap_or_default(),
 		}
-	}
-}
-
-impl Resourceful for IndexerJob {
-	fn get_affected_resources(&self) -> Vec<i32> {
-		// An indexer job affects entries within its location.
-		// For now, this is a simplified implementation that returns an empty vector.
-		// A more sophisticated implementation would:
-		// 1. Query the database for the location's root entry ID
-		// 2. Query the closure table for all entries within that location
-		// 3. Return the list of all affected entry IDs
-		//
-		// This requires database access which isn't available in this context,
-		// so the JobManager will need to handle the location-to-entries mapping.
-		vec![]
 	}
 }

@@ -126,13 +126,6 @@ pub trait JobDependencies {
 	}
 }
 
-/// A trait for jobs that operate on specific VDFS resources.
-/// This allows the system to query which entries a job is currently affecting.
-pub trait Resourceful {
-	/// Returns a list of entry IDs that this job is currently processing.
-	/// This can be called at any point during the job's lifecycle.
-	fn get_affected_resources(&self) -> Vec<i32>;
-}
 
 /// A dyn-compatible trait for dynamic job operations
 /// This is separate from Job to avoid serialization trait bounds
@@ -140,11 +133,5 @@ pub trait DynJob: Send + Sync {
 	/// Job name for identification
 	fn job_name(&self) -> &'static str;
 
-	/// Try to get affected resources if this job is resourceful
-	/// Returns None if the job doesn't track specific resources
-	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
-		None // Default implementation for non-resourceful jobs
-	}
 }
 
-// Jobs that operate on specific entries should implement Resourceful

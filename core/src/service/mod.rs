@@ -10,7 +10,6 @@ use tokio::sync::RwLock;
 use tracing::info;
 
 pub mod device;
-pub mod entry_state_service;
 pub mod file_sharing;
 pub mod network;
 pub mod session;
@@ -114,7 +113,6 @@ impl Services {
 		} else {
 			info!("Volume monitoring disabled in configuration");
 		}
-
 
 		Ok(())
 	}

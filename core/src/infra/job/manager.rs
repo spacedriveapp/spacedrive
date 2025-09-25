@@ -697,54 +697,6 @@ impl JobManager {
 		job_infos
 	}
 
-	/// Find jobs that are processing specific entry IDs
-	/// Uses downcasting to check if jobs implement Resourceful for precise resource tracking
-	pub async fn find_jobs_affecting_entries(&self, entry_ids: &[i32]) -> JobResult<Vec<JobInfo>> {
-		let active_jobs = self.list_jobs(Some(JobStatus::Running)).await?;
-		let mut affecting_jobs = Vec::new();
-
-		for job_info in active_jobs {
-			// We need the full job state to check its resources.
-			// This requires deserializing the job from the database.
-			let job_instance = match self.get_job_data_for_resourceful_check(&job_info.id).await {
-				Ok(instance) => instance,
-				Err(e) => {
-					// Log the error but continue; we don't want one bad job
-					// to stop the entire state computation.
-					tracing::warn!("Could not get instance for job {}: {}", job_info.id, e);
-					continue;
-				}
-			};
-
-			// Check if the job tracks specific resources
-			if let Some(affected_resources) = job_instance.try_get_affected_resources() {
-				// Check if there is any overlap between the job's resources
-				// and the entries we are interested in.
-				let is_affected = affected_resources.iter().any(|id| entry_ids.contains(id));
-
-				if is_affected {
-					affecting_jobs.push(job_info);
-				}
-			}
-			// Jobs that don't track resources (return None) are skipped
-		}
-		Ok(affecting_jobs)
-	}
-
-	/// Helper method to get job data for resourceful checking
-	pub async fn get_job_data_for_resourceful_check(
-		&self,
-		job_id: &Uuid,
-	) -> JobResult<Box<dyn DynJob>> {
-		// Load job from database
-		let job_record = database::jobs::Entity::find_by_id(job_id.to_string())
-			.one(self.db.conn())
-			.await?
-			.ok_or_else(|| JobError::NotFound(format!("Job {} not found", job_id)))?;
-
-		// Use the REGISTRY to deserialize the job state
-		REGISTRY.deserialize_dyn_job(&job_record.name, &job_record.state)
-	}
 
 	/// List all jobs with a specific status (unified query)
 	pub async fn list_jobs(&self, status: Option<JobStatus>) -> JobResult<Vec<JobInfo>> {

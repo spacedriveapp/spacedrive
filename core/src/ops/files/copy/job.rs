@@ -4,7 +4,7 @@ use super::{database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrateg
 use crate::{
 	domain::addressing::{SdPath, SdPathBatch},
 	infra::job::generic_progress::{GenericProgress, ToGenericProgress},
-	infra::job::{prelude::*, traits::Resourceful},
+	infra::job::prelude::*,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -74,10 +74,6 @@ impl Job for FileCopyJob {
 impl crate::infra::job::traits::DynJob for FileCopyJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
-	}
-
-	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
-		Some(self.get_affected_resources())
 	}
 }
 
@@ -897,10 +893,6 @@ impl crate::infra::job::traits::DynJob for MoveJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}
-
-	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
-		Some(self.get_affected_resources())
-	}
 }
 
 #[async_trait::async_trait]
@@ -1029,23 +1021,5 @@ fn format_bytes(bytes: u64) -> String {
 		format!("{} {}", size as u64, UNITS[unit_idx])
 	} else {
 		format!("{:.2} {}", size, UNITS[unit_idx])
-	}
-}
-
-impl Resourceful for FileCopyJob {
-	fn get_affected_resources(&self) -> Vec<i32> {
-		// FileCopyJob affects files based on SdPaths, but we need entry IDs.
-		// This requires database queries to resolve paths to entries.
-		// For now, return empty vector - JobManager will handle path-to-entry conversion.
-		vec![]
-	}
-}
-
-impl Resourceful for MoveJob {
-	fn get_affected_resources(&self) -> Vec<i32> {
-		// MoveJob affects files based on SdPaths, but we need entry IDs.
-		// This requires database queries to resolve paths to entries.
-		// For now, return empty vector - JobManager will handle path-to-entry conversion.
-		vec![]
 	}
 }

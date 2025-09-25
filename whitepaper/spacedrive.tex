@@ -529,12 +529,6 @@ To make these addressing modes accessible and ergonomic for clients, APIs, and c
 \end{itemize}
 This design decouples clients from the complexity of path resolution. A user interface or script can operate entirely on these URI strings, passing them to the core engine, which is then responsible for parsing the URI and dispatching the appropriate resolution logic.
 
-\subsubsection{On-Demand State Computation}
-Spacedrive treats an entry's state not as a static, stored property, but as a property that is computed on demand upon observation. This design improves the VDFS's resilience, helping ensure an entry's state reflects ongoing system operations, rather than a field that can become stale or inconsistent.
-
-This state is derived by following a strict \textbf{hierarchy of truth}: the system first queries the \texttt{JobManager} for active operations, as these have the highest priority. If no jobs are running for a given entry, the system then queries the database for the physical state of the entry's underlying storage volume.
-
-The result of this computation is a well-defined \texttt{EntryState} enum, which serves as a clean API contract for the rest of the application. When a client observes an entry in an active state (like \texttt{Processing}), the returned state includes a \texttt{job\_id}. The client can then use this ID to subscribe to a separate, real-time stream of progress updates directly from the Job Manager. This decouples the high-level state from the high-frequency progress data, leading to an efficient and scalable UI.
 
 \subsubsection{The Virtual Sidecar System: Managing Derivative Data}
 Spacedrive's VDFS model extends beyond managing original user files to also include first-class support for derivative data through a Virtual Sidecar System. For any given Entry, Spacedrive can create and manage a set of associated files—such as thumbnails, OCR text data, video transcripts, or transcoded media proxies—without ever modifying the original file.
