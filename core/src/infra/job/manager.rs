@@ -697,7 +697,6 @@ impl JobManager {
 		job_infos
 	}
 
-
 	/// List all jobs with a specific status (unified query)
 	pub async fn list_jobs(&self, status: Option<JobStatus>) -> JobResult<Vec<JobInfo>> {
 		use sea_orm::QueryFilter;

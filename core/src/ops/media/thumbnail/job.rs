@@ -80,7 +80,6 @@ impl crate::infra::job::traits::DynJob for ThumbnailJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}
-
 }
 
 /// Output from thumbnail generation job
@@ -497,4 +496,3 @@ impl ThumbnailJob {
 		Ok(entries)
 	}
 }
-
