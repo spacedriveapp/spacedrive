@@ -103,10 +103,8 @@ impl Library {
 		let mut current_config = self.config.write().await;
 		*current_config = config;
 
-		debug!(
-			library_id = %self.id(),
-			"Reloaded library configuration from disk"
-		);
+		// Note: Cannot call self.id() here as we still hold the write lock
+		// The caller should log this if needed
 
 		Ok(())
 	}
@@ -300,6 +298,7 @@ impl Library {
 
 	/// Get cached statistics immediately (non-blocking)
 	pub async fn get_statistics(&self) -> LibraryStatistics {
+		// Get library info before any potential locking
 		let library_id = self.id();
 		let library_name = self.name().await;
 
@@ -310,6 +309,11 @@ impl Library {
 				library_name = %library_name,
 				error = %e,
 				"Failed to reload config from disk, using cached statistics"
+			);
+		} else {
+			debug!(
+				library_id = %library_id,
+				"Reloaded library configuration from disk"
 			);
 		}
 
