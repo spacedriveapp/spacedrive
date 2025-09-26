@@ -499,6 +499,7 @@ impl LocationWatcher {
 		let metrics = self.metrics.clone();
 
 		let (tx, mut rx) = mpsc::channel(self.config.event_buffer_size);
+		let tx_clone = tx.clone();
 
 		// Create file system watcher
 		let mut watcher = notify::recommended_watcher(move |res| {
@@ -514,15 +515,12 @@ impl LocationWatcher {
 					// Convert notify event to our WatcherEvent
 					let watcher_event = WatcherEvent::from_notify_event(event);
 
-					// Use spawn_blocking to avoid blocking the notify callback
-					// This ensures we never drop events - we wait for buffer space
-					let tx_clone = tx.clone();
-					tokio::spawn(async move {
-						if let Err(e) = tx_clone.send(watcher_event).await {
-							error!("Failed to send watcher event (receiver dropped): {}", e);
-							// This should only happen if the receiver is dropped
-						}
-					});
+					// Send event directly to avoid runtime context issues
+					// Use try_send since we're in a sync context
+					if let Err(e) = tx_clone.try_send(watcher_event) {
+						error!("Failed to send watcher event: {}", e);
+						// This could happen if the channel is full or receiver is dropped
+					}
 				}
 				Err(e) => {
 					error!("File system watcher error: {}", e);
