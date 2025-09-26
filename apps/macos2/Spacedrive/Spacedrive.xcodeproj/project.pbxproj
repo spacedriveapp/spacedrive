@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6ADA37DD2E8684310017BA3A /* SpacedriveClient in Frameworks */ = {isa = PBXBuildFile; productRef = 6ADA37DC2E8684310017BA3A /* SpacedriveClient */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		6A0F02F22E86800300B2DEBA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,7 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		6A0F02E42E86800200B2DEBA /* Spacedrive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spacedrive.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6A0F02E42E86800200B2DEBA /* AppIcon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppIcon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6A0F02F12E86800300B2DEBA /* SpacedriveTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpacedriveTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6A0F02FB2E86800300B2DEBA /* SpacedriveUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpacedriveUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6ADA37DD2E8684310017BA3A /* SpacedriveClient in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +83,7 @@
 				6A0F02E62E86800200B2DEBA /* Spacedrive */,
 				6A0F02F42E86800300B2DEBA /* SpacedriveTests */,
 				6A0F02FE2E86800300B2DEBA /* SpacedriveUITests */,
+				6ADA37DB2E8684310017BA3A /* Frameworks */,
 				6A0F02E52E86800200B2DEBA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,19 +91,26 @@
 		6A0F02E52E86800200B2DEBA /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6A0F02E42E86800200B2DEBA /* Spacedrive.app */,
+				6A0F02E42E86800200B2DEBA /* AppIcon.app */,
 				6A0F02F12E86800300B2DEBA /* SpacedriveTests.xctest */,
 				6A0F02FB2E86800300B2DEBA /* SpacedriveUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
+		6ADA37DB2E8684310017BA3A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6A0F02E32E86800200B2DEBA /* Spacedrive */ = {
+		6A0F02E32E86800200B2DEBA /* AppIcon */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 6A0F03052E86800300B2DEBA /* Build configuration list for PBXNativeTarget "Spacedrive" */;
+			buildConfigurationList = 6A0F03052E86800300B2DEBA /* Build configuration list for PBXNativeTarget "AppIcon" */;
 			buildPhases = (
 				6A0F02E02E86800200B2DEBA /* Sources */,
 				6A0F02E12E86800200B2DEBA /* Frameworks */,
@@ -110,11 +123,12 @@
 			fileSystemSynchronizedGroups = (
 				6A0F02E62E86800200B2DEBA /* Spacedrive */,
 			);
-			name = Spacedrive;
+			name = AppIcon;
 			packageProductDependencies = (
+				6ADA37DC2E8684310017BA3A /* SpacedriveClient */,
 			);
 			productName = Spacedrive;
-			productReference = 6A0F02E42E86800200B2DEBA /* Spacedrive.app */;
+			productReference = 6A0F02E42E86800200B2DEBA /* AppIcon.app */;
 			productType = "com.apple.product-type.application";
 		};
 		6A0F02F02E86800300B2DEBA /* SpacedriveTests */ = {
@@ -195,12 +209,15 @@
 			);
 			mainGroup = 6A0F02DB2E86800200B2DEBA;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6A0F036F2E86817A00B2DEBA /* XCLocalSwiftPackageReference "../../../packages/swift-client" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6A0F02E52E86800200B2DEBA /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				6A0F02E32E86800200B2DEBA /* Spacedrive */,
+				6A0F02E32E86800200B2DEBA /* AppIcon */,
 				6A0F02F02E86800300B2DEBA /* SpacedriveTests */,
 				6A0F02FA2E86800300B2DEBA /* SpacedriveUITests */,
 			);
@@ -258,12 +275,12 @@
 /* Begin PBXTargetDependency section */
 		6A0F02F32E86800300B2DEBA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 6A0F02E32E86800200B2DEBA /* Spacedrive */;
+			target = 6A0F02E32E86800200B2DEBA /* AppIcon */;
 			targetProxy = 6A0F02F22E86800300B2DEBA /* PBXContainerItemProxy */;
 		};
 		6A0F02FD2E86800300B2DEBA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 6A0F02E32E86800200B2DEBA /* Spacedrive */;
+			target = 6A0F02E32E86800200B2DEBA /* AppIcon */;
 			targetProxy = 6A0F02FC2E86800300B2DEBA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -390,10 +407,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Spacedrive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZYS9K9Q88U;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -434,10 +453,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Spacedrive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZYS9K9Q88U;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -477,6 +498,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_ENTITLEMENTS = Spacedrive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZYS9K9Q88U;
@@ -503,6 +525,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_ENTITLEMENTS = Spacedrive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZYS9K9Q88U;
@@ -528,6 +551,7 @@
 		6A0F030C2E86800300B2DEBA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Spacedrive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZYS9K9Q88U;
@@ -553,6 +577,7 @@
 		6A0F030D2E86800300B2DEBA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Spacedrive.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZYS9K9Q88U;
@@ -587,7 +612,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		6A0F03052E86800300B2DEBA /* Build configuration list for PBXNativeTarget "Spacedrive" */ = {
+		6A0F03052E86800300B2DEBA /* Build configuration list for PBXNativeTarget "AppIcon" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6A0F03062E86800300B2DEBA /* Debug */,
@@ -615,6 +640,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		6A0F036F2E86817A00B2DEBA /* XCLocalSwiftPackageReference "../../../packages/swift-client" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../../packages/swift-client";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6ADA37DC2E8684310017BA3A /* SpacedriveClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6A0F036F2E86817A00B2DEBA /* XCLocalSwiftPackageReference "../../../packages/swift-client" */;
+			productName = SpacedriveClient;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6A0F02DC2E86800200B2DEBA /* Project object */;
 }
