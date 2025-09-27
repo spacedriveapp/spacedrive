@@ -62,3 +62,21 @@ pub struct FileInfoArgs {
 	/// File path to get information about
 	pub path: PathBuf,
 }
+
+#[derive(Args, Debug, Clone)]
+pub struct FileListArgs {
+	/// Directory path to list contents of
+	pub path: PathBuf,
+
+	/// Maximum number of items to return
+	#[arg(long)]
+	pub limit: Option<u32>,
+
+	/// Include hidden files and directories
+	#[arg(long, default_value_t = false)]
+	pub include_hidden: bool,
+
+	/// Sort order for the results (name, modified, size, type)
+	#[arg(long, default_value = "name")]
+	pub sort_by: String,
+}

@@ -4,6 +4,7 @@
 //! the data structures that represent paths in Spacedrive's distributed
 //! file system.
 
+use crate::device::get_current_device_id;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;
@@ -19,7 +20,7 @@ use uuid::Uuid;
 ///
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Type)]
 pub enum SdPath {
 	/// A direct pointer to a file at a specific path on a specific device
 	Physical {
@@ -33,6 +34,57 @@ pub enum SdPath {
 		/// The unique content identifier
 		content_id: Uuid,
 	},
+}
+
+impl<'de> Deserialize<'de> for SdPath {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		println!("SDPATH_DESERIALIZE_CALLED");
+		#[derive(Deserialize)]
+		struct SdPathPhysicalHelper {
+			device_id: String,
+			path: String,
+		}
+
+		#[derive(Deserialize)]
+		struct SdPathContentHelper {
+			content_id: String,
+		}
+
+		#[derive(Deserialize)]
+		#[serde(untagged)]
+		enum SdPathHelper {
+			Physical { Physical: SdPathPhysicalHelper },
+			Content { Content: SdPathContentHelper },
+		}
+
+		let helper = SdPathHelper::deserialize(deserializer)?;
+
+		match helper {
+			SdPathHelper::Physical { Physical: physical } => {
+				println!("SDPATH_PHYSICAL_DEVICE_ID: '{}'", physical.device_id);
+				let device_id = if physical.device_id == "local-device" {
+					println!("USING_GLOBAL_DEVICE_ID");
+					// Use the global current device ID for the local Mac device
+					get_current_device_id()
+				} else {
+					println!("PARSING_DEVICE_ID_AS_UUID");
+					Uuid::parse_str(&physical.device_id).map_err(serde::de::Error::custom)?
+				};
+				Ok(SdPath::Physical {
+					device_id,
+					path: PathBuf::from(physical.path),
+				})
+			}
+			SdPathHelper::Content { Content: content } => {
+				let content_id =
+					Uuid::parse_str(&content.content_id).map_err(serde::de::Error::custom)?;
+				Ok(SdPath::Content { content_id })
+			}
+		}
+	}
 }
 
 impl SdPath {

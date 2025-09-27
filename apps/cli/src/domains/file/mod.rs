@@ -2,10 +2,13 @@ mod args;
 
 use anyhow::Result;
 use clap::Subcommand;
+use comfy_table::presets::UTF8_BORDERS_ONLY;
 
+use crate::format_bytes;
 use crate::util::prelude::*;
 
 use crate::context::Context;
+use sd_core::cqrs::LibraryQuery;
 use sd_core::infra::job::types::JobId;
 
 use self::args::*;
@@ -16,6 +19,8 @@ pub enum FileCmd {
 	Copy(FileCopyArgs),
 	/// Get file information
 	Info(FileInfoArgs),
+	/// List directory contents
+	List(FileListArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
@@ -44,6 +49,58 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 					}
 				}
 			});
+		}
+		FileCmd::List(args) => {
+			let sort_by = match args.sort_by.to_lowercase().as_str() {
+				"name" => sd_core::ops::files::query::DirectorySortBy::Name,
+				"modified" => sd_core::ops::files::query::DirectorySortBy::Modified,
+				"size" => sd_core::ops::files::query::DirectorySortBy::Size,
+				"type" => sd_core::ops::files::query::DirectorySortBy::Type,
+				_ => {
+					anyhow::bail!(
+						"Invalid sort option: {}. Valid options are: name, modified, size, type",
+						args.sort_by
+					);
+				}
+			};
+			let directory_listing =
+				list_directory(ctx, &args.path, args.limit, args.include_hidden, sort_by).await?;
+			print_output!(
+				ctx,
+				&directory_listing,
+				|listing: &sd_core::ops::files::query::DirectoryListingOutput| {
+					println!("Directory: {}", args.path.display());
+					println!("Found {} items:", listing.files.len());
+					println!();
+
+					// Create a table to display the results
+					let mut table = comfy_table::Table::new();
+					table.load_preset(UTF8_BORDERS_ONLY);
+					table.set_header(vec!["Name", "Type", "Size", "Modified"]);
+
+					for file in &listing.files {
+						// Determine if this is a directory by checking if size is None
+						// In Spacedrive, directories typically have size = 0 or None
+						let is_directory = file.size == 0;
+						let file_type = if is_directory { "Directory" } else { "File" };
+
+						let size_str = if is_directory {
+							"-".to_string()
+						} else {
+							format_bytes(file.size)
+						};
+
+						table.add_row(vec![
+							file.name.clone(),
+							file_type.to_string(),
+							size_str,
+							file.modified_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+						]);
+					}
+
+					println!("{}", table);
+				}
+			);
 		}
 	}
 	Ok(())
@@ -192,6 +249,36 @@ async fn get_file_info(
 	// Execute the query using the core client
 	let json_response = ctx.core.query(&query, ctx.library_id).await?;
 	let result: Option<sd_core::domain::File> = serde_json::from_value(json_response)?;
+
+	Ok(result)
+}
+
+/// List directory contents using the DirectoryListingQuery
+async fn list_directory(
+	ctx: &Context,
+	path: &std::path::Path,
+	limit: Option<u32>,
+	include_hidden: bool,
+	sort_by: sd_core::ops::files::query::DirectorySortBy,
+) -> Result<sd_core::ops::files::query::DirectoryListingOutput> {
+	use sd_core::domain::addressing::SdPath;
+	use sd_core::ops::files::query::DirectoryListingQuery;
+
+	// Create the SdPath for the directory
+	let sd_path = SdPath::local(path.to_path_buf());
+
+	// Create the query input
+	let input = sd_core::ops::files::query::DirectoryListingInput {
+		path: sd_path,
+		limit,
+		include_hidden: Some(include_hidden),
+		sort_by,
+	};
+
+	// Execute the query using the core client
+	let json_response = ctx.core.query(&input, ctx.library_id).await?;
+	let result: sd_core::ops::files::query::DirectoryListingOutput =
+		serde_json::from_value(json_response)?;
 
 	Ok(result)
 }

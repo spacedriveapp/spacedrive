@@ -50,6 +50,9 @@ public class SpacedriveClient {
     /// Volume operations
     public lazy var volumes = VolumesAPI(client: self)
 
+    /// File operations
+    public lazy var files = FilesAPI(client: self)
+
     // MARK: - Library Management
 
     /// Get the currently active library ID
@@ -546,10 +549,15 @@ internal enum DaemonResponse: Codable {
             let jsonValue = try variantContainer.decode(AnyCodable.self, forKey: .jsonOk)
             self = .jsonOk(jsonValue)
         } else if variantContainer.contains(.error) {
-            // For now, decode error as a string - we can improve this later
-            let errorData = try variantContainer.decode(Data.self, forKey: .error)
-            let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-            self = .error(errorMsg)
+            // Decode error as a structured object
+            let errorObject = try variantContainer.decode(AnyCodable.self, forKey: .error)
+            // Convert the error object to a string representation
+            if let errorData = try? JSONEncoder().encode(errorObject),
+               let errorString = String(data: errorData, encoding: .utf8) {
+                self = .error(errorString)
+            } else {
+                self = .error("Unknown error")
+            }
         } else if variantContainer.contains(.event) {
             let event = try variantContainer.decode(Event.self, forKey: .event)
             self = .event(event)
