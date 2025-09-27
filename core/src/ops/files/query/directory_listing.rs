@@ -140,41 +140,67 @@ impl LibraryQuery for DirectoryListingQuery {
 		let parent_entry = self.find_parent_directory(db.conn()).await?;
 		let parent_id = parent_entry.id;
 
-		// Query for direct children
-		let mut query = entry::Entity::find()
-			.filter(entry::Column::ParentId.eq(parent_id))
-			.join(JoinType::LeftJoin, entry::Relation::UserMetadata.def())
-			.join(JoinType::LeftJoin, entry::Relation::ContentIdentity.def());
+		// Build efficient SQL query to get all data in one go
+		let mut sql_query = r#"
+			SELECT
+				e.id as entry_id,
+				e.uuid as entry_uuid,
+				e.name as entry_name,
+				e.kind as entry_kind,
+				e.extension as entry_extension,
+				e.size as entry_size,
+				e.created_at as entry_created_at,
+				e.modified_at as entry_modified_at,
+				e.accessed_at as entry_accessed_at,
+				e.inode as entry_inode,
+				e.parent_id as entry_parent_id,
+				ci.id as content_identity_id,
+				ci.uuid as content_identity_uuid,
+				ci.content_hash as content_identity_hash,
+				ci.media_data as content_identity_media_data,
+				ci.first_seen_at as content_identity_first_seen_at,
+				ck.id as content_kind_id,
+				ck.name as content_kind_name
+			FROM entries e
+			LEFT JOIN content_identities ci ON e.content_id = ci.id
+			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
+			WHERE e.parent_id = ?1
+		"#
+		.to_string();
 
 		// Apply hidden file filter
 		if !self.input.include_hidden.unwrap_or(false) {
-			// Filter out entries that start with '.' (hidden files)
-			query = query.filter(entry::Column::Name.not_like(".%"));
+			sql_query.push_str(" AND e.name NOT LIKE '.%'");
 		}
 
 		// Apply sorting
-		query = match self.input.sort_by {
-			DirectorySortBy::Name => query.order_by_asc(entry::Column::Name),
-			DirectorySortBy::Modified => query.order_by_desc(entry::Column::ModifiedAt),
-			DirectorySortBy::Size => query.order_by_desc(entry::Column::Size),
+		match self.input.sort_by {
+			DirectorySortBy::Name => sql_query.push_str(" ORDER BY e.name ASC"),
+			DirectorySortBy::Modified => sql_query.push_str(" ORDER BY e.modified_at DESC"),
+			DirectorySortBy::Size => sql_query.push_str(" ORDER BY e.size DESC"),
 			DirectorySortBy::Type => {
-				// Directories first, then files, then sort by name within each type
-				query
-					.order_by_desc(entry::Column::Kind) // Kind 1=Directory, 0=File
-					.order_by_asc(entry::Column::Name)
+				sql_query.push_str(" ORDER BY e.kind DESC, e.name ASC"); // Directories first, then files
 			}
-		};
+		}
 
 		// Apply limit
 		if let Some(limit) = self.input.limit {
-			query = query.limit(limit as u64);
+			sql_query.push_str(&format!(" LIMIT {}", limit));
 		}
 
-		// Execute query
-		let entry_models = query.all(db.conn()).await?;
-		tracing::debug!(" Query executed, found {} entries", entry_models.len());
+		// Execute the query
+		let rows = db
+			.conn()
+			.query_all(sea_orm::Statement::from_sql_and_values(
+				sea_orm::DatabaseBackend::Sqlite,
+				&sql_query,
+				[parent_id.into()],
+			))
+			.await?;
 
-		if entry_models.is_empty() {
+		tracing::debug!(" Query executed, found {} entries", rows.len());
+
+		if rows.is_empty() {
 			tracing::debug!(" Directory is empty");
 			return Ok(DirectoryListingOutput {
 				files: Vec::new(),
@@ -183,66 +209,128 @@ impl LibraryQuery for DirectoryListingQuery {
 			});
 		}
 
-		// Extract entry UUIDs for loading related data
-		let entry_uuids: Vec<Uuid> = entry_models.iter().filter_map(|e| e.uuid).collect();
-
-		// Load all related data efficiently
-		let file_data_map = self.load_files_with_joins(&entry_uuids, db.conn()).await?;
-
 		// Get total count for pagination - use the count from the already fetched entries
-		// This is a simplified approach - in production you'd want a separate count query
-		let total_count = entry_models.len() as u32;
+		let total_count = rows.len() as u32;
 
 		// Convert to File objects
 		let mut files = Vec::new();
-		for entry_model in entry_models {
+		for row in rows {
+			// Extract data from SQL row
+			let entry_id: i32 = row.try_get("", "entry_id").unwrap_or(0);
+			let entry_uuid: Option<Uuid> = row.try_get("", "entry_uuid").ok();
+			let entry_name: String = row.try_get("", "entry_name").unwrap_or_default();
+			let entry_kind: i32 = row.try_get("", "entry_kind").unwrap_or(0);
+			let entry_extension: Option<String> = row.try_get("", "entry_extension").ok();
+			let entry_size: i64 = row.try_get("", "entry_size").unwrap_or(0);
+			let entry_created_at: chrono::DateTime<chrono::Utc> = row
+				.try_get("", "entry_created_at")
+				.unwrap_or_else(|_| chrono::Utc::now());
+			let entry_modified_at: chrono::DateTime<chrono::Utc> = row
+				.try_get("", "entry_modified_at")
+				.unwrap_or_else(|_| chrono::Utc::now());
+			let entry_accessed_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "entry_accessed_at").ok();
+			let entry_inode: Option<i64> = row.try_get("", "entry_inode").ok();
+
+			// Content identity data
+			let content_identity_id: Option<i32> = row.try_get("", "content_identity_id").ok();
+			let content_identity_uuid: Option<Uuid> = row.try_get("", "content_identity_uuid").ok();
+			let content_identity_hash: Option<String> =
+				row.try_get("", "content_identity_hash").ok();
+			let content_identity_media_data: Option<serde_json::Value> =
+				row.try_get("", "content_identity_media_data").ok();
+			let content_identity_first_seen_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "content_identity_first_seen_at").ok();
+
+			// Content kind data
+			let content_kind_id: Option<i32> = row.try_get("", "content_kind_id").ok();
+			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
+
 			// Use entry ID as UUID if uuid is None
-			let entry_uuid = entry_model.uuid.unwrap_or_else(|| {
+			let entry_uuid = entry_uuid.unwrap_or_else(|| {
 				// Generate a UUID from the entry ID for entries without UUIDs
 				Uuid::parse_str(&format!(
 					"{:08x}-0000-0000-0000-{:012x}",
-					entry_model.id, entry_model.id
+					entry_id, entry_id
 				))
 				.unwrap_or_else(|_| Uuid::new_v4())
 			});
 
-			let file_data = file_data_map.get(&entry_uuid).cloned().unwrap_or_else(|| {
-				// Create minimal file data if no related data found
-				let entry = self
-					.convert_to_entry(entry_model.clone())
-					.unwrap_or_else(|_| {
-						// Create a minimal entry if conversion fails
-						crate::domain::Entry {
-							id: entry_uuid,
-							sd_path: crate::domain::entry::SdPathSerialized {
-								device_id: Uuid::new_v4(),
-								path: entry_model.name.clone(),
-							},
-							name: entry_model.name.clone(),
-							kind: crate::domain::entry::EntryKind::File { extension: None },
-							size: Some(entry_model.size as u64),
-							created_at: Some(entry_model.created_at),
-							modified_at: Some(entry_model.modified_at),
-							accessed_at: entry_model.accessed_at,
-							inode: entry_model.inode.map(|i| i as u64),
-							file_id: None,
-							parent_id: None,
-							location_id: None,
-							metadata_id: Uuid::new_v4(),
-							content_id: None,
-							first_seen_at: entry_model.created_at,
-							last_indexed_at: Some(entry_model.created_at),
-						}
-					});
+			// Create domain Entry
+			let entry = crate::domain::Entry {
+				id: entry_uuid,
+				sd_path: crate::domain::entry::SdPathSerialized {
+					device_id: Uuid::new_v4(),
+					path: entry_name.clone(),
+				},
+				name: entry_name.clone(),
+				kind: match entry_kind {
+					0 => crate::domain::entry::EntryKind::File {
+						extension: entry_extension,
+					},
+					1 => crate::domain::entry::EntryKind::Directory,
+					2 => crate::domain::entry::EntryKind::Symlink {
+						target: String::new(),
+					},
+					_ => crate::domain::entry::EntryKind::File {
+						extension: entry_extension,
+					},
+				},
+				size: Some(entry_size as u64),
+				created_at: Some(entry_created_at),
+				modified_at: Some(entry_modified_at),
+				accessed_at: entry_accessed_at,
+				inode: entry_inode.map(|i| i as u64),
+				file_id: None,
+				parent_id: None,
+				location_id: None,
+				metadata_id: Uuid::new_v4(),
+				content_id: None,
+				first_seen_at: entry_created_at,
+				last_indexed_at: Some(entry_created_at),
+			};
 
-				FileConstructionData {
-					entry,
-					content_identity: None,
-					tags: Vec::new(),
-					sidecars: Vec::new(),
-					alternate_paths: Vec::new(),
-				}
-			});
+			// Create content identity if available
+			let content_identity = if let (Some(ci_uuid), Some(ci_hash), Some(ci_first_seen)) = (
+				content_identity_uuid,
+				content_identity_hash,
+				content_identity_first_seen_at,
+			) {
+				// Convert content_kind name to ContentKind enum
+				let kind = content_kind_name
+					.as_ref()
+					.map(|name| crate::domain::ContentKind::from(name.as_str()))
+					.unwrap_or(crate::domain::ContentKind::Unknown);
+
+				Some(crate::domain::ContentIdentity {
+					uuid: ci_uuid,
+					kind,
+					hash: ci_hash,
+					media_data: content_identity_media_data.map(|json| {
+						serde_json::from_value(json).unwrap_or_else(|_| crate::domain::MediaData {
+							width: None,
+							height: None,
+							duration: None,
+							bitrate: None,
+							fps: None,
+							exif: None,
+							extra: serde_json::Value::Null,
+						})
+					}),
+					created_at: ci_first_seen,
+				})
+			} else {
+				None
+			};
+
+			// Create file construction data
+			let file_data = FileConstructionData {
+				entry,
+				content_identity,
+				tags: Vec::new(),            // TODO: Load tags
+				sidecars: Vec::new(),        // TODO: Load sidecars
+				alternate_paths: Vec::new(), // TODO: Load alternate paths
+			};
 
 			let file = File::from_data(file_data);
 			files.push(file);
@@ -322,25 +410,6 @@ impl DirectoryListingQuery {
 	/// Convert database model to Entry domain object using proper From implementation
 	fn convert_to_entry(&self, entry_model: entry::Model) -> Result<crate::domain::Entry> {
 		crate::domain::Entry::try_from((entry_model, self.input.path.clone()))
-	}
-
-	/// Load files with all related data using SQL joins
-	async fn load_files_with_joins(
-		&self,
-		entry_uuids: &[Uuid],
-		db: &DatabaseConnection,
-	) -> Result<HashMap<Uuid, FileConstructionData>> {
-		if entry_uuids.is_empty() {
-			return Ok(HashMap::new());
-		}
-
-		// For now, return empty map - we'll create minimal File objects
-		// In a real implementation, you'd use proper SQL joins to load:
-		// - ContentIdentity data
-		// - Tags
-		// - Sidecars
-		// - Alternate paths
-		Ok(HashMap::new())
 	}
 }
 

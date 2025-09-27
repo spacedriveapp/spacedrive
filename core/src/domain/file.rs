@@ -56,6 +56,7 @@ pub struct File {
 	/// Additional computed fields
 	pub content_kind: ContentKind,
 	pub extension: Option<String>,
+	// pub is_directory: bool, TODO: add this
 	pub is_local: bool,
 }
 
@@ -64,10 +65,10 @@ pub struct File {
 pub struct Sidecar {
 	pub id: i32,
 	pub content_uuid: Uuid,
-		pub kind: String,
-		pub variant: String,
-		pub format: String,
-		pub status: String,
+	pub kind: String,
+	pub variant: String,
+	pub format: String,
+	pub status: String,
 	pub size: i64,
 	pub created_at: DateTime<Utc>,
 	pub updated_at: DateTime<Utc>,

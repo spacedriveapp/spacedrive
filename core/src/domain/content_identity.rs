@@ -59,6 +59,36 @@ impl std::fmt::Display for ContentKind {
 	}
 }
 
+impl From<&str> for ContentKind {
+	fn from(name: &str) -> Self {
+		match name {
+			"image" => ContentKind::Image,
+			"video" => ContentKind::Video,
+			"audio" => ContentKind::Audio,
+			"document" => ContentKind::Document,
+			"archive" => ContentKind::Archive,
+			"code" => ContentKind::Code,
+			"text" => ContentKind::Text,
+			"database" => ContentKind::Database,
+			"book" => ContentKind::Book,
+			"font" => ContentKind::Font,
+			"mesh" => ContentKind::Mesh,
+			"config" => ContentKind::Config,
+			"encrypted" => ContentKind::Encrypted,
+			"key" => ContentKind::Key,
+			"executable" => ContentKind::Executable,
+			"binary" => ContentKind::Binary,
+			_ => ContentKind::Unknown,
+		}
+	}
+}
+
+impl From<String> for ContentKind {
+	fn from(name: String) -> Self {
+		Self::from(name.as_str())
+	}
+}
+
 /// Media-specific metadata
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct MediaData {
