@@ -173,3 +173,70 @@ impl Entry {
 		self.sd_path.to_sdpath()
 	}
 }
+
+/// Conversion from database model to domain Entry
+impl TryFrom<(crate::infra::db::entities::entry::Model, SdPath)> for Entry {
+	type Error = anyhow::Error;
+
+	fn try_from(
+		(entry_model, parent_sd_path): (crate::infra::db::entities::entry::Model, SdPath),
+	) -> Result<Self, Self::Error> {
+		let device_uuid = match &parent_sd_path {
+			SdPath::Physical { device_id, .. } => *device_id,
+			SdPath::Content { .. } => {
+				return Err(anyhow::anyhow!(
+					"Content-addressed paths not supported for directory listing"
+				))
+			}
+		};
+
+		// Construct the full path properly to avoid double slashes
+		// TODO: validation should happen on SdPath imo
+		let full_path = if entry_model.parent_id.is_none() {
+			format!("/{}", entry_model.name)
+		} else {
+			let parent_path = parent_sd_path.display().to_string();
+			if parent_path.ends_with('/') {
+				format!("{}{}", parent_path, entry_model.name)
+			} else {
+				format!("{}/{}", parent_path, entry_model.name)
+			}
+		};
+
+		Ok(Entry {
+			id: entry_model.uuid.unwrap_or_else(|| Uuid::new_v4()),
+			sd_path: SdPathSerialized {
+				device_id: device_uuid,
+				path: full_path,
+			},
+			name: entry_model.name,
+			kind: match entry_model.kind {
+				0 => EntryKind::File {
+					extension: entry_model.extension,
+				},
+				1 => EntryKind::Directory,
+				2 => EntryKind::Symlink {
+					target: "".to_string(), // TODO: Get from database
+				},
+				_ => EntryKind::File {
+					extension: entry_model.extension,
+				},
+			},
+			size: Some(entry_model.size as u64),
+			created_at: Some(entry_model.created_at),
+			modified_at: Some(entry_model.modified_at),
+			accessed_at: entry_model.accessed_at,
+			inode: entry_model.inode.map(|i| i as u64),
+			file_id: None,
+			parent_id: entry_model.parent_id.map(|_| Uuid::new_v4()), // TODO: Proper UUID conversion
+			location_id: None,
+			metadata_id: entry_model
+				.metadata_id
+				.map(|_| Uuid::new_v4())
+				.unwrap_or_else(Uuid::new_v4),
+			content_id: entry_model.content_id.map(|_| Uuid::new_v4()), // TODO: Proper UUID conversion
+			first_seen_at: entry_model.created_at,
+			last_indexed_at: Some(entry_model.created_at),
+		})
+	}
+}

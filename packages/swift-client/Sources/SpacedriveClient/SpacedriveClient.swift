@@ -386,25 +386,66 @@ public class SpacedriveClient {
     private func readResponseFromConnection(_ connection: Int32, method: String? = nil) async throws -> DaemonResponse {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
-                var buffer = [UInt8](repeating: 0, count: 4096)
-                let readResult = recv(connection, &buffer, buffer.count, 0)
+                print("🔍 Starting to read response from connection...")
 
-                guard readResult > 0 else {
-                    let errorMsg = String(cString: strerror(errno))
-                    continuation.resume(throwing: SpacedriveError.connectionFailed("Receive failed: \(errorMsg)"))
-                    return
+                var allData = Data()
+                let bufferSize = 65536
+                var buffer = [UInt8](repeating: 0, count: bufferSize)
+                var totalBytesRead = 0
+
+                // Keep reading until we get a complete line (ending with newline)
+                while true {
+                    let readResult = recv(connection, &buffer, buffer.count, 0)
+                    print("🔍 Socket read result: \(readResult) bytes")
+
+                    guard readResult > 0 else {
+                        let errorMsg = String(cString: strerror(errno))
+                        print("❌ Socket read failed: \(errorMsg)")
+                        continuation.resume(throwing: SpacedriveError.connectionFailed("Receive failed: \(errorMsg)"))
+                        return
+                    }
+
+                    allData.append(Data(buffer.prefix(readResult)))
+                    totalBytesRead += readResult
+                    print("🔍 Total bytes read so far: \(totalBytesRead)")
+
+                    // Check if we have a complete line (ending with newline)
+                    if let responseString = String(data: allData, encoding: .utf8) {
+                        if responseString.contains("\n") {
+                            print("🔍 Found newline, stopping read")
+                            break
+                        }
+                    }
+
+                    // Safety check to prevent infinite loop
+                    if totalBytesRead > 10 * 1024 * 1024 { // 10MB limit
+                        print("❌ Response too large, stopping read")
+                        continuation.resume(throwing: SpacedriveError.invalidResponse("Response too large"))
+                        return
+                    }
                 }
 
-                let responseData = Data(buffer.prefix(readResult))
-
+                print("🔍 Final total bytes: \(allData.count)")
 
                 do {
                     // Find the newline delimiter and parse JSON
-                    if let responseString = String(data: responseData, encoding: .utf8) {
+                    if let responseString = String(data: allData, encoding: .utf8) {
+                        print("🔍 Response string length: \(responseString.count) characters")
+                        print("🔍 First 200 chars: \(String(responseString.prefix(200)))")
+
                         let lines = responseString.components(separatedBy: .newlines).filter { !$0.isEmpty }
+                        print("🔍 Found \(lines.count) lines in response")
+
                         if let firstLine = lines.first {
+                            print("🔍 First line length: \(firstLine.count) characters")
+                            print("🔍 First line preview: \(String(firstLine.prefix(100)))...")
+
                             let lineData = Data(firstLine.utf8)
+                            print("🔍 Attempting to decode JSON from \(lineData.count) bytes...")
+
                             let response = try JSONDecoder().decode(DaemonResponse.self, from: lineData)
+                            print("✅ Successfully decoded response")
+
                             if let method = method {
                                 print("Daemon response for \(method): \(response)")
                             } else {
@@ -412,12 +453,16 @@ public class SpacedriveClient {
                             }
                             continuation.resume(returning: response)
                         } else {
+                            print("❌ No valid response line found")
                             continuation.resume(throwing: SpacedriveError.invalidResponse("No valid response line"))
                         }
                     } else {
+                        print("❌ Invalid UTF-8 response")
                         continuation.resume(throwing: SpacedriveError.invalidResponse("Invalid UTF-8 response"))
                     }
                 } catch {
+                    print("❌ JSON decoding failed: \(error)")
+                    print("❌ Error details: \(error.localizedDescription)")
                     continuation.resume(throwing: SpacedriveError.serializationError("Failed to decode response: \(error)"))
                 }
             }

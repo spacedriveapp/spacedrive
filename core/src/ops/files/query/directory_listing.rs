@@ -105,7 +105,6 @@ impl LibraryQuery for DirectoryListingQuery {
 	type Output = DirectoryListingOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self> {
-		println!("DIRECTORY_LISTING_FROM_INPUT_CALLED");
 		tracing::info!(
 			"DirectoryListingQuery::from_input called with input: {:?}",
 			input
@@ -118,7 +117,6 @@ impl LibraryQuery for DirectoryListingQuery {
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
 	) -> Result<Self::Output> {
-		println!("DIRECTORY_LISTING_QUERY_EXECUTE_CALLED");
 		tracing::info!(
 			"DirectoryListingQuery::execute called with path: {:?}",
 			self.input.path
@@ -135,19 +133,14 @@ impl LibraryQuery for DirectoryListingQuery {
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
-		tracing::info!("Library found: {}", library.name().await);
 
 		let db = library.db();
-		tracing::debug!("Database connection obtained");
 
 		// First, find the parent directory entry
-		tracing::debug!("Finding parent directory entry...");
 		let parent_entry = self.find_parent_directory(db.conn()).await?;
 		let parent_id = parent_entry.id;
-		tracing::debug!("Parent directory found with ID: {}", parent_id);
 
 		// Query for direct children
-		tracing::debug!("Querying for direct children of parent ID: {}", parent_id);
 		let mut query = entry::Entity::find()
 			.filter(entry::Column::ParentId.eq(parent_id))
 			.join(JoinType::LeftJoin, entry::Relation::UserMetadata.def())
@@ -178,7 +171,6 @@ impl LibraryQuery for DirectoryListingQuery {
 		}
 
 		// Execute query
-		tracing::debug!(" Executing final query...");
 		let entry_models = query.all(db.conn()).await?;
 		tracing::debug!(" Query executed, found {} entries", entry_models.len());
 
@@ -204,48 +196,56 @@ impl LibraryQuery for DirectoryListingQuery {
 		// Convert to File objects
 		let mut files = Vec::new();
 		for entry_model in entry_models {
-			if let Some(entry_uuid) = entry_model.uuid {
-				let file_data = file_data_map.get(&entry_uuid).cloned().unwrap_or_else(|| {
-					// Create minimal file data if no related data found
-					let entry = self
-						.convert_to_entry(entry_model.clone())
-						.unwrap_or_else(|_| {
-							// Create a minimal entry if conversion fails
-							crate::domain::Entry {
-								id: entry_uuid,
-								sd_path: crate::domain::entry::SdPathSerialized {
-									device_id: Uuid::new_v4(),
-									path: entry_model.name.clone(),
-								},
-								name: entry_model.name.clone(),
-								kind: crate::domain::entry::EntryKind::File { extension: None },
-								size: Some(entry_model.size as u64),
-								created_at: Some(entry_model.created_at),
-								modified_at: Some(entry_model.modified_at),
-								accessed_at: entry_model.accessed_at,
-								inode: entry_model.inode.map(|i| i as u64),
-								file_id: None,
-								parent_id: None,
-								location_id: None,
-								metadata_id: Uuid::new_v4(),
-								content_id: None,
-								first_seen_at: entry_model.created_at,
-								last_indexed_at: Some(entry_model.created_at),
-							}
-						});
+			// Use entry ID as UUID if uuid is None
+			let entry_uuid = entry_model.uuid.unwrap_or_else(|| {
+				// Generate a UUID from the entry ID for entries without UUIDs
+				Uuid::parse_str(&format!(
+					"{:08x}-0000-0000-0000-{:012x}",
+					entry_model.id, entry_model.id
+				))
+				.unwrap_or_else(|_| Uuid::new_v4())
+			});
 
-					FileConstructionData {
-						entry,
-						content_identity: None,
-						tags: Vec::new(),
-						sidecars: Vec::new(),
-						alternate_paths: Vec::new(),
-					}
-				});
+			let file_data = file_data_map.get(&entry_uuid).cloned().unwrap_or_else(|| {
+				// Create minimal file data if no related data found
+				let entry = self
+					.convert_to_entry(entry_model.clone())
+					.unwrap_or_else(|_| {
+						// Create a minimal entry if conversion fails
+						crate::domain::Entry {
+							id: entry_uuid,
+							sd_path: crate::domain::entry::SdPathSerialized {
+								device_id: Uuid::new_v4(),
+								path: entry_model.name.clone(),
+							},
+							name: entry_model.name.clone(),
+							kind: crate::domain::entry::EntryKind::File { extension: None },
+							size: Some(entry_model.size as u64),
+							created_at: Some(entry_model.created_at),
+							modified_at: Some(entry_model.modified_at),
+							accessed_at: entry_model.accessed_at,
+							inode: entry_model.inode.map(|i| i as u64),
+							file_id: None,
+							parent_id: None,
+							location_id: None,
+							metadata_id: Uuid::new_v4(),
+							content_id: None,
+							first_seen_at: entry_model.created_at,
+							last_indexed_at: Some(entry_model.created_at),
+						}
+					});
 
-				let file = File::from_data(file_data);
-				files.push(file);
-			}
+				FileConstructionData {
+					entry,
+					content_identity: None,
+					tags: Vec::new(),
+					sidecars: Vec::new(),
+					alternate_paths: Vec::new(),
+				}
+			});
+
+			let file = File::from_data(file_data);
+			files.push(file);
 		}
 
 		let has_more = if let Some(limit) = self.input.limit {
@@ -319,65 +319,9 @@ impl DirectoryListingQuery {
 		}
 	}
 
-	/// Convert database model to Entry domain object
+	/// Convert database model to Entry domain object using proper From implementation
 	fn convert_to_entry(&self, entry_model: entry::Model) -> Result<crate::domain::Entry> {
-		// Get device UUID from the SdPath
-		let device_uuid = match &self.input.path {
-			SdPath::Physical { device_id, .. } => *device_id,
-			SdPath::Content { .. } => Uuid::new_v4(), // Fallback
-		};
-
-		// Construct the full path
-		let full_path = if entry_model.parent_id.is_none() {
-			format!("/{}", entry_model.name)
-		} else {
-			// For now, use a simplified path construction
-			// In a real implementation, you'd join with directory_paths
-			format!("/{}/{}", self.input.path.display(), entry_model.name)
-		};
-
-		// Convert to Entry domain object
-		let entry = crate::domain::Entry {
-			id: entry_model.uuid.unwrap_or_else(|| Uuid::new_v4()),
-			sd_path: crate::domain::entry::SdPathSerialized {
-				device_id: device_uuid,
-				path: full_path,
-			},
-			name: entry_model.name,
-			kind: match entry_model.kind {
-				0 => crate::domain::entry::EntryKind::File {
-					extension: entry_model.extension,
-				},
-				1 => crate::domain::entry::EntryKind::Directory,
-				2 => crate::domain::entry::EntryKind::Symlink {
-					target: "".to_string(), // TODO: Get from database
-				},
-				_ => crate::domain::entry::EntryKind::File {
-					extension: entry_model.extension,
-				},
-			},
-			size: Some(entry_model.size as u64),
-			created_at: Some(entry_model.created_at),
-			modified_at: Some(entry_model.modified_at),
-			accessed_at: entry_model.accessed_at,
-			inode: entry_model.inode.map(|i| i as u64),
-			file_id: None,
-			parent_id: entry_model.parent_id.and_then(|id| {
-				// Convert parent_id to UUID - this is a simplified approach
-				// In practice, you'd need to look up the parent's UUID
-				Some(Uuid::new_v4())
-			}),
-			location_id: None,           // TODO: Get from location table
-			metadata_id: Uuid::new_v4(), // TODO: Get from user_metadata table
-			content_id: entry_model.content_id.and_then(|id| {
-				// Convert content_id to UUID - this is a simplified approach
-				Some(Uuid::new_v4())
-			}),
-			first_seen_at: entry_model.created_at,
-			last_indexed_at: Some(entry_model.created_at),
-		};
-
-		Ok(entry)
+		crate::domain::Entry::try_from((entry_model, self.input.path.clone()))
 	}
 
 	/// Load files with all related data using SQL joins

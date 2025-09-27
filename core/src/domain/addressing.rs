@@ -41,7 +41,6 @@ impl<'de> Deserialize<'de> for SdPath {
 	where
 		D: serde::Deserializer<'de>,
 	{
-		println!("SDPATH_DESERIALIZE_CALLED");
 		#[derive(Deserialize)]
 		struct SdPathPhysicalHelper {
 			device_id: String,
@@ -64,13 +63,11 @@ impl<'de> Deserialize<'de> for SdPath {
 
 		match helper {
 			SdPathHelper::Physical { Physical: physical } => {
-				println!("SDPATH_PHYSICAL_DEVICE_ID: '{}'", physical.device_id);
+				// Useful helper for clients to avoid passing the device id if it's the local device
 				let device_id = if physical.device_id == "local-device" {
-					println!("USING_GLOBAL_DEVICE_ID");
 					// Use the global current device ID for the local Mac device
 					get_current_device_id()
 				} else {
-					println!("PARSING_DEVICE_ID_AS_UUID");
 					Uuid::parse_str(&physical.device_id).map_err(serde::de::Error::custom)?
 				};
 				Ok(SdPath::Physical {
