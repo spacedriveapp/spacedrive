@@ -9,7 +9,7 @@ use crate::service::network::{
 	device::{DeviceInfo, SessionKeys},
 	NetworkingError, Result,
 };
-use iroh::net::key::NodeId;
+use iroh::NodeId;
 use uuid::Uuid;
 
 impl PairingProtocolHandler {

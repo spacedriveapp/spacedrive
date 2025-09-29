@@ -1,7 +1,7 @@
 //! Protocol registry for managing protocol handlers
 
 use super::{ProtocolEvent, ProtocolHandler};
-use iroh::net::key::NodeId;
+use iroh::NodeId;
 use crate::service::network::{NetworkingError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;

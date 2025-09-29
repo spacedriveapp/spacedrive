@@ -3,7 +3,7 @@
 use super::{DeviceInfo, SessionKeys};
 use crate::service::network::{NetworkingError, Result};
 use chrono::{DateTime, Utc};
-use iroh::net::key::NodeId;
+use iroh::NodeId;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;

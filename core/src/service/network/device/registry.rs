@@ -4,8 +4,7 @@ use super::{DeviceConnection, DeviceInfo, DeviceState, DevicePersistence, Persis
 use crate::device::DeviceManager;
 use crate::service::network::{NetworkingError, Result, utils::logging::NetworkLogger};
 use chrono::{DateTime, Utc};
-use iroh::net::NodeAddr;
-use iroh::net::key::NodeId;
+use iroh::{NodeAddr, NodeId};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;

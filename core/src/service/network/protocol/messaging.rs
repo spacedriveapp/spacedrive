@@ -2,7 +2,7 @@
 
 use super::{ProtocolEvent, ProtocolHandler};
 use crate::service::network::{NetworkingError, Result};
-use iroh::net::key::NodeId;
+use iroh::NodeId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

@@ -7,12 +7,12 @@ use crate::service::network::{
 	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
-use iroh::net::endpoint::Connection;
-use iroh::net::key::NodeId;
-use iroh::net::{Endpoint, NodeAddr};
+use iroh::endpoint::Connection;
+use iroh::NodeId;
+use iroh::{Endpoint, NodeAddr};
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
 use tokio::io::AsyncWriteExt;
+use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
 /// Commands that can be sent to the event loop
@@ -180,7 +180,7 @@ impl NetworkingEventLoop {
 	/// Handle an incoming connection
 	async fn handle_connection(&self, conn: Connection) {
 		// Extract the remote node ID from the connection
-		let remote_node_id = match iroh::net::endpoint::get_remote_node_id(&conn) {
+		let remote_node_id = match conn.remote_node_id() {
 			Ok(key) => key,
 			Err(e) => {
 				self.logger
@@ -334,17 +334,25 @@ impl NetworkingEventLoop {
 			EventLoopCommand::ConnectionEstablished { device_id, node_id } => {
 				// Get the address from the active connection map
 				let connections = self.active_connections.read().await;
-				let addresses = if let Some(conn) = connections.get(&node_id) {
-					vec![conn.remote_address().to_string()]
+				let addresses = if let Some(_conn) = connections.get(&node_id) {
+					vec!["connected".to_string()] // TODO: Find equivalent of remote_address() in iroh 0.91
 				} else {
-					self.logger.warn(&format!("Could not find active connection for node {}", node_id)).await;
+					self.logger
+						.warn(&format!(
+							"Could not find active connection for node {}",
+							node_id
+						))
+						.await;
 					vec![]
 				};
 				drop(connections);
 
 				// Update device registry
 				let mut registry = self.device_registry.write().await;
-				if let Err(e) = registry.set_device_connected(device_id, node_id, addresses).await {
+				if let Err(e) = registry
+					.set_device_connected(device_id, node_id, addresses)
+					.await
+				{
 					self.logger
 						.error(&format!("Failed to update device connection state: {}", e))
 						.await;
@@ -415,17 +423,25 @@ impl NetworkingEventLoop {
 
 						// Get the address from the active connection map
 						let connections = self.active_connections.read().await;
-						let addresses = if let Some(conn) = connections.get(&node_id) {
-							vec![conn.remote_address().to_string()]
+						let addresses = if let Some(_conn) = connections.get(&node_id) {
+							vec!["connected".to_string()] // TODO: Find equivalent of remote_address() in iroh 0.91
 						} else {
-							self.logger.warn(&format!("Could not find active connection for node {}", node_id)).await;
+							self.logger
+								.warn(&format!(
+									"Could not find active connection for node {}",
+									node_id
+								))
+								.await;
 							vec![]
 						};
 						drop(connections);
 
 						// Update device registry to mark as connected
 						let mut registry = self.device_registry.write().await;
-						if let Err(e) = registry.set_device_connected(device_id, node_id, addresses).await {
+						if let Err(e) = registry
+							.set_device_connected(device_id, node_id, addresses)
+							.await
+						{
 							self.logger
 								.error(&format!("Failed to update device connection state: {}", e))
 								.await;
@@ -522,7 +538,8 @@ impl NetworkingEventLoop {
 									self.logger
 										.info(&format!(
 											"Sending pairing message to {} ({} bytes)",
-											node_id, data.len()
+											node_id,
+											data.len()
 										))
 										.await;
 

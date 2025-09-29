@@ -21,11 +21,15 @@ impl CoreQuery for NetworkStatusQuery {
 		Ok(Self)
 	}
 
-	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
 		let networking = context.get_networking().await;
 		if let Some(net) = networking {
 			let node_id = net.node_id().to_string();
-			let addresses = if let Ok(addr) = net.get_node_addr().await {
+			let addresses = if let Ok(Some(addr)) = net.get_node_addr() {
 				addr.direct_addresses()
 					.map(|a| a.to_string())
 					.collect::<Vec<_>>()

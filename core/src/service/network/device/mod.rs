@@ -5,8 +5,7 @@ pub mod persistence;
 pub mod registry;
 
 use chrono::{DateTime, Utc};
-use iroh::net::NodeAddr;
-use iroh::net::key::NodeId;
+use iroh::{NodeAddr, NodeId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;

@@ -9,11 +9,9 @@ use crate::service::network::{
 	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
-use iroh::net::endpoint::Connection;
-use iroh::net::key::NodeId;
-use iroh::net::{Endpoint, NodeAddr};
-use iroh_net::discovery::local_swarm_discovery::LocalSwarmDiscovery;
-use iroh_net::discovery::{ConcurrentDiscovery, Discovery};
+use iroh::discovery::{mdns::MdnsDiscovery, Discovery};
+use iroh::endpoint::Connection;
+use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, Watcher};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
@@ -163,16 +161,11 @@ impl NetworkingService {
 		// Create Iroh endpoint with discovery and relay configuration
 		let secret_key = self.identity.to_iroh_secret_key()?;
 
-		// Create discovery service - using local swarm discovery for now
-		let discovery = LocalSwarmDiscovery::new(self.node_id).map_err(|e| {
-			NetworkingError::Transport(format!("Failed to create discovery: {}", e))
-		})?;
+		// Create discovery service - using mDNS discovery
+		let discovery = MdnsDiscovery::builder();
 
 		self.logger
-			.info(&format!(
-				"Created LocalSwarmDiscovery for node {}",
-				self.node_id
-			))
+			.info(&format!("Created MdnsDiscovery for node {}", self.node_id))
 			.await;
 
 		// Create endpoint with discovery
@@ -183,8 +176,8 @@ impl NetworkingService {
 				FILE_TRANSFER_ALPN.to_vec(),
 				MESSAGING_ALPN.to_vec(),
 			])
-			.relay_mode(iroh_net::relay::RelayMode::Default)
-			.discovery(Box::new(discovery))
+			.relay_mode(iroh::RelayMode::Default)
+			.add_discovery(discovery)
 			.bind_addr_v4(std::net::SocketAddrV4::new(
 				std::net::Ipv4Addr::UNSPECIFIED,
 				0,
@@ -270,10 +263,7 @@ impl NetworkingService {
 	/// Start background reconnection attempts for paired devices
 	async fn start_background_reconnection(
 		&self,
-		auto_reconnect_devices: Vec<(
-			Uuid,
-			crate::service::network::device::PersistedPairedDevice,
-		)>,
+		auto_reconnect_devices: Vec<(Uuid, crate::service::network::device::PersistedPairedDevice)>,
 	) {
 		for (device_id, persisted_device) in auto_reconnect_devices {
 			let command_sender = self.command_sender.clone();
@@ -347,10 +337,7 @@ impl NetworkingService {
 					match endpoint.connect(node_addr.clone(), MESSAGING_ALPN).await {
 						Ok(_conn) => {
 							logger
-								.info(&format!(
-									"Successfully connected to device {}",
-									device_id
-								))
+								.info(&format!("Successfully connected to device {}", device_id))
 								.await;
 
 							// Send connection established command
@@ -417,14 +404,15 @@ impl NetworkingService {
 						}
 
 						// Check if device is currently disconnected in registry
-						let is_disconnected = {
-							let registry = device_registry.read().await;
-							if let Some(device_state) = registry.get_device_state(device_id) {
-								matches!(device_state, crate::service::network::device::DeviceState::Disconnected { .. })
-							} else {
-								true // Not in registry, try to reconnect
-							}
-						};
+						let is_disconnected =
+							{
+								let registry = device_registry.read().await;
+								if let Some(device_state) = registry.get_device_state(device_id) {
+									matches!(device_state, crate::service::network::device::DeviceState::Disconnected { .. })
+								} else {
+									true // Not in registry, try to reconnect
+								}
+							};
 
 						if is_disconnected {
 							logger
@@ -609,12 +597,9 @@ impl NetworkingService {
 	}
 
 	/// Get our node address for advertising
-	pub async fn get_node_addr(&self) -> Result<NodeAddr> {
+	pub fn get_node_addr(&self) -> Result<Option<NodeAddr>> {
 		if let Some(endpoint) = &self.endpoint {
-			endpoint
-				.node_addr()
-				.await
-				.map_err(|e| NetworkingError::Protocol(format!("Failed to get node addr: {}", e)))
+			Ok(endpoint.node_addr().get())
 		} else {
 			Err(NetworkingError::ConnectionFailed(
 				"Networking not started".to_string(),
@@ -646,9 +631,7 @@ impl NetworkingService {
 		// Generate session ID
 		let session_id = uuid::Uuid::new_v4();
 		let pairing_code =
-			crate::service::network::protocol::pairing::PairingCode::from_session_id(
-				session_id,
-			);
+			crate::service::network::protocol::pairing::PairingCode::from_session_id(session_id);
 
 		// Start pairing session
 		pairing_handler
@@ -665,38 +648,48 @@ impl NetworkingService {
 		}
 
 		// Get our node address for advertising
-		let mut node_addr = self.get_node_addr().await?;
+		let mut node_addr = self.get_node_addr()?;
 
-		// If we don't have any direct addresses yet, wait a bit for the endpoint to discover them
-		if node_addr.direct_addresses().count() == 0 {
-			self.logger
-				.info("No direct addresses discovered yet, waiting for endpoint to discover addresses...")
-				.await;
-
-			// Wait up to 5 seconds for addresses to be discovered
-			let mut attempts = 0;
-			const MAX_ATTEMPTS: u32 = 10;
-			const WAIT_TIME_MS: u64 = 500;
-
-			while attempts < MAX_ATTEMPTS {
-				tokio::time::sleep(tokio::time::Duration::from_millis(WAIT_TIME_MS)).await;
-				node_addr = self.get_node_addr().await?;
-
-				if node_addr.direct_addresses().count() > 0 {
-					self.logger
-						.info(&format!("Discovered {} direct addresses", node_addr.direct_addresses().count()))
-						.await;
-					break;
-				}
-
-				attempts += 1;
-			}
-
-			if node_addr.direct_addresses().count() == 0 {
+		// If we don't have any direct addresses yet, wait a bit for them to be discovered
+		if let Some(addr) = &node_addr {
+			if addr.direct_addresses().count() == 0 {
 				self.logger
-					.warn("No direct addresses discovered after waiting, proceeding with relay-only address")
+					.info("No direct addresses discovered yet, waiting for endpoint to discover addresses...")
 					.await;
+
+				// Wait up to 5 seconds for addresses to be discovered
+				let mut attempts = 0;
+				const MAX_ATTEMPTS: u32 = 10;
+				const WAIT_TIME_MS: u64 = 500;
+
+				while attempts < MAX_ATTEMPTS {
+					tokio::time::sleep(tokio::time::Duration::from_millis(WAIT_TIME_MS)).await;
+					node_addr = self.get_node_addr()?;
+
+					if let Some(addr) = &node_addr {
+						if addr.direct_addresses().count() > 0 {
+							self.logger
+								.info(&format!(
+									"Discovered {} direct addresses",
+									addr.direct_addresses().count()
+								))
+								.await;
+							break;
+						}
+					}
+
+					attempts += 1;
+				}
 			}
+		}
+
+		if node_addr
+			.as_ref()
+			.map_or(true, |addr| addr.direct_addresses().count() == 0)
+		{
+			self.logger
+				.warn("No direct addresses discovered after waiting, proceeding with relay-only address")
+				.await;
 		}
 
 		self.logger
@@ -705,21 +698,34 @@ impl NetworkingService {
 		self.logger
 			.info(&format!(
 				"Direct addresses: {:?}",
-				node_addr.direct_addresses().collect::<Vec<_>>()
+				node_addr
+					.as_ref()
+					.map(|addr| addr.direct_addresses().collect::<Vec<_>>())
+					.unwrap_or_default()
 			))
 			.await;
 		self.logger
-			.info(&format!("Relay URL: {:?}", node_addr.relay_url()))
+			.info(&format!(
+				"Relay URL: {:?}",
+				node_addr.as_ref().and_then(|addr| addr.relay_url())
+			))
 			.await;
 
 		// Create pairing advertisement
 		let node_addr_info = crate::service::network::protocol::pairing::types::NodeAddrInfo {
 			node_id: self.node_id().to_string(),
 			direct_addresses: node_addr
-				.direct_addresses()
-				.map(|addr| addr.to_string())
-				.collect(),
-			relay_url: node_addr.relay_url().map(|u| u.to_string()),
+				.as_ref()
+				.map(|addr| {
+					addr.direct_addresses()
+						.map(|a| a.to_string())
+						.collect::<Vec<_>>()
+				})
+				.unwrap_or_default(),
+			relay_url: node_addr
+				.as_ref()
+				.and_then(|addr| addr.relay_url())
+				.map(|u| u.to_string()),
 		};
 
 		let advertisement = crate::service::network::protocol::pairing::PairingAdvertisement {
@@ -888,9 +894,7 @@ impl NetworkingService {
 				// We need to try connecting to all discovered nodes since we don't know which one is the initiator
 
 				// Get our own node address to broadcast it
-				let our_node_addr = endpoint.node_addr().await.map_err(|e| {
-					NetworkingError::Protocol(format!("Failed to get our node addr: {}", e))
-				})?;
+				let our_node_addr = endpoint.node_addr().get();
 
 				self.logger
 					.info(&format!(
@@ -1014,9 +1018,7 @@ impl NetworkingService {
 	}
 
 	/// Get current pairing status
-	pub async fn get_pairing_status(
-		&self,
-	) -> Result<Vec<crate::service::network::PairingSession>> {
+	pub async fn get_pairing_status(&self) -> Result<Vec<crate::service::network::PairingSession>> {
 		// Get pairing handler from protocol registry
 		let registry = self.protocol_registry();
 		let pairing_handler =
@@ -1029,11 +1031,10 @@ impl NetworkingService {
 				))?;
 
 		// Downcast to concrete pairing handler type to access sessions
-		if let Some(pairing_handler) =
-			pairing_handler
-				.as_any()
-				.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>()
-		{
+		if let Some(pairing_handler) = pairing_handler
+			.as_any()
+			.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>(
+		) {
 			let sessions = pairing_handler.get_active_sessions().await;
 			Ok(sessions)
 		} else {
@@ -1054,11 +1055,10 @@ impl NetworkingService {
 			let registry = self.protocol_registry();
 			let registry_guard = registry.read().await;
 			if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
-				if let Some(handler) =
-					pairing_handler
-						.as_any()
-						.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>(
-					) {
+				if let Some(handler) = pairing_handler
+					.as_any()
+					.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>(
+				) {
 					let sessions = handler.get_active_sessions().await;
 					if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
 						if !matches!(
@@ -1083,8 +1083,7 @@ impl NetworkingService {
 							crate::service::network::device::DeviceInfo {
 								device_id: self.device_id(),
 								device_name: "Joiner's Test Device".to_string(),
-								device_type:
-									crate::service::network::device::DeviceType::Desktop,
+								device_type: crate::service::network::device::DeviceType::Desktop,
 								os_version: std::env::consts::OS.to_string(),
 								app_version: env!("CARGO_PKG_VERSION").to_string(),
 								network_fingerprint: self.identity().network_fingerprint(),

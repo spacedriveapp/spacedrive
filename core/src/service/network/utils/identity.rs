@@ -1,7 +1,7 @@
 //! Network identity management - node ID and key generation
 
 use crate::service::network::{NetworkingError, Result};
-use iroh::net::key::{NodeId, SecretKey};
+use iroh::{NodeId, SecretKey};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -17,7 +17,7 @@ pub struct NetworkIdentity {
 impl NetworkIdentity {
 	/// Create a new random network identity
 	pub async fn new() -> Result<Self> {
-		let secret_key = SecretKey::generate();
+		let secret_key = SecretKey::generate(&mut rand::thread_rng());
 		let node_id = secret_key.public();
 
 		// Generate Ed25519 seed for backward compatibility
@@ -39,7 +39,9 @@ impl NetworkIdentity {
 		let hk = Hkdf::<Sha256>::new(None, device_key);
 		let mut ed25519_seed = [0u8; 32];
 		hk.expand(b"spacedrive-network-identity", &mut ed25519_seed)
-			.map_err(|e| NetworkingError::Protocol(format!("Failed to derive network key: {}", e)))?;
+			.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to derive network key: {}", e))
+			})?;
 
 		// Create Iroh secret key from the same seed
 		let secret_key = SecretKey::from_bytes(&ed25519_seed);
@@ -85,7 +87,7 @@ impl NetworkIdentity {
 	/// Verify signature with this identity's public key
 	pub fn verify(&self, data: &[u8], signature: &[u8]) -> bool {
 		// Use Ed25519 verification for backward compatibility
-		use ed25519_dalek::{Signature, Verifier, VerifyingKey, SigningKey};
+		use ed25519_dalek::{Signature, SigningKey, Verifier, VerifyingKey};
 
 		let signing_key = SigningKey::from_bytes(&self.ed25519_seed);
 		let verifying_key = signing_key.verifying_key();

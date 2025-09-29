@@ -98,8 +98,10 @@ tokio-rustls = "0.26"
 webp         = "0.3"
 
 # Networking
-# Iroh P2P networking with iOS support
-iroh = { git = "https://github.com/n0-computer/iroh", rev = "e0c5091008d42f4c577f72b1085dfb26c28bd56f" }
+# Iroh P2P networking with iOS support (using Oscar's patches)
+iroh = { git = "https://github.com/n0-computer/iroh", rev = "e0c5091008d42f4c577f72b1085dfb26c28bd56f", features = [
+	"discovery-local-network"
+] }
 
 # Serialization for protocols
 serde_cbor = "0.11"

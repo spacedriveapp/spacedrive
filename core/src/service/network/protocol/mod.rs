@@ -7,7 +7,7 @@ pub mod registry;
 
 use crate::service::network::{NetworkingError, Result};
 use async_trait::async_trait;
-use iroh::net::key::NodeId;
+use iroh::NodeId;
 use std::collections::HashMap;
 use uuid::Uuid;
 
