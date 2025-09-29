@@ -1,17 +1,18 @@
 #!/bin/bash
 
-# Build script for Spacedrive iOS Core XCFramework
-# This script builds the Rust core as an XCFramework for iOS
+# The DEFINITIVE iOS build script for Spacedrive
+# Builds the v2 Core as an XCFramework for iOS development and distribution
+# Replaces all other iOS build scripts
 
 set -e
 
-echo "🔨 Building Spacedrive Core XCFramework for iOS..."
+echo "🔨 Building Spacedrive v2 Core XCFramework for iOS..."
 
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IOS_CORE_DIR="$PROJECT_ROOT/apps/ios/sd-ios-core"
-TARGET_DIR="$PROJECT_ROOT/apps/ios"
-FRAMEWORK_NAME="SDIOSCore"
+TARGET_DIR="$PROJECT_ROOT/apps/ios/sd-ios-core"
+FRAMEWORK_NAME="sd_ios_core"
 
 # Create build directory
 BUILD_DIR="$TARGET_DIR/build"
@@ -113,26 +114,20 @@ cat > "$SIM_FRAMEWORK_DIR/Info.plist" << EOF
 </plist>
 EOF
 
-# Create XCFramework
+# Update existing XCFramework (which Xcode is already using)
 XCFRAMEWORK_PATH="$TARGET_DIR/${FRAMEWORK_NAME}.xcframework"
-rm -rf "$XCFRAMEWORK_PATH"
 
-xcodebuild -create-xcframework \
-    -framework "$DEVICE_FRAMEWORK_DIR" \
-    -framework "$SIM_FRAMEWORK_DIR" \
-    -output "$XCFRAMEWORK_PATH"
+# Update device framework
+cp "$DEVICE_FRAMEWORK_DIR/$FRAMEWORK_NAME" "$XCFRAMEWORK_PATH/ios-arm64/libsd_ios_core.a"
+
+# Update simulator framework
+cp "$SIM_FRAMEWORK_DIR/$FRAMEWORK_NAME" "$XCFRAMEWORK_PATH/ios-arm64-simulator/libsd_ios_core.a"
 
 # Clean up build directory
 rm -rf "$BUILD_DIR"
 
-echo "✅ XCFramework created successfully!"
+echo "✅ XCFramework updated successfully!"
 echo "📁 XCFramework location: $XCFRAMEWORK_PATH"
+echo "📱 Xcode will automatically use the updated framework"
 echo ""
-echo "🎉 iOS Core XCFramework build complete!"
-echo ""
-echo "Next steps:"
-echo "1. Drag ${FRAMEWORK_NAME}.xcframework into your Xcode project"
-echo "2. Make sure it's added to 'Frameworks, Libraries, and Embedded Content'"
-echo "3. Set 'Embed & Sign' for the framework"
-echo "4. Add any required bridging headers"
-echo "5. Test the embedded core integration"
+echo "🎉 iOS Core build complete! Ready to test."

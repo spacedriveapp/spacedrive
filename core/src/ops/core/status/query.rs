@@ -35,7 +35,17 @@ impl CoreQuery for CoreStatusQuery {
 		// Get basic library information
 		let library_manager = context.libraries().await;
 		let libs = library_manager.list().await;
-		let active_library = library_manager.get_active_library().await;
+
+		let active_library = context
+			.libraries()
+			.await
+			.list()
+			.await
+			.into_iter()
+			.find(|lib| match session.current_library_id {
+				Some(id) => lib.id() == id,
+				None => false,
+			});
 
 		// Get device information
 		let device_config = context.device_manager.config()?;

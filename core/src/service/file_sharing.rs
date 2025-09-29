@@ -490,7 +490,7 @@ mod tests {
 	use super::*;
 	use crate::{
 		crypto::library_key_manager::LibraryKeyManager, device::DeviceManager,
-		infra::event::EventBus, library::LibraryManager, service::session::SessionStateService,
+		infra::event::EventBus, library::LibraryManager,
 	};
 	use tempfile::tempdir;
 
@@ -504,11 +504,9 @@ mod tests {
 			events.clone(),
 		));
 		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
-		let session_state = Arc::new(SessionStateService::new(std::env::temp_dir()));
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
-			session_state.clone(),
 			volume_manager.clone(),
 			device_manager.clone(),
 		));
@@ -518,7 +516,6 @@ mod tests {
 			Some(library_manager),
 			volume_manager,
 			library_key_manager,
-			session_state,
 		));
 
 		let _file_sharing = FileSharingService::new(context);
@@ -543,11 +540,9 @@ mod tests {
 			events.clone(),
 		));
 		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
-		let session_state = Arc::new(SessionStateService::new(std::env::temp_dir()));
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
-			session_state.clone(),
 			volume_manager.clone(),
 			device_manager.clone(),
 		));
@@ -557,7 +552,6 @@ mod tests {
 			Some(library_manager),
 			volume_manager,
 			library_key_manager,
-			session_state,
 		));
 		let file_sharing = FileSharingService::new(context);
 

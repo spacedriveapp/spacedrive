@@ -34,71 +34,71 @@ impl PathResolver {
 				Ok(path.clone())
 			}
 			// If content-based, find the optimal physical path
-			SdPath::Content { content_id } => self.resolve_content_path(context, *content_id).await,
+			SdPath::Content { content_id } => unimplemented!(),
 		}
 	}
 
 	/// Resolve multiple SdPaths efficiently in batch
-	pub async fn resolve_batch(
-		&self,
-		paths: Vec<SdPath>,
-		context: &CoreContext,
-	) -> HashMap<SdPath, Result<SdPath, PathResolutionError>> {
-		let mut results = HashMap::new();
+	// pub async fn resolve_batch(
+	// 	&self,
+	// 	paths: Vec<SdPath>,
+	// 	context: &CoreContext,
+	// ) -> HashMap<SdPath, Result<SdPath, PathResolutionError>> {
+	// 	let mut results = HashMap::new();
 
-		// Partition paths by type
-		let mut physical_paths = Vec::new();
-		let mut content_paths = Vec::new();
+	// 	// Partition paths by type
+	// 	let mut physical_paths = Vec::new();
+	// 	let mut content_paths = Vec::new();
 
-		for path in paths {
-			match &path {
-				SdPath::Physical { .. } => physical_paths.push(path),
-				SdPath::Content { .. } => content_paths.push(path),
-			}
-		}
+	// 	for path in paths {
+	// 		match &path {
+	// 			SdPath::Physical { .. } => physical_paths.push(path),
+	// 			SdPath::Content { .. } => content_paths.push(path),
+	// 		}
+	// 	}
 
-		// Pre-compute device status
-		let online_devices = self.get_online_devices(context).await;
-		let device_metrics = self.get_device_metrics(context).await;
+	// 	// Pre-compute device status
+	// 	let online_devices = self.get_online_devices(context).await;
+	// 	let device_metrics = self.get_device_metrics(context).await;
 
-		// Verify physical paths
-		for path in physical_paths {
-			if let SdPath::Physical { device_id, .. } = &path {
-				let result = if online_devices.contains(device_id) {
-					Ok(path.clone())
-				} else {
-					Err(PathResolutionError::DeviceOffline(*device_id))
-				};
-				results.insert(path.clone(), result);
-			}
-		}
+	// 	// Verify physical paths
+	// 	for path in physical_paths {
+	// 		if let SdPath::Physical { device_id, .. } = &path {
+	// 			let result = if online_devices.contains(device_id) {
+	// 				Ok(path.clone())
+	// 			} else {
+	// 				Err(PathResolutionError::DeviceOffline(*device_id))
+	// 			};
+	// 			results.insert(path.clone(), result);
+	// 		}
+	// 	}
 
-		// Resolve content paths
-		if !content_paths.is_empty() {
-			let content_ids: Vec<Uuid> = content_paths
-				.iter()
-				.filter_map(|p| p.content_id())
-				.collect();
+	// 	// Resolve content paths
+	// 	if !content_paths.is_empty() {
+	// 		let content_ids: Vec<Uuid> = content_paths
+	// 			.iter()
+	// 			.filter_map(|p| p.content_id())
+	// 			.collect();
 
-			let resolved_content = self
-				.resolve_content_paths_batch(context, content_ids, &online_devices, &device_metrics)
-				.await;
+	// 		let resolved_content = self
+	// 			.resolve_content_paths_batch(context, content_ids, &online_devices, &device_metrics)
+	// 			.await;
 
-			for path in content_paths {
-				if let SdPath::Content { content_id } = &path {
-					let result = resolved_content
-						.get(content_id)
-						.cloned()
-						.unwrap_or_else(|| {
-							Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
-						});
-					results.insert(path.clone(), result);
-				}
-			}
-		}
+	// 		for path in content_paths {
+	// 			if let SdPath::Content { content_id } = &path {
+	// 				let result = resolved_content
+	// 					.get(content_id)
+	// 					.cloned()
+	// 					.unwrap_or_else(|| {
+	// 						Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
+	// 					});
+	// 				results.insert(path.clone(), result);
+	// 			}
+	// 		}
+	// 	}
 
-		results
-	}
+	// 	results
+	// }
 
 	/// Verify that a device is online
 	async fn verify_device_online(
@@ -177,89 +177,89 @@ impl PathResolver {
 	}
 
 	/// Resolve a content-based path to an optimal physical location
-	async fn resolve_content_path(
-		&self,
-		context: &CoreContext,
-		content_id: Uuid,
-	) -> Result<SdPath, PathResolutionError> {
-		// Get the current library
-		let library = context
-			.libraries()
-			.await
-			.get_active_library()
-			.await
-			.ok_or(PathResolutionError::NoActiveLibrary)?;
+	// async fn resolve_content_path(
+	// 	&self,
+	// 	context: &CoreContext,
+	// 	content_id: Uuid,
+	// ) -> Result<SdPath, PathResolutionError> {
+	// 	// Get the current library
+	// 	let library = context
+	// 		.libraries()
+	// 		.await
+	// 		.get_active_library()
+	// 		.await
+	// 		.ok_or(PathResolutionError::NoActiveLibrary)?;
 
-		let db = library.db().conn();
+	// 	let db = library.db().conn();
 
-		// Find all physical instances of this content
-		let instances = self.find_content_instances(db, content_id).await?;
+	// 	// Find all physical instances of this content
+	// 	let instances = self.find_content_instances(db, content_id).await?;
 
-		if instances.is_empty() {
-			return Err(PathResolutionError::NoOnlineInstancesFound(content_id));
-		}
+	// 	if instances.is_empty() {
+	// 		return Err(PathResolutionError::NoOnlineInstancesFound(content_id));
+	// 	}
 
-		// Get device status and metrics
-		let online_devices = self.get_online_devices(context).await;
-		let device_metrics = self.get_device_metrics(context).await;
+	// 	// Get device status and metrics
+	// 	let online_devices = self.get_online_devices(context).await;
+	// 	let device_metrics = self.get_device_metrics(context).await;
 
-		// Calculate costs and find the best instance
-		self.select_optimal_instance(instances, &online_devices, &device_metrics)
-			.ok_or(PathResolutionError::NoOnlineInstancesFound(content_id))
-	}
+	// 	// Calculate costs and find the best instance
+	// 	self.select_optimal_instance(instances, &online_devices, &device_metrics)
+	// 		.ok_or(PathResolutionError::NoOnlineInstancesFound(content_id))
+	// }
 
-	/// Resolve multiple content paths efficiently
-	async fn resolve_content_paths_batch(
-		&self,
-		context: &CoreContext,
-		content_ids: Vec<Uuid>,
-		online_devices: &[Uuid],
-		device_metrics: &HashMap<Uuid, DeviceMetrics>,
-	) -> HashMap<Uuid, Result<SdPath, PathResolutionError>> {
-		let mut results = HashMap::new();
+	// /// Resolve multiple content paths efficiently
+	// async fn resolve_content_paths_batch(
+	// 	&self,
+	// 	context: &CoreContext,
+	// 	content_ids: Vec<Uuid>,
+	// 	online_devices: &[Uuid],
+	// 	device_metrics: &HashMap<Uuid, DeviceMetrics>,
+	// ) -> HashMap<Uuid, Result<SdPath, PathResolutionError>> {
+	// 	let mut results = HashMap::new();
 
-		// Get the current library
-		let library = match context.libraries().await.get_active_library().await {
-			Some(lib) => lib,
-			None => {
-				// Return error for all content IDs
-				for id in content_ids {
-					results.insert(id, Err(PathResolutionError::NoActiveLibrary));
-				}
-				return results;
-			}
-		};
+	// 	// Get the current library
+	// 	let library = match context.libraries().await.get_active_library().await {
+	// 		Some(lib) => lib,
+	// 		None => {
+	// 			// Return error for all content IDs
+	// 			for id in content_ids {
+	// 				results.insert(id, Err(PathResolutionError::NoActiveLibrary));
+	// 			}
+	// 			return results;
+	// 		}
+	// 	};
 
-		let db = library.db().conn();
+	// 	let db = library.db().conn();
 
-		// Batch query for all content instances
-		match self.find_content_instances_batch(db, &content_ids).await {
-			Ok(instances_map) => {
-				// Process each content ID
-				for content_id in content_ids {
-					let result = if let Some(instances) = instances_map.get(&content_id) {
-						self.select_optimal_instance(
-							instances.clone(),
-							online_devices,
-							device_metrics,
-						)
-						.ok_or(PathResolutionError::NoOnlineInstancesFound(content_id))
-					} else {
-						Err(PathResolutionError::NoOnlineInstancesFound(content_id))
-					};
-					results.insert(content_id, result);
-				}
-			}
-			Err(e) => {
-				// Return database error for all content IDs
-				for id in content_ids {
-					results.insert(id, Err(PathResolutionError::DatabaseError(e.to_string())));
-				}
-			}
-		}
+	// 	// Batch query for all content instances
+	// 	match self.find_content_instances_batch(db, &content_ids).await {
+	// 		Ok(instances_map) => {
+	// 			// Process each content ID
+	// 			for content_id in content_ids {
+	// 				let result = if let Some(instances) = instances_map.get(&content_id) {
+	// 					self.select_optimal_instance(
+	// 						instances.clone(),
+	// 						online_devices,
+	// 						device_metrics,
+	// 					)
+	// 					.ok_or(PathResolutionError::NoOnlineInstancesFound(content_id))
+	// 				} else {
+	// 					Err(PathResolutionError::NoOnlineInstancesFound(content_id))
+	// 				};
+	// 				results.insert(content_id, result);
+	// 			}
+	// 		}
+	// 		Err(e) => {
+	// 			// Return database error for all content IDs
+	// 			for id in content_ids {
+	// 				results.insert(id, Err(PathResolutionError::DatabaseError(e.to_string())));
+	// 			}
+	// 		}
+	// 	}
 
-		results
-	}
+	// 	results
+	// }
 
 	/// Find all physical instances of a content ID
 	async fn find_content_instances<C: ConnectionTrait>(

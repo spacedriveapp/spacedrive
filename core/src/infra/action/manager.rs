@@ -52,24 +52,19 @@ impl ActionManager {
 		library_id: Option<Uuid>,
 		action: A,
 	) -> Result<A::Output, super::error::ActionError> {
-		// Either use the provided library_id, or the currently active one from core state
-		// An action created with a given library will always execute on that library
-		// Actions and queries should not hold their own library id state, rather receive it as context
-		let effective_library_id = library_id
-			.or(self.context.session.get().await.current_library_id)
-			.ok_or(ActionError::LibraryNotFound(library_id.unwrap_or_default()))?;
-
+		let library_id =
+			library_id.ok_or(ActionError::LibraryNotFound(library_id.unwrap_or_default()))?;
 		// Get and validate library exists
 		let library = self
 			.context
-			.get_library(effective_library_id)
+			.get_library(library_id)
 			.await
-			.ok_or_else(|| ActionError::LibraryNotFound(effective_library_id))?;
+			.ok_or_else(|| ActionError::LibraryNotFound(library_id))?;
 
 		// Create audit log entry (capture values before move)
 		let action_kind = action.action_kind();
 		let audit_entry = self
-			.create_action_audit_log(effective_library_id, action_kind)
+			.create_action_audit_log(library_id, action_kind)
 			.await?;
 
 		// Validate the action first
@@ -85,7 +80,7 @@ impl ActionManager {
 			Ok(_) => Ok("Action completed successfully".to_string()),
 			Err(e) => Err(ActionError::Internal(e.to_string())),
 		};
-		self.finalize_audit_log(audit_entry, &audit_result, effective_library_id)
+		self.finalize_audit_log(audit_entry, &audit_result, library_id)
 			.await?;
 
 		result

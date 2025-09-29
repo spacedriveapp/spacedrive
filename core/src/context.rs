@@ -22,7 +22,7 @@ pub struct CoreContext {
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
-	pub session: Arc<SessionStateService>,
+	// pub session: Arc<SessionStateService>,
 }
 
 impl CoreContext {
@@ -33,7 +33,6 @@ impl CoreContext {
 		library_manager: Option<Arc<LibraryManager>>,
 		volume_manager: Arc<VolumeManager>,
 		library_key_manager: Arc<LibraryKeyManager>,
-		session: Arc<SessionStateService>,
 	) -> Self {
 		Self {
 			events,
@@ -45,7 +44,6 @@ impl CoreContext {
 			networking: Arc::new(RwLock::new(None)),
 			job_logging_config: None,
 			job_logs_dir: None,
-			session,
 		}
 	}
 
@@ -61,7 +59,9 @@ impl CoreContext {
 
 	/// Get the primary library
 	pub async fn get_primary_library(&self) -> Option<Arc<crate::library::Library>> {
-		self.libraries().await.get_active_library().await
+		// TODO: Remove this function, for now a temp fix just get the first library
+		// This is mostly used in the file sharing service
+		self.libraries().await.list().await.first().cloned()
 	}
 
 	/// Method for Core to set library manager after it's initialized

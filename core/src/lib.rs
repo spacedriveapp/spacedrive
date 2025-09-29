@@ -153,18 +153,30 @@ impl Core {
 		info!("Initializing Spacedrive Core at {:?}", data_dir);
 
 		// Load or create app config
+		info!("🔄 Loading app config...");
 		let config = AppConfig::load_or_create(&data_dir)?;
+		info!("✅ App config loaded");
+
+		info!("🔄 Ensuring directories...");
 		config.ensure_directories()?;
+		info!("✅ Directories ensured");
+
 		let config = Arc::new(RwLock::new(config));
 
 		// Initialize device manager
+		info!("🔄 Initializing device manager...");
 		let device = Arc::new(DeviceManager::init_with_path(&data_dir)?);
+		info!("✅ Device manager initialized");
 
 		// Set a global device ID for convenience
+		info!("🔄 Setting current device ID...");
 		crate::device::set_current_device_id(device.device_id()?);
+		info!("✅ Current device ID set");
 
 		// Create event bus
+		info!("🔄 Creating event bus...");
 		let events = Arc::new(EventBus::default());
+		info!("✅ Event bus created");
 
 		// Initialize volume manager
 		let volume_config = VolumeDetectionConfig::default();
@@ -188,9 +200,6 @@ impl Core {
 		let library_key_manager =
 			Arc::new(crate::crypto::library_key_manager::LibraryKeyManager::new()?);
 
-		// Initialize session state service
-		let session_state = Arc::new(SessionStateService::new(data_dir));
-
 		// Create the context that will be shared with services
 		let mut context_inner = CoreContext::new(
 			events.clone(),
@@ -198,7 +207,6 @@ impl Core {
 			None, // Libraries will be set after context creation
 			volumes.clone(),
 			library_key_manager.clone(),
-			session_state.clone(),
 		);
 
 		// Enable per-job file logging by default
@@ -220,7 +228,6 @@ impl Core {
 		let libraries = Arc::new(LibraryManager::new_with_dir(
 			libraries_dir,
 			events.clone(),
-			session_state.clone(),
 			volumes.clone(),
 			device.clone(),
 		));

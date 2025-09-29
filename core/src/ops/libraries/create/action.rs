@@ -45,13 +45,6 @@ impl CoreAction for LibraryCreateAction {
 		let name = library.name().await;
 		let path = library.path().to_path_buf();
 
-		// Automatically set the newly created library as the current library
-		context
-			.session
-			.set_current_library(Some(library_id))
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to set current library: {}", e)))?;
-
 		Ok(LibraryCreateOutput::new(library_id, name, path))
 	}
 

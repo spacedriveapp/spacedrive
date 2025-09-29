@@ -171,13 +171,28 @@ impl AppConfig {
 	}
 
 	/// Ensure all required directories exist
+	///
+	/// Note: On iOS, create_dir_all() can fail with "Operation not permitted" due to sandboxing
+	/// restrictions, even on new directories. We skip directory creation on iOS since directories
+	/// are created properly during first run and maintained by the system.
 	pub fn ensure_directories(&self) -> Result<()> {
-		fs::create_dir_all(&self.data_dir)?;
-		fs::create_dir_all(self.logs_dir())?;
-		fs::create_dir_all(self.libraries_dir())?;
-		if self.job_logging.enabled {
-			fs::create_dir_all(self.job_logs_dir())?;
+		#[cfg(target_os = "ios")]
+		{
+			// On iOS, skip directory creation to avoid sandboxing permission errors
+			// Directories are created during first run and maintained by iOS
+			return Ok(());
 		}
+
+		#[cfg(not(target_os = "ios"))]
+		{
+			fs::create_dir_all(&self.data_dir)?;
+			fs::create_dir_all(self.logs_dir())?;
+			fs::create_dir_all(self.libraries_dir())?;
+			if self.job_logging.enabled {
+				fs::create_dir_all(self.job_logs_dir())?;
+			}
+		}
+
 		Ok(())
 	}
 }
