@@ -460,4 +460,4 @@ combined_cli_rust_files.txt
 
 
 # iOS build artifacts
-apps/ios/sd-ios-core/sd_ios_core.xcframework/
+apps/ios/sd-ios-core/sd_ios_core.xcframework

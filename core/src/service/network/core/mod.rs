@@ -743,35 +743,6 @@ impl NetworkingService {
 
 		self.publish_discovery_record(key, value.clone()).await?;
 
-		// For local testing: also write the advertisement to a file
-		// This simulates what a DHT would do for peer discovery
-		let temp_dir = std::env::var("SPACEDRIVE_TEST_DIR")
-			.unwrap_or_else(|_| "/tmp/spacedrive-pairing".to_string());
-
-		// Create directory if it doesn't exist
-		if let Err(e) = std::fs::create_dir_all(&temp_dir) {
-			self.logger
-				.warn(&format!(
-					"Warning: Could not create pairing directory {}: {}",
-					temp_dir, e
-				))
-				.await;
-		} else {
-			let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
-			if let Err(e) = std::fs::write(&session_file, &value) {
-				self.logger
-					.warn(&format!(
-						"Warning: Could not write pairing session file: {}",
-						e
-					))
-					.await;
-			} else {
-				self.logger
-					.info(&format!("Wrote pairing session info to {}", session_file))
-					.await;
-			}
-		}
-
 		let expires_in = 300; // 5 minutes
 
 		Ok((pairing_code.to_string(), expires_in))
@@ -813,36 +784,7 @@ impl NetworkingService {
 			.await;
 		tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-		// Query discovery for initiator's advertisement (even though it returns empty with LocalSwarmDiscovery)
-		let key = session_id.as_bytes();
-		let mut node_addrs = self.query_discovery_record(key).await?;
-
-		// Check for file-based session advertisement
-		// This is a temporary solution until we have proper DHT or mDNS discovery
-		let temp_dir = std::env::var("SPACEDRIVE_TEST_DIR")
-			.unwrap_or_else(|_| "/tmp/spacedrive-pairing".to_string());
-
-		let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
-		if let Ok(data) = std::fs::read(&session_file) {
-			if let Ok(advertisement) = serde_json::from_slice::<
-				crate::service::network::protocol::pairing::PairingAdvertisement,
-			>(&data)
-			{
-				if let Ok(initiator_node_addr) = advertisement.node_addr() {
-					self.logger
-						.info("Found Initiator's session info, attempting connection...")
-						.await;
-					node_addrs.push(initiator_node_addr);
-				}
-			}
-		} else {
-			self.logger
-				.debug(&format!(
-					"No pairing session file found at {}",
-					session_file
-				))
-				.await;
-		}
+		let node_addrs = self.query_discovery_record(session_id.as_bytes()).await?;
 
 		// Try to connect to discovered nodes first
 		for node_addr in node_addrs {
