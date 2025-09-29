@@ -155,10 +155,10 @@ public class SpacedriveClient {
         responseType: Response.Type,
         libraryId: String? = nil
     ) async throws -> Response {
-        // 1. Handle unit types (Empty) specially - they should send no payload
-        let jsonPayload: [String: Any]
+        // 1. Handle unit types (Empty) specially - they should send null payload for unit types
+        let jsonPayload: [String: Any]?
         if requestPayload is Empty {
-            jsonPayload = [:]
+            jsonPayload = nil  // Unit types should have null payload, not empty object
         } else {
             // Encode input to JSON for non-unit types
             let requestData: Data
@@ -167,7 +167,7 @@ public class SpacedriveClient {
             } catch {
                 throw SpacedriveError.serializationError("Failed to encode request: \(error)")
             }
-            jsonPayload = try JSONSerialization.jsonObject(with: requestData) as! [String: Any]
+            jsonPayload = try JSONSerialization.jsonObject(with: requestData) as? [String: Any]
         }
 
         // 3. Determine request type from method prefix and include library ID if needed
@@ -177,9 +177,9 @@ public class SpacedriveClient {
             if method.hasPrefix("query:") {
                 // Core queries (like core.status) don't need library ID
                 let queryLibraryId = method.hasPrefix("query:core.") ? nil : effectiveLibraryId
-                request = DaemonRequest.query(method: method, libraryId: queryLibraryId, payload: jsonPayload)
+                request = DaemonRequest.query(method: method, libraryId: queryLibraryId, payload: jsonPayload ?? [:])
             } else if method.hasPrefix("action:") {
-            request = DaemonRequest.action(method: method, libraryId: effectiveLibraryId, payload: jsonPayload)
+            request = DaemonRequest.action(method: method, libraryId: effectiveLibraryId, payload: jsonPayload ?? [:])
         } else {
             throw SpacedriveError.invalidResponse("Invalid method format: \(method)")
         }
@@ -333,8 +333,8 @@ public class SpacedriveClient {
                 // Always include library_id field, even if null
                 queryParts.append("\"library_id\":null")
             }
-            // Include payload field - send null only for core.status.v1 (unit type)
-            if method == "query:core.status.v1" {
+            // Include payload field - send null for unit types (Empty payloads)
+            if payload.isEmpty && method.hasPrefix("query:core.") {
                 queryParts.append("\"payload\":null")
             } else {
                 queryParts.append("\"payload\":\(try jsonStringFromDictionary(payload))")

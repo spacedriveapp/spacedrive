@@ -138,8 +138,7 @@ impl EventStream {
 			filter,
 		};
 
-		// This would need to be implemented in DaemonClient to support streaming
-		// For now, we'll use a placeholder that shows the concept
+		// Stream events
 		daemon
 			.stream(&request, event_tx)
 			.await

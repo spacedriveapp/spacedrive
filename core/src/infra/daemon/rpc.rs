@@ -230,7 +230,9 @@ impl RpcServer {
 	}
 
 	/// Execute a JSON operation using the registry handlers
-	async fn execute_json_operation(
+	///
+	/// Made public for reuse in embedded implementations (iOS, etc.)
+	pub async fn execute_json_operation(
 		method: &str,
 		library_id: Option<uuid::Uuid>,
 		json_payload: serde_json::Value,
