@@ -101,6 +101,17 @@ impl AppConfig {
 			let json = fs::read_to_string(&config_path)?;
 			let mut config: AppConfig = serde_json::from_str(&json)?;
 
+			// Update data_dir if it doesn't match the current directory
+			// This handles iOS container changes during development
+			if config.data_dir != *data_dir {
+				info!(
+					"Updating config data_dir from {:?} to {:?}",
+					config.data_dir, data_dir
+				);
+				config.data_dir = data_dir.clone();
+				config.save()?;
+			}
+
 			// Apply migrations if needed
 			if config.version < Self::target_version() {
 				info!(

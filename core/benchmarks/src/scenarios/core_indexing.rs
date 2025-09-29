@@ -27,14 +27,10 @@ impl Scenario for CoreIndexingScenario {
 		use sd_core::infra::action::LibraryAction;
 		let core = &boot.core;
 		let context = core.context.clone();
-		let library = match core.libraries.get_active_library().await {
-			Some(lib) => lib,
-			None => {
-				core.libraries
-					.create_library("Benchmarks", None, context.clone())
-					.await?
-			}
-		};
+		let library = core
+			.libraries
+			.create_library("Benchmarks", None, context.clone())
+			.await?;
 		self.base.library = Some(library.clone());
 
 		for loc in &recipe.locations {
@@ -43,8 +39,12 @@ impl Scenario for CoreIndexingScenario {
 				name: Some(format!("bench:{}", recipe.name)),
 				mode: sd_core::ops::indexing::IndexMode::Shallow,
 			};
-			let action = sd_core::ops::locations::add::action::LocationAddAction::from_input(input).map_err(|e| anyhow::anyhow!(e))?;
-			let out = action.execute(library.clone(), context.clone()).await.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+			let action = sd_core::ops::locations::add::action::LocationAddAction::from_input(input)
+				.map_err(|e| anyhow::anyhow!(e))?;
+			let out = action
+				.execute(library.clone(), context.clone())
+				.await
+				.map_err(|e| anyhow::anyhow!(e.to_string()))?;
 			if let Some(job_id) = out.job_id {
 				self.base.job_ids.push(job_id);
 			}

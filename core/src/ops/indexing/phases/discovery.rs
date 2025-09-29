@@ -80,15 +80,10 @@ pub async fn run_discovery_phase(
 					// Check for interruption during entry processing
 					ctx.check_interrupt().await?;
 
-					// Skip filtered entries via rules engine (match against basename to avoid ancestor effects)
-					let name_path = entry
-						.path
-						.file_name()
-						.map(|n| std::path::PathBuf::from(n))
-						.unwrap_or_else(|| entry.path.clone());
+					// Skip filtered entries via rules engine
 					let decision = dir_ruler
 						.evaluate_path(
-							&name_path,
+							&entry.path,
 							&SimpleMetadata {
 								is_dir: matches!(entry.kind, EntryKind::Directory),
 							},

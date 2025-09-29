@@ -663,7 +663,7 @@ pub static ONLY_IMAGES: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule
 	.expect("valid")],
 });
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
 pub struct RuleToggles {
 	pub no_system_files: bool,
 	pub no_hidden: bool,
@@ -671,6 +671,19 @@ pub struct RuleToggles {
 	pub gitignore: bool,
 	pub only_images: bool,
 	pub no_dev_dirs: bool,
+}
+
+impl Default for RuleToggles {
+	fn default() -> Self {
+		Self {
+			no_system_files: true, // NO_SYSTEM_FILES.default = true
+			no_hidden: false,      // NO_HIDDEN.default = false
+			no_git: true,          // NO_GIT.default = true
+			gitignore: true,       // GITIGNORE.default = true
+			only_images: false,    // ONLY_IMAGES.default = false
+			no_dev_dirs: true,     // NO_DEV_DIRS.default = true
+		}
+	}
 }
 
 pub struct GitIgnoreRules {
