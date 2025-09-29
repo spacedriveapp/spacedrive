@@ -4,16 +4,24 @@ use std::sync::Arc;
 
 pub struct NetworkStartAction;
 
+// TODO: This should be removed, networking is started automatically during initialization
 impl CoreAction for NetworkStartAction {
 	type Output = NetworkStartOutput;
 	type Input = NetworkStartInput;
 
-	fn from_input(_input: Self::Input) -> std::result::Result<Self, String> { Ok(Self) }
+	fn from_input(_input: Self::Input) -> std::result::Result<Self, String> {
+		Ok(Self)
+	}
 
-	async fn execute(self, context: Arc<crate::context::CoreContext>) -> std::result::Result<Self::Output, ActionError> {
+	async fn execute(
+		self,
+		context: Arc<crate::context::CoreContext>,
+	) -> std::result::Result<Self::Output, ActionError> {
 		// Ensure networking exists
 		if context.get_networking().await.is_none() {
-			return Err(ActionError::Internal("Networking not initialized".to_string()));
+			return Err(ActionError::Internal(
+				"Networking not initialized".to_string(),
+			));
 		}
 		let net = context.get_networking().await.unwrap();
 		// Start networking event loop if not already running
@@ -22,8 +30,9 @@ impl CoreAction for NetworkStartAction {
 		Ok(NetworkStartOutput { started: true })
 	}
 
-	fn action_kind(&self) -> &'static str { "network.start" }
+	fn action_kind(&self) -> &'static str {
+		"network.start"
+	}
 }
 
 crate::register_core_action!(NetworkStartAction, "network.start");
-

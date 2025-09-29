@@ -76,14 +76,24 @@ private struct AnyEncodableValue: Encodable {
         var container = encoder.singleValueContainer()
 
         switch value {
+        case let boolValue as Bool:
+            try container.encode(boolValue)
+        case let numberValue as NSNumber:
+            // Handle NSNumber which can represent booleans as integers
+            // Check if this NSNumber is actually a boolean
+            if CFGetTypeID(numberValue) == CFBooleanGetTypeID() {
+                try container.encode(numberValue.boolValue)
+            } else if numberValue.doubleValue.truncatingRemainder(dividingBy: 1) == 0 {
+                try container.encode(numberValue.intValue)
+            } else {
+                try container.encode(numberValue.doubleValue)
+            }
         case let intValue as Int:
             try container.encode(intValue)
         case let doubleValue as Double:
             try container.encode(doubleValue)
         case let stringValue as String:
             try container.encode(stringValue)
-        case let boolValue as Bool:
-            try container.encode(boolValue)
         case let arrayValue as [Any]:
             try container.encode(arrayValue.map { AnyEncodableValue($0) })
         case let dictValue as [String: Any]:

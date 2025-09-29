@@ -236,11 +236,11 @@ impl Core {
 		context.set_libraries(libraries.clone()).await;
 
 		// Initialize services first, passing them the context
-		let services = Services::new(context.clone());
+		let mut services = Services::new(context.clone());
 
 		// Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
-		let loaded_libraries: Vec<Arc<crate::library::Library>> =
+		let mut loaded_libraries: Vec<Arc<crate::library::Library>> =
 			match libraries.load_all(context.clone()).await {
 				Ok(count) => {
 					info!("Loaded {} libraries", count);
@@ -251,6 +251,23 @@ impl Core {
 					vec![]
 				}
 			};
+
+		// Create default library if no libraries exist
+		if loaded_libraries.is_empty() {
+			info!("No existing libraries found, creating default library 'My Library'");
+			match libraries
+				.create_library("My Library", None, context.clone())
+				.await
+			{
+				Ok(default_library) => {
+					info!("Created default library: {}", default_library.id());
+					loaded_libraries.push(default_library);
+				}
+				Err(e) => {
+					error!("Failed to create default library: {}", e);
+				}
+			}
+		}
 
 		// Initialize sidecar manager for each loaded library
 		for library in &loaded_libraries {
@@ -273,8 +290,34 @@ impl Core {
 			}
 		}
 
-		info!("Starting background services...");
+		// Initialize networking if enabled in config
 		let service_config = config.read().await.services.clone();
+		if service_config.networking_enabled {
+			info!("Initializing networking service...");
+			match services
+				.init_networking(
+					device.clone(),
+					services.library_key_manager.clone(),
+					config.read().await.data_dir.clone(),
+				)
+				.await
+			{
+				Ok(()) => {
+					info!("Networking service initialized");
+					// Store networking service in context so it can be accessed
+					if let Some(networking) = services.networking() {
+						context.set_networking(networking).await;
+						info!("Networking service registered in context");
+					}
+				}
+				Err(e) => {
+					error!("Failed to initialize networking: {}", e);
+					// Continue without networking
+				}
+			}
+		}
+
+		info!("Starting background services...");
 		match services.start_all_with_config(&service_config).await {
 			Ok(()) => info!("Background services started"),
 			Err(e) => error!("Failed to start services: {}", e),

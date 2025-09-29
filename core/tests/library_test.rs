@@ -182,3 +182,35 @@ async fn test_library_name_sanitization() {
 	assert!(!dir_name.contains(':'));
 	assert!(!dir_name.contains('*'));
 }
+
+#[tokio::test]
+async fn test_default_library_creation() {
+	let temp_dir = TempDir::new().unwrap();
+
+	// Initialize core with fresh temporary directory (no existing libraries)
+	let core = Core::new_with_config(temp_dir.path().to_path_buf())
+		.await
+		.unwrap();
+
+	// Check that a default library was created automatically
+	let open_libraries = core.libraries.list().await;
+	assert_eq!(
+		open_libraries.len(),
+		1,
+		"Expected exactly one default library to be created"
+	);
+
+	let default_library = &open_libraries[0];
+	assert_eq!(
+		default_library.name().await,
+		"My Library",
+		"Default library should be named 'My Library'"
+	);
+
+	// Verify directory structure exists
+	let lib_path = default_library.path();
+	assert!(lib_path.exists());
+	assert!(lib_path.join("library.json").exists());
+	assert!(lib_path.join("database.db").exists());
+	assert!(lib_path.join("thumbnails").exists());
+}

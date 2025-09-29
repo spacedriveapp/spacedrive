@@ -110,6 +110,18 @@ impl Services {
 			info!("Volume monitoring disabled in configuration");
 		}
 
+		// Start networking if initialized and enabled
+		if config.networking_enabled {
+			if let Some(_networking) = &self.networking {
+				self.start_networking().await?;
+				info!("Networking service started");
+			} else {
+				info!("Networking enabled in config but not initialized - call init_networking() first");
+			}
+		} else {
+			info!("Networking disabled in configuration");
+		}
+
 		Ok(())
 	}
 
