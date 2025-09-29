@@ -50,7 +50,7 @@ fn get_volume_watch_paths() -> Vec<PathBuf> {
 	}
 
 	// Filter to only existing directories
-	paths.into_iter().filter(|p| p.exists()).collect()
+	paths.into_iter().filter(|p: &PathBuf| p.exists()).collect()
 }
 
 /// Central manager for volume detection, monitoring, and operations
