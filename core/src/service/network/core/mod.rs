@@ -509,20 +509,10 @@ impl NetworkingService {
 	}
 
 	/// Publish a discovery record for pairing session
-	pub async fn publish_discovery_record(&self, key: &[u8], value: Vec<u8>) -> Result<()> {
-		// For pairing, we don't need to explicitly publish with LocalSwarmDiscovery
-		// It automatically advertises our node on the local network
-		// The pairing protocol will handle session-specific discovery via direct connection
-		Ok(())
-	}
-
-	/// Query a discovery record for pairing session
-	pub async fn query_discovery_record(&self, key: &[u8]) -> Result<Vec<NodeAddr>> {
-		// With LocalSwarmDiscovery, we can't query specific records
-		// Instead, we'll discover all local nodes and filter by pairing session
-		// For now, return empty - pairing will use direct connection after discovery
-		Ok(Vec::new())
-	}
+	// Note: Discovery for pairing is now handled via mDNS user_data field
+	// - Initiator: Sets user_data to session_id via endpoint.set_user_data_for_discovery()
+	// - Joiner: Filters endpoint.discovery_stream() for matching session_id in user_data
+	// This leverages Iroh's native mDNS capabilities without needing custom key-value storage
 
 	/// Get currently connected nodes for direct pairing attempts
 	pub async fn get_connected_nodes(&self) -> Vec<NodeId> {
@@ -711,37 +701,27 @@ impl NetworkingService {
 			))
 			.await;
 
-		// Create pairing advertisement
-		let node_addr_info = crate::service::network::protocol::pairing::types::NodeAddrInfo {
-			node_id: self.node_id().to_string(),
-			direct_addresses: node_addr
-				.as_ref()
-				.map(|addr| {
-					addr.direct_addresses()
-						.map(|a| a.to_string())
-						.collect::<Vec<_>>()
-				})
-				.unwrap_or_default(),
-			relay_url: node_addr
-				.as_ref()
-				.and_then(|addr| addr.relay_url())
-				.map(|u| u.to_string()),
-		};
+		// Publish pairing session via mDNS using user_data field
+		// The joiner will filter discovered nodes by this session_id
+		if let Some(endpoint) = &self.endpoint {
+			let user_data =
+				iroh::node_info::UserData::try_from(session_id.to_string()).map_err(|e| {
+					NetworkingError::Protocol(format!("Failed to create user data: {}", e))
+				})?;
 
-		let advertisement = crate::service::network::protocol::pairing::PairingAdvertisement {
-			node_id: self.node_id().to_string(),
-			node_addr_info,
-			device_info: pairing_handler.get_device_info().await?,
-			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
-			created_at: chrono::Utc::now(),
-		};
+			endpoint.set_user_data_for_discovery(Some(user_data));
 
-		// Publish to discovery
-		let key = session_id.as_bytes();
-		let value = serde_json::to_vec(&advertisement)
-			.map_err(|e| NetworkingError::Protocol(e.to_string()))?;
-
-		self.publish_discovery_record(key, value.clone()).await?;
+			self.logger
+				.info(&format!(
+					"Broadcasting pairing session {} via mDNS",
+					session_id
+				))
+				.await;
+		} else {
+			return Err(NetworkingError::Protocol(
+				"Networking not started".to_string(),
+			));
+		}
 
 		let expires_in = 300; // 5 minutes
 
@@ -777,37 +757,73 @@ impl NetworkingService {
 			.join_pairing_session(session_id, pairing_code)
 			.await?;
 
-		// With LocalSwarmDiscovery, peers should auto-discover on the local network
-		// Wait a moment for discovery to happen
+		// Use mDNS discovery stream to find the initiator
+		// The initiator broadcasts the session_id in their user_data field
 		self.logger
 			.info("Waiting for peer discovery on local network...")
 			.await;
-		tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-		let node_addrs = self.query_discovery_record(session_id.as_bytes()).await?;
+		if let Some(endpoint) = &self.endpoint {
+			use futures::StreamExt;
 
-		// Try to connect to discovered nodes first
-		for node_addr in node_addrs {
-			self.logger.info("Attempting to connect to node...").await;
+			let mut discovery_stream = endpoint.discovery_stream();
+			let session_id_str = session_id.to_string();
+			let timeout = tokio::time::Duration::from_secs(10);
+			let start = tokio::time::Instant::now();
+
 			self.logger
-				.info(&format!("Node address: {:?}", node_addr))
-				.await;
-			self.logger
-				.info(&format!(
-					"Direct addresses: {:?}",
-					node_addr.direct_addresses().collect::<Vec<_>>()
-				))
-				.await;
-			self.logger
-				.info(&format!("Relay URL: {:?}", node_addr.relay_url()))
+				.debug(&format!("Looking for pairing session: {}", session_id_str))
 				.await;
 
-			if let Err(e) = self.connect_to_node(node_addr.clone()).await {
-				self.logger
-					.error(&format!("Failed to connect to {:?}: {}", node_addr, e))
-					.await;
-			} else {
-				self.logger.info("Successfully connected to peer!").await;
+			while start.elapsed() < timeout {
+				tokio::select! {
+					Some(result) = discovery_stream.next() => {
+						match result {
+							Ok(iroh::discovery::DiscoveryEvent::Discovered(item)) => {
+								// Check if this node is broadcasting our session_id
+								if let Some(user_data) = item.node_info().data.user_data() {
+									if user_data.as_ref() == session_id_str {
+										self.logger
+											.info(&format!(
+												"Found pairing initiator: {} with {} direct addresses",
+												item.node_id().fmt_short(),
+												item.node_info().data.direct_addresses().len()
+											))
+											.await;
+
+										// Build NodeAddr from discovery info
+										let node_addr = iroh::NodeAddr::from_parts(
+											item.node_id(),
+											item.node_info().data.relay_url().cloned(),
+											item.node_info().data.direct_addresses().clone()
+										);
+
+										// Try to connect to the initiator
+										if let Err(e) = self.connect_to_node(node_addr.clone()).await {
+											self.logger
+												.warn(&format!("Failed to connect to initiator: {}", e))
+												.await;
+										} else {
+											self.logger.info("Successfully connected to initiator!").await;
+											break;
+										}
+									}
+								}
+							}
+							Ok(iroh::discovery::DiscoveryEvent::Expired(_)) => {
+								// Node expired, continue searching
+							}
+							Err(e) => {
+								self.logger
+									.warn(&format!("Discovery stream error: {}", e))
+									.await;
+							}
+						}
+					}
+					_ = tokio::time::sleep(tokio::time::Duration::from_millis(100)) => {
+						// Continue polling
+					}
+				}
 			}
 		}
 

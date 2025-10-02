@@ -92,14 +92,19 @@ async fn alice_pairing_scenario() {
 	loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
-		let connected_devices = core.get_connected_devices().await.unwrap();
+		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			println!("Alice: Pairing completed successfully!");
 			println!("Alice: Checking connected devices...");
 			println!("Alice: Connected {} devices", connected_devices.len());
 
 			// Get detailed device info
-			let device_info = core.get_connected_devices_info().await.unwrap();
+			let device_info = core
+				.services
+				.device
+				.get_connected_devices_info()
+				.await
+				.unwrap();
 			for device in &device_info {
 				println!(
 					"Alice sees: {} (ID: {}, OS: {}, App: {})",
@@ -206,14 +211,19 @@ async fn bob_pairing_scenario() {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
 		// Check pairing status by looking at connected devices
-		let connected_devices = core.get_connected_devices().await.unwrap();
+		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			println!("Bob: Pairing completed successfully!");
 			println!("Bob: Checking connected devices...");
 			println!("Bob: Connected {} devices", connected_devices.len());
 
 			// Get detailed device info
-			let device_info = core.get_connected_devices_info().await.unwrap();
+			let device_info = core
+				.services
+				.device
+				.get_connected_devices_info()
+				.await
+				.unwrap();
 			for device in &device_info {
 				println!(
 					"Bob sees: {} (ID: {}, OS: {}, App: {})",
