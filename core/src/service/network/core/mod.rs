@@ -618,12 +618,16 @@ impl NetworkingService {
 				"Invalid pairing handler type".to_string(),
 			))?;
 
-		// Generate session ID
-		let session_id = uuid::Uuid::new_v4();
+		// Generate pairing code (which derives its own session_id from entropy)
+		let random_seed = uuid::Uuid::new_v4();
 		let pairing_code =
-			crate::service::network::protocol::pairing::PairingCode::from_session_id(session_id);
+			crate::service::network::protocol::pairing::PairingCode::from_session_id(random_seed);
 
-		// Start pairing session
+		// CRITICAL: Use the session_id derived from the pairing code, not the random seed
+		// This ensures both initiator and joiner derive the same session_id from the BIP39 words
+		let session_id = pairing_code.session_id();
+
+		// Start pairing session with the derived session_id
 		pairing_handler
 			.start_pairing_session_with_id(session_id, pairing_code.clone())
 			.await?;

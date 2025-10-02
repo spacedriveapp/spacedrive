@@ -69,10 +69,14 @@ impl PairingCode {
 			[const { String::new() }; 12]
 		});
 
+		// Derive session ID from the secret to ensure consistency with parsing
+		// This is critical: both encode and decode paths must derive the same session_id
+		let derived_session_id = Self::derive_session_id(&secret);
+
 		Self {
 			secret,
 			words,
-			session_id, // Use the provided session_id directly
+			session_id: derived_session_id,
 			expires_at: Utc::now() + chrono::Duration::minutes(5),
 		}
 	}
@@ -114,12 +118,9 @@ impl PairingCode {
 		// Decode BIP39 words back to secret
 		let secret = Self::decode_from_bip39_words(words)?;
 
-		// Extract session ID directly from the first 16 bytes (entropy)
-		let session_id = Uuid::from_bytes(secret[..16].try_into().map_err(|_| {
-			crate::service::network::NetworkingError::Protocol(
-				"Failed to extract session ID from entropy".to_string(),
-			)
-		})?);
+		// Derive session ID from the secret using the same method as from_session_id()
+		// This ensures both the initiator and joiner get the same session_id
+		let session_id = Self::derive_session_id(&secret);
 
 		Ok(PairingCode {
 			secret,

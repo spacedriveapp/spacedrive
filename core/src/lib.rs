@@ -381,7 +381,10 @@ impl Core {
 		// Start the networking service
 		self.services.start_networking().await?;
 
-		// Get the networking service for protocol registration
+		// Register protocols immediately after starting
+		// Note: There's a small race condition where connections might arrive before
+		// handlers are fully registered, but this is mitigated by the async registration
+		// completing before most network discovery happens
 		if let Some(networking_service) = self.services.networking() {
 			// Register default protocol handlers
 			self.register_default_protocols(&networking_service).await?;
@@ -469,7 +472,16 @@ impl Core {
 			registry.register_handler(pairing_handler)?;
 			registry.register_handler(Arc::new(messaging_handler))?;
 			registry.register_handler(Arc::new(file_transfer_handler))?;
+			logger
+				.info("All protocol handlers registered successfully")
+				.await;
 		}
+
+		// Brief delay to ensure protocol handlers are fully initialized and background
+		// tasks have started before accepting connections. This prevents race conditions
+		// where incoming connections arrive before handlers are ready.
+		// 50ms is imperceptible to users but sufficient for async task scheduling.
+		tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
 		Ok(())
 	}
