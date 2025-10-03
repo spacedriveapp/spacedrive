@@ -165,7 +165,10 @@ impl NetworkingService {
 		let discovery = MdnsDiscovery::builder();
 
 		self.logger
-			.info(&format!("Created MdnsDiscovery for node {}", self.node_id))
+			.info(&format!(
+				"Created MdnsDiscovery builder for node {}",
+				self.node_id
+			))
 			.await;
 
 		// Create endpoint with discovery
@@ -194,6 +197,10 @@ impl NetworkingService {
 
 		// Store endpoint reference for other methods
 		self.endpoint = Some(endpoint.clone());
+
+		self.logger
+			.info("Endpoint bound successfully with mDNS discovery enabled")
+			.await;
 
 		// Create and start event loop
 		let event_loop = NetworkingEventLoop::new(
@@ -713,14 +720,59 @@ impl NetworkingService {
 					NetworkingError::Protocol(format!("Failed to create user data: {}", e))
 				})?;
 
-			endpoint.set_user_data_for_discovery(Some(user_data));
+			self.logger
+				.debug(&format!(
+					"Setting user_data for discovery: {}",
+					user_data.as_ref()
+				))
+				.await;
+
+			// Get current user_data before setting to verify the change
+			let current_node_data = endpoint.node_addr().get();
+			self.logger
+				.debug(&format!(
+					"Current node user_data before set: {:?}",
+					current_node_data.as_ref().and_then(|addr| {
+						// NodeAddr doesn't expose user_data, so we can't check it here
+						Some("(NodeAddr doesn't expose user_data)")
+					})
+				))
+				.await;
+
+			endpoint.set_user_data_for_discovery(Some(user_data.clone()));
+
+			self.logger
+				.debug(&format!(
+					"Called endpoint.set_user_data_for_discovery with: {}",
+					user_data.as_ref()
+				))
+				.await;
 
 			self.logger
 				.info(&format!(
-					"Broadcasting pairing session {} via mDNS",
+					"Broadcasting pairing session {} via mDNS (set_user_data_for_discovery called)",
 					session_id
 				))
 				.await;
+
+			// Wait for mDNS re-advertisement to propagate
+			// When user_data changes, the endpoint triggers a re-publish to discovery services
+			// This delay ensures the updated broadcast (with session_id) is sent before joiners start listening
+			tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+			self.logger
+				.debug("mDNS re-advertisement delay completed, session_id should now be broadcast")
+				.await;
+
+			// Log current node address to verify what's being broadcast
+			if let Some(node_addr) = self.get_node_addr().ok().flatten() {
+				self.logger
+					.debug(&format!(
+						"Broadcasting with {} direct addresses",
+						node_addr.direct_addresses().count()
+					))
+					.await;
+			}
 		} else {
 			return Err(NetworkingError::Protocol(
 				"Networking not started".to_string(),
@@ -779,11 +831,21 @@ impl NetworkingService {
 				.debug(&format!("Looking for pairing session: {}", session_id_str))
 				.await;
 
+			let mut found_initiator = false;
 			while start.elapsed() < timeout {
 				tokio::select! {
 					Some(result) = discovery_stream.next() => {
 						match result {
 							Ok(iroh::discovery::DiscoveryEvent::Discovered(item)) => {
+								// Log all discovered nodes for debugging
+								self.logger
+									.debug(&format!(
+										"Discovered node: {} with user_data: {:?}",
+										item.node_id().fmt_short(),
+										item.node_info().data.user_data().map(|d| d.as_ref())
+									))
+									.await;
+
 								// Check if this node is broadcasting our session_id
 								if let Some(user_data) = item.node_info().data.user_data() {
 									if user_data.as_ref() == session_id_str {
@@ -809,6 +871,7 @@ impl NetworkingService {
 												.await;
 										} else {
 											self.logger.info("Successfully connected to initiator!").await;
+											found_initiator = true;
 											break;
 										}
 									}
@@ -828,6 +891,18 @@ impl NetworkingService {
 						// Continue polling
 					}
 				}
+			}
+
+			// If mDNS discovery didn't find the initiator, log it
+			if !found_initiator {
+				self.logger
+					.warn(
+						"mDNS discovery timeout - initiator not found via local network discovery",
+					)
+					.await;
+				self.logger
+					.info("Note: iOS devices require the 'Multicast Networking' entitlement for mDNS to work")
+					.await;
 			}
 		}
 

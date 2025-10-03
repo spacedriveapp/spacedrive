@@ -3,13 +3,14 @@
 use super::types::{PairingSession, PairingState};
 use crate::service::network::{NetworkingError, Result};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use uuid::Uuid;
 
 /// Serializable version of PairingSession for persistence
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 struct SerializablePairingSession {
 	pub id: Uuid,
 	pub state: SerializablePairingState,
@@ -20,7 +21,7 @@ struct SerializablePairingSession {
 }
 
 /// Serializable version of PairingState
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 enum SerializablePairingState {
 	WaitingForConnection,
 	Scanning,
