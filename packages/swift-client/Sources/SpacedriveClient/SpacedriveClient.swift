@@ -163,7 +163,10 @@ public class SpacedriveClient {
             // Encode input to JSON for non-unit types
             let requestData: Data
             do {
-                requestData = try JSONEncoder().encode(requestPayload)
+                let encoder = JSONEncoder()
+                // Don't omit nil values - we need them to be present as null
+                // This is handled by the Codable implementation of the structs
+                requestData = try encoder.encode(requestPayload)
             } catch {
                 throw SpacedriveError.serializationError("Failed to encode request: \(error)")
             }
