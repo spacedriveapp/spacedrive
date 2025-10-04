@@ -11,10 +11,10 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 // Note: The connection module has a more complex DeviceConnection for active connections
-// This simpler one is used in DeviceState
+// This simpler one is used in DeviceState for tracking connection metadata
 #[derive(Debug, Clone)]
-pub struct DeviceConnection {
-	pub addresses: Vec<String>,  // Node addresses as strings
+pub struct ConnectionInfo {
+	pub addresses: Vec<String>, // Node addresses as strings
 	pub latency_ms: Option<u32>,
 	pub rx_bytes: u64,
 	pub tx_bytes: u64,
@@ -74,7 +74,7 @@ pub enum DeviceState {
 	/// Device currently connected and active
 	Connected {
 		info: DeviceInfo,
-		connection: DeviceConnection,
+		connection: ConnectionInfo,
 		session_keys: SessionKeys,
 		connected_at: DateTime<Utc>,
 	},
@@ -94,6 +94,7 @@ pub enum DisconnectionReason {
 	Timeout,
 	AuthenticationFailed,
 	ProtocolError(String),
+	ConnectionLost,
 }
 
 /// Session keys for encrypted communication
@@ -119,8 +120,10 @@ impl SessionKeys {
 
 		// Use the same salt for both keys to ensure initiator's send key
 		// matches joiner's receive key, enabling successful decryption
-		hk.expand(b"spacedrive-symmetric-key", &mut send_key).unwrap();
-		hk.expand(b"spacedrive-symmetric-key", &mut receive_key).unwrap();
+		hk.expand(b"spacedrive-symmetric-key", &mut send_key)
+			.unwrap();
+		hk.expand(b"spacedrive-symmetric-key", &mut receive_key)
+			.unwrap();
 
 		Self {
 			shared_secret,

@@ -230,6 +230,9 @@ impl NetworkingService {
 		// Start periodic reconnection attempts
 		self.start_periodic_reconnection().await;
 
+		// Start periodic health checks for connected devices
+		self.start_health_check_task().await;
+
 		Ok(())
 	}
 
@@ -448,8 +451,245 @@ impl NetworkingService {
 		});
 	}
 
+	/// Start periodic health checks for connected devices
+	async fn start_health_check_task(&self) {
+		let device_registry = self.device_registry.clone();
+		let command_sender = self.command_sender.clone();
+		let endpoint = self.endpoint.clone();
+		let logger = self.logger.clone();
+		let active_connections = self.active_connections.clone();
+
+		tokio::spawn(async move {
+			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+			let mut failed_pings: std::collections::HashMap<uuid::Uuid, u32> = std::collections::HashMap::new();
+
+			loop {
+				interval.tick().await;
+
+				// Get all connected devices
+				let connected_devices: Vec<(uuid::Uuid, iroh::NodeId)> = {
+					let registry = device_registry.read().await;
+					registry
+						.get_all_devices()
+						.into_iter()
+						.filter_map(|(device_id, state)| {
+							if let crate::service::network::device::DeviceState::Connected { info, .. } = state {
+								if let Ok(node_id) = info.network_fingerprint.node_id.parse::<iroh::NodeId>() {
+									Some((device_id, node_id))
+								} else {
+									None
+								}
+							} else {
+								None
+							}
+						})
+						.collect()
+				};
+
+				if !connected_devices.is_empty() {
+					logger
+						.debug(&format!(
+							"Health check: pinging {} connected devices",
+							connected_devices.len()
+						))
+						.await;
+				}
+
+				for (device_id, node_id) in connected_devices {
+					// Check if connection still exists
+					let has_connection = {
+						let connections = active_connections.read().await;
+						connections.contains_key(&node_id)
+					};
+
+					if !has_connection {
+						// Connection was lost but device is still marked as connected
+						logger
+							.warn(&format!(
+								"Device {} marked as connected but no active connection found",
+								device_id
+							))
+							.await;
+
+						if let Some(sender) = &command_sender {
+							let _ = sender.send(crate::service::network::core::event_loop::EventLoopCommand::ConnectionLost {
+								device_id,
+								node_id,
+								reason: "Connection not found in active connections".to_string(),
+							});
+						}
+						failed_pings.remove(&device_id);
+						continue;
+					}
+
+					// Send ping message
+					let ping_msg = crate::service::network::protocol::messaging::Message::Ping {
+						timestamp: chrono::Utc::now(),
+						payload: None,
+					};
+
+					if let Ok(ping_data) = serde_json::to_vec(&ping_msg) {
+						// Try to send ping
+						if let Some(ep) = &endpoint {
+							let node_addr = iroh::NodeAddr::new(node_id);
+							let ping_result = tokio::time::timeout(
+								tokio::time::Duration::from_secs(10),
+								async {
+									match ep.connect(node_addr, MESSAGING_ALPN).await {
+										Ok(conn) => {
+											match conn.open_bi().await {
+												Ok((mut send, mut recv)) => {
+													use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+													// Send ping with length prefix
+													let len = ping_data.len() as u32;
+													if send.write_all(&len.to_be_bytes()).await.is_err() {
+														return false;
+													}
+													if send.write_all(&ping_data).await.is_err() {
+														return false;
+													}
+													if send.flush().await.is_err() {
+														return false;
+													}
+
+													// Wait for pong response
+													let mut len_buf = [0u8; 4];
+													if recv.read_exact(&mut len_buf).await.is_err() {
+														return false;
+													}
+													let resp_len = u32::from_be_bytes(len_buf) as usize;
+
+													let mut resp_buf = vec![0u8; resp_len];
+													if recv.read_exact(&mut resp_buf).await.is_err() {
+														return false;
+													}
+
+													// Verify it's a pong
+													if let Ok(msg) = serde_json::from_slice::<crate::service::network::protocol::messaging::Message>(&resp_buf) {
+														matches!(msg, crate::service::network::protocol::messaging::Message::Pong { .. })
+													} else {
+														false
+													}
+												}
+												Err(_) => false,
+											}
+										}
+										Err(_) => false,
+									}
+								}
+							).await;
+
+							match ping_result {
+								Ok(true) => {
+									// Ping successful, reset failure count
+									failed_pings.remove(&device_id);
+									logger
+										.debug(&format!(
+											"Health check: device {} responded to ping",
+											device_id
+										))
+										.await;
+								}
+								Ok(false) | Err(_) => {
+									// Ping failed or timed out
+									let fail_count = failed_pings.entry(device_id).or_insert(0);
+									*fail_count += 1;
+
+									logger
+										.warn(&format!(
+											"Health check: device {} failed ping (attempt {}/3)",
+											device_id, fail_count
+										))
+										.await;
+
+									if *fail_count >= 3 {
+										// Device has failed 3 consecutive pings, mark as disconnected
+										logger
+											.error(&format!(
+												"Health check: device {} failed 3 consecutive pings, marking as disconnected",
+												device_id
+											))
+											.await;
+
+										if let Some(sender) = &command_sender {
+											let _ = sender.send(crate::service::network::core::event_loop::EventLoopCommand::ConnectionLost {
+												device_id,
+												node_id,
+												reason: "Failed health check (3 consecutive ping timeouts)".to_string(),
+											});
+										}
+										failed_pings.remove(&device_id);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		});
+	}
+
 	/// Stop the networking service
 	pub async fn shutdown(&self) -> Result<()> {
+		// Send goodbye messages to all connected devices
+		self.logger
+			.info("Sending disconnect notifications to connected devices")
+			.await;
+
+		let connected_devices: Vec<(uuid::Uuid, iroh::NodeId)> = {
+			let registry = self.device_registry.read().await;
+			registry
+				.get_all_devices()
+				.into_iter()
+				.filter_map(|(device_id, state)| {
+					if let crate::service::network::device::DeviceState::Connected { info, .. } = state
+					{
+						if let Ok(node_id) = info.network_fingerprint.node_id.parse::<iroh::NodeId>()
+						{
+							Some((device_id, node_id))
+						} else {
+							None
+						}
+					} else {
+						None
+					}
+				})
+				.collect()
+		};
+
+	// Send goodbye message to each connected device
+	let device_count = connected_devices.len();
+	for (device_id, node_id) in connected_devices {
+		let goodbye_msg = crate::service::network::protocol::messaging::Message::Goodbye {
+			reason: "Daemon shutting down".to_string(),
+			timestamp: chrono::Utc::now(),
+		};
+
+		if let Ok(goodbye_data) = serde_json::to_vec(&goodbye_msg) {
+			if let Some(command_sender) = &self.command_sender {
+				// Best effort - don't block if it fails
+				let _ = command_sender.send(EventLoopCommand::SendMessageToNode {
+					node_id,
+					protocol: "messaging".to_string(),
+					data: goodbye_data,
+				});
+			}
+		}
+
+		self.logger
+			.debug(&format!(
+				"Sent disconnect notification to device {}",
+				device_id
+			))
+			.await;
+	}
+
+	// Give messages time to be sent
+	if device_count > 0 {
+		tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+	}
+
 		if let Some(shutdown_sender) = self.shutdown_sender.write().await.take() {
 			let _ = shutdown_sender.send(());
 			// Wait a bit for graceful shutdown

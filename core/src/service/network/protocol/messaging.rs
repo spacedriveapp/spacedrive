@@ -2,8 +2,8 @@
 
 use super::{ProtocolEvent, ProtocolHandler};
 use crate::service::network::{NetworkingError, Result};
-use iroh::NodeId;
 use async_trait::async_trait;
+use iroh::NodeId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -34,6 +34,11 @@ pub enum Message {
 		message_id: Uuid,
 		success: bool,
 		error: Option<String>,
+	},
+	/// Graceful disconnect notification
+	Goodbye {
+		reason: String,
+		timestamp: chrono::DateTime<chrono::Utc>,
 	},
 }
 
@@ -140,7 +145,7 @@ impl ProtocolHandler for MessagingProtocolHandler {
 			// Read message length (4 bytes)
 			let mut len_buf = [0u8; 4];
 			match recv.read_exact(&mut len_buf).await {
-				Ok(_) => {},
+				Ok(_) => {}
 				Err(_) => break, // Connection closed
 			}
 			let msg_len = u32::from_be_bytes(len_buf) as usize;
@@ -156,21 +161,27 @@ impl ProtocolHandler for MessagingProtocolHandler {
 			match serde_json::from_slice::<Message>(&msg_buf) {
 				Ok(message) => {
 					// Process message based on type
-					let response = match message {
+					let response = match &message {
 						Message::Ping { timestamp, payload } => {
 							let pong = Message::Pong {
 								timestamp: chrono::Utc::now(),
-								original_timestamp: timestamp,
+								original_timestamp: *timestamp,
 							};
 							serde_json::to_vec(&pong).unwrap_or_default()
 						}
 						Message::Data { message_id, .. } => {
 							let ack = Message::Ack {
-								message_id,
+								message_id: *message_id,
 								success: true,
 								error: None,
 							};
 							serde_json::to_vec(&ack).unwrap_or_default()
+						}
+						Message::Goodbye { reason, .. } => {
+							// Received graceful disconnect from remote device
+							eprintln!("Remote device disconnecting gracefully: {}", reason);
+							// Close the stream by breaking the loop
+							break;
 						}
 						_ => Vec::new(), // No response for Pong/Ack
 					};
@@ -226,10 +237,23 @@ impl ProtocolHandler for MessagingProtocolHandler {
 				self.handle_ack(from_device, message_id, success, error)
 					.await
 			}
+			Message::Goodbye { reason, .. } => {
+				println!(
+					"Device {} disconnecting gracefully: {}",
+					from_device, reason
+				);
+				// Return empty response, connection will be closed by the sender
+				Ok(Vec::new())
+			}
 		}
 	}
 
-	async fn handle_response(&self, _from_device: Uuid, _from_node: NodeId, _response_data: Vec<u8>) -> Result<()> {
+	async fn handle_response(
+		&self,
+		_from_device: Uuid,
+		_from_node: NodeId,
+		_response_data: Vec<u8>,
+	) -> Result<()> {
 		// Messaging protocol handles responses in handle_request
 		Ok(())
 	}

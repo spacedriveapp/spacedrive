@@ -23,9 +23,10 @@ pub enum EventLoopCommand {
 		device_id: Uuid,
 		node_id: NodeId,
 	},
-	EstablishPersistentConnection {
+	ConnectionLost {
 		device_id: Uuid,
 		node_id: NodeId,
+		reason: String,
 	},
 
 	// Message sending
@@ -211,6 +212,7 @@ impl NetworkingEventLoop {
 		let protocol_registry = self.protocol_registry.clone();
 		let device_registry = self.device_registry.clone();
 		let event_sender = self.event_sender.clone();
+		let command_sender = self.command_tx.clone();
 		let active_connections = self.active_connections.clone();
 		let logger = self.logger.clone();
 
@@ -222,6 +224,7 @@ impl NetworkingEventLoop {
 				protocol_registry,
 				device_registry,
 				event_sender,
+				command_sender,
 				remote_node_id,
 				logger.clone(),
 			)
@@ -254,6 +257,7 @@ impl NetworkingEventLoop {
 		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
 		device_registry: Arc<RwLock<DeviceRegistry>>,
 		event_sender: mpsc::UnboundedSender<NetworkEvent>,
+		command_sender: mpsc::UnboundedSender<EventLoopCommand>,
 		remote_node_id: NodeId,
 		logger: Arc<dyn NetworkLogger>,
 	) {
@@ -298,6 +302,17 @@ impl NetworkingEventLoop {
 						}
 						Err(e) => {
 							logger.error(&format!("Failed to accept bidirectional stream: {}", e)).await;
+
+							// Fire ConnectionLost event if this was a paired device
+							let registry = device_registry.read().await;
+							if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
+								logger.info(&format!("Connection lost for device {} due to stream error", device_id)).await;
+								let _ = command_sender.send(EventLoopCommand::ConnectionLost {
+									device_id,
+									node_id: remote_node_id,
+									reason: format!("Stream error: {}", e),
+								});
+							}
 							break;
 						}
 					}
@@ -320,6 +335,17 @@ impl NetworkingEventLoop {
 						}
 						Err(e) => {
 							logger.error(&format!("Failed to accept unidirectional stream: {}", e)).await;
+
+							// Fire ConnectionLost event if this was a paired device
+							let registry = device_registry.read().await;
+							if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
+								logger.info(&format!("Connection lost for device {} due to stream error", device_id)).await;
+								let _ = command_sender.send(EventLoopCommand::ConnectionLost {
+									device_id,
+									node_id: remote_node_id,
+									reason: format!("Stream error: {}", e),
+								});
+							}
 							break;
 						}
 					}
@@ -393,72 +419,105 @@ impl NetworkingEventLoop {
 				self.send_to_node(node_id, &protocol, data).await;
 			}
 
-			EventLoopCommand::EstablishPersistentConnection { device_id, node_id } => {
-				// Establish a new persistent connection using MESSAGING_ALPN
+			EventLoopCommand::ConnectionLost {
+				device_id,
+				node_id,
+				reason,
+			} => {
+				// Check if device is already disconnected to prevent infinite loops
+				let should_process = {
+					let registry = self.device_registry.read().await;
+					if let Some(state) = registry.get_device_state(device_id) {
+						// Only process if device is Connected or Paired (not already Disconnected)
+						matches!(
+							state,
+							crate::service::network::device::DeviceState::Connected { .. }
+								| crate::service::network::device::DeviceState::Paired { .. }
+						)
+					} else {
+						false
+					}
+				};
+
+				if !should_process {
+					self.logger
+						.debug(&format!(
+						"Ignoring duplicate ConnectionLost for device {} (already disconnected)",
+						device_id
+					))
+						.await;
+					return;
+				}
+
 				self.logger
 					.info(&format!(
-						"Establishing persistent messaging connection to device {} (node: {})",
-						device_id, node_id
+						"Connection lost to device {} (node: {}): {}",
+						device_id, node_id, reason
 					))
 					.await;
 
-				// Create NodeAddr for the connection
-				let node_addr = NodeAddr::new(node_id);
+				// Remove from active connections
+				{
+					let mut connections = self.active_connections.write().await;
+					connections.remove(&node_id);
+				}
 
-				// Attempt to connect with MESSAGING_ALPN
-				match self.endpoint.connect(node_addr, MESSAGING_ALPN).await {
-					Ok(conn) => {
-						// Store the connection
-						{
-							let mut connections = self.active_connections.write().await;
-							connections.insert(node_id, conn);
-						}
+				// Update device registry to mark as disconnected
+				let mut registry = self.device_registry.write().await;
+				if let Err(e) = registry
+					.mark_disconnected(
+						device_id,
+						crate::service::network::device::DisconnectionReason::ConnectionLost,
+					)
+					.await
+				{
+					self.logger
+						.warn(&format!(
+							"Could not mark device {} as disconnected: {}",
+							device_id, e
+						))
+						.await;
+					// Don't trigger reconnection if we couldn't mark as disconnected
+					return;
+				}
 
-						self.logger
-							.info(&format!(
-								"Successfully established persistent connection to device {} (node: {})",
-								device_id, node_id
-							))
-							.await;
+				// Send connection lost event
+				let _ = self
+					.event_sender
+					.send(NetworkEvent::ConnectionLost { device_id, node_id });
 
-						// Get the address from the active connection map
-						let connections = self.active_connections.read().await;
-						let addresses = if let Some(_conn) = connections.get(&node_id) {
-							vec!["connected".to_string()] // TODO: Find equivalent of remote_address() in iroh 0.91
-						} else {
-							self.logger
-								.warn(&format!(
-									"Could not find active connection for node {}",
-									node_id
-								))
-								.await;
-							vec![]
-						};
-						drop(connections);
+				// Trigger immediate reconnection attempt with exponential backoff
+				self.logger
+					.info(&format!(
+						"Triggering reconnection attempt for device {}",
+						device_id
+					))
+					.await;
 
-						// Update device registry to mark as connected
-						let mut registry = self.device_registry.write().await;
-						if let Err(e) = registry
-							.set_device_connected(device_id, node_id, addresses)
-							.await
-						{
-							self.logger
-								.error(&format!("Failed to update device connection state: {}", e))
-								.await;
-						}
+				// Get device info for reconnection
+				if let Ok(auto_reconnect_devices) = registry.get_auto_reconnect_devices().await {
+					if let Some((_, persisted_device)) = auto_reconnect_devices
+						.into_iter()
+						.find(|(id, _)| *id == device_id)
+					{
+						let command_sender = Some(self.command_tx.clone());
+						let endpoint = Some(self.endpoint.clone());
+						let logger = self.logger.clone();
 
-						// Send connection event
-						let _ = self
-							.event_sender
-							.send(NetworkEvent::ConnectionEstablished { device_id, node_id });
-					}
-					Err(e) => {
-						self.logger
-							.error(&format!(
-								"Failed to establish persistent connection to device {} (node: {}): {}",
-								device_id, node_id, e
-							))
-							.await;
+						// Spawn reconnection with a small delay to prevent immediate retry loops
+						tokio::spawn(async move {
+							// Wait 2 seconds before attempting reconnection to avoid tight loop
+							tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+							crate::service::network::core::NetworkingService::attempt_device_reconnection(
+							device_id,
+							persisted_device,
+							command_sender,
+							endpoint,
+							logger,
+						)
+						.await;
+						});
 					}
 				}
 			}

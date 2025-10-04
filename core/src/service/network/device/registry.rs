@@ -1,6 +1,6 @@
 //! Device registry for centralized state management
 
-use super::{DeviceConnection, DeviceInfo, DeviceState, DevicePersistence, PersistedPairedDevice, SessionKeys, TrustLevel};
+use super::{ConnectionInfo, DeviceInfo, DeviceState, DevicePersistence, PersistedPairedDevice, SessionKeys, TrustLevel};
 use crate::device::DeviceManager;
 use crate::service::network::{NetworkingError, Result, utils::logging::NetworkLogger};
 use chrono::{DateTime, Utc};
@@ -170,7 +170,7 @@ impl DeviceRegistry {
 	}
 
 	/// Mark device as connected
-	pub async fn mark_connected(&mut self, device_id: Uuid, connection: DeviceConnection) -> Result<()> {
+	pub async fn mark_connected(&mut self, device_id: Uuid, connection: ConnectionInfo) -> Result<()> {
 		let current_state = self
 			.devices
 			.get(&device_id)
@@ -273,6 +273,14 @@ impl DeviceRegistry {
 	/// Get device ID by session ID
 	pub fn get_device_by_session(&self, session_id: Uuid) -> Option<Uuid> {
 		self.session_to_device.get(&session_id).copied()
+	}
+
+	/// Get all devices with their IDs and states
+	pub fn get_all_devices(&self) -> Vec<(Uuid, DeviceState)> {
+		self.devices
+			.iter()
+			.map(|(id, state)| (*id, state.clone()))
+			.collect()
 	}
 
 	/// Get all connected devices
@@ -459,7 +467,7 @@ impl DeviceRegistry {
 						info: info.clone(),
 						session_keys: session_keys.clone(),
 						connected_at: Utc::now(),
-						connection: DeviceConnection {
+						connection: ConnectionInfo {
 							addresses: addresses.clone(),
 							latency_ms: None,
 							rx_bytes: 0,
@@ -482,7 +490,7 @@ impl DeviceRegistry {
 				DeviceState::Connected { info, session_keys, connection, .. } => {
 					// Device is already connected, just update the addresses if provided
 					if !addresses.is_empty() {
-						let updated_connection = DeviceConnection {
+						let updated_connection = ConnectionInfo {
 							addresses: addresses.clone(),
 							latency_ms: connection.latency_ms,
 							rx_bytes: connection.rx_bytes,

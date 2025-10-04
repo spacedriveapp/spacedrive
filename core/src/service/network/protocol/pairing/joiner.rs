@@ -92,7 +92,7 @@ impl PairingProtocolHandler {
 		// Mark the initiator device as connected immediately after pairing completes
 		// This ensures Bob sees Alice as connected even if the completion message fails
 		{
-			let simple_connection = crate::service::network::device::DeviceConnection {
+			let simple_connection = crate::service::network::device::ConnectionInfo {
 				addresses: vec![], // Will be filled in later
 				latency_ms: None,
 				rx_bytes: 0,
@@ -259,7 +259,7 @@ impl PairingProtocolHandler {
 
 							if let Some(node_id) = initiator_node_id {
 								let simple_connection =
-									crate::service::network::device::DeviceConnection {
+									crate::service::network::device::ConnectionInfo {
 										addresses: vec![], // Will be filled in later
 										latency_ms: None,
 										rx_bytes: 0,
@@ -274,28 +274,6 @@ impl PairingProtocolHandler {
 								};
 							}
 
-							// Establish a persistent messaging connection after pairing
-							self.log_info(&format!(
-                                "Establishing persistent messaging connection to paired device {} (node: {})",
-                                actual_device_id, from_node
-                            )).await;
-
-							// Send a command to establish a new persistent connection
-							let command = crate::service::network::core::event_loop::EventLoopCommand::EstablishPersistentConnection {
-                                device_id: actual_device_id,
-                                node_id: from_node,
-                            };
-
-							if let Err(e) = self.command_sender.send(command) {
-								self.log_error(&format!(
-									"Failed to send establish connection command: {:?}",
-									e
-								))
-								.await;
-							} else {
-								self.log_info("Sent command to establish persistent connection")
-									.await;
-							}
 						}
 						Err(e) => {
 							self.log_error(&format!(
