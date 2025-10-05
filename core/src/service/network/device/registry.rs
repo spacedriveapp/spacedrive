@@ -68,6 +68,29 @@ impl DeviceRegistry {
 
 			self.devices.insert(device_id, state);
 			loaded_device_ids.push(device_id);
+
+			// Restore node-to-device mapping so incoming connections can find this device
+			if let Ok(node_id) = persisted_device
+				.device_info
+				.network_fingerprint
+				.node_id
+				.parse::<NodeId>()
+			{
+				self.node_to_device.insert(node_id, device_id);
+				self.logger
+					.debug(&format!(
+						"Restored node-to-device mapping for {}: {} -> {}",
+						persisted_device.device_info.device_name, node_id, device_id
+					))
+					.await;
+			} else {
+				self.logger
+					.warn(&format!(
+						"Failed to parse node ID for device {} during load",
+						persisted_device.device_info.device_name
+					))
+					.await;
+			}
 		}
 
 		Ok(loaded_device_ids)
@@ -215,13 +238,9 @@ impl DeviceRegistry {
 			DeviceState::Paired {
 				info, session_keys, ..
 			} => (info.clone(), session_keys.clone()),
-			DeviceState::Disconnected { info, .. } => {
-				// For disconnected devices, we need to find their session keys from a previous state
-				// This is a limitation - we should store session keys with disconnected devices too
-				return Err(NetworkingError::Protocol(
-					"Cannot connect disconnected device without session keys".to_string(),
-				));
-			}
+			DeviceState::Disconnected {
+				info, session_keys, ..
+			} => (info.clone(), session_keys.clone()),
 			DeviceState::Discovered { node_id, .. } => {
 				// Need device info - this shouldn't happen normally
 				return Err(NetworkingError::Protocol(
@@ -284,9 +303,13 @@ impl DeviceRegistry {
 			.get(&device_id)
 			.ok_or_else(|| NetworkingError::DeviceNotFound(device_id))?;
 
-		let info = match current_state {
-			DeviceState::Connected { info, .. } => info.clone(),
-			DeviceState::Paired { info, .. } => info.clone(),
+		let (info, session_keys) = match current_state {
+			DeviceState::Connected {
+				info, session_keys, ..
+			} => (info.clone(), session_keys.clone()),
+			DeviceState::Paired {
+				info, session_keys, ..
+			} => (info.clone(), session_keys.clone()),
 			_ => {
 				return Err(NetworkingError::Protocol(
 					"Cannot disconnect device that isn't connected".to_string(),
@@ -296,6 +319,7 @@ impl DeviceRegistry {
 
 		let state = DeviceState::Disconnected {
 			info,
+			session_keys,
 			last_seen: Utc::now(),
 			reason,
 		};
@@ -611,6 +635,40 @@ impl DeviceRegistry {
 							device_id
 						))
 						.await;
+				}
+				DeviceState::Disconnected {
+					info, session_keys, ..
+				} => {
+					// Reconnecting a previously disconnected device
+					let state = DeviceState::Connected {
+						info: info.clone(),
+						session_keys: session_keys.clone(),
+						connected_at: Utc::now(),
+						connection: ConnectionInfo {
+							addresses: addresses.clone(),
+							latency_ms: None,
+							rx_bytes: 0,
+							tx_bytes: 0,
+						},
+					};
+					self.devices.insert(device_id, state);
+
+					// Update persisted device with new addresses for future reconnection
+					if !addresses.is_empty() {
+						if let Err(e) = self
+							.persistence
+							.update_device_connection(
+								device_id,
+								true, // connected
+								Some(addresses),
+							)
+							.await
+						{
+							self.logger
+								.warn(&format!("Failed to update device connection info: {}", e))
+								.await;
+						}
+					}
 				}
 				_ => {
 					return Err(NetworkingError::Protocol(

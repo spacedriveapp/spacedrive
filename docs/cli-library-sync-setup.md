@@ -484,7 +484,7 @@ sd network pair generate          # Generate pairing code
 sd network pair join <CODE>       # Join with code
 sd network pair status            # Show pairing sessions
 
-# Devices  
+# Devices
 sd network devices                # List all paired devices
 sd network devices --connected    # List connected devices only
 

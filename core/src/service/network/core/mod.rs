@@ -302,6 +302,43 @@ impl NetworkingService {
 		endpoint: Option<Endpoint>,
 		logger: Arc<dyn NetworkLogger>,
 	) {
+		// Deterministic reconnection: only the device with the lower NodeId initiates
+		// This prevents both sides from simultaneously trying to connect
+		let endpoint_ref = match &endpoint {
+			Some(ep) => ep,
+			None => {
+				logger.warn("No endpoint available for reconnection").await;
+				return;
+			}
+		};
+
+		let my_node_id = endpoint_ref.node_id();
+		let remote_node_id = match persisted_device
+			.device_info
+			.network_fingerprint
+			.node_id
+			.parse::<NodeId>()
+		{
+			Ok(id) => id,
+			Err(e) => {
+				logger
+					.warn(&format!("Failed to parse remote node ID: {}", e))
+					.await;
+				return;
+			}
+		};
+
+		// Only initiate if our NodeId is lower (deterministic rule)
+		if my_node_id >= remote_node_id {
+			logger
+				.debug(&format!(
+					"Skipping outbound reconnection to {} - waiting for them to connect to us (NodeId rule)",
+					persisted_device.device_info.device_name
+				))
+				.await;
+			return;
+		}
+
 		logger
 			.info(&format!(
 				"Starting reconnection attempts for device: {}",
@@ -345,17 +382,74 @@ impl NetworkingService {
 				loop {
 					// Use MESSAGING_ALPN for reconnection to paired devices
 					match endpoint.connect(node_addr.clone(), MESSAGING_ALPN).await {
-						Ok(_conn) => {
+						Ok(conn) => {
 							logger
 								.info(&format!("Successfully connected to device {}", device_id))
 								.await;
 
-							// Send connection established command
-							let _ = sender.send(EventLoopCommand::ConnectionEstablished {
-								device_id,
-								node_id,
-							});
-							break;
+							// As the connector, we MUST open a stream for the receiver to accept
+							// This is the standard Iroh pattern: connector opens, receiver accepts
+							match conn.open_bi().await {
+								Ok((mut send, mut recv)) => {
+									// Send a Ping to establish the messaging protocol
+									use crate::service::network::protocol::messaging::Message;
+									use tokio::io::AsyncReadExt;
+									use tokio::io::AsyncWriteExt;
+
+									let ping = Message::Ping {
+										timestamp: chrono::Utc::now(),
+										payload: None,
+									};
+
+									if let Ok(ping_data) = serde_json::to_vec(&ping) {
+										// Send length prefix (4 bytes, big-endian) - required by messaging protocol
+										let len = ping_data.len() as u32;
+										if let Err(e) = send.write_all(&len.to_be_bytes()).await {
+											logger
+												.warn(&format!(
+													"Failed to send length prefix: {}",
+													e
+												))
+												.await;
+											// Don't continue - fall through to retry with delay
+										} else {
+											// Send message data
+											if let Err(e) = send.write_all(&ping_data).await {
+												logger
+													.warn(&format!("Failed to send ping: {}", e))
+													.await;
+												// Fall through - let outer retry loop handle it
+											} else {
+												send.finish().ok(); // Close send side
+
+												// Don't wait for response - just sending the ping establishes the protocol
+												// The messaging handler will process it asynchronously
+												logger
+													.debug("Ping sent to establish protocol")
+													.await;
+											}
+										}
+									}
+
+									logger
+										.info(&format!(
+											"Messaging protocol established with device {}",
+											device_id
+										))
+										.await;
+
+									// Send connection established command
+									let _ = sender.send(EventLoopCommand::ConnectionEstablished {
+										device_id,
+										node_id,
+									});
+									break;
+								}
+								Err(e) => {
+									logger.warn(&format!("Failed to open stream: {}", e)).await;
+									// Don't continue - will retry with delay in outer loop
+								}
+							}
 						}
 						Err(e) => {
 							retry_count += 1;

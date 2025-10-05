@@ -57,6 +57,7 @@ impl CoreQuery for ListPairedDevicesQuery {
 					connected_count += 1;
 					(Some(info), true)
 				}
+				DeviceState::Disconnected { info, .. } => (Some(info), false),
 				_ => (None, false),
 			};
 

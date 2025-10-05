@@ -3818,6 +3818,27 @@ public struct ListLibraryDevicesInput: Codable {
     }
 }
 
+public struct ListPairedDevicesInput: Codable {
+    public let connectedOnly: Bool?
+
+    public init(connectedOnly: Bool?) {
+        self.connectedOnly = connectedOnly
+    }
+}
+
+/// Output from listing paired devices
+public struct ListPairedDevicesOutput: Codable {
+    public let devices: [PairedDeviceInfo]
+    public let total: UInt
+    public let connected: UInt
+
+    public init(devices: [PairedDeviceInfo], total: UInt, connected: UInt) {
+        self.devices = devices
+        self.total = total
+        self.connected = connected
+    }
+}
+
 public struct LocationAddInput: Codable {
     public let path: String
     public let name: String?
@@ -4280,6 +4301,27 @@ public struct PairStatusOutput: Codable {
 }
 
 public struct PairStatusQueryInput: Codable {
+}
+
+/// Information about a paired device
+public struct PairedDeviceInfo: Codable {
+    public let id: String
+    public let name: String
+    public let deviceType: String
+    public let osVersion: String
+    public let appVersion: String
+    public let isConnected: Bool
+    public let lastSeen: String
+
+    public init(id: String, name: String, deviceType: String, osVersion: String, appVersion: String, isConnected: Bool, lastSeen: String) {
+        self.id = id
+        self.name = name
+        self.deviceType = deviceType
+        self.osVersion = osVersion
+        self.appVersion = appVersion
+        self.isConnected = isConnected
+        self.lastSeen = lastSeen
+    }
 }
 
 public struct PairingSessionSummary: Codable {
@@ -5974,127 +6016,129 @@ extension SpacedriveApi: Codable {
 /// Core-scoped actions
 public enum CoreAction {
     case NetworkStart(input: NetworkStartInput, output: NetworkStartOutput)
-    case NetworkPairCancel(input: PairCancelInput, output: PairCancelOutput)
-    case NetworkDeviceRevoke(input: DeviceRevokeInput, output: DeviceRevokeOutput)
-    case NetworkSpacedropSend(input: SpacedropSendInput, output: SpacedropSendOutput)
-    case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
-    case NetworkSyncSetup(input: LibrarySyncSetupInput, output: LibrarySyncSetupOutput)
     case NetworkPairGenerate(input: PairGenerateInput, output: PairGenerateOutput)
-    case LibrariesCreate(input: LibraryCreateInput, output: LibraryCreateOutput)
+    case NetworkSyncSetup(input: LibrarySyncSetupInput, output: LibrarySyncSetupOutput)
+    case NetworkPairCancel(input: PairCancelInput, output: PairCancelOutput)
     case NetworkPairJoin(input: PairJoinInput, output: PairJoinOutput)
+    case NetworkSpacedropSend(input: SpacedropSendInput, output: SpacedropSendOutput)
+    case NetworkDeviceRevoke(input: DeviceRevokeInput, output: DeviceRevokeOutput)
     case LibrariesDelete(input: LibraryDeleteInput, output: LibraryDeleteOutput)
+    case LibrariesCreate(input: LibraryCreateInput, output: LibraryCreateOutput)
+    case NetworkStop(input: NetworkStopInput, output: NetworkStopOutput)
 }
 
 extension CoreAction: Codable {
     public var wireMethod: String {
         switch self {
         case .NetworkStart: return "action:network.start.input.v1"
-        case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
-        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
-        case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
-        case .NetworkStop: return "action:network.stop.input.v1"
-        case .NetworkSyncSetup: return "action:network.sync_setup.input.v1"
         case .NetworkPairGenerate: return "action:network.pair.generate.input.v1"
-        case .LibrariesCreate: return "action:libraries.create.input.v1"
+        case .NetworkSyncSetup: return "action:network.sync_setup.input.v1"
+        case .NetworkPairCancel: return "action:network.pair.cancel.input.v1"
         case .NetworkPairJoin: return "action:network.pair.join.input.v1"
+        case .NetworkSpacedropSend: return "action:network.spacedrop.send.input.v1"
+        case .NetworkDeviceRevoke: return "action:network.device.revoke.input.v1"
         case .LibrariesDelete: return "action:libraries.delete.input.v1"
+        case .LibrariesCreate: return "action:libraries.create.input.v1"
+        case .NetworkStop: return "action:network.stop.input.v1"
         }
     }
 }
 
 /// Library-scoped actions
 public enum LibraryAction {
-    case LibrariesExport(input: LibraryExportInput, output: LibraryExportOutput)
-    case VolumesSpeedTest(input: VolumeSpeedTestInput, output: VolumeSpeedTestOutput)
-    case JobsCancel(input: JobCancelInput, output: JobCancelOutput)
-    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
-    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
-    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
-    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
-    case VolumesTrack(input: VolumeTrackInput, output: VolumeTrackOutput)
     case TagsApply(input: ApplyTagsInput, output: ApplyTagsOutput)
-    case LocationsRescan(input: LocationRescanInput, output: LocationRescanOutput)
-    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
     case TagsCreate(input: CreateTagInput, output: CreateTagOutput)
+    case JobsPause(input: JobPauseInput, output: JobPauseOutput)
     case LocationsRemove(input: LocationRemoveInput, output: LocationRemoveOutput)
-    case FilesCopy(input: FileCopyInput, output: JobReceipt)
+    case VolumesTrack(input: VolumeTrackInput, output: VolumeTrackOutput)
+    case LibrariesExport(input: LibraryExportInput, output: LibraryExportOutput)
+    case JobsResume(input: JobResumeInput, output: JobResumeOutput)
     case LocationsAdd(input: LocationAddInput, output: LocationAddOutput)
     case IndexingStart(input: IndexInput, output: JobReceipt)
+    case VolumesUntrack(input: VolumeUntrackInput, output: VolumeUntrackOutput)
+    case FilesCopy(input: FileCopyInput, output: JobReceipt)
+    case LibrariesRename(input: LibraryRenameInput, output: LibraryRenameOutput)
+    case LocationsRescan(input: LocationRescanInput, output: LocationRescanOutput)
+    case JobsCancel(input: JobCancelInput, output: JobCancelOutput)
+    case VolumesSpeedTest(input: VolumeSpeedTestInput, output: VolumeSpeedTestOutput)
+    case MediaThumbnail(input: ThumbnailInput, output: JobReceipt)
 }
 
 extension LibraryAction: Codable {
     public var wireMethod: String {
         switch self {
-        case .LibrariesExport: return "action:libraries.export.input.v1"
-        case .VolumesSpeedTest: return "action:volumes.speed_test.input.v1"
-        case .JobsCancel: return "action:jobs.cancel.input.v1"
-        case .JobsResume: return "action:jobs.resume.input.v1"
-        case .JobsPause: return "action:jobs.pause.input.v1"
-        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
-        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
-        case .VolumesTrack: return "action:volumes.track.input.v1"
         case .TagsApply: return "action:tags.apply.input.v1"
-        case .LocationsRescan: return "action:locations.rescan.input.v1"
-        case .LibrariesRename: return "action:libraries.rename.input.v1"
         case .TagsCreate: return "action:tags.create.input.v1"
+        case .JobsPause: return "action:jobs.pause.input.v1"
         case .LocationsRemove: return "action:locations.remove.input.v1"
-        case .FilesCopy: return "action:files.copy.input.v1"
+        case .VolumesTrack: return "action:volumes.track.input.v1"
+        case .LibrariesExport: return "action:libraries.export.input.v1"
+        case .JobsResume: return "action:jobs.resume.input.v1"
         case .LocationsAdd: return "action:locations.add.input.v1"
         case .IndexingStart: return "action:indexing.start.input.v1"
+        case .VolumesUntrack: return "action:volumes.untrack.input.v1"
+        case .FilesCopy: return "action:files.copy.input.v1"
+        case .LibrariesRename: return "action:libraries.rename.input.v1"
+        case .LocationsRescan: return "action:locations.rescan.input.v1"
+        case .JobsCancel: return "action:jobs.cancel.input.v1"
+        case .VolumesSpeedTest: return "action:volumes.speed_test.input.v1"
+        case .MediaThumbnail: return "action:media.thumbnail.input.v1"
         }
     }
 }
 
 /// Core-scoped queries
 public enum CoreQuery {
-    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
-    case LibrariesList(input: ListLibrariesInput, output: [LibraryInfo])
     case CoreStatus(input: Empty, output: CoreStatus)
-    case NetworkStatus(input: NetworkStatusQueryInput, output: NetworkStatus)
     case NetworkSyncSetupDiscover(input: DiscoverRemoteLibrariesInput, output: DiscoverRemoteLibrariesOutput)
+    case LibrariesList(input: ListLibrariesInput, output: [LibraryInfo])
+    case NetworkDevicesList(input: ListPairedDevicesInput, output: ListPairedDevicesOutput)
+    case NetworkStatus(input: NetworkStatusQueryInput, output: NetworkStatus)
+    case NetworkPairStatus(input: PairStatusQueryInput, output: PairStatusOutput)
 }
 
 extension CoreQuery: Codable {
     public var wireMethod: String {
         switch self {
-        case .NetworkPairStatus: return "query:network.pair.status.v1"
-        case .LibrariesList: return "query:libraries.list.v1"
         case .CoreStatus: return "query:core.status.v1"
-        case .NetworkStatus: return "query:network.status.v1"
         case .NetworkSyncSetupDiscover: return "query:network.sync_setup.discover.v1"
+        case .LibrariesList: return "query:libraries.list.v1"
+        case .NetworkDevicesList: return "query:network.devices.list.v1"
+        case .NetworkStatus: return "query:network.status.v1"
+        case .NetworkPairStatus: return "query:network.pair.status.v1"
         }
     }
 }
 
 /// Library-scoped queries
 public enum LibraryQuery {
+    case LocationsList(input: LocationsListQueryInput, output: LocationsListOutput)
+    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
+    case FilesUniqueToLocation(input: UniqueToLocationInput, output: UniqueToLocationOutput)
+    case SearchFiles(input: FileSearchInput, output: FileSearchOutput)
+    case FilesByPath(input: FileByPathQuery, output: File)
+    case JobsList(input: JobListInput, output: JobListOutput)
+    case FilesById(input: FileByIdQuery, output: File)
+    case FilesDirectoryListing(input: DirectoryListingInput, output: DirectoryListingOutput)
+    case LibrariesInfo(input: LibraryInfoQueryInput, output: LibraryInfoOutput)
     case TagsSearch(input: SearchTagsInput, output: SearchTagsOutput)
     case DevicesList(input: ListLibraryDevicesInput, output: [LibraryDeviceInfo])
-    case LibrariesInfo(input: LibraryInfoQueryInput, output: LibraryInfoOutput)
-    case JobsInfo(input: JobInfoQueryInput, output: JobInfoOutput)
-    case FilesDirectoryListing(input: DirectoryListingInput, output: DirectoryListingOutput)
-    case SearchFiles(input: FileSearchInput, output: FileSearchOutput)
-    case FilesUniqueToLocation(input: UniqueToLocationInput, output: UniqueToLocationOutput)
-    case FilesById(input: FileByIdQuery, output: File)
-    case JobsList(input: JobListInput, output: JobListOutput)
-    case FilesByPath(input: FileByPathQuery, output: File)
-    case LocationsList(input: LocationsListQueryInput, output: LocationsListOutput)
 }
 
 extension LibraryQuery: Codable {
     public var wireMethod: String {
         switch self {
+        case .LocationsList: return "query:locations.list.v1"
+        case .JobsInfo: return "query:jobs.info.v1"
+        case .FilesUniqueToLocation: return "query:files.unique_to_location.v1"
+        case .SearchFiles: return "query:search.files.v1"
+        case .FilesByPath: return "query:files.by_path.v1"
+        case .JobsList: return "query:jobs.list.v1"
+        case .FilesById: return "query:files.by_id.v1"
+        case .FilesDirectoryListing: return "query:files.directory_listing.v1"
+        case .LibrariesInfo: return "query:libraries.info.v1"
         case .TagsSearch: return "query:tags.search.v1"
         case .DevicesList: return "query:devices.list.v1"
-        case .LibrariesInfo: return "query:libraries.info.v1"
-        case .JobsInfo: return "query:jobs.info.v1"
-        case .FilesDirectoryListing: return "query:files.directory_listing.v1"
-        case .SearchFiles: return "query:search.files.v1"
-        case .FilesUniqueToLocation: return "query:files.unique_to_location.v1"
-        case .FilesById: return "query:files.by_id.v1"
-        case .JobsList: return "query:jobs.list.v1"
-        case .FilesByPath: return "query:files.by_path.v1"
-        case .LocationsList: return "query:locations.list.v1"
         }
     }
 }

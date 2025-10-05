@@ -139,9 +139,10 @@ extension SpacedriveClient {
     /// Get list of paired devices
     /// - Parameter connectedOnly: If true, only return currently connected devices
     /// - Returns: List of device information
-    public func getPairedDevices(connectedOnly: Bool = false) async throws -> [DeviceInfoLite] {
-        let input = ListDevicesInput(pairedOnly: true, connectedOnly: connectedOnly)
-        return try await network.devices(input)
+    public func getPairedDevices(connectedOnly: Bool = false) async throws -> [PairedDeviceInfo] {
+        let input = ListPairedDevicesInput(connectedOnly: connectedOnly)
+        let output = try await network.devicesList(input)
+        return output.devices
     }
 
     /// Get network status including pairing information

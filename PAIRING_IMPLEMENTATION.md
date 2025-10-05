@@ -236,7 +236,7 @@ let client = try getSpacedriveClient()
 let result = try await client.startPairingAsInitiator(autoAccept: autoAccept)
 
 // Replace in PairingCoordinator.swift:
-@Published public var pairedDevices: [DeviceInfoLite] = [] // Use imported type
+@Published public var pairedDevices: [PairedDeviceInfo] = [] // Use imported type
 @Published public var currentState: PairingFlowState = .idle // Use imported type
 ```
 

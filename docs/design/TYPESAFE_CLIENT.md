@@ -1267,7 +1267,7 @@ Based on analysis of the CLI's active usage, here are all the forward-facing Rus
 - `PairJoinOutput` - Pairing join result
 - `PairCancelOutput` - Pairing cancel result
 - `PairStatusOutput` - Pairing session status
-- `DeviceInfoLite` - Device information
+- `PairedDeviceInfo` - Device information
 - `DeviceRevokeOutput` - Device revocation result
 - `SpacedropSendOutput` - Spacedrop operation result
 

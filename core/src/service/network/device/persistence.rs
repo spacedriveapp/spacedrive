@@ -293,6 +293,11 @@ impl DevicePersistence {
 			if connected {
 				device.last_connected_at = Some(Utc::now());
 				device.connection_attempts = 0; // Reset on successful connection
+
+				// Restore trust to Trusted on successful connection
+				if matches!(device.trust_level, TrustLevel::Unreliable) {
+					device.trust_level = TrustLevel::Trusted;
+				}
 			} else {
 				device.connection_attempts += 1;
 
@@ -346,9 +351,25 @@ impl DevicePersistence {
 
 		let auto_reconnect: Vec<(Uuid, PersistedPairedDevice)> = devices
 			.into_iter()
-			.filter(|(_, device)| {
-				matches!(device.trust_level, TrustLevel::Trusted)
-					&& !device.session_keys.is_expired()
+			.filter(|(device_id, device)| {
+				let is_expired = device.session_keys.is_expired();
+				let is_blocked = matches!(device.trust_level, TrustLevel::Blocked);
+
+				// Simple rule: reconnect if paired, not blocked, and keys valid
+				// Connection failures (Unreliable) don't prevent reconnection attempts
+				let should_reconnect = !is_expired && !is_blocked;
+
+				// Debug logging
+				eprintln!(
+					"[AUTO-RECONNECT] Device {}: trust={:?}, expired={}, blocked={}, include={}",
+					device.device_info.device_name,
+					device.trust_level,
+					is_expired,
+					is_blocked,
+					should_reconnect
+				);
+
+				should_reconnect
 			})
 			.collect();
 

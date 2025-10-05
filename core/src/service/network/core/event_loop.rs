@@ -204,6 +204,22 @@ impl NetworkingEventLoop {
 		self.logger
 			.info(&format!("Incoming connection from {:?}", remote_node_id))
 			.await;
+
+		// Check if this is a paired device
+		let is_paired_device = {
+			let registry = self.device_registry.read().await;
+			registry.get_device_by_node(remote_node_id).is_some()
+		};
+
+		if is_paired_device {
+			self.logger
+				.info("Paired device connected - will accept incoming streams")
+				.await;
+			// Don't proactively send ping - let accept_bi() handle the stream
+			// from the connecting side. This prevents both sides from opening
+			// competing streams simultaneously.
+		}
+
 		self.logger
 			.debug("Detecting protocol from incoming streams...")
 			.await;
