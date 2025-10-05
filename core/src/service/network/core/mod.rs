@@ -328,16 +328,26 @@ impl NetworkingService {
 			}
 		};
 
-		// Only initiate if our NodeId is lower (deterministic rule)
-		if my_node_id >= remote_node_id {
+		// Deterministic rule: only device with lower NodeId initiates outbound connections
+		// This prevents both sides from creating competing connections
+		if my_node_id > remote_node_id {
 			logger
 				.debug(&format!(
-					"Skipping outbound reconnection to {} - waiting for them to connect to us (NodeId rule)",
-					persisted_device.device_info.device_name
+					"Skipping outbound reconnection to {} - waiting for them to connect to us (NodeId rule: {} > {})",
+					persisted_device.device_info.device_name,
+					my_node_id,
+					remote_node_id
 				))
 				.await;
 			return;
 		}
+
+		logger
+			.info(&format!(
+				"NodeId rule: {} < {} - we should initiate connection",
+				my_node_id, remote_node_id
+			))
+			.await;
 
 		logger
 			.info(&format!(
@@ -387,6 +397,12 @@ impl NetworkingService {
 								.info(&format!("Successfully connected to device {}", device_id))
 								.await;
 
+							// Track this outbound connection so it persists
+							let _ = sender.send(EventLoopCommand::TrackOutboundConnection {
+								node_id,
+								conn: conn.clone(),
+							});
+
 							// As the connector, we MUST open a stream for the receiver to accept
 							// This is the standard Iroh pattern: connector opens, receiver accepts
 							match conn.open_bi().await {
@@ -420,13 +436,17 @@ impl NetworkingService {
 													.await;
 												// Fall through - let outer retry loop handle it
 											} else {
-												send.finish().ok(); // Close send side
+												// Flush to ensure ping is sent
+												use tokio::io::AsyncWriteExt;
+												let _ = send.flush().await;
 
-												// Don't wait for response - just sending the ping establishes the protocol
-												// The messaging handler will process it asynchronously
+												// Don't call finish() - keep stream open for messaging handler
+												// Drop send/recv to release without closing the connection
 												logger
-													.debug("Ping sent to establish protocol")
+													.debug("Ping sent, keeping connection alive")
 													.await;
+												drop(send);
+												drop(recv);
 											}
 										}
 									}

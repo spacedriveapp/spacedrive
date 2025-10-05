@@ -28,6 +28,10 @@ pub enum EventLoopCommand {
 		node_id: NodeId,
 		reason: String,
 	},
+	TrackOutboundConnection {
+		node_id: NodeId,
+		conn: Connection,
+	},
 
 	// Message sending
 	SendMessage {
@@ -286,22 +290,42 @@ impl NetworkingEventLoop {
 						Ok((send, recv)) => {
 							logger.info(&format!("Accepted bidirectional stream from {}", remote_node_id)).await;
 
-							// Check if this device is already paired
-							let is_paired = {
-								let registry = device_registry.read().await;
-								if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
-									match registry.get_device_state(device_id) {
-										Some(crate::service::network::device::DeviceState::Paired { .. }) |
-										Some(crate::service::network::device::DeviceState::Connected { .. }) => true,
-										_ => false,
-									}
-								} else {
-									false
-								}
+					// Check if this device is already paired
+					let (is_paired, paired_device_id) = {
+						let registry = device_registry.read().await;
+						if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
+							let state = registry.get_device_state(device_id);
+							logger.debug(&format!(
+								"Found device {} for node {}, state: {:?}",
+								device_id,
+								remote_node_id,
+								state.as_ref().map(|s| format!("{:?}", s))
+							)).await;
+							let paired = match state {
+								Some(crate::service::network::device::DeviceState::Paired { .. }) |
+								Some(crate::service::network::device::DeviceState::Connected { .. }) |
+								Some(crate::service::network::device::DeviceState::Disconnected { .. }) => true,
+								_ => false,
 							};
+							(paired, Some(device_id))
+						} else {
+							logger.debug(&format!("No device found for node {}", remote_node_id)).await;
+							(false, None)
+						}
+					};
 
-							// Route to appropriate handler based on pairing status
-							let handler_name = if is_paired { "messaging" } else { "pairing" };
+					// If this is a paired device connecting to us, mark it as connected
+					if is_paired {
+						if let Some(device_id) = paired_device_id {
+							let _ = command_sender.send(EventLoopCommand::ConnectionEstablished {
+								device_id,
+								node_id: remote_node_id,
+							});
+						}
+					}
+
+						// Route to appropriate handler based on pairing status
+						let handler_name = if is_paired { "messaging" } else { "pairing" };
 
 							let registry = protocol_registry.read().await;
 							if let Some(handler) = registry.get_handler(handler_name) {
@@ -536,6 +560,15 @@ impl NetworkingEventLoop {
 						});
 					}
 				}
+			}
+
+			EventLoopCommand::TrackOutboundConnection { node_id, conn } => {
+				// Add outbound connection to active connections map
+				let mut connections = self.active_connections.write().await;
+				connections.insert(node_id, conn);
+				self.logger
+					.debug(&format!("Tracked outbound connection to {}", node_id))
+					.await;
 			}
 
 			EventLoopCommand::Shutdown => {
