@@ -382,39 +382,64 @@ impl Core {
 	) -> Result<(), Box<dyn std::error::Error>> {
 		logger.info("Initializing networking...").await;
 
-		// Initialize networking service through the services container
-		let data_dir = self.config.read().await.data_dir.clone();
-		self.services
-			.init_networking(
-				self.device.clone(),
-				self.services.library_key_manager.clone(),
-				data_dir,
-			)
-			.await?;
+		// Check if networking is already initialized
+		let already_initialized = self.services.networking().is_some();
 
-		// Start the networking service
-		self.services.start_networking().await?;
+		if !already_initialized {
+			// Initialize networking service through the services container
+			let data_dir = self.config.read().await.data_dir.clone();
+			self.services
+				.init_networking(
+					self.device.clone(),
+					self.services.library_key_manager.clone(),
+					data_dir,
+				)
+				.await?;
 
-		// Register protocols immediately after starting
-		// Note: There's a small race condition where connections might arrive before
-		// handlers are fully registered, but this is mitigated by the async registration
-		// completing before most network discovery happens
+			// Start the networking service
+			self.services.start_networking().await?;
+		} else {
+			logger
+				.info("Networking already initialized, skipping service creation")
+				.await;
+		}
+
+		// Register protocols and set up event bridge
 		if let Some(networking_service) = self.services.networking() {
-			// Register default protocol handlers
-			self.register_default_protocols(&networking_service).await?;
+			// Check if protocols are already registered by checking handler count
+			let handler_count = {
+				let registry = networking_service.protocol_registry();
+				let registry_guard = registry.read().await;
+				registry_guard.handler_count()
+			};
 
-			// Set up event bridge to integrate with core event system
-			let event_bridge = NetworkEventBridge::new(
-				networking_service
-					.subscribe_events()
-					.await
-					.unwrap_or_else(|| {
-						let (_, rx) = tokio::sync::mpsc::unbounded_channel();
-						rx
-					}),
-				self.events.clone(),
-			);
-			tokio::spawn(event_bridge.run());
+			// Register default protocol handlers if not already registered
+			if handler_count == 0 {
+				logger.info("Registering protocol handlers...").await;
+				self.register_default_protocols(&networking_service).await?;
+			} else {
+				logger
+					.info(&format!(
+						"Protocol handlers already registered ({} handlers)",
+						handler_count
+					))
+					.await;
+			}
+
+			// Set up event bridge to integrate with core event system (only if not already done)
+			if !already_initialized {
+				let event_bridge = NetworkEventBridge::new(
+					networking_service
+						.subscribe_events()
+						.await
+						.unwrap_or_else(|| {
+							let (_, rx) = tokio::sync::mpsc::unbounded_channel();
+							rx
+						}),
+					self.events.clone(),
+				);
+				tokio::spawn(event_bridge.run());
+			}
 
 			// Make networking service available to the context for other services
 			self.context.set_networking(networking_service).await;
