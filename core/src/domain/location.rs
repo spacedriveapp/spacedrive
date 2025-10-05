@@ -192,7 +192,8 @@ mod tests {
 
 	#[test]
 	fn test_location_creation() {
-		let sd_path = SdPathSerialized::from_sdpath(&SdPath::local("/Users/test/Documents")).unwrap();
+		let sd_path =
+			SdPathSerialized::from_sdpath(&SdPath::local("/Users/test/Documents")).unwrap();
 		let location = Location::new(
 			Uuid::new_v4(),
 			"My Documents".to_string(),

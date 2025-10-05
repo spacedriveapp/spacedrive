@@ -47,4 +47,3 @@ pub struct LibraryDeviceInfo {
 	/// Sync leadership status per library (if available)
 	pub sync_leadership: Option<serde_json::Value>,
 }
-

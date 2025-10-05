@@ -65,7 +65,7 @@ impl LibraryQuery for FileByIdQuery {
 		let entry = crate::domain::Entry {
 			id: entry_model.uuid.unwrap_or_else(Uuid::new_v4),
 			sd_path: crate::domain::entry::SdPathSerialized {
-				device_id: Uuid::new_v4(), // Placeholder
+				device_id: Uuid::new_v4(),         // Placeholder
 				path: "/unknown/path".to_string(), // Placeholder
 			},
 			name: entry_model.name,
@@ -89,7 +89,10 @@ impl LibraryQuery for FileByIdQuery {
 			file_id: None,
 			parent_id: entry_model.parent_id.map(|id| Uuid::new_v4()), // Placeholder
 			location_id: None,
-			metadata_id: entry_model.metadata_id.map(|id| Uuid::new_v4()).unwrap_or_else(Uuid::new_v4),
+			metadata_id: entry_model
+				.metadata_id
+				.map(|id| Uuid::new_v4())
+				.unwrap_or_else(Uuid::new_v4),
 			content_id: entry_model.content_id.map(|id| Uuid::new_v4()), // Placeholder
 			first_seen_at: entry_model.created_at,
 			last_indexed_at: None,

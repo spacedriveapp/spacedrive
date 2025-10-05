@@ -61,17 +61,26 @@ impl NtfsHandler {
 			let output = std::process::Command::new("powershell")
 				.args(["-Command", &script])
 				.output()
-				.map_err(|e| crate::volume::error::VolumeError::platform(format!("Failed to run PowerShell: {}", e)))?;
+				.map_err(|e| {
+					crate::volume::error::VolumeError::platform(format!(
+						"Failed to run PowerShell: {}",
+						e
+					))
+				})?;
 
 			if !output.status.success() {
-				return Err(crate::volume::error::VolumeError::platform("PowerShell command failed".to_string()));
+				return Err(crate::volume::error::VolumeError::platform(
+					"PowerShell command failed".to_string(),
+				));
 			}
 
 			let output_text = String::from_utf8_lossy(&output.stdout);
 			parse_volume_info(&output_text)
 		})
 		.await
-		.map_err(|e| crate::volume::error::VolumeError::platform(format!("Task join error: {}", e)))?
+		.map_err(|e| {
+			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+		})?
 	}
 
 	/// Check if NTFS hardlinks are supported (they always are on NTFS)
@@ -173,7 +182,12 @@ impl NtfsHandler {
 			let output = std::process::Command::new("powershell")
 				.args(["-Command", &script])
 				.output()
-				.map_err(|e| crate::volume::error::VolumeError::platform(format!("Failed to run PowerShell: {}", e)))?;
+				.map_err(|e| {
+					crate::volume::error::VolumeError::platform(format!(
+						"Failed to run PowerShell: {}",
+						e
+					))
+				})?;
 
 			if !output.status.success() {
 				// Return default NTFS features
@@ -191,7 +205,9 @@ impl NtfsHandler {
 			parse_ntfs_features(&output_text)
 		})
 		.await
-		.map_err(|e| crate::volume::error::VolumeError::platform(format!("Task join error: {}", e)))?
+		.map_err(|e| {
+			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+		})?
 	}
 }
 
@@ -297,7 +313,8 @@ fn parse_ntfs_features(json_output: &str) -> VolumeResult<NtfsFeatures> {
 	// Simple parsing - in production, use proper JSON parser
 	let json_output = json_output.trim();
 
-	let supports_compression = extract_json_bool(json_output, "SupportsCompression").unwrap_or(true);
+	let supports_compression =
+		extract_json_bool(json_output, "SupportsCompression").unwrap_or(true);
 	let supports_encryption = extract_json_bool(json_output, "SupportsEncryption").unwrap_or(true);
 
 	Ok(NtfsFeatures {
@@ -369,9 +386,16 @@ mod tests {
 
 	#[test]
 	fn test_extract_json_string() {
-		let json = r#"{"VolumeGuid": "12345678-1234-1234-1234-123456789abc", "FileSystem": "NTFS"}"#;
-		assert_eq!(extract_json_string(json, "VolumeGuid"), Some("12345678-1234-1234-1234-123456789abc".to_string()));
-		assert_eq!(extract_json_string(json, "FileSystem"), Some("NTFS".to_string()));
+		let json =
+			r#"{"VolumeGuid": "12345678-1234-1234-1234-123456789abc", "FileSystem": "NTFS"}"#;
+		assert_eq!(
+			extract_json_string(json, "VolumeGuid"),
+			Some("12345678-1234-1234-1234-123456789abc".to_string())
+		);
+		assert_eq!(
+			extract_json_string(json, "FileSystem"),
+			Some("NTFS".to_string())
+		);
 		assert_eq!(extract_json_string(json, "NonExistent"), None);
 	}
 

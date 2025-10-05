@@ -1,4 +1,4 @@
-use super::{CoreIndexingScenario, ContentIdentificationScenario, Scenario};
+use super::{ContentIdentificationScenario, CoreIndexingScenario, Scenario};
 
 pub fn registered_scenarios() -> Vec<Box<dyn Scenario>> {
 	vec![

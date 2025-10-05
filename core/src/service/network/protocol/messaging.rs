@@ -1,14 +1,18 @@
 //! Basic messaging protocol handler
 
-use super::{ProtocolEvent, ProtocolHandler};
+use super::{library_messages::LibraryMessage, ProtocolEvent, ProtocolHandler};
 use crate::service::network::{NetworkingError, Result};
 use async_trait::async_trait;
 use iroh::NodeId;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Basic messaging protocol handler
-pub struct MessagingProtocolHandler;
+pub struct MessagingProtocolHandler {
+	/// Optional context for accessing libraries
+	context: Option<Arc<crate::context::CoreContext>>,
+}
 
 /// Basic message types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,12 +44,26 @@ pub enum Message {
 		reason: String,
 		timestamp: chrono::DateTime<chrono::Utc>,
 	},
+	/// Library-related message
+	Library(LibraryMessage),
 }
 
 impl MessagingProtocolHandler {
 	/// Create a new messaging protocol handler
 	pub fn new() -> Self {
-		Self
+		Self { context: None }
+	}
+
+	/// Create handler with context for library operations
+	pub fn with_context(context: Arc<crate::context::CoreContext>) -> Self {
+		Self {
+			context: Some(context),
+		}
+	}
+
+	/// Set context after creation
+	pub fn set_context(&mut self, context: Arc<crate::context::CoreContext>) {
+		self.context = Some(context);
 	}
 
 	async fn handle_ping(
@@ -118,6 +136,178 @@ impl MessagingProtocolHandler {
 		// Return empty response for ack
 		Ok(Vec::new())
 	}
+
+	async fn handle_library_message(
+		&self,
+		_from_device: Uuid,
+		library_msg: LibraryMessage,
+	) -> Result<Vec<u8>> {
+		use super::library_messages::{LibraryDiscoveryInfo, LibraryMessage};
+
+		match library_msg {
+			LibraryMessage::DiscoveryRequest { request_id } => {
+				// Get context to access libraries
+				let context = self.context.as_ref().ok_or_else(|| {
+					NetworkingError::Protocol(
+						"Context not available for library operations".to_string(),
+					)
+				})?;
+
+				let library_manager = context.libraries().await;
+				let libraries = library_manager.list().await;
+
+				// Convert to discovery info
+				let mut library_infos = Vec::new();
+				for library in libraries {
+					let library_id = library.id();
+					let name = library.name().await;
+					let config_guard = library.config().await;
+
+					// Get library statistics from database
+					let db = library.db();
+					use crate::infra::db::entities;
+					use sea_orm::{EntityTrait, PaginatorTrait};
+
+					let entry_count = match entities::entry::Entity::find().count(db.conn()).await {
+						Ok(count) => count,
+						Err(_) => 0,
+					};
+
+					let location_count =
+						match entities::location::Entity::find().count(db.conn()).await {
+							Ok(count) => count,
+							Err(_) => 0,
+						};
+
+					let device_count = match entities::device::Entity::find().count(db.conn()).await
+					{
+						Ok(count) => count,
+						Err(_) => 0,
+					};
+
+					library_infos.push(LibraryDiscoveryInfo {
+						id: library_id,
+						name,
+						description: config_guard.description.clone(),
+						created_at: config_guard.created_at,
+						total_entries: entry_count,
+						total_locations: location_count,
+						total_size_bytes: 0, // TODO: Calculate from entries
+						device_count,
+					});
+				}
+
+				let response = Message::Library(LibraryMessage::DiscoveryResponse {
+					request_id,
+					libraries: library_infos,
+				});
+
+				serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
+			}
+
+			LibraryMessage::RegisterDeviceRequest {
+				request_id,
+				library_id,
+				device_id,
+				device_name,
+				os_name,
+				os_version,
+				hardware_model,
+			} => {
+				// Get context
+				let context = self.context.as_ref().ok_or_else(|| {
+					NetworkingError::Protocol(
+						"Context not available for library operations".to_string(),
+					)
+				})?;
+
+				let library_manager = context.libraries().await;
+
+				// Determine which library to register device in
+				let libraries = if let Some(lib_id) = library_id {
+					// Specific library
+					vec![library_manager.get_library(lib_id).await.ok_or_else(|| {
+						NetworkingError::Protocol(format!("Library not found: {}", lib_id))
+					})?]
+				} else {
+					// All libraries
+					library_manager.list().await
+				};
+
+				// Register device in each library
+				use crate::infra::db::entities;
+				use chrono::Utc;
+				use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+
+				let mut success = true;
+				let mut error_msg = None;
+
+				for library in libraries {
+					let db = library.db();
+
+					// Check if device already exists
+					let existing = entities::device::Entity::find()
+						.filter(entities::device::Column::Uuid.eq(device_id))
+						.one(db.conn())
+						.await;
+
+					match existing {
+						Ok(Some(_)) => {
+							// Already registered, skip
+							continue;
+						}
+						Ok(None) => {
+							// Register new device
+							let device_model = entities::device::ActiveModel {
+								id: sea_orm::ActiveValue::NotSet,
+								uuid: Set(device_id),
+								name: Set(device_name.clone()),
+								os: Set(os_name.clone()),
+								os_version: Set(os_version.clone()),
+								hardware_model: Set(hardware_model.clone()),
+								network_addresses: Set(serde_json::json!([])),
+								is_online: Set(false),
+								last_seen_at: Set(Utc::now()),
+								capabilities: Set(serde_json::json!({
+									"indexing": true,
+									"p2p": true,
+									"volume_detection": true
+								})),
+								sync_leadership: Set(serde_json::json!({})),
+								created_at: Set(Utc::now()),
+								updated_at: Set(Utc::now()),
+							};
+
+							if let Err(e) = device_model.insert(db.conn()).await {
+								success = false;
+								error_msg = Some(format!("Failed to register device: {}", e));
+								break;
+							}
+						}
+						Err(e) => {
+							success = false;
+							error_msg = Some(format!("Database error: {}", e));
+							break;
+						}
+					}
+				}
+
+				let response = Message::Library(LibraryMessage::RegisterDeviceResponse {
+					request_id,
+					success,
+					message: error_msg,
+				});
+
+				serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
+			}
+
+			LibraryMessage::DiscoveryResponse { .. }
+			| LibraryMessage::RegisterDeviceResponse { .. } => {
+				// These are responses, not requests
+				Ok(Vec::new())
+			}
+		}
+	}
 }
 
 impl Default for MessagingProtocolHandler {
@@ -176,6 +366,21 @@ impl ProtocolHandler for MessagingProtocolHandler {
 								error: None,
 							};
 							serde_json::to_vec(&ack).unwrap_or_default()
+						}
+						Message::Library(lib_msg) => {
+							// Handle library message - need to derive device_id from node_id
+							// For now, use a placeholder (TODO: proper mapping)
+							let device_id = Uuid::nil();
+							match self
+								.handle_library_message(device_id, lib_msg.clone())
+								.await
+							{
+								Ok(resp) => resp,
+								Err(e) => {
+									eprintln!("Failed to handle library message: {}", e);
+									Vec::new()
+								}
+							}
 						}
 						Message::Goodbye { reason, .. } => {
 							// Received graceful disconnect from remote device
@@ -237,6 +442,7 @@ impl ProtocolHandler for MessagingProtocolHandler {
 				self.handle_ack(from_device, message_id, success, error)
 					.await
 			}
+			Message::Library(lib_msg) => self.handle_library_message(from_device, lib_msg).await,
 			Message::Goodbye { reason, .. } => {
 				println!(
 					"Device {} disconnecting gracefully: {}",

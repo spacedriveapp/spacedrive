@@ -60,10 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("   Core initialized with job logging");
 	println!("   Device ID: {}", core.device.device_id()?);
 	println!("   Data directory: {:?}", data_dir);
-	println!(
-		"   Job logs directory: {:?}\n",
-		data_dir.join("job_logs")
-	);
+	println!("   Job logs directory: {:?}\n", data_dir.join("job_logs"));
 
 	// 2. Get or create library
 	println!("2. Setting up library...");
@@ -497,10 +494,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// 7. Event system demo
 	println!("\n7. Event System:");
-	println!(
-		"   Event subscribers: {}",
-		core.events.subscriber_count()
-	);
+	println!("   Event subscribers: {}", core.events.subscriber_count());
 	println!("   Events ready for:");
 	println!("      - File operations (copy, move, delete)");
 	println!("      - Library changes");

@@ -5,4 +5,3 @@ use specta::Type;
 pub struct NetworkStartOutput {
 	pub started: bool,
 }
-

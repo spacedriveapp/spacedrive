@@ -6,4 +6,3 @@ use uuid::Uuid;
 pub struct DeviceRevokeInput {
 	pub device_id: Uuid,
 }
-

@@ -77,7 +77,12 @@ pub async fn apply_batch(
 	// Process renames
 	for (from, to) in renames {
 		if let Err(e) = handle_rename(&ctx, &from, &to).await {
-			tracing::error!("Failed to handle rename from {} to {}: {}", from.display(), to.display(), e);
+			tracing::error!(
+				"Failed to handle rename from {} to {}: {}",
+				from.display(),
+				to.display(),
+				e
+			);
 		}
 	}
 

@@ -56,7 +56,6 @@ impl LibraryAction for LocationRemoveAction {
 	fn action_kind(&self) -> &'static str {
 		"locations.remove"
 	}
-
 }
 
 // Register action

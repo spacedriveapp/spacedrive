@@ -1,9 +1,13 @@
-use clap::Args;
+use clap::{Args, Subcommand};
 use uuid::Uuid;
 
 use sd_core::ops::libraries::{
 	create::input::LibraryCreateInput, delete::input::LibraryDeleteInput,
 	info::query::LibraryInfoQueryInput,
+};
+use sd_core::ops::network::sync_setup::{
+	discovery::query::DiscoverRemoteLibrariesInput, input::LibrarySyncAction,
+	input::LibrarySyncSetupInput,
 };
 
 #[derive(Args, Debug)]
@@ -64,4 +68,96 @@ pub struct LibrarySwitchArgs {
 	/// Library name to switch to
 	#[arg(long)]
 	pub name: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SyncSetupCmd {
+	/// Discover libraries on a paired device
+	Discover(DiscoverArgs),
+	/// Setup library sync between devices
+	Setup(SetupArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct DiscoverArgs {
+	/// Device ID to discover libraries from
+	pub device_id: Uuid,
+}
+
+impl From<DiscoverArgs> for DiscoverRemoteLibrariesInput {
+	fn from(args: DiscoverArgs) -> Self {
+		Self {
+			device_id: args.device_id,
+		}
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct SetupArgs {
+	/// Local library ID
+	#[arg(long)]
+	pub local_library: Uuid,
+
+	/// Remote device ID (paired device)
+	#[arg(long)]
+	pub remote_device: Uuid,
+
+	/// Remote library ID (optional for register-only mode)
+	#[arg(long)]
+	pub remote_library: Option<Uuid>,
+
+	/// Sync action: register-only (others coming in Phase 3)
+	#[arg(long, default_value = "register-only")]
+	pub action: String,
+
+	/// Leader device: "local" or "remote"
+	#[arg(long, default_value = "local")]
+	pub leader: String,
+
+	/// Local device ID (optional, uses current device if not specified)
+	#[arg(long)]
+	pub local_device: Option<Uuid>,
+}
+
+impl SetupArgs {
+	pub fn to_input(&self, ctx: &crate::context::Context) -> anyhow::Result<LibrarySyncSetupInput> {
+		// Get local device ID from config or argument
+		let local_device_id = if let Some(id) = self.local_device {
+			id
+		} else {
+			// Read device config to get current device ID
+			let config_path = ctx.data_dir.join("device.json");
+			if !config_path.exists() {
+				anyhow::bail!("Device config not found. Please specify --local-device");
+			}
+			let config_data = std::fs::read_to_string(&config_path)?;
+			let device_config: sd_core::device::DeviceConfig = serde_json::from_str(&config_data)?;
+			device_config.id
+		};
+
+		// Determine leader device ID
+		let leader_device_id = match self.leader.as_str() {
+			"local" => local_device_id,
+			"remote" => self.remote_device,
+			_ => anyhow::bail!("Leader must be 'local' or 'remote'"),
+		};
+
+		// Parse action
+		let action = match self.action.as_str() {
+			"register-only" => LibrarySyncAction::RegisterOnly,
+			_ => anyhow::bail!(
+				"Invalid action '{}'. Currently supported: register-only",
+				self.action
+			),
+		};
+
+		Ok(LibrarySyncSetupInput {
+			local_device_id,
+			remote_device_id: self.remote_device,
+			local_library_id: self.local_library,
+			remote_library_id: self.remote_library,
+			action,
+			leader_device_id,
+		})
+	}
 }

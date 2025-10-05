@@ -5,4 +5,3 @@ use specta::Type;
 pub struct PairGenerateInput {
 	pub auto_accept: bool,
 }
-

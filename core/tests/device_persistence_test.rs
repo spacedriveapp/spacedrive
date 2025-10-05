@@ -154,10 +154,7 @@ async fn alice_persistence_scenario() {
 			panic!("Networking not initialized");
 		};
 
-		println!(
-			"Alice: Pairing code generated (expires in {}s)",
-			expires_in
-		);
+		println!("Alice: Pairing code generated (expires in {}s)", expires_in);
 
 		// Write pairing code for Bob
 		std::fs::create_dir_all("/tmp/spacedrive-persistence-test").unwrap();

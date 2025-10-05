@@ -61,7 +61,9 @@ impl<J: JobHandler> JobExecutor<J> {
 		persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
 	) -> Self {
 		// Create file logger if job logging is enabled
-		let file_logger = if let (Some(config), Some(logs_dir)) = (&job_logging_config, &job_logs_dir) {
+		let file_logger = if let (Some(config), Some(logs_dir)) =
+			(&job_logging_config, &job_logs_dir)
+		{
 			let log_file = logs_dir.join(format!("{}.log", job_id));
 			match super::logger::FileJobLogger::new(job_id, log_file, config.clone()) {
 				Ok(logger) => {
@@ -147,7 +149,10 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, JobError> {
 		// Log job start
 		if let Some(logger) = &self.state.file_logger {
-			let _ = logger.log("INFO", &format!("Starting job {}: {}", self.state.job_id, J::NAME));
+			let _ = logger.log(
+				"INFO",
+				&format!("Starting job {}: {}", self.state.job_id, J::NAME),
+			);
 		}
 
 		let result = self.run_inner(interrupter).await;
@@ -156,7 +161,10 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 		if let Some(logger) = &self.state.file_logger {
 			match &result {
 				Ok(ExecStatus::Done(_)) => {
-					let _ = logger.log("INFO", &format!("Job {} completed successfully", self.state.job_id));
+					let _ = logger.log(
+						"INFO",
+						&format!("Job {} completed successfully", self.state.job_id),
+					);
 				}
 				Ok(ExecStatus::Canceled) => {
 					let _ = logger.log("INFO", &format!("Job {} was cancelled", self.state.job_id));
@@ -165,7 +173,8 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 					let _ = logger.log("INFO", &format!("Job {} was paused", self.state.job_id));
 				}
 				Err(e) => {
-					let _ = logger.log("ERROR", &format!("Job {} failed: {}", self.state.job_id, e));
+					let _ =
+						logger.log("ERROR", &format!("Job {} failed: {}", self.state.job_id, e));
 				}
 			}
 		}
@@ -179,18 +188,27 @@ impl<J: JobHandler> JobExecutor<J> {
 		info!("Starting job {}: {}", self.state.job_id, J::NAME);
 
 		// Update status to running
-		warn!("DEBUG: JobExecutor setting status to Running for job {}", self.state.job_id);
+		warn!(
+			"DEBUG: JobExecutor setting status to Running for job {}",
+			self.state.job_id
+		);
 		let _ = self.state.status_tx.send(super::types::JobStatus::Running);
 
 		// Also persist status to database
-		warn!("DEBUG: JobExecutor updating database status to Running for job {}", self.state.job_id);
+		warn!(
+			"DEBUG: JobExecutor updating database status to Running for job {}",
+			self.state.job_id
+		);
 		if let Err(e) = self
 			.update_job_status_in_db(super::types::JobStatus::Running)
 			.await
 		{
 			error!("Failed to update job status in database: {}", e);
 		} else {
-			warn!("DEBUG: JobExecutor successfully updated database status to Running for job {}", self.state.job_id);
+			warn!(
+				"DEBUG: JobExecutor successfully updated database status to Running for job {}",
+				self.state.job_id
+			);
 		}
 
 		// Create job context
@@ -212,7 +230,10 @@ impl<J: JobHandler> JobExecutor<J> {
 		// Check if we're resuming by checking if the job has existing state
 		// This is a heuristic - if the job implements resumable logic, it should have state
 		let is_resuming = self.job.is_resuming();
-		warn!("DEBUG: Job {} is_resuming: {}", self.state.job_id, is_resuming);
+		warn!(
+			"DEBUG: Job {} is_resuming: {}",
+			self.state.job_id, is_resuming
+		);
 
 		if is_resuming {
 			warn!("DEBUG: Calling on_resume for job {}", self.state.job_id);
@@ -235,7 +256,6 @@ impl<J: JobHandler> JobExecutor<J> {
 
 		match result {
 			Ok(ref output) => {
-
 				// Update metrics
 				self.state.metrics = metrics_ref.lock().await.clone();
 
@@ -291,8 +311,11 @@ impl<J: JobHandler> JobExecutor<J> {
 						let job_state = rmp_serde::to_vec(&self.job)
 							.map_err(|e| JobError::serialization(format!("{}", e)))?;
 
-						info!("PAUSE_STATE_SAVE: Job {} serialized {} bytes of state for pause",
-							self.state.job_id, job_state.len());
+						info!(
+							"PAUSE_STATE_SAVE: Job {} serialized {} bytes of state for pause",
+							self.state.job_id,
+							job_state.len()
+						);
 
 						let mut job_model = super::database::jobs::ActiveModel {
 							id: Set(self.state.job_id.to_string()),
@@ -306,15 +329,20 @@ impl<J: JobHandler> JobExecutor<J> {
 									self.state.job_id, job_state.len());
 							}
 							Err(e) => {
-								error!("PAUSE_STATE_SAVE: Failed to save paused job state for {}: {}",
-									self.state.job_id, e);
+								error!(
+									"PAUSE_STATE_SAVE: Failed to save paused job state for {}: {}",
+									self.state.job_id, e
+								);
 							}
 						}
 
 						// Signal that persistence is complete
 						if let Some(tx) = self.state.persistence_complete_tx.take() {
 							let _ = tx.send(());
-							info!("PAUSE_STATE_SAVE: Job {} signaled persistence completion", self.state.job_id);
+							info!(
+								"PAUSE_STATE_SAVE: Job {} signaled persistence completion",
+								self.state.job_id
+							);
 						}
 
 						Ok(ExecStatus::Paused)
@@ -427,21 +455,25 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 		// Update the executor's state with the new parameters
 		let mut executor = *self;
 		// Create file logger if job logging is enabled
-		let file_logger = if let (Some(config), Some(logs_dir)) = (&job_logging_config, &job_logs_dir) {
-			let log_file = logs_dir.join(format!("{}.log", job_id));
-			match super::logger::FileJobLogger::new(job_id, log_file, config.clone()) {
-				Ok(logger) => {
-					let _ = logger.log("INFO", &format!("Job {} starting (via create_executor)", job_id));
-					Some(Arc::new(logger))
+		let file_logger =
+			if let (Some(config), Some(logs_dir)) = (&job_logging_config, &job_logs_dir) {
+				let log_file = logs_dir.join(format!("{}.log", job_id));
+				match super::logger::FileJobLogger::new(job_id, log_file, config.clone()) {
+					Ok(logger) => {
+						let _ = logger.log(
+							"INFO",
+							&format!("Job {} starting (via create_executor)", job_id),
+						);
+						Some(Arc::new(logger))
+					}
+					Err(e) => {
+						error!("Failed to create job logger: {}", e);
+						None
+					}
 				}
-				Err(e) => {
-					error!("Failed to create job logger: {}", e);
-					None
-				}
-			}
-		} else {
-			None
-		};
+			} else {
+				None
+			};
 
 		executor.state = JobExecutorState {
 			job_id,

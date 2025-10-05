@@ -9,8 +9,8 @@ use crate::{
 	infra::db::entities::{self, directory_paths, entry_closure},
 };
 use sea_orm::{
-	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseTransaction, DbBackend, EntityTrait,
-	IntoActiveModel, QueryFilter, QuerySelect, Statement, TransactionTrait,
+	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseTransaction,
+	DbBackend, EntityTrait, IntoActiveModel, QueryFilter, QuerySelect, Statement, TransactionTrait,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -404,11 +404,22 @@ impl EntryProcessor {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
 
-		let result = Self::move_entry_in_conn(state, ctx, entry_id, old_path, new_path, location_root_path, &txn).await;
+		let result = Self::move_entry_in_conn(
+			state,
+			ctx,
+			entry_id,
+			old_path,
+			new_path,
+			location_root_path,
+			&txn,
+		)
+		.await;
 
 		match result {
 			Ok(()) => {
-				txn.commit().await.map_err(|e| JobError::execution(format!("Failed to commit move transaction: {}", e)))?;
+				txn.commit().await.map_err(|e| {
+					JobError::execution(format!("Failed to commit move transaction: {}", e))
+				})?;
 				Ok(())
 			}
 			Err(e) => {
@@ -428,7 +439,6 @@ impl EntryProcessor {
 		location_root_path: &Path,
 		txn: &DatabaseTransaction,
 	) -> Result<(), JobError> {
-
 		// Get the entry
 		let db_entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(txn)
@@ -788,7 +798,6 @@ impl EntryProcessor {
 		new_path: &Path,
 		txn: &DatabaseTransaction,
 	) -> Result<(), JobError> {
-
 		// Get the entry
 		let db_entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(txn)
@@ -834,7 +843,9 @@ impl EntryProcessor {
 
 		// Update cache
 		state.entry_id_cache.remove(old_path);
-		state.entry_id_cache.insert(new_path.to_path_buf(), entry_id);
+		state
+			.entry_id_cache
+			.insert(new_path.to_path_buf(), entry_id);
 
 		Ok(())
 	}
@@ -850,7 +861,9 @@ impl EntryProcessor {
 		let mut moved_count = 0;
 
 		for (entry_id, old_path, new_path, _) in moves {
-			match Self::simple_move_entry_in_conn(state, ctx, *entry_id, old_path, new_path, txn).await {
+			match Self::simple_move_entry_in_conn(state, ctx, *entry_id, old_path, new_path, txn)
+				.await
+			{
 				Ok(()) => {
 					moved_count += 1;
 				}
@@ -877,7 +890,6 @@ impl EntryProcessor {
 		entry: &super::state::DirEntry,
 		txn: &DatabaseTransaction,
 	) -> Result<(), JobError> {
-
 		// Get the existing entry
 		let db_entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(txn)

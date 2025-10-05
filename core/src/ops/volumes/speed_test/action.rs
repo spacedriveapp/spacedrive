@@ -76,7 +76,6 @@ impl LibraryAction for VolumeSpeedTestAction {
 	fn action_kind(&self) -> &'static str {
 		"volume.speed_test"
 	}
-
 }
 
 // Register action

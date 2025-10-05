@@ -461,7 +461,8 @@ impl NetworkingService {
 
 		tokio::spawn(async move {
 			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
-			let mut failed_pings: std::collections::HashMap<uuid::Uuid, u32> = std::collections::HashMap::new();
+			let mut failed_pings: std::collections::HashMap<uuid::Uuid, u32> =
+				std::collections::HashMap::new();
 
 			loop {
 				interval.tick().await;
@@ -473,8 +474,14 @@ impl NetworkingService {
 						.get_all_devices()
 						.into_iter()
 						.filter_map(|(device_id, state)| {
-							if let crate::service::network::device::DeviceState::Connected { info, .. } = state {
-								if let Ok(node_id) = info.network_fingerprint.node_id.parse::<iroh::NodeId>() {
+							if let crate::service::network::device::DeviceState::Connected {
+								info,
+								..
+							} = state
+							{
+								if let Ok(node_id) =
+									info.network_fingerprint.node_id.parse::<iroh::NodeId>()
+								{
 									Some((device_id, node_id))
 								} else {
 									None
@@ -643,9 +650,12 @@ impl NetworkingService {
 				.get_all_devices()
 				.into_iter()
 				.filter_map(|(device_id, state)| {
-					if let crate::service::network::device::DeviceState::Connected { info, .. } = state
+					if let crate::service::network::device::DeviceState::Connected {
+						info, ..
+					} = state
 					{
-						if let Ok(node_id) = info.network_fingerprint.node_id.parse::<iroh::NodeId>()
+						if let Ok(node_id) =
+							info.network_fingerprint.node_id.parse::<iroh::NodeId>()
 						{
 							Some((device_id, node_id))
 						} else {
@@ -658,37 +668,37 @@ impl NetworkingService {
 				.collect()
 		};
 
-	// Send goodbye message to each connected device
-	let device_count = connected_devices.len();
-	for (device_id, node_id) in connected_devices {
-		let goodbye_msg = crate::service::network::protocol::messaging::Message::Goodbye {
-			reason: "Daemon shutting down".to_string(),
-			timestamp: chrono::Utc::now(),
-		};
+		// Send goodbye message to each connected device
+		let device_count = connected_devices.len();
+		for (device_id, node_id) in connected_devices {
+			let goodbye_msg = crate::service::network::protocol::messaging::Message::Goodbye {
+				reason: "Daemon shutting down".to_string(),
+				timestamp: chrono::Utc::now(),
+			};
 
-		if let Ok(goodbye_data) = serde_json::to_vec(&goodbye_msg) {
-			if let Some(command_sender) = &self.command_sender {
-				// Best effort - don't block if it fails
-				let _ = command_sender.send(EventLoopCommand::SendMessageToNode {
-					node_id,
-					protocol: "messaging".to_string(),
-					data: goodbye_data,
-				});
+			if let Ok(goodbye_data) = serde_json::to_vec(&goodbye_msg) {
+				if let Some(command_sender) = &self.command_sender {
+					// Best effort - don't block if it fails
+					let _ = command_sender.send(EventLoopCommand::SendMessageToNode {
+						node_id,
+						protocol: "messaging".to_string(),
+						data: goodbye_data,
+					});
+				}
 			}
+
+			self.logger
+				.debug(&format!(
+					"Sent disconnect notification to device {}",
+					device_id
+				))
+				.await;
 		}
 
-		self.logger
-			.debug(&format!(
-				"Sent disconnect notification to device {}",
-				device_id
-			))
-			.await;
-	}
-
-	// Give messages time to be sent
-	if device_count > 0 {
-		tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-	}
+		// Give messages time to be sent
+		if device_count > 0 {
+			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+		}
 
 		if let Some(shutdown_sender) = self.shutdown_sender.write().await.take() {
 			let _ = shutdown_sender.send(());
@@ -742,6 +752,79 @@ impl NetworkingService {
 			Err(NetworkingError::ConnectionFailed(
 				"Networking not started".to_string(),
 			))
+		}
+	}
+
+	/// Send a request to a device and wait for response
+	pub async fn send_library_request(
+		&self,
+		device_id: Uuid,
+		request: crate::service::network::protocol::library_messages::LibraryMessage,
+	) -> Result<crate::service::network::protocol::library_messages::LibraryMessage> {
+		// Get node_id from device registry
+		let registry = self.device_registry.read().await;
+		let node_id = registry
+			.get_node_by_device(device_id)
+			.ok_or_else(|| NetworkingError::DeviceNotFound(device_id))?;
+		drop(registry);
+
+		// Get endpoint
+		let endpoint = self.endpoint.as_ref().ok_or_else(|| {
+			NetworkingError::ConnectionFailed("Endpoint not initialized".to_string())
+		})?;
+
+		// Wrap library message in Message envelope
+		let message = crate::service::network::protocol::messaging::Message::Library(request);
+		let msg_data =
+			serde_json::to_vec(&message).map_err(|e| NetworkingError::Serialization(e))?;
+
+		// Connect and send request
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+		let node_addr = iroh::NodeAddr::new(node_id);
+		let conn = endpoint
+			.connect(node_addr, crate::service::network::core::MESSAGING_ALPN)
+			.await
+			.map_err(|e| NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e)))?;
+
+		let (mut send, mut recv) = conn.open_bi().await.map_err(|e| {
+			NetworkingError::ConnectionFailed(format!("Failed to open stream: {}", e))
+		})?;
+
+		// Send request with length prefix
+		let len = msg_data.len() as u32;
+		send.write_all(&len.to_be_bytes())
+			.await
+			.map_err(|e| NetworkingError::Transport(format!("Failed to send length: {}", e)))?;
+		send.write_all(&msg_data)
+			.await
+			.map_err(|e| NetworkingError::Transport(format!("Failed to send data: {}", e)))?;
+		send.flush()
+			.await
+			.map_err(|e| NetworkingError::Transport(format!("Failed to flush: {}", e)))?;
+
+		// Read response
+		let mut len_buf = [0u8; 4];
+		recv.read_exact(&mut len_buf).await.map_err(|e| {
+			NetworkingError::Transport(format!("Failed to read response length: {}", e))
+		})?;
+		let resp_len = u32::from_be_bytes(len_buf) as usize;
+
+		let mut resp_buf = vec![0u8; resp_len];
+		recv.read_exact(&mut resp_buf)
+			.await
+			.map_err(|e| NetworkingError::Transport(format!("Failed to read response: {}", e)))?;
+
+		// Deserialize response
+		let response: crate::service::network::protocol::messaging::Message =
+			serde_json::from_slice(&resp_buf).map_err(|e| NetworkingError::Serialization(e))?;
+
+		// Extract library message from response
+		match response {
+			crate::service::network::protocol::messaging::Message::Library(lib_msg) => Ok(lib_msg),
+			_ => Err(NetworkingError::Protocol(
+				"Unexpected response type".to_string(),
+			)),
 		}
 	}
 

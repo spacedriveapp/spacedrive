@@ -1,6 +1,5 @@
 //! Volume type definitions
 
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;

@@ -147,12 +147,18 @@ impl MacOSHandler {
 
 						// Find the matching location and generate rename event
 						let locations = watched_locations.read().await;
-                        for location in locations.values() {
-                            if path.starts_with(&location.path) {
-                                events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Rename { from: old_path, to: path } });
-                                break;
-                            }
-                        }
+						for location in locations.values() {
+							if path.starts_with(&location.path) {
+								events.push(Event::FsRawChange {
+									library_id: location.library_id,
+									kind: crate::infra::event::FsRawEventKind::Rename {
+										from: old_path,
+										to: path,
+									},
+								});
+								break;
+							}
+						}
 					} else {
 						// No matching old path - store as new path for potential future match
 						trace!("Storing new path for rename: {}", path.display());
@@ -178,12 +184,18 @@ impl MacOSHandler {
 
 						// Find the matching location and generate rename event
 						let locations = watched_locations.read().await;
-                        for location in locations.values() {
-                            if new_path.starts_with(&location.path) {
-                                events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Rename { from: path, to: new_path } });
-                                break;
-                            }
-                        }
+						for location in locations.values() {
+							if new_path.starts_with(&location.path) {
+								events.push(Event::FsRawChange {
+									library_id: location.library_id,
+									kind: crate::infra::event::FsRawEventKind::Rename {
+										from: path,
+										to: new_path,
+									},
+								});
+								break;
+							}
+						}
 					} else {
 						// No matching new path - store as old path for potential future match
 						trace!("Storing old path for rename: {}", path.display());
@@ -229,12 +241,17 @@ impl MacOSHandler {
 
 				// Generate modify event
 				let locations = watched_locations.read().await;
-                for location in locations.values() {
-                    if path.starts_with(&location.path) {
-                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Modify { path: path.clone() } });
-                        break;
-                    }
-                }
+				for location in locations.values() {
+					if path.starts_with(&location.path) {
+						events.push(Event::FsRawChange {
+							library_id: location.library_id,
+							kind: crate::infra::event::FsRawEventKind::Modify {
+								path: path.clone(),
+							},
+						});
+						break;
+					}
+				}
 			}
 		}
 		*files_to_update = files_to_keep;
@@ -253,12 +270,17 @@ impl MacOSHandler {
 
 				// Generate modify event
 				let locations = watched_locations.read().await;
-                for location in locations.values() {
-                    if path.starts_with(&location.path) {
-                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Modify { path: path.clone() } });
-                        break;
-                    }
-                }
+				for location in locations.values() {
+					if path.starts_with(&location.path) {
+						events.push(Event::FsRawChange {
+							library_id: location.library_id,
+							kind: crate::infra::event::FsRawEventKind::Modify {
+								path: path.clone(),
+							},
+						});
+						break;
+					}
+				}
 			}
 		}
 		*reincident_files = reincident_to_keep;
@@ -285,7 +307,12 @@ impl MacOSHandler {
 							let locations = watched_locations.read().await;
 							for location in locations.values() {
 								if path.starts_with(&location.path) {
-                                    events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Create { path: path.clone() } });
+									events.push(Event::FsRawChange {
+										library_id: location.library_id,
+										kind: crate::infra::event::FsRawEventKind::Create {
+											path: path.clone(),
+										},
+									});
 
 									if let Some(parent) = path.parent() {
 										let mut to_recalc = self.to_recalculate_size.write().await;
@@ -324,7 +351,12 @@ impl MacOSHandler {
 				let locations = watched_locations.read().await;
 				for location in locations.values() {
 					if path.starts_with(&location.path) {
-                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Remove { path: path.clone() } });
+						events.push(Event::FsRawChange {
+							library_id: location.library_id,
+							kind: crate::infra::event::FsRawEventKind::Remove {
+								path: path.clone(),
+							},
+						});
 
 						if let Some(parent) = path.parent() {
 							let mut to_recalc = self.to_recalculate_size.write().await;
@@ -416,9 +448,14 @@ impl EventHandler for MacOSHandler {
 			WatcherEventKind::Remove => {
 				// Generate removal event and schedule parent for size recalculation
 				let locations = watched_locations.read().await;
-                for location in locations.values() {
-                    if location.enabled && path.starts_with(&location.path) {
-                        events.push(Event::FsRawChange { library_id: location.library_id, kind: crate::infra::event::FsRawEventKind::Remove { path: path.clone() } });
+				for location in locations.values() {
+					if location.enabled && path.starts_with(&location.path) {
+						events.push(Event::FsRawChange {
+							library_id: location.library_id,
+							kind: crate::infra::event::FsRawEventKind::Remove {
+								path: path.clone(),
+							},
+						});
 
 						if let Some(parent) = path.parent() {
 							let mut to_recalc = self.to_recalculate_size.write().await;

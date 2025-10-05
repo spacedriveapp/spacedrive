@@ -1,6 +1,5 @@
 //! Performance metrics and monitoring for the indexer
 
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::time::{Duration, Instant};

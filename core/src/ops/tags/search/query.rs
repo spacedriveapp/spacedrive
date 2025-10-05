@@ -27,8 +27,14 @@ impl LibraryQuery for SearchTagsQuery {
 		Ok(Self { input })
 	}
 
-	async fn execute(self, context: Arc<CoreContext>, session: crate::infra::api::SessionContext) -> Result<Self::Output> {
-		let library_id = session.current_library_id.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
+		let library_id = session
+			.current_library_id
+			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
 		let library = context
 			.libraries()
 			.await

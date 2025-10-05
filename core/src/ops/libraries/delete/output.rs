@@ -8,32 +8,29 @@ use uuid::Uuid;
 /// Output from library delete action dispatch
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryDeleteOutput {
-    pub library_id: Uuid,
-    pub name: String,
+	pub library_id: Uuid,
+	pub name: String,
 }
 
 impl LibraryDeleteOutput {
-    pub fn new(library_id: Uuid, name: String) -> Self {
-        Self {
-            library_id,
-            name,
-        }
-    }
+	pub fn new(library_id: Uuid, name: String) -> Self {
+		Self { library_id, name }
+	}
 }
 
 impl ActionOutputTrait for LibraryDeleteOutput {
-    fn to_json(&self) -> serde_json::Value {
-        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
-    }
+	fn to_json(&self) -> serde_json::Value {
+		serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+	}
 
-    fn display_message(&self) -> String {
-        format!(
-            "Deleted library '{}' with ID {}",
-            self.name, self.library_id
-        )
-    }
+	fn display_message(&self) -> String {
+		format!(
+			"Deleted library '{}' with ID {}",
+			self.name, self.library_id
+		)
+	}
 
-    fn output_type(&self) -> &'static str {
-        "library.delete.completed"
-    }
+	fn output_type(&self) -> &'static str {
+		"library.delete.completed"
+	}
 }

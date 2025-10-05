@@ -7,4 +7,3 @@ pub struct PairJoinOutput {
 	pub paired_device_id: Uuid,
 	pub device_name: String,
 }
-

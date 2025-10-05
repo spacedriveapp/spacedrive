@@ -6,10 +6,7 @@ use clap::Subcommand;
 use crate::util::prelude::*;
 
 use crate::{context::Context, util::error::CliError};
-use sd_core::{
-    infra::job::types::JobId,
-    ops::libraries::list::query::ListLibrariesQuery,
-};
+use sd_core::{infra::job::types::JobId, ops::libraries::list::query::ListLibrariesQuery};
 
 use self::args::*;
 
@@ -29,8 +26,12 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			let library_id = if let Some(id) = args.library {
 				id
 			} else {
-				let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> =
-					execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
+				let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(
+					ctx,
+					sd_core::ops::libraries::list::query::ListLibrariesInput {
+						include_stats: false
+					}
+				);
 				match libs.len() {
 					0 => anyhow::bail!("No libraries found; specify --library after creating one"),
 					1 => libs[0].id,
@@ -49,7 +50,12 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			});
 		}
 		IndexCmd::QuickScan(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
+			let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(
+				ctx,
+				sd_core::ops::libraries::list::query::ListLibrariesInput {
+					include_stats: false
+				}
+			);
 			let library_id = match libs.len() {
 				1 => libs[0].id,
 				_ => {
@@ -64,7 +70,12 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			});
 		}
 		IndexCmd::Browse(args) => {
-            let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(ctx, sd_core::ops::libraries::list::query::ListLibrariesInput { include_stats: false });
+			let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(
+				ctx,
+				sd_core::ops::libraries::list::query::ListLibrariesInput {
+					include_stats: false
+				}
+			);
 			let library_id = match libs.len() {
 				1 => libs[0].id,
 				_ => anyhow::bail!("Specify --library for browse when multiple libraries exist"),

@@ -8,10 +8,12 @@ pub mod output;
 pub mod routing;
 pub mod strategy;
 
-pub use job::{FileCopyJob, CopyOptions, MoveMode, CopyProgress, CopyError};
+pub use job::{CopyError, CopyOptions, CopyProgress, FileCopyJob, MoveMode};
 pub use output::FileCopyActionOutput;
-pub use strategy::{CopyStrategy, LocalMoveStrategy, LocalStreamCopyStrategy, RemoteTransferStrategy};
 pub use routing::CopyStrategyRouter;
+pub use strategy::{
+	CopyStrategy, LocalMoveStrategy, LocalStreamCopyStrategy, RemoteTransferStrategy,
+};
 
 // Re-export for backward compatibility
 pub use job::MoveJob;

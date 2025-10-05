@@ -1,6 +1,7 @@
 //! Protocol handling system for different message types
 
 pub mod file_transfer;
+pub mod library_messages;
 pub mod messaging;
 pub mod pairing;
 pub mod registry;
@@ -14,6 +15,7 @@ use uuid::Uuid;
 pub use file_transfer::{
 	FileMetadata, FileTransferMessage, FileTransferProtocolHandler, TransferMode, TransferSession,
 };
+pub use library_messages::{LibraryDiscoveryInfo, LibraryMessage};
 pub use messaging::MessagingProtocolHandler;
 pub use pairing::{PairingMessage, PairingProtocolHandler, PairingSession, PairingState};
 pub use registry::ProtocolRegistry;

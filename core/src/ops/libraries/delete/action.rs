@@ -73,7 +73,6 @@ impl CoreAction for LibraryDeleteAction {
 	}
 
 	// No library_id method - this is a CoreAction that operates on libraries themselves
-
 }
 
 // Register core action

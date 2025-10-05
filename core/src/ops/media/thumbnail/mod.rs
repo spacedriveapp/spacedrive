@@ -5,15 +5,15 @@
 //! can run independently or be triggered after indexing operations.
 
 pub mod action;
+mod error;
+mod generator;
 mod job;
 mod state;
-mod generator;
-mod error;
 mod utils;
 
-pub use job::{ThumbnailJob, ThumbnailJobConfig};
-pub use state::{ThumbnailState, ThumbnailPhase, ThumbnailEntry, ThumbnailStats};
-pub use generator::{ThumbnailGenerator, ThumbnailInfo, ImageGenerator, VideoGenerator};
-pub use error::{ThumbnailError, ThumbnailResult};
-pub use utils::ThumbnailUtils;
 pub use action::ThumbnailAction;
+pub use error::{ThumbnailError, ThumbnailResult};
+pub use generator::{ImageGenerator, ThumbnailGenerator, ThumbnailInfo, VideoGenerator};
+pub use job::{ThumbnailJob, ThumbnailJobConfig};
+pub use state::{ThumbnailEntry, ThumbnailPhase, ThumbnailState, ThumbnailStats};
+pub use utils::ThumbnailUtils;

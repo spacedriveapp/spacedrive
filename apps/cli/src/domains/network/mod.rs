@@ -7,6 +7,7 @@ use crate::util::prelude::*;
 
 use crate::context::Context;
 use sd_core::ops::network::{
+	devices::{output::ListPairedDevicesOutput, query::ListPairedDevicesInput},
 	pair::{
 		cancel::output::PairCancelOutput,
 		generate::output::PairGenerateOutput,
@@ -28,6 +29,12 @@ pub enum NetworkCmd {
 	/// Pairing commands
 	#[command(subcommand)]
 	Pair(PairCmd),
+	/// List paired devices
+	Devices {
+		/// Show only connected devices
+		#[arg(long)]
+		connected: bool,
+	},
 	/// Revoke a paired device
 	Revoke(RevokeArgs),
 	/// Send files via Spacedrop
@@ -105,6 +112,43 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				});
 			}
 		},
+		NetworkCmd::Devices { connected } => {
+			let input = ListPairedDevicesInput {
+				connected_only: connected,
+			};
+			let out: ListPairedDevicesOutput = execute_core_query!(ctx, input);
+			print_output!(ctx, &out, |o: &ListPairedDevicesOutput| {
+				if o.devices.is_empty() {
+					println!("No paired devices");
+					return;
+				}
+				println!(
+					"Paired Devices ({} total, {} connected):",
+					o.total, o.connected
+				);
+				println!("─────────────────────────────────────────────────────");
+				for device in &o.devices {
+					println!();
+					println!("  Name: {}", device.name);
+					println!("  ID: {}", device.id);
+					println!("  Type: {}", device.device_type);
+					println!("  OS Version: {}", device.os_version);
+					println!("  App Version: {}", device.app_version);
+					println!(
+						"  Status: {}",
+						if device.is_connected {
+							"🟢 Connected"
+						} else {
+							"⚪ Paired"
+						}
+					);
+					println!(
+						"  Last Seen: {}",
+						device.last_seen.format("%Y-%m-%d %H:%M:%S")
+					);
+				}
+			});
+		}
 		NetworkCmd::Revoke(args) => {
 			confirm_or_abort(
 				&format!(

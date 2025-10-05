@@ -106,7 +106,7 @@ pub async fn run_aggregation_phase(
 		let indexer_progress = IndexerProgress {
 			phase: IndexPhase::Finalizing {
 				processed: processed,
-				total: total_dirs
+				total: total_dirs,
 			},
 			current_path: format!(
 				"Aggregating directory {}/{}: {}",

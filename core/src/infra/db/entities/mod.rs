@@ -15,10 +15,10 @@ pub mod user_metadata;
 
 // Tagging system
 pub mod tag;
-pub mod tag_relationship;
 pub mod tag_closure;
-pub mod user_metadata_tag;
+pub mod tag_relationship;
 pub mod tag_usage_pattern;
+pub mod user_metadata_tag;
 
 pub mod audit_log;
 pub mod collection;
@@ -48,10 +48,10 @@ pub use volume::Entity as Volume;
 
 // Tagging entities
 pub use tag::Entity as Tag;
-pub use tag_relationship::Entity as TagRelationship;
 pub use tag_closure::Entity as TagClosure;
-pub use user_metadata_tag::Entity as UserMetadataTag;
+pub use tag_relationship::Entity as TagRelationship;
 pub use tag_usage_pattern::Entity as TagUsagePattern;
+pub use user_metadata_tag::Entity as UserMetadataTag;
 
 // Re-export active models for easy access
 pub use audit_log::ActiveModel as AuditLogActive;
@@ -72,7 +72,7 @@ pub use volume::ActiveModel as VolumeActive;
 
 // Tagging active models
 pub use tag::ActiveModel as TagActive;
-pub use tag_relationship::ActiveModel as TagRelationshipActive;
 pub use tag_closure::ActiveModel as TagClosureActive;
-pub use user_metadata_tag::ActiveModel as UserMetadataTagActive;
+pub use tag_relationship::ActiveModel as TagRelationshipActive;
 pub use tag_usage_pattern::ActiveModel as TagUsagePatternActive;
+pub use user_metadata_tag::ActiveModel as UserMetadataTagActive;

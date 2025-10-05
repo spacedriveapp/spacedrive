@@ -22,7 +22,7 @@ impl VolumeSpeedTestOutput {
 	pub fn new(
 		fingerprint: VolumeFingerprint,
 		read_speed_mbps: Option<u32>,
-		write_speed_mbps: Option<u32>
+		write_speed_mbps: Option<u32>,
 	) -> Self {
 		Self {
 			fingerprint,
@@ -31,4 +31,3 @@ impl VolumeSpeedTestOutput {
 		}
 	}
 }
-

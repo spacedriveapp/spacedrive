@@ -25,7 +25,9 @@ impl RefsHandler {
 			self.get_volume_info(path2).await,
 		) {
 			// Same volume GUID = same physical storage
-			return vol1.volume_guid == vol2.volume_guid && vol1.supports_block_cloning && vol2.supports_block_cloning;
+			return vol1.volume_guid == vol2.volume_guid
+				&& vol1.supports_block_cloning
+				&& vol2.supports_block_cloning;
 		}
 
 		false
@@ -61,17 +63,26 @@ impl RefsHandler {
 			let output = std::process::Command::new("powershell")
 				.args(["-Command", &script])
 				.output()
-				.map_err(|e| crate::volume::error::VolumeError::platform(format!("Failed to run PowerShell: {}", e)))?;
+				.map_err(|e| {
+					crate::volume::error::VolumeError::platform(format!(
+						"Failed to run PowerShell: {}",
+						e
+					))
+				})?;
 
 			if !output.status.success() {
-				return Err(crate::volume::error::VolumeError::platform("PowerShell command failed".to_string()));
+				return Err(crate::volume::error::VolumeError::platform(
+					"PowerShell command failed".to_string(),
+				));
 			}
 
 			let output_text = String::from_utf8_lossy(&output.stdout);
 			parse_volume_info(&output_text)
 		})
 		.await
-		.map_err(|e| crate::volume::error::VolumeError::platform(format!("Task join error: {}", e)))?
+		.map_err(|e| {
+			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+		})?
 	}
 
 	/// Check if ReFS block cloning is supported
@@ -311,9 +322,16 @@ mod tests {
 
 	#[test]
 	fn test_extract_json_string() {
-		let json = r#"{"VolumeGuid": "12345678-1234-1234-1234-123456789abc", "FileSystem": "ReFS"}"#;
-		assert_eq!(extract_json_string(json, "VolumeGuid"), Some("12345678-1234-1234-1234-123456789abc".to_string()));
-		assert_eq!(extract_json_string(json, "FileSystem"), Some("ReFS".to_string()));
+		let json =
+			r#"{"VolumeGuid": "12345678-1234-1234-1234-123456789abc", "FileSystem": "ReFS"}"#;
+		assert_eq!(
+			extract_json_string(json, "VolumeGuid"),
+			Some("12345678-1234-1234-1234-123456789abc".to_string())
+		);
+		assert_eq!(
+			extract_json_string(json, "FileSystem"),
+			Some("ReFS".to_string())
+		);
 		assert_eq!(extract_json_string(json, "NonExistent"), None);
 	}
 

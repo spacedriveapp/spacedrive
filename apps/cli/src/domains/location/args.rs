@@ -61,4 +61,3 @@ impl From<LocationRescanArgs> for LocationRescanInput {
 		}
 	}
 }
-

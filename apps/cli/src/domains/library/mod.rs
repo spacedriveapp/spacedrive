@@ -12,6 +12,11 @@ use sd_core::ops::libraries::{
 	info::{output::LibraryInfoOutput, query::LibraryInfoQuery},
 	list::query::ListLibrariesQuery,
 };
+use sd_core::ops::network::sync_setup::{
+	discovery::{output::DiscoverRemoteLibrariesOutput, query::DiscoverRemoteLibrariesInput},
+	input::LibrarySyncSetupInput,
+	output::LibrarySyncSetupOutput,
+};
 
 use self::args::*;
 
@@ -27,6 +32,9 @@ pub enum LibraryCmd {
 	Switch(LibrarySwitchArgs),
 	/// Delete a library
 	Delete(LibraryDeleteArgs),
+	/// Library sync setup commands
+	#[command(subcommand)]
+	SyncSetup(SyncSetupCmd),
 }
 
 pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
@@ -175,6 +183,55 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 				println!("Deleted library {}", o.library_id);
 			});
 		}
+		LibraryCmd::SyncSetup(cmd) => match cmd {
+			SyncSetupCmd::Discover(args) => {
+				let input: DiscoverRemoteLibrariesInput = args.into();
+				let out: DiscoverRemoteLibrariesOutput = execute_core_query!(ctx, input);
+				print_output!(ctx, &out, |o: &DiscoverRemoteLibrariesOutput| {
+					println!("Device: {} ({})", o.device_name, o.device_id);
+					println!("Online: {}", o.is_online);
+					println!();
+					if o.libraries.is_empty() {
+						println!("No libraries found on remote device");
+					} else {
+						println!("Remote Libraries ({}):", o.libraries.len());
+						println!("─────────────────────────────────────────");
+						for lib in &o.libraries {
+							println!();
+							println!("  Name: {}", lib.name);
+							println!("  ID: {}", lib.id);
+							if let Some(desc) = &lib.description {
+								println!("  Description: {}", desc);
+							}
+							println!("  Created: {}", lib.created_at.format("%Y-%m-%d %H:%M:%S"));
+							println!("  Entries: {}", lib.statistics.total_entries);
+							println!("  Locations: {}", lib.statistics.total_locations);
+							println!("  Devices: {}", lib.statistics.device_count);
+							if lib.statistics.total_size_bytes > 0 {
+								println!("  Size: {} bytes", lib.statistics.total_size_bytes);
+							}
+						}
+					}
+				});
+			}
+			SyncSetupCmd::Setup(args) => {
+				let input = args.to_input(ctx)?;
+				let out: LibrarySyncSetupOutput = execute_core_action!(ctx, input);
+				print_output!(ctx, &out, |o: &LibrarySyncSetupOutput| {
+					if o.success {
+						println!("✓ Library sync setup successful");
+						println!("  Local library: {}", o.local_library_id);
+						if let Some(remote) = o.remote_library_id {
+							println!("  Remote library: {}", remote);
+						}
+						println!("  {}", o.message);
+					} else {
+						println!("✗ Library sync setup failed");
+						println!("  {}", o.message);
+					}
+				});
+			}
+		},
 	}
 	Ok(())
 }

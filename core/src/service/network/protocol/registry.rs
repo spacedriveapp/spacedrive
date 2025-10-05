@@ -1,8 +1,8 @@
 //! Protocol registry for managing protocol handlers
 
 use super::{ProtocolEvent, ProtocolHandler};
-use iroh::NodeId;
 use crate::service::network::{NetworkingError, Result};
+use iroh::NodeId;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -75,7 +75,9 @@ impl ProtocolRegistry {
 			NetworkingError::Protocol(format!("No handler for protocol {}", protocol_name))
 		})?;
 
-		handler.handle_response(from_device, from_node, response_data).await
+		handler
+			.handle_response(from_device, from_node, response_data)
+			.await
 	}
 
 	/// Broadcast an event to all protocol handlers

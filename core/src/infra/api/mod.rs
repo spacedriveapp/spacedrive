@@ -31,4 +31,3 @@ pub use error::{ApiError, ApiResult};
 pub use permissions::{AuthLevel, PermissionError, PermissionLayer, PermissionSet};
 pub use session::{AuthenticationInfo, DeviceContext, SessionContext};
 pub use types::{ApiOperation, OperationType};
-

@@ -1,0 +1,126 @@
+//! Query for discovering libraries on a remote paired device
+
+use super::output::{DiscoverRemoteLibrariesOutput, LibraryStatistics, RemoteLibraryInfo};
+use crate::{context::CoreContext, cqrs::CoreQuery};
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
+use specta::Type;
+use std::sync::Arc;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoverRemoteLibrariesInput {
+	/// Device ID to query for libraries
+	pub device_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct DiscoverRemoteLibrariesQuery {
+	device_id: Uuid,
+}
+
+impl CoreQuery for DiscoverRemoteLibrariesQuery {
+	type Input = DiscoverRemoteLibrariesInput;
+	type Output = DiscoverRemoteLibrariesOutput;
+
+	fn from_input(input: Self::Input) -> Result<Self> {
+		Ok(Self {
+			device_id: input.device_id,
+		})
+	}
+
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		_session: crate::infra::api::SessionContext,
+	) -> Result<Self::Output> {
+		// Get networking service
+		let networking = context
+			.get_networking()
+			.await
+			.ok_or_else(|| anyhow!("Networking not initialized"))?;
+
+		// Verify device is paired
+		let device_registry = networking.device_registry();
+		let registry = device_registry.read().await;
+
+		let device_state = registry
+			.get_device_state(self.device_id)
+			.ok_or_else(|| anyhow!("Device not found: {}", self.device_id))?;
+
+		// Check if device is paired
+		let (device_info, is_online) = match device_state {
+			crate::service::network::device::DeviceState::Paired { info, .. } => {
+				(info.clone(), false)
+			}
+			crate::service::network::device::DeviceState::Connected { info, .. } => {
+				(info.clone(), true)
+			}
+			_ => {
+				return Err(anyhow!(
+					"Device {} is not paired. Complete pairing first.",
+					self.device_id
+				));
+			}
+		};
+
+		drop(registry);
+
+		// If device is not online, return empty list
+		if !is_online {
+			return Ok(DiscoverRemoteLibrariesOutput {
+				device_id: self.device_id,
+				device_name: device_info.device_name.clone(),
+				libraries: vec![],
+				is_online: false,
+			});
+		}
+
+		// Send library discovery request to remote device
+		use crate::service::network::protocol::library_messages::LibraryMessage;
+
+		let request = LibraryMessage::DiscoveryRequest {
+			request_id: Uuid::new_v4(),
+		};
+
+		let response = networking
+			.send_library_request(self.device_id, request)
+			.await
+			.map_err(|e| anyhow!("Failed to send library discovery request: {}", e))?;
+
+		// Parse response
+		match response {
+			LibraryMessage::DiscoveryResponse {
+				request_id: _,
+				libraries,
+			} => {
+				let remote_libraries = libraries
+					.into_iter()
+					.map(|lib| RemoteLibraryInfo {
+						id: lib.id,
+						name: lib.name,
+						description: lib.description,
+						created_at: lib.created_at,
+						statistics: LibraryStatistics {
+							total_entries: lib.total_entries,
+							total_locations: lib.total_locations,
+							total_size_bytes: lib.total_size_bytes,
+							device_count: lib.device_count,
+						},
+					})
+					.collect();
+
+				Ok(DiscoverRemoteLibrariesOutput {
+					device_id: self.device_id,
+					device_name: device_info.device_name,
+					libraries: remote_libraries,
+					is_online: true,
+				})
+			}
+			_ => Err(anyhow!("Unexpected response from device")),
+		}
+	}
+}
+
+crate::register_core_query!(DiscoverRemoteLibrariesQuery, "network.sync_setup.discover");

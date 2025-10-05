@@ -109,9 +109,7 @@ impl EventHandler for DefaultHandler {
 					// In a real implementation, this would look up or create an entry
 					let entry_id = Uuid::new_v4();
 
-					if let Some(core_event) =
-						event.to_raw_event(location.library_id)
-					{
+					if let Some(core_event) = event.to_raw_event(location.library_id) {
 						events.push(core_event);
 					}
 					break;

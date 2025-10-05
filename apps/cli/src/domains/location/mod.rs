@@ -8,7 +8,7 @@ use crate::util::prelude::*;
 use crate::context::Context;
 use sd_core::ops::locations::{
 	add::{action::LocationAddInput, output::LocationAddOutput},
-	list::{query::LocationsListQueryInput, output::LocationsListOutput},
+	list::{output::LocationsListOutput, query::LocationsListQueryInput},
 	remove::output::LocationRemoveOutput,
 	rescan::output::LocationRescanOutput,
 };
@@ -49,7 +49,13 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 			});
 		}
 		LocationCmd::Remove(args) => {
-			confirm_or_abort(&format!("This will remove location {} from the library. Continue?", args.location_id), args.yes)?;
+			confirm_or_abort(
+				&format!(
+					"This will remove location {} from the library. Continue?",
+					args.location_id
+				),
+				args.yes,
+			)?;
 			let input: sd_core::ops::locations::remove::action::LocationRemoveInput = args.into();
 			let out: LocationRemoveOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &LocationRemoveOutput| {

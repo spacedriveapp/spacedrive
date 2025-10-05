@@ -9,4 +9,3 @@ pub struct PairGenerateOutput {
 	pub session_id: Uuid,
 	pub expires_at: DateTime<Utc>,
 }
-

@@ -94,9 +94,7 @@ async fn alice_file_transfer_scenario() {
 		&pairing_code,
 	)
 	.unwrap();
-	println!(
-		"Alice: Pairing code written to /tmp/spacedrive-file-transfer-test/pairing_code.txt"
-	);
+	println!("Alice: Pairing code written to /tmp/spacedrive-file-transfer-test/pairing_code.txt");
 
 	// Wait for pairing completion
 	println!("Alice: Waiting for Bob to connect...");
@@ -110,10 +108,7 @@ async fn alice_file_transfer_scenario() {
 		let connected_devices = core.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			receiver_device_id = Some(connected_devices[0]);
-			println!(
-				"Alice: Bob connected! Device ID: {}",
-				connected_devices[0]
-			);
+			println!("Alice: Bob connected! Device ID: {}", connected_devices[0]);
 
 			// Wait a bit longer to ensure session keys are properly established
 			println!("Alice: Allowing extra time for session key establishment...");
@@ -289,9 +284,7 @@ async fn alice_file_transfer_scenario() {
 			}
 
 			if completed {
-				println!(
-					"Alice: All transfers completed, now waiting for Bob's confirmation..."
-				);
+				println!("Alice: All transfers completed, now waiting for Bob's confirmation...");
 
 				// Wait for Bob to confirm receipt and verification
 				let mut bob_confirmed = false;
@@ -329,10 +322,7 @@ async fn alice_file_transfer_scenario() {
 					panic!("Alice: Bob did not confirm file receipt within timeout");
 				}
 			} else {
-				println!(
-					"Alice: Transfer {:?} did not complete in time",
-					transfer_id
-				);
+				println!("Alice: Transfer {:?} did not complete in time", transfer_id);
 				panic!("Alice: File transfer did not complete in time");
 			}
 		}
@@ -548,11 +538,7 @@ async fn bob_file_transfer_scenario() {
 			println!("Bob: Still waiting for files... checking directory:");
 			if let Ok(entries) = std::fs::read_dir(received_dir) {
 				let file_count = entries.count();
-				println!(
-					"  Found {} items in {}",
-					file_count,
-					received_dir.display()
-				);
+				println!("  Found {} items in {}", file_count, received_dir.display());
 			}
 		}
 

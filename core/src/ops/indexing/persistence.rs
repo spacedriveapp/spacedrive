@@ -51,7 +51,9 @@ pub trait IndexPersistence: Send + Sync {
 	async fn get_existing_entries(
 		&self,
 		indexing_path: &Path,
-	) -> JobResult<HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>>;
+	) -> JobResult<
+		HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>,
+	>;
 
 	/// Update an existing entry
 	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()>;
@@ -274,8 +276,9 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	async fn get_existing_entries(
 		&self,
 		indexing_path: &Path,
-	) -> JobResult<HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>>
-	{
+	) -> JobResult<
+		HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>,
+	> {
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		// If we don't have a location root entry ID, we can't find existing entries
@@ -338,7 +341,12 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 
 			result.insert(
 				full_path,
-				(entry.id, entry.inode.map(|i| i as u64), modified_time, entry.size as u64),
+				(
+					entry.id,
+					entry.inode.map(|i| i as u64),
+					modified_time,
+					entry.size as u64,
+				),
 			);
 		}
 
@@ -449,8 +457,9 @@ impl IndexPersistence for EphemeralPersistence {
 	async fn get_existing_entries(
 		&self,
 		_indexing_path: &Path,
-	) -> JobResult<HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>>
-	{
+	) -> JobResult<
+		HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>,
+	> {
 		// Ephemeral persistence doesn't support change detection
 		Ok(HashMap::new())
 	}

@@ -11,206 +11,257 @@ use std::process::{self, Command};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    #[command(subcommand)]
-    command: Commands,
+	#[command(subcommand)]
+	command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// List and filter tasks
-    List {
-        #[arg(short, long)]
-        status: Option<String>,
-        #[arg(short, long)]
-        assignee: Option<String>,
-        #[arg(short, long)]
-        priority: Option<String>,
-        #[arg(long)]
-        tag: Option<String>,
-        #[arg(long, help = "Sort by field (id, title, status, priority, assignee)")]
-        sort_by: Option<String>,
-        #[arg(short, long, help = "Reverse sort order")]
-        reverse: bool,
-    },
-    /// Validate staged task files (for git hook)
-    Validate,
+	/// List and filter tasks
+	List {
+		#[arg(short, long)]
+		status: Option<String>,
+		#[arg(short, long)]
+		assignee: Option<String>,
+		#[arg(short, long)]
+		priority: Option<String>,
+		#[arg(long)]
+		tag: Option<String>,
+		#[arg(long, help = "Sort by field (id, title, status, priority, assignee)")]
+		sort_by: Option<String>,
+		#[arg(short, long, help = "Reverse sort order")]
+		reverse: bool,
+	},
+	/// Validate staged task files (for git hook)
+	Validate,
 }
 
 /// A struct that matches the YAML Front Matter schema.
 #[derive(Debug, Deserialize)]
 struct TaskFrontMatter {
-    id: String,
-    title: String,
-    status: String,
-    assignee: String,
-    parent: Option<String>,
-    priority: String,
-    tags: Option<Vec<String>>,
-    whitepaper: String,
+	id: String,
+	title: String,
+	status: String,
+	assignee: String,
+	parent: Option<String>,
+	priority: String,
+	tags: Option<Vec<String>>,
+	whitepaper: String,
 }
 
 fn main() {
-    let cli = Cli::parse();
+	let cli = Cli::parse();
 
-    match &cli.command {
-        Commands::List { status, assignee, priority, tag, sort_by, reverse } => {
-            if let Err(e) = list_tasks(status, assignee, priority, tag, sort_by, *reverse) {
-                eprintln!("Error listing tasks: {}", e);
-                process::exit(1);
-            }
-        }
-        Commands::Validate => {
-            if let Err(e) = validate_tasks() {
-                eprintln!("Error validating tasks: {}", e);
-                process::exit(1);
-            }
-        }
-    }
+	match &cli.command {
+		Commands::List {
+			status,
+			assignee,
+			priority,
+			tag,
+			sort_by,
+			reverse,
+		} => {
+			if let Err(e) = list_tasks(status, assignee, priority, tag, sort_by, *reverse) {
+				eprintln!("Error listing tasks: {}", e);
+				process::exit(1);
+			}
+		}
+		Commands::Validate => {
+			if let Err(e) = validate_tasks() {
+				eprintln!("Error validating tasks: {}", e);
+				process::exit(1);
+			}
+		}
+	}
 }
 
 fn list_tasks(
-    status_filter: &Option<String>,
-    assignee_filter: &Option<String>,
-    priority_filter: &Option<String>,
-    tag_filter: &Option<String>,
-    sort_by: &Option<String>,
-    reverse: bool,
+	status_filter: &Option<String>,
+	assignee_filter: &Option<String>,
+	priority_filter: &Option<String>,
+	tag_filter: &Option<String>,
+	sort_by: &Option<String>,
+	reverse: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut tasks = Vec::new();
+	let mut tasks = Vec::new();
 
-    for entry in glob(".tasks/*.md")? {
-        let path = entry?;
-        let content = fs::read_to_string(&path)?;
+	for entry in glob(".tasks/*.md")? {
+		let path = entry?;
+		let content = fs::read_to_string(&path)?;
 
-        if content.starts_with("---") {
-            if let Some(front_matter_str) = content.split("---").nth(1) {
-                match serde_yaml::from_str::<TaskFrontMatter>(front_matter_str) {
-                    Ok(front_matter) => tasks.push(front_matter),
-                    Err(e) => eprintln!("Error parsing YAML in {:?}: {}", path, e),
-                }
-            }
-        }
-    }
+		if content.starts_with("---") {
+			if let Some(front_matter_str) = content.split("---").nth(1) {
+				match serde_yaml::from_str::<TaskFrontMatter>(front_matter_str) {
+					Ok(front_matter) => tasks.push(front_matter),
+					Err(e) => eprintln!("Error parsing YAML in {:?}: {}", path, e),
+				}
+			}
+		}
+	}
 
-    let mut filtered_tasks = tasks.into_iter().filter(|task| {
-        let status_match = status_filter.as_ref().map_or(true, |s| task.status.to_lowercase() == s.to_lowercase());
-        let assignee_match = assignee_filter.as_ref().map_or(true, |a| task.assignee.to_lowercase() == a.to_lowercase());
-        let priority_match = priority_filter.as_ref().map_or(true, |p| task.priority.to_lowercase() == p.to_lowercase());
-        let tag_match = tag_filter.as_ref().map_or(true, |t| {
-            task.tags.as_ref().map_or(false, |tags| tags.iter().any(|tag| tag.to_lowercase() == t.to_lowercase()))
-        });
-        status_match && assignee_match && priority_match && tag_match
-    }).collect::<Vec<_>>();
+	let mut filtered_tasks = tasks
+		.into_iter()
+		.filter(|task| {
+			let status_match = status_filter
+				.as_ref()
+				.map_or(true, |s| task.status.to_lowercase() == s.to_lowercase());
+			let assignee_match = assignee_filter
+				.as_ref()
+				.map_or(true, |a| task.assignee.to_lowercase() == a.to_lowercase());
+			let priority_match = priority_filter
+				.as_ref()
+				.map_or(true, |p| task.priority.to_lowercase() == p.to_lowercase());
+			let tag_match = tag_filter.as_ref().map_or(true, |t| {
+				task.tags.as_ref().map_or(false, |tags| {
+					tags.iter()
+						.any(|tag| tag.to_lowercase() == t.to_lowercase())
+				})
+			});
+			status_match && assignee_match && priority_match && tag_match
+		})
+		.collect::<Vec<_>>();
 
-    // Sort the tasks if sort_by is provided
-    if let Some(sort_field) = sort_by {
-        match sort_field.to_lowercase().as_str() {
-            "id" => filtered_tasks.sort_by(|a, b| {
-                let cmp = a.id.cmp(&b.id);
-                if reverse { cmp.reverse() } else { cmp }
-            }),
-            "title" => filtered_tasks.sort_by(|a, b| {
-                let cmp = a.title.to_lowercase().cmp(&b.title.to_lowercase());
-                if reverse { cmp.reverse() } else { cmp }
-            }),
-            "status" => filtered_tasks.sort_by(|a, b| {
-                let cmp = a.status.to_lowercase().cmp(&b.status.to_lowercase());
-                if reverse { cmp.reverse() } else { cmp }
-            }),
-            "priority" => filtered_tasks.sort_by(|a, b| {
-                // Sort priority: critical > high > medium > low
-                let priority_value = |p: &str| match p.to_lowercase().as_str() {
-                    "critical" => 0,
-                    "high" => 1,
-                    "medium" => 2,
-                    "low" => 3,
-                    _ => 4,
-                };
-                let cmp = priority_value(&a.priority).cmp(&priority_value(&b.priority));
-                if reverse { cmp.reverse() } else { cmp }
-            }),
-            "assignee" => filtered_tasks.sort_by(|a, b| {
-                let cmp = a.assignee.to_lowercase().cmp(&b.assignee.to_lowercase());
-                if reverse { cmp.reverse() } else { cmp }
-            }),
-            _ => eprintln!("Invalid sort field: {}. Valid options: id, title, status, priority, assignee", sort_field),
-        }
-    }
+	// Sort the tasks if sort_by is provided
+	if let Some(sort_field) = sort_by {
+		match sort_field.to_lowercase().as_str() {
+			"id" => filtered_tasks.sort_by(|a, b| {
+				let cmp = a.id.cmp(&b.id);
+				if reverse {
+					cmp.reverse()
+				} else {
+					cmp
+				}
+			}),
+			"title" => filtered_tasks.sort_by(|a, b| {
+				let cmp = a.title.to_lowercase().cmp(&b.title.to_lowercase());
+				if reverse {
+					cmp.reverse()
+				} else {
+					cmp
+				}
+			}),
+			"status" => filtered_tasks.sort_by(|a, b| {
+				let cmp = a.status.to_lowercase().cmp(&b.status.to_lowercase());
+				if reverse {
+					cmp.reverse()
+				} else {
+					cmp
+				}
+			}),
+			"priority" => filtered_tasks.sort_by(|a, b| {
+				// Sort priority: critical > high > medium > low
+				let priority_value = |p: &str| match p.to_lowercase().as_str() {
+					"critical" => 0,
+					"high" => 1,
+					"medium" => 2,
+					"low" => 3,
+					_ => 4,
+				};
+				let cmp = priority_value(&a.priority).cmp(&priority_value(&b.priority));
+				if reverse {
+					cmp.reverse()
+				} else {
+					cmp
+				}
+			}),
+			"assignee" => filtered_tasks.sort_by(|a, b| {
+				let cmp = a.assignee.to_lowercase().cmp(&b.assignee.to_lowercase());
+				if reverse {
+					cmp.reverse()
+				} else {
+					cmp
+				}
+			}),
+			_ => eprintln!(
+				"Invalid sort field: {}. Valid options: id, title, status, priority, assignee",
+				sort_field
+			),
+		}
+	}
 
-    let mut table = Table::new();
-    table.set_header(vec!["ID", "Title", "Status", "Assignee", "Priority", "Tags"]);
+	let mut table = Table::new();
+	table.set_header(vec![
+		"ID", "Title", "Status", "Assignee", "Priority", "Tags",
+	]);
 
-    for task in filtered_tasks {
-        table.add_row(vec![
-            Cell::new(&task.id),
-            Cell::new(&task.title),
-            Cell::new(&task.status),
-            Cell::new(&task.assignee),
-            Cell::new(&task.priority),
-            Cell::new(task.tags.unwrap_or_default().join(", ")),
-        ]);
-    }
+	for task in filtered_tasks {
+		table.add_row(vec![
+			Cell::new(&task.id),
+			Cell::new(&task.title),
+			Cell::new(&task.status),
+			Cell::new(&task.assignee),
+			Cell::new(&task.priority),
+			Cell::new(task.tags.unwrap_or_default().join(", ")),
+		]);
+	}
 
-    println!("{table}");
+	println!("{table}");
 
-    Ok(())
+	Ok(())
 }
 
 fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Load the schema
-    let schema_file = fs::File::open(".tasks/task.schema.json")?;
-    let schema: Value = serde_json::from_reader(schema_file)?;
-    let compiled_schema = JSONSchema::options()
-        .with_draft(Draft::Draft7)
-        .compile(&schema)
-        .expect("A valid schema");
+	// 1. Load the schema
+	let schema_file = fs::File::open(".tasks/task.schema.json")?;
+	let schema: Value = serde_json::from_reader(schema_file)?;
+	let compiled_schema = JSONSchema::options()
+		.with_draft(Draft::Draft7)
+		.compile(&schema)
+		.expect("A valid schema");
 
-    // 2. Get a list of staged markdown files
-    let output = Command::new("git")
-        .args(["diff", "--cached", "--name-only", "--diff-filter=ACM", "--", ".tasks/*.md"])
-        .output()?;
+	// 2. Get a list of staged markdown files
+	let output = Command::new("git")
+		.args([
+			"diff",
+			"--cached",
+			"--name-only",
+			"--diff-filter=ACM",
+			"--",
+			".tasks/*.md",
+		])
+		.output()?;
 
-    let staged_files = String::from_utf8(output.stdout)?;
-    let mut has_errors = false;
+	let staged_files = String::from_utf8(output.stdout)?;
+	let mut has_errors = false;
 
-    // 3. Loop through each file and validate it
-    for file_path in staged_files.lines() {
-        if file_path.is_empty() {
-            continue;
-        }
+	// 3. Loop through each file and validate it
+	for file_path in staged_files.lines() {
+		if file_path.is_empty() {
+			continue;
+		}
 
-        let content = match fs::read_to_string(file_path) {
-            Ok(c) => c,
-            Err(_) => continue, // File might have been deleted
-        };
+		let content = match fs::read_to_string(file_path) {
+			Ok(c) => c,
+			Err(_) => continue, // File might have been deleted
+		};
 
-        if content.starts_with("---") {
-            if let Some(front_matter_str) = content.split("---").nth(1) {
-                match serde_yaml::from_str::<Value>(front_matter_str) {
-                    Ok(yaml_value) => {
-                        if let Err(errors) = compiled_schema.validate(&yaml_value) {
-                            eprintln!("ERROR in {}:", file_path);
-                            for error in errors {
-                                eprintln!("   - {}", error);
-                            }
-                            has_errors = true;
-                        } else {
-                            println!("Validated: {}", file_path);
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("ERROR parsing YAML in {}:\n   {}", file_path, e);
-                        has_errors = true;
-                    }
-                }
-            }
-        }
-    }
+		if content.starts_with("---") {
+			if let Some(front_matter_str) = content.split("---").nth(1) {
+				match serde_yaml::from_str::<Value>(front_matter_str) {
+					Ok(yaml_value) => {
+						if let Err(errors) = compiled_schema.validate(&yaml_value) {
+							eprintln!("ERROR in {}:", file_path);
+							for error in errors {
+								eprintln!("   - {}", error);
+							}
+							has_errors = true;
+						} else {
+							println!("Validated: {}", file_path);
+						}
+					}
+					Err(e) => {
+						eprintln!("ERROR parsing YAML in {}:\n   {}", file_path, e);
+						has_errors = true;
+					}
+				}
+			}
+		}
+	}
 
-    if has_errors {
-        eprintln!("\nCommit aborted due to validation errors in task files.");
-        process::exit(1);
-    }
+	if has_errors {
+		eprintln!("\nCommit aborted due to validation errors in task files.");
+		process::exit(1);
+	}
 
-    Ok(())
+	Ok(())
 }

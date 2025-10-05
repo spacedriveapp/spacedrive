@@ -346,11 +346,7 @@ mod tests {
 			500000000,  // 500MB available
 			false,      // Not read-only
 			None,
-			VolumeFingerprint::new(
-				"Test Volume",
-				1000000000,
-				"test",
-			),
+			VolumeFingerprint::new("Test Volume", 1000000000, "test"),
 		);
 
 		let config = SpeedTestConfig {

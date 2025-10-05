@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;

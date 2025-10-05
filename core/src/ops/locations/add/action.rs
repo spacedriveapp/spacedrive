@@ -101,11 +101,7 @@ impl LibraryAction for LocationAddAction {
 			None
 		};
 
-		let mut output = LocationAddOutput::new(
-			location_id,
-			self.input.path,
-			self.input.name,
-		);
+		let mut output = LocationAddOutput::new(location_id, self.input.path, self.input.name);
 
 		if let Some(job_id) = job_id {
 			output = output.with_job_id(job_id);

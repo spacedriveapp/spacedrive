@@ -110,7 +110,6 @@ impl LibraryAction for CreateTagAction {
 	fn action_kind(&self) -> &'static str {
 		"tags.create"
 	}
-
 }
 
 // Register library action

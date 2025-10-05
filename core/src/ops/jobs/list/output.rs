@@ -1,7 +1,7 @@
+use crate::infra::job::types::ActionContextInfo;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
-use crate::infra::job::types::ActionContextInfo;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobListItem {
@@ -12,7 +12,6 @@ pub struct JobListItem {
 	pub action_type: Option<String>,
 	pub action_context: Option<ActionContextInfo>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct JobListOutput {

@@ -9,4 +9,3 @@ pub struct SpacedropSendInput {
 	pub paths: Vec<SdPath>,
 	pub sender: Option<String>,
 }
-

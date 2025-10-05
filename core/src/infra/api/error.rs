@@ -99,7 +99,10 @@ impl ApiError {
 	}
 
 	/// Create a resource not found error
-	pub fn resource_not_found<T: Into<String>, I: Into<String>>(resource_type: T, resource_id: I) -> Self {
+	pub fn resource_not_found<T: Into<String>, I: Into<String>>(
+		resource_type: T,
+		resource_id: I,
+	) -> Self {
 		Self::ResourceNotFound {
 			resource_type: resource_type.into(),
 			resource_id: resource_id.into(),
@@ -170,4 +173,3 @@ impl From<&str> for ApiError {
 		}
 	}
 }
-

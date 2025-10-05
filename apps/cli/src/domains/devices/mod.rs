@@ -6,10 +6,7 @@ use clap::Subcommand;
 use crate::context::Context;
 use crate::util::prelude::*;
 
-use sd_core::ops::devices::list::{
-	output::LibraryDeviceInfo,
-	query::ListLibraryDevicesInput,
-};
+use sd_core::ops::devices::list::{output::LibraryDeviceInfo, query::ListLibraryDevicesInput};
 
 use self::args::*;
 
@@ -41,12 +38,7 @@ pub async fn run(ctx: &Context, cmd: DevicesCmd) -> Result<()> {
 						"offline"
 					};
 
-					println!(
-						"- {} {} ({})",
-						d.id,
-						d.name,
-						status
-					);
+					println!("- {} {} ({})", d.id, d.name, status);
 					println!("  OS: {} {}", d.os, d.os_version.as_deref().unwrap_or(""));
 					if let Some(model) = &d.hardware_model {
 						println!("  Hardware: {}", model);

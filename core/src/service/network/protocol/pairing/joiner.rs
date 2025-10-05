@@ -273,7 +273,6 @@ impl PairingProtocolHandler {
 										.await
 								};
 							}
-
 						}
 						Err(e) => {
 							self.log_error(&format!(

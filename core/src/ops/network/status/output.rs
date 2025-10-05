@@ -12,4 +12,3 @@ pub struct NetworkStatus {
 	pub connected_devices: usize,
 	pub version: String,
 }
-

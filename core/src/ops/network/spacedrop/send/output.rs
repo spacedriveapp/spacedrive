@@ -7,4 +7,3 @@ pub struct SpacedropSendOutput {
 	pub job_id: Option<Uuid>,
 	pub session_id: Option<Uuid>,
 }
-

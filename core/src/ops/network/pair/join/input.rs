@@ -5,4 +5,3 @@ use specta::Type;
 pub struct PairJoinInput {
 	pub code: String,
 }
-

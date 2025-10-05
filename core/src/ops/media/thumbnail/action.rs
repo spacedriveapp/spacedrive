@@ -67,7 +67,6 @@ impl LibraryAction for ThumbnailAction {
 	fn action_kind(&self) -> &'static str {
 		"media.thumbnail"
 	}
-
 }
 
 // Register action

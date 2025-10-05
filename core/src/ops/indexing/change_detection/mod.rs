@@ -84,8 +84,8 @@ impl ChangeDetector {
 		location_id: i32,
 		indexing_path: &Path,
 	) -> Result<(), crate::infra::job::prelude::JobError> {
-		use crate::infra::job::prelude::JobError;
 		use super::persistence::{DatabasePersistence, IndexPersistence};
+		use crate::infra::job::prelude::JobError;
 
 		// For change detection, we need to get the location's root entry ID
 		use crate::infra::db::entities;
@@ -142,7 +142,10 @@ impl ChangeDetector {
 		if self.path_to_entry.is_empty() {
 			warn!("DEBUG: ChangeDetector loaded 0 entries - database may be locked or empty");
 		} else {
-			warn!("DEBUG: ChangeDetector loaded {} entries successfully", self.path_to_entry.len());
+			warn!(
+				"DEBUG: ChangeDetector loaded {} entries successfully",
+				self.path_to_entry.len()
+			);
 		}
 
 		Ok(())
@@ -183,14 +186,18 @@ impl ChangeDetector {
 							// Hard link: Both paths exist and point to same inode
 							// Treat current path as a new entry (don't skip it)
 							use tracing::debug;
-							debug!("Hard link detected - existing: {:?}, new: {:?}, inode: {}",
-								old_path, path, inode_val);
+							debug!(
+								"Hard link detected - existing: {:?}, new: {:?}, inode: {}",
+								old_path, path, inode_val
+							);
 							// Fall through to "New file/directory" - both entries should exist
 						} else {
 							// Genuine move: Old path no longer exists, same inode at new path
 							use tracing::info;
-							info!("Genuine move detected - old: {:?}, new: {:?}, inode: {}",
-								old_path, path, inode_val);
+							info!(
+								"Genuine move detected - old: {:?}, new: {:?}, inode: {}",
+								old_path, path, inode_val
+							);
 							return Some(Change::Moved {
 								old_path,
 								new_path: path.to_path_buf(),
@@ -246,7 +253,6 @@ impl ChangeDetector {
 		false
 	}
 
-
 	/// Set timestamp precision for comparison (in milliseconds)
 	pub fn set_timestamp_precision(&mut self, precision_ms: i64) {
 		self.timestamp_precision_ms = precision_ms;
@@ -269,7 +275,6 @@ impl ChangeDetector {
 		self.existence_cache.insert(path.to_path_buf(), exists);
 		exists
 	}
-
 }
 
 #[cfg(test)]
@@ -299,7 +304,6 @@ mod tests {
 			Ok(self.modified)
 		}
 	}
-
 
 	// Helper to test change detection with mock metadata
 	fn test_check_path(

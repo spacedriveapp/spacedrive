@@ -69,7 +69,8 @@ pub trait JobHandler: Job {
 pub trait SerializableJob: Job {
 	/// Serialize job state
 	fn serialize_state(&self) -> JobResult<Vec<u8>> {
-		rmp_serde::to_vec_named(self).map_err(|e| super::error::JobError::serialization(format!("{}", e)))
+		rmp_serde::to_vec_named(self)
+			.map_err(|e| super::error::JobError::serialization(format!("{}", e)))
 	}
 
 	/// Deserialize job state
@@ -126,12 +127,9 @@ pub trait JobDependencies {
 	}
 }
 
-
 /// A dyn-compatible trait for dynamic job operations
 /// This is separate from Job to avoid serialization trait bounds
 pub trait DynJob: Send + Sync {
 	/// Job name for identification
 	fn job_name(&self) -> &'static str;
-
 }
-

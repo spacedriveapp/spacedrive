@@ -6,4 +6,3 @@ use uuid::Uuid;
 pub struct PairCancelInput {
 	pub session_id: Uuid,
 }
-

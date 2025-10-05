@@ -252,4 +252,3 @@ impl FileByPathQuery {
 }
 
 crate::register_library_query!(FileByPathQuery, "files.by_path");
-

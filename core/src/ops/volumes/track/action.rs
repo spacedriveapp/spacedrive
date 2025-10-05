@@ -88,7 +88,6 @@ impl LibraryAction for VolumeTrackAction {
 	fn action_kind(&self) -> &'static str {
 		"volumes.track"
 	}
-
 }
 
 // Register action

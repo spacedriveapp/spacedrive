@@ -498,7 +498,11 @@ impl Core {
 			pairing_handler.clone(),
 		);
 
-		let messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
+		let mut messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
+
+		// Inject context for library operations
+		messaging_handler.set_context(self.context.clone());
+
 		let mut file_transfer_handler =
 			service::network::protocol::FileTransferProtocolHandler::new_default(logger.clone());
 

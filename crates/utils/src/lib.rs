@@ -8,9 +8,7 @@ pub fn chain_optional_iter<T>(
 	required: impl IntoIterator<Item = T>,
 	optional: Option<impl IntoIterator<Item = T>>,
 ) -> impl Iterator<Item = T> {
-	required
-		.into_iter()
-		.chain(optional.into_iter().flatten())
+	required.into_iter().chain(optional.into_iter().flatten())
 }
 
 // Frontend compatibility utilities for large integers
@@ -29,7 +27,7 @@ pub fn i64_to_frontend(value: i64) -> (i32, u32) {
 pub fn u64_to_frontend(value: u64) -> (u32, u32) {
 	#[allow(clippy::cast_possible_truncation)]
 	{
-		// Split into (high, low) parts  
+		// Split into (high, low) parts
 		((value >> 32) as u32, value as u32)
 	}
 }

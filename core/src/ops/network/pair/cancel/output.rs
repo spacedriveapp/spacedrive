@@ -5,4 +5,3 @@ use specta::Type;
 pub struct PairCancelOutput {
 	pub cancelled: bool,
 }
-

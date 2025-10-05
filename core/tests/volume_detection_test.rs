@@ -458,9 +458,7 @@ async fn test_full_copy_workflow_simulation() {
 							"Same-storage APFS copy should use fast strategy, got: {}",
 							description
 						);
-						println!(
-							"  Correctly selected fast copy for same-storage APFS operation"
-						);
+						println!("  Correctly selected fast copy for same-storage APFS operation");
 					}
 				}
 				_ => {

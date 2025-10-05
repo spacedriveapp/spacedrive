@@ -3,4 +3,3 @@ use specta::Type;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct NetworkStopInput {}
-
