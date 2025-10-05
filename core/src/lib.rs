@@ -168,7 +168,7 @@ impl Core {
 		let config = AppConfig::load_or_create(&data_dir)?;
 		info!("✅ App config loaded");
 
-		info!("🔄 Ensuring directories...");
+		info!("🔄 Ensuring directories... GAYYY");
 		config.ensure_directories()?;
 		info!("✅ Directories ensured");
 

@@ -209,19 +209,37 @@ impl NetworkingEventLoop {
 			.info(&format!("Incoming connection from {:?}", remote_node_id))
 			.await;
 
-		// Check if this is a paired device
-		let is_paired_device = {
+		// Check if this is a paired device and mark as connected immediately
+		let (is_paired_device, paired_device_id) = {
 			let registry = self.device_registry.read().await;
-			registry.get_device_by_node(remote_node_id).is_some()
+			if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
+				let state = registry.get_device_state(device_id);
+				let is_paired = matches!(
+					state,
+					Some(crate::service::network::device::DeviceState::Paired { .. })
+						| Some(crate::service::network::device::DeviceState::Connected { .. })
+						| Some(crate::service::network::device::DeviceState::Disconnected { .. })
+				);
+				(is_paired, Some(device_id))
+			} else {
+				(false, None)
+			}
 		};
 
 		if is_paired_device {
 			self.logger
-				.info("Paired device connected - will accept incoming streams")
+				.info("Paired device connected - marking as connected")
 				.await;
-			// Don't proactively send ping - let accept_bi() handle the stream
-			// from the connecting side. This prevents both sides from opening
-			// competing streams simultaneously.
+
+			// Mark device as connected immediately when connection arrives
+			if let Some(device_id) = paired_device_id {
+				let _ = self
+					.command_tx
+					.send(EventLoopCommand::ConnectionEstablished {
+						device_id,
+						node_id: remote_node_id,
+					});
+			}
 		}
 
 		self.logger
@@ -340,21 +358,28 @@ impl NetworkingEventLoop {
 								logger.error(&format!("No {} handler registered!", handler_name)).await;
 							}
 						}
-						Err(e) => {
-							logger.error(&format!("Failed to accept bidirectional stream: {}", e)).await;
+					Err(e) => {
+						// Check if the QUIC connection itself is closed
+						if conn.close_reason().is_some() {
+							logger.info(&format!("Connection closed: {:?}", conn.close_reason())).await;
 
 							// Fire ConnectionLost event if this was a paired device
 							let registry = device_registry.read().await;
 							if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
-								logger.info(&format!("Connection lost for device {} due to stream error", device_id)).await;
+								logger.info(&format!("Connection lost for device {} - connection closed", device_id)).await;
 								let _ = command_sender.send(EventLoopCommand::ConnectionLost {
 									device_id,
 									node_id: remote_node_id,
-									reason: format!("Stream error: {}", e),
+									reason: "Connection closed".to_string(),
 								});
 							}
 							break;
+						} else {
+							// Stream error but connection still alive - just continue accepting
+							logger.debug(&format!("No more streams to accept ({}), but connection still alive", e)).await;
+							// Don't break - connection is still valid, just no streams right now
 						}
+					}
 					}
 				}
 				// Try unidirectional stream (file transfer)
@@ -373,21 +398,28 @@ impl NetworkingEventLoop {
 								).await;
 							}
 						}
-						Err(e) => {
-							logger.error(&format!("Failed to accept unidirectional stream: {}", e)).await;
+					Err(e) => {
+						// Check if the QUIC connection itself is closed
+						if conn.close_reason().is_some() {
+							logger.info(&format!("Connection closed: {:?}", conn.close_reason())).await;
 
 							// Fire ConnectionLost event if this was a paired device
 							let registry = device_registry.read().await;
 							if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
-								logger.info(&format!("Connection lost for device {} due to stream error", device_id)).await;
+								logger.info(&format!("Connection lost for device {} - connection closed", device_id)).await;
 								let _ = command_sender.send(EventLoopCommand::ConnectionLost {
 									device_id,
 									node_id: remote_node_id,
-									reason: format!("Stream error: {}", e),
+									reason: "Connection closed".to_string(),
 								});
 							}
 							break;
+						} else {
+							// Stream error but connection still alive - just continue accepting
+							logger.debug(&format!("No more streams to accept ({}), but connection still alive", e)).await;
+							// Don't break - connection is still valid, just no streams right now
 						}
+					}
 					}
 				}
 			}

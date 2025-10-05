@@ -231,7 +231,9 @@ impl NetworkingService {
 		self.start_periodic_reconnection().await;
 
 		// Start periodic health checks for connected devices
-		self.start_health_check_task().await;
+		// TODO: Health checks opening streams causes connection closure
+		// Need to implement proper QUIC keep-alive instead
+		// self.start_health_check_task().await;
 
 		Ok(())
 	}
@@ -403,73 +405,19 @@ impl NetworkingService {
 								conn: conn.clone(),
 							});
 
-							// As the connector, we MUST open a stream for the receiver to accept
-							// This is the standard Iroh pattern: connector opens, receiver accepts
-							match conn.open_bi().await {
-								Ok((mut send, mut recv)) => {
-									// Send a Ping to establish the messaging protocol
-									use crate::service::network::protocol::messaging::Message;
-									use tokio::io::AsyncReadExt;
-									use tokio::io::AsyncWriteExt;
+							// Connection established - don't open streams immediately
+							// Let connections be idle until actually needed for data transfer
+							// This prevents connection closure after initial ping/pong
+							logger
+								.info(&format!("Connection established to device {}", device_id))
+								.await;
 
-									let ping = Message::Ping {
-										timestamp: chrono::Utc::now(),
-										payload: None,
-									};
-
-									if let Ok(ping_data) = serde_json::to_vec(&ping) {
-										// Send length prefix (4 bytes, big-endian) - required by messaging protocol
-										let len = ping_data.len() as u32;
-										if let Err(e) = send.write_all(&len.to_be_bytes()).await {
-											logger
-												.warn(&format!(
-													"Failed to send length prefix: {}",
-													e
-												))
-												.await;
-											// Don't continue - fall through to retry with delay
-										} else {
-											// Send message data
-											if let Err(e) = send.write_all(&ping_data).await {
-												logger
-													.warn(&format!("Failed to send ping: {}", e))
-													.await;
-												// Fall through - let outer retry loop handle it
-											} else {
-												// Flush to ensure ping is sent
-												use tokio::io::AsyncWriteExt;
-												let _ = send.flush().await;
-
-												// Don't call finish() - keep stream open for messaging handler
-												// Drop send/recv to release without closing the connection
-												logger
-													.debug("Ping sent, keeping connection alive")
-													.await;
-												drop(send);
-												drop(recv);
-											}
-										}
-									}
-
-									logger
-										.info(&format!(
-											"Messaging protocol established with device {}",
-											device_id
-										))
-										.await;
-
-									// Send connection established command
-									let _ = sender.send(EventLoopCommand::ConnectionEstablished {
-										device_id,
-										node_id,
-									});
-									break;
-								}
-								Err(e) => {
-									logger.warn(&format!("Failed to open stream: {}", e)).await;
-									// Don't continue - will retry with delay in outer loop
-								}
-							}
+							// Send connection established command
+							let _ = sender.send(EventLoopCommand::ConnectionEstablished {
+								device_id,
+								node_id,
+							});
+							break;
 						}
 						Err(e) => {
 							retry_count += 1;
@@ -643,105 +591,111 @@ impl NetworkingService {
 						continue;
 					}
 
-					// Send ping message
+					// Send ping message using existing connection
 					let ping_msg = crate::service::network::protocol::messaging::Message::Ping {
 						timestamp: chrono::Utc::now(),
 						payload: None,
 					};
 
 					if let Ok(ping_data) = serde_json::to_vec(&ping_msg) {
-						// Try to send ping
-						if let Some(ep) = &endpoint {
-							let node_addr = iroh::NodeAddr::new(node_id);
-							let ping_result = tokio::time::timeout(
-								tokio::time::Duration::from_secs(10),
-								async {
-									match ep.connect(node_addr, MESSAGING_ALPN).await {
-										Ok(conn) => {
-											match conn.open_bi().await {
-												Ok((mut send, mut recv)) => {
-													use tokio::io::{AsyncReadExt, AsyncWriteExt};
+						// Use existing connection from active_connections
+						let connections = active_connections.read().await;
+						let ping_result = if let Some(conn) = connections.get(&node_id) {
+							tokio::time::timeout(tokio::time::Duration::from_secs(10), async {
+								match conn.open_bi().await {
+									Ok((mut send, mut recv)) => {
+										use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-													// Send ping with length prefix
-													let len = ping_data.len() as u32;
-													if send.write_all(&len.to_be_bytes()).await.is_err() {
-														return false;
-													}
-													if send.write_all(&ping_data).await.is_err() {
-														return false;
-													}
-													if send.flush().await.is_err() {
-														return false;
-													}
-
-													// Wait for pong response
-													let mut len_buf = [0u8; 4];
-													if recv.read_exact(&mut len_buf).await.is_err() {
-														return false;
-													}
-													let resp_len = u32::from_be_bytes(len_buf) as usize;
-
-													let mut resp_buf = vec![0u8; resp_len];
-													if recv.read_exact(&mut resp_buf).await.is_err() {
-														return false;
-													}
-
-													// Verify it's a pong
-													if let Ok(msg) = serde_json::from_slice::<crate::service::network::protocol::messaging::Message>(&resp_buf) {
-														matches!(msg, crate::service::network::protocol::messaging::Message::Pong { .. })
-													} else {
-														false
-													}
-												}
-												Err(_) => false,
-											}
+										// Send ping with length prefix
+										let len = ping_data.len() as u32;
+										if send.write_all(&len.to_be_bytes()).await.is_err() {
+											return false;
 										}
-										Err(_) => false,
+										if send.write_all(&ping_data).await.is_err() {
+											return false;
+										}
+										if send.flush().await.is_err() {
+											return false;
+										}
+
+										// Wait for pong response
+										let mut len_buf = [0u8; 4];
+										if recv.read_exact(&mut len_buf).await.is_err() {
+											return false;
+										}
+										let resp_len = u32::from_be_bytes(len_buf) as usize;
+
+										let mut resp_buf = vec![0u8; resp_len];
+										if recv.read_exact(&mut resp_buf).await.is_err() {
+											return false;
+										}
+
+										// Verify it's a pong
+										if let Ok(msg) = serde_json::from_slice::<
+											crate::service::network::protocol::messaging::Message,
+										>(&resp_buf)
+										{
+											matches!(msg, crate::service::network::protocol::messaging::Message::Pong { .. })
+										} else {
+											false
+										}
 									}
+									Err(_) => false,
 								}
-							).await;
+							})
+							.await
+						} else {
+							// No active connection found
+							logger
+								.warn(&format!(
+									"No active connection for health check to device {}",
+									device_id
+								))
+								.await;
+							Ok(false)
+						};
+						drop(connections);
 
-							match ping_result {
-								Ok(true) => {
-									// Ping successful, reset failure count
-									failed_pings.remove(&device_id);
+						match ping_result {
+							Ok(true) => {
+								// Ping successful, reset failure count
+								failed_pings.remove(&device_id);
+								logger
+									.debug(&format!(
+										"Health check: device {} responded to ping",
+										device_id
+									))
+									.await;
+							}
+							Ok(false) | Err(_) => {
+								// Ping failed or timed out
+								let fail_count = failed_pings.entry(device_id).or_insert(0);
+								*fail_count += 1;
+
+								logger
+									.warn(&format!(
+										"Health check: device {} failed ping (attempt {}/3)",
+										device_id, fail_count
+									))
+									.await;
+
+								if *fail_count >= 3 {
+									// Device has failed 3 consecutive pings, mark as disconnected
 									logger
-										.debug(&format!(
-											"Health check: device {} responded to ping",
-											device_id
-										))
-										.await;
-								}
-								Ok(false) | Err(_) => {
-									// Ping failed or timed out
-									let fail_count = failed_pings.entry(device_id).or_insert(0);
-									*fail_count += 1;
-
-									logger
-										.warn(&format!(
-											"Health check: device {} failed ping (attempt {}/3)",
-											device_id, fail_count
-										))
-										.await;
-
-									if *fail_count >= 3 {
-										// Device has failed 3 consecutive pings, mark as disconnected
-										logger
-											.error(&format!(
+										.error(&format!(
 												"Health check: device {} failed 3 consecutive pings, marking as disconnected",
 												device_id
 											))
-											.await;
+										.await;
 
-										if let Some(sender) = &command_sender {
-											let _ = sender.send(crate::service::network::core::event_loop::EventLoopCommand::ConnectionLost {
+									if let Some(sender) = &command_sender {
+										let _ = sender.send(crate::service::network::core::event_loop::EventLoopCommand::ConnectionLost {
 												device_id,
 												node_id,
 												reason: "Failed health check (3 consecutive ping timeouts)".to_string(),
 											});
-										}
-										failed_pings.remove(&device_id);
 									}
+									failed_pings.remove(&device_id);
 								}
 							}
 						}
