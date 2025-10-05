@@ -7,7 +7,6 @@ use crate::util::prelude::*;
 
 use crate::context::Context;
 use sd_core::ops::network::{
-	devices::output::DeviceInfoLite,
 	pair::{
 		cancel::output::PairCancelOutput,
 		generate::output::PairGenerateOutput,
@@ -26,8 +25,6 @@ use self::args::*;
 pub enum NetworkCmd {
 	/// Show networking status
 	Status,
-	/// List devices
-	Devices(NetworkDevicesArgs),
 	/// Pairing commands
 	#[command(subcommand)]
 	Pair(PairCmd),
@@ -67,30 +64,6 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 					);
 				}
 			);
-		}
-		NetworkCmd::Devices(args) => {
-			let devices: Vec<DeviceInfoLite> = execute_core_query!(ctx, args.to_input());
-			print_output!(ctx, &devices, |devs: &Vec<DeviceInfoLite>| {
-				if devs.is_empty() {
-					println!("No devices found");
-					return;
-				}
-				for d in devs {
-					println!(
-						"- {} {} ({} | {} | {} | last seen {})",
-						d.id,
-						d.name,
-						d.os_version,
-						d.app_version,
-						if d.is_connected {
-							"connected"
-						} else {
-							"offline"
-						},
-						d.last_seen
-					);
-				}
-			});
 		}
 		NetworkCmd::Pair(pc) => match pc {
 			PairCmd::Generate { .. } => {

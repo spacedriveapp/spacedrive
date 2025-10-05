@@ -79,12 +79,26 @@ impl DeviceManager {
 
 	/// Initialize the device manager with a custom data directory
 	pub fn init_with_path(data_dir: &PathBuf) -> Result<Self, DeviceError> {
-		let config = match DeviceConfig::load_from(data_dir) {
+		Self::init_with_path_and_name(data_dir, None)
+	}
+
+	/// Initialize the device manager with a custom data directory and optional device name
+	///
+	/// This is primarily for mobile platforms (iOS, Android) where the device name
+	/// should be provided by the native platform APIs (e.g., UIDevice.name on iOS)
+	///
+	/// If a device name is provided, it will always update the stored config to match,
+	/// allowing the app to pick up device name changes from the system settings.
+	pub fn init_with_path_and_name(
+		data_dir: &PathBuf,
+		device_name: Option<String>,
+	) -> Result<Self, DeviceError> {
+		let mut config = match DeviceConfig::load_from(data_dir) {
 			Ok(config) => config,
 			Err(DeviceError::NotInitialized) => {
 				// Create new device configuration
 				let os = detect_os();
-				let name = get_device_name();
+				let name = device_name.clone().unwrap_or_else(get_device_name);
 				let mut config = DeviceConfig::new(name, os);
 
 				// Try to detect hardware model
@@ -96,6 +110,14 @@ impl DeviceManager {
 			}
 			Err(e) => return Err(e),
 		};
+
+		// Update device name if provided (allows picking up name changes from system settings)
+		if let Some(name) = device_name {
+			if config.name != name {
+				config.name = name;
+				config.save_to(data_dir)?;
+			}
+		}
 
 		// Use fallback file for master key when using custom data directory
 		let master_key_path = data_dir.join("master_key");

@@ -47,6 +47,7 @@ mod util;
 
 use crate::context::{Context, OutputFormat};
 use crate::domains::{
+	devices::{self, DevicesCmd},
 	file::{self, FileCmd},
 	index::{self, IndexCmd},
 	job::{self, JobCmd},
@@ -164,6 +165,9 @@ enum Commands {
 	},
 	/// Core info
 	Status,
+	/// Device operations (library database)
+	#[command(subcommand)]
+	Devices(DevicesCmd),
 	/// Libraries operations
 	#[command(subcommand)]
 	Library(LibraryCmd),
@@ -641,6 +645,7 @@ async fn run_client_command(
 				OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&status)?),
 			}
 		}
+		Commands::Devices(cmd) => devices::run(&ctx, cmd).await?,
 		Commands::Library(cmd) => library::run(&ctx, cmd).await?,
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,

@@ -1,9 +1,10 @@
 #if os(iOS)
 import Foundation
+import UIKit
 
 /// Protocol for the iOS core bridge - allows decoupling from specific implementation
 public protocol IOSCoreBridge {
-    func initialize(dataDirectory: String) -> Bool
+    func initialize(dataDirectory: String, deviceName: String?) -> Bool
     func sendMessage(_ query: String, dataDirectory: String) async throws -> String
     func startEventListener(handler: @escaping (String) -> Void)
     func shutdown()
@@ -28,11 +29,19 @@ public class SpacedriveClient {
     /// - Parameters:
     ///   - core: The iOS core bridge implementation
     ///   - dataDirectory: Path to the data directory for the embedded core
-    public init(core: IOSCoreBridge, dataDirectory: String) async throws {
+    ///   - deviceName: Optional device name (defaults to UIDevice.current.name on iOS)
+    public init(core: IOSCoreBridge, dataDirectory: String, deviceName: String? = nil) async throws {
         self.embeddedCore = core
         self.dataDirectory = dataDirectory
 
-        guard embeddedCore.initialize(dataDirectory: dataDirectory) else {
+        // Get device name from UIDevice if not provided
+        #if os(iOS)
+        let finalDeviceName = deviceName ?? UIDevice.current.name
+        #else
+        let finalDeviceName = deviceName
+        #endif
+
+        guard embeddedCore.initialize(dataDirectory: dataDirectory, deviceName: finalDeviceName) else {
             throw SpacedriveError.connectionFailed("Failed to initialize embedded core")
         }
     }
@@ -41,6 +50,9 @@ public class SpacedriveClient {
 
     /// Core API operations (device management, network, etc.)
     public lazy var core = CoreAPI(client: self)
+
+    /// Device management operations
+    public lazy var devices = DevicesAPI(client: self)
 
     /// Library management operations
     public lazy var libraries = LibrariesAPI(client: self)

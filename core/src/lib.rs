@@ -150,6 +150,17 @@ pub struct Core {
 impl Core {
 	/// Initialize a new Core instance with custom data directory
 	pub async fn new_with_config(data_dir: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+		Self::new_with_config_and_device_name(data_dir, None).await
+	}
+
+	/// Initialize a new Core instance with custom data directory and optional device name
+	///
+	/// This is primarily for mobile platforms (iOS, Android) where the device name
+	/// should be provided by the native platform APIs (e.g., UIDevice.name on iOS)
+	pub async fn new_with_config_and_device_name(
+		data_dir: PathBuf,
+		device_name: Option<String>,
+	) -> Result<Self, Box<dyn std::error::Error>> {
 		info!("Initializing Spacedrive Core at {:?}", data_dir);
 
 		// Load or create app config
@@ -165,7 +176,10 @@ impl Core {
 
 		// Initialize device manager
 		info!("🔄 Initializing device manager...");
-		let device = Arc::new(DeviceManager::init_with_path(&data_dir)?);
+		let device = Arc::new(DeviceManager::init_with_path_and_name(
+			&data_dir,
+			device_name,
+		)?);
 		info!("✅ Device manager initialized");
 
 		// Set a global device ID for convenience

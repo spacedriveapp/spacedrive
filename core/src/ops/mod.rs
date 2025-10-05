@@ -12,7 +12,7 @@ pub mod addressing;
 pub mod api_types;
 // pub mod content;
 pub mod core;
-// pub mod devices;
+pub mod devices;
 pub mod entries;
 pub mod files;
 pub mod indexing;

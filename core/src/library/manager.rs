@@ -478,9 +478,27 @@ impl LibraryManager {
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
-		if existing.is_none() {
-			// Register the device
-			use sea_orm::ActiveValue::Set;
+		use sea_orm::ActiveValue::Set;
+
+		if let Some(existing_device) = existing {
+			// Update existing device to pick up any changes (e.g., renamed device)
+			let mut device_model: entities::device::ActiveModel = existing_device.into();
+
+			// Update fields that may have changed
+			device_model.name = Set(device.name.clone());
+			device_model.hardware_model = Set(device.hardware_model);
+			device_model.is_online = Set(true);
+			device_model.last_seen_at = Set(Utc::now());
+			device_model.updated_at = Set(Utc::now());
+
+			device_model
+				.update(db.conn())
+				.await
+				.map_err(LibraryError::DatabaseError)?;
+
+			debug!("Updated device {} in library {}", device.id, library.id());
+		} else {
+			// Register the device for the first time
 			let device_model = entities::device::ActiveModel {
 				id: sea_orm::ActiveValue::NotSet,
 				uuid: Set(device.id),
@@ -490,7 +508,7 @@ impl LibraryManager {
 				hardware_model: Set(device.hardware_model),
 				network_addresses: Set(serde_json::json!(device.network_addresses)),
 				is_online: Set(true),
-				last_seen_at: Set(device.last_seen_at),
+				last_seen_at: Set(Utc::now()),
 				capabilities: Set(serde_json::json!({
 					"indexing": true,
 					"p2p": true,
@@ -498,7 +516,7 @@ impl LibraryManager {
 				})),
 				sync_leadership: Set(serde_json::json!(device.sync_leadership)),
 				created_at: Set(device.created_at),
-				updated_at: Set(device.updated_at),
+				updated_at: Set(Utc::now()),
 			};
 
 			device_model

@@ -27,6 +27,9 @@ public class SpacedriveClient {
     /// Core API operations (device management, network, etc.)
     public lazy var core = CoreAPI(client: self)
 
+    /// Device management operations
+    public lazy var devices = DevicesAPI(client: self)
+
     /// Library management operations
     public lazy var libraries = LibrariesAPI(client: self)
 
