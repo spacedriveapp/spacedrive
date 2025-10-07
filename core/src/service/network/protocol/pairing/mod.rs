@@ -222,6 +222,13 @@ impl PairingProtocolHandler {
 		Ok(())
 	}
 
+	/// Get the pairing code for the most recent session (for generating QR codes)
+	pub async fn get_current_pairing_code(&self) -> Option<PairingCode> {
+		let codes = self.pairing_codes.read().await;
+		// Get the most recent pairing code (last inserted)
+		codes.values().last().cloned()
+	}
+
 	/// Join an existing pairing session with a specific session ID and pairing code
 	/// This allows a joiner to participate in an initiator's session
 	pub async fn join_pairing_session(

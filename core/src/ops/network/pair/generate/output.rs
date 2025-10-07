@@ -8,4 +8,6 @@ pub struct PairGenerateOutput {
 	pub code: String,
 	pub session_id: Uuid,
 	pub expires_at: DateTime<Utc>,
+	/// QR code JSON format (includes NodeId and relay URL for remote pairing)
+	pub qr_json: String,
 }

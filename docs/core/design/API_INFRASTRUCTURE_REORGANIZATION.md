@@ -1,8 +1,8 @@
 # API Infrastructure Reorganization
 
-**Status**: RFC / Design Document  
-**Author**: AI Assistant with James Pine  
-**Date**: 2025-01-07  
+**Status**: RFC / Design Document
+**Author**: AI Assistant with James Pine
+**Date**: 2025-01-07
 **Version**: 1.0
 
 ## Executive Summary
@@ -53,7 +53,7 @@ src/
 
 **Problem**: The file `cqrs.rs` contains only the Query side of CQRS (Command Query Responsibility Segregation), not both Command and Query. The "Command" side is in `infra/action/`.
 
-**Impact**: 
+**Impact**:
 - Confusing for new contributors
 - Suggests a complete CQRS implementation when it's only half
 - Doesn't reflect actual contents
@@ -304,11 +304,11 @@ New contributors can easily understand:
    //! - Type extraction using Specta for code generation
    //! - Handler functions that route requests to operations
    //! - API type wrappers for client compatibility
-   
+
    pub mod api_types;
    pub mod registry;
    pub mod type_extraction;
-   
+
    // Re-export commonly used items
    pub use api_types::{ApiJobHandle, ToApiType};
    pub use registry::{
@@ -584,7 +584,7 @@ src/
     └── registry/
 ```
 
-**Pros**: Smaller change  
+**Pros**: Smaller change
 **Cons**: Query and Action still not peers, inconsistent
 
 ### Alternative 2: Lighter Touch
@@ -596,7 +596,7 @@ src/infra/
 └── registry/               # Registry and type extraction together
 ```
 
-**Pros**: Less nesting  
+**Pros**: Less nesting
 **Cons**: "registry" doesn't capture type extraction purpose
 
 ### Why Option A (with `wire/` directory) is Best

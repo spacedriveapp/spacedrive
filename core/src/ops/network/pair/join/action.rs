@@ -22,7 +22,19 @@ impl CoreAction for PairJoinAction {
 			.get_networking()
 			.await
 			.ok_or_else(|| ActionError::Internal("Networking not initialized".to_string()))?;
-		net.start_pairing_as_joiner(&self.code)
+
+		// Try to parse as QR code JSON first, fallback to manual word entry
+		let pairing_code = if self.code.trim().starts_with('{') {
+			// Looks like JSON (QR code)
+			crate::service::network::protocol::pairing::PairingCode::from_qr_json(&self.code)
+				.map_err(|e| ActionError::Internal(format!("Invalid QR code: {}", e)))?
+		} else {
+			// Looks like manual word entry
+			crate::service::network::protocol::pairing::PairingCode::from_string(&self.code)
+				.map_err(|e| ActionError::Internal(format!("Invalid pairing code: {}", e)))?
+		};
+
+		net.start_pairing_as_joiner_with_code(pairing_code, false)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 		// Best-effort: fetch pairing sessions and find completed one

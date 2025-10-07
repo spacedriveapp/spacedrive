@@ -11,7 +11,7 @@ use crate::service::network::{
 };
 use iroh::discovery::{mdns::MdnsDiscovery, Discovery};
 use iroh::endpoint::Connection;
-use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, Watcher};
+use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, RelayUrl, Watcher};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
@@ -955,8 +955,27 @@ impl NetworkingService {
 		}
 	}
 
+	/// Strip direct addresses from a NodeAddr to force relay-only connection
+	fn strip_direct_addresses(node_addr: NodeAddr) -> NodeAddr {
+		use std::collections::BTreeSet;
+		NodeAddr::from_parts(
+			node_addr.node_id,
+			node_addr.relay_url().cloned(),
+			BTreeSet::new(), // Empty direct addresses
+		)
+	}
+
 	/// Connect to a node at a specific address
-	pub async fn connect_to_node(&self, node_addr: NodeAddr) -> Result<()> {
+	///
+	/// # Parameters
+	/// * `node_addr` - The node address to connect to
+	/// * `force_relay` - If true, strip direct addresses and only use relay
+	pub async fn connect_to_node(&self, node_addr: NodeAddr, force_relay: bool) -> Result<()> {
+		let node_addr = if force_relay {
+			Self::strip_direct_addresses(node_addr)
+		} else {
+			node_addr
+		};
 		if let Some(endpoint) = &self.endpoint {
 			// Use pairing ALPN for initial connection during pairing
 			let conn = endpoint
@@ -995,8 +1014,184 @@ impl NetworkingService {
 		}
 	}
 
+	/// Try to discover the initiator via mDNS (fast for local networks)
+	async fn try_mdns_discovery(&self, session_id: Uuid, force_relay: bool) -> Result<()> {
+		use futures::StreamExt;
+
+		let endpoint = self
+			.endpoint
+			.as_ref()
+			.ok_or(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))?;
+
+		let mut discovery_stream = endpoint.discovery_stream();
+		let session_id_str = session_id.to_string();
+		let timeout = tokio::time::Duration::from_secs(5); // Shorter timeout for mDNS
+		let start = tokio::time::Instant::now();
+
+		self.logger
+			.debug(&format!(
+				"[mDNS] Looking for pairing session: {}",
+				session_id_str
+			))
+			.await;
+
+		while start.elapsed() < timeout {
+			tokio::select! {
+				Some(result) = discovery_stream.next() => {
+					match result {
+						Ok(iroh::discovery::DiscoveryEvent::Discovered(item)) => {
+							// Check if this node is broadcasting our session_id
+							if let Some(user_data) = item.node_info().data.user_data() {
+								if user_data.as_ref() == session_id_str {
+									self.logger
+										.info(&format!(
+											"[mDNS] Found pairing initiator: {} with {} direct addresses",
+											item.node_id().fmt_short(),
+											item.node_info().data.direct_addresses().len()
+										))
+										.await;
+
+									// Build NodeAddr from discovery info
+									let node_addr = iroh::NodeAddr::from_parts(
+										item.node_id(),
+										item.node_info().data.relay_url().cloned(),
+										item.node_info().data.direct_addresses().clone()
+									);
+
+									// Try to connect to the initiator
+									if let Err(e) = self.connect_to_node(node_addr.clone(), force_relay).await {
+										self.logger
+											.warn(&format!("[mDNS] Failed to connect to initiator: {}", e))
+											.await;
+									} else {
+										self.logger.info("[mDNS] Successfully connected to initiator!").await;
+										return Ok(());
+									}
+								}
+							}
+						}
+						Ok(iroh::discovery::DiscoveryEvent::Expired(_)) => {
+							// Node expired, continue searching
+						}
+						Err(e) => {
+							self.logger
+								.warn(&format!("[mDNS] Discovery stream error: {}", e))
+								.await;
+						}
+					}
+				}
+				_ = tokio::time::sleep(tokio::time::Duration::from_millis(100)) => {
+					// Continue polling
+				}
+			}
+		}
+
+		// mDNS timeout
+		Err(NetworkingError::ConnectionFailed(
+			"mDNS discovery timeout - initiator not found on local network".to_string(),
+		))
+	}
+
+	/// Try to discover the initiator via relay (works across networks)
+	async fn try_relay_discovery(
+		&self,
+		pairing_code: &crate::service::network::protocol::pairing::PairingCode,
+	) -> Result<()> {
+		// Get the NodeId from the pairing code (should always be present in new implementation)
+		let node_id = pairing_code.node_id().ok_or_else(|| {
+			NetworkingError::ConnectionFailed(
+				"Pairing code missing NodeId - this indicates a bug in the new implementation"
+					.to_string(),
+			)
+		})?;
+
+		let relay_url = pairing_code
+			.relay_url()
+			.map(|url| url.parse::<iroh::RelayUrl>());
+
+		let endpoint = self
+			.endpoint
+			.as_ref()
+			.ok_or(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))?;
+
+		self.logger
+			.info(&format!(
+				"[Relay] Attempting to connect to initiator {} via relay",
+				node_id.fmt_short()
+			))
+			.await;
+
+		// Build NodeAddr with relay information
+		let relay_url_parsed = if let Some(relay_url) = relay_url {
+			match relay_url {
+				Ok(url) => {
+					self.logger
+						.debug(&format!("[Relay] Using relay URL: {}", url))
+						.await;
+					Some(url)
+				}
+				Err(e) => {
+					self.logger
+						.warn(&format!("[Relay] Failed to parse relay URL: {}", e))
+						.await;
+					None
+				}
+			}
+		} else {
+			self.logger
+				.warn("[Relay] No relay URL in pairing code, using default relay")
+				.await;
+			None
+		};
+
+		let node_addr = iroh::NodeAddr::from_parts(
+			node_id,
+			relay_url_parsed,
+			vec![], // No direct addresses initially, will use relay
+		);
+
+		// Try to connect via relay
+		let timeout = tokio::time::Duration::from_secs(10); // Longer timeout for relay
+		match tokio::time::timeout(timeout, endpoint.connect(node_addr.clone(), PAIRING_ALPN)).await
+		{
+			Ok(Ok(conn)) => {
+				self.logger
+					.info("[Relay] Successfully connected to initiator via relay!")
+					.await;
+
+				// Track the connection so it stays alive for the pairing protocol
+				{
+					let mut connections = self.active_connections.write().await;
+					connections.insert(node_id, conn);
+					self.logger
+						.info(&format!(
+							"[Relay] Tracked relay connection to {}",
+							node_id.fmt_short()
+						))
+						.await;
+				}
+
+				Ok(())
+			}
+			Ok(Err(e)) => Err(NetworkingError::ConnectionFailed(format!(
+				"Failed to connect via relay: {}",
+				e
+			))),
+			Err(_timeout) => Err(NetworkingError::ConnectionFailed(
+				"Relay connection timeout".to_string(),
+			)),
+		}
+	}
+
 	/// Start pairing as an initiator (generates pairing code)
-	pub async fn start_pairing_as_initiator(&self) -> Result<(String, u32)> {
+	///
+	/// # Parameters
+	/// * `force_relay` - If true, only use relay connections (no direct addresses). Useful for testing.
+	pub async fn start_pairing_as_initiator(&self, force_relay: bool) -> Result<(String, u32)> {
 		// Get pairing handler from protocol registry
 		let registry = self.protocol_registry();
 		let pairing_handler =
@@ -1016,10 +1211,26 @@ impl NetworkingService {
 				"Invalid pairing handler type".to_string(),
 			))?;
 
-		// Generate pairing code (which derives its own session_id from entropy)
+		// Get our node information for relay discovery
+		let initiator_node_id = self.node_id();
+
+		// Get our relay URL from the endpoint (wait for relay to connect)
+		let relay_url = if let Some(endpoint) = &self.endpoint {
+			// Wait for relay to initialize (this is critical!)
+			let relay = endpoint.home_relay().initialized().await;
+			Some(relay.to_string())
+		} else {
+			None
+		};
+
+		// Generate pairing code with relay information for cross-network pairing
 		let random_seed = uuid::Uuid::new_v4();
 		let pairing_code =
-			crate::service::network::protocol::pairing::PairingCode::from_session_id(random_seed);
+			crate::service::network::protocol::pairing::PairingCode::from_session_id_with_relay_info(
+				random_seed,
+				initiator_node_id,
+				relay_url,
+			);
 
 		// CRITICAL: Use the session_id derived from the pairing code, not the random seed
 		// This ensures both initiator and joiner derive the same session_id from the BIP39 words
@@ -1175,11 +1386,29 @@ impl NetworkingService {
 		Ok((pairing_code.to_string(), expires_in))
 	}
 
-	/// Start pairing as a joiner (connects using pairing code)
-	pub async fn start_pairing_as_joiner(&self, code: &str) -> Result<()> {
+	/// Start pairing as a joiner (connects using pairing code string)
+	///
+	/// # Parameters
+	/// * `code` - The BIP39 pairing code
+	/// * `force_relay` - If true, only use relay connections (no direct/mDNS). Useful for testing.
+	pub async fn start_pairing_as_joiner(&self, code: &str, force_relay: bool) -> Result<()> {
 		// Parse BIP39 pairing code
 		let pairing_code =
 			crate::service::network::protocol::pairing::PairingCode::from_string(code)?;
+		self.start_pairing_as_joiner_with_code(pairing_code, force_relay)
+			.await
+	}
+
+	/// Start pairing as a joiner (connects using parsed pairing code)
+	///
+	/// # Parameters
+	/// * `pairing_code` - The parsed pairing code
+	/// * `force_relay` - If true, only use relay connections (no direct/mDNS). Useful for testing.
+	pub async fn start_pairing_as_joiner_with_code(
+		&self,
+		pairing_code: crate::service::network::protocol::pairing::PairingCode,
+		force_relay: bool,
+	) -> Result<()> {
 		let session_id = pairing_code.session_id();
 
 		// Get pairing handler
@@ -1199,101 +1428,87 @@ impl NetworkingService {
 				"Invalid pairing handler type".to_string(),
 			))?;
 
+		// Clone pairing code for relay discovery to avoid borrow issues
+		let pairing_code_clone = pairing_code.clone();
+
 		// Join pairing session
 		pairing_handler
-			.join_pairing_session(session_id, pairing_code)
+			.join_pairing_session(session_id, pairing_code_clone.clone())
 			.await?;
 
-		// Use mDNS discovery stream to find the initiator
-		// The initiator broadcasts the session_id in their user_data field
-		self.logger
-			.info("Waiting for peer discovery on local network...")
-			.await;
-
-		if let Some(endpoint) = &self.endpoint {
-			use futures::StreamExt;
-
-			let mut discovery_stream = endpoint.discovery_stream();
-			let session_id_str = session_id.to_string();
-			let timeout = tokio::time::Duration::from_secs(10);
-			let start = tokio::time::Instant::now();
-
+		// Implement dual-path discovery: try mDNS first (fast for local), then relay (for remote)
+		// If force_relay is true, skip mDNS and only use relay
+		if force_relay {
 			self.logger
-				.debug(&format!("Looking for pairing session: {}", session_id_str))
+				.info("Force relay mode: skipping mDNS, using relay only")
 				.await;
+		} else {
+			self.logger
+				.info("Starting dual-path discovery: mDNS (local) + Relay (remote)")
+				.await;
+		}
 
-			let mut found_initiator = false;
-			while start.elapsed() < timeout {
-				tokio::select! {
-					Some(result) = discovery_stream.next() => {
-						match result {
-							Ok(iroh::discovery::DiscoveryEvent::Discovered(item)) => {
-								// Log all discovered nodes for debugging
-								self.logger
-									.debug(&format!(
-										"Discovered node: {} with user_data: {:?}",
-										item.node_id().fmt_short(),
-										item.node_info().data.user_data().map(|d| d.as_ref())
-									))
-									.await;
-
-								// Check if this node is broadcasting our session_id
-								if let Some(user_data) = item.node_info().data.user_data() {
-									if user_data.as_ref() == session_id_str {
-										self.logger
-											.info(&format!(
-												"Found pairing initiator: {} with {} direct addresses",
-												item.node_id().fmt_short(),
-												item.node_info().data.direct_addresses().len()
-											))
-											.await;
-
-										// Build NodeAddr from discovery info
-										let node_addr = iroh::NodeAddr::from_parts(
-											item.node_id(),
-											item.node_info().data.relay_url().cloned(),
-											item.node_info().data.direct_addresses().clone()
-										);
-
-										// Try to connect to the initiator
-										if let Err(e) = self.connect_to_node(node_addr.clone()).await {
-											self.logger
-												.warn(&format!("Failed to connect to initiator: {}", e))
-												.await;
-										} else {
-											self.logger.info("Successfully connected to initiator!").await;
-											found_initiator = true;
-											break;
-										}
-									}
-								}
-							}
-							Ok(iroh::discovery::DiscoveryEvent::Expired(_)) => {
-								// Node expired, continue searching
-							}
-							Err(e) => {
-								self.logger
-									.warn(&format!("Discovery stream error: {}", e))
-									.await;
-							}
+		let discovery_result = if force_relay {
+			// Force relay: only try relay discovery
+			match self.try_relay_discovery(&pairing_code_clone).await {
+				Ok(()) => {
+					self.logger
+						.info("✅ Connected via relay (force relay mode)")
+						.await;
+					Ok(())
+				}
+				Err(e) => {
+					self.logger
+						.error(&format!("Relay discovery failed: {}", e))
+						.await;
+					Err(e)
+				}
+			}
+		} else {
+			// Normal mode: race mDNS and relay
+			tokio::select! {
+				result = self.try_mdns_discovery(session_id, force_relay) => {
+					match result {
+						Ok(()) => {
+							self.logger.info("✅ Connected via mDNS (local network)").await;
+							Ok(())
+						}
+						Err(e) => {
+							self.logger.warn(&format!("mDNS discovery failed: {}", e)).await;
+							Err(e)
 						}
 					}
-					_ = tokio::time::sleep(tokio::time::Duration::from_millis(100)) => {
-						// Continue polling
+				}
+				result = self.try_relay_discovery(&pairing_code_clone) => {
+					match result {
+						Ok(()) => {
+							self.logger.info("✅ Connected via relay (remote network)").await;
+							Ok(())
+						}
+						Err(e) => {
+							self.logger.warn(&format!("Relay discovery failed: {}", e)).await;
+							Err(e)
+						}
 					}
 				}
 			}
+		};
 
-			// If mDNS discovery didn't find the initiator, log it
-			if !found_initiator {
+		// Handle the discovery result
+		match discovery_result {
+			Ok(()) => {
 				self.logger
-					.warn(
-						"mDNS discovery timeout - initiator not found via local network discovery",
-					)
+					.info("Successfully discovered and connected to initiator!")
+					.await;
+			}
+			Err(e) => {
+				self.logger
+					.error(&format!("Both mDNS and relay discovery failed: {}", e))
 					.await;
 				self.logger
-					.info("Note: iOS devices require the 'Multicast Networking' entitlement for mDNS to work")
+					.info("Ensure both devices are on the same network or try again")
 					.await;
+				return Err(e);
 			}
 		}
 
@@ -1351,8 +1566,6 @@ impl NetworkingService {
 						.info("Ensure both devices are on the same local network and the initiator is running")
 						.await;
 
-					// As a last resort, if we're in a test environment with the pairing session file,
-					// we already tried to connect to it above
 					return Err(NetworkingError::Protocol(
 						"Failed to discover initiator on local network. Ensure both devices are on the same network.".to_string()
 					));
@@ -1443,6 +1656,34 @@ impl NetworkingService {
 		self.ensure_pairing_requests_sent(session_id).await?;
 
 		Ok(())
+	}
+
+	/// Get the PairingCode object for the current session (for generating QR codes)
+	/// This is useful for getting the full pairing code with relay info
+	pub async fn get_pairing_code_for_current_session(
+		&self,
+	) -> Result<Option<crate::service::network::protocol::pairing::PairingCode>> {
+		// Get pairing handler from protocol registry
+		let registry = self.protocol_registry();
+		let pairing_handler =
+			registry
+				.read()
+				.await
+				.get_handler("pairing")
+				.ok_or(NetworkingError::Protocol(
+					"Pairing protocol not registered".to_string(),
+				))?;
+
+		// Cast to pairing handler
+		let pairing_handler = pairing_handler
+			.as_any()
+			.downcast_ref::<crate::service::network::protocol::PairingProtocolHandler>()
+			.ok_or(NetworkingError::Protocol(
+				"Invalid pairing handler type".to_string(),
+			))?;
+
+		// Get the current pairing code
+		Ok(pairing_handler.get_current_pairing_code().await)
 	}
 
 	/// Get current pairing status

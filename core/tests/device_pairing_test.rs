@@ -56,7 +56,7 @@ async fn alice_pairing_scenario() {
 	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
-			networking.start_pairing_as_initiator(),
+			networking.start_pairing_as_initiator(false),
 		)
 		.await
 		.unwrap()
@@ -192,7 +192,7 @@ async fn bob_pairing_scenario() {
 	if let Some(networking) = core.networking() {
 		timeout(
 			Duration::from_secs(15),
-			networking.start_pairing_as_joiner(&pairing_code),
+			networking.start_pairing_as_joiner(&pairing_code, false),
 		)
 		.await
 		.unwrap()

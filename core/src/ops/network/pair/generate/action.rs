@@ -26,18 +26,25 @@ impl CoreAction for PairGenerateAction {
 			.await
 			.ok_or_else(|| ActionError::Internal("Networking not initialized".to_string()))?;
 		let (code, expires_in) = net
-			.start_pairing_as_initiator()
+			.start_pairing_as_initiator(false)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
-		// Derive session_id from code (using PairingCode parser)
-		let pairing_code =
-			crate::service::network::protocol::pairing::PairingCode::from_string(&code)
-				.map_err(|e| ActionError::Internal(e.to_string()))?;
+
+		// Get the full PairingCode object with NodeId and relay info
+		let pairing_code = net
+			.get_pairing_code_for_current_session()
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?
+			.ok_or_else(|| ActionError::Internal("No pairing code found".to_string()))?;
+
 		let session_id = pairing_code.session_id();
+		let qr_json = pairing_code.to_qr_json();
+
 		Ok(PairGenerateOutput {
 			code,
 			session_id,
 			expires_at: Utc::now() + chrono::Duration::seconds(expires_in as i64),
+			qr_json,
 		})
 	}
 
