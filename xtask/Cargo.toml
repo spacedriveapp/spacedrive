@@ -1,0 +1,17 @@
+[package]
+edition = "2021"
+name    = "xtask"
+publish = false
+version = "0.1.0"
+
+[dependencies]
+anyhow     = "1"
+flate2     = "1.0"
+mustache   = "0.9"
+reqwest    = { version = "0.12", features = ["blocking", "rustls-tls"], default-features = false }
+serde      = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tar        = "0.4"
+toml       = "0.8"
+which      = "6.0"
+xz2        = "0.1"

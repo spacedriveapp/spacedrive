@@ -382,7 +382,7 @@ mod tests {
 		assert!(!file.is_document());
 		assert!(!file.is_archive());
 
-		let thumbs = file.sidecars_by_kind(&SidecarKind::Thumb);
+		let thumbs = file.sidecars_by_kind(SidecarKind::Thumb.as_str());
 		assert_eq!(thumbs.len(), 1);
 		assert!(thumbs[0].is_ready());
 	}

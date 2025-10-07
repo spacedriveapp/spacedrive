@@ -11,7 +11,8 @@ members = [
 	"apps/cli",
 	"core",
 	"core/benchmarks",
-	"crates/*"
+	"crates/*",
+	"xtask"
 ]
 resolver = "2"
 
