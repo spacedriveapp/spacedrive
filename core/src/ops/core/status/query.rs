@@ -1,8 +1,11 @@
 //! Core status query (modular)
 
 use super::output::*;
-use crate::{context::CoreContext, infra::query::CoreQuery, service::Service};
-use anyhow::Result;
+use crate::{
+	context::CoreContext,
+	infra::query::{CoreQuery, QueryError, QueryResult},
+	service::Service,
+};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -19,7 +22,7 @@ impl CoreQuery for CoreStatusQuery {
 	type Input = ();
 	type Output = CoreStatus;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self)
 	}
 
@@ -27,7 +30,7 @@ impl CoreQuery for CoreStatusQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		// Get basic library information
 		let library_manager = context.libraries().await;
 		let libs = library_manager.list().await;
@@ -44,7 +47,10 @@ impl CoreQuery for CoreStatusQuery {
 			});
 
 		// Get device information
-		let device_config = context.device_manager.config()?;
+		let device_config = context
+			.device_manager
+			.config()
+			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let device_info = DeviceInfo {
 			id: device_config.id,
 			name: device_config.name,

@@ -2,7 +2,7 @@
 //!
 //! This module provides the query side of our CQRS-inspired architecture:
 //! - Query traits (`CoreQuery`, `LibraryQuery`) that operations implement
-//! - `QueryManager` for consistent infrastructure (validation, logging)
+//! - `QueryManager` for consistent infrastructure (validation, logging, error handling)
 //!
 //! ## Relationship to Actions
 //!
@@ -21,7 +21,7 @@
 //! ## Example
 //!
 //! ```rust,ignore
-//! use crate::infra::query::LibraryQuery;
+//! use crate::infra::query::{LibraryQuery, QueryError};
 //!
 //! pub struct DirectoryListingQuery;
 //!
@@ -29,15 +29,24 @@
 //!     type Input = DirectoryListingInput;
 //!     type Output = DirectoryListingOutput;
 //!
-//!     fn from_input(input: Self::Input) -> Result<Self> {
+//!     fn from_input(input: Self::Input) -> Result<Self, QueryError> {
 //!         Ok(Self)
+//!     }
+//!
+//!     async fn validate(
+//!         &self,
+//!         library: Arc<Library>,
+//!         context: Arc<CoreContext>,
+//!     ) -> Result<(), QueryError> {
+//!         // Validation logic here
+//!         Ok(())
 //!     }
 //!
 //!     async fn execute(
 //!         self,
 //!         context: Arc<CoreContext>,
 //!         session: SessionContext,
-//!     ) -> Result<Self::Output> {
+//!     ) -> Result<Self::Output, QueryError> {
 //!         // Query implementation
 //!     }
 //! }
@@ -47,9 +56,15 @@
 //! ```
 
 use crate::context::CoreContext;
-use anyhow::Result;
 use std::sync::Arc;
 use uuid::Uuid;
+
+pub mod context;
+pub mod error;
+pub mod manager;
+
+pub use error::{QueryError, QueryResult};
+pub use manager::QueryManager;
 
 /// Library-scoped query that operates within a specific library context
 pub trait LibraryQuery: Send + 'static {
@@ -59,9 +74,21 @@ pub trait LibraryQuery: Send + 'static {
 	type Output: Send + Sync + 'static;
 
 	/// Create query from input
-	fn from_input(input: Self::Input) -> Result<Self>
+	fn from_input(input: Self::Input) -> QueryResult<Self>
 	where
 		Self: Sized;
+
+	/// Validate the query before execution (optional)
+	///
+	/// This allows queries to check preconditions, validate paths are within
+	/// library bounds, ensure resources exist, etc.
+	fn validate(
+		&self,
+		_library: Arc<crate::library::Library>,
+		_context: Arc<CoreContext>,
+	) -> impl std::future::Future<Output = Result<(), QueryError>> + Send {
+		async { Ok(()) }
+	}
 
 	/// Execute this query with rich session context
 	///
@@ -71,7 +98,7 @@ pub trait LibraryQuery: Send + 'static {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> impl std::future::Future<Output = Result<Self::Output>> + Send;
+	) -> impl std::future::Future<Output = QueryResult<Self::Output>> + Send;
 }
 
 /// Core-level query that operates at the daemon level
@@ -82,9 +109,20 @@ pub trait CoreQuery: Send + 'static {
 	type Output: Send + Sync + 'static;
 
 	/// Create query from input
-	fn from_input(input: Self::Input) -> Result<Self>
+	fn from_input(input: Self::Input) -> QueryResult<Self>
 	where
 		Self: Sized;
+
+	/// Validate the query before execution (optional)
+	///
+	/// This allows queries to check preconditions, validate inputs,
+	/// ensure resources exist, etc.
+	fn validate(
+		&self,
+		_context: Arc<CoreContext>,
+	) -> impl std::future::Future<Output = Result<(), QueryError>> + Send {
+		async { Ok(()) }
+	}
 
 	/// Execute this query with rich session context
 	///
@@ -93,43 +131,5 @@ pub trait CoreQuery: Send + 'static {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> impl std::future::Future<Output = Result<Self::Output>> + Send;
-}
-
-/// QueryManager provides infrastructure for read-only operations.
-///
-/// This mirrors the ActionManager pattern but for queries, providing
-/// validation, permissions checking, and audit logging for read operations.
-pub struct QueryManager {
-	context: Arc<CoreContext>,
-}
-
-impl QueryManager {
-	/// Create a new QueryManager
-	pub fn new(context: Arc<CoreContext>) -> Self {
-		Self { context }
-	}
-
-	/// Dispatch a core-scoped query for execution with full infrastructure support
-	pub async fn dispatch_core<Q: CoreQuery>(&self, query: Q) -> Result<Q::Output> {
-		// Create session context for core queries
-		let device_id = self.context.device_manager.device_id()?;
-		let session =
-			crate::infra::api::SessionContext::device_session(device_id, "Core Device".to_string());
-		query.execute(self.context.clone(), session).await
-	}
-
-	/// Dispatch a library-scoped query for execution with full infrastructure support
-	pub async fn dispatch_library<Q: LibraryQuery>(
-		&self,
-		query: Q,
-		library_id: Uuid,
-	) -> Result<Q::Output> {
-		// Create session context for library queries with library context
-		let device_id = self.context.device_manager.device_id()?;
-		let mut session =
-			crate::infra::api::SessionContext::device_session(device_id, "Core Device".to_string());
-		session = session.with_library(library_id);
-		query.execute(self.context.clone(), session).await
-	}
+	) -> impl std::future::Future<Output = QueryResult<Self::Output>> + Send;
 }

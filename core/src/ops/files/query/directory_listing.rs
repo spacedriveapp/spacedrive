@@ -3,9 +3,9 @@
 //! This query is optimized for directory browsing in the file explorer UI.
 //! It returns direct children of a directory without recursive search.
 
+use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	infra::query::LibraryQuery,
 	domain::{
 		addressing::SdPath,
 		content_identity::ContentIdentity,
@@ -15,8 +15,8 @@ use crate::{
 	infra::db::entities::{
 		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag,
 	},
+	infra::query::LibraryQuery,
 };
-use anyhow::Result;
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
 	QueryOrder, QuerySelect, RelationTrait,
@@ -104,7 +104,7 @@ impl LibraryQuery for DirectoryListingQuery {
 	type Input = DirectoryListingInput;
 	type Output = DirectoryListingOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		tracing::info!(
 			"DirectoryListingQuery::from_input called with input: {:?}",
 			input
@@ -116,7 +116,7 @@ impl LibraryQuery for DirectoryListingQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		tracing::info!(
 			"DirectoryListingQuery::execute called with path: {:?}",
 			self.input.path
@@ -124,7 +124,7 @@ impl LibraryQuery for DirectoryListingQuery {
 
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 		tracing::info!("Library ID: {}", library_id);
 
 		let library = context
@@ -132,7 +132,7 @@ impl LibraryQuery for DirectoryListingQuery {
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
 		let db = library.db();
 
@@ -352,7 +352,7 @@ impl LibraryQuery for DirectoryListingQuery {
 
 impl DirectoryListingQuery {
 	/// Find the parent directory entry for the given SdPath
-	async fn find_parent_directory(&self, db: &DatabaseConnection) -> Result<entry::Model> {
+	async fn find_parent_directory(&self, db: &DatabaseConnection) -> QueryResult<entry::Model> {
 		tracing::debug!(
 			" find_parent_directory called with path: {:?}",
 			self.input.path
@@ -383,7 +383,10 @@ impl DirectoryListingQuery {
 						tracing::debug!(" Entry query result: {:?}", entry_result);
 
 						entry_result.ok_or_else(|| {
-							anyhow::anyhow!("Entry not found for directory: {}", dp.entry_id)
+							QueryError::Internal(format!(
+								"Entry not found for directory: {}",
+								dp.entry_id
+							))
 						})
 					}
 					None => {
@@ -391,25 +394,27 @@ impl DirectoryListingQuery {
 						// Directory not found in directory_paths table
 						// This means the directory hasn't been indexed yet
 						// Return a helpful error message
-						Err(anyhow::anyhow!(
-							"Directory '{}' has not been indexed yet. Please add this location to Spacedrive and wait for indexing to complete.",
-							path_str
-						))
+						Err(QueryError::Internal(
+						format!("Directory '{}' has not been indexed yet. Please add this location to Spacedrive and wait for indexing to complete.", path_str)
+					))
 					}
 				}
 			}
 			SdPath::Content { .. } => {
 				// Content-addressed paths are not supported for directory browsing
-				Err(anyhow::anyhow!(
-					"Content-addressed paths not supported for directory browsing"
+				Err(QueryError::Internal(
+					"Content-addressed paths not supported for directory browsing".to_string(),
 				))
 			}
 		}
 	}
 
 	/// Convert database model to Entry domain object using proper From implementation
-	fn convert_to_entry(&self, entry_model: entry::Model) -> Result<crate::domain::Entry> {
-		crate::domain::Entry::try_from((entry_model, self.input.path.clone()))
+	fn convert_to_entry(&self, entry_model: entry::Model) -> QueryResult<crate::domain::Entry> {
+		Ok(crate::domain::Entry::try_from((
+			entry_model,
+			self.input.path.clone(),
+		))?)
 	}
 }
 

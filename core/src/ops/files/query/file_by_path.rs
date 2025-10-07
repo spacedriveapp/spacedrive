@@ -1,12 +1,12 @@
 //! Query to get a single file by local path with all related data
 
+use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	infra::query::LibraryQuery,
 	domain::{addressing::SdPath, file::FileConstructionData, File},
 	infra::db::entities::{content_identity, entry, sidecar, tag, user_metadata_tag},
+	infra::query::LibraryQuery,
 };
-use anyhow::Result;
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
 	QuerySelect, RelationTrait,
@@ -32,7 +32,7 @@ impl LibraryQuery for FileByPathQuery {
 	type Input = FileByPathQuery;
 	type Output = Option<File>;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(input)
 	}
 
@@ -40,16 +40,16 @@ impl LibraryQuery for FileByPathQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
 		let db = library.db();
 
@@ -130,18 +130,18 @@ impl FileByPathQuery {
 		&self,
 		sd_path: &SdPath,
 		db: &DatabaseConnection,
-	) -> Result<entry::Model> {
+	) -> QueryResult<entry::Model> {
 		match sd_path {
 			SdPath::Physical { device_id, path } => {
 				// More efficient approach: find the file by its filename and parent directory
 				let file_name = path
 					.file_name()
 					.and_then(|n| n.to_str())
-					.ok_or_else(|| anyhow::anyhow!("Invalid file name in path"))?;
+					.ok_or_else(|| QueryError::Internal("Invalid file name in path".to_string()))?;
 
 				let parent_path = path
 					.parent()
-					.ok_or_else(|| anyhow::anyhow!("No parent directory"))?;
+					.ok_or_else(|| QueryError::Internal("No parent directory".to_string()))?;
 
 				// Extract filename without extension for the database query
 				let (name, extension) = if let Some(ext) = path.extension().and_then(|e| e.to_str())
@@ -184,10 +184,10 @@ impl FileByPathQuery {
 					}
 				}
 
-				Err(anyhow::anyhow!(
+				Err(QueryError::Internal(format!(
 					"File not found at path: {}",
 					path.display()
-				))
+				)))
 			}
 			SdPath::Content { content_id } => {
 				// For content-addressed paths, find any entry with this content_id
@@ -198,14 +198,16 @@ impl FileByPathQuery {
 					)
 					.one(db)
 					.await?
-					.ok_or_else(|| anyhow::anyhow!("Content identity not found"))?;
+					.ok_or_else(|| {
+						QueryError::Internal("Content identity not found".to_string())
+					})?;
 
 				// Find any entry with this content_id
 				entry::Entity::find()
 					.filter(entry::Column::ContentId.eq(content_identity.id))
 					.one(db)
 					.await?
-					.ok_or_else(|| anyhow::anyhow!("Entry not found for content"))
+					.ok_or_else(|| QueryError::Internal("Entry not found for content".to_string()))
 			}
 		}
 	}
@@ -215,7 +217,7 @@ impl FileByPathQuery {
 		&self,
 		_entry: &crate::domain::Entry,
 		_db: &DatabaseConnection,
-	) -> Result<Option<crate::domain::ContentIdentity>> {
+	) -> QueryResult<Option<crate::domain::ContentIdentity>> {
 		// TODO: Implement proper content identity loading
 		Ok(None)
 	}
@@ -225,7 +227,7 @@ impl FileByPathQuery {
 		&self,
 		_entry: &crate::domain::Entry,
 		_db: &DatabaseConnection,
-	) -> Result<Vec<crate::domain::Tag>> {
+	) -> QueryResult<Vec<crate::domain::Tag>> {
 		// TODO: Implement proper tag loading
 		Ok(Vec::new())
 	}
@@ -235,7 +237,7 @@ impl FileByPathQuery {
 		&self,
 		_entry: &crate::domain::Entry,
 		_db: &DatabaseConnection,
-	) -> Result<Vec<crate::domain::Sidecar>> {
+	) -> QueryResult<Vec<crate::domain::Sidecar>> {
 		// TODO: Implement proper sidecar loading
 		Ok(Vec::new())
 	}
@@ -245,7 +247,7 @@ impl FileByPathQuery {
 		&self,
 		_entry: &crate::domain::Entry,
 		_db: &DatabaseConnection,
-	) -> Result<Vec<crate::domain::addressing::SdPath>> {
+	) -> QueryResult<Vec<crate::domain::addressing::SdPath>> {
 		// TODO: Implement proper alternate paths loading
 		Ok(Vec::new())
 	}

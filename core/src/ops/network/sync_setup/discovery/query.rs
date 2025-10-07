@@ -1,8 +1,10 @@
 //! Query for discovering libraries on a remote paired device
 
 use super::output::{DiscoverRemoteLibrariesOutput, LibraryStatistics, RemoteLibraryInfo};
-use crate::{context::CoreContext, infra::query::CoreQuery};
-use anyhow::{anyhow, Result};
+use crate::{
+	context::CoreContext,
+	infra::query::{CoreQuery, QueryError, QueryResult},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -24,7 +26,7 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 	type Input = DiscoverRemoteLibrariesInput;
 	type Output = DiscoverRemoteLibrariesOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self {
 			device_id: input.device_id,
 		})
@@ -34,12 +36,12 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 		self,
 		context: Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		// Get networking service
 		let networking = context
 			.get_networking()
 			.await
-			.ok_or_else(|| anyhow!("Networking not initialized"))?;
+			.ok_or_else(|| QueryError::Internal("Networking not initialized".to_string()))?;
 
 		// Verify device is paired
 		let device_registry = networking.device_registry();
@@ -47,7 +49,7 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 
 		let device_state = registry
 			.get_device_state(self.device_id)
-			.ok_or_else(|| anyhow!("Device not found: {}", self.device_id))?;
+			.ok_or_else(|| QueryError::Internal(format!("Device not found: {}", self.device_id)))?;
 
 		// Check if device is paired
 		let (device_info, is_online) = match device_state {
@@ -58,10 +60,10 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 				(info.clone(), true)
 			}
 			_ => {
-				return Err(anyhow!(
+				return Err(QueryError::Internal(format!(
 					"Device {} is not paired. Complete pairing first.",
 					self.device_id
-				));
+				)));
 			}
 		};
 
@@ -87,7 +89,9 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 		let response = networking
 			.send_library_request(self.device_id, request)
 			.await
-			.map_err(|e| anyhow!("Failed to send library discovery request: {}", e))?;
+			.map_err(|e| {
+				QueryError::Internal(format!("Failed to send library discovery request: {}", e))
+			})?;
 
 		// Parse response
 		match response {
@@ -118,7 +122,7 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 					is_online: true,
 				})
 			}
-			_ => Err(anyhow!("Unexpected response from device")),
+			_ => Err(QueryError::Internal("Unexpected response from device".to_string())),
 		}
 	}
 }

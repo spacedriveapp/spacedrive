@@ -1,8 +1,7 @@
 //! Library information query implementation
 
 use super::output::LibraryInfoOutput;
-use crate::{context::CoreContext, infra::query::LibraryQuery};
-use anyhow::Result;
+use crate::{context::CoreContext, infra::query::{LibraryQuery, QueryError, QueryResult}};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -28,7 +27,7 @@ impl LibraryQuery for LibraryInfoQuery {
 	type Input = LibraryInfoQueryInput;
 	type Output = LibraryInfoOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self)
 	}
 
@@ -36,17 +35,17 @@ impl LibraryQuery for LibraryInfoQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		// Get the specific library from the library manager
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found: {}", library_id))?;
+			.ok_or_else(|| QueryError::LibraryNotFound(library_id))?;
 
 		// Get library configuration which contains all the details
 		let config = library.config().await;

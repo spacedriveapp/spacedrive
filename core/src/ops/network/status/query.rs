@@ -2,7 +2,7 @@
 
 use super::output::NetworkStatus;
 use crate::{context::CoreContext, infra::query::CoreQuery};
-use anyhow::Result;
+use crate::infra::query::QueryResult;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ impl CoreQuery for NetworkStatusQuery {
 	type Input = NetworkStatusQueryInput;
 	type Output = NetworkStatus;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self)
 	}
 
@@ -25,7 +25,7 @@ impl CoreQuery for NetworkStatusQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let networking = context.get_networking().await;
 		if let Some(net) = networking {
 			let node_id = net.node_id().to_string();

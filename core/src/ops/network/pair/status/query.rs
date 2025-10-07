@@ -1,6 +1,6 @@
 use super::output::{PairStatusOutput, PairingSessionSummary};
 use crate::{context::CoreContext, infra::query::CoreQuery};
-use anyhow::Result;
+use crate::infra::query::QueryResult;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -15,7 +15,7 @@ impl CoreQuery for PairStatusQuery {
 	type Input = PairStatusQueryInput;
 	type Output = PairStatusOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self)
 	}
 
@@ -23,7 +23,7 @@ impl CoreQuery for PairStatusQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let mut sessions_out = Vec::new();
 		if let Some(net) = context.get_networking().await {
 			let sessions = net.get_pairing_status().await.unwrap_or_default();

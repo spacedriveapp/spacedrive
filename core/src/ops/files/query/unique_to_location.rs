@@ -10,7 +10,7 @@ use crate::{
 	domain::{file::FileConstructionData, File},
 	infra::db::entities::{content_identity, entry, location},
 };
-use anyhow::Result;
+use crate::infra::query::{QueryError, QueryResult};
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
 	QuerySelect, RelationTrait, Statement,
@@ -70,7 +70,7 @@ impl LibraryQuery for UniqueToLocationQuery {
 	type Input = UniqueToLocationInput;
 	type Output = UniqueToLocationOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
 	}
 
@@ -78,16 +78,16 @@ impl LibraryQuery for UniqueToLocationQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
 		let db = library.db().conn();
 
@@ -109,13 +109,13 @@ impl UniqueToLocationQuery {
 	async fn find_unique_files_in_location(
 		&self,
 		db: &DatabaseConnection,
-	) -> Result<(Vec<File>, u64)> {
+	) -> QueryResult<(Vec<File>, u64)> {
 		// First, get the location's root entry ID
 		let location_model = location::Entity::find()
 			.filter(location::Column::Uuid.eq(self.input.location_id))
 			.one(db)
 			.await?
-			.ok_or_else(|| anyhow::anyhow!("Location not found"))?;
+			.ok_or_else(|| QueryError::Internal("Location not found".to_string()))?;
 
 		let location_root_entry_id = location_model.entry_id;
 

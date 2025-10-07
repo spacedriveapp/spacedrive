@@ -13,7 +13,7 @@ use crate::{
 		content_identity, directory_paths, entry, sidecar, tag, user_metadata_tag,
 	},
 };
-use anyhow::Result;
+use crate::infra::query::{QueryError, QueryResult};
 use chrono::{DateTime, Utc};
 use sea_orm::{
 	ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType,
@@ -40,7 +40,7 @@ impl LibraryQuery for FileSearchQuery {
 	type Input = FileSearchInput;
 	type Output = FileSearchOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
 	}
 
@@ -48,23 +48,23 @@ impl LibraryQuery for FileSearchQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let start_time = std::time::Instant::now();
 
 		// Validate input
 		self.input
 			.validate()
-			.map_err(|e| anyhow::anyhow!("Invalid search input: {}", e))?;
+			.map_err(|e| QueryError::Internal(format!("Invalid search input: {}", e.to_string())))?;
 
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
 		let db = library.db();
 		let search_id = Uuid::new_v4();
@@ -100,7 +100,7 @@ impl FileSearchQuery {
 		&self,
 		entry_model: &entry::Model,
 		db: &DatabaseConnection,
-	) -> Result<String> {
+	) -> QueryResult<String> {
 		// If this is a root entry (no parent), return just the name
 		if entry_model.parent_id.is_none() {
 			return Ok(format!("/{}", entry_model.name));
@@ -114,7 +114,7 @@ impl FileSearchQuery {
 				.one(db)
 				.await?
 				.ok_or_else(|| {
-					anyhow::anyhow!("Directory path not found for parent_id: {}", parent_id)
+					QueryError::Internal(format!("Directory path not found for parent_id: {}", parent_id.to_string()))
 				})?;
 
 			// Construct full path: directory_path + "/" + filename
@@ -135,7 +135,7 @@ impl FileSearchQuery {
 	pub async fn execute_fast_search(
 		&self,
 		db: &DatabaseConnection,
-	) -> Result<Vec<crate::ops::search::output::FileSearchResult>> {
+	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Use FTS5 for high-performance text search
 		let fts_query = self.build_fts5_query();
 		let fts_results = self.execute_fts5_search(db, &fts_query).await?;
@@ -148,7 +148,7 @@ impl FileSearchQuery {
 			let entry_model = entry::Entity::find_by_id(entry_id)
 				.one(db)
 				.await?
-				.ok_or_else(|| anyhow::anyhow!("Entry not found: {}", entry_id))?;
+				.ok_or_else(|| QueryError::Internal(format!("Entry not found: {}", entry_id.to_string())))?;
 
 			// Apply additional filters (non-text filters)
 			if !self.passes_additional_filters(&entry_model, db).await? {
@@ -275,7 +275,7 @@ impl FileSearchQuery {
 	async fn execute_normal_search(
 		&self,
 		db: &DatabaseConnection,
-	) -> Result<Vec<crate::ops::search::output::FileSearchResult>> {
+	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Use FTS5 as base, then enhance with additional ranking factors
 		let mut results = self.execute_fast_search(db).await?;
 
@@ -325,7 +325,7 @@ impl FileSearchQuery {
 	async fn execute_full_search(
 		&self,
 		db: &DatabaseConnection,
-	) -> Result<Vec<crate::ops::search::output::FileSearchResult>> {
+	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Start with normal search results
 		let mut results = self.execute_normal_search(db).await?;
 
@@ -544,7 +544,7 @@ impl FileSearchQuery {
 	}
 
 	/// Get total count of matching entries for pagination
-	async fn get_total_count(&self, db: &DatabaseConnection) -> Result<u64> {
+	async fn get_total_count(&self, db: &DatabaseConnection) -> QueryResult<u64> {
 		let mut condition = Condition::any()
 			.add(entry::Column::Name.contains(&self.input.query))
 			.add(entry::Column::Extension.contains(&self.input.query));
@@ -617,7 +617,7 @@ impl FileSearchQuery {
 		&self,
 		db: &DatabaseConnection,
 		query: &str,
-	) -> Result<Vec<(i32, f64)>> {
+	) -> QueryResult<Vec<(i32, f64)>> {
 		let sql = match &self.input.scope {
 			SearchScope::Path { path } => {
 				if let Some(path_str) = path.path() {
@@ -710,7 +710,7 @@ impl FileSearchQuery {
 		&self,
 		entry_model: &entry::Model,
 		db: &DatabaseConnection,
-	) -> Result<bool> {
+	) -> QueryResult<bool> {
 		// File type filter
 		if let Some(file_types) = &self.input.filters.file_types {
 			if !file_types.is_empty() {
@@ -848,7 +848,7 @@ impl FileSearchQuery {
 	pub async fn execute_with_files(
 		&self,
 		db: &DatabaseConnection,
-	) -> Result<Vec<EnhancedFileSearchResult>> {
+	) -> QueryResult<Vec<EnhancedFileSearchResult>> {
 		// First get the basic search results
 		let entry_results = match self.input.mode {
 			crate::ops::search::input::SearchMode::Fast => self.execute_fast_search(db).await?,
@@ -902,7 +902,7 @@ impl FileSearchQuery {
 		&self,
 		entry_uuids: &[Uuid],
 		db: &DatabaseConnection,
-	) -> Result<std::collections::HashMap<Uuid, FileConstructionData>> {
+	) -> QueryResult<std::collections::HashMap<Uuid, FileConstructionData>> {
 		// For now, return empty map - we'll use the existing search results
 		// and create minimal File objects. In a real implementation, you'd
 		// want to use proper SQL joins to load all related data efficiently.

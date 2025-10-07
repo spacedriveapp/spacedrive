@@ -1,8 +1,7 @@
 //! Library listing query implementation
 
 use super::output::LibraryInfo;
-use crate::{context::CoreContext, infra::query::CoreQuery};
-use anyhow::Result;
+use crate::{context::CoreContext, infra::query::{CoreQuery, QueryResult}};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -34,7 +33,7 @@ impl CoreQuery for ListLibrariesQuery {
 	type Input = ListLibrariesInput;
 	type Output = Vec<LibraryInfo>;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
 	}
 
@@ -42,7 +41,7 @@ impl CoreQuery for ListLibrariesQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		// Get all open libraries from the library manager
 		let libraries = context.libraries().await.list().await;
 		let mut result = Vec::new();

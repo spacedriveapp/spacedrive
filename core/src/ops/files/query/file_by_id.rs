@@ -6,7 +6,7 @@ use crate::{
 	domain::{file::FileConstructionData, File},
 	infra::db::entities::{content_identity, entry, sidecar, tag, user_metadata_tag},
 };
-use anyhow::Result;
+use crate::infra::query::{QueryError, QueryResult};
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
 	QuerySelect, RelationTrait,
@@ -32,7 +32,7 @@ impl LibraryQuery for FileByIdQuery {
 	type Input = FileByIdQuery;
 	type Output = Option<File>;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(input)
 	}
 
@@ -40,16 +40,16 @@ impl LibraryQuery for FileByIdQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
 		let db = library.db();
 
@@ -59,7 +59,7 @@ impl LibraryQuery for FileByIdQuery {
 			.filter(entry::Column::Uuid.eq(self.file_id))
 			.one(db.conn())
 			.await?
-			.ok_or_else(|| anyhow::anyhow!("File not found"))?;
+			.ok_or_else(|| QueryError::Internal("File not found".to_string()))?;
 
 		// Create a minimal Entry from the database model
 		let entry = crate::domain::Entry {

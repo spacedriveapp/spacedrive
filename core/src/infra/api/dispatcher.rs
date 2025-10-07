@@ -11,8 +11,8 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	infra::action::{CoreAction, LibraryAction},
-	infra::query::{CoreQuery, LibraryQuery},
+	infra::action::{manager::ActionManager, CoreAction, LibraryAction},
+	infra::query::{manager::QueryManager, CoreQuery, LibraryQuery},
 };
 use bincode::config::standard;
 use bincode::serde::{decode_from_slice, encode_to_vec};
@@ -74,7 +74,7 @@ impl ApiDispatcher {
 			"Executing library action"
 		);
 
-		// 1. Check permissions
+		// 1. Cross-cutting concern: Check permissions (API layer's responsibility)
 		self.permission_layer
 			.check_library_action::<A>(&session, PhantomData)
 			.await?;
@@ -84,23 +84,13 @@ impl ApiDispatcher {
 			.current_library_id
 			.ok_or(ApiError::NoLibrarySelected)?;
 
-		// 3. Validate library exists
-		let _library = self
-			.core_context
-			.libraries()
-			.await
-			.get_library(library_id)
-			.await
-			.ok_or(ApiError::LibraryNotFound {
-				library_id: library_id.to_string(),
-			})?;
-
-		// 4. Create action from input
+		// 3. Create action from input
 		let action = A::from_input(action_input).map_err(|e| ApiError::invalid_input(e))?;
 
-		// 5. Execute action with library object
-		let result = action
-			.execute(_library, self.core_context.clone())
+		// 4. Dispatch action
+		let action_manager = ActionManager::new(self.core_context.clone());
+		let result = action_manager
+			.dispatch_library(Some(library_id), action)
 			.await
 			.map_err(ApiError::from)?;
 
@@ -133,7 +123,7 @@ impl ApiDispatcher {
 			"Executing core action"
 		);
 
-		// 1. Check permissions
+		// 1. Cross-cutting concern: Check permissions (API layer's responsibility)
 		self.permission_layer
 			.check_core_action::<A>(&session, PhantomData)
 			.await?;
@@ -141,9 +131,10 @@ impl ApiDispatcher {
 		// 2. Create action from input
 		let action = A::from_input(action_input).map_err(|e| ApiError::invalid_input(e))?;
 
-		// 3. Execute action
-		let result = action
-			.execute(self.core_context.clone())
+		// 3. ✅ DELEGATE to ActionManager (action-specific infrastructure)
+		let action_manager = ActionManager::new(self.core_context.clone());
+		let result = action_manager
+			.dispatch_core(action)
 			.await
 			.map_err(ApiError::from)?;
 
@@ -177,7 +168,7 @@ impl ApiDispatcher {
 			"Executing library query"
 		);
 
-		// 1. Check permissions
+		// 1. Cross-cutting concern: Check permissions (API layer's responsibility)
 		self.permission_layer
 			.check_library_query::<Q>(&session, PhantomData)
 			.await?;
@@ -187,28 +178,15 @@ impl ApiDispatcher {
 			.current_library_id
 			.ok_or(ApiError::NoLibrarySelected)?;
 
-		// 3. Validate library exists
-		let _library = self
-			.core_context
-			.libraries()
-			.await
-			.get_library(library_id)
-			.await
-			.ok_or(ApiError::LibraryNotFound {
-				library_id: library_id.to_string(),
-			})?;
+		// 3. Create query from input
+		let query = Q::from_input(query_input).map_err(ApiError::from)?;
 
-		// 4. Create query from input
-		let query =
-			Q::from_input(query_input).map_err(|e| ApiError::invalid_input(format!("{}", e)))?;
-
-		// 5. Execute with session context
-		let result = query
-			.execute(self.core_context.clone(), session.clone())
+		// 4. ✅ DELEGATE to QueryManager (query-specific infrastructure)
+		let query_manager = QueryManager::new(self.core_context.clone());
+		let result = query_manager
+			.dispatch_library(query, library_id, session.clone())
 			.await
-			.map_err(|e| ApiError::QueryExecutionFailed {
-				reason: format!("{}", e),
-			})?;
+			.map_err(ApiError::from)?;
 
 		Ok(result)
 	}
@@ -234,22 +212,20 @@ impl ApiDispatcher {
 			"Executing core query"
 		);
 
-		// 1. Check permissions
+		// 1. Cross-cutting concern: Check permissions (API layer's responsibility)
 		self.permission_layer
 			.check_core_query::<Q>(&session, PhantomData)
 			.await?;
 
 		// 2. Create query from input
-		let query =
-			Q::from_input(query_input).map_err(|e| ApiError::invalid_input(format!("{}", e)))?;
+		let query = Q::from_input(query_input).map_err(ApiError::from)?;
 
-		// 3. Execute with session context
-		let result = query
-			.execute(self.core_context.clone(), session.clone())
+		// 3. ✅ DELEGATE to QueryManager (query-specific infrastructure)
+		let query_manager = QueryManager::new(self.core_context.clone());
+		let result = query_manager
+			.dispatch_core(query, session.clone())
 			.await
-			.map_err(|e| ApiError::QueryExecutionFailed {
-				reason: format!("{}", e),
-			})?;
+			.map_err(ApiError::from)?;
 
 		Ok(result)
 	}

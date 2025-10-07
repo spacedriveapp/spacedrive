@@ -1,6 +1,6 @@
 use super::output::{LocationInfo, LocationsListOutput};
 use crate::{context::CoreContext, infra::query::LibraryQuery};
-use anyhow::Result;
+use crate::infra::query::{QueryError, QueryResult};
 use sea_orm::EntityTrait;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -16,7 +16,7 @@ impl LibraryQuery for LocationsListQuery {
 	type Input = LocationsListQueryInput;
 	type Output = LocationsListOutput;
 
-	fn from_input(input: Self::Input) -> anyhow::Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self {})
 	}
 
@@ -24,17 +24,17 @@ impl LibraryQuery for LocationsListQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library selected"))?;
+			.ok_or_else(|| QueryError::Internal("No library selected".to_string()))?;
 		// Fetch library and query locations table
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 		let db = library.db().conn();
 		let rows = crate::infra::db::entities::location::Entity::find()
 			.all(db)

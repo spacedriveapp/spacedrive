@@ -1,8 +1,11 @@
 //! List devices from library database query
 
 use super::output::LibraryDeviceInfo;
-use crate::{context::CoreContext, infra::query::LibraryQuery, device::get_current_device_id};
-use anyhow::Result;
+use crate::{
+	context::CoreContext,
+	device::get_current_device_id,
+	infra::query::{LibraryQuery, QueryError, QueryResult},
+};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -60,7 +63,7 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 	type Input = ListLibraryDevicesInput;
 	type Output = Vec<LibraryDeviceInfo>;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
 	}
 
@@ -68,18 +71,18 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		// Get the current library from session
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found: {}", library_id))?;
+			.ok_or_else(|| QueryError::LibraryNotFound(library_id))?;
 
 		// Get database connection
 		let db = library.db().conn();

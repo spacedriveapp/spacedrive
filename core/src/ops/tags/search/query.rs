@@ -2,7 +2,7 @@
 
 use super::{input::SearchTagsInput, output::SearchTagsOutput};
 use crate::{context::CoreContext, infra::query::LibraryQuery, ops::tags::manager::TagManager};
-use anyhow::Result;
+use crate::infra::query::{QueryError, QueryResult};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ impl LibraryQuery for SearchTagsQuery {
 	type Input = SearchTagsInput;
 	type Output = SearchTagsOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
 	}
 
@@ -31,16 +31,16 @@ impl LibraryQuery for SearchTagsQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library in session"))?;
+			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
 		let db = library.db();
 		let semantic_tag_manager = TagManager::new(Arc::new(db.conn().clone()));
@@ -56,7 +56,7 @@ impl LibraryQuery for SearchTagsQuery {
 				include_archived,
 			)
 			.await
-			.map_err(|e| anyhow::anyhow!("Tag search failed: {}", e))?;
+			.map_err(|e| QueryError::Internal(format!("Tag search failed: {}", e.to_string())))?;
 
 		let mut disambiguated = false;
 
@@ -68,13 +68,13 @@ impl LibraryQuery for SearchTagsQuery {
 					let context_tags = semantic_tag_manager
 						.get_tags_by_ids(context_tag_ids)
 						.await
-						.map_err(|e| anyhow::anyhow!("Failed to get context tags: {}", e))?;
+						.map_err(|e| QueryError::Internal(format!("Failed to get context tags: {}", e.to_string())))?;
 
 					// Resolve ambiguous results
 					search_results = semantic_tag_manager
 						.resolve_ambiguous_tag(&self.input.query, &context_tags)
 						.await
-						.map_err(|e| anyhow::anyhow!("Context resolution failed: {}", e))?;
+						.map_err(|e| QueryError::Internal(format!("Context resolution failed: {}", e.to_string())))?;
 
 					disambiguated = true;
 				}

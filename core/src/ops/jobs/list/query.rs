@@ -1,7 +1,9 @@
 use super::output::{JobListItem, JobListOutput};
 use crate::infra::job::types::JobStatus;
-use crate::{context::CoreContext, infra::query::LibraryQuery};
-use anyhow::Result;
+use crate::{
+	context::CoreContext,
+	infra::query::{LibraryQuery, QueryError, QueryResult},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -20,7 +22,7 @@ impl LibraryQuery for JobListQuery {
 	type Input = JobListInput;
 	type Output = JobListOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
 	}
 
@@ -28,18 +30,19 @@ impl LibraryQuery for JobListQuery {
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		let library_id = session
 			.current_library_id
-			.ok_or_else(|| anyhow::anyhow!("No library selected"))?;
+			.ok_or_else(|| QueryError::Internal("No library selected".to_string()))?;
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
-			.ok_or_else(|| anyhow::anyhow!("Library not found"))?;
+			.ok_or_else(|| QueryError::LibraryNotFound(library_id))?;
 
-		let jobs = library.jobs().list_jobs(self.input.status).await?;
+		let jobs = library.jobs().list_jobs(self.input.status).await
+			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let items = jobs
 			.into_iter()
 			.map(|j| JobListItem {

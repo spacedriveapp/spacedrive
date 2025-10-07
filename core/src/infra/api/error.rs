@@ -134,8 +134,45 @@ impl ApiError {
 /// Convert from core action errors
 impl From<crate::infra::action::error::ActionError> for ApiError {
 	fn from(err: crate::infra::action::error::ActionError) -> Self {
-		Self::ActionExecutionFailed {
-			reason: err.to_string(),
+		use crate::infra::action::error::ActionError;
+		match err {
+			ActionError::LibraryNotFound(id) => ApiError::LibraryNotFound {
+				library_id: id.to_string(),
+			},
+			ActionError::PermissionDenied { reason, .. } => {
+				ApiError::InsufficientPermissions { reason }
+			}
+			ActionError::InvalidInput(details) => ApiError::InvalidInput { details },
+			ActionError::Validation { field, message } => ApiError::InvalidInput {
+				details: format!("{}: {}", field, message),
+			},
+			ActionError::Timeout => ApiError::Timeout,
+			_ => ApiError::ActionExecutionFailed {
+				reason: err.to_string(),
+			},
+		}
+	}
+}
+
+/// Convert from core query errors
+impl From<crate::infra::query::error::QueryError> for ApiError {
+	fn from(err: crate::infra::query::error::QueryError) -> Self {
+		use crate::infra::query::error::QueryError;
+		match err {
+			QueryError::LibraryNotFound(id) => ApiError::LibraryNotFound {
+				library_id: id.to_string(),
+			},
+			QueryError::PermissionDenied { reason, .. } => {
+				ApiError::InsufficientPermissions { reason }
+			}
+			QueryError::InvalidInput(details) => ApiError::InvalidInput { details },
+			QueryError::Validation { field, message } => ApiError::InvalidInput {
+				details: format!("{}: {}", field, message),
+			},
+			QueryError::Timeout => ApiError::Timeout,
+			_ => ApiError::QueryExecutionFailed {
+				reason: err.to_string(),
+			},
 		}
 	}
 }

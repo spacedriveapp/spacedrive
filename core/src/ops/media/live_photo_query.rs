@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::infra::db::entities::{content_identity, entry, sidecar};
+use crate::infra::query::{QueryError, QueryResult};
 
 /// Represents a Live Photo pair (image + video sidecar)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,7 +24,7 @@ pub struct LivePhotoQuery;
 impl LivePhotoQuery {
 	/// Find all Live Photo pairs in the library
 	/// This queries for all live_photo_video sidecars and their associated image entries
-	pub async fn find_all_pairs(db: &DatabaseConnection) -> Result<Vec<LivePhotoPair>, DbErr> {
+	pub async fn find_all_pairs(db: &DatabaseConnection) -> QueryResult<Vec<LivePhotoPair>> {
 		// Find all Live Photo video sidecars
 		let live_photo_sidecars = sidecar::Entity::find()
 			.filter(sidecar::Column::Kind.eq("live_photo_video"))
@@ -66,7 +67,7 @@ impl LivePhotoQuery {
 	pub async fn find_by_entry_id(
 		db: &DatabaseConnection,
 		entry_id: i32,
-	) -> Result<Option<LivePhotoPair>, DbErr> {
+	) -> QueryResult<Option<LivePhotoPair>> {
 		// Get the entry and its content UUID
 		let entry = entry::Entity::find_by_id(entry_id).one(db).await?;
 
@@ -105,7 +106,7 @@ impl LivePhotoQuery {
 	}
 
 	/// Check if an entry is part of a Live Photo (as the image component)
-	pub async fn is_live_photo(db: &DatabaseConnection, entry_id: i32) -> Result<bool, DbErr> {
+	pub async fn is_live_photo(db: &DatabaseConnection, entry_id: i32) -> QueryResult<bool> {
 		Ok(Self::find_by_entry_id(db, entry_id).await?.is_some())
 	}
 }

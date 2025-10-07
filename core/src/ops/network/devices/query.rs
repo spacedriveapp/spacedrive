@@ -1,8 +1,10 @@
 //! Query for listing paired devices
 
 use super::output::{ListPairedDevicesOutput, PairedDeviceInfo};
-use crate::{context::CoreContext, infra::query::CoreQuery};
-use anyhow::{anyhow, Result};
+use crate::{
+	context::CoreContext,
+	infra::query::{CoreQuery, QueryError, QueryResult},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -24,7 +26,7 @@ impl CoreQuery for ListPairedDevicesQuery {
 	type Input = ListPairedDevicesInput;
 	type Output = ListPairedDevicesOutput;
 
-	fn from_input(input: Self::Input) -> Result<Self> {
+	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self {
 			connected_only: input.connected_only,
 		})
@@ -34,12 +36,12 @@ impl CoreQuery for ListPairedDevicesQuery {
 		self,
 		context: Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
-	) -> Result<Self::Output> {
+	) -> QueryResult<Self::Output> {
 		// Get networking service
 		let networking = context
 			.get_networking()
 			.await
-			.ok_or_else(|| anyhow!("Networking not initialized"))?;
+			.ok_or_else(|| QueryError::Internal("Networking not initialized".to_string()))?;
 
 		let device_registry = networking.device_registry();
 		let registry = device_registry.read().await;
