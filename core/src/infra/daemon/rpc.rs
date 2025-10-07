@@ -247,7 +247,7 @@ impl RpcServer {
 		let base_session = core.api_dispatcher.create_base_session()?;
 
 		// Try library queries first
-		if let Some(handler) = crate::ops::registry::LIBRARY_QUERIES.get(method) {
+		if let Some(handler) = crate::infra::wire::registry::LIBRARY_QUERIES.get(method) {
 			let library_id =
 				library_id.ok_or_else(|| "Library ID required for library query".to_string())?;
 			let session = base_session.with_library(library_id);
@@ -255,12 +255,12 @@ impl RpcServer {
 		}
 
 		// Try core queries
-		if let Some(handler) = crate::ops::registry::CORE_QUERIES.get(method) {
+		if let Some(handler) = crate::infra::wire::registry::CORE_QUERIES.get(method) {
 			return handler(core.context.clone(), base_session, json_payload).await;
 		}
 
 		// Try library actions
-		if let Some(handler) = crate::ops::registry::LIBRARY_ACTIONS.get(method) {
+		if let Some(handler) = crate::infra::wire::registry::LIBRARY_ACTIONS.get(method) {
 			let library_id =
 				library_id.ok_or_else(|| "Library ID required for library action".to_string())?;
 			let session = base_session.with_library(library_id);
@@ -268,7 +268,7 @@ impl RpcServer {
 		}
 
 		// Try core actions
-		if let Some(handler) = crate::ops::registry::CORE_ACTIONS.get(method) {
+		if let Some(handler) = crate::infra::wire::registry::CORE_ACTIONS.get(method) {
 			return handler(core.context.clone(), json_payload).await;
 		}
 

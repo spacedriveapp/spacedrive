@@ -1,5 +1,5 @@
 use super::output::{LocationInfo, LocationsListOutput};
-use crate::{context::CoreContext, cqrs::LibraryQuery};
+use crate::{context::CoreContext, infra::query::LibraryQuery};
 use anyhow::Result;
 use sea_orm::EntityTrait;
 use serde::{Deserialize, Serialize};

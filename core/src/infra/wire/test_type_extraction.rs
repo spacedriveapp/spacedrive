@@ -1,6 +1,6 @@
 //! Test the type extraction system with just the types that have derives
 
-use crate::ops::type_extraction::*;
+use crate::infra::wire::type_extraction::*;
 
 #[cfg(test)]
 mod tests {

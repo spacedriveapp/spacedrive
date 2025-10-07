@@ -1,7 +1,7 @@
 //! Search semantic tags query
 
 use super::{input::SearchTagsInput, output::SearchTagsOutput};
-use crate::{context::CoreContext, cqrs::LibraryQuery, ops::tags::manager::TagManager};
+use crate::{context::CoreContext, infra::query::LibraryQuery, ops::tags::manager::TagManager};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use specta::Type;

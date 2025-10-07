@@ -1,7 +1,7 @@
 //! List devices from library database query
 
 use super::output::LibraryDeviceInfo;
-use crate::{context::CoreContext, cqrs::LibraryQuery, device::get_current_device_id};
+use crate::{context::CoreContext, infra::query::LibraryQuery, device::get_current_device_id};
 use anyhow::Result;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};

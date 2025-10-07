@@ -1,7 +1,7 @@
 //! Query for listing paired devices
 
 use super::output::{ListPairedDevicesOutput, PairedDeviceInfo};
-use crate::{context::CoreContext, cqrs::CoreQuery};
+use crate::{context::CoreContext, infra::query::CoreQuery};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use specta::Type;

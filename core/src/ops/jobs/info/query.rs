@@ -1,5 +1,5 @@
 use super::output::JobInfoOutput;
-use crate::{context::CoreContext, cqrs::LibraryQuery};
+use crate::{context::CoreContext, infra::query::LibraryQuery};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use specta::Type;

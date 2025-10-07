@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	cqrs::LibraryQuery,
+	infra::query::LibraryQuery,
 	domain::{file::FileConstructionData, Entry, File},
 	filetype::FileTypeRegistry,
 	infra::db::entities::{

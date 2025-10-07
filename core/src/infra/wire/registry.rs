@@ -20,7 +20,7 @@ pub fn handle_library_query<Q>(
 	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
 >
 where
-	Q: crate::cqrs::LibraryQuery + 'static,
+	Q: crate::infra::query::LibraryQuery + 'static,
 	Q::Input: serde::de::DeserializeOwned + std::fmt::Debug + 'static,
 	Q::Output: serde::Serialize + std::fmt::Debug + 'static,
 {
@@ -51,7 +51,7 @@ pub fn handle_core_query<Q>(
 	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
 >
 where
-	Q: crate::cqrs::CoreQuery + 'static,
+	Q: crate::infra::query::CoreQuery + 'static,
 	Q::Input: serde::de::DeserializeOwned + std::fmt::Debug + 'static,
 	Q::Output: serde::Serialize + std::fmt::Debug + 'static,
 {
@@ -240,18 +240,21 @@ mod tests {
 	#[test]
 	fn list_registered_ops() {
 		// Collect and display registered actions
-		let mut action_methods: Vec<&'static str> =
-			crate::ops::registry::CORE_ACTIONS.keys().cloned().collect();
+		let mut action_methods: Vec<&'static str> = crate::infra::wire::registry::CORE_ACTIONS
+			.keys()
+			.cloned()
+			.collect();
 		action_methods.sort();
 		println!("Registered actions ({}):", action_methods.len());
 		for method in &action_methods {
 			println!("  {}", method);
 		}
 
-		let mut library_action_methods: Vec<&'static str> = crate::ops::registry::LIBRARY_ACTIONS
-			.keys()
-			.cloned()
-			.collect();
+		let mut library_action_methods: Vec<&'static str> =
+			crate::infra::wire::registry::LIBRARY_ACTIONS
+				.keys()
+				.cloned()
+				.collect();
 		library_action_methods.sort();
 		println!(
 			"Registered library actions ({}):",
@@ -262,18 +265,21 @@ mod tests {
 		}
 
 		// Collect and display registered queries
-		let mut query_methods: Vec<&'static str> =
-			crate::ops::registry::CORE_QUERIES.keys().cloned().collect();
+		let mut query_methods: Vec<&'static str> = crate::infra::wire::registry::CORE_QUERIES
+			.keys()
+			.cloned()
+			.collect();
 		query_methods.sort();
 		println!("Registered queries ({}):", query_methods.len());
 		for method in &query_methods {
 			println!("  {}", method);
 		}
 
-		let mut library_query_methods: Vec<&'static str> = crate::ops::registry::LIBRARY_QUERIES
-			.keys()
-			.cloned()
-			.collect();
+		let mut library_query_methods: Vec<&'static str> =
+			crate::infra::wire::registry::LIBRARY_QUERIES
+				.keys()
+				.cloned()
+				.collect();
 		library_query_methods.sort();
 		println!(
 			"Registered library queries ({}):",
@@ -315,27 +321,27 @@ macro_rules! query_method {
 #[macro_export]
 macro_rules! register_library_query {
 	($query:ty, $name:literal) => {
-		impl $crate::client::Wire for <$query as $crate::cqrs::LibraryQuery>::Input {
+		impl $crate::client::Wire for <$query as $crate::infra::query::LibraryQuery>::Input {
 			const METHOD: &'static str = $crate::query_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::LibraryQueryEntry {
-				method: <<$query as $crate::cqrs::LibraryQuery>::Input as $crate::client::Wire>::METHOD,
-				handler: $crate::ops::registry::handle_library_query::<$query>,
+			$crate::infra::wire::registry::LibraryQueryEntry {
+				method: <<$query as $crate::infra::query::LibraryQuery>::Input as $crate::client::Wire>::METHOD,
+				handler: $crate::infra::wire::registry::handle_library_query::<$query>,
 			}
 		}
 
 		// Automatic QueryTypeInfo implementation for type extraction
-		impl $crate::ops::type_extraction::QueryTypeInfo for $query {
-			type Input = <$query as $crate::cqrs::LibraryQuery>::Input;
-			type Output = <$query as $crate::cqrs::LibraryQuery>::Output;
+		impl $crate::infra::wire::type_extraction::QueryTypeInfo for $query {
+			type Input = <$query as $crate::infra::query::LibraryQuery>::Input;
+			type Output = <$query as $crate::infra::query::LibraryQuery>::Output;
 
 			fn identifier() -> &'static str {
 				$name
 			}
 
-			fn scope() -> $crate::ops::type_extraction::QueryScope {
-				$crate::ops::type_extraction::QueryScope::Library
+			fn scope() -> $crate::infra::wire::type_extraction::QueryScope {
+				$crate::infra::wire::type_extraction::QueryScope::Library
 			}
 
 			fn wire_method() -> String {
@@ -345,8 +351,8 @@ macro_rules! register_library_query {
 
 		// Submit query type extractor to inventory
 		inventory::submit! {
-			$crate::ops::type_extraction::QueryExtractorEntry {
-				extractor: <$query as $crate::ops::type_extraction::QueryTypeInfo>::extract_types,
+			$crate::infra::wire::type_extraction::QueryExtractorEntry {
+				extractor: <$query as $crate::infra::wire::type_extraction::QueryTypeInfo>::extract_types,
 				identifier: $name,
 			}
 		}
@@ -358,27 +364,27 @@ macro_rules! register_library_query {
 #[macro_export]
 macro_rules! register_core_query {
 	($query:ty, $name:literal) => {
-		impl $crate::client::Wire for <$query as $crate::cqrs::CoreQuery>::Input {
+		impl $crate::client::Wire for <$query as $crate::infra::query::CoreQuery>::Input {
 			const METHOD: &'static str = $crate::query_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::CoreQueryEntry {
-				method: <<$query as $crate::cqrs::CoreQuery>::Input as $crate::client::Wire>::METHOD,
-				handler: $crate::ops::registry::handle_core_query::<$query>,
+			$crate::infra::wire::registry::CoreQueryEntry {
+				method: <<$query as $crate::infra::query::CoreQuery>::Input as $crate::client::Wire>::METHOD,
+				handler: $crate::infra::wire::registry::handle_core_query::<$query>,
 			}
 		}
 
 		// Automatic QueryTypeInfo implementation for type extraction
-		impl $crate::ops::type_extraction::QueryTypeInfo for $query {
-			type Input = <$query as $crate::cqrs::CoreQuery>::Input;
-			type Output = <$query as $crate::cqrs::CoreQuery>::Output;
+		impl $crate::infra::wire::type_extraction::QueryTypeInfo for $query {
+			type Input = <$query as $crate::infra::query::CoreQuery>::Input;
+			type Output = <$query as $crate::infra::query::CoreQuery>::Output;
 
 			fn identifier() -> &'static str {
 				$name
 			}
 
-			fn scope() -> $crate::ops::type_extraction::QueryScope {
-				$crate::ops::type_extraction::QueryScope::Core
+			fn scope() -> $crate::infra::wire::type_extraction::QueryScope {
+				$crate::infra::wire::type_extraction::QueryScope::Core
 			}
 
 			fn wire_method() -> String {
@@ -388,8 +394,8 @@ macro_rules! register_core_query {
 
 		// Submit query type extractor to inventory
 		inventory::submit! {
-			$crate::ops::type_extraction::QueryExtractorEntry {
-				extractor: <$query as $crate::ops::type_extraction::QueryTypeInfo>::extract_types,
+			$crate::infra::wire::type_extraction::QueryExtractorEntry {
+				extractor: <$query as $crate::infra::wire::type_extraction::QueryTypeInfo>::extract_types,
 				identifier: $name,
 			}
 		}
@@ -405,14 +411,14 @@ macro_rules! register_library_action {
 			const METHOD: &'static str = $crate::action_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::LibraryActionEntry {
+			$crate::infra::wire::registry::LibraryActionEntry {
 				method: <<$action as $crate::infra::action::LibraryAction>::Input as $crate::client::Wire>::METHOD,
-				handler: $crate::ops::registry::handle_library_action::<$action>,
+				handler: $crate::infra::wire::registry::handle_library_action::<$action>,
 			}
 		}
 
 		// Automatic OperationTypeInfo implementation for type extraction
-		impl $crate::ops::type_extraction::OperationTypeInfo for $action {
+		impl $crate::infra::wire::type_extraction::OperationTypeInfo for $action {
 			type Input = <$action as $crate::infra::action::LibraryAction>::Input;
 			type Output = <$action as $crate::infra::action::LibraryAction>::Output;
 
@@ -420,8 +426,8 @@ macro_rules! register_library_action {
 				$name
 			}
 
-			fn scope() -> $crate::ops::type_extraction::OperationScope {
-				$crate::ops::type_extraction::OperationScope::Library
+			fn scope() -> $crate::infra::wire::type_extraction::OperationScope {
+				$crate::infra::wire::type_extraction::OperationScope::Library
 			}
 
 			fn wire_method() -> String {
@@ -431,8 +437,8 @@ macro_rules! register_library_action {
 
 		// Submit type extractor to inventory for compile-time collection
 		inventory::submit! {
-			$crate::ops::type_extraction::TypeExtractorEntry {
-				extractor: <$action as $crate::ops::type_extraction::OperationTypeInfo>::extract_types,
+			$crate::infra::wire::type_extraction::TypeExtractorEntry {
+				extractor: <$action as $crate::infra::wire::type_extraction::OperationTypeInfo>::extract_types,
 				identifier: $name,
 			}
 		}
@@ -448,14 +454,14 @@ macro_rules! register_core_action {
 			const METHOD: &'static str = $crate::action_method!($name);
 		}
 		inventory::submit! {
-			$crate::ops::registry::CoreActionEntry {
+			$crate::infra::wire::registry::CoreActionEntry {
 				method: <<$action as $crate::infra::action::CoreAction>::Input as $crate::client::Wire>::METHOD,
-				handler: $crate::ops::registry::handle_core_action::<$action>,
+				handler: $crate::infra::wire::registry::handle_core_action::<$action>,
 			}
 		}
 
 		// Automatic OperationTypeInfo implementation for core actions
-		impl $crate::ops::type_extraction::OperationTypeInfo for $action {
+		impl $crate::infra::wire::type_extraction::OperationTypeInfo for $action {
 			type Input = <$action as $crate::infra::action::CoreAction>::Input;
 			type Output = <$action as $crate::infra::action::CoreAction>::Output;
 
@@ -463,8 +469,8 @@ macro_rules! register_core_action {
 				$name
 			}
 
-			fn scope() -> $crate::ops::type_extraction::OperationScope {
-				$crate::ops::type_extraction::OperationScope::Core
+			fn scope() -> $crate::infra::wire::type_extraction::OperationScope {
+				$crate::infra::wire::type_extraction::OperationScope::Core
 			}
 
 			fn wire_method() -> String {
@@ -474,8 +480,8 @@ macro_rules! register_core_action {
 
 		// Submit type extractor to inventory for compile-time collection
 		inventory::submit! {
-			$crate::ops::type_extraction::TypeExtractorEntry {
-				extractor: <$action as $crate::ops::type_extraction::OperationTypeInfo>::extract_types,
+			$crate::infra::wire::type_extraction::TypeExtractorEntry {
+				extractor: <$action as $crate::infra::wire::type_extraction::OperationTypeInfo>::extract_types,
 				identifier: $name,
 			}
 		}

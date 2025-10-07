@@ -6,3 +6,5 @@ pub mod daemon;
 pub mod db;
 pub mod event;
 pub mod job;
+pub mod query;
+pub mod wire;

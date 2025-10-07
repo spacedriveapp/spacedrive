@@ -11,8 +11,8 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	cqrs::{CoreQuery, LibraryQuery},
 	infra::action::{CoreAction, LibraryAction},
+	infra::query::{CoreQuery, LibraryQuery},
 };
 use bincode::config::standard;
 use bincode::serde::{decode_from_slice, encode_to_vec};

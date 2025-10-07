@@ -202,7 +202,7 @@ impl PermissionLayer {
 		_query_type: std::marker::PhantomData<Q>,
 	) -> Result<(), PermissionError>
 	where
-		Q: crate::cqrs::LibraryQuery,
+		Q: crate::infra::query::LibraryQuery,
 	{
 		if !self.policies.enforce {
 			return Ok(());
@@ -227,7 +227,7 @@ impl PermissionLayer {
 		_query_type: std::marker::PhantomData<Q>,
 	) -> Result<(), PermissionError>
 	where
-		Q: crate::cqrs::CoreQuery,
+		Q: crate::infra::query::CoreQuery,
 	{
 		if !self.policies.enforce {
 			return Ok(());

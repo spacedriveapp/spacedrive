@@ -8,7 +8,6 @@ pub mod client;
 pub mod common;
 pub mod config;
 pub mod context;
-pub mod cqrs;
 pub mod crypto;
 pub mod device;
 pub mod domain;
@@ -30,12 +29,12 @@ pub mod networking {
 use crate::{
 	config::AppConfig,
 	context::CoreContext,
-	cqrs::{Query, QueryManager},
 	device::DeviceManager,
 	infra::{
 		action::{builder::ActionBuilder, manager::ActionManager, CoreAction, LibraryAction},
 		api::ApiDispatcher,
 		event::{Event, EventBus},
+		query::QueryManager,
 	},
 	library::LibraryManager,
 	service::session::SessionStateService,
@@ -540,15 +539,6 @@ impl Core {
 	/// permissions, and audit trails. Prefer this over direct registry access.
 	pub fn api(&self) -> &ApiDispatcher {
 		&self.api_dispatcher
-	}
-
-	/// Execute a query using the CQRS API.
-	///
-	/// This method provides a unified, type-safe entry point for all read operations.
-	/// It uses the QueryManager for consistent infrastructure (validation, logging, etc.).
-	pub async fn execute_query<Q: Query>(&self, query: Q) -> anyhow::Result<Q::Output> {
-		let query_manager = QueryManager::new(self.context.clone());
-		query_manager.dispatch(query).await
 	}
 
 	/// Shutdown the core gracefully

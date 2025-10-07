@@ -1,7 +1,7 @@
 //! Network status query
 
 use super::output::NetworkStatus;
-use crate::{context::CoreContext, cqrs::CoreQuery};
+use crate::{context::CoreContext, infra::query::CoreQuery};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use specta::Type;

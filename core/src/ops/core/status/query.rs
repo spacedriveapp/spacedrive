@@ -1,11 +1,7 @@
 //! Core status query (modular)
 
 use super::output::*;
-use crate::{
-	context::CoreContext,
-	cqrs::{CoreQuery, Query},
-	service::Service,
-};
+use crate::{context::CoreContext, infra::query::CoreQuery, service::Service};
 use anyhow::Result;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};

@@ -2,7 +2,7 @@
 
 use crate::{
 	context::CoreContext,
-	cqrs::LibraryQuery,
+	infra::query::LibraryQuery,
 	domain::{file::FileConstructionData, File},
 	infra::db::entities::{content_identity, entry, sidecar, tag, user_metadata_tag},
 };

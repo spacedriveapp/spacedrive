@@ -8,8 +8,8 @@ use crate::format_bytes;
 use crate::util::prelude::*;
 
 use crate::context::Context;
-use sd_core::cqrs::LibraryQuery;
 use sd_core::infra::job::types::JobId;
+use sd_core::infra::query::LibraryQuery;
 
 use self::args::*;
 

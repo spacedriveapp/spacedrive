@@ -5,7 +5,7 @@
 
 use crate::{
 	context::CoreContext,
-	cqrs::LibraryQuery,
+	infra::query::LibraryQuery,
 	domain::{
 		addressing::SdPath,
 		content_identity::ContentIdentity,
