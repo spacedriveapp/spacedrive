@@ -497,6 +497,7 @@ impl LocationWatcher {
 		let is_running = self.is_running.clone();
 		let debug_mode = self.config.debug_mode;
 		let metrics = self.metrics.clone();
+		let events = self.events.clone();
 
 		let (tx, mut rx) = mpsc::channel(self.config.event_buffer_size);
 		let tx_clone = tx.clone();
@@ -555,6 +556,12 @@ impl LocationWatcher {
 								for processed_event in processed_events {
 									match processed_event {
 										Event::FsRawChange { library_id, kind } => {
+											// Emit the event to the event bus for subscribers
+											events.emit(Event::FsRawChange {
+												library_id,
+												kind: kind.clone(),
+											});
+
 											// Find the location for this event and route to worker
 											let locations = watched_locations.read().await;
 											for location in locations.values() {
@@ -644,6 +651,113 @@ impl LocationWatcher {
 
 		Ok(())
 	}
+
+	/// Start listening for LocationAdded events to dynamically add new locations
+	async fn start_location_event_listener(&self) {
+		let mut event_subscriber = self.events.subscribe();
+		let watched_locations = self.watched_locations.clone();
+		let watcher_ref = self.watcher.clone();
+		let workers = self.workers.clone();
+		let is_running = self.is_running.clone();
+		let context = self.context.clone();
+		let events = self.events.clone();
+		let config = self.config.clone();
+		let worker_metrics = self.worker_metrics.clone();
+		let metrics = self.metrics.clone();
+		let metrics_collector = self.metrics_collector.clone();
+		let platform_handler = self.platform_handler.clone();
+
+		tokio::spawn(async move {
+			info!("Location event listener started");
+
+			while *is_running.read().await {
+				match event_subscriber.recv().await {
+					Ok(Event::LocationAdded {
+						library_id,
+						location_id,
+						path,
+					}) => {
+						info!(
+							"Location added event received: {} at {}",
+							location_id,
+							path.display()
+						);
+
+						// Create a temporary LocationWatcher instance for this operation
+						let temp_watcher = LocationWatcher {
+							config: config.clone(),
+							events: events.clone(),
+							context: context.clone(),
+							watched_locations: watched_locations.clone(),
+							watcher: watcher_ref.clone(),
+							is_running: is_running.clone(),
+							platform_handler: platform_handler.clone(),
+							workers: workers.clone(),
+							metrics: metrics.clone(),
+							worker_metrics: worker_metrics.clone(),
+							metrics_collector: metrics_collector.clone(),
+						};
+
+						// Create WatchedLocation and add to watcher
+						let watched_location = WatchedLocation {
+							id: location_id,
+							library_id,
+							path: path.clone(),
+							enabled: true,
+						};
+
+						// Add location to watcher
+						if let Err(e) = temp_watcher.add_location(watched_location).await {
+							error!("Failed to add location {} to watcher: {}", location_id, e);
+						} else {
+							info!(
+								"Successfully added location {} to watcher: {}",
+								location_id,
+								path.display()
+							);
+						}
+					}
+					Ok(Event::LocationRemoved { location_id, .. }) => {
+						info!("Location removed event received: {}", location_id);
+
+						// Create a temporary LocationWatcher instance for this operation
+						let temp_watcher = LocationWatcher {
+							config: config.clone(),
+							events: events.clone(),
+							context: context.clone(),
+							watched_locations: watched_locations.clone(),
+							watcher: watcher_ref.clone(),
+							is_running: is_running.clone(),
+							platform_handler: platform_handler.clone(),
+							workers: workers.clone(),
+							metrics: metrics.clone(),
+							worker_metrics: worker_metrics.clone(),
+							metrics_collector: metrics_collector.clone(),
+						};
+
+						// Remove location from watcher
+						if let Err(e) = temp_watcher.remove_location(location_id).await {
+							error!(
+								"Failed to remove location {} from watcher: {}",
+								location_id, e
+							);
+						} else {
+							info!("Successfully removed location {} from watcher", location_id);
+						}
+					}
+					Ok(_) => {
+						// Ignore other events
+					}
+					Err(e) => {
+						error!("Location event listener error: {}", e);
+						// Continue listening despite errors
+					}
+				}
+			}
+
+			info!("Location event listener stopped");
+		});
+	}
 }
 
 #[async_trait::async_trait]
@@ -663,6 +777,9 @@ impl Service for LocationWatcher {
 			error!("Failed to load existing locations: {}", e);
 			// Continue starting the service even if loading locations fails
 		}
+
+		// Start listening for LocationAdded events
+		self.start_location_event_listener().await;
 
 		// Start metrics collector
 		self.start_metrics_collector().await?;

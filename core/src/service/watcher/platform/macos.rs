@@ -171,36 +171,26 @@ impl MacOSHandler {
 				// File doesn't exist - this could be the "old" part of a rename or a deletion
 				trace!("Rename event: path doesn't exist {}", path.display());
 
-				if let Some(inode) = self.get_inode_from_path(&path).await {
-					// Check if this matches a new path we're tracking
-					let mut new_paths = self.new_paths_map.write().await;
-					if let Some((_, new_path)) = new_paths.remove(&inode) {
-						// We found a match! This is a real rename operation
-						trace!(
-							"Detected rename: {} -> {}",
-							path.display(),
-							new_path.display()
-						);
+				// Since the file doesn't exist anymore, we can't get its inode from the filesystem
+				// Instead, we need to track the path itself temporarily and match it with the new path
+				// For now, just store the path - we'll need the context to look up the inode from DB
+				// This is a limitation of the current simplified implementation
 
-						// Find the matching location and generate rename event
-						let locations = watched_locations.read().await;
-						for location in locations.values() {
-							if new_path.starts_with(&location.path) {
-								events.push(Event::FsRawChange {
-									library_id: location.library_id,
-									kind: crate::infra::event::FsRawEventKind::Rename {
-										from: path,
-										to: new_path,
-									},
-								});
-								break;
-							}
-						}
-					} else {
-						// No matching new path - store as old path for potential future match
-						trace!("Storing old path for rename: {}", path.display());
-						let mut old_paths = self.old_paths_map.write().await;
-						old_paths.insert(inode, (Instant::now(), path));
+				// For now, treat as a potential deletion
+				trace!(
+					"File no longer exists, treating as removal: {}",
+					path.display()
+				);
+				let locations = watched_locations.read().await;
+				for location in locations.values() {
+					if path.starts_with(&location.path) {
+						events.push(Event::FsRawChange {
+							library_id: location.library_id,
+							kind: crate::infra::event::FsRawEventKind::Remove {
+								path: path.clone(),
+							},
+						});
+						break;
 					}
 				}
 			}
@@ -410,14 +400,15 @@ impl EventHandler for MacOSHandler {
 					*latest_created = Some(path.clone());
 				}
 
-				// Generate creation event
+				// Generate FsRawChange creation event
 				let locations = watched_locations.read().await;
 				for location in locations.values() {
 					if location.enabled && path.starts_with(&location.path) {
-						let entry_id = Uuid::new_v4(); // TODO: Look up or create actual entry
-						events.push(Event::EntryCreated {
+						events.push(Event::FsRawChange {
 							library_id: location.library_id,
-							entry_id,
+							kind: crate::infra::event::FsRawEventKind::Create {
+								path: path.clone(),
+							},
 						});
 
 						// Schedule parent for size recalculation
@@ -431,17 +422,32 @@ impl EventHandler for MacOSHandler {
 			}
 
 			WatcherEventKind::Modify => {
-				// Mark file for future update (with debouncing)
-				let mut files_to_update = self.files_to_update.write().await;
-				let mut reincident_files = self.reincident_to_update_files.write().await;
+				// Generate FsRawChange modification event
+				let locations = watched_locations.read().await;
+				for location in locations.values() {
+					if location.enabled && path.starts_with(&location.path) {
+						events.push(Event::FsRawChange {
+							library_id: location.library_id,
+							kind: crate::infra::event::FsRawEventKind::Modify {
+								path: path.clone(),
+							},
+						});
 
-				if files_to_update.contains_key(&path) {
-					if let Some(old_instant) = files_to_update.insert(path.clone(), Instant::now())
-					{
-						reincident_files.entry(path).or_insert(old_instant);
+						// Also mark file for future update (with debouncing)
+						let mut files_to_update = self.files_to_update.write().await;
+						let mut reincident_files = self.reincident_to_update_files.write().await;
+
+						if files_to_update.contains_key(&path) {
+							if let Some(old_instant) =
+								files_to_update.insert(path.clone(), Instant::now())
+							{
+								reincident_files.entry(path.clone()).or_insert(old_instant);
+							}
+						} else {
+							files_to_update.insert(path.clone(), Instant::now());
+						}
+						break;
 					}
-				} else {
-					files_to_update.insert(path, Instant::now());
 				}
 			}
 

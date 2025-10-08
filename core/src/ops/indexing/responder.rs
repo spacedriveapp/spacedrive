@@ -303,6 +303,7 @@ async fn handle_move_by_inode(
 			.await
 			.unwrap_or_else(|_| std::path::PathBuf::from(&existing.name));
 		if old_path != new_path {
+			// File was moved to a different path
 			let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(&old_path));
 			EntryProcessor::move_entry(
 				&mut state,
@@ -313,6 +314,16 @@ async fn handle_move_by_inode(
 				new_path.parent().unwrap_or_else(|| Path::new("/")),
 			)
 			.await?;
+			return Ok(true);
+		} else {
+			// Same path, same inode - this is a modification (macOS FSEvents reports as Create)
+			// Update the existing entry instead of creating a duplicate
+			debug!(
+				"Entry already exists at path with same inode, updating instead of creating: {}",
+				new_path.display()
+			);
+			let dir_entry = build_dir_entry(new_path).await?;
+			EntryProcessor::update_entry(ctx, existing.id, &dir_entry).await?;
 			return Ok(true);
 		}
 	}
