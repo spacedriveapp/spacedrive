@@ -1,13 +1,19 @@
 //! Shared context providing access to core application components.
 
 use crate::{
-	config::JobLoggingConfig, crypto::library_key_manager::LibraryKeyManager,
-	device::DeviceManager, infra::action::manager::ActionManager, infra::event::EventBus,
-	library::LibraryManager, service::network::NetworkingService,
-	service::session::SessionStateService, volume::VolumeManager,
+	config::JobLoggingConfig,
+	crypto::library_key_manager::LibraryKeyManager,
+	device::DeviceManager,
+	infra::action::manager::ActionManager,
+	infra::event::EventBus,
+	infra::sync::{LeadershipManager, TransactionManager},
+	library::LibraryManager,
+	service::network::NetworkingService,
+	service::session::SessionStateService,
+	volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 #[derive(Clone)]
 pub struct CoreContext {
@@ -19,6 +25,8 @@ pub struct CoreContext {
 	// This is wrapped in an RwLock to allow it to be set after initialization
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
+	// Sync infrastructure (global, shared across all libraries)
+	pub leadership_manager: Arc<Mutex<LeadershipManager>>,
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
@@ -34,6 +42,13 @@ impl CoreContext {
 		volume_manager: Arc<VolumeManager>,
 		library_key_manager: Arc<LibraryKeyManager>,
 	) -> Self {
+		// Initialize global leadership manager with device ID
+		let device_id = device_manager.device_id().unwrap_or_else(|_| {
+			tracing::warn!("Failed to get device ID, using nil UUID");
+			uuid::Uuid::nil()
+		});
+		let leadership_manager = Arc::new(Mutex::new(LeadershipManager::new(device_id)));
+
 		Self {
 			events,
 			device_manager,
@@ -42,6 +57,7 @@ impl CoreContext {
 			library_key_manager,
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
+			leadership_manager,
 			job_logging_config: None,
 			job_logs_dir: None,
 		}

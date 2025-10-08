@@ -400,6 +400,144 @@ Spacedrive syncs different types of data with different strategies:
 | **Content** | File content (future) | User-configured sync conduits |
 | **State** | UI state, preferences | Device-specific, no sync |
 
+## Junction Tables (Many-to-Many Relationships)
+
+Junction tables require special consideration for sync. We use **two patterns** depending on whether the relationship itself has mutable state:
+
+### Pattern 1: Sync as Array in Parent (Immutable Junction)
+
+For junction tables with **no mutable metadata** (just the relationship + maybe immutable timestamps):
+
+**Example: `collection_entry` (Collection ↔ Entry)**
+```rust
+// collection_entry just has: collection_id, entry_id, added_at
+// ❌ Don't sync the junction table directly
+// ✅ Sync as array in the Collection
+
+impl Syncable for Collection {
+    fn to_sync_json(&self) -> Result<serde_json::Value> {
+        let entry_uuids = self.get_entry_uuids().await?;
+
+        json!({
+            "uuid": self.uuid,
+            "name": self.name,
+            "entry_uuids": entry_uuids,  // Array of UUIDs
+            "version": self.version,
+        })
+    }
+}
+
+// When applying sync on follower:
+// - Sync the Collection (which includes entry_uuids array)
+// - Recreate junction records locally using UUIDs
+// - Collection's version tracks when entries are added/removed
+```
+
+**Benefits**:
+- Fewer sync log entries (1 instead of potentially 1000s)
+- Natural "last write wins" - latest Collection state includes all relationships
+- Simpler conflict resolution
+
+### Pattern 2: Sync as Individual Entities (Mutable Junction)
+
+For junction tables with **mutable metadata** beyond just the relationship:
+
+**Example: `user_metadata_tag` (UserMetadata ↔ Tag with metadata)**
+```rust
+// user_metadata_tag has mutable fields:
+// - confidence: f32 (can change)
+// - applied_context: Option<String> (can change)
+// - instance_attributes: JSON (can change)
+// - source: String (user/ai/import)
+
+impl Syncable for user_metadata_tag::Model {
+    const SYNC_MODEL: &'static str = "user_metadata_tag";
+
+    fn sync_id(&self) -> Uuid {
+        self.uuid  // Each relationship has its own UUID
+    }
+
+    fn version(&self) -> i64 {
+        self.version  // Needs version for conflict resolution
+    }
+
+    fn exclude_fields() -> Option<&'static [&'static str]> {
+        Some(&["id", "user_metadata_id", "tag_id", "created_at", "updated_at"])
+    }
+}
+```
+
+**Why this needs versioning**:
+- The relationship itself has mutable state (confidence, attributes)
+- Two devices could modify the same relationship concurrently
+- Need conflict resolution for the relationship's metadata
+
+**Example: `tag_relationship` (Tag ↔ Tag with metadata)**
+```rust
+// tag_relationship has mutable fields:
+// - relationship_type: String (parent_child/synonym/related - can change)
+// - strength: f32 (can change)
+
+impl Syncable for tag_relationship::Model {
+    const SYNC_MODEL: &'static str = "tag_relationship";
+
+    fn sync_id(&self) -> Uuid {
+        self.uuid
+    }
+
+    fn version(&self) -> i64 {
+        self.version
+    }
+}
+```
+
+### Decision Tree
+
+```rust
+// Use this to decide which pattern:
+if junction_table.has_mutable_fields_beyond_the_link() {
+    // Pattern 2: Sync as entity with UUID and version
+    sync_individually_with_version();
+} else {
+    // Pattern 1: Sync as array in parent entity
+    sync_as_part_of_parent();
+}
+```
+
+### Spacedrive's Junction Tables
+
+| Junction Table | Pattern | Reason |
+|----------------|---------|--------|
+| `user_metadata_tag` | **Pattern 2** | Has mutable fields: `confidence`, `applied_context`, `instance_attributes` |
+| `tag_relationship` | **Pattern 2** | Has mutable fields: `relationship_type`, `strength` |
+| `collection_entry` | **Pattern 1** | Only has immutable `added_at` timestamp |
+
+### Foreign Key Handling
+
+Junction tables must use **UUIDs, not database IDs** for relationships:
+
+```rust
+// ❌ Bad: Using database IDs
+CREATE TABLE user_metadata_tag (
+    user_metadata_id INTEGER,  // Device-specific!
+    tag_id INTEGER              // Device-specific!
+);
+
+// ✅ Good: Using UUIDs
+CREATE TABLE user_metadata_tag (
+    user_metadata_uuid UUID,   // Global!
+    tag_uuid UUID               // Global!
+);
+
+// Or resolve during sync:
+async fn apply_relationship(remote: RelationshipData) {
+    let local_metadata_id = resolve_uuid_to_id(remote.user_metadata_uuid).await?;
+    let local_tag_id = resolve_uuid_to_id(remote.tag_uuid).await?;
+
+    insert_user_metadata_tag(local_metadata_id, local_tag_id, remote.confidence).await?;
+}
+```
+
 ## Conflict Resolution
 
 ### Optimistic Concurrency

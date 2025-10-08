@@ -18,7 +18,7 @@ use crate::{
 	volume::VolumeManager,
 };
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -202,6 +202,30 @@ impl LibraryManager {
 		let db_path = path.join("database.db");
 		let db = Arc::new(Database::open(&db_path).await?);
 
+		// Open sync log database (separate DB per library)
+		let sync_log_db = Arc::new(
+			crate::infra::sync::SyncLogDb::open(config.id, path)
+				.await
+				.map_err(|e| LibraryError::Other(format!("Failed to open sync log: {}", e)))?,
+		);
+
+		// Get this device's ID for sync coordination
+		let device_id = context
+			.device_manager
+			.device_id()
+			.map_err(|e| LibraryError::Other(format!("Failed to get device ID: {}", e)))?;
+
+		// Create leadership manager
+		let leadership_manager = Arc::new(tokio::sync::Mutex::new(
+			crate::infra::sync::LeadershipManager::new(device_id),
+		));
+
+		// Create transaction manager
+		let transaction_manager = Arc::new(crate::infra::sync::TransactionManager::new(
+			self.event_bus.clone(),
+			leadership_manager.clone(),
+		));
+
 		// Create job manager with context
 		let job_manager =
 			Arc::new(JobManager::new(path.to_path_buf(), context.clone(), config.id).await?);
@@ -214,12 +238,32 @@ impl LibraryManager {
 			db,
 			jobs: job_manager,
 			event_bus: self.event_bus.clone(),
+			sync_log_db,
+			transaction_manager,
+			leadership_manager,
 			_lock: lock,
 		});
 
 		// Ensure device is registered in this library
-		if let Err(e) = self.ensure_device_registered(&library).await {
+		let is_creator = if let Err(e) = self.ensure_device_registered(&library).await {
 			warn!("Failed to register device in library {}: {}", config.id, e);
+			false
+		} else {
+			// Check if this is the only device (creator)
+			self.is_library_creator(&library).await.unwrap_or(false)
+		};
+
+		// Initialize sync leadership for this library
+		{
+			let mut leadership = library.leadership_manager.lock().await;
+			let role = leadership.initialize_library(config.id, is_creator);
+			info!(
+				library_id = %config.id,
+				device_id = %device_id,
+				role = ?role,
+				is_creator = is_creator,
+				"Initialized sync leadership"
+			);
 		}
 
 		// Register library
@@ -532,6 +576,36 @@ impl LibraryManager {
 		}
 
 		Ok(())
+	}
+
+	/// Check if this device created the library (is the only device)
+	async fn is_library_creator(&self, library: &Arc<Library>) -> Result<bool> {
+		let db = library.db();
+		let device_id = self
+			.device_manager
+			.device_id()
+			.map_err(|e| LibraryError::Other(format!("Failed to get device ID: {}", e)))?;
+
+		// Count total devices in the library
+		let device_count = entities::device::Entity::find()
+			.count(db.conn())
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		// If this is the only device, it's the creator
+		if device_count == 1 {
+			// Verify it's actually our device
+			let our_device = entities::device::Entity::find()
+				.filter(entities::device::Column::Uuid.eq(device_id))
+				.one(db.conn())
+				.await
+				.map_err(LibraryError::DatabaseError)?;
+
+			Ok(our_device.is_some())
+		} else {
+			// Multiple devices - not the creator
+			Ok(false)
+		}
 	}
 
 	/// Delete a library

@@ -14,10 +14,15 @@ pub use error::{LibraryError, Result};
 pub use lock::LibraryLock;
 pub use manager::{DiscoveredLibrary, LibraryManager};
 
-use crate::infra::{db::Database, event::EventBus, job::manager::JobManager};
+use crate::infra::{
+	db::Database,
+	event::EventBus,
+	job::manager::JobManager,
+	sync::{LeadershipManager, SyncLogDb, TransactionManager},
+};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
@@ -37,6 +42,15 @@ pub struct Library {
 
 	/// Event bus for emitting events
 	event_bus: Arc<EventBus>,
+
+	/// Sync log database (separate from main library DB)
+	sync_log_db: Arc<SyncLogDb>,
+
+	/// Transaction manager for atomic writes + sync logging
+	transaction_manager: Arc<TransactionManager>,
+
+	/// Leadership manager for sync coordination
+	leadership_manager: Arc<Mutex<LeadershipManager>>,
 
 	/// Lock preventing concurrent access
 	_lock: LibraryLock,
@@ -70,6 +84,21 @@ impl Library {
 	/// Get the job manager
 	pub fn jobs(&self) -> &Arc<JobManager> {
 		&self.jobs
+	}
+
+	/// Get the sync log database
+	pub fn sync_log_db(&self) -> &Arc<SyncLogDb> {
+		&self.sync_log_db
+	}
+
+	/// Get the transaction manager
+	pub fn transaction_manager(&self) -> &Arc<TransactionManager> {
+		&self.transaction_manager
+	}
+
+	/// Get the leadership manager
+	pub fn leadership_manager(&self) -> &Arc<Mutex<LeadershipManager>> {
+		&self.leadership_manager
 	}
 
 	/// Get a copy of the current configuration
