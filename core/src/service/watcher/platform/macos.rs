@@ -690,14 +690,11 @@ impl MacOSHandler {
 		let mut all_events = Vec::new();
 		let mut last_check = self.last_events_eviction_check.write().await;
 
-		let elapsed_ms = last_check.elapsed().as_millis();
-		info!(
-			"tick_with_locations: elapsed={}ms, threshold=100ms",
-			elapsed_ms
-		);
+		// Run eviction every 2 seconds instead of every 100ms to avoid spam
+		// This is appropriate for file system event debouncing
+		let eviction_interval = ONE_SECOND * 2;
 
-		if last_check.elapsed() > HUNDRED_MILLIS {
-			info!("✓ Elapsed check passed, running eviction");
+		if last_check.elapsed() > eviction_interval {
 			// Handle file update evictions
 			let update_events = self.handle_to_update_eviction(watched_locations).await?;
 			all_events.extend(update_events);
