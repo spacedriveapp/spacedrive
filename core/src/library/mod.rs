@@ -116,9 +116,7 @@ impl Library {
 	}
 
 	/// Initialize the sync service (called during library setup)
-	pub(crate) async fn init_sync_service(
-		&self,
-	) -> Result<()> {
+	pub(crate) async fn init_sync_service(&self) -> Result<()> {
 		if self.sync_service.get().is_some() {
 			return Ok(());
 		}

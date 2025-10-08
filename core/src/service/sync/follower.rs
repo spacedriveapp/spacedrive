@@ -121,4 +121,3 @@ impl FollowerSync {
 		*self.last_synced_sequence.lock().await
 	}
 }
-
