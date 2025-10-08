@@ -1,26 +1,45 @@
 ---
 id: LSYNC-003
-title: File Operation Sync (via Action System)
+title: Cross-Device File Operations (Future Phase)
 status: To Do
 assignee: unassigned
 parent: LSYNC-000
-priority: High
-tags: [sync, networking, actions, jobs]
-whitepaper: Section 4.5.1
+priority: Low
+tags: [sync, file-ops, future]
 ---
 
 ## Description
 
-Implement the file operation synchronization part of the Library Sync protocol. This involves using the Action System to replicate file operations (copy, move, delete) between peers based on the synced metadata.
+Enable file operations (copy, move, delete) to be executed across devices. This is a **future phase** feature - not part of the initial sync implementation.
 
-## Implementation Steps
+**Current Architecture**: File operations are device-local. If you delete a file on Device A, only the metadata syncs (the Entry is marked deleted). Device B sees the metadata change but does NOT delete its local file copy.
 
-1.  Develop a mechanism to translate the diff of the audit logs into a series of `Action`s.
-2.  Implement the logic to dispatch these `Action`s to the `ActionManager` on the target peer.
-3.  Ensure that the file operations are executed in the correct order and with the correct context.
-4.  Integrate this with the overall Library Sync protocol.
+**Future Goal**: User can optionally enable "sync conduits" where file operations replicate across devices. Example: Delete on Device A → Device B also deletes local file.
+
+## Implementation Steps (Future)
+
+1. Design "sync conduit" configuration (which locations participate)
+2. File operation actions emit special sync log entries
+3. Follower service recognizes file-op entries
+4. Follower executes corresponding local file operation
+5. Handle conflicts (file already deleted, moved, etc.)
+6. Add user controls for sync conduit policies
+
+## Why Not Phase 1?
+
+- Metadata sync is complex enough initially
+- File operations need robust conflict resolution
+- Users may not want all devices to mirror operations
+- Bandwidth/storage considerations (mobile devices)
 
 ## Acceptance Criteria
--   [ ] File operations are correctly replicated on the target peer.
--   [ ] The system can handle conflicts and errors during file operation sync.
--   [ ] The file operation sync is integrated seamlessly into the Library Sync protocol.
+
+- [ ] Sync conduit configuration schema
+- [ ] File operations create special sync log type
+- [ ] Follower can execute file operations
+- [ ] Conflict resolution for file ops
+- [ ] User can enable/disable per location pair
+
+## References
+
+- `docs/core/sync.md` - Sync domains (Content future phase)
