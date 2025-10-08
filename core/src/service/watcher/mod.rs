@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 mod event_handler;
@@ -340,6 +340,19 @@ impl LocationWatcher {
 				.await?;
 		}
 
+		// Register database connection for this location (needed for rename detection)
+		let libraries = self.context.libraries().await;
+		if let Some(library) = libraries.get_library(location.library_id).await {
+			let db = library.db().conn().clone();
+			self.platform_handler
+				.register_location_db(location.id, db)
+				.await;
+			debug!(
+				"Registered database connection for location {} (rename detection)",
+				location.id
+			);
+		}
+
 		// Add to file system watcher if running
 		if *self.is_running.read().await {
 			if let Some(watcher) = self.watcher.write().await.as_mut() {
@@ -359,6 +372,15 @@ impl LocationWatcher {
 		if let Some(location) = locations.remove(&location_id) {
 			// Remove worker for this location
 			self.remove_worker_for_location(location_id).await;
+
+			// Unregister database connection for this location
+			self.platform_handler
+				.unregister_location_db(location_id)
+				.await;
+			debug!(
+				"Unregistered database connection for location {}",
+				location_id
+			);
 
 			// Remove from file system watcher if running
 			if *self.is_running.read().await {
@@ -442,6 +464,12 @@ impl LocationWatcher {
 						.await
 						{
 							Ok(path) => {
+								// Register database connection for this location first
+								let db = library.db().conn().clone();
+								self.platform_handler
+									.register_location_db(location.uuid, db)
+									.await;
+
 								// Convert database location to WatchedLocation
 								let watched_location = WatchedLocation {
 									id: location.uuid,
@@ -459,7 +487,7 @@ impl LocationWatcher {
 								} else {
 									total_locations += 1;
 									debug!(
-										"Added location {} to watcher: {}",
+										"Added location {} to watcher: {} (with DB connection)",
 										location.uuid,
 										path.display()
 									);
@@ -503,31 +531,39 @@ impl LocationWatcher {
 		let tx_clone = tx.clone();
 
 		// Create file system watcher
-		let mut watcher = notify::recommended_watcher(move |res| {
-			match res {
-				Ok(event) => {
-					if debug_mode {
-						debug!("Raw file system event: {:?}", event);
+		let mut watcher =
+			notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
+				match res {
+					Ok(event) => {
+						// Always log raw events for now to debug rename issues
+						debug!(
+							"Raw notify event: kind={:?}, paths={:?}",
+							event.kind, event.paths
+						);
+
+						// Record event received
+						metrics.record_event_received();
+
+						// Convert notify event to our WatcherEvent
+						let watcher_event = WatcherEvent::from_notify_event(event);
+
+						// Send event directly to avoid runtime context issues
+						// Use try_send since we're in a sync context
+						match tx_clone.try_send(watcher_event) {
+							Ok(_) => {
+								debug!("Successfully sent event to channel");
+							}
+							Err(e) => {
+								error!("Failed to send watcher event: {}", e);
+								// This could happen if the channel is full or receiver is dropped
+							}
+						}
 					}
-
-					// Record event received
-					metrics.record_event_received();
-
-					// Convert notify event to our WatcherEvent
-					let watcher_event = WatcherEvent::from_notify_event(event);
-
-					// Send event directly to avoid runtime context issues
-					// Use try_send since we're in a sync context
-					if let Err(e) = tx_clone.try_send(watcher_event) {
-						error!("Failed to send watcher event: {}", e);
-						// This could happen if the channel is full or receiver is dropped
+					Err(e) => {
+						error!("File system watcher error: {}", e);
 					}
 				}
-				Err(e) => {
-					error!("File system watcher error: {}", e);
-				}
-			}
-		})?;
+			})?;
 
 		// Configure watcher
 		watcher.configure(Config::default().with_poll_interval(Duration::from_millis(500)))?;
@@ -547,9 +583,12 @@ impl LocationWatcher {
 
 		// Start event processing loop
 		tokio::spawn(async move {
+			info!("Location watcher event loop task spawned");
+
 			while *is_running.read().await {
 				tokio::select! {
 					Some(event) = rx.recv() => {
+						debug!("Received event from channel: {:?}", event.kind);
 						// Process the event through platform handler
 						match platform_handler.process_event(event, &watched_locations).await {
 							Ok(processed_events) => {
@@ -595,8 +634,11 @@ impl LocationWatcher {
 															},
 														};
 
+														debug!("Sending event to worker: {:?}", watcher_event.kind);
 														if let Err(e) = worker_tx.send(watcher_event).await {
 															warn!("Failed to send event to worker for location {}: {}", location.id, e);
+														} else {
+															debug!("✓ Successfully sent event to worker");
 														}
 														break;
 													}
@@ -615,20 +657,74 @@ impl LocationWatcher {
 								error!("Error processing watcher event: {}", e);
 							}
 						}
+						trace!("Finished processing event, continuing loop");
 					}
 					_ = tokio::time::sleep(Duration::from_millis(100)) => {
 						// Periodic tick for debouncing and cleanup
+						debug!("Tick sleep completed (100ms), running platform handler tick");
 						if let Err(e) = platform_handler.tick().await {
 							error!("Error during platform handler tick: {}", e);
 						}
 
-						// Handle platform-specific tick events that might generate additional events
+						// Handle platform-specific tick events that might generate additional events (e.g., rename matching)
 						#[cfg(target_os = "macos")]
 						{
+							debug!("Calling tick_with_locations for macOS");
 							if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations).await {
+								debug!("tick_with_locations returned {} events", tick_events.len());
 								for tick_event in tick_events {
-									// Note: We need access to events bus here, but it's not available in this scope
-									// This will be handled by the workers when they emit final events
+									match tick_event {
+										Event::FsRawChange { library_id, kind } => {
+											// Emit the event to the event bus for subscribers
+											events.emit(Event::FsRawChange {
+												library_id,
+												kind: kind.clone(),
+											});
+
+											// Route to appropriate worker
+											let locations = watched_locations.read().await;
+											for location in locations.values() {
+												if location.library_id == library_id {
+													if let Some(worker_tx) = workers.read().await.get(&location.id) {
+														let watcher_event = match kind {
+															FsRawEventKind::Create { path } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Create,
+																paths: vec![path],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+															FsRawEventKind::Modify { path } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Modify,
+																paths: vec![path],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+															FsRawEventKind::Remove { path } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Remove,
+																paths: vec![path],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+															FsRawEventKind::Rename { from, to } => WatcherEvent {
+																kind: event_handler::WatcherEventKind::Rename { from, to },
+																paths: vec![],
+																timestamp: std::time::SystemTime::now(),
+																attrs: vec![],
+															},
+														};
+
+														if let Err(e) = worker_tx.send(watcher_event).await {
+															warn!("Failed to send tick event to worker for location {}: {}", location.id, e);
+														}
+														break;
+													}
+												}
+											}
+										}
+										_ => {
+											// Other event types, if any
+										}
+									}
 								}
 							}
 						}
@@ -637,8 +733,16 @@ impl LocationWatcher {
 						{
 							if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations).await {
 								for tick_event in tick_events {
-									// Note: We need access to events bus here, but it's not available in this scope
-									// This will be handled by the workers when they emit final events
+									// Similar handling for Windows if needed
+									match tick_event {
+										Event::FsRawChange { library_id, kind } => {
+											events.emit(Event::FsRawChange {
+												library_id,
+												kind: kind.clone(),
+											});
+										}
+										_ => {}
+									}
 								}
 							}
 						}

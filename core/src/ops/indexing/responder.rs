@@ -162,7 +162,19 @@ async fn handle_remove(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 async fn handle_rename(ctx: &impl IndexingCtx, from: &Path, to: &Path) -> Result<()> {
 	debug!("Rename: {} -> {}", from.display(), to.display());
 	if let Some(entry_id) = resolve_entry_id_by_path(ctx, from).await? {
+		debug!("Found entry {} for old path, moving to new path", entry_id);
+
+		// Create state and populate entry_id_cache with parent directories
 		let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(from));
+
+		// Populate cache with new parent directory if it exists
+		if let Some(new_parent_path) = to.parent() {
+			if let Ok(Some(parent_id)) = resolve_directory_entry_id(ctx, new_parent_path).await {
+				state.entry_id_cache.insert(new_parent_path.to_path_buf(), parent_id);
+				debug!("Populated parent cache: {} -> {}", new_parent_path.display(), parent_id);
+			}
+		}
+
 		EntryProcessor::move_entry(
 			&mut state,
 			ctx,
@@ -172,6 +184,9 @@ async fn handle_rename(ctx: &impl IndexingCtx, from: &Path, to: &Path) -> Result
 			to.parent().unwrap_or_else(|| Path::new("/")),
 		)
 		.await?;
+		debug!("✓ Successfully moved entry {} to new path", entry_id);
+	} else {
+		debug!("Entry not found for old path {}, skipping rename", from.display());
 	}
 	Ok(())
 }

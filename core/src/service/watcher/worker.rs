@@ -134,20 +134,39 @@ impl LocationWorker {
 
 	/// Coalesce and deduplicate events within a batch
 	fn coalesce_events(&self, mut events: Vec<WatcherEvent>) -> Result<Vec<WatcherEvent>> {
-		// Group events by path for deduplication
-		let mut path_events: HashMap<PathBuf, Vec<WatcherEvent>> = HashMap::new();
+		// Separate Rename events (they have no primary path)
+		let mut rename_events = Vec::new();
+		let mut other_events = Vec::new();
 
 		for event in events {
 			if !event.should_process() {
 				continue;
 			}
 
+			if matches!(
+				&event.kind,
+				crate::service::watcher::event_handler::WatcherEventKind::Rename { .. }
+			) {
+				// Rename events go directly to output (don't coalesce with other events)
+				rename_events.push(event);
+			} else if let Some(_path) = event.primary_path() {
+				other_events.push(event);
+			}
+		}
+
+		// Group non-rename events by path for deduplication
+		let mut path_events: HashMap<PathBuf, Vec<WatcherEvent>> = HashMap::new();
+
+		for event in other_events {
 			if let Some(path) = event.primary_path() {
 				path_events.entry(path.clone()).or_default().push(event);
 			}
 		}
 
 		let mut coalesced = Vec::new();
+
+		// Add rename events first (they should be processed before creates/modifies)
+		coalesced.extend(rename_events);
 
 		for (path, mut path_events) in path_events {
 			if path_events.is_empty() {
@@ -371,6 +390,11 @@ impl LocationWorker {
 					}
 				}
 				crate::service::watcher::event_handler::WatcherEventKind::Rename { from, to } => {
+					debug!(
+						"Worker converting Rename event: {} -> {}",
+						from.display(),
+						to.display()
+					);
 					Some(FsRawEventKind::Rename { from, to })
 				}
 				_ => None,
@@ -382,6 +406,22 @@ impl LocationWorker {
 		}
 
 		// Process the batch through the responder
+		debug!(
+			"Worker sending {} raw events to responder for location {}",
+			raw_events.len(),
+			self.location_id
+		);
+		for event in &raw_events {
+			match event {
+				FsRawEventKind::Create { path } => debug!("  → Create: {}", path.display()),
+				FsRawEventKind::Modify { path } => debug!("  → Modify: {}", path.display()),
+				FsRawEventKind::Remove { path } => debug!("  → Remove: {}", path.display()),
+				FsRawEventKind::Rename { from, to } => {
+					debug!("  → Rename: {} -> {}", from.display(), to.display())
+				}
+			}
+		}
+
 		if let Err(e) = responder::apply_batch(&self.context, self.library_id, raw_events).await {
 			error!(
 				"Failed to apply batch for location {}: {}",

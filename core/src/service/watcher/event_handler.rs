@@ -1,7 +1,10 @@
 //! Event handling for file system changes
 
 use crate::infra::event::{Event, FsRawEventKind};
-use notify::{Event as NotifyEvent, EventKind};
+use notify::{
+	event::{ModifyKind, RenameMode},
+	Event as NotifyEvent, EventKind,
+};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -40,6 +43,9 @@ impl WatcherEvent {
 	pub fn from_notify_event(event: NotifyEvent) -> Self {
 		let kind = match event.kind {
 			EventKind::Create(_) => WatcherEventKind::Create,
+			EventKind::Modify(ModifyKind::Name(RenameMode::Any)) => {
+				WatcherEventKind::Other("rename".to_string())
+			}
 			EventKind::Modify(_) => WatcherEventKind::Modify,
 			EventKind::Remove(_) => WatcherEventKind::Remove,
 			other => WatcherEventKind::Other(format!("{:?}", other)),

@@ -3,6 +3,7 @@
 use crate::infra::event::Event;
 use crate::service::watcher::{WatchedLocation, WatcherEvent};
 use anyhow::Result;
+use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -54,6 +55,28 @@ impl PlatformHandler {
 	/// Periodic tick for cleanup and debouncing
 	pub async fn tick(&self) -> Result<()> {
 		self.inner.tick().await
+	}
+
+	/// Register a database connection for a location (needed for rename detection)
+	#[cfg(target_os = "macos")]
+	pub async fn register_location_db(&self, location_id: Uuid, db: DatabaseConnection) {
+		self.inner.register_location_db(location_id, db).await;
+	}
+
+	#[cfg(not(target_os = "macos"))]
+	pub async fn register_location_db(&self, _location_id: Uuid, _db: DatabaseConnection) {
+		// Not needed on other platforms yet
+	}
+
+	/// Unregister a database connection for a location
+	#[cfg(target_os = "macos")]
+	pub async fn unregister_location_db(&self, location_id: Uuid) {
+		self.inner.unregister_location_db(location_id).await;
+	}
+
+	#[cfg(not(target_os = "macos"))]
+	pub async fn unregister_location_db(&self, _location_id: Uuid) {
+		// Not needed on other platforms yet
 	}
 }
 
