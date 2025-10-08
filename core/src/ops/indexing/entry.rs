@@ -75,7 +75,7 @@ impl EntryProcessor {
 
 	/// Extract detailed metadata from a path
 	pub async fn extract_metadata(path: &Path) -> Result<EntryMetadata, std::io::Error> {
-		let metadata = tokio::fs::metadata(path).await?;
+		let metadata = tokio::fs::symlink_metadata(path).await?;
 
 		let kind = if metadata.is_dir() {
 			EntryKind::Directory
@@ -602,7 +602,7 @@ impl EntryProcessor {
 			existing_id
 		} else {
 			// Create new content identity with deterministic UUID (ready for sync)
-			let file_size = tokio::fs::metadata(path)
+			let file_size = tokio::fs::symlink_metadata(path)
 				.await
 				.map(|m| m.len() as i64)
 				.unwrap_or(0);
@@ -900,7 +900,7 @@ impl EntryProcessor {
 		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
 
 		// Update size if it changed
-		if let Ok(metadata) = std::fs::metadata(&entry.path) {
+		if let Ok(metadata) = std::fs::symlink_metadata(&entry.path) {
 			entry_active.size = Set(metadata.len() as i64);
 
 			// Update modified time

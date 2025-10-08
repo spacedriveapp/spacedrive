@@ -23,6 +23,7 @@ pub mod progress;
 pub mod responder;
 pub mod rules;
 pub mod state;
+pub mod verify;
 
 // Re-exports for convenience
 pub use action::IndexingAction;
@@ -42,6 +43,7 @@ pub use rules::{
 	RulerDecision,
 };
 pub use state::{IndexPhase, IndexerProgress, IndexerState, IndexerStats};
+pub use verify::{IndexVerifyAction, IndexVerifyInput, IndexVerifyOutput, IntegrityReport};
 
 // Rules system will be integrated here in the future
 // pub mod rules;

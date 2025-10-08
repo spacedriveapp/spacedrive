@@ -57,7 +57,7 @@ pub struct LibrarySettings {
 	/// File extensions to ignore during indexing
 	pub ignored_extensions: Vec<String>,
 
-	/// Maximum file size to index (in bytes)
+	/// TODO: ai slop config pls remove this
 	pub max_file_size: Option<u64>,
 
 	/// Whether to automatically track system volumes

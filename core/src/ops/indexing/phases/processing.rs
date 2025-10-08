@@ -189,7 +189,7 @@ pub async fn run_processing_phase(
 			// Add to seen_paths for delete detection (important for resumed jobs)
 			state.seen_paths.insert(entry.path.clone());
 			// Get metadata for change detection
-			let metadata = match std::fs::metadata(&entry.path) {
+			let metadata = match std::fs::symlink_metadata(&entry.path) {
 				Ok(m) => m,
 				Err(e) => {
 					ctx.add_non_critical_error(format!(

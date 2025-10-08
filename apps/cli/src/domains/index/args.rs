@@ -7,6 +7,7 @@ use sd_core::{
 	ops::indexing::{
 		input::IndexInput,
 		job::{IndexMode, IndexPersistence, IndexScope},
+		verify::input::IndexVerifyInput,
 	},
 };
 
@@ -137,5 +138,34 @@ impl BrowseArgs {
 			})
 			.with_scope(IndexScope::from(self.scope.clone()))
 			.with_persistence(IndexPersistence::Ephemeral))
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct IndexVerifyArgs {
+	/// Path to verify (can be location root or subdirectory)
+	pub path: PathBuf,
+
+	/// Verify content hashes (slower but more thorough)
+	#[arg(long, default_value_t = false)]
+	pub verify_content: bool,
+
+	/// Show detailed file-by-file comparison
+	#[arg(long, default_value_t = true)]
+	pub detailed: bool,
+
+	/// Automatically fix issues (not yet implemented)
+	#[arg(long, default_value_t = false)]
+	pub auto_fix: bool,
+}
+
+impl IndexVerifyArgs {
+	pub fn to_input(&self) -> IndexVerifyInput {
+		IndexVerifyInput {
+			path: self.path.clone(),
+			verify_content: self.verify_content,
+			detailed_report: self.detailed,
+			auto_fix: self.auto_fix,
+		}
 	}
 }

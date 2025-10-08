@@ -1,0 +1,211 @@
+# Index Integrity Verification Command
+
+## Overview
+
+The `index verify` command performs a comprehensive integrity check of the Spacedrive index for any given path. It compares the actual filesystem state with what's stored in the database and reports any discrepancies.
+
+## Usage
+
+```bash
+# Basic usage - verify a location
+sd-cli index verify /path/to/check
+
+# Verify with content hash checking (slower but more thorough)
+sd-cli index verify /path/to/check --verify-content
+
+# Verify without detailed output (just summary)
+sd-cli index verify /path/to/check --detailed=false
+
+# Future: Auto-fix issues (not yet implemented)
+sd-cli index verify /path/to/check --auto-fix
+```
+
+## How It Works
+
+The command performs three main steps:
+
+### 1. Ephemeral Indexing
+Runs a fresh, in-memory index scan of the filesystem path to capture the current state:
+- Discovers all files and directories
+- Extracts metadata (size, modified time, inode)
+- Optionally generates content hashes (with `--verify-content`)
+
+### 2. Database Query
+Queries the Spacedrive database for all indexed entries under the given path:
+- Uses closure table for efficient descendant lookup
+- Resolves full paths for all entries
+- Extracts stored metadata
+
+### 3. Comparison & Reporting
+Compares the two datasets and categorizes differences:
+
+| Issue Type | Description |
+|------------|-------------|
+| **Missing from Index** | Files exist on filesystem but not in database |
+| **Stale in Index** | Files exist in database but not on filesystem |
+| **Metadata Mismatch** | Files exist in both but with incorrect size/time/inode |
+| **Hierarchy Error** | Files have incorrect parent relationships |
+
+## Output Format
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║          INDEX INTEGRITY VERIFICATION REPORT                ║
+╠══════════════════════════════════════════════════════════════╣
+║ Path: /Users/jamie/Documents                                ║
+║ Duration: 2.34s                                              ║
+╠══════════════════════════════════════════════════════════════╣
+║ Filesystem: 1247 files, 89 directories                       ║
+║ Database:   1245 files, 89 directories                       ║
+╠══════════════════════════════════════════════════════════════╣
+║ ❌ STATUS: DIVERGED - 4 issues found                        ║
+╠══════════════════════════════════════════════════════════════╣
+║ ⚠️  Missing from index: 2                                    ║
+║   - /Users/jamie/Documents/new-file.txt                      ║
+║   - /Users/jamie/Documents/another-new.pdf                   ║
+║ 🗑️  Stale in index: 2                                        ║
+║   - /Users/jamie/Documents/deleted-file.txt                  ║
+║   - /Users/jamie/Documents/old/removed.doc                   ║
+╠══════════════════════════════════════════════════════════════╣
+║ ❌ Index has diverged: 2 missing, 2 stale. Total: 4        ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+## When to Use
+
+### Debugging Index Issues
+If you suspect the index is out of sync with the filesystem:
+```bash
+sd-cli index verify ~/Documents
+```
+
+### After Manual File Operations
+If you've manually modified files outside Spacedrive:
+```bash
+# You edited files manually
+sd-cli index verify /path/that/changed
+```
+
+### Performance Testing
+To verify the watcher is working correctly:
+```bash
+# Make changes, then verify
+touch /test/newfile.txt
+sleep 1
+sd-cli index verify /test
+```
+
+### Pre-Sync Validation
+Before syncing a library to ensure data integrity:
+```bash
+sd-cli index verify /  # Verify entire library
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Index is valid (no issues found) |
+| 1 | Index has diverged (issues found) |
+| 2 | Verification failed (error occurred) |
+
+## Use in Scripts
+
+```bash
+#!/bin/bash
+# Automated integrity check
+
+if sd-cli index verify /data/important --detailed=false; then
+    echo "✅ Index is valid"
+else
+    echo "❌ Index has issues - running rescan"
+    sd-cli location rescan <location-id>
+fi
+```
+
+## Performance Characteristics
+
+| Path Size | Typical Duration | Memory Usage |
+|-----------|------------------|--------------|
+| 100 files | <1 second | ~10 MB |
+| 1,000 files | 1-3 seconds | ~50 MB |
+| 10,000 files | 10-30 seconds | ~200 MB |
+| 100,000 files | 1-5 minutes | ~1 GB |
+
+With `--verify-content`:
+- Add 50-200% time overhead (depends on file sizes)
+- Requires reading file contents for hashing
+
+## Common Use Cases
+
+### 1. Verify Location After Import
+```bash
+sd-cli location add ~/Photos --name "Photos"
+# Wait for indexing to complete
+sd-cli index verify ~/Photos
+```
+
+### 2. Debug Watcher Issues
+```bash
+# Monitor filesystem
+watch -n 5 'sd-cli index verify /watched/path --detailed=false'
+```
+
+### 3. Find Orphaned Entries
+```bash
+# Check for stale entries
+sd-cli index verify / | grep "Stale in index"
+```
+
+### 4. Validate After Bulk Operations
+```bash
+# After moving many files
+mv ~/old-location/* ~/new-location/
+sd-cli index verify ~/new-location
+```
+
+## Troubleshooting
+
+### "Path does not exist"
+- Ensure the path is correct and accessible
+- Check permissions
+
+### "No entries found in database"
+- Path might not be part of a managed location
+- Run `sd-cli location list` to see indexed locations
+
+### High number of "Missing from Index"
+- Location watcher might be disabled
+- Files were added manually without indexing
+- Run `sd-cli location rescan <location-id>` to fix
+
+### High number of "Stale in Index"
+- Files were deleted manually
+- Database not updated
+- Consider running cleanup
+
+## API Access
+
+The verification can also be triggered programmatically:
+
+```rust
+use sd_core::ops::indexing::verify::{IndexVerifyAction, IndexVerifyInput};
+
+let input = IndexVerifyInput::new(PathBuf::from("/path/to/verify"));
+let result = IndexVerifyAction::from_input(input)?
+    .execute(library, context)
+    .await?;
+
+if !result.is_valid {
+    println!("Found {} issues", result.report.total_issues());
+}
+```
+
+## Future Enhancements
+
+- `--auto-fix`: Automatically repair issues (add missing, remove stale)
+- `--watch`: Continuously verify and report drift
+- `--json`: Machine-readable output for automation
+- `--compare-with <snapshot>`: Compare current state with previous snapshot
+- `--export-snapshot`: Save current state for future comparison
+

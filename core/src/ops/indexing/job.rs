@@ -557,6 +557,12 @@ impl IndexerJob {
 		Self::new(IndexerJobConfig::ui_navigation(location_id, path))
 	}
 
+	/// Set the ephemeral index storage (must be called before dispatching for ephemeral jobs)
+	/// This allows external code to maintain a reference to the same storage the job uses
+	pub fn set_ephemeral_index(&mut self, index: Arc<RwLock<EphemeralIndex>>) {
+		self.ephemeral_index = Some(index);
+	}
+
 	/// Create an ephemeral browsing job (no database writes)
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
 		Self::new(IndexerJobConfig::ephemeral_browse(path, scope))

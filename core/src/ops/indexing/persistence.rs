@@ -426,7 +426,7 @@ impl IndexPersistence for EphemeralPersistence {
 		cas_id: String,
 	) -> JobResult<()> {
 		// Get file size
-		let file_size = tokio::fs::metadata(path)
+		let file_size = tokio::fs::symlink_metadata(path)
 			.await
 			.map(|m| m.len())
 			.unwrap_or(0);
