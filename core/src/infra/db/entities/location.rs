@@ -124,7 +124,96 @@ impl Syncable for Model {
 		// Note: entry_id DOES sync - it's the UUID of the root entry (resolved via sync)
 		// Note: Statistics (total_file_count, etc.) DO sync - they reflect the owner's data
 	}
+
+	async fn apply_sync_entry(
+		entry: &crate::infra::sync::SyncLogEntry,
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+		use crate::infra::sync::ChangeType;
+		use sea_orm::ActiveValue;
+
+		match entry.change_type {
+			ChangeType::Insert => {
+				// Deserialize location from sync data
+				let location_data: Model = serde_json::from_value(entry.data.clone())?;
+
+				// Check if already exists (idempotent)
+				let existing = Entity::find()
+					.filter(Column::Uuid.eq(entry.record_id))
+					.one(db)
+					.await?;
+
+				if existing.is_some() {
+					return Ok(()); // Already exists
+				}
+
+				// Insert location
+				let active_model = ActiveModel {
+					id: ActiveValue::NotSet,
+					uuid: ActiveValue::Set(location_data.uuid),
+					device_id: ActiveValue::Set(location_data.device_id),
+					entry_id: ActiveValue::Set(location_data.entry_id),
+					name: ActiveValue::Set(location_data.name),
+					index_mode: ActiveValue::Set(location_data.index_mode),
+					scan_state: ActiveValue::Set("pending".to_string()), // Reset for follower
+					last_scan_at: ActiveValue::Set(location_data.last_scan_at),
+					error_message: ActiveValue::NotSet,
+					total_file_count: ActiveValue::Set(location_data.total_file_count),
+					total_byte_size: ActiveValue::Set(location_data.total_byte_size),
+					created_at: ActiveValue::Set(chrono::Utc::now().into()),
+					updated_at: ActiveValue::Set(chrono::Utc::now().into()),
+				};
+
+				active_model.insert(db).await?;
+				Ok(())
+			}
+
+			ChangeType::Update => {
+				// Fetch current local version
+				let existing = Entity::find()
+					.filter(Column::Uuid.eq(entry.record_id))
+					.one(db)
+					.await?;
+
+				if let Some(local) = existing {
+					// Check version for conflict resolution
+					if local.version() >= entry.version {
+						return Ok(()); // Local is newer, skip
+					}
+
+					// Deserialize and update
+					let location_data: Model = serde_json::from_value(entry.data.clone())?;
+
+					let mut active_model: ActiveModel = local.into();
+					active_model.name = ActiveValue::Set(location_data.name);
+					active_model.index_mode = ActiveValue::Set(location_data.index_mode);
+					active_model.total_file_count =
+						ActiveValue::Set(location_data.total_file_count);
+					active_model.total_byte_size = ActiveValue::Set(location_data.total_byte_size);
+					active_model.last_scan_at = ActiveValue::Set(location_data.last_scan_at);
+					active_model.updated_at = ActiveValue::Set(chrono::Utc::now().into());
+
+					active_model.update(db).await?;
+				}
+				Ok(())
+			}
+
+			ChangeType::Delete => {
+				// Delete location by UUID
+				Entity::delete_many()
+					.filter(Column::Uuid.eq(entry.record_id))
+					.exec(db)
+					.await?;
+				Ok(())
+			}
+
+			_ => Ok(()), // Unsupported change type, skip
+		}
+	}
 }
+
+// Register location model for automatic sync handling
+crate::register_syncable_model!(Model);
 
 #[cfg(test)]
 mod tests {

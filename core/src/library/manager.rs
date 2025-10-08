@@ -18,6 +18,7 @@ use crate::{
 	volume::VolumeManager,
 };
 use chrono::Utc;
+use once_cell::sync::OnceCell;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -241,6 +242,7 @@ impl LibraryManager {
 			sync_log_db,
 			transaction_manager,
 			leadership_manager,
+			sync_service: OnceCell::new(), // Initialized later
 			_lock: lock,
 		});
 
@@ -282,6 +284,14 @@ impl LibraryManager {
 
 		// Note: Sidecar manager initialization should be done by the Core when libraries are loaded
 		// This allows Core to pass its services reference
+
+		// Initialize sync service
+		if let Err(e) = library.init_sync_service().await {
+			warn!(
+				"Failed to initialize sync service for library {}: {}",
+				config.id, e
+			);
+		}
 
 		// Auto-track user-relevant volumes for this library
 		info!(

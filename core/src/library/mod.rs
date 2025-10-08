@@ -20,6 +20,7 @@ use crate::infra::{
 	job::manager::JobManager,
 	sync::{LeadershipManager, SyncLogDb, TransactionManager},
 };
+use once_cell::sync::OnceCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
@@ -52,6 +53,9 @@ pub struct Library {
 	/// Leadership manager for sync coordination
 	leadership_manager: Arc<Mutex<LeadershipManager>>,
 
+	/// Sync service for real-time synchronization (initialized after library creation)
+	sync_service: OnceCell<Arc<crate::service::sync::SyncService>>,
+
 	/// Lock preventing concurrent access
 	_lock: LibraryLock,
 }
@@ -81,6 +85,11 @@ impl Library {
 		&self.db
 	}
 
+	/// Get the event bus
+	pub fn event_bus(&self) -> &Arc<EventBus> {
+		&self.event_bus
+	}
+
 	/// Get the job manager
 	pub fn jobs(&self) -> &Arc<JobManager> {
 		&self.jobs
@@ -99,6 +108,39 @@ impl Library {
 	/// Get the leadership manager
 	pub fn leadership_manager(&self) -> &Arc<Mutex<LeadershipManager>> {
 		&self.leadership_manager
+	}
+
+	/// Get the sync service
+	pub fn sync_service(&self) -> Option<&Arc<crate::service::sync::SyncService>> {
+		self.sync_service.get()
+	}
+
+	/// Initialize the sync service (called during library setup)
+	pub(crate) async fn init_sync_service(
+		&self,
+	) -> Result<()> {
+		if self.sync_service.get().is_some() {
+			return Ok(());
+		}
+
+		let sync_service = crate::service::sync::SyncService::new_from_library(self)
+			.await
+			.map_err(|e| LibraryError::Other(format!("Failed to create sync service: {}", e)))?;
+
+		self.sync_service
+			.set(Arc::new(sync_service))
+			.map_err(|_| LibraryError::Other("Sync service already initialized".to_string()))?;
+
+		// Start the sync service
+		if let Some(service) = self.sync_service.get() {
+			use crate::service::Service;
+			service
+				.start()
+				.await
+				.map_err(|e| LibraryError::Other(format!("Failed to start sync service: {}", e)))?;
+		}
+
+		Ok(())
 	}
 
 	/// Get a copy of the current configuration
@@ -199,6 +241,16 @@ impl Library {
 
 	/// Shutdown the library, gracefully stopping all jobs
 	pub async fn shutdown(&self) -> Result<()> {
+		info!("Shutting down library {}", self.id());
+
+		// Stop sync service
+		if let Some(sync_service) = self.sync_service() {
+			use crate::service::Service;
+			if let Err(e) = sync_service.stop().await {
+				warn!("Error stopping sync service: {}", e);
+			}
+		}
+
 		// Shutdown the job manager, which will pause all running jobs
 		self.jobs.shutdown().await?;
 
@@ -207,7 +259,6 @@ impl Library {
 		self.save_config(&*config).await?;
 
 		// Close library database connection properly
-		use tracing::{info, warn};
 		info!("Closing library database connection");
 
 		// First, checkpoint the WAL file to merge it back into the main database
