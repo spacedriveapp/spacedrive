@@ -1,66 +1,90 @@
 ---
 id: LSYNC-000
-title: "Epic: Library-based Synchronization"
+title: "Epic: Library-based Synchronization (Leaderless)"
 status: In Progress
 assignee: james
 priority: High
-tags: [epic, sync, networking, library-sync]
+tags: [epic, sync, networking, library-sync, leaderless]
 whitepaper: Section 4.5.1
+design_doc: core/src/infra/sync/NEW_SYNC.md
 ---
 
 ## Description
 
-This epic covers the implementation of the "Library Sync" system, enabling real-time, multi-device synchronization of library metadata. The architecture consists of three pillars: TransactionManager (write gatekeeper), Sync Log (append-only change log), and Sync Service (pull-based replication).
+Implement library metadata synchronization using a **leaderless hybrid model**:
+- **State-based sync** for device-owned data (locations, entries, volumes)
+- **Log-based sync with HLC** for shared resources (tags, albums, metadata)
+
+This eliminates leader bottlenecks while maintaining conflict resolution where needed.
+
+## Architecture Revision (Oct 2025)
+
+**Key Insight**: Device ownership eliminates 90% of conflicts. Only truly shared resources need ordered logs.
+
+**Before**: Single leader assigns sequences for all changes
+**After**: Each device broadcasts its own changes, HLC orders shared resources
+
+See `core/src/infra/sync/NEW_SYNC.md` for complete rationale.
 
 ## Current Status
 
 **Completed (Phase 1)**:
-- NET-001: Iroh P2P stack
-- NET-002: Device pairing protocol
-- LSYNC-004: SyncRelationship schema
-- LSYNC-005: Library sync setup (device discovery & registration)
-- LSYNC-001: Protocol design (documented in `docs/core/`)
+- NET-001: Iroh P2P stack ✅
+- NET-002: Device pairing protocol ✅
+- LSYNC-003: Library sync setup ✅
 
 **In Progress (Phase 2)**:
-- LSYNC-006: TransactionManager core
-- LSYNC-007: Syncable trait & derives
-- LSYNC-008: Sync log schema
-- LSYNC-009: Leader election
+- LSYNC-006: TransactionManager (simplified, no leader checks)
+- LSYNC-007: Syncable trait (with device_id field)
+- LSYNC-009: HLC implementation (replaces leader election)
 
 **Upcoming (Phase 3)**:
-- LSYNC-013: Sync protocol handler (message-based)
-- LSYNC-010: Sync service (leader & follower)
-- LSYNC-011: Conflict resolution
-- LSYNC-002: Metadata sync (albums/tags)
-- LSYNC-012: Entry sync (bulk optimization)
+- LSYNC-013: Hybrid protocol handler
+- LSYNC-010: Peer sync service
+- LSYNC-011: Conflict resolution (HLC-based)
+- LSYNC-002: Metadata sync
 
-## Architecture
-
-**Message-based Sync**: Push notifications via dedicated sync protocol instead of polling for better performance, lower latency, and battery efficiency.
-
-See `docs/core/sync.md` for complete specification.
+**Cancelled/Obsolete**:
+- ~~LSYNC-008: Central sync log~~ (replaced with per-device shared_changes)
+- ~~Leader election~~ (no leader needed)
 
 ## Subtasks
 
-### Phase 1: Foundation (Completed)
-- LSYNC-001: Protocol design ✅
-- LSYNC-003: Sync setup ✅
-- LSYNC-004: Database schema ✅
+### Phase 1: Foundation ✅
+- LSYNC-001: Protocol design
+- LSYNC-003: Sync setup
 
-### Phase 2: Core Infrastructure (In Progress)
-- LSYNC-006: TransactionManager
-- LSYNC-007: Syncable trait
-- LSYNC-008: Sync log schema (separate DB)
-- LSYNC-009: Leader election
+### Phase 2: Core Infrastructure (Revised)
+- LSYNC-006: TransactionManager (no leader checks)
+- LSYNC-007: Syncable trait (device ownership)
+- LSYNC-009: HLC implementation
 
-### Phase 3: Sync Services (Next)
-- LSYNC-013: Sync protocol handler (push-based)
-- LSYNC-010: Sync service (leader & follower)
+### Phase 3: Sync Services
+- LSYNC-013: Hybrid protocol handler
+- LSYNC-010: Peer sync service
 - LSYNC-011: Conflict resolution
 
-### Phase 4: Application (After Phase 3)
-- LSYNC-002: Metadata sync (albums/tags)
-- LSYNC-012: Entry sync (bulk optimization)
+### Phase 4: Application
+- LSYNC-002: Metadata sync (tags/albums)
+- Entry sync optimization
 
-### Future
-- LSYNC-003: File operations (sync conduits)
+## Architecture Summary
+
+**Device-Owned Data** (no log, state-based):
+- Locations, Entries, Volumes, Audit Logs
+- Each device broadcasts its own state
+- Peers apply (no conflicts possible)
+- Efficient: just timestamp-based delta sync
+
+**Shared Resources** (small log, HLC-based):
+- Tags, Albums, UserMetadata (on content)
+- Each device logs its shared changes
+- Broadcast with HLC for ordering
+- Peers ACK → aggressive pruning → log stays tiny
+
+**Benefits**:
+- ✅ No leader bottleneck
+- ✅ Works fully offline
+- ✅ Simpler (~800 lines less code)
+- ✅ More resilient
+- ✅ Aligns with architecture

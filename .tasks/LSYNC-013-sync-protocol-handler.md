@@ -1,105 +1,134 @@
 ---
 id: LSYNC-013
-title: Sync Protocol Handler (Message-based)
+title: Hybrid Sync Protocol Handler (State + Log Based)
 status: To Do
 assignee: unassigned
 parent: LSYNC-000
 priority: High
-tags: [sync, networking, protocol, push]
-depends_on: [LSYNC-008, LSYNC-009]
+tags: [sync, networking, protocol, peer-to-peer, leaderless]
+depends_on: [LSYNC-014, LSYNC-015, LSYNC-016]
+design_doc: core/src/infra/sync/NEW_SYNC.md
 ---
 
 ## Description
 
-Create a dedicated sync protocol handler for the networking layer that enables push-based sync via `SyncMessage` enum. This replaces polling with efficient message-passing between leader and follower devices.
+Create sync protocol handler supporting the new hybrid model:
+- **State-based messages** for device-owned data (locations, entries)
+- **Log-based messages with HLC** for shared resources (tags, albums)
 
-## Architecture Decision
+No leader/follower distinction - all devices are peers.
 
-**Before**: Follower polls leader every 5 seconds (`sync_iteration()`)
-- High latency (up to 5s)
-- Wasted bandwidth (empty polls)
-- Battery drain on mobile
+## Architecture Change
 
-**After**: Push-based messaging via dedicated protocol
-- Instant updates (pushed when changes happen)
-- No empty polls
-- Bi-directional: Leader pushes, follower can request
+**Old**: Leader/follower with sequence-based sync
+**New**: Peer-to-peer with hybrid strategy
 
-## SyncMessage Enum
+**Benefits**:
+- ✅ No bottleneck (no leader)
+- ✅ Works offline (all peers equal)
+- ✅ Simpler (no election/heartbeats)
+
+## SyncMessage Enum (Revised)
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncMessage {
-    // Leader → Follower: New entries available
-    NewEntries {
-        library_id: Uuid,
-        from_sequence: u64,
-        to_sequence: u64,
-        entry_count: usize,
+    // ===== State-Based (Device-Owned Data) =====
+
+    /// Broadcast current state of device-owned resource
+    StateChange {
+        model_type: String,      // "location", "entry", "volume"
+        record_uuid: Uuid,
+        device_id: Uuid,         // Owner
+        data: serde_json::Value,
+        timestamp: DateTime<Utc>,
     },
 
-    // Follower → Leader: Request entries
-    FetchEntries {
-        library_id: Uuid,
-        since_sequence: u64,
-        limit: usize,
+    /// Batch state changes (efficiency)
+    StateBatch {
+        model_type: String,
+        device_id: Uuid,
+        records: Vec<StateRecord>,
     },
 
-    // Leader → Follower: Response with entries
-    EntriesResponse {
-        library_id: Uuid,
-        entries: Vec<SyncLogEntry>,
+    /// Request full state from peer
+    StateRequest {
+        model_types: Vec<String>,
+        device_id: Option<Uuid>,  // Specific device or all
+        since: Option<DateTime>,  // Incremental
+    },
+
+    /// Response with state
+    StateResponse {
+        model_type: String,
+        device_id: Uuid,
+        records: Vec<StateRecord>,
         has_more: bool,
     },
 
-    // Follower → Leader: Acknowledge received
-    Acknowledge {
-        library_id: Uuid,
-        up_to_sequence: u64,
+    // ===== Log-Based (Shared Resources) =====
+
+    /// Broadcast shared resource change (with HLC)
+    SharedChange {
+        hlc: HLC,
+        model_type: String,      // "tag", "album", "user_metadata"
+        record_uuid: Uuid,
+        change_type: ChangeType, // Insert/Update/Delete
+        data: serde_json::Value,
     },
 
-    // Bi-directional: Heartbeat
-    Heartbeat {
-        library_id: Uuid,
-        current_sequence: u64,
-        role: SyncRole,
+    /// Batch shared changes
+    SharedChangeBatch {
+        entries: Vec<SharedChangeEntry>,
     },
 
-    // Leader → Follower: You're behind, full sync needed
-    SyncRequired {
-        library_id: Uuid,
-        reason: String,
+    /// Request shared changes since HLC
+    SharedChangeRequest {
+        since_hlc: Option<HLC>,
+        limit: usize,
+    },
+
+    /// Response with shared changes
+    SharedChangeResponse {
+        entries: Vec<SharedChangeEntry>,
+        has_more: bool,
+    },
+
+    /// Acknowledge received shared changes (for pruning)
+    AckSharedChanges {
+        from_device: Uuid,
+        up_to_hlc: HLC,
     },
 }
 ```
 
 ## Implementation Steps
 
-1. Create `core/src/service/network/protocol/sync/` directory
-2. Create `sync/mod.rs` - Main protocol handler
-3. Create `sync/messages.rs` - SyncMessage enum
-4. Create `sync/leader.rs` - Leader-side message handling
-5. Create `sync/follower.rs` - Follower-side message handling
-6. Register protocol with ALPN: `/spacedrive/sync/1.0.0`
-7. Integrate with DeviceRegistry for connection lookup
-8. Add connection lifecycle management
+1. Update `core/src/service/network/protocol/sync/messages.rs` - New SyncMessage enum
+2. Update `sync/handler.rs` - Handle both state and log-based messages
+3. Create `sync/state.rs` - State-based sync logic
+4. Create `sync/shared.rs` - Log-based sync with HLC
+5. Integrate with DeviceRegistry for peer lookup
+6. Add per-peer connection management
+7. Register protocol with ALPN: `/spacedrive/sync/2.0.0` (version bump!)
 
 ## Protocol Handler Structure
 
 ```rust
-// core/src/service/network/protocol/sync/mod.rs
+// core/src/service/network/protocol/sync/handler.rs
 pub struct SyncProtocolHandler {
     library_id: Uuid,
-    sync_log_db: Arc<SyncLogDb>,
+    shared_changes_db: Arc<SharedChangesDb>,  // My log of shared changes
     device_registry: Arc<RwLock<DeviceRegistry>>,
     event_bus: Arc<EventBus>,
-    role: SyncRole,
+    hlc_generator: Arc<Mutex<HLCGenerator>>,
+    // No role field!
 }
 
 impl ProtocolHandler for SyncProtocolHandler {
-    const ALPN: &'static [u8] = b"/spacedrive/sync/1.0.0";
+    const ALPN: &'static [u8] = b"/spacedrive/sync/2.0.0";
 
-    async fn handle_connection(
+    async fn handle_stream(
         &self,
         stream: BiStream,
         peer_device_id: Uuid,
@@ -107,48 +136,66 @@ impl ProtocolHandler for SyncProtocolHandler {
 }
 
 impl SyncProtocolHandler {
-    // Leader: Push notification when new entries created
-    pub async fn notify_new_entries(
+    /// Broadcast state change to all peers
+    pub async fn broadcast_state_change(
         &self,
-        from_seq: u64,
-        to_seq: u64,
+        change: StateChange,
     ) -> Result<(), SyncError>;
 
-    // Follower: Request entries from leader
-    pub async fn request_entries(
+    /// Broadcast shared change to all peers
+    pub async fn broadcast_shared_change(
         &self,
-        since_seq: u64,
-    ) -> Result<Vec<SyncLogEntry>, SyncError>;
+        entry: SharedChangeEntry,
+    ) -> Result<(), SyncError>;
 
-    // Handle incoming message
+    /// Request state from peer
+    pub async fn request_state(
+        &self,
+        peer_id: Uuid,
+        request: StateRequest,
+    ) -> Result<StateResponse, SyncError>;
+
+    /// Request shared changes from peer
+    pub async fn request_shared_changes(
+        &self,
+        peer_id: Uuid,
+        since_hlc: Option<HLC>,
+    ) -> Result<Vec<SharedChangeEntry>, SyncError>;
+
+    /// Handle incoming message
     async fn handle_message(
         &self,
         msg: SyncMessage,
         stream: &mut BiStream,
+        from_device: Uuid,
     ) -> Result<(), SyncError>;
 }
 ```
 
 ## Connection Management
 
-- Protocol uses Iroh BiStreams for bi-directional communication
-- Leader maintains open connections to all follower devices
-- Follower connects to leader on library open
-- Heartbeat every 30 seconds to detect disconnections
+- Protocol uses Iroh BiStreams
+- Each device maintains connections to all `sync_partners`
 - Auto-reconnect on connection loss
+- No heartbeats needed (connection itself is the liveness indicator)
+- Offline changes queue locally, sync on reconnect
 
 ## Acceptance Criteria
 
-- [ ] SyncProtocolHandler implemented
-- [ ] SyncMessage enum defined
-- [ ] Leader can push NewEntries notifications
-- [ ] Follower can request entries
+- [ ] SyncProtocolHandler supports both state and log-based messages
+- [ ] SyncMessage enum updated with new message types
+- [ ] Can broadcast state changes to all peers
+- [ ] Can broadcast shared changes with HLC
+- [ ] Can request state from specific peer
+- [ ] Can request shared changes since HLC
+- [ ] ACK mechanism for log pruning
 - [ ] BiStream communication working
-- [ ] Protocol registered with correct ALPN
-- [ ] Connection lifecycle managed
-- [ ] Integration tests validate message flow
+- [ ] Protocol registered with ALPN
+- [ ] Integration tests validate peer-to-peer flow
 
 ## References
 
-- Existing protocols: `core/src/service/network/protocol/pairing/`
-- Protocol registry: `core/src/service/network/protocol/registry.rs`
+- New architecture: `core/src/infra/sync/NEW_SYNC.md`
+- HLC implementation: LSYNC-014
+- State-based sync: LSYNC-015
+- Log-based sync: LSYNC-016

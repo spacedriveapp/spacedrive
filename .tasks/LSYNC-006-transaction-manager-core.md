@@ -1,46 +1,130 @@
 ---
 id: LSYNC-006
-title: TransactionManager Core Implementation
+title: TransactionManager Core (Leaderless)
 status: To Do
 assignee: unassigned
 parent: LSYNC-000
 priority: Critical
-tags: [sync, database, transaction, architecture]
+tags: [sync, database, transaction, architecture, leaderless]
+design_doc: core/src/infra/sync/NEW_SYNC.md
 ---
 
 ## Description
 
-Implement the TransactionManager, the sole gatekeeper for all syncable database writes. It guarantees atomic DB commits + sync log creation, ensuring that state changes are always logged for synchronization.
+Implement the TransactionManager for atomic database writes with automatic sync broadcasts. In the leaderless model, all devices can write - no leader checks needed!
+
+**Architecture Change**: No longer checks for leader role. All devices broadcast their changes directly.
 
 ## Implementation Steps
 
-1. Create `TransactionManager` struct with event bus and sync sequence tracking
-2. Implement `commit<M, R>()` for single resource changes
-3. Implement `commit_batch<M, R>()` for 10-1K item batches
-4. Implement `commit_bulk<M>()` for 1K+ items (metadata-only sync logs)
-5. Add sequence number generation (only on leader devices)
-6. Integrate with event emission (automatic ResourceChanged events)
-7. Add `with_tx()` for raw SQL compatibility
+1. Create `TransactionManager` struct with event bus
+2. Implement `commit_device_owned<M>()` for device-owned data:
+   - Atomic DB write
+   - Broadcast StateChange to peers (no log!)
+   - Emit event
+3. Implement `commit_shared<M>()` for shared resources:
+   - Generate HLC
+   - Atomic DB write + shared_changes log entry
+   - Broadcast SharedChange to peers
+   - Emit event
+4. Implement `commit_batch<M>()` for batching
+5. Add `with_tx()` for raw SQL compatibility
+6. Remove all leader checks!
 
 ## Technical Details
 
 - Location: `core/src/infra/transaction/manager.rs`
-- Must check leader status before assigning sequence numbers
-- Atomic transaction: DB write + sync log entry creation
-- Auto-emit events via EventBus after commit
-- Bulk operations create single metadata sync log (not per-item)
+- **No leader status check** (major simplification!)
+- Determines sync strategy from model's `device_id` field
+- Device-owned: Just broadcast state
+- Shared: Log + broadcast with HLC
+
+## API Design
+
+```rust
+impl TransactionManager {
+    /// Commit device-owned resource (state-based)
+    pub async fn commit_device_owned<M: Syncable>(
+        &self,
+        library: Arc<Library>,
+        model: M,
+    ) -> Result<M, TxError> {
+        // 1. Write to database
+        let saved = db.transaction(|txn| {
+            model.insert(txn).await
+        }).await?;
+
+        // 2. Broadcast state (no log!)
+        self.broadcast_state_change(saved.clone()).await?;
+
+        // 3. Emit event
+        self.event_bus.emit(Event::ResourceChanged { ... });
+
+        Ok(saved)
+    }
+
+    /// Commit shared resource (log-based with HLC)
+    pub async fn commit_shared<M: Syncable>(
+        &self,
+        library: Arc<Library>,
+        model: M,
+    ) -> Result<M, TxError> {
+        // 1. Generate HLC
+        let hlc = self.hlc_generator.lock().await.next();
+
+        // 2. Atomic: DB write + log entry
+        let saved = db.transaction(|txn| async {
+            let saved = model.insert(txn).await?;
+
+            // Write to sync log
+            sync_db.append(SharedChangeEntry {
+                hlc,
+                model_type: M::SYNC_MODEL,
+                record_uuid: saved.sync_id(),
+                change_type: ChangeType::Insert,
+                data: serde_json::to_value(&saved)?,
+            }, txn).await?;
+
+            Ok(saved)
+        }).await?;
+
+        // 3. Broadcast with HLC
+        self.broadcast_shared_change(hlc, saved.clone()).await?;
+
+        // 4. Emit event
+        self.event_bus.emit(Event::ResourceChanged { ... });
+
+        Ok(saved)
+    }
+}
+```
 
 ## Acceptance Criteria
 
-- [ ] TransactionManager can commit single resources with sync logs
-- [ ] Batch operations create per-item sync logs
-- [ ] Bulk operations create metadata-only sync logs
-- [ ] Events emitted automatically after commits
-- [ ] Leader check prevents non-leaders from creating sync logs
+- [ ] TransactionManager commits device-owned resources (no log)
+- [ ] TransactionManager commits shared resources (with HLC log)
+- [ ] No leader checks anywhere!
+- [ ] Events emitted automatically
+- [ ] Batch operations supported
 - [ ] Unit tests verify atomicity
-- [ ] Integration tests validate sync log creation
+- [ ] Integration tests validate both sync strategies
+
+## Migration from Leader Model
+
+**Remove**:
+- `next_sequence()` method (replaced with HLC)
+- `is_leader()` checks
+- Sequence number tracking
+- Leader-specific logic
+
+**Add**:
+- HLC generator integration
+- Strategy selection (device-owned vs shared)
+- State broadcast for device-owned
+- Log + broadcast for shared
 
 ## References
 
-- `docs/core/sync.md` - Complete specification
-- Phase 1 dependency for sync system
+- `core/src/infra/sync/NEW_SYNC.md` - Leaderless architecture
+- HLC: LSYNC-009
+- Syncable trait: LSYNC-007

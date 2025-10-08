@@ -170,7 +170,7 @@ Data fragmentation across devices and clouds hinders cohesive file management. S
 
 Core features include a unified data index for low-latency search, content-aware deduplication, and transactional cross-device operations. This index also supports a local AI component for natural language queries and assistive automation.
 
-This paper describes the Spacedrive v2 architecture, including content-aware addressing, transactional previews, and a synchronization model that avoids distributed consensus. The Content Identity system enables deduplication and redundancy tracking, while AI integration provides semantic search and optional automated actions. We also present a cloud deployment in which backends participate as standard P2P devices, reducing client–server asymmetry.
+This paper describes the Spacedrive v2 architecture, including content-aware addressing, transactional previews, and a hybrid synchronization model that avoids distributed consensus by combining simple state-replication for device-authoritative data with a lightweight, HLC-ordered log for shared metadata. The Content Identity system enables deduplication and redundancy tracking, while AI integration provides semantic search and optional automated actions. We also present a cloud deployment in which backends participate as standard P2P devices, reducing client–server asymmetry.
 \end{abstract}
 
 
@@ -217,7 +217,7 @@ The architecture is built on four foundational principles that solve traditional
 
  \item \textbf{Safe \& Predictable Operations: The Transactional Action System} (Section~\ref{sec:action-system}): A system designed to make file operations safe and transparent. Every change to the VDFS is treated as a transaction that is simulated and approved before execution, leveraging the complete VDFS index to run in-memory simulations of proposed actions with previews of outcomes, including conflicts or storage issues.
 
- \item \textbf{Resilient Synchronization: Domain-Separated Consistency} (Section~\ref{sec:library-sync}): A synchronization model that separates data into distinct domains, each with a tailored resolution strategy. The filesystem index treats each device as the authority for its own files; user metadata is merged using deterministic rules; and file-content transfers are handled as explicit, user-initiated jobs.
+ \item \textbf{Resilient Synchronization: A Leaderless Hybrid Model} (Section~\ref{sec:library-sync}): A synchronization model that eliminates leader-based bottlenecks by separating data into distinct domains. The filesystem index, being device-authoritative, is replicated using a simple state-based model where each device is the source of truth for its own files. Concurrently modified user metadata is merged deterministically using a lightweight, per-device change log ordered by a Hybrid Logical Clock (HLC).
 
  \item \textbf{AI Agent Architecture} (Section~\ref{sec:ai-native}): An architecture in which an agent can observe the VDFS index and propose actions using the same transactional model as human-initiated operations. The agent follows an "Observe, Orient, Act" loop and generates previewable Actions for user approval.
 \end{itemize}
@@ -304,7 +304,7 @@ The development of v1 provided invaluable insights that shaped the v2 architectu
 
 \subsection{Spacedrive v2 as an Architectural Solution}
 
-The v2 architecture directly addresses these challenges. The universal \textbf{SdPath} addressing system eliminates the dual file system problem entirely. A decoupled \textbf{Event Bus} provides reliable state propagation, and a simpler domain-separated \textbf{Library Sync} model ensures consistency without CRDT complexity. The new job system reduces boilerplate by over 90\%, while a consolidated networking layer powered by \textbf{Iroh} unifies all P2P communication, improving reliability and connection performance~\cite{iroh_networking}. The technology stack was also modernized, replacing abandoned libraries with community-trusted alternatives like \textbf{SeaORM}.
+The v2 architecture directly addresses these challenges. The universal \textbf{SdPath} addressing system eliminates the dual file system problem entirely. A decoupled \textbf{Event Bus} provides reliable state propagation, and a simpler domain-separated \textbf{Library Sync} model ensures consistency without CRDT complexity by employing a leaderless, hybrid architecture. This model uses efficient state-based replication for device-authoritative data and a lightweight, HLC-ordered log for shared metadata, eliminating single points of failure. The new job system reduces boilerplate by over 90\%, while a consolidated networking layer powered by \textbf{Iroh} unifies all P2P communication, improving reliability and connection performance~\cite{iroh_networking}. The technology stack was also modernized, replacing abandoned libraries with community-trusted alternatives like \textbf{SeaORM}.
 
 By learning from real-world challenges of the initial version, Spacedrive v2 delivers on the original promise with an architecture that is simpler, more fault-tolerant, and designed for the long term.
 
@@ -1248,7 +1248,8 @@ This architecture ensures that new files are added to the user's data space in a
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Domain Separation}: Avoids CRDT complexity by separating index, metadata, and file operations
+\item \textbf{Leaderless Hybrid Model}: Eliminates bottlenecks and single points of failure with a peer-to-peer approach
+\item \textbf{Domain Separation}: Uses efficient state-based sync for device-authoritative data (e.g., file index) and a lightweight, HLC-ordered log for shared metadata (e.g., tags)
 \item \textbf{Integrated Networking}: Single Iroh endpoint handles all protocols with NAT traversal~\cite{iroh_networking}
 \item \textbf{Index-Aware Sync}: VDFS index enables rapid change detection and global deduplication
 \end{itemize}
@@ -1259,29 +1260,31 @@ Spacedrive's distributed architecture requires capable synchronization and netwo
 \subsubsection{Library Sync via Domain Separation}
 \label{sec:library-sync}
 
-Traditional distributed consensus algorithms struggle with the mixed requirements of personal data management. Spacedrive's \textbf{Library Sync} architecture tames this complexity by separating synchronization into three distinct domains, each with tailored conflict resolution strategies:
+Traditional distributed consensus algorithms struggle with the mixed requirements of personal data management. Spacedrive's \textbf{Library Sync} architecture avoids this complexity entirely through a leaderless, peer-to-peer hybrid model that aligns synchronization strategy with data ownership. This eliminates central coordinators, single points of failure, and the need for leader election.
 
-\textbf{Index Sync (Filesystem State)}
+Data is separated into two domains with tailored replication strategies:
 
-Each device maintains authoritative control over its own filesystem index. Since devices cannot directly modify each other's filesystems, conflicts are minimal:
+\textbf{Device-Authoritative Data (State-Based Sync)}
+
+Each device maintains authoritative control over its own filesystem index, including its Locations, Entries, and Volumes. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible. Synchronization is therefore achieved through simple and efficient \textbf{state-based replication}:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Data}: Entry records, device-specific paths, Location metadata
- \item \textbf{Conflicts}: Extremely rare---only occur when multiple devices simultaneously scan the same shared storage
- \item \textbf{Resolution}: Device authority model---each device controls its own filesystem state completely
+ \item \textbf{Data}: Entry records, device-specific paths, Location metadata, device-specific audit logs
+ \item \textbf{Mechanism}: When a change occurs (e.g., a new file is indexed), the device broadcasts the current state of the affected records to all peers
+ \item \textbf{Conflicts}: Impossible---each device is the sole authority for its own data
+ \item \textbf{Resolution}: Peers apply these changes idempotently via upsert operations. No ordered log is required, as the owning device is the definitive source of truth
+ \item \textbf{Efficiency}: Timestamp-based delta sync allows incremental updates without maintaining a persistent change log
 \end{itemize}
 
-\textbf{User Metadata Sync (Content Tags and Ratings)}
+\textbf{Truly Shared Data (Log-Based Sync with HLC)}
 
-Content-universal metadata that should follow files across devices uses union-merge strategies:
-
-When resolving metadata conflicts, Spacedrive applies intuitive, common-sense rules:
+User-generated metadata such as tags, ratings, and collections is not owned by any single device and can be modified concurrently, creating potential conflicts. This domain uses a lightweight, log-based approach:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Tags}: Automatically merge all tags---if you label a photo "family" on one device and "vacation" on another, the result is "family, vacation"
- \item \textbf{Favorites}: Use OR logic---if either device marks something as favorite, it stays favorite
- \item \textbf{Ratings}: Most recent rating wins, with clear notification to the user
- \item \textbf{Notes}: Combine with timestamps so users can review and edit the merged content
+ \item \textbf{Data}: Tags, user-managed collections, favorites, and content-scoped notes
+ \item \textbf{Mechanism}: Each device maintains its own small, per-device log (\texttt{sync.db}) of changes it makes to shared resources. Each entry is timestamped with a Hybrid Logical Clock (HLC)---a distributed timestamp combining physical time with a logical counter to provide total ordering across all devices
+ \item \textbf{Conflict Resolution}: Changes are applied in HLC order. For tags, union-merge combines tags from all devices. For ratings and boolean flags, the change with the higher HLC wins (deterministic last-writer-wins). Notes are concatenated with source attribution
+ \item \textbf{Efficiency}: These logs are aggressively pruned once all peers acknowledge receipt, typically maintaining fewer than 1,000 entries even with active multi-device usage
 \end{itemize}
 
 \textbf{File Operations (Explicit Transfer)}
@@ -1296,6 +1299,17 @@ Unlike automatic synchronization, file movements and copying in Spacedrive are e
 \end{itemize}
 
 This separation eliminates the vast complexity of file content synchronization, treating it as user-initiated operations with clear semantics and error handling.
+
+\paragraph{Leaderless Architecture Benefits}
+
+This peer-to-peer model provides significant practical advantages:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{No Bottlenecks}: Any device can make changes at any time without waiting for a coordinator
+ \item \textbf{True Offline-First}: Devices queue changes locally and sync when connectivity returns, without read-only restrictions
+ \item \textbf{Fault Tolerance}: No single point of failure---any peer can provide synchronization state to new devices
+ \item \textbf{Reduced Complexity}: Eliminates leader election, heartbeat mechanisms, and failover logic (approximately 800 fewer lines of code)
+\end{itemize}
 
 \subsubsection{Iroh-Powered Network Infrastructure}
 
@@ -1536,34 +1550,29 @@ When tag conflicts occur, Spacedrive follows a structured resolution process:
 \paragraph{Rating Conflicts}
 \textbf{Scenario}: Photo rated 4 stars on Device A, 5 stars on Device B.
 
-\textbf{Resolution Strategy}: Last-writer-wins with user notification:
+\textbf{Resolution Strategy}: Deterministic resolution via Hybrid Logical Clocks (HLC):
 
+\textbf{Rating Conflict Resolution: HLC-Based Ordering}
 
-\textbf{Rating Conflict Resolution: Last-Writer-Wins Strategy}
-
-For rating conflicts, Spacedrive uses a temporal resolution approach:
+For rating conflicts, Spacedrive uses HLC timestamps rather than unreliable wall-clock time:
 
 \textbf{Conflict Scenario}: Photo rated differently on multiple devices (e.g., 4 stars vs. 5 stars)
 
 \textbf{Resolution Logic}
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Timestamp Comparison}: System examines when each rating was applied
- \item \textbf{Most Recent Wins}: The more recent rating is automatically selected
- \item \textbf{Clear Attribution}: User notification specifies which device's rating was chosen and when
+ \item \textbf{HLC Comparison}: System compares the Hybrid Logical Clock timestamp of each change
+ \item \textbf{Higher HLC Wins}: The change with the greater HLC value is selected (deterministic last-writer-wins)
+ \item \textbf{Causality Preserved}: HLC ensures that if change A caused change B, then HLC(A) < HLC(B)
+ \item \textbf{Clear Attribution}: User notification specifies which device's rating was chosen based on HLC ordering
 \end{itemize}
 
 \textbf{User Experience}
 \begin{itemize}[noitemsep, topsep=0pt]
- \item Automatic resolution without user intervention required
- \item Transparent notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
+ \item Automatic, deterministic resolution without user intervention
+ \item Transparent notification: "sunset.jpg rating conflict resolved: using 5 stars (from MacBook, applied last)"
  \item User can manually override the automatic choice if they disagree with the outcome
+ \item Consistent resolution across all devices (HLC provides total ordering)
 \end{itemize}
-
-
-\textbf{User Experience}:
-- Most recent rating wins automatically
-- Notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
-- User can manually change rating if they disagree
 
 \subsubsection{Advanced Conflict Scenarios}
 \paragraph{Complex Metadata Conflicts}
@@ -3291,12 +3300,9 @@ The authors acknowledge the use of generative AI tools for assistance in draftin
 
 \subsection*{Synchronization \& Networking}
 
-\textbf{Library Sync}: Spacedrive's intelligent synchronization system that keeps Libraries consistent across all devices by separating concerns into three domains:
-\begin{itemize}[noitemsep, topsep=0pt]
-  \item \textit{Index Sync}: Maintains consistent filesystem state across devices
-  \item \textit{User Metadata Sync}: Handles tags, ratings, and other user-generated metadata
-  \item \textit{File Operations}: Manages actual file transfers and content synchronization
-\end{itemize}
+\textbf{Library Sync}: Spacedrive's leaderless, peer-to-peer synchronization system. It uses a hybrid model: simple state-based replication for device-authoritative data (like the file index) and a lightweight, HLC-ordered log for resolving conflicts in truly shared data (like tags and ratings). This eliminates central coordinators and single points of failure while ensuring eventual consistency.
+
+\textbf{Hybrid Logical Clock (HLC)}: A distributed timestamping mechanism that combines physical time with a logical counter to create a total ordering of events across multiple devices. Used in Spacedrive to deterministically resolve conflicts for shared metadata without requiring a central coordinator
 
 \textbf{Iroh}: The peer-to-peer networking library used for device discovery and secure communication.
 
