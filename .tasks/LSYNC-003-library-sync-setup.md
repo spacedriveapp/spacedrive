@@ -1,5 +1,5 @@
 ---
-id: LSYNC-005
+id: LSYNC-003
 title: Library Sync Setup (Device Registration & Discovery)
 status: Done
 assignee: james

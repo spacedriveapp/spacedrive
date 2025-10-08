@@ -44,8 +44,8 @@ See `docs/core/sync.md` for complete specification.
 
 ### Phase 1: Foundation (Completed)
 - LSYNC-001: Protocol design ✅
+- LSYNC-003: Sync setup ✅
 - LSYNC-004: Database schema ✅
-- LSYNC-005: Sync setup ✅
 
 ### Phase 2: Core Infrastructure (In Progress)
 - LSYNC-006: TransactionManager

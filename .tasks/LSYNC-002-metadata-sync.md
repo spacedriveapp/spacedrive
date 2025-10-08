@@ -5,7 +5,7 @@ status: To Do
 assignee: unassigned
 parent: LSYNC-000
 priority: High
-tags: [sync, metadata, albums, tags]
+tags: [sync, metadata, albums, tags, volumes]
 depends_on: [LSYNC-006, LSYNC-010]
 ---
 
@@ -20,7 +20,8 @@ Implement metadata synchronization for user-created resources (Albums, Tags, Loc
 1. Implement `Syncable` trait for `albums::Model`
 2. Implement `Syncable` trait for `tags::Model`
 3. Implement `Syncable` trait for `locations::Model`
-4. Update album/tag/location actions to use TransactionManager
+4. Implement `Syncable` trait for `volumes::Model`
+4. Update album/tag/location/volume actions to use TransactionManager
 5. Verify sync logs created on leader device
 6. Verify follower service applies changes correctly
 7. Test cross-device album/tag creation and updates
