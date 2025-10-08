@@ -682,34 +682,116 @@ Device A (later):
 ```
 Device D connects to library:
 
-Phase 1: Sync Device-Owned State
-  For each peer (A, B, C):
-    Request: StateRequest { device_id: peer.id }
-    Receive: StateResponse {
-      locations: [...],
-      entries: [...],
-      volumes: [...]
-    }
-    Apply state (idempotent inserts)
+┌─────────────────────────────────────────────────────────┐
+│ PHASE 1: PEER SELECTION                                 │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│ Choose backfill peer:                                   │
+│   - Must be online                                      │
+│   - Prefer fastest connection (lowest ping)             │
+│   - Prefer peer with most complete state                │
+│                                                          │
+│ Chosen: Device A (20ms latency, all models present)     │
+│                                                          │
+│ Set sync state: BACKFILLING                             │
+│   - Buffer any live updates received                    │
+│   - Don't apply them yet!                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
 
-Phase 2: Sync Shared Resources
-  Pick any peer (say Device A):
-    Request: SharedChangeRequest { since_hlc: None }
-    Receive: SharedChangeResponse {
-      entries: [all unacked changes]
-    }
-    Apply in HLC order
+┌─────────────────────────────────────────────────────────┐
+│ PHASE 2: BACKFILL DEVICE-OWNED STATE                    │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│ For each peer (A, B, C):                                │
+│   Request: StateRequest {                               │
+│     device_id: peer.id,                                 │
+│     model_types: ["location", "entry", "volume"],       │
+│     checkpoint: None  // Full backfill                  │
+│   }                                                      │
+│                                                          │
+│   Receive: StateResponse {                              │
+│     locations: [...],  // Batched (10K at a time)       │
+│     entries: [...],                                     │
+│     checkpoint: "entry-50000"  // Resume point          │
+│   }                                                      │
+│                                                          │
+│   Apply state (bulk insert, idempotent)                 │
+│                                                          │
+│   Meanwhile:                                            │
+│     Device C makes new change → Device D receives it    │
+│     → Buffered in sync_queue, not applied yet           │
+│                                                          │
+│ Save checkpoint: "completed_peer_A_state"               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
 
-  Fallback: Get current shared state
-    Request: StateRequest { model_types: ["tag", "album"] }
-    Receive full tag/album lists
-    Insert into database
+┌─────────────────────────────────────────────────────────┐
+│ PHASE 3: BACKFILL SHARED RESOURCES                      │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│ Request from Device A:                                  │
+│   SharedChangeRequest { since_hlc: None }               │
+│                                                          │
+│ Receive: SharedChangeResponse {                         │
+│   entries: [HLC-ordered changes],                       │
+│   current_state: { tags: [...], albums: [...] }         │
+│ }                                                        │
+│                                                          │
+│ Apply in HLC order                                      │
+│                                                          │
+│ Save watermark: last_hlc = HLC(1234, A)                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
 
-Phase 3: Ready!
-  Now Device D is fully synced
-  Can make changes
-  Broadcasts to peers
+┌─────────────────────────────────────────────────────────┐
+│ PHASE 4: CATCH UP (Apply Buffered Updates)              │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│ Set sync state: CATCHING_UP                             │
+│                                                          │
+│ Process buffered updates in order:                      │
+│   - State changes: By timestamp                         │
+│   - Shared changes: By HLC                              │
+│                                                          │
+│ Example:                                                │
+│   Buffered: [                                           │
+│     StateChange(location, t=1000),                      │
+│     SharedChange(tag, HLC(1235,C)),                     │
+│     StateChange(entry, t=1005),                         │
+│   ]                                                      │
+│                                                          │
+│   Apply in order: 1000 → 1005 → HLC(1235,C)            │
+│                                                          │
+│ Continue buffering NEW updates during catch-up          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ PHASE 5: READY                                          │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│ Buffer empty → Set sync state: READY                    │
+│                                                          │
+│ Now Device D:                                           │
+│   ✅ Has complete state from all peers                  │
+│   ✅ Caught up on all changes during backfill           │
+│   ✅ Applies live updates immediately                   │
+│   ✅ Can make local changes                             │
+│   ✅ Broadcasts to other peers                          │
+│                                                          │
+│ Notify peers: "Device D is ready for live sync"        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
 ```
+
+**Key Design Points**:
+
+1. **Peer Selection**: Choose fastest online peer automatically
+2. **Buffering**: Queue all live updates during backfill
+3. **Checkpointing**: Can resume if backfill fails
+4. **Ordered Catch-Up**: Process buffer in correct order
+5. **State Machine**: Clear phases prevent race conditions
 
 ---
 
@@ -769,7 +851,189 @@ async fn create_tag(name: &str) -> Result<Tag> {
 
 ---
 
+## Sync State Machine
+
+### Device Sync States
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeviceSyncState {
+    /// Not yet synced, no backfill started
+    Uninitialized,
+
+    /// Currently backfilling from peer(s)
+    /// - Buffers live updates
+    /// - Applies backfill data
+    Backfilling {
+        peer: Uuid,
+        progress: f32,  // 0.0 - 1.0
+    },
+
+    /// Backfill complete, processing buffered updates
+    /// - Still buffers new updates
+    /// - Applies buffered updates in order
+    CatchingUp {
+        buffered_count: usize,
+    },
+
+    /// Fully synced, applying live updates immediately
+    Ready,
+
+    /// Sync paused (offline or user disabled)
+    Paused,
+}
+```
+
+### Sync Message Handling by State
+
+```rust
+impl SyncService {
+    async fn on_message_received(&self, msg: SyncMessage) {
+        match self.state.load() {
+            DeviceSyncState::Backfilling { .. } => {
+                // Buffer all live updates
+                self.buffer_queue.push(msg).await;
+                info!("Buffered update during backfill: {:?}", msg.kind());
+            }
+
+            DeviceSyncState::CatchingUp { .. } => {
+                // Still buffering
+                self.buffer_queue.push(msg).await;
+                info!("Buffered update during catch-up: {:?}", msg.kind());
+            }
+
+            DeviceSyncState::Ready => {
+                // Apply immediately
+                self.apply_message(msg).await?;
+            }
+
+            DeviceSyncState::Paused | DeviceSyncState::Uninitialized => {
+                // Queue for later
+                self.pending_queue.push(msg).await;
+            }
+        }
+    }
+}
+```
+
+### Backfill with Checkpointing
+
+```rust
+async fn backfill_device_state(
+    peer: Uuid,
+    device_id: Uuid,
+) -> Result<BackfillCheckpoint> {
+    let mut checkpoint = BackfillCheckpoint::start(device_id);
+
+    loop {
+        // Request batch with checkpoint for resume
+        let response = request_state_batch(StateRequest {
+            device_id,
+            model_types: vec!["location", "entry", "volume"],
+            checkpoint: checkpoint.resume_token.clone(),
+            batch_size: 10_000,
+        }).await?;
+
+        // Bulk insert
+        bulk_insert(response.records).await?;
+
+        // Update checkpoint
+        checkpoint.update(response.checkpoint);
+        checkpoint.save().await?;
+
+        // Emit progress event
+        emit_backfill_progress(checkpoint.progress()).await;
+
+        if !response.has_more {
+            break;
+        }
+    }
+
+    Ok(checkpoint)
+}
+```
+
+### Peer Selection Algorithm
+
+```rust
+async fn select_backfill_peer(
+    available_peers: Vec<PeerInfo>,
+) -> Result<Uuid> {
+    // Filter online peers
+    let online: Vec<_> = available_peers
+        .into_iter()
+        .filter(|p| p.is_online())
+        .collect();
+
+    if online.is_empty() {
+        return Err("No online peers available for backfill");
+    }
+
+    // Score each peer
+    let mut scored: Vec<_> = online
+        .into_iter()
+        .map(|peer| {
+            let mut score = 0.0;
+
+            // Lower latency = higher score
+            score += 1000.0 / peer.latency_ms.max(1.0);
+
+            // Prefer peers with complete state
+            if peer.has_complete_state {
+                score += 100.0;
+            }
+
+            // Prefer less busy peers
+            score -= peer.active_syncs as f32 * 10.0;
+
+            (peer, score)
+        })
+        .collect();
+
+    // Sort by score (highest first)
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    Ok(scored[0].0.device_id)
+}
+```
+
+---
+
 ## Edge Cases & Solutions
+
+### Problem: Backfill Interrupted
+
+```
+Device D starts backfill from Device A
+Gets 500K entries
+Network drops
+```
+
+**Solution**: Resume from checkpoint
+```rust
+async fn resume_backfill() -> Result<()> {
+    // Load saved checkpoint
+    let checkpoint = BackfillCheckpoint::load().await?;
+
+    if checkpoint.is_none() {
+        // No checkpoint, start fresh
+        return start_backfill().await;
+    }
+
+    let checkpoint = checkpoint.unwrap();
+
+    // Resume from last saved position
+    info!(
+        "Resuming backfill from checkpoint: {:?} ({:.1}% complete)",
+        checkpoint.resume_token,
+        checkpoint.progress() * 100.0
+    );
+
+    backfill_device_state_from_checkpoint(checkpoint).await
+}
+```
+
+---
 
 ### Problem: Two Devices Create Same Tag Name
 
@@ -826,6 +1090,62 @@ for peer in [B, C] {
 
 ---
 
+### Problem: Live Update During Backfill
+
+```
+Device D backfilling from Device A (at entry 700K/1M)
+Device C creates new tag
+Device D receives SharedChange(tag) message
+```
+
+**Solution**: Buffer until ready
+```rust
+// Device D's sync service
+async fn on_shared_change_received(&self, change: SharedChangeEntry) {
+    match self.sync_state.load() {
+        DeviceSyncState::Backfilling { .. } | DeviceSyncState::CatchingUp { .. } => {
+            // Not ready yet, buffer it
+            self.buffer_queue.push(BufferedUpdate::Shared(change)).await;
+
+            debug!(
+                "Buffered shared change during backfill: {} (buffer size: {})",
+                change.record_uuid,
+                self.buffer_queue.len().await
+            );
+        }
+
+        DeviceSyncState::Ready => {
+            // Apply immediately
+            self.apply_shared_change(change).await?;
+        }
+
+        _ => {
+            warn!("Received shared change in unexpected state");
+        }
+    }
+}
+
+// After backfill completes
+async fn transition_to_ready(&self) {
+    // Set state to catching up
+    self.sync_state.store(DeviceSyncState::CatchingUp {
+        buffered_count: self.buffer_queue.len().await,
+    });
+
+    // Process buffered updates in order
+    while let Some(update) = self.buffer_queue.pop_ordered().await {
+        self.apply_buffered_update(update).await?;
+    }
+
+    // Now ready!
+    self.sync_state.store(DeviceSyncState::Ready);
+
+    emit_event(Event::DeviceSyncReady { device_id: MY_DEVICE_ID });
+}
+```
+
+---
+
 ### Problem: All Devices Offline, Then Sync
 
 ```
@@ -853,6 +1173,34 @@ request_shared_changes(C, since=my_last_hlc_from_c).await;
 // Apply in HLC order
 // Converge to same state!
 ```
+
+---
+
+### Problem: Backfill Peer Goes Offline
+
+```
+Device D backfilling from Device A (at 40% complete)
+Device A goes offline
+```
+
+**Solution**: Switch to different peer, resume from checkpoint
+```rust
+async fn handle_peer_disconnected(&self, peer_id: Uuid) {
+    if self.sync_state.is_backfilling_from(peer_id) {
+        warn!("Backfill peer {} disconnected", peer_id);
+
+        // Save checkpoint
+        self.save_backfill_checkpoint().await?;
+
+        // Select new peer
+        let new_peer = self.select_backfill_peer().await?;
+
+        info!("Switching to new backfill peer: {}", new_peer);
+
+        // Resume from checkpoint with new peer
+        self.resume_backfill(new_peer).await?;
+    }
+}
 
 ---
 
