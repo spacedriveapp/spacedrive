@@ -168,11 +168,31 @@ impl SyncProtocolHandler {
 				checkpoint,
 				batch_size,
 			} => {
-				warn!("StateRequest handling not yet implemented");
-				// TODO: Query local state and return StateResponse
-				Ok(Some(SyncMessage::Error {
+				debug!(
+					model_types = ?model_types,
+					device_id = ?device_id,
+					batch_size = batch_size,
+					"Processing StateRequest"
+				);
+
+				// Query local state
+				let records = peer_sync
+					.get_device_state(model_types.clone(), device_id, since, batch_size)
+					.await
+					.map_err(|e| {
+						NetworkingError::Protocol(format!("Failed to query device state: {}", e))
+					})?;
+
+				let has_more = records.len() >= batch_size;
+				let model_type = model_types.first().cloned().unwrap_or_default();
+
+				Ok(Some(SyncMessage::StateResponse {
 					library_id,
-					message: "StateRequest not yet implemented".to_string(),
+					model_type,
+					device_id: device_id.unwrap_or(from_device),
+					records,
+					checkpoint: None, // TODO: Implement checkpoint tracking
+					has_more,
 				}))
 			}
 
@@ -186,11 +206,31 @@ impl SyncProtocolHandler {
 				since_hlc,
 				limit,
 			} => {
-				warn!("SharedChangeRequest handling not yet implemented");
-				// TODO: Query peer log and return SharedChangeResponse
-				Ok(Some(SyncMessage::Error {
+				debug!(
+					since_hlc = ?since_hlc,
+					limit = limit,
+					"Processing SharedChangeRequest"
+				);
+
+				// Query peer log
+				let (entries, has_more) = peer_sync
+					.get_shared_changes(since_hlc, limit)
+					.await
+					.map_err(|e| {
+						NetworkingError::Protocol(format!("Failed to query shared changes: {}", e))
+					})?;
+
+				info!(
+					count = entries.len(),
+					has_more = has_more,
+					"Returning shared changes to requester"
+				);
+
+				Ok(Some(SyncMessage::SharedChangeResponse {
 					library_id,
-					message: "SharedChangeRequest not yet implemented".to_string(),
+					entries,
+					current_state: None, // TODO: Add fallback for pruned logs
+					has_more,
 				}))
 			}
 
@@ -224,17 +264,21 @@ impl SyncProtocolHandler {
 				debug!(
 					from_device = %from_device,
 					device_id = %device_id,
+					peer_state_watermark = ?state_watermark,
+					peer_shared_watermark = ?shared_watermark,
 					"Received heartbeat"
 				);
 
-				// Send heartbeat response (for now, echo back with current time)
-				// TODO: Get actual device ID from PeerSync and track watermarks
+				// Get our current watermarks
+				let (our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
+
+				// Send heartbeat response with our current watermarks
 				Ok(Some(SyncMessage::Heartbeat {
 					library_id: self.library_id,
-					device_id: from_device, // Use the sender's device ID for now
+					device_id: peer_sync.device_id(),
 					timestamp: chrono::Utc::now(),
-					state_watermark: None, // TODO: Track watermarks
-					shared_watermark: None,
+					state_watermark: our_state_watermark,
+					shared_watermark: our_shared_watermark,
 				}))
 			}
 

@@ -8,6 +8,7 @@ pub mod applier;
 pub mod backfill;
 pub mod peer;
 pub mod protocol_handler;
+pub mod retry_queue;
 pub mod state;
 
 // No longer need SyncLogDb in leaderless architecture

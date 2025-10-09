@@ -44,7 +44,6 @@ location::Entity::insert(active_model).exec(db).await?;
 - Job System (file operations that create/update entries)
 - Operations in `src/ops/` (all CRUD actions)
 - File Watcher (entry creation/updates)
-- User-initiated actions (via CLI, GraphQL, UI)
 
 **Action Required**: Audit all database write operations and migrate them to use `TransactionManager`.
 

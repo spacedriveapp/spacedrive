@@ -19,11 +19,14 @@ use std::sync::{
 	atomic::{AtomicBool, Ordering},
 	Arc,
 };
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::state::{BufferQueue, DeviceSyncState, StateChangeMessage};
+use super::{
+	retry_queue::RetryQueue,
+	state::{BufferQueue, DeviceSyncState, StateChangeMessage},
+};
 
 /// Peer sync service for leaderless architecture
 ///
@@ -56,6 +59,9 @@ pub struct PeerSync {
 	/// Event bus
 	event_bus: Arc<EventBus>,
 
+	/// Retry queue for failed messages
+	retry_queue: Arc<RetryQueue>,
+
 	/// Whether the service is running
 	is_running: Arc<AtomicBool>,
 }
@@ -86,6 +92,7 @@ impl PeerSync {
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
 			peer_log,
 			event_bus: library.event_bus().clone(),
+			retry_queue: Arc::new(RetryQueue::new()),
 			is_running: Arc::new(AtomicBool::new(false)),
 		})
 	}
@@ -93,6 +100,23 @@ impl PeerSync {
 	/// Get database connection
 	pub fn db(&self) -> &Arc<DatabaseConnection> {
 		&self.db
+	}
+
+	/// Get this device's ID
+	pub fn device_id(&self) -> Uuid {
+		self.device_id
+	}
+
+	/// Get watermarks for heartbeat
+	pub async fn get_watermarks(&self) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
+		// State watermark: Would need to track last state change timestamp
+		// For now, return None - this would require adding timestamp tracking
+		let state_watermark = None;
+
+		// Shared watermark: Get last HLC from generator
+		let shared_watermark = self.hlc_generator.lock().await.last();
+
+		(state_watermark, shared_watermark)
 	}
 
 	/// Start the sync service
@@ -110,11 +134,349 @@ impl PeerSync {
 
 		self.is_running.store(true, Ordering::SeqCst);
 
+		// Start event listener for TransactionManager events
+		self.start_event_listener();
+
 		// TODO: Start background tasks for:
-		// - Listening to network messages
 		// - Processing buffer queue
 		// - Pruning sync log
 		// - Periodic peer health checks
+
+		Ok(())
+	}
+
+	/// Start event listener for TransactionManager sync events
+	fn start_event_listener(&self) {
+		// Clone necessary fields for the spawned task
+		let library_id = self.library_id;
+		let network = self.network.clone();
+		let state = self.state.clone();
+		let buffer = self.buffer.clone();
+		let db = self.db.clone();
+		let event_bus_for_emit = self.event_bus.clone();
+		let retry_queue = self.retry_queue.clone();
+		let mut subscriber = self.event_bus.subscribe();
+		let is_running = self.is_running.clone();
+
+		tokio::spawn(async move {
+			info!("PeerSync event listener started");
+
+			while is_running.load(Ordering::SeqCst) {
+				match subscriber.recv().await {
+					Ok(Event::Custom { event_type, data }) => {
+						match event_type.as_str() {
+							"sync:state_change" => {
+								if let Err(e) = Self::handle_state_change_event_static(
+									library_id,
+									data,
+									&network,
+									&state,
+									&buffer,
+									&retry_queue,
+								)
+								.await
+								{
+									warn!(error = %e, "Failed to handle state change event");
+								}
+							}
+							"sync:shared_change" => {
+								if let Err(e) = Self::handle_shared_change_event_static(
+									library_id,
+									data,
+									&network,
+									&state,
+									&buffer,
+									&retry_queue,
+								)
+								.await
+								{
+									warn!(error = %e, "Failed to handle shared change event");
+								}
+							}
+							_ => {
+								// Ignore other custom events
+							}
+						}
+					}
+					Ok(_) => {
+						// Ignore non-custom events
+					}
+					Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+						warn!(
+							skipped = skipped,
+							"Event listener lagged, some events skipped"
+						);
+					}
+					Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+						info!("Event bus closed, stopping event listener");
+						break;
+					}
+				}
+			}
+
+			info!("PeerSync event listener stopped");
+		});
+	}
+
+	/// Handle state change event from TransactionManager (static version for spawned task)
+	async fn handle_state_change_event_static(
+		library_id: Uuid,
+		data: serde_json::Value,
+		network: &Arc<dyn NetworkTransport>,
+		state: &Arc<RwLock<DeviceSyncState>>,
+		buffer: &Arc<BufferQueue>,
+		retry_queue: &Arc<RetryQueue>,
+	) -> Result<()> {
+		let model_type: String = data
+			.get("model_type")
+			.and_then(|v| v.as_str())
+			.ok_or_else(|| anyhow::anyhow!("Missing model_type in state_change event"))?
+			.to_string();
+
+		let record_uuid: Uuid = data
+			.get("record_uuid")
+			.and_then(|v| v.as_str())
+			.and_then(|s| Uuid::parse_str(s).ok())
+			.ok_or_else(|| anyhow::anyhow!("Missing or invalid record_uuid"))?;
+
+		let device_id: Uuid = data
+			.get("device_id")
+			.and_then(|v| v.as_str())
+			.and_then(|s| Uuid::parse_str(s).ok())
+			.ok_or_else(|| anyhow::anyhow!("Missing or invalid device_id"))?;
+
+		let data_value = data
+			.get("data")
+			.ok_or_else(|| anyhow::anyhow!("Missing data in state_change event"))?
+			.clone();
+
+		let timestamp = data
+			.get("timestamp")
+			.and_then(|v| v.as_str())
+			.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+			.map(|dt| dt.with_timezone(&chrono::Utc))
+			.unwrap_or_else(Utc::now);
+
+		let change = StateChangeMessage {
+			model_type,
+			record_uuid,
+			device_id,
+			data: data_value,
+			timestamp,
+		};
+
+		debug!(
+			model_type = %change.model_type,
+			record_uuid = %change.record_uuid,
+			"Broadcasting state change from event"
+		);
+
+		// Check if we should buffer
+		let current_state = *state.read().await;
+		if current_state.should_buffer() {
+			debug!("Buffering own state change during backfill");
+			buffer
+				.push(super::state::BufferedUpdate::StateChange(change))
+				.await;
+			return Ok(());
+		}
+
+		// Get all connected sync partners
+		let connected_partners = network.get_connected_sync_partners().await.map_err(|e| {
+			warn!(error = %e, "Failed to get connected partners");
+			e
+		})?;
+
+		if connected_partners.is_empty() {
+			debug!("No connected sync partners to broadcast to");
+			return Ok(());
+		}
+
+		// Create sync message
+		let message = SyncMessage::StateChange {
+			library_id,
+			model_type: change.model_type.clone(),
+			record_uuid: change.record_uuid,
+			device_id: change.device_id,
+			data: change.data.clone(),
+			timestamp: Utc::now(),
+		};
+
+		debug!(
+			model_type = %change.model_type,
+			record_uuid = %change.record_uuid,
+			partner_count = connected_partners.len(),
+			"Broadcasting state change to sync partners"
+		);
+
+		// Broadcast to all partners in parallel
+		use futures::future::join_all;
+
+		let send_futures: Vec<_> = connected_partners
+			.iter()
+			.map(|&partner| {
+				let network = network.clone();
+				let msg = message.clone();
+				async move {
+					match tokio::time::timeout(
+						std::time::Duration::from_secs(30),
+						network.send_sync_message(partner, msg),
+					)
+					.await
+					{
+						Ok(Ok(())) => (partner, Ok(())),
+						Ok(Err(e)) => (partner, Err(e)),
+						Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after 30s"))),
+					}
+				}
+			})
+			.collect();
+
+		let results = join_all(send_futures).await;
+
+		// Process results
+		let mut success_count = 0;
+		let mut error_count = 0;
+
+		for (partner_uuid, result) in results {
+			match result {
+				Ok(()) => {
+					success_count += 1;
+					debug!(partner = %partner_uuid, "State change sent successfully");
+				}
+				Err(e) => {
+					error_count += 1;
+					warn!(
+						partner = %partner_uuid,
+						error = %e,
+						"Failed to send state change to partner, enqueuing for retry"
+					);
+					// Enqueue for retry
+					retry_queue.enqueue(partner_uuid, message.clone()).await;
+				}
+			}
+		}
+
+		info!(
+			model_type = %change.model_type,
+			success = success_count,
+			errors = error_count,
+			"State change broadcast complete"
+		);
+
+		Ok(())
+	}
+
+	/// Handle shared change event from TransactionManager (static version for spawned task)
+	async fn handle_shared_change_event_static(
+		library_id: Uuid,
+		data: serde_json::Value,
+		network: &Arc<dyn NetworkTransport>,
+		state: &Arc<RwLock<DeviceSyncState>>,
+		buffer: &Arc<BufferQueue>,
+		retry_queue: &Arc<RetryQueue>,
+	) -> Result<()> {
+		let entry: SharedChangeEntry = serde_json::from_value(
+			data.get("entry")
+				.ok_or_else(|| anyhow::anyhow!("Missing entry in shared_change event"))?
+				.clone(),
+		)
+		.map_err(|e| anyhow::anyhow!("Failed to parse SharedChangeEntry: {}", e))?;
+
+		debug!(
+			hlc = %entry.hlc,
+			model_type = %entry.model_type,
+			"Broadcasting shared change from event"
+		);
+
+		// Broadcast to peers (entry is already in peer_log via TransactionManager)
+		let message = SyncMessage::SharedChange {
+			library_id,
+			entry: entry.clone(),
+		};
+
+		let current_state = *state.read().await;
+		if current_state.should_buffer() {
+			debug!("Buffering own shared change during backfill");
+			buffer
+				.push(super::state::BufferedUpdate::SharedChange(entry))
+				.await;
+			return Ok(());
+		}
+
+		// Get all connected sync partners
+		let connected_partners = network.get_connected_sync_partners().await.map_err(|e| {
+			warn!(error = %e, "Failed to get connected partners");
+			e
+		})?;
+
+		if connected_partners.is_empty() {
+			debug!("No connected sync partners to broadcast to");
+			return Ok(());
+		}
+
+		debug!(
+			hlc = %entry.hlc,
+			model_type = %entry.model_type,
+			partner_count = connected_partners.len(),
+			"Broadcasting shared change to sync partners"
+		);
+
+		// Broadcast to all partners in parallel
+		use futures::future::join_all;
+
+		let send_futures: Vec<_> = connected_partners
+			.iter()
+			.map(|&partner| {
+				let network = network.clone();
+				let msg = message.clone();
+				async move {
+					match tokio::time::timeout(
+						std::time::Duration::from_secs(30),
+						network.send_sync_message(partner, msg),
+					)
+					.await
+					{
+						Ok(Ok(())) => (partner, Ok(())),
+						Ok(Err(e)) => (partner, Err(e)),
+						Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after 30s"))),
+					}
+				}
+			})
+			.collect();
+
+		let results = join_all(send_futures).await;
+
+		// Process results
+		let mut success_count = 0;
+		let mut error_count = 0;
+
+		for (partner_uuid, result) in results {
+			match result {
+				Ok(()) => {
+					success_count += 1;
+					debug!(partner = %partner_uuid, "Shared change sent successfully");
+				}
+				Err(e) => {
+					error_count += 1;
+					warn!(
+						partner = %partner_uuid,
+						error = %e,
+						"Failed to send shared change to partner, enqueuing for retry"
+					);
+					// Enqueue for retry
+					retry_queue.enqueue(partner_uuid, message.clone()).await;
+				}
+			}
+		}
+
+		info!(
+			hlc = %entry.hlc,
+			model_type = %entry.model_type,
+			success = success_count,
+			errors = error_count,
+			"Shared change broadcast complete"
+		);
 
 		Ok(())
 	}
@@ -226,10 +588,12 @@ impl PeerSync {
 					warn!(
 						partner = %partner_uuid,
 						error = %e,
-						"Failed to send state change to partner"
+						"Failed to send state change to partner, enqueuing for retry"
 					);
-					// TODO: Enqueue for retry
-					// self.retry_queue.enqueue(partner_uuid, message.clone()).await;
+					// Enqueue for retry
+					self.retry_queue
+						.enqueue(partner_uuid, message.clone())
+						.await;
 				}
 			}
 		}
@@ -350,10 +714,12 @@ impl PeerSync {
 					warn!(
 						partner = %partner_uuid,
 						error = %e,
-						"Failed to send shared change to partner"
+						"Failed to send shared change to partner, enqueuing for retry"
 					);
-					// TODO: Enqueue for retry
-					// self.retry_queue.enqueue(partner_uuid, message.clone()).await;
+					// Enqueue for retry
+					self.retry_queue
+						.enqueue(partner_uuid, message.clone())
+						.await;
 				}
 			}
 		}
@@ -469,7 +835,44 @@ impl PeerSync {
 			"Shared change applied successfully"
 		);
 
-		// TODO: Send ACK to sender for pruning
+		// Send ACK to sender for pruning
+		let sender_device_id = entry.hlc.device_id;
+		let up_to_hlc = entry.hlc;
+
+		// Don't send ACK to ourselves
+		if sender_device_id != self.device_id {
+			let ack_message = SyncMessage::AckSharedChanges {
+				library_id: self.library_id,
+				from_device: self.device_id,
+				up_to_hlc,
+			};
+
+			debug!(
+				sender = %sender_device_id,
+				hlc = %up_to_hlc,
+				"Sending ACK for shared change"
+			);
+
+			// Send ACK (don't fail the whole operation if ACK send fails)
+			if let Err(e) = self
+				.network
+				.send_sync_message(sender_device_id, ack_message)
+				.await
+			{
+				warn!(
+					sender = %sender_device_id,
+					hlc = %up_to_hlc,
+					error = %e,
+					"Failed to send ACK to sender (non-fatal)"
+				);
+			} else {
+				debug!(
+					sender = %sender_device_id,
+					hlc = %up_to_hlc,
+					"ACK sent successfully"
+				);
+			}
+		}
 
 		// Emit event
 		self.event_bus.emit(Event::Custom {
@@ -504,6 +907,66 @@ impl PeerSync {
 		}
 
 		Ok(())
+	}
+
+	/// Get device-owned state for backfill (StateRequest)
+	pub async fn get_device_state(
+		&self,
+		model_types: Vec<String>,
+		device_id: Option<Uuid>,
+		since: Option<chrono::DateTime<chrono::Utc>>,
+		batch_size: usize,
+	) -> Result<Vec<crate::service::network::protocol::sync::messages::StateRecord>> {
+		use crate::service::network::protocol::sync::messages::StateRecord;
+
+		debug!(
+			model_types = ?model_types,
+			device_id = ?device_id,
+			since = ?since,
+			batch_size = batch_size,
+			"Querying device state for backfill"
+		);
+
+		// For now, return empty result
+		// TODO: Query database for each model type
+		// This requires the Syncable registry to have query methods
+		warn!("get_device_state not fully implemented - returning empty result");
+
+		Ok(Vec::new())
+	}
+
+	/// Get shared changes from peer log (SharedChangeRequest)
+	pub async fn get_shared_changes(
+		&self,
+		since_hlc: Option<HLC>,
+		limit: usize,
+	) -> Result<(Vec<SharedChangeEntry>, bool)> {
+		debug!(
+			since_hlc = ?since_hlc,
+			limit = limit,
+			"Querying shared changes from peer log"
+		);
+
+		// Query peer log (get all since HLC, then limit in memory)
+		let mut entries = self
+			.peer_log
+			.get_since(since_hlc)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to query peer log: {}", e))?;
+
+		// Check if there are more entries beyond the limit
+		let has_more = entries.len() > limit;
+
+		// Truncate to limit
+		entries.truncate(limit);
+
+		info!(
+			count = entries.len(),
+			has_more = has_more,
+			"Retrieved shared changes from peer log"
+		);
+
+		Ok((entries, has_more))
 	}
 
 	/// Transition to ready state (after backfill)
