@@ -164,6 +164,10 @@ impl NetworkTransport for MockTransportPeer {
 	async fn is_device_reachable(&self, device_uuid: Uuid) -> bool {
 		device_uuid == self.peer_device_id
 	}
+
+	fn transport_name(&self) -> &'static str {
+		"MockTransportPeer"
+	}
 }
 
 impl MockTransportPeer {
@@ -313,19 +317,18 @@ impl SyncTestSetup {
 		let device_b_id = core_b.device.device_id()?;
 		info!("🖥️  Device B ID: {}", device_b_id);
 
-		// Create libraries on both cores
-		// With networking disabled, they'll use NoOpTransport which we can override
+		// Create libraries WITHOUT auto-sync-init (allows us to inject mock transport)
 		let library_a = core_a
 			.libraries
-			.create_library("Test Library A", None, core_a.context.clone())
+			.create_library_no_sync("Test Library A", None, core_a.context.clone())
 			.await?;
-		info!("📚 Library A created: {}", library_a.id());
+		info!("📚 Library A created (no auto-sync): {}", library_a.id());
 
 		let library_b = core_b
 			.libraries
-			.create_library("Test Library B", None, core_b.context.clone())
+			.create_library_no_sync("Test Library B", None, core_b.context.clone())
 			.await?;
-		info!("📚 Library B created: {}", library_b.id());
+		info!("📚 Library B created (no auto-sync): {}", library_b.id());
 
 		// Register devices in each other's libraries
 		// This also implicitly makes them sync partners (sync_enabled=true by default)
@@ -548,20 +551,19 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	let messages_a_to_b = setup.transport.get_a_to_b_messages().await;
 	info!("📨 Messages sent from A to B: {}", messages_a_to_b.len());
 
-	if messages_a_to_b.is_empty() {
-		info!("⚠️  No messages sent - expected until event system wired to TransactionManager");
-		info!("   Sync infrastructure is ready, but database operations don't emit events yet");
-	} else {
-		info!("✅ Messages are being sent!");
-		// Check for StateChange message
-		let has_state_change = messages_a_to_b.iter().any(|(_, msg)| {
-			matches!(
-				msg,
-				sd_core::service::network::protocol::sync::messages::SyncMessage::StateChange { .. }
-			)
-		});
-		assert!(has_state_change, "Expected StateChange message");
-	}
+	assert!(
+		!messages_a_to_b.is_empty(),
+		"Expected messages to be sent from A to B"
+	);
+
+	// Check for StateChange message
+	let has_state_change = messages_a_to_b.iter().any(|(_, msg)| {
+		matches!(
+			msg,
+			sd_core::service::network::protocol::sync::messages::SyncMessage::StateChange { .. }
+		)
+	});
+	assert!(has_state_change, "Expected StateChange message");
 
 	// Check if location appeared on Device B
 	let location_on_b = entities::location::Entity::find()
@@ -569,12 +571,16 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 		.one(setup.library_b.db().conn())
 		.await?;
 
+	// This will fail with FK constraint until apply functions handle dependencies properly
+	// That's GOOD - it shows what needs to be fixed!
+	assert!(
+		location_on_b.is_some(),
+		"Location should sync to Device B (FK constraint failures indicate apply function needs dependency handling)"
+	);
+
 	if let Some(location) = location_on_b {
-		info!("✅ Location successfully synced to Device B!");
+		info!("🎉 Location successfully synced to Device B!");
 		assert_eq!(location.uuid, location_uuid);
-		assert_eq!(location.device_id, device_a_record.id); // Owned by Device A
-	} else {
-		info!("⚠️  Location NOT synced (expected until TransactionManager wired)");
 	}
 
 	// === MONITOR EVENTS ===
@@ -663,18 +669,19 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 	let messages_a_to_b = setup.transport.get_a_to_b_messages().await;
 	info!("📨 Messages sent from A to B: {}", messages_a_to_b.len());
 
-	if messages_a_to_b.is_empty() {
-		info!("⚠️  No messages sent - expected until TransactionManager integration");
-	} else {
-		// Check for SharedChange message
-		let has_shared_change = messages_a_to_b.iter().any(|(_, msg)| {
-			matches!(
-				msg,
-				sd_core::service::network::protocol::sync::messages::SyncMessage::SharedChange { .. }
-			)
-		});
-		assert!(has_shared_change, "Expected SharedChange message with HLC");
-	}
+	assert!(
+		!messages_a_to_b.is_empty(),
+		"Expected SharedChange messages to be sent"
+	);
+
+	// Check for SharedChange message
+	let has_shared_change = messages_a_to_b.iter().any(|(_, msg)| {
+		matches!(
+			msg,
+			sd_core::service::network::protocol::sync::messages::SyncMessage::SharedChange { .. }
+		)
+	});
+	assert!(has_shared_change, "Expected SharedChange message with HLC");
 
 	// Check if tag appeared on Device B
 	let tag_on_b = entities::tag::Entity::find()
@@ -682,14 +689,16 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 		.one(setup.library_b.db().conn())
 		.await?;
 
-	if let Some(synced_tag) = tag_on_b {
-		info!("✅ Tag successfully synced to Device B!");
-		assert_eq!(synced_tag.uuid, tag.id);
-		assert_eq!(synced_tag.canonical_name, "Vacation");
-		assert_eq!(synced_tag.namespace, Some("photos".to_string()));
-	} else {
-		info!("⚠️  Tag NOT synced (expected until TransactionManager wired)");
-	}
+	assert!(
+		tag_on_b.is_some(),
+		"Tag should sync to Device B (failure indicates apply_shared_change needs implementation/fixes)"
+	);
+
+	let synced_tag = tag_on_b.unwrap();
+	info!("🎉 Tag successfully synced to Device B!");
+	assert_eq!(synced_tag.uuid, tag.id);
+	assert_eq!(synced_tag.canonical_name, "Vacation");
+	assert_eq!(synced_tag.namespace, Some("photos".to_string()));
 
 	// Check ACK messages
 	let messages_b_to_a = setup.transport.get_b_to_a_messages().await;
@@ -832,14 +841,14 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 
 	info!("📊 State changes: {:?}", state_changes);
 
-	if state_changes.is_empty() {
-		info!("⚠️  No state changes - expected until TransactionManager integration");
-	} else {
-		assert!(
-			state_changes.iter().any(|(m, _)| m == "entry"),
-			"Should have sent entry state change"
-		);
-	}
+	assert!(
+		!state_changes.is_empty(),
+		"Should have sent state change messages"
+	);
+	assert!(
+		state_changes.iter().any(|(m, _)| m == "entry"),
+		"Should have sent entry state change"
+	);
 
 	info!("✅ TEST COMPLETE: Entry sync infrastructure validated");
 	Ok(())

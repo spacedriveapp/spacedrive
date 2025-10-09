@@ -112,6 +112,11 @@ impl Library {
 		network: Arc<dyn crate::infra::sync::NetworkTransport>,
 	) -> Result<()> {
 		if self.sync_service.get().is_some() {
+			warn!(
+				"Sync service already initialized for library {}, cannot replace transport. Transport: {}",
+				self.id(),
+				self.sync_service.get().unwrap().peer_sync().transport_name()
+			);
 			return Ok(());
 		}
 

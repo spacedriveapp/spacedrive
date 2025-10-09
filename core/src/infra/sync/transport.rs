@@ -44,7 +44,7 @@ pub trait NetworkTransport: Send + Sync {
 	///
 	/// # Arguments
 	///
-	/// * `target_device` - UUID of the target device (from sync_partners table)
+	/// * `target_device` - UUID of the target device (from devices table where sync_enabled=true)
 	/// * `message` - The sync message to send (StateChange, SharedChange, etc.)
 	///
 	/// # Returns
@@ -72,7 +72,7 @@ pub trait NetworkTransport: Send + Sync {
 	/// Get list of currently connected sync partner devices
 	///
 	/// Returns UUIDs of devices that are:
-	/// - Listed in sync_partners table with sync_enabled=true
+	/// - Listed in devices table with sync_enabled=true
 	/// - Currently connected (have active network connection)
 	///
 	/// This is used to optimize broadcasting - only send to devices that can receive.
@@ -85,7 +85,7 @@ pub trait NetworkTransport: Send + Sync {
 	/// # Implementation Note
 	///
 	/// This should query:
-	/// 1. `sync_partners` table for enabled partners
+	/// 1. `devices` table for sync_enabled=true devices
 	/// 2. `device_registry` for connection status
 	/// 3. Return intersection of (enabled) AND (connected)
 	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>>;
@@ -107,43 +107,16 @@ pub trait NetworkTransport: Send + Sync {
 	/// `false` otherwise (device offline, not paired, etc.)
 	async fn is_device_reachable(&self, device_uuid: Uuid) -> bool {
 		// Default implementation: can be overridden for more efficient checks
-		// For now, we just assume device is reachable if UUID is known
-		// (actual implementation will check DeviceRegistry connection status)
-		false // Implementer should override this
-	}
-}
-
-/// No-op transport implementation for when networking is unavailable
-///
-/// Used as a fallback when NetworkingService hasn't been initialized yet.
-/// All operations succeed but do nothing (messages are dropped).
-pub struct NoOpNetworkTransport;
-
-impl NoOpNetworkTransport {
-	pub fn new() -> Self {
-		Self
-	}
-}
-
-#[async_trait::async_trait]
-impl NetworkTransport for NoOpNetworkTransport {
-	async fn send_sync_message(&self, _target_device: Uuid, _message: SyncMessage) -> Result<()> {
-		// Silently drop message - networking not available
-		Ok(())
-	}
-
-	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>> {
-		// No networking = no connected partners
-		Ok(vec![])
-	}
-
-	async fn is_device_reachable(&self, _device_uuid: Uuid) -> bool {
-		// No networking = nothing is reachable
 		false
 	}
+
+	/// Get transport name for debugging
+	fn transport_name(&self) -> &'static str {
+		"UnknownTransport"
+	}
 }
 
-/// Mock implementation for testing
+/// Mock implementation for testing - collects messages without sending
 #[cfg(test)]
 pub struct MockNetworkTransport {
 	/// Track which devices received which messages
@@ -177,5 +150,9 @@ impl NetworkTransport for MockNetworkTransport {
 	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>> {
 		// For tests, return empty list
 		Ok(vec![])
+	}
+
+	fn transport_name(&self) -> &'static str {
+		"MockNetworkTransport"
 	}
 }

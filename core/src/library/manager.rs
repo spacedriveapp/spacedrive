@@ -113,6 +113,29 @@ impl LibraryManager {
 		location: Option<PathBuf>,
 		context: Arc<CoreContext>,
 	) -> Result<Arc<Library>> {
+		self.create_library_internal(name, location, context, true)
+			.await
+	}
+
+	/// Create a library without auto-initializing sync (for testing)
+	pub async fn create_library_no_sync(
+		&self,
+		name: impl Into<String>,
+		location: Option<PathBuf>,
+		context: Arc<CoreContext>,
+	) -> Result<Arc<Library>> {
+		self.create_library_internal(name, location, context, false)
+			.await
+	}
+
+	/// Internal library creation with optional sync init
+	async fn create_library_internal(
+		&self,
+		name: impl Into<String>,
+		location: Option<PathBuf>,
+		context: Arc<CoreContext>,
+		auto_init_sync: bool,
+	) -> Result<Arc<Library>> {
 		let name = name.into();
 
 		// Validate name
@@ -254,26 +277,22 @@ impl LibraryManager {
 		// Note: Sidecar manager initialization should be done by the Core when libraries are loaded
 		// This allows Core to pass its services reference
 
-		// Initialize sync service with network transport
-		let network_transport: Arc<dyn crate::infra::sync::NetworkTransport> =
-			match context.networking.read().await.as_ref() {
-				Some(networking) => networking.clone(),
-				None => {
-					warn!(
-						"NetworkingService not initialized, sync service will use no-op transport"
-					);
-					// Use no-op transport (messages dropped, no broadcast)
-					Arc::new(crate::infra::sync::transport::NoOpNetworkTransport::new())
-				}
-			};
-
-		if let Err(e) = library
-			.init_sync_service(device_id, network_transport)
-			.await
-		{
-			warn!(
-				"Failed to initialize sync service for library {}: {}",
-				config.id, e
+		// Initialize sync service if networking is available
+		// If networking isn't ready, sync simply won't be initialized until caller does it explicitly
+		// TODO: maybe consider checking if networking is enabled rather than just checking if it's available
+		if let Some(networking) = context.networking.read().await.as_ref() {
+			if let Err(e) = library
+				.init_sync_service(device_id, networking.clone())
+				.await
+			{
+				warn!(
+					"Failed to initialize sync service for library {}: {}",
+					config.id, e
+				);
+			}
+		} else {
+			info!(
+				"NetworkingService not available, sync service will be initialized later when networking is ready"
 			);
 		}
 

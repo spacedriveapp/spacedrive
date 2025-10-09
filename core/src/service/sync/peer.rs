@@ -225,6 +225,10 @@ impl PeerSync {
 		// Clone necessary fields for the spawned task
 		let library_id = self.library_id;
 		let network = self.network.clone();
+		info!(
+			"PeerSync event listener cloning network transport: {:?}",
+			std::any::type_name_of_val(&*network)
+		);
 		let state = self.state.clone();
 		let buffer = self.buffer.clone();
 		let db = self.db.clone();
@@ -234,7 +238,10 @@ impl PeerSync {
 		let is_running = self.is_running.clone();
 
 		tokio::spawn(async move {
-			info!("PeerSync event listener started");
+			info!(
+				"PeerSync event listener started with network transport: {}",
+				network.transport_name()
+			);
 
 			while is_running.load(Ordering::SeqCst) {
 				match subscriber.recv().await {
@@ -357,13 +364,20 @@ impl PeerSync {
 		}
 
 		// Get all connected sync partners
+		debug!("About to call network.get_connected_sync_partners() on handle_state_change_event_static");
 		let connected_partners = network.get_connected_sync_partners().await.map_err(|e| {
 			warn!(error = %e, "Failed to get connected partners");
 			e
 		})?;
 
+		debug!(
+			count = connected_partners.len(),
+			partners = ?connected_partners,
+			"[Static Handler] Got connected sync partners from transport"
+		);
+
 		if connected_partners.is_empty() {
-			debug!("No connected sync partners to broadcast to");
+			debug!("[Static Handler] No connected sync partners to broadcast to");
 			return Ok(());
 		}
 
@@ -992,6 +1006,11 @@ impl PeerSync {
 	/// Get HLC generator (for testing/TransactionManager integration)
 	pub fn hlc_generator(&self) -> &Arc<tokio::sync::Mutex<crate::infra::sync::HLCGenerator>> {
 		&self.hlc_generator
+	}
+
+	/// Get network transport name (for debugging)
+	pub fn transport_name(&self) -> &'static str {
+		self.network.transport_name()
 	}
 
 	/// Get device-owned state for backfill (StateRequest)
