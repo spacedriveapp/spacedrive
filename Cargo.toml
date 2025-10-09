@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["crates/json-sample-derive"]
+exclude = ["crates/json-sample-derive", "extensions/*"]
 members = [
 	# "apps/cloud",
 	# "apps/desktop/crates/*",

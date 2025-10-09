@@ -1,0 +1,23 @@
+[package]
+authors     = ["Spacedrive Technology Inc."]
+description = "SDK for building Spacedrive WASM extensions"
+edition     = "2021"
+license     = "MIT OR Apache-2.0"
+name        = "spacedrive-sdk"
+repository  = "https://github.com/spacedriveapp/spacedrive"
+version     = "0.1.0"
+
+[workspace]
+# Standalone crate for extensions
+
+[dependencies]
+base64                = "0.22"
+chrono                = { version = "0.4", features = ["serde"] }
+serde                 = { version = "1.0", features = ["derive"] }
+serde_json            = "1.0"
+spacedrive-sdk-macros = { path = "../spacedrive-sdk-macros" }
+thiserror             = "1.0"
+uuid                  = { version = "1.11", features = ["js", "serde", "v4"], default-features = false }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "rt"] }
