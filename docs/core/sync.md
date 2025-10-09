@@ -2,8 +2,14 @@
 
 **Status**: Implementation Ready
 **Version**: 3.0 (Leaderless)
-**Last Updated**: 2025-10-08
+**Last Updated**: 2025-10-09
 **Architecture**: `core/src/infra/sync/NEW_SYNC.md`
+
+> 📋 **Implementation Tracking**:
+> - [Sync Roadmap](./sync-roadmap.md) - Quick reference and status overview
+> - [Detailed Roadmap](../../core/src/infra/sync/SYNC_IMPLEMENTATION_ROADMAP.md) - Comprehensive tracking with code examples
+> - [Network Integration Status](../../core/src/infra/sync/NETWORK_INTEGRATION_STATUS.md) - Phase-by-phase progress
+> - [File Organization](../../core/src/infra/sync/FILE_ORGANIZATION.md) - Navigate the codebase
 
 ---
 
@@ -311,7 +317,7 @@ CREATE TABLE tags (
     id INTEGER PRIMARY KEY,
     uuid TEXT NOT NULL UNIQUE,
     canonical_name TEXT NOT NULL,   -- Can be duplicated
-    namespace TEXT,                 -- Context grouping  
+    namespace TEXT,                 -- Context grouping
     display_name TEXT,
     formal_name TEXT,
     abbreviation TEXT,
@@ -418,14 +424,14 @@ Tier 0 (No Dependencies):
 
 Tier 1 (Depends on Tier 0):
   - Locations (depends on Device)
-  - Volumes (depends on Device)  
+  - Volumes (depends on Device)
   - Albums (no FK deps)
   - Tag Relationships (depends on Tags)
 
 Tier 2 (Depends on Tier 1):
   - Entries (depends on Location)
   - Album Entries (depends on Albums, Entries)
-  
+
 Tier 3 (Depends on Tier 2):
   - UserMetadata (depends on Entries)
   - UserMetadata Tags (depends on UserMetadata, Tags)
@@ -485,7 +491,7 @@ SharedChangeEntry {
 #### Option 2: Periodic State Reconciliation (Privacy-Preserving)
 ```rust
 // No delete records! Instead, periodically sync full state
-// Device A: "I have tags: [uuid1, uuid2]" 
+// Device A: "I have tags: [uuid1, uuid2]"
 // Device B: "I have tags: [uuid1, uuid2, uuid3]"
 // Device B detects uuid3 was deleted by A
 ```
@@ -882,10 +888,10 @@ pub trait Syncable {
 
     /// Owner device (if device-owned)
     fn device_id(&self) -> Option<Uuid>;
-    
+
     /// Convert to JSON for sync
     fn to_sync_json(&self) -> Result<serde_json::Value>;
-    
+
     /// Apply sync change (model-specific logic)
     fn apply_sync_change(
         data: serde_json::Value,
@@ -907,12 +913,12 @@ pub fn register_models() {
     registry.register("volume", volume::registration());
     registry.register("device", device::registration());
     registry.register("audit_log", audit_log::registration());
-    
-    // Shared models  
+
+    // Shared models
     registry.register("tag", tag::registration());
     registry.register("album", album::registration());
     registry.register("user_metadata", user_metadata::registration());
-    
+
     // Junction tables (special handling)
     registry.register("album_entry", album_entry::registration());
     registry.register("user_metadata_tag", user_metadata_tag::registration());
@@ -1406,7 +1412,7 @@ UserMetadata {
 
 // Content-scoped (shared across devices)
 UserMetadata {
-    entry_uuid: None,                 // Not entry-specific  
+    entry_uuid: None,                 // Not entry-specific
     content_identity_uuid: Some(uuid), // Content-universal
     // Syncs with UserMetadata domain (HLC-based)
 }
@@ -1439,13 +1445,13 @@ const BATCH_SIZE: usize = 1000;
 
 for chunk in entries.chunks(BATCH_SIZE) {
     let txn = db.begin().await?;
-    
+
     for entry in chunk {
         entry.insert(&txn).await?;
     }
-    
+
     txn.commit().await?;
-    
+
     // Allow other operations between batches
     tokio::task::yield_now().await;
 }
