@@ -2,10 +2,52 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, FnArg, ItemFn, Type};
+use syn::{
+	parse::{Parse, ParseStream},
+	parse_macro_input, FnArg, ItemFn, LitStr, Token, Type,
+};
 
-pub fn job_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
+/// Struct for parsing job macro arguments
+struct JobArgs {
+	name: Option<String>,
+}
+
+impl Parse for JobArgs {
+	fn parse(input: ParseStream) -> syn::Result<Self> {
+		if input.is_empty() {
+			return Ok(JobArgs { name: None });
+		}
+
+		// Try to parse as name = "value"
+		if input.peek(syn::Ident) {
+			let ident: syn::Ident = input.parse()?;
+			if ident == "name" {
+				input.parse::<Token![=]>()?;
+				let lit: LitStr = input.parse()?;
+				return Ok(JobArgs {
+					name: Some(lit.value()),
+				});
+			}
+		}
+
+		// Try to parse as direct string literal
+		if input.peek(LitStr) {
+			let lit: LitStr = input.parse()?;
+			return Ok(JobArgs {
+				name: Some(lit.value()),
+			});
+		}
+
+		Ok(JobArgs { name: None })
+	}
+}
+
+pub fn job_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 	let input_fn = parse_macro_input!(input as ItemFn);
+
+	// Parse job name from args using proper syn parsing
+	let job_args = parse_macro_input!(args as JobArgs);
+	let job_name = job_args.name;
 
 	// Extract function info
 	let fn_name = &input_fn.sig.ident;
@@ -18,10 +60,30 @@ pub fn job_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
 	// Expected signature: async fn name(ctx: &JobContext, state: &mut State) -> Result<()>
 	let state_type = extract_state_type(&input_fn);
 
+	// Generate registration function if job name is provided
+	let registration_fn = if let Some(ref name) = job_name {
+		let export_name_str = export_name.to_string();
+		let register_fn_name = syn::Ident::new(&format!("__register_{}", fn_name), fn_name.span());
+
+		quote! {
+			// Generate a registration helper function
+			// This will be called by plugin_init
+			#[doc(hidden)]
+			pub fn #register_fn_name() -> (&'static str, &'static str, bool) {
+				(#name, #export_name_str, true)
+			}
+		}
+	} else {
+		quote! {}
+	};
+
 	let expanded = quote! {
 		// Keep original function for internal use
 		#(#fn_attrs)*
 		#input_fn
+
+		// Registration helper function
+		#registration_fn
 
 		// Generate FFI export
 		#[no_mangle]

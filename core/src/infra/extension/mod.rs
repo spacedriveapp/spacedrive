@@ -18,11 +18,13 @@
 //! - `types`: Shared types and manifest format
 
 mod host_functions;
+mod job_registry;
 mod manager;
 mod permissions;
 mod types;
 mod wasm_job;
 
+pub use job_registry::{ExtensionJobRegistration, ExtensionJobRegistry};
 pub use manager::PluginManager;
 pub use permissions::{ExtensionPermissions, PermissionError};
 pub use types::{ExtensionManifest, PluginManifest};

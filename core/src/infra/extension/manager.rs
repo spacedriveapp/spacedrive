@@ -14,6 +14,7 @@ use wasmer::{imports, Function, FunctionEnv, Instance, Memory, Module, Store};
 use crate::{context::CoreContext, infra::api::ApiDispatcher};
 
 use super::host_functions::{self, host_spacedrive_call, host_spacedrive_log, PluginEnv};
+use super::job_registry::ExtensionJobRegistry;
 use super::permissions::ExtensionPermissions;
 use super::types::{ExtensionManifest, LoadedPlugin};
 
@@ -45,6 +46,7 @@ pub struct PluginManager {
 	plugin_dir: PathBuf,
 	core_context: Arc<CoreContext>,
 	api_dispatcher: Arc<ApiDispatcher>,
+	job_registry: Arc<ExtensionJobRegistry>,
 }
 
 impl PluginManager {
@@ -62,7 +64,13 @@ impl PluginManager {
 			plugin_dir,
 			core_context,
 			api_dispatcher,
+			job_registry: Arc::new(ExtensionJobRegistry::new()),
 		}
+	}
+
+	/// Get the job registry for extension jobs
+	pub fn job_registry(&self) -> Arc<ExtensionJobRegistry> {
+		self.job_registry.clone()
 	}
 
 	/// Load a WASM plugin from directory
@@ -128,6 +136,7 @@ impl PluginManager {
 			api_dispatcher: self.api_dispatcher.clone(),
 			permissions,
 			memory: temp_memory,
+			job_registry: self.job_registry.clone(),
 		};
 
 		let env = FunctionEnv::new(&mut self.store, plugin_env);
@@ -177,6 +186,13 @@ impl PluginManager {
 					&mut self.store,
 					&env,
 					host_functions::host_job_increment_items
+				),
+
+				// Extension registration functions
+				"register_job" => Function::new_typed_with_env(
+					&mut self.store,
+					&env,
+					host_functions::host_register_job
 				),
 			}
 		};

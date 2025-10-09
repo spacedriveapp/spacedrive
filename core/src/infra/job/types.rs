@@ -126,6 +126,7 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 	fn create_executor(
 		self: Box<Self>,
 		job_id: JobId,
+		job_name: String,
 		library: std::sync::Arc<crate::library::Library>,
 		job_db: std::sync::Arc<crate::infra::job::database::JobDb>,
 		status_tx: tokio::sync::watch::Sender<JobStatus>,

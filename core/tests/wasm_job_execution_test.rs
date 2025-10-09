@@ -2,7 +2,7 @@
 //!
 //! Tests that we can dispatch and execute WASM jobs
 
-use sd_core::{infra::extension::WasmJob, Core};
+use sd_core::Core;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -65,27 +65,19 @@ async fn test_dispatch_wasm_job() {
 
 	tracing::info!("✅ Extension loaded");
 
-	// 4. Create WasmJob
-	let wasm_job = WasmJob {
-		extension_id: "test-extension".to_string(),
-		export_fn: "execute_test_counter".to_string(),
-		state_json: serde_json::json!({
-			"current": 0,
-			"target": 10,
-			"processed": []
-		})
-		.to_string(),
-		is_resuming: false,
-	};
-
-	tracing::info!("Created WasmJob");
-
-	// 4. Dispatch job
+	// 4. Dispatch job by name (auto-registered as "test-extension:counter")
 	let job_handle = library
 		.jobs()
-		.dispatch(wasm_job)
+		.dispatch_by_name(
+			"test-extension:counter",
+			serde_json::json!({
+				"current": 0,
+				"target": 10,
+				"processed": []
+			}),
+		)
 		.await
-		.expect("Should dispatch WasmJob");
+		.expect("Should dispatch extension job by name");
 
 	tracing::info!("✅ WASM job dispatched: {}", job_handle.id());
 

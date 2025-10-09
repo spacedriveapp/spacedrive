@@ -63,6 +63,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
 			fn create_executor(
 				self: Box<Self>,
 				job_id: crate::infra::job::types::JobId,
+				job_name: String,
 				library: std::sync::Arc<crate::library::Library>,
 				job_db: std::sync::Arc<crate::infra::job::database::JobDb>,
 				status_tx: tokio::sync::watch::Sender<crate::infra::job::types::JobStatus>,
@@ -79,6 +80,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
 				Box::new(crate::infra::job::executor::JobExecutor::new(
 					*self,
 					job_id,
+					job_name,
 					library,
 					job_db,
 					status_tx,
