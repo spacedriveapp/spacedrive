@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 [dependencies]
 serde          = { version = "1.0", default-features = false, features = ["alloc", "derive"] }
 serde_json     = { version = "1.0", default-features = false, features = ["alloc"] }
-spacedrive-sdk = { path = "../spacedrive-sdk" }
+spacedrive-sdk = { path = "../../crates/sdk" }
 
 [profile.release]
 codegen-units = 1

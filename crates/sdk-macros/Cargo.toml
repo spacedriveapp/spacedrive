@@ -4,9 +4,6 @@ edition     = "2021"
 name        = "spacedrive-sdk-macros"
 version     = "0.1.0"
 
-[workspace]
-# Standalone crate
-
 [lib]
 proc-macro = true
 

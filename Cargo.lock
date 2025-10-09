@@ -9033,6 +9033,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "spacedrive-sdk"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "spacedrive-sdk-macros",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
+name = "spacedrive-sdk-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "specta"
 version = "2.0.0-rc.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
