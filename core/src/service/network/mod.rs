@@ -16,6 +16,7 @@
 pub mod core;
 pub mod device;
 pub mod protocol;
+pub mod transports;
 pub mod utils;
 
 // Re-export main types for easy access

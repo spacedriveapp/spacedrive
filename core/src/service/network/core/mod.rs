@@ -908,6 +908,11 @@ impl NetworkingService {
 		self.device_registry.clone()
 	}
 
+	/// Get the Iroh endpoint for network communication
+	pub fn endpoint(&self) -> Option<&Endpoint> {
+		self.endpoint.as_ref()
+	}
+
 	/// Publish a discovery record for pairing session
 	// Note: Discovery for pairing is now handled via mDNS user_data field
 	// - Initiator: Sets user_data to session_id via endpoint.set_user_data_for_discovery()

@@ -15,6 +15,7 @@ pub mod peer_log;
 pub mod registry;
 pub mod syncable;
 pub mod transaction;
+pub mod transport;
 
 pub use deterministic::{
 	deterministic_system_album_uuid, deterministic_system_tag_uuid, system_tags,
@@ -27,3 +28,4 @@ pub use registry::{
 };
 pub use syncable::Syncable;
 pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};
+pub use transport::NetworkTransport;

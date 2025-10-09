@@ -96,10 +96,6 @@ impl TransactionManager {
 		&self.event_bus
 	}
 
-	// ===================================================================
-	// NEW LEADERLESS METHODS
-	// ===================================================================
-
 	/// Commit device-owned resource (state-based sync)
 	///
 	/// For locations, entries, volumes, audit logs - data owned by this device.
@@ -149,9 +145,7 @@ impl TransactionManager {
 		Ok(())
 	}
 
-	// ===================================================================
 	// OLD METHODS (STUBBED - Will be replaced with HLC-based approach)
-	// ===================================================================
 
 	/// Log a single change (DEPRECATED - Use PeerSync directly)
 	///
