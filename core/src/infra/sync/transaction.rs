@@ -104,19 +104,38 @@ impl TransactionManager {
 	/// # Example
 	/// ```rust,ignore
 	/// let location = location::ActiveModel { ... };
-	/// tm.commit_device_owned(library, location).await?;
+	/// tm.commit_device_owned(library, model, data, device_id).await?;
 	/// // → Broadcasts state to peers
 	/// ```
-	pub async fn commit_device_owned<M>(&self, library_id: Uuid, model: M) -> Result<()>
-	where
-		M: Syncable,
-	{
-		// TODO: Implement
-		// 1. Verify model.is_device_owned() == true
-		// 2. Emit event for state broadcast
-		// 3. SyncService will pick up event and broadcast
+	pub async fn commit_device_owned(
+		&self,
+		library_id: Uuid,
+		model_type: &str,
+		record_uuid: Uuid,
+		device_id: Uuid,
+		data: serde_json::Value,
+	) -> Result<()> {
+		debug!(
+			library_id = %library_id,
+			model_type = %model_type,
+			record_uuid = %record_uuid,
+			"Committing device-owned data"
+		);
 
-		self.emit_change_event_simple(library_id, M::SYNC_MODEL, model.sync_id());
+		// Emit event for state broadcast
+		// The SyncService will pick this up and broadcast to peers
+		self.event_bus.emit(Event::Custom {
+			event_type: "sync:state_change".to_string(),
+			data: serde_json::json!({
+				"library_id": library_id,
+				"model_type": model_type,
+				"record_uuid": record_uuid,
+				"device_id": device_id,
+				"data": data,
+				"timestamp": chrono::Utc::now(),
+			}),
+		});
+
 		Ok(())
 	}
 
@@ -128,20 +147,62 @@ impl TransactionManager {
 	/// # Example
 	/// ```rust,ignore
 	/// let tag = tag::ActiveModel { ... };
-	/// tm.commit_shared(library, tag).await?;
+	/// tm.commit_shared(library, model_type, record_uuid, change_type, data, peer_log, hlc_gen).await?;
 	/// // → Generates HLC, writes to peer_log, broadcasts
 	/// ```
-	pub async fn commit_shared<M>(&self, library_id: Uuid, model: M) -> Result<()>
-	where
-		M: Syncable,
-	{
-		// TODO: Implement
-		// 1. Verify model.is_device_owned() == false
-		// 2. Generate HLC
-		// 3. Write to peer_log
-		// 4. Emit event for broadcast
+	pub async fn commit_shared(
+		&self,
+		library_id: Uuid,
+		model_type: &str,
+		record_uuid: Uuid,
+		change_type: crate::infra::sync::ChangeType,
+		data: serde_json::Value,
+		peer_log: &crate::infra::sync::PeerLog,
+		hlc_generator: &mut crate::infra::sync::HLCGenerator,
+	) -> Result<()> {
+		debug!(
+			library_id = %library_id,
+			model_type = %model_type,
+			record_uuid = %record_uuid,
+			change_type = ?change_type,
+			"Committing shared data"
+		);
 
-		self.emit_change_event_simple(library_id, M::SYNC_MODEL, model.sync_id());
+		// Generate HLC timestamp for ordering
+		let hlc = hlc_generator.next();
+
+		// Create entry for peer log
+		let entry = crate::infra::sync::SharedChangeEntry {
+			hlc,
+			model_type: model_type.to_string(),
+			record_uuid,
+			change_type,
+			data: data.clone(),
+		};
+
+		// Write to peer log (append-only, for sync and conflict resolution)
+		peer_log
+			.append(entry.clone())
+			.await
+			.map_err(|e| TxError::SyncLog(format!("Failed to append to peer log: {}", e)))?;
+
+		info!(
+			hlc = %hlc,
+			model_type = %model_type,
+			record_uuid = %record_uuid,
+			"Shared change written to peer log"
+		);
+
+		// Emit event for broadcast
+		// The SyncService will pick this up and broadcast to peers
+		self.event_bus.emit(Event::Custom {
+			event_type: "sync:shared_change".to_string(),
+			data: serde_json::json!({
+				"library_id": library_id,
+				"entry": entry,
+			}),
+		});
+
 		Ok(())
 	}
 

@@ -100,4 +100,82 @@ impl Model {
 	pub fn is_sync_ready(&self) -> bool {
 		self.uuid.is_some()
 	}
+
+	/// Apply device-owned state change (idempotent upsert)
+	///
+	/// Entries are device-owned, so we use state-based replication:
+	/// - No HLC ordering needed (only owner modifies)
+	/// - Idempotent upsert by UUID
+	/// - Last state wins (no conflict resolution needed)
+	///
+	/// # Errors
+	///
+	/// Returns error if:
+	/// - JSON deserialization fails
+	/// - Database upsert fails
+	/// - Foreign key constraints violated (metadata_id, content_id, or parent_id not found)
+	pub async fn apply_state_change(
+		data: serde_json::Value,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		// Deserialize incoming data
+		let entry: Self = serde_json::from_value(data)
+			.map_err(|e| sea_orm::DbErr::Custom(format!("Entry deserialization failed: {}", e)))?;
+
+		// Only sync entries that have UUIDs (sync-ready entries)
+		let entry_uuid = entry
+			.uuid
+			.ok_or_else(|| sea_orm::DbErr::Custom("Cannot sync entry without UUID".to_string()))?;
+
+		// Build ActiveModel for upsert
+		use sea_orm::{ActiveValue::NotSet, Set};
+
+		let active = ActiveModel {
+			id: NotSet, // Database PK, not synced
+			uuid: Set(Some(entry_uuid)),
+			name: Set(entry.name),
+			kind: Set(entry.kind),
+			extension: Set(entry.extension),
+			metadata_id: Set(entry.metadata_id),
+			content_id: Set(entry.content_id),
+			size: Set(entry.size),
+			aggregate_size: Set(entry.aggregate_size),
+			child_count: Set(entry.child_count),
+			file_count: Set(entry.file_count),
+			created_at: Set(entry.created_at),
+			modified_at: Set(entry.modified_at),
+			accessed_at: Set(entry.accessed_at),
+			permissions: Set(entry.permissions),
+			inode: Set(entry.inode),
+			parent_id: Set(entry.parent_id),
+		};
+
+		// Idempotent upsert: insert or update based on UUID
+		Entity::insert(active)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(Column::Uuid)
+					.update_columns([
+						Column::Name,
+						Column::Kind,
+						Column::Extension,
+						Column::MetadataId,
+						Column::ContentId,
+						Column::Size,
+						Column::AggregateSize,
+						Column::ChildCount,
+						Column::FileCount,
+						Column::CreatedAt,
+						Column::ModifiedAt,
+						Column::AccessedAt,
+						Column::Permissions,
+						Column::Inode,
+						Column::ParentId,
+					])
+					.to_owned(),
+			)
+			.exec(db)
+			.await?;
+
+		Ok(())
+	}
 }

@@ -9,7 +9,8 @@ use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use once_cell::sync::Lazy;
 
@@ -85,12 +86,12 @@ impl SyncableModelRegistration {
 }
 
 /// Register a device-owned model with state-based apply function
-pub fn register_device_owned(
+pub async fn register_device_owned(
 	model_type: &'static str,
 	table_name: &'static str,
 	apply_fn: StateApplyFn,
 ) {
-	let mut registry = SYNCABLE_REGISTRY.write().unwrap();
+	let mut registry = SYNCABLE_REGISTRY.write().await;
 	registry.insert(
 		model_type.to_string(),
 		SyncableModelRegistration::device_owned(model_type, table_name, apply_fn),
@@ -98,12 +99,12 @@ pub fn register_device_owned(
 }
 
 /// Register a shared model with log-based apply function
-pub fn register_shared(
+pub async fn register_shared(
 	model_type: &'static str,
 	table_name: &'static str,
 	apply_fn: SharedApplyFn,
 ) {
-	let mut registry = SYNCABLE_REGISTRY.write().unwrap();
+	let mut registry = SYNCABLE_REGISTRY.write().await;
 	registry.insert(
 		model_type.to_string(),
 		SyncableModelRegistration::shared(model_type, table_name, apply_fn),
@@ -112,7 +113,7 @@ pub fn register_shared(
 
 /// Initialize registry with all syncable models
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
-	use crate::infra::db::entities::{location, tag};
+	use crate::infra::db::entities::{entry, location, tag};
 
 	let mut registry = HashMap::new();
 
@@ -121,6 +122,13 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 		"location".to_string(),
 		SyncableModelRegistration::device_owned("location", "locations", |data, db| {
 			Box::pin(async move { location::Model::apply_state_change(data, &db).await })
+		}),
+	);
+
+	registry.insert(
+		"entry".to_string(),
+		SyncableModelRegistration::device_owned("entry", "entries", |data, db| {
+			Box::pin(async move { entry::Model::apply_state_change(data, &db).await })
 		}),
 	);
 
@@ -136,19 +144,19 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 }
 
 /// Get table name for a model type
-pub fn get_table_name(model_type: &str) -> Option<&'static str> {
+pub async fn get_table_name(model_type: &str) -> Option<&'static str> {
 	SYNCABLE_REGISTRY
 		.read()
-		.unwrap()
+		.await
 		.get(model_type)
 		.map(|reg| reg.table_name)
 }
 
 /// Check if model is device-owned
-pub fn is_device_owned(model_type: &str) -> bool {
+pub async fn is_device_owned(model_type: &str) -> bool {
 	SYNCABLE_REGISTRY
 		.read()
-		.unwrap()
+		.await
 		.get(model_type)
 		.map(|reg| reg.is_device_owned)
 		.unwrap_or(false)
@@ -162,25 +170,24 @@ pub async fn apply_state_change(
 	data: serde_json::Value,
 	db: Arc<DatabaseConnection>,
 ) -> Result<(), ApplyError> {
-	let registry = SYNCABLE_REGISTRY.read().unwrap();
-	let registration = registry
-		.get(model_type)
-		.ok_or_else(|| ApplyError::UnknownModel(model_type.to_string()))?;
+	let apply_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let registration = registry
+			.get(model_type)
+			.ok_or_else(|| ApplyError::UnknownModel(model_type.to_string()))?;
 
-	if !registration.is_device_owned {
-		return Err(ApplyError::WrongSyncType {
-			model: model_type.to_string(),
-			expected: "device-owned".to_string(),
-			got: "shared".to_string(),
-		});
-	}
+		if !registration.is_device_owned {
+			return Err(ApplyError::WrongSyncType {
+				model: model_type.to_string(),
+				expected: "device-owned".to_string(),
+				got: "shared".to_string(),
+			});
+		}
 
-	let apply_fn = registration
-		.state_apply_fn
-		.ok_or_else(|| ApplyError::MissingApplyFunction(model_type.to_string()))?;
-
-	// Drop the lock before calling async function
-	drop(registry);
+		registration
+			.state_apply_fn
+			.ok_or_else(|| ApplyError::MissingApplyFunction(model_type.to_string()))?
+	}; // Lock is dropped here
 
 	// Call the registered apply function
 	apply_fn(data, db)
@@ -195,25 +202,24 @@ pub async fn apply_shared_change(
 	entry: SharedChangeEntry,
 	db: Arc<DatabaseConnection>,
 ) -> Result<(), ApplyError> {
-	let registry = SYNCABLE_REGISTRY.read().unwrap();
-	let registration = registry
-		.get(&entry.model_type)
-		.ok_or_else(|| ApplyError::UnknownModel(entry.model_type.clone()))?;
+	let apply_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let registration = registry
+			.get(&entry.model_type)
+			.ok_or_else(|| ApplyError::UnknownModel(entry.model_type.clone()))?;
 
-	if registration.is_device_owned {
-		return Err(ApplyError::WrongSyncType {
-			model: entry.model_type.clone(),
-			expected: "shared".to_string(),
-			got: "device-owned".to_string(),
-		});
-	}
+		if registration.is_device_owned {
+			return Err(ApplyError::WrongSyncType {
+				model: entry.model_type.clone(),
+				expected: "shared".to_string(),
+				got: "device-owned".to_string(),
+			});
+		}
 
-	let apply_fn = registration
-		.shared_apply_fn
-		.ok_or_else(|| ApplyError::MissingApplyFunction(entry.model_type.clone()))?;
-
-	// Drop the lock before calling async function
-	drop(registry);
+		registration
+			.shared_apply_fn
+			.ok_or_else(|| ApplyError::MissingApplyFunction(entry.model_type.clone()))?
+	}; // Lock is dropped here
 
 	// Call the registered apply function
 	apply_fn(entry, db)
@@ -245,10 +251,10 @@ pub enum ApplyError {
 mod tests {
 	use super::*;
 
-	#[test]
-	fn test_registry_initialization() {
+	#[tokio::test]
+	async fn test_registry_initialization() {
 		// Access registry to trigger initialization
-		let registry = SYNCABLE_REGISTRY.read().unwrap();
+		let registry = SYNCABLE_REGISTRY.read().await;
 
 		// Verify location is registered as device-owned
 		assert!(registry.contains_key("location"));
@@ -269,17 +275,17 @@ mod tests {
 		assert!(tag_reg.shared_apply_fn.is_some());
 	}
 
-	#[test]
-	fn test_registry_helpers() {
+	#[tokio::test]
+	async fn test_registry_helpers() {
 		// Trigger initialization
-		let _ = SYNCABLE_REGISTRY.read().unwrap();
+		let _ = SYNCABLE_REGISTRY.read().await;
 
-		assert_eq!(get_table_name("location"), Some("locations"));
-		assert_eq!(get_table_name("tag"), Some("tag"));
-		assert_eq!(get_table_name("nonexistent"), None);
+		assert_eq!(get_table_name("location").await, Some("locations"));
+		assert_eq!(get_table_name("tag").await, Some("tag"));
+		assert_eq!(get_table_name("nonexistent").await, None);
 
-		assert!(is_device_owned("location"));
-		assert!(!is_device_owned("tag"));
-		assert!(!is_device_owned("nonexistent")); // Returns false for unknown
+		assert!(is_device_owned("location").await);
+		assert!(!is_device_owned("tag").await);
+		assert!(!is_device_owned("nonexistent").await); // Returns false for unknown
 	}
 }

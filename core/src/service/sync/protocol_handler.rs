@@ -122,6 +122,7 @@ impl StateSyncHandler {
 	) -> Result<Vec<StateRecord>> {
 		// Get table name from registry (no hardcoding!)
 		let table_name = crate::infra::sync::registry::get_table_name(model_type)
+			.await
 			.ok_or_else(|| anyhow::anyhow!("Unknown model type: {}", model_type))?;
 
 		let mut query = format!("SELECT * FROM {} WHERE 1=1", table_name);

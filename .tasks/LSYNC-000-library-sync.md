@@ -33,16 +33,22 @@ See `core/src/infra/sync/NEW_SYNC.md` for complete rationale.
 - NET-002: Device pairing protocol ✅
 - LSYNC-003: Library sync setup ✅
 
-**In Progress (Phase 2)**:
-- LSYNC-006: TransactionManager (simplified, no leader checks)
-- LSYNC-007: Syncable trait (with device_id field)
-- LSYNC-009: HLC implementation (replaces leader election)
+**Completed (Phase 2)** - Oct 9, 2025:
+- LSYNC-006: TransactionManager ✅
+- LSYNC-007: Syncable trait ✅
+- LSYNC-009: HLC implementation ✅
+- LSYNC-013: Hybrid protocol handler ✅
 
-**Upcoming (Phase 3)**:
-- LSYNC-013: Hybrid protocol handler
-- LSYNC-010: Peer sync service
-- LSYNC-011: Conflict resolution (HLC-based)
+**In Progress (Phase 3)**:
+- LSYNC-010: Peer sync service (broadcast improvements done, backfill pending)
+- LSYNC-011: Conflict resolution (HLC ordering implemented, testing pending)
+- Model implementations (Entry ✅, Tag ✅, remaining models pending)
+
+**Upcoming (Phase 4)**:
 - LSYNC-002: Metadata sync
+- Integration testing
+- Backfill for new devices
+- Retry queue implementation
 
 **Cancelled/Obsolete**:
 - ~~LSYNC-008: Central sync log~~ (replaced with per-device shared_changes)

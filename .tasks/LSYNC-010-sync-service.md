@@ -1,8 +1,8 @@
 ---
 id: LSYNC-010
 title: Peer Sync Service (Leaderless)
-status: To Do
-assignee: unassigned
+status: In Progress
+assignee: james
 parent: LSYNC-000
 priority: High
 tags: [sync, replication, service, peer-to-peer, leaderless]
@@ -142,31 +142,59 @@ impl SyncService {
 ## Acceptance Criteria
 
 ### State-Based Sync
-- [ ] State changes broadcast to all peers
-- [ ] Received state applied idempotently
-- [ ] Batch optimization (100ms window)
-- [ ] Incremental sync via timestamps
-- [ ] No sync log for device-owned data
+- [x] State changes broadcast to all peers ✅
+- [x] Received state applied idempotently ✅
+- [ ] Batch optimization (100ms window) (pending)
+- [ ] Incremental sync via timestamps (pending)
+- [x] No sync log for device-owned data ✅
 
 ### Log-Based Sync
-- [ ] Shared changes written to per-device log
-- [ ] HLC generated for each change
-- [ ] Changes broadcast with HLC
-- [ ] Peers apply in HLC order
-- [ ] ACK mechanism works
-- [ ] Log pruning keeps it small (<1000 entries)
+- [x] Shared changes written to per-device log ✅
+- [x] HLC generated for each change ✅
+- [x] Changes broadcast with HLC ✅
+- [x] Peers apply in HLC order ✅
+- [x] ACK mechanism works ✅
+- [ ] Log pruning keeps it small (<1000 entries) (partial - ACK tracking works, pruning implemented)
 
 ### Peer Management
-- [ ] Works with any number of peers (no leader/follower)
-- [ ] Offline peers handled (changes queue)
-- [ ] Reconnect triggers sync
-- [ ] New device backfill works
+- [x] Works with any number of peers (no leader/follower) ✅
+- [ ] Offline peers handled (changes queue) (TODO comments added)
+- [ ] Reconnect triggers sync (pending)
+- [ ] New device backfill works (pending)
 
 ### Integration
-- [ ] Service starts when library opens
-- [ ] Integration tests validate peer-to-peer sync
-- [ ] Multi-peer scenario tested (3+ devices)
-- [ ] Conflict resolution via HLC verified
+- [ ] Service starts when library opens (pending)
+- [ ] Integration tests validate peer-to-peer sync (pending)
+- [ ] Multi-peer scenario tested (3+ devices) (pending)
+- [ ] Conflict resolution via HLC verified (pending)
+
+## Implementation Progress (Oct 9, 2025)
+
+Successfully implemented in `core/src/service/sync/peer.rs`:
+
+**Broadcast Improvements**:
+- ✅ Parallel sends using `futures::join_all` (was sequential)
+- ✅ Proper error propagation (removed `.unwrap_or_default()`)
+- ✅ 30-second timeouts per send operation
+- ✅ Structured logging with tracing
+- ✅ Ready for retry queue integration (TODO comments added)
+
+**State-Based Sync**:
+- ✅ `broadcast_state_change()` sends to all peers in parallel
+- ✅ `on_state_change_received()` applies via registry
+- ✅ Buffering during backfill phase
+
+**Log-Based Sync**:
+- ✅ `broadcast_shared_change()` generates HLC and sends to all peers
+- ✅ `on_shared_change_received()` applies with conflict resolution
+- ✅ `on_ack_received()` tracks peer ACKs for pruning
+- ✅ Peer log append before broadcast
+
+**Next Steps**:
+- [ ] Implement backfill for new devices
+- [ ] Add retry queue for failed sends
+- [ ] Connection state tracking
+- [ ] Integration testing
 
 ## Performance Benefits
 

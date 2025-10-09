@@ -158,7 +158,10 @@ impl PeerSync {
 			.network
 			.get_connected_sync_partners()
 			.await
-			.unwrap_or_default();
+			.map_err(|e| {
+				warn!(error = %e, "Failed to get connected partners");
+				e
+			})?;
 
 		if connected_partners.is_empty() {
 			debug!("No connected sync partners to broadcast to");
@@ -182,16 +185,38 @@ impl PeerSync {
 			"Broadcasting state change to sync partners"
 		);
 
-		// Broadcast to all partners (don't fail if some sends fail)
+		// Broadcast to all partners in parallel using futures::join_all
+		use futures::future::join_all;
+
+		let send_futures: Vec<_> = connected_partners
+			.iter()
+			.map(|&partner| {
+				let network = self.network.clone();
+				let msg = message.clone();
+				async move {
+					// Add timeout to prevent hanging indefinitely
+					match tokio::time::timeout(
+						std::time::Duration::from_secs(30),
+						network.send_sync_message(partner, msg),
+					)
+					.await
+					{
+						Ok(Ok(())) => (partner, Ok(())),
+						Ok(Err(e)) => (partner, Err(e)),
+						Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after 30s"))),
+					}
+				}
+			})
+			.collect();
+
+		let results = join_all(send_futures).await;
+
+		// Process results
 		let mut success_count = 0;
 		let mut error_count = 0;
 
-		for partner_uuid in connected_partners {
-			match self
-				.network
-				.send_sync_message(partner_uuid, message.clone())
-				.await
-			{
+		for (partner_uuid, result) in results {
+			match result {
 				Ok(()) => {
 					success_count += 1;
 					debug!(partner = %partner_uuid, "State change sent successfully");
@@ -203,7 +228,8 @@ impl PeerSync {
 						error = %e,
 						"Failed to send state change to partner"
 					);
-					// Continue to other partners
+					// TODO: Enqueue for retry
+					// self.retry_queue.enqueue(partner_uuid, message.clone()).await;
 				}
 			}
 		}
@@ -259,7 +285,10 @@ impl PeerSync {
 			.network
 			.get_connected_sync_partners()
 			.await
-			.unwrap_or_default();
+			.map_err(|e| {
+				warn!(error = %e, "Failed to get connected partners");
+				e
+			})?;
 
 		if connected_partners.is_empty() {
 			debug!("No connected sync partners to broadcast to");
@@ -280,16 +309,38 @@ impl PeerSync {
 			"Broadcasting shared change to sync partners"
 		);
 
-		// Broadcast to all partners (don't fail if some sends fail)
+		// Broadcast to all partners in parallel using futures::join_all
+		use futures::future::join_all;
+
+		let send_futures: Vec<_> = connected_partners
+			.iter()
+			.map(|&partner| {
+				let network = self.network.clone();
+				let msg = message.clone();
+				async move {
+					// Add timeout to prevent hanging indefinitely
+					match tokio::time::timeout(
+						std::time::Duration::from_secs(30),
+						network.send_sync_message(partner, msg),
+					)
+					.await
+					{
+						Ok(Ok(())) => (partner, Ok(())),
+						Ok(Err(e)) => (partner, Err(e)),
+						Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after 30s"))),
+					}
+				}
+			})
+			.collect();
+
+		let results = join_all(send_futures).await;
+
+		// Process results
 		let mut success_count = 0;
 		let mut error_count = 0;
 
-		for partner_uuid in connected_partners {
-			match self
-				.network
-				.send_sync_message(partner_uuid, message.clone())
-				.await
-			{
+		for (partner_uuid, result) in results {
+			match result {
 				Ok(()) => {
 					success_count += 1;
 					debug!(partner = %partner_uuid, "Shared change sent successfully");
@@ -301,7 +352,8 @@ impl PeerSync {
 						error = %e,
 						"Failed to send shared change to partner"
 					);
-					// Continue to other partners
+					// TODO: Enqueue for retry
+					// self.retry_queue.enqueue(partner_uuid, message.clone()).await;
 				}
 			}
 		}
@@ -360,12 +412,26 @@ impl PeerSync {
 
 	/// Apply state change to database
 	async fn apply_state_change(&self, change: StateChangeMessage) -> Result<()> {
-		// TODO: Deserialize and upsert based on model_type
 		debug!(
 			model_type = %change.model_type,
 			record_uuid = %change.record_uuid,
 			device_id = %change.device_id,
-			"Applied state change"
+			"Applying state change"
+		);
+
+		// Use the registry to route to the appropriate apply function
+		crate::infra::sync::apply_state_change(
+			&change.model_type,
+			change.data.clone(),
+			self.db.clone(),
+		)
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to apply state change: {}", e))?;
+
+		info!(
+			model_type = %change.model_type,
+			record_uuid = %change.record_uuid,
+			"State change applied successfully"
 		);
 
 		// Emit event
@@ -383,15 +449,27 @@ impl PeerSync {
 
 	/// Apply shared change to database with conflict resolution
 	async fn apply_shared_change(&self, entry: SharedChangeEntry) -> Result<()> {
-		// TODO: Deserialize and merge based on model_type
 		debug!(
 			hlc = %entry.hlc,
 			model_type = %entry.model_type,
 			record_uuid = %entry.record_uuid,
-			"Applied shared change"
+			"Applying shared change"
 		);
 
-		// TODO: Send ACK to sender
+		// Use the registry to route to the appropriate apply function
+		// (which handles conflict resolution with HLC)
+		crate::infra::sync::apply_shared_change(entry.clone(), self.db.clone())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to apply shared change: {}", e))?;
+
+		info!(
+			hlc = %entry.hlc,
+			model_type = %entry.model_type,
+			record_uuid = %entry.record_uuid,
+			"Shared change applied successfully"
+		);
+
+		// TODO: Send ACK to sender for pruning
 
 		// Emit event
 		self.event_bus.emit(Event::Custom {
