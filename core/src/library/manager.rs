@@ -223,6 +223,7 @@ impl LibraryManager {
 		let library = Arc::new(Library {
 			path: path.to_path_buf(),
 			config: RwLock::new(config.clone()),
+			core_context: context.clone(),
 			db,
 			jobs: job_manager,
 			event_bus: self.event_bus.clone(),

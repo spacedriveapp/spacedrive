@@ -21,7 +21,9 @@ mod host_functions;
 mod manager;
 mod permissions;
 mod types;
+mod wasm_job;
 
 pub use manager::PluginManager;
 pub use permissions::{ExtensionPermissions, PermissionError};
 pub use types::{ExtensionManifest, PluginManifest};
+pub use wasm_job::WasmJob;

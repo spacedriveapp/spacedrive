@@ -19,6 +19,7 @@ pub struct CoreContext {
 	// This is wrapped in an RwLock to allow it to be set after initialization
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
+	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
@@ -42,6 +43,7 @@ impl CoreContext {
 			library_key_manager,
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
+			plugin_manager: Arc::new(RwLock::new(None)),
 			job_logging_config: None,
 			job_logs_dir: None,
 		}
@@ -93,5 +95,20 @@ impl CoreContext {
 	/// Method for Core to set action manager after it's initialized
 	pub async fn set_action_manager(&self, action_manager: Arc<ActionManager>) {
 		*self.action_manager.write().await = Some(action_manager);
+	}
+
+	/// Method for Core to set plugin manager after it's initialized
+	pub async fn set_plugin_manager(
+		&self,
+		plugin_manager: Arc<RwLock<crate::infra::extension::PluginManager>>,
+	) {
+		*self.plugin_manager.write().await = Some(plugin_manager);
+	}
+
+	/// Get plugin manager
+	pub async fn get_plugin_manager(
+		&self,
+	) -> Option<Arc<RwLock<crate::infra::extension::PluginManager>>> {
+		self.plugin_manager.read().await.clone()
 	}
 }
