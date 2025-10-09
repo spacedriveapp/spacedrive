@@ -118,7 +118,9 @@ impl JobManager {
 		if REGISTRY.has_job(job_name) {
 			// Create job instance from core registry
 			let erased_job = REGISTRY.create_job(job_name, params)?;
-			return self.dispatch_erased_job(job_name, erased_job, priority, None).await;
+			return self
+				.dispatch_erased_job(job_name, erased_job, priority, None)
+				.await;
 		}
 
 		// Check if it's an extension job (contains colon)
@@ -129,16 +131,20 @@ impl JobManager {
 
 				if job_registry.has_job(job_name) {
 					// Extract state JSON from params
-					let state_json = serde_json::to_string(&params)
-						.map_err(|e| JobError::serialization(format!("Failed to serialize params: {}", e)))?;
+					let state_json = serde_json::to_string(&params).map_err(|e| {
+						JobError::serialization(format!("Failed to serialize params: {}", e))
+					})?;
 
 					// Create WasmJob from registry
 					let wasm_job = job_registry
 						.create_wasm_job(job_name, state_json)
 						.map_err(|e| JobError::NotFound(e))?;
 
-					// Dispatch the WasmJob
-					return self.dispatch_with_priority(wasm_job, priority, None).await;
+					// Box as ErasedJob and dispatch with the extension job name
+					let erased_job = Box::new(wasm_job) as Box<dyn ErasedJob>;
+					return self
+						.dispatch_erased_job(job_name, erased_job, priority, None)
+						.await;
 				}
 			}
 		}
@@ -270,6 +276,7 @@ impl JobManager {
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
+			job_name.to_string(),
 			library,
 			self.db.clone(),
 			status_tx.clone(),
@@ -555,6 +562,7 @@ impl JobManager {
 		let executor = JobExecutor::new(
 			job,
 			job_id,
+			J::NAME.to_string(),
 			library,
 			self.db.clone(),
 			status_tx.clone(),
@@ -1112,7 +1120,7 @@ impl JobManager {
 						let job_name = job_record.name.clone();
 						let handle = JobHandle {
 							id: job_id,
-							job_name,
+							job_name: job_name.clone(),
 							task_handle: Arc::new(Mutex::new(None)),
 							status_rx,
 							progress_rx: broadcast_rx,
@@ -1126,6 +1134,7 @@ impl JobManager {
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
 							job_id,
+							job_name,
 							library,
 							self.db.clone(),
 							status_tx.clone(),
@@ -1479,6 +1488,7 @@ impl JobManager {
 			// Create executor
 			let executor = erased_job.create_executor(
 				job_id,
+				job_name.clone(),
 				library,
 				self.db.clone(),
 				status_tx.clone(),

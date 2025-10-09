@@ -177,4 +177,37 @@ impl Context {
 			execute_core_query!(self, input);
 		Ok(output)
 	}
+
+	/// Validate and fix the current library selection
+	/// If the stored library ID is not found, select the first available library
+	pub async fn validate_and_fix_library(&mut self) -> Result<()> {
+		if let Some(stored_library_id) = self.library_id {
+			let libraries = self.list_libraries().await?;
+
+			if libraries.is_empty() {
+				self.library_id = None;
+				self.cli_config.clear_current_library(&self.data_dir)?;
+				return Ok(());
+			}
+
+			let library_exists = libraries.iter().any(|lib| lib.id == stored_library_id);
+
+			if !library_exists {
+				if let Some(first_lib) = libraries.first() {
+					self.library_id = Some(first_lib.id);
+					self.cli_config
+						.set_current_library(first_lib.id, &self.data_dir)?;
+				}
+			}
+		} else {
+			let libraries = self.list_libraries().await?;
+			if let Some(first_lib) = libraries.first() {
+				self.library_id = Some(first_lib.id);
+				self.cli_config
+					.set_current_library(first_lib.id, &self.data_dir)?;
+			}
+		}
+
+		Ok(())
+	}
 }

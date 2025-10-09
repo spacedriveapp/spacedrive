@@ -26,6 +26,7 @@ pub struct JobExecutor<J: JobHandler> {
 
 pub struct JobExecutorState {
 	pub job_id: JobId,
+	pub job_name: String,
 	pub library: Arc<Library>,
 	pub job_db: Arc<JobDb>,
 	pub status_tx: watch::Sender<super::types::JobStatus>,
@@ -47,6 +48,7 @@ impl<J: JobHandler> JobExecutor<J> {
 	pub fn new(
 		job: J,
 		job_id: JobId,
+		job_name: String,
 		library: Arc<Library>,
 		job_db: Arc<JobDb>,
 		status_tx: watch::Sender<super::types::JobStatus>,
@@ -67,7 +69,7 @@ impl<J: JobHandler> JobExecutor<J> {
 			let log_file = logs_dir.join(format!("{}.log", job_id));
 			match super::logger::FileJobLogger::new(job_id, log_file, config.clone()) {
 				Ok(logger) => {
-					let _ = logger.log("INFO", &format!("Job {} ({}) starting", job_id, J::NAME));
+					let _ = logger.log("INFO", &format!("Job {} ({}) starting", job_id, &job_name));
 					Some(Arc::new(logger))
 				}
 				Err(e) => {
@@ -83,6 +85,7 @@ impl<J: JobHandler> JobExecutor<J> {
 			job,
 			state: JobExecutorState {
 				job_id,
+				job_name,
 				library,
 				job_db,
 				status_tx,
@@ -151,7 +154,10 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 		if let Some(logger) = &self.state.file_logger {
 			let _ = logger.log(
 				"INFO",
-				&format!("Starting job {}: {}", self.state.job_id, J::NAME),
+				&format!(
+					"Starting job {}: {}",
+					self.state.job_id, self.state.job_name
+				),
 			);
 		}
 
@@ -185,7 +191,10 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 
 impl<J: JobHandler> JobExecutor<J> {
 	async fn run_inner(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, JobError> {
-		info!("Starting job {}: {}", self.state.job_id, J::NAME);
+		info!(
+			"Starting job {}: {}",
+			self.state.job_id, self.state.job_name
+		);
 
 		// Update status to running
 		warn!(
@@ -439,6 +448,7 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 	fn create_executor(
 		self: Box<Self>,
 		job_id: JobId,
+		job_name: String,
 		library: std::sync::Arc<crate::library::Library>,
 		job_db: std::sync::Arc<crate::infra::job::database::JobDb>,
 		status_tx: tokio::sync::watch::Sender<JobStatus>,
@@ -477,6 +487,7 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 
 		executor.state = JobExecutorState {
 			job_id,
+			job_name,
 			library,
 			job_db,
 			status_tx,

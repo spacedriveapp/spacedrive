@@ -458,7 +458,10 @@ async fn run_client_command(
 	}
 
 	let core = CoreClient::new(socket_path.clone());
-	let ctx = Context::new(core, format, data_dir, socket_path)?;
+	let mut ctx = Context::new(core, format, data_dir, socket_path)?;
+
+	ctx.validate_and_fix_library().await?;
+
 	match command {
 		Commands::Status => {
 			let status: sd_core::ops::core::status::output::CoreStatus =
