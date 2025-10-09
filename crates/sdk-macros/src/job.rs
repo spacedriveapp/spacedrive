@@ -2,28 +2,52 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, FnArg, ItemFn, LitStr, Type};
+use syn::{
+	parse::{Parse, ParseStream},
+	parse_macro_input, FnArg, ItemFn, LitStr, Token, Type,
+};
+
+/// Struct for parsing job macro arguments
+struct JobArgs {
+	name: Option<String>,
+}
+
+impl Parse for JobArgs {
+	fn parse(input: ParseStream) -> syn::Result<Self> {
+		if input.is_empty() {
+			return Ok(JobArgs { name: None });
+		}
+
+		// Try to parse as name = "value"
+		if input.peek(syn::Ident) {
+			let ident: syn::Ident = input.parse()?;
+			if ident == "name" {
+				input.parse::<Token![=]>()?;
+				let lit: LitStr = input.parse()?;
+				return Ok(JobArgs {
+					name: Some(lit.value()),
+				});
+			}
+		}
+
+		// Try to parse as direct string literal
+		if input.peek(LitStr) {
+			let lit: LitStr = input.parse()?;
+			return Ok(JobArgs {
+				name: Some(lit.value()),
+			});
+		}
+
+		Ok(JobArgs { name: None })
+	}
+}
 
 pub fn job_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 	let input_fn = parse_macro_input!(input as ItemFn);
 
-	// Parse job name from args if provided
-	let job_name: Option<String> = if !args.is_empty() {
-		// Try to parse as name = "value"
-		let args_str = args.to_string();
-		if let Some(name_value) = args_str.strip_prefix("name = \"") {
-			if let Some(name) = name_value.strip_suffix("\"") {
-				Some(name.to_string())
-			} else {
-				None
-			}
-		} else {
-			// Try direct string literal
-			syn::parse::<LitStr>(args).ok().map(|lit| lit.value())
-		}
-	} else {
-		None
-	};
+	// Parse job name from args using proper syn parsing
+	let job_args = parse_macro_input!(args as JobArgs);
+	let job_name = job_args.name;
 
 	// Extract function info
 	let fn_name = &input_fn.sig.ident;
