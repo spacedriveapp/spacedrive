@@ -1,0 +1,16 @@
+[package]
+edition = "2021"
+name    = "test-extension-minimal"
+version = "0.1.0"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Absolutely minimal - no wasm-bindgen
+
+[profile.release]
+lto       = true
+opt-level = "z"

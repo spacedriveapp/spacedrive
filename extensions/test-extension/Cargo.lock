@@ -275,7 +275,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-extension-beautiful"
+name = "test-extension"
 version = "0.1.0"
 dependencies = [
  "serde",

@@ -349,9 +349,19 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
+ "spacedrive-sdk-macros",
  "thiserror",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "spacedrive-sdk-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

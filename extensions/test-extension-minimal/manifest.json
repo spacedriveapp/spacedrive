@@ -1,0 +1,18 @@
+{
+  "id": "test-extension-minimal",
+  "name": "Minimal Test Extension",
+  "version": "0.1.0",
+  "description": "Absolutely minimal extension with zero dependencies",
+  "author": "Spacedrive Team",
+  "wasm_file": "test_extension_minimal.wasm",
+  "permissions": {
+    "methods": [],
+    "libraries": [
+      "*"
+    ],
+    "rate_limits": {
+      "requests_per_minute": 1000
+    },
+    "max_memory_mb": 64
+  }
+}

@@ -2,12 +2,9 @@
 //!
 //! Provides the same capabilities as core jobs: progress, checkpoints, metrics, etc.
 
-use serde::{de::DeserializeOwned, Serialize};
-use std::cell::RefCell;
-use std::sync::Arc;
+use serde::Serialize;
 use uuid::Uuid;
 
-use crate::ffi::WireClient;
 use crate::types::Result;
 
 /// Job-specific imports (will be implemented in core)
@@ -32,7 +29,6 @@ extern "C" {
 pub struct JobContext {
 	job_id: Uuid,
 	library_id: Uuid,
-	wire_client: Arc<RefCell<WireClient>>,
 }
 
 impl JobContext {
@@ -44,7 +40,6 @@ impl JobContext {
 		Ok(Self {
 			job_id: ctx.job_id,
 			library_id: ctx.library_id,
-			wire_client: Arc::new(RefCell::new(WireClient::new(ctx.library_id))),
 		})
 	}
 
@@ -124,20 +119,8 @@ impl JobContext {
 		}
 	}
 
-	/// Get VDFS client
-	pub fn vdfs(&self) -> crate::vdfs::VdfsClient {
-		crate::vdfs::VdfsClient::new(self.wire_client.clone())
-	}
-
-	/// Get AI client
-	pub fn ai(&self) -> crate::ai::AiClient {
-		crate::ai::AiClient::new(self.wire_client.clone())
-	}
-
-	/// Get credentials client
-	pub fn credentials(&self) -> crate::credentials::CredentialClient {
-		crate::credentials::CredentialClient::new(self.wire_client.clone())
-	}
+	// VDFS, AI, Credentials removed - operations don't exist yet
+	// Will be added back once core operations are implemented
 
 	/// Log a message
 	pub fn log(&self, message: &str) {

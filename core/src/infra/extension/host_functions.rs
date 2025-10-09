@@ -17,7 +17,8 @@ use super::permissions::ExtensionPermissions;
 /// Environment passed to all host functions
 pub struct PluginEnv {
 	pub extension_id: String,
-	pub core: Arc<Core>,
+	pub core_context: Arc<crate::context::CoreContext>, // Just context, not full Core!
+	pub api_dispatcher: Arc<crate::infra::api::ApiDispatcher>, // For creating sessions
 	pub permissions: ExtensionPermissions,
 	pub memory: Memory,
 }
@@ -108,10 +109,39 @@ pub fn host_spacedrive_call(
 		"Extension calling operation"
 	);
 
-	// 5. Call EXISTING execute_json_operation()
-	// This is the EXACT same function used by daemon RPC!
+	// 5. Call operation handlers directly (same as execute_json_operation does)
 	let result = tokio::runtime::Handle::current().block_on(async {
-		RpcServer::execute_json_operation(&method, library_id, payload_json, &plugin_env.core).await
+		// Create base session
+		let base_session = match plugin_env.api_dispatcher.create_base_session() {
+			Ok(s) => s,
+			Err(e) => return Err(e),
+		};
+
+		// Try library queries
+		if let Some(handler) = crate::infra::wire::registry::LIBRARY_QUERIES.get(method.as_str()) {
+			let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
+			let session = base_session.with_library(lib_id);
+			return handler(plugin_env.core_context.clone(), session, payload_json).await;
+		}
+
+		// Try core queries
+		if let Some(handler) = crate::infra::wire::registry::CORE_QUERIES.get(method.as_str()) {
+			return handler(plugin_env.core_context.clone(), base_session, payload_json).await;
+		}
+
+		// Try library actions
+		if let Some(handler) = crate::infra::wire::registry::LIBRARY_ACTIONS.get(method.as_str()) {
+			let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
+			let session = base_session.with_library(lib_id);
+			return handler(plugin_env.core_context.clone(), session, payload_json).await;
+		}
+
+		// Try core actions
+		if let Some(handler) = crate::infra::wire::registry::CORE_ACTIONS.get(method.as_str()) {
+			return handler(plugin_env.core_context.clone(), payload_json).await;
+		}
+
+		Err(format!("Unknown method: {}", method))
 	});
 
 	// 6. Write result to WASM memory

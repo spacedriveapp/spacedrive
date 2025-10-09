@@ -11,7 +11,7 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 use wasmer::{imports, Function, FunctionEnv, Instance, Memory, Module, Store};
 
-use crate::Core;
+use crate::{context::CoreContext, infra::api::ApiDispatcher};
 
 use super::host_functions::{self, host_spacedrive_call, host_spacedrive_log, PluginEnv};
 use super::permissions::ExtensionPermissions;
@@ -42,20 +42,26 @@ pub enum PluginError {
 pub struct PluginManager {
 	store: Store,
 	plugins: Arc<RwLock<HashMap<String, LoadedPlugin>>>,
-	core: Arc<Core>,
 	plugin_dir: PathBuf,
+	core_context: Arc<CoreContext>,
+	api_dispatcher: Arc<ApiDispatcher>,
 }
 
 impl PluginManager {
 	/// Create new plugin manager
-	pub fn new(core: Arc<Core>, plugin_dir: PathBuf) -> Self {
+	pub fn new(
+		plugin_dir: PathBuf,
+		core_context: Arc<CoreContext>,
+		api_dispatcher: Arc<ApiDispatcher>,
+	) -> Self {
 		let store = Store::default();
 
 		Self {
 			store,
 			plugins: Arc::new(RwLock::new(HashMap::new())),
-			core,
 			plugin_dir,
+			core_context,
+			api_dispatcher,
 		}
 	}
 
@@ -118,7 +124,8 @@ impl PluginManager {
 
 		let plugin_env = PluginEnv {
 			extension_id: manifest.id.clone(),
-			core: self.core.clone(),
+			core_context: self.core_context.clone(),
+			api_dispatcher: self.api_dispatcher.clone(),
 			permissions,
 			memory: temp_memory,
 		};
