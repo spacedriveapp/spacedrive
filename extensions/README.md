@@ -40,7 +40,7 @@ serde = { version = "1.0", features = ["derive"] }
 **src/lib.rs:**
 ```rust
 use spacedrive_sdk::prelude::*;
-use spacedrive_sdk::{extension, spacedrive_job};
+use spacedrive_sdk::{extension, job};
 
 #[extension(
     id = "my-extension",
@@ -54,7 +54,7 @@ pub struct MyJobState {
     pub counter: u32,
 }
 
-#[spacedrive_job]
+#[job]
 fn my_job(ctx: &JobContext, state: &mut MyJobState) -> Result<()> {
     ctx.log("Job starting!");
 
@@ -105,7 +105,7 @@ pub extern "C" fn execute_my_job(
 
 ### After Macros (Beautiful):
 ```rust
-#[spacedrive_job]
+#[job]
 fn my_job(ctx: &JobContext, state: &mut MyJobState) -> Result<()> {
     // Just write business logic!
     ctx.log("Working...");
@@ -136,7 +136,7 @@ Generates:
 ### Job Definition
 
 ```rust
-#[spacedrive_job]
+#[job]
 fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
     // Progress reporting
     ctx.report_progress(0.5, "Half done");

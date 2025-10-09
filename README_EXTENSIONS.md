@@ -54,7 +54,7 @@ test test_load_wasm_extension ... ok
 
 ```rust
 use spacedrive_sdk::prelude::*;
-use spacedrive_sdk::{extension, spacedrive_job};
+use spacedrive_sdk::{extension, job};
 
 #[extension(id = "test-extension", name = "Test Extension", version = "0.1.0")]
 struct TestExtension;
@@ -65,7 +65,7 @@ pub struct CounterState {
     pub target: u32,
 }
 
-#[spacedrive_job]
+#[job]
 fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
     while state.current < state.target {
         ctx.check_interrupt()?;

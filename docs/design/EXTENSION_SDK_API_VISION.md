@@ -62,7 +62,7 @@ pub struct EmailScanState {
     processed: usize,
 }
 
-#[spacedrive_job]
+#[job]
 async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
     ctx.log(&format!("Scanning from UID: {}", state.last_uid));
 
@@ -85,7 +85,7 @@ async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> 
 }
 ```
 
-**What `#[spacedrive_job]` generates:**
+**What `#[job]` generates:**
 - ✅ `#[no_mangle] pub extern "C" fn execute_email_scan(...) -> i32`
 - ✅ Parameter marshalling (pointers → types)
 - ✅ State load/save logic
@@ -237,7 +237,7 @@ mod finance_extension {
 ### Job Execution
 
 ```rust
-#[spacedrive_job]
+#[job]
 async fn process_receipts(ctx: &JobContext, state: &mut ProcessState) -> Result<()> {
     // Fluent progress reporting
     ctx.with_progress("Fetching emails...")
@@ -454,11 +454,11 @@ struct FinanceConfig {
 
 ## Macro Implementations
 
-### 1. `#[spacedrive_job]` - The Job Macro
+### 1. `#[job]` - The Job Macro
 
 **Usage:**
 ```rust
-#[spacedrive_job(resumable = true, name = "email_scan")]
+#[job(resumable = true, name = "email_scan")]
 async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
     // Just write business logic!
     for email in fetch_emails(&state.last_uid)? {
@@ -608,7 +608,7 @@ impl FinanceExtension {
 
 **Custom `?` operator:**
 ```rust
-#[spacedrive_job]
+#[job]
 async fn scan_emails(ctx: &JobContext, state: &mut State) -> Result<()> {
     let emails = fetch_emails(&state.last_uid)?;
     //                                         ^ On error:
@@ -631,7 +631,7 @@ async fn scan_emails(ctx: &JobContext, state: &mut State) -> Result<()> {
 ### 5. Progress Helpers
 
 ```rust
-#[spacedrive_job]
+#[job]
 async fn process_batch(ctx: &JobContext, state: &mut State) -> Result<()> {
     // Auto-progress from iterator!
     for item in ctx.progress_iter(&items, "Processing items") {
@@ -739,7 +739,7 @@ on entry_created where entry_type == "Email" {
 
 **Priority Order:**
 
-1. **`#[spacedrive_job]`** - Biggest pain point
+1. **`#[job]`** - Biggest pain point
    - Eliminates all FFI boilerplate
    - Auto-handles state save/load
    - Progress and checkpoint helpers
@@ -831,7 +831,7 @@ impl Finance {
 ## Implementation Priority
 
 ### Must-Have (Phase 1):
-- `#[spacedrive_job]` - 80% of developer pain
+- `#[job]` - 80% of developer pain
 - `#[spacedrive_query]` / `#[spacedrive_action]` - Wire integration
 - `#[extension]` - Container and registration
 
@@ -877,7 +877,7 @@ pub extern "C" fn execute_email_scan(
 
 ```rust
 // 15 lines, zero boilerplate
-#[spacedrive_job]
+#[job]
 async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
     for email in fetch_emails(&state.last_uid)?.progress(ctx) {
         ctx.check()?;

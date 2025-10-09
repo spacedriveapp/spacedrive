@@ -37,7 +37,7 @@ test result: ok. 2 passed; 0 failed
 #[extension(id = "test-extension", name = "Test Extension", version = "0.1.0")]
 struct TestExtension;
 
-#[spacedrive_job]
+#[job]
 fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
     while state.current < state.target {
         ctx.check_interrupt()?;

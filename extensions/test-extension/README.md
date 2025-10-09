@@ -17,7 +17,7 @@ This extension demonstrates the beautiful, macro-powered API that makes building
 
 ```rust
 use spacedrive_sdk::prelude::*;
-use spacedrive_sdk::{extension, spacedrive_job};
+use spacedrive_sdk::{extension, job};
 
 // Extension definition
 #[extension(
@@ -35,7 +35,7 @@ pub struct CounterState {
 }
 
 // Job implementation - THAT'S IT!
-#[spacedrive_job]
+#[job]
 fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
     while state.current < state.target {
         ctx.check_interrupt()?;
@@ -54,7 +54,7 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 ## What the Macros Generate
 
-The `#[extension]` and `#[spacedrive_job]` macros automatically generate:
+The `#[extension]` and `#[job]` macros automatically generate:
 
 - ✅ `plugin_init()` - Extension initialization
 - ✅ `plugin_cleanup()` - Extension cleanup
