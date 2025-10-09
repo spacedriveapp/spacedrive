@@ -130,6 +130,18 @@ impl LocationManager {
 		txn.commit().await?;
 		info!("Created location record with ID: {}", location_record.id);
 
+		// Sync location to other devices (has FK relationships: device_id, entry_id)
+		use crate::infra::sync::ChangeType;
+		library
+			.sync_model_with_db(&location_record, ChangeType::Insert, library.db().conn())
+			.await
+			.map_err(|e| {
+				warn!("Failed to sync location: {}", e);
+				// Don't fail the operation if sync fails - location was created successfully
+				e
+			})
+			.ok(); // Convert to Option and discard (we already logged the error)
+
 		// Create managed location
 		let managed_location = ManagedLocation {
 			id: location_id,

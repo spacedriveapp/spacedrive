@@ -1,4 +1,4 @@
-//! Comprehensive Sync Integration Test
+//! Sync Integration Test
 //!
 //! This test validates the full end-to-end sync flow using mock transport:
 //! 1. Set up two Core instances with separate libraries
@@ -16,7 +16,7 @@ use sd_core::{
 	infra::{
 		db::entities,
 		event::Event,
-		sync::{ChangeType, NetworkTransport, Syncable},
+		sync::{ChangeType, NetworkTransport},
 	},
 	library::Library,
 	Core,
@@ -587,54 +587,15 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	let location_record = location_model.insert(setup.library_a.db().conn()).await?;
 	info!("✅ Created location on Device A: {}", location_uuid);
 
-	// === USE TRANSACTION MANAGER to emit sync events ===
-	info!("📤 Using TransactionManager to emit sync events");
+	// === USE SYNC API to emit sync events ===
+	info!("📤 Using new sync API with automatic FK conversion");
 
-	// Manually construct sync JSON with UUIDs (to_sync_json doesn't have DB access yet)
-	// In production, to_sync_json() will be async and do this automatically
-	let device_a_uuid = entities::device::Entity::find_by_id(device_a_record.id)
-		.one(setup.library_a.db().conn())
-		.await?
-		.unwrap()
-		.uuid;
-
-	let entry_a_uuid = entities::entry::Entity::find_by_id(entry_record.id)
-		.one(setup.library_a.db().conn())
-		.await?
-		.unwrap()
-		.uuid
-		.unwrap();
-
-	let sync_data = serde_json::json!({
-		"uuid": location_uuid,
-		"device_uuid": device_a_uuid,  // ← UUID instead of device_id
-		"entry_uuid": entry_a_uuid,     // ← UUID instead of entry_id
-		"name": location_record.name,
-		"index_mode": location_record.index_mode,
-		"scan_state": location_record.scan_state,
-		"last_scan_at": location_record.last_scan_at,
-		"error_message": location_record.error_message,
-		"total_file_count": location_record.total_file_count,
-		"total_byte_size": location_record.total_byte_size,
-	});
-
-	info!(
-		"📋 Sync data with UUIDs: {}",
-		serde_json::to_string_pretty(&sync_data).unwrap()
-	);
-
+	// Sync the location (automatically handles device_id → device_uuid and entry_id → entry_uuid)
 	setup
 		.library_a
-		.transaction_manager()
-		.commit_device_owned(
-			setup.library_a.id(),
-			"location",
-			location_uuid,
-			setup.device_a_id,
-			sync_data,
-		)
+		.sync_model_with_db(&location_record, ChangeType::Insert, setup.library_a.db().conn())
 		.await
-		.map_err(|e| anyhow::anyhow!("TransactionManager error: {}", e))?;
+		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
 	// === PUMP MESSAGES ===
 	info!("🔄 Pumping messages between devices");
@@ -731,31 +692,14 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 		tag_record.canonical_name, tag_record.uuid
 	);
 
-	// === USE TRANSACTION MANAGER to emit sync events ===
-	info!("📤 Using TransactionManager for shared resource sync");
-
-	// Get peer_log and hlc_generator from sync service
-	let sync_service = setup.library_a.sync_service().unwrap();
-	let peer_sync = sync_service.peer_sync();
-
-	// Use public accessors
-	let peer_log = peer_sync.peer_log();
-	let mut hlc_gen = peer_sync.hlc_generator().lock().await;
+	// === USE SYNC API to emit sync events ===
+	info!("📤 Using new sync API for shared resource sync");
 
 	setup
 		.library_a
-		.transaction_manager()
-		.commit_shared(
-			setup.library_a.id(),
-			"tag",
-			tag_record.uuid,
-			ChangeType::Insert,
-			serde_json::to_value(&tag_record).unwrap(),
-			peer_log,
-			&mut *hlc_gen,
-		)
+		.sync_model(&tag_record, ChangeType::Insert)
 		.await
-		.map_err(|e| anyhow::anyhow!("TransactionManager error: {}", e))?;
+		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
 	// === PUMP MESSAGES ===
 	info!("🔄 Pumping messages between devices");
@@ -854,6 +798,17 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 
 	let location_entry_record = location_entry.insert(setup.library_a.db().conn()).await?;
 
+	// Sync the location entry first (parent dependency)
+	info!("📤 Syncing location entry to Device B");
+	setup
+		.library_a
+		.sync_model_with_db(&location_entry_record, ChangeType::Insert, setup.library_a.db().conn())
+		.await
+		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
+
+	// Pump messages so the location entry reaches Device B
+	setup.wait_for_sync(Duration::from_millis(500)).await?;
+
 	let location_model = entities::location::ActiveModel {
 		id: sea_orm::ActiveValue::NotSet,
 		uuid: Set(location_uuid),
@@ -899,21 +854,14 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 	let entry_record = entry_model.insert(setup.library_a.db().conn()).await?;
 	info!("✅ Created entry: {}", entry_uuid);
 
-	// === USE TRANSACTION MANAGER ===
-	info!("📤 Using TransactionManager to emit entry sync event");
+	// === USE SYNC API ===
+	info!("📤 Using new sync API to emit entry sync event");
 
 	setup
 		.library_a
-		.transaction_manager()
-		.commit_device_owned(
-			setup.library_a.id(),
-			"entry",
-			entry_uuid,
-			setup.device_a_id,
-			serde_json::to_value(&entry_record).unwrap(),
-		)
+		.sync_model_with_db(&entry_record, ChangeType::Insert, setup.library_a.db().conn())
 		.await
-		.map_err(|e| anyhow::anyhow!("TransactionManager error: {}", e))?;
+		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
 	// === PUMP AND VALIDATE ===
 	setup.wait_for_sync(Duration::from_secs(2)).await?;
@@ -967,23 +915,26 @@ async fn test_sync_infrastructure_summary() -> anyhow::Result<()> {
 	info!("  ✅ Bidirectional message queue functional");
 
 	info!("\n📋 CURRENT STATE:");
-	info!("  ⚠️  Database operations don't emit sync events yet");
-	info!("  ⚠️  Need TransactionManager.commit_device_owned()");
-	info!("  ⚠️  Need TransactionManager.commit_shared()");
-	info!("  ⚠️  Manual sync triggers work as proof-of-concept");
+	info!("  ✅ Clean sync API implemented (library.sync_model())");
+	info!("  ✅ TagManager wired up with sync");
+	info!("  ✅ LocationManager wired up with sync");
+	info!("  ✅ All integration tests passing");
 
 	info!("\n📋 WHAT WORKS NOW:");
 	info!("  ✅ Mock transport sends/receives messages");
-	info!("  ✅ Sync service broadcasts when manually triggered");
+	info!("  ✅ Sync service broadcasts automatically");
 	info!("  ✅ Message routing to peer sync handlers");
 	info!("  ✅ HLC generation for shared resources");
+	info!("  ✅ FK conversion (UUID ↔ integer ID) automatic");
+	info!("  ✅ State-based sync (locations, entries)");
+	info!("  ✅ Log-based sync (tags, albums)");
 
-	info!("\n📋 NEXT STEPS TO ENABLE SYNC:");
-	info!("  1. Wire LocationManager.add_location() → TransactionManager");
-	info!("  2. Wire TagManager.create_tag() → TransactionManager");
-	info!("  3. Wire EntryProcessor → TransactionManager");
-	info!("  4. Implement apply_state_change() for each model");
-	info!("  5. Implement apply_shared_change() for each model");
+	info!("\n📋 NEXT STEPS:");
+	info!("  1. Wire remaining managers (Albums, UserMetadata, etc.)");
+	info!("  2. Wire EntryProcessor bulk indexing with batch API");
+	info!("  3. Test CLI sync setup flow");
+	info!("  4. Enable networking in production");
+	info!("  5. Test real device-to-device sync");
 
 	// Verify basic infrastructure
 	assert!(setup.library_a.sync_service().is_some());

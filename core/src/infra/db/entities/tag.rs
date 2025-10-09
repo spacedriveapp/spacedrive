@@ -221,36 +221,118 @@ impl Syncable for Model {
 						.unwrap_or_else(|_| "invalid".to_string())
 				);
 
-				// Deserialize incoming tag
-				let tag: Self = serde_json::from_value(entry.data.clone()).map_err(|e| {
-					sea_orm::DbErr::Custom(format!(
-						"Tag deserialization failed: {}. Data: {:?}",
-						e, entry.data
-					))
+				// Extract fields from JSON (can't deserialize to Model because id is excluded)
+				let data = entry.data.as_object().ok_or_else(|| {
+					sea_orm::DbErr::Custom("Tag data is not an object".to_string())
 				})?;
+
+				let uuid: Uuid = serde_json::from_value(
+					data.get("uuid")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
 
 				// Build ActiveModel for upsert
 				let active = ActiveModel {
 					id: NotSet, // Database PK, not synced
-					uuid: Set(tag.uuid),
-					canonical_name: Set(tag.canonical_name),
-					display_name: Set(tag.display_name),
-					formal_name: Set(tag.formal_name),
-					abbreviation: Set(tag.abbreviation),
-					aliases: Set(tag.aliases),
-					namespace: Set(tag.namespace),
-					tag_type: Set(tag.tag_type),
-					color: Set(tag.color),
-					icon: Set(tag.icon),
-					description: Set(tag.description),
-					is_organizational_anchor: Set(tag.is_organizational_anchor),
-					privacy_level: Set(tag.privacy_level),
-					search_weight: Set(tag.search_weight),
-					attributes: Set(tag.attributes),
-					composition_rules: Set(tag.composition_rules),
+					uuid: Set(uuid),
+					canonical_name: Set(serde_json::from_value(
+						data.get("canonical_name")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					display_name: Set(serde_json::from_value(
+						data.get("display_name")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					formal_name: Set(serde_json::from_value(
+						data.get("formal_name")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					abbreviation: Set(serde_json::from_value(
+						data.get("abbreviation")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					aliases: Set(serde_json::from_value(
+						data.get("aliases")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					namespace: Set(serde_json::from_value(
+						data.get("namespace")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					tag_type: Set(serde_json::from_value(
+						data.get("tag_type")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					color: Set(serde_json::from_value(
+						data.get("color")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					icon: Set(serde_json::from_value(
+						data.get("icon").cloned().unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					description: Set(serde_json::from_value(
+						data.get("description")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					is_organizational_anchor: Set(serde_json::from_value(
+						data.get("is_organizational_anchor")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					privacy_level: Set(serde_json::from_value(
+						data.get("privacy_level")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					search_weight: Set(serde_json::from_value(
+						data.get("search_weight")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					attributes: Set(serde_json::from_value(
+						data.get("attributes")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					composition_rules: Set(serde_json::from_value(
+						data.get("composition_rules")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
 					created_at: Set(chrono::Utc::now().into()), // Local timestamp
 					updated_at: Set(chrono::Utc::now().into()), // Local timestamp
-					created_by_device: Set(tag.created_by_device),
+					created_by_device: Set(serde_json::from_value(
+						data.get("created_by_device")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
 				};
 
 				// Idempotent upsert: insert or update based on UUID

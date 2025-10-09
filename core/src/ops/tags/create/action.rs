@@ -1,6 +1,7 @@
 //! Create semantic tag action
 
 use super::{input::CreateTagInput, output::CreateTagOutput};
+use crate::infra::sync::ChangeType;
 use crate::{
 	context::CoreContext,
 	domain::tag::{PrivacyLevel, Tag, TagType},
@@ -11,7 +12,6 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateTagAction {
 	input: CreateTagInput,
@@ -43,68 +43,34 @@ impl LibraryAction for CreateTagAction {
 		// Get current device ID from library context
 		let device_id = library.id(); // Use library ID as device ID
 
-		// Create the semantic tag
-		let mut tag = semantic_tag_manager
-			.create_tag(
+		// Create the semantic tag with all optional fields
+		let tag_entity = semantic_tag_manager
+			.create_tag_entity_full(
 				self.input.canonical_name.clone(),
 				self.input.namespace.clone(),
+				self.input.display_name.clone(),
+				self.input.formal_name.clone(),
+				self.input.abbreviation.clone(),
+				self.input.aliases.clone(),
+				self.input.tag_type,
+				self.input.color.clone(),
+				self.input.icon.clone(),
+				self.input.description.clone(),
+				self.input.is_organizational_anchor.unwrap_or(false),
+				self.input.privacy_level,
+				self.input.search_weight,
+				self.input.attributes.clone(),
 				device_id,
 			)
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to create tag: {}", e)))?;
 
-		// Apply optional fields from input
-		if let Some(display_name) = self.input.display_name {
-			tag.display_name = Some(display_name);
-		}
+		library
+			.sync_model(&tag_entity, ChangeType::Insert)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to sync tag: {}", e)))?;
 
-		if let Some(formal_name) = self.input.formal_name {
-			tag.formal_name = Some(formal_name);
-		}
-
-		if let Some(abbreviation) = self.input.abbreviation {
-			tag.abbreviation = Some(abbreviation);
-		}
-
-		if !self.input.aliases.is_empty() {
-			tag.aliases = self.input.aliases.clone();
-		}
-
-		if let Some(tag_type) = self.input.tag_type {
-			tag.tag_type = tag_type;
-		}
-
-		if let Some(color) = self.input.color {
-			tag.color = Some(color);
-		}
-
-		if let Some(icon) = self.input.icon {
-			tag.icon = Some(icon);
-		}
-
-		if let Some(description) = self.input.description {
-			tag.description = Some(description);
-		}
-
-		if let Some(is_anchor) = self.input.is_organizational_anchor {
-			tag.is_organizational_anchor = is_anchor;
-		}
-
-		if let Some(privacy_level) = self.input.privacy_level {
-			tag.privacy_level = privacy_level;
-		}
-
-		if let Some(search_weight) = self.input.search_weight {
-			tag.search_weight = search_weight;
-		}
-
-		if let Some(attributes) = self.input.attributes {
-			tag.attributes = attributes;
-		}
-
-		// TODO: Fix update_tag SQL generation issue - bypass database update for now
-
-		Ok(CreateTagOutput::from_tag(&tag))
+		Ok(CreateTagOutput::from_entity(&tag_entity))
 	}
 
 	fn action_kind(&self) -> &'static str {

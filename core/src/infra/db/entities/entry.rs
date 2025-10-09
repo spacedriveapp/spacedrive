@@ -263,13 +263,23 @@ impl Model {
 		.await
 		.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
 
-		// Deserialize incoming data
-		let entry: Self = serde_json::from_value(data)
-			.map_err(|e| sea_orm::DbErr::Custom(format!("Entry deserialization failed: {}", e)))?;
+		// Extract fields from JSON (can't deserialize to Model because id is excluded)
+		let obj = data
+			.as_object()
+			.ok_or_else(|| sea_orm::DbErr::Custom("Entry data is not an object".to_string()))?;
+
+		// Helper to extract field from JSON
+		let get_field = |name: &str| -> Result<serde_json::Value, sea_orm::DbErr> {
+			obj.get(name)
+				.cloned()
+				.ok_or_else(|| sea_orm::DbErr::Custom(format!("Missing field: {}", name)))
+		};
 
 		// Only sync entries that have UUIDs (sync-ready entries)
-		let entry_uuid = entry
-			.uuid
+		let entry_uuid: Option<Uuid> = serde_json::from_value(get_field("uuid")?)
+			.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+		let entry_uuid = entry_uuid
 			.ok_or_else(|| sea_orm::DbErr::Custom("Cannot sync entry without UUID".to_string()))?;
 
 		// Check if entry already exists by UUID
@@ -280,26 +290,45 @@ impl Model {
 			.one(db)
 			.await?;
 
+		// Extract all fields needed for upsert
+		let name: String = serde_json::from_value(get_field("name")?).unwrap();
+		let kind: i32 = serde_json::from_value(get_field("kind")?).unwrap();
+		let extension: Option<String> = serde_json::from_value(get_field("extension")?).unwrap();
+		let metadata_id: Option<i32> = serde_json::from_value(get_field("metadata_id")?).unwrap();
+		let content_id: Option<i32> = serde_json::from_value(get_field("content_id")?).unwrap();
+		let size: i64 = serde_json::from_value(get_field("size")?).unwrap();
+		let aggregate_size: i64 = serde_json::from_value(get_field("aggregate_size")?).unwrap();
+		let child_count: i32 = serde_json::from_value(get_field("child_count")?).unwrap();
+		let file_count: i32 = serde_json::from_value(get_field("file_count")?).unwrap();
+		let created_at: DateTimeUtc = serde_json::from_value(get_field("created_at")?).unwrap();
+		let modified_at: DateTimeUtc = serde_json::from_value(get_field("modified_at")?).unwrap();
+		let accessed_at: Option<DateTimeUtc> =
+			serde_json::from_value(get_field("accessed_at")?).unwrap();
+		let permissions: Option<String> =
+			serde_json::from_value(get_field("permissions")?).unwrap();
+		let inode: Option<i64> = serde_json::from_value(get_field("inode")?).unwrap();
+		let parent_id: Option<i32> = serde_json::from_value(get_field("parent_id")?).unwrap();
+
 		let entry_id = if let Some(existing_entry) = existing {
 			// Update existing entry
 			let active = ActiveModel {
 				id: Set(existing_entry.id),
 				uuid: Set(Some(entry_uuid)),
-				name: Set(entry.name.clone()),
-				kind: Set(entry.kind),
-				extension: Set(entry.extension.clone()),
-				metadata_id: Set(entry.metadata_id),
-				content_id: Set(entry.content_id),
-				size: Set(entry.size),
-				aggregate_size: Set(entry.aggregate_size),
-				child_count: Set(entry.child_count),
-				file_count: Set(entry.file_count),
-				created_at: Set(entry.created_at),
-				modified_at: Set(entry.modified_at),
-				accessed_at: Set(entry.accessed_at),
-				permissions: Set(entry.permissions.clone()),
-				inode: Set(entry.inode),
-				parent_id: Set(entry.parent_id),
+				name: Set(name.clone()),
+				kind: Set(kind),
+				extension: Set(extension.clone()),
+				metadata_id: Set(metadata_id),
+				content_id: Set(content_id),
+				size: Set(size),
+				aggregate_size: Set(aggregate_size),
+				child_count: Set(child_count),
+				file_count: Set(file_count),
+				created_at: Set(created_at),
+				modified_at: Set(modified_at),
+				accessed_at: Set(accessed_at),
+				permissions: Set(permissions.clone()),
+				inode: Set(inode),
+				parent_id: Set(parent_id),
 			};
 			active.update(db).await?;
 			existing_entry.id
@@ -308,30 +337,30 @@ impl Model {
 			let active = ActiveModel {
 				id: NotSet,
 				uuid: Set(Some(entry_uuid)),
-				name: Set(entry.name.clone()),
-				kind: Set(entry.kind),
-				extension: Set(entry.extension.clone()),
-				metadata_id: Set(entry.metadata_id),
-				content_id: Set(entry.content_id),
-				size: Set(entry.size),
-				aggregate_size: Set(entry.aggregate_size),
-				child_count: Set(entry.child_count),
-				file_count: Set(entry.file_count),
-				created_at: Set(entry.created_at),
-				modified_at: Set(entry.modified_at),
-				accessed_at: Set(entry.accessed_at),
-				permissions: Set(entry.permissions.clone()),
-				inode: Set(entry.inode),
-				parent_id: Set(entry.parent_id),
+				name: Set(name.clone()),
+				kind: Set(kind),
+				extension: Set(extension.clone()),
+				metadata_id: Set(metadata_id),
+				content_id: Set(content_id),
+				size: Set(size),
+				aggregate_size: Set(aggregate_size),
+				child_count: Set(child_count),
+				file_count: Set(file_count),
+				created_at: Set(created_at),
+				modified_at: Set(modified_at),
+				accessed_at: Set(accessed_at),
+				permissions: Set(permissions.clone()),
+				inode: Set(inode),
+				parent_id: Set(parent_id),
 			};
 			let inserted = active.insert(db).await?;
 			inserted.id
 		};
 
 		// If this is a directory, rebuild its directory_paths cache entry
-		if entry.entry_kind() == EntryKind::Directory {
+		if EntryKind::from(kind) == EntryKind::Directory {
 			// Rebuild directory path from parent chain
-			Self::rebuild_directory_path(entry_id, entry.parent_id, &entry.name, db).await?;
+			Self::rebuild_directory_path(entry_id, parent_id, &name, db).await?;
 		}
 
 		Ok(())
