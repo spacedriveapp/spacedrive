@@ -8,11 +8,7 @@ use spacedrive_sdk::{extension, spacedrive_job};
 
 // === Extension Definition (generates plugin_init/cleanup) ===
 
-#[extension(
-	id = "test-beautiful",
-	name = "Test Extension (Beautiful API)",
-	version = "0.1.0"
-)]
+#[extension(id = "test-extension", name = "Test Extension", version = "0.1.0")]
 struct TestExtension;
 
 // === Job State ===
@@ -48,7 +44,10 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 		// Report progress
 		let progress = state.current as f32 / state.target as f32;
-		ctx.report_progress(progress, &format!("Counted {}/{}", state.current, state.target));
+		ctx.report_progress(
+			progress,
+			&format!("Counted {}/{}", state.current, state.target),
+		);
 
 		// Track metrics
 		ctx.increment_items(1);
@@ -59,7 +58,10 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 		}
 	}
 
-	ctx.log(&format!("✓ Completed! Processed {} items", state.processed.len()));
+	ctx.log(&format!(
+		"✓ Completed! Processed {} items",
+		state.processed.len()
+	));
 
 	Ok(())
 }
@@ -72,4 +74,3 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 // - FFI boilerplate
 //
 // Just pure, clean business logic!
-

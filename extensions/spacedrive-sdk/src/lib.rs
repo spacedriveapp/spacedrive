@@ -40,7 +40,6 @@ pub mod prelude {
 	pub use crate::job_context::{JobContext, JobResult};
 	pub use crate::types::{Error, Result};
 	pub use serde::{Deserialize, Serialize};
-	pub use uuid::Uuid;
 }
 
 // Re-export macros

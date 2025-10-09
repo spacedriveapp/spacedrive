@@ -3,7 +3,6 @@
 //! Provides the same capabilities as core jobs: progress, checkpoints, metrics, etc.
 
 use serde::Serialize;
-use uuid::Uuid;
 
 use crate::types::Result;
 
@@ -27,8 +26,8 @@ extern "C" {
 ///
 /// Provides access to all job capabilities: progress, checkpoints, metrics, etc.
 pub struct JobContext {
-	job_id: Uuid,
-	library_id: Uuid,
+	job_id: [u8; 16],     // UUID bytes
+	library_id: [u8; 16], // UUID bytes
 }
 
 impl JobContext {
@@ -37,27 +36,28 @@ impl JobContext {
 		let ctx: JobContextParams = serde_json::from_str(ctx_json)
 			.map_err(|e| crate::types::Error::Deserialization(e.to_string()))?;
 
-		Ok(Self {
-			job_id: ctx.job_id,
-			library_id: ctx.library_id,
-		})
+		// Parse UUIDs from strings
+		let job_id = parse_uuid(&ctx.job_id)?;
+		let library_id = parse_uuid(&ctx.library_id)?;
+
+		Ok(Self { job_id, library_id })
 	}
 
-	/// Get job ID
-	pub fn job_id(&self) -> Uuid {
-		self.job_id
+	/// Get job ID as bytes
+	pub fn job_id_bytes(&self) -> &[u8; 16] {
+		&self.job_id
 	}
 
-	/// Get library ID
-	pub fn library_id(&self) -> Uuid {
-		self.library_id
+	/// Get library ID as bytes
+	pub fn library_id_bytes(&self) -> &[u8; 16] {
+		&self.library_id
 	}
 
 	/// Report progress (0.0 to 1.0)
 	pub fn report_progress(&self, progress: f32, message: &str) {
 		unsafe {
 			job_report_progress(
-				self.job_id.as_bytes().as_ptr(),
+				self.job_id.as_ptr(),
 				progress,
 				message.as_ptr(),
 				message.len(),
@@ -72,7 +72,7 @@ impl JobContext {
 
 		let result = unsafe {
 			job_checkpoint(
-				self.job_id.as_bytes().as_ptr(),
+				self.job_id.as_ptr(),
 				state_bytes.as_ptr(),
 				state_bytes.len(),
 			)
@@ -90,32 +90,28 @@ impl JobContext {
 	/// Check if job should pause or cancel
 	/// Returns true if interrupted
 	pub fn check_interrupt(&self) -> bool {
-		let result = unsafe { job_check_interrupt(self.job_id.as_bytes().as_ptr()) };
+		let result = unsafe { job_check_interrupt(self.job_id.as_ptr()) };
 		result != 0
 	}
 
 	/// Add a warning (non-fatal issue)
 	pub fn add_warning(&self, message: &str) {
 		unsafe {
-			job_add_warning(
-				self.job_id.as_bytes().as_ptr(),
-				message.as_ptr(),
-				message.len(),
-			);
+			job_add_warning(self.job_id.as_ptr(), message.as_ptr(), message.len());
 		}
 	}
 
 	/// Track bytes processed (for metrics)
 	pub fn increment_bytes(&self, bytes: u64) {
 		unsafe {
-			job_increment_bytes(self.job_id.as_bytes().as_ptr(), bytes);
+			job_increment_bytes(self.job_id.as_ptr(), bytes);
 		}
 	}
 
 	/// Track items processed (for metrics)
 	pub fn increment_items(&self, count: u64) {
 		unsafe {
-			job_increment_items(self.job_id.as_bytes().as_ptr(), count);
+			job_increment_items(self.job_id.as_ptr(), count);
 		}
 	}
 
@@ -136,8 +132,8 @@ impl JobContext {
 /// Parameters passed from Core to WASM job
 #[derive(serde::Deserialize)]
 struct JobContextParams {
-	job_id: Uuid,
-	library_id: Uuid,
+	job_id: String,
+	library_id: String,
 }
 
 /// Job execution result
@@ -156,4 +152,21 @@ impl JobResult {
 			JobResult::Failed(_) => 2,
 		}
 	}
+}
+
+fn parse_uuid(s: &str) -> Result<[u8; 16]> {
+	// Simple UUID parsing (hyphen-separated hex)
+	let s = s.replace("-", "");
+	if s.len() != 32 {
+		return Err(crate::types::Error::InvalidInput("Invalid UUID".into()));
+	}
+
+	let mut bytes = [0u8; 16];
+	for i in 0..16 {
+		let byte_str = &s[i * 2..i * 2 + 2];
+		bytes[i] = u8::from_str_radix(byte_str, 16)
+			.map_err(|_| crate::types::Error::InvalidInput("Invalid UUID hex".into()))?;
+	}
+
+	Ok(bytes)
 }

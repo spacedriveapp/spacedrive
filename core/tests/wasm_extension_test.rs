@@ -24,13 +24,13 @@ async fn test_load_wasm_extension() {
 
 	tracing::info!("✅ Core initialized");
 
-	// 2. Copy minimal test extension to Core's extensions directory
+	// 2. Copy test extension to Core's extensions directory
 	let source_extensions = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 		.parent()
 		.unwrap()
-		.join("extensions/test-extension-minimal");
+		.join("extensions/test-extension");
 
-	let target_extensions = temp_dir.path().join("extensions/test-extension-minimal");
+	let target_extensions = temp_dir.path().join("extensions/test-extension");
 	std::fs::create_dir_all(&target_extensions).unwrap();
 
 	// Copy manifest and WASM
@@ -41,8 +41,8 @@ async fn test_load_wasm_extension() {
 	.unwrap();
 
 	std::fs::copy(
-		source_extensions.join("test_extension_minimal.wasm"),
-		target_extensions.join("test_extension_minimal.wasm"),
+		source_extensions.join("test_extension.wasm"),
+		target_extensions.join("test_extension.wasm"),
 	)
 	.unwrap();
 
@@ -54,32 +54,32 @@ async fn test_load_wasm_extension() {
 		.as_ref()
 		.expect("PluginManager should be initialized");
 
-	// 4. Load minimal test extension
+	// 4. Load test extension
 	pm.write()
 		.await
-		.load_plugin("test-extension-minimal")
+		.load_plugin("test-extension")
 		.await
-		.expect("Should load test-extension-minimal");
+		.expect("Should load test-extension");
 
 	tracing::info!("✅ Extension loaded!");
 
 	// 5. Verify it's in the list
 	let loaded = pm.read().await.list_plugins().await;
 	assert!(
-		loaded.contains(&"test-extension-minimal".to_string()),
-		"test-extension-minimal should be in loaded plugins list"
+		loaded.contains(&"test-extension".to_string()),
+		"test-extension should be in loaded plugins list"
 	);
 
 	// 6. Get manifest
 	let manifest = pm
 		.read()
 		.await
-		.get_manifest("test-extension-minimal")
+		.get_manifest("test-extension")
 		.await
 		.expect("Should have manifest");
 
-	assert_eq!(manifest.id, "test-extension-minimal");
-	assert_eq!(manifest.name, "Minimal Test Extension");
+	assert_eq!(manifest.id, "test-extension");
+	assert_eq!(manifest.name, "Test Extension");
 
 	tracing::info!("✅ All checks passed!");
 	tracing::info!("🎉 WASM extension system works!");

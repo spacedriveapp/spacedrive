@@ -10,13 +10,8 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-serde = { version = "1.0", features = [
-	"derive"
-], default-features = false, features = [
-	"alloc",
-	"derive"
-] }
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde          = { version = "1.0", default-features = false, features = ["alloc", "derive"] }
+serde_json     = { version = "1.0", default-features = false, features = ["alloc"] }
 spacedrive-sdk = { path = "../spacedrive-sdk" }
 
 [profile.release]
