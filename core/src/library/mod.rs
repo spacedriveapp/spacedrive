@@ -15,10 +15,7 @@ pub use lock::LibraryLock;
 pub use manager::{DiscoveredLibrary, LibraryManager};
 
 use crate::infra::{
-	db::Database,
-	event::EventBus,
-	job::manager::JobManager,
-	sync::{LeadershipManager, SyncLogDb, TransactionManager},
+	db::Database, event::EventBus, job::manager::JobManager, sync::TransactionManager,
 };
 use once_cell::sync::OnceCell;
 use std::path::{Path, PathBuf};
@@ -44,14 +41,8 @@ pub struct Library {
 	/// Event bus for emitting events
 	event_bus: Arc<EventBus>,
 
-	/// Sync log database (separate from main library DB)
-	sync_log_db: Arc<SyncLogDb>,
-
 	/// Transaction manager for atomic writes + sync logging
 	transaction_manager: Arc<TransactionManager>,
-
-	/// Leadership manager for sync coordination
-	leadership_manager: Arc<Mutex<LeadershipManager>>,
 
 	/// Sync service for real-time synchronization (initialized after library creation)
 	sync_service: OnceCell<Arc<crate::service::sync::SyncService>>,
@@ -95,19 +86,9 @@ impl Library {
 		&self.jobs
 	}
 
-	/// Get the sync log database
-	pub fn sync_log_db(&self) -> &Arc<SyncLogDb> {
-		&self.sync_log_db
-	}
-
 	/// Get the transaction manager
 	pub fn transaction_manager(&self) -> &Arc<TransactionManager> {
 		&self.transaction_manager
-	}
-
-	/// Get the leadership manager
-	pub fn leadership_manager(&self) -> &Arc<Mutex<LeadershipManager>> {
-		&self.leadership_manager
 	}
 
 	/// Get the sync service
@@ -116,12 +97,12 @@ impl Library {
 	}
 
 	/// Initialize the sync service (called during library setup)
-	pub(crate) async fn init_sync_service(&self) -> Result<()> {
+	pub(crate) async fn init_sync_service(&self, device_id: Uuid) -> Result<()> {
 		if self.sync_service.get().is_some() {
 			return Ok(());
 		}
 
-		let sync_service = crate::service::sync::SyncService::new_from_library(self)
+		let sync_service = crate::service::sync::SyncService::new_from_library(self, device_id)
 			.await
 			.map_err(|e| LibraryError::Other(format!("Failed to create sync service: {}", e)))?;
 

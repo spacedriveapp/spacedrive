@@ -1,19 +1,22 @@
-//! Sync infrastructure
+//! Sync infrastructure (Leaderless Hybrid Architecture)
 //!
-//! This module contains the core sync infrastructure including the sync log database,
-//! sync log entity, and sync-related types and utilities.
+//! Core sync components for peer-to-peer synchronization:
+//! - HLC for distributed ordering
+//! - Per-peer logs for shared resource changes
+//! - Syncable trait for model registration
+//! - Transaction manager for atomic commits
+//!
+//! Legacy files (leader-based, will be removed):
+//! - legacy_sync_log_* (deprecated)
 
-pub mod leader;
+pub mod hlc;
+pub mod peer_log;
 pub mod registry;
-pub mod sync_log_db;
-pub mod sync_log_entity;
-pub mod sync_log_migration;
 pub mod syncable;
-pub mod transaction_manager;
+pub mod transaction;
 
-pub use leader::{LeadershipManager, SyncLeadership, SyncRole};
+pub use hlc::{HLCGenerator, HLC};
+pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};
 pub use registry::{apply_sync_entry, get_registry, SyncableModelRegistration};
-pub use sync_log_db::{SyncLogDb, SyncLogError};
-pub use sync_log_entity::{ChangeType, SyncLogEntry, SyncLogModel};
 pub use syncable::Syncable;
-pub use transaction_manager::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};
+pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};

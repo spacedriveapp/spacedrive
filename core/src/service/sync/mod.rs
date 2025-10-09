@@ -1,19 +1,24 @@
-//! Sync Service - Real-time library synchronization
+//! Sync Service - Real-time library synchronization (Leaderless)
 //!
-//! Background service that handles real-time sync between leader and follower devices.
-//! - Leader: Listens for commit events, pushes NewEntries to followers
-//! - Follower: Listens for NewEntries, applies changes locally
+//! Background service that handles real-time peer-to-peer sync using hybrid model:
+//! - State-based sync for device-owned data
+//! - Log-based sync with HLC for shared resources
 
 pub mod applier;
-pub mod follower;
-pub mod leader;
+pub mod peer;
+pub mod state;
 
-use crate::infra::sync::{SyncLogDb, SyncRole};
+// No longer need SyncLogDb in leaderless architecture
 use crate::library::Library;
 use crate::service::network::protocol::SyncProtocolHandler;
 use anyhow::Result;
 use async_trait::async_trait;
 use once_cell::sync::OnceCell;
+pub use peer::PeerSync;
+pub use state::{
+	select_backfill_peer, BackfillCheckpoint, BufferQueue, BufferedUpdate, DeviceSyncState,
+	PeerInfo, StateChangeMessage,
+};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
@@ -21,170 +26,87 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 pub use applier::SyncApplier;
-pub use follower::FollowerSync;
-pub use leader::LeaderSync;
 
-/// Sync service for a library
+/// Sync service for a library (Leaderless)
 ///
 /// This service runs in the background for the lifetime of an open library,
-/// handling real-time synchronization with paired devices.
+/// handling real-time peer-to-peer synchronization.
 pub struct SyncService {
-	/// Library ID
-	library_id: Uuid,
-
-	/// Sync log database
-	sync_log_db: Arc<SyncLogDb>,
-
-	/// Event bus
-	event_bus: Arc<crate::infra::event::EventBus>,
-
-	/// Database connection
-	db: Arc<crate::infra::db::Database>,
-
-	/// Current sync role (Leader or Follower)
-	role: Arc<Mutex<SyncRole>>,
+	/// Peer sync handler
+	peer_sync: Arc<PeerSync>,
 
 	/// Whether the service is running
 	is_running: Arc<AtomicBool>,
 
 	/// Shutdown signal
 	shutdown_tx: Arc<Mutex<Option<tokio::sync::broadcast::Sender<()>>>>,
-
-	/// Leader-specific sync handler
-	leader_sync: Option<Arc<LeaderSync>>,
-
-	/// Follower-specific sync handler
-	follower_sync: Option<Arc<FollowerSync>>,
 }
 
 impl SyncService {
 	/// Create a new sync service from a Library reference
 	///
 	/// Note: Called via `Library::init_sync_service()`, not directly.
-	pub async fn new_from_library(library: &Library) -> Result<Self> {
+	pub async fn new_from_library(library: &Library, device_id: Uuid) -> Result<Self> {
 		let library_id = library.id();
-		let role = {
-			let leadership = library.leadership_manager().lock().await;
-			leadership.get_role(library_id)
-		};
+
+		// Create sync.db (peer log) for this device
+		let peer_log = Arc::new(
+			crate::infra::sync::PeerLog::open(library_id, device_id, library.path())
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to open sync.db: {}", e))?,
+		);
+
+		// Create peer sync handler
+		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log).await?);
 
 		info!(
 			library_id = %library_id,
-			role = ?role,
-			"Creating sync service"
+			device_id = %device_id,
+			"Created peer sync service (leaderless)"
 		);
 
 		Ok(Self {
-			library_id,
-			sync_log_db: library.sync_log_db().clone(),
-			event_bus: library.event_bus().clone(),
-			db: library.db().clone(),
-			role: Arc::new(Mutex::new(role)),
+			peer_sync,
 			is_running: Arc::new(AtomicBool::new(false)),
 			shutdown_tx: Arc::new(Mutex::new(None)),
-			leader_sync: None,
-			follower_sync: None,
 		})
 	}
 
-	/// Get the current sync role
-	pub async fn role(&self) -> SyncRole {
-		*self.role.lock().await
-	}
-
-	/// Transition to a new role (called when leadership changes)
-	pub async fn transition_role(&mut self, new_role: SyncRole) -> Result<()> {
-		info!(
-			library_id = %self.library_id,
-			old_role = ?self.role().await,
-			new_role = ?new_role,
-			"Transitioning sync role"
-		);
-
-		// Update role
-		*self.role.lock().await = new_role;
-
-		// Restart the service with new role
-		if self.is_running.load(Ordering::SeqCst) {
-			use crate::service::Service;
-			self.stop().await?;
-			self.start().await?;
-		}
-
-		Ok(())
+	/// Get the peer sync handler
+	pub fn peer_sync(&self) -> &Arc<PeerSync> {
+		&self.peer_sync
 	}
 
 	/// Main sync loop (spawned as background task)
 	async fn run_sync_loop(
-		library_id: Uuid,
-		sync_log_db: Arc<SyncLogDb>,
-		event_bus: Arc<crate::infra::event::EventBus>,
-		db: Arc<crate::infra::db::Database>,
-		role: SyncRole,
+		peer_sync: Arc<PeerSync>,
 		is_running: Arc<AtomicBool>,
 		mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 	) {
-		info!(
-			library_id = %library_id,
-			role = ?role,
-			"Starting sync loop"
-		);
+		info!("Starting peer sync loop (leaderless)");
 
-		match role {
-			SyncRole::Leader => {
-				// Create leader sync handler
-				let leader =
-					match LeaderSync::new_with_deps(library_id, sync_log_db, event_bus, db).await {
-						Ok(l) => l,
-						Err(e) => {
-							warn!(
-								library_id = %library_id,
-								error = %e,
-								"Failed to create leader sync handler"
-							);
-							return;
-						}
-					};
+		// TODO: Implement periodic tasks:
+		// - Process buffer queue
+		// - Prune sync log
+		// - Heartbeat to peers
+		// - Reconnect to offline peers
 
-				// Run leader loop
-				tokio::select! {
-					_ = leader.run() => {
-						info!(library_id = %library_id, "Leader sync loop ended");
-					}
-					_ = shutdown_rx.recv() => {
-						info!(library_id = %library_id, "Leader sync loop shutdown signal received");
-					}
+		tokio::select! {
+			_ = async {
+				loop {
+					tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+					// Periodic sync tasks
 				}
+			} => {
+				info!("Peer sync loop ended");
 			}
-			SyncRole::Follower => {
-				// Create follower sync handler
-				let follower = match FollowerSync::new_with_deps(library_id, sync_log_db, db).await
-				{
-					Ok(f) => f,
-					Err(e) => {
-						warn!(
-							library_id = %library_id,
-							error = %e,
-							"Failed to create follower sync handler"
-						);
-						return;
-					}
-				};
-
-				// Run follower loop
-				tokio::select! {
-					_ = follower.run() => {
-						info!(library_id = %library_id, "Follower sync loop ended");
-					}
-					_ = shutdown_rx.recv() => {
-						info!(library_id = %library_id, "Follower sync loop shutdown signal received");
-					}
-				}
+			_ = shutdown_rx.recv() => {
+				info!("Peer sync loop shutdown signal received");
 			}
 		}
 
 		is_running.store(false, Ordering::SeqCst);
-		info!(library_id = %library_id, "Sync loop stopped");
+		info!("Sync loop stopped");
 	}
 }
 
@@ -199,14 +121,12 @@ impl crate::service::Service for SyncService {
 	}
 
 	async fn start(&self) -> Result<()> {
-		let library_id = self.library_id;
-
 		if self.is_running.load(Ordering::SeqCst) {
-			warn!(library_id = %library_id, "Sync service already running");
+			warn!("Sync service already running");
 			return Ok(());
 		}
 
-		info!(library_id = %library_id, "Starting sync service");
+		info!("Starting peer sync service (leaderless)");
 
 		// Create shutdown channel
 		let (shutdown_tx, shutdown_rx) = tokio::sync::broadcast::channel(1);
@@ -215,33 +135,17 @@ impl crate::service::Service for SyncService {
 		// Mark as running
 		self.is_running.store(true, Ordering::SeqCst);
 
-		// Get current role
-		let role = *self.role.lock().await;
+		// Start peer sync
+		self.peer_sync.start().await?;
 
 		// Spawn sync loop
-		let library_id = self.library_id;
-		let sync_log_db = self.sync_log_db.clone();
-		let event_bus = self.event_bus.clone();
-		let db = self.db.clone();
+		let peer_sync = self.peer_sync.clone();
 		let is_running = self.is_running.clone();
 		tokio::spawn(async move {
-			Self::run_sync_loop(
-				library_id,
-				sync_log_db,
-				event_bus,
-				db,
-				role,
-				is_running,
-				shutdown_rx,
-			)
-			.await;
+			Self::run_sync_loop(peer_sync, is_running, shutdown_rx).await;
 		});
 
-		info!(
-			library_id = %library_id,
-			role = ?role,
-			"Sync service started"
-		);
+		info!("Peer sync service started");
 
 		Ok(())
 	}
@@ -251,7 +155,10 @@ impl crate::service::Service for SyncService {
 			return Ok(());
 		}
 
-		info!(library_id = %self.library_id, "Stopping sync service");
+		info!("Stopping peer sync service");
+
+		// Stop peer sync
+		self.peer_sync.stop().await?;
 
 		// Send shutdown signal
 		if let Some(shutdown_tx) = self.shutdown_tx.lock().await.as_ref() {
@@ -261,7 +168,7 @@ impl crate::service::Service for SyncService {
 		// Mark as stopped
 		self.is_running.store(false, Ordering::SeqCst);
 
-		info!(library_id = %self.library_id, "Sync service stopped");
+		info!("Peer sync service stopped");
 
 		Ok(())
 	}

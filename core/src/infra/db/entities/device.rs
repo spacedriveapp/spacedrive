@@ -16,8 +16,7 @@ pub struct Model {
 	pub network_addresses: Json, // Vec<String> as JSON
 	pub is_online: bool,
 	pub last_seen_at: DateTimeUtc,
-	pub capabilities: Json,    // DeviceCapabilities as JSON
-	pub sync_leadership: Json, // HashMap<Uuid, SyncRole> as JSON
+	pub capabilities: Json, // DeviceCapabilities as JSON
 	pub created_at: DateTimeUtc,
 	pub updated_at: DateTimeUtc,
 }

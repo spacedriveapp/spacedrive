@@ -1,99 +1,133 @@
-//! Sync protocol messages
+//! Sync protocol messages (Leaderless Hybrid Model)
 //!
-//! Defines the message types for push-based sync communication between
-//! leader and follower devices.
+//! Defines message types for peer-to-peer sync communication:
+//! - State-based messages for device-owned data
+//! - Log-based messages with HLC for shared resources
 
-use crate::infra::sync::{SyncLogEntry, SyncRole};
+use crate::infra::sync::{SharedChangeEntry, HLC};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Sync protocol messages
-///
-/// These messages enable push-based sync:
-/// - Leader pushes NewEntries when changes occur
-/// - Follower requests entries via FetchEntries
-/// - Leader responds with EntriesResponse
-/// - Follower acknowledges with Acknowledge
+/// Sync protocol messages for leaderless hybrid sync
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncMessage {
-	/// Leader → Follower: New entries available
-	///
-	/// Sent immediately when the leader commits changes to the sync log.
-	/// Follower should respond with FetchEntries to retrieve the actual data.
-	NewEntries {
+	// === STATE-BASED MESSAGES (Device-Owned Data) ===
+
+	/// Broadcast single state change (location, entry, volume)
+	StateChange {
 		library_id: Uuid,
-		from_sequence: u64,
-		to_sequence: u64,
-		entry_count: usize,
+		model_type: String,
+		record_uuid: Uuid,
+		device_id: Uuid, // Owner device
+		data: serde_json::Value,
+		timestamp: DateTime<Utc>,
 	},
 
-	/// Follower → Leader: Request entries
-	///
-	/// Sent by follower to retrieve sync log entries after receiving NewEntries,
-	/// or during catch-up sync.
-	FetchEntries {
+	/// Broadcast batch of state changes (efficiency)
+	StateBatch {
 		library_id: Uuid,
-		since_sequence: u64,
-		limit: usize, // Max 1000
+		model_type: String,
+		device_id: Uuid,
+		records: Vec<StateRecord>,
 	},
 
-	/// Leader → Follower: Response with entries
-	///
-	/// Contains the actual sync log entries requested by FetchEntries.
-	EntriesResponse {
+	/// Request state from peer
+	StateRequest {
 		library_id: Uuid,
-		entries: Vec<SyncLogEntry>,
-		latest_sequence: u64,
+		model_types: Vec<String>, // e.g., ["location", "entry"]
+		device_id: Option<Uuid>,  // Specific device or all
+		since: Option<DateTime<Utc>>, // Incremental sync
+		checkpoint: Option<String>, // For resumability
+		batch_size: usize,
+	},
+
+	/// Response with state
+	StateResponse {
+		library_id: Uuid,
+		model_type: String,
+		device_id: Uuid,
+		records: Vec<StateRecord>,
+		checkpoint: Option<String>,
 		has_more: bool,
 	},
 
-	/// Follower → Leader: Acknowledge received
-	///
-	/// Sent after successfully applying sync entries.
-	/// Helps leader track follower progress.
-	Acknowledge {
+	// === LOG-BASED MESSAGES (Shared Resources) ===
+
+	/// Broadcast shared resource change (with HLC)
+	SharedChange {
 		library_id: Uuid,
-		up_to_sequence: u64,
-		applied_count: usize,
+		entry: SharedChangeEntry,
 	},
 
-	/// Bi-directional: Heartbeat
-	///
-	/// Sent periodically (every 30s) to maintain connection and sync state.
-	/// Leader uses this to track follower health.
-	/// Follower uses this to detect leader timeout.
+	/// Broadcast batch of shared changes
+	SharedChangeBatch {
+		library_id: Uuid,
+		entries: Vec<SharedChangeEntry>,
+	},
+
+	/// Request shared changes since HLC
+	SharedChangeRequest {
+		library_id: Uuid,
+		since_hlc: Option<HLC>,
+		limit: usize,
+	},
+
+	/// Response with shared changes
+	SharedChangeResponse {
+		library_id: Uuid,
+		entries: Vec<SharedChangeEntry>,
+		current_state: Option<serde_json::Value>, // Fallback if logs pruned
+		has_more: bool,
+	},
+
+	/// Acknowledge shared changes (for pruning)
+	AckSharedChanges {
+		library_id: Uuid,
+		from_device: Uuid,
+		up_to_hlc: HLC,
+	},
+
+	// === GENERAL ===
+
+	/// Peer status heartbeat
 	Heartbeat {
 		library_id: Uuid,
-		current_sequence: u64,
-		role: SyncRole,
-		timestamp: chrono::DateTime<chrono::Utc>,
+		device_id: Uuid,
+		timestamp: DateTime<Utc>,
+		state_watermark: Option<DateTime<Utc>>, // Last state sync
+		shared_watermark: Option<HLC>, // Last shared change
 	},
 
-	/// Leader → Follower: You're behind, full sync needed
-	///
-	/// Sent when follower's sequence is too far behind or there's a gap.
-	/// Follower should trigger a full sync job.
-	SyncRequired {
+	/// Error response
+	Error {
 		library_id: Uuid,
-		reason: String,
-		leader_sequence: u64,
-		follower_sequence: u64,
+		message: String,
 	},
+}
 
-	/// Error response for any request
-	Error { library_id: Uuid, message: String },
+/// Single state record in batches
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateRecord {
+	pub uuid: Uuid,
+	pub data: serde_json::Value,
+	pub timestamp: DateTime<Utc>,
 }
 
 impl SyncMessage {
 	/// Get the library ID this message pertains to
 	pub fn library_id(&self) -> Uuid {
 		match self {
-			SyncMessage::NewEntries { library_id, .. }
-			| SyncMessage::FetchEntries { library_id, .. }
-			| SyncMessage::EntriesResponse { library_id, .. }
-			| SyncMessage::Acknowledge { library_id, .. }
+			SyncMessage::StateChange { library_id, .. }
+			| SyncMessage::StateBatch { library_id, .. }
+			| SyncMessage::StateRequest { library_id, .. }
+			| SyncMessage::StateResponse { library_id, .. }
+			| SyncMessage::SharedChange { library_id, .. }
+			| SyncMessage::SharedChangeBatch { library_id, .. }
+			| SyncMessage::SharedChangeRequest { library_id, .. }
+			| SyncMessage::SharedChangeResponse { library_id, .. }
+			| SyncMessage::AckSharedChanges { library_id, .. }
 			| SyncMessage::Heartbeat { library_id, .. }
-			| SyncMessage::SyncRequired { library_id, .. }
 			| SyncMessage::Error { library_id, .. } => *library_id,
 		}
 	}
@@ -102,7 +136,9 @@ impl SyncMessage {
 	pub fn is_request(&self) -> bool {
 		matches!(
 			self,
-			SyncMessage::FetchEntries { .. } | SyncMessage::Heartbeat { .. }
+			SyncMessage::StateRequest { .. }
+				| SyncMessage::SharedChangeRequest { .. }
+				| SyncMessage::Heartbeat { .. }
 		)
 	}
 
@@ -110,9 +146,11 @@ impl SyncMessage {
 	pub fn is_notification(&self) -> bool {
 		matches!(
 			self,
-			SyncMessage::NewEntries { .. }
-				| SyncMessage::Acknowledge { .. }
-				| SyncMessage::SyncRequired { .. }
+			SyncMessage::StateChange { .. }
+				| SyncMessage::StateBatch { .. }
+				| SyncMessage::SharedChange { .. }
+				| SyncMessage::SharedChangeBatch { .. }
+				| SyncMessage::AckSharedChanges { .. }
 		)
 	}
 }
@@ -125,11 +163,13 @@ mod tests {
 	fn test_sync_message_library_id() {
 		let library_id = Uuid::new_v4();
 
-		let msg = SyncMessage::NewEntries {
+		let msg = SyncMessage::StateChange {
 			library_id,
-			from_sequence: 1,
-			to_sequence: 10,
-			entry_count: 10,
+			model_type: "location".to_string(),
+			record_uuid: Uuid::new_v4(),
+			device_id: Uuid::new_v4(),
+			data: serde_json::json!({}),
+			timestamp: Utc::now(),
 		};
 
 		assert_eq!(msg.library_id(), library_id);
@@ -139,21 +179,26 @@ mod tests {
 	fn test_sync_message_types() {
 		let library_id = Uuid::new_v4();
 
-		let fetch = SyncMessage::FetchEntries {
+		let request = SyncMessage::StateRequest {
 			library_id,
-			since_sequence: 0,
-			limit: 100,
+			model_types: vec!["location".to_string()],
+			device_id: None,
+			since: None,
+			checkpoint: None,
+			batch_size: 1000,
 		};
-		assert!(fetch.is_request());
-		assert!(!fetch.is_notification());
+		assert!(request.is_request());
+		assert!(!request.is_notification());
 
-		let new_entries = SyncMessage::NewEntries {
+		let change = SyncMessage::StateChange {
 			library_id,
-			from_sequence: 1,
-			to_sequence: 10,
-			entry_count: 10,
+			model_type: "location".to_string(),
+			record_uuid: Uuid::new_v4(),
+			device_id: Uuid::new_v4(),
+			data: serde_json::json!({}),
+			timestamp: Utc::now(),
 		};
-		assert!(!new_entries.is_request());
-		assert!(new_entries.is_notification());
+		assert!(!change.is_request());
+		assert!(change.is_notification());
 	}
 }

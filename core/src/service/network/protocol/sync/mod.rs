@@ -1,10 +1,9 @@
-//! Sync protocol for push-based library synchronization
+//! Sync protocol (Leaderless)
 //!
-//! This protocol enables efficient, real-time sync between leader and follower devices
-//! by using push notifications instead of polling.
+//! Peer-to-peer sync protocol implementation
 
 pub mod handler;
 pub mod messages;
 
 pub use handler::SyncProtocolHandler;
-pub use messages::SyncMessage;
+pub use messages::{StateRecord, SyncMessage};

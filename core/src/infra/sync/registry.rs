@@ -1,106 +1,77 @@
 //! Syncable model registry
 //!
-//! Automatically registers models that implement Syncable at compile-time
-//! using the `inventory` crate (same pattern as action/query registry).
+//! Provides a runtime registry of all syncable models for dynamic dispatch.
+//! This enables the sync applier to deserialize and apply changes without
+//! knowing the concrete model type at compile time.
 
-use super::SyncLogEntry;
-use sea_orm::DatabaseConnection;
+use super::Syncable;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::RwLock;
 
-/// Function signature for applying a sync entry
-pub type ApplyFn = fn(
-	&SyncLogEntry,
-	&DatabaseConnection,
-) -> std::pin::Pin<
-	Box<
-		dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
-			+ Send,
-	>,
->;
-
-/// Syncable model registration
-pub struct SyncableModelRegistration {
-	/// Model type identifier (e.g., "location", "tag")
-	pub model_type: &'static str,
-
-	/// Function to apply sync entries for this model
-	pub apply_fn: ApplyFn,
-}
-
-inventory::collect!(SyncableModelRegistration);
-
-/// Global registry of syncable models
-static SYNCABLE_REGISTRY: OnceLock<HashMap<&'static str, ApplyFn>> = OnceLock::new();
-
-/// Get the syncable model registry
-pub fn get_registry() -> &'static HashMap<&'static str, ApplyFn> {
-	SYNCABLE_REGISTRY.get_or_init(|| {
-		let mut registry = HashMap::new();
-
-		for registration in inventory::iter::<SyncableModelRegistration> {
-			registry.insert(registration.model_type, registration.apply_fn);
-		}
-
-		tracing::info!(
-			model_count = registry.len(),
-			"Syncable model registry initialized"
-		);
-
-		registry
-	})
-}
-
-/// Apply a sync entry using the registry
+/// Registry of syncable models
 ///
-/// Looks up the model type and calls its apply function.
-pub async fn apply_sync_entry(
-	entry: &SyncLogEntry,
-	db: &DatabaseConnection,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	let registry = get_registry();
+/// Maps model_type strings (e.g., "album", "tag") to their registration info.
+pub static SYNCABLE_REGISTRY: Lazy<RwLock<HashMap<String, SyncableModelRegistration>>> =
+	Lazy::new(|| RwLock::new(HashMap::new()));
 
-	if let Some(apply_fn) = registry.get(entry.model_type.as_str()) {
-		apply_fn(entry, db).await
-	} else {
-		Err(format!(
-			"No sync handler registered for model type '{}'",
-			entry.model_type
-		)
-		.into())
+/// Registration information for a syncable model
+pub struct SyncableModelRegistration {
+	/// Model type identifier
+	pub model_type: &'static str,
+	// TODO: Function pointer to deserialize and apply sync entry
+	// Will be implemented when we add the apply logic
+}
+
+impl SyncableModelRegistration {
+	/// Create a new registration
+	pub fn new(model_type: &'static str) -> Self {
+		Self { model_type }
 	}
 }
 
-/// Macro to register a syncable model
-///
-/// Usage:
-/// ```rust,ignore
-/// register_syncable_model!(location::Model);
-/// ```
-#[macro_export]
-macro_rules! register_syncable_model {
-	($model:ty) => {
-		inventory::submit! {
-			$crate::infra::sync::registry::SyncableModelRegistration {
-				model_type: <$model as $crate::infra::sync::Syncable>::SYNC_MODEL,
-				apply_fn: |entry, db| {
-					Box::pin(async move {
-						<$model as $crate::infra::sync::Syncable>::apply_sync_entry(entry, db).await
-					})
-				},
-			}
-		}
-	};
+/// Register a syncable model type
+pub fn register_model(model_type: &'static str) {
+	let mut registry = SYNCABLE_REGISTRY.write().unwrap();
+	registry.insert(
+		model_type.to_string(),
+		SyncableModelRegistration::new(model_type),
+	);
 }
+
+/// Get the registry (for inspection)
+pub fn get_registry() -> HashMap<String, SyncableModelRegistration> {
+	SYNCABLE_REGISTRY
+		.read()
+		.unwrap()
+		.iter()
+		.map(|(k, v)| (k.clone(), SyncableModelRegistration::new(v.model_type)))
+		.collect()
+}
+
+/// Apply a sync entry (STUB - will be implemented)
+///
+/// In the new architecture, this will:
+/// 1. Check if model is device-owned (state-based) or shared (log-based)
+/// 2. Apply appropriate merge strategy
+/// 3. Update database
+pub async fn apply_sync_entry(_model_type: &str, _data: serde_json::Value) -> Result<(), String> {
+	// TODO: Implement when we add sync applier logic
+	warn!("apply_sync_entry not yet implemented in leaderless architecture");
+	Ok(())
+}
+
+use tracing::warn;
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 
 	#[test]
-	fn test_registry_initialization() {
+	fn test_registry() {
+		register_model("test_model");
+
 		let registry = get_registry();
-		// Should have at least location registered
-		assert!(registry.len() > 0);
+		assert!(registry.contains_key("test_model"));
 	}
 }

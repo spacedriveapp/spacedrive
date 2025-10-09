@@ -112,54 +112,8 @@ pub trait Syncable: Serialize + Clone {
 		Ok(value)
 	}
 
-	/// Apply a sync entry to the database (follower side)
-	///
-	/// Deserialize sync data and perform the appropriate database operation.
-	/// This method should be implemented by models to handle their own sync application.
-	///
-	/// # Default Implementation
-	///
-	/// The default implementation returns an error. Models must override this
-	/// to enable sync application.
-	///
-	/// # Example
-	///
-	/// ```rust,ignore
-	/// async fn apply_sync_entry(
-	///     entry: &SyncLogEntry,
-	///     db: &DatabaseConnection,
-	/// ) -> Result<(), Box<dyn std::error::Error>> {
-	///     match entry.change_type {
-	///         ChangeType::Insert => {
-	///             let data: Self = serde_json::from_value(entry.data.clone())?;
-	///             // Convert to ActiveModel and insert
-	///             // ...
-	///         }
-	///         ChangeType::Update => {
-	///             // Fetch existing, check version, update
-	///             // ...
-	///         }
-	///         ChangeType::Delete => {
-	///             // Delete by UUID
-	///             // ...
-	///         }
-	///     }
-	///     Ok(())
-	/// }
-	/// ```
-	async fn apply_sync_entry(
-		entry: &super::SyncLogEntry,
-		db: &DatabaseConnection,
-	) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
-	where
-		Self: Sized,
-	{
-		Err(format!(
-			"apply_sync_entry not implemented for model '{}'",
-			Self::SYNC_MODEL
-		)
-		.into())
-	}
+	// TODO: Reimplement with leaderless architecture
+	// Old apply_sync_entry removed - will use PeerSync directly
 }
 
 /// Helper to validate that a model's sync_id is unique
