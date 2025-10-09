@@ -125,11 +125,40 @@ impl Syncable for Model {
 		// Note: Statistics (total_file_count, etc.) DO sync - they reflect the owner's data
 	}
 
-	// TODO: Reimplement with new leaderless architecture
-	// Old apply_sync_entry removed - will use state-based sync
-}
+	/// Query locations for sync backfill
+	async fn query_for_sync(
+		_device_id: Option<Uuid>,
+		since: Option<chrono::DateTime<chrono::Utc>>,
+		batch_size: usize,
+		db: &DatabaseConnection,
+	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 
-impl Model {
+		let mut query = Entity::find();
+
+		// Filter by timestamp if specified
+		if let Some(since_time) = since {
+			query = query.filter(Column::UpdatedAt.gte(since_time));
+		}
+
+		// Apply batch limit
+		query = query.limit(batch_size as u64);
+
+		let results = query.all(db).await?;
+
+		// Convert to sync format using the Syncable trait's to_sync_json
+		Ok(results
+			.into_iter()
+			.filter_map(|loc| match loc.to_sync_json() {
+				Ok(json) => Some((loc.uuid, json, loc.updated_at)),
+				Err(e) => {
+					tracing::warn!(error = %e, "Failed to serialize location for sync");
+					None
+				}
+			})
+			.collect())
+	}
+
 	/// Apply device-owned state change (idempotent upsert)
 	///
 	/// Locations are device-owned, so we use state-based replication:
@@ -143,12 +172,12 @@ impl Model {
 	/// - JSON deserialization fails
 	/// - Database upsert fails
 	/// - Foreign key constraints violated (device_id or entry_id not found)
-	pub async fn apply_state_change(
+	async fn apply_state_change(
 		data: serde_json::Value,
 		db: &DatabaseConnection,
 	) -> Result<(), sea_orm::DbErr> {
 		// Deserialize incoming data
-		let location: Self = serde_json::from_value(data).map_err(|e| {
+		let location: Model = serde_json::from_value(data).map_err(|e| {
 			sea_orm::DbErr::Custom(format!("Location deserialization failed: {}", e))
 		})?;
 

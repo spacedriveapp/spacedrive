@@ -137,12 +137,87 @@ impl PeerSync {
 		// Start event listener for TransactionManager events
 		self.start_event_listener();
 
-		// TODO: Start background tasks for:
-		// - Processing buffer queue
-		// - Pruning sync log
-		// - Periodic peer health checks
+		// Start background task for retry queue processing
+		self.start_retry_processor();
+
+		// Start background task for periodic log pruning
+		self.start_log_pruner();
 
 		Ok(())
+	}
+
+	/// Start background task to process retry queue
+	fn start_retry_processor(&self) {
+		let retry_queue = self.retry_queue.clone();
+		let network = self.network.clone();
+		let is_running = self.is_running.clone();
+
+		tokio::spawn(async move {
+			info!("Started retry queue processor");
+
+			while is_running.load(Ordering::SeqCst) {
+				// Check for ready messages every 10 seconds
+				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+
+				// Get messages ready for retry
+				let ready_messages = retry_queue.get_ready().await;
+
+				if !ready_messages.is_empty() {
+					debug!(count = ready_messages.len(), "Processing retry queue");
+				}
+
+				// Attempt to send each message
+				for (target_device, message) in ready_messages {
+					match network
+						.send_sync_message(target_device, message.clone())
+						.await
+					{
+						Ok(()) => {
+							debug!(target = %target_device, "Retry successful");
+						}
+						Err(e) => {
+							warn!(
+								target = %target_device,
+								error = %e,
+								"Retry failed, will retry again"
+							);
+							// Message will be re-queued automatically by get_ready()
+						}
+					}
+				}
+			}
+
+			info!("Retry queue processor stopped");
+		});
+	}
+
+	/// Start background task for periodic log pruning
+	fn start_log_pruner(&self) {
+		let peer_log = self.peer_log.clone();
+		let is_running = self.is_running.clone();
+
+		tokio::spawn(async move {
+			info!("Started log pruner");
+
+			while is_running.load(Ordering::SeqCst) {
+				// Prune every 5 minutes
+				tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+
+				match peer_log.prune_acked().await {
+					Ok(count) if count > 0 => {
+						info!(pruned = count, "Pruned acknowledged log entries");
+					}
+					Ok(_) => {
+						debug!("No log entries to prune");
+					}
+					Err(e) => {
+						warn!(error = %e, "Failed to prune log");
+					}
+				}
+			}
+
+			info!("Log pruner stopped");
+		});
 	}
 
 	/// Start event listener for TransactionManager sync events
@@ -910,6 +985,9 @@ impl PeerSync {
 	}
 
 	/// Get device-owned state for backfill (StateRequest)
+	///
+	/// This is completely domain-agnostic - it delegates to the Syncable trait
+	/// implementations in each entity. No switch statements, no domain logic.
 	pub async fn get_device_state(
 		&self,
 		model_types: Vec<String>,
@@ -927,12 +1005,55 @@ impl PeerSync {
 			"Querying device state for backfill"
 		);
 
-		// For now, return empty result
-		// TODO: Query database for each model type
-		// This requires the Syncable registry to have query methods
-		warn!("get_device_state not fully implemented - returning empty result");
+		let mut all_records = Vec::new();
+		let mut remaining_batch = batch_size;
 
-		Ok(Vec::new())
+		for model_type in model_types {
+			if remaining_batch == 0 {
+				break;
+			}
+
+			// Query through the registry - completely domain-agnostic
+			match crate::infra::sync::registry::query_device_state(
+				&model_type,
+				device_id,
+				since,
+				remaining_batch,
+				self.db.clone(),
+			)
+			.await
+			{
+				Ok(results) => {
+					let count = results.len();
+					debug!(model_type = %model_type, count = count, "Retrieved records");
+
+					// Convert to StateRecord format
+					all_records.extend(results.into_iter().map(|(uuid, data, timestamp)| {
+						StateRecord {
+							uuid,
+							data,
+							timestamp,
+						}
+					}));
+
+					remaining_batch = remaining_batch.saturating_sub(count);
+				}
+				Err(e) => {
+					warn!(
+						model_type = %model_type,
+						error = %e,
+						"Failed to query model type, skipping"
+					);
+				}
+			}
+		}
+
+		info!(
+			count = all_records.len(),
+			"Retrieved device state records for backfill"
+		);
+
+		Ok(all_records)
 	}
 
 	/// Get shared changes from peer log (SharedChangeRequest)

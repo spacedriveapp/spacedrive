@@ -58,6 +58,74 @@ impl Related<super::content_identity::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
+// ============================================================================
+// Syncable Implementation
+// ============================================================================
+impl crate::infra::sync::Syncable for Model {
+	const SYNC_MODEL: &'static str = "entry";
+
+	fn sync_id(&self) -> Uuid {
+		self.uuid.unwrap_or_else(|| Uuid::from_bytes([0; 16]))
+	}
+
+	fn version(&self) -> i64 {
+		// Entry sync is state-based, version not needed
+		1
+	}
+
+	fn exclude_fields() -> Option<&'static [&'static str]> {
+		Some(&["id"]) // Only exclude database PK
+	}
+
+	/// Query entries for sync backfill
+	async fn query_for_sync(
+		_device_id: Option<Uuid>,
+		since: Option<chrono::DateTime<chrono::Utc>>,
+		batch_size: usize,
+		db: &DatabaseConnection,
+	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+
+		let mut query = Entity::find();
+
+		// Only sync entries that have UUIDs (are sync-ready)
+		query = query.filter(Column::Uuid.is_not_null());
+
+		// Filter by timestamp if specified
+		if let Some(since_time) = since {
+			query = query.filter(Column::ModifiedAt.gte(since_time));
+		}
+
+		// Apply batch limit
+		query = query.limit(batch_size as u64);
+
+		let results = query.all(db).await?;
+
+		// Convert to sync format
+		Ok(results
+			.into_iter()
+			.filter_map(|entry| {
+				let uuid = entry.uuid?;
+				match entry.to_sync_json() {
+					Ok(json) => Some((uuid, json, entry.modified_at)),
+					Err(e) => {
+						tracing::warn!(error = %e, "Failed to serialize entry for sync");
+						None
+					}
+				}
+			})
+			.collect())
+	}
+
+	/// Apply state change - already implemented in Model impl block below
+	async fn apply_state_change(
+		data: serde_json::Value,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		Model::apply_state_change(data, db).await
+	}
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EntryKind {
 	File = 0,

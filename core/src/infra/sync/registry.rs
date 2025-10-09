@@ -26,6 +26,26 @@ pub type SharedApplyFn = fn(
 	Arc<DatabaseConnection>,
 ) -> Pin<Box<dyn Future<Output = Result<(), sea_orm::DbErr>> + Send>>;
 
+/// Type alias for state query function (device-owned models)
+///
+/// Parameters: device_id, since, batch_size, db
+/// Returns: Vec of (uuid, data, timestamp)
+pub type StateQueryFn = fn(
+	Option<uuid::Uuid>,
+	Option<chrono::DateTime<chrono::Utc>>,
+	usize,
+	Arc<DatabaseConnection>,
+) -> Pin<
+	Box<
+		dyn Future<
+				Output = Result<
+					Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>,
+					sea_orm::DbErr,
+				>,
+			> + Send,
+	>,
+>;
+
 /// Registry of syncable models
 ///
 /// Maps model_type strings (e.g., "album", "tag") to their registration info.
@@ -51,6 +71,9 @@ pub struct SyncableModelRegistration {
 
 	/// Apply function for log-based sync (shared models)
 	pub shared_apply_fn: Option<SharedApplyFn>,
+
+	/// Query function for state-based backfill (device-owned models)
+	pub state_query_fn: Option<StateQueryFn>,
 }
 
 impl SyncableModelRegistration {
@@ -59,6 +82,7 @@ impl SyncableModelRegistration {
 		model_type: &'static str,
 		table_name: &'static str,
 		apply_fn: StateApplyFn,
+		query_fn: StateQueryFn,
 	) -> Self {
 		Self {
 			model_type,
@@ -66,6 +90,7 @@ impl SyncableModelRegistration {
 			is_device_owned: true,
 			state_apply_fn: Some(apply_fn),
 			shared_apply_fn: None,
+			state_query_fn: Some(query_fn),
 		}
 	}
 
@@ -81,20 +106,22 @@ impl SyncableModelRegistration {
 			is_device_owned: false,
 			state_apply_fn: None,
 			shared_apply_fn: Some(apply_fn),
+			state_query_fn: None,
 		}
 	}
 }
 
-/// Register a device-owned model with state-based apply function
+/// Register a device-owned model with state-based apply and query functions
 pub async fn register_device_owned(
 	model_type: &'static str,
 	table_name: &'static str,
 	apply_fn: StateApplyFn,
+	query_fn: StateQueryFn,
 ) {
 	let mut registry = SYNCABLE_REGISTRY.write().await;
 	registry.insert(
 		model_type.to_string(),
-		SyncableModelRegistration::device_owned(model_type, table_name, apply_fn),
+		SyncableModelRegistration::device_owned(model_type, table_name, apply_fn, query_fn),
 	);
 }
 
@@ -112,31 +139,71 @@ pub async fn register_shared(
 }
 
 /// Initialize registry with all syncable models
+///
+/// This is completely domain-agnostic - it just routes to the Syncable trait implementations.
+/// All domain-specific logic lives in the entity implementations, not here.
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
-	use crate::infra::db::entities::{entry, location, tag};
+	use crate::infra::db::entities::{device, entry, location, tag};
 
 	let mut registry = HashMap::new();
 
 	// Device-owned models (state-based sync)
+	// Just function pointers - no domain logic here
 	registry.insert(
 		"location".to_string(),
-		SyncableModelRegistration::device_owned("location", "locations", |data, db| {
-			Box::pin(async move { location::Model::apply_state_change(data, &db).await })
-		}),
+		SyncableModelRegistration::device_owned(
+			"location",
+			"locations",
+			|data, db| {
+				Box::pin(
+					async move { location::Model::apply_state_change(data, db.as_ref()).await },
+				)
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					location::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+				})
+			},
+		),
 	);
 
 	registry.insert(
 		"entry".to_string(),
-		SyncableModelRegistration::device_owned("entry", "entries", |data, db| {
-			Box::pin(async move { entry::Model::apply_state_change(data, &db).await })
-		}),
+		SyncableModelRegistration::device_owned(
+			"entry",
+			"entries",
+			|data, db| {
+				Box::pin(async move { entry::Model::apply_state_change(data, db.as_ref()).await })
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					entry::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"device".to_string(),
+		SyncableModelRegistration::device_owned(
+			"device",
+			"devices",
+			|data, db| {
+				Box::pin(async move { device::Model::apply_state_change(data, db.as_ref()).await })
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					device::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+				})
+			},
+		),
 	);
 
 	// Shared models (log-based sync)
 	registry.insert(
 		"tag".to_string(),
 		SyncableModelRegistration::shared("tag", "tag", |entry, db| {
-			Box::pin(async move { tag::Model::apply_shared_change(entry, &db).await })
+			Box::pin(async move { tag::Model::apply_shared_change(entry, db.as_ref()).await })
 		}),
 	);
 
@@ -227,6 +294,41 @@ pub async fn apply_shared_change(
 		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
 }
 
+/// Query device state for a model type (for backfill)
+///
+/// Routes to the appropriate model's query function via registry.
+pub async fn query_device_state(
+	model_type: &str,
+	device_id: Option<uuid::Uuid>,
+	since: Option<chrono::DateTime<chrono::Utc>>,
+	batch_size: usize,
+	db: Arc<DatabaseConnection>,
+) -> Result<Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, ApplyError> {
+	let query_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let registration = registry
+			.get(model_type)
+			.ok_or_else(|| ApplyError::UnknownModel(model_type.to_string()))?;
+
+		if !registration.is_device_owned {
+			return Err(ApplyError::WrongSyncType {
+				model: model_type.to_string(),
+				expected: "device-owned".to_string(),
+				got: "shared".to_string(),
+			});
+		}
+
+		registration
+			.state_query_fn
+			.ok_or_else(|| ApplyError::MissingQueryFunction(model_type.to_string()))?
+	}; // Lock is dropped here
+
+	// Call the registered query function
+	query_fn(device_id, since, batch_size, db)
+		.await
+		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
+}
+
 /// Errors that can occur when applying sync entries
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyError {
@@ -242,6 +344,9 @@ pub enum ApplyError {
 
 	#[error("Missing apply function for model: {0}")]
 	MissingApplyFunction(String),
+
+	#[error("Missing query function for model: {0}")]
+	MissingQueryFunction(String),
 
 	#[error("Database error: {0}")]
 	DatabaseError(String),

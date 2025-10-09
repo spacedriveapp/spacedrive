@@ -112,8 +112,82 @@ pub trait Syncable: Serialize + Clone {
 		Ok(value)
 	}
 
-	// TODO: Reimplement with leaderless architecture
-	// Old apply_sync_entry removed - will use PeerSync directly
+	/// Query instances of this model for sync backfill (device-owned models only)
+	///
+	/// This is an associated function that queries the database for all instances
+	/// of this model that match the given criteria. Used for backfill operations.
+	///
+	/// # Parameters
+	/// - `device_id`: Optional device filter (for multi-device filtering)
+	/// - `since`: Optional timestamp to only get records modified after this time
+	/// - `batch_size`: Maximum number of records to return
+	/// - `db`: Database connection
+	///
+	/// # Returns
+	/// Vector of (uuid, json_data, timestamp) tuples
+	fn query_for_sync(
+		device_id: Option<Uuid>,
+		since: Option<chrono::DateTime<chrono::Utc>>,
+		batch_size: usize,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<
+		Output = Result<
+			Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>,
+			sea_orm::DbErr,
+		>,
+	> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default implementation returns empty - models must override
+			Ok(Vec::new())
+		}
+	}
+
+	/// Apply a state change from sync (device-owned models only)
+	///
+	/// This is an associated function that applies a state change received
+	/// from another device. It should deserialize the data and upsert it
+	/// into the database using "last write wins" semantics.
+	///
+	/// # Parameters
+	/// - `data`: The JSON data for this model
+	/// - `db`: Database connection
+	fn apply_state_change(
+		data: serde_json::Value,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<(), sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default implementation does nothing - models must override
+			Ok(())
+		}
+	}
+
+	/// Apply a shared change from sync log (shared models only)
+	///
+	/// This is an associated function that applies a log-based change with
+	/// HLC-based conflict resolution. It should compare timestamps and
+	/// only apply if the incoming change is newer.
+	///
+	/// # Parameters
+	/// - `entry`: The SharedChangeEntry containing HLC and data
+	/// - `db`: Database connection
+	fn apply_shared_change(
+		entry: super::SharedChangeEntry,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<(), sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default implementation does nothing - models must override
+			Ok(())
+		}
+	}
 }
 
 /// Helper to validate that a model's sync_id is unique
