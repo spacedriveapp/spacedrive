@@ -176,34 +176,35 @@ impl Model {
 			None => self.canonical_name.clone(),
 		}
 	}
+}
 
-	/// Apply shared change with conflict resolution (union merge)
-	///
-	/// Tags are shared resources, so we use HLC-ordered log-based replication:
-	/// - Union merge: preserve all tags with different UUIDs
-	/// - Tags with same canonical_name are allowed (polymorphic naming)
-	/// - Last-writer-wins for properties on existing tags
-	/// - Deletes remove by UUID
-	///
-	/// # Conflict Resolution Strategy
-	///
-	/// **Union Merge**: When two devices create tags with the same canonical_name,
-	/// both are preserved with different UUIDs. Semantic tagging supports polymorphic
-	/// naming where context (namespace) disambiguates meaning.
-	///
-	/// Example:
-	/// ```text
-	/// Device A: Creates tag "Vacation" (uuid: abc-123, namespace: "travel")
-	/// Device B: Creates tag "Vacation" (uuid: def-456, namespace: "work")
-	/// Result: Both tags exist, differentiated by namespace
-	/// ```
-	///
-	/// # Errors
-	///
-	/// Returns error if:
-	/// - JSON deserialization fails
-	/// - Database upsert fails
-	pub async fn apply_shared_change(
+// Syncable Implementation
+//
+// Tags are SHARED resources using HLC-ordered log-based replication with union merge.
+// Multiple tags with the same canonical_name are preserved if they have different UUIDs.
+// This supports polymorphic naming where context (namespace) disambiguates meaning.
+impl Syncable for Model {
+	const SYNC_MODEL: &'static str = "tag";
+
+	fn sync_id(&self) -> Uuid {
+		self.uuid
+	}
+
+	fn version(&self) -> i64 {
+		// TODO: Add version field to tags table via migration
+		// Migration SQL:
+		//   ALTER TABLE tag ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+		// For now, return a default value
+		1
+	}
+
+	fn exclude_fields() -> Option<&'static [&'static str]> {
+		Some(&["id", "created_at", "updated_at"])
+	}
+
+	/// Apply shared change with union merge conflict resolution.
+	/// Different UUIDs with same canonical_name coexist (polymorphic naming).
+	async fn apply_shared_change(
 		entry: SharedChangeEntry,
 		db: &DatabaseConnection,
 	) -> Result<(), sea_orm::DbErr> {
@@ -278,68 +279,6 @@ impl Model {
 		}
 
 		Ok(())
-	}
-}
-
-// ============================================================================
-// Syncable Implementation
-// ============================================================================
-//
-// **Tag Sync Model**:
-// Tags are SHARED resources that any device can create/modify.
-// They sync using HLC-ordered logs with union merge conflict resolution.
-//
-// **Sync Domain**: Shared (log-based replication)
-//
-// **What Syncs**:
-// - Tag identity: uuid, canonical_name
-// - Semantic variants: display_name, formal_name, abbreviation, aliases
-// - Context: namespace, tag_type
-// - Visual properties: color, icon, description
-// - Metadata: privacy_level, search_weight, attributes, composition_rules
-// - Created by: created_by_device (for attribution)
-//
-// **What Doesn't Sync**:
-// - id: Database primary key (device-specific auto-increment)
-// - created_at, updated_at: Platform-specific timestamps
-//
-// **Conflict Resolution**:
-// - Union merge: Multiple tags with same canonical_name are preserved
-// - Different UUIDs = different tags (polymorphic naming)
-// - Same UUID = last-writer-wins for properties (HLC ordering)
-//
-// **Example Scenario**:
-// ```
-// Device A: Creates tag { uuid: abc-123, canonical_name: "Vacation", namespace: "travel" }
-// Device B: Creates tag { uuid: def-456, canonical_name: "Vacation", namespace: "work" }
-//
-// After sync:
-//   Both devices have BOTH tags (union merge)
-//   Tags are distinguished by namespace context
-//   Search for "Vacation" returns both, UI shows context
-// ```
-impl Syncable for Model {
-	const SYNC_MODEL: &'static str = "tag";
-
-	fn sync_id(&self) -> Uuid {
-		self.uuid
-	}
-
-	fn version(&self) -> i64 {
-		// TODO: Add version field to tags table via migration
-		// Migration SQL:
-		//   ALTER TABLE tag ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
-		// For now, return a default value
-		1
-	}
-
-	fn exclude_fields() -> Option<&'static [&'static str]> {
-		// Exclude database-specific fields and local timestamps
-		Some(&[
-			"id",         // Database primary key (device-specific)
-			"created_at", // Platform-specific timestamp
-			"updated_at", // Platform-specific timestamp
-		])
 	}
 }
 

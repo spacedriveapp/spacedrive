@@ -53,49 +53,11 @@ impl Related<super::entry::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-// ============================================================================
 // Syncable Implementation
-// ============================================================================
 //
-// **Location Ownership Model**:
-// Each location is OWNED by a single device (the device with the physical filesystem).
-// Locations + their entries sync to all paired devices for read-only remote access.
-//
-// **Sync Domain**: Index (full replication - location + entries)
-//
-// **What Syncs**:
-// - Location identity: uuid
-// - Location metadata: name, index_mode
-// - Device ownership: device_id (which device owns this location)
-// - Entry reference: entry_id (root entry UUID, resolved via sync)
-// - Scan statistics: total_file_count, total_byte_size, last_scan_at
-// - All entries under this location (synced separately via entry sync)
-//
-// **What Doesn't Sync**:
-// - id: Database primary key (device-specific auto-increment)
-// - scan_state: Local state (owner device may be scanning, others just see it)
-// - error_message: Local error state (only relevant on owning device)
-// - created_at, updated_at: Platform-specific timestamps
-//
-// **Example Scenario**:
-// ```
-// Device A (Alice's Laptop):
-//   - Creates location "Photos" for /Users/alice/Photos
-//   - Indexes 10,000 files → creates Entry records
-//   - Location syncs with: uuid, name, device_id (A), entry_id, file counts
-//   - All 10,000 entries sync with their location_id reference
-//
-// Device B (Bob's Desktop):
-//   - Receives synced location (owned by Device A)
-//   - Receives all 10,000 synced entries
-//   - Can browse Alice's Photos remotely (read-only)
-//   - Cannot modify files (location is owned by Device A)
-//   - May trigger file transfer if accessing content
-// ```
-//
-// **Important**: Only the owning device can modify a location's entries.
-// Other devices have read-only access and see the remote filesystem.
-//
+// Locations are DEVICE-OWNED using state-based replication. Each location is owned by
+// a single device and syncs to all paired devices for read-only remote access.
+// Only the owning device can modify the location and its entries.
 impl Syncable for Model {
 	const SYNC_MODEL: &'static str = "location";
 
@@ -112,17 +74,13 @@ impl Syncable for Model {
 	}
 
 	fn exclude_fields() -> Option<&'static [&'static str]> {
-		// Only exclude database-specific fields and local state
 		Some(&[
-			"id",            // Database primary key (device-specific)
-			"scan_state",    // Local state (not relevant for remote devices)
-			"error_message", // Local error state
-			"created_at",    // Platform-specific timestamp
-			"updated_at",    // Platform-specific timestamp
+			"id",
+			"scan_state",
+			"error_message",
+			"created_at",
+			"updated_at",
 		])
-		// Note: device_id DOES sync - it indicates which device owns this location
-		// Note: entry_id DOES sync - it's the UUID of the root entry (resolved via sync)
-		// Note: Statistics (total_file_count, etc.) DO sync - they reflect the owner's data
 	}
 
 	/// Query locations for sync backfill
@@ -159,19 +117,8 @@ impl Syncable for Model {
 			.collect())
 	}
 
-	/// Apply device-owned state change (idempotent upsert)
-	///
-	/// Locations are device-owned, so we use state-based replication:
-	/// - No HLC ordering needed (only owner modifies)
-	/// - Idempotent upsert by UUID
-	/// - Last state wins (no conflict resolution needed)
-	///
-	/// # Errors
-	///
-	/// Returns error if:
-	/// - JSON deserialization fails
-	/// - Database upsert fails
-	/// - Foreign key constraints violated (device_id or entry_id not found)
+	/// Apply state change with idempotent upsert by UUID.
+	/// No conflict resolution needed (device-owned).
 	async fn apply_state_change(
 		data: serde_json::Value,
 		db: &DatabaseConnection,
