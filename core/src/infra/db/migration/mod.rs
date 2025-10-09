@@ -10,7 +10,6 @@ mod m20250110_000001_refactor_volumes_table;
 mod m20250112_000001_create_indexer_rules;
 mod m20250115_000001_semantic_tags;
 mod m20250120_000001_create_fts5_search_index;
-mod m20250200_000001_remove_sync_leadership;
 
 pub struct Migrator;
 
@@ -26,7 +25,6 @@ impl MigratorTrait for Migrator {
 			Box::new(m20250112_000001_create_indexer_rules::Migration),
 			Box::new(m20250115_000001_semantic_tags::Migration),
 			Box::new(m20250120_000001_create_fts5_search_index::Migration),
-			Box::new(m20250200_000001_remove_sync_leadership::Migration),
 		]
 	}
 }

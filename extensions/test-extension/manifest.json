@@ -1,0 +1,24 @@
+{
+	"id": "test-extension",
+	"name": "Test Extension",
+	"version": "0.1.0",
+	"description": "Minimal extension demonstrating beautiful SDK API",
+	"author": "Spacedrive Team",
+	"homepage": "https://spacedrive.com",
+	"wasm_file": "test_extension.wasm",
+	"permissions": {
+		"methods": [
+			"query:",
+			"action:"
+		],
+		"libraries": [
+			"*"
+		],
+		"rate_limits": {
+			"requests_per_minute": 1000,
+			"concurrent_jobs": 10
+		},
+		"network_access": [],
+		"max_memory_mb": 256
+	}
+}

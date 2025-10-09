@@ -32,6 +32,9 @@ pub struct Library {
 	/// Library configuration
 	config: RwLock<LibraryConfig>,
 
+	/// Core context for accessing system services
+	core_context: Arc<crate::context::CoreContext>,
+
 	/// Database connection
 	db: Arc<Database>,
 
@@ -94,6 +97,11 @@ impl Library {
 	/// Get the sync service
 	pub fn sync_service(&self) -> Option<&Arc<crate::service::sync::SyncService>> {
 		self.sync_service.get()
+	}
+
+	/// Get core context
+	pub fn core_context(&self) -> &Arc<crate::context::CoreContext> {
+		&self.core_context
 	}
 
 	/// Initialize the sync service (called during library setup)

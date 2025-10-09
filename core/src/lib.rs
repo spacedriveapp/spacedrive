@@ -139,6 +139,9 @@ pub struct Core {
 	/// Container for high-level services
 	pub services: Services,
 
+	/// WASM plugin manager
+	pub plugin_manager: Option<Arc<RwLock<crate::infra::extension::PluginManager>>>,
+
 	/// Shared context for core components
 	pub context: Arc<CoreContext>,
 
@@ -348,7 +351,20 @@ impl Core {
 		// 14. Initialize API dispatcher
 		let api_dispatcher = ApiDispatcher::new(context.clone());
 
-		// 15. Emit startup event
+		// 15. Initialize plugin manager (WASM extensions)
+		let plugin_dir = data_dir.join("extensions");
+		let _ = std::fs::create_dir_all(&plugin_dir); // Ensure directory exists
+
+		let plugin_manager = Arc::new(RwLock::new(crate::infra::extension::PluginManager::new(
+			plugin_dir,
+			context.clone(),
+			Arc::new(api_dispatcher.clone()),
+		)));
+
+		// Set in context so jobs can access it
+		context.set_plugin_manager(plugin_manager.clone()).await;
+
+		// 16. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -358,6 +374,7 @@ impl Core {
 			volumes,
 			events,
 			services,
+			plugin_manager: Some(plugin_manager),
 			context,
 			api_dispatcher,
 		})

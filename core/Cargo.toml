@@ -78,6 +78,10 @@ tracing            = "0.1"
 tracing-appender   = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# WASM Plugin System
+wasmer             = "4.2"
+wasmer-middlewares = "4.2"
+
 # Indexer rules engine
 futures-concurrency = "7.6"
 gix-ignore          = { version = "0.11", features = ["serde"] }

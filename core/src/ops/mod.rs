@@ -13,6 +13,7 @@ pub mod addressing;
 pub mod core;
 pub mod devices;
 pub mod entries;
+pub mod extension_test;
 pub mod files;
 pub mod indexing;
 pub mod jobs;
