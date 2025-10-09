@@ -61,7 +61,7 @@ pub fn deterministic_system_tag_uuid(name: &str) -> Uuid {
 /// These tags should be created during library initialization:
 /// ```rust,ignore
 /// // In library creation/initialization
-/// for (name, uuid) in get_system_tags() {
+/// for (name, uuid) in system_tags::get_all() {
 ///     let tag = SemanticTag {
 ///         uuid: uuid,
 ///         canonical_name: name,
@@ -76,35 +76,33 @@ pub fn deterministic_system_tag_uuid(name: &str) -> Uuid {
 pub mod system_tags {
     use super::*;
     
-    lazy_static::lazy_static! {
-        // File type tags
-        pub static ref SYSTEM_TAG_UUID: Uuid = deterministic_system_tag_uuid("System");
-        pub static ref SCREENSHOT_TAG_UUID: Uuid = deterministic_system_tag_uuid("Screenshot");
-        pub static ref DOWNLOAD_TAG_UUID: Uuid = deterministic_system_tag_uuid("Download");
-        pub static ref DOCUMENT_TAG_UUID: Uuid = deterministic_system_tag_uuid("Document");
-        pub static ref IMAGE_TAG_UUID: Uuid = deterministic_system_tag_uuid("Image");
-        pub static ref VIDEO_TAG_UUID: Uuid = deterministic_system_tag_uuid("Video");
-        pub static ref AUDIO_TAG_UUID: Uuid = deterministic_system_tag_uuid("Audio");
-        
-        // Special behavior tags  
-        pub static ref HIDDEN_TAG_UUID: Uuid = deterministic_system_tag_uuid(".hidden");
-        pub static ref ARCHIVE_TAG_UUID: Uuid = deterministic_system_tag_uuid(".archive");
-        pub static ref FAVORITE_TAG_UUID: Uuid = deterministic_system_tag_uuid("Favorite");
-    }
+    // File type tags
+    pub fn system() -> Uuid { deterministic_system_tag_uuid("System") }
+    pub fn screenshot() -> Uuid { deterministic_system_tag_uuid("Screenshot") }
+    pub fn download() -> Uuid { deterministic_system_tag_uuid("Download") }
+    pub fn document() -> Uuid { deterministic_system_tag_uuid("Document") }
+    pub fn image() -> Uuid { deterministic_system_tag_uuid("Image") }
+    pub fn video() -> Uuid { deterministic_system_tag_uuid("Video") }
+    pub fn audio() -> Uuid { deterministic_system_tag_uuid("Audio") }
+    
+    // Special behavior tags  
+    pub fn hidden() -> Uuid { deterministic_system_tag_uuid(".hidden") }
+    pub fn archive() -> Uuid { deterministic_system_tag_uuid(".archive") }
+    pub fn favorite() -> Uuid { deterministic_system_tag_uuid("Favorite") }
     
     /// Get all system tags for library initialization
-    pub fn get_all_system_tags() -> Vec<(&'static str, Uuid)> {
+    pub fn get_all() -> Vec<(&'static str, Uuid)> {
         vec![
-            ("System", SYSTEM_TAG_UUID.clone()),
-            ("Screenshot", SCREENSHOT_TAG_UUID.clone()),
-            ("Download", DOWNLOAD_TAG_UUID.clone()),
-            ("Document", DOCUMENT_TAG_UUID.clone()),
-            ("Image", IMAGE_TAG_UUID.clone()),
-            ("Video", VIDEO_TAG_UUID.clone()),
-            ("Audio", AUDIO_TAG_UUID.clone()),
-            (".hidden", HIDDEN_TAG_UUID.clone()),
-            (".archive", ARCHIVE_TAG_UUID.clone()),
-            ("Favorite", FAVORITE_TAG_UUID.clone()),
+            ("System", system()),
+            ("Screenshot", screenshot()),
+            ("Download", download()),
+            ("Document", document()),
+            ("Image", image()),
+            ("Video", video()),
+            ("Audio", audio()),
+            (".hidden", hidden()),
+            (".archive", archive()),
+            ("Favorite", favorite()),
         ]
     }
 }
@@ -151,8 +149,8 @@ mod tests {
 		assert_ne!(uuid1, uuid3);
 		
 		// Verify known system tags have consistent UUIDs
-		use system_tags::*;
-		assert_eq!(*SYSTEM_TAG_UUID, deterministic_system_tag_uuid("System"));
+		assert_eq!(system_tags::system(), deterministic_system_tag_uuid("System"));
+		assert_eq!(system_tags::screenshot(), deterministic_system_tag_uuid("Screenshot"));
 	}
 
 	#[test]

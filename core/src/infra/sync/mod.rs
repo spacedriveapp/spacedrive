@@ -16,7 +16,9 @@ pub mod registry;
 pub mod syncable;
 pub mod transaction;
 
-pub use deterministic::{deterministic_album_uuid, deterministic_tag_uuid};
+pub use deterministic::{
+	deterministic_system_album_uuid, deterministic_system_tag_uuid, system_tags,
+};
 pub use hlc::{HLCGenerator, HLC};
 pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};
 pub use registry::{
