@@ -54,7 +54,10 @@ impl ExtensionJobRegistry {
 			resumable,
 		};
 
-		let mut jobs = self.jobs.write().unwrap();
+		let mut jobs = self.jobs.write().unwrap_or_else(|poisoned| {
+			tracing::warn!("Extension job registry lock was poisoned, recovering");
+			poisoned.into_inner()
+		});
 
 		// Check for duplicates
 		if jobs.contains_key(&full_name) {
@@ -72,12 +75,25 @@ impl ExtensionJobRegistry {
 
 	/// Check if a job name is registered
 	pub fn has_job(&self, full_name: &str) -> bool {
-		self.jobs.read().unwrap().contains_key(full_name)
+		self.jobs
+			.read()
+			.unwrap_or_else(|poisoned| {
+				tracing::warn!("Extension job registry lock was poisoned, recovering");
+				poisoned.into_inner()
+			})
+			.contains_key(full_name)
 	}
 
 	/// Get registration info for a job
 	pub fn get_job(&self, full_name: &str) -> Option<ExtensionJobRegistration> {
-		self.jobs.read().unwrap().get(full_name).cloned()
+		self.jobs
+			.read()
+			.unwrap_or_else(|poisoned| {
+				tracing::warn!("Extension job registry lock was poisoned, recovering");
+				poisoned.into_inner()
+			})
+			.get(full_name)
+			.cloned()
 	}
 
 	/// Create a WasmJob instance from a registered job name
@@ -98,7 +114,10 @@ impl ExtensionJobRegistry {
 	pub fn list_jobs_for_extension(&self, extension_id: &str) -> Vec<ExtensionJobRegistration> {
 		self.jobs
 			.read()
-			.unwrap()
+			.unwrap_or_else(|poisoned| {
+				tracing::warn!("Extension job registry lock was poisoned, recovering");
+				poisoned.into_inner()
+			})
 			.values()
 			.filter(|reg| reg.extension_id == extension_id)
 			.cloned()
@@ -107,12 +126,23 @@ impl ExtensionJobRegistry {
 
 	/// List all registered extension jobs
 	pub fn list_all_jobs(&self) -> Vec<ExtensionJobRegistration> {
-		self.jobs.read().unwrap().values().cloned().collect()
+		self.jobs
+			.read()
+			.unwrap_or_else(|poisoned| {
+				tracing::warn!("Extension job registry lock was poisoned, recovering");
+				poisoned.into_inner()
+			})
+			.values()
+			.cloned()
+			.collect()
 	}
 
 	/// Unregister all jobs for an extension (called on unload)
 	pub fn unregister_extension_jobs(&self, extension_id: &str) -> usize {
-		let mut jobs = self.jobs.write().unwrap();
+		let mut jobs = self.jobs.write().unwrap_or_else(|poisoned| {
+			tracing::warn!("Extension job registry lock was poisoned, recovering");
+			poisoned.into_inner()
+		});
 		let before_count = jobs.len();
 
 		jobs.retain(|_, reg| reg.extension_id != extension_id);
