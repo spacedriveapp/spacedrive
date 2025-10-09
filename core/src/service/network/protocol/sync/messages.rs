@@ -13,7 +13,6 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncMessage {
 	// === STATE-BASED MESSAGES (Device-Owned Data) ===
-
 	/// Broadcast single state change (location, entry, volume)
 	StateChange {
 		library_id: Uuid,
@@ -35,10 +34,10 @@ pub enum SyncMessage {
 	/// Request state from peer
 	StateRequest {
 		library_id: Uuid,
-		model_types: Vec<String>, // e.g., ["location", "entry"]
-		device_id: Option<Uuid>,  // Specific device or all
+		model_types: Vec<String>,     // e.g., ["location", "entry"]
+		device_id: Option<Uuid>,      // Specific device or all
 		since: Option<DateTime<Utc>>, // Incremental sync
-		checkpoint: Option<String>, // For resumability
+		checkpoint: Option<String>,   // For resumability
 		batch_size: usize,
 	},
 
@@ -53,7 +52,6 @@ pub enum SyncMessage {
 	},
 
 	// === LOG-BASED MESSAGES (Shared Resources) ===
-
 	/// Broadcast shared resource change (with HLC)
 	SharedChange {
 		library_id: Uuid,
@@ -89,21 +87,17 @@ pub enum SyncMessage {
 	},
 
 	// === GENERAL ===
-
 	/// Peer status heartbeat
 	Heartbeat {
 		library_id: Uuid,
 		device_id: Uuid,
 		timestamp: DateTime<Utc>,
 		state_watermark: Option<DateTime<Utc>>, // Last state sync
-		shared_watermark: Option<HLC>, // Last shared change
+		shared_watermark: Option<HLC>,          // Last shared change
 	},
 
 	/// Error response
-	Error {
-		library_id: Uuid,
-		message: String,
-	},
+	Error { library_id: Uuid, message: String },
 }
 
 /// Single state record in batches

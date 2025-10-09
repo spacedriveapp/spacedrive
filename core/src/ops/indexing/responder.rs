@@ -170,8 +170,14 @@ async fn handle_rename(ctx: &impl IndexingCtx, from: &Path, to: &Path) -> Result
 		// Populate cache with new parent directory if it exists
 		if let Some(new_parent_path) = to.parent() {
 			if let Ok(Some(parent_id)) = resolve_directory_entry_id(ctx, new_parent_path).await {
-				state.entry_id_cache.insert(new_parent_path.to_path_buf(), parent_id);
-				debug!("Populated parent cache: {} -> {}", new_parent_path.display(), parent_id);
+				state
+					.entry_id_cache
+					.insert(new_parent_path.to_path_buf(), parent_id);
+				debug!(
+					"Populated parent cache: {} -> {}",
+					new_parent_path.display(),
+					parent_id
+				);
 			}
 		}
 
@@ -186,7 +192,10 @@ async fn handle_rename(ctx: &impl IndexingCtx, from: &Path, to: &Path) -> Result
 		.await?;
 		debug!("✓ Successfully moved entry {} to new path", entry_id);
 	} else {
-		debug!("Entry not found for old path {}, skipping rename", from.display());
+		debug!(
+			"Entry not found for old path {}, skipping rename",
+			from.display()
+		);
 	}
 	Ok(())
 }

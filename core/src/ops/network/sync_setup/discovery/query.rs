@@ -122,7 +122,9 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 					is_online: true,
 				})
 			}
-			_ => Err(QueryError::Internal("Unexpected response from device".to_string())),
+			_ => Err(QueryError::Internal(
+				"Unexpected response from device".to_string(),
+			)),
 		}
 	}
 }

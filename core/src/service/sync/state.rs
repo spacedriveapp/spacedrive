@@ -241,10 +241,13 @@ pub fn select_backfill_peer(available_peers: Vec<PeerInfo>) -> Result<Uuid, &'st
 	}
 
 	// Score each peer
-	let mut scored: Vec<_> = online.into_iter().map(|peer| {
-		let score = peer.score();
-		(peer, score)
-	}).collect();
+	let mut scored: Vec<_> = online
+		.into_iter()
+		.map(|peer| {
+			let score = peer.score();
+			(peer, score)
+		})
+		.collect();
 
 	// Sort by score (highest first)
 	scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -323,4 +326,3 @@ mod tests {
 		assert!(!state.should_buffer());
 	}
 }
-

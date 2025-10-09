@@ -19,6 +19,10 @@ pub struct Model {
 	pub capabilities: Json, // DeviceCapabilities as JSON
 	pub created_at: DateTimeUtc,
 	pub updated_at: DateTimeUtc,
+
+	// Sync coordination fields (added in m20251009_000001_add_sync_to_devices)
+	pub sync_enabled: bool,
+	pub last_sync_at: Option<DateTimeUtc>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -120,6 +124,8 @@ impl crate::infra::sync::Syncable for Model {
 			capabilities: Set(device.capabilities),
 			created_at: Set(chrono::Utc::now().into()),
 			updated_at: Set(chrono::Utc::now().into()),
+			sync_enabled: Set(true),
+			last_sync_at: Set(None),
 		};
 
 		// Idempotent upsert by UUID

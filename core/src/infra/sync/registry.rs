@@ -376,7 +376,10 @@ pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::Depende
 	// Build iterator of (model_name, dependencies)
 	let models = vec![
 		(device::Model::SYNC_MODEL, device::Model::sync_depends_on()),
-		(location::Model::SYNC_MODEL, location::Model::sync_depends_on()),
+		(
+			location::Model::SYNC_MODEL,
+			location::Model::sync_depends_on(),
+		),
 		(entry::Model::SYNC_MODEL, entry::Model::sync_depends_on()),
 		(tag::Model::SYNC_MODEL, tag::Model::sync_depends_on()),
 	];
@@ -443,7 +446,10 @@ mod tests {
 		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
 
 		// Device must come before location
-		assert!(device_idx < location_idx, "device must sync before location");
+		assert!(
+			device_idx < location_idx,
+			"device must sync before location"
+		);
 
 		// Location must come before entry
 		assert!(location_idx < entry_idx, "location must sync before entry");

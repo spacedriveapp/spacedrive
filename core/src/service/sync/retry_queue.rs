@@ -137,4 +137,3 @@ mod tests {
 		assert_eq!(queue.len().await, 1);
 	}
 }
-

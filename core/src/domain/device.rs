@@ -186,6 +186,8 @@ impl From<Device> for entities::device::ActiveModel {
 				"volume_detection": true
 			})),
 			created_at: Set(device.created_at),
+			sync_enabled: Set(true), // Enable sync by default
+			last_sync_at: Set(None),
 			updated_at: Set(device.updated_at),
 		}
 	}

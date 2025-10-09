@@ -14,9 +14,7 @@ use sd_core::Core;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize tracing
-	tracing_subscriber::fmt()
-		.with_env_filter("debug")
-		.init();
+	tracing_subscriber::fmt().with_env_filter("debug").init();
 
 	tracing::info!("Plugin Manager Demo Starting...");
 
@@ -63,4 +61,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	Ok(())
 }
-

@@ -4,16 +4,16 @@ use super::{
 	input::{FileSearchInput, SearchScope},
 	output::{EnhancedFileSearchOutput, EnhancedFileSearchResult, FileSearchOutput},
 };
+use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	infra::query::LibraryQuery,
 	domain::{file::FileConstructionData, Entry, File},
 	filetype::FileTypeRegistry,
 	infra::db::entities::{
 		content_identity, directory_paths, entry, sidecar, tag, user_metadata_tag,
 	},
+	infra::query::LibraryQuery,
 };
-use crate::infra::query::{QueryError, QueryResult};
 use chrono::{DateTime, Utc};
 use sea_orm::{
 	ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType,
@@ -52,9 +52,9 @@ impl LibraryQuery for FileSearchQuery {
 		let start_time = std::time::Instant::now();
 
 		// Validate input
-		self.input
-			.validate()
-			.map_err(|e| QueryError::Internal(format!("Invalid search input: {}", e.to_string())))?;
+		self.input.validate().map_err(|e| {
+			QueryError::Internal(format!("Invalid search input: {}", e.to_string()))
+		})?;
 
 		let library_id = session
 			.current_library_id
@@ -114,7 +114,10 @@ impl FileSearchQuery {
 				.one(db)
 				.await?
 				.ok_or_else(|| {
-					QueryError::Internal(format!("Directory path not found for parent_id: {}", parent_id.to_string()))
+					QueryError::Internal(format!(
+						"Directory path not found for parent_id: {}",
+						parent_id.to_string()
+					))
 				})?;
 
 			// Construct full path: directory_path + "/" + filename
@@ -148,7 +151,9 @@ impl FileSearchQuery {
 			let entry_model = entry::Entity::find_by_id(entry_id)
 				.one(db)
 				.await?
-				.ok_or_else(|| QueryError::Internal(format!("Entry not found: {}", entry_id.to_string())))?;
+				.ok_or_else(|| {
+					QueryError::Internal(format!("Entry not found: {}", entry_id.to_string()))
+				})?;
 
 			// Apply additional filters (non-text filters)
 			if !self.passes_additional_filters(&entry_model, db).await? {

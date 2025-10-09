@@ -4,7 +4,7 @@
 //! consistent UUIDs across all Spacedrive installations.
 //!
 //! WARNING: User-created tags should use random UUIDs to support the
-//! semantic tagging system's polymorphic naming (multiple tags with 
+//! semantic tagging system's polymorphic naming (multiple tags with
 //! the same name in different contexts).
 
 use uuid::Uuid;
@@ -18,11 +18,11 @@ use uuid::Uuid;
 ///     tag_type: TagType::System,
 ///     ...
 /// };
-/// 
+///
 /// // User tags - use random UUIDs for polymorphic naming
 /// let user_tag = SemanticTag {
 ///     uuid: Uuid::new_v4(), // Random!
-///     canonical_name: "Vacation".to_string(), 
+///     canonical_name: "Vacation".to_string(),
 ///     namespace: Some("Travel".to_string()),
 ///     tag_type: TagType::Standard,
 ///     ...
@@ -57,7 +57,7 @@ pub fn deterministic_system_tag_uuid(name: &str) -> Uuid {
 
 /// Generate deterministic UUID for an album name
 /// System default tags that ship with every Spacedrive installation
-/// 
+///
 /// These tags should be created during library initialization:
 /// ```rust,ignore
 /// // In library creation/initialization
@@ -74,37 +74,57 @@ pub fn deterministic_system_tag_uuid(name: &str) -> Uuid {
 /// }
 /// ```
 pub mod system_tags {
-    use super::*;
-    
-    // File type tags
-    pub fn system() -> Uuid { deterministic_system_tag_uuid("System") }
-    pub fn screenshot() -> Uuid { deterministic_system_tag_uuid("Screenshot") }
-    pub fn download() -> Uuid { deterministic_system_tag_uuid("Download") }
-    pub fn document() -> Uuid { deterministic_system_tag_uuid("Document") }
-    pub fn image() -> Uuid { deterministic_system_tag_uuid("Image") }
-    pub fn video() -> Uuid { deterministic_system_tag_uuid("Video") }
-    pub fn audio() -> Uuid { deterministic_system_tag_uuid("Audio") }
-    
-    // Special behavior tags  
-    pub fn hidden() -> Uuid { deterministic_system_tag_uuid(".hidden") }
-    pub fn archive() -> Uuid { deterministic_system_tag_uuid(".archive") }
-    pub fn favorite() -> Uuid { deterministic_system_tag_uuid("Favorite") }
-    
-    /// Get all system tags for library initialization
-    pub fn get_all() -> Vec<(&'static str, Uuid)> {
-        vec![
-            ("System", system()),
-            ("Screenshot", screenshot()),
-            ("Download", download()),
-            ("Document", document()),
-            ("Image", image()),
-            ("Video", video()),
-            ("Audio", audio()),
-            (".hidden", hidden()),
-            (".archive", archive()),
-            ("Favorite", favorite()),
-        ]
-    }
+	use super::*;
+
+	// File type tags
+	pub fn system() -> Uuid {
+		deterministic_system_tag_uuid("System")
+	}
+	pub fn screenshot() -> Uuid {
+		deterministic_system_tag_uuid("Screenshot")
+	}
+	pub fn download() -> Uuid {
+		deterministic_system_tag_uuid("Download")
+	}
+	pub fn document() -> Uuid {
+		deterministic_system_tag_uuid("Document")
+	}
+	pub fn image() -> Uuid {
+		deterministic_system_tag_uuid("Image")
+	}
+	pub fn video() -> Uuid {
+		deterministic_system_tag_uuid("Video")
+	}
+	pub fn audio() -> Uuid {
+		deterministic_system_tag_uuid("Audio")
+	}
+
+	// Special behavior tags
+	pub fn hidden() -> Uuid {
+		deterministic_system_tag_uuid(".hidden")
+	}
+	pub fn archive() -> Uuid {
+		deterministic_system_tag_uuid(".archive")
+	}
+	pub fn favorite() -> Uuid {
+		deterministic_system_tag_uuid("Favorite")
+	}
+
+	/// Get all system tags for library initialization
+	pub fn get_all() -> Vec<(&'static str, Uuid)> {
+		vec![
+			("System", system()),
+			("Screenshot", screenshot()),
+			("Download", download()),
+			("Document", document()),
+			("Image", image()),
+			("Video", video()),
+			("Audio", audio()),
+			(".hidden", hidden()),
+			(".archive", archive()),
+			("Favorite", favorite()),
+		]
+	}
 }
 
 /// Generate deterministic UUID for a system default album
@@ -115,19 +135,19 @@ pub fn deterministic_system_album_uuid(name: &str) -> Uuid {
 }
 
 /// When to use deterministic vs random UUIDs:
-/// 
+///
 /// USE DETERMINISTIC UUIDs FOR:
 /// - System default tags that ship with Spacedrive
 /// - Built-in tags referenced by code (e.g., HIDDEN_TAG_UUID)
 /// - System albums like "Recent Imports" or "Quick Access"
 /// - Any resource that needs the SAME UUID across ALL installations
-/// 
+///
 /// USE RANDOM UUIDs (Uuid::new_v4()) FOR:
 /// - ALL user-created tags
 /// - ALL user-created albums  
 /// - Any resource that supports polymorphic naming
 /// - Any resource where multiple instances with the same name are valid
-/// 
+///
 /// The semantic tagging system REQUIRES random UUIDs to support multiple
 /// tags with the same name in different contexts (e.g., "Phoenix" as a city
 /// vs "Phoenix" as mythology).
@@ -147,10 +167,16 @@ mod tests {
 		// Different system tags = different UUIDs
 		let uuid3 = deterministic_system_tag_uuid("Screenshot");
 		assert_ne!(uuid1, uuid3);
-		
+
 		// Verify known system tags have consistent UUIDs
-		assert_eq!(system_tags::system(), deterministic_system_tag_uuid("System"));
-		assert_eq!(system_tags::screenshot(), deterministic_system_tag_uuid("Screenshot"));
+		assert_eq!(
+			system_tags::system(),
+			deterministic_system_tag_uuid("System")
+		);
+		assert_eq!(
+			system_tags::screenshot(),
+			deterministic_system_tag_uuid("Screenshot")
+		);
 	}
 
 	#[test]

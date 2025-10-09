@@ -984,6 +984,16 @@ impl PeerSync {
 		Ok(())
 	}
 
+	/// Get peer log (for testing/TransactionManager integration)
+	pub fn peer_log(&self) -> &Arc<crate::infra::sync::PeerLog> {
+		&self.peer_log
+	}
+
+	/// Get HLC generator (for testing/TransactionManager integration)
+	pub fn hlc_generator(&self) -> &Arc<tokio::sync::Mutex<crate::infra::sync::HLCGenerator>> {
+		&self.hlc_generator
+	}
+
 	/// Get device-owned state for backfill (StateRequest)
 	///
 	/// This is completely domain-agnostic - it delegates to the Syncable trait

@@ -4,13 +4,13 @@
 //! meaning their content hash doesn't appear in any other location. This is useful for
 //! backup purposes to identify files that need to be backed up.
 
+use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	infra::query::LibraryQuery,
 	domain::{file::FileConstructionData, File},
 	infra::db::entities::{content_identity, entry, location},
+	infra::query::LibraryQuery,
 };
-use crate::infra::query::{QueryError, QueryResult};
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
 	QuerySelect, RelationTrait, Statement,

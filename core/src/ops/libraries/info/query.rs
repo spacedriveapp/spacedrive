@@ -1,7 +1,10 @@
 //! Library information query implementation
 
 use super::output::LibraryInfoOutput;
-use crate::{context::CoreContext, infra::query::{LibraryQuery, QueryError, QueryResult}};
+use crate::{
+	context::CoreContext,
+	infra::query::{LibraryQuery, QueryError, QueryResult},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;

@@ -62,4 +62,3 @@ impl LibraryQuery for PingQuery {
 
 // Register with Wire system
 crate::register_library_query!(PingQuery, "test.ping");
-
