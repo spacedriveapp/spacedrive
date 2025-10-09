@@ -12,6 +12,7 @@ use crate::{
 	library::Library,
 };
 use anyhow::Result;
+use sea_orm::DatabaseConnection;
 use std::sync::{
 	atomic::{AtomicBool, Ordering},
 	Arc,
@@ -32,8 +33,11 @@ pub struct PeerSync {
 	/// This device's ID
 	device_id: Uuid,
 
+	/// Database connection
+	db: Arc<DatabaseConnection>,
+
 	/// Sync state machine
-	state: Arc<RwLock<DeviceSyncState>>,
+	pub(super) state: Arc<RwLock<DeviceSyncState>>,
 
 	/// Buffer for updates during backfill/catch-up
 	buffer: Arc<BufferQueue>,
@@ -42,7 +46,7 @@ pub struct PeerSync {
 	hlc_generator: Arc<tokio::sync::Mutex<HLCGenerator>>,
 
 	/// Per-peer sync log
-	peer_log: Arc<PeerLog>,
+	pub(super) peer_log: Arc<PeerLog>,
 
 	/// Event bus
 	event_bus: Arc<EventBus>,
@@ -65,6 +69,7 @@ impl PeerSync {
 		Ok(Self {
 			library_id,
 			device_id,
+			db: Arc::new(library.db().conn().clone()),
 			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
 			buffer: Arc::new(BufferQueue::new()),
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
@@ -72,6 +77,11 @@ impl PeerSync {
 			event_bus: library.event_bus().clone(),
 			is_running: Arc::new(AtomicBool::new(false)),
 		})
+	}
+
+	/// Get database connection
+	pub fn db(&self) -> &Arc<DatabaseConnection> {
+		&self.db
 	}
 
 	/// Start the sync service

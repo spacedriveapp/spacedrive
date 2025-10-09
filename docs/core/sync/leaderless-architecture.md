@@ -128,21 +128,25 @@ Device A updates its name → Broadcast → Peers update
 
 ### Truly Shared Data (Log-Based Sync)
 
-#### Tags (Definitions)
+#### Tags (Semantic Definitions)
 ```rust
 tag {
-    uuid: Uuid,       // Deterministic from name hash?
-    name: String,
-    color: String,
+    uuid: Uuid,                      // Random UUID (unique per tag)
+    canonical_name: String,          // Name (can be duplicated)
+    namespace: Option<String>,       // Context grouping
+    color: Option<String>,
+    created_hlc: HLC,               // When created
+    created_by_device_id: Uuid,     // Who created
 }
 
 // Conflict scenario:
-Device A creates tag "Vacation" at HLC(1000,A)
-Device B creates tag "Vacation" at HLC(1001,B)
+Device A creates tag "Vacation" at HLC(1000,A) → uuid = random_1
+Device B creates tag "Vacation" at HLC(1001,B) → uuid = random_2
 
 // Resolution:
-Both create, deterministic UUID prevents duplicate
-OR: Name collision detected, merge via HLC ordering
+Both tags preserved (union merge)
+Semantic system supports polymorphic naming
+Tags differentiated by namespace/context
 ```
 
 #### Albums
@@ -485,8 +489,9 @@ CREATE TABLE entries (
 -- Truly shared (log replicated)
 CREATE TABLE tags (
     id INTEGER PRIMARY KEY,
-    uuid UUID NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    uuid UUID NOT NULL UNIQUE,      -- Random UUID per tag
+    canonical_name TEXT NOT NULL,   -- Can be duplicated
+    namespace TEXT,                 -- Context grouping
     color TEXT,
     -- NO device_id - shared resource
 );
@@ -1038,25 +1043,23 @@ async fn resume_backfill() -> Result<()> {
 ### Problem: Two Devices Create Same Tag Name
 
 ```
-Device A: Creates "Vacation" → HLC(1000,A)
-Device B: Creates "Vacation" → HLC(1001,B)
+Device A: Creates "Vacation" → HLC(1000,A) → UUID: abc-123
+Device B: Creates "Vacation" → HLC(1001,B) → UUID: def-456
 ```
 
-**Solution 1**: Deterministic UUID from name
+**Solution**: Union merge (keep both)
 ```rust
-tag.uuid = Uuid::new_v5(NAMESPACE, tag.name);
-// Both devices generate SAME UUID
-// When synced, they merge (same UUID = same tag)
+// Semantic tagging system supports polymorphic naming
+// Both tags preserved with different UUIDs
+// Tags can have same canonical_name in different namespaces
+// Example: "Vacation::Work" vs "Vacation::Personal"
 ```
 
-**Solution 2**: Keep both, user resolves
-```rust
-// Two different UUIDs
-// UI shows: "You have duplicate tags: 'Vacation' (2)"
-// User can merge manually
-```
-
-**Recommendation**: Solution 1 for tags (names should be unique anyway)
+**Benefits**:
+- No data loss during sync
+- Preserves user intent from both devices
+- Semantic system handles disambiguation via namespace/context
+- Users can organize same-named tags differently
 
 ---
 

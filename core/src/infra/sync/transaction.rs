@@ -97,6 +97,59 @@ impl TransactionManager {
 	}
 
 	// ===================================================================
+	// NEW LEADERLESS METHODS
+	// ===================================================================
+
+	/// Commit device-owned resource (state-based sync)
+	///
+	/// For locations, entries, volumes, audit logs - data owned by this device.
+	/// Uses simple state broadcast (no log needed).
+	///
+	/// # Example
+	/// ```rust,ignore
+	/// let location = location::ActiveModel { ... };
+	/// tm.commit_device_owned(library, location).await?;
+	/// // → Broadcasts state to peers
+	/// ```
+	pub async fn commit_device_owned<M>(&self, library_id: Uuid, model: M) -> Result<()>
+	where
+		M: Syncable,
+	{
+		// TODO: Implement
+		// 1. Verify model.is_device_owned() == true
+		// 2. Emit event for state broadcast
+		// 3. SyncService will pick up event and broadcast
+
+		self.emit_change_event_simple(library_id, M::SYNC_MODEL, model.sync_id());
+		Ok(())
+	}
+
+	/// Commit shared resource (log-based sync with HLC)
+	///
+	/// For tags, albums, user_metadata - data shared across all devices.
+	/// Uses HLC-ordered log for conflict resolution.
+	///
+	/// # Example
+	/// ```rust,ignore
+	/// let tag = tag::ActiveModel { ... };
+	/// tm.commit_shared(library, tag).await?;
+	/// // → Generates HLC, writes to peer_log, broadcasts
+	/// ```
+	pub async fn commit_shared<M>(&self, library_id: Uuid, model: M) -> Result<()>
+	where
+		M: Syncable,
+	{
+		// TODO: Implement
+		// 1. Verify model.is_device_owned() == false
+		// 2. Generate HLC
+		// 3. Write to peer_log
+		// 4. Emit event for broadcast
+
+		self.emit_change_event_simple(library_id, M::SYNC_MODEL, model.sync_id());
+		Ok(())
+	}
+
+	// ===================================================================
 	// OLD METHODS (STUBBED - Will be replaced with HLC-based approach)
 	// ===================================================================
 

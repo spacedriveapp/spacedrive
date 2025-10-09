@@ -84,7 +84,7 @@ Data that any device can modify and needs conflict resolution.
 
 | Model | Shared Across | Example |
 |-------|--------------|---------|
-| **Tag** | All devices | "Vacation" tag created by anyone |
+| **Tag** | All devices | "Vacation" tag (supports same name in different contexts) |
 | **Album** | All devices | "Summer 2024" collection with entries from multiple devices |
 | **UserMetadata** | All devices (when content-scoped) | Favoriting a photo applies to the content everywhere |
 
@@ -96,7 +96,7 @@ Data that any device can modify and needs conflict resolution.
 - Peers apply in HLC order
 - Log pruned when all peers ACK
 
-**Why log needed**: Multiple devices can modify same tag/album. Need ordering for conflict resolution.
+**Why log needed**: Multiple devices can create/modify tags and albums independently. Need ordering for proper merge resolution.
 
 ---
 
@@ -310,16 +310,53 @@ CREATE TABLE volumes (
 CREATE TABLE tags (
     id INTEGER PRIMARY KEY,
     uuid TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
+    canonical_name TEXT NOT NULL,   -- Can be duplicated
+    namespace TEXT,                 -- Context grouping  
+    display_name TEXT,
+    formal_name TEXT,
+    abbreviation TEXT,
+    aliases TEXT,                   -- JSON array
     color TEXT,
-    -- NO device_id field!
+    icon TEXT,
+    tag_type TEXT DEFAULT 'standard',
+    privacy_level TEXT DEFAULT 'normal',
+    created_at TIMESTAMP NOT NULL,
+    created_by_device TEXT NOT NULL,
+    -- NO device_id ownership field! (shared resource)
 );
 
 CREATE TABLE albums (
     id INTEGER PRIMARY KEY,
     uuid TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL,
+    created_by_device TEXT NOT NULL,
     -- NO device_id field!
+);
+
+-- Junction tables for many-to-many relationships
+CREATE TABLE album_entries (
+    album_id INTEGER NOT NULL,
+    entry_id INTEGER NOT NULL,
+    added_at TIMESTAMP NOT NULL,
+    added_by_device TEXT NOT NULL,
+    PRIMARY KEY (album_id, entry_id),
+    FOREIGN KEY (album_id) REFERENCES albums(id),
+    FOREIGN KEY (entry_id) REFERENCES entries(id)
+);
+
+CREATE TABLE user_metadata_semantic_tags (
+    user_metadata_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    applied_context TEXT,
+    confidence REAL DEFAULT 1.0,
+    source TEXT DEFAULT 'user',
+    created_at TIMESTAMP NOT NULL,
+    device_uuid TEXT NOT NULL,
+    PRIMARY KEY (user_metadata_id, tag_id),
+    FOREIGN KEY (user_metadata_id) REFERENCES user_metadata(id),
+    FOREIGN KEY (tag_id) REFERENCES tags(id)
 );
 
 -- Sync coordination
@@ -368,6 +405,95 @@ CREATE TABLE peer_acks (
 
 ---
 
+## Model Dependencies and Sync Order
+
+### Dependency Graph
+
+Models must be synced respecting foreign key constraints:
+
+```
+Tier 0 (No Dependencies):
+  - Devices
+  - Tags (semantic tags with namespaces)
+
+Tier 1 (Depends on Tier 0):
+  - Locations (depends on Device)
+  - Volumes (depends on Device)  
+  - Albums (no FK deps)
+  - Tag Relationships (depends on Tags)
+
+Tier 2 (Depends on Tier 1):
+  - Entries (depends on Location)
+  - Album Entries (depends on Albums, Entries)
+  
+Tier 3 (Depends on Tier 2):
+  - UserMetadata (depends on Entries)
+  - UserMetadata Tags (depends on UserMetadata, Tags)
+```
+
+### Backfill Order
+
+When a new device joins, models MUST be synced in dependency order:
+
+```rust
+// Phase 1: Device-owned state (in order)
+for tier in [0, 1, 2] {
+    for model in tier.models {
+        backfill_model(model).await?;
+    }
+}
+
+// Phase 2: Shared resources (HLC ordered)
+// These can reference any tier, so sync after all device-owned
+apply_shared_changes_in_hlc_order().await?;
+```
+
+### Model Classification Reference
+
+| Model | Type | Sync Strategy | Conflict Resolution |
+|-------|------|---------------|--------------------|
+| **Device** | Device-owned (self) | State broadcast | None (each device owns its record) |
+| **Location** | Device-owned | State broadcast | None (device owns filesystem) |
+| **Entry** | Device-owned | State broadcast | None (via location ownership) |
+| **Volume** | Device-owned | State broadcast | None (device owns hardware) |
+| **Tag** | Shared | HLC log | Union merge (preserve all) |
+| **Album** | Shared | HLC log | Union merge entries |
+| **UserMetadata** | Mixed | Depends on scope | Entry-scoped: device-owned, Content-scoped: LWW |
+| **AuditLog** | Device-owned | State broadcast | None (device's actions) |
+
+### Delete Handling
+
+**Device-Owned Resources**: No explicit delete propagation needed!
+- When a device deletes a location/entry, it simply stops including it in state broadcasts
+- Other devices detect absence during next state sync
+- No delete records in logs = no privacy concerns
+
+**Shared Resources**: Two approaches:
+
+#### Option 1: Tombstone Records (Current Design)
+```rust
+// Explicit delete in sync log
+SharedChangeEntry {
+    hlc: HLC(1001,A),
+    change_type: ChangeType::Delete,
+    record_uuid: tag_uuid,
+    data: {} // Empty
+}
+```
+**Privacy Risk**: Deleted tag names remain in sync log until pruned
+
+#### Option 2: Periodic State Reconciliation (Privacy-Preserving)
+```rust
+// No delete records! Instead, periodically sync full state
+// Device A: "I have tags: [uuid1, uuid2]" 
+// Device B: "I have tags: [uuid1, uuid2, uuid3]"
+// Device B detects uuid3 was deleted by A
+```
+
+**Recommendation**: Use Option 2 for sensitive data like tags. The slight delay in delete propagation is worth the privacy benefit.
+
+---
+
 ## Sync Flows
 
 ### Example 1: Device Creates Location (State-Based)
@@ -413,8 +539,8 @@ Device B:
   1. Receive: SharedChange { hlc: HLC(1730000000000, 0, A) }
   2. Update local HLC (causality tracking)
   3. Check if tag exists (by UUID)
-     └─ If exists: Merge (deterministic UUID prevents duplicates)
-     └─ If not: INSERT INTO tags (...)
+     └─ If exists: Update properties (last-writer-wins)
+     └─ If not: INSERT INTO tags (...) preserving UUID
   4. Send AckSharedChanges to Device A
 
 Device A (later):
@@ -515,18 +641,18 @@ Resolution: No conflict! Different owners.
 Both apply. All devices see both locations.
 ```
 
-### Deterministic Merge (Tags)
+### Union Merge (Tags)
 
 ```rust
-Device A: Creates tag "Vacation" → HLC(1000,A)
-Device B: Creates tag "Vacation" → HLC(1001,B)
+Device A: Creates tag "Vacation" → HLC(1000,A) → UUID: abc-123
+Device B: Creates tag "Vacation" → HLC(1001,B) → UUID: def-456
 
-Resolution: Deterministic UUID from name
-  uuid = Uuid::v5(NAMESPACE, "Vacation")
-  Both generate SAME UUID
-  Second creation is idempotent (already exists)
+Resolution: Union merge
+  Both tags preserved (different UUIDs)
+  Semantic tagging supports polymorphic naming
+  Tags differentiated by namespace/context
 
-Result: One "Vacation" tag, no duplicates
+Result: Two "Vacation" tags with different contexts/UUIDs
 ```
 
 ### Union Merge (Albums)
@@ -536,10 +662,32 @@ Device A: Adds entry-1 to album → HLC(1000,A)
 Device B: Adds entry-2 to album → HLC(1001,B)
 
 Resolution: Union merge
-  album.entry_uuids = [entry-1, entry-2]
+  album_entries table gets both records
   Both additions preserved
 
 Result: Album contains both entries
+```
+
+### Junction Table Sync
+
+Many-to-many relationships sync as individual records:
+
+```rust
+// Album-Entry junction
+Device A: INSERT album_entries (album_1, entry_1) → HLC(1000,A)
+Device B: INSERT album_entries (album_1, entry_2) → HLC(1001,B)
+
+Resolution: Both records preserved
+  Primary key (album_id, entry_id) prevents duplicates
+  Different entries = no conflict
+
+// Duplicate case
+Device A: INSERT album_entries (album_1, entry_1) → HLC(1000,A)
+Device B: INSERT album_entries (album_1, entry_1) → HLC(1001,B)
+
+Resolution: Idempotent
+  Same primary key = update metadata only
+  Last writer wins for added_at timestamp
 ```
 
 ### Last-Writer-Wins (Metadata)
@@ -734,6 +882,40 @@ pub trait Syncable {
 
     /// Owner device (if device-owned)
     fn device_id(&self) -> Option<Uuid>;
+    
+    /// Convert to JSON for sync
+    fn to_sync_json(&self) -> Result<serde_json::Value>;
+    
+    /// Apply sync change (model-specific logic)
+    fn apply_sync_change(
+        data: serde_json::Value,
+        db: &DatabaseConnection
+    ) -> Result<()>;
+}
+```
+
+### Model Registry
+
+All syncable models must register themselves:
+
+```rust
+// In core/src/infra/sync/registry.rs
+pub fn register_models() {
+    // Device-owned models
+    registry.register("location", location::registration());
+    registry.register("entry", entry::registration());
+    registry.register("volume", volume::registration());
+    registry.register("device", device::registration());
+    registry.register("audit_log", audit_log::registration());
+    
+    // Shared models  
+    registry.register("tag", tag::registration());
+    registry.register("album", album::registration());
+    registry.register("user_metadata", user_metadata::registration());
+    
+    // Junction tables (special handling)
+    registry.register("album_entry", album_entry::registration());
+    registry.register("user_metadata_tag", user_metadata_tag::registration());
 }
 ```
 
@@ -807,7 +989,7 @@ pub enum SyncMessage {
         hlc: HLC,
         model_type: String,
         record_uuid: Uuid,
-        change_type: ChangeType,
+        change_type: ChangeType, // Insert, Update, Delete (or StateSnapshot)
         data: serde_json::Value,
     },
 
@@ -962,6 +1144,54 @@ $ sd-cli library open jamie-lib-uuid
 
 ---
 
+## Error Handling and Recovery
+
+### Partial Sync Failures
+
+```rust
+// If sync fails mid-batch
+async fn handle_sync_failure(error: SyncError, checkpoint: Checkpoint) {
+    match error {
+        SyncError::NetworkTimeout => {
+            // Save checkpoint and retry later
+            checkpoint.save().await?;
+            schedule_retry(checkpoint);
+        }
+        SyncError::ConstraintViolation(model, uuid) => {
+            // Skip problematic record, continue
+            mark_record_failed(model, uuid).await?;
+            continue_from_next(checkpoint).await?;
+        }
+        SyncError::SchemaVersion(peer_version) => {
+            // Peer has incompatible schema
+            if peer_version > our_version {
+                prompt_user_to_update();
+            } else {
+                // Peer needs to update
+                send_schema_update_request(peer);
+            }
+        }
+    }
+}
+```
+
+### Constraint Violation Resolution
+
+| Violation Type | Resolution Strategy |
+|----------------|--------------------|
+| Duplicate UUID | Use existing record (idempotent) |
+| Invalid FK | Queue for retry after parent syncs |
+| Unique constraint | Merge records based on model type |
+| Check constraint | Log error, skip record |
+
+### Recovery Procedures
+
+1. **Corrupted Sync DB**: Delete and rebuild from peer state
+2. **Inconsistent State**: Run integrity check, re-sync affected models
+3. **Missing Dependencies**: Queue changes until dependencies arrive
+
+---
+
 ## Testing
 
 ### Unit Tests
@@ -1057,13 +1287,14 @@ async fn test_concurrent_tag_creation() {
     // Wait for sync
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    // Both devices should have ONE tag (deterministic UUID)
+    // Both devices should have TWO tags (different UUIDs)
     let tags_on_a = device_a.get_all_tags().await.unwrap();
     let tags_on_b = device_b.get_all_tags().await.unwrap();
 
-    assert_eq!(tags_on_a.len(), 1);
-    assert_eq!(tags_on_b.len(), 1);
-    assert_eq!(tags_on_a[0].uuid, tags_on_b[0].uuid); // Same UUID!
+    assert_eq!(tags_on_a.len(), 2); // Both tags preserved
+    assert_eq!(tags_on_b.len(), 2);
+    // Tags have different UUIDs but same canonical_name
+    assert_ne!(tag_a.uuid, tag_b.uuid);
 }
 ```
 
@@ -1127,12 +1358,123 @@ StateBatch { records, compression: Gzip }
 
 ---
 
+## Privacy and Security Considerations
+
+### Delete Record Privacy
+
+The sync log presents a privacy risk for deleted sensitive data:
+
+```rust
+// Problem: Deleted tag name persists in sync log
+SyncLog: [
+    { hlc: 1000, type: Insert, data: { name: "Private Medical Info" } },
+    { hlc: 1001, type: Delete, uuid: tag_uuid } // Name still visible above!
+]
+```
+
+**Solutions**:
+
+1. **Minimal Delete Records**: Only store UUID, not data
+2. **Aggressive Pruning**: Prune delete records more aggressively than inserts
+3. **State Reconciliation**: Replace deletes with periodic full state sync
+4. **Encryption**: Encrypt sync log entries with library-specific key
+
+### Sync Log Retention Policy
+
+```rust
+// Configurable retention
+pub struct SyncRetentionPolicy {
+    max_age_days: u32,          // Default: 7
+    max_entries: usize,         // Default: 10_000
+    delete_retention_hours: u32, // Default: 24 (prune deletes faster)
+}
+```
+
+## Special Considerations
+
+### UserMetadata Dual Nature
+
+UserMetadata can be either device-owned or shared depending on its scope:
+
+```rust
+// Entry-scoped (device-owned via entry)
+UserMetadata {
+    entry_uuid: Some(uuid),           // Links to specific entry
+    content_identity_uuid: None,      // Not content-universal
+    // Syncs with Index domain (state-based)
+}
+
+// Content-scoped (shared across devices)
+UserMetadata {
+    entry_uuid: None,                 // Not entry-specific  
+    content_identity_uuid: Some(uuid), // Content-universal
+    // Syncs with UserMetadata domain (HLC-based)
+}
+```
+
+### Semantic Tag Relationships
+
+Tag relationships form a DAG and require special handling:
+
+```rust
+// Tag relationships must sync after all tags exist
+// Otherwise FK constraints fail
+TagRelationship {
+    parent_tag_id: uuid1,  // Must exist first
+    child_tag_id: uuid2,   // Must exist first
+    relationship_type: "parent_child",
+}
+
+// Closure table is rebuilt locally after sync
+// Not synced directly (derived data)
+```
+
+### Large Batch Transactions
+
+SQLite has limits on transaction size. For large syncs:
+
+```rust
+// Batch into manageable chunks
+const BATCH_SIZE: usize = 1000;
+
+for chunk in entries.chunks(BATCH_SIZE) {
+    let txn = db.begin().await?;
+    
+    for entry in chunk {
+        entry.insert(&txn).await?;
+    }
+    
+    txn.commit().await?;
+    
+    // Allow other operations between batches
+    tokio::task::yield_now().await;
+}
+```
+
+### Schema Version Compatibility
+
+```rust
+// Each sync message includes schema version
+SyncMessage {
+    schema_version: 1,  // Current schema
+    // ... message data
+}
+
+// Reject sync from incompatible versions
+if message.schema_version != CURRENT_SCHEMA_VERSION {
+    return Err(SyncError::IncompatibleSchema);
+}
+```
+
+---
+
 ## References
 
 - **Architecture**: `core/src/infra/sync/NEW_SYNC.md`
 - **Tasks**: `.tasks/LSYNC-*.md`
 - **Whitepaper**: Section 4.5.1 (Library Sync)
 - **HLC Paper**: "Logical Physical Clocks" (Kulkarni et al.)
+- **Design Docs**: `docs/core/design/sync/` directory
 
 ---
 

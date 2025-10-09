@@ -5,7 +5,9 @@
 //! - Log-based sync with HLC for shared resources
 
 pub mod applier;
+pub mod backfill;
 pub mod peer;
+pub mod protocol_handler;
 pub mod state;
 
 // No longer need SyncLogDb in leaderless architecture
@@ -26,6 +28,8 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 pub use applier::SyncApplier;
+pub use backfill::BackfillManager;
+pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
 
 /// Sync service for a library (Leaderless)
 ///

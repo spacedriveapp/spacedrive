@@ -129,6 +129,72 @@ impl Syncable for Model {
 	// Old apply_sync_entry removed - will use state-based sync
 }
 
+impl Model {
+	/// Apply device-owned state change (idempotent upsert)
+	///
+	/// Locations are device-owned, so we use state-based replication:
+	/// - No HLC ordering needed (only owner modifies)
+	/// - Idempotent upsert by UUID
+	/// - Last state wins (no conflict resolution needed)
+	///
+	/// # Errors
+	///
+	/// Returns error if:
+	/// - JSON deserialization fails
+	/// - Database upsert fails
+	/// - Foreign key constraints violated (device_id or entry_id not found)
+	pub async fn apply_state_change(
+		data: serde_json::Value,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		// Deserialize incoming data
+		let location: Self = serde_json::from_value(data).map_err(|e| {
+			sea_orm::DbErr::Custom(format!("Location deserialization failed: {}", e))
+		})?;
+
+		// Build ActiveModel for upsert
+		// Note: We use Set() for all synced fields, NotSet for id (auto-generated)
+		use sea_orm::{ActiveValue::NotSet, Set};
+
+		let active = ActiveModel {
+			id: NotSet, // Database PK, not synced
+			uuid: Set(location.uuid),
+			device_id: Set(location.device_id),
+			entry_id: Set(location.entry_id),
+			name: Set(location.name),
+			index_mode: Set(location.index_mode),
+			scan_state: Set("pending".to_string()), // Reset local state
+			last_scan_at: Set(location.last_scan_at),
+			error_message: Set(None), // Reset local error
+			total_file_count: Set(location.total_file_count),
+			total_byte_size: Set(location.total_byte_size),
+			created_at: Set(chrono::Utc::now().into()), // Local timestamp
+			updated_at: Set(chrono::Utc::now().into()), // Local timestamp
+		};
+
+		// Idempotent upsert: insert or update based on UUID
+		Entity::insert(active)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(Column::Uuid)
+					.update_columns([
+						Column::DeviceId,
+						Column::EntryId,
+						Column::Name,
+						Column::IndexMode,
+						Column::LastScanAt,
+						Column::TotalFileCount,
+						Column::TotalByteSize,
+						Column::UpdatedAt,
+					])
+					.to_owned(),
+			)
+			.exec(db)
+			.await?;
+
+		Ok(())
+	}
+}
+
 // Register location model for automatic sync handling
 // TODO: Re-enable when register_syncable_model macro is implemented for leaderless
 // crate::register_syncable_model!(Model);
@@ -183,4 +249,7 @@ mod tests {
 		assert_eq!(json.get("name").unwrap().as_str().unwrap(), "Photos");
 		assert_eq!(json.get("total_file_count").unwrap().as_i64().unwrap(), 100);
 	}
+
+	// Note: apply_state_change requires database setup, tested in integration tests
+	// See core/tests/sync/location_sync_test.rs
 }
