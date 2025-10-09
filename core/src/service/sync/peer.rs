@@ -7,11 +7,13 @@
 use crate::{
 	infra::{
 		event::{Event, EventBus},
-		sync::{HLCGenerator, PeerLog, PeerLogError, SharedChangeEntry, HLC},
+		sync::{HLCGenerator, NetworkTransport, PeerLog, PeerLogError, SharedChangeEntry, HLC},
 	},
 	library::Library,
+	service::network::protocol::sync::messages::SyncMessage,
 };
 use anyhow::Result;
+use chrono::Utc;
 use sea_orm::DatabaseConnection;
 use std::sync::{
 	atomic::{AtomicBool, Ordering},
@@ -36,6 +38,9 @@ pub struct PeerSync {
 	/// Database connection
 	db: Arc<DatabaseConnection>,
 
+	/// Network transport for sending sync messages
+	network: Arc<dyn NetworkTransport>,
+
 	/// Sync state machine
 	pub(super) state: Arc<RwLock<DeviceSyncState>>,
 
@@ -57,7 +62,12 @@ pub struct PeerSync {
 
 impl PeerSync {
 	/// Create new peer sync service
-	pub async fn new(library: &Library, device_id: Uuid, peer_log: Arc<PeerLog>) -> Result<Self> {
+	pub async fn new(
+		library: &Library,
+		device_id: Uuid,
+		peer_log: Arc<PeerLog>,
+		network: Arc<dyn NetworkTransport>,
+	) -> Result<Self> {
 		let library_id = library.id();
 
 		info!(
@@ -70,6 +80,7 @@ impl PeerSync {
 			library_id,
 			device_id,
 			db: Arc::new(library.db().conn().clone()),
+			network,
 			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
 			buffer: Arc::new(BufferQueue::new()),
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
@@ -142,12 +153,66 @@ impl PeerSync {
 			return Ok(());
 		}
 
-		// TODO: Send to all sync_partners via network protocol
+		// Get all connected sync partners
+		let connected_partners = self
+			.network
+			.get_connected_sync_partners()
+			.await
+			.unwrap_or_default();
+
+		if connected_partners.is_empty() {
+			debug!("No connected sync partners to broadcast to");
+			return Ok(());
+		}
+
+		// Create sync message
+		let message = SyncMessage::StateChange {
+			library_id: self.library_id,
+			model_type: change.model_type.clone(),
+			record_uuid: change.record_uuid,
+			device_id: change.device_id,
+			data: change.data.clone(),
+			timestamp: Utc::now(),
+		};
 
 		debug!(
 			model_type = %change.model_type,
 			record_uuid = %change.record_uuid,
-			"Broadcast state change"
+			partner_count = connected_partners.len(),
+			"Broadcasting state change to sync partners"
+		);
+
+		// Broadcast to all partners (don't fail if some sends fail)
+		let mut success_count = 0;
+		let mut error_count = 0;
+
+		for partner_uuid in connected_partners {
+			match self
+				.network
+				.send_sync_message(partner_uuid, message.clone())
+				.await
+			{
+				Ok(()) => {
+					success_count += 1;
+					debug!(partner = %partner_uuid, "State change sent successfully");
+				}
+				Err(e) => {
+					error_count += 1;
+					warn!(
+						partner = %partner_uuid,
+						error = %e,
+						"Failed to send state change to partner"
+					);
+					// Continue to other partners
+				}
+			}
+		}
+
+		info!(
+			model_type = %change.model_type,
+			success = success_count,
+			errors = error_count,
+			"State change broadcast complete"
 		);
 
 		Ok(())
@@ -184,18 +249,69 @@ impl PeerSync {
 		if state.should_buffer() {
 			debug!("Buffering own shared change during backfill");
 			self.buffer
-				.push(super::state::BufferedUpdate::SharedChange(entry))
+				.push(super::state::BufferedUpdate::SharedChange(entry.clone()))
 				.await;
 			return Ok(());
 		}
 
-		// TODO: Send to all sync_partners via network protocol
+		// Get all connected sync partners
+		let connected_partners = self
+			.network
+			.get_connected_sync_partners()
+			.await
+			.unwrap_or_default();
+
+		if connected_partners.is_empty() {
+			debug!("No connected sync partners to broadcast to");
+			return Ok(());
+		}
+
+		// Create sync message
+		let message = SyncMessage::SharedChange {
+			library_id: self.library_id,
+			entry: entry.clone(),
+		};
 
 		debug!(
 			hlc = %hlc,
 			model_type = %model_type,
 			record_uuid = %record_uuid,
-			"Broadcast shared change"
+			partner_count = connected_partners.len(),
+			"Broadcasting shared change to sync partners"
+		);
+
+		// Broadcast to all partners (don't fail if some sends fail)
+		let mut success_count = 0;
+		let mut error_count = 0;
+
+		for partner_uuid in connected_partners {
+			match self
+				.network
+				.send_sync_message(partner_uuid, message.clone())
+				.await
+			{
+				Ok(()) => {
+					success_count += 1;
+					debug!(partner = %partner_uuid, "Shared change sent successfully");
+				}
+				Err(e) => {
+					error_count += 1;
+					warn!(
+						partner = %partner_uuid,
+						error = %e,
+						"Failed to send shared change to partner"
+					);
+					// Continue to other partners
+				}
+			}
+		}
+
+		info!(
+			hlc = %hlc,
+			model_type = %model_type,
+			success = success_count,
+			errors = error_count,
+			"Shared change broadcast complete"
 		);
 
 		Ok(())

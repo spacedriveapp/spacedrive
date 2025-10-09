@@ -97,14 +97,21 @@ impl Library {
 	}
 
 	/// Initialize the sync service (called during library setup)
-	pub(crate) async fn init_sync_service(&self, device_id: Uuid) -> Result<()> {
+	pub(crate) async fn init_sync_service(
+		&self,
+		device_id: Uuid,
+		network: Arc<dyn crate::infra::sync::NetworkTransport>,
+	) -> Result<()> {
 		if self.sync_service.get().is_some() {
 			return Ok(());
 		}
 
-		let sync_service = crate::service::sync::SyncService::new_from_library(self, device_id)
-			.await
-			.map_err(|e| LibraryError::Other(format!("Failed to create sync service: {}", e)))?;
+		let sync_service =
+			crate::service::sync::SyncService::new_from_library(self, device_id, network)
+				.await
+				.map_err(|e| {
+					LibraryError::Other(format!("Failed to create sync service: {}", e))
+				})?;
 
 		self.sync_service
 			.set(Arc::new(sync_service))

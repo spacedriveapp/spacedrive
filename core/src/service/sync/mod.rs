@@ -50,7 +50,11 @@ impl SyncService {
 	/// Create a new sync service from a Library reference
 	///
 	/// Note: Called via `Library::init_sync_service()`, not directly.
-	pub async fn new_from_library(library: &Library, device_id: Uuid) -> Result<Self> {
+	pub async fn new_from_library(
+		library: &Library,
+		device_id: Uuid,
+		network: Arc<dyn crate::infra::sync::NetworkTransport>,
+	) -> Result<Self> {
 		let library_id = library.id();
 
 		// Create sync.db (peer log) for this device
@@ -60,8 +64,8 @@ impl SyncService {
 				.map_err(|e| anyhow::anyhow!("Failed to open sync.db: {}", e))?,
 		);
 
-		// Create peer sync handler
-		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log).await?);
+		// Create peer sync handler with network transport
+		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log, network).await?);
 
 		info!(
 			library_id = %library_id,

@@ -253,8 +253,23 @@ impl LibraryManager {
 		// Note: Sidecar manager initialization should be done by the Core when libraries are loaded
 		// This allows Core to pass its services reference
 
-		// Initialize sync service
-		if let Err(e) = library.init_sync_service(device_id).await {
+		// Initialize sync service with network transport
+		let network_transport: Arc<dyn crate::infra::sync::NetworkTransport> =
+			match context.networking.read().await.as_ref() {
+				Some(networking) => networking.clone(),
+				None => {
+					warn!(
+						"NetworkingService not initialized, sync service will use no-op transport"
+					);
+					// Use no-op transport (messages dropped, no broadcast)
+					Arc::new(crate::infra::sync::transport::NoOpNetworkTransport::new())
+				}
+			};
+
+		if let Err(e) = library
+			.init_sync_service(device_id, network_transport)
+			.await
+		{
 			warn!(
 				"Failed to initialize sync service for library {}: {}",
 				config.id, e
@@ -531,14 +546,14 @@ impl LibraryManager {
 				network_addresses: Set(serde_json::json!(device.network_addresses)),
 				is_online: Set(true),
 				last_seen_at: Set(Utc::now()),
-			capabilities: Set(serde_json::json!({
-				"indexing": true,
-				"p2p": true,
-				"volume_detection": true
-			})),
-			created_at: Set(device.created_at),
-			updated_at: Set(Utc::now()),
-		};
+				capabilities: Set(serde_json::json!({
+					"indexing": true,
+					"p2p": true,
+					"volume_detection": true
+				})),
+				created_at: Set(device.created_at),
+				updated_at: Set(Utc::now()),
+			};
 
 			device_model
 				.insert(db.conn())

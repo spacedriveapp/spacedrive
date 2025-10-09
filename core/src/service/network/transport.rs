@@ -3,12 +3,9 @@
 //! Provides a trait-based abstraction layer between the sync system and networking layer,
 //! solving the circular dependency problem and enabling testability.
 
+use crate::service::network::protocol::sync::messages::SyncMessage;
 use anyhow::Result;
 use uuid::Uuid;
-
-// Import sync message from network protocol module
-// (Network layer will implement this trait, but sync layer defines it)
-use crate::service::network::protocol::sync::messages::SyncMessage;
 
 /// Abstraction for sending sync messages over the network
 ///
@@ -110,36 +107,6 @@ pub trait NetworkTransport: Send + Sync {
 		// For now, we just assume device is reachable if UUID is known
 		// (actual implementation will check DeviceRegistry connection status)
 		false // Implementer should override this
-	}
-}
-
-/// No-op transport implementation for when networking is unavailable
-///
-/// Used as a fallback when NetworkingService hasn't been initialized yet.
-/// All operations succeed but do nothing (messages are dropped).
-pub struct NoOpNetworkTransport;
-
-impl NoOpNetworkTransport {
-	pub fn new() -> Self {
-		Self
-	}
-}
-
-#[async_trait::async_trait]
-impl NetworkTransport for NoOpNetworkTransport {
-	async fn send_sync_message(&self, _target_device: Uuid, _message: SyncMessage) -> Result<()> {
-		// Silently drop message - networking not available
-		Ok(())
-	}
-
-	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>> {
-		// No networking = no connected partners
-		Ok(vec![])
-	}
-
-	async fn is_device_reachable(&self, _device_uuid: Uuid) -> bool {
-		// No networking = nothing is reachable
-		false
 	}
 }
 
