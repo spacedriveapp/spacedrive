@@ -8,6 +8,7 @@ benja
 Bento
 brendonovich
 chacha
+checkpointing
 codegen
 Condvar
 dashmap

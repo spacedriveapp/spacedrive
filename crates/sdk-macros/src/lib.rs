@@ -12,7 +12,7 @@ mod job;
 /// # Example
 ///
 /// ```no_run
-/// #[spacedrive_job]
+/// #[job]
 /// async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
 ///     for email in fetch_emails(&state.last_uid)? {
 ///         ctx.check()?;  // Auto-checkpoints!
@@ -29,8 +29,8 @@ mod job;
 /// - Error handling
 /// - Auto-checkpoint on interrupt
 #[proc_macro_attribute]
-pub fn spacedrive_job(args: TokenStream, input: TokenStream) -> TokenStream {
-	job::spacedrive_job_impl(args, input)
+pub fn job(args: TokenStream, input: TokenStream) -> TokenStream {
+	job::job_impl(args, input)
 }
 
 /// Extension container macro

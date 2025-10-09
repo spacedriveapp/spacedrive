@@ -1,17 +1,19 @@
-//! Test Extension - Beautiful API Demo
+//! Test Extension
 //!
-//! This shows what extension development looks like with macros.
-//! Compare to test-extension/ to see the difference!
+//! Demonstrates the Spacedrive extension SDK using procedural macros to simplify
+//! extension development by abstracting FFI and state management details.
 
 use spacedrive_sdk::prelude::*;
-use spacedrive_sdk::{extension, spacedrive_job};
+use spacedrive_sdk::{extension, job};
 
-// === Extension Definition (generates plugin_init/cleanup) ===
+// Extension Definition
+// The #[extension] macro generates plugin initialization and cleanup functions.
 
 #[extension(id = "test-extension", name = "Test Extension", version = "0.1.0")]
 struct TestExtension;
 
-// === Job State ===
+// Job State Definition
+// State is automatically serialized/deserialized for checkpointing.
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct CounterState {
@@ -20,10 +22,10 @@ pub struct CounterState {
 	pub processed: Vec<String>,
 }
 
-// === Beautiful Job Definition ===
+// Job Implementation
+// The #[job] macro handles FFI bindings, serialization, and error handling.
 
-/// This is ALL you write! The macro handles everything else.
-#[spacedrive_job]
+#[job]
 fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 	ctx.log(&format!(
 		"Starting counter (current: {}, target: {})",
@@ -31,46 +33,37 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 	));
 
 	while state.current < state.target {
-		// Check interruption - if interrupted, auto-checkpoints and returns!
+		// Check for interruption signals
 		if ctx.check_interrupt() {
 			ctx.log("Interrupted, saving state...");
 			ctx.checkpoint(state)?;
 			return Err(Error::OperationFailed("Interrupted".into()));
 		}
 
-		// Do work
+		// Process work unit
 		state.current += 1;
 		state.processed.push(format!("item_{}", state.current));
 
-		// Report progress
+		// Update progress reporting
 		let progress = state.current as f32 / state.target as f32;
 		ctx.report_progress(
 			progress,
 			&format!("Counted {}/{}", state.current, state.target),
 		);
 
-		// Track metrics
+		// Track processed items
 		ctx.increment_items(1);
 
-		// Checkpoint every 10
+		// Periodic checkpoint for recovery
 		if state.current % 10 == 0 {
 			ctx.checkpoint(state)?;
 		}
 	}
 
 	ctx.log(&format!(
-		"✓ Completed! Processed {} items",
+		"Completed processing {} items",
 		state.processed.len()
 	));
 
 	Ok(())
 }
-
-// That's it! No:
-// - #[no_mangle]
-// - extern "C"
-// - Pointer manipulation
-// - Manual serialization
-// - FFI boilerplate
-//
-// Just pure, clean business logic!

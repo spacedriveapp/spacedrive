@@ -43,4 +43,4 @@ pub mod prelude {
 }
 
 // Re-export macros
-pub use spacedrive_sdk_macros::{extension, spacedrive_job};
+pub use spacedrive_sdk_macros::{extension, job};
