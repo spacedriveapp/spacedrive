@@ -502,6 +502,9 @@ apply_shared_changes_in_hlc_order().await?;
 | **Album** | Shared | HLC log | Union merge entries |
 | **UserMetadata** | Mixed | Depends on scope | Entry-scoped: device-owned, Content-scoped: LWW |
 | **AuditLog** | Device-owned | State broadcast | None (device's actions) |
+| **DirectoryPaths** | Derived (cache) | Not synced | Rebuilt locally from entry hierarchy |
+| **EntryClosure** | Derived (cache) | Not synced | Rebuilt locally from entry parent_id |
+| **TagClosure** | Derived (cache) | Not synced | Rebuilt locally from tag relationships |
 
 ### Delete Handling
 
@@ -1433,6 +1436,75 @@ pub struct SyncRetentionPolicy {
 ```
 
 ## Special Considerations
+
+### Derived Data (Caches)
+
+Several tables are **derived/computed data** that should NOT be synced directly:
+
+#### Directory Paths Cache
+
+The `directory_paths` table is a denormalized cache for path lookups:
+
+```sql
+CREATE TABLE directory_paths (
+    entry_id INTEGER PRIMARY KEY,  -- Local FK to entries(id)
+    path TEXT NOT NULL             -- Full absolute path
+);
+```
+
+**Why not sync**:
+- Uses local integer FK (`entry_id`) that differs per device
+- Paths are device-specific (`/Users/jamie` vs `/home/jamie`)
+- Can be rebuilt from entry hierarchy
+
+**Sync strategy**:
+```rust
+// When receiving synced entry
+async fn apply_entry_state_change(data: Value, db: &DatabaseConnection) -> Result<()> {
+    let entry: entry::Model = map_and_deserialize(data, db).await?;
+
+    // Upsert entry
+    entry.upsert(db).await?;
+
+    // If directory, rebuild its directory_path entry
+    if entry.entry_kind() == EntryKind::Directory {
+        let path = compute_path_from_parent_chain(&entry, db).await?;
+
+        directory_paths::ActiveModel {
+            entry_id: Set(entry.id),  // Use LOCAL id
+            path: Set(path),           // Use LOCAL path
+        }.upsert(db).await?;
+    }
+
+    Ok(())
+}
+```
+
+**See**: `core/src/infra/sync/ENTRY_PATH_SYNC_ANALYSIS.md` for detailed analysis
+
+#### Closure Tables
+
+Closure tables (`entry_closure`, `tag_closure`) store transitive relationships:
+
+```sql
+CREATE TABLE entry_closure (
+    ancestor_id INTEGER,    -- Local FK
+    descendant_id INTEGER,  -- Local FK
+    depth INTEGER,
+    PRIMARY KEY (ancestor_id, descendant_id)
+);
+```
+
+**Why not sync**: Uses local integer FKs, can be rebuilt from direct relationships
+
+**Sync strategy**: Rebuild after syncing base relationships:
+```rust
+// After syncing entries, rebuild closure
+rebuild_entry_closure_for_location(location_id, db).await?;
+
+// After syncing tag relationships, rebuild closure
+rebuild_tag_closure(db).await?;
+```
 
 ### UserMetadata Dual Nature
 

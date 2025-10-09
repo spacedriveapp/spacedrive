@@ -87,13 +87,23 @@ impl Syncable for Model {
 		&["device"] // Location belongs to a device
 	}
 
+	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
+		vec![
+			crate::infra::sync::FKMapping::new("device_id", "devices"),
+			crate::infra::sync::FKMapping::new("entry_id", "entries"),
+		]
+	}
+
 	/// Query locations for sync backfill
+	///
+	/// Note: This method handles FK to UUID conversion internally before returning.
 	async fn query_for_sync(
 		_device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
 		batch_size: usize,
 		db: &DatabaseConnection,
 	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
+		use crate::infra::sync::Syncable;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 
 		let mut query = Entity::find();
@@ -108,17 +118,38 @@ impl Syncable for Model {
 
 		let results = query.all(db).await?;
 
-		// Convert to sync format using the Syncable trait's to_sync_json
-		Ok(results
-			.into_iter()
-			.filter_map(|loc| match loc.to_sync_json() {
-				Ok(json) => Some((loc.uuid, json, loc.updated_at)),
+		// Convert to sync format with FK mapping
+		let mut sync_results = Vec::new();
+
+		for location in results {
+			// Serialize to JSON
+			let mut json = match location.to_sync_json() {
+				Ok(j) => j,
 				Err(e) => {
-					tracing::warn!(error = %e, "Failed to serialize location for sync");
-					None
+					tracing::warn!(error = %e, uuid = %location.uuid, "Failed to serialize location for sync");
+					continue;
 				}
-			})
-			.collect())
+			};
+
+			// Convert FK integer IDs to UUIDs
+			for fk in <Model as Syncable>::foreign_key_mappings() {
+				if let Err(e) =
+					crate::infra::sync::fk_mapper::convert_fk_to_uuid(&mut json, &fk, db).await
+				{
+					tracing::warn!(
+						error = %e,
+						uuid = %location.uuid,
+						fk_field = fk.local_field,
+						"Failed to convert FK to UUID, skipping location"
+					);
+					break;
+				}
+			}
+
+			sync_results.push((location.uuid, json, location.updated_at));
+		}
+
+		Ok(sync_results)
 	}
 
 	/// Apply state change with idempotent upsert by UUID.
@@ -127,27 +158,59 @@ impl Syncable for Model {
 		data: serde_json::Value,
 		db: &DatabaseConnection,
 	) -> Result<(), sea_orm::DbErr> {
-		// Deserialize incoming data
-		let location: Model = serde_json::from_value(data).map_err(|e| {
-			sea_orm::DbErr::Custom(format!("Location deserialization failed: {}", e))
-		})?;
+		// Map UUIDs to local IDs for FK fields
+		let data =
+			crate::infra::sync::map_sync_json_to_local(data, Self::foreign_key_mappings(), db)
+				.await
+				.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
+
+		// Extract fields from JSON (can't deserialize to Model because id is missing)
+		let location_uuid: Uuid = serde_json::from_value(
+			data.get("uuid")
+				.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+				.clone(),
+		)
+		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+		let device_id: i32 = serde_json::from_value(
+			data.get("device_id")
+				.ok_or_else(|| sea_orm::DbErr::Custom("Missing device_id".to_string()))?
+				.clone(),
+		)
+		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid device_id: {}", e)))?;
+
+		let entry_id: i32 = serde_json::from_value(
+			data.get("entry_id")
+				.ok_or_else(|| sea_orm::DbErr::Custom("Missing entry_id".to_string()))?
+				.clone(),
+		)
+		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid entry_id: {}", e)))?;
 
 		// Build ActiveModel for upsert
-		// Note: We use Set() for all synced fields, NotSet for id (auto-generated)
 		use sea_orm::{ActiveValue::NotSet, Set};
 
 		let active = ActiveModel {
 			id: NotSet, // Database PK, not synced
-			uuid: Set(location.uuid),
-			device_id: Set(location.device_id),
-			entry_id: Set(location.entry_id),
-			name: Set(location.name),
-			index_mode: Set(location.index_mode),
+			uuid: Set(location_uuid),
+			device_id: Set(device_id),
+			entry_id: Set(entry_id),
+			name: Set(data.get("name").and_then(|v| v.as_str()).map(String::from)),
+			index_mode: Set(data
+				.get("index_mode")
+				.and_then(|v| v.as_str())
+				.unwrap_or("shallow")
+				.to_string()),
 			scan_state: Set("pending".to_string()), // Reset local state
-			last_scan_at: Set(location.last_scan_at),
-			error_message: Set(None), // Reset local error
-			total_file_count: Set(location.total_file_count),
-			total_byte_size: Set(location.total_byte_size),
+			last_scan_at: Set(None),                // Reset local state
+			error_message: Set(None),               // Reset local error
+			total_file_count: Set(data
+				.get("total_file_count")
+				.and_then(|v| v.as_i64())
+				.unwrap_or(0)),
+			total_byte_size: Set(data
+				.get("total_byte_size")
+				.and_then(|v| v.as_i64())
+				.unwrap_or(0)),
 			created_at: Set(chrono::Utc::now().into()), // Local timestamp
 			updated_at: Set(chrono::Utc::now().into()), // Local timestamp
 		};

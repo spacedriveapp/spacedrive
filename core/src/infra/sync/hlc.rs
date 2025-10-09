@@ -104,11 +104,14 @@ impl HLC {
 
 	/// Parse HLC from string representation
 	pub fn from_string(s: &str) -> Result<Self, HLCError> {
-		let parts: Vec<&str> = s.split('-').collect();
+		// Split only on first two hyphens (UUID contains hyphens)
+		let parts: Vec<&str> = s.splitn(3, '-').collect();
 		if parts.len() != 3 {
-			return Err(HLCError::ParseError(
-				"Invalid HLC format: expected 3 parts".to_string(),
-			));
+			return Err(HLCError::ParseError(format!(
+				"Invalid HLC format: expected 3 parts, got {}. Input: '{}'",
+				parts.len(),
+				s
+			)));
 		}
 
 		let timestamp = u64::from_str_radix(parts[0], 16)

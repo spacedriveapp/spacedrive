@@ -3,6 +3,8 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::infra::sync::Syncable;
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "entries")]
 pub struct Model {
@@ -79,13 +81,44 @@ impl crate::infra::sync::Syncable for Model {
 		&["location"] // Entry belongs to a location
 	}
 
+	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
+		vec![
+			crate::infra::sync::FKMapping::new("parent_id", "entries"),
+			crate::infra::sync::FKMapping::new("metadata_id", "user_metadata"),
+			crate::infra::sync::FKMapping::new("content_id", "content_identities"),
+		]
+	}
+
+	fn to_sync_json(&self) -> Result<serde_json::Value, serde_json::Error> {
+		// Serialize to JSON with field exclusions
+		let mut value = serde_json::to_value(self)?;
+
+		// Apply field exclusions
+		if let Some(excluded) = Self::exclude_fields() {
+			if let Some(obj) = value.as_object_mut() {
+				for field in excluded {
+					obj.remove(*field);
+				}
+			}
+		}
+
+		// Note: FK mapping to UUIDs will be done by the sync system
+		// when broadcasting, not here. This is because we need database
+		// access to look up UUIDs, which isn't available in this trait method.
+
+		Ok(value)
+	}
+
 	/// Query entries for sync backfill
+	///
+	/// Note: This method handles FK to UUID conversion internally before returning.
 	async fn query_for_sync(
 		_device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
 		batch_size: usize,
 		db: &DatabaseConnection,
 	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
+		use crate::infra::sync::Syncable;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 
 		let mut query = Entity::find();
@@ -103,20 +136,43 @@ impl crate::infra::sync::Syncable for Model {
 
 		let results = query.all(db).await?;
 
-		// Convert to sync format
-		Ok(results
-			.into_iter()
-			.filter_map(|entry| {
-				let uuid = entry.uuid?;
-				match entry.to_sync_json() {
-					Ok(json) => Some((uuid, json, entry.modified_at)),
-					Err(e) => {
-						tracing::warn!(error = %e, "Failed to serialize entry for sync");
-						None
-					}
+		// Convert to sync format with FK mapping
+		let mut sync_results = Vec::new();
+
+		for entry in results {
+			let uuid = match entry.uuid {
+				Some(u) => u,
+				None => continue, // Skip entries without UUIDs
+			};
+
+			// Serialize to JSON
+			let mut json = match entry.to_sync_json() {
+				Ok(j) => j,
+				Err(e) => {
+					tracing::warn!(error = %e, uuid = %uuid, "Failed to serialize entry for sync");
+					continue;
 				}
-			})
-			.collect())
+			};
+
+			// Convert FK integer IDs to UUIDs
+			for fk in <Model as Syncable>::foreign_key_mappings() {
+				if let Err(e) =
+					crate::infra::sync::fk_mapper::convert_fk_to_uuid(&mut json, &fk, db).await
+				{
+					tracing::warn!(
+						error = %e,
+						uuid = %uuid,
+						fk_field = fk.local_field,
+						"Failed to convert FK to UUID, skipping entry"
+					);
+					continue;
+				}
+			}
+
+			sync_results.push((uuid, json, entry.modified_at));
+		}
+
+		Ok(sync_results)
 	}
 
 	/// Apply state change - already implemented in Model impl block below
@@ -178,6 +234,16 @@ impl Model {
 	/// - Idempotent upsert by UUID
 	/// - Last state wins (no conflict resolution needed)
 	///
+	/// # Foreign Key Mapping
+	///
+	/// The incoming JSON contains UUIDs for FKs (parent_uuid, metadata_uuid, content_uuid).
+	/// These must be mapped to local integer IDs before deserialization.
+	///
+	/// # Directory Paths
+	///
+	/// If this is a directory entry, we rebuild its directory_paths cache entry
+	/// after upsert using the local filesystem paths.
+	///
 	/// # Errors
 	///
 	/// Returns error if:
@@ -188,6 +254,15 @@ impl Model {
 		data: serde_json::Value,
 		db: &DatabaseConnection,
 	) -> Result<(), sea_orm::DbErr> {
+		// Map UUID FKs to local integer IDs
+		let data = crate::infra::sync::fk_mapper::map_sync_json_to_local(
+			data,
+			<Model as crate::infra::sync::Syncable>::foreign_key_mappings(),
+			db,
+		)
+		.await
+		.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
+
 		// Deserialize incoming data
 		let entry: Self = serde_json::from_value(data)
 			.map_err(|e| sea_orm::DbErr::Custom(format!("Entry deserialization failed: {}", e)))?;
@@ -197,50 +272,118 @@ impl Model {
 			.uuid
 			.ok_or_else(|| sea_orm::DbErr::Custom("Cannot sync entry without UUID".to_string()))?;
 
-		// Build ActiveModel for upsert
-		use sea_orm::{ActiveValue::NotSet, Set};
+		// Check if entry already exists by UUID
+		use sea_orm::{ActiveValue::NotSet, ColumnTrait, EntityTrait, QueryFilter, Set};
 
-		let active = ActiveModel {
-			id: NotSet, // Database PK, not synced
-			uuid: Set(Some(entry_uuid)),
-			name: Set(entry.name),
-			kind: Set(entry.kind),
-			extension: Set(entry.extension),
-			metadata_id: Set(entry.metadata_id),
-			content_id: Set(entry.content_id),
-			size: Set(entry.size),
-			aggregate_size: Set(entry.aggregate_size),
-			child_count: Set(entry.child_count),
-			file_count: Set(entry.file_count),
-			created_at: Set(entry.created_at),
-			modified_at: Set(entry.modified_at),
-			accessed_at: Set(entry.accessed_at),
-			permissions: Set(entry.permissions),
-			inode: Set(entry.inode),
-			parent_id: Set(entry.parent_id),
+		let existing = Entity::find()
+			.filter(Column::Uuid.eq(Some(entry_uuid)))
+			.one(db)
+			.await?;
+
+		let entry_id = if let Some(existing_entry) = existing {
+			// Update existing entry
+			let active = ActiveModel {
+				id: Set(existing_entry.id),
+				uuid: Set(Some(entry_uuid)),
+				name: Set(entry.name.clone()),
+				kind: Set(entry.kind),
+				extension: Set(entry.extension.clone()),
+				metadata_id: Set(entry.metadata_id),
+				content_id: Set(entry.content_id),
+				size: Set(entry.size),
+				aggregate_size: Set(entry.aggregate_size),
+				child_count: Set(entry.child_count),
+				file_count: Set(entry.file_count),
+				created_at: Set(entry.created_at),
+				modified_at: Set(entry.modified_at),
+				accessed_at: Set(entry.accessed_at),
+				permissions: Set(entry.permissions.clone()),
+				inode: Set(entry.inode),
+				parent_id: Set(entry.parent_id),
+			};
+			active.update(db).await?;
+			existing_entry.id
+		} else {
+			// Insert new entry
+			let active = ActiveModel {
+				id: NotSet,
+				uuid: Set(Some(entry_uuid)),
+				name: Set(entry.name.clone()),
+				kind: Set(entry.kind),
+				extension: Set(entry.extension.clone()),
+				metadata_id: Set(entry.metadata_id),
+				content_id: Set(entry.content_id),
+				size: Set(entry.size),
+				aggregate_size: Set(entry.aggregate_size),
+				child_count: Set(entry.child_count),
+				file_count: Set(entry.file_count),
+				created_at: Set(entry.created_at),
+				modified_at: Set(entry.modified_at),
+				accessed_at: Set(entry.accessed_at),
+				permissions: Set(entry.permissions.clone()),
+				inode: Set(entry.inode),
+				parent_id: Set(entry.parent_id),
+			};
+			let inserted = active.insert(db).await?;
+			inserted.id
 		};
 
-		// Idempotent upsert: insert or update based on UUID
-		Entity::insert(active)
+		// If this is a directory, rebuild its directory_paths cache entry
+		if entry.entry_kind() == EntryKind::Directory {
+			// Rebuild directory path from parent chain
+			Self::rebuild_directory_path(entry_id, entry.parent_id, &entry.name, db).await?;
+		}
+
+		Ok(())
+	}
+
+	/// Rebuild directory_paths cache entry for a directory
+	///
+	/// Computes the full path by walking up the parent chain and concatenating
+	/// directory names. This is called after syncing a directory entry to ensure
+	/// the local directory_paths cache is correct.
+	async fn rebuild_directory_path(
+		entry_id: i32,
+		parent_id: Option<i32>,
+		name: &str,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		use sea_orm::Set;
+
+		// Compute path from parent
+		let path = if let Some(parent_id) = parent_id {
+			// Get parent's directory path
+			match super::directory_paths::Entity::find_by_id(parent_id)
+				.one(db)
+				.await?
+			{
+				Some(parent_path) => format!("{}/{}", parent_path.path, name),
+				None => {
+					// Parent path not found yet - might be syncing out of order
+					// This will be fixed by bulk rebuild after backfill completes
+					tracing::warn!(
+						entry_id = entry_id,
+						parent_id = parent_id,
+						"Parent directory path not found during sync, deferring rebuild"
+					);
+					return Ok(());
+				}
+			}
+		} else {
+			// Root directory - just use the name
+			name.to_string()
+		};
+
+		// Upsert directory_paths entry
+		let dir_path = super::directory_paths::ActiveModel {
+			entry_id: Set(entry_id),
+			path: Set(path),
+		};
+
+		super::directory_paths::Entity::insert(dir_path)
 			.on_conflict(
-				sea_orm::sea_query::OnConflict::column(Column::Uuid)
-					.update_columns([
-						Column::Name,
-						Column::Kind,
-						Column::Extension,
-						Column::MetadataId,
-						Column::ContentId,
-						Column::Size,
-						Column::AggregateSize,
-						Column::ChildCount,
-						Column::FileCount,
-						Column::CreatedAt,
-						Column::ModifiedAt,
-						Column::AccessedAt,
-						Column::Permissions,
-						Column::Inode,
-						Column::ParentId,
-					])
+				sea_orm::sea_query::OnConflict::column(super::directory_paths::Column::EntryId)
+					.update_column(super::directory_paths::Column::Path)
 					.to_owned(),
 			)
 			.exec(db)

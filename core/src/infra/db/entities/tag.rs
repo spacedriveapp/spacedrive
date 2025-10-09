@@ -214,9 +214,19 @@ impl Syncable for Model {
 	) -> Result<(), sea_orm::DbErr> {
 		match entry.change_type {
 			ChangeType::Insert | ChangeType::Update => {
+				// Debug: Log what we're receiving
+				tracing::debug!(
+					"Received tag sync data: {}",
+					serde_json::to_string_pretty(&entry.data)
+						.unwrap_or_else(|_| "invalid".to_string())
+				);
+
 				// Deserialize incoming tag
-				let tag: Self = serde_json::from_value(entry.data).map_err(|e| {
-					sea_orm::DbErr::Custom(format!("Tag deserialization failed: {}", e))
+				let tag: Self = serde_json::from_value(entry.data.clone()).map_err(|e| {
+					sea_orm::DbErr::Custom(format!(
+						"Tag deserialization failed: {}. Data: {:?}",
+						e, entry.data
+					))
 				})?;
 
 				// Build ActiveModel for upsert

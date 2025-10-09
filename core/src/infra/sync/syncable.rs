@@ -104,6 +104,25 @@ pub trait Syncable: Serialize + Clone {
 		&[]
 	}
 
+	/// Declare foreign key mappings for automatic UUID conversion
+	///
+	/// Models with FK relationships override this to enable UUID mapping.
+	/// Models without FKs use the default (empty vec).
+	///
+	/// # Example
+	///
+	/// ```rust,ignore
+	/// fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
+	///     vec![
+	///         crate::infra::sync::FKMapping::new("device_id", "devices"),
+	///         crate::infra::sync::FKMapping::new("entry_id", "entries"),
+	///     ]
+	/// }
+	/// ```
+	fn foreign_key_mappings() -> Vec<super::FKMapping> {
+		vec![]
+	}
+
 	/// Convert to sync-safe JSON representation
 	///
 	/// By default, this serializes the full model to JSON. Override this
