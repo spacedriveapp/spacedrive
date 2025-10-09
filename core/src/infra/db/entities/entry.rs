@@ -58,9 +58,7 @@ impl Related<super::content_identity::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-// ============================================================================
 // Syncable Implementation
-// ============================================================================
 impl crate::infra::sync::Syncable for Model {
 	const SYNC_MODEL: &'static str = "entry";
 
@@ -75,6 +73,10 @@ impl crate::infra::sync::Syncable for Model {
 
 	fn exclude_fields() -> Option<&'static [&'static str]> {
 		Some(&["id"]) // Only exclude database PK
+	}
+
+	fn sync_depends_on() -> &'static [&'static str] {
+		&["location"] // Entry belongs to a location
 	}
 
 	/// Query entries for sync backfill

@@ -88,6 +88,22 @@ pub trait Syncable: Serialize + Clone {
 		None
 	}
 
+	/// Declare sync dependencies on other models
+	///
+	/// Models listed here must be synced before this model to prevent foreign key violations.
+	/// This establishes the dependency graph used for topological ordering during backfill.
+	///
+	/// # Example
+	///
+	/// ```rust,ignore
+	/// fn sync_depends_on() -> &'static [&'static str] {
+	///     &["device", "location"]  // Entry depends on device and location
+	/// }
+	/// ```
+	fn sync_depends_on() -> &'static [&'static str] {
+		&[]
+	}
+
 	/// Convert to sync-safe JSON representation
 	///
 	/// By default, this serializes the full model to JSON. Override this

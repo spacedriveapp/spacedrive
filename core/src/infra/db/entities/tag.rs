@@ -202,6 +202,10 @@ impl Syncable for Model {
 		Some(&["id", "created_at", "updated_at"])
 	}
 
+	fn sync_depends_on() -> &'static [&'static str] {
+		&[] // Tag is shared, no FK dependencies
+	}
+
 	/// Apply shared change with union merge conflict resolution.
 	/// Different UUIDs with same canonical_name coexist (polymorphic naming).
 	async fn apply_shared_change(

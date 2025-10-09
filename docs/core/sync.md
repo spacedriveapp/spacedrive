@@ -413,46 +413,82 @@ CREATE TABLE peer_acks (
 
 ## Model Dependencies and Sync Order
 
-### Dependency Graph
+### Automatic Dependency Resolution
 
-Models must be synced respecting foreign key constraints:
+The sync system automatically computes the correct model ordering using topological sort. Each model declares its dependencies via the `Syncable` trait:
+
+```rust
+// Device has no dependencies (root of graph)
+impl Syncable for device::Model {
+    fn sync_depends_on() -> &'static [&'static str] {
+        &[]
+    }
+}
+
+// Location depends on Device
+impl Syncable for location::Model {
+    fn sync_depends_on() -> &'static [&'static str] {
+        &["device"]
+    }
+}
+
+// Entry depends on Location
+impl Syncable for entry::Model {
+    fn sync_depends_on() -> &'static [&'static str] {
+        &["location"]
+    }
+}
+```
+
+At runtime, the system computes a topological sort:
+
+```rust
+let sync_order = compute_registry_sync_order().await?;
+// Result: ["device", "location", "entry", "tag", ...]
+// Guarantees: Parents always sync before children
+```
+
+**Benefits**:
+- ✅ **Zero FK violations**: Dependencies always satisfied
+- ✅ **Automatic**: No manual tier management
+- ✅ **Self-documenting**: Dependencies declared in code
+- ✅ **Validated**: Detects circular dependencies at startup
+
+### Computed Dependency Graph
+
+The actual sync order is computed from model declarations:
 
 ```
-Tier 0 (No Dependencies):
-  - Devices
-  - Tags (semantic tags with namespaces)
+device ─────┐
+            ↓
+         location ─────┐
+                       ↓
+                    entry
 
-Tier 1 (Depends on Tier 0):
-  - Locations (depends on Device)
-  - Volumes (depends on Device)
-  - Albums (no FK deps)
-  - Tag Relationships (depends on Tags)
-
-Tier 2 (Depends on Tier 1):
-  - Entries (depends on Location)
-  - Album Entries (depends on Albums, Entries)
-
-Tier 3 (Depends on Tier 2):
-  - UserMetadata (depends on Entries)
-  - UserMetadata Tags (depends on UserMetadata, Tags)
+tag (independent, no FK dependencies)
 ```
 
 ### Backfill Order
 
-When a new device joins, models MUST be synced in dependency order:
+When a new device joins, models are automatically synced in computed dependency order:
 
 ```rust
-// Phase 1: Device-owned state (in order)
-for tier in [0, 1, 2] {
-    for model in tier.models {
-        backfill_model(model).await?;
+// Phase 1: Compute dependency order
+let sync_order = compute_registry_sync_order().await?;
+// e.g., ["device", "location", "entry", "tag"]
+
+// Phase 2: Sync device-owned models in order
+for model_type in sync_order {
+    if is_device_owned(&model_type).await {
+        backfill_model(model_type).await?;
     }
 }
 
-// Phase 2: Shared resources (HLC ordered)
-// These can reference any tier, so sync after all device-owned
+// Phase 3: Sync shared resources (HLC ordered)
 apply_shared_changes_in_hlc_order().await?;
 ```
+
+**Implementation**: See `core/src/infra/sync/dependency_graph.rs` for the topological sort algorithm.
 
 ### Model Classification Reference
 
@@ -1477,6 +1513,8 @@ if message.schema_version != CURRENT_SCHEMA_VERSION {
 ## References
 
 - **Architecture**: `core/src/infra/sync/NEW_SYNC.md`
+- **Dependency Graph**: `core/src/infra/sync/docs/DEPENDENCY_GRAPH.md`
+- **Implementation Guide**: `core/src/infra/sync/docs/SYNC_IMPLEMENTATION_GUIDE.md`
 - **Tasks**: `.tasks/LSYNC-*.md`
 - **Whitepaper**: Section 4.5.1 (Library Sync)
 - **HLC Paper**: "Logical Physical Clocks" (Kulkarni et al.)

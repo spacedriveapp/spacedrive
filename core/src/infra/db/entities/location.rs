@@ -83,6 +83,10 @@ impl Syncable for Model {
 		])
 	}
 
+	fn sync_depends_on() -> &'static [&'static str] {
+		&["device"] // Location belongs to a device
+	}
+
 	/// Query locations for sync backfill
 	async fn query_for_sync(
 		_device_id: Option<Uuid>,

@@ -89,15 +89,27 @@ impl BackfillManager {
 		Ok(())
 	}
 
-	/// Backfill device-owned state from all peers
+	/// Backfill device-owned state from all peers in dependency order
 	async fn backfill_device_owned_state(&self, primary_peer: Uuid) -> Result<()> {
 		info!("Backfilling device-owned state");
 
-		let model_types = vec![
-			"location".to_string(),
-			"entry".to_string(),
-			"volume".to_string(),
-		];
+		// Compute sync order based on model dependencies to prevent FK violations
+		let sync_order = crate::infra::sync::compute_registry_sync_order()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to compute sync order: {}", e))?;
+
+		info!(
+			sync_order = ?sync_order,
+			"Computed dependency-ordered sync sequence"
+		);
+
+		// Filter to only device-owned models
+		let mut model_types = Vec::new();
+		for model in sync_order {
+			if crate::infra::sync::is_device_owned(&model).await {
+				model_types.push(model);
+			}
+		}
 
 		// TODO: Get list of all peers, not just primary
 		// For now, just backfill from primary peer

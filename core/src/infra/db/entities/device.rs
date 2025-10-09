@@ -35,9 +35,7 @@ impl Related<super::location::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-// ============================================================================
 // Syncable Implementation
-// ============================================================================
 impl crate::infra::sync::Syncable for Model {
 	const SYNC_MODEL: &'static str = "device";
 
@@ -52,6 +50,10 @@ impl crate::infra::sync::Syncable for Model {
 
 	fn exclude_fields() -> Option<&'static [&'static str]> {
 		Some(&["id", "created_at", "updated_at"])
+	}
+
+	fn sync_depends_on() -> &'static [&'static str] {
+		&[] // Device has no dependencies (root of dependency graph)
 	}
 
 	/// Query devices for sync backfill
@@ -83,13 +85,11 @@ impl crate::infra::sync::Syncable for Model {
 		// Convert to sync format
 		Ok(results
 			.into_iter()
-			.filter_map(|device| {
-				match device.to_sync_json() {
-					Ok(json) => Some((device.uuid, json, device.updated_at)),
-					Err(e) => {
-						tracing::warn!(error = %e, "Failed to serialize device for sync");
-						None
-					}
+			.filter_map(|device| match device.to_sync_json() {
+				Ok(json) => Some((device.uuid, json, device.updated_at)),
+				Err(e) => {
+					tracing::warn!(error = %e, "Failed to serialize device for sync");
+					None
 				}
 			})
 			.collect())

@@ -352,6 +352,38 @@ pub enum ApplyError {
 	DatabaseError(String),
 }
 
+/// Compute sync order based on model dependencies
+///
+/// Performs topological sort on all registered models using their declared dependencies
+/// to ensure foreign key constraints are never violated during sync.
+///
+/// # Returns
+/// Ordered list of model names where dependencies always come before dependents
+///
+/// # Errors
+/// Returns error if circular dependencies are detected or if a model declares
+/// a dependency on a non-existent model.
+///
+/// # Example
+/// ```ignore
+/// let order = compute_registry_sync_order().await?;
+/// // order = ["device", "location", "entry", "tag"]
+/// // Devices sync first, then locations, then entries, etc.
+/// ```
+pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::DependencyError> {
+	use crate::infra::db::entities::{device, entry, location, tag};
+
+	// Build iterator of (model_name, dependencies)
+	let models = vec![
+		(device::Model::SYNC_MODEL, device::Model::sync_depends_on()),
+		(location::Model::SYNC_MODEL, location::Model::sync_depends_on()),
+		(entry::Model::SYNC_MODEL, entry::Model::sync_depends_on()),
+		(tag::Model::SYNC_MODEL, tag::Model::sync_depends_on()),
+	];
+
+	super::dependency_graph::compute_sync_order(models.into_iter())
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -392,5 +424,30 @@ mod tests {
 		assert!(is_device_owned("location").await);
 		assert!(!is_device_owned("tag").await);
 		assert!(!is_device_owned("nonexistent").await); // Returns false for unknown
+	}
+
+	#[tokio::test]
+	async fn test_sync_order_computation() {
+		let order = compute_registry_sync_order().await.unwrap();
+
+		// Verify all models are present
+		assert_eq!(order.len(), 4);
+		assert!(order.contains(&"device".to_string()));
+		assert!(order.contains(&"location".to_string()));
+		assert!(order.contains(&"entry".to_string()));
+		assert!(order.contains(&"tag".to_string()));
+
+		// Verify dependency ordering
+		let device_idx = order.iter().position(|m| m == "device").unwrap();
+		let location_idx = order.iter().position(|m| m == "location").unwrap();
+		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
+
+		// Device must come before location
+		assert!(device_idx < location_idx, "device must sync before location");
+
+		// Location must come before entry
+		assert!(location_idx < entry_idx, "location must sync before entry");
+
+		// Tag has no dependencies, can be anywhere
 	}
 }
