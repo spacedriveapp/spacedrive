@@ -114,17 +114,50 @@ impl JobManager {
 		params: serde_json::Value,
 		priority: JobPriority,
 	) -> JobResult<JobHandle> {
-		// Check if job type is registered
-		if !REGISTRY.has_job(job_name) {
-			return Err(JobError::NotFound(format!(
-				"Job type '{}' not registered",
-				job_name
-			)));
+		// Try core job registry first
+		if REGISTRY.has_job(job_name) {
+			// Create job instance from core registry
+			let erased_job = REGISTRY.create_job(job_name, params)?;
+			return self.dispatch_erased_job(job_name, erased_job, priority, None).await;
 		}
 
-		// Create job instance
-		let erased_job = REGISTRY.create_job(job_name, params)?;
+		// Check if it's an extension job (contains colon)
+		if job_name.contains(':') {
+			// Try extension job registry
+			if let Some(plugin_manager) = self.context.get_plugin_manager().await {
+				let job_registry = plugin_manager.read().await.job_registry();
 
+				if job_registry.has_job(job_name) {
+					// Extract state JSON from params
+					let state_json = serde_json::to_string(&params)
+						.map_err(|e| JobError::serialization(format!("Failed to serialize params: {}", e)))?;
+
+					// Create WasmJob from registry
+					let wasm_job = job_registry
+						.create_wasm_job(job_name, state_json)
+						.map_err(|e| JobError::NotFound(e))?;
+
+					// Dispatch the WasmJob
+					return self.dispatch_with_priority(wasm_job, priority, None).await;
+				}
+			}
+		}
+
+		// Job not found in either registry
+		Err(JobError::NotFound(format!(
+			"Job type '{}' not registered",
+			job_name
+		)))
+	}
+
+	/// Helper method to dispatch an erased job (extracted from dispatch_by_name)
+	async fn dispatch_erased_job(
+		&self,
+		job_name: &str,
+		erased_job: Box<dyn ErasedJob>,
+		priority: JobPriority,
+		action_context: Option<ActionContext>,
+	) -> JobResult<JobHandle> {
 		let job_id = JobId::new();
 		info!("Dispatching job {} ({}): {}", job_id, job_name, job_name);
 

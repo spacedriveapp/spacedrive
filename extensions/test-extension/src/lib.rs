@@ -7,9 +7,15 @@ use spacedrive_sdk::prelude::*;
 use spacedrive_sdk::{extension, job};
 
 // Extension Definition
-// The #[extension] macro generates plugin initialization and cleanup functions.
+// The #[extension] macro generates plugin_init() and plugin_cleanup().
+// List jobs in the jobs parameter for automatic registration.
 
-#[extension(id = "test-extension", name = "Test Extension", version = "0.1.0")]
+#[extension(
+	id = "test-extension",
+	name = "Test Extension",
+	version = "0.1.0",
+	jobs = [test_counter],
+)]
 struct TestExtension;
 
 // Job State Definition
@@ -24,8 +30,9 @@ pub struct CounterState {
 
 // Job Implementation
 // The #[job] macro handles FFI bindings, serialization, and error handling.
+// The name parameter enables automatic registration (extension-id:name format).
 
-#[job]
+#[job(name = "counter")]
 fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 	ctx.log(&format!(
 		"Starting counter (current: {}, target: {})",

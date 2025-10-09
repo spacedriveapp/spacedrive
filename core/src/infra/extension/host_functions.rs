@@ -21,6 +21,7 @@ pub struct PluginEnv {
 	pub api_dispatcher: Arc<crate::infra::api::ApiDispatcher>, // For creating sessions
 	pub permissions: ExtensionPermissions,
 	pub memory: Memory,
+	pub job_registry: Arc<super::job_registry::ExtensionJobRegistry>,
 }
 
 /// THE MAIN HOST FUNCTION - Generic Wire RPC
@@ -398,4 +399,66 @@ pub fn host_job_increment_items(
 	let (plugin_env, _store) = env.data_and_store_mut();
 	tracing::debug!(extension = %plugin_env.extension_id, "Processed {} items", count);
 	// TODO: Update metrics
+}
+
+// === Extension Registration Functions ===
+
+/// Register a job type for an extension
+///
+/// Called from plugin_init() to register custom job types
+///
+/// # Arguments
+/// - `job_name_ptr`, `job_name_len`: Job name (e.g., "email_scan")
+/// - `export_fn_ptr`, `export_fn_len`: WASM export function (e.g., "execute_email_scan")
+/// - `resumable`: Whether the job supports resumption (1 = yes, 0 = no)
+///
+/// # Returns
+/// 0 on success, 1 on error
+pub fn host_register_job(
+	mut env: FunctionEnvMut<PluginEnv>,
+	job_name_ptr: WasmPtr<u8>,
+	job_name_len: u32,
+	export_fn_ptr: WasmPtr<u8>,
+	export_fn_len: u32,
+	resumable: u32,
+) -> i32 {
+	let (plugin_env, mut store) = env.data_and_store_mut();
+	let memory = &plugin_env.memory;
+	let memory_view = memory.view(&store);
+
+	// Read job name
+	let job_name = match read_string_from_wasm(&memory_view, job_name_ptr, job_name_len) {
+		Ok(name) => name,
+		Err(e) => {
+			tracing::error!("Failed to read job name: {}", e);
+			return 1; // Error
+		}
+	};
+
+	// Read export function name
+	let export_fn = match read_string_from_wasm(&memory_view, export_fn_ptr, export_fn_len) {
+		Ok(name) => name,
+		Err(e) => {
+			tracing::error!("Failed to read export function name: {}", e);
+			return 1; // Error
+		}
+	};
+
+	let is_resumable = resumable != 0;
+
+	// Register the job synchronously (no async needed)
+	let result = plugin_env.job_registry.register(
+		plugin_env.extension_id.clone(),
+		job_name,
+		export_fn,
+		is_resumable,
+	);
+
+	match result {
+		Ok(()) => 0, // Success
+		Err(e) => {
+			tracing::error!("Failed to register job: {}", e);
+			1 // Error
+		}
+	}
 }

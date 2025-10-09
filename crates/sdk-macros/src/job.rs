@@ -2,10 +2,28 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, FnArg, ItemFn, Type};
+use syn::{parse_macro_input, FnArg, ItemFn, LitStr, Type};
 
-pub fn job_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn job_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 	let input_fn = parse_macro_input!(input as ItemFn);
+
+	// Parse job name from args if provided
+	let job_name: Option<String> = if !args.is_empty() {
+		// Try to parse as name = "value"
+		let args_str = args.to_string();
+		if let Some(name_value) = args_str.strip_prefix("name = \"") {
+			if let Some(name) = name_value.strip_suffix("\"") {
+				Some(name.to_string())
+			} else {
+				None
+			}
+		} else {
+			// Try direct string literal
+			syn::parse::<LitStr>(args).ok().map(|lit| lit.value())
+		}
+	} else {
+		None
+	};
 
 	// Extract function info
 	let fn_name = &input_fn.sig.ident;
@@ -18,10 +36,30 @@ pub fn job_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
 	// Expected signature: async fn name(ctx: &JobContext, state: &mut State) -> Result<()>
 	let state_type = extract_state_type(&input_fn);
 
+	// Generate registration function if job name is provided
+	let registration_fn = if let Some(ref name) = job_name {
+		let export_name_str = export_name.to_string();
+		let register_fn_name = syn::Ident::new(&format!("__register_{}", fn_name), fn_name.span());
+
+		quote! {
+			// Generate a registration helper function
+			// This will be called by plugin_init
+			#[doc(hidden)]
+			pub fn #register_fn_name() -> (&'static str, &'static str, bool) {
+				(#name, #export_name_str, true)
+			}
+		}
+	} else {
+		quote! {}
+	};
+
 	let expanded = quote! {
 		// Keep original function for internal use
 		#(#fn_attrs)*
 		#input_fn
+
+		// Registration helper function
+		#registration_fn
 
 		// Generate FFI export
 		#[no_mangle]

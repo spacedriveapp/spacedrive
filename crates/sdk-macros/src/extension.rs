@@ -2,40 +2,117 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Expr, ItemStruct, Lit, Meta};
+use syn::{
+	parse::{Parse, ParseStream},
+	parse_macro_input, Expr, Ident, ItemStruct, LitStr, Result, Token,
+};
+
+struct ExtensionArgs {
+	id: String,
+	name: String,
+	version: String,
+	jobs: Vec<Ident>,
+}
+
+impl Parse for ExtensionArgs {
+	fn parse(input: ParseStream) -> Result<Self> {
+		let mut id = None;
+		let mut name = None;
+		let mut version = None;
+		let mut jobs = Vec::new();
+
+		while !input.is_empty() {
+			let ident: Ident = input.parse()?;
+			input.parse::<Token![=]>()?;
+
+			match ident.to_string().as_str() {
+				"id" => {
+					let lit: LitStr = input.parse()?;
+					id = Some(lit.value());
+				}
+				"name" => {
+					let lit: LitStr = input.parse()?;
+					name = Some(lit.value());
+				}
+				"version" => {
+					let lit: LitStr = input.parse()?;
+					version = Some(lit.value());
+				}
+				"jobs" => {
+					let content;
+					syn::bracketed!(content in input);
+					while !content.is_empty() {
+						jobs.push(content.parse()?);
+						if content.peek(Token![,]) {
+							content.parse::<Token![,]>()?;
+						}
+					}
+				}
+				_ => return Err(input.error("unknown parameter")),
+			}
+
+			if input.peek(Token![,]) {
+				input.parse::<Token![,]>()?;
+			}
+		}
+
+		Ok(ExtensionArgs {
+			id: id.ok_or_else(|| input.error("missing id parameter"))?,
+			name: name.ok_or_else(|| input.error("missing name parameter"))?,
+			version: version.ok_or_else(|| input.error("missing version parameter"))?,
+			jobs,
+		})
+	}
+}
 
 pub fn extension_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 	let input_struct = parse_macro_input!(input as ItemStruct);
+	let args = parse_macro_input!(args as ExtensionArgs);
 
-	// Parse attributes manually for syn 2.0
-	let parser = syn::meta::parser(|meta| {
-		// We'll extract what we need here
-		Ok(())
+	let ext_id = &args.id;
+	let ext_name = &args.name;
+	let ext_version = &args.version;
+
+	// Generate job registration code
+	let job_registrations = args.jobs.iter().map(|job_fn| {
+		let register_fn = quote::format_ident!("__register_{}", job_fn);
+		quote! {
+			{
+				let (name, export_fn, resumable) = #register_fn();
+				::spacedrive_sdk::ffi::log_info(&format!("Registering job: {}", name));
+
+				if let Err(_) = ::spacedrive_sdk::ffi::register_job_with_host(
+					name,
+					export_fn,
+					resumable
+				) {
+					::spacedrive_sdk::ffi::log_error(&format!("Failed to register job: {}", name));
+					return 1;
+				}
+			}
+		}
 	});
-
-	let _ = syn::parse::Parser::parse(parser, args);
-
-	// For now, use default values
-	// TODO: Properly parse attributes with syn 2.0 API
-	let ext_id = "test-beautiful";
-	let ext_name = "Test Extension (Beautiful API)";
-	let ext_version = "0.1.0";
-
-	let struct_name = &input_struct.ident;
 
 	let expanded = quote! {
 		#input_struct
 
-		// Generate plugin_init
+		// Generate plugin_init with auto-registration
 		#[no_mangle]
 		pub extern "C" fn plugin_init() -> i32 {
+			::spacedrive_sdk::ffi::log_info(&format!(
+				"{} v{} initializing...",
+				#ext_name,
+				#ext_version
+			));
+
+			// Register all jobs
+			#(#job_registrations)*
+
 			::spacedrive_sdk::ffi::log_info(&format!(
 				"✓ {} v{} initialized!",
 				#ext_name,
 				#ext_version
 			));
-
-			// TODO: Auto-register jobs/queries/actions here
 
 			0 // Success
 		}
@@ -49,16 +126,7 @@ pub fn extension_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 			));
 			0 // Success
 		}
-
-		// Extension metadata (for manifest generation)
-		#[cfg(feature = "manifest")]
-		pub const EXTENSION_METADATA: ExtensionMetadata = ExtensionMetadata {
-			id: #ext_id,
-			name: #ext_name,
-			version: #ext_version,
-		};
 	};
 
 	TokenStream::from(expanded)
 }
-
