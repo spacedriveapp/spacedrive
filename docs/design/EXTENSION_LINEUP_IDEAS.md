@@ -261,46 +261,54 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 
 ### Launch with 4 Extensions - "Subsystems of a Data OS"
 
-**Extension Names (rebrand for cohesion):**
-1. **Research** (open source, paid flagship)
-2. **Vault** (security subsystem)
-3. **Atlas** (was CRM - team knowledge subsystem)
-4. **Ledger** (was Finance - financial data subsystem)
+**Extension Names:**
+1. **Chronicle** (was Research - open source flagship) ⭐ PERFECT NAME
+2. **Cipher** (was Vault - security subsystem)
+3. **Atlas** (CRM - team knowledge subsystem)
+4. **Ledger** (Finance - financial data subsystem)
+
+**Why Chronicle is Perfect:**
+- James built an AI note-taking app called Chronicle summer 2025 before restarting Spacedrive
+- Has history/validation, not just arbitrary name
+- Perfect for research/planning: paste anything (websites, videos, voice notes), Spacedrive extracts data, Chronicle handles querying
+- "Chronicle your knowledge" - natural verb form
 
 **Future Wave (4-8 weeks post-launch):**
-5. **Studio** (was Media Hub - creator subsystem)
-6. **Counsel** (was Document Intelligence - legal subsystem)
-7. **Chronicle** (was Meeting Intelligence - decision tracking subsystem)
+5. **Studio** (Media Hub - creator subsystem)
+6. **Counsel** (Document Intelligence - legal subsystem)
+7. **Relay** or **Portal** (Meeting Intelligence - decision tracking)
 
 ---
 
 ### November Launch Lineup Details
 
-#### 1. Research (Open Source Flagship)
+#### 1. Chronicle (Open Source Flagship)
 **What it does:**
-- Chat with your data using AI (Ollama local + cloud models)
-- Ingest any content (PDFs, web pages, notes, articles)
-- Auto-organize into projects
+- Research and planning tool: paste anything (websites, videos, PDFs, voice notes, text)
+- Spacedrive handles data extraction (transcription, OCR, web scraping, metadata)
+- Chronicle handles querying with AI (Ollama local + cloud models)
+- Auto-organize into projects and knowledge graphs
 - Create documents from research
 - Citation intelligence: auto-summarize, tag, cite sources
-- Agent workflows: "Build an AI research assistant that writes drafts grounded in your files"
+- **Agent capabilities:** Programmable research assistant that identifies knowledge gaps, suggests readings, tracks research progress
 
 **Why flagship:**
-- Multi-industry (students, developers, writers, researchers, consultants)
-- Shows AI-native platform at its best
+- Multi-industry (students, developers, writers, researchers, consultants, anyone doing knowledge work)
+- Shows AI-native platform at its best: agents with memory and tools
 - Open source proves extensions work even when auditable
-- Drives adoption (students use free/cheap, convert to other extensions)
-- Demo centerpiece
+- Drives adoption (students/researchers use free/cheap, convert to other extensions)
+- Demo centerpiece (shows agent architecture)
+- **Backstory validation:** James built Chronicle as standalone app summer 2025, now reimagined as Spacedrive extension
 
-**Dogfooding:** Your 90+ design docs, whitepaper research, technical documentation
+**In production:** Your 90+ design docs, whitepaper research, technical documentation, extension planning docs
 
 **Pricing:** $10/mo, early-adopter lifetime $200
 
-**Tagline:** "Every file you've ever saved — now searchable, citeable, and conversational."
+**Tagline:** "Chronicle your knowledge. Every source becomes queryable, every insight connected."
 
 ---
 
-#### 2. Vault (Security Subsystem)
+#### 2. Cipher (Security Subsystem)
 **What it does:**
 - Password manager with breach monitoring
 - File and folder encryption
@@ -308,20 +316,22 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 - Key manager (handles device-level keys for all extensions)
 - Secure notes
 - Zero-knowledge architecture
+- **Agent capabilities:** Security agent monitors for weak passwords, suggests encryption for sensitive files, alerts to breaches
 
 **Why it works:**
 - Universal appeal (everyone needs password manager)
-- Obvious privacy advantage
+- Obvious privacy advantage (name literally means "encryption")
 - Shows distributed encryption primitives
 - Natural fit for security-focused platform
+- Professional name (security/crypto industry standard)
 
 **Future:** Browser extensions for autofill (not required for launch)
 
-**Dogfooding:** Team credentials, API keys, sensitive project data
+**In production:** Team credentials, API keys, sensitive project data
 
 **Pricing:** $8/mo, early-adopter lifetime $150
 
-**Tagline:** "Your identity, your keys, your cloud — in your control."
+**Tagline:** "Your secrets, encrypted. Your identity, sovereign."
 
 ---
 
@@ -333,19 +343,21 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 - Team collaboration features
 - Semantic search across all business data
 - "Knowledge management, not contact management"
+- **Agent capabilities:** Relationship manager identifies networking opportunities, suggests follow-ups, tracks project deadlines, analyzes collaboration patterns
 
 **Why it works:**
 - Enterprise credibility
 - Schema flexibility shows platform power
-- You dogfood this for Spacedrive's internal knowledge base! ✓
+- You use this for Spacedrive's internal knowledge base! ✓
 - Natural extension of "organize your data"
 - Scales from individual → team → enterprise
+- Shows cross-extension agent potential (can query Chronicle for context, Ledger for deal values)
 
-**Dogfooding:** Spacedrive's internal knowledge base, investor relations, team coordination
+**In production:** Spacedrive's internal knowledge base, investor relations, team coordination
 
 **Pricing:** $30/mo individual, custom enterprise licensing (no lifetime)
 
-**Tagline:** "A self-organizing workspace for your team's collective brain."
+**Tagline:** "Map your professional universe. Relationships, projects, and knowledge — connected."
 
 ---
 
@@ -357,6 +369,7 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 - Financial document organization
 - Export for accounting software
 - "Receipts-as-data" showcase: extracts totals, taxes, vendors, links to original files
+- **Agent capabilities:** Financial advisor identifies unusual spending, suggests tax deductions, alerts to subscription renewals, tracks budget patterns
 
 **Why it works:**
 - Shows OCR and AI extraction capabilities
@@ -364,12 +377,13 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 - Broad personal user appeal (taxes, expenses)
 - Real-world benefit (save money on taxes)
 - Privacy advantage (financial data stays local)
+- Cross-extension potential: Can inform Chronicle about research tool spending, Atlas about deal values
 
-**Dogfooding:** Spacedrive's expenses, receipts for AI credits, business costs
+**In production:** Spacedrive's expenses, receipts for AI credits, business costs
 
 **Pricing:** $8/mo, early-adopter lifetime $150
 
-**Tagline:** "Every receipt becomes structured data — automatically."
+**Tagline:** "Every receipt becomes data. Every expense becomes insight."
 
 ---
 
@@ -377,11 +391,11 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 
 | Bundle | Extensions | Persona | Price | Tagline |
 |--------|-----------|---------|-------|---------|
-| **Personal Stack** | Research + Vault | Students, researchers, creators | $15/mo or $300 lifetime | "Think. Search. Stay secure." |
-| **Work Stack** | Research + Vault + Ledger | Freelancers, consultants | $20/mo or $400 lifetime | "All your work, one secure brain." |
-| **Team Stack** | Atlas + Vault + Chronicle | SMEs, startups | $30/user/mo | "Your company's second brain." |
+| **Personal Stack** | Chronicle + Cipher | Students, researchers, creators | $15/mo or $300 lifetime | "Knowledge and security. Nothing else needed." |
+| **Work Stack** | Chronicle + Cipher + Ledger | Freelancers, consultants, small business | $20/mo or $400 lifetime | "Research, secure, and profitable." |
+| **Team Stack** | Atlas + Cipher | Teams, startups | $30/user/mo | "Collaborate securely." |
 
-**Note:** CRM (Atlas) sold separately, not bundled (enterprise licensing model)
+**Note:** Atlas sold separately (enterprise licensing model), but available in team bundles
 
 ---
 
@@ -389,37 +403,46 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 
 **Show each extension highlighting different platform capabilities:**
 
-1. **Vault** → Security & encryption engine
-2. **Research** → AI/semantic layer, Ollama integration
-3. **Atlas** → Schema flexibility & collaboration
-4. **Ledger** → Structured extraction & durable jobs
+1. **Chronicle** → AI agents with memory, Ollama integration, open source flagship
+2. **Cipher** → Security & encryption engine, zero-knowledge architecture
+3. **Atlas** → Schema flexibility & collaboration, dynamic data modeling
+4. **Ledger** → OCR/extraction & durable jobs, receipts-as-data
 
-**Together:** Privacy + AI + extensibility + real workloads
+**Together:** Agents + Privacy + Extensibility + Real Workloads
+
+**Cross-Extension Agent Demo:**
+- Chronicle agent identifies research gaps
+- Queries Ledger agent: "What's our AI tool budget?"
+- Queries Atlas agent: "Who should review this research?"
+- Proposes coordinated action across all three contexts
+- User approves with one click
 
 ---
 
 ## Pitch Statement
 
-"Spacedrive launches with four extensions that turn your files into structured, searchable, and secure data:
+"Spacedrive launches with four extensions functioning as subsystems of a data OS:
 
-- **Research** (AI knowledge assistant, open source)
-- **Vault** (security and encryption)
-- **Ledger** (financial data extraction)
-- **Atlas** (team knowledge base, dogfooded for Spacedrive's internal operations)
+- **Chronicle** (AI research assistant, open source) - Built this summer 2025, now reimagined as Spacedrive extension
+- **Cipher** (security and encryption) - Password manager + file encryption with zero-knowledge architecture
+- **Atlas** (team knowledge base) - In production managing Spacedrive's internal operations
+- **Ledger** (financial data extraction) - Receipt OCR and expense tracking
 
-Together, they form the foundation of a local-first data OS."
+Each extension can define AI agents. Agents share the VDFS as their world model and can communicate across extensions. This creates an ecosystem of specialized agents with shared memory and cross-domain insights."
 
 ---
 
 ## Strategic Advantages of This Lineup
 
-1. **Thematic consistency:** Every name feels like a subsystem (Research, Vault, Atlas, Ledger)
-2. **"Data you already have":** Each extension processes existing files, not new data sources
-3. **Multi-market appeal:** Knowledge work + security + finance + enterprise
-4. **Open source proof:** Research proves paid open source extensions work
-5. **Dogfooding credibility:** Atlas used internally
-6. **Clear upgrade paths:** Personal → Work → Team bundles
-7. **Demo diversity:** Each extension showcases different platform capabilities
+1. **Professional naming:** Chronicle, Cipher, Atlas, Ledger - sophisticated, not gimmicky
+2. **Chronicle backstory:** Already built summer 2025, validates the concept worked standalone
+3. **"Data you already have":** Each extension processes existing files, not new data sources
+4. **Multi-market appeal:** Knowledge work + security + finance + enterprise
+5. **Open source proof:** Chronicle proves paid open source extensions work
+6. **In production credibility:** Atlas used internally for Spacedrive operations
+7. **Clear upgrade paths:** Personal → Work → Team bundles
+8. **Agent architecture showcase:** Each extension demonstrates specialized agents with cross-extension communication
+9. **VDFS as agent memory:** Shows platform is "OS for AI agents" not just file manager
 
 ---
 
@@ -435,13 +458,262 @@ Extensions should be about **processing and understanding data**, not **storing 
 
 ---
 
+---
+
+## The Agent Architecture Vision
+
+### Extensions as Agent Containers
+
+The breakthrough insight: **Extensions don't just process data, they can define and program AI agents.**
+
+**How It Works:**
+
+```rust
+#[extension(id = "chronicle")]
+struct Chronicle;
+
+#[agent]
+impl Chronicle {
+    // Define agent's capabilities
+    async fn analyze_research_gap(ctx: &AgentContext) -> Result<Action> {
+        // Agent can read VDFS (short-term memory)
+        let recent_papers = ctx.vdfs().search("papers last 30 days")?;
+
+        // Agent has long-term memory (extension-owned storage)
+        let research_graph = ctx.memory().load("research_graph")?;
+
+        // Agent proposes action
+        ctx.propose_action(SuggestReadingAction {
+            papers: find_gaps(recent_papers, research_graph),
+            reason: "These papers fill gaps in your current research"
+        })
+    }
+}
+```
+
+**What Spacedrive Provides to Agents:**
+
+1. **Short-Term Memory:** VDFS index = complete view of user's data
+2. **Long-Term Memory:** Extension-owned storage for agent state
+3. **Action System:** Agents propose previewable actions (same as users)
+4. **Event System:** Agents react to file changes, new data, user patterns
+5. **Tool Access:** Search, OCR, AI models, multi-device operations
+
+**Cross-Extension Agent Communication:**
+
+Agents can communicate across extensions:
+
+```rust
+// Chronicle agent asks Ledger agent about expenses
+let expense_context = ctx.call_agent("ledger", "get_recent_expenses", json!({
+    "category": "research",
+    "since": "30 days ago"
+}))?;
+
+// Use this context to understand what research was funded
+let funded_projects = analyze_expense_patterns(expense_context)?;
+```
+
+**The VDFS as Agent "Plane of Existence":**
+
+- Agents observe the VDFS (what data exists, how it's organized, user patterns)
+- Agents orient (understand context, identify patterns, find opportunities)
+- Agents act (propose actions through the Action System)
+- All agents share the same world model (the VDFS index)
+- Cross-extension agents can collaborate (Chronicle + Ledger identify research ROI)
+
+**Example Multi-Agent Workflow:**
+
+1. User dumps voice notes, PDFs, web links into Chronicle
+2. Spacedrive extracts data (transcription, OCR, web content)
+3. Chronicle agent analyzes: "You're researching AI safety, but missing key papers from Anthropic"
+4. Chronicle agent queries Ledger: "How much have we spent on AI tools this quarter?"
+5. Ledger agent responds with structured data
+6. Chronicle agent proposes: "Based on your $500 AI tool spend, I recommend these 3 papers to maximize ROI"
+7. User approves, Chronicle creates reading list Action
+
+**This is the Real Platform Play:**
+
+- Extensions become programmable AI agents
+- Agents have memory, tools, and communication
+- VDFS is their shared reality
+- User remains in control (all actions previewed)
+- Entire ecosystem of specialized agents emerges
+
+**Why This Matters:**
+
+- Copilot for your entire digital life (not just code)
+- Agents specialized by domain (finance, research, health, etc.)
+- Cross-domain insights (research spending, project timelines, collaboration patterns)
+- Platform becomes "OS for AI agents managing your data"
+
+---
+
+## Extension Data Inheritance: The Unfair Advantage
+
+### What Extensions Get for Free from VDFS
+
+**Preprocessed Data Already Available:**
+- OCR extracted from PDFs/images (stored in sidecars)
+- Embeddings generated (vector search ready)
+- File metadata parsed (EXIF, media info, file type detection)
+- Content hashes computed (deduplication data)
+- File relationships mapped (parent/child, collections, tag hierarchies)
+
+**User Context (Agent's Built-In Memory):**
+- Complete file history (what user has, when acquired, how organized)
+- Audit log (user patterns, preferences, workflows)
+- Tags and ratings (what user cares about)
+- Access patterns (frequently used files)
+- Cross-device state (which files are where, device availability)
+
+**Example: Chronicle Agent Starts With Full Context**
+
+When Chronicle's agent initializes, it already knows:
+- All PDFs user has (from VDFS index)
+- Their content (OCR already done by Spacedrive)
+- What user reads frequently (audit log patterns)
+- How user organizes research (tag patterns, folder structure)
+- Which topics they're researching (semantic clustering from embeddings)
+
+The agent adds domain-specific logic on top of this foundation:
+
+```rust
+#[agent]
+async fn research_assistant(ctx: &AgentContext) -> Result<Action> {
+    // VDFS already provides:
+    // - ctx.vdfs().all_pdfs()
+    // - ctx.vdfs().ocr_for(file_id)
+    // - ctx.vdfs().user_patterns()
+    // - ctx.vdfs().semantic_clusters()
+
+    // Agent just adds research-specific intelligence
+    let gaps = identify_knowledge_gaps(ctx)?;
+    let priorities = rank_by_user_interests(gaps, ctx.vdfs().patterns())?;
+
+    ctx.propose_action(SuggestReadings {
+        papers: priorities,
+        reasoning: "Based on your current research and reading patterns"
+    })
+}
+```
+
+**The Value:**
+- Extensions don't rebuild data extraction
+- Agents start with rich context, not blank slate
+- Developers write domain logic, not infrastructure
+- All extensions benefit from Spacedrive's ongoing improvements (better OCR, faster search, etc.)
+
+---
+
+## Mobile Interface Architecture: Chat as Universal UI
+
+### The Challenge
+
+**Desktop:** Each extension has custom UI
+- Chronicle: Rich text editor, project organizer, citation manager
+- Cipher: Password forms, file encryption dialogs
+- Atlas: Kanban boards, relationship graphs, data tables
+- Ledger: Expense charts, receipt scanner, tax forms
+
+**Mobile:** Limited screen space, can't ship 50+ custom UIs for marketplace extensions
+
+### The Solution: Chat Interface for Extensions
+
+**Mobile App Architecture:**
+
+```
+Spacedrive Mobile:
+├── File Manager Tab (base VDFS features)
+│   ├── Browse files across all devices
+│   ├── Search (keyword + semantic)
+│   ├── Quick actions (copy, move, share)
+│   ├── Previews and thumbnails
+│   └── Offline access
+│
+└── Extensions Tab (conversational interface)
+    ├── Chat with Chronicle: "Summarize my AI safety research"
+    ├── Chat with Cipher: "Generate password for new account"
+    ├── Chat with Ledger: "How much on coffee this month?"
+    ├── Chat with Atlas: "When should I follow up with James?"
+    └── Discover: "What can Chronicle do?" shows capabilities
+```
+
+**Desktop vs Mobile Experience:**
+
+| Platform | Extension Interface | Example |
+|----------|-------------------|---------|
+| **Desktop** | Rich custom UI + agent | Chronicle has full editor, project views, graph visualization |
+| **Mobile** | Chat with agent + base file manager | "Chronicle, summarize this PDF" in chat interface |
+
+**Extension Requirements:**
+
+```rust
+// Desktop extension must implement:
+- Custom UI (React/Tauri)
+- Agent logic
+
+// Mobile extension only needs:
+- Agent logic (UI is chat)
+- Agent responds to natural language queries
+
+// Same agent code runs on both platforms!
+```
+
+**Why This Works:**
+
+1. **Scalable:** One chat UI works for unlimited extensions
+2. **Natural:** Mobile users expect conversational interfaces (ChatGPT, Siri)
+3. **No UI complexity:** Extension developers don't need mobile UI expertise
+4. **Consistency:** All extensions accessed the same way on mobile
+5. **Discoverability:** "What extensions do I have?" / "What can Chronicle do?"
+6. **Future-proof:** Chat interfaces are the future of mobile interaction
+7. **Marketplace-friendly:** Third-party extensions work on mobile instantly
+
+**User Flow Example:**
+
+Desktop:
+1. Open Chronicle extension
+2. See rich text editor, project sidebar, citation panel
+3. Click "Analyze gaps" button
+4. Agent runs, shows visual graph of knowledge gaps
+
+Mobile:
+1. Open Spacedrive app → Extensions tab
+2. Tap "Chronicle"
+3. Type or voice: "Analyze my research gaps"
+4. Agent responds: "You're missing 3 key papers on AI alignment. Want me to create a reading list?"
+5. Tap "Yes" → Action preview → Approve
+
+**The Architectural Insight:**
+
+Extensions are **AI-first, UI-optional**:
+- Core capability: Agent that understands domain
+- Desktop: Agent + rich UI for power users
+- Mobile: Agent only, accessed via chat
+- Marketplace: Developers build agent, get mobile support free
+
+**For Investors:**
+
+This solves two massive problems:
+1. **Mobile complexity:** Marketplace can scale without requiring every extension to build mobile UI
+2. **AI-native future:** Positioned for conversational interfaces becoming primary interaction model
+
+**Implementation Status:**
+- Architecture designed, leaning toward this model
+- Not definitively locked in yet
+- Would need refinement during Q1 2026
+
+---
+
 ## Next Steps
 
-1. Prototype all 4 extensions (Research, Vault, Atlas, Ledger)
-2. Select best 3-4 based on implementation success
-3. Update MEMO2.md with final lineup
-4. Create demo script showing each extension's platform capabilities
+1. Prototype all 4 extensions (Chronicle, Cipher, Atlas, Ledger)
+2. Chronicle implements first agent (research assistant)
+3. Atlas implements second agent (relationship manager)
+4. Demonstrate cross-extension agent communication
+5. Update MEMO2.md with final lineup
 
-**Recommendation:** Launch with all 4 if possible. Shows incredible execution velocity and platform breadth.
+**Recommendation:** Launch with all 4. Chronicle as open source flagship proves agent model.
 
 
