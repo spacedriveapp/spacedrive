@@ -1,21 +1,20 @@
 # Investor Memo
 
-**To:** Spacedrive Seed Investors
-**From:** James Pine, Founder
-**Date:** October 9, 2025
-**Subject:** Spacedrive V2 Launches November 2025
+**To:** Spacedrive Seed Investors | **From:** James Pine, Founder | **Date:** October 9, 2025
 
-**Supporting Materials:**
-- Video Demo: [Link]
-- Documentation: [Link]
-- Whitepaper: [Link]
-- Codebase: Private repository (request access: james@spacedrive.com)
+**TL;DR:**
+- V1: $2M, 3 years, never shipped sync/networking/cloud, never left alpha. V2: $2,500, 4 months, production-ready
+- Business model: Free open source core + paid extensions ($8-30/mo subscription, early-adopter lifetime licenses sunset Q2 2026). ~95% gross margins (comparable to Tailscale)
+- Launch: November 2025 (3 paid extensions: Finance, Notes, CRM)
+- Post-launch: Raising $500K seed extension. Target $850K ARR 2026, cross $1M ARR Q1 2027 for Series A
+
+**Supporting Materials:** [Video Demo] | [Documentation] | [Whitepaper] | [Codebase - request access]
 
 ---
 
-Spacedrive V1 consumed $2M over three years but failed to deliver core features. I take full responsibility for the execution failure and my silence during that period.
+Spacedrive V1 consumed $2M over three years but failed to ship sync, networking, and cloud support. The product never left alpha. I take full responsibility.
 
-Spacedrive V2, rebuilt in four months, is production-ready and launches November 2025 with three paid extensions.
+Spacedrive V2, rebuilt in four months, is production-ready and launches November 2025. The core platform is free and open source. Revenue comes from paid extensions (Finance, Notes, CRM) built on the platform.
 
 ---
 
@@ -25,9 +24,11 @@ V1 proved market demand: 35,000 GitHub stars, 600,000 installations. Execution f
 
 **Development Comparison:**
 - **V1:** 3 years, 12 developers, $2M → incomplete
-- **V2:** 4 months, 1 developer + AI, $2,500 → production-ready
+- **V2:** 4 months, 1 developer + AI, $2,500 → production-ready, full test coverage
 
-For V2, I spent weeks refining architectural specifications (90+ design documents) including a complete technical whitepaper. This separated architectural thinking from code generation. With clear specs and test-driven development, AI coding agents generated fully tested implementations in hours, conforming to strict code guidelines. Key technology choices like Iroh for networking and SeaQL for database eliminated infrastructure friction, building on proven tech rather than re-inventing. The V1 team spent 3 years attempting to design and implement simultaneously.
+V1 suffered from poor architectural decisions: we over-engineered solutions, built custom ORM and RPC frameworks, then abandoned those dependencies. Lack of clear specifications led to slow, uncoordinated execution. We never shipped sync, networking, or cloud support.
+
+V2 became possible when AI code generation reached production quality for Rust in mid-2025. I spent weeks refining architectural specifications (90+ design documents) including a complete technical whitepaper. With clear specs and test-driven development, AI agents generated implementations in hours. Key technology choices like Iroh and SeaQL (proven, production-grade) eliminated the reinvention problem.
 
 ---
 
@@ -48,11 +49,13 @@ Extensions inherit distributed storage, AI processing, durable jobs, and multi-d
 
 **Launch Extensions (November 2025):**
 
-1. **Finance:** Expense tracking, receipt extraction ($8/mo, $150 lifetime)
-2. **Notes:** Rich text editing, collaboration ($6/mo, $120 lifetime)
+1. **Finance:** Expense tracking, receipt extraction ($8/mo subscription)
+2. **Notes:** Rich text editing, collaboration ($6/mo subscription)
 3. **CRM:** Contact management, knowledge base ($30/mo, enterprise licensing)
 
-**Power Bundle (Finance + Notes):** $12/mo or $250 lifetime (versus $30/mo for Expensify + Notion)
+**Power Bundle (Finance + Notes):** $12/mo subscription
+
+**Early-Adopter Lifetime Licenses:** $150 (Finance), $120 (Notes), $250 (Bundle). Available through Q1 2026 only. Capped at 30% of sales to protect ARR growth. Functions as early customer acquisition and working capital.
 
 **Markets:** $40B+ annually (Gartner/Statista 2024)
 
@@ -76,16 +79,42 @@ Unlike Dropbox or Google Workspace, Spacedrive's local-first model eliminates cl
 
 ---
 
+## Risks & Mitigations
+
+**Risk:** Single founder dependency (bus factor)
+**Mitigation:** Hiring senior engineer Q1 2026. Comprehensive documentation (90+ design docs, whitepaper). Codebase designed for AI agent maintenance.
+
+**Risk:** Extension security (third-party code in sandbox)
+**Mitigation:** WASM sandbox with capability-based permissions. Third-party extensions reviewed before marketplace approval. Users control all permissions.
+
+**Risk:** Enterprise sales cycles (6-9 months)
+**Mitigation:** Focus on prosumer market first ($850K ARR 2026 without enterprise). Enterprise pilots in 2026 prepare for 2027-2028 revenue.
+
+---
+
 ## Unit Economics
 
-**Spacedrive:** $0.30/user/month cost, 95% margins
+**Power Bundle ($12/month):**
+- Marginal cost: ~$0.80/user/month (Stripe 3%, relay servers, CDN)
+- Gross margin: ~95% (comparable to Tailscale)
+- ARPU: $12/month, LTV $240 (24-month avg retention)
+- CAC: $20 (content marketing, open source community)
+- Payback: 2 months
+- LTV/CAC: 12x
 
-- **CAC:** $20 (open source community, content marketing)
-- **Conversion:** 2% year 1, 5% year 3
-- **Single Extension LTV:** $190 → 9.5x LTV/CAC
-- **Bundle LTV:** $1,254 → 62x LTV/CAC
+**Sensitivity Analysis:**
+- Best case (3% conversion, 3% churn): $1.2M ARR 2026
+- Base case (2% conversion, 5% churn): $850K ARR 2026
+- Conservative (1% conversion, 7% churn): $420K ARR 2026
 
-**Projections:** $850K ARR (2026) to $158M ARR (2030, 81% margins)
+**Note on Lifetime Licenses:** Limited early-adopter offer (through Q1 2026) capped at 30% of sales. Functions as customer acquisition tool and working capital for initial development. Transition to subscription-only model protects long-term ARR growth.
+
+**5-Year Projections:**
+- 2026: $850K ARR (3,500 users, SOC 2 certified)
+- 2027: $6.2M ARR (15,000 users, 5 extensions)
+- 2028: $18.8M ARR (50,000 users, HIPAA compliant, third-party marketplace)
+- 2029: $62M ARR (80,000 users, enterprise traction)
+- 2030: $158M ARR (150,000 users, 81% profit margins)
 
 ---
 
@@ -94,21 +123,21 @@ Unlike Dropbox or Google Workspace, Spacedrive's local-first model eliminates cl
 - Re-engage 600,000 V1 users via content marketing and YouTube demos
 - Developer evangelism through SDK hackathons and documentation
 - **Enterprise:** Target healthcare and legal firms via HIMSS/RSA conferences. Spacedrive reduces reliance on costly cloud storage while meeting HIPAA requirements. Secure 3 pilots (50-500 users) by Q4 2026.
-- **Compliance:** SOC 2 (Q2 2026), HIPAA (Q4 2026)
+- **Compliance:** SOC 2 Type II audit (Q2 2026), HIPAA-ready architecture with BAA capability (Q4 2026)
 - **Team:** Engineer (Q1 2026), designer/sales (Q2 2026), scale to 8 by 2027
 
 ---
 
 ## Post-Launch Fundraising
 
-Following the November launch, I will raise a $500K seed extension to reach $1M ARR by Q3 2026:
+Following the November launch, I will raise a $500K seed extension targeting $850K ARR by year-end 2026:
 
-- **Security/Compliance:** $150K (SOC 2, HIPAA)
-- **Hires:** $150K (engineer, designer, sales)
-- **Marketing:** $100K (content, conferences)
-- **Development/Infrastructure:** $100K
+- **Security/Compliance:** $150K (SOC 2 Type II audit, penetration testing, HIPAA-ready architecture)
+- **Team:** $150K (senior Rust engineer Q1, product designer + VP Sales Q2)
+- **Marketing:** $100K (content marketing, developer relations, conference presence)
+- **Development/Infrastructure:** $100K (AI development velocity, relay servers, CDN)
 
-18-month runway to $1M ARR with SOC 2 certification, positioning for Series A ($3-5M) to scale enterprise sales.
+18-month runway to $850K ARR with SOC 2 certification. Cross $1M ARR Q1 2027, positioning for Series A ($3-5M) to scale enterprise sales.
 
 ---
 
@@ -126,7 +155,7 @@ Following the November launch, I will raise a $500K seed extension to reach $1M 
 
 V1 failed. I own that. V2 delivers with three working extensions launching in 30 days.
 
-Following the launch with traction data, I will raise a $500K seed extension to hit $1M ARR by Q3 2026, positioning for Series A. If you are interested in participating or can provide warm introductions, I would welcome that!
+Following the launch with traction data, I will raise a $500K seed extension targeting $850K ARR by year-end 2026 and crossing $1M ARR Q1 2027 for Series A. If you are interested in participating or can provide warm introductions, I would welcome that!
 
 The product launches in 30 days. Schedule a call to review the demo, codebase, and financial model.
 
