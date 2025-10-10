@@ -16,7 +16,7 @@ Spacedrive V1 consumed $2M over three years but failed to ship sync, networking,
 
 Spacedrive V2 completes the original vision: a Virtual Distributed File System that unifies all your data across every device and cloud into one searchable, AI-queryable space. V1 was a fancy file explorer without sync or networking. V2 is the complete architecture: your files sync across devices, AI understands your data, applications inherit this infrastructure. Built in four months, production-ready, launches November 2025.
 
-Business model: The core VDFS is free and open source. Revenue comes from paid extensions built on the platform. Four extensions launch in November.
+Business model: Core VDFS is free and open source. Revenue comes from paid extensions. Four launch in November.
 
 ---
 
@@ -38,7 +38,7 @@ V2 became possible when AI code generation reached production quality for Rust i
 
 Spacedrive appears to be a file manager. The architecture underneath is an operating system for data-driven applications.
 
-The VDFS core primitives (universal storage, multi-device sync, AI workflows, transactional actions, durable jobs) are the backbone infrastructure any data-intensive app needs. Building a password manager requires encrypted storage, multi-device sync, and secure operations. Building an AI research tool requires data ingestion, semantic search, and AI integration. Building a CRM requires dynamic schemas, sync, and collaboration. Spacedrive provides all of this as open source infrastructure.
+The VDFS core primitives (universal storage, multi-device sync, AI workflows, transactional actions, durable jobs) are the backbone infrastructure any data-intensive app needs. Password managers require encrypted storage and sync. AI research tools require data ingestion and semantic search. CRMs require dynamic schemas and collaboration. Spacedrive provides all of this.
 
 Extensions inherit these capabilities through the SDK. A password manager skips months building sync and encryption infrastructure. An AI research tool gets vector search and multi-device state management for free. A financial app inherits OCR and durable jobs. Extension developers write business logic, not infrastructure. This reduces development from months to weeks.
 
@@ -56,17 +56,14 @@ This solves the SaaS trust paradox: users want convenience without third-party d
 
 4. **Ledger** (financial data subsystem): Receipt extraction (OCR), expense tracking, tax prep. Receipts-as-data: extracts totals, taxes, vendors, links to originals. $8/mo
 
-**Personal Bundle (Chronicle + Cipher + Ledger):** $20/mo
-
-**Early-Adopter Lifetime Licenses:** $200 (Chronicle), $150 (Cipher), $150 (Ledger), $400 (Bundle). Available through Q1 2026 only. Capped at 30% of sales to protect ARR growth.
+**Personal Bundle (Chronicle + Cipher + Ledger):** $20/mo or $400 lifetime (early-adopter pricing through Q1 2026 only, capped at 30% of sales to protect ARR growth)
 
 **Markets:** $40B+ annually (Gartner/Statista 2024)
 
 **Key Differentiators:**
 - Data persists in VDFS forever (your receipts, passwords, research remain accessible even if subscription lapses)
-- Chronicle (flagship) is open source (proves extensions work even when auditable), other extensions closed source for competitive advantage
+- Mix of closed and open source extensions. Trust maintained through sandboxed execution and transparent permissions.
 - Extensions define AI agents with memory and tools. Agents share VDFS as world model and communicate across extensions.
-- Trust maintained through open source core + sandboxed execution + transparent permissions
 - We build software, not cloud infrastructure (connects existing clouds rather than competing, avoiding low-margin storage business)
 
 ---
@@ -111,12 +108,10 @@ Unlike Dropbox or Google Workspace, Spacedrive's local-first model eliminates cl
 - Base case (2% conversion, 5% churn): $850K ARR 2026
 - Conservative (1% conversion, 7% churn): $420K ARR 2026
 
-**Note on Lifetime Licenses:** Limited early-adopter offer (through Q1 2026) capped at 30% of sales. Functions as customer acquisition tool and working capital for initial development. Transition to subscription-only model protects long-term ARR growth.
-
 **5-Year Projections:**
-- 2026: $850K ARR (4 extensions: Chronicle, Cipher, Atlas, Ledger. 3,500 paid users, SOC 2 certified)
-- 2027: $6.2M ARR (15,000 users, add Studio and Counsel extensions)
-- 2028: $18.8M ARR (50,000 users, third-party marketplace with agent ecosystem, HIPAA compliant)
+- 2026: $850K ARR (3,500 paid users, SOC 2 certified)
+- 2027: $6.2M ARR (15,000 users, 6-7 total extensions)
+- 2028: $18.8M ARR (50,000 users, third-party marketplace, HIPAA compliant)
 - 2029: $62M ARR (80,000 users, enterprise adoption)
 - 2030: $158M ARR (150,000 users, 10+ extensions, 81% profit margins)
 
@@ -147,11 +142,9 @@ Following the November launch, I will raise a $500K seed extension targeting $85
 
 ## November Launch
 
-**Platform:** Alpha V2 (all major OS)
+**Platform:** Alpha V2 (all major OS) + 4 extensions detailed above
 
-**Extensions:** Chronicle (open source flagship, AI agents), Cipher (security), Atlas (in production internally), Ledger (financial data)
-
-**Validation:** 500-user alpha (November), 5,000-user beta (December). Target 70% day-7 retention (V1 achieved 50%, Notion reports 60% for early adopters). V2's working sync and faster search justify the higher target.
+**Validation:** 500-user alpha (November), 5,000-user beta (December). Target 70% day-7 retention (V1 achieved 50%, Notion reports 60%). V2's working sync and faster search justify the higher target.
 
 ---
 
@@ -159,7 +152,7 @@ Following the November launch, I will raise a $500K seed extension targeting $85
 
 V1 failed. I own that. V2 delivers: a complete VDFS architecture with working sync, networking, AI layer, and four extensions proving the platform works.
 
-Following the launch with traction data, I will raise a $500K seed extension targeting $850K ARR by year-end 2026 and crossing $1M ARR Q1 2027 for Series A. If you are interested in participating or can provide warm introductions, I would welcome that!
+Following the launch with traction data, I will raise a $500K seed extension for an 18-month runway to Series A. If you are interested in participating or can provide warm introductions, I would welcome that!
 
 The product launches in 30 days. Schedule a call to review the demo, codebase, and financial model.
 
