@@ -48,7 +48,7 @@ use crate::{
 // External crate imports
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 /// Pending pairing request information
@@ -322,8 +322,40 @@ impl Core {
 					info!("Networking service initialized");
 					// Store networking service in context so it can be accessed
 					if let Some(networking) = services.networking() {
-						context.set_networking(networking).await;
+						context.set_networking(networking.clone()).await;
 						info!("Networking service registered in context");
+
+						// Initialize sync service on already-loaded libraries
+						// (libraries were loaded before networking was available)
+						info!(
+							"Initializing sync service on {} loaded libraries...",
+							loaded_libraries.len()
+						);
+						for library in &loaded_libraries {
+							if library.sync_service().is_some() {
+								info!(
+									"Sync service already initialized for library {}",
+									library.id()
+								);
+								continue;
+							}
+
+							match library
+								.init_sync_service(device_id, networking.clone())
+								.await
+							{
+								Ok(()) => {
+									info!("Sync service initialized for library {}", library.id());
+								}
+								Err(e) => {
+									warn!(
+										"Failed to initialize sync service for library {}: {}",
+										library.id(),
+										e
+									);
+								}
+							}
+						}
 					}
 				}
 				Err(e) => {
