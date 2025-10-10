@@ -228,273 +228,28 @@ Spacedrive's VDFS architecture + Extension SDK enables a new category of applica
 • AVOID these words:
 “can, may, just, that, very, really, literally, actually, certainly, probably, basically, could, maybe, delve, embark, enlightening, esteemed, shed light, craft, crafting, imagine, realm, game-changer, unlock, discover, skyrocket, abyss, not alone, in a world where, revolutionize, disruptive, utilize, utilizing, dive deep, tapestry, illuminate, unveil, pivotal, intricate, elucidate, hence, furthermore, realm, however, harness, exciting, groundbreaking, cutting-edge, remarkable, it, remains to be seen, glimpse into, navigating, landscape, stark, testament, in summary, in conclusion, moreover, boost, skyrocketing, opened up, powerful, inquiries, ever-evolving", comprehensive
 
-# IMPORTANT: Review your response and ensure no em dashes!
-
----
-
-### Investor Memorandum
-
-To: Spacedrive Seed Investors
-From: James Pine, Founder
-Date: October 9, 2025
-Subject: Spacedrive V2 is Production-Ready
-
-After three years and $2M, Spacedrive V1 failed to deliver over half of the promised features, including the most important ones: networking devices together and sync. I take full responsibility for the failure and my silence during the company's most difficult period.
-
-What I present today is the product we always promised. Spacedrive V2 is production-ready and launches mid-November 2025. I rebuilt the entire platform in just four months.
-
-This memo presents what I learned, what I built, and why Spacedrive is positioned to dominate a $40B+ market with structural advantages no competitor matches.
-
----
-
-### What Went Wrong: Execution Failure, Not Market Fit
-
-V1 validated the market: 35,000 GitHub stars, 600,000+ installations, front-page HN twice. The failure was execution, driven by fatal architectural choices:
-
-1. Sync system never shipped after 3 years of development
-2. Dual file system where indexed and ephemeral files did not interact
-3. Job system requiring 500-1000+ lines for simple operations
-4. Search delivered basic SQL LIKE queries despite marketing "lightning fast" search
-
-These compounded into an unmaintainable codebase. No amount of capital would have salvaged the foundation.
-
----
-
-### What Changed: The AI-Augmented Development Breakthrough
-
-In July 2025, I started over with one focus: solve every V1 architectural flaw from first principles.
-
-Development Comparison:
-- V1: 3 years, 12 developers, $2M → incomplete product
-- V2: 4 months, 1 developer + AI, $2,500 → production-ready system
-
+Note on AI development workflow:
 The AI-augmented approach solved problems V1 never could. Example: V1's sync and networking system failed after 3 years without ever shipping a working version, arguably the most valuable feature for Spacedrive. For V2, I spent weeks refining architectural specifications and design documents (90+ core documents). With clear specifications in hand, I used coding agents to generate the implementation in just a few hours, producing a working system with full unit and integration test coverage. This workflow combined rigorous code style rules and full codebase triage using large context window models. This, combined with key technology choices like Iroh for networking and SeaQL for database, reduced infrastructure friction massively.
 
-Key Architectural Innovations in V2:
-- Universal file addressing across all devices
-- Immediate metadata (no indexing delays)
-- Fast file identification (8,500 files/sec)
-- Preview-before-execute for all operations
-- Reliable multi-device sync (tested across 50+ devices)
-- Extension SDK: 90% code reduction (15 lines vs 150+ for typical extensions)
-
-The whitepaper details benchmarks: 55ms search latency, 150MB memory for 1M files, 110 MB/s P2P transfer speeds.
 
 ---
 
-### The Platform Play: Privacy-Preserving Application Platform
-
-Spacedrive solves the "trust paradox" of modern SaaS. Users want convenience but refuse to trust third parties with sensitive data. We provide SaaS-level capabilities locally.
-
-The Extension SDK reduces development from 150+ lines of FFI boilerplate to 15 lines of business logic through attribute macros. Example:
-
-Traditional WASM Extension (150+ lines):
-- Manual `#[no_mangle]` and `extern "C"` declarations
-- Pointer marshalling and memory management
-- Manual serialization/deserialization
-- State persistence logic
-
-Spacedrive Extension (15 lines):
-```rust
-#[job]
-async fn scan_receipts(ctx: &JobContext, state: &mut ScanState) -> Result<()> {
-    for receipt in fetch_receipts(&state.last_id)?.progress(ctx) {
-        ctx.check()?;  // Auto-checkpoint on interrupt
-        extract_and_store(ctx, receipt).await?;
-        state.last_id = receipt.id;
-    }
-    Ok(())
-}
-```
-
-Attribute macros generate all FFI exports, state management, progress tracking, and error handling. Extensions inherit: universal data model, AI layer, semantic search, durable jobs, multi-device sync.
-
-This enables Spacedrive to match iCloud and Google Workspace capabilities but with local-first privacy:
-- Finance Extension: Receipt scanning, expense tracking, tax preparation (replaces Expensify)
-- CRM Extension: Business knowledge base, contact management (replaces HubSpot)
-- Password Manager: Encrypted credential storage (replaces 1Password)
-- Notes Extension: Rich text, collaboration (replaces Notion)
-- Calendar Extension: Event management, scheduling (replaces Google Calendar)
-
-Addressable Markets ($40B+ annually, Gartner/Statista 2024):
-- Digital Asset Management: $4.8B (Adobe DAM, Bynder)
-- Note-Taking/PKM: $2.1B (Notion, Evernote)
-- Password Managers: $2.8B (1Password)
-- Expense/Finance: $4.2B (Expensify, Concur)
-- CRM (Small Business): $8.2B (HubSpot)
-- Developer Automation Tools: $15B (GitHub Copilot, Cursor, n8n)
-- Project Management: $6.5B (Asana, ClickUp)
-
----
-
-### The Business Model: Unit Economics
-
-We compete on structural margin advantages through local-first architecture:
-
-Traditional SaaS: 15-45% gross margins
-- Cloud compute, storage, AI APIs: $5.50-11/user/month
-- Capital-intensive infrastructure resale
-
-Spacedrive Extensions: 95% gross margins
-- User hardware handles compute/storage: $0.30/user/month marginal cost
-- Pure software pricing with near-zero COGS
-
-Unit Economics (based on V1's 600,000 installations as baseline):
-- CAC $20 (content marketing, open source community)
-- Free-to-paid conversion: 2% year 1, 5% year 3 (below industry average of 3-7%)
-- Churn: 5% monthly (standard for prosumer tools)
-- Single Extension: LTV $190, CAC $20 → 9.5x LTV/CAC
-- Bundle User (3+ extensions): LTV $1,254, CAC $20 → 62x LTV/CAC
-
-Three-Tier Revenue Structure:
-1. Free Open-Source Core: File manager, indexing, search (user acquisition funnel)
-2. Premium Extensions: Domain-specific apps at $5-20/month each
-3. Cloud + Enterprise: Managed hosting ($10-50/mo), on-premise licensing ($50-500/user/year)
-
-5-Year Projections:
-- 2026: $230K ARR (prove extension model, 1,000 paid users, SOC 2 certified)
-- 2027: $6.2M ARR (3 extensions live, 15,000 paid users)
-- 2028: $18.8M ARR (third-party marketplace, 50,000 paid users, HIPAA compliant)
-- 2029: $62M ARR (enterprise adoption, 80,000 paid users)
-- 2030: $158M ARR (8 flagship extensions, 150,000 paid users, 81% profit margins)
-
----
-
-### The Moats: Why This Is Defensible
-
-1. SDK Moat: 90% boilerplate reduction → 10x more developers → faster ecosystem growth
-2. Margin Moat: 95% gross margins make price competition impossible for cloud SaaS
-3. Data Gravity: User's data in Spacedrive = massive switching costs
-4. Technical Barrier: Years of VDFS R&D difficult to replicate
-5. Open Source Trust: Auditable privacy closed-source competitors do not match
-6. Network Effects: Shared libraries + collaboration create social lock-in
-7. Developer Network Effects: More extensions → more developers → better platform → more users
-
----
-
-### Competitive Risks and Mitigation
-
-Risk: Dropbox, Notion, and other incumbents have distribution advantages and brand recognition.
-
-Mitigation Strategy:
-- Leverage 95% margins to undercut on price (our $10/month vs Expensify's $20/month)
-- Open source model builds trust incumbents cannot replicate (auditable privacy)
-- Target privacy-sensitive verticals where incumbents face trust issues (healthcare, finance, legal)
-- Extension SDK creates developer moat: 90% easier development attracts ecosystem faster than competitors
-- Content-aware deduplication and local-first architecture solve pain points incumbents ignore
-
-Risk: Extension SDK adoption slower than projected.
-
-Mitigation Strategy:
-- Ship 3 flagship extensions ourselves (Finance, CRM, Password Manager) to prove the model
-- Developer evangelism: hackathons, conference talks, video tutorials
-- Revenue share for marketplace extensions (70/30 split) incentivizes third-party development
-- Clear migration guides from existing tools (Expensify → Spacedrive Finance, Notion → Spacedrive Notes)
-
----
-
-### Go-to-Market and Execution Strategy
-
-Customer Acquisition:
-- Open source community (existing V1 users as re-engagement base)
-- Content marketing: Technical blogs, developer tutorials, YouTube demos
-- Developer evangelism: Conference talks, hackathons, extension showcases
-- Product-led growth: Free tier converts to paid extensions
-
-First Extension Launch (Spacedrive Finance, January 2026):
-- Target market: Small business owners, freelancers, tax-conscious individuals
-- Value proposition: Receipt scanning via OCR, expense categorization, tax preparation assistance
-- Pricing: $10/month (below Expensify's $20/month)
-- Distribution: In-app marketplace, 30-day free trial
-- Differentiation: Local-first privacy (receipts never leave user's device), works offline
-
-Enterprise Strategy (2026 onwards):
-- Target verticals: Healthcare (HIPAA compliance), finance (SOC 2), legal (document retention)
-- Compliance roadmap: SOC 2 Type II (Q2 2026), HIPAA (Q4 2026), ISO 27001 (Q1 2027)
-- Sales approach: Target mid-sized firms via HIMSS (healthcare), RSA Conference (finance), and partnerships with compliance consultants. Hire VP of Enterprise Sales (Q3 2026), build 5-person sales team by 2028
-- Pilot program: 3 enterprise customers (50-500 users each) in Q4 2026, 6-9 month sales cycles typical for compliance software
-
-Team Building:
-- Q1 2026: Hire senior engineer (Rust/systems programming)
-- Q2 2026: Hire product designer and VP of Enterprise Sales
-- Q3 2026: Hire security engineer for compliance
-- 2027: Scale to 8-person team (2 engineers, 2 sales, designer, marketer, support, security)
-
-This approach prioritizes revenue validation before scaling headcount. The solo-founder model is a starting point, not the long-term structure.
-
----
-
-### Capital Allocation
-
-Proposed $500K seed extension bridges us to $1M ARR by mid-2026, positioning for Series A:
-
-- Security/Compliance: $150K (SOC 2 Type II audit Q2 2026, penetration testing, HIPAA prep)
-- First hires: $150K (senior engineer Q1, designer/sales Q2, security engineer Q3)
-- Marketing: $100K (content creation, developer relations, conference presence)
-- Development: $50K (maintaining AI-augmented velocity)
-- Infrastructure: $50K (hosting, CDN, monitoring)
-
-This gives us 18-month runway to $1M ARR milestone with SOC 2 certification. At this point, we raise Series A ($3-5M) to scale enterprise sales and accelerate extension development.
-
----
-
-### November Launch Plan: Disciplined Execution
-
-We launch in 30 days with full transparency:
-
-Technical Release:
-- V2 whitepaper publication
-- GitHub repository merge (open source the entire V2 codebase)
-- Alpha V2 (Windows, macOS, Linux, iOS, Android)
-
-Investor Package:
-- This memorandum + pitch deck
-- Video demonstration (product tour + technical walkthrough)
-- Codebase guided tour
-- Financial model with assumptions
-
-Customer Validation Plan:
-- Private alpha: 500 selected V1 users (November 2025)
-- Gather feedback on: sync reliability, search speed, UI/UX improvements
-- Public beta: 5,000 users (December 2025)
-- Metrics tracked: daily active users, retention (day 7/30), feature usage, bug reports
-- Target: 70% day-7 retention, 40% day-30 retention (exceeds Notion's reported 60% for early adopters and top-quartile SaaS benchmarks)
-
-Post-Launch Milestones:
-- Public Beta (December 2025)
-- First premium extension launch (Spacedrive Finance, January 2026)
-- Extension SDK documentation + developer onboarding (January 2026)
-
----
-
-### The Ask
-
-I failed to deliver V1 and failed to communicate during our most difficult period. I take full responsibility.
-
-V2 solves every V1 flaw. The business model has structural advantages no competitor matches. 600,000 installations proved product-market fit.
-
-I seek a $500K seed extension to reach $1M ARR by mid-2026, positioning for Series A. This funds first hires, compliance certifications, and customer acquisition over an 18-month runway.
-
-The product launches in 30 days. Let's schedule a call to walk through the demo, codebase, and financial model.
-
-James Pine
-Founder, Spacedrive
-james@spacedrive.com
-
----
-
-## SHORTER VERSION (For Quick Review)
-
-### Investor Memorandum
+## Investor Memorandum
 
 To: Spacedrive Seed Investors
 From: James Pine, Founder
 Date: October 9, 2025
 Subject: Spacedrive V2 is Production-Ready
 
+**Supporting Materials:**
+- Video Demo: [Link]
+- Documentation: [Link]
+- Whitepaper: [Link]
+- Codebase: Private repository (request access: james@spacedrive.com)
+
 After three years and $2M, Spacedrive V1 failed to deliver over half of the promised features, including the most important ones: networking devices together and sync. I take full responsibility for the failure and my silence during the company's most difficult period.
 
-What I present today is the product we promised. Spacedrive V2 is production-ready and launches mid-November 2025. I rebuilt it in four months using AI-augmented development.
+What I present today is the product we promised. Spacedrive V2 is production-ready and launches mid-November 2025 with three working extensions. I rebuilt the entire platform in four months using AI-augmented development.
 
 ---
 
@@ -516,12 +271,27 @@ Spacedrive solves the "trust paradox" of modern SaaS: users want convenience but
 
 Our Extension SDK reduces development from 150+ lines of FFI boilerplate to 15 lines through attribute macros. The `#[job]` macro auto-generates FFI exports, state management, progress tracking, and error handling. Extensions inherit: universal data model, AI layer, semantic search, durable jobs, multi-device sync.
 
-This enables Spacedrive to match iCloud and Google Workspace but with local-first privacy:
-- Finance Extension: Receipt scanning, expense tracking, tax prep (replaces Expensify, $4.2B market)
-- CRM Extension: Business knowledge base, contacts (replaces HubSpot, $8.2B market)
-- Password Manager: Encrypted credentials (replaces 1Password, $2.8B market)
-- Notes Extension: Rich text, collaboration (replaces Notion, $2.1B market)
-- Calendar Extension: Event management (part of productivity suite)
+This enables Spacedrive to match iCloud and Google Workspace but with local-first privacy.
+
+Launch Day Extension Lineup (All Three Ready November 2025):
+
+1. Finance Extension: Receipt extraction from emails, expense tracking, tax prep
+   - Pricing: $8/month or $150 lifetime
+
+2. Notes Extension: Rich text editing, organization, collaboration
+   - Pricing: $6/month or $120 lifetime
+
+3. CRM Extension: Business knowledge base, contact management, document organization
+   - Pricing: $30/month individual, enterprise licensing available
+   - Validation: We manage Spacedrive's internal knowledge base using our own CRM extension
+
+Power Bundle (Finance + Notes, excludes CRM): $12/month or $250 lifetime
+
+Comparison: Expensify ($20/mo) + Notion ($10/mo) = $30/month subscription-only. Our bundle: $12/month or one-time $250.
+
+Key differentiator: Data persists in VDFS forever. If a subscription lapses, your data remains accessible. Extensions are closed source for competitive advantage, but trust is maintained through open source core, sandboxed execution, and transparent permission system.
+
+Strategic focus: We build software, not cloud infrastructure. Spacedrive connects existing clouds (iCloud, Google Drive, Dropbox) rather than competing with them. This avoids the low-margin, high-risk cloud storage business and eliminates ecosystem lock-in as leverage against us.
 
 Addressable Markets: $40B+ annually (Gartner/Statista 2024)
 
@@ -533,29 +303,21 @@ Traditional SaaS: 15-45% gross margins ($5.50-11/user/month cloud costs)
 Spacedrive: 95% gross margins ($0.30/user/month marginal cost)
 
 Unit Economics (based on prosumer SaaS benchmarks):
-- Single Extension: LTV $190, CAC $20 → 9.5x LTV/CAC
-- Bundle (3+ extensions): LTV $1,254, CAC $20 → 62x LTV/CAC
+- CAC $20 (content marketing, open source community)
+- Free-to-paid conversion: 2% year 1, 5% year 3
+- Churn: 5% monthly for subscriptions, 0% for lifetime licenses
+- Single Extension (subscription): LTV $190, CAC $20 → 9.5x LTV/CAC
+- Power Bundle (subscription): LTV $1,254, CAC $20 → 62x LTV/CAC
+- Lifetime licenses: Immediate cash flow, zero churn
 
-The local-first model creates a structural margin advantage over cloud-based competitors.
+The local-first model creates a structural margin advantage over cloud-based competitors. The hybrid subscription/lifetime pricing model appeals to both recurring revenue investors and privacy-conscious users who prefer ownership.
 
-5-Year Projections:
-- 2026: $230K ARR (1,000 paid users, SOC 2 certified)
-- 2027: $6.2M ARR (15,000 paid users)
-- 2028: $18.8M ARR (50,000 paid users, HIPAA compliant)
+5-Year Projections (launching with 3 extensions ready):
+- 2026: $850K ARR (3,500 paid users across 3 extensions, SOC 2 certified)
+- 2027: $6.2M ARR (15,000 paid users, 5 total extensions)
+- 2028: $18.8M ARR (50,000 paid users, third-party marketplace, HIPAA compliant)
 - 2029: $62M ARR (80,000 paid users, enterprise adoption)
-- 2030: $158M ARR (150,000 paid users, 81% profit margins)
-
----
-
-### Why This Is Defensible
-
-1. Margin Moat: 95% margins make price competition impossible
-2. SDK Moat: 90% easier development attracts ecosystem faster than competitors
-3. Data Gravity: User's data in Spacedrive creates massive switching costs
-4. Open Source Trust: Auditable privacy closed-source competitors cannot replicate
-5. Technical Barrier: Years of VDFS R&D difficult to replicate
-
-Competitive Mitigation: Leverage 95% margins to undercut incumbents (our $10/month vs Expensify's $20/month). Target privacy-sensitive verticals (healthcare, finance, legal) where Dropbox and Notion face trust issues. Extension SDK (90% code reduction) creates developer moat no competitor matches.
+- 2030: $158M ARR (150,000 paid users, 8 flagship extensions, 81% profit margins)
 
 ---
 
@@ -564,13 +326,14 @@ Competitive Mitigation: Leverage 95% margins to undercut incumbents (our $10/mon
 Customer Acquisition:
 - Open source community (existing V1 users as re-engagement base)
 - Content marketing: Technical blogs, YouTube demos
-- Developer evangelism: Conference talks, hackathons
+- Developer evangelism: SDK, hackathons
 
-First Extension Launch (Spacedrive Finance, January 2026):
-- Target: Small business owners, freelancers, tax-conscious individuals
-- Value: Receipt scanning, expense categorization, tax prep assistance
-- Pricing: $10/month (below Expensify's $20/month)
-- Differentiation: Local-first privacy, works offline
+Extension Launch (All Three Ready November 2025):
+- Finance: Receipt extraction from emails, expense tracking, tax prep | $8/mo or $150 lifetime
+- Notes: Rich text editing, organization | $6/mo or $120 lifetime
+- CRM: Business knowledge base, contacts | $30/mo (we dogfood this for Spacedrive's internal knowledge)
+- Power Bundle (Finance + Notes): $12/mo or $250 lifetime (vs competitors' $30/mo subscription-only)
+- Differentiation: Data persists forever even if subscription lapses, works offline, local-first privacy
 
 Enterprise Strategy:
 - Target mid-sized healthcare, finance, and legal firms via HIMSS, RSA Conference, and compliance consultant partnerships
@@ -583,7 +346,7 @@ Team Building: Senior engineer (Q1 2026), designer and VP Sales (Q2 2026), secur
 
 ### Capital Allocation
 
-Proposed $500K seed extension bridges us to $1M ARR by mid-2026, positioning for Series A:
+Proposed $500K seed extension bridges us to $1M ARR by Q3 2026, positioning for Series A:
 
 - Security/Compliance: $150K (SOC 2 Type II audit Q2 2026, HIPAA prep)
 - First hires: $150K (engineer, designer, sales, security)
@@ -591,17 +354,22 @@ Proposed $500K seed extension bridges us to $1M ARR by mid-2026, positioning for
 - Development: $50K (AI-augmented velocity)
 - Infrastructure: $50K (hosting, CDN)
 
-18-month runway to $1M ARR with SOC 2 certification. At this milestone, we raise Series A ($3-5M) to scale enterprise sales and accelerate extension development.
+18-month runway with 3 extensions launching November 2025 (Finance, Notes, CRM). Projected $850K ARR by year-end 2026, exceeding $1M ARR threshold by Q3 2026 for Series A ($3-5M) to scale enterprise sales and accelerate extension development.
 
 ---
 
 ### November Launch
 
-Technical Release: Whitepaper, GitHub merge, Alpha V2 (Windows, macOS, Linux, iOS, Android)
+Launch Includes:
+- Platform: Alpha V2 (Windows, macOS, Linux, iOS, Android)
+- Extensions: Finance, Notes, CRM (all three working)
+- Validation: CRM extension manages Spacedrive's internal knowledge base (dogfooding)
+- Documentation: Whitepaper publication, public GitHub repository merge
 
-Customer Validation:
-- Private alpha: 500 V1 users (November)
-- Public beta: 5,000 users (December)
+Customer Validation Plan:
+- Private alpha: 500 V1 users (November 2025)
+- Public beta: 5,000 users (December 2025)
+- Extension marketplace opens: January 2026 (third-party developer onboarding)
 - Target: 70% day-7 retention (exceeds Notion's 60%)
 
 ---
@@ -610,11 +378,11 @@ Customer Validation:
 
 I failed to deliver V1 and failed to communicate. I take full responsibility.
 
-V2 solves every V1 flaw. The business model has structural advantages no competitor matches. 600,000 installations proved product-market fit.
+V2 solves every V1 flaw. The business model has structural margin advantages through local-first architecture. 600,000 installations proved product-market fit. Three working extensions launch November 2025.
 
-I seek a $500K seed extension to reach $1M ARR by mid-2026, positioning for Series A. This funds first hires, compliance, and customer acquisition over 18 months.
+I seek a $500K seed extension to reach $1M ARR by Q3 2026, positioning for Series A. This funds first hires, SOC 2 certification, and customer acquisition over 18 months.
 
-The product launches in 30 days. Let's schedule a call to walk through the demo, codebase, and financial model.
+The product launches in 30 days with working extensions. Let's schedule a call to walk through the demo, codebase, and financial model.
 
 James Pine
 Founder, Spacedrive
