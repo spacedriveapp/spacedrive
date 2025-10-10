@@ -8,24 +8,21 @@
 //! 5. Monitor sync events on both cores
 //! 6. Validate data appears correctly in Core B's database
 //!
-//! Note: This test is designed to work with the CURRENT state of the codebase.
-//! It will NOT see actual sync until database calls are replaced with
-//! TransactionManager calls that emit sync events.
 
 use sd_core::{
 	infra::{
 		db::entities,
 		event::Event,
-		sync::{ChangeType, NetworkTransport},
+		sync::{ChangeType, NetworkTransport, Syncable},
 	},
 	library::Library,
 	Core,
 };
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tempfile::TempDir;
 use tokio::{
-	sync::Mutex,
+	sync::{oneshot, Mutex},
 	time::{timeout, Duration},
 };
 use tracing::info;
@@ -89,6 +86,7 @@ impl BidirectionalMockTransport {
 			outgoing: self.a_to_b.clone(),
 			incoming: self.b_to_a.clone(),
 			outgoing_history: self.a_to_b_history.clone(),
+			pending_requests: Arc::new(Mutex::new(HashMap::new())),
 		})
 	}
 
@@ -100,6 +98,7 @@ impl BidirectionalMockTransport {
 			outgoing: self.b_to_a.clone(),
 			incoming: self.a_to_b.clone(),
 			outgoing_history: self.b_to_a_history.clone(),
+			pending_requests: Arc::new(Mutex::new(HashMap::new())),
 		})
 	}
 
@@ -124,7 +123,7 @@ impl BidirectionalMockTransport {
 	}
 }
 
-/// Mock transport peer that can send and receive messages
+/// Mock transport peer that can send and receive messages with request/response support
 struct MockTransportPeer {
 	my_device_id: Uuid,
 	peer_device_id: Uuid,
@@ -153,6 +152,15 @@ struct MockTransportPeer {
 				Uuid,
 				sd_core::service::network::protocol::sync::messages::SyncMessage,
 			)>,
+		>,
+	>,
+	/// Pending requests waiting for responses (request hash → response sender)
+	pending_requests: Arc<
+		Mutex<
+			HashMap<
+				u64,
+				oneshot::Sender<sd_core::service::network::protocol::sync::messages::SyncMessage>,
+			>,
 		>,
 	>,
 }
@@ -208,6 +216,46 @@ impl NetworkTransport for MockTransportPeer {
 }
 
 impl MockTransportPeer {
+	/// Send a request message and wait for response
+	async fn send_request(
+		&self,
+		target_device: Uuid,
+		request: sd_core::service::network::protocol::sync::messages::SyncMessage,
+	) -> anyhow::Result<sd_core::service::network::protocol::sync::messages::SyncMessage> {
+		use std::collections::hash_map::DefaultHasher;
+		use std::hash::{Hash, Hasher};
+
+		// Create unique request ID by hashing the message
+		let mut hasher = DefaultHasher::new();
+		format!("{:?}", request).hash(&mut hasher);
+		let request_id = hasher.finish();
+
+		// Create oneshot channel for response
+		let (tx, rx) = oneshot::channel();
+		self.pending_requests.lock().await.insert(request_id, tx);
+
+		info!(
+			"📤 Device {} sending REQUEST to Device {} (id: {})",
+			self.my_device_id, target_device, request_id
+		);
+
+		// Send request
+		self.outgoing.lock().await.push((target_device, request));
+
+		// Wait for response with timeout
+		match tokio::time::timeout(Duration::from_secs(10), rx).await {
+			Ok(Ok(response)) => {
+				info!(
+					"📥 Device {} received RESPONSE (id: {})",
+					self.my_device_id, request_id
+				);
+				Ok(response)
+			}
+			Ok(Err(_)) => Err(anyhow::anyhow!("Response channel closed")),
+			Err(_) => Err(anyhow::anyhow!("Request timeout")),
+		}
+	}
+
 	/// Process incoming messages by delivering them to the sync service
 	async fn process_incoming_messages(
 		&self,
@@ -222,6 +270,9 @@ impl MockTransportPeer {
 				"📥 Device {} received message from Device {}",
 				self.my_device_id, sender
 			);
+
+			// Clone message for later use if needed
+			let message_clone = message.clone();
 
 			// Route message to appropriate handler
 			use sd_core::service::network::protocol::sync::messages::SyncMessage;
@@ -266,6 +317,57 @@ impl MockTransportPeer {
 						.on_ack_received(from_device, up_to_hlc)
 						.await?;
 				}
+				SyncMessage::SharedChangeRequest {
+					library_id,
+					since_hlc,
+					limit,
+				} => {
+					// Process request and generate response
+					let (entries, has_more) = sync_service
+						.peer_sync()
+						.get_shared_changes(since_hlc, limit)
+						.await?;
+
+					// Get full state for initial backfill
+					let current_state = if since_hlc.is_none() {
+						Some(sync_service.peer_sync().get_full_shared_state().await?)
+					} else {
+						None
+					};
+
+					// Send response back to requester
+					let response = SyncMessage::SharedChangeResponse {
+						library_id,
+						entries,
+						current_state,
+						has_more,
+					};
+
+					self.send_response_to_pending(message_clone, response)
+						.await?;
+				}
+				SyncMessage::SharedChangeResponse {
+					library_id: _,
+					entries,
+					current_state,
+					has_more: _,
+				} => {
+					// This is a response to our request - complete the oneshot channel
+					self.complete_pending_request(message_clone).await?;
+
+					// Also process the response data
+					for entry in entries {
+						sync_service
+							.peer_sync()
+							.on_shared_change_received(entry)
+							.await?;
+					}
+
+					// Process current_state if provided
+					if let Some(state) = current_state {
+						self.apply_current_state(state, sync_service).await?;
+					}
+				}
 				_ => {
 					info!("Ignoring unsupported message type for test");
 				}
@@ -273,6 +375,74 @@ impl MockTransportPeer {
 		}
 
 		Ok(count)
+	}
+
+	/// Apply current_state snapshot to database
+	async fn apply_current_state(
+		&self,
+		state: serde_json::Value,
+		sync_service: &sd_core::service::sync::SyncService,
+	) -> anyhow::Result<()> {
+		use sd_core::infra::sync::{SharedChangeEntry, HLC};
+
+		// Apply tags from state snapshot
+		if let Some(tags) = state["tags"].as_array() {
+			for tag_data in tags {
+				let uuid: Uuid = Uuid::parse_str(tag_data["uuid"].as_str().unwrap())?;
+				let data = tag_data["data"].clone();
+
+				// Apply as synthetic SharedChangeEntry
+				entities::tag::Model::apply_shared_change(
+					SharedChangeEntry {
+						hlc: HLC::now(self.my_device_id),
+						model_type: "tag".to_string(),
+						record_uuid: uuid,
+						change_type: ChangeType::Insert,
+						data,
+					},
+					sync_service.peer_sync().db().as_ref(),
+				)
+				.await?;
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Send response to the peer that made the request
+	async fn send_response_to_pending(
+		&self,
+		original_request: sd_core::service::network::protocol::sync::messages::SyncMessage,
+		response: sd_core::service::network::protocol::sync::messages::SyncMessage,
+	) -> anyhow::Result<()> {
+		// Send response through outgoing queue
+		self.outgoing
+			.lock()
+			.await
+			.push((self.peer_device_id, response));
+		Ok(())
+	}
+
+	/// Complete a pending request with the received response
+	async fn complete_pending_request(
+		&self,
+		response: sd_core::service::network::protocol::sync::messages::SyncMessage,
+	) -> anyhow::Result<()> {
+		use std::collections::hash_map::DefaultHasher;
+		use std::hash::{Hash, Hasher};
+
+		// Hash the response to find matching request
+		// (This is simplified - production would use proper request IDs)
+		let mut hasher = DefaultHasher::new();
+		format!("{:?}", response).hash(&mut hasher);
+		let response_id = hasher.finish();
+
+		// Try to complete the oneshot channel
+		if let Some(tx) = self.pending_requests.lock().await.remove(&response_id) {
+			let _ = tx.send(response);
+		}
+
+		Ok(())
 	}
 }
 
@@ -319,8 +489,8 @@ impl SyncTestSetup {
 			job_logging: sd_core::config::JobLoggingConfig::default(),
 			services: sd_core::config::ServiceConfig {
 				networking_enabled: false, // Disable networking so we can inject mock
-				volume_monitoring_enabled: true,
-				location_watcher_enabled: true,
+				volume_monitoring_enabled: false,
+				location_watcher_enabled: false,
 			},
 		};
 		config_a.save()?;
@@ -334,8 +504,8 @@ impl SyncTestSetup {
 			job_logging: sd_core::config::JobLoggingConfig::default(),
 			services: sd_core::config::ServiceConfig {
 				networking_enabled: false, // Disable networking so we can inject mock
-				volume_monitoring_enabled: true,
-				location_watcher_enabled: true,
+				volume_monitoring_enabled: false,
+				location_watcher_enabled: false,
 			},
 		};
 		config_b.save()?;
@@ -1121,5 +1291,263 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 	}
 
 	info!("✅ TEST COMPLETE: Backfill correctly includes all tags (pre-sync and post-sync)");
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
+	info!("🧪 TEST: Transitive Sync (A → B → C while A offline)");
+
+	// Initialize tracing
+	let _ = tracing_subscriber::fmt()
+		.with_env_filter("sd_core=debug,sync_integration_test=debug")
+		.with_test_writer()
+		.try_init();
+
+	info!("🚀 Setting up THREE-device sync test");
+
+	// Create temp dirs for three cores
+	let temp_dir_a = TempDir::new()?;
+	let temp_dir_b = TempDir::new()?;
+	let temp_dir_c = TempDir::new()?;
+
+	// Create configs with networking disabled (for mock transport)
+	let config_a = sd_core::config::AppConfig {
+		version: 3,
+		data_dir: temp_dir_a.path().to_path_buf(),
+		log_level: "info".to_string(),
+		telemetry_enabled: false,
+		preferences: sd_core::config::Preferences::default(),
+		job_logging: sd_core::config::JobLoggingConfig::default(),
+		services: sd_core::config::ServiceConfig {
+			networking_enabled: false,
+			volume_monitoring_enabled: false,
+			location_watcher_enabled: false,
+		},
+	};
+	config_a.save()?;
+
+	let config_b = sd_core::config::AppConfig {
+		version: 3,
+		data_dir: temp_dir_b.path().to_path_buf(),
+		log_level: "info".to_string(),
+		telemetry_enabled: false,
+		preferences: sd_core::config::Preferences::default(),
+		job_logging: sd_core::config::JobLoggingConfig::default(),
+		services: sd_core::config::ServiceConfig {
+			networking_enabled: false,
+			volume_monitoring_enabled: false,
+			location_watcher_enabled: false,
+		},
+	};
+	config_b.save()?;
+
+	let config_c = sd_core::config::AppConfig {
+		version: 3,
+		data_dir: temp_dir_c.path().to_path_buf(),
+		log_level: "info".to_string(),
+		telemetry_enabled: false,
+		preferences: sd_core::config::Preferences::default(),
+		job_logging: sd_core::config::JobLoggingConfig::default(),
+		services: sd_core::config::ServiceConfig {
+			networking_enabled: false,
+			volume_monitoring_enabled: false,
+			location_watcher_enabled: false,
+		},
+	};
+	config_c.save()?;
+
+	// Initialize cores
+	let core_a = Core::new_with_config(temp_dir_a.path().to_path_buf())
+		.await
+		.map_err(|e| anyhow::anyhow!("{}", e))?;
+	let device_a_id = core_a.device.device_id()?;
+	info!("🖥️  Device A ID: {}", device_a_id);
+
+	let core_b = Core::new_with_config(temp_dir_b.path().to_path_buf())
+		.await
+		.map_err(|e| anyhow::anyhow!("{}", e))?;
+	let device_b_id = core_b.device.device_id()?;
+	info!("🖥️  Device B ID: {}", device_b_id);
+
+	let core_c = Core::new_with_config(temp_dir_c.path().to_path_buf())
+		.await
+		.map_err(|e| anyhow::anyhow!("{}", e))?;
+	let device_c_id = core_c.device.device_id()?;
+	info!("🖥️  Device C ID: {}", device_c_id);
+
+	// Create libraries (all same library ID for shared library scenario)
+	let library_id = Uuid::new_v4();
+
+	// Create library on A
+	let library_a = core_a
+		.libraries
+		.create_library_no_sync("Shared Library", None, core_a.context.clone())
+		.await?;
+	info!("📚 Library A created: {}", library_a.id());
+
+	// Create same library on B and C (simulating they joined the library)
+	let library_b = core_b
+		.libraries
+		.create_library_no_sync("Shared Library", None, core_b.context.clone())
+		.await?;
+	info!("📚 Library B created: {}", library_b.id());
+
+	let library_c = core_c
+		.libraries
+		.create_library_no_sync("Shared Library", None, core_c.context.clone())
+		.await?;
+	info!("📚 Library C created: {}", library_c.id());
+
+	// Register devices in each other's libraries (full mesh initially)
+	// A knows about B and C
+	SyncTestSetup::register_device_in_library(&library_a, device_b_id, "Device B").await?;
+	SyncTestSetup::register_device_in_library(&library_a, device_c_id, "Device C").await?;
+
+	// B knows about A and C
+	SyncTestSetup::register_device_in_library(&library_b, device_a_id, "Device A").await?;
+	SyncTestSetup::register_device_in_library(&library_b, device_c_id, "Device C").await?;
+
+	// C knows about A and B
+	SyncTestSetup::register_device_in_library(&library_c, device_a_id, "Device A").await?;
+	SyncTestSetup::register_device_in_library(&library_c, device_b_id, "Device B").await?;
+
+	// Create bidirectional transports (A ←→ B, B ←→ C, but NOT A ←→ C)
+	let transport_ab = Arc::new(BidirectionalMockTransport::new());
+	let transport_a_to_b = transport_ab.create_a_transport(device_a_id, device_b_id);
+	let transport_b_to_a = transport_ab.create_b_transport(device_a_id, device_b_id);
+
+	let transport_bc = Arc::new(BidirectionalMockTransport::new());
+	let transport_b_to_c = transport_bc.create_a_transport(device_b_id, device_c_id);
+	let transport_c_to_b = transport_bc.create_b_transport(device_b_id, device_c_id);
+
+	// Initialize sync services
+	library_a
+		.init_sync_service(device_a_id, transport_a_to_b.clone())
+		.await?;
+	info!("✅ Sync service initialized on Library A");
+
+	library_b
+		.init_sync_service(device_b_id, transport_b_to_a.clone())
+		.await?;
+	info!("✅ Sync service initialized on Library B");
+
+	library_c
+		.init_sync_service(device_c_id, transport_c_to_b.clone())
+		.await?;
+	info!("✅ Sync service initialized on Library C");
+
+	// === PHASE 1: A creates tag, syncs to B ===
+	info!("\n📋 PHASE 1: Device A creates tag, syncs to Device B");
+
+	let tag_uuid = Uuid::new_v4();
+	let tag_model = entities::tag::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(tag_uuid),
+		canonical_name: Set("A's Tag".to_string()),
+		display_name: Set(None),
+		formal_name: Set(None),
+		abbreviation: Set(None),
+		aliases: Set(None),
+		namespace: Set(Some("photos".to_string())),
+		tag_type: Set("standard".to_string()),
+		color: Set(None),
+		icon: Set(None),
+		description: Set(None),
+		is_organizational_anchor: Set(false),
+		privacy_level: Set("normal".to_string()),
+		search_weight: Set(100),
+		attributes: Set(None),
+		composition_rules: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+		created_by_device: Set(Some(device_a_id)),
+	};
+
+	let tag_record = tag_model.insert(library_a.db().conn()).await?;
+	library_a
+		.sync_model(&tag_record, ChangeType::Insert)
+		.await?;
+	info!("✅ Device A created tag: {}", tag_uuid);
+
+	// Pump A→B messages
+	tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+	let sync_b = library_b.sync_service().unwrap();
+	let count = transport_b_to_a.process_incoming_messages(sync_b).await?;
+	info!("🔄 Processed {} messages from A to B", count);
+
+	// Wait a bit for async processing
+	tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+	// Verify B has the tag
+	let tag_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.one(library_b.db().conn())
+		.await?;
+	assert!(tag_on_b.is_some(), "Device B should have received A's tag");
+	info!("✅ Device B received A's tag");
+
+	// === PHASE 2: Device C requests backfill from B (A offline) ===
+	info!("\n📋 PHASE 2: Device C requests backfill from B (A is offline)");
+
+	// C sends SharedChangeRequest to B
+	use sd_core::service::network::protocol::sync::messages::SyncMessage;
+	let request = SyncMessage::SharedChangeRequest {
+		library_id: library_c.id(),
+		since_hlc: None, // Initial backfill
+		limit: 1000,
+	};
+
+	info!("📤 Device C sending SharedChangeRequest to Device B");
+	tokio::spawn({
+		let transport_c = transport_c_to_b.clone();
+		async move {
+			transport_c
+				.send_request(device_b_id, request)
+				.await
+				.unwrap();
+		}
+	});
+
+	// Pump messages: C→B (request) and B→C (response)
+	tokio::time::sleep(Duration::from_millis(100)).await;
+
+	// B processes C's request and generates response
+	let sync_b = library_b.sync_service().unwrap();
+	transport_b_to_a.process_incoming_messages(sync_b).await?;
+	transport_b_to_c.process_incoming_messages(sync_b).await?;
+
+	// C processes B's response
+	tokio::time::sleep(Duration::from_millis(100)).await;
+	let sync_c = library_c.sync_service().unwrap();
+	transport_c_to_b.process_incoming_messages(sync_c).await?;
+
+	info!("🔄 Request/response cycle complete");
+
+	// === VALIDATION ===
+	let tag_on_c = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.one(library_c.db().conn())
+		.await?;
+
+	assert!(
+		tag_on_c.is_some(),
+		"Device C should have A's tag (received via B while A was offline) ✅"
+	);
+
+	let synced_tag = tag_on_c.unwrap();
+	info!("🎉 END-TO-END TRANSITIVE SYNC SUCCESS!");
+	info!("  ✅ Device A created tag");
+	info!("  ✅ Device B received tag from A (live broadcast)");
+	info!("  ✅ Device A went offline");
+	info!("  ✅ Device C requested backfill from B (SharedChangeRequest)");
+	info!("  ✅ Device B responded with current_state including A's tag");
+	info!("  ✅ Device C applied A's tag from B's response");
+	info!("  📊 Result: Device C has A's tag even though A was offline!");
+
+	assert_eq!(synced_tag.canonical_name, "A's Tag");
+	assert_eq!(synced_tag.namespace, Some("photos".to_string()));
+
+	info!("✅ TEST COMPLETE: Transitive sync validated (A → B → C)");
 	Ok(())
 }

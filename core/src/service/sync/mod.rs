@@ -40,6 +40,9 @@ pub struct SyncService {
 	/// Peer sync handler
 	peer_sync: Arc<PeerSync>,
 
+	/// Backfill manager for orchestrating initial sync
+	backfill_manager: Arc<BackfillManager>,
+
 	/// Whether the service is running
 	is_running: Arc<AtomicBool>,
 
@@ -68,6 +71,23 @@ impl SyncService {
 		// Create peer sync handler with network transport
 		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log, network).await?);
 
+		// Create protocol handlers
+		let state_handler = Arc::new(StateSyncHandler::new(library_id, library.db().clone()));
+		let log_handler = Arc::new(LogSyncHandler::new(
+			library_id,
+			library.db().clone(),
+			peer_sync.clone(),
+		));
+
+		// Create backfill manager for automatic orchestration
+		let backfill_manager = Arc::new(BackfillManager::new(
+			library_id,
+			device_id,
+			peer_sync.clone(),
+			state_handler,
+			log_handler,
+		));
+
 		info!(
 			library_id = %library_id,
 			device_id = %device_id,
@@ -76,6 +96,7 @@ impl SyncService {
 
 		Ok(Self {
 			peer_sync,
+			backfill_manager,
 			is_running: Arc::new(AtomicBool::new(false)),
 			shutdown_tx: Arc::new(Mutex::new(None)),
 		})
@@ -87,24 +108,93 @@ impl SyncService {
 	}
 
 	/// Main sync loop (spawned as background task)
+	///
+	/// This is the orchestration layer that:
+	/// - Detects when backfill is needed (Uninitialized state)
+	/// - Triggers automatic backfill from available peers
+	/// - Runs periodic maintenance (log pruning, heartbeats)
 	async fn run_sync_loop(
 		peer_sync: Arc<PeerSync>,
+		backfill_manager: Arc<BackfillManager>,
 		is_running: Arc<AtomicBool>,
 		mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 	) {
 		info!("Starting peer sync loop (leaderless)");
 
-		// TODO: Implement periodic tasks:
-		// - Process buffer queue
-		// - Prune sync log
-		// - Heartbeat to peers
-		// - Reconnect to offline peers
+		let mut backfill_attempted = false;
 
 		tokio::select! {
 			_ = async {
 				loop {
+					// Check current sync state
+					let state = peer_sync.state().await;
+
+					match state {
+						DeviceSyncState::Uninitialized => {
+							if !backfill_attempted {
+								info!("Device uninitialized - attempting automatic backfill");
+								backfill_attempted = true;
+
+								// Get available sync partners from network
+								match peer_sync.network().get_connected_sync_partners().await {
+									Ok(partners) if !partners.is_empty() => {
+										info!("Found {} connected partners, starting backfill", partners.len());
+
+										// Convert to PeerInfo (TODO: get real latency metrics)
+										let peer_info: Vec<PeerInfo> = partners
+											.into_iter()
+											.map(|device_id| PeerInfo {
+												device_id,
+												latency_ms: 50.0, // TODO: Measure actual latency
+												is_online: true,
+												has_complete_state: true, // Assume peers have full state
+												active_syncs: 0,
+											})
+											.collect();
+
+										// Start backfill process
+										match backfill_manager.start_backfill(peer_info).await {
+											Ok(()) => {
+												info!("Automatic backfill completed successfully");
+											}
+											Err(e) => {
+												warn!("Automatic backfill failed: {}", e);
+												// Reset flag to retry on next loop
+												backfill_attempted = false;
+											}
+										}
+									}
+									Ok(_) => {
+										info!("No connected partners available for backfill, will retry");
+										backfill_attempted = false; // Retry when peers connect
+									}
+									Err(e) => {
+										warn!("Failed to get connected partners: {}", e);
+										backfill_attempted = false; // Retry
+									}
+								}
+							}
+						}
+
+						DeviceSyncState::Ready => {
+							// Normal operation - periodic maintenance
+							// TODO: Implement:
+							// - Log pruning
+							// - Heartbeat to peers
+							// - Monitor for new peers
+						}
+
+						DeviceSyncState::Backfilling { .. } | DeviceSyncState::CatchingUp { .. } => {
+							// In progress, wait
+						}
+
+						DeviceSyncState::Paused => {
+							// Sync paused by user or offline, skip
+						}
+					}
+
+					// Sleep before next iteration
 					tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-					// Periodic sync tasks
 				}
 			} => {
 				info!("Peer sync loop ended");
@@ -147,11 +237,12 @@ impl crate::service::Service for SyncService {
 		// Start peer sync
 		self.peer_sync.start().await?;
 
-		// Spawn sync loop
+		// Spawn sync loop with orchestration
 		let peer_sync = self.peer_sync.clone();
+		let backfill_manager = self.backfill_manager.clone();
 		let is_running = self.is_running.clone();
 		tokio::spawn(async move {
-			Self::run_sync_loop(peer_sync, is_running, shutdown_rx).await;
+			Self::run_sync_loop(peer_sync, backfill_manager, is_running, shutdown_rx).await;
 		});
 
 		info!("Peer sync service started");

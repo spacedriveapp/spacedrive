@@ -102,6 +102,11 @@ impl PeerSync {
 		&self.db
 	}
 
+	/// Get network transport
+	pub fn network(&self) -> &Arc<dyn NetworkTransport> {
+		&self.network
+	}
+
 	/// Get this device's ID
 	pub fn device_id(&self) -> Uuid {
 		self.device_id
