@@ -4,8 +4,8 @@
 
 **TL;DR:**
 - V1: $2M, 3 years, never shipped sync/networking/cloud, never left alpha. V2: $2,500, 4 months, production-ready
-- Business model: Free open source core + paid extensions ($8-30/mo subscription, early-adopter lifetime licenses sunset Q2 2026). ~95% gross margins (comparable to Tailscale)
-- Launch: November 2025 (3 paid extensions: Finance, Notes, CRM)
+- Business model: Free open source core + paid extensions (Research, Vault, Atlas, Ledger). ~95% gross margins (comparable to Tailscale)
+- Launch: November 2025 (4 working extensions, Research is open source flagship)
 - Post-launch: Raising $500K seed extension. Target $850K ARR 2026, cross $1M ARR Q1 2027 for Series A
 
 **Supporting Materials:** [Video Demo] | [Documentation] | [Whitepaper] | [Codebase - request access]
@@ -14,7 +14,7 @@
 
 Spacedrive V1 consumed $2M over three years but failed to ship sync, networking, and cloud support. The product never left alpha. I take full responsibility.
 
-Spacedrive V2, rebuilt in four months, is production-ready and launches November 2025. The core platform is free and open source. Revenue comes from paid extensions (Finance, Notes, CRM) built on the platform.
+Spacedrive V2, rebuilt in four months, is production-ready and launches November 2025. The core platform is free and open source. Revenue comes from four paid extensions that function as subsystems of a data OS: Research (AI knowledge assistant, open source flagship), Vault (security and encryption), Atlas (team knowledge base, dogfooded internally), and Ledger (financial data extraction).
 
 ---
 
@@ -23,12 +23,12 @@ Spacedrive V2, rebuilt in four months, is production-ready and launches November
 V1 proved market demand: 35,000 GitHub stars, 600,000 installations. Execution failed due to architectural flaws.
 
 **Development Comparison:**
-- **V1:** 3 years, 12 developers, $2M → incomplete
-- **V2:** 4 months, 1 developer + AI, $2,500 → production-ready, full test coverage
+- **V1:** 3 years, 12 developers, $2M → incomplete, no specs, abandoned dependencies
+- **V2:** 4 months, AI-accelerated spec-first workflow → production-ready
 
 V1 suffered from poor architectural decisions: we over-engineered solutions, built custom ORM and RPC frameworks, then abandoned those dependencies. Lack of clear specifications led to slow, uncoordinated execution. We never shipped sync, networking, or cloud support.
 
-V2 became possible when AI code generation reached production quality for Rust in mid-2025. I spent weeks refining architectural specifications (90+ design documents) including a complete technical whitepaper. With clear specs and test-driven development, AI agents generated implementations in hours. Key technology choices like Iroh and SeaQL (proven, production-grade) eliminated the reinvention problem.
+V2 became possible when AI code generation reached production quality for Rust in mid-2025. The workflow: weeks refining specifications and test cases, then AI agents generated implementations conforming to strict code style rules and passing all tests. This is not "AI wrote everything" — this is AI-accelerated, spec-first, test-driven engineering. Key technology choices like Iroh and SeaQL (proven, production-grade) eliminated the reinvention problem.
 
 ---
 
@@ -45,25 +45,34 @@ Spacedrive functions as a distributed OS for data-intensive applications. The pl
 - **Multi-device sync:** P2P replication without custom infrastructure
 - **Extension SDK:** Full API access enables custom solutions leveraging open source infrastructure
 
-Extensions inherit distributed storage, AI processing, durable jobs, and multi-device sync. This makes entire product categories trivial to implement: expense tracking with receipt OCR, business knowledge bases with semantic search, password managers with breach monitoring, collaborative notes with local AI. The platform extends into workflow automation (competing with n8n, Zapier) where community developers build custom integrations we never imagined. Our app store captures revenue from solutions solving problems we have not predicted yet.
+Extensions inherit distributed storage, AI processing, durable jobs, and multi-device sync. This makes entire product categories trivial to implement: AI research assistants, business knowledge bases with semantic search, password managers with breach monitoring, receipt extraction with OCR. The platform extends into workflow automation (competing with n8n, Zapier) where community developers build custom integrations we never imagined. Our app store captures revenue from solutions solving problems we have not predicted yet.
 
-**Launch Extensions (November 2025):**
+**Launch Extensions (November 2025) - Subsystems of a Data OS:**
 
-1. **Finance:** Expense tracking, receipt extraction ($8/mo subscription)
-2. **Notes:** Rich text editing, collaboration ($6/mo subscription)
-3. **CRM:** Contact management, knowledge base ($30/mo, enterprise licensing)
+1. **Research** (open source flagship): AI knowledge assistant. Chat with your data (Ollama/cloud models), ingest any content, auto-organize projects, citation intelligence, create documents. $10/mo
+   - *Tagline: "Every file you've ever saved — now searchable, citeable, and conversational."*
 
-**Power Bundle (Finance + Notes):** $12/mo subscription
+2. **Vault** (security subsystem): Password manager + file encryption. Breach monitoring, identity sync, key manager for all extensions, zero-knowledge architecture. $8/mo
+   - *Tagline: "Your identity, your keys, your cloud — in your control."*
 
-**Early-Adopter Lifetime Licenses:** $150 (Finance), $120 (Notes), $250 (Bundle). Available through Q1 2026 only. Capped at 30% of sales to protect ARR growth. Functions as early customer acquisition and working capital.
+3. **Atlas** (team knowledge subsystem): Dynamic data structure builder. Business integrations, contact management, team collaboration, semantic search. $30/mo, enterprise licensing
+   - *Tagline: "A self-organizing workspace for your team's collective brain."*
+   - *Dogfooded: We manage Spacedrive's internal knowledge base using Atlas.*
+
+4. **Ledger** (financial data subsystem): Receipt extraction (OCR), expense tracking, tax prep. Receipts-as-data: extracts totals, taxes, vendors, links to originals. $8/mo
+   - *Tagline: "Every receipt becomes structured data — automatically."*
+
+**Personal Bundle (Research + Vault + Ledger):** $20/mo
+
+**Early-Adopter Lifetime Licenses:** $200 (Research), $150 (Vault), $150 (Ledger), $400 (Bundle). Available through Q1 2026 only. Capped at 30% of sales to protect ARR growth.
 
 **Markets:** $40B+ annually (Gartner/Statista 2024)
 
 **Key Differentiators:**
-- Data persists in VDFS forever (your receipts, passwords, notes remain accessible even if subscription lapses)
-- Extensions are closed source for competitive advantage, trust maintained through open source core + sandboxed execution
+- Data persists in VDFS forever (your receipts, passwords, research remain accessible even if subscription lapses)
+- Research extension is open source (proves extensions work even when auditable), other extensions closed source for competitive advantage
+- Trust maintained through open source core + sandboxed execution + transparent permissions
 - We build software, not cloud infrastructure (connects existing clouds rather than competing, avoiding low-margin storage business)
-- Dogfooding: We manage Spacedrive's internal knowledge base using our own CRM extension
 
 ---
 
@@ -94,13 +103,13 @@ Unlike Dropbox or Google Workspace, Spacedrive's local-first model eliminates cl
 
 ## Unit Economics
 
-**Power Bundle ($12/month):**
+**Personal Bundle (Research + Vault + Finance, $20/month):**
 - Marginal cost: ~$0.80/user/month (Stripe 3%, relay servers, CDN)
-- Gross margin: ~95% (comparable to Tailscale)
-- ARPU: $12/month, LTV $240 (24-month avg retention)
-- CAC: $20 (content marketing, open source community)
-- Payback: 2 months
-- LTV/CAC: 12x
+- Gross margin: ~96% (comparable to Tailscale)
+- ARPU: $20/month, LTV $400 (24-month avg retention)
+- CAC: $20 (content marketing, open source community, Research extension drives adoption)
+- Payback: 1 month
+- LTV/CAC: 20x
 
 **Sensitivity Analysis:**
 - Best case (3% conversion, 3% churn): $1.2M ARR 2026
@@ -110,11 +119,11 @@ Unlike Dropbox or Google Workspace, Spacedrive's local-first model eliminates cl
 **Note on Lifetime Licenses:** Limited early-adopter offer (through Q1 2026) capped at 30% of sales. Functions as customer acquisition tool and working capital for initial development. Transition to subscription-only model protects long-term ARR growth.
 
 **5-Year Projections:**
-- 2026: $850K ARR (3,500 users, SOC 2 certified)
-- 2027: $6.2M ARR (15,000 users, 5 extensions)
-- 2028: $18.8M ARR (50,000 users, HIPAA compliant, third-party marketplace)
-- 2029: $62M ARR (80,000 users, enterprise traction)
-- 2030: $158M ARR (150,000 users, 81% profit margins)
+- 2026: $850K ARR (4 extensions: Research, Vault, Atlas, Ledger. 3,500 paid users, SOC 2 certified)
+- 2027: $6.2M ARR (15,000 users, add Studio and Counsel extensions)
+- 2028: $18.8M ARR (50,000 users, third-party marketplace, HIPAA compliant)
+- 2029: $62M ARR (80,000 users, enterprise adoption)
+- 2030: $158M ARR (150,000 users, 10+ extensions, 81% profit margins)
 
 ---
 
@@ -145,7 +154,7 @@ Following the November launch, I will raise a $500K seed extension targeting $85
 
 **Platform:** Alpha V2 (all major OS)
 
-**Extensions:** Finance, Notes, CRM (dogfooded internally)
+**Extensions:** Research (open source flagship), Vault (security), Atlas (dogfooded internally), Ledger (financial data)
 
 **Validation:** 500-user alpha (November), 5,000-user beta (December). Target 70% day-7 retention (V1 achieved 50%, Notion reports 60% for early adopters). V2's working sync and faster search justify the higher target.
 
@@ -153,7 +162,7 @@ Following the November launch, I will raise a $500K seed extension targeting $85
 
 ## Next Steps
 
-V1 failed. I own that. V2 delivers with three working extensions launching in 30 days.
+V1 failed. I own that. V2 delivers with four working extensions launching in 30 days.
 
 Following the launch with traction data, I will raise a $500K seed extension targeting $850K ARR by year-end 2026 and crossing $1M ARR Q1 2027 for Series A. If you are interested in participating or can provide warm introductions, I would welcome that!
 
