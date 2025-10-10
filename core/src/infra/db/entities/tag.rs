@@ -206,6 +206,48 @@ impl Syncable for Model {
 		&[] // Tag is shared, no FK dependencies
 	}
 
+	/// Query tags for backfill (shared resources)
+	///
+	/// Returns ALL tags (not filtered by device - tags are shared across all devices).
+	/// Used when a new device joins and needs the full current state.
+	async fn query_for_sync(
+		_device_id: Option<Uuid>,
+		since: Option<chrono::DateTime<chrono::Utc>>,
+		batch_size: usize,
+		db: &DatabaseConnection,
+	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+
+		let mut query = Entity::find();
+
+		// Filter by timestamp if specified (for incremental sync)
+		if let Some(since_time) = since {
+			query = query.filter(Column::UpdatedAt.gte(since_time));
+		}
+
+		// Apply batch limit
+		query = query.limit(batch_size as u64);
+
+		let results = query.all(db).await?;
+
+		// Convert to sync format
+		let mut sync_results = Vec::new();
+		for tag in results {
+			// Serialize to JSON
+			let json = match tag.to_sync_json() {
+				Ok(j) => j,
+				Err(e) => {
+					tracing::warn!(error = %e, uuid = %tag.uuid, "Failed to serialize tag for sync");
+					continue;
+				}
+			};
+
+			sync_results.push((tag.uuid, json, tag.updated_at));
+		}
+
+		Ok(sync_results)
+	}
+
 	/// Apply shared change with union merge conflict resolution.
 	/// Different UUIDs with same canonical_name coexist (polymorphic naming).
 	async fn apply_shared_change(

@@ -72,7 +72,7 @@ pub struct SyncableModelRegistration {
 	/// Apply function for log-based sync (shared models)
 	pub shared_apply_fn: Option<SharedApplyFn>,
 
-	/// Query function for state-based backfill (device-owned models)
+	/// Query function for backfill (both device-owned and shared models)
 	pub state_query_fn: Option<StateQueryFn>,
 }
 
@@ -107,6 +107,23 @@ impl SyncableModelRegistration {
 			state_apply_fn: None,
 			shared_apply_fn: Some(apply_fn),
 			state_query_fn: None,
+		}
+	}
+
+	/// Create a new registration for shared model with query function (for backfill)
+	pub fn shared_with_query(
+		model_type: &'static str,
+		table_name: &'static str,
+		apply_fn: SharedApplyFn,
+		query_fn: StateQueryFn,
+	) -> Self {
+		Self {
+			model_type,
+			table_name,
+			is_device_owned: false,
+			state_apply_fn: None,
+			shared_apply_fn: Some(apply_fn),
+			state_query_fn: Some(query_fn),
 		}
 	}
 }
@@ -199,12 +216,21 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 		),
 	);
 
-	// Shared models (log-based sync)
+	// Shared models (log-based sync with backfill support)
 	registry.insert(
 		"tag".to_string(),
-		SyncableModelRegistration::shared("tag", "tag", |entry, db| {
-			Box::pin(async move { tag::Model::apply_shared_change(entry, db.as_ref()).await })
-		}),
+		SyncableModelRegistration::shared_with_query(
+			"tag",
+			"tag",
+			|entry, db| {
+				Box::pin(async move { tag::Model::apply_shared_change(entry, db.as_ref()).await })
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					tag::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+				})
+			},
+		),
 	);
 
 	registry

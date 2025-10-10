@@ -1119,6 +1119,39 @@ impl PeerSync {
 		Ok((entries, has_more))
 	}
 
+	/// Get full current state of all shared resources (for initial backfill)
+	///
+	/// Queries the database for ALL shared resources (tags, albums, etc.) to send
+	/// to a new device during initial sync. This ensures pre-sync data is included.
+	pub async fn get_full_shared_state(&self) -> Result<serde_json::Value> {
+		use crate::infra::sync::Syncable;
+
+		debug!("Querying full shared resource state for backfill");
+
+		// Query all shared models
+		// TODO: Add albums, user_metadata, etc. as they get Syncable impl
+		let tags = crate::infra::db::entities::tag::Model::query_for_sync(
+			None,
+			None,
+			10000, // Large limit for full state
+			self.db.as_ref(),
+		)
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to query tags: {}", e))?;
+
+		info!("Queried {} tags for backfill state snapshot", tags.len());
+
+		Ok(serde_json::json!({
+			"tags": tags.into_iter().map(|(uuid, data, _ts)| {
+				serde_json::json!({
+					"uuid": uuid,
+					"data": data
+				})
+			}).collect::<Vec<_>>(),
+			// Add more shared resources here as they're implemented
+		}))
+	}
+
 	/// Transition to ready state (after backfill)
 	pub async fn transition_to_ready(&self) -> Result<()> {
 		let current_state = self.state().await;

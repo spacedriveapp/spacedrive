@@ -220,16 +220,34 @@ impl SyncProtocolHandler {
 						NetworkingError::Protocol(format!("Failed to query shared changes: {}", e))
 					})?;
 
+				// If initial backfill (since_hlc = None), include full current state
+				let current_state = if since_hlc.is_none() {
+					debug!("Initial backfill requested - querying full shared resource state");
+					match peer_sync.get_full_shared_state().await {
+						Ok(state) => {
+							info!("Including full state snapshot for initial backfill");
+							Some(state)
+						}
+						Err(e) => {
+							warn!("Failed to query full shared state: {}", e);
+							None
+						}
+					}
+				} else {
+					None
+				};
+
 				info!(
 					count = entries.len(),
 					has_more = has_more,
+					has_state_snapshot = current_state.is_some(),
 					"Returning shared changes to requester"
 				);
 
 				Ok(Some(SyncMessage::SharedChangeResponse {
 					library_id,
 					entries,
-					current_state: None, // TODO: Add fallback for pruned logs
+					current_state,
 					has_more,
 				}))
 			}

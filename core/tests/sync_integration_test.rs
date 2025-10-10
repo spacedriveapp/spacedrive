@@ -593,7 +593,11 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	// Sync the location (automatically handles device_id → device_uuid and entry_id → entry_uuid)
 	setup
 		.library_a
-		.sync_model_with_db(&location_record, ChangeType::Insert, setup.library_a.db().conn())
+		.sync_model_with_db(
+			&location_record,
+			ChangeType::Insert,
+			setup.library_a.db().conn(),
+		)
 		.await
 		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
@@ -802,7 +806,11 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 	info!("📤 Syncing location entry to Device B");
 	setup
 		.library_a
-		.sync_model_with_db(&location_entry_record, ChangeType::Insert, setup.library_a.db().conn())
+		.sync_model_with_db(
+			&location_entry_record,
+			ChangeType::Insert,
+			setup.library_a.db().conn(),
+		)
 		.await
 		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
@@ -859,7 +867,11 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 
 	setup
 		.library_a
-		.sync_model_with_db(&entry_record, ChangeType::Insert, setup.library_a.db().conn())
+		.sync_model_with_db(
+			&entry_record,
+			ChangeType::Insert,
+			setup.library_a.db().conn(),
+		)
 		.await
 		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
@@ -953,5 +965,161 @@ async fn test_sync_infrastructure_summary() -> anyhow::Result<()> {
 	assert!(device_on_b.is_some(), "Device A should be registered on B");
 
 	info!("✅ INFRASTRUCTURE VALIDATED: Ready for TransactionManager integration");
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
+	info!("🧪 TEST: Backfill Includes Pre-Sync Data");
+
+	let setup = SyncTestSetup::new().await?;
+
+	// === CREATE TAGS ON DEVICE A (simulating pre-sync and post-sync tags) ===
+	info!("🏷️  Creating 3 tags on Device A (simulating mixed pre/post-sync scenario)");
+
+	// Create 3 tags directly in database (simulating pre-sync data)
+	let pre_sync_tag_uuids: Vec<Uuid> = (0..3)
+		.map(|i| {
+			let uuid = Uuid::new_v4();
+			info!("  Pre-sync tag {}: {}", i + 1, uuid);
+			uuid
+		})
+		.collect();
+
+	for (i, tag_uuid) in pre_sync_tag_uuids.iter().enumerate() {
+		let tag_model = entities::tag::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(*tag_uuid),
+			canonical_name: Set(format!("PreSync Tag {}", i + 1)),
+			display_name: Set(None),
+			formal_name: Set(None),
+			abbreviation: Set(None),
+			aliases: Set(None),
+			namespace: Set(Some("photos".to_string())),
+			tag_type: Set("standard".to_string()),
+			color: Set(None),
+			icon: Set(None),
+			description: Set(None),
+			is_organizational_anchor: Set(false),
+			privacy_level: Set("normal".to_string()),
+			search_weight: Set(100),
+			attributes: Set(None),
+			composition_rules: Set(None),
+			created_at: Set(chrono::Utc::now()),
+			updated_at: Set(chrono::Utc::now()),
+			created_by_device: Set(Some(setup.device_a_id)),
+		};
+
+		tag_model.insert(setup.library_a.db().conn()).await?;
+	}
+	info!("✅ Created 3 pre-sync tags (NOT in sync log)");
+
+	// Create 2 tags through sync API (will be in sync log)
+	let post_sync_tag_uuids: Vec<Uuid> = (0..2)
+		.map(|i| {
+			let uuid = Uuid::new_v4();
+			info!("  Post-sync tag {}: {}", i + 1, uuid);
+			uuid
+		})
+		.collect();
+
+	for (i, tag_uuid) in post_sync_tag_uuids.iter().enumerate() {
+		let tag_model = entities::tag::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(*tag_uuid),
+			canonical_name: Set(format!("PostSync Tag {}", i + 1)),
+			display_name: Set(None),
+			formal_name: Set(None),
+			abbreviation: Set(None),
+			aliases: Set(None),
+			namespace: Set(Some("photos".to_string())),
+			tag_type: Set("standard".to_string()),
+			color: Set(None),
+			icon: Set(None),
+			description: Set(None),
+			is_organizational_anchor: Set(false),
+			privacy_level: Set("normal".to_string()),
+			search_weight: Set(100),
+			attributes: Set(None),
+			composition_rules: Set(None),
+			created_at: Set(chrono::Utc::now()),
+			updated_at: Set(chrono::Utc::now()),
+			created_by_device: Set(Some(setup.device_a_id)),
+		};
+
+		let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+
+		// Sync these tags (will be in peer log)
+		setup
+			.library_a
+			.sync_model(&tag_record, ChangeType::Insert)
+			.await?;
+	}
+	info!("✅ Created 2 post-sync tags (IN sync log)");
+
+	// === VERIFY STATE ON DEVICE A ===
+	let tags_on_a = entities::tag::Entity::find()
+		.all(setup.library_a.db().conn())
+		.await?;
+	assert_eq!(tags_on_a.len(), 5, "Device A should have 5 tags total");
+
+	// Check peer log - should only have 2 entries
+	let log_entries = setup
+		.library_a
+		.sync_service()
+		.unwrap()
+		.peer_sync()
+		.peer_log()
+		.get_since(None)
+		.await?;
+	assert_eq!(log_entries.len(), 2, "Peer log should only have 2 entries");
+
+	// === SIMULATE BACKFILL REQUEST FROM DEVICE B ===
+	info!("📥 Device B requests backfill (since_hlc = None)");
+
+	let full_state = setup
+		.library_a
+		.sync_service()
+		.unwrap()
+		.peer_sync()
+		.get_full_shared_state()
+		.await?;
+
+	// Verify full state includes ALL 5 tags
+	let tags_in_state = full_state["tags"].as_array().unwrap();
+	assert_eq!(
+		tags_in_state.len(),
+		5,
+		"Full state should include all 5 tags (3 pre-sync + 2 post-sync)"
+	);
+
+	info!("🎉 Backfill includes all tags:");
+	info!("  - 3 pre-sync tags (not in log)");
+	info!("  - 2 post-sync tags (in log)");
+	info!("  - Total: 5 tags in state snapshot");
+
+	// Verify UUIDs match
+	let state_uuids: Vec<Uuid> = tags_in_state
+		.iter()
+		.map(|t| Uuid::parse_str(t["uuid"].as_str().unwrap()).unwrap())
+		.collect();
+
+	for uuid in &pre_sync_tag_uuids {
+		assert!(
+			state_uuids.contains(uuid),
+			"State snapshot should include pre-sync tag {}",
+			uuid
+		);
+	}
+
+	for uuid in &post_sync_tag_uuids {
+		assert!(
+			state_uuids.contains(uuid),
+			"State snapshot should include post-sync tag {}",
+			uuid
+		);
+	}
+
+	info!("✅ TEST COMPLETE: Backfill correctly includes all tags (pre-sync and post-sync)");
 	Ok(())
 }
