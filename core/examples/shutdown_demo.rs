@@ -12,7 +12,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("=== Job Shutdown Demo ===\n");
 
 	// Create Core instance
-	let core = Core::new().await?;
+	let data_dir = std::env::temp_dir().join("spacedrive-shutdown-demo");
+	let core = Core::new_with_config(data_dir).await?;
 
 	// Get open libraries
 	let libraries = core.libraries.get_open_libraries().await;

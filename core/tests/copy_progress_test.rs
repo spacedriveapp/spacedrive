@@ -16,7 +16,6 @@ use std::{
 use tempfile::TempDir;
 use tokio::{fs, time::timeout};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use uuid::Uuid;
 
 /// Create a large test file with specified size
 async fn create_large_test_file(
@@ -123,8 +122,8 @@ async fn test_copy_progress_monitoring_large_file() {
 			delete_after_copy: false,
 			move_mode: None,
 			copy_method: CopyMethod::Streaming, // --method streaming
-			on_conflict: None,
 		},
+		on_conflict: None,
 	};
 
 	// Dispatch the action directly via ActionManager (library-scoped)
@@ -421,6 +420,7 @@ async fn test_copy_progress_multiple_files() {
 			move_mode: None,
 			copy_method: CopyMethod::Streaming,
 		},
+		on_conflict: None,
 	};
 
 	// Dispatch the action directly via ActionManager (library-scoped)

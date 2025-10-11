@@ -73,7 +73,6 @@ impl MigrationTrait for Migration {
 							.not_null(),
 					)
 					.col(ColumnDef::new(Devices::Capabilities).json().not_null())
-					.col(ColumnDef::new(Devices::SyncLeadership).json().not_null())
 					.col(
 						ColumnDef::new(Devices::CreatedAt)
 							.timestamp_with_time_zone()
@@ -196,7 +195,12 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(ContentIdentities::Uuid).uuid())
+					.col(
+						ColumnDef::new(ContentIdentities::Uuid)
+							.uuid()
+							.not_null()
+							.unique_key(),
+					)
 					.col(ColumnDef::new(ContentIdentities::IntegrityHash).string())
 					.col(
 						ColumnDef::new(ContentIdentities::ContentHash)
@@ -787,7 +791,6 @@ enum Devices {
 	IsOnline,
 	LastSeenAt,
 	Capabilities,
-	SyncLeadership,
 	CreatedAt,
 	UpdatedAt,
 }

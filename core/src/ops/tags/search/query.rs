@@ -1,8 +1,8 @@
 //! Search semantic tags query
 
 use super::{input::SearchTagsInput, output::SearchTagsOutput};
-use crate::{context::CoreContext, infra::query::LibraryQuery, ops::tags::manager::TagManager};
 use crate::infra::query::{QueryError, QueryResult};
+use crate::{context::CoreContext, infra::query::LibraryQuery, ops::tags::manager::TagManager};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -68,13 +68,23 @@ impl LibraryQuery for SearchTagsQuery {
 					let context_tags = semantic_tag_manager
 						.get_tags_by_ids(context_tag_ids)
 						.await
-						.map_err(|e| QueryError::Internal(format!("Failed to get context tags: {}", e.to_string())))?;
+						.map_err(|e| {
+							QueryError::Internal(format!(
+								"Failed to get context tags: {}",
+								e.to_string()
+							))
+						})?;
 
 					// Resolve ambiguous results
 					search_results = semantic_tag_manager
 						.resolve_ambiguous_tag(&self.input.query, &context_tags)
 						.await
-						.map_err(|e| QueryError::Internal(format!("Context resolution failed: {}", e.to_string())))?;
+						.map_err(|e| {
+							QueryError::Internal(format!(
+								"Context resolution failed: {}",
+								e.to_string()
+							))
+						})?;
 
 					disambiguated = true;
 				}

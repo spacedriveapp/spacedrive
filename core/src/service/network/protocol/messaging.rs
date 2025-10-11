@@ -273,8 +273,9 @@ impl MessagingProtocolHandler {
 									"p2p": true,
 									"volume_detection": true
 								})),
-								sync_leadership: Set(serde_json::json!({})),
 								created_at: Set(Utc::now()),
+								sync_enabled: Set(true), // Enable sync for registered devices
+								last_sync_at: Set(None),
 								updated_at: Set(Utc::now()),
 							};
 

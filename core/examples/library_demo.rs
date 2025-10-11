@@ -28,7 +28,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		println!("\n2. Application Configuration:");
 		println!("   - Data directory: {:?}", app_config.data_dir);
 		println!("   - Log level: {}", app_config.log_level);
-		println!("   - P2P enabled: {}", app_config.p2p.enabled);
+		println!(
+			"   - Networking enabled: {}",
+			app_config.services.networking_enabled
+		);
 		println!("   - Theme: {}", app_config.preferences.theme);
 	}
 
@@ -78,7 +81,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				"p2p": true,
 				"cloud": false
 			})),
-			sync_leadership: Set(serde_json::json!(device.sync_leadership)),
+			sync_enabled: Set(false),
+			last_sync_at: Set(None),
 			created_at: Set(device.created_at),
 			updated_at: Set(device.updated_at),
 		};

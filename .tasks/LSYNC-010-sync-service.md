@@ -1,89 +1,99 @@
 ---
 id: LSYNC-010
-title: Sync Service (Leader & Follower)
-status: To Do
-assignee: unassigned
+title: Peer Sync Service (Leaderless)
+status: In Progress
+assignee: james
 parent: LSYNC-000
 priority: High
-tags: [sync, replication, service, leader, follower]
-depends_on: [LSYNC-006, LSYNC-008, LSYNC-009, LSYNC-013]
+tags: [sync, replication, service, peer-to-peer, leaderless]
+depends_on: [LSYNC-006, LSYNC-014, LSYNC-015, LSYNC-016, LSYNC-013]
+design_doc: core/src/infra/sync/NEW_SYNC.md
 ---
 
 ## Description
 
-Implement the complete sync service with both leader and follower functionality. The leader pushes notifications to followers when new sync log entries are created, and followers receive these notifications and apply changes locally.
+Implement the peer sync service using the new leaderless hybrid model. All devices are equals that broadcast changes to peers using two strategies:
 
-**Architecture**: Message-based (push) instead of polling for better performance, lower latency, and battery efficiency.
+1. **State-based** for device-owned data (locations, entries, volumes)
+2. **Log-based with HLC** for shared resources (tags, albums, metadata)
+
+**Architecture**: Peer-to-peer broadcast with no leader/follower roles.
 
 ## Implementation Steps
 
 ### Core Service
-1. Create `SyncService` struct with role-specific behavior
-2. Initialize service when library opens (determines leader/follower role)
+1. Create `SyncService` struct (no role field!)
+2. Initialize service when library opens
 3. Integrate with SyncProtocolHandler for messaging
-4. Handle role transitions (leader election changes)
+4. Query `sync_partners` table for peer list
 
-### Leader Functionality
-5. Subscribe to TransactionManager commit events
-6. Implement `on_commit()` - called after sync log entry created
-7. Implement `notify_followers()` - sends NewEntries to all followers
-8. Implement batch notification logic (debounce within 100ms)
-9. Implement message handler for `SyncMessage::FetchEntries`
-10. Implement message handler for `SyncMessage::Heartbeat`
-11. Track connected followers per library
+### State-Based Sync (Device-Owned Data)
+5. Subscribe to database change events (locations, entries, volumes)
+6. Implement `broadcast_state_change()` - sends to all peers
+7. Implement `on_state_change_received()` - applies peer's state
+8. Batch state changes for efficiency (100ms window)
+9. Handle incremental state sync (use timestamps)
 
-### Follower Functionality
-12. Implement message handler for `SyncMessage::NewEntries`
-13. Implement `request_entries()` - uses SyncProtocolHandler to fetch
-14. Implement `apply_sync_entry()` - deserializes and applies changes
-15. Track `last_synced_sequence` per library
-16. Handle bulk operation metadata (trigger local indexing)
-17. Handle connection loss with reconnect logic
-18. Send heartbeats to leader
+### Log-Based Sync (Shared Resources)
+10. Subscribe to shared change events (tags, albums, user_metadata)
+11. Implement `broadcast_shared_change()` - with HLC ordering
+12. Implement `on_shared_change_received()` - applies with conflict resolution
+13. Track peer HLCs for causality
+14. Implement ACK mechanism for log pruning
+15. Prune `shared_changes.db` when all peers ack
+
+### Connection Management
+16. Broadcast to all peers in `sync_partners`
+17. Handle offline peers (queue changes)
+18. Reconnect and sync on peer online
+19. Track per-peer sync state
 
 ## Technical Details
 
 - Location: `core/src/service/sync/`
-  - `mod.rs` - SyncService orchestrator
-  - `leader.rs` - Leader-specific logic
-  - `follower.rs` - Follower-specific logic
-- Push-based: Leader notifies when changes happen
-- Batch size: Max 100 entries per request
+  - `mod.rs` - SyncService (no leader/follower split!)
+  - `state.rs` - State-based sync logic
+  - `shared.rs` - Log-based sync with HLC
+  - `hlc.rs` - HLC generator
+- Push-based: All peers broadcast changes
+- No roles: Every device is equal
 - Error handling: Retry with exponential backoff
-- Gap detection: Detect missed entries and reconcile
 
 ## Complete Flow
 
-### Leader Side
+### Device-Owned Data (State-Based)
 ```
-1. TransactionManager commits change + creates sync log entry
-2. Leader receives commit event
-3. Leader groups entries (if multiple commits in <100ms)
-4. Leader sends SyncMessage::NewEntries to all followers:
-   - library_id
-   - from_sequence (start of batch)
-   - to_sequence (end of batch)
-   - entry_count
-5. Follower requests entries with FetchEntries
-6. Leader responds with EntriesResponse (up to 100 entries)
-7. Follower sends Acknowledge
+Device A creates location:
+  1. INSERT INTO locations (device_id=A, ...)
+  2. Emit: LocationCreated event
+  3. SyncService.on_location_created()
+  4. Broadcast StateChange to all sync_partners
+  5. Done! (no log)
+
+Peers (B, C):
+  1. Receive StateChange
+  2. INSERT INTO locations (device_id=A, ...)
+  3. Emit event → UI updates
 ```
 
-### Follower Side
+### Shared Resources (Log-Based)
 ```
-1. Listen for SyncMessage::NewEntries from leader
-2. On notification:
-   - Send FetchEntries request (since last_synced_sequence)
-   - Receive EntriesResponse
-   - For each entry:
-     - Deserialize model
-     - Apply change to local DB
-     - Update last_synced_sequence
-   - Send Acknowledge
-3. On connection loss:
-   - Reconnect
-   - Send Heartbeat with current sequence
-   - Leader sends SyncRequired if needed
+Device A creates tag:
+  1. Generate HLC(1000,A)
+  2. INSERT INTO tags (...)
+  3. INSERT INTO shared_changes (hlc, ...)
+  4. Broadcast SharedChange to all sync_partners
+
+Peers (B, C):
+  1. Receive SharedChange
+  2. Update local HLC
+  3. INSERT INTO tags (...) with merge
+  4. Send ACK to Device A
+
+Device A:
+  1. Receive ACKs from all
+  2. DELETE FROM shared_changes WHERE hlc <= 1000
+  3. Log stays small!
 ```
 
 ## Service Structure
@@ -91,72 +101,111 @@ Implement the complete sync service with both leader and follower functionality.
 ```rust
 pub struct SyncService {
     library_id: Uuid,
-    role: SyncRole,
-    sync_log_db: Arc<SyncLogDb>,
+    // No role field!
     protocol_handler: Arc<SyncProtocolHandler>,
     event_bus: Arc<EventBus>,
 
-    // Leader-specific
-    pending_batches: Arc<Mutex<HashMap<Uuid, NotificationBatch>>>,
-    followers: Arc<RwLock<HashSet<Uuid>>>,
+    // HLC generator for shared changes
+    hlc_generator: Arc<Mutex<HLCGenerator>>,
 
-    // Follower-specific
-    last_synced_sequence: Arc<Mutex<u64>>,
+    // Shared changes log (per-device, small)
+    shared_changes_db: Arc<SharedChangesDb>,
+
+    // Track peer states
+    peer_states: Arc<RwLock<HashMap<Uuid, PeerSyncState>>>,
+
+    // Pending state broadcasts (batched)
+    pending_states: Arc<Mutex<Vec<StateChange>>>,
 }
 
 impl SyncService {
-    /// Create and start sync service for library
+    /// Create and start sync service
     pub async fn start(
         library_id: Uuid,
-        role: SyncRole,
-        sync_log_db: Arc<SyncLogDb>,
         protocol_handler: Arc<SyncProtocolHandler>,
     ) -> Result<Self, SyncError>;
 
-    /// Leader: Notify followers of new entries
-    async fn notify_followers(&self, from_seq: u64, to_seq: u64);
+    /// Broadcast device-owned state change
+    async fn broadcast_state_change(&self, change: StateChange);
 
-    /// Follower: Apply sync entry locally
-    async fn apply_sync_entry(&self, entry: SyncLogEntry);
+    /// Broadcast shared resource change (with HLC)
+    async fn broadcast_shared_change(&self, change: SharedChange);
 
-    /// Handle role transition (election change)
-    pub async fn transition_role(&mut self, new_role: SyncRole);
+    /// Handle received state change
+    async fn on_state_change(&self, change: StateChange);
+
+    /// Handle received shared change
+    async fn on_shared_change(&self, change: SharedChange);
 }
+```
 
 ## Acceptance Criteria
 
-### Leader
-- [ ] Leader service receives commit events
-- [ ] Notifications sent to all followers instantly
-- [ ] Batch notifications for rapid commits (100ms window)
-- [ ] Handles FetchEntries requests
-- [ ] Responds with EntriesResponse
-- [ ] Tracks connected followers
-- [ ] Handles disconnections gracefully
+### State-Based Sync
+- [x] State changes broadcast to all peers ✅
+- [x] Received state applied idempotently ✅
+- [ ] Batch optimization (100ms window) (pending)
+- [ ] Incremental sync via timestamps (pending)
+- [x] No sync log for device-owned data ✅
 
-### Follower
-- [ ] Follower receives NewEntries push notifications
-- [ ] Entries fetched and applied correctly
-- [ ] Sequence tracking prevents duplicate application
-- [ ] Bulk operations trigger local jobs (not replication)
-- [ ] Connection loss handled with reconnect
-- [ ] Gap detection triggers full reconciliation
+### Log-Based Sync
+- [x] Shared changes written to per-device log ✅
+- [x] HLC generated for each change ✅
+- [x] Changes broadcast with HLC ✅
+- [x] Peers apply in HLC order ✅
+- [x] ACK mechanism works ✅
+- [ ] Log pruning keeps it small (<1000 entries) (partial - ACK tracking works, pruning implemented)
+
+### Peer Management
+- [x] Works with any number of peers (no leader/follower) ✅
+- [ ] Offline peers handled (changes queue) (TODO comments added)
+- [ ] Reconnect triggers sync (pending)
+- [ ] New device backfill works (pending)
 
 ### Integration
-- [ ] Service starts correctly based on device role
-- [ ] Role transitions handled (leader election)
-- [ ] Integration tests validate device-to-device sync
-- [ ] Multi-follower scenario tested
+- [ ] Service starts when library opens (pending)
+- [ ] Integration tests validate peer-to-peer sync (pending)
+- [ ] Multi-peer scenario tested (3+ devices) (pending)
+- [ ] Conflict resolution via HLC verified (pending)
 
-## Performance Benefits vs Polling
+## Implementation Progress (Oct 9, 2025)
 
-- **Latency**: Instant (push) vs 5s average (polling)
-- **Bandwidth**: Only when changes occur vs constant polls
-- **Battery**: Idle until notification vs wake every 5s
+Successfully implemented in `core/src/service/sync/peer.rs`:
+
+**Broadcast Improvements**:
+- ✅ Parallel sends using `futures::join_all` (was sequential)
+- ✅ Proper error propagation (removed `.unwrap_or_default()`)
+- ✅ 30-second timeouts per send operation
+- ✅ Structured logging with tracing
+- ✅ Ready for retry queue integration (TODO comments added)
+
+**State-Based Sync**:
+- ✅ `broadcast_state_change()` sends to all peers in parallel
+- ✅ `on_state_change_received()` applies via registry
+- ✅ Buffering during backfill phase
+
+**Log-Based Sync**:
+- ✅ `broadcast_shared_change()` generates HLC and sends to all peers
+- ✅ `on_shared_change_received()` applies with conflict resolution
+- ✅ `on_ack_received()` tracks peer ACKs for pruning
+- ✅ Peer log append before broadcast
+
+**Next Steps**:
+- [ ] Implement backfill for new devices
+- [ ] Add retry queue for failed sends
+- [ ] Connection state tracking
+- [ ] Integration testing
+
+## Performance Benefits
+
+- **No Bottleneck**: Any device can change anytime
+- **Offline First**: Changes queue locally
+- **Simpler**: No leader election overhead
+- **Resilient**: No single point of failure
 
 ## References
 
-- `docs/core/sync.md` - Complete sync specification
-- Protocol: LSYNC-013 (Sync protocol handler)
-- Leader election: LSYNC-009
+- `core/src/infra/sync/NEW_SYNC.md` - Leaderless architecture
+- HLC: LSYNC-014
+- Protocol: LSYNC-013
 - TransactionManager: LSYNC-006

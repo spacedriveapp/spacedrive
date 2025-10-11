@@ -30,7 +30,7 @@ The front matter at the top of each file defines the task's attributes. Here are
 -   `parent` (string, optional): The `id` of a parent task (an Epic). This creates a hierarchical relationship.
 -   `priority` (string, required): The priority level. Must be one of `High`, `Medium`, or `Low`.
 -   `tags` (array of strings, optional): A list of relevant tags for filtering and categorization (e.g., `core`, `networking`, `ui`).
--   `whitepaper` (string, required): A reference to the relevant section in the Spacedrive V2 whitepaper, linking the task directly to the architectural vision.
+-   `whitepaper` (string, optional): A reference to the relevant section in the Spacedrive V2 whitepaper, linking the task directly to the architectural vision.
 
 ### Task Content
 

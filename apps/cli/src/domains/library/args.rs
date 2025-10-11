@@ -110,7 +110,7 @@ pub struct SetupArgs {
 	#[arg(long, default_value = "register-only")]
 	pub action: String,
 
-	/// Leader device: "local" or "remote"
+	/// DEPRICATED: Leader device: "local" or "remote"
 	#[arg(long, default_value = "local")]
 	pub leader: String,
 

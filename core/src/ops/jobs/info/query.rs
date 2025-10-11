@@ -1,5 +1,8 @@
 use super::output::JobInfoOutput;
-use crate::{context::CoreContext, infra::query::{LibraryQuery, QueryError, QueryResult}};
+use crate::{
+	context::CoreContext,
+	infra::query::{LibraryQuery, QueryError, QueryResult},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -36,7 +39,10 @@ impl LibraryQuery for JobInfoQuery {
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| QueryError::LibraryNotFound(library_id))?;
-		let info = library.jobs().get_job_info(self.input.job_id).await
+		let info = library
+			.jobs()
+			.get_job_info(self.input.job_id)
+			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		Ok(info.map(|j| JobInfoOutput {
 			id: j.id,

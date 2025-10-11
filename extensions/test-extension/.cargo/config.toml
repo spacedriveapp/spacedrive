@@ -1,0 +1,6 @@
+# WASM build configuration
+[build]
+target = "wasm32-unknown-unknown"
+
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--export-table"]

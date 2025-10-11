@@ -1,6 +1,6 @@
 use super::output::{PairStatusOutput, PairingSessionSummary};
-use crate::{context::CoreContext, infra::query::CoreQuery};
 use crate::infra::query::QueryResult;
+use crate::{context::CoreContext, infra::query::CoreQuery};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;

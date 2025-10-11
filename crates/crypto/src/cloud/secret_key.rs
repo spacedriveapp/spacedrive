@@ -153,11 +153,6 @@ impl From<GenericArray<u8, U64>> for SecretKey {
 
 #[cfg(test)]
 mod tests {
-	use std::pin::pin;
-
-	use futures::StreamExt;
-	use rand::RngCore;
-
 	use crate::primitives::EncryptedBlock;
 
 	use super::*;
@@ -204,6 +199,8 @@ mod tests {
 		assert_eq!(message, decrypted_message.as_slice());
 	}
 
+	// Stream functionality temporarily disabled due to aead::stream removal
+	/*
 	async fn stream_test(rng: &mut CryptoRng, message: &[u8]) {
 		use super::super::{decrypt::StreamDecryption, encrypt::StreamEncryption};
 
@@ -260,4 +257,5 @@ mod tests {
 
 		stream_test(&mut rng, &message).await;
 	}
+	*/
 }

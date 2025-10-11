@@ -114,17 +114,56 @@ impl JobManager {
 		params: serde_json::Value,
 		priority: JobPriority,
 	) -> JobResult<JobHandle> {
-		// Check if job type is registered
-		if !REGISTRY.has_job(job_name) {
-			return Err(JobError::NotFound(format!(
-				"Job type '{}' not registered",
-				job_name
-			)));
+		// Try core job registry first
+		if REGISTRY.has_job(job_name) {
+			// Create job instance from core registry
+			let erased_job = REGISTRY.create_job(job_name, params)?;
+			return self
+				.dispatch_erased_job(job_name, erased_job, priority, None)
+				.await;
 		}
 
-		// Create job instance
-		let erased_job = REGISTRY.create_job(job_name, params)?;
+		// Check if it's an extension job (contains colon)
+		if job_name.contains(':') {
+			// Try extension job registry
+			if let Some(plugin_manager) = self.context.get_plugin_manager().await {
+				let job_registry = plugin_manager.read().await.job_registry();
 
+				if job_registry.has_job(job_name) {
+					// Extract state JSON from params
+					let state_json = serde_json::to_string(&params).map_err(|e| {
+						JobError::serialization(format!("Failed to serialize params: {}", e))
+					})?;
+
+					// Create WasmJob from registry
+					let wasm_job = job_registry
+						.create_wasm_job(job_name, state_json)
+						.map_err(|e| JobError::NotFound(e))?;
+
+					// Box as ErasedJob and dispatch with the extension job name
+					let erased_job = Box::new(wasm_job) as Box<dyn ErasedJob>;
+					return self
+						.dispatch_erased_job(job_name, erased_job, priority, None)
+						.await;
+				}
+			}
+		}
+
+		// Job not found in either registry
+		Err(JobError::NotFound(format!(
+			"Job type '{}' not registered",
+			job_name
+		)))
+	}
+
+	/// Helper method to dispatch an erased job (extracted from dispatch_by_name)
+	async fn dispatch_erased_job(
+		&self,
+		job_name: &str,
+		erased_job: Box<dyn ErasedJob>,
+		priority: JobPriority,
+		action_context: Option<ActionContext>,
+	) -> JobResult<JobHandle> {
 		let job_id = JobId::new();
 		info!("Dispatching job {} ({}): {}", job_id, job_name, job_name);
 
@@ -237,6 +276,7 @@ impl JobManager {
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
+			job_name.to_string(),
 			library,
 			self.db.clone(),
 			status_tx.clone(),
@@ -522,6 +562,7 @@ impl JobManager {
 		let executor = JobExecutor::new(
 			job,
 			job_id,
+			J::NAME.to_string(),
 			library,
 			self.db.clone(),
 			status_tx.clone(),
@@ -1079,7 +1120,7 @@ impl JobManager {
 						let job_name = job_record.name.clone();
 						let handle = JobHandle {
 							id: job_id,
-							job_name,
+							job_name: job_name.clone(),
 							task_handle: Arc::new(Mutex::new(None)),
 							status_rx,
 							progress_rx: broadcast_rx,
@@ -1093,6 +1134,7 @@ impl JobManager {
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
 							job_id,
+							job_name,
 							library,
 							self.db.clone(),
 							status_tx.clone(),
@@ -1446,6 +1488,7 @@ impl JobManager {
 			// Create executor
 			let executor = erased_job.create_executor(
 				job_id,
+				job_name.clone(),
 				library,
 				self.db.clone(),
 				status_tx.clone(),

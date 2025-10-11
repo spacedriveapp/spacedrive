@@ -1,0 +1,154 @@
+{
+	"sidebar": {
+		"section": "Photos",
+		"icon": "assets/photos_icon.svg",
+		"order": 10,
+		"views": [
+			{
+				"id": "library",
+				"title": "Library",
+				"component": "photo_grid",
+				"query": "list_all_photos",
+				"default": true
+			},
+			{
+				"id": "albums",
+				"title": "Albums",
+				"component": "album_grid",
+				"query": "list_albums"
+			},
+			{
+				"id": "people",
+				"title": "People",
+				"component": "person_cluster_grid",
+				"query": "list_people"
+			},
+			{
+				"id": "places",
+				"title": "Places",
+				"component": "map_view",
+				"query": "list_places"
+			},
+			{
+				"id": "moments",
+				"title": "Moments",
+				"component": "moment_timeline",
+				"query": "list_moments"
+			},
+			{
+				"id": "favorites",
+				"title": "Favorites",
+				"component": "photo_grid",
+				"query": "tags LIKE '#favorite'",
+				"icon": "heart"
+			}
+		]
+	},
+	"context_menu": [
+		{
+			"id": "add_to_album",
+			"label": "Add to Album...",
+			"icon": "plus_circle",
+			"action": "add_to_album",
+			"applies_to": [
+				"image/*"
+			],
+			"keyboard_shortcut": "cmd+shift+a"
+		},
+		{
+			"id": "identify_person",
+			"label": "This is...",
+			"icon": "person",
+			"action": "identify_person",
+			"applies_to": [
+				"image/*"
+			],
+			"requires": "has_detected_faces"
+		},
+		{
+			"id": "set_as_cover",
+			"label": "Set as Album Cover",
+			"icon": "star",
+			"action": "set_album_cover",
+			"applies_to": [
+				"image/*"
+			],
+			"context": "album_view"
+		},
+		{
+			"id": "hide_photo",
+			"label": "Hide",
+			"icon": "eye_slash",
+			"action": "hide_photo",
+			"applies_to": [
+				"image/*"
+			]
+		}
+	],
+	"toolbar_actions": [
+		{
+			"id": "analyze_location",
+			"label": "Analyze for Faces",
+			"icon": "sparkles",
+			"action": "analyze_photos_batch",
+			"context": "location_view"
+		},
+		{
+			"id": "identify_places",
+			"label": "Identify Places",
+			"icon": "map_pin",
+			"action": "identify_places_in_location",
+			"context": "location_view"
+		},
+		{
+			"id": "create_moment",
+			"label": "Create Moment",
+			"icon": "calendar",
+			"action": "create_moments_from_selection"
+		}
+	],
+	"file_viewers": [
+		{
+			"mime_types": [
+				"image/jpeg",
+				"image/png",
+				"image/heic",
+				"image/webp"
+			],
+			"component": "photo_viewer",
+			"features": {
+				"slideshow": true,
+				"metadata_panel": true,
+				"face_indicators": true,
+				"related_photos": true
+			}
+		}
+	],
+	"search_filters": [
+		{
+			"id": "has_people",
+			"label": "Has People",
+			"type": "boolean",
+			"query": "tags LIKE '#person:%'"
+		},
+		{
+			"id": "location",
+			"label": "Location",
+			"type": "place_picker",
+			"query_template": "tags LIKE '#place:{value}'"
+		},
+		{
+			"id": "date_range",
+			"label": "Date",
+			"type": "date_range",
+			"query_template": "exif.taken_at BETWEEN '{start}' AND '{end}'"
+		},
+		{
+			"id": "camera",
+			"label": "Camera",
+			"type": "select",
+			"options_query": "SELECT DISTINCT exif.camera_model FROM photos",
+			"query_template": "exif.camera_model = '{value}'"
+		}
+	]
+}

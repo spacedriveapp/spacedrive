@@ -46,7 +46,7 @@ struct TaskFrontMatter {
 	parent: Option<String>,
 	priority: String,
 	tags: Option<Vec<String>>,
-	whitepaper: String,
+	whitepaper: Option<String>,
 }
 
 fn main() {

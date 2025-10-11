@@ -661,7 +661,6 @@ impl LocationWatcher {
 					}
 					_ = tokio::time::sleep(Duration::from_millis(100)) => {
 						// Periodic tick for debouncing and cleanup
-						debug!("Tick sleep completed (100ms), running platform handler tick");
 						if let Err(e) = platform_handler.tick().await {
 							error!("Error during platform handler tick: {}", e);
 						}
@@ -669,9 +668,7 @@ impl LocationWatcher {
 						// Handle platform-specific tick events that might generate additional events (e.g., rename matching)
 						#[cfg(target_os = "macos")]
 						{
-							debug!("Calling tick_with_locations for macOS");
 							if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations).await {
-								debug!("tick_with_locations returned {} events", tick_events.len());
 								for tick_event in tick_events {
 									match tick_event {
 										Event::FsRawChange { library_id, kind } => {

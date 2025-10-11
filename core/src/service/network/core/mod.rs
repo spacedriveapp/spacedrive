@@ -22,6 +22,7 @@ pub use event_loop::{EventLoopCommand, NetworkingEventLoop};
 pub const PAIRING_ALPN: &[u8] = b"spacedrive/pairing/1";
 pub const FILE_TRANSFER_ALPN: &[u8] = b"spacedrive/filetransfer/1";
 pub const MESSAGING_ALPN: &[u8] = b"spacedrive/messaging/1";
+pub const SYNC_ALPN: &[u8] = b"spacedrive/sync/1";
 
 /// Central networking event types
 #[derive(Debug, Clone)]
@@ -178,6 +179,7 @@ impl NetworkingService {
 				PAIRING_ALPN.to_vec(),
 				FILE_TRANSFER_ALPN.to_vec(),
 				MESSAGING_ALPN.to_vec(),
+				SYNC_ALPN.to_vec(),
 			])
 			.relay_mode(iroh::RelayMode::Default)
 			.add_discovery(discovery)
@@ -904,6 +906,11 @@ impl NetworkingService {
 	/// Get device registry for device management
 	pub fn device_registry(&self) -> Arc<RwLock<DeviceRegistry>> {
 		self.device_registry.clone()
+	}
+
+	/// Get the Iroh endpoint for network communication
+	pub fn endpoint(&self) -> Option<&Endpoint> {
+		self.endpoint.as_ref()
 	}
 
 	/// Publish a discovery record for pairing session

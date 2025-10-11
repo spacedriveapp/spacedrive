@@ -151,21 +151,21 @@ impl TaggingFacade {
 		for tag_name in tag_names {
 			let existing_tags = self.tag_manager.find_tags_by_name(&tag_name).await?;
 
-			let tag_id = if existing_tags.is_empty() {
-				// Create new tag if it doesn't exist
-				let new_tag = self
-					.tag_manager
-					.create_tag(tag_name, None, device_id)
-					.await?;
-				new_tag.id
-			} else if existing_tags.len() == 1 {
-				// Use existing tag if unambiguous
-				existing_tags[0].id
-			} else {
-				// Multiple tags found - use context resolution
-				// For now, just use the first one (TODO: implement smarter resolution)
-				existing_tags[0].id
-			};
+		let tag_id = if existing_tags.is_empty() {
+			// Create new tag if it doesn't exist
+			let new_tag = self
+				.tag_manager
+				.create_tag(tag_name, None, device_id)
+				.await?;
+			new_tag.id
+		} else if existing_tags.len() == 1 {
+			// Use existing tag if unambiguous
+			existing_tags[0].id
+		} else {
+			// Multiple tags found - use context resolution
+			// For now, just use the first one (TODO: implement smarter resolution)
+			existing_tags[0].id
+		};
 
 			applied_tag_ids.push(tag_id);
 		}
@@ -191,18 +191,18 @@ impl TaggingFacade {
 		for (tag_name, confidence, context) in ai_suggestions {
 			let existing_tags = self.tag_manager.find_tags_by_name(&tag_name).await?;
 
-			let tag_id = if existing_tags.is_empty() {
-				// Create new system tag for AI-discovered content
-				let mut new_tag = self
-					.tag_manager
-					.create_tag(tag_name, None, device_id)
-					.await?;
-				new_tag.tag_type = TagType::System;
-				// TODO: Update tag type in database
-				new_tag.id
-			} else {
-				existing_tags[0].id
-			};
+		let tag_id = if existing_tags.is_empty() {
+			// Create new system tag for AI-discovered content
+			let mut new_tag = self
+				.tag_manager
+				.create_tag(tag_name, None, device_id)
+				.await?;
+			new_tag.tag_type = TagType::System;
+			// TODO: Update tag type in database
+			new_tag.id
+		} else {
+			existing_tags[0].id
+		};
 
 			tag_suggestions.push((tag_id, confidence, context));
 		}

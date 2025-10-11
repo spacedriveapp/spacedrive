@@ -48,7 +48,7 @@ use crate::{
 // External crate imports
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 /// Pending pairing request information
@@ -138,6 +138,9 @@ pub struct Core {
 
 	/// Container for high-level services
 	pub services: Services,
+
+	/// WASM plugin manager
+	pub plugin_manager: Option<Arc<RwLock<crate::infra::extension::PluginManager>>>,
 
 	/// Shared context for core components
 	pub context: Arc<CoreContext>,
@@ -319,8 +322,40 @@ impl Core {
 					info!("Networking service initialized");
 					// Store networking service in context so it can be accessed
 					if let Some(networking) = services.networking() {
-						context.set_networking(networking).await;
+						context.set_networking(networking.clone()).await;
 						info!("Networking service registered in context");
+
+						// Initialize sync service on already-loaded libraries
+						// (libraries were loaded before networking was available)
+						info!(
+							"Initializing sync service on {} loaded libraries...",
+							loaded_libraries.len()
+						);
+						for library in &loaded_libraries {
+							if library.sync_service().is_some() {
+								info!(
+									"Sync service already initialized for library {}",
+									library.id()
+								);
+								continue;
+							}
+
+							match library
+								.init_sync_service(device_id, networking.clone())
+								.await
+							{
+								Ok(()) => {
+									info!("Sync service initialized for library {}", library.id());
+								}
+								Err(e) => {
+									warn!(
+										"Failed to initialize sync service for library {}: {}",
+										library.id(),
+										e
+									);
+								}
+							}
+						}
 					}
 				}
 				Err(e) => {
@@ -348,7 +383,20 @@ impl Core {
 		// 14. Initialize API dispatcher
 		let api_dispatcher = ApiDispatcher::new(context.clone());
 
-		// 15. Emit startup event
+		// 15. Initialize plugin manager (WASM extensions)
+		let plugin_dir = data_dir.join("extensions");
+		let _ = std::fs::create_dir_all(&plugin_dir); // Ensure directory exists
+
+		let plugin_manager = Arc::new(RwLock::new(crate::infra::extension::PluginManager::new(
+			plugin_dir,
+			context.clone(),
+			Arc::new(api_dispatcher.clone()),
+		)));
+
+		// Set in context so jobs can access it
+		context.set_plugin_manager(plugin_manager.clone()).await;
+
+		// 16. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -358,6 +406,7 @@ impl Core {
 			volumes,
 			events,
 			services,
+			plugin_manager: Some(plugin_manager),
 			context,
 			api_dispatcher,
 		})

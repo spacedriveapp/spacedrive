@@ -1,7 +1,10 @@
 //! Library listing query implementation
 
 use super::output::LibraryInfo;
-use crate::{context::CoreContext, infra::query::{CoreQuery, QueryResult}};
+use crate::{
+	context::CoreContext,
+	infra::query::{CoreQuery, QueryResult},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;

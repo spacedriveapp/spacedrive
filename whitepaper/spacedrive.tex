@@ -170,7 +170,7 @@ Data fragmentation across devices and clouds hinders cohesive file management. S
 
 Core features include a unified data index for low-latency search, content-aware deduplication, and transactional cross-device operations. This index also supports a local AI component for natural language queries and assistive automation.
 
-This paper describes the Spacedrive v2 architecture, including content-aware addressing, transactional previews, and a synchronization model that avoids distributed consensus. The Content Identity system enables deduplication and redundancy tracking, while AI integration provides semantic search and optional automated actions. We also present a cloud deployment in which backends participate as standard P2P devices, reducing client–server asymmetry.
+This paper describes the Spacedrive v2 architecture, including content-aware addressing, transactional previews, and a hybrid synchronization model that avoids distributed consensus by combining simple state-replication for device-authoritative data with a lightweight, HLC-ordered log for shared metadata. The Content Identity system enables deduplication and redundancy tracking, while AI integration provides semantic search and optional automated actions. We also present a cloud deployment in which backends participate as standard P2P devices, reducing client–server asymmetry.
 \end{abstract}
 
 
@@ -217,9 +217,9 @@ The architecture is built on four foundational principles that solve traditional
 
  \item \textbf{Safe \& Predictable Operations: The Transactional Action System} (Section~\ref{sec:action-system}): A system designed to make file operations safe and transparent. Every change to the VDFS is treated as a transaction that is simulated and approved before execution, leveraging the complete VDFS index to run in-memory simulations of proposed actions with previews of outcomes, including conflicts or storage issues.
 
- \item \textbf{Resilient Synchronization: Domain-Separated Consistency} (Section~\ref{sec:library-sync}): A synchronization model that separates data into distinct domains, each with a tailored resolution strategy. The filesystem index treats each device as the authority for its own files; user metadata is merged using deterministic rules; and file-content transfers are handled as explicit, user-initiated jobs.
+ \item \textbf{Resilient Synchronization: A Leaderless Hybrid Model} (Section~\ref{sec:library-sync}): A synchronization model that eliminates leader-based bottlenecks by separating data into distinct domains. The filesystem index, being device-authoritative, is replicated using a simple state-based model where each device is the source of truth for its own files. Concurrently modified user metadata is merged deterministically using a lightweight, per-device change log ordered by a Hybrid Logical Clock (HLC).
 
- \item \textbf{AI Agent Architecture} (Section~\ref{sec:ai-native}): An architecture in which an agent can observe the VDFS index and propose actions using the same transactional model as human-initiated operations. The agent follows an "Observe, Orient, Act" loop and generates previewable Actions for user approval.
+ \item \textbf{AI Agent Architecture} (Section~\ref{sec:ai-native}): An architecture where specialized AI agents are implemented as WASM extensions, each with domain-specific knowledge and persistent memory systems. These agents observe the VDFS index, react to events, and propose actions using the same transactional model as human-initiated operations.
 \end{itemize}
 
 We report a reference implementation in Rust. On consumer hardware, we observe sub-100 ms semantic search latency, synchronization via the Iroh networking stack, and an approximate memory footprint of 150 MB for libraries exceeding one million files.
@@ -304,7 +304,7 @@ The development of v1 provided invaluable insights that shaped the v2 architectu
 
 \subsection{Spacedrive v2 as an Architectural Solution}
 
-The v2 architecture directly addresses these challenges. The universal \textbf{SdPath} addressing system eliminates the dual file system problem entirely. A decoupled \textbf{Event Bus} provides reliable state propagation, and a simpler domain-separated \textbf{Library Sync} model ensures consistency without CRDT complexity. The new job system reduces boilerplate by over 90\%, while a consolidated networking layer powered by \textbf{Iroh} unifies all P2P communication, improving reliability and connection performance~\cite{iroh_networking}. The technology stack was also modernized, replacing abandoned libraries with community-trusted alternatives like \textbf{SeaORM}.
+The v2 architecture directly addresses these challenges. The universal \textbf{SdPath} addressing system eliminates the dual file system problem entirely. A decoupled \textbf{Event Bus} provides reliable state propagation, and a simpler domain-separated \textbf{Library Sync} model ensures consistency without CRDT complexity by employing a leaderless, hybrid architecture. This model uses efficient state-based replication for device-authoritative data and a lightweight, HLC-ordered log for shared metadata, eliminating single points of failure. The new job system reduces boilerplate by over 90\%, while a consolidated networking layer powered by \textbf{Iroh} unifies all P2P communication, improving reliability and connection performance~\cite{iroh_networking}. The technology stack was also modernized, replacing abandoned libraries with community-trusted alternatives like \textbf{SeaORM}.
 
 By learning from real-world challenges of the initial version, Spacedrive v2 delivers on the original promise with an architecture that is simpler, more fault-tolerant, and designed for the long term.
 
@@ -1248,7 +1248,8 @@ This architecture ensures that new files are added to the user's data space in a
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Domain Separation}: Avoids CRDT complexity by separating index, metadata, and file operations
+\item \textbf{Leaderless Hybrid Model}: Eliminates bottlenecks and single points of failure with a peer-to-peer approach
+\item \textbf{Domain Separation}: Uses efficient state-based sync for device-authoritative data (e.g., file index) and a lightweight, HLC-ordered log for shared metadata (e.g., tags)
 \item \textbf{Integrated Networking}: Single Iroh endpoint handles all protocols with NAT traversal~\cite{iroh_networking}
 \item \textbf{Index-Aware Sync}: VDFS index enables rapid change detection and global deduplication
 \end{itemize}
@@ -1259,29 +1260,31 @@ Spacedrive's distributed architecture requires capable synchronization and netwo
 \subsubsection{Library Sync via Domain Separation}
 \label{sec:library-sync}
 
-Traditional distributed consensus algorithms struggle with the mixed requirements of personal data management. Spacedrive's \textbf{Library Sync} architecture tames this complexity by separating synchronization into three distinct domains, each with tailored conflict resolution strategies:
+Traditional distributed consensus algorithms struggle with the mixed requirements of personal data management. Spacedrive's \textbf{Library Sync} architecture avoids this complexity entirely through a leaderless, peer-to-peer hybrid model that aligns synchronization strategy with data ownership. This eliminates central coordinators, single points of failure, and the need for leader election.
 
-\textbf{Index Sync (Filesystem State)}
+Data is separated into two domains with tailored replication strategies:
 
-Each device maintains authoritative control over its own filesystem index. Since devices cannot directly modify each other's filesystems, conflicts are minimal:
+\textbf{Device-Authoritative Data (State-Based Sync)}
+
+Each device maintains authoritative control over its own filesystem index, including its Locations, Entries, and Volumes. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible. Synchronization is therefore achieved through simple and efficient \textbf{state-based replication}:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Data}: Entry records, device-specific paths, Location metadata
- \item \textbf{Conflicts}: Extremely rare---only occur when multiple devices simultaneously scan the same shared storage
- \item \textbf{Resolution}: Device authority model---each device controls its own filesystem state completely
+ \item \textbf{Data}: Entry records, device-specific paths, Location metadata, device-specific audit logs
+ \item \textbf{Mechanism}: When a change occurs (e.g., a new file is indexed), the device broadcasts the current state of the affected records to all peers
+ \item \textbf{Conflicts}: Impossible---each device is the sole authority for its own data
+ \item \textbf{Resolution}: Peers apply these changes idempotently via upsert operations. No ordered log is required, as the owning device is the definitive source of truth
+ \item \textbf{Efficiency}: Timestamp-based delta sync allows incremental updates without maintaining a persistent change log
 \end{itemize}
 
-\textbf{User Metadata Sync (Content Tags and Ratings)}
+\textbf{Truly Shared Data (Log-Based Sync with HLC)}
 
-Content-universal metadata that should follow files across devices uses union-merge strategies:
-
-When resolving metadata conflicts, Spacedrive applies intuitive, common-sense rules:
+User-generated metadata such as tags, ratings, and collections is not owned by any single device and can be modified concurrently, creating potential conflicts. This domain uses a lightweight, log-based approach:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Tags}: Automatically merge all tags---if you label a photo "family" on one device and "vacation" on another, the result is "family, vacation"
- \item \textbf{Favorites}: Use OR logic---if either device marks something as favorite, it stays favorite
- \item \textbf{Ratings}: Most recent rating wins, with clear notification to the user
- \item \textbf{Notes}: Combine with timestamps so users can review and edit the merged content
+ \item \textbf{Data}: Tags, user-managed collections, favorites, and content-scoped notes
+ \item \textbf{Mechanism}: Each device maintains its own small, per-device log (\texttt{sync.db}) of changes it makes to shared resources. Each entry is timestamped with a Hybrid Logical Clock (HLC)---a distributed timestamp combining physical time with a logical counter to provide total ordering across all devices
+ \item \textbf{Conflict Resolution}: Changes are applied in HLC order. For tags, union-merge combines tags from all devices. For ratings and boolean flags, the change with the higher HLC wins (deterministic last-writer-wins). Notes are concatenated with source attribution
+ \item \textbf{Efficiency}: These logs are aggressively pruned once all peers acknowledge receipt, typically maintaining fewer than 1,000 entries even with active multi-device usage
 \end{itemize}
 
 \textbf{File Operations (Explicit Transfer)}
@@ -1296,6 +1299,17 @@ Unlike automatic synchronization, file movements and copying in Spacedrive are e
 \end{itemize}
 
 This separation eliminates the vast complexity of file content synchronization, treating it as user-initiated operations with clear semantics and error handling.
+
+\paragraph{Leaderless Architecture Benefits}
+
+This peer-to-peer model provides significant practical advantages:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{No Bottlenecks}: Any device can make changes at any time without waiting for a coordinator
+ \item \textbf{True Offline-First}: Devices queue changes locally and sync when connectivity returns, without read-only restrictions
+ \item \textbf{Fault Tolerance}: No single point of failure---any peer can provide synchronization state to new devices
+ \item \textbf{Reduced Complexity}: Eliminates leader election, heartbeat mechanisms, and failover logic (approximately 800 fewer lines of code)
+\end{itemize}
 
 \subsubsection{Iroh-Powered Network Infrastructure}
 
@@ -1536,34 +1550,29 @@ When tag conflicts occur, Spacedrive follows a structured resolution process:
 \paragraph{Rating Conflicts}
 \textbf{Scenario}: Photo rated 4 stars on Device A, 5 stars on Device B.
 
-\textbf{Resolution Strategy}: Last-writer-wins with user notification:
+\textbf{Resolution Strategy}: Deterministic resolution via Hybrid Logical Clocks (HLC):
 
+\textbf{Rating Conflict Resolution: HLC-Based Ordering}
 
-\textbf{Rating Conflict Resolution: Last-Writer-Wins Strategy}
-
-For rating conflicts, Spacedrive uses a temporal resolution approach:
+For rating conflicts, Spacedrive uses HLC timestamps rather than unreliable wall-clock time:
 
 \textbf{Conflict Scenario}: Photo rated differently on multiple devices (e.g., 4 stars vs. 5 stars)
 
 \textbf{Resolution Logic}
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Timestamp Comparison}: System examines when each rating was applied
- \item \textbf{Most Recent Wins}: The more recent rating is automatically selected
- \item \textbf{Clear Attribution}: User notification specifies which device's rating was chosen and when
+ \item \textbf{HLC Comparison}: System compares the Hybrid Logical Clock timestamp of each change
+ \item \textbf{Higher HLC Wins}: The change with the greater HLC value is selected (deterministic last-writer-wins)
+ \item \textbf{Causality Preserved}: HLC ensures that if change A caused change B, then HLC(A) < HLC(B)
+ \item \textbf{Clear Attribution}: User notification specifies which device's rating was chosen based on HLC ordering
 \end{itemize}
 
 \textbf{User Experience}
 \begin{itemize}[noitemsep, topsep=0pt]
- \item Automatic resolution without user intervention required
- \item Transparent notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
+ \item Automatic, deterministic resolution without user intervention
+ \item Transparent notification: "sunset.jpg rating conflict resolved: using 5 stars (from MacBook, applied last)"
  \item User can manually override the automatic choice if they disagree with the outcome
+ \item Consistent resolution across all devices (HLC provides total ordering)
 \end{itemize}
-
-
-\textbf{User Experience}:
-- Most recent rating wins automatically
-- Notification: "sunset.jpg rating conflict resolved: using 5 stars (most recent)"
-- User can manually change rating if they disagree
 
 \subsubsection{Advanced Conflict Scenarios}
 \paragraph{Complex Metadata Conflicts}
@@ -1672,60 +1681,62 @@ This transparent, user-controlled approach to conflict resolution ensures that u
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{AI-Native Design}: Your file index becomes a complete "world model" that AI agents can understand and reason about
-\item \textbf{Natural Language}: Say "organize my tax documents" and the AI converts your intent into structured actions via the Action System
-\item \textbf{Privacy-First AI}: Run models locally with Ollama for complete privacy, or use cloud AI with transparent controls
+\item \textbf{Extension-Based Agents}: AI agents are implemented as sandboxed WASM extensions with domain-specific knowledge and persistent memory
+\item \textbf{Event-Driven Intelligence}: Agents react to filesystem events, scheduled triggers, and user requests through a unified event system
+\item \textbf{Privacy-First AI}: All agent processing runs locally within secure WASM sandboxes, with fine-grained permission controls
 \end{itemize}
 \end{keytakeaways}
 
-While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native data space}. The complete, continuously updated index of the user's files serves as a practical "world model" for an AI agent to reason about. This enables a shift from reactive file management (issuing manual commands) to a collaborative model where both the user and an AI agent can manage the data space, with the human in the loop. This builds upon research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
+While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native data space} where specialized intelligence is deeply integrated through its extension architecture. Rather than a single monolithic AI assistant, Spacedrive enables domain-specific agents—such as a Photos agent for face recognition and place clustering, or a Finance agent for receipt processing—each implemented as a secure WASM extension with its own knowledge base and capabilities. This modular approach builds upon research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
 
-This is achieved through a flexible, privacy-first architecture that is model-agnostic, supporting both cloud services and local models running on user hardware via interfaces like Ollama.
+Extensions provide a secure, sandboxed environment where agents can observe the continuously updated VDFS index, react to events, and propose actions through the same safe, transactional primitives available to human users. This architecture enables a shift from reactive file management to a collaborative model where specialized agents assist with domain-specific tasks while keeping the user in control.
 
-\subsubsection{The AI-Native Advantage in Practice}
+\subsubsection{Extension-Based Agents in Practice}
 
-To illustrate, consider a designer, Alice. She asks Spacedrive: ``Find my untagged design projects from last fall.'' The AI agent observes that her project files from that period lack organization tags, a pattern it learned from her past actions stored in the audit log. Instead of just listing files, it decides on an action, proposing a pre-visualized \texttt{BatchTagAction} to organize these files with appropriate project tags. Later, observing her manually moving screenshots from Downloads to project folders, it proactively suggests a \texttt{FileCopyAction} automation rule. This is assistive automation that adapts while keeping Alice in control.
+Spacedrive's agent architecture is demonstrated through specialized extensions like the Photos extension. When a user enables the Photos extension on their library, an intelligent agent begins operating in the background. As new photos are indexed, the agent receives \texttt{EntryCreated} events and adds them to an analysis queue. When the queue reaches a threshold (e.g., 50 photos), the agent dispatches a \texttt{AnalyzePhotosBatchJob} that runs face detection, scene classification, and place identification. The agent maintains persistent memory of face clusters, place associations, and scene patterns, enabling sophisticated queries like ``show me photos of Alice at the beach.''
 
-\subsubsection{The Agentic Loop: Observe, Orient, Act}
+Each extension agent is sandboxed within a WASM runtime with explicit permissions. The Photos extension, for example, requires permissions to read image files, write sidecars for face detection results, add tags, and use local face detection models. Users grant these permissions on a per-location basis, ensuring the agent only processes photos in directories they've explicitly authorized.
 
-Spacedrive's AI capabilities are built on a classic agentic loop, where each stage is powered by a core component of the VDFS architecture:
+\subsubsection{The Agent Architecture: Memory, Events, and Actions}
 
-\textbf{Observe}: The Indexing System is the sensory input. During the \textbf{deep indexing phase}, it goes beyond basic metadata to perform AI-powered analysis, extracting rich context like image content, video transcripts, and document summaries. This enriches the Spacedrive index, providing the AI with a deep understanding of the user's data.
+Extension-based agents operate through three core primitives:
 
-\textbf{Orient}: With a complete "world model" in its index, the AI can orient itself. It analyzes file content, user-applied metadata (tags, ratings), and historical user actions (from the audit\_log table) to understand context, identify patterns, and recognize organizational inconsistencies.
+\textbf{Memory Systems}: Each agent maintains persistent knowledge through specialized memory types. \textit{Temporal Memory} stores time-ordered events (e.g., "photo analyzed, 2 faces detected, scene: beach"), enabling queries like "photos analyzed last week with beach scenes." \textit{Associative Memory} maintains a semantic knowledge graph (e.g., face clusters, place associations) that supports similarity searches and cross-domain queries like "places where Alice frequently appears." \textit{Working Memory} tracks current state and pending work transactionally.
 
-\textbf{Decide \& Act}: The AI formulates a plan and proposes it as a structured Action. This is a critical safety and control mechanism; the AI does not execute arbitrary commands but is constrained to the same safe, verifiable primitives available to the user. A user command like "Archive my old projects from last year that are over 1GB" is translated directly into a FileCopyAction.
+\textbf{Event-Driven Processing}: Agents react to the VDFS through lifecycle hooks: \texttt{on\_startup} initializes the agent, \texttt{on\_event} handlers respond to filesystem events like \texttt{EntryCreated}, and \texttt{scheduled} tasks run on cron-like schedules. This reactive architecture enables agents to maintain up-to-date knowledge without polling, processing new data as it arrives.
 
-\subsubsection{Natural Language Management}
+\textbf{Safe Actions}: Agents propose changes through the same Action System used by human users. When the Photos agent identifies a face cluster, it generates a \texttt{BatchTagAction} to tag relevant photos, complete with a preview showing exactly which files will be modified. All agent-initiated actions are auditable, reversible, and require the same validation as user commands.
 
-The Action System serves as a stable, well-defined API that can be used to fine-tune language models. This allows Spacedrive to translate complex user requests from natural language into a series of verifiable actions.
+\subsubsection{Domain-Specific Intelligence}
 
-As we saw with Alice's request to ``find design assets from last fall that I never exported,'' the system translates natural language into precise operations. Similarly, a command like ``Move my last 3 screen recordings from the desktop to the 'Clips' folder on my NAS'' is processed through semantic search to identify the relevant files, then translated into a structured \texttt{FileCopyAction} with appropriate source paths, destination, and move semantics.
+The extension architecture enables specialized agents tailored to specific domains rather than a single general-purpose assistant. A Finance extension can implement intelligent receipt processing: when a PDF invoice appears in an Ingest location, the Finance agent's \texttt{on\_event} handler triggers OCR extraction, uses a language model to parse merchant details and amounts, then proposes a \texttt{FileMoveAction} to organize it into the appropriate \texttt{/Finances/Vendors/[Merchant]} directory structure.
 
-The generated action is processed through the Action System (Section~\ref{sec:action-system}), inheriting its safety guarantees including preview and durability. The AI serves as an interpreter rather than an opaque automaton.
+Similarly, a Photos extension implements sophisticated computer vision workflows: face detection with clustering, scene classification, place identification from GPS data, and automatic moment generation. Each domain-specific agent brings specialized models and processing logic while operating within the secure, permission-controlled WASM sandbox.
 
-\subsubsection{Proactive Assistance and Optimization}
+This modular approach provides several advantages over monolithic AI assistants. Agents can be independently developed, tested, and updated. Users install only the agents relevant to their workflows. Each agent's permissions are explicitly scoped, enhancing security. And domain-specific knowledge enables more accurate and efficient processing than general-purpose models.
 
-Beyond executing commands, the AI agent can proactively identify opportunities to help the user. By observing patterns, it can suggest helpful actions.
+\subsubsection{Proactive Pattern Recognition}
 
-\textbf{Organizational Suggestions}: As demonstrated in Alice's workflow, when the AI observed her repeatedly moving screenshots from the Desktop to project folders, it proactively offered to automate this pattern. The architecture enables such capabilities---if the indexer identifies a screen recording on the Desktop and the agent observes from historical actions that the user consistently moves such files to a \texttt{\textasciitilde/Videos/Screen Recordings} folder, it could generate a suggested \texttt{FileCopyAction} for the user to approve with a single click.
+Extension agents leverage their persistent memory systems to identify patterns and suggest optimizations. An Organization agent can observe repeated user actions in the \texttt{audit\_log}—such as consistently moving screenshots from Desktop to project-specific folders—and proactively offer automation rules. When a new screenshot appears, the agent proposes a \texttt{FileCopyAction} with a confidence score based on historical patterns: "I noticed you typically move screenshots like this to \texttt{/Projects/DesignWork/Screenshots}. Would you like me to move this one?"
 
-\textbf{Deduplication Opportunities}: The agent can periodically scan for duplicated content across devices and suggest a "cleanup" action that consolidates files and frees up space, with the Action System showing exactly what will be removed.
+\textbf{Deduplication Intelligence}: A Storage agent can periodically scan for duplicated content across devices and suggest cleanup actions that consolidate files and free space, with the Action System's preview showing exactly which files will be removed and where backups exist.
 
-\textbf{Data Guardian Mode}: The AI leverages the Data Guardian capability (Section~\ref{sec:content-identity}) to monitor file redundancy. When Alice imports her daughter's graduation photos, the system detects these as single-copy files. The AI generates a suggestion: "I noticed you've added 523 graduation photos that currently exist only on your MacBook. These precious memories could be lost if your laptop fails. Would you like me to create backups on your Home NAS and Cloud Storage?"
-The AI system analyzes user behavior patterns from the \texttt{audit\_log} table to identify organizational preferences, then suggests actions when files violate established patterns. Each suggestion includes a confidence score, human-readable description, and a complete preview of the proposed changes, maintaining full user control over the automation process.
+\textbf{Data Guardian Monitoring}: A Backup agent leverages the Content Identity system (Section~\ref{sec:content-identity}) to monitor file redundancy. When new photos are imported with zero redundancy, the agent generates a suggestion: "I noticed you've added 523 photos that currently exist only on your MacBook. These files could be lost if your device fails. Would you like me to create backups on your NAS and Cloud Storage?" The agent maintains knowledge of backup preferences and device availability in its associative memory, enabling intelligent, context-aware suggestions.
 
-\paragraph{Ingestion Sorting}
+\paragraph{Ingestion Processing}
 \label{sec:ai-native-ingestion}
-The AI agent's proactive capabilities are particularly powerful when applied to the file ingestion workflow (Section~\ref{sec:ingestion-workflow}). When new files arrive in the user's designated Ingest Location, the AI's agentic loop is triggered:
+Extension agents are particularly powerful when monitoring Ingest Locations (Section~\ref{sec:ingestion-workflow}). A Finance agent, for example, can register an \texttt{on\_event} handler for \texttt{EntryCreated} events in designated ingest directories. When a new PDF arrives, the agent:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Observe}: The AI detects new \texttt{Entry} records in the Ingest Location.
-    \item \textbf{Orient}: It performs content analysis on the new files (e.g., identifying a PDF as a receipt, a PNG as a screenshot of a specific application) and cross-references this with the user's historical organization patterns from the \texttt{audit\_log} table. For instance, it may notice that PDFs with the word "Invoice" are consistently moved to a "\texttt{/Finances/Invoices}" directory.
-    \item \textbf{Decide \& Act}: Based on this analysis, the AI formulates and proposes a \texttt{FileCopyAction} or \texttt{FileMoveAction} to the user. The user is presented with a clear suggestion: "I noticed a new invoice landed in your Inbox. Would you like me to move it to your 'Invoices' folder?". This suggestion is a standard, pre-visualized Action that the user can approve with a single click, ensuring human-in-the-loop control over all automated organization.
+    \item Receives the \texttt{EntryCreated} event with the new Entry
+    \item Dispatches an OCR job to extract text content
+    \item Analyzes the extracted text to identify the document type (invoice, receipt, statement)
+    \item Queries its associative memory for similar documents and their historical organization patterns
+    \item Proposes a \texttt{FileMoveAction} to the appropriate destination directory
 \end{itemize}
+The user sees a notification: "New invoice from Acme Corp detected. Move to \texttt{/Finances/Invoices/2024/Acme}?" This suggestion is a standard, pre-visualized Action that can be approved with a single click, maintaining human-in-the-loop control while automating repetitive organization tasks.
 
 \subsubsection{File Intelligence via Virtual Sidecars}
-The AI agent's ability to "Observe" the user's data space is powered by the Virtual Sidecar System. The background intelligence jobs use purpose-specific models to enrich the VDFS with structured information:
+Extension agents enrich the VDFS through the Virtual Sidecar System. Background jobs dispatched by agents use purpose-specific models to extract structured information:
 \begin{itemize}
     \item \textbf{Text Embeddings}: Lightweight models like all-MiniLM-L6-v2 for semantic search
     \item \textbf{OCR}: Tesseract or EasyOCR for text extraction
@@ -1736,29 +1747,31 @@ These specialized models are far more efficient than general-purpose LLMs while 
 
 \textbf{Image Object Extraction}: An \texttt{ImageAnalysisJob} processes image files. Using a multimodal model, it identifies objects and concepts within the image (e.g., "dog," "beach," "sunset"). These results are not stored in a sidecar, but are instead applied directly as Tags to the Entry's \texttt{UserMetadata} record. This integrates AI analysis into the user's organizational structure and makes images searchable via existing tag filters.
 
-\textbf{OCR and Transcription}: For images and PDF documents, an \texttt{OcrJob} is triggered. It extracts all textual content and saves it to a structured sidecar file (e.g., \texttt{ocr.json}). Similarly, a \texttt{TranscriptionJob} uses a speech-to-text model on audio and video files to produce a \texttt{transcript.json} sidecar. The text content from these sidecars is then ingested into the Temporal-Semantic Search FTS5 index, making the content of non-text files fully searchable. A user can now find a photo of a receipt by searching for the vendor's name, or find a video by searching for a phrase spoken within it.
+\textbf{OCR and Transcription}: For images and PDF documents, an \texttt{OcrJob} is triggered by relevant agents. It extracts all textual content and saves it to a structured sidecar file (e.g., \texttt{ocr.json}). Similarly, a \texttt{TranscriptionJob} uses a speech-to-text model on audio and video files to produce a \texttt{transcript.json} sidecar. The text content from these sidecars is then ingested into the Temporal-Semantic Search FTS5 index, making the content of non-text files fully searchable. A user can now find a photo of a receipt by searching for the vendor's name, or find a video by searching for a phrase spoken within it.
 
-This system transforms a simple collection of files into a rich, interconnected knowledge base that the AI agent can reason about, all while maintaining a local-first, privacy-preserving architecture.
+This system transforms a simple collection of files into a rich, interconnected knowledge base that extension agents can reason about, all while maintaining a local-first, privacy-preserving architecture within secure WASM sandboxes.
 
-\subsubsection{\plannedSection{AI-Driven Tiering Suggestions}}
+\subsubsection{\plannedSection{Intelligent Storage Tiering}}
 
-The VDFS's native understanding of \texttt{StorageClass} provides a foundation for AI assistance. Instead of managing storage in an opaque way, the AI agent's role is to analyze access patterns and suggest changes to a Location's core \texttt{StorageClass} property.
+The VDFS's native understanding of \texttt{StorageClass} enables Storage extension agents to analyze access patterns and suggest tiering changes. A Storage agent can monitor file access metadata and maintain temporal memory of usage patterns across the library.
 
-Consider Bob, a photographer: Spacedrive's AI notices that RAW photo shoots from 2023, tagged as "delivered," haven't been accessed in months.
+Consider Bob, a photographer with a Storage agent installed: The agent's scheduled task runs weekly, querying its temporal memory for files with low access frequency. It identifies RAW photo shoots from 2023, tagged as "delivered," that haven't been opened in six months.
 
-\textbf{Action Proposal}: "I can re-classify 8 completed photo shoots (1.2TB) as \textbf{Cold Storage}, moving them to your NAS archive. This will free up space on your main SSD. These files will remain fully searchable, but access will take longer. Do you approve?"
+\textbf{Agent Proposal}: "I can re-classify 8 completed photo shoots (1.2TB) as \textbf{Cold Storage}, moving them to your NAS archive. This will free up space on your main SSD. These files will remain fully searchable, but access will take longer. Do you approve?"
 
-When Bob approves, a standard \texttt{FileCopyAction} is generated and committed to the durable job queue. The AI acts as an advisor, but the operation itself uses the safe, transparent, and verifiable primitives of the VDFS and Action System.
+When Bob approves, the agent dispatches a standard \texttt{FileCopyAction} to the job queue. The agent acts as an advisor, but the operation uses the same safe, transparent, and verifiable primitives as manual user commands.
 
-The storage tiering system analyzes access patterns and storage costs to suggest \texttt{StorageClass} assignments. When the AI detects that files in a \texttt{Hot} location haven't been accessed for extended periods, it can propose reclassification to \texttt{Cold} or \texttt{Deep} storage. Similarly, if files in \texttt{Cold} storage see increased access, the AI can suggest promoting them back to \texttt{Hot} storage. This human-in-the-loop approach ensures users maintain control while benefiting from automation.
+Storage agents can also detect the inverse pattern: when files in \texttt{Cold} storage see increased access, the agent can propose promoting them back to \texttt{Hot} storage. This human-in-the-loop approach ensures users maintain control while benefiting from intelligent automation.
 
-\subsubsection{Privacy-First AI Architecture}
+\subsubsection{Privacy and Security Through Sandboxing}
 
-This AI framework clearly separates concerns between search (lightweight embeddings) and intelligent assistance (LLMs). For the AI agent functionality—natural language understanding, action generation, and proactive suggestions—users can choose:
+The extension-based agent architecture provides strong security guarantees through WASM sandboxing and explicit permission controls. Each extension agent operates in an isolated WASM runtime with access limited to explicitly granted permissions. When a user installs a Photos extension, they must grant specific permissions: read access to image files, write access to face detection sidecars, tag creation privileges, and the right to use local face detection models. These permissions can be further scoped to specific library locations, ensuring the agent only processes files in authorized directories.
 
-The AI provider interface supports multiple deployment models: local processing via Ollama for complete privacy, cloud-based services for enhanced capabilities, and enterprise self-hosted solutions for organizational control. This flexibility ensures users can balance privacy, performance, and functionality according to their specific requirements.
+All agent processing occurs locally within the WASM sandbox. Face detection models, scene classifiers, and other AI capabilities run on the user's device, ensuring sensitive data never leaves their control. The extension SDK provides access to local model inference through a secure host function interface that enforces rate limits and resource constraints.
 
-This architecture aims for a personal, private data space—one where AI enhances capability without compromising control or privacy.
+This architecture separates concerns between lightweight embedding models for search (which operate on the core VDFS) and specialized agent intelligence (which runs in isolated extensions). The AI provider interface supports multiple deployment models: local processing via Ollama for complete privacy, cloud-based services for enhanced capabilities, and enterprise self-hosted solutions for organizational control.
+
+This approach creates a personal, private data space where AI capabilities enhance functionality without compromising control, privacy, or security.
 
 \paragraph{Ethical Considerations}
 While model-agnostic, Spacedrive prioritizes ethical AI use. Local models mitigate bias by training on user data only, but users are notified of potential limitations (e.g., underrepresented demographics in embeddings). Cloud options include opt-out for sensitive files, ensuring compliance with regulations like GDPR.
@@ -1770,19 +1783,19 @@ While model-agnostic, Spacedrive prioritizes ethical AI use. Local models mitiga
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Asynchronous by Design}: All searches are durable jobs, preventing UI blocking and enabling agents to initiate searches without waiting for results.
+\item \textbf{Asynchronous by Design}: All searches are durable jobs, preventing UI blocking and enabling extension agents to initiate searches without waiting for results.
 \item \textbf{Hybrid Architecture}: A high-speed FTS5 keyword filter pre-processes candidates before lightweight semantic re-ranking.
-\item \textbf{Decoupled Results}: The backend caches results against a query ID; the frontend is notified to fetch and render them, decoupling the agent from the UI.
+\item \textbf{Decoupled Results}: The backend caches results against a query ID; the frontend is notified to fetch and render them, decoupling agents from the UI.
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's search architecture is engineered for a responsive, agent-driven environment. It treats search not as a synchronous request-response loop, but as a durable, asynchronous job that is initiated, executed, and cached by the backend, with the frontend being notified upon completion. This model applies uniformly to searches originating from both direct user input and AI agent directives.
+Spacedrive's search architecture is engineered for a responsive, agent-driven environment. It treats search not as a synchronous request-response loop, but as a durable, asynchronous job that is initiated, executed, and cached by the backend, with the frontend being notified upon completion. This model applies uniformly to searches originating from both direct user input and extension agent directives.
 
 \subsubsection{The Search Lifecycle: An Action-Driven Workflow}
 A search operation follows a formal lifecycle managed by core VDFS components:
 
 \begin{enumerate}[noitemsep, topsep=0pt]
-    \item \textbf{Action Dispatch}: A user or agent initiates a search by dispatching a \texttt{SearchAction} containing the query parameters.
+    \item \textbf{Action Dispatch}: A user or extension agent initiates a search by dispatching a \texttt{SearchAction} containing the query parameters.
     \item \textbf{Job Registration}: The \texttt{ActionManager} receives this action and registers a new \texttt{SearchJob} with the Durable Job System, returning a unique \texttt{query\_id}. This step is near-instantaneous, providing immediate feedback.
     \item \textbf{Asynchronous Execution}: The \texttt{SearchJob} executes in the background, performing the two-stage search process without blocking the user or agent.
     \item \textbf{Result Caching}: Upon completion, the job caches the ordered list of resulting \texttt{Entry} IDs in a temporary store, keyed by the \texttt{query\_id}.
@@ -1790,7 +1803,7 @@ A search operation follows a formal lifecycle managed by core VDFS components:
     \item \textbf{Result Rendering}: The frontend, subscribed to these events, receives the notification and uses the \texttt{query\_id} to fetch the cached results via the GraphQL API for rendering.
 \end{enumerate}
 
-This architecture ensures the agent's role is simply to initiate the search; it never needs to handle the results directly, maintaining a clean separation of concerns.
+This architecture ensures an agent's role is simply to initiate the search; it never needs to handle the results directly, maintaining a clean separation of concerns.
 
 \subsubsection{The Two-Stage Search Process}
 The \texttt{SearchJob} executes a hybrid temporal-semantic query designed for performance on consumer hardware. This \textbf{Temporal-First, Vector-Enhanced} approach operates in two stages:
@@ -1904,8 +1917,8 @@ This architecture provides several key advantages:
 
 The unified format ensures all intelligence—routing and content vectors—travels with the data, while the adaptive creation strategy prevents overhead in sparse areas of the filesystem. This enables million-file semantic search on consumer hardware by transforming an O(n) problem into an O(log n) traversal guided by semantic routing.
 
-\paragraph{Integration with AI Agents}
-The Vector Repository system integrates with Spacedrive's AI agents, enabling them to:
+\paragraph{Integration with Extension Agents}
+The Vector Repository system integrates with Spacedrive's extension agents, enabling them to:
 \begin{itemize}
     \item Navigate large filesystems using routing hints
     \item Understand folder purposes through aggregate embeddings
@@ -2599,7 +2612,7 @@ WASM provides critical security guarantees:
 Through the exposed VDFS API, plugins can:
 \begin{itemize}
     \item Define custom semantic content types with parsing logic
-    \item Create specialized AI agents for workflow automation
+    \item Implement specialized AI agents with domain-specific knowledge and memory
     \item Add new actions to the transactional action system
     \item Implement custom search providers and filters
     \item Generate specialized thumbnails and previews
@@ -2681,7 +2694,7 @@ The WASM plugin system provides flexible extensibility:
     \textbf{Plugin Instances}\\[0.2cm]
     \textbullet\ Content Type Handlers\\
     \textbullet\ Search Providers\\
-    \textbullet\ AI Agents\\
+    \textbullet\ Intelligent Agents (WASM)\\
     \textbullet\ Custom Actions
 };
 
@@ -3291,12 +3304,9 @@ The authors acknowledge the use of generative AI tools for assistance in draftin
 
 \subsection*{Synchronization \& Networking}
 
-\textbf{Library Sync}: Spacedrive's intelligent synchronization system that keeps Libraries consistent across all devices by separating concerns into three domains:
-\begin{itemize}[noitemsep, topsep=0pt]
-  \item \textit{Index Sync}: Maintains consistent filesystem state across devices
-  \item \textit{User Metadata Sync}: Handles tags, ratings, and other user-generated metadata
-  \item \textit{File Operations}: Manages actual file transfers and content synchronization
-\end{itemize}
+\textbf{Library Sync}: Spacedrive's leaderless, peer-to-peer synchronization system. It uses a hybrid model: simple state-based replication for device-authoritative data (like the file index) and a lightweight, HLC-ordered log for resolving conflicts in truly shared data (like tags and ratings). This eliminates central coordinators and single points of failure while ensuring eventual consistency.
+
+\textbf{Hybrid Logical Clock (HLC)}: A distributed timestamping mechanism that combines physical time with a logical counter to create a total ordering of events across multiple devices. Used in Spacedrive to deterministically resolve conflicts for shared metadata without requiring a central coordinator
 
 \textbf{Iroh}: The peer-to-peer networking library used for device discovery and secure communication.
 

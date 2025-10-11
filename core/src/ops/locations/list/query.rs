@@ -1,6 +1,6 @@
 use super::output::{LocationInfo, LocationsListOutput};
-use crate::{context::CoreContext, infra::query::LibraryQuery};
 use crate::infra::query::{QueryError, QueryResult};
+use crate::{context::CoreContext, infra::query::LibraryQuery};
 use sea_orm::EntityTrait;
 use serde::{Deserialize, Serialize};
 use specta::Type;

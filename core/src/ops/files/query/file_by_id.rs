@@ -1,12 +1,12 @@
 //! Query to get a single file by ID with all related data
 
+use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	infra::query::LibraryQuery,
 	domain::{file::FileConstructionData, File},
 	infra::db::entities::{content_identity, entry, sidecar, tag, user_metadata_tag},
+	infra::query::LibraryQuery,
 };
-use crate::infra::query::{QueryError, QueryResult};
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
 	QuerySelect, RelationTrait,

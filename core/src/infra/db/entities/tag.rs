@@ -2,8 +2,9 @@
 //!
 //! SeaORM entity for the enhanced semantic tagging system
 
+use crate::infra::sync::{ChangeType, SharedChangeEntry, Syncable};
 use sea_orm::entity::prelude::*;
-use sea_orm::{NotSet, Set};
+use sea_orm::{ActiveValue::NotSet, Set};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -177,6 +178,248 @@ impl Model {
 	}
 }
 
+// Syncable Implementation
+//
+// Tags are SHARED resources using HLC-ordered log-based replication with union merge.
+// Multiple tags with the same canonical_name are preserved if they have different UUIDs.
+// This supports polymorphic naming where context (namespace) disambiguates meaning.
+impl Syncable for Model {
+	const SYNC_MODEL: &'static str = "tag";
+
+	fn sync_id(&self) -> Uuid {
+		self.uuid
+	}
+
+	fn version(&self) -> i64 {
+		// TODO: Add version field to tags table via migration
+		// Migration SQL:
+		//   ALTER TABLE tag ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+		// For now, return a default value
+		1
+	}
+
+	fn exclude_fields() -> Option<&'static [&'static str]> {
+		Some(&["id", "created_at", "updated_at"])
+	}
+
+	fn sync_depends_on() -> &'static [&'static str] {
+		&[] // Tag is shared, no FK dependencies
+	}
+
+	/// Query tags for backfill (shared resources)
+	///
+	/// Returns ALL tags (not filtered by device - tags are shared across all devices).
+	/// Used when a new device joins and needs the full current state.
+	async fn query_for_sync(
+		_device_id: Option<Uuid>,
+		since: Option<chrono::DateTime<chrono::Utc>>,
+		batch_size: usize,
+		db: &DatabaseConnection,
+	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+
+		let mut query = Entity::find();
+
+		// Filter by timestamp if specified (for incremental sync)
+		if let Some(since_time) = since {
+			query = query.filter(Column::UpdatedAt.gte(since_time));
+		}
+
+		// Apply batch limit
+		query = query.limit(batch_size as u64);
+
+		let results = query.all(db).await?;
+
+		// Convert to sync format
+		let mut sync_results = Vec::new();
+		for tag in results {
+			// Serialize to JSON
+			let json = match tag.to_sync_json() {
+				Ok(j) => j,
+				Err(e) => {
+					tracing::warn!(error = %e, uuid = %tag.uuid, "Failed to serialize tag for sync");
+					continue;
+				}
+			};
+
+			sync_results.push((tag.uuid, json, tag.updated_at));
+		}
+
+		Ok(sync_results)
+	}
+
+	/// Apply shared change with union merge conflict resolution.
+	/// Different UUIDs with same canonical_name coexist (polymorphic naming).
+	async fn apply_shared_change(
+		entry: SharedChangeEntry,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		match entry.change_type {
+			ChangeType::Insert | ChangeType::Update => {
+				// Debug: Log what we're receiving
+				tracing::debug!(
+					"Received tag sync data: {}",
+					serde_json::to_string_pretty(&entry.data)
+						.unwrap_or_else(|_| "invalid".to_string())
+				);
+
+				// Extract fields from JSON (can't deserialize to Model because id is excluded)
+				let data = entry.data.as_object().ok_or_else(|| {
+					sea_orm::DbErr::Custom("Tag data is not an object".to_string())
+				})?;
+
+				let uuid: Uuid = serde_json::from_value(
+					data.get("uuid")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+				// Build ActiveModel for upsert
+				let active = ActiveModel {
+					id: NotSet, // Database PK, not synced
+					uuid: Set(uuid),
+					canonical_name: Set(serde_json::from_value(
+						data.get("canonical_name")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					display_name: Set(serde_json::from_value(
+						data.get("display_name")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					formal_name: Set(serde_json::from_value(
+						data.get("formal_name")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					abbreviation: Set(serde_json::from_value(
+						data.get("abbreviation")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					aliases: Set(serde_json::from_value(
+						data.get("aliases")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					namespace: Set(serde_json::from_value(
+						data.get("namespace")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					tag_type: Set(serde_json::from_value(
+						data.get("tag_type")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					color: Set(serde_json::from_value(
+						data.get("color")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					icon: Set(serde_json::from_value(
+						data.get("icon").cloned().unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					description: Set(serde_json::from_value(
+						data.get("description")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					is_organizational_anchor: Set(serde_json::from_value(
+						data.get("is_organizational_anchor")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					privacy_level: Set(serde_json::from_value(
+						data.get("privacy_level")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					search_weight: Set(serde_json::from_value(
+						data.get("search_weight")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					attributes: Set(serde_json::from_value(
+						data.get("attributes")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					composition_rules: Set(serde_json::from_value(
+						data.get("composition_rules")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					created_at: Set(chrono::Utc::now().into()), // Local timestamp
+					updated_at: Set(chrono::Utc::now().into()), // Local timestamp
+					created_by_device: Set(serde_json::from_value(
+						data.get("created_by_device")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+				};
+
+				// Idempotent upsert: insert or update based on UUID
+				// Union merge: different UUIDs = different tags (even with same canonical_name)
+				Entity::insert(active)
+					.on_conflict(
+						sea_orm::sea_query::OnConflict::column(Column::Uuid)
+							.update_columns([
+								Column::CanonicalName,
+								Column::DisplayName,
+								Column::FormalName,
+								Column::Abbreviation,
+								Column::Aliases,
+								Column::Namespace,
+								Column::TagType,
+								Column::Color,
+								Column::Icon,
+								Column::Description,
+								Column::IsOrganizationalAnchor,
+								Column::PrivacyLevel,
+								Column::SearchWeight,
+								Column::Attributes,
+								Column::CompositionRules,
+								Column::UpdatedAt,
+								Column::CreatedByDevice,
+							])
+							.to_owned(),
+					)
+					.exec(db)
+					.await?;
+			}
+
+			ChangeType::Delete => {
+				// Delete by UUID (tombstone record)
+				Entity::delete_many()
+					.filter(Column::Uuid.eq(entry.record_uuid))
+					.exec(db)
+					.await?;
+			}
+		}
+
+		Ok(())
+	}
+}
+
 /// Helper enum for tag types (for validation)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TagType {
@@ -232,4 +475,116 @@ impl PrivacyLevel {
 			_ => None,
 		}
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_tag_syncable() {
+		let tag = Model {
+			id: 1,
+			uuid: Uuid::new_v4(),
+			canonical_name: "vacation".to_string(),
+			display_name: Some("Vacation".to_string()),
+			formal_name: None,
+			abbreviation: None,
+			aliases: None,
+			namespace: Some("travel".to_string()),
+			tag_type: "standard".to_string(),
+			color: Some("#FF5733".to_string()),
+			icon: None,
+			description: Some("Travel vacation photos".to_string()),
+			is_organizational_anchor: false,
+			privacy_level: "normal".to_string(),
+			search_weight: 100,
+			attributes: None,
+			composition_rules: None,
+			created_at: chrono::Utc::now().into(),
+			updated_at: chrono::Utc::now().into(),
+			created_by_device: Some(Uuid::new_v4()),
+		};
+
+		// Test sync methods
+		assert_eq!(Model::SYNC_MODEL, "tag");
+		assert_eq!(tag.sync_id(), tag.uuid);
+		assert_eq!(tag.version(), 1);
+
+		// Test JSON serialization
+		let json = tag.to_sync_json().unwrap();
+
+		// Excluded fields
+		assert!(json.get("id").is_none());
+		assert!(json.get("created_at").is_none());
+		assert!(json.get("updated_at").is_none());
+
+		// Fields that SHOULD sync
+		assert!(json.get("uuid").is_some());
+		assert!(json.get("canonical_name").is_some());
+		assert!(json.get("display_name").is_some());
+		assert!(json.get("namespace").is_some());
+		assert!(json.get("tag_type").is_some());
+		assert!(json.get("color").is_some());
+		assert!(json.get("description").is_some());
+		assert!(json.get("privacy_level").is_some());
+		assert!(json.get("search_weight").is_some());
+		assert!(json.get("created_by_device").is_some());
+
+		assert_eq!(
+			json.get("canonical_name").unwrap().as_str().unwrap(),
+			"vacation"
+		);
+		assert_eq!(
+			json.get("display_name").unwrap().as_str().unwrap(),
+			"Vacation"
+		);
+	}
+
+	#[test]
+	fn test_tag_polymorphic_naming() {
+		// Test that tags with same canonical_name but different UUIDs are different
+		let uuid1 = Uuid::new_v4();
+		let uuid2 = Uuid::new_v4();
+
+		let tag1 = Model {
+			id: 1,
+			uuid: uuid1,
+			canonical_name: "vacation".to_string(),
+			namespace: Some("travel".to_string()),
+			display_name: None,
+			formal_name: None,
+			abbreviation: None,
+			aliases: None,
+			tag_type: "standard".to_string(),
+			color: None,
+			icon: None,
+			description: None,
+			is_organizational_anchor: false,
+			privacy_level: "normal".to_string(),
+			search_weight: 100,
+			attributes: None,
+			composition_rules: None,
+			created_at: chrono::Utc::now().into(),
+			updated_at: chrono::Utc::now().into(),
+			created_by_device: None,
+		};
+
+		let tag2 = Model {
+			uuid: uuid2,
+			namespace: Some("work".to_string()),
+			..tag1.clone()
+		};
+
+		// Different UUIDs = different tags (polymorphic naming)
+		assert_ne!(tag1.uuid, tag2.uuid);
+		assert_eq!(tag1.canonical_name, tag2.canonical_name);
+
+		// Qualified names are different
+		assert_eq!(tag1.get_qualified_name(), "travel::vacation");
+		assert_eq!(tag2.get_qualified_name(), "work::vacation");
+	}
+
+	// Note: apply_shared_change requires database setup, tested in integration tests
+	// See core/tests/sync/tag_sync_test.rs
 }

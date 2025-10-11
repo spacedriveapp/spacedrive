@@ -200,7 +200,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		preserve_timestamps: true,
 		move_files: true, // This makes it a move operation
 		copy_method: sd_core::ops::files::copy::input::CopyMethod::Auto,
-		on_conflict: OnConflict::None,
+		on_conflict: None,
 	};
 	let move_action = FileCopyAction::from_input(move_input).unwrap();
 	let _move_output = action_manager

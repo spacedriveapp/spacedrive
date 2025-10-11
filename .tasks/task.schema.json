@@ -1,32 +1,54 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Spacedrive Task",
-  "type": "object",
-  "required": [
-    "id",
-    "title",
-    "status",
-    "assignee",
-    "priority",
-    "whitepaper"
-  ],
-  "properties": {
-    "id": { "type": "string", "pattern": "^[A-Z]+-[0-9]+$" },
-    "title": { "type": "string", "minLength": 5 },
-    "status": {
-      "type": "string",
-      "enum": ["To Do", "In Progress", "Done"]
-    },
-    "assignee": { "type": "string" },
-    "parent": { "type": "string", "pattern": "^[A-Z]+-[0-9]+$" },
-    "priority": {
-      "type": "string",
-      "enum": ["High", "Medium", "Low"]
-    },
-    "tags": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "whitepaper": { "type": "string" }
-  }
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "Spacedrive Task",
+	"type": "object",
+	"required": [
+		"id",
+		"title",
+		"status",
+		"assignee",
+		"priority"
+	],
+	"properties": {
+		"id": {
+			"type": "string",
+			"pattern": "^[A-Z]+-[0-9]+$"
+		},
+		"title": {
+			"type": "string",
+			"minLength": 5
+		},
+		"status": {
+			"type": "string",
+			"enum": [
+				"To Do",
+				"In Progress",
+				"Done"
+			]
+		},
+		"assignee": {
+			"type": "string"
+		},
+		"parent": {
+			"type": "string",
+			"pattern": "^[A-Z]+-[0-9]+$"
+		},
+		"priority": {
+			"type": "string",
+			"enum": [
+				"High",
+				"Medium",
+				"Low"
+			]
+		},
+		"tags": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		},
+		"whitepaper": {
+			"type": "string"
+		}
+	}
 }

@@ -8,6 +8,7 @@ benja
 Bento
 brendonovich
 chacha
+checkpointing
 codegen
 Condvar
 dashmap
@@ -69,6 +70,7 @@ spacetunnel
 specta
 storedkey
 stringly
+Syncable
 thumbstrips
 tobiaslutke
 tokio

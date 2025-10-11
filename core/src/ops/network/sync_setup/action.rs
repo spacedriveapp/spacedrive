@@ -99,6 +99,7 @@ impl CoreAction for LibrarySyncSetupAction {
 		"network.sync_setup"
 	}
 
+	// DEPRICATED: Sync no longer requires a leader device
 	async fn validate(&self, context: Arc<crate::context::CoreContext>) -> Result<(), ActionError> {
 		// Validate leader device is one of the two devices
 		if self.input.leader_device_id != self.input.local_device_id
@@ -191,9 +192,10 @@ impl LibrarySyncSetupAction {
 					"p2p": true,
 					"volume_detection": true
 				})),
-				sync_leadership: Set(serde_json::json!({})),
 				created_at: Set(Utc::now()),
 				updated_at: Set(Utc::now()),
+				sync_enabled: Set(true), // Enable sync for registered devices
+				last_sync_at: Set(None),
 			};
 
 			device_model

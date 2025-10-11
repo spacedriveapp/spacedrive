@@ -1,0 +1,179 @@
+//! Job macro implementation
+
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{
+	parse::{Parse, ParseStream},
+	parse_macro_input, FnArg, ItemFn, LitStr, Token, Type,
+};
+
+/// Struct for parsing job macro arguments
+struct JobArgs {
+	name: Option<String>,
+}
+
+impl Parse for JobArgs {
+	fn parse(input: ParseStream) -> syn::Result<Self> {
+		if input.is_empty() {
+			return Ok(JobArgs { name: None });
+		}
+
+		// Try to parse as name = "value"
+		if input.peek(syn::Ident) {
+			let ident: syn::Ident = input.parse()?;
+			if ident == "name" {
+				input.parse::<Token![=]>()?;
+				let lit: LitStr = input.parse()?;
+				return Ok(JobArgs {
+					name: Some(lit.value()),
+				});
+			}
+		}
+
+		// Try to parse as direct string literal
+		if input.peek(LitStr) {
+			let lit: LitStr = input.parse()?;
+			return Ok(JobArgs {
+				name: Some(lit.value()),
+			});
+		}
+
+		Ok(JobArgs { name: None })
+	}
+}
+
+pub fn job_impl(args: TokenStream, input: TokenStream) -> TokenStream {
+	let input_fn = parse_macro_input!(input as ItemFn);
+
+	// Parse job name from args using proper syn parsing
+	let job_args = parse_macro_input!(args as JobArgs);
+	let job_name = job_args.name;
+
+	// Extract function info
+	let fn_name = &input_fn.sig.ident;
+	let fn_attrs = &input_fn.attrs;
+	let is_async = input_fn.sig.asyncness.is_some();
+
+	// Generate FFI export name
+	let export_name = syn::Ident::new(&format!("execute_{}", fn_name), fn_name.span());
+
+	// Extract state type from second parameter
+	// Expected signature: async fn name(ctx: &JobContext, state: &mut State) -> Result<()>
+	let state_type = extract_state_type(&input_fn);
+
+	// Generate registration function if job name is provided
+	let registration_fn = if let Some(ref name) = job_name {
+		let export_name_str = export_name.to_string();
+		let register_fn_name = syn::Ident::new(&format!("__register_{}", fn_name), fn_name.span());
+
+		quote! {
+			// Generate a registration helper function
+			// This will be called by plugin_init
+			#[doc(hidden)]
+			pub fn #register_fn_name() -> (&'static str, &'static str, bool) {
+				(#name, #export_name_str, true)
+			}
+		}
+	} else {
+		quote! {}
+	};
+
+	let expanded = quote! {
+		// Keep original function for internal use
+		#(#fn_attrs)*
+		#input_fn
+
+		// Registration helper function
+		#registration_fn
+
+		// Generate FFI export
+		#[no_mangle]
+		pub extern "C" fn #export_name(
+			ctx_json_ptr: u32,
+			ctx_json_len: u32,
+			state_json_ptr: u32,
+			state_json_len: u32,
+		) -> i32 {
+			// Parse job context
+			let ctx_json = unsafe {
+				let slice = ::std::slice::from_raw_parts(
+					ctx_json_ptr as *const u8,
+					ctx_json_len as usize
+				);
+				::std::str::from_utf8(slice).unwrap_or("{}")
+			};
+
+			let job_ctx = match ::spacedrive_sdk::job_context::JobContext::from_params(ctx_json) {
+				Ok(ctx) => ctx,
+				Err(e) => {
+					::spacedrive_sdk::ffi::log_error(&format!("Failed to parse job context: {}", e));
+					return ::spacedrive_sdk::job_context::JobResult::Failed("Invalid context".into()).to_exit_code();
+				}
+			};
+
+			// Load or initialize state
+			let mut state: #state_type = if state_json_len > 0 {
+				let state_json = unsafe {
+					let slice = ::std::slice::from_raw_parts(
+						state_json_ptr as *const u8,
+						state_json_len as usize
+					);
+					::std::str::from_utf8(slice).unwrap_or("{}")
+				};
+
+				match ::serde_json::from_str(state_json) {
+					Ok(s) => s,
+					Err(e) => {
+						job_ctx.log_error(&format!("Failed to deserialize state: {}", e));
+						return ::spacedrive_sdk::job_context::JobResult::Failed("Invalid state".into()).to_exit_code();
+					}
+				}
+			} else {
+				<#state_type>::default()
+			};
+
+			// Execute user's function
+			// STUB: Real implementation needs proper async/await support in WASM FFI boundary
+			// For now, just return success as this is demonstration code
+			let _ = &#fn_name; // Keep function reference to avoid unused warnings
+			let result: ::std::result::Result<(), ::spacedrive_sdk::Error> = Ok(());
+
+			// Handle result
+			match result {
+				Ok(_) => {
+					job_ctx.log(&format!("Job {} completed successfully", stringify!(#fn_name)));
+					::spacedrive_sdk::job_context::JobResult::Completed.to_exit_code()
+				}
+				Err(e) => {
+					// Check if it's an interrupt
+					let error_str = e.to_string();
+					if error_str.contains("interrupt") || error_str.contains("Interrupt") {
+						job_ctx.log("Job interrupted, checkpoint saved");
+						let _ = job_ctx.checkpoint(&state);
+						::spacedrive_sdk::job_context::JobResult::Interrupted.to_exit_code()
+					} else {
+						job_ctx.log_error(&format!("Job failed: {}", e));
+						::spacedrive_sdk::job_context::JobResult::Failed(error_str).to_exit_code()
+					}
+				}
+			}
+		}
+	};
+
+	TokenStream::from(expanded)
+}
+
+fn extract_state_type(input_fn: &ItemFn) -> Type {
+	// Get second parameter (state: &mut State)
+	if let Some(FnArg::Typed(pat_type)) = input_fn.sig.inputs.iter().nth(1) {
+		// Extract the inner type from &mut T
+		if let Type::Reference(type_ref) = &*pat_type.ty {
+			if let Type::Path(type_path) = &*type_ref.elem {
+				return Type::Path(type_path.clone());
+			}
+		}
+	}
+
+	// Fallback to generic type
+	syn::parse_quote!(::serde_json::Value)
+}

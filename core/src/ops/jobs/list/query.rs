@@ -41,7 +41,10 @@ impl LibraryQuery for JobListQuery {
 			.await
 			.ok_or_else(|| QueryError::LibraryNotFound(library_id))?;
 
-		let jobs = library.jobs().list_jobs(self.input.status).await
+		let jobs = library
+			.jobs()
+			.list_jobs(self.input.status)
+			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let items = jobs
 			.into_iter()

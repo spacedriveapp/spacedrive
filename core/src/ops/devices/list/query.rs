@@ -120,12 +120,6 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 				None
 			};
 
-			let sync_leadership = if self.input.include_details {
-				Some(device.sync_leadership.clone())
-			} else {
-				None
-			};
-
 			result.push(LibraryDeviceInfo {
 				id: device.uuid,
 				name: device.name,
@@ -139,7 +133,6 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 				is_current: device.uuid == current_device_id,
 				network_addresses,
 				capabilities,
-				sync_leadership,
 			});
 		}
 

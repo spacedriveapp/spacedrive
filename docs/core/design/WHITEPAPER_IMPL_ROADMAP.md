@@ -59,11 +59,11 @@ Action: Build the two-stage search architecture. First, implement fast temporal 
 
 Reasoning: This hybrid approach provides the speed of keyword search with the power of semantic understanding, achieving sub-100ms queries on consumer hardware as specified in the whitepaper.
 
-2. Develop the AI Agent Manager:
+2. Implement Extension-Based Agent System:
 
-Action: Build the core Agent Manager as described in the design document. This manager will be responsible for orchestrating AI tasks and implementing the agentic loop (Observe, Orient, Decide, Act).
+Action: Build the WASM extension runtime and SDK that enables specialized AI agents. This includes the agent context, memory systems (Temporal, Associative, Working), event subscription mechanism, and integration with the job system.
 
-Reasoning: This provides the central "brain" for the AI system, capable of translating natural language queries and proactive observations into structured, verifiable Actions.
+Reasoning: This provides the foundation for domain-specific intelligence through secure, sandboxed extensions. Each agent (Photos, Finance, Storage, etc.) can maintain its own knowledge base and react to VDFS events while using the same safe, transactional primitives as human users.
 
 3. Implement the Virtual Sidecar System:
 

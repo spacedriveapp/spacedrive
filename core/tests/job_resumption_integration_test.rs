@@ -344,10 +344,9 @@ async fn start_and_interrupt_job(
 
 					// Extract phase from generic_progress if available
 					let phase_name = if let Some(gp_value) = &generic_progress {
-						if let Ok(gp) =
-							serde_json::from_value::<serde_json::Value>(gp_value.clone())
-						{
-							gp.get("phase")
+						if let Ok(gp_json) = serde_json::to_value(gp_value) {
+							gp_json
+								.get("phase")
 								.and_then(|p| p.as_str())
 								.map(|s| s.to_string())
 								.unwrap_or_default()
@@ -585,10 +584,9 @@ async fn resume_and_complete_job(
 
 						// Extract phase from generic_progress if available
 						let phase_name = if let Some(gp_value) = &generic_progress {
-							if let Ok(gp) =
-								serde_json::from_value::<serde_json::Value>(gp_value.clone())
-							{
-								gp.get("phase")
+							if let Ok(gp_json) = serde_json::to_value(gp_value) {
+								gp_json
+									.get("phase")
 									.and_then(|p| p.as_str())
 									.map(|s| s.to_string())
 									.unwrap_or_default()

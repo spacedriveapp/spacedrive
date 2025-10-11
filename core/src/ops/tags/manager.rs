@@ -94,13 +94,42 @@ impl TagManager {
 		}
 	}
 
-	/// Create a new semantic tag
+	/// Create a new semantic tag (returns domain Tag for backwards compatibility)
 	pub async fn create_tag(
 		&self,
 		canonical_name: String,
 		namespace: Option<String>,
 		created_by_device: Uuid,
 	) -> Result<Tag, TagError> {
+		let entity = self
+			.create_tag_entity(canonical_name, namespace, created_by_device)
+			.await?;
+		model_to_domain(entity)
+	}
+
+	/// Create a new semantic tag with full options (returns entity Model for efficient sync)
+	///
+	/// This variant accepts all optional fields and returns the database entity Model directly.
+	/// Use this in actions that need all fields and sync events immediately after creation.
+	#[allow(clippy::too_many_arguments)]
+	pub async fn create_tag_entity_full(
+		&self,
+		canonical_name: String,
+		namespace: Option<String>,
+		display_name: Option<String>,
+		formal_name: Option<String>,
+		abbreviation: Option<String>,
+		aliases: Vec<String>,
+		tag_type: Option<TagType>,
+		color: Option<String>,
+		icon: Option<String>,
+		description: Option<String>,
+		is_organizational_anchor: bool,
+		privacy_level: Option<PrivacyLevel>,
+		search_weight: Option<i32>,
+		attributes: Option<HashMap<String, serde_json::Value>>,
+		created_by_device: Uuid,
+	) -> Result<tag::Model, TagError> {
 		let db = &*self.db;
 
 		// Check for name conflicts in the same namespace
@@ -114,8 +143,79 @@ impl TagManager {
 			)));
 		}
 
-		let mut tag = Tag::new(canonical_name.clone(), created_by_device);
-		tag.namespace = namespace.clone();
+		let tag_uuid = Uuid::new_v4();
+		let now = chrono::Utc::now();
+
+		// Build ActiveModel with all provided fields
+		let active_model = tag::ActiveModel {
+			id: NotSet,
+			uuid: Set(tag_uuid),
+			canonical_name: Set(canonical_name),
+			display_name: Set(display_name),
+			formal_name: Set(formal_name),
+			abbreviation: Set(abbreviation),
+			aliases: Set(if aliases.is_empty() {
+				None
+			} else {
+				Some(serde_json::to_value(&aliases).unwrap().into())
+			}),
+			namespace: Set(namespace),
+			tag_type: Set(tag_type.unwrap_or(TagType::Standard).as_str().to_string()),
+			color: Set(color),
+			icon: Set(icon),
+			description: Set(description),
+			is_organizational_anchor: Set(is_organizational_anchor),
+			privacy_level: Set(privacy_level
+				.unwrap_or(PrivacyLevel::Normal)
+				.as_str()
+				.to_string()),
+			search_weight: Set(search_weight.unwrap_or(100)),
+			attributes: Set(attributes.and_then(|attrs| {
+				if attrs.is_empty() {
+					None
+				} else {
+					Some(serde_json::to_value(&attrs).unwrap().into())
+				}
+			})),
+			composition_rules: Set(None), // Not exposed in CreateTagInput
+			created_at: Set(now),
+			updated_at: Set(now),
+			created_by_device: Set(Some(created_by_device)),
+		};
+
+		let result = active_model
+			.insert(&*db)
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+		Ok(result)
+	}
+
+	/// Create a new semantic tag (returns entity Model for efficient sync)
+	///
+	/// This variant returns the database entity Model directly, avoiding
+	/// the need for a roundtrip query when syncing. Use this in actions
+	/// that need to emit sync events immediately after creation.
+	pub async fn create_tag_entity(
+		&self,
+		canonical_name: String,
+		namespace: Option<String>,
+		created_by_device: Uuid,
+	) -> Result<tag::Model, TagError> {
+		let db = &*self.db;
+
+		// Check for name conflicts in the same namespace
+		if let Some(_existing) = self
+			.find_tag_by_name_and_namespace(&canonical_name, namespace.as_deref())
+			.await?
+		{
+			return Err(TagError::NameConflict(format!(
+				"Tag '{}' already exists in namespace '{:?}'",
+				canonical_name, namespace
+			)));
+		}
+
+		let tag = Tag::new(canonical_name.clone(), created_by_device);
 
 		// Insert into database
 		let active_model = tag::ActiveModel {
@@ -158,10 +258,7 @@ impl TagManager {
 			.await
 			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-		// Update tag with database ID
-		tag.id = result.uuid;
-
-		Ok(tag)
+		Ok(result)
 	}
 
 	/// Update an existing tag with new values

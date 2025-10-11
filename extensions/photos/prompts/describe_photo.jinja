@@ -1,0 +1,15 @@
+You are describing a photo for accessibility and search.
+
+Scene Tags: {{ scene_tags | join(", ") }}
+{% if people %}People: {{ people | join(", ") }}{% endif %}
+{% if location %}Location: {{ location }}{% endif %}
+{% if camera %}Camera: {{ camera }}{% endif %}
+
+Generate a natural language description suitable for:
+1. Screen readers (accessibility)
+2. Search queries
+3. Photo organization
+
+Format: One concise sentence describing the main subject and context.
+
+Description:

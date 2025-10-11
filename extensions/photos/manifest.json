@@ -1,0 +1,72 @@
+{
+	"id": "com.spacedrive.photos",
+	"name": "Photos",
+	"version": "1.0.0",
+	"description": "Advanced photo management with AI-powered face recognition, place identification, and intelligent organization",
+	"author": "Spacedrive",
+	"wasm_file": "photos.wasm",
+	"min_core_version": "2.0.0",
+	"required_features": [
+		"exif_extraction",
+		"ai_models",
+		"semantic_search"
+	],
+	"permissions": {
+		"read_entries": {
+			"glob": "**/*.{jpg,jpeg,png,heic,heif,raw,cr2,nef,dng,webp}"
+		},
+		"read_sidecars": [
+			"exif",
+			"thumbnail"
+		],
+		"write_sidecars": [
+			"faces",
+			"places",
+			"scene",
+			"aesthetics"
+		],
+		"write_tags": true,
+		"write_custom_fields": [
+			"photos"
+		],
+		"dispatch_jobs": true,
+		"use_models": [
+			{
+				"category": "face_detection",
+				"preference": "local"
+			},
+			{
+				"category": "scene_classification",
+				"preference": "local"
+			},
+			{
+				"category": "llm",
+				"preference": "local"
+			}
+		]
+	},
+	"models": [
+		{
+			"name": "photos_face_detection_v1",
+			"category": "face_detection",
+			"source": {
+				"type": "download",
+				"url": "https://models.spacedrive.com/photos/face_detection_v1.onnx",
+				"sha256": "placeholder_hash",
+				"size_mb": 12
+			},
+			"description": "RetinaFace model for face detection"
+		},
+		{
+			"name": "photos_scene_v1",
+			"category": "scene_classification",
+			"source": {
+				"type": "download",
+				"url": "https://models.spacedrive.com/photos/scene_resnet50.onnx",
+				"sha256": "placeholder_hash",
+				"size_mb": 95
+			},
+			"description": "ResNet50 trained on Places365 dataset"
+		}
+	]
+}

@@ -8,16 +8,20 @@ pub(crate) mod config;
 mod error;
 mod lock;
 mod manager;
+mod sync_helpers;
 
 pub use config::{LibraryConfig, LibrarySettings, LibraryStatistics};
 pub use error::{LibraryError, Result};
 pub use lock::LibraryLock;
 pub use manager::{DiscoveredLibrary, LibraryManager};
 
-use crate::infra::{db::Database, event::EventBus, job::manager::JobManager};
+use crate::infra::{
+	db::Database, event::EventBus, job::manager::JobManager, sync::TransactionManager,
+};
+use once_cell::sync::OnceCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
@@ -29,6 +33,9 @@ pub struct Library {
 	/// Library configuration
 	config: RwLock<LibraryConfig>,
 
+	/// Core context for accessing system services
+	core_context: Arc<crate::context::CoreContext>,
+
 	/// Database connection
 	db: Arc<Database>,
 
@@ -37,6 +44,12 @@ pub struct Library {
 
 	/// Event bus for emitting events
 	event_bus: Arc<EventBus>,
+
+	/// Transaction manager for atomic writes + sync logging
+	transaction_manager: Arc<TransactionManager>,
+
+	/// Sync service for real-time synchronization (initialized after library creation)
+	sync_service: OnceCell<Arc<crate::service::sync::SyncService>>,
 
 	/// Lock preventing concurrent access
 	_lock: LibraryLock,
@@ -67,9 +80,68 @@ impl Library {
 		&self.db
 	}
 
+	/// Get the event bus
+	pub fn event_bus(&self) -> &Arc<EventBus> {
+		&self.event_bus
+	}
+
 	/// Get the job manager
 	pub fn jobs(&self) -> &Arc<JobManager> {
 		&self.jobs
+	}
+
+	/// Get the transaction manager
+	pub fn transaction_manager(&self) -> &Arc<TransactionManager> {
+		&self.transaction_manager
+	}
+
+	/// Get the sync service
+	pub fn sync_service(&self) -> Option<&Arc<crate::service::sync::SyncService>> {
+		self.sync_service.get()
+	}
+
+	/// Get core context
+	pub fn core_context(&self) -> &Arc<crate::context::CoreContext> {
+		&self.core_context
+	}
+
+	/// Initialize the sync service (called during library setup)
+	#[cfg_attr(test, allow(dead_code))] // Exposed for integration tests
+	pub async fn init_sync_service(
+		&self,
+		device_id: Uuid,
+		network: Arc<dyn crate::infra::sync::NetworkTransport>,
+	) -> Result<()> {
+		if self.sync_service.get().is_some() {
+			warn!(
+				"Sync service already initialized for library {}, cannot replace transport. Transport: {}",
+				self.id(),
+				self.sync_service.get().unwrap().peer_sync().transport_name()
+			);
+			return Ok(());
+		}
+
+		let sync_service =
+			crate::service::sync::SyncService::new_from_library(self, device_id, network)
+				.await
+				.map_err(|e| {
+					LibraryError::Other(format!("Failed to create sync service: {}", e))
+				})?;
+
+		self.sync_service
+			.set(Arc::new(sync_service))
+			.map_err(|_| LibraryError::Other("Sync service already initialized".to_string()))?;
+
+		// Start the sync service
+		if let Some(service) = self.sync_service.get() {
+			use crate::service::Service;
+			service
+				.start()
+				.await
+				.map_err(|e| LibraryError::Other(format!("Failed to start sync service: {}", e)))?;
+		}
+
+		Ok(())
 	}
 
 	/// Get a copy of the current configuration
@@ -170,6 +242,16 @@ impl Library {
 
 	/// Shutdown the library, gracefully stopping all jobs
 	pub async fn shutdown(&self) -> Result<()> {
+		info!("Shutting down library {}", self.id());
+
+		// Stop sync service
+		if let Some(sync_service) = self.sync_service() {
+			use crate::service::Service;
+			if let Err(e) = sync_service.stop().await {
+				warn!("Error stopping sync service: {}", e);
+			}
+		}
+
 		// Shutdown the job manager, which will pause all running jobs
 		self.jobs.shutdown().await?;
 
@@ -178,7 +260,6 @@ impl Library {
 		self.save_config(&*config).await?;
 
 		// Close library database connection properly
-		use tracing::{info, warn};
 		info!("Closing library database connection");
 
 		// First, checkpoint the WAL file to merge it back into the main database

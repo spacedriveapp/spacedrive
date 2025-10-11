@@ -1,6 +1,6 @@
 //! Output for create semantic tag action
 
-use crate::domain::tag::Tag;
+use crate::{domain::tag::Tag, infra::db::entities::tag};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -21,7 +21,7 @@ pub struct CreateTagOutput {
 }
 
 impl CreateTagOutput {
-	/// Create output from a semantic tag
+	/// Create output from a semantic tag (domain model)
 	pub fn from_tag(tag: &Tag) -> Self {
 		let message = match &tag.namespace {
 			Some(namespace) => format!(
@@ -35,6 +35,24 @@ impl CreateTagOutput {
 			tag_id: tag.id,
 			canonical_name: tag.canonical_name.clone(),
 			namespace: tag.namespace.clone(),
+			message,
+		}
+	}
+
+	/// Create output from entity Model (database model)
+	pub fn from_entity(entity: &tag::Model) -> Self {
+		let message = match &entity.namespace {
+			Some(namespace) => format!(
+				"Created tag '{}' in namespace '{}'",
+				entity.canonical_name, namespace
+			),
+			None => format!("Created tag '{}'", entity.canonical_name),
+		};
+
+		Self {
+			tag_id: entity.uuid,
+			canonical_name: entity.canonical_name.clone(),
+			namespace: entity.namespace.clone(),
 			message,
 		}
 	}

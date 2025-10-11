@@ -18,7 +18,8 @@ use crate::{
 	volume::VolumeManager,
 };
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
+use once_cell::sync::OnceCell;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -112,6 +113,29 @@ impl LibraryManager {
 		location: Option<PathBuf>,
 		context: Arc<CoreContext>,
 	) -> Result<Arc<Library>> {
+		self.create_library_internal(name, location, context, true)
+			.await
+	}
+
+	/// Create a library without auto-initializing sync (for testing)
+	pub async fn create_library_no_sync(
+		&self,
+		name: impl Into<String>,
+		location: Option<PathBuf>,
+		context: Arc<CoreContext>,
+	) -> Result<Arc<Library>> {
+		self.create_library_internal(name, location, context, false)
+			.await
+	}
+
+	/// Internal library creation with optional sync init
+	async fn create_library_internal(
+		&self,
+		name: impl Into<String>,
+		location: Option<PathBuf>,
+		context: Arc<CoreContext>,
+		auto_init_sync: bool,
+	) -> Result<Arc<Library>> {
 		let name = name.into();
 
 		// Validate name
@@ -202,6 +226,17 @@ impl LibraryManager {
 		let db_path = path.join("database.db");
 		let db = Arc::new(Database::open(&db_path).await?);
 
+		// Get this device's ID for sync coordination
+		let device_id = context
+			.device_manager
+			.device_id()
+			.map_err(|e| LibraryError::Other(format!("Failed to get device ID: {}", e)))?;
+
+		// Create transaction manager
+		let transaction_manager = Arc::new(crate::infra::sync::TransactionManager::new(
+			self.event_bus.clone(),
+		));
+
 		// Create job manager with context
 		let job_manager =
 			Arc::new(JobManager::new(path.to_path_buf(), context.clone(), config.id).await?);
@@ -211,9 +246,12 @@ impl LibraryManager {
 		let library = Arc::new(Library {
 			path: path.to_path_buf(),
 			config: RwLock::new(config.clone()),
+			core_context: context.clone(),
 			db,
 			jobs: job_manager,
 			event_bus: self.event_bus.clone(),
+			transaction_manager,
+			sync_service: OnceCell::new(), // Initialized later
 			_lock: lock,
 		});
 
@@ -238,6 +276,25 @@ impl LibraryManager {
 
 		// Note: Sidecar manager initialization should be done by the Core when libraries are loaded
 		// This allows Core to pass its services reference
+
+		// Initialize sync service if networking is available
+		// If networking isn't ready, sync simply won't be initialized until caller does it explicitly
+		// TODO: maybe consider checking if networking is enabled rather than just checking if it's available
+		if let Some(networking) = context.networking.read().await.as_ref() {
+			if let Err(e) = library
+				.init_sync_service(device_id, networking.clone())
+				.await
+			{
+				warn!(
+					"Failed to initialize sync service for library {}: {}",
+					config.id, e
+				);
+			}
+		} else {
+			info!(
+				"NetworkingService not available, sync service will be initialized later when networking is ready"
+			);
+		}
 
 		// Auto-track user-relevant volumes for this library
 		info!(
@@ -514,8 +571,9 @@ impl LibraryManager {
 					"p2p": true,
 					"volume_detection": true
 				})),
-				sync_leadership: Set(serde_json::json!(device.sync_leadership)),
 				created_at: Set(device.created_at),
+				sync_enabled: Set(true), // Enable sync by default for this device
+				last_sync_at: Set(None),
 				updated_at: Set(Utc::now()),
 			};
 
@@ -532,6 +590,36 @@ impl LibraryManager {
 		}
 
 		Ok(())
+	}
+
+	/// Check if this device created the library (is the only device)
+	async fn is_library_creator(&self, library: &Arc<Library>) -> Result<bool> {
+		let db = library.db();
+		let device_id = self
+			.device_manager
+			.device_id()
+			.map_err(|e| LibraryError::Other(format!("Failed to get device ID: {}", e)))?;
+
+		// Count total devices in the library
+		let device_count = entities::device::Entity::find()
+			.count(db.conn())
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		// If this is the only device, it's the creator
+		if device_count == 1 {
+			// Verify it's actually our device
+			let our_device = entities::device::Entity::find()
+				.filter(entities::device::Column::Uuid.eq(device_id))
+				.one(db.conn())
+				.await
+				.map_err(LibraryError::DatabaseError)?;
+
+			Ok(our_device.is_some())
+		} else {
+			// Multiple devices - not the creator
+			Ok(false)
+		}
 	}
 
 	/// Delete a library

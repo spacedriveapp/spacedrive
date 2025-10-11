@@ -5,6 +5,7 @@ pub mod library_messages;
 pub mod messaging;
 pub mod pairing;
 pub mod registry;
+pub mod sync;
 
 use crate::service::network::{NetworkingError, Result};
 use async_trait::async_trait;
@@ -19,6 +20,7 @@ pub use library_messages::{LibraryDiscoveryInfo, LibraryMessage};
 pub use messaging::MessagingProtocolHandler;
 pub use pairing::{PairingMessage, PairingProtocolHandler, PairingSession, PairingState};
 pub use registry::ProtocolRegistry;
+pub use sync::{SyncMessage, SyncProtocolHandler};
 
 /// Trait for handling specific protocols over Iroh streams
 #[async_trait]

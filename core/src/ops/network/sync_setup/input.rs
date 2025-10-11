@@ -47,6 +47,6 @@ pub struct LibrarySyncSetupInput {
 	/// Sync action to perform
 	pub action: LibrarySyncAction,
 
-	/// Which device should be the sync leader (for future sync implementation)
+	/// DEPRICATED: Which device should be the sync leader (for future sync implementation)
 	pub leader_device_id: Uuid,
 }
