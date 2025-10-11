@@ -8,7 +8,7 @@ The Spacedrive Operations System is a modular, type-safe architecture for handli
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Client Apps   │    │     Daemon      │    │   Core Engine   │
 │                 │    │                 │    │                 │
-│ • CLI           │───▶│ • RPC Server    │───▶│ • Method        │
+│ • CLI           │───│ • RPC Server    │───│ • Method        │
 │ • GraphQL       │    │ • Request       │    │   Dispatcher    │
 │ • Desktop       │    │   Routing       │    │ • Inventory     │
 │ • Mobile        │    │ • Session Mgmt  │    │   Registry      │

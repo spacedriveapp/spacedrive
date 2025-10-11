@@ -196,11 +196,11 @@ async fn generate_face_tags(
 6. User can now search "#person:alice" using core tag system
 
 **Why This Works:**
-- ✅ On-demand - no wasted computation
-- ✅ User-scoped - only analyzes chosen locations
-- ✅ Sidecars for details - face coords, confidence scores
-- ✅ Tags for indexing - searchable via core
-- ✅ Versioned - re-run job on model upgrade
+- On-demand - no wasted computation
+- User-scoped - only analyzes chosen locations
+- Sidecars for details - face coords, confidence scores
+- Tags for indexing - searchable via core
+- Versioned - re-run job on model upgrade
 
 ---
 
@@ -558,14 +558,14 @@ fn model_infer(model_id, input_ptr) -> u32;
 
 #[link(wasm_import_module = "spacedrive")]
 extern "C" {
-    // ✅ Implemented
+    // Implemented
     fn vdfs_query_entries(filter_ptr: u32, filter_len: u32) -> u32;
     fn vdfs_read_sidecar(uuid_ptr: u32, kind_ptr: u32) -> u32;
 
-    // ⚠️ Partially implemented
+    // ️ Partially implemented
     fn vdfs_dispatch_job(job_ptr: u32, job_len: u32) -> u32;
 
-    // ❌ Missing - MUST IMPLEMENT
+    // Missing - MUST IMPLEMENT
     fn vdfs_write_tag(metadata_id: u32, tag_ptr: u32, tag_len: u32) -> u32;
     fn vdfs_write_custom_field(metadata_id: u32, key_ptr: u32, value_ptr: u32) -> u32;
     fn event_subscribe(event_type_ptr: u32) -> u32;
@@ -809,11 +809,11 @@ function renderExtensionSidebar(extension: Extension) {
 ```
 
 **Why This Works:**
-- ✅ No Rust UI code
-- ✅ Frontend handles rendering generically
-- ✅ Extensions provide data via queries
-- ✅ Can bundle custom assets
-- ✅ Manifest updates don't require recompilation
+- No Rust UI code
+- Frontend handles rendering generically
+- Extensions provide data via queries
+- Can bundle custom assets
+- Manifest updates don't require recompilation
 
 ---
 
@@ -971,11 +971,11 @@ async fn regenerate_tags_after_model_upgrade(
 ```
 
 **Why This Works:**
-- ✅ **Sidecars preserve detail** (bounding boxes, confidence)
-- ✅ **Tags enable search** ("show me all photos with dogs")
-- ✅ **Versionable** (sidecar tracks model version)
-- ✅ **Regenerable** (on model upgrade, redo analysis + tags)
-- ✅ **Bulk operations** (tags generated efficiently in batches)
+- **Sidecars preserve detail** (bounding boxes, confidence)
+- **Tags enable search** ("show me all photos with dogs")
+- **Versionable** (sidecar tracks model version)
+- **Regenerable** (on model upgrade, redo analysis + tags)
+- **Bulk operations** (tags generated efficiently in batches)
 
 ---
 
@@ -989,16 +989,16 @@ async fn regenerate_tags_after_model_upgrade(
 
 | Capability | Core Does It? | Status | Storage |
 |------------|---------------|--------|---------|
-| **File Indexing** | ✅ Always | 95% | `entries` table |
-| **Content Identity** | ✅ Always | 100% | `content_identity` |
-| **EXIF/Media Metadata** | ✅ Always | 95% | `media_data` JSON |
-| **Thumbnails** | ✅ Always | 90% | VSS `thumbs/*.webp` |
-| **OCR (Documents)** | ✅ Generic documents | 70% | VSS `ocr/ocr.json` |
-| **Embeddings** | ✅ For semantic search | 0% | VSS `embeddings/*.json` |
-| **Object Detection** | ❌ Extension-triggered | 0% | Extension sidecar |
-| **Face Detection** | ❌ Extension-triggered | 0% | Extension sidecar |
-| **Transcription** | ❌ Extension-triggered | 0% | Extension sidecar |
-| **Receipt Parsing** | ❌ Extension-triggered | 0% | Extension sidecar |
+| **File Indexing** | Always | 95% | `entries` table |
+| **Content Identity** | Always | 100% | `content_identity` |
+| **EXIF/Media Metadata** | Always | 95% | `media_data` JSON |
+| **Thumbnails** | Always | 90% | VSS `thumbs/*.webp` |
+| **OCR (Documents)** | Generic documents | 70% | VSS `ocr/ocr.json` |
+| **Embeddings** | For semantic search | 0% | VSS `embeddings/*.json` |
+| **Object Detection** | Extension-triggered | 0% | Extension sidecar |
+| **Face Detection** | Extension-triggered | 0% | Extension sidecar |
+| **Transcription** | Extension-triggered | 0% | Extension sidecar |
+| **Receipt Parsing** | Extension-triggered | 0% | Extension sidecar |
 
 **The Rule:**
 - **Core does:** Basic, universally useful extraction (EXIF, OCR for docs, embeddings for search)
@@ -1006,12 +1006,12 @@ async fn regenerate_tags_after_model_upgrade(
 
 #### Infrastructure
 
-- ✅ **Event Bus** - `Event::EntryCreated`, `Event::JobCompleted`, etc.
-- ✅ **Job System** - Durable, resumable background work
-- ✅ **Sync System** - HLC timestamps, CRDTs, transitive sync
-- ✅ **Tags/Collections** - Generic organization primitives
-- 🔄 **Model Loaders** - Local (Ollama), API (OpenAI), Custom (ONNX)
-- ✅ **VSS** - Sidecar storage and deduplication
+- **Event Bus** - `Event::EntryCreated`, `Event::JobCompleted`, etc.
+- **Job System** - Durable, resumable background work
+- **Sync System** - HLC timestamps, CRDTs, transitive sync
+- **Tags/Collections** - Generic organization primitives
+- **Model Loaders** - Local (Ollama), API (OpenAI), Custom (ONNX)
+- **VSS** - Sidecar storage and deduplication
 
 ### 2.2. What Extensions PROVIDE (The Experience Layer)
 
@@ -1487,16 +1487,16 @@ async fn test_extension_reads_core_ocr() {
 
 ## Key Refined Decisions (James + Grok Synthesis)
 
-### ✅ Confirmed Approaches
+### Confirmed Approaches
 
 1. **On-Demand Analysis, Not Automatic**
-   - ❌ No `#[extractor]` hooks that fire on every file
-   - ✅ User-initiated jobs on scoped locations
+   - No `#[extractor]` hooks that fire on every file
+   - User-initiated jobs on scoped locations
    - Extensions control when/where processing happens
 
 2. **Model Registration, Not Raw Loading**
-   - ❌ `ctx.ai().from_custom_model(include_bytes!())`
-   - ✅ `ctx.models().register()` on install + `ctx.ai().from_registered()`
+   - `ctx.ai().from_custom_model(include_bytes!())`
+   - `ctx.models().register()` on install + `ctx.ai().from_registered()`
    - Models in root dir (`~/.spacedrive/models/`), not library
 
 3. **User-Scoped Permissions**
@@ -1505,8 +1505,8 @@ async fn test_extension_reads_core_ocr() {
    - Runtime enforcement on every operation
 
 4. **UI via Manifest, Not Rust**
-   - ❌ `#[ui_integration(...)]` attributes
-   - ✅ `ui_manifest.json` parsed by frontend
+   - `#[ui_integration(...)]` attributes
+   - `ui_manifest.json` parsed by frontend
    - Cleaner separation, no UI code in WASM
 
 5. **Sidecars → Tags Pattern**
@@ -1529,7 +1529,7 @@ async fn test_extension_reads_core_ocr() {
    - Extensions: Face detection, receipt parsing, citation extraction
    - No automatic face detection on every screenshot
 
-### ❌ Rejected Approaches
+### Rejected Approaches
 
 1. ~~Automatic `#[extractor]` hooks~~ - Too automatic, wasteful
 2. ~~Progressive query modes~~ - Unnecessary complexity
@@ -1542,7 +1542,7 @@ async fn test_extension_reads_core_ocr() {
 ## Summary: Next Actions
 
 **For You (Immediate):**
-1. ✅ Create `SDK_ENHANCEMENTS.md` (this document)
+1. Create `SDK_ENHANCEMENTS.md` (this document)
 2. Update `SDK_SPEC.md`:
    - Rename `#[app]` → `#[extension]`
    - Remove automatic `#[extractor]` - replace with on-demand jobs
@@ -1566,5 +1566,5 @@ This keeps Core lean (87% → 100%) while enabling infinite adaptability through
 
 ---
 
-**Ready to implement. This is your November 2025 alpha roadmap.** 🚀
+**Ready to implement. This is your November 2025 alpha roadmap.** 
 

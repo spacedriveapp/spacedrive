@@ -11,14 +11,14 @@
 ```
 Device A (Same Network)          Device B
     |                                |
-    |-------- mDNS Discovery ------->| ✅ Works great!
+    |-------- mDNS Discovery ------->| Works great!
     |<------- Connection ----------->|
     |                                |
 
 Device A (Different Network)     Device B
     |                                |
-    |-------- mDNS Discovery ------->| ❌ Times out (10s)
-    |                                | ❌ Pairing fails
+    |-------- mDNS Discovery ------->| Times out (10s)
+    |                                | Pairing fails
     X                                X
 ```
 
@@ -32,21 +32,21 @@ Device A (Any Network)           Device B (Any Network)
     └------- Relay Discovery ------->| Fallback (remote)
     |        (via n0 relays)         |
     |                                |
-    |<======= Connection ===========>| ✅ Always works!
+    |<======= Connection ===========>| Always works!
          (direct or via relay)
 ```
 
 ## What's Already Working
 
-1. ✅ **Iroh Integration**: Using Iroh instead of libp2p
-2. ✅ **Relay Configured**: `RelayMode::Default` set
-3. ✅ **Default Relays**: Using n0's production servers (NA, EU, AP)
-4. ✅ **Relay in NodeAddr**: Relay URLs stored when available
-5. ✅ **Automatic Fallback**: Iroh handles relay ↔ direct transitions
+1. **Iroh Integration**: Using Iroh instead of libp2p
+2. **Relay Configured**: `RelayMode::Default` set
+3. **Default Relays**: Using n0's production servers (NA, EU, AP)
+4. **Relay in NodeAddr**: Relay URLs stored when available
+5. **Automatic Fallback**: Iroh handles relay direct transitions
 
 ## Current Limitations
 
-### 1. Pairing Discovery (❌ Main Issue)
+### 1. Pairing Discovery (Main Issue)
 
 **File**: `core/src/service/network/core/mod.rs:1179-1368`
 
@@ -54,7 +54,7 @@ Device A (Any Network)           Device B (Any Network)
 pub async fn start_pairing_as_joiner(&self, code: &str) -> Result<()> {
     // Only uses mDNS discovery
     let mut discovery_stream = endpoint.discovery_stream();
-    let timeout = Duration::from_secs(10);  // ❌ Fails after 10s
+    let timeout = Duration::from_secs(10);  // Fails after 10s
 
     // No fallback to relay!
 }
@@ -74,7 +74,7 @@ No events/metrics for relay usage, fallback behavior, or connection types.
 
 ## Implementation Priority
 
-### Phase 1: Pairing Fallback (MUST HAVE) 🔥
+### Phase 1: Pairing Fallback (MUST HAVE) 
 
 **Effort**: 1-2 weeks
 **Impact**: HIGH - Enables cross-network pairing
@@ -83,7 +83,7 @@ No events/metrics for relay usage, fallback behavior, or connection types.
 2. Implement dual-path discovery (mDNS + relay)
 3. Update pairing UI for enhanced codes
 
-### Phase 2: Reconnection (SHOULD HAVE) ⭐
+### Phase 2: Reconnection (SHOULD HAVE) 
 
 **Effort**: 1 week
 **Impact**: MEDIUM - Improves reliability
@@ -92,7 +92,7 @@ No events/metrics for relay usage, fallback behavior, or connection types.
 2. Enhance reconnection strategy with relay fallback
 3. Periodic relay info updates
 
-### Phase 3: Observability (NICE TO HAVE) 📊
+### Phase 3: Observability (NICE TO HAVE) 
 
 **Effort**: 1 week
 **Impact**: LOW - Developer visibility

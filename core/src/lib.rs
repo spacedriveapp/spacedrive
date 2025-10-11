@@ -166,33 +166,33 @@ impl Core {
 		info!("Initializing Spacedrive Core at {:?}", data_dir);
 
 		// Load or create app config
-		info!("🔄 Loading app config...");
+		info!("Loading app config...");
 		let config = AppConfig::load_or_create(&data_dir)?;
-		info!("✅ App config loaded");
+		info!("App config loaded");
 
-		info!("🔄 Ensuring directories... GAYYY");
+		info!("Ensuring directories... GAYYY");
 		config.ensure_directories()?;
-		info!("✅ Directories ensured");
+		info!("Directories ensured");
 
 		let config = Arc::new(RwLock::new(config));
 
 		// Initialize device manager
-		info!("🔄 Initializing device manager...");
+		info!("Initializing device manager...");
 		let device = Arc::new(DeviceManager::init_with_path_and_name(
 			&data_dir,
 			device_name,
 		)?);
-		info!("✅ Device manager initialized");
+		info!("Device manager initialized");
 
 		// Set a global device ID for convenience
-		info!("🔄 Setting current device ID...");
+		info!("Setting current device ID...");
 		crate::device::set_current_device_id(device.device_id()?);
-		info!("✅ Current device ID set");
+		info!("Current device ID set");
 
 		// Create event bus
-		info!("🔄 Creating event bus...");
+		info!("Creating event bus...");
 		let events = Arc::new(EventBus::default());
-		info!("✅ Event bus created");
+		info!("Event bus created");
 
 		// Initialize volume manager
 		let volume_config = VolumeDetectionConfig::default();

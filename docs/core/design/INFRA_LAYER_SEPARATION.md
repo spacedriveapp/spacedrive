@@ -37,7 +37,7 @@ impl ApiDispatcher {
         // 3. Create action from input (redundant with ActionManager)
         let action = A::from_input(input).map_err(|e| ApiError::invalid_input(e))?;
 
-        // 4. ❌ DIRECTLY EXECUTE - bypasses ActionManager entirely!
+        // 4. DIRECTLY EXECUTE - bypasses ActionManager entirely!
         let result = action.execute(library, self.core_context.clone()).await
             .map_err(ApiError::from)?;
 
@@ -47,10 +47,10 @@ impl ApiDispatcher {
 ```
 
 **What's bypassed:**
-- ✅ `action.validate()` - Never called through API!
-- ✅ Audit logging in ActionManager - Never happens!
-- ✅ ActionManager's error handling and logging
-- ✅ Any future middleware in ActionManager
+- `action.validate()` - Never called through API!
+- Audit logging in ActionManager - Never happens!
+- ActionManager's error handling and logging
+- Any future middleware in ActionManager
 
 **Consequence:** ActionManager exists but is only used by internal code, not the API layer!
 
@@ -71,12 +71,12 @@ impl QueryManager {
 ```
 
 **Missing compared to ActionManager:**
-- ❌ No validation step
-- ❌ No query-specific error type (uses `anyhow`)
-- ❌ No logging/metrics
-- ❌ No caching layer
-- ❌ No middleware support
-- ❌ Not used by ApiDispatcher anyway!
+- No validation step
+- No query-specific error type (uses `anyhow`)
+- No logging/metrics
+- No caching layer
+- No middleware support
+- Not used by ApiDispatcher anyway!
 
 ## Architecture Overview
 
@@ -101,21 +101,21 @@ impl QueryManager {
 │   ✓ Check permissions                                        │
 │   ✓ Validate session                                         │
 │   ✓ Request/response logging                                 │
-│   ❌ Validates library exists (REDUNDANT)                    │
-│   ❌ Calls action.execute() DIRECTLY (BYPASSES MANAGER)      │
-│   ❌ Reimplements error handling                             │
+│   Validates library exists (REDUNDANT)                    │
+│   Calls action.execute() DIRECTLY (BYPASSES MANAGER)      │
+│   Reimplements error handling                             │
 └────────────────────────────┬─────────────────────────────────┘
                              │
                              ↓
 ┌──────────────────────────────────────────────────────────────┐
-│ ❌ ActionManager (BYPASSED)                                  │
+│ ActionManager (BYPASSED)                                  │
 │   • action.validate() - NEVER CALLED                         │
 │   • Audit logging - NEVER HAPPENS                            │
 │   • Result tracking - SKIPPED                                │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│ ❌ QueryManager (ALSO BYPASSED)                              │
+│ QueryManager (ALSO BYPASSED)                              │
 │   • Would validate - NEVER CALLED                            │
 │   • Would cache - DOESN'T EXIST                              │
 └──────────────────────────────────────────────────────────────┘
@@ -145,7 +145,7 @@ impl QueryManager {
 │   • Permission checks & authorization                        │
 │   • Middleware pipeline (logging, metrics, rate limiting)    │
 │   • Error transformation (internal → API errors)             │
-│   • ✅ DELEGATES to operation-specific managers              │
+│   • DELEGATES to operation-specific managers              │
 └────────────────────────────┬─────────────────────────────────┘
                              │
                  ┌───────────┴───────────┐
@@ -226,13 +226,13 @@ pub fn handle_library_action<A>(
 **Purpose**: Cross-cutting concerns that apply to ALL operations (both actions and queries)
 
 **Responsibilities:**
-- ✅ Session management and validation
-- ✅ Authentication (who is making the request?)
-- ✅ Authorization/permissions (are they allowed?)
-- ✅ Middleware pipeline (logging, metrics, rate limiting)
-- ✅ Error transformation (internal errors → API errors)
-- ✅ Request/response metadata (request IDs, timestamps)
-- ✅ **Delegates to operation-specific managers**
+- Session management and validation
+- Authentication (who is making the request?)
+- Authorization/permissions (are they allowed?)
+- Middleware pipeline (logging, metrics, rate limiting)
+- Error transformation (internal errors → API errors)
+- Request/response metadata (request IDs, timestamps)
+- **Delegates to operation-specific managers**
 
 **NOT Responsible For:**
 - Operation-specific validation (that's in managers)
@@ -283,7 +283,7 @@ impl ApiDispatcher {
             let action = A::from_input(input)
                 .map_err(|e| ApiError::InvalidInput { details: e })?;
 
-            // 4. ✅ DELEGATE to ActionManager (action-specific infrastructure)
+            // 4. DELEGATE to ActionManager (action-specific infrastructure)
             let action_manager = ActionManager::new(self.core_context.clone());
             let result = action_manager
                 .dispatch_library(session.current_library_id, action)
@@ -301,12 +301,12 @@ impl ApiDispatcher {
 **Purpose**: Action-specific infrastructure concerns
 
 **Responsibilities:**
-- ✅ Library/resource validation and lookup
-- ✅ Action validation (`action.validate()`)
-- ✅ Audit logging (track mutations)
-- ✅ Action-specific error handling
-- ✅ Result tracking and receipts
-- ✅ Action context tracking (who/what/when)
+- Library/resource validation and lookup
+- Action validation (`action.validate()`)
+- Audit logging (track mutations)
+- Action-specific error handling
+- Result tracking and receipts
+- Action context tracking (who/what/when)
 
 **NOT Responsible For:**
 - Permissions (that's cross-cutting - API layer)
@@ -335,7 +335,7 @@ impl ActionManager {
         // Create audit log entry (action-specific)
         let audit_entry = self.create_action_audit_log(library_id, action.action_kind()).await?;
 
-        // ✅ Validate the action (action-specific)
+        // Validate the action (action-specific)
         action.validate(library.clone(), self.context.clone()).await?;
 
         // Execute action
@@ -356,12 +356,12 @@ impl ActionManager {
 **Purpose**: Query-specific infrastructure concerns (CURRENTLY MINIMAL)
 
 **Responsibilities (Proposed):**
-- ✅ Library/resource validation and lookup
-- ✅ Query validation (`query.validate()`)
-- ✅ Result caching (for expensive queries)
-- ✅ Query-specific error handling
-- ✅ Query optimization hints
-- ✅ Query context tracking
+- Library/resource validation and lookup
+- Query validation (`query.validate()`)
+- Result caching (for expensive queries)
+- Query-specific error handling
+- Query optimization hints
+- Query context tracking
 
 **NOT Responsible For:**
 - Permissions (that's cross-cutting - API layer)
@@ -459,10 +459,10 @@ Each layer has ONE clear responsibility:
 ### 2. Delegation Not Duplication
 
 Higher layers delegate to lower layers - they don't reimplement:
-- ❌ ApiDispatcher should NOT validate library exists (ActionManager does that)
-- ❌ ApiDispatcher should NOT create audit logs (ActionManager does that)
-- ✅ ApiDispatcher SHOULD check permissions (that's cross-cutting)
-- ✅ ApiDispatcher SHOULD delegate to managers
+- ApiDispatcher should NOT validate library exists (ActionManager does that)
+- ApiDispatcher should NOT create audit logs (ActionManager does that)
+- ApiDispatcher SHOULD check permissions (that's cross-cutting)
+- ApiDispatcher SHOULD delegate to managers
 
 ### 3. Layered Architecture
 
@@ -524,7 +524,7 @@ pub async fn execute_library_action<A>(&self, input: A::Input, session: SessionC
     self.permission_layer.check_library_action::<A>(&session, PhantomData).await?;
     let library = self.core_context.get_library(library_id).await?;
     let action = A::from_input(input)?;
-    action.execute(library, self.core_context.clone()).await? // ❌ BYPASS
+    action.execute(library, self.core_context.clone()).await? // BYPASS
 }
 
 // AFTER: ApiDispatcher delegates to ActionManager
@@ -540,7 +540,7 @@ pub async fn execute_library_action<A>(&self, input: A::Input, session: SessionC
         let action = A::from_input(input)
             .map_err(|e| ApiError::InvalidInput { details: e })?;
 
-        // 4. ✅ DELEGATE to ActionManager
+        // 4. DELEGATE to ActionManager
         let action_manager = ActionManager::new(self.core_context.clone());
         action_manager
             .dispatch_library(session.current_library_id, action)
@@ -914,10 +914,10 @@ pub enum ApiError {
 ```
 
 **Benefits:**
-- ✅ Single source of truth for common errors
-- ✅ Easy to add new common error types
-- ✅ Layer-specific errors remain separate
-- ✅ Clear distinction between shared and layer-specific concerns
+- Single source of truth for common errors
+- Easy to add new common error types
+- Layer-specific errors remain separate
+- Clear distinction between shared and layer-specific concerns
 
 **Implementation Plan:**
 1. Complete current refactoring with duplicated errors

@@ -1,3 +1,4 @@
+#![allow(warnings)]
 // File: task-validator/src/main.rs
 use clap::{Parser, Subcommand};
 use comfy_table::{Cell, Table};

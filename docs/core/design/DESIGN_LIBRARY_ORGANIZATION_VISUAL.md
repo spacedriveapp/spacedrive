@@ -20,7 +20,7 @@
 │   └── ephemeral/                                       # Non-library thumbnails
 └── [other app data...]
 
-❌ Problems:
+Problems:
 - Library data in 3+ different places
 - UUID-based names (not human readable)
 - Can't backup by copying a folder
@@ -48,7 +48,7 @@
 └── Archived Photos 2020.sdlibrary/
     └── [same structure...]
 
-✅ Benefits:
+Benefits:
 - Everything in one folder
 - Human-readable names
 - Simple backup (just copy the folder)
@@ -80,7 +80,7 @@ cp -r "~/Spacedrive/Libraries/My Photos.sdlibrary" /backup/
 
 **v1 (Current)**:
 ```
-❌ Not possible - paths are hardcoded
+Not possible - paths are hardcoded
 ```
 
 **v2 (Proposed)**:
@@ -94,7 +94,7 @@ mv "~/Spacedrive/Libraries/My Photos.sdlibrary" "/Volumes/External/"
 
 **v1 (Current)**:
 ```
-❌ Extremely difficult:
+Extremely difficult:
 1. Find all database files
 2. Find all thumbnail directories  
 3. Hope instance IDs match

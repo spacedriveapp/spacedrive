@@ -122,7 +122,7 @@ async fn alice_relay_only_pairing() {
 			let paired_devices = registry.get_paired_devices();
 
 			if !paired_devices.is_empty() {
-				println!("Alice: ✅ Pairing completed via RELAY!");
+				println!("Alice: Pairing completed via RELAY!");
 				println!("Alice: Paired with {} devices", paired_devices.len());
 
 				// Verify pairing details
@@ -243,7 +243,7 @@ async fn bob_relay_only_pairing() {
 	} else {
 		panic!("Networking not initialized");
 	}
-	println!("Bob: ✅ Successfully joined pairing via RELAY!");
+	println!("Bob: Successfully joined pairing via RELAY!");
 	println!("Bob: RELAY-ONLY MODE - Direct connections disabled");
 
 	// Wait for pairing completion
@@ -265,7 +265,7 @@ async fn bob_relay_only_pairing() {
 			let paired_devices = registry.get_paired_devices();
 
 			if !paired_devices.is_empty() {
-				println!("Bob: ✅ Pairing completed successfully!");
+				println!("Bob: Pairing completed successfully!");
 				println!("Bob: Paired with {} devices", paired_devices.len());
 
 				// Verify pairing details
@@ -307,9 +307,9 @@ async fn test_relay_only_pairing() {
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-relay-only-test");
 	std::fs::create_dir_all("/tmp/spacedrive-relay-only-test").unwrap();
 
-	println!("🧪 Starting RELAY-ONLY pairing integration test");
-	println!("📡 This test verifies pairing works exclusively through Iroh relay");
-	println!("🚫 Direct and mDNS connections are disabled\n");
+	println!("Starting RELAY-ONLY pairing integration test");
+	println!("This test verifies pairing works exclusively through Iroh relay");
+	println!("Direct and mDNS connections are disabled\n");
 
 	let mut runner = CargoTestRunner::for_test_file("relay_only_pairing_test")
 		.with_timeout(Duration::from_secs(90))
@@ -347,6 +347,6 @@ async fn test_relay_only_pairing() {
 		result.err()
 	);
 
-	println!("\n✅ RELAY-ONLY PAIRING TEST PASSED");
-	println!("📡 Both devices successfully paired using only the Iroh relay");
+	println!("\nRELAY-ONLY PAIRING TEST PASSED");
+	println!("Both devices successfully paired using only the Iroh relay");
 }

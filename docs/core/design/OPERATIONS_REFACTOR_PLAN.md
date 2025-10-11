@@ -40,7 +40,7 @@ The current `operations/actions/` module should be moved to `infrastructure/acti
 - `jobs/` - Job execution framework (traits, manager, registry, executor)
 - `events/` - Event system framework (dispatching, handling)
 - `database/` - Database access framework (entities, migrations, connections)
-- `actions/` - Action dispatch and audit framework (manager, registry, audit logging) ✨
+- `actions/` - Action dispatch and audit framework (manager, registry, audit logging) 
 
 **Operations modules provide business logic:**
 

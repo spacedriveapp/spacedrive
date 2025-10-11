@@ -131,7 +131,7 @@ impl ApiDispatcher {
 		// 2. Create action from input
 		let action = A::from_input(action_input).map_err(|e| ApiError::invalid_input(e))?;
 
-		// 3. ✅ DELEGATE to ActionManager (action-specific infrastructure)
+		// 3. DELEGATE to ActionManager (action-specific infrastructure)
 		let action_manager = ActionManager::new(self.core_context.clone());
 		let result = action_manager
 			.dispatch_core(action)
@@ -181,7 +181,7 @@ impl ApiDispatcher {
 		// 3. Create query from input
 		let query = Q::from_input(query_input).map_err(ApiError::from)?;
 
-		// 4. ✅ DELEGATE to QueryManager (query-specific infrastructure)
+		// 4. DELEGATE to QueryManager (query-specific infrastructure)
 		let query_manager = QueryManager::new(self.core_context.clone());
 		let result = query_manager
 			.dispatch_library(query, library_id, session.clone())
@@ -220,7 +220,7 @@ impl ApiDispatcher {
 		// 2. Create query from input
 		let query = Q::from_input(query_input).map_err(ApiError::from)?;
 
-		// 3. ✅ DELEGATE to QueryManager (query-specific infrastructure)
+		// 3. DELEGATE to QueryManager (query-specific infrastructure)
 		let query_manager = QueryManager::new(self.core_context.clone());
 		let result = query_manager
 			.dispatch_core(query, session.clone())

@@ -68,7 +68,7 @@ async fn alice_pairing_scenario() {
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR not set"));
     let device_name = "Alice's Test Device";
 
-    println!("🟦 Alice: Starting Core pairing test");
+    println!("Alice: Starting Core pairing test");
 
     // All Alice-specific test logic here - stays in the test file!
     let mut core = Core::new_with_config(data_dir).await.unwrap();
@@ -105,7 +105,7 @@ async fn bob_pairing_scenario() {
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").expect("TEST_DATA_DIR not set"));
     let device_name = "Bob's Test Device";
 
-    println!("🟦 Bob: Starting Core pairing test");
+    println!("Bob: Starting Core pairing test");
 
     // All Bob-specific test logic here - stays in the test file!
     let mut core = Core::new_with_config(data_dir).await.unwrap();
@@ -137,7 +137,7 @@ async fn bob_pairing_scenario() {
 // Main test orchestrator
 #[tokio::test]
 async fn test_device_pairing() {
-    println!("🧪 Testing device pairing with cargo test subprocess framework");
+    println!("Testing device pairing with cargo test subprocess framework");
 
     let mut runner = CargoTestRunner::new()
         .with_timeout(Duration::from_secs(90))
@@ -155,7 +155,7 @@ async fn test_device_pairing() {
         alice_success && bob_success
     }).await.expect("Pairing test failed");
 
-    println!("🎉 Device pairing test successful!");
+    println!("Device pairing test successful!");
 }
 ```
 
@@ -331,13 +331,13 @@ cmd.args(&[
 
 ## Success Criteria
 
-1. ✅ Test logic remains in test files
-2. ✅ No pre-compilation of test binaries required
-3. ✅ Subprocess isolation maintained for networking tests
-4. ✅ Easy to add new test scenarios
-5. ✅ Good debugging experience
-6. ✅ Simple implementation without complex infrastructure
-7. ✅ Uses standard Rust/cargo tooling
+1. Test logic remains in test files
+2. No pre-compilation of test binaries required
+3. Subprocess isolation maintained for networking tests
+4. Easy to add new test scenarios
+5. Good debugging experience
+6. Simple implementation without complex infrastructure
+7. Uses standard Rust/cargo tooling
 
 ## Timeline
 

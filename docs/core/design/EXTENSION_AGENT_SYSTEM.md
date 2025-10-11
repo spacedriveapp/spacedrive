@@ -396,9 +396,9 @@ Agents react to VDFS events through a type-safe subscription mechanism.
 ```
 VDFS Indexer           Event Bus              Extension Runtime
      │                     │                          │
-     │─ IndexComplete ────▶│                          │
-     │─ EntryCreated ─────▶│──────────────────────────▶│
-     │─ EntryModified ────▶│                          │
+     │─ IndexComplete ────│                          │
+     │─ EntryCreated ─────│──────────────────────────│
+     │─ EntryModified ────│                          │
      │                     │                   ┌──────▼──────┐
      │                     │                   │ Event Router│
      │                     │                   └──────┬──────┘
@@ -1718,10 +1718,10 @@ Extension Settings → Photos → Activity
 ┌─────────────────────────────────────────┐
 │  Photos Agent Activity (Last 7 Days)    │
 ├─────────────────────────────────────────┤
-│  📊 Events Processed: 1,247             │
-│  🎯 Faces Detected: 432                 │
-│  📍 Places Identified: 28               │
-│  💾 Memory Size: 45.2 MB                │
+│  Events Processed: 1,247             │
+│  Faces Detected: 432                 │
+│  Places Identified: 28               │
+│  Memory Size: 45.2 MB                │
 │                                          │
 │  Recent Activity:                        │
 │  • 2m ago - Analyzed batch of 50 photos │

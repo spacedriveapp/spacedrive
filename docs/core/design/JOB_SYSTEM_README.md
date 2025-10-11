@@ -71,29 +71,29 @@ while let Some(update) = updates.next().await {
 
 ## Features
 
-### 🎯 Minimal Boilerplate
+### Minimal Boilerplate
 - Just implement two traits: `Job` and `JobHandler`
 - ~50 lines for a complete job vs 500-1000 in the old system
 - No manual registration required
 
-### 💾 Automatic Persistence
+### Automatic Persistence
 - Jobs automatically save state at checkpoints
 - Resume from exactly where they left off after crashes
 - Per-library job database
 
-### 📊 Rich Progress Tracking
+### Rich Progress Tracking
 - Count-based: "3/10 files"
 - Percentage-based: "45.2%"
 - Bytes-based: "1.5 GB / 3.2 GB"
 - Custom structured progress for complex jobs
 
-### 🎮 Full Control
+### Full Control
 - Pause/resume running jobs
 - Cancel with cleanup
 - Priority execution
 - Child job spawning
 
-### 🔍 Observability
+### Observability
 - Real-time progress updates
 - Detailed metrics (bytes, items, duration)
 - Warning and non-critical error tracking

@@ -67,7 +67,7 @@ impl Entry {
 
 	/// Get content UUID (for content-scoped operations)
 	pub fn content_uuid(&self) -> Option<Uuid> {
-		todo!("Get content UUID from entry")
+		panic!("WASM host call not implemented")
 	}
 
 	/// Get metadata ID
@@ -82,17 +82,17 @@ impl Entry {
 
 	/// Get entry path
 	pub fn path(&self) -> String {
-		todo!("Get full path")
+		panic!("WASM host call not implemented")
 	}
 
 	/// Read entry data
 	pub async fn read(&self) -> Result<Vec<u8>> {
-		todo!("WASM host call")
+		panic!("WASM host call not implemented")
 	}
 
 	/// Get custom field from entry's metadata
 	pub fn custom_field<T: serde::de::DeserializeOwned>(&self, field: &str) -> Result<T> {
-		todo!("WASM host call - read custom_data field")
+		panic!("WASM host call not implemented")
 	}
 }
 

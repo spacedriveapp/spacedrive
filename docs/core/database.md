@@ -31,8 +31,8 @@ CREATE TABLE content_identity (...) -- Content deduplication
 CREATE TABLE user_metadata (...)   -- Tags, notes, favorites
 CREATE TABLE tags (...)            -- User-defined tags
 CREATE TABLE labels (...)          -- Hierarchical labels
-CREATE TABLE metadata_tag (...)    -- Many-to-many: metadata ↔ tags
-CREATE TABLE metadata_label (...)  -- Many-to-many: metadata ↔ labels
+CREATE TABLE metadata_tag (...)    -- Many-to-many: metadata tags
+CREATE TABLE metadata_label (...)  -- Many-to-many: metadata labels
 
 -- Infrastructure
 CREATE TABLE jobs (...)            -- Job system persistence

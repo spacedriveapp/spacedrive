@@ -593,15 +593,15 @@ mod tests {
 		let (operations, queries, collection) = generate_spacedrive_api();
 
 		println!(
-			"🔍 Discovered {} operations and {} queries",
+			"Discovered {} operations and {} queries",
 			operations.len(),
 			queries.len()
 		);
-		println!("📊 Type collection has {} types", collection.len());
+		println!("Type collection has {} types", collection.len());
 
 		// Should have some operations if the system is working
 		if !operations.is_empty() {
-			println!("✅ Type extraction system is working!");
+			println!("Type extraction system is working!");
 
 			// Show some examples with scope information
 			for op in operations.iter().take(3) {
@@ -627,7 +627,7 @@ mod tests {
 		let (operations, queries, _collection) = generate_spacedrive_api();
 		let functions = extract_api_functions(&operations, &queries);
 
-		println!("🔍 Extracted {} API functions", functions.len());
+		println!("Extracted {} API functions", functions.len());
 
 		// Group functions by namespace to show organization
 		let mut namespaces: std::collections::HashMap<String, Vec<&ApiFunction>> =
@@ -640,7 +640,7 @@ mod tests {
 		}
 
 		for (namespace, funcs) in namespaces {
-			println!("📁 Namespace '{}': {} functions", namespace, funcs.len());
+			println!("Namespace '{}': {} functions", namespace, funcs.len());
 			for func in funcs.iter().take(3) {
 				println!(
 					"   {}: {} -> {} ({})",
@@ -661,8 +661,8 @@ mod tests {
 		// Check that namespaces are properly extracted
 		let has_libraries = functions.iter().any(|f| f.namespace == "libraries");
 		let has_jobs = functions.iter().any(|f| f.namespace == "jobs");
-		println!("✅ Found libraries namespace: {}", has_libraries);
-		println!("✅ Found jobs namespace: {}", has_jobs);
+		println!("Found libraries namespace: {}", has_libraries);
+		println!("Found jobs namespace: {}", has_jobs);
 	}
 
 	#[test]
@@ -671,7 +671,7 @@ mod tests {
 		let functions = extract_api_functions(&operations, &queries);
 		let swift_code = generate_swift_api_code(&functions);
 
-		println!("🔍 Generated Swift code (first 1000 chars):");
+		println!("Generated Swift code (first 1000 chars):");
 		println!("{}", &swift_code[..swift_code.len().min(1000)]);
 
 		// Verify basic structure
@@ -692,6 +692,6 @@ mod tests {
 		assert!(swift_code.contains("action:libraries.create.input.v1"));
 		assert!(swift_code.contains("query:jobs.list.v1"));
 
-		println!("✅ Swift code generation test passed!");
+		println!("Swift code generation test passed!");
 	}
 }

@@ -66,11 +66,11 @@ let agent = ConfigurableAgentBuilder::new("You are a helpful assistant")
 ```
 
 **Characteristics:**
-- ✅ **Simple** - Only ~30 lines of code
-- ✅ **Predictable** - Always keeps exactly N messages
-- ✅ **Fast** - No LLM calls needed
-- ⚠️ **Lossy** - Dropped messages gone forever
-- ⚠️ **No semantic awareness** - Might drop important context
+- **Simple** - Only ~30 lines of code
+- **Predictable** - Always keeps exactly N messages
+- **Fast** - No LLM calls needed
+- ️ **Lossy** - Dropped messages gone forever
+- ️ **No semantic awareness** - Might drop important context
 
 **When to Use:**
 - Short-lived agents with limited interaction depth
@@ -144,11 +144,11 @@ let agent = ConfigurableAgentBuilder::new(instructions)
 ```
 
 **Characteristics:**
-- ✅ **Performance Boost** - Anthropic caches large prompts (system, tools)
-- ✅ **Cost Reduction** - Cached tokens are 90% cheaper
-- ✅ **No Code Changes** - Transparent to agent logic
-- ⚠️ **Provider-Specific** - Only works with Anthropic Claude
-- ⚠️ **TTL Limited** - Cache expires (typically 5 minutes)
+- **Performance Boost** - Anthropic caches large prompts (system, tools)
+- **Cost Reduction** - Cached tokens are 90% cheaper
+- **No Code Changes** - Transparent to agent logic
+- ️ **Provider-Specific** - Only works with Anthropic Claude
+- ️ **TTL Limited** - Cache expires (typically 5 minutes)
 
 **When to Use:**
 - Using Anthropic Claude models
@@ -299,11 +299,11 @@ pub fn retrieve_relevant_memories(&self, query: &str) -> RetrievalResult {
 ```
 
 **Characteristics:**
-- ✅ **Cognitively Grounded** - Based on human memory research
-- ✅ **Sophisticated** - Different memory types for different purposes
-- ✅ **Semantic Retrieval** - Can query past experiences
-- ⚠️ **Complex** - Requires significant implementation
-- ⚠️ **Storage Overhead** - Maintains large historical dataset
+- **Cognitively Grounded** - Based on human memory research
+- **Sophisticated** - Different memory types for different purposes
+- **Semantic Retrieval** - Can query past experiences
+- ️ **Complex** - Requires significant implementation
+- ️ **Storage Overhead** - Maintains large historical dataset
 
 **When to Use:**
 - Long-running agents with extended lifespans
@@ -385,11 +385,11 @@ async fn is_session_reusable(&self, session: &OptimizedSession) -> Result<bool> 
 ```
 
 **Characteristics:**
-- ✅ **Resource Efficient** - Reuses sessions instead of creating new
-- ✅ **Adaptive** - Different strategies for different use cases
-- ✅ **Metrics-Driven** - Tracks compression savings and performance
-- ⚠️ **Session-Focused** - About session lifecycle, not message history
-- ⚠️ **Compression Stub** - Compression flag exists but implementation unclear
+- **Resource Efficient** - Reuses sessions instead of creating new
+- **Adaptive** - Different strategies for different use cases
+- **Metrics-Driven** - Tracks compression savings and performance
+- ️ **Session-Focused** - About session lifecycle, not message history
+- ️ **Compression Stub** - Compression flag exists but implementation unclear
 
 **When to Use:**
 - Multi-agent systems with many concurrent agents
@@ -428,11 +428,11 @@ impl Agent {
 ```
 
 **Characteristics:**
-- ✅ **Simple** - Zero complexity
-- ✅ **Perfect Memory** - Never loses context
-- ⚠️ **Will Crash** - Eventually hits context limit
-- ⚠️ **Expensive** - Sends entire history every request
-- ⚠️ **Slow** - Large contexts increase latency
+- **Simple** - Zero complexity
+- **Perfect Memory** - Never loses context
+- ️ **Will Crash** - Eventually hits context limit
+- ️ **Expensive** - Sends entire history every request
+- ️ **Slow** - Large contexts increase latency
 
 **Current Status:**
 ```rust

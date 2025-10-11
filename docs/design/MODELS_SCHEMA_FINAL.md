@@ -248,7 +248,7 @@ let entry_on_device_b = ...;
 let analysis = ctx.vdfs()
     .get_model_by_content::<PhotoAnalysis>(entry_on_device_b.content_uuid())
     .await?;
-// ✅ Same analysis, regardless of device/path!
+// Same analysis, regardless of device/path!
 ```
 
 ---
@@ -308,7 +308,7 @@ let analysis = ctx.vdfs()
     .get_model_by_content::<PhotoAnalysis>(content_uuid)
     .await?;
 
-// ✅ Works even if you're looking at a different copy of the photo
+// Works even if you're looking at a different copy of the photo
 ```
 
 ### Find Photos of Person

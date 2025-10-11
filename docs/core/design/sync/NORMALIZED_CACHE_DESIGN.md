@@ -16,10 +16,10 @@ This document proposes a **normalized client-side cache** with **event-driven at
 4. **Automatically update UI** when resources change
 
 This enables:
-- ✅ **Efficient search** - 1000 files returned, 1 file updated → update 1 entity, not re-fetch 1000
-- ✅ **Real-time UI** - File renamed? Update visible immediately across all views
-- ✅ **Bandwidth savings** - Only send deltas, not full result sets
-- ✅ **Optimistic updates** - Update cache immediately, sync in background
+- **Efficient search** - 1000 files returned, 1 file updated → update 1 entity, not re-fetch 1000
+- **Real-time UI** - File renamed? Update visible immediately across all views
+- **Bandwidth savings** - Only send deltas, not full result sets
+- **Optimistic updates** - Update cache immediately, sync in background
 
 ## Core Concept: Resource Normalization
 
@@ -37,7 +37,7 @@ event: .EntryModified { entry_id: file2_uuid }
 
 // Problem: Have to invalidate entire search cache and re-fetch!
 cache.invalidate("search:xyz")
-let newResults = try await client.query("search:files.v1", input: searchInput) // 😢
+let newResults = try await client.query("search:files.v1", input: searchInput) // 
 ```
 
 **Normalized approach** (resource-based caching):
@@ -699,7 +699,7 @@ public class NormalizedCache: ObservableObject {
 
         // Trigger updates for all queries containing this entity
         if let affectedQueries = resourceQueries[cacheKey] {
-            print("📦 Updated \(cacheKey) → \(affectedQueries.count) queries affected")
+            print("Updated \(cacheKey) → \(affectedQueries.count) queries affected")
         }
 
         triggerUpdate()
@@ -714,7 +714,7 @@ public class NormalizedCache: ObservableObject {
         let cacheKey = "\(resourceType):\(id)"
 
         guard var entity = entities[cacheKey] as? [String: Any] else {
-            print("⚠️  Entity \(cacheKey) not in cache, skipping patch")
+            print("️  Entity \(cacheKey) not in cache, skipping patch")
             return
         }
 
@@ -811,7 +811,7 @@ public class EventCacheUpdater {
                     await self.handleEvent(event)
                 }
             } catch {
-                print("❌ Event stream error: \(error)")
+                print("Event stream error: \(error)")
             }
         }
     }
@@ -910,13 +910,13 @@ public class CachedQueryClient {
         case .cacheFirst:
             // Check cache first
             if let cached: Output = cache.getQueryResult(queryKey: queryKey) {
-                print("📦 Cache HIT: \(queryKey)")
+                print("Cache HIT: \(queryKey)")
                 return cached
             }
             fallthrough
 
         case .networkOnly:
-            print("🌐 Fetching from network: \(queryKey)")
+            print("Fetching from network: \(queryKey)")
             let response: QueryResponse<Output> = try await client.query(method, input: input)
 
             // Normalize and cache response
@@ -1218,7 +1218,7 @@ impl LibraryAction for FileRenameAction {
         // Database update...
         let updated_entry = update_entry_name(library, entry_id, new_name).await?;
 
-        // 2. ✨ Emit event with full resource data for cache update
+        // 2. Emit event with full resource data for cache update
         if let Some(file) = construct_full_file_from_entry(library, &updated_entry).await? {
             context.events.emit(Event::FileUpdated {
                 library_id: library.id(),
@@ -1576,19 +1576,19 @@ pub enum UpdateType {
 ## Benefits
 
 ### For Users
-- ⚡ **Instant updates** - UI updates immediately when data changes
-- 📶 **Works offline** - Cached data available when disconnected
-- 🎯 **Lower battery usage** - Fewer network requests
+- **Instant updates** - UI updates immediately when data changes
+- **Works offline** - Cached data available when disconnected
+- **Lower battery usage** - Fewer network requests
 
 ### For Developers
-- 🎨 **Simple API** - Just use `@CachedQuery`, updates happen automatically
-- 🔧 **Type-safe** - Identifiable trait ensures consistency
-- 🧪 **Testable** - Mock cache for UI tests
+- **Simple API** - Just use `@CachedQuery`, updates happen automatically
+- **Type-safe** - Identifiable trait ensures consistency
+- **Testable** - Mock cache for UI tests
 
 ### For System
-- 📉 **Lower bandwidth** - Atomic updates instead of full re-fetches
-- 🚀 **Better performance** - Client-side joins eliminate network roundtrips
-- 🔄 **Real-time sync** - Event bus provides immediate updates
+- **Lower bandwidth** - Atomic updates instead of full re-fetches
+- **Better performance** - Client-side joins eliminate network roundtrips
+- **Real-time sync** - Event bus provides immediate updates
 
 ## Example: Complete Flow
 
@@ -1623,12 +1623,12 @@ cache.updateEntity(file) // Atomic update of 1 entity
 
 | Feature | Apollo Client | React Query | Spacedrive Cache |
 |---------|---------------|-------------|------------------|
-| Normalization | ✅ GraphQL IDs | ❌ Query-based | ✅ UUID-based |
-| Event-driven | ❌ Subscriptions | ❌ Manual invalidation | ✅ Event bus |
-| Optimistic updates | ✅ Yes | ✅ Yes | ✅ Yes |
-| Offline support | ⚠️ Apollo Persist | ⚠️ Manual | ✅ Planned |
-| Cross-platform | ❌ JS only | ❌ JS only | ✅ Swift + TS + Rust |
-| Type safety | ⚠️ Codegen | ⚠️ Generics | ✅ Derive-based |
+| Normalization | GraphQL IDs | Query-based | UUID-based |
+| Event-driven | Subscriptions | Manual invalidation | Event bus |
+| Optimistic updates | Yes | Yes | Yes |
+| Offline support | ️ Apollo Persist | ️ Manual | Planned |
+| Cross-platform | JS only | JS only | Swift + TS + Rust |
+| Type safety | ️ Codegen | ️ Generics | Derive-based |
 
 ## Critical Implementation Concerns
 
@@ -1770,7 +1770,7 @@ class EventCacheUpdater {
             await applyEventToCache(envelope.event)
 
         case .gap(let expected, let received, let missing):
-            print("⚠️  Event gap detected: expected \(expected), got \(received)")
+            print("️  Event gap detected: expected \(expected), got \(received)")
 
             // Invalidate affected queries to force refetch
             await invalidateAffectedQueries(envelope.event)
@@ -1789,7 +1789,7 @@ class EventCacheUpdater {
     private func reconcileState(libraryId: UUID) async {
         // Re-fetch critical queries to ensure consistency
         // This is a "catch-up" mechanism after missed events
-        print("🔄 Reconciling state for library \(libraryId)")
+        print("Reconciling state for library \(libraryId)")
 
         // Invalidate all queries for this library
         cache.invalidateLibrary(libraryId)
@@ -1926,7 +1926,7 @@ impl LibraryAction for FileRenameAction {
         // Construct full File domain object
         let file = File::from_entry_id(library.clone(), entry_id).await?;
 
-        // ✅ Emit through centralized emitter
+        // Emit through centralized emitter
         context.cache_events().emit_file_updated(library.id(), file);
 
         Ok(RenameOutput { success: true })
@@ -1984,7 +1984,7 @@ func handleFileUpdate(_ event: Event.FileUpdated) {
     // Check for conflicts
     if cachedFile.version > incomingFile.version {
         // Client has newer version - possible if optimistic update happened
-        print("⚠️  Version conflict: client=\(cachedFile.version) server=\(incomingFile.version)")
+        print("️  Version conflict: client=\(cachedFile.version) server=\(incomingFile.version)")
 
         // Strategy: Server wins (safest), but log the conflict
         cache.updateEntity(incomingFile)
@@ -2064,7 +2064,7 @@ class NormalizedCache {
             accessTimestamps.removeValue(forKey: key)
             referenceCount.removeValue(forKey: key)
 
-            print("🗑️  Evicted: \(key)")
+            print("️  Evicted: \(key)")
         }
     }
 
@@ -2139,7 +2139,7 @@ class CacheReconciliationService {
     func reconcileOnReconnect(libraryId: UUID) async throws {
         let lastSequence = cache.getLastSequence(libraryId: libraryId)
 
-        print("🔄 Reconciling from sequence \(lastSequence)")
+        print("Reconciling from sequence \(lastSequence)")
 
         // Fetch all changes since last known sequence
         let changes = try await client.query(
@@ -2169,7 +2169,7 @@ class CacheReconciliationService {
             }
         }
 
-        print("✅ Reconciliation complete: applied \(changes.count) changes")
+        print("Reconciliation complete: applied \(changes.count) changes")
     }
 }
 ```
@@ -2235,7 +2235,7 @@ impl ActionManager {
         // Execute action
         let result = action.execute(library.clone(), self.context.clone()).await;
 
-        // ✅ Emit cache events AFTER successful execution
+        // Emit cache events AFTER successful execution
         if let Ok(ref output) = result {
             // Actions can optionally implement CacheEventEmitter trait
             if let Some(events) = action.generate_cache_events(library_id, output) {
@@ -2286,10 +2286,10 @@ pub enum CacheableEvent {
 // Only expose File to clients
 
 impl Event {
-    // ❌ Don't emit Entry events to clients
+    // Don't emit Entry events to clients
     // EntryModified { entry_id: Uuid }
 
-    // ✅ Emit File events with full data
+    // Emit File events with full data
     FileUpdated {
         library_id: Uuid,
         file: File, // Complete File domain object
@@ -2331,29 +2331,29 @@ impl IndexingJob {
 ## Open Questions (Revised)
 
 1. **Partial events**: Should we always send full resources, or support delta updates?
-   - ✅ **Decision**: Start with full resources for File/Tag/Location (< 10KB typically)
-   - ✅ Add `FileMetadataDelta` for large objects with many relationships
-   - ✅ Client merges deltas into cached entities
+   - **Decision**: Start with full resources for File/Tag/Location (< 10KB typically)
+   - Add `FileMetadataDelta` for large objects with many relationships
+   - Client merges deltas into cached entities
 
 2. **Cache persistence**: Should cache survive app restarts?
-   - ✅ **Decision**: Phase 2 feature - persist to SQLite for offline access
-   - ✅ Use sequence numbers to validate cache on startup
-   - ✅ Implement "stale while revalidate" pattern
+   - **Decision**: Phase 2 feature - persist to SQLite for offline access
+   - Use sequence numbers to validate cache on startup
+   - Implement "stale while revalidate" pattern
 
 3. **Cache invalidation**: What if event is missed (network drop)?
-   - ✅ **Solved**: Event versioning with sequence numbers
-   - ✅ Gap detection triggers background reconciliation
-   - ✅ Fallback: invalidate affected queries, force refetch
+   - **Solved**: Event versioning with sequence numbers
+   - Gap detection triggers background reconciliation
+   - Fallback: invalidate affected queries, force refetch
 
 4. **Resource versions**: Should resources have version numbers for conflict resolution?
-   - ✅ **Solved**: Add `version: u64` field to all Identifiable resources
-   - ✅ Increment on each update
-   - ✅ Client checks version before applying optimistic updates
+   - **Solved**: Add `version: u64` field to all Identifiable resources
+   - Increment on each update
+   - Client checks version before applying optimistic updates
 
 5. **Garbage collection**: When to remove entities no longer in any query?
-   - ✅ **Solved**: Reference counting + LRU eviction
-   - ✅ Evict entities with refCount = 0 and not accessed recently
-   - ✅ Configurable limits: maxEntities, maxMemoryMB, entityTTL
+   - **Solved**: Reference counting + LRU eviction
+   - Evict entities with refCount = 0 and not accessed recently
+   - Configurable limits: maxEntities, maxMemoryMB, entityTTL
 
 ## Handling Complex Relationships
 
@@ -2423,7 +2423,7 @@ impl Identifiable for File {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct File {
     pub id: Uuid,
-    pub location_id: Option<Uuid>, // ✅ Explicit relationship
+    pub location_id: Option<Uuid>, // Explicit relationship
     pub sd_path: SdPath,
     pub tags: Vec<Tag>,
     pub content_identity: Option<ContentIdentity>,
@@ -2480,7 +2480,7 @@ impl NormalizedCache {
 
 ### Relationship Update Patterns
 
-**Pattern 1**: Many-to-many (Tag ↔ File)
+**Pattern 1**: Many-to-many (Tag File)
 
 ```rust
 // When tag is applied to file
@@ -2530,46 +2530,46 @@ Event::LocationRenamed {
 ## Phased Rollout Strategy
 
 ### Phase 1A: Core Infrastructure (Week 1)
-- ✅ Create `Identifiable` trait
-- ✅ Implement for File, Tag, Location, Job
-- ✅ Add `version` field to domain models
-- ✅ Create `CacheMetadata` and `QueryResponse<T>`
-- ✅ Add `CacheableQuery` trait with instance method
+- Create `Identifiable` trait
+- Implement for File, Tag, Location, Job
+- Add `version` field to domain models
+- Create `CacheMetadata` and `QueryResponse<T>`
+- Add `CacheableQuery` trait with instance method
 
 ### Phase 1B: Event Infrastructure (Week 1-2)
-- ✅ Create `EventEnvelope` with sequence numbers
-- ✅ Create `CacheEventEmitter` service
-- ✅ Add to `CoreContext`
-- ✅ Create new event types: `FileUpdated`, `TagUpdated`, etc.
+- Create `EventEnvelope` with sequence numbers
+- Create `CacheEventEmitter` service
+- Add to `CoreContext`
+- Create new event types: `FileUpdated`, `TagUpdated`, etc.
 
 ### Phase 2A: Swift Prototype (Week 2-3)
-- ✅ Implement `NormalizedCache` for File only (narrow scope)
-- ✅ Test with file search query
-- ✅ Implement `EventCacheUpdater` for File events
-- ✅ Measure performance vs query-based approach
+- Implement `NormalizedCache` for File only (narrow scope)
+- Test with file search query
+- Implement `EventCacheUpdater` for File events
+- Measure performance vs query-based approach
 
 ### Phase 2B: Expand to More Resources (Week 3-4)
-- ✅ Add Tag, Location, Job to cache
-- ✅ Test relationship updates
-- ✅ Implement reference counting and GC
+- Add Tag, Location, Job to cache
+- Test relationship updates
+- Implement reference counting and GC
 
 ### Phase 3: Production Hardening (Week 4-6)
-- ✅ Add event versioning and gap detection
-- ✅ Implement reconciliation service
-- ✅ Add conflict resolution for optimistic updates
-- ✅ Performance testing and optimization
-- ✅ Memory profiling and tuning
+- Add event versioning and gap detection
+- Implement reconciliation service
+- Add conflict resolution for optimistic updates
+- Performance testing and optimization
+- Memory profiling and tuning
 
 ### Phase 4: TypeScript Port (Week 6-8)
-- ✅ Port NormalizedCache to TypeScript
-- ✅ Create React hooks
-- ✅ Update web app
+- Port NormalizedCache to TypeScript
+- Create React hooks
+- Update web app
 
 ### Phase 5: Advanced Features (Ongoing)
-- ✅ Cache persistence (SQLite)
-- ✅ Prefetching strategies
-- ✅ Query deduplication
-- ✅ Analytics and monitoring
+- Cache persistence (SQLite)
+- Prefetching strategies
+- Query deduplication
+- Analytics and monitoring
 
 ## Risk Mitigation
 
@@ -2585,16 +2585,16 @@ Event::LocationRenamed {
 ## Success Metrics
 
 ### Performance Targets
-- ⚡ **UI responsiveness**: < 16ms for cache hits (60fps)
-- 📉 **Network reduction**: 80% fewer queries after initial load
-- 💾 **Memory usage**: < 100MB for 10k cached entities
-- 🔄 **Event latency**: < 100ms from action → cache update → UI
+- **UI responsiveness**: < 16ms for cache hits (60fps)
+- **Network reduction**: 80% fewer queries after initial load
+- **Memory usage**: < 100MB for 10k cached entities
+- **Event latency**: < 100ms from action → cache update → UI
 
 ### User Experience Goals
-- ✨ Instant UI updates when data changes
-- 📶 App works offline with cached data
-- 🔋 50% reduction in battery usage from fewer network calls
-- 🎯 Real-time sync across devices
+- Instant UI updates when data changes
+- App works offline with cached data
+- 50% reduction in battery usage from fewer network calls
+- Real-time sync across devices
 
 ## Why Client-Side Only?
 
@@ -2629,11 +2629,11 @@ The Rust core **should not** have a cache layer because:
 
 The normalized cache on **clients** makes sense because:
 
-- ✅ **Network latency**: 100ms+ round trip vs 0ms cache hit
-- ✅ **Bandwidth**: Don't re-fetch unchanged data
-- ✅ **Offline**: App works when disconnected
-- ✅ **Real-time UI**: Atomic updates instead of full refreshes
-- ✅ **Battery life**: Fewer network operations on mobile
+- **Network latency**: 100ms+ round trip vs 0ms cache hit
+- **Bandwidth**: Don't re-fetch unchanged data
+- **Offline**: App works when disconnected
+- **Real-time UI**: Atomic updates instead of full refreshes
+- **Battery life**: Fewer network operations on mobile
 
 ### Architecture Clarity
 
@@ -2641,7 +2641,7 @@ The normalized cache on **clients** makes sense because:
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │ Swift Client │     │  Web Client  │     │  CLI Client  │
 │              │     │              │     │              │
-│ ✅ Cache     │     │ ✅ Cache     │     │ ❌ No Cache  │
+│ Cache     │     │ Cache     │     │ No Cache  │
 │ (Memory)     │     │ (Memory)     │     │ (Stateless)  │
 └──────┬───────┘     └──────┬───────┘     └──────┬───────┘
        │                    │                    │
@@ -2651,8 +2651,8 @@ The normalized cache on **clients** makes sense because:
                     ┌──────▼───────┐
                     │ Rust Core    │
                     │              │
-                    │ ❌ No Cache  │
-                    │ ✅ Database  │ ← Single source of truth
+                    │ No Cache  │
+                    │ Database  │ ← Single source of truth
                     └──────────────┘
 ```
 
@@ -2660,7 +2660,7 @@ The normalized cache on **clients** makes sense because:
 
 ## Next Steps
 
-1. **✅ Design approved** - Incorporate review feedback (DONE)
+1. **Design approved** - Incorporate review feedback (DONE)
 2. **Start Phase 1A** - Implement `Identifiable` trait in Rust
 3. **Prototype Phase 2A** - Build Swift NormalizedCache for File
 4. **Measure and iterate** - Compare performance metrics
@@ -2670,4 +2670,4 @@ The normalized cache on **clients** makes sense because:
 
 This design provides a **foundation for instant, real-time UI updates** across all Spacedrive clients while minimizing network overhead and enabling offline functionality. The phased approach mitigates risk while delivering value incrementally.
 
-**Critical Design Principle**: Cache where the latency is (client ↔ core), not where the data is (core ↔ database).
+**Critical Design Principle**: Cache where the latency is (client core), not where the data is (core database).

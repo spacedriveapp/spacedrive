@@ -18,7 +18,7 @@ use super::{NetworkingService, SYNC_ALPN};
 /// Implementation of NetworkTransport for NetworkingService
 ///
 /// This bridges the sync layer (which uses device UUIDs) with the network layer
-/// (which uses Iroh NodeIds) by leveraging the DeviceRegistry for UUID↔NodeId mapping.
+/// (which uses Iroh NodeIds) by leveraging the DeviceRegistry for UUIDNodeId mapping.
 #[async_trait::async_trait]
 impl NetworkTransport for NetworkingService {
 	/// Send a sync message to a target device

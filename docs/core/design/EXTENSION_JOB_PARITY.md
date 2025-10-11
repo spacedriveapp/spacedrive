@@ -31,7 +31,7 @@ Based on `JobContext` in `core/src/infra/job/context.rs`:
 
 ## How Extensions Get Full Parity
 
-### Option 1: JobContext Host Functions ⭐ (RECOMMENDED)
+### Option 1: JobContext Host Functions (RECOMMENDED)
 
 **Concept:** Expose JobContext operations as additional host functions.
 
@@ -706,13 +706,13 @@ pub extern "C" fn execute_email_scan(
 ```
 
 **Extension jobs now have:**
-- ✅ Progress reporting
-- ✅ Checkpointing (auto-resume)
-- ✅ Interruption handling (pause/cancel)
-- ✅ Metrics tracking
-- ✅ Warning/error reporting
-- ✅ Full VDFS/AI access
-- ✅ Same UX as core jobs
+- Progress reporting
+- Checkpointing (auto-resume)
+- Interruption handling (pause/cancel)
+- Metrics tracking
+- Warning/error reporting
+- Full VDFS/AI access
+- Same UX as core jobs
 
 ---
 

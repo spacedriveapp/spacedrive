@@ -57,9 +57,9 @@ use dialoguer::{theme::ColorfulTheme, console::style};
 use console::{Term, Emoji};
 
 // Emojis with fallback
-static SUCCESS: Emoji = Emoji("✅ ", "[OK] ");
-static ERROR: Emoji = Emoji("❌ ", "[ERROR] ");
-static INFO: Emoji = Emoji("ℹ️  ", "[INFO] ");
+static SUCCESS: Emoji = Emoji("", "[OK] ");
+static ERROR: Emoji = Emoji("", "[ERROR] ");
+static INFO: Emoji = Emoji("️  ", "[INFO] ");
 
 // Structured output
 let term = Term::stdout();
@@ -106,10 +106,10 @@ pub struct CliOutput {
 }
 
 // Simple emoji constants with fallbacks
-const SUCCESS: Emoji = Emoji("✅ ", "[OK] ");
-const ERROR: Emoji = Emoji("❌ ", "[ERROR] ");
-const WARNING: Emoji = Emoji("⚠️  ", "[WARN] ");
-const INFO: Emoji = Emoji("ℹ️  ", "[INFO] ");
+const SUCCESS: Emoji = Emoji("", "[OK] ");
+const ERROR: Emoji = Emoji("", "[ERROR] ");
+const WARNING: Emoji = Emoji("️  ", "[WARN] ");
+const INFO: Emoji = Emoji("️  ", "[INFO] ");
 
 impl CliOutput {
     pub fn success(&self, msg: &str) -> std::io::Result<()> {
@@ -236,13 +236,13 @@ One of the major improvements is eliminating the "println! soup" pattern where m
 
 #### Current (Ugly) Pattern
 ```rust
-println!("🔍 Checking pairing status...");
+println!("Checking pairing status...");
 println!();
-println!("📊 Current Pairing Status: {}", status);
+println!("Current Pairing Status: {}", status);
 println!();
-println!("📭 No pending pairing requests");
+println!("No pending pairing requests");
 println!();
-println!("💡 To start pairing:");
+println!("To start pairing:");
 println!("   • Generate a code: spacedrive network pair generate");
 ```
 
@@ -465,11 +465,11 @@ impl<'a> OutputSection<'a> {
 
 // Usage example - much cleaner than multiple println!s
 output.section()
-    .title("📊 System Status")
+    .title("System Status")
     .status("Version", &status.version)
     .status("Uptime", &format_duration(status.uptime))
     .empty_line()
-    .title("📚 Libraries")
+    .title("Libraries")
     .table(library_table)
     .empty_line()
     .help()
@@ -507,9 +507,9 @@ output.section()
 
 ```rust
 // Before:
-println!("🚀 Starting Spacedrive daemon...");
+println!("Starting Spacedrive daemon...");
 println!();
-println!("✅ Daemon started successfully");
+println!("Daemon started successfully");
 println!("   PID: {}", pid);
 println!("   Socket: {}", socket_path);
 

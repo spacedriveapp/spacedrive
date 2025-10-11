@@ -1460,7 +1460,7 @@ impl NetworkingService {
 			match self.try_relay_discovery(&pairing_code_clone).await {
 				Ok(()) => {
 					self.logger
-						.info("✅ Connected via relay (force relay mode)")
+						.info("Connected via relay (force relay mode)")
 						.await;
 					Ok(())
 				}
@@ -1477,7 +1477,7 @@ impl NetworkingService {
 				result = self.try_mdns_discovery(session_id, force_relay) => {
 					match result {
 						Ok(()) => {
-							self.logger.info("✅ Connected via mDNS (local network)").await;
+							self.logger.info("Connected via mDNS (local network)").await;
 							Ok(())
 						}
 						Err(e) => {
@@ -1489,7 +1489,7 @@ impl NetworkingService {
 				result = self.try_relay_discovery(&pairing_code_clone) => {
 					match result {
 						Ok(()) => {
-							self.logger.info("✅ Connected via relay (remote network)").await;
+							self.logger.info("Connected via relay (remote network)").await;
 							Ok(())
 						}
 						Err(e) => {

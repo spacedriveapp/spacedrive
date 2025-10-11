@@ -78,13 +78,13 @@ The technical community is coalescing around local-first principles (Ink & Switc
 
 | Category | Global TAM | Avg. Pricing | Privacy Sensitivity | Spacedrive Advantage |
 |----------|-----------|--------------|---------------------|---------------------|
-| **Expense Management** | $4.2B | $10-50/mo | ⭐⭐⭐⭐⭐ | WellyBox competitor |
-| **Note-Taking/PKM** | $2.1B | $8-15/mo | ⭐⭐⭐⭐ | Notion/Evernote alt |
-| **Password Managers** | $2.8B | $3-10/mo | ⭐⭐⭐⭐⭐ | 1Password competitor |
-| **Project Management** | $6.5B | $10-25/user/mo | ⭐⭐⭐ | Asana/ClickUp alt |
-| **Photo Management** | $1.8B | $5-20/mo | ⭐⭐⭐⭐ | Google Photos alt |
-| **Developer Tools** | $15B | $20-100/mo | ⭐⭐⭐⭐ | GitHub Copilot alt |
-| **CRM (Small Biz)** | $8.2B | $15-50/mo | ⭐⭐⭐⭐ | HubSpot competitor |
+| **Expense Management** | $4.2B | $10-50/mo | ⭐⭐⭐⭐| WellyBox competitor |
+| **Note-Taking/PKM** | $2.1B | $8-15/mo | ⭐⭐⭐| Notion/Evernote alt |
+| **Password Managers** | $2.8B | $3-10/mo | ⭐⭐⭐⭐| 1Password competitor |
+| **Project Management** | $6.5B | $10-25/user/mo | ⭐⭐| Asana/ClickUp alt |
+| **Photo Management** | $1.8B | $5-20/mo | ⭐⭐⭐| Google Photos alt |
+| **Developer Tools** | $15B | $20-100/mo | ⭐⭐⭐| GitHub Copilot alt |
+| **CRM (Small Biz)** | $8.2B | $15-50/mo | ⭐⭐⭐| HubSpot competitor |
 
 **Conservative Addressable Market:** $40B+ annually across categories where privacy is a primary concern and local execution is feasible.
 
@@ -574,10 +574,10 @@ Extensions benefit from:
 - AI categorization ✅
 - Search & filter ✅
 - CSV export ✅
-- ❌ No QuickBooks API (manual export only)
-- ❌ No mobile app (desktop first)
-- ❌ No multi-currency (USD only)
-- ❌ No automatic vendor reconciliation
+- No QuickBooks API (manual export only)
+- No mobile app (desktop first)
+- No multi-currency (USD only)
+- No automatic vendor reconciliation
 
 **Timeline:** 8-12 weeks for 2 engineers
 
@@ -896,10 +896,10 @@ async fn export_to_csv(entries: Vec<Entry>, ctx: &QueryContext) -> Result<String
 | **Data Storage** | Cloud servers | User's device only |
 | **AI Models** | Cloud (proprietary) | Local (Ollama) or user's cloud choice |
 | **Export** | CSV, PDF | CSV, PDF, QuickBooks, FreshBooks |
-| **Offline** | ❌ No | ✅ Yes |
-| **Multi-Device** | ✅ Yes (cloud sync) | ✅ Yes (P2P sync) |
+| **Offline** | No | Yes |
+| **Multi-Device** | Yes (cloud sync) | Yes (P2P sync) |
 | **Pricing** | $9.90-19.90/mo | $10/mo (similar) |
-| **Privacy** | ⭐⭐ Trust-based | ⭐⭐⭐⭐⭐ Guaranteed |
+| **Privacy** | ⭐Trust-based | ⭐⭐⭐⭐Guaranteed |
 
 **Why Users Switch:**
 1. **Privacy:** "My financial docs never leave my laptop"
@@ -994,8 +994,8 @@ async function fillPassword(domain: string): Promise<void> {
 | **Breach Risk** | Single target | Distributed (no central database) |
 | **Master Key** | Stored on servers | Never leaves device |
 | **Pricing** | $3-8/mo | $5/mo |
-| **Open Source** | ❌ No | ✅ Yes (core) |
-| **Self-Hosted Option** | ❌ No | ✅ Yes (Spacedrive Cloud is optional) |
+| **Open Source** | No | Yes (core) |
+| **Self-Hosted Option** | No | Yes (Spacedrive Cloud is optional) |
 
 **Revenue Projection:**
 - Target: 100,000 users by 2028
@@ -1101,10 +1101,10 @@ Suggestions:"#,
 
 | Feature | GitHub Copilot | Spacedrive Dev |
 |---------|---------------|----------------|
-| **Code Privacy** | ❌ Sent to cloud | ✅ Stays local |
+| **Code Privacy** | Sent to cloud | Stays local |
 | **Model** | Proprietary (Codex) | Open source (CodeLlama, StarCoder) |
 | **Latency** | 300-500ms (cloud) | 50-100ms (local) |
-| **Offline** | ❌ No | ✅ Yes |
+| **Offline** | No | Yes |
 | **Pricing** | $10-20/mo | $15/mo |
 | **Enterprise** | $39/user/mo | $25/user/mo |
 

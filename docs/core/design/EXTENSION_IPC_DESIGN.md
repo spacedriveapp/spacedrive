@@ -68,23 +68,23 @@
 ```
 
 **Key Properties:**
-- ✅ Extensions are sandboxed WASM modules (cannot access filesystem/network directly)
-- ✅ Extensions call host functions exposed by Spacedrive
-- ✅ Host functions route to existing operation handlers
-- ✅ Same operations used by daemon RPC (code reuse!)
-- ✅ Single `.wasm` file works on all platforms
+- Extensions are sandboxed WASM modules (cannot access filesystem/network directly)
+- Extensions call host functions exposed by Spacedrive
+- Host functions route to existing operation handlers
+- Same operations used by daemon RPC (code reuse!)
+- Single `.wasm` file works on all platforms
 
 ### WASM vs. Process-Based
 
 | Aspect | WASM (Recommended) | Process-Based |
 |--------|-------------------|---------------|
-| **Security** | ⭐⭐⭐⭐⭐ True sandbox | ⭐⭐⭐ OS isolation |
-| **Distribution** | ⭐⭐⭐⭐⭐ Single .wasm | ⭐⭐ Per-platform binaries |
-| **Performance** | ⭐⭐⭐⭐ In-process | ⭐⭐⭐ IPC overhead |
-| **Hot Reload** | ⭐⭐⭐⭐⭐ Instant | ⭐⭐ Restart required |
-| **Memory Safety** | ⭐⭐⭐⭐⭐ WASM guarantees | ⭐⭐⭐ Depends on extension |
-| **Platform Support** | ⭐⭐⭐⭐⭐ Universal | ⭐⭐⭐ Need builds |
-| **Debugging** | ⭐⭐⭐ WASM tools | ⭐⭐⭐⭐⭐ Native tools |
+| **Security** | ⭐⭐⭐⭐True sandbox | ⭐⭐OS isolation |
+| **Distribution** | ⭐⭐⭐⭐Single .wasm | ⭐Per-platform binaries |
+| **Performance** | ⭐⭐⭐In-process | ⭐⭐IPC overhead |
+| **Hot Reload** | ⭐⭐⭐⭐Instant | ⭐Restart required |
+| **Memory Safety** | ⭐⭐⭐⭐WASM guarantees | ⭐⭐Depends on extension |
+| **Platform Support** | ⭐⭐⭐⭐Universal | ⭐⭐Need builds |
+| **Debugging** | ⭐⭐WASM tools | ⭐⭐⭐⭐Native tools |
 
 **Decision: WASM-first for production extensions**
 
@@ -645,12 +645,12 @@ impl PluginManager {
 ```
 
 **WASM Security Benefits:**
-- ✅ Cannot access filesystem directly (must use host functions)
-- ✅ Cannot make network calls directly (must use host functions)
-- ✅ Cannot escape sandbox (WASM guarantees)
-- ✅ Memory isolated (cannot read host process memory)
-- ✅ CPU bounded (metering prevents DoS)
-- ✅ Memory bounded (runtime enforces limits)
+- Cannot access filesystem directly (must use host functions)
+- Cannot make network calls directly (must use host functions)
+- Cannot escape sandbox (WASM guarantees)
+- Memory isolated (cannot read host process memory)
+- CPU bounded (metering prevents DoS)
+- Memory bounded (runtime enforces limits)
 
 ---
 
@@ -1292,8 +1292,8 @@ WASM Extension:
 - **Total: ~700 lines**
 
 Compare to:
-- ❌ New IPC system: ~5,000 lines
-- ❌ Per-function FFI: ~2,000 lines
+- New IPC system: ~5,000 lines
+- Per-function FFI: ~2,000 lines
 
 ### Timeline
 
@@ -1306,13 +1306,13 @@ Compare to:
 
 ### What We Get
 
-✅ Universal platform (single .wasm works everywhere)
-✅ True sandbox security (WASM isolation)
-✅ Hot-reload during development
-✅ Perfect code reuse (operation registry)
-✅ Type-safe API (Wire trait)
-✅ Minimal maintenance burden
-✅ Extensible without touching host code
+Universal platform (single .wasm works everywhere)
+True sandbox security (WASM isolation)
+Hot-reload during development
+Perfect code reuse (operation registry)
+Type-safe API (Wire trait)
+Minimal maintenance burden
+Extensible without touching host code
 
 ---
 

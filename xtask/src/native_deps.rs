@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 //! Native dependencies download and extraction
 
 use anyhow::{Context, Result};
@@ -12,7 +14,7 @@ const NATIVE_DEPS_URL: &str =
 pub fn download_native_deps(filename: &str, dest_dir: &Path) -> Result<()> {
 	let url = format!("{}/{}", NATIVE_DEPS_URL, filename);
 
-	println!("📦 Downloading native dependencies from:");
+	println!("Downloading native dependencies from:");
 	println!("   {}", url);
 
 	let response = reqwest::blocking::get(&url)
@@ -23,7 +25,7 @@ pub fn download_native_deps(filename: &str, dest_dir: &Path) -> Result<()> {
 	let total_size = response.content_length().unwrap_or(0);
 	let bytes = response.bytes().context("Failed to read response")?;
 
-	println!("📦 Downloaded {} MB", total_size / 1_000_000);
+	println!("Downloaded {} MB", total_size / 1_000_000);
 
 	// Extract the archive
 	extract_tar_xz(&bytes, dest_dir)?;
@@ -42,7 +44,7 @@ pub fn download_ios_deps(target: &str, dest_dir: &Path) -> Result<()> {
 
 	let url = format!("{}/{}", NATIVE_DEPS_URL, filename);
 
-	println!("📦 Downloading iOS dependencies for {}...", target);
+	println!("Downloading iOS dependencies for {}...", target);
 	println!("   {}", url);
 
 	let response = reqwest::blocking::get(&url)
@@ -66,7 +68,7 @@ pub fn download_ios_deps(target: &str, dest_dir: &Path) -> Result<()> {
 
 /// Extract a .tar.xz archive
 fn extract_tar_xz(data: &[u8], dest: &Path) -> Result<()> {
-	println!("📦 Extracting archive...");
+	println!("Extracting archive...");
 
 	// Decompress XZ
 	let xz_decoder = XzDecoder::new(data);

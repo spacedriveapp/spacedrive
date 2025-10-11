@@ -1,6 +1,7 @@
 //! Spacedrive SDK Macros
 //!
 //! Proc macros that make extension development delightful.
+#![allow(warnings)]
 
 use proc_macro::TokenStream;
 

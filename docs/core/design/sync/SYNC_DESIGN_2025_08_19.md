@@ -69,7 +69,7 @@ The architecture separates finite, resumable **Jobs** from persistent, long-runn
 │  │ │(SeaORM hooks)│ │     │ │(SeaORM hooks)│ │                   │
 │  │ └─────────────┘ │     │ └─────────────┘ │                   │
 │  │ ┌─────────────┐ │     │ ┌─────────────┐ │                   │
-│  │ │Phase 2:     │ │────▶│ │Phase 3:     │ │                   │
+│  │ │Phase 2:     │ │────│ │Phase 3:     │ │                   │
 │  │ │STORE        │ │     │ │INGEST       │ │                   │
 │  │ │(Dependency  │ │     │ │(Buffer &    │ │                   │
 │  │ │ ordering)   │ │     │ │ reorder)    │ │                   │

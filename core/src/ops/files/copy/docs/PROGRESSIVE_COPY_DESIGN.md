@@ -262,7 +262,7 @@ pub struct DestinationAnalyzer {
 impl DestinationAnalyzer {
     /// Analyze destination using existing IndexerJob
     pub async fn analyze_destination(&self, ctx: &JobContext<'_>) -> JobResult<DestinationInfo> {
-        ctx.log("🎯 Analyzing destination for existence checking");
+        ctx.log("Analyzing destination for existence checking");
 
         // Use existing IndexerJob with ephemeral configuration
         let config = IndexerJobConfig {
@@ -565,37 +565,37 @@ impl FileCopyJob {
 
 ## Key Benefits
 
-### ✅ **Instant User Feedback**
+### **Instant User Feedback**
 
 - Database query provides immediate estimates and file list
 - User sees copying start within 100ms
 - Real progress from the beginning
 
-### ✅ **Complete File Coverage**
+### **Complete File Coverage**
 
 - Database provides filtered file list (what's indexed)
 - Real-time indexer finds unindexed files (what's missing)
 - Combined = complete file coverage including .git, node_modules, etc.
 
-### ✅ **Optimal Performance**
+### **Optimal Performance**
 
 - No wasted time - copying and discovery happen concurrently
 - Leverages existing database infrastructure
 - Only discovers files NOT in database (delta approach)
 
-### ✅ **Real-time Progress**
+### **Real-time Progress**
 
 - User sees files being discovered in real-time
 - Copy progress updates as new files are found
 - Smooth progress reporting throughout
 
-### ✅ **Scalable Architecture**
+### **Scalable Architecture**
 
 - Works for any directory size
 - Efficient for both small and large operations
 - Graceful handling of mixed indexed/unindexed content
 
-### ✅ **Destination Pre-indexing Optimization**
+### **Destination Pre-indexing Optimization**
 
 - Pre-compute complete "what already exists" map before any copying
 - Instant skip decisions for files that already exist at destination
@@ -722,7 +722,7 @@ The existing copy strategy implementations in `strategy.rs:226-348` have a criti
 if let Some(parent) = destination.parent() {
     fs::create_dir_all(parent).await?;
 }
-// ❌ NO existence check - files are overwritten by default
+// NO existence check - files are overwritten by default
 ```
 
 **Issues with Current Approach:**
@@ -862,7 +862,7 @@ impl HybridPreparationEngine {
 
             // Log resume info
             let skipped = resume.completed_files.len();
-            ctx.log(format!("📋 Resuming copy: {} files already completed", skipped));
+            ctx.log(format!("Resuming copy: {} files already completed", skipped));
         }
 
         Ok(all_files)

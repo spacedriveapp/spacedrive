@@ -243,8 +243,8 @@ model_blobs { model_uuid: bob_uuid, blob_key: "embeddings", blob_id: 1 }
 -- Query models without loading heavy blobs
 SELECT uuid, data FROM models
 WHERE extension_id = 'photos' AND model_type = 'Person'
--- ✅ Fast! data column only has {"name":"Alice","photo_count":42}
--- ✅ Embeddings not loaded until accessed
+-- Fast! data column only has {"name":"Alice","photo_count":42}
+-- Embeddings not loaded until accessed
 ```
 
 ### 3. **Lazy Loading**
@@ -252,8 +252,8 @@ WHERE extension_id = 'photos' AND model_type = 'Person'
 ```rust
 // SDK can lazy-load blobs
 let person = ctx.vdfs().get_model::<Person>(uuid).await?;
-// ✅ name and photo_count loaded
-// ✅ embeddings NOT loaded yet
+// name and photo_count loaded
+// embeddings NOT loaded yet
 
 // Only load when accessed
 let embedding = person.embeddings().await?;
@@ -275,16 +275,16 @@ embeddings: Vec<Vec<f32>>,
 ## When to Use Blobs vs Inline JSON
 
 ### Inline in `models.data` (Good for)
-- ✅ Small data (< 10KB)
-- ✅ Frequently queried fields
-- ✅ Simple types (strings, numbers, small arrays)
+- Small data (< 10KB)
+- Frequently queried fields
+- Simple types (strings, numbers, small arrays)
 - **Examples:** name, photo_count, dates, UUIDs
 
 ### Blob storage (Good for)
-- ✅ Large data (> 10KB)
-- ✅ Rarely accessed
-- ✅ Binary data (embeddings, images, audio)
-- ✅ Compressible data
+- Large data (> 10KB)
+- Rarely accessed
+- Binary data (embeddings, images, audio)
+- Compressible data
 - **Examples:** Face embeddings (200KB), vector indices, cached AI results
 
 ---
@@ -509,7 +509,7 @@ let analyses = ctx.vdfs()
     .select_fields(&["scene_tags"])  // Only load inline data
     .collect()
     .await?;
-// ✅ Fast! Blobs not loaded
+// Fast! Blobs not loaded
 
 // Load specific analysis with faces
 let analysis = ctx.vdfs()
@@ -528,7 +528,7 @@ let faces = analysis.detected_faces().await?;  // ← Lazy load blob
 -- Query 10,000 people
 SELECT data FROM models WHERE extension_id = 'photos' AND model_type = 'Person'
 -- Returns: 10,000 × 200KB = 2GB of embeddings
--- ❌ Slow! Memory intensive!
+-- Slow! Memory intensive!
 ```
 
 ### After (blob separation)
@@ -537,7 +537,7 @@ SELECT data FROM models WHERE extension_id = 'photos' AND model_type = 'Person'
 -- Query 10,000 people
 SELECT data FROM models WHERE extension_id = 'photos' AND model_type = 'Person'
 -- Returns: 10,000 × 50 bytes = 500KB
--- ✅ Fast! Only load embeddings when needed
+-- Fast! Only load embeddings when needed
 ```
 
 ---
@@ -645,18 +645,18 @@ PhotoAnalysis Model (content-scoped):
 **YES - Add this system!**
 
 **Benefits:**
-- ✅ Fast queries (don't load heavy data)
-- ✅ Deduplication (by content hash)
-- ✅ Compression (zstd for embeddings)
-- ✅ Lazy loading (load on access)
-- ✅ Clean separation (lightweight vs heavy)
-- ✅ Works with sync (hash-based)
+- Fast queries (don't load heavy data)
+- Deduplication (by content hash)
+- Compression (zstd for embeddings)
+- Lazy loading (load on access)
+- Clean separation (lightweight vs heavy)
+- Works with sync (hash-based)
 
 **Minimal complexity:**
 - Just 3 new tables
 - Content-addressed like existing content_identity
 - Extensions use transparently via `#[blob_data]`
 
-**This is the right design.** 🎯
+**This is the right design.** 
 
 

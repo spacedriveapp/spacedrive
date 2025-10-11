@@ -6,7 +6,7 @@ Currently queries have inconsistent architecture compared to actions. This plan 
 
 ## Current State Analysis
 
-### Actions (✅ Good Architecture)
+### Actions (Good Architecture)
 ```rust
 FileCopyInput → FileCopyAction → JobHandle/CustomOutput
 ```
@@ -14,7 +14,7 @@ FileCopyInput → FileCopyAction → JobHandle/CustomOutput
 - **Action**: Internal execution logic
 - **Output**: Clean result data
 
-### Queries (❌ Inconsistent Architecture)
+### Queries (Inconsistent Architecture)
 
 #### Pattern 1: Query Struct Contains Fields
 ```rust
@@ -45,8 +45,8 @@ pub struct FileSearchQuery {
 | `ListLibrariesQuery` | `ListLibrariesInput` | Core | `{ include_stats: bool }` |
 | `GetCurrentLibraryQuery` | `GetCurrentLibraryInput` | Core | Empty struct |
 | `LocationsListQuery` | `LocationsListInput` | Library | `{ library_id: Uuid }` |
-| `FileSearchQuery` | `FileSearchInput` | Library | ✅ Already exists |
-| `SearchTagsQuery` | `SearchTagsInput` | Library | ✅ Already exists |
+| `FileSearchQuery` | `FileSearchInput` | Library | Already exists |
+| `SearchTagsQuery` | `SearchTagsInput` | Library | Already exists |
 | `NetworkStatusQuery` | `NetworkStatusInput` | Core | Empty struct |
 | `ListDevicesQuery` | `ListDevicesInput` | Core | Empty struct |
 | `PairStatusQuery` | `PairStatusInput` | Core | Empty struct |
@@ -138,17 +138,17 @@ impl QueryManager {
 
 ## Benefits After Refactor
 
-### ✅ **Architectural Consistency**
+### **Architectural Consistency**
 - Actions and queries follow same Input/Output pattern
 - Clean separation of API contract vs execution logic
 - Consistent wire protocol handling
 
-### ✅ **Better Type Safety**
+### **Better Type Safety**
 - Explicit Input types for Swift generation
 - Clear distinction between library vs core operations
 - Proper type extraction via enhanced registration macros
 
-### ✅ **rspc Magic Compatibility**
+### **rspc Magic Compatibility**
 - All queries will work with automatic type extraction
 - Complete Swift API generation for all 12 queries
 - Type-safe wire methods and identifiers

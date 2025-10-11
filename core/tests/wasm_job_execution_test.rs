@@ -14,7 +14,7 @@ async fn test_dispatch_wasm_job() {
 		.with_test_writer()
 		.try_init();
 
-	tracing::info!("🧪 Testing WASM job execution");
+	tracing::info!("Testing WASM job execution");
 
 	// 1. Initialize Core
 	let temp_dir = TempDir::new().unwrap();
@@ -31,7 +31,7 @@ async fn test_dispatch_wasm_job() {
 		.expect("Core should create default library")
 		.clone();
 
-	tracing::info!("✅ Core and library initialized (using default library)");
+	tracing::info!("Core and library initialized (using default library)");
 
 	// 3. Load the test extension first!
 	let pm = core
@@ -63,7 +63,7 @@ async fn test_dispatch_wasm_job() {
 		.await
 		.expect("Should load extension");
 
-	tracing::info!("✅ Extension loaded");
+	tracing::info!("Extension loaded");
 
 	// 4. Dispatch job by name (auto-registered as "test-extension:counter")
 	let job_handle = library
@@ -79,11 +79,11 @@ async fn test_dispatch_wasm_job() {
 		.await
 		.expect("Should dispatch extension job by name");
 
-	tracing::info!("✅ WASM job dispatched: {}", job_handle.id());
+	tracing::info!("WASM job dispatched: {}", job_handle.id());
 
 	// 5. Wait for completion
 	job_handle.wait().await.expect("Job should complete");
 
-	tracing::info!("✅ WASM job completed!");
-	tracing::info!("🎉 WASM job execution works!");
+	tracing::info!("WASM job completed!");
+	tracing::info!("WASM job execution works!");
 }

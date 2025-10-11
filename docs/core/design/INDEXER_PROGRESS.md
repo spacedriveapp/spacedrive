@@ -16,7 +16,7 @@ The new indexer uses a clean phase-based pipeline:
 - **Content Identification Phase**: CAS ID generation and deduplication
 - **Complete Phase**: Final cleanup and metrics reporting
 
-## ✅ Implemented Features
+## Implemented Features
 
 ### Core Functionality
 
@@ -66,7 +66,7 @@ The new indexer uses a clean phase-based pipeline:
 - [x] **Efficient updates** - Only updates changed fields
 - [x] **Batch operations** - Reduces database round trips
 
-## ❌ Not Implemented
+## Not Implemented
 
 ### Deep Indexing Features
 
@@ -100,7 +100,7 @@ The new indexer uses a clean phase-based pipeline:
 - [ ] **Indexing priorities** - User-defined indexing order
 - [ ] **Partial indexing** - Index specific subdirectories only
 
-## 🔄 Partially Implemented
+## Partially Implemented
 
 ### Memory Management
 
@@ -116,20 +116,20 @@ The new indexer uses a clean phase-based pipeline:
 - [ ] Location-specific settings
 - [ ] Cross-location deduplication
 
-## 📊 Implementation Comparison
+## Implementation Comparison
 
 | Feature          | Old Indexer               | New Indexer               | Status                |
 | ---------------- | ------------------------- | ------------------------- | --------------------- |
-| Architecture     | Task-based with 7 stages  | Phase-based with 5 phases | ✅ Simplified         |
-| State Management | Complex serialization     | Direct JSON/MessagePack   | ✅ Improved           |
-| Change Detection | Full implementation       | Full implementation       | ✅ Complete           |
-| Rules System     | Database-backed, complex  | Hardcoded filters only    | ❌ Missing            |
-| Performance      | Parallel tasks, streaming | Batch processing, metrics | ✅ Different approach |
-| Content Identity | Basic CAS support         | Full deduplication system | ✅ Enhanced           |
-| Error Handling   | Critical/non-critical     | Categorized collection    | ✅ Improved           |
-| Directory Sizes  | Materialized paths        | Parent ID + aggregation   | ✅ Enhanced           |
-| Deep Indexing    | Not implemented           | Framework exists          | 🔄 In progress        |
-| Sync Support     | Full CRDT integration     | Not planned yet           | ⏸️ Deferred           |
+| Architecture     | Task-based with 7 stages  | Phase-based with 5 phases | Simplified         |
+| State Management | Complex serialization     | Direct JSON/MessagePack   | Improved           |
+| Change Detection | Full implementation       | Full implementation       | Complete           |
+| Rules System     | Database-backed, complex  | Hardcoded filters only    | Missing            |
+| Performance      | Parallel tasks, streaming | Batch processing, metrics | Different approach |
+| Content Identity | Basic CAS support         | Full deduplication system | Enhanced           |
+| Error Handling   | Critical/non-critical     | Categorized collection    | Improved           |
+| Directory Sizes  | Materialized paths        | Parent ID + aggregation   | Enhanced           |
+| Deep Indexing    | Not implemented           | Framework exists          | In progress        |
+| Sync Support     | Full CRDT integration     | Not planned yet           | ️ Deferred           |
 
 ## Priority TODOs
 

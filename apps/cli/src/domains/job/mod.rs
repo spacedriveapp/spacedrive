@@ -302,9 +302,9 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 
 					Event::JobResumed { job_id } => {
 						if let Some(pb) = progress_bars.get(&job_id) {
-							pb.set_message(format!("▶️ Job resumed [{}]", &job_id[..8]));
+							pb.set_message(format!("️ Job resumed [{}]", &job_id[..8]));
 						}
-						println!("▶️ Job resumed: [{}]", &job_id[..8]);
+						println!("️ Job resumed: [{}]", &job_id[..8]);
 					}
 
 					_ => {} // Ignore other events

@@ -37,7 +37,7 @@ pub fn generate_cargo_config(
     native_deps_dir: Option<&Path>,
     mobile_deps_dir: Option<&Path>,
 ) -> Result<()> {
-    println!("⚙️  Generating .cargo/config.toml...");
+    println!("️  Generating .cargo/config.toml...");
 
     let system = SystemInfo::detect()?;
     let rust_targets = get_rust_targets().unwrap_or_default();

@@ -117,7 +117,7 @@ My Photos.sdlibrary/
 
 ### Production-Ready Features
 
-#### ✅ **Working CLI Interface**
+#### **Working CLI Interface**
 
 Complete command-line tool demonstrating all features:
 
@@ -129,7 +129,7 @@ spacedrive job monitor
 spacedrive network pair generate
 ```
 
-#### ✅ **Modern Database Layer**
+#### **Modern Database Layer**
 
 Built on SeaORM replacing abandoned Prisma:
 
@@ -138,7 +138,7 @@ Built on SeaORM replacing abandoned Prisma:
 - 70%+ space savings for large collections
 - Proper relationship mapping
 
-#### ✅ **Advanced Job System**
+#### **Advanced Job System**
 
 Dramatic improvement from original (50 lines vs 500+ lines):
 
@@ -158,7 +158,7 @@ Features:
 - Database persistence with resumption
 - Type-safe progress reporting
 
-#### ✅ **Production Networking (99% Complete)**
+#### **Production Networking (99% Complete)**
 
 LibP2P-based networking stack:
 
@@ -168,7 +168,7 @@ LibP2P-based networking stack:
 - **Protocol handlers**: Extensible system for file transfer, Spacedrop, sync
 - **Trust management**: Configurable device trust levels and session keys
 
-#### ✅ **Event-Driven Architecture**
+#### **Event-Driven Architecture**
 
 Replaces the problematic `invalidate_query!` pattern:
 
@@ -253,20 +253,20 @@ The core functionality is comprehensively tested with working examples.
 
 #### **What's Production-Ready**
 
-- ✅ Library and location management
-- ✅ Multi-phase indexing with progress tracking
-- ✅ Modern database layer with migrations
-- ✅ Event-driven architecture
-- ✅ Device networking and pairing (99% complete)
-- ✅ Job system infrastructure
-- ✅ File type detection and content addressing
-- ✅ CLI interface demonstrating all features
+- Library and location management
+- Multi-phase indexing with progress tracking
+- Modern database layer with migrations
+- Event-driven architecture
+- Device networking and pairing (99% complete)
+- Job system infrastructure
+- File type detection and content addressing
+- CLI interface demonstrating all features
 
 #### **What's Framework-Ready**
 
-- 🚧 File operations (infrastructure complete, handlers need implementation)
-- 🚧 Search system (FTS5 integration planned)
-- 🚧 Advanced networking protocols (message system complete)
+- File operations (infrastructure complete, handlers need implementation)
+- Search system (FTS5 integration planned)
+- Advanced networking protocols (message system complete)
 
 ---
 
@@ -517,23 +517,23 @@ src/
 
 #### **core: 89% Complete**
 
-- ✅ **Foundation**: Library and location management
-- ✅ **Indexing**: Multi-phase indexer with scope and persistence control
-- ✅ **Database**: Modern SeaORM layer with migrations
-- ✅ **Networking**: 99% complete with device pairing and persistent connections
-- ✅ **Job System**: Revolutionary simplification (50 vs 500+ lines)
-- ✅ **CLI**: Working interface demonstrating all features
-- 🚧 **File Operations**: Infrastructure complete, handlers need implementation
-- 🚧 **Search**: FTS5 integration planned
-- 🚧 **UI Integration**: Ready to replace original core as backend
+- **Foundation**: Library and location management
+- **Indexing**: Multi-phase indexer with scope and persistence control
+- **Database**: Modern SeaORM layer with migrations
+- **Networking**: 99% complete with device pairing and persistent connections
+- **Job System**: Revolutionary simplification (50 vs 500+ lines)
+- **CLI**: Working interface demonstrating all features
+- **File Operations**: Infrastructure complete, handlers need implementation
+- **Search**: FTS5 integration planned
+- **UI Integration**: Ready to replace original core as backend
 
 #### **Spacedrive Cloud: Architecture Complete**
 
-- ✅ **Technical Design**: Complete cloud-native architecture
-- ✅ **Kubernetes**: Production-ready deployment templates
-- ✅ **Security**: Device isolation and network policies
-- ✅ **Business Model**: Service tiers and billing integration
-- 🚧 **Implementation**: Ready for development start
+- **Technical Design**: Complete cloud-native architecture
+- **Kubernetes**: Production-ready deployment templates
+- **Security**: Device isolation and network policies
+- **Business Model**: Service tiers and billing integration
+- **Implementation**: Ready for development start
 
 ### Roadmap
 

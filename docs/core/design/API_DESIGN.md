@@ -518,23 +518,23 @@ Finish the query system and build GraphQL server as proof of unified API.
 
 ## **Implementation Status**
 
-### ✅ **Completed: Phases 1 & 2**
+### **Completed: Phases 1 & 2**
 
 **Phase 1: CQRS Traits (Complete)**
 
-- ✅ Added `Command` trait with minimal boilerplate (only 2 methods required)
-- ✅ Added `Query` trait for read operations
-- ✅ Created generic `execute_command()` function that handles all ActionManager integration
-- ✅ Added unified Core API methods: `execute_command()` and `execute_query()`
-- ✅ Zero breaking changes - existing code continues to work
+- Added `Command` trait with minimal boilerplate (only 2 methods required)
+- Added `Query` trait for read operations
+- Created generic `execute_command()` function that handles all ActionManager integration
+- Added unified Core API methods: `execute_command()` and `execute_query()`
+- Zero breaking changes - existing code continues to work
 
 **Phase 2: Command Implementation (Complete)**
 
-- ✅ Implemented `Command` trait for `LibraryCreateAction`
-- ✅ Verified both old and new API paths work correctly
-- ✅ All existing ActionManager benefits preserved (audit logging, validation, error handling)
+- Implemented `Command` trait for `LibraryCreateAction`
+- Verified both old and new API paths work correctly
+- All existing ActionManager benefits preserved (audit logging, validation, error handling)
 
-### 🔄 **Next Steps: Phases 3-5**
+### **Next Steps: Phases 3-5**
 
 The foundation is solid and ready for:
 

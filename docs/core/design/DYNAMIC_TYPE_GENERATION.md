@@ -16,7 +16,7 @@ macro_rules! generate_inventory_enums {
     () => {
         use $crate::ops::registry::{TYPED_ACTIONS, TYPED_QUERIES};
 
-        // ❌ FAILS: This tries to iterate at compile-time over runtime data
+        // FAILS: This tries to iterate at compile-time over runtime data
         for action in TYPED_ACTIONS.iter() {
             // Generate enum variants...
         }
@@ -266,22 +266,22 @@ macro_rules! generate_dynamic_spacedrive_api {
 
 ### Benefits of This Approach
 
-#### ✅ Compile-Time Type Safety
+#### Compile-Time Type Safety
 - All type extraction happens during compilation
 - No runtime overhead for type discovery
 - Impossible to have type mismatches
 
-#### ✅ Automatic Discovery
+#### Automatic Discovery
 - New operations automatically appear in Swift types
 - No manual registration or hardcoding required
 - Zero maintenance burden
 
-#### ✅ Complete Type Information
+#### Complete Type Information
 - Swift gets actual Input/Output types, not string names
 - Full type safety in Swift client code
 - IntelliSense and compile-time checking
 
-#### ✅ rspc-Proven Architecture
+#### rspc-Proven Architecture
 - Based on battle-tested rspc implementation
 - Leverages Specta's type system properly
 - Follows Rust's trait-based design patterns

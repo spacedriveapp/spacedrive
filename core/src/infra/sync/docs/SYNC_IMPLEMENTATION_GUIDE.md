@@ -32,11 +32,11 @@ These principles from `sync.md` are non-negotiable. All implementation work must
 **Implementation Pattern**:
 
 ```rust
-// ✅ CORRECT: Use TransactionManager
+// CORRECT: Use TransactionManager
 let mut tx = library.transaction_manager().begin().await?;
 tx.commit_device_owned("location", location_uuid, location_json).await?;
 
-// ❌ WRONG: Direct database write
+// WRONG: Direct database write
 location::Entity::insert(active_model).exec(db).await?;
 ```
 
@@ -301,10 +301,10 @@ async fn create_test_device(name: &str) -> TestDevice {
 
 See [`SYNC_IMPLEMENTATION_ROADMAP.md`](./SYNC_IMPLEMENTATION_ROADMAP.md) for detailed status. Key phases:
 
-- ✅ **Phase 1: Core Infrastructure** - COMPLETE
-- 🚧 **Phase 2: Network Integration** - IN PROGRESS (80%)
-- 🚧 **Phase 3: Model Integration** - IN PROGRESS (29%)
-- ⏳ **Phase 4: End-to-End Testing** - NOT STARTED
+- **Phase 1: Core Infrastructure** - COMPLETE
+- **Phase 2: Network Integration** - IN PROGRESS (80%)
+- **Phase 3: Model Integration** - IN PROGRESS (29%)
+- **Phase 4: End-to-End Testing** - NOT STARTED
 
 ---
 

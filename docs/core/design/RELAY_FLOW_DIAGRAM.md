@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        SAME NETWORK (✅ Works)                       │
+│                        SAME NETWORK (Works)                       │
 └─────────────────────────────────────────────────────────────────────┘
 
 Initiator                                                    Joiner
@@ -27,11 +27,11 @@ Initiator                                                    Joiner
 5. Challenge-response handshake ←───────────────────→  6. Sign challenge
                                       Pairing
 
-✅ SUCCESS: Devices paired!
+SUCCESS: Devices paired!
 
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    DIFFERENT NETWORKS (❌ Fails)                     │
+│                    DIFFERENT NETWORKS (Fails)                     │
 └─────────────────────────────────────────────────────────────────────┘
 
 Initiator (Network A)                              Joiner (Network B)
@@ -48,7 +48,7 @@ Initiator (Network A)                              Joiner (Network B)
                                   mDNS blocked by              (different network)
                                   network boundary
                                                          5. ERROR: Discovery failed
-❌ FAILURE: Pairing failed!
+FAILURE: Pairing failed!
 
 
 Note: Even though endpoint has RelayMode::Default configured, the relay
@@ -59,7 +59,7 @@ Note: Even though endpoint has RelayMode::Default configured, the relay
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│              SAME NETWORK (✅ Faster via mDNS)                       │
+│              SAME NETWORK (Faster via mDNS)                       │
 └─────────────────────────────────────────────────────────────────────┘
 
 Initiator                                                    Joiner
@@ -80,11 +80,11 @@ Initiator                                                    Joiner
                                    mDNS + Direct               direct address
                                       (~1s)
 
-✅ SUCCESS: Fast local pairing (no change to user experience)
+SUCCESS: Fast local pairing (no change to user experience)
 
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│         DIFFERENT NETWORKS (✅ Works via Relay)                      │
+│         DIFFERENT NETWORKS (Works via Relay)                      │
 └─────────────────────────────────────────────────────────────────────┘
 
 Initiator (Network A)                              Joiner (Network B)
@@ -116,7 +116,7 @@ Initiator (Network A)                              Joiner (Network B)
    ├─> Iroh attempts NAT traversal                        ├─> Exchange candidates
    └─> Success rate: ~90%                                 └─> Direct path found!
 
-✅ SUCCESS: Devices paired via relay, then upgraded to direct!
+SUCCESS: Devices paired via relay, then upgraded to direct!
 
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -136,11 +136,11 @@ RECONNECTION ATTEMPT (NodeId rule: lower ID initiates)
 ───────────────────────────────────────────────────────
 
 1. Try direct addresses first
-   └─> [10.0.0.5:8080] ❌ Timeout
+   └─> [10.0.0.5:8080] Timeout
        (device moved networks)
 
 2. Try mDNS discovery
-   └─> Wait 2s for broadcast ❌ Not found
+   └─> Wait 2s for broadcast Not found
        (not on same network)
 
 3. Fallback to relay ✅
@@ -158,9 +158,9 @@ RECONNECTION ATTEMPT (NodeId rule: lower ID initiates)
    └─> Use stored session_keys                        └─> Use stored keys
 
 8. Attempt hole-punch                              9. Coordinate NAT traversal
-   └─> If successful, upgrade to direct ✅            └─> Direct path established
+   └─> If successful, upgrade to direct            └─> Direct path established
 
-✅ SUCCESS: Reconnected via relay, upgraded to direct
+SUCCESS: Reconnected via relay, upgraded to direct
 
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -202,7 +202,7 @@ RECONNECTION ATTEMPT (NodeId rule: lower ID initiates)
         │  (<10ms)   │            │  (~100ms)  │
         └────────────┘            └────────────┘
 
-        ✅ Optimal                 ✅ Fallback
+        Optimal                 Fallback
            (90% of cases)            (Always works)
 
 

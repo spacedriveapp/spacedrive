@@ -242,8 +242,8 @@ New contributors can easily understand:
 
 #### 5. Better Naming
 
-- ❌ `cqrs.rs` - Misleading, suggests complete CQRS implementation
-- ✅ `infra/query/` - Clear, accurate, matches `action/`
+- `cqrs.rs` - Misleading, suggests complete CQRS implementation
+- `infra/query/` - Clear, accurate, matches `action/`
 
 ### Design Principles Applied
 
@@ -659,11 +659,11 @@ This reorganization sets up for future enhancements:
 ## Conclusion
 
 This reorganization improves code organization by:
-1. ✅ Grouping related infrastructure together
-2. ✅ Making action/query relationship obvious
-3. ✅ Clarifying infrastructure vs business logic boundary
-4. ✅ Improving discoverability for new contributors
-5. ✅ Using more accurate names
+1. Grouping related infrastructure together
+2. Making action/query relationship obvious
+3. Clarifying infrastructure vs business logic boundary
+4. Improving discoverability for new contributors
+5. Using more accurate names
 
 The migration is mechanical (mostly moving files and updating imports) with minimal risk since we're not changing functionality - just organization.
 

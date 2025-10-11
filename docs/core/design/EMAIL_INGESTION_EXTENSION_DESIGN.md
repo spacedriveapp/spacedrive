@@ -44,12 +44,12 @@ This document defines the architecture for Spacedrive's first revenue-generating
 
 | Criteria | Process-Based | WASM |
 |----------|--------------|------|
-| **Time to MVP** | ⭐⭐⭐⭐⭐ 2-3 weeks | ⭐ 12+ weeks (platform first) |
-| **Security** | ⭐⭐⭐ OS isolation | ⭐⭐⭐⭐⭐ WASM sandbox |
-| **Performance** | ⭐⭐⭐ IPC overhead | ⭐⭐⭐⭐ In-process |
-| **Distribution** | ⭐⭐ Platform-specific binaries | ⭐⭐⭐⭐⭐ Single .wasm |
-| **Hot Reload** | ⭐⭐ Restart required | ⭐⭐⭐⭐⭐ Instant |
-| **Debugging** | ⭐⭐⭐⭐⭐ Standard tools | ⭐⭐ WASM tooling |
+| **Time to MVP** | ⭐⭐⭐⭐2-3 weeks | 12+ weeks (platform first) |
+| **Security** | ⭐⭐OS isolation | ⭐⭐⭐⭐WASM sandbox |
+| **Performance** | ⭐⭐IPC overhead | ⭐⭐⭐In-process |
+| **Distribution** | ⭐Platform-specific binaries | ⭐⭐⭐⭐Single .wasm |
+| **Hot Reload** | ⭐Restart required | ⭐⭐⭐⭐Instant |
+| **Debugging** | ⭐⭐⭐⭐Standard tools | ⭐WASM tooling |
 
 **Recommendation:** Ship Phase 1 (process-based) for quick revenue validation, build WASM platform in parallel, migrate in Phase 2.
 
@@ -1172,19 +1172,19 @@ interface JobStatusEvent {
 ### Deliverable
 
 **Functional MVP:**
-- ✅ Connect to Gmail via OAuth
-- ✅ Scan inbox for receipts
-- ✅ Extract text via OCR
-- ✅ Classify with AI
-- ✅ Searchable in Spacedrive
-- ✅ Export to CSV
+- Connect to Gmail via OAuth
+- Scan inbox for receipts
+- Extract text via OCR
+- Classify with AI
+- Searchable in Spacedrive
+- Export to CSV
 
 **Not Included (v2):**
-- ❌ Outlook/IMAP support (Gmail only)
-- ❌ Multi-currency
-- ❌ QuickBooks API integration
-- ❌ Mobile scanning
-- ❌ Automatic vendor reconciliation
+- Outlook/IMAP support (Gmail only)
+- Multi-currency
+- QuickBooks API integration
+- Mobile scanning
+- Automatic vendor reconciliation
 
 ---
 
@@ -1386,10 +1386,10 @@ This design provides a **concrete path from concept to revenue**:
 4. **Migrate:** Refactor to WASM once platform exists
 
 **Key Advantages:**
-- ✅ Start generating revenue in weeks, not months
-- ✅ Learn from real users before committing to WASM
-- ✅ Validate integration points with actual usage
-- ✅ Smooth migration path (shared core logic)
+- Start generating revenue in weeks, not months
+- Learn from real users before committing to WASM
+- Validate integration points with actual usage
+- Smooth migration path (shared core logic)
 
 **Next Step:** Start coding `spacedrive-finance` prototype!
 

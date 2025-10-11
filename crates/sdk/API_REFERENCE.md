@@ -366,18 +366,18 @@ struct PhotoAnalysis {
 #[job]
 async fn analyze_photos(ctx: &JobContext, content_uuids: Vec<Uuid>) -> JobResult<()> {
     for content_uuid in content_uuids {
-        let entry = ctx.vdfs()  // ✅ Type-checks
+        let entry = ctx.vdfs()  // Type-checks
             .query_entries()
             .where_content_id(content_uuid)
             .first()
             .await?;
 
-        let faces = ctx.ai()  // ✅ Type-checks
+        let faces = ctx.ai()  // Type-checks
             .from_registered("face_detection")
             .detect_faces(&image_data)
             .await?;
 
-        ctx.vdfs().create_model_for_content(content_uuid, analysis).await?;  // ✅ Type-checks
+        ctx.vdfs().create_model_for_content(content_uuid, analysis).await?;  // Type-checks
     }
     Ok(())
 }
@@ -388,8 +388,8 @@ async fn analyze_photos(ctx: &JobContext, content_uuids: Vec<Uuid>) -> JobResult
 ```rust
 #[job(name = "counter")]
 fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
-    ctx.log("Working...");  // ✅ Still works
-    ctx.checkpoint(state)?;  // ✅ Still works
+    ctx.log("Working...");  // Still works
+    ctx.checkpoint(state)?;  // Still works
     Ok(())
 }
 ```
@@ -400,16 +400,16 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| `ffi.rs` | ✅ Implemented | Low-level WASM imports |
-| `job_context.rs` | ✅ Expanded | New methods added, existing preserved |
-| `types.rs` | ✅ Expanded | All common types added |
-| `vdfs.rs` | 🔶 Stubs | Type-checks, `todo!()` for host calls |
-| `ai.rs` | 🔶 Stubs | Type-checks, `todo!()` for inference |
-| `agent.rs` | 🔶 Stubs | Type-checks, memory system defined |
-| `models.rs` | 🔶 Stubs | Type-checks, registration stubs |
-| `actions.rs` | 🔶 Stubs | Type-checks, preview/execute defined |
-| `tasks.rs` | 🔶 Stubs | Type-checks, task context defined |
-| `query.rs` | 🔶 Stubs | Type-checks, query context defined |
+| `ffi.rs` | Implemented | Low-level WASM imports |
+| `job_context.rs` | Expanded | New methods added, existing preserved |
+| `types.rs` | Expanded | All common types added |
+| `vdfs.rs` | Stubs | Type-checks, `todo!()` for host calls |
+| `ai.rs` | Stubs | Type-checks, `todo!()` for inference |
+| `agent.rs` | Stubs | Type-checks, memory system defined |
+| `models.rs` | Stubs | Type-checks, registration stubs |
+| `actions.rs` | Stubs | Type-checks, preview/execute defined |
+| `tasks.rs` | Stubs | Type-checks, task context defined |
+| `query.rs` | Stubs | Type-checks, query context defined |
 
 **Macros:** All defined as pass-through (no codegen yet)
 
@@ -417,17 +417,17 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 ## What Works
 
-✅ **Type-checking:** Photos extension compiles and type-checks
-✅ **Test extension:** Existing test-extension still works
-✅ **API surface:** Complete API from specification available
-✅ **Documentation:** IntelliSense/rust-analyzer autocomplete works
+**Type-checking:** Photos extension compiles and type-checks
+**Test extension:** Existing test-extension still works
+**API surface:** Complete API from specification available
+**Documentation:** IntelliSense/rust-analyzer autocomplete works
 
 ## What Doesn't Work Yet
 
-❌ **Runtime:** All new methods are `todo!()` - will panic if called
-❌ **Host functions:** WASM imports not implemented in Core
-❌ **Macro codegen:** Macros don't generate code yet
-❌ **Memory persistence:** No storage backend
+**Runtime:** All new methods are `todo!()` - will panic if called
+**Host functions:** WASM imports not implemented in Core
+**Macro codegen:** Macros don't generate code yet
+**Memory persistence:** No storage backend
 
 ---
 
@@ -502,7 +502,7 @@ impl PhotoAnalysis {
 ```bash
 cd crates/sdk
 cargo check
-# ✅ Should compile (all stubs)
+# Should compile (all stubs)
 ```
 
 ### Extension Test
@@ -510,7 +510,7 @@ cargo check
 ```bash
 cd extensions/photos
 cargo check --target wasm32-unknown-unknown
-# ✅ Should type-check (won't run, but compiles)
+# Should type-check (won't run, but compiles)
 ```
 
 ### Runtime Test
@@ -518,7 +518,7 @@ cargo check --target wasm32-unknown-unknown
 ```bash
 cd extensions/test-extension
 cargo build --target wasm32-unknown-unknown --release
-# ✅ Should build and run (uses only implemented methods)
+# Should build and run (uses only implemented methods)
 ```
 
 ---
@@ -537,5 +537,5 @@ New methods are additive only.
 
 ---
 
-**The SDK is now complete for type-checking. Extensions can be written and will compile. Runtime implementation is the next phase.** 🎯
+**The SDK is now complete for type-checking. Extensions can be written and will compile. Runtime implementation is the next phase.** 
 

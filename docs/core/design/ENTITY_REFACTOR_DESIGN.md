@@ -8,17 +8,17 @@ This document outlines refactoring the Spacedrive entity system to support globa
 
 ### Strengths of Current Architecture
 
-- ✅ **Hybrid ID System**: Already uses both `i32` (performance) and `Uuid` (sync) IDs
-- ✅ **Content Addressing**: CAS system with `content_hash` provides reliable content fingerprinting
-- ✅ **Device Awareness**: Solid foundation with device management and network discovery
-- ✅ **Flexible Metadata**: UserMetadata system supports rich tagging already
-- ✅ **Sync Foundation**: UUIDs throughout enable cross-device synchronization
+- **Hybrid ID System**: Already uses both `i32` (performance) and `Uuid` (sync) IDs
+- **Content Addressing**: CAS system with `content_hash` provides reliable content fingerprinting
+- **Device Awareness**: Solid foundation with device management and network discovery
+- **Flexible Metadata**: UserMetadata system supports rich tagging already
+- **Sync Foundation**: UUIDs throughout enable cross-device synchronization
 
 ### Current Limitations
 
-- 🔄 **Library-Bound Content**: ContentIdentity not shared across libraries
-- 🔄 **Manual Metadata**: UserMetadata only created when user explicitly adds tags
-- 🔄 **No Global Content APIs**: No way to query "all instances of this content"
+- **Library-Bound Content**: ContentIdentity not shared across libraries
+- **Manual Metadata**: UserMetadata only created when user explicitly adds tags
+- **No Global Content APIs**: No way to query "all instances of this content"
 
 ## Refactor Goals
 
@@ -762,15 +762,15 @@ pub async fn handle_content_change(
 ```
 
 **What Happens**:
-- ✅ **Entry record**: Preserved (same file, same location)
-- ✅ **Entry UUID**: Preserved (maintains sync continuity for same file)
-- ✅ **Entry-scoped UserMetadata**: Preserved (follows the file like original)
-- ✅ **Filesystem metadata**: Preserved (path, timestamps, size)
-- ✅ **Sync readiness**: Maintained (Entry UUID present, syncs normally)
-- ✅ **Automatic sync capture**: SeaORM hooks automatically queue sync changes for Entry updates
-- ❌ **ContentIdentity link**: Unlinked (`content_id = None`)
-- ❌ **Content-scoped UserMetadata**: Lost (was for old content)
-- 🔄 **Re-identification**: Queued for content identification phase
+- **Entry record**: Preserved (same file, same location)
+- **Entry UUID**: Preserved (maintains sync continuity for same file)
+- **Entry-scoped UserMetadata**: Preserved (follows the file like original)
+- **Filesystem metadata**: Preserved (path, timestamps, size)
+- **Sync readiness**: Maintained (Entry UUID present, syncs normally)
+- **Automatic sync capture**: SeaORM hooks automatically queue sync changes for Entry updates
+- **ContentIdentity link**: Unlinked (`content_id = None`)
+- **Content-scoped UserMetadata**: Lost (was for old content)
+- **Re-identification**: Queued for content identification phase
 
 ### File Moves/Renames (same content)
 
@@ -798,11 +798,11 @@ pub async fn handle_file_move(
 ```
 
 **What Happens**:
-- ✅ **Entry UUID**: Preserved
-- ✅ **Entry-scoped UserMetadata**: Preserved
-- ✅ **ContentIdentity link**: Preserved (`content_id` unchanged)
-- ✅ **Content-scoped UserMetadata**: Preserved
-- 🔄 **Path update**: Only location fields updated
+- **Entry UUID**: Preserved
+- **Entry-scoped UserMetadata**: Preserved
+- **ContentIdentity link**: Preserved (`content_id` unchanged)
+- **Content-scoped UserMetadata**: Preserved
+- **Path update**: Only location fields updated
 
 ### Real-time vs Batch Detection
 

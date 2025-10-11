@@ -11,13 +11,13 @@ use sd_core::infra::wire::type_extraction::{
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	println!("🦀➡️🍎 Generating Swift types using Specta + rspc-inspired type extraction...");
+	println!("️Generating Swift types using Specta + rspc-inspired type extraction...");
 
 	// Use our automatic type extraction system to discover all operations and queries
 	let (operations, queries, types) = generate_spacedrive_api();
 
 	println!(
-		"🔍 Discovered {} operations and {} queries",
+		"Discovered {} operations and {} queries",
 		operations.len(),
 		queries.len()
 	);
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Create the API structure
 	let api_structure = create_spacedrive_api_structure(&operations, &queries);
 
-	println!("📊 API Structure Summary:");
+	println!("API Structure Summary:");
 	println!("  • Core Actions: {}", api_structure.core_actions.len());
 	println!(
 		"  • Library Actions: {}",
@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		Path::new("packages/swift-client/Sources/SpacedriveClient/SpacedriveTypes.swift");
 	std::fs::write(output_path, &generated_content)?;
 
-	println!("✅ Generated Swift types to: {}", output_path.display());
+	println!("Generated Swift types to: {}", output_path.display());
 
 	// Generate API code using our new functions
 	let functions =
@@ -58,12 +58,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	std::fs::write(api_output_path, &api_code)?;
 
 	println!(
-		"✅ Generated Swift API code to: {}",
+		"Generated Swift API code to: {}",
 		api_output_path.display()
 	);
-	println!("🎉 Specta Swift generation completed!");
+	println!("Specta Swift generation completed!");
 	println!(
-		"🚀 All {} operations and {} queries automatically discovered and exported!",
+		"All {} operations and {} queries automatically discovered and exported!",
 		operations.len(),
 		queries.len()
 	);
@@ -88,13 +88,13 @@ fn generate_swift_api_code(
 		.header("")
 		.naming(specta_swift::NamingConvention::PascalCase)
 		.optionals(specta_swift::OptionalStyle::QuestionMark)
-		.struct_naming(specta_swift::StructNamingStrategy::AutoRename); // ✅ Explicit struct naming
+		.struct_naming(specta_swift::StructNamingStrategy::AutoRename); // Explicit struct naming
 
 	// Enable initializer generation for structs
 	swift.generate_initializers = true;
 
-	// ✅ Debug: Print specta-swift version/features to verify we're using the right code
-	println!("🔧 Using specta-swift with fixes:");
+	// Debug: Print specta-swift version/features to verify we're using the right code
+	println!("Using specta-swift with fixes:");
 	println!("  • Duplicate name handling: Available");
 	println!("  • String enum raw types: Fixed");
 	println!("  • Adjacently tagged enums: Fixed");
@@ -102,9 +102,9 @@ fn generate_swift_api_code(
 
 	let individual_types = swift.export(types)?;
 
-	// ✅ Debug: Check for known issues in the generated code
+	// Debug: Check for known issues in the generated code
 	if individual_types.contains("case number(    case") {
-		eprintln!("❌ ERROR: Malformed enum syntax detected in generated types!");
+		eprintln!("ERROR: Malformed enum syntax detected in generated types!");
 		eprintln!("This suggests specta-swift fixes are not active.");
 		return Err("Malformed enum generation detected".into());
 	}
@@ -112,18 +112,18 @@ fn generate_swift_api_code(
 	if individual_types.contains("private enum TypeKeys:")
 		&& individual_types.matches("private enum TypeKeys:").count() > 1
 	{
-		eprintln!("❌ WARNING: Multiple generic TypeKeys enums detected!");
+		eprintln!("WARNING: Multiple generic TypeKeys enums detected!");
 		eprintln!("This may cause Swift compilation errors.");
 	}
 
 	if individual_types.contains(": Codable {") && !individual_types.contains(": String, Codable") {
 		if individual_types.contains("case") && individual_types.contains(" = \"") {
-			eprintln!("❌ WARNING: String enums without String raw type detected!");
+			eprintln!("WARNING: String enums without String raw type detected!");
 		}
 	}
 
 	println!(
-		"✅ Generated {} characters of Swift code",
+		"Generated {} characters of Swift code",
 		individual_types.len()
 	);
 

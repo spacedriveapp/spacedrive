@@ -67,17 +67,17 @@ fn main() -> Result<()> {
 /// This replaces the old `pnpm prep` workflow with a pure Rust implementation.
 /// It downloads native dependencies and generates the cargo config.
 fn setup() -> Result<()> {
-    println!("🚀 Setting up Spacedrive development environment...");
+    println!("Setting up Spacedrive development environment...");
     println!();
 
     let project_root = std::env::current_dir()?;
 
     // Detect system
     let system = system::SystemInfo::detect()?;
-    println!("📋 Detected platform: {:?} {:?}", system.os, system.arch);
+    println!("Detected platform: {:?} {:?}", system.os, system.arch);
 
     // Check for required tools
-    println!("🔍 Checking for required tools...");
+    println!("Checking for required tools...");
     if !system::has_linker("cargo") {
         anyhow::bail!("cargo not found. Please install Rust from https://rustup.rs");
     }
@@ -89,7 +89,7 @@ fn setup() -> Result<()> {
     // Setup native dependencies directory
     let native_deps_dir = project_root.join("apps").join(".deps");
     println!();
-    println!("📦 Setting up native dependencies...");
+    println!("Setting up native dependencies...");
 
     // Clean and create deps directory
     if native_deps_dir.exists() {
@@ -107,7 +107,7 @@ fn setup() -> Result<()> {
     #[cfg(target_os = "macos")]
     {
         println!();
-        println!("🔗 Creating symlinks for shared libraries...");
+        println!("Creating symlinks for shared libraries...");
         native_deps::symlink_libs_macos(&project_root, &native_deps_dir)?;
         println!("   ✓ Symlinks created");
     }
@@ -115,7 +115,7 @@ fn setup() -> Result<()> {
     #[cfg(target_os = "linux")]
     {
         println!();
-        println!("🔗 Creating symlinks for shared libraries...");
+        println!("Creating symlinks for shared libraries...");
         native_deps::symlink_libs_linux(&project_root, &native_deps_dir)?;
         println!("   ✓ Symlinks created");
     }
@@ -133,7 +133,7 @@ fn setup() -> Result<()> {
 
         if !has_ios_targets.is_empty() {
             println!();
-            println!("📱 iOS targets detected, downloading iOS dependencies...");
+            println!("iOS targets detected, downloading iOS dependencies...");
 
             let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
             fs::create_dir_all(&mobile_deps_dir)?;
@@ -143,7 +143,7 @@ fn setup() -> Result<()> {
             }
         } else {
             println!();
-            println!("ℹ️  No iOS targets installed. Skipping iOS dependencies.");
+            println!("️  No iOS targets installed. Skipping iOS dependencies.");
             println!("   To add iOS support, run:");
             println!("   rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios");
         }
@@ -161,9 +161,9 @@ fn setup() -> Result<()> {
     config::generate_cargo_config(&project_root, Some(&native_deps_dir), mobile_deps)?;
 
     println!();
-    println!("✅ Setup complete!");
+    println!("Setup complete!");
     println!();
-    println!("📝 Next steps:");
+    println!("Next steps:");
     println!("   • cargo build              - Build the CLI");
     println!("   • cargo xtask build-ios    - Build iOS framework (macOS only)");
     println!("   • cargo ios                - Shortcut for build-ios");
@@ -185,7 +185,7 @@ fn setup() -> Result<()> {
 /// The resulting XCFramework is placed in `apps/ios/sd-ios-core/` where
 /// Xcode can automatically use it.
 fn build_ios() -> Result<()> {
-	println!("🔨 Building Spacedrive v2 Core XCFramework for iOS...");
+	println!("Building Spacedrive v2 Core XCFramework for iOS...");
 	println!();
 
 	let project_root = std::env::current_dir()?;
@@ -202,7 +202,7 @@ fn build_ios() -> Result<()> {
 	// Build for each target
 	for (target, arch, is_sim) in &targets {
 		let platform = if *is_sim { "Simulator" } else { "Device" };
-		println!("🔨 Building for iOS {} ({})...", platform, arch);
+		println!("Building for iOS {} ({})...", platform, arch);
 
 		let status = Command::new("cargo")
 			.args(&["build", "--release", "--target", target])
@@ -214,11 +214,11 @@ fn build_ios() -> Result<()> {
 		if !status.success() {
 			anyhow::bail!("Build failed for target: {}", target);
 		}
-		println!("✅ {} build complete", platform);
+		println!("{} build complete", platform);
 	}
 
 	println!();
-	println!("🔨 Creating XCFramework...");
+	println!("Creating XCFramework...");
 
 	let build_dir = ios_core_dir.join("build");
 	std::fs::create_dir_all(&build_dir).context("Failed to create build directory")?;
@@ -248,7 +248,7 @@ fn build_ios() -> Result<()> {
 		.context("Failed to create simulator framework directory")?;
 
 	// Create universal simulator library using lipo
-	println!("🔨 Creating universal simulator library...");
+	println!("Creating universal simulator library...");
 	let status = Command::new("lipo")
 		.args(&[
 			"-create",
@@ -284,7 +284,7 @@ fn build_ios() -> Result<()> {
 	// Update existing XCFramework (which Xcode is already using)
 	let xcframework_path = ios_core_dir.join(format!("{}.xcframework", framework_name));
 
-	println!("📦 Updating XCFramework at: {}", xcframework_path.display());
+	println!("Updating XCFramework at: {}", xcframework_path.display());
 
 	// Update device framework
 	let device_target = xcframework_path.join("ios-arm64");
@@ -306,11 +306,11 @@ fn build_ios() -> Result<()> {
 	std::fs::remove_dir_all(&build_dir).context("Failed to clean up build directory")?;
 
 	println!();
-	println!("✅ XCFramework updated successfully!");
-	println!("📁 XCFramework location: {}", xcframework_path.display());
-	println!("📱 Xcode will automatically use the updated framework");
+	println!("XCFramework updated successfully!");
+	println!("XCFramework location: {}", xcframework_path.display());
+	println!("Xcode will automatically use the updated framework");
 	println!();
-	println!("🎉 iOS Core build complete! Ready to test.");
+	println!("iOS Core build complete! Ready to test.");
 
 	Ok(())
 }

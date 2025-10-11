@@ -602,20 +602,20 @@ Running GPT-4 for 1000 users = $10K/month in API costs. Running Ollama on user d
 "Stop building infrastructure. Start building intelligence."
 
 **What you don't build with VDFS:**
-- ❌ Multi-device sync (VDFS provides)
-- ❌ Vector database (VDFS provides)
-- ❌ Queue system (Durable Jobs)
-- ❌ Authentication (Device pairing)
-- ❌ Encryption (Built-in)
-- ❌ Backup/recovery (VDFS handles)
-- ❌ Offline support (VDFS native)
-- ❌ P2P networking (Iroh provided)
+- Multi-device sync (VDFS provides)
+- Vector database (VDFS provides)
+- Queue system (Durable Jobs)
+- Authentication (Device pairing)
+- Encryption (Built-in)
+- Backup/recovery (VDFS handles)
+- Offline support (VDFS native)
+- P2P networking (Iroh provided)
 
 **What you build:**
-- ✅ Domain logic (research assistant behavior)
-- ✅ Data models (what a "project" means)
-- ✅ User experience (how insights are presented)
-- ✅ Agent intelligence (what suggestions to make)
+- Domain logic (research assistant behavior)
+- Data models (what a "project" means)
+- User experience (how insights are presented)
+- Agent intelligence (what suggestions to make)
 
 **Result:** Launch in weeks, not months. Zero infrastructure costs. 95% margins.
 

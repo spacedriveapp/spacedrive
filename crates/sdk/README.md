@@ -251,5 +251,5 @@ See `extensions/test-extension/` for a complete working example.
 
 ---
 
-**Beautiful API. Zero unsafe code. Just Rust. 🦀**
+**Beautiful API. Zero unsafe code. Just Rust. **
 

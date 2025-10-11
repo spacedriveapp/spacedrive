@@ -311,27 +311,27 @@ impl DaemonConnector {
 
 ## Benefits of This Design
 
-### **🎯 1. Unified API Surface**
+### **1. Unified API Surface**
 - **Single entry point**: All applications go through `ApiDispatcher`
 - **Consistent interface**: Same pattern for all operation types
 - **Clear boundaries**: API layer separate from core business logic
 
-### **🔒 2. Proper Permission Layer**
+### **2. Proper Permission Layer**
 - **Authentication**: Device/user/admin levels
 - **Authorization**: Operation-specific permission checks
 - **Future-ready**: Easy to add fine-grained permissions
 
-### **📦 3. Rich Session Context**
+### **3. Rich Session Context**
 - **Not just library_id**: Full user/device/permission context
 - **Request metadata**: Tracking, audit trails, rate limiting
 - **Extensible**: Easy to add new session data
 
-### **🔧 4. Clean Separation of Concerns**
+### **4. Clean Separation of Concerns**
 - **API layer**: Authentication, authorization, routing
 - **Core layer**: Business logic, unchanged
 - **Operations**: Receive rich context, focus on execution
 
-### **🎯 5. Future Extensibility**
+### **5. Future Extensibility**
 - **Multiple auth providers**: Easy to add OAuth, SAML, etc.
 - **Library-specific permissions**: Per-library access control
 - **Audit trails**: Track all operations with session context

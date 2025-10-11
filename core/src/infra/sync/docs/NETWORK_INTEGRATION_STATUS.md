@@ -3,31 +3,31 @@
 **Date**: 2025-10-09
 **Status**: Phase 0 & 1 Complete ✅
 
-> 📋 **See also**: [SYNC_IMPLEMENTATION_ROADMAP.md](./SYNC_IMPLEMENTATION_ROADMAP.md) for comprehensive tracking, architectural review, and detailed refactoring recommendations.
+> **See also**: [SYNC_IMPLEMENTATION_ROADMAP.md](./SYNC_IMPLEMENTATION_ROADMAP.md) for comprehensive tracking, architectural review, and detailed refactoring recommendations.
 
 ---
 
-## ✅ What We Accomplished
+## What We Accomplished
 
 ### Phase 0: Architecture Foundation ✅
 
 **1. NetworkTransport Trait** (`infra/sync/transport.rs`)
-- ✅ Defined interface for sync→network communication
-- ✅ Decouples sync layer from networking implementation
-- ✅ Enables dependency inversion (sync defines what it needs)
-- ✅ Includes NoOpTransport fallback when networking unavailable
+- Defined interface for sync→network communication
+- Decouples sync layer from networking implementation
+- Enables dependency inversion (sync defines what it needs)
+- Includes NoOpTransport fallback when networking unavailable
 
 **2. DeviceRegistry Integration** (Existing)
-- ✅ Already has UUID↔NodeId bidirectional mapping
-- ✅ Methods: `get_node_id_for_device()`, `get_device_by_node()`
-- ✅ Populated during device pairing
-- ✅ No new code needed!
+- Already has UUIDNodeId bidirectional mapping
+- Methods: `get_node_id_for_device()`, `get_device_by_node()`
+- Populated during device pairing
+- No new code needed!
 
 **3. Transport Implementation** (`service/network/transports/sync.rs`)
-- ✅ NetworkingService implements NetworkTransport trait
-- ✅ Maps device UUIDs to NodeIds via DeviceRegistry
-- ✅ Sends messages via Iroh endpoint
-- ✅ Handles errors gracefully (device offline, etc.)
+- NetworkingService implements NetworkTransport trait
+- Maps device UUIDs to NodeIds via DeviceRegistry
+- Sends messages via Iroh endpoint
+- Handles errors gracefully (device offline, etc.)
 
 **4. Clean Module Organization**
 ```
@@ -35,13 +35,13 @@ core/src/
 ├── infra/sync/
 │   └── transport.rs          ← NetworkTransport TRAIT (interface)
 └── service/network/
-    ├── transports/           ← OUTBOUND senders ✅ NEW!
+    ├── transports/           ← OUTBOUND senders NEW!
     │   ├── mod.rs
     │   └── sync.rs           ← NetworkTransport IMPL
     ├── protocol/             ← INBOUND handlers
     │   ├── sync/handler.rs
     │   └── sync/messages.rs
-    └── device/registry.rs    ← UUID↔NodeId mapping
+    └── device/registry.rs    ← UUIDNodeId mapping
 ```
 
 ---
@@ -49,31 +49,31 @@ core/src/
 ### Phase 1: PeerSync Integration ✅
 
 **1. PeerSync with NetworkTransport** (`service/sync/peer.rs`)
-- ✅ Added `network: Arc<dyn NetworkTransport>` field
-- ✅ Updated constructor to accept network transport
-- ✅ Dependency injected from Library→SyncService→PeerSync
+- Added `network: Arc<dyn NetworkTransport>` field
+- Updated constructor to accept network transport
+- Dependency injected from Library→SyncService→PeerSync
 
 **2. Real Broadcasting Implementation**
 
 **`broadcast_state_change()`** (lines 144-219):
 ```rust
 // Now actually sends messages!
-✅ Queries connected sync partners
-✅ Creates SyncMessage::StateChange
-✅ Broadcasts to all partners via network.send_sync_message()
-✅ Graceful error handling (some partners offline = OK)
-✅ Detailed logging (success/error counts)
+Queries connected sync partners
+Creates SyncMessage::StateChange
+Broadcasts to all partners via network.send_sync_message()
+Graceful error handling (some partners offline = OK)
+Detailed logging (success/error counts)
 ```
 
 **`broadcast_shared_change()`** (lines 221-318):
 ```rust
 // Now actually sends messages!
-✅ Generates HLC
-✅ Writes to peer_log
-✅ Creates SyncMessage::SharedChange
-✅ Broadcasts to all partners via network.send_sync_message()
-✅ Graceful error handling
-✅ Detailed logging
+Generates HLC
+Writes to peer_log
+Creates SyncMessage::SharedChange
+Broadcasts to all partners via network.send_sync_message()
+Graceful error handling
+Detailed logging
 ```
 
 **3. Dependency Injection Chain**
@@ -98,7 +98,7 @@ broadcast_state_change() / broadcast_shared_change()
 
 ---
 
-## 🎯 What Works Now
+## What Works Now
 
 ### Outbound Broadcasting ✅
 
@@ -142,7 +142,7 @@ peer_sync.broadcast_shared_change(
 
 ---
 
-## ⚠️ What's Still Missing
+## ️ What's Still Missing
 
 ### Inbound Message Handling (Phase 2)
 
@@ -153,7 +153,7 @@ peer_sync.broadcast_shared_change(
 // core/src/service/network/protocol/sync/handler.rs
 impl ProtocolHandler for SyncProtocolHandler {
     async fn handle_stream(&self, send, recv, node_id) -> Result<()> {
-        anyhow::bail!("SyncProtocolHandler not yet implemented") // ❌ STUB!
+        anyhow::bail!("SyncProtocolHandler not yet implemented") // STUB!
     }
 }
 ```
@@ -236,24 +236,24 @@ impl TransactionManager {
 
 ---
 
-## 📊 Network Integration Progress
+## Network Integration Progress
 
 | Component | Status | Lines | Notes |
 |-----------|--------|-------|-------|
-| **NetworkTransport Trait** | ✅ Done | 150 | Interface definition |
-| **Transport Implementation** | ✅ Done | 170 | NetworkingService impl |
-| **DeviceRegistry Mapping** | ✅ Exists | 0 | Already had it! |
-| **PeerSync Integration** | ✅ Done | 80 | Network field + broadcasting |
-| **Outbound Broadcasting** | ✅ Works | 150 | State & shared changes |
-| **Inbound Handling** | ⚠️ Stub | 0 | SyncProtocolHandler empty |
-| **TransactionManager** | ⚠️ Stub | 0 | Manual broadcast calls |
+| **NetworkTransport Trait** | Done | 150 | Interface definition |
+| **Transport Implementation** | Done | 170 | NetworkingService impl |
+| **DeviceRegistry Mapping** | Exists | 0 | Already had it! |
+| **PeerSync Integration** | Done | 80 | Network field + broadcasting |
+| **Outbound Broadcasting** | Works | 150 | State & shared changes |
+| **Inbound Handling** | ️ Stub | 0 | SyncProtocolHandler empty |
+| **TransactionManager** | ️ Stub | 0 | Manual broadcast calls |
 
 **Total Implemented**: ~550 lines
 **Remaining**: ~350 lines
 
 ---
 
-## 🧪 How to Test Current Implementation
+## How to Test Current Implementation
 
 ### Manual Test (will work after Phase 2):
 
@@ -277,17 +277,17 @@ $ sd-cli location list
 ```
 
 **Current Behavior** (Phase 1 only):
-- ✅ Device A broadcasts StateChange message
-- ❌ Device B doesn't receive it (handler stubbed)
+- Device A broadcasts StateChange message
+- Device B doesn't receive it (handler stubbed)
 
 **After Phase 2**:
-- ✅ Device A broadcasts
-- ✅ Device B receives and applies
-- ✅ Full bidirectional sync working!
+- Device A broadcasts
+- Device B receives and applies
+- Full bidirectional sync working!
 
 ---
 
-## 🚀 Next Steps (Priority Order)
+## Next Steps (Priority Order)
 
 ### Phase 2: Inbound Message Handling (~4 hours)
 
@@ -316,7 +316,7 @@ $ sd-cli location list
 
 ---
 
-## 🎓 Key Architectural Decisions
+## Key Architectural Decisions
 
 ### 1. Dependency Inversion ✅
 - Sync layer defines NetworkTransport interface
@@ -324,7 +324,7 @@ $ sd-cli location list
 - No circular dependencies!
 
 ### 2. Existing DeviceRegistry Reuse ✅
-- Didn't create duplicate UUID↔NodeId mapping
+- Didn't create duplicate UUIDNodeId mapping
 - Leveraged existing pairing infrastructure
 - Less code, more cohesion
 
@@ -340,7 +340,7 @@ $ sd-cli location list
 
 ---
 
-## 📁 Files Modified
+## Files Modified
 
 | File | Changes | Lines |
 |------|---------|-------|
@@ -359,33 +359,33 @@ $ sd-cli location list
 
 ---
 
-## ✅ Build Status
+## Build Status
 
 ```bash
 cargo check --lib
-# ✅ Compiles successfully
-# ✅ No linter errors
-# ✅ Follows Spacedrive code style
+# Compiles successfully
+# No linter errors
+# Follows Spacedrive code style
 ```
 
 ---
 
-## 🎯 Success Criteria for Full MVP
+## Success Criteria for Full MVP
 
 - [x] Location apply works ✅
 - [x] Tag apply works ✅
 - [x] Registry dispatch works ✅
 - [x] Outbound broadcasting works ✅
-- [ ] Inbound message handling ⚠️ Phase 2
-- [ ] TransactionManager auto-broadcast ⚠️ Phase 3
-- [ ] Integration test: 2 devices sync location ⚠️ Needs Phase 2
-- [ ] Integration test: 2 devices sync tag ⚠️ Needs Phase 2
+- [ ] Inbound message handling ️ Phase 2
+- [ ] TransactionManager auto-broadcast ️ Phase 3
+- [ ] Integration test: 2 devices sync location ️ Needs Phase 2
+- [ ] Integration test: 2 devices sync tag ️ Needs Phase 2
 
 **Progress**: 4/8 criteria met (50%)
 
 ---
 
-## 💡 Next Command
+## Next Command
 
 **To continue with Phase 2 (inbound handling):**
 ```
@@ -399,7 +399,7 @@ cargo check --lib
 
 ---
 
-## 🎨 Architecture Visualization
+## Architecture Visualization
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -410,38 +410,38 @@ cargo check --lib
                        ↓ calls broadcast_state_change()
 ┌─────────────────────────────────────────────────────────────┐
 │                     Sync Layer (PeerSync)                    │
-│  - broadcast_state_change()    ✅ IMPLEMENTED                │
-│  - broadcast_shared_change()   ✅ IMPLEMENTED                │
+│  - broadcast_state_change()    IMPLEMENTED                │
+│  - broadcast_shared_change()   IMPLEMENTED                │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ↓ uses NetworkTransport trait
 ┌─────────────────────────────────────────────────────────────┐
 │            Network Transport (Abstraction Layer)             │
-│  - send_sync_message()         ✅ TRAIT DEFINED              │
-│  - get_connected_partners()    ✅ TRAIT DEFINED              │
+│  - send_sync_message()         TRAIT DEFINED              │
+│  - get_connected_partners()    TRAIT DEFINED              │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ↓ implemented by
 ┌─────────────────────────────────────────────────────────────┐
 │         NetworkingService (Transport Implementation)         │
-│  - Maps UUID → NodeId          ✅ IMPLEMENTED                │
-│  - Sends via Iroh              ✅ IMPLEMENTED                │
-│  - Uses DeviceRegistry         ✅ INTEGRATED                 │
+│  - Maps UUID → NodeId          IMPLEMENTED                │
+│  - Sends via Iroh              IMPLEMENTED                │
+│  - Uses DeviceRegistry         INTEGRATED                 │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ↓ sends to
 ┌─────────────────────────────────────────────────────────────┐
 │                    Remote Device (Iroh P2P)                  │
-│  - Receives via SyncProtocolHandler  ⚠️ STUBBED (Phase 2)   │
-│  - Applies via registry dispatch     ✅ READY                │
+│  - Receives via SyncProtocolHandler  ️ STUBBED (Phase 2)   │
+│  - Applies via registry dispatch     READY                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Status**: Messages can be SENT ✅ but not yet RECEIVED ⚠️
+**Status**: Messages can be SENT but not yet RECEIVED ️
 
 ---
 
-## 🔍 Code Example: What Works Now
+## Code Example: What Works Now
 
 ```rust
 // Device A creates a location
@@ -464,21 +464,21 @@ peer_sync.broadcast_state_change(StateChangeMessage {
 }).await?;
 
 // What happens:
-// ✅ PeerSync queries connected_sync_partners → [Device B]
-// ✅ Creates SyncMessage::StateChange
-// ✅ NetworkTransport.send_sync_message(device_b_uuid, message)
+// PeerSync queries connected_sync_partners → [Device B]
+// Creates SyncMessage::StateChange
+// NetworkTransport.send_sync_message(device_b_uuid, message)
 //     ├─ Maps device_b_uuid → NodeId via DeviceRegistry
 //     ├─ Serializes message to JSON bytes
 //     ├─ endpoint.connect(node_id, SYNC_ALPN)
 //     ├─ Opens uni-stream
 //     └─ Sends bytes
-// ✅ Logs: "State change sent successfully"
-// ⚠️ Device B receives bytes but handler is stubbed (drops them)
+// Logs: "State change sent successfully"
+// ️ Device B receives bytes but handler is stubbed (drops them)
 ```
 
 ---
 
-## 🐛 Known Limitations (Until Phase 2)
+## Known Limitations (Until Phase 2)
 
 1. **One-Way Communication**: Can send, can't receive
 2. **No ACKs**: Shared changes don't get acknowledged yet
@@ -489,22 +489,22 @@ All of these are Phase 2 & 3 work!
 
 ---
 
-## 📊 Remaining Timeline
+## Remaining Timeline
 
 | Phase | Component | Effort | Status |
 |-------|-----------|--------|--------|
-| ~~0~~ | ~~Architecture foundation~~ | ~~100 lines~~ | ✅ Done |
-| ~~1~~ | ~~Network transport integration~~ | ~~200 lines~~ | ✅ Done |
-| **2** | **Inbound message handling** | 200 lines | ⚠️ Next |
-| **3** | **TransactionManager** | 200 lines | ⚠️ After 2 |
-| **4** | **Testing & polish** | 100 lines | ⚠️ Final |
+| ~~0~~ | ~~Architecture foundation~~ | ~~100 lines~~ | Done |
+| ~~1~~ | ~~Network transport integration~~ | ~~200 lines~~ | Done |
+| **2** | **Inbound message handling** | 200 lines | ️ Next |
+| **3** | **TransactionManager** | 200 lines | ️ After 2 |
+| **4** | **Testing & polish** | 100 lines | ️ Final |
 
 **Remaining Work**: ~500 lines, ~7-8 hours
 **Completed**: ~530 lines (52% done!)
 
 ---
 
-## 🎯 Immediate Next Step
+## Immediate Next Step
 
 **Implement Phase 2: SyncProtocolHandler**
 

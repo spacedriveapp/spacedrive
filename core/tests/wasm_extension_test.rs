@@ -14,7 +14,7 @@ async fn test_load_wasm_extension() {
 		.with_test_writer()
 		.try_init();
 
-	tracing::info!("🧪 Testing WASM extension loading");
+	tracing::info!("Testing WASM extension loading");
 
 	// 1. Initialize Core (same as other tests)
 	let temp_dir = TempDir::new().unwrap();
@@ -22,7 +22,7 @@ async fn test_load_wasm_extension() {
 		.await
 		.unwrap();
 
-	tracing::info!("✅ Core initialized");
+	tracing::info!("Core initialized");
 
 	// 2. Copy test extension to Core's extensions directory
 	let source_extensions = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -46,7 +46,7 @@ async fn test_load_wasm_extension() {
 	)
 	.unwrap();
 
-	tracing::info!("✅ Extension files copied to temp directory");
+	tracing::info!("Extension files copied to temp directory");
 
 	// 3. Get plugin manager
 	let pm = core
@@ -61,7 +61,7 @@ async fn test_load_wasm_extension() {
 		.await
 		.expect("Should load test-extension");
 
-	tracing::info!("✅ Extension loaded!");
+	tracing::info!("Extension loaded!");
 
 	// 5. Verify it's in the list
 	let loaded = pm.read().await.list_plugins().await;
@@ -81,6 +81,6 @@ async fn test_load_wasm_extension() {
 	assert_eq!(manifest.id, "test-extension");
 	assert_eq!(manifest.name, "Test Extension");
 
-	tracing::info!("✅ All checks passed!");
-	tracing::info!("🎉 WASM extension system works!");
+	tracing::info!("All checks passed!");
+	tracing::info!("WASM extension system works!");
 }

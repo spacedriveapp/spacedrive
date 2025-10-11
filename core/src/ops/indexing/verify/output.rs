@@ -83,7 +83,7 @@ impl IntegrityReport {
 	pub fn generate_summary(&mut self) {
 		if self.is_valid() {
 			self.summary = format!(
-				"✅ Index is valid! {} files and {} directories match filesystem perfectly.",
+				"Index is valid! {} files and {} directories match filesystem perfectly.",
 				self.filesystem_file_count, self.filesystem_dir_count
 			);
 		} else {
@@ -112,7 +112,7 @@ impl IntegrityReport {
 			}
 
 			self.summary = format!(
-				"❌ Index has diverged: {}. Total issues: {}",
+				"Index has diverged: {}. Total issues: {}",
 				parts.join(", "),
 				self.total_issues()
 			);

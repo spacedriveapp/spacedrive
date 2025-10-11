@@ -14,12 +14,12 @@ This approach is used by major Rust projects including:
 
 ## Benefits
 
-- ✅ **Pure Rust** - No shell scripts or JavaScript tooling
-- ✅ **Type-safe** - Catch errors at compile time
-- ✅ **Debuggable** - Use standard Rust debugging tools
-- ✅ **Cross-platform** - Works on Windows, macOS, Linux
-- ✅ **No external tools** - Just `cargo` and `rustup`
-- ✅ **Self-contained** - No need for pnpm, node, or JavaScript
+- **Pure Rust** - No shell scripts or JavaScript tooling
+- **Type-safe** - Catch errors at compile time
+- **Debuggable** - Use standard Rust debugging tools
+- **Cross-platform** - Works on Windows, macOS, Linux
+- **No external tools** - Just `cargo` and `rustup`
+- **Self-contained** - No need for pnpm, node, or JavaScript
 
 ## Usage
 
@@ -143,9 +143,9 @@ cargo xtask build-ios
 
 ### Why the Change?
 
-- ❌ **Old:** Required pnpm, node, JavaScript dependencies, bash scripts
-- ✅ **New:** Only requires Rust toolchain (cargo/rustup)
-- 🚀 **Result:** Faster setup, fewer dependencies, more maintainable
+- **Old:** Required pnpm, node, JavaScript dependencies, bash scripts
+- **New:** Only requires Rust toolchain (cargo/rustup)
+- **Result:** Faster setup, fewer dependencies, more maintainable
 
 ## Requirements
 

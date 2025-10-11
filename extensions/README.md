@@ -231,4 +231,4 @@ cargo build --target wasm32-unknown-unknown --release
 
 ---
 
-**Extension development is now beautiful, safe, and productive. Start building!** 🚀
+**Extension development is now beautiful, safe, and productive. Start building!** 

@@ -220,13 +220,13 @@ After indexing a file, Core's **Analysis Queueing Phase** dispatches:
 ### Extensions Consume, Don't Regenerate
 
 ```rust
-// ❌ WRONG: Extension shouldn't do OCR (Core already did it)
+// WRONG: Extension shouldn't do OCR (Core already did it)
 #[job]
 async fn analyze_paper(ctx: &JobContext, paper: Paper) -> JobResult<()> {
     let text = ctx.ai().ocr_document(&paper.file).await?; // WASTEFUL!
 }
 
-// ✅ RIGHT: Extension reads pre-computed OCR from VSS
+// RIGHT: Extension reads pre-computed OCR from VSS
 #[job]
 async fn analyze_paper(ctx: &JobContext, paper: Paper) -> JobResult<()> {
     let text = paper.full_text

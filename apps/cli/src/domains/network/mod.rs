@@ -78,7 +78,7 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				let out: PairGenerateOutput = execute_action!(ctx, input);
 				print_output!(ctx, &out, |o: &PairGenerateOutput| {
 					// Show QR code for remote pairing (includes NodeId and relay URL)
-					println!("📱 Scan this QR code with your mobile app for remote pairing:");
+					println!("Scan this QR code with your mobile app for remote pairing:");
 					println!("┌─────────────────────────────────────────────────────────┐");
 					if let Err(e) = qr2term::print_qr(&o.qr_json) {
 						println!("Failed to generate QR code: {}", e);
@@ -87,12 +87,12 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 					println!();
 
 					// Show raw QR JSON for debugging
-					println!("🔍 QR Code JSON (for debugging):");
+					println!("QR Code JSON (for debugging):");
 					println!("   {}", o.qr_json);
 					println!();
 
 					// Also show words for manual entry (local pairing)
-					println!("💬 Or type these words manually for local pairing:");
+					println!("Or type these words manually for local pairing:");
 					println!("   {}", o.code);
 
 					println!();
@@ -155,9 +155,9 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 					println!(
 						"  Status: {}",
 						if device.is_connected {
-							"🟢 Connected"
+							"Connected"
 						} else {
-							"⚪ Paired"
+							"Paired"
 						}
 					);
 					println!(

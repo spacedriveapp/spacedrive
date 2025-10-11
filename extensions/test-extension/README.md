@@ -6,10 +6,10 @@ This extension demonstrates the beautiful, macro-powered API that makes building
 
 ## Features
 
-✅ **Zero Boilerplate** - Macros generate all FFI code
-✅ **Type-Safe** - Full Rust type system
-✅ **No Unsafe** - Safe by default
-✅ **Clean API** - Just write business logic
+**Zero Boilerplate** - Macros generate all FFI code
+**Type-Safe** - Full Rust type system
+**No Unsafe** - Safe by default
+**Clean API** - Just write business logic
 
 ## Code
 
@@ -56,14 +56,14 @@ fn test_counter(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
 
 The `#[extension]` and `#[job]` macros automatically generate:
 
-- ✅ `plugin_init()` - Extension initialization
-- ✅ `plugin_cleanup()` - Extension cleanup
-- ✅ `execute_test_counter()` - FFI export with full state management
-- ✅ All pointer marshalling
-- ✅ Serialization/deserialization
-- ✅ Error handling
-- ✅ Progress tracking
-- ✅ Checkpoint management
+- `plugin_init()` - Extension initialization
+- `plugin_cleanup()` - Extension cleanup
+- `execute_test_counter()` - FFI export with full state management
+- All pointer marshalling
+- Serialization/deserialization
+- Error handling
+- Progress tracking
+- Checkpoint management
 
 **~120 lines of boilerplate you don't write!**
 
@@ -78,18 +78,18 @@ Output: `target/wasm32-unknown-unknown/release/test_extension.wasm` (~254KB)
 ## Capabilities Demonstrated
 
 ### Job System
-- ✅ Progress reporting (0-100%)
-- ✅ Checkpointing (resume after crash)
-- ✅ Interruption handling (pause/cancel)
-- ✅ Metrics tracking (items processed)
-- ✅ State persistence
+- Progress reporting (0-100%)
+- Checkpointing (resume after crash)
+- Interruption handling (pause/cancel)
+- Metrics tracking (items processed)
+- State persistence
 
 ### API Ergonomics
-- ✅ Clean function signatures
-- ✅ `?` operator for error handling
-- ✅ No FFI knowledge required
-- ✅ No unsafe code
-- ✅ Just write Rust!
+- Clean function signatures
+- `?` operator for error handling
+- No FFI knowledge required
+- No unsafe code
+- Just write Rust!
 
 ## Testing
 
@@ -124,4 +124,4 @@ let job_id = job_manager.dispatch_by_name(
 
 ---
 
-**This is what all Spacedrive extensions should look like going forward!** 🎨
+**This is what all Spacedrive extensions should look like going forward!** 

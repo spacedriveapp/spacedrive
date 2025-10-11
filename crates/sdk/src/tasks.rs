@@ -21,7 +21,7 @@ impl TaskContext {
 
 	/// Access extension config
 	pub fn config<C>(&self) -> &C {
-		todo!("Access config")
+		panic!("Access config")
 	}
 
 	/// Read sidecar data
@@ -30,7 +30,7 @@ impl TaskContext {
 		content_uuid: Uuid,
 		kind: &str,
 	) -> Result<T> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 }
 

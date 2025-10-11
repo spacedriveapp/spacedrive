@@ -248,7 +248,7 @@ impl MacOSHandler {
 					if let Some((_, old_path)) = old_paths.remove(&inode) {
 						// We found a match! This is a real rename operation
 						debug!(
-							"✅ Detected rename match: {} -> {}",
+							"Detected rename match: {} -> {}",
 							old_path.display(),
 							path.display()
 						);
@@ -307,7 +307,7 @@ impl MacOSHandler {
 						if let Some((_, new_path)) = new_paths.remove(&inode) {
 							// We found a match! This is a real rename operation
 							debug!(
-								"✅ Detected rename match: {} -> {}",
+								"Detected rename match: {} -> {}",
 								path.display(),
 								new_path.display()
 							);

@@ -430,12 +430,12 @@ The Iroh-based networking supports multiple topologies:
 \begin{verbatim}
 Public Cloud (Default):
 Device A ←→ Public Relay ←→ Device B
-         ↘              ↙
+                      
           Direct (if possible)
 
 Self-Hosted:
 Device A ←→ Private Relay ←→ Device B
-         ↘               ↙
+                       
           Direct (always preferred)
 
 Hybrid:

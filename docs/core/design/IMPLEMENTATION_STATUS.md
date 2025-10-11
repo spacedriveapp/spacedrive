@@ -1,6 +1,6 @@
 # Implementation Status
 
-## ✅ Completed
+## Completed
 
 ### 1. Library System
 - **Self-contained libraries** with `.sdlibrary` directories
@@ -21,7 +21,7 @@
 - **Event-driven** architecture with EventBus
 - **SdPath** as the foundation for cross-device operations
 
-## 📋 Ready for Implementation
+## Ready for Implementation
 
 ### 1. SeaORM Entities
 Based on the file data model design:
@@ -49,7 +49,7 @@ Complete implementation of:
 - Delete with trash support
 - Batch operations
 
-## 🏗️ Architecture Decisions Made
+## ️ Architecture Decisions Made
 
 1. **async-graphql over rspc** - Better maintenance and tooling
 2. **Self-contained libraries** - Solves backup/portability issues
@@ -57,7 +57,7 @@ Complete implementation of:
 4. **Decoupled data model** - Any file can be tagged immediately
 5. **Event-driven** - No more invalidate_query coupling
 
-## 🚀 Next Steps
+## Next Steps
 
 1. **Implement SeaORM entities** for the new data model
 2. **Create database migrations** for library schema

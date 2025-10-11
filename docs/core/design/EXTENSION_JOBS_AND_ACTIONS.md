@@ -53,7 +53,7 @@ crate::register_library_action!(FileCopyAction, "files.copy");
 
 **Options:**
 
-### Option 1: Extensions Define Jobs via WASM Exports ⭐ (RECOMMENDED)
+### Option 1: Extensions Define Jobs via WASM Exports (RECOMMENDED)
 
 **Concept:** Extensions export execution functions, Core wraps them in a generic `WasmJob`.
 
@@ -736,11 +736,11 @@ let result = ctx.call_query("finance:classify_receipt", input)?;
 
 **Benefits:**
 
-✅ Extensions can define domain-specific operations
-✅ Operations are reusable (other extensions can call them!)
-✅ Clean SDK API hides complexity
-✅ Core handles persistence/resumability
-✅ Type-safe via JSON schemas
+Extensions can define domain-specific operations
+Operations are reusable (other extensions can call them!)
+Clean SDK API hides complexity
+Core handles persistence/resumability
+Type-safe via JSON schemas
 
 **Implementation:**
 - Runtime registry: ~300 lines

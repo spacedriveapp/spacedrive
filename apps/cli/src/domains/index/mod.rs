@@ -127,10 +127,10 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 					println!("╠══════════════════════════════════════════════════════════════╣");
 
 					if result.is_valid {
-						println!("║ ✅ STATUS: VALID - Index matches filesystem perfectly!      ║");
+						println!("║ STATUS: VALID - Index matches filesystem perfectly!      ║");
 					} else {
 						println!(
-							"║ ❌ STATUS: DIVERGED - {} issues found {:24} ║",
+							"║ STATUS: DIVERGED - {} issues found {:24} ║",
 							report.total_issues(),
 							""
 						);
@@ -140,7 +140,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 
 						if !report.missing_from_index.is_empty() {
 							println!(
-								"║ ⚠️  Missing from index: {} {:33} ║",
+								"║ ️  Missing from index: {} {:33} ║",
 								report.missing_from_index.len(),
 								""
 							);
@@ -168,7 +168,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 
 						if !report.stale_in_index.is_empty() {
 							println!(
-								"║ 🗑️  Stale in index: {} {:36} ║",
+								"║ ️  Stale in index: {} {:36} ║",
 								report.stale_in_index.len(),
 								""
 							);
@@ -196,7 +196,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 
 						if !report.metadata_mismatches.is_empty() {
 							println!(
-								"║ ⚙️  Metadata mismatches: {} {:31} ║",
+								"║ ️  Metadata mismatches: {} {:31} ║",
 								report.metadata_mismatches.len(),
 								""
 							);
@@ -215,7 +215,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 
 						if !report.hierarchy_errors.is_empty() {
 							println!(
-								"║ 🌳 Hierarchy errors: {} {:34} ║",
+								"║ Hierarchy errors: {} {:34} ║",
 								report.hierarchy_errors.len(),
 								""
 							);
@@ -225,7 +225,7 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 					println!("╠══════════════════════════════════════════════════════════════╣");
 					println!(
 						"║ {}{:59} ║",
-						if result.is_valid { "✅ " } else { "❌ " },
+						if result.is_valid { "" } else { "" },
 						report.summary.chars().take(59).collect::<String>()
 					);
 					println!("╚══════════════════════════════════════════════════════════════╝\n");

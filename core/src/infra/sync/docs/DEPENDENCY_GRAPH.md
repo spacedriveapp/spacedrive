@@ -1,6 +1,6 @@
 # Sync Dependency Graph System
 
-**Status**: ✅ Complete
+**Status**: Complete
 **Date**: October 9, 2025
 **Phase**: 1 (Explicit Dependencies) & 2 (Topological Sort)
 
@@ -75,10 +75,10 @@ pub fn compute_sync_order<'a>(
 ```
 
 **Features**:
-- ✅ Topological sort (respects dependencies)
-- ✅ Cycle detection (returns error if circular dependencies found)
-- ✅ Unknown dependency validation
-- ✅ Comprehensive test coverage
+- Topological sort (respects dependencies)
+- Cycle detection (returns error if circular dependencies found)
+- Unknown dependency validation
+- Comprehensive test coverage
 
 **Location**: `core/src/infra/sync/dependency_graph.rs`
 
@@ -216,15 +216,15 @@ Current production dependency graph:
 ### **Unit Tests**
 
 **Dependency Graph** (`core/src/infra/sync/dependency_graph.rs`):
-- ✅ Simple dependency chains
-- ✅ Independent models
-- ✅ Circular dependency detection
-- ✅ Complex graphs with multiple dependencies
-- ✅ Empty graph handling
+- Simple dependency chains
+- Independent models
+- Circular dependency detection
+- Complex graphs with multiple dependencies
+- Empty graph handling
 
 **Registry** (`core/src/infra/sync/registry.rs`):
-- ✅ Sync order computation with real models
-- ✅ Dependency order validation (device → location → entry)
+- Sync order computation with real models
+- Dependency order validation (device → location → entry)
 
 ### **Running Tests**
 

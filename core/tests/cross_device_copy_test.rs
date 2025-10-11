@@ -184,7 +184,7 @@ async fn alice_cross_device_copy_scenario() {
 
 	// Get Alice's device ID
 	let alice_device_id = core.device.device_id().unwrap();
-	println!("🆔 Alice: My device ID is {}", alice_device_id);
+	println!("Alice: My device ID is {}", alice_device_id);
 
 	// Prepare copy operations using the action system
 	println!("Alice: Dispatching cross-device copy actions...");

@@ -6,13 +6,13 @@
 
 ---
 
-> **📖 START HERE**: If you're implementing the sync system, read [`SYNC_IMPLEMENTATION_GUIDE.md`](./SYNC_IMPLEMENTATION_GUIDE.md) first.
+> **START HERE**: If you're implementing the sync system, read [`SYNC_IMPLEMENTATION_GUIDE.md`](./SYNC_IMPLEMENTATION_GUIDE.md) first.
 > That guide synthesizes the architecture from `/docs/core/sync.md` with the status from this roadmap,
 > providing clear, actionable guidance for implementation.
 
 ---
 
-## 📊 Executive Summary
+## Executive Summary
 
 **Current Grade**: 7.5/10 - Solid foundation with clear architectural vision, mid-migration from leader-based to leaderless architecture.
 
@@ -20,9 +20,9 @@
 
 ---
 
-## 🎯 Critical Path to MVP
+## Critical Path to MVP
 
-### ✅ **Phase 1: Core Infrastructure** (COMPLETE)
+### **Phase 1: Core Infrastructure** (COMPLETE)
 
 - [x] HLC implementation (`hlc.rs`)
 - [x] PeerLog for per-device sync.db (`peer_log.rs`)
@@ -31,7 +31,7 @@
 - [x] NetworkTransport trait (`transport.rs`)
 - [x] Transaction manager structure (`transaction.rs`)
 
-### 🚧 **Phase 2: Network Integration** (IN PROGRESS - 80%)
+### **Phase 2: Network Integration** (IN PROGRESS - 80%)
 
 - [x] NetworkTransport implementation (`network/transports/sync.rs`)
 - [x] PeerSync with broadcast capabilities (`service/sync/peer.rs`)
@@ -39,7 +39,7 @@
 - [ ] **CRITICAL**: SyncProtocolHandler inbound handling (`network/protocol/sync/handler.rs`)
 - [ ] **CRITICAL**: TransactionManager auto-broadcast (`infra/sync/transaction.rs`)
 
-### ⏳ **Phase 3: Model Integration** (IN PROGRESS - 29%)
+### **Phase 3: Model Integration** (IN PROGRESS - 29%)
 
 - [x] Location apply function (`db/entities/location.rs`)
 - [x] Tag apply function + Syncable impl (`db/entities/tag.rs`)
@@ -49,7 +49,7 @@
 - [ ] Collection/Album apply function (`db/entities/collection.rs`)
 - [ ] UserMetadata apply function (`db/entities/user_metadata.rs`)
 
-### ⏳ **Phase 4: End-to-End Testing** (NOT STARTED)
+### **Phase 4: End-to-End Testing** (NOT STARTED)
 
 - [ ] Integration tests for state-based sync
 - [ ] Integration tests for log-based sync
@@ -59,7 +59,7 @@
 
 ---
 
-## 🔥 Priority 1: Immediate Actions (This Week)
+## Priority 1: Immediate Actions (This Week)
 
 ### 1.1 Clean Up Migration Artifacts
 
@@ -219,7 +219,7 @@ let connected_partners = self
     .network
     .get_connected_sync_partners()
     .await
-    .unwrap_or_default(); // ❌ Hides errors
+    .unwrap_or_default(); // Hides errors
 ```
 
 **With**:
@@ -243,7 +243,7 @@ let connected_partners = self
 
 ---
 
-## 🎯 Priority 2: Short-Term Improvements (This Month)
+## Priority 2: Short-Term Improvements (This Month)
 
 ### 2.1 Implement Retry Queue
 
@@ -547,7 +547,7 @@ async fn test_network_partition_recovery() {
 
 ---
 
-## 🏗️ Priority 3: Architectural Refactors (This Quarter)
+## ️ Priority 3: Architectural Refactors (This Quarter)
 
 ### 3.1 Eliminate Circular Dependency
 
@@ -577,7 +577,7 @@ pub struct LibraryContext {
     /// Event bus for cross-cutting events
     pub event_bus: Arc<EventBus>,
 
-    /// Device registry (UUID ↔ NodeId mapping)
+    /// Device registry (UUID NodeId mapping)
     pub device_registry: Arc<RwLock<DeviceRegistry>>,
 
     /// Library path (for sync.db location)
@@ -794,53 +794,53 @@ pub async fn broadcast_state_change(&self, change: StateChangeMessage) -> Result
 
 ---
 
-## 📋 Current Status Matrix
+## Current Status Matrix
 
 | Component | Status | Priority | Effort | Owner |
 |-----------|--------|----------|--------|-------|
 | **Core Infrastructure** |
-| HLC | ✅ Complete | - | - | - |
-| PeerLog | ✅ Complete | - | - | - |
-| NetworkTransport trait | ✅ Complete | - | - | - |
-| TransactionManager | 🚧 Stubbed | P1 | 4h | TBD |
+| HLC | Complete | - | - | - |
+| PeerLog | Complete | - | - | - |
+| NetworkTransport trait | Complete | - | - | - |
+| TransactionManager | Stubbed | P1 | 4h | TBD |
 | **Network Layer** |
-| NetworkTransport impl | ✅ Complete | - | - | - |
-| SyncProtocolHandler | ❌ Stubbed | P1 (CRITICAL) | 6h | TBD |
-| Message types | ✅ Complete | - | - | - |
-| Envelope pattern | ❌ Not started | P2 | 8h | TBD |
+| NetworkTransport impl | Complete | - | - | - |
+| SyncProtocolHandler | Stubbed | P1 (CRITICAL) | 6h | TBD |
+| Message types | Complete | - | - | - |
+| Envelope pattern | Not started | P2 | 8h | TBD |
 | **Sync Service** |
-| PeerSync | ✅ Complete | - | - | - |
-| Broadcast (sequential) | ✅ Works | P1 | 2h | TBD |
-| Broadcast (parallel) | ❌ Not started | P1 | 2h | TBD |
-| Retry queue | ❌ Not started | P2 | 6h | TBD |
+| PeerSync | Complete | - | - | - |
+| Broadcast (sequential) | Works | P1 | 2h | TBD |
+| Broadcast (parallel) | Not started | P1 | 2h | TBD |
+| Retry queue | Not started | P2 | 6h | TBD |
 | **Models** |
-| Location | ✅ Complete | - | - | - |
-| Tag | ✅ Complete | - | - | - |
-| Entry | ❌ Not started | P2 | 2h | TBD |
-| Volume | ❌ Not started | P2 | 2h | TBD |
-| Device | ❌ Not started | P2 | 2h | TBD |
-| Collection | ❌ Not started | P2 | 3h | TBD |
-| UserMetadata | ❌ Not started | P2 | 3h | TBD |
+| Location | Complete | - | - | - |
+| Tag | Complete | - | - | - |
+| Entry | Not started | P2 | 2h | TBD |
+| Volume | Not started | P2 | 2h | TBD |
+| Device | Not started | P2 | 2h | TBD |
+| Collection | Not started | P2 | 3h | TBD |
+| UserMetadata | Not started | P2 | 3h | TBD |
 | **Testing** |
-| Unit tests | 🚧 Partial | P2 | 8h | TBD |
-| Integration tests | ❌ Not started | P2 | 16h | TBD |
-| Performance tests | ❌ Not started | P3 | 12h | TBD |
+| Unit tests | Partial | P2 | 8h | TBD |
+| Integration tests | Not started | P2 | 16h | TBD |
+| Performance tests | Not started | P3 | 12h | TBD |
 | **Architecture** |
-| Circular dependency | 🚧 Workaround | P3 | 24h | TBD |
-| Registry pattern | 🚧 Functional | P3 | 16h | TBD |
-| Observability | ❌ Not started | P3 | 12h | TBD |
+| Circular dependency | Workaround | P3 | 24h | TBD |
+| Registry pattern | Functional | P3 | 16h | TBD |
+| Observability | Not started | P3 | 12h | TBD |
 
 **Legend**:
-- ✅ Complete
-- 🚧 In progress / Partial
-- ❌ Not started
+- Complete
+- In progress / Partial
+- Not started
 - P1 = Priority 1 (This week)
 - P2 = Priority 2 (This month)
 - P3 = Priority 3 (This quarter)
 
 ---
 
-## 🐛 Known Issues
+## Known Issues
 
 ### Critical
 1. **SyncProtocolHandler is stubbed** - Incoming messages are not processed
@@ -862,7 +862,7 @@ pub async fn broadcast_state_change(&self, change: StateChangeMessage) -> Result
 
 ---
 
-## 📚 Architecture Decisions
+## Architecture Decisions
 
 ### ADR-001: Hybrid Sync Model
 **Decision**: Use state-based sync for device-owned data, log-based with HLC for shared resources
@@ -906,7 +906,7 @@ pub async fn broadcast_state_change(&self, change: StateChangeMessage) -> Result
 
 ---
 
-## 🎓 Learning Resources
+## Learning Resources
 
 ### Distributed Sync Papers
 - [Hybrid Logical Clocks](https://cse.buffalo.edu/tech-reports/2014-04.pdf)
@@ -925,7 +925,7 @@ pub async fn broadcast_state_change(&self, change: StateChangeMessage) -> Result
 
 ---
 
-## 📞 Questions / Discussion Points
+## Questions / Discussion Points
 
 1. **Should we support protocol versioning from day one?**
    - Pros: Future-proof, easier upgrades
@@ -949,7 +949,7 @@ pub async fn broadcast_state_change(&self, change: StateChangeMessage) -> Result
 
 ---
 
-## 📅 Timeline
+## Timeline
 
 ### Week 1 (Current)
 - [ ] Clean up legacy files
@@ -977,7 +977,7 @@ pub async fn broadcast_state_change(&self, change: StateChangeMessage) -> Result
 
 ---
 
-## 🎯 Success Metrics
+## Success Metrics
 
 ### MVP (End of Week 4)
 - [ ] All message types handled correctly
@@ -996,7 +996,7 @@ pub async fn broadcast_state_change(&self, change: StateChangeMessage) -> Result
 
 ---
 
-## 📝 Notes
+## Notes
 
 - Keep this document updated as work progresses
 - Link to relevant PRs and commits

@@ -4,11 +4,11 @@ Type-safe TypeScript client for the Spacedrive daemon, automatically generated f
 
 ## Features
 
-- 🔒 **Fully Type-Safe** - All types generated directly from Rust core
-- 🚀 **Real-time Events** - Subscribe to daemon events with full type safety
-- 📡 **Unix Domain Sockets** - Direct communication with daemon
-- 🔄 **Auto-Generated** - Types stay in sync with Rust core automatically
-- 📝 **Rich Documentation** - JSDoc comments from Rust code
+- **Fully Type-Safe** - All types generated directly from Rust core
+- **Real-time Events** - Subscribe to daemon events with full type safety
+- **Unix Domain Sockets** - Direct communication with daemon
+- **Auto-Generated** - Types stay in sync with Rust core automatically
+- **Rich Documentation** - JSDoc comments from Rust code
 
 ## Installation
 

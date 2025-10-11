@@ -560,12 +560,12 @@ let collection = Collection {
 
 | Feature | Entry | Model | How It Works |
 |---------|-------|-------|--------------|
-| **Tags** | ✅ | ✅ | Both have `metadata_id` → `user_metadata` |
-| **Collections** | ✅ | ✅ | `collection_items` references both |
-| **Search** | ✅ FTS5 | ✅ FTS5 | Separate virtual tables |
-| **Sync** | ✅ Device | ✅ Shared/Device | Different strategies |
-| **Custom Data** | ✅ JSON | ✅ JSON | `user_metadata.custom_data` vs `models.data` |
-| **Sidecars** | ✅ VSS | ❌ N/A | Sidecars for file derivatives only |
+| **Tags** | | | Both have `metadata_id` → `user_metadata` |
+| **Collections** | | | `collection_items` references both |
+| **Search** | FTS5 | FTS5 | Separate virtual tables |
+| **Sync** | Device | Shared/Device | Different strategies |
+| **Custom Data** | JSON | JSON | `user_metadata.custom_data` vs `models.data` |
+| **Sidecars** | VSS | N/A | Sidecars for file derivatives only |
 
 ---
 
@@ -663,7 +663,7 @@ impl ModelStore {
 ## Final Answer to Your Questions
 
 ### 1. **Sidecars for virtual models?**
-❌ No. Sidecars are for file derivatives (thumbnails, OCR). Virtual model data goes in `models.data` JSON.
+No. Sidecars are for file derivatives (thumbnails, OCR). Virtual model data goes in `models.data` JSON.
 
 If embeddings are huge, use separate blob table:
 ```sql

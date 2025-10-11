@@ -49,7 +49,7 @@ impl LibraryQuery for PingQuery {
 		tracing::info!(
 			message = %self.input.message,
 			count = ?self.input.count,
-			"🎉 Ping query called from extension! WASM integration works!"
+			"Ping query called from extension! WASM integration works!"
 		);
 
 		Ok(PingOutput {

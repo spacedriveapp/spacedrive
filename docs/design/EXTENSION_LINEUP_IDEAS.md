@@ -262,7 +262,7 @@ NOT: Features that should be in the core platform (backup, deduplication, cloud 
 ### Launch with 4 Extensions - "Subsystems of a Data OS"
 
 **Extension Names:**
-1. **Chronicle** (was Research - open source flagship) ⭐ PERFECT NAME
+1. **Chronicle** (was Research - open source flagship) PERFECT NAME
 2. **Cipher** (was Vault - security subsystem)
 3. **Atlas** (CRM - team knowledge subsystem)
 4. **Ledger** (Finance - financial data subsystem)

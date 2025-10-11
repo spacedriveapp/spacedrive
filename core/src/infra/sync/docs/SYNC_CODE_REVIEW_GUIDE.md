@@ -41,11 +41,11 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 | **`transaction.rs`** | Gatekeeper for all sync-enabled writes | `TransactionManager::commit_device_owned`, `commit_shared` |
 
 ### Review Focus (Infrastructure):
-- ✅ **No domain-specific logic** - should be generic
-- ✅ **Proper trait abstractions** - `Syncable` trait defines contract
-- ✅ **Registry pattern** - dynamic dispatch without switch statements
-- ✅ **HLC correctness** - causality tracking, ordering guarantees
-- ✅ **PeerLog correctness** - append-only, proper pruning
+- **No domain-specific logic** - should be generic
+- **Proper trait abstractions** - `Syncable` trait defines contract
+- **Registry pattern** - dynamic dispatch without switch statements
+- **HLC correctness** - causality tracking, ordering guarantees
+- **PeerLog correctness** - append-only, proper pruning
 
 ---
 
@@ -57,21 +57,21 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 
 | File | Entity | Sync Status | Key Methods |
 |------|--------|-------------|-------------|
-| **`location.rs`** | Location | ✅ Fully Implemented | `query_for_sync`, `apply_state_change` |
-| **`entry.rs`** | Entry | ✅ Fully Implemented | `query_for_sync`, `apply_state_change` |
-| **`device.rs`** | Device | ✅ Fully Implemented | `query_for_sync`, `apply_state_change` |
+| **`location.rs`** | Location | Fully Implemented | `query_for_sync`, `apply_state_change` |
+| **`entry.rs`** | Entry | Fully Implemented | `query_for_sync`, `apply_state_change` |
+| **`device.rs`** | Device | Fully Implemented | `query_for_sync`, `apply_state_change` |
 
 ### Shared Models (Log-Based Sync with HLC)
 
 | File | Entity | Sync Status | Key Methods |
 |------|--------|-------------|-------------|
-| **`tag.rs`** | Tag | ✅ Fully Implemented | `apply_shared_change` (trait method) |
+| **`tag.rs`** | Tag | Fully Implemented | `apply_shared_change` (trait method) |
 
 ### Review Focus (Domain):
-- ✅ **Each entity owns its sync logic** - query and apply in entity file
-- ✅ **Proper serialization** - uses `to_sync_json()`, excludes non-sync fields
-- ✅ **Idempotent upserts** - `on_conflict` with UUID, updates all synced columns
-- ✅ **Conflict resolution** - For shared models: HLC comparison for "last write wins"
+- **Each entity owns its sync logic** - query and apply in entity file
+- **Proper serialization** - uses `to_sync_json()`, excludes non-sync fields
+- **Idempotent upserts** - `on_conflict` with UUID, updates all synced columns
+- **Conflict resolution** - For shared models: HLC comparison for "last write wins"
 
 ---
 
@@ -92,12 +92,12 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 | **`protocol_handler.rs`** | Legacy handlers (being phased out) | State/log sync handlers |
 
 ### Review Focus (Service):
-- ✅ **Domain-agnostic** - calls registry, never switches on model types
-- ✅ **Event-driven** - listens to TransactionManager events, broadcasts changes
-- ✅ **Parallel broadcasts** - uses `join_all`, not sequential sends
-- ✅ **Proper error handling** - timeouts, retry queues, no `.unwrap_or_default()`
-- ✅ **Background tasks** - retry processor, log pruner running
-- ✅ **State machine** - buffering during backfill, transitioning to ready
+- **Domain-agnostic** - calls registry, never switches on model types
+- **Event-driven** - listens to TransactionManager events, broadcasts changes
+- **Parallel broadcasts** - uses `join_all`, not sequential sends
+- **Proper error handling** - timeouts, retry queues, no `.unwrap_or_default()`
+- **Background tasks** - retry processor, log pruner running
+- **State machine** - buffering during backfill, transitioning to ready
 
 ---
 
@@ -117,23 +117,23 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 
 | Message Type | Direction | Handler Status | Purpose |
 |--------------|-----------|----------------|---------|
-| `StateChange` | Broadcast | ✅ Complete | Send state-based updates |
-| `StateBatch` | Broadcast | ✅ Complete | Batch state updates |
-| `StateRequest` | Request/Response | ✅ Complete | Request backfill data |
-| `StateResponse` | Response | ✅ Complete | Return backfill data |
-| `SharedChange` | Broadcast | ✅ Complete | Send HLC-ordered log entries |
-| `SharedChangeBatch` | Broadcast | ✅ Complete | Batch shared changes |
-| `SharedChangeRequest` | Request/Response | ✅ Complete | Request shared changes since HLC |
-| `SharedChangeResponse` | Response | ✅ Complete | Return shared changes |
-| `AckSharedChanges` | Notification | ✅ Complete | Acknowledge receipt (for pruning) |
-| `Heartbeat` | Bidirectional | ✅ Complete | Keep-alive with watermarks |
-| `Error` | Notification | ✅ Complete | Error reporting |
+| `StateChange` | Broadcast | Complete | Send state-based updates |
+| `StateBatch` | Broadcast | Complete | Batch state updates |
+| `StateRequest` | Request/Response | Complete | Request backfill data |
+| `StateResponse` | Response | Complete | Return backfill data |
+| `SharedChange` | Broadcast | Complete | Send HLC-ordered log entries |
+| `SharedChangeBatch` | Broadcast | Complete | Batch shared changes |
+| `SharedChangeRequest` | Request/Response | Complete | Request shared changes since HLC |
+| `SharedChangeResponse` | Response | Complete | Return shared changes |
+| `AckSharedChanges` | Notification | Complete | Acknowledge receipt (for pruning) |
+| `Heartbeat` | Bidirectional | Complete | Keep-alive with watermarks |
+| `Error` | Notification | Complete | Error reporting |
 
 ### Review Focus (Network):
-- ✅ **Complete message handling** - all message types handled
-- ✅ **Request/response flow** - proper response message generation
-- ✅ **Error handling** - graceful degradation, error messages sent back
-- ✅ **Integration with PeerSync** - delegates to PeerSync methods
+- **Complete message handling** - all message types handled
+- **Request/response flow** - proper response message generation
+- **Error handling** - graceful degradation, error messages sent back
+- **Integration with PeerSync** - delegates to PeerSync methods
 
 ---
 
@@ -207,10 +207,10 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 ### 1. DDD Compliance ✅
 
 **Check**: No domain-specific logic in sync infrastructure
-- ❌ BAD: Switch statements on model types in `peer.rs`
-- ✅ GOOD: Registry-based dispatch
-- ❌ BAD: JSON serialization logic in `registry.rs`
-- ✅ GOOD: Entity calls `to_sync_json()`
+- BAD: Switch statements on model types in `peer.rs`
+- GOOD: Registry-based dispatch
+- BAD: JSON serialization logic in `registry.rs`
+- GOOD: Entity calls `to_sync_json()`
 
 **Files to Verify**:
 - `core/src/service/sync/peer.rs` - should call registry, not switch on types
@@ -220,10 +220,10 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 ### 2. Error Handling ✅
 
 **Check**: Proper error propagation, no silent failures
-- ❌ BAD: `.unwrap_or_default()` hiding errors
-- ✅ GOOD: Proper `Result` propagation
-- ✅ GOOD: Retry queue for network failures
-- ✅ GOOD: Timeout handling (30s)
+- BAD: `.unwrap_or_default()` hiding errors
+- GOOD: Proper `Result` propagation
+- GOOD: Retry queue for network failures
+- GOOD: Timeout handling (30s)
 
 **Files to Verify**:
 - `core/src/service/sync/peer.rs` (lines 286-354, 399-476)
@@ -232,8 +232,8 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 ### 3. Parallel Operations ✅
 
 **Check**: Broadcasts use parallel sends
-- ❌ BAD: Sequential `for` loop with awaits
-- ✅ GOOD: `join_all` with parallel futures
+- BAD: Sequential `for` loop with awaits
+- GOOD: `join_all` with parallel futures
 
 **Files to Verify**:
 - `core/src/service/sync/peer.rs::broadcast_state_change` (lines 564-606)
@@ -242,9 +242,9 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 ### 4. Background Tasks ✅
 
 **Check**: Required background tasks running
-- ✅ Event listener (TransactionManager → PeerSync)
-- ✅ Retry queue processor (every 10s)
-- ✅ Log pruner (every 5min)
+- Event listener (TransactionManager → PeerSync)
+- Retry queue processor (every 10s)
+- Log pruner (every 5min)
 
 **Files to Verify**:
 - `core/src/service/sync/peer.rs::start` (lines 123-147)
@@ -255,9 +255,9 @@ The sync system follows a **Domain-Driven Design (DDD)** architecture with clear
 ### 5. ACK Mechanism ✅
 
 **Check**: Automatic ACK sending after applying shared changes
-- ✅ Extracts sender from `entry.hlc.device_id`
-- ✅ Sends ACK back to sender
-- ✅ Non-fatal error handling (continues if ACK fails)
+- Extracts sender from `entry.hlc.device_id`
+- Sends ACK back to sender
+- Non-fatal error handling (continues if ACK fails)
 
 **Files to Verify**:
 - `core/src/service/sync/peer.rs::apply_shared_change` (lines 806-843)
@@ -320,7 +320,7 @@ entities/
 ```
 sync/
 ├── mod.rs                    - Service lifecycle (183 lines)
-├── peer.rs                   - Core sync orchestration (1144 lines) ⭐ CRITICAL
+├── peer.rs                   - Core sync orchestration (1144 lines) CRITICAL
 ├── state.rs                  - State machine, buffering (195 lines)
 ├── backfill.rs               - Initial sync from peers (247 lines)
 ├── retry_queue.rs            - Failed message retry (134 lines)
@@ -333,7 +333,7 @@ sync/
 ```
 sync/
 ├── mod.rs                    - Protocol exports
-├── handler.rs                - Protocol message router (336 lines) ⭐ CRITICAL
+├── handler.rs                - Protocol message router (336 lines) CRITICAL
 └── messages.rs               - Message type definitions (205 lines)
 ```
 
@@ -341,7 +341,7 @@ sync/
 
 ## Key Files for Deep Review
 
-### 🔴 Critical Path Files (Must Review Thoroughly)
+### Critical Path Files (Must Review Thoroughly)
 
 1. **`core/src/service/sync/peer.rs`** (1144 lines)
    - Most complex file in the system
@@ -360,7 +360,7 @@ sync/
    - Correctness is critical for conflict resolution
    - Review: Ordering guarantees, causality tracking
 
-### 🟡 Important Supporting Files
+### Important Supporting Files
 
 5. **`core/src/infra/sync/peer_log.rs`** (397 lines)
    - Manages sync.db, ACK tracking, pruning
@@ -374,7 +374,7 @@ sync/
    - Trait contract for all syncable models
    - Review: Complete API, proper abstractions
 
-### 🟢 Domain Implementations
+### Domain Implementations
 
 8. **`core/src/infra/db/entities/location.rs`** (285 lines)
    - Reference implementation for state-based sync
@@ -384,7 +384,7 @@ sync/
    - Most complex entity (hierarchical, large scale)
    - Review: UUID handling, sync-ready filtering
 
-10. **`core/src/infra/db/entities/tag.rs`** (✅ Fixed - October 9, 2025)
+10. **`core/src/infra/db/entities/tag.rs`** (Fixed - October 9, 2025)
     - Reference implementation for log-based sync
     - Review: HLC conflict resolution, apply logic, trait implementation
 
@@ -512,12 +512,12 @@ All critical functionality is implemented and working.
 
 ### Passing Review Means:
 
-✅ **Architecture**: Clean DDD separation, no domain logic in infrastructure
-✅ **Completeness**: All message types handled, no critical stubs
-✅ **Correctness**: HLC math verified, conflict resolution sound
-✅ **Performance**: Parallel operations, efficient queries
-✅ **Reliability**: Proper error handling, retry mechanisms
-✅ **Readiness**: Code is ready for integration testing
+**Architecture**: Clean DDD separation, no domain logic in infrastructure
+**Completeness**: All message types handled, no critical stubs
+**Correctness**: HLC math verified, conflict resolution sound
+**Performance**: Parallel operations, efficient queries
+**Reliability**: Proper error handling, retry mechanisms
+**Readiness**: Code is ready for integration testing
 
 ---
 
