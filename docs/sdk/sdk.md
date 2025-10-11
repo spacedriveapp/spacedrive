@@ -1,10 +1,11 @@
 **Date:** October 10, 2025
 **Status:** Finalized for Implementation (Based on Core v2.0 Roadmap)
-**Overview:** This is the master specification for the Virtual Distributed File System (VDFS) Extensions SDK. It integrates the original design principles with refined enhancements for optimal core-extension separation. The SDK enables developers to build domain-specific extensions that leverage Spacedrive's local-first, AI-native architecture without bloating the core.
+**Overview:** This is the master specification for the Virtual Distributed File System (VDFS) Extensions SDK. The SDK enables developers to build domain-specific extensions that leverage Spacedrive's local-first, AI-native architecture without bloating the core.
 
 ## Guiding Principles
 
 The SDK follows these core tenets, grounded in Spacedrive's whitepaper and 87% complete implementation:
+
 - **Declarative and Type-Safe:** Use Rust attributes to describe intent; the compiler ensures safety.
 - **Core Primitives, Extension Experiences:** Core handles generic operations (e.g., indexing, sync, basic extraction like EXIF/OCR). Extensions add specialized behavior (e.g., face detection in Photos).
 - **Asynchronous and Progressive:** Operations are job-based and on-demand; results improve as data is analyzed, without UI blocks.
@@ -20,6 +21,7 @@ Extensions are plugins installable via the Extension Store. They adapt Spacedriv
 ### Core Provides:
 
 **Data Infrastructure:**
+
 - `entries` table - Files and directories (device-owned sync)
 - `content_identities` table - Unique content (shared via deterministic UUID)
 - `user_metadata` table - Tags, notes, custom_data (dual-scoped: entry OR content)
@@ -27,12 +29,14 @@ Extensions are plugins installable via the Extension Store. They adapt Spacedriv
 - `tags`, `collections` - Universal organization primitives
 
 **Processing:**
+
 - Generic extraction: EXIF from images, OCR from docs, thumbnails (70% complete)
 - Indexing pipeline: 5 phases, resumable (90% complete)
 - Sync: HLC timestamps, CRDTs (95% complete)
 - Jobs/Actions: Durable, previewable (100% complete)
 
 **AI Infrastructure:**
+
 - Model loaders: Local (Ollama), API (OpenAI), Custom (ONNX)
 - Model registry: Categories (ocr, llm, face_detection, etc.)
 - Jinja template rendering
@@ -40,21 +44,25 @@ Extensions are plugins installable via the Extension Store. They adapt Spacedriv
 ### Extensions Provide:
 
 **Domain Models:**
+
 - Content-scoped: PhotoAnalysis (attached to photos), VideoAnalysis
 - Standalone: Person, Album, Place, Moment, Contact, Email, Note
 - Stored in: `models` table with extension_id + model_type
 
 **Specialized Analysis:**
+
 - On-demand jobs (user-initiated, scoped to locations)
 - Custom AI models (face detection, receipt parsing, citation extraction)
 - Model → Tag generation (detailed models.data → searchable tags)
 
 **User Experience:**
+
 - UI via `ui_manifest.json` (sidebar, menus, views)
 - Custom queries and actions
 - Agent memories and reasoning
 
 **Key Principle:**
+
 - Core does generic, always-useful work (EXIF, thumbnails, basic OCR)
 - Extensions do specialized work on user-scoped locations
 - Both use same primitives (tags, collections, sync)
@@ -64,6 +72,7 @@ Extensions are plugins installable via the Extension Store. They adapt Spacedriv
 The entry point for your extension. Defines metadata, dependencies, and permissions.
 
 **Syntax:**
+
 ```rust
 #[extension(
     id = "com.spacedrive.photos",  // Unique reverse-DNS ID
@@ -86,9 +95,11 @@ struct Photos {
 ```
 
 **Behavior:**
+
 - On install: Core validates `min_core_version` and `required_features` via `PluginManager`.
 - Permissions: Requested here; user scopes during setup (e.g., limit to "/My Photos"). Core enforces on every call (e.g., `ReadEntries` fails outside scope).
 - Config: Generates UI settings pane. Example:
+
 ```rust
 #[derive(Serialize, Deserialize)]
 struct PhotosConfig {
@@ -98,6 +109,7 @@ struct PhotosConfig {
     model_selector: String,
 }
 ```
+
 - Installation Flow: User installs from Store; core loads WASM, registers models/jobs, prompts for scopes.
 
 ## 2. Extension Models (`#[model]`)
@@ -121,6 +133,7 @@ struct PhotoAnalysis {
 ```
 
 **Storage:**
+
 ```sql
 -- models table
 {
@@ -156,6 +169,7 @@ struct Album {
 ```
 
 **Storage:**
+
 ```sql
 -- models table
 {
@@ -196,6 +210,7 @@ struct Person {
 ```
 
 **Storage:**
+
 ```sql
 -- Lightweight data (fast queries)
 models.data = '{"name":"Alice","photo_count":42}'
@@ -206,12 +221,14 @@ model_blobs { model_uuid: person_uuid, blob_key: "embeddings", blob_id: 1 }
 ```
 
 **Benefits:**
+
 - ✅ Fast queries (heavy data not loaded)
 - ✅ Lazy loading (load blobs only when accessed)
 - ✅ Deduplication (content-addressed by hash)
 - ✅ Compression (zstd reduces embeddings 4x)
 
 **API Methods:**
+
 ```rust
 // Create content-scoped model
 ctx.vdfs().create_model_for_content(content_uuid, photo_analysis).await?;
@@ -240,6 +257,7 @@ ctx.vdfs().add_tag_to_model(person_uuid, "#family").await?;
 ```
 
 **Behavior:**
+
 - **Tags:** All models have `metadata_id` → participate in tag system
 - **Collections:** All models can be in collections (polymorphic reference)
 - **Sync:** Content-scoped and standalone use shared sync (HLC). Entry-scoped uses device-owned.
@@ -251,6 +269,7 @@ ctx.vdfs().add_tag_to_model(person_uuid, "#family").await?;
 Durable units of work. Extensions define for on-demand analysis.
 
 **Syntax:**
+
 ```rust
 #[task(retries = 3, timeout_ms = 30000)]
 async fn detect_faces(ctx: &TaskContext, entry: &Entry) -> TaskResult<Vec<FaceDetection>> {
@@ -304,6 +323,7 @@ async fn analyze_photos(ctx: &JobContext, location: SdPath) -> JobResult<()> {
 ```
 
 **Behavior:**
+
 - **Triggers:** "user_initiated", "on_event", etc. Scoped to user-granted locations
 - **Persistence:** Shared `jobs.db` with extension_id (unified monitoring)
 - **Checkpoints:** Auto-saved; resumable (100% core)
@@ -315,6 +335,7 @@ async fn analyze_photos(ctx: &JobContext, location: SdPath) -> JobResult<()> {
 Autonomous logic for extensions.
 
 **Syntax:**
+
 ```rust
 #[agent_memory]  // Defines the "mind"
 struct PhotosMind {
@@ -349,6 +370,7 @@ impl Photos {
 ```
 
 **Behavior:**
+
 - **Agent Loop:** Observe (via event hooks, e.g., "on_new_photo"), Orient (query memory), Act (dispatch jobs/actions).
 - **Memory:** Extension-defined. Temporal: Time-based events; Associative: Graphs/vectors; Working: Short-term state. Backends: SQLite for temporal, VSS for associative.
 - **Trail:** Debug only (e.g., "Decision: Skipping analysis"—stored in logs/extension/). Not for cognition.
@@ -358,6 +380,7 @@ impl Photos {
 ## 5. Model Registration and AI Integration
 
 **Syntax:**
+
 ```rust
 // On extension install/init
 fn init(ctx: &ExtensionContext) {
@@ -373,6 +396,7 @@ ctx.ai().from_registered("face_detection").generate(...).await?;
 ```
 
 **Behavior:**
+
 - **Registration:** On install; core downloads/stores in `~/.spacedrive/models/` (root, no sync).
 - **Sources:** Bundled bytes, download URL, or local path.
 - **Loaders:** Core handles (Ollama local, API with consent UI).
@@ -384,6 +408,7 @@ ctx.ai().from_registered("face_detection").generate(...).await?;
 User-invokable operations with preview.
 
 **Syntax:**
+
 ```rust
 #[action]
 async fn organize_photos(ctx: &ActionContext, location: SdPath) -> ActionResult<ActionPreview> {
@@ -404,25 +429,26 @@ async fn organize_photos_execute(ctx: &ActionContext, preview: ActionPreview) ->
 ## 7. UI Integration (`ui_manifest.json`)
 
 **Syntax (JSON in extension package):**
+
 ```json
 {
-  "sidebar_sections": [
-    {
-      "id": "people",
-      "label": "People",
-      "icon": "assets/people_icon.png",
-      "query": "tags LIKE '#person:%'",  // VDFS query for data
-      "render_type": "list"  // Generic: list, grid, etc.
-    }
-  ],
-  "views": [
-    {
-      "id": "places_map",
-      "label": "Places",
-      "component": "map_view",  // Core-provided components
-      "data_source": "query:exif_gps"  // Fetch via VDFS
-    }
-  ]
+	"sidebar_sections": [
+		{
+			"id": "people",
+			"label": "People",
+			"icon": "assets/people_icon.png",
+			"query": "tags LIKE '#person:%'", // VDFS query for data
+			"render_type": "list" // Generic: list, grid, etc.
+		}
+	],
+	"views": [
+		{
+			"id": "places_map",
+			"label": "Places",
+			"component": "map_view", // Core-provided components
+			"data_source": "query:exif_gps" // Fetch via VDFS
+		}
+	]
 }
 ```
 
@@ -431,6 +457,7 @@ async fn organize_photos_execute(ctx: &ActionContext, preview: ActionPreview) ->
 ## 8. Fluent Builders (Device/AI Orchestration)
 
 **Syntax:**
+
 ```rust
 let device = ctx.select_device()
     .with_capability("gpu")
@@ -522,6 +549,7 @@ CREATE INDEX idx_model_blobs_model ON model_blobs(model_uuid);
 ```
 
 **UserMetadata already supports content-scoping** (existing):
+
 ```sql
 user_metadata {
     entry_uuid: Option<Uuid>,            -- Entry-specific tag
@@ -530,6 +558,7 @@ user_metadata {
 ```
 
 ## Implementation Notes
+
 - **WASM Hosts:** Core provides functions: `vdfs_query_entries()`, `model_create()`, `model_query()`, `add_tag_to_content()`
 - **Validation:** Use existing tests (1,554 LOC sync tests) + extension scenarios
 - **Migration:** Add `models` table in next schema migration (required for extensions)

@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 //! Native dependencies download and extraction
 
 use anyhow::{Context, Result};

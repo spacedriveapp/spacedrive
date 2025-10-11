@@ -150,7 +150,7 @@ impl JobContext {
 		F: Fn(crate::tasks::TaskContext, A) -> Fut,
 		Fut: std::future::Future<Output = crate::tasks::TaskResult<R>>,
 	{
-		todo!("Execute task with checkpoint")
+		panic!("Execute task with checkpoint")
 	}
 
 	/// Report progress
@@ -174,7 +174,7 @@ impl JobContext {
 		content_uuid: uuid::Uuid,
 		kind: &str,
 	) -> crate::types::Result<bool> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 
 	/// Save sidecar
@@ -185,17 +185,17 @@ impl JobContext {
 		extension_id: &str,
 		data: &T,
 	) -> crate::types::Result<()> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 
 	/// Access agent memory
 	pub fn memory(&self) -> crate::agent::MemoryHandle<()> {
-		todo!("Access agent memory")
+		panic!("Access agent memory")
 	}
 
 	/// Access extension config
 	pub fn config<C>(&self) -> &C {
-		todo!("Access config")
+		panic!("Access config")
 	}
 
 	/// Send notification

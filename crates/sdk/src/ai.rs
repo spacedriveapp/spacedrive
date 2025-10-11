@@ -38,12 +38,12 @@ impl AiModelRegistry {
 		name: &str,
 		source: AiModelSource,
 	) -> Result<AiModelId> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 
 	/// Check if AI model is registered
 	pub fn is_registered(&self, model_id: &str) -> bool {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 }
 
@@ -93,22 +93,22 @@ impl ModelHandle {
 
 	/// Detect faces in image
 	pub async fn detect_faces(&self, image_data: &[u8]) -> Result<Vec<FaceDetection>> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 
 	/// Classify scene in image
 	pub async fn classify(&self, image_data: &[u8]) -> Result<Vec<SceneTag>> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 
 	/// OCR document
 	pub async fn ocr_document(&self, entry: &Entry) -> Result<String> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 
 	/// Generate text embedding
 	pub async fn embed_text(&self, text: &str) -> Result<Vec<f32>> {
-		todo!("WASM host call")
+		panic!("WASM host call")
 	}
 }
 
@@ -121,7 +121,7 @@ pub struct PromptBuilder {
 impl PromptBuilder {
 	/// Render template with context
 	pub fn render_with<T: Serialize>(self, context: &T) -> Result<RenderedPrompt> {
-		todo!("Render Jinja template")
+		panic!("Render Jinja template")
 	}
 }
 
@@ -134,12 +134,12 @@ pub struct RenderedPrompt {
 impl RenderedPrompt {
 	/// Generate text from rendered prompt
 	pub async fn generate_text(self) -> Result<String> {
-		todo!("WASM host call - LLM inference")
+		panic!("WASM host call - LLM inference")
 	}
 
 	/// Generate JSON from rendered prompt
 	pub async fn generate_json<T: DeserializeOwned>(self) -> Result<T> {
-		todo!("WASM host call - structured output")
+		panic!("WASM host call - structured output")
 	}
 }
 

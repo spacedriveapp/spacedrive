@@ -28,7 +28,7 @@
 //! }
 //! ```
 
-#![allow(async_fn_in_trait)]
+#![allow(async_fn_in_trait, warnings)]
 
 pub mod actions;
 pub mod agent;

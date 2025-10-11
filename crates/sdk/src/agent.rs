@@ -41,11 +41,11 @@ impl<M: AgentMemory> AgentContext<M> {
 	}
 
 	pub fn in_granted_scope(&self, _path: &str) -> bool {
-		todo!("Check scope")
+		panic!("Check scope")
 	}
 
 	pub fn config<C>(&self) -> &C {
-		todo!("Get config")
+		panic!("Get config")
 	}
 
 	pub fn notify(&self) -> NotificationBuilder {
@@ -79,7 +79,7 @@ impl JobDispatchBuilder {
 	}
 
 	pub async fn execute(self) -> Result<()> {
-		todo!("Dispatch job")
+		panic!("Dispatch job")
 	}
 }
 
@@ -100,7 +100,7 @@ impl NotificationBuilder {
 	}
 
 	pub async fn send(self) -> Result<()> {
-		todo!("Send notification")
+		panic!("Send notification")
 	}
 }
 
@@ -116,11 +116,11 @@ impl<M: AgentMemory> MemoryHandle<M> {
 	}
 
 	pub async fn read(&self) -> MemoryReadGuard<M> {
-		todo!("Load memory")
+		panic!("Load memory")
 	}
 
 	pub async fn write(&self) -> MemoryWriteGuard<M> {
-		todo!("Load for writing")
+		panic!("Load for writing")
 	}
 }
 
@@ -131,7 +131,7 @@ pub struct MemoryReadGuard<M> {
 impl<M> std::ops::Deref for MemoryReadGuard<M> {
 	type Target = M;
 	fn deref(&self) -> &Self::Target {
-		todo!()
+		panic!("not implemented")
 	}
 }
 
@@ -142,13 +142,13 @@ pub struct MemoryWriteGuard<M> {
 impl<M> std::ops::Deref for MemoryWriteGuard<M> {
 	type Target = M;
 	fn deref(&self) -> &Self::Target {
-		todo!()
+		panic!("not implemented")
 	}
 }
 
 impl<M> std::ops::DerefMut for MemoryWriteGuard<M> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		todo!()
+		panic!("not implemented")
 	}
 }
 
@@ -165,7 +165,7 @@ pub struct TemporalMemory<T> {
 
 impl<T: Serialize + DeserializeOwned + Clone> TemporalMemory<T> {
 	pub async fn append(&mut self, _event: T) -> Result<()> {
-		todo!()
+		panic!("not implemented")
 	}
 
 	pub fn query(&self) -> TemporalQuery<T> {
@@ -212,7 +212,7 @@ impl<T: Clone> TemporalQuery<T> {
 	}
 
 	pub async fn collect(self) -> Result<Vec<T>> {
-		todo!()
+		panic!("not implemented")
 	}
 }
 
@@ -222,7 +222,7 @@ pub struct AssociativeMemory<T> {
 
 impl<T: Serialize + DeserializeOwned + Clone> AssociativeMemory<T> {
 	pub async fn add(&mut self, _knowledge: T) -> Result<()> {
-		todo!()
+		panic!("not implemented")
 	}
 
 	pub fn query(&self) -> AssociativeQuery<T> {
@@ -271,7 +271,7 @@ impl<T: Clone> AssociativeQuery<T> {
 	}
 
 	pub async fn collect(self) -> Result<Vec<T>> {
-		todo!()
+		panic!("not implemented")
 	}
 }
 
@@ -281,13 +281,13 @@ pub struct WorkingMemory<T> {
 
 impl<T: Serialize + DeserializeOwned + Clone + Default> WorkingMemory<T> {
 	pub async fn read(&self) -> T {
-		todo!()
+		panic!("not implemented")
 	}
 
 	pub async fn update<F>(&mut self, _f: F) -> Result<()>
 	where
 		F: FnOnce(T) -> Result<T>,
 	{
-		todo!()
+		panic!("not implemented")
 	}
 }
