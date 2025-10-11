@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="150" height="150" src="packages/assets/images/AppLogo.png" alt="Spacedrive Logo">
+  <img width="150" height="150" src="packages/assets/images/AppLogoV2.png" alt="Spacedrive Logo">
   <h1 align="center">Spacedrive</h1>
   <p align="center">
     The file explorer for your entire digital life.
