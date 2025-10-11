@@ -1,38 +1,8 @@
 {
-	"name": "@sd/monorepo",
+	"name": "spacedrive",
 	"private": true,
-	"scripts": {
-		"build": "turbo run build",
-		"landing-web": "turbo run dev --parallel --filter=@sd/landing --filter=@sd/web",
-		"format": "prettier --write .",
-		"desktop": "pnpm --filter @sd/desktop --",
-		"tauri": "pnpm desktop tauri",
-		"web": "pnpm --filter @sd/web -- ",
-		"mobile": "pnpm --filter @sd/mobile --",
-		"core": "pnpm --filter @sd/server -- ",
-		"landing": "pnpm --filter @sd/landing -- ",
-		"ui": "pnpm --filter @sd/ui -- ",
-		"interface": "pnpm --filter @sd/interface -- ",
-		"assets": "pnpm --filter @sd/assets -- ",
-		"client": "pnpm --filter @sd/client -- ",
-		"storybook": "pnpm --filter @sd/storybook -- ",
-		"dev:web": "pnpm --filter @sd/web dev:web",
-		"dev:desktop": "pnpm run --filter @sd/desktop tauri dev",
-		"bootstrap:desktop": "cargo clean && ./scripts/setup.sh && pnpm i && pnpm tauri dev",
-		"typecheck": "pnpm -r typecheck",
-		"lint": "turbo run lint",
-		"lint:fix": "turbo run lint -- --fix",
-		"clean": "cargo clean; git clean -qfX .",
-		"test-data": "./scripts/test-data.sh",
-		"i18n:sync": "npx i18next-locales-sync -p en -s $(find ./interface/locales -wholename '*/common.json' | awk -F'/' '$4 != \"en\" { ORS=\" \"; print $4 }') -l ./interface/locales",
-		"autoformat": "./scripts/autoformat.sh"
-	},
+	"scripts": {},
 	"pnpm": {
-		"patchedDependencies": {
-			"@remix-run/router@1.13.1": "patches/@remix-run__router@1.13.1.patch",
-			"tailwindcss-animate@1.0.7": "patches/tailwindcss-animate@1.0.7.patch",
-			"@react-navigation/drawer@6.6.15": "patches/@react-navigation__drawer@6.6.15.patch"
-		},
 		"overrides": {
 			"@types/node": ">18.18.x",
 			"react-router": "=6.20.1",

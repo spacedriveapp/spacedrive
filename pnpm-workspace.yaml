@@ -1,6 +1,5 @@
 packages:
-  - 'packages/*'
-  - 'apps/*'
-  - 'interface'
-  - 'scripts'
-  - '.github/actions/*'
+  - "packages/*"
+  - "apps/*"
+  - "scripts"
+  - ".github/actions/*"
