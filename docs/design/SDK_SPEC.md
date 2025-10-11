@@ -181,6 +181,26 @@ impl Migrate<Paper> for PaperV1_1 {
 
 /// An `#[agent_memory]` struct defines the "mind" of an agent by composing
 /// specialized, platform-provided memory types.
+///
+/// ## Multiple Memory Instances via Enums
+///
+/// Use enums when you need one TemporalMemory to track different event types,
+/// or one AssociativeMemory to store different concept domains:
+
+#[derive(Serialize, Deserialize, Clone)]
+enum ChronicleEvent {
+    PaperAnalyzed(PaperAnalysisEvent),
+    CitationExtracted(CitationEvent),
+    ResearchSessionCompleted(SessionEvent),
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+enum KnowledgeDomain {
+    Concept(Concept),
+    Person(PersonEntity),
+    Organization(OrgEntity),
+}
+
 #[agent_memory]
 #[memory_config(
     // Controls how quickly associative memories fade if not reinforced.
@@ -189,16 +209,15 @@ impl Migrate<Paper> for PaperV1_1 {
     summarization_trigger = 100
 )]
 struct ChronicleMind {
-    /// A time-series log of events. Automatically timestamped.
-    /// Supports rich temporal queries with filtering, sorting, and aggregation.
-    history: TemporalMemory<PaperAnalysisEvent>,
+    /// Single TemporalMemory with enum for different event types
+    /// Each event variant can be queried independently
+    history: TemporalMemory<ChronicleEvent>,
 
-    /// A vectorized knowledge base for semantic recall.
-    /// Supports similarity search, context-aware queries, and relationship traversal.
-    knowledge: AssociativeMemory<Concept>,
+    /// Single AssociativeMemory with enum for different knowledge domains
+    /// Enables cross-domain semantic queries
+    knowledge: AssociativeMemory<KnowledgeDomain>,
 
-    /// A simple struct for short-term state.
-    /// Supports transactional updates and atomic operations.
+    /// Simple struct for short-term state
     plan: WorkingMemory<ResearchPlan>,
 }
 
@@ -206,10 +225,12 @@ struct ChronicleMind {
 // These methods are available on the agent's mind and provide domain-specific
 // memory access patterns.
 impl ChronicleMind {
-    /// Custom query: Find papers related to a research question.
+    /// Query only PaperAnalyzed events from the enum-based history
     async fn papers_related_to(&self, question: &str) -> Vec<PaperAnalysisEvent> {
         self.history
             .query()
+            // Filter to only PaperAnalyzed variant
+            .where_variant(ChronicleEvent::PaperAnalyzed)
             .time_range(Duration::days(30))
             .where_semantic("summary", similar_to(question))
             .sort_by_relevance()
@@ -217,29 +238,57 @@ impl ChronicleMind {
             .collect()
             .await
             .unwrap_or_default()
+            // Extract inner PaperAnalysisEvent from enum
+            .into_iter()
+            .filter_map(|e| match e {
+                ChronicleEvent::PaperAnalyzed(p) => Some(p),
+                _ => None,
+            })
+            .collect()
     }
 
-    /// Custom query: Get recent activity summary by topic.
-    async fn activity_by_topic(&self, topic: &str, days: u64) -> ActivitySummary {
-        let events = self.history
+    /// Query across all event types
+    async fn recent_activity(&self, days: u64) -> Vec<ChronicleEvent> {
+        self.history
             .query()
             .since(Duration::days(days))
-            .where_field("title", contains(topic))
+            // No variant filter - returns all event types
+            .sort_by(|a, b| b.timestamp.cmp(&a.timestamp))
+            .limit(50)
             .collect()
             .await
-            .unwrap_or_default();
+            .unwrap_or_default()
+    }
 
-        ActivitySummary {
-            count: events.len(),
-            most_recent: events.first().map(|e| e.paper_id),
-            topics: self.knowledge
-                .query_similar(topic)
-                .within_context(&events)
-                .top_k(5)
-                .collect()
-                .await
-                .unwrap_or_default(),
-        }
+    /// Query specific knowledge domain from enum-based AssociativeMemory
+    async fn find_people(&self, name_query: &str) -> Vec<PersonEntity> {
+        self.knowledge
+            .query_similar(name_query)
+            // Filter to only Person variant
+            .where_variant(KnowledgeDomain::Person)
+            .top_k(10)
+            .collect()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|k| match k {
+                KnowledgeDomain::Person(p) => Some(p),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Cross-domain query: Find all knowledge related to a concept
+    async fn knowledge_graph(&self, concept: &str) -> Vec<KnowledgeDomain> {
+        self.knowledge
+            .query_similar(concept)
+            // No variant filter - searches across Concept, Person, Organization
+            .min_similarity(0.7)
+            .top_k(20)
+            .and_related_concepts(depth = 2)
+            .collect()
+            .await
+            .unwrap_or_default()
     }
 }
 
@@ -273,38 +322,117 @@ impl Chronicle {
         Ok(())
     }
 
+    /// Example: Job completion stores enum variant in TemporalMemory
+    #[on_job_completed(analyze_paper)]
+    async fn on_analysis_complete(
+        paper: Paper,
+        summary: String,
+        ctx: &AgentContext<ChronicleMind>,
+    ) -> AgentResult<()> {
+        // Store different event types in single TemporalMemory via enum
+        let mut memory = ctx.memory().write().await;
+
+        // Store paper analysis
+        memory.history.append(
+            ChronicleEvent::PaperAnalyzed(PaperAnalysisEvent {
+                paper_id: paper.file.id(),
+                title: paper.title.clone(),
+                summary: summary.clone(),
+            })
+        ).await?;
+
+        // Extract and store citations as separate events
+        let citations = extract_citations(&summary)?;
+        for citation in citations {
+            memory.history.append(
+                ChronicleEvent::CitationExtracted(CitationEvent {
+                    citing_paper_id: paper.file.id(),
+                    cited_paper_id: citation.paper_id,
+                    context: citation.context,
+                })
+            ).await?;
+        }
+
+        // Store entities in AssociativeMemory via enum
+        let entities = extract_entities(&summary)?;
+        for entity in entities {
+            match entity {
+                Entity::Person(person) => {
+                    memory.knowledge.add(
+                        KnowledgeDomain::Person(PersonEntity {
+                            name: person.name,
+                            affiliation: person.affiliation,
+                            papers_authored: vec![paper.file.id()],
+                        })
+                    ).await?;
+                }
+                Entity::Organization(org) => {
+                    memory.knowledge.add(
+                        KnowledgeDomain::Organization(OrgEntity {
+                            name: org.name,
+                            domain: org.domain,
+                            associated_papers: vec![paper.file.id()],
+                        })
+                    ).await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// `#[scheduled]` runs logic on a cron schedule.
     #[scheduled(cron = "0 9 * * MON")]
     async fn weekly_report(ctx: &AgentContext<ChronicleMind>) -> AgentResult<()> {
         let memory = ctx.memory().read().await;
-
-        // Use rich temporal query API to analyze recent activity
-        let recent_events = memory.history
+        
+        // Query all events across variants (papers, citations, sessions)
+        let all_events = memory.history
             .query()
             .time_range(Duration::days(7))
             .sort_by(|a, b| b.timestamp.cmp(&a.timestamp))
-            .limit(50)
+            .limit(100)
             .collect()
             .await?;
-
-        // Semantic query across AssociativeMemory for trending topics
-        let trending_concepts = memory.knowledge
+        
+        // Count by variant type
+        let papers_analyzed = all_events.iter()
+            .filter(|e| matches!(e, ChronicleEvent::PaperAnalyzed(_)))
+            .count();
+        let citations_found = all_events.iter()
+            .filter(|e| matches!(e, ChronicleEvent::CitationExtracted(_)))
+            .count();
+        
+        // Query specific variant using where_variant filter
+        let recent_papers = memory.history
+            .query()
+            .where_variant(ChronicleEvent::PaperAnalyzed)
+            .since(Duration::days(7))
+            .collect()
+            .await?;
+        
+        // Cross-domain semantic query on AssociativeMemory
+        let trending = memory.knowledge
             .query_similar("recent research trends")
-            .within_context(&recent_events) // Only concepts from recent papers
             .min_similarity(0.7)
             .top_k(5)
             .collect()
             .await?;
-
-        // Use custom domain-specific query method
-        let ml_activity = memory.activity_by_topic("machine learning", 7).await;
+        
+        // Extract Concept variants
+        let trending_concepts: Vec<_> = trending.iter()
+            .filter_map(|k| match k {
+                KnowledgeDomain::Concept(c) => Some(c),
+                _ => None,
+            })
+            .collect();
 
         ctx.notify()
             .title("Weekly Research Summary")
             .message(format!(
-                "Analyzed {} papers last week.\nML papers: {}\nTrending: {}",
-                recent_events.len(),
-                ml_activity.count,
+                "Papers: {}, Citations: {}\nTrending: {}",
+                papers_analyzed,
+                citations_found,
                 trending_concepts.iter().map(|c| c.name.as_str()).collect::<Vec<_>>().join(", ")
             ))
             .send()
@@ -314,21 +442,50 @@ impl Chronicle {
     }
 }
 
-// Structs used by the agent's memory. They must be serializable.
+// Event types used by the agent's temporal memory
 #[derive(Serialize, Deserialize, Clone)]
 struct PaperAnalysisEvent {
     paper_id: EntryId,
     title: String,
     summary: String,
-    timestamp: DateTime<Utc>, // Auto-populated by TemporalMemory
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct CitationEvent {
+    citing_paper_id: EntryId,
+    cited_paper_id: EntryId,
+    context: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct SessionEvent {
+    session_id: Uuid,
+    papers_read: Vec<EntryId>,
+    duration_minutes: u32,
+}
+
+// Knowledge domain types for associative memory
 #[derive(Serialize, Deserialize, Clone)]
 struct Concept {
     name: String,
     definition: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct PersonEntity {
+    name: String,
+    affiliation: Option<String>,
+    papers_authored: Vec<EntryId>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct OrgEntity {
+    name: String,
+    domain: String,
+    associated_papers: Vec<EntryId>,
+}
+
+// Working memory state
 #[derive(Serialize, Deserialize, Clone, Default)]
 struct ResearchPlan {
     priority_topics: Vec<String>,
@@ -344,6 +501,81 @@ struct ActivitySummary {
 
 
 //==============================================================================
+// ## 5.0.1. Alternative: Multiple Memory Fields (Less Recommended)
+//==============================================================================
+
+// If you absolutely need separate memory instances, you can define multiple fields.
+// However, the enum approach above is preferred for most use cases.
+
+#[agent_memory]
+struct AlternativeChronicleMind {
+    // Separate temporal memories for different event streams
+    paper_events: TemporalMemory<PaperAnalysisEvent>,
+    citation_events: TemporalMemory<CitationEvent>,
+    session_events: TemporalMemory<SessionEvent>,
+
+    // Separate associative memories for different domains
+    concepts: AssociativeMemory<Concept>,
+    people: AssociativeMemory<PersonEntity>,
+    organizations: AssociativeMemory<OrgEntity>,
+
+    plan: WorkingMemory<ResearchPlan>,
+}
+
+// This works but results in:
+// - More storage overhead (7 separate memory instances)
+// - No cross-stream queries (can't easily correlate papers with citations)
+// - More complex API (7 different query entry points)
+//
+// The enum approach above is cleaner and more powerful.
+
+//==============================================================================
+// ## 5.0.2. Enum Approach Benefits
+//==============================================================================
+
+// ### Why Enums Are Preferred:
+//
+// 1. **Single Source of Truth**
+//    - One TemporalMemory with all event types
+//    - Correlate across events: "Show papers AND citations from last week"
+//
+// 2. **Simpler Storage**
+//    - One history.db file instead of three
+//    - One knowledge.vss file instead of three
+//    - Easier backup and sync
+//
+// 3. **Flexible Queries**
+//    ```rust
+//    // Query specific variant
+//    memory.history.query().where_variant(ChronicleEvent::PaperAnalyzed)
+//    
+//    // Query all variants
+//    memory.history.query().since(Duration::days(7))
+//    
+//    // Cross-variant correlation
+//    memory.history.query()
+//        .where_variant(ChronicleEvent::PaperAnalyzed)
+//        .with_related_events(ChronicleEvent::CitationExtracted)
+//    ```
+//
+// 4. **Type-Safe Pattern Matching**
+//    ```rust
+//    for event in all_events {
+//        match event {
+//            ChronicleEvent::PaperAnalyzed(p) => handle_paper(p),
+//            ChronicleEvent::CitationExtracted(c) => handle_citation(c),
+//            ChronicleEvent::ResearchSessionCompleted(s) => handle_session(s),
+//        }
+//    }
+//    ```
+//
+// 5. **Easier to Extend**
+//    - Add new variant: `ChronicleEvent::ConceptDiscovered(ConceptEvent)`
+//    - Existing queries still work
+//    - No new storage files needed
+
+
+//==============================================================================
 // ## 5.1. Memory Query API Reference
 //==============================================================================
 
@@ -354,50 +586,69 @@ struct ActivitySummary {
 // ```rust
 // memory.history
 //     .query()
+//     // Enum variant filtering (when T is an enum)
+//     .where_variant(ChronicleEvent::PaperAnalyzed)
+//     
 //     // Time filtering
 //     .since(Duration::days(7))
 //     .until(DateTime::now())
 //     .time_range(start..end)
-//
-//     // Field filtering
+//     
+//     // Field filtering (within enum variant)
 //     .where_field("title", contains("neural"))
-//     .where_field("author", equals("Smith"))
-//
-//     // Semantic filtering (uses embeddings)
+//     .where_field("authors", contains("Smith"))
+//     
+//     // Semantic filtering (uses embeddings from VSS)
 //     .where_semantic("summary", similar_to("machine learning"))
-//
+//     
+//     // Correlation queries (across enum variants)
+//     .with_related_events(ChronicleEvent::CitationExtracted)
+//     
 //     // Sorting and limiting
 //     .sort_by(|a, b| a.timestamp.cmp(&b.timestamp))
 //     .sort_by_relevance()
 //     .limit(10)
-//
+//     
 //     // Aggregation
 //     .collect().await?
 //     .count().await?
-//     .group_by(|e| e.category).await?
+//     .group_by(|e| match e {
+//         ChronicleEvent::PaperAnalyzed(_) => "paper",
+//         ChronicleEvent::CitationExtracted(_) => "citation",
+//         ChronicleEvent::ResearchSessionCompleted(_) => "session",
+//     }).await?
 // ```
 
 // ### AssociativeMemory<T> - Semantic Knowledge Graph
 //
 // ```rust
 // memory.knowledge
-//     // Similarity search
+//     // Similarity search (works across all enum variants by default)
 //     .query_similar("quantum computing")
 //     .query_vector(embedding_vec)
-//
+//     
+//     // Variant filtering (when T is an enum)
+//     .where_variant(KnowledgeDomain::Concept)
+//     .where_variant(KnowledgeDomain::Person)
+//     
 //     // Context filtering
 //     .within_context(&recent_events)
 //     .related_to(&concept)
-//
+//     
 //     // Relevance filtering
 //     .min_similarity(0.8)
 //     .top_k(5)
-//
-//     // Relationship traversal
+//     
+//     // Relationship traversal (across variants!)
 //     .and_related_concepts(depth = 2)
-//
+//     
 //     .collect().await?
 // ```
+//
+// With enums, AssociativeMemory can discover relationships across domains:
+// - Find concepts related to a person
+// - Find organizations related to a research topic
+// - Build knowledge graphs spanning multiple entity types
 
 // ### WorkingMemory<T> - Transactional Short-Term State
 //

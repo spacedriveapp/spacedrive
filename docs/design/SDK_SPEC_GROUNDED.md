@@ -727,7 +727,7 @@ impl ExtensionContext {
     pub async fn query_entries(&self) -> QueryBuilder<Entry> {
         // Serializes query, calls WASM import, deserializes result
     }
-    
+
     /// Read sidecar (calls host function vdfs_read_sidecar)
     pub async fn read_sidecar(
         &self,
@@ -736,12 +736,12 @@ impl ExtensionContext {
     ) -> Result<Vec<u8>> {
         // Permission check + VSS read
     }
-    
+
     /// Add tag (calls host function vdfs_write_tag)
     pub async fn add_tag(&self, metadata_id: Uuid, tag: &str) -> Result<()> {
         // Permission check + DB write to metadata_tag
     }
-    
+
     /// Dispatch job (calls host function job_dispatch)
     pub async fn dispatch_job<J: Job>(&self, job: J) -> Result<JobHandle> {
         // Serializes job, calls JobManager::dispatch
@@ -764,10 +764,10 @@ impl ExtensionContext {
 struct ChronicleMind {
     // Persisted to .sdlibrary/sidecars/extension/chronicle/memory/history.db
     history: TemporalMemory<PaperAnalysisEvent>,
-    
+
     // Persisted to .sdlibrary/sidecars/extension/chronicle/memory/knowledge.vss
     knowledge: AssociativeMemory<Concept>,
-    
+
     // Persisted to .sdlibrary/sidecars/extension/chronicle/memory/plan.json
     plan: WorkingMemory<ResearchPlan>,
 }
@@ -783,20 +783,20 @@ async fn analyze_paper(ctx: &JobContext, paper: Paper) -> JobResult<()> {
     // - ctx.library.db() → Database for queries
     // - ctx.library.jobs() → Dispatch child jobs
     // - ctx.library.event_bus() → Emit custom events
-    
+
     // Job is persisted in library's jobs.db
     // Progress emitted via Event::JobProgress
     // On crash, resumes from last checkpoint
-    
+
     ctx.progress(Progress::simple(0.0, "Reading OCR"));
-    
+
     // Read from VSS (permission-checked by host)
     let text = paper.full_text.ok_or(JobError::missing_sidecar("ocr"))?;
-    
+
     ctx.check_interrupt().await?; // Checkpoint to jobs.db
-    
+
     ctx.progress(Progress::simple(0.5, "Analyzing"));
-    
+
     let summary = ctx.task(|| async {
         ctx.ai()
             .prompt_template("summarize.jinja")
@@ -804,14 +804,14 @@ async fn analyze_paper(ctx: &JobContext, paper: Paper) -> JobResult<()> {
             .generate_text()
             .await
     }).await?;
-    
+
     ctx.check_interrupt().await?; // Checkpoint
-    
+
     // Write tag (permission-checked)
     ctx.vdfs()
         .add_tag(paper.file.metadata_id(), &format!("summary:{}", summary))
         .await?;
-    
+
     Ok(())
 }
 ```
@@ -857,7 +857,7 @@ async fn analyze_paper(ctx: &JobContext, paper: Paper) -> JobResult<()> {
 1. User types query in UI
    ↓
 2. Chronicle extension's query handler runs:
-   
+
    ctx.memory().read().await.history
        .query()
        .where_semantic("summary", similar_to("machine learning"))
@@ -894,7 +894,7 @@ impl WasmHost {
         if !self.plugin_permissions.contains(&Permission::WriteTags) {
             return Err(PermissionDenied);
         }
-        
+
         // 2. Execute operation
         self.library.db
             .insert_tag(metadata_id, tag)
