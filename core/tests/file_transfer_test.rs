@@ -105,7 +105,7 @@ async fn alice_file_transfer_scenario() {
 	loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
-		let connected_devices = core.get_connected_devices().await.unwrap();
+		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			receiver_device_id = Some(connected_devices[0]);
 			println!("Alice: Bob connected! Device ID: {}", connected_devices[0]);
@@ -206,7 +206,12 @@ async fn alice_file_transfer_scenario() {
 	.unwrap();
 
 	// Debug: Show Alice's view of connected devices
-	let alice_devices = core.get_connected_devices_info().await.unwrap();
+	let alice_devices = core
+		.services
+		.device
+		.get_connected_devices_info()
+		.await
+		.unwrap();
 	println!("Alice: Connected devices before transfer:");
 	for device in &alice_devices {
 		println!(
@@ -421,13 +426,18 @@ async fn bob_file_transfer_scenario() {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
 		// Check pairing status by looking at connected devices
-		let connected_devices = core.get_connected_devices().await.unwrap();
+		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			println!("Bob: Pairing completed successfully!");
 			println!("Bob: Connected {} devices", connected_devices.len());
 
 			// Debug: Show Bob's view of connected devices
-			let bob_devices = core.get_connected_devices_info().await.unwrap();
+			let bob_devices = core
+				.services
+				.device
+				.get_connected_devices_info()
+				.await
+				.unwrap();
 			println!("Bob: Connected devices after pairing:");
 			for device in &bob_devices {
 				println!(

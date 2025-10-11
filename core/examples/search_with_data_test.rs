@@ -44,14 +44,6 @@ async fn main() -> Result<()> {
 	};
 	println!("✓ Library ready");
 
-	// Set the current library in the session
-	core.context
-		.session
-		.set_current_library(Some(library.id()))
-		.await
-		.map_err(|e| anyhow::anyhow!("Failed to set current library: {}", e))?;
-	println!("✓ Current library set");
-
 	// Run migrations to set up FTS5
 	let db = library.db();
 	Migrator::up(db.conn(), None)
@@ -132,9 +124,16 @@ async fn main() -> Result<()> {
 			},
 		};
 
-		let search_query = FileSearchQuery::new(search_input);
-
-		match core.execute_query(search_query).await {
+		let mut session = core
+			.api()
+			.create_base_session()
+			.map_err(|e| anyhow::anyhow!("{}", e))?;
+		session.current_library_id = Some(library.id());
+		match core
+			.api()
+			.execute_library_query::<FileSearchQuery>(search_input, session)
+			.await
+		{
 			Ok(output) => {
 				println!(
 					"   ✓ {} search completed in {}ms",
@@ -215,9 +214,16 @@ async fn main() -> Result<()> {
 		},
 	};
 
-	let location_search_query = FileSearchQuery::new(location_search_input);
-
-	match core.execute_query(location_search_query).await {
+	let mut session = core
+		.api()
+		.create_base_session()
+		.map_err(|e| anyhow::anyhow!("{}", e))?;
+	session.current_library_id = Some(library.id());
+	match core
+		.api()
+		.execute_library_query::<FileSearchQuery>(location_search_input, session)
+		.await
+	{
 		Ok(output) => {
 			println!(
 				"   ✓ Location-specific search: {} results",
@@ -251,9 +257,16 @@ async fn main() -> Result<()> {
 		},
 	};
 
-	let filtered_search_query = FileSearchQuery::new(filtered_search_input);
-
-	match core.execute_query(filtered_search_query).await {
+	let mut session = core
+		.api()
+		.create_base_session()
+		.map_err(|e| anyhow::anyhow!("{}", e))?;
+	session.current_library_id = Some(library.id());
+	match core
+		.api()
+		.execute_library_query::<FileSearchQuery>(filtered_search_input, session)
+		.await
+	{
 		Ok(output) => {
 			println!(
 				"   ✓ Filtered search (PNG/JPG only): {} results",

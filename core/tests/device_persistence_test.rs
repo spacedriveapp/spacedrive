@@ -68,7 +68,7 @@ async fn alice_persistence_scenario() {
 		loop {
 			tokio::time::sleep(Duration::from_secs(1)).await;
 
-			let connected_devices = core.get_connected_devices().await.unwrap();
+			let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("Alice: Auto-reconnection successful!");
 				println!(
@@ -77,7 +77,12 @@ async fn alice_persistence_scenario() {
 				);
 
 				// Verify it's Bob
-				let device_info = core.get_connected_devices_info().await.unwrap();
+				let device_info = core
+					.services
+					.device
+					.get_connected_devices_info()
+					.await
+					.unwrap();
 				let bob_found = device_info.iter().any(|d| d.device_name.contains("Bob"));
 				assert!(
 					bob_found,
@@ -172,7 +177,7 @@ async fn alice_persistence_scenario() {
 		loop {
 			tokio::time::sleep(Duration::from_secs(1)).await;
 
-			let connected_devices = core.get_connected_devices().await.unwrap();
+			let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("Alice: Initial pairing completed!");
 				println!("Alice: Connected {} devices", connected_devices.len());
@@ -271,7 +276,7 @@ async fn bob_persistence_scenario() {
 		loop {
 			tokio::time::sleep(Duration::from_secs(1)).await;
 
-			let connected_devices = core.get_connected_devices().await.unwrap();
+			let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("Bob: Auto-reconnection successful!");
 				println!(
@@ -280,7 +285,12 @@ async fn bob_persistence_scenario() {
 				);
 
 				// Verify it's Alice
-				let device_info = core.get_connected_devices_info().await.unwrap();
+				let device_info = core
+					.services
+					.device
+					.get_connected_devices_info()
+					.await
+					.unwrap();
 				let alice_found = device_info.iter().any(|d| d.device_name.contains("Alice"));
 				assert!(
 					alice_found,
@@ -377,7 +387,7 @@ async fn bob_persistence_scenario() {
 		loop {
 			tokio::time::sleep(Duration::from_secs(1)).await;
 
-			let connected_devices = core.get_connected_devices().await.unwrap();
+			let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("Bob: Initial pairing completed!");
 				println!("Bob: Connected {} devices", connected_devices.len());

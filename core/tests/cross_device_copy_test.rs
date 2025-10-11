@@ -114,7 +114,12 @@ async fn alice_cross_device_copy_scenario() {
 	loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
-		let connected_devices = core.get_connected_devices_info().await.unwrap();
+		let connected_devices = core
+			.services
+			.device
+			.get_connected_devices_info()
+			.await
+			.unwrap();
 		if !connected_devices.is_empty() {
 			bob_device_id = Some(connected_devices[0].device_id);
 			println!(
@@ -221,9 +226,9 @@ async fn alice_cross_device_copy_scenario() {
 				overwrite: true,
 				verify_checksum: true,
 				preserve_timestamps: true,
-				on_conflict: None,
 				..Default::default()
 			},
+			on_conflict: None,
 		};
 
 		// Dispatch the action
@@ -369,7 +374,12 @@ async fn bob_cross_device_copy_scenario() {
 	loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
-		let connected_devices = core.get_connected_devices_info().await.unwrap();
+		let connected_devices = core
+			.services
+			.device
+			.get_connected_devices_info()
+			.await
+			.unwrap();
 		if !connected_devices.is_empty() {
 			println!("Bob: Pairing completed successfully!");
 			println!(

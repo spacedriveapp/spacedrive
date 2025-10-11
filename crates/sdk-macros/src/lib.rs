@@ -77,3 +77,63 @@ pub fn query(args: TokenStream, input: TokenStream) -> TokenStream {
 pub fn task(args: TokenStream, input: TokenStream) -> TokenStream {
 	task::task_impl(args, input)
 }
+
+/// Agent trail macro - configures agent logging
+#[proc_macro_attribute]
+pub fn agent_trail(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// On startup handler macro
+#[proc_macro_attribute]
+pub fn on_startup(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// On event handler macro
+#[proc_macro_attribute]
+pub fn on_event(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// Scheduled task macro
+#[proc_macro_attribute]
+pub fn scheduled(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// Filter attribute for event handlers
+#[proc_macro_attribute]
+pub fn filter(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// Action execute macro
+#[proc_macro_attribute]
+pub fn action_execute(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// Agent memory config macro
+#[proc_macro_attribute]
+pub fn memory_config(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// Persist strategy attribute
+#[proc_macro_attribute]
+pub fn persist_strategy(_args: TokenStream, input: TokenStream) -> TokenStream {
+	input // Pass through for now
+}
+
+/// Setting attribute for config fields
+///
+/// Note: This is a helper attribute that gets processed by the struct-level macros.
+/// It provides metadata for Spacedrive's configuration UI.
+/// In the current stub implementation, it's used for documentation purposes.
+#[proc_macro_attribute]
+pub fn setting(_args: TokenStream, input: TokenStream) -> TokenStream {
+	// This is a marker attribute that gets stripped during compilation
+	// Real implementation would be processed by a derive macro on the parent struct
+	input
+}

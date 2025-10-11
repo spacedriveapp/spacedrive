@@ -44,8 +44,8 @@ pub mod vdfs;
 // Re-export for convenience
 pub use actions::*;
 pub use agent::{
-	AgentContext, AgentMemory, AssociativeMemory, AssociativeQuery, JobDispatcher,
-	JobDispatchBuilder, MemoryHandle, MemoryReadGuard, MemoryVariant, MemoryWriteGuard,
+	AgentContext, AgentMemory, AssociativeMemory, AssociativeQuery, JobDispatchBuilder,
+	JobDispatcher, MemoryHandle, MemoryReadGuard, MemoryVariant, MemoryWriteGuard,
 	NotificationBuilder, TemporalMemory, TemporalQuery, WorkingMemory,
 };
 pub use ai::*;
@@ -71,4 +71,7 @@ pub mod prelude {
 }
 
 // Re-export macros
-pub use spacedrive_sdk_macros::{action, agent, agent_memory, extension, job, model, query, task};
+pub use spacedrive_sdk_macros::{
+	action, action_execute, agent, agent_memory, agent_trail, extension, filter, job,
+	memory_config, model, on_event, on_startup, persist_strategy, query, scheduled, setting, task,
+};

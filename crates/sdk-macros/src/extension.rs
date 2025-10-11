@@ -12,6 +12,8 @@ struct ExtensionArgs {
 	name: String,
 	version: String,
 	jobs: Vec<Ident>,
+	// We'll ignore other parameters for now (description, permissions, etc.)
+	// They can be used by tooling but don't need codegen
 }
 
 impl Parse for ExtensionArgs {
@@ -48,7 +50,39 @@ impl Parse for ExtensionArgs {
 						}
 					}
 				}
-				_ => return Err(input.error("unknown parameter")),
+				// Ignore other parameters - just skip their values
+				"description" | "min_core_version" => {
+					let _: LitStr = input.parse()?;
+				}
+				"required_features" | "permissions" => {
+					// Parse array but ignore
+					let content;
+					syn::bracketed!(content in input);
+					while !content.is_empty() {
+						let _: Expr = content.parse()?;
+						if content.peek(Token![,]) {
+							content.parse::<Token![,]>()?;
+						}
+					}
+				}
+				_ => {
+					// Unknown parameter - try to skip it
+					// This is a best-effort approach
+					if input.peek(syn::token::Bracket) {
+						let content;
+						syn::bracketed!(content in input);
+						// Consume everything in brackets
+						while !content.is_empty() {
+							let _: proc_macro2::TokenStream = content.parse()?;
+							if content.peek(Token![,]) {
+								content.parse::<Token![,]>()?;
+							}
+						}
+					} else {
+						// Try to parse as expression and discard
+						let _: Expr = input.parse()?;
+					}
+				}
 			}
 
 			if input.peek(Token![,]) {

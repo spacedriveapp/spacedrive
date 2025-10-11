@@ -1,6 +1,6 @@
 //! Simple test for FS Event Pipeline Metrics Collection
 
-use sd_core::service::watcher::metrics::{LocationWorkerMetrics, WatcherMetrics};
+use sd_core::service::watcher::{LocationWorkerMetrics, WatcherMetrics};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, Level};

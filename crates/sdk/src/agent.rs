@@ -291,4 +291,3 @@ impl<T: Serialize + DeserializeOwned + Clone + Default> WorkingMemory<T> {
 		todo!()
 	}
 }
-

@@ -62,6 +62,7 @@ async fn test_copy_action_construction() {
 			delete_after_copy: false,
 			move_mode: None,
 		},
+		on_conflict: None,
 	};
 
 	// Verify properties directly
@@ -92,8 +93,8 @@ async fn test_move_action_construction() {
 			preserve_timestamps: true,
 			delete_after_copy: true,
 			move_mode: Some(MoveMode::Move),
-			on_conflict: None,
 		},
+		on_conflict: None,
 	};
 
 	assert!(move_action.options.delete_after_copy);

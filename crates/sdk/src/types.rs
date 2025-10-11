@@ -224,3 +224,19 @@ pub enum QueryError {
 
 /// Task error type
 pub type TaskError = Error;
+
+// Implement From conversions for common error types
+impl From<serde_json::Error> for Error {
+	fn from(err: serde_json::Error) -> Self {
+		Error::Serialization(err.to_string())
+	}
+}
+
+impl From<QueryError> for Error {
+	fn from(err: QueryError) -> Self {
+		match err {
+			QueryError::NotFound => Error::NotFound,
+			QueryError::Failed(msg) => Error::OperationFailed(msg),
+		}
+	}
+}

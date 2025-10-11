@@ -89,9 +89,18 @@ impl JobContext {
 
 	/// Check if job should pause or cancel
 	/// Returns true if interrupted
-	pub fn check_interrupt(&self) -> bool {
+	pub fn check_interrupt_sync(&self) -> bool {
 		let result = unsafe { job_check_interrupt(self.job_id.as_ptr()) };
 		result != 0
+	}
+
+	/// Check for interruption (async version)
+	pub async fn check_interrupt(&self) -> crate::types::Result<()> {
+		if self.check_interrupt_sync() {
+			Err(crate::types::Error::OperationFailed("Interrupted".into()))
+		} else {
+			Ok(())
+		}
 	}
 
 	/// Add a warning (non-fatal issue)
@@ -136,9 +145,10 @@ impl JobContext {
 	}
 
 	/// Run a task (for job composition)
-	pub async fn run<F, A, R>(&self, _task: F, _args: A) -> crate::types::Result<R>
+	pub async fn run<F, A, R, Fut>(&self, _task: F, _args: A) -> crate::types::Result<R>
 	where
-		F: Fn(&crate::tasks::TaskContext, A) -> crate::tasks::TaskResult<R>,
+		F: Fn(crate::tasks::TaskContext, A) -> Fut,
+		Fut: std::future::Future<Output = crate::tasks::TaskResult<R>>,
 	{
 		todo!("Execute task with checkpoint")
 	}
@@ -155,15 +165,6 @@ impl JobContext {
 			crate::types::Progress::Complete(msg) => {
 				self.report_progress(1.0, &msg);
 			}
-		}
-	}
-
-	/// Check for interruption (async version)
-	pub async fn check_interrupt_async(&self) -> crate::types::Result<()> {
-		if self.check_interrupt() {
-			Err(crate::types::Error::OperationFailed("Interrupted".into()))
-		} else {
-			Ok(())
 		}
 	}
 
