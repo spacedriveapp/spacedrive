@@ -4,33 +4,33 @@ A comprehensive photo management extension that brings Apple Photos and Google P
 
 ## Features
 
-### 🎭 Face Recognition
+### Face Recognition
 - **Automatic face detection** using RetinaFace model
 - **Face clustering** with DBSCAN algorithm
 - **Person identification** with name labeling
 - **Face-based search** ("Show me photos of Alice")
 - **Cross-device sync** of face clusters
 
-### 📍 Place Identification
+### Place Identification
 - **GPS extraction** from EXIF data
 - **Geographic clustering** (groups photos within 500m)
 - **Reverse geocoding** using AI
 - **Place-based search** ("Photos from Paris")
 - **Map view** of photo locations
 
-### 🎬 Moments
+### Moments
 - **Automatic moment generation** (time + location clustering)
 - **AI-generated titles** ("Summer in Paris")
 - **Weekly memories** (scheduled agent task)
 - **Moment timeline** view
 
-### 🏷️ Scene Understanding
+### ️ Scene Understanding
 - **Scene classification** (ResNet50 on Places365)
 - **Smart tags** (#beach, #sunset, #food)
 - **Scene-based search** ("Photos with sunsets")
 - **Quality scoring** (aesthetic assessment)
 
-### 📱 Albums & Organization
+### Albums & Organization
 - **Manual albums** (user-created)
 - **Smart albums** (rule-based)
 - **Favorites** (special album)
@@ -130,7 +130,7 @@ User can search "#person:alice" or "photos from beach"
 
 ## SDK Features Demonstrated
 
-### ✅ Implemented in Example
+### Implemented in Example
 
 - `#[extension]` with permissions and dependencies
 - `#[model]` for Photo, Person, Place, Album, Moment
@@ -147,38 +147,38 @@ User can search "#person:alice" or "photos from beach"
 - Tag generation from sidecars
 - Custom memory query methods
 
-### 🚧 SDK Features Used (Not Yet Implemented in Core)
+### SDK Features Used (Not Yet Implemented in Core)
 
 Most features here are aspirational - the SDK is still being built. This serves as a comprehensive reference implementation.
 
 ## Capabilities Compared
 
 ### Apple Photos
-- ✅ Face recognition and clustering
-- ✅ Place identification
-- ✅ Memories
-- ✅ Albums (manual and smart)
-- ✅ Favorites and hidden
-- ✅ Search by person/place/scene
-- ✅ Map view
-- ⚠️ Shared albums (requires P2P implementation)
+- Face recognition and clustering
+- Place identification
+- Memories
+- Albums (manual and smart)
+- Favorites and hidden
+- Search by person/place/scene
+- Map view
+- ️ Shared albums (requires P2P implementation)
 
 ### Google Photos
-- ✅ Face grouping
-- ✅ Place detection
-- ✅ Search by content
-- ✅ Albums
-- ✅ Automatic creations (moments)
-- ✅ Scene/object detection
-- ⚠️ Cloud backup (Spacedrive handles differently)
+- Face grouping
+- Place detection
+- Search by content
+- Albums
+- Automatic creations (moments)
+- Scene/object detection
+- ️ Cloud backup (Spacedrive handles differently)
 
 ### Spacedrive Photos Advantages
-- 🔒 **100% local** - No cloud upload required
-- 🔐 **Privacy-first** - Face data never leaves devices
-- 🌐 **Multi-device sync** - Via P2P, not cloud
-- 💰 **Zero recurring cost** - No subscription needed
-- 🎯 **User-scoped** - Only analyzes chosen locations
-- 🔧 **Extensible** - Open SDK for customization
+- **100% local** - No cloud upload required
+- **Privacy-first** - Face data never leaves devices
+- **Multi-device sync** - Via P2P, not cloud
+- **Zero recurring cost** - No subscription needed
+- **User-scoped** - Only analyzes chosen locations
+- **Extensible** - Open SDK for customization
 
 ## Building
 

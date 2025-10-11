@@ -280,20 +280,20 @@ Rich UI/API responses
 ## Alternative Approaches Considered
 
 ### Job-Specific Metadata (e.g., location-only)
-- ❌ **Limited Scope**: Only works for specific job types
-- ❌ **Repetitive**: Need different solutions for each job type
-- ❌ **Maintenance**: Multiple metadata systems to maintain
+- **Limited Scope**: Only works for specific job types
+- **Repetitive**: Need different solutions for each job type
+- **Maintenance**: Multiple metadata systems to maintain
 
 ### Action Logging Separate from Jobs
-- ❌ **Disconnected**: Hard to correlate actions with jobs
-- ❌ **Complex Queries**: Need joins across multiple systems
-- ❌ **Performance**: Additional overhead for correlation
+- **Disconnected**: Hard to correlate actions with jobs
+- **Complex Queries**: Need joins across multiple systems
+- **Performance**: Additional overhead for correlation
 
-### ✅ Universal Action Context (Chosen)
-- ✅ **Comprehensive**: Works for all current and future job types
-- ✅ **Unified**: Single system for all action→job relationships
-- ✅ **Extensible**: Easy to add new action types and context
-- ✅ **Performance**: Efficient storage and retrieval
+### Universal Action Context (Chosen)
+- **Comprehensive**: Works for all current and future job types
+- **Unified**: Single system for all action→job relationships
+- **Extensible**: Easy to add new action types and context
+- **Performance**: Efficient storage and retrieval
 
 ## Security Considerations
 

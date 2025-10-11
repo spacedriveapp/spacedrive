@@ -30,7 +30,7 @@ export class SpacedriveClient extends EventEmitter {
    * Execute a query operation
    */
   async executeQuery<Q, R>(query: Q, method: string): Promise<R> {
-    console.log(`🔍 Executing query: ${method}`);
+    console.log(`Executing query: ${method}`);
 
     const request = {
       JsonQuery: {
@@ -42,7 +42,7 @@ export class SpacedriveClient extends EventEmitter {
     const response = await this.sendRequest(request);
 
     if ('JsonOk' in response) {
-      console.log('🔍 Query successful');
+      console.log('Query successful');
       return response.JsonOk;
     } else if ('Error' in response) {
       throw new Error(`Query failed: ${response.Error}`);
@@ -77,7 +77,7 @@ export class SpacedriveClient extends EventEmitter {
    * Subscribe to events from the daemon
    */
   async subscribe(eventTypes: string[] = []): Promise<void> {
-    console.log('🎧 Starting event subscription...');
+    console.log('Starting event subscription...');
 
     const socket = await this.createConnection();
 
@@ -101,26 +101,26 @@ export class SpacedriveClient extends EventEmitter {
 
           if ('Event' in response) {
             const event: Event = response.Event;
-            console.log('📡 Received event:', event);
+            console.log('Received event:', event);
             this.emit('spacedrive-event', event);
           } else if (line.includes('Subscribed')) {
-            console.log('✅ Event subscription active');
+            console.log('Event subscription active');
             this.emit('subscribed');
           }
         } catch (error) {
-          console.error('❌ Failed to parse event:', error);
-          console.error('❌ Raw line:', line);
+          console.error('Failed to parse event:', error);
+          console.error('Raw line:', line);
         }
       }
     });
 
     socket.on('error', (error) => {
-      console.error('❌ Socket error:', error);
+      console.error('Socket error:', error);
       this.emit('error', error);
     });
 
     socket.on('close', () => {
-      console.log('🔌 Socket closed');
+      console.log('Socket closed');
       this.emit('disconnected');
     });
   }
@@ -129,11 +129,11 @@ export class SpacedriveClient extends EventEmitter {
    * Ping the daemon to test connectivity
    */
   async ping(): Promise<void> {
-    console.log('🏓 Sending ping...');
+    console.log('Sending ping...');
     const response = await this.sendRequest('Ping');
 
     if (response === 'Pong') {
-      console.log('✅ Ping successful!');
+      console.log('Ping successful!');
     } else {
       throw new Error(`Unexpected ping response: ${JSON.stringify(response)}`);
     }
@@ -180,17 +180,17 @@ export class SpacedriveClient extends EventEmitter {
 
   private createConnection(): Promise<Socket> {
     return new Promise((resolve, reject) => {
-      console.log(`🔗 Connecting to daemon at: ${this.socketPath}`);
+      console.log(`Connecting to daemon at: ${this.socketPath}`);
 
       const socket = createConnection(this.socketPath);
 
       socket.on('connect', () => {
-        console.log('✅ Connected to daemon');
+        console.log('Connected to daemon');
         resolve(socket);
       });
 
       socket.on('error', (error) => {
-        console.error('❌ Connection failed:', error);
+        console.error('Connection failed:', error);
         reject(error);
       });
     });
@@ -199,7 +199,7 @@ export class SpacedriveClient extends EventEmitter {
   private sendRequestOverSocket(request: any, socket: Socket): Promise<void> {
     return new Promise((resolve, reject) => {
       const requestLine = JSON.stringify(request) + '\n';
-      console.log(`📤 Sending: ${requestLine.trim()}`);
+      console.log(`Sending: ${requestLine.trim()}`);
 
       socket.write(requestLine, (error) => {
         if (error) {
@@ -222,7 +222,7 @@ export class SpacedriveClient extends EventEmitter {
         const newlineIndex = buffer.indexOf('\n');
         if (newlineIndex !== -1) {
           const line = buffer.slice(0, newlineIndex).trim();
-          console.log(`📥 Received: ${line}`);
+          console.log(`Received: ${line}`);
 
           try {
             const response = JSON.parse(line);

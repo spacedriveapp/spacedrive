@@ -195,9 +195,9 @@ async fn test_same_physical_storage_detection() {
 		if path1.exists() && path2.exists() {
 			let same_storage = volume_manager.same_physical_storage(&path1, &path2).await;
 			let status = if same_storage == expected {
-				"✅"
+				""
 			} else {
-				"❌"
+				""
 			};
 
 			println!(

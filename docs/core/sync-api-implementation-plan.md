@@ -45,7 +45,7 @@ library.sync_model(&result, ChangeType::Insert).await?;
 
 Add **extension methods** to `Library` that handle:
 - Dependency fetching (sync service, peer log, HLC generator)
-- FK conversion (UUID ↔ integer ID mapping)
+- FK conversion (UUID integer ID mapping)
 - Sync strategy selection (device-owned vs shared)
 - Batch optimization for bulk operations
 
@@ -420,10 +420,10 @@ Event::Custom { event_type, data } if event_type == "sync:state_change_batch" =>
 **Goal**: Implement clean API without breaking existing code
 
 **Tasks**:
-1. ✅ Create `sync_helpers.rs` with three public methods
-2. ✅ Add batch event handling to `PeerSyncService`
-3. ✅ Update integration tests to use new API
-4. ✅ Run full test suite - verify no regressions
+1. Create `sync_helpers.rs` with three public methods
+2. Add batch event handling to `PeerSyncService`
+3. Update integration tests to use new API
+4. Run full test suite - verify no regressions
 
 **Success Criteria**: All existing tests pass with new API available
 
@@ -434,9 +434,9 @@ Event::Custom { event_type, data } if event_type == "sync:state_change_batch" =>
 **Goal**: Wire up 2-3 managers to validate API
 
 **Tasks**:
-1. ✅ Wire `TagManager.create_tag()` - Uses `sync_model()`
-2. ✅ Wire `LocationManager.add_location()` - Uses `sync_model_with_db()`
-3. ✅ Test end-to-end sync between two real Core instances
+1. Wire `TagManager.create_tag()` - Uses `sync_model()`
+2. Wire `LocationManager.add_location()` - Uses `sync_model_with_db()`
+3. Test end-to-end sync between two real Core instances
 
 **Success Criteria**:
 - Create tag on Device A → appears on Device B
@@ -449,10 +449,10 @@ Event::Custom { event_type, data } if event_type == "sync:state_change_batch" =>
 **Goal**: Wire up bulk entry creation with batching
 
 **Tasks**:
-1. ✅ Update `EntryPersistence` to use `sync_models_batch()`
-2. ✅ Add batch size configuration (default: 1000)
-3. ✅ Test indexing 10K+ files with sync enabled
-4. ✅ Measure performance (should be <5 seconds for 10K entries)
+1. Update `EntryPersistence` to use `sync_models_batch()`
+2. Add batch size configuration (default: 1000)
+3. Test indexing 10K+ files with sync enabled
+4. Measure performance (should be <5 seconds for 10K entries)
 
 **Success Criteria**:
 - Index 10,000 files on Device A
@@ -466,11 +466,11 @@ Event::Custom { event_type, data } if event_type == "sync:state_change_batch" =>
 **Goal**: Wire all remaining managers
 
 **Managers to Update**:
-- ✅ `LocationManager` (add, update, remove)
-- ✅ `TagManager` (create, update, delete)
-- ✅ `AlbumManager` (when implemented)
-- ✅ `UserMetadataManager` (when implemented)
-- ✅ `EntryProcessor` (all entry operations)
+- `LocationManager` (add, update, remove)
+- `TagManager` (create, update, delete)
+- `AlbumManager` (when implemented)
+- `UserMetadataManager` (when implemented)
+- `EntryProcessor` (all entry operations)
 
 **Success Criteria**: All database writes emit sync events
 
@@ -481,10 +481,10 @@ Event::Custom { event_type, data } if event_type == "sync:state_change_batch" =>
 **Goal**: Enable device pairing and sync setup via CLI
 
 **Tasks**:
-1. ✅ Verify `network pair` command works
-2. ✅ Verify `network sync-setup` registers devices correctly
-3. ✅ Test full flow: pair → setup → sync data
-4. ✅ Document CLI workflow in user docs
+1. Verify `network pair` command works
+2. Verify `network sync-setup` registers devices correctly
+3. Test full flow: pair → setup → sync data
+4. Document CLI workflow in user docs
 
 **Success Criteria**: Users can pair devices and sync via CLI
 
@@ -651,19 +651,19 @@ If any code already uses `commit_device_owned()` or `commit_shared()` directly:
 ## Success Metrics
 
 ### Code Quality
-- ✅ Sync calls reduced from 9 lines → 1 line
-- ✅ Zero breaking changes to existing tests
-- ✅ Consistent API across all models
+- Sync calls reduced from 9 lines → 1 line
+- Zero breaking changes to existing tests
+- Consistent API across all models
 
 ### Performance
-- ✅ Single operations: <100ms overhead
-- ✅ Bulk operations: 30-120x speedup with batching
-- ✅ Indexing 10K files: <5 seconds sync overhead
+- Single operations: <100ms overhead
+- Bulk operations: 30-120x speedup with batching
+- Indexing 10K files: <5 seconds sync overhead
 
 ### Developer Experience
-- ✅ New contributors can add sync in <5 minutes
-- ✅ API is self-documenting (method names explain intent)
-- ✅ IDE autocomplete suggests correct method
+- New contributors can add sync in <5 minutes
+- API is self-documenting (method names explain intent)
+- IDE autocomplete suggests correct method
 
 ---
 

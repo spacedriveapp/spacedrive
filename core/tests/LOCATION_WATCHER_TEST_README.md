@@ -63,17 +63,17 @@ Directory is cleared before each test run and cleaned up after.
 
 ## Currently Working Scenarios
 
-✅ Initial indexing  
-✅ File creation  
-✅ File modification (no duplicates!)  
-✅ Directory creation  
-✅ Nested file creation  
+Initial indexing  
+File creation  
+File modification (no duplicates!)  
+Directory creation  
+Nested file creation  
 
 ## TODO Scenarios
 
-⚠️ File renaming (needs inode lookup from database for deleted paths)  
-⚠️ File/directory deletion (investigate task panic)  
-⚠️ Bulk operations  
+️ File renaming (needs inode lookup from database for deleted paths)  
+️ File/directory deletion (investigate task panic)  
+️ Bulk operations  
 
 ## Usage
 

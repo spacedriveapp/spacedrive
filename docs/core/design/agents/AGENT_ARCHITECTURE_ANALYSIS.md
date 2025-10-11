@@ -202,7 +202,7 @@ pub enum ExtensionEvent {
 
 ### 5. **Tool System**
 
-> **Spacedrive Status:** ⚠️ **Not yet implemented** - Tools system needs to be added to SDK
+> **Spacedrive Status:** ️ **Not yet implemented** - Tools system needs to be added to SDK
 
 #### rust-deep-agents-sdk Macro Pattern (Ergonomic)
 
@@ -762,9 +762,9 @@ let agent = AgentBuilder::new("Photo assistant")
 - Event system can start with basic logging
 
 ### 2. **Leverage Proc Macros**
-- `#[tool]` for zero-boilerplate tools ⚠️ **TODO: Needs implementation**
-- `#[agent]` for lifecycle registration ⚠️ **TODO: Needs implementation**
-- `#[agent_memory]` for persistence trait ⚠️ **TODO: Needs implementation**
+- `#[tool]` for zero-boilerplate tools ️ **TODO: Needs implementation**
+- `#[agent]` for lifecycle registration ️ **TODO: Needs implementation**
+- `#[agent_memory]` for persistence trait ️ **TODO: Needs implementation**
 - `#[task]` already exists for durable jobs ✅
 - `#[job]` already exists for job registration ✅
 
@@ -852,7 +852,7 @@ All three are production-quality codebases with valuable patterns for Spacedrive
 
 ## Appendix: Spacedrive SDK Implementation Status
 
-### ✅ What Exists Today
+### What Exists Today
 
 **Job System:**
 - `#[job]` macro for durable, long-running operations
@@ -872,7 +872,7 @@ All three are production-quality codebases with valuable patterns for Spacedrive
 - Permission scoping to locations
 - Model registration
 
-### ⚠️ What Needs Implementation
+### ️ What Needs Implementation
 
 **Tools System (New):**
 - `Tool` trait with JSON Schema generation
@@ -899,7 +899,7 @@ All three are production-quality codebases with valuable patterns for Spacedrive
 - Event correlation IDs
 - PII sanitization
 
-### 🎯 Quick Implementation Guide
+### Quick Implementation Guide
 
 **If implementing tools first (recommended):**
 

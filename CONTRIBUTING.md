@@ -212,7 +212,7 @@ Once you have finished making your changes, create a pull request (PR) to submit
 
 ### Your PR is Merged!
 
-Congratulations! 🎉🎉 The Spacedrive team thanks you for your contribution! ✨
+Congratulations! 🎉The Spacedrive team thanks you for your contribution! 
 
 Once your PR is merged, your changes will be included in the next release of the application.
 

@@ -11,23 +11,23 @@ This extension demonstrates **every major SDK feature** through a real-world use
 ### Pattern 1: Core Does Generic, Extension Does Specialized
 
 **Core extracts:**
-- ✅ EXIF metadata (camera, GPS, date)
-- ✅ Thumbnails (for quick preview)
-- ✅ Basic embeddings (for semantic search)
+- EXIF metadata (camera, GPS, date)
+- Thumbnails (for quick preview)
+- Basic embeddings (for semantic search)
 
 **Photos extension adds:**
-- 🎭 Face detection (RetinaFace model)
-- 📍 Place clustering (from GPS + reverse geocoding)
-- 🎬 Scene classification (ResNet50)
-- 🌟 Aesthetic scoring
-- 🧠 Person identification with clustering
+- Face detection (RetinaFace model)
+- Place clustering (from GPS + reverse geocoding)
+- Scene classification (ResNet50)
+- Aesthetic scoring
+- Person identification with clustering
 
 ### Pattern 2: On-Demand, User-Scoped Analysis
 
 **Not automatic:**
 ```rust
-// ❌ Photos does NOT analyze every screenshot automatically
-// ✅ User enables Photos on specific locations:
+// Photos does NOT analyze every screenshot automatically
+// User enables Photos on specific locations:
 //    [x] /My Photos
 //    [x] /Family Vacation 2025
 //    [ ] /Work Documents (not relevant)
@@ -376,14 +376,14 @@ async fn suggest_featured(ctx: &QueryContext<PhotosMind>) -> QueryResult<Vec<Pho
 
 ## This Extension Demonstrates
 
-✅ **Full SDK surface area** - All primitives used
-✅ **Real-world complexity** - Matches commercial photo apps
-✅ **Core/Extension separation** - Clear boundaries
-✅ **User privacy** - Local processing, scoped access
-✅ **Progressive enhancement** - Works with partial data
-✅ **Durable operations** - All jobs resumable
-✅ **Multi-device** - Sync face clusters via CRDT
-✅ **AI-native** - Models, prompts, semantic search
+**Full SDK surface area** - All primitives used
+**Real-world complexity** - Matches commercial photo apps
+**Core/Extension separation** - Clear boundaries
+**User privacy** - Local processing, scoped access
+**Progressive enhancement** - Works with partial data
+**Durable operations** - All jobs resumable
+**Multi-device** - Sync face clusters via CRDT
+**AI-native** - Models, prompts, semantic search
 
-**This is the reference implementation for the VDFS SDK.** 🎯
+**This is the reference implementation for the VDFS SDK.** 
 

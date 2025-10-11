@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		println!("   Using existing library: {}", lib.name().await);
 		lib
 	};
-	println!("   🆔 Library ID: {}", library.id());
+	println!("   Library ID: {}", library.id());
 	println!("   Library path: {}\n", library.path().display());
 
 	// 3. Set up desktop location
@@ -446,10 +446,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n   Sample Indexed Entries:");
 	for (i, entry) in sample_entries.iter().take(5).enumerate() {
 		let kind = match entry.kind {
-			0 => "📄",
-			1 => "📁",
-			2 => "🔗",
-			_ => "❓",
+			0 => "",
+			1 => "",
+			2 => "",
+			_ => "",
 		};
 		println!(
 			"      {} {} {} ({})",

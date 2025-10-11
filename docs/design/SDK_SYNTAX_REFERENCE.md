@@ -53,14 +53,14 @@ The foundational, macro-based primitives are affirmed and will be retained:
 **Decision:** Use trait-based type system for compile-time safety and extensibility.
 
 ```rust
-// ✅ APPROVED: Trait-based (compile-time safe)
+// APPROVED: Trait-based (compile-time safe)
 ctx.vdfs()
     .entries()
     .of_type::<Pdf>()
     .collect()
     .await?;
 
-// ❌ DEPRECATED: String-based
+// DEPRECATED: String-based
 .of_type("pdf")
 ```
 
@@ -69,7 +69,7 @@ ctx.vdfs()
 **Decision:** Use context-specific Result types for clearer error semantics.
 
 ```rust
-// ✅ APPROVED: Custom Result types
+// APPROVED: Custom Result types
 async fn handler(ctx: &AgentContext) -> AgentResult<()>
 async fn job(ctx: &JobContext) -> JobResult<()>
 async fn action(ctx: &ActionContext) -> ActionResult<()>
@@ -80,7 +80,7 @@ async fn action(ctx: &ActionContext) -> ActionResult<()>
 **Decision:** Support explicit lifecycle hooks for initialization and cleanup.
 
 ```rust
-// ✅ APPROVED: Lifecycle hooks
+// APPROVED: Lifecycle hooks
 #[on_startup]
 async fn initialize(ctx: &AgentContext) -> AgentResult<()>
 
@@ -93,7 +93,7 @@ async fn cleanup(ctx: &AgentContext) -> AgentResult<()>
 **Decision:** Use attributes for version declaration and trait implementation for migration logic.
 
 ```rust
-// ✅ APPROVED: Declarative versioning
+// APPROVED: Declarative versioning
 #[data_model]
 #[version = "2.0.0"]
 #[migrate_from = "1.0.0"]
@@ -826,11 +826,11 @@ async fn robust_processing(ctx: &JobContext, entry: Entry) -> JobResult<()> {
 ```
 
 **Key Features:**
-- ✅ **Automatic Checkpointing**: Each `ctx.task()` call creates a checkpoint boundary
-- ✅ **Manual Checkpoints**: Use `ctx.check()` for fine-grained control
-- ✅ **Resumability**: Jobs resume from the last completed task after crashes
-- ✅ **Built on Task System**: Leverages existing multithreaded infrastructure
-- ✅ **No Extra Layer**: No separate workflow abstraction needed
+- **Automatic Checkpointing**: Each `ctx.task()` call creates a checkpoint boundary
+- **Manual Checkpoints**: Use `ctx.check()` for fine-grained control
+- **Resumability**: Jobs resume from the last completed task after crashes
+- **Built on Task System**: Leverages existing multithreaded infrastructure
+- **No Extra Layer**: No separate workflow abstraction needed
 
 ---
 
@@ -1754,13 +1754,13 @@ async fn analyze_paper(ctx: &JobContext, entry: Entry) -> JobResult<()> {
 ```
 
 **Key Features Demonstrated:**
-- ✅ **Task-Based Composition**: Jobs compose multiple tasks with automatic checkpointing
-- ✅ **Custom Result Types**: `JobResult`, `AgentResult` for clear error semantics
-- ✅ **Trait-Based Filtering**: `.of_type::<Pdf>()` provides compile-time safety
-- ✅ **Lifecycle Hooks**: `#[on_startup]` for agent initialization
-- ✅ **Durable Execution**: Jobs automatically checkpoint between tasks
-- ✅ **Declarative Routing**: `on_device_with_capability()` for smart device selection
-- ✅ **Built on Task System**: Leverages existing multithreaded infrastructure
+- **Task-Based Composition**: Jobs compose multiple tasks with automatic checkpointing
+- **Custom Result Types**: `JobResult`, `AgentResult` for clear error semantics
+- **Trait-Based Filtering**: `.of_type::<Pdf>()` provides compile-time safety
+- **Lifecycle Hooks**: `#[on_startup]` for agent initialization
+- **Durable Execution**: Jobs automatically checkpoint between tasks
+- **Declarative Routing**: `on_device_with_capability()` for smart device selection
+- **Built on Task System**: Leverages existing multithreaded infrastructure
 
 ---
 

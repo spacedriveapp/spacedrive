@@ -146,7 +146,7 @@ core/src/service/network/protocol/
 │ 3. User Selection (UI)                                     │
 │    - View remote libraries                                 │
 │    - Choose sync action:                                   │
-│      • RegisterOnly (Phase 1) ✅                           │
+│      • RegisterOnly (Phase 1)                           │
 │      • MergeIntoLocal (Phase 3)                            │
 │      • MergeIntoRemote (Phase 3)                           │
 │      • CreateShared (Phase 3)                              │
@@ -174,25 +174,25 @@ core/src/service/network/protocol/
 
 ### What Works Now
 
-✅ **Device Registration**
+**Device Registration**
 - Remote device is registered in local library database
 - Local device sends registration request to remote device
 - Remote device handles registration in its library database
 - Bi-directional setup completes
 
-✅ **Discovery Query**
+**Discovery Query**
 - Validates device pairing status
 - Sends discovery request over network
 - Receives library list with metadata
 - Returns structured library information
 
-✅ **Network Protocol**
+**Network Protocol**
 - `LibraryMessage` types for discovery and registration
 - Integrated into existing messaging protocol
 - Request/response pattern over Iroh streams
 - Proper serialization and error handling
 
-✅ **Validation & Safety**
+**Validation & Safety**
 - Verifies devices are paired before setup
 - Validates library existence
 - Transaction-safe database operations
@@ -200,7 +200,7 @@ core/src/service/network/protocol/
 
 ### What's Pending
 
-⏳ **Full Sync Implementation** (Phase 3)
+**Full Sync Implementation** (Phase 3)
 - Library merging strategies
 - Conflict resolution
 - Sync job initialization
@@ -425,10 +425,10 @@ sd start --foreground
 ## Future Roadmap
 
 ### Phase 2: Network Protocol Completion
-- ✅ LibraryMessage types defined
-- ✅ MessagingProtocolHandler extended
-- ✅ NetworkingService send_library_request() method
-- ✅ Bi-directional device registration
+- LibraryMessage types defined
+- MessagingProtocolHandler extended
+- NetworkingService send_library_request() method
+- Bi-directional device registration
 
 ### Phase 3: Full Sync Support
 
@@ -533,14 +533,14 @@ The implementation aligns with `SYNC_DESIGN.md`:
 
 | Design Concept | Implementation Status |
 |----------------|----------------------|
-| Separate from pairing | ✅ Implemented |
-| LibraryAction enum | ✅ Defined (RegisterOnly active) |
-| Device registration | ✅ Implemented |
-| Library discovery | ✅ Implemented |
-| Network protocol | ✅ Implemented |
-| Merge strategies | ⏳ Future (Phase 3) |
-| Sync jobs | ⏳ Future (Phase 3) |
-| Leader election | ⏳ Future (Phase 3) |
+| Separate from pairing | Implemented |
+| LibraryAction enum | Defined (RegisterOnly active) |
+| Device registration | Implemented |
+| Library discovery | Implemented |
+| Network protocol | Implemented |
+| Merge strategies | Future (Phase 3) |
+| Sync jobs | Future (Phase 3) |
+| Leader election | Future (Phase 3) |
 
 ## Migration Path
 
@@ -548,11 +548,11 @@ No database migrations required - uses existing `device` table in libraries.
 
 ## Dependencies
 
-- ✅ Pairing protocol (device authentication)
-- ✅ Messaging protocol (communication)
-- ✅ Library manager (database access)
-- ✅ Device registry (pairing verification)
-- ⏳ Sync system (future full implementation)
+- Pairing protocol (device authentication)
+- Messaging protocol (communication)
+- Library manager (database access)
+- Device registry (pairing verification)
+- Sync system (future full implementation)
 
 ## Known Limitations
 

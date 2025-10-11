@@ -4,17 +4,17 @@ A comprehensive command-line interface for managing Spacedrive Core with full da
 
 ## Features
 
-- **🏗️ Daemon Architecture**: Background daemon with client-server communication
-- **📚 Library Management**: Create, open, switch, and manage multiple libraries
-- **📁 Location Management**: Add, remove, and monitor indexed locations with real-time watching
-- **⚙️ Job Management**: View, monitor, and control background jobs with live progress
-- **📊 Real-time Monitoring**: Beautiful TUI for monitoring job progress and system events
-- **🔍 Indexing Control**: Start indexing jobs with different modes (shallow/content/deep)
-- **🌐 Networking Support**: Device pairing, file sharing via Spacedrop
-- **🔧 Multiple Instances**: Run isolated daemon instances for different use cases
-- **📝 Comprehensive Logging**: Built-in logging with file output for debugging
-- **🖥️ Cross-platform**: Works on macOS, Linux, and Windows
-- **🎨 Rich UI**: Colored output, progress bars, and formatted tables
+- **️ Daemon Architecture**: Background daemon with client-server communication
+- **Library Management**: Create, open, switch, and manage multiple libraries
+- **Location Management**: Add, remove, and monitor indexed locations with real-time watching
+- **️ Job Management**: View, monitor, and control background jobs with live progress
+- **Real-time Monitoring**: Beautiful TUI for monitoring job progress and system events
+- **Indexing Control**: Start indexing jobs with different modes (shallow/content/deep)
+- **Networking Support**: Device pairing, file sharing via Spacedrop
+- **Multiple Instances**: Run isolated daemon instances for different use cases
+- **Comprehensive Logging**: Built-in logging with file output for debugging
+- **️ Cross-platform**: Works on macOS, Linux, and Windows
+- **Rich UI**: Colored output, progress bars, and formatted tables
 
 ### New Modular Architecture Benefits
 
@@ -229,11 +229,11 @@ sd job cancel <job-id>
 ```
 
 **Job Monitor Features:**
-- 🔴 Live progress bars for running jobs
-- 🎨 Color-coded status (running: yellow, completed: green, failed: red)
-- ⏱️ Real-time updates every second
-- 🧹 Automatic cleanup of completed jobs
-- ⌨️ Ctrl+C to exit gracefully
+- Live progress bars for running jobs
+- Color-coded status (running: yellow, completed: green, failed: red)
+- ️ Real-time updates every second
+- Automatic cleanup of completed jobs
+- ️ Ctrl+C to exit gracefully
 
 ### File Operations
 
@@ -301,21 +301,21 @@ sd job monitor
 
 ### Monitor Features
 
-- **🎯 Multi-job tracking**: Monitor all running jobs simultaneously
-- **📊 Progress bars**: Visual progress indicators with percentage
-- **🎨 Color coding**: Status-based colors (yellow=running, green=completed, red=failed)
-- **⚡ Real-time updates**: Updates every second with latest progress
-- **🧹 Smart cleanup**: Completed jobs automatically marked and removed
-- **🔍 Job filtering**: Option to monitor specific jobs
+- **Multi-job tracking**: Monitor all running jobs simultaneously
+- **Progress bars**: Visual progress indicators with percentage
+- **Color coding**: Status-based colors (yellow=running, green=completed, red=failed)
+- **Real-time updates**: Updates every second with latest progress
+- **Smart cleanup**: Completed jobs automatically marked and removed
+- **Job filtering**: Option to monitor specific jobs
 
 ### Sample Output
 
 ```
-📡 Spacedrive Job Monitor - Press Ctrl+C to exit
+Spacedrive Job Monitor - Press Ctrl+C to exit
 ═══════════════════════════════════════════
 
 ⠚ Indexing Desktop [fdbe777d] [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 25% | Status: Running
-⠂ Indexing Photos [a1b2c3d4]  [██████████████████████████████████████████] 100% | ✅ Completed
+⠂ Indexing Photos [a1b2c3d4]  [██████████████████████████████████████████] 100% | Completed
 ⠈ Content Analysis [e5f6g7h8] [██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 15% | Status: Running
 ```
 

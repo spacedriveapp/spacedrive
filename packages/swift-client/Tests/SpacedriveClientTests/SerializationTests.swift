@@ -182,7 +182,7 @@ final class SerializationTests: XCTestCase {
                 responseType: [LibraryInfo].self
             )
 
-            print("✅ Real daemon integration successful - found \(libraries.count) libraries")
+            print("Real daemon integration successful - found \(libraries.count) libraries")
 
             // If we have libraries, test job list with generated types
             if !libraries.isEmpty {
@@ -192,7 +192,7 @@ final class SerializationTests: XCTestCase {
                     responseType: JobListOutput.self
                 )
 
-                print("✅ Jobs query successful - found \(jobsResponse.jobs.count) jobs")
+                print("Jobs query successful - found \(jobsResponse.jobs.count) jobs")
 
                 // Verify the types match our generated Swift types
                 for job in jobsResponse.jobs {
@@ -204,7 +204,7 @@ final class SerializationTests: XCTestCase {
             }
 
         } catch {
-            print("⚠️ Daemon integration failed: \(error)")
+            print("️ Daemon integration failed: \(error)")
             // Don't fail the test - daemon might not have libraries
         }
     }

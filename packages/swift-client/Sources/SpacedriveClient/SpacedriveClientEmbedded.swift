@@ -361,7 +361,7 @@ public class SpacedriveClient {
 
     /// Ping the embedded core to test connectivity
     public func ping() async throws {
-        print("🏓 Testing embedded core connectivity...")
+        print("Testing embedded core connectivity...")
 
         // Send a simple core status query as a ping
         do {
@@ -371,9 +371,9 @@ public class SpacedriveClient {
                 method: "query:core.status.v1",
                 responseType: CoreStatus.self
             )
-            print("✅ Embedded core ping successful!")
+            print("Embedded core ping successful!")
         } catch {
-            print("❌ Embedded core ping failed: \(error)")
+            print("Embedded core ping failed: \(error)")
             throw error
         }
     }

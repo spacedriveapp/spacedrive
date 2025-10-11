@@ -99,7 +99,7 @@ copy_files(
 ### Old Model Problems
 ```
 File → Object (requires CAS ID) → Tags
-         ❌ Can't tag without indexing!
+         Can't tag without indexing!
 ```
 
 ### New Model Solution

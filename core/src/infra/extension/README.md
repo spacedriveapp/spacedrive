@@ -1,18 +1,18 @@
 # WASM Extension System
 
-**Status:** ✅ Basic structure integrated, compiling successfully
+**Status:** Basic structure integrated, compiling successfully
 
 This module provides Spacedrive's WebAssembly-based extension system, enabling secure, sandboxed plugins.
 
 ## What's Implemented
 
-### ✅ Core Infrastructure
+### Core Infrastructure
 - **`manager.rs`** - PluginManager for loading/unloading WASM modules (Wasmer integration)
 - **`host_functions.rs`** - Skeleton for `host_spacedrive_call()` and `host_spacedrive_log()`
 - **`permissions.rs`** - Capability-based security with rate limiting
 - **`types.rs`** - Extension manifest format and types
 
-### ✅ Dependencies Added
+### Dependencies Added
 ```toml
 wasmer = "4.2"
 wasmer-middlewares = "4.2"
@@ -42,7 +42,7 @@ Operation::execute()                  // EXISTING!
 
 ## What's NOT Implemented Yet
 
-### 🚧 Pending Work
+### Pending Work
 
 **1. WASM Memory Interaction** (`host_functions.rs`)
 - Read/write strings from WASM linear memory

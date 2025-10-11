@@ -86,13 +86,13 @@ async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> 
 ```
 
 **What `#[job]` generates:**
-- ✅ `#[no_mangle] pub extern "C" fn execute_email_scan(...) -> i32`
-- ✅ Parameter marshalling (pointers → types)
-- ✅ State load/save logic
-- ✅ Error handling (? → JobResult::Failed)
-- ✅ Auto-checkpoint on `check_interrupt()?`
-- ✅ Progress tracking
-- ✅ Return code conversion
+- `#[no_mangle] pub extern "C" fn execute_email_scan(...) -> i32`
+- Parameter marshalling (pointers → types)
+- State load/save logic
+- Error handling (? → JobResult::Failed)
+- Auto-checkpoint on `check_interrupt()?`
+- Progress tracking
+- Return code conversion
 
 **Developer writes:** 20 lines of business logic
 **Macro generates:** 50+ lines of boilerplate
@@ -115,11 +115,11 @@ async fn classify_receipt(ctx: &ExtensionContext, pdf_data: Vec<u8>) -> Result<R
 ```
 
 **What `#[spacedrive_query]` generates:**
-- ✅ Wire method registration (`query:finance:classify_receipt.v1`)
-- ✅ FFI export function
-- ✅ Input/output serialization
-- ✅ Error handling
-- ✅ Automatic registration in `plugin_init()`
+- Wire method registration (`query:finance:classify_receipt.v1`)
+- FFI export function
+- Input/output serialization
+- Error handling
+- Automatic registration in `plugin_init()`
 
 ---
 
@@ -220,12 +220,12 @@ mod finance_extension {
 ```
 
 **What this generates:**
-- ✅ All Wire method registrations
-- ✅ All FFI exports
-- ✅ Automatic `plugin_init()` that registers everything
-- ✅ Event subscription setup
-- ✅ Config validation and loading
-- ✅ Type-safe builders for all inputs
+- All Wire method registrations
+- All FFI exports
+- Automatic `plugin_init()` that registers everything
+- Event subscription setup
+- Config validation and loading
+- Type-safe builders for all inputs
 
 **Developer writes:** Pure business logic
 **Macro generates:** All infrastructure
@@ -599,10 +599,10 @@ impl FinanceExtension {
 ```
 
 **Generates:**
-- ✅ `manifest.json`
-- ✅ All FFI exports
-- ✅ Registration code
-- ✅ `self` context available in all methods
+- `manifest.json`
+- All FFI exports
+- Registration code
+- `self` context available in all methods
 
 ### 4. Ergonomic Error Handling
 
@@ -824,7 +824,7 @@ impl Finance {
 }
 ```
 
-**30 lines of code. Full extension. Zero boilerplate. Pure magic. ✨**
+**30 lines of code. Full extension. Zero boilerplate. Pure magic. **
 
 ---
 
@@ -892,5 +892,5 @@ async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> 
 
 ---
 
-**Ready to build these macros and make extension development absolutely delightful?** 🚀
+**Ready to build these macros and make extension development absolutely delightful?** 
 

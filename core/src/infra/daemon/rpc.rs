@@ -421,8 +421,8 @@ impl RpcServer {
 									}
 								}
 								Err(e) => {
-									tracing::error!("🔍 Failed to parse daemon request: {}", e);
-									tracing::error!("🔍 Raw request: {}", line.trim());
+									tracing::error!("Failed to parse daemon request: {}", e);
+									tracing::error!("Raw request: {}", line.trim());
 									// Send error response
 									let error_response = DaemonResponse::Error(DaemonError::SerializationError(e.to_string()));
 									let response_json = serde_json::to_string(&error_response)

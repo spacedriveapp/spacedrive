@@ -1,6 +1,6 @@
 # Photos Extension Compilation Status
 
-**Current Status:** ⚠️ Does not compile (by design - aspirational reference)
+**Current Status:** ️ Does not compile (by design - aspirational reference)
 
 ---
 
@@ -9,13 +9,13 @@
 The Photos extension is a **complete reference implementation** showing every SDK feature, not a working extension yet.
 
 It demonstrates:
-- ✅ Content-scoped models
-- ✅ Standalone models
-- ✅ Agent with memory
-- ✅ Jobs and tasks
-- ✅ Actions and queries
-- ✅ AI integration
-- ✅ Complete architecture
+- Content-scoped models
+- Standalone models
+- Agent with memory
+- Jobs and tasks
+- Actions and queries
+- AI integration
+- Complete architecture
 
 **It's meant to guide implementation, not to run.**
 
@@ -58,7 +58,7 @@ Some method chains don't work as written - needs macro expansion.
 ```bash
 cd extensions/test-extension
 cargo build --target wasm32-unknown-unknown --release
-# ✅ This works!
+# This works!
 ```
 
 **Photos extension is aspirational** - shows what's possible when SDK is complete.

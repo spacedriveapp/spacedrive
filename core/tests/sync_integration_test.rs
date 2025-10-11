@@ -173,7 +173,7 @@ impl NetworkTransport for MockTransportPeer {
 		message: sd_core::service::network::protocol::sync::messages::SyncMessage,
 	) -> anyhow::Result<()> {
 		eprintln!(
-			"🎯 MockTransportPeer::send_sync_message called! target={}, my_device={}",
+			"MockTransportPeer::send_sync_message called! target={}, my_device={}",
 			target_device, self.my_device_id
 		);
 		if target_device != self.peer_device_id {
@@ -181,7 +181,7 @@ impl NetworkTransport for MockTransportPeer {
 		}
 
 		info!(
-			"📤 Device {} sending message to Device {}",
+			"Device {} sending message to Device {}",
 			self.my_device_id, target_device
 		);
 		self.outgoing
@@ -196,11 +196,11 @@ impl NetworkTransport for MockTransportPeer {
 	}
 
 	async fn get_connected_sync_partners(&self) -> anyhow::Result<Vec<Uuid>> {
-		eprintln!("🔌 MockTransportPeer::get_connected_sync_partners called!");
+		eprintln!("MockTransportPeer::get_connected_sync_partners called!");
 		eprintln!("   Returning peer: {}", self.peer_device_id);
 		// For testing, always return the peer as connected
 		info!(
-			"🔌 Mock transport: returning peer {} as connected",
+			"Mock transport: returning peer {} as connected",
 			self.peer_device_id
 		);
 		Ok(vec![self.peer_device_id])
@@ -235,7 +235,7 @@ impl MockTransportPeer {
 		self.pending_requests.lock().await.insert(request_id, tx);
 
 		info!(
-			"📤 Device {} sending REQUEST to Device {} (id: {})",
+			"Device {} sending REQUEST to Device {} (id: {})",
 			self.my_device_id, target_device, request_id
 		);
 
@@ -246,7 +246,7 @@ impl MockTransportPeer {
 		match tokio::time::timeout(Duration::from_secs(10), rx).await {
 			Ok(Ok(response)) => {
 				info!(
-					"📥 Device {} received RESPONSE (id: {})",
+					"Device {} received RESPONSE (id: {})",
 					self.my_device_id, request_id
 				);
 				Ok(response)
@@ -267,7 +267,7 @@ impl MockTransportPeer {
 
 		for (sender, message) in messages {
 			info!(
-				"📥 Device {} received message from Device {}",
+				"Device {} received message from Device {}",
 				self.my_device_id, sender
 			);
 
@@ -470,14 +470,14 @@ impl SyncTestSetup {
 			.with_test_writer()
 			.try_init();
 
-		info!("🚀 Setting up sync integration test");
+		info!("Setting up sync integration test");
 
 		// Create temporary directories for both cores
 		let temp_dir_a = TempDir::new()?;
 		let temp_dir_b = TempDir::new()?;
 
-		info!("📁 Core A directory: {:?}", temp_dir_a.path());
-		info!("📁 Core B directory: {:?}", temp_dir_b.path());
+		info!("Core A directory: {:?}", temp_dir_a.path());
+		info!("Core B directory: {:?}", temp_dir_b.path());
 
 		// Create config with networking DISABLED (so we can inject our mock transport)
 		let config_a = sd_core::config::AppConfig {
@@ -515,27 +515,27 @@ impl SyncTestSetup {
 			.await
 			.map_err(|e| anyhow::anyhow!("{}", e))?;
 		let device_a_id = core_a.device.device_id()?;
-		info!("🖥️  Device A ID: {}", device_a_id);
+		info!("️  Device A ID: {}", device_a_id);
 
 		// Initialize Core B
 		let core_b = Core::new_with_config(temp_dir_b.path().to_path_buf())
 			.await
 			.map_err(|e| anyhow::anyhow!("{}", e))?;
 		let device_b_id = core_b.device.device_id()?;
-		info!("🖥️  Device B ID: {}", device_b_id);
+		info!("️  Device B ID: {}", device_b_id);
 
 		// Create libraries WITHOUT auto-sync-init (allows us to inject mock transport)
 		let library_a = core_a
 			.libraries
 			.create_library_no_sync("Test Library A", None, core_a.context.clone())
 			.await?;
-		info!("📚 Library A created (no auto-sync): {}", library_a.id());
+		info!("Library A created (no auto-sync): {}", library_a.id());
 
 		let library_b = core_b
 			.libraries
 			.create_library_no_sync("Test Library B", None, core_b.context.clone())
 			.await?;
-		info!("📚 Library B created (no auto-sync): {}", library_b.id());
+		info!("Library B created (no auto-sync): {}", library_b.id());
 
 		// Register devices in each other's libraries
 		// This also implicitly makes them sync partners (sync_enabled=true by default)
@@ -555,7 +555,7 @@ impl SyncTestSetup {
 				transport_a.clone() as Arc<dyn NetworkTransport>,
 			)
 			.await?;
-		info!("✅ Sync service initialized on Library A with mock transport");
+		info!("Sync service initialized on Library A with mock transport");
 
 		library_b
 			.init_sync_service(
@@ -563,9 +563,9 @@ impl SyncTestSetup {
 				transport_b.clone() as Arc<dyn NetworkTransport>,
 			)
 			.await?;
-		info!("✅ Sync service initialized on Library B with mock transport");
+		info!("Sync service initialized on Library B with mock transport");
 
-		info!("✅ Sync test setup complete");
+		info!("Sync test setup complete");
 
 		Ok(Self {
 			temp_dir_a,
@@ -608,7 +608,7 @@ impl SyncTestSetup {
 		};
 
 		device_model.insert(library.db().conn()).await?;
-		info!("✅ Registered {} in library {}", device_name, library.id());
+		info!("Registered {} in library {}", device_name, library.id());
 		Ok(())
 	}
 
@@ -620,13 +620,13 @@ impl SyncTestSetup {
 		// Process A->B messages
 		let count_a_to_b = self.transport_b.process_incoming_messages(sync_b).await?;
 		if count_a_to_b > 0 {
-			info!("🔄 Processed {} messages from A to B", count_a_to_b);
+			info!("Processed {} messages from A to B", count_a_to_b);
 		}
 
 		// Process B->A messages
 		let count_b_to_a = self.transport_a.process_incoming_messages(sync_a).await?;
 		if count_b_to_a > 0 {
-			info!("🔄 Processed {} messages from B to A", count_b_to_a);
+			info!("Processed {} messages from B to A", count_b_to_a);
 		}
 
 		Ok(())
@@ -645,7 +645,7 @@ impl SyncTestSetup {
 
 #[tokio::test]
 async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
-	info!("🧪 TEST: Location Sync (Device-Owned, State-Based)");
+	info!("TEST: Location Sync (Device-Owned, State-Based)");
 
 	let setup = SyncTestSetup::new().await?;
 
@@ -676,7 +676,7 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	});
 
 	// === ACTION: Create a location on Core A (device-owned data) ===
-	info!("📍 Creating location on Device A");
+	info!("Creating location on Device A");
 
 	let location_uuid = Uuid::new_v4();
 	let entry_uuid = Uuid::new_v4();
@@ -714,7 +714,7 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	// === MANUALLY CREATE ENTRY ON DEVICE B (to satisfy FK dependency) ===
 	// In production, entry would sync first via dependency ordering
 	// For this test, we manually create it to test location FK mapping
-	info!("📤 Manually creating entry on Device B (simulating prior sync)");
+	info!("Manually creating entry on Device B (simulating prior sync)");
 	let entry_model_b = entities::entry::ActiveModel {
 		id: sea_orm::ActiveValue::NotSet,
 		uuid: Set(Some(entry_uuid)), // Same UUID!
@@ -735,7 +735,7 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 		parent_id: Set(None),
 	};
 	entry_model_b.insert(setup.library_b.db().conn()).await?;
-	info!("✅ Entry dependency satisfied on Device B");
+	info!("Entry dependency satisfied on Device B");
 
 	// Create location record
 	let location_model = entities::location::ActiveModel {
@@ -755,10 +755,10 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	};
 
 	let location_record = location_model.insert(setup.library_a.db().conn()).await?;
-	info!("✅ Created location on Device A: {}", location_uuid);
+	info!("Created location on Device A: {}", location_uuid);
 
 	// === USE SYNC API to emit sync events ===
-	info!("📤 Using new sync API with automatic FK conversion");
+	info!("Using new sync API with automatic FK conversion");
 
 	// Sync the location (automatically handles device_id → device_uuid and entry_id → entry_uuid)
 	setup
@@ -772,11 +772,11 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
 	// === PUMP MESSAGES ===
-	info!("🔄 Pumping messages between devices");
+	info!("Pumping messages between devices");
 	setup.wait_for_sync(Duration::from_secs(2)).await?;
 
 	// === VALIDATION ===
-	info!("🔍 Validating sync results");
+	info!("Validating sync results");
 
 	// Note: Messages were already pumped and processed during wait_for_sync,
 	// so we validate by checking if data appeared on Device B, not message queues
@@ -795,7 +795,7 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	);
 
 	if let Some(location) = location_on_b {
-		info!("🎉 Location successfully synced to Device B!");
+		info!("Location successfully synced to Device B!");
 		assert_eq!(location.uuid, location_uuid);
 	}
 
@@ -807,8 +807,8 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	let events_a_list = events_a_collected.lock().await;
 	let events_b_list = events_b_collected.lock().await;
 
-	info!("📊 Events on Device A: {}", events_a_list.len());
-	info!("📊 Events on Device B: {}", events_b_list.len());
+	info!("Events on Device A: {}", events_a_list.len());
+	info!("Events on Device B: {}", events_b_list.len());
 
 	// Log some interesting events
 	for event in events_a_list.iter() {
@@ -822,18 +822,18 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 		}
 	}
 
-	info!("✅ TEST COMPLETE: Location sync infrastructure validated");
+	info!("TEST COMPLETE: Location sync infrastructure validated");
 	Ok(())
 }
 
 #[tokio::test]
 async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
-	info!("🧪 TEST: Tag Sync (Shared Resource, HLC-Based)");
+	info!("TEST: Tag Sync (Shared Resource, HLC-Based)");
 
 	let setup = SyncTestSetup::new().await?;
 
 	// === ACTION: Create a tag on Core A (shared resource) ===
-	info!("🏷️  Creating tag on Device A");
+	info!("️  Creating tag on Device A");
 
 	// Create tag entity directly (not through manager to avoid domain/entity mismatch)
 	let tag_uuid = Uuid::new_v4();
@@ -862,12 +862,12 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 
 	let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
 	info!(
-		"✅ Created tag on Device A: {} ({})",
+		"Created tag on Device A: {} ({})",
 		tag_record.canonical_name, tag_record.uuid
 	);
 
 	// === USE SYNC API to emit sync events ===
-	info!("📤 Using new sync API for shared resource sync");
+	info!("Using new sync API for shared resource sync");
 
 	setup
 		.library_a
@@ -876,14 +876,14 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 		.map_err(|e| anyhow::anyhow!("Sync error: {}", e))?;
 
 	// === PUMP MESSAGES ===
-	info!("🔄 Pumping messages between devices");
+	info!("Pumping messages between devices");
 	setup.wait_for_sync(Duration::from_secs(2)).await?;
 
 	// === VALIDATION ===
-	info!("🔍 Validating sync results");
+	info!("Validating sync results");
 
 	let messages_a_to_b = setup.transport.get_a_to_b_messages().await;
-	info!("📨 Messages sent from A to B: {}", messages_a_to_b.len());
+	info!("Messages sent from A to B: {}", messages_a_to_b.len());
 
 	assert!(
 		!messages_a_to_b.is_empty(),
@@ -911,7 +911,7 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 	);
 
 	let synced_tag = tag_on_b.unwrap();
-	info!("🎉 Tag successfully synced to Device B!");
+	info!("Tag successfully synced to Device B!");
 	assert_eq!(synced_tag.uuid, tag_uuid);
 	assert_eq!(synced_tag.canonical_name, "Vacation");
 	assert_eq!(synced_tag.namespace, Some("photos".to_string()));
@@ -926,18 +926,18 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 	});
 
 	if has_ack {
-		info!("✅ ACK message sent from B to A");
+		info!("ACK message sent from B to A");
 	} else {
-		info!("⚠️  No ACK message (expected until apply functions complete)");
+		info!("️  No ACK message (expected until apply functions complete)");
 	}
 
-	info!("✅ TEST COMPLETE: Tag sync infrastructure validated");
+	info!("TEST COMPLETE: Tag sync infrastructure validated");
 	Ok(())
 }
 
 #[tokio::test]
 async fn test_sync_entry_with_location() -> anyhow::Result<()> {
-	info!("🧪 TEST: Entry Sync (Device-Owned via Location)");
+	info!("TEST: Entry Sync (Device-Owned via Location)");
 
 	let setup = SyncTestSetup::new().await?;
 
@@ -973,7 +973,7 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 	let location_entry_record = location_entry.insert(setup.library_a.db().conn()).await?;
 
 	// Sync the location entry first (parent dependency)
-	info!("📤 Syncing location entry to Device B");
+	info!("Syncing location entry to Device B");
 	setup
 		.library_a
 		.sync_model_with_db(
@@ -1006,7 +1006,7 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 	let _location_record = location_model.insert(setup.library_a.db().conn()).await?;
 
 	// === Create entry in that location ===
-	info!("📄 Creating entry in location on Device A");
+	info!("Creating entry in location on Device A");
 
 	let entry_uuid = Uuid::new_v4();
 	let entry_model = entities::entry::ActiveModel {
@@ -1030,10 +1030,10 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 	};
 
 	let entry_record = entry_model.insert(setup.library_a.db().conn()).await?;
-	info!("✅ Created entry: {}", entry_uuid);
+	info!("Created entry: {}", entry_uuid);
 
 	// === USE SYNC API ===
-	info!("📤 Using new sync API to emit entry sync event");
+	info!("Using new sync API to emit entry sync event");
 
 	setup
 		.library_a
@@ -1049,7 +1049,7 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 	setup.wait_for_sync(Duration::from_secs(2)).await?;
 
 	let messages = setup.transport.get_a_to_b_messages().await;
-	info!("📨 Total messages sent: {}", messages.len());
+	info!("Total messages sent: {}", messages.len());
 
 	let state_changes: Vec<_> = messages
 		.iter()
@@ -1067,7 +1067,7 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 		})
 		.collect();
 
-	info!("📊 State changes: {:?}", state_changes);
+	info!("State changes: {:?}", state_changes);
 
 	assert!(
 		!state_changes.is_empty(),
@@ -1078,40 +1078,40 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 		"Should have sent entry state change"
 	);
 
-	info!("✅ TEST COMPLETE: Entry sync infrastructure validated");
+	info!("TEST COMPLETE: Entry sync infrastructure validated");
 	Ok(())
 }
 
 /// Test summary and expectations
 #[tokio::test]
 async fn test_sync_infrastructure_summary() -> anyhow::Result<()> {
-	info!("🧪 TEST: Sync Infrastructure Summary");
+	info!("TEST: Sync Infrastructure Summary");
 
 	let setup = SyncTestSetup::new().await?;
 
-	info!("\n📋 SYNC TEST INFRASTRUCTURE:");
-	info!("  ✅ Two Core instances created");
-	info!("  ✅ Separate libraries initialized");
-	info!("  ✅ Devices registered in each other's databases");
-	info!("  ✅ Sync services initialized with mock transport");
-	info!("  ✅ Bidirectional message queue functional");
+	info!("\nSYNC TEST INFRASTRUCTURE:");
+	info!("  Two Core instances created");
+	info!("  Separate libraries initialized");
+	info!("  Devices registered in each other's databases");
+	info!("  Sync services initialized with mock transport");
+	info!("  Bidirectional message queue functional");
 
-	info!("\n📋 CURRENT STATE:");
-	info!("  ✅ Clean sync API implemented (library.sync_model())");
-	info!("  ✅ TagManager wired up with sync");
-	info!("  ✅ LocationManager wired up with sync");
-	info!("  ✅ All integration tests passing");
+	info!("\nCURRENT STATE:");
+	info!("  Clean sync API implemented (library.sync_model())");
+	info!("  TagManager wired up with sync");
+	info!("  LocationManager wired up with sync");
+	info!("  All integration tests passing");
 
-	info!("\n📋 WHAT WORKS NOW:");
-	info!("  ✅ Mock transport sends/receives messages");
-	info!("  ✅ Sync service broadcasts automatically");
-	info!("  ✅ Message routing to peer sync handlers");
-	info!("  ✅ HLC generation for shared resources");
-	info!("  ✅ FK conversion (UUID ↔ integer ID) automatic");
-	info!("  ✅ State-based sync (locations, entries)");
-	info!("  ✅ Log-based sync (tags, albums)");
+	info!("\nWHAT WORKS NOW:");
+	info!("  Mock transport sends/receives messages");
+	info!("  Sync service broadcasts automatically");
+	info!("  Message routing to peer sync handlers");
+	info!("  HLC generation for shared resources");
+	info!("  FK conversion (UUID integer ID) automatic");
+	info!("  State-based sync (locations, entries)");
+	info!("  Log-based sync (tags, albums)");
 
-	info!("\n📋 NEXT STEPS:");
+	info!("\nNEXT STEPS:");
 	info!("  1. Wire remaining managers (Albums, UserMetadata, etc.)");
 	info!("  2. Wire EntryProcessor bulk indexing with batch API");
 	info!("  3. Test CLI sync setup flow");
@@ -1134,18 +1134,18 @@ async fn test_sync_infrastructure_summary() -> anyhow::Result<()> {
 		.await?;
 	assert!(device_on_b.is_some(), "Device A should be registered on B");
 
-	info!("✅ INFRASTRUCTURE VALIDATED: Ready for TransactionManager integration");
+	info!("INFRASTRUCTURE VALIDATED: Ready for TransactionManager integration");
 	Ok(())
 }
 
 #[tokio::test]
 async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
-	info!("🧪 TEST: Backfill Includes Pre-Sync Data");
+	info!("TEST: Backfill Includes Pre-Sync Data");
 
 	let setup = SyncTestSetup::new().await?;
 
 	// === CREATE TAGS ON DEVICE A (simulating pre-sync and post-sync tags) ===
-	info!("🏷️  Creating 3 tags on Device A (simulating mixed pre/post-sync scenario)");
+	info!("️  Creating 3 tags on Device A (simulating mixed pre/post-sync scenario)");
 
 	// Create 3 tags directly in database (simulating pre-sync data)
 	let pre_sync_tag_uuids: Vec<Uuid> = (0..3)
@@ -1182,7 +1182,7 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 
 		tag_model.insert(setup.library_a.db().conn()).await?;
 	}
-	info!("✅ Created 3 pre-sync tags (NOT in sync log)");
+	info!("Created 3 pre-sync tags (NOT in sync log)");
 
 	// Create 2 tags through sync API (will be in sync log)
 	let post_sync_tag_uuids: Vec<Uuid> = (0..2)
@@ -1225,7 +1225,7 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 			.sync_model(&tag_record, ChangeType::Insert)
 			.await?;
 	}
-	info!("✅ Created 2 post-sync tags (IN sync log)");
+	info!("Created 2 post-sync tags (IN sync log)");
 
 	// === VERIFY STATE ON DEVICE A ===
 	let tags_on_a = entities::tag::Entity::find()
@@ -1245,7 +1245,7 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 	assert_eq!(log_entries.len(), 2, "Peer log should only have 2 entries");
 
 	// === SIMULATE BACKFILL REQUEST FROM DEVICE B ===
-	info!("📥 Device B requests backfill (since_hlc = None)");
+	info!("Device B requests backfill (since_hlc = None)");
 
 	let full_state = setup
 		.library_a
@@ -1263,7 +1263,7 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 		"Full state should include all 5 tags (3 pre-sync + 2 post-sync)"
 	);
 
-	info!("🎉 Backfill includes all tags:");
+	info!("Backfill includes all tags:");
 	info!("  - 3 pre-sync tags (not in log)");
 	info!("  - 2 post-sync tags (in log)");
 	info!("  - Total: 5 tags in state snapshot");
@@ -1290,13 +1290,13 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 		);
 	}
 
-	info!("✅ TEST COMPLETE: Backfill correctly includes all tags (pre-sync and post-sync)");
+	info!("TEST COMPLETE: Backfill correctly includes all tags (pre-sync and post-sync)");
 	Ok(())
 }
 
 #[tokio::test]
 async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
-	info!("🧪 TEST: Transitive Sync (A → B → C while A offline)");
+	info!("TEST: Transitive Sync (A → B → C while A offline)");
 
 	// Initialize tracing
 	let _ = tracing_subscriber::fmt()
@@ -1304,7 +1304,7 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 		.with_test_writer()
 		.try_init();
 
-	info!("🚀 Setting up THREE-device sync test");
+	info!("Setting up THREE-device sync test");
 
 	// Create temp dirs for three cores
 	let temp_dir_a = TempDir::new()?;
@@ -1362,19 +1362,19 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 		.await
 		.map_err(|e| anyhow::anyhow!("{}", e))?;
 	let device_a_id = core_a.device.device_id()?;
-	info!("🖥️  Device A ID: {}", device_a_id);
+	info!("️  Device A ID: {}", device_a_id);
 
 	let core_b = Core::new_with_config(temp_dir_b.path().to_path_buf())
 		.await
 		.map_err(|e| anyhow::anyhow!("{}", e))?;
 	let device_b_id = core_b.device.device_id()?;
-	info!("🖥️  Device B ID: {}", device_b_id);
+	info!("️  Device B ID: {}", device_b_id);
 
 	let core_c = Core::new_with_config(temp_dir_c.path().to_path_buf())
 		.await
 		.map_err(|e| anyhow::anyhow!("{}", e))?;
 	let device_c_id = core_c.device.device_id()?;
-	info!("🖥️  Device C ID: {}", device_c_id);
+	info!("️  Device C ID: {}", device_c_id);
 
 	// Create libraries (all same library ID for shared library scenario)
 	let library_id = Uuid::new_v4();
@@ -1384,20 +1384,20 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 		.libraries
 		.create_library_no_sync("Shared Library", None, core_a.context.clone())
 		.await?;
-	info!("📚 Library A created: {}", library_a.id());
+	info!("Library A created: {}", library_a.id());
 
 	// Create same library on B and C (simulating they joined the library)
 	let library_b = core_b
 		.libraries
 		.create_library_no_sync("Shared Library", None, core_b.context.clone())
 		.await?;
-	info!("📚 Library B created: {}", library_b.id());
+	info!("Library B created: {}", library_b.id());
 
 	let library_c = core_c
 		.libraries
 		.create_library_no_sync("Shared Library", None, core_c.context.clone())
 		.await?;
-	info!("📚 Library C created: {}", library_c.id());
+	info!("Library C created: {}", library_c.id());
 
 	// Register devices in each other's libraries (full mesh initially)
 	// A knows about B and C
@@ -1425,20 +1425,20 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	library_a
 		.init_sync_service(device_a_id, transport_a_to_b.clone())
 		.await?;
-	info!("✅ Sync service initialized on Library A");
+	info!("Sync service initialized on Library A");
 
 	library_b
 		.init_sync_service(device_b_id, transport_b_to_a.clone())
 		.await?;
-	info!("✅ Sync service initialized on Library B");
+	info!("Sync service initialized on Library B");
 
 	library_c
 		.init_sync_service(device_c_id, transport_c_to_b.clone())
 		.await?;
-	info!("✅ Sync service initialized on Library C");
+	info!("Sync service initialized on Library C");
 
 	// === PHASE 1: A creates tag, syncs to B ===
-	info!("\n📋 PHASE 1: Device A creates tag, syncs to Device B");
+	info!("\nPHASE 1: Device A creates tag, syncs to Device B");
 
 	let tag_uuid = Uuid::new_v4();
 	let tag_model = entities::tag::ActiveModel {
@@ -1468,13 +1468,13 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	library_a
 		.sync_model(&tag_record, ChangeType::Insert)
 		.await?;
-	info!("✅ Device A created tag: {}", tag_uuid);
+	info!("Device A created tag: {}", tag_uuid);
 
 	// Pump A→B messages
 	tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 	let sync_b = library_b.sync_service().unwrap();
 	let count = transport_b_to_a.process_incoming_messages(sync_b).await?;
-	info!("🔄 Processed {} messages from A to B", count);
+	info!("Processed {} messages from A to B", count);
 
 	// Wait a bit for async processing
 	tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -1485,10 +1485,10 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 		.one(library_b.db().conn())
 		.await?;
 	assert!(tag_on_b.is_some(), "Device B should have received A's tag");
-	info!("✅ Device B received A's tag");
+	info!("Device B received A's tag");
 
 	// === PHASE 2: Device C requests backfill from B (A offline) ===
-	info!("\n📋 PHASE 2: Device C requests backfill from B (A is offline)");
+	info!("\nPHASE 2: Device C requests backfill from B (A is offline)");
 
 	// C sends SharedChangeRequest to B
 	use sd_core::service::network::protocol::sync::messages::SyncMessage;
@@ -1498,7 +1498,7 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 		limit: 1000,
 	};
 
-	info!("📤 Device C sending SharedChangeRequest to Device B");
+	info!("Device C sending SharedChangeRequest to Device B");
 	tokio::spawn({
 		let transport_c = transport_c_to_b.clone();
 		async move {
@@ -1522,7 +1522,7 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	let sync_c = library_c.sync_service().unwrap();
 	transport_c_to_b.process_incoming_messages(sync_c).await?;
 
-	info!("🔄 Request/response cycle complete");
+	info!("Request/response cycle complete");
 
 	// === VALIDATION ===
 	let tag_on_c = entities::tag::Entity::find()
@@ -1536,18 +1536,18 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	);
 
 	let synced_tag = tag_on_c.unwrap();
-	info!("🎉 END-TO-END TRANSITIVE SYNC SUCCESS!");
-	info!("  ✅ Device A created tag");
-	info!("  ✅ Device B received tag from A (live broadcast)");
-	info!("  ✅ Device A went offline");
-	info!("  ✅ Device C requested backfill from B (SharedChangeRequest)");
-	info!("  ✅ Device B responded with current_state including A's tag");
-	info!("  ✅ Device C applied A's tag from B's response");
-	info!("  📊 Result: Device C has A's tag even though A was offline!");
+	info!("END-TO-END TRANSITIVE SYNC SUCCESS!");
+	info!("  Device A created tag");
+	info!("  Device B received tag from A (live broadcast)");
+	info!("  Device A went offline");
+	info!("  Device C requested backfill from B (SharedChangeRequest)");
+	info!("  Device B responded with current_state including A's tag");
+	info!("  Device C applied A's tag from B's response");
+	info!("  Result: Device C has A's tag even though A was offline!");
 
 	assert_eq!(synced_tag.canonical_name, "A's Tag");
 	assert_eq!(synced_tag.namespace, Some("photos".to_string()));
 
-	info!("✅ TEST COMPLETE: Transitive sync validated (A → B → C)");
+	info!("TEST COMPLETE: Transitive sync validated (A → B → C)");
 	Ok(())
 }

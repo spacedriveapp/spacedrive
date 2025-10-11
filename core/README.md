@@ -253,35 +253,35 @@ Features:
 
 Currently working features:
 
-### ✅ Foundation
+### Foundation
 
 - **Library management**: Create, open, list libraries
 - **Location management**: Add, list, and monitor indexed directories
 - **Device identity**: Unified device tracking and capabilities
 - **Database layer**: SeaORM entities with proper migrations
 
-### ✅ Indexing System
+### Indexing System
 
 - **Scope control**: Current directory vs recursive indexing
 - **Persistence modes**: Database storage vs ephemeral browsing
 - **Multi-phase pipeline**: Discovery, processing, aggregation
 - **Progress tracking**: Real-time job monitoring
 
-### ✅ CLI Interface
+### CLI Interface
 
 - Working command-line interface demonstrating all features
 - Library and location management commands
 - Enhanced indexing with scope and persistence options
 - Job monitoring and system status
 
-### 🚧 In Development
+### In Development
 
 - **File operations**: Copy, move, delete jobs (infrastructure ready)
 - **Search system**: SQLite FTS integration for content search
 - **Event system**: Core event broadcasting for UI updates
 - **Network layer**: P2P device communication
 
-### 📋 Planned
+### Planned
 
 - **Cross-device operations**: Copy/move files between devices
 - **Advanced search**: Content indexing and semantic search

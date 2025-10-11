@@ -229,7 +229,7 @@ pub enum CopyResult {
 // Current implementation stores device_id
 #[derive(Serialize, Deserialize)]
 pub struct SdPath {
-    pub device_id: Uuid,        // ❌ Stored - should be computed
+    pub device_id: Uuid,        // Stored - should be computed
     pub path: PathBuf,
 }
 ```

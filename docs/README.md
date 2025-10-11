@@ -8,28 +8,28 @@ Core v2 is a complete rewrite of Spacedrive's core system, designed to address t
 
 ## Key Improvements
 
-### ✅ Unified File System
+### Unified File System
 - **Single API** for all file operations (no more dual indexed/ephemeral systems)
 - **Consistent behavior** across all file management scenarios
 - **Bridge operations** between different storage modes
 
-### ✅ Event-Driven Architecture
+### Event-Driven Architecture
 - **Replaced query invalidation** with proper event bus
 - **Type-safe events** for state changes
 - **Decoupled frontend/backend** communication
 
-### ✅ Modern Database Layer
+### Modern Database Layer
 - **SeaORM** instead of abandoned prisma-client-rust
 - **Optimized storage** with 70%+ space savings for large file collections
 - **Proper migrations** and database versioning
 
-### ✅ Simplified Job System
+### Simplified Job System
 - **50 lines** vs 500+ lines to create new jobs
 - **Automatic serialization** with MessagePack
 - **Type-safe progress** reporting
 - **Database persistence** with resume capabilities
 
-### ✅ Clean Domain Models
+### Clean Domain Models
 - **Entry-centric design** where every file/folder has metadata by default
 - **Optional content identity** for deduplication
 - **Unified device management** (no more Node/Device/Instance confusion)

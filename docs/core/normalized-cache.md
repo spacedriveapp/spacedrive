@@ -23,10 +23,10 @@ let files = try await client.query("files.search", input: searchParams) // Netwo
 ```
 
 **Issues**:
-- ❌ Stale data in UI
-- ❌ Manual refetch required (slow, bandwidth-heavy)
-- ❌ No offline support
-- ❌ Duplicate data (same file in multiple queries)
+- Stale data in UI
+- Manual refetch required (slow, bandwidth-heavy)
+- No offline support
+- Duplicate data (same file in multiple queries)
 
 ## The Solution
 
@@ -573,7 +573,7 @@ actor NormalizedCache {
 
         if sequence > lastSeq + 1 {
             // Gap detected! Missed events
-            print("⚠️ Gap detected: expected \(lastSeq + 1), got \(sequence)")
+            print("️ Gap detected: expected \(lastSeq + 1), got \(sequence)")
             await reconcileState(libraryId: libraryId, fromSequence: lastSeq + 1)
         }
 
@@ -586,7 +586,7 @@ actor NormalizedCache {
 
     /// Reconcile state after detecting missed events
     func reconcileState(libraryId: UUID, fromSequence: UInt64) async {
-        print("🔄 Reconciling state from sequence \(fromSequence)")
+        print("Reconciling state from sequence \(fromSequence)")
 
         // Option 1: Fetch missed events
         if let missedEvents = try? await client.query(
@@ -677,7 +677,7 @@ actor NormalizedCache {
             }
         }
 
-        print("✅ Loaded \(entityStore.count) entities from disk cache")
+        print("Loaded \(entityStore.count) entities from disk cache")
     }
 }
 ```

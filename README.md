@@ -9,7 +9,7 @@
     <a href="https://spacedrive.com"><strong>spacedrive.com »</strong></a>
     <br />
     <br />
-    🚀 <strong>Development resuming with revolutionary new architecture</strong> 🚀
+    <strong>Development resuming with revolutionary new architecture</strong> 🚀
     <br />
     <br />
     <b>Status:</b> Core rewrite in progress ·
@@ -63,25 +63,25 @@ The original Spacedrive captured imaginations with a bold promise: the **Virtual
 
 Your files are scattered across devices, cloud services, and external drives. Traditional file managers trap you in local boundaries. Spacedrive makes those boundaries disappear:
 
-**🌐 Universal File Access**
+**Universal File Access**
 
 - Browse files on any device from any device
 - External drives, cloud storage, remote servers - all unified
 - Offline files show up with cached metadata
 
-**⚡ Lightning Search**
+**Lightning Search**
 
 - Find files across all locations with a single search
 - Content search inside documents, PDFs, and media
 - AI-powered semantic search: "find sunset photos from vacation"
 
-**🔄 Seamless Operations**
+**Seamless Operations**
 
 - Copy, move, and organize files between any devices
 - Drag and drop across device boundaries
 - Batch operations on distributed collections
 
-**🔒 Privacy First**
+**Privacy First**
 
 - Your data stays on your devices
 - Optional cloud sync, never required
@@ -113,13 +113,13 @@ We kept the revolutionary vision. We rebuilt the foundation to deliver it.
 
 ```
 ┌─ Spacedrive ──────────────────────────────────────────┐
-│ ≡ Locations           📱 iPhone (via P2P)             │
-│   📁 Desktop            📁 Photos (1,234 items)       │
-│   📁 Documents          📁 Documents                   │
-│   📁 Downloads          🔗 iCloud Drive               │
-│   💾 External Drive     📱 iPad                       │
-│   ☁️  iCloud Drive       📱 Android Phone             │
-│   🖥️  Server             ⚙️  Background indexing...   │
+│ ≡ Locations           iPhone (via P2P)             │
+│   Desktop            Photos (1,234 items)       │
+│   Documents          Documents                   │
+│   Downloads          iCloud Drive               │
+│   External Drive     iPad                       │
+│   ️  iCloud Drive       Android Phone             │
+│   ️  Server             ️  Background indexing...   │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -184,12 +184,12 @@ No more confusion between "indexed" and "direct" files. Every file operation wor
 ### Real Search Engine
 
 ```
-🔍 Search: "sunset photos from vacation"
+Search: "sunset photos from vacation"
 
 Results across all devices:
-📱 iPhone/Photos/Vacation2024/sunset_beach.jpg
-💾 External/Backup/2024/vacation_sunset.mov
-☁️  iCloud/Memories/golden_hour_sunset.heic
+iPhone/Photos/Vacation2024/sunset_beach.jpg
+External/Backup/2024/vacation_sunset.mov
+️  iCloud/Memories/golden_hour_sunset.heic
 ```
 
 **Beyond filename matching:**
@@ -203,31 +203,31 @@ Results across all devices:
 
 ### Q1 2025: Foundation
 
-- ✅ **Core rewrite** with unified file system
-- ✅ **Working CLI** with daemon architecture
-- 🚧 **Desktop app** rebuilt on new foundation
-- 🚧 **Real search** with content indexing
+- **Core rewrite** with unified file system
+- **Working CLI** with daemon architecture
+- **Desktop app** rebuilt on new foundation
+- **Real search** with content indexing
 
 ### Q2 2025: Device Communication
 
-- 🔄 **P2P discovery** and secure connections
-- 🔄 **Cross-device operations** (copy, move, sync)
-- 🔄 **Mobile apps** with desktop feature parity
-- 🔄 **Web interface** for universal access
+- **P2P discovery** and secure connections
+- **Cross-device operations** (copy, move, sync)
+- **Mobile apps** with desktop feature parity
+- **Web interface** for universal access
 
 ### Q3 2025: Intelligence
 
-- 🎯 **AI-powered organization** with local models
-- 🎯 **Smart collections** and auto-tagging
-- 🎯 **Cloud integrations** (iCloud, Google Drive, etc.)
-- 🎯 **Advanced media analysis**
+- **AI-powered organization** with local models
+- **Smart collections** and auto-tagging
+- **Cloud integrations** (iCloud, Google Drive, etc.)
+- **Advanced media analysis**
 
 ### Q4 2025: Ecosystem
 
-- 🚀 **Extension system** for community features
-- 🚀 **Professional tools** for creators and teams
-- 🚀 **Enterprise features** and compliance
-- 🚀 **Plugin marketplace** and developer APIs
+- **Extension system** for community features
+- **Professional tools** for creators and teams
+- **Enterprise features** and compliance
+- **Plugin marketplace** and developer APIs
 
 ## Try It Today
 
@@ -254,11 +254,11 @@ spacedrive job monitor
 
 **Working today:**
 
-- ✅ Multi-location management
-- ✅ Smart indexing with progress tracking
-- ✅ Content-aware search
-- ✅ Real-time job monitoring
-- ✅ Portable library format
+- Multi-location management
+- Smart indexing with progress tracking
+- Content-aware search
+- Real-time job monitoring
+- Portable library format
 
 ## Sustainable Open Source
 
@@ -315,24 +315,24 @@ No more feature paralysis:
 
 ### For Users
 
-- ⭐ **Star the repo** to follow development
-- 💬 **Join Discord** for updates and early access
-- 🐛 **Report issues** and request features
-- 📖 **Beta testing** as features ship
+- **Star the repo** to follow development
+- **Join Discord** for updates and early access
+- **Report issues** and request features
+- **Beta testing** as features ship
 
 ### For Developers
 
-- 🔧 **Contribute code** to the core rewrite
-- 📚 **Improve docs** and tutorials
-- 🧪 **Write tests** and benchmarks
-- 🎨 **Design interfaces** for new features
+- **Contribute code** to the core rewrite
+- **Improve docs** and tutorials
+- **Write tests** and benchmarks
+- **Design interfaces** for new features
 
 ### For Organizations
 
-- 💼 **Early access** to enterprise features
-- 🤝 **Partnership** opportunities
-- 💰 **Sponsorship** and development funding
-- 🎯 **Custom development** services
+- **Early access** to enterprise features
+- **Partnership** opportunities
+- **Sponsorship** and development funding
+- **Custom development** services
 
 ## The Return
 

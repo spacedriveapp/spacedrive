@@ -32,7 +32,7 @@ let mut metadata = UserMetadata::new(entry.metadata_id);
 metadata.add_tag(Tag {
     name: "Vacation",
     color: Some("#FF6B6B"),
-    icon: Some("🏖️"),
+    icon: Some("️"),
 });
 metadata.favorite = true;
 ```

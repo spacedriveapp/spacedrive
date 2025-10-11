@@ -18,7 +18,7 @@ use sd_core::ops::libraries::list::output::LibraryInfo;
 use sd_core::volume::types::{DiskType, FileSystem, MountType, VolumeFingerprint, VolumeType};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	println!("🦀➡️📝 Generating TypeScript types using Specta...");
+	println!("️Generating TypeScript types using Specta...");
 
 	// Register the same comprehensive types as Swift
 	let types = TypeCollection::default()
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.register::<JobListItem>()
 		.register::<JobListOutput>();
 
-	println!("📊 Registered {} types to export", types.len());
+	println!("Registered {} types to export", types.len());
 
 	// Configure TypeScript generation
 	let typescript = Typescript::default()
@@ -69,14 +69,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	typescript.export_to(output_path, &types)?;
 
 	println!(
-		"✅ Generated TypeScript types to: {}",
+		"Generated TypeScript types to: {}",
 		output_path.display()
 	);
-	println!("🎉 Specta TypeScript generation completed!");
+	println!("Specta TypeScript generation completed!");
 
 	// Print the generated content for inspection
 	let generated_content = std::fs::read_to_string(output_path)?;
-	println!("\n📄 Generated TypeScript code:\n{}", generated_content);
+	println!("\nGenerated TypeScript code:\n{}", generated_content);
 
 	Ok(())
 }

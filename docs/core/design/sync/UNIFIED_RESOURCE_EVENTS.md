@@ -316,7 +316,7 @@ actor ResourceCache {
         switch event.kind {
         case .ResourceChanged(let resourceType, let resourceJSON):
             do {
-                // ✅ Generic decode - works for ALL resources!
+                // Generic decode - works for ALL resources!
                 let resource = try ResourceTypeRegistry.decode(
                     resourceType: resourceType,
                     from: resourceJSON
@@ -327,7 +327,7 @@ actor ResourceCache {
             }
 
         case .ResourceBatchChanged(let resourceType, let resourcesJSON, let operation):
-            // ✅ Generic batch decode
+            // Generic batch decode
             let resources = resourcesJSON.compactMap { json in
                 try? ResourceTypeRegistry.decode(resourceType: resourceType, from: json)
             }
@@ -339,7 +339,7 @@ actor ResourceCache {
             invalidateQueriesForResource(resourceType, hints: hints)
 
         case .ResourceDeleted(let resourceType, let resourceId):
-            // ✅ Generic deletion
+            // Generic deletion
             deleteEntity(resourceType: resourceType, id: resourceId)
 
         // Infrastructure events
@@ -436,7 +436,7 @@ export class NormalizedCache {
     switch (event.kind.type) {
       case 'ResourceChanged': {
         const { resource_type, resource } = event.kind.data;
-        // ✅ Generic decode - works for ALL resources!
+        // Generic decode - works for ALL resources!
         const decoded = ResourceTypeRegistry.decode(resource_type, resource);
         this.updateEntity(resource_type, decoded);
         break;
@@ -444,7 +444,7 @@ export class NormalizedCache {
 
       case 'ResourceBatchChanged': {
         const { resource_type, resources } = event.kind.data;
-        // ✅ Generic batch
+        // Generic batch
         resources.forEach(r => {
           const decoded = ResourceTypeRegistry.decode(resource_type, r);
           this.updateEntity(resource_type, decoded);
@@ -466,7 +466,7 @@ export class NormalizedCache {
     }
   }
 
-  // ✅ Automatic cache update for ANY resource
+  // Automatic cache update for ANY resource
   private updateEntity(resourceType: string, resource: CacheableResource) {
     const cacheKey = `${resourceType}:${resource.id}`;
     this.entities.set(cacheKey, resource);
@@ -475,7 +475,7 @@ export class NormalizedCache {
     this.notifyQueries(cacheKey);
   }
 
-  // ✅ Generic deletion
+  // Generic deletion
   private deleteEntity(resourceType: string, resourceId: string) {
     const cacheKey = `${resourceType}:${resourceId}`;
     this.entities.delete(cacheKey);
@@ -548,29 +548,29 @@ Once all resources migrated:
 ## Benefits
 
 ### For Rust Core
-✅ **Zero boilerplate**: No manual event emission
-✅ **Type safety**: TM ensures events match resources
-✅ **Automatic**: Emit on every commit
-✅ **Uniform**: All resources handled same way
+**Zero boilerplate**: No manual event emission
+**Type safety**: TM ensures events match resources
+**Automatic**: Emit on every commit
+**Uniform**: All resources handled same way
 
 ### For Clients
-✅ **ZERO switch statements**: Type registry handles all resources
-✅ **Type-safe deserialization**: JSON → typed resource
-✅ **Zero-friction scaling**: Add 100 resources, no client changes
-✅ **Auto-generated**: specta codegen creates registry automatically
-✅ **Cache-friendly**: Direct integration with normalized cache
+**ZERO switch statements**: Type registry handles all resources
+**Type-safe deserialization**: JSON → typed resource
+**Zero-friction scaling**: Add 100 resources, no client changes
+**Auto-generated**: specta codegen creates registry automatically
+**Cache-friendly**: Direct integration with normalized cache
 
 ### Horizontal Scaling
-✅ **Rust**: Add `impl Identifiable` → automatic events
-✅ **TypeScript**: Run codegen → automatic type + registry
-✅ **Swift**: Add `CacheableResource` conformance → automatic handling
-✅ **New platforms**: Implement type registry once, scales infinitely
+**Rust**: Add `impl Identifiable` → automatic events
+**TypeScript**: Run codegen → automatic type + registry
+**Swift**: Add `CacheableResource` conformance → automatic handling
+**New platforms**: Implement type registry once, scales infinitely
 
 ### For Maintenance
-✅ **Less code**: ~40 variants → ~5 generic variants
-✅ **No manual updates**: Adding File → Album → Tag reuses same code
-✅ **Clear semantics**: Resource events vs infrastructure events
-✅ **Centralized**: All emission in TransactionManager
+**Less code**: ~40 variants → ~5 generic variants
+**No manual updates**: Adding File → Album → Tag reuses same code
+**Clear semantics**: Resource events vs infrastructure events
+**Centralized**: All emission in TransactionManager
 
 ## Examples by Resource Type
 
@@ -675,7 +675,7 @@ pub async fn create_album(
 
 // Client: ZERO resource-specific code!
 case .ResourceChanged(let resourceType, let json):
-    // ✅ Works for Album, File, Tag, Location, everything!
+    // Works for Album, File, Tag, Location, everything!
     let resource = try ResourceTypeRegistry.decode(resourceType, json)
     cache.updateEntity(resource)
     // Add 100 new resources: this code never changes!
@@ -685,7 +685,7 @@ case .ResourceChanged(let resourceType, let json):
 - Rust: `impl Identifiable for NewResource` (3 lines)
 - Client: Nothing! (codegen handles it)
 
-**Horizontal scaling achieved!** 🎉
+**Horizontal scaling achieved!** 
 
 ## Event Size Considerations
 
@@ -730,11 +730,11 @@ But start with rich events (simpler, better cache consistency).
 ## Conclusion
 
 This unified event system:
-- ✅ Eliminates ~35 specialized event variants
-- ✅ Makes TransactionManager sole event emitter
-- ✅ Enables generic client handling
-- ✅ Reduces boilerplate to zero
-- ✅ Scales to infinite resource types
-- ✅ Aligns perfectly with Identifiable/Syncable design
+- Eliminates ~35 specialized event variants
+- Makes TransactionManager sole event emitter
+- Enables generic client handling
+- Reduces boilerplate to zero
+- Scales to infinite resource types
+- Aligns perfectly with Identifiable/Syncable design
 
 **Next Step**: Implement `Event` refactor alongside TransactionManager in mini-spec.

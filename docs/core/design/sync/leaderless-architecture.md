@@ -12,8 +12,8 @@ Spacedrive's data naturally splits into two categories with fundamentally differ
 
 | Category | Examples | Conflicts? | Strategy |
 |----------|----------|------------|----------|
-| **Device-Owned** | Locations, Entries, Volumes, Audit Logs | ❌ Never | State-Based |
-| **Truly Shared** | Tags, Albums, UserMetadata (on content) | ✅ Possible | Log-Based + HLC |
+| **Device-Owned** | Locations, Entries, Volumes, Audit Logs | Never | State-Based |
+| **Truly Shared** | Tags, Albums, UserMetadata (on content) | Possible | Log-Based + HLC |
 
 **Key Principle**: Device-owned data doesn't need ordering or logs—just replicate final state. Only truly shared resources need conflict resolution via ordered logs.
 
@@ -779,11 +779,11 @@ Device D connects to library:
 │ Buffer empty → Set sync state: READY                    │
 │                                                          │
 │ Now Device D:                                           │
-│   ✅ Has complete state from all peers                  │
-│   ✅ Caught up on all changes during backfill           │
-│   ✅ Applies live updates immediately                   │
-│   ✅ Can make local changes                             │
-│   ✅ Broadcasts to other peers                          │
+│   Has complete state from all peers                  │
+│   Caught up on all changes during backfill           │
+│   Applies live updates immediately                   │
+│   Can make local changes                             │
+│   Broadcasts to other peers                          │
 │                                                          │
 │ Notify peers: "Device D is ready for live sync"        │
 │                                                          │
@@ -804,10 +804,10 @@ Device D connects to library:
 
 | Aspect | Leader-Based (Old) | Leaderless (New) |
 |--------|-------------------|------------------|
-| **Bottleneck** | ❌ Leader must process all changes | ✅ Each device independent |
-| **Offline operation** | ❌ Followers read-only when leader offline | ✅ All devices can make changes |
-| **Complexity** | ❌ Leader election, heartbeats, failover | ✅ No election needed |
-| **Single point of failure** | ❌ Leader down = no changes | ✅ No single point of failure |
+| **Bottleneck** | Leader must process all changes | Each device independent |
+| **Offline operation** | Followers read-only when leader offline | All devices can make changes |
+| **Complexity** | Leader election, heartbeats, failover | No election needed |
+| **Single point of failure** | Leader down = no changes | No single point of failure |
 | **Sync log** | 1 central log (all changes) | N small logs (shared changes only) |
 | **New device join** | Pull from leader only | Pull state from any peer |
 | **Index sync** | Goes through leader unnecessarily | Direct peer-to-peer |
@@ -820,22 +820,22 @@ Device D connects to library:
 
 ### What Stays
 
-- ✅ `sync_partners` table (still need to track who we sync with)
-- ✅ `SyncProtocolHandler` (still need messaging)
-- ✅ `TransactionManager` concept (atomic writes + events)
-- ✅ Domain separation (Index vs UserMetadata)
-- ✅ Event-driven architecture
+- `sync_partners` table (still need to track who we sync with)
+- `SyncProtocolHandler` (still need messaging)
+- `TransactionManager` concept (atomic writes + events)
+- Domain separation (Index vs UserMetadata)
+- Event-driven architecture
 
 ### What Changes
 
-- ❌ **Remove**: `sync_leadership` field from devices
-- ❌ **Remove**: `LeadershipManager`
-- ❌ **Remove**: Leader election logic
-- ❌ **Remove**: Single `sync_log.db` on leader
-- ✅ **Add**: `shared_changes.db` per device (small, prunable)
-- ✅ **Add**: HLC generator per device
-- ✅ **Add**: State-based sync for device-owned data
-- ✅ **Add**: Peer ack tracking for pruning
+- **Remove**: `sync_leadership` field from devices
+- **Remove**: `LeadershipManager`
+- **Remove**: Leader election logic
+- **Remove**: Single `sync_log.db` on leader
+- **Add**: `shared_changes.db` per device (small, prunable)
+- **Add**: HLC generator per device
+- **Add**: State-based sync for device-owned data
+- **Add**: Peer ack tracking for pruning
 
 ### What Simplifies
 
@@ -1325,11 +1325,11 @@ Or use existing database replication:
 - Shared resources = log-based with HLC (small, prunable)
 
 **Benefits**:
-- ✅ No leader bottleneck
-- ✅ Works offline
-- ✅ Simpler code
-- ✅ More resilient
-- ✅ Matches architecture
+- No leader bottleneck
+- Works offline
+- Simpler code
+- More resilient
+- Matches architecture
 
 **This is a significant architectural improvement!**
 

@@ -2,7 +2,7 @@
 
 Quick reference for navigating the sync system codebase.
 
-## 📖 Documentation Index
+## Documentation Index
 
 **New to the sync system?** Read these in order:
 1. [`SYNC_IMPLEMENTATION_GUIDE.md`](./SYNC_IMPLEMENTATION_GUIDE.md) - Implementation guide with architectural principles
@@ -12,7 +12,7 @@ Quick reference for navigating the sync system codebase.
 
 ---
 
-## 📂 File Structure by Layer
+## File Structure by Layer
 
 ### Layer 1: Infrastructure (`core/src/infra/sync/`)
 
@@ -20,19 +20,19 @@ Core sync primitives and data structures.
 
 ```
 infra/sync/
-├── mod.rs                              ✅ Module exports
-├── hlc.rs                              ✅ Hybrid Logical Clock implementation
-├── peer_log.rs                         ✅ Per-device sync.db for shared changes
-├── syncable.rs                         ✅ Syncable trait for models
-├── registry.rs                         ✅ Model registry with apply function pointers
-├── deterministic.rs                    ✅ Deterministic UUIDs for system resources
-├── transaction.rs                      🚧 TransactionManager for atomic commits (stubbed)
-├── transport.rs                        ✅ NetworkTransport trait - sync's network interface
+├── mod.rs                              Module exports
+├── hlc.rs                              Hybrid Logical Clock implementation
+├── peer_log.rs                         Per-device sync.db for shared changes
+├── syncable.rs                         Syncable trait for models
+├── registry.rs                         Model registry with apply function pointers
+├── deterministic.rs                    Deterministic UUIDs for system resources
+├── transaction.rs                      TransactionManager for atomic commits (stubbed)
+├── transport.rs                        NetworkTransport trait - sync's network interface
 │
-├── SYNC_IMPLEMENTATION_GUIDE.md        📖 START HERE - Implementation guide
-├── SYNC_IMPLEMENTATION_ROADMAP.md      📋 Comprehensive implementation tracking
-├── NETWORK_INTEGRATION_STATUS.md       📋 Network integration progress
-└── FILE_ORGANIZATION.md                📋 This file
+├── SYNC_IMPLEMENTATION_GUIDE.md        START HERE - Implementation guide
+├── SYNC_IMPLEMENTATION_ROADMAP.md      Comprehensive implementation tracking
+├── NETWORK_INTEGRATION_STATUS.md       Network integration progress
+└── FILE_ORGANIZATION.md                This file
 ```
 
 **Purpose**: Low-level sync primitives that other layers build on.
@@ -45,12 +45,12 @@ High-level sync coordination and state management.
 
 ```
 service/sync/
-├── mod.rs                              ✅ SyncService - main entry point
-├── peer.rs                             ✅ PeerSync - core sync engine with network
-├── state.rs                            ✅ Sync state machine + buffer queue
-├── protocol_handler.rs                 ✅ StateSyncHandler + LogSyncHandler
-├── backfill.rs                         ✅ Backfill coordinator for new devices
-└── applier.rs                          ❌ DEPRECATED - Delete this
+├── mod.rs                              SyncService - main entry point
+├── peer.rs                             PeerSync - core sync engine with network
+├── state.rs                            Sync state machine + buffer queue
+├── protocol_handler.rs                 StateSyncHandler + LogSyncHandler
+├── backfill.rs                         Backfill coordinator for new devices
+└── applier.rs                          DEPRECATED - Delete this
 ```
 
 **Purpose**: Orchestrates sync operations, manages state, handles backfill.
@@ -66,10 +66,10 @@ Network transport and protocol handling.
 #### A. Protocol Handlers (Inbound)
 ```
 service/network/protocol/sync/
-├── mod.rs                              ✅ Module exports
-├── messages.rs                         ✅ SyncMessage enum - all message types
-├── handler.rs                          ⚠️ SyncProtocolHandler - STUBBED (CRITICAL)
-└── transport.rs                        ❌ DUPLICATE - Delete this
+├── mod.rs                              Module exports
+├── messages.rs                         SyncMessage enum - all message types
+├── handler.rs                          ️ SyncProtocolHandler - STUBBED (CRITICAL)
+└── transport.rs                        DUPLICATE - Delete this
 ```
 
 **Purpose**: Handle incoming sync messages from peers.
@@ -77,8 +77,8 @@ service/network/protocol/sync/
 #### B. Network Transports (Outbound)
 ```
 service/network/transports/
-├── mod.rs                              ✅ Module organization + docs
-└── sync.rs                             ✅ NetworkTransport impl for NetworkingService
+├── mod.rs                              Module organization + docs
+└── sync.rs                             NetworkTransport impl for NetworkingService
 ```
 
 **Purpose**: Send sync messages to peers.
@@ -87,10 +87,10 @@ service/network/transports/
 ```
 service/network/
 ├── core/
-│   ├── mod.rs                          ✅ NetworkingService + endpoint() getter
-│   └── sync_transport.rs               ❌ OLD VERSION - Delete this
+│   ├── mod.rs                          NetworkingService + endpoint() getter
+│   └── sync_transport.rs               OLD VERSION - Delete this
 └── device/
-    └── registry.rs                     ✅ DeviceRegistry - UUID↔NodeId mapping
+    └── registry.rs                     DeviceRegistry - UUIDNodeId mapping
 ```
 
 **Purpose**: Bridge between sync layer (device UUIDs) and network layer (Iroh NodeIds).
@@ -103,14 +103,14 @@ Models that implement sync apply functions.
 
 ```
 infra/db/entities/
-├── location.rs                         ✅ Location model + apply_state_change()
-├── tag.rs                              ✅ Tag model + apply_shared_change()
+├── location.rs                         Location model + apply_state_change()
+├── tag.rs                              Tag model + apply_shared_change()
 │
-├── entry.rs                            ⚠️ Entry model (needs apply)
-├── volume.rs                           ⚠️ Volume model (needs apply)
-├── device.rs                           ⚠️ Device model (needs apply)
-├── collection.rs                       ⚠️ Album model (needs apply)
-└── user_metadata.rs                    ⚠️ UserMetadata model (needs apply)
+├── entry.rs                            ️ Entry model (needs apply)
+├── volume.rs                           ️ Volume model (needs apply)
+├── device.rs                           ️ Device model (needs apply)
+├── collection.rs                       ️ Album model (needs apply)
+└── user_metadata.rs                    ️ UserMetadata model (needs apply)
 ```
 
 **Purpose**: Domain models that participate in sync.
@@ -125,14 +125,14 @@ CLI/API operations for managing sync configuration.
 
 ```
 ops/network/sync_setup/
-├── mod.rs                              ✅ Module exports
-├── action.rs                           ✅ SyncSetupAction - configure sync partners
-├── input.rs                            ✅ Action input schema
-├── output.rs                           ✅ Action output schema
+├── mod.rs                              Module exports
+├── action.rs                           SyncSetupAction - configure sync partners
+├── input.rs                            Action input schema
+├── output.rs                           Action output schema
 └── discovery/
-    ├── mod.rs                          ✅ Module exports
-    ├── query.rs                        ✅ DiscoverLibrariesQuery
-    └── output.rs                       ✅ Discovery results
+    ├── mod.rs                          Module exports
+    ├── query.rs                        DiscoverLibrariesQuery
+    └── output.rs                       Discovery results
 ```
 
 **Purpose**: User-facing operations to set up sync between devices.
@@ -145,14 +145,14 @@ Schema changes for sync-related tables.
 
 ```
 infra/db/migration/
-└── m20250200_000001_remove_sync_leadership.rs    ✅ Migration for leaderless sync
+└── m20250200_000001_remove_sync_leadership.rs    Migration for leaderless sync
 ```
 
 **Purpose**: Database schema evolution for sync features.
 
 ---
 
-## 🗺️ Data Flow Map
+## ️ Data Flow Map
 
 ### Outbound Sync (Device A → Device B)
 
@@ -222,22 +222,22 @@ infra/db/migration/
 
 ---
 
-## 🔍 Finding Code
+## Finding Code
 
 ### "Where is X defined?"
 
 | What | Where | Status |
 |------|-------|--------|
-| **NetworkTransport trait** | `infra/sync/transport.rs:42-114` | ✅ |
-| **NetworkTransport impl** | `service/network/transports/sync.rs:23-152` | ✅ |
-| **SyncMessage types** | `service/network/protocol/sync/messages.rs:14-107` | ✅ |
-| **PeerSync broadcasting** | `service/sync/peer.rs:144-318` | ✅ |
-| **Inbound handler** | `service/network/protocol/sync/handler.rs` | ⚠️ Stubbed |
-| **Registry dispatch** | `infra/sync/registry.rs:160-222` | ✅ |
-| **HLC implementation** | `infra/sync/hlc.rs` | ✅ |
-| **PeerLog (sync.db)** | `infra/sync/peer_log.rs` | ✅ |
-| **DeviceRegistry** | `service/network/device/registry.rs` | ✅ |
-| **TransactionManager** | `infra/sync/transaction.rs` | 🚧 Stubbed |
+| **NetworkTransport trait** | `infra/sync/transport.rs:42-114` | |
+| **NetworkTransport impl** | `service/network/transports/sync.rs:23-152` | |
+| **SyncMessage types** | `service/network/protocol/sync/messages.rs:14-107` | |
+| **PeerSync broadcasting** | `service/sync/peer.rs:144-318` | |
+| **Inbound handler** | `service/network/protocol/sync/handler.rs` | ️ Stubbed |
+| **Registry dispatch** | `infra/sync/registry.rs:160-222` | |
+| **HLC implementation** | `infra/sync/hlc.rs` | |
+| **PeerLog (sync.db)** | `infra/sync/peer_log.rs` | |
+| **DeviceRegistry** | `service/network/device/registry.rs` | |
+| **TransactionManager** | `infra/sync/transaction.rs` | Stubbed |
 
 ### "How do I..."
 
@@ -249,44 +249,44 @@ infra/db/migration/
 | **Register model** | `infra/sync/registry.rs` | Add to `initialize_registry()` |
 | **Generate HLC** | `infra/sync/hlc.rs` | `HLCGenerator::next()` |
 | **Write to peer log** | `infra/sync/peer_log.rs` | `PeerLog::append()` |
-| **Map UUID↔NodeId** | `service/network/device/registry.rs` | `DeviceRegistry` methods |
+| **Map UUIDNodeId** | `service/network/device/registry.rs` | `DeviceRegistry` methods |
 
 ---
 
-## 📊 File Status Matrix
+## File Status Matrix
 
 | File | LOC | Status | Priority | Notes |
 |------|-----|--------|----------|-------|
 | **Core Infrastructure** |
-| `infra/sync/hlc.rs` | 150 | ✅ Complete | - | HLC implementation |
-| `infra/sync/peer_log.rs` | 300 | ✅ Complete | - | Sync.db management |
-| `infra/sync/syncable.rs` | 50 | ✅ Complete | - | Trait definition |
-| `infra/sync/registry.rs` | 286 | ✅ Complete | - | Dynamic dispatch |
-| `infra/sync/transport.rs` | 182 | ✅ Complete | - | NetworkTransport trait |
-| `infra/sync/transaction.rs` | 226 | 🚧 Stubbed | **P1** | Need auto-broadcast |
+| `infra/sync/hlc.rs` | 150 | Complete | - | HLC implementation |
+| `infra/sync/peer_log.rs` | 300 | Complete | - | Sync.db management |
+| `infra/sync/syncable.rs` | 50 | Complete | - | Trait definition |
+| `infra/sync/registry.rs` | 286 | Complete | - | Dynamic dispatch |
+| `infra/sync/transport.rs` | 182 | Complete | - | NetworkTransport trait |
+| `infra/sync/transaction.rs` | 226 | Stubbed | **P1** | Need auto-broadcast |
 | **Network Layer** |
-| `service/network/transports/sync.rs` | 169 | ✅ Complete | - | Outbound messaging |
-| `service/network/protocol/sync/handler.rs` | 94 | ⚠️ Stubbed | **P1** | **CRITICAL** |
-| `service/network/protocol/sync/messages.rs` | 205 | ✅ Complete | - | Message types |
+| `service/network/transports/sync.rs` | 169 | Complete | - | Outbound messaging |
+| `service/network/protocol/sync/handler.rs` | 94 | ️ Stubbed | **P1** | **CRITICAL** |
+| `service/network/protocol/sync/messages.rs` | 205 | Complete | - | Message types |
 | **Sync Service** |
-| `service/sync/peer.rs` | 482 | ✅ Complete | - | Core sync engine |
-| `service/sync/state.rs` | 200 | ✅ Complete | - | State machine |
-| `service/sync/mod.rs` | 184 | ✅ Complete | - | Service wrapper |
+| `service/sync/peer.rs` | 482 | Complete | - | Core sync engine |
+| `service/sync/state.rs` | 200 | Complete | - | State machine |
+| `service/sync/mod.rs` | 184 | Complete | - | Service wrapper |
 | **Models** |
-| `infra/db/entities/location.rs` | ? | ✅ Complete | - | Has apply function |
-| `infra/db/entities/tag.rs` | ? | ✅ Complete | - | Has apply function |
-| `infra/db/entities/entry.rs` | ? | ⚠️ Partial | P2 | Needs apply |
-| `infra/db/entities/volume.rs` | ? | ⚠️ Partial | P2 | Needs apply |
-| `infra/db/entities/device.rs` | ? | ⚠️ Partial | P2 | Needs apply |
-| `infra/db/entities/collection.rs` | ? | ⚠️ Partial | P2 | Needs apply |
-| `infra/db/entities/user_metadata.rs` | ? | ⚠️ Partial | P2 | Needs apply |
+| `infra/db/entities/location.rs` | ? | Complete | - | Has apply function |
+| `infra/db/entities/tag.rs` | ? | Complete | - | Has apply function |
+| `infra/db/entities/entry.rs` | ? | ️ Partial | P2 | Needs apply |
+| `infra/db/entities/volume.rs` | ? | ️ Partial | P2 | Needs apply |
+| `infra/db/entities/device.rs` | ? | ️ Partial | P2 | Needs apply |
+| `infra/db/entities/collection.rs` | ? | ️ Partial | P2 | Needs apply |
+| `infra/db/entities/user_metadata.rs` | ? | ️ Partial | P2 | Needs apply |
 
 **Total Lines**: ~2,500 LOC
 **Completion**: 75% (25/34 files)
 
 ---
 
-## 🧹 Files to Delete
+## Files to Delete
 
 These files are legacy/duplicate and should be removed:
 
@@ -310,7 +310,7 @@ These files are legacy/duplicate and should be removed:
 
 ---
 
-## 🔗 Quick Links
+## Quick Links
 
 ### Documentation
 - [Implementation Roadmap](./SYNC_IMPLEMENTATION_ROADMAP.md) - Comprehensive tracking
@@ -318,10 +318,10 @@ These files are legacy/duplicate and should be removed:
 - [Sync Roadmap (docs)](../../../docs/core/sync-roadmap.md) - High-level overview
 
 ### Key Files (Most Important)
-1. `service/sync/peer.rs` - Core sync engine ⭐
-2. `service/network/transports/sync.rs` - Network transport ⭐
-3. `infra/sync/registry.rs` - Model dispatch ⭐
-4. `service/network/protocol/sync/handler.rs` - Inbound handling ⚠️ STUB
+1. `service/sync/peer.rs` - Core sync engine 
+2. `service/network/transports/sync.rs` - Network transport 
+3. `infra/sync/registry.rs` - Model dispatch 
+4. `service/network/protocol/sync/handler.rs` - Inbound handling ️ STUB
 
 ### Tests
 - Unit tests: Inline in each file (`#[cfg(test)]` modules)
@@ -329,7 +329,7 @@ These files are legacy/duplicate and should be removed:
 
 ---
 
-## 🎯 Navigation Tips
+## Navigation Tips
 
 ### By Layer
 - **Infrastructure**: `core/src/infra/sync/`

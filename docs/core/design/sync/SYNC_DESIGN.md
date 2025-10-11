@@ -61,7 +61,7 @@ Spacedrive distinguishes between three separate data synchronization concerns:
 │  │ │(SeaORM hooks)│ │     │ │(SeaORM hooks)│ │                   │
 │  │ └─────────────┘ │     │ └─────────────┘ │                   │
 │  │ ┌─────────────┐ │     │ ┌─────────────┐ │                   │
-│  │ │Phase 2:     │ │────▶│ │Phase 3:     │ │                   │
+│  │ │Phase 2:     │ │────│ │Phase 3:     │ │                   │
 │  │ │STORE        │ │     │ │INGEST       │ │                   │
 │  │ │(Dependency  │ │     │ │(Buffer &    │ │                   │
 │  │ │ ordering)   │ │     │ │ reorder)    │ │                   │
@@ -799,7 +799,7 @@ impl Syncable for entry::ActiveModel {
     }
 
     fn resolve_circular_dependency() -> Option<CircularResolution> {
-        // Handle Entry ↔ UserMetadata circular reference
+        // Handle Entry UserMetadata circular reference
         Some(CircularResolution::NullableReference("metadata_id"))
     }
 }
@@ -1498,7 +1498,7 @@ impl SyncProtocol {
     ) -> Result<()> {
         match resolution {
             CircularResolution::NullableReference(field) => {
-                // For Entry ↔ UserMetadata: create entries without metadata_id, update later
+                // For Entry UserMetadata: create entries without metadata_id, update later
                 for change in changes {
                     let mut data = change.data.clone();
 
@@ -1677,7 +1677,7 @@ Result: Entry-scoped metadata with tag "important" preserved, any content-scoped
 
 8.  **Built-In Dependency Awareness**: Every sync operation automatically respects foreign key constraints
 9.  **Declarative Dependencies**: Simple `depends_on = ["location", "device"]` syntax in model definitions
-10. **Automatic Circular Resolution**: Entry ↔ UserMetadata and other circular dependencies resolved transparently
+10. **Automatic Circular Resolution**: Entry UserMetadata and other circular dependencies resolved transparently
 11. **Three-Phase Architecture**: Capture (no ordering), Store (dependency ordering), Ingest (out-of-order resilience)
 12. **Developer Experience**: Adding sync to a model takes 3 lines with the derive macro
 13. **Compile-Time Safety**: Dependencies declared at compile time, validated during sync system initialization
@@ -2315,7 +2315,7 @@ impl SyncLogger for ConsoleSyncLogger {
             SyncPhase::Ingest => "INGEST",
         };
 
-        eprintln!("⚠️  [SYNC {} WARN] {}", phase_str, message);
+        eprintln!("️  [SYNC {} WARN] {}", phase_str, message);
         if let Some(ctx) = context {
             eprintln!("   Context: lib:{} dev:{} model:{:?} seq:{:?}",
                 ctx.library_id.to_string()[..8].to_string(),
@@ -2333,7 +2333,7 @@ impl SyncLogger for ConsoleSyncLogger {
             SyncPhase::Ingest => "INGEST",
         };
 
-        eprintln!("❌ [SYNC {} ERROR] {}", phase_str, message);
+        eprintln!("[SYNC {} ERROR] {}", phase_str, message);
         if let Some(ctx) = context {
             eprintln!("   Context: lib:{} dev:{} model:{:?} seq:{:?}",
                 ctx.library_id.to_string()[..8].to_string(),
@@ -2352,7 +2352,7 @@ impl SyncLogger for ConsoleSyncLogger {
         };
 
         if let Some(ctx) = context {
-            println!("🔍 [SYNC {} DEBUG] {} | lib:{} dev:{} model:{:?} seq:{:?}",
+            println!("[SYNC {} DEBUG] {} | lib:{} dev:{} model:{:?} seq:{:?}",
                 phase_str, message,
                 ctx.library_id.to_string()[..8].to_string(),
                 ctx.device_id.to_string()[..8].to_string(),
@@ -2360,21 +2360,21 @@ impl SyncLogger for ConsoleSyncLogger {
                 ctx.sequence_number
             );
         } else {
-            println!("🔍 [SYNC {} DEBUG] {}", phase_str, message);
+            println!("[SYNC {} DEBUG] {}", phase_str, message);
         }
     }
 
     async fn log_dependency_resolution(&self, model: &str, dependencies: &[&str], resolution_time: Duration) {
-        println!("🔗 [SYNC DEP] Resolved {} dependencies: {:?} in {}ms",
+        println!("[SYNC DEP] Resolved {} dependencies: {:?} in {}ms",
             model, dependencies, resolution_time.as_millis());
     }
 
     async fn log_circular_dependency(&self, cycle: &[&str], resolution: &CircularResolution) {
-        eprintln!("🔄 [SYNC CIRCULAR] Detected cycle: {:?} -> Resolved with: {:?}", cycle, resolution);
+        eprintln!("[SYNC CIRCULAR] Detected cycle: {:?} -> Resolved with: {:?}", cycle, resolution);
     }
 
     async fn log_phase_transition(&self, from: SyncPhase, to: SyncPhase, context: SyncContext) {
-        println!("📋 [SYNC PHASE] {:?} -> {:?} | lib:{} seq:{:?}",
+        println!("[SYNC PHASE] {:?} -> {:?} | lib:{} seq:{:?}",
             from, to,
             context.library_id.to_string()[..8].to_string(),
             context.sequence_number
@@ -2382,12 +2382,12 @@ impl SyncLogger for ConsoleSyncLogger {
     }
 
     async fn log_batch_processing(&self, batch: &SyncBatch, processing_time: Duration) {
-        println!("📦 [SYNC BATCH] Processed {} models in {}ms: {:?}",
+        println!("[SYNC BATCH] Processed {} models in {}ms: {:?}",
             batch.models.len(), processing_time.as_millis(), batch.models);
     }
 
     async fn log_conflict_resolution(&self, model: &str, conflict_type: &str, resolution: &str) {
-        eprintln!("⚡ [SYNC CONFLICT] {} conflict in {}: resolved with {}",
+        eprintln!("[SYNC CONFLICT] {} conflict in {}: resolved with {}",
             conflict_type, model, resolution);
     }
 }
@@ -2485,15 +2485,15 @@ impl SyncLeaderService {
 #### Example Log Output
 
 ```
-🔍 [SYNC STORE DEBUG] Starting dependency resolution for captured changes | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
-🔗 [SYNC DEP] Resolved mixed_models dependencies: ["device", "location", "entry", "user_metadata"] in 2ms
-🔍 [SYNC STORE DEBUG] Processing dependency level 0 | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
-📦 [SYNC BATCH] Processed 2 models in 15ms: ["device", "tag"]
-🔍 [SYNC STORE DEBUG] Processing dependency level 1 | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
-📦 [SYNC BATCH] Processed 1 models in 8ms: ["location"]
-🔍 [SYNC STORE DEBUG] Processing dependency level 2 | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
-🔄 [SYNC CIRCULAR] Detected cycle: ["entry", "user_metadata"] -> Resolved with: NullableReference("metadata_id")
-📦 [SYNC BATCH] Processed 2 models in 23ms: ["entry", "user_metadata"]
+[SYNC STORE DEBUG] Starting dependency resolution for captured changes | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
+[SYNC DEP] Resolved mixed_models dependencies: ["device", "location", "entry", "user_metadata"] in 2ms
+[SYNC STORE DEBUG] Processing dependency level 0 | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
+[SYNC BATCH] Processed 2 models in 15ms: ["device", "tag"]
+[SYNC STORE DEBUG] Processing dependency level 1 | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
+[SYNC BATCH] Processed 1 models in 8ms: ["location"]
+[SYNC STORE DEBUG] Processing dependency level 2 | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
+[SYNC CIRCULAR] Detected cycle: ["entry", "user_metadata"] -> Resolved with: NullableReference("metadata_id")
+[SYNC BATCH] Processed 2 models in 23ms: ["entry", "user_metadata"]
 [SYNC STORE INFO] Completed dependency-ordered storage of changes | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
 ```
 

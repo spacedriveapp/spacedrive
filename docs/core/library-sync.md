@@ -48,10 +48,10 @@ Device C (Phone):
 ### No Central Leader
 
 Every device is equal:
-- ✅ Any device can make changes anytime
-- ✅ Changes sync peer-to-peer
-- ✅ No coordination required
-- ✅ Works fully offline
+- Any device can make changes anytime
+- Changes sync peer-to-peer
+- No coordination required
+- Works fully offline
 
 ---
 
@@ -199,10 +199,10 @@ async fn on_state_change(change: StateChange) {
 ```
 
 **Properties**:
-- ✅ Simple (just broadcast state)
-- ✅ No ordering needed (idempotent)
-- ✅ No log (stateless)
-- ✅ Fast (~100ms latency)
+- Simple (just broadcast state)
+- No ordering needed (idempotent)
+- No log (stateless)
+- Fast (~100ms latency)
 
 ---
 
@@ -266,10 +266,10 @@ async fn on_all_peers_acked(up_to_hlc: HLC) {
 ```
 
 **Properties**:
-- ✅ Ordered (HLC)
-- ✅ Conflict resolution (merge strategies)
-- ✅ Small log (pruned aggressively)
-- ✅ Offline-capable (queues locally)
+- Ordered (HLC)
+- Conflict resolution (merge strategies)
+- Small log (pruned aggressively)
+- Offline-capable (queues locally)
 
 ---
 
@@ -905,20 +905,20 @@ $ sd-cli library open jamie-lib-uuid
 
 ### What's Removed
 
-- ❌ Leader election
-- ❌ Heartbeat mechanism
-- ❌ `sync_leadership` field
-- ❌ LeadershipManager
-- ❌ Central `sync_log.db`
-- ❌ Follower read-only restrictions
+- Leader election
+- Heartbeat mechanism
+- `sync_leadership` field
+- LeadershipManager
+- Central `sync_log.db`
+- Follower read-only restrictions
 
 ### What's Added
 
-- ✅ HLC generator
-- ✅ Per-device `sync.db`
-- ✅ State-based sync protocol
-- ✅ Peer ACK tracking
-- ✅ Aggressive log pruning
+- HLC generator
+- Per-device `sync.db`
+- State-based sync protocol
+- Peer ACK tracking
+- Aggressive log pruning
 
 ### Migration Path
 

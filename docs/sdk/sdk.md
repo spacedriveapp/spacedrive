@@ -222,10 +222,10 @@ model_blobs { model_uuid: person_uuid, blob_key: "embeddings", blob_id: 1 }
 
 **Benefits:**
 
-- ✅ Fast queries (heavy data not loaded)
-- ✅ Lazy loading (load blobs only when accessed)
-- ✅ Deduplication (content-addressed by hash)
-- ✅ Compression (zstd reduces embeddings 4x)
+- Fast queries (heavy data not loaded)
+- Lazy loading (load blobs only when accessed)
+- Deduplication (content-addressed by hash)
+- Compression (zstd reduces embeddings 4x)
 
 **API Methods:**
 

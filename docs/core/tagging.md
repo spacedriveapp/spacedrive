@@ -107,8 +107,8 @@ pub struct TagRelationship {
 
 pub enum RelationshipType {
     ParentChild,  // Hierarchical relationship (Technology → Programming)
-    Synonym,      // Equivalent meaning (JavaScript ↔ ECMAScript)
-    Related,      // Semantic relatedness (React ↔ Frontend)
+    Synonym,      // Equivalent meaning (JavaScript ECMAScript)
+    Related,      // Semantic relatedness (React Frontend)
 }
 ```
 

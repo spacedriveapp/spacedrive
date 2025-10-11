@@ -535,7 +535,7 @@ impl TransactionManager {
 
 Devices have relationships with other core entities:
 
-### Devices ↔ Libraries
+### Devices Libraries
 
 **Relationship**: Many-to-Many
 - One device can access multiple libraries
@@ -547,7 +547,7 @@ Devices have relationships with other core entities:
 - Global device registry managed by NetworkingService
 - Library sync setup creates bidirectional registration
 
-### Devices ↔ Locations
+### Devices Locations
 
 **Relationship**: One-to-Many
 - Each location belongs to one device
@@ -570,7 +570,7 @@ CREATE TABLE locations (
 - Each device indexes its own filesystem
 - Location ownership never changes (location is tied to device)
 
-### Devices ↔ Volumes
+### Devices Volumes
 
 **Relationship**: One-to-Many
 - Each volume belongs to one device
@@ -733,11 +733,11 @@ impl Syncable for entities::device::Model {
 ```
 
 **What syncs**:
-- ✅ Device name changes
-- ✅ Hardware model updates
-- ✅ Sync role assignments
-- ❌ Online/offline status (ephemeral)
-- ❌ Network addresses (connection-specific)
+- Device name changes
+- Hardware model updates
+- Sync role assignments
+- Online/offline status (ephemeral)
+- Network addresses (connection-specific)
 
 ## Device Events
 

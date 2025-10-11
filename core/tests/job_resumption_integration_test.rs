@@ -127,7 +127,7 @@ async fn test_job_resumption_at_various_points() {
 		);
 	}
 
-	info!("All job resumption tests passed! 🎉");
+	info!("All job resumption tests passed! ");
 	info!("Test logs and data available in: test_data/");
 }
 

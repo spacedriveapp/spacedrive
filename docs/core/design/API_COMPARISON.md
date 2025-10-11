@@ -98,14 +98,14 @@ mutation CreateLibrary($input: CreateLibraryInput!) {
 
 | Feature | rspc | async-graphql |
 |---------|------|---------------|
-| **Type Safety** | ✅ Custom | ✅ Industry Standard |
-| **Tooling** | ❌ Limited | ✅ Extensive |
-| **Community** | ❌ Abandoned | ✅ Active |
-| **Learning Curve** | 📈 Custom API | 📊 Standard GraphQL |
-| **Code Generation** | 🔧 Custom | 🔧 graphql-codegen |
-| **Real-time** | ❓ Custom | ✅ Subscriptions |
-| **File Upload** | ❓ Custom | ✅ Multipart spec |
-| **Caching** | ❌ Manual | ✅ Apollo Cache |
+| **Type Safety** | Custom | Industry Standard |
+| **Tooling** | Limited | Extensive |
+| **Community** | Abandoned | Active |
+| **Learning Curve** | Custom API | Standard GraphQL |
+| **Code Generation** | Custom | graphql-codegen |
+| **Real-time** | Custom | Subscriptions |
+| **File Upload** | Custom | Multipart spec |
+| **Caching** | Manual | Apollo Cache |
 
 ## Example: Full Type Safety Flow
 
@@ -139,7 +139,7 @@ const { data } = useGetLibraryQuery({
 
 // TypeScript knows exactly what fields are available
 console.log(data.library.name); // ✅
-console.log(data.library.invalid); // ❌ Type error!
+console.log(data.library.invalid); // Type error!
 ```
 
 ## Performance Benefits
@@ -174,10 +174,10 @@ const [createLibrary] = useCreateLibraryMutation({
 ## Conclusion
 
 While rspc provided type safety, async-graphql gives us:
-- ✅ **Industry standard** that developers already know
-- ✅ **Better tooling** and ecosystem
-- ✅ **Active maintenance** and updates
-- ✅ **More features** out of the box
-- ✅ **Same level of type safety** with better DX
+- **Industry standard** that developers already know
+- **Better tooling** and ecosystem
+- **Active maintenance** and updates
+- **More features** out of the box
+- **Same level of type safety** with better DX
 
 The migration from rspc to GraphQL modernizes the API while maintaining the type safety that Spacedrive requires.

@@ -147,10 +147,10 @@ fn demo_enhanced_progress_event() {
     println!();
 
     println!("Key Benefits:");
-    println!("✅ Know the action that triggered the job: 'locations.add'");
-    println!("✅ Understand the context: 'Adding Documents location via drag_and_drop'");
-    println!("✅ See original user input: path, name, mode");
-    println!("✅ Rich debugging info: location_id, device_id, trigger method");
-    println!("✅ Full audit trail: user action → job → progress → completion");
+    println!("Know the action that triggered the job: 'locations.add'");
+    println!("Understand the context: 'Adding Documents location via drag_and_drop'");
+    println!("See original user input: path, name, mode");
+    println!("Rich debugging info: location_id, device_id, trigger method");
+    println!("Full audit trail: user action → job → progress → completion");
 }
 

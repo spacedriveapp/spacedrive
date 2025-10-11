@@ -21,11 +21,11 @@ Event::JobStarted { job_id, job_type }
 ```
 
 **Issues**:
-- ❌ Manual emission scattered across codebase (easy to forget)
-- ❌ Adding new resource = new event variant + client code changes
-- ❌ No type safety between events and resources
-- ❌ Clients must handle each variant specifically
-- ❌ Horizontal scaling requires per-resource boilerplate
+- Manual emission scattered across codebase (easy to forget)
+- Adding new resource = new event variant + client code changes
+- No type safety between events and resources
+- Clients must handle each variant specifically
+- Horizontal scaling requires per-resource boilerplate
 
 ## The Solution: Generic Resource Events
 
@@ -258,7 +258,7 @@ actor EventCacheUpdater {
         switch event.kind {
         case .ResourceChanged(let resourceType, let resourceJSON):
             do {
-                // ✅ Works for ALL current and future resources!
+                // Works for ALL current and future resources!
                 let resource = try ResourceTypeRegistry.decode(
                     resourceType: resourceType,
                     from: resourceJSON
@@ -269,7 +269,7 @@ actor EventCacheUpdater {
             }
 
         case .ResourceBatchChanged(let resourceType, let resourcesJSON, _):
-            // ✅ Generic batch handling
+            // Generic batch handling
             let resources = resourcesJSON.compactMap { json in
                 try? ResourceTypeRegistry.decode(resourceType: resourceType, from: json)
             }
@@ -279,11 +279,11 @@ actor EventCacheUpdater {
 
         case .BulkOperationCompleted(let resourceType, let count, _, let hints):
             // Invalidate affected queries
-            print("📦 Bulk operation: \(count) \(resourceType) items")
+            print("Bulk operation: \(count) \(resourceType) items")
             await cache.invalidateQueriesForResource(resourceType, hints: hints)
 
         case .ResourceDeleted(let resourceType, let resourceId):
-            // ✅ Generic deletion
+            // Generic deletion
             await cache.deleteEntity(resourceType: resourceType, id: resourceId)
 
         // Infrastructure events
@@ -332,7 +332,7 @@ export class EventCacheUpdater {
       case 'ResourceChanged': {
         const { resource_type, resource } = event.kind.data;
 
-        // ✅ Generic decode via auto-generated registry!
+        // Generic decode via auto-generated registry!
         const decoded = ResourceTypeRegistry.decode(resource_type, resource);
         this.cache.updateEntity(resource_type, decoded);
         break;
@@ -459,10 +459,10 @@ fn main() {
 
 ## Event Emission Guidelines
 
-### ✅ DO: Let TransactionManager Handle It
+### DO: Let TransactionManager Handle It
 
 ```rust
-// ✅ CORRECT: TM emits automatically
+// CORRECT: TM emits automatically
 pub async fn create_album(tm: &TransactionManager, library: Arc<Library>, name: String) -> Result<Album> {
     let model = albums::ActiveModel { /* ... */ };
     let album = tm.commit::<albums::Model, Album>(library, model).await?;
@@ -470,10 +470,10 @@ pub async fn create_album(tm: &TransactionManager, library: Arc<Library>, name: 
 }
 ```
 
-### ❌ DON'T: Manual Event Emission
+### DON'T: Manual Event Emission
 
 ```rust
-// ❌ WRONG: Manual emission (error-prone, bypasses sync)
+// WRONG: Manual emission (error-prone, bypasses sync)
 pub async fn create_album(library: Arc<Library>, name: String) -> Result<Album> {
     let model = albums::ActiveModel { /* ... */ };
     model.insert(db).await?; // No sync log!
@@ -663,22 +663,22 @@ async fn test_resource_changed_emission() {
 ## Benefits Summary
 
 ### Rust Core
-- ✅ Zero manual event emission
-- ✅ 40 variants → 5 generic variants
-- ✅ Type-safe: Events always match resources
-- ✅ Centralized: All emission in TransactionManager
+- Zero manual event emission
+- 40 variants → 5 generic variants
+- Type-safe: Events always match resources
+- Centralized: All emission in TransactionManager
 
 ### Clients
-- ✅ Zero switch statements per resource
-- ✅ Type registry handles all deserialization
-- ✅ Auto-generated via specta
-- ✅ Add 100 resources: zero event handling changes
+- Zero switch statements per resource
+- Type registry handles all deserialization
+- Auto-generated via specta
+- Add 100 resources: zero event handling changes
 
 ### Maintenance
-- ✅ Less code: ~2000 lines eliminated
-- ✅ No forgetting: TM always emits
-- ✅ Consistent: Same pattern everywhere
-- ✅ Scalable: Horizontal scaling achieved
+- Less code: ~2000 lines eliminated
+- No forgetting: TM always emits
+- Consistent: Same pattern everywhere
+- Scalable: Horizontal scaling achieved
 
 ## References
 

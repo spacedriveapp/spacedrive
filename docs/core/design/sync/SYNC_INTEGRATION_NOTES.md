@@ -92,7 +92,7 @@ Entry-scoped metadata syncs in the Index domain (device-specific).
 
 Content-scoped metadata syncs in the UserMetadata domain (content-universal).
 
-Circular Dependency Resolution: The explicit handling of the Entry ↔ UserMetadata circular dependency via NullableReference("metadata_id") within the Syncable trait demonstrates tight coordination between the data model and sync logic.
+Circular Dependency Resolution: The explicit handling of the Entry UserMetadata circular dependency via NullableReference("metadata_id") within the Syncable trait demonstrates tight coordination between the data model and sync logic.
 
 File Change Handling: The refactor's "Preserve Entry, Unlink and Re-identify Content" strategy for file content changes is fully supported. Sync ensures Entry-scoped metadata (and its UUID) persists across changes, while ContentIdentity links are updated, automatically managing content-scoped metadata.
 

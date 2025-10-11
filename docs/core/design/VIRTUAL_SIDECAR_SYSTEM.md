@@ -98,7 +98,7 @@ Rules:
   - Always use lowercase to avoid case-folding issues on case-insensitive filesystems.
   - Paths remain fully deterministic and require no DB lookup for single-item fetches.
 
-## Local Presence & Consistency (DB ↔ FS)
+## Local Presence & Consistency (DB FS)
 
 To keep database and sidecar folder consistent:
 

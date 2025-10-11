@@ -4,7 +4,7 @@
 
 ---
 
-## 📊 Current Status
+## Current Status
 
 **Overall Progress**: 75% Complete (25/34 files)
 **Architecture Grade**: 7.5/10
@@ -12,9 +12,9 @@
 
 ---
 
-## 🚀 Quick Start: Priority Actions
+## Quick Start: Priority Actions
 
-### 🔥 This Week (Critical Path)
+### This Week (Critical Path)
 
 1. **Implement SyncProtocolHandler** (~6 hours)
    - File: `core/src/service/network/protocol/sync/handler.rs`
@@ -38,20 +38,20 @@
 
 ---
 
-## 📈 Component Status
+## Component Status
 
 | Component | Files | Status | Priority |
 |-----------|-------|--------|----------|
-| **Core Infrastructure** | 9 | ✅ 100% | - |
-| **Network Integration** | 5 | 🚧 80% | P1 |
-| **Sync Service** | 5 | ✅ 80% | P1 |
-| **Database Models** | 7 | ⚠️ 29% | P2 |
-| **Testing** | - | ❌ 0% | P2 |
-| **Architecture** | - | 🚧 Workarounds | P3 |
+| **Core Infrastructure** | 9 | 100% | - |
+| **Network Integration** | 5 | 80% | P1 |
+| **Sync Service** | 5 | 80% | P1 |
+| **Database Models** | 7 | ️ 29% | P2 |
+| **Testing** | - | 0% | P2 |
+| **Architecture** | - | Workarounds | P3 |
 
 ---
 
-## 🎯 Success Metrics
+## Success Metrics
 
 ### MVP Targets (Week 4)
 - [ ] All message types handled
@@ -69,16 +69,16 @@
 
 ---
 
-## 🏗️ Architecture Highlights
+## ️ Architecture Highlights
 
-### ✅ What's Good
+### What's Good
 
 1. **Layered Architecture** - Clean separation of concerns
 2. **Hybrid Sync Model** - State-based + log-based with HLC
 3. **Trait Abstraction** - `NetworkTransport` breaks circular deps
 4. **Documentation** - Excellent inline docs and examples
 
-### ⚠️ Needs Improvement
+### ️ Needs Improvement
 
 1. **Circular Dependency Workaround** - Trait abstraction is a Band-Aid
 2. **Registry Pattern Complexity** - Function pointers hard to debug
@@ -87,11 +87,11 @@
 
 ---
 
-## 📋 Detailed Tracking
+## Detailed Tracking
 
 For comprehensive implementation details, see:
 
-### 📁 [SYNC_IMPLEMENTATION_ROADMAP.md](../../core/src/infra/sync/SYNC_IMPLEMENTATION_ROADMAP.md)
+### [SYNC_IMPLEMENTATION_ROADMAP.md](../../core/src/infra/sync/SYNC_IMPLEMENTATION_ROADMAP.md)
 
 Contains:
 - Detailed task breakdowns with effort estimates
@@ -100,7 +100,7 @@ Contains:
 - Success metrics and timeline
 - Learning resources
 
-### 📁 [NETWORK_INTEGRATION_STATUS.md](../../core/src/infra/sync/NETWORK_INTEGRATION_STATUS.md)
+### [NETWORK_INTEGRATION_STATUS.md](../../core/src/infra/sync/NETWORK_INTEGRATION_STATUS.md)
 
 Contains:
 - Phase-by-phase completion status
@@ -110,27 +110,27 @@ Contains:
 
 ---
 
-## 🎓 Key Architectural Decisions
+## Key Architectural Decisions
 
 ### ADR-001: Hybrid Sync Model
 **Decision**: State-based for device-owned, log-based with HLC for shared
-**Status**: ✅ Implemented
+**Status**: Implemented
 
 ### ADR-002: NetworkTransport Trait
 **Decision**: Use trait to break circular dependency
-**Status**: ✅ Implemented (may refactor in P3)
+**Status**: Implemented (may refactor in P3)
 
 ### ADR-003: Leaderless Architecture
 **Decision**: All devices are peers, no leader election
-**Status**: ✅ Implemented
+**Status**: Implemented
 
 ### ADR-004: Per-Device Sync.db
 **Decision**: Each device maintains its own peer log
-**Status**: ✅ Implemented
+**Status**: Implemented
 
 ---
 
-## 📞 Questions & Discussions
+## Questions & Discussions
 
 ### Open Questions
 
@@ -148,18 +148,18 @@ Contains:
 
 ---
 
-## 🐛 Known Critical Issues
+## Known Critical Issues
 
-1. ⚠️ **SyncProtocolHandler stubbed** - Blocks inbound messages
-2. ⚠️ **TransactionManager incomplete** - No auto-broadcast
-3. ⚠️ **Sequential broadcasts** - Slow for many peers
-4. ⚠️ **Silent error handling** - `.unwrap_or_default()` hides issues
-5. ⚠️ **No retry mechanism** - Lost messages not recovered
-6. ⚠️ **Only 2/7 models implemented** - Most data can't sync
+1. ️ **SyncProtocolHandler stubbed** - Blocks inbound messages
+2. ️ **TransactionManager incomplete** - No auto-broadcast
+3. ️ **Sequential broadcasts** - Slow for many peers
+4. ️ **Silent error handling** - `.unwrap_or_default()` hides issues
+5. ️ **No retry mechanism** - Lost messages not recovered
+6. ️ **Only 2/7 models implemented** - Most data can't sync
 
 ---
 
-## 📅 Timeline
+## Timeline
 
 ### Week 1 (Current)
 Focus: Critical path to MVP
@@ -184,7 +184,7 @@ Focus: Production hardening
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### For Implementers
 
@@ -209,7 +209,7 @@ Focus: Production hardening
 
 ---
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [Daemon Architecture](./daemon.md)
 - [Hybrid Logical Clocks Paper](https://cse.buffalo.edu/tech-reports/2014-04.pdf)

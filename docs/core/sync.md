@@ -1,11 +1,11 @@
 # Spacedrive Sync System
 
-**Status**: ✅ **Core Implementation Complete** (2025-10-09)
+**Status**: **Core Implementation Complete** (2025-10-09)
 **Version**: 3.0 (Leaderless Hybrid)
 **Last Updated**: 2025-10-10
 **Architecture**: `core/src/infra/sync/NEW_SYNC.md`
 
-> 📋 **Quick Links**:
+> **Quick Links**:
 > - [Implementation Plan](./sync-api-implementation-plan.md) - Clean API design and rollout
 > - [Sync Roadmap](./sync-roadmap.md) - Quick reference and status overview
 > - [Detailed Roadmap](../../core/src/infra/sync/SYNC_IMPLEMENTATION_ROADMAP.md) - Comprehensive tracking with code examples
@@ -13,7 +13,7 @@
 > - [File Organization](../../core/src/infra/sync/FILE_ORGANIZATION.md) - Navigate the codebase
 > - [Test Suite](../../core/tests/sync_integration_test.rs) - 6 comprehensive integration tests
 
-> ✅ **Major Milestone**: Sync infrastructure complete! Live broadcast working in production, automatic backfill orchestration implemented, 6/6 tests passing.
+> **Major Milestone**: Sync infrastructure complete! Live broadcast working in production, automatic backfill orchestration implemented, 6/6 tests passing.
 
 ---
 
@@ -64,10 +64,10 @@ Device C (Phone):
 ### No Central Leader
 
 Every device is equal:
-- ✅ Any device can make changes anytime
-- ✅ Changes sync peer-to-peer
-- ✅ No coordination required
-- ✅ Works fully offline
+- Any device can make changes anytime
+- Changes sync peer-to-peer
+- No coordination required
+- Works fully offline
 
 ---
 
@@ -215,10 +215,10 @@ async fn on_state_change(change: StateChange) {
 ```
 
 **Properties**:
-- ✅ Simple (just broadcast state)
-- ✅ No ordering needed (idempotent)
-- ✅ No log (stateless)
-- ✅ Fast (~100ms latency)
+- Simple (just broadcast state)
+- No ordering needed (idempotent)
+- No log (stateless)
+- Fast (~100ms latency)
 
 ---
 
@@ -282,10 +282,10 @@ async fn on_all_peers_acked(up_to_hlc: HLC) {
 ```
 
 **Properties**:
-- ✅ Ordered (HLC)
-- ✅ Conflict resolution (merge strategies)
-- ✅ Small log (pruned aggressively)
-- ✅ Offline-capable (queues locally)
+- Ordered (HLC)
+- Conflict resolution (merge strategies)
+- Small log (pruned aggressively)
+- Offline-capable (queues locally)
 
 ---
 
@@ -459,10 +459,10 @@ let sync_order = compute_registry_sync_order().await?;
 ```
 
 **Benefits**:
-- ✅ **Zero FK violations**: Dependencies always satisfied
-- ✅ **Automatic**: No manual tier management
-- ✅ **Self-documenting**: Dependencies declared in code
-- ✅ **Validated**: Detects circular dependencies at startup
+- **Zero FK violations**: Dependencies always satisfied
+- **Automatic**: No manual tier management
+- **Self-documenting**: Dependencies declared in code
+- **Validated**: Detects circular dependencies at startup
 
 ### Computed Dependency Graph
 
@@ -582,7 +582,7 @@ Device B, C:
 
 **Result**: All devices can SEE Device A's location in the UI, but only Device A can access the physical files.
 
-**Implementation**: ✅ Working in production (tested with real daemon)
+**Implementation**: Working in production (tested with real daemon)
 
 ---
 
@@ -690,9 +690,9 @@ Phase 4: Ready
   Set sync state: READY
 
   Device D is fully synced:
-    ✅ Can make changes
-    ✅ Applies live updates immediately
-    ✅ Broadcasts to other peers
+    Can make changes
+    Applies live updates immediately
+    Broadcasts to other peers
 ```
 
 **Critical**: Live updates are buffered during backfill to prevent applying changes to incomplete state!
@@ -1160,11 +1160,11 @@ async fn run_sync_loop(peer_sync, backfill_manager, ...) {
 ```
 
 **Features**:
-- ✅ Automatically triggers on `Uninitialized` state
-- ✅ Selects best peer based on latency/availability
-- ✅ Retries if initial attempt fails
-- ✅ Transitions to `Ready` when complete
-- ⚠️  Request/response correlation stubbed (needs network layer integration)
+- Automatically triggers on `Uninitialized` state
+- Selects best peer based on latency/availability
+- Retries if initial attempt fails
+- Transitions to `Ready` when complete
+- ️  Request/response correlation stubbed (needs network layer integration)
 
 ---
 
@@ -1221,11 +1221,11 @@ C: Applies all tags ✅
 **Key Insight**: Device B acts as a **state repository** for the entire library, not just its own data.
 
 **Implementation Status**:
-- ✅ State query infrastructure (`query_for_sync()`)
-- ✅ Backfill response with `current_state`
-- ✅ Automatic backfill trigger
-- ⚠️  Request/response in production (stubbed in `backfill.rs`)
-- ✅ Full end-to-end validated in tests (using oneshot channels)
+- State query infrastructure (`query_for_sync()`)
+- Backfill response with `current_state`
+- Automatic backfill trigger
+- ️  Request/response in production (stubbed in `backfill.rs`)
+- Full end-to-end validated in tests (using oneshot channels)
 
 ---
 
@@ -1297,20 +1297,20 @@ $ sd-cli library open jamie-lib-uuid
 
 ### What's Removed
 
-- ❌ Leader election
-- ❌ Heartbeat mechanism
-- ❌ `sync_leadership` field
-- ❌ LeadershipManager
-- ❌ Central `sync_log.db`
-- ❌ Follower read-only restrictions
+- Leader election
+- Heartbeat mechanism
+- `sync_leadership` field
+- LeadershipManager
+- Central `sync_log.db`
+- Follower read-only restrictions
 
 ### What's Added
 
-- ✅ HLC generator
-- ✅ Per-device `sync.db`
-- ✅ State-based sync protocol
-- ✅ Peer ACK tracking
-- ✅ Aggressive log pruning
+- HLC generator
+- Per-device `sync.db`
+- State-based sync protocol
+- Peer ACK tracking
+- Aggressive log pruning
 
 ### Migration Path
 
@@ -1373,38 +1373,38 @@ async fn handle_sync_failure(error: SyncError, checkpoint: Checkpoint) {
 
 ## Implementation Status (Updated 2025-10-09)
 
-### ✅ Complete and Working
+### Complete and Working
 
 | Component | Status | Location |
 |-----------|--------|----------|
-| **Clean Sync API** | ✅ Production | `core/src/library/sync_helpers.rs` |
-| **TagManager Integration** | ✅ Production | `core/src/ops/tags/create/action.rs` |
-| **LocationManager Integration** | ✅ Production | `core/src/location/manager.rs` |
-| **HLC Generation** | ✅ Production | `core/src/infra/sync/hlc.rs` |
-| **PeerLog (sync.db)** | ✅ Production | `core/src/infra/sync/peer_log.rs` |
-| **FK UUID Mapping** | ✅ Production | `core/src/infra/sync/fk_mapper.rs` |
-| **State Query (Backfill)** | ✅ Production | `tag::Model::query_for_sync()` |
-| **Broadcast Protocol** | ✅ Production | Live sync works end-to-end |
-| **Auto Backfill Trigger** | ✅ Production | `run_sync_loop()` orchestration |
-| **Sync Service Init** | ✅ Production | Auto-initializes when library opens |
+| **Clean Sync API** | Production | `core/src/library/sync_helpers.rs` |
+| **TagManager Integration** | Production | `core/src/ops/tags/create/action.rs` |
+| **LocationManager Integration** | Production | `core/src/location/manager.rs` |
+| **HLC Generation** | Production | `core/src/infra/sync/hlc.rs` |
+| **PeerLog (sync.db)** | Production | `core/src/infra/sync/peer_log.rs` |
+| **FK UUID Mapping** | Production | `core/src/infra/sync/fk_mapper.rs` |
+| **State Query (Backfill)** | Production | `tag::Model::query_for_sync()` |
+| **Broadcast Protocol** | Production | Live sync works end-to-end |
+| **Auto Backfill Trigger** | Production | `run_sync_loop()` orchestration |
+| **Sync Service Init** | Production | Auto-initializes when library opens |
 
-### ⚠️ Infrastructure Ready, Needs Integration
+### ️ Infrastructure Ready, Needs Integration
 
 | Component | Status | Blocker |
 |-----------|--------|---------|
-| **Request/Response** | ⚠️  Stubbed | Needs correlation system in network layer |
-| **Backfill Execution** | ⚠️  Stubbed | Depends on request/response |
-| **Entry Batch Sync** | ⚠️  Not wired | Need to wire indexer to use `sync_models_batch()` |
-| **Albums, UserMetadata** | ⚠️  Not wired | Need to wire managers when implemented |
+| **Request/Response** | ️  Stubbed | Needs correlation system in network layer |
+| **Backfill Execution** | ️  Stubbed | Depends on request/response |
+| **Entry Batch Sync** | ️  Not wired | Need to wire indexer to use `sync_models_batch()` |
+| **Albums, UserMetadata** | ️  Not wired | Need to wire managers when implemented |
 
-### 🔮 Designed, Not Yet Started
+### Designed, Not Yet Started
 
 | Component | Status | Priority |
 |-----------|--------|----------|
-| **Heartbeat Protocol** | 📝 Design only | Low (sync works without it) |
-| **Bandwidth Throttling** | 📝 Design only | Low (optimization) |
-| **Selective Sync** | 📝 Design only | Medium (privacy feature) |
-| **Compression** | 📝 Design only | Low (optimization) |
+| **Heartbeat Protocol** | Design only | Low (sync works without it) |
+| **Bandwidth Throttling** | Design only | Low (optimization) |
+| **Selective Sync** | Design only | Medium (privacy feature) |
+| **Compression** | Design only | Low (optimization) |
 
 ---
 
@@ -1480,13 +1480,13 @@ impl MockTransportPeer {
    - Verifies all components initialized
    - Documents current capabilities
 
-5. **`test_sync_backfill_includes_pre_sync_data`** ✅ (New!)
+5. **`test_sync_backfill_includes_pre_sync_data`** (New!)
    - Creates 3 tags BEFORE sync enabled
    - Creates 2 tags AFTER sync enabled
    - Verifies `current_state` includes all 5 tags
    - Validates pre-sync data isn't lost
 
-6. **`test_sync_transitive_three_devices`** ✅ (New!)
+6. **`test_sync_transitive_three_devices`** (New!)
    - Sets up A ←→ B ←→ C (A not connected to C)
    - A creates tag, syncs to B
    - A goes offline
@@ -1515,10 +1515,10 @@ $ sqlite3 ~/Library/.../My\ Library.sdlibrary/database.db \
 ```
 
 **Verified**:
-- ✅ sync.db created automatically
-- ✅ Tags written to peer log with HLC
-- ✅ Tags stored in main database
-- ✅ Ready to broadcast when peers connect
+- sync.db created automatically
+- Tags written to peer log with HLC
+- Tags stored in main database
+- Ready to broadcast when peers connect
 
 ---
 
@@ -1925,20 +1925,20 @@ This architecture is simpler, faster, and better aligned with Spacedrive's "devi
 ## Current Capabilities (As of 2025-10-09)
 
 **What Works Today**:
-- ✅ Create tag on Device A → automatically syncs to connected Device B
-- ✅ Add location on Device A → metadata syncs to Device B
-- ✅ Tags created before sync enabled → included in backfill
-- ✅ sync.db automatically created and populated
-- ✅ Graceful degradation when networking disabled
-- ✅ All sync operations work locally even if peers offline
+- Create tag on Device A → automatically syncs to connected Device B
+- Add location on Device A → metadata syncs to Device B
+- Tags created before sync enabled → included in backfill
+- sync.db automatically created and populated
+- Graceful degradation when networking disabled
+- All sync operations work locally even if peers offline
 
 **What Works in Tests (Not Production Yet)**:
-- ✅ Automatic backfill orchestration (needs request/response in network)
-- ✅ Transitive sync (B serves A's data to C)
-- ✅ Complete state snapshot backfill
+- Automatic backfill orchestration (needs request/response in network)
+- Transitive sync (B serves A's data to C)
+- Complete state snapshot backfill
 
 **What's Next**:
-- ⏳ Wire request/response into NetworkingService
-- ⏳ Connect indexer bulk operations to sync
-- ⏳ Multi-device real-world testing
+- Wire request/response into NetworkingService
+- Connect indexer bulk operations to sync
+- Multi-device real-world testing
 

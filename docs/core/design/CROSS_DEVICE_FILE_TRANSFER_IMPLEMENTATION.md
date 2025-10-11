@@ -210,12 +210,12 @@ let handler = FileTransferProtocolHandler::new(config);
 
 ### Test Coverage
 
-- ✅ File chunking and reassembly
-- ✅ Checksum verification
-- ✅ Network message routing
-- ✅ Progress tracking
-- ✅ Error handling
-- ✅ Session management
+- File chunking and reassembly
+- Checksum verification
+- Network message routing
+- Progress tracking
+- Error handling
+- Session management
 
 ## Performance Characteristics
 

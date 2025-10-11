@@ -2,24 +2,24 @@
 
 This directory contains **detailed design documents** for Spacedrive's multi-device synchronization and client-side caching architecture.
 
-## 🎯 Implementation Guides (Start Here!)
+## Implementation Guides (Start Here!)
 
 For implementation, read these **root-level guides**:
 
-1. **[../../sync.md](../../sync.md)** ⭐ **Sync System Implementation Guide**
+1. **[../../sync.md](../../sync.md)** **Sync System Implementation Guide**
    - TransactionManager API and usage
    - Syncable trait specification
    - Leader election protocol
    - Sync service implementation
    - Production-ready reference
 
-2. **[../../events.md](../../events.md)** ⭐ **Unified Event System**
+2. **[../../events.md](../../events.md)** **Unified Event System**
    - Generic resource events
    - Type registry pattern (zero switch statements!)
    - Client integration (Swift + TypeScript)
    - Migration strategy
 
-3. **[../../normalized_cache.md](../../normalized_cache.md)** ⭐ **Client-Side Normalized Cache**
+3. **[../../normalized_cache.md](../../normalized_cache.md)** **Client-Side Normalized Cache**
    - Cache architecture and implementation
    - Memory management (LRU, TTL, ref counting)
    - React and SwiftUI integration
@@ -27,7 +27,7 @@ For implementation, read these **root-level guides**:
 
 ---
 
-## 📚 Design Documents (Deep Dives)
+## Design Documents (Deep Dives)
 
 The documents in this directory provide comprehensive design rationale and detailed exploration. Read these for context and decision history:
 
@@ -37,14 +37,14 @@ The documents in this directory provide comprehensive design rationale and detai
   - Start here for foundational understanding
 
 ### 2. Core Implementation Specs
-- **[SYNC_TX_CACHE_MINI_SPEC.md](./SYNC_TX_CACHE_MINI_SPEC.md)** ⭐ **START HERE FOR IMPLEMENTATION**
+- **[SYNC_TX_CACHE_MINI_SPEC.md](./SYNC_TX_CACHE_MINI_SPEC.md)** **START HERE FOR IMPLEMENTATION**
   - Concise, actionable spec for `Syncable`/`Identifiable` traits
   - TransactionManager API and semantics
   - BulkChangeSet mechanism for efficient bulk operations
   - Albums example with minimal boilerplate
   - Raw SQL compatibility notes
 
-- **[UNIFIED_RESOURCE_EVENTS.md](./UNIFIED_RESOURCE_EVENTS.md)** ⭐ **CRITICAL FOR EVENT SYSTEM**
+- **[UNIFIED_RESOURCE_EVENTS.md](./UNIFIED_RESOURCE_EVENTS.md)** **CRITICAL FOR EVENT SYSTEM**
   - Generic resource event design (eliminates ~40 specialized event variants)
   - Type registry pattern for zero-friction horizontal scaling
   - Swift and TypeScript examples with auto-generation via specta
@@ -72,7 +72,7 @@ The documents in this directory provide comprehensive design rationale and detai
   - Current write patterns (SeaORM, transactions, raw SQL)
   - Migration strategy with code examples
   - Risk analysis and mitigation
-  - **Verdict**: Fully compatible, ready to implement ✅
+  - **Verdict**: Fully compatible, ready to implement 
 
 ### 6. Historical & Supplementary
 - **[SYNC_DESIGN_2025_08_19.md](./SYNC_DESIGN_2025_08_19.md)** - Updated sync design iteration
@@ -82,7 +82,7 @@ The documents in this directory provide comprehensive design rationale and detai
 
 ---
 
-## 🎯 Quick Reference
+## Quick Reference
 
 ### Key Concepts
 
@@ -128,7 +128,7 @@ pub trait Identifiable {
 
 ---
 
-## 📋 Implementation Status
+## Implementation Status
 
 - [x] Design documentation complete
 - [ ] Phase 1: Core infrastructure (TM, traits, events)
@@ -138,7 +138,7 @@ pub trait Identifiable {
 
 ---
 
-## 🔗 Related Documentation
+## Related Documentation
 
 **Implementation Guides** (Root Level):
 - `../../sync.md` - Sync system implementation
@@ -153,7 +153,7 @@ pub trait Identifiable {
 
 ---
 
-## 📖 Documentation Philosophy
+## Documentation Philosophy
 
 **Root-level docs** (`docs/core/*.md`):
 - Implementation-ready guides
@@ -169,7 +169,7 @@ pub trait Identifiable {
 
 ---
 
-## 💡 Contributing
+## Contributing
 
 **Adding implementation guidance**: Update root-level docs (`sync.md`, `events.md`, `normalized_cache.md`)
 

@@ -58,16 +58,16 @@ Compares the two datasets and categorizes differences:
 ║ Filesystem: 1247 files, 89 directories                       ║
 ║ Database:   1245 files, 89 directories                       ║
 ╠══════════════════════════════════════════════════════════════╣
-║ ❌ STATUS: DIVERGED - 4 issues found                        ║
+║ STATUS: DIVERGED - 4 issues found                        ║
 ╠══════════════════════════════════════════════════════════════╣
-║ ⚠️  Missing from index: 2                                    ║
+║ ️  Missing from index: 2                                    ║
 ║   - /Users/jamie/Documents/new-file.txt                      ║
 ║   - /Users/jamie/Documents/another-new.pdf                   ║
-║ 🗑️  Stale in index: 2                                        ║
+║ ️  Stale in index: 2                                        ║
 ║   - /Users/jamie/Documents/deleted-file.txt                  ║
 ║   - /Users/jamie/Documents/old/removed.doc                   ║
 ╠══════════════════════════════════════════════════════════════╣
-║ ❌ Index has diverged: 2 missing, 2 stale. Total: 4        ║
+║ Index has diverged: 2 missing, 2 stale. Total: 4        ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
@@ -116,9 +116,9 @@ sd-cli index verify /  # Verify entire library
 # Automated integrity check
 
 if sd-cli index verify /data/important --detailed=false; then
-    echo "✅ Index is valid"
+    echo "Index is valid"
 else
-    echo "❌ Index has issues - running rescan"
+    echo "Index has issues - running rescan"
     sd-cli location rescan <location-id>
 fi
 ```

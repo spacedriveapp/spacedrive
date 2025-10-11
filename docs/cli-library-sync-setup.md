@@ -36,7 +36,7 @@ Paired Devices (2 total, 1 connected):
   Type: Desktop
   OS Version: 1.0
   App Version: 2.0.0
-  Status: 🟢 Connected
+  Status: Connected
   Last Seen: 2025-10-05 03:30:00
 
   Name: Alice's iPhone
@@ -44,7 +44,7 @@ Paired Devices (2 total, 1 connected):
   Type: Mobile
   OS Version: 1.0
   App Version: 2.0.0
-  Status: ⚪ Paired
+  Status: Paired
   Last Seen: 2025-10-04 18:45:00
 ```
 
@@ -77,7 +77,7 @@ Paired Devices (1 total, 1 connected):
 
   Name: Bob's MacBook
   ID: 550e8400-e29b-41d4-a716-446655440000
-  Status: 🟢 Connected
+  Status: Connected
 ```
 
 ### 1. Discover Remote Libraries
@@ -164,7 +164,7 @@ sd library sync-setup setup \
 **Optional Arguments**:
 - `--remote-library` - UUID of the remote library to sync with (optional for register-only)
 - `--action` - Sync action type (default: `register-only`)
-  - `register-only` - Just register devices (Phase 1) ✅
+  - `register-only` - Just register devices (Phase 1) 
   - `merge-into-local` - Future (Phase 3)
   - `merge-into-remote` - Future (Phase 3)
   - `create-shared` - Future (Phase 3)
@@ -216,7 +216,7 @@ Paired Devices (1 total, 1 connected):
   Name: iOS Device
   ID: e1054ba9-2e8b-4847-9644-a7fb764d4221
   Type: Mobile
-  Status: 🟢 Connected
+  Status: Connected
 
 # 5. List local libraries
 $ sd library list
@@ -393,7 +393,7 @@ $ sd network devices
 Paired Devices (2 total, 1 connected):
   Name: Bob's MacBook
   ID: 550e8400-e29b-41d4-a716-446655440000
-  Status: 🟢 Connected
+  Status: Connected
 
 # See only connected devices
 $ sd network devices --connected

@@ -33,12 +33,12 @@ pub fn job_status_color(status: JobStatus) -> Color {
 /// Get status icon for job
 pub fn job_status_icon(status: JobStatus) -> &'static str {
 	match status {
-		JobStatus::Queued => "⏳",
-		JobStatus::Running => "⚡",
-		JobStatus::Paused => "⏸️",
-		JobStatus::Completed => "✅",
-		JobStatus::Failed => "❌",
-		JobStatus::Cancelled => "🚫",
+		JobStatus::Queued => "",
+		JobStatus::Running => "",
+		JobStatus::Paused => "️",
+		JobStatus::Completed => "",
+		JobStatus::Failed => "",
+		JobStatus::Cancelled => "",
 	}
 }
 

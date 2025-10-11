@@ -51,19 +51,19 @@ Migrate Spacedrive's networking layer from custom mDNS + TLS to libp2p while pre
          │                       │
 ┌─────────────────┐    ┌─────────────────┐
 │   Discovery     │    │   Discovery     │
-│ • mDNS Service  │───▶│ • mDNS Scan     │
+│ • mDNS Service  │───│ • mDNS Scan     │
 │ • Broadcasting  │    │ • Device List   │
 └─────────────────┘    └─────────────────┘
          │                       │
 ┌─────────────────┐    ┌─────────────────┐
 │   Connection    │    │   Connection    │
-│ • TLS Setup     │◀───│ • TCP Connect   │
+│ • TLS Setup     │───│ • TCP Connect   │
 │ • Certificates  │    │ • Encryption    │
 └─────────────────┘    └─────────────────┘
          │                       │
 ┌─────────────────┐    ┌─────────────────┐
 │   Transport     │    │   Transport     │
-│ • TCP Sockets   │◀──▶│ • TCP Sockets   │
+│ • TCP Sockets   │──│ • TCP Sockets   │
 │ • Message I/O   │    │ • Message I/O   │
 └─────────────────┘    └─────────────────┘
 ```
@@ -377,13 +377,13 @@ tokio::select! {
 
 ### **Go/No-Go Criteria**
 
-✅ **GO if:**
+**GO if:**
 - Development time < 8 hours
 - No breaking changes to pairing UX
 - Performance parity or better
 - Same-host discovery works
 
-❌ **NO-GO if:**
+**NO-GO if:**
 - Significant complexity increase
 - Major dependency issues
 - Performance degradation > 20%

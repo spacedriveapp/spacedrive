@@ -13,13 +13,13 @@
 **Decision**: Every file operation uses `SdPath` - a path that includes device context
 
 **Consequences**:
-- ✅ Enables true cross-device operations
-- ✅ Unified API for all file operations
-- ✅ Makes VDFS promise real
-- ✅ Natural routing of operations to correct device
-- ✅ Future-proof for cloud storage integration
-- ❌ Requires P2P infrastructure for remote operations
-- ❌ More complex than simple PathBuf
+- Enables true cross-device operations
+- Unified API for all file operations
+- Makes VDFS promise real
+- Natural routing of operations to correct device
+- Future-proof for cloud storage integration
+- Requires P2P infrastructure for remote operations
+- More complex than simple PathBuf
 
 **Example**:
 ```rust
@@ -51,13 +51,13 @@ ContentIdentity (for deduplication)
 ```
 
 **Consequences**:
-- ✅ Any file can be tagged immediately
-- ✅ Metadata persists through content changes
-- ✅ Progressive enhancement (index when needed)
-- ✅ Works with ephemeral/non-indexed files
-- ✅ Cleaner separation of concerns
-- ❌ More complex data model
-- ❌ Migration required from v1
+- Any file can be tagged immediately
+- Metadata persists through content changes
+- Progressive enhancement (index when needed)
+- Works with ephemeral/non-indexed files
+- Cleaner separation of concerns
+- More complex data model
+- Migration required from v1
 
 ---
 
@@ -74,12 +74,12 @@ ContentIdentity (for deduplication)
 **Decision**: Use SeaORM for database access
 
 **Consequences**:
-- ✅ Active maintenance and community
-- ✅ Native Rust, no Node.js dependency
-- ✅ Better async support
-- ✅ Cleaner migration system
-- ❌ Need to rewrite all database queries
-- ❌ Lose Prisma's schema DSL
+- Active maintenance and community
+- Native Rust, no Node.js dependency
+- Better async support
+- Cleaner migration system
+- Need to rewrite all database queries
+- Lose Prisma's schema DSL
 
 ---
 
@@ -96,11 +96,11 @@ ContentIdentity (for deduplication)
 **Decision**: Single implementation that handles both cases transparently
 
 **Consequences**:
-- ✅ Consistent user experience
-- ✅ Half the code to maintain
-- ✅ Easier to add new operations
-- ❌ More complex implementation
-- ❌ Need to handle both cases in one code path
+- Consistent user experience
+- Half the code to maintain
+- Easier to add new operations
+- More complex implementation
+- Need to handle both cases in one code path
 
 ---
 
@@ -116,12 +116,12 @@ ContentIdentity (for deduplication)
 **Decision**: Backend emits domain events, frontend decides what to invalidate
 
 **Consequences**:
-- ✅ Clean separation of concerns
-- ✅ Frontend can optimize invalidation
-- ✅ Type-safe events
-- ✅ Enables plugin system
-- ❌ Frontend needs more logic
-- ❌ Potential for missed invalidations
+- Clean separation of concerns
+- Frontend can optimize invalidation
+- Type-safe events
+- Enables plugin system
+- Frontend needs more logic
+- Potential for missed invalidations
 
 ---
 
@@ -137,12 +137,12 @@ ContentIdentity (for deduplication)
 **Decision**: Keep core as monolith with clear module organization
 
 **Consequences**:
-- ✅ No cyclic dependency issues
-- ✅ Easier refactoring
-- ✅ Clear where functionality lives
-- ✅ Better incremental compilation
-- ❌ Larger compilation unit
-- ❌ Can't publish modules separately
+- No cyclic dependency issues
+- Easier refactoring
+- Clear where functionality lives
+- Better incremental compilation
+- Larger compilation unit
+- Can't publish modules separately
 
 ---
 
@@ -159,15 +159,15 @@ ContentIdentity (for deduplication)
 **Decision**: Use async-graphql for API layer
 
 **Benefits**:
-- ✅ **Full type safety**: Auto-generated TypeScript types from Rust structs
-- ✅ **Excellent tooling**: GraphQL Playground, Apollo DevTools, VSCode extensions
-- ✅ **Built-in subscriptions**: Real-time updates without custom WebSocket code
-- ✅ **Active community**: Well-maintained with regular updates
-- ✅ **Standard GraphQL**: Developers already know it
-- ✅ **Flexible queries**: Clients request exactly what they need
-- ✅ **Better caching**: Apollo Client handles caching automatically
-- ❌ Different from current rspc (but better documented)
-- ❌ Initial setup more complex (but better long-term)
+- **Full type safety**: Auto-generated TypeScript types from Rust structs
+- **Excellent tooling**: GraphQL Playground, Apollo DevTools, VSCode extensions
+- **Built-in subscriptions**: Real-time updates without custom WebSocket code
+- **Active community**: Well-maintained with regular updates
+- **Standard GraphQL**: Developers already know it
+- **Flexible queries**: Clients request exactly what they need
+- **Better caching**: Apollo Client handles caching automatically
+- Different from current rspc (but better documented)
+- Initial setup more complex (but better long-term)
 
 **Type Safety Example**:
 ```rust
@@ -188,7 +188,7 @@ export interface Library {
 
 // Full type safety in React
 const { data } = useGetLibraryQuery({ variables: { id } });
-console.log(data.library.name); // ✅ Typed!
+console.log(data.library.name); // Typed!
 
 ---
 
@@ -204,11 +204,11 @@ console.log(data.library.name); // ✅ Typed!
 **Decision**: Merge into single Device concept
 
 **Consequences**:
-- ✅ Clear mental model
-- ✅ Simplified P2P routing
-- ✅ Easier multi-device features
-- ❌ Need to migrate existing data
-- ❌ Breaking change for sync protocol
+- Clear mental model
+- Simplified P2P routing
+- Easier multi-device features
+- Need to migrate existing data
+- Breaking change for sync protocol
 
 ---
 
@@ -224,11 +224,11 @@ console.log(data.library.name); // ✅ Typed!
 **Decision**: Use existing sync solution (TBD: Turso, cr-sqlite, etc.)
 
 **Consequences**:
-- ✅ Proven technology
-- ✅ Don't maintain sync ourselves
-- ✅ Can focus on core features
-- ❌ Less control over sync behavior
-- ❌ Potential vendor lock-in
+- Proven technology
+- Don't maintain sync ourselves
+- Can focus on core features
+- Less control over sync behavior
+- Potential vendor lock-in
 
 ---
 
@@ -244,8 +244,8 @@ console.log(data.library.name); // ✅ Typed!
 **Decision**: Replace with simple async functions + optional progress reporting
 
 **Consequences**:
-- ✅ Dramatically less boilerplate
-- ✅ Easier to understand
-- ✅ Can use standard Rust patterns
-- ❌ Lose automatic serialization/resume
-- ❌ Need different approach for long-running tasks
+- Dramatically less boilerplate
+- Easier to understand
+- Can use standard Rust patterns
+- Lose automatic serialization/resume
+- Need different approach for long-running tasks

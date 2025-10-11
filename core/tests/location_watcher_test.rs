@@ -257,7 +257,7 @@ impl TestHarness {
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let path = self.path(name);
 		tokio::fs::write(&path, content).await?;
-		println!("📝 Created file: {}", name);
+		println!("Created file: {}", name);
 		Ok(())
 	}
 
@@ -269,7 +269,7 @@ impl TestHarness {
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let path = self.path(name);
 		tokio::fs::write(&path, new_content).await?;
-		println!("✏️  Modified file: {}", name);
+		println!("️  Modified file: {}", name);
 		Ok(())
 	}
 
@@ -277,7 +277,7 @@ impl TestHarness {
 	async fn delete_file(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let path = self.path(name);
 		tokio::fs::remove_file(&path).await?;
-		println!("🗑️  Deleted file: {}", name);
+		println!("️  Deleted file: {}", name);
 		Ok(())
 	}
 
@@ -286,7 +286,7 @@ impl TestHarness {
 		let from_path = self.path(from);
 		let to_path = self.path(to);
 		tokio::fs::rename(&from_path, &to_path).await?;
-		println!("➡️  Renamed: {} -> {}", from, to);
+		println!("️  Renamed: {} -> {}", from, to);
 		Ok(())
 	}
 
@@ -294,7 +294,7 @@ impl TestHarness {
 	async fn create_dir(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let path = self.path(name);
 		tokio::fs::create_dir_all(&path).await?;
-		println!("📁 Created directory: {}", name);
+		println!("Created directory: {}", name);
 		Ok(())
 	}
 
@@ -302,7 +302,7 @@ impl TestHarness {
 	async fn delete_dir(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let path = self.path(name);
 		tokio::fs::remove_dir_all(&path).await?;
-		println!("🗑️  Deleted directory: {}", name);
+		println!("️  Deleted directory: {}", name);
 		Ok(())
 	}
 
@@ -606,11 +606,11 @@ async fn test_location_watcher() -> Result<(), Box<dyn std::error::Error>> {
 		.one(harness.library.db().conn())
 		.await?;
 
-	println!("📊 Entry 4 after rename: {:?}", entry_4);
+	println!("Entry 4 after rename: {:?}", entry_4);
 
 	// Debug: List all entries to see what's in the database
 	let all_entries = get_location_entries(&harness.library, harness.location_id).await?;
-	println!("📊 All entries in database after rename:");
+	println!("All entries in database after rename:");
 	for entry in &all_entries {
 		println!(
 			"  - id={}, name='{}', ext={:?}, parent_id={:?}",
@@ -696,8 +696,8 @@ async fn test_location_watcher() -> Result<(), Box<dyn std::error::Error>> {
 	println!("  ✓ File renaming (database inode lookup working!)");
 	println!("  ✓ File moving between directories (identity preserved!)");
 	println!("\nScenarios needing additional work:");
-	println!("  ⚠️  File/directory deletion (TODO: investigate task panic issue)");
-	println!("  ⚠️  Bulk operations");
+	println!("  ️  File/directory deletion (TODO: investigate task panic issue)");
+	println!("  ️  Bulk operations");
 
 	harness.cleanup().await?;
 

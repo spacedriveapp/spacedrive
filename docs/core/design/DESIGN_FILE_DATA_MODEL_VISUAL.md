@@ -49,7 +49,7 @@ Benefits:
 
 ## Key Relationships
 
-### 1. Entry ↔ UserMetadata (1:1)
+### 1. Entry UserMetadata (1:1)
 ```
 Entry                          UserMetadata
 ├─ id: uuid                    ├─ id: uuid
@@ -59,7 +59,7 @@ Entry                          UserMetadata
 └─ content_id: uuid?          └─ favorite: true
 ```
 
-### 2. Entry ↔ ContentIdentity (n:1)
+### 2. Entry ContentIdentity (n:1)
 ```
 Entry (MacBook)                ContentIdentity
 ├─ id: uuid-1                  ├─ id: uuid

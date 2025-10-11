@@ -200,10 +200,10 @@ public class SpacedriveClient {
                 throw SpacedriveError.serializationError("Failed to decode JSON response: \(error)")
             }
         case .error(let error):
-            print("❌ Daemon error: \(error)")
+            print("Daemon error: \(error)")
             throw SpacedriveError.daemonError(error)
         case .pong, .event, .subscribed, .unsubscribed:
-            print("❌ Unexpected response: \(response)")
+            print("Unexpected response: \(response)")
             throw SpacedriveError.invalidResponse("Unexpected response to operation")
         }
     }
@@ -232,7 +232,7 @@ public class SpacedriveClient {
                         }
                     }
                 } catch {
-                    print("❌ Event subscription error: \(error)")
+                    print("Event subscription error: \(error)")
                     continuation.finish(throwing: error)
                 }
             }
@@ -264,7 +264,7 @@ public class SpacedriveClient {
 
     /// Create a Unix domain socket connection to the daemon
     private func createConnection() async throws -> Int32 {
-        print("🔗 Creating BSD socket connection to: \(socketPath)")
+        print("Creating BSD socket connection to: \(socketPath)")
 
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
@@ -309,7 +309,7 @@ public class SpacedriveClient {
                         return
                     }
 
-                    print("✅ BSD socket connected successfully!")
+                    print("BSD socket connected successfully!")
                     continuation.resume(returning: socketFD)
                 } catch {
                     continuation.resume(throwing: error)
@@ -346,7 +346,7 @@ public class SpacedriveClient {
             let jsonString = """
             {"Query":{\(queryParts.joined(separator: ","))}}
             """
-            print("🔍 Sending query request: \(jsonString)")
+            print("Sending query request: \(jsonString)")
             requestData = Data(jsonString.utf8)
 
         case .action(let method, let libraryId, let payload):
@@ -390,7 +390,7 @@ public class SpacedriveClient {
     private func readResponseFromConnection(_ connection: Int32, method: String? = nil) async throws -> DaemonResponse {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global().async {
-                print("🔍 Starting to read response from connection...")
+                print("Starting to read response from connection...")
 
                 var allData = Data()
                 let bufferSize = 65536
@@ -400,55 +400,55 @@ public class SpacedriveClient {
                 // Keep reading until we get a complete line (ending with newline)
                 while true {
                     let readResult = recv(connection, &buffer, buffer.count, 0)
-                    print("🔍 Socket read result: \(readResult) bytes")
+                    print("Socket read result: \(readResult) bytes")
 
                     guard readResult > 0 else {
                         let errorMsg = String(cString: strerror(errno))
-                        print("❌ Socket read failed: \(errorMsg)")
+                        print("Socket read failed: \(errorMsg)")
                         continuation.resume(throwing: SpacedriveError.connectionFailed("Receive failed: \(errorMsg)"))
                         return
                     }
 
                     allData.append(Data(buffer.prefix(readResult)))
                     totalBytesRead += readResult
-                    print("🔍 Total bytes read so far: \(totalBytesRead)")
+                    print("Total bytes read so far: \(totalBytesRead)")
 
                     // Check if we have a complete line (ending with newline)
                     if let responseString = String(data: allData, encoding: .utf8) {
                         if responseString.contains("\n") {
-                            print("🔍 Found newline, stopping read")
+                            print("Found newline, stopping read")
                             break
                         }
                     }
 
                     // Safety check to prevent infinite loop
                     if totalBytesRead > 10 * 1024 * 1024 { // 10MB limit
-                        print("❌ Response too large, stopping read")
+                        print("Response too large, stopping read")
                         continuation.resume(throwing: SpacedriveError.invalidResponse("Response too large"))
                         return
                     }
                 }
 
-                print("🔍 Final total bytes: \(allData.count)")
+                print("Final total bytes: \(allData.count)")
 
                 do {
                     // Find the newline delimiter and parse JSON
                     if let responseString = String(data: allData, encoding: .utf8) {
-                        print("🔍 Response string length: \(responseString.count) characters")
-                        print("🔍 First 200 chars: \(String(responseString.prefix(200)))")
+                        print("Response string length: \(responseString.count) characters")
+                        print("First 200 chars: \(String(responseString.prefix(200)))")
 
                         let lines = responseString.components(separatedBy: .newlines).filter { !$0.isEmpty }
-                        print("🔍 Found \(lines.count) lines in response")
+                        print("Found \(lines.count) lines in response")
 
                         if let firstLine = lines.first {
-                            print("🔍 First line length: \(firstLine.count) characters")
-                            print("🔍 First line preview: \(String(firstLine.prefix(100)))...")
+                            print("First line length: \(firstLine.count) characters")
+                            print("First line preview: \(String(firstLine.prefix(100)))...")
 
                             let lineData = Data(firstLine.utf8)
-                            print("🔍 Attempting to decode JSON from \(lineData.count) bytes...")
+                            print("Attempting to decode JSON from \(lineData.count) bytes...")
 
                             let response = try JSONDecoder().decode(DaemonResponse.self, from: lineData)
-                            print("✅ Successfully decoded response")
+                            print("Successfully decoded response")
 
                             if let method = method {
                                 print("Daemon response for \(method): \(response)")
@@ -457,16 +457,16 @@ public class SpacedriveClient {
                             }
                             continuation.resume(returning: response)
                         } else {
-                            print("❌ No valid response line found")
+                            print("No valid response line found")
                             continuation.resume(throwing: SpacedriveError.invalidResponse("No valid response line"))
                         }
                     } else {
-                        print("❌ Invalid UTF-8 response")
+                        print("Invalid UTF-8 response")
                         continuation.resume(throwing: SpacedriveError.invalidResponse("Invalid UTF-8 response"))
                     }
                 } catch {
-                    print("❌ JSON decoding failed: \(error)")
-                    print("❌ Error details: \(error.localizedDescription)")
+                    print("JSON decoding failed: \(error)")
+                    print("Error details: \(error.localizedDescription)")
                     continuation.resume(throwing: SpacedriveError.serializationError("Failed to decode response: \(error)"))
                 }
             }
@@ -487,7 +487,7 @@ public class SpacedriveClient {
 
                     guard readResult > 0 else {
                         let errorMsg = String(cString: strerror(errno))
-                        print("❌ Stream receive failed: \(errorMsg)")
+                        print("Stream receive failed: \(errorMsg)")
                         continuation.resume(throwing: SpacedriveError.connectionFailed("Stream receive failed: \(errorMsg)"))
                         return
                     }
@@ -506,14 +506,14 @@ public class SpacedriveClient {
                                     continuation.resume(returning: response)
                                     return
                                 } catch {
-                                    print("❌ Failed to decode JSON line: \(error)")
-                                    print("❌ Raw line: \(trimmedLine)")
+                                    print("Failed to decode JSON line: \(error)")
+                                    print("Raw line: \(trimmedLine)")
                                     continuation.resume(throwing: SpacedriveError.serializationError("Failed to decode JSON: \(error)"))
                                     return
                                 }
                             }
                         } else {
-                            print("❌ Invalid UTF-8 in line buffer")
+                            print("Invalid UTF-8 in line buffer")
                             continuation.resume(throwing: SpacedriveError.invalidResponse("Invalid UTF-8 in response"))
                             return
                         }
@@ -523,7 +523,7 @@ public class SpacedriveClient {
 
                         // Safety check to prevent infinite accumulation
                         if lineBuffer.count > 10 * 1024 * 1024 { // 10MB limit
-                            print("❌ JSON line too large (\(lineBuffer.count) bytes)")
+                            print("JSON line too large (\(lineBuffer.count) bytes)")
                             continuation.resume(throwing: SpacedriveError.invalidResponse("JSON line too large"))
                             return
                         }
@@ -811,15 +811,15 @@ extension SpacedriveClient {
 
         switch response {
         case .jsonOk(let jsonData):
-            print("🔍 Decoding File from JSON data: \(jsonData.value)")
+            print("Decoding File from JSON data: \(jsonData.value)")
             do {
                 let jsonResponseData = try JSONSerialization.data(withJSONObject: jsonData.value)
                 let result = try JSONDecoder().decode(File.self, from: jsonResponseData)
-                print("✅ Successfully decoded File: \(result.name)")
+                print("Successfully decoded File: \(result.name)")
                 return result
             } catch {
-                print("❌ Failed to decode File: \(error)")
-                print("❌ JSON data: \(jsonData.value)")
+                print("Failed to decode File: \(error)")
+                print("JSON data: \(jsonData.value)")
                 throw SpacedriveError.invalidResponse("Failed to decode File: \(error)")
             }
         case .error(let error):
@@ -831,18 +831,18 @@ extension SpacedriveClient {
 
     /// Ping the daemon to test connectivity
     public func ping() async throws {
-        print("🏓 Sending ping request...")
+        print("Sending ping request...")
         let response = try await sendRequest(.ping)
-        print("🏓 Received ping response: \(response)")
+        print("Received ping response: \(response)")
         switch response {
         case .pong:
-            print("✅ Ping successful!")
+            print("Ping successful!")
             return
         case .error(let error):
-            print("❌ Ping failed with daemon error: \(error)")
+            print("Ping failed with daemon error: \(error)")
             throw SpacedriveError.daemonError("Ping failed: \(error)")
         case .jsonOk, .event, .subscribed, .unsubscribed:
-            print("❌ Ping received unexpected response")
+            print("Ping received unexpected response")
             throw SpacedriveError.invalidResponse("Unexpected response to ping")
         }
     }

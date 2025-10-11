@@ -168,13 +168,13 @@ assert!(throughput > 50.0, "Should be able to create >50 files/sec");
 
 ## Common Pitfalls
 
-❌ **Don't do this**:
+**Don't do this**:
 ```rust
 harness.create_file("test.txt", "content").await?;
 harness.verify_entry_exists("test").await?;  // Might fail - didn't wait for event!
 ```
 
-✅ **Do this**:
+**Do this**:
 ```rust
 harness.create_file("test.txt", "content").await?;
 harness.wait_for_fs_event(
@@ -186,9 +186,9 @@ harness.verify_entry_exists("test").await?;  // Safe - event confirmed
 
 ## Current Limitations
 
-- ✅ Rename operations working! (uses database inode lookup)
-- ⚠️ Deletion operations cause panic (being investigated)
-- ⚠️ Test uses `~/SD_TEST_DIR` (requires real directory for macOS FSEvents)
+- Rename operations working! (uses database inode lookup)
+- ️ Deletion operations cause panic (being investigated)
+- ️ Test uses `~/SD_TEST_DIR` (requires real directory for macOS FSEvents)
 
 ## File Locations
 

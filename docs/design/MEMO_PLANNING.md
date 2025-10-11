@@ -167,13 +167,13 @@ Spacedrive's VDFS architecture + Extension SDK enables a new category of applica
 **Massive Addressable Markets ($40B+ annually):**
 | Category | Market Size | Privacy Sensitivity | Example SaaS | Spacedrive Extension |
 |----------|-------------|---------------------|--------------|---------------------|
-| **Digital Asset Mgmt** | $4.8B | ⭐⭐⭐⭐⭐ | Adobe DAM, Bynder | Spacedrive Photos/Media |
-| **Developer Tools** | $15B | ⭐⭐⭐⭐ | GitHub Copilot | Spacedrive Dev |
-| **Note-Taking/PKM** | $2.1B | ⭐⭐⭐⭐ | Notion, Evernote | Spacedrive Notes |
-| **Password Managers** | $2.8B | ⭐⭐⭐⭐⭐ | 1Password | Spacedrive Vault |
-| **Expense/Finance** | $4.2B | ⭐⭐⭐⭐⭐ | Expensify, Concur | Spacedrive Finance |
-| **CRM (Small Biz)** | $8.2B | ⭐⭐⭐⭐ | HubSpot | Spacedrive Contacts |
-| **Project Management** | $6.5B | ⭐⭐⭐ | Asana, ClickUp | Spacedrive Projects |
+| **Digital Asset Mgmt** | $4.8B | ⭐⭐⭐⭐| Adobe DAM, Bynder | Spacedrive Photos/Media |
+| **Developer Tools** | $15B | ⭐⭐⭐| GitHub Copilot | Spacedrive Dev |
+| **Note-Taking/PKM** | $2.1B | ⭐⭐⭐| Notion, Evernote | Spacedrive Notes |
+| **Password Managers** | $2.8B | ⭐⭐⭐⭐| 1Password | Spacedrive Vault |
+| **Expense/Finance** | $4.2B | ⭐⭐⭐⭐| Expensify, Concur | Spacedrive Finance |
+| **CRM (Small Biz)** | $8.2B | ⭐⭐⭐| HubSpot | Spacedrive Contacts |
+| **Project Management** | $6.5B | ⭐⭐| Asana, ClickUp | Spacedrive Projects |
 
 **Three-Tier Revenue Structure:**
 1. **Free Open-Source Core** - File manager, indexing, search, device sync (user acquisition)

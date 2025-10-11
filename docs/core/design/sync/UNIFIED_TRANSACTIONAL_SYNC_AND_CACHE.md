@@ -13,9 +13,9 @@ This document presents a **unified architectural design** that integrates:
 2. **Real-time normalized client cache** for instant UI updates
 
 The cornerstone is a new **`TransactionManager`** service that acts as the single point of truth for all write operations, guaranteeing atomic consistency across:
-- ✅ Database writes
-- ✅ Sync log creation
-- ✅ Event emission to clients
+- Database writes
+- Sync log creation
+- Event emission to clients
 
 This replaces scattered, non-transactional database writes with a robust, traceable persistence pattern that serves as the foundation for both reliable sync and real-time caching.
 
@@ -473,7 +473,7 @@ impl TransactionManager {
 
 **Before** (scattered in indexer):
 ```rust
-// ❌ Current pattern - no sync log, manual events, non-atomic
+// Current pattern - no sync log, manual events, non-atomic
 impl Indexer {
     async fn process_file(&mut self, path: PathBuf) {
         let entry = entry::ActiveModel {
@@ -493,7 +493,7 @@ impl Indexer {
 
 **After** (using TransactionManager):
 ```rust
-// ✅ New pattern - automatic sync log, guaranteed events, atomic
+// New pattern - automatic sync log, guaranteed events, atomic
 impl Indexer {
     tx_manager: Arc<TransactionManager>,
 
@@ -524,25 +524,25 @@ impl Indexer {
 ## Benefits of Unified Architecture
 
 ### For Sync System
-- ✅ **Guaranteed consistency**: Sync log always matches database
-- ✅ **No missed changes**: TransactionManager is the only write path
-- ✅ **Atomic operations**: DB + sync log commit together or rollback together
-- ✅ **Sequential ordering**: Sequence numbers assigned atomically
-- ✅ **Centralized**: All sync log creation happens in one place
+- **Guaranteed consistency**: Sync log always matches database
+- **No missed changes**: TransactionManager is the only write path
+- **Atomic operations**: DB + sync log commit together or rollback together
+- **Sequential ordering**: Sequence numbers assigned atomically
+- **Centralized**: All sync log creation happens in one place
 
 ### For Client Cache
-- ✅ **Rich events**: Events contain full File objects, not just IDs
-- ✅ **Guaranteed delivery**: Events always fire after successful commit
-- ✅ **Atomic updates**: Cache receives complete, consistent data
-- ✅ **No stale data**: Events reflect committed state, never in-progress
-- ✅ **Type safety**: Identifiable trait ensures cache consistency
+- **Rich events**: Events contain full File objects, not just IDs
+- **Guaranteed delivery**: Events always fire after successful commit
+- **Atomic updates**: Cache receives complete, consistent data
+- **No stale data**: Events reflect committed state, never in-progress
+- **Type safety**: Identifiable trait ensures cache consistency
 
 ### For Developers
-- ✅ **Simple API**: One method call replaces multi-step process
-- ✅ **Less error-prone**: Can't forget to create sync log or emit event
-- ✅ **Testable**: Mock TransactionManager for tests
-- ✅ **Traceable**: All writes go through one service
-- ✅ **Maintainable**: Business logic separated from persistence mechanics
+- **Simple API**: One method call replaces multi-step process
+- **Less error-prone**: Can't forget to create sync log or emit event
+- **Testable**: Mock TransactionManager for tests
+- **Traceable**: All writes go through one service
+- **Maintainable**: Business logic separated from persistence mechanics
 
 ## Data Flow Example: Complete Lifecycle
 
@@ -624,10 +624,10 @@ impl FileRenameAction {
 **Original design flaw**: Creating sync log entries for every file during indexing
 
 ```rust
-// ❌ PROBLEM: Indexer creates 1,000,000 entries
+// PROBLEM: Indexer creates 1,000,000 entries
 for entry in scanned_entries {
     tx_manager.commit_entry_change(entry).await?;
-    // Creates 1,000,000 sync log entries! 😱
+    // Creates 1,000,000 sync log entries! 
     // Each with its own transaction!
     // Completely unnecessary - indexing is LOCAL
 }
@@ -645,9 +645,9 @@ The `TransactionManager` must differentiate between:
 
 | Context | Use Case | Sync Log? | Event? | Transaction Size |
 |---------|----------|-----------|--------|------------------|
-| **Transactional** | User renames file | ✅ Per entry | ✅ Rich (FileUpdated) | Single, small |
-| **Bulk** | Indexer scans location | ✅ ONE metadata entry | ✅ Summary (LibraryIndexed) | Single, massive |
-| **Silent** | Background maintenance | ❌ No | ❌ No | Varies |
+| **Transactional** | User renames file | Per entry | Rich (FileUpdated) | Single, small |
+| **Bulk** | Indexer scans location | ONE metadata entry | Summary (LibraryIndexed) | Single, massive |
+| **Silent** | Background maintenance | No | No | Varies |
 
 **Key distinction**: Bulk operations create **ONE sync log entry with metadata**, not millions of individual entries.
 
@@ -819,24 +819,24 @@ pub struct BulkCommitResult {
 
 ```rust
 // USER ACTIONS → commit_transactional
-// ✅ Rename file
-// ✅ Tag file
-// ✅ Move file
-// ✅ Delete file (user-initiated)
-// ✅ Update file metadata
-// ✅ Create/update location (user action)
+// Rename file
+// Tag file
+// Move file
+// Delete file (user-initiated)
+// Update file metadata
+// Create/update location (user action)
 
 // SYSTEM OPERATIONS → commit_bulk
-// ✅ Initial indexing (1M files)
-// ✅ Re-indexing after watcher events
-// ✅ Bulk imports
-// ✅ Background content identification
+// Initial indexing (1M files)
+// Re-indexing after watcher events
+// Bulk imports
+// Background content identification
 
 // INTERNAL OPERATIONS → commit_silent
-// ✅ Temp file cleanup
-// ✅ Statistics updates
-// ✅ Cache invalidation markers
-// ✅ Internal state tracking
+// Temp file cleanup
+// Statistics updates
+// Cache invalidation markers
+// Internal state tracking
 ```
 
 ## Refined Sync Strategy
@@ -879,13 +879,13 @@ Device A                          Device B
 
 | Operation | Sync Log? | What's in Sync Log? |
 |-----------|-----------|---------------------|
-| Initial indexing | ✅ ONE metadata entry | `{ operation: "InitialIndex", location_id, count }` |
-| Watcher: file created | ✅ Per-entry | Full entry data for each file |
-| Watcher: file modified | ✅ Per-entry | Full entry data for each file |
-| Watcher: file deleted | ✅ Per-entry | Entry ID + deletion marker |
-| User: rename file | ✅ Per-entry | Full updated entry data |
-| User: tag file | ✅ Per-entry | Updated entry + tag relationship |
-| Background: thumbnail gen | ❌ No | N/A - derived data |
+| Initial indexing | ONE metadata entry | `{ operation: "InitialIndex", location_id, count }` |
+| Watcher: file created | Per-entry | Full entry data for each file |
+| Watcher: file modified | Per-entry | Full entry data for each file |
+| Watcher: file deleted | Per-entry | Entry ID + deletion marker |
+| User: rename file | Per-entry | Full updated entry data |
+| User: tag file | Per-entry | Updated entry + tag relationship |
+| Background: thumbnail gen | No | N/A - derived data |
 
 ### Indexer Integration
 
@@ -918,7 +918,7 @@ impl Indexer {
             entries.len()
         );
 
-        // ✅ Single bulk commit - no sync log
+        // Single bulk commit - no sync log
         let result = self.tx_manager.commit_bulk(
             self.library.clone(),
             entries,
@@ -943,7 +943,7 @@ impl Indexer {
             WatcherEvent::Created(path) => {
                 let entry = self.create_entry_from_path(path).await?;
 
-                // ✅ Transactional commit - creates sync log
+                // Transactional commit - creates sync log
                 let file = self.tx_manager.commit_transactional(
                     self.library.clone(),
                     entry,
@@ -1034,7 +1034,7 @@ Sync log entry contains:
 case .BulkOperationCompleted(let libraryId, let operation, let count):
     switch operation {
     case .InitialIndex(let locationId):
-        print("📦 Indexed \(count) files in location \(locationId)")
+        print("Indexed \(count) files in location \(locationId)")
 
         // Invalidate queries for this location
         cache.invalidateQueriesMatching { query in
@@ -1209,7 +1209,7 @@ impl TransactionManager {
     ) -> Result<SyncLogEntryActiveModel> {
         Ok(SyncLogEntryActiveModel {
             // ...
-            data: Set(model.to_sync_json()), // ✅ Only sync fields
+            data: Set(model.to_sync_json()), // Only sync fields
             // ...
         })
     }
@@ -1332,10 +1332,10 @@ pub struct BulkOperationMetadata {
 #### Key Insight: Bulk Operations Don't Transfer Data
 
 **Important**: When Device B sees Device A's bulk index operation:
-- ✅ Device B **triggers its own local indexing** job
-- ❌ Device B does **NOT** pull 1M entries over the network
-- ✅ Device B reads its own filesystem (fast, local)
-- ❌ Device B does **NOT** try to replicate Device A's filesystem
+- Device B **triggers its own local indexing** job
+- Device B does **NOT** pull 1M entries over the network
+- Device B reads its own filesystem (fast, local)
+- Device B does **NOT** try to replicate Device A's filesystem
 
 **Why this works**:
 - Both devices are indexing **their own** filesystems
@@ -1367,12 +1367,12 @@ Device A receives sync entry:
 
 #### What Actually Syncs Between Devices
 
-**Index data (entries)**: ❌ NOT synced via sync log during bulk indexing
+**Index data (entries)**: NOT synced via sync log during bulk indexing
 - Each device indexes its own filesystem
 - Sync log contains metadata notification only
 - Result: Efficient, no network bottleneck
 
-**Metadata & changes**: ✅ Synced via sync log
+**Metadata & changes**: Synced via sync log
 - User tags a file → Sync log entry with full data
 - User renames a file → Sync log entry with full data
 - Location settings updated → Sync log entry with full data
@@ -1619,7 +1619,7 @@ impl CoreContext {
 pub enum Event {
     // ... existing events
 
-    // ✅ Rich events with full Identifiable models
+    // Rich events with full Identifiable models
     FileUpdated {
         library_id: Uuid,
         file: File, // Full File domain object
@@ -1801,7 +1801,7 @@ impl TransactionManager {
 - **User actions**: Single file rename is already slow (user perception)
 - **Optimization available**: Lazy construction when no clients connected
 
-**Verdict**: ✅ Acceptable with batching and lazy evaluation
+**Verdict**: Acceptable with batching and lazy evaluation
 
 ### Concern 2: Transaction Scope
 
@@ -1812,7 +1812,7 @@ impl TransactionManager {
 - If additional writes needed, split into multiple transactions
 - Example: Create Entry first, then create related resources
 
-**Verdict**: ✅ File construction must remain read-only
+**Verdict**: File construction must remain read-only
 
 ### Concern 3: Event Ordering
 
@@ -1823,7 +1823,7 @@ impl TransactionManager {
 - **Events**: Emitted in order of transaction commits
 - **Guarantee**: If sync entry A has seq < B, event A fires before event B
 
-**Verdict**: ✅ Ordering is maintained by design
+**Verdict**: Ordering is maintained by design
 
 ## Comparison to Alternatives
 
@@ -1832,36 +1832,36 @@ impl TransactionManager {
 **Approach**: Use SeaORM `after_save` hooks for everything
 
 **Problems**:
-- ❌ Hooks are synchronous, can't do async File construction
-- ❌ No control over transaction boundaries
-- ❌ Can't batch operations
-- ❌ Hard to test
+- Hooks are synchronous, can't do async File construction
+- No control over transaction boundaries
+- Can't batch operations
+- Hard to test
 
 ### Alternative 2: Event Sourcing
 
 **Approach**: Store events as primary source of truth
 
 **Problems**:
-- ❌ Major architectural shift
-- ❌ Requires event replay for current state
-- ❌ Complex to query (need projections)
-- ❌ Doesn't fit Spacedrive's model
+- Major architectural shift
+- Requires event replay for current state
+- Complex to query (need projections)
+- Doesn't fit Spacedrive's model
 
 ### Alternative 3: Distributed Transactions (2PC)
 
 **Approach**: Two-phase commit across DB + event bus
 
 **Problems**:
-- ❌ Overly complex for single-process system
-- ❌ Event bus doesn't support transactions
-- ❌ Performance overhead
-- ❌ Not necessary for local operations
+- Overly complex for single-process system
+- Event bus doesn't support transactions
+- Performance overhead
+- Not necessary for local operations
 
 **Our Approach** (TransactionManager):
-- ✅ Simple: One service, clear responsibility
-- ✅ Performant: Single transaction, batch-friendly
-- ✅ Testable: Easy to mock
-- ✅ Pragmatic: Fits Spacedrive's architecture
+- Simple: One service, clear responsibility
+- Performant: Single transaction, batch-friendly
+- Testable: Easy to mock
+- Pragmatic: Fits Spacedrive's architecture
 
 ## Conclusion
 
@@ -1975,14 +1975,14 @@ class EventCacheUpdater {
             await cache.updateEntity(file)
 
             // All views observing this file update automatically
-            print("✅ Updated File:\(file.id) - \(file.name)")
+            print("Updated File:\(file.id) - \(file.name)")
 
         case .FilesBatchUpdated(let libraryId, let files, let operation):
             // Batch update
             for file in files {
                 await cache.updateEntity(file)
             }
-            print("✅ Batch updated \(files.count) files")
+            print("Batch updated \(files.count) files")
 
         default:
             break
@@ -2029,14 +2029,14 @@ Use this matrix to determine which commit method to use:
 ### When Sync Log is Created
 
 ```rust
-// ✅ CREATES SYNC LOG (sync-worthy changes):
+// CREATES SYNC LOG (sync-worthy changes):
 - User renames file (commit_transactional)
 - User tags file (commit_transactional)
 - User moves file (commit_transactional)
 - Watcher: file created/modified/deleted (commit_transactional_batch)
 - User updates location settings (commit_transactional)
 
-// ❌ NO SYNC LOG (local operations):
+// NO SYNC LOG (local operations):
 - Initial indexing (commit_bulk)
 - Bulk imports (commit_bulk)
 - Re-indexing after mount (commit_bulk)
@@ -2280,10 +2280,10 @@ match entries.len() {
 
 This design achieves the **perfect balance**:
 
-- ✅ **Transactional safety** for user actions (sync + cache)
-- ✅ **Bulk performance** for system operations (indexing)
-- ✅ **Clear semantics** (discovery vs change, bulk vs transactional)
-- ✅ **Client-appropriate events** (rich for changes, summary for bulk)
+- **Transactional safety** for user actions (sync + cache)
+- **Bulk performance** for system operations (indexing)
+- **Clear semantics** (discovery vs change, bulk vs transactional)
+- **Client-appropriate events** (rich for changes, summary for bulk)
 
 The three-method approach (`transactional`, `bulk`, `silent`) provides the flexibility needed for real-world performance while maintaining the atomic guarantees required for data consistency.
 

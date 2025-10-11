@@ -17,7 +17,7 @@ This document outlines the plan to enhance Spacedrive's networking stack to use 
 3. **Relay Information Captured**: When nodes are discovered, the code already extracts and stores `relay_url()` from discovery info (line 1254)
 4. **NodeAddr with Relay**: When building `NodeAddr` for connections, relay URLs are included alongside direct addresses
 
-### Current Limitations ❌
+### Current Limitations 
 
 1. **mDNS-Only Pairing**: Device pairing currently relies exclusively on mDNS for discovery
    - Initiator broadcasts pairing session ID via mDNS user_data
@@ -35,7 +35,7 @@ This document outlines the plan to enhance Spacedrive's networking stack to use 
 
 4. **No Relay Health Monitoring**: No visibility into relay connection status or fallback behavior
 
-## The Good News 🎉
+## The Good News 
 
 **The relay is already working!** Iroh is configured to use relay servers by default, and when you connect to a `NodeAddr` that includes a relay URL, Iroh automatically:
 1. Attempts direct connection via provided socket addresses
@@ -393,12 +393,12 @@ Add a "Network Status" panel showing:
 
 ## Next Steps
 
-1. ✅ Complete discovery and analysis
-2. 📋 Create implementation plan (this document)
-3. 🔨 Implement Phase 1: Enhanced pairing with relay fallback
-4. 🧪 Test cross-network pairing
-5. 📊 Measure relay usage and performance
-6. 📚 Update user documentation
+1. Complete discovery and analysis
+2. Create implementation plan (this document)
+3. Implement Phase 1: Enhanced pairing with relay fallback
+4. Test cross-network pairing
+5. Measure relay usage and performance
+6. Update user documentation
 
 ---
 

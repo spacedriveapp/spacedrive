@@ -18,18 +18,18 @@ final class EventDecodingTests: XCTestCase {
 
         do {
             let event = try JSONDecoder().decode(Event.self, from: jsonData)
-            print("✅ Successfully decoded event: \(event)")
+            print("Successfully decoded event: \(event)")
 
             // Check if it's the right type
             if case .jobStarted(let data) = event {
                 XCTAssertEqual(data.jobId, "8525ff04-3025-409a-a98f-e94737bd94d4")
                 XCTAssertEqual(data.jobType, "Indexing")
-                print("✅ Event data is correct: jobId=\(data.jobId), jobType=\(data.jobType)")
+                print("Event data is correct: jobId=\(data.jobId), jobType=\(data.jobType)")
             } else {
                 XCTFail("Event was not JobStarted type")
             }
         } catch {
-            print("❌ Decoding failed: \(error)")
+            print("Decoding failed: \(error)")
             XCTFail("Failed to decode JobStarted event: \(error)")
         }
     }
@@ -44,16 +44,16 @@ final class EventDecodingTests: XCTestCase {
 
         do {
             let response = try JSONDecoder().decode(DaemonResponse.self, from: jsonData)
-            print("✅ Successfully decoded daemon response: \(response)")
+            print("Successfully decoded daemon response: \(response)")
 
             // Check if it's the right type
             if case .event(let event) = response {
-                print("✅ Extracted event from response: \(event)")
+                print("Extracted event from response: \(event)")
 
                 if case .jobStarted(let data) = event {
                     XCTAssertEqual(data.jobId, "8525ff04-3025-409a-a98f-e94737bd94d4")
                     XCTAssertEqual(data.jobType, "Indexing")
-                    print("✅ Event data is correct: jobId=\(data.jobId), jobType=\(data.jobType)")
+                    print("Event data is correct: jobId=\(data.jobId), jobType=\(data.jobType)")
                 } else {
                     XCTFail("Event was not JobStarted type")
                 }
@@ -61,7 +61,7 @@ final class EventDecodingTests: XCTestCase {
                 XCTFail("Response was not Event type")
             }
         } catch {
-            print("❌ Decoding failed: \(error)")
+            print("Decoding failed: \(error)")
             XCTFail("Failed to decode daemon response: \(error)")
         }
     }

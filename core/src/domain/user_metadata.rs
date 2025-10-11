@@ -173,7 +173,7 @@ mod tests {
 			id: Uuid::new_v4(),
 			name: "Important".to_string(),
 			color: Some("#FF0000".to_string()),
-			icon: Some("⭐".to_string()),
+			icon: Some("".to_string()),
 		};
 
 		metadata.add_tag(tag.clone());

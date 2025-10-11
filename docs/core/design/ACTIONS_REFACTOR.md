@@ -13,13 +13,13 @@ This document outlines the plan to refactor CLI daemon handlers to properly use 
 
 ## Current State Analysis
 
-### Operations Currently Using Actions ✅
+### Operations Currently Using Actions 
 
 - `LocationAdd` - Uses `LocationAddAction`
 - `LocationRemove` - Uses `LocationRemoveAction`
 - `Copy` - Uses `FileCopyAction`
 
-### Operations That Should Use Actions 🔄
+### Operations That Should Use Actions 
 
 #### Indexing Operations
 
@@ -31,7 +31,7 @@ This document outlines the plan to refactor CLI daemon handlers to properly use 
 - `IndexLocation` → Use existing `LocationIndexAction`
 - `IndexAll` → Could create a new `LibraryIndexAllAction` or dispatch multiple `LocationIndexAction`s
 
-### Operations That Should NOT Use Actions ✅
+### Operations That Should NOT Use Actions 
 
 These are read-only operations or ephemeral operations:
 
@@ -41,7 +41,7 @@ These are read-only operations or ephemeral operations:
 - All Get operations (`GetJobInfo`, `GetCurrentLibrary`, `GetStatus`)
 - `Ping` - Simple health check
 
-### Operations to Remove 🗑️
+### Operations to Remove ️
 
 - `IndexPath` - Redundant with location-based indexing
 - `QuickScan` with `ephemeral: false` - Should just use location add + index

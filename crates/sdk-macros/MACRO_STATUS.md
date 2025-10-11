@@ -1,11 +1,11 @@
 # SDK Macros - Implementation Status
 
 **Date:** October 11, 2025
-**Status:** ✅ Field Attributes Supported
+**Status:** Field Attributes Supported
 
 ---
 
-## ✅ What Works
+## What Works
 
 ### `#[model]` Macro - Enhanced!
 
@@ -16,7 +16,7 @@
 struct Photo {
     id: Uuid,
 
-    // ✅ These attributes are recognized and stripped
+    // These attributes are recognized and stripped
     #[entry(filter = "*.jpg")]
     file: Entry,
 
@@ -47,11 +47,11 @@ struct Photo {
 ```
 
 **What the macro does:**
-1. ✅ Parses and strips field attributes
-2. ✅ Generates `ExtensionModel` trait impl
-3. ✅ Finds `id` or `uuid` field automatically
-4. ✅ Generates `MODEL_TYPE` constant
-5. ✅ Compiles successfully
+1. Parses and strips field attributes
+2. Generates `ExtensionModel` trait impl
+3. Finds `id` or `uuid` field automatically
+4. Generates `MODEL_TYPE` constant
+5. Compiles successfully
 
 **Recognized attributes:**
 - `#[entry]` - References file/directory
@@ -70,14 +70,14 @@ struct Photo {
 
 | Macro | Status | Notes |
 |-------|--------|-------|
-| `#[extension]` | ✅ Working | Generates plugin_init(), job registration |
-| `#[job]` | ✅ Working | FFI exports (proven in test-extension) |
-| `#[model]` | ✅ Enhanced | Handles field attributes! |
-| `#[agent]` | 🔶 Pass-through | Needs impl block handling |
-| `#[agent_memory]` | ✅ Working | Generates AgentMemory trait |
-| `#[task]` | 🔶 Pass-through | Needs implementation |
-| `#[action]` | 🔶 Pass-through | Needs implementation |
-| `#[query]` | 🔶 Pass-through | Needs implementation |
+| `#[extension]` | Working | Generates plugin_init(), job registration |
+| `#[job]` | Working | FFI exports (proven in test-extension) |
+| `#[model]` | Enhanced | Handles field attributes! |
+| `#[agent]` | Pass-through | Needs impl block handling |
+| `#[agent_memory]` | Working | Generates AgentMemory trait |
+| `#[task]` | Pass-through | Needs implementation |
+| `#[action]` | Pass-through | Needs implementation |
+| `#[query]` | Pass-through | Needs implementation |
 
 ---
 
@@ -106,10 +106,10 @@ struct PhotoAnalysis {
 ```
 
 **The attributes:**
-- ✅ Show design intent
-- ✅ Will be processed when macro is enhanced
-- ✅ Don't break compilation
-- ✅ Provide documentation
+- Show design intent
+- Will be processed when macro is enhanced
+- Don't break compilation
+- Provide documentation
 
 ---
 
