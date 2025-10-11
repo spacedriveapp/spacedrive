@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Relay Integration Flow Diagrams
 
 ## Current State: mDNS-Only Pairing

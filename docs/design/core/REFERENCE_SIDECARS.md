@@ -1,3 +1,4 @@
+<!--CREATED: 2025-08-11-->
 # Reference Sidecars Implementation
 
 This document describes the reference sidecar feature added to the Virtual Sidecar System (VSS).

@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Sync + Transaction Manager + Normalized Cache: Mini Spec
 
 ## Scope

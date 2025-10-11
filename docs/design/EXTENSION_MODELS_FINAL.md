@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Extension Models: Final Architecture
 
 **Design:** Clean separation with unified tag/collection support.

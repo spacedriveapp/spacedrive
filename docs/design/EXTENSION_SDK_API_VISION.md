@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-09-->
 # Extension SDK API Vision - The Sexiest API
 
 **Goal:** Extension development should feel like magic. Zero boilerplate, maximum clarity.

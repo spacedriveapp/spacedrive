@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-20-->
 # Persistent Device Connections Design
 
 **Version:** 1.0

@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-10-->
 # VDFS SDK Specification (Grounded in Spacedrive Core)
 
 **Version:** 3.0

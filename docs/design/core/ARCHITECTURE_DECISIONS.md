@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # Architecture Decision Records
 
 ## ADR-000: SdPath as Core Abstraction

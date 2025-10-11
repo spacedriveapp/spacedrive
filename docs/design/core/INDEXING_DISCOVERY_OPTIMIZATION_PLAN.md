@@ -1,3 +1,4 @@
+<!--CREATED: 2025-08-08-->
 ### Indexing Discovery Throughput Plan
 
 Author: Core Team

@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-10-->
 # SDK Enhancements & Core Development Alignment
 
 **Date:** October 11, 2025

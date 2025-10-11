@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 ## Spacedrive Actions: Architecture and Authoring Guide
 
 This document explains the current Action System in `sd-core`, how actions are discovered and dispatched, how inputs/outputs are shaped, how domain paths (`SdPath`, `SdPathBatch`) are used, and how to add new actions consistently.

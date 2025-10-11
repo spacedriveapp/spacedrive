@@ -1,3 +1,4 @@
+<!--CREATED: 2025-08-07-->
 # Operations Module Refactor Plan
 
 ## Current Problems

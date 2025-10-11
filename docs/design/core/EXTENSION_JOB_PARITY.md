@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Extension Job System Parity
 
 **Question:** Can extensions do everything core jobs can? (Progress, checkpoints, child jobs, metrics, etc.)

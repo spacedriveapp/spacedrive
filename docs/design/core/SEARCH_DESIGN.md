@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-24-->
 # Lightning Search: Next-Generation File Discovery for Spacedrive
 
 Note: in recent versions of the whitepaper we now refer to search as "Temporal-Sematic Search", or simply just "search".

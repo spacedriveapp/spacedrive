@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Spacedrive Client Generation System Design Document
 
 ## 1. Overview

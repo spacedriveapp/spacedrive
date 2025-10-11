@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-10-->
 Of course. Here is the complete v2.3 specification for the VDFS SDK, integrating all of the concepts we've designed. This document is intended to be the definitive guide for implementation.
 
 ```rust

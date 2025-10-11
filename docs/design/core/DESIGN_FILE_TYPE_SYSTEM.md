@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # File Type System
 
 A modern, extensible file type identification system for Spacedrive.

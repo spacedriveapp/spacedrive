@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # API Module Design: Unified Entry Point & Permission Layer
 
 ## Problem Analysis

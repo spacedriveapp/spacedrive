@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Iroh Relay Integration for Spacedrive
 
 **Author:** AI Assistant

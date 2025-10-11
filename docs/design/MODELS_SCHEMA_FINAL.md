@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Extension Models Schema - Final Design
 
 **Key Insight:** UserMetadata already supports `content_identity_uuid` scoping! Extension models should use the same pattern.

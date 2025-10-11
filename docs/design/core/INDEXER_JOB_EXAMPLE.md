@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # Indexer Job Implementation Example
 
 This document shows how the complex indexer job would be implemented using the new job system, demonstrating how it handles state machines, resumability, and progress reporting.

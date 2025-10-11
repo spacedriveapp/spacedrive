@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-24-->
 # Entity Refactor Design: Library-Scoped ContentIdentity & Hierarchical Metadata
 
 ## Overview

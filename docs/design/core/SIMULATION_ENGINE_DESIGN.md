@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-30-->
 Of course. Based on a thorough review of the Spacedrive whitepaper and the provided Rust codebase, here is a detailed design document for the Simulation Engine. This design aims for a clean, non-disruptive integration that leverages the existing architectural patterns.
 
 ---

@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Extension-Defined Jobs and Actions
 
 **Question:** How can WASM extensions register their own custom jobs and actions, not just call existing ones?

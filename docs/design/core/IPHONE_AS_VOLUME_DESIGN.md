@@ -1,3 +1,4 @@
+<!--CREATED: 2025-08-09-->
 # Design Document: iPhone as a Volume for Direct Import
 
 ## 1. Overview

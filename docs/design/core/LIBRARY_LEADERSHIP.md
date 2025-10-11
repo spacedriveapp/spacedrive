@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-29-->
 Spacedrive Core v2: Sync Leadership & Key Exchange Protocol
 Date: June 27, 2025
 Status: Proposed Design

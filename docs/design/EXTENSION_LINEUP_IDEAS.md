@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-10-->
 # Extension Lineup Ideas for November 2025 Launch
 
 **Last Updated:** October 10, 2025

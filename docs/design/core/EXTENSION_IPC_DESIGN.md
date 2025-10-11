@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # WASM Extension Architecture: Leveraging Existing Operation Registry
 
 ## TL;DR

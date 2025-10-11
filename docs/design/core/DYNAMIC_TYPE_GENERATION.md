@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Dynamic Type Generation: The rspc Magic Applied to Spacedrive
 
 ## Overview

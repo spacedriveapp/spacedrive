@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-10-->
 This memo will be sent to existing Spacedrive investors alongside the codebase, whitepaper, deck and a demo video. We need to refine it.
 
 ---

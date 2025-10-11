@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Context Window Management - Research from Production Rust Agent Projects
 
 **Research Date:** October 2025

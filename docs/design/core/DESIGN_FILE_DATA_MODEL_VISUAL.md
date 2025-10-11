@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # File Data Model - Visual Comparison
 
 ## Old Model (v1) - Current Spacedrive

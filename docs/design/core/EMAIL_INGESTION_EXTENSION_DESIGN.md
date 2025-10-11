@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Email Ingestion Extension: Technical Design & Prototype
 
 ## Executive Summary

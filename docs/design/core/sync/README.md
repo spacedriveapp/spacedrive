@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Sync System Design Documentation
 
 This directory contains **detailed design documents** for Spacedrive's multi-device synchronization and client-side caching architecture.

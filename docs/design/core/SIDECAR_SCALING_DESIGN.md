@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Sidecar Scaling Design
 
 **Status**: Draft

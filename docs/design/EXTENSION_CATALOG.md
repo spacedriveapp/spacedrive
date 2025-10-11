@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Spacedrive Extension Catalog
 
 **Date:** October 11, 2025

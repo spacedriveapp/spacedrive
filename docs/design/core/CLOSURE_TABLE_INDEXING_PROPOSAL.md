@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-23-->
 '''# Closure Table Indexing Proposal for Spacedrive
 
 ## Executive Summary

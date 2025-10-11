@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Spacedrive Extensions: Own Your Data, Supercharge Your Workflow
 
 **A new ecosystem of applications built on a foundation of privacy, control, and intelligence.**

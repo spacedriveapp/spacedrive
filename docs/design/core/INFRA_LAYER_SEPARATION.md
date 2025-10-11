@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Infrastructure Layer Separation of Concerns
 
 **Status**: RFC / Design Document

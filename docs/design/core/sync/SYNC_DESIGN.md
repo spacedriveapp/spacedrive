@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-24-->
 # Pragmatic Sync System Design
 
 ## Overview

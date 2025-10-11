@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Agent Architecture Analysis from Production Rust Projects
 
 This document analyzes three production Rust AI agent frameworks to extract patterns and best practices for Spacedrive's extension-based agent system.

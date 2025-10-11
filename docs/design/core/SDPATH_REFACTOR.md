@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-30-->
 Of course. The whitepaper indeed specifies a more powerful, dual-mode `SdPath` that is crucial for enabling resilient and intelligent file operations. The current implementation in the codebase represents only the physical addressing portion of that vision.
 
 Here is a design document detailing the refactor required to align the `SdPath` implementation with the whitepaper's architecture.

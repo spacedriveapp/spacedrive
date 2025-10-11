@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-02-->
 Of course. Here is the revised design document, incorporating the more modular Action Handler pattern and a clear explanation of how parameters are passed into the system.
 
 ---

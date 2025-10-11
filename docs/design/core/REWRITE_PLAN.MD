@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # Spacedrive Rewrite: From Complexity to Clarity
 
 ## What is Spacedrive?

@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Design Doc: Spacedrive Architecture v2
 
 **Authors:** Gemini, jamespine

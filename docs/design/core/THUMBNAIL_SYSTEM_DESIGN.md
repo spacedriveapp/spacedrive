@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-19-->
 # Thumbnail System Design for core
 
 ## Executive Summary

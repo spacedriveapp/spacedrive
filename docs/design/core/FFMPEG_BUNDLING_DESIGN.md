@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-30-->
 # FFmpeg Bundling Design for core
 
 ## Executive Summary

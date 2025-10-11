@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-20-->
 # Spacedrop Protocol Design
 
 ## Overview

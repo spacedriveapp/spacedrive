@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-10-->
 # Investor Memo
 
 **To:** Spacedrive Seed Investors | **From:** James Pine, Founder | **Date:** October 9, 2025

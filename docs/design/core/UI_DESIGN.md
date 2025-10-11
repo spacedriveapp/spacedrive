@@ -1,3 +1,4 @@
+<!--CREATED: 2025-08-09-->
 # Design Document: The Spacedrive UI
 
 ## 1. Overview

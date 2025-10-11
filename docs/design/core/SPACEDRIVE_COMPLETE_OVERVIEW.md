@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Spacedrive: Complete Technical Overview
 
 _A comprehensive analysis of the Spacedrive ecosystem, covering the core rewrite, cloud infrastructure, and the path to production._

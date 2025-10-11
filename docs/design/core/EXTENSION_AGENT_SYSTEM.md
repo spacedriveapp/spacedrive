@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Extension Agent System Design
 
 **Version:** 1.0

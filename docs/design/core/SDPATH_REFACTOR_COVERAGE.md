@@ -1,3 +1,4 @@
+<!--CREATED: 2025-08-07-->
 # Guidance for SdPath Refactoring
 
 This document provides a comprehensive guide for refactoring existing `PathBuf` usages to `SdPath` throughout the Spacedrive codebase. The goal is to fully leverage `SdPath`'s content-addressing and cross-device capabilities, ensuring consistency, resilience, and future extensibility of file operations.

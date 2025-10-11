@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-24-->
 SYNC_INTEGRATION_NOTES.md
 Integrating the New Sync System into Spacedrive Core v2
 This document outlines the strategic integration points and critical considerations for seamlessly weaving the newly designed universal dependency-aware sync system and the entity refactor into the existing, well-tested Spacedrive Core v2 architecture. The goal is to leverage existing robust modules while enhancing core file management capabilities.

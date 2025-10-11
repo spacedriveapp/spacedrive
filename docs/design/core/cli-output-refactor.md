@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-11-->
 # CLI Output Refactor Design Document
 
 ## Overview

@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # Spacedrive File Data Model Design (v2)
 
 ## Overview

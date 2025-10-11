@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # New Sync Architecture: Leaderless Hybrid Model
 
 **Date**: 2025-10-08

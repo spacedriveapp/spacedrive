@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # Job System Macro Implementation Example
 
 This document shows what the `#[derive(Job)]` macro generates under the hood, demonstrating how we achieve minimal boilerplate.

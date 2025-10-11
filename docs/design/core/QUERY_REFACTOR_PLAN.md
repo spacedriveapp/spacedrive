@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Query Architecture Refactor Plan
 
 ## Goal: Consistent Input/Output Pattern for Queries

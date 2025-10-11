@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # VDFS Domain Model - Visual Overview
 
 ## Core Relationships

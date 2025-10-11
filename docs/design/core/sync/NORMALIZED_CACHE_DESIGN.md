@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Normalized Resource Cache Design
 
 **Status**: RFC / Design Document

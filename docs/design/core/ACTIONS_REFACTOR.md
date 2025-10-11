@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-11-->
 # CLI Daemon Actions Refactoring Design Document
 
 ## Overview

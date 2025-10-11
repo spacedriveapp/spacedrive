@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-19-->
 # Indexer Scope and Ephemeral Mode Upgrade
 
 ## Overview

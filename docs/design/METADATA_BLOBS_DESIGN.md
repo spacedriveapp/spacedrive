@@ -1,3 +1,4 @@
+<!--CREATED: 2025-10-11-->
 # Metadata Blobs: Large Data Storage for VDFS
 
 **Problem:** Storing large data (embeddings, large JSON) in `models.data` or `user_metadata.custom_data` bloats queries.

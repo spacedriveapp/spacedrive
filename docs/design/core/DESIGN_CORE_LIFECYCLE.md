@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # Core Lifecycle Design
 
 ## Overview

@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-19-->
 # Deep Analysis of Original Spacedrive Indexer vs New Implementation
 
 ## Executive Summary

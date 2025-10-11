@@ -1,3 +1,4 @@
+<!--CREATED: 2025-06-18-->
 # Domain Models
 
 The domain layer contains the core business entities that power Spacedrive's Virtual Distributed File System (VDFS).

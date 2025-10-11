@@ -1,3 +1,4 @@
+<!--CREATED: 2025-07-30-->
 Of course. Based on the V2 whitepaper, your design documents, and the current state of the codebase, here is a clear development roadmap to align the implementation with the full architectural vision.
 
 This roadmap is sequenced to build foundational layers first, ensuring that complex features like AI and Sync are built on a stable and complete core.

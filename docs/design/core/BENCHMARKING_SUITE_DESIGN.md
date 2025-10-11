@@ -1,3 +1,4 @@
+<!--CREATED: 2025-08-08-->
 ### Spacedrive Benchmarking Suite — Design Document
 
 Author: Core Team
