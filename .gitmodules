@@ -4,3 +4,6 @@
 [submodule "apps/ios"]
 	path = apps/ios
 	url = https://github.com/spacedriveapp/ios.git
+[submodule "apps/macos"]
+	path = apps/macos
+	url = https://github.com/spacedriveapp/macos.git
