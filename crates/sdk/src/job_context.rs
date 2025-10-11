@@ -115,8 +115,92 @@ impl JobContext {
 		}
 	}
 
-	// VDFS, AI, Credentials removed - operations don't exist yet
-	// Will be added back once core operations are implemented
+	/// Access VDFS operations (includes data model CRUD)
+	pub fn vdfs(&self) -> crate::vdfs::VdfsContext {
+		crate::vdfs::VdfsContext
+	}
+
+	/// Access AI operations (machine learning inference)
+	pub fn ai(&self) -> crate::ai::AiContext {
+		crate::ai::AiContext
+	}
+
+	/// Access AI model registry (register ML models on install)
+	pub fn ai_models(&self) -> crate::ai::AiModelRegistry {
+		crate::ai::AiModelRegistry
+	}
+
+	/// Alias for ai_models() (for backward compatibility)
+	pub fn models(&self) -> crate::ai::AiModelRegistry {
+		self.ai_models()
+	}
+
+	/// Run a task (for job composition)
+	pub async fn run<F, A, R>(&self, _task: F, _args: A) -> crate::types::Result<R>
+	where
+		F: Fn(&crate::tasks::TaskContext, A) -> crate::tasks::TaskResult<R>,
+	{
+		todo!("Execute task with checkpoint")
+	}
+
+	/// Report progress
+	pub fn progress(&self, progress: crate::types::Progress) {
+		match progress {
+			crate::types::Progress::Indeterminate(msg) => {
+				self.report_progress(0.0, &msg);
+			}
+			crate::types::Progress::Simple { fraction, message } => {
+				self.report_progress(fraction, &message);
+			}
+			crate::types::Progress::Complete(msg) => {
+				self.report_progress(1.0, &msg);
+			}
+		}
+	}
+
+	/// Check for interruption (async version)
+	pub async fn check_interrupt_async(&self) -> crate::types::Result<()> {
+		if self.check_interrupt() {
+			Err(crate::types::Error::OperationFailed("Interrupted".into()))
+		} else {
+			Ok(())
+		}
+	}
+
+	/// Check if sidecar exists
+	pub fn sidecar_exists(
+		&self,
+		content_uuid: uuid::Uuid,
+		kind: &str,
+	) -> crate::types::Result<bool> {
+		todo!("WASM host call")
+	}
+
+	/// Save sidecar
+	pub async fn save_sidecar<T: serde::Serialize>(
+		&self,
+		content_uuid: uuid::Uuid,
+		kind: &str,
+		extension_id: &str,
+		data: &T,
+	) -> crate::types::Result<()> {
+		todo!("WASM host call")
+	}
+
+	/// Access agent memory
+	pub fn memory(&self) -> crate::agent::MemoryHandle<()> {
+		todo!("Access agent memory")
+	}
+
+	/// Access extension config
+	pub fn config<C>(&self) -> &C {
+		todo!("Access config")
+	}
+
+	/// Send notification
+	pub fn notify(&self) -> crate::agent::NotificationBuilder {
+		crate::agent::NotificationBuilder::default()
+	}
 
 	/// Log a message
 	pub fn log(&self, message: &str) {

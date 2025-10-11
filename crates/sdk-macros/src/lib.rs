@@ -4,67 +4,76 @@
 
 use proc_macro::TokenStream;
 
+mod action;
+mod agent;
 mod extension;
 mod job;
-
-/// Main job macro - makes job definition beautiful
-///
-/// # Example
-///
-/// ```no_run
-/// #[job]
-/// async fn email_scan(ctx: &JobContext, state: &mut EmailScanState) -> Result<()> {
-///     for email in fetch_emails(&state.last_uid)? {
-///         ctx.check()?;  // Auto-checkpoints!
-///         process_email(ctx, email).await?;
-///         state.last_uid = email.uid;
-///     }
-///     Ok(())
-/// }
-/// ```
-///
-/// Generates:
-/// - FFI export: `extern "C" fn execute_email_scan(...) -> i32`
-/// - State marshalling
-/// - Error handling
-/// - Auto-checkpoint on interrupt
-#[proc_macro_attribute]
-pub fn job(args: TokenStream, input: TokenStream) -> TokenStream {
-	job::job_impl(args, input)
-}
+mod model;
+mod query;
+mod task;
 
 /// Extension container macro
 ///
-/// # Example
-///
-/// ```no_run
-/// #[extension(
-///     id = "finance",
-///     name = "Spacedrive Finance",
-///     version = "0.1.0"
-/// )]
-/// struct Finance;
-/// ```
-///
-/// Generates:
-/// - plugin_init() and plugin_cleanup()
-/// - Manifest generation (build.rs)
-/// - Registration code
+/// Generates plugin_init() and plugin_cleanup() exports
 #[proc_macro_attribute]
 pub fn extension(args: TokenStream, input: TokenStream) -> TokenStream {
 	extension::extension_impl(args, input)
 }
 
-/// Query macro (future)
+/// Job macro - generates FFI exports and state marshalling
+///
+/// Generates:
+/// - FFI export: `extern "C" fn execute_<name>(...) -> i32`
+/// - State serialization/deserialization
+/// - Error handling with auto-checkpoint on interrupt
 #[proc_macro_attribute]
-pub fn spacedrive_query(_args: TokenStream, input: TokenStream) -> TokenStream {
-	// TODO: Implement
-	input
+pub fn job(args: TokenStream, input: TokenStream) -> TokenStream {
+	job::job_impl(args, input)
 }
 
-/// Action macro (future)
+/// Model macro - generates ExtensionModel trait impl
+///
+/// For extension data models (Person, Album, Place)
+/// NOT for AI/ML models (those go in ai.rs)
 #[proc_macro_attribute]
-pub fn spacedrive_action(_args: TokenStream, input: TokenStream) -> TokenStream {
-	// TODO: Implement
-	input
+pub fn model(args: TokenStream, input: TokenStream) -> TokenStream {
+	model::model_impl(args, input)
+}
+
+/// Agent macro - marks agent implementation
+///
+/// Future: Will generate event handler registration
+#[proc_macro_attribute]
+pub fn agent(args: TokenStream, input: TokenStream) -> TokenStream {
+	agent::agent_impl(args, input)
+}
+
+/// Agent memory macro - generates AgentMemory trait impl
+#[proc_macro_attribute]
+pub fn agent_memory(args: TokenStream, input: TokenStream) -> TokenStream {
+	agent::agent_memory_impl(args, input)
+}
+
+/// Action macro - marks action function
+///
+/// Future: Will generate FFI exports for preview/execute
+#[proc_macro_attribute]
+pub fn action(args: TokenStream, input: TokenStream) -> TokenStream {
+	action::action_impl(args, input)
+}
+
+/// Query macro - marks query function
+///
+/// Future: Will generate FFI exports for query registration
+#[proc_macro_attribute]
+pub fn query(args: TokenStream, input: TokenStream) -> TokenStream {
+	query::query_impl(args, input)
+}
+
+/// Task macro - marks task function
+///
+/// Future: Will generate task wrapper with retry/timeout
+#[proc_macro_attribute]
+pub fn task(args: TokenStream, input: TokenStream) -> TokenStream {
+	task::task_impl(args, input)
 }

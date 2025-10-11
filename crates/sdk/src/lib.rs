@@ -28,19 +28,47 @@
 //! }
 //! ```
 
+#![allow(async_fn_in_trait)]
+
+pub mod actions;
+pub mod agent;
+pub mod ai;
 pub mod ffi;
 pub mod job_context;
+pub mod models;
+pub mod query;
+pub mod tasks;
 pub mod types;
+pub mod vdfs;
 
+// Re-export for convenience
+pub use actions::*;
+pub use agent::{
+	AgentContext, AgentMemory, AssociativeMemory, AssociativeQuery, JobDispatcher,
+	JobDispatchBuilder, MemoryHandle, MemoryReadGuard, MemoryVariant, MemoryWriteGuard,
+	NotificationBuilder, TemporalMemory, TemporalQuery, WorkingMemory,
+};
+pub use ai::*;
 pub use job_context::JobContext as SdkJobContext;
+pub use models::*;
+pub use query::*;
+pub use tasks::*;
 pub use types::*;
+pub use vdfs::*;
 
 /// Prelude with commonly used types
 pub mod prelude {
+	pub use crate::actions::*;
+	pub use crate::agent::*;
+	pub use crate::ai::*;
 	pub use crate::job_context::{JobContext, JobResult};
-	pub use crate::types::{Error, Result};
+	pub use crate::models::*;
+	pub use crate::query::*;
+	pub use crate::tasks::*;
+	pub use crate::types::*;
+	pub use crate::vdfs::*;
 	pub use serde::{Deserialize, Serialize};
 }
 
 // Re-export macros
-pub use spacedrive_sdk_macros::{extension, job};
+pub use spacedrive_sdk_macros::{action, agent, agent_memory, extension, job, model, query, task};
