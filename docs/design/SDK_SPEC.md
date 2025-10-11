@@ -32,6 +32,17 @@ Of course. Here is the complete v2.3 specification for the VDFS SDK, integrating
 // - `#[task]`: The specialist unit of work, composed within jobs.
 // - `#[action]`: The user-interaction layer for UI-driven operations.
 //
+// ## Sections
+//
+// 3. The `#[app]` Primitive: Application Definition
+// 4. The `#[model]` Primitive: Typed Data Layer
+// 5. The `#[agent]` Primitive: Autonomous Logic Layer
+//    5.1. Memory Query API Reference
+// 6. AI Integration: Dynamic Prompt Templating with Jinja
+// 7. Jobs & Tasks: Durable Compute Layer
+// 8. The `#[action]` Primitive: User Interaction Layer
+// 9. Fluent Builders: Device & AI Orchestration
+//
 // ---
 
 //==============================================================================
@@ -179,13 +190,57 @@ impl Migrate<Paper> for PaperV1_1 {
 )]
 struct ChronicleMind {
     /// A time-series log of events. Automatically timestamped.
+    /// Supports rich temporal queries with filtering, sorting, and aggregation.
     history: TemporalMemory<PaperAnalysisEvent>,
 
     /// A vectorized knowledge base for semantic recall.
+    /// Supports similarity search, context-aware queries, and relationship traversal.
     knowledge: AssociativeMemory<Concept>,
 
     /// A simple struct for short-term state.
+    /// Supports transactional updates and atomic operations.
     plan: WorkingMemory<ResearchPlan>,
+}
+
+// Developers can define custom query methods on their memory types.
+// These methods are available on the agent's mind and provide domain-specific
+// memory access patterns.
+impl ChronicleMind {
+    /// Custom query: Find papers related to a research question.
+    async fn papers_related_to(&self, question: &str) -> Vec<PaperAnalysisEvent> {
+        self.history
+            .query()
+            .time_range(Duration::days(30))
+            .where_semantic("summary", similar_to(question))
+            .sort_by_relevance()
+            .limit(10)
+            .collect()
+            .await
+            .unwrap_or_default()
+    }
+
+    /// Custom query: Get recent activity summary by topic.
+    async fn activity_by_topic(&self, topic: &str, days: u64) -> ActivitySummary {
+        let events = self.history
+            .query()
+            .since(Duration::days(days))
+            .where_field("title", contains(topic))
+            .collect()
+            .await
+            .unwrap_or_default();
+
+        ActivitySummary {
+            count: events.len(),
+            most_recent: events.first().map(|e| e.paper_id),
+            topics: self.knowledge
+                .query_similar(topic)
+                .within_context(&events)
+                .top_k(5)
+                .collect()
+                .await
+                .unwrap_or_default(),
+        }
+    }
 }
 
 /// An `#[agent]` is a long-running entity that responds to events.
@@ -195,9 +250,6 @@ impl Chronicle {
     /// `#[on_startup]` is a lifecycle hook that runs when the app is enabled.
     #[on_startup]
     async fn initialize(ctx: &AgentContext<ChronicleMind>) -> AgentResult<()> {
-        let mut memory = ctx.memory().write().await;
-        // The agent can directly and safely manipulate its typed memory.
-        memory.plan.current_focus = "initialization".to_string();
         tracing::info!("Chronicle agent initialized and ready.");
         Ok(())
     }
@@ -224,12 +276,37 @@ impl Chronicle {
     /// `#[scheduled]` runs logic on a cron schedule.
     #[scheduled(cron = "0 9 * * MON")]
     async fn weekly_report(ctx: &AgentContext<ChronicleMind>) -> AgentResult<()> {
-        // Use the TemporalMemory to find events from the last week.
-        let recent_papers = ctx.memory().read().await.history.since(Duration::days(7)).await?;
+        let memory = ctx.memory().read().await;
+
+        // Use rich temporal query API to analyze recent activity
+        let recent_events = memory.history
+            .query()
+            .time_range(Duration::days(7))
+            .sort_by(|a, b| b.timestamp.cmp(&a.timestamp))
+            .limit(50)
+            .collect()
+            .await?;
+
+        // Semantic query across AssociativeMemory for trending topics
+        let trending_concepts = memory.knowledge
+            .query_similar("recent research trends")
+            .within_context(&recent_events) // Only concepts from recent papers
+            .min_similarity(0.7)
+            .top_k(5)
+            .collect()
+            .await?;
+
+        // Use custom domain-specific query method
+        let ml_activity = memory.activity_by_topic("machine learning", 7).await;
 
         ctx.notify()
             .title("Weekly Research Summary")
-            .message(format!("You analyzed {} papers last week.", recent_papers.len()))
+            .message(format!(
+                "Analyzed {} papers last week.\nML papers: {}\nTrending: {}",
+                recent_events.len(),
+                ml_activity.count,
+                trending_concepts.iter().map(|c| c.name.as_str()).collect::<Vec<_>>().join(", ")
+            ))
             .send()
             .await?;
 
@@ -243,6 +320,7 @@ struct PaperAnalysisEvent {
     paper_id: EntryId,
     title: String,
     summary: String,
+    timestamp: DateTime<Utc>, // Auto-populated by TemporalMemory
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -253,13 +331,168 @@ struct Concept {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 struct ResearchPlan {
-    current_focus: String,
-    next_steps: Vec<String>,
+    priority_topics: Vec<String>,
+    papers_to_read: Vec<EntryId>,
+}
+
+#[derive(Clone)]
+struct ActivitySummary {
+    count: usize,
+    most_recent: Option<EntryId>,
+    topics: Vec<Concept>,
 }
 
 
 //==============================================================================
-// ## 6. Jobs & Tasks: Durable Compute Layer
+// ## 5.1. Memory Query API Reference
+//==============================================================================
+
+// The SDK provides three specialized memory types, each with rich query capabilities:
+
+// ### TemporalMemory<T> - Time-Series Event Log
+//
+// ```rust
+// memory.history
+//     .query()
+//     // Time filtering
+//     .since(Duration::days(7))
+//     .until(DateTime::now())
+//     .time_range(start..end)
+//
+//     // Field filtering
+//     .where_field("title", contains("neural"))
+//     .where_field("author", equals("Smith"))
+//
+//     // Semantic filtering (uses embeddings)
+//     .where_semantic("summary", similar_to("machine learning"))
+//
+//     // Sorting and limiting
+//     .sort_by(|a, b| a.timestamp.cmp(&b.timestamp))
+//     .sort_by_relevance()
+//     .limit(10)
+//
+//     // Aggregation
+//     .collect().await?
+//     .count().await?
+//     .group_by(|e| e.category).await?
+// ```
+
+// ### AssociativeMemory<T> - Semantic Knowledge Graph
+//
+// ```rust
+// memory.knowledge
+//     // Similarity search
+//     .query_similar("quantum computing")
+//     .query_vector(embedding_vec)
+//
+//     // Context filtering
+//     .within_context(&recent_events)
+//     .related_to(&concept)
+//
+//     // Relevance filtering
+//     .min_similarity(0.8)
+//     .top_k(5)
+//
+//     // Relationship traversal
+//     .and_related_concepts(depth = 2)
+//
+//     .collect().await?
+// ```
+
+// ### WorkingMemory<T> - Transactional Short-Term State
+//
+// ```rust
+// // Atomic read
+// let plan = memory.plan.read().await;
+//
+// // Transactional write
+// memory.plan.update(|mut plan| {
+//     plan.priority_topics.push("AI safety".to_string());
+//     Ok(plan) // Commit on Ok, rollback on Err
+// }).await?
+// ```
+
+
+//==============================================================================
+// ## 6. AI Integration: Dynamic Prompt Templating with Jinja
+//==============================================================================
+
+// The SDK provides a first-class system for managing AI prompts using Jinja templates.
+// This separates the "art" of prompt engineering from application logic, enabling
+// rapid iteration and user customization without recompiling.
+
+// ### Template Discovery
+//
+// The VDFS runtime automatically discovers prompt templates in the `prompts/`
+// directory of your application package:
+//
+// chronicle/
+// ├── src/
+// │   └── lib.rs
+// ├── prompts/
+// │   ├── summarize_paper.jinja
+// │   └── extract_concepts.jinja
+// └── manifest.json
+
+// ### Example Jinja Template (prompts/summarize_paper.jinja)
+//
+// ```jinja
+// You are an expert research assistant. Provide a concise, structured summary.
+//
+// Paper Title: {{ title }}
+// Authors: {{ authors | join(", ") }}
+//
+// Full Text:
+// {{ text | truncate(4000) }}
+//
+// ---
+// Provide a three-point summary:
+// 1.
+// 2.
+// 3.
+// ```
+
+// ### Type-Safe Template Rendering
+//
+// Templates are rendered using strongly-typed Rust structs, preventing runtime errors.
+// The fluent `ctx.ai()` builder provides the interface:
+
+#[derive(Serialize)]
+struct SummarizePromptContext<'a> {
+    title: &'a str,
+    authors: Vec<&'a str>,
+    text: &'a str,
+}
+
+async fn example_ai_call(ctx: &TaskContext, paper: &Paper) -> TaskResult<String> {
+    let prompt_ctx = SummarizePromptContext {
+        title: &paper.title,
+        authors: paper.authors.iter().map(|s| s.as_str()).collect(),
+        text: &paper.full_text,
+    };
+
+    ctx.ai()
+        // Model preference respects user configuration
+        .model_preference(&ctx.config().ai_model_selector)
+        // Auto-discovered template from prompts/ directory
+        .prompt_template("summarize_paper.jinja")
+        // Type-safe rendering with our struct
+        .render_with(&prompt_ctx)?
+        // Generate text using the selected model
+        .generate_text()
+        .await
+}
+
+// Benefits of this approach:
+// - **Separation of Concerns:** Prompts are separate files, not embedded strings
+// - **Dynamic Updates:** Change prompts without recompiling the app
+// - **User Customization:** Advanced users can modify or add their own templates
+// - **Type Safety:** Rust structs ensure all template variables are provided
+// - **Model Agnostic:** Works with local LLMs, cloud APIs, or hybrid setups
+
+
+//==============================================================================
+// ## 7. Jobs & Tasks: Durable Compute Layer
 //==============================================================================
 
 /// A `#[task]` is the smallest, specialist unit of durable work.
@@ -319,7 +552,7 @@ async fn analyze_paper(ctx: &JobContext, paper: Paper) -> JobResult<()> {
 
 
 //==============================================================================
-// ## 7. The `#[action]` Primitive: User Interaction Layer
+// ## 8. The `#[action]` Primitive: User Interaction Layer
 //==============================================================================
 
 /// An `#[action]` is a user-invokable operation. It follows a two-step
@@ -369,7 +602,7 @@ async fn organize_by_topic_execute(
 
 
 //==============================================================================
-// ## 8. Fluent Builders: Device & AI Orchestration
+// ## 9. Fluent Builders: Device & AI Orchestration
 //==============================================================================
 
 // The SDK provides powerful, fluent builders for complex operations like
