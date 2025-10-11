@@ -385,7 +385,7 @@ impl Chronicle {
     #[scheduled(cron = "0 9 * * MON")]
     async fn weekly_report(ctx: &AgentContext<ChronicleMind>) -> AgentResult<()> {
         let memory = ctx.memory().read().await;
-        
+
         // Query all events across variants (papers, citations, sessions)
         let all_events = memory.history
             .query()
@@ -394,7 +394,7 @@ impl Chronicle {
             .limit(100)
             .collect()
             .await?;
-        
+
         // Count by variant type
         let papers_analyzed = all_events.iter()
             .filter(|e| matches!(e, ChronicleEvent::PaperAnalyzed(_)))
@@ -402,7 +402,7 @@ impl Chronicle {
         let citations_found = all_events.iter()
             .filter(|e| matches!(e, ChronicleEvent::CitationExtracted(_)))
             .count();
-        
+
         // Query specific variant using where_variant filter
         let recent_papers = memory.history
             .query()
@@ -410,7 +410,7 @@ impl Chronicle {
             .since(Duration::days(7))
             .collect()
             .await?;
-        
+
         // Cross-domain semantic query on AssociativeMemory
         let trending = memory.knowledge
             .query_similar("recent research trends")
@@ -418,7 +418,7 @@ impl Chronicle {
             .top_k(5)
             .collect()
             .await?;
-        
+
         // Extract Concept variants
         let trending_concepts: Vec<_> = trending.iter()
             .filter_map(|k| match k {
@@ -548,10 +548,10 @@ struct AlternativeChronicleMind {
 //    ```rust
 //    // Query specific variant
 //    memory.history.query().where_variant(ChronicleEvent::PaperAnalyzed)
-//    
+//
 //    // Query all variants
 //    memory.history.query().since(Duration::days(7))
-//    
+//
 //    // Cross-variant correlation
 //    memory.history.query()
 //        .where_variant(ChronicleEvent::PaperAnalyzed)
@@ -588,27 +588,27 @@ struct AlternativeChronicleMind {
 //     .query()
 //     // Enum variant filtering (when T is an enum)
 //     .where_variant(ChronicleEvent::PaperAnalyzed)
-//     
+//
 //     // Time filtering
 //     .since(Duration::days(7))
 //     .until(DateTime::now())
 //     .time_range(start..end)
-//     
+//
 //     // Field filtering (within enum variant)
 //     .where_field("title", contains("neural"))
 //     .where_field("authors", contains("Smith"))
-//     
+//
 //     // Semantic filtering (uses embeddings from VSS)
 //     .where_semantic("summary", similar_to("machine learning"))
-//     
+//
 //     // Correlation queries (across enum variants)
 //     .with_related_events(ChronicleEvent::CitationExtracted)
-//     
+//
 //     // Sorting and limiting
 //     .sort_by(|a, b| a.timestamp.cmp(&b.timestamp))
 //     .sort_by_relevance()
 //     .limit(10)
-//     
+//
 //     // Aggregation
 //     .collect().await?
 //     .count().await?
@@ -626,22 +626,22 @@ struct AlternativeChronicleMind {
 //     // Similarity search (works across all enum variants by default)
 //     .query_similar("quantum computing")
 //     .query_vector(embedding_vec)
-//     
+//
 //     // Variant filtering (when T is an enum)
 //     .where_variant(KnowledgeDomain::Concept)
 //     .where_variant(KnowledgeDomain::Person)
-//     
+//
 //     // Context filtering
 //     .within_context(&recent_events)
 //     .related_to(&concept)
-//     
+//
 //     // Relevance filtering
 //     .min_similarity(0.8)
 //     .top_k(5)
-//     
+//
 //     // Relationship traversal (across variants!)
 //     .and_related_concepts(depth = 2)
-//     
+//
 //     .collect().await?
 // ```
 //
