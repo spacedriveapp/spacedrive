@@ -1,4 +1,0 @@
-"$schema" = "schemas/schema.json"
-[default]
-description = "Allows all fetch operations"
-permissions = ["allow-cancel-cors-request", "allow-cors-request"]
