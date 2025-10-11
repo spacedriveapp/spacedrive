@@ -2,17 +2,6 @@
 //!
 //! The TransactionManager ensures that all state-changing writes to sync-enabled
 //! models are atomic, logged, and emit appropriate events.
-//!
-//! ## Leaderless Architecture (NEW)
-//!
-//! In the new leaderless model, this will be simplified to:
-//! - Device-owned data: Just emit events (state-based sync)
-//! - Shared resources: Use HLC + PeerLog (log-based sync)
-//!
-//! ## Current Status
-//!
-//! This file is in transition. The old sync log methods are stubbed out
-//! and will be replaced with HLC-based methods.
 
 use super::Syncable;
 use crate::infra::event::{Event, EventBus};

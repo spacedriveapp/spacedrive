@@ -6,8 +6,6 @@
 //! - Syncable trait for model registration
 //! - Transaction manager for atomic commits
 //!
-//! Legacy files (leader-based, will be removed):
-//! - legacy_sync_log_* (deprecated)
 
 pub mod dependency_graph;
 pub mod deterministic;

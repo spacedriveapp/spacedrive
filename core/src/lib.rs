@@ -1,9 +1,8 @@
 #![allow(warnings)]
 //! Spacedrive Core v2
 //!
-//! A complete reimplementation of Spacedrive's core with modern Rust patterns, unified file operations, and a foundation built for the Virtual Distributed File System vision.
+//! A Virtual Distributed File System (VDFS) implementation in Rust.
 
-// Module declarations
 pub mod client;
 pub mod common;
 pub mod config;
@@ -20,12 +19,6 @@ pub mod service;
 pub mod testing;
 pub mod volume;
 
-// Compatibility module for legacy networking references
-pub mod networking {
-	pub use crate::service::network::*;
-}
-
-// Internal crate imports
 use crate::{
 	config::AppConfig,
 	context::CoreContext,
@@ -45,7 +38,6 @@ use crate::{
 	volume::{VolumeDetectionConfig, VolumeManager},
 };
 
-// External crate imports
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info, warn};
@@ -633,4 +625,9 @@ fn setup_log_event_emitter(event_bus: Arc<crate::infra::event::EventBus>) {
 		// This will only work if no subscriber has been set yet
 		let _ = tracing_subscriber::registry().with(log_layer).try_init();
 	});
+}
+
+// Compatibility module for legacy networking references
+pub mod networking {
+	pub use crate::service::network::*;
 }
