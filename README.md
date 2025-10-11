@@ -2,7 +2,7 @@
   <img width="150" height="150" src="packages/assets/images/AppLogo.png" alt="Spacedrive Logo">
   <h1 align="center">Spacedrive</h1>
   <p align="center">
-    A Virtual Distributed File System (VDFS) for all your data.
+    The file explorer for your entire digital life.
     <br />
     <a href="https://spacedrive.com"><strong>spacedrive.com</strong></a>
     ·
@@ -17,94 +17,93 @@
     <a href="https://www.gnu.org/licenses/agpl-3.0">
       <img src="https://img.shields.io/static/v1?label=Licence&message=AGPL%20v3&color=000" />
     </a>
-    <img src="https://img.shields.io/static/v1?label=Stage&message=Foundation&color=2BB4AB" />
-    <img src="https://img.shields.io/static/v1?label=Core&message=Rust&color=DEA584" />
+    <a href="https://github.com/spacedriveapp/spacedrive">
+      <img src="https://img.shields.io/static/v1?label=Core&message=Rust&color=DEA584" />
+    </a>
+    <a href="https://github.com/spacedriveapp/spacedrive/tree/main/extensions">
+      <img src="https://img.shields.io/static/v1?label=Ecosystem&message=WASM&color=63B17A" />
+    </a>
   </p>
 </p>
 
-Your files are scattered across devices, cloud accounts, and external drives. Spacedrive unifies them into a single, virtual library, no matter where they are. It's a file manager from the future, built on a **Virtual Distributed File System (VDFS)**.
+Your files are scattered across devices, cloud accounts, and external drives. Spacedrive unifies them into a single, breathtakingly fast library, no matter where they are. It's a file manager from the future, built on a **Virtual Distributed File System (VDFS)** and made infinitely powerful by a sandboxed **WASM extension system**.
 
 Browse, search, and organize everything from one place. Device boundaries disappear.
 
 ---
 
-## The Vision: Your Data, Unified
+## Core Features
 
-Spacedrive is not another cloud storage service. It's a virtual layer that connects your existing storage locations. Your files stay on your devices, under your control.
-
-- **Copy a file from your phone to your PC** as if they were two folders on the same computer.
-- **Search for a document** and find it, whether it's on your laptop, a connected drive, or a remote server.
-- **Organize photo libraries** that span multiple devices into a single, beautiful collection.
-
-This is made possible by a new architecture, rebuilt from the ground up based on the lessons learned from over 500,000 installs of our first version.
-
-## How It Works: Core Concepts
-
-Spacedrive V2 is built on a set of foundational pillars designed for performance, privacy, and scalability. The entire core is implemented in **Rust** on a modern, asynchronous stack.
+Spacedrive is built on a set of foundational pillars designed for performance, privacy, and scalability. The entire core is implemented in **Rust**, with a clean architecture based on CQRS and Domain-Driven Design principles.
 
 #### 1. The Virtual Distributed File System (VDFS)
 
-The VDFS is the heart of Spacedrive. It creates a unified namespace for all your data using a universal addressing system called `SdPath`. It doesn't matter if a file is on `C:\Users\...` or `~/Documents` or a remote server—Spacedrive gives it a stable, virtual address.
-<br/>_➤ Learn more in the [Whitepaper (Section 4.1)](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)._
+The VDFS is the heart of Spacedrive. It creates a unified namespace for all your data using a universal addressing system called `SdPath`. It doesn't matter if a file is on `C:\Users\...` or `~/Documents`—Spacedrive gives it a stable, virtual address, allowing you to interact with it from any connected device.
 
-#### 2. Content-Addressable Storage
+#### 2. AI-Powered Semantic Search
 
-Spacedrive uses a **Content Identity System** to understand your data at the byte level. This provides intelligent, cross-device deduplication and powers a "Data Guardian" feature that monitors data redundancy to protect against loss.
-<br/>_➤ Learn more in the [Whitepaper (Section 4.4)](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)._
+Go beyond filename matching. Spacedrive's search engine indexes the content of your documents, images, and media. Find files with natural language queries like _"tax documents from last year"_ or _"sunset photos from my Hawaii vacation."_ It combines full-text search, semantic re-ranking, and vector search to deliver instant, intelligent results.
 
 #### 3. Leaderless, Offline-First Sync
 
-Spacedrive uses a novel, **leaderless synchronization model** that combines state-based and log-based replication. This eliminates the need for a central coordinator, making sync faster, more resilient, and fully functional offline. Changes are efficiently transferred using the **Iroh** P2P networking library.
-<br/>_➤ Learn more in the [Whitepaper (Section 4.5)](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)._
+Spacedrive uses a novel, **leaderless synchronization model** that makes it faster and more resilient than traditional cloud services. Changes are efficiently transferred directly between your devices using the **Iroh** P2P networking library. It works perfectly offline, and your data is never stored on a central server unless you want it to be.
 
 #### 4. Transactional, Verifiable Actions
 
-All file operations (copy, move, delete) are treated as **transactions**. You can preview the outcome of an operation before it executes, preventing errors and data loss. The system guarantees that operations will eventually complete, even across offline devices.
-<br/>_➤ Learn more in the [Whitepaper (Section 4.2)](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)._
+All file operations (copy, move, delete) are treated as **resumable, transactional jobs**. You can preview the outcome of an operation before it executes, preventing errors. The system guarantees that operations will eventually complete, even if a device goes offline midway through a transfer.
 
-## Project Status: Foundation Shipped
+## Flagship Extensions
 
-The original vision for Spacedrive was ambitious. The first version captured imaginations but hit architectural limits. We paused, redesigned the system from first principles, and have now completed the foundational rewrite.
+The true power of Spacedrive is realized through its extension system. These powerful add-ons can deeply integrate with the VDFS, introducing new data models, AI agents, and UI components.
 
-- **✅ Core Engine:** The VDFS core, written in Rust, is complete.
-- **✅ CLI:** A powerful command-line interface is available for use today.
-- **⏳ Desktop & Mobile Apps:** GUI applications are in active development, built on the new core.
+- **Data Guardian:** An essential utility that monitors the health of your library. It identifies data rot, finds duplicate files, and alerts you to at-risk files (e.g., important documents that only exist on one device), suggesting automated backups.
 
-We are building in the open. You can follow our progress through our [open tasks](.tasks/) and on Discord.
+- **Chronicle:** A complete research and knowledge management assistant. It automatically analyzes documents, extracts key concepts, builds a knowledge graph of your library, and helps you find gaps in your research.
 
-## Get Started with the CLI
+- **Ledger:** Turns your file system into a financial intelligence hub. It finds and parses receipts, invoices, and tax documents, automatically categorizing spending and helping you manage budgets.
 
-The foundation is working. The CLI proves the architecture.
+- **Studio:** A digital asset manager for creators. It organizes creative projects, versions assets, and adds powerful features like video scene detection, transcript generation, and topic analysis.
 
-```bash
-# Download and install
-curl -fsSL https://install.spacedrive.com | sh
+- **Archives (Email, Browser, Spotify):** A suite of open-source extensions that import your digital life from other platforms, making your Spacedrive library a truly complete archive of your personal data.
 
-# Create your first library
-sd library create "My Library"
+## A Powerful SDK for a Limitless Ecosystem
 
-# Add a local directory to your library
-sd location add ~/Pictures
+Spacedrive provides a beautiful, comprehensive Rust SDK to create first-class extensions that are indistinguishable from core functionality. Extensions run in a secure **WASM sandbox**.
 
-# See the contents of your virtual filesystem
-sd ls
-```
+The SDK makes it trivial to:
 
-## Why It Will Work This Time
+- **Define Models:** Create new database schemas with a simple `#[model]` macro.
+- **Create Jobs:** Define long-running background tasks with `#[job]`.
+- **Build AI:** Give your extension a 'mind' with the `#[agent]` macro, enabling it to react to events in the VDFS.
+- **Add Actions:** Expose new capabilities to the user with `#[action]`.
+- **Integrate UIs:** Add custom views, sidebar sections, and components to the Spacedrive apps with a simple `ui_manifest.json`.
 
-- **Technical Maturity:** The new architecture is designed to solve the hard problems of distributed systems from the start. We are not retrofitting; we are building on a solid foundation.
-- **Execution Discipline:** We are focused on shipping a stable core first, then expanding to more platforms and features. No more feature paralysis.
-- **Community Transparency:** Our whitepaper, design documents, and roadmap are public. We invite you to review our work and contribute.
+## Privacy & Security First
+
+Your privacy is paramount. Spacedrive is a **local-first** application. Your data and metadata live on your devices.
+
+- **End-to-End Encryption:** All network traffic is encrypted using modern protocols.
+- **Encryption-at-Rest:** Libraries can be encrypted on disk with SQLCipher, protecting your data if a device is lost or stolen.
+- **No Central Servers:** Your files are your own. Optional cloud integration is available for backup and remote access, but it's never required.
+
+## Available Everywhere
+
+Access your entire digital life, from anywhere.
+
+- **Desktop:** A powerful desktop app for macOS, Windows, and Linux serves as your command center.
+- **Mobile:** Native apps for iOS and Android provide full functionality on the go.
+- **CLI:** A comprehensive command-line interface for power users and server administration.
+- **Web:** Access your library from any browser with a self-hosted web interface.
 
 ## Get Involved
 
-- **⭐ Star the repo** to follow along.
+- **⭐ Star the repo** to show your support.
 - **💬 Join the [Discord](https://discord.gg/gTaF2Z44f5)** to chat with the developers and community.
 - **📖 Read the [Whitepaper](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)** to understand the full vision.
-- **💻 Contribute:** Check out the [contribution guide](CONTRIBUTING.md) and open tasks.
+- **🧩 Build an Extension:** Check out the [SDK documentation](docs/sdk.md) and create your own extensions.
 
 ---
 
 <p align="center">
-  <em>The file manager that should exist. Finally being built right.</em>
+  <em>Your files, unified. Your data, private. Your experience, limitless.</em>
 </p>
