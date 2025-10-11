@@ -36,13 +36,10 @@ async fn alice_cross_device_copy_scenario() {
 
 	// Initialize Core
 	println!("Alice: Initializing Core...");
-	let mut core = timeout(
-		Duration::from_secs(10),
-		Core::new_with_config(data_dir.clone()),
-	)
-	.await
-	.unwrap()
-	.unwrap();
+	let mut core = timeout(Duration::from_secs(10), Core::new(data_dir.clone()))
+		.await
+		.unwrap()
+		.unwrap();
 	println!("Alice: Core initialized successfully");
 
 	// Set device name
@@ -309,7 +306,7 @@ async fn bob_cross_device_copy_scenario() {
 
 	// Initialize Core
 	println!("Bob: Initializing Core...");
-	let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
+	let mut core = timeout(Duration::from_secs(10), Core::new(data_dir))
 		.await
 		.unwrap()
 		.unwrap();

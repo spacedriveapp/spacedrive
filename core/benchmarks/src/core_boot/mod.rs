@@ -45,7 +45,7 @@ pub async fn boot_isolated_with_core(
 		.save()
 		.map_err(|e| anyhow::anyhow!("save bench config: {}", e))?;
 
-	let core = sd_core::Core::new_with_config(bench_data_dir.clone())
+	let core = sd_core::Core::new(bench_data_dir.clone())
 		.await
 		.map_err(|e| anyhow::anyhow!("init core: {}", e))?;
 	let core = Arc::new(core);

@@ -37,7 +37,7 @@ async fn alice_persistence_scenario() {
 
 		// Initialize Core - this should load persisted devices
 		println!("Alice: Initializing Core after restart...");
-		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
+		let mut core = timeout(Duration::from_secs(10), Core::new(data_dir))
 			.await
 			.unwrap()
 			.unwrap();
@@ -125,7 +125,7 @@ async fn alice_persistence_scenario() {
 
 		// Initialize Core
 		println!("Alice: Initializing Core...");
-		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
+		let mut core = timeout(Duration::from_secs(10), Core::new(data_dir))
 			.await
 			.unwrap()
 			.unwrap();
@@ -246,7 +246,7 @@ async fn bob_persistence_scenario() {
 
 		// Initialize Core - this should load persisted devices
 		println!("Bob: Initializing Core after restart...");
-		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
+		let mut core = timeout(Duration::from_secs(10), Core::new(data_dir))
 			.await
 			.unwrap()
 			.unwrap();
@@ -333,7 +333,7 @@ async fn bob_persistence_scenario() {
 
 		// Initialize Core
 		println!("Bob: Initializing Core...");
-		let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir))
+		let mut core = timeout(Duration::from_secs(10), Core::new(data_dir))
 			.await
 			.unwrap()
 			.unwrap();

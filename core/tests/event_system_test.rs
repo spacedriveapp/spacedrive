@@ -33,7 +33,7 @@ async fn test_core_and_library_events() -> Result<(), Box<dyn std::error::Error>
 	let events_clone = collected_events.clone();
 
 	// Initialize core
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	// Note: CoreStarted is emitted during core initialization, so we won't catch it
 	// Start collecting events from now on
@@ -124,7 +124,7 @@ async fn test_core_and_library_events() -> Result<(), Box<dyn std::error::Error>
 #[tokio::test]
 async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error>> {
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	// Create library
 	let library = core
@@ -243,7 +243,7 @@ async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error>
 #[tokio::test]
 async fn test_event_filtering() -> Result<(), Box<dyn std::error::Error>> {
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	// Create two libraries
 	let library1 = core
@@ -310,7 +310,7 @@ async fn test_event_filtering() -> Result<(), Box<dyn std::error::Error>> {
 #[tokio::test]
 async fn test_concurrent_event_subscribers() -> Result<(), Box<dyn std::error::Error>> {
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	// Create multiple subscribers
 	let subscriber1_events = Arc::new(Mutex::new(Vec::new()));
@@ -393,7 +393,7 @@ async fn test_concurrent_event_subscribers() -> Result<(), Box<dyn std::error::E
 #[tokio::test]
 async fn test_custom_events() -> Result<(), Box<dyn std::error::Error>> {
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	let collected_events = Arc::new(Mutex::new(Vec::new()));
 	let events_clone = collected_events.clone();

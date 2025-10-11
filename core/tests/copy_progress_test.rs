@@ -96,7 +96,7 @@ async fn test_copy_progress_monitoring_large_file() {
 
 	// Initialize core with custom data directory
 	let core_data_dir = test_root.join("core_data");
-	let core = Core::new_with_config(core_data_dir).await.unwrap();
+	let core = Core::new(core_data_dir).await.unwrap();
 
 	// Create a test library
 	let library = core
@@ -397,7 +397,7 @@ async fn test_copy_progress_multiple_files() {
 
 	// Initialize core and library
 	let core_data_dir = test_root.join("core_data");
-	let core = Core::new_with_config(core_data_dir).await.unwrap();
+	let core = Core::new(core_data_dir).await.unwrap();
 	let library = core
 		.libraries
 		.create_library("Multi-file Progress Test", None, core.context.clone())

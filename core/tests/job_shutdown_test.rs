@@ -18,7 +18,7 @@ async fn test_jobs_paused_on_shutdown() -> Result<(), Box<dyn std::error::Error>
 	let core_dir = temp_dir.path().join("core");
 	tokio::fs::create_dir_all(&core_dir).await?;
 
-	let core = Core::new_with_config(core_dir).await?;
+	let core = Core::new(core_dir).await?;
 
 	// Create library
 	let library = core
@@ -106,7 +106,7 @@ async fn test_jobs_paused_on_shutdown() -> Result<(), Box<dyn std::error::Error>
 async fn test_shutdown_with_no_running_jobs() -> Result<(), Box<dyn std::error::Error>> {
 	// This test ensures shutdown works correctly when no jobs are running
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	let library = core
 		.libraries

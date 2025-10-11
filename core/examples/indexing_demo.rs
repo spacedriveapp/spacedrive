@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		);
 	}
 
-	let core = Core::new_with_config(data_dir.clone()).await?;
+	let core = Core::new(data_dir.clone()).await?;
 	println!("   Core initialized with job logging");
 	println!("   Device ID: {}", core.device.device_id()?);
 	println!("   Data directory: {:?}", data_dir);

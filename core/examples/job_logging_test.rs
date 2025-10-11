@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		println!("   Job logging enabled");
 	}
 
-	let core = Core::new_with_config(data_dir.clone()).await?;
+	let core = Core::new(data_dir.clone()).await?;
 	let job_logs_dir = data_dir.join("job_logs");
 	println!("   Job logs directory: {:?}", job_logs_dir);
 

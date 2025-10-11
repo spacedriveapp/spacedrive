@@ -9,9 +9,7 @@ async fn test_library_lifecycle() {
 	let temp_dir = TempDir::new().unwrap();
 
 	// Initialize core with custom data directory
-	let core = Core::new_with_config(temp_dir.path().to_path_buf())
-		.await
-		.unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 
 	// Create library (will be created in the libraries directory)
 	let library = core
@@ -82,9 +80,7 @@ async fn test_library_lifecycle() {
 #[tokio::test]
 async fn test_library_locking() {
 	let temp_dir = TempDir::new().unwrap();
-	let core = Core::new_with_config(temp_dir.path().to_path_buf())
-		.await
-		.unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 
 	// Create library
 	let library = core
@@ -121,9 +117,7 @@ async fn test_library_locking() {
 #[tokio::test]
 async fn test_library_discovery() {
 	let temp_dir = TempDir::new().unwrap();
-	let core = Core::new_with_config(temp_dir.path().to_path_buf())
-		.await
-		.unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 
 	// Create multiple libraries
 	let lib1 = core
@@ -164,9 +158,7 @@ async fn test_library_discovery() {
 #[tokio::test]
 async fn test_library_name_sanitization() {
 	let temp_dir = TempDir::new().unwrap();
-	let core = Core::new_with_config(temp_dir.path().to_path_buf())
-		.await
-		.unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 
 	// Create library with problematic name
 	let library = core
@@ -188,9 +180,7 @@ async fn test_default_library_creation() {
 	let temp_dir = TempDir::new().unwrap();
 
 	// Initialize core with fresh temporary directory (no existing libraries)
-	let core = Core::new_with_config(temp_dir.path().to_path_buf())
-		.await
-		.unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 
 	// Check that a default library was created automatically
 	let open_libraries = core.libraries.list().await;

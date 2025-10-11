@@ -15,7 +15,7 @@ pub async fn start_default_server(
 	initialize_tracing_with_file_logging(&data_dir)?;
 
 	// Create a single Core instance
-	let mut core = Core::new_with_config(data_dir.clone())
+	let mut core = Core::new(data_dir.clone())
 		.await
 		.map_err(|e| format!("Failed to create core: {}", e))?;
 

@@ -62,7 +62,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	std::fs::create_dir_all(&data_dir).unwrap();
 	println!("Created fresh data directory: {:?}", data_dir);
 
-	let core = Arc::new(Core::new_with_config(data_dir.clone()).await.unwrap());
+	let core = Arc::new(Core::new(data_dir.clone()).await.unwrap());
 	println!("Core initialized successfully");
 
 	// Create fresh library
@@ -390,7 +390,7 @@ async fn test_child_entry_metadata_preservation_on_parent_move() {
 	}
 	std::fs::create_dir_all(&data_dir).unwrap();
 
-	let core = Arc::new(Core::new_with_config(data_dir.clone()).await.unwrap());
+	let core = Arc::new(Core::new(data_dir.clone()).await.unwrap());
 
 	// Create fresh library
 	let library = core

@@ -511,14 +511,14 @@ impl SyncTestSetup {
 		config_b.save()?;
 
 		// Initialize Core A (will load config from disk with networking disabled)
-		let core_a = Core::new_with_config(temp_dir_a.path().to_path_buf())
+		let core_a = Core::new(temp_dir_a.path().to_path_buf())
 			.await
 			.map_err(|e| anyhow::anyhow!("{}", e))?;
 		let device_a_id = core_a.device.device_id()?;
 		info!("️  Device A ID: {}", device_a_id);
 
 		// Initialize Core B
-		let core_b = Core::new_with_config(temp_dir_b.path().to_path_buf())
+		let core_b = Core::new(temp_dir_b.path().to_path_buf())
 			.await
 			.map_err(|e| anyhow::anyhow!("{}", e))?;
 		let device_b_id = core_b.device.device_id()?;
@@ -1358,19 +1358,19 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	config_c.save()?;
 
 	// Initialize cores
-	let core_a = Core::new_with_config(temp_dir_a.path().to_path_buf())
+	let core_a = Core::new(temp_dir_a.path().to_path_buf())
 		.await
 		.map_err(|e| anyhow::anyhow!("{}", e))?;
 	let device_a_id = core_a.device.device_id()?;
 	info!("️  Device A ID: {}", device_a_id);
 
-	let core_b = Core::new_with_config(temp_dir_b.path().to_path_buf())
+	let core_b = Core::new(temp_dir_b.path().to_path_buf())
 		.await
 		.map_err(|e| anyhow::anyhow!("{}", e))?;
 	let device_b_id = core_b.device.device_id()?;
 	info!("️  Device B ID: {}", device_b_id);
 
-	let core_c = Core::new_with_config(temp_dir_c.path().to_path_buf())
+	let core_c = Core::new(temp_dir_c.path().to_path_buf())
 		.await
 		.map_err(|e| anyhow::anyhow!("{}", e))?;
 	let device_c_id = core_c.device.device_id()?;

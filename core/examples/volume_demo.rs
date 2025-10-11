@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize core (which includes volume manager)
 	println!("1. Initializing Spacedrive Core with volume detection...");
 	let data_dir = std::env::temp_dir().join("spacedrive-volume-demo");
-	let core = Core::new_with_config(data_dir).await?;
+	let core = Core::new(data_dir).await?;
 	println!("   ✓ Core initialized");
 
 	// Get volume statistics

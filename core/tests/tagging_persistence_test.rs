@@ -49,7 +49,7 @@ async fn test_tagging_persists_to_database() {
 	std::fs::create_dir_all(&data_dir).unwrap();
 
 	// Init Core and a fresh library
-	let core = Arc::new(Core::new_with_config(data_dir.clone()).await.unwrap());
+	let core = Arc::new(Core::new(data_dir.clone()).await.unwrap());
 	let library = core
 		.libraries
 		.create_library(

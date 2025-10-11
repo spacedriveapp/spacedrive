@@ -23,7 +23,7 @@ use tokio::time::Duration;
 async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
 	// 1. Setup test environment
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	// 2. Create library
 	let library = core
@@ -246,7 +246,7 @@ async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
 async fn test_incremental_indexing() -> Result<(), Box<dyn std::error::Error>> {
 	// 1. Setup
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	let library = core
 		.libraries
@@ -369,7 +369,7 @@ async fn test_incremental_indexing() -> Result<(), Box<dyn std::error::Error>> {
 #[tokio::test]
 async fn test_indexing_error_handling() -> Result<(), Box<dyn std::error::Error>> {
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	let library = core
 		.libraries

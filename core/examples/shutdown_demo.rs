@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Create Core instance
 	let data_dir = std::env::temp_dir().join("spacedrive-shutdown-demo");
-	let core = Core::new_with_config(data_dir).await?;
+	let core = Core::new(data_dir).await?;
 
 	// Get open libraries
 	let libraries = core.libraries.get_open_libraries().await;

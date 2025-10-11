@@ -25,7 +25,7 @@ async fn test_volume_tracking_lifecycle() {
 
 	// Initialize core - this handles all the setup automatically
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -221,7 +221,7 @@ async fn test_volume_tracking_multiple_libraries() {
 
 	// Initialize core - this handles all the setup automatically
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -406,7 +406,7 @@ async fn test_automatic_system_volume_tracking() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -467,7 +467,7 @@ async fn test_auto_tracking_disabled() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -552,7 +552,7 @@ async fn test_volume_state_updates() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -643,7 +643,7 @@ async fn test_volume_speed_test() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -722,7 +722,7 @@ async fn test_volume_types_and_properties() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -798,7 +798,7 @@ async fn test_volume_tracking_persistence() {
 
 	// Create core and library
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -883,7 +883,7 @@ async fn test_volume_tracking_persistence() {
 
 	// Create new core instance
 	let core2 = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create second core"),
 	);
@@ -931,7 +931,7 @@ async fn test_volume_tracking_edge_cases() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -1046,7 +1046,7 @@ async fn test_volume_refresh_and_detection() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -1108,7 +1108,7 @@ async fn test_volume_monitor_service() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);

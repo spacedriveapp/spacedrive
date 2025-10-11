@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
 
 	// Initialize core
 	let data_dir = PathBuf::from("./data/spacedrive-search-test");
-	let core = Core::new_with_config(data_dir.clone())
+	let core = Core::new(data_dir.clone())
 		.await
 		.map_err(|e| anyhow::anyhow!("Failed to initialize core: {}", e))?;
 	println!("✓ Core initialized");

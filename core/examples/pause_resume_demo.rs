@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Setup test environment
 	let temp_dir = TempDir::new()?;
-	let core = Core::new_with_config(temp_dir.path().to_path_buf()).await?;
+	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	// Create library
 	println!("1. Creating library...");

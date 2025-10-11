@@ -18,9 +18,7 @@ async fn test_dispatch_wasm_job() {
 
 	// 1. Initialize Core
 	let temp_dir = TempDir::new().unwrap();
-	let core = Core::new_with_config(temp_dir.path().to_path_buf())
-		.await
-		.unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 
 	// 2. Get the default library that Core creates
 	// (Avoids database migration issues in tests)

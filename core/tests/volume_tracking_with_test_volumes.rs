@@ -38,7 +38,7 @@ async fn test_real_volume_tracking_lifecycle() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -155,7 +155,7 @@ async fn test_different_filesystems() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -265,7 +265,7 @@ async fn test_volume_capacity_scenarios() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -377,7 +377,7 @@ async fn test_ram_disk_performance() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -474,7 +474,7 @@ async fn test_volume_mount_unmount_tracking() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);
@@ -585,7 +585,7 @@ async fn test_concurrent_volume_operations() {
 	let data_path = data_dir.path().to_path_buf();
 
 	let core = Arc::new(
-		Core::new_with_config(data_path.clone())
+		Core::new(data_path.clone())
 			.await
 			.expect("Failed to create core"),
 	);

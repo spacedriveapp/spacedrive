@@ -18,9 +18,7 @@ async fn test_load_wasm_extension() {
 
 	// 1. Initialize Core (same as other tests)
 	let temp_dir = TempDir::new().unwrap();
-	let core = Core::new_with_config(temp_dir.path().to_path_buf())
-		.await
-		.unwrap();
+	let core = Core::new(temp_dir.path().to_path_buf()).await.unwrap();
 
 	tracing::info!("Core initialized");
 

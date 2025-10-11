@@ -43,73 +43,6 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-/// Pending pairing request information
-#[derive(Debug, Clone)]
-pub struct PendingPairingRequest {
-	pub request_id: uuid::Uuid,
-	pub device_id: uuid::Uuid,
-	pub device_name: String,
-	pub received_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// Spacedrop request message
-#[derive(serde::Serialize, serde::Deserialize)]
-struct SpacedropRequest {
-	transfer_id: uuid::Uuid,
-	file_path: String,
-	sender_name: String,
-	message: Option<String>,
-	file_size: u64,
-}
-/// Bridge between networking events and core events
-/// TODO: why? - james
-pub struct NetworkEventBridge {
-	network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
-	core_events: Arc<EventBus>,
-}
-
-impl NetworkEventBridge {
-	pub fn new(
-		network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
-		core_events: Arc<EventBus>,
-	) -> Self {
-		Self {
-			network_events,
-			core_events,
-		}
-	}
-
-	pub async fn run(mut self) {
-		while let Some(event) = self.network_events.recv().await {
-			if let Some(core_event) = self.translate_event(event) {
-				self.core_events.emit(core_event);
-			}
-		}
-	}
-
-	fn translate_event(&self, event: service::network::NetworkEvent) -> Option<Event> {
-		match event {
-			service::network::NetworkEvent::ConnectionEstablished { device_id, .. } => {
-				Some(Event::DeviceConnected {
-					device_id,
-					device_name: "Connected Device".to_string(),
-				})
-			}
-			service::network::NetworkEvent::ConnectionLost { device_id, .. } => {
-				Some(Event::DeviceDisconnected { device_id })
-			}
-			service::network::NetworkEvent::PairingCompleted {
-				device_id,
-				device_info,
-			} => Some(Event::DeviceConnected {
-				device_id,
-				device_name: device_info.device_name,
-			}),
-			_ => None, // Some events don't map to core events
-		}
-	}
-}
-
 /// The main context for all core operations
 #[derive(Clone)]
 pub struct Core {
@@ -143,48 +76,38 @@ pub struct Core {
 
 impl Core {
 	/// Initialize a new Core instance with custom data directory
-	pub async fn new_with_config(data_dir: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
-		Self::new_with_config_and_device_name(data_dir, None).await
+	pub async fn new(data_dir: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+		Self::new_with_device_name(data_dir, None).await
 	}
 
 	/// Initialize a new Core instance with custom data directory and optional device name
 	///
 	/// This is primarily for mobile platforms (iOS, Android) where the device name
 	/// should be provided by the native platform APIs (e.g., UIDevice.name on iOS)
-	pub async fn new_with_config_and_device_name(
+	pub async fn new_with_device_name(
 		data_dir: PathBuf,
 		device_name: Option<String>,
 	) -> Result<Self, Box<dyn std::error::Error>> {
-		info!("Initializing Spacedrive Core at {:?}", data_dir);
+		info!("Initializing Spacedrive at {:?}", data_dir);
 
 		// Load or create app config
-		info!("Loading app config...");
 		let config = AppConfig::load_or_create(&data_dir)?;
-		info!("App config loaded");
 
-		info!("Ensuring directories... GAYYY");
 		config.ensure_directories()?;
-		info!("Directories ensured");
 
 		let config = Arc::new(RwLock::new(config));
 
 		// Initialize device manager
-		info!("Initializing device manager...");
 		let device = Arc::new(DeviceManager::init_with_path_and_name(
 			&data_dir,
 			device_name,
 		)?);
-		info!("Device manager initialized");
 
 		// Set a global device ID for convenience
-		info!("Setting current device ID...");
 		crate::device::set_current_device_id(device.device_id()?);
-		info!("Current device ID set");
 
 		// Create event bus
-		info!("Creating event bus...");
 		let events = Arc::new(EventBus::default());
-		info!("Event bus created");
 
 		// Initialize volume manager
 		let volume_config = VolumeDetectionConfig::default();
@@ -363,19 +286,19 @@ impl Core {
 			Err(e) => error!("Failed to start services: {}", e),
 		}
 
-		// 12. Initialize ActionManager and set it in context
+		//Initialize ActionManager and set it in context
 		let action_manager = Arc::new(crate::infra::action::manager::ActionManager::new(
 			context.clone(),
 		));
 		context.set_action_manager(action_manager).await;
 
-		// 13. Set up log event emitter
+		// Set up log event emitter
 		setup_log_event_emitter(events.clone());
 
-		// 14. Initialize API dispatcher
+		// Initialize API dispatcher
 		let api_dispatcher = ApiDispatcher::new(context.clone());
 
-		// 15. Initialize plugin manager (WASM extensions)
+		// Initialize plugin manager (WASM extensions)
 		let plugin_dir = data_dir.join("extensions");
 		let _ = std::fs::create_dir_all(&plugin_dir); // Ensure directory exists
 
@@ -388,7 +311,6 @@ impl Core {
 		// Set in context so jobs can access it
 		context.set_plugin_manager(plugin_manager.clone()).await;
 
-		// 16. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -630,4 +552,53 @@ fn setup_log_event_emitter(event_bus: Arc<crate::infra::event::EventBus>) {
 // Compatibility module for legacy networking references
 pub mod networking {
 	pub use crate::service::network::*;
+}
+
+/// Bridge between networking events and core events
+/// TODO: why? - james
+pub struct NetworkEventBridge {
+	network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
+	core_events: Arc<EventBus>,
+}
+
+impl NetworkEventBridge {
+	pub fn new(
+		network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
+		core_events: Arc<EventBus>,
+	) -> Self {
+		Self {
+			network_events,
+			core_events,
+		}
+	}
+
+	pub async fn run(mut self) {
+		while let Some(event) = self.network_events.recv().await {
+			if let Some(core_event) = self.translate_event(event) {
+				self.core_events.emit(core_event);
+			}
+		}
+	}
+
+	fn translate_event(&self, event: service::network::NetworkEvent) -> Option<Event> {
+		match event {
+			service::network::NetworkEvent::ConnectionEstablished { device_id, .. } => {
+				Some(Event::DeviceConnected {
+					device_id,
+					device_name: "Connected Device".to_string(),
+				})
+			}
+			service::network::NetworkEvent::ConnectionLost { device_id, .. } => {
+				Some(Event::DeviceDisconnected { device_id })
+			}
+			service::network::NetworkEvent::PairingCompleted {
+				device_id,
+				device_info,
+			} => Some(Event::DeviceConnected {
+				device_id,
+				device_name: device_info.device_name,
+			}),
+			_ => None, // Some events don't map to core events
+		}
+	}
 }

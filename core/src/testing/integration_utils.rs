@@ -219,7 +219,7 @@ impl TestConfigBuilder {
 		// Ensure the data directory exists
 		std::fs::create_dir_all(&config.data_dir)?;
 
-		// Save the config so Core::new_with_config() will load our custom settings
+		// Save the config so Core::new() will load our custom settings
 		config.save()?;
 		info!(
 			"Created test configuration at: {} with custom settings",
@@ -405,8 +405,8 @@ impl IntegrationTestSetup {
 			self.data_dir().display()
 		);
 
-		// Core::new_with_config() will load our saved AppConfig from disk
-		let core = crate::Core::new_with_config(self.data_dir().clone()).await?;
+		// Core::new() will load our saved AppConfig from disk
+		let core = crate::Core::new(self.data_dir().clone()).await?;
 
 		// Verify our config was loaded correctly
 		{

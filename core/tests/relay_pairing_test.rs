@@ -11,7 +11,7 @@ async fn test_enhanced_pairing_code_with_relay_info() {
 	let temp_dir = TempDir::new().unwrap();
 	let mut core = timeout(
 		Duration::from_secs(10),
-		Core::new_with_config(temp_dir.path().to_path_buf()),
+		Core::new(temp_dir.path().to_path_buf()),
 	)
 	.await
 	.unwrap()
@@ -66,7 +66,7 @@ async fn test_enhanced_pairing_codes_always_have_relay_info() {
 	let temp_dir = TempDir::new().unwrap();
 	let mut core = timeout(
 		Duration::from_secs(10),
-		Core::new_with_config(temp_dir.path().to_path_buf()),
+		Core::new(temp_dir.path().to_path_buf()),
 	)
 	.await
 	.unwrap()
@@ -111,7 +111,7 @@ async fn test_relay_discovery_flow() {
 	let temp_dir = TempDir::new().unwrap();
 	let mut core = timeout(
 		Duration::from_secs(10),
-		Core::new_with_config(temp_dir.path().to_path_buf()),
+		Core::new(temp_dir.path().to_path_buf()),
 	)
 	.await
 	.unwrap()
