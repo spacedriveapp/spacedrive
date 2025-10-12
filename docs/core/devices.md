@@ -60,7 +60,7 @@ impl DeviceManager {
     pub fn init() -> Result<Self, DeviceError>;
 
     /// Initialize with custom data directory (for iOS/Android)
-    pub fn init_with_path_and_name(
+    pub fn new(
         data_dir: &PathBuf,
         device_name: Option<String>,
     ) -> Result<Self, DeviceError>;
@@ -109,10 +109,11 @@ pub struct DeviceConfig {
 ```
 
 **Storage Location**:
+
 - macOS: `~/Library/Application Support/com.spacedrive/device.json`
 - Linux: `~/.config/spacedrive/device.json`
 - Windows: `%APPDATA%/Spacedrive/device.json`
-- iOS/Android: Custom data directory (passed via `init_with_path`)
+- iOS/Android: Custom data directory (passed via `new`)
 
 ### Global Device ID
 
@@ -132,6 +133,7 @@ pub fn get_current_device_id() -> Uuid;
 ```
 
 **Usage**:
+
 ```rust
 // During Core initialization
 let device_manager = DeviceManager::init()?;
@@ -142,6 +144,7 @@ let device_id = get_current_device_id();
 ```
 
 **Rationale**:
+
 - Device ID accessed frequently (audit logs, sync entries, actions)
 - Immutable once set (no concurrency concerns)
 - Performance: Avoids Arc<RwLock> overhead on every access
@@ -259,6 +262,7 @@ pub struct Model {
 ```
 
 **Why per-library?**
+
 - Different devices may have access to different libraries
 - Sync role is library-specific (leader in Library A, follower in Library B)
 - Library-specific device metadata (last_seen per library)
@@ -429,16 +433,19 @@ Device A (Initiator)              Device B (Joiner)
 ### Pairing Actions
 
 **Initiate pairing**:
+
 ```rust
 client.action("network.pair.generate.v1", {}) → PairingCode
 ```
 
 **Join pairing**:
+
 ```rust
 client.action("network.pair.join.v1", { code: "ABCD-1234-EFGH" }) → Success
 ```
 
 **Query pairing status**:
+
 ```rust
 client.query("network.pair.status.v1", {}) → PairingStatus
 ```
@@ -463,6 +470,7 @@ device_registry.add_discovered_node(device_id, node_id, node_addr);
 After pairing, devices must be **registered in each other's libraries** to enable sync.
 
 **Process** (see `sync-setup.md`):
+
 1. Pair devices (network layer)
 2. Discover remote libraries
 3. Register Device B in Library A's database
@@ -471,6 +479,7 @@ After pairing, devices must be **registered in each other's libraries** to enabl
 6. Start sync service
 
 **Database Entry**:
+
 ```sql
 -- In Library A's database
 INSERT INTO devices (uuid, name, os, sync_leadership, ...)
@@ -538,11 +547,13 @@ Devices have relationships with other core entities:
 ### Devices Libraries
 
 **Relationship**: Many-to-Many
+
 - One device can access multiple libraries
 - One library can be accessed by multiple devices
 - Each device has a role (Leader/Follower/Inactive) per library
 
 **Implementation**:
+
 - Devices stored in each library's database
 - Global device registry managed by NetworkingService
 - Library sync setup creates bidirectional registration
@@ -550,10 +561,12 @@ Devices have relationships with other core entities:
 ### Devices Locations
 
 **Relationship**: One-to-Many
+
 - Each location belongs to one device
 - One device can have multiple locations
 
 **Schema**:
+
 ```sql
 CREATE TABLE locations (
     id INTEGER PRIMARY KEY,
@@ -566,6 +579,7 @@ CREATE TABLE locations (
 ```
 
 **Semantics**:
+
 - `/Users/alice/Photos` on Device A is a different location from `/storage/DCIM` on Device B
 - Each device indexes its own filesystem
 - Location ownership never changes (location is tied to device)
@@ -573,10 +587,12 @@ CREATE TABLE locations (
 ### Devices Volumes
 
 **Relationship**: One-to-Many
+
 - Each volume belongs to one device
 - One device can have multiple volumes (drives)
 
 **Schema**:
+
 ```sql
 CREATE TABLE volumes (
     id INTEGER PRIMARY KEY,
@@ -588,6 +604,7 @@ CREATE TABLE volumes (
 ```
 
 **Semantics**:
+
 - Volumes are device-specific (external SSD on Device A)
 - Volume fingerprints enable cross-device recognition (same SSD connected to Device B)
 - Volume metadata syncs (name, capacity) but content does not (unless user configures sync conduit)
@@ -628,6 +645,7 @@ pub struct PairedDeviceInfo {
 ```
 
 **Usage**:
+
 ```rust
 // Get all paired devices
 let output = client.query("network.devices.list.v1", {
@@ -733,6 +751,7 @@ impl Syncable for entities::device::Model {
 ```
 
 **What syncs**:
+
 - Device name changes
 - Hardware model updates
 - Sync role assignments
@@ -773,6 +792,7 @@ Event {
 ```
 
 **Client handling** (automatic via type registry):
+
 ```swift
 // NO device-specific code needed!
 // Generic handler works automatically:
@@ -787,6 +807,7 @@ case .ResourceChanged("device", let json):
 ### Cryptographic Identity
 
 Each device has a unique cryptographic identity managed by Iroh:
+
 - **NodeId**: Derived from Ed25519 public key
 - **Key pair**: Generated and stored securely by Iroh
 - **NetworkFingerprint**: Combines NodeId + device UUID
@@ -911,22 +932,24 @@ if result.success {
 
 ```typescript
 // List paired devices
-const devices = await client.query('network.devices.list.v1', {
-  connectedOnly: false
+const devices = await client.query("network.devices.list.v1", {
+	connectedOnly: false,
 });
 
 console.log(`Paired devices: ${devices.total}`);
-devices.devices.forEach(device => {
-  console.log(`${device.name} - ${device.isConnected ? 'Connected' : 'Offline'}`);
+devices.devices.forEach((device) => {
+	console.log(
+		`${device.name} - ${device.isConnected ? "Connected" : "Offline"}`,
+	);
 });
 
 // Generate pairing code
-const pairing = await client.action('network.pair.generate.v1', {});
+const pairing = await client.action("network.pair.generate.v1", {});
 console.log(`Pairing code: ${pairing.code}`);
 
 // Join pairing
-const result = await client.action('network.pair.join.v1', {
-  code: 'ABCD-1234-EFGH'
+const result = await client.action("network.pair.join.v1", {
+	code: "ABCD-1234-EFGH",
 });
 ```
 
@@ -986,7 +1009,7 @@ Mobile platforms require special handling:
 
 ```rust
 // iOS: UIDevice.name from Swift passed to Rust
-let device_manager = DeviceManager::init_with_path_and_name(
+let device_manager = DeviceManager::new(
     &app_data_dir,
     Some(ui_device_name), // From UIDevice.current.name
 )?;
@@ -1178,6 +1201,7 @@ Event {
 **Symptom**: Pairing fails or times out
 
 **Checks**:
+
 1. Both devices on same network?
 2. mDNS discovery working? (check Iroh logs)
 3. Firewall blocking connections?
@@ -1185,6 +1209,7 @@ Event {
 5. Pairing code expired? (5 minute TTL)
 
 **Debug**:
+
 ```bash
 # Check device discovery
 RUST_LOG=iroh=debug,sd_core::service::network=debug cargo run
@@ -1200,11 +1225,13 @@ RUST_LOG=iroh=debug,sd_core::service::network=debug cargo run
 **Symptom**: Paired device shows offline but is actually running
 
 **Checks**:
+
 1. Connection lost? (network change, sleep)
 2. Auto-reconnect disabled?
 3. Device behind NAT/firewall?
 
 **Resolution**:
+
 - Devices auto-reconnect every 30 seconds
 - Manual reconnect: Close and reopen app
 - Check relay connection if direct P2P fails
@@ -1214,12 +1241,14 @@ RUST_LOG=iroh=debug,sd_core::service::network=debug cargo run
 **Symptom**: Changes not syncing between devices
 
 **Checks**:
+
 1. Devices registered in each library?
 2. Sync leader elected?
 3. Follower sync service running?
 4. Check sync log sequence numbers
 
 **Debug**:
+
 ```rust
 // Check if device is registered in library
 let device = entities::device::Entity::find()
