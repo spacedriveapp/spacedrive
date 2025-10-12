@@ -28,9 +28,11 @@
 
 Spacedrive is an open source file manager that unifies your files across all your devices. Built on a **Virtual Distributed File System (VDFS)** written in Rust, it turns a scattered collection of files into a single, organized library you can access from anywhere.
 
+**Now in Version 2.0:** (Nov 2025) After 3 years of learning from V1's architectural challenges, Spacedrive has been reimagined from the ground up. V2 introduces universal file addressing with **SdPath** that makes device boundaries transparent, an entry-centric model for instant organization, domain-separated sync that actually works, and an event-driven architecture that eliminates coupling. Every fatal flaw from V1 has been systematically addressed, resulting in a production-ready foundation that delivers on the original vision.
+
 ---
 
-## Key Architectural Principles
+## Architectural Principles
 
 Spacedrive is built on four foundational principles:
 
