@@ -1,0 +1,4 @@
+Test file with emojis 😊
+This line has a rocket emoji
+Another line with party emoji
+Last line with smile emoji
