@@ -160,6 +160,10 @@ spacedrive/
 - **Domain-Separated Sync**: Leaderless P2P sync with HLC timestamps and clear data boundaries
 - **Embedded Core**: iOS/macOS apps embed the full Rust core for offline-first operation
 
+### Development philosophy
+
+This is an AI-accelerated project, coding agent friendly with compelte documentation and integration testing coverage. In-repo task tracking with `.tasks` and a simple CLI tool allowing agents to manage scope effectively. The whitepaper not only serves as a north star for the open source community, but as a sacred scripture for AI context. For high level spec sheet development, large 1m token context window models like Gemini should be used to consistently ground design work in real implementations. Spacedrive is a complex system with many intricate layers that all play together harmoniously, which is why testing and spec-driven development is so important.
+
 ## Getting Started
 
 ### Prerequisites
