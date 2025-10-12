@@ -80,6 +80,33 @@ The true power of Spacedrive is its extensibility. A sandboxed **WASM-based exte
 
 ## Extensions
 
+Spacedrive's WASM-based extension system enables both professional tools and data archival capabilities. Extensions can share models and build on each other's data.
+
+### Professional Extensions
+
+Our lineup of industry extensions.
+
+| Extension     | Purpose                         | Key Features                                                                | Status      |
+| ------------- | ------------------------------- | --------------------------------------------------------------------------- | ----------- |
+| **Guardian**  | Backup & redundancy monitoring  | Content identity tracking, zero-redundancy alerts, smart backup suggestions | Planned     |
+| **Photos**    | AI-powered photo management     | Face recognition, place identification, moments, scene classification       | In Progress |
+| **Chronicle** | Research & knowledge management | Document analysis, knowledge graphs, AI summaries                           | In Progress |
+| **Ledger**    | Financial intelligence          | Receipt OCR, expense tracking, tax preparation                              | Planned     |
+| **Atlas**     | Dynamic CRM & team knowledge    | Runtime schemas, contact tracking, deal pipelines                           | In Progress |
+| **Cipher**    | Security & encryption           | Password manager, file encryption, breach alerts                            | Planned     |
+| **Studio**    | Digital asset management        | Scene detection, transcription, proxy generation                            | Planned     |
+
+### Open Source Archive Extensions
+
+| Extension           | Purpose                 | Provides Data For        | Status  |
+| ------------------- | ----------------------- | ------------------------ | ------- |
+| **Email Archive**   | Gmail/Outlook backup    | Atlas, Ledger, Chronicle | Planned |
+| **Chrome History**  | Browsing history backup | Chronicle                | Planned |
+| **Spotify Archive** | Listening history       | Analytics                | Planned |
+| **GPS Tracker**     | Location timeline       | Photos, Analytics        | Planned |
+| **Tweet Archive**   | Twitter backup          | Chronicle, Analytics     | Planned |
+| **GitHub Tracker**  | Repository tracking     | Chronicle                | Planned |
+
 ## Privacy & Security First
 
 Your privacy is paramount. Spacedrive is a **local-first** application. Your data and metadata live on your devices.
