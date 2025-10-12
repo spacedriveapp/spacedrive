@@ -6,7 +6,7 @@
 
 use crate::domain::{
 	tag::{TagApplication, TagError, TagSource},
-	user_metadata::{Label, Tag, UserMetadata},
+	user_metadata::UserMetadata,
 };
 use crate::infra::db::entities::*;
 use crate::ops::tags::manager::TagManager;
@@ -310,16 +310,8 @@ impl UserMetadataManager {
 
 	/// Convert database model to domain model
 	async fn model_to_domain(&self, model: user_metadata::Model) -> Result<UserMetadata, TagError> {
-		// Parse legacy JSON tags (empty for now)
-		let legacy_tags: Vec<Tag> = Vec::new();
-
-		// TODO: Get semantic tags - for now just use legacy tags
-		// In the future, this would combine both simple and semantic tags
-
 		Ok(UserMetadata {
 			id: model.uuid,
-			tags: legacy_tags,
-			labels: Vec::new(), // TODO: Implement labels if needed
 			notes: model.notes,
 			favorite: model.favorite,
 			hidden: model.hidden,

@@ -28,7 +28,7 @@ pub use tag::{
 	OrganizationalPattern, PatternType, PrivacyLevel, RelationshipType, Tag, TagApplication,
 	TagError, TagRelationship, TagSource, TagType,
 };
-pub use user_metadata::{Label, Tag as UserMetadataTag, UserMetadata};
+pub use user_metadata::UserMetadata;
 pub use volume::{
 	DiskType as DomainDiskType, FileSystem as DomainFileSystem, MountType as DomainMountType,
 	Volume as DomainVolume, VolumeType,

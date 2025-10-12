@@ -1,7 +1,10 @@
-//! User metadata - tags, labels, notes, and custom fields
+//! User metadata - notes, favorites, and custom fields
 //!
 //! This is the key innovation: EVERY Entry has UserMetadata, even if empty.
-//! This means any file can be tagged immediately without content indexing.
+//! This means any file can be organized immediately without content indexing.
+//!
+//! Note: Tags are managed through the semantic tagging system (TagApplication)
+//! via the user_metadata_tag junction table, not stored directly in UserMetadata.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -13,12 +16,6 @@ use uuid::Uuid;
 pub struct UserMetadata {
 	/// Unique identifier (matches Entry.metadata_id)
 	pub id: Uuid,
-
-	/// User-applied tags
-	pub tags: Vec<Tag>,
-
-	/// Labels for categorization
-	pub labels: Vec<Label>,
 
 	/// Free-form notes
 	pub notes: Option<String>,
@@ -39,81 +36,18 @@ pub struct UserMetadata {
 	pub updated_at: DateTime<Utc>,
 }
 
-/// A user-defined tag
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Tag {
-	/// Unique tag ID
-	pub id: Uuid,
-
-	/// Tag name
-	pub name: String,
-
-	/// Optional color (hex format)
-	pub color: Option<String>,
-
-	/// Optional emoji/icon
-	pub icon: Option<String>,
-}
-
-/// A label for categorization
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Label {
-	/// Unique label ID
-	pub id: Uuid,
-
-	/// Label name
-	pub name: String,
-
-	/// Label color (hex format)
-	pub color: String,
-}
-
 impl UserMetadata {
 	/// Create new empty metadata
 	pub fn new(id: Uuid) -> Self {
 		let now = Utc::now();
 		Self {
 			id,
-			tags: Vec::new(),
-			labels: Vec::new(),
 			notes: None,
 			favorite: false,
 			hidden: false,
 			custom_fields: JsonValue::Object(serde_json::Map::new()),
 			created_at: now,
 			updated_at: now,
-		}
-	}
-
-	/// Add a tag
-	pub fn add_tag(&mut self, tag: Tag) {
-		if !self.tags.iter().any(|t| t.id == tag.id) {
-			self.tags.push(tag);
-			self.updated_at = Utc::now();
-		}
-	}
-
-	/// Remove a tag
-	pub fn remove_tag(&mut self, tag_id: Uuid) {
-		if let Some(pos) = self.tags.iter().position(|t| t.id == tag_id) {
-			self.tags.remove(pos);
-			self.updated_at = Utc::now();
-		}
-	}
-
-	/// Add a label
-	pub fn add_label(&mut self, label: Label) {
-		if !self.labels.iter().any(|l| l.id == label.id) {
-			self.labels.push(label);
-			self.updated_at = Utc::now();
-		}
-	}
-
-	/// Remove a label
-	pub fn remove_label(&mut self, label_id: Uuid) {
-		if let Some(pos) = self.labels.iter().position(|l| l.id == label_id) {
-			self.labels.remove(pos);
-			self.updated_at = Utc::now();
 		}
 	}
 
@@ -137,9 +71,7 @@ impl UserMetadata {
 
 	/// Check if metadata has any user-applied data
 	pub fn is_empty(&self) -> bool {
-		self.tags.is_empty()
-			&& self.labels.is_empty()
-			&& self.notes.is_none()
+		self.notes.is_none()
 			&& !self.favorite
 			&& !self.hidden
 			&& self.custom_fields == JsonValue::Object(serde_json::Map::new())
@@ -160,28 +92,7 @@ mod tests {
 	fn test_empty_metadata() {
 		let metadata = UserMetadata::new(Uuid::new_v4());
 		assert!(metadata.is_empty());
-		assert_eq!(metadata.tags.len(), 0);
-		assert_eq!(metadata.labels.len(), 0);
 		assert!(!metadata.favorite);
 		assert!(!metadata.hidden);
-	}
-
-	#[test]
-	fn test_add_tag() {
-		let mut metadata = UserMetadata::new(Uuid::new_v4());
-		let tag = Tag {
-			id: Uuid::new_v4(),
-			name: "Important".to_string(),
-			color: Some("#FF0000".to_string()),
-			icon: Some("".to_string()),
-		};
-
-		metadata.add_tag(tag.clone());
-		assert_eq!(metadata.tags.len(), 1);
-		assert!(!metadata.is_empty());
-
-		// Adding same tag again shouldn't duplicate
-		metadata.add_tag(tag);
-		assert_eq!(metadata.tags.len(), 1);
 	}
 }

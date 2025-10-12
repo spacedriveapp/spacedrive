@@ -35,16 +35,19 @@ pub enum EntryKind {
 ### Key Design Decisions
 
 **1. Always-Present Metadata**
+
 - Every entry gets a `metadata_id` immediately upon creation
 - No more "can't tag this file until it's indexed" problems
 - Instant organization capabilities
 
 **2. Optional Content Identity**
+
 - `content_id` is only populated when content analysis is performed
 - Allows immediate file operations without waiting for hashing
 - Enables efficient deduplication when desired
 
 **3. Flexible Relationships**
+
 - `relative_path` provides hierarchy through materialized paths
 - `location_id` links to organized collections
 - Can represent the same physical file in multiple organizational contexts
@@ -64,23 +67,25 @@ pub struct Entry {
 ```
 
 **Benefits:**
+
 - **Simple queries** without complex joins
 - **Fast hierarchy queries** using path patterns
 - **Direct path access** for file operations
 - **Efficient indexing** on relative_path column
 
-## UserMetadata - Immediate Organization
+## Metadata
 
-Every entry has associated metadata for instant tagging and organization:
+Every entry has associated metadata for tagging and organization:
 
 ```rust
-pub struct UserMetadata {
+pub struct Metadata {
     pub id: i32,
     pub uuid: Uuid,
     pub notes: Option<String>,      // User notes
     pub favorite: bool,             // Favorite status
     pub hidden: bool,               // Hidden from normal views
     pub custom_data: Value,         // JSON for extensibility
+
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -108,28 +113,6 @@ pub struct MetadataTag {
 }
 ```
 
-### Label System
-
-Hierarchical organization with labels:
-
-```rust
-pub struct Label {
-    pub id: i32,
-    pub uuid: Uuid,
-    pub name: String,               // "Projects/Web Development"
-    pub color: Option<String>,
-    // Hierarchy determined by relative_path
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-// Junction table for labels
-pub struct MetadataLabel {
-    pub metadata_id: i32,
-    pub label_id: i32,
-}
-```
-
 ## ContentIdentity - Deduplication
 
 Optional content-based identity for deduplication and content analysis:
@@ -146,7 +129,7 @@ pub struct ContentIdentity {
 
 pub enum ContentKind {
     Image,
-    Video, 
+    Video,
     Audio,
     Document,
     Archive,
@@ -168,6 +151,7 @@ pub fn generate_cas_id(content: &[u8]) -> String {
 ```
 
 **Benefits:**
+
 - **Bit-level deduplication** - Identical content shares storage
 - **Content verification** - Detect corruption or modification
 - **Fast comparison** - Compare hashes instead of file contents
@@ -236,18 +220,21 @@ pub enum ScanState {
 ### Indexing Modes
 
 **Metadata Mode:**
+
 - Fast scanning
 - File names, sizes, timestamps
 - No content hashing
 - Suitable for frequently changing directories
 
 **Content Mode:**
+
 - Moderate speed
 - Includes content hashing for deduplication
 - CAS ID generation
 - Good balance of features and performance
 
 **Deep Mode:**
+
 - Comprehensive analysis
 - Media metadata extraction
 - Thumbnail generation
@@ -291,9 +278,74 @@ Structured capability reporting:
 }
 ```
 
-## Relationships
+## Extension Models - Runtime Tables
 
-The domain models form a rich relationship graph:
+Extensions can create their own database tables at runtime to store custom domain models. These tables integrate seamlessly with the core system:
+
+```rust
+// Example: Photos extension creates a Person table
+#[model(
+    table_name = "person",
+    version = "1.0.0",
+    scope = "content",
+    sync_strategy = "shared"
+)]
+struct Person {
+    #[primary_key]
+    id: Uuid,
+    name: String,
+    birth_date: Option<String>,
+    #[metadata]
+    metadata_id: i32,  // Links to UserMetadata for tagging
+}
+```
+
+### Extension Table Naming
+
+All extension tables are prefixed with the extension ID:
+
+```sql
+-- Photos extension creates:
+CREATE TABLE ext_photos_person (
+    id BLOB PRIMARY KEY,
+    name TEXT NOT NULL,
+    birth_date TEXT,
+    metadata_id INTEGER NOT NULL,
+    FOREIGN KEY (metadata_id) REFERENCES user_metadata(id)
+);
+
+CREATE TABLE ext_photos_album (
+    id BLOB PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    metadata_id INTEGER NOT NULL,
+    FOREIGN KEY (metadata_id) REFERENCES user_metadata(id)
+);
+```
+
+### Integration with Core System
+
+Extension models participate in the same organizational systems as core entities:
+
+**1. Tagging via UserMetadata**
+
+- Extension models link to `user_metadata` via `metadata_id` FK
+- Enables tagging, favoriting, notes, collections
+- Allows querying: "Show me all favorite people" or "All albums tagged 'Vacation'"
+
+**2. Foreign Keys to Core Tables**
+
+- Extensions can reference core entities like `Entry`, `ContentIdentity`, `Location`
+- Example: Link a Person to their photo (Entry) or link Album to Location
+
+**3. Cross-Extension References**
+
+- Extensions can reference tables from other extensions
+- Example: CRM extension can reference Person from Photos extension
+
+### Extension Table Relationships
+
+Extended relationship graph including extension models:
 
 ```
 Device (1) ──→ (N) Location
@@ -302,10 +354,69 @@ Entry (1) ──→ (1) UserMetadata
 Entry (1) ──→ (0..1) ContentIdentity
 
 UserMetadata (N) ──→ (N) Tag
-UserMetadata (N) ──→ (N) Label
 
 ContentIdentity (1) ──→ (N) Entry  [deduplication]
+
+-- Extension models also link to UserMetadata:
+ext_photos_person (1) ──→ (1) UserMetadata
+ext_photos_album (1) ──→ (1) UserMetadata
+ext_crm_contact (1) ──→ (1) UserMetadata
+
+-- Extension models can reference core tables:
+ext_photos_face (N) ──→ (1) ContentIdentity
+ext_photos_face (N) ──→ (1) ext_photos_person
 ```
+
+### Query Example
+
+Extensions participate in unified queries:
+
+```rust
+// Find all tagged items (core + extensions)
+// Core entries
+let tagged_entries = Entry::find()
+    .inner_join(UserMetadata)
+    .inner_join(MetadataTag)
+    .filter(tag::Column::Name.eq("Important"))
+    .all(db).await?;
+
+// Extension models
+let tagged_people = db.query_raw(
+    "SELECT p.* FROM ext_photos_person p
+     INNER JOIN user_metadata m ON p.metadata_id = m.id
+     INNER JOIN metadata_tag mt ON m.id = mt.metadata_id
+     INNER JOIN tag t ON mt.tag_id = t.id
+     WHERE t.name = 'Important'"
+).await?;
+```
+
+### Benefits
+
+**1. True SQL Queries**
+
+- Extensions can perform complex JOINs, aggregations, and filters
+- No JSON parsing overhead
+- Database indexes work properly
+
+**2. Foreign Key Constraints**
+
+- Referential integrity enforced by database
+- ON DELETE CASCADE automatically cleans up related data
+- Cannot orphan records
+
+**3. Schema Evolution**
+
+- Extensions can migrate their tables over time
+- Version tracking in `extension_migrations` table
+- Rollback support for schema changes
+
+**4. Unified Organization**
+
+- Extension data can be tagged, favorited, hidden
+- Works with existing collections and smart folders
+- Searchable alongside core content
+
+## Relationships
 
 ### Query Patterns
 
@@ -329,7 +440,7 @@ let duplicates = ContentIdentity::find()
     .await?;
 
 // Reconstruct full path
-let full_path = format!("{}/{}", 
+let full_path = format!("{}/{}",
     entry.prefix.prefix,
     entry.relative_path
 );
@@ -358,7 +469,7 @@ impl From<Entry> for SdPathSerialized {
 The domain models are designed to support migration from the original Spacedrive schema:
 
 1. **Entry mapping** - Convert file_path and object tables to unified Entry
-2. **Metadata creation** - Generate UserMetadata for all existing files  
+2. **Metadata creation** - Generate UserMetadata for all existing files
 3. **Path optimization** - Extract common prefixes and compress paths
 4. **Content preservation** - Map existing CAS IDs to ContentIdentity
 5. **Device unification** - Merge Node/Device/Instance concepts
