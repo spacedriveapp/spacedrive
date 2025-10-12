@@ -497,7 +497,7 @@ mod tests {
 	#[tokio::test]
 	async fn test_file_sharing_service_creation() {
 		let events = Arc::new(EventBus::default());
-		let device_manager = Arc::new(DeviceManager::init().unwrap());
+		let device_manager = Arc::new(DeviceManager::new().unwrap());
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
@@ -533,7 +533,7 @@ mod tests {
 	#[tokio::test]
 	async fn test_create_file_metadata() {
 		let events = Arc::new(EventBus::default());
-		let device_manager = Arc::new(DeviceManager::init().unwrap());
+		let device_manager = Arc::new(DeviceManager::new().unwrap());
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),

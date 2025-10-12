@@ -44,6 +44,11 @@ pub struct DeviceManager {
 }
 
 impl DeviceManager {
+	// Simple new function for testing
+	pub fn new() -> Result<Self, DeviceError> {
+		let data_dir = PathBuf::new();
+		return Self::init(&data_dir, None);
+	}
 	/// Initialize the device manager with a custom data directory and optional device name
 	pub fn init(data_dir: &PathBuf, device_name: Option<String>) -> Result<Self, DeviceError> {
 		let mut config = match DeviceConfig::load_from(data_dir) {
