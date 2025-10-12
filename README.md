@@ -44,24 +44,24 @@ Spacedrive is built on four foundational principles:
 
 ## Features
 
-| Feature                 | Description                                                                                                                                   | Status      |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **Filesystem Indexing** | A multi-phase, resumable pipeline that discovers and processes file metadata. Uses real-time watchers and efficient offline change detection. | Done        |
-| **Durable Jobs**        | A resilient system that executes long-running tasks as durable jobs that survive restarts and network interruptions.                          | Done        |
-| **Actions**             | A transactional system where all operations are validated and can be previewed before execution, ensuring safe and predictable outcomes.      | Done        |
-| **Storage Volumes**     | Automatically discovers, classifies, and monitors all storage locations, from internal drives to network shares.                              | Done        |
-| **Device Sync**         | Leaderless, offline-first library (metadata) synchronization between peers.                                                                   | Done        |
-| **Networking**          | Secure peer-to-peer device pairing using Iroh, local first with E2E encrypted cloud relay fallback.                                           | Done        |
-| **Semantic Tags**       | Graph-based tagging with contextual disambiguation, hierarchies, aliases, and compositional attributes for nuanced organization.              | In Progress |
-| **Spacedrop**           | AirDrop-style P2P file sharing between devices with automatic protocol selection and consent-based transfers.                                 | In Progress |
-| **Content Identity**    | Blake3-based content addressing with adaptive hashing (sampling for large files) enabling cross-device deduplication.                         | Done        |
-| **File Type Detection** | Extension and magic byte matching with priority-based disambiguation across 100+ file types and MIME mappings.                                | Done        |
-| **Search**              | Combines high-speed keyword filtering (FTS5) with semantic re-ranking for natural language queries.                                           | In Progress |
-| **Extensions**          | Extend core functionality into domain-specific use cases with sandboxed WASM extensions.                                                      | In Progress |
-| **Third-Party Cloud**   | Connect S3, Google Drive, Dropbox as cloud volumes, cloud indexing.                                                                           | In Progress |
-| **Virtual Sidecars**    | Manage derivitive data automatically; thumbnails, proxy media, OCR text extraction, Live Photos and more.                                     | Done        |
-| **Library Encryption**  | At-rest encryption using OS keychain for key storage (SQLCipher integration pending).                                                         | In Progress |
-| **AI & Intelligence**   | An observe-orient-act event loop for autonomous agents to perform tasks like file organization and analysis.                                  | Planned     |
+| Feature                 | Description                                                                                                                                                                | Status      |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| **Filesystem Indexing** | A multi-phase, resumable pipeline that discovers and processes file metadata. Uses real-time watchers and efficient offline change detection.                              | Done        |
+| **Durable Jobs**        | A resilient system that executes long-running tasks as durable jobs that survive restarts and network interruptions.                                                       | Done        |
+| **Actions**             | A transactional system where all operations are validated and can be previewed before execution, ensuring safe and predictable outcomes.                                   | Done        |
+| **Storage Volumes**     | Automatically discovers, classifies, and monitors all storage locations, from internal drives to network shares.                                                           | Done        |
+| **Device Sync**         | Leaderless, offline-first library (metadata) synchronization between peers.                                                                                                | Done        |
+| **Networking**          | Secure peer-to-peer device pairing using Iroh, local first with E2E encrypted cloud relay fallback.                                                                        | Done        |
+| **Semantic Tags**       | Graph-based tagging with contextual disambiguation, hierarchies, aliases, and compositional attributes for nuanced organization.                                           | In Progress |
+| **Spacedrop**           | AirDrop-style P2P file sharing between devices with automatic protocol selection and consent-based transfers.                                                              | In Progress |
+| **Content Identity**    | Blake3-based content addressing with adaptive hashing (sampling for large files) enabling cross-device deduplication.                                                      | Done        |
+| **File Type Detection** | Extension and magic byte matching with priority-based disambiguation across 100+ file types and MIME mappings. Extendible with TOML configuration and custom file loaders. | Done        |
+| **Search**              | Combines high-speed keyword filtering (FTS5) with semantic re-ranking for natural language queries.                                                                        | In Progress |
+| **Extensions**          | Extend core functionality into domain-specific use cases with sandboxed WASM extensions.                                                                                   | In Progress |
+| **Third-Party Cloud**   | Connect S3, Google Drive, Dropbox as cloud volumes, cloud indexing.                                                                                                        | In Progress |
+| **Virtual Sidecars**    | Manage derivitive data automatically; thumbnails, proxy media, OCR text extraction, Live Photos and more.                                                                  | Done        |
+| **Library Encryption**  | At-rest encryption using OS keychain for key storage (SQLCipher integration pending).                                                                                      | In Progress |
+| **AI & Intelligence**   | An observe-orient-act event loop for autonomous agents to perform tasks like file organization and analysis.                                                               | Planned     |
 
 ## How it Works
 
