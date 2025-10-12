@@ -121,116 +121,126 @@ Your privacy is paramount. Spacedrive is a **local-first** application. Your dat
 
 ### Core Technologies
 
-- **Rust** - High-performance core with async/await throughout (Tokio runtime)
-- **TypeScript** - Type-safe interfaces and UI logic
-- **React** - Cross-platform UI with Tauri (desktop) and React Native (mobile)
-- **SQLite** - Local-first database with SeaORM for type-safe queries
-- **Iroh** - P2P networking with QUIC transport and hole-punching
+- **Rust** - Pure Rust implementation with async/await throughout (Tokio runtime)
+- **Swift** - Native iOS/macOS apps with embedded Rust core via FFI
+- **SQLite + SeaORM** - Local-first database with type-safe queries
+- **Iroh** - P2P networking with QUIC transport and NAT hole-punching
+- **WASM** - Sandboxed extension system for user plugins
 
 ### Project Structure
 
 ```
 spacedrive/
-├── core/              # Rust VDFS implementation
+├── core/              # Rust VDFS implementation (the heart of V2)
 │   ├── src/
-│   │   ├── domain/    # Core models (Entry, Library, Device)
+│   │   ├── domain/    # Core models (Entry, Library, Device, Tag)
 │   │   ├── ops/       # CQRS operations (actions & queries)
-│   │   ├── infra/     # Infrastructure (DB, events, jobs)
-│   │   └── service/   # High-level services (network, sessions)
-│   └── bin/           # CLI and daemon binaries
+│   │   ├── infra/     # Infrastructure (DB, events, jobs, sync)
+│   │   ├── service/   # High-level services (network, file sharing)
+│   │   ├── location/  # Location management and indexing
+│   │   ├── library/   # Library lifecycle and operations
+│   │   └── volume/    # Volume detection and fingerprinting
+│   └── examples/      # Working examples demonstrating features
 ├── apps/
-│   ├── cli/           # Command-line interface
-│   ├── desktop/       # Tauri desktop app (macOS, Windows, Linux)
-│   ├── mobile/        # React Native mobile app (iOS, Android)
-│   └── web/           # Web interface (connects to daemon/cloud)
+│   ├── cli/           # Rust CLI for library management
+│   ├── ios/           # Native Swift app with embedded core
+│   └── macos/         # Native Swift app with embedded core
 ├── extensions/        # WASM extensions (Photos, Chronicle, etc.)
-├── packages/          # Shared TypeScript packages
-├── crates/            # Shared Rust crates
+├── crates/            # Shared Rust crates (utilities, types)
 └── docs/              # Architecture docs and whitepaper
 ```
 
 ### Architecture Highlights
 
-- **Entry-Centric Model**: Every file/directory is an Entry with optional content identity
-- **SdPath Addressing**: Universal file addressing that works across devices (`sd://device/{id}/path` or `sd://content/{cas_id}`)
-- **Event-Driven**: EventBus eliminates coupling between subsystems
-- **CQRS Pattern**: Separate Actions (mutations) and Queries (reads) with preview-commit-verify
-- **Durable Jobs**: Long-running operations survive app restarts with MessagePack serialization
-- **Domain-Separated Sync**: Leaderless P2P sync with clear boundaries between local and shared data
+- **Entry-Centric Model**: Files and directories are unified as Entries with optional content identity
+- **SdPath Addressing**: Universal file addressing (`sd://device/{id}/path` or `sd://content/{cas_id}`)
+- **Event-Driven**: EventBus eliminates coupling between core subsystems
+- **CQRS Pattern**: Actions (mutations) and Queries (reads) with preview-commit-verify flow
+- **Durable Jobs**: Long-running operations survive app restarts via MessagePack serialization
+- **Domain-Separated Sync**: Leaderless P2P sync with HLC timestamps and clear data boundaries
+- **Embedded Core**: iOS/macOS apps embed the full Rust core for offline-first operation
 
 ## Getting Started
 
 ### Prerequisites
 
 - **Rust** 1.81+ ([rustup](https://rustup.rs/))
-- **Node.js** 18.18+ ([nvm](https://github.com/nvm-sh/nvm) recommended)
-- **pnpm** 9.4.0+ (`npm install -g pnpm`)
+- **Xcode** (for iOS/macOS development)
 
-### Quick Start
+### Quick Start with CLI
+
+The CLI is the fastest way to explore Spacedrive's capabilities:
 
 ```bash
 # Clone the repository
 git clone https://github.com/spacedriveapp/spacedrive
 cd spacedrive
 
-# Run setup script (installs dependencies)
-./scripts/setup.sh  # macOS/Linux
-# or
-.\scripts\setup.ps1  # Windows (PowerShell)
-
-# Install Node dependencies
-pnpm i
-
-# Build dependencies and run codegen
-pnpm prep
-
-# Run the desktop app
-pnpm tauri dev
-
-# Or run the CLI
+# Build and run the CLI
 cargo run -p sd-cli -- --help
-```
 
-### Development Workflow
-
-**Desktop App**
-
-```bash
-pnpm tauri dev  # Runs core + React UI in Tauri window
-```
-
-**Web Interface**
-
-```bash
-cargo run -p sd-server  # Start backend daemon
-pnpm web dev            # Start web dev server (localhost:3000)
-```
-
-**CLI Development**
-
-```bash
+# Create a library
 cargo run -p sd-cli -- library create "My Library"
+
+# Add a location to index
 cargo run -p sd-cli -- location add ~/Documents
-cargo run -p sd-cli -- index ~/Documents
+
+# List indexed files
+cargo run -p sd-cli -- search .
 ```
 
-**Mobile Development**
+### iOS/macOS App Development
+
+The native apps embed the Rust core directly:
 
 ```bash
-./scripts/setup.sh mobile  # Install mobile deps
-pnpm mobile android        # Android development
-pnpm mobile ios            # iOS development (macOS only)
+# Open the iOS project
+open apps/ios/Spacedrive.xcodeproj
+
+# Or open the macOS project
+open apps/macos/Spacedrive.xcodeproj
+
+# Build from Xcode or command line
+xcodebuild -project apps/ios/Spacedrive.xcodeproj -scheme Spacedrive
 ```
 
-### Useful Commands
+The Rust core is automatically compiled when building the iOS/macOS apps through Xcode build phases.
 
-- `pnpm autoformat` - Format code (Rust + TS)
-- `pnpm clean` - Remove build artifacts
-- `pnpm test-data` - Download sample files for testing (macOS/Linux)
-- `cargo test` - Run Rust tests
-- `pnpm test:e2e` - Run end-to-end tests
+### Running Examples
 
-For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+The `core/examples/` directory contains working demonstrations:
+
+```bash
+# Run the indexing demo
+cargo run --example indexing_demo
+
+# Run the file type detection demo
+cargo run --example file_type_demo
+
+# See all available examples
+ls core/examples/
+```
+
+### Development Commands
+
+```bash
+# Run all tests
+cargo test
+
+# Run tests for a specific package
+cargo test -p sd-core
+
+# Build the CLI in release mode
+cargo build -p sd-cli --release
+
+# Format code
+cargo fmt
+
+# Run clippy lints
+cargo clippy
+```
+
+For detailed contribution guidelines and architecture documentation, see [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/core/architecture.md](docs/core/architecture.md).
 
 ## Get Involved
 
