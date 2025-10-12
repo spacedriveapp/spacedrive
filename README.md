@@ -36,7 +36,6 @@ Spacedrive is an open source file manager that unifies your files across all you
 
 Spacedrive provides **free, local-first backup** directly to your own devices. Backup photos, documents, or any files from your phone to your Mac, NAS, or any paired Spacedrive device—completely P2P with no cloud middleman.
 
-- **Zero cost** - No subscription fees, ever
 - **Your devices, your rules** - Backup to Mac, NAS, external drives, or any device you own
 - **Fully configurable** - WiFi-only, charging-only, custom paths, selective backup
 - **True privacy** - Files transfer directly between your devices via encrypted P2P
