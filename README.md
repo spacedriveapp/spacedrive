@@ -162,7 +162,13 @@ spacedrive/
 
 ### Development philosophy
 
-This is an AI-accelerated project, coding agent friendly with compelte documentation and integration testing coverage. In-repo task tracking with `.tasks` and a simple CLI tool allowing agents to manage scope effectively. The whitepaper not only serves as a north star for the open source community, but as a sacred scripture for AI context. For high level spec sheet development, large 1m token context window models like Gemini should be used to consistently ground design work in real implementations. Spacedrive is a complex system with many intricate layers that all play together harmoniously, which is why testing and spec-driven development is so important.
+## AI-Accelerated Development
+
+Spacedrive is built with AI assistance in mind. The codebase is agent-friendly with complete documentation, integration test coverage, and structured in-repo task tracking (`.tasks`) that allows coding agents to manage scope effectively.
+
+The whitepaper serves dual purposes: a north star for the open source community and a canonical reference for AI context. For high-level architectural work, large context window models (1M+ tokens) should be used to ground design decisions in actual implementations.
+
+Given Spacedrive's complexity—multiple intricate layers working in harmony—spec-driven development and comprehensive testing aren't optional. They're how we maintain coherence while moving fast.
 
 ## Getting Started
 
