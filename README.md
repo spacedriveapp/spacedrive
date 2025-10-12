@@ -117,6 +117,121 @@ Your privacy is paramount. Spacedrive is a **local-first** application. Your dat
 - **Encryption-at-Rest:** Libraries can be encrypted on disk with SQLCipher, protecting your data if a device is lost or stolen.
 - **No Central Servers:** Your files are your own. Optional cloud integration is available for backup and remote access, but it's never required.
 
+## Tech Stack & Architecture
+
+### Core Technologies
+
+- **Rust** - High-performance core with async/await throughout (Tokio runtime)
+- **TypeScript** - Type-safe interfaces and UI logic
+- **React** - Cross-platform UI with Tauri (desktop) and React Native (mobile)
+- **SQLite** - Local-first database with SeaORM for type-safe queries
+- **Iroh** - P2P networking with QUIC transport and hole-punching
+
+### Project Structure
+
+```
+spacedrive/
+├── core/              # Rust VDFS implementation
+│   ├── src/
+│   │   ├── domain/    # Core models (Entry, Library, Device)
+│   │   ├── ops/       # CQRS operations (actions & queries)
+│   │   ├── infra/     # Infrastructure (DB, events, jobs)
+│   │   └── service/   # High-level services (network, sessions)
+│   └── bin/           # CLI and daemon binaries
+├── apps/
+│   ├── cli/           # Command-line interface
+│   ├── desktop/       # Tauri desktop app (macOS, Windows, Linux)
+│   ├── mobile/        # React Native mobile app (iOS, Android)
+│   └── web/           # Web interface (connects to daemon/cloud)
+├── extensions/        # WASM extensions (Photos, Chronicle, etc.)
+├── packages/          # Shared TypeScript packages
+├── crates/            # Shared Rust crates
+└── docs/              # Architecture docs and whitepaper
+```
+
+### Architecture Highlights
+
+- **Entry-Centric Model**: Every file/directory is an Entry with optional content identity
+- **SdPath Addressing**: Universal file addressing that works across devices (`sd://device/{id}/path` or `sd://content/{cas_id}`)
+- **Event-Driven**: EventBus eliminates coupling between subsystems
+- **CQRS Pattern**: Separate Actions (mutations) and Queries (reads) with preview-commit-verify
+- **Durable Jobs**: Long-running operations survive app restarts with MessagePack serialization
+- **Domain-Separated Sync**: Leaderless P2P sync with clear boundaries between local and shared data
+
+## Getting Started
+
+### Prerequisites
+
+- **Rust** 1.81+ ([rustup](https://rustup.rs/))
+- **Node.js** 18.18+ ([nvm](https://github.com/nvm-sh/nvm) recommended)
+- **pnpm** 9.4.0+ (`npm install -g pnpm`)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/spacedriveapp/spacedrive
+cd spacedrive
+
+# Run setup script (installs dependencies)
+./scripts/setup.sh  # macOS/Linux
+# or
+.\scripts\setup.ps1  # Windows (PowerShell)
+
+# Install Node dependencies
+pnpm i
+
+# Build dependencies and run codegen
+pnpm prep
+
+# Run the desktop app
+pnpm tauri dev
+
+# Or run the CLI
+cargo run -p sd-cli -- --help
+```
+
+### Development Workflow
+
+**Desktop App**
+
+```bash
+pnpm tauri dev  # Runs core + React UI in Tauri window
+```
+
+**Web Interface**
+
+```bash
+cargo run -p sd-server  # Start backend daemon
+pnpm web dev            # Start web dev server (localhost:3000)
+```
+
+**CLI Development**
+
+```bash
+cargo run -p sd-cli -- library create "My Library"
+cargo run -p sd-cli -- location add ~/Documents
+cargo run -p sd-cli -- index ~/Documents
+```
+
+**Mobile Development**
+
+```bash
+./scripts/setup.sh mobile  # Install mobile deps
+pnpm mobile android        # Android development
+pnpm mobile ios            # iOS development (macOS only)
+```
+
+### Useful Commands
+
+- `pnpm autoformat` - Format code (Rust + TS)
+- `pnpm clean` - Remove build artifacts
+- `pnpm test-data` - Download sample files for testing (macOS/Linux)
+- `cargo test` - Run Rust tests
+- `pnpm test:e2e` - Run end-to-end tests
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Get Involved
 
 - **⭐ Star the repo** to show your support.
