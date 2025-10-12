@@ -26,9 +26,24 @@
   </p>
 </p>
 
-Spacedrive is an open source file manager that unifies your files across all your devices. Built on a **Virtual Distributed File System (VDFS)** written in Rust, it turns a scattered collection of files into a single, organized library you can access from anywhere.
+Spacedrive is an open source file manager that unifies your files across all your devices. Built on a **Virtual Distributed File System (VDFS)** written in Rust, it turns a scattered collection of files into a single, organized library you can access from anywhere. Dissolving ecosystem boundries and ensuring data ownership.
 
-**Now in Version 2.0:** (Nov 2025) After 3 years of learning from V1's architectural challenges, Spacedrive has been reimagined from the ground up. V2 introduces universal file addressing with **SdPath** that makes device boundaries transparent, an entry-centric model for instant organization, domain-separated sync that actually works, and an event-driven architecture that eliminates coupling. Every fatal flaw from V1 has been systematically addressed, resulting in a production-ready foundation that delivers on the original vision.
+**Now in Version 2.0:** After 3 years of learning from V1's architectural challenges, Spacedrive has been reimagined from the ground up. V2 introduces universal file addressing with **SdPath** that makes device boundaries transparent, an entry-centric model for instant organization, domain-separated sync that actually works, and an event-driven architecture that eliminates coupling. Every fatal flaw from V1 has been systematically addressed, resulting in a production-ready foundation that delivers on the original vision.
+
+---
+
+## Break Free from Cloud Lock-In
+
+Spacedrive provides **free, local-first backup** directly to your own devices. Backup photos, documents, or any files from your phone to your Mac, NAS, or any paired Spacedrive device—completely P2P with no cloud middleman.
+
+- **Zero cost** - No subscription fees, ever
+- **Your devices, your rules** - Backup to Mac, NAS, external drives, or any device you own
+- **Fully configurable** - WiFi-only, charging-only, custom paths, selective backup
+- **True privacy** - Files transfer directly between your devices via encrypted P2P
+- **Works offline** - No internet required when devices are on the same network
+- **VDFS-powered** - Metadata and thumbnails are always accessible locally, on all devices.
+
+This is core Spacedrive functionality, included free for everyone. **iOS photo backup is available today**, with Android coming soon.
 
 ---
 
