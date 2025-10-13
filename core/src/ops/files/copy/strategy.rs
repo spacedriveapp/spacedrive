@@ -19,10 +19,10 @@
 //!    - **Performance**: Microseconds, regardless of file size
 //!    - **Example**: Moving `/home/user/file.txt` → `/home/user/Documents/file.txt`
 //!
-//! 2. **`FastCopyStrategy`** - Filesystem-optimized copying
-//!    - **When**: Copying on modern filesystems with optimization support
+//! 2. **`FastCopyStrategy`** - Copy-on-Write (CoW) optimized copying
+//!    - **When**: Copying on CoW filesystems (APFS, Btrfs, ZFS, ReFS)
 //!    - **How**: Uses `std::fs::copy()` which leverages APFS clones, Btrfs reflinks, etc.
-//!    - **Performance**: Near-instant for compatible filesystems, falls back to normal copy
+//!    - **Performance**: Near-instant for CoW filesystems, falls back to normal copy otherwise
 //!    - **Example**: Copying large files on macOS APFS or Linux Btrfs
 //!
 //! 3. **`LocalStreamCopyStrategy`** - Cross-volume streaming with progress
@@ -190,7 +190,8 @@ impl CopyStrategy for LocalStreamCopyStrategy {
 	}
 }
 
-/// Strategy for fast local copy operations (uses std::fs::copy which handles APFS clones, reflinks, etc.)
+/// Strategy for fast local copy operations on CoW filesystems
+/// Uses std::fs::copy which automatically handles APFS clones, Btrfs reflinks, ZFS clones, and ReFS block clones
 pub struct FastCopyStrategy;
 
 #[async_trait]

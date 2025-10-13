@@ -178,6 +178,10 @@ async fn check_for_simple_conflicts(
 	// Extract the physical path from the destination SdPath
 	let dest_path = match &action.destination {
 		SdPath::Physical { path, .. } => path,
+		SdPath::Cloud { .. } => {
+			// Cloud paths are not yet supported for copy operations
+			return Ok(false);
+		}
 		SdPath::Content { .. } => {
 			// Content paths cannot be destinations for copy operations
 			return Ok(false);

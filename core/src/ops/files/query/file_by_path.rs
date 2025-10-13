@@ -189,6 +189,12 @@ impl FileByPathQuery {
 					path.display()
 				)))
 			}
+			SdPath::Cloud { .. } => {
+				// Cloud storage file queries are not yet implemented
+				Err(QueryError::Internal(
+					"Cloud storage file queries are not yet implemented".to_string(),
+				))
+			}
 			SdPath::Content { content_id } => {
 				// For content-addressed paths, find any entry with this content_id
 				// First we need to find the content_identity with this UUID

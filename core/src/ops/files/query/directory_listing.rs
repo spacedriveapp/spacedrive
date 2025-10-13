@@ -400,6 +400,12 @@ impl DirectoryListingQuery {
 					}
 				}
 			}
+			SdPath::Cloud { .. } => {
+				// Cloud storage directory browsing is not yet implemented
+				Err(QueryError::Internal(
+					"Cloud storage directory browsing is not yet implemented".to_string(),
+				))
+			}
 			SdPath::Content { .. } => {
 				// Content-addressed paths are not supported for directory browsing
 				Err(QueryError::Internal(

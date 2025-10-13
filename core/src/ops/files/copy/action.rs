@@ -374,6 +374,10 @@ impl FileCopyAction {
 		// Extract the physical path from the destination SdPath
 		let dest_path = match &self.destination {
 			SdPath::Physical { path, .. } => path.clone(),
+			SdPath::Cloud { .. } => {
+				// Cloud paths are not yet supported for copy operations
+				return Ok(None);
+			}
 			SdPath::Content { .. } => {
 				// Content paths cannot be destinations for copy operations
 				return Ok(None);

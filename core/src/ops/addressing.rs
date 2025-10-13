@@ -33,6 +33,8 @@ impl PathResolver {
 				self.verify_device_online(context, *device_id).await?;
 				Ok(path.clone())
 			}
+			// Cloud paths are already resolved (no additional resolution needed)
+			SdPath::Cloud { .. } => Ok(path.clone()),
 			// If content-based, find the optimal physical path
 			SdPath::Content { content_id } => unimplemented!(),
 		}

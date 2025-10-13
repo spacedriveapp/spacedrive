@@ -68,13 +68,19 @@ impl CopyStrategyRouter {
 						// Use atomic move for same-storage moves
 						return Box::new(LocalMoveStrategy);
 					} else {
-						// Same-storage copy - get filesystem-specific strategy
+						// Same-storage copy - check if filesystem supports CoW
 						if let Some(vm) = volume_manager {
 							if let Some(volume) = vm.volume_for_path(source_path).await {
-								return crate::volume::fs::get_copy_strategy(&volume.file_system);
+								if volume.supports_fast_copy() {
+									// Use fast copy for CoW filesystems (APFS, Btrfs, ZFS, ReFS)
+									return Box::new(FastCopyStrategy);
+								} else {
+									// Non-CoW filesystem on same storage - use streaming
+									return Box::new(LocalStreamCopyStrategy);
+								}
 							}
 						}
-						// Fallback to fast copy strategy
+						// Fallback to fast copy strategy when volume info unavailable
 						return Box::new(FastCopyStrategy);
 					}
 				} else {

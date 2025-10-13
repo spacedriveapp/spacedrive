@@ -726,6 +726,7 @@ impl FileCopyJob {
 				device_id: *device_id,
 				path: path.with_file_name(&new_name),
 			},
+			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),
 			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
 		};
 
@@ -967,6 +968,7 @@ impl MoveJob {
 				device_id: *device_id,
 				path: path.with_file_name(&new_name),
 			},
+			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),
 			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
 		};
 
