@@ -109,7 +109,7 @@ impl ApiError {
 		}
 	}
 
-	/// Get the HTTP status code equivalent (useful for GraphQL/REST APIs)
+	/// Get the HTTP status code equivalent (useful for REST APIs)
 	pub fn status_code(&self) -> u16 {
 		match self {
 			Self::Unauthenticated => 401,

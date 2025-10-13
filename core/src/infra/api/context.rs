@@ -56,17 +56,6 @@ impl RequestMetadata {
 		}
 	}
 
-	/// Create metadata for a GraphQL request
-	pub fn graphql_request(client_ip: Option<String>, user_agent: Option<String>) -> Self {
-		Self {
-			request_id: Uuid::new_v4(),
-			timestamp: chrono::Utc::now(),
-			source: RequestSource::GraphQL,
-			client_ip,
-			user_agent,
-			metadata: std::collections::HashMap::new(),
-		}
-	}
 
 	/// Create metadata for internal system operations
 	pub fn internal_request() -> Self {

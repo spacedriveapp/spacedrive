@@ -1,6 +1,6 @@
 //! Path resolution service for the pure hierarchical model
 //!
-//! This service provides efficient path resolution by utilizing the directory_paths cache table.
+//! This service provides efficient path resolution by utilizing the directory_paths lookup table.
 
 use std::path::PathBuf;
 

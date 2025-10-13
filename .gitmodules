@@ -7,9 +7,9 @@
 [submodule "apps/macos"]
 	path = apps/macos
 	url = https://github.com/spacedriveapp/macos.git
-[submodule "docs/design"]
-	path = docs/design
+[submodule "workbench"]
+	path = workbench
 	url = https://github.com/spacedriveapp/design.git
-[submodule "apps/docs"]
-	path = apps/docs
+[submodule "docs"]
+	path = docs
 	url = https://github.com/spacedriveapp/docs.git

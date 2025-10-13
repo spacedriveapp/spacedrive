@@ -37,7 +37,7 @@ impl std::fmt::Display for CopyMethod {
 }
 
 /// Core input structure for file copy operations
-/// This is the canonical interface that all external APIs (CLI, GraphQL, REST) convert to
+/// This is the canonical interface that all external APIs (CLI, REST) convert to
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct FileCopyInput {
 	/// Source files or directories to copy (domain addressing)

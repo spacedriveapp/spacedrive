@@ -220,7 +220,7 @@ async fn resolve_entry_id_by_path(ctx: &impl IndexingCtx, abs_path: &Path) -> Re
 	resolve_file_entry_id(ctx, abs_path).await
 }
 
-/// Resolve a directory entry by exact cached path in directory_paths
+/// Resolve a directory entry by its full path in the directory_paths table
 async fn resolve_directory_entry_id(
 	ctx: &impl IndexingCtx,
 	abs_path: &Path,

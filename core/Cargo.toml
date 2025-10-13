@@ -37,8 +37,6 @@ sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
 
 # API (temporarily disabled)
 # axum = "0.7"
-# async-graphql = "7.0"
-# async-graphql-axum = "7.0"
 
 # Serialization
 int-enum = "1.1"

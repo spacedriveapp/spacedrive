@@ -1,6 +1,6 @@
 //! Unified API dispatcher - the main entry point for all operations
 //!
-//! This is the heart of the API layer. All applications (CLI, GraphQL, Swift)
+//! This is the heart of the API layer. All applications (CLI, Swift)
 //! go through this dispatcher to execute operations with proper session context,
 //! authentication, and authorization.
 

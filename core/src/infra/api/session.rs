@@ -78,7 +78,7 @@ pub struct RequestMetadata {
 	/// When the request was made
 	pub timestamp: chrono::DateTime<chrono::Utc>,
 
-	/// Source of the request (CLI, GraphQL, Swift, etc.)
+	/// Source of the request (CLI, Swift, etc.)
 	pub source: RequestSource,
 
 	/// IP address if applicable (for network requests)
@@ -94,8 +94,6 @@ pub enum RequestSource {
 	/// CLI application
 	Cli,
 
-	/// GraphQL API
-	GraphQL,
 
 	/// Swift desktop application
 	Swift,

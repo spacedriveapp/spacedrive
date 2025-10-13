@@ -182,9 +182,6 @@ const gradlekotlin = React.lazy(async () => ({
 	default: (await import('./gradlekotlin.svg')).ReactComponent
 }));
 const grain = React.lazy(async () => ({ default: (await import('./grain.svg')).ReactComponent }));
-const graphql = React.lazy(async () => ({
-	default: (await import('./graphql.svg')).ReactComponent
-}));
 const groovy = React.lazy(async () => ({ default: (await import('./groovy.svg')).ReactComponent }));
 const grunt = React.lazy(async () => ({ default: (await import('./grunt.svg')).ReactComponent }));
 const gulp = React.lazy(async () => ({ default: (await import('./gulp.svg')).ReactComponent }));
@@ -592,7 +589,6 @@ export {
 	gradlebat,
 	gradlekotlin,
 	grain,
-	graphql,
 	groovy,
 	grunt,
 	gulp,

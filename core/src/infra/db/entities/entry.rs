@@ -241,7 +241,7 @@ impl Model {
 	///
 	/// # Directory Paths
 	///
-	/// If this is a directory entry, we rebuild its directory_paths cache entry
+	/// If this is a directory entry, we create or update its entry in the directory_paths table
 	/// after upsert using the local filesystem paths.
 	///
 	/// # Errors
@@ -357,7 +357,7 @@ impl Model {
 			inserted.id
 		};
 
-		// If this is a directory, rebuild its directory_paths cache entry
+		// If this is a directory, create or update its entry in the directory_paths table
 		if EntryKind::from(kind) == EntryKind::Directory {
 			// Rebuild directory path from parent chain
 			Self::rebuild_directory_path(entry_id, parent_id, &name, db).await?;
@@ -366,11 +366,11 @@ impl Model {
 		Ok(())
 	}
 
-	/// Rebuild directory_paths cache entry for a directory
+	/// Creates or updates the entry in the directory_paths table for a directory.
 	///
 	/// Computes the full path by walking up the parent chain and concatenating
 	/// directory names. This is called after syncing a directory entry to ensure
-	/// the local directory_paths cache is correct.
+	/// the directory_paths table is correct.
 	async fn rebuild_directory_path(
 		entry_id: i32,
 		parent_id: Option<i32>,
