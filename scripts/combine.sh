@@ -7,8 +7,7 @@ usage() {
     echo  "Usage: $0 <command> [options]"
     echo ""
     echo  "Commands:"
-    echo  "  docs [--with-design]    Combine documentation files (.md) from 'docs/'."
-    echo  "                           --with-design: Include the 'docs/design' directory."
+    echo  "  docs     Combine documentation files (.mdx) from 'docs/'."
     echo  "  rust [path]             Combine Rust files (.rs) from a given path (default: '.')."
     echo  "                          Respects .gitignore."
     echo  "  cli                     Combine Rust files (.rs) from 'apps/cli'."
@@ -52,7 +51,15 @@ combine_files() {
 
     # Run find with exec to safely process files one-by-one
     find "${find_args[@]}" | sort | while read -r file; do
-        if [ "$respect_gitignore" = "true" ] && git check-ignore -q "$file"; then
+        # Skip files in git submodules
+        if git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+            : # File is tracked in main repo, continue
+        elif [ -d "$(dirname "$file")/.git" ] || git submodule status 2>/dev/null | grep -q "$(dirname "$file")"; then
+            # File is in a submodule, skip it
+            continue
+        fi
+        
+        if [ "$respect_gitignore" = "true" ] && git check-ignore -q "$file" 2>/dev/null; then
             continue
         fi
 
@@ -86,26 +93,28 @@ shift
 case $COMMAND in
     docs)
         include_design=false
-        if [ "$1" = "--with-design" ]; then
-            include_design=true
-        fi
+        # if [ "$1" = "--with-design" ]; then
+        #     include_design=true
+        # fi
 
         exclude_patterns=()
-        if [ "$include_design" = "false" ]; then
-            exclude_patterns+=("../docs/design/*")
-        fi
+        # if [ "$include_design" = "false" ]; then
+        #     exclude_patterns+=("./docs/design/*.mdx")
+        # fi
 
-        combine_files "../docs" "*.md" "combined_docs.txt" "Combined Documentation Files" "markdown" "false" "${exclude_patterns[@]}"
+        combine_files "./docs" "*.mdx" "combined_docs.txt" "Combined Documentation Files" "mdx" "false" "${exclude_patterns[@]}"
          ;;
     rust)
         root_path=${1:-.}
-        combine_files "$root_path" "*.rs" "combined_rust_files.txt" "Combined Rust Files" "rust" "true"
+        combine_files "$root_path" "*.rs" "combined_rust_files.txt" "Combined Rust Files" "rust" "true" \
+            "*/target/*" \
+            "./apps/ios/*"
          ;;
     cli)
         combine_files "./apps/cli" "*.rs" "combined_cli_rust_files.txt" "Combined CLI Rust Files" "rust" "true"
          ;;
     tasks)
-        combine_files "../.tasks" "*.md" "combined_tasks.txt" "Combined Task Files" "markdown" "false"
+        combine_files "./.tasks" "*.md" "combined_tasks.txt" "Combined Task Files" "markdown" "false"
          ;;
     -h|--help)
         usage

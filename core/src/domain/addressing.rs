@@ -29,6 +29,13 @@ pub enum SdPath {
 		/// The local path on that device
 		path: PathBuf,
 	},
+	/// A cloud storage path within a cloud volume
+	Cloud {
+		/// The cloud volume identifier
+		volume_id: Uuid,
+		/// The cloud-native path (e.g., "bucket/key" for S3)
+		path: String,
+	},
 	/// An abstract, location-independent handle that refers to file content
 	Content {
 		/// The unique content identifier
@@ -48,6 +55,12 @@ impl<'de> Deserialize<'de> for SdPath {
 		}
 
 		#[derive(Deserialize)]
+		struct SdPathCloudHelper {
+			volume_id: String,
+			path: String,
+		}
+
+		#[derive(Deserialize)]
 		struct SdPathContentHelper {
 			content_id: String,
 		}
@@ -56,6 +69,7 @@ impl<'de> Deserialize<'de> for SdPath {
 		#[serde(untagged)]
 		enum SdPathHelper {
 			Physical { Physical: SdPathPhysicalHelper },
+			Cloud { Cloud: SdPathCloudHelper },
 			Content { Content: SdPathContentHelper },
 		}
 
@@ -73,6 +87,14 @@ impl<'de> Deserialize<'de> for SdPath {
 				Ok(SdPath::Physical {
 					device_id,
 					path: PathBuf::from(physical.path),
+				})
+			}
+			SdPathHelper::Cloud { Cloud: cloud } => {
+				let volume_id =
+					Uuid::parse_str(&cloud.volume_id).map_err(serde::de::Error::custom)?;
+				Ok(SdPath::Cloud {
+					volume_id,
+					path: cloud.path,
 				})
 			}
 			SdPathHelper::Content { Content: content } => {
@@ -98,6 +120,14 @@ impl SdPath {
 		}
 	}
 
+	/// Create a cloud storage SdPath
+	pub fn cloud(volume_id: Uuid, path: impl Into<String>) -> Self {
+		Self::Cloud {
+			volume_id,
+			path: path.into(),
+		}
+	}
+
 	/// Create a content-addressed SdPath
 	pub fn content(content_id: Uuid) -> Self {
 		Self::Content { content_id }
@@ -117,6 +147,7 @@ impl SdPath {
 			Self::Physical { device_id, .. } => {
 				*device_id == crate::device::get_current_device_id()
 			}
+			Self::Cloud { .. } => false, // Cloud paths are never local
 			Self::Content { .. } => false, // Content paths are abstract, not inherently local
 		}
 	}
@@ -131,6 +162,7 @@ impl SdPath {
 					None
 				}
 			}
+			Self::Cloud { .. } => None, // Cloud paths don't have local paths
 			Self::Content { .. } => None,
 		}
 	}
@@ -145,6 +177,9 @@ impl SdPath {
 					format!("sd://{}/{}", device_id, path.display())
 				}
 			}
+			Self::Cloud { volume_id, path } => {
+				format!("sd://cloud/{}/{}", volume_id, path)
+			}
 			Self::Content { content_id } => {
 				format!("sd://content/{}", content_id)
 			}
@@ -155,6 +190,7 @@ impl SdPath {
 	pub fn file_name(&self) -> Option<&str> {
 		match self {
 			Self::Physical { path, .. } => path.file_name()?.to_str(),
+			Self::Cloud { path, .. } => path.split('/').last(),
 			Self::Content { .. } => None, // Content paths don't have filenames
 		}
 	}
@@ -166,6 +202,13 @@ impl SdPath {
 				device_id: *device_id,
 				path: p.to_path_buf(),
 			}),
+			Self::Cloud { volume_id, path } => {
+				let parent_path = path.trim_end_matches('/');
+				parent_path.rfind('/').map(|idx| Self::Cloud {
+					volume_id: *volume_id,
+					path: parent_path[..idx].to_string(),
+				})
+			}
 			Self::Content { .. } => None, // Content paths don't have parents
 		}
 	}
@@ -181,6 +224,18 @@ impl SdPath {
 				device_id: *device_id,
 				path: base_path.join(path),
 			},
+			Self::Cloud { volume_id, path: base_path } => {
+				let path_str = path.as_ref().to_string_lossy();
+				let separator = if base_path.ends_with('/') || path_str.starts_with('/') {
+					""
+				} else {
+					"/"
+				};
+				Self::Cloud {
+					volume_id: *volume_id,
+					path: format!("{}{}{}", base_path, separator, path_str),
+				}
+			}
 			Self::Content { .. } => panic!("Cannot join paths to content addresses"),
 		}
 	}
@@ -197,6 +252,11 @@ impl SdPath {
 				} else {
 					None
 				}
+			}
+			Self::Cloud { volume_id, .. } => {
+				// TODO: Implement volume lookup by ID for cloud volumes
+				// volume_manager.get_volume_by_id(*volume_id).await
+				None
 			}
 			Self::Content { .. } => None, // Content paths don't have volumes until resolved
 		}
@@ -222,6 +282,10 @@ impl SdPath {
 					false
 				}
 			}
+			(Self::Cloud { volume_id: id1, .. }, Self::Cloud { volume_id: id2, .. }) => {
+				// Cloud paths are on the same volume if they have the same volume_id
+				id1 == id2
+			}
 			_ => false, // Content paths or mixed types can't be compared for volume
 		}
 	}
@@ -229,6 +293,7 @@ impl SdPath {
 	/// Parse an SdPath from a URI string
 	/// Examples:
 	/// - "sd://device_id/path/to/file" -> Physical path
+	/// - "sd://cloud/volume_id/path/to/file" -> Cloud path
 	/// - "sd://content/content_id" -> Content path
 	/// - "/local/path" -> Local physical path
 	pub fn from_uri(uri: &str) -> Result<Self, SdPathParseError> {
@@ -240,6 +305,18 @@ impl SdPath {
 				let content_id = Uuid::parse_str(content_id_str)
 					.map_err(|_| SdPathParseError::InvalidContentId)?;
 				Ok(Self::Content { content_id })
+			} else if let Some(cloud_path) = uri.strip_prefix("cloud/") {
+				// Parse cloud path
+				let parts: Vec<&str> = cloud_path.splitn(2, '/').collect();
+				if parts.is_empty() {
+					return Err(SdPathParseError::InvalidFormat);
+				}
+				
+				let volume_id = Uuid::parse_str(parts[0])
+					.map_err(|_| SdPathParseError::InvalidVolumeId)?;
+				let path = parts.get(1).unwrap_or(&"").to_string();
+				
+				Ok(Self::Cloud { volume_id, path })
 			} else {
 				// Parse physical path
 				let parts: Vec<&str> = uri.splitn(2, '/').collect();
@@ -268,6 +345,7 @@ impl SdPath {
 	pub fn device_id(&self) -> Option<Uuid> {
 		match self {
 			Self::Physical { device_id, .. } => Some(*device_id),
+			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 		}
 	}
@@ -276,6 +354,7 @@ impl SdPath {
 	pub fn path(&self) -> Option<&PathBuf> {
 		match self {
 			Self::Physical { path, .. } => Some(path),
+			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 		}
 	}
@@ -285,12 +364,36 @@ impl SdPath {
 		match self {
 			Self::Content { content_id } => Some(*content_id),
 			Self::Physical { .. } => None,
+			Self::Cloud { .. } => None,
+		}
+	}
+
+	/// Get the volume ID if this is a Cloud path
+	pub fn volume_id(&self) -> Option<Uuid> {
+		match self {
+			Self::Cloud { volume_id, .. } => Some(*volume_id),
+			Self::Physical { .. } => None,
+			Self::Content { .. } => None,
+		}
+	}
+
+	/// Get the cloud path if this is a Cloud path
+	pub fn cloud_path(&self) -> Option<&str> {
+		match self {
+			Self::Cloud { path, .. } => Some(path),
+			Self::Physical { .. } => None,
+			Self::Content { .. } => None,
 		}
 	}
 
 	/// Check if this is a Physical path
 	pub fn is_physical(&self) -> bool {
 		matches!(self, Self::Physical { .. })
+	}
+
+	/// Check if this is a Cloud path
+	pub fn is_cloud(&self) -> bool {
+		matches!(self, Self::Cloud { .. })
 	}
 
 	/// Check if this is a Content path
@@ -302,6 +405,16 @@ impl SdPath {
 	pub fn as_physical(&self) -> Option<(Uuid, &PathBuf)> {
 		match self {
 			Self::Physical { device_id, path } => Some((*device_id, path)),
+			Self::Cloud { .. } => None,
+			Self::Content { .. } => None,
+		}
+	}
+
+	/// Try to get as a Cloud path, returning volume_id and path
+	pub fn as_cloud(&self) -> Option<(Uuid, &str)> {
+		match self {
+			Self::Cloud { volume_id, path } => Some((*volume_id, path)),
+			Self::Physical { .. } => None,
 			Self::Content { .. } => None,
 		}
 	}
@@ -321,10 +434,11 @@ impl SdPath {
 		&self,
 		job_ctx: &crate::infra::job::context::JobContext<'a>,
 	) -> Result<SdPath, PathResolutionError> {
-		// For now, if it's already physical, just return it
+		// For now, if it's already physical or cloud, just return it
 		// TODO: Implement proper resolution using job context's library and networking
 		match self {
 			Self::Physical { .. } => Ok(self.clone()),
+			Self::Cloud { .. } => Ok(self.clone()), // Cloud paths are already resolved
 			Self::Content { content_id } => {
 				// In the future, use job_ctx.library_db() to query for content instances
 				Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
@@ -368,6 +482,7 @@ impl From<sea_orm::DbErr> for PathResolutionError {
 pub enum SdPathParseError {
 	InvalidFormat,
 	InvalidDeviceId,
+	InvalidVolumeId,
 	InvalidContentId,
 }
 
@@ -376,6 +491,7 @@ impl fmt::Display for SdPathParseError {
 		match self {
 			Self::InvalidFormat => write!(f, "Invalid SdPath URI format"),
 			Self::InvalidDeviceId => write!(f, "Invalid device ID in SdPath URI"),
+			Self::InvalidVolumeId => write!(f, "Invalid volume ID in SdPath URI"),
 			Self::InvalidContentId => write!(f, "Invalid content ID in SdPath URI"),
 		}
 	}

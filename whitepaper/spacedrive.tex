@@ -217,7 +217,7 @@ The architecture is built on four foundational principles that solve traditional
 
  \item \textbf{Safe \& Predictable Operations: The Transactional Action System} (Section~\ref{sec:action-system}): A system designed to make file operations safe and transparent. Every change to the VDFS is treated as a transaction that is simulated and approved before execution, leveraging the complete VDFS index to run in-memory simulations of proposed actions with previews of outcomes, including conflicts or storage issues.
 
- \item \textbf{Resilient Synchronization: A Leaderless Hybrid Model} (Section~\ref{sec:library-sync}): A synchronization model that eliminates leader-based bottlenecks by separating data into distinct domains. The filesystem index, being device-authoritative, is replicated using a simple state-based model where each device is the source of truth for its own files. Concurrently modified user metadata is merged deterministically using a lightweight, per-device change log ordered by a Hybrid Logical Clock (HLC).
+ \item \textbf{Resilient Synchronization: A Leaderless Hybrid Model} (Section~\ref{sec:library-sync}): A synchronization model that eliminates leader-based bottlenecks by separating data into distinct domains. The filesystem index, being device-authoritative, is replicated across all devices, enabling File Sync to operate through efficient index queries rather than filesystem scanning. Concurrently modified user metadata is merged deterministically using a lightweight, per-device change log ordered by a Hybrid Logical Clock (HLC).
 
  \item \textbf{AI Agent Architecture} (Section~\ref{sec:ai-native}): An architecture where specialized AI agents are implemented as WASM extensions, each with domain-specific knowledge and persistent memory systems. These agents observe the VDFS index, react to events, and propose actions using the same transactional model as human-initiated operations.
 \end{itemize}
@@ -462,6 +462,11 @@ pub enum SdPath {
         device_id: DeviceId,
         local_path: PathBuf
     },
+    // Cloud addressing: cloud volume + path
+    Cloud {
+        volume_id: Uuid,
+        path: String  // Cloud-native path format
+    },
     // Content-aware addressing: find optimal instance
     Content {
         content_id: Uuid
@@ -472,15 +477,16 @@ pub enum SdPath {
 async fn copy_files(from: Vec<SdPath>, to: SdPath) -> Result<()> {
     for source in from {
         // Resolve content-aware paths to optimal physical paths
-        let physical_source = match source {
+        let resolved_source = match source {
             SdPath::Physical { .. } => source,
+            SdPath::Cloud { .. } => source,  // Cloud paths used directly
             SdPath::Content { content_id } => {
                 resolve_optimal_path(content_id).await?
             }
         };
 
         // Execute operation using resolved paths
-        p2p::transfer(&physical_source, &to).await?;
+        execute_transfer(&resolved_source, &to).await?;
     }
     Ok(())
 }
@@ -525,6 +531,7 @@ This abstraction simplifies cross-device operations into type-safe function call
 To make these addressing modes accessible and ergonomic for clients, APIs, and command-line interfaces, Spacedrive establishes a unified string-based URI scheme. This allows any path, whether physical or content-based, to be represented as a simple, standardized string:
 \begin{itemize}[noitemsep, topsep=0pt]
     \item \textbf{Physical Path}: A physical location is represented as \texttt{sd://\textless{}device\_id\textgreater{}/path/to/file}.
+    \item \textbf{Cloud Path}: A cloud volume location is represented as \texttt{sd://cloud/\textless{}volume\_id\textgreater{}/path/to/file}.
     \item \textbf{Content Path}: A content-aware handle is represented as \texttt{sd://content/\textless{}content\_id\textgreater{}}.
 \end{itemize}
 This design decouples clients from the complexity of path resolution. A user interface or script can operate entirely on these URI strings, passing them to the core engine, which is then responsible for parsing the URI and dispatching the appropriate resolution logic.
@@ -734,7 +741,7 @@ This dual approach—saving space through deduplication while protecting data th
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Five-Phase Pipeline}: Discovery → Processing → Aggregation → Content ID → Analysis dispatch
+\item \textbf{Four-Phase Pipeline}: Discovery → Processing → Aggregation → Content Identification
 \item \textbf{Real-Time Monitoring}: Platform-native watchers keep the index closely synchronized
 \item \textbf{Flexible Scopes}: Supports both persistent indexing and ephemeral browsing modes
 \item \textbf{Remote Volume Support}: Extends to clouds/protocols via OpenDAL with ranged reads for efficiency
@@ -745,7 +752,7 @@ The Spacedrive index is the cornerstone of the VDFS, providing the working model
 
 \subsubsection{Multi-Phase Processing Pipeline}
 
-To manage the complexity of file system analysis, the indexer employs a multi-phase pipeline that now includes a fifth phase for intelligence task dispatch. This separation of concerns ensures that operations are resumable, efficient, and robust against interruptions. Each phase transitions the state of an \texttt{Entry} from initial discovery to full integration into the Library.
+To manage the complexity of file system analysis, the indexer employs a four-phase pipeline. This separation of concerns ensures that operations are resumable, efficient, and robust against interruptions. Each phase transitions the state of an \texttt{Entry} from initial discovery to full integration into the Library.
 
 \begin{figure}[h]
 \centering
@@ -761,14 +768,12 @@ To manage the complexity of file system analysis, the indexer employs a multi-ph
     \node[phase, right=of discovery] (processing) {Processing};
     \node[phase, right=of processing] (aggregation) {Aggregation};
     \node[phase, below=0.8cm of processing] (content) {Content ID};
-\node[phase, right=of content] (intelligence) {Analysis\\Queueing};
 
     \draw[arrow] (discovery) -- (processing);
     \draw[arrow] (processing) -- (aggregation);
     \draw[arrow] (aggregation.south) -- ++(0,-0.3) -| (content.north);
-    \draw[arrow] (content) -- (intelligence);
 \end{tikzpicture}
-\caption{The five phases of the Spacedrive indexing pipeline, including analysis task dispatch.}
+\caption{The four phases of the Spacedrive indexing pipeline.}
 \label{fig:indexing_pipeline}
 \end{figure}
 
@@ -779,10 +784,11 @@ To manage the complexity of file system analysis, the indexer employs a multi-ph
 
  \item \textbf{Aggregation Phase}: For directories, the engine performs a bottom-up traversal to calculate aggregate statistics, such as total size and file counts. This pre-calculation makes directory size lookups an O(1) operation.
 
- \item \textbf{Content Identification Phase}: For files, this phase generates a content hash (CAS ID---Content-Addressed Storage Identifier) for deduplication. It employs BLAKE3 hashing with an adaptive strategy: small files (<100KB) are fully hashed with their size prepended, while large files use sampling---an 8KB header, four evenly-spaced 10KB samples, and an 8KB footer---to maintain performance. Only the first 16 characters of the resulting hex hash are stored. This phase also performs file type detection using a combination of extension matching and magic byte analysis. For media files, the system leverages bundled FFmpeg libraries to extract rich metadata including duration, codec information, bitrate, resolution, and frame rate---all stored in dedicated media data tables for efficient querying.
+ \item \textbf{Phase 4: Content Identification}: For files, this phase generates a content hash (CAS ID---Content-Addressed Storage Identifier) for deduplication. It employs BLAKE3 hashing with an adaptive strategy: small files (<100KB) are fully hashed with their size prepended, while large files use sampling---an 8KB header, four evenly-spaced 10KB samples, and an 8KB footer---to maintain performance. Only the first 16 characters of the resulting hex hash are stored. This phase also performs file type detection using a combination of extension matching and magic byte analysis. For media files, the system leverages bundled FFmpeg libraries to extract rich metadata including duration, codec information, bitrate, resolution, and frame rate---all stored in dedicated media data tables for efficient querying.
 
-\item \textbf{Analysis Queueing Phase}: After a file's content and type are identified, this phase dispatches specialized, asynchronous jobs for deeper analysis. For example, an Entry identified as an image may trigger an \texttt{OcrJob} and an \texttt{ImageAnalysisJob}, while video files spawn \texttt{ThumbnailJob} tasks that utilize FFmpeg to generate WebP thumbnails at multiple resolutions. Additionally, \texttt{ValidationJobs} are queued for lazy integrity verification—these low-priority background jobs generate full BLAKE3 hashes of entire file contents, updating the Content Identity's integrity\_hash field. This two-tier approach (fast content hash for deduplication, full integrity hash for validation) ensures rapid indexing performance while still providing cryptographic verification capabilities on demand. These analysis jobs run in the background, populating the Virtual Sidecar System without blocking core indexing.
 \end{itemize}
+
+After a file's content and type are identified, the system can then dispatch specialized, asynchronous jobs for deeper analysis. These jobs are registered and defined by installed extensions, allowing for a modular approach to intelligence. For example, a Photos extension might queue an \texttt{ImageAnalysisJob} for images, while a developer extension might trigger a \texttt{CodeAnalysisJob} for source files. This ensures that deeper analysis is only performed when relevant to the user's workflow and installed extensions.
 
 This multi-phase architecture, combined with a persistent job queue, makes the indexing process resumable. If an operation is interrupted, it can be restarted from the last completed phase, reducing the risk of data loss and redundant work.
 
@@ -930,7 +936,7 @@ async fn hash_remote_entry(op: &Operator, entry: &Entry) -> Result<ContentId> {
 \footnotetext{OpenDAL v0.49 changelog emphasizes ranged reads and metadata alignment for services like S3/GCS~\cite{opendal-changelog-2025}.}
 
 \subsubsection{High-Performance Hierarchical Indexing}
-To overcome the scaling limitations of traditional path-based queries (e.g., \texttt{LIKE 'path/\%'}), Spacedrive's indexer implements a \textbf{Closure Table} for all hierarchical data. This standard database pattern pre-calculates and stores all ancestor-descendant relationships, transforming slow, un-indexable string comparisons into highly efficient, indexed integer joins.
+To overcome the scaling limitations of traditional path-based queries, Spacedrive's index uses a \textbf{Closure Table} for all hierarchical data. This database pattern pre-calculates and stores all ancestor-descendant relationships in an \texttt{EntryClosure} table, transforming slow string comparisons into highly efficient, indexed integer joins.
 
 When a new entry is created, its \texttt{parent\_id} is used to transactionally populate the \texttt{entry\_closure} table with all its ancestor relationships in a single, atomic operation. This keeps the hierarchy consistent.
 
@@ -1433,27 +1439,39 @@ Beyond trusted device pairing, Spacedrive implements \textbf{Spacedrop}---an eph
 
 \textbf{Relay Extension}: Spacedrop can optionally leverage relay nodes (either self-hosted or through Spacedrive Cloud) to enable asynchronous transfers. Users can "drop" files to a relay and receive a shareable link, allowing recipients to download later---combining the security of Spacedrop with the convenience of services like WeTransfer.
 
-\subsubsection{Sync Conduits: State-Based Content Synchronization}
+\subsubsection{Sync Conduits: Index-Based Content Synchronization}
 \label{sec:sync-conduits}
 While Library Sync manages the replication of the VDFS index and metadata, the physical synchronization of file content is handled by an explicit, user-controlled system called \textbf{Sync Conduits}. A conduit is a durable, configurable job that defines the flow of file content between a source \texttt{Entry} and a destination \texttt{Entry}. This intentional, non-magical approach ensures users have transparent control over their data.
 
+\paragraph{Index-Driven Architecture}
+Sync Conduits leverage Spacedrive's fully replicated VDFS index to perform all sync operations through \textbf{index queries} rather than filesystem scanning. Since Library Sync ensures all devices maintain a complete, consistent view of the filesystem state across the network, File Sync can determine what needs synchronization purely through database operations. This approach transforms sync from a complex distributed systems problem into straightforward SQL queries, eliminating the need for persistent sync logs or state tracking.
+
 \paragraph{The Sync Lifecycle}
-Sync Conduits are implemented using a \textbf{state-based reconciliation} model. This approach avoids a persistent sync log by leveraging the replicated VDFS index and performing live filesystem scans to determine the necessary actions. The lifecycle is as follows:
+The sync process follows a deterministic, index-based workflow:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Trigger}: A sync cycle is initiated by real-time events from the \texttt{LocationWatcher} service or by a user-configured timer (the "Sync Cadence").
-    \item \textbf{Delta Calculation}: The job performs a live scan of the source and destination filesystems, comparing the on-disk state against the VDFS index to generate an ephemeral list of \texttt{COPY} and \texttt{DELETE} operations.
-    \item \textbf{Execution}: The job dispatches the necessary \texttt{FileCopyAction} and \texttt{FileDeleteAction} operations. The Content Identity System ensures data is not transferred unnecessarily if it already exists on the destination device.
-    \item \textbf{Verification}: After transfer, a \textbf{Commit-Then-Verify (CTV)} step is initiated. The source device sends a \texttt{ValidationRequest} to the destination, which confirms the file's BLAKE3 hash integrity before the source copy is considered safe to delete (in Archive mode).
-    \item \textbf{Completion}: Once all actions are executed and verified, the cycle is complete and the ephemeral action list is discarded.
+    \item \textbf{Prerequisites}: Before execution, the system verifies Library Sync is complete, ensuring all devices share an identical view of the filesystem index.
+    \item \textbf{Index Resolution}: The job queries the VDFS index for entries at both source and destination locations, comparing content hashes and timestamps to determine required operations.
+    \item \textbf{Push-Based Transfer}: The device that owns the source files initiates transfers to the destination. This model simplifies the protocol and works efficiently with mobile device constraints.
+    \item \textbf{Operation Dispatch}: The sync job orchestrates existing \texttt{FileCopyJob} and \texttt{DeleteJob} instances, leveraging their proven reliability, progress tracking, and cross-device routing capabilities.
+    \item \textbf{Receiver Validation}: The destination device validates incoming files against its local index, preventing duplicate transfers by checking content hashes before accepting data.
 \end{itemize}
 
-\paragraph{Sync Policies}
-Users can choose from four distinct policies when creating a Sync Conduit:
+\paragraph{Sync Modes}
+Users can choose from four distinct modes when creating a Sync Conduit:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Replicate (One-Way Mirror)}: Creates a backup of a source \texttt{Entry}, propagating all creates, modifies, and (optionally) deletes.
-    \item \textbf{Synchronize (Two-Way)}: Keeps two \texttt{Entries} identical, syncing changes bidirectionally with a "last-writer-wins" conflict resolution strategy based on modification time.
-    \item \textbf{Offload (Smart Cache)}: Frees up space on a primary device by moving the least recently used files to a destination, leaving the metadata intact in the VDFS index for on-demand retrieval.
-    \item \textbf{Archive (Move and Consolidate)}: Moves files to a long-term storage \texttt{Entry} and safely removes them from the source after cryptographic verification of the transfer.
+    \item \textbf{Mirror (One-Way)}: Creates an exact copy of a source location at the destination, propagating all creates, modifies, and deletes. Perfect for backup scenarios where you want a read-only copy of important data.
+    \item \textbf{Bidirectional (Two-Way)}: Keeps two locations identical across devices, with changes flowing in both directions. Each device pushes its own changes, with "last-write-wins" conflict resolution based on index timestamps.
+    \item \textbf{Selective (Smart Cache)}: Intelligently manages limited local storage by keeping frequently accessed files local while older content moves to secondary storage. Files remain visible in the VDFS index for on-demand retrieval.
+    \item \textbf{Archive (Move and Verify)}: Moves completed work to long-term storage, safely removing source files only after cryptographic verification of the transfer via content hash comparison.
+\end{itemize}
+
+\paragraph{Index Consistency Benefits}
+The index-based approach provides several key advantages:
+\begin{itemize}[noitemsep, topsep=0pt]
+    \item \textbf{Performance}: No directory traversal needed---sync resolution becomes efficient database queries instead of recursive filesystem operations.
+    \item \textbf{Consistency}: Files excluded from indexing (e.g., \texttt{node\_modules}, \texttt{.git}) are automatically excluded from sync, matching user expectations.
+    \item \textbf{Simplicity}: State tracking happens through index timestamps rather than complex sync logs or hidden state files.
+    \item \textbf{Reliability}: The push-based transfer model combined with receiver validation prevents duplicate transfers and ensures deterministic behavior.
 \end{itemize}
 
 \subsection{Practical Conflict Resolution}
@@ -1687,7 +1705,7 @@ This transparent, user-controlled approach to conflict resolution ensures that u
 \end{itemize}
 \end{keytakeaways}
 
-While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native data space} where specialized intelligence is deeply integrated through its extension architecture. Rather than a single monolithic AI assistant, Spacedrive enables domain-specific agents—such as a Photos agent for face recognition and place clustering, or a Finance agent for receipt processing—each implemented as a secure WASM extension with its own knowledge base and capabilities. This modular approach builds upon research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
+While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native data space} where specialized intelligence is deeply integrated through its extension architecture. Rather than a single monolithic AI assistant, Spacedrive enables domain-specific agents—such as a Photos agent for face recognition and place clustering, or a Finance agent for receipt processing. Each agent is written in Rust using the Spacedrive Developer SDK and then compiled to a secure WASM extension with its own knowledge base and capabilities. This modular approach builds upon research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
 
 Extensions provide a secure, sandboxed environment where agents can observe the continuously updated VDFS index, react to events, and propose actions through the same safe, transactional primitives available to human users. This architecture enables a shift from reactive file management to a collaborative model where specialized agents assist with domain-specific tasks while keeping the user in control.
 
@@ -1800,7 +1818,7 @@ A search operation follows a formal lifecycle managed by core VDFS components:
     \item \textbf{Asynchronous Execution}: The \texttt{SearchJob} executes in the background, performing the two-stage search process without blocking the user or agent.
     \item \textbf{Result Caching}: Upon completion, the job caches the ordered list of resulting \texttt{Entry} IDs in a temporary store, keyed by the \texttt{query\_id}.
     \item \textbf{Frontend Notification}: The Job System emits a \texttt{SearchResultsReady(query\_id)} event to the system's event bus.
-    \item \textbf{Result Rendering}: The frontend, subscribed to these events, receives the notification and uses the \texttt{query\_id} to fetch the cached results via the GraphQL API for rendering.
+    \item \textbf{Result Rendering}: The frontend, subscribed to these events, receives the notification and uses the \texttt{query\_id} to fetch the cached results via the internal API for rendering.
 \end{enumerate}
 
 This architecture ensures an agent's role is simply to initiate the search; it never needs to handle the results directly, maintaining a clean separation of concerns.
@@ -2060,11 +2078,21 @@ This platform-aware approach transforms the overwhelming technical complexity of
 \subsection{Platform Integrations: Unified Access to Traditional and Modern Storage}
 \label{sec:platform-integrations}
 
-Spacedrive's VDFS extends beyond local filesystems to natively integrate traditional protocols like FTP, SMB, and WebDAV, as well as modern cloud storage. This is achieved by treating them as standard Locations within the VDFS, using an abstracted access layer powered by the OpenDAL library. This allows the full power of the Spacedrive Indexing Engine, including adaptive hashing and on-demand content fetching, to be applied to legacy and cloud systems without duplicating data. The specific technical details of this integration are discussed in Section~\ref{sec:remote-volumes}.
+Spacedrive's VDFS extends beyond local filesystems to natively integrate traditional protocols like FTP, SMB, and WebDAV, as well as modern cloud storage. Third-party cloud storage services (S3, Google Drive, Dropbox, etc.) are implemented as first-class \textbf{volumes} within the VDFS, distinct from device-local locations. This architectural decision reflects the fundamental difference between cloud services (which are API-accessed storage backends) and local filesystems.
+
+The system leverages OpenDAL to provide unified access to over 40 cloud providers. Each cloud service appears as a volume with its own dedicated \texttt{SdPath::Cloud} addressing variant, enabling the full power of the Spacedrive Indexing Engine—including adaptive hashing via ranged reads for efficient content identification—without downloading entire files. This is separate from the Spacedrive Cloud Core concept (Section~\ref{sec:native-cloud-service}), which refers to hosting Spacedrive itself as a managed service.
+
+This cloud-as-volume architecture ensures:
+\begin{itemize}[noitemsep, topsep=0pt]
+    \item Proper path handling for cloud-native formats (e.g., S3's bucket/key structure)
+    \item Consistent content hashing across all storage types for true cross-storage deduplication
+    \item Transparent operations between local, cloud, and cross-cloud transfers
+\end{itemize}
 
 
 % --- SECTION 5: ARCHITECTURAL APPLICATION: A NATIVE CLOUD SERVICE ---
 \section{Architectural Application: A Native Cloud Service}
+\label{sec:native-cloud-service}
 The flexibility of the Spacedrive V2 architecture is best demonstrated by its application in creating a cloud service that natively integrates with the user's personal P2P network. Unlike traditional cloud backends that require custom APIs and treat the server as a privileged entity, our model treats the cloud instance as just another Spacedrive device. This approach leverages the core VDFS abstractions to provide cloud storage that feels native, secure, and seamlessly integrated into the user's existing ecosystem.
 
 \subsection{Core Principle: Managed Cores as First-Class Devices}
@@ -2136,7 +2164,7 @@ Additional capabilities designed for organizational needs:
 \begin{itemize}[noitemsep, topsep=0pt]
     \item \textbf{Compliance Controls}: Data retention policies, legal hold, and audit log exports
     \item \textbf{Advanced Analytics}: Usage patterns, storage optimization recommendations, and cost allocation
-    \item \textbf{API Access}: RESTful and GraphQL APIs for integration with existing enterprise tools
+    \item \textbf{API Access}: A JSON-RPC based API for integration with existing enterprise tools and a full-featured Command Line Interface (CLI)
     \item \textbf{Professional Support}: SLA-backed support with dedicated account management
 \end{itemize}
 
@@ -2328,32 +2356,11 @@ Spacedrive is implemented in \textbf{Rust} to leverage its guarantees of memory 
  \item \textbf{FFmpeg Integration}: Bundled media processing libraries for thumbnail generation and metadata extraction
 
  \item \textbf{OpenDAL Integration}: Unified storage layer supporting 40+ cloud and object storage services with consistent API
-
- \item \textbf{\planned{GraphQL API}}: Type-safe API layer leveraging async-graphql for web clients and integrations
 \end{itemize}
 
 \subsection{Database Schema Optimization}
 The database design prioritizes both space efficiency and query performance through several key optimizations:
 
-\subsubsection{Materialized Path Storage}
-Current hierarchy representation uses materialized paths\footnote{A materialized path is a database optimization technique where the full hierarchical path is stored as a string (e.g., "/parent/child/grandchild"), enabling efficient querying of hierarchical data without recursive joins.} for efficient storage and queries:
-
-
-\textbf{Current Directory Storage Approach}
-
-Spacedrive currently represents file hierarchies using a direct path storage method:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Each file stores its complete path (e.g., "Documents/Projects/README.md")
- \item Simple queries can directly find files by their exact location
- \item Directory listings require basic path pattern matching
- \item Subtree operations search for all paths that start with a parent path
-\end{itemize}
-
-This approach works well for simple file operations but has performance limitations when dealing with complex directory hierarchies and aggregation queries.
-
-
-While effective for simple operations, this approach encounters performance limitations with deep hierarchies and complex aggregation queries.
 
 
 \subsection{Testing and Validation Framework}
@@ -2448,7 +2455,7 @@ Spacedrive enhances rather than replaces existing tools:
 
  \item \textbf{Metadata preservation}: Extended attributes (xattrs), alternate data streams (ADS on NTFS), and resource forks (macOS) are preserved during Spacedrive operations, ensuring compatibility with specialized applications.
 
- \item \textbf{Integration APIs}: An async GraphQL API and CLI enable automation tools to query the Spacedrive index, trigger jobs, and monitor operations programmatically.
+ \item \textbf{Integration APIs}: A JSON-RPC API and CLI enable automation tools to query the Spacedrive index, trigger jobs, and monitor operations programmatically.
 
  \item \textbf{Export formats}: Search results and file lists can be exported in common formats (CSV, JSON, file paths) for processing by external tools or scripts.
 \end{itemize}
@@ -2593,7 +2600,7 @@ For complete system failures:
 
 \subsection{Extensibility Architecture}
 
-Spacedrive employs a WebAssembly-based plugin system that enables safe, portable extensions while maintaining the security and stability of the core system.
+Spacedrive employs an extensibility model where powerful extensions are written in Rust using a declarative, attribute-based Software Development Kit (SDK). These extensions are then compiled to WebAssembly (WASM) to run in a secure, sandboxed environment, providing both power and safety. This architecture allows extensions to feel like first-class modules of the core application, with deep integration into the data model, sync system, and user interface.
 
 \subsubsection{WebAssembly Plugin System}
 
@@ -2609,46 +2616,30 @@ WASM provides critical security guarantees:
 \end{itemize}
 
 \paragraph{Plugin Capabilities}
-Through the exposed VDFS API, plugins can:
+Through the Rust SDK, extensions can:
 \begin{itemize}
-    \item Define custom semantic content types with parsing logic
-    \item Implement specialized AI agents with domain-specific knowledge and memory
-    \item Add new actions to the transactional action system
-    \item Implement custom search providers and filters
-    \item Generate specialized thumbnails and previews
+    \item Define custom data models that become real, indexed SQL tables at runtime
+    \item Implement long-running, durable background jobs and tasks using \texttt{\#[job]} and \texttt{\#[task]} attributes
+    \item Create autonomous AI agents that can observe events and dispatch actions
+    \item Integrate directly with Spacedrive's native sync system, with configurable strategies per model
+    \item Add new elements to the user interface, such as sidebar sections and custom views, via a declarative \texttt{ui\_manifest.json} file
 \end{itemize}
 
-\begin{lstlisting}[language=Rust, caption=Example WASM plugin API]
-// Host functions exposed by Spacedrive
-#[link(wasm_import_module = "spacedrive")]
-extern "C" {
-    fn vdfs_read_file(path_ptr: u32, path_len: u32) -> u32;
-    fn vdfs_write_sidecar(
-        entry_id: u32,
-        data_ptr: u32,
-        data_len: u32
-    ) -> u32;
-    fn register_content_type(
-        spec_ptr: u32,
-        spec_len: u32
-    ) -> u32;
-}
-
-// Plugin implementation
-#[spacedrive_plugin]
-pub struct ScientificDataPlugin;
-
-#[spacedrive_plugin::content_type]
-impl ContentTypeHandler for ScientificDataPlugin {
-    fn can_handle(&self, entry: &Entry) -> bool {
-        matches!(entry.extension(),
-            Some("hdf5") | Some("netcdf") | Some("fits"))
-    }
-
-    fn extract_metadata(&self, data: &[u8]) -> Result<Metadata> {
-        // Parse scientific format and extract variables,
-        // dimensions, and other domain-specific metadata
-    }
+\begin{lstlisting}[language=Rust, caption=Example extension model definition using the Rust SDK]
+// Define a 'Person' model for a simple CRM extension
+#[model(
+    table_name = "person",
+    sync_strategy = "shared" // Automatically syncs across devices
+)]
+pub struct Person {
+    #[primary_key]
+    pub id: Uuid,
+    pub name: String,
+    #[indexed]
+    pub email: Option<String>,
+    // Links to core metadata system, enabling tags and collections
+    #[metadata]
+    pub metadata_id: i32,
 }
 \end{lstlisting}
 
@@ -2732,22 +2723,6 @@ through specialized \textbf{Data Ingestion Agents}. This transforms Spacedrive f
 These agents are lightweight, sandboxed WASM plugins that act as connectors to external data sources—social media archives, note-taking applications, code repositories, fitness trackers, and more. They leverage the
 core VDFS abstractions to represent external data as native Spacedrive objects, seamlessly integrating it into the user's library.
 
-\paragraph{Architectural Enablers}
-This vision is made possible by the convergence of several core architectural features:
-
-\begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{The Entry-Centric Model}: The universal \texttt{Entry} is not limited to files and directories. It can represent any piece of data: a tweet, a calendar event, a check-in, or a note. The agent's role
-is to map the foreign data structure to a Spacedrive \texttt{Entry}.
-
-    \item \textbf{The Virtual Sidecar System}: The raw data payload from an external API (e.g., the JSON object for a tweet) is stored in a structured sidecar file. This preserves the original data in its entirety
-while linking it to a clean, queryable \texttt{Entry} in the main index.
-
-    \item \textbf{Isolated Agent Storage}: Each agent can be allocated a private, sandboxed storage area within the \texttt{.sdlibrary} container. This allows agents to maintain their own state, caches, or raw data
-logs without polluting the user's primary file Locations.
-
-    \item \textbf{The AI-Native Layer}: Once ingested, this new data becomes part of the AI's "world model." A user can semantically search their notes, find photos based on GPS check-in data, and see relationships
-between a GitHub commit and a related project file, all through natural language.
-\end{itemize}
 
 \paragraph{Example Use Cases: A Unified Digital Life}
 The potential applications create a powerful, interconnected data ecosystem:
