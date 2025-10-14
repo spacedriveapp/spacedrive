@@ -401,9 +401,9 @@ impl DirectoryListingQuery {
 					}
 				}
 			}
-			SdPath::Cloud { volume_id, path } => {
+			SdPath::Cloud { volume_fingerprint, path } => {
 				// Cloud storage directory browsing
-				tracing::debug!(" Looking for cloud directory: volume={}, path='{}'", volume_id, path);
+				tracing::debug!(" Looking for cloud directory: volume={}, path='{}'", volume_fingerprint.0, path);
 
 				// Find directory entry by path in directory_paths table
 				// Cloud paths are stored the same way as physical paths

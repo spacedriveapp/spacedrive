@@ -102,33 +102,45 @@ impl LibraryAction for VolumeAddCloudAction {
 		);
 
 		let backend_arc: Arc<dyn crate::volume::VolumeBackend> = Arc::new(backend);
+		let now = chrono::Utc::now();
 
 		let volume = Volume {
-			uuid: Uuid::new_v4(), // Generate UUID for cloud volume
+			id: Uuid::new_v4(), // Generate UUID for cloud volume
 			fingerprint: fingerprint.clone(),
 			device_id,
 			name: self.input.display_name.clone(),
-			mount_type: crate::volume::types::MountType::Network,
-			volume_type: crate::volume::types::VolumeType::Network,
+			library_id: None,
+			is_tracked: false,
 			mount_point: mount_point.clone(),
 			mount_points: vec![mount_point],
-			is_mounted: true,
+			volume_type: crate::volume::types::VolumeType::Network,
+			mount_type: crate::volume::types::MountType::Network,
 			disk_type: crate::volume::types::DiskType::Unknown,
 			file_system: crate::volume::types::FileSystem::Other(format!("{:?}", self.input.service)),
-			total_bytes_capacity: 0,
-			total_bytes_available: 0,
-			read_only: false,
+			total_capacity: 0,
+			available_space: 0,
+			is_read_only: false,
+			is_mounted: true,
 			hardware_id: None,
-			error_status: None,
+			backend: Some(backend_arc),
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),
-			backend: Some(backend_arc),
+			is_user_visible: true,
+			auto_track_eligible: false,
 			read_speed_mbps: None,
 			write_speed_mbps: None,
-			auto_track_eligible: false,
-			is_user_visible: true,
-			last_updated: chrono::Utc::now(),
+			created_at: now,
+			updated_at: now,
+			last_seen_at: now,
+			total_files: None,
+			total_directories: None,
+			last_stats_update: None,
+			display_name: Some(self.input.display_name.clone()),
+			is_favorite: false,
+			color: None,
+			icon: None,
+			error_message: None,
 		};
 
 		let credential_manager = CloudCredentialManager::new(context.library_key_manager.clone());

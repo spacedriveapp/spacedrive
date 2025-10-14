@@ -1,6 +1,6 @@
 //! Interactive cloud storage setup
 
-use crate::{context::Context, util::confirm::{confirm_or_abort, select, text}};
+use crate::{context::Context, util::confirm::{confirm_or_abort, password, select, text}};
 use anyhow::Result;
 use sd_core::ops::volumes::{
 	add_cloud::{CloudStorageConfig, VolumeAddCloudInput},
@@ -94,8 +94,8 @@ async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 	// 3. Credentials
 	println!("\nCredentials will be stored securely in your system keyring\n");
 
-	let access_key = text("Access Key ID", false)?.unwrap();
-	let secret_key = text("Secret Access Key", false)?.unwrap();
+	let access_key = password("Access Key ID", false)?.unwrap();
+	let secret_key = password("Secret Access Key", false)?.unwrap();
 
 	// 4. Confirm and save
 	println!("\nSummary:");
@@ -140,7 +140,7 @@ async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 		"\nYou can now add a location with interactive mode:\n  sd location add"
 	);
 
-	Ok(())
+	std::process::exit(0);
 }
 
 async fn list_volumes(ctx: &Context) -> Result<()> {

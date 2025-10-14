@@ -79,21 +79,48 @@ pub async fn detect_non_apfs_volumes(
 				let file_system = detect_filesystem(&mount_path)
 					.unwrap_or(FileSystem::Other("Unknown".to_string()));
 
-				let volume = Volume::new(
+				let volume_type = classify_volume(&mount_path, &file_system, &name);
+				let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
+				let now = chrono::Utc::now();
+
+				let volume = Volume {
+					id: uuid::Uuid::new_v4(),
+					fingerprint,
 					device_id,
-					name.clone(),
+					name: name.clone(),
+					library_id: None,
+					is_tracked: false,
+					mount_point: mount_path.clone(),
+					mount_points: vec![mount_path],
+					volume_type,
 					mount_type,
-					classify_volume(&mount_path, &file_system, &name),
-					mount_path,
-					vec![],
 					disk_type,
-					file_system.clone(),
-					total_bytes,
-					available_bytes,
-					false,
-					Some(filesystem.to_string()),
-					VolumeFingerprint::new(&name, total_bytes, &file_system.to_string()),
-				);
+					file_system,
+					total_capacity: total_bytes,
+					available_space: available_bytes,
+					is_read_only: false,
+					is_mounted: true,
+					hardware_id: Some(filesystem.to_string()),
+					backend: None,
+					apfs_container: None,
+					container_volume_id: None,
+					path_mappings: Vec::new(),
+					is_user_visible: true,
+					auto_track_eligible: matches!(volume_type, crate::volume::types::VolumeType::Primary),
+					read_speed_mbps: None,
+					write_speed_mbps: None,
+					created_at: now,
+					updated_at: now,
+					last_seen_at: now,
+					total_files: None,
+					total_directories: None,
+					last_stats_update: None,
+					display_name: Some(name),
+					is_favorite: false,
+					color: None,
+					icon: None,
+					error_message: None,
+				};
 				volumes.push(volume);
 			}
 		}

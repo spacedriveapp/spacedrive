@@ -47,7 +47,7 @@ impl VolumeExt for Volume {
 	}
 
 	fn has_space(&self, required_bytes: u64) -> bool {
-		self.total_bytes_available >= required_bytes
+		self.available_space >= required_bytes
 	}
 
 	fn contains_path(&self, path: &std::path::Path) -> bool {

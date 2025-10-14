@@ -188,33 +188,45 @@ impl VolumeManager {
 										None,
 									).await {
 										Ok(backend) => {
+											let now = chrono::Utc::now();
 											// Reconstruct the Volume struct
 											let volume = Volume {
-												uuid: db_volume.uuid, // Use UUID from database
+												id: db_volume.uuid, // Use UUID from database
 												fingerprint: fingerprint.clone(),
 												device_id: db_volume.device_id,
 												name: db_volume.display_name.clone().unwrap_or_else(|| bucket.to_string()),
-												mount_type: crate::volume::types::MountType::Network,
-												volume_type: crate::volume::types::VolumeType::Network,
+												library_id: None,
+												is_tracked: true,
 												mount_point: std::path::PathBuf::from(mount_point_str),
 												mount_points: vec![std::path::PathBuf::from(mount_point_str)],
-												is_mounted: true,
+												volume_type: crate::volume::types::VolumeType::Network,
+												mount_type: crate::volume::types::MountType::Network,
 												disk_type: crate::volume::types::DiskType::Unknown,
 												file_system: crate::volume::types::FileSystem::Other("S3".to_string()),
-												total_bytes_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
-												total_bytes_available: db_volume.available_capacity.unwrap_or(0) as u64,
-												read_only: false,
+												total_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
+												available_space: db_volume.available_capacity.unwrap_or(0) as u64,
+												is_read_only: false,
+												is_mounted: true,
 												hardware_id: None,
-												error_status: None,
+												backend: Some(Arc::new(backend)),
 												apfs_container: None,
 												container_volume_id: None,
 												path_mappings: Vec::new(),
-												backend: Some(Arc::new(backend)),
+												is_user_visible: db_volume.is_user_visible.unwrap_or(true),
+												auto_track_eligible: db_volume.auto_track_eligible.unwrap_or(false),
 												read_speed_mbps: db_volume.read_speed_mbps.map(|s| s as u64),
 												write_speed_mbps: db_volume.write_speed_mbps.map(|s| s as u64),
-												auto_track_eligible: db_volume.auto_track_eligible.unwrap_or(false),
-												is_user_visible: db_volume.is_user_visible.unwrap_or(true),
-												last_updated: chrono::Utc::now(),
+												created_at: db_volume.tracked_at,
+												updated_at: now,
+												last_seen_at: db_volume.last_seen_at,
+												total_files: None,
+												total_directories: None,
+												last_stats_update: None,
+												display_name: db_volume.display_name.clone(),
+												is_favorite: false,
+												color: None,
+												icon: None,
+												error_message: None,
 											};
 
 											// Register in memory
@@ -623,41 +635,17 @@ impl VolumeManager {
 		self.volumes.read().await.get(fingerprint).cloned()
 	}
 
-	/// Get a volume by its database UUID (for cloud volumes)
-	/// This queries all libraries to find the volume record and then returns the in-memory Volume
-	pub async fn get_volume_by_uuid(
-		&self,
-		volume_uuid: Uuid,
-		library: &crate::library::Library,
-	) -> VolumeResult<Option<Volume>> {
-		// Query the database to find the volume record by UUID
-		let db = library.db().conn();
-		let volume_record = entities::volume::Entity::find()
-			.filter(entities::volume::Column::Uuid.eq(volume_uuid))
-			.one(db)
-			.await
-			.map_err(|e| VolumeError::Database(e.to_string()))?;
-
-		if let Some(record) = volume_record {
-			// Get the volume from our in-memory store by fingerprint
-			let fingerprint = VolumeFingerprint(record.fingerprint);
-			Ok(self.get_volume(&fingerprint).await)
-		} else {
-			Ok(None)
-		}
-	}
-
 	/// Resolve a volume for an SdPath (unified method for cloud and local paths)
 	/// This abstracts away the cloud/local path distinction
 	pub async fn resolve_volume_for_sdpath(
 		&self,
 		sdpath: &crate::domain::addressing::SdPath,
-		library: &crate::library::Library,
+		_library: &crate::library::Library,
 	) -> VolumeResult<Option<Volume>> {
-		// Check if this is a cloud path (has volume_id)
-		if let Some(volume_uuid) = sdpath.volume_id() {
-			// Cloud path - look up by UUID
-			self.get_volume_by_uuid(volume_uuid, library).await
+		// Check if this is a cloud path (has volume_fingerprint)
+		if let Some(volume_fingerprint) = sdpath.volume_fingerprint() {
+			// Cloud path - direct HashMap lookup by fingerprint
+			Ok(self.get_volume(volume_fingerprint).await)
 		} else {
 			// Local path - resolve by filesystem path
 			if let Some(local_path) = sdpath.as_local_path() {
@@ -750,7 +738,7 @@ impl VolumeManager {
 			.read()
 			.await
 			.values()
-			.filter(|vol| vol.total_bytes_available >= required_bytes)
+			.filter(|vol| vol.available_space >= required_bytes)
 			.cloned()
 			.collect()
 	}
@@ -761,8 +749,8 @@ impl VolumeManager {
 
 		let total_volumes = volumes.len();
 		let mounted_volumes = volumes.values().filter(|v| v.is_mounted).count();
-		let total_capacity: u64 = volumes.values().map(|v| v.total_bytes_capacity).sum();
-		let total_available: u64 = volumes.values().map(|v| v.total_bytes_available).sum();
+		let total_capacity: u64 = volumes.values().map(|v| v.total_capacity).sum();
+		let total_available: u64 = volumes.values().map(|v| v.available_space).sum();
 
 		let mut by_type = HashMap::new();
 		let mut by_filesystem = HashMap::new();
@@ -900,15 +888,15 @@ impl VolumeManager {
 
 		// Create tracking record
 		let active_model = entities::volume::ActiveModel {
-			uuid: Set(volume.uuid), // Use the volume's UUID
+			uuid: Set(volume.id), // Use the volume's UUID
 			device_id: Set(volume.device_id), // Use Uuid directly
 			fingerprint: Set(fingerprint.0.clone()),
 			display_name: Set(display_name.clone()),
 			tracked_at: Set(chrono::Utc::now()),
 			last_seen_at: Set(chrono::Utc::now()),
 			is_online: Set(volume.is_mounted),
-			total_capacity: Set(Some(volume.total_bytes_capacity as i64)),
-			available_capacity: Set(Some(volume.total_bytes_available as i64)),
+			total_capacity: Set(Some(volume.total_capacity as i64)),
+			available_capacity: Set(Some(volume.available_space as i64)),
 			read_speed_mbps: Set(volume.read_speed_mbps.map(|s| s as i32)),
 			write_speed_mbps: Set(volume.write_speed_mbps.map(|s| s as i32)),
 			last_speed_test_at: Set(None),
@@ -1054,8 +1042,8 @@ impl VolumeManager {
 
 		active_model.last_seen_at = Set(chrono::Utc::now());
 		active_model.is_online = Set(volume.is_mounted);
-		active_model.total_capacity = Set(Some(volume.total_bytes_capacity as i64));
-		active_model.available_capacity = Set(Some(volume.total_bytes_available as i64));
+		active_model.total_capacity = Set(Some(volume.total_capacity as i64));
+		active_model.available_capacity = Set(Some(volume.available_space as i64));
 
 		active_model
 			.update(db)
@@ -1284,7 +1272,7 @@ impl VolumeManager {
 		}
 
 		// Try to create new identifier file if volume is writable
-		if !volume.read_only && volume.mount_point.exists() {
+		if !volume.is_read_only && volume.mount_point.exists() {
 			let spacedrive_id = SpacedriveVolumeId {
 				id: Uuid::new_v4(),
 				created: chrono::Utc::now(),
@@ -1318,7 +1306,7 @@ impl VolumeManager {
 		debug!(
 			"Could not create or read Spacedrive identifier for volume {} (read_only: {}, exists: {})",
 			volume.name,
-			volume.read_only,
+			volume.is_read_only,
 			volume.mount_point.exists()
 		);
 		None

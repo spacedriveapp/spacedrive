@@ -301,24 +301,45 @@ pub fn containers_to_volumes(
 			let (total_bytes, available_bytes) = get_volume_space_info(mount_point)?;
 
 			// Create volume with APFS container information
-			let volume = Volume::new_with_apfs_container(
-				device_id,
-				volume_info.name.clone(),
-				mount_type,
-				volume_type,
-				mount_point.clone(),
-				vec![],            // Additional mount points handled via path mappings
-				DiskType::Unknown, // Would need platform-specific detection
-				FileSystem::APFS,
-				total_bytes,
-				available_bytes,
-				volume_info.sealed,
-				Some(volume_info.disk_id.clone()),
+			let now = chrono::Utc::now();
+			let volume = Volume {
+				id: uuid::Uuid::new_v4(),
 				fingerprint,
-				container.clone(),
-				volume_info.disk_id.clone(),
+				device_id,
+				name: volume_info.name.clone(),
+				library_id: None,
+				is_tracked: false,
+				mount_point: mount_point.clone(),
+				mount_points: vec![mount_point.clone()],
+				volume_type,
+				mount_type,
+				disk_type: DiskType::Unknown,
+				file_system: FileSystem::APFS,
+				total_capacity: total_bytes,
+				available_space: available_bytes,
+				is_read_only: volume_info.sealed,
+				is_mounted: true,
+				hardware_id: Some(volume_info.disk_id.clone()),
+				backend: None,
+				apfs_container: Some(container.clone()),
+				container_volume_id: Some(volume_info.disk_id.clone()),
 				path_mappings,
-			);
+				is_user_visible: true,
+				auto_track_eligible: matches!(volume_type, crate::volume::types::VolumeType::UserData),
+				read_speed_mbps: None,
+				write_speed_mbps: None,
+				created_at: now,
+				updated_at: now,
+				last_seen_at: now,
+				total_files: None,
+				total_directories: None,
+				last_stats_update: None,
+				display_name: Some(volume_info.name.clone()),
+				is_favorite: false,
+				color: None,
+				icon: None,
+				error_message: None,
+			};
 
 			volumes.push(volume);
 			debug!(

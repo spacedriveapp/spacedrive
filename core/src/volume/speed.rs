@@ -60,7 +60,7 @@ pub async fn run_speed_test_with_config(
 		return Err(VolumeError::NotMounted(volume.name.clone()));
 	}
 
-	if volume.read_only {
+	if volume.is_read_only {
 		return Err(VolumeError::ReadOnly(volume.name.clone()));
 	}
 
@@ -333,21 +333,48 @@ mod tests {
 	async fn test_full_speed_test() {
 		let temp_dir = TempDir::new().unwrap();
 
-		let volume = Volume::new(
-			uuid::Uuid::new_v4(), // Test device ID
-			"Test Volume".to_string(),
-			MountType::External,
-			VolumeType::External,
-			temp_dir.path().to_path_buf(),
-			vec![],
-			DiskType::Unknown,
-			FileSystem::Other("test".to_string()),
-			1000000000, // 1GB capacity
-			500000000,  // 500MB available
-			false,      // Not read-only
-			None,
-			VolumeFingerprint::new("Test Volume", 1000000000, "test"),
-		);
+		let fingerprint = VolumeFingerprint::new("Test Volume", 1000000000, "test");
+		let now = chrono::Utc::now();
+		let mount_path = temp_dir.path().to_path_buf();
+
+		let volume = Volume {
+			id: uuid::Uuid::new_v4(),
+			fingerprint,
+			device_id: uuid::Uuid::new_v4(),
+			name: "Test Volume".to_string(),
+			library_id: None,
+			is_tracked: false,
+			mount_point: mount_path.clone(),
+			mount_points: vec![mount_path],
+			volume_type: VolumeType::External,
+			mount_type: MountType::External,
+			disk_type: DiskType::Unknown,
+			file_system: FileSystem::Other("test".to_string()),
+			total_capacity: 1000000000,
+			available_space: 500000000,
+			is_read_only: false,
+			is_mounted: true,
+			hardware_id: None,
+			backend: None,
+			apfs_container: None,
+			container_volume_id: None,
+			path_mappings: Vec::new(),
+			is_user_visible: true,
+			auto_track_eligible: false,
+			read_speed_mbps: None,
+			write_speed_mbps: None,
+			created_at: now,
+			updated_at: now,
+			last_seen_at: now,
+			total_files: None,
+			total_directories: None,
+			last_stats_update: None,
+			display_name: Some("Test Volume".to_string()),
+			is_favorite: false,
+			color: None,
+			icon: None,
+			error_message: None,
+		};
 
 		let config = SpeedTestConfig {
 			file_size_mb: 1, // Small test file

@@ -141,7 +141,7 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 		// Get cloud path
 		let cloud_path = text("Enter path (e.g., / for root or /photos)", false)?.unwrap();
 
-		SdPath::cloud(selected_volume.uuid, cloud_path)
+		SdPath::cloud(selected_volume.fingerprint.clone(), cloud_path)
 	};
 
 	// 2. Name (optional)

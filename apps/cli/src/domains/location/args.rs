@@ -21,9 +21,9 @@ pub struct LocationAddArgs {
 	/// If not provided, enters interactive mode
 	pub path: Option<String>,
 
-	/// Cloud volume ID (if adding a cloud location)
+	/// Cloud volume fingerprint (if adding a cloud location)
 	#[arg(long)]
-	pub cloud: Option<Uuid>,
+	pub cloud: Option<String>,
 
 	/// Display name for the location
 	#[arg(long)]
@@ -40,9 +40,10 @@ impl LocationAddArgs {
 		let path_str = self.path.as_ref()
 			.ok_or_else(|| anyhow::anyhow!("Path is required in non-interactive mode"))?;
 
-		if let Some(volume_id) = self.cloud {
+		if let Some(volume_fingerprint_str) = &self.cloud {
 			// Cloud path
-			Ok(SdPath::cloud(volume_id, path_str.clone()))
+			let volume_fingerprint = sd_core::volume::VolumeFingerprint(volume_fingerprint_str.clone());
+			Ok(SdPath::cloud(volume_fingerprint, path_str.clone()))
 		} else {
 			// Local path
 			let path_buf = PathBuf::from(path_str);

@@ -137,18 +137,18 @@ impl LibraryAction for LocationAddAction {
 					});
 				}
 			}
-			SdPath::Cloud { volume_id, path: cloud_path } => {
+			SdPath::Cloud { volume_fingerprint, path: cloud_path } => {
 				// Validate cloud path
 				// Check if the volume exists
 				let db = library.db().conn();
 				let volume = entities::volume::Entity::find()
-					.filter(entities::volume::Column::Uuid.eq(*volume_id))
+					.filter(entities::volume::Column::Fingerprint.eq(volume_fingerprint.0.clone()))
 					.one(db)
 					.await
 					.map_err(ActionError::SeaOrm)?
 					.ok_or_else(|| ActionError::Validation {
-						field: "volume_id".to_string(),
-						message: format!("Cloud volume {} not found", volume_id),
+						field: "volume_fingerprint".to_string(),
+						message: format!("Cloud volume {} not found", volume_fingerprint.0),
 					})?;
 
 				// TODO: Validate that the path exists on the cloud volume

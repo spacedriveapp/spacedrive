@@ -51,8 +51,8 @@ impl LocationManager {
 			crate::domain::addressing::SdPath::Physical { path, .. } => {
 				self.validate_physical_path(path).await?;
 			}
-			crate::domain::addressing::SdPath::Cloud { volume_id, .. } => {
-				self.validate_cloud_path(&library, *volume_id).await?;
+			crate::domain::addressing::SdPath::Cloud { volume_fingerprint, .. } => {
+				self.validate_cloud_path(&library, volume_fingerprint).await?;
 			}
 			crate::domain::addressing::SdPath::Content { .. } => {
 				return Err(LocationError::InvalidPath(
@@ -75,14 +75,14 @@ impl LocationManager {
 				let path_str = path.to_string_lossy().to_string();
 				(name, path_str)
 			}
-			crate::domain::addressing::SdPath::Cloud { volume_id, path } => {
+			crate::domain::addressing::SdPath::Cloud { volume_fingerprint, path } => {
 				let name = path
 					.split('/')
 					.last()
 					.filter(|s| !s.is_empty())
 					.unwrap_or("Cloud Root")
 					.to_string();
-				let path_str = format!("cloud://{}/{}", volume_id, path);
+				let path_str = format!("cloud://{}/{}", volume_fingerprint.0, path);
 				(name, path_str)
 			}
 			_ => unreachable!("Content paths already rejected"),
@@ -395,16 +395,16 @@ impl LocationManager {
 	}
 
 	/// Validate a cloud volume before creating a location
-	async fn validate_cloud_path(&self, library: &Library, volume_id: Uuid) -> LocationResult<()> {
+	async fn validate_cloud_path(&self, library: &Library, volume_fingerprint: &crate::volume::VolumeFingerprint) -> LocationResult<()> {
 		// Check if volume exists in database
 		let db = library.db().conn();
 		let volume = entities::volume::Entity::find()
-			.filter(entities::volume::Column::Uuid.eq(volume_id))
+			.filter(entities::volume::Column::Fingerprint.eq(volume_fingerprint.0.clone()))
 			.one(db)
 			.await
 			.map_err(|e| LocationError::Other(format!("Database error: {}", e)))?
 			.ok_or_else(|| {
-				LocationError::Other(format!("Cloud volume {} not found", volume_id))
+				LocationError::Other(format!("Cloud volume {} not found", volume_fingerprint.0))
 			})?;
 
 		// TODO: Validate that we can connect to the volume

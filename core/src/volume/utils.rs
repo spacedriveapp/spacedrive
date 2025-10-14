@@ -70,7 +70,7 @@ pub fn parse_filesystem_type(fs_type: &str) -> FileSystem {
 		"zfs" => FileSystem::ZFS,
 		"refs" => FileSystem::ReFS,
 		"ntfs" => FileSystem::NTFS,
-		"ext2" | "ext3" | "ext4" => FileSystem::EXT4,
+		"ext2" | "ext3" | "ext4" => FileSystem::Ext4,
 		"xfs" => FileSystem::Other("XFS".to_string()),
 		"fat32" | "vfat" => FileSystem::FAT32,
 		"exfat" => FileSystem::ExFAT,
@@ -111,7 +111,7 @@ mod tests {
 	fn test_parse_filesystem_type() {
 		assert!(matches!(parse_filesystem_type("apfs"), FileSystem::APFS));
 		assert!(matches!(parse_filesystem_type("btrfs"), FileSystem::Btrfs));
-		assert!(matches!(parse_filesystem_type("ext4"), FileSystem::EXT4));
+		assert!(matches!(parse_filesystem_type("ext4"), FileSystem::Ext4));
 		assert!(matches!(
 			parse_filesystem_type("unknown"),
 			FileSystem::Other(_)

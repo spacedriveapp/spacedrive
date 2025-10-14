@@ -173,3 +173,37 @@ pub fn text(message: &str, optional: bool) -> Result<Option<String>> {
 		Ok(Some(result))
 	}
 }
+
+/// Modern password input with inquire (hides input).
+pub fn password(message: &str, optional: bool) -> Result<Option<String>> {
+	use inquire::Password;
+
+	let prompt_text = if optional {
+		format!("{} (optional)", message)
+	} else {
+		message.to_string()
+	};
+
+	let mut prompt = Password::new(&prompt_text)
+		.without_confirmation();
+
+	if !optional {
+		prompt = prompt.with_validator(|input: &str| {
+			if input.trim().is_empty() {
+				Ok(inquire::validator::Validation::Invalid(
+					"This field is required".into(),
+				))
+			} else {
+				Ok(inquire::validator::Validation::Valid)
+			}
+		});
+	}
+
+	let result = prompt.prompt()?;
+
+	if result.trim().is_empty() && optional {
+		Ok(None)
+	} else {
+		Ok(Some(result))
+	}
+}
