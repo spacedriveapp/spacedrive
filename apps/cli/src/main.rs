@@ -47,6 +47,7 @@ mod util;
 
 use crate::context::{Context, OutputFormat};
 use crate::domains::{
+	cloud,
 	devices::{self, DevicesCmd},
 	file::{self, FileCmd},
 	index::{self, IndexCmd},
@@ -199,6 +200,8 @@ enum Commands {
 	/// Volume operations
 	#[command(subcommand)]
 	Volume(VolumeCmd),
+	/// Interactive cloud storage setup
+	Cloud,
 }
 
 #[tokio::main]
@@ -663,6 +666,7 @@ async fn run_client_command(
 		Commands::Search(cmd) => search::run(&ctx, cmd).await?,
 		Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
 		Commands::Volume(cmd) => volume::run(&ctx, cmd).await?,
+		Commands::Cloud => cloud::run(&ctx).await?,
 		_ => {} // Start and Stop are handled in main
 	}
 	Ok(())

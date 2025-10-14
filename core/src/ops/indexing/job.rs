@@ -318,23 +318,34 @@ impl JobHandler for IndexerJob {
 		let root_path = root_path_buf.as_path();
 
 		// Get volume backend for the entire job
-		// TODO: The only case where we'd have multiple volumes is if a location spans volumes (symlink/mount edge case), but even then we'd want to track that specially, not look it up every time.
 		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
 			if let Some(vm) = ctx.volume_manager() {
-				// Look up which volume contains this path
-				if let Some(mut volume) = vm.volume_for_path(root_path).await {
-					ctx.log(format!(
-						"Using volume backend: {} for path: {}",
-						volume.name,
-						root_path.display()
-					));
-					Some(vm.backend_for_volume(&mut volume))
-				} else {
-					ctx.log(format!(
-						"No volume found for path: {}, will use LocalBackend fallback",
-						root_path.display()
-					));
-					None
+				match vm
+					.resolve_volume_for_sdpath(&self.config.path, ctx.library())
+					.await
+				{
+					Ok(Some(mut volume)) => {
+						ctx.log(format!(
+							"Using volume backend: {} for path: {}",
+							volume.name,
+							self.config.path
+						));
+						Some(vm.backend_for_volume(&mut volume))
+					}
+					Ok(None) => {
+						ctx.log(format!(
+							"No volume found for path: {}, will use LocalBackend fallback",
+							self.config.path
+						));
+						None
+					}
+					Err(e) => {
+						ctx.log(format!("Failed to resolve volume: {}", e));
+						return Err(JobError::execution(format!(
+							"Failed to resolve volume: {}",
+							e
+						)));
+					}
 				}
 			} else {
 				ctx.log("No volume manager available, will use LocalBackend fallback");

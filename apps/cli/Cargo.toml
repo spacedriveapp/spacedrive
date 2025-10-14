@@ -11,6 +11,7 @@ clap        = { version = "4", features = ["derive"] }
 comfy-table = "7.1"
 crossterm   = "0.27"
 indicatif   = "0.17"
+inquire     = "0.7"
 qr2term     = "0.3"
 ratatui     = "0.26"
 sd-core     = { path = "../../core", features = ["cli"] }

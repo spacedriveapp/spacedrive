@@ -89,21 +89,21 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 }
 
 async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
-	use crate::util::confirm::{prompt_for_list, prompt_for_text};
+	use crate::util::confirm::{select, text};
 	use sd_core::domain::addressing::SdPath;
 	use sd_core::ops::indexing::IndexMode;
 
 	println!("\n=== Add New Location ===\n");
 
 	// 1. Location type
-	let location_type = prompt_for_list(
-		"Select location type:",
+	let location_type = select(
+		"What type of location would you like to add?",
 		&["Local filesystem".to_string(), "Cloud storage".to_string()],
 	)?;
 
 	let sd_path = if location_type == 0 {
 		// Local filesystem
-		let path_str = prompt_for_text("Enter path", false)?.unwrap();
+		let path_str = text("Enter the local path", false)?.unwrap();
 		let path_buf = std::path::PathBuf::from(path_str);
 
 		// Validate that path exists
@@ -135,22 +135,21 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 			.map(|v| format!("{} ({}) - {}", v.name, v.fingerprint.short_id(), v.volume_type))
 			.collect();
 
-		let volume_idx = prompt_for_list("Select cloud volume:", &volume_choices)?;
+		let volume_idx = select("Select cloud volume", &volume_choices)?;
 		let selected_volume = &volumes.volumes[volume_idx];
 
 		// Get cloud path
-		let cloud_path =
-			prompt_for_text("Enter path (e.g., / for root or /photos)", false)?.unwrap();
+		let cloud_path = text("Enter path (e.g., / for root or /photos)", false)?.unwrap();
 
 		SdPath::cloud(selected_volume.uuid, cloud_path)
 	};
 
 	// 2. Name (optional)
-	let name = prompt_for_text("Name", true)?;
+	let name = text("Location name", true)?;
 
 	// 3. Index mode
-	let mode_idx = prompt_for_list(
-		"Select index mode:",
+	let mode_idx = select(
+		"Select indexing mode",
 		&[
 			"Content (recommended - indexes file metadata and content hashes)".to_string(),
 			"Shallow (metadata only - faster)".to_string(),
