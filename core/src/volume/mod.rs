@@ -4,6 +4,7 @@
 //! across different platforms. It's designed to integrate with the copy system for optimal
 //! file operation routing.
 
+pub mod backend;
 pub mod classification;
 pub mod detection;
 pub mod error;
@@ -14,6 +15,10 @@ pub mod speed;
 pub mod types;
 pub mod utils;
 
+pub use backend::{
+	BackendType, CloudBackend, CloudServiceType, LocalBackend, RawDirEntry,
+	RawMetadata, VolumeBackend,
+};
 pub use error::VolumeError;
 pub use manager::VolumeManager;
 pub use types::{

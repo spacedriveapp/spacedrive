@@ -9,8 +9,8 @@ use crate::{
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
 };
-use std::path::Path;
 use std::time::Instant;
+use std::{path::Path, sync::Arc};
 
 struct SimpleMetadata {
 	is_dir: bool,
@@ -27,6 +27,7 @@ pub async fn run_discovery_phase(
 	ctx: &JobContext<'_>,
 	root_path: &Path,
 	rule_toggles: RuleToggles,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<(), JobError> {
 	ctx.log(format!(
 		"Discovery phase starting from: {}",
@@ -71,7 +72,7 @@ pub async fn run_discovery_phase(
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
 		// Read directory entries with per-dir FS timing
-		match read_directory(&dir_path).await {
+		match read_directory(&dir_path, volume_backend).await {
 			Ok(entries) => {
 				let entry_count = entries.len();
 				let mut added_count = 0;
@@ -179,45 +180,58 @@ pub async fn run_discovery_phase(
 }
 
 /// Read a directory and extract metadata
-async fn read_directory(path: &Path) -> Result<Vec<DirEntry>, std::io::Error> {
-	let mut entries = Vec::new();
+///
+/// Uses the provided volume backend if available, otherwise creates a LocalBackend fallback.
+/// The backend is typically provided once per indexer job from the root volume lookup.
+async fn read_directory(
+	path: &Path,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+) -> Result<Vec<DirEntry>, std::io::Error> {
+	// Use provided backend or create LocalBackend fallback
+	let backend: Arc<dyn crate::volume::VolumeBackend> = match volume_backend {
+		Some(backend) => Arc::clone(backend),
+		None => {
+			// Fallback: create temporary LocalBackend
+			// This happens when no volume is tracked for the indexing path
+			Arc::new(crate::volume::LocalBackend::new(
+				path.parent().unwrap_or(path),
+			))
+		}
+	};
+
+	read_directory_with_backend(backend.as_ref(), path).await
+}
+
+/// Read a directory using a volume backend (local or cloud)
+async fn read_directory_with_backend(
+	backend: &dyn crate::volume::VolumeBackend,
+	path: &Path,
+) -> Result<Vec<DirEntry>, std::io::Error> {
 	let t_rd_start = Instant::now();
-	let mut dir = tokio::fs::read_dir(path).await?;
-	let mut metadata_ms: u128 = 0;
 
-	while let Some(entry) = dir.next_entry().await? {
-		let t_meta = Instant::now();
-		let metadata = match entry.metadata().await {
-			Ok(m) => m,
-			Err(_) => continue, // Skip entries we can't read
-		};
-		metadata_ms += t_meta.elapsed().as_millis();
+	let raw_entries = backend
+		.read_dir(path)
+		.await
+		.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-		let kind = if metadata.is_dir() {
-			EntryKind::Directory
-		} else if metadata.is_symlink() {
-			EntryKind::Symlink
-		} else {
-			EntryKind::File
-		};
+	// Convert RawDirEntry to DirEntry
+	let entries: Vec<DirEntry> = raw_entries
+		.into_iter()
+		.map(|raw| DirEntry {
+			path: path.join(&raw.name),
+			kind: raw.kind,
+			size: raw.size,
+			modified: raw.modified,
+			inode: raw.inode,
+		})
+		.collect();
 
-		// Extract inode if available
-		let inode = EntryProcessor::get_inode(&metadata);
-
-		entries.push(DirEntry {
-			path: entry.path(),
-			kind,
-			size: metadata.len(),
-			modified: metadata.modified().ok(),
-			inode,
-		});
-	}
 	let rd_ms = t_rd_start.elapsed().as_millis();
-	// Best-effort: attach to a log line so bench parser can extract later (Phase 1)
 	tracing::debug!(
 		target: "indexing.discovery",
-		"read_dir_metrics path={} rd_ms={} metadata_ms={}",
-		path.display(), rd_ms, metadata_ms
+		"read_dir_metrics path={} rd_ms={} entries={}",
+		path.display(), rd_ms, entries.len()
 	);
+
 	Ok(entries)
 }

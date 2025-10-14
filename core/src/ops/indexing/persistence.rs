@@ -398,7 +398,8 @@ impl IndexPersistence for EphemeralPersistence {
 		use super::entry::EntryProcessor;
 
 		// Extract full metadata
-		let metadata = EntryProcessor::extract_metadata(&entry.path)
+		// Note: Ephemeral persistence uses direct filesystem (None backend)
+		let metadata = EntryProcessor::extract_metadata(&entry.path, None)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to extract metadata: {}", e)))?;
 

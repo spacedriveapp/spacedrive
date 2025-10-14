@@ -131,7 +131,8 @@ async fn handle_modify(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 	debug!("Modify: {}", path.display());
 
 	// If inode indicates a move, handle as a move and skip update
-	let meta = EntryProcessor::extract_metadata(path).await?;
+	// Responder uses direct filesystem access (None backend) since it reacts to local FS events
+	let meta = EntryProcessor::extract_metadata(path, None).await?;
 	if handle_move_by_inode(ctx, path, meta.inode).await? {
 		return Ok(());
 	}
@@ -202,7 +203,8 @@ async fn handle_rename(ctx: &impl IndexingCtx, from: &Path, to: &Path) -> Result
 
 /// Build a DirEntry from current filesystem metadata
 async fn build_dir_entry(path: &Path) -> Result<DirEntry> {
-	let meta = EntryProcessor::extract_metadata(path).await?;
+	// Responder uses direct filesystem access (None backend) since it reacts to local FS events
+	let meta = EntryProcessor::extract_metadata(path, None).await?;
 	Ok(DirEntry {
 		path: meta.path,
 		kind: meta.kind,

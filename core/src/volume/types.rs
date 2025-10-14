@@ -328,6 +328,14 @@ pub struct Volume {
 	/// Path resolution mappings (for firmlinks/symlinks)
 	pub path_mappings: Vec<PathMapping>,
 
+	/// I/O backend for this volume (lazy-initialized, not serialized)
+	///
+	/// For local volumes, this is auto-initialized to LocalBackend on first use.
+	/// For cloud volumes, this is set during volume creation.
+	#[serde(skip)]
+	#[specta(skip)]
+	pub(crate) backend: Option<std::sync::Arc<dyn crate::volume::VolumeBackend>>,
+
 	// Storage information
 	/// Total storage capacity in bytes
 	pub total_bytes_capacity: u64,
@@ -443,6 +451,7 @@ impl TrackedVolume {
 			apfs_container: None,      // Not available for offline volumes
 			container_volume_id: None, // Not available for offline volumes
 			path_mappings: Vec::new(), // Not available for offline volumes
+			backend: None,             // Will be lazy-initialized if needed
 			read_speed_mbps: self.read_speed_mbps.map(|s| s as u64),
 			write_speed_mbps: self.write_speed_mbps.map(|s| s as u64),
 			last_updated: self.last_seen_at,
@@ -488,6 +497,7 @@ impl Volume {
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),
+			backend: None, // Lazy-initialized on first use
 			read_speed_mbps: None,
 			write_speed_mbps: None,
 			auto_track_eligible: volume_type.auto_track_by_default(),
@@ -534,6 +544,7 @@ impl Volume {
 			apfs_container: Some(apfs_container),
 			container_volume_id: Some(container_volume_id),
 			path_mappings,
+			backend: None, // Lazy-initialized on first use
 			read_speed_mbps: None,
 			write_speed_mbps: None,
 			auto_track_eligible: volume_type.auto_track_by_default(),

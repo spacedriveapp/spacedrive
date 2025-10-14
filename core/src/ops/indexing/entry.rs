@@ -74,43 +74,73 @@ impl EntryProcessor {
 	}
 
 	/// Extract detailed metadata from a path
-	pub async fn extract_metadata(path: &Path) -> Result<EntryMetadata, std::io::Error> {
-		let metadata = tokio::fs::symlink_metadata(path).await?;
+	///
+	/// Uses the provided VolumeBackend if available, otherwise falls back to direct filesystem access.
+	pub async fn extract_metadata(
+		path: &Path,
+		backend: Option<&std::sync::Arc<dyn crate::volume::VolumeBackend>>,
+	) -> Result<EntryMetadata, std::io::Error> {
+		// Use backend if available, otherwise fall back to local filesystem
+		if let Some(backend) = backend {
+			let raw = backend
+				.metadata(path)
+				.await
+				.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-		let kind = if metadata.is_dir() {
-			EntryKind::Directory
-		} else if metadata.is_symlink() {
-			EntryKind::Symlink
+			Ok(EntryMetadata {
+				path: path.to_path_buf(),
+				kind: raw.kind,
+				size: raw.size,
+				modified: raw.modified,
+				accessed: raw.accessed,
+				created: raw.created,
+				inode: raw.inode,
+				permissions: raw.permissions,
+				is_hidden: path
+					.file_name()
+					.and_then(|n| n.to_str())
+					.map(|n| n.starts_with('.'))
+					.unwrap_or(false),
+			})
 		} else {
-			EntryKind::File
-		};
+			// Fallback to direct filesystem access
+			let metadata = tokio::fs::symlink_metadata(path).await?;
 
-		let inode = Self::get_inode(&metadata);
+			let kind = if metadata.is_dir() {
+				EntryKind::Directory
+			} else if metadata.is_symlink() {
+				EntryKind::Symlink
+			} else {
+				EntryKind::File
+			};
 
-		#[cfg(unix)]
-		let permissions = {
-			use std::os::unix::fs::MetadataExt;
-			Some(metadata.mode())
-		};
+			let inode = Self::get_inode(&metadata);
 
-		#[cfg(not(unix))]
-		let permissions = None;
+			#[cfg(unix)]
+			let permissions = {
+				use std::os::unix::fs::MetadataExt;
+				Some(metadata.mode())
+			};
 
-		Ok(EntryMetadata {
-			path: path.to_path_buf(),
-			kind,
-			size: metadata.len(),
-			modified: metadata.modified().ok(),
-			accessed: metadata.accessed().ok(),
-			created: metadata.created().ok(),
-			inode,
-			permissions,
-			is_hidden: path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.map(|n| n.starts_with('.'))
-				.unwrap_or(false),
-		})
+			#[cfg(not(unix))]
+			let permissions = None;
+
+			Ok(EntryMetadata {
+				path: path.to_path_buf(),
+				kind,
+				size: metadata.len(),
+				modified: metadata.modified().ok(),
+				accessed: metadata.accessed().ok(),
+				created: metadata.created().ok(),
+				inode,
+				permissions,
+				is_hidden: path
+					.file_name()
+					.and_then(|n| n.to_str())
+					.map(|n| n.starts_with('.'))
+					.unwrap_or(false),
+			})
+		}
 	}
 
 	/// Create an entry record in the database using a provided connection/transaction

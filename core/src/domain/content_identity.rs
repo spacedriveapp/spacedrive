@@ -10,6 +10,8 @@ use serde_json::Value as JsonValue;
 use specta::Type;
 use uuid::Uuid;
 
+use crate::volume::VolumeBackend;
+
 /// Type of content
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, IntEnum, Type)]
 #[serde(rename_all = "snake_case")]
@@ -173,92 +175,31 @@ impl ContentKind {
 /// Size threshold for sampling vs full hashing (100KB)
 pub const MINIMUM_FILE_SIZE: u64 = 1024 * 100;
 
-/// Sample configuration constants
-const SAMPLE_COUNT: u64 = 4;
-const SAMPLE_SIZE: u64 = 1024 * 10; // 10KB
-const HEADER_OR_FOOTER_SIZE: u64 = 1024 * 8; // 8KB
+/// Sample configuration constants (public for cloud backend usage)
+pub const SAMPLE_COUNT: u64 = 4;
+pub const SAMPLE_SIZE: u64 = 1024 * 10; // 10KB
+pub const HEADER_OR_FOOTER_SIZE: u64 = 1024 * 8; // 8KB
 
 /// Content hash generator for content identification
 pub struct ContentHashGenerator;
 
 impl ContentHashGenerator {
-	/// Generate a content hash for a file
-	/// Uses sampling for large files, full hash for small files
+	/// Generate a content hash for a local file (uses LocalBackend internally)
+	///
+	/// For local files, this wraps the path in a LocalBackend and calls the
+	/// backend-based implementation. This ensures consistent hashing across
+	/// local and cloud storage.
 	pub async fn generate_content_hash(path: &std::path::Path) -> Result<String, ContentHashError> {
-		let metadata = tokio::fs::metadata(path).await?;
-		let file_size = metadata.len();
+		// Create a LocalBackend for this path
+		let backend = crate::volume::LocalBackend::new(path.parent().unwrap_or(path));
 
-		if file_size <= MINIMUM_FILE_SIZE {
-			// Small file: hash entire content
-			Self::generate_full_hash(path, file_size).await
-		} else {
-			// Large file: use sampling algorithm
-			Self::generate_sampled_hash(path, file_size).await
-		}
-	}
+		// Get file size using backend
+		let metadata = backend
+			.metadata(path)
+			.await
+			.map_err(|e| ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
-	/// Generate full BLAKE3 hash for small files
-	pub async fn generate_full_hash(
-		path: &std::path::Path,
-		size: u64,
-	) -> Result<String, ContentHashError> {
-		use blake3::Hasher;
-
-		let mut hasher = Hasher::new();
-		hasher.update(&size.to_le_bytes());
-
-		let content = tokio::fs::read(path).await?;
-		hasher.update(&content);
-
-		Ok(hasher.finalize().to_hex()[..16].to_string())
-	}
-
-	/// Generate sampled hash for large files using V1 algorithm
-	/// Samples header, 4 evenly spaced samples, and footer
-	#[allow(clippy::cast_possible_truncation)]
-	#[allow(clippy::cast_possible_wrap)]
-	async fn generate_sampled_hash(
-		path: &std::path::Path,
-		size: u64,
-	) -> Result<String, ContentHashError> {
-		use blake3::Hasher;
-		use tokio::io::{AsyncReadExt, AsyncSeekExt};
-
-		let mut hasher = Hasher::new();
-		hasher.update(&size.to_le_bytes());
-
-		let mut file = tokio::fs::File::open(path).await?;
-		let mut buf = vec![0; SAMPLE_SIZE as usize].into_boxed_slice();
-
-		// Hashing the header
-		let mut current_pos = file
-			.read_exact(&mut buf[..HEADER_OR_FOOTER_SIZE as usize])
-			.await? as u64;
-		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
-
-		// Sample hashing the inner content of the file
-		let seek_jump = (size - HEADER_OR_FOOTER_SIZE * 2) / SAMPLE_COUNT;
-		loop {
-			file.read_exact(&mut buf).await?;
-			hasher.update(&buf);
-
-			if current_pos >= (HEADER_OR_FOOTER_SIZE + seek_jump * (SAMPLE_COUNT - 1)) {
-				break;
-			}
-
-			current_pos = file
-				.seek(std::io::SeekFrom::Start(current_pos + seek_jump))
-				.await?;
-		}
-
-		// Hashing the footer
-		file.seek(std::io::SeekFrom::End(-(HEADER_OR_FOOTER_SIZE as i64)))
-			.await?;
-		file.read_exact(&mut buf[..HEADER_OR_FOOTER_SIZE as usize])
-			.await?;
-		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
-
-		Ok(hasher.finalize().to_hex()[..16].to_string())
+		Self::generate_content_hash_with_backend(&backend, path, metadata.size).await
 	}
 
 	/// Generate content hash from raw content (for in-memory data)
@@ -270,6 +211,91 @@ impl ContentHashGenerator {
 		hasher.update(content);
 
 		hasher.finalize().to_hex()[..16].to_string()
+	}
+
+	/// Generate content hash using a volume backend (supports cloud storage)
+	///
+	/// This uses the same sampling algorithm but works with any VolumeBackend,
+	/// enabling efficient content hashing for cloud files without full downloads.
+	pub async fn generate_content_hash_with_backend(
+		backend: &dyn crate::volume::VolumeBackend,
+		path: &std::path::Path,
+		size: u64,
+	) -> Result<String, ContentHashError> {
+		if size <= MINIMUM_FILE_SIZE {
+			// Small file: read entire content
+			Self::generate_full_hash_with_backend(backend, path, size).await
+		} else {
+			// Large file: use sampling with ranged reads
+			Self::generate_sampled_hash_with_backend(backend, path, size).await
+		}
+	}
+
+	/// Generate full hash using backend (for small files)
+	async fn generate_full_hash_with_backend(
+		backend: &dyn crate::volume::VolumeBackend,
+		path: &std::path::Path,
+		size: u64,
+	) -> Result<String, ContentHashError> {
+		use blake3::Hasher;
+
+		let mut hasher = Hasher::new();
+		hasher.update(&size.to_le_bytes());
+
+		let content = backend
+			.read(path)
+			.await
+			.map_err(|e| ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+		hasher.update(&content);
+
+		Ok(hasher.finalize().to_hex()[..16].to_string())
+	}
+
+	/// Generate sampled hash using backend ranged reads (efficient for cloud)
+	///
+	/// This implements the same sampling algorithm as `generate_sampled_hash`
+	/// but uses ranged reads, transferring only ~58KB for large files.
+	async fn generate_sampled_hash_with_backend(
+		backend: &dyn crate::volume::VolumeBackend,
+		path: &std::path::Path,
+		size: u64,
+	) -> Result<String, ContentHashError> {
+		use blake3::Hasher;
+
+		let mut hasher = Hasher::new();
+		hasher.update(&size.to_le_bytes());
+
+		// Header (8KB)
+		let header = backend
+			.read_range(path, 0..HEADER_OR_FOOTER_SIZE)
+			.await
+			.map_err(|e| ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+		hasher.update(&header);
+
+		// 4 samples (10KB each) evenly spaced
+		let seek_jump = (size - HEADER_OR_FOOTER_SIZE * 2) / SAMPLE_COUNT;
+		let mut current_pos = HEADER_OR_FOOTER_SIZE;
+
+		for _ in 0..SAMPLE_COUNT {
+			let sample = backend
+				.read_range(path, current_pos..current_pos + SAMPLE_SIZE)
+				.await
+				.map_err(|e| {
+					ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+				})?;
+			hasher.update(&sample);
+			current_pos += seek_jump;
+		}
+
+		// Footer (8KB)
+		let footer_start = size - HEADER_OR_FOOTER_SIZE;
+		let footer = backend
+			.read_range(path, footer_start..size)
+			.await
+			.map_err(|e| ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+		hasher.update(&footer);
+
+		Ok(hasher.finalize().to_hex()[..16].to_string())
 	}
 
 	/// Verify a content hash matches the current content of a file

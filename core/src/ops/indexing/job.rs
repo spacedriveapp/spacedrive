@@ -290,7 +290,8 @@ impl JobHandler for IndexerJob {
 
 		let state = self.state.as_mut().unwrap();
 
-		// Get local path for operations (fallback to DB path if device ID hasn't been initialized yet)
+		// Get root path ONCE for the entire job
+		// Resolve from SdPath to physical path if needed
 		let root_path_buf = if let Some(p) = self.config.path.as_local_path() {
 			p.to_path_buf()
 		} else if !self.config.is_ephemeral() {
@@ -316,6 +317,30 @@ impl JobHandler for IndexerJob {
 		};
 		let root_path = root_path_buf.as_path();
 
+		// Get volume backend for the entire job
+		// TODO: The only case where we'd have multiple volumes is if a location spans volumes (symlink/mount edge case), but even then we'd want to track that specially, not look it up every time.
+		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
+			if let Some(vm) = ctx.volume_manager() {
+				// Look up which volume contains this path
+				if let Some(mut volume) = vm.volume_for_path(root_path).await {
+					ctx.log(format!(
+						"Using volume backend: {} for path: {}",
+						volume.name,
+						root_path.display()
+					));
+					Some(vm.backend_for_volume(&mut volume))
+				} else {
+					ctx.log(format!(
+						"No volume found for path: {}, will use LocalBackend fallback",
+						root_path.display()
+					));
+					None
+				}
+			} else {
+				ctx.log("No volume manager available, will use LocalBackend fallback");
+				None
+			};
+
 		// Seed discovery queue if it wasn't initialized due to device-id timing
 		if state.dirs_to_walk.is_empty() {
 			state.dirs_to_walk.push_back(root_path.to_path_buf());
@@ -337,7 +362,8 @@ impl JobHandler for IndexerJob {
 							state,
 							&ctx,
 							root_path,
-							self.config.rule_toggles,
+							self.config.rule_toggles.clone(),
+							volume_backend.as_ref(),
 						)
 						.await?;
 					}
@@ -358,7 +384,13 @@ impl JobHandler for IndexerJob {
 						let ephemeral_index = self.ephemeral_index.clone().ok_or_else(|| {
 							JobError::execution("Ephemeral index not initialized".to_string())
 						})?;
-						Self::run_ephemeral_processing_static(state, &ctx, ephemeral_index).await?;
+						Self::run_ephemeral_processing_static(
+							state,
+							&ctx,
+							ephemeral_index,
+							volume_backend.as_ref(),
+						)
+						.await?;
 					} else {
 						phases::run_processing_phase(
 							self.config
@@ -368,6 +400,7 @@ impl JobHandler for IndexerJob {
 							&ctx,
 							self.config.mode,
 							root_path,
+							volume_backend.as_ref(),
 						)
 						.await?;
 
@@ -642,6 +675,7 @@ impl IndexerJob {
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
 		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
+		volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	) -> JobResult<()> {
 		use super::entry::EntryProcessor;
 
@@ -650,7 +684,7 @@ impl IndexerJob {
 		for batch in &state.entry_batches {
 			for entry in batch {
 				// Extract metadata
-				let metadata = EntryProcessor::extract_metadata(&entry.path)
+				let metadata = EntryProcessor::extract_metadata(&entry.path, volume_backend)
 					.await
 					.map_err(|e| {
 						JobError::execution(format!("Failed to extract metadata: {}", e))

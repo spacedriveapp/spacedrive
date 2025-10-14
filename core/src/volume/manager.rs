@@ -554,6 +554,27 @@ impl VolumeManager {
 		}
 	}
 
+	/// Get or initialize the I/O backend for a volume
+	///
+	/// This lazily initializes the backend on first access. Local volumes get a
+	/// LocalBackend pointing to their mount point. Cloud volumes should have their
+	/// backend set during creation.
+	pub(crate) fn backend_for_volume(
+		&self,
+		volume: &mut Volume,
+	) -> Arc<dyn crate::volume::VolumeBackend> {
+		if let Some(backend) = &volume.backend {
+			return backend.clone();
+		}
+
+		// Lazy-initialize LocalBackend for local volumes
+		let backend: Arc<dyn crate::volume::VolumeBackend> =
+			Arc::new(crate::volume::LocalBackend::new(&volume.mount_point));
+
+		volume.backend = Some(backend.clone());
+		backend
+	}
+
 	/// Find volumes with available space
 	pub async fn volumes_with_space(&self, required_bytes: u64) -> Vec<Volume> {
 		self.volumes

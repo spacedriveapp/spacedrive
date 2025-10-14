@@ -67,9 +67,13 @@ regex = "1.11"
 
 # File operations
 blake3 = "1.5"  # Content addressing
+bytes  = "1.7"  # Efficient byte buffers for I/O operations
 hex    = "0.4"  # Hex encoding for volume fingerprints
 notify = "6.1"  # File system watching
 sha2   = "0.10" # SHA-256 hashing for CAS IDs
+
+# Cloud storage integration
+opendal = { path = "../../opendal/core", features = ["services-s3"] }
 
 # Logging
 tracing            = "0.1"
