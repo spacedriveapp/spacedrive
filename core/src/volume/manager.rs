@@ -109,7 +109,7 @@ impl VolumeManager {
 	pub async fn initialize(&self) -> VolumeResult<()> {
 		info!("Initializing volume manager");
 
-		// Perform initial volume detection
+		// Perform initial volume detection (for local volumes)
 		self.refresh_volumes().await?;
 
 		// Start monitoring if configured
@@ -122,6 +122,130 @@ impl VolumeManager {
 			self.volumes.read().await.len()
 		);
 
+		Ok(())
+	}
+
+	/// Load cloud volumes from the database and restore them to the in-memory HashMap
+	/// This should be called after libraries are loaded
+	pub async fn load_cloud_volumes_from_db(
+		&self,
+		libraries: &[std::sync::Arc<crate::library::Library>],
+		library_key_manager: std::sync::Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
+	) -> VolumeResult<()> {
+		use crate::crypto::cloud_credentials::CloudCredentialManager;
+
+		let mut loaded_count = 0;
+
+		for library in libraries {
+			let db = library.db().conn();
+
+			// Query all network volumes (cloud volumes) for this library
+			let cloud_volumes = entities::volume::Entity::find()
+				.filter(entities::volume::Column::IsNetworkDrive.eq(true))
+				.all(db)
+				.await
+				.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+			info!("Found {} cloud volumes in database for library {}", cloud_volumes.len(), library.id());
+
+			for db_volume in cloud_volumes {
+				let fingerprint = VolumeFingerprint(db_volume.fingerprint.clone());
+
+				// Skip if already loaded
+				if self.get_volume(&fingerprint).await.is_some() {
+					continue;
+				}
+
+				// Try to load credentials and recreate the backend
+				let credential_manager = CloudCredentialManager::new(library_key_manager.clone());
+
+				match credential_manager.get_credential(library.id(), &db_volume.fingerprint) {
+					Ok(credential) => {
+						// Recreate the cloud backend from stored credentials
+						match credential.service {
+							crate::volume::CloudServiceType::S3 => {
+								if let crate::crypto::cloud_credentials::CredentialData::AccessKey {
+									access_key_id,
+									secret_access_key,
+									..
+								} = &credential.data
+								{
+									// Parse mount point to extract bucket info
+									let mount_point_str = db_volume.mount_point.as_ref()
+										.ok_or_else(|| VolumeError::InvalidData("No mount point for cloud volume".to_string()))?;
+
+									// Extract bucket name from mount_point like "cloud://s3/bucket-name"
+									let bucket = mount_point_str
+										.strip_prefix("cloud://s3/")
+										.ok_or_else(|| VolumeError::InvalidData(format!("Invalid S3 mount point: {}", mount_point_str)))?;
+
+									// Try to recreate the backend (we don't have region/endpoint stored, use defaults)
+									match crate::volume::CloudBackend::new_s3(
+										bucket,
+										"us-east-1", // Default region - TODO: store this in DB
+										access_key_id,
+										secret_access_key,
+										None,
+									).await {
+										Ok(backend) => {
+											// Reconstruct the Volume struct
+											let volume = Volume {
+												uuid: db_volume.uuid, // Use UUID from database
+												fingerprint: fingerprint.clone(),
+												device_id: db_volume.device_id,
+												name: db_volume.display_name.clone().unwrap_or_else(|| bucket.to_string()),
+												mount_type: crate::volume::types::MountType::Network,
+												volume_type: crate::volume::types::VolumeType::Network,
+												mount_point: std::path::PathBuf::from(mount_point_str),
+												mount_points: vec![std::path::PathBuf::from(mount_point_str)],
+												is_mounted: true,
+												disk_type: crate::volume::types::DiskType::Unknown,
+												file_system: crate::volume::types::FileSystem::Other("S3".to_string()),
+												total_bytes_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
+												total_bytes_available: db_volume.available_capacity.unwrap_or(0) as u64,
+												read_only: false,
+												hardware_id: None,
+												error_status: None,
+												apfs_container: None,
+												container_volume_id: None,
+												path_mappings: Vec::new(),
+												backend: Some(Arc::new(backend)),
+												read_speed_mbps: db_volume.read_speed_mbps.map(|s| s as u64),
+												write_speed_mbps: db_volume.write_speed_mbps.map(|s| s as u64),
+												auto_track_eligible: db_volume.auto_track_eligible.unwrap_or(false),
+												is_user_visible: db_volume.is_user_visible.unwrap_or(true),
+												last_updated: chrono::Utc::now(),
+											};
+
+											// Register in memory
+											let mut volumes = self.volumes.write().await;
+											volumes.insert(fingerprint.clone(), volume);
+											loaded_count += 1;
+											info!("Loaded cloud volume {} from database", db_volume.display_name.as_ref().unwrap_or(&bucket.to_string()));
+										}
+										Err(e) => {
+											warn!("Failed to recreate cloud backend for volume {}: {}", fingerprint.0, e);
+										}
+									}
+								}
+							}
+							_ => {
+								warn!("Unsupported cloud service type for volume {}", fingerprint.0);
+							}
+						}
+					}
+					Err(e) => {
+						warn!("Failed to load credentials for cloud volume {} ({}): {}. The volume will not be available until credentials are re-entered by removing and re-adding the volume.",
+							db_volume.display_name.as_ref().unwrap_or(&"Unknown".to_string()),
+							fingerprint.0,
+							e
+						);
+					}
+				}
+			}
+		}
+
+		info!("Loaded {} cloud volumes from database", loaded_count);
 		Ok(())
 	}
 
@@ -499,6 +623,51 @@ impl VolumeManager {
 		self.volumes.read().await.get(fingerprint).cloned()
 	}
 
+	/// Get a volume by its database UUID (for cloud volumes)
+	/// This queries all libraries to find the volume record and then returns the in-memory Volume
+	pub async fn get_volume_by_uuid(
+		&self,
+		volume_uuid: Uuid,
+		library: &crate::library::Library,
+	) -> VolumeResult<Option<Volume>> {
+		// Query the database to find the volume record by UUID
+		let db = library.db().conn();
+		let volume_record = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Uuid.eq(volume_uuid))
+			.one(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		if let Some(record) = volume_record {
+			// Get the volume from our in-memory store by fingerprint
+			let fingerprint = VolumeFingerprint(record.fingerprint);
+			Ok(self.get_volume(&fingerprint).await)
+		} else {
+			Ok(None)
+		}
+	}
+
+	/// Resolve a volume for an SdPath (unified method for cloud and local paths)
+	/// This abstracts away the cloud/local path distinction
+	pub async fn resolve_volume_for_sdpath(
+		&self,
+		sdpath: &crate::domain::addressing::SdPath,
+		library: &crate::library::Library,
+	) -> VolumeResult<Option<Volume>> {
+		// Check if this is a cloud path (has volume_id)
+		if let Some(volume_uuid) = sdpath.volume_id() {
+			// Cloud path - look up by UUID
+			self.get_volume_by_uuid(volume_uuid, library).await
+		} else {
+			// Local path - resolve by filesystem path
+			if let Some(local_path) = sdpath.as_local_path() {
+				Ok(self.volume_for_path(local_path).await)
+			} else {
+				Ok(None)
+			}
+		}
+	}
+
 	/// Check if two paths are on the same volume
 	pub async fn same_volume(&self, path1: &Path, path2: &Path) -> bool {
 		let vol1 = self.volume_for_path(path1).await;
@@ -663,6 +832,16 @@ impl VolumeManager {
 		debug!("Volume path cache cleared");
 	}
 
+	/// Register a cloud volume with the volume manager
+	/// This adds the volume to the internal volumes map so it can be tracked
+	pub async fn register_cloud_volume(&self, volume: Volume) {
+		let fingerprint = volume.fingerprint.clone();
+		let mut volumes = self.volumes.write().await;
+
+		info!("Registering cloud volume '{}' with fingerprint {}", volume.name, fingerprint);
+		volumes.insert(fingerprint, volume);
+	}
+
 	/// Track a volume in the specified library
 	pub async fn track_volume(
 		&self,
@@ -721,7 +900,7 @@ impl VolumeManager {
 
 		// Create tracking record
 		let active_model = entities::volume::ActiveModel {
-			uuid: Set(Uuid::new_v4()),
+			uuid: Set(volume.uuid), // Use the volume's UUID
 			device_id: Set(volume.device_id), // Use Uuid directly
 			fingerprint: Set(fingerprint.0.clone()),
 			display_name: Set(display_name.clone()),
@@ -1084,6 +1263,13 @@ impl VolumeManager {
 	/// Create or read Spacedrive identifier file for a volume
 	/// Returns the UUID from the identifier file if successfully created/read
 	async fn manage_spacedrive_identifier(&self, volume: &Volume) -> Option<Uuid> {
+		// Skip cloud volumes - they don't have filesystem mount points
+		if matches!(volume.volume_type, crate::volume::types::VolumeType::Network)
+			&& matches!(volume.mount_type, crate::volume::types::MountType::Network) {
+			debug!("Skipping Spacedrive identifier management for cloud volume: {}", volume.name);
+			return None;
+		}
+
 		let id_file_path = volume.mount_point.join(SPACEDRIVE_VOLUME_ID_FILE);
 
 		// Try to read existing identifier file

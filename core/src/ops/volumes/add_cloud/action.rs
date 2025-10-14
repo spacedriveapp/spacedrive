@@ -104,6 +104,7 @@ impl LibraryAction for VolumeAddCloudAction {
 		let backend_arc: Arc<dyn crate::volume::VolumeBackend> = Arc::new(backend);
 
 		let volume = Volume {
+			uuid: Uuid::new_v4(), // Generate UUID for cloud volume
 			fingerprint: fingerprint.clone(),
 			device_id,
 			name: self.input.display_name.clone(),
@@ -136,6 +137,15 @@ impl LibraryAction for VolumeAddCloudAction {
 			.map_err(|e| {
 				ActionError::InvalidInput(format!("Failed to store credentials: {}", e))
 			})?;
+
+		tracing::info!("Successfully stored credentials for cloud volume {} in keyring (library: {}, fingerprint: {})",
+			self.input.display_name, library_id, fingerprint.0);
+
+		// Register the cloud volume with the volume manager so it can be tracked
+		context
+			.volume_manager
+			.register_cloud_volume(volume.clone())
+			.await;
 
 		let tracked = context
 			.volume_manager

@@ -173,7 +173,7 @@ impl LibraryManager {
 		tokio::fs::create_dir_all(&library_path).await?;
 
 		// Initialize library
-		self.initialize_library(&library_path, name).await?;
+		self.initialize_library(&library_path, name, context.clone()).await?;
 
 		// Open the newly created library
 		let library = self.open_library(&library_path, context.clone()).await?;
@@ -454,7 +454,7 @@ impl LibraryManager {
 	}
 
 	/// Initialize a new library directory
-	async fn initialize_library(&self, path: &Path, name: String) -> Result<()> {
+	async fn initialize_library(&self, path: &Path, name: String, context: Arc<CoreContext>) -> Result<()> {
 		// Create subdirectories
 		tokio::fs::create_dir_all(path.join("thumbnails")).await?;
 		tokio::fs::create_dir_all(path.join("previews")).await?;
@@ -474,6 +474,13 @@ impl LibraryManager {
 			settings: LibrarySettings::default(),
 			statistics: LibraryStatistics::default(),
 		};
+
+		// Initialize library encryption key
+		context.library_key_manager
+			.get_or_create_library_key(config.id)
+			.map_err(|e| LibraryError::Other(format!("Failed to initialize library encryption key: {}", e)))?;
+
+		info!("Initialized encryption key for library '{}'", config.name);
 
 		// Save configuration
 		let config_path = path.join("library.json");

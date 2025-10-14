@@ -1,3 +1,4 @@
+pub mod cloud;
 pub mod devices;
 pub mod file;
 pub mod index;
