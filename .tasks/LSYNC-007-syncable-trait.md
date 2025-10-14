@@ -1,12 +1,13 @@
 ---
 id: LSYNC-007
 title: Syncable Trait (Device Ownership Aware)
-status: To Do
+status: Done
 assignee: unassigned
 parent: LSYNC-000
 priority: High
 tags: [sync, trait, codegen, macro]
 design_doc: core/src/infra/sync/NEW_SYNC.md
+last_updated: 2025-10-14
 ---
 
 ## Description
