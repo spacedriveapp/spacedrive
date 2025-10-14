@@ -1,13 +1,13 @@
 ---
 id: CLOUD-003
 title: Cloud Storage Provider as a Volume
-status: Completed
+status: In Progress
 assignee: unassigned
 parent: CLOUD-000
 priority: High
 tags: [cloud, storage, volume, s3]
 whitepaper: Section 5.2
-last_updated: 2025-10-13
+last_updated: 2025-10-14
 ---
 
 ## Description

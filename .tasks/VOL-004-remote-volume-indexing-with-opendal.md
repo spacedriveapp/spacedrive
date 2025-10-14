@@ -1,13 +1,13 @@
 ---
 id: VOL-004
 title: Remote Volume Indexing with OpenDAL
-status: Completed
+status: Done
 assignee: unassigned
 parent: VOL-000
 priority: High
 tags: [volume, remote-indexing, opendal, cloud]
 whitepaper: Section 4.3.5
-last_updated: 2025-10-13
+last_updated: 2025-10-14
 related_tasks: [CLOUD-003]
 ---
 

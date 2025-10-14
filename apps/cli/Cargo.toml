@@ -10,6 +10,7 @@ chrono      = { version = "0.4", features = ["serde"] }
 clap        = { version = "4", features = ["derive"] }
 comfy-table = "7.1"
 crossterm   = "0.27"
+dirs        = "5.0"
 indicatif   = "0.17"
 inquire     = "0.7"
 qr2term     = "0.3"
