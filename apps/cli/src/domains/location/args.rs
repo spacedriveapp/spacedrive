@@ -2,11 +2,14 @@ use clap::Args;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use sd_core::ops::{
-	indexing::job::IndexMode,
-	locations::{
-		add::action::LocationAddInput, remove::action::LocationRemoveInput,
-		rescan::action::LocationRescanInput,
+use sd_core::{
+	domain::addressing::SdPath,
+	ops::{
+		indexing::job::IndexMode,
+		locations::{
+			add::action::LocationAddInput, remove::action::LocationRemoveInput,
+			rescan::action::LocationRescanInput,
+		},
 	},
 };
 
@@ -14,20 +17,42 @@ use crate::domains::index::args::IndexModeArg;
 
 #[derive(Args, Debug)]
 pub struct LocationAddArgs {
-	pub path: PathBuf,
+	/// Path to add (local filesystem path or cloud path)
+	/// If not provided, enters interactive mode
+	pub path: Option<String>,
+
+	/// Cloud volume ID (if adding a cloud location)
+	#[arg(long)]
+	pub cloud: Option<Uuid>,
+
+	/// Display name for the location
 	#[arg(long)]
 	pub name: Option<String>,
-	#[arg(long, value_enum, default_value = "content")]
-	pub mode: IndexModeArg,
+
+	/// Indexing mode
+	#[arg(long, value_enum)]
+	pub mode: Option<IndexModeArg>,
 }
 
-impl From<LocationAddArgs> for LocationAddInput {
-	fn from(args: LocationAddArgs) -> Self {
-		Self {
-			path: args.path,
-			name: args.name,
-			mode: IndexMode::from(args.mode),
+impl LocationAddArgs {
+	/// Build an SdPath from the args (non-interactive mode)
+	pub fn build_sd_path(&self) -> anyhow::Result<SdPath> {
+		let path_str = self.path.as_ref()
+			.ok_or_else(|| anyhow::anyhow!("Path is required in non-interactive mode"))?;
+
+		if let Some(volume_id) = self.cloud {
+			// Cloud path
+			Ok(SdPath::cloud(volume_id, path_str.clone()))
+		} else {
+			// Local path
+			let path_buf = PathBuf::from(path_str);
+			Ok(SdPath::local(path_buf))
 		}
+	}
+
+	/// Check if interactive mode should be triggered
+	pub fn is_interactive(&self) -> bool {
+		self.path.is_none()
 	}
 }
 

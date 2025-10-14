@@ -63,3 +63,61 @@ pub fn prompt_for_choice(request: ConfirmationRequest) -> Result<usize> {
 		}
 	}
 }
+
+/// Prompt the user for text input.
+/// Returns the trimmed input string, or None if empty and optional.
+pub fn prompt_for_text(prompt: &str, optional: bool) -> Result<Option<String>> {
+	use std::io::{self, Write};
+
+	loop {
+		if optional {
+			print!("{} (optional): ", prompt);
+		} else {
+			print!("{}: ", prompt);
+		}
+		io::stdout().flush()?;
+
+		let mut input = String::new();
+		io::stdin().read_line(&mut input)?;
+		let trimmed = input.trim().to_string();
+
+		if trimmed.is_empty() {
+			if optional {
+				return Ok(None);
+			} else {
+				println!("This field is required. Please enter a value.");
+				continue;
+			}
+		}
+
+		return Ok(Some(trimmed));
+	}
+}
+
+/// Simplified prompt for a list of string choices.
+/// Returns the 0-based index of the selected choice.
+pub fn prompt_for_list(message: &str, choices: &[String]) -> Result<usize> {
+	use std::io::{self, Write};
+
+	println!("{}", message);
+	for (i, choice) in choices.iter().enumerate() {
+		println!("  [{}]: {}", i + 1, choice);
+	}
+
+	loop {
+		print!("Select (1-{}): ", choices.len());
+		io::stdout().flush()?;
+
+		let mut input = String::new();
+		io::stdin().read_line(&mut input)?;
+
+		match input.trim().parse::<usize>() {
+			Ok(num) if num > 0 && num <= choices.len() => {
+				return Ok(num - 1);
+			}
+			_ => {
+				println!("Invalid. Please enter 1-{}.", choices.len());
+			}
+		}
+	}
+}

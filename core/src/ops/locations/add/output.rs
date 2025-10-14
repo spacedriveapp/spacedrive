@@ -1,23 +1,22 @@
 //! Location add operation output types
 
-use crate::infra::action::output::ActionOutputTrait;
+use crate::{domain::addressing::SdPath, infra::action::output::ActionOutputTrait};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Output from location add action dispatch
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationAddOutput {
 	pub location_id: Uuid,
-	pub path: PathBuf,
+	pub path: SdPath,
 	pub name: Option<String>,
 	pub job_id: Option<Uuid>,
 }
 
 impl LocationAddOutput {
-	pub fn new(location_id: Uuid, path: PathBuf, name: Option<String>) -> Self {
+	pub fn new(location_id: Uuid, path: SdPath, name: Option<String>) -> Self {
 		Self {
 			location_id,
 			path,
@@ -41,15 +40,9 @@ impl ActionOutputTrait for LocationAddOutput {
 		match &self.name {
 			Some(name) => format!(
 				"Added location '{}' with ID {} at {}",
-				name,
-				self.location_id,
-				self.path.display()
+				name, self.location_id, self.path
 			),
-			None => format!(
-				"Added location with ID {} at {}",
-				self.location_id,
-				self.path.display()
-			),
+			None => format!("Added location with ID {} at {}", self.location_id, self.path),
 		}
 	}
 

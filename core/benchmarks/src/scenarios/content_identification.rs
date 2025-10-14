@@ -35,7 +35,7 @@ impl Scenario for ContentIdentificationScenario {
 
 		for loc in &recipe.locations {
 			let input = sd_core::ops::locations::add::action::LocationAddInput {
-				path: loc.path.clone(),
+				path: sd_core::domain::addressing::SdPath::local(loc.path.clone()),
 				name: Some(format!("bench:{}", recipe.name)),
 				mode: sd_core::ops::indexing::IndexMode::Content,
 			};
