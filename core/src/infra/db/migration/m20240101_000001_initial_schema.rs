@@ -214,7 +214,6 @@ impl MigrationTrait for Migration {
 							.integer()
 							.not_null(),
 					)
-					.col(ColumnDef::new(ContentIdentities::MediaData).json())
 					.col(ColumnDef::new(ContentIdentities::TextContent).text())
 					.col(
 						ColumnDef::new(ContentIdentities::TotalSize)
@@ -835,7 +834,6 @@ enum ContentIdentities {
 	ContentHash,
 	MimeTypeId,
 	KindId,
-	MediaData,
 	TextContent,
 	TotalSize,
 	EntryCount,

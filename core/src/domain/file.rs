@@ -347,7 +347,6 @@ mod tests {
 			uuid: Uuid::new_v4(),
 			kind: ContentKind::Image,
 			hash: "abc123".to_string(),
-			media_data: None,
 			created_at: Utc::now(),
 		};
 

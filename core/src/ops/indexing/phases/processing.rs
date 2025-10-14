@@ -15,7 +15,6 @@ use crate::{
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
 use std::path::Path;
-use std::sync::Arc;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -26,7 +25,6 @@ pub async fn run_processing_phase(
 	ctx: &JobContext<'_>,
 	mode: IndexMode,
 	location_root_path: &Path,
-	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<(), JobError> {
 	let total_batches = state.entry_batches.len();
 	ctx.log(format!(

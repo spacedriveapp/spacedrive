@@ -8,3 +8,4 @@ pub mod logs;
 pub mod network;
 pub mod search;
 pub mod tag;
+pub mod volume;

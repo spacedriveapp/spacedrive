@@ -156,9 +156,14 @@ impl LibraryQuery for DirectoryListingQuery {
 				e.parent_id as entry_parent_id,
 				ci.id as content_identity_id,
 				ci.uuid as content_identity_uuid,
-				ci.content_hash as content_identity_hash,
-				ci.media_data as content_identity_media_data,
-				ci.first_seen_at as content_identity_first_seen_at,
+				ci.content_hash as content_hash,
+				ci.integrity_hash as integrity_hash,
+				ci.mime_type_id as mime_type_id,
+				ci.text_content as text_content,
+				ci.total_size as total_size,
+				ci.entry_count as entry_count,
+				ci.first_seen_at as first_seen_at,
+				ci.last_verified_at as last_verified_at,
 				ck.id as content_kind_id,
 				ck.name as content_kind_name
 			FROM entries e
@@ -233,17 +238,19 @@ impl LibraryQuery for DirectoryListingQuery {
 			let entry_inode: Option<i64> = row.try_get("", "entry_inode").ok();
 
 			// Content identity data
-			let content_identity_id: Option<i32> = row.try_get("", "content_identity_id").ok();
 			let content_identity_uuid: Option<Uuid> = row.try_get("", "content_identity_uuid").ok();
-			let content_identity_hash: Option<String> =
-				row.try_get("", "content_identity_hash").ok();
-			let content_identity_media_data: Option<serde_json::Value> =
-				row.try_get("", "content_identity_media_data").ok();
-			let content_identity_first_seen_at: Option<chrono::DateTime<chrono::Utc>> =
-				row.try_get("", "content_identity_first_seen_at").ok();
+			let content_hash: Option<String> = row.try_get("", "content_hash").ok();
+			let integrity_hash: Option<String> = row.try_get("", "integrity_hash").ok();
+			let mime_type_id: Option<i32> = row.try_get("", "mime_type_id").ok();
+			let text_content: Option<String> = row.try_get("", "text_content").ok();
+			let total_size: Option<i64> = row.try_get("", "total_size").ok();
+			let entry_count: Option<i32> = row.try_get("", "entry_count").ok();
+			let first_seen_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "first_seen_at").ok();
+			let last_verified_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "last_verified_at").ok();
 
 			// Content kind data
-			let content_kind_id: Option<i32> = row.try_get("", "content_kind_id").ok();
 			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 
 			// Use entry ID as UUID if uuid is None
@@ -291,37 +298,31 @@ impl LibraryQuery for DirectoryListingQuery {
 			};
 
 			// Create content identity if available
-			let content_identity = if let (Some(ci_uuid), Some(ci_hash), Some(ci_first_seen)) = (
-				content_identity_uuid,
-				content_identity_hash,
-				content_identity_first_seen_at,
-			) {
-				// Convert content_kind name to ContentKind enum
-				let kind = content_kind_name
-					.as_ref()
-					.map(|name| crate::domain::ContentKind::from(name.as_str()))
-					.unwrap_or(crate::domain::ContentKind::Unknown);
+			let content_identity =
+				if let (Some(ci_uuid), Some(ci_hash), Some(ci_first_seen), Some(ci_last_verified)) =
+					(content_identity_uuid, content_hash, first_seen_at, last_verified_at)
+				{
+					// Convert content_kind name to ContentKind enum
+					let kind = content_kind_name
+						.as_ref()
+						.map(|name| crate::domain::ContentKind::from(name.as_str()))
+						.unwrap_or(crate::domain::ContentKind::Unknown);
 
-				Some(crate::domain::ContentIdentity {
-					uuid: ci_uuid,
-					kind,
-					hash: ci_hash,
-					media_data: content_identity_media_data.map(|json| {
-						serde_json::from_value(json).unwrap_or_else(|_| crate::domain::MediaData {
-							width: None,
-							height: None,
-							duration: None,
-							bitrate: None,
-							fps: None,
-							exif: None,
-							extra: serde_json::Value::Null,
-						})
-					}),
-					created_at: ci_first_seen,
-				})
-			} else {
-				None
-			};
+					Some(crate::domain::ContentIdentity {
+						uuid: ci_uuid,
+						kind,
+						content_hash: ci_hash,
+						integrity_hash,
+						mime_type_id,
+						text_content,
+						total_size: total_size.unwrap_or(0),
+						entry_count: entry_count.unwrap_or(0),
+						first_seen_at: ci_first_seen,
+						last_verified_at: ci_last_verified,
+					})
+				} else {
+					None
+				};
 
 			// Create file construction data
 			let file_data = FileConstructionData {
@@ -400,11 +401,42 @@ impl DirectoryListingQuery {
 					}
 				}
 			}
-			SdPath::Cloud { .. } => {
-				// Cloud storage directory browsing is not yet implemented
-				Err(QueryError::Internal(
-					"Cloud storage directory browsing is not yet implemented".to_string(),
-				))
+			SdPath::Cloud { volume_id, path } => {
+				// Cloud storage directory browsing
+				tracing::debug!(" Looking for cloud directory: volume={}, path='{}'", volume_id, path);
+
+				// Find directory entry by path in directory_paths table
+				// Cloud paths are stored the same way as physical paths
+				tracing::debug!(" Querying directory_paths table...");
+				let directory_path = directory_paths::Entity::find()
+					.filter(directory_paths::Column::Path.eq(path))
+					.one(db)
+					.await?;
+				tracing::debug!(" Directory path query result: {:?}", directory_path);
+
+				match directory_path {
+					Some(dp) => {
+						tracing::debug!(" Found directory path entry: {:?}", dp);
+						tracing::debug!(" Looking for entry with ID: {}", dp.entry_id);
+
+						// Get the entry for this directory
+						let entry_result = entry::Entity::find_by_id(dp.entry_id).one(db).await?;
+						tracing::debug!(" Entry query result: {:?}", entry_result);
+
+						entry_result.ok_or_else(|| {
+							QueryError::Internal(format!(
+								"Entry not found for cloud directory: {}",
+								dp.entry_id
+							))
+						})
+					}
+					None => {
+						tracing::debug!(" Cloud directory not found in directory_paths table");
+						Err(QueryError::Internal(
+							format!("Cloud directory '{}' has not been indexed yet. Please ensure the cloud volume is connected and indexing is complete.", path)
+						))
+					}
+				}
 			}
 			SdPath::Content { .. } => {
 				// Content-addressed paths are not supported for directory browsing

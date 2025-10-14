@@ -60,75 +60,6 @@ offset = 0
 priority = 100
 
 [[file_types]]
-id = "application/x-apple-diskimage"
-name = "Apple Disk Image"
-extensions = ["dmg"]
-mime_types = ["application/x-apple-diskimage"]
-uti = "com.apple.disk-image"
-category = "executable"
-priority = 100
-
-[[file_types]]
-id = "application/vnd.android.package-archive"
-name = "Android Package"
-extensions = ["apk"]
-mime_types = ["application/vnd.android.package-archive"]
-category = "executable"
-priority = 100
-
-[[file_types.magic_bytes]]
-pattern = "50 4B 03 04"
-offset = 0
-priority = 90
-
-[[file_types]]
-id = "application/x-debian-package"
-name = "Debian Package"
-extensions = ["deb"]
-mime_types = ["application/x-debian-package", "application/vnd.debian.binary-package"]
-category = "executable"
-priority = 100
-
-[[file_types.magic_bytes]]
-pattern = "21 3C 61 72 63 68 3E"
-offset = 0
-priority = 100
-
-[[file_types]]
-id = "application/x-redhat-package"
-name = "RPM Package"
-extensions = ["rpm"]
-mime_types = ["application/x-rpm", "application/x-redhat-package-manager"]
-category = "executable"
-priority = 100
-
-[[file_types.magic_bytes]]
-pattern = "ED AB EE DB"
-offset = 0
-priority = 100
-
-[[file_types]]
-id = "application/x-apple-installer"
-name = "macOS Package"
-extensions = ["pkg"]
-mime_types = ["application/x-apple-installer"]
-category = "executable"
-priority = 100
-
-[[file_types]]
-id = "application/x-msi"
-name = "Windows Installer"
-extensions = ["msi"]
-mime_types = ["application/x-msi", "application/x-msdownload"]
-category = "executable"
-priority = 100
-
-[[file_types.magic_bytes]]
-pattern = "D0 CF 11 E0 A1 B1 1A E1"
-offset = 0
-priority = 90
-
-[[file_types]]
 id = "application/java-archive"
 name = "Java Archive"
 extensions = ["jar"]
@@ -156,18 +87,6 @@ priority = 80
 [file_types.metadata]
 text_file = true
 windows_script = true
-
-[[file_types]]
-id = "application/x-apple-application"
-name = "macOS Application"
-extensions = ["app"]
-mime_types = ["application/x-apple-application"]
-uti = "com.apple.application-bundle"
-category = "executable"
-priority = 100
-
-[file_types.metadata]
-bundle = true
 
 # Fonts
 [[file_types]]
@@ -376,19 +295,6 @@ priority = 80
 [file_types.metadata]
 text_file = true
 feed = true
-
-[[file_types]]
-id = "text/csv"
-name = "CSV"
-extensions = ["csv"]
-mime_types = ["text/csv"]
-uti = "public.comma-separated-values-text"
-category = "config"
-priority = 70
-
-[file_types.metadata]
-text_file = true
-tabular = true
 
 [[file_types]]
 id = "application/x-config"

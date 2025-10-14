@@ -14,6 +14,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use super::library_key_manager::LibraryKeyManager;
+use std::sync::Arc;
 
 const KEYRING_SERVICE: &str = "SpacedriveCloudCredentials";
 
@@ -43,11 +44,11 @@ pub enum CloudCredentialError {
 
 /// Manages cloud service credentials encrypted with library keys
 pub struct CloudCredentialManager {
-	library_key_manager: LibraryKeyManager,
+	library_key_manager: Arc<LibraryKeyManager>,
 }
 
 impl CloudCredentialManager {
-	pub fn new(library_key_manager: LibraryKeyManager) -> Self {
+	pub fn new(library_key_manager: Arc<LibraryKeyManager>) -> Self {
 		Self {
 			library_key_manager,
 		}
@@ -274,7 +275,7 @@ mod tests {
 
 	#[test]
 	fn test_encrypt_decrypt_credential() {
-		let library_key_manager = LibraryKeyManager::new().unwrap();
+		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
 		let manager = CloudCredentialManager::new(library_key_manager);
 
 		let library_id = Uuid::new_v4();

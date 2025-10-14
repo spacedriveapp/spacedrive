@@ -1,0 +1,97 @@
+# Email file type definitions
+
+[[file_types]]
+id = "message/rfc822"
+name = "Email Message"
+extensions = ["eml", "emlx"]
+mime_types = ["message/rfc822"]
+category = "email"
+priority = 100
+
+[file_types.metadata]
+text_based = true
+
+[[file_types]]
+id = "application/vnd.ms-outlook"
+name = "Outlook Message"
+extensions = ["msg"]
+mime_types = ["application/vnd.ms-outlook"]
+uti = "com.microsoft.outlook.msg"
+category = "email"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/mbox"
+name = "MBOX Mailbox"
+extensions = ["mbox"]
+mime_types = ["application/mbox"]
+category = "email"
+priority = 100
+
+[file_types.metadata]
+text_based = true
+container = true
+
+[[file_types]]
+id = "application/vnd.ms-outlook.pst"
+name = "Outlook Personal Folders"
+extensions = ["pst"]
+mime_types = ["application/vnd.ms-outlook.pst"]
+category = "email"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "21 42 44 4E"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+container = true
+database = true
+
+[[file_types]]
+id = "application/vnd.ms-outlook.ost"
+name = "Outlook Offline Folders"
+extensions = ["ost"]
+mime_types = ["application/vnd.ms-outlook.ost"]
+category = "email"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "21 42 44 4E"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+container = true
+database = true
+
+[[file_types]]
+id = "application/vnd.apple.mail"
+name = "Apple Mail"
+extensions = ["mailbundle"]
+mime_types = ["application/vnd.apple.mail"]
+category = "email"
+priority = 100
+
+[file_types.metadata]
+apple = true
+bundle = true
+
+[[file_types]]
+id = "application/x-gmail-archive"
+name = "Gmail Archive"
+extensions = ["mbox"]
+mime_types = ["application/x-gmail-archive"]
+category = "email"
+priority = 95
+
+[file_types.metadata]
+text_based = true
+container = true
+google = true

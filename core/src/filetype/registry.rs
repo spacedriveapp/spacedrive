@@ -331,6 +331,14 @@ impl FileTypeRegistry {
 			"config" => ContentKind::Config,
 			"encrypted" => ContentKind::Encrypted,
 			"key" => ContentKind::Key,
+			"spreadsheet" => ContentKind::Spreadsheet,
+			"presentation" => ContentKind::Presentation,
+			"email" => ContentKind::Email,
+			"calendar" => ContentKind::Calendar,
+			"contact" => ContentKind::Contact,
+			"web" => ContentKind::Web,
+			"shortcut" => ContentKind::Shortcut,
+			"package" => ContentKind::Package,
 			_ => ContentKind::Unknown,
 		};
 

@@ -1,0 +1,110 @@
+# Web file type definitions
+
+[[file_types]]
+id = "text/html"
+name = "HTML Document"
+extensions = ["html", "htm"]
+mime_types = ["text/html"]
+uti = "public.html"
+category = "web"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "3C 21 44 4F 43 54 59 50 45 20 68 74 6D 6C"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+text_file = true
+markup = true
+
+[[file_types]]
+id = "application/xhtml+xml"
+name = "XHTML Document"
+extensions = ["xhtml", "xht"]
+mime_types = ["application/xhtml+xml"]
+uti = "public.xhtml"
+category = "web"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "3C 3F 78 6D 6C"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+text_file = true
+markup = true
+
+[[file_types]]
+id = "message/rfc822-html"
+name = "MHTML Web Archive"
+extensions = ["mhtml", "mht"]
+mime_types = ["message/rfc822", "multipart/related"]
+category = "web"
+priority = 100
+
+[file_types.metadata]
+archive = true
+web_archive = true
+
+[[file_types]]
+id = "application/x-webarchive"
+name = "Safari Web Archive"
+extensions = ["webarchive"]
+mime_types = ["application/x-webarchive"]
+uti = "com.apple.webarchive"
+category = "web"
+priority = 100
+
+[file_types.metadata]
+apple = true
+archive = true
+web_archive = true
+
+[[file_types]]
+id = "application/x-httpd-php"
+name = "PHP Script"
+extensions = ["php", "phtml"]
+mime_types = ["application/x-httpd-php", "text/x-php"]
+category = "web"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+server_side = true
+
+[[file_types]]
+id = "text/asp"
+name = "ASP Script"
+extensions = ["asp", "aspx"]
+mime_types = ["text/asp"]
+category = "web"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+server_side = true
+
+[[file_types]]
+id = "application/x-jsp"
+name = "JavaServer Pages"
+extensions = ["jsp"]
+mime_types = ["application/x-jsp"]
+category = "web"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+server_side = true
+
+[[file_types]]
+id = "text/x-component"
+name = "Web Component"
+extensions = ["htc"]
+mime_types = ["text/x-component"]
+category = "web"
+priority = 80
+
+[file_types.metadata]
+text_file = true

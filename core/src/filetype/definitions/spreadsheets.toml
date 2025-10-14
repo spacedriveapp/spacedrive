@@ -1,0 +1,131 @@
+# Spreadsheet file type definitions
+
+[[file_types]]
+id = "application/vnd.ms-excel"
+name = "Microsoft Excel"
+extensions = ["xls"]
+mime_types = ["application/vnd.ms-excel"]
+uti = "com.microsoft.excel.xls"
+category = "spreadsheet"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+name = "Microsoft Excel (OpenXML)"
+extensions = ["xlsx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+uti = "org.openxmlformats.spreadsheetml.sheet"
+category = "spreadsheet"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.spreadsheetml.template"
+name = "Excel Template (OpenXML)"
+extensions = ["xltx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.spreadsheetml.template"]
+category = "spreadsheet"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.ms-excel.sheet.macroEnabled.12"
+name = "Excel Macro-Enabled"
+extensions = ["xlsm"]
+mime_types = ["application/vnd.ms-excel.sheet.macroEnabled.12"]
+category = "spreadsheet"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.ms-excel.sheet.binary.macroEnabled.12"
+name = "Excel Binary Workbook"
+extensions = ["xlsb"]
+mime_types = ["application/vnd.ms-excel.sheet.binary.macroEnabled.12"]
+category = "spreadsheet"
+priority = 100
+
+[[file_types]]
+id = "application/vnd.oasis.opendocument.spreadsheet"
+name = "OpenDocument Spreadsheet"
+extensions = ["ods"]
+mime_types = ["application/vnd.oasis.opendocument.spreadsheet"]
+uti = "org.oasis-open.opendocument.spreadsheet"
+category = "spreadsheet"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/x-iwork-numbers-sffnumbers"
+name = "Apple Numbers"
+extensions = ["numbers"]
+mime_types = ["application/x-iwork-numbers-sffnumbers"]
+uti = "com.apple.iwork.numbers.numbers"
+category = "spreadsheet"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+iwork = true
+
+[[file_types]]
+id = "text/csv"
+name = "CSV"
+extensions = ["csv"]
+mime_types = ["text/csv"]
+uti = "public.comma-separated-values-text"
+category = "spreadsheet"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+tabular = true
+
+[[file_types]]
+id = "text/tab-separated-values"
+name = "TSV"
+extensions = ["tsv"]
+mime_types = ["text/tab-separated-values"]
+category = "spreadsheet"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+tabular = true
+
+[[file_types]]
+id = "application/vnd.google-apps.spreadsheet"
+name = "Google Sheets"
+extensions = ["gsheet"]
+mime_types = ["application/vnd.google-apps.spreadsheet"]
+category = "spreadsheet"
+priority = 100
+
+[file_types.metadata]
+google_workspace = true
+cloud_native = true

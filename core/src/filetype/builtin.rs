@@ -13,6 +13,14 @@ pub static BUILTIN_DEFINITIONS: Lazy<Vec<&'static str>> = Lazy::new(|| {
 		include_str!("definitions/documents.toml"),
 		include_str!("definitions/code.toml"),
 		include_str!("definitions/archives.toml"),
+		include_str!("definitions/spreadsheets.toml"),
+		include_str!("definitions/presentations.toml"),
+		include_str!("definitions/email.toml"),
+		include_str!("definitions/calendar.toml"),
+		include_str!("definitions/contacts.toml"),
+		include_str!("definitions/web.toml"),
+		include_str!("definitions/shortcuts.toml"),
+		include_str!("definitions/packages.toml"),
 		include_str!("definitions/misc.toml"),
 	]
 });

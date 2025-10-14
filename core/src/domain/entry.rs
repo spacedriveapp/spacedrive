@@ -90,7 +90,10 @@ impl SdPathSerialized {
 				device_id: *device_id,
 				path: path.to_string_lossy().to_string(),
 			}),
-			SdPath::Cloud { .. } => None, // Can't serialize cloud paths to this format
+			SdPath::Cloud { volume_id, path } => Some(Self {
+				device_id: *volume_id, // Use volume_id as device_id for cloud paths
+				path: path.clone(),
+			}),
 			SdPath::Content { .. } => None, // Can't serialize content paths to this format
 		}
 	}
@@ -184,11 +187,7 @@ impl TryFrom<(crate::infra::db::entities::entry::Model, SdPath)> for Entry {
 	) -> Result<Self, Self::Error> {
 		let device_uuid = match &parent_sd_path {
 			SdPath::Physical { device_id, .. } => *device_id,
-			SdPath::Cloud { .. } => {
-				return Err(anyhow::anyhow!(
-					"Cloud storage paths not yet supported for directory listing"
-				))
-			}
+			SdPath::Cloud { volume_id, .. } => *volume_id,
 			SdPath::Content { .. } => {
 				return Err(anyhow::anyhow!(
 					"Content-addressed paths not supported for directory listing"

@@ -1,0 +1,87 @@
+# Shortcut and link file type definitions
+
+[[file_types]]
+id = "application/x-ms-shortcut"
+name = "Windows Shortcut"
+extensions = ["lnk"]
+mime_types = ["application/x-ms-shortcut"]
+uti = "com.microsoft.windows-shortcut"
+category = "shortcut"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4C 00 00 00 01 14 02 00"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/internet-shortcut"
+name = "Windows Internet Shortcut"
+extensions = ["url"]
+mime_types = ["application/internet-shortcut"]
+category = "shortcut"
+priority = 100
+
+[file_types.metadata]
+text_file = true
+internet = true
+
+[[file_types]]
+id = "application/x-apple-alias"
+name = "macOS Alias"
+extensions = ["alias"]
+mime_types = ["application/x-apple-alias"]
+uti = "com.apple.alias-file"
+category = "shortcut"
+priority = 100
+
+[file_types.metadata]
+apple = true
+
+[[file_types]]
+id = "application/x-apple-webloc"
+name = "macOS Web Location"
+extensions = ["webloc"]
+mime_types = ["application/x-apple-webloc"]
+uti = "com.apple.web-internet-location"
+category = "shortcut"
+priority = 100
+
+[file_types.metadata]
+apple = true
+internet = true
+
+[[file_types]]
+id = "application/x-desktop"
+name = "Linux Desktop Entry"
+extensions = ["desktop"]
+mime_types = ["application/x-desktop"]
+category = "shortcut"
+priority = 100
+
+[file_types.metadata]
+text_file = true
+linux = true
+
+[[file_types]]
+id = "inode/symlink"
+name = "Symbolic Link"
+extensions = []
+mime_types = ["inode/symlink"]
+category = "shortcut"
+priority = 100
+
+[file_types.metadata]
+filesystem = true
+
+[[file_types]]
+id = "application/x-wine-extension-ini"
+name = "Wine Desktop Entry"
+extensions = ["lnk"]
+mime_types = ["application/x-wine-extension-ini"]
+category = "shortcut"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+wine = true

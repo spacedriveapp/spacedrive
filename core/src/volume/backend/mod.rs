@@ -58,7 +58,7 @@ pub enum BackendType {
 }
 
 /// Cloud service type identifier
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum CloudServiceType {
 	S3,
 	GoogleDrive,

@@ -709,7 +709,6 @@ impl EntryProcessor {
 				content_hash: Set(content_hash.clone()),
 				mime_type_id: Set(mime_type_id),
 				kind_id: Set(kind_id),
-				media_data: Set(None),   // Set during media analysis
 				text_content: Set(None), // TODO: Extract text content for indexing
 				total_size: Set(file_size),
 				entry_count: Set(1),

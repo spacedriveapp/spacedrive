@@ -132,21 +132,20 @@ impl FileByPathQuery {
 		db: &DatabaseConnection,
 	) -> QueryResult<entry::Model> {
 		match sd_path {
-			SdPath::Physical { device_id, path } => {
-				// More efficient approach: find the file by its filename and parent directory
-				let file_name = path
+			SdPath::Physical { .. } | SdPath::Cloud { .. } => {
+				// Use SdPath API for consistent path handling
+				let file_name = sd_path
 					.file_name()
-					.and_then(|n| n.to_str())
 					.ok_or_else(|| QueryError::Internal("Invalid file name in path".to_string()))?;
 
-				let parent_path = path
+				let parent_sd_path = sd_path
 					.parent()
 					.ok_or_else(|| QueryError::Internal("No parent directory".to_string()))?;
 
-				// Extract filename without extension for the database query
-				let (name, extension) = if let Some(ext) = path.extension().and_then(|e| e.to_str())
-				{
-					let name_without_ext = file_name.trim_end_matches(&format!(".{}", ext));
+				// Parse extension from filename
+				let (name, extension) = if let Some(dot_idx) = file_name.rfind('.') {
+					let name_without_ext = &file_name[..dot_idx];
+					let ext = &file_name[dot_idx + 1..];
 					(name_without_ext.to_string(), Some(ext.to_string()))
 				} else {
 					(file_name.to_string(), None)
@@ -163,6 +162,13 @@ impl FileByPathQuery {
 
 				let entries = query.all(db).await?;
 
+				// Get parent path string for comparison
+				let parent_path_str = match &parent_sd_path {
+					SdPath::Physical { path, .. } => path.to_string_lossy().to_string(),
+					SdPath::Cloud { path, .. } => path.clone(),
+					_ => return Err(QueryError::Internal("Invalid parent path".to_string())),
+				};
+
 				// For each matching entry, check if its parent directory path matches
 				for entry_model in entries {
 					if let Some(parent_id) = entry_model.parent_id {
@@ -176,7 +182,7 @@ impl FileByPathQuery {
 						{
 							if let Some(parent_path_model) = parent_path_model {
 								// Check if the parent directory path matches
-								if PathBuf::from(&parent_path_model.path) == parent_path {
+								if parent_path_model.path == parent_path_str {
 									return Ok(entry_model);
 								}
 							}
@@ -186,14 +192,8 @@ impl FileByPathQuery {
 
 				Err(QueryError::Internal(format!(
 					"File not found at path: {}",
-					path.display()
+					sd_path.display()
 				)))
-			}
-			SdPath::Cloud { .. } => {
-				// Cloud storage file queries are not yet implemented
-				Err(QueryError::Internal(
-					"Cloud storage file queries are not yet implemented".to_string(),
-				))
 			}
 			SdPath::Content { content_id } => {
 				// For content-addressed paths, find any entry with this content_id

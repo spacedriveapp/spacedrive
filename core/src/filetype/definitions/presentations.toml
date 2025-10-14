@@ -1,0 +1,111 @@
+# Presentation file type definitions
+
+[[file_types]]
+id = "application/vnd.ms-powerpoint"
+name = "Microsoft PowerPoint"
+extensions = ["ppt"]
+mime_types = ["application/vnd.ms-powerpoint"]
+uti = "com.microsoft.powerpoint.ppt"
+category = "presentation"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+name = "Microsoft PowerPoint (OpenXML)"
+extensions = ["pptx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.presentationml.presentation"]
+uti = "org.openxmlformats.presentationml.presentation"
+category = "presentation"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.presentationml.template"
+name = "PowerPoint Template (OpenXML)"
+extensions = ["potx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.presentationml.template"]
+category = "presentation"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.ms-powerpoint.presentation.macroEnabled.12"
+name = "PowerPoint Macro-Enabled"
+extensions = ["pptm"]
+mime_types = ["application/vnd.ms-powerpoint.presentation.macroEnabled.12"]
+category = "presentation"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.presentationml.slideshow"
+name = "PowerPoint Slideshow"
+extensions = ["ppsx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.presentationml.slideshow"]
+category = "presentation"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.oasis.opendocument.presentation"
+name = "OpenDocument Presentation"
+extensions = ["odp"]
+mime_types = ["application/vnd.oasis.opendocument.presentation"]
+uti = "org.oasis-open.opendocument.presentation"
+category = "presentation"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/x-iwork-keynote-sffkey"
+name = "Apple Keynote"
+extensions = ["key"]
+mime_types = ["application/x-iwork-keynote-sffkey"]
+uti = "com.apple.iwork.keynote.key"
+category = "presentation"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+iwork = true
+
+[[file_types]]
+id = "application/vnd.google-apps.presentation"
+name = "Google Slides"
+extensions = ["gslides"]
+mime_types = ["application/vnd.google-apps.presentation"]
+category = "presentation"
+priority = 100
+
+[file_types.metadata]
+google_workspace = true
+cloud_native = true

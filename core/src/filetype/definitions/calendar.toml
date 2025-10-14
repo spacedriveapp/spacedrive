@@ -1,0 +1,48 @@
+# Calendar file type definitions
+
+[[file_types]]
+id = "text/calendar"
+name = "iCalendar"
+extensions = ["ics", "ical", "ifb", "icalendar"]
+mime_types = ["text/calendar"]
+uti = "com.apple.ical.ics"
+category = "calendar"
+priority = 100
+
+[file_types.metadata]
+text_file = true
+
+[[file_types]]
+id = "text/x-vcalendar"
+name = "vCalendar"
+extensions = ["vcs"]
+mime_types = ["text/x-vcalendar"]
+category = "calendar"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+legacy = true
+
+[[file_types]]
+id = "application/vnd.google-apps.calendar"
+name = "Google Calendar"
+extensions = ["gcalendar"]
+mime_types = ["application/vnd.google-apps.calendar"]
+category = "calendar"
+priority = 100
+
+[file_types.metadata]
+google_workspace = true
+cloud_native = true
+
+[[file_types]]
+id = "application/x-outlook-calendar"
+name = "Outlook Calendar Item"
+extensions = ["icalendar"]
+mime_types = ["text/calendar"]
+category = "calendar"
+priority = 95
+
+[file_types.metadata]
+outlook = true

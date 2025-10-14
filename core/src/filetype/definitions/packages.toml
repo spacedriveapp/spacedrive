@@ -1,0 +1,185 @@
+# Package and installer file type definitions
+
+[[file_types]]
+id = "application/x-debian-package"
+name = "Debian Package"
+extensions = ["deb"]
+mime_types = ["application/x-debian-package", "application/vnd.debian.binary-package"]
+category = "package"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "21 3C 61 72 63 68 3E"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+linux = true
+installer = true
+
+[[file_types]]
+id = "application/x-redhat-package"
+name = "RPM Package"
+extensions = ["rpm"]
+mime_types = ["application/x-rpm", "application/x-redhat-package-manager"]
+category = "package"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "ED AB EE DB"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+linux = true
+installer = true
+
+[[file_types]]
+id = "application/x-apple-installer"
+name = "macOS Package"
+extensions = ["pkg"]
+mime_types = ["application/x-apple-installer"]
+uti = "com.apple.installer-package-archive"
+category = "package"
+priority = 100
+
+[file_types.metadata]
+apple = true
+installer = true
+
+[[file_types]]
+id = "application/x-apple-diskimage"
+name = "Apple Disk Image"
+extensions = ["dmg"]
+mime_types = ["application/x-apple-diskimage"]
+uti = "com.apple.disk-image"
+category = "package"
+priority = 100
+
+[file_types.metadata]
+apple = true
+installer = true
+disk_image = true
+
+[[file_types]]
+id = "application/x-msi"
+name = "Windows Installer"
+extensions = ["msi"]
+mime_types = ["application/x-msi", "application/x-msdownload"]
+category = "package"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+windows = true
+installer = true
+
+[[file_types]]
+id = "application/vnd.android.package-archive"
+name = "Android Package"
+extensions = ["apk"]
+mime_types = ["application/vnd.android.package-archive"]
+category = "package"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+android = true
+installer = true
+
+[[file_types]]
+id = "application/x-xpinstall"
+name = "Firefox Extension"
+extensions = ["xpi"]
+mime_types = ["application/x-xpinstall"]
+category = "package"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+firefox = true
+extension = true
+
+[[file_types]]
+id = "application/x-chrome-extension"
+name = "Chrome Extension"
+extensions = ["crx"]
+mime_types = ["application/x-chrome-extension"]
+category = "package"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "43 72 32 34"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+chrome = true
+extension = true
+
+[[file_types]]
+id = "application/vnd.snap"
+name = "Snap Package"
+extensions = ["snap"]
+mime_types = ["application/vnd.snap"]
+category = "package"
+priority = 100
+
+[file_types.metadata]
+linux = true
+installer = true
+
+[[file_types]]
+id = "application/x-flatpak"
+name = "Flatpak Package"
+extensions = ["flatpak", "flatpakref"]
+mime_types = ["application/x-flatpak"]
+category = "package"
+priority = 100
+
+[file_types.metadata]
+linux = true
+installer = true
+
+[[file_types]]
+id = "application/vnd.microsoft.portable-executable"
+name = "Windows Installer (MSI)"
+extensions = ["msix", "appx"]
+mime_types = ["application/vnd.microsoft.portable-executable"]
+category = "package"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+windows = true
+installer = true
+uwp = true
+
+[[file_types]]
+id = "application/x-apple-bundle"
+name = "macOS Application Bundle"
+extensions = ["app"]
+mime_types = ["application/x-apple-application"]
+uti = "com.apple.application-bundle"
+category = "package"
+priority = 100
+
+[file_types.metadata]
+apple = true
+bundle = true

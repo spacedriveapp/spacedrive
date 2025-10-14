@@ -57,6 +57,7 @@ use crate::domains::{
 	network::{self, NetworkCmd},
 	search::{self, SearchCmd},
 	tag::{self, TagCmd},
+	volume::{self, VolumeCmd},
 };
 
 // OutputFormat is defined in context.rs and shared across domains
@@ -195,6 +196,9 @@ enum Commands {
 	/// Tag operations
 	#[command(subcommand)]
 	Tag(TagCmd),
+	/// Volume operations
+	#[command(subcommand)]
+	Volume(VolumeCmd),
 }
 
 #[tokio::main]
@@ -658,6 +662,7 @@ async fn run_client_command(
 		Commands::Logs(cmd) => logs::run(&ctx, cmd).await?,
 		Commands::Search(cmd) => search::run(&ctx, cmd).await?,
 		Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
+		Commands::Volume(cmd) => volume::run(&ctx, cmd).await?,
 		_ => {} // Start and Stop are handled in main
 	}
 	Ok(())

@@ -1,5 +1,7 @@
 //! Live Photo detection and handling
 //!
+//! NOTE: This should be moved to the Photos extension
+//!
 //! When enabled, Live Photos are handled as follows:
 //! 1. During indexing, when we encounter an image file (HEIC/JPEG), we check for a matching video (MOV/MP4)
 //! 2. If found, the video becomes a virtual sidecar of the image

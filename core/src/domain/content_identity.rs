@@ -10,7 +10,23 @@ use serde_json::Value as JsonValue;
 use specta::Type;
 use uuid::Uuid;
 
+use crate::infra::db::entities::*;
 use crate::volume::VolumeBackend;
+
+/// Domain representation of content identity
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ContentIdentity {
+	pub uuid: Uuid,
+	pub kind: ContentKind,
+	pub content_hash: String,
+	pub integrity_hash: Option<String>,
+	pub mime_type_id: Option<i32>,
+	pub text_content: Option<String>,
+	pub total_size: i64,
+	pub entry_count: i32,
+	pub first_seen_at: DateTime<Utc>,
+	pub last_verified_at: DateTime<Utc>,
+}
 
 /// Type of content
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, IntEnum, Type)]
@@ -34,138 +50,36 @@ pub enum ContentKind {
 	Key = 14,
 	Executable = 15,
 	Binary = 16,
+	Spreadsheet = 17,
+	Presentation = 18,
+	Email = 19,
+	Calendar = 20,
+	Contact = 21,
+	Web = 22,
+	Shortcut = 23,
+	Package = 24,
+	ModelEntry = 25,
 }
 
-impl std::fmt::Display for ContentKind {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let s = match self {
-			ContentKind::Unknown => "unknown",
-			ContentKind::Image => "image",
-			ContentKind::Video => "video",
-			ContentKind::Audio => "audio",
-			ContentKind::Document => "document",
-			ContentKind::Archive => "archive",
-			ContentKind::Code => "code",
-			ContentKind::Text => "text",
-			ContentKind::Database => "database",
-			ContentKind::Book => "book",
-			ContentKind::Font => "font",
-			ContentKind::Mesh => "mesh",
-			ContentKind::Config => "config",
-			ContentKind::Encrypted => "encrypted",
-			ContentKind::Key => "key",
-			ContentKind::Executable => "executable",
-			ContentKind::Binary => "binary",
-		};
-		write!(f, "{}", s)
-	}
-}
-
-impl From<&str> for ContentKind {
-	fn from(name: &str) -> Self {
-		match name {
-			"image" => ContentKind::Image,
-			"video" => ContentKind::Video,
-			"audio" => ContentKind::Audio,
-			"document" => ContentKind::Document,
-			"archive" => ContentKind::Archive,
-			"code" => ContentKind::Code,
-			"text" => ContentKind::Text,
-			"database" => ContentKind::Database,
-			"book" => ContentKind::Book,
-			"font" => ContentKind::Font,
-			"mesh" => ContentKind::Mesh,
-			"config" => ContentKind::Config,
-			"encrypted" => ContentKind::Encrypted,
-			"key" => ContentKind::Key,
-			"executable" => ContentKind::Executable,
-			"binary" => ContentKind::Binary,
-			_ => ContentKind::Unknown,
+// Translate database entity into domain model
+impl From<content_identity::Model> for ContentIdentity {
+	fn from(model: content_identity::Model) -> Self {
+		Self {
+			uuid: model.uuid.unwrap_or_else(Uuid::new_v4),
+			kind: ContentKind::try_from(model.kind_id).unwrap_or(ContentKind::Unknown),
+			content_hash: model.content_hash,
+			integrity_hash: model.integrity_hash,
+			mime_type_id: model.mime_type_id,
+			text_content: model.text_content,
+			total_size: model.total_size,
+			entry_count: model.entry_count,
+			first_seen_at: model.first_seen_at,
+			last_verified_at: model.last_verified_at,
 		}
 	}
-}
-
-impl From<String> for ContentKind {
-	fn from(name: String) -> Self {
-		Self::from(name.as_str())
-	}
-}
-
-/// Media-specific metadata
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct MediaData {
-	/// Width in pixels (for images/video)
-	pub width: Option<u32>,
-
-	/// Height in pixels (for images/video)
-	pub height: Option<u32>,
-
-	/// Duration in seconds (for audio/video)
-	pub duration: Option<f64>,
-
-	/// Bitrate in bits per second
-	pub bitrate: Option<u32>,
-
-	/// Frame rate (for video)
-	pub fps: Option<f32>,
-
-	/// EXIF data (for images)
-	pub exif: Option<ExifData>,
-
-	/// Additional metadata as JSON
-	pub extra: JsonValue,
-}
-
-/// EXIF metadata for images
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct ExifData {
-	/// Camera make
-	pub make: Option<String>,
-
-	/// Camera model
-	pub model: Option<String>,
-
-	/// Date taken
-	pub date_taken: Option<DateTime<Utc>>,
-
-	/// GPS coordinates
-	pub gps: Option<GpsCoordinates>,
-
-	/// ISO speed
-	pub iso: Option<u32>,
-
-	/// Aperture (f-stop)
-	pub aperture: Option<f32>,
-
-	/// Shutter speed in seconds
-	pub shutter_speed: Option<f32>,
-
-	/// Focal length in mm
-	pub focal_length: Option<f32>,
-}
-
-/// GPS coordinates
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct GpsCoordinates {
-	pub latitude: f64,
-	pub longitude: f64,
-	pub altitude: Option<f32>,
 }
 
 impl ContentKind {
-	/// Determine content kind from MIME type
-	pub fn from_mime_type(mime_type: &str) -> Self {
-		match mime_type.split('/').next() {
-			Some("image") => ContentKind::Image,
-			Some("video") => ContentKind::Video,
-			Some("audio") => ContentKind::Audio,
-			Some("text") => ContentKind::Text,
-			_ if mime_type.contains("pdf") => ContentKind::Document,
-			_ if mime_type.contains("zip") || mime_type.contains("tar") => ContentKind::Archive,
-			_ => ContentKind::Unknown,
-		}
-	}
-
 	/// Get content kind from file type
 	pub fn from_file_type(file_type: &crate::filetype::FileType) -> Self {
 		file_type.category
@@ -213,7 +127,7 @@ impl ContentHashGenerator {
 		hasher.finalize().to_hex()[..16].to_string()
 	}
 
-	/// Generate content hash using a volume backend (supports cloud storage)
+	/// Generate content hash using a volume backend
 	///
 	/// This uses the same sampling algorithm but works with any VolumeBackend,
 	/// enabling efficient content hashing for cloud files without full downloads.
@@ -321,34 +235,75 @@ pub enum ContentHashError {
 	FileTooLarge,
 }
 
-/// Domain representation of content identity
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct ContentIdentity {
-	pub uuid: Uuid,
-	pub kind: ContentKind,
-	pub hash: String,
-	pub media_data: Option<MediaData>,
-	pub created_at: DateTime<Utc>,
+impl std::fmt::Display for ContentKind {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let s = match self {
+			ContentKind::Unknown => "unknown",
+			ContentKind::Image => "image",
+			ContentKind::Video => "video",
+			ContentKind::Audio => "audio",
+			ContentKind::Document => "document",
+			ContentKind::Archive => "archive",
+			ContentKind::Code => "code",
+			ContentKind::Text => "text",
+			ContentKind::Database => "database",
+			ContentKind::Book => "book",
+			ContentKind::Font => "font",
+			ContentKind::Mesh => "mesh",
+			ContentKind::Config => "config",
+			ContentKind::Encrypted => "encrypted",
+			ContentKind::Key => "key",
+			ContentKind::Executable => "executable",
+			ContentKind::Binary => "binary",
+			ContentKind::Spreadsheet => "spreadsheet",
+			ContentKind::Presentation => "presentation",
+			ContentKind::Email => "email",
+			ContentKind::Calendar => "calendar",
+			ContentKind::Contact => "contact",
+			ContentKind::Web => "web",
+			ContentKind::Shortcut => "shortcut",
+			ContentKind::Package => "package",
+			ContentKind::ModelEntry => "model_entry",
+		};
+		write!(f, "{}", s)
+	}
 }
 
-impl From<crate::infra::db::entities::content_identity::Model> for ContentIdentity {
-	fn from(model: crate::infra::db::entities::content_identity::Model) -> Self {
-		Self {
-			uuid: model.uuid.unwrap_or_else(Uuid::new_v4),
-			kind: ContentKind::Unknown, // TODO: Implement proper conversion from kind_id
-			hash: model.content_hash,
-			media_data: model.media_data.map(|json| {
-				serde_json::from_value(json).unwrap_or_else(|_| MediaData {
-					width: None,
-					height: None,
-					duration: None,
-					bitrate: None,
-					fps: None,
-					exif: None,
-					extra: serde_json::Value::Null,
-				})
-			}),
-			created_at: model.first_seen_at,
+impl From<&str> for ContentKind {
+	fn from(name: &str) -> Self {
+		match name {
+			"image" => ContentKind::Image,
+			"video" => ContentKind::Video,
+			"audio" => ContentKind::Audio,
+			"document" => ContentKind::Document,
+			"archive" => ContentKind::Archive,
+			"code" => ContentKind::Code,
+			"text" => ContentKind::Text,
+			"database" => ContentKind::Database,
+			"book" => ContentKind::Book,
+			"font" => ContentKind::Font,
+			"mesh" => ContentKind::Mesh,
+			"config" => ContentKind::Config,
+			"encrypted" => ContentKind::Encrypted,
+			"key" => ContentKind::Key,
+			"executable" => ContentKind::Executable,
+			"binary" => ContentKind::Binary,
+			"spreadsheet" => ContentKind::Spreadsheet,
+			"presentation" => ContentKind::Presentation,
+			"email" => ContentKind::Email,
+			"calendar" => ContentKind::Calendar,
+			"contact" => ContentKind::Contact,
+			"web" => ContentKind::Web,
+			"shortcut" => ContentKind::Shortcut,
+			"package" => ContentKind::Package,
+			"model_entry" => ContentKind::ModelEntry,
+			_ => ContentKind::Unknown,
 		}
+	}
+}
+
+impl From<String> for ContentKind {
+	fn from(name: String) -> Self {
+		Self::from(name.as_str())
 	}
 }

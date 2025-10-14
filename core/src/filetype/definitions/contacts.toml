@@ -1,0 +1,47 @@
+# Contact file type definitions
+
+[[file_types]]
+id = "text/vcard"
+name = "vCard"
+extensions = ["vcf", "vcard"]
+mime_types = ["text/vcard", "text/x-vcard"]
+uti = "public.vcard"
+category = "contact"
+priority = 100
+
+[file_types.metadata]
+text_file = true
+
+[[file_types]]
+id = "text/directory"
+name = "vCard Directory"
+extensions = ["vcf"]
+mime_types = ["text/directory"]
+category = "contact"
+priority = 95
+
+[file_types.metadata]
+text_file = true
+
+[[file_types]]
+id = "application/vnd.apple.contacts"
+name = "Apple Contacts"
+extensions = ["abcdp"]
+mime_types = ["application/vnd.apple.contacts"]
+category = "contact"
+priority = 100
+
+[file_types.metadata]
+apple = true
+
+[[file_types]]
+id = "application/x-ldif"
+name = "LDAP Data Interchange Format"
+extensions = ["ldif"]
+mime_types = ["application/x-ldif"]
+category = "contact"
+priority = 90
+
+[file_types.metadata]
+text_file = true
+directory_service = true
