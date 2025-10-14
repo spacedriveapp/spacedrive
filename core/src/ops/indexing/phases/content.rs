@@ -9,12 +9,14 @@ use crate::{
 		state::{IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
 };
+use std::sync::Arc;
 
 /// Run the content identification phase
 pub async fn run_content_phase(
 	state: &mut IndexerState,
 	ctx: &JobContext<'_>,
 	library_id: uuid::Uuid,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<(), JobError> {
 	let total = state.entries_for_content.len();
 	ctx.log(format!(
@@ -62,9 +64,31 @@ pub async fn run_content_phase(
 		// Process chunk in parallel for better performance
 		let content_hash_futures: Vec<_> = chunk
 			.iter()
-			.map(|(entry_id, path)| async move {
-				let hash_result = ContentHashGenerator::generate_content_hash(path).await;
-				(*entry_id, path.clone(), hash_result)
+			.map(|(entry_id, path)| {
+				let backend_clone = volume_backend.cloned();
+				async move {
+					let hash_result = if let Some(backend) = backend_clone {
+						// Use backend for content hashing (supports both local and cloud)
+						// Get file size first
+						match backend.metadata(path).await {
+							Ok(meta) => {
+								ContentHashGenerator::generate_content_hash_with_backend(
+									backend.as_ref(),
+									path,
+									meta.size,
+								)
+								.await
+							}
+							Err(e) => Err(crate::domain::ContentHashError::Io(
+								std::io::Error::new(std::io::ErrorKind::Other, e),
+							)),
+						}
+					} else {
+						// No backend - use local filesystem path
+						ContentHashGenerator::generate_content_hash(path).await
+					};
+					(*entry_id, path.clone(), hash_result)
+				}
 			})
 			.collect();
 

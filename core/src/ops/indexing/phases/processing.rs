@@ -14,7 +14,7 @@ use crate::{
 	},
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -25,6 +25,7 @@ pub async fn run_processing_phase(
 	ctx: &JobContext<'_>,
 	mode: IndexMode,
 	location_root_path: &Path,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<(), JobError> {
 	let total_batches = state.entry_batches.len();
 	ctx.log(format!(
@@ -188,21 +189,30 @@ pub async fn run_processing_phase(
 
 			// Add to seen_paths for delete detection (important for resumed jobs)
 			state.seen_paths.insert(entry.path.clone());
-			// Get metadata for change detection
-			let metadata = match std::fs::symlink_metadata(&entry.path) {
-				Ok(m) => m,
-				Err(e) => {
-					ctx.add_non_critical_error(format!(
-						"Failed to get metadata for {}: {}",
-						entry.path.display(),
-						e
-					));
-					continue;
-				}
-			};
 
 			// Check for changes
-			let change = change_detector.check_path(&entry.path, &metadata, entry.inode);
+			// Note: For cloud backends, we skip change detection for now since we can't
+			// access std::fs::Metadata directly. Cloud entries are always treated as "new"
+			// on first index. Future: implement cloud-specific change detection using
+			// backend metadata.
+			let change = if volume_backend.is_some() && !volume_backend.unwrap().is_local() {
+				// Cloud backend - treat as new for now
+				Some(Change::New(entry.path.clone()))
+			} else {
+				// Local backend - use standard change detection
+				let metadata = match std::fs::symlink_metadata(&entry.path) {
+					Ok(m) => m,
+					Err(e) => {
+						ctx.add_non_critical_error(format!(
+							"Failed to get metadata for {}: {}",
+							entry.path.display(),
+							e
+						));
+						continue;
+					}
+				};
+				change_detector.check_path(&entry.path, &metadata, entry.inode)
+			};
 
 			match change {
 				Some(Change::New(_)) => {

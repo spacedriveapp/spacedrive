@@ -445,7 +445,8 @@ impl JobHandler for IndexerJob {
 								.await?;
 						} else {
 							let library_id = ctx.library().id();
-							phases::run_content_phase(state, &ctx, library_id).await?;
+							phases::run_content_phase(state, &ctx, library_id, volume_backend.as_ref())
+								.await?;
 							self.db_operations.1 += state.entries_for_content.len() as u64;
 						}
 					} else {
