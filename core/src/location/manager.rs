@@ -38,26 +38,55 @@ impl LocationManager {
 	pub async fn add_location(
 		&self,
 		library: Arc<Library>,
-		path: PathBuf,
+		sd_path: crate::domain::addressing::SdPath,
 		name: Option<String>,
 		device_id: i32,
 		index_mode: IndexMode,
 		action_context: Option<crate::infra::action::context::ActionContext>,
 	) -> LocationResult<(Uuid, String)> {
-		info!("Adding location: {}", path.display());
+		info!("Adding location: {}", sd_path);
 
-		// Validate the path
-		self.validate_path(&path).await?;
+		// Validate the path based on type
+		match &sd_path {
+			crate::domain::addressing::SdPath::Physical { path, .. } => {
+				self.validate_physical_path(path).await?;
+			}
+			crate::domain::addressing::SdPath::Cloud { volume_id, .. } => {
+				self.validate_cloud_path(&library, *volume_id).await?;
+			}
+			crate::domain::addressing::SdPath::Content { .. } => {
+				return Err(LocationError::InvalidPath(
+					"Content paths cannot be used as locations".to_string(),
+				));
+			}
+		}
 
 		// Begin transaction
 		let txn = library.db().conn().begin().await?;
 
-		// Create entry for the location directory
-		let directory_name = path
-			.file_name()
-			.and_then(|n| n.to_str())
-			.unwrap_or("Unknown")
-			.to_string();
+		// Get directory name and path string from SdPath
+		let (directory_name, path_str) = match &sd_path {
+			crate::domain::addressing::SdPath::Physical { path, .. } => {
+				let name = path
+					.file_name()
+					.and_then(|n| n.to_str())
+					.unwrap_or("Unknown")
+					.to_string();
+				let path_str = path.to_string_lossy().to_string();
+				(name, path_str)
+			}
+			crate::domain::addressing::SdPath::Cloud { volume_id, path } => {
+				let name = path
+					.split('/')
+					.last()
+					.filter(|s| !s.is_empty())
+					.unwrap_or("Cloud Root")
+					.to_string();
+				let path_str = format!("cloud://{}/{}", volume_id, path);
+				(name, path_str)
+			}
+			_ => unreachable!("Content paths already rejected"),
+		};
 
 		let entry_model = entities::entry::ActiveModel {
 			uuid: Set(Some(Uuid::new_v4())),
@@ -94,19 +123,14 @@ impl LocationManager {
 		// Add to directory_paths table
 		let dir_path_entry = entities::directory_paths::ActiveModel {
 			entry_id: Set(entry_id),
-			path: Set(path.to_string_lossy().to_string()),
+			path: Set(path_str.clone()),
 			..Default::default()
 		};
 		dir_path_entry.insert(&txn).await?;
 
 		// Create the location record
 		let location_id = Uuid::new_v4();
-		let display_name = name.unwrap_or_else(|| {
-			path.file_name()
-				.and_then(|n| n.to_str())
-				.unwrap_or("Unknown")
-				.to_string()
-		});
+		let display_name = name.unwrap_or_else(|| directory_name.clone());
 
 		let location_model = entities::location::ActiveModel {
 			id: sea_orm::ActiveValue::NotSet,
@@ -142,11 +166,18 @@ impl LocationManager {
 			})
 			.ok(); // Convert to Option and discard (we already logged the error)
 
-		// Create managed location
+		// Create managed location with path
+		// For cloud locations, we use a placeholder path since ManagedLocation expects PathBuf
+		let location_path = match &sd_path {
+			crate::domain::addressing::SdPath::Physical { path, .. } => path.clone(),
+			crate::domain::addressing::SdPath::Cloud { .. } => PathBuf::from("/"),
+			_ => unreachable!(),
+		};
+
 		let managed_location = ManagedLocation {
 			id: location_id,
 			name: display_name.clone(),
-			path: path.clone(),
+			path: location_path.clone(),
 			device_id,
 			library_id: library.id(),
 			indexing_enabled: true,
@@ -158,22 +189,21 @@ impl LocationManager {
 		self.events.emit(Event::LocationAdded {
 			library_id: library.id(),
 			location_id,
-			path: path.clone(),
+			path: location_path,
 		});
 
 		// Also emit indexing started event
 		self.events.emit(Event::IndexingStarted { location_id });
 
-		// Start indexing job with action context
+		// Start indexing job with action context, passing the SdPath directly
 		let job_id = match self
-			.start_indexing_with_context(library, &managed_location, action_context)
+			.start_indexing_with_context_and_path(library, &managed_location, sd_path.clone(), action_context)
 			.await
 		{
 			Ok(job_id) => {
 				info!(
 					"Started indexing job {} for location '{}'",
-					job_id,
-					path.display()
+					job_id, display_name
 				);
 
 				// Emit job started event
@@ -187,15 +217,14 @@ impl LocationManager {
 			Err(e) => {
 				error!(
 					"Failed to start indexing for location '{}': {}",
-					path.display(),
-					e
+					display_name, e
 				);
 				// Return empty job ID if indexing fails
 				String::new()
 			}
 		};
 
-		info!("Successfully added location '{}'", path.display());
+		info!("Successfully added location '{}'", display_name);
 		Ok((location_id, job_id))
 	}
 
@@ -216,23 +245,39 @@ impl LocationManager {
 		location: &ManagedLocation,
 		action_context: Option<crate::infra::action::context::ActionContext>,
 	) -> LocationResult<String> {
+		// Construct SdPath from location
+		let device_uuid = self.get_device_uuid(&library, location.device_id).await?;
+		let location_sd_path = SdPath::new(device_uuid, location.path.clone());
+
+		self.start_indexing_with_context_and_path(
+			library,
+			location,
+			location_sd_path,
+			action_context,
+		)
+		.await
+	}
+
+	/// Start indexing for a location with action context and explicit SdPath
+	pub async fn start_indexing_with_context_and_path(
+		&self,
+		library: Arc<Library>,
+		location: &ManagedLocation,
+		location_sd_path: SdPath,
+		action_context: Option<crate::infra::action::context::ActionContext>,
+	) -> LocationResult<String> {
 		info!(
-			"Starting indexing for location '{}' in mode {:?}",
-			location.path.display(),
-			location.index_mode
+			"Starting indexing for location '{}' at {} in mode {:?}",
+			location.name, location_sd_path, location.index_mode
 		);
 
 		// Update scan state to "scanning"
 		self.update_scan_state(&library, location.id, "scanning", None)
 			.await?;
 
-		// Create SdPath for the location
-		let device_uuid = self.get_device_uuid(&library, location.device_id).await?;
-		let location_sd_path = SdPath::new(device_uuid, location.path.clone());
-
 		// Create indexer job using new configuration pattern
 		let config =
-			IndexerJobConfig::new(location.id, location_sd_path, location.index_mode.into());
+			IndexerJobConfig::new(location.id, location_sd_path.clone(), location.index_mode.into());
 		let indexer_job = IndexerJob::new(config);
 
 		// Submit to job manager with action context
@@ -247,9 +292,8 @@ impl LocationManager {
 		let job_id = job_handle.id();
 
 		info!(
-			"Started indexing job {} for location '{}'",
-			job_id,
-			location.path.display()
+			"Started indexing job {} for location '{}' at {}",
+			job_id, location.name, location_sd_path
 		);
 
 		// The job system will handle:
@@ -323,8 +367,8 @@ impl LocationManager {
 		Ok(device.uuid)
 	}
 
-	/// Validate a path before creating a location
-	async fn validate_path(&self, path: &PathBuf) -> LocationResult<()> {
+	/// Validate a physical filesystem path before creating a location
+	async fn validate_physical_path(&self, path: &PathBuf) -> LocationResult<()> {
 		// Check if path exists
 		if !path.exists() {
 			return Err(LocationError::PathNotFound { path: path.clone() });
@@ -348,6 +392,25 @@ impl LocationManager {
 				_ => Err(LocationError::Io(e)),
 			},
 		}
+	}
+
+	/// Validate a cloud volume before creating a location
+	async fn validate_cloud_path(&self, library: &Library, volume_id: Uuid) -> LocationResult<()> {
+		// Check if volume exists in database
+		let db = library.db().conn();
+		let volume = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Uuid.eq(volume_id))
+			.one(db)
+			.await
+			.map_err(|e| LocationError::Other(format!("Database error: {}", e)))?
+			.ok_or_else(|| {
+				LocationError::Other(format!("Cloud volume {} not found", volume_id))
+			})?;
+
+		// TODO: Validate that we can connect to the volume
+		// This would require accessing the VolumeManager and VolumeBackend
+
+		Ok(())
 	}
 
 	/// Remove a location
