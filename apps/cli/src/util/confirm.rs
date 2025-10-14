@@ -121,3 +121,55 @@ pub fn prompt_for_list(message: &str, choices: &[String]) -> Result<usize> {
 		}
 	}
 }
+
+/// Modern arrow-key based selection with inquire.
+/// Supports arrow keys (↑↓) and number shortcuts (1, 2, 3...).
+pub fn select(message: &str, choices: &[String]) -> Result<usize> {
+	use inquire::Select;
+
+	let selection = Select::new(message, choices.to_vec())
+		.with_page_size(10)
+		.with_help_message("Use ↑↓ to navigate, Enter to select, or type a number")
+		.prompt()?;
+
+	// Find the index of the selected item
+	let idx = choices
+		.iter()
+		.position(|c| c == &selection)
+		.ok_or_else(|| anyhow::anyhow!("Selection not found"))?;
+
+	Ok(idx)
+}
+
+/// Modern text input with inquire.
+pub fn text(message: &str, optional: bool) -> Result<Option<String>> {
+	use inquire::Text;
+
+	let prompt_text = if optional {
+		format!("{} (optional)", message)
+	} else {
+		message.to_string()
+	};
+
+	let mut prompt = Text::new(&prompt_text);
+
+	if !optional {
+		prompt = prompt.with_validator(|input: &str| {
+			if input.trim().is_empty() {
+				Ok(inquire::validator::Validation::Invalid(
+					"This field is required".into(),
+				))
+			} else {
+				Ok(inquire::validator::Validation::Valid)
+			}
+		});
+	}
+
+	let result = prompt.prompt()?;
+
+	if result.trim().is_empty() && optional {
+		Ok(None)
+	} else {
+		Ok(Some(result))
+	}
+}
