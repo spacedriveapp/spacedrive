@@ -327,6 +327,17 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
+		// Skip cloud locations - they don't have filesystem paths to watch
+		let path_str = location.path.to_string_lossy();
+		if path_str.starts_with("cloud://") || path_str.starts_with("sd://cloud/") {
+			debug!(
+				"Skipping cloud location {} from filesystem watcher: {}",
+				location.id,
+				path_str
+			);
+			return Ok(());
+		}
+
 		let mut locations = self.watched_locations.write().await;
 
 		if locations.contains_key(&location.id) {
@@ -464,6 +475,17 @@ impl LocationWatcher {
 						.await
 						{
 							Ok(path) => {
+								// Skip cloud locations - they don't have filesystem paths to watch
+								let path_str = path.to_string_lossy();
+								if path_str.starts_with("cloud://") || path_str.starts_with("sd://cloud/") {
+									debug!(
+										"Skipping cloud location {} from filesystem watcher: {}",
+										location.uuid,
+										path_str
+									);
+									continue;
+								}
+
 								// Register database connection for this location first
 								let db = library.db().conn().clone();
 								self.platform_handler

@@ -290,6 +290,9 @@ pub enum VolumeEvent {
 /// Represents a physical or virtual storage volume in the system
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
+	/// Unique UUID for this volume (used in database and SdPath addressing)
+	pub uuid: uuid::Uuid,
+
 	/// Unique fingerprint for this volume
 	pub fingerprint: VolumeFingerprint,
 
@@ -413,6 +416,7 @@ impl TrackedVolume {
 		use std::path::PathBuf;
 
 		Volume {
+			uuid: self.uuid, // Use UUID from database
 			fingerprint: self.fingerprint.clone(),
 			device_id: self.device_id,
 			name: self
@@ -479,6 +483,7 @@ impl Volume {
 		fingerprint: VolumeFingerprint, // Accept pre-computed fingerprint
 	) -> Self {
 		Self {
+			uuid: Uuid::new_v4(), // Generate UUID at volume creation
 			fingerprint,
 			device_id,
 			name,
@@ -526,6 +531,7 @@ impl Volume {
 		path_mappings: Vec<PathMapping>,
 	) -> Self {
 		Self {
+			uuid: Uuid::new_v4(), // Generate UUID at volume creation
 			fingerprint,
 			device_id,
 			name,

@@ -291,9 +291,14 @@ impl JobHandler for IndexerJob {
 		let state = self.state.as_mut().unwrap();
 
 		// Get root path ONCE for the entire job
-		// Resolve from SdPath to physical path if needed
+		// For cloud volumes, we use the path component from the SdPath (e.g., "/" or "folder/")
+		// since discovery operates through the volume backend (not direct filesystem access)
 		let root_path_buf = if let Some(p) = self.config.path.as_local_path() {
 			p.to_path_buf()
+		} else if let Some(cloud_path) = self.config.path.cloud_path() {
+			// Cloud path - use the path component within the cloud volume
+			// The actual I/O will go through the volume backend
+			PathBuf::from(cloud_path)
 		} else if !self.config.is_ephemeral() {
 			let loc_uuid = self
 				.config
@@ -333,6 +338,19 @@ impl JobHandler for IndexerJob {
 						Some(vm.backend_for_volume(&mut volume))
 					}
 					Ok(None) => {
+						// For cloud paths, we MUST have a volume - can't fall back to local
+						if self.config.path.is_cloud() {
+							ctx.log(format!(
+								"Cloud volume not found for path: {}",
+								self.config.path
+							));
+							return Err(JobError::execution(format!(
+								"Cloud volume not found for path: {}. The cloud volume may not be registered yet.",
+								self.config.path
+							)));
+						}
+
+						// For local paths, we can fall back to LocalBackend
 						ctx.log(format!(
 							"No volume found for path: {}, will use LocalBackend fallback",
 							self.config.path

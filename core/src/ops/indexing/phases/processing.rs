@@ -382,6 +382,12 @@ pub async fn run_processing_phase(
 			ctx.log(format!("Found {} deleted entries", deleted.len()));
 			for change in deleted {
 				if let Change::Deleted { path, entry_id } = change {
+					// Skip deleting the location root entry - it shouldn't be deleted during indexing
+					if entry_id == location_entry_id {
+						ctx.log(format!("Skipping deletion of location root entry (id: {})", entry_id));
+						continue;
+					}
+
 					ctx.log(format!(
 						"Deleting missing entry from database: {} (id: {})",
 						path.display(),

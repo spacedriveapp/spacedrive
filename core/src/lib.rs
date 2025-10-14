@@ -220,6 +220,13 @@ impl Core {
 			}
 		}
 
+		// Load cloud volumes from database now that libraries are loaded
+		// This restores cloud volumes that were previously added
+		info!("Loading cloud volumes from database...");
+		if let Err(e) = volumes.load_cloud_volumes_from_db(&loaded_libraries, library_key_manager.clone()).await {
+			error!("Failed to load cloud volumes from database: {}", e);
+		}
+
 		// Initialize networking if enabled in config
 		let service_config = config.read().await.services.clone();
 		if service_config.networking_enabled {
