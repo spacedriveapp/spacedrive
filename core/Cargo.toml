@@ -190,7 +190,7 @@ name = "spacedrive"
 path = "src/bin/cli.rs"
 
 [[bin]]
-name = "daemon"
+name = "sd-daemon"
 path = "src/bin/daemon.rs"
 
 

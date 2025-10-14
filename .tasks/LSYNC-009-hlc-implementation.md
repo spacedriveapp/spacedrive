@@ -1,12 +1,13 @@
 ---
 id: LSYNC-009
 title: Hybrid Logical Clock (HLC) Implementation
-status: To Do
+status: Done
 assignee: unassigned
 parent: LSYNC-000
 priority: High
 tags: [sync, hlc, distributed-systems, leaderless]
 design_doc: core/src/infra/sync/NEW_SYNC.md
+last_updated: 2025-10-14
 ---
 
 ## Description

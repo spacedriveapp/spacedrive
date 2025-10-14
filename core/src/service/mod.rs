@@ -96,11 +96,11 @@ impl Services {
 	pub async fn start_all_with_config(&self, config: &crate::config::ServiceConfig) -> Result<()> {
 		info!("Starting background services based on configuration");
 
-		// if config.location_watcher_enabled {
-		// 	self.location_watcher.start().await?;
-		// } else {
-		// 	info!("Location watcher disabled in configuration");
-		// }
+		if config.location_watcher_enabled {
+			self.location_watcher.start().await?;
+		} else {
+			info!("Location watcher disabled in configuration");
+		}
 
 		// Start volume monitor if initialized and enabled
 		if config.volume_monitoring_enabled {

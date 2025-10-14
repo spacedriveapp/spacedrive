@@ -1,4 +1,5 @@
 pub mod cloud;
+pub mod daemon;
 pub mod devices;
 pub mod file;
 pub mod index;

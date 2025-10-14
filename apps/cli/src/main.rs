@@ -48,6 +48,7 @@ mod util;
 use crate::context::{Context, OutputFormat};
 use crate::domains::{
 	cloud,
+	daemon::{self, DaemonCmd},
 	devices::{self, DevicesCmd},
 	file::{self, FileCmd},
 	index::{self, IndexCmd},
@@ -167,6 +168,9 @@ enum Commands {
 	},
 	/// Core info
 	Status,
+	/// Daemon management (auto-start, etc)
+	#[command(subcommand)]
+	Daemon(DaemonCmd),
 	/// Device operations (library database)
 	#[command(subcommand)]
 	Devices(DevicesCmd),
@@ -244,7 +248,7 @@ async fn main() -> Result<()> {
 
 			// Start daemon using std::process::Command
 			let current_exe = std::env::current_exe()?;
-			let daemon_path = current_exe.parent().unwrap().join("daemon");
+			let daemon_path = current_exe.parent().unwrap().join("sd-daemon");
 			let mut command = std::process::Command::new(daemon_path);
 
 			// Pass data directory
@@ -382,7 +386,7 @@ async fn main() -> Result<()> {
 			// Start the daemon again
 			println!("Starting daemon...");
 			let current_exe = std::env::current_exe()?;
-			let daemon_path = current_exe.parent().unwrap().join("daemon");
+			let daemon_path = current_exe.parent().unwrap().join("sd-daemon");
 			let mut cmd = std::process::Command::new(daemon_path);
 
 			// Pass data directory
@@ -438,6 +442,10 @@ async fn main() -> Result<()> {
 					}
 				}
 			}
+		}
+		Commands::Daemon(cmd) => {
+			// Daemon management doesn't need the client, handle directly
+			daemon::run(data_dir, instance, cmd).await?;
 		}
 		_ => {
 			run_client_command(cli.command, cli.format, data_dir, socket_path).await?;
