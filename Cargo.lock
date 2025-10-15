@@ -7650,6 +7650,7 @@ dependencies = [
 [[package]]
 name = "specta"
 version = "2.0.0-rc.22"
+source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "chrono",
  "ctor",
@@ -7685,6 +7686,7 @@ dependencies = [
 [[package]]
 name = "specta-macros"
 version = "2.0.0-rc.18"
+source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -7705,6 +7707,7 @@ dependencies = [
 [[package]]
 name = "specta-serde"
 version = "0.0.9"
+source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "specta 2.0.0-rc.22",
 ]
@@ -7712,6 +7715,7 @@ dependencies = [
 [[package]]
 name = "specta-swift"
 version = "0.0.1"
+source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "serde",
  "specta 2.0.0-rc.22",
@@ -7733,6 +7737,7 @@ dependencies = [
 [[package]]
 name = "specta-typescript"
 version = "0.0.9"
+source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "specta 2.0.0-rc.22",
  "specta-serde 0.0.9",
