@@ -10,12 +10,35 @@ use uuid::Uuid;
 pub struct CliConfig {
 	/// Current library ID
 	pub current_library_id: Option<Uuid>,
+	/// Update configuration
+	#[serde(default)]
+	pub update: UpdateConfig,
+}
+
+/// Update configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateConfig {
+	/// GitHub repository for releases (e.g., "spacedriveapp/spacedrive-cli-releases")
+	pub repo: String,
+	/// Update channel (stable, beta, nightly)
+	pub channel: String,
+}
+
+impl Default for UpdateConfig {
+	fn default() -> Self {
+		Self {
+			// Placeholder - users should set this to their releases repo
+			repo: "spacedriveapp/spacedrive-cli-releases".to_string(),
+			channel: "stable".to_string(),
+		}
+	}
 }
 
 impl Default for CliConfig {
 	fn default() -> Self {
 		Self {
 			current_library_id: None,
+			update: UpdateConfig::default(),
 		}
 	}
 }
@@ -62,6 +85,18 @@ impl CliConfig {
 	/// Clear the current library ID and save
 	pub fn clear_current_library(&mut self, data_dir: &PathBuf) -> Result<()> {
 		self.current_library_id = None;
+		self.save(data_dir)
+	}
+
+	/// Set update repository and save
+	pub fn set_update_repo(&mut self, repo: String, data_dir: &PathBuf) -> Result<()> {
+		self.update.repo = repo;
+		self.save(data_dir)
+	}
+
+	/// Set update channel and save
+	pub fn set_update_channel(&mut self, channel: String, data_dir: &PathBuf) -> Result<()> {
+		self.update.channel = channel;
 		self.save(data_dir)
 	}
 }

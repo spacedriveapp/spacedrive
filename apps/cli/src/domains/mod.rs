@@ -1,4 +1,5 @@
 pub mod cloud;
+pub mod config;
 pub mod daemon;
 pub mod devices;
 pub mod file;
@@ -10,4 +11,5 @@ pub mod logs;
 pub mod network;
 pub mod search;
 pub mod tag;
+pub mod update;
 pub mod volume;

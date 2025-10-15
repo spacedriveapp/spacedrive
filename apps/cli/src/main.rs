@@ -48,6 +48,7 @@ mod util;
 use crate::context::{Context, OutputFormat};
 use crate::domains::{
 	cloud,
+	config as config_cmd,
 	daemon::{self, DaemonCmd},
 	devices::{self, DevicesCmd},
 	file::{self, FileCmd},
@@ -59,8 +60,11 @@ use crate::domains::{
 	network::{self, NetworkCmd},
 	search::{self, SearchCmd},
 	tag::{self, TagCmd},
+	update,
 	volume::{self, VolumeCmd},
 };
+
+use config_cmd::ConfigCmd;
 
 // OutputFormat is defined in context.rs and shared across domains
 
@@ -168,6 +172,9 @@ enum Commands {
 	},
 	/// Core info
 	Status,
+	/// Configuration management
+	#[command(subcommand)]
+	Config(ConfigCmd),
 	/// Daemon management (auto-start, etc)
 	#[command(subcommand)]
 	Daemon(DaemonCmd),
@@ -206,6 +213,12 @@ enum Commands {
 	Volume(VolumeCmd),
 	/// Interactive cloud storage setup
 	Cloud,
+	/// Update CLI and daemon to latest version
+	Update {
+		/// Force update even if already on latest version
+		#[arg(long)]
+		force: bool,
+	},
 }
 
 #[tokio::main]
@@ -443,9 +456,17 @@ async fn main() -> Result<()> {
 				}
 			}
 		}
+		Commands::Config(cmd) => {
+			// Config management doesn't need the client
+			config_cmd::run(data_dir, cmd).await?;
+		}
 		Commands::Daemon(cmd) => {
 			// Daemon management doesn't need the client, handle directly
 			daemon::run(data_dir, instance, cmd).await?;
+		}
+		Commands::Update { force } => {
+			// Update doesn't need the client
+			update::run(data_dir, force).await?;
 		}
 		_ => {
 			run_client_command(cli.command, cli.format, data_dir, socket_path).await?;

@@ -14,7 +14,73 @@ env:
   RUSTUP_MAX_RETRIES: 10
 
 jobs:
-  desktop-main:
+  # CLI builds for v2
+  cli-build:
+    strategy:
+      matrix:
+        include:
+          - host: macos-14
+            target: aarch64-apple-darwin
+            platform: macos-aarch64
+          - host: macos-13
+            target: x86_64-apple-darwin
+            platform: macos-x86_64
+          # Linux and Windows builds (uncomment when needed)
+          # - host: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   platform: linux-x86_64
+          # - host: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   platform: windows-x86_64
+    name: CLI - ${{ matrix.platform }}
+    runs-on: ${{ matrix.host }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build CLI binaries
+        run: |
+          cargo build --release --bin sd-cli --bin sd-daemon --target ${{ matrix.target }}
+
+      - name: Prepare binaries (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/sd-cli dist/sd-${{ matrix.platform }}
+          cp target/${{ matrix.target }}/release/sd-daemon dist/sd-daemon-${{ matrix.platform }}
+          chmod +x dist/*
+
+      - name: Prepare binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/${{ matrix.target }}/release/sd-cli.exe dist/sd-${{ matrix.platform }}.exe
+          Copy-Item target/${{ matrix.target }}/release/sd-daemon.exe dist/sd-daemon-${{ matrix.platform }}.exe
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd dist
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            sha256sum *.exe > checksums-${{ matrix.platform }}.txt
+          else
+            sha256sum * > checksums-${{ matrix.platform }}.txt
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.platform }}
+          path: dist/*
+
+  # V1 Desktop builds (commented out - uncomment when needed)
+  # desktop-main:
     strategy:
       matrix:
         settings:
@@ -129,11 +195,12 @@ jobs:
           target: ${{ matrix.settings.target }}
           profile: release
 
+  # V2 CLI Release
   release:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     name: Create Release
-    needs: desktop-main
+    needs: cli-build
     permissions:
       contents: write
     steps:
@@ -141,8 +208,24 @@ jobs:
         uses: actions/download-artifact@v4
 
       - name: Create Release
-        # TODO: Change to stable version when available
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           files: '*/**'
+
+  # V1 release (uncomment when needed)
+  # release-v1:
+  #   if: startsWith(github.ref, 'refs/tags/')
+  #   runs-on: ubuntu-latest
+  #   name: Create Release V1
+  #   needs: desktop-main
+  #   permissions:
+  #     contents: write
+  #   steps:
+  #     - name: Download artifacts
+  #       uses: actions/download-artifact@v4
+  #     - name: Create Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         draft: true
+  #         files: '*/**'
