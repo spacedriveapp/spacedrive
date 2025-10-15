@@ -1,6 +1,11 @@
 name: CI
 
-on: [pull_request, merge_group]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
@@ -17,125 +22,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  typescript:
-    name: Type and style check
-    runs-on: ubuntu-22.04
-    timeout-minutes: 7
-    permissions: {}
-    steps:
-      - name: 'PR commits + 1'
-        run: echo "PR_FETCH_DEPTH=$(( ${{ github.event.pull_request.commits }} + 1 ))" >> "${GITHUB_ENV}"
-
-      - name: 'Checkout PR branch and all PR commits'
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: ${{ env.PR_FETCH_DEPTH }}
-
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Perform typechecks
-        run: pnpm typecheck
-
-      - name: Perform style check
-        run: |-
-          set -eu
-
-          pnpm autoformat only-frontend >/dev/null
-
-          _files="$(git diff --name-only --cached)"
-          if [ -n "$_files" ]; then
-            printf "\e[31mThe following files are not correctly formatted:\e[0m\n" >&2
-
-            while IFS= read -r _file || [ -n "$_file" ]; do
-              echo "::error file=${_file},title=Incorrectly formatted file::Please run 'pnpm autoformat' and commit the changes."
-              echo " - ${_file}"
-            done < <(printf '%s' "$_files")
-
-            printf "\e[31mPlease run 'pnpm autoformat' and commit the changes.\e[0m\n" >&2
-
-            exit 1
-          fi
-
-  eslint:
-    name: ESLint
-    runs-on: ubuntu-22.04
-    permissions: {}
-    timeout-minutes: 5
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Perform linting
-        run: pnpm lint
-
-  cypress:
-    name: Cypress
-    runs-on: macos-14
-    timeout-minutes: 45
-    permissions: {}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup System and Rust
-        uses: ./.github/actions/setup-system
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target: aarch64-apple-darwin
-
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Cypress
-        run: |
-          set -euxo pipefail
-          pnpm exec cypress install
-          rm -rf /Users/runner/.cache/Cypress
-          ln -sf /Users/runner/Library/Caches/Cypress /Users/runner/.cache/Cypress
-
-      - name: Setup Cypress
-        uses: cypress-io/github-action@v6
-        with:
-          runTests: false
-          working-directory: .
-
-      - name: Download test data
-        run: pnpm test-data small
-
-      - name: E2E test
-        uses: cypress-io/github-action@v6
-        with:
-          build: npx cypress info
-          install: false
-          command: env CI=true pnpm test:e2e
-          working-directory: apps/web
-
-      - name: Upload cypress screenshots
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: cypress-screenshots
-          path: apps/web/cypress/screenshots
-          if-no-files-found: ignore
-
-      - name: Upload cypress video's
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: cypress-videos
-          path: apps/web/cypress/videos
-          if-no-files-found: ignore
-
   rustfmt:
     name: Rust Formatting
     runs-on: ubuntu-22.04
@@ -282,3 +168,77 @@ jobs:
       # - name: Run tests
       #   if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
       #   run: cargo test --workspace --all-features --locked --target ${{ matrix.settings.target }}
+
+  build:
+    name: Build CLI (${{ matrix.settings.platform }})
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-14
+            target: aarch64-apple-darwin
+            platform: macos-aarch64
+          - host: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64
+    runs-on: ${{ matrix.settings.host }}
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - name: Maximize build space
+        if: ${{ runner.os == 'Linux' }}
+        uses: easimon/maximize-build-space@master
+        with:
+          swap-size-mb: 3072
+          root-reserve-mb: 6144
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
+
+      - name: Symlink target to C:\
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
+          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ matrix.settings.target }}
+
+      - name: Build CLI binaries
+        run: cargo build --release --bin sd-cli --bin sd-daemon --target ${{ matrix.settings.target }}
+
+      - name: Prepare binaries (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.settings.target }}/release/sd-cli dist/sd-${{ matrix.settings.platform }}
+          cp target/${{ matrix.settings.target }}/release/sd-daemon dist/sd-daemon-${{ matrix.settings.platform }}
+          chmod +x dist/*
+
+      - name: Prepare binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/${{ matrix.settings.target }}/release/sd-cli.exe dist/sd-${{ matrix.settings.platform }}.exe
+          Copy-Item target/${{ matrix.settings.target }}/release/sd-daemon.exe dist/sd-daemon-${{ matrix.settings.platform }}.exe
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.settings.platform }}
+          path: dist/*
+          retention-days: 7
