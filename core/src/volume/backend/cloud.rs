@@ -176,8 +176,8 @@ impl VolumeBackend for CloudBackend {
 				kind,
 				size: metadata.content_length(),
 				modified: metadata.last_modified().map(|t| {
-					// Convert jiff::Timestamp to SystemTime
-					SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(t.as_second() as u64)
+					// Convert chrono::DateTime to SystemTime
+					SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(t.timestamp() as u64)
 				}),
 				inode: None, // Cloud storage doesn't have inodes
 			});
@@ -203,8 +203,8 @@ impl VolumeBackend for CloudBackend {
 		};
 
 		let modified = metadata.last_modified().map(|t| {
-			// Convert jiff::Timestamp to SystemTime
-			SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(t.as_second() as u64)
+			// Convert chrono::DateTime to SystemTime
+			SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(t.timestamp() as u64)
 		});
 
 		Ok(RawMetadata {
