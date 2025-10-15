@@ -196,6 +196,8 @@ impl LibrarySyncSetupAction {
 				updated_at: Set(Utc::now()),
 				sync_enabled: Set(true), // Enable sync for registered devices
 				last_sync_at: Set(None),
+				last_state_watermark: Set(None),
+				last_shared_watermark: Set(None),
 			};
 
 			device_model

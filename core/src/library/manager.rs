@@ -289,6 +289,14 @@ impl LibraryManager {
 					"Failed to initialize sync service for library {}: {}",
 					config.id, e
 				);
+			} else {
+				// Wire up network event receiver to PeerSync for connection tracking
+				if let Some(sync_service) = library.sync_service() {
+					let peer_sync = sync_service.peer_sync();
+					let network_events = networking.subscribe_events();
+					peer_sync.set_network_events(network_events).await;
+					info!("Network event receiver wired to PeerSync for library {}", config.id);
+				}
 			}
 		} else {
 			info!(
@@ -581,6 +589,8 @@ impl LibraryManager {
 				created_at: Set(device.created_at),
 				sync_enabled: Set(true), // Enable sync by default for this device
 				last_sync_at: Set(None),
+				last_state_watermark: Set(None),
+				last_shared_watermark: Set(None),
 				updated_at: Set(Utc::now()),
 			};
 

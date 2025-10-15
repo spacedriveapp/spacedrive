@@ -39,7 +39,7 @@ use crate::{
 };
 
 use std::{path::PathBuf, sync::Arc};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
@@ -267,6 +267,14 @@ impl Core {
 							{
 								Ok(()) => {
 									info!("Sync service initialized for library {}", library.id());
+
+									// Wire up network event receiver to PeerSync for connection tracking
+									if let Some(sync_service) = library.sync_service() {
+										let peer_sync = sync_service.peer_sync();
+										let network_events = networking.subscribe_events();
+										peer_sync.set_network_events(network_events).await;
+										info!("Network event receiver wired to PeerSync for library {}", library.id());
+									}
 								}
 								Err(e) => {
 									warn!(
@@ -397,13 +405,7 @@ impl Core {
 			// Set up event bridge to integrate with core event system (only if not already done)
 			if !already_initialized {
 				let event_bridge = NetworkEventBridge::new(
-					networking_service
-						.subscribe_events()
-						.await
-						.unwrap_or_else(|| {
-							let (_, rx) = tokio::sync::mpsc::unbounded_channel();
-							rx
-						}),
+					networking_service.subscribe_events(),
 					self.events.clone(),
 				);
 				tokio::spawn(event_bridge.run());
@@ -563,13 +565,13 @@ pub mod networking {
 /// Bridge between networking events and core events
 /// TODO: why? - james
 pub struct NetworkEventBridge {
-	network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
+	network_events: broadcast::Receiver<service::network::NetworkEvent>,
 	core_events: Arc<EventBus>,
 }
 
 impl NetworkEventBridge {
 	pub fn new(
-		network_events: mpsc::UnboundedReceiver<service::network::NetworkEvent>,
+		network_events: broadcast::Receiver<service::network::NetworkEvent>,
 		core_events: Arc<EventBus>,
 	) -> Self {
 		Self {
@@ -579,9 +581,21 @@ impl NetworkEventBridge {
 	}
 
 	pub async fn run(mut self) {
-		while let Some(event) = self.network_events.recv().await {
-			if let Some(core_event) = self.translate_event(event) {
-				self.core_events.emit(core_event);
+		loop {
+			match self.network_events.recv().await {
+				Ok(event) => {
+					if let Some(core_event) = self.translate_event(event) {
+						self.core_events.emit(core_event);
+					}
+				}
+				Err(broadcast::error::RecvError::Lagged(skipped)) => {
+					warn!("NetworkEventBridge lagged, skipped {} events", skipped);
+					continue;
+				}
+				Err(broadcast::error::RecvError::Closed) => {
+					info!("NetworkEventBridge channel closed, stopping");
+					break;
+				}
 			}
 		}
 	}

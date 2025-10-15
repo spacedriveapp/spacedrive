@@ -12,7 +12,7 @@ use iroh::NodeId;
 use iroh::{Endpoint, NodeAddr};
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
 
 /// Commands that can be sent to the event loop
@@ -60,8 +60,8 @@ pub struct NetworkingEventLoop {
 	/// Device registry for managing device state
 	device_registry: Arc<RwLock<DeviceRegistry>>,
 
-	/// Event sender for broadcasting network events
-	event_sender: mpsc::UnboundedSender<NetworkEvent>,
+	/// Event sender for broadcasting network events (broadcast channel allows multiple subscribers)
+	event_sender: broadcast::Sender<NetworkEvent>,
 
 	/// Command receiver
 	command_rx: mpsc::UnboundedReceiver<EventLoopCommand>,
@@ -91,7 +91,7 @@ impl NetworkingEventLoop {
 		endpoint: Endpoint,
 		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
 		device_registry: Arc<RwLock<DeviceRegistry>>,
-		event_sender: mpsc::UnboundedSender<NetworkEvent>,
+		event_sender: broadcast::Sender<NetworkEvent>,
 		identity: NetworkIdentity,
 		active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
 		logger: Arc<dyn NetworkLogger>,
@@ -294,7 +294,7 @@ impl NetworkingEventLoop {
 		conn: Connection,
 		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
 		device_registry: Arc<RwLock<DeviceRegistry>>,
-		event_sender: mpsc::UnboundedSender<NetworkEvent>,
+		event_sender: broadcast::Sender<NetworkEvent>,
 		command_sender: mpsc::UnboundedSender<EventLoopCommand>,
 		remote_node_id: NodeId,
 		logger: Arc<dyn NetworkLogger>,

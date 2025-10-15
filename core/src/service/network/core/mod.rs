@@ -13,7 +13,7 @@ use iroh::discovery::{mdns::MdnsDiscovery, Discovery};
 use iroh::endpoint::Connection;
 use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, RelayUrl, Watcher};
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
 
 pub use event_loop::{EventLoopCommand, NetworkingEventLoop};
@@ -99,11 +99,8 @@ pub struct NetworkingService {
 	/// Registry for device state and connections
 	device_registry: Arc<RwLock<DeviceRegistry>>,
 
-	/// Event sender for broadcasting network events
-	event_sender: mpsc::UnboundedSender<NetworkEvent>,
-
-	/// Event receiver for subscribers
-	event_receiver: Arc<RwLock<Option<mpsc::UnboundedReceiver<NetworkEvent>>>>,
+	/// Event sender for broadcasting network events (broadcast channel allows multiple subscribers)
+	event_sender: broadcast::Sender<NetworkEvent>,
 
 	/// Active connections tracker
 	active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
@@ -130,8 +127,9 @@ impl NetworkingService {
 		let secret_key = identity.to_iroh_secret_key()?;
 		let node_id = secret_key.public();
 
-		// Create event channel
-		let (event_sender, event_receiver) = mpsc::unbounded_channel();
+		// Create event broadcast channel (capacity of 1000 events)
+		// Using broadcast allows multiple subscribers (NetworkEventBridge + PeerSync instances)
+		let (event_sender, _) = broadcast::channel(1000);
 
 		// Create registries
 		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
@@ -151,7 +149,6 @@ impl NetworkingService {
 			protocol_registry,
 			device_registry,
 			event_sender,
-			event_receiver: Arc::new(RwLock::new(Some(event_receiver))),
 			active_connections: Arc::new(RwLock::new(std::collections::HashMap::new())),
 			logger,
 		})
@@ -779,8 +776,11 @@ impl NetworkingService {
 	}
 
 	/// Subscribe to network events
-	pub async fn subscribe_events(&self) -> Option<mpsc::UnboundedReceiver<NetworkEvent>> {
-		self.event_receiver.write().await.take()
+	///
+	/// Returns a new receiver that will receive all network events.
+	/// Can be called multiple times to create multiple subscribers.
+	pub fn subscribe_events(&self) -> broadcast::Receiver<NetworkEvent> {
+		self.event_sender.subscribe()
 	}
 
 	/// Get our network identity

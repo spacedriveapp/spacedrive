@@ -105,10 +105,20 @@ impl DeviceManager {
 			id: config.id,
 			name: config.name.clone(),
 			os: parse_os(&config.os),
+			os_version: None,
 			hardware_model: config.hardware_model.clone(),
 			network_addresses: vec![],
+			capabilities: serde_json::json!({
+				"indexing": true,
+				"p2p": true,
+				"volume_detection": true
+			}),
 			is_online: true,
 			last_seen_at: chrono::Utc::now(),
+			sync_enabled: true,
+			last_sync_at: None,
+			last_state_watermark: None,
+			last_shared_watermark: None,
 			created_at: chrono::Utc::now(),
 			updated_at: chrono::Utc::now(),
 		}

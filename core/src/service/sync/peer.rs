@@ -66,7 +66,7 @@ pub struct PeerSync {
 	is_running: Arc<AtomicBool>,
 
 	/// Network event receiver (optional - if provided, enables connection event handling)
-	network_events: Arc<tokio::sync::Mutex<Option<mpsc::UnboundedReceiver<crate::service::network::core::NetworkEvent>>>>,
+	network_events: Arc<tokio::sync::Mutex<Option<broadcast::Receiver<crate::service::network::core::NetworkEvent>>>>,
 }
 
 impl PeerSync {
@@ -102,7 +102,7 @@ impl PeerSync {
 	}
 
 	/// Set network event receiver for connection tracking
-	pub async fn set_network_events(&self, receiver: mpsc::UnboundedReceiver<crate::service::network::core::NetworkEvent>) {
+	pub async fn set_network_events(&self, receiver: broadcast::Receiver<crate::service::network::core::NetworkEvent>) {
 		*self.network_events.lock().await = Some(receiver);
 	}
 
@@ -389,7 +389,7 @@ impl PeerSync {
 
 			while is_running.load(Ordering::SeqCst) {
 				match rx.recv().await {
-					Some(event) => {
+					Ok(event) => {
 						use crate::service::network::core::NetworkEvent;
 						match event {
 							NetworkEvent::ConnectionEstablished { device_id, node_id } => {
@@ -427,7 +427,15 @@ impl PeerSync {
 							}
 						}
 					}
-					None => {
+					Err(broadcast::error::RecvError::Lagged(skipped)) => {
+						warn!(
+							skipped = skipped,
+							"PeerSync network event listener lagged, skipped {} events",
+							skipped
+						);
+						continue;
+					}
+					Err(broadcast::error::RecvError::Closed) => {
 						info!("Network event channel closed, stopping listener");
 						break;
 					}
