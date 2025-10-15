@@ -21,18 +21,14 @@ Implement the library sync setup flow that enables paired devices to discover ea
 - Two-phase process: Discovery → Registration
 - Bidirectional device registration in each library's database
 - ~~Leader election during setup~~ (No longer needed)
-- Creates `sync_partners` records (new)
 - No actual sync replication in Phase 1 (just registration)
 
 ## Changes for Leaderless Model
 
 **Removed**:
+
 - Leader election during setup
 - Setting `sync_leadership` field
-
-**Added**:
-- Create `sync_partners` table entries
-- All devices are peers
 
 ## Acceptance Criteria
 

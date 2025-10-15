@@ -1,0 +1,73 @@
+# Build artifacts
+target/
+**/target/
+dist/
+**/dist/
+
+# Node modules and frontend
+node_modules/
+**/node_modules/
+.pnpm-store/
+apps/desktop/
+apps/mobile/
+apps/landing/
+apps/macos/
+apps/ios/
+packages/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation (not needed for build)
+docs/
+*.md
+!Cargo.toml
+!Cargo.lock
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Testing
+**/tests/
+**/*_test.rs
+**/*_bench.rs
+
+# macOS/Windows specific
+*.dylib
+*.dll
+*.exe
+*.app
+*.dmg
+*.msi
+
+# Environment and secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Workbench (development notes)
+workbench/
+
+# Release artifacts
+releases/

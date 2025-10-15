@@ -14,6 +14,7 @@ completed: 2025-10-09
 ## Description
 
 Create sync protocol handler supporting the new hybrid model:
+
 - **State-based messages** for device-owned data (locations, entries)
 - **Log-based messages with HLC** for shared resources (tags, albums)
 
@@ -25,9 +26,10 @@ No leader/follower distinction - all devices are peers.
 **New**: Peer-to-peer with hybrid strategy
 
 **Benefits**:
-- ✅ No bottleneck (no leader)
-- ✅ Works offline (all peers equal)
-- ✅ Simpler (no election/heartbeats)
+
+- No bottleneck (no leader)
+- Works offline (all peers equal)
+- Simpler (no election/heartbeats)
 
 ## SyncMessage Enum (Revised)
 
@@ -176,7 +178,7 @@ impl SyncProtocolHandler {
 ## Connection Management
 
 - Protocol uses Iroh BiStreams
-- Each device maintains connections to all `sync_partners`
+- Each device maintains connections to all peer devices
 - Auto-reconnect on connection loss
 - No heartbeats needed (connection itself is the liveness indicator)
 - Offline changes queue locally, sync on reconnect
@@ -199,6 +201,7 @@ impl SyncProtocolHandler {
 Successfully implemented in `core/src/service/network/protocol/sync/handler.rs`:
 
 **Message Handling**:
+
 - `StateChange` and `StateBatch` - Routes to PeerSync for state-based sync
 - `SharedChange` and `SharedChangeBatch` - Routes to PeerSync for log-based sync
 - `StateRequest` / `StateResponse` - Stub for backfill (TODO)
@@ -207,6 +210,7 @@ Successfully implemented in `core/src/service/network/protocol/sync/handler.rs`:
 - `Heartbeat` - Basic echo response
 
 **Key Features**:
+
 - All message types properly deserialized and routed
 - Error handling with proper propagation
 - Logging for debugging

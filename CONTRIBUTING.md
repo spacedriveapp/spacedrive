@@ -6,6 +6,12 @@ Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community ap
 
 This guide will provide an overview of the contribution workflow, including opening an issue, creating a pull request (PR), and the review and merge process.
 
+> **Important: Spacedrive V2 Rewrite**
+>
+> Spacedrive underwent a complete architectural rewrite in early 2025. If you contributed to V1, please read the [Migration Guide for V1 Contributors](#migrating-from-v1) section below to understand the major changes.
+>
+> **TL;DR:** V1 used Tauri + React + Prisma. V2 is Rust-first with native Swift apps, SeaORM, and a CLI. Most of the stack was replaced to address fundamental architectural issues detailed in our [history document](docs/overview/history.mdx).
+
 ## New Contributor Guide
 
 To familiarize yourself with the project, please read the [README](README.md). Here are some resources to help you get started with open-source contributions:
@@ -14,8 +20,8 @@ To familiarize yourself with the project, please read the [README](README.md). H
 - [Setting up Git](https://docs.github.com/en/get-started/quickstart/set-up-git)
 - [GitHub flow](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Collaborating with pull requests](https://docs.github.com/en/github/collaborating-with-pull-requests)
-- [Getting started with Tauri](https://tauri.app/v1/guides/getting-started/prerequisites)
-- [pnpm CLI](https://pnpm.io/pnpm-cli)
+- [Spacedrive Architecture Documentation](docs/core/architecture.mdx)
+- [V1 to V2 Migration Guide](#migrating-from-v1) (for returning contributors)
 
 ## Getting Started
 
@@ -29,224 +35,671 @@ If you come across an issue or have a feature request for Spacedrive, please [se
 
 To find an issue that interests you, you can browse through our [existing issues](https://github.com/spacedriveapp/spacedrive/issues) and use the available `labels` to narrow down your search (See [Labels](https://github.com/spacedriveapp/spacedrive/labels) for more information). As a general rule, if you find an issue you want to work on, you are welcome to open a PR with a fix.
 
-## Making Changes
+## Development Setup
 
-### Web-based Clients
+Spacedrive V2 is built with a **Rust-first architecture**. The core Virtual Distributed File System (VDFS) is pure Rust, with native Swift apps for iOS/macOS maintained as separate submodules to keep Spacedrive recognized as a Rust project on GitHub.
 
-This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Make sure you have them installed before proceeding.
+### Prerequisites
 
-To make changes locally, follow these steps:
+Before you begin, ensure you have the following installed:
 
-1. Clone & enter the repository:
-   `     git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
- `
-   Alternatively, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
-> [!TIP]
-> Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
-3. Configure your system environment for Spacedrive development
+| Tool  | Version                        | Required For                 |
+| ----- | ------------------------------ | ---------------------------- |
+| Rust  | [`1.81+`](rust-toolchain.toml) | Core development             |
+| Xcode | Latest                         | iOS/macOS development        |
+| Git   | Any recent version             | Version control & submodules |
 
-- For Unix users (Linux / macOS), run: `./scripts/setup.sh`
-- For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
-> [!NOTE]
-> This script ([Unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [Windows](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
+**Note:** Node.js and pnpm are only needed if you're working on TypeScript client generation or shared UI packages.
 
-3. Install NodeJS dependencies: `pnpm i`
-4. Prepare the build: `pnpm prep`. This will run all necessary codegen and build required dependencies.
+[`rustup`](https://rustup.rs/) should automatically pick up the correct Rust version from the project's `rust-toolchain.toml`.
 
-> [!TIP]
-> Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
->
-> The test files will be located in a directory called `test-data` in the root of the Spacedrive repository.
+### Clone the Repository
 
-To run the **desktop** app, run:
-
+```bash
+git clone https://github.com/spacedriveapp/spacedrive
+cd spacedrive
 ```
+
+If you plan to work on GUI applications, initialize the submodules:
+
+Some submodules are private, such as extensions.
+
+```bash
+git submodule update --init --recursive
+```
+
+### System Dependencies
+
+Run the setup script to install required system dependencies:
+
+**Unix (Linux / macOS):**
+
+```bash
+./scripts/setup.sh
+```
+
+**Windows:**
+
+```powershell
+.\scripts\setup.ps1
+```
+
+This script will install platform-specific dependencies required for building Spacedrive.
+
+For mobile development, run:
+
+```bash
+./scripts/setup.sh mobile
+```
+
+This installs additional Rust targets for iOS and Android cross-compilation.
+
+## Core Development
+
+The heart of Spacedrive is the Rust core (`core/`). Most contributions will involve working with this codebase.
+
+### Quick Start with CLI
+
+The fastest way to start developing is with the CLI:
+
+```bash
+# Create a library and start exploring
+cargo run -p sd-cli -- library create "Dev Library"
+
+# Add a location to index
+cargo run -p sd-cli -- location add ~/Documents
+
+# Search for files
+cargo run -p sd-cli -- search .
+```
+
+You can set up a bashprofile or alias
+
+### Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run tests for a specific package
+cargo test -p sd-core
+
+# Run tests with output
+cargo test -- --nocapture
+```
+
+### Code Quality
+
+Before submitting a PR, ensure your code passes all checks:
+
+```bash
+# Format code
+cargo fmt
+
+# Run linter
+cargo clippy
+
+# Run all checks
+cargo fmt && cargo clippy && cargo test
+```
+
+### Working with Examples
+
+The `core/examples/` directory contains working demonstrations of core features:
+
+```bash
+# Run the indexing demo
+cargo run --example indexing_demo
+
+# Run the file type detection demo
+cargo run --example file_type_demo
+
+# See all available examples
+ls core/examples/
+```
+
+Examples are a great way to understand how different parts of the system work together.
+
+## GUI Application Development
+
+GUI applications (iOS, macOS, and the upcoming Desktop app) are maintained as **separate Git submodules**. This approach keeps the main repository focused on Rust code, ensuring Spacedrive is properly recognized as a Rust project on GitHub.
+
+### Why Submodules?
+
+With 35k+ stars, Spacedrive is one of the top 30 largest Rust projects globally, yet GitHub's language detection can misclassify it as TypeScript/Swift based on lines of code. Submodules solve this by keeping frontend code in separate repositories.
+
+### Working with Submodules
+
+#### Initialize All Submodules
+
+```bash
+git submodule update --init --recursive
+```
+
+#### Update Submodules to Latest
+
+```bash
+git submodule update --remote
+```
+
+#### Check Submodule Status
+
+```bash
+git submodule status
+```
+
+### iOS Development
+
+The iOS app embeds the full Spacedrive core as a native library, enabling offline-first operation and direct P2P networking.
+
+```bash
+# Navigate to iOS submodule
+cd apps/ios
+
+# Open in Xcode
+open Spacedrive.xcodeproj
+```
+
+For detailed iOS development instructions, see [`apps/ios/README.md`](apps/ios/README.md).
+
+**Key Points:**
+
+- Core is embedded as `sd-ios-core` static library
+- Uses shared `packages/swift-client` for type-safe Swift API
+- No external daemon required
+- Full documentation in submodule README
+
+### macOS Development
+
+The macOS app connects to the Spacedrive daemon via Unix socket.
+
+```bash
+# Navigate to macOS submodule
+cd apps/macos
+
+# Open in Xcode
+open Spacedrive.xcodeproj
+```
+
+For macOS-specific development instructions, see `apps/macos/README.md`.
+
+### Desktop Development (Coming Soon)
+
+The cross platform desktop app will use Tauri and will also be maintained as a submodule.
+
+```bash
+# Future workflow (when desktop submodule exists)
+cd apps/desktop
+pnpm install
 pnpm tauri dev
 ```
 
-> [!NOTE]
-> The Tauri desktop app always runs its own instance of the backend and will not connect to a separately initiated `sd-server` instance.
+## Extension Development
 
-To run the **backend server**, run:
+Spacedrive supports WASM-based extensions for adding custom functionality. Extensions run in sandboxed environments with full access to the Spacedrive SDK.
 
-```
-cargo run -p sd-server
-```
+### Getting Started with Extensions
 
-> [!TIP]
-> If necessary, [DevTools](https://tauri.app/v1/guides/debugging/application/#webview-console) for the WebView can be opened by pressing <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> (Linux and Windows) or <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> (macOS) in the desktop app.
->
-> Also, React DevTools can be launched using `pnpx react-devtools`.
-> However, it must be executed before starting the desktop app for it to connect.
+```bash
+# Navigate to extensions directory
+cd extensions/
 
-To run the **web** app (requires the backend to be running), run:
+# Create a new extension from template
+cargo generate --path template
 
-```
-pnpm web dev
+# Build an extension
+cd your-extension
+cargo build --target wasm32-unknown-unknown
 ```
 
-> [!TIP]
-> You can also quickly launch the web interface together with the backend with:
->
-> ```
-> pnpm dev:web
-> ```
+For comprehensive extension development documentation, see [`docs/extensions/introduction.mdx`](docs/extensions/introduction.mdx).
 
-To run the **e2e tests** for the web app:
+## TypeScript Client Development
 
-```
-pnpm web test:e2e
-```
+The TypeScript client (`packages/ts-client`) provides a type-safe interface to the Spacedrive daemon. Types are automatically generated from Rust definitions.
 
-If you are developing a new test, you can execute Cypress in interactive mode with:
+### Generate TypeScript Types
 
-```
-pnpm web test:interactive
+```bash
+# From the ts-client directory
+cd packages/ts-client
+pnpm run generate-types
+
+# Or run directly from core
+cargo run --bin generate_typescript_types --manifest-path core/Cargo.toml
 ```
 
-#### Troubleshooting
+### Build the Client
 
-- If you encounter any issues, ensure that you are using the following versions of Rust, Node.js and pnpm:
-  | tool | version |
-  | ---- | ------- |
-  | Rust | [`1.81`](rust-toolchain.toml) |
-  | Node.js | [`18.18`](.nvmrc) |
-  | pnpm | `9.4.0` |
-
-> **Note**: If you get a local migration error in development, you might need to set the following environment variables: [database documentation](docs/developers/architecture/database.mdx#environment-variables).
-
-[`rustup`](https://rustup.rs/) & [`nvm`](https://github.com/nvm-sh/nvm) should both pick up on the appropriate versions of the Rust Toolchain & Node respectively from the project automatically.
-
-- After cleaning out your build artifacts using `pnpm clean`, it's necessary to re-run `pnpm prep`.
-
-- Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
-
-- After you finish making your changes and committing them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
-
-### Landing Page
-
-To run the **landing page**, run:
-
-- `pnpm landing dev`
-
-### Mobile App
-
-To run the mobile app:
-
-- Run `./scripts/setup.sh mobile`
-
-#### Android
-
-- Install Java JDK 17 for Android. Java 21 is [not compatible](https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956).
-- Install [Android Studio](https://developer.android.com/studio). This will set up most of the dependencies required to build the mobile app.
-  - Make sure you have [NDK 26.1.10909125 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
-- Run `pnpm mobile android` to build the core and begin debugging the app.
-
-> [!TIP]
-> To speed up compilation for Android you may temporarily remove unnecessary architectures from the build by removing them from the following line:
-> https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/android/build.sh#L61
-> Most modern phones use `arm64-v8a` while the Android Studio embedded emulator runs `x86_64`
-
-If you wish to debug directly on a local Android device:
-
-- Install [ADB](https://developer.android.com/tools/adb)
-  - On macOS use [homebrew](https://brew.sh/): `brew install adb`
-- [Configure debugging on your device](https://developer.android.com/tools/adb#Enabling)
-  - Select "Remember this device" & "Trust" when connecting over USB.
-- Run `pnpm mobile android` with your device connected via USB.
-
-> [!TIP]
-> To access the logs from `sd-core` when running on device, run the following command:
->
-> ```
-> adb logcat | grep -i com.spacedrive.app
-> ```
-
-#### iOS
-
-- Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate an iOS device on your Mac.
-  - When running Xcode for the first time, make sure to select the latest version of iOS.
-- Run `pnpm mobile ios` in the terminal to build & run the app on the Simulator.
-  - To run the app in debug mode with backend (`sd-core`) logging, comment out the following lines before running the above command:
-    https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/ios/build-rust.sh#L51-L54
-    You can now get backend (`sd-core`) logs from the Simulator by running the following command:
-	  ```
-	  xcrun simctl launch --console booted com.spacedrive.app
-	  ```
-- If you'd like to run the app on device, run: `pnpm mobile ios --device`
-> [!IMPORTANT]
-> Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend separately.
-
-To run the backend (`sd-core`) separately, open up Xcode by running:
-
-```
-xed apps/mobile/ios
+```bash
+cd packages/ts-client
+pnpm install
+pnpm build
 ```
 
-Select from the top if you wish to start on device or Simulator, and press play.
+The TypeScript client is primarily used by the desktop GUI (future) and can be used to build custom interfaces.
 
-| Select Device                                              | Run the App                                                | Build & Core logs are found here                           |
-| ---------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
-| ![](./apps/landing/public/images/xcode-run-sd-core.01.png) | ![](./apps/landing/public/images/xcode-run-sd-core.02.png) | ![](./apps/landing/public/images/xcode-run-sd-core.03.png) |
+## Architecture Overview
 
-To run the frontend, run the following:
+Spacedrive V2 introduces several architectural improvements over V1:
 
-```
-pnpm mobile start
-```
+- **Entry-Centric Model**: Files and directories unified as Entries with optional content identity
+- **SdPath Addressing**: Universal file addressing across devices and storage types
+- **Event-Driven**: EventBus eliminates coupling between core subsystems
+- **CQRS Pattern**: Actions (mutations) and Queries (reads) with preview-commit-verify flow
+- **Durable Jobs**: Long-running operations survive app restarts via MessagePack serialization
+- **Domain-Separated Sync**: Leaderless P2P sync with HLC timestamps
 
-> [!IMPORTANT]
-> The frontend is not functional without the sd-core running as well.
+For deep-dive architecture documentation, see [`docs/core/architecture.mdx`](docs/core/architecture.mdx).
 
-### Pull Request
+## Submitting a Pull Request
 
 Once you have finished making your changes, create a pull request (PR) to submit them.
 
-- Fill out the "Ready for review" template to help reviewers understand your changes and the purpose of your PR.
-- If you are addressing an existing issue, don't forget to [link your PR to the issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
-- Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so that the branch can be updated for merging.
-- Once you submit your PR, a team member will review your proposal. They may ask questions or request additional information.
-- You may be asked to make changes before the PR can be merged, either through [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. You can apply suggested changes directly through the UI. For other changes, you can make them in your fork and commit them to your branch.
-- As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
-- If you run into any merge issues, refer to this [git tutorial](https://lab.github.com/githubtraining/managing-merge-conflicts) to help you resolve merge conflicts and other issues.
+### Before Submitting
 
-### Your PR is Merged!
+1. **Run all checks:**
 
-Congratulations! 🎉The Spacedrive team thanks you for your contribution! 
+   ```bash
+   cargo fmt && cargo clippy && cargo test
+   ```
+
+2. **Update documentation** if you've changed public APIs
+
+3. **Add tests** for new functionality
+
+4. **Test on relevant platforms** (especially for iOS/macOS changes)
+
+### Creating the PR
+
+- Fill out the PR template to help reviewers understand your changes
+- [Link your PR to an issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) if addressing an existing issue
+- Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork)
+- A team member will review your proposal and may request changes
+- Mark conversations as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations) as you address feedback
+
+## Your PR is Merged!
+
+Congratulations! The Spacedrive team thanks you for your contribution!
 
 Once your PR is merged, your changes will be included in the next release of the application.
 
-### Common Errors
+## Troubleshooting
 
-#### `xcrun: error: unable to find utility "xctest", not a developer tool or in PATH`
+### Rust Compilation Issues
 
-This error occurs when Xcode is not installed or when the Xcode command line tools are not in your `PATH`.
+**Error: Could not compile `sd-core`**
 
-To resolve this issue:
+- Ensure you're using Rust 1.81+ (`rustup update`)
+- Clean build artifacts: `cargo clean`
+- Check that all dependencies are installed via setup script
 
-- Install Xcode from the macOS App Store or directly from [here](https://xcodereleases.com/) (requires Apple Account).
-- Run `xcode-select -s /Applications/Xcode.app/Contents/Developer`.
-  This command will use Xcode's developer tools instead of macOS's default tools.
+**Error: Linking failed**
+
+- On Linux, ensure all system dependencies are installed
+- Run `./scripts/setup.sh` again to verify dependencies
+
+### Xcode Issues
+
+#### `xcrun: error: unable to find utility "xctest"`
+
+This occurs when Xcode command line tools are not properly configured.
+
+**Solution:**
+
+```bash
+# Install Xcode from App Store
+# Then configure command line tools
+xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
 
 #### `unable to lookup item 'PlatformPath'`
 
-If you run into this issue, or similar:
+This typically indicates outdated command line tools.
+
+**Solution:**
+
+```bash
+# Ensure macOS is fully updated
+# Install/update command line tools
+xcode-select --install
+
+# Install Rosetta (required for some dependencies on Apple Silicon)
+softwareupdate --install-rosetta --agree-to-license
+```
+
+### Submodule Issues
+
+#### Submodules not initialized
+
+**Error:** `apps/ios` directory is empty or missing files
+
+**Solution:**
+
+```bash
+git submodule update --init --recursive
+```
+
+#### Submodule pointing to wrong commit
+
+After pulling latest changes, submodules may be out of sync.
+
+**Solution:**
+
+```bash
+git submodule update --remote
+```
+
+#### Changes in submodule not showing
+
+If you've made changes inside a submodule directory:
+
+```bash
+# Commit within the submodule
+cd apps/ios
+git add .
+git commit -m "Your changes"
+
+# Then commit the submodule reference in main repo
+cd ../..
+git add apps/ios
+git commit -m "Update iOS submodule"
+```
+
+### iOS/macOS Build Issues
+
+#### Core library not found
+
+**Error:** `sd-ios-core` framework not found
+
+**Solution:**
+
+```bash
+# From the project root
+cargo ios
+# Or the full command:
+cargo xtask build-ios
+```
+
+#### Swift client compilation errors
+
+If you've updated Rust types, regenerate Swift bindings:
+
+```bash
+# The swift-client uses generated types from specta
+# Rebuild the core to regenerate types
+cargo build -p sd-core
+```
+
+### Test Failures
+
+If tests fail locally:
+
+```bash
+# Run specific test with output
+cargo test test_name -- --nocapture
+
+# Check for database issues
+rm -rf ~/.local/share/spacedrive  # Remove test databases
+cargo test
+```
+
+## Migrating from V1
+
+If you contributed to Spacedrive V1 (the 35k+ star version visible on GitHub from 2022-2024), welcome back! V2 is a ground-up rewrite that addresses every architectural flaw that made V1 unmaintainable. This section helps you understand what changed and how your V1 knowledge maps to V2.
+
+### Why the Rewrite?
+
+V2 wasn't perfectionism—V1 became fundamentally broken:
+
+- **Prisma deprecated** - No migration path for our database layer
+- **libp2p unreliable** - P2P transfers constantly failed
+- **No extensibility** - Community couldn't build on top
+- **Dual file systems** - Incompatible indexed vs ephemeral files
+- **Development paralysis** - Simple features required 1000+ lines of boilerplate
+
+Read the full analysis in [docs/overview/history.mdx](docs/overview/history.mdx).
+
+### Architecture Changes at a Glance
+
+| Aspect              | V1 (PRRTT Stack)                  | V2 (Rust-First)                                                                        |
+| ------------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
+| **Database**        | Prisma (deprecated)               | SeaORM                                                                                 |
+| **Type Generation** | rspc                              | Specta (TypeScript + Swift)                                                            |
+| **Desktop**         | Tauri + React (in repo)           | Swift (native macOS submodule) / Tauri + React (cross platform submodule, coming soon) |
+| **Mobile**          | React Native                      | Native Swift (iOS/macOS submodules)                                                    |
+| **P2P Networking**  | libp2p                            | Iroh (QUIC-based)                                                                      |
+| **File Model**      | Dual system (indexed + ephemeral) | Unified Entry + SdPath                                                                 |
+| **RPC**             | rspc procedures                   | Specta-generated types                                                                 |
+| **Extensibility**   | None                              | WASM SDK                                                                               |
+| **CLI**             | Planned                           | Production-ready (`sd-cli`)                                                            |
+| **Job System**      | 1000+ lines boilerplate           | ~50 lines with macros                                                                  |
+| **Sync**            | Custom CRDT (incomplete)          | HLC timestamps (works)                                                                 |
+
+### Development Workflow Changes
+
+**V1 Workflow:**
+
+```bash
+pnpm i
+pnpm prep  # Generate Prisma client + rspc types
+pnpm tauri dev  # Desktop
+pnpm mobile ios  # React Native mobile
+cargo run -p sd-server  # Backend server
+```
+
+**V2 Workflow:**
+
+```bash
+cargo run -p sd-cli -- library create "My Library"  # CLI-first
+open apps/ios/Spacedrive.xcodeproj  # Native iOS (submodule)
+# Desktop: cd apps/desktop && pnpm tauri dev (when submodule exists)
+```
+
+### File Structure Comparison
+
+**V1 Monorepo:**
 
 ```
-error: terminated(1): /us/bin/xcrun --sdk macos --show-sdk-platform-path output :
-xcrun: error: unable to lookup item 'PlatformPath' from command line tools installation xcrun: error: unable to lookup item 'PlatformPath' in SDK '/Library/Developer /CommandLineTools/SDKs/MacOSX.sdk'
+apps/
+  desktop/        # Tauri app (main repo)
+  mobile/         # React Native
+  web/            # React SPA
+  landing/        # Next.js
+  server/         # Rust backend
+  storybook/      # Component docs
+interface/        # Shared React components
+packages/
+  client/         # rspc client (@sd/client)
+  ui/             # Shared UI components
+  config/         # ESLint/TS configs
+core/
+  prisma/         # Prisma schema
+  src/            # Rust core
 ```
 
-Ensure that macOS is fully updated, and that you have Xcode installed (via the app store).
+**V2 Structure:**
 
-Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
+```
+core/             # Pure Rust (VDFS implementation)
+  src/
+    domain/       # Core models
+    ops/          # CQRS operations
+    infra/        # DB, jobs, events, sync
+    service/      # High-level services
+apps/
+  cli/            # Production CLI
+  ios/            # Native Swift app (SUBMODULE)
+  macos/          # Native Swift app (SUBMODULE)
+  desktop/        # Future: Tauri app (SUBMODULE)
+extensions/       # WASM extensions
+packages/
+  ts-client/      # Minimal TypeScript client
+  swift-client/   # Shared Swift client
+  ui/             # Minimal shared UI
+```
 
-Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
+### What Happened to My Favorite V1 Component?
 
-### Translations
+**Desktop GUI (`apps/desktop`):**
 
-Check out the [i18n README](interface/locales/README.md) for more information on how to contribute to translations.
+- **Status:** Will return as a submodule (Tauri + React, like V1)
+- **Why submodule:** Keep Spacedrive categorized as Rust on GitHub
+- **Migration:** Desktop contributors should wait for submodule or contribute to native apps
 
-### Credits
+**React Native Mobile (`apps/mobile`):**
+
+- **Status:** Replaced with native Swift apps in `apps/ios` and `apps/macos` submodules
+- **Why:** Better performance, full iOS API access, offline-first with embedded core
+- **Migration:** Learn SwiftUI or contribute to core Rust
+
+**Interface Package (`interface/`):**
+
+- **Status:** Removed; UI now lives in individual app submodules
+- **Migration:** Desktop UI will be in `apps/desktop` submodule when added
+
+**Prisma Client (`core/prisma`):**
+
+- **Status:** Replaced with SeaORM
+- **Migration:** Learn SeaORM migration system and entity definitions
+
+**rspc (`packages/client`):**
+
+- **Status:** Replaced with Specta for type generation
+- **Migration:** Types now generated from Rust using Specta for both TypeScript and Swift
+
+**libp2p Networking:**
+
+- **Status:** Replaced with Iroh
+- **Why:** More reliable P2P with better NAT traversal
+- **Migration:** Iroh API is different; review networking code in `core/src/service/network/`
+
+### Breaking Changes for Contributors
+
+#### Database Layer
+
+- **V1:** Prisma schema → `prisma generate` → Rust client
+- **V2:** SeaORM entities → Migrations in `core/src/infra/db/migration/`
+- **Learn:** [SeaORM docs](https://www.sea-ql.org/SeaORM/)
+
+#### Type Safety Across Boundaries
+
+- **V1:** rspc procedures with TypeScript codegen
+- **V2:** Specta generates both TypeScript and Swift types
+- **Example:**
+
+  ```rust
+  // V1 (rspc)
+  .query("getLibrary", |t| t(|ctx, input: String| async move { ... }))
+
+  // V2 (Specta)
+  #[derive(Serialize, Deserialize, Type)]
+  pub struct Library { ... }
+  // Types auto-generated for TS and Swift
+  ```
+
+#### Job System
+
+- **V1:** Manual boilerplate (500-1000 lines per job)
+- **V2:** Derive macro (~50 lines)
+- **Example:**
+  ```rust
+  // V2
+  #[derive(Job)]
+  pub struct IndexerJob {
+      location_id: Uuid,
+  }
+  ```
+
+#### File Operations
+
+- **V1:** Dual system (indexed `FilePath` vs ephemeral)
+- **V2:** Unified `Entry` model with `SdPath` addressing
+- **Learn:** Read `core/src/domain/entry.rs` and SdPath in docs
+
+### Where Should V1 Contributors Focus?
+
+**If you worked on:**
+
+**Core/Rust:**
+
+- Your knowledge transfers well
+- Learn SeaORM, Specta, and the new domain-driven structure
+- Focus on `core/src/domain/` and `core/src/ops/`
+
+**Desktop GUI:**
+
+- Wait for `apps/desktop` submodule or contribute to native apps
+- React/TypeScript skills will transfer when desktop submodule is added
+
+**Mobile:**
+
+- iOS/macOS are now native Swift apps
+- Learn SwiftUI or contribute to core Rust (embedded in apps)
+- Check `apps/ios/README.md` for architecture
+
+**Database/Migrations:**
+
+- Completely different system (SeaORM vs Prisma)
+- Learn SeaORM migrations
+- Focus on `core/src/infra/db/`
+
+**Networking/P2P:**
+
+- Iroh replaced libp2p entirely
+- Learn Iroh's QUIC-based approach
+- Focus on `core/src/service/network/`
+
+**Search:**
+
+- Now using FTS5 with semantic re-ranking
+- Focus on `core/src/infra/search/`
+
+**Extensions/SDK:**
+
+- **New in V2!** WASM-based extension system
+- Check `extensions/` and `docs/extensions/`
+
+### Quick Reference: Command Mapping
+
+| V1 Command               | V2 Equivalent                                        |
+| ------------------------ | ---------------------------------------------------- |
+| `pnpm i`                 | Not needed (unless working on ts-client)             |
+| `pnpm prep`              | Not needed (Specta generates on build)               |
+| `pnpm tauri dev`         | Will be `cd apps/desktop && pnpm tauri dev` (future) |
+| `pnpm mobile ios`        | `open apps/ios/Spacedrive.xcodeproj`                 |
+| `cargo run -p sd-server` | `cargo run -p sd-cli`                                |
+| `pnpm dev:web`           | Not yet available (web in progress)                  |
+
+### Getting Help with Migration
+
+- **Read the history:** [docs/overview/history.mdx](docs/overview/history.mdx) explains every V1 failure
+- **Architecture docs:** [docs/core/architecture.mdx](docs/core/architecture.mdx) explains V2 design
+- **Discord:** Ask in #development channel
+- **Examples:** Run `cargo run --example <name>` to see V2 patterns
+
+### Will V1 Knowledge Help?
+
+**Yes for:**
+
+- General Rust development
+- Core concepts (VDFS, CAS, file indexing)
+- Understanding the problem space
+
+**No for:**
+
+- Specific API calls (completely redesigned)
+- Database queries (different ORM)
+- File operation patterns (unified model now)
+- P2P code (different library)
+
+## Additional Resources
+
+- [Spacedrive Architecture](docs/core/architecture.mdx) - Deep dive into V2 architecture
+- [Extension Development](docs/extensions/introduction.mdx) - Build WASM extensions
+- [Whitepaper](docs/overview/whitepaper.mdx) - Spacedrive's vision and technical design
+- [Discord Community](https://discord.gg/gTaF2Z44f5) - Get help and discuss development
+
+## Credits
 
 This CONTRIBUTING.md file was inspired by the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/.github/CONTRIBUTING.md) file, and we extend our gratitude to the original author.
