@@ -16,6 +16,9 @@ pub struct Device {
 	/// Human-readable name
 	pub name: String,
 
+	/// Unique slug for URI addressing (e.g., "jamies-macbook")
+	pub slug: String,
+
 	/// Operating system
 	pub os: OperatingSystem,
 
@@ -68,12 +71,25 @@ pub enum OperatingSystem {
 }
 
 impl Device {
+	/// Generate URL-safe slug from device name
+	/// Converts to lowercase and replaces non-alphanumeric chars with hyphens
+	pub fn generate_slug(name: &str) -> String {
+		name.to_lowercase()
+			.chars()
+			.map(|c| if c.is_alphanumeric() { c } else { '-' })
+			.collect::<String>()
+			.trim_matches('-')
+			.to_string()
+	}
+
 	/// Create a new device
 	pub fn new(name: String) -> Self {
 		let now = Utc::now();
+		let slug = Self::generate_slug(&name);
 		Self {
 			id: Uuid::new_v4(),
 			name,
+			slug,
 			os: detect_operating_system(),
 			os_version: None,
 			hardware_model: detect_hardware_model(),
@@ -202,6 +218,7 @@ impl From<Device> for entities::device::ActiveModel {
 			id: NotSet, // Auto-increment
 			uuid: Set(device.id),
 			name: Set(device.name),
+			slug: Set(device.slug),
 			os: Set(device.os.to_string()),
 			os_version: Set(device.os_version),
 			hardware_model: Set(device.hardware_model),
@@ -228,6 +245,7 @@ impl TryFrom<entities::device::Model> for Device {
 		Ok(Device {
 			id: model.uuid,
 			name: model.name,
+			slug: model.slug,
 			os: parse_operating_system(&model.os),
 			os_version: model.os_version,
 			hardware_model: model.hardware_model,

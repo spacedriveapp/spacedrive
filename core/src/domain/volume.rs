@@ -714,6 +714,29 @@ impl Volume {
 	pub fn contains_path(&self, path: &PathBuf) -> bool {
 		crate::volume::fs::contains_path(self, path)
 	}
+
+	/// Parse cloud service and identifier from mount point
+	/// Returns None for non-cloud volumes or unparseable mount points
+	///
+	/// # Examples
+	/// - "s3://my-bucket" → Some((S3, "my-bucket"))
+	/// - "gdrive://My Drive" → Some((GoogleDrive, "My Drive"))
+	/// - "/mnt/local" → None
+	pub fn parse_cloud_identity(&self) -> Option<(crate::volume::backend::CloudServiceType, String)> {
+		use crate::volume::backend::CloudServiceType;
+
+		let mount_str = self.mount_point.to_string_lossy();
+		let parts: Vec<&str> = mount_str.splitn(2, "://").collect();
+
+		if parts.len() != 2 {
+			return None;
+		}
+
+		let service = CloudServiceType::from_scheme(parts[0])?;
+		let identifier = parts[1].trim_start_matches('/').to_string();
+
+		Some((service, identifier))
+	}
 }
 
 impl From<&Volume> for VolumeInfo {

@@ -3,6 +3,7 @@
 use super::config::DeviceConfig;
 use crate::crypto::device_key_manager::{DeviceKeyError, DeviceKeyManager};
 use crate::domain::device::{Device, OperatingSystem};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use thiserror::Error;
@@ -41,6 +42,9 @@ pub struct DeviceManager {
 	device_key_manager: DeviceKeyManager,
 	/// Custom data directory (if any)
 	data_dir: Option<PathBuf>,
+	/// In-memory cache of all devices in the library (slug -> device_id)
+	/// Populated when library loads, provides O(1) slug resolution for all devices
+	device_cache: Arc<RwLock<HashMap<String, Uuid>>>,
 }
 
 impl DeviceManager {
@@ -87,6 +91,7 @@ impl DeviceManager {
 			config: Arc::new(RwLock::new(config)),
 			device_key_manager,
 			data_dir: Some(data_dir.clone()),
+			device_cache: Arc::new(RwLock::new(HashMap::new())),
 		})
 	}
 
@@ -98,12 +103,74 @@ impl DeviceManager {
 			.map_err(|_| DeviceError::LockPoisoned)
 	}
 
+	/// Resolve device UUID from slug
+	/// Checks in-memory cache (all library devices) then falls back to current device config
+	pub fn resolve_by_slug(&self, slug: &str) -> Option<Uuid> {
+		// Check cache first (covers all library devices)
+		if let Ok(cache) = self.device_cache.read() {
+			if let Some(&device_id) = cache.get(slug) {
+				return Some(device_id);
+			}
+		}
+
+		// Fallback: check if it's the current device
+		let config = self.config.read().ok()?;
+		if config.slug == slug {
+			Some(config.id)
+		} else {
+			None
+		}
+	}
+
+	/// Load devices from library database into cache
+	/// Called when a library is opened to enable slug resolution for all devices
+	pub async fn load_library_devices(
+		&self,
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<(), DeviceError> {
+		use crate::infra::db::entities::device;
+		use sea_orm::EntityTrait;
+
+		let devices = device::Entity::find().all(db).await.map_err(|e| {
+			DeviceError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+		})?;
+
+		let mut cache = self.device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+		cache.clear();
+
+		for device in devices {
+			cache.insert(device.slug, device.uuid);
+		}
+
+		tracing::debug!("Loaded {} devices into DeviceManager cache", cache.len());
+
+		Ok(())
+	}
+
+	/// Clear the device cache (when library closes)
+	pub fn clear_device_cache(&self) -> Result<(), DeviceError> {
+		let mut cache = self.device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+		let count = cache.len();
+		cache.clear();
+		tracing::debug!("Cleared {} devices from DeviceManager cache", count);
+		Ok(())
+	}
+
+	/// Add a device to the cache (when new device pairs or syncs)
+	pub fn cache_device(&self, slug: String, device_id: Uuid) -> Result<(), DeviceError> {
+		let mut cache = self.device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+		cache.insert(slug.clone(), device_id);
+		tracing::debug!("Cached device: {} -> {}", slug, device_id);
+		Ok(())
+	}
+
 	/// Get the current device as a domain Device object
 	pub async fn current_device(&self) -> Device {
 		let config = self.config.read().unwrap();
 		Device {
 			id: config.id,
 			name: config.name.clone(),
+			slug: config.slug.clone(),
 			os: parse_os(&config.os),
 			os_version: None,
 			hardware_model: config.hardware_model.clone(),
@@ -139,6 +206,7 @@ impl DeviceManager {
 		// Create device with loaded configuration
 		let mut device = Device::new(config.name.clone());
 		device.id = config.id;
+		device.slug = config.slug.clone();
 		device.os = parse_os(&config.os);
 		device.hardware_model = config.hardware_model.clone();
 		device.created_at = config.created_at;

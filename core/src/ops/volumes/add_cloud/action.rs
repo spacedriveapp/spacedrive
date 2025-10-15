@@ -124,7 +124,10 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
-				let mount_point = PathBuf::from(format!("cloud://s3/{}", bucket));
+				let desired_mount_point = format!("s3://{}", bucket);
+				let mount_point = context.volume_manager
+					.ensure_unique_mount_point(&desired_mount_point)
+					.await;
 
 				(backend, credential, mount_point)
 			}
@@ -154,10 +157,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None, // Google Drive tokens typically don't have a fixed expiry in the refresh flow
 				);
 
-				let mount_point = PathBuf::from(format!(
-					"cloud://gdrive/{}",
+				let desired_mount_point = format!(
+					"gdrive://{}",
 					root.as_deref().unwrap_or("root")
-				));
+				);
+				let mount_point = context.volume_manager
+					.ensure_unique_mount_point(&desired_mount_point)
+					.await;
 
 				(backend, credential, mount_point)
 			}
@@ -187,10 +193,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
-				let mount_point = PathBuf::from(format!(
-					"cloud://onedrive/{}",
+				let desired_mount_point = format!(
+					"onedrive://{}",
 					root.as_deref().unwrap_or("root")
-				));
+				);
+				let mount_point = context.volume_manager
+					.ensure_unique_mount_point(&desired_mount_point)
+					.await;
 
 				(backend, credential, mount_point)
 			}
@@ -220,10 +229,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
-				let mount_point = PathBuf::from(format!(
-					"cloud://dropbox/{}",
+				let desired_mount_point = format!(
+					"dropbox://{}",
 					root.as_deref().unwrap_or("root")
-				));
+				);
+				let mount_point = context.volume_manager
+					.ensure_unique_mount_point(&desired_mount_point)
+					.await;
 
 				(backend, credential, mount_point)
 			}
@@ -251,7 +263,10 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
-				let mount_point = PathBuf::from(format!("cloud://azblob/{}", container));
+				let desired_mount_point = format!("azblob://{}", container);
+				let mount_point = context.volume_manager
+					.ensure_unique_mount_point(&desired_mount_point)
+					.await;
 
 				(backend, credential, mount_point)
 			}
@@ -277,7 +292,10 @@ impl LibraryAction for VolumeAddCloudAction {
 					service_account_json.clone(),
 				);
 
-				let mount_point = PathBuf::from(format!("cloud://gcs/{}", bucket));
+				let desired_mount_point = format!("gcs://{}", bucket);
+				let mount_point = context.volume_manager
+					.ensure_unique_mount_point(&desired_mount_point)
+					.await;
 
 				(backend, credential, mount_point)
 			}

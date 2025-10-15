@@ -736,6 +736,7 @@ async fn test_volume_types_and_properties() {
 	let mut system_count = 0;
 	let mut external_count = 0;
 	let mut network_count = 0;
+	let mut user_count = 0;
 
 	for volume in &volumes {
 		match volume.mount_type {
@@ -761,9 +762,9 @@ async fn test_volume_types_and_properties() {
 				// Network volumes have special properties
 				info!("Network volume '{}' detected", volume.name);
 			}
-			MountType::Virtual => {
-				// Virtual volumes (like Docker volumes)
-				info!("Virtual volume '{}' detected", volume.name);
+			MountType::User => {
+				user_count += 1;
+				info!("User volume '{}' detected", volume.name);
 			}
 		}
 
@@ -775,7 +776,7 @@ async fn test_volume_types_and_properties() {
 
 		// All volumes should have capacity info
 		assert!(
-			volume.total_bytes_capacity > 0,
+			volume.total_bytes_capacity() > 0,
 			"Volume should have capacity"
 		);
 	}
@@ -1083,7 +1084,7 @@ async fn test_volume_refresh_and_detection() {
 		);
 		assert!(!volume.name.is_empty(), "Volume name should not be empty");
 		assert!(
-			volume.total_bytes_capacity > 0,
+			volume.total_bytes_capacity() > 0,
 			"Capacity should be positive"
 		);
 

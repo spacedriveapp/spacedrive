@@ -96,6 +96,24 @@ pub enum SyncMessage {
 		shared_watermark: Option<HLC>,          // Last shared change
 	},
 
+	/// Request peer's watermarks for reconnection sync
+	WatermarkExchangeRequest {
+		library_id: Uuid,
+		device_id: Uuid, // Requesting device
+		my_state_watermark: Option<DateTime<Utc>>,
+		my_shared_watermark: Option<HLC>,
+	},
+
+	/// Response with peer's watermarks
+	WatermarkExchangeResponse {
+		library_id: Uuid,
+		device_id: Uuid, // Responding device
+		state_watermark: Option<DateTime<Utc>>,
+		shared_watermark: Option<HLC>,
+		needs_state_catchup: bool,   // If true, peer needs our state
+		needs_shared_catchup: bool,  // If true, peer needs our shared changes
+	},
+
 	/// Error response
 	Error { library_id: Uuid, message: String },
 }
@@ -122,6 +140,8 @@ impl SyncMessage {
 			| SyncMessage::SharedChangeResponse { library_id, .. }
 			| SyncMessage::AckSharedChanges { library_id, .. }
 			| SyncMessage::Heartbeat { library_id, .. }
+			| SyncMessage::WatermarkExchangeRequest { library_id, .. }
+			| SyncMessage::WatermarkExchangeResponse { library_id, .. }
 			| SyncMessage::Error { library_id, .. } => *library_id,
 		}
 	}
@@ -133,6 +153,7 @@ impl SyncMessage {
 			SyncMessage::StateRequest { .. }
 				| SyncMessage::SharedChangeRequest { .. }
 				| SyncMessage::Heartbeat { .. }
+				| SyncMessage::WatermarkExchangeRequest { .. }
 		)
 	}
 

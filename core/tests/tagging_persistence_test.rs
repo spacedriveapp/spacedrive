@@ -1,5 +1,6 @@
 //! Focused integration test: verifies tag creation and application persist to DB
 
+use sd_core::domain::SdPath;
 use sd_core::infra::db::entities::{entry, tag, user_metadata, user_metadata_tag};
 use sd_core::{
 	infra::action::LibraryAction,
@@ -70,7 +71,7 @@ async fn test_tagging_persists_to_database() {
 
 	// Index the location (deep)
 	let add_loc = LocationAddAction::from_input(LocationAddInput {
-		path: source_dir.clone(),
+		path: SdPath::local(source_dir.clone()),
 		name: Some("Source".to_string()),
 		mode: IndexMode::Deep,
 	})

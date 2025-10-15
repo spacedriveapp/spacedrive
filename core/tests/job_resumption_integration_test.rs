@@ -5,10 +5,11 @@
 //! can resume and complete successfully.
 
 use sd_core::{
+	domain::SdPath,
 	infra::action::LibraryAction,
 	ops::{
 		indexing::IndexMode,
-		locations::add::{action::LocationAddAction, action::LocationAddInput},
+		locations::add::action::{LocationAddAction, LocationAddInput},
 	},
 	testing::integration_utils::IntegrationTestSetup,
 };
@@ -285,7 +286,7 @@ async fn start_and_interrupt_job(
 
 	// Create location add action to automatically trigger indexing
 	let location_input = LocationAddInput {
-		path: indexing_data_path.clone(),
+		path: SdPath::local(indexing_data_path.clone()),
 		name: Some("Test Location".to_string()),
 		mode: IndexMode::Content,
 	};

@@ -160,7 +160,9 @@ pub async fn register_shared(
 /// This is completely domain-agnostic - it just routes to the Syncable trait implementations.
 /// All domain-specific logic lives in the entity implementations, not here.
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
-	use crate::infra::db::entities::{device, entry, location, tag};
+	use crate::infra::db::entities::{
+		collection, content_identity, device, entry, location, tag, user_metadata, volume,
+	};
 
 	let mut registry = HashMap::new();
 
@@ -179,6 +181,22 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|device_id, since, batch_size, db| {
 				Box::pin(async move {
 					location::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"volume".to_string(),
+		SyncableModelRegistration::device_owned(
+			"volume",
+			"volumes",
+			|data, db| {
+				Box::pin(async move { volume::Model::apply_state_change(data, db.as_ref()).await })
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					volume::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
 				})
 			},
 		),
@@ -228,6 +246,73 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|device_id, since, batch_size, db| {
 				Box::pin(async move {
 					tag::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"collection".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"collection",
+			"collections",
+			|entry, db| {
+				Box::pin(async move {
+					collection::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					collection::Model::query_for_sync(device_id, since, batch_size, db.as_ref())
+						.await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"content_identity".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"content_identity",
+			"content_identities",
+			|entry, db| {
+				Box::pin(async move {
+					content_identity::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					content_identity::Model::query_for_sync(
+						device_id,
+						since,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"user_metadata".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"user_metadata",
+			"user_metadata",
+			|entry, db| {
+				Box::pin(async move {
+					user_metadata::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					user_metadata::Model::query_for_sync(
+						device_id,
+						since,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
 				})
 			},
 		),
@@ -397,7 +482,9 @@ pub enum ApplyError {
 /// // Devices sync first, then locations, then entries, etc.
 /// ```
 pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::DependencyError> {
-	use crate::infra::db::entities::{device, entry, location, tag};
+	use crate::infra::db::entities::{
+		collection, content_identity, device, entry, location, tag, user_metadata, volume,
+	};
 
 	// Build iterator of (model_name, dependencies)
 	let models = vec![
@@ -406,8 +493,21 @@ pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::Depende
 			location::Model::SYNC_MODEL,
 			location::Model::sync_depends_on(),
 		),
+		(volume::Model::SYNC_MODEL, volume::Model::sync_depends_on()),
 		(entry::Model::SYNC_MODEL, entry::Model::sync_depends_on()),
 		(tag::Model::SYNC_MODEL, tag::Model::sync_depends_on()),
+		(
+			collection::Model::SYNC_MODEL,
+			collection::Model::sync_depends_on(),
+		),
+		(
+			content_identity::Model::SYNC_MODEL,
+			content_identity::Model::sync_depends_on(),
+		),
+		(
+			user_metadata::Model::SYNC_MODEL,
+			user_metadata::Model::sync_depends_on(),
+		),
 	];
 
 	super::dependency_graph::compute_sync_order(models.into_iter())
@@ -460,15 +560,20 @@ mod tests {
 		let order = compute_registry_sync_order().await.unwrap();
 
 		// Verify all models are present
-		assert_eq!(order.len(), 4);
+		assert_eq!(order.len(), 8);
 		assert!(order.contains(&"device".to_string()));
 		assert!(order.contains(&"location".to_string()));
+		assert!(order.contains(&"volume".to_string()));
 		assert!(order.contains(&"entry".to_string()));
 		assert!(order.contains(&"tag".to_string()));
+		assert!(order.contains(&"collection".to_string()));
+		assert!(order.contains(&"content_identity".to_string()));
+		assert!(order.contains(&"user_metadata".to_string()));
 
 		// Verify dependency ordering
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
 		let location_idx = order.iter().position(|m| m == "location").unwrap();
+		let volume_idx = order.iter().position(|m| m == "volume").unwrap();
 		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
 
 		// Device must come before location
@@ -477,9 +582,12 @@ mod tests {
 			"device must sync before location"
 		);
 
+		// Device must come before volume
+		assert!(device_idx < volume_idx, "device must sync before volume");
+
 		// Location must come before entry
 		assert!(location_idx < entry_idx, "location must sync before entry");
 
-		// Tag has no dependencies, can be anywhere
+		// Tag, collection, content_identity, and user_metadata have no dependencies
 	}
 }

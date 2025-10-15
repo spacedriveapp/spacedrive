@@ -163,6 +163,13 @@ async fn lookup_uuid_for_local_id(
 				.uuid
 				.ok_or_else(|| anyhow!("ContentIdentity id={} has no UUID", local_id))
 		}
+		"volumes" => {
+			let volume = entities::volume::Entity::find_by_id(local_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| anyhow!("Volume with id={} not found", local_id))?;
+			Ok(volume.uuid)
+		}
 		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
 	}
 }
@@ -272,6 +279,19 @@ async fn lookup_local_id_for_uuid(table: &str, uuid: Uuid, db: &DatabaseConnecti
 					)
 				})?;
 			Ok(content.id)
+		}
+		"volumes" => {
+			let volume = entities::volume::Entity::find()
+				.filter(entities::volume::Column::Uuid.eq(uuid))
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					anyhow!(
+						"Volume with uuid={} not found (sync dependency missing)",
+						uuid
+					)
+				})?;
+			Ok(volume.id)
 		}
 		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
 	}

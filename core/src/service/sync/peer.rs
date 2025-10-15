@@ -174,21 +174,210 @@ impl PeerSync {
 
 	/// Exchange watermarks with a peer and trigger catch-up if needed
 	///
-	/// TODO: Full implementation requires:
-	/// 1. Add WatermarkExchange message type to SyncMessage enum
-	/// 2. Send our watermarks to the peer
-	/// 3. Receive peer's watermarks
-	/// 4. Compare timestamps/HLC to determine divergence
-	/// 5. Trigger StateRequest/SharedChangeRequest for incremental sync
-	/// 6. Update devices table with peer's watermarks after sync
-	///
-	/// For now, this is a placeholder that will be called on reconnection.
-	pub async fn exchange_watermarks_and_catchup(&self, _peer_id: Uuid) -> Result<()> {
-		// TODO: Implement watermark exchange protocol (LSYNC-010 Priority 3)
-		debug!(
-			peer = %_peer_id,
-			"Watermark exchange not yet implemented - full sync will occur via backfill instead"
+	/// Sends a WatermarkExchangeRequest to the peer with our watermarks.
+	/// The peer will respond via the protocol handler, which will call
+	/// `on_watermark_exchange_response()` to complete the exchange.
+	pub async fn exchange_watermarks_and_catchup(&self, peer_id: Uuid) -> Result<()> {
+		info!(
+			peer = %peer_id,
+			"Initiating watermark exchange for reconnection sync"
 		);
+
+		// Get our watermarks
+		let (my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
+
+		debug!(
+			peer = %peer_id,
+			my_state_watermark = ?my_state_watermark,
+			my_shared_watermark = ?my_shared_watermark,
+			"Sending watermark exchange request"
+		);
+
+		// Send request to peer
+		let request = SyncMessage::WatermarkExchangeRequest {
+			library_id: self.library_id,
+			device_id: self.device_id,
+			my_state_watermark,
+			my_shared_watermark,
+		};
+
+		self.network
+			.send_sync_message(peer_id, request)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to send watermark exchange request: {}", e))?;
+
+		info!(
+			peer = %peer_id,
+			"Watermark exchange request sent, waiting for response"
+		);
+
+		Ok(())
+	}
+
+	/// Handle watermark exchange response from peer
+	///
+	/// Called by the protocol handler when a WatermarkExchangeResponse is received.
+	/// Triggers incremental catch-up if watermarks diverge.
+	pub async fn on_watermark_exchange_response(
+		&self,
+		peer_id: Uuid,
+		peer_state_watermark: Option<chrono::DateTime<chrono::Utc>>,
+		peer_shared_watermark: Option<HLC>,
+		needs_state_catchup: bool,
+		needs_shared_catchup: bool,
+	) -> Result<()> {
+		info!(
+			peer = %peer_id,
+			peer_state_watermark = ?peer_state_watermark,
+			peer_shared_watermark = ?peer_shared_watermark,
+			needs_state_catchup = needs_state_catchup,
+			needs_shared_catchup = needs_shared_catchup,
+			"Received watermark exchange response"
+		);
+
+		// Get our watermarks to compare
+		let (my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
+
+		// Determine if WE need to catch up based on watermark comparison
+		let mut we_need_state_catchup = false;
+		let mut we_need_shared_catchup = false;
+
+		// Compare state watermarks (timestamps)
+		match (my_state_watermark, peer_state_watermark) {
+			(Some(my_ts), Some(peer_ts)) if peer_ts > my_ts => {
+				info!(
+					peer = %peer_id,
+					my_timestamp = %my_ts,
+					peer_timestamp = %peer_ts,
+					"Peer has newer state, need to catch up"
+				);
+				we_need_state_catchup = true;
+			}
+			(None, Some(_)) => {
+				info!(peer = %peer_id, "We have no state watermark, need full state catch-up");
+				we_need_state_catchup = true;
+			}
+			_ => {
+				debug!(peer = %peer_id, "State watermarks in sync");
+			}
+		}
+
+		// Compare shared watermarks (HLC)
+		match (my_shared_watermark, peer_shared_watermark) {
+			(Some(my_hlc), Some(peer_hlc)) if peer_hlc > my_hlc => {
+				info!(
+					peer = %peer_id,
+					my_hlc = %my_hlc,
+					peer_hlc = %peer_hlc,
+					"Peer has newer shared changes, need to catch up"
+				);
+				we_need_shared_catchup = true;
+			}
+			(None, Some(_)) => {
+				info!(peer = %peer_id, "We have no shared watermark, need full shared catch-up");
+				we_need_shared_catchup = true;
+			}
+			_ => {
+				debug!(peer = %peer_id, "Shared watermarks in sync");
+			}
+		}
+
+		// Trigger catch-up if needed
+		if we_need_state_catchup {
+			info!(peer = %peer_id, "Requesting incremental state catch-up");
+			// TODO: Implement incremental state request
+			// For now, log that full backfill will occur
+			warn!(
+				peer = %peer_id,
+				"Incremental state catch-up not yet implemented, will use backfill"
+			);
+		}
+
+		if we_need_shared_catchup {
+			info!(
+				peer = %peer_id,
+				since_hlc = ?my_shared_watermark,
+				"Requesting incremental shared changes catch-up"
+			);
+			// Request shared changes since our watermark
+			let request = SyncMessage::SharedChangeRequest {
+				library_id: self.library_id,
+				since_hlc: my_shared_watermark,
+				limit: 10_000, // Large batch for catch-up
+			};
+
+			self.network
+				.send_sync_message(peer_id, request)
+				.await
+				.map_err(|e| {
+					anyhow::anyhow!("Failed to request shared changes for catch-up: {}", e)
+				})?;
+
+			info!(peer = %peer_id, "Shared changes catch-up request sent");
+		}
+
+		// If peer needs our data, send it
+		if needs_state_catchup {
+			info!(peer = %peer_id, "Peer needs state catch-up, sending our state");
+			// Peer will request our state via StateRequest, we'll respond via protocol handler
+		}
+
+		if needs_shared_catchup {
+			info!(
+				peer = %peer_id,
+				"Peer needs shared catch-up, they will request via SharedChangeRequest"
+			);
+			// Peer will request our shared changes, we'll respond via protocol handler
+		}
+
+		// Update devices table with peer's watermarks for future comparisons
+		self.update_peer_watermarks(peer_id, peer_state_watermark, peer_shared_watermark)
+			.await?;
+
+		info!(peer = %peer_id, "Watermark exchange complete");
+
+		Ok(())
+	}
+
+	/// Update peer's watermarks in the devices table
+	async fn update_peer_watermarks(
+		&self,
+		peer_id: Uuid,
+		state_watermark: Option<chrono::DateTime<chrono::Utc>>,
+		shared_watermark: Option<HLC>,
+	) -> Result<()> {
+		use crate::infra::db::entities;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		// Serialize shared watermark to JSON
+		let shared_watermark_json = shared_watermark
+			.map(|hlc| serde_json::to_string(&hlc).ok())
+			.flatten();
+
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::LastStateWatermark,
+				sea_orm::sea_query::Expr::value(state_watermark),
+			)
+			.col_expr(
+				entities::device::Column::LastSharedWatermark,
+				sea_orm::sea_query::Expr::value(shared_watermark_json),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(Utc::now()),
+			)
+			.filter(entities::device::Column::Uuid.eq(peer_id))
+			.exec(self.db.as_ref())
+			.await?;
+
+		debug!(
+			peer = %peer_id,
+			state_watermark = ?state_watermark,
+			shared_watermark = ?shared_watermark,
+			"Updated peer watermarks in devices table"
+		);
+
 		Ok(())
 	}
 
@@ -388,6 +577,9 @@ impl PeerSync {
 
 		let db = self.db.clone();
 		let is_running = self.is_running.clone();
+		let library_id = self.library_id;
+		let device_id = self.device_id;
+		let network = self.network.clone();
 
 		tokio::spawn(async move {
 			info!("PeerSync network event listener started");
@@ -399,32 +591,50 @@ impl PeerSync {
 					Ok(event) => {
 						use crate::service::network::core::NetworkEvent;
 						match event {
-							NetworkEvent::ConnectionEstablished { device_id, node_id } => {
+							NetworkEvent::ConnectionEstablished { device_id: peer_id, node_id } => {
 								info!(
-									device_id = %device_id,
+									peer_id = %peer_id,
 									node_id = %node_id,
-									"Device connected - updating devices table"
+									"Device connected - updating devices table and triggering watermark exchange"
 								);
 
-								if let Err(e) = Self::handle_peer_connected(device_id, &db).await {
+								// Update devices table
+								if let Err(e) = Self::handle_peer_connected(peer_id, &db).await {
 									warn!(
-										device_id = %device_id,
+										peer_id = %peer_id,
 										error = %e,
 										"Failed to handle peer connected event"
 									);
 								}
+
+								// Trigger watermark exchange for reconnection sync
+								if let Err(e) = Self::trigger_watermark_exchange(
+									library_id,
+									device_id,
+									peer_id,
+									&db,
+									&network,
+								)
+								.await
+								{
+									warn!(
+										peer_id = %peer_id,
+										error = %e,
+										"Failed to trigger watermark exchange"
+									);
+								}
 							}
-							NetworkEvent::ConnectionLost { device_id, node_id } => {
+							NetworkEvent::ConnectionLost { device_id: peer_id, node_id } => {
 								info!(
-									device_id = %device_id,
+									peer_id = %peer_id,
 									node_id = %node_id,
 									"Device disconnected - updating devices table"
 								);
 
-								if let Err(e) = Self::handle_peer_disconnected(device_id, &db).await
+								if let Err(e) = Self::handle_peer_disconnected(peer_id, &db).await
 								{
 									warn!(
-										device_id = %device_id,
+										peer_id = %peer_id,
 										error = %e,
 										"Failed to handle peer disconnected event"
 									);
@@ -511,6 +721,85 @@ impl PeerSync {
 			.await?;
 
 		info!(device_id = %device_id, "Device marked as offline in devices table");
+
+		Ok(())
+	}
+
+	/// Trigger watermark exchange with peer (static for spawned task)
+	async fn trigger_watermark_exchange(
+		library_id: Uuid,
+		device_id: Uuid,
+		peer_id: Uuid,
+		db: &DatabaseConnection,
+		network: &Arc<dyn NetworkTransport>,
+	) -> Result<()> {
+		use crate::infra::db::entities;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		info!(
+			peer = %peer_id,
+			device = %device_id,
+			"Triggering watermark exchange with peer"
+		);
+
+		// Query our watermarks from devices table
+		let (my_state_watermark, my_shared_watermark) = match entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(device_id))
+			.one(db)
+			.await
+		{
+			Ok(Some(device)) => {
+				let state_watermark = device.last_state_watermark;
+
+				// Deserialize shared watermark from JSON
+				let shared_watermark = device
+					.last_shared_watermark
+					.as_ref()
+					.and_then(|json_str| serde_json::from_str(json_str).ok());
+
+				(state_watermark, shared_watermark)
+			}
+			Ok(None) => {
+				warn!(
+					device_id = %device_id,
+					"Device not found in devices table, sending None watermarks"
+				);
+				(None, None)
+			}
+			Err(e) => {
+				warn!(
+					device_id = %device_id,
+					error = %e,
+					"Failed to query watermarks from devices table, sending None watermarks"
+				);
+				(None, None)
+			}
+		};
+
+		debug!(
+			peer = %peer_id,
+			my_state_watermark = ?my_state_watermark,
+			my_shared_watermark = ?my_shared_watermark,
+			"Sending watermark exchange request"
+		);
+
+		// Send request to peer
+		let request = SyncMessage::WatermarkExchangeRequest {
+			library_id,
+			device_id,
+			my_state_watermark,
+			my_shared_watermark,
+		};
+
+		network
+			.send_sync_message(peer_id, request)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to send watermark exchange request: {}", e))?;
+
+		info!(
+			peer = %peer_id,
+			"Watermark exchange request sent, waiting for response"
+		);
 
 		Ok(())
 	}
@@ -1126,11 +1415,29 @@ impl PeerSync {
 			"Applying shared change"
 		);
 
+		// HLC conflict resolution: check if we already have a more recent change for this record
+		if let Ok(Some(existing_hlc)) = self.peer_log.get_latest_hlc_for_record(entry.record_uuid).await {
+			if entry.hlc <= existing_hlc {
+				debug!(
+					incoming_hlc = %entry.hlc,
+					existing_hlc = %existing_hlc,
+					record_uuid = %entry.record_uuid,
+					"Ignoring incoming change with older or equal HLC"
+				);
+				return Ok(());
+			}
+		}
+
 		// Use the registry to route to the appropriate apply function
-		// (which handles conflict resolution with HLC)
 		crate::infra::sync::apply_shared_change(entry.clone(), self.db.clone())
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to apply shared change: {}", e))?;
+
+		// Record this change in our peer log (track what we've applied)
+		self.peer_log
+			.append(entry.clone())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to append to peer log: {}", e))?;
 
 		info!(
 			hlc = %entry.hlc,

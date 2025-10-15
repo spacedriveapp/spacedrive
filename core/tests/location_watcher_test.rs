@@ -5,6 +5,7 @@
 //! indexes all filesystem changes.
 
 use sd_core::{
+	domain::SdPath,
 	infra::{
 		action::LibraryAction,
 		db::entities::{self, entry_closure},
@@ -211,7 +212,7 @@ impl TestHarness {
 
 		// Create location
 		let input = LocationAddInput {
-			path: test_dir.clone(),
+			path: SdPath::local(test_dir.clone()),
 			name: Some("SD_TEST_DIR".to_string()),
 			mode: IndexMode::Deep,
 		};

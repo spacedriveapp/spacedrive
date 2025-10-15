@@ -69,12 +69,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			);
 			println!(
 				"      Capacity: {:.2} GB | Available: {:.2} GB",
-				volume.total_bytes_capacity as f64 / 1024.0 / 1024.0 / 1024.0,
-				volume.total_bytes_available as f64 / 1024.0 / 1024.0 / 1024.0
+				volume.total_bytes_capacity() as f64 / 1024.0 / 1024.0 / 1024.0,
+				volume.total_bytes_available() as f64 / 1024.0 / 1024.0 / 1024.0
 			);
 			println!(
 				"      Mounted: {} | Read-only: {}",
-				volume.is_mounted, volume.read_only
+				volume.is_mounted,
+				volume.read_only()
 			);
 
 			// Show capabilities
@@ -191,7 +192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n8. Testing Volume Speed (optional):");
 	let writable_volumes: Vec<_> = volumes
 		.iter()
-		.filter(|v| v.is_mounted && !v.read_only && v.mount_type != MountType::Network)
+		.filter(|v| v.is_mounted && !v.read_only() && v.mount_type != MountType::Network)
 		.collect();
 
 	if let Some(volume) = writable_volumes.first() {

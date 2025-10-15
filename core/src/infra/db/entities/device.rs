@@ -10,6 +10,7 @@ pub struct Model {
 	pub id: i32,
 	pub uuid: Uuid,
 	pub name: String,
+	pub slug: String,
 	pub os: String,
 	pub os_version: Option<String>,
 	pub hardware_model: Option<String>,
@@ -117,6 +118,7 @@ impl crate::infra::sync::Syncable for Model {
 			id: NotSet,
 			uuid: Set(device.uuid),
 			name: Set(device.name),
+			slug: Set(device.slug),
 			os: Set(device.os),
 			os_version: Set(device.os_version),
 			hardware_model: Set(device.hardware_model),
@@ -138,6 +140,7 @@ impl crate::infra::sync::Syncable for Model {
 				sea_orm::sea_query::OnConflict::column(Column::Uuid)
 					.update_columns([
 						Column::Name,
+						Column::Slug,
 						Column::Os,
 						Column::OsVersion,
 						Column::HardwareModel,

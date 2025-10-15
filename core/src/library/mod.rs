@@ -285,6 +285,11 @@ impl Library {
 			info!("Library database connection closed successfully");
 		}
 
+		// Clear device cache from DeviceManager
+		if let Err(e) = self.core_context.device_manager.clear_device_cache() {
+			warn!("Failed to clear device cache: {}", e);
+		}
+
 		Ok(())
 	}
 

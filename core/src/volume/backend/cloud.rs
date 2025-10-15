@@ -381,6 +381,34 @@ impl VolumeBackend for CloudBackend {
 		}
 	}
 
+	async fn delete(&self, path: &Path) -> Result<(), VolumeError> {
+		let cloud_path = self.to_cloud_path(path);
+		debug!("CloudBackend::delete: {}", cloud_path);
+
+		// Check if it's a directory
+		let metadata = self
+			.operator
+			.stat(&cloud_path)
+			.await
+			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+
+		if metadata.is_dir() {
+			// Delete directory recursively
+			self.operator
+				.remove_all(&cloud_path)
+				.await
+				.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+		} else {
+			// Delete file
+			self.operator
+				.delete(&cloud_path)
+				.await
+				.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+		}
+
+		Ok(())
+	}
+
 	fn is_local(&self) -> bool {
 		false
 	}

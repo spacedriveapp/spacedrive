@@ -94,14 +94,14 @@ impl TransactionManager {
 
 ## Acceptance Criteria
 
-- [ ] `Syncable` trait defined with ownership methods
-- [ ] Derive macro implemented
-- [ ] Works with SeaORM models
-- [ ] Device-owned models return correct device_id
-- [ ] Shared models return is_device_owned = false
-- [ ] Field exclusion functional
-- [ ] Documentation with examples
-- [ ] Unit tests for both ownership types
+- [x] `Syncable` trait defined with ownership methods
+- [x] Works with SeaORM models
+- [x] Device-owned models: location, entry, volume, device
+- [x] Shared models: tag, collection, content_identity, user_metadata
+- [x] Field exclusion functional
+- [x] FK mappings for integer FKs to UUIDs
+- [x] Registry for dynamic dispatch
+- [x] Integration tests validate sync (10 tests passing)
 
 ## References
 

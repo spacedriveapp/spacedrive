@@ -937,6 +937,56 @@ impl VolumeManager {
 		debug!("Volume path cache cleared");
 	}
 
+	/// Find cloud volume by service type and identifier
+	/// Scans all volumes and parses their mount points for matching cloud volumes
+	///
+	/// # Examples
+	/// ```ignore
+	/// let volume = manager.find_cloud_volume(CloudServiceType::S3, "my-bucket").await;
+	/// ```
+	pub async fn find_cloud_volume(
+		&self,
+		service: crate::volume::backend::CloudServiceType,
+		identifier: &str,
+	) -> Option<Volume> {
+		let volumes = self.volumes.read().await;
+
+		volumes.values().find_map(|volume| {
+			if let Some((vol_service, vol_id)) = volume.parse_cloud_identity() {
+				if vol_service == service && vol_id == identifier {
+					return Some(volume.clone());
+				}
+			}
+			None
+		})
+	}
+
+	/// Ensure mount point is unique by appending -2, -3, etc. if needed
+	/// Used during volume creation to prevent collisions
+	///
+	/// # Examples
+	/// ```ignore
+	/// let mount_point = manager.ensure_unique_mount_point("s3://my-bucket").await;
+	/// // Returns "s3://my-bucket" or "s3://my-bucket-2" if collision exists
+	/// ```
+	pub async fn ensure_unique_mount_point(&self, desired: &str) -> PathBuf {
+		let volumes = self.volumes.read().await;
+
+		let base = desired;
+		let mut candidate = base.to_string();
+		let mut counter = 2;
+
+		while volumes
+			.values()
+			.any(|v| v.mount_point.to_string_lossy() == candidate)
+		{
+			candidate = format!("{}-{}", base, counter);
+			counter += 1;
+		}
+
+		PathBuf::from(candidate)
+	}
+
 	/// Register a cloud volume with the volume manager
 	/// This adds the volume to the internal volumes map so it can be tracked
 	pub async fn register_cloud_volume(&self, volume: Volume) {

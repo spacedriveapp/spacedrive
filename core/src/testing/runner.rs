@@ -1,6 +1,7 @@
 //! Cargo test subprocess runner implementation
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
@@ -22,6 +23,7 @@ pub struct CargoTestRunner {
 	processes: Vec<TestProcess>,
 	global_timeout: Duration,
 	test_file_name: String,
+	test_binary_path: Option<PathBuf>,
 }
 
 impl CargoTestRunner {
@@ -31,6 +33,7 @@ impl CargoTestRunner {
 			processes: Vec::new(),
 			global_timeout: Duration::from_secs(60),
 			test_file_name: "test_core_pairing".to_string(),
+			test_binary_path: None,
 		}
 	}
 
@@ -40,6 +43,7 @@ impl CargoTestRunner {
 			processes: Vec::new(),
 			global_timeout: Duration::from_secs(60),
 			test_file_name: test_file_name.into(),
+			test_binary_path: None,
 		}
 	}
 
@@ -71,6 +75,62 @@ impl CargoTestRunner {
 		self
 	}
 
+	/// Build the test binary once and cache the path
+	async fn build_test_binary(&mut self) -> Result<PathBuf, String> {
+		// Return cached path if already built
+		if let Some(ref path) = self.test_binary_path {
+			return Ok(path.clone());
+		}
+
+		println!("Building test binary for {}...", self.test_file_name);
+
+		// Run cargo test --no-run to build the test binary
+		let output = Command::new("cargo")
+			.args(&[
+				"test",
+				"--no-run",
+				"--test",
+				&self.test_file_name,
+				"--message-format=json",
+			])
+			.output()
+			.await
+			.map_err(|e| format!("Failed to run cargo test --no-run: {}", e))?;
+
+		if !output.status.success() {
+			return Err(format!(
+				"cargo test --no-run failed: {}",
+				String::from_utf8_lossy(&output.stderr)
+			));
+		}
+
+		// Parse JSON output to find the test binary
+		let stdout = String::from_utf8_lossy(&output.stdout);
+		for line in stdout.lines() {
+			if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+				if json["reason"] == "compiler-artifact"
+					&& json["target"]["kind"]
+						.as_array()
+						.map(|arr| arr.iter().any(|v| v == "test"))
+						.unwrap_or(false)
+					&& json["target"]["name"] == self.test_file_name
+				{
+					if let Some(executable) = json["executable"].as_str() {
+						let path = PathBuf::from(executable);
+						println!("Test binary built: {}", path.display());
+						self.test_binary_path = Some(path.clone());
+						return Ok(path);
+					}
+				}
+			}
+		}
+
+		Err(format!(
+			"Could not find test binary path in cargo output for {}",
+			self.test_file_name
+		))
+	}
+
 	/// Run all subprocesses and wait until success condition is met
 	pub async fn run_until_success<F>(&mut self, condition: F) -> Result<(), String>
 	where
@@ -90,20 +150,20 @@ impl CargoTestRunner {
 
 	/// Spawn a single subprocess by name
 	pub async fn spawn_single_process(&mut self, name: &str) -> Result<(), String> {
+		// Build the test binary once (or use cached path)
+		let binary_path = self.build_test_binary().await?;
+
 		let process = self
 			.processes
 			.iter_mut()
 			.find(|p| p.name == name)
 			.ok_or_else(|| format!("Process '{}' not found", name))?;
 
-		let mut command = Command::new("cargo");
+		// Execute the test binary directly instead of running cargo test
+		let mut command = Command::new(&binary_path);
 		command
 			.args(&[
-				"test",
 				&process.test_function_name,
-				"--test",
-				&self.test_file_name,
-				"--",
 				"--nocapture",
 				"--ignored", // Run ignored tests
 			])
@@ -118,7 +178,7 @@ impl CargoTestRunner {
 
 		process.child = Some(child);
 		println!(
-			"Spawned cargo test process: {} (test: {})",
+			"Spawned test process: {} (test: {})",
 			process.name, process.test_function_name
 		);
 
@@ -139,17 +199,17 @@ impl CargoTestRunner {
 		Ok(())
 	}
 
-	/// Spawn all subprocesses using cargo test
+	/// Spawn all subprocesses using the test binary
 	async fn spawn_all_processes(&mut self) -> Result<(), String> {
+		// Build the test binary once (or use cached path)
+		let binary_path = self.build_test_binary().await?;
+
 		for process in &mut self.processes {
-			let mut command = Command::new("cargo");
+			// Execute the test binary directly instead of running cargo test
+			let mut command = Command::new(&binary_path);
 			command
 				.args(&[
-					"test",
 					&process.test_function_name,
-					"--test",
-					&self.test_file_name,
-					"--",
 					"--nocapture",
 					"--ignored", // Run ignored tests
 				])
@@ -164,7 +224,7 @@ impl CargoTestRunner {
 
 			process.child = Some(child);
 			println!(
-				"Spawned cargo test process: {} (test: {})",
+				"Spawned test process: {} (test: {})",
 				process.name, process.test_function_name
 			);
 		}

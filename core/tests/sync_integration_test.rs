@@ -18,7 +18,7 @@ use sd_core::{
 	library::Library,
 	Core,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use std::{collections::HashMap, sync::Arc};
 use tempfile::TempDir;
 use tokio::{
@@ -368,6 +368,72 @@ impl MockTransportPeer {
 						self.apply_current_state(state, sync_service).await?;
 					}
 				}
+				SyncMessage::WatermarkExchangeRequest {
+					library_id,
+					device_id: requesting_device_id,
+					my_state_watermark: peer_state_watermark,
+					my_shared_watermark: peer_shared_watermark,
+				} => {
+					info!(
+						"Processing WatermarkExchangeRequest from {}",
+						requesting_device_id
+					);
+
+					// Get our watermarks
+					let (our_state_watermark, our_shared_watermark) =
+						sync_service.peer_sync().get_watermarks().await;
+
+					// Determine if peer needs catch-up
+					let needs_state_catchup = match (peer_state_watermark, our_state_watermark) {
+						(Some(peer_ts), Some(our_ts)) => our_ts > peer_ts,
+						(None, Some(_)) => true,
+						_ => false,
+					};
+
+					let needs_shared_catchup = match (peer_shared_watermark, our_shared_watermark) {
+						(Some(peer_hlc), Some(our_hlc)) => our_hlc > peer_hlc,
+						(None, Some(_)) => true,
+						_ => false,
+					};
+
+					// Send response back
+					let response = SyncMessage::WatermarkExchangeResponse {
+						library_id,
+						device_id: self.my_device_id,
+						state_watermark: our_state_watermark,
+						shared_watermark: our_shared_watermark,
+						needs_state_catchup,
+						needs_shared_catchup,
+					};
+
+					self.send_response_to_pending(message_clone, response)
+						.await?;
+				}
+				SyncMessage::WatermarkExchangeResponse {
+					library_id: _,
+					device_id: peer_device_id,
+					state_watermark: peer_state_watermark,
+					shared_watermark: peer_shared_watermark,
+					needs_state_catchup,
+					needs_shared_catchup,
+				} => {
+					info!(
+						"Processing WatermarkExchangeResponse from {}",
+						peer_device_id
+					);
+
+					// Call the watermark exchange response handler
+					sync_service
+						.peer_sync()
+						.on_watermark_exchange_response(
+							peer_device_id,
+							peer_state_watermark,
+							peer_shared_watermark,
+							needs_state_catchup,
+							needs_shared_catchup,
+						)
+						.await?;
+				}
 				_ => {
 					info!("Ignoring unsupported message type for test");
 				}
@@ -415,8 +481,12 @@ impl MockTransportPeer {
 		_original_request: sd_core::service::network::protocol::sync::messages::SyncMessage,
 		response: sd_core::service::network::protocol::sync::messages::SyncMessage,
 	) -> anyhow::Result<()> {
-		// Send response through outgoing queue
+		// Send response through outgoing queue AND history
 		self.outgoing
+			.lock()
+			.await
+			.push((self.peer_device_id, response.clone()));
+		self.outgoing_history
 			.lock()
 			.await
 			.push((self.peer_device_id, response));
@@ -607,6 +677,7 @@ impl SyncTestSetup {
 			last_sync_at: Set(None),
 			last_state_watermark: Set(None),
 			last_shared_watermark: Set(None),
+			slug: Set(device_name.to_string()),
 		};
 
 		device_model.insert(library.db().conn()).await?;
@@ -641,6 +712,194 @@ impl SyncTestSetup {
 			self.pump_messages().await?;
 			tokio::time::sleep(Duration::from_millis(100)).await;
 		}
+		Ok(())
+	}
+
+	/// Create a tag with sensible defaults (uses ActiveModel::new())
+	async fn create_tag(
+		&self,
+		canonical_name: impl Into<String>,
+		device_id: Uuid,
+		library: &Arc<Library>,
+	) -> anyhow::Result<entities::tag::Model> {
+		let mut tag = entities::tag::ActiveModel::new();
+		tag.canonical_name = Set(canonical_name.into());
+		tag.created_by_device = Set(Some(device_id));
+		tag.namespace = Set(Some("photos".to_string()));
+
+		let record = tag.insert(library.db().conn()).await?;
+		Ok(record)
+	}
+
+	/// Create a tag with a specific UUID (for tests that need predictable UUIDs)
+	async fn create_tag_with_uuid(
+		&self,
+		uuid: Uuid,
+		canonical_name: impl Into<String>,
+		device_id: Uuid,
+		library: &Arc<Library>,
+	) -> anyhow::Result<entities::tag::Model> {
+		let mut tag = entities::tag::ActiveModel::new();
+		tag.uuid = Set(uuid);
+		tag.canonical_name = Set(canonical_name.into());
+		tag.created_by_device = Set(Some(device_id));
+		tag.namespace = Set(Some("photos".to_string()));
+
+		let record = tag.insert(library.db().conn()).await?;
+		Ok(record)
+	}
+
+	/// Create an entry with minimal required fields
+	async fn create_entry(
+		&self,
+		name: impl Into<String>,
+		kind: i32,
+		library: &Arc<Library>,
+		parent_id: Option<i32>,
+	) -> anyhow::Result<entities::entry::Model> {
+		let entry = entities::entry::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(Some(Uuid::new_v4())),
+			name: Set(name.into()),
+			kind: Set(kind),
+			extension: Set(if kind == 0 {
+				Some("txt".to_string())
+			} else {
+				None
+			}),
+			metadata_id: Set(None),
+			content_id: Set(None),
+			size: Set(if kind == 0 { 1024 } else { 0 }),
+			aggregate_size: Set(if kind == 0 { 1024 } else { 0 }),
+			child_count: Set(0),
+			file_count: Set(0),
+			created_at: Set(chrono::Utc::now()),
+			modified_at: Set(chrono::Utc::now()),
+			accessed_at: Set(None),
+			permissions: Set(None),
+			inode: Set(None),
+			parent_id: Set(parent_id),
+		};
+
+		let record = entry.insert(library.db().conn()).await?;
+		Ok(record)
+	}
+
+	/// Create an entry with a specific UUID
+	async fn create_entry_with_uuid(
+		&self,
+		uuid: Uuid,
+		name: impl Into<String>,
+		kind: i32,
+		library: &Arc<Library>,
+		parent_id: Option<i32>,
+	) -> anyhow::Result<entities::entry::Model> {
+		let entry = entities::entry::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(Some(uuid)),
+			name: Set(name.into()),
+			kind: Set(kind),
+			extension: Set(if kind == 0 {
+				Some("txt".to_string())
+			} else {
+				None
+			}),
+			metadata_id: Set(None),
+			content_id: Set(None),
+			size: Set(if kind == 0 { 1024 } else { 0 }),
+			aggregate_size: Set(if kind == 0 { 1024 } else { 0 }),
+			child_count: Set(0),
+			file_count: Set(0),
+			created_at: Set(chrono::Utc::now()),
+			modified_at: Set(chrono::Utc::now()),
+			accessed_at: Set(None),
+			permissions: Set(None),
+			inode: Set(None),
+			parent_id: Set(parent_id),
+		};
+
+		let record = entry.insert(library.db().conn()).await?;
+		Ok(record)
+	}
+
+	/// Find a device by UUID
+	async fn find_device(
+		&self,
+		device_uuid: Uuid,
+		library: &Arc<Library>,
+	) -> anyhow::Result<entities::device::Model> {
+		let device = entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(device_uuid))
+			.one(library.db().conn())
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Device not found: {}", device_uuid))?;
+		Ok(device)
+	}
+
+	/// Find a tag by UUID
+	async fn find_tag(
+		&self,
+		tag_uuid: Uuid,
+		library: &Arc<Library>,
+	) -> anyhow::Result<Option<entities::tag::Model>> {
+		let tag = entities::tag::Entity::find()
+			.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+			.one(library.db().conn())
+			.await?;
+		Ok(tag)
+	}
+
+	/// Set a device as online
+	async fn set_device_online(
+		&self,
+		device_uuid: Uuid,
+		library: &Arc<Library>,
+	) -> anyhow::Result<()> {
+		use chrono::Utc;
+		let now = Utc::now();
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(true),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(device_uuid))
+			.exec(library.db().conn())
+			.await?;
+		Ok(())
+	}
+
+	/// Set a device as offline
+	async fn set_device_offline(
+		&self,
+		device_uuid: Uuid,
+		library: &Arc<Library>,
+	) -> anyhow::Result<()> {
+		use chrono::Utc;
+		let now = Utc::now();
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(false),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(device_uuid))
+			.exec(library.db().conn())
+			.await?;
 		Ok(())
 	}
 }
@@ -684,59 +943,22 @@ async fn test_sync_location_device_owned_state_based() -> anyhow::Result<()> {
 	let entry_uuid = Uuid::new_v4();
 
 	// Get device A's database ID
-	let device_a_record = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
-		.one(setup.library_a.db().conn())
-		.await?
-		.expect("Device A should exist");
+	let device_a_record = setup
+		.find_device(setup.device_a_id, &setup.library_a)
+		.await?;
 
 	// Create entry for the location directory (manually, since TransactionManager not yet wired)
-	let entry_model = entities::entry::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(Some(entry_uuid)),
-		name: Set("Test Location".to_string()),
-		kind: Set(1), // Directory
-		extension: Set(None),
-		metadata_id: Set(None),
-		content_id: Set(None),
-		size: Set(0),
-		aggregate_size: Set(0),
-		child_count: Set(0),
-		file_count: Set(0),
-		created_at: Set(chrono::Utc::now()),
-		modified_at: Set(chrono::Utc::now()),
-		accessed_at: Set(None),
-		permissions: Set(None),
-		inode: Set(None),
-		parent_id: Set(None),
-	};
-
-	let entry_record = entry_model.insert(setup.library_a.db().conn()).await?;
+	let entry_record = setup
+		.create_entry_with_uuid(entry_uuid, "Test Location", 1, &setup.library_a, None)
+		.await?;
 
 	// === MANUALLY CREATE ENTRY ON DEVICE B (to satisfy FK dependency) ===
 	// In production, entry would sync first via dependency ordering
 	// For this test, we manually create it to test location FK mapping
 	info!("Manually creating entry on Device B (simulating prior sync)");
-	let entry_model_b = entities::entry::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(Some(entry_uuid)), // Same UUID!
-		name: Set("Test Location".to_string()),
-		kind: Set(1), // Directory
-		extension: Set(None),
-		metadata_id: Set(None),
-		content_id: Set(None),
-		size: Set(0),
-		aggregate_size: Set(0),
-		child_count: Set(0),
-		file_count: Set(0),
-		created_at: Set(chrono::Utc::now()),
-		modified_at: Set(chrono::Utc::now()),
-		accessed_at: Set(None),
-		permissions: Set(None),
-		inode: Set(None),
-		parent_id: Set(None),
-	};
-	entry_model_b.insert(setup.library_b.db().conn()).await?;
+	setup
+		.create_entry_with_uuid(entry_uuid, "Test Location", 1, &setup.library_b, None)
+		.await?;
 	info!("Entry dependency satisfied on Device B");
 
 	// Create location record
@@ -837,32 +1059,9 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 	// === ACTION: Create a tag on Core A (shared resource) ===
 	info!("️  Creating tag on Device A");
 
-	// Create tag entity directly (not through manager to avoid domain/entity mismatch)
-	let tag_uuid = Uuid::new_v4();
-	let tag_model = entities::tag::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(tag_uuid),
-		canonical_name: Set("Vacation".to_string()),
-		display_name: Set(None),
-		formal_name: Set(None),
-		abbreviation: Set(None),
-		aliases: Set(None),
-		namespace: Set(Some("photos".to_string())),
-		tag_type: Set("standard".to_string()),
-		color: Set(None),
-		icon: Set(None),
-		description: Set(None),
-		is_organizational_anchor: Set(false),
-		privacy_level: Set("normal".to_string()),
-		search_weight: Set(100),
-		attributes: Set(None),
-		composition_rules: Set(None),
-		created_at: Set(chrono::Utc::now()),
-		updated_at: Set(chrono::Utc::now()),
-		created_by_device: Set(Some(setup.device_a_id)),
-	};
-
-	let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+	let tag_record = setup
+		.create_tag("Vacation", setup.device_a_id, &setup.library_a)
+		.await?;
 	info!(
 		"Created tag on Device A: {} ({})",
 		tag_record.canonical_name, tag_record.uuid
@@ -903,7 +1102,7 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 
 	// Check if tag appeared on Device B
 	let tag_on_b = entities::tag::Entity::find()
-		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.filter(entities::tag::Column::Uuid.eq(tag_record.uuid))
 		.one(setup.library_b.db().conn())
 		.await?;
 
@@ -914,7 +1113,7 @@ async fn test_sync_tag_shared_hlc_based() -> anyhow::Result<()> {
 
 	let synced_tag = tag_on_b.unwrap();
 	info!("Tag successfully synced to Device B!");
-	assert_eq!(synced_tag.uuid, tag_uuid);
+	assert_eq!(synced_tag.uuid, tag_record.uuid);
 	assert_eq!(synced_tag.canonical_name, "Vacation");
 	assert_eq!(synced_tag.namespace, Some("photos".to_string()));
 
@@ -945,34 +1144,14 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 
 	// Create location first
 	let location_uuid = Uuid::new_v4();
-	let device_a_record = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
-		.one(setup.library_a.db().conn())
-		.await?
-		.expect("Device A should exist");
+	let device_a_record = setup
+		.find_device(setup.device_a_id, &setup.library_a)
+		.await?;
 
 	// Create location entry
-	let location_entry = entities::entry::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(Some(Uuid::new_v4())),
-		name: Set("Test Location".to_string()),
-		kind: Set(1), // Directory
-		extension: Set(None),
-		metadata_id: Set(None),
-		content_id: Set(None),
-		size: Set(0),
-		aggregate_size: Set(0),
-		child_count: Set(0),
-		file_count: Set(0),
-		created_at: Set(chrono::Utc::now()),
-		modified_at: Set(chrono::Utc::now()),
-		accessed_at: Set(None),
-		permissions: Set(None),
-		inode: Set(None),
-		parent_id: Set(None),
-	};
-
-	let location_entry_record = location_entry.insert(setup.library_a.db().conn()).await?;
+	let location_entry_record = setup
+		.create_entry("Test Location", 1, &setup.library_a, None)
+		.await?;
 
 	// Sync the location entry first (parent dependency)
 	info!("Syncing location entry to Device B");
@@ -1010,29 +1189,15 @@ async fn test_sync_entry_with_location() -> anyhow::Result<()> {
 	// === Create entry in that location ===
 	info!("Creating entry in location on Device A");
 
-	let entry_uuid = Uuid::new_v4();
-	let entry_model = entities::entry::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(Some(entry_uuid)),
-		name: Set("test_file.txt".to_string()),
-		kind: Set(0), // File
-		extension: Set(Some("txt".to_string())),
-		metadata_id: Set(None),
-		content_id: Set(None),
-		size: Set(1024),
-		aggregate_size: Set(1024),
-		child_count: Set(0),
-		file_count: Set(0),
-		created_at: Set(chrono::Utc::now()),
-		modified_at: Set(chrono::Utc::now()),
-		accessed_at: Set(None),
-		permissions: Set(None),
-		inode: Set(Some(12345)),
-		parent_id: Set(Some(location_entry_record.id)),
-	};
-
-	let entry_record = entry_model.insert(setup.library_a.db().conn()).await?;
-	info!("Created entry: {}", entry_uuid);
+	let entry_record = setup
+		.create_entry(
+			"test_file.txt",
+			0,
+			&setup.library_a,
+			Some(location_entry_record.id),
+		)
+		.await?;
+	info!("Created entry: {}", entry_record.uuid.unwrap());
 
 	// === USE SYNC API ===
 	info!("Using new sync API to emit entry sync event");
@@ -1159,30 +1324,14 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 		.collect();
 
 	for (i, tag_uuid) in pre_sync_tag_uuids.iter().enumerate() {
-		let tag_model = entities::tag::ActiveModel {
-			id: sea_orm::ActiveValue::NotSet,
-			uuid: Set(*tag_uuid),
-			canonical_name: Set(format!("PreSync Tag {}", i + 1)),
-			display_name: Set(None),
-			formal_name: Set(None),
-			abbreviation: Set(None),
-			aliases: Set(None),
-			namespace: Set(Some("photos".to_string())),
-			tag_type: Set("standard".to_string()),
-			color: Set(None),
-			icon: Set(None),
-			description: Set(None),
-			is_organizational_anchor: Set(false),
-			privacy_level: Set("normal".to_string()),
-			search_weight: Set(100),
-			attributes: Set(None),
-			composition_rules: Set(None),
-			created_at: Set(chrono::Utc::now()),
-			updated_at: Set(chrono::Utc::now()),
-			created_by_device: Set(Some(setup.device_a_id)),
-		};
-
-		tag_model.insert(setup.library_a.db().conn()).await?;
+		setup
+			.create_tag_with_uuid(
+				*tag_uuid,
+				format!("PreSync Tag {}", i + 1),
+				setup.device_a_id,
+				&setup.library_a,
+			)
+			.await?;
 	}
 	info!("Created 3 pre-sync tags (NOT in sync log)");
 
@@ -1196,30 +1345,14 @@ async fn test_sync_backfill_includes_pre_sync_data() -> anyhow::Result<()> {
 		.collect();
 
 	for (i, tag_uuid) in post_sync_tag_uuids.iter().enumerate() {
-		let tag_model = entities::tag::ActiveModel {
-			id: sea_orm::ActiveValue::NotSet,
-			uuid: Set(*tag_uuid),
-			canonical_name: Set(format!("PostSync Tag {}", i + 1)),
-			display_name: Set(None),
-			formal_name: Set(None),
-			abbreviation: Set(None),
-			aliases: Set(None),
-			namespace: Set(Some("photos".to_string())),
-			tag_type: Set("standard".to_string()),
-			color: Set(None),
-			icon: Set(None),
-			description: Set(None),
-			is_organizational_anchor: Set(false),
-			privacy_level: Set("normal".to_string()),
-			search_weight: Set(100),
-			attributes: Set(None),
-			composition_rules: Set(None),
-			created_at: Set(chrono::Utc::now()),
-			updated_at: Set(chrono::Utc::now()),
-			created_by_device: Set(Some(setup.device_a_id)),
-		};
-
-		let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+		let tag_record = setup
+			.create_tag_with_uuid(
+				*tag_uuid,
+				format!("PostSync Tag {}", i + 1),
+				setup.device_a_id,
+				&setup.library_a,
+			)
+			.await?;
 
 		// Sync these tags (will be in peer log)
 		setup
@@ -1443,28 +1576,11 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	info!("\nPHASE 1: Device A creates tag, syncs to Device B");
 
 	let tag_uuid = Uuid::new_v4();
-	let tag_model = entities::tag::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(tag_uuid),
-		canonical_name: Set("A's Tag".to_string()),
-		display_name: Set(None),
-		formal_name: Set(None),
-		abbreviation: Set(None),
-		aliases: Set(None),
-		namespace: Set(Some("photos".to_string())),
-		tag_type: Set("standard".to_string()),
-		color: Set(None),
-		icon: Set(None),
-		description: Set(None),
-		is_organizational_anchor: Set(false),
-		privacy_level: Set("normal".to_string()),
-		search_weight: Set(100),
-		attributes: Set(None),
-		composition_rules: Set(None),
-		created_at: Set(chrono::Utc::now()),
-		updated_at: Set(chrono::Utc::now()),
-		created_by_device: Set(Some(device_a_id)),
-	};
+	let mut tag_model = entities::tag::ActiveModel::new();
+	tag_model.uuid = Set(tag_uuid);
+	tag_model.canonical_name = Set("A's Tag".to_string());
+	tag_model.created_by_device = Set(Some(device_a_id));
+	tag_model.namespace = Set(Some("photos".to_string()));
 
 	let tag_record = tag_model.insert(library_a.db().conn()).await?;
 	library_a
@@ -1562,22 +1678,22 @@ async fn test_connection_state_tracking() -> anyhow::Result<()> {
 
 	// === VERIFY INITIAL STATE ===
 	// Both devices should be offline initially
-	let device_b_on_a = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
-		.one(setup.library_a.db().conn())
-		.await?
-		.expect("Device B should exist on A");
-
-	assert_eq!(device_b_on_a.is_online, false, "Device B should start offline");
+	let device_b_on_a = setup
+		.find_device(setup.device_b_id, &setup.library_a)
+		.await?;
+	assert_eq!(
+		device_b_on_a.is_online, false,
+		"Device B should start offline"
+	);
 	info!("Initial state: Device B is offline on A's library");
 
-	let device_a_on_b = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
-		.one(setup.library_b.db().conn())
-		.await?
-		.expect("Device A should exist on B");
-
-	assert_eq!(device_a_on_b.is_online, false, "Device A should start offline");
+	let device_a_on_b = setup
+		.find_device(setup.device_a_id, &setup.library_b)
+		.await?;
+	assert_eq!(
+		device_a_on_b.is_online, false,
+		"Device A should start offline"
+	);
 	info!("Initial state: Device A is offline on B's library");
 
 	// === SIMULATE CONNECTION ESTABLISHED ===
@@ -1585,71 +1701,33 @@ async fn test_connection_state_tracking() -> anyhow::Result<()> {
 
 	// Device A's PeerSync receives ConnectionEstablished for Device B
 	if let Some(_sync_a) = setup.library_a.sync_service() {
-		// Simulate the connection event by directly updating the database
-		// (in production, this would be handled by NetworkEvent listener)
-		use chrono::Utc;
-		let now = Utc::now();
-		entities::device::Entity::update_many()
-			.col_expr(
-				entities::device::Column::IsOnline,
-				sea_orm::sea_query::Expr::value(true),
-			)
-			.col_expr(
-				entities::device::Column::LastSeenAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.col_expr(
-				entities::device::Column::UpdatedAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
-			.exec(setup.library_a.db().conn())
+		setup
+			.set_device_online(setup.device_b_id, &setup.library_a)
 			.await?;
 	}
 
 	// Device B's PeerSync receives ConnectionEstablished for Device A
 	if let Some(_sync_b) = setup.library_b.sync_service() {
-		use chrono::Utc;
-		let now = Utc::now();
-		entities::device::Entity::update_many()
-			.col_expr(
-				entities::device::Column::IsOnline,
-				sea_orm::sea_query::Expr::value(true),
-			)
-			.col_expr(
-				entities::device::Column::LastSeenAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.col_expr(
-				entities::device::Column::UpdatedAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
-			.exec(setup.library_b.db().conn())
+		setup
+			.set_device_online(setup.device_a_id, &setup.library_b)
 			.await?;
 	}
 
 	info!("Connection events processed");
 
 	// === VERIFY ONLINE STATE ===
-	let device_b_on_a = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
-		.one(setup.library_a.db().conn())
-		.await?
-		.expect("Device B should exist");
-
+	let device_b_on_a = setup
+		.find_device(setup.device_b_id, &setup.library_a)
+		.await?;
 	assert_eq!(
 		device_b_on_a.is_online, true,
 		"Device B should be online after ConnectionEstablished"
 	);
 	info!("Device B is now ONLINE on A's library");
 
-	let device_a_on_b = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
-		.one(setup.library_b.db().conn())
-		.await?
-		.expect("Device A should exist");
-
+	let device_a_on_b = setup
+		.find_device(setup.device_a_id, &setup.library_b)
+		.await?;
 	assert_eq!(
 		device_a_on_b.is_online, true,
 		"Device A should be online after ConnectionEstablished"
@@ -1661,69 +1739,33 @@ async fn test_connection_state_tracking() -> anyhow::Result<()> {
 
 	// Device A's PeerSync receives ConnectionLost for Device B
 	if let Some(_sync_a) = setup.library_a.sync_service() {
-		use chrono::Utc;
-		let now = Utc::now();
-		entities::device::Entity::update_many()
-			.col_expr(
-				entities::device::Column::IsOnline,
-				sea_orm::sea_query::Expr::value(false),
-			)
-			.col_expr(
-				entities::device::Column::LastSeenAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.col_expr(
-				entities::device::Column::UpdatedAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
-			.exec(setup.library_a.db().conn())
+		setup
+			.set_device_offline(setup.device_b_id, &setup.library_a)
 			.await?;
 	}
 
 	// Device B's PeerSync receives ConnectionLost for Device A
 	if let Some(_sync_b) = setup.library_b.sync_service() {
-		use chrono::Utc;
-		let now = Utc::now();
-		entities::device::Entity::update_many()
-			.col_expr(
-				entities::device::Column::IsOnline,
-				sea_orm::sea_query::Expr::value(false),
-			)
-			.col_expr(
-				entities::device::Column::LastSeenAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.col_expr(
-				entities::device::Column::UpdatedAt,
-				sea_orm::sea_query::Expr::value(now),
-			)
-			.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
-			.exec(setup.library_b.db().conn())
+		setup
+			.set_device_offline(setup.device_a_id, &setup.library_b)
 			.await?;
 	}
 
 	info!("Disconnection events processed");
 
 	// === VERIFY OFFLINE STATE ===
-	let device_b_on_a = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
-		.one(setup.library_a.db().conn())
-		.await?
-		.expect("Device B should exist");
-
+	let device_b_on_a = setup
+		.find_device(setup.device_b_id, &setup.library_a)
+		.await?;
 	assert_eq!(
 		device_b_on_a.is_online, false,
 		"Device B should be offline after ConnectionLost"
 	);
 	info!("Device B is now OFFLINE on A's library");
 
-	let device_a_on_b = entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
-		.one(setup.library_b.db().conn())
-		.await?
-		.expect("Device A should exist");
-
+	let device_a_on_b = setup
+		.find_device(setup.device_a_id, &setup.library_b)
+		.await?;
 	assert_eq!(
 		device_a_on_b.is_online, false,
 		"Device A should be offline after ConnectionLost"
@@ -1747,37 +1789,19 @@ async fn test_watermark_reconnection_sync() -> anyhow::Result<()> {
 
 	let mut initial_tag_uuids = Vec::new();
 	for i in 0..3 {
-		let tag_uuid = Uuid::new_v4();
-		let tag_model = entities::tag::ActiveModel {
-			id: sea_orm::ActiveValue::NotSet,
-			uuid: Set(tag_uuid),
-			canonical_name: Set(format!("Initial Tag {}", i + 1)),
-			display_name: Set(None),
-			formal_name: Set(None),
-			abbreviation: Set(None),
-			aliases: Set(None),
-			namespace: Set(Some("photos".to_string())),
-			tag_type: Set("standard".to_string()),
-			color: Set(None),
-			icon: Set(None),
-			description: Set(None),
-			is_organizational_anchor: Set(false),
-			privacy_level: Set("normal".to_string()),
-			search_weight: Set(100),
-			attributes: Set(None),
-			composition_rules: Set(None),
-			created_at: Set(chrono::Utc::now()),
-			updated_at: Set(chrono::Utc::now()),
-			created_by_device: Set(Some(setup.device_a_id)),
-		};
-
-		let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+		let tag_record = setup
+			.create_tag(
+				format!("Initial Tag {}", i + 1),
+				setup.device_a_id,
+				&setup.library_a,
+			)
+			.await?;
 		setup
 			.library_a
 			.sync_model(&tag_record, ChangeType::Insert)
 			.await?;
-		initial_tag_uuids.push(tag_uuid);
-		info!("Created initial tag {}: {}", i + 1, tag_uuid);
+		initial_tag_uuids.push(tag_record.uuid);
+		info!("Created initial tag {}: {}", i + 1, tag_record.uuid);
 	}
 
 	// Pump messages to sync to Device B
@@ -1822,37 +1846,23 @@ async fn test_watermark_reconnection_sync() -> anyhow::Result<()> {
 
 	let mut new_tag_uuids = Vec::new();
 	for i in 0..2 {
-		let tag_uuid = Uuid::new_v4();
-		let tag_model = entities::tag::ActiveModel {
-			id: sea_orm::ActiveValue::NotSet,
-			uuid: Set(tag_uuid),
-			canonical_name: Set(format!("New Tag {}", i + 1)),
-			display_name: Set(None),
-			formal_name: Set(None),
-			abbreviation: Set(None),
-			aliases: Set(None),
-			namespace: Set(Some("photos".to_string())),
-			tag_type: Set("standard".to_string()),
-			color: Set(None),
-			icon: Set(None),
-			description: Set(None),
-			is_organizational_anchor: Set(false),
-			privacy_level: Set("normal".to_string()),
-			search_weight: Set(100),
-			attributes: Set(None),
-			composition_rules: Set(None),
-			created_at: Set(chrono::Utc::now()),
-			updated_at: Set(chrono::Utc::now()),
-			created_by_device: Set(Some(setup.device_a_id)),
-		};
-
-		let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+		let tag_record = setup
+			.create_tag(
+				format!("New Tag {}", i + 1),
+				setup.device_a_id,
+				&setup.library_a,
+			)
+			.await?;
 		setup
 			.library_a
 			.sync_model(&tag_record, ChangeType::Insert)
 			.await?;
-		new_tag_uuids.push(tag_uuid);
-		info!("Created new tag {}: {} (while B offline)", i + 1, tag_uuid);
+		new_tag_uuids.push(tag_record.uuid);
+		info!(
+			"Created new tag {}: {} (while B offline)",
+			i + 1,
+			tag_record.uuid
+		);
 	}
 
 	// === PHASE 3: Reconnection with incremental sync ===
@@ -1945,9 +1955,7 @@ async fn test_watermark_reconnection_sync() -> anyhow::Result<()> {
 
 	// Verify the new tags are present
 	for new_tag_uuid in &new_tag_uuids {
-		let tag_exists = all_tags_on_b
-			.iter()
-			.any(|t| t.uuid == *new_tag_uuid);
+		let tag_exists = all_tags_on_b.iter().any(|t| t.uuid == *new_tag_uuid);
 		assert!(
 			tag_exists,
 			"New tag {} should exist on Device B",
@@ -1965,6 +1973,209 @@ async fn test_watermark_reconnection_sync() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn test_automatic_watermark_exchange_on_reconnection() -> anyhow::Result<()> {
+	info!("TEST: Automatic Watermark Exchange on Reconnection");
+
+	let setup = SyncTestSetup::new().await?;
+
+	// === PHASE 1: Initial sync - Device A creates tags, syncs to B ===
+	info!("PHASE 1: Initial sync - creating tags on Device A");
+
+	let mut initial_tag_uuids = Vec::new();
+	for i in 0..3 {
+		let tag_record = setup
+			.create_tag(
+				format!("Initial Tag {}", i + 1),
+				setup.device_a_id,
+				&setup.library_a,
+			)
+			.await?;
+		setup
+			.library_a
+			.sync_model(&tag_record, ChangeType::Insert)
+			.await?;
+		initial_tag_uuids.push(tag_record.uuid);
+		info!("Created initial tag {}: {}", i + 1, tag_record.uuid);
+	}
+
+	// Pump messages to sync to Device B
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify Device B received all initial tags
+	let tags_on_b = entities::tag::Entity::find()
+		.all(setup.library_b.db().conn())
+		.await?;
+	assert_eq!(
+		tags_on_b.len(),
+		3,
+		"Device B should have all 3 initial tags"
+	);
+	info!("Device B received all initial tags via normal sync");
+
+	// Record message count before disconnection
+	let messages_before = setup.transport.get_a_to_b_messages().await.len();
+	info!("Baseline messages A→B: {}", messages_before);
+
+	// === PHASE 2: Device B goes offline, Device A creates more tags ===
+	info!("\nPHASE 2: Device B goes offline, Device A creates more tags");
+
+	// Mark Device B as offline on A's library
+	setup
+		.set_device_offline(setup.device_b_id, &setup.library_a)
+		.await?;
+	info!("Device B marked offline");
+
+	// Create more tags on Device A while B is offline
+	tokio::time::sleep(Duration::from_millis(100)).await;
+
+	let mut new_tag_uuids = Vec::new();
+	for i in 0..2 {
+		let tag_record = setup
+			.create_tag(
+				format!("New Tag {}", i + 1),
+				setup.device_a_id,
+				&setup.library_a,
+			)
+			.await?;
+		setup
+			.library_a
+			.sync_model(&tag_record, ChangeType::Insert)
+			.await?;
+		new_tag_uuids.push(tag_record.uuid);
+		info!(
+			"Created new tag {}: {} (while B offline)",
+			i + 1,
+			tag_record.uuid
+		);
+	}
+
+	// === PHASE 3: Device B reconnects - AUTOMATIC watermark exchange ===
+	info!("\nPHASE 3: Device B reconnects (ConnectionEstablished event)");
+
+	// Simulate ConnectionEstablished by triggering watermark exchange
+	// In production, this would be triggered by NetworkService's connection event
+	info!("Triggering automatic watermark exchange protocol");
+
+	// Get sync services
+	let _sync_a = setup.library_a.sync_service().unwrap();
+	let sync_b = setup.library_b.sync_service().unwrap();
+
+	// Mark devices as online (simulating ConnectionEstablished)
+	setup
+		.set_device_online(setup.device_b_id, &setup.library_a)
+		.await?;
+	setup
+		.set_device_online(setup.device_a_id, &setup.library_b)
+		.await?;
+
+	// Trigger watermark exchange from Device B to Device A
+	// This simulates the automatic trigger that happens on ConnectionEstablished
+	sync_b
+		.peer_sync()
+		.exchange_watermarks_and_catchup(setup.device_a_id)
+		.await?;
+
+	info!("Watermark exchange initiated");
+
+	// Pump messages to process watermark exchange
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// === PHASE 4: Verify automatic watermark exchange happened ===
+	info!("\nPHASE 4: Validating automatic watermark exchange protocol");
+
+	let messages_after = setup.transport.get_a_to_b_messages().await;
+	let messages_b_to_a = setup.transport.get_b_to_a_messages().await;
+
+	info!("Total messages A→B: {}", messages_after.len());
+	info!("Total messages B→A: {}", messages_b_to_a.len());
+
+	// Check for WatermarkExchangeRequest from B to A
+	use sd_core::service::network::protocol::sync::messages::SyncMessage;
+	let has_watermark_request = messages_b_to_a.iter().any(|(_, msg)| {
+		matches!(
+			msg,
+			SyncMessage::WatermarkExchangeRequest { .. }
+		)
+	});
+
+	assert!(
+		has_watermark_request,
+		"Device B should have sent WatermarkExchangeRequest to Device A automatically"
+	);
+	info!("WatermarkExchangeRequest sent automatically");
+
+	// Check for WatermarkExchangeResponse from A to B
+	let has_watermark_response = messages_after.iter().any(|(_, msg)| {
+		matches!(
+			msg,
+			SyncMessage::WatermarkExchangeResponse { .. }
+		)
+	});
+
+	assert!(
+		has_watermark_response,
+		"Device A should have sent WatermarkExchangeResponse back to Device B"
+	);
+	info!("WatermarkExchangeResponse received");
+
+	// Check for automatic SharedChangeRequest from B to A (triggered by divergence detection)
+	let has_shared_change_request = messages_b_to_a.iter().any(|(_, msg)| {
+		matches!(
+			msg,
+			SyncMessage::SharedChangeRequest { .. }
+		)
+	});
+
+	assert!(
+		has_shared_change_request,
+		"Device B should have automatically sent SharedChangeRequest after detecting divergence"
+	);
+	info!("SharedChangeRequest sent automatically after divergence detected");
+
+	// === PHASE 5: Verify automatic incremental catch-up occurred ===
+	info!("\nPHASE 5: Validating automatic incremental catch-up");
+
+	// Verify Device B now has all 5 tags (3 initial + 2 new)
+	let all_tags_on_b = entities::tag::Entity::find()
+		.all(setup.library_b.db().conn())
+		.await?;
+
+	assert_eq!(
+		all_tags_on_b.len(),
+		5,
+		"Device B should have all 5 tags after automatic catch-up"
+	);
+
+	// Verify the new tags are present
+	for new_tag_uuid in &new_tag_uuids {
+		let tag_exists = all_tags_on_b.iter().any(|t| t.uuid == *new_tag_uuid);
+		assert!(
+			tag_exists,
+			"New tag {} should exist on Device B after automatic catch-up",
+			new_tag_uuid
+		);
+	}
+
+	info!("All new tags synced automatically");
+
+	// === SUMMARY ===
+	info!("\nTEST COMPLETE: Automatic watermark exchange protocol validated");
+	info!("  Phase 1: Initial sync (3 tags)");
+	info!("  Phase 2: Device B goes offline, Device A creates 2 new tags");
+	info!("  Phase 3: Device B reconnects → ConnectionEstablished event");
+	info!("  Phase 4: Automatic watermark exchange protocol executed");
+	info!("     - WatermarkExchangeRequest sent from B to A");
+	info!("     - WatermarkExchangeResponse sent from A to B");
+	info!("     - Divergence detected automatically");
+	info!("     - SharedChangeRequest sent automatically");
+	info!("  Phase 5: Device B caught up with all 5 tags WITHOUT manual intervention");
+	info!("");
+	info!("  The watermark exchange protocol works automatically on reconnection!");
+
+	Ok(())
+}
+
+#[tokio::test]
 async fn test_concurrent_tag_updates_hlc_conflict_resolution() -> anyhow::Result<()> {
 	info!("TEST: HLC-Based Conflict Resolution");
 
@@ -1976,58 +2187,16 @@ async fn test_concurrent_tag_updates_hlc_conflict_resolution() -> anyhow::Result
 	let tag_uuid = Uuid::new_v4();
 
 	// === Device A creates tag with canonical_name "Version A" ===
-	let tag_model_a = entities::tag::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(tag_uuid),
-		canonical_name: Set("Version A".to_string()),
-		display_name: Set(None),
-		formal_name: Set(None),
-		abbreviation: Set(None),
-		aliases: Set(None),
-		namespace: Set(Some("photos".to_string())),
-		tag_type: Set("standard".to_string()),
-		color: Set(None),
-		icon: Set(None),
-		description: Set(None),
-		is_organizational_anchor: Set(false),
-		privacy_level: Set("normal".to_string()),
-		search_weight: Set(100),
-		attributes: Set(None),
-		composition_rules: Set(None),
-		created_at: Set(chrono::Utc::now()),
-		updated_at: Set(chrono::Utc::now()),
-		created_by_device: Set(Some(setup.device_a_id)),
-	};
-
-	let tag_record_a = tag_model_a.insert(setup.library_a.db().conn()).await?;
+	let tag_record_a = setup
+		.create_tag_with_uuid(tag_uuid, "Version A", setup.device_a_id, &setup.library_a)
+		.await?;
 	info!("Device A created tag: {} = '{}'", tag_uuid, "Version A");
 
 	// === Device B creates same tag with canonical_name "Version B" ===
 	// (simulating concurrent offline edits)
-	let tag_model_b = entities::tag::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(tag_uuid),
-		canonical_name: Set("Version B".to_string()),
-		display_name: Set(None),
-		formal_name: Set(None),
-		abbreviation: Set(None),
-		aliases: Set(None),
-		namespace: Set(Some("photos".to_string())),
-		tag_type: Set("standard".to_string()),
-		color: Set(None),
-		icon: Set(None),
-		description: Set(None),
-		is_organizational_anchor: Set(false),
-		privacy_level: Set("normal".to_string()),
-		search_weight: Set(100),
-		attributes: Set(None),
-		composition_rules: Set(None),
-		created_at: Set(chrono::Utc::now()),
-		updated_at: Set(chrono::Utc::now()),
-		created_by_device: Set(Some(setup.device_b_id)),
-	};
-
-	let tag_record_b = tag_model_b.insert(setup.library_b.db().conn()).await?;
+	let tag_record_b = setup
+		.create_tag_with_uuid(tag_uuid, "Version B", setup.device_b_id, &setup.library_b)
+		.await?;
 	info!("Device B created tag: {} = '{}'", tag_uuid, "Version B");
 
 	// === Both devices sync their versions (conflict!) ===
@@ -2072,8 +2241,14 @@ async fn test_concurrent_tag_updates_hlc_conflict_resolution() -> anyhow::Result
 		.await?
 		.expect("Tag should exist on B");
 
-	info!("Tag on Device A: canonical_name = '{}'", tag_on_a.canonical_name);
-	info!("Tag on Device B: canonical_name = '{}'", tag_on_b.canonical_name);
+	info!(
+		"Tag on Device A: canonical_name = '{}'",
+		tag_on_a.canonical_name
+	);
+	info!(
+		"Tag on Device B: canonical_name = '{}'",
+		tag_on_b.canonical_name
+	);
 
 	// Both should converge to the same value (last write wins based on HLC)
 	assert_eq!(
@@ -2105,28 +2280,12 @@ async fn test_sync_update_and_delete_operations() -> anyhow::Result<()> {
 	info!("PHASE 1: Creating tag on Device A");
 
 	let tag_uuid = Uuid::new_v4();
-	let tag_model = entities::tag::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(tag_uuid),
-		canonical_name: Set("Original Name".to_string()),
-		display_name: Set(None),
-		formal_name: Set(None),
-		abbreviation: Set(None),
-		aliases: Set(None),
-		namespace: Set(Some("photos".to_string())),
-		tag_type: Set("standard".to_string()),
-		color: Set(None),
-		icon: Set(None),
-		description: Set(Some("Original description".to_string())),
-		is_organizational_anchor: Set(false),
-		privacy_level: Set("normal".to_string()),
-		search_weight: Set(100),
-		attributes: Set(None),
-		composition_rules: Set(None),
-		created_at: Set(chrono::Utc::now()),
-		updated_at: Set(chrono::Utc::now()),
-		created_by_device: Set(Some(setup.device_a_id)),
-	};
+	let mut tag_model = entities::tag::ActiveModel::new();
+	tag_model.uuid = Set(tag_uuid);
+	tag_model.canonical_name = Set("Original Name".to_string());
+	tag_model.description = Set(Some("Original description".to_string()));
+	tag_model.created_by_device = Set(Some(setup.device_a_id));
+	tag_model.namespace = Set(Some("photos".to_string()));
 
 	let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
 	info!("Created tag: {} = '{}'", tag_uuid, "Original Name");
@@ -2163,10 +2322,11 @@ async fn test_sync_update_and_delete_operations() -> anyhow::Result<()> {
 	tag_active_model.description = Set(Some("Updated description".to_string()));
 	tag_active_model.updated_at = Set(chrono::Utc::now());
 
-	let updated_tag = tag_active_model
-		.update(setup.library_a.db().conn())
-		.await?;
-	info!("Updated tag: canonical_name = '{}'", updated_tag.canonical_name);
+	let updated_tag = tag_active_model.update(setup.library_a.db().conn()).await?;
+	info!(
+		"Updated tag: canonical_name = '{}'",
+		updated_tag.canonical_name
+	);
 
 	// Sync the update
 	setup
@@ -2184,7 +2344,10 @@ async fn test_sync_update_and_delete_operations() -> anyhow::Result<()> {
 
 	assert!(tag_on_b.is_some(), "Tag should still exist on Device B");
 	let updated_tag_on_b = tag_on_b.unwrap();
-	assert_eq!(updated_tag_on_b.canonical_name, "Updated Name", "Device B should have updated name");
+	assert_eq!(
+		updated_tag_on_b.canonical_name, "Updated Name",
+		"Device B should have updated name"
+	);
 	assert_eq!(
 		updated_tag_on_b.description,
 		Some("Updated description".to_string()),
@@ -2216,10 +2379,7 @@ async fn test_sync_update_and_delete_operations() -> anyhow::Result<()> {
 		.one(setup.library_b.db().conn())
 		.await?;
 
-	assert!(
-		tag_on_b.is_none(),
-		"Tag should be deleted on Device B"
-	);
+	assert!(tag_on_b.is_none(), "Tag should be deleted on Device B");
 	info!("Device B received delete");
 
 	// === VALIDATION: Check messages ===

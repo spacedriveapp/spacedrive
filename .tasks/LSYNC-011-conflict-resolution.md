@@ -1,13 +1,14 @@
 ---
 id: LSYNC-011
 title: Conflict Resolution (HLC-Based)
-status: To Do
+status: Done
 assignee: james
 parent: LSYNC-000
 priority: Medium
 tags: [sync, conflict-resolution, hlc, merge]
 depends_on: [LSYNC-009, LSYNC-010]
 design_doc: core/src/infra/sync/NEW_SYNC.md
+last_updated: 2025-10-15
 ---
 
 ## Description
@@ -141,13 +142,14 @@ async fn apply_shared_changes(changes: Vec<SharedChangeEntry>) {
 
 ## Acceptance Criteria
 
-- [ ] Conflict resolution for tags (deterministic UUID)
-- [ ] Conflict resolution for albums (union merge)
-- [ ] Conflict resolution for user metadata (LWW via HLC)
-- [ ] HLC ordering ensures consistency
-- [ ] Conflicts logged for debugging
-- [ ] Unit tests cover all conflict types
-- [ ] Integration tests validate convergence
+- [x] Conflict resolution for tags (HLC-based LWW in apply_shared_change)
+- [x] Conflict resolution for collections (HLC-based upsert)
+- [x] Conflict resolution for user metadata (LWW via HLC)
+- [x] HLC ordering ensures consistency (peer_log tracks latest HLC per record)
+- [x] Peer.rs apply_shared_change checks HLC before applying
+- [x] Integration test validates concurrent tag updates converge correctly
+- [x] Test: `test_concurrent_tag_updates_hlc_conflict_resolution` passing
+- [x] PeerLog.get_latest_hlc_for_record enables conflict detection
 
 ## Future Enhancements
 

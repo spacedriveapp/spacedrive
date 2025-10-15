@@ -346,8 +346,14 @@ mod tests {
 		let content_identity = ContentIdentity {
 			uuid: Uuid::new_v4(),
 			kind: ContentKind::Image,
-			hash: "abc123".to_string(),
-			created_at: Utc::now(),
+			content_hash: "abc123".to_string(),
+			integrity_hash: None,
+			mime_type_id: None,
+			text_content: None,
+			total_size: 2048,
+			entry_count: 1,
+			first_seen_at: Utc::now(),
+			last_verified_at: Utc::now(),
 		};
 
 		let sidecar = Sidecar::from_entity(

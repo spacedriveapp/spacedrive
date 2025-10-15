@@ -1,5 +1,6 @@
 //! Protocol handling system for different message types
 
+pub mod file_delete;
 pub mod file_transfer;
 pub mod library_messages;
 pub mod messaging;
@@ -13,6 +14,7 @@ use iroh::NodeId;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+pub use file_delete::FileDeleteProtocolHandler;
 pub use file_transfer::{
 	FileMetadata, FileTransferMessage, FileTransferProtocolHandler, TransferMode, TransferSession,
 };

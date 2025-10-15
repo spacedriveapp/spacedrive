@@ -163,14 +163,7 @@ jobs:
 
       - name: Run Clippy
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
-        uses: giraffate/clippy-action@v1
-        with:
-          reporter: github-pr-review
-          tool_name: 'Clippy (${{ matrix.settings.host }})'
-          filter_mode: diff_context
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          clippy_flags: --workspace --locked
-          fail_on_error: true
+        run: cargo clippy --workspace --locked -- -D warnings
 
       # - name: Run tests
       #   if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'

@@ -291,6 +291,37 @@ impl PeerLog {
 		}
 	}
 
+	/// Get the latest HLC for a specific record UUID
+	///
+	/// Used for conflict resolution - returns the most recent HLC that was logged
+	/// for this record, so we can compare incoming changes against what we've already seen.
+	pub async fn get_latest_hlc_for_record(
+		&self,
+		record_uuid: Uuid,
+	) -> Result<Option<HLC>, PeerLogError> {
+		let result = self
+			.conn
+			.query_one(Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				"SELECT hlc FROM shared_changes WHERE record_uuid = ? ORDER BY hlc DESC LIMIT 1",
+				vec![record_uuid.to_string().into()],
+			))
+			.await
+			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		match result {
+			Some(row) => {
+				let hlc_str: String = row
+					.try_get("", "hlc")
+					.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+				let hlc = HLC::from_string(&hlc_str)
+					.map_err(|e| PeerLogError::ParseError(e.to_string()))?;
+				Ok(Some(hlc))
+			}
+			None => Ok(None),
+		}
+	}
+
 	/// Get database connection (for advanced queries)
 	pub fn conn(&self) -> &DatabaseConnection {
 		&self.conn

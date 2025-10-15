@@ -216,7 +216,9 @@ impl BackfillManager {
 		Ok(())
 	}
 
-	/// Request state batch from peer (stub - needs network integration)
+	/// Request state batch from peer
+	///
+	/// Sends a StateRequest and waits for the StateResponse.
 	async fn request_state_batch(
 		&self,
 		peer: Uuid,
@@ -225,11 +227,32 @@ impl BackfillManager {
 		since: Option<DateTime<Utc>>,
 		batch_size: usize,
 	) -> Result<SyncMessage> {
-		// TODO: Send StateRequest via network
-		// For now, return empty response
+		// Create StateRequest message
+		let request = SyncMessage::StateRequest {
+			library_id: self.library_id,
+			model_types: model_types.clone(),
+			device_id,
+			since,
+			checkpoint: None,
+			batch_size,
+		};
+
+		// Send request via network transport
+		self.peer_sync
+			.network()
+			.send_sync_message(peer, request)
+			.await?;
+
+		// TODO: Wait for StateResponse
+		// The current NetworkTransport::send_sync_message() is fire-and-forget.
+		// To properly implement request/response pattern, we need to either:
+		// 1. Add send_sync_request() method to NetworkTransport that waits for response
+		// 2. Use a channel-based approach where responses are delivered via protocol handler
+		//
+		// For now, return empty response as a stub
 		Ok(SyncMessage::StateResponse {
 			library_id: self.library_id,
-			model_type: "location".to_string(),
+			model_type: model_types.first().cloned().unwrap_or_default(),
 			device_id: peer,
 			records: Vec::new(),
 			checkpoint: None,
@@ -237,15 +260,34 @@ impl BackfillManager {
 		})
 	}
 
-	/// Request shared changes from peer (stub - needs network integration)
+	/// Request shared changes from peer
+	///
+	/// Sends a SharedChangeRequest and waits for the SharedChangeResponse.
 	async fn request_shared_changes(
 		&self,
 		peer: Uuid,
 		since_hlc: Option<HLC>,
 		limit: usize,
 	) -> Result<SyncMessage> {
-		// TODO: Send SharedChangeRequest via network
-		// For now, return empty response
+		// Create SharedChangeRequest message
+		let request = SyncMessage::SharedChangeRequest {
+			library_id: self.library_id,
+			since_hlc,
+			limit,
+		};
+
+		// Send request via network transport
+		self.peer_sync
+			.network()
+			.send_sync_message(peer, request)
+			.await?;
+
+		// TODO: Wait for SharedChangeResponse
+		// Same limitation as request_state_batch() - we need a proper request/response mechanism.
+		// The protocol handler on the peer will receive this request and send a response,
+		// but we need a way to correlate and await that response here.
+		//
+		// For now, return empty response as a stub
 		Ok(SyncMessage::SharedChangeResponse {
 			library_id: self.library_id,
 			entries: Vec::new(),

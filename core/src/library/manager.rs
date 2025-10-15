@@ -173,7 +173,7 @@ impl LibraryManager {
 		tokio::fs::create_dir_all(&library_path).await?;
 
 		// Initialize library
-		self.initialize_library(&library_path, name, context.clone())
+		self.initialize_library(&library_path, name.to_string(), context.clone())
 			.await?;
 
 		// Open the newly created library
@@ -259,6 +259,18 @@ impl LibraryManager {
 		// Ensure device is registered in this library
 		if let Err(e) = self.ensure_device_registered(&library).await {
 			warn!("Failed to register device in library {}: {}", config.id, e);
+		}
+
+		// Load all library devices into DeviceManager cache for slug resolution
+		if let Err(e) = context
+			.device_manager
+			.load_library_devices(library.db().conn())
+			.await
+		{
+			warn!(
+				"Failed to load library devices into cache for {}: {}",
+				config.id, e
+			);
 		}
 
 		// Register library
@@ -590,6 +602,7 @@ impl LibraryManager {
 				id: sea_orm::ActiveValue::NotSet,
 				uuid: Set(device.id),
 				name: Set(device.name.clone()),
+				slug: Set(crate::domain::device::Device::generate_slug(&device.name)),
 				os: Set(device.os.to_string()),
 				os_version: Set(None),
 				hardware_model: Set(device.hardware_model),

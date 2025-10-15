@@ -85,6 +85,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			last_sync_at: Set(None),
 			created_at: Set(device.created_at),
 			updated_at: Set(device.updated_at),
+			last_state_watermark: Set(None),
+			last_shared_watermark: Set(None),
+			slug: Set(device.name.clone()),
 		};
 		let inserted_device = device_model.insert(db.conn()).await?;
 		println!("   ✓ Device registered");

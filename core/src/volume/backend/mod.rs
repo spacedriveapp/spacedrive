@@ -43,6 +43,9 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	/// Check if path exists (optimized when possible)
 	async fn exists(&self, path: &Path) -> Result<bool, VolumeError>;
 
+	/// Delete file or directory
+	async fn delete(&self, path: &Path) -> Result<(), VolumeError>;
+
 	/// Backend identification (used to optimize operations)
 	fn is_local(&self) -> bool;
 
@@ -70,6 +73,42 @@ pub enum CloudServiceType {
 	Wasabi,
 	DigitalOceanSpaces,
 	Other,
+}
+
+impl CloudServiceType {
+	/// Get the URI scheme for this cloud service
+	/// Used for service-native addressing (e.g., "s3://bucket/path")
+	pub fn scheme(&self) -> &'static str {
+		match self {
+			Self::S3 => "s3",
+			Self::GoogleDrive => "gdrive",
+			Self::OneDrive => "onedrive",
+			Self::Dropbox => "dropbox",
+			Self::AzureBlob => "azblob",
+			Self::GoogleCloudStorage => "gcs",
+			Self::BackblazeB2 => "b2",
+			Self::Wasabi => "wasabi",
+			Self::DigitalOceanSpaces => "spaces",
+			Self::Other => "cloud",
+		}
+	}
+
+	/// Parse cloud service type from URI scheme
+	/// Returns None if the scheme doesn't match any known service
+	pub fn from_scheme(scheme: &str) -> Option<Self> {
+		match scheme {
+			"s3" => Some(Self::S3),
+			"gdrive" => Some(Self::GoogleDrive),
+			"onedrive" => Some(Self::OneDrive),
+			"dropbox" => Some(Self::Dropbox),
+			"azblob" => Some(Self::AzureBlob),
+			"gcs" => Some(Self::GoogleCloudStorage),
+			"b2" => Some(Self::BackblazeB2),
+			"wasabi" => Some(Self::Wasabi),
+			"spaces" => Some(Self::DigitalOceanSpaces),
+			_ => None,
+		}
+	}
 }
 
 /// Raw directory entry returned by volume backends

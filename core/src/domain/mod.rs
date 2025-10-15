@@ -29,5 +29,5 @@ pub use tag::{
 pub use user_metadata::UserMetadata;
 pub use volume::{
 	DiskType as DomainDiskType, FileSystem as DomainFileSystem, MountType as DomainMountType,
-	Volume as DomainVolume, VolumeType,
+	Volume, VolumeType,
 };

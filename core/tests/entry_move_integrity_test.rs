@@ -104,7 +104,7 @@ async fn test_entry_metadata_preservation_on_move() {
 		.dispatch_library(
 			Some(library_id),
 			LocationAddAction::from_input(LocationAddInput {
-				path: source_dir.clone(),
+				path: SdPath::local(source_dir.clone()),
 				name: Some("Source".to_string()),
 				mode: IndexMode::Deep,
 			})
@@ -413,7 +413,7 @@ async fn test_child_entry_metadata_preservation_on_parent_move() {
 
 	// Index the location
 	let add_loc_input = LocationAddInput {
-		path: source_dir.clone(),
+		path: SdPath::local(source_dir.clone()),
 		name: Some("Source".to_string()),
 		mode: IndexMode::Deep,
 	};

@@ -1,6 +1,8 @@
 //! Content identity entity
 
+use crate::infra::sync::{ChangeType, SharedChangeEntry, Syncable};
 use sea_orm::entity::prelude::*;
+use sea_orm::{ActiveValue::NotSet, Set};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
@@ -75,5 +77,156 @@ impl Model {
 	/// Calculate combined size on-demand (no need to cache entry_count * total_size)
 	pub fn combined_size(&self) -> i64 {
 		self.entry_count as i64 * self.total_size
+	}
+}
+
+// Syncable Implementation
+//
+// ContentIdentity is a SHARED resource with deterministic UUIDs (derived from content_hash).
+// Same content across devices has the same UUID, enabling automatic deduplication.
+// Uses HLC-ordered log-based replication.
+impl Syncable for Model {
+	const SYNC_MODEL: &'static str = "content_identity";
+
+	fn sync_id(&self) -> Uuid {
+		self.uuid
+			.expect("ContentIdentity must have UUID for sync")
+	}
+
+	fn version(&self) -> i64 {
+		1
+	}
+
+	fn exclude_fields() -> Option<&'static [&'static str]> {
+		Some(&[
+			"id",
+			"mime_type_id",
+			"kind_id",
+			"entry_count",
+			"first_seen_at",
+			"last_verified_at",
+		])
+	}
+
+	fn sync_depends_on() -> &'static [&'static str] {
+		&[]
+	}
+
+	async fn query_for_sync(
+		_device_id: Option<Uuid>,
+		since: Option<chrono::DateTime<chrono::Utc>>,
+		batch_size: usize,
+		db: &DatabaseConnection,
+	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+
+		let mut query = Entity::find().filter(Column::Uuid.is_not_null());
+
+		if let Some(since_time) = since {
+			query = query.filter(Column::LastVerifiedAt.gte(since_time));
+		}
+
+		query = query.limit(batch_size as u64);
+
+		let results = query.all(db).await?;
+
+		let mut sync_results = Vec::new();
+		for content in results {
+			if content.uuid.is_none() {
+				continue;
+			}
+
+			let json = match content.to_sync_json() {
+				Ok(j) => j,
+				Err(e) => {
+					tracing::warn!(error = %e, content_hash = %content.content_hash, "Failed to serialize content_identity for sync");
+					continue;
+				}
+			};
+
+			sync_results.push((content.uuid.unwrap(), json, content.last_verified_at));
+		}
+
+		Ok(sync_results)
+	}
+
+	async fn apply_shared_change(
+		entry: SharedChangeEntry,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		match entry.change_type {
+			ChangeType::Insert | ChangeType::Update => {
+				let data = entry.data.as_object().ok_or_else(|| {
+					sea_orm::DbErr::Custom("ContentIdentity data is not an object".to_string())
+				})?;
+
+				let uuid: Uuid = serde_json::from_value(
+					data.get("uuid")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+				let content_hash: String = serde_json::from_value(
+					data.get("content_hash")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing content_hash".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid content_hash: {}", e)))?;
+
+				let active = ActiveModel {
+					id: NotSet,
+					uuid: Set(Some(uuid)),
+					integrity_hash: Set(serde_json::from_value(
+						data.get("integrity_hash")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					content_hash: Set(content_hash),
+					mime_type_id: Set(None),
+					kind_id: Set(1),
+					text_content: Set(serde_json::from_value(
+						data.get("text_content")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					total_size: Set(serde_json::from_value(
+						data.get("total_size")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
+					entry_count: Set(0),
+					first_seen_at: Set(chrono::Utc::now().into()),
+					last_verified_at: Set(chrono::Utc::now().into()),
+				};
+
+				Entity::insert(active)
+					.on_conflict(
+						sea_orm::sea_query::OnConflict::column(Column::Uuid)
+							.update_columns([
+								Column::IntegrityHash,
+								Column::ContentHash,
+								Column::TextContent,
+								Column::TotalSize,
+								Column::LastVerifiedAt,
+							])
+							.to_owned(),
+					)
+					.exec(db)
+					.await?;
+			}
+
+			ChangeType::Delete => {
+				Entity::delete_many()
+					.filter(Column::Uuid.eq(Some(entry.record_uuid)))
+					.exec(db)
+					.await?;
+			}
+		}
+
+		Ok(())
 	}
 }

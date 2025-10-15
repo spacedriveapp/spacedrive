@@ -1445,9 +1445,16 @@ impl NetworkingService {
 
 		// Implement dual-path discovery: try mDNS first (fast for local), then relay (for remote)
 		// If force_relay is true, skip mDNS and only use relay
+		// If pairing code has no node_id (text-based), only use mDNS (local network only)
+		let has_node_id = pairing_code_clone.node_id().is_some();
+
 		if force_relay {
 			self.logger
 				.info("Force relay mode: skipping mDNS, using relay only")
+				.await;
+		} else if !has_node_id {
+			self.logger
+				.info("Text-based pairing code detected - using mDNS only (local network)")
 				.await;
 		} else {
 			self.logger
@@ -1471,8 +1478,27 @@ impl NetworkingService {
 					Err(e)
 				}
 			}
+		} else if !has_node_id {
+			// Text-based pairing code: only use mDNS (local network only)
+			match self.try_mdns_discovery(session_id, force_relay).await {
+				Ok(()) => {
+					self.logger
+						.info("Connected via mDNS (local network)")
+						.await;
+					Ok(())
+				}
+				Err(e) => {
+					self.logger
+						.warn(&format!("mDNS discovery failed: {}", e))
+						.await;
+					self.logger
+						.info("Text-based pairing codes only work on local networks. Use QR code for cross-network pairing.")
+						.await;
+					Err(e)
+				}
+			}
 		} else {
-			// Normal mode: race mDNS and relay
+			// Normal mode with node_id: race mDNS and relay
 			tokio::select! {
 				result = self.try_mdns_discovery(session_id, force_relay) => {
 					match result {

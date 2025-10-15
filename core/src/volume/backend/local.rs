@@ -193,6 +193,27 @@ impl VolumeBackend for LocalBackend {
 		Ok(full_path.exists())
 	}
 
+	async fn delete(&self, path: &Path) -> Result<(), VolumeError> {
+		let full_path = self.resolve_path(path);
+		debug!("LocalBackend::delete: {}", full_path.display());
+
+		let metadata = fs::metadata(&full_path)
+			.await
+			.map_err(|e| VolumeError::Io(e))?;
+
+		if metadata.is_dir() {
+			fs::remove_dir_all(&full_path)
+				.await
+				.map_err(|e| VolumeError::Io(e))?;
+		} else {
+			fs::remove_file(&full_path)
+				.await
+				.map_err(|e| VolumeError::Io(e))?;
+		}
+
+		Ok(())
+	}
+
 	fn is_local(&self) -> bool {
 		true
 	}

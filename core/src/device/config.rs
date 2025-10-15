@@ -14,6 +14,9 @@ pub struct DeviceConfig {
 	/// User-friendly device name
 	pub name: String,
 
+	/// Unique slug for URI addressing
+	pub slug: String,
+
 	/// When this device was first initialized
 	pub created_at: DateTime<Utc>,
 
@@ -30,9 +33,13 @@ pub struct DeviceConfig {
 impl DeviceConfig {
 	/// Create a new device configuration
 	pub fn new(name: String, os: String) -> Self {
+		// Generate slug from name
+		let slug = crate::domain::device::Device::generate_slug(&name);
+
 		Self {
 			id: Uuid::new_v4(),
 			name,
+			slug,
 			created_at: Utc::now(),
 			hardware_model: None,
 			os,

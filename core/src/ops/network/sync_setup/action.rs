@@ -181,6 +181,7 @@ impl LibrarySyncSetupAction {
 				id: sea_orm::ActiveValue::NotSet,
 				uuid: Set(self.input.remote_device_id),
 				name: Set(remote_device_info.device_name.clone()),
+				slug: Set(crate::domain::device::Device::generate_slug(&remote_device_info.device_name)),
 				os: Set(device_os.to_string()),
 				os_version: Set(Some(remote_device_info.os_version.clone())),
 				hardware_model: Set(None), // Not available in DeviceInfo

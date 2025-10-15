@@ -262,6 +262,7 @@ impl MessagingProtocolHandler {
 								id: sea_orm::ActiveValue::NotSet,
 								uuid: Set(device_id),
 								name: Set(device_name.clone()),
+								slug: Set(crate::domain::device::Device::generate_slug(&device_name)),
 								os: Set(os_name.clone()),
 								os_version: Set(os_version.clone()),
 								hardware_model: Set(hardware_model.clone()),

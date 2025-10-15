@@ -300,6 +300,88 @@ impl SyncProtocolHandler {
 				}))
 			}
 
+			SyncMessage::WatermarkExchangeRequest {
+				library_id,
+				device_id,
+				my_state_watermark: peer_state_watermark,
+				my_shared_watermark: peer_shared_watermark,
+			} => {
+				debug!(
+					from_device = %from_device,
+					peer_state_watermark = ?peer_state_watermark,
+					peer_shared_watermark = ?peer_shared_watermark,
+					"Processing WatermarkExchangeRequest"
+				);
+
+				// Get our current watermarks
+				let (our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
+
+				// Determine if peer needs catch-up by comparing watermarks
+				let needs_state_catchup = match (peer_state_watermark, our_state_watermark) {
+					(Some(peer_ts), Some(our_ts)) => our_ts > peer_ts,
+					(None, Some(_)) => true,
+					_ => false,
+				};
+
+				let needs_shared_catchup = match (peer_shared_watermark, our_shared_watermark) {
+					(Some(peer_hlc), Some(our_hlc)) => our_hlc > peer_hlc,
+					(None, Some(_)) => true,
+					_ => false,
+				};
+
+				info!(
+					from_device = %from_device,
+					needs_state_catchup = needs_state_catchup,
+					needs_shared_catchup = needs_shared_catchup,
+					"Responding to watermark exchange request"
+				);
+
+				Ok(Some(SyncMessage::WatermarkExchangeResponse {
+					library_id: self.library_id,
+					device_id: peer_sync.device_id(),
+					state_watermark: our_state_watermark,
+					shared_watermark: our_shared_watermark,
+					needs_state_catchup,
+					needs_shared_catchup,
+				}))
+			}
+
+			SyncMessage::WatermarkExchangeResponse {
+				library_id,
+				device_id,
+				state_watermark: peer_state_watermark,
+				shared_watermark: peer_shared_watermark,
+				needs_state_catchup,
+				needs_shared_catchup,
+			} => {
+				debug!(
+					from_device = %from_device,
+					peer_state_watermark = ?peer_state_watermark,
+					peer_shared_watermark = ?peer_shared_watermark,
+					needs_state_catchup = needs_state_catchup,
+					needs_shared_catchup = needs_shared_catchup,
+					"Processing WatermarkExchangeResponse"
+				);
+
+				peer_sync
+					.on_watermark_exchange_response(
+						from_device,
+						peer_state_watermark,
+						peer_shared_watermark,
+						needs_state_catchup,
+						needs_shared_catchup,
+					)
+					.await
+					.map_err(|e| {
+						NetworkingError::Protocol(format!(
+							"Failed to handle watermark exchange response: {}",
+							e
+						))
+					})?;
+
+				Ok(None)
+			}
+
 			SyncMessage::Error {
 				library_id,
 				message,

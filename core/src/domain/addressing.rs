@@ -169,7 +169,7 @@ impl SdPath {
 		}
 	}
 
-	/// Convert to a display string
+	/// Convert to a display string (legacy format)
 	pub fn display(&self) -> String {
 		match self {
 			Self::Physical { device_id, path } => {
@@ -187,6 +187,48 @@ impl SdPath {
 			}
 			Self::Content { content_id } => {
 				format!("sd://content/{}", content_id)
+			}
+		}
+	}
+
+	/// Display as user-friendly URI using CoreContext for resolution
+	/// This is the new unified addressing format
+	///
+	/// # Examples
+	/// - Physical: `local://jamies-macbook/Users/james/file.txt`
+	/// - Cloud: `s3://my-bucket/photos/vacation.jpg`
+	/// - Content: `content://550e8400-e29b-41d4-a716-446655440000`
+	pub async fn display_with_context(&self, context: &crate::context::CoreContext) -> String {
+		match self {
+			Self::Physical { device_id, path } => {
+				let path_str = path.display().to_string();
+				// Try to get current device slug
+				if let Ok(device) = context.device_manager.to_device() {
+					if device.id == *device_id {
+						return format!("local://{}{}", device.slug, path_str);
+					}
+				}
+				// Fallback for remote devices
+				format!("local://{}{}", device_id, path_str)
+			}
+
+			Self::Cloud {
+				volume_fingerprint,
+				path,
+			} => {
+				// Resolve volume and extract identity from mount_point
+				if let Some(volume) = context.volume_manager.get_volume(volume_fingerprint).await
+				{
+					if let Some((service, identifier)) = volume.parse_cloud_identity() {
+						return format!("{}://{}/{}", service.scheme(), identifier, path);
+					}
+				}
+				// Fallback
+				format!("cloud://{}/{}", volume_fingerprint.0, path)
+			}
+
+			Self::Content { content_id } => {
+				format!("content://{}", content_id)
 			}
 		}
 	}
@@ -311,7 +353,7 @@ impl SdPath {
 		}
 	}
 
-	/// Parse an SdPath from a URI string
+	/// Parse an SdPath from a URI string (legacy format)
 	/// Examples:
 	/// - "sd://device_id/path/to/file" -> Physical path
 	/// - "sd://cloud/volume_id/path/to/file" -> Cloud path
@@ -357,6 +399,70 @@ impl SdPath {
 		} else {
 			// Assume local path
 			Ok(Self::local(uri))
+		}
+	}
+
+	/// Parse URI into SdPath using CoreContext for resolution (new unified format)
+	///
+	/// # Examples
+	/// - "local://jamies-macbook/Users/james/file.txt" -> Physical path
+	/// - "s3://my-bucket/photos/vacation.jpg" -> Cloud path
+	/// - "content://550e8400-..." -> Content path
+	pub async fn from_uri_with_context(
+		uri: &str,
+		context: &crate::context::CoreContext,
+	) -> Result<Self, SdPathParseError> {
+		let parts: Vec<&str> = uri.splitn(2, "://").collect();
+		if parts.len() != 2 {
+			return Err(SdPathParseError::InvalidFormat);
+		}
+
+		let scheme = parts[0];
+		let rest = parts[1];
+
+		match scheme {
+			"content" => {
+				let content_id = Uuid::parse_str(rest)
+					.map_err(|_| SdPathParseError::InvalidContentId)?;
+				Ok(Self::Content { content_id })
+			}
+
+			"local" => {
+				let parts: Vec<&str> = rest.splitn(2, '/').collect();
+				let slug = parts[0];
+				let path = if parts.len() > 1 { parts[1] } else { "" };
+
+				let device_id = context
+					.device_manager
+					.resolve_by_slug(slug)
+					.ok_or(SdPathParseError::DeviceNotFound)?;
+
+				Ok(Self::Physical {
+					device_id,
+					path: PathBuf::from("/").join(path),
+				})
+			}
+
+			_ => {
+				// Try to parse as cloud service scheme
+				let service = crate::volume::backend::CloudServiceType::from_scheme(scheme)
+					.ok_or(SdPathParseError::UnknownScheme)?;
+
+				let parts: Vec<&str> = rest.splitn(2, '/').collect();
+				let identifier = parts[0];
+				let path = if parts.len() > 1 { parts[1] } else { "" };
+
+				let volume = context
+					.volume_manager
+					.find_cloud_volume(service, identifier)
+					.await
+					.ok_or(SdPathParseError::VolumeNotFound)?;
+
+				Ok(Self::Cloud {
+					volume_fingerprint: volume.fingerprint,
+					path: path.to_string(),
+				})
+			}
 		}
 	}
 
@@ -513,6 +619,9 @@ pub enum SdPathParseError {
 	InvalidDeviceId,
 	InvalidVolumeId,
 	InvalidContentId,
+	UnknownScheme,   // NEW: Unknown URI scheme
+	VolumeNotFound,  // NEW: Cloud volume not found
+	DeviceNotFound,  // NEW: Device slug not found
 }
 
 impl fmt::Display for SdPathParseError {
@@ -522,6 +631,9 @@ impl fmt::Display for SdPathParseError {
 			Self::InvalidDeviceId => write!(f, "Invalid device ID in SdPath URI"),
 			Self::InvalidVolumeId => write!(f, "Invalid volume ID in SdPath URI"),
 			Self::InvalidContentId => write!(f, "Invalid content ID in SdPath URI"),
+			Self::UnknownScheme => write!(f, "Unknown URI scheme"),
+			Self::VolumeNotFound => write!(f, "Cloud volume not found"),
+			Self::DeviceNotFound => write!(f, "Device not found by slug"),
 		}
 	}
 }
