@@ -42,7 +42,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
 int-enum = "1.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-specta = { path = "../../specta/specta", features = [
+specta = { git = "https://github.com/jamiepine/specta", branch = "better-swift-gen", features = [
 	"chrono",
 	"derive",
 	"export",
@@ -50,9 +50,9 @@ specta = { path = "../../specta/specta", features = [
 	"serde_json",
 	"uuid"
 ] }
-specta-serde = { path = "../../specta/specta-serde" }
-specta-swift = { path = "../../specta/specta-swift" }
-specta-typescript = { path = "../../specta/specta-typescript" }
+specta-serde = { git = "https://github.com/jamiepine/specta", branch = "better-swift-gen" }
+specta-swift = { git = "https://github.com/jamiepine/specta", branch = "better-swift-gen" }
+specta-typescript = { git = "https://github.com/jamiepine/specta", branch = "better-swift-gen" }
 strum = { version = "0.26", features = ["derive"] }
 toml = "0.8"
 
