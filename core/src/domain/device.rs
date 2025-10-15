@@ -19,17 +19,35 @@ pub struct Device {
 	/// Operating system
 	pub os: OperatingSystem,
 
+	/// Operating system version
+	pub os_version: Option<String>,
+
 	/// Hardware model (e.g., "MacBook Pro", "iPhone 15")
 	pub hardware_model: Option<String>,
 
 	/// Network addresses for P2P connections
 	pub network_addresses: Vec<String>,
 
+	/// Device capabilities (indexing, P2P, volume detection, etc.)
+	pub capabilities: serde_json::Value,
+
 	/// Whether this device is currently online
 	pub is_online: bool,
 
 	/// Last time this device was seen
 	pub last_seen_at: DateTime<Utc>,
+
+	/// Whether sync is enabled for this device
+	pub sync_enabled: bool,
+
+	/// Last time this device synced
+	pub last_sync_at: Option<DateTime<Utc>>,
+
+	/// Watermark for device-owned data (locations, entries)
+	pub last_state_watermark: Option<DateTime<Utc>>,
+
+	/// Watermark for shared resources (tags, albums) as JSON-serialized HLC
+	pub last_shared_watermark: Option<String>,
 
 	/// When this device was first added
 	pub created_at: DateTime<Utc>,
@@ -57,10 +75,20 @@ impl Device {
 			id: Uuid::new_v4(),
 			name,
 			os: detect_operating_system(),
+			os_version: None,
 			hardware_model: detect_hardware_model(),
 			network_addresses: Vec::new(),
+			capabilities: serde_json::json!({
+				"indexing": true,
+				"p2p": true,
+				"volume_detection": true
+			}),
 			is_online: true,
 			last_seen_at: now,
+			sync_enabled: true,
+			last_sync_at: None,
+			last_state_watermark: None,
+			last_shared_watermark: None,
 			created_at: now,
 			updated_at: now,
 		}
@@ -175,19 +203,17 @@ impl From<Device> for entities::device::ActiveModel {
 			uuid: Set(device.id),
 			name: Set(device.name),
 			os: Set(device.os.to_string()),
-			os_version: Set(None), // TODO: Add to domain model if needed
+			os_version: Set(device.os_version),
 			hardware_model: Set(device.hardware_model),
 			network_addresses: Set(serde_json::json!(device.network_addresses)),
 			is_online: Set(device.is_online),
 			last_seen_at: Set(device.last_seen_at),
-			capabilities: Set(serde_json::json!({
-				"indexing": true,
-				"p2p": true,
-				"volume_detection": true
-			})),
+			capabilities: Set(device.capabilities),
 			created_at: Set(device.created_at),
-			sync_enabled: Set(true), // Enable sync by default
-			last_sync_at: Set(None),
+			sync_enabled: Set(device.sync_enabled),
+			last_sync_at: Set(device.last_sync_at),
+			last_state_watermark: Set(device.last_state_watermark),
+			last_shared_watermark: Set(device.last_shared_watermark),
 			updated_at: Set(device.updated_at),
 		}
 	}
@@ -203,10 +229,16 @@ impl TryFrom<entities::device::Model> for Device {
 			id: model.uuid,
 			name: model.name,
 			os: parse_operating_system(&model.os),
+			os_version: model.os_version,
 			hardware_model: model.hardware_model,
 			network_addresses,
+			capabilities: model.capabilities,
 			is_online: model.is_online,
 			last_seen_at: model.last_seen_at,
+			sync_enabled: model.sync_enabled,
+			last_sync_at: model.last_sync_at,
+			last_state_watermark: model.last_state_watermark,
+			last_shared_watermark: model.last_shared_watermark,
 			created_at: model.created_at,
 			updated_at: model.updated_at,
 		})

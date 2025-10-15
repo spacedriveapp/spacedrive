@@ -19,7 +19,7 @@ use std::sync::{
 	atomic::{AtomicBool, Ordering},
 	Arc,
 };
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -64,6 +64,9 @@ pub struct PeerSync {
 
 	/// Whether the service is running
 	is_running: Arc<AtomicBool>,
+
+	/// Network event receiver (optional - if provided, enables connection event handling)
+	network_events: Arc<tokio::sync::Mutex<Option<mpsc::UnboundedReceiver<crate::service::network::core::NetworkEvent>>>>,
 }
 
 impl PeerSync {
@@ -94,7 +97,13 @@ impl PeerSync {
 			event_bus: library.event_bus().clone(),
 			retry_queue: Arc::new(RetryQueue::new()),
 			is_running: Arc::new(AtomicBool::new(false)),
+			network_events: Arc::new(tokio::sync::Mutex::new(None)),
 		})
+	}
+
+	/// Set network event receiver for connection tracking
+	pub async fn set_network_events(&self, receiver: mpsc::UnboundedReceiver<crate::service::network::core::NetworkEvent>) {
+		*self.network_events.lock().await = Some(receiver);
 	}
 
 	/// Get database connection
@@ -112,16 +121,68 @@ impl PeerSync {
 		self.device_id
 	}
 
-	/// Get watermarks for heartbeat
+	/// Get watermarks for heartbeat and reconnection sync
+	///
+	/// Returns (state_watermark, shared_watermark) from the devices table.
+	/// State watermark tracks device-owned data (locations, entries).
+	/// Shared watermark (HLC) tracks shared resources (tags, albums).
 	pub async fn get_watermarks(&self) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
-		// State watermark: Would need to track last state change timestamp
-		// For now, return None - this would require adding timestamp tracking
-		let state_watermark = None;
+		use crate::infra::db::entities;
+		use sea_orm::{EntityTrait, QueryFilter, ColumnTrait};
 
-		// Shared watermark: Get last HLC from generator
-		let shared_watermark = self.hlc_generator.lock().await.last();
+		// Query devices table for this device's watermarks
+		match entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(self.device_id))
+			.one(self.db.as_ref())
+			.await
+		{
+			Ok(Some(device)) => {
+				let state_watermark = device.last_state_watermark;
 
-		(state_watermark, shared_watermark)
+				// Deserialize shared watermark from JSON
+				let shared_watermark = device
+					.last_shared_watermark
+					.as_ref()
+					.and_then(|json_str| serde_json::from_str(json_str).ok());
+
+				(state_watermark, shared_watermark)
+			}
+			Ok(None) => {
+				warn!(
+					device_id = %self.device_id,
+					"Device not found in devices table, returning None watermarks"
+				);
+				(None, None)
+			}
+			Err(e) => {
+				warn!(
+					device_id = %self.device_id,
+					error = %e,
+					"Failed to query watermarks from devices table"
+				);
+				(None, None)
+			}
+		}
+	}
+
+	/// Exchange watermarks with a peer and trigger catch-up if needed
+	///
+	/// TODO: Full implementation requires:
+	/// 1. Add WatermarkExchange message type to SyncMessage enum
+	/// 2. Send our watermarks to the peer
+	/// 3. Receive peer's watermarks
+	/// 4. Compare timestamps/HLC to determine divergence
+	/// 5. Trigger StateRequest/SharedChangeRequest for incremental sync
+	/// 6. Update devices table with peer's watermarks after sync
+	///
+	/// For now, this is a placeholder that will be called on reconnection.
+	pub async fn exchange_watermarks_and_catchup(&self, _peer_id: Uuid) -> Result<()> {
+		// TODO: Implement watermark exchange protocol (LSYNC-010 Priority 3)
+		debug!(
+			peer = %_peer_id,
+			"Watermark exchange not yet implemented - full sync will occur via backfill instead"
+		);
+		Ok(())
 	}
 
 	/// Start the sync service
@@ -141,6 +202,9 @@ impl PeerSync {
 
 		// Start event listener for TransactionManager events
 		self.start_event_listener();
+
+		// Start network event listener for connection tracking
+		self.start_network_event_listener().await;
 
 		// Start background task for retry queue processing
 		self.start_retry_processor();
@@ -303,6 +367,137 @@ impl PeerSync {
 
 			info!("PeerSync event listener stopped");
 		});
+	}
+
+	/// Start network event listener for connection tracking
+	async fn start_network_event_listener(&self) {
+		// Take the receiver from the mutex (if available)
+		let mut receiver = self.network_events.lock().await.take();
+
+		if receiver.is_none() {
+			debug!("No network event receiver available - connection tracking disabled");
+			return;
+		}
+
+		let db = self.db.clone();
+		let is_running = self.is_running.clone();
+
+		tokio::spawn(async move {
+			info!("PeerSync network event listener started");
+
+			let mut rx = receiver.unwrap();
+
+			while is_running.load(Ordering::SeqCst) {
+				match rx.recv().await {
+					Some(event) => {
+						use crate::service::network::core::NetworkEvent;
+						match event {
+							NetworkEvent::ConnectionEstablished { device_id, node_id } => {
+								info!(
+									device_id = %device_id,
+									node_id = %node_id,
+									"Device connected - updating devices table"
+								);
+
+								if let Err(e) = Self::handle_peer_connected(device_id, &db).await {
+									warn!(
+										device_id = %device_id,
+										error = %e,
+										"Failed to handle peer connected event"
+									);
+								}
+							}
+							NetworkEvent::ConnectionLost { device_id, node_id } => {
+								info!(
+									device_id = %device_id,
+									node_id = %node_id,
+									"Device disconnected - updating devices table"
+								);
+
+								if let Err(e) = Self::handle_peer_disconnected(device_id, &db).await {
+									warn!(
+										device_id = %device_id,
+										error = %e,
+										"Failed to handle peer disconnected event"
+									);
+								}
+							}
+							_ => {
+								// Ignore other network events
+							}
+						}
+					}
+					None => {
+						info!("Network event channel closed, stopping listener");
+						break;
+					}
+				}
+			}
+
+			info!("PeerSync network event listener stopped");
+		});
+	}
+
+	/// Handle peer connected event (static for spawned task)
+	async fn handle_peer_connected(device_id: Uuid, db: &DatabaseConnection) -> Result<()> {
+		use crate::infra::db::entities;
+		use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, Set};
+
+		// Update devices table: set is_online=true, last_seen_at=now
+		let now = Utc::now();
+
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(true),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(device_id))
+			.exec(db)
+			.await?;
+
+		info!(device_id = %device_id, "Device marked as online in devices table");
+
+		// TODO: Trigger watermark exchange for reconnection sync (Priority 3)
+
+		Ok(())
+	}
+
+	/// Handle peer disconnected event (static for spawned task)
+	async fn handle_peer_disconnected(device_id: Uuid, db: &DatabaseConnection) -> Result<()> {
+		use crate::infra::db::entities;
+		use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, Set};
+
+		// Update devices table: set is_online=false, last_seen_at=now
+		let now = Utc::now();
+
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(false),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(device_id))
+			.exec(db)
+			.await?;
+
+		info!(device_id = %device_id, "Device marked as offline in devices table");
+
+		Ok(())
 	}
 
 	/// Handle state change event from TransactionManager (static version for spawned task)

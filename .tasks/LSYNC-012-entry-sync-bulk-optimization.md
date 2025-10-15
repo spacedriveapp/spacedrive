@@ -127,7 +127,7 @@ pub async fn broadcast_bulk_state(
         let compressed = compress_batch(&batch)?;
 
         // Broadcast to all peers
-        for peer in self.get_sync_partners().await? {
+        for peer in self.get_connected_sync_partners().await? {
             self.send_to_peer(peer, compressed.clone()).await?;
         }
 
