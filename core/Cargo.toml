@@ -73,7 +73,7 @@ notify = "6.1"  # File system watching
 sha2   = "0.10" # SHA-256 hashing for CAS IDs
 
 # Cloud storage integration
-opendal = { path = "../../opendal/core", features = ["services-s3"] }
+opendal = { version = "0.54", features = ["services-s3"] }
 
 # Logging
 tracing            = "0.1"
