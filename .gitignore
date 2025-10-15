@@ -87,6 +87,7 @@ next-env.d.ts
 ### Node ###
 # Logs
 logs
+!apps/cli/src/domains/logs/
 *.log
 lerna-debug.log*
 
