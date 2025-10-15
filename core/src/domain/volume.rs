@@ -148,6 +148,7 @@ pub struct SpacedriveVolumeId {
 	pub device_name: Option<String>,
 	pub volume_name: String,
 	pub device_id: Uuid,
+	pub library_id: Uuid, // TODO: Populate this, super helpful when another library comes across this file. Thinking about it now we should probably make this file accept multiple of these entries in case two libraries need to track the same volume.
 }
 
 /// Summary information about a volume (for updates and caching)

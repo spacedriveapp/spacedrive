@@ -261,6 +261,16 @@ impl CloudCredential {
 		}
 	}
 
+	/// Create a new API key credential
+	pub fn new_api_key(service: crate::volume::CloudServiceType, api_key: String) -> Self {
+		Self {
+			service,
+			data: CredentialData::ApiKey(api_key),
+			created_at: chrono::Utc::now(),
+			expires_at: None,
+		}
+	}
+
 	/// Check if this credential is expired
 	pub fn is_expired(&self) -> bool {
 		if let Some(expires_at) = self.expires_at {

@@ -165,8 +165,17 @@ impl VolumeManager {
 
 				match credential_manager.get_credential(library.id(), &db_volume.fingerprint) {
 					Ok(credential) => {
+						// Get mount point and service name from database
+						let mount_point_str = match &db_volume.mount_point {
+							Some(mp) => mp,
+							None => {
+								warn!("No mount point for cloud volume {}", fingerprint.0);
+								continue;
+							}
+						};
+
 						// Recreate the cloud backend from stored credentials
-						match credential.service {
+						let backend_result = match credential.service {
 							crate::volume::CloudServiceType::S3 => {
 								if let crate::crypto::cloud_credentials::CredentialData::AccessKey {
 									access_key_id,
@@ -174,82 +183,183 @@ impl VolumeManager {
 									..
 								} = &credential.data
 								{
-									// Parse mount point to extract bucket info
-									let mount_point_str = db_volume.mount_point.as_ref()
-										.ok_or_else(|| VolumeError::InvalidData("No mount point for cloud volume".to_string()))?;
-
-									// Extract bucket name from mount_point like "cloud://s3/bucket-name"
 									let bucket = mount_point_str
 										.strip_prefix("cloud://s3/")
-										.ok_or_else(|| VolumeError::InvalidData(format!("Invalid S3 mount point: {}", mount_point_str)))?;
+										.unwrap_or("unknown");
 
-									// Try to recreate the backend (we don't have region/endpoint stored, use defaults)
-									match crate::volume::CloudBackend::new_s3(
+									crate::volume::CloudBackend::new_s3(
 										bucket,
-										"us-east-1", // Default region - TODO: store this in DB
+										"us-east-1", // Default region
 										access_key_id,
 										secret_access_key,
 										None,
-									).await {
-										Ok(backend) => {
-											let now = chrono::Utc::now();
-											// Reconstruct the Volume struct
-											let volume = Volume {
-												id: db_volume.uuid, // Use UUID from database
-												fingerprint: fingerprint.clone(),
-												device_id: db_volume.device_id,
-												name: db_volume.display_name.clone().unwrap_or_else(|| bucket.to_string()),
-												library_id: None,
-												is_tracked: true,
-												mount_point: std::path::PathBuf::from(mount_point_str),
-												mount_points: vec![std::path::PathBuf::from(mount_point_str)],
-												volume_type: crate::volume::types::VolumeType::Network,
-												mount_type: crate::volume::types::MountType::Network,
-												disk_type: crate::volume::types::DiskType::Unknown,
-												file_system: crate::volume::types::FileSystem::Other("S3".to_string()),
-												total_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
-												available_space: db_volume.available_capacity.unwrap_or(0) as u64,
-												is_read_only: false,
-												is_mounted: true,
-												hardware_id: None,
-												backend: Some(Arc::new(backend)),
-												apfs_container: None,
-												container_volume_id: None,
-												path_mappings: Vec::new(),
-												is_user_visible: db_volume.is_user_visible.unwrap_or(true),
-												auto_track_eligible: db_volume.auto_track_eligible.unwrap_or(false),
-												read_speed_mbps: db_volume.read_speed_mbps.map(|s| s as u64),
-												write_speed_mbps: db_volume.write_speed_mbps.map(|s| s as u64),
-												created_at: db_volume.tracked_at,
-												updated_at: now,
-												last_seen_at: db_volume.last_seen_at,
-												total_files: None,
-												total_directories: None,
-												last_stats_update: None,
-												display_name: db_volume.display_name.clone(),
-												is_favorite: false,
-												color: None,
-												icon: None,
-												error_message: None,
-											};
+									).await
+								} else {
+									warn!("Invalid credential type for S3 volume {}", fingerprint.0);
+									continue;
+								}
+							}
+							crate::volume::CloudServiceType::GoogleDrive => {
+								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
+									access_token,
+									refresh_token,
+								} = &credential.data
+								{
+									// Extract root from mount point if available
+									let root = mount_point_str
+										.strip_prefix("cloud://gdrive/")
+										.map(|s| s.to_string());
 
-											// Register in memory
-											let mut volumes = self.volumes.write().await;
-											volumes.insert(fingerprint.clone(), volume);
-											loaded_count += 1;
-											info!("Loaded cloud volume {} from database", db_volume.display_name.as_ref().unwrap_or(&bucket.to_string()));
-										}
-										Err(e) => {
-											warn!("Failed to recreate cloud backend for volume {}: {}", fingerprint.0, e);
-										}
-									}
+									crate::volume::CloudBackend::new_google_drive(
+										access_token,
+										refresh_token,
+										"", // client_id not stored yet
+										"", // client_secret not stored yet
+										root,
+									).await
+								} else {
+									warn!("Invalid credential type for Google Drive volume {}", fingerprint.0);
+									continue;
+								}
+							}
+							crate::volume::CloudServiceType::OneDrive => {
+								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
+									access_token,
+									refresh_token,
+								} = &credential.data
+								{
+									let root = mount_point_str
+										.strip_prefix("cloud://onedrive/")
+										.map(|s| s.to_string());
+
+									crate::volume::CloudBackend::new_onedrive(
+										access_token,
+										refresh_token,
+										"",
+										"",
+										root,
+									).await
+								} else {
+									warn!("Invalid credential type for OneDrive volume {}", fingerprint.0);
+									continue;
+								}
+							}
+							crate::volume::CloudServiceType::Dropbox => {
+								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
+									access_token,
+									refresh_token,
+								} = &credential.data
+								{
+									let root = mount_point_str
+										.strip_prefix("cloud://dropbox/")
+										.map(|s| s.to_string());
+
+									crate::volume::CloudBackend::new_dropbox(
+										access_token,
+										refresh_token,
+										"",
+										"",
+										root,
+									).await
+								} else {
+									warn!("Invalid credential type for Dropbox volume {}", fingerprint.0);
+									continue;
+								}
+							}
+							crate::volume::CloudServiceType::AzureBlob => {
+								if let crate::crypto::cloud_credentials::CredentialData::AccessKey {
+									access_key_id,
+									secret_access_key,
+									..
+								} = &credential.data
+								{
+									let container = mount_point_str
+										.strip_prefix("cloud://azblob/")
+										.unwrap_or("unknown");
+
+									crate::volume::CloudBackend::new_azure_blob(
+										container,
+										access_key_id,
+										secret_access_key,
+										None,
+									).await
+								} else {
+									warn!("Invalid credential type for Azure Blob volume {}", fingerprint.0);
+									continue;
+								}
+							}
+							crate::volume::CloudServiceType::GoogleCloudStorage => {
+								if let crate::crypto::cloud_credentials::CredentialData::ApiKey(service_account_json) = &credential.data {
+									let bucket = mount_point_str
+										.strip_prefix("cloud://gcs/")
+										.unwrap_or("unknown");
+
+									crate::volume::CloudBackend::new_google_cloud_storage(
+										bucket,
+										service_account_json,
+										None,
+										None,
+									).await
+								} else {
+									warn!("Invalid credential type for GCS volume {}", fingerprint.0);
+									continue;
 								}
 							}
 							_ => {
-								warn!(
-									"Unsupported cloud service type for volume {}",
-									fingerprint.0
-								);
+								warn!("Unsupported cloud service type {:?} for volume {}", credential.service, fingerprint.0);
+								continue;
+							}
+						};
+
+						match backend_result {
+							Ok(backend) => {
+								let now = chrono::Utc::now();
+								let volume = Volume {
+									id: db_volume.uuid,
+									fingerprint: fingerprint.clone(),
+									device_id: db_volume.device_id,
+									name: db_volume.display_name.clone().unwrap_or_else(|| "Cloud Volume".to_string()),
+									library_id: None,
+									is_tracked: true,
+									mount_point: std::path::PathBuf::from(mount_point_str),
+									mount_points: vec![std::path::PathBuf::from(mount_point_str)],
+									volume_type: crate::volume::types::VolumeType::Network,
+									mount_type: crate::volume::types::MountType::Network,
+									disk_type: crate::volume::types::DiskType::Unknown,
+									file_system: crate::volume::types::FileSystem::Other(format!("{:?}", credential.service)),
+									total_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
+									available_space: db_volume.available_capacity.unwrap_or(0) as u64,
+									is_read_only: false,
+									is_mounted: true,
+									hardware_id: None,
+									backend: Some(Arc::new(backend)),
+									apfs_container: None,
+									container_volume_id: None,
+									path_mappings: Vec::new(),
+									is_user_visible: db_volume.is_user_visible.unwrap_or(true),
+									auto_track_eligible: db_volume.auto_track_eligible.unwrap_or(false),
+									read_speed_mbps: db_volume.read_speed_mbps.map(|s| s as u64),
+									write_speed_mbps: db_volume.write_speed_mbps.map(|s| s as u64),
+									created_at: db_volume.tracked_at,
+									updated_at: now,
+									last_seen_at: db_volume.last_seen_at,
+									total_files: None,
+									total_directories: None,
+									last_stats_update: None,
+									display_name: db_volume.display_name.clone(),
+									is_favorite: false,
+									color: None,
+									icon: None,
+									error_message: None,
+								};
+
+								let mut volumes = self.volumes.write().await;
+								volumes.insert(fingerprint.clone(), volume);
+								loaded_count += 1;
+								info!("Loaded cloud volume {} ({:?}) from database", db_volume.display_name.as_ref().unwrap_or(&"Unknown".to_string()), credential.service);
+							}
+							Err(e) => {
+								warn!("Failed to recreate cloud backend for volume {}: {}", fingerprint.0, e);
 							}
 						}
 					}
@@ -1295,6 +1405,7 @@ impl VolumeManager {
 				device_name: None, // TODO: Get from DeviceManager when available
 				volume_name: volume.name.clone(),
 				device_id: volume.device_id,
+				library_id: Uuid::nil(), // TODO: Populate from library context when available
 			};
 
 			if let Ok(content) = serde_json::to_string_pretty(&spacedrive_id) {

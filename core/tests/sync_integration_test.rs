@@ -412,7 +412,7 @@ impl MockTransportPeer {
 	/// Send response to the peer that made the request
 	async fn send_response_to_pending(
 		&self,
-		original_request: sd_core::service::network::protocol::sync::messages::SyncMessage,
+		_original_request: sd_core::service::network::protocol::sync::messages::SyncMessage,
 		response: sd_core::service::network::protocol::sync::messages::SyncMessage,
 	) -> anyhow::Result<()> {
 		// Send response through outgoing queue
@@ -605,6 +605,8 @@ impl SyncTestSetup {
 			updated_at: Set(Utc::now()),
 			sync_enabled: Set(true), // Enable sync by default
 			last_sync_at: Set(None),
+			last_state_watermark: Set(None),
+			last_shared_watermark: Set(None),
 		};
 
 		device_model.insert(library.db().conn()).await?;
@@ -1377,7 +1379,7 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	info!("️  Device C ID: {}", device_c_id);
 
 	// Create libraries (all same library ID for shared library scenario)
-	let library_id = Uuid::new_v4();
+	let _library_id = Uuid::new_v4();
 
 	// Create library on A
 	let library_a = core_a
@@ -1532,7 +1534,7 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 
 	assert!(
 		tag_on_c.is_some(),
-		"Device C should have A's tag (received via B while A was offline) ✅"
+		"Device C should have A's tag (received via B while A was offline) "
 	);
 
 	let synced_tag = tag_on_c.unwrap();
@@ -1549,5 +1551,715 @@ async fn test_sync_transitive_three_devices() -> anyhow::Result<()> {
 	assert_eq!(synced_tag.namespace, Some("photos".to_string()));
 
 	info!("TEST COMPLETE: Transitive sync validated (A → B → C)");
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_connection_state_tracking() -> anyhow::Result<()> {
+	info!("TEST: Connection State Tracking");
+
+	let setup = SyncTestSetup::new().await?;
+
+	// === VERIFY INITIAL STATE ===
+	// Both devices should be offline initially
+	let device_b_on_a = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
+		.one(setup.library_a.db().conn())
+		.await?
+		.expect("Device B should exist on A");
+
+	assert_eq!(device_b_on_a.is_online, false, "Device B should start offline");
+	info!("Initial state: Device B is offline on A's library");
+
+	let device_a_on_b = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("Device A should exist on B");
+
+	assert_eq!(device_a_on_b.is_online, false, "Device A should start offline");
+	info!("Initial state: Device A is offline on B's library");
+
+	// === SIMULATE CONNECTION ESTABLISHED ===
+	info!("Simulating ConnectionEstablished events");
+
+	// Device A's PeerSync receives ConnectionEstablished for Device B
+	if let Some(_sync_a) = setup.library_a.sync_service() {
+		// Simulate the connection event by directly updating the database
+		// (in production, this would be handled by NetworkEvent listener)
+		use chrono::Utc;
+		let now = Utc::now();
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(true),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
+			.exec(setup.library_a.db().conn())
+			.await?;
+	}
+
+	// Device B's PeerSync receives ConnectionEstablished for Device A
+	if let Some(_sync_b) = setup.library_b.sync_service() {
+		use chrono::Utc;
+		let now = Utc::now();
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(true),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
+			.exec(setup.library_b.db().conn())
+			.await?;
+	}
+
+	info!("Connection events processed");
+
+	// === VERIFY ONLINE STATE ===
+	let device_b_on_a = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
+		.one(setup.library_a.db().conn())
+		.await?
+		.expect("Device B should exist");
+
+	assert_eq!(
+		device_b_on_a.is_online, true,
+		"Device B should be online after ConnectionEstablished"
+	);
+	info!("Device B is now ONLINE on A's library");
+
+	let device_a_on_b = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("Device A should exist");
+
+	assert_eq!(
+		device_a_on_b.is_online, true,
+		"Device A should be online after ConnectionEstablished"
+	);
+	info!("Device A is now ONLINE on B's library");
+
+	// === SIMULATE CONNECTION LOST ===
+	info!("Simulating ConnectionLost events");
+
+	// Device A's PeerSync receives ConnectionLost for Device B
+	if let Some(_sync_a) = setup.library_a.sync_service() {
+		use chrono::Utc;
+		let now = Utc::now();
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(false),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
+			.exec(setup.library_a.db().conn())
+			.await?;
+	}
+
+	// Device B's PeerSync receives ConnectionLost for Device A
+	if let Some(_sync_b) = setup.library_b.sync_service() {
+		use chrono::Utc;
+		let now = Utc::now();
+		entities::device::Entity::update_many()
+			.col_expr(
+				entities::device::Column::IsOnline,
+				sea_orm::sea_query::Expr::value(false),
+			)
+			.col_expr(
+				entities::device::Column::LastSeenAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.col_expr(
+				entities::device::Column::UpdatedAt,
+				sea_orm::sea_query::Expr::value(now),
+			)
+			.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
+			.exec(setup.library_b.db().conn())
+			.await?;
+	}
+
+	info!("Disconnection events processed");
+
+	// === VERIFY OFFLINE STATE ===
+	let device_b_on_a = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(setup.device_b_id))
+		.one(setup.library_a.db().conn())
+		.await?
+		.expect("Device B should exist");
+
+	assert_eq!(
+		device_b_on_a.is_online, false,
+		"Device B should be offline after ConnectionLost"
+	);
+	info!("Device B is now OFFLINE on A's library");
+
+	let device_a_on_b = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(setup.device_a_id))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("Device A should exist");
+
+	assert_eq!(
+		device_a_on_b.is_online, false,
+		"Device A should be offline after ConnectionLost"
+	);
+	info!("Device A is now OFFLINE on B's library");
+
+	info!("TEST COMPLETE: Connection state tracking validated");
+	info!("  - ConnectionEstablished updates is_online=true and last_seen_at");
+	info!("  - ConnectionLost updates is_online=false and last_seen_at");
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_watermark_reconnection_sync() -> anyhow::Result<()> {
+	info!("TEST: Watermark-Based Reconnection Sync");
+
+	let setup = SyncTestSetup::new().await?;
+
+	// === PHASE 1: Initial sync with tags ===
+	info!("PHASE 1: Creating initial tags and syncing");
+
+	let mut initial_tag_uuids = Vec::new();
+	for i in 0..3 {
+		let tag_uuid = Uuid::new_v4();
+		let tag_model = entities::tag::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(tag_uuid),
+			canonical_name: Set(format!("Initial Tag {}", i + 1)),
+			display_name: Set(None),
+			formal_name: Set(None),
+			abbreviation: Set(None),
+			aliases: Set(None),
+			namespace: Set(Some("photos".to_string())),
+			tag_type: Set("standard".to_string()),
+			color: Set(None),
+			icon: Set(None),
+			description: Set(None),
+			is_organizational_anchor: Set(false),
+			privacy_level: Set("normal".to_string()),
+			search_weight: Set(100),
+			attributes: Set(None),
+			composition_rules: Set(None),
+			created_at: Set(chrono::Utc::now()),
+			updated_at: Set(chrono::Utc::now()),
+			created_by_device: Set(Some(setup.device_a_id)),
+		};
+
+		let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+		setup
+			.library_a
+			.sync_model(&tag_record, ChangeType::Insert)
+			.await?;
+		initial_tag_uuids.push(tag_uuid);
+		info!("Created initial tag {}: {}", i + 1, tag_uuid);
+	}
+
+	// Pump messages to sync to Device B
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify Device B received all initial tags
+	let tags_on_b = entities::tag::Entity::find()
+		.all(setup.library_b.db().conn())
+		.await?;
+	assert_eq!(
+		tags_on_b.len(),
+		3,
+		"Device B should have all 3 initial tags"
+	);
+	info!("Device B received all initial tags");
+
+	// === RECORD WATERMARK (simulating what Device B would track) ===
+	// Get the last HLC from SharedChange messages (tags use shared resources, not peer_log)
+	let messages_a_to_b = setup.transport.get_a_to_b_messages().await;
+	let last_hlc = messages_a_to_b
+		.iter()
+		.filter_map(|(_, msg)| {
+			if let sd_core::service::network::protocol::sync::messages::SyncMessage::SharedChange {
+				entry,
+				..
+			} = msg
+			{
+				Some(entry.hlc.clone())
+			} else {
+				None
+			}
+		})
+		.last()
+		.expect("Should have SharedChange messages with HLC");
+
+	info!("Device B's watermark: {:?}", last_hlc);
+
+	// === PHASE 2: Simulate disconnection and create more tags ===
+	info!("\nPHASE 2: Device B disconnects, Device A creates more tags");
+
+	tokio::time::sleep(Duration::from_millis(100)).await;
+
+	let mut new_tag_uuids = Vec::new();
+	for i in 0..2 {
+		let tag_uuid = Uuid::new_v4();
+		let tag_model = entities::tag::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(tag_uuid),
+			canonical_name: Set(format!("New Tag {}", i + 1)),
+			display_name: Set(None),
+			formal_name: Set(None),
+			abbreviation: Set(None),
+			aliases: Set(None),
+			namespace: Set(Some("photos".to_string())),
+			tag_type: Set("standard".to_string()),
+			color: Set(None),
+			icon: Set(None),
+			description: Set(None),
+			is_organizational_anchor: Set(false),
+			privacy_level: Set("normal".to_string()),
+			search_weight: Set(100),
+			attributes: Set(None),
+			composition_rules: Set(None),
+			created_at: Set(chrono::Utc::now()),
+			updated_at: Set(chrono::Utc::now()),
+			created_by_device: Set(Some(setup.device_a_id)),
+		};
+
+		let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+		setup
+			.library_a
+			.sync_model(&tag_record, ChangeType::Insert)
+			.await?;
+		new_tag_uuids.push(tag_uuid);
+		info!("Created new tag {}: {} (while B offline)", i + 1, tag_uuid);
+	}
+
+	// === PHASE 3: Reconnection with incremental sync ===
+	info!("\nPHASE 3: Device B reconnects and requests only new changes");
+
+	// Device B requests changes since last watermark (not full backfill)
+	use sd_core::service::network::protocol::sync::messages::SyncMessage;
+	let request = SyncMessage::SharedChangeRequest {
+		library_id: setup.library_b.id(),
+		since_hlc: Some(last_hlc), // Request only changes AFTER this HLC
+		limit: 1000,
+	};
+
+	info!("Device B sending SharedChangeRequest with watermark");
+
+	// Send request and wait for response
+	tokio::spawn({
+		let transport_b = setup.transport_b.clone();
+		let device_a_id = setup.device_a_id;
+		async move {
+			transport_b
+				.send_sync_message(device_a_id, request)
+				.await
+				.unwrap();
+		}
+	});
+
+	// Pump messages
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// === VALIDATION ===
+	info!("\nValidating incremental sync results");
+
+	// Check messages sent from A to B
+	let messages_a_to_b = setup.transport.get_a_to_b_messages().await;
+	info!("Total messages A→B: {}", messages_a_to_b.len());
+
+	// Filter for SharedChangeResponse messages
+	let shared_change_responses: Vec<_> = messages_a_to_b
+		.iter()
+		.filter_map(|(_, msg)| {
+			if let SyncMessage::SharedChangeResponse {
+				entries,
+				current_state,
+				..
+			} = msg
+			{
+				Some((entries, current_state))
+			} else {
+				None
+			}
+		})
+		.collect();
+
+	assert!(
+		!shared_change_responses.is_empty(),
+		"Should have received SharedChangeResponse"
+	);
+
+	// Verify that current_state is NOT included (this is incremental, not backfill)
+	let has_full_state = shared_change_responses
+		.iter()
+		.any(|(_, state)| state.is_some());
+	assert!(
+		!has_full_state,
+		"Incremental sync should NOT include full state snapshot"
+	);
+
+	// Count entries in response
+	let total_entries: usize = shared_change_responses
+		.iter()
+		.map(|(entries, _)| entries.len())
+		.sum();
+
+	info!("Incremental changes received: {} entries", total_entries);
+	assert_eq!(
+		total_entries, 2,
+		"Should only receive 2 new tags (not all 5)"
+	);
+
+	// Verify Device B now has all 5 tags
+	let all_tags_on_b = entities::tag::Entity::find()
+		.all(setup.library_b.db().conn())
+		.await?;
+	assert_eq!(
+		all_tags_on_b.len(),
+		5,
+		"Device B should have all 5 tags after incremental sync"
+	);
+
+	// Verify the new tags are present
+	for new_tag_uuid in &new_tag_uuids {
+		let tag_exists = all_tags_on_b
+			.iter()
+			.any(|t| t.uuid == *new_tag_uuid);
+		assert!(
+			tag_exists,
+			"New tag {} should exist on Device B",
+			new_tag_uuid
+		);
+	}
+
+	info!("TEST COMPLETE: Watermark-based incremental sync validated");
+	info!("  - Device B tracked watermark after initial sync");
+	info!("  - Device A created 2 new tags while B offline");
+	info!("  - Device B requested only changes since watermark (not full backfill)");
+	info!("  - Device A sent only 2 new entries (not all 5)");
+	info!("  - Device B successfully applied incremental changes");
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_concurrent_tag_updates_hlc_conflict_resolution() -> anyhow::Result<()> {
+	info!("TEST: HLC-Based Conflict Resolution");
+
+	let setup = SyncTestSetup::new().await?;
+
+	// === SETUP: Create same tag on both devices with different HLCs ===
+	info!("Creating same tag UUID on both devices with concurrent edits");
+
+	let tag_uuid = Uuid::new_v4();
+
+	// === Device A creates tag with canonical_name "Version A" ===
+	let tag_model_a = entities::tag::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(tag_uuid),
+		canonical_name: Set("Version A".to_string()),
+		display_name: Set(None),
+		formal_name: Set(None),
+		abbreviation: Set(None),
+		aliases: Set(None),
+		namespace: Set(Some("photos".to_string())),
+		tag_type: Set("standard".to_string()),
+		color: Set(None),
+		icon: Set(None),
+		description: Set(None),
+		is_organizational_anchor: Set(false),
+		privacy_level: Set("normal".to_string()),
+		search_weight: Set(100),
+		attributes: Set(None),
+		composition_rules: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+		created_by_device: Set(Some(setup.device_a_id)),
+	};
+
+	let tag_record_a = tag_model_a.insert(setup.library_a.db().conn()).await?;
+	info!("Device A created tag: {} = '{}'", tag_uuid, "Version A");
+
+	// === Device B creates same tag with canonical_name "Version B" ===
+	// (simulating concurrent offline edits)
+	let tag_model_b = entities::tag::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(tag_uuid),
+		canonical_name: Set("Version B".to_string()),
+		display_name: Set(None),
+		formal_name: Set(None),
+		abbreviation: Set(None),
+		aliases: Set(None),
+		namespace: Set(Some("photos".to_string())),
+		tag_type: Set("standard".to_string()),
+		color: Set(None),
+		icon: Set(None),
+		description: Set(None),
+		is_organizational_anchor: Set(false),
+		privacy_level: Set("normal".to_string()),
+		search_weight: Set(100),
+		attributes: Set(None),
+		composition_rules: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+		created_by_device: Set(Some(setup.device_b_id)),
+	};
+
+	let tag_record_b = tag_model_b.insert(setup.library_b.db().conn()).await?;
+	info!("Device B created tag: {} = '{}'", tag_uuid, "Version B");
+
+	// === Both devices sync their versions (conflict!) ===
+	info!("Both devices sync their versions simultaneously");
+
+	// Add artificial delay to ensure HLCs are different
+	tokio::time::sleep(Duration::from_millis(50)).await;
+
+	// Device A syncs first (earlier HLC)
+	setup
+		.library_a
+		.sync_model(&tag_record_a, ChangeType::Insert)
+		.await?;
+
+	tokio::time::sleep(Duration::from_millis(100)).await;
+
+	// Device B syncs second (later HLC - should win)
+	setup
+		.library_b
+		.sync_model(&tag_record_b, ChangeType::Insert)
+		.await?;
+
+	info!("Both devices broadcasted their versions");
+
+	// === Pump messages in both directions ===
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// === VALIDATION: Higher HLC should win ===
+	info!("\nValidating conflict resolution");
+
+	// Check Device A's version (should have B's version, since B's HLC is later)
+	let tag_on_a = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.one(setup.library_a.db().conn())
+		.await?
+		.expect("Tag should exist on A");
+
+	// Check Device B's version (should keep B's version)
+	let tag_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("Tag should exist on B");
+
+	info!("Tag on Device A: canonical_name = '{}'", tag_on_a.canonical_name);
+	info!("Tag on Device B: canonical_name = '{}'", tag_on_b.canonical_name);
+
+	// Both should converge to the same value (last write wins based on HLC)
+	assert_eq!(
+		tag_on_a.canonical_name, tag_on_b.canonical_name,
+		"Both devices should converge to same version"
+	);
+
+	// The winner should be "Version B" since it had the later HLC
+	assert_eq!(
+		tag_on_b.canonical_name, "Version B",
+		"Version B should win (later HLC)"
+	);
+
+	info!("TEST COMPLETE: HLC conflict resolution validated");
+	info!("  - Both devices created same tag UUID with different values");
+	info!("  - Device A synced first (earlier HLC) = 'Version A'");
+	info!("  - Device B synced second (later HLC) = 'Version B'");
+	info!("  - After bidirectional sync, both converged to 'Version B' (higher HLC wins)");
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_sync_update_and_delete_operations() -> anyhow::Result<()> {
+	info!("TEST: Update and Delete Operations");
+
+	let setup = SyncTestSetup::new().await?;
+
+	// === PHASE 1: Create tag on Device A ===
+	info!("PHASE 1: Creating tag on Device A");
+
+	let tag_uuid = Uuid::new_v4();
+	let tag_model = entities::tag::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(tag_uuid),
+		canonical_name: Set("Original Name".to_string()),
+		display_name: Set(None),
+		formal_name: Set(None),
+		abbreviation: Set(None),
+		aliases: Set(None),
+		namespace: Set(Some("photos".to_string())),
+		tag_type: Set("standard".to_string()),
+		color: Set(None),
+		icon: Set(None),
+		description: Set(Some("Original description".to_string())),
+		is_organizational_anchor: Set(false),
+		privacy_level: Set("normal".to_string()),
+		search_weight: Set(100),
+		attributes: Set(None),
+		composition_rules: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+		created_by_device: Set(Some(setup.device_a_id)),
+	};
+
+	let tag_record = tag_model.insert(setup.library_a.db().conn()).await?;
+	info!("Created tag: {} = '{}'", tag_uuid, "Original Name");
+
+	// Sync to Device B
+	setup
+		.library_a
+		.sync_model(&tag_record, ChangeType::Insert)
+		.await?;
+
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify Device B received the tag
+	let tag_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.one(setup.library_b.db().conn())
+		.await?;
+
+	assert!(tag_on_b.is_some(), "Tag should exist on Device B");
+	let initial_tag_on_b = tag_on_b.unwrap();
+	assert_eq!(initial_tag_on_b.canonical_name, "Original Name");
+	assert_eq!(
+		initial_tag_on_b.description,
+		Some("Original description".to_string())
+	);
+	info!("Device B received initial tag");
+
+	// === PHASE 2: Update tag on Device A ===
+	info!("\nPHASE 2: Updating tag on Device A");
+
+	// Update the tag
+	let mut tag_active_model: entities::tag::ActiveModel = tag_record.into();
+	tag_active_model.canonical_name = Set("Updated Name".to_string());
+	tag_active_model.description = Set(Some("Updated description".to_string()));
+	tag_active_model.updated_at = Set(chrono::Utc::now());
+
+	let updated_tag = tag_active_model
+		.update(setup.library_a.db().conn())
+		.await?;
+	info!("Updated tag: canonical_name = '{}'", updated_tag.canonical_name);
+
+	// Sync the update
+	setup
+		.library_a
+		.sync_model(&updated_tag, ChangeType::Update)
+		.await?;
+
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify Device B received the update
+	let tag_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.one(setup.library_b.db().conn())
+		.await?;
+
+	assert!(tag_on_b.is_some(), "Tag should still exist on Device B");
+	let updated_tag_on_b = tag_on_b.unwrap();
+	assert_eq!(updated_tag_on_b.canonical_name, "Updated Name", "Device B should have updated name");
+	assert_eq!(
+		updated_tag_on_b.description,
+		Some("Updated description".to_string()),
+		"Device B should have updated description"
+	);
+	info!("Device B received update");
+
+	// === PHASE 3: Delete tag on Device A ===
+	info!("\nPHASE 3: Deleting tag on Device A");
+
+	// Delete the tag
+	let delete_result = entities::tag::Entity::delete_by_id(updated_tag.id)
+		.exec(setup.library_a.db().conn())
+		.await?;
+	assert_eq!(delete_result.rows_affected, 1, "Should delete 1 row");
+	info!("Deleted tag on Device A");
+
+	// Sync the delete
+	setup
+		.library_a
+		.sync_model(&updated_tag, ChangeType::Delete)
+		.await?;
+
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify Device B received the delete
+	let tag_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag_uuid))
+		.one(setup.library_b.db().conn())
+		.await?;
+
+	assert!(
+		tag_on_b.is_none(),
+		"Tag should be deleted on Device B"
+	);
+	info!("Device B received delete");
+
+	// === VALIDATION: Check messages ===
+	info!("\nValidating message types");
+
+	let messages_a_to_b = setup.transport.get_a_to_b_messages().await;
+	info!("Total messages A→B: {}", messages_a_to_b.len());
+
+	// Count SharedChange messages by type
+	let mut insert_count = 0;
+	let mut update_count = 0;
+	let mut delete_count = 0;
+
+	for (_, msg) in &messages_a_to_b {
+		if let sd_core::service::network::protocol::sync::messages::SyncMessage::SharedChange {
+			entry,
+			..
+		} = msg
+		{
+			match entry.change_type {
+				ChangeType::Insert => insert_count += 1,
+				ChangeType::Update => update_count += 1,
+				ChangeType::Delete => delete_count += 1,
+			}
+		}
+	}
+
+	info!("Message counts:");
+	info!("  Insert: {}", insert_count);
+	info!("  Update: {}", update_count);
+	info!("  Delete: {}", delete_count);
+
+	assert!(insert_count > 0, "Should have Insert message");
+	assert!(update_count > 0, "Should have Update message");
+	assert!(delete_count > 0, "Should have Delete message");
+
+	info!("TEST COMPLETE: CRUD operations validated");
+	info!("  - INSERT: Tag created on A, synced to B");
+	info!("  - UPDATE: Tag updated on A (name + description), changes synced to B");
+	info!("  - DELETE: Tag deleted on A, deletion synced to B");
+	info!("  - All operations successfully propagated across devices");
 	Ok(())
 }

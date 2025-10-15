@@ -32,6 +32,39 @@ pub enum CloudStorageConfig {
 		secret_access_key: String,
 		endpoint: Option<String>,
 	},
+	GoogleDrive {
+		root: Option<String>,
+		access_token: String,
+		refresh_token: String,
+		client_id: String,
+		client_secret: String,
+	},
+	OneDrive {
+		root: Option<String>,
+		access_token: String,
+		refresh_token: String,
+		client_id: String,
+		client_secret: String,
+	},
+	Dropbox {
+		root: Option<String>,
+		access_token: String,
+		refresh_token: String,
+		client_id: String,
+		client_secret: String,
+	},
+	AzureBlob {
+		container: String,
+		endpoint: Option<String>,
+		account_name: String,
+		account_key: String,
+	},
+	GoogleCloudStorage {
+		bucket: String,
+		root: Option<String>,
+		endpoint: Option<String>,
+		credential: String, // Service account JSON
+	},
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +125,159 @@ impl LibraryAction for VolumeAddCloudAction {
 				);
 
 				let mount_point = PathBuf::from(format!("cloud://s3/{}", bucket));
+
+				(backend, credential, mount_point)
+			}
+			CloudStorageConfig::GoogleDrive {
+				root,
+				access_token,
+				refresh_token,
+				client_id,
+				client_secret,
+			} => {
+				let backend = CloudBackend::new_google_drive(
+					access_token,
+					refresh_token,
+					client_id,
+					client_secret,
+					root.clone(),
+				)
+				.await
+				.map_err(|e| {
+					ActionError::InvalidInput(format!("Failed to create Google Drive backend: {}", e))
+				})?;
+
+				let credential = CloudCredential::new_oauth(
+					CloudServiceType::GoogleDrive,
+					access_token.clone(),
+					refresh_token.clone(),
+					None, // Google Drive tokens typically don't have a fixed expiry in the refresh flow
+				);
+
+				let mount_point = PathBuf::from(format!(
+					"cloud://gdrive/{}",
+					root.as_deref().unwrap_or("root")
+				));
+
+				(backend, credential, mount_point)
+			}
+			CloudStorageConfig::OneDrive {
+				root,
+				access_token,
+				refresh_token,
+				client_id,
+				client_secret,
+			} => {
+				let backend = CloudBackend::new_onedrive(
+					access_token,
+					refresh_token,
+					client_id,
+					client_secret,
+					root.clone(),
+				)
+				.await
+				.map_err(|e| {
+					ActionError::InvalidInput(format!("Failed to create OneDrive backend: {}", e))
+				})?;
+
+				let credential = CloudCredential::new_oauth(
+					CloudServiceType::OneDrive,
+					access_token.clone(),
+					refresh_token.clone(),
+					None,
+				);
+
+				let mount_point = PathBuf::from(format!(
+					"cloud://onedrive/{}",
+					root.as_deref().unwrap_or("root")
+				));
+
+				(backend, credential, mount_point)
+			}
+			CloudStorageConfig::Dropbox {
+				root,
+				access_token,
+				refresh_token,
+				client_id,
+				client_secret,
+			} => {
+				let backend = CloudBackend::new_dropbox(
+					access_token,
+					refresh_token,
+					client_id,
+					client_secret,
+					root.clone(),
+				)
+				.await
+				.map_err(|e| {
+					ActionError::InvalidInput(format!("Failed to create Dropbox backend: {}", e))
+				})?;
+
+				let credential = CloudCredential::new_oauth(
+					CloudServiceType::Dropbox,
+					access_token.clone(),
+					refresh_token.clone(),
+					None,
+				);
+
+				let mount_point = PathBuf::from(format!(
+					"cloud://dropbox/{}",
+					root.as_deref().unwrap_or("root")
+				));
+
+				(backend, credential, mount_point)
+			}
+			CloudStorageConfig::AzureBlob {
+				container,
+				endpoint,
+				account_name,
+				account_key,
+			} => {
+				let backend = CloudBackend::new_azure_blob(
+					container,
+					account_name,
+					account_key,
+					endpoint.clone(),
+				)
+				.await
+				.map_err(|e| {
+					ActionError::InvalidInput(format!("Failed to create Azure Blob backend: {}", e))
+				})?;
+
+				let credential = CloudCredential::new_access_key(
+					CloudServiceType::AzureBlob,
+					account_name.clone(),
+					account_key.clone(),
+					None,
+				);
+
+				let mount_point = PathBuf::from(format!("cloud://azblob/{}", container));
+
+				(backend, credential, mount_point)
+			}
+			CloudStorageConfig::GoogleCloudStorage {
+				bucket,
+				root,
+				endpoint,
+				credential: service_account_json,
+			} => {
+				let backend = CloudBackend::new_google_cloud_storage(
+					bucket,
+					service_account_json,
+					root.clone(),
+					endpoint.clone(),
+				)
+				.await
+				.map_err(|e| {
+					ActionError::InvalidInput(format!("Failed to create GCS backend: {}", e))
+				})?;
+
+				let credential = CloudCredential::new_api_key(
+					CloudServiceType::GoogleCloudStorage,
+					service_account_json.clone(),
+				);
+
+				let mount_point = PathBuf::from(format!("cloud://gcs/{}", bucket));
 
 				(backend, credential, mount_point)
 			}

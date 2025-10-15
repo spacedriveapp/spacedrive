@@ -47,7 +47,30 @@ pub async fn run_interactive(ctx: &Context) -> Result<()> {
 async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 	println!("\n=== Add Cloud Storage ===\n");
 
-	// 1. Select service type (only S3-compatible for now)
+	let service_category_idx = select(
+		"Select cloud storage category",
+		&[
+			"S3-compatible (Amazon, R2, B2, MinIO, etc.)".to_string(),
+			"Google Drive".to_string(),
+			"Microsoft OneDrive".to_string(),
+			"Dropbox".to_string(),
+			"Azure Blob Storage".to_string(),
+			"Google Cloud Storage".to_string(),
+		],
+	)?;
+
+	match service_category_idx {
+		0 => add_s3_interactive(ctx).await,
+		1 => add_google_drive_interactive(ctx).await,
+		2 => add_onedrive_interactive(ctx).await,
+		3 => add_dropbox_interactive(ctx).await,
+		4 => add_azure_blob_interactive(ctx).await,
+		5 => add_gcs_interactive(ctx).await,
+		_ => unreachable!(),
+	}
+}
+
+async fn add_s3_interactive(ctx: &Context) -> Result<()> {
 	let service_idx = select(
 		"Select S3-compatible storage provider",
 		&[
@@ -63,18 +86,16 @@ async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 
 	let (service_type, needs_endpoint, default_region) = match service_idx {
 		0 => (CloudServiceType::S3, false, None),
-		1 => (CloudServiceType::S3, true, Some("auto".to_string())), // R2 uses "auto"
+		1 => (CloudServiceType::S3, true, Some("auto".to_string())),
 		2 => (CloudServiceType::BackblazeB2, false, None),
 		3 => (CloudServiceType::Wasabi, false, None),
 		4 => (CloudServiceType::DigitalOceanSpaces, false, None),
-		5 => (CloudServiceType::S3, true, Some("us-east-1".to_string())), // MinIO default
+		5 => (CloudServiceType::S3, true, Some("us-east-1".to_string())),
 		6 => (CloudServiceType::Other, true, Some("us-east-1".to_string())),
 		_ => unreachable!(),
 	};
 
-	// 2. Basic configuration
 	let name = text("Volume name (e.g., 'My S3 Bucket')", false)?.unwrap();
-
 	let bucket = text("Bucket name", false)?.unwrap();
 
 	let region = if let Some(default) = default_region {
@@ -94,13 +115,11 @@ async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 		None
 	};
 
-	// 3. Credentials
 	println!("\nCredentials will be stored securely in your system keyring\n");
 
 	let access_key = password("Access Key ID", false)?.unwrap();
 	let secret_key = password("Secret Access Key", false)?.unwrap();
 
-	// 4. Confirm and save
 	println!("\nSummary:");
 	println!("  Provider: {:?}", service_type);
 	println!("  Name:     {}", name);
@@ -113,7 +132,6 @@ async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 
 	confirm_or_abort("Add this cloud volume?", false)?;
 
-	// Build and execute action
 	let input = VolumeAddCloudInput {
 		service: service_type,
 		display_name: name.clone(),
@@ -126,6 +144,210 @@ async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 		},
 	};
 
+	execute_add_cloud(ctx, input).await
+}
+
+async fn add_google_drive_interactive(ctx: &Context) -> Result<()> {
+	let name = text("Volume name (e.g., 'My Google Drive')", false)?.unwrap();
+	let root = text("Root folder ID (leave empty for entire drive)", true)?;
+
+	println!("\nOAuth Setup:");
+	println!("  You'll need OAuth credentials from Google Cloud Console");
+	println!("  Visit: https://console.cloud.google.com/apis/credentials\n");
+
+	let client_id = text("OAuth Client ID", false)?.unwrap();
+	let client_secret = password("OAuth Client Secret", false)?.unwrap();
+
+	println!("\nAfter authorizing, you'll receive tokens:");
+	let access_token = password("Access Token", false)?.unwrap();
+	let refresh_token = password("Refresh Token", false)?.unwrap();
+
+	println!("\nSummary:");
+	println!("  Provider: Google Drive");
+	println!("  Name:     {}", name);
+	if let Some(ref r) = root {
+		println!("  Root:     {}", r);
+	}
+	println!();
+
+	confirm_or_abort("Add this cloud volume?", false)?;
+
+	let input = VolumeAddCloudInput {
+		service: CloudServiceType::GoogleDrive,
+		display_name: name.clone(),
+		config: CloudStorageConfig::GoogleDrive {
+			root,
+			access_token,
+			refresh_token,
+			client_id,
+			client_secret,
+		},
+	};
+
+	execute_add_cloud(ctx, input).await
+}
+
+async fn add_onedrive_interactive(ctx: &Context) -> Result<()> {
+	let name = text("Volume name (e.g., 'My OneDrive')", false)?.unwrap();
+	let root = text("Root folder path (leave empty for entire drive)", true)?;
+
+	println!("\nOAuth Setup:");
+	println!("  You'll need OAuth credentials from Azure Portal");
+	println!("  Visit: https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps\n");
+
+	let client_id = text("Application (client) ID", false)?.unwrap();
+	let client_secret = password("Client Secret", false)?.unwrap();
+
+	println!("\nAfter authorizing, you'll receive tokens:");
+	let access_token = password("Access Token", false)?.unwrap();
+	let refresh_token = password("Refresh Token", false)?.unwrap();
+
+	println!("\nSummary:");
+	println!("  Provider: Microsoft OneDrive");
+	println!("  Name:     {}", name);
+	if let Some(ref r) = root {
+		println!("  Root:     {}", r);
+	}
+	println!();
+
+	confirm_or_abort("Add this cloud volume?", false)?;
+
+	let input = VolumeAddCloudInput {
+		service: CloudServiceType::OneDrive,
+		display_name: name.clone(),
+		config: CloudStorageConfig::OneDrive {
+			root,
+			access_token,
+			refresh_token,
+			client_id,
+			client_secret,
+		},
+	};
+
+	execute_add_cloud(ctx, input).await
+}
+
+async fn add_dropbox_interactive(ctx: &Context) -> Result<()> {
+	let name = text("Volume name (e.g., 'My Dropbox')", false)?.unwrap();
+	let root = text("Root folder path (leave empty for entire Dropbox)", true)?;
+
+	println!("\nOAuth Setup:");
+	println!("  You'll need OAuth credentials from Dropbox App Console");
+	println!("  Visit: https://www.dropbox.com/developers/apps\n");
+
+	let client_id = text("App Key (Client ID)", false)?.unwrap();
+	let client_secret = password("App Secret (Client Secret)", false)?.unwrap();
+
+	println!("\nAfter authorizing, you'll receive tokens:");
+	let access_token = password("Access Token", false)?.unwrap();
+	let refresh_token = password("Refresh Token", false)?.unwrap();
+
+	println!("\nSummary:");
+	println!("  Provider: Dropbox");
+	println!("  Name:     {}", name);
+	if let Some(ref r) = root {
+		println!("  Root:     {}", r);
+	}
+	println!();
+
+	confirm_or_abort("Add this cloud volume?", false)?;
+
+	let input = VolumeAddCloudInput {
+		service: CloudServiceType::Dropbox,
+		display_name: name.clone(),
+		config: CloudStorageConfig::Dropbox {
+			root,
+			access_token,
+			refresh_token,
+			client_id,
+			client_secret,
+		},
+	};
+
+	execute_add_cloud(ctx, input).await
+}
+
+async fn add_azure_blob_interactive(ctx: &Context) -> Result<()> {
+	let name = text("Volume name (e.g., 'My Azure Storage')", false)?.unwrap();
+	let container = text("Container name", false)?.unwrap();
+	let account_name = text("Storage account name", false)?.unwrap();
+	let endpoint = text("Custom endpoint (leave empty for default)", true)?;
+
+	println!("\nCredentials will be stored securely in your system keyring\n");
+	let account_key = password("Storage account key", false)?.unwrap();
+
+	println!("\nSummary:");
+	println!("  Provider: Azure Blob Storage");
+	println!("  Name:      {}", name);
+	println!("  Container: {}", container);
+	println!("  Account:   {}", account_name);
+	if let Some(ref e) = endpoint {
+		println!("  Endpoint:  {}", e);
+	}
+	println!();
+
+	confirm_or_abort("Add this cloud volume?", false)?;
+
+	let input = VolumeAddCloudInput {
+		service: CloudServiceType::AzureBlob,
+		display_name: name.clone(),
+		config: CloudStorageConfig::AzureBlob {
+			container,
+			endpoint,
+			account_name,
+			account_key,
+		},
+	};
+
+	execute_add_cloud(ctx, input).await
+}
+
+async fn add_gcs_interactive(ctx: &Context) -> Result<()> {
+	let name = text("Volume name (e.g., 'My GCS Bucket')", false)?.unwrap();
+	let bucket = text("Bucket name", false)?.unwrap();
+	let root = text("Root path (leave empty for entire bucket)", true)?;
+	let endpoint = text("Custom endpoint (leave empty for default)", true)?;
+
+	println!("\nService Account Setup:");
+	println!("  You'll need a service account JSON key from Google Cloud Console");
+	println!("  Visit: https://console.cloud.google.com/iam-admin/serviceaccounts\n");
+
+	let service_account_path = text("Path to service account JSON file", false)?.unwrap();
+	let credential = std::fs::read_to_string(&service_account_path)
+		.map_err(|e| anyhow::anyhow!("Failed to read service account file: {}", e))?;
+
+	println!("\nSummary:");
+	println!("  Provider: Google Cloud Storage");
+	println!("  Name:     {}", name);
+	println!("  Bucket:   {}", bucket);
+	if let Some(ref r) = root {
+		println!("  Root:     {}", r);
+	}
+	if let Some(ref e) = endpoint {
+		println!("  Endpoint: {}", e);
+	}
+	println!();
+
+	confirm_or_abort("Add this cloud volume?", false)?;
+
+	let input = VolumeAddCloudInput {
+		service: CloudServiceType::GoogleCloudStorage,
+		display_name: name.clone(),
+		config: CloudStorageConfig::GoogleCloudStorage {
+			bucket,
+			root,
+			endpoint,
+			credential,
+		},
+	};
+
+	execute_add_cloud(ctx, input).await
+}
+
+async fn execute_add_cloud(
+	ctx: &Context,
+	input: VolumeAddCloudInput,
+) -> Result<()> {
 	print!("Connecting to cloud storage... ");
 	std::io::Write::flush(&mut std::io::stdout())?;
 

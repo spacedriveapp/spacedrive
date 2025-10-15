@@ -73,6 +73,160 @@ impl CloudBackend {
 		})
 	}
 
+	/// Create a new cloud backend for Google Drive
+	pub async fn new_google_drive(
+		access_token: impl AsRef<str>,
+		refresh_token: impl AsRef<str>,
+		client_id: impl AsRef<str>,
+		client_secret: impl AsRef<str>,
+		root: Option<String>,
+	) -> Result<Self, VolumeError> {
+		let mut builder = opendal::services::Gdrive::default()
+			.access_token(access_token.as_ref())
+			.refresh_token(refresh_token.as_ref())
+			.client_id(client_id.as_ref())
+			.client_secret(client_secret.as_ref());
+
+		if let Some(r) = &root {
+			builder = builder.root(r);
+		}
+
+		let operator = opendal::Operator::new(builder)
+			.map_err(|e| {
+				VolumeError::Platform(format!("Failed to create Google Drive operator: {}", e))
+			})?
+			.finish();
+
+		Ok(Self {
+			operator,
+			service_type: CloudServiceType::GoogleDrive,
+			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+		})
+	}
+
+	/// Create a new cloud backend for OneDrive
+	pub async fn new_onedrive(
+		access_token: impl AsRef<str>,
+		refresh_token: impl AsRef<str>,
+		client_id: impl AsRef<str>,
+		client_secret: impl AsRef<str>,
+		root: Option<String>,
+	) -> Result<Self, VolumeError> {
+		let mut builder = opendal::services::Onedrive::default()
+			.access_token(access_token.as_ref())
+			.refresh_token(refresh_token.as_ref())
+			.client_id(client_id.as_ref())
+			.client_secret(client_secret.as_ref());
+
+		if let Some(r) = &root {
+			builder = builder.root(r);
+		}
+
+		let operator = opendal::Operator::new(builder)
+			.map_err(|e| {
+				VolumeError::Platform(format!("Failed to create OneDrive operator: {}", e))
+			})?
+			.finish();
+
+		Ok(Self {
+			operator,
+			service_type: CloudServiceType::OneDrive,
+			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+		})
+	}
+
+	/// Create a new cloud backend for Dropbox
+	pub async fn new_dropbox(
+		access_token: impl AsRef<str>,
+		refresh_token: impl AsRef<str>,
+		client_id: impl AsRef<str>,
+		client_secret: impl AsRef<str>,
+		root: Option<String>,
+	) -> Result<Self, VolumeError> {
+		let mut builder = opendal::services::Dropbox::default()
+			.access_token(access_token.as_ref())
+			.refresh_token(refresh_token.as_ref())
+			.client_id(client_id.as_ref())
+			.client_secret(client_secret.as_ref());
+
+		if let Some(r) = &root {
+			builder = builder.root(r);
+		}
+
+		let operator = opendal::Operator::new(builder)
+			.map_err(|e| {
+				VolumeError::Platform(format!("Failed to create Dropbox operator: {}", e))
+			})?
+			.finish();
+
+		Ok(Self {
+			operator,
+			service_type: CloudServiceType::Dropbox,
+			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+		})
+	}
+
+	/// Create a new cloud backend for Azure Blob Storage
+	pub async fn new_azure_blob(
+		container: impl AsRef<str>,
+		account_name: impl AsRef<str>,
+		account_key: impl AsRef<str>,
+		endpoint: Option<String>,
+	) -> Result<Self, VolumeError> {
+		let mut builder = opendal::services::Azblob::default()
+			.container(container.as_ref())
+			.account_name(account_name.as_ref())
+			.account_key(account_key.as_ref());
+
+		if let Some(ep) = endpoint {
+			builder = builder.endpoint(&ep);
+		}
+
+		let operator = opendal::Operator::new(builder)
+			.map_err(|e| {
+				VolumeError::Platform(format!("Failed to create Azure Blob operator: {}", e))
+			})?
+			.finish();
+
+		Ok(Self {
+			operator,
+			service_type: CloudServiceType::AzureBlob,
+			root: PathBuf::from("/"),
+		})
+	}
+
+	/// Create a new cloud backend for Google Cloud Storage
+	pub async fn new_google_cloud_storage(
+		bucket: impl AsRef<str>,
+		credential: impl AsRef<str>,
+		root: Option<String>,
+		endpoint: Option<String>,
+	) -> Result<Self, VolumeError> {
+		let mut builder = opendal::services::Gcs::default()
+			.bucket(bucket.as_ref())
+			.credential(credential.as_ref());
+
+		if let Some(r) = &root {
+			builder = builder.root(r);
+		}
+
+		if let Some(ep) = endpoint {
+			builder = builder.endpoint(&ep);
+		}
+
+		let operator = opendal::Operator::new(builder)
+			.map_err(|e| {
+				VolumeError::Platform(format!("Failed to create GCS operator: {}", e))
+			})?
+			.finish();
+
+		Ok(Self {
+			operator,
+			service_type: CloudServiceType::GoogleCloudStorage,
+			root: PathBuf::from(root.unwrap_or_else(|| "/".to_string())),
+		})
+	}
+
 	/// Create a cloud backend from a pre-configured OpenDAL operator
 	pub fn from_operator(operator: opendal::Operator, service_type: CloudServiceType) -> Self {
 		Self {
