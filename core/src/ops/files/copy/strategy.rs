@@ -60,6 +60,7 @@ use async_trait::async_trait;
 use std::path::Path;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tracing::{info, debug, error};
 
 /// Progress callback for strategy implementations to report granular progress
 /// Parameters: bytes_copied_for_current_file, total_bytes_for_current_file
@@ -257,19 +258,67 @@ impl CopyStrategy for RemoteTransferStrategy {
 		verify_checksum: bool,
 		progress_callback: Option<&ProgressCallback<'a>>,
 	) -> Result<u64> {
+		info!("[REMOTE_STRATEGY] === RemoteTransferStrategy::execute() CALLED ===");
+		info!("[REMOTE_STRATEGY] Source: {:?}", source);
+		info!("[REMOTE_STRATEGY] Destination: {:?}", destination);
+
 		// Get networking service
-		let networking = ctx
-			.networking_service()
-			.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
+		debug!("[REMOTE_STRATEGY] Getting networking service...");
+		let networking = match ctx.networking_service() {
+			Some(n) => {
+				debug!("[REMOTE_STRATEGY] Networking service retrieved successfully");
+				n
+			}
+			None => {
+				error!("[REMOTE_STRATEGY] ERROR: Networking service not available");
+				return Err(anyhow::anyhow!("Networking service not available"));
+			}
+		};
 
 		// Get local path
-		let local_path = source
-			.as_local_path()
-			.ok_or_else(|| anyhow::anyhow!("Source must be local path"))?;
+		debug!("[REMOTE_STRATEGY] Converting source to local path...");
+		let local_path = match source.as_local_path() {
+			Some(p) => {
+				info!("[REMOTE_STRATEGY] Local path: {}", p.display());
+				p
+			}
+			None => {
+				error!("[REMOTE_STRATEGY] ERROR: Source is not a local path");
+				return Err(anyhow::anyhow!("Source must be local path"));
+			}
+		};
 
 		// Read file metadata
-		let metadata = tokio::fs::metadata(local_path).await?;
+		debug!("[REMOTE_STRATEGY] Reading file metadata...");
+		let metadata = match tokio::fs::metadata(local_path).await {
+			Ok(m) => {
+				debug!("[REMOTE_STRATEGY] Metadata read successfully");
+				m
+			}
+			Err(e) => {
+				error!("[REMOTE_STRATEGY] ERROR: Failed to read metadata: {}", e);
+				return Err(e.into());
+			}
+		};
 		let file_size = metadata.len();
+		info!("[REMOTE_STRATEGY] File size: {} bytes", file_size);
+
+		info!("[REMOTE_STRATEGY] About to calculate file checksum...");
+		let checksum = match calculate_file_checksum(local_path).await {
+			Ok(c) => {
+				info!("[REMOTE_STRATEGY] Checksum calculated: {}", c);
+				Some(c)
+			}
+			Err(e) => {
+				error!("[REMOTE_STRATEGY] ERROR: Failed to calculate checksum: {}", e);
+				return Err(e);
+			}
+		};
+
+		info!("[REMOTE_STRATEGY] Initiating cross-device transfer: {} ({} bytes) -> device:{}",
+			local_path.display(),
+			file_size,
+			destination.device_id().unwrap_or_default());
 
 		ctx.log(format!(
 			"Initiating cross-device transfer: {} ({} bytes) -> device:{}",
@@ -288,11 +337,12 @@ impl CopyStrategy for RemoteTransferStrategy {
 			size: file_size,
 			modified: metadata.modified().ok(),
 			is_directory: metadata.is_dir(),
-			checksum: Some(calculate_file_checksum(local_path).await?),
+			checksum,
 			mime_type: None,
 		};
 
 		// Get file transfer protocol handler
+		debug!("[REMOTE_STRATEGY] Getting file transfer protocol handler...");
 		let networking_guard = &*networking;
 		let protocol_registry = networking_guard.protocol_registry();
 		let registry_guard = protocol_registry.read().await;
@@ -306,6 +356,8 @@ impl CopyStrategy for RemoteTransferStrategy {
 			.downcast_ref::<crate::service::network::protocol::FileTransferProtocolHandler>()
 			.ok_or_else(|| anyhow::anyhow!("Invalid file transfer protocol handler"))?;
 
+		info!("[REMOTE_STRATEGY] Protocol handler retrieved, initiating transfer...");
+
 		// Initiate transfer
 		let transfer_id = file_transfer_protocol
 			.initiate_transfer(
@@ -315,57 +367,44 @@ impl CopyStrategy for RemoteTransferStrategy {
 			)
 			.await?;
 
+		info!("[REMOTE_STRATEGY] Transfer initiated with ID: {}", transfer_id);
 		ctx.log(format!("Transfer initiated with ID: {}", transfer_id));
 
-		// Send transfer request to remote device
-		let chunk_size = 64 * 1024u32;
-		let total_chunks = ((file_size + chunk_size as u64 - 1) / chunk_size as u64) as u32;
+		// Don't drop the registry guard yet - we need it for stream_file_data
+		// stream_file_data will handle sending the transfer request AND the file chunks
+		info!("[REMOTE_STRATEGY] About to call stream_file_data for {} bytes", file_size);
+		ctx.log(format!("About to call stream_file_data for {} bytes", file_size));
 
-		let transfer_request = crate::service::network::protocol::file_transfer::FileTransferMessage::TransferRequest {
-            transfer_id,
-            file_metadata: file_metadata.clone(),
-            transfer_mode: crate::service::network::protocol::TransferMode::TrustedCopy,
-            chunk_size,
-            total_chunks,
-            destination_path: destination.path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
-        };
-
-		let request_data = rmp_serde::to_vec(&transfer_request)?;
-
-		// Send transfer request over network
-		networking_guard
-			.send_message(
-				destination.device_id().unwrap_or_default(),
-				"file_transfer",
-				request_data,
-			)
-			.await?;
-
-		ctx.log(format!(
-			"Transfer request sent to device {}",
-			destination.device_id().unwrap_or_default()
-		));
-
-		// Stream file data
-		drop(networking_guard);
-		drop(registry_guard);
-
-		stream_file_data(
+		let result = stream_file_data(
 			local_path,
 			transfer_id,
 			file_transfer_protocol,
 			file_size,
 			destination.device_id().unwrap_or_default(),
+			destination.path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
+			file_metadata,
 			ctx,
 			progress_callback,
 		)
-		.await?;
+		.await;
 
-		ctx.log(format!(
-			"Cross-device transfer completed: {} bytes",
-			file_size
-		));
-		Ok(file_size)
+		info!("[REMOTE_STRATEGY] stream_file_data returned: {:?}", result.is_ok());
+
+		match result {
+			Ok(()) => {
+				info!("[REMOTE_STRATEGY] Cross-device transfer completed successfully: {} bytes", file_size);
+				ctx.log(format!(
+					"Cross-device transfer completed successfully: {} bytes",
+					file_size
+				));
+				Ok(file_size)
+			}
+			Err(e) => {
+				error!("[REMOTE_STRATEGY] Cross-device transfer FAILED: {}", e);
+				ctx.log(format!("Cross-device transfer FAILED: {}", e));
+				Err(e)
+			}
+		}
 	}
 }
 
@@ -666,37 +705,126 @@ async fn calculate_file_checksum(path: &Path) -> Result<String> {
 		.map_err(|e| anyhow::anyhow!("Failed to generate content hash: {}", e))
 }
 
-/// Stream file data in chunks to the remote device
+/// Stream file data in chunks to the remote device using a persistent connection
 async fn stream_file_data<'a>(
 	file_path: &Path,
 	transfer_id: uuid::Uuid,
 	file_transfer_protocol: &crate::service::network::protocol::FileTransferProtocolHandler,
 	total_size: u64,
 	destination_device_id: uuid::Uuid,
+	destination_path: String,
+	file_metadata: crate::service::network::protocol::FileMetadata,
 	ctx: &JobContext<'a>,
 	progress_callback: Option<&ProgressCallback<'a>>,
 ) -> Result<()> {
 	use blake3::Hasher;
-	use tokio::io::AsyncReadExt;
+	use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-	// Get networking service for sending chunks
+	info!("[STREAM_FILE_DATA] === stream_file_data() CALLED ===");
+	info!("[STREAM_FILE_DATA] transfer_id: {}", transfer_id);
+	info!("[STREAM_FILE_DATA] file: {}", file_path.display());
+	info!("[STREAM_FILE_DATA] size: {} bytes", total_size);
+	info!("[STREAM_FILE_DATA] dest device: {}", destination_device_id);
+
+	// Get networking service
+	debug!("[STREAM_FILE_DATA] Getting networking service...");
 	let networking = ctx
 		.networking_service()
 		.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
 
+	let networking_guard = &*networking;
+
+	// Get device registry to lookup node_id
+	debug!("[STREAM_FILE_DATA] Getting device registry...");
+	let device_registry = networking_guard.device_registry();
+	let registry = device_registry.read().await;
+	let node_id = registry
+		.get_node_by_device(destination_device_id)
+		.ok_or_else(|| {
+			anyhow::anyhow!(
+				"Could not find node_id for device {}",
+				destination_device_id
+			)
+		})?;
+	drop(registry);
+	info!("[STREAM_FILE_DATA] Found node_id: {}", node_id);
+
+	// Get endpoint for creating connection
+	debug!("[STREAM_FILE_DATA] Getting endpoint...");
+	let endpoint = networking_guard.endpoint().ok_or_else(|| {
+		anyhow::anyhow!("Networking endpoint not available")
+	})?;
+
+	info!("[STREAM_FILE_DATA] Opening persistent connection to node {} (device {})", node_id, destination_device_id);
+	ctx.log(format!(
+		"Opening persistent connection to node {} (device {}) for file transfer",
+		node_id, destination_device_id
+	));
+
+	// Connect to the target device using file_transfer ALPN
+	let node_addr = iroh::NodeAddr::new(node_id);
+	let connection = endpoint
+		.connect(node_addr, b"spacedrive/filetransfer/1")
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to connect to device: {}", e))?;
+
+	info!("[STREAM_FILE_DATA] Connected! Opening bidirectional stream...");
+	ctx.log(format!(
+		"Connected to device {}, opening bidirectional stream",
+		destination_device_id
+	));
+
+	// Open bidirectional stream for the transfer (so we can receive acknowledgment)
+	let (mut send_stream, mut recv_stream) = connection
+		.open_bi()
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to open stream: {}", e))?;
+
+	info!("[STREAM_FILE_DATA] Bidirectional stream opened successfully");
+
+	// First, send the TransferRequest message
+	let chunk_size = 64 * 1024u32;
+	let total_chunks = ((total_size + chunk_size as u64 - 1) / chunk_size as u64) as u32;
+
+	let transfer_request = crate::service::network::protocol::file_transfer::FileTransferMessage::TransferRequest {
+		transfer_id,
+		file_metadata,
+		transfer_mode: crate::service::network::protocol::TransferMode::TrustedCopy,
+		chunk_size,
+		total_chunks,
+		destination_path,
+	};
+
+	let request_data = rmp_serde::to_vec(&transfer_request)?;
+
+	ctx.log(format!(
+		"Sending TransferRequest for {} bytes ({} chunks)",
+		total_size, total_chunks
+	));
+
+	// Send transfer request: type (0) + length + data
+	send_stream.write_u8(0).await?;
+	send_stream.write_all(&(request_data.len() as u32).to_be_bytes()).await?;
+	send_stream.write_all(&request_data).await?;
+	send_stream.flush().await?;
+
+	ctx.log("TransferRequest sent, now sending file chunks".to_string());
+
+	// Open file for reading
 	let mut file = tokio::fs::File::open(file_path).await?;
 
-	let chunk_size = 64 * 1024; // 64KB chunks
+	let chunk_size = 64 * 1024u64; // 64KB chunks
 	let total_chunks = (total_size + chunk_size - 1) / chunk_size;
 	let mut buffer = vec![0u8; chunk_size as usize];
 	let mut chunk_index = 0u32;
 	let mut bytes_transferred = 0u64;
 
 	ctx.log(format!(
-		"Starting to stream {} chunks to device {}",
-		total_chunks, destination_device_id
+		"Starting to stream {} chunks ({} bytes) to device {}",
+		total_chunks, total_size, destination_device_id
 	));
 
+	// Send all chunks over the stream
 	loop {
 		ctx.check_interrupt().await?;
 
@@ -705,15 +833,9 @@ async fn stream_file_data<'a>(
 			break; // End of file
 		}
 
-		// Calculate chunk checksum
+		// Calculate chunk checksum (of original data)
 		let chunk_data = &buffer[..bytes_read];
 		let chunk_checksum = blake3::hash(chunk_data);
-
-		// Update progress
-		bytes_transferred += bytes_read as u64;
-		if let Some(callback) = progress_callback {
-			callback(bytes_transferred, total_size);
-		}
 
 		// Get session keys for encryption
 		let session_keys = file_transfer_protocol
@@ -735,34 +857,58 @@ async fn stream_file_data<'a>(
 				chunk_index,
 				data: encrypted_data,
 				nonce,
-				chunk_checksum: *chunk_checksum.as_bytes(), // Checksum of original unencrypted data
+				chunk_checksum: *chunk_checksum.as_bytes(),
 			};
 
-		// Serialize and send chunk over network
-		let chunk_data = rmp_serde::to_vec(&chunk_message)?;
+		// Serialize message
+		let message_data = rmp_serde::to_vec(&chunk_message)?;
 
-		let networking_guard = &*networking;
-		networking_guard
-			.send_message(destination_device_id, "file_transfer", chunk_data)
-			.await?;
+		// Send transfer type (0 for messages) + message length + message data
+		send_stream.write_u8(0).await?; // Type 0 = message-based transfer
+		send_stream
+			.write_all(&(message_data.len() as u32).to_be_bytes())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to write message length: {}", e))?;
+		send_stream
+			.write_all(&message_data)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to write chunk data: {}", e))?;
+		send_stream
+			.flush()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to flush stream: {}", e))?;
 
-		// Record chunk in local protocol handler for tracking
+		// Record chunk sent
 		file_transfer_protocol.record_chunk_received(
 			&transfer_id,
 			chunk_index,
 			bytes_read as u64,
 		)?;
 
+		// Update progress
+		bytes_transferred += bytes_read as u64;
+		if let Some(callback) = progress_callback {
+			callback(bytes_transferred, total_size);
+		}
+
 		chunk_index += 1;
 
-		ctx.log(format!(
-			"Sent chunk {}/{} ({} bytes)",
-			chunk_index, total_chunks, bytes_read
-		));
+		// Log every 100 chunks or on first/last chunk
+		if chunk_index == 1 || chunk_index % 100 == 0 || chunk_index == total_chunks as u32 {
+			ctx.log(format!(
+				"Sent chunk {}/{} ({} bytes total)",
+				chunk_index, total_chunks, bytes_transferred
+			));
+		}
 
-		// Small delay to prevent overwhelming the network
-		tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+		// Yield to allow other tasks to run
+		tokio::task::yield_now().await;
 	}
+
+	ctx.log(format!(
+		"All {} chunks sent, sending completion message",
+		chunk_index
+	));
 
 	// Send transfer completion message
 	let final_checksum = calculate_file_checksum(file_path).await?;
@@ -775,20 +921,65 @@ async fn stream_file_data<'a>(
 
 	let completion_data = rmp_serde::to_vec(&completion_message)?;
 
-	let networking_guard = &*networking;
-	networking_guard
-		.send_message(destination_device_id, "file_transfer", completion_data)
-		.await?;
+	// Send completion message
+	send_stream.write_u8(0).await?;
+	send_stream.write_all(&(completion_data.len() as u32).to_be_bytes()).await?;
+	send_stream.write_all(&completion_data).await?;
+	send_stream.flush().await?;
 
-	// Mark transfer as completed locally
+	ctx.log(format!(
+		"Completion message sent, waiting for final acknowledgment from receiver"
+	));
+
+	// Close the send side to signal we're done sending
+	send_stream
+		.finish()
+		.map_err(|e| anyhow::anyhow!("Failed to finish stream: {}", e))?;
+
+	// Wait for TransferFinalAck response from receiver
+	ctx.log("Waiting for TransferFinalAck from receiver...".to_string());
+
+	// Read the response message
+	let mut msg_type = [0u8; 1];
+	recv_stream.read_exact(&mut msg_type).await?;
+
+	if msg_type[0] != 0 {
+		return Err(anyhow::anyhow!("Unexpected response type: {}", msg_type[0]));
+	}
+
+	let mut len_buf = [0u8; 4];
+	recv_stream.read_exact(&mut len_buf).await?;
+	let msg_len = u32::from_be_bytes(len_buf) as usize;
+
+	let mut msg_buf = vec![0u8; msg_len];
+	recv_stream.read_exact(&mut msg_buf).await?;
+
+	let ack_message: crate::service::network::protocol::file_transfer::FileTransferMessage =
+		rmp_serde::from_slice(&msg_buf)?;
+
+	// Verify it's a TransferFinalAck for our transfer
+	match ack_message {
+		crate::service::network::protocol::file_transfer::FileTransferMessage::TransferFinalAck { transfer_id: ack_id } => {
+			if ack_id != transfer_id {
+				return Err(anyhow::anyhow!("Received ack for wrong transfer: expected {}, got {}", transfer_id, ack_id));
+			}
+			ctx.log("Received TransferFinalAck from receiver - transfer confirmed!".to_string());
+		}
+		_ => {
+			return Err(anyhow::anyhow!("Expected TransferFinalAck, got different message type"));
+		}
+	}
+
+	// Now mark transfer as completed locally (only after receiving confirmation)
 	file_transfer_protocol.update_session_state(
 		&transfer_id,
 		crate::service::network::protocol::file_transfer::TransferState::Completed,
 	)?;
 
 	ctx.log(format!(
-		"File streaming completed: {} chunks, {} bytes sent to device {}",
+		"File streaming completed and acknowledged: {} chunks, {} bytes sent to device {}",
 		chunk_index, bytes_transferred, destination_device_id
 	));
+
 	Ok(())
 }

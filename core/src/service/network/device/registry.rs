@@ -437,8 +437,12 @@ impl DeviceRegistry {
 				// Found session keys for connected device
 				Some(session_keys.clone())
 			}
+			Some(DeviceState::Disconnected { session_keys, .. }) => {
+				// Found session keys for disconnected device (session keys are preserved after disconnect)
+				Some(session_keys.clone())
+			}
 			_ => {
-				// Device not found or not paired/connected
+				// Device not found or in a state without session keys (Discovered, Pairing)
 				None
 			}
 		}

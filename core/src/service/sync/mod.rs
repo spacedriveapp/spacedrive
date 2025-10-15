@@ -4,7 +4,6 @@
 //! - State-based sync for device-owned data
 //! - Log-based sync with HLC for shared resources
 
-pub mod applier;
 pub mod backfill;
 pub mod peer;
 pub mod protocol_handler;
@@ -28,7 +27,6 @@ use tokio::sync::{Mutex, RwLock};
 use tracing::{info, warn};
 use uuid::Uuid;
 
-pub use applier::SyncApplier;
 pub use backfill::BackfillManager;
 pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
 

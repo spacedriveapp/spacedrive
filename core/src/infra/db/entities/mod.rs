@@ -25,6 +25,8 @@ pub mod collection_entry;
 pub mod indexer_rule;
 pub mod sidecar;
 pub mod sidecar_availability;
+pub mod sync_conduit;
+pub mod sync_generation;
 pub mod volume;
 
 // Re-export all entities
@@ -40,6 +42,8 @@ pub use indexer_rule::Entity as IndexerRule;
 pub use location::Entity as Location;
 pub use sidecar::Entity as Sidecar;
 pub use sidecar_availability::Entity as SidecarAvailability;
+pub use sync_conduit::Entity as SyncConduit;
+pub use sync_generation::Entity as SyncGeneration;
 pub use user_metadata::Entity as UserMetadata;
 pub use volume::Entity as Volume;
 
@@ -63,6 +67,8 @@ pub use indexer_rule::ActiveModel as IndexerRuleActive;
 pub use location::ActiveModel as LocationActive;
 pub use sidecar::ActiveModel as SidecarActive;
 pub use sidecar_availability::ActiveModel as SidecarAvailabilityActive;
+pub use sync_conduit::ActiveModel as SyncConduitActive;
+pub use sync_generation::ActiveModel as SyncGenerationActive;
 pub use user_metadata::ActiveModel as UserMetadataActive;
 pub use volume::ActiveModel as VolumeActive;
 
