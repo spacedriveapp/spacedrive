@@ -342,11 +342,34 @@ impl NetworkingEventLoop {
 						}
 					}
 
+					// Helper struct to prepend a peeked byte back to a stream
+					// This allows us to peek at the first byte for protocol detection
+					// while still making it available to the protocol handler
+					struct PrependReader<R> {
+						byte: Option<u8>,
+						inner: R,
+					}
+
+					impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for PrependReader<R> {
+						fn poll_read(
+							mut self: std::pin::Pin<&mut Self>,
+							cx: &mut std::task::Context<'_>,
+							buf: &mut tokio::io::ReadBuf<'_>,
+						) -> std::task::Poll<std::io::Result<()>> {
+							if let Some(byte) = self.byte.take() {
+								buf.put_slice(&[byte]);
+								std::task::Poll::Ready(Ok(()))
+							} else {
+								std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
+							}
+						}
+					}
+
 					// For paired devices, check if this is a file transfer stream
-					// File transfer streams start with type byte 0, followed by length and message
+					// Protocol detection: peek at first byte to distinguish protocols
+					// File transfer format: [type:u8][length:u32][data...], where type is 0-1
+					// Messaging format: different type byte (>1) or different structure
 					if is_paired {
-						// Try to peek at the first byte to detect file transfer protocol
-						// File transfer protocol starts with transfer_type byte
 						use tokio::io::AsyncReadExt;
 						let mut peek_buf = [0u8; 1];
 						let mut recv_peekable = recv;
@@ -355,29 +378,8 @@ impl NetworkingEventLoop {
 						let bytes_read = recv_peekable.read(&mut peek_buf).await;
 						match bytes_read {
 							Ok(Some(n)) if n > 0 => {
-									// Check if this looks like a file transfer message (type 0 or 1)
+									// Check if this looks like a file transfer message (type byte 0 or 1)
 									if peek_buf[0] <= 1 {
-									// Likely file transfer - but we need to put the byte back
-									// Wrap in a custom reader that replays this byte
-									struct PrependReader<R> {
-										byte: Option<u8>,
-										inner: R,
-									}
-
-									impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for PrependReader<R> {
-										fn poll_read(
-											mut self: std::pin::Pin<&mut Self>,
-											cx: &mut std::task::Context<'_>,
-											buf: &mut tokio::io::ReadBuf<'_>,
-										) -> std::task::Poll<std::io::Result<()>> {
-											if let Some(byte) = self.byte.take() {
-												buf.put_slice(&[byte]);
-												std::task::Poll::Ready(Ok(()))
-											} else {
-												std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
-											}
-										}
-									}
 
 									let recv_with_byte = PrependReader {
 										byte: Some(peek_buf[0]),
@@ -396,28 +398,7 @@ impl NetworkingEventLoop {
 									}
 									continue; // Skip the default handler logic below
 								} else {
-									// Not file transfer, use messaging
-									// Need to wrap to replay the byte
-									struct PrependReader<R> {
-										byte: Option<u8>,
-										inner: R,
-									}
-
-									impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for PrependReader<R> {
-										fn poll_read(
-											mut self: std::pin::Pin<&mut Self>,
-											cx: &mut std::task::Context<'_>,
-											buf: &mut tokio::io::ReadBuf<'_>,
-										) -> std::task::Poll<std::io::Result<()>> {
-											if let Some(byte) = self.byte.take() {
-												buf.put_slice(&[byte]);
-												std::task::Poll::Ready(Ok(()))
-											} else {
-												std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
-											}
-										}
-									}
-
+									// Not file transfer, use messaging handler
 									let recv_with_byte = PrependReader {
 										byte: Some(peek_buf[0]),
 										inner: recv_peekable,

@@ -258,64 +258,27 @@ impl CopyStrategy for RemoteTransferStrategy {
 		verify_checksum: bool,
 		progress_callback: Option<&ProgressCallback<'a>>,
 	) -> Result<u64> {
-		info!("[REMOTE_STRATEGY] === RemoteTransferStrategy::execute() CALLED ===");
-		info!("[REMOTE_STRATEGY] Source: {:?}", source);
-		info!("[REMOTE_STRATEGY] Destination: {:?}", destination);
+		debug!("RemoteTransferStrategy: {} -> device:{}",
+			source,
+			destination.device_id().unwrap_or_default());
 
 		// Get networking service
-		debug!("[REMOTE_STRATEGY] Getting networking service...");
-		let networking = match ctx.networking_service() {
-			Some(n) => {
-				debug!("[REMOTE_STRATEGY] Networking service retrieved successfully");
-				n
-			}
-			None => {
-				error!("[REMOTE_STRATEGY] ERROR: Networking service not available");
-				return Err(anyhow::anyhow!("Networking service not available"));
-			}
-		};
+		let networking = ctx.networking_service()
+			.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
 
 		// Get local path
-		debug!("[REMOTE_STRATEGY] Converting source to local path...");
-		let local_path = match source.as_local_path() {
-			Some(p) => {
-				info!("[REMOTE_STRATEGY] Local path: {}", p.display());
-				p
-			}
-			None => {
-				error!("[REMOTE_STRATEGY] ERROR: Source is not a local path");
-				return Err(anyhow::anyhow!("Source must be local path"));
-			}
-		};
+		let local_path = source.as_local_path()
+			.ok_or_else(|| anyhow::anyhow!("Source must be local path"))?;
 
 		// Read file metadata
-		debug!("[REMOTE_STRATEGY] Reading file metadata...");
-		let metadata = match tokio::fs::metadata(local_path).await {
-			Ok(m) => {
-				debug!("[REMOTE_STRATEGY] Metadata read successfully");
-				m
-			}
-			Err(e) => {
-				error!("[REMOTE_STRATEGY] ERROR: Failed to read metadata: {}", e);
-				return Err(e.into());
-			}
-		};
+		let metadata = tokio::fs::metadata(local_path).await?;
 		let file_size = metadata.len();
-		info!("[REMOTE_STRATEGY] File size: {} bytes", file_size);
 
-		info!("[REMOTE_STRATEGY] About to calculate file checksum...");
-		let checksum = match calculate_file_checksum(local_path).await {
-			Ok(c) => {
-				info!("[REMOTE_STRATEGY] Checksum calculated: {}", c);
-				Some(c)
-			}
-			Err(e) => {
-				error!("[REMOTE_STRATEGY] ERROR: Failed to calculate checksum: {}", e);
-				return Err(e);
-			}
-		};
+		let checksum = calculate_file_checksum(local_path).await
+			.map(Some)
+			.map_err(|e| anyhow::anyhow!("Failed to calculate checksum: {}", e))?;
 
-		info!("[REMOTE_STRATEGY] Initiating cross-device transfer: {} ({} bytes) -> device:{}",
+		info!("Initiating cross-device transfer: {} ({} bytes) -> device:{}",
 			local_path.display(),
 			file_size,
 			destination.device_id().unwrap_or_default());
@@ -342,7 +305,6 @@ impl CopyStrategy for RemoteTransferStrategy {
 		};
 
 		// Get file transfer protocol handler
-		debug!("[REMOTE_STRATEGY] Getting file transfer protocol handler...");
 		let networking_guard = &*networking;
 		let protocol_registry = networking_guard.protocol_registry();
 		let registry_guard = protocol_registry.read().await;
@@ -356,8 +318,6 @@ impl CopyStrategy for RemoteTransferStrategy {
 			.downcast_ref::<crate::service::network::protocol::FileTransferProtocolHandler>()
 			.ok_or_else(|| anyhow::anyhow!("Invalid file transfer protocol handler"))?;
 
-		info!("[REMOTE_STRATEGY] Protocol handler retrieved, initiating transfer...");
-
 		// Initiate transfer
 		let transfer_id = file_transfer_protocol
 			.initiate_transfer(
@@ -367,13 +327,8 @@ impl CopyStrategy for RemoteTransferStrategy {
 			)
 			.await?;
 
-		info!("[REMOTE_STRATEGY] Transfer initiated with ID: {}", transfer_id);
+		debug!("Transfer initiated with ID: {}", transfer_id);
 		ctx.log(format!("Transfer initiated with ID: {}", transfer_id));
-
-		// Don't drop the registry guard yet - we need it for stream_file_data
-		// stream_file_data will handle sending the transfer request AND the file chunks
-		info!("[REMOTE_STRATEGY] About to call stream_file_data for {} bytes", file_size);
-		ctx.log(format!("About to call stream_file_data for {} bytes", file_size));
 
 		let result = stream_file_data(
 			local_path,
@@ -388,11 +343,9 @@ impl CopyStrategy for RemoteTransferStrategy {
 		)
 		.await;
 
-		info!("[REMOTE_STRATEGY] stream_file_data returned: {:?}", result.is_ok());
-
 		match result {
 			Ok(()) => {
-				info!("[REMOTE_STRATEGY] Cross-device transfer completed successfully: {} bytes", file_size);
+				info!("Cross-device transfer completed: {} bytes", file_size);
 				ctx.log(format!(
 					"Cross-device transfer completed successfully: {} bytes",
 					file_size
@@ -400,7 +353,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 				Ok(file_size)
 			}
 			Err(e) => {
-				error!("[REMOTE_STRATEGY] Cross-device transfer FAILED: {}", e);
+				error!("Cross-device transfer failed: {}", e);
 				ctx.log(format!("Cross-device transfer FAILED: {}", e));
 				Err(e)
 			}
@@ -720,14 +673,9 @@ async fn stream_file_data<'a>(
 	use blake3::Hasher;
 	use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-	info!("[STREAM_FILE_DATA] === stream_file_data() CALLED ===");
-	info!("[STREAM_FILE_DATA] transfer_id: {}", transfer_id);
-	info!("[STREAM_FILE_DATA] file: {}", file_path.display());
-	info!("[STREAM_FILE_DATA] size: {} bytes", total_size);
-	info!("[STREAM_FILE_DATA] dest device: {}", destination_device_id);
+	debug!("Streaming {} bytes to device {}", total_size, destination_device_id);
 
 	// Get networking service
-	debug!("[STREAM_FILE_DATA] Getting networking service...");
 	let networking = ctx
 		.networking_service()
 		.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
@@ -735,7 +683,6 @@ async fn stream_file_data<'a>(
 	let networking_guard = &*networking;
 
 	// Get device registry to lookup node_id
-	debug!("[STREAM_FILE_DATA] Getting device registry...");
 	let device_registry = networking_guard.device_registry();
 	let registry = device_registry.read().await;
 	let node_id = registry
@@ -747,15 +694,12 @@ async fn stream_file_data<'a>(
 			)
 		})?;
 	drop(registry);
-	info!("[STREAM_FILE_DATA] Found node_id: {}", node_id);
 
 	// Get endpoint for creating connection
-	debug!("[STREAM_FILE_DATA] Getting endpoint...");
 	let endpoint = networking_guard.endpoint().ok_or_else(|| {
 		anyhow::anyhow!("Networking endpoint not available")
 	})?;
 
-	info!("[STREAM_FILE_DATA] Opening persistent connection to node {} (device {})", node_id, destination_device_id);
 	ctx.log(format!(
 		"Opening persistent connection to node {} (device {}) for file transfer",
 		node_id, destination_device_id
@@ -768,19 +712,11 @@ async fn stream_file_data<'a>(
 		.await
 		.map_err(|e| anyhow::anyhow!("Failed to connect to device: {}", e))?;
 
-	info!("[STREAM_FILE_DATA] Connected! Opening bidirectional stream...");
-	ctx.log(format!(
-		"Connected to device {}, opening bidirectional stream",
-		destination_device_id
-	));
-
 	// Open bidirectional stream for the transfer (so we can receive acknowledgment)
 	let (mut send_stream, mut recv_stream) = connection
 		.open_bi()
 		.await
 		.map_err(|e| anyhow::anyhow!("Failed to open stream: {}", e))?;
-
-	info!("[STREAM_FILE_DATA] Bidirectional stream opened successfully");
 
 	// First, send the TransferRequest message
 	let chunk_size = 64 * 1024u32;
