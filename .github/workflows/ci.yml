@@ -90,17 +90,18 @@ jobs:
 
   clippy:
     strategy:
-      fail-fast: true
+      fail-fast: false  # Don't cancel other platforms if one fails
       matrix:
         settings:
           - host: macos-13
             target: x86_64-apple-darwin
           - host: macos-14
             target: aarch64-apple-darwin
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-          - host: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+          # TODO: Re-enable when disk space issues are resolved
+          # - host: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          # - host: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
     name: Clippy (${{ matrix.settings.host }})
     runs-on: ${{ matrix.settings.host }}
     permissions:
