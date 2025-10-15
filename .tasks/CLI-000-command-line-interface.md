@@ -2,7 +2,7 @@
 id: CLI-000
 title: "Epic: Command-Line Interface"
 status: In Progress
-assignee: unassigned
+assignee: james
 priority: High
 tags: [epic, cli]
 whitepaper: "N/A"

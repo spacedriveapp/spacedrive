@@ -2,7 +2,7 @@
 id: LSYNC-012
 title: Bulk Entry Sync Optimization (State-Based)
 status: To Do
-assignee: unassigned
+assignee: james
 parent: LSYNC-000
 priority: High
 tags: [sync, indexing, bulk, performance, state-based]
@@ -19,10 +19,11 @@ Optimize entry (file/folder) synchronization for bulk indexing operations using 
 Device A indexes 1M files:
 
 **Naive approach**: Send 1M individual `StateChange` messages
-- ❌ ~500MB of messages
-- ❌ 10+ minutes to broadcast
-- ❌ Network congestion
-- ❌ Memory pressure on receivers
+
+- ~500MB of messages
+- 10+ minutes to broadcast
+- Network congestion
+- Memory pressure on receivers
 
 **This doesn't scale.**
 
@@ -49,10 +50,11 @@ for chunk in entries.chunks(1000) {
 ```
 
 **Benefits**:
-- ✅ Compressed batches (gzip)
-- ✅ Streaming application on receiver
-- ✅ Progress tracking
-- ✅ Resumable if interrupted
+
+- Compressed batches (gzip)
+- Streaming application on receiver
+- Progress tracking
+- Resumable if interrupted
 
 ### Strategy 2: Bulk Notification + On-Demand Load
 
@@ -72,9 +74,10 @@ broadcast_to_peers(BulkIndexComplete {
 ```
 
 **Benefits**:
-- ✅ Tiny notification (~100 bytes)
-- ✅ Peers control when to sync (bandwidth-aware)
-- ✅ Can trigger local indexing if same filesystem
+
+- Tiny notification (~100 bytes)
+- Peers control when to sync (bandwidth-aware)
+- Can trigger local indexing if same filesystem
 
 ### Strategy 3: Database-Level Replication (Initial Sync)
 
@@ -91,9 +94,10 @@ import_database_snapshot(snapshot).await?;
 ```
 
 **Benefits**:
-- ✅ Extremely fast (database native format)
-- ✅ No serialization overhead
-- ✅ Atomic import
+
+- Extremely fast (database native format)
+- No serialization overhead
+- Atomic import
 
 ## Implementation
 
@@ -214,21 +218,21 @@ pub async fn export_device_snapshot(
 
 ## When to Use Each Strategy
 
-| Scenario | Strategy | Reason |
-|----------|----------|--------|
-| New device joins | Database snapshot | Fast initial sync |
-| Incremental sync (few changes) | Individual StateChange | Simple, immediate |
-| Large batch (100-10K entries) | Batched StateBatch | Efficient, streaming |
-| Massive index (100K+ entries) | Bulk notification + on-demand | Bandwidth-aware |
+| Scenario                       | Strategy                      | Reason               |
+| ------------------------------ | ----------------------------- | -------------------- |
+| New device joins               | Database snapshot             | Fast initial sync    |
+| Incremental sync (few changes) | Individual StateChange        | Simple, immediate    |
+| Large batch (100-10K entries)  | Batched StateBatch            | Efficient, streaming |
+| Massive index (100K+ entries)  | Bulk notification + on-demand | Bandwidth-aware      |
 
 ## Performance Comparison
 
-| Method | 1M Entries | Network | Time | Memory |
-|--------|------------|---------|------|--------|
-| Individual messages | 500MB | High | 10 min | Low |
-| Batched (1K chunks) | 50MB (compressed) | Medium | 2 min | Medium |
-| Bulk notification + lazy | 1KB notification | Minimal | Async | Low |
-| Database snapshot | 150MB | One-time | 30 sec | High |
+| Method                   | 1M Entries        | Network  | Time   | Memory |
+| ------------------------ | ----------------- | -------- | ------ | ------ |
+| Individual messages      | 500MB             | High     | 10 min | Low    |
+| Batched (1K chunks)      | 50MB (compressed) | Medium   | 2 min  | Medium |
+| Bulk notification + lazy | 1KB notification  | Minimal  | Async  | Low    |
+| Database snapshot        | 150MB             | One-time | 30 sec | High   |
 
 ## Acceptance Criteria
 
@@ -293,6 +297,7 @@ impl SyncService {
 **New approach**: Efficient state batching, no central log
 
 **Changes needed**:
+
 - Remove bulk operation sync log entries
 - Add batching to state broadcasts
 - Add database snapshot capability

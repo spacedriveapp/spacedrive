@@ -2,7 +2,7 @@
 id: CLOUD-001
 title: Design Managed Cloud Core Infrastructure
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CLOUD-000
 priority: High
 tags: [cloud, infrastructure, design, kubernetes]

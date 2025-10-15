@@ -2,7 +2,7 @@
 id: VOL-001
 title: Volume PhysicalClass and Location LogicalClass
 status: To Do
-assignee: unassigned
+assignee: james
 parent: VOL-000
 priority: High
 tags: [volume, storage-tiering, classification]
@@ -21,6 +21,7 @@ Implement the `PhysicalClass` for Volumes and `LogicalClass` for Locations. This
 4.  Implement the logic to allow users to assign a `LogicalClass` to each `Location`.
 
 ## Acceptance Criteria
--   [ ] The `PhysicalClass` and `LogicalClass` enums are defined.
--   [ ] The system can correctly identify the `PhysicalClass` of a Volume.
--   [ ] A user can assign a `LogicalClass` to a Location.
+
+- [ ] The `PhysicalClass` and `LogicalClass` enums are defined.
+- [ ] The system can correctly identify the `PhysicalClass` of a Volume.
+- [ ] A user can assign a `LogicalClass` to a Location.

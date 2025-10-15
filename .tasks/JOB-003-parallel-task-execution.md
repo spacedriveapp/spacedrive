@@ -2,7 +2,7 @@
 id: JOB-003
 title: Parallel Task Execution from Jobs
 status: To Do
-assignee: unassigned
+assignee: james
 parent: JOB-000
 priority: High
 tags: [jobs, task-system, performance, parallelism]
@@ -39,6 +39,7 @@ Tasks execute on multi-threaded worker pool
 ```
 
 **Why via Context, not Job storage?**
+
 - Jobs are serialized to database (dispatcher is not serializable)
 - JobExecutor already has task system access
 - Consistent with existing patterns (library, volume_manager, etc.)
@@ -47,9 +48,11 @@ Tasks execute on multi-threaded worker pool
 ## Implementation Phases
 
 ### Phase 1: Core Integration (JOB-003a)
+
 Enable jobs to access task dispatcher via context.
 
 **Changes:**
+
 1. Add `task_dispatcher` field to `JobExecutorState`
 2. Update `JobExecutor::new()` to accept dispatcher parameter
 3. Add `task_dispatcher` field to `JobContext`
@@ -58,19 +61,23 @@ Enable jobs to access task dispatcher via context.
 6. Update `#[derive(Job)]` macro if needed
 
 **Files:**
+
 - core/src/infra/job/executor.rs
 - core/src/infra/job/context.rs
 - core/src/infra/job/manager.rs
 
 **Acceptance Criteria:**
+
 - [ ] Jobs can call `ctx.task_dispatcher()` and get valid dispatcher
 - [ ] Integration test shows job spawning parallel tasks
 - [ ] No breaking changes to existing jobs
 
 ### Phase 2: FileCopy Proof of Concept (JOB-003b)
+
 Migrate FileCopyJob to use parallel execution.
 
 **Changes:**
+
 1. Create `CopyFileTask` implementing `Task<JobError>`
 2. Update `FileCopyJob::run()` to use `dispatcher.dispatch_many()`
 3. Implement progress aggregation from parallel tasks
@@ -78,10 +85,12 @@ Migrate FileCopyJob to use parallel execution.
 5. Handle partial failures gracefully
 
 **Files:**
+
 - core/src/ops/files/copy/job.rs
 - core/src/ops/files/copy/task.rs (new)
 
 **Acceptance Criteria:**
+
 - [ ] FileCopyJob spawns parallel copy tasks
 - [ ] Performance improvement: 4-8x faster for 100+ files
 - [ ] Job remains resumable after interruption
@@ -89,25 +98,31 @@ Migrate FileCopyJob to use parallel execution.
 - [ ] Progress reporting works correctly
 
 ### Phase 3: Documentation & Patterns
+
 Document the pattern for other developers.
 
 **Deliverables:**
+
 - [ ] Add parallel execution guide to job system docs
 - [ ] Update job implementation template
 - [ ] Code examples in developer documentation
 - [ ] Integration test demonstrating pattern
 
 ### Phase 4: Expand to Other Operations (Future)
+
 Apply pattern to other I/O-bound jobs:
+
 - [ ] Thumbnail generation (highly parallel)
 - [ ] Media metadata extraction
 - [ ] File deletion (batch operations)
 - [ ] Hash calculation (CPU-bound parallelism)
 
 ### Phase 5: Resource Management (Future)
+
 Add centralized resource limits to prevent system overload.
 
 **Features:**
+
 - Global resource pools (I/O, CPU, Network, DB)
 - `LimitedTaskDispatcher` wrapper with semaphores
 - Priority-aware resource allocation
@@ -206,11 +221,13 @@ impl Task<JobError> for CopyFileTask {
 ## Performance Expectations
 
 **File Copy (100 files, 1MB each, SSD):**
+
 - Sequential: 100 files × 20ms = 2000ms
 - Parallel (10 concurrent): 10 batches × 20ms = 200ms
 - **10x faster!**
 
 **Real-world (Mixed sizes, 10GB total):**
+
 - Sequential: ~102s
 - Parallel: ~12s
 - **8.5x faster!**

@@ -2,7 +2,7 @@
 id: FILE-003
 title: Cloud Volume File Operations
 status: To Do
-assignee: unassigned
+assignee: james
 parent: FILE-000
 priority: High
 tags: [core, file-ops, cloud, jobs]
@@ -56,15 +56,19 @@ Extend the file copy job system to support cloud volumes, enabling users to copy
 ## Implementation Files
 
 **Strategy Implementation:**
+
 - `core/src/ops/files/copy/strategy.rs` - Add `CloudCopyStrategy`
 
 **Routing Logic:**
+
 - `core/src/ops/files/copy/routing.rs` - Update `CopyStrategyRouter::select_strategy()`
 
 **Volume Backend:**
+
 - `core/src/volume/backend/cloud.rs` - Already provides `read()`, `write()`, `read_range()`
 
 **Testing:**
+
 - `core/tests/test_cloud_file_ops.rs` - Integration tests for cloud file operations
 
 ## Technical Notes

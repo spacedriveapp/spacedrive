@@ -2,7 +2,7 @@
 id: CORE-014
 title: Specta Codegen for Resource Events
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CORE-011
 priority: High
 tags: [codegen, specta, typescript, swift]
@@ -25,21 +25,23 @@ Extend the existing specta codegen system to auto-generate resource type registr
 ## Generated Output
 
 ### TypeScript
+
 ```typescript
 // packages/client/src/bindings/resourceRegistry.ts
 export const resourceTypeMap = {
-  'file': File,
-  'album': Album,
-  'tag': Tag,
-  'location': Location,
-  'device': Device,
-  'volume': Volume,
-  'content_identity': ContentIdentity,
-  // ... all Identifiable types
+	file: File,
+	album: Album,
+	tag: Tag,
+	location: Location,
+	device: Device,
+	volume: Volume,
+	content_identity: ContentIdentity,
+	// ... all Identifiable types
 } as const;
 ```
 
 ### Swift (Future)
+
 ```swift
 // SpacedriveCore/Generated/ResourceTypeRegistry+Generated.swift
 extension ResourceTypeRegistry {

@@ -2,7 +2,7 @@
 id: LSYNC-007
 title: Syncable Trait (Device Ownership Aware)
 status: Done
-assignee: unassigned
+assignee: james
 parent: LSYNC-000
 priority: High
 tags: [sync, trait, codegen, macro]
@@ -39,6 +39,7 @@ Create the `Syncable` trait that database models implement to enable automatic s
 ## Example Usage
 
 ### Device-Owned Resource
+
 ```rust
 impl Syncable for locations::Model {
     const SYNC_MODEL: &'static str = "location";
@@ -58,6 +59,7 @@ impl Syncable for locations::Model {
 ```
 
 ### Shared Resource
+
 ```rust
 impl Syncable for tags::Model {
     const SYNC_MODEL: &'static str = "tag";

@@ -1,12 +1,12 @@
 ---
 id: LOC-005
-title: 'Virtual Locations via Pure Hierarchical Model'
+title: "Virtual Locations via Pure Hierarchical Model"
 status: To Do
-assignee: unassigned
+assignee: james
 parent: LOC-000
 priority: High
 tags: [core, vdfs, database, refactor]
-whitepaper: 'Section 4.1.2, 4.3'
+whitepaper: "Section 4.1.2, 4.3"
 ---
 
 ## Description

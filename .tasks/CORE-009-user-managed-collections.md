@@ -2,7 +2,7 @@
 id: CORE-009
 title: User-Managed Collections
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CORE-000
 priority: Medium
 tags: [core, vdfs, collections, organization]
@@ -21,7 +21,8 @@ Implement the ability for users to save selections of files into persistent coll
 4.  Develop a UI/CLI for managing collections.
 
 ## Acceptance Criteria
--   [ ] A user can create a new collection.
--   [ ] A user can add files and directories to a collection.
--   [ ] A user can view the contents of a collection.
--   [ ] A user can remove items from a collection.
+
+- [ ] A user can create a new collection.
+- [ ] A user can add files and directories to a collection.
+- [ ] A user can view the contents of a collection.
+- [ ] A user can remove items from a collection.

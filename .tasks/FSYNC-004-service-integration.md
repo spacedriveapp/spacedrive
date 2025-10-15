@@ -2,7 +2,7 @@
 id: FSYNC-004
 title: Service Integration & API
 status: To Do
-assignee: unassigned
+assignee: james
 parent: FSYNC-000
 priority: Medium
 tags: [api, integration, routes, events]
@@ -74,6 +74,7 @@ pub fn mount() -> Router {
 ```
 
 **API Types:**
+
 ```rust
 // Request/Response types
 
@@ -150,6 +151,7 @@ impl FileSyncService {
 ```
 
 **Event Emission Points:**
+
 - sync_now() → SyncStarted
 - monitor_sync() progress loop → SyncProgress
 - monitor_sync() completion → SyncCompleted
@@ -172,12 +174,15 @@ pub fn mount() -> Router {
 ## Files to Create/Modify
 
 **API Implementation:**
+
 - `core/src/api/sync.rs` - API routes and types
 
 **Event Integration:**
+
 - `core/src/service/file_sync/events.rs` - Event types and emission
 
 **Service Registration:**
+
 - `core/src/service/mod.rs` - Add file_sync to Services struct
 - `core/src/api/mod.rs` - Register sync router
 
@@ -203,10 +208,10 @@ pub fn mount() -> Router {
 
 ```typescript
 const conduit = await core.sync.createConduit({
-  sourceEntryId: 123,
-  targetEntryId: 456,
-  syncMode: "mirror",
-  schedule: "manual",
+	sourceEntryId: 123,
+	targetEntryId: 456,
+	syncMode: "mirror",
+	schedule: "manual",
 });
 ```
 
@@ -217,11 +222,11 @@ const handle = await core.sync.syncNow(conduit.id);
 
 // Subscribe to progress
 core.events.on("file_sync", (event) => {
-  if (event.type === "SyncProgress" && event.conduit_id === conduit.id) {
-    console.log(
-      `Progress: ${event.progress.completed_files}/${event.progress.total_files}`
-    );
-  }
+	if (event.type === "SyncProgress" && event.conduit_id === conduit.id) {
+		console.log(
+			`Progress: ${event.progress.completed_files}/${event.progress.total_files}`,
+		);
+	}
 });
 ```
 
@@ -238,15 +243,18 @@ console.log(progress.phase, progress.completed_bytes, progress.total_bytes);
 ## UI Integration Points
 
 **Location Context Menu:**
+
 - "Sync to..." option on directory right-click
 - Opens modal to select target location and configure sync mode
 
 **Sync Status Panel:**
+
 - List of all conduits with status indicators
 - Per-conduit progress bars during active sync
 - History view showing past generations
 
 **Settings:**
+
 - Configure schedule, bandwidth limits, conflict resolution
 - Enable/disable conduits
 - View and resolve conflicts

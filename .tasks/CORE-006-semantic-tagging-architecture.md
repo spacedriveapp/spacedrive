@@ -2,7 +2,7 @@
 id: CORE-006
 title: Semantic Tagging Architecture
 status: Done
-assignee: unassigned
+assignee: james
 parent: CORE-000
 priority: Medium
 tags: [core, vdfs, tagging, metadata]
@@ -21,6 +21,7 @@ Implement the graph-based semantic tagging architecture. This will allow users t
 4.  Develop a query system for finding entries based on their tags.
 
 ## Acceptance Criteria
--   [ ] A user can create and manage a hierarchy of tags.
--   [ ] A user can assign multiple tags to a file or directory.
--   [ ] A user can search for files based on their tags.
+
+- [ ] A user can create and manage a hierarchy of tags.
+- [ ] A user can assign multiple tags to a file or directory.
+- [ ] A user can search for files based on their tags.

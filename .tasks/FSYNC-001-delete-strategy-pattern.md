@@ -2,7 +2,7 @@
 id: FSYNC-001
 title: DeleteJob Strategy Pattern & Remote Deletion
 status: To Do
-assignee: unassigned
+assignee: james
 parent: FSYNC-000
 priority: High
 tags: [delete, strategy, remote, networking]
@@ -20,6 +20,7 @@ Bring DeleteJob up to parity with FileCopyJob's architecture by implementing the
 ## Problem
 
 File Sync needs to delete files on remote devices as part of Mirror and Bidirectional sync modes. The current DeleteJob lacks:
+
 - Strategy pattern for routing (FileCopyJob has this)
 - Cross-device deletion capability
 - Consistent architecture with other file operations
@@ -52,6 +53,7 @@ pub struct DeleteResult {
 ### 2. Implement LocalDeleteStrategy
 
 Move existing DeleteJob logic into LocalDeleteStrategy:
+
 - `move_to_trash()` for DeleteMode::Trash
 - `permanent_delete()` for DeleteMode::Permanent
 - `secure_delete()` for DeleteMode::Secure
@@ -73,6 +75,7 @@ impl DeleteStrategy for RemoteDeleteStrategy {
 ```
 
 **Network Protocol:**
+
 ```rust
 pub enum FileDeleteMessage {
     Request {
@@ -113,6 +116,7 @@ impl DeleteStrategyRouter {
 ### 5. Update DeleteJob to Use Strategies
 
 Refactor DeleteJob::run() to:
+
 1. Select strategy via DeleteStrategyRouter
 2. Execute deletion using selected strategy
 3. Aggregate results and return DeleteOutput
@@ -120,14 +124,17 @@ Refactor DeleteJob::run() to:
 ## Files to Create/Modify
 
 **New Files:**
+
 - `core/src/ops/files/delete/strategy.rs` - Strategy trait and implementations
 - `core/src/ops/files/delete/routing.rs` - Strategy router
 
 **Modified Files:**
+
 - `core/src/ops/files/delete/job.rs` - Refactor to use strategies
 - `core/src/ops/files/delete/mod.rs` - Export new modules
 
 **Networking:**
+
 - `core/src/service/networking/handlers.rs` - Add file_delete handler
 
 ## Acceptance Criteria
@@ -145,6 +152,7 @@ Refactor DeleteJob::run() to:
 ## Technical Notes
 
 **Why Strategy Pattern?**
+
 - Consistent with FileCopyJob architecture (CopyStrategy pattern)
 - Separates concerns: routing logic vs. deletion logic
 - Easy to add new strategies (CloudDeleteStrategy for S3/R2)
@@ -152,6 +160,7 @@ Refactor DeleteJob::run() to:
 
 **Networking Integration:**
 Reuses existing P2P infrastructure:
+
 - QUIC transport for reliability
 - Compression for small message payloads
 - Request/response pattern with timeout handling

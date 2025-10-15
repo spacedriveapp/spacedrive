@@ -2,7 +2,7 @@
 id: SEC-005
 title: Secure Credential Vault
 status: To Do
-assignee: unassigned
+assignee: james
 parent: SEC-000
 priority: High
 tags: [security, credentials, vault, cloud]
@@ -21,6 +21,7 @@ Implement a secure credential vault for storing API keys and other secrets for c
 4.  Integrate the credential vault with the cloud volume system.
 
 ## Acceptance Criteria
--   [ ] Credentials are encrypted at rest in the database.
--   [ ] The master encryption key is stored securely.
--   [ ] The system can retrieve credentials to authenticate with cloud services.
+
+- [ ] Credentials are encrypted at rest in the database.
+- [ ] The master encryption key is stored securely.
+- [ ] The system can retrieve credentials to authenticate with cloud services.

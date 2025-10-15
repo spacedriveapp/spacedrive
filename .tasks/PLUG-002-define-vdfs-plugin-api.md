@@ -2,7 +2,7 @@
 id: PLUG-002
 title: Define and Implement VDFS Plugin API Bridge
 status: In Progress
-assignee: unassigned
+assignee: james
 parent: PLUG-000
 priority: High
 tags: [plugins, wasm, api, vdfs, wire]
@@ -40,9 +40,10 @@ The key architectural insight: expose ONE generic `spacedrive_call()` function t
 - [ ] End-to-end integration testing
 
 ## Acceptance Criteria
--   [x] A clear API definition document is created.
--   [ ] A plugin can call a host function to interact with the VDFS (e.g., read a file).
--   [x] The API enforces the principle of least privilege.
+
+- [x] A clear API definition document is created.
+- [ ] A plugin can call a host function to interact with the VDFS (e.g., read a file).
+- [x] The API enforces the principle of least privilege.
 
 ## Implementation Files
 

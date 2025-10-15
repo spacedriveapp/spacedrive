@@ -2,7 +2,7 @@
 id: SEC-002
 title: SQLCipher for At-Rest Library Encryption
 status: To Do
-assignee: unassigned
+assignee: james
 parent: SEC-000
 priority: High
 tags: [security, database, core, encryption]

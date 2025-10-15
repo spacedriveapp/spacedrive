@@ -2,7 +2,7 @@
 id: LSYNC-002
 title: Shared Metadata Sync (Albums, Tags) with HLC
 status: To Do
-assignee: unassigned
+assignee: james
 parent: LSYNC-000
 priority: High
 tags: [sync, metadata, albums, tags, hlc, shared-resources]
@@ -19,11 +19,13 @@ Implement synchronization for truly shared resources (Albums, Tags) using the HL
 ## Data Classification
 
 **Shared Resources** (this task):
+
 - Tags: Global tag definitions (no device owner)
 - Albums: Collections referencing entries from multiple devices
 - UserMetadata: When scoped to ContentIdentity (content-universal)
 
 **Device-Owned** (separate - state-based):
+
 - Locations: Owned by specific device
 - Entries: Owned via location's device
 - (Handled by state-based sync, not this task)
@@ -54,6 +56,7 @@ Implement synchronization for truly shared resources (Albums, Tags) using the HL
 ## Conflict Examples
 
 ### Tag Name Collision
+
 ```
 Device A: Creates tag "Vacation" → HLC(1000,A)
 Device B: Creates tag "Vacation" → HLC(1001,B)
@@ -64,6 +67,7 @@ Resolution: Deterministic UUID from name
 ```
 
 ### Album Concurrent Edits
+
 ```
 Device A: Adds entry-1 to "Summer" → HLC(1000,A)
 Device B: Adds entry-2 to "Summer" → HLC(1001,B)

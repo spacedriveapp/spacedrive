@@ -2,7 +2,7 @@
 id: CORE-012
 title: Resource Type Registry (Swift)
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CORE-011
 priority: High
 tags: [client, swift, codegen, cache]

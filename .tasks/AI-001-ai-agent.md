@@ -2,7 +2,7 @@
 id: AI-001
 title: Develop AI Agent for Proactive Assistance
 status: To Do
-assignee: unassigned
+assignee: james
 parent: AI-000
 priority: High
 tags: [ai, agent, core]
@@ -21,6 +21,7 @@ Implement the core AI agent that observes user behavior and proactively suggests
 4.  Integrate with local models via `Ollama` for privacy-first analysis.
 
 ## Acceptance Criteria
--   [ ] The agent can detect when a user repeatedly performs the same organizational task.
--   [ ] The agent can propose a valid, pre-visualized `Action` to automate that task.
--   [ ] The user can approve or deny the suggestion.
+
+- [ ] The agent can detect when a user repeatedly performs the same organizational task.
+- [ ] The agent can propose a valid, pre-visualized `Action` to automate that task.
+- [ ] The user can approve or deny the suggestion.

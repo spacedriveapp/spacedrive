@@ -2,7 +2,7 @@
 id: FSYNC-000
 title: File Sync System (Epic)
 status: To Do
-assignee: unassigned
+assignee: james
 parent: null
 priority: High
 tags: [sync, service, epic, index-driven]
@@ -29,6 +29,7 @@ Implement File Sync system - an index-driven service that orchestrates content s
 ## Architecture Decision: Service vs Job
 
 **Why FileSyncService (not FileSyncJob):**
+
 - Jobs cannot spawn child jobs in Spacedrive's architecture
 - FileSyncJob would duplicate FileCopyJob's complex routing logic
 - Bidirectional sync needs persistent state management beyond job lifecycle
@@ -38,12 +39,15 @@ Implement File Sync system - an index-driven service that orchestrates content s
 ## Sync Modes
 
 ### Mirror Mode (MVP)
+
 One-way sync: source → target. Creates exact copy with automatic cleanup.
 
 ### Bidirectional Mode
+
 Two-way sync with conflict detection and resolution. Changes flow both directions.
 
 ### Selective Mode (Future)
+
 Intelligent local storage management with access pattern tracking.
 
 **Note:** Archive mode removed from design - users can achieve this with FileCopyJob + delete.

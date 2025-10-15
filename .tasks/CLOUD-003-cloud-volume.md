@@ -2,7 +2,7 @@
 id: CLOUD-003
 title: Cloud Storage Provider as a Volume
 status: In Progress
-assignee: unassigned
+assignee: james
 parent: CLOUD-000
 priority: High
 tags: [cloud, storage, volume, s3]
@@ -41,28 +41,34 @@ Implement support for a cloud storage provider (e.g., S3-compatible service) as 
     - Content phase uses backend for content hashing
 
 ## Acceptance Criteria
--   [x] A user can add an S3 bucket as a new location in their library.
--   [ ] Files can be copied to and from the cloud volume.
--   [x] The cloud volume can be indexed like any other location.
+
+- [x] A user can add an S3 bucket as a new location in their library.
+- [ ] Files can be copied to and from the cloud volume.
+- [x] The cloud volume can be indexed like any other location.
 
 ## Implementation Files
 
 **Core Backend:**
+
 - `core/src/volume/backend/mod.rs` - VolumeBackend trait
 - `core/src/volume/backend/local.rs` - LocalBackend implementation
 - `core/src/volume/backend/cloud.rs` - CloudBackend with OpenDAL
 
 **Credential Management:**
+
 - `core/src/crypto/cloud_credentials.rs` - CloudCredentialManager
 
 **Actions:**
+
 - `core/src/ops/volumes/add_cloud/` - VolumeAddCloudAction
 - `core/src/ops/volumes/remove_cloud/` - VolumeRemoveCloudAction
 
 **CLI:**
+
 - `apps/cli/src/domains/volume/` - CLI commands
 
 **Query System:**
+
 - `core/src/domain/entry.rs` - Cloud path support
 - `core/src/ops/files/query/directory_listing.rs` - Cloud directory browsing
 - `core/src/ops/files/query/file_by_path.rs` - Cloud file lookup

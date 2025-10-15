@@ -2,7 +2,7 @@
 id: CORE-010
 title: File Ingestion Workflow
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CORE-000
 priority: High
 tags: [core, vdfs, ingestion, workflow]
@@ -21,6 +21,7 @@ Implement the "Ingest Location" workflow, which provides a quarantine zone for n
 4.  Allow users to configure the processing steps for each Ingest Location.
 
 ## Acceptance Criteria
--   [ ] A user can configure an Ingest Location.
--   [ ] New files uploaded to the Ingest Location are processed according to the configured workflow.
--   [ ] Processed files are moved to their final destination in the library.
+
+- [ ] A user can configure an Ingest Location.
+- [ ] New files uploaded to the Ingest Location are processed according to the configured workflow.
+- [ ] Processed files are moved to their final destination in the library.

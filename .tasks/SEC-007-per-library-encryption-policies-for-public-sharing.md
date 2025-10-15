@@ -2,7 +2,7 @@
 id: SEC-007
 title: Per-Library Encryption Policies for Public Sharing
 status: To Do
-assignee: unassigned
+assignee: james
 parent: SEC-000
 priority: High
 tags: [security, encryption, sharing, policies]
@@ -21,7 +21,8 @@ Implement per-library encryption policies to enable secure public sharing of fil
 4.  For private libraries, use a user-specific key for encryption.
 
 ## Acceptance Criteria
--   [ ] A user can create a library with a specific encryption policy.
--   [ ] The encryption policy is enforced for all files in the library.
--   [ ] Files in a publicly shared library can be decrypted by anyone with the public key.
--   [ ] Files in a private library can only be decrypted by the owner.
+
+- [ ] A user can create a library with a specific encryption policy.
+- [ ] The encryption policy is enforced for all files in the library.
+- [ ] Files in a publicly shared library can be decrypted by anyone with the public key.
+- [ ] Files in a private library can only be decrypted by the owner.

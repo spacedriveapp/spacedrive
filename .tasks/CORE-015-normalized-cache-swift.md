@@ -2,7 +2,7 @@
 id: CORE-015
 title: Normalized Client Cache (Swift)
 status: To Do
-assignee: unassigned
+assignee: james
 priority: High
 tags: [client, swift, cache, performance]
 depends_on: [CORE-012]

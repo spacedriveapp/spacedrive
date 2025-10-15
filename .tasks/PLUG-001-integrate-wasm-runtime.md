@@ -2,7 +2,7 @@
 id: PLUG-001
 title: Integrate WASM Runtime
 status: In Progress
-assignee: unassigned
+assignee: james
 parent: PLUG-000
 priority: High
 tags: [plugins, wasm, runtime, wasmer]
@@ -33,9 +33,10 @@ Integrate a WebAssembly runtime (e.g., Wasmer or Wasmtime) into the Spacedrive c
 - [ ] Add hot-reload support for development
 
 ## Acceptance Criteria
--   [x] A WASM runtime is successfully integrated into the Spacedrive core.
--   [x] The `PluginManager` can load and run a WASM module from a file.
--   [x] The "hello world" plugin executes successfully and returns the expected output.
+
+- [x] A WASM runtime is successfully integrated into the Spacedrive core.
+- [x] The `PluginManager` can load and run a WASM module from a file.
+- [x] The "hello world" plugin executes successfully and returns the expected output.
 
 ## Implementation Files
 

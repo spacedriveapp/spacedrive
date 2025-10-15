@@ -2,7 +2,7 @@
 id: FSYNC-003
 title: FileSyncService Core Implementation
 status: To Do
-assignee: unassigned
+assignee: james
 parent: FSYNC-000
 priority: High
 tags: [service, core, orchestration, resolver]
@@ -33,6 +33,7 @@ pub struct FileSyncService {
 ```
 
 **Key Components:**
+
 - **ConduitManager**: CRUD operations for sync conduits
 - **SyncResolver**: Calculates operations from index queries
 - **Active syncs tracker**: Prevents duplicate syncs, enables progress monitoring
@@ -70,6 +71,7 @@ impl ConduitManager {
 ```
 
 **Responsibilities:**
+
 - Validate entries are directories before creating conduit
 - Check for duplicate conduits
 - Manage generation records
@@ -104,6 +106,7 @@ pub struct DirectionalOps {
 ```
 
 **Index Query Logic:**
+
 1. Load entries recursively for both source and target
 2. Build path maps (relative path → entry)
 3. Apply mode-specific resolution:
@@ -112,6 +115,7 @@ pub struct DirectionalOps {
    - **Selective**: (future) access pattern filtering
 
 **Key Method:**
+
 ```rust
 fn resolve_mirror(
     source_map: &HashMap<PathBuf, entry::Model>,
@@ -186,6 +190,7 @@ pub enum ConflictStrategy {
 ## Files to Create
 
 **Core Service:**
+
 - `core/src/service/file_sync/mod.rs` - Main service implementation
 - `core/src/service/file_sync/conduit.rs` - ConduitManager
 - `core/src/service/file_sync/resolver.rs` - SyncResolver
@@ -225,6 +230,7 @@ async fn complete_sync_with_verification(...) -> Result<()> {
 ```
 
 **Why Trust Watcher?**
+
 - Single source of truth: Watcher maintains index consistency
 - No duplication: Sync doesn't need filesystem semantics
 - Handles concurrent changes: User modifications during sync detected naturally
@@ -233,11 +239,13 @@ async fn complete_sync_with_verification(...) -> Result<()> {
 ## Performance Considerations
 
 **Index Queries:**
+
 - Use location_id filtering for efficient entry queries
 - Implement pagination for very large directories
 - Cache path maps during resolution
 
 **Job Batching:**
+
 - Parallel copy jobs (configurable via parallel_transfers setting)
 - Sequential deletes after all copies complete
 - Progress aggregation from job manager

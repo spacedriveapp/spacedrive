@@ -203,7 +203,7 @@ async fn check_launchd_status(instance: Option<String>) -> Result<()> {
 	if !plist_path.exists() {
 		println!("Daemon auto-start: Not installed");
 		println!();
-		println!("To install: sd daemon install");
+		println!("To install: sd-cli daemon install");
 		return Ok(());
 	}
 
@@ -240,23 +240,229 @@ async fn check_launchd_status(instance: Option<String>) -> Result<()> {
 	Ok(())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) -> Result<()> {
+	use std::fs;
+	use std::io::Write;
+
+	let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+	let systemd_user_dir = home.join(".config/systemd/user");
+
+	// Create systemd user directory if it doesn't exist
+	fs::create_dir_all(&systemd_user_dir)?;
+
+	// Determine service filename based on instance
+	let service_name = if let Some(ref inst) = instance {
+		format!("spacedrive-daemon@{}.service", inst)
+	} else {
+		"spacedrive-daemon.service".to_string()
+	};
+	let service_path = systemd_user_dir.join(&service_name);
+
+	// Get the current daemon binary path
+	let current_exe = std::env::current_exe()?;
+	let daemon_path = current_exe
+		.parent()
+		.ok_or_else(|| anyhow::anyhow!("Could not determine binary directory"))?
+		.join("sd-daemon");
+
+	if !daemon_path.exists() {
+		return Err(anyhow::anyhow!(
+			"Daemon binary not found at {}. Ensure both 'sd-cli' and 'sd-daemon' are in the same directory.",
+			daemon_path.display()
+		));
+	}
+
+	// Build ExecStart command
+	let mut exec_start = format!("{} --data-dir {}", daemon_path.display(), data_dir.display());
+	if let Some(ref inst) = instance {
+		exec_start.push_str(&format!(" --instance {}", inst));
+	}
+
+	// Build the systemd service unit file
+	let service_content = format!(
+		r#"[Unit]
+Description=Spacedrive Daemon{}
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={}
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+"#,
+		if let Some(ref inst) = instance {
+			format!(" ({})", inst)
+		} else {
+			String::new()
+		},
+		exec_start
+	);
+
+	// Write the service file
+	let mut file = fs::File::create(&service_path)?;
+	file.write_all(service_content.as_bytes())?;
+
+	println!("Created systemd service: {}", service_path.display());
+
+	// Reload systemd daemon
+	let _ = std::process::Command::new("systemctl")
+		.arg("--user")
+		.arg("daemon-reload")
+		.output();
+
+	// Enable the service
+	let output = std::process::Command::new("systemctl")
+		.arg("--user")
+		.arg("enable")
+		.arg(&service_name)
+		.output()?;
+
+	if !output.status.success() {
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		return Err(anyhow::anyhow!("Failed to enable systemd service: {}", stderr));
+	}
+
+	// Start the service
+	let output = std::process::Command::new("systemctl")
+		.arg("--user")
+		.arg("start")
+		.arg(&service_name)
+		.output()?;
+
+	if !output.status.success() {
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		return Err(anyhow::anyhow!("Failed to start systemd service: {}", stderr));
+	}
+
+	println!("Daemon installed and started successfully!");
+	println!("The daemon will start automatically on login.");
+	println!();
+	println!("Useful commands:");
+	println!("  systemctl --user status {}", service_name);
+	println!("  journalctl --user -u {} -f", service_name);
+
+	Ok(())
+}
+
+#[cfg(target_os = "linux")]
+async fn uninstall_launchd_service(instance: Option<String>) -> Result<()> {
+	use std::fs;
+
+	let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+	let systemd_user_dir = home.join(".config/systemd/user");
+
+	let service_name = if let Some(ref inst) = instance {
+		format!("spacedrive-daemon@{}.service", inst)
+	} else {
+		"spacedrive-daemon.service".to_string()
+	};
+	let service_path = systemd_user_dir.join(&service_name);
+
+	if !service_path.exists() {
+		println!("Daemon auto-start is not installed.");
+		return Ok(());
+	}
+
+	// Stop the service
+	let _ = std::process::Command::new("systemctl")
+		.arg("--user")
+		.arg("stop")
+		.arg(&service_name)
+		.output();
+
+	// Disable the service
+	let _ = std::process::Command::new("systemctl")
+		.arg("--user")
+		.arg("disable")
+		.arg(&service_name)
+		.output();
+
+	// Remove the service file
+	fs::remove_file(&service_path)?;
+
+	// Reload systemd daemon
+	let _ = std::process::Command::new("systemctl")
+		.arg("--user")
+		.arg("daemon-reload")
+		.output();
+
+	println!("Daemon auto-start uninstalled successfully!");
+
+	Ok(())
+}
+
+#[cfg(target_os = "linux")]
+async fn check_launchd_status(instance: Option<String>) -> Result<()> {
+	let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+	let systemd_user_dir = home.join(".config/systemd/user");
+
+	let service_name = if let Some(ref inst) = instance {
+		format!("spacedrive-daemon@{}.service", inst)
+	} else {
+		"spacedrive-daemon.service".to_string()
+	};
+	let service_path = systemd_user_dir.join(&service_name);
+
+	if !service_path.exists() {
+		println!("Daemon auto-start: Not installed");
+		println!();
+		println!("To install: sd-cli daemon install");
+		return Ok(());
+	}
+
+	println!("Daemon auto-start: Installed");
+	println!("Service file: {}", service_path.display());
+	println!();
+
+	// Check service status
+	let output = std::process::Command::new("systemctl")
+		.arg("--user")
+		.arg("is-active")
+		.arg(&service_name)
+		.output()?;
+
+	let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+	match status.as_str() {
+		"active" => println!("Service status: ● Active (running)"),
+		"inactive" => println!("Service status: ○ Inactive (stopped)"),
+		"failed" => println!("Service status: Failed"),
+		_ => println!("Service status: {}", status),
+	}
+
+	println!();
+	println!("Useful commands:");
+	println!("  systemctl --user status {}", service_name);
+	println!("  systemctl --user start {}", service_name);
+	println!("  systemctl --user stop {}", service_name);
+	println!("  journalctl --user -u {} -f", service_name);
+
+	Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 async fn install_launchd_service(_data_dir: PathBuf, _instance: Option<String>) -> Result<()> {
 	Err(anyhow::anyhow!(
-		"Daemon auto-start is currently only supported on macOS.\nLinux systemd support coming soon."
+		"Daemon auto-start is currently only supported on macOS and Linux."
 	))
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 async fn uninstall_launchd_service(_instance: Option<String>) -> Result<()> {
 	Err(anyhow::anyhow!(
-		"Daemon auto-start is currently only supported on macOS.\nLinux systemd support coming soon."
+		"Daemon auto-start is currently only supported on macOS and Linux."
 	))
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 async fn check_launchd_status(_instance: Option<String>) -> Result<()> {
 	Err(anyhow::anyhow!(
-		"Daemon auto-start is currently only supported on macOS.\nLinux systemd support coming soon."
+		"Daemon auto-start is currently only supported on macOS and Linux."
 	))
 }

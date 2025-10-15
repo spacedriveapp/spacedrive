@@ -2,7 +2,7 @@
 id: CLOUD-000
 title: "Epic: Cloud as a Peer"
 status: To Do
-assignee: unassigned
+assignee: james
 priority: High
 tags: [epic, cloud, networking, infrastructure]
 whitepaper: Section 5

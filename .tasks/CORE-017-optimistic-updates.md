@@ -2,7 +2,7 @@
 id: CORE-017
 title: Optimistic Updates for Client Cache
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CORE-015
 priority: Medium
 tags: [client, cache, ux, optimistic]
@@ -28,21 +28,24 @@ Implement optimistic updates in the normalized cache, allowing instant UI feedba
 // 1. Optimistic update (instant UI)
 const pendingId = uuid();
 await cache.updateOptimistically(pendingId, {
-  id: albumId,
-  name: newName,
-  ...optimisticAlbum
+	id: albumId,
+	name: newName,
+	...optimisticAlbum,
 });
 
 try {
-  // 2. Send action to server
-  const confirmed = await client.action('albums.rename.v1', { id: albumId, name: newName });
+	// 2. Send action to server
+	const confirmed = await client.action("albums.rename.v1", {
+		id: albumId,
+		name: newName,
+	});
 
-  // 3. Commit (replace optimistic with confirmed)
-  await cache.commitOptimisticUpdate(pendingId, confirmed);
+	// 3. Commit (replace optimistic with confirmed)
+	await cache.commitOptimisticUpdate(pendingId, confirmed);
 } catch (error) {
-  // 4. Rollback on error
-  await cache.rollbackOptimisticUpdate(pendingId);
-  throw error;
+	// 4. Rollback on error
+	await cache.rollbackOptimisticUpdate(pendingId);
+	throw error;
 }
 ```
 

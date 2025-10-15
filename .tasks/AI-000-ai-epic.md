@@ -2,7 +2,7 @@
 id: AI-000
 title: "Epic: AI & Intelligence"
 status: To Do
-assignee: unassigned
+assignee: james
 priority: High
 tags: [epic, ai, agent]
 whitepaper: Section 4.6

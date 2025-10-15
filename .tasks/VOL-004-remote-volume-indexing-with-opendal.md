@@ -2,7 +2,7 @@
 id: VOL-004
 title: Remote Volume Indexing with OpenDAL
 status: Done
-assignee: unassigned
+assignee: james
 parent: VOL-000
 priority: High
 tags: [volume, remote-indexing, opendal, cloud]
@@ -38,13 +38,15 @@ Integrate the OpenDAL library to enable indexing of remote storage services like
     - Secure credential storage in OS keyring
 
 ## Acceptance Criteria
--   [x] A user can add a remote storage service as a new location in their library.
--   [x] Files on the remote storage can be indexed and browsed like any other location.
--   [x] The system can handle authentication and configuration for different remote services.
+
+- [x] A user can add a remote storage service as a new location in their library.
+- [x] Files on the remote storage can be indexed and browsed like any other location.
+- [x] The system can handle authentication and configuration for different remote services.
 
 ## Currently Supported Services
 
 **S3-Compatible (via OpenDAL):**
+
 - Amazon S3
 - Cloudflare R2
 - MinIO (self-hosted)
@@ -53,6 +55,7 @@ Integrate the OpenDAL library to enable indexing of remote storage services like
 - DigitalOcean Spaces
 
 **Planned:**
+
 - Google Drive (OAuth required)
 - Dropbox (OAuth required)
 - OneDrive (OAuth required)

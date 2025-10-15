@@ -2,7 +2,7 @@
 id: NET-003
 title: Spacedrop Protocol
 status: To Do
-assignee: unassigned
+assignee: james
 parent: NET-000
 priority: High
 tags: [networking, spacedrop, sharing, p2p]
@@ -21,6 +21,7 @@ Implement the Spacedrop protocol for ephemeral, secure file sharing between non-
 4.  Integrate the Spacedrop functionality with the UI/CLI.
 
 ## Acceptance Criteria
--   [ ] Two non-paired devices can discover each other on a local network.
--   [ ] A user can initiate a file transfer to another device using Spacedrop.
--   [ ] The file transfer is secure and efficient.
+
+- [ ] Two non-paired devices can discover each other on a local network.
+- [ ] A user can initiate a file transfer to another device using Spacedrop.
+- [ ] The file transfer is secure and efficient.

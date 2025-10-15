@@ -2,7 +2,7 @@
 id: SEARCH-001
 title: Asynchronous SearchJob
 status: To Do
-assignee: unassigned
+assignee: james
 parent: SEARCH-000
 priority: High
 tags: [search, jobs, async]
@@ -21,6 +21,7 @@ Implement an asynchronous `SearchJob` that can perform complex search queries in
 4.  The job should provide progress updates and return the search results upon completion.
 
 ## Acceptance Criteria
--   [ ] A `SearchJob` can be dispatched to the `JobManager`.
--   [ ] The job can execute a search query asynchronously.
--   [ ] The job returns the correct search results.
+
+- [ ] A `SearchJob` can be dispatched to the `JobManager`.
+- [ ] The job can execute a search query asynchronously.
+- [ ] The job returns the correct search results.

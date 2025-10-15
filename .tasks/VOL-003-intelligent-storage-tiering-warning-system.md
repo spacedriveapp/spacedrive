@@ -2,7 +2,7 @@
 id: VOL-003
 title: Intelligent Storage Tiering Warning System
 status: To Do
-assignee: unassigned
+assignee: james
 parent: VOL-000
 priority: Medium
 tags: [volume, storage-tiering, warnings, ai]
@@ -21,6 +21,7 @@ Implement the intelligent warning system that alerts the user when there is a mi
 4.  Integrate the warning system with the UI to display the warnings to the user.
 
 ## Acceptance Criteria
--   [ ] The system can detect mismatches between `LogicalClass` and `PhysicalClass`.
--   [ ] The system generates a clear and helpful warning message for the user.
--   [ ] The user is notified of the warning through the UI.
+
+- [ ] The system can detect mismatches between `LogicalClass` and `PhysicalClass`.
+- [ ] The system generates a clear and helpful warning message for the user.
+- [ ] The user is notified of the warning through the UI.

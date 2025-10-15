@@ -2,7 +2,7 @@
 id: FSYNC-002
 title: Database Schema & Entities
 status: To Do
-assignee: unassigned
+assignee: james
 parent: FSYNC-000
 priority: High
 tags: [database, schema, migration, entities]
@@ -93,12 +93,14 @@ pub struct Model {
 ### 1. Create Entity Files
 
 **SyncConduit Entity:**
+
 - `core/src/entities/sync_conduit.rs`
 - Define Model struct with all fields
 - Implement Relation enum (foreign keys to Entry)
 - Add SyncMode enum with as_str() and from_str()
 
 **SyncGeneration Entity:**
+
 - `core/src/entities/sync_generation.rs`
 - Define Model struct
 - Implement Relation enum (foreign key to SyncConduit)
@@ -206,6 +208,7 @@ Both source and target entries must be directories (kind=1). The conduit creates
 ## Technical Notes
 
 **Verification Status Values:**
+
 - `unverified` - Sync completed, not yet verified
 - `waiting_watcher` - Waiting for filesystem watcher to update index
 - `waiting_library_sync` - Waiting for library sync to propagate changes
@@ -214,6 +217,7 @@ Both source and target entries must be directories (kind=1). The conduit creates
 
 **Why Trust Watcher?**
 Option A (Trust Watcher) chosen over Option B (Eager Update) because:
+
 - Single source of truth: Watcher already maintains index consistency
 - No duplication: Sync service doesn't need filesystem semantics
 - Eventual consistency: System naturally converges to consistent state

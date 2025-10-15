@@ -2,7 +2,7 @@
 id: LSYNC-009
 title: Hybrid Logical Clock (HLC) Implementation
 status: Done
-assignee: unassigned
+assignee: james
 parent: LSYNC-000
 priority: High
 tags: [sync, hlc, distributed-systems, leaderless]
@@ -23,6 +23,7 @@ Implement Hybrid Logical Clocks (HLC) for ordering shared resource changes in a 
 **New Solution**: Each device generates HLC independently → no bottleneck, works offline
 
 **Key Properties**:
+
 - Total ordering (any two HLCs comparable)
 - Causality tracking (if A→B then HLC(A) < HLC(B))
 - Distributed generation (no coordination needed)
@@ -111,11 +112,13 @@ impl HLCGenerator {
 ## Migration
 
 **Remove**:
+
 - `sync_leadership` field from devices table
 - `LeadershipManager` struct
 - `is_leader()` checks
 
 **Add**:
+
 - `HLC` type
 - `HLCGenerator` in SyncService
 - HLC column in `shared_changes` table

@@ -2,7 +2,7 @@
 id: PLUG-003
 title: Develop Production Extension (Photos or Email)
 status: To Do
-assignee: unassigned
+assignee: james
 parent: PLUG-000
 priority: High
 tags: [plugins, wasm, extension, production]
@@ -16,6 +16,7 @@ related_tasks: [PLUG-001, PLUG-002]
 Develop a production-ready extension as a real-world validation of the WASM extension system. This will serve as the canonical example for third-party developers and demonstrate the full capabilities of the extension platform.
 
 **Candidates:**
+
 - **Photos Extension**: AI-powered photo management (face recognition, places, moments) - Currently "In Progress"
 - **Email Archive Extension**: Gmail/Outlook ingestion with OCR and classification - Design complete
 
@@ -39,20 +40,23 @@ Develop a production-ready extension as a real-world validation of the WASM exte
     - Job dispatch and monitoring
 
 ## Acceptance Criteria
--   [ ] Extension can be loaded and initialized by the `PluginManager`
--   [ ] Extension creates and queries its own database tables
--   [ ] Extension can dispatch jobs with full progress tracking
--   [ ] Extension integrates with AI operations (OCR, classification, embeddings)
--   [ ] Extension data is searchable and accessible in the library
--   [ ] Extension can be distributed as a standalone .wasm + manifest.json
+
+- [ ] Extension can be loaded and initialized by the `PluginManager`
+- [ ] Extension creates and queries its own database tables
+- [ ] Extension can dispatch jobs with full progress tracking
+- [ ] Extension integrates with AI operations (OCR, classification, embeddings)
+- [ ] Extension data is searchable and accessible in the library
+- [ ] Extension can be distributed as a standalone .wasm + manifest.json
 
 ## Implementation Files
 
 **Extension Code:**
+
 - extensions/photos/ - Photos extension (in progress)
 - extensions/finance/ - Finance extension (planned)
 
 **Supporting Infrastructure:**
+
 - core/src/ops/extension_test/ - Test operations
 - workbench/core/extensions/ - Design documents
 

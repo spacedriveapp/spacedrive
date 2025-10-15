@@ -2,7 +2,7 @@
 id: CLOUD-002
 title: Asynchronous Relay Server
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CLOUD-000
 priority: High
 tags: [cloud, networking, relay, sharing]
@@ -21,6 +21,7 @@ Implement the relay server functionality that enables asynchronous communication
 4.  Implement the logic for clients to connect to and use the relay server when direct P2P connection is not possible.
 
 ## Acceptance Criteria
--   [ ] The relay server can be deployed and run as a standalone service.
--   [ ] Two peers can communicate asynchronously through the relay server.
--   [ ] The system gracefully falls back to using the relay when direct connection fails.
+
+- [ ] The relay server can be deployed and run as a standalone service.
+- [ ] Two peers can communicate asynchronously through the relay server.
+- [ ] The system gracefully falls back to using the relay when direct connection fails.

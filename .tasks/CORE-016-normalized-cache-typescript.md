@@ -2,7 +2,7 @@
 id: CORE-016
 title: Normalized Client Cache (TypeScript)
 status: To Do
-assignee: unassigned
+assignee: james
 priority: High
 tags: [client, typescript, react, cache, performance]
 depends_on: [CORE-013]
@@ -27,28 +27,28 @@ Implement the normalized client cache for web/desktop (Electron) apps. Same arch
 
 ```typescript
 function useCachedQuery<T>(
-  method: string,
-  input: any,
+	method: string,
+	input: any,
 ): { data: T[] | null; loading: boolean; error: Error | null } {
-  const cache = useContext(CacheContext);
-  const [data, setData] = useState<T[] | null>(null);
+	const cache = useContext(CacheContext);
+	const [data, setData] = useState<T[] | null>(null);
 
-  useEffect(() => {
-    const queryKey = cache.generateQueryKey(method, input);
+	useEffect(() => {
+		const queryKey = cache.generateQueryKey(method, input);
 
-    // Subscribe to cache changes
-    const unsubscribe = cache.subscribe(queryKey, () => {
-      const result = cache.getQueryResult<T>(queryKey);
-      setData(result);
-    });
+		// Subscribe to cache changes
+		const unsubscribe = cache.subscribe(queryKey, () => {
+			const result = cache.getQueryResult<T>(queryKey);
+			setData(result);
+		});
 
-    // Initial fetch
-    cache.query<T>(method, input).then(setData);
+		// Initial fetch
+		cache.query<T>(method, input).then(setData);
 
-    return unsubscribe;
-  }, [method, JSON.stringify(input)]);
+		return unsubscribe;
+	}, [method, JSON.stringify(input)]);
 
-  return { data, loading: data === null, error: null };
+	return { data, loading: data === null, error: null };
 }
 ```
 

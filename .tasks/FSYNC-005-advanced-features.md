@@ -2,7 +2,7 @@
 id: FSYNC-005
 title: Advanced Features (Scheduling, Progress, Conflicts)
 status: To Do
-assignee: unassigned
+assignee: james
 parent: FSYNC-000
 priority: Medium
 tags: [scheduler, progress, conflicts, polish]
@@ -66,6 +66,7 @@ impl FileSyncService {
 ```
 
 **Schedule Formats:**
+
 - `"manual"` - Only triggered via API
 - `"instant"` - Triggers on filesystem change (requires watcher integration)
 - `"interval:5m"` - Every 5 minutes
@@ -73,6 +74,7 @@ impl FileSyncService {
 - `"interval:1d"` - Daily
 
 **Watcher Integration (Instant Mode):**
+
 ```rust
 // Subscribe to location watcher events
 // When files change in source or target directory:
@@ -141,6 +143,7 @@ impl FileSyncService {
 ```
 
 **Progress Tracking:**
+
 - Query job manager for individual job progress
 - Aggregate totals across all active jobs
 - Calculate transfer speed from job metrics
@@ -209,6 +212,7 @@ impl ConflictResolver {
 ```
 
 **Conflict Filename Format:**
+
 ```
 original.txt
 → original (conflict 2025-10-14 Device-Name).txt
@@ -239,6 +243,7 @@ impl FileSyncService {
 ```
 
 **Metrics to Track:**
+
 - Total conduits created
 - Active sync count
 - Syncs completed (24h, 7d, 30d)
@@ -250,15 +255,19 @@ impl FileSyncService {
 ## Files to Create
 
 **Scheduler:**
+
 - `core/src/service/file_sync/scheduler.rs` - Background scheduler
 
 **Progress:**
+
 - `core/src/service/file_sync/progress.rs` - Progress aggregation
 
 **Conflicts:**
+
 - `core/src/service/file_sync/conflict.rs` - Conflict resolution strategies (enhanced)
 
 **Monitoring:**
+
 - `core/src/service/file_sync/telemetry.rs` - Telemetry and metrics
 
 ## Acceptance Criteria
@@ -280,18 +289,21 @@ impl FileSyncService {
 ## User Experience Improvements
 
 **Real-Time Progress:**
+
 - Show current file being copied
 - Display transfer speed (MB/s)
 - Show ETA for completion
 - Indicate phase (copying/deleting/verifying)
 
 **Conflict Management:**
+
 - Highlight conflicts in sync status
 - Preview both versions before resolution
 - Batch resolution for multiple conflicts
 - Remember user's preferred strategy
 
 **Scheduling UI:**
+
 - Visual schedule picker
 - Next sync time indicator
 - Manual sync button always available

@@ -2,7 +2,7 @@
 id: LSYNC-011
 title: Conflict Resolution (HLC-Based)
 status: To Do
-assignee: unassigned
+assignee: james
 parent: LSYNC-000
 priority: Medium
 tags: [sync, conflict-resolution, hlc, merge]
@@ -19,6 +19,7 @@ Implement conflict resolution for shared resources using Hybrid Logical Clock (H
 ## Conflict Types
 
 ### 1. No Conflict (Device-Owned Data)
+
 ```
 Device A: Creates location "/Users/jamie/Photos"
 Device B: Creates location "/home/jamie/Documents"
@@ -28,6 +29,7 @@ Strategy: Both apply (state-based)
 ```
 
 ### 2. Deterministic Merge (Tags)
+
 ```
 Device A: Creates tag "Vacation" → HLC(1000,A)
 Device B: Creates tag "Vacation" → HLC(1001,B)
@@ -39,6 +41,7 @@ Resolution: Deterministic UUID from name
 ```
 
 ### 3. Union Merge (Albums)
+
 ```
 Device A: Adds entry-1 to album → HLC(1000,A)
 Device B: Adds entry-2 to album → HLC(1001,B)
@@ -49,6 +52,7 @@ Resolution: Union merge
 ```
 
 ### 4. Last-Writer-Wins (UserMetadata)
+
 ```
 Device A: Favorites photo → HLC(1000,A)
 Device B: Un-favorites photo → HLC(1001,B)

@@ -2,7 +2,7 @@
 id: VOL-002
 title: Automatic Volume Classification
 status: To Do
-assignee: unassigned
+assignee: james
 parent: VOL-000
 priority: Medium
 tags: [volume, classification, automation]
@@ -21,6 +21,7 @@ Implement the logic for automatic classification of a Volume's `PhysicalClass`. 
 4.  Provide a way for the user to override the automatic classification.
 
 ## Acceptance Criteria
--   [ ] The system can run performance benchmarks on a Volume.
--   [ ] The system can automatically assign a `PhysicalClass` to a Volume based on the benchmark results.
--   [ ] The user can manually change the `PhysicalClass` of a Volume.
+
+- [ ] The system can run performance benchmarks on a Volume.
+- [ ] The system can automatically assign a `PhysicalClass` to a Volume based on the benchmark results.
+- [ ] The user can manually change the `PhysicalClass` of a Volume.

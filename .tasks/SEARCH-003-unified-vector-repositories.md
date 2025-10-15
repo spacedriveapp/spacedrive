@@ -2,7 +2,7 @@
 id: SEARCH-003
 title: Unified Vector Repositories
 status: To Do
-assignee: unassigned
+assignee: james
 parent: SEARCH-000
 priority: High
 tags: [search, vector-search, ai, repositories]
@@ -21,6 +21,7 @@ Implement the Unified Vector Repositories, a system for storing and querying vec
 4.  Integrate the `VectorRepository` with the `SearchJob` and the semantic re-ranking logic.
 
 ## Acceptance Criteria
--   [ ] The system can generate and store vector embeddings for files.
--   [ ] The `VectorRepository` can perform efficient vector similarity searches.
--   [ ] The semantic search capabilities are integrated into the overall search system.
+
+- [ ] The system can generate and store vector embeddings for files.
+- [ ] The `VectorRepository` can perform efficient vector similarity searches.
+- [ ] The semantic search capabilities are integrated into the overall search system.

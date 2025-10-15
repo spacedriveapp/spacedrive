@@ -2,7 +2,7 @@
 id: LSYNC-008
 title: Sync Log Schema (Per-Device, HLC-Based)
 status: Done
-assignee: unassigned
+assignee: james
 parent: LSYNC-000
 priority: High
 tags: [sync, database, schema, migration, hlc]
@@ -18,13 +18,13 @@ Create the `sync.db` schema - a per-device log of changes to truly shared resour
 
 ## Key Differences from Old Design
 
-| Aspect | Old (sync_log.db) | New (sync.db) |
-|--------|-------------------|-------------------------|
-| **Who has it** | Leader only | Every device |
-| **What's in it** | All changes | Only MY shared changes |
-| **Ordering** | Sequence numbers | HLC timestamps |
-| **Size** | Large (all history) | Small (pruned aggressively) |
-| **Purpose** | Source of truth | Pending changes queue |
+| Aspect           | Old (sync_log.db)   | New (sync.db)               |
+| ---------------- | ------------------- | --------------------------- |
+| **Who has it**   | Leader only         | Every device                |
+| **What's in it** | All changes         | Only MY shared changes      |
+| **Ordering**     | Sequence numbers    | HLC timestamps              |
+| **Size**         | Large (all history) | Small (pruned aggressively) |
+| **Purpose**      | Source of truth     | Pending changes queue       |
 
 ## Implementation Steps
 
@@ -67,6 +67,7 @@ CREATE INDEX idx_peer_acks_hlc ON peer_acks(last_acked_hlc);
 ## Database Location
 
 Each library has:
+
 ```
 Jamie's Library.sdlibrary/
   ├── database.db  ← Shared state (all devices)
@@ -154,11 +155,13 @@ async fn on_ack(peer_id: Uuid, up_to_hlc: HLC) {
 ## Migration from sync_log.db
 
 **Old structure**:
+
 - One `sync_log.db` on leader
 - Sequence-based
 - Never pruned
 
 **New structure**:
+
 - One `sync.db` per device
 - HLC-based
 - Aggressively pruned

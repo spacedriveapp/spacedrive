@@ -2,7 +2,7 @@
 id: CORE-013
 title: Resource Type Registry (TypeScript)
 status: To Do
-assignee: unassigned
+assignee: james
 parent: CORE-011
 priority: High
 tags: [client, typescript, codegen, cache]
@@ -34,32 +34,35 @@ Create the TypeScript ResourceTypeRegistry for web/desktop clients. Enables gene
 
 ```typescript
 class ResourceTypeRegistry {
-  private static validators = new Map<string, (data: unknown) => any>();
+	private static validators = new Map<string, (data: unknown) => any>();
 
-  static register<T>(resourceType: string, validator: (data: unknown) => T) {
-    this.validators.set(resourceType, validator);
-  }
+	static register<T>(resourceType: string, validator: (data: unknown) => T) {
+		this.validators.set(resourceType, validator);
+	}
 
-  static decode(resourceType: string, data: unknown): any {
-    const validator = this.validators.get(resourceType);
-    if (!validator) {
-      throw new Error(`Unknown resource type: ${resourceType}`);
-    }
-    return validator(data);
-  }
+	static decode(resourceType: string, data: unknown): any {
+		const validator = this.validators.get(resourceType);
+		if (!validator) {
+			throw new Error(`Unknown resource type: ${resourceType}`);
+		}
+		return validator(data);
+	}
 }
 
 // Auto-generated from specta
 export const resourceTypeMap = {
-  'file': File,
-  'album': Album,
-  'tag': Tag,
-  'location': Location,
+	file: File,
+	album: Album,
+	tag: Tag,
+	location: Location,
 } as const;
 
 // Auto-registration
 Object.entries(resourceTypeMap).forEach(([type, TypeClass]) => {
-  ResourceTypeRegistry.register(type, (data) => data as InstanceType<typeof TypeClass>);
+	ResourceTypeRegistry.register(
+		type,
+		(data) => data as InstanceType<typeof TypeClass>,
+	);
 });
 ```
 

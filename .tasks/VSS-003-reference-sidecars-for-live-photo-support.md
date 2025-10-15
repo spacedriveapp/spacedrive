@@ -2,7 +2,7 @@
 id: VSS-003
 title: "Reference Sidecars for Live Photo Support"
 status: To Do
-assignee: unassigned
+assignee: james
 parent: VSS-000
 priority: Medium
 tags: [vss, feature, photos, indexing]

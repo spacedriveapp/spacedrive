@@ -2,7 +2,7 @@
 id: SEC-006
 title: Certificate Pinning
 status: To Do
-assignee: unassigned
+assignee: james
 parent: SEC-000
 priority: Medium
 tags: [security, networking, certificate-pinning]
@@ -21,6 +21,7 @@ Implement certificate pinning for all connections to third-party cloud storage p
 4.  Implement a mechanism for updating the pinned certificates.
 
 ## Acceptance Criteria
--   [ ] The application rejects connections to servers with untrusted certificates.
--   [ ] The application can successfully connect to trusted cloud storage providers.
--   [ ] The list of pinned certificates can be updated without requiring a full application update.
+
+- [ ] The application rejects connections to servers with untrusted certificates.
+- [ ] The application can successfully connect to trusted cloud storage providers.
+- [ ] The list of pinned certificates can be updated without requiring a full application update.

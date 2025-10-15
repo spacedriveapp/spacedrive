@@ -112,9 +112,6 @@ This checks that your YAML front matter matches the schema.
    # Show only "In Progress" tasks
    cargo run --bin task-validator -- list --status "In Progress"
 
-   # Show tasks by assignee
-   cargo run --bin task-validator -- list --assignee james
-
    # Show tasks by priority
    cargo run --bin task-validator -- list --priority High
    ```
@@ -184,7 +181,7 @@ Required fields in YAML front matter:
 - `id` - Unique identifier (e.g., CORE-001)
 - `title` - Human-readable title
 - `status` - One of: To Do, In Progress, Done, Completed
-- `assignee` - Who's working on it (or "unassigned")
+- `assignee` - Who's working on it (or "james")
 - `priority` - Critical, High, Medium, or Low
 - `tags` - Array of relevant tags
 

@@ -2,7 +2,7 @@
 id: VOL-005
 title: "Treat Connected iPhone as a Virtual Volume for Direct Import"
 status: To Do
-assignee: unassigned
+assignee: james
 parent: VOL-000
 priority: High
 tags: [feature, import, ios, volume, macos]

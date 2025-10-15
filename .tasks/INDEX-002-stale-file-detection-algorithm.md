@@ -2,7 +2,7 @@
 id: INDEX-002
 title: Stale File Detection Algorithm
 status: To Do
-assignee: unassigned
+assignee: james
 parent: INDEX-000
 priority: High
 tags: [indexing, stale-detection, offline-recovery]
@@ -21,6 +21,7 @@ Implement the algorithm for detecting stale files after the application has been
 4.  The algorithm should be efficient and not significantly slow down the application's startup time.
 
 ## Acceptance Criteria
--   [ ] The system can correctly detect files that were modified or deleted while the application was offline.
--   [ ] The system can correctly detect files that were moved or renamed while the application was offline.
--   [ ] The stale file detection process is efficient and does not block the application for an unreasonable amount of time.
+
+- [ ] The system can correctly detect files that were modified or deleted while the application was offline.
+- [ ] The system can correctly detect files that were moved or renamed while the application was offline.
+- [ ] The stale file detection process is efficient and does not block the application for an unreasonable amount of time.
