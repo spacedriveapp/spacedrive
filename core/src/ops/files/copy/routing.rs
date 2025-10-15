@@ -9,6 +9,7 @@ use super::{
 };
 use crate::{domain::addressing::SdPath, volume::VolumeManager};
 use std::sync::Arc;
+use tracing::info;
 
 pub struct CopyStrategyRouter;
 
@@ -21,10 +22,16 @@ impl CopyStrategyRouter {
 		copy_method: &CopyMethod,
 		volume_manager: Option<&VolumeManager>,
 	) -> Box<dyn CopyStrategy> {
+		info!("[ROUTING] Selecting strategy for source device {:?} -> destination device {:?}",
+			source.device_id(), destination.device_id());
+
 		// Cross-device transfer - always use network strategy
 		if source.device_id() != destination.device_id() {
+			info!("[ROUTING] Cross-device detected - selecting RemoteTransferStrategy");
 			return Box::new(RemoteTransferStrategy);
 		}
+
+		info!("[ROUTING] Same device detected - selecting local strategy");
 
 		// For same-device operations, respect user's method preference
 		match copy_method {

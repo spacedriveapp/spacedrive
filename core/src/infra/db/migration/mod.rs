@@ -12,6 +12,7 @@ mod m20250115_000001_semantic_tags;
 mod m20250120_000001_create_fts5_search_index;
 mod m20251009_000001_add_sync_to_devices;
 mod m20251015_000001_add_device_slug;
+mod m20251015_000002_create_sync_tables;
 
 pub struct Migrator;
 
@@ -29,6 +30,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20250120_000001_create_fts5_search_index::Migration),
 			Box::new(m20251009_000001_add_sync_to_devices::Migration),
 			Box::new(m20251015_000001_add_device_slug::Migration),
+			Box::new(m20251015_000002_create_sync_tables::Migration),
 		]
 	}
 }

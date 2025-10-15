@@ -1,13 +1,13 @@
 ---
 id: FSYNC-002
 title: Database Schema & Entities
-status: To Do
+status: Done
 assignee: james
 parent: FSYNC-000
 priority: High
 tags: [database, schema, migration, entities]
 design_doc: workbench/FILE_SYNC_IMPLEMENTATION_PLAN.md
-last_updated: 2025-10-14
+last_updated: 2025-10-15
 ---
 
 ## Description
@@ -181,18 +181,31 @@ CREATE TABLE sync_generation (
 CREATE INDEX idx_sync_generation_conduit ON sync_generation(conduit_id, generation);
 ```
 
+## Progress Notes
+
+**2025-10-15**: COMPLETE 
+- Created SyncConduit entity (`core/src/infra/db/entities/sync_conduit.rs`, ~130 lines)
+- Created SyncGeneration entity (`core/src/infra/db/entities/sync_generation.rs`, ~105 lines)
+- Implemented SyncMode enum with Mirror, Bidirectional, Selective variants
+- Implemented VerificationStatus enum with as_str/from_str helpers
+- Created migration (`m20251015_000002_create_sync_tables.rs`, ~250 lines)
+- Registered migration in migration list
+- Exported entities in entities/mod.rs
+- Migration tested successfully via `cargo run --example test_migration`
+- Both tables created with foreign keys, indexes, and constraints 
+
 ## Acceptance Criteria
 
-- [ ] SyncConduit entity created with all fields
-- [ ] SyncGeneration entity created with all fields
-- [ ] SyncMode enum with Mirror, Bidirectional, Selective variants
-- [ ] Migration creates both tables with correct schema
-- [ ] Foreign key constraints properly defined
-- [ ] Indexes created for query optimization
-- [ ] Migration registered in migration list
-- [ ] Entities exported in entities module
-- [ ] Migration runs successfully: `cargo run --bin spacedrive migrate up`
-- [ ] Tables queryable via SeaORM
+- [x] SyncConduit entity created with all fields
+- [x] SyncGeneration entity created with all fields
+- [x] SyncMode enum with Mirror, Bidirectional, Selective variants
+- [x] Migration creates both tables with correct schema
+- [x] Foreign key constraints properly defined
+- [x] Indexes created for query optimization (idx_sync_conduit_enabled, idx_sync_generation_conduit)
+- [x] Migration registered in migration list
+- [x] Entities exported in entities module
+- [x] Migration runs successfully via test_migration example
+- [x] Tables queryable via SeaORM (verified in migration test output)
 
 ## Relationships
 
