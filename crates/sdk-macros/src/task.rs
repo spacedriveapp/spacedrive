@@ -15,5 +15,3 @@ pub fn task_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
 
 	TokenStream::from(expanded)
 }
-
-

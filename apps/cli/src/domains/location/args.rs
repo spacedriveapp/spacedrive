@@ -37,12 +37,15 @@ pub struct LocationAddArgs {
 impl LocationAddArgs {
 	/// Build an SdPath from the args (non-interactive mode)
 	pub fn build_sd_path(&self) -> anyhow::Result<SdPath> {
-		let path_str = self.path.as_ref()
+		let path_str = self
+			.path
+			.as_ref()
 			.ok_or_else(|| anyhow::anyhow!("Path is required in non-interactive mode"))?;
 
 		if let Some(volume_fingerprint_str) = &self.cloud {
 			// Cloud path
-			let volume_fingerprint = sd_core::volume::VolumeFingerprint(volume_fingerprint_str.clone());
+			let volume_fingerprint =
+				sd_core::volume::VolumeFingerprint(volume_fingerprint_str.clone());
 			Ok(SdPath::cloud(volume_fingerprint, path_str.clone()))
 		} else {
 			// Local path

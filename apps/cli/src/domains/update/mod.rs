@@ -43,7 +43,10 @@ pub async fn run(data_dir: PathBuf, force: bool) -> Result<()> {
 
 	if !force {
 		println!();
-		println!("Update available: {} -> {}", CURRENT_VERSION, latest_version);
+		println!(
+			"Update available: {} -> {}",
+			CURRENT_VERSION, latest_version
+		);
 		println!("Do you want to update? (y/N)");
 
 		let mut response = String::new();
@@ -71,7 +74,9 @@ pub async fn run(data_dir: PathBuf, force: bool) -> Result<()> {
 		.assets
 		.iter()
 		.find(|a| a.name.contains(&platform) && a.name.contains("sd-daemon"))
-		.ok_or_else(|| anyhow::anyhow!("Could not find sd-daemon binary for platform: {}", platform))?;
+		.ok_or_else(|| {
+			anyhow::anyhow!("Could not find sd-daemon binary for platform: {}", platform)
+		})?;
 
 	println!("Downloading updates...");
 
@@ -209,7 +214,10 @@ fn get_platform_string() -> String {
 		("linux", "aarch64") => "linux-aarch64".to_string(),
 		("windows", "x86_64") => "windows-x86_64".to_string(),
 		_ => {
-			eprintln!("Warning: Unsupported platform {}-{}, trying anyway...", os, arch);
+			eprintln!(
+				"Warning: Unsupported platform {}-{}, trying anyway...",
+				os, arch
+			);
 			format!("{}-{}", os, arch)
 		}
 	}

@@ -146,7 +146,11 @@ impl VolumeManager {
 				.await
 				.map_err(|e| VolumeError::Database(e.to_string()))?;
 
-			info!("Found {} cloud volumes in database for library {}", cloud_volumes.len(), library.id());
+			info!(
+				"Found {} cloud volumes in database for library {}",
+				cloud_volumes.len(),
+				library.id()
+			);
 
 			for db_volume in cloud_volumes {
 				let fingerprint = VolumeFingerprint(db_volume.fingerprint.clone());
@@ -242,7 +246,10 @@ impl VolumeManager {
 								}
 							}
 							_ => {
-								warn!("Unsupported cloud service type for volume {}", fingerprint.0);
+								warn!(
+									"Unsupported cloud service type for volume {}",
+									fingerprint.0
+								);
 							}
 						}
 					}
@@ -826,7 +833,10 @@ impl VolumeManager {
 		let fingerprint = volume.fingerprint.clone();
 		let mut volumes = self.volumes.write().await;
 
-		info!("Registering cloud volume '{}' with fingerprint {}", volume.name, fingerprint);
+		info!(
+			"Registering cloud volume '{}' with fingerprint {}",
+			volume.name, fingerprint
+		);
 		volumes.insert(fingerprint, volume);
 	}
 
@@ -888,7 +898,7 @@ impl VolumeManager {
 
 		// Create tracking record
 		let active_model = entities::volume::ActiveModel {
-			uuid: Set(volume.id), // Use the volume's UUID
+			uuid: Set(volume.id),             // Use the volume's UUID
 			device_id: Set(volume.device_id), // Use Uuid directly
 			fingerprint: Set(fingerprint.0.clone()),
 			display_name: Set(display_name.clone()),
@@ -1252,9 +1262,15 @@ impl VolumeManager {
 	/// Returns the UUID from the identifier file if successfully created/read
 	async fn manage_spacedrive_identifier(&self, volume: &Volume) -> Option<Uuid> {
 		// Skip cloud volumes - they don't have filesystem mount points
-		if matches!(volume.volume_type, crate::volume::types::VolumeType::Network)
-			&& matches!(volume.mount_type, crate::volume::types::MountType::Network) {
-			debug!("Skipping Spacedrive identifier management for cloud volume: {}", volume.name);
+		if matches!(
+			volume.volume_type,
+			crate::volume::types::VolumeType::Network
+		) && matches!(volume.mount_type, crate::volume::types::MountType::Network)
+		{
+			debug!(
+				"Skipping Spacedrive identifier management for cloud volume: {}",
+				volume.name
+			);
 			return None;
 		}
 

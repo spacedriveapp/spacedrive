@@ -30,6 +30,8 @@ runs:
         save-if: ${{ inputs.save-cache }}
         shared-key: stable-cache
 
-    - name: Cargo config.toml
-      shell: bash
-      run: echo '{}' | npx -y mustache - .cargo/config.toml.mustache .cargo/config.toml
+    # TODO: Re-enable cargo config generation when preprep.mjs is ported
+    # For now, use cargo's defaults which work fine without native deps
+    # - name: Cargo config.toml
+    #   shell: bash
+    #   run: echo '{}' | npx -y mustache - .cargo/config.toml.mustache .cargo/config.toml

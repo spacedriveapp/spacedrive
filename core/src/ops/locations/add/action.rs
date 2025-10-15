@@ -137,7 +137,10 @@ impl LibraryAction for LocationAddAction {
 					});
 				}
 			}
-			SdPath::Cloud { volume_fingerprint, path: cloud_path } => {
+			SdPath::Cloud {
+				volume_fingerprint,
+				path: cloud_path,
+			} => {
 				// Validate cloud path
 				// Check if the volume exists
 				let db = library.db().conn();

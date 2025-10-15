@@ -90,7 +90,7 @@ impl SdPathSerialized {
 				device_id: *device_id,
 				path: path.to_string_lossy().to_string(),
 			}),
-				SdPath::Cloud { .. } => None, // Can't serialize cloud paths to this UUID-based format (fingerprints are strings, not UUIDs)
+			SdPath::Cloud { .. } => None, // Can't serialize cloud paths to this UUID-based format (fingerprints are strings, not UUIDs)
 			SdPath::Content { .. } => None, // Can't serialize content paths to this format
 		}
 	}
@@ -184,7 +184,9 @@ impl TryFrom<(crate::infra::db::entities::entry::Model, SdPath)> for Entry {
 	) -> Result<Self, Self::Error> {
 		let device_uuid = match &parent_sd_path {
 			SdPath::Physical { device_id, .. } => *device_id,
-			SdPath::Cloud { volume_fingerprint, .. } => {
+			SdPath::Cloud {
+				volume_fingerprint, ..
+			} => {
 				// Generate a deterministic UUID from the fingerprint
 				// Take first 16 bytes of the fingerprint hex string
 				let fingerprint_bytes = volume_fingerprint.0.as_bytes();
@@ -192,7 +194,10 @@ impl TryFrom<(crate::infra::db::entities::entry::Model, SdPath)> for Entry {
 				for (i, byte) in fingerprint_bytes.iter().take(32).enumerate().step_by(2) {
 					if let Some(next_byte) = fingerprint_bytes.get(i + 1) {
 						// Convert hex pairs to bytes
-						if let Ok(val) = u8::from_str_radix(&format!("{}{}", *byte as char, *next_byte as char), 16) {
+						if let Ok(val) = u8::from_str_radix(
+							&format!("{}{}", *byte as char, *next_byte as char),
+							16,
+						) {
 							uuid_bytes[i / 2] = val;
 						}
 					}

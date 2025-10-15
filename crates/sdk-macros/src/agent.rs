@@ -29,4 +29,3 @@ pub fn agent_memory_impl(_args: TokenStream, input: TokenStream) -> TokenStream 
 
 	TokenStream::from(expanded)
 }
-

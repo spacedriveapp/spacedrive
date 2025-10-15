@@ -36,7 +36,10 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 			} else {
 				// Non-interactive mode
 				let sd_path = args.build_sd_path()?;
-				let mode = args.mode.map(|m| m.into()).unwrap_or(sd_core::ops::indexing::IndexMode::Content);
+				let mode = args
+					.mode
+					.map(|m| m.into())
+					.unwrap_or(sd_core::ops::indexing::IndexMode::Content);
 
 				LocationAddInput {
 					path: sd_path,
@@ -132,7 +135,14 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 		let volume_choices: Vec<String> = volumes
 			.volumes
 			.iter()
-			.map(|v| format!("{} ({}) - {}", v.name, v.fingerprint.short_id(), v.volume_type))
+			.map(|v| {
+				format!(
+					"{} ({}) - {}",
+					v.name,
+					v.fingerprint.short_id(),
+					v.volume_type
+				)
+			})
 			.collect();
 
 		let volume_idx = select("Select cloud volume", &volume_choices)?;

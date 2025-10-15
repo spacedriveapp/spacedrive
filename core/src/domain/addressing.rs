@@ -120,7 +120,10 @@ impl SdPath {
 	}
 
 	/// Create a cloud storage SdPath
-	pub fn cloud(volume_fingerprint: crate::volume::VolumeFingerprint, path: impl Into<String>) -> Self {
+	pub fn cloud(
+		volume_fingerprint: crate::volume::VolumeFingerprint,
+		path: impl Into<String>,
+	) -> Self {
 		Self::Cloud {
 			volume_fingerprint,
 			path: path.into(),
@@ -146,7 +149,7 @@ impl SdPath {
 			Self::Physical { device_id, .. } => {
 				*device_id == crate::device::get_current_device_id()
 			}
-			Self::Cloud { .. } => false, // Cloud paths are never local
+			Self::Cloud { .. } => false,   // Cloud paths are never local
 			Self::Content { .. } => false, // Content paths are abstract, not inherently local
 		}
 	}
@@ -176,7 +179,10 @@ impl SdPath {
 					format!("sd://{}/{}", device_id, path.display())
 				}
 			}
-			Self::Cloud { volume_fingerprint, path } => {
+			Self::Cloud {
+				volume_fingerprint,
+				path,
+			} => {
 				format!("sd://cloud/{}/{}", volume_fingerprint.0, path)
 			}
 			Self::Content { content_id } => {
@@ -201,7 +207,10 @@ impl SdPath {
 				device_id: *device_id,
 				path: p.to_path_buf(),
 			}),
-			Self::Cloud { volume_fingerprint, path } => {
+			Self::Cloud {
+				volume_fingerprint,
+				path,
+			} => {
 				let parent_path = path.trim_end_matches('/');
 				parent_path.rfind('/').map(|idx| Self::Cloud {
 					volume_fingerprint: volume_fingerprint.clone(),
@@ -223,7 +232,10 @@ impl SdPath {
 				device_id: *device_id,
 				path: base_path.join(path),
 			},
-			Self::Cloud { volume_fingerprint, path: base_path } => {
+			Self::Cloud {
+				volume_fingerprint,
+				path: base_path,
+			} => {
 				let path_str = path.as_ref().to_string_lossy();
 				let separator = if base_path.ends_with('/') || path_str.starts_with('/') {
 					""
@@ -252,7 +264,9 @@ impl SdPath {
 					None
 				}
 			}
-			Self::Cloud { volume_fingerprint, .. } => {
+			Self::Cloud {
+				volume_fingerprint, ..
+			} => {
 				// Look up cloud volume by fingerprint
 				volume_manager.get_volume(volume_fingerprint).await
 			}
@@ -280,7 +294,16 @@ impl SdPath {
 					false
 				}
 			}
-			(Self::Cloud { volume_fingerprint: fp1, .. }, Self::Cloud { volume_fingerprint: fp2, .. }) => {
+			(
+				Self::Cloud {
+					volume_fingerprint: fp1,
+					..
+				},
+				Self::Cloud {
+					volume_fingerprint: fp2,
+					..
+				},
+			) => {
 				// Cloud paths are on the same volume if they have the same fingerprint
 				fp1 == fp2
 			}
@@ -314,7 +337,10 @@ impl SdPath {
 				let volume_fingerprint = crate::volume::VolumeFingerprint(parts[0].to_string());
 				let path = parts.get(1).unwrap_or(&"").to_string();
 
-				Ok(Self::Cloud { volume_fingerprint, path })
+				Ok(Self::Cloud {
+					volume_fingerprint,
+					path,
+				})
 			} else {
 				// Parse physical path
 				let parts: Vec<&str> = uri.splitn(2, '/').collect();
@@ -369,7 +395,9 @@ impl SdPath {
 	/// Get the volume fingerprint if this is a Cloud path
 	pub fn volume_fingerprint(&self) -> Option<&crate::volume::VolumeFingerprint> {
 		match self {
-			Self::Cloud { volume_fingerprint, .. } => Some(volume_fingerprint),
+			Self::Cloud {
+				volume_fingerprint, ..
+			} => Some(volume_fingerprint),
 			Self::Physical { .. } => None,
 			Self::Content { .. } => None,
 		}
@@ -411,7 +439,10 @@ impl SdPath {
 	/// Try to get as a Cloud path, returning volume_fingerprint and path
 	pub fn as_cloud(&self) -> Option<(&crate::volume::VolumeFingerprint, &str)> {
 		match self {
-			Self::Cloud { volume_fingerprint, path } => Some((volume_fingerprint, path)),
+			Self::Cloud {
+				volume_fingerprint,
+				path,
+			} => Some((volume_fingerprint, path)),
 			Self::Physical { .. } => None,
 			Self::Content { .. } => None,
 		}

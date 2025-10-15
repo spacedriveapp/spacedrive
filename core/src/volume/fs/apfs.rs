@@ -325,7 +325,10 @@ pub fn containers_to_volumes(
 				container_volume_id: Some(volume_info.disk_id.clone()),
 				path_mappings,
 				is_user_visible: true,
-				auto_track_eligible: matches!(volume_type, crate::volume::types::VolumeType::UserData),
+				auto_track_eligible: matches!(
+					volume_type,
+					crate::volume::types::VolumeType::UserData
+				),
 				read_speed_mbps: None,
 				write_speed_mbps: None,
 				created_at: now,

@@ -56,7 +56,6 @@ impl RequestMetadata {
 		}
 	}
 
-
 	/// Create metadata for internal system operations
 	pub fn internal_request() -> Self {
 		Self {

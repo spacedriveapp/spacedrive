@@ -46,9 +46,7 @@ impl LibraryQuery for VolumeListQuery {
 
 		let db = library.db().conn();
 
-		let volumes = entities::volume::Entity::find()
-			.all(db)
-			.await?;
+		let volumes = entities::volume::Entity::find().all(db).await?;
 
 		let volume_items = volumes
 			.into_iter()

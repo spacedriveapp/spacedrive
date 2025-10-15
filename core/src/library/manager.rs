@@ -173,7 +173,8 @@ impl LibraryManager {
 		tokio::fs::create_dir_all(&library_path).await?;
 
 		// Initialize library
-		self.initialize_library(&library_path, name, context.clone()).await?;
+		self.initialize_library(&library_path, name, context.clone())
+			.await?;
 
 		// Open the newly created library
 		let library = self.open_library(&library_path, context.clone()).await?;
@@ -295,7 +296,10 @@ impl LibraryManager {
 					let peer_sync = sync_service.peer_sync();
 					let network_events = networking.subscribe_events();
 					peer_sync.set_network_events(network_events).await;
-					info!("Network event receiver wired to PeerSync for library {}", config.id);
+					info!(
+						"Network event receiver wired to PeerSync for library {}",
+						config.id
+					);
 				}
 			}
 		} else {
@@ -462,7 +466,12 @@ impl LibraryManager {
 	}
 
 	/// Initialize a new library directory
-	async fn initialize_library(&self, path: &Path, name: String, context: Arc<CoreContext>) -> Result<()> {
+	async fn initialize_library(
+		&self,
+		path: &Path,
+		name: String,
+		context: Arc<CoreContext>,
+	) -> Result<()> {
 		// Create subdirectories
 		tokio::fs::create_dir_all(path.join("thumbnails")).await?;
 		tokio::fs::create_dir_all(path.join("previews")).await?;
@@ -484,9 +493,15 @@ impl LibraryManager {
 		};
 
 		// Initialize library encryption key
-		context.library_key_manager
+		context
+			.library_key_manager
 			.get_or_create_library_key(config.id)
-			.map_err(|e| LibraryError::Other(format!("Failed to initialize library encryption key: {}", e)))?;
+			.map_err(|e| {
+				LibraryError::Other(format!(
+					"Failed to initialize library encryption key: {}",
+					e
+				))
+			})?;
 
 		info!("Initialized encryption key for library '{}'", config.name);
 

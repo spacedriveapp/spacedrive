@@ -190,7 +190,9 @@ pub struct TrackedVolume {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VolumeEvent {
 	VolumeAdded(Volume),
-	VolumeRemoved { fingerprint: VolumeFingerprint },
+	VolumeRemoved {
+		fingerprint: VolumeFingerprint,
+	},
 	VolumeUpdated {
 		fingerprint: VolumeFingerprint,
 		old: VolumeInfo,
@@ -694,9 +696,9 @@ impl Volume {
 	/// Get the optimal chunk size for copying to/from this volume
 	pub fn optimal_chunk_size(&self) -> usize {
 		match self.disk_type {
-			DiskType::SSD => 1024 * 1024,   // 1MB for SSDs
-			DiskType::HDD => 256 * 1024,    // 256KB for HDDs
-			_ => 64 * 1024, // 64KB default
+			DiskType::SSD => 1024 * 1024, // 1MB for SSDs
+			DiskType::HDD => 256 * 1024,  // 256KB for HDDs
+			_ => 64 * 1024,               // 64KB default
 		}
 	}
 

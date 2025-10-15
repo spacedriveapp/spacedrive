@@ -332,8 +332,7 @@ impl LocationWatcher {
 		if path_str.starts_with("cloud://") || path_str.starts_with("sd://cloud/") {
 			debug!(
 				"Skipping cloud location {} from filesystem watcher: {}",
-				location.id,
-				path_str
+				location.id, path_str
 			);
 			return Ok(());
 		}
@@ -477,11 +476,12 @@ impl LocationWatcher {
 							Ok(path) => {
 								// Skip cloud locations - they don't have filesystem paths to watch
 								let path_str = path.to_string_lossy();
-								if path_str.starts_with("cloud://") || path_str.starts_with("sd://cloud/") {
+								if path_str.starts_with("cloud://")
+									|| path_str.starts_with("sd://cloud/")
+								{
 									debug!(
 										"Skipping cloud location {} from filesystem watcher: {}",
-										location.uuid,
-										path_str
+										location.uuid, path_str
 									);
 									continue;
 								}

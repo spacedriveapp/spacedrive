@@ -184,8 +184,7 @@ pub fn password(message: &str, optional: bool) -> Result<Option<String>> {
 		message.to_string()
 	};
 
-	let mut prompt = Password::new(&prompt_text)
-		.without_confirmation();
+	let mut prompt = Password::new(&prompt_text).without_confirmation();
 
 	if !optional {
 		prompt = prompt.with_validator(|input: &str| {

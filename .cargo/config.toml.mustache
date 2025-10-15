@@ -93,3 +93,7 @@ rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
 {{/isLinux}}
 
+# Cargo aliases for xtask commands
+[alias]
+xtask = "run --package xtask --"
+ios = "run --package xtask -- build-ios"

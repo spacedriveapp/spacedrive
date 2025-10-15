@@ -57,10 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		Path::new("packages/swift-client/Sources/SpacedriveClient/SpacedriveAPI.swift");
 	std::fs::write(api_output_path, &api_code)?;
 
-	println!(
-		"Generated Swift API code to: {}",
-		api_output_path.display()
-	);
+	println!("Generated Swift API code to: {}", api_output_path.display());
 	println!("Specta Swift generation completed!");
 	println!(
 		"All {} operations and {} queries automatically discovered and exported!",

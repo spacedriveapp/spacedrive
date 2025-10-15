@@ -80,7 +80,9 @@ impl LibraryAction for VolumeAddCloudAction {
 					endpoint.clone(),
 				)
 				.await
-				.map_err(|e| ActionError::InvalidInput(format!("Failed to create S3 backend: {}", e)))?;
+				.map_err(|e| {
+					ActionError::InvalidInput(format!("Failed to create S3 backend: {}", e))
+				})?;
 
 				let credential = CloudCredential::new_access_key(
 					CloudServiceType::S3,
@@ -116,7 +118,10 @@ impl LibraryAction for VolumeAddCloudAction {
 			volume_type: crate::volume::types::VolumeType::Network,
 			mount_type: crate::volume::types::MountType::Network,
 			disk_type: crate::volume::types::DiskType::Unknown,
-			file_system: crate::volume::types::FileSystem::Other(format!("{:?}", self.input.service)),
+			file_system: crate::volume::types::FileSystem::Other(format!(
+				"{:?}",
+				self.input.service
+			)),
 			total_capacity: 0,
 			available_space: 0,
 			is_read_only: false,
@@ -161,7 +166,11 @@ impl LibraryAction for VolumeAddCloudAction {
 
 		let tracked = context
 			.volume_manager
-			.track_volume(&library, &fingerprint, Some(self.input.display_name.clone()))
+			.track_volume(
+				&library,
+				&fingerprint,
+				Some(self.input.display_name.clone()),
+			)
 			.await
 			.map_err(|e| ActionError::InvalidInput(format!("Volume tracking failed: {}", e)))?;
 

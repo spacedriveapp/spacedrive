@@ -36,5 +36,3 @@ impl TaskContext {
 
 /// Task result type
 pub type TaskResult<T> = std::result::Result<T, Error>;
-
-

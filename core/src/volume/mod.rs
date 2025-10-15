@@ -16,8 +16,8 @@ pub mod types;
 pub mod utils;
 
 pub use backend::{
-	BackendType, CloudBackend, CloudServiceType, LocalBackend, RawDirEntry,
-	RawMetadata, VolumeBackend,
+	BackendType, CloudBackend, CloudServiceType, LocalBackend, RawDirEntry, RawMetadata,
+	VolumeBackend,
 };
 pub use error::VolumeError;
 pub use manager::VolumeManager;

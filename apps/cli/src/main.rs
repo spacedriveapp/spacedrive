@@ -47,8 +47,7 @@ mod util;
 
 use crate::context::{Context, OutputFormat};
 use crate::domains::{
-	cloud,
-	config as config_cmd,
+	cloud, config as config_cmd,
 	daemon::{self, DaemonCmd},
 	devices::{self, DevicesCmd},
 	file::{self, FileCmd},

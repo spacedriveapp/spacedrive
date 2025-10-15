@@ -64,5 +64,3 @@ pub struct ExecutionResult {
 
 /// Action result type
 pub type ActionResult<T> = std::result::Result<T, crate::types::Error>;
-
-

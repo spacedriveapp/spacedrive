@@ -42,7 +42,10 @@ impl ActionOutputTrait for LocationAddOutput {
 				"Added location '{}' with ID {} at {}",
 				name, self.location_id, self.path
 			),
-			None => format!("Added location with ID {} at {}", self.location_id, self.path),
+			None => format!(
+				"Added location with ID {} at {}",
+				self.location_id, self.path
+			),
 		}
 	}
 

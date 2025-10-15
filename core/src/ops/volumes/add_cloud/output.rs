@@ -12,7 +12,11 @@ pub struct VolumeAddCloudOutput {
 }
 
 impl VolumeAddCloudOutput {
-	pub fn new(fingerprint: VolumeFingerprint, volume_name: String, service: CloudServiceType) -> Self {
+	pub fn new(
+		fingerprint: VolumeFingerprint,
+		volume_name: String,
+		service: CloudServiceType,
+	) -> Self {
 		Self {
 			fingerprint,
 			volume_name,

@@ -245,7 +245,8 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	use std::fs;
 	use std::io::Write;
 
-	let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+	let home =
+		dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 	let systemd_user_dir = home.join(".config/systemd/user");
 
 	// Create systemd user directory if it doesn't exist
@@ -274,7 +275,11 @@ async fn install_launchd_service(data_dir: PathBuf, instance: Option<String>) ->
 	}
 
 	// Build ExecStart command
-	let mut exec_start = format!("{} --data-dir {}", daemon_path.display(), data_dir.display());
+	let mut exec_start = format!(
+		"{} --data-dir {}",
+		daemon_path.display(),
+		data_dir.display()
+	);
 	if let Some(ref inst) = instance {
 		exec_start.push_str(&format!(" --instance {}", inst));
 	}
@@ -325,7 +330,10 @@ WantedBy=default.target
 
 	if !output.status.success() {
 		let stderr = String::from_utf8_lossy(&output.stderr);
-		return Err(anyhow::anyhow!("Failed to enable systemd service: {}", stderr));
+		return Err(anyhow::anyhow!(
+			"Failed to enable systemd service: {}",
+			stderr
+		));
 	}
 
 	// Start the service
@@ -337,7 +345,10 @@ WantedBy=default.target
 
 	if !output.status.success() {
 		let stderr = String::from_utf8_lossy(&output.stderr);
-		return Err(anyhow::anyhow!("Failed to start systemd service: {}", stderr));
+		return Err(anyhow::anyhow!(
+			"Failed to start systemd service: {}",
+			stderr
+		));
 	}
 
 	println!("Daemon installed and started successfully!");
@@ -354,7 +365,8 @@ WantedBy=default.target
 async fn uninstall_launchd_service(instance: Option<String>) -> Result<()> {
 	use std::fs;
 
-	let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+	let home =
+		dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 	let systemd_user_dir = home.join(".config/systemd/user");
 
 	let service_name = if let Some(ref inst) = instance {
@@ -399,7 +411,8 @@ async fn uninstall_launchd_service(instance: Option<String>) -> Result<()> {
 
 #[cfg(target_os = "linux")]
 async fn check_launchd_status(instance: Option<String>) -> Result<()> {
-	let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+	let home =
+		dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 	let systemd_user_dir = home.join(".config/systemd/user");
 
 	let service_name = if let Some(ref inst) = instance {

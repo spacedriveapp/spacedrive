@@ -51,7 +51,8 @@ impl LibraryAction for VolumeRemoveCloudAction {
 			.map_err(|e| ActionError::InvalidInput(format!("Volume untracking failed: {}", e)))?;
 
 		let credential_manager = CloudCredentialManager::new(context.library_key_manager.clone());
-		if let Err(e) = credential_manager.delete_credential(library_id, &self.input.fingerprint.0) {
+		if let Err(e) = credential_manager.delete_credential(library_id, &self.input.fingerprint.0)
+		{
 			tracing::warn!(
 				"Failed to delete credentials for volume {}: {}",
 				self.input.fingerprint.0,

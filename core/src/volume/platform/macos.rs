@@ -80,7 +80,8 @@ pub async fn detect_non_apfs_volumes(
 					.unwrap_or(FileSystem::Other("Unknown".to_string()));
 
 				let volume_type = classify_volume(&mount_path, &file_system, &name);
-				let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
+				let fingerprint =
+					VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
 				let now = chrono::Utc::now();
 
 				let volume = Volume {
@@ -106,7 +107,10 @@ pub async fn detect_non_apfs_volumes(
 					container_volume_id: None,
 					path_mappings: Vec::new(),
 					is_user_visible: true,
-					auto_track_eligible: matches!(volume_type, crate::volume::types::VolumeType::Primary),
+					auto_track_eligible: matches!(
+						volume_type,
+						crate::volume::types::VolumeType::Primary
+					),
 					read_speed_mbps: None,
 					write_speed_mbps: None,
 					created_at: now,

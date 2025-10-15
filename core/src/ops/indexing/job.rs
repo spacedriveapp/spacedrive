@@ -332,8 +332,7 @@ impl JobHandler for IndexerJob {
 					Ok(Some(mut volume)) => {
 						ctx.log(format!(
 							"Using volume backend: {} for path: {}",
-							volume.name,
-							self.config.path
+							volume.name, self.config.path
 						));
 						Some(vm.backend_for_volume(&mut volume))
 					}
@@ -474,8 +473,13 @@ impl JobHandler for IndexerJob {
 								.await?;
 						} else {
 							let library_id = ctx.library().id();
-							phases::run_content_phase(state, &ctx, library_id, volume_backend.as_ref())
-								.await?;
+							phases::run_content_phase(
+								state,
+								&ctx,
+								library_id,
+								volume_backend.as_ref(),
+							)
+							.await?;
 							self.db_operations.1 += state.entries_for_content.len() as u64;
 						}
 					} else {

@@ -68,10 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	typescript.export_to(output_path, &types)?;
 
-	println!(
-		"Generated TypeScript types to: {}",
-		output_path.display()
-	);
+	println!("Generated TypeScript types to: {}", output_path.display());
 	println!("Specta TypeScript generation completed!");
 
 	// Print the generated content for inspection

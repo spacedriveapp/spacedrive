@@ -51,8 +51,11 @@ impl LocationManager {
 			crate::domain::addressing::SdPath::Physical { path, .. } => {
 				self.validate_physical_path(path).await?;
 			}
-			crate::domain::addressing::SdPath::Cloud { volume_fingerprint, .. } => {
-				self.validate_cloud_path(&library, volume_fingerprint).await?;
+			crate::domain::addressing::SdPath::Cloud {
+				volume_fingerprint, ..
+			} => {
+				self.validate_cloud_path(&library, volume_fingerprint)
+					.await?;
 			}
 			crate::domain::addressing::SdPath::Content { .. } => {
 				return Err(LocationError::InvalidPath(
@@ -75,7 +78,10 @@ impl LocationManager {
 				let path_str = path.to_string_lossy().to_string();
 				(name, path_str)
 			}
-			crate::domain::addressing::SdPath::Cloud { volume_fingerprint, path } => {
+			crate::domain::addressing::SdPath::Cloud {
+				volume_fingerprint,
+				path,
+			} => {
 				let name = path
 					.split('/')
 					.last()
@@ -197,7 +203,12 @@ impl LocationManager {
 
 		// Start indexing job with action context, passing the SdPath directly
 		let job_id = match self
-			.start_indexing_with_context_and_path(library, &managed_location, sd_path.clone(), action_context)
+			.start_indexing_with_context_and_path(
+				library,
+				&managed_location,
+				sd_path.clone(),
+				action_context,
+			)
 			.await
 		{
 			Ok(job_id) => {
@@ -276,8 +287,11 @@ impl LocationManager {
 			.await?;
 
 		// Create indexer job using new configuration pattern
-		let config =
-			IndexerJobConfig::new(location.id, location_sd_path.clone(), location.index_mode.into());
+		let config = IndexerJobConfig::new(
+			location.id,
+			location_sd_path.clone(),
+			location.index_mode.into(),
+		);
 		let indexer_job = IndexerJob::new(config);
 
 		// Submit to job manager with action context
@@ -395,7 +409,11 @@ impl LocationManager {
 	}
 
 	/// Validate a cloud volume before creating a location
-	async fn validate_cloud_path(&self, library: &Library, volume_fingerprint: &crate::volume::VolumeFingerprint) -> LocationResult<()> {
+	async fn validate_cloud_path(
+		&self,
+		library: &Library,
+		volume_fingerprint: &crate::volume::VolumeFingerprint,
+	) -> LocationResult<()> {
 		// Check if volume exists in database
 		let db = library.db().conn();
 		let volume = entities::volume::Entity::find()

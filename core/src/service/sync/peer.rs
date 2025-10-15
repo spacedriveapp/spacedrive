@@ -66,7 +66,11 @@ pub struct PeerSync {
 	is_running: Arc<AtomicBool>,
 
 	/// Network event receiver (optional - if provided, enables connection event handling)
-	network_events: Arc<tokio::sync::Mutex<Option<broadcast::Receiver<crate::service::network::core::NetworkEvent>>>>,
+	network_events: Arc<
+		tokio::sync::Mutex<
+			Option<broadcast::Receiver<crate::service::network::core::NetworkEvent>>,
+		>,
+	>,
 }
 
 impl PeerSync {
@@ -102,7 +106,10 @@ impl PeerSync {
 	}
 
 	/// Set network event receiver for connection tracking
-	pub async fn set_network_events(&self, receiver: broadcast::Receiver<crate::service::network::core::NetworkEvent>) {
+	pub async fn set_network_events(
+		&self,
+		receiver: broadcast::Receiver<crate::service::network::core::NetworkEvent>,
+	) {
 		*self.network_events.lock().await = Some(receiver);
 	}
 
@@ -128,7 +135,7 @@ impl PeerSync {
 	/// Shared watermark (HLC) tracks shared resources (tags, albums).
 	pub async fn get_watermarks(&self) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
 		use crate::infra::db::entities;
-		use sea_orm::{EntityTrait, QueryFilter, ColumnTrait};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		// Query devices table for this device's watermarks
 		match entities::device::Entity::find()
@@ -414,7 +421,8 @@ impl PeerSync {
 									"Device disconnected - updating devices table"
 								);
 
-								if let Err(e) = Self::handle_peer_disconnected(device_id, &db).await {
+								if let Err(e) = Self::handle_peer_disconnected(device_id, &db).await
+								{
 									warn!(
 										device_id = %device_id,
 										error = %e,
@@ -430,8 +438,7 @@ impl PeerSync {
 					Err(broadcast::error::RecvError::Lagged(skipped)) => {
 						warn!(
 							skipped = skipped,
-							"PeerSync network event listener lagged, skipped {} events",
-							skipped
+							"PeerSync network event listener lagged, skipped {} events", skipped
 						);
 						continue;
 					}
@@ -449,7 +456,7 @@ impl PeerSync {
 	/// Handle peer connected event (static for spawned task)
 	async fn handle_peer_connected(device_id: Uuid, db: &DatabaseConnection) -> Result<()> {
 		use crate::infra::db::entities;
-		use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, Set};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
 
 		// Update devices table: set is_online=true, last_seen_at=now
 		let now = Utc::now();
@@ -481,7 +488,7 @@ impl PeerSync {
 	/// Handle peer disconnected event (static for spawned task)
 	async fn handle_peer_disconnected(device_id: Uuid, db: &DatabaseConnection) -> Result<()> {
 		use crate::infra::db::entities;
-		use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, Set};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
 
 		// Update devices table: set is_online=false, last_seen_at=now
 		let now = Utc::now();

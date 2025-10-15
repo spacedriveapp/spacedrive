@@ -1,6 +1,10 @@
 //! Interactive cloud storage setup
 
-use crate::{context::Context, util::confirm::{confirm_or_abort, password, select, text}};
+use crate::util::prelude::*;
+use crate::{
+	context::Context,
+	util::confirm::{confirm_or_abort, password, select, text},
+};
 use anyhow::Result;
 use sd_core::ops::volumes::{
 	add_cloud::{CloudStorageConfig, VolumeAddCloudInput},
@@ -8,7 +12,6 @@ use sd_core::ops::volumes::{
 	remove_cloud::VolumeRemoveCloudInput,
 };
 use sd_core::volume::backend::CloudServiceType;
-use crate::util::prelude::*;
 
 pub async fn run_interactive(ctx: &Context) -> Result<()> {
 	loop {
@@ -136,9 +139,7 @@ async fn add_cloud_interactive(ctx: &Context) -> Result<()> {
 	);
 	println!("   Fingerprint: {}", output.fingerprint);
 	println!("   Service:     {:?}", output.service);
-	println!(
-		"\nYou can now add a location with interactive mode:\n  sd location add"
-	);
+	println!("\nYou can now add a location with interactive mode:\n  sd location add");
 
 	std::process::exit(0);
 }

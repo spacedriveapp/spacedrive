@@ -22,5 +22,3 @@ impl<M: crate::agent::AgentMemory> QueryContext<M> {
 		MemoryHandle::new()
 	}
 }
-
-

@@ -45,7 +45,10 @@ pub async fn run(data_dir: PathBuf, cmd: ConfigCmd) -> Result<()> {
 
 			println!("{}", table);
 			println!();
-			println!("Config file: {}", CliConfig::config_path(&data_dir).display());
+			println!(
+				"Config file: {}",
+				CliConfig::config_path(&data_dir).display()
+			);
 		}
 		ConfigCmd::Get { key } => {
 			let value = match key.as_str() {
@@ -59,19 +62,17 @@ pub async fn run(data_dir: PathBuf, cmd: ConfigCmd) -> Result<()> {
 			};
 			println!("{}", value);
 		}
-		ConfigCmd::Set { key, value } => {
-			match key.as_str() {
-				"update.repo" => {
-					config.set_update_repo(value.clone(), &data_dir)?;
-					println!("Set update.repo = {}", value);
-				}
-				"update.channel" => {
-					config.set_update_channel(value.clone(), &data_dir)?;
-					println!("Set update.channel = {}", value);
-				}
-				_ => return Err(anyhow::anyhow!("Cannot set key: {}", key)),
+		ConfigCmd::Set { key, value } => match key.as_str() {
+			"update.repo" => {
+				config.set_update_repo(value.clone(), &data_dir)?;
+				println!("Set update.repo = {}", value);
 			}
-		}
+			"update.channel" => {
+				config.set_update_channel(value.clone(), &data_dir)?;
+				println!("Set update.channel = {}", value);
+			}
+			_ => return Err(anyhow::anyhow!("Cannot set key: {}", key)),
+		},
 	}
 
 	Ok(())

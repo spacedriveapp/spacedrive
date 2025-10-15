@@ -3,7 +3,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Attribute};
+use syn::{parse_macro_input, Attribute, Data, DeriveInput, Fields};
 
 pub fn model_impl(_args: TokenStream, input: TokenStream) -> TokenStream {
 	let mut input = parse_macro_input!(input as DeriveInput);
@@ -55,9 +55,7 @@ fn strip_field_attributes(input: &mut DeriveInput) {
 		if let Fields::Named(ref mut fields) = data_struct.fields {
 			for field in &mut fields.named {
 				// Remove known field attributes (for now - will be processed in future)
-				field.attrs.retain(|attr| {
-					!is_model_field_attribute(attr)
-				});
+				field.attrs.retain(|attr| !is_model_field_attribute(attr));
 			}
 		}
 	}
@@ -70,12 +68,15 @@ fn is_model_field_attribute(attr: &Attribute) -> bool {
 		let name = ident.to_string();
 		matches!(
 			name.as_str(),
-			"entry" | "sidecar" | "metadata" | "custom_field" |
-			"user_metadata" | "computed" | "blob_data" |
-			"vectorized" | "sync"
+			"entry"
+				| "sidecar" | "metadata"
+				| "custom_field"
+				| "user_metadata"
+				| "computed" | "blob_data"
+				| "vectorized"
+				| "sync"
 		)
 	} else {
 		false
 	}
 }
-

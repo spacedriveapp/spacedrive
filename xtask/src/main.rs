@@ -33,33 +33,35 @@ use std::fs;
 use std::process::Command;
 
 fn main() -> Result<()> {
-    let args: Vec<String> = std::env::args().collect();
+	let args: Vec<String> = std::env::args().collect();
 
-    if args.len() < 2 {
-        eprintln!("Usage: cargo xtask <command>");
-        eprintln!();
-        eprintln!("Commands:");
-        eprintln!("  setup        Setup development environment (downloads deps, generates config)");
-        eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
-        eprintln!();
-        eprintln!("Examples:");
-        eprintln!("  cargo xtask setup          # First time setup");
-        eprintln!("  cargo xtask build-ios      # Build iOS framework");
-        eprintln!("  cargo ios                  # Convenient alias for build-ios");
-        std::process::exit(1);
-    }
+	if args.len() < 2 {
+		eprintln!("Usage: cargo xtask <command>");
+		eprintln!();
+		eprintln!("Commands:");
+		eprintln!(
+			"  setup        Setup development environment (downloads deps, generates config)"
+		);
+		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
+		eprintln!();
+		eprintln!("Examples:");
+		eprintln!("  cargo xtask setup          # First time setup");
+		eprintln!("  cargo xtask build-ios      # Build iOS framework");
+		eprintln!("  cargo ios                  # Convenient alias for build-ios");
+		std::process::exit(1);
+	}
 
-    match args[1].as_str() {
-        "setup" => setup()?,
-        "build-ios" => build_ios()?,
-        _ => {
-            eprintln!("Unknown command: {}", args[1]);
-            eprintln!("Run 'cargo xtask' for usage information.");
-            std::process::exit(1);
-        }
-    }
+	match args[1].as_str() {
+		"setup" => setup()?,
+		"build-ios" => build_ios()?,
+		_ => {
+			eprintln!("Unknown command: {}", args[1]);
+			eprintln!("Run 'cargo xtask' for usage information.");
+			std::process::exit(1);
+		}
+	}
 
-    Ok(())
+	Ok(())
 }
 
 /// Setup development environment
@@ -67,109 +69,113 @@ fn main() -> Result<()> {
 /// This replaces the old `pnpm prep` workflow with a pure Rust implementation.
 /// It downloads native dependencies and generates the cargo config.
 fn setup() -> Result<()> {
-    println!("Setting up Spacedrive development environment...");
-    println!();
+	println!("Setting up Spacedrive development environment...");
+	println!();
 
-    let project_root = std::env::current_dir()?;
+	let project_root = std::env::current_dir()?;
 
-    // Detect system
-    let system = system::SystemInfo::detect()?;
-    println!("Detected platform: {:?} {:?}", system.os, system.arch);
+	// Detect system
+	let system = system::SystemInfo::detect()?;
+	println!("Detected platform: {:?} {:?}", system.os, system.arch);
 
-    // Check for required tools
-    println!("Checking for required tools...");
-    if !system::has_linker("cargo") {
-        anyhow::bail!("cargo not found. Please install Rust from https://rustup.rs");
-    }
-    if !system::has_linker("rustc") {
-        anyhow::bail!("rustc not found. Please install Rust from https://rustup.rs");
-    }
-    println!("   ✓ Rust toolchain found");
+	// Check for required tools
+	println!("Checking for required tools...");
+	if !system::has_linker("cargo") {
+		anyhow::bail!("cargo not found. Please install Rust from https://rustup.rs");
+	}
+	if !system::has_linker("rustc") {
+		anyhow::bail!("rustc not found. Please install Rust from https://rustup.rs");
+	}
+	println!("   ✓ Rust toolchain found");
 
-    // Setup native dependencies directory
-    let native_deps_dir = project_root.join("apps").join(".deps");
-    println!();
-    println!("Setting up native dependencies...");
+	// Setup native dependencies directory
+	let native_deps_dir = project_root.join("apps").join(".deps");
+	println!();
+	println!("Setting up native dependencies...");
 
-    // Clean and create deps directory
-    if native_deps_dir.exists() {
-        fs::remove_dir_all(&native_deps_dir)
-            .context("Failed to clean native deps directory")?;
-    }
-    fs::create_dir_all(&native_deps_dir)
-        .context("Failed to create native deps directory")?;
+	// Clean and create deps directory
+	if native_deps_dir.exists() {
+		fs::remove_dir_all(&native_deps_dir).context("Failed to clean native deps directory")?;
+	}
+	fs::create_dir_all(&native_deps_dir).context("Failed to create native deps directory")?;
 
-    // Download desktop native dependencies
-    let filename = system.native_deps_filename();
-    native_deps::download_native_deps(&filename, &native_deps_dir)?;
+	// Download desktop native dependencies
+	let filename = system.native_deps_filename();
+	native_deps::download_native_deps(&filename, &native_deps_dir)?;
 
-    // Create symlinks for shared libraries
-    #[cfg(target_os = "macos")]
-    {
-        println!();
-        println!("Creating symlinks for shared libraries...");
-        native_deps::symlink_libs_macos(&project_root, &native_deps_dir)?;
-        println!("   ✓ Symlinks created");
-    }
+	// Create symlinks for shared libraries
+	#[cfg(target_os = "macos")]
+	{
+		println!();
+		println!("Creating symlinks for shared libraries...");
+		native_deps::symlink_libs_macos(&project_root, &native_deps_dir)?;
+		println!("   ✓ Symlinks created");
+	}
 
-    #[cfg(target_os = "linux")]
-    {
-        println!();
-        println!("Creating symlinks for shared libraries...");
-        native_deps::symlink_libs_linux(&project_root, &native_deps_dir)?;
-        println!("   ✓ Symlinks created");
-    }
+	#[cfg(target_os = "linux")]
+	{
+		println!();
+		println!("Creating symlinks for shared libraries...");
+		native_deps::symlink_libs_linux(&project_root, &native_deps_dir)?;
+		println!("   ✓ Symlinks created");
+	}
 
-    // Download iOS dependencies if on macOS and iOS targets are installed
-    #[cfg(target_os = "macos")]
-    {
-        let rust_targets = system::get_rust_targets().unwrap_or_default();
-        let ios_targets = ["aarch64-apple-ios", "aarch64-apple-ios-sim", "x86_64-apple-ios"];
+	// Download iOS dependencies if on macOS and iOS targets are installed
+	#[cfg(target_os = "macos")]
+	{
+		let rust_targets = system::get_rust_targets().unwrap_or_default();
+		let ios_targets = [
+			"aarch64-apple-ios",
+			"aarch64-apple-ios-sim",
+			"x86_64-apple-ios",
+		];
 
-        let has_ios_targets: Vec<_> = ios_targets
-            .iter()
-            .filter(|t| rust_targets.contains(&t.to_string()))
-            .collect();
+		let has_ios_targets: Vec<_> = ios_targets
+			.iter()
+			.filter(|t| rust_targets.contains(&t.to_string()))
+			.collect();
 
-        if !has_ios_targets.is_empty() {
-            println!();
-            println!("iOS targets detected, downloading iOS dependencies...");
+		if !has_ios_targets.is_empty() {
+			println!();
+			println!("iOS targets detected, downloading iOS dependencies...");
 
-            let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
-            fs::create_dir_all(&mobile_deps_dir)?;
+			let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
+			fs::create_dir_all(&mobile_deps_dir)?;
 
-            for target in has_ios_targets {
-                native_deps::download_ios_deps(target, &mobile_deps_dir)?;
-            }
-        } else {
-            println!();
-            println!("️  No iOS targets installed. Skipping iOS dependencies.");
-            println!("   To add iOS support, run:");
-            println!("   rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios");
-        }
-    }
+			for target in has_ios_targets {
+				native_deps::download_ios_deps(target, &mobile_deps_dir)?;
+			}
+		} else {
+			println!();
+			println!("️  No iOS targets installed. Skipping iOS dependencies.");
+			println!("   To add iOS support, run:");
+			println!(
+				"   rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios"
+			);
+		}
+	}
 
-    // Generate cargo config
-    println!();
-    let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
-    let mobile_deps = if mobile_deps_dir.exists() {
-        Some(mobile_deps_dir.as_path())
-    } else {
-        None
-    };
+	// Generate cargo config
+	println!();
+	let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
+	let mobile_deps = if mobile_deps_dir.exists() {
+		Some(mobile_deps_dir.as_path())
+	} else {
+		None
+	};
 
-    config::generate_cargo_config(&project_root, Some(&native_deps_dir), mobile_deps)?;
+	config::generate_cargo_config(&project_root, Some(&native_deps_dir), mobile_deps)?;
 
-    println!();
-    println!("Setup complete!");
-    println!();
-    println!("Next steps:");
-    println!("   • cargo build              - Build the CLI");
-    println!("   • cargo xtask build-ios    - Build iOS framework (macOS only)");
-    println!("   • cargo ios                - Shortcut for build-ios");
-    println!();
+	println!();
+	println!("Setup complete!");
+	println!();
+	println!("Next steps:");
+	println!("   • cargo build              - Build the CLI");
+	println!("   • cargo xtask build-ios    - Build iOS framework (macOS only)");
+	println!("   • cargo ios                - Shortcut for build-ios");
+	println!();
 
-    Ok(())
+	Ok(())
 }
 
 /// Build sd-ios-core for iOS devices and simulator, creating an XCFramework

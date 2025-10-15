@@ -62,7 +62,9 @@ impl CloudCredentialManager {
 		credential: &CloudCredential,
 	) -> Result<(), CloudCredentialError> {
 		// Get or create library encryption key
-		let library_key = self.library_key_manager.get_or_create_library_key(library_id)?;
+		let library_key = self
+			.library_key_manager
+			.get_or_create_library_key(library_id)?;
 
 		// Serialize credential
 		let credential_json = serde_json::to_vec(credential)?;

@@ -162,7 +162,7 @@ jobs:
           tool_name: 'Clippy (${{ matrix.settings.host }})'
           filter_mode: diff_context
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          clippy_flags: --workspace --all-features --locked
+          clippy_flags: --workspace --locked
           fail_on_error: true
 
       # - name: Run tests

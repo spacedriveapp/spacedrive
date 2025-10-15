@@ -94,7 +94,6 @@ pub enum RequestSource {
 	/// CLI application
 	Cli,
 
-
 	/// Swift desktop application
 	Swift,
 

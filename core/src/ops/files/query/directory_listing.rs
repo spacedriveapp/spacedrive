@@ -298,31 +298,38 @@ impl LibraryQuery for DirectoryListingQuery {
 			};
 
 			// Create content identity if available
-			let content_identity =
-				if let (Some(ci_uuid), Some(ci_hash), Some(ci_first_seen), Some(ci_last_verified)) =
-					(content_identity_uuid, content_hash, first_seen_at, last_verified_at)
-				{
-					// Convert content_kind name to ContentKind enum
-					let kind = content_kind_name
-						.as_ref()
-						.map(|name| crate::domain::ContentKind::from(name.as_str()))
-						.unwrap_or(crate::domain::ContentKind::Unknown);
+			let content_identity = if let (
+				Some(ci_uuid),
+				Some(ci_hash),
+				Some(ci_first_seen),
+				Some(ci_last_verified),
+			) = (
+				content_identity_uuid,
+				content_hash,
+				first_seen_at,
+				last_verified_at,
+			) {
+				// Convert content_kind name to ContentKind enum
+				let kind = content_kind_name
+					.as_ref()
+					.map(|name| crate::domain::ContentKind::from(name.as_str()))
+					.unwrap_or(crate::domain::ContentKind::Unknown);
 
-					Some(crate::domain::ContentIdentity {
-						uuid: ci_uuid,
-						kind,
-						content_hash: ci_hash,
-						integrity_hash,
-						mime_type_id,
-						text_content,
-						total_size: total_size.unwrap_or(0),
-						entry_count: entry_count.unwrap_or(0),
-						first_seen_at: ci_first_seen,
-						last_verified_at: ci_last_verified,
-					})
-				} else {
-					None
-				};
+				Some(crate::domain::ContentIdentity {
+					uuid: ci_uuid,
+					kind,
+					content_hash: ci_hash,
+					integrity_hash,
+					mime_type_id,
+					text_content,
+					total_size: total_size.unwrap_or(0),
+					entry_count: entry_count.unwrap_or(0),
+					first_seen_at: ci_first_seen,
+					last_verified_at: ci_last_verified,
+				})
+			} else {
+				None
+			};
 
 			// Create file construction data
 			let file_data = FileConstructionData {
@@ -401,9 +408,16 @@ impl DirectoryListingQuery {
 					}
 				}
 			}
-			SdPath::Cloud { volume_fingerprint, path } => {
+			SdPath::Cloud {
+				volume_fingerprint,
+				path,
+			} => {
 				// Cloud storage directory browsing
-				tracing::debug!(" Looking for cloud directory: volume={}, path='{}'", volume_fingerprint.0, path);
+				tracing::debug!(
+					" Looking for cloud directory: volume={}, path='{}'",
+					volume_fingerprint.0,
+					path
+				);
 
 				// Find directory entry by path in directory_paths table
 				// Cloud paths are stored the same way as physical paths
