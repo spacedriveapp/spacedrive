@@ -342,21 +342,131 @@ impl NetworkingEventLoop {
 						}
 					}
 
-						// Route to appropriate handler based on pairing status
-						let handler_name = if is_paired { "messaging" } else { "pairing" };
+					// For paired devices, check if this is a file transfer stream
+					// File transfer streams start with type byte 0, followed by length and message
+					if is_paired {
+						// Try to peek at the first byte to detect file transfer protocol
+						// File transfer protocol starts with transfer_type byte
+						use tokio::io::AsyncReadExt;
+						let mut peek_buf = [0u8; 1];
+						let mut recv_peekable = recv;
 
-							let registry = protocol_registry.read().await;
-							if let Some(handler) = registry.get_handler(handler_name) {
-								logger.info(&format!("Directing bidirectional stream to {} handler", handler_name)).await;
-								handler.handle_stream(
-									Box::new(send),
-									Box::new(recv),
-									remote_node_id,
-								).await;
-								logger.info(&format!("{} handler completed for stream from {}", handler_name, remote_node_id)).await;
-							} else {
-								logger.error(&format!("No {} handler registered!", handler_name)).await;
+						// Try to peek the first byte
+						let bytes_read = recv_peekable.read(&mut peek_buf).await;
+						match bytes_read {
+							Ok(Some(n)) if n > 0 => {
+									// Check if this looks like a file transfer message (type 0 or 1)
+									if peek_buf[0] <= 1 {
+									// Likely file transfer - but we need to put the byte back
+									// Wrap in a custom reader that replays this byte
+									struct PrependReader<R> {
+										byte: Option<u8>,
+										inner: R,
+									}
+
+									impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for PrependReader<R> {
+										fn poll_read(
+											mut self: std::pin::Pin<&mut Self>,
+											cx: &mut std::task::Context<'_>,
+											buf: &mut tokio::io::ReadBuf<'_>,
+										) -> std::task::Poll<std::io::Result<()>> {
+											if let Some(byte) = self.byte.take() {
+												buf.put_slice(&[byte]);
+												std::task::Poll::Ready(Ok(()))
+											} else {
+												std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
+											}
+										}
+									}
+
+									let recv_with_byte = PrependReader {
+										byte: Some(peek_buf[0]),
+										inner: recv_peekable,
+									};
+
+									let registry = protocol_registry.read().await;
+									if let Some(handler) = registry.get_handler("file_transfer") {
+										logger.info("Directing bidirectional stream to file_transfer handler").await;
+										handler.handle_stream(
+											Box::new(send),
+											Box::new(recv_with_byte),
+											remote_node_id,
+										).await;
+										logger.info("file_transfer handler completed for stream").await;
+									}
+									continue; // Skip the default handler logic below
+								} else {
+									// Not file transfer, use messaging
+									// Need to wrap to replay the byte
+									struct PrependReader<R> {
+										byte: Option<u8>,
+										inner: R,
+									}
+
+									impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for PrependReader<R> {
+										fn poll_read(
+											mut self: std::pin::Pin<&mut Self>,
+											cx: &mut std::task::Context<'_>,
+											buf: &mut tokio::io::ReadBuf<'_>,
+										) -> std::task::Poll<std::io::Result<()>> {
+											if let Some(byte) = self.byte.take() {
+												buf.put_slice(&[byte]);
+												std::task::Poll::Ready(Ok(()))
+											} else {
+												std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
+											}
+										}
+									}
+
+									let recv_with_byte = PrependReader {
+										byte: Some(peek_buf[0]),
+										inner: recv_peekable,
+									};
+
+									let registry = protocol_registry.read().await;
+									if let Some(handler) = registry.get_handler("messaging") {
+										logger.info("Directing bidirectional stream to messaging handler").await;
+										handler.handle_stream(
+											Box::new(send),
+											Box::new(recv_with_byte),
+											remote_node_id,
+										).await;
+										logger.info("messaging handler completed for stream").await;
+									}
+									continue; // Skip the default handler logic below
+								}
 							}
+							_ => {
+								// Default to messaging if we can't peek, no bytes, or error
+								// Use recv_peekable since recv was already moved
+								let registry = protocol_registry.read().await;
+								if let Some(handler) = registry.get_handler("messaging") {
+									logger.info("Directing bidirectional stream to messaging handler (fallback)").await;
+									handler.handle_stream(
+										Box::new(send),
+										Box::new(recv_peekable),
+										remote_node_id,
+									).await;
+									logger.info("messaging handler completed for stream").await;
+								}
+								continue;
+							}
+						}
+					} else {
+						// Unpaired device, use pairing handler
+						let registry = protocol_registry.read().await;
+						if let Some(handler) = registry.get_handler("pairing") {
+							logger.info("Directing bidirectional stream to pairing handler").await;
+							handler.handle_stream(
+								Box::new(send),
+								Box::new(recv),
+								remote_node_id,
+							).await;
+							logger.info("pairing handler completed for stream").await;
+						} else {
+							logger.error("No pairing handler registered!").await;
+						}
+					}
 						}
 					Err(e) => {
 						// Check if the QUIC connection itself is closed

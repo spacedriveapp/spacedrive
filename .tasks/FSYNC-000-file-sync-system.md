@@ -55,7 +55,7 @@ Intelligent local storage management with access pattern tracking.
 ## Child Tasks
 
 - **FSYNC-001**: DeleteJob Strategy Pattern & Remote Deletion (Phase 1) - Done
-- **FSYNC-002**: Database Schema & Entities (Phase 2)
+- **FSYNC-002**: Database Schema & Entities (Phase 2) - Done
 - **FSYNC-003**: FileSyncService Core Implementation (Phase 3)
 - **FSYNC-004**: Service Integration & API (Phase 4)
 - **FSYNC-005**: Advanced Features (Phase 5)

@@ -13,6 +13,7 @@ use std::{
 	sync::{Arc, Mutex},
 	time::{Duration, Instant},
 };
+use tracing::info;
 use uuid::Uuid;
 
 /// Move operation modes for UI context
@@ -328,6 +329,9 @@ impl JobHandler for FileCopyJob {
 				volume_manager.as_deref(),
 			)
 			.await;
+
+			info!("[JOB] About to execute strategy for {} -> {}",
+				resolved_source.display(), final_destination.display());
 
 			// 2. Execute the strategy with progress callback
 			match strategy

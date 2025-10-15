@@ -1,8 +1,81 @@
-//! Peer sync service - Leaderless architecture
-//!
-//! All devices are peers, using hybrid sync:
+//! Peer sync service
 //! - State-based for device-owned data
 //! - Log-based with HLC for shared resources
+//!
+//! ## Architecture
+//!
+//! This service implements a leaderless peer-to-peer synchronization system where all devices
+//! are equal participants. It uses a hybrid approach:
+//!
+//! - **State-based sync**: For device-owned data (locations, file entries). Each device owns
+//!   its data and broadcasts changes via timestamps.
+//! - **Log-based sync with HLC**: For shared resources (tags, albums). Uses Hybrid Logical Clocks
+//!   for causal ordering and conflict resolution.
+//!
+//! ## Core Responsibilities
+//!
+//! ### 1. Connection Management
+//! - Monitors network connection/disconnection events
+//! - Updates device online status in the database
+//! - Automatically triggers watermark exchange on reconnection for incremental catch-up
+//!
+//! ### 2. Watermark Exchange
+//! - Compares sync progress between devices using two types of watermarks:
+//!   - `state_watermark`: timestamp tracking device-owned data progress
+//!   - `shared_watermark`: HLC tracking shared resource progress
+//! - Determines which device is behind and needs catch-up
+//! - Initiates incremental sync requests for missing changes
+//!
+//! ### 3. Change Broadcasting
+//! - `broadcast_state_change()`: Sends device-owned changes to all connected peers
+//! - `broadcast_shared_change()`: Sends shared resource changes with HLC for ordering
+//! - Broadcasts in parallel to all connected sync partners (30s timeout per peer)
+//! - Failed sends are queued for retry with exponential backoff
+//!
+//! ### 4. Change Application
+//! - `on_state_change_received()`: Applies incoming device state changes
+//! - `on_shared_change_received()`: Applies shared changes with HLC-based conflict resolution
+//! - Buffers changes during backfill/catch-up to maintain consistency
+//! - Sends ACKs back to originators for distributed log pruning
+//!
+//! ### 5. Backfill Support
+//! - `get_device_state()`: Queries device-owned data for initial sync (domain-agnostic via registry)
+//! - `get_shared_changes()`: Retrieves shared changes from peer log since a given HLC
+//! - `get_full_shared_state()`: Gets complete snapshot of shared resources for new devices
+//!
+//! ### 6. Background Tasks
+//! - **Retry processor**: Retries failed message sends every 10 seconds
+//! - **Log pruner**: Prunes acknowledged log entries every 5 minutes
+//! - **Event listener**: Listens for TransactionManager events and broadcasts changes
+//! - **Network listener**: Tracks peer connections and triggers watermark exchange
+//!
+//! ### 7. State Machine
+//! The service manages sync lifecycle states:
+//! - `Uninitialized`: Service created but not started
+//! - `Backfilling`: Receiving initial state from peers
+//! - `CatchingUp`: Processing buffered changes after backfill
+//! - `Ready`: Fully synchronized, applying changes in real-time
+//!
+//! During non-ready states, incoming changes are buffered and applied during transition to ready.
+//!
+//! ## Example Flow: Peer Reconnection
+//!
+//! 1. Network detects peer connection → `handle_peer_connected()`
+//! 2. Watermark exchange initiated → `trigger_watermark_exchange()`
+//! 3. Peer responds with its watermarks → `on_watermark_exchange_response()`
+//! 4. Watermarks compared to determine who needs catch-up
+//! 5. If behind, send catch-up requests (`SharedChangeRequest`)
+//! 6. Peer responds with missing changes
+//! 7. Changes applied with conflict resolution (HLC comparison)
+//! 8. ACKs sent back to peer
+//! 9. Both devices prune acknowledged log entries
+//!
+//! ## Conflict Resolution
+//!
+//! For shared resources, conflicts are resolved using HLC timestamps:
+//! - Incoming change with older/equal HLC → ignored
+//! - Incoming change with newer HLC → applied (last-write-wins)
+//! - HLC ensures causal consistency across all peers
 
 use crate::{
 	infra::{
@@ -591,7 +664,10 @@ impl PeerSync {
 					Ok(event) => {
 						use crate::service::network::core::NetworkEvent;
 						match event {
-							NetworkEvent::ConnectionEstablished { device_id: peer_id, node_id } => {
+							NetworkEvent::ConnectionEstablished {
+								device_id: peer_id,
+								node_id,
+							} => {
 								info!(
 									peer_id = %peer_id,
 									node_id = %node_id,
@@ -609,11 +685,7 @@ impl PeerSync {
 
 								// Trigger watermark exchange for reconnection sync
 								if let Err(e) = Self::trigger_watermark_exchange(
-									library_id,
-									device_id,
-									peer_id,
-									&db,
-									&network,
+									library_id, device_id, peer_id, &db, &network,
 								)
 								.await
 								{
@@ -624,15 +696,17 @@ impl PeerSync {
 									);
 								}
 							}
-							NetworkEvent::ConnectionLost { device_id: peer_id, node_id } => {
+							NetworkEvent::ConnectionLost {
+								device_id: peer_id,
+								node_id,
+							} => {
 								info!(
 									peer_id = %peer_id,
 									node_id = %node_id,
 									"Device disconnected - updating devices table"
 								);
 
-								if let Err(e) = Self::handle_peer_disconnected(peer_id, &db).await
-								{
+								if let Err(e) = Self::handle_peer_disconnected(peer_id, &db).await {
 									warn!(
 										peer_id = %peer_id,
 										error = %e,
@@ -1416,7 +1490,11 @@ impl PeerSync {
 		);
 
 		// HLC conflict resolution: check if we already have a more recent change for this record
-		if let Ok(Some(existing_hlc)) = self.peer_log.get_latest_hlc_for_record(entry.record_uuid).await {
+		if let Ok(Some(existing_hlc)) = self
+			.peer_log
+			.get_latest_hlc_for_record(entry.record_uuid)
+			.await
+		{
 			if entry.hlc <= existing_hlc {
 				debug!(
 					incoming_hlc = %entry.hlc,

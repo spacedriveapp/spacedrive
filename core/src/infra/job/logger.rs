@@ -236,16 +236,23 @@ impl FileJobLogger {
 			return Ok(());
 		}
 
-		let mut file = self.file.lock().unwrap();
-		writeln!(
-			file,
+		let formatted = format!(
 			"[{}] {} {}: {}",
 			chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
 			level,
 			self.job_id,
 			message
-		)?;
-		file.flush()
+		);
+
+		// Write to file
+		let mut file = self.file.lock().unwrap();
+		writeln!(file, "{}", formatted)?;
+		file.flush()?;
+
+		// ALSO output to stdout for test visibility
+		println!("{}", formatted);
+
+		Ok(())
 	}
 }
 

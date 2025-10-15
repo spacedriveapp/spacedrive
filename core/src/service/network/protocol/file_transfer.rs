@@ -998,28 +998,58 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 
 		match transfer_type[0] {
 			0 => {
-				// File metadata request
-				// Read message length
-				let mut len_buf = [0u8; 4];
-				if let Err(e) = recv.read_exact(&mut len_buf).await {
-					self.logger
-						.error(&format!("Failed to read message length: {}", e))
-						.await;
-					return;
-				}
-				let msg_len = u32::from_be_bytes(len_buf) as usize;
+				// File metadata request - this is now a message stream
+				// Keep reading messages until stream closes or TransferComplete received
+				// Note: The first type byte (0) was already read above
+				let mut first_message = true;
 
-				// Read message
-				let mut msg_buf = vec![0u8; msg_len];
-				if let Err(e) = recv.read_exact(&mut msg_buf).await {
-					self.logger
-						.error(&format!("Failed to read message: {}", e))
-						.await;
-					return;
-				}
+				loop {
+					// For messages after the first, read the type byte
+					if !first_message {
+						let mut msg_type = [0u8; 1];
+						match recv.read_exact(&mut msg_type).await {
+							Ok(_) => {
+								if msg_type[0] != 0 {
+									self.logger
+										.error(&format!("Unexpected message type in stream: {}", msg_type[0]))
+										.await;
+									break;
+								}
+							},
+							Err(e) => {
+								self.logger
+									.debug(&format!("Stream ended or error reading type: {}", e))
+									.await;
+								break;
+							}
+						}
+					}
+					first_message = false;
 
-				// Deserialize and handle
-				if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&msg_buf) {
+					// Read message length
+					let mut len_buf = [0u8; 4];
+					match recv.read_exact(&mut len_buf).await {
+						Ok(_) => {},
+						Err(e) => {
+							self.logger
+								.error(&format!("Failed to read message length: {}", e))
+								.await;
+							break;
+						}
+					}
+					let msg_len = u32::from_be_bytes(len_buf) as usize;
+
+					// Read message
+					let mut msg_buf = vec![0u8; msg_len];
+					if let Err(e) = recv.read_exact(&mut msg_buf).await {
+						self.logger
+							.error(&format!("Failed to read message: {}", e))
+							.await;
+						break;
+					}
+
+					// Deserialize and handle
+					if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&msg_buf) {
 					self.logger
 						.debug(&format!(
 							"Received file transfer message: {}",
@@ -1098,7 +1128,7 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 							if let Err(e) = self
 								.handle_incoming_transfer_complete(
 									transfer_id,
-									final_checksum,
+									final_checksum.clone(),
 									total_bytes,
 								)
 								.await
@@ -1106,6 +1136,24 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 								self.logger
 									.error(&format!("Failed to handle transfer completion: {}", e))
 									.await;
+							} else {
+								// Send TransferFinalAck response back to sender
+								self.logger
+									.info(&format!("Sending TransferFinalAck for transfer {}", transfer_id))
+									.await;
+
+								let ack_message = FileTransferMessage::TransferFinalAck { transfer_id };
+								if let Ok(ack_data) = rmp_serde::to_vec(&ack_message) {
+									// Send type (0) + length + data
+									let _ = send.write_u8(0).await;
+									let _ = send.write_all(&(ack_data.len() as u32).to_be_bytes()).await;
+									let _ = send.write_all(&ack_data).await;
+									let _ = send.flush().await;
+
+									self.logger
+										.info(&format!("TransferFinalAck sent for transfer {}", transfer_id))
+										.await;
+								}
 							}
 						}
 						_ => {
@@ -1114,7 +1162,8 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 								.await;
 						}
 					}
-				}
+					} // Close the if let Ok(message)
+				} // Close the loop
 			}
 			1 => {
 				// File data stream
