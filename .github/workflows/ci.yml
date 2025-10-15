@@ -53,8 +53,9 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        # TODO: Re-enable when submodule repos are public
+        # with:
+        #   submodules: recursive
 
       - name: Check if files have changed
         uses: dorny/paths-filter@v3
@@ -126,8 +127,9 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        # TODO: Re-enable when submodule repos are public
+        # with:
+        #   submodules: recursive
 
       - name: Find files that have changed
         uses: dorny/paths-filter@v3
@@ -214,8 +216,9 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        # TODO: Re-enable when submodule repos are public
+        # with:
+        #   submodules: recursive
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
