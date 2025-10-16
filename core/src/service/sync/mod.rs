@@ -30,6 +30,11 @@ use uuid::Uuid;
 pub use backfill::BackfillManager;
 pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
 
+/// Main sync loop interval
+///
+/// Checks sync state and performs maintenance every 5 seconds.
+const SYNC_LOOP_INTERVAL_SECS: u64 = 5;
+
 /// Sync service for a library (Leaderless)
 ///
 /// This service runs in the background for the lifetime of an open library,
@@ -105,6 +110,11 @@ impl SyncService {
 		&self.peer_sync
 	}
 
+	/// Get the backfill manager
+	pub fn backfill_manager(&self) -> &Arc<BackfillManager> {
+		&self.backfill_manager
+	}
+
 	/// Main sync loop (spawned as background task)
 	///
 	/// This is the orchestration layer that:
@@ -130,13 +140,12 @@ impl SyncService {
 					match state {
 						DeviceSyncState::Uninitialized => {
 							if !backfill_attempted {
-								info!("Device uninitialized - attempting automatic backfill");
-								backfill_attempted = true;
-
 								// Get available sync partners from network
 								match peer_sync.network().get_connected_sync_partners().await {
 									Ok(partners) if !partners.is_empty() => {
+										info!("Device uninitialized - attempting automatic backfill");
 										info!("Found {} connected partners, starting backfill", partners.len());
+										backfill_attempted = true;
 
 										// Convert to PeerInfo (TODO: get real latency metrics)
 										let peer_info: Vec<PeerInfo> = partners
@@ -163,8 +172,8 @@ impl SyncService {
 										}
 									}
 									Ok(_) => {
-										info!("No connected partners available for backfill, will retry");
-										backfill_attempted = false; // Retry when peers connect
+										// No partners available - silently retry on next loop
+										backfill_attempted = false;
 									}
 									Err(e) => {
 										warn!("Failed to get connected partners: {}", e);
@@ -192,7 +201,8 @@ impl SyncService {
 					}
 
 					// Sleep before next iteration
-					tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+					tokio::time::sleep(tokio::time::Duration::from_secs(SYNC_LOOP_INTERVAL_SECS))
+						.await;
 				}
 			} => {
 				info!("Peer sync loop ended");

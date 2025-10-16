@@ -19,6 +19,7 @@ use uuid::Uuid;
 pub struct SyncProtocolHandler {
 	library_id: Uuid,
 	peer_sync: Option<Arc<crate::service::sync::peer::PeerSync>>,
+	backfill_manager: Option<Arc<crate::service::sync::BackfillManager>>,
 }
 
 impl SyncProtocolHandler {
@@ -31,12 +32,21 @@ impl SyncProtocolHandler {
 		Self {
 			library_id,
 			peer_sync: None,
+			backfill_manager: None,
 		}
 	}
 
 	/// Set the peer sync service (called after initialization)
 	pub fn set_peer_sync(&mut self, peer_sync: Arc<crate::service::sync::peer::PeerSync>) {
 		self.peer_sync = Some(peer_sync);
+	}
+
+	/// Set the backfill manager (called after initialization)
+	pub fn set_backfill_manager(
+		&mut self,
+		backfill_manager: Arc<crate::service::sync::BackfillManager>,
+	) {
+		self.backfill_manager = Some(backfill_manager);
 	}
 
 	/// Get library ID
@@ -197,7 +207,20 @@ impl SyncProtocolHandler {
 			}
 
 			SyncMessage::StateResponse { .. } => {
-				// Response messages are handled separately
+				// Deliver to backfill manager if available
+				if let Some(backfill_manager) = &self.backfill_manager {
+					backfill_manager
+						.deliver_state_response(message)
+						.await
+						.map_err(|e| {
+							NetworkingError::Protocol(format!(
+								"Failed to deliver StateResponse: {}",
+								e
+							))
+						})?;
+				} else {
+					warn!("Received StateResponse but backfill manager not set");
+				}
 				Ok(None)
 			}
 
@@ -253,7 +276,20 @@ impl SyncProtocolHandler {
 			}
 
 			SyncMessage::SharedChangeResponse { .. } => {
-				// Response messages are handled separately
+				// Deliver to backfill manager if available
+				if let Some(backfill_manager) = &self.backfill_manager {
+					backfill_manager
+						.deliver_shared_response(message)
+						.await
+						.map_err(|e| {
+							NetworkingError::Protocol(format!(
+								"Failed to deliver SharedChangeResponse: {}",
+								e
+							))
+						})?;
+				} else {
+					warn!("Received SharedChangeResponse but backfill manager not set");
+				}
 				Ok(None)
 			}
 

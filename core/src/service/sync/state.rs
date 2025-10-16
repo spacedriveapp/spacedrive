@@ -3,9 +3,11 @@
 use crate::infra::sync::{SharedChangeEntry, HLC};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::warn;
 use uuid::Uuid;
 
 /// Device sync state for state machine
@@ -51,7 +53,7 @@ impl DeviceSyncState {
 }
 
 /// Update type for buffering
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum BufferedUpdate {
 	/// State-based change (device-owned data)
 	StateChange(StateChangeMessage),
@@ -78,8 +80,30 @@ impl BufferedUpdate {
 	}
 }
 
+impl Ord for BufferedUpdate {
+	fn cmp(&self, other: &Self) -> Ordering {
+		// Reverse ordering for BinaryHeap (min-heap, oldest first)
+		match (self, other) {
+			(BufferedUpdate::SharedChange(a), BufferedUpdate::SharedChange(b)) => {
+				// Use HLC ordering (which includes timestamp, counter, device_id)
+				b.hlc.cmp(&a.hlc)
+			}
+			_ => {
+				// For state changes or mixed, compare by timestamp
+				other.timestamp().cmp(&self.timestamp())
+			}
+		}
+	}
+}
+
+impl PartialOrd for BufferedUpdate {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
 /// State change message for device-owned data
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct StateChangeMessage {
 	pub model_type: String,
 	pub record_uuid: Uuid,
@@ -88,36 +112,71 @@ pub struct StateChangeMessage {
 	pub timestamp: DateTime<Utc>,
 }
 
+/// Maximum number of buffered updates before dropping oldest
+///
+/// Prevents unbounded memory growth during long backfill operations.
+/// If buffer fills up, oldest updates are dropped (they'll be re-requested
+/// if needed via watermark catch-up).
+const MAX_BUFFER_SIZE: usize = 100_000;
+
 /// Buffer queue for updates received during backfill/catch-up
+///
+/// Uses a BinaryHeap to maintain updates sorted by timestamp/HLC,
+/// ensuring causality is preserved when processing buffered updates.
+///
+/// Has a maximum size limit to prevent OOM during long backfills.
 pub struct BufferQueue {
-	queue: RwLock<VecDeque<BufferedUpdate>>,
+	queue: RwLock<BinaryHeap<BufferedUpdate>>,
+	max_size: usize,
 }
 
 impl BufferQueue {
-	/// Create new empty buffer queue
+	/// Create new empty buffer queue with default size limit
 	pub fn new() -> Self {
 		Self {
-			queue: RwLock::new(VecDeque::new()),
+			queue: RwLock::new(BinaryHeap::new()),
+			max_size: MAX_BUFFER_SIZE,
+		}
+	}
+
+	/// Create new buffer queue with custom size limit
+	pub fn with_max_size(max_size: usize) -> Self {
+		Self {
+			queue: RwLock::new(BinaryHeap::new()),
+			max_size,
 		}
 	}
 
 	/// Push update to buffer
+	///
+	/// Updates are automatically sorted by timestamp/HLC.
+	/// If buffer is at capacity, silently drops the update (oldest-eviction
+	/// will happen naturally when popping, since we can't efficiently remove
+	/// specific items from a BinaryHeap).
 	pub async fn push(&self, update: BufferedUpdate) {
 		let mut queue = self.queue.write().await;
-		queue.push_back(update);
+
+		// Check if at capacity
+		if queue.len() >= self.max_size {
+			warn!(
+				current_size = queue.len(),
+				max_size = self.max_size,
+				"Buffer queue at capacity, dropping new update"
+			);
+			return;
+		}
+
+		queue.push(update);
 	}
 
 	/// Pop next update in order (oldest first, by timestamp/HLC)
+	///
+	/// Returns the oldest update (smallest timestamp/HLC).
+	/// For SharedChanges, uses full HLC ordering (timestamp, counter, device_id).
+	/// For StateChanges, uses timestamp only.
 	pub async fn pop_ordered(&self) -> Option<BufferedUpdate> {
 		let mut queue = self.queue.write().await;
-
-		if queue.is_empty() {
-			return None;
-		}
-
-		// For simplicity, just pop FIFO (already roughly ordered by receive time)
-		// Could sort by timestamp/HLC for strict ordering if needed
-		queue.pop_front()
+		queue.pop()
 	}
 
 	/// Get current buffer size

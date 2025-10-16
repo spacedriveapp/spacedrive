@@ -278,6 +278,23 @@ impl Core {
 										let network_events = networking.subscribe_events();
 										peer_sync.set_network_events(network_events).await;
 										info!("Network event receiver wired to PeerSync for library {}", library.id());
+
+										// Create and register sync protocol handler for this library
+										let mut sync_handler = service::network::protocol::SyncProtocolHandler::new(library.id());
+										sync_handler.set_peer_sync(peer_sync.clone());
+										sync_handler.set_backfill_manager(sync_service.backfill_manager().clone());
+
+										let protocol_registry = networking.protocol_registry();
+										let result = {
+											let mut registry = protocol_registry.write().await;
+											registry.register_handler(Arc::new(sync_handler))
+										};
+
+										if let Err(e) = result {
+											warn!("Failed to register sync protocol handler for library {}: {}", library.id(), e);
+										} else {
+											info!("Sync protocol handler registered for library {}", library.id());
+										}
 									}
 								}
 								Err(e) => {

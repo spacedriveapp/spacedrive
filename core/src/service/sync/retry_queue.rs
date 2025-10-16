@@ -9,9 +9,14 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 /// Maximum number of retry attempts before giving up
+///
+/// After this many failed attempts, messages are dropped to prevent
+/// unbounded queue growth for persistently unreachable devices.
 const MAX_RETRIES: u32 = 5;
 
 /// Initial retry delay in seconds
+///
+/// Uses exponential backoff: 5s, 10s, 20s, 40s, 80s
 const INITIAL_DELAY_SECS: i64 = 5;
 
 /// Entry in the retry queue
@@ -56,25 +61,32 @@ impl RetryQueue {
 	}
 
 	/// Get messages that are ready for retry
+	///
+	/// Processes entries in-place to avoid race conditions from popping/re-queuing.
+	/// Atomically removes ready entries and updates remaining entries in one write lock.
 	pub async fn get_ready(&self) -> Vec<(Uuid, SyncMessage)> {
 		let now = Utc::now();
 		let mut queue = self.queue.write().await;
 		let mut ready = Vec::new();
-		let mut to_requeue = Vec::new();
+		let mut i = 0;
 
-		// Process all entries
-		while let Some(mut entry) = queue.pop_front() {
+		// Process entries in-place without popping the entire queue
+		while i < queue.len() {
+			let entry = &queue[i];
+
 			if entry.next_retry <= now {
-				// This entry is ready for retry
+				// This entry is ready - remove it from queue
+				let mut entry = queue.remove(i).unwrap();
 				entry.attempts += 1;
 
 				if entry.attempts >= MAX_RETRIES {
-					// Max retries reached, drop it
+					// Max retries reached, drop it (don't re-queue)
 					tracing::warn!(
 						target_device = %entry.target_device,
 						attempts = entry.attempts,
 						"Max retries reached, dropping message"
 					);
+					// Don't increment i - we removed an element
 					continue;
 				}
 
@@ -83,19 +95,16 @@ impl RetryQueue {
 
 				// Calculate exponential backoff delay
 				let delay_secs = INITIAL_DELAY_SECS * (2_i64.pow(entry.attempts));
-				entry.next_retry = Utc::now() + Duration::seconds(delay_secs);
+				entry.next_retry = now + Duration::seconds(delay_secs);
 
-				// Re-queue for next attempt
-				to_requeue.push(entry);
+				// Re-insert at end of queue
+				queue.push_back(entry);
+
+				// Don't increment i - we removed an element
 			} else {
-				// Not ready yet, put it back
-				to_requeue.push(entry);
+				// Not ready yet, move to next entry
+				i += 1;
 			}
-		}
-
-		// Put back entries that aren't ready yet
-		for entry in to_requeue {
-			queue.push_back(entry);
 		}
 
 		ready

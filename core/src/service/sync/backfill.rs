@@ -18,9 +18,24 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::{oneshot, Mutex};
 use tracing::{info, warn};
 use uuid::Uuid;
+
+/// Default batch size for backfill requests
+///
+/// Limits memory usage while still being efficient for large datasets.
+/// Smaller batches = more round trips but lower memory.
+/// Larger batches = fewer round trips but higher memory.
+const DEFAULT_BATCH_SIZE: usize = 10_000;
+
+/// Timeout for backfill requests
+///
+/// If peer doesn't respond within this time, request fails and backfill
+/// can retry with different peer.
+const REQUEST_TIMEOUT_SECS: u64 = 60;
 
 /// Manages backfill process for new devices
 pub struct BackfillManager {
@@ -29,6 +44,12 @@ pub struct BackfillManager {
 	peer_sync: Arc<PeerSync>,
 	state_handler: Arc<StateSyncHandler>,
 	log_handler: Arc<LogSyncHandler>,
+
+	/// Pending state request channel (backfill is sequential, only one at a time)
+	pending_state_response: Arc<Mutex<Option<oneshot::Sender<SyncMessage>>>>,
+
+	/// Pending shared change request channel
+	pending_shared_response: Arc<Mutex<Option<oneshot::Sender<SyncMessage>>>>,
 }
 
 impl BackfillManager {
@@ -45,7 +66,43 @@ impl BackfillManager {
 			peer_sync,
 			state_handler,
 			log_handler,
+			pending_state_response: Arc::new(Mutex::new(None)),
+			pending_shared_response: Arc::new(Mutex::new(None)),
 		}
+	}
+
+	/// Deliver a StateResponse to waiting request
+	///
+	/// Called by protocol handler when StateResponse is received.
+	pub async fn deliver_state_response(&self, response: SyncMessage) -> Result<()> {
+		let mut pending = self.pending_state_response.lock().await;
+
+		if let Some(sender) = pending.take() {
+			sender.send(response).map_err(|_| {
+				anyhow::anyhow!("Failed to deliver StateResponse - receiver dropped")
+			})?;
+		} else {
+			warn!("Received StateResponse but no pending request");
+		}
+
+		Ok(())
+	}
+
+	/// Deliver a SharedChangeResponse to waiting request
+	///
+	/// Called by protocol handler when SharedChangeResponse is received.
+	pub async fn deliver_shared_response(&self, response: SyncMessage) -> Result<()> {
+		let mut pending = self.pending_shared_response.lock().await;
+
+		if let Some(sender) = pending.take() {
+			sender.send(response).map_err(|_| {
+				anyhow::anyhow!("Failed to deliver SharedChangeResponse - receiver dropped")
+			})?;
+		} else {
+			warn!("Received SharedChangeResponse but no pending request");
+		}
+
+		Ok(())
 	}
 
 	/// Start complete backfill process
@@ -148,7 +205,13 @@ impl BackfillManager {
 			// Request state in batches
 			loop {
 				let response = self
-					.request_state_batch(peer, vec![model_type.clone()], None, None, 10_000)
+					.request_state_batch(
+						peer,
+						vec![model_type.clone()],
+						None,
+						None,
+						DEFAULT_BATCH_SIZE,
+					)
 					.await?;
 
 				// Apply batch
@@ -191,7 +254,9 @@ impl BackfillManager {
 		info!("Backfilling shared resources");
 
 		// Request shared changes from peer
-		let response = self.request_shared_changes(peer, None, 10_000).await?;
+		let response = self
+			.request_shared_changes(peer, None, DEFAULT_BATCH_SIZE)
+			.await?;
 
 		if let SyncMessage::SharedChangeResponse {
 			entries,
@@ -219,6 +284,7 @@ impl BackfillManager {
 	/// Request state batch from peer
 	///
 	/// Sends a StateRequest and waits for the StateResponse.
+	/// Uses oneshot channel to receive response from protocol handler.
 	async fn request_state_batch(
 		&self,
 		peer: Uuid,
@@ -227,7 +293,21 @@ impl BackfillManager {
 		since: Option<DateTime<Utc>>,
 		batch_size: usize,
 	) -> Result<SyncMessage> {
-		// Create StateRequest message
+		// Create channel for response
+		let (tx, rx) = oneshot::channel();
+
+		// Store sender so protocol handler can deliver response
+		{
+			let mut pending = self.pending_state_response.lock().await;
+			if pending.is_some() {
+				return Err(anyhow::anyhow!(
+					"Cannot send StateRequest - previous request still pending"
+				));
+			}
+			*pending = Some(tx);
+		}
+
+		// Create and send request
 		let request = SyncMessage::StateRequest {
 			library_id: self.library_id,
 			model_types: model_types.clone(),
@@ -237,63 +317,91 @@ impl BackfillManager {
 			batch_size,
 		};
 
-		// Send request via network transport
 		self.peer_sync
 			.network()
 			.send_sync_message(peer, request)
 			.await?;
 
-		// TODO: Wait for StateResponse
-		// The current NetworkTransport::send_sync_message() is fire-and-forget.
-		// To properly implement request/response pattern, we need to either:
-		// 1. Add send_sync_request() method to NetworkTransport that waits for response
-		// 2. Use a channel-based approach where responses are delivered via protocol handler
-		//
-		// For now, return empty response as a stub
-		Ok(SyncMessage::StateResponse {
-			library_id: self.library_id,
-			model_type: model_types.first().cloned().unwrap_or_default(),
-			device_id: peer,
-			records: Vec::new(),
-			checkpoint: None,
-			has_more: false,
-		})
+		// Wait for response with timeout
+		let response = tokio::time::timeout(
+			tokio::time::Duration::from_secs(REQUEST_TIMEOUT_SECS),
+			rx,
+		)
+		.await
+		.map_err(|_| {
+			// Timeout - clean up pending channel
+			let pending = self.pending_state_response.clone();
+			tokio::spawn(async move {
+				*pending.lock().await = None;
+			});
+			anyhow::anyhow!(
+				"StateRequest timeout after {}s - peer {} not responding",
+				REQUEST_TIMEOUT_SECS,
+				peer
+			)
+		})?
+		.map_err(|_| anyhow::anyhow!("StateRequest channel closed unexpectedly"))?;
+
+		Ok(response)
 	}
 
 	/// Request shared changes from peer
 	///
 	/// Sends a SharedChangeRequest and waits for the SharedChangeResponse.
+	/// Uses oneshot channel to receive response from protocol handler.
 	async fn request_shared_changes(
 		&self,
 		peer: Uuid,
 		since_hlc: Option<HLC>,
 		limit: usize,
 	) -> Result<SyncMessage> {
-		// Create SharedChangeRequest message
+		// Create channel for response
+		let (tx, rx) = oneshot::channel();
+
+		// Store sender so protocol handler can deliver response
+		{
+			let mut pending = self.pending_shared_response.lock().await;
+			if pending.is_some() {
+				return Err(anyhow::anyhow!(
+					"Cannot send SharedChangeRequest - previous request still pending"
+				));
+			}
+			*pending = Some(tx);
+		}
+
+		// Create and send request
 		let request = SyncMessage::SharedChangeRequest {
 			library_id: self.library_id,
 			since_hlc,
 			limit,
 		};
 
-		// Send request via network transport
 		self.peer_sync
 			.network()
 			.send_sync_message(peer, request)
 			.await?;
 
-		// TODO: Wait for SharedChangeResponse
-		// Same limitation as request_state_batch() - we need a proper request/response mechanism.
-		// The protocol handler on the peer will receive this request and send a response,
-		// but we need a way to correlate and await that response here.
-		//
-		// For now, return empty response as a stub
-		Ok(SyncMessage::SharedChangeResponse {
-			library_id: self.library_id,
-			entries: Vec::new(),
-			current_state: None,
-			has_more: false,
-		})
+		// Wait for response with timeout
+		let response = tokio::time::timeout(
+			tokio::time::Duration::from_secs(REQUEST_TIMEOUT_SECS),
+			rx,
+		)
+		.await
+		.map_err(|_| {
+			// Timeout - clean up pending channel
+			let pending = self.pending_shared_response.clone();
+			tokio::spawn(async move {
+				*pending.lock().await = None;
+			});
+			anyhow::anyhow!(
+				"SharedChangeRequest timeout after {}s - peer {} not responding",
+				REQUEST_TIMEOUT_SECS,
+				peer
+			)
+		})?
+		.map_err(|_| anyhow::anyhow!("SharedChangeRequest channel closed unexpectedly"))?;
+
+		Ok(response)
 	}
 
 	/// Handle peer disconnection during backfill
