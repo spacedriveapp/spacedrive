@@ -87,6 +87,7 @@ pub async fn detect_non_apfs_volumes(
 				let volume = Volume {
 					id: uuid::Uuid::new_v4(),
 					fingerprint,
+
 					device_id,
 					name: name.clone(),
 					library_id: None,
@@ -103,6 +104,7 @@ pub async fn detect_non_apfs_volumes(
 					is_mounted: true,
 					hardware_id: Some(filesystem.to_string()),
 					backend: None,
+					cloud_identifier: None,
 					apfs_container: None,
 					container_volume_id: None,
 					path_mappings: Vec::new(),

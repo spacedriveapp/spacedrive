@@ -170,7 +170,7 @@ impl VolumeManager {
 
 				match credential_manager.get_credential(library.id(), &db_volume.fingerprint) {
 					Ok(credential) => {
-						// Get mount point and service name from database
+						// Get mount point from database (for display and cache purposes)
 						let mount_point_str = match &db_volume.mount_point {
 							Some(mp) => mp,
 							None => {
@@ -179,9 +179,14 @@ impl VolumeManager {
 							}
 						};
 
-						// Recreate the cloud backend from stored credentials
-						// Use the service's scheme() method as the single source of truth for URI parsing
-						let scheme_prefix = format!("{}://", credential.service.scheme());
+						// Get cloud identifier from database (actual bucket/drive/container name)
+						let cloud_identifier = match &db_volume.cloud_identifier {
+							Some(id) => id,
+							None => {
+								warn!("No cloud identifier for cloud volume {}", fingerprint.0);
+								continue;
+							}
+						};
 
 						let backend_result = match credential.service {
 							crate::volume::CloudServiceType::S3 => {
@@ -191,12 +196,8 @@ impl VolumeManager {
 									..
 								} = &credential.data
 								{
-									let bucket = mount_point_str
-										.strip_prefix(&scheme_prefix)
-										.unwrap_or("unknown");
-
 									crate::volume::CloudBackend::new_s3(
-										bucket,
+										cloud_identifier,
 										"us-east-1", // Default region
 										access_key_id,
 										secret_access_key,
@@ -213,17 +214,12 @@ impl VolumeManager {
 									refresh_token,
 								} = &credential.data
 								{
-									// Extract root from mount point if available
-									let root = mount_point_str
-										.strip_prefix(&scheme_prefix)
-										.map(|s| s.to_string());
-
 									crate::volume::CloudBackend::new_google_drive(
 										access_token,
 										refresh_token,
 										"", // client_id not stored yet
 										"", // client_secret not stored yet
-										root,
+										Some(cloud_identifier.clone()),
 									).await
 								} else {
 									warn!("Invalid credential type for Google Drive volume {}", fingerprint.0);
@@ -236,16 +232,12 @@ impl VolumeManager {
 									refresh_token,
 								} = &credential.data
 								{
-									let root = mount_point_str
-										.strip_prefix(&scheme_prefix)
-										.map(|s| s.to_string());
-
 									crate::volume::CloudBackend::new_onedrive(
 										access_token,
 										refresh_token,
 										"",
 										"",
-										root,
+										Some(cloud_identifier.clone()),
 									).await
 								} else {
 									warn!("Invalid credential type for OneDrive volume {}", fingerprint.0);
@@ -258,16 +250,12 @@ impl VolumeManager {
 									refresh_token,
 								} = &credential.data
 								{
-									let root = mount_point_str
-										.strip_prefix(&scheme_prefix)
-										.map(|s| s.to_string());
-
 									crate::volume::CloudBackend::new_dropbox(
 										access_token,
 										refresh_token,
 										"",
 										"",
-										root,
+										Some(cloud_identifier.clone()),
 									).await
 								} else {
 									warn!("Invalid credential type for Dropbox volume {}", fingerprint.0);
@@ -281,12 +269,8 @@ impl VolumeManager {
 									..
 								} = &credential.data
 								{
-									let container = mount_point_str
-										.strip_prefix(&scheme_prefix)
-										.unwrap_or("unknown");
-
 									crate::volume::CloudBackend::new_azure_blob(
-										container,
+										cloud_identifier,
 										access_key_id,
 										secret_access_key,
 										None,
@@ -298,12 +282,8 @@ impl VolumeManager {
 							}
 							crate::volume::CloudServiceType::GoogleCloudStorage => {
 								if let crate::crypto::cloud_credentials::CredentialData::ApiKey(service_account_json) = &credential.data {
-									let bucket = mount_point_str
-										.strip_prefix(&scheme_prefix)
-										.unwrap_or("unknown");
-
 									crate::volume::CloudBackend::new_google_cloud_storage(
-										bucket,
+										cloud_identifier,
 										service_account_json,
 										None,
 										None,
@@ -322,6 +302,7 @@ impl VolumeManager {
 						match backend_result {
 							Ok(backend) => {
 								let now = chrono::Utc::now();
+
 								let volume = Volume {
 									id: db_volume.uuid,
 									fingerprint: fingerprint.clone(),
@@ -341,6 +322,7 @@ impl VolumeManager {
 									is_mounted: true,
 									hardware_id: None,
 									backend: Some(Arc::new(backend)),
+									cloud_identifier: db_volume.cloud_identifier.clone(),
 									apfs_container: None,
 									container_volume_id: None,
 									path_mappings: Vec::new(),
@@ -362,11 +344,15 @@ impl VolumeManager {
 								};
 
 								let mut volumes = self.volumes.write().await;
+
+								// Cache by mount_point string (includes suffix if added for uniqueness)
+								let mount_point_str = volume.mount_point.to_string_lossy().to_string();
+
 								volumes.insert(fingerprint.clone(), volume.clone());
 
-								// Update mount point cache for fast cloud volume lookup
+								// Update mount point cache for fast cloud volume lookup using mount_point (with suffix)
 								let mut mount_point_cache = self.mount_point_cache.write().await;
-								mount_point_cache.insert(mount_point_str.to_string(), fingerprint.clone());
+								mount_point_cache.insert(mount_point_str, fingerprint.clone());
 
 								loaded_count += 1;
 								info!("Loaded cloud volume {} ({:?}) from database", db_volume.display_name.as_ref().unwrap_or(&"Unknown".to_string()), credential.service);
@@ -1031,9 +1017,10 @@ impl VolumeManager {
 			"Registering cloud volume '{}' with fingerprint {}",
 			volume.name, fingerprint
 		);
+
 		volumes.insert(fingerprint.clone(), volume);
 
-		// Update mount point cache for fast cloud volume lookup
+		// Update mount point cache for fast cloud volume lookup using mount_point (with suffix)
 		let mut mount_point_cache = self.mount_point_cache.write().await;
 		mount_point_cache.insert(mount_point_str, fingerprint);
 	}
@@ -1117,6 +1104,7 @@ impl VolumeManager {
 			volume_type: Set(Some(format!("{:?}", volume.volume_type))),
 			is_user_visible: Set(Some(volume.is_user_visible)),
 			auto_track_eligible: Set(Some(volume.auto_track_eligible)),
+			cloud_identifier: Set(volume.cloud_identifier.clone()),
 			..Default::default()
 		};
 

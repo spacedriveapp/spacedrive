@@ -97,7 +97,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			.map_err(|e| ActionError::InvalidInput(format!("Failed to get device ID: {}", e)))?;
 		let library_id = library.id();
 
-		let (backend, credential, mount_point) = match &self.input.config {
+		let (backend, credential, cloud_identifier, mount_point) = match &self.input.config {
 			CloudStorageConfig::S3 {
 				bucket,
 				region,
@@ -124,12 +124,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
+				let cloud_identifier = bucket.clone();
 				let desired_mount_point = format!("s3://{}", bucket);
 				let mount_point = context.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, mount_point)
+				(backend, credential, cloud_identifier, mount_point)
 			}
 			CloudStorageConfig::GoogleDrive {
 				root,
@@ -157,15 +158,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None, // Google Drive tokens typically don't have a fixed expiry in the refresh flow
 				);
 
-				let desired_mount_point = format!(
-					"gdrive://{}",
-					root.as_deref().unwrap_or("root")
-				);
+				let cloud_identifier = root.as_deref().unwrap_or("root").to_string();
+				let desired_mount_point = format!("gdrive://{}", cloud_identifier);
 				let mount_point = context.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, mount_point)
+				(backend, credential, cloud_identifier, mount_point)
 			}
 			CloudStorageConfig::OneDrive {
 				root,
@@ -193,15 +192,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
-				let desired_mount_point = format!(
-					"onedrive://{}",
-					root.as_deref().unwrap_or("root")
-				);
+				let cloud_identifier = root.as_deref().unwrap_or("root").to_string();
+				let desired_mount_point = format!("onedrive://{}", cloud_identifier);
 				let mount_point = context.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, mount_point)
+				(backend, credential, cloud_identifier, mount_point)
 			}
 			CloudStorageConfig::Dropbox {
 				root,
@@ -229,15 +226,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
-				let desired_mount_point = format!(
-					"dropbox://{}",
-					root.as_deref().unwrap_or("root")
-				);
+				let cloud_identifier = root.as_deref().unwrap_or("root").to_string();
+				let desired_mount_point = format!("dropbox://{}", cloud_identifier);
 				let mount_point = context.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, mount_point)
+				(backend, credential, cloud_identifier, mount_point)
 			}
 			CloudStorageConfig::AzureBlob {
 				container,
@@ -263,12 +258,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					None,
 				);
 
+				let cloud_identifier = container.clone();
 				let desired_mount_point = format!("azblob://{}", container);
 				let mount_point = context.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, mount_point)
+				(backend, credential, cloud_identifier, mount_point)
 			}
 			CloudStorageConfig::GoogleCloudStorage {
 				bucket,
@@ -292,12 +288,13 @@ impl LibraryAction for VolumeAddCloudAction {
 					service_account_json.clone(),
 				);
 
+				let cloud_identifier = bucket.clone();
 				let desired_mount_point = format!("gcs://{}", bucket);
 				let mount_point = context.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, mount_point)
+				(backend, credential, cloud_identifier, mount_point)
 			}
 		};
 
@@ -332,6 +329,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			is_mounted: true,
 			hardware_id: None,
 			backend: Some(backend_arc),
+			cloud_identifier: Some(cloud_identifier),
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),

@@ -293,6 +293,11 @@ pub struct Volume {
 	#[specta(skip)]
 	pub backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 
+	/// Cloud identifier (bucket/drive/container name) for cloud volumes
+	/// This is separate from mount_point to allow display names with suffixes
+	/// while maintaining the correct cloud resource identifier for backend operations
+	pub cloud_identifier: Option<String>,
+
 	/// APFS container information (macOS only)
 	pub apfs_container: Option<ApfsContainer>,
 
@@ -547,6 +552,7 @@ impl Volume {
 			is_tracked: false,
 			hardware_id: None,
 			backend: None,
+			cloud_identifier: None,
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),
@@ -715,16 +721,30 @@ impl Volume {
 		crate::volume::fs::contains_path(self, path)
 	}
 
-	/// Parse cloud service and identifier from mount point
+	/// Parse cloud service and identifier from cloud_identifier or mount point
 	/// Returns None for non-cloud volumes or unparseable mount points
 	///
 	/// # Examples
+	/// - With cloud_identifier="my-bucket" and mount_point="s3://my-bucket-2" → Some((S3, "my-bucket"))
 	/// - "s3://my-bucket" → Some((S3, "my-bucket"))
 	/// - "gdrive://My Drive" → Some((GoogleDrive, "My Drive"))
 	/// - "/mnt/local" → None
 	pub fn parse_cloud_identity(&self) -> Option<(crate::volume::backend::CloudServiceType, String)> {
 		use crate::volume::backend::CloudServiceType;
 
+		// If we have a stored cloud_identifier, use it with the service from mount_point
+		if let Some(ref cloud_id) = self.cloud_identifier {
+			let mount_str = self.mount_point.to_string_lossy();
+			let parts: Vec<&str> = mount_str.splitn(2, "://").collect();
+
+			if parts.len() == 2 {
+				if let Some(service) = CloudServiceType::from_scheme(parts[0]) {
+					return Some((service, cloud_id.clone()));
+				}
+			}
+		}
+
+		// Fallback to parsing mount_point for backwards compatibility
 		let mount_str = self.mount_point.to_string_lossy();
 		let parts: Vec<&str> = mount_str.splitn(2, "://").collect();
 
@@ -796,6 +816,7 @@ impl TrackedVolume {
 			is_mounted: false,
 			hardware_id: self.device_model.clone(),
 			backend: None,
+			cloud_identifier: None,
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),

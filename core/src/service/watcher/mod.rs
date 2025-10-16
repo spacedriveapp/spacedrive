@@ -328,8 +328,9 @@ impl LocationWatcher {
 		}
 
 		// Skip cloud locations - they don't have filesystem paths to watch
+		// Cloud paths use service-native URIs like s3://, gdrive://, etc.
 		let path_str = location.path.to_string_lossy();
-		if path_str.starts_with("cloud://") || path_str.starts_with("sd://cloud/") {
+		if path_str.contains("://") && !path_str.starts_with("local://") {
 			debug!(
 				"Skipping cloud location {} from filesystem watcher: {}",
 				location.id, path_str
@@ -475,10 +476,9 @@ impl LocationWatcher {
 						{
 							Ok(path) => {
 								// Skip cloud locations - they don't have filesystem paths to watch
+								// Cloud paths use service-native URIs like s3://, gdrive://, etc.
 								let path_str = path.to_string_lossy();
-								if path_str.starts_with("cloud://")
-									|| path_str.starts_with("sd://cloud/")
-								{
+								if path_str.contains("://") && !path_str.starts_with("local://") {
 									debug!(
 										"Skipping cloud location {} from filesystem watcher: {}",
 										location.uuid, path_str

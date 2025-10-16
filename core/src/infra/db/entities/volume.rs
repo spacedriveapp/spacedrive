@@ -33,6 +33,8 @@ pub struct Model {
 	pub is_user_visible: Option<bool>,
 	/// Whether volume is eligible for auto-tracking
 	pub auto_track_eligible: Option<bool>,
+	/// Cloud identifier (bucket/drive/container name) for cloud volumes
+	pub cloud_identifier: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -201,6 +203,7 @@ impl Syncable for Model {
 			volume_type: Set(data.get("volume_type").and_then(|v| v.as_str()).map(String::from)),
 			is_user_visible: Set(data.get("is_user_visible").and_then(|v| v.as_bool())),
 			auto_track_eligible: Set(data.get("auto_track_eligible").and_then(|v| v.as_bool())),
+			cloud_identifier: Set(data.get("cloud_identifier").and_then(|v| v.as_str()).map(String::from)),
 		};
 
 		Entity::insert(active)
@@ -222,6 +225,7 @@ impl Syncable for Model {
 						Column::VolumeType,
 						Column::IsUserVisible,
 						Column::AutoTrackEligible,
+						Column::CloudIdentifier,
 						Column::LastSeenAt,
 					])
 					.to_owned(),
