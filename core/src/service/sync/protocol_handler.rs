@@ -125,22 +125,37 @@ impl StateSyncHandler {
 			.await
 			.ok_or_else(|| anyhow::anyhow!("Unknown model type: {}", model_type))?;
 
-		let mut query = format!("SELECT * FROM {} WHERE 1=1", table_name);
+		// Build parameterized query to prevent SQL injection
+		let mut values: Vec<sea_orm::Value> = Vec::new();
+		let mut conditions = Vec::new();
 
 		if let Some(dev_id) = device_id {
-			query.push_str(&format!(" AND device_id = '{}'", dev_id));
+			conditions.push("device_id = ?");
+			values.push(dev_id.to_string().into());
 		}
 
 		if let Some(ts) = since {
-			query.push_str(&format!(" AND updated_at > '{}'", ts.to_rfc3339()));
+			conditions.push("updated_at > ?");
+			values.push(ts.to_rfc3339().into());
 		}
 
-		query.push_str(&format!(" LIMIT {}", limit));
+		let where_clause = if conditions.is_empty() {
+			String::new()
+		} else {
+			format!(" WHERE {}", conditions.join(" AND "))
+		};
+
+		let query = format!("SELECT * FROM {}{} LIMIT ?", table_name, where_clause);
+		values.push((limit as i64).into());
 
 		let rows = self
 			.db
 			.conn()
-			.query_all(Statement::from_string(DbBackend::Sqlite, query))
+			.query_all(Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				&query,
+				values,
+			))
 			.await?;
 
 		let mut records = Vec::new();

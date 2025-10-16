@@ -329,7 +329,7 @@ impl PeerLog {
 }
 
 /// Entry in the shared changes log
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SharedChangeEntry {
 	pub hlc: HLC,
 	pub model_type: String,
@@ -339,7 +339,7 @@ pub struct SharedChangeEntry {
 }
 
 /// Type of database change
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ChangeType {
 	Insert,
 	Update,
