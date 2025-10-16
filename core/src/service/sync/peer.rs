@@ -101,6 +101,34 @@ use super::{
 	state::{BufferQueue, DeviceSyncState, StateChangeMessage},
 };
 
+/// Timeout for sending sync messages to peers
+///
+/// Messages taking longer than this are cancelled to prevent blocking
+/// on slow or unresponsive devices.
+const SYNC_MESSAGE_TIMEOUT_SECS: u64 = 30;
+
+/// Interval for processing retry queue
+///
+/// Failed messages are retried every 10 seconds with exponential backoff.
+const RETRY_PROCESSOR_INTERVAL_SECS: u64 = 10;
+
+/// Interval for pruning acknowledged log entries
+///
+/// Runs every 5 minutes to clean up peer log entries that all devices
+/// have acknowledged receiving.
+const LOG_PRUNER_INTERVAL_SECS: u64 = 300;
+
+/// Main sync loop interval
+///
+/// Checks sync state and performs maintenance every 5 seconds.
+const SYNC_LOOP_INTERVAL_SECS: u64 = 5;
+
+/// Default batch size for catch-up requests
+///
+/// Used when requesting missing changes from peers during reconnection.
+/// Same as backfill batch size for consistency.
+const CATCHUP_BATCH_SIZE: usize = 10_000;
+
 /// Peer sync service for leaderless architecture
 ///
 /// Handles both state-based (device-owned) and log-based (shared) sync.
@@ -201,19 +229,17 @@ impl PeerSync {
 		self.device_id
 	}
 
-	/// Get watermarks for heartbeat and reconnection sync
-	///
-	/// Returns (state_watermark, shared_watermark) from the devices table.
-	/// State watermark tracks device-owned data (locations, entries).
-	/// Shared watermark (HLC) tracks shared resources (tags, albums).
-	pub async fn get_watermarks(&self) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
+	/// Query watermarks from devices table (shared helper)
+	async fn query_device_watermarks(
+		device_id: Uuid,
+		db: &DatabaseConnection,
+	) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
 		use crate::infra::db::entities;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-		// Query devices table for this device's watermarks
 		match entities::device::Entity::find()
-			.filter(entities::device::Column::Uuid.eq(self.device_id))
-			.one(self.db.as_ref())
+			.filter(entities::device::Column::Uuid.eq(device_id))
+			.one(db)
 			.await
 		{
 			Ok(Some(device)) => {
@@ -229,20 +255,29 @@ impl PeerSync {
 			}
 			Ok(None) => {
 				warn!(
-					device_id = %self.device_id,
+					device_id = %device_id,
 					"Device not found in devices table, returning None watermarks"
 				);
 				(None, None)
 			}
 			Err(e) => {
 				warn!(
-					device_id = %self.device_id,
+					device_id = %device_id,
 					error = %e,
 					"Failed to query watermarks from devices table"
 				);
 				(None, None)
 			}
 		}
+	}
+
+	/// Get watermarks for heartbeat and reconnection sync
+	///
+	/// Returns (state_watermark, shared_watermark) from the devices table.
+	/// State watermark tracks device-owned data (locations, entries).
+	/// Shared watermark (HLC) tracks shared resources (tags, albums).
+	pub async fn get_watermarks(&self) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
+		Self::query_device_watermarks(self.device_id, self.db.as_ref()).await
 	}
 
 	/// Exchange watermarks with a peer and trigger catch-up if needed
@@ -376,7 +411,7 @@ impl PeerSync {
 			let request = SyncMessage::SharedChangeRequest {
 				library_id: self.library_id,
 				since_hlc: my_shared_watermark,
-				limit: 10_000, // Large batch for catch-up
+				limit: CATCHUP_BATCH_SIZE,
 			};
 
 			self.network
@@ -494,8 +529,11 @@ impl PeerSync {
 			info!("Started retry queue processor");
 
 			while is_running.load(Ordering::SeqCst) {
-				// Check for ready messages every 10 seconds
-				tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+				// Check for ready messages at configured interval
+				tokio::time::sleep(tokio::time::Duration::from_secs(
+					RETRY_PROCESSOR_INTERVAL_SECS,
+				))
+				.await;
 
 				// Get messages ready for retry
 				let ready_messages = retry_queue.get_ready().await;
@@ -538,8 +576,9 @@ impl PeerSync {
 			info!("Started log pruner");
 
 			while is_running.load(Ordering::SeqCst) {
-				// Prune every 5 minutes
-				tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+				// Prune at configured interval
+				tokio::time::sleep(tokio::time::Duration::from_secs(LOG_PRUNER_INTERVAL_SECS))
+					.await;
 
 				match peer_log.prune_acked().await {
 					Ok(count) if count > 0 => {
@@ -740,7 +779,7 @@ impl PeerSync {
 	/// Handle peer connected event (static for spawned task)
 	async fn handle_peer_connected(device_id: Uuid, db: &DatabaseConnection) -> Result<()> {
 		use crate::infra::db::entities;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		// Update devices table: set is_online=true, last_seen_at=now
 		let now = Utc::now();
@@ -772,7 +811,7 @@ impl PeerSync {
 	/// Handle peer disconnected event (static for spawned task)
 	async fn handle_peer_disconnected(device_id: Uuid, db: &DatabaseConnection) -> Result<()> {
 		use crate::infra::db::entities;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		// Update devices table: set is_online=false, last_seen_at=now
 		let now = Utc::now();
@@ -807,9 +846,6 @@ impl PeerSync {
 		db: &DatabaseConnection,
 		network: &Arc<dyn NetworkTransport>,
 	) -> Result<()> {
-		use crate::infra::db::entities;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
 		info!(
 			peer = %peer_id,
 			device = %device_id,
@@ -817,38 +853,8 @@ impl PeerSync {
 		);
 
 		// Query our watermarks from devices table
-		let (my_state_watermark, my_shared_watermark) = match entities::device::Entity::find()
-			.filter(entities::device::Column::Uuid.eq(device_id))
-			.one(db)
-			.await
-		{
-			Ok(Some(device)) => {
-				let state_watermark = device.last_state_watermark;
-
-				// Deserialize shared watermark from JSON
-				let shared_watermark = device
-					.last_shared_watermark
-					.as_ref()
-					.and_then(|json_str| serde_json::from_str(json_str).ok());
-
-				(state_watermark, shared_watermark)
-			}
-			Ok(None) => {
-				warn!(
-					device_id = %device_id,
-					"Device not found in devices table, sending None watermarks"
-				);
-				(None, None)
-			}
-			Err(e) => {
-				warn!(
-					device_id = %device_id,
-					error = %e,
-					"Failed to query watermarks from devices table, sending None watermarks"
-				);
-				(None, None)
-			}
-		};
+		let (my_state_watermark, my_shared_watermark) =
+			Self::query_device_watermarks(device_id, db).await;
 
 		debug!(
 			peer = %peer_id,
@@ -986,14 +992,20 @@ impl PeerSync {
 				let msg = message.clone();
 				async move {
 					match tokio::time::timeout(
-						std::time::Duration::from_secs(30),
+						std::time::Duration::from_secs(SYNC_MESSAGE_TIMEOUT_SECS),
 						network.send_sync_message(partner, msg),
 					)
 					.await
 					{
 						Ok(Ok(())) => (partner, Ok(())),
 						Ok(Err(e)) => (partner, Err(e)),
-						Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after 30s"))),
+						Err(_) => (
+							partner,
+							Err(anyhow::anyhow!(
+								"Send timeout after {}s",
+								SYNC_MESSAGE_TIMEOUT_SECS
+							)),
+						),
 					}
 				}
 			})
@@ -1099,14 +1111,20 @@ impl PeerSync {
 				let msg = message.clone();
 				async move {
 					match tokio::time::timeout(
-						std::time::Duration::from_secs(30),
+						std::time::Duration::from_secs(SYNC_MESSAGE_TIMEOUT_SECS),
 						network.send_sync_message(partner, msg),
 					)
 					.await
 					{
 						Ok(Ok(())) => (partner, Ok(())),
 						Ok(Err(e)) => (partner, Err(e)),
-						Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after 30s"))),
+						Err(_) => (
+							partner,
+							Err(anyhow::anyhow!(
+								"Send timeout after {}s",
+								SYNC_MESSAGE_TIMEOUT_SECS
+							)),
+						),
 					}
 				}
 			})
@@ -1729,7 +1747,7 @@ impl PeerSync {
 		debug!("Querying full shared resource state for backfill");
 
 		// Query all shared models
-		// TODO: Add albums, user_metadata, etc. as they get Syncable impl
+		// TODO: Add volumes, user_metadata, etc. as they get Syncable impl
 		let tags = crate::infra::db::entities::tag::Model::query_for_sync(
 			None,
 			None,
