@@ -1,14 +1,13 @@
 //! Core domain models - the heart of Spacedrive's VDFS
 //!
 //! These models implement the new file data model design where:
-//! - Entry represents any file/directory
+//! - File represents any file/directory with rich metadata
 //! - UserMetadata is always present (enabling immediate tagging)
 //! - ContentIdentity is optional (for deduplication)
 
 pub mod addressing;
 pub mod content_identity;
 pub mod device;
-pub mod entry;
 pub mod file;
 pub mod location;
 pub mod tag;
@@ -19,8 +18,7 @@ pub mod volume;
 pub use addressing::{PathResolutionError, SdPath, SdPathBatch, SdPathParseError};
 pub use content_identity::{ContentHashError, ContentHashGenerator, ContentIdentity, ContentKind};
 pub use device::{Device, OperatingSystem};
-pub use entry::{Entry, EntryKind, SdPathSerialized};
-pub use file::{File, FileConstructionData, Sidecar};
+pub use file::{EntryKind, File, Sidecar};
 pub use location::{IndexMode, Location, ScanState};
 pub use tag::{
 	OrganizationalPattern, PatternType, PrivacyLevel, RelationshipType, Tag, TagApplication,

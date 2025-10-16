@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
 						println!(
 							"      {}. {} (score: {:.2})",
 							i + 1,
-							result.entry.name,
+							result.file.name,
 							result.score
 						);
 
@@ -161,12 +161,10 @@ async fn main() -> Result<()> {
 						}
 
 						// Show file info
-						if let Some(extension) = result.entry.extension() {
+						if let Some(extension) = result.file.extension.as_deref() {
 							println!("         Extension: {}", extension);
 						}
-						if let Some(size) = result.entry.size {
-							println!("         Size: {} bytes", size);
-						}
+						println!("         Size: {} bytes", result.file.size);
 					}
 
 					// Show facets if available

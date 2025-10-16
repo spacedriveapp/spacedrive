@@ -1,6 +1,6 @@
 //! Output for file search operations
 
-use crate::domain::{Entry, File};
+use crate::domain::File;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -22,7 +22,7 @@ pub struct FileSearchOutput {
 /// Individual search result
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileSearchResult {
-	pub entry: Entry,
+	pub file: File,
 	pub score: f32,
 	pub score_breakdown: ScoreBreakdown,
 	pub highlights: Vec<TextHighlight>,
@@ -162,7 +162,7 @@ impl FileSearchOutput {
 	/// Add highlights to results
 	pub fn with_highlights(mut self, highlights: HashMap<Uuid, Vec<TextHighlight>>) -> Self {
 		for result in &mut self.results {
-			if let Some(result_highlights) = highlights.get(&result.entry.id) {
+			if let Some(result_highlights) = highlights.get(&result.file.id) {
 				result.highlights = result_highlights.clone();
 			}
 		}
@@ -172,7 +172,7 @@ impl FileSearchOutput {
 	/// Add matched content to results
 	pub fn with_matched_content(mut self, content: HashMap<Uuid, String>) -> Self {
 		for result in &mut self.results {
-			if let Some(matched) = content.get(&result.entry.id) {
+			if let Some(matched) = content.get(&result.file.id) {
 				result.matched_content = Some(matched.clone());
 			}
 		}
@@ -190,29 +190,22 @@ impl SearchFacets {
 		let mut size_ranges = HashMap::new();
 
 		for result in results {
-			let entry = &result.entry;
+			let file = &result.file;
 
 			// Count file types
-			if let Some(extension) = entry.extension() {
-				*file_types.entry(extension.to_string()).or_insert(0) += 1;
-			}
-
-			// Count locations
-			if let Some(location_id) = entry.location_id {
-				*locations.entry(location_id).or_insert(0) += 1;
+			if let Some(ref extension) = file.extension {
+				*file_types.entry(extension.clone()).or_insert(0) += 1;
 			}
 
 			// Count date ranges
-			if let Some(modified_at) = entry.modified_at {
-				let date_range = Self::categorize_date(modified_at);
-				*date_ranges.entry(date_range).or_insert(0) += 1;
-			}
+			let modified_at = file.modified_at;
+			let date_range = Self::categorize_date(modified_at);
+			*date_ranges.entry(date_range).or_insert(0) += 1;
 
 			// Count size ranges
-			if let Some(size) = entry.size {
-				let size_range = Self::categorize_size(size);
-				*size_ranges.entry(size_range).or_insert(0) += 1;
-			}
+			let size = file.size;
+			let size_range = Self::categorize_size(size);
+			*size_ranges.entry(size_range).or_insert(0) += 1;
 		}
 
 		Self {

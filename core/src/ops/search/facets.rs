@@ -26,29 +26,20 @@ impl FacetBuilder {
 
 	/// Add a result to the facet counts
 	pub fn add_result(&mut self, result: &FileSearchResult) {
-		let entry = &result.entry;
+		let file = &result.file;
 
 		// Count file types
-		if let Some(extension) = entry.extension() {
-			*self.file_types.entry(extension.to_string()).or_insert(0) += 1;
-		}
-
-		// Count locations
-		if let Some(location_id) = entry.location_id {
-			*self.locations.entry(location_id).or_insert(0) += 1;
+		if let Some(ref extension) = file.extension {
+			*self.file_types.entry(extension.clone()).or_insert(0) += 1;
 		}
 
 		// Count date ranges
-		if let Some(modified_at) = entry.modified_at {
-			let date_range = self.categorize_date(modified_at);
-			*self.date_ranges.entry(date_range).or_insert(0) += 1;
-		}
+		let date_range = self.categorize_date(file.modified_at);
+		*self.date_ranges.entry(date_range).or_insert(0) += 1;
 
 		// Count size ranges
-		if let Some(size) = entry.size {
-			let size_range = self.categorize_size(size);
-			*self.size_ranges.entry(size_range).or_insert(0) += 1;
-		}
+		let size_range = self.categorize_size(file.size);
+		*self.size_ranges.entry(size_range).or_insert(0) += 1;
 	}
 
 	/// Build the final facets
@@ -120,8 +111,7 @@ impl SuggestionGenerator {
 			let extensions: Vec<&str> = self
 				.results
 				.iter()
-				.filter_map(|r| r.entry.extension())
-				.map(|s| s.as_ref())
+				.filter_map(|r| r.file.extension.as_deref())
 				.collect();
 
 			let mut extension_counts: HashMap<&str, usize> = HashMap::new();
@@ -146,23 +136,6 @@ impl SuggestionGenerator {
 			format!("{} today", self.query),
 			format!("{} this week", self.query),
 		]);
-
-		// Add location-based suggestions
-		let locations: Vec<Uuid> = self
-			.results
-			.iter()
-			.filter_map(|r| r.entry.location_id)
-			.collect();
-
-		let mut location_counts: HashMap<Uuid, usize> = HashMap::new();
-		for location_id in locations {
-			*location_counts.entry(location_id).or_insert(0) += 1;
-		}
-
-		// Add most common locations (placeholder - would need location names)
-		if !location_counts.is_empty() {
-			suggestions.push(format!("{} in location", self.query));
-		}
 
 		suggestions
 	}

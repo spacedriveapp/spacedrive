@@ -9,7 +9,7 @@ use crate::{
 	domain::{
 		addressing::SdPath,
 		content_identity::ContentIdentity,
-		file::{File, FileConstructionData},
+		file::File,
 		tag::Tag,
 	},
 	infra::db::entities::{
@@ -235,7 +235,6 @@ impl LibraryQuery for DirectoryListingQuery {
 				.unwrap_or_else(|_| chrono::Utc::now());
 			let entry_accessed_at: Option<chrono::DateTime<chrono::Utc>> =
 				row.try_get("", "entry_accessed_at").ok();
-			let entry_inode: Option<i64> = row.try_get("", "entry_inode").ok();
 
 			// Content identity data
 			let content_identity_uuid: Option<Uuid> = row.try_get("", "content_identity_uuid").ok();
@@ -253,52 +252,53 @@ impl LibraryQuery for DirectoryListingQuery {
 			// Content kind data
 			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 
-			// Use entry ID as UUID if uuid is None
-			let entry_uuid = entry_uuid.unwrap_or_else(|| {
-				// Generate a UUID from the entry ID for entries without UUIDs
-				Uuid::parse_str(&format!(
-					"{:08x}-0000-0000-0000-{:012x}",
-					entry_id, entry_id
-				))
-				.unwrap_or_else(|_| Uuid::new_v4())
-			});
-
-			// Create domain Entry
-			let entry = crate::domain::Entry {
-				id: entry_uuid,
-				sd_path: crate::domain::entry::SdPathSerialized {
-					device_id: Uuid::new_v4(),
-					path: entry_name.clone(),
+			// Build SdPath for this entry (child of the parent path)
+			let entry_sd_path = match &self.input.path {
+				SdPath::Physical { device_id, path } => SdPath::Physical {
+					device_id: *device_id,
+					path: path.join(&entry_name).into(),
 				},
-				name: entry_name.clone(),
-				kind: match entry_kind {
-					0 => crate::domain::entry::EntryKind::File {
-						extension: entry_extension,
-					},
-					1 => crate::domain::entry::EntryKind::Directory,
-					2 => crate::domain::entry::EntryKind::Symlink {
-						target: String::new(),
-					},
-					_ => crate::domain::entry::EntryKind::File {
-						extension: entry_extension,
-					},
+				SdPath::Cloud {
+					volume_fingerprint,
+					path,
+				} => SdPath::Cloud {
+					volume_fingerprint: volume_fingerprint.clone(),
+					path: format!("{}/{}", path, entry_name),
 				},
-				size: Some(entry_size as u64),
-				created_at: Some(entry_created_at),
-				modified_at: Some(entry_modified_at),
-				accessed_at: entry_accessed_at,
-				inode: entry_inode.map(|i| i as u64),
-				file_id: None,
-				parent_id: None,
-				location_id: None,
-				metadata_id: Uuid::new_v4(),
-				content_id: None,
-				first_seen_at: entry_created_at,
-				last_indexed_at: Some(entry_created_at),
+				SdPath::Content { content_id } => {
+					// This shouldn't happen since we error on Content paths earlier
+					SdPath::Content {
+						content_id: *content_id,
+					}
+				}
 			};
 
-			// Create content identity if available
-			let content_identity = if let (
+			// Create entity model for conversion
+			let entity_model = entry::Model {
+				id: entry_id,
+				uuid: entry_uuid,
+				name: entry_name,
+				kind: entry_kind,
+				extension: entry_extension,
+				metadata_id: None,
+				content_id: None,
+				size: entry_size,
+				aggregate_size: 0,
+				child_count: 0,
+				file_count: 0,
+				created_at: entry_created_at,
+				modified_at: entry_modified_at,
+				accessed_at: entry_accessed_at,
+				permissions: None,
+				inode: None,
+				parent_id: None,
+			};
+
+			// Convert to File using from_entity_model
+			let mut file = File::from_entity_model(entity_model, entry_sd_path);
+
+			// Add content identity if available
+			if let (
 				Some(ci_uuid),
 				Some(ci_hash),
 				Some(ci_first_seen),
@@ -315,7 +315,7 @@ impl LibraryQuery for DirectoryListingQuery {
 					.map(|name| crate::domain::ContentKind::from(name.as_str()))
 					.unwrap_or(crate::domain::ContentKind::Unknown);
 
-				Some(crate::domain::ContentIdentity {
+				file.content_identity = Some(ContentIdentity {
 					uuid: ci_uuid,
 					kind,
 					content_hash: ci_hash,
@@ -326,21 +326,10 @@ impl LibraryQuery for DirectoryListingQuery {
 					entry_count: entry_count.unwrap_or(0),
 					first_seen_at: ci_first_seen,
 					last_verified_at: ci_last_verified,
-				})
-			} else {
-				None
-			};
+				});
+				file.content_kind = kind;
+			}
 
-			// Create file construction data
-			let file_data = FileConstructionData {
-				entry,
-				content_identity,
-				tags: Vec::new(),            // TODO: Load tags
-				sidecars: Vec::new(),        // TODO: Load sidecars
-				alternate_paths: Vec::new(), // TODO: Load alternate paths
-			};
-
-			let file = File::from_data(file_data);
 			files.push(file);
 		}
 
@@ -461,13 +450,6 @@ impl DirectoryListingQuery {
 		}
 	}
 
-	/// Convert database model to Entry domain object using proper From implementation
-	fn convert_to_entry(&self, entry_model: entry::Model) -> QueryResult<crate::domain::Entry> {
-		Ok(crate::domain::Entry::try_from((
-			entry_model,
-			self.input.path.clone(),
-		))?)
-	}
 }
 
 // Register the query

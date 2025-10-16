@@ -36,25 +36,17 @@ pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 					println!(
 						"{}. {} (score: {:.2})",
 						i + 1,
-						result.entry.name,
+						result.file.name,
 						result.score
 					);
 
-					if let Some(extension) = result.entry.extension() {
+					if let Some(extension) = result.file.extension.as_deref() {
 						println!("   Extension: {}", extension);
 					}
 
-					if let Some(size) = result.entry.size {
-						println!("   Size: {} bytes", size);
-					}
-
-					if let Some(modified_at) = result.entry.modified_at {
-						println!("   Modified: {}", modified_at.format("%Y-%m-%d %H:%M:%S"));
-					}
-
-					if let Some(location_id) = result.entry.location_id {
-						println!("   Location: {}", location_id);
-					}
+					println!("   Size: {} bytes", result.file.size);
+					println!("   Modified: {}", result.file.modified_at.format("%Y-%m-%d %H:%M:%S"));
+					println!("   Path: {}", result.file.sd_path.display());
 
 					if !result.highlights.is_empty() {
 						println!("   Highlights:");

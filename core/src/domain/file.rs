@@ -8,7 +8,6 @@
 use crate::domain::{
 	addressing::SdPath,
 	content_identity::{ContentIdentity, ContentKind},
-	entry::Entry,
 	tag::Tag,
 };
 use crate::ops::sidecar::types::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
@@ -16,6 +15,25 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
+
+/// Type of filesystem entry
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
+pub enum EntryKind {
+	/// Regular file
+	File {
+		/// File extension (without dot)
+		extension: Option<String>,
+	},
+
+	/// Directory
+	Directory,
+
+	/// Symbolic link
+	Symlink {
+		/// Target path
+		target: String,
+	},
+}
 
 /// Represents a file within the Spacedrive VDFS.
 ///
@@ -56,7 +74,7 @@ pub struct File {
 	/// Additional computed fields
 	pub content_kind: ContentKind,
 	pub extension: Option<String>,
-	// pub is_directory: bool, TODO: add this
+	pub kind: EntryKind,
 	pub is_local: bool,
 }
 
@@ -74,80 +92,60 @@ pub struct Sidecar {
 	pub updated_at: DateTime<Utc>,
 }
 
-/// Data required to construct a File from pre-fetched database data
-#[derive(Debug, Clone)]
-pub struct FileConstructionData {
-	pub entry: Entry,
-	pub content_identity: Option<ContentIdentity>,
-	pub tags: Vec<Tag>,
-	pub sidecars: Vec<Sidecar>,
-	pub alternate_paths: Vec<SdPath>,
-}
-
 impl File {
-	/// Construct a File from pre-fetched data
+	/// Construct a File directly from entity model and SdPath
 	///
-	/// This method assumes all required data has already been fetched via
-	/// database joins. It does not perform any database operations.
-	pub fn from_data(data: FileConstructionData) -> Self {
-		let FileConstructionData {
-			entry,
-			content_identity,
-			tags,
-			sidecars,
-			alternate_paths,
-		} = data;
-
-		let sd_path = entry.sd_path();
+	/// This is the preferred method for converting database entities to File objects,
+	/// bypassing the Entry domain model entirely.
+	pub fn from_entity_model(
+		model: crate::infra::db::entities::entry::Model,
+		sd_path: SdPath,
+	) -> Self {
 		let is_local = sd_path.is_local();
-		let extension = entry.extension().map(|s| s.to_string());
-		let content_kind = content_identity
-			.as_ref()
-			.map(|ci| ci.kind)
-			.unwrap_or(ContentKind::Unknown);
+
+		// Convert entity kind to domain EntryKind
+		let kind = match model.kind {
+			0 => EntryKind::File {
+				extension: model.extension.clone(),
+			},
+			1 => EntryKind::Directory,
+			2 => EntryKind::Symlink {
+				target: String::new(),
+			},
+			_ => EntryKind::File {
+				extension: model.extension.clone(),
+			},
+		};
+
+		let extension = match &kind {
+			EntryKind::File { extension } => extension.clone(),
+			_ => None,
+		};
+
+		// Generate UUID from id if uuid is None
+		let id = model.uuid.unwrap_or_else(|| {
+			Uuid::parse_str(&format!(
+				"{:08x}-0000-0000-0000-{:012x}",
+				model.id, model.id
+			))
+			.unwrap_or_else(|_| Uuid::new_v4())
+		});
 
 		Self {
-			id: entry.id,
+			id,
 			sd_path,
-			name: entry.name,
-			size: entry.size.unwrap_or(0),
-			content_identity,
-			alternate_paths,
-			tags,
-			sidecars,
-			created_at: entry.created_at.unwrap_or_else(Utc::now),
-			modified_at: entry.modified_at.unwrap_or_else(Utc::now),
-			accessed_at: entry.accessed_at,
-			content_kind,
-			extension,
-			is_local,
-		}
-	}
-
-	/// Construct a File from just an Entry (minimal data)
-	///
-	/// Useful when you only have basic entry data and want a File representation
-	/// without additional metadata.
-	pub fn from_entry(entry: Entry) -> Self {
-		let sd_path = entry.sd_path();
-		let is_local = sd_path.is_local();
-		let extension = entry.extension().map(|s| s.to_string());
-		let content_kind = ContentKind::Unknown; // Will be determined later when content is processed
-
-		Self {
-			id: entry.id,
-			sd_path,
-			name: entry.name,
-			size: entry.size.unwrap_or(0),
+			name: model.name,
+			size: model.size as u64,
 			content_identity: None,
 			alternate_paths: Vec::new(),
 			tags: Vec::new(),
 			sidecars: Vec::new(),
-			created_at: entry.created_at.unwrap_or_else(Utc::now),
-			modified_at: entry.modified_at.unwrap_or_else(Utc::now),
-			accessed_at: entry.accessed_at,
-			content_kind,
+			created_at: model.created_at,
+			modified_at: model.modified_at,
+			accessed_at: model.accessed_at,
+			content_kind: ContentKind::Unknown,
 			extension,
+			kind,
 			is_local,
 		}
 	}
@@ -273,122 +271,3 @@ impl Sidecar {
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::domain::addressing::SdPath;
-
-	#[test]
-	fn test_file_from_entry() {
-		let device_id = Uuid::new_v4();
-		let entry = Entry {
-			id: Uuid::new_v4(),
-			sd_path: crate::domain::entry::SdPathSerialized {
-				device_id,
-				path: "/test/file.txt".to_string(),
-			},
-			name: "file.txt".to_string(),
-			kind: crate::domain::entry::EntryKind::File {
-				extension: Some("txt".to_string()),
-			},
-			size: Some(1024),
-			created_at: Some(Utc::now()),
-			modified_at: Some(Utc::now()),
-			accessed_at: None,
-			inode: None,
-			file_id: None,
-			parent_id: None,
-			location_id: None,
-			metadata_id: Uuid::new_v4(),
-			content_id: None,
-			first_seen_at: Utc::now(),
-			last_indexed_at: None,
-		};
-
-		let file = File::from_entry(entry);
-
-		assert_eq!(file.name, "file.txt");
-		assert_eq!(file.size, 1024);
-		assert_eq!(file.extension, Some("txt".to_string()));
-		assert!(!file.has_content_identity());
-		assert!(!file.has_sidecars());
-		assert!(!file.has_tags());
-		assert_eq!(file.content_kind, ContentKind::Unknown);
-	}
-
-	#[test]
-	fn test_file_with_data() {
-		let device_id = Uuid::new_v4();
-		let entry = Entry {
-			id: Uuid::new_v4(),
-			sd_path: crate::domain::entry::SdPathSerialized {
-				device_id,
-				path: "/test/image.jpg".to_string(),
-			},
-			name: "image.jpg".to_string(),
-			kind: crate::domain::entry::EntryKind::File {
-				extension: Some("jpg".to_string()),
-			},
-			size: Some(2048),
-			created_at: Some(Utc::now()),
-			modified_at: Some(Utc::now()),
-			accessed_at: None,
-			inode: None,
-			file_id: None,
-			parent_id: None,
-			location_id: None,
-			metadata_id: Uuid::new_v4(),
-			content_id: Some(Uuid::new_v4()),
-			first_seen_at: Utc::now(),
-			last_indexed_at: None,
-		};
-
-		let content_identity = ContentIdentity {
-			uuid: Uuid::new_v4(),
-			kind: ContentKind::Image,
-			content_hash: "abc123".to_string(),
-			integrity_hash: None,
-			mime_type_id: None,
-			text_content: None,
-			total_size: 2048,
-			entry_count: 1,
-			first_seen_at: Utc::now(),
-			last_verified_at: Utc::now(),
-		};
-
-		let sidecar = Sidecar::from_entity(
-			1,
-			content_identity.uuid,
-			SidecarKind::Thumb,
-			SidecarVariant::new("grid@2x"),
-			SidecarFormat::Webp,
-			SidecarStatus::Ready,
-			1024,
-			Utc::now(),
-			Utc::now(),
-		);
-
-		let data = FileConstructionData {
-			entry,
-			content_identity: Some(content_identity.clone()),
-			tags: Vec::new(),
-			sidecars: vec![sidecar.clone()],
-			alternate_paths: Vec::new(),
-		};
-
-		let file = File::from_data(data);
-
-		assert_eq!(file.name, "image.jpg");
-		assert_eq!(file.size, 2048);
-		assert!(file.has_content_identity());
-		assert!(file.has_sidecars());
-		assert_eq!(file.content_kind, ContentKind::Image);
-		assert!(file.is_media());
-		assert!(!file.is_document());
-		assert!(!file.is_archive());
-
-		let thumbs = file.sidecars_by_kind(SidecarKind::Thumb.as_str());
-		assert_eq!(thumbs.len(), 1);
-		assert!(thumbs[0].is_ready());
-	}
-}

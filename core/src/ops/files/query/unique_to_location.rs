@@ -7,7 +7,7 @@
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	domain::{file::FileConstructionData, File},
+	domain::{addressing::SdPath, File},
 	infra::db::entities::{content_identity, entry, location},
 	infra::query::LibraryQuery,
 };
@@ -227,41 +227,34 @@ impl UniqueToLocationQuery {
 
 			total_size += size as u64;
 
-			// Create a minimal entry for the file
-			let entry = crate::domain::Entry {
-				id: Uuid::new_v4(), // We'll use a generated UUID since we don't have the real one
-				sd_path: crate::domain::SdPathSerialized {
-					device_id: Uuid::new_v4(), // We don't have device info in this query
-					path: format!("/unknown/path/{}", name),
-				},
+			// Create entity model for conversion
+			let entity_model = entry::Model {
+				id: entry_id,
+				uuid: None,
 				name: name.clone(),
-				kind: crate::domain::EntryKind::File {
-					extension: name.split('.').last().map(|s| s.to_string()),
-				},
-				size: Some(size as u64),
-				created_at: None,
-				modified_at: None,
-				accessed_at: None,
-				inode: None,
-				file_id: None,
-				parent_id: None,
-				location_id: Some(self.input.location_id),
-				metadata_id: Uuid::new_v4(), // Create a new metadata ID
+				kind: 0, // File
+				extension: name.split('.').last().map(|s| s.to_string()),
+				metadata_id: None,
 				content_id: None,
-				first_seen_at: chrono::Utc::now(),
-				last_indexed_at: None,
+				size,
+				aggregate_size: 0,
+				child_count: 0,
+				file_count: 0,
+				created_at: chrono::Utc::now(),
+				modified_at: chrono::Utc::now(),
+				accessed_at: None,
+				permissions: None,
+				inode: None,
+				parent_id: None,
 			};
 
-			// Create minimal file construction data
-			let file_data = FileConstructionData {
-				entry,
-				content_identity: None, // TODO: Load proper content identity
-				tags: Vec::new(),
-				sidecars: Vec::new(),
-				alternate_paths: Vec::new(),
+			// Create placeholder SdPath
+			let sd_path = SdPath::Physical {
+				device_id: Uuid::new_v4(),
+				path: format!("/unknown/path/{}", name).into(),
 			};
 
-			let file = File::from_data(file_data);
+			let file = File::from_entity_model(entity_model, sd_path);
 			files.push(file);
 		}
 

@@ -3,7 +3,7 @@
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	domain::{addressing::SdPath, file::FileConstructionData, File},
+	domain::{addressing::SdPath, File},
 	infra::db::entities::{content_identity, entry, sidecar, tag, user_metadata_tag},
 	infra::query::LibraryQuery,
 };
@@ -59,68 +59,15 @@ impl LibraryQuery for FileByPathQuery {
 		// Find the entry by SdPath
 		let entry_model = self.find_entry_by_sd_path(&sd_path, db.conn()).await?;
 
-		// Create a minimal Entry from the database model
-		// Use the SdPath that was created internally
-		let entry = crate::domain::Entry {
-			id: entry_model.uuid.unwrap_or_else(Uuid::new_v4),
-			sd_path: crate::domain::entry::SdPathSerialized::from_sdpath(&sd_path).unwrap_or_else(
-				|| crate::domain::entry::SdPathSerialized {
-					device_id: Uuid::new_v4(),
-					path: "/unknown/path".to_string(),
-				},
-			),
-			name: entry_model.name,
-			kind: match entry_model.kind {
-				0 => crate::domain::entry::EntryKind::File {
-					extension: entry_model.extension,
-				},
-				1 => crate::domain::entry::EntryKind::Directory,
-				2 => crate::domain::entry::EntryKind::Symlink {
-					target: String::new(),
-				},
-				_ => crate::domain::entry::EntryKind::File {
-					extension: entry_model.extension,
-				},
-			},
-			size: Some(entry_model.size as u64),
-			created_at: Some(entry_model.created_at),
-			modified_at: Some(entry_model.modified_at),
-			accessed_at: entry_model.accessed_at,
-			inode: entry_model.inode.map(|i| i as u64),
-			file_id: None,
-			parent_id: entry_model.parent_id.map(|id| Uuid::new_v4()), // This would need proper conversion
-			location_id: None,
-			metadata_id: entry_model
-				.metadata_id
-				.map(|id| Uuid::new_v4())
-				.unwrap_or_else(Uuid::new_v4),
-			content_id: entry_model.content_id.map(|id| Uuid::new_v4()), // This would need proper conversion
-			first_seen_at: entry_model.created_at,
-			last_indexed_at: None,
-		};
-
 		// Only proceed if this is actually a file (not a directory)
-		if !entry.is_file() {
+		if entry_model.kind == 1 {
 			return Ok(None);
 		}
 
-		// For now, return minimal data to avoid complex UUID conversions
-		// TODO: Implement proper data loading with correct ID mappings
-		let content_identity = self.load_content_identity(&entry, db.conn()).await?;
-		let tags = self.load_tags(&entry, db.conn()).await?;
-		let sidecars = self.load_sidecars(&entry, db.conn()).await?;
-		let alternate_paths = self.load_alternate_paths(&entry, db.conn()).await?;
+		// Convert to File using from_entity_model
+		let file = File::from_entity_model(entry_model, sd_path);
 
-		// Construct the file
-		let construction_data = FileConstructionData {
-			entry,
-			content_identity,
-			tags,
-			sidecars,
-			alternate_paths,
-		};
-
-		Ok(Some(File::from_data(construction_data)))
+		Ok(Some(file))
 	}
 }
 
@@ -218,45 +165,6 @@ impl FileByPathQuery {
 		}
 	}
 
-	/// Load content identity for the entry
-	async fn load_content_identity(
-		&self,
-		_entry: &crate::domain::Entry,
-		_db: &DatabaseConnection,
-	) -> QueryResult<Option<crate::domain::ContentIdentity>> {
-		// TODO: Implement proper content identity loading
-		Ok(None)
-	}
-
-	/// Load tags for the entry
-	async fn load_tags(
-		&self,
-		_entry: &crate::domain::Entry,
-		_db: &DatabaseConnection,
-	) -> QueryResult<Vec<crate::domain::Tag>> {
-		// TODO: Implement proper tag loading
-		Ok(Vec::new())
-	}
-
-	/// Load sidecars for the entry
-	async fn load_sidecars(
-		&self,
-		_entry: &crate::domain::Entry,
-		_db: &DatabaseConnection,
-	) -> QueryResult<Vec<crate::domain::Sidecar>> {
-		// TODO: Implement proper sidecar loading
-		Ok(Vec::new())
-	}
-
-	/// Load alternate paths for the entry
-	async fn load_alternate_paths(
-		&self,
-		_entry: &crate::domain::Entry,
-		_db: &DatabaseConnection,
-	) -> QueryResult<Vec<crate::domain::addressing::SdPath>> {
-		// TODO: Implement proper alternate paths loading
-		Ok(Vec::new())
-	}
 }
 
 crate::register_library_query!(FileByPathQuery, "files.by_path");

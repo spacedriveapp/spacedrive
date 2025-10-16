@@ -3,7 +3,7 @@
 //! Locations are directories that Spacedrive actively monitors and indexes.
 //! They can be on any device and are addressed using SdPath.
 
-use crate::domain::entry::SdPathSerialized;
+use crate::domain::addressing::SdPath;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -19,7 +19,7 @@ pub struct Location {
 	pub library_id: Uuid,
 
 	/// Root path of this location (includes device!)
-	pub sd_path: SdPathSerialized,
+	pub sd_path: SdPath,
 
 	/// Human-friendly name
 	pub name: String,
@@ -90,7 +90,7 @@ impl Location {
 	pub fn new(
 		library_id: Uuid,
 		name: String,
-		sd_path: SdPathSerialized,
+		sd_path: SdPath,
 		index_mode: IndexMode,
 	) -> Self {
 		let now = Utc::now();
@@ -192,8 +192,7 @@ mod tests {
 
 	#[test]
 	fn test_location_creation() {
-		let sd_path =
-			SdPathSerialized::from_sdpath(&SdPath::local("/Users/test/Documents")).unwrap();
+		let sd_path = SdPath::local("/Users/test/Documents");
 		let location = Location::new(
 			Uuid::new_v4(),
 			"My Documents".to_string(),
@@ -209,7 +208,7 @@ mod tests {
 
 	#[test]
 	fn test_ignore_patterns() {
-		let sd_path = SdPathSerialized::from_sdpath(&SdPath::local("/test")).unwrap();
+		let sd_path = SdPath::local("/test");
 		let location = Location::new(
 			Uuid::new_v4(),
 			"Test".to_string(),

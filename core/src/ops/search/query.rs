@@ -7,7 +7,7 @@ use super::{
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	domain::{file::FileConstructionData, Entry, File},
+	domain::{addressing::SdPath, File},
 	filetype::FileTypeRegistry,
 	infra::db::entities::{
 		content_identity, directory_paths, entry, sidecar, tag, user_metadata_tag,
@@ -198,59 +198,32 @@ impl FileSearchQuery {
 				None
 			};
 
-			// Extract values before moving into Entry
+			// Extract values before using entry_model
 			let entry_name = entry_model.name.clone();
 			let entry_extension = entry_model.extension.clone();
+			let entry_id_for_boost = entry_model.id;
 
-			let entry = Entry {
-				id: entry_model.uuid.unwrap_or_else(|| Uuid::new_v4()),
-				sd_path: crate::domain::SdPathSerialized {
-					device_id: device_uuid,
-					path: full_path,
-				},
-				name: entry_model.name,
-				kind: match entry_model.kind {
-					0 => crate::domain::entry::EntryKind::File {
-						extension: entry_model.extension,
-					},
-					1 => crate::domain::entry::EntryKind::Directory,
-					2 => crate::domain::entry::EntryKind::Symlink {
-						target: "".to_string(), // TODO: Get from database
-					},
-					_ => crate::domain::entry::EntryKind::File {
-						extension: entry_model.extension,
-					},
-				},
-				size: Some(entry_model.size as u64),
-				created_at: Some(entry_model.created_at),
-				modified_at: Some(entry_model.modified_at),
-				accessed_at: entry_model.accessed_at,
-				inode: entry_model.inode.map(|i| i as u64),
-				file_id: None,
-				parent_id: parent_uuid,
-				location_id: location_uuid,
-				metadata_id: metadata_uuid,
-				content_id: content_uuid,
-				first_seen_at: entry_model.created_at,
-				last_indexed_at: Some(entry_model.created_at),
+			// Create SdPath
+			let sd_path = SdPath::Physical {
+				device_id: device_uuid,
+				path: full_path.into(),
 			};
+
+			// Convert to File using from_entity_model
+			let file = File::from_entity_model(entry_model, sd_path);
 
 			// Use BM25 score from FTS5 as base relevance score
 			let relevance_calc =
 				crate::ops::search::sorting::RelevanceCalculator::new(self.input.query.clone());
-			let recency_boost = if let Some(modified_at) = entry.modified_at {
-				relevance_calc.calculate_recency_boost(modified_at)
-			} else {
-				0.0
-			};
+			let recency_boost = relevance_calc.calculate_recency_boost(file.modified_at);
 			let user_preference_boost =
-				relevance_calc.calculate_user_preference_boost(entry_model.id);
+				relevance_calc.calculate_user_preference_boost(entry_id_for_boost);
 
 			// Combine FTS5 BM25 score with additional scoring factors
 			let final_score = bm25_score as f32 + recency_boost + user_preference_boost;
 
 			let result = crate::ops::search::output::FileSearchResult {
-				entry,
+				file,
 				score: final_score,
 				score_breakdown: crate::ops::search::output::ScoreBreakdown::new(
 					bm25_score as f32,     // temporal_score (FTS5 BM25)
@@ -289,19 +262,16 @@ impl FileSearchQuery {
 			let mut enhanced_score = result.score;
 
 			// Add metadata-based scoring
-			if result.entry.size.is_some() {
-				// Slightly boost files with reasonable sizes
-				if let Some(size) = result.entry.size {
-					if size > 1024 && size < 10_000_000 {
-						// 1KB to 10MB
-						enhanced_score += 0.1;
-					}
-				}
+			let size = result.file.size;
+			// Slightly boost files with reasonable sizes
+			if size > 1024 && size < 10_000_000 {
+				// 1KB to 10MB
+				enhanced_score += 0.1;
 			}
 
 			// Boost files with extensions that match common document types
-			if let Some(extension) = result.entry.extension() {
-				match extension {
+			if let Some(ref extension) = result.file.extension {
+				match extension.as_str() {
 					"pdf" | "doc" | "docx" | "txt" | "md" => enhanced_score += 0.2,
 					"jpg" | "png" | "gif" | "webp" => enhanced_score += 0.1,
 					_ => {}
@@ -339,14 +309,11 @@ impl FileSearchQuery {
 		for result in &mut results {
 			// TODO: Add content extraction and analysis
 			// For now, just add a small boost for files that might have content
-			if result.entry.is_file() {
-				if let Some(size) = result.entry.size {
-					if size > 0 && size < 100_000_000 {
-						// Up to 100MB
-						result.score += 0.05;
-						result.score_breakdown.metadata_score += 0.05;
-					}
-				}
+			let size = result.file.size;
+			if size > 0 && size < 100_000_000 {
+				// Up to 100MB
+				result.score += 0.05;
+				result.score_breakdown.metadata_score += 0.05;
 			}
 		}
 
@@ -865,54 +832,21 @@ impl FileSearchQuery {
 			return Ok(Vec::new());
 		}
 
-		// Extract entry UUIDs for the join query
-		let entry_uuids: Vec<Uuid> = entry_results.iter().map(|result| result.entry.id).collect();
-
-		// Use a single query with LEFT JOINs to get all related data
-		let joined_data = self.load_files_with_joins(&entry_uuids, db).await?;
-
-		// Convert to enhanced results
-		let mut enhanced_results = Vec::new();
-		for entry_result in entry_results {
-			let entry_uuid = entry_result.entry.id;
-
-			// Find the corresponding joined data
-			let file_data = joined_data.get(&entry_uuid).cloned().unwrap_or_else(|| {
-				// If no joined data, create minimal file from entry
-				FileConstructionData {
-					entry: entry_result.entry.clone(),
-					content_identity: None,
-					tags: Vec::new(),
-					sidecars: Vec::new(),
-					alternate_paths: Vec::new(),
-				}
-			});
-
-			let file = File::from_data(file_data);
-
-			enhanced_results.push(EnhancedFileSearchResult {
-				file,
-				score: entry_result.score,
-				score_breakdown: entry_result.score_breakdown,
-				highlights: entry_result.highlights,
-				matched_content: entry_result.matched_content,
-			});
-		}
+		// Convert to enhanced results (already have File objects)
+		let enhanced_results = entry_results
+			.into_iter()
+			.map(|result| EnhancedFileSearchResult {
+				file: result.file,
+				score: result.score,
+				score_breakdown: result.score_breakdown,
+				highlights: result.highlights,
+				matched_content: result.matched_content,
+			})
+			.collect();
 
 		Ok(enhanced_results)
 	}
 
-	/// Load files with all related data using SQL joins
-	async fn load_files_with_joins(
-		&self,
-		entry_uuids: &[Uuid],
-		db: &DatabaseConnection,
-	) -> QueryResult<std::collections::HashMap<Uuid, FileConstructionData>> {
-		// For now, return empty map - we'll use the existing search results
-		// and create minimal File objects. In a real implementation, you'd
-		// want to use proper SQL joins to load all related data efficiently.
-		Ok(std::collections::HashMap::new())
-	}
 }
 
 crate::register_library_query!(FileSearchQuery, "search.files");

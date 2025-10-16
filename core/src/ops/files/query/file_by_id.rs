@@ -3,7 +3,7 @@
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	domain::{file::FileConstructionData, File},
+	domain::{addressing::SdPath, File},
 	infra::db::entities::{content_identity, entry, sidecar, tag, user_metadata_tag},
 	infra::query::LibraryQuery,
 };
@@ -53,73 +53,29 @@ impl LibraryQuery for FileByIdQuery {
 
 		let db = library.db();
 
-		// Get the entry first
-		// TODO: Fix UUID to i32 conversion - using a simplified approach for now
+		// Get the entry
 		let entry_model = entry::Entity::find()
 			.filter(entry::Column::Uuid.eq(self.file_id))
 			.one(db.conn())
 			.await?
 			.ok_or_else(|| QueryError::Internal("File not found".to_string()))?;
 
-		// Create a minimal Entry from the database model
-		let entry = crate::domain::Entry {
-			id: entry_model.uuid.unwrap_or_else(Uuid::new_v4),
-			sd_path: crate::domain::entry::SdPathSerialized {
-				device_id: Uuid::new_v4(),         // Placeholder
-				path: "/unknown/path".to_string(), // Placeholder
-			},
-			name: entry_model.name,
-			kind: match entry_model.kind {
-				0 => crate::domain::entry::EntryKind::File {
-					extension: entry_model.extension,
-				},
-				1 => crate::domain::entry::EntryKind::Directory,
-				2 => crate::domain::entry::EntryKind::Symlink {
-					target: String::new(),
-				},
-				_ => crate::domain::entry::EntryKind::File {
-					extension: entry_model.extension,
-				},
-			},
-			size: Some(entry_model.size as u64),
-			created_at: Some(entry_model.created_at),
-			modified_at: Some(entry_model.modified_at),
-			accessed_at: entry_model.accessed_at,
-			inode: entry_model.inode.map(|i| i as u64),
-			file_id: None,
-			parent_id: entry_model.parent_id.map(|id| Uuid::new_v4()), // Placeholder
-			location_id: None,
-			metadata_id: entry_model
-				.metadata_id
-				.map(|id| Uuid::new_v4())
-				.unwrap_or_else(Uuid::new_v4),
-			content_id: entry_model.content_id.map(|id| Uuid::new_v4()), // Placeholder
-			first_seen_at: entry_model.created_at,
-			last_indexed_at: None,
-		};
-
 		// Only proceed if this is actually a file (not a directory)
-		if !entry.is_file() {
+		if entry_model.kind == 1 {
 			return Ok(None);
 		}
 
-		// For now, return minimal data to avoid complex UUID conversions
-		// TODO: Implement proper data loading with correct ID mappings
-		let content_identity = None;
-		let tags = Vec::new();
-		let sidecars = Vec::new();
-		let alternate_paths = Vec::new();
-
-		// Construct the file
-		let construction_data = FileConstructionData {
-			entry,
-			content_identity,
-			tags,
-			sidecars,
-			alternate_paths,
+		// Create placeholder SdPath
+		// TODO: Resolve actual path from database
+		let sd_path = SdPath::Physical {
+			device_id: Uuid::new_v4(),
+			path: format!("/{}", entry_model.name).into(),
 		};
 
-		Ok(Some(File::from_data(construction_data)))
+		// Convert to File using from_entity_model
+		let file = File::from_entity_model(entry_model, sd_path);
+
+		Ok(Some(file))
 	}
 }
 
