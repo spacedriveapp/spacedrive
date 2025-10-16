@@ -254,15 +254,17 @@ impl LibraryQuery for DirectoryListingQuery {
 
 			// Build SdPath for this entry (child of the parent path)
 			let entry_sd_path = match &self.input.path {
-				SdPath::Physical { device_id, path } => SdPath::Physical {
-					device_id: *device_id,
+				SdPath::Physical { device_slug, path } => SdPath::Physical {
+					device_slug: device_slug.clone(),
 					path: path.join(&entry_name).into(),
 				},
 				SdPath::Cloud {
-					volume_fingerprint,
+					service,
+					identifier,
 					path,
 				} => SdPath::Cloud {
-					volume_fingerprint: volume_fingerprint.clone(),
+					service: *service,
+					identifier: identifier.clone(),
 					path: format!("{}/{}", path, entry_name),
 				},
 				SdPath::Content { content_id } => {
@@ -356,7 +358,7 @@ impl DirectoryListingQuery {
 		);
 
 		match &self.input.path {
-			SdPath::Physical { device_id, path } => {
+			SdPath::Physical { device_slug, path } => {
 				// For directory browsing, we need to find the directory entry
 				// by matching the path in the directory_paths table
 				let path_str = path.to_string_lossy().to_string();
@@ -398,13 +400,15 @@ impl DirectoryListingQuery {
 				}
 			}
 			SdPath::Cloud {
-				volume_fingerprint,
+				service,
+				identifier,
 				path,
 			} => {
 				// Cloud storage directory browsing
 				tracing::debug!(
-					" Looking for cloud directory: volume={}, path='{}'",
-					volume_fingerprint.0,
+					" Looking for cloud directory: service={}, identifier={}, path='{}'",
+					service.scheme(),
+					identifier,
 					path
 				);
 

@@ -86,10 +86,8 @@ impl ToGenericProgress for IndexerProgress {
 				|| self.current_path.contains('/')
 				|| self.current_path.contains('\\')
 			{
-				Some(SdPath::new(
-					uuid::Uuid::nil(), // TODO: Get actual device UUID
-					path_buf,
-				))
+				// Use local device slug for local paths
+				Some(SdPath::local(path_buf))
 			} else {
 				None
 			}

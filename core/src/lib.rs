@@ -102,8 +102,9 @@ impl Core {
 		// Initialize device manager
 		let device = Arc::new(DeviceManager::init(&data_dir, system_device_name)?);
 
-		// Set a global device ID for convenience
+		// Set a global device ID and slug for convenience
 		crate::device::set_current_device_id(device.device_id()?);
+		crate::device::set_current_device_slug(device.config()?.slug);
 
 		// Create event bus
 		let events = Arc::new(EventBus::default());

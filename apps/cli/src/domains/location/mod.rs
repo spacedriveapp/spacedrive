@@ -131,27 +131,51 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 			);
 		}
 
-		// Present volume choices
+		// Present volume choices (showing service-based URIs)
 		let volume_choices: Vec<String> = volumes
 			.volumes
 			.iter()
-			.map(|v| {
-				format!(
-					"{} ({}) - {}",
-					v.name,
-					v.fingerprint.short_id(),
-					v.volume_type
-				)
+			.filter_map(|v| {
+				// Parse mount_point to get service and identifier
+				v.mount_point.as_ref().map(|mp| {
+					format!(
+						"{} ({}) - {}",
+						v.name,
+						mp, // Show mount point like "s3://bucket"
+						v.volume_type
+					)
+				})
 			})
 			.collect();
 
+		if volume_choices.is_empty() {
+			anyhow::bail!(
+				"No cloud volumes with mount points found. Cloud volumes must have mount points."
+			);
+		}
+
 		let volume_idx = select("Select cloud volume", &volume_choices)?;
+
+		// Get the mount point for the selected volume
 		let selected_volume = &volumes.volumes[volume_idx];
+		let mount_point = selected_volume
+			.mount_point
+			.as_ref()
+			.ok_or_else(|| anyhow::anyhow!("Selected volume has no mount point"))?;
 
-		// Get cloud path
-		let cloud_path = text("Enter path (e.g., / for root or /photos)", false)?.unwrap();
+		// Get cloud path within the volume
+		let cloud_path = text("Enter path within volume (e.g., / for root or /photos)", false)?.unwrap();
 
-		SdPath::cloud(selected_volume.fingerprint.clone(), cloud_path)
+		// Construct service-based URI: mount_point + path
+		let full_uri = if cloud_path.starts_with('/') {
+			format!("{}{}", mount_point, cloud_path)
+		} else {
+			format!("{}/{}", mount_point, cloud_path)
+		};
+
+		// Parse the URI to create SdPath
+		SdPath::from_uri(&full_uri)
+			.map_err(|e| anyhow::anyhow!("Failed to parse cloud path: {}", e))?
 	};
 
 	// 2. Name (optional)

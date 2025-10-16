@@ -49,10 +49,21 @@ use uuid::Uuid;
 /// This is set during Core initialization
 pub static CURRENT_DEVICE_ID: Lazy<RwLock<Uuid>> = Lazy::new(|| RwLock::new(Uuid::nil()));
 
+/// Global reference to current device slug
+/// This is set during Core initialization
+pub static CURRENT_DEVICE_SLUG: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
+
 /// Initialize the current device ID
 pub fn set_current_device_id(id: Uuid) {
 	if let Ok(mut device_id) = CURRENT_DEVICE_ID.write() {
 		*device_id = id;
+	}
+}
+
+/// Initialize the current device slug
+pub fn set_current_device_slug(slug: String) {
+	if let Ok(mut device_slug) = CURRENT_DEVICE_SLUG.write() {
+		*device_slug = slug;
 	}
 }
 
@@ -61,6 +72,14 @@ pub fn get_current_device_id() -> Uuid {
 	match CURRENT_DEVICE_ID.read() {
 		Ok(guard) => *guard,
 		Err(_) => Uuid::nil(),
+	}
+}
+
+/// Get the current device slug
+pub fn get_current_device_slug() -> String {
+	match CURRENT_DEVICE_SLUG.read() {
+		Ok(guard) => guard.clone(),
+		Err(_) => String::new(),
 	}
 }
 

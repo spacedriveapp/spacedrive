@@ -250,7 +250,7 @@ impl UniqueToLocationQuery {
 
 			// Create placeholder SdPath
 			let sd_path = SdPath::Physical {
-				device_id: Uuid::new_v4(),
+				device_slug: format!("placeholder-{}", Uuid::new_v4()),
 				path: format!("/unknown/path/{}", name).into(),
 			};
 

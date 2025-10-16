@@ -179,21 +179,21 @@ impl FileCopyActionBuilder {
 
 	/// Replace nil device IDs on Physical paths with the daemon's current device ID
 	fn normalize_local_device_ids(&mut self) {
-		let current = crate::device::get_current_device_id();
+		let current_slug = crate::device::get_current_device_slug();
 		// Sources
 		for path in &mut self.input.sources.paths {
-			if let crate::domain::addressing::SdPath::Physical { device_id, .. } = path {
-				if device_id.is_nil() {
-					*device_id = current;
+			if let crate::domain::addressing::SdPath::Physical { device_slug, .. } = path {
+				if device_slug.is_empty() {
+					*device_slug = current_slug.clone();
 				}
 			}
 		}
 		// Destination
-		if let crate::domain::addressing::SdPath::Physical { device_id, .. } =
+		if let crate::domain::addressing::SdPath::Physical { device_slug, .. } =
 			&mut self.input.destination
 		{
-			if device_id.is_nil() {
-				*device_id = current;
+			if device_slug.is_empty() {
+				*device_slug = current_slug;
 			}
 		}
 	}
@@ -396,7 +396,7 @@ impl FileCopyAction {
 	async fn generate_unique_destination(&self) -> Result<SdPath, ActionError> {
 		use std::path::Path;
 
-		let SdPath::Physical { device_id, path } = &self.destination else {
+		let SdPath::Physical { device_slug, path } = &self.destination else {
 			// For non-physical paths, just return the original
 			return Ok(self.destination.clone());
 		};
@@ -448,7 +448,7 @@ impl FileCopyAction {
 		}
 
 		Ok(SdPath::Physical {
-			device_id: *device_id,
+			device_slug: device_slug.clone(),
 			path: new_path,
 		})
 	}

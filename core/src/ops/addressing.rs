@@ -29,8 +29,9 @@ impl PathResolver {
 	) -> Result<SdPath, PathResolutionError> {
 		match path {
 			// If already physical, just verify the device is online
-			SdPath::Physical { device_id, .. } => {
-				self.verify_device_online(context, *device_id).await?;
+			SdPath::Physical { device_slug, .. } => {
+				// For now, physical paths are assumed accessible
+				// TODO: Verify device is online using device_slug
 				Ok(path.clone())
 			}
 			// Cloud paths are already resolved (no additional resolution needed)
@@ -205,8 +206,17 @@ impl PathResolver {
 	// 	let online_devices = self.get_online_devices(context).await;
 	// 	let device_metrics = self.get_device_metrics(context).await;
 
+	// 	// Build device slug lookup map from DeviceManager
+	// 	let device_slug_map: HashMap<Uuid, String> = online_devices
+	// 		.iter()
+	// 		.filter_map(|&device_id| {
+	// 			context.device_manager.get_device_slug(device_id)
+	// 				.map(|slug| (device_id, slug))
+	// 		})
+	// 		.collect();
+
 	// 	// Calculate costs and find the best instance
-	// 	self.select_optimal_instance(instances, &online_devices, &device_metrics)
+	// 	self.select_optimal_instance(instances, &online_devices, &device_metrics, &device_slug_map)
 	// 		.ok_or(PathResolutionError::NoOnlineInstancesFound(content_id))
 	// }
 
@@ -234,6 +244,15 @@ impl PathResolver {
 
 	// 	let db = library.db().conn();
 
+	// 	// Build device slug lookup map from DeviceManager
+	// 	let device_slug_map: HashMap<Uuid, String> = online_devices
+	// 		.iter()
+	// 		.filter_map(|&device_id| {
+	// 			context.device_manager.get_device_slug(device_id)
+	// 				.map(|slug| (device_id, slug))
+	// 		})
+	// 		.collect();
+
 	// 	// Batch query for all content instances
 	// 	match self.find_content_instances_batch(db, &content_ids).await {
 	// 		Ok(instances_map) => {
@@ -244,6 +263,7 @@ impl PathResolver {
 	// 						instances.clone(),
 	// 						online_devices,
 	// 						device_metrics,
+	// 						&device_slug_map,
 	// 					)
 	// 					.ok_or(PathResolutionError::NoOnlineInstancesFound(content_id))
 	// 				} else {
@@ -429,6 +449,7 @@ impl PathResolver {
 		instances: Vec<ContentInstance>,
 		online_devices: &[Uuid],
 		device_metrics: &HashMap<Uuid, DeviceMetrics>,
+		device_slug_map: &HashMap<Uuid, String>,
 	) -> Option<SdPath> {
 		let current_device_id = crate::device::get_current_device_id();
 
@@ -445,9 +466,13 @@ impl PathResolver {
 		candidates.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
 		// Return the best instance
-		candidates.first().map(|(_, inst)| SdPath::Physical {
-			device_id: inst.device_id,
-			path: inst.path.clone(),
+		candidates.first().and_then(|(_, inst)| {
+			device_slug_map.get(&inst.device_id).map(|device_slug| {
+				SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: inst.path.clone(),
+				}
+			})
 		})
 	}
 

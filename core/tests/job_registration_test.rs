@@ -32,8 +32,8 @@ async fn test_job_registration() {
 #[tokio::test]
 async fn test_job_creation_from_json() {
 	// Create a FileCopyJob using the registry
-	let sources = vec![SdPath::new(Uuid::new_v4(), "/test/source")];
-	let destination = SdPath::new(Uuid::new_v4(), "/test/dest");
+	let sources = vec![SdPath::new("test-device".to_string(), "/test/source")];
+	let destination = SdPath::new("test-device".to_string(), "/test/dest");
 	let job = FileCopyJob::from_paths(sources, destination);
 
 	// Serialize to JSON
@@ -54,8 +54,8 @@ async fn test_job_creation_from_json() {
 #[tokio::test]
 async fn test_job_deserialization() {
 	// Create a FileCopyJob
-	let sources = vec![SdPath::new(Uuid::new_v4(), "/test/source")];
-	let destination = SdPath::new(Uuid::new_v4(), "/test/dest");
+	let sources = vec![SdPath::new("test-device".to_string(), "/test/source")];
+	let destination = SdPath::new("test-device".to_string(), "/test/dest");
 	let job = FileCopyJob::from_paths(sources, destination);
 
 	// Serialize as MessagePack (how jobs are stored)

@@ -8,7 +8,10 @@ mod manager;
 
 pub use crate::crypto::device_key_manager::{DeviceKeyError, DeviceKeyManager};
 pub use config::DeviceConfig;
-pub use id::{get_current_device_id, set_current_device_id, CURRENT_DEVICE_ID};
+pub use id::{
+	get_current_device_id, get_current_device_slug, set_current_device_id,
+	set_current_device_slug, CURRENT_DEVICE_ID, CURRENT_DEVICE_SLUG,
+};
 pub use manager::{DeviceError, DeviceManager};
 
 // Re-export domain types

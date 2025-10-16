@@ -52,9 +52,11 @@ impl LocationManager {
 				self.validate_physical_path(path).await?;
 			}
 			crate::domain::addressing::SdPath::Cloud {
-				volume_fingerprint, ..
+				service,
+				identifier,
+				..
 			} => {
-				self.validate_cloud_path(&library, volume_fingerprint)
+				self.validate_cloud_path(&library, *service, identifier)
 					.await?;
 			}
 			crate::domain::addressing::SdPath::Content { .. } => {
@@ -79,7 +81,8 @@ impl LocationManager {
 				(name, path_str)
 			}
 			crate::domain::addressing::SdPath::Cloud {
-				volume_fingerprint,
+				service,
+				identifier,
 				path,
 			} => {
 				let name = path
@@ -88,7 +91,7 @@ impl LocationManager {
 					.filter(|s| !s.is_empty())
 					.unwrap_or("Cloud Root")
 					.to_string();
-				let path_str = format!("cloud://{}/{}", volume_fingerprint.0, path);
+				let path_str = format!("{}://{}/{}", service.scheme(), identifier, path);
 				(name, path_str)
 			}
 			_ => unreachable!("Content paths already rejected"),
@@ -257,8 +260,8 @@ impl LocationManager {
 		action_context: Option<crate::infra::action::context::ActionContext>,
 	) -> LocationResult<String> {
 		// Construct SdPath from location
-		let device_uuid = self.get_device_uuid(&library, location.device_id).await?;
-		let location_sd_path = SdPath::new(device_uuid, location.path.clone());
+		let device_slug = self.get_device_slug(&library, location.device_id).await?;
+		let location_sd_path = SdPath::new(device_slug, location.path.clone());
 
 		self.start_indexing_with_context_and_path(
 			library,
@@ -371,14 +374,14 @@ impl LocationManager {
 		Ok(())
 	}
 
-	/// Get device UUID from device ID
-	async fn get_device_uuid(&self, library: &Library, device_id: i32) -> LocationResult<Uuid> {
+	/// Get device slug from device ID
+	async fn get_device_slug(&self, library: &Library, device_id: i32) -> LocationResult<String> {
 		let device = entities::device::Entity::find_by_id(device_id)
 			.one(library.db().conn())
 			.await?
 			.ok_or_else(|| LocationError::Other(format!("Device {} not found", device_id)))?;
 
-		Ok(device.uuid)
+		Ok(device.slug)
 	}
 
 	/// Validate a physical filesystem path before creating a location
@@ -412,17 +415,24 @@ impl LocationManager {
 	async fn validate_cloud_path(
 		&self,
 		library: &Library,
-		volume_fingerprint: &crate::volume::VolumeFingerprint,
+		service: crate::volume::backend::CloudServiceType,
+		identifier: &str,
 	) -> LocationResult<()> {
-		// Check if volume exists in database
+		// Check if volume exists in database by matching service and identifier
+		// The mount_point field contains the identity info like "s3://bucket-name"
+		let expected_mount_point = format!("{}://{}", service.scheme(), identifier);
+
 		let db = library.db().conn();
 		let volume = entities::volume::Entity::find()
-			.filter(entities::volume::Column::Fingerprint.eq(volume_fingerprint.0.clone()))
+			.filter(entities::volume::Column::MountPoint.eq(expected_mount_point.clone()))
 			.one(db)
 			.await
 			.map_err(|e| LocationError::Other(format!("Database error: {}", e)))?
 			.ok_or_else(|| {
-				LocationError::Other(format!("Cloud volume {} not found", volume_fingerprint.0))
+				LocationError::Other(format!(
+					"Cloud volume {} not found",
+					expected_mount_point
+				))
 			})?;
 
 		// TODO: Validate that we can connect to the volume

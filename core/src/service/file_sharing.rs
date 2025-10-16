@@ -167,7 +167,12 @@ impl FileSharingService {
 		// Create and dispatch the FileCopyJob
 		let job_manager = library.jobs();
 		let sources = files.into_iter().map(SdPath::local).collect();
-		let destination = SdPath::new(device_id, destination_path.unwrap_or_default());
+		let device_slug = self
+			.context
+			.device_manager
+			.get_device_slug(device_id)
+			.unwrap_or_else(|| format!("device-{}", device_id));
+		let destination = SdPath::new(device_slug, destination_path.unwrap_or_default());
 		let copy_job = FileCopyJob::from_paths(sources, destination);
 
 		let handle = job_manager
@@ -203,7 +208,12 @@ impl FileSharingService {
 		// Create SdPath objects for sources
 		let sources: Vec<SdPath> = files.into_iter().map(|path| SdPath::local(path)).collect();
 
-		let destination = SdPath::new(device_id, options.destination_path);
+		let device_slug = self
+			.context
+			.device_manager
+			.get_device_slug(device_id)
+			.unwrap_or_else(|| format!("device-{}", device_id));
+		let destination = SdPath::new(device_slug, options.destination_path);
 
 		// Create FileCopyJob for cross-device operation
 		let copy_job = FileCopyJob::from_paths(sources, destination).with_options(CopyOptions {

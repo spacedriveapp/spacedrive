@@ -55,6 +55,7 @@ impl LibraryQuery for VolumeListQuery {
 				name: v.display_name.unwrap_or_else(|| "Unnamed".to_string()),
 				fingerprint: VolumeFingerprint(v.fingerprint),
 				volume_type: v.volume_type.unwrap_or_else(|| "Unknown".to_string()),
+				mount_point: v.mount_point,
 			})
 			.collect();
 

@@ -68,7 +68,7 @@ impl LibraryQuery for FileByIdQuery {
 		// Create placeholder SdPath
 		// TODO: Resolve actual path from database
 		let sd_path = SdPath::Physical {
-			device_id: Uuid::new_v4(),
+			device_slug: format!("placeholder-{}", Uuid::new_v4()),
 			path: format!("/{}", entry_model.name).into(),
 		};
 

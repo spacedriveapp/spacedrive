@@ -198,11 +198,11 @@ async fn alice_cross_device_copy_scenario() {
 		println!("Alice: Preparing copy action {} for {}", i + 1, filename);
 
 		// Create source SdPath (on Alice's device)
-		let source_sdpath = SdPath::physical(alice_device_id, source_path);
+		let source_sdpath = SdPath::physical("alice-device".to_string(), source_path);
 
 		// Create destination SdPath (on Bob's device)
 		let dest_path = PathBuf::from("/tmp/received_files").join(filename);
-		let dest_sdpath = SdPath::physical(bob_id, &dest_path);
+		let dest_sdpath = SdPath::physical("bob-device".to_string(), &dest_path);
 
 		println!(
 			"  Source: {} (device: {})",

@@ -310,9 +310,9 @@ async fn start_location_indexing(
 		location_id: location_uuid,
 	});
 
-	// Get device UUID for SdPath
-	let device_uuid = get_device_uuid(library.clone()).await?;
-	let location_sd_path = SdPath::new(device_uuid, path.clone());
+	// Get device slug for SdPath
+	let device_slug = get_device_slug(library.clone()).await?;
+	let location_sd_path = SdPath::new(device_slug, path.clone());
 
 	// Create and dispatch indexer job through the proper job manager
 	let lib_cfg = library.config().await;
@@ -560,18 +560,18 @@ async fn update_location_stats(
 	Ok(())
 }
 
-/// Get device UUID for current device
-async fn get_device_uuid(_library: Arc<Library>) -> LocationResult<Uuid> {
-	// Get the current device ID from the global state
-	let device_uuid = crate::device::get_current_device_id();
+/// Get device slug for current device
+async fn get_device_slug(_library: Arc<Library>) -> LocationResult<String> {
+	// Get the current device slug from the global state
+	let device_slug = crate::device::get_current_device_slug();
 
-	if device_uuid.is_nil() {
+	if device_slug.is_empty() {
 		return Err(LocationError::InvalidPath(
-			"Current device ID not initialized".to_string(),
+			"Current device slug not initialized".to_string(),
 		));
 	}
 
-	Ok(device_uuid)
+	Ok(device_slug)
 }
 
 /// List all locations for a library

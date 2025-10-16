@@ -129,8 +129,8 @@ impl LocalDeleteStrategy {
 		};
 
 		// Extract cloud path components
-		let (volume_fingerprint, cloud_path) = match path.as_cloud() {
-			Some((fp, p)) => (fp, p),
+		let (service, identifier, cloud_path) = match path.as_cloud() {
+			Some((s, i, p)) => (s, i, p),
 			None => {
 				return DeleteResult {
 					path: path.clone(),
@@ -141,8 +141,11 @@ impl LocalDeleteStrategy {
 			}
 		};
 
-		// Get the volume
-		let volume = match volume_manager.get_volume(volume_fingerprint).await {
+		// Get the volume by service and identifier
+		let volume = match volume_manager
+			.find_cloud_volume(service, identifier)
+			.await
+		{
 			Some(v) => v,
 			None => {
 				return DeleteResult {
@@ -150,8 +153,9 @@ impl LocalDeleteStrategy {
 					success: false,
 					bytes_freed: 0,
 					error: Some(format!(
-						"Cloud volume not found: {}",
-						volume_fingerprint.0
+						"Cloud volume not found: {} ({})",
+						service.scheme(),
+						identifier
 					)),
 				}
 			}

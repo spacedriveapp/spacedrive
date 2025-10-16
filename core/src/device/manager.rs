@@ -122,6 +122,28 @@ impl DeviceManager {
 		}
 	}
 
+	/// Resolve device slug from UUID
+	/// Inverse of resolve_by_slug - checks cache and current device config
+	pub fn get_device_slug(&self, device_id: Uuid) -> Option<String> {
+		// Check if it's the current device first
+		if let Ok(config) = self.config.read() {
+			if config.id == device_id {
+				return Some(config.slug.clone());
+			}
+		}
+
+		// Search cache for matching UUID
+		if let Ok(cache) = self.device_cache.read() {
+			for (slug, &cached_id) in cache.iter() {
+				if cached_id == device_id {
+					return Some(slug.clone());
+				}
+			}
+		}
+
+		None
+	}
+
 	/// Load devices from library database into cache
 	/// Called when a library is opened to enable slug resolution for all devices
 	pub async fn load_library_devices(

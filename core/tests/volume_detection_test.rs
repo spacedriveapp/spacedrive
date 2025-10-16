@@ -255,8 +255,8 @@ async fn test_copy_strategy_selection() {
 		// Only test if both paths exist
 		if source_path.exists() && dest_path.exists() {
 			// Create SdPath instances (using current device ID)
-			let source_sdpath = SdPath::new(device_id, source_path.clone());
-			let dest_sdpath = SdPath::new(device_id, dest_path.clone());
+			let source_sdpath = SdPath::new("test-device".to_string(), source_path.clone());
+			let dest_sdpath = SdPath::new("test-device".to_string(), dest_path.clone());
 
 			// Test strategy selection
 			let strategy = CopyStrategyRouter::select_strategy(
@@ -429,8 +429,8 @@ async fn test_full_copy_workflow_simulation() {
 					println!("  Dest volume: {} ({})", dst_vol.name, dst_vol.file_system);
 
 					// Step 3: Select copy strategy
-					let source_sdpath = SdPath::new(device_id, source_path.clone());
-					let dest_sdpath = SdPath::new(device_id, dest_path.clone());
+					let source_sdpath = SdPath::new("test-device".to_string(), source_path.clone());
+					let dest_sdpath = SdPath::new("test-device".to_string(), dest_path.clone());
 
 					let description = CopyStrategyRouter::describe_strategy(
 						&source_sdpath,

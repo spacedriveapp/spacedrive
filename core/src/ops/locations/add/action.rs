@@ -122,7 +122,7 @@ impl LibraryAction for LocationAddAction {
 		use crate::domain::addressing::SdPath;
 
 		match &self.input.path {
-			SdPath::Physical { device_id: _, path } => {
+			SdPath::Physical { device_slug: _, path } => {
 				// Validate local filesystem path
 				if !path.exists() {
 					return Err(ActionError::Validation {
@@ -138,20 +138,22 @@ impl LibraryAction for LocationAddAction {
 				}
 			}
 			SdPath::Cloud {
-				volume_fingerprint,
+				service,
+				identifier,
 				path: cloud_path,
 			} => {
-				// Validate cloud path
-				// Check if the volume exists
-				let db = library.db().conn();
-				let volume = entities::volume::Entity::find()
-					.filter(entities::volume::Column::Fingerprint.eq(volume_fingerprint.0.clone()))
-					.one(db)
+				// Validate cloud path by looking up the volume using VolumeManager
+				let _volume = context
+					.volume_manager
+					.find_cloud_volume(*service, identifier)
 					.await
-					.map_err(ActionError::SeaOrm)?
 					.ok_or_else(|| ActionError::Validation {
-						field: "volume_fingerprint".to_string(),
-						message: format!("Cloud volume {} not found", volume_fingerprint.0),
+						field: "cloud_volume".to_string(),
+						message: format!(
+							"Cloud volume not found: {}://{}",
+							service.scheme(),
+							identifier
+						),
 					})?;
 
 				// TODO: Validate that the path exists on the cloud volume

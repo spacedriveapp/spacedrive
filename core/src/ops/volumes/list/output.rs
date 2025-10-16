@@ -11,6 +11,7 @@ pub struct VolumeItem {
 	pub name: String,
 	pub fingerprint: VolumeFingerprint,
 	pub volume_type: String,
+	pub mount_point: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

@@ -69,16 +69,27 @@ impl LibraryQuery for FileSearchQuery {
 		let db = library.db();
 		let search_id = Uuid::new_v4();
 
+		// Build device slug lookup map from database
+		use std::collections::HashMap;
+		let devices = crate::infra::db::entities::device::Entity::find()
+			.all(db.conn())
+			.await
+			.map_err(QueryError::SeaOrm)?;
+		let device_slug_map: HashMap<Uuid, String> = devices
+			.into_iter()
+			.map(|device| (device.uuid, device.slug))
+			.collect();
+
 		// Perform the search based on mode
 		let results = match self.input.mode {
 			crate::ops::search::input::SearchMode::Fast => {
-				self.execute_fast_search(db.conn()).await?
+				self.execute_fast_search(db.conn(), &device_slug_map).await?
 			}
 			crate::ops::search::input::SearchMode::Normal => {
-				self.execute_normal_search(db.conn()).await?
+				self.execute_normal_search(db.conn(), &device_slug_map).await?
 			}
 			crate::ops::search::input::SearchMode::Full => {
-				self.execute_full_search(db.conn()).await?
+				self.execute_full_search(db.conn(), &device_slug_map).await?
 			}
 		};
 
@@ -138,6 +149,7 @@ impl FileSearchQuery {
 	pub async fn execute_fast_search(
 		&self,
 		db: &DatabaseConnection,
+		device_slug_map: &std::collections::HashMap<Uuid, String>,
 	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Use FTS5 for high-performance text search
 		let fts_query = self.build_fts5_query();
@@ -204,8 +216,12 @@ impl FileSearchQuery {
 			let entry_id_for_boost = entry_model.id;
 
 			// Create SdPath
+			let device_slug = device_slug_map
+				.get(&device_uuid)
+				.cloned()
+				.unwrap_or_else(|| format!("device-{}", device_uuid));
 			let sd_path = SdPath::Physical {
-				device_id: device_uuid,
+				device_slug,
 				path: full_path.into(),
 			};
 
@@ -253,9 +269,10 @@ impl FileSearchQuery {
 	async fn execute_normal_search(
 		&self,
 		db: &DatabaseConnection,
+		device_slug_map: &std::collections::HashMap<Uuid, String>,
 	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Use FTS5 as base, then enhance with additional ranking factors
-		let mut results = self.execute_fast_search(db).await?;
+		let mut results = self.execute_fast_search(db, device_slug_map).await?;
 
 		// Enhanced ranking for normal search
 		for result in &mut results {
@@ -300,9 +317,10 @@ impl FileSearchQuery {
 	async fn execute_full_search(
 		&self,
 		db: &DatabaseConnection,
+		device_slug_map: &std::collections::HashMap<Uuid, String>,
 	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Start with normal search results
-		let mut results = self.execute_normal_search(db).await?;
+		let mut results = self.execute_normal_search(db, device_slug_map).await?;
 
 		// For full search, we would add content analysis here
 		// This is a placeholder for future implementation
@@ -821,11 +839,22 @@ impl FileSearchQuery {
 		&self,
 		db: &DatabaseConnection,
 	) -> QueryResult<Vec<EnhancedFileSearchResult>> {
+		// Build device slug lookup map from database
+		use std::collections::HashMap;
+		let devices = crate::infra::db::entities::device::Entity::find()
+			.all(db)
+			.await
+			.map_err(QueryError::SeaOrm)?;
+		let device_slug_map: HashMap<Uuid, String> = devices
+			.into_iter()
+			.map(|device| (device.uuid, device.slug))
+			.collect();
+
 		// First get the basic search results
 		let entry_results = match self.input.mode {
-			crate::ops::search::input::SearchMode::Fast => self.execute_fast_search(db).await?,
-			crate::ops::search::input::SearchMode::Normal => self.execute_normal_search(db).await?,
-			crate::ops::search::input::SearchMode::Full => self.execute_full_search(db).await?,
+			crate::ops::search::input::SearchMode::Fast => self.execute_fast_search(db, &device_slug_map).await?,
+			crate::ops::search::input::SearchMode::Normal => self.execute_normal_search(db, &device_slug_map).await?,
+			crate::ops::search::input::SearchMode::Full => self.execute_full_search(db, &device_slug_map).await?,
 		};
 
 		if entry_results.is_empty() {

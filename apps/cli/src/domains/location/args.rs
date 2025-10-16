@@ -17,13 +17,13 @@ use crate::domains::index::args::IndexModeArg;
 
 #[derive(Args, Debug)]
 pub struct LocationAddArgs {
-	/// Path to add (local filesystem path or cloud path)
+	/// Path to add (local filesystem path or service-based cloud URI)
+	/// Examples:
+	///   - /Users/james/Documents (local path)
+	///   - s3://my-bucket/photos (S3 cloud path)
+	///   - gdrive://My Drive/photos (Google Drive path)
 	/// If not provided, enters interactive mode
 	pub path: Option<String>,
-
-	/// Cloud volume fingerprint (if adding a cloud location)
-	#[arg(long)]
-	pub cloud: Option<String>,
 
 	/// Display name for the location
 	#[arg(long)]
@@ -42,16 +42,8 @@ impl LocationAddArgs {
 			.as_ref()
 			.ok_or_else(|| anyhow::anyhow!("Path is required in non-interactive mode"))?;
 
-		if let Some(volume_fingerprint_str) = &self.cloud {
-			// Cloud path
-			let volume_fingerprint =
-				sd_core::volume::VolumeFingerprint(volume_fingerprint_str.clone());
-			Ok(SdPath::cloud(volume_fingerprint, path_str.clone()))
-		} else {
-			// Local path
-			let path_buf = PathBuf::from(path_str);
-			Ok(SdPath::local(path_buf))
-		}
+		// Use SdPath::from_uri() to parse service-based paths or local paths
+		SdPath::from_uri(path_str).map_err(|e| anyhow::anyhow!("Invalid path: {}", e))
 	}
 
 	/// Check if interactive mode should be triggered

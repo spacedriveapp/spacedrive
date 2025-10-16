@@ -61,17 +61,27 @@ pub enum BackendType {
 }
 
 /// Cloud service type identifier
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum CloudServiceType {
+	#[serde(rename = "s3")]
 	S3,
+	#[serde(rename = "gdrive")]
 	GoogleDrive,
+	#[serde(rename = "dropbox")]
 	Dropbox,
+	#[serde(rename = "onedrive")]
 	OneDrive,
+	#[serde(rename = "gcs")]
 	GoogleCloudStorage,
+	#[serde(rename = "azblob")]
 	AzureBlob,
+	#[serde(rename = "b2")]
 	BackblazeB2,
+	#[serde(rename = "wasabi")]
 	Wasabi,
+	#[serde(rename = "spaces")]
 	DigitalOceanSpaces,
+	#[serde(rename = "cloud")]
 	Other,
 }
 

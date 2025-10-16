@@ -104,11 +104,11 @@ impl JobHandler for FileCopyJob {
 		ctx.progress(Progress::generic(progress.to_generic_progress()));
 
 		// Group by device for efficient processing
-		let by_device: HashMap<Uuid, Vec<SdPath>> = self
+		let by_device: HashMap<String, Vec<SdPath>> = self
 			.sources
 			.by_device()
 			.into_iter()
-			.map(|(device_id, paths)| (device_id, paths.into_iter().cloned().collect()))
+			.map(|(device_slug, paths)| (device_slug, paths.into_iter().cloned().collect()))
 			.collect();
 
 		let mut copied_count = 0;
@@ -357,7 +357,7 @@ impl JobHandler for FileCopyJob {
 
 					// If this is a move operation and the strategy didn't handle deletion,
 					// we need to delete the source after successful copy
-					if is_move && resolved_source.device_id() == final_destination.device_id() {
+					if is_move && resolved_source.device_slug() == final_destination.device_slug() {
 						// For same-device moves, LocalMoveStrategy handles deletion atomically
 						// For cross-volume moves, LocalStreamCopyStrategy needs manual deletion
 						if let Some(vm) = volume_manager.as_deref() {
@@ -691,7 +691,7 @@ impl FileCopyJob {
 	pub fn empty() -> Self {
 		Self {
 			sources: SdPathBatch::new(Vec::new()),
-			destination: SdPath::new(uuid::Uuid::new_v4(), PathBuf::new()),
+			destination: SdPath::local(PathBuf::new()),
 			options: Default::default(),
 			completed_indices: Vec::new(),
 			started_at: Instant::now(),
@@ -726,8 +726,8 @@ impl FileCopyJob {
 	/// Create a rename operation
 	pub fn new_rename(source: SdPath, new_name: String) -> Self {
 		let destination = match &source {
-			SdPath::Physical { device_id, path } => SdPath::Physical {
-				device_id: *device_id,
+			SdPath::Physical { device_slug, path } => SdPath::Physical {
+				device_slug: device_slug.clone(),
 				path: path.with_file_name(&new_name),
 			},
 			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),
@@ -958,7 +958,7 @@ impl MoveJob {
 	pub fn empty() -> Self {
 		Self {
 			sources: SdPathBatch::new(Vec::new()),
-			destination: SdPath::new(uuid::Uuid::new_v4(), PathBuf::new()),
+			destination: SdPath::local(PathBuf::new()),
 			mode: MoveMode::Move,
 			overwrite: false,
 			preserve_timestamps: true,
@@ -968,8 +968,8 @@ impl MoveJob {
 	/// Create a rename operation
 	pub fn rename(source: SdPath, new_name: String) -> Self {
 		let destination = match &source {
-			SdPath::Physical { device_id, path } => SdPath::Physical {
-				device_id: *device_id,
+			SdPath::Physical { device_slug, path } => SdPath::Physical {
+				device_slug: device_slug.clone(),
 				path: path.with_file_name(&new_name),
 			},
 			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),

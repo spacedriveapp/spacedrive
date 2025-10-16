@@ -4,7 +4,7 @@
 //! the data structures that represent paths in Spacedrive's distributed
 //! file system.
 
-use crate::device::get_current_device_id;
+use crate::device::{get_current_device_id, get_current_device_slug};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;
@@ -24,15 +24,17 @@ use uuid::Uuid;
 pub enum SdPath {
 	/// A direct pointer to a file at a specific path on a specific device
 	Physical {
-		/// The device where this file exists
-		device_id: Uuid,
+		/// The device slug (e.g., "jamies-macbook")
+		device_slug: String,
 		/// The local path on that device
 		path: PathBuf,
 	},
 	/// A cloud storage path within a cloud volume
 	Cloud {
-		/// The cloud volume fingerprint for direct HashMap lookup
-		volume_fingerprint: crate::volume::VolumeFingerprint,
+		/// The cloud service type (S3, GoogleDrive, etc.)
+		service: crate::volume::backend::CloudServiceType,
+		/// The cloud identifier (bucket name, drive name, etc.)
+		identifier: String,
 		/// The cloud-native path (e.g., "bucket/key" for S3)
 		path: String,
 	},
@@ -50,13 +52,14 @@ impl<'de> Deserialize<'de> for SdPath {
 	{
 		#[derive(Deserialize)]
 		struct SdPathPhysicalHelper {
-			device_id: String,
+			device_slug: String,
 			path: String,
 		}
 
 		#[derive(Deserialize)]
 		struct SdPathCloudHelper {
-			volume_fingerprint: String,
+			service: String,
+			identifier: String,
 			path: String,
 		}
 
@@ -76,23 +79,21 @@ impl<'de> Deserialize<'de> for SdPath {
 		let helper = SdPathHelper::deserialize(deserializer)?;
 
 		match helper {
-			SdPathHelper::Physical { Physical: physical } => {
-				// Useful helper for clients to avoid passing the device id if it's the local device
-				let device_id = if physical.device_id == "local-device" {
-					// Use the global current device ID for the local Mac device
-					get_current_device_id()
-				} else {
-					Uuid::parse_str(&physical.device_id).map_err(serde::de::Error::custom)?
-				};
-				Ok(SdPath::Physical {
-					device_id,
-					path: PathBuf::from(physical.path),
-				})
-			}
+			SdPathHelper::Physical { Physical: physical } => Ok(SdPath::Physical {
+				device_slug: physical.device_slug,
+				path: PathBuf::from(physical.path),
+			}),
 			SdPathHelper::Cloud { Cloud: cloud } => {
-				let volume_fingerprint = crate::volume::VolumeFingerprint(cloud.volume_fingerprint);
+				let service = crate::volume::backend::CloudServiceType::from_scheme(&cloud.service)
+					.ok_or_else(|| {
+						serde::de::Error::custom(format!(
+							"Unknown cloud service: {}",
+							cloud.service
+						))
+					})?;
 				Ok(SdPath::Cloud {
-					volume_fingerprint,
+					service,
+					identifier: cloud.identifier,
 					path: cloud.path,
 				})
 			}
@@ -107,25 +108,27 @@ impl<'de> Deserialize<'de> for SdPath {
 
 impl SdPath {
 	/// Create a new physical SdPath
-	pub fn new(device_id: Uuid, path: impl Into<PathBuf>) -> Self {
-		Self::physical(device_id, path)
+	pub fn new(device_slug: String, path: impl Into<PathBuf>) -> Self {
+		Self::physical(device_slug, path)
 	}
 
 	/// Create a physical SdPath with specific device and path
-	pub fn physical(device_id: Uuid, path: impl Into<PathBuf>) -> Self {
+	pub fn physical(device_slug: String, path: impl Into<PathBuf>) -> Self {
 		Self::Physical {
-			device_id,
+			device_slug,
 			path: path.into(),
 		}
 	}
 
 	/// Create a cloud storage SdPath
 	pub fn cloud(
-		volume_fingerprint: crate::volume::VolumeFingerprint,
+		service: crate::volume::backend::CloudServiceType,
+		identifier: String,
 		path: impl Into<String>,
 	) -> Self {
 		Self::Cloud {
-			volume_fingerprint,
+			service,
+			identifier,
 			path: path.into(),
 		}
 	}
@@ -138,7 +141,7 @@ impl SdPath {
 	/// Create an SdPath for a local file on this device
 	pub fn local(path: impl Into<PathBuf>) -> Self {
 		Self::Physical {
-			device_id: crate::device::get_current_device_id(),
+			device_slug: get_current_device_slug(),
 			path: path.into(),
 		}
 	}
@@ -146,9 +149,7 @@ impl SdPath {
 	/// Check if this path is on the current device
 	pub fn is_local(&self) -> bool {
 		match self {
-			Self::Physical { device_id, .. } => {
-				*device_id == crate::device::get_current_device_id()
-			}
+			Self::Physical { device_slug, .. } => *device_slug == get_current_device_slug(),
 			Self::Cloud { .. } => false,   // Cloud paths are never local
 			Self::Content { .. } => false, // Content paths are abstract, not inherently local
 		}
@@ -157,76 +158,32 @@ impl SdPath {
 	/// Get the local PathBuf if this is a local path
 	pub fn as_local_path(&self) -> Option<&Path> {
 		match self {
-			Self::Physical { device_id, path } => {
-				if *device_id == crate::device::get_current_device_id() {
+			Self::Physical { device_slug, path } => {
+				if *device_slug == get_current_device_slug() {
 					Some(path)
 				} else {
 					None
 				}
 			}
-			Self::Cloud { .. } => None, // Cloud paths don't have local paths
+			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 		}
 	}
 
-	/// Convert to a display string (legacy format)
+	/// Convert to a display string in unified addressing format
+	/// This uses the identity-based format with no manager lookups needed
 	pub fn display(&self) -> String {
 		match self {
-			Self::Physical { device_id, path } => {
-				if *device_id == crate::device::get_current_device_id() {
-					path.display().to_string()
-				} else {
-					format!("sd://{}/{}", device_id, path.display())
-				}
+			Self::Physical { device_slug, path } => {
+				format!("local://{}{}", device_slug, path.display())
 			}
 			Self::Cloud {
-				volume_fingerprint,
+				service,
+				identifier,
 				path,
 			} => {
-				format!("sd://cloud/{}/{}", volume_fingerprint.0, path)
+				format!("{}://{}/{}", service.scheme(), identifier, path)
 			}
-			Self::Content { content_id } => {
-				format!("sd://content/{}", content_id)
-			}
-		}
-	}
-
-	/// Display as user-friendly URI using CoreContext for resolution
-	/// This is the new unified addressing format
-	///
-	/// # Examples
-	/// - Physical: `local://jamies-macbook/Users/james/file.txt`
-	/// - Cloud: `s3://my-bucket/photos/vacation.jpg`
-	/// - Content: `content://550e8400-e29b-41d4-a716-446655440000`
-	pub async fn display_with_context(&self, context: &crate::context::CoreContext) -> String {
-		match self {
-			Self::Physical { device_id, path } => {
-				let path_str = path.display().to_string();
-				// Try to get current device slug
-				if let Ok(device) = context.device_manager.to_device() {
-					if device.id == *device_id {
-						return format!("local://{}{}", device.slug, path_str);
-					}
-				}
-				// Fallback for remote devices
-				format!("local://{}{}", device_id, path_str)
-			}
-
-			Self::Cloud {
-				volume_fingerprint,
-				path,
-			} => {
-				// Resolve volume and extract identity from mount_point
-				if let Some(volume) = context.volume_manager.get_volume(volume_fingerprint).await
-				{
-					if let Some((service, identifier)) = volume.parse_cloud_identity() {
-						return format!("{}://{}/{}", service.scheme(), identifier, path);
-					}
-				}
-				// Fallback
-				format!("cloud://{}/{}", volume_fingerprint.0, path)
-			}
-
 			Self::Content { content_id } => {
 				format!("content://{}", content_id)
 			}
@@ -245,17 +202,19 @@ impl SdPath {
 	/// Get the parent directory as an SdPath
 	pub fn parent(&self) -> Option<SdPath> {
 		match self {
-			Self::Physical { device_id, path } => path.parent().map(|p| Self::Physical {
-				device_id: *device_id,
+			Self::Physical { device_slug, path } => path.parent().map(|p| Self::Physical {
+				device_slug: device_slug.clone(),
 				path: p.to_path_buf(),
 			}),
 			Self::Cloud {
-				volume_fingerprint,
+				service,
+				identifier,
 				path,
 			} => {
 				let parent_path = path.trim_end_matches('/');
 				parent_path.rfind('/').map(|idx| Self::Cloud {
-					volume_fingerprint: volume_fingerprint.clone(),
+					service: *service,
+					identifier: identifier.clone(),
 					path: parent_path[..idx].to_string(),
 				})
 			}
@@ -268,14 +227,15 @@ impl SdPath {
 	pub fn join(&self, path: impl AsRef<Path>) -> SdPath {
 		match self {
 			Self::Physical {
-				device_id,
+				device_slug,
 				path: base_path,
 			} => Self::Physical {
-				device_id: *device_id,
+				device_slug: device_slug.clone(),
 				path: base_path.join(path),
 			},
 			Self::Cloud {
-				volume_fingerprint,
+				service,
+				identifier,
 				path: base_path,
 			} => {
 				let path_str = path.as_ref().to_string_lossy();
@@ -285,7 +245,8 @@ impl SdPath {
 					"/"
 				};
 				Self::Cloud {
-					volume_fingerprint: volume_fingerprint.clone(),
+					service: *service,
+					identifier: identifier.clone(),
 					path: format!("{}{}{}", base_path, separator, path_str),
 				}
 			}
@@ -307,10 +268,12 @@ impl SdPath {
 				}
 			}
 			Self::Cloud {
-				volume_fingerprint, ..
+				service,
+				identifier,
+				..
 			} => {
-				// Look up cloud volume by fingerprint
-				volume_manager.get_volume(volume_fingerprint).await
+				// Look up cloud volume by identity
+				volume_manager.find_cloud_volume(*service, identifier).await
 			}
 			Self::Content { .. } => None, // Content paths don't have volumes until resolved
 		}
@@ -338,83 +301,38 @@ impl SdPath {
 			}
 			(
 				Self::Cloud {
-					volume_fingerprint: fp1,
+					service: s1,
+					identifier: id1,
 					..
 				},
 				Self::Cloud {
-					volume_fingerprint: fp2,
+					service: s2,
+					identifier: id2,
 					..
 				},
 			) => {
-				// Cloud paths are on the same volume if they have the same fingerprint
-				fp1 == fp2
+				// Cloud paths are on the same volume if they have the same service and identifier
+				s1 == s2 && id1 == id2
 			}
 			_ => false, // Content paths or mixed types can't be compared for volume
 		}
 	}
 
-	/// Parse an SdPath from a URI string (legacy format)
+	/// Parse an SdPath from a URI string (unified addressing format)
 	/// Examples:
-	/// - "sd://device_id/path/to/file" -> Physical path
-	/// - "sd://cloud/volume_id/path/to/file" -> Cloud path
-	/// - "sd://content/content_id" -> Content path
+	/// - "local://device-slug/path/to/file" -> Physical path
+	/// - "s3://bucket/path/to/file" -> Cloud path
+	/// - "content://content_id" -> Content path
 	/// - "/local/path" -> Local physical path
-	pub fn from_uri(uri: &str) -> Result<Self, SdPathParseError> {
-		if uri.starts_with("sd://") {
-			let uri = &uri[5..]; // Strip "sd://"
-
-			if let Some(content_id_str) = uri.strip_prefix("content/") {
-				// Parse content path
-				let content_id = Uuid::parse_str(content_id_str)
-					.map_err(|_| SdPathParseError::InvalidContentId)?;
-				Ok(Self::Content { content_id })
-			} else if let Some(cloud_path) = uri.strip_prefix("cloud/") {
-				// Parse cloud path
-				let parts: Vec<&str> = cloud_path.splitn(2, '/').collect();
-				if parts.is_empty() {
-					return Err(SdPathParseError::InvalidFormat);
-				}
-
-				// Parse fingerprint as a hex string
-				let volume_fingerprint = crate::volume::VolumeFingerprint(parts[0].to_string());
-				let path = parts.get(1).unwrap_or(&"").to_string();
-
-				Ok(Self::Cloud {
-					volume_fingerprint,
-					path,
-				})
-			} else {
-				// Parse physical path
-				let parts: Vec<&str> = uri.splitn(2, '/').collect();
-				if parts.len() != 2 {
-					return Err(SdPathParseError::InvalidFormat);
-				}
-
-				let device_id =
-					Uuid::parse_str(parts[0]).map_err(|_| SdPathParseError::InvalidDeviceId)?;
-				let path = PathBuf::from("/").join(parts[1]);
-
-				Ok(Self::Physical { device_id, path })
-			}
-		} else {
-			// Assume local path
-			Ok(Self::local(uri))
-		}
-	}
-
-	/// Parse URI into SdPath using CoreContext for resolution (new unified format)
 	///
-	/// # Examples
-	/// - "local://jamies-macbook/Users/james/file.txt" -> Physical path
-	/// - "s3://my-bucket/photos/vacation.jpg" -> Cloud path
-	/// - "content://550e8400-..." -> Content path
-	pub async fn from_uri_with_context(
-		uri: &str,
-		context: &crate::context::CoreContext,
-	) -> Result<Self, SdPathParseError> {
+	/// Note: This is a synchronous version that doesn't require context.
+	/// For resolving slugs/identifiers to actual volumes/devices, use from_uri_with_context()
+	pub fn from_uri(uri: &str) -> Result<Self, SdPathParseError> {
 		let parts: Vec<&str> = uri.splitn(2, "://").collect();
+
 		if parts.len() != 2 {
-			return Err(SdPathParseError::InvalidFormat);
+			// No scheme - assume local path
+			return Ok(Self::local(uri));
 		}
 
 		let scheme = parts[0];
@@ -422,23 +340,18 @@ impl SdPath {
 
 		match scheme {
 			"content" => {
-				let content_id = Uuid::parse_str(rest)
-					.map_err(|_| SdPathParseError::InvalidContentId)?;
+				let content_id =
+					Uuid::parse_str(rest).map_err(|_| SdPathParseError::InvalidContentId)?;
 				Ok(Self::Content { content_id })
 			}
 
 			"local" => {
 				let parts: Vec<&str> = rest.splitn(2, '/').collect();
-				let slug = parts[0];
+				let slug = parts[0].to_string();
 				let path = if parts.len() > 1 { parts[1] } else { "" };
 
-				let device_id = context
-					.device_manager
-					.resolve_by_slug(slug)
-					.ok_or(SdPathParseError::DeviceNotFound)?;
-
 				Ok(Self::Physical {
-					device_id,
+					device_slug: slug,
 					path: PathBuf::from("/").join(path),
 				})
 			}
@@ -449,21 +362,36 @@ impl SdPath {
 					.ok_or(SdPathParseError::UnknownScheme)?;
 
 				let parts: Vec<&str> = rest.splitn(2, '/').collect();
-				let identifier = parts[0];
-				let path = if parts.len() > 1 { parts[1] } else { "" };
-
-				let volume = context
-					.volume_manager
-					.find_cloud_volume(service, identifier)
-					.await
-					.ok_or(SdPathParseError::VolumeNotFound)?;
+				let identifier = parts[0].to_string();
+				let path = if parts.len() > 1 {
+					parts[1].to_string()
+				} else {
+					String::new()
+				};
 
 				Ok(Self::Cloud {
-					volume_fingerprint: volume.fingerprint,
-					path: path.to_string(),
+					service,
+					identifier,
+					path,
 				})
 			}
 		}
+	}
+
+	/// Parse URI into SdPath with context validation (kept for backwards compatibility)
+	///
+	/// # Examples
+	/// - "local://jamies-macbook/Users/james/file.txt" -> Physical path
+	/// - "s3://my-bucket/photos/vacation.jpg" -> Cloud path
+	/// - "content://550e8400-..." -> Content path
+	///
+	/// Note: This now simply delegates to from_uri() since identities are stored directly.
+	/// Context can still be used for validation if needed in the future.
+	pub async fn from_uri_with_context(
+		uri: &str,
+		_context: &crate::context::CoreContext,
+	) -> Result<Self, SdPathParseError> {
+		Self::from_uri(uri)
 	}
 
 	/// Convert to a URI string
@@ -471,13 +399,20 @@ impl SdPath {
 		self.display()
 	}
 
-	/// Get the device ID if this is a Physical path
-	pub fn device_id(&self) -> Option<Uuid> {
+	/// Get the device slug if this is a Physical path
+	pub fn device_slug(&self) -> Option<&str> {
 		match self {
-			Self::Physical { device_id, .. } => Some(*device_id),
+			Self::Physical { device_slug, .. } => Some(device_slug),
 			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 		}
+	}
+
+	/// Legacy method - get device ID (deprecated, use device_slug instead)
+	#[deprecated(note = "Use device_slug() instead")]
+	pub fn device_id(&self) -> Option<Uuid> {
+		// Return nil UUID - this method is deprecated
+		None
 	}
 
 	/// Get the path if this is a Physical path
@@ -498,15 +433,24 @@ impl SdPath {
 		}
 	}
 
-	/// Get the volume fingerprint if this is a Cloud path
-	pub fn volume_fingerprint(&self) -> Option<&crate::volume::VolumeFingerprint> {
+	/// Get the cloud service and identifier if this is a Cloud path
+	pub fn cloud_identity(&self) -> Option<(crate::volume::backend::CloudServiceType, &str)> {
 		match self {
 			Self::Cloud {
-				volume_fingerprint, ..
-			} => Some(volume_fingerprint),
+				service,
+				identifier,
+				..
+			} => Some((*service, identifier.as_str())),
 			Self::Physical { .. } => None,
 			Self::Content { .. } => None,
 		}
+	}
+
+	/// Legacy method - get volume fingerprint (deprecated, use cloud_identity instead)
+	#[deprecated(note = "Use cloud_identity() instead")]
+	pub fn volume_fingerprint(&self) -> Option<&crate::volume::VolumeFingerprint> {
+		// This method is deprecated - return None
+		None
 	}
 
 	/// Get the cloud path if this is a Cloud path
@@ -533,22 +477,23 @@ impl SdPath {
 		matches!(self, Self::Content { .. })
 	}
 
-	/// Try to get as a Physical path, returning device_id and path
-	pub fn as_physical(&self) -> Option<(Uuid, &PathBuf)> {
+	/// Try to get as a Physical path, returning device_slug and path
+	pub fn as_physical(&self) -> Option<(&str, &PathBuf)> {
 		match self {
-			Self::Physical { device_id, path } => Some((*device_id, path)),
+			Self::Physical { device_slug, path } => Some((device_slug.as_str(), path)),
 			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 		}
 	}
 
-	/// Try to get as a Cloud path, returning volume_fingerprint and path
-	pub fn as_cloud(&self) -> Option<(&crate::volume::VolumeFingerprint, &str)> {
+	/// Try to get as a Cloud path, returning service, identifier, and path
+	pub fn as_cloud(&self) -> Option<(crate::volume::backend::CloudServiceType, &str, &str)> {
 		match self {
 			Self::Cloud {
-				volume_fingerprint,
+				service,
+				identifier,
 				path,
-			} => Some((volume_fingerprint, path)),
+			} => Some((*service, identifier.as_str(), path.as_str())),
 			Self::Physical { .. } => None,
 			Self::Content { .. } => None,
 		}
@@ -619,9 +564,9 @@ pub enum SdPathParseError {
 	InvalidDeviceId,
 	InvalidVolumeId,
 	InvalidContentId,
-	UnknownScheme,   // NEW: Unknown URI scheme
-	VolumeNotFound,  // NEW: Cloud volume not found
-	DeviceNotFound,  // NEW: Device slug not found
+	UnknownScheme,  // NEW: Unknown URI scheme
+	VolumeNotFound, // NEW: Cloud volume not found
+	DeviceNotFound, // NEW: Device slug not found
 }
 
 impl fmt::Display for SdPathParseError {
@@ -666,12 +611,14 @@ impl SdPathBatch {
 			.collect()
 	}
 
-	/// Group by device
-	pub fn by_device(&self) -> std::collections::HashMap<Uuid, Vec<&SdPath>> {
+	/// Group by device slug
+	pub fn by_device(&self) -> std::collections::HashMap<String, Vec<&SdPath>> {
 		let mut map = std::collections::HashMap::new();
 		for path in &self.paths {
-			if let Some(device_id) = path.device_id() {
-				map.entry(device_id).or_insert_with(Vec::new).push(path);
+			if let Some(device_slug) = path.device_slug() {
+				map.entry(device_slug.to_string())
+					.or_insert_with(Vec::new)
+					.push(path);
 			}
 		}
 		map
@@ -689,15 +636,15 @@ mod tests {
 
 	#[test]
 	fn test_sdpath_physical_creation() {
-		let device_id = Uuid::new_v4();
-		let path = SdPath::new(device_id, "/home/user/file.txt");
+		let device_slug = "test-device-abc123".to_string();
+		let path = SdPath::new(device_slug.clone(), "/home/user/file.txt");
 
 		match path {
 			SdPath::Physical {
-				device_id: did,
+				device_slug: slug,
 				path: p,
 			} => {
-				assert_eq!(did, device_id);
+				assert_eq!(slug, device_slug);
 				assert_eq!(p, PathBuf::from("/home/user/file.txt"));
 			}
 			_ => panic!("Expected Physical variant"),
@@ -719,19 +666,20 @@ mod tests {
 
 	#[test]
 	fn test_sdpath_display() {
-		let device_id = Uuid::new_v4();
-		let path = SdPath::new(device_id, "/home/user/file.txt");
+		let device_slug = "test-device-abc123".to_string();
+		let path = SdPath::new(device_slug.clone(), "/home/user/file.txt");
 
 		let display = path.display();
-		assert!(display.contains(&device_id.to_string()));
+		assert!(display.contains(&device_slug));
 		assert!(display.contains("/home/user/file.txt"));
+		assert!(display.starts_with("local://"));
 	}
 
 	#[test]
 	fn test_sdpath_uri_parsing() {
 		// Test content URI
 		let content_id = Uuid::new_v4();
-		let uri = format!("sd://content/{}", content_id);
+		let uri = format!("content://{}", content_id);
 		let path = SdPath::from_uri(&uri).unwrap();
 		match path {
 			SdPath::Content { content_id: cid } => assert_eq!(cid, content_id),
@@ -739,21 +687,37 @@ mod tests {
 		}
 
 		// Test physical URI
-		let device_id = Uuid::new_v4();
-		let uri = format!("sd://{}/home/user/file.txt", device_id);
+		let device_slug = "test-device-abc123";
+		let uri = format!("local://{}/home/user/file.txt", device_slug);
 		let path = SdPath::from_uri(&uri).unwrap();
 		match path {
 			SdPath::Physical {
-				device_id: did,
+				device_slug: slug,
 				path: p,
 			} => {
-				assert_eq!(did, device_id);
+				assert_eq!(slug, device_slug);
 				assert_eq!(p, PathBuf::from("/home/user/file.txt"));
 			}
 			_ => panic!("Expected Physical variant"),
 		}
 
-		// Test local path
+		// Test cloud URI
+		let uri = "s3://my-bucket/photos/vacation.jpg";
+		let path = SdPath::from_uri(uri).unwrap();
+		match path {
+			SdPath::Cloud {
+				service,
+				identifier,
+				path,
+			} => {
+				assert_eq!(service.scheme(), "s3");
+				assert_eq!(identifier, "my-bucket");
+				assert_eq!(path, "photos/vacation.jpg");
+			}
+			_ => panic!("Expected Cloud variant"),
+		}
+
+		// Test local path without scheme
 		let path = SdPath::from_uri("/local/path").unwrap();
 		assert!(path.is_local());
 	}

@@ -64,6 +64,10 @@ pub struct VolumeManager {
 	/// Cache mapping paths to volume fingerprints for fast lookup
 	path_cache: Arc<RwLock<HashMap<PathBuf, VolumeFingerprint>>>,
 
+	/// Cache mapping mount points to fingerprints for O(1) cloud volume lookup
+	/// Format: "s3://bucket" -> fingerprint
+	mount_point_cache: Arc<RwLock<HashMap<String, VolumeFingerprint>>>,
+
 	/// Configuration for volume detection
 	config: VolumeDetectionConfig,
 
@@ -91,6 +95,7 @@ impl VolumeManager {
 			device_id,
 			volumes: Arc::new(RwLock::new(HashMap::new())),
 			path_cache: Arc::new(RwLock::new(HashMap::new())),
+			mount_point_cache: Arc::new(RwLock::new(HashMap::new())),
 			config,
 			events,
 			is_monitoring: Arc::new(RwLock::new(false)),
@@ -175,6 +180,9 @@ impl VolumeManager {
 						};
 
 						// Recreate the cloud backend from stored credentials
+						// Use the service's scheme() method as the single source of truth for URI parsing
+						let scheme_prefix = format!("{}://", credential.service.scheme());
+
 						let backend_result = match credential.service {
 							crate::volume::CloudServiceType::S3 => {
 								if let crate::crypto::cloud_credentials::CredentialData::AccessKey {
@@ -184,7 +192,7 @@ impl VolumeManager {
 								} = &credential.data
 								{
 									let bucket = mount_point_str
-										.strip_prefix("cloud://s3/")
+										.strip_prefix(&scheme_prefix)
 										.unwrap_or("unknown");
 
 									crate::volume::CloudBackend::new_s3(
@@ -207,7 +215,7 @@ impl VolumeManager {
 								{
 									// Extract root from mount point if available
 									let root = mount_point_str
-										.strip_prefix("cloud://gdrive/")
+										.strip_prefix(&scheme_prefix)
 										.map(|s| s.to_string());
 
 									crate::volume::CloudBackend::new_google_drive(
@@ -229,7 +237,7 @@ impl VolumeManager {
 								} = &credential.data
 								{
 									let root = mount_point_str
-										.strip_prefix("cloud://onedrive/")
+										.strip_prefix(&scheme_prefix)
 										.map(|s| s.to_string());
 
 									crate::volume::CloudBackend::new_onedrive(
@@ -251,7 +259,7 @@ impl VolumeManager {
 								} = &credential.data
 								{
 									let root = mount_point_str
-										.strip_prefix("cloud://dropbox/")
+										.strip_prefix(&scheme_prefix)
 										.map(|s| s.to_string());
 
 									crate::volume::CloudBackend::new_dropbox(
@@ -274,7 +282,7 @@ impl VolumeManager {
 								} = &credential.data
 								{
 									let container = mount_point_str
-										.strip_prefix("cloud://azblob/")
+										.strip_prefix(&scheme_prefix)
 										.unwrap_or("unknown");
 
 									crate::volume::CloudBackend::new_azure_blob(
@@ -291,7 +299,7 @@ impl VolumeManager {
 							crate::volume::CloudServiceType::GoogleCloudStorage => {
 								if let crate::crypto::cloud_credentials::CredentialData::ApiKey(service_account_json) = &credential.data {
 									let bucket = mount_point_str
-										.strip_prefix("cloud://gcs/")
+										.strip_prefix(&scheme_prefix)
 										.unwrap_or("unknown");
 
 									crate::volume::CloudBackend::new_google_cloud_storage(
@@ -354,7 +362,12 @@ impl VolumeManager {
 								};
 
 								let mut volumes = self.volumes.write().await;
-								volumes.insert(fingerprint.clone(), volume);
+								volumes.insert(fingerprint.clone(), volume.clone());
+
+								// Update mount point cache for fast cloud volume lookup
+								let mut mount_point_cache = self.mount_point_cache.write().await;
+								mount_point_cache.insert(mount_point_str.to_string(), fingerprint.clone());
+
 								loaded_count += 1;
 								info!("Loaded cloud volume {} ({:?}) from database", db_volume.display_name.as_ref().unwrap_or(&"Unknown".to_string()), credential.service);
 							}
@@ -759,10 +772,10 @@ impl VolumeManager {
 		sdpath: &crate::domain::addressing::SdPath,
 		_library: &crate::library::Library,
 	) -> VolumeResult<Option<Volume>> {
-		// Check if this is a cloud path (has volume_fingerprint)
-		if let Some(volume_fingerprint) = sdpath.volume_fingerprint() {
-			// Cloud path - direct HashMap lookup by fingerprint
-			Ok(self.get_volume(volume_fingerprint).await)
+		// Check if this is a cloud path
+		if let Some((service, identifier, _path)) = sdpath.as_cloud() {
+			// Cloud path - use identity-based lookup
+			Ok(self.find_cloud_volume(service, identifier).await)
 		} else {
 			// Local path - resolve by filesystem path
 			if let Some(local_path) = sdpath.as_local_path() {
@@ -938,7 +951,7 @@ impl VolumeManager {
 	}
 
 	/// Find cloud volume by service type and identifier
-	/// Scans all volumes and parses their mount points for matching cloud volumes
+	/// Uses mount point cache for O(1) lookup instead of scanning
 	///
 	/// # Examples
 	/// ```ignore
@@ -949,11 +962,30 @@ impl VolumeManager {
 		service: crate::volume::backend::CloudServiceType,
 		identifier: &str,
 	) -> Option<Volume> {
-		let volumes = self.volumes.read().await;
+		// Construct the mount point string (e.g., "s3://my-bucket")
+		let mount_point_key = format!("{}://{}", service.scheme(), identifier);
 
+		// Check cache first for O(1) lookup
+		{
+			let mount_point_cache = self.mount_point_cache.read().await;
+			if let Some(fingerprint) = mount_point_cache.get(&mount_point_key) {
+				let volumes = self.volumes.read().await;
+				if let Some(volume) = volumes.get(fingerprint) {
+					return Some(volume.clone());
+				}
+			}
+		}
+
+		// Cache miss - fall back to scanning (for volumes added before cache was implemented)
+		let volumes = self.volumes.read().await;
 		volumes.values().find_map(|volume| {
 			if let Some((vol_service, vol_id)) = volume.parse_cloud_identity() {
 				if vol_service == service && vol_id == identifier {
+					// Update cache for next time
+					let mount_point_key = format!("{}://{}", service.scheme(), identifier);
+					let mut mount_point_cache = self.mount_point_cache.blocking_write();
+					mount_point_cache.insert(mount_point_key, volume.fingerprint.clone());
+
 					return Some(volume.clone());
 				}
 			}
@@ -991,13 +1023,19 @@ impl VolumeManager {
 	/// This adds the volume to the internal volumes map so it can be tracked
 	pub async fn register_cloud_volume(&self, volume: Volume) {
 		let fingerprint = volume.fingerprint.clone();
+		let mount_point_str = volume.mount_point.to_string_lossy().to_string();
+
 		let mut volumes = self.volumes.write().await;
 
 		info!(
 			"Registering cloud volume '{}' with fingerprint {}",
 			volume.name, fingerprint
 		);
-		volumes.insert(fingerprint, volume);
+		volumes.insert(fingerprint.clone(), volume);
+
+		// Update mount point cache for fast cloud volume lookup
+		let mut mount_point_cache = self.mount_point_cache.write().await;
+		mount_point_cache.insert(mount_point_str, fingerprint);
 	}
 
 	/// Track a volume in the specified library
