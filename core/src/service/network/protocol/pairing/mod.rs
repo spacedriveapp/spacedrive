@@ -23,7 +23,7 @@ use crate::service::network::{
 };
 use async_trait::async_trait;
 use blake3;
-use iroh::{Endpoint, NodeAddr, NodeId, Watcher};
+use iroh::{endpoint::Connection, Endpoint, NodeAddr, NodeId, Watcher};
 use persistence::PairingPersistence;
 use security::PairingSecurity;
 use std::collections::HashMap;
@@ -60,8 +60,11 @@ pub struct PairingProtocolHandler {
 	/// Session persistence manager
 	persistence: Option<Arc<PairingPersistence>>,
 
-	/// Endpoint for accessing direct addresses
+	/// Endpoint for creating and managing connections
 	endpoint: Option<Endpoint>,
+
+	/// Cached connections to remote nodes (reused for multiple message streams)
+	connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
 }
 
 impl PairingProtocolHandler {
@@ -74,6 +77,7 @@ impl PairingProtocolHandler {
 			crate::service::network::core::event_loop::EventLoopCommand,
 		>,
 		endpoint: Option<Endpoint>,
+		active_connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
 	) -> Self {
 		Self {
 			identity,
@@ -85,6 +89,7 @@ impl PairingProtocolHandler {
 			role: None,
 			persistence: None,
 			endpoint,
+			connections: active_connections,
 		}
 	}
 
@@ -98,6 +103,7 @@ impl PairingProtocolHandler {
 		>,
 		data_dir: PathBuf,
 		endpoint: Option<Endpoint>,
+		active_connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
 	) -> Self {
 		let persistence = Arc::new(PairingPersistence::new(data_dir));
 		Self {
@@ -110,6 +116,7 @@ impl PairingProtocolHandler {
 			role: None,
 			persistence: Some(persistence),
 			endpoint,
+			connections: active_connections,
 		}
 	}
 
@@ -323,6 +330,62 @@ impl PairingProtocolHandler {
 		Ok(())
 	}
 
+	/// Get or create a connection to a specific node
+	/// This method implements the Iroh best practice of reusing connections
+	/// and creating new streams for each message exchange
+	async fn get_or_create_connection(
+		&self,
+		node_id: NodeId,
+		alpn: &'static [u8],
+	) -> Result<Connection> {
+		{
+			let connections = self.connections.read().await;
+			if let Some(conn) = connections.get(&node_id) {
+				if conn.close_reason().is_none() {
+					self.log_debug(&format!(
+						"Reusing existing connection to node {}",
+						node_id
+					))
+					.await;
+					return Ok(conn.clone());
+				} else {
+					self.log_debug(&format!(
+						"Cached connection to node {} is closed, creating new one",
+						node_id
+					))
+					.await;
+				}
+			}
+		}
+
+		let endpoint = self.endpoint.as_ref().ok_or_else(|| {
+			NetworkingError::ConnectionFailed("No endpoint available".to_string())
+		})?;
+
+		let node_addr = NodeAddr::new(node_id);
+		self.log_debug(&format!(
+			"Creating new connection to node {} with ALPN",
+			node_id
+		))
+		.await;
+
+		let conn = endpoint.connect(node_addr, alpn).await.map_err(|e| {
+			NetworkingError::ConnectionFailed(format!("Failed to connect to {}: {}", node_id, e))
+		})?;
+
+		{
+			let mut connections = self.connections.write().await;
+			connections.insert(node_id, conn.clone());
+			self.log_info(&format!(
+				"Established and cached new connection to node {}",
+				node_id
+			))
+			.await;
+		}
+
+		Ok(conn)
+	}
+
 	/// Get device info for advertising in DHT records
 	pub async fn get_device_info(&self) -> Result<DeviceInfo> {
 		// Get device info from device registry (which uses device manager)
@@ -331,20 +394,6 @@ impl PairingProtocolHandler {
 		// Update network fingerprint with current identity
 		device_info.network_fingerprint = self.identity.network_fingerprint();
 		device_info.last_seen = chrono::Utc::now();
-
-		// Populate direct addresses from endpoint
-		device_info.direct_addresses = if let Some(endpoint) = &self.endpoint {
-			if let Some(node_addr) = endpoint.node_addr().get() {
-				node_addr
-					.direct_addresses()
-					.map(|addr| addr.to_string())
-					.collect()
-			} else {
-				vec![]
-			}
-		} else {
-			vec![]
-		};
 
 		Ok(device_info)
 	}
@@ -604,53 +653,46 @@ impl PairingProtocolHandler {
 	}
 
 	/// Send a pairing message to a specific node using Iroh streams
+	/// This implementation follows Iroh best practices:
+	/// - Reuses persistent connections (cached in self.connections)
+	/// - Creates a new stream for each message exchange
+	/// - Keeps connections alive for future messages
 	pub async fn send_pairing_message_to_node(
 		&self,
-		endpoint: &Endpoint,
+		_endpoint: &Endpoint,
 		node_id: NodeId,
 		message: &PairingMessage,
 	) -> Result<Option<PairingMessage>> {
 		use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-		// Create node address and connect
-		let node_addr = NodeAddr::new(node_id);
-		let conn = endpoint
-			.connect(node_addr, crate::service::network::core::PAIRING_ALPN)
-			.await
-			.map_err(|e| NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e)))?;
+		let conn = self
+			.get_or_create_connection(node_id, crate::service::network::core::PAIRING_ALPN)
+			.await?;
 
-		// Open a bidirectional stream
 		let (mut send, mut recv) = conn.open_bi().await.map_err(|e| {
 			NetworkingError::ConnectionFailed(format!("Failed to open stream: {}", e))
 		})?;
 
-		// Serialize the message
 		let msg_data =
 			serde_json::to_vec(message).map_err(|e| NetworkingError::Serialization(e))?;
 
-		// Send message length
 		let len = msg_data.len() as u32;
 		send.write_all(&len.to_be_bytes())
 			.await
 			.map_err(|e| NetworkingError::Transport(format!("Failed to write length: {}", e)))?;
 
-		// Send message
 		send.write_all(&msg_data)
 			.await
 			.map_err(|e| NetworkingError::Transport(format!("Failed to write message: {}", e)))?;
 
-		// Flush
-		send.flush()
-			.await
-			.map_err(|e| NetworkingError::Transport(format!("Failed to flush: {}", e)))?;
+		send.finish()
+			.map_err(|e| NetworkingError::Transport(format!("Failed to finish stream: {}", e)))?;
 
-		// Read response length
 		let mut len_buf = [0u8; 4];
 		match recv.read_exact(&mut len_buf).await {
 			Ok(_) => {
 				let resp_len = u32::from_be_bytes(len_buf) as usize;
 
-				// Validate message size to prevent DoS attacks
 				if resp_len > MAX_MESSAGE_SIZE {
 					return Err(NetworkingError::Protocol(format!(
 						"Message too large: {} bytes (max: {} bytes)",
@@ -658,19 +700,17 @@ impl PairingProtocolHandler {
 					)));
 				}
 
-				// Read response
 				let mut resp_buf = vec![0u8; resp_len];
 				recv.read_exact(&mut resp_buf).await.map_err(|e| {
 					NetworkingError::Transport(format!("Failed to read response: {}", e))
 				})?;
 
-				// Deserialize response
 				let response: PairingMessage = serde_json::from_slice(&resp_buf)
 					.map_err(|e| NetworkingError::Serialization(e))?;
 
 				Ok(Some(response))
 			}
-			Err(_) => Ok(None), // No response
+			Err(_) => Ok(None),
 		}
 	}
 }

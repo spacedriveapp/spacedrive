@@ -365,25 +365,8 @@ impl NetworkingService {
 				.node_id
 				.parse::<NodeId>()
 			{
-				// Build NodeAddr from persisted addresses
-				let mut node_addr = NodeAddr::new(node_id);
-
-				// Add direct addresses if available
-				for addr_str in &persisted_device.last_seen_addresses {
-					if let Ok(addr) = addr_str.parse() {
-						node_addr = node_addr.with_direct_addresses([addr]);
-					}
-				}
-
-				// If no direct addresses, let discovery find the node
-				if node_addr.direct_addresses().count() == 0 {
-					logger
-						.info(&format!(
-							"No direct addresses for device {}, relying on discovery",
-							device_id
-						))
-						.await;
-				}
+				// Build NodeAddr - Iroh will discover addresses automatically
+				let node_addr = NodeAddr::new(node_id);
 
 				// Attempt connection with retries to give discovery time to work
 				let mut retry_count = 0;
@@ -412,34 +395,6 @@ impl NetworkingService {
 							let _ = sender.send(EventLoopCommand::ConnectionEstablished {
 								device_id,
 								node_id,
-							});
-
-							// Open a hello stream to keep the connection alive
-							// This prevents idle timeout and signals to the receiver that the connection is ready
-							logger
-								.debug("Opening hello stream to keep connection alive...")
-								.await;
-
-							let conn_for_hello = conn.clone();
-							let logger_clone = logger.clone();
-							tokio::spawn(async move {
-								use tokio::io::AsyncWriteExt;
-
-								match conn_for_hello.open_bi().await {
-									Ok((mut send, _recv)) => {
-										// Send a simple hello message
-										let hello_msg = b"HELLO";
-										let _ = send.write_all(hello_msg).await;
-										let _ = send.finish();
-										logger_clone.debug("Hello stream sent successfully").await;
-									}
-									Err(e) => {
-										// Log error but don't fail - connection is still tracked
-										logger_clone
-											.warn(&format!("Failed to open hello stream: {}", e))
-											.await;
-									}
-								}
 							});
 
 							break;
@@ -937,6 +892,11 @@ impl NetworkingService {
 	/// Get the Iroh endpoint for network communication
 	pub fn endpoint(&self) -> Option<&Endpoint> {
 		self.endpoint.as_ref()
+	}
+
+	/// Get the active connections cache shared with the event loop
+	pub fn active_connections(&self) -> Arc<RwLock<std::collections::HashMap<NodeId, Connection>>> {
+		self.active_connections.clone()
 	}
 
 	/// Publish a discovery record for pairing session
@@ -1656,7 +1616,6 @@ impl NetworkingService {
 							app_version: env!("CARGO_PKG_VERSION").to_string(),
 							network_fingerprint: self.identity().network_fingerprint(),
 							last_seen: chrono::Utc::now(),
-							direct_addresses: vec![],
 						}
 					})
 				};
@@ -1817,7 +1776,6 @@ impl NetworkingService {
 								app_version: env!("CARGO_PKG_VERSION").to_string(),
 								network_fingerprint: self.identity().network_fingerprint(),
 								last_seen: chrono::Utc::now(),
-								direct_addresses: vec![],
 							}
 						})
 					};

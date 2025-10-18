@@ -166,22 +166,7 @@ impl PairingProtocolHandler {
 			// Register the initiator device in Pairing state
 			{
 				let mut registry = self.device_registry.write().await;
-				let mut node_addr = iroh::NodeAddr::new(node_id);
-
-				// Add direct addresses from device_info
-				for addr_str in &initiator_device_info.direct_addresses {
-					if let Ok(socket_addr) = addr_str.parse() {
-						node_addr = node_addr.with_direct_addresses([socket_addr]);
-					}
-				}
-
-				if !initiator_device_info.direct_addresses.is_empty() {
-					self.log_info(&format!(
-						"Extracted {} direct addresses from initiator device info",
-						initiator_device_info.direct_addresses.len()
-					))
-					.await;
-				}
+				let node_addr = iroh::NodeAddr::new(node_id);
 
 				registry
 					.start_pairing(device_id, node_id, session_id, node_addr)
@@ -192,7 +177,7 @@ impl PairingProtocolHandler {
 						));
 						e
 					})
-					.ok(); // Ignore errors - device might already be in pairing state
+					.ok();
 			}
 
 			// Complete pairing in device registry
@@ -206,7 +191,6 @@ impl PairingProtocolHandler {
 			// Mark initiator as connected
 			{
 				let simple_connection = crate::service::network::device::ConnectionInfo {
-					addresses: vec![], // Will be filled in later
 					latency_ms: None,
 					rx_bytes: 0,
 					tx_bytes: 0,

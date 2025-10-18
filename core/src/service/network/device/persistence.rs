@@ -23,7 +23,6 @@ pub struct PersistedPairedDevice {
 	pub session_keys: SessionKeys,
 	pub paired_at: DateTime<Utc>,
 	pub last_connected_at: Option<DateTime<Utc>>,
-	pub last_seen_addresses: Vec<String>, // String representation of Multiaddr
 	pub connection_attempts: u32,
 	pub trust_level: TrustLevel,
 }
@@ -260,7 +259,6 @@ impl DevicePersistence {
 		device_id: Uuid,
 		device_info: DeviceInfo,
 		session_keys: SessionKeys,
-		addresses: Vec<String>,
 	) -> Result<()> {
 		let mut devices = self.load_paired_devices().await?;
 
@@ -269,7 +267,6 @@ impl DevicePersistence {
 			session_keys,
 			paired_at: Utc::now(),
 			last_connected_at: None,
-			last_seen_addresses: addresses,
 			connection_attempts: 0,
 			trust_level: TrustLevel::Trusted,
 		};
@@ -307,9 +304,6 @@ impl DevicePersistence {
 				}
 			}
 
-			if let Some(addrs) = addresses {
-				device.last_seen_addresses = addrs;
-			}
 
 			self.save_paired_devices(&devices).await?;
 		}
@@ -429,7 +423,6 @@ mod tests {
 				public_key_hash: "test_hash".to_string(),
 			},
 			last_seen: Utc::now(),
-			direct_addresses: vec![],
 		}
 	}
 
@@ -440,7 +433,6 @@ mod tests {
 		let device_id = Uuid::new_v4();
 		let device_info = create_test_device_info();
 		let session_keys = SessionKeys::from_shared_secret(vec![1, 2, 3, 4]);
-		let addresses = vec!["127.0.0.1:8080".to_string()];
 
 		// Add paired device
 		persistence
@@ -448,7 +440,6 @@ mod tests {
 				device_id,
 				device_info.clone(),
 				session_keys.clone(),
-				addresses.clone(),
 			)
 			.await
 			.unwrap();
@@ -461,7 +452,6 @@ mod tests {
 
 		let loaded_device = &devices[&device_id];
 		assert_eq!(loaded_device.device_info.device_id, device_info.device_id);
-		assert_eq!(loaded_device.last_seen_addresses, addresses);
 		assert!(matches!(loaded_device.trust_level, TrustLevel::Trusted));
 	}
 

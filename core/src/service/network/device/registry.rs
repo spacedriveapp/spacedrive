@@ -167,41 +167,6 @@ impl DeviceRegistry {
 			))
 			.await;
 
-		// Get current addresses from any existing state
-		let mut addresses: Vec<String> = match self.devices.get(&device_id) {
-			Some(DeviceState::Discovered { node_addr, .. }) => {
-				// Convert NodeAddr to string addresses
-				node_addr
-					.direct_addresses()
-					.map(|addr| addr.to_string())
-					.collect()
-			}
-			Some(DeviceState::Pairing { node_addr, .. }) => {
-				// Extract addresses from the active pairing connection
-				node_addr
-					.direct_addresses()
-					.map(|addr| addr.to_string())
-					.collect()
-			}
-			Some(DeviceState::Connected { connection, .. }) => {
-				// If somehow already connected, use those addresses
-				connection.addresses.clone()
-			}
-			_ => vec![],
-		};
-
-		// If we still don't have addresses, try to get them from the active connection
-		if addresses.is_empty() {
-			// Check if there's an active connection we can get addresses from
-			// This would require access to the endpoint or connection info
-			self.logger
-				.warn(&format!(
-					"No addresses available for device {} during pairing completion",
-					device_id
-				))
-				.await;
-		}
-
 		let state = DeviceState::Paired {
 			info: info.clone(),
 			session_keys: session_keys.clone(),
@@ -213,7 +178,7 @@ impl DeviceRegistry {
 		// Persist the paired device for future reconnection
 		if let Err(e) = self
 			.persistence
-			.add_paired_device(device_id, info.clone(), session_keys.clone(), addresses)
+			.add_paired_device(device_id, info.clone(), session_keys.clone())
 			.await
 		{
 			self.logger
@@ -268,13 +233,6 @@ impl DeviceRegistry {
 			}
 		};
 
-		// Extract addresses before moving connection
-		let addresses: Vec<String> = connection
-			.addresses
-			.iter()
-			.map(|addr| addr.to_string())
-			.collect();
-
 		let state = DeviceState::Connected {
 			info,
 			connection,
@@ -284,10 +242,10 @@ impl DeviceRegistry {
 
 		self.devices.insert(device_id, state);
 
-		// Update persistence - device connected successfully with current addresses
+		// Update persistence - device connected successfully
 		if let Err(e) = self
 			.persistence
-			.update_device_connection(device_id, true, Some(addresses))
+			.update_device_connection(device_id, true, None)
 			.await
 		{
 			self.logger
@@ -486,7 +444,6 @@ impl DeviceRegistry {
 				public_key_hash: "placeholder".to_string(),
 			},
 			last_seen: Utc::now(),
-			direct_addresses: vec![],
 		})
 	}
 
@@ -556,12 +513,11 @@ impl DeviceRegistry {
 		&mut self,
 		device_id: Uuid,
 		node_id: NodeId,
-		addresses: Vec<String>,
 	) -> Result<()> {
 		self.logger
 			.info(&format!(
-				"Setting device {} as connected with addresses: {:?}",
-				device_id, addresses
+				"Setting device {} as connected",
+				device_id
 			))
 			.await; // <-- Add this line
 
@@ -579,7 +535,6 @@ impl DeviceRegistry {
 						session_keys: session_keys.clone(),
 						connected_at: Utc::now(),
 						connection: ConnectionInfo {
-							addresses: addresses.clone(),
 							latency_ms: None,
 							rx_bytes: 0,
 							tx_bytes: 0,
@@ -587,62 +542,17 @@ impl DeviceRegistry {
 					};
 					self.devices.insert(device_id, state);
 
-					// Update persisted device with new addresses for future reconnection
-					if !addresses.is_empty() {
-						if let Err(e) = self
-							.persistence
-							.update_device_connection(
-								device_id,
-								true, // connected
-								Some(addresses),
-							)
-							.await
-						{
-							self.logger
-								.warn(&format!("Failed to update device connection info: {}", e))
-								.await;
-						}
+					if let Err(e) = self
+						.persistence
+						.update_device_connection(device_id, true, None)
+						.await
+					{
+						self.logger
+							.warn(&format!("Failed to update device connection info: {}", e))
+							.await;
 					}
 				}
-				DeviceState::Connected {
-					info,
-					session_keys,
-					connection,
-					..
-				} => {
-					// Device is already connected, just update the addresses if provided
-					if !addresses.is_empty() {
-						let updated_connection = ConnectionInfo {
-							addresses: addresses.clone(),
-							latency_ms: connection.latency_ms,
-							rx_bytes: connection.rx_bytes,
-							tx_bytes: connection.tx_bytes,
-						};
-
-						let state = DeviceState::Connected {
-							info: info.clone(),
-							session_keys: session_keys.clone(),
-							connected_at: Utc::now(),
-							connection: updated_connection,
-						};
-						self.devices.insert(device_id, state);
-
-						// Update persisted device with new addresses
-						if let Err(e) = self
-							.persistence
-							.update_device_connection(
-								device_id,
-								true, // connected
-								Some(addresses),
-							)
-							.await
-						{
-							self.logger
-								.warn(&format!("Failed to update device connection info: {}", e))
-								.await;
-						}
-					}
-					// If already connected and no new addresses, it's a no-op
+				DeviceState::Connected { .. } => {
 					self.logger
 						.debug(&format!(
 							"Device {} already connected, updating node mapping",
@@ -653,13 +563,11 @@ impl DeviceRegistry {
 				DeviceState::Disconnected {
 					info, session_keys, ..
 				} => {
-					// Reconnecting a previously disconnected device
 					let state = DeviceState::Connected {
 						info: info.clone(),
 						session_keys: session_keys.clone(),
 						connected_at: Utc::now(),
 						connection: ConnectionInfo {
-							addresses: addresses.clone(),
 							latency_ms: None,
 							rx_bytes: 0,
 							tx_bytes: 0,
@@ -667,21 +575,14 @@ impl DeviceRegistry {
 					};
 					self.devices.insert(device_id, state);
 
-					// Update persisted device with new addresses for future reconnection
-					if !addresses.is_empty() {
-						if let Err(e) = self
-							.persistence
-							.update_device_connection(
-								device_id,
-								true, // connected
-								Some(addresses),
-							)
-							.await
-						{
-							self.logger
-								.warn(&format!("Failed to update device connection info: {}", e))
-								.await;
-						}
+					if let Err(e) = self
+						.persistence
+						.update_device_connection(device_id, true, None)
+						.await
+					{
+						self.logger
+							.warn(&format!("Failed to update device connection info: {}", e))
+							.await;
 					}
 				}
 				_ => {

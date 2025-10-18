@@ -14,7 +14,6 @@ use uuid::Uuid;
 // This simpler one is used in DeviceState for tracking connection metadata
 #[derive(Debug, Clone)]
 pub struct ConnectionInfo {
-	pub addresses: Vec<String>, // Node addresses as strings
 	pub latency_ms: Option<u32>,
 	pub rx_bytes: u64,
 	pub tx_bytes: u64,
@@ -32,7 +31,6 @@ pub struct DeviceInfo {
 	pub app_version: String,
 	pub network_fingerprint: crate::service::network::utils::identity::NetworkFingerprint,
 	pub last_seen: DateTime<Utc>,
-	pub direct_addresses: Vec<String>,
 }
 
 /// Type of device

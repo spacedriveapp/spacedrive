@@ -530,6 +530,7 @@ async fn register_default_protocol_handlers(
 			command_sender,
 			data_dir,
 			networking.endpoint().cloned(),
+			networking.active_connections(),
 		),
 	);
 

@@ -521,25 +521,10 @@ impl NetworkingEventLoop {
 	async fn handle_command(&self, command: EventLoopCommand) {
 		match command {
 			EventLoopCommand::ConnectionEstablished { device_id, node_id } => {
-				// Get the address from the active connection map
-				let connections = self.active_connections.read().await;
-				let addresses = if let Some(_conn) = connections.get(&node_id) {
-					vec!["connected".to_string()] // TODO: Find equivalent of remote_address() in iroh 0.91
-				} else {
-					self.logger
-						.warn(&format!(
-							"Could not find active connection for node {}",
-							node_id
-						))
-						.await;
-					vec![]
-				};
-				drop(connections);
-
 				// Update device registry
 				let mut registry = self.device_registry.write().await;
 				if let Err(e) = registry
-					.set_device_connected(device_id, node_id, addresses)
+					.set_device_connected(device_id, node_id)
 					.await
 				{
 					self.logger
