@@ -117,6 +117,7 @@ impl PairingProtocolHandler {
 	}
 
 	/// Handle a pairing response (Initiator receives this from Joiner)
+	/// Initiator verifies joiner's signature and sends Complete message
 	pub(crate) async fn handle_pairing_response(
 		&self,
 		from_device: Uuid,
@@ -124,7 +125,7 @@ impl PairingProtocolHandler {
 		response: Vec<u8>,
 		device_info: DeviceInfo,
 	) -> Result<Vec<u8>> {
-		// Verify the response signature
+		// Get session and validate state
 		let session = self
 			.active_sessions
 			.read()
@@ -136,13 +137,14 @@ impl PairingProtocolHandler {
 		let challenge = match &session.state {
 			PairingState::ChallengeReceived { challenge } => challenge.clone(),
 			_ => {
-				return Err(NetworkingError::Protocol(
-					"Invalid session state".to_string(),
-				))
+				return Err(NetworkingError::Protocol(format!(
+					"Invalid session state: expected ChallengeReceived, got {:?}",
+					session.state
+				)))
 			}
 		};
 
-		// Get the public key from the session (stored during pairing request)
+		// Get joiner's public key (stored during pairing request)
 		let device_public_key = session
 			.remote_public_key
 			.as_ref()
@@ -158,7 +160,7 @@ impl PairingProtocolHandler {
 		PairingSecurity::validate_signature(&response)?;
 		PairingSecurity::validate_public_key(&device_public_key)?;
 
-		// Verify the signature
+		// Verify joiner's signature on the challenge
 		let signature_valid =
 			PairingSecurity::verify_challenge_response(&device_public_key, &challenge, &response)?;
 
@@ -170,15 +172,24 @@ impl PairingProtocolHandler {
 			.await;
 
 			// Mark session as failed
-			if let Some(session) = self.active_sessions.write().await.get_mut(&session_id) {
-				session.state = PairingState::Failed {
-					reason: "Invalid challenge signature".to_string(),
-				};
+			{
+				let mut sessions = self.active_sessions.write().await;
+				if let Some(session) = sessions.get_mut(&session_id) {
+					session.state = PairingState::Failed {
+						reason: "Invalid challenge signature".to_string(),
+					};
+				}
 			}
 
-			return Err(NetworkingError::Protocol(
-				"Challenge signature verification failed".to_string(),
-			));
+			// Send failure Complete message to joiner
+			let failure_response = PairingMessage::Complete {
+				session_id,
+				success: false,
+				reason: Some("Challenge signature verification failed".to_string()),
+			};
+
+			return serde_json::to_vec(&failure_response)
+				.map_err(|e| NetworkingError::Serialization(e));
 		}
 
 		self.log_info(&format!(
@@ -187,14 +198,11 @@ impl PairingProtocolHandler {
 		))
 		.await;
 
-		// Generate session keys using pairing code secret
+		// Signature is valid - complete pairing on Initiator's side
 		let shared_secret = self.generate_shared_secret(session_id).await?;
 		let session_keys = SessionKeys::from_shared_secret(shared_secret.clone());
 
-		// Use the actual device ID from device_info to ensure consistency
 		let actual_device_id = device_info.device_id;
-
-		// Get node ID from the device info's network fingerprint
 		let node_id = match device_info.network_fingerprint.node_id.parse::<NodeId>() {
 			Ok(id) => id,
 			Err(_) => {
@@ -204,14 +212,12 @@ impl PairingProtocolHandler {
 			}
 		};
 
-		// Register the remote device in Pairing state before completing pairing
-		// This allows complete_pairing to extract addresses from the Pairing state
+		// Register joiners's device in Pairing state
 		{
 			let mut registry = self.device_registry.write().await;
-			// Create a NodeAddr with the node_id and extract direct addresses from device_info
 			let mut node_addr = iroh::NodeAddr::new(node_id);
 
-			// Add direct addresses from the device_info
+			// Add direct addresses from device_info
 			for addr_str in &device_info.direct_addresses {
 				if let Ok(socket_addr) = addr_str.parse() {
 					node_addr = node_addr.with_direct_addresses([socket_addr]);
@@ -225,6 +231,7 @@ impl PairingProtocolHandler {
 				))
 				.await;
 			}
+
 			registry
 				.start_pairing(actual_device_id, node_id, session_id, node_addr)
 				.map_err(|e| {
@@ -235,62 +242,76 @@ impl PairingProtocolHandler {
 					e
 				})
 				.ok(); // Ignore errors - device might already be in pairing state
-		} // Release write lock here
+		}
 
-		// Complete pairing in device registry with proper lock scoping
+		// Complete pairing in device registry
 		{
 			let mut registry = self.device_registry.write().await;
 			registry
-				.complete_pairing(actual_device_id, device_info.clone(), session_keys.clone())
+				.complete_pairing(actual_device_id, device_info.clone(), session_keys)
 				.await?;
-		} // Release write lock here
+		}
 
-		// Mark device as connected since pairing is successful
-		let simple_connection = crate::service::network::device::ConnectionInfo {
-			addresses: vec![], // Will be filled in later
-			latency_ms: None,
-			rx_bytes: 0,
-			tx_bytes: 0,
-		};
+		// Mark joiner as connected
+		{
+			let simple_connection = crate::service::network::device::ConnectionInfo {
+				addresses: vec![], // Will be filled in later
+				latency_ms: None,
+				rx_bytes: 0,
+				tx_bytes: 0,
+			};
 
-		if let Err(e) = {
 			let mut registry = self.device_registry.write().await;
-			registry
+			if let Err(e) = registry
 				.mark_connected(actual_device_id, simple_connection)
 				.await
-		} {
-			self.log_warn(&format!(
-				"Warning - failed to mark device as connected: {}",
-				e
-			))
-			.await;
-		} else {
-			self.log_info(&format!(
-				"Successfully marked device {} as connected",
-				actual_device_id
-			))
-			.await;
+			{
+				self.log_warn(&format!(
+					"Warning: Failed to mark device as connected: {}",
+					e
+				))
+				.await;
+			} else {
+				self.log_info(&format!(
+					"Successfully marked device {} as connected",
+					actual_device_id
+				))
+				.await;
+			}
 		}
 
-		// Update session
-		if let Some(session) = self.active_sessions.write().await.get_mut(&session_id) {
-			session.state = PairingState::Completed;
-			session.shared_secret = Some(shared_secret);
-			session.remote_device_id = Some(actual_device_id);
-			self.log_info(&format!(
-				"Session {} updated with shared secret and remote device ID {}",
-				session_id, actual_device_id
-			))
-			.await;
+		// Update session to Completed
+		{
+			let mut sessions = self.active_sessions.write().await;
+			if let Some(session) = sessions.get_mut(&session_id) {
+				session.state = PairingState::Completed;
+				session.shared_secret = Some(shared_secret);
+				session.remote_device_id = Some(actual_device_id);
+				self.log_info(&format!(
+					"Session {} completed on Initiator's side for device {}",
+					session_id, actual_device_id
+				))
+				.await;
+			}
 		}
 
-		// Send completion message
-		let response = PairingMessage::Complete {
+		// Send success Complete message to joiner
+		// If this fails to serialize, the error propagates and joiner never receives confirmation
+		let success_response = PairingMessage::Complete {
 			session_id,
 			success: true,
 			reason: None,
 		};
 
-		serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
+		self.log_info(&format!(
+			"Sending success Complete message for session {}",
+			session_id
+		))
+		.await;
+
+		serde_json::to_vec(&success_response).map_err(|e| {
+			self.log_error(&format!("Failed to serialize Complete message: {}", e));
+			NetworkingError::Serialization(e)
+		})
 	}
 }

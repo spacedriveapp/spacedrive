@@ -7,6 +7,10 @@ pub mod persistence;
 pub mod security;
 pub mod types;
 
+/// Maximum message size for pairing protocol (1MB)
+/// Prevents DoS attacks via oversized message claims
+const MAX_MESSAGE_SIZE: usize = 1024 * 1024;
+
 // Re-export main types
 pub use messages::PairingMessage;
 pub use types::{PairingAdvertisement, PairingCode, PairingRole, PairingSession, PairingState};
@@ -646,6 +650,14 @@ impl PairingProtocolHandler {
 			Ok(_) => {
 				let resp_len = u32::from_be_bytes(len_buf) as usize;
 
+				// Validate message size to prevent DoS attacks
+				if resp_len > MAX_MESSAGE_SIZE {
+					return Err(NetworkingError::Protocol(format!(
+						"Message too large: {} bytes (max: {} bytes)",
+						resp_len, MAX_MESSAGE_SIZE
+					)));
+				}
+
 				// Read response
 				let mut resp_buf = vec![0u8; resp_len];
 				recv.read_exact(&mut resp_buf).await.map_err(|e| {
@@ -702,6 +714,18 @@ impl ProtocolHandler for PairingProtocolHandler {
 				}
 			}
 			let msg_len = u32::from_be_bytes(len_buf) as usize;
+
+			// Validate message size to prevent DoS attacks
+			if msg_len > MAX_MESSAGE_SIZE {
+				self.logger
+					.error(&format!(
+						"Rejecting oversized message: {} bytes (max: {} bytes)",
+						msg_len, MAX_MESSAGE_SIZE
+					))
+					.await;
+				break;
+			}
+
 			self.logger
 				.info(&format!("Read message length: {} bytes", msg_len))
 				.await;
@@ -973,35 +997,89 @@ impl ProtocolHandler for PairingProtocolHandler {
 							}
 						}
 
-						// Send the response directly via command sender
+						// Send Response and wait for Complete message
 						self.log_info(&format!(
-							"Sending challenge response directly to node {}",
+							"Sending Response to node {} and waiting for Complete message",
 							from_node
 						))
 						.await;
 
-						let command = crate::service::network::core::event_loop::EventLoopCommand::SendMessageToNode {
-                            node_id: from_node,
-                            protocol: "pairing".to_string(),
-                            data: response_data.clone(),
-                        };
-
-						if let Err(e) = self.command_sender.send(command) {
-							self.log_error(&format!("Failed to send response command: {:?}", e))
-								.await;
-							// Mark session as failed
-							let mut sessions = self.active_sessions.write().await;
-							if let Some(session) = sessions.get_mut(&session_id) {
-								session.state = PairingState::Failed {
-									reason: "Failed to send response".to_string(),
-								};
+						// Get endpoint
+						let endpoint = match &self.endpoint {
+							Some(ep) => ep,
+							None => {
+								self.log_error("No endpoint available to send Response").await;
+								let mut sessions = self.active_sessions.write().await;
+								if let Some(session) = sessions.get_mut(&session_id) {
+									session.state = PairingState::Failed {
+										reason: "No endpoint available".to_string(),
+									};
+								}
+								return Ok(());
 							}
-						} else {
-							self.log_info(&format!(
-								"Challenge response sent successfully for session {}",
-								session_id
-							))
-							.await;
+						};
+
+						// Deserialize the Response message
+						let response_message: PairingMessage = match serde_json::from_slice(&response_data) {
+							Ok(msg) => msg,
+							Err(e) => {
+								self.log_error(&format!("Failed to deserialize Response message: {}", e)).await;
+								let mut sessions = self.active_sessions.write().await;
+								if let Some(session) = sessions.get_mut(&session_id) {
+									session.state = PairingState::Failed {
+										reason: "Failed to deserialize Response".to_string(),
+									};
+								}
+								return Ok(());
+							}
+						};
+
+						// Send Response and wait for Complete
+						match self.send_pairing_message_to_node(endpoint, from_node, &response_message).await {
+							Ok(Some(PairingMessage::Complete { session_id: complete_session_id, success, reason })) => {
+								self.log_info(&format!(
+									"Received Complete message for session {} - success: {}",
+									complete_session_id, success
+								)).await;
+
+								// Process the Complete message
+								if let Err(e) = self.handle_completion(complete_session_id, success, reason, from_device, from_node).await {
+									self.log_error(&format!(
+										"Failed to process Complete message: {}",
+										e
+									)).await;
+								}
+							}
+							Ok(Some(_other_msg)) => {
+								self.log_error("Expected Complete message but received different message type").await;
+								let mut sessions = self.active_sessions.write().await;
+								if let Some(session) = sessions.get_mut(&session_id) {
+									session.state = PairingState::Failed {
+										reason: "Unexpected response type".to_string(),
+									};
+								}
+							}
+							Ok(None) => {
+								self.log_error("No Complete message received from initiator").await;
+								let mut sessions = self.active_sessions.write().await;
+								if let Some(session) = sessions.get_mut(&session_id) {
+									session.state = PairingState::Failed {
+										reason: "No Complete message received".to_string(),
+									};
+								}
+							}
+							Err(e) => {
+								self.log_error(&format!(
+									"Failed to send Response or receive Complete: {}",
+									e
+								)).await;
+								let mut sessions = self.active_sessions.write().await;
+								if let Some(session) = sessions.get_mut(&session_id) {
+									session.state = PairingState::Failed {
+										reason: format!("Send failed: {}", e),
+									};
+								}
+							}
 						}
 					}
 					Err(e) => {

@@ -214,7 +214,9 @@ impl LocationWatcher {
 			locations
 				.get(&location_id)
 				.map(|loc| (loc.rule_toggles, loc.path.clone()))
-				.ok_or_else(|| anyhow::anyhow!("Location {} not found in watched locations", location_id))?
+				.ok_or_else(|| {
+					anyhow::anyhow!("Location {} not found in watched locations", location_id)
+				})?
 		};
 
 		// Create metrics for this worker
@@ -510,7 +512,7 @@ impl LocationWatcher {
 									id: location.uuid,
 									library_id: library.id(),
 									path: path.clone(),
-									enabled: true, // TODO: Add enabled field to database schema
+									enabled: true,                    // TODO: Add enabled field to database schema
 									rule_toggles: Default::default(), // Use default rules for existing locations
 								};
 
@@ -956,6 +958,8 @@ impl Service for LocationWatcher {
 
 #[cfg(test)]
 mod tests {
+	use crate::ops::indexing::RuleToggles;
+
 	use super::*;
 	use tempfile::TempDir;
 
@@ -993,6 +997,7 @@ mod tests {
 			library_id: Uuid::new_v4(),
 			path: temp_dir.path().to_path_buf(),
 			enabled: true,
+			rule_toggles: RuleToggles::default(),
 		};
 
 		let location_id = location.id;
