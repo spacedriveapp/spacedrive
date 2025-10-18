@@ -13,10 +13,12 @@ After thoroughly analyzing Iroh's source code and examples, we have identified *
 ### Key Findings:
 
 **What We're Doing Right**:
+
 - Using ALPN to identify our protocol
 - Using bidirectional streams
 
 **What We're Doing Wrong**:
+
 1. Creating new connections for each message (should reuse connection, create new streams)
 2. Manually managing direct addresses (Iroh does this automatically)
 3. Not caching/reusing Connection objects
@@ -88,6 +90,7 @@ pub async fn send_pairing_message_to_node(
 ```
 
 **Every time this is called**, we:
+
 1. Establish new QUIC connection
 2. Perform TLS handshake
 3. Exchange ALPN
@@ -131,12 +134,14 @@ From `iroh/src/endpoint.rs` lines 1819-1835:
 > "A QUIC connection. If all references to a connection have been dropped, then the connection will be **automatically closed**."
 
 **Connection Creation Cost**:
+
 - TLS handshake: ~1 RTT (round-trip time)
 - ALPN negotiation: included in handshake
 - Relay negotiation (if needed): 1-2 RTTs
 - Hole punching (for direct): 1-2 RTTs
 
 **Stream Creation Cost**:
+
 - Zero RTTs (instantaneous)
 - Virtually no overhead
 
@@ -190,6 +195,7 @@ let ticket = ConnectionTicket::new(addr);
 ```
 
 **Key Insight**: Iroh **automatically discovers and maintains** direct addresses. We don't need to:
+
 - Extract them manually
 - Store them in our database
 - Manage them at all
@@ -367,6 +373,7 @@ async fn send_pairing_message_to_node(...) -> Result<Option<PairingMessage>> {
 ```
 
 This explains the "connection thrashing" from `PAIRING_POST_SUCCESS_ISSUES.md`:
+
 ```
 139: Connection lost for device 1bb4f0d1... - connection closed
 145: Triggering reconnection attempt for device 1bb4f0d1...
@@ -399,6 +406,7 @@ endpoint.close().await;
 ```
 
 **Key points**:
+
 1. Keep connection alive as long as you might need it
 2. Call `.finish()` on send streams to signal completion
 3. Only close connection when truly done (not after each message)
@@ -424,6 +432,7 @@ From `PAIRING_POST_SUCCESS_ISSUES.md`:
 ```
 
 **What's happening**: We're trying to implement our own keep-alive mechanism, but:
+
 1. Iroh already has keep-alive built in (1-second interval)
 2. Our "hello stream" isn't needed
 3. The "early eof" is because we open a stream, send data, but the other side expects a proper protocol message
@@ -483,6 +492,7 @@ Bob → Alice:
 ```
 
 **Benefits**:
+
 - 1 connection instead of 3+
 - Streams are free (no RTT cost)
 - Connection stays alive for future use
@@ -646,6 +656,7 @@ tokio::spawn({
 ## Impact Assessment
 
 ### Current System:
+
 - **Connection overhead**: 3-5 new connections per pairing
 - **RTT penalty**: 3-15 extra RTTs
 - **Connection thrashing**: Constant connect/disconnect cycles
@@ -653,6 +664,7 @@ tokio::spawn({
 - **Reliability**: "early eof" errors from protocol mismatches
 
 ### After Fixes:
+
 - **Connection overhead**: 1 connection per device pair
 - **RTT penalty**: 0 (streams are free)
 - **Connection thrashing**: None (persistent connections)
@@ -660,6 +672,7 @@ tokio::spawn({
 - **Reliability**: Stable connections with automatic keep-alive
 
 ### Code Reduction:
+
 - Can delete ~200 lines of address management code
 - Can delete "hello stream" mechanism
 - Simpler connection logic
@@ -699,6 +712,7 @@ After implementing these changes:
 > "Are we adding complexity?"
 
 **Yes.** We're reimplementing things Iroh already does better:
+
 - Address discovery (Iroh does this)
 - Keep-alive (Iroh has this built-in)
 - Connection management (should cache, not recreate)
@@ -711,9 +725,12 @@ After implementing these changes:
 We've been using Iroh as if it were a stateless HTTP library, creating a new "connection" for each request. But Iroh is designed for **persistent peer-to-peer connections** with many lightweight streams.
 
 The fix is conceptually simple but requires architectural changes:
+
 1. Cache and reuse connections
 2. Create new streams for each message
 3. Let Iroh manage addresses
 4. Remove our custom keep-alive
 
 This will eliminate all 5 issues from `PAIRING_POST_SUCCESS_ISSUES.md` and dramatically simplify the codebase.
+
+When implementing these fixes please do not attempt to run the device_pairing_test.rs, please just focus on a clean code implementation, and document the fixes. I will run the tests and confirm results once this is entirely complete, code-wise. Ensure the pairing protocol serves as a model implementation of an powerered Iroh protocol.
