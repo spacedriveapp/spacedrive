@@ -429,6 +429,7 @@ mod tests {
 				public_key_hash: "test_hash".to_string(),
 			},
 			last_seen: Utc::now(),
+			direct_addresses: vec![],
 		}
 	}
 

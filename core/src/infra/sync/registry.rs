@@ -440,6 +440,58 @@ pub async fn query_device_state(
 		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
 }
 
+/// Query all shared models for backfill (generic registry-based approach)
+///
+/// This discovers and queries ALL shared models registered in the system,
+/// making it completely generic - no need to modify this when adding new shared models.
+///
+/// # Parameters
+/// - `since`: Optional timestamp filter
+/// - `batch_size`: Max records per model type
+/// - `db`: Database connection
+///
+/// # Returns
+/// HashMap mapping model_type -> Vec of (uuid, data, timestamp) tuples
+pub async fn query_all_shared_models(
+	since: Option<chrono::DateTime<chrono::Utc>>,
+	batch_size: usize,
+	db: Arc<DatabaseConnection>,
+) -> Result<HashMap<String, Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>>, ApplyError> {
+	// Collect all shared models with query functions
+	let shared_models: Vec<(String, StateQueryFn)> = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		registry
+			.iter()
+			.filter(|(_, reg)| !reg.is_device_owned && reg.state_query_fn.is_some())
+			.map(|(model_type, reg)| (model_type.clone(), reg.state_query_fn.unwrap()))
+			.collect()
+	}; // Lock dropped
+
+	// Query all models concurrently
+	let mut results = HashMap::new();
+
+	for (model_type, query_fn) in shared_models {
+		let records = query_fn(None, since, batch_size, db.clone())
+			.await
+			.map_err(|e| ApplyError::DatabaseError(format!(
+				"Failed to query {}: {}",
+				model_type,
+				e
+			)))?;
+
+		if !records.is_empty() {
+			tracing::info!(
+				model_type = %model_type,
+				count = records.len(),
+				"Queried shared model for backfill"
+			);
+			results.insert(model_type, records);
+		}
+	}
+
+	Ok(results)
+}
+
 /// Errors that can occur when applying sync entries
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyError {

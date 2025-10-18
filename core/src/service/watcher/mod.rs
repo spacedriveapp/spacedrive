@@ -166,6 +166,8 @@ pub struct WatchedLocation {
 	pub path: PathBuf,
 	/// Whether watching is enabled for this location
 	pub enabled: bool,
+	/// Indexing rule toggles for filtering events
+	pub rule_toggles: crate::ops::indexing::rules::RuleToggles,
 }
 
 impl LocationWatcher {
@@ -206,6 +208,15 @@ impl LocationWatcher {
 			}
 		}
 
+		// Get rule toggles and location root from watched locations
+		let (rule_toggles, location_root) = {
+			let locations = self.watched_locations.read().await;
+			locations
+				.get(&location_id)
+				.map(|loc| (loc.rule_toggles, loc.path.clone()))
+				.ok_or_else(|| anyhow::anyhow!("Location {} not found in watched locations", location_id))?
+		};
+
 		// Create metrics for this worker
 		let worker_metrics = Arc::new(LocationWorkerMetrics::new());
 		{
@@ -223,6 +234,8 @@ impl LocationWatcher {
 			self.events.clone(),
 			self.config.clone(),
 			worker_metrics.clone(),
+			rule_toggles,
+			location_root,
 		);
 
 		// Record worker creation
@@ -498,6 +511,7 @@ impl LocationWatcher {
 									library_id: library.id(),
 									path: path.clone(),
 									enabled: true, // TODO: Add enabled field to database schema
+									rule_toggles: Default::default(), // Use default rules for existing locations
 								};
 
 								// Add to watched locations
@@ -827,6 +841,7 @@ impl LocationWatcher {
 							library_id,
 							path: path.clone(),
 							enabled: true,
+							rule_toggles: Default::default(), // Use default rules for new locations
 						};
 
 						// Add location to watcher

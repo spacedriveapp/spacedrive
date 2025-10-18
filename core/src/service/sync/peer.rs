@@ -1741,33 +1741,45 @@ impl PeerSync {
 	///
 	/// Queries the database for ALL shared resources (tags, albums, etc.) to send
 	/// to a new device during initial sync. This ensures pre-sync data is included.
+	///
+	/// This is fully generic - uses the registry to discover and query all shared models.
 	pub async fn get_full_shared_state(&self) -> Result<serde_json::Value> {
-		use crate::infra::sync::Syncable;
-
 		debug!("Querying full shared resource state for backfill");
 
-		// Query all shared models
-		// TODO: Add volumes, user_metadata, etc. as they get Syncable impl
-		let tags = crate::infra::db::entities::tag::Model::query_for_sync(
-			None,
-			None,
-			10000, // Large limit for full state
-			self.db.as_ref(),
+		// Query all shared models through the registry (fully generic)
+		let all_shared_state = crate::infra::sync::registry::query_all_shared_models(
+			None, // No since filter - get everything
+			CATCHUP_BATCH_SIZE,
+			self.db.clone(),
 		)
 		.await
-		.map_err(|e| anyhow::anyhow!("Failed to query tags: {}", e))?;
+		.map_err(|e| anyhow::anyhow!("Failed to query shared models: {}", e))?;
 
-		info!("Queried {} tags for backfill state snapshot", tags.len());
+		// Build response object dynamically
+		let mut response = serde_json::Map::new();
 
-		Ok(serde_json::json!({
-			"tags": tags.into_iter().map(|(uuid, data, _ts)| {
-				serde_json::json!({
-					"uuid": uuid,
-					"data": data
+		for (model_type, records) in all_shared_state {
+			info!(
+				model_type = %model_type,
+				count = records.len(),
+				"Queried shared model for backfill state snapshot"
+			);
+
+			// Convert records to array of {uuid, data} objects
+			let records_json: Vec<serde_json::Value> = records
+				.into_iter()
+				.map(|(uuid, data, _ts)| {
+					serde_json::json!({
+						"uuid": uuid,
+						"data": data
+					})
 				})
-			}).collect::<Vec<_>>(),
-			// Add more shared resources here as they're implemented
-		}))
+				.collect();
+
+			response.insert(model_type, serde_json::Value::Array(records_json));
+		}
+
+		Ok(serde_json::Value::Object(response))
 	}
 
 	/// Transition to ready state (after backfill)

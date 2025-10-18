@@ -19,7 +19,7 @@ use crate::service::network::{
 };
 use async_trait::async_trait;
 use blake3;
-use iroh::{Endpoint, NodeAddr, NodeId};
+use iroh::{Endpoint, NodeAddr, NodeId, Watcher};
 use persistence::PairingPersistence;
 use security::PairingSecurity;
 use std::collections::HashMap;
@@ -55,6 +55,9 @@ pub struct PairingProtocolHandler {
 
 	/// Session persistence manager
 	persistence: Option<Arc<PairingPersistence>>,
+
+	/// Endpoint for accessing direct addresses
+	endpoint: Option<Endpoint>,
 }
 
 impl PairingProtocolHandler {
@@ -66,6 +69,7 @@ impl PairingProtocolHandler {
 		command_sender: tokio::sync::mpsc::UnboundedSender<
 			crate::service::network::core::event_loop::EventLoopCommand,
 		>,
+		endpoint: Option<Endpoint>,
 	) -> Self {
 		Self {
 			identity,
@@ -76,6 +80,7 @@ impl PairingProtocolHandler {
 			command_sender,
 			role: None,
 			persistence: None,
+			endpoint,
 		}
 	}
 
@@ -88,6 +93,7 @@ impl PairingProtocolHandler {
 			crate::service::network::core::event_loop::EventLoopCommand,
 		>,
 		data_dir: PathBuf,
+		endpoint: Option<Endpoint>,
 	) -> Self {
 		let persistence = Arc::new(PairingPersistence::new(data_dir));
 		Self {
@@ -99,6 +105,7 @@ impl PairingProtocolHandler {
 			command_sender,
 			role: None,
 			persistence: Some(persistence),
+			endpoint,
 		}
 	}
 
@@ -320,6 +327,20 @@ impl PairingProtocolHandler {
 		// Update network fingerprint with current identity
 		device_info.network_fingerprint = self.identity.network_fingerprint();
 		device_info.last_seen = chrono::Utc::now();
+
+		// Populate direct addresses from endpoint
+		device_info.direct_addresses = if let Some(endpoint) = &self.endpoint {
+			if let Some(node_addr) = endpoint.node_addr().get() {
+				node_addr
+					.direct_addresses()
+					.map(|addr| addr.to_string())
+					.collect()
+			} else {
+				vec![]
+			}
+		} else {
+			vec![]
+		};
 
 		Ok(device_info)
 	}

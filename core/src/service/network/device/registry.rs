@@ -119,10 +119,12 @@ impl DeviceRegistry {
 		device_id: Uuid,
 		node_id: NodeId,
 		session_id: Uuid,
+		node_addr: NodeAddr,
 	) -> Result<()> {
 		let state = DeviceState::Pairing {
 			node_id,
 			session_id,
+			node_addr,
 			started_at: Utc::now(),
 		};
 
@@ -169,6 +171,13 @@ impl DeviceRegistry {
 		let mut addresses: Vec<String> = match self.devices.get(&device_id) {
 			Some(DeviceState::Discovered { node_addr, .. }) => {
 				// Convert NodeAddr to string addresses
+				node_addr
+					.direct_addresses()
+					.map(|addr| addr.to_string())
+					.collect()
+			}
+			Some(DeviceState::Pairing { node_addr, .. }) => {
+				// Extract addresses from the active pairing connection
 				node_addr
 					.direct_addresses()
 					.map(|addr| addr.to_string())
@@ -477,6 +486,7 @@ impl DeviceRegistry {
 				public_key_hash: "placeholder".to_string(),
 			},
 			last_seen: Utc::now(),
+			direct_addresses: vec![],
 		})
 	}
 

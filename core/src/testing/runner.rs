@@ -170,6 +170,13 @@ impl CargoTestRunner {
 			.env("TEST_ROLE", &process.name)
 			.env("TEST_DATA_DIR", process.data_dir.path().to_str().unwrap());
 
+		// Forward RUST_LOG from parent or default to debug for subprocess visibility
+		if let Ok(rust_log) = std::env::var("RUST_LOG") {
+			command.env("RUST_LOG", rust_log);
+		} else {
+			command.env("RUST_LOG", "debug");
+		}
+
 		let child = command
 			.stdout(Stdio::inherit())
 			.stderr(Stdio::inherit())
@@ -215,6 +222,13 @@ impl CargoTestRunner {
 				])
 				.env("TEST_ROLE", &process.name)
 				.env("TEST_DATA_DIR", process.data_dir.path().to_str().unwrap());
+
+			// Forward RUST_LOG from parent or default to debug for subprocess visibility
+			if let Ok(rust_log) = std::env::var("RUST_LOG") {
+				command.env("RUST_LOG", rust_log);
+			} else {
+				command.env("RUST_LOG", "debug");
+			}
 
 			let child = command
 				.stdout(Stdio::inherit())

@@ -9,6 +9,7 @@ use crate::infra::db::entities;
 use crate::infra::event::FsRawEventKind;
 use crate::ops::indexing::entry::EntryProcessor;
 use crate::ops::indexing::path_resolver::PathResolver;
+use crate::ops::indexing::rules::{build_default_ruler, RuleToggles, RulerDecision};
 use crate::ops::indexing::state::{DirEntry, IndexerState};
 use crate::ops::indexing::{ctx::ResponderCtx, IndexingCtx};
 use anyhow::Result;
@@ -23,15 +24,23 @@ pub async fn apply(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
 	kind: FsRawEventKind,
+	rule_toggles: RuleToggles,
+	location_root: &Path,
 ) -> Result<()> {
 	// Lightweight indexing context for DB access
 	let ctx = ResponderCtx::new(context, library_id).await?;
 
 	match kind {
-		FsRawEventKind::Create { path } => handle_create(&ctx, &path).await?,
-		FsRawEventKind::Modify { path } => handle_modify(&ctx, &path).await?,
+		FsRawEventKind::Create { path } => {
+			handle_create(&ctx, &path, rule_toggles, location_root).await?
+		}
+		FsRawEventKind::Modify { path } => {
+			handle_modify(&ctx, &path, rule_toggles, location_root).await?
+		}
 		FsRawEventKind::Remove { path } => handle_remove(&ctx, &path).await?,
-		FsRawEventKind::Rename { from, to } => handle_rename(&ctx, &from, &to).await?,
+		FsRawEventKind::Rename { from, to } => {
+			handle_rename(&ctx, &from, &to, rule_toggles, location_root).await?
+		}
 	}
 	Ok(())
 }
@@ -41,6 +50,8 @@ pub async fn apply_batch(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
 	events: Vec<FsRawEventKind>,
+	rule_toggles: RuleToggles,
+	location_root: &Path,
 ) -> Result<()> {
 	if events.is_empty() {
 		return Ok(());
@@ -76,7 +87,7 @@ pub async fn apply_batch(
 
 	// Process renames
 	for (from, to) in renames {
-		if let Err(e) = handle_rename(&ctx, &from, &to).await {
+		if let Err(e) = handle_rename(&ctx, &from, &to, rule_toggles, location_root).await {
 			tracing::error!(
 				"Failed to handle rename from {} to {}: {}",
 				from.display(),
@@ -88,14 +99,14 @@ pub async fn apply_batch(
 
 	// Process creates
 	for path in creates {
-		if let Err(e) = handle_create(&ctx, &path).await {
+		if let Err(e) = handle_create(&ctx, &path, rule_toggles, location_root).await {
 			tracing::error!("Failed to handle create for {}: {}", path.display(), e);
 		}
 	}
 
 	// Process modifies
 	for path in modifies {
-		if let Err(e) = handle_modify(&ctx, &path).await {
+		if let Err(e) = handle_modify(&ctx, &path, rule_toggles, location_root).await {
 			tracing::error!("Failed to handle modify for {}: {}", path.display(), e);
 		}
 	}
@@ -103,9 +114,61 @@ pub async fn apply_batch(
 	Ok(())
 }
 
+/// Check if a path should be filtered based on indexing rules
+async fn should_filter_path(
+	path: &Path,
+	rule_toggles: RuleToggles,
+	location_root: &Path,
+) -> Result<bool> {
+	// Build ruler for this path using the same logic as the indexer
+	let ruler = build_default_ruler(rule_toggles, location_root, path).await;
+
+	// Get metadata for the path
+	let metadata = tokio::fs::metadata(path).await?;
+
+	// Simple metadata implementation for rule evaluation
+	struct SimpleMetadata {
+		is_dir: bool,
+	}
+	impl crate::ops::indexing::rules::MetadataForIndexerRules for SimpleMetadata {
+		fn is_dir(&self) -> bool {
+			self.is_dir
+		}
+	}
+
+	let simple_meta = SimpleMetadata {
+		is_dir: metadata.is_dir(),
+	};
+
+	// Evaluate the path against the ruler
+	match ruler.evaluate_path(path, &simple_meta).await {
+		Ok(RulerDecision::Reject) => {
+			debug!("Filtered path by indexing rules: {}", path.display());
+			Ok(true)
+		}
+		Ok(RulerDecision::Accept) => Ok(false),
+		Err(e) => {
+			tracing::warn!("Error evaluating rules for {}: {}", path.display(), e);
+			Ok(false) // Don't filter on error, let it through
+		}
+	}
+}
+
 /// Handle create: extract metadata and insert via EntryProcessor
-async fn handle_create(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
+async fn handle_create(
+	ctx: &impl IndexingCtx,
+	path: &Path,
+	rule_toggles: RuleToggles,
+	location_root: &Path,
+) -> Result<()> {
 	debug!("Create: {}", path.display());
+
+	// Check if path should be filtered
+	if should_filter_path(path, rule_toggles, location_root).await? {
+		debug!("Skipping filtered path: {}", path.display());
+		return Ok(());
+	}
+
 	let dir_entry = build_dir_entry(path).await?;
 
 	// If inode matches an existing entry at another path, treat this as a move
@@ -127,8 +190,19 @@ async fn handle_create(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 }
 
 /// Handle modify: resolve entry ID by path, then update
-async fn handle_modify(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
+async fn handle_modify(
+	ctx: &impl IndexingCtx,
+	path: &Path,
+	rule_toggles: RuleToggles,
+	location_root: &Path,
+) -> Result<()> {
 	debug!("Modify: {}", path.display());
+
+	// Check if path should be filtered
+	if should_filter_path(path, rule_toggles, location_root).await? {
+		debug!("Skipping filtered path: {}", path.display());
+		return Ok(());
+	}
 
 	// If inode indicates a move, handle as a move and skip update
 	// Responder uses direct filesystem access (None backend) since it reacts to local FS events
@@ -160,8 +234,22 @@ async fn handle_remove(ctx: &impl IndexingCtx, path: &Path) -> Result<()> {
 }
 
 /// Handle rename/move: resolve source entry and move via EntryProcessor
-async fn handle_rename(ctx: &impl IndexingCtx, from: &Path, to: &Path) -> Result<()> {
+async fn handle_rename(
+	ctx: &impl IndexingCtx,
+	from: &Path,
+	to: &Path,
+	rule_toggles: RuleToggles,
+	location_root: &Path,
+) -> Result<()> {
 	debug!("Rename: {} -> {}", from.display(), to.display());
+
+	// Check if the destination path should be filtered
+	// If the file is being moved to a filtered location, we should remove it from the database
+	if should_filter_path(to, rule_toggles, location_root).await? {
+		debug!("Destination path is filtered, removing entry: {}", to.display());
+		// Treat this as a removal of the source file
+		return handle_remove(ctx, from).await;
+	}
 	if let Some(entry_id) = resolve_entry_id_by_path(ctx, from).await? {
 		debug!("Found entry {} for old path, moving to new path", entry_id);
 

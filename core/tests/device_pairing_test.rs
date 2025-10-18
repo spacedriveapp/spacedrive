@@ -233,6 +233,11 @@ async fn bob_pairing_scenario() {
 
 			println!("PAIRING_SUCCESS: Bob's Test Device connected to Alice successfully");
 
+			// Wait longer to allow persistent connection to be established via auto-reconnection
+			// The pairing stream is temporary; we need to wait for Bob to reconnect
+			println!("Bob: Waiting for persistent connection to be established...");
+			tokio::time::sleep(Duration::from_secs(10)).await;
+
 			// Write success marker for orchestrator to detect
 			std::fs::write("/tmp/spacedrive-pairing-test/bob_success.txt", "success").unwrap();
 			break;

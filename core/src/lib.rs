@@ -321,6 +321,34 @@ impl Core {
 			Err(e) => error!("Failed to start services: {}", e),
 		}
 
+		// Set up networking event bridge and register protocol handlers AFTER networking is started
+		if service_config.networking_enabled {
+			if let Some(networking) = services.networking() {
+				// Set up event bridge to integrate network events with core event system
+				let event_bridge = NetworkEventBridge::new(
+					networking.subscribe_events(),
+					events.clone(),
+				);
+				tokio::spawn(event_bridge.run());
+				info!("Network event bridge initialized");
+
+				// Register default protocol handlers (pairing, messaging, file transfer)
+				info!("Registering default protocol handlers...");
+				let data_dir_for_protocols = config.read().await.data_dir.clone();
+				if let Err(e) = register_default_protocol_handlers(
+					&networking,
+					data_dir_for_protocols,
+					context.clone(),
+				)
+				.await
+				{
+					error!("Failed to register default protocol handlers: {}", e);
+				} else {
+					info!("Default protocol handlers registered successfully");
+				}
+			}
+		}
+
 		//Initialize ActionManager and set it in context
 		let action_manager = Arc::new(crate::infra::action::manager::ActionManager::new(
 			context.clone(),
@@ -403,23 +431,14 @@ impl Core {
 
 		// Register protocols and set up event bridge
 		if let Some(networking_service) = self.services.networking() {
-			// Check if protocols are already registered by checking handler count
-			let handler_count = {
-				let registry = networking_service.protocol_registry();
-				let registry_guard = registry.read().await;
-				registry_guard.handler_count()
-			};
-
-			// Register default protocol handlers if not already registered
-			if handler_count == 0 {
+			// Register default protocol handlers only if networking was just initialized
+			// (if networking was already initialized during Core::new(), protocols are already registered)
+			if !already_initialized {
 				logger.info("Registering protocol handlers...").await;
 				self.register_default_protocols(&networking_service).await?;
 			} else {
 				logger
-					.info(&format!(
-						"Protocol handlers already registered ({} handlers)",
-						handler_count
-					))
+					.info("Protocol handlers already registered during initialization")
 					.await;
 			}
 
@@ -445,79 +464,8 @@ impl Core {
 		&self,
 		networking: &service::network::NetworkingService,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		let logger = std::sync::Arc::new(service::network::utils::logging::ConsoleLogger);
-
-		// Get command sender for the pairing handler's state machine
-		let command_sender = networking
-			.command_sender()
-			.ok_or("NetworkingEventLoop command sender not available")?
-			.clone();
-
-		// Get data directory from config
-		let data_dir = {
-			let config = self.config.read().await;
-			config.data_dir.clone()
-		};
-
-		let pairing_handler = Arc::new(
-			service::network::protocol::PairingProtocolHandler::new_with_persistence(
-				networking.identity().clone(),
-				networking.device_registry(),
-				logger.clone(),
-				command_sender,
-				data_dir,
-			),
-		);
-
-		// Try to load persisted sessions, but don't fail if there's an error
-		if let Err(e) = pairing_handler.load_persisted_sessions().await {
-			logger
-				.warn(&format!(
-					"Failed to load persisted pairing sessions: {}. Starting with empty sessions.",
-					e
-				))
-				.await;
-		}
-
-		// Start the state machine task for pairing
-		service::network::protocol::PairingProtocolHandler::start_state_machine_task(
-			pairing_handler.clone(),
-		);
-
-		// Start cleanup task for expired sessions
-		service::network::protocol::PairingProtocolHandler::start_cleanup_task(
-			pairing_handler.clone(),
-		);
-
-		let mut messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
-
-		// Inject context for library operations
-		messaging_handler.set_context(self.context.clone());
-
-		let mut file_transfer_handler =
-			service::network::protocol::FileTransferProtocolHandler::new_default(logger.clone());
-
-		// Inject device registry into file transfer handler for encryption
-		file_transfer_handler.set_device_registry(networking.device_registry());
-
-		let protocol_registry = networking.protocol_registry();
-		{
-			let mut registry = protocol_registry.write().await;
-			registry.register_handler(pairing_handler)?;
-			registry.register_handler(Arc::new(messaging_handler))?;
-			registry.register_handler(Arc::new(file_transfer_handler))?;
-			logger
-				.info("All protocol handlers registered successfully")
-				.await;
-		}
-
-		// Brief delay to ensure protocol handlers are fully initialized and background
-		// tasks have started before accepting connections. This prevents race conditions
-		// where incoming connections arrive before handlers are ready.
-		// 50ms is imperceptible to users but sufficient for async task scheduling.
-		tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-
-		Ok(())
+		let data_dir = self.config.read().await.data_dir.clone();
+		register_default_protocol_handlers(networking, data_dir, self.context.clone()).await
 	}
 
 	/// Get the networking service (if initialized)
@@ -557,6 +505,83 @@ impl Core {
 		info!("Spacedrive Core shutdown complete");
 		Ok(())
 	}
+}
+
+/// Standalone helper to register default protocol handlers
+/// This is used both during Core::new() and when explicitly calling init_networking()
+async fn register_default_protocol_handlers(
+	networking: &service::network::NetworkingService,
+	data_dir: PathBuf,
+	context: Arc<CoreContext>,
+) -> Result<(), Box<dyn std::error::Error>> {
+	let logger = std::sync::Arc::new(service::network::utils::logging::ConsoleLogger);
+
+	// Get command sender for the pairing handler's state machine
+	let command_sender = networking
+		.command_sender()
+		.ok_or("NetworkingEventLoop command sender not available")?
+		.clone();
+
+	let pairing_handler = Arc::new(
+		service::network::protocol::PairingProtocolHandler::new_with_persistence(
+			networking.identity().clone(),
+			networking.device_registry(),
+			logger.clone(),
+			command_sender,
+			data_dir,
+			networking.endpoint().cloned(),
+		),
+	);
+
+	// Try to load persisted sessions, but don't fail if there's an error
+	if let Err(e) = pairing_handler.load_persisted_sessions().await {
+		logger
+			.warn(&format!(
+				"Failed to load persisted pairing sessions: {}. Starting with empty sessions.",
+				e
+			))
+			.await;
+	}
+
+	// Start the state machine task for pairing
+	service::network::protocol::PairingProtocolHandler::start_state_machine_task(
+		pairing_handler.clone(),
+	);
+
+	// Start cleanup task for expired sessions
+	service::network::protocol::PairingProtocolHandler::start_cleanup_task(
+		pairing_handler.clone(),
+	);
+
+	let mut messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
+
+	// Inject context for library operations
+	messaging_handler.set_context(context);
+
+	let mut file_transfer_handler =
+		service::network::protocol::FileTransferProtocolHandler::new_default(logger.clone());
+
+	// Inject device registry into file transfer handler for encryption
+	file_transfer_handler.set_device_registry(networking.device_registry());
+
+	let protocol_registry = networking.protocol_registry();
+	{
+		let mut registry = protocol_registry.write().await;
+		registry.register_handler(pairing_handler)?;
+		registry.register_handler(Arc::new(messaging_handler))?;
+		registry.register_handler(Arc::new(file_transfer_handler))?;
+		logger
+			.info("All protocol handlers registered successfully")
+			.await;
+	}
+
+	// Brief delay to ensure protocol handlers are fully initialized and background
+	// tasks have started before accepting connections. This prevents race conditions
+	// where incoming connections arrive before handlers are ready.
+	// 50ms is imperceptible to users but sufficient for async task scheduling.
+	tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+	Ok(())
 }
 
 /// Set up log event emitter to forward tracing events to the event bus

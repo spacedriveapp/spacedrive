@@ -32,6 +32,7 @@ pub struct DeviceInfo {
 	pub app_version: String,
 	pub network_fingerprint: crate::service::network::utils::identity::NetworkFingerprint,
 	pub last_seen: DateTime<Utc>,
+	pub direct_addresses: Vec<String>,
 }
 
 /// Type of device
@@ -63,6 +64,7 @@ pub enum DeviceState {
 	Pairing {
 		node_id: NodeId,
 		session_id: Uuid,
+		node_addr: NodeAddr,
 		started_at: DateTime<Utc>,
 	},
 	/// Device successfully paired but not currently connected

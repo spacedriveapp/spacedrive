@@ -71,13 +71,61 @@ impl PairingProtocolHandler {
 		let shared_secret = self.generate_shared_secret(session_id).await?;
 		let session_keys = SessionKeys::from_shared_secret(shared_secret.clone());
 
+		// Get node ID from the initiator's device info
+		let device_id = initiator_device_info.device_id;
+		let node_id = match initiator_device_info
+			.network_fingerprint
+			.node_id
+			.parse::<NodeId>()
+		{
+			Ok(id) => id,
+			Err(_) => {
+				self.log_warn("Failed to parse node ID from initiator device info, using fallback")
+					.await;
+				NodeId::from_bytes(&[0u8; 32]).unwrap()
+			}
+		};
+
+		// Register the initiator device in Pairing state before completing pairing
+		// This stores Alice's addresses so Bob can reconnect if needed
+		{
+			let mut registry = self.device_registry.write().await;
+			// Create NodeAddr with addresses extracted from initiator_device_info
+			let mut node_addr = iroh::NodeAddr::new(node_id);
+
+			// Add direct addresses from the device_info
+			for addr_str in &initiator_device_info.direct_addresses {
+				if let Ok(socket_addr) = addr_str.parse() {
+					node_addr = node_addr.with_direct_addresses([socket_addr]);
+				}
+			}
+
+			if !initiator_device_info.direct_addresses.is_empty() {
+				self.log_info(&format!(
+					"Extracted {} direct addresses from initiator device info",
+					initiator_device_info.direct_addresses.len()
+				))
+				.await;
+			}
+
+			registry
+				.start_pairing(device_id, node_id, session_id, node_addr)
+				.map_err(|e| {
+					self.log_warn(&format!(
+						"Warning: Could not register initiator device in Pairing state: {}",
+						e
+					));
+					e
+				})
+				.ok(); // Ignore errors - device might already be in pairing state
+		} // Release write lock here
+
 		// Complete pairing in device registry
-		let actual_device_id = initiator_device_info.device_id;
 		{
 			let mut registry = self.device_registry.write().await;
 			if let Err(e) = registry
 				.complete_pairing(
-					actual_device_id,
+					device_id,
 					initiator_device_info.clone(),
 					session_keys.clone(),
 				)
@@ -100,19 +148,16 @@ impl PairingProtocolHandler {
 			};
 
 			let mut registry = self.device_registry.write().await;
-			if let Err(e) = registry
-				.mark_connected(actual_device_id, simple_connection)
-				.await
-			{
+			if let Err(e) = registry.mark_connected(device_id, simple_connection).await {
 				self.log_warn(&format!(
 					"Warning - failed to mark initiator device {} as connected: {}",
-					actual_device_id, e
+					device_id, e
 				))
 				.await;
 			} else {
 				self.log_info(&format!(
 					"Successfully marked initiator device {} as connected after pairing",
-					actual_device_id
+					device_id
 				))
 				.await;
 			}
@@ -217,6 +262,7 @@ impl PairingProtocolHandler {
                                         public_key_hash: "unknown".to_string(),
                                     },
                                     last_seen: chrono::Utc::now(),
+                                    direct_addresses: vec![],
                                 }
 							}
 						} else {
@@ -226,14 +272,61 @@ impl PairingProtocolHandler {
 						}
 					};
 
-					// Complete pairing in device registry
 					// Use the actual device ID from device_info to ensure consistency
-					let actual_device_id = initiator_device_info.device_id;
+					let device_id = initiator_device_info.device_id;
+					let node_id = match initiator_device_info
+						.network_fingerprint
+						.node_id
+						.parse::<NodeId>()
+					{
+						Ok(id) => id,
+						Err(_) => {
+							self.log_warn("Failed to parse node ID from initiator device info, using from_node fallback")
+								.await;
+							from_node
+						}
+					};
+
+					// Register the initiator device in Pairing state before completing pairing
+					// This stores Alice's addresses so Bob can reconnect if needed
+					{
+						let mut registry = self.device_registry.write().await;
+						// Create NodeAddr with addresses extracted from initiator_device_info
+						let mut node_addr = iroh::NodeAddr::new(node_id);
+
+						// Add direct addresses from the device_info
+						for addr_str in &initiator_device_info.direct_addresses {
+							if let Ok(socket_addr) = addr_str.parse() {
+								node_addr = node_addr.with_direct_addresses([socket_addr]);
+							}
+						}
+
+						if !initiator_device_info.direct_addresses.is_empty() {
+							self.log_info(&format!(
+								"Extracted {} direct addresses from initiator device info in completion handler",
+								initiator_device_info.direct_addresses.len()
+							))
+							.await;
+						}
+
+						registry
+							.start_pairing(device_id, node_id, session_id, node_addr)
+							.map_err(|e| {
+								self.log_warn(&format!(
+									"Warning: Could not register initiator device in Pairing state: {}",
+									e
+								));
+								e
+							})
+							.ok(); // Ignore errors - device might already be in pairing state
+					} // Release write lock here
+
+					// Complete pairing in device registry
 					let pairing_result = {
 						let mut registry = self.device_registry.write().await;
 						registry
 							.complete_pairing(
-								actual_device_id,
+								device_id,
 								initiator_device_info.clone(),
 								session_keys.clone(),
 							)
@@ -248,7 +341,7 @@ impl PairingProtocolHandler {
 								if let Some(session) = sessions.get_mut(&session_id) {
 									session.state = PairingState::Completed;
 									session.shared_secret = Some(shared_secret.clone());
-									session.remote_device_id = Some(actual_device_id);
+									session.remote_device_id = Some(device_id);
 								}
 							}
 
@@ -268,9 +361,7 @@ impl PairingProtocolHandler {
 
 								let _mark_result = {
 									let mut registry = self.device_registry.write().await;
-									registry
-										.mark_connected(actual_device_id, simple_connection)
-										.await
+									registry.mark_connected(device_id, simple_connection).await
 								};
 							}
 						}

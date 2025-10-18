@@ -29,6 +29,10 @@ pub struct LocationWorker {
 	config: LocationWatcherConfig,
 	/// Metrics for this worker
 	metrics: Arc<LocationWorkerMetrics>,
+	/// Indexing rule toggles for filtering events
+	rule_toggles: crate::ops::indexing::rules::RuleToggles,
+	/// Location root path for rule evaluation
+	location_root: PathBuf,
 }
 
 impl LocationWorker {
@@ -41,6 +45,8 @@ impl LocationWorker {
 		events: Arc<EventBus>,
 		config: LocationWatcherConfig,
 		metrics: Arc<LocationWorkerMetrics>,
+		rule_toggles: crate::ops::indexing::rules::RuleToggles,
+		location_root: PathBuf,
 	) -> Self {
 		Self {
 			location_id,
@@ -50,6 +56,8 @@ impl LocationWorker {
 			events,
 			config,
 			metrics,
+			rule_toggles,
+			location_root,
 		}
 	}
 
@@ -422,7 +430,15 @@ impl LocationWorker {
 			}
 		}
 
-		if let Err(e) = responder::apply_batch(&self.context, self.library_id, raw_events).await {
+		if let Err(e) = responder::apply_batch(
+			&self.context,
+			self.library_id,
+			raw_events,
+			self.rule_toggles,
+			&self.location_root,
+		)
+		.await
+		{
 			error!(
 				"Failed to apply batch for location {}: {}",
 				self.location_id, e
@@ -490,6 +506,8 @@ mod tests {
 			events: Arc::new(EventBus::default()),
 			config,
 			metrics: Arc::new(LocationWorkerMetrics::new()),
+			rule_toggles: Default::default(),
+			location_root: PathBuf::from("/test"),
 		};
 
 		let events = vec![
@@ -522,6 +540,8 @@ mod tests {
 			events: Arc::new(EventBus::default()),
 			metrics: Arc::new(LocationWorkerMetrics::new()),
 			config,
+			rule_toggles: Default::default(),
+			location_root: PathBuf::from("/test"),
 		};
 
 		let renames = vec![

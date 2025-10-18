@@ -404,9 +404,6 @@ impl NetworkingService {
 								conn: conn.clone(),
 							});
 
-							// Connection established - don't open streams immediately
-							// Let connections be idle until actually needed for data transfer
-							// This prevents connection closure after initial ping/pong
 							logger
 								.info(&format!("Connection established to device {}", device_id))
 								.await;
@@ -416,6 +413,35 @@ impl NetworkingService {
 								device_id,
 								node_id,
 							});
+
+							// Open a hello stream to keep the connection alive
+							// This prevents idle timeout and signals to the receiver that the connection is ready
+							logger
+								.debug("Opening hello stream to keep connection alive...")
+								.await;
+
+							let conn_for_hello = conn.clone();
+							let logger_clone = logger.clone();
+							tokio::spawn(async move {
+								use tokio::io::AsyncWriteExt;
+
+								match conn_for_hello.open_bi().await {
+									Ok((mut send, _recv)) => {
+										// Send a simple hello message
+										let hello_msg = b"HELLO";
+										let _ = send.write_all(hello_msg).await;
+										let _ = send.finish();
+										logger_clone.debug("Hello stream sent successfully").await;
+									}
+									Err(e) => {
+										// Log error but don't fail - connection is still tracked
+										logger_clone
+											.warn(&format!("Failed to open hello stream: {}", e))
+											.await;
+									}
+								}
+							});
+
 							break;
 						}
 						Err(e) => {
@@ -1239,7 +1265,7 @@ impl NetworkingService {
 				relay_url,
 			);
 
-		// CRITICAL: Use the session_id derived from the pairing code, not the random seed
+		// The session_id derived from the pairing code
 		// This ensures both initiator and joiner derive the same session_id from the BIP39 words
 		let session_id = pairing_code.session_id();
 
@@ -1248,16 +1274,7 @@ impl NetworkingService {
 			.start_pairing_session_with_id(session_id, pairing_code.clone())
 			.await?;
 
-		// Register in device registry
-		let initiator_device_id = self.device_id();
-		let initiator_node_id = self.node_id();
-		let device_registry = self.device_registry();
-		{
-			let mut registry = device_registry.write().await;
-			registry.start_pairing(initiator_device_id, initiator_node_id, session_id)?;
-		}
-
-		// Get our node address for advertising
+		// Get our node address first (needed for device registry)
 		let mut node_addr = self.get_node_addr()?;
 
 		// If we don't have any direct addresses yet, wait a bit for them to be discovered
@@ -1320,6 +1337,17 @@ impl NetworkingService {
 				node_addr.as_ref().and_then(|addr| addr.relay_url())
 			))
 			.await;
+
+		// Register in device registry with the node address
+		let initiator_device_id = self.device_id();
+		let initiator_node_id = self.node_id();
+		let device_registry = self.device_registry();
+		{
+			let mut registry = device_registry.write().await;
+			// Use node_addr or create an empty one if not available
+			let addr_for_registry = node_addr.clone().unwrap_or(NodeAddr::new(initiator_node_id));
+			registry.start_pairing(initiator_device_id, initiator_node_id, session_id, addr_for_registry)?;
+		}
 
 		// Publish pairing session via mDNS using user_data field
 		// The joiner will filter discovered nodes by this session_id
@@ -1482,9 +1510,7 @@ impl NetworkingService {
 			// Text-based pairing code: only use mDNS (local network only)
 			match self.try_mdns_discovery(session_id, force_relay).await {
 				Ok(()) => {
-					self.logger
-						.info("Connected via mDNS (local network)")
-						.await;
+					self.logger.info("Connected via mDNS (local network)").await;
 					Ok(())
 				}
 				Err(e) => {
@@ -1630,6 +1656,7 @@ impl NetworkingService {
 							app_version: env!("CARGO_PKG_VERSION").to_string(),
 							network_fingerprint: self.identity().network_fingerprint(),
 							last_seen: chrono::Utc::now(),
+							direct_addresses: vec![],
 						}
 					})
 				};
@@ -1790,6 +1817,7 @@ impl NetworkingService {
 								app_version: env!("CARGO_PKG_VERSION").to_string(),
 								network_fingerprint: self.identity().network_fingerprint(),
 								last_seen: chrono::Utc::now(),
+								direct_addresses: vec![],
 							}
 						})
 					};

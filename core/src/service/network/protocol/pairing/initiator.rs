@@ -191,15 +191,8 @@ impl PairingProtocolHandler {
 		let shared_secret = self.generate_shared_secret(session_id).await?;
 		let session_keys = SessionKeys::from_shared_secret(shared_secret.clone());
 
-		// Complete pairing in device registry with proper lock scoping
 		// Use the actual device ID from device_info to ensure consistency
 		let actual_device_id = device_info.device_id;
-		{
-			let mut registry = self.device_registry.write().await;
-			registry
-				.complete_pairing(actual_device_id, device_info.clone(), session_keys.clone())
-				.await?;
-		} // Release write lock here
 
 		// Get node ID from the device info's network fingerprint
 		let node_id = match device_info.network_fingerprint.node_id.parse::<NodeId>() {
@@ -210,6 +203,47 @@ impl PairingProtocolHandler {
 				NodeId::from_bytes(&[0u8; 32]).unwrap()
 			}
 		};
+
+		// Register the remote device in Pairing state before completing pairing
+		// This allows complete_pairing to extract addresses from the Pairing state
+		{
+			let mut registry = self.device_registry.write().await;
+			// Create a NodeAddr with the node_id and extract direct addresses from device_info
+			let mut node_addr = iroh::NodeAddr::new(node_id);
+
+			// Add direct addresses from the device_info
+			for addr_str in &device_info.direct_addresses {
+				if let Ok(socket_addr) = addr_str.parse() {
+					node_addr = node_addr.with_direct_addresses([socket_addr]);
+				}
+			}
+
+			if !device_info.direct_addresses.is_empty() {
+				self.log_info(&format!(
+					"Extracted {} direct addresses from joiner device info",
+					device_info.direct_addresses.len()
+				))
+				.await;
+			}
+			registry
+				.start_pairing(actual_device_id, node_id, session_id, node_addr)
+				.map_err(|e| {
+					self.log_warn(&format!(
+						"Warning: Could not register device in Pairing state: {}",
+						e
+					));
+					e
+				})
+				.ok(); // Ignore errors - device might already be in pairing state
+		} // Release write lock here
+
+		// Complete pairing in device registry with proper lock scoping
+		{
+			let mut registry = self.device_registry.write().await;
+			registry
+				.complete_pairing(actual_device_id, device_info.clone(), session_keys.clone())
+				.await?;
+		} // Release write lock here
 
 		// Mark device as connected since pairing is successful
 		let simple_connection = crate::service::network::device::ConnectionInfo {
