@@ -240,31 +240,69 @@ let conn = endpoint.connect(node_id, ALPN).await?;
 
 ---
 
-### Issue #3: Not Caching Connections
+### Issue #3: Pairing Protocol Bypasses Connection Cache
 
-#### Our Current Architecture
+#### The Nuance
+
+**Good news**: Our `NetworkingService` DOES have a connection cache!
+
+**Location**: `core/mod.rs:105`
 
 ```rust
-// mod.rs - No connection caching
+pub struct NetworkingService {
+    endpoint: Option<Endpoint>,
+    identity: NetworkIdentity,
+    node_id: NodeId,
+    // ... other fields ...
+
+    /// Active connections tracker
+    active_connections: Arc<RwLock<HashMap<NodeId, Connection>>>,  // ← Cache exists!
+}
+```
+
+This cache is used for `MESSAGING_ALPN` connections (reconnection logic at `core/mod.rs:402`).
+
+**Bad news**: The pairing protocol bypasses this cache entirely!
+
+#### The Problem
+
+**Location**: `protocol/pairing/mod.rs:36-64`
+
+```rust
 pub struct PairingProtocolHandler {
     identity: NetworkIdentity,
     device_registry: Arc<RwLock<DeviceRegistry>>,
     active_sessions: Arc<RwLock<HashMap<Uuid, PairingSession>>>,
-    endpoint: Option<Endpoint>,
-    // Missing: connection cache!
+    endpoint: Option<Endpoint>,  // ← Stores its own endpoint reference
+    // No connection cache!
 }
 ```
 
-Every time we want to send a message, we call:
+**Location**: `protocol/pairing/mod.rs:607-620`
+
 ```rust
-endpoint.connect(node_id, ALPN).await?  // New connection every time
+pub async fn send_pairing_message_to_node(...) -> Result<Option<PairingMessage>> {
+    let node_addr = NodeAddr::new(node_id);
+    let conn = endpoint.connect(node_addr, PAIRING_ALPN).await?;  // ← Bypasses cache!
+
+    let (mut send, mut recv) = conn.open_bi().await?;
+    // ... send/receive ...
+    // conn dropped, connection closes
+}
 ```
 
-#### What We Should Have
+Every time this is called, it creates a **brand new connection** instead of checking the cache.
 
-From Iroh examples and `endpoint.rs` lines 520-523:
+#### Why This Happens
 
-> "It is recommended to only create a **single instance** [of Endpoint] per application. This ensures all the connections made share the same peer-to-peer connections..."
+The pairing protocol was designed as a standalone module with its own `Endpoint` reference. It doesn't know about or use the `NetworkingService` connection cache. The two systems operate independently:
+
+- **NetworkingService cache**: Used for `MESSAGING_ALPN` and reconnection
+- **Pairing protocol**: Creates new `PAIRING_ALPN` connections every time
+
+#### The Fix
+
+**Option 1**: Add a connection cache to `PairingProtocolHandler`
 
 ```rust
 pub struct PairingProtocolHandler {
@@ -283,7 +321,10 @@ impl PairingProtocolHandler {
         {
             let conns = self.connections.read().await;
             if let Some(conn) = conns.get(&node_id) {
-                return Ok(conn.clone());  // Connection is Clone
+                // Verify connection is still alive
+                if conn.close_reason().is_none() {
+                    return Ok(conn.clone());  // Connection is Clone (reference-counted)
+                }
             }
         }
 
@@ -299,6 +340,8 @@ impl PairingProtocolHandler {
     }
 }
 ```
+
+**Option 2**: Share the NetworkingService connection cache (requires refactoring)
 
 From `iroh/src/endpoint.rs` lines 1819-1835:
 
