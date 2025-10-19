@@ -161,7 +161,8 @@ pub async fn register_shared(
 /// All domain-specific logic lives in the entity implementations, not here.
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 	use crate::infra::db::entities::{
-		collection, content_identity, device, entry, location, tag, user_metadata, volume,
+		collection, collection_entry, content_identity, device, entry, location, tag,
+		tag_relationship, user_metadata, user_metadata_tag, volume,
 	};
 
 	let mut registry = HashMap::new();
@@ -255,7 +256,7 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 		"collection".to_string(),
 		SyncableModelRegistration::shared_with_query(
 			"collection",
-			"collections",
+			"collection",
 			|entry, db| {
 				Box::pin(async move {
 					collection::Model::apply_shared_change(entry, db.as_ref()).await
@@ -307,6 +308,79 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|device_id, since, batch_size, db| {
 				Box::pin(async move {
 					user_metadata::Model::query_for_sync(
+						device_id,
+						since,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+		),
+	);
+
+	// Many-to-many junction tables (shared models)
+	registry.insert(
+		"collection_entry".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"collection_entry",
+			"collection_entry",
+			|entry, db| {
+				Box::pin(async move {
+					collection_entry::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					collection_entry::Model::query_for_sync(
+						device_id,
+						since,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"user_metadata_tag".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"user_metadata_tag",
+			"user_metadata_tag",
+			|entry, db| {
+				Box::pin(async move {
+					user_metadata_tag::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					user_metadata_tag::Model::query_for_sync(
+						device_id,
+						since,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"tag_relationship".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"tag_relationship",
+			"tag_relationship",
+			|entry, db| {
+				Box::pin(async move {
+					tag_relationship::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, batch_size, db| {
+				Box::pin(async move {
+					tag_relationship::Model::query_for_sync(
 						device_id,
 						since,
 						batch_size,
@@ -539,7 +613,8 @@ pub enum ApplyError {
 /// ```
 pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::DependencyError> {
 	use crate::infra::db::entities::{
-		collection, content_identity, device, entry, location, tag, user_metadata, volume,
+		collection, collection_entry, content_identity, device, entry, location, tag,
+		tag_relationship, user_metadata, user_metadata_tag, volume,
 	};
 
 	// Build iterator of (model_name, dependencies)
@@ -563,6 +638,18 @@ pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::Depende
 		(
 			user_metadata::Model::SYNC_MODEL,
 			user_metadata::Model::sync_depends_on(),
+		),
+		(
+			collection_entry::Model::SYNC_MODEL,
+			collection_entry::Model::sync_depends_on(),
+		),
+		(
+			user_metadata_tag::Model::SYNC_MODEL,
+			user_metadata_tag::Model::sync_depends_on(),
+		),
+		(
+			tag_relationship::Model::SYNC_MODEL,
+			tag_relationship::Model::sync_depends_on(),
 		),
 	];
 
@@ -615,8 +702,8 @@ mod tests {
 	async fn test_sync_order_computation() {
 		let order = compute_registry_sync_order().await.unwrap();
 
-		// Verify all models are present
-		assert_eq!(order.len(), 8);
+		// Verify all models are present (8 base + 3 M2M)
+		assert_eq!(order.len(), 11);
 		assert!(order.contains(&"device".to_string()));
 		assert!(order.contains(&"location".to_string()));
 		assert!(order.contains(&"volume".to_string()));
@@ -625,12 +712,21 @@ mod tests {
 		assert!(order.contains(&"collection".to_string()));
 		assert!(order.contains(&"content_identity".to_string()));
 		assert!(order.contains(&"user_metadata".to_string()));
+		assert!(order.contains(&"collection_entry".to_string()));
+		assert!(order.contains(&"user_metadata_tag".to_string()));
+		assert!(order.contains(&"tag_relationship".to_string()));
 
 		// Verify dependency ordering
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
 		let location_idx = order.iter().position(|m| m == "location").unwrap();
 		let volume_idx = order.iter().position(|m| m == "volume").unwrap();
 		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
+		let collection_idx = order.iter().position(|m| m == "collection").unwrap();
+		let collection_entry_idx = order.iter().position(|m| m == "collection_entry").unwrap();
+		let tag_idx = order.iter().position(|m| m == "tag").unwrap();
+		let user_metadata_idx = order.iter().position(|m| m == "user_metadata").unwrap();
+		let user_metadata_tag_idx = order.iter().position(|m| m == "user_metadata_tag").unwrap();
+		let tag_relationship_idx = order.iter().position(|m| m == "tag_relationship").unwrap();
 
 		// Device must come before location
 		assert!(
@@ -644,6 +740,26 @@ mod tests {
 		// Location must come before entry
 		assert!(location_idx < entry_idx, "location must sync before entry");
 
-		// Tag, collection, content_identity, and user_metadata have no dependencies
+		// M2M dependencies
+		assert!(
+			collection_idx < collection_entry_idx,
+			"collection must sync before collection_entry"
+		);
+		assert!(
+			entry_idx < collection_entry_idx,
+			"entry must sync before collection_entry"
+		);
+		assert!(
+			user_metadata_idx < user_metadata_tag_idx,
+			"user_metadata must sync before user_metadata_tag"
+		);
+		assert!(
+			tag_idx < user_metadata_tag_idx,
+			"tag must sync before user_metadata_tag"
+		);
+		assert!(
+			tag_idx < tag_relationship_idx,
+			"tag must sync before tag_relationship"
+		);
 	}
 }
