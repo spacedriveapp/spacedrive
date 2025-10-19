@@ -38,6 +38,9 @@ pub trait ProtocolHandler: Send + Sync {
 		remote_node_id: NodeId,
 	);
 
+	/// Allow downcasting to concrete type for specialized methods
+	fn as_any(&self) -> &dyn std::any::Any;
+
 	/// Handle an incoming request (legacy compatibility)
 	async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>>;
 
@@ -51,9 +54,6 @@ pub trait ProtocolHandler: Send + Sync {
 
 	/// Handle protocol-specific events
 	async fn handle_event(&self, event: ProtocolEvent) -> Result<()>;
-
-	/// Enable downcasting to concrete types
-	fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Events that protocols can receive

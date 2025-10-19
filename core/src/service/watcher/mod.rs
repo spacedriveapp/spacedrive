@@ -353,14 +353,19 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
-		let mut locations = self.watched_locations.write().await;
+		// First, add to watched_locations map
+		{
+			let mut locations = self.watched_locations.write().await;
 
-		if locations.contains_key(&location.id) {
-			warn!("Location {} is already being watched", location.id);
-			return Ok(());
-		}
+			if locations.contains_key(&location.id) {
+				warn!("Location {} is already being watched", location.id);
+				return Ok(());
+			}
 
-		// Create worker for this location
+			locations.insert(location.id, location.clone());
+		} // Drop write lock here to avoid deadlock when ensure_worker_for_location reads it
+
+		// Create worker for this location (after dropping write lock to avoid deadlock)
 		if *self.is_running.read().await {
 			self.ensure_worker_for_location(location.id, location.library_id)
 				.await?;
@@ -387,7 +392,6 @@ impl LocationWatcher {
 			}
 		}
 
-		locations.insert(location.id, location);
 		Ok(())
 	}
 
@@ -476,20 +480,30 @@ impl LocationWatcher {
 		for library in library_list {
 			// Query locations for this library
 			let db = library.db().conn();
-			match crate::infra::db::entities::location::Entity::find()
-				.all(db)
-				.await
-			{
-				Ok(locations) => {
+
+			// Add timeout to the database query
+			let locations_result = tokio::time::timeout(
+				std::time::Duration::from_secs(10),
+				crate::infra::db::entities::location::Entity::find().all(db)
+			).await;
+
+			match locations_result {
+				Ok(Ok(locations)) => {
+					debug!("Found {} locations in library {}", locations.len(), library.id());
+
 					for location in locations {
-						// Get the full path using PathResolver
-						match crate::ops::indexing::path_resolver::PathResolver::get_full_path(
-							db,
-							location.entry_id,
+						// Get the full path using PathResolver with timeout
+						let path_result = tokio::time::timeout(
+							std::time::Duration::from_secs(5),
+							crate::ops::indexing::path_resolver::PathResolver::get_full_path(
+								db,
+								location.entry_id,
+							)
 						)
-						.await
-						{
-							Ok(path) => {
+						.await;
+
+						match path_result {
+							Ok(Ok(path)) => {
 								// Skip cloud locations - they don't have filesystem paths to watch
 								// Cloud paths use service-native URIs like s3://, gdrive://, etc.
 								let path_str = path.to_string_lossy();
@@ -518,7 +532,7 @@ impl LocationWatcher {
 
 								// Add to watched locations
 								if let Err(e) = self.add_location(watched_location).await {
-									error!(
+									warn!(
 										"Failed to add location {} to watcher: {}",
 										location.uuid, e
 									);
@@ -531,17 +545,26 @@ impl LocationWatcher {
 									);
 								}
 							}
-							Err(e) => {
-								error!("Failed to get path for location {}: {}", location.uuid, e);
+							Ok(Err(e)) => {
+								warn!("Failed to get path for location {}: {}, skipping", location.uuid, e);
+							}
+							Err(_) => {
+								warn!("Timeout getting path for location {}, skipping", location.uuid);
 							}
 						}
 					}
 				}
-				Err(e) => {
-					error!(
-						"Failed to load locations for library {}: {}",
+				Ok(Err(e)) => {
+					warn!(
+						"Database error loading locations for library {}: {}, continuing with other libraries",
 						library.id(),
 						e
+					);
+				}
+				Err(_) => {
+					warn!(
+						"Timeout loading locations for library {}, continuing with other libraries",
+						library.id()
 					);
 				}
 			}

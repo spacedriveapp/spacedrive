@@ -439,6 +439,10 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 		"sync"
 	}
 
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
 	async fn handle_stream(
 		&self,
 		_send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
@@ -495,10 +499,6 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 	) -> std::result::Result<(), crate::service::network::NetworkingError> {
 		// No special event handling needed
 		Ok(())
-	}
-
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
 	}
 }
 

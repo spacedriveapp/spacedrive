@@ -128,6 +128,68 @@ impl LibraryManager {
 			.await
 	}
 
+	/// Create a shared library with a specific UUID (for library sync)
+	///
+	/// Used when a remote device requests this device to create a library
+	/// with the same UUID for syncing purposes
+	pub async fn create_library_with_id(
+		&self,
+		library_id: Uuid,
+		name: impl Into<String>,
+		description: Option<String>,
+		context: Arc<CoreContext>,
+	) -> Result<Arc<Library>> {
+		let name = name.into();
+
+		// Validate name
+		if name.is_empty() {
+			return Err(LibraryError::InvalidName(
+				"Name cannot be empty".to_string(),
+			));
+		}
+
+		// Sanitize name for filesystem
+		let safe_name = sanitize_filename(&name);
+
+		// Use default library location
+		let base_path = self.search_paths.first().cloned().unwrap_or_else(|| {
+			dirs::home_dir()
+				.unwrap_or_else(|| PathBuf::from("."))
+				.join("Spacedrive")
+				.join("Libraries")
+		});
+
+		// Ensure base path exists
+		tokio::fs::create_dir_all(&base_path).await.map_err(|e| {
+			LibraryError::IoError(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				format!("Failed to create libraries directory: {}", e),
+			))
+		})?;
+
+		// Find unique library path
+		let library_path = find_unique_library_path(&base_path, &safe_name).await?;
+
+		// Create library directory
+		tokio::fs::create_dir_all(&library_path).await?;
+
+		// Initialize library with provided UUID (instead of generating new one)
+		self.initialize_library_with_id(&library_path, library_id, name, description, context.clone())
+			.await?;
+
+		// Open the newly created library
+		let library = self.open_library(&library_path, context).await?;
+
+		// Emit event
+		self.event_bus.emit(Event::LibraryCreated {
+			id: library.id(),
+			name: library.name().await,
+			path: library_path.clone(),
+		});
+
+		Ok(library)
+	}
+
 	/// Internal library creation with optional sync init
 	async fn create_library_internal(
 		&self,
@@ -504,7 +566,7 @@ impl LibraryManager {
 			statistics: LibraryStatistics::default(),
 		};
 
-		// Initialize library encryption key
+		// Initialize encryption key
 		context
 			.library_key_manager
 			.get_or_create_library_key(config.id)
@@ -529,13 +591,65 @@ impl LibraryManager {
 		// Run initial migrations
 		db.migrate().await?;
 
-		// Create thumbnail metadata
-		let thumb_meta = ThumbnailMetadata::default();
-		let thumb_meta_path = path.join("thumbnails").join("metadata.json");
-		let json = serde_json::to_string_pretty(&thumb_meta)?;
-		tokio::fs::write(thumb_meta_path, json).await?;
+		info!("Library '{}' initialized at {:?}", config.name, path);
 
-		info!("Initialized new library '{}' at {:?}", config.name, path);
+		Ok(())
+	}
+
+	/// Initialize a new library directory with a specific UUID (for shared libraries)
+	async fn initialize_library_with_id(
+		&self,
+		path: &Path,
+		library_id: Uuid,
+		name: String,
+		description: Option<String>,
+		context: Arc<CoreContext>,
+	) -> Result<()> {
+		// Create subdirectories
+		tokio::fs::create_dir_all(path.join("thumbnails")).await?;
+		tokio::fs::create_dir_all(path.join("previews")).await?;
+		tokio::fs::create_dir_all(path.join("indexes")).await?;
+		tokio::fs::create_dir_all(path.join("exports")).await?;
+		tokio::fs::create_dir_all(path.join("sidecars")).await?;
+
+		// Create configuration with provided UUID
+		let config = LibraryConfig {
+			version: LIBRARY_CONFIG_VERSION,
+			id: library_id,
+			name,
+			description,
+			created_at: Utc::now(),
+			updated_at: Utc::now(),
+			settings: LibrarySettings::default(),
+			statistics: LibraryStatistics::default(),
+		};
+
+		// Initialize encryption key
+		context
+			.library_key_manager
+			.get_or_create_library_key(config.id)
+			.map_err(|e| {
+				LibraryError::Other(format!(
+					"Failed to initialize library encryption key: {}",
+					e
+				))
+			})?;
+
+		info!("Initialized encryption key for shared library '{}'", config.name);
+
+		// Save configuration
+		let config_path = path.join("library.json");
+		let json = serde_json::to_string_pretty(&config)?;
+		tokio::fs::write(config_path, json).await?;
+
+		// Initialize database
+		let db_path = path.join("database.db");
+		let db = Database::create(&db_path).await?;
+
+		// Run initial migrations
+		db.migrate().await?;
+
+		info!("Shared library '{}' initialized at {:?} with ID {}", config.name, path, library_id);
 
 		Ok(())
 	}

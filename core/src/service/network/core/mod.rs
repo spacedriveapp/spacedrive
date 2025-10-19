@@ -806,7 +806,9 @@ impl NetworkingService {
 		}
 	}
 
-	/// Send a request to a device and wait for response
+	/// Send a library request to a device and wait for response
+	///
+	/// Uses shared connection cache via MessagingProtocolHandler (Iroh best practice)
 	pub async fn send_library_request(
 		&self,
 		device_id: Uuid,
@@ -819,64 +821,22 @@ impl NetworkingService {
 			.ok_or_else(|| NetworkingError::DeviceNotFound(device_id))?;
 		drop(registry);
 
-		// Get endpoint
-		let endpoint = self.endpoint.as_ref().ok_or_else(|| {
-			NetworkingError::ConnectionFailed("Endpoint not initialized".to_string())
-		})?;
+		// Get messaging handler from protocol registry
+		let protocol_registry = self.protocol_registry.read().await;
+		let handler = protocol_registry
+			.get_handler("messaging")
+			.ok_or_else(|| NetworkingError::Protocol("Messaging handler not registered".to_string()))?;
 
-		// Wrap library message in Message envelope
-		let message = crate::service::network::protocol::messaging::Message::Library(request);
-		let msg_data =
-			serde_json::to_vec(&message).map_err(|e| NetworkingError::Serialization(e))?;
+		// Downcast to MessagingProtocolHandler to access send_library_message method
+		let messaging_handler = handler
+			.as_any()
+			.downcast_ref::<crate::service::network::protocol::MessagingProtocolHandler>()
+			.ok_or_else(|| NetworkingError::Protocol("Invalid messaging handler type".to_string()))?;
 
-		// Connect and send request
-		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+		drop(protocol_registry);
 
-		let node_addr = iroh::NodeAddr::new(node_id);
-		let conn = endpoint
-			.connect(node_addr, crate::service::network::core::MESSAGING_ALPN)
-			.await
-			.map_err(|e| NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e)))?;
-
-		let (mut send, mut recv) = conn.open_bi().await.map_err(|e| {
-			NetworkingError::ConnectionFailed(format!("Failed to open stream: {}", e))
-		})?;
-
-		// Send request with length prefix
-		let len = msg_data.len() as u32;
-		send.write_all(&len.to_be_bytes())
-			.await
-			.map_err(|e| NetworkingError::Transport(format!("Failed to send length: {}", e)))?;
-		send.write_all(&msg_data)
-			.await
-			.map_err(|e| NetworkingError::Transport(format!("Failed to send data: {}", e)))?;
-		send.flush()
-			.await
-			.map_err(|e| NetworkingError::Transport(format!("Failed to flush: {}", e)))?;
-
-		// Read response
-		let mut len_buf = [0u8; 4];
-		recv.read_exact(&mut len_buf).await.map_err(|e| {
-			NetworkingError::Transport(format!("Failed to read response length: {}", e))
-		})?;
-		let resp_len = u32::from_be_bytes(len_buf) as usize;
-
-		let mut resp_buf = vec![0u8; resp_len];
-		recv.read_exact(&mut resp_buf)
-			.await
-			.map_err(|e| NetworkingError::Transport(format!("Failed to read response: {}", e)))?;
-
-		// Deserialize response
-		let response: crate::service::network::protocol::messaging::Message =
-			serde_json::from_slice(&resp_buf).map_err(|e| NetworkingError::Serialization(e))?;
-
-		// Extract library message from response
-		match response {
-			crate::service::network::protocol::messaging::Message::Library(lib_msg) => Ok(lib_msg),
-			_ => Err(NetworkingError::Protocol(
-				"Unexpected response type".to_string(),
-			)),
-		}
+		// Delegate to handler (uses shared connection cache + timeout)
+		messaging_handler.send_library_message(node_id, request).await
 	}
 
 	/// Get protocol registry for registering new protocols

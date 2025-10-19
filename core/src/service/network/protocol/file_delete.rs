@@ -152,6 +152,10 @@ impl super::ProtocolHandler for FileDeleteProtocolHandler {
 		"file_delete"
 	}
 
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
 	async fn handle_stream(
 		&self,
 		mut send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
@@ -242,10 +246,6 @@ impl super::ProtocolHandler for FileDeleteProtocolHandler {
 	async fn handle_event(&self, _event: super::ProtocolEvent) -> Result<()> {
 		// File delete doesn't need special event handling
 		Ok(())
-	}
-
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
 	}
 }
 

@@ -721,6 +721,10 @@ impl ProtocolHandler for PairingProtocolHandler {
 		"pairing"
 	}
 
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
 	async fn handle_stream(
 		&self,
 		mut send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
@@ -1160,9 +1164,5 @@ impl ProtocolHandler for PairingProtocolHandler {
 		}
 
 		Ok(())
-	}
-
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
 	}
 }

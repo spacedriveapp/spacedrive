@@ -1,7 +1,7 @@
 //! Networking event loop for handling Iroh connections and messages
 
 use crate::service::network::{
-	core::{NetworkEvent, FILE_TRANSFER_ALPN, MESSAGING_ALPN, PAIRING_ALPN},
+	core::{NetworkEvent, FILE_TRANSFER_ALPN, MESSAGING_ALPN, PAIRING_ALPN, SYNC_ALPN},
 	device::DeviceRegistry,
 	protocol::ProtocolRegistry,
 	utils::{logging::NetworkLogger, NetworkIdentity},
@@ -342,113 +342,55 @@ impl NetworkingEventLoop {
 						}
 					}
 
-					// Helper struct to prepend a peeked byte back to a stream
-					// This allows us to peek at the first byte for protocol detection
-					// while still making it available to the protocol handler
-					struct PrependReader<R> {
-						byte: Option<u8>,
-						inner: R,
-					}
+					// Route to handler based on ALPN
+					let alpn_bytes = conn.alpn().unwrap_or_default();
 
-					impl<R: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for PrependReader<R> {
-						fn poll_read(
-							mut self: std::pin::Pin<&mut Self>,
-							cx: &mut std::task::Context<'_>,
-							buf: &mut tokio::io::ReadBuf<'_>,
-						) -> std::task::Poll<std::io::Result<()>> {
-							if let Some(byte) = self.byte.take() {
-								buf.put_slice(&[byte]);
-								std::task::Poll::Ready(Ok(()))
-							} else {
-								std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
-							}
+					if alpn_bytes == MESSAGING_ALPN {
+						let registry = protocol_registry.read().await;
+						if let Some(handler) = registry.get_handler("messaging") {
+							logger.info("Routing to messaging handler (ALPN match)").await;
+							handler
+								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
+								.await;
 						}
-					}
-
-					// For paired devices, check if this is a file transfer stream
-					// Protocol detection: peek at first byte to distinguish protocols
-					// File transfer format: [type:u8][length:u32][data...], where type is 0-1
-					// Messaging format: different type byte (>1) or different structure
-					if is_paired {
-						use tokio::io::AsyncReadExt;
-						let mut peek_buf = [0u8; 1];
-						let mut recv_peekable = recv;
-
-						// Try to peek the first byte
-						let bytes_read = recv_peekable.read(&mut peek_buf).await;
-						match bytes_read {
-							Ok(Some(n)) if n > 0 => {
-									// Check if this looks like a file transfer message (type byte 0 or 1)
-									if peek_buf[0] <= 1 {
-
-									let recv_with_byte = PrependReader {
-										byte: Some(peek_buf[0]),
-										inner: recv_peekable,
-									};
-
-									let registry = protocol_registry.read().await;
-									if let Some(handler) = registry.get_handler("file_transfer") {
-										logger.info("Directing bidirectional stream to file_transfer handler").await;
-										handler.handle_stream(
-											Box::new(send),
-											Box::new(recv_with_byte),
-											remote_node_id,
-										).await;
-										logger.info("file_transfer handler completed for stream").await;
-									}
-									continue; // Skip the default handler logic below
-								} else {
-									// Not file transfer, use messaging handler
-									let recv_with_byte = PrependReader {
-										byte: Some(peek_buf[0]),
-										inner: recv_peekable,
-									};
-
-									let registry = protocol_registry.read().await;
-									if let Some(handler) = registry.get_handler("messaging") {
-										logger.info("Directing bidirectional stream to messaging handler").await;
-										handler.handle_stream(
-											Box::new(send),
-											Box::new(recv_with_byte),
-											remote_node_id,
-										).await;
-										logger.info("messaging handler completed for stream").await;
-									}
-									continue; // Skip the default handler logic below
-								}
-							}
-							_ => {
-								// Default to messaging if we can't peek, no bytes, or error
-								// Use recv_peekable since recv was already moved
-								let registry = protocol_registry.read().await;
-								if let Some(handler) = registry.get_handler("messaging") {
-									logger.info("Directing bidirectional stream to messaging handler (fallback)").await;
-									handler.handle_stream(
-										Box::new(send),
-										Box::new(recv_peekable),
-										remote_node_id,
-									).await;
-									logger.info("messaging handler completed for stream").await;
-								}
-								continue;
-							}
-						}
-					} else {
-						// Unpaired device, use pairing handler
+						continue;
+					} else if alpn_bytes == PAIRING_ALPN {
 						let registry = protocol_registry.read().await;
 						if let Some(handler) = registry.get_handler("pairing") {
-							logger.info("Directing bidirectional stream to pairing handler").await;
-							handler.handle_stream(
-								Box::new(send),
-								Box::new(recv),
-								remote_node_id,
-							).await;
-							logger.info("pairing handler completed for stream").await;
-						} else {
-							logger.error("No pairing handler registered!").await;
+							logger.info("Routing to pairing handler (ALPN match)").await;
+							handler
+								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
+								.await;
 						}
+						continue;
+					} else if alpn_bytes == FILE_TRANSFER_ALPN {
+						let registry = protocol_registry.read().await;
+						if let Some(handler) = registry.get_handler("file_transfer") {
+							logger.info("Routing to file_transfer handler (ALPN match)").await;
+							handler
+								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
+								.await;
+						}
+						continue;
+					} else if alpn_bytes == SYNC_ALPN {
+						let registry = protocol_registry.read().await;
+						if let Some(handler) = registry.get_handler("sync") {
+							logger.info("Routing to sync handler (ALPN match)").await;
+							handler
+								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
+								.await;
+						}
+						continue;
+					} else {
+						logger
+							.warn(&format!(
+								"Unknown ALPN: {:?}",
+								String::from_utf8_lossy(&alpn_bytes)
+							))
+							.await;
+						continue;
 					}
-						}
+				}
 					Err(e) => {
 						// Check if the QUIC connection itself is closed
 						if conn.close_reason().is_some() {
@@ -523,10 +465,7 @@ impl NetworkingEventLoop {
 			EventLoopCommand::ConnectionEstablished { device_id, node_id } => {
 				// Update device registry
 				let mut registry = self.device_registry.write().await;
-				if let Err(e) = registry
-					.set_device_connected(device_id, node_id)
-					.await
-				{
+				if let Err(e) = registry.set_device_connected(device_id, node_id).await {
 					self.logger
 						.error(&format!("Failed to update device connection state: {}", e))
 						.await;

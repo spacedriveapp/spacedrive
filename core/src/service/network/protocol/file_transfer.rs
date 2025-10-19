@@ -965,6 +965,10 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 		"file_transfer"
 	}
 
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
 	async fn handle_stream(
 		&self,
 		mut send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
@@ -1327,10 +1331,6 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 			_ => {}
 		}
 		Ok(())
-	}
-
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
 	}
 }
 

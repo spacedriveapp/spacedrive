@@ -35,6 +35,21 @@ pub enum LibraryMessage {
 		success: bool,
 		message: Option<String>,
 	},
+
+	/// Request to create a shared library on remote device
+	CreateSharedLibraryRequest {
+		request_id: Uuid,
+		library_id: Uuid,
+		library_name: String,
+		description: Option<String>,
+	},
+
+	/// Response to library creation request
+	CreateSharedLibraryResponse {
+		request_id: Uuid,
+		success: bool,
+		message: Option<String>,
+	},
 }
 
 /// Information about a library for discovery

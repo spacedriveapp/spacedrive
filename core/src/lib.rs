@@ -554,7 +554,11 @@ async fn register_default_protocol_handlers(
 		pairing_handler.clone(),
 	);
 
-	let mut messaging_handler = service::network::protocol::MessagingProtocolHandler::new();
+	let mut messaging_handler = service::network::protocol::MessagingProtocolHandler::new(
+		networking.device_registry(),
+		networking.endpoint().cloned(),
+		networking.active_connections(),
+	);
 
 	// Inject context for library operations
 	messaging_handler.set_context(context);

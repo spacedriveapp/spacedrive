@@ -3,15 +3,26 @@
 use super::{library_messages::LibraryMessage, ProtocolEvent, ProtocolHandler};
 use crate::service::network::{NetworkingError, Result};
 use async_trait::async_trait;
-use iroh::NodeId;
+use iroh::{endpoint::Connection, Endpoint, NodeAddr, NodeId};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 /// Basic messaging protocol handler
 pub struct MessagingProtocolHandler {
 	/// Optional context for accessing libraries
 	context: Option<Arc<crate::context::CoreContext>>,
+
+	/// Device registry for node_id → device_id mapping
+	device_registry: Arc<RwLock<crate::service::network::device::DeviceRegistry>>,
+
+	/// Endpoint for creating and managing connections
+	endpoint: Option<Endpoint>,
+
+	/// Cached connections to remote nodes (reused for multiple message streams)
+	connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
 }
 
 /// Basic message types
@@ -49,15 +60,20 @@ pub enum Message {
 }
 
 impl MessagingProtocolHandler {
-	/// Create a new messaging protocol handler
-	pub fn new() -> Self {
-		Self { context: None }
-	}
-
-	/// Create handler with context for library operations
-	pub fn with_context(context: Arc<crate::context::CoreContext>) -> Self {
+	/// Create a new messaging protocol handler with shared connection cache
+	///
+	/// Uses the same connection cache as other protocols (pairing, sync, file transfer)
+	/// to follow Iroh best practice of one persistent connection per device pair
+	pub fn new(
+		device_registry: Arc<RwLock<crate::service::network::device::DeviceRegistry>>,
+		endpoint: Option<Endpoint>,
+		active_connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
+	) -> Self {
 		Self {
-			context: Some(context),
+			context: None,
+			device_registry,
+			endpoint,
+			connections: active_connections,
 		}
 	}
 
@@ -311,20 +327,216 @@ impl MessagingProtocolHandler {
 				// These are responses, not requests
 				Ok(Vec::new())
 			}
+
+			LibraryMessage::CreateSharedLibraryRequest {
+				request_id,
+				library_id,
+				library_name,
+				description,
+			} => {
+				tracing::info!(
+					"Received CreateSharedLibraryRequest: {} ({})",
+					library_name,
+					library_id
+				);
+
+				let context = self.context.as_ref().ok_or_else(|| {
+					NetworkingError::Protocol("Context not available".to_string())
+				})?;
+
+				let library_manager = context.libraries().await;
+
+				// Check if library already exists
+				if let Some(_existing) = library_manager.get_library(library_id).await {
+					tracing::info!("Library {} already exists, returning success", library_id);
+					let response = Message::Library(LibraryMessage::CreateSharedLibraryResponse {
+						request_id,
+						success: true,
+						message: Some("Library already exists".to_string()),
+					});
+					return serde_json::to_vec(&response)
+						.map_err(|e| NetworkingError::Serialization(e));
+				}
+
+				// Create library with specific UUID
+				match library_manager
+					.create_library_with_id(library_id, library_name.clone(), description, context.clone())
+					.await
+				{
+					Ok(_) => {
+						tracing::info!("Successfully created shared library: {}", library_name);
+						let response =
+							Message::Library(LibraryMessage::CreateSharedLibraryResponse {
+								request_id,
+								success: true,
+								message: None,
+							});
+						serde_json::to_vec(&response)
+							.map_err(|e| NetworkingError::Serialization(e))
+					}
+					Err(e) => {
+						tracing::error!("Failed to create library: {}", e);
+						let response =
+							Message::Library(LibraryMessage::CreateSharedLibraryResponse {
+								request_id,
+								success: false,
+								message: Some(e.to_string()),
+							});
+						serde_json::to_vec(&response)
+							.map_err(|e| NetworkingError::Serialization(e))
+					}
+				}
+			}
+
+			LibraryMessage::CreateSharedLibraryResponse { .. } => {
+				// This is a response, not a request
+				Ok(Vec::new())
+			}
+		}
+	}
+
+	/// Get or create a connection to a specific node
+	/// Implements Iroh best practice of reusing persistent connections
+	async fn get_or_create_connection(
+		&self,
+		node_id: NodeId,
+		alpn: &'static [u8],
+	) -> Result<Connection> {
+		// Check cache first
+		{
+			let connections = self.connections.read().await;
+			if let Some(conn) = connections.get(&node_id) {
+				if conn.close_reason().is_none() {
+					tracing::debug!("Reusing existing connection to node {}", node_id);
+					return Ok(conn.clone());
+				} else {
+					tracing::debug!(
+						"Cached connection to node {} is closed, creating new one",
+						node_id
+					);
+				}
+			}
+		}
+
+		// Create new connection
+		let endpoint = self.endpoint.as_ref().ok_or_else(|| {
+			NetworkingError::ConnectionFailed("No endpoint available".to_string())
+		})?;
+
+		let node_addr = NodeAddr::new(node_id);
+		tracing::debug!("Creating new connection to node {}", node_id);
+
+		let conn = endpoint
+			.connect(node_addr, alpn)
+			.await
+			.map_err(|e| NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e)))?;
+
+		// Cache the connection
+		{
+			let mut connections = self.connections.write().await;
+			connections.insert(node_id, conn.clone());
+		}
+
+		tracing::info!("Created new connection to node {}", node_id);
+		Ok(conn)
+	}
+
+	/// Send a library message to a remote node and wait for response
+	/// Uses cached connections and creates new streams (Iroh best practice)
+	pub async fn send_library_message(
+		&self,
+		node_id: NodeId,
+		message: LibraryMessage,
+	) -> Result<LibraryMessage> {
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+		use tokio::time::{timeout, Duration};
+
+		tracing::debug!("Sending library message to node {}: {:?}", node_id, message);
+
+		// Get or create cached connection
+		let conn = self
+			.get_or_create_connection(node_id, crate::service::network::core::MESSAGING_ALPN)
+			.await?;
+
+		// Create new stream on existing connection
+		let (mut send, mut recv) = conn.open_bi().await.map_err(|e| {
+			NetworkingError::ConnectionFailed(format!("Failed to open stream: {}", e))
+		})?;
+
+		// Wrap message in envelope
+		let envelope = Message::Library(message);
+		let msg_data =
+			serde_json::to_vec(&envelope).map_err(|e| NetworkingError::Serialization(e))?;
+
+		// Send with length prefix
+		let len = msg_data.len() as u32;
+		send.write_all(&len.to_be_bytes()).await.map_err(|e| {
+			NetworkingError::Transport(format!("Failed to send length: {}", e))
+		})?;
+		send.write_all(&msg_data).await.map_err(|e| {
+			NetworkingError::Transport(format!("Failed to send data: {}", e))
+		})?;
+
+		// Properly close stream (Iroh best practice)
+		send.finish().map_err(|e| {
+			NetworkingError::Transport(format!("Failed to finish stream: {}", e))
+		})?;
+
+		tracing::debug!("Message sent, waiting for response...");
+
+		// Read response with timeout
+		let result = timeout(Duration::from_secs(30), async {
+			let mut len_buf = [0u8; 4];
+			recv.read_exact(&mut len_buf).await.map_err(|e| {
+				NetworkingError::Transport(format!("Failed to read response length: {}", e))
+			})?;
+			let resp_len = u32::from_be_bytes(len_buf) as usize;
+
+			tracing::debug!("Receiving response of {} bytes", resp_len);
+
+			let mut resp_buf = vec![0u8; resp_len];
+			recv.read_exact(&mut resp_buf).await.map_err(|e| {
+				NetworkingError::Transport(format!("Failed to read response: {}", e))
+			})?;
+			Ok::<_, NetworkingError>(resp_buf)
+		})
+		.await;
+
+		let resp_buf = match result {
+			Ok(Ok(buf)) => buf,
+			Ok(Err(e)) => return Err(e),
+			Err(_) => {
+				return Err(NetworkingError::Transport(
+					"Request timed out after 30s".to_string(),
+				))
+			}
+		};
+
+		// Deserialize response
+		let envelope: Message =
+			serde_json::from_slice(&resp_buf).map_err(|e| NetworkingError::Serialization(e))?;
+
+		match envelope {
+			Message::Library(lib_msg) => {
+				tracing::debug!("Received library message response: {:?}", lib_msg);
+				Ok(lib_msg)
+			}
+			_ => Err(NetworkingError::Protocol(
+				"Expected Library message in response".to_string(),
+			)),
 		}
 	}
 }
 
-impl Default for MessagingProtocolHandler {
-	fn default() -> Self {
-		Self::new()
-	}
-}
 
 #[async_trait]
 impl ProtocolHandler for MessagingProtocolHandler {
 	fn protocol_name(&self) -> &str {
 		"messaging"
+	}
+
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
 	}
 
 	async fn handle_stream(
@@ -375,19 +587,30 @@ impl ProtocolHandler for MessagingProtocolHandler {
 						Message::Library(lib_msg) => {
 							// Handle library message - need to derive device_id from node_id
 							// For now, use a placeholder (TODO: proper mapping)
-							let device_id = Uuid::nil();
-							match self
-								.handle_library_message(device_id, lib_msg.clone())
-								.await
-							{
-								Ok(resp) => resp,
-								Err(e) => {
-									eprintln!("Failed to handle library message: {}", e);
-									Vec::new()
+							// Map node_id to device_id using registry
+						let device_id_opt = {
+							let registry = self.device_registry.read().await;
+							registry.get_device_by_node(remote_node_id)
+						};
+
+						let resp = match device_id_opt {
+							Some(device_id) => {
+								match self.handle_library_message(device_id, lib_msg.clone()).await {
+									Ok(resp) => resp,
+									Err(e) => {
+										tracing::error!("Failed to handle library message: {}", e);
+										Vec::new()
+									}
 								}
 							}
-						}
-						Message::Goodbye { reason, .. } => {
+							None => {
+								tracing::warn!("Received library message from unknown node {}", remote_node_id);
+								Vec::new()
+							}
+						};
+						resp
+					}
+					Message::Goodbye { reason, .. } => {
 							// Received graceful disconnect from remote device
 							eprintln!("Remote device disconnecting gracefully: {}", reason);
 							// Close the stream by breaking the loop
@@ -472,9 +695,5 @@ impl ProtocolHandler for MessagingProtocolHandler {
 	async fn handle_event(&self, _event: ProtocolEvent) -> Result<()> {
 		// Basic messaging doesn't need special event handling
 		Ok(())
-	}
-
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
 	}
 }
