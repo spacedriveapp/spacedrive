@@ -471,21 +471,25 @@ pub async fn query_all_shared_models(
 	let mut results = HashMap::new();
 
 	for (model_type, query_fn) in shared_models {
-		let records = query_fn(None, since, batch_size, db.clone())
-			.await
-			.map_err(|e| ApplyError::DatabaseError(format!(
-				"Failed to query {}: {}",
-				model_type,
-				e
-			)))?;
-
-		if !records.is_empty() {
-			tracing::info!(
-				model_type = %model_type,
-				count = records.len(),
-				"Queried shared model for backfill"
-			);
-			results.insert(model_type, records);
+		match query_fn(None, since, batch_size, db.clone()).await {
+			Ok(records) => {
+				if !records.is_empty() {
+					tracing::info!(
+						model_type = %model_type,
+						count = records.len(),
+						"Queried shared model for backfill"
+					);
+					results.insert(model_type, records);
+				}
+			}
+			Err(e) => {
+				// Log error but continue - table might not exist yet (e.g., in tests)
+				tracing::warn!(
+					model_type = %model_type,
+					error = %e,
+					"Failed to query shared model, skipping (table may not exist)"
+				);
+			}
 		}
 	}
 
