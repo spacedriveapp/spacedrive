@@ -30,7 +30,7 @@ use sd_core::{
 	library::Library,
 	Core,
 };
-use sea_orm::{ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use std::{collections::HashMap, sync::Arc};
 use tempfile::TempDir;
 use tokio::{sync::Mutex, time::Duration};
@@ -908,6 +908,440 @@ async fn test_sync_update_and_delete_operations() -> anyhow::Result<()> {
 
 	let tag_on_b = setup.find_tag(tag_uuid, &setup.library_b).await?;
 	assert!(tag_on_b.is_none(), "tag should be deleted");
+
+	Ok(())
+}
+
+// ========== Many-to-Many Sync Tests ==========
+
+#[tokio::test]
+async fn test_sync_collection_entry_m2m() -> anyhow::Result<()> {
+	let setup = SyncTestSetup::new().await?;
+
+	// Create a collection on device A
+	let collection = entities::collection::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(Uuid::new_v4()),
+		name: Set("Vacation Photos".to_string()),
+		description: Set(Some("Summer 2025 trip".to_string())),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let collection_record = collection.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model(&collection_record, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Create entries on both devices
+	let entry1 = setup.create_entry("photo1.jpg", 0, &setup.library_a, None).await?;
+	let entry2 = setup.create_entry("photo2.jpg", 0, &setup.library_a, None).await?;
+
+	setup.library_a.sync_model_with_db(&entry1, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model_with_db(&entry2, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Find the synced collection on device B to get its local ID
+	let collection_on_b = entities::collection::Entity::find()
+		.filter(entities::collection::Column::Uuid.eq(collection_record.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("collection should be synced");
+
+	// Find synced entries on device B
+	let entry1_on_b = entities::entry::Entity::find()
+		.filter(entities::entry::Column::Uuid.eq(entry1.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("entry1 should be synced");
+
+	let entry2_on_b = entities::entry::Entity::find()
+		.filter(entities::entry::Column::Uuid.eq(entry2.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("entry2 should be synced");
+
+	// Add entries to collection on device A
+	let collection_entry1 = entities::collection_entry::ActiveModel {
+		collection_id: Set(collection_record.id),
+		entry_id: Set(entry1.id),
+		added_at: Set(chrono::Utc::now()),
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let ce1_record = collection_entry1.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model_with_db(&ce1_record, ChangeType::Insert, setup.library_a.db().conn()).await?;
+
+	let collection_entry2 = entities::collection_entry::ActiveModel {
+		collection_id: Set(collection_record.id),
+		entry_id: Set(entry2.id),
+		added_at: Set(chrono::Utc::now()),
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let ce2_record = collection_entry2.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model_with_db(&ce2_record, ChangeType::Insert, setup.library_a.db().conn()).await?;
+
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify collection entries synced to device B with correct FK mapping
+	let entries_on_b = entities::collection_entry::Entity::find()
+		.filter(entities::collection_entry::Column::CollectionId.eq(collection_on_b.id))
+		.all(setup.library_b.db().conn())
+		.await?;
+
+	assert_eq!(entries_on_b.len(), 2, "both collection entries should sync");
+
+	let entry_ids: Vec<i32> = entries_on_b.iter().map(|e| e.entry_id).collect();
+	assert!(entry_ids.contains(&entry1_on_b.id), "entry1 should be in collection");
+	assert!(entry_ids.contains(&entry2_on_b.id), "entry2 should be in collection");
+
+	// Verify UUIDs match
+	let uuids_on_b: Vec<Uuid> = entries_on_b.iter().map(|e| e.uuid).collect();
+	assert!(uuids_on_b.contains(&ce1_record.uuid), "ce1 uuid should match");
+	assert!(uuids_on_b.contains(&ce2_record.uuid), "ce2 uuid should match");
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_sync_tag_relationship_m2m() -> anyhow::Result<()> {
+	let setup = SyncTestSetup::new().await?;
+
+	// Create parent and child tags on device A
+	let parent_tag = setup.create_tag("Animals", setup.device_a_id, &setup.library_a).await?;
+	let child_tag = setup.create_tag("Cats", setup.device_a_id, &setup.library_a).await?;
+
+	setup.library_a.sync_model(&parent_tag, ChangeType::Insert).await?;
+	setup.library_a.sync_model(&child_tag, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify tags synced to device B
+	let parent_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(parent_tag.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("parent tag should sync");
+
+	let child_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(child_tag.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("child tag should sync");
+
+	// Create relationship on device A
+	let relationship = entities::tag_relationship::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		parent_tag_id: Set(parent_tag.id),
+		child_tag_id: Set(child_tag.id),
+		relationship_type: Set("parent_child".to_string()),
+		strength: Set(1.0),
+		created_at: Set(chrono::Utc::now()),
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+		updated_at: Set(chrono::Utc::now()),
+	};
+
+	let relationship_record = relationship.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model_with_db(&relationship_record, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify relationship synced to device B with correct FK mapping
+	let relationship_on_b = entities::tag_relationship::Entity::find()
+		.filter(entities::tag_relationship::Column::Uuid.eq(relationship_record.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("tag relationship should sync");
+
+	assert_eq!(relationship_on_b.parent_tag_id, parent_on_b.id, "parent FK should map correctly");
+	assert_eq!(relationship_on_b.child_tag_id, child_on_b.id, "child FK should map correctly");
+	assert_eq!(relationship_on_b.relationship_type, "parent_child");
+	assert_eq!(relationship_on_b.strength, 1.0);
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_sync_user_metadata_tag_content_scoped_shared() -> anyhow::Result<()> {
+	let setup = SyncTestSetup::new().await?;
+
+	// Create tag
+	let tag = setup.create_tag("Favorite", setup.device_a_id, &setup.library_a).await?;
+	setup.library_a.sync_model(&tag, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Create content identity (shared resource)
+	let content_uuid = Uuid::new_v4();
+	let content_identity = entities::content_identity::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(Some(content_uuid)),
+		content_hash: Set("abc123".to_string()),
+		integrity_hash: Set(None),
+		mime_type_id: Set(None),
+		kind_id: Set(1), // Generic kind
+		text_content: Set(None),
+		total_size: Set(1024),
+		entry_count: Set(0),
+		first_seen_at: Set(chrono::Utc::now()),
+		last_verified_at: Set(chrono::Utc::now()),
+	};
+	let content_record = content_identity.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model(&content_record, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Create content-scoped user metadata
+	let user_metadata = entities::user_metadata::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(Uuid::new_v4()),
+		entry_uuid: Set(None),
+		content_identity_uuid: Set(Some(content_uuid)),
+		notes: Set(Some("Great photo!".to_string())),
+		favorite: Set(true),
+		hidden: Set(false),
+		custom_data: Set(serde_json::json!({})),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let metadata_record = user_metadata.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model(&metadata_record, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Get synced entities on device B
+	let tag_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("tag should sync");
+
+	let metadata_on_b = entities::user_metadata::Entity::find()
+		.filter(entities::user_metadata::Column::Uuid.eq(metadata_record.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("user_metadata should sync");
+
+	// Tag the content-scoped metadata on device A
+	let metadata_tag = entities::user_metadata_tag::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		user_metadata_id: Set(metadata_record.id),
+		tag_id: Set(tag.id),
+		applied_context: Set(None),
+		applied_variant: Set(None),
+		confidence: Set(1.0),
+		source: Set("user".to_string()),
+		instance_attributes: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+		device_uuid: Set(setup.device_a_id),
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+	};
+	let metadata_tag_record = metadata_tag.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model_with_db(&metadata_tag_record, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify user_metadata_tag synced to device B (content-scoped = shared)
+	let metadata_tag_on_b = entities::user_metadata_tag::Entity::find()
+		.filter(entities::user_metadata_tag::Column::Uuid.eq(metadata_tag_record.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("content-scoped user_metadata_tag should sync");
+
+	assert_eq!(metadata_tag_on_b.user_metadata_id, metadata_on_b.id, "user_metadata FK should map");
+	assert_eq!(metadata_tag_on_b.tag_id, tag_on_b.id, "tag FK should map");
+	assert_eq!(metadata_tag_on_b.source, "user");
+	assert_eq!(metadata_tag_on_b.confidence, 1.0);
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_sync_user_metadata_tag_entry_scoped_ownership_enforcement() -> anyhow::Result<()> {
+	let setup = SyncTestSetup::new().await?;
+
+	// Create tag
+	let tag = setup.create_tag("Work", setup.device_a_id, &setup.library_a).await?;
+	setup.library_a.sync_model(&tag, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Create location and entry on device A
+	let device_a = setup.find_device(setup.device_a_id, &setup.library_a).await?;
+	let location_entry = setup.create_entry("Documents", 1, &setup.library_a, None).await?;
+	setup.library_a.sync_model_with_db(&location_entry, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(1)).await?;
+
+	let location = entities::location::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(Uuid::new_v4()),
+		device_id: Set(device_a.id),
+		entry_id: Set(location_entry.id),
+		name: Set(Some("Work Drive".to_string())),
+		index_mode: Set("shallow".to_string()),
+		scan_state: Set("completed".to_string()),
+		last_scan_at: Set(Some(chrono::Utc::now())),
+		error_message: Set(None),
+		total_file_count: Set(0),
+		total_byte_size: Set(0),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	location.insert(setup.library_a.db().conn()).await?;
+
+	// Create entry-scoped user metadata on the location entry itself (simplifies ownership check)
+	let user_metadata = entities::user_metadata::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(Uuid::new_v4()),
+		entry_uuid: Set(location_entry.uuid),
+		content_identity_uuid: Set(None),
+		notes: Set(Some("Important document".to_string())),
+		favorite: Set(false),
+		hidden: Set(false),
+		custom_data: Set(serde_json::json!({})),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let metadata_record = user_metadata.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model(&metadata_record, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Tag the entry-scoped metadata on device A (owning device)
+	let metadata_tag_a = entities::user_metadata_tag::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		user_metadata_id: Set(metadata_record.id),
+		tag_id: Set(tag.id),
+		applied_context: Set(None),
+		applied_variant: Set(None),
+		confidence: Set(1.0),
+		source: Set("user".to_string()),
+		instance_attributes: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+		device_uuid: Set(setup.device_a_id),
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+	};
+	let metadata_tag_a_record = metadata_tag_a.insert(setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model_with_db(&metadata_tag_a_record, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify it synced (device A owns the entry)
+	let tag_on_b_count = entities::user_metadata_tag::Entity::find()
+		.filter(entities::user_metadata_tag::Column::Uuid.eq(metadata_tag_a_record.uuid))
+		.count(setup.library_b.db().conn())
+		.await?;
+	assert_eq!(tag_on_b_count, 1, "tag from owning device should sync");
+
+	// Now try to tag from device B (non-owning device)
+	let metadata_on_b = entities::user_metadata::Entity::find()
+		.filter(entities::user_metadata::Column::Uuid.eq(metadata_record.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("metadata should be synced");
+
+	let tag_on_b = entities::tag::Entity::find()
+		.filter(entities::tag::Column::Uuid.eq(tag.uuid))
+		.one(setup.library_b.db().conn())
+		.await?
+		.expect("tag should be synced");
+
+	let metadata_tag_b = entities::user_metadata_tag::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		user_metadata_id: Set(metadata_on_b.id),
+		tag_id: Set(tag_on_b.id),
+		applied_context: Set(None),
+		applied_variant: Set(None),
+		confidence: Set(0.8),
+		source: Set("ai".to_string()),
+		instance_attributes: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+		device_uuid: Set(setup.device_b_id), // Device B trying to tag
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+	};
+	let metadata_tag_b_record = metadata_tag_b.insert(setup.library_b.db().conn()).await?;
+	setup.library_b.sync_model_with_db(&metadata_tag_b_record, ChangeType::Insert, setup.library_b.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify device B's tag was REJECTED on device A (ownership enforcement)
+	let rejected_tag_on_a = entities::user_metadata_tag::Entity::find()
+		.filter(entities::user_metadata_tag::Column::Uuid.eq(metadata_tag_b_record.uuid))
+		.one(setup.library_a.db().conn())
+		.await?;
+
+	assert!(rejected_tag_on_a.is_none(), "entry-scoped tag from non-owning device should be rejected");
+
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_m2m_dependency_ordering() -> anyhow::Result<()> {
+	let setup = SyncTestSetup::new().await?;
+
+	// Create all dependencies in correct order
+	let tag = setup.create_tag("Photo", setup.device_a_id, &setup.library_a).await?;
+	let collection = entities::collection::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(Uuid::new_v4()),
+		name: Set("Gallery".to_string()),
+		description: Set(None),
+		created_at: Set(chrono::Utc::now()),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let collection_record = collection.insert(setup.library_a.db().conn()).await?;
+
+	let entry = setup.create_entry("image.jpg", 0, &setup.library_a, None).await?;
+
+	// Sync dependencies
+	setup.library_a.sync_model(&tag, ChangeType::Insert).await?;
+	setup.library_a.sync_model(&collection_record, ChangeType::Insert).await?;
+	setup.library_a.sync_model_with_db(&entry, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Now create M2M relationships
+	let collection_entry = entities::collection_entry::ActiveModel {
+		collection_id: Set(collection_record.id),
+		entry_id: Set(entry.id),
+		added_at: Set(chrono::Utc::now()),
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let ce_record = collection_entry.insert(setup.library_a.db().conn()).await?;
+
+	let parent_tag = setup.create_tag("Media", setup.device_a_id, &setup.library_a).await?;
+	setup.library_a.sync_model(&parent_tag, ChangeType::Insert).await?;
+	setup.wait_for_sync(Duration::from_secs(1)).await?;
+
+	let tag_relationship = entities::tag_relationship::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		parent_tag_id: Set(parent_tag.id),
+		child_tag_id: Set(tag.id),
+		relationship_type: Set("parent_child".to_string()),
+		strength: Set(1.0),
+		created_at: Set(chrono::Utc::now()),
+		uuid: Set(Uuid::new_v4()),
+		version: Set(1),
+		updated_at: Set(chrono::Utc::now()),
+	};
+	let tr_record = tag_relationship.insert(setup.library_a.db().conn()).await?;
+
+	// Sync M2M relationships
+	setup.library_a.sync_model_with_db(&ce_record, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.library_a.sync_model_with_db(&tr_record, ChangeType::Insert, setup.library_a.db().conn()).await?;
+	setup.wait_for_sync(Duration::from_secs(2)).await?;
+
+	// Verify both M2M relationships synced successfully
+	let ce_on_b = entities::collection_entry::Entity::find()
+		.filter(entities::collection_entry::Column::Uuid.eq(ce_record.uuid))
+		.one(setup.library_b.db().conn())
+		.await?;
+	assert!(ce_on_b.is_some(), "collection_entry should sync after dependencies");
+
+	let tr_on_b = entities::tag_relationship::Entity::find()
+		.filter(entities::tag_relationship::Column::Uuid.eq(tr_record.uuid))
+		.one(setup.library_b.db().conn())
+		.await?;
+	assert!(tr_on_b.is_some(), "tag_relationship should sync after dependencies");
 
 	Ok(())
 }

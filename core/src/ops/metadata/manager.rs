@@ -147,6 +147,8 @@ impl UserMetadataManager {
 					created_at: Set(app.created_at),
 					updated_at: Set(Utc::now()),
 					device_uuid: Set(device_uuid),
+					uuid: Set(Uuid::new_v4()),
+					version: Set(1),
 				};
 
 				// Insert or update if exists

@@ -543,6 +543,9 @@ impl TagManager {
 			relationship_type: Set(relationship_type.as_str().to_string()),
 			strength: Set(strength),
 			created_at: Set(Utc::now()),
+			uuid: Set(Uuid::new_v4()),
+			version: Set(1),
+			updated_at: Set(Utc::now()),
 		};
 
 		relationship

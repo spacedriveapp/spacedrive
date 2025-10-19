@@ -86,7 +86,7 @@ impl MigrationTrait for Migration {
 						ForeignKey::create()
 							.name("fk_collection_entry_entry")
 							.from(CollectionEntry::Table, CollectionEntry::EntryId)
-							.to(Entry::Table, Entry::Id)
+							.to(Entries::Table, Entries::Id)
 							.on_delete(ForeignKeyAction::Cascade),
 					)
 					.to_owned(),
@@ -150,7 +150,7 @@ enum CollectionEntry {
 }
 
 #[derive(Iden)]
-enum Entry {
+enum Entries {
 	Table,
 	Id,
 }

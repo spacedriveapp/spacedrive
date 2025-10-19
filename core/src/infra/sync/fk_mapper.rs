@@ -170,6 +170,20 @@ async fn lookup_uuid_for_local_id(
 				.ok_or_else(|| anyhow!("Volume with id={} not found", local_id))?;
 			Ok(volume.uuid)
 		}
+		"collection" => {
+			let collection = entities::collection::Entity::find_by_id(local_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| anyhow!("Collection with id={} not found", local_id))?;
+			Ok(collection.uuid)
+		}
+		"tag" => {
+			let tag = entities::tag::Entity::find_by_id(local_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| anyhow!("Tag with id={} not found", local_id))?;
+			Ok(tag.uuid)
+		}
 		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
 	}
 }
@@ -292,6 +306,32 @@ async fn lookup_local_id_for_uuid(table: &str, uuid: Uuid, db: &DatabaseConnecti
 					)
 				})?;
 			Ok(volume.id)
+		}
+		"collection" => {
+			let collection = entities::collection::Entity::find()
+				.filter(entities::collection::Column::Uuid.eq(uuid))
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					anyhow!(
+						"Collection with uuid={} not found (sync dependency missing)",
+						uuid
+					)
+				})?;
+			Ok(collection.id)
+		}
+		"tag" => {
+			let tag = entities::tag::Entity::find()
+				.filter(entities::tag::Column::Uuid.eq(uuid))
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					anyhow!(
+						"Tag with uuid={} not found (sync dependency missing)",
+						uuid
+					)
+				})?;
+			Ok(tag.id)
 		}
 		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
 	}
