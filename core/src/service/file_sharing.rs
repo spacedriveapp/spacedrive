@@ -171,7 +171,7 @@ impl FileSharingService {
 			.context
 			.device_manager
 			.get_device_slug(device_id)
-			.unwrap_or_else(|| format!("device-{}", device_id));
+			.ok_or_else(|| SharingError::DeviceNotFound(device_id))?;
 		let destination = SdPath::new(device_slug, destination_path.unwrap_or_default());
 		let copy_job = FileCopyJob::from_paths(sources, destination);
 

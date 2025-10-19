@@ -415,6 +415,7 @@ mod tests {
 		DeviceInfo {
 			device_id: Uuid::new_v4(),
 			device_name: "Test Device".to_string(),
+			device_slug: "test-device".to_string(),
 			device_type: super::super::DeviceType::Desktop,
 			os_version: "Test OS 1.0".to_string(),
 			app_version: "1.0.0".to_string(),
@@ -464,7 +465,7 @@ mod tests {
 		let session_keys = SessionKeys::from_shared_secret(vec![1, 2, 3, 4]);
 
 		persistence
-			.add_paired_device(device_id, device_info, session_keys, vec![])
+			.add_paired_device(device_id, device_info, session_keys)
 			.await
 			.unwrap();
 
@@ -482,7 +483,7 @@ mod tests {
 		let session_keys = SessionKeys::from_shared_secret(vec![1, 2, 3, 4]);
 
 		persistence
-			.add_paired_device(device_id, device_info, session_keys, vec![])
+			.add_paired_device(device_id, device_info, session_keys)
 			.await
 			.unwrap();
 
@@ -540,7 +541,7 @@ mod tests {
 
 		// Add device
 		persistence
-			.add_paired_device(device_id, device_info, session_keys, vec![])
+			.add_paired_device(device_id, device_info, session_keys)
 			.await
 			.unwrap();
 

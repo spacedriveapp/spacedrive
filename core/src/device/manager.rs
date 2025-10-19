@@ -42,9 +42,9 @@ pub struct DeviceManager {
 	device_key_manager: DeviceKeyManager,
 	/// Custom data directory (if any)
 	data_dir: Option<PathBuf>,
-	/// In-memory cache of all devices in the library (slug -> device_id)
-	/// Populated when library loads, provides O(1) slug resolution for all devices
-	device_cache: Arc<RwLock<HashMap<String, Uuid>>>,
+	/// Pre-library cache: Paired devices from DeviceRegistry (slug -> device_id)
+	/// Used for operations before library membership (e.g., pairing, standalone file transfers)
+	paired_device_cache: Arc<RwLock<HashMap<String, Uuid>>>,
 }
 
 impl DeviceManager {
@@ -91,7 +91,7 @@ impl DeviceManager {
 			config: Arc::new(RwLock::new(config)),
 			device_key_manager,
 			data_dir: Some(data_dir.clone()),
-			device_cache: Arc::new(RwLock::new(HashMap::new())),
+			paired_device_cache: Arc::new(RwLock::new(HashMap::new())),
 		})
 	}
 
@@ -103,27 +103,28 @@ impl DeviceManager {
 			.map_err(|_| DeviceError::LockPoisoned)
 	}
 
-	/// Resolve device UUID from slug
-	/// Checks in-memory cache (all library devices) then falls back to current device config
+	/// Resolve device UUID from slug (pre-library / paired devices)
+	/// Used for operations before library membership (e.g., standalone file transfers)
+	/// For library operations, use Library::resolve_device_slug() instead
 	pub fn resolve_by_slug(&self, slug: &str) -> Option<Uuid> {
-		// Check cache first (covers all library devices)
-		if let Ok(cache) = self.device_cache.read() {
-			if let Some(&device_id) = cache.get(slug) {
-				return Some(device_id);
+		// Priority 1: Check if it's the current device first
+		if let Ok(config) = self.config.read() {
+			if config.slug == slug {
+				return Some(config.id);
 			}
 		}
 
-		// Fallback: check if it's the current device
-		let config = self.config.read().ok()?;
-		if config.slug == slug {
-			Some(config.id)
+		// Priority 2: Check paired devices cache
+		if let Ok(cache) = self.paired_device_cache.read() {
+			cache.get(slug).copied()
 		} else {
 			None
 		}
 	}
 
-	/// Resolve device slug from UUID
-	/// Inverse of resolve_by_slug - checks cache and current device config
+	/// Resolve device slug from UUID (pre-library / paired devices)
+	/// Inverse of resolve_by_slug - checks current device config and paired device cache
+	/// For library operations, query the Library's device cache instead
 	pub fn get_device_slug(&self, device_id: Uuid) -> Option<String> {
 		// Check if it's the current device first
 		if let Ok(config) = self.config.read() {
@@ -132,8 +133,8 @@ impl DeviceManager {
 			}
 		}
 
-		// Search cache for matching UUID
-		if let Ok(cache) = self.device_cache.read() {
+		// Search paired device cache for matching UUID
+		if let Ok(cache) = self.paired_device_cache.read() {
 			for (slug, &cached_id) in cache.iter() {
 				if cached_id == device_id {
 					return Some(slug.clone());
@@ -144,8 +145,10 @@ impl DeviceManager {
 		None
 	}
 
-	/// Load devices from library database into cache
-	/// Called when a library is opened to enable slug resolution for all devices
+	/// Load devices from library database into paired device cache
+	/// DEPRECATED: Use Library::load_device_cache_from_db() instead for library-scoped resolution
+	/// This method is only for pre-library operations (e.g., pairing)
+	#[deprecated(note = "Use Library::load_device_cache_from_db() for library-specific devices")]
 	pub async fn load_library_devices(
 		&self,
 		db: &sea_orm::DatabaseConnection,
@@ -157,32 +160,34 @@ impl DeviceManager {
 			DeviceError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
 		})?;
 
-		let mut cache = self.device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+		let mut cache = self.paired_device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
 		cache.clear();
 
 		for device in devices {
 			cache.insert(device.slug, device.uuid);
 		}
 
-		tracing::debug!("Loaded {} devices into DeviceManager cache", cache.len());
+		tracing::debug!("Loaded {} devices into DeviceManager paired cache", cache.len());
 
 		Ok(())
 	}
 
-	/// Clear the device cache (when library closes)
-	pub fn clear_device_cache(&self) -> Result<(), DeviceError> {
-		let mut cache = self.device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+	/// Clear the paired device cache
+	/// Used for cleanup when pairing state needs to be reset
+	pub fn clear_paired_device_cache(&self) -> Result<(), DeviceError> {
+		let mut cache = self.paired_device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
 		let count = cache.len();
 		cache.clear();
-		tracing::debug!("Cleared {} devices from DeviceManager cache", count);
+		tracing::debug!("Cleared {} paired devices from DeviceManager cache", count);
 		Ok(())
 	}
 
-	/// Add a device to the cache (when new device pairs or syncs)
-	pub fn cache_device(&self, slug: String, device_id: Uuid) -> Result<(), DeviceError> {
-		let mut cache = self.device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+	/// Add a paired device to the pre-library cache (when new device pairs)
+	/// For library-specific device caching, use Library::cache_device() instead
+	pub fn cache_paired_device(&self, slug: String, device_id: Uuid) -> Result<(), DeviceError> {
+		let mut cache = self.paired_device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
 		cache.insert(slug.clone(), device_id);
-		tracing::debug!("Cached device: {} -> {}", slug, device_id);
+		tracing::debug!("Cached paired device: {} -> {}", slug, device_id);
 		Ok(())
 	}
 

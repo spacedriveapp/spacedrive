@@ -243,6 +243,9 @@ impl LibraryManager {
 			Arc::new(JobManager::new(path.to_path_buf(), context.clone(), config.id).await?);
 		job_manager.initialize().await?;
 
+		// Load device cache from library database
+		let device_cache = Library::load_device_cache_from_db(&db).await?;
+
 		// Create library instance
 		let library = Arc::new(Library {
 			path: path.to_path_buf(),
@@ -253,24 +256,21 @@ impl LibraryManager {
 			event_bus: self.event_bus.clone(),
 			transaction_manager,
 			sync_service: OnceCell::new(), // Initialized later
+			device_cache: Arc::new(std::sync::RwLock::new(device_cache)),
 			_lock: lock,
 		});
 
 		// Ensure device is registered in this library
 		if let Err(e) = self.ensure_device_registered(&library).await {
 			warn!("Failed to register device in library {}: {}", config.id, e);
-		}
-
-		// Load all library devices into DeviceManager cache for slug resolution
-		if let Err(e) = context
-			.device_manager
-			.load_library_devices(library.db().conn())
-			.await
-		{
-			warn!(
-				"Failed to load library devices into cache for {}: {}",
-				config.id, e
-			);
+		} else {
+			// Reload cache after device registration
+			if let Err(e) = library.reload_device_cache().await {
+				warn!(
+					"Failed to reload device cache after registration for {}: {}",
+					config.id, e
+				);
+			}
 		}
 
 		// Register library
