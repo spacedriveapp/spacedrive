@@ -26,6 +26,7 @@ pub use registry::DeviceRegistry;
 pub struct DeviceInfo {
 	pub device_id: Uuid,
 	pub device_name: String,
+	pub device_slug: String,
 	pub device_type: DeviceType,
 	pub os_version: String,
 	pub app_version: String,
