@@ -716,7 +716,7 @@ impl LibraryManager {
 				id: sea_orm::ActiveValue::NotSet,
 				uuid: Set(device.id),
 				name: Set(device.name.clone()),
-				slug: Set(crate::domain::device::Device::generate_slug(&device.name)),
+				slug: Set(device.slug.clone()),
 				os: Set(device.os.to_string()),
 				os_version: Set(None),
 				hardware_model: Set(device.hardware_model),

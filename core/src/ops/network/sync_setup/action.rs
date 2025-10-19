@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+#[derive(Clone)]
 pub struct LibrarySyncSetupAction {
 	input: LibrarySyncSetupInput,
 }
@@ -87,10 +88,8 @@ impl CoreAction for LibrarySyncSetupAction {
 				leader_device_id,
 				name,
 			} => {
-				// Future implementation
-				Err(ActionError::Internal(
-					"CreateShared not yet implemented - requires sync system".to_string(),
-				))
+				self.execute_create_shared(context.clone(), &local_library, name.clone())
+					.await
 			}
 		}
 	}
@@ -276,6 +275,84 @@ impl LibrarySyncSetupAction {
 			devices_registered: true,
 			message: "Devices successfully registered for library access".to_string(),
 		})
+	}
+
+	/// Execute CreateShared action - create shared library on both devices
+	async fn execute_create_shared(
+		&self,
+		context: Arc<crate::context::CoreContext>,
+		local_library: &Arc<crate::library::Library>,
+		_name: String,
+	) -> Result<LibrarySyncSetupOutput, ActionError> {
+		info!(
+			"Creating shared library: local_library={}, remote_device={}",
+			self.input.local_library_id, self.input.remote_device_id
+		);
+
+		let library_id = local_library.id();
+		let library_name = local_library.name().await;
+		let config = local_library.config().await;
+
+		// Get networking
+		let networking = context
+			.get_networking()
+			.await
+			.ok_or_else(|| ActionError::Internal("Networking not available".to_string()))?;
+
+		// Send CreateSharedLibraryRequest to remote device
+		use crate::service::network::protocol::library_messages::LibraryMessage;
+
+		let request = LibraryMessage::CreateSharedLibraryRequest {
+			request_id: Uuid::new_v4(),
+			library_id,
+			library_name: library_name.clone(),
+			description: config.description.clone(),
+		};
+
+		info!(
+			"Sending CreateSharedLibraryRequest to remote device: library={}, name={}",
+			library_id, library_name
+		);
+
+		let response = networking
+			.send_library_request(self.input.remote_device_id, request)
+			.await
+			.map_err(|e| {
+				ActionError::Internal(format!("Failed to send create library request: {}", e))
+			})?;
+
+		// Check response
+		match response {
+			LibraryMessage::CreateSharedLibraryResponse {
+				request_id: _,
+				success: true,
+				message,
+			} => {
+				info!(
+					"Remote device successfully created shared library: {}",
+					message.unwrap_or_else(|| "No message".to_string())
+				);
+
+				// Update remote_library_id to point to the newly created library
+				// (same UUID as local library since we shared it)
+				let mut modified_self = self.clone();
+				modified_self.input.remote_library_id = Some(library_id);
+
+				// Now register both devices in the library
+				modified_self.execute_register_only(context, local_library).await
+			}
+			LibraryMessage::CreateSharedLibraryResponse {
+				request_id: _,
+				success: false,
+				message,
+			} => Err(ActionError::Internal(format!(
+				"Remote device failed to create library: {}",
+				message.unwrap_or_else(|| "Unknown error".to_string())
+			))),
+			_ => Err(ActionError::Internal(
+				"Unexpected response from remote device".to_string(),
+			)),
+		}
 	}
 }
 

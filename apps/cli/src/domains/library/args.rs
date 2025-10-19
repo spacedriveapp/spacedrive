@@ -106,9 +106,13 @@ pub struct SetupArgs {
 	#[arg(long)]
 	pub remote_library: Option<Uuid>,
 
-	/// Sync action: register-only (others coming in Phase 3)
+	/// Sync action: register-only, create-shared
 	#[arg(long, default_value = "register-only")]
 	pub action: String,
+
+	/// Library name for create-shared action
+	#[arg(long)]
+	pub name: Option<String>,
 
 	/// DEPRICATED: Leader device: "local" or "remote"
 	#[arg(long, default_value = "local")]
@@ -145,8 +149,18 @@ impl SetupArgs {
 		// Parse action
 		let action = match self.action.as_str() {
 			"register-only" => LibrarySyncAction::RegisterOnly,
+			"create-shared" => {
+				let name = self
+					.name
+					.clone()
+					.ok_or_else(|| anyhow::anyhow!("--name is required for create-shared action"))?;
+				LibrarySyncAction::CreateShared {
+					leader_device_id,
+					name,
+				}
+			}
 			_ => anyhow::bail!(
-				"Invalid action '{}'. Currently supported: register-only",
+				"Invalid action '{}'. Supported: register-only, create-shared",
 				self.action
 			),
 		};
