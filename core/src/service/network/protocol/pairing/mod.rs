@@ -18,7 +18,7 @@ pub use types::{PairingAdvertisement, PairingCode, PairingRole, PairingSession, 
 use super::{ProtocolEvent, ProtocolHandler};
 use crate::service::network::{
 	device::{DeviceInfo, DeviceRegistry, SessionKeys},
-	utils::{identity::NetworkFingerprint, logging::NetworkLogger, NetworkIdentity},
+	utils::{self, identity::NetworkFingerprint, logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
 use async_trait::async_trait;
@@ -330,61 +330,6 @@ impl PairingProtocolHandler {
 		Ok(())
 	}
 
-	/// Get or create a connection to a specific node
-	/// This method implements the Iroh best practice of reusing connections
-	/// and creating new streams for each message exchange
-	async fn get_or_create_connection(
-		&self,
-		node_id: NodeId,
-		alpn: &'static [u8],
-	) -> Result<Connection> {
-		{
-			let connections = self.connections.read().await;
-			if let Some(conn) = connections.get(&node_id) {
-				if conn.close_reason().is_none() {
-					self.log_debug(&format!(
-						"Reusing existing connection to node {}",
-						node_id
-					))
-					.await;
-					return Ok(conn.clone());
-				} else {
-					self.log_debug(&format!(
-						"Cached connection to node {} is closed, creating new one",
-						node_id
-					))
-					.await;
-				}
-			}
-		}
-
-		let endpoint = self.endpoint.as_ref().ok_or_else(|| {
-			NetworkingError::ConnectionFailed("No endpoint available".to_string())
-		})?;
-
-		let node_addr = NodeAddr::new(node_id);
-		self.log_debug(&format!(
-			"Creating new connection to node {} with ALPN",
-			node_id
-		))
-		.await;
-
-		let conn = endpoint.connect(node_addr, alpn).await.map_err(|e| {
-			NetworkingError::ConnectionFailed(format!("Failed to connect to {}: {}", node_id, e))
-		})?;
-
-		{
-			let mut connections = self.connections.write().await;
-			connections.insert(node_id, conn.clone());
-			self.log_info(&format!(
-				"Established and cached new connection to node {}",
-				node_id
-			))
-			.await;
-		}
-
-		Ok(conn)
-	}
 
 	/// Get device info for advertising in DHT records
 	pub async fn get_device_info(&self) -> Result<DeviceInfo> {
@@ -659,15 +604,20 @@ impl PairingProtocolHandler {
 	/// - Keeps connections alive for future messages
 	pub async fn send_pairing_message_to_node(
 		&self,
-		_endpoint: &Endpoint,
+		endpoint: &Endpoint,
 		node_id: NodeId,
 		message: &PairingMessage,
 	) -> Result<Option<PairingMessage>> {
 		use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-		let conn = self
-			.get_or_create_connection(node_id, crate::service::network::core::PAIRING_ALPN)
-			.await?;
+		let conn = utils::get_or_create_connection(
+			self.connections.clone(),
+			endpoint,
+			node_id,
+			crate::service::network::core::PAIRING_ALPN,
+			&self.logger,
+		)
+		.await?;
 
 		let (mut send, mut recv) = conn.open_bi().await.map_err(|e| {
 			NetworkingError::ConnectionFailed(format!("Failed to open stream: {}", e))

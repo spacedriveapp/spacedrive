@@ -1,7 +1,7 @@
 //! Basic messaging protocol handler
 
 use super::{library_messages::LibraryMessage, ProtocolEvent, ProtocolHandler};
-use crate::service::network::{NetworkingError, Result};
+use crate::service::network::{utils, NetworkingError, Result};
 use async_trait::async_trait;
 use iroh::{endpoint::Connection, Endpoint, NodeAddr, NodeId};
 use serde::{Deserialize, Serialize};
@@ -395,51 +395,6 @@ impl MessagingProtocolHandler {
 		}
 	}
 
-	/// Get or create a connection to a specific node
-	/// Implements Iroh best practice of reusing persistent connections
-	async fn get_or_create_connection(
-		&self,
-		node_id: NodeId,
-		alpn: &'static [u8],
-	) -> Result<Connection> {
-		// Check cache first
-		{
-			let connections = self.connections.read().await;
-			if let Some(conn) = connections.get(&node_id) {
-				if conn.close_reason().is_none() {
-					tracing::debug!("Reusing existing connection to node {}", node_id);
-					return Ok(conn.clone());
-				} else {
-					tracing::debug!(
-						"Cached connection to node {} is closed, creating new one",
-						node_id
-					);
-				}
-			}
-		}
-
-		// Create new connection
-		let endpoint = self.endpoint.as_ref().ok_or_else(|| {
-			NetworkingError::ConnectionFailed("No endpoint available".to_string())
-		})?;
-
-		let node_addr = NodeAddr::new(node_id);
-		tracing::debug!("Creating new connection to node {}", node_id);
-
-		let conn = endpoint
-			.connect(node_addr, alpn)
-			.await
-			.map_err(|e| NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e)))?;
-
-		// Cache the connection
-		{
-			let mut connections = self.connections.write().await;
-			connections.insert(node_id, conn.clone());
-		}
-
-		tracing::info!("Created new connection to node {}", node_id);
-		Ok(conn)
-	}
 
 	/// Send a library message to a remote node and wait for response
 	/// Uses cached connections and creates new streams (Iroh best practice)
@@ -454,9 +409,19 @@ impl MessagingProtocolHandler {
 		tracing::debug!("Sending library message to node {}: {:?}", node_id, message);
 
 		// Get or create cached connection
-		let conn = self
-			.get_or_create_connection(node_id, crate::service::network::core::MESSAGING_ALPN)
-			.await?;
+		let endpoint = self.endpoint.as_ref().ok_or_else(|| {
+			NetworkingError::ConnectionFailed("No endpoint available".to_string())
+		})?;
+
+		let logger: Arc<dyn utils::NetworkLogger> = Arc::new(utils::SilentLogger);
+		let conn = utils::get_or_create_connection(
+			self.connections.clone(),
+			endpoint,
+			node_id,
+			crate::service::network::core::MESSAGING_ALPN,
+			&logger,
+		)
+		.await?;
 
 		// Create new stream on existing connection
 		let (mut send, mut recv) = conn.open_bi().await.map_err(|e| {

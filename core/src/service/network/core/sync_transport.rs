@@ -5,7 +5,7 @@
 
 use crate::{
 	infra::sync::NetworkTransport,
-	service::network::{protocol::sync::messages::SyncMessage, NetworkingError},
+	service::network::{protocol::sync::messages::SyncMessage, utils, NetworkingError},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -27,8 +27,9 @@ impl NetworkTransport for NetworkingService {
 	///
 	/// 1. Look up NodeId for device UUID via DeviceRegistry
 	/// 2. Serialize the SyncMessage to JSON bytes
-	/// 3. Send via Iroh endpoint using the sync protocol ALPN
-	/// 4. Handle errors gracefully (device may be offline)
+	/// 3. Get or reuse cached connection (Iroh best practice)
+	/// 4. Open new stream on existing connection (essentially 0 RTT)
+	/// 5. Handle errors gracefully (device may be offline)
 	async fn send_sync_message(&self, target_device: Uuid, message: SyncMessage) -> Result<()> {
 		// 1. Look up NodeId for device UUID
 		let node_id = {
@@ -55,25 +56,31 @@ impl NetworkTransport for NetworkingService {
 		let bytes = serde_json::to_vec(&message)
 			.map_err(|e| anyhow::anyhow!("Failed to serialize sync message: {}", e))?;
 
-		// 3. Send via Iroh endpoint
+		// 3. Get or reuse cached connection
 		let endpoint = self
 			.endpoint
 			.as_ref()
 			.ok_or_else(|| anyhow::anyhow!("Network endpoint not initialized"))?;
 
-		// Open a connection and send
-		// Note: Iroh handles connection pooling, so repeated calls are efficient
-		let conn = endpoint.connect(node_id, SYNC_ALPN).await.map_err(|e| {
+		let conn = utils::get_or_create_connection(
+			self.active_connections.clone(),
+			endpoint,
+			node_id,
+			SYNC_ALPN,
+			&self.logger,
+		)
+		.await
+		.map_err(|e| {
 			warn!(
 				device_uuid = %target_device,
 				node_id = %node_id,
 				error = %e,
-				"Failed to connect to device for sync"
+				"Failed to get connection to device for sync"
 			);
 			anyhow::anyhow!("Failed to connect to {}: {}", target_device, e)
 		})?;
 
-		// Open a unidirectional stream and send the message
+		// 4. Open a unidirectional stream and send the message
 		let mut send = conn
 			.open_uni()
 			.await
