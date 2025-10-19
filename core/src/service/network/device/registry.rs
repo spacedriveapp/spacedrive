@@ -91,6 +91,19 @@ impl DeviceRegistry {
 					))
 					.await;
 			}
+
+			// Cache the paired device slug for pre-library address resolution
+			if let Err(e) = self.device_manager.cache_paired_device(
+				persisted_device.device_info.device_slug.clone(),
+				device_id,
+			) {
+				self.logger
+					.warn(&format!(
+						"Failed to cache paired device slug for {}: {}",
+						persisted_device.device_info.device_name, e
+					))
+					.await;
+			}
 		}
 
 		Ok(loaded_device_ids)
@@ -175,6 +188,26 @@ impl DeviceRegistry {
 
 		self.devices.insert(device_id, state);
 
+		// Cache the paired device slug for pre-library address resolution
+		if let Err(e) = self
+			.device_manager
+			.cache_paired_device(info.device_slug.clone(), device_id)
+		{
+			self.logger
+				.warn(&format!(
+					"Failed to cache paired device slug for {}: {}",
+					info.device_name, e
+				))
+				.await;
+		} else {
+			self.logger
+				.debug(&format!(
+					"Cached device slug: {} -> {}",
+					info.device_slug, device_id
+				))
+				.await;
+		}
+
 		// Persist the paired device for future reconnection
 		if let Err(e) = self
 			.persistence
@@ -193,6 +226,13 @@ impl DeviceRegistry {
 				.debug(&format!("Persisted paired device: {}", device_id))
 				.await;
 		}
+
+		self.logger
+			.info(&format!(
+				"Paired device {} (slug: {}, id: {})",
+				info.device_name, info.device_slug, device_id
+			))
+			.await;
 
 		Ok(())
 	}
@@ -431,11 +471,13 @@ impl DeviceRegistry {
 			NetworkingError::Protocol(format!("Failed to get device config: {}", e))
 		})?;
 		let device_name = config.name;
+		let device_slug = config.slug;
 
 		// TODO: Get actual values from device manager or system
 		Ok(DeviceInfo {
 			device_id,
 			device_name,
+			device_slug,
 			device_type: super::DeviceType::Desktop, // TODO: Detect actual device type
 			os_version: std::env::consts::OS.to_string(),
 			app_version: env!("CARGO_PKG_VERSION").to_string(),

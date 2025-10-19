@@ -258,9 +258,24 @@ impl CopyStrategy for RemoteTransferStrategy {
 		verify_checksum: bool,
 		progress_callback: Option<&ProgressCallback<'a>>,
 	) -> Result<u64> {
-		debug!("RemoteTransferStrategy: {} -> device:{}",
+		// Get destination device slug and resolve to UUID
+		let dest_device_slug = destination.device_slug()
+			.ok_or_else(|| anyhow::anyhow!("Destination must have a device slug for cross-device transfer"))?;
+
+		// Resolve device slug to UUID using library-specific device cache
+		let library = ctx.library();
+		let dest_device_id = library
+			.resolve_device_slug(dest_device_slug)
+			.ok_or_else(|| anyhow::anyhow!(
+				"Could not resolve destination device slug '{}' to UUID in library {}. Device may not be registered in this library.",
+				dest_device_slug,
+				library.id()
+			))?;
+
+		debug!("RemoteTransferStrategy: {} -> device:{} ({})",
 			source,
-			destination.device_id().unwrap_or_default());
+			dest_device_slug,
+			dest_device_id);
 
 		// Get networking service
 		let networking = ctx.networking_service()
@@ -278,16 +293,18 @@ impl CopyStrategy for RemoteTransferStrategy {
 			.map(Some)
 			.map_err(|e| anyhow::anyhow!("Failed to calculate checksum: {}", e))?;
 
-		info!("Initiating cross-device transfer: {} ({} bytes) -> device:{}",
+		info!("Initiating cross-device transfer: {} ({} bytes) -> device:{} ({})",
 			local_path.display(),
 			file_size,
-			destination.device_id().unwrap_or_default());
+			dest_device_slug,
+			dest_device_id);
 
 		ctx.log(format!(
-			"Initiating cross-device transfer: {} ({} bytes) -> device:{}",
+			"Initiating cross-device transfer: {} ({} bytes) -> device:{} ({})",
 			local_path.display(),
 			file_size,
-			destination.device_id().unwrap_or_default()
+			dest_device_slug,
+			dest_device_id
 		));
 
 		// Create file metadata for transfer
@@ -321,7 +338,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 		// Initiate transfer
 		let transfer_id = file_transfer_protocol
 			.initiate_transfer(
-				destination.device_id().unwrap_or_default(),
+				dest_device_id,
 				local_path.to_path_buf(),
 				crate::service::network::protocol::TransferMode::TrustedCopy,
 			)
@@ -335,7 +352,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 			transfer_id,
 			file_transfer_protocol,
 			file_size,
-			destination.device_id().unwrap_or_default(),
+			dest_device_id,
 			destination.path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
 			file_metadata,
 			ctx,

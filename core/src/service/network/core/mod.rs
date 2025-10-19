@@ -1611,6 +1611,7 @@ impl NetworkingService {
 						crate::service::network::device::DeviceInfo {
 							device_id: self.device_id(),
 							device_name: "Joiner Device".to_string(),
+							device_slug: crate::device::get_current_device_slug(),
 							device_type: crate::service::network::device::DeviceType::Desktop,
 							os_version: std::env::consts::OS.to_string(),
 							app_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -1771,6 +1772,7 @@ impl NetworkingService {
 							crate::service::network::device::DeviceInfo {
 								device_id: self.device_id(),
 								device_name: "Joiner's Test Device".to_string(),
+								device_slug: crate::device::get_current_device_slug(),
 								device_type: crate::service::network::device::DeviceType::Desktop,
 								os_version: std::env::consts::OS.to_string(),
 								app_version: env!("CARGO_PKG_VERSION").to_string(),

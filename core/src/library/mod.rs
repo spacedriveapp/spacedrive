@@ -19,8 +19,9 @@ use crate::infra::{
 	db::Database, event::EventBus, job::manager::JobManager, sync::TransactionManager,
 };
 use once_cell::sync::OnceCell;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock as StdRwLock};
 use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
@@ -50,6 +51,10 @@ pub struct Library {
 
 	/// Sync service for real-time synchronization (initialized after library creation)
 	sync_service: OnceCell<Arc<crate::service::sync::SyncService>>,
+
+	/// Library-specific device cache (slug → UUID)
+	/// Loaded from this library's devices table for per-library device resolution
+	device_cache: Arc<StdRwLock<HashMap<String, Uuid>>>,
 
 	/// Lock preventing concurrent access
 	_lock: LibraryLock,
@@ -189,6 +194,85 @@ impl Library {
 		Ok(())
 	}
 
+	/// Load device cache from library database
+	/// Returns HashMap of device_slug → device_uuid for all devices in this library
+	pub(crate) async fn load_device_cache_from_db(
+		db: &crate::infra::db::Database,
+	) -> Result<HashMap<String, Uuid>> {
+		use crate::infra::db::entities;
+		use sea_orm::EntityTrait;
+
+		let devices = entities::device::Entity::find()
+			.all(db.conn())
+			.await
+			.map_err(|e| LibraryError::Other(format!("Failed to load devices: {}", e)))?;
+
+		let cache: HashMap<String, Uuid> = devices
+			.into_iter()
+			.map(|d| (d.slug, d.uuid))
+			.collect();
+
+		debug!("Loaded {} devices into library cache", cache.len());
+
+		Ok(cache)
+	}
+
+	/// Resolve device slug to UUID within this library
+	/// Checks current device first, then library's device cache
+	pub fn resolve_device_slug(&self, slug: &str) -> Option<Uuid> {
+		// Priority 1: Check if it's the current device
+		let current_device_id = crate::device::get_current_device_id();
+		let current_device_slug = crate::device::get_current_device_slug();
+
+		if slug == current_device_slug {
+			return Some(current_device_id);
+		}
+
+		// Priority 2: Check library's device cache
+		if let Ok(cache) = self.device_cache.read() {
+			cache.get(slug).copied()
+		} else {
+			None
+		}
+	}
+
+	/// Reload device cache from database
+	/// Called after device changes (e.g., sync updates, device registration)
+	pub async fn reload_device_cache(&self) -> Result<()> {
+		let new_cache = Self::load_device_cache_from_db(&self.db).await?;
+
+		let mut cache = self
+			.device_cache
+			.write()
+			.map_err(|_| LibraryError::Other("Device cache lock poisoned".to_string()))?;
+
+		debug!(
+			"Reloading device cache for library {}: {} devices",
+			self.id(),
+			new_cache.len()
+		);
+		*cache = new_cache;
+
+		Ok(())
+	}
+
+	/// Add or update device in cache
+	/// Called when device joins/updates via sync
+	pub fn cache_device(&self, slug: String, device_id: Uuid) -> Result<()> {
+		let mut cache = self
+			.device_cache
+			.write()
+			.map_err(|_| LibraryError::Other("Device cache lock poisoned".to_string()))?;
+		cache.insert(slug.clone(), device_id);
+		debug!(
+			"Cached device in library {}: {} -> {}",
+			self.id(),
+			slug,
+			device_id
+		);
+		Ok(())
+	}
+
 	/// Get the thumbnail directory for this library
 	pub fn thumbnails_dir(&self) -> PathBuf {
 		self.path.join("thumbnails")
@@ -286,8 +370,8 @@ impl Library {
 		}
 
 		// Clear device cache from DeviceManager
-		if let Err(e) = self.core_context.device_manager.clear_device_cache() {
-			warn!("Failed to clear device cache: {}", e);
+		if let Err(e) = self.core_context.device_manager.clear_paired_device_cache() {
+			warn!("Failed to clear paired device cache: {}", e);
 		}
 
 		Ok(())
