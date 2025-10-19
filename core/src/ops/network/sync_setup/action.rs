@@ -181,7 +181,7 @@ impl LibrarySyncSetupAction {
 				id: sea_orm::ActiveValue::NotSet,
 				uuid: Set(self.input.remote_device_id),
 				name: Set(remote_device_info.device_name.clone()),
-				slug: Set(crate::domain::device::Device::generate_slug(&remote_device_info.device_name)),
+				slug: Set(remote_device_info.device_slug.clone()),
 				os: Set(device_os.to_string()),
 				os_version: Set(Some(remote_device_info.os_version.clone())),
 				hardware_model: Set(None), // Not available in DeviceInfo
@@ -230,6 +230,7 @@ impl LibrarySyncSetupAction {
 			library_id: self.input.remote_library_id,
 			device_id: self.input.local_device_id,
 			device_name: local_device_config.name.clone(),
+			device_slug: local_device_config.slug.clone(),
 			os_name: local_device_config.os.to_string(),
 			os_version: None, // Not available in DeviceConfig
 			hardware_model: local_device_config.hardware_model.clone(),

@@ -23,6 +23,7 @@ pub enum LibraryMessage {
 		library_id: Option<Uuid>, // None means register in all libraries
 		device_id: Uuid,
 		device_name: String,
+		device_slug: String,
 		os_name: String,
 		os_version: Option<String>,
 		hardware_model: Option<String>,
