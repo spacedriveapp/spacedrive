@@ -280,7 +280,10 @@ impl Core {
 										info!("Network event receiver wired to PeerSync for library {}", library.id());
 
 										// Create and register sync protocol handler for this library
-										let mut sync_handler = service::network::protocol::SyncProtocolHandler::new(library.id());
+										let mut sync_handler = service::network::protocol::SyncProtocolHandler::new(
+										library.id(),
+										networking.device_registry(),
+									);
 										sync_handler.set_peer_sync(peer_sync.clone());
 										sync_handler.set_backfill_manager(sync_service.backfill_manager().clone());
 
