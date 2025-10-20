@@ -101,6 +101,121 @@ impl NetworkTransport for NetworkingService {
 		Ok(())
 	}
 
+	/// Send a sync request and wait for response
+	///
+	/// Uses bidirectional streams for proper request/response pattern (Iroh best practice)
+	async fn send_sync_request(
+		&self,
+		target_device: Uuid,
+		request: SyncMessage,
+	) -> Result<SyncMessage> {
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+		use tokio::time::{timeout, Duration};
+
+		// Look up NodeId for device UUID
+		let device_registry_arc = self.device_registry();
+		let node_id = {
+			let registry = device_registry_arc.read().await;
+			registry
+				.get_node_id_for_device(target_device)
+				.ok_or_else(|| {
+					anyhow::anyhow!(
+						"Device {} not found in registry (not paired or offline)",
+						target_device
+					)
+				})?
+		};
+
+		debug!(
+			device_uuid = %target_device,
+			node_id = %node_id,
+			message_type = ?std::mem::discriminant(&request),
+			library_id = %request.library_id(),
+			"Sending sync request"
+		);
+
+		// Get endpoint
+		let endpoint = self
+			.endpoint()
+			.ok_or_else(|| anyhow::anyhow!("Network endpoint not initialized"))?;
+
+		// Connect with SYNC_ALPN
+		let conn = endpoint.connect(node_id, SYNC_ALPN).await.map_err(|e| {
+			warn!(
+				device_uuid = %target_device,
+				node_id = %node_id,
+				error = %e,
+				"Failed to connect to device for sync request"
+			);
+			anyhow::anyhow!("Failed to connect to {}: {}", target_device, e)
+		})?;
+
+		// Open bidirectional stream
+		let (mut send, mut recv) = conn
+			.open_bi()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to open bidirectional stream: {}", e))?;
+
+		// Serialize and send request
+		let req_bytes = serde_json::to_vec(&request)
+			.map_err(|e| anyhow::anyhow!("Failed to serialize sync request: {}", e))?;
+
+		let len = req_bytes.len() as u32;
+		send.write_all(&len.to_be_bytes())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to send length: {}", e))?;
+		send.write_all(&req_bytes)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to send request: {}", e))?;
+
+		// Properly close send stream
+		send.finish()
+			.map_err(|e| anyhow::anyhow!("Failed to finish stream: {}", e))?;
+
+		debug!("Sync request sent, waiting for response...");
+
+		// Read response with timeout
+		let result = timeout(Duration::from_secs(60), async {
+			let mut len_buf = [0u8; 4];
+			recv.read_exact(&mut len_buf).await.map_err(|e| {
+				anyhow::anyhow!("Failed to read response length: {}", e)
+			})?;
+			let resp_len = u32::from_be_bytes(len_buf) as usize;
+
+			debug!("Receiving sync response of {} bytes", resp_len);
+
+			let mut resp_buf = vec![0u8; resp_len];
+			recv.read_exact(&mut resp_buf)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to read response: {}", e))?;
+			Ok::<_, anyhow::Error>(resp_buf)
+		})
+		.await;
+
+		let resp_buf = match result {
+			Ok(Ok(buf)) => buf,
+			Ok(Err(e)) => return Err(e),
+			Err(_) => {
+				return Err(anyhow::anyhow!(
+					"Sync request timed out after 60s - peer {} not responding",
+					target_device
+				))
+			}
+		};
+
+		// Deserialize response
+		let response: SyncMessage = serde_json::from_slice(&resp_buf)
+			.map_err(|e| anyhow::anyhow!("Failed to deserialize sync response: {}", e))?;
+
+		debug!(
+			device_uuid = %target_device,
+			response_type = ?std::mem::discriminant(&response),
+			"Received sync response"
+		);
+
+		Ok(response)
+	}
+
 	/// Get list of currently connected sync partner devices
 	///
 	/// Returns device UUIDs that are both:
@@ -148,6 +263,10 @@ impl NetworkTransport for NetworkingService {
 		}
 
 		false
+	}
+
+	fn transport_name(&self) -> &'static str {
+		"NetworkingService"
 	}
 }
 

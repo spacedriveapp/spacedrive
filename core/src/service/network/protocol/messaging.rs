@@ -392,6 +392,56 @@ impl MessagingProtocolHandler {
 				// This is a response, not a request
 				Ok(Vec::new())
 			}
+
+			LibraryMessage::LibraryStateRequest {
+				request_id,
+				library_id,
+			} => {
+				tracing::info!("Received LibraryStateRequest for library {}", library_id);
+
+				let context = self.context.as_ref().ok_or_else(|| {
+					NetworkingError::Protocol("Context not available".to_string())
+				})?;
+
+				let library_manager = context.libraries().await;
+				let library = library_manager.get_library(library_id).await.ok_or_else(|| {
+					NetworkingError::Protocol(format!("Library {} not found", library_id))
+				})?;
+
+				let db = library.db();
+
+				// Query all device slugs from this library
+				use crate::infra::db::entities;
+				use sea_orm::EntityTrait;
+
+				let devices = entities::device::Entity::find()
+					.all(db.conn())
+					.await
+					.map_err(|e| NetworkingError::Protocol(format!("Database error: {}", e)))?;
+
+				let device_slugs: Vec<String> = devices.iter().map(|d| d.slug.clone()).collect();
+
+				tracing::info!(
+					"Returning {} device slugs for library {}",
+					device_slugs.len(),
+					library_id
+				);
+
+				let response = Message::Library(LibraryMessage::LibraryStateResponse {
+					request_id,
+					library_id,
+					library_name: library.name().await,
+					device_slugs,
+					device_count: devices.len(),
+				});
+
+				serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
+			}
+
+			LibraryMessage::LibraryStateResponse { .. } => {
+				// This is a response, not a request
+				Ok(Vec::new())
+			}
 		}
 	}
 

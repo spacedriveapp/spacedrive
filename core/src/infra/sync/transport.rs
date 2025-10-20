@@ -69,6 +69,33 @@ pub trait NetworkTransport: Send + Sync {
 	/// Consider logging warnings rather than failing the entire operation.
 	async fn send_sync_message(&self, target_device: Uuid, message: SyncMessage) -> Result<()>;
 
+	/// Send a sync request and wait for response (request/response pattern)
+	///
+	/// Use for requests that expect responses: StateRequest, SharedChangeRequest, etc.
+	/// Uses bidirectional streams to receive the response.
+	///
+	/// # Arguments
+	///
+	/// * `target_device` - UUID of the target device
+	/// * `request` - The sync request message
+	///
+	/// # Returns
+	///
+	/// The response message from the peer
+	///
+	/// # Errors
+	///
+	/// Returns error if:
+	/// - Device is not reachable
+	/// - Network transport fails
+	/// - Response timeout (60s)
+	/// - Response is malformed
+	async fn send_sync_request(
+		&self,
+		target_device: Uuid,
+		request: SyncMessage,
+	) -> Result<SyncMessage>;
+
 	/// Get list of currently connected sync partner devices
 	///
 	/// Returns UUIDs of devices that are:
@@ -136,6 +163,7 @@ impl MockNetworkTransport {
 	}
 }
 
+// NOTE: This isn't actually used, I think
 #[cfg(test)]
 #[async_trait::async_trait]
 impl NetworkTransport for MockNetworkTransport {
@@ -145,6 +173,39 @@ impl NetworkTransport for MockNetworkTransport {
 			.unwrap()
 			.push((target_device, message));
 		Ok(())
+	}
+
+	async fn send_sync_request(
+		&self,
+		target_device: Uuid,
+		request: SyncMessage,
+	) -> Result<SyncMessage> {
+		// Mock implementation: record the request and return a mock response
+		self.sent_messages
+			.lock()
+			.unwrap()
+			.push((target_device, request.clone()));
+
+		// Return appropriate mock response based on request type
+		match request {
+			SyncMessage::StateRequest { library_id, .. } => Ok(SyncMessage::StateResponse {
+				library_id,
+				model_type: "device".to_string(),
+				device_id: target_device,
+				records: vec![],
+				checkpoint: None,
+				has_more: false,
+			}),
+			SyncMessage::SharedChangeRequest { library_id, .. } => {
+				Ok(SyncMessage::SharedChangeResponse {
+					library_id,
+					entries: vec![],
+					current_state: None,
+					has_more: false,
+				})
+			}
+			_ => Err(anyhow::anyhow!("Mock: unexpected request type")),
+		}
 	}
 
 	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>> {
