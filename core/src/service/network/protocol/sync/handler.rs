@@ -456,6 +456,8 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 	) {
 		use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+		tracing::info!("SyncProtocolHandler: Stream accepted from node {}", remote_node_id);
+
 		// Map node_id to device_id using device registry
 		let from_device = {
 			let registry = self.device_registry.read().await;
@@ -463,17 +465,28 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 		};
 
 		let from_device = match from_device {
-			Some(id) => id,
+			Some(id) => {
+				tracing::info!("SyncProtocolHandler: Mapped to device_id {}", id);
+				id
+			}
 			None => {
-				tracing::warn!("Received sync stream from unknown node {}", remote_node_id);
+				tracing::warn!(
+					"SyncProtocolHandler: Received sync stream from unknown node {}, closing gracefully",
+					remote_node_id
+				);
 				return;
 			}
 		};
 
 		// Read request with length prefix
+		tracing::info!("SyncProtocolHandler: Reading request from device {}...", from_device);
 		let mut len_buf = [0u8; 4];
 		if let Err(e) = recv.read_exact(&mut len_buf).await {
-			tracing::error!("Failed to read sync request length: {}", e);
+			// This is normal if peer just opened connection to test connectivity
+			tracing::debug!(
+				"SyncProtocolHandler: Failed to read sync request length (likely connection test): {}",
+				e
+			);
 			return;
 		}
 		let req_len = u32::from_be_bytes(len_buf) as usize;

@@ -229,6 +229,11 @@ impl PeerSync {
 		self.device_id
 	}
 
+	/// Get this library's ID
+	pub fn library_id(&self) -> Uuid {
+		self.library_id
+	}
+
 	/// Query watermarks from devices table (shared helper)
 	async fn query_device_watermarks(
 		device_id: Uuid,
@@ -635,6 +640,7 @@ impl PeerSync {
 									&state,
 									&buffer,
 									&retry_queue,
+									&db,
 								)
 								.await
 								{
@@ -649,6 +655,7 @@ impl PeerSync {
 									&state,
 									&buffer,
 									&retry_queue,
+									&db,
 								)
 								.await
 								{
@@ -895,6 +902,7 @@ impl PeerSync {
 		state: &Arc<RwLock<DeviceSyncState>>,
 		buffer: &Arc<BufferQueue>,
 		retry_queue: &Arc<RetryQueue>,
+		db: &Arc<sea_orm::DatabaseConnection>,
 	) -> Result<()> {
 		let model_type: String = data
 			.get("model_type")
@@ -950,9 +958,9 @@ impl PeerSync {
 			return Ok(());
 		}
 
-		// Get all connected sync partners
+		// Get all connected sync partners (library-scoped)
 		debug!("About to call network.get_connected_sync_partners() on handle_state_change_event_static");
-		let connected_partners = network.get_connected_sync_partners().await.map_err(|e| {
+		let connected_partners = network.get_connected_sync_partners(library_id, db).await.map_err(|e| {
 			warn!(error = %e, "Failed to get connected partners");
 			e
 		})?;
@@ -1057,6 +1065,7 @@ impl PeerSync {
 		state: &Arc<RwLock<DeviceSyncState>>,
 		buffer: &Arc<BufferQueue>,
 		retry_queue: &Arc<RetryQueue>,
+		db: &Arc<sea_orm::DatabaseConnection>,
 	) -> Result<()> {
 		let entry: SharedChangeEntry = serde_json::from_value(
 			data.get("entry")
@@ -1086,8 +1095,8 @@ impl PeerSync {
 			return Ok(());
 		}
 
-		// Get all connected sync partners
-		let connected_partners = network.get_connected_sync_partners().await.map_err(|e| {
+		// Get all connected sync partners (library-scoped)
+		let connected_partners = network.get_connected_sync_partners(library_id, db).await.map_err(|e| {
 			warn!(error = %e, "Failed to get connected partners");
 			e
 		})?;
@@ -1206,7 +1215,7 @@ impl PeerSync {
 		// Get all connected sync partners
 		let connected_partners = self
 			.network
-			.get_connected_sync_partners()
+			.get_connected_sync_partners(self.library_id, &self.db)
 			.await
 			.map_err(|e| {
 				warn!(error = %e, "Failed to get connected partners");
@@ -1335,7 +1344,7 @@ impl PeerSync {
 		// Get all connected sync partners
 		let connected_partners = self
 			.network
-			.get_connected_sync_partners()
+			.get_connected_sync_partners(self.library_id, &self.db)
 			.await
 			.map_err(|e| {
 				warn!(error = %e, "Failed to get connected partners");

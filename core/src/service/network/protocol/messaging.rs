@@ -21,8 +21,8 @@ pub struct MessagingProtocolHandler {
 	/// Endpoint for creating and managing connections
 	endpoint: Option<Endpoint>,
 
-	/// Cached connections to remote nodes (reused for multiple message streams)
-	connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
+	/// Cached connections to remote nodes (keyed by NodeId and ALPN)
+	connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
 }
 
 /// Basic message types
@@ -67,7 +67,7 @@ impl MessagingProtocolHandler {
 	pub fn new(
 		device_registry: Arc<RwLock<crate::service::network::device::DeviceRegistry>>,
 		endpoint: Option<Endpoint>,
-		active_connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
+		active_connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
 	) -> Self {
 		Self {
 			context: None,
@@ -456,7 +456,7 @@ impl MessagingProtocolHandler {
 		use tokio::io::{AsyncReadExt, AsyncWriteExt};
 		use tokio::time::{timeout, Duration};
 
-		tracing::debug!("Sending library message to node {}: {:?}", node_id, message);
+		tracing::info!("Sending library message to node {}: {:?}", node_id, message);
 
 		// Get or create cached connection
 		let endpoint = self.endpoint.as_ref().ok_or_else(|| {

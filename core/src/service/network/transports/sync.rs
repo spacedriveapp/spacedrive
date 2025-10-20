@@ -44,12 +44,12 @@ impl NetworkTransport for NetworkingService {
 				})?
 		};
 
-		debug!(
-			device_uuid = %target_device,
-			node_id = %node_id,
-			message_type = ?std::mem::discriminant(&message),
-			library_id = %message.library_id(),
-			"Sending sync message"
+		tracing::info!(
+			"Sending sync message to device {} (node {}), type: {:?}, library: {}",
+			target_device,
+			node_id,
+			std::mem::discriminant(&message),
+			message.library_id()
 		);
 
 		// 2. Serialize message to bytes
@@ -91,11 +91,10 @@ impl NetworkTransport for NetworkingService {
 		send.finish()
 			.map_err(|e| anyhow::anyhow!("Failed to finish stream: {}", e))?;
 
-		debug!(
-			device_uuid = %target_device,
-			node_id = %node_id,
-			bytes_sent = bytes.len(),
-			"Sync message sent successfully"
+		tracing::info!(
+			"Sync message sent successfully to device {} ({} bytes via uni stream)",
+			target_device,
+			bytes.len()
 		);
 
 		Ok(())
@@ -216,33 +215,55 @@ impl NetworkTransport for NetworkingService {
 		Ok(response)
 	}
 
-	/// Get list of currently connected sync partner devices
+	/// Get list of currently connected sync partner devices FOR THIS LIBRARY
 	///
-	/// Returns device UUIDs that are both:
-	/// - Registered in DeviceRegistry (paired)
-	/// - Currently have an active connection
-	///
-	/// Note: This doesn't query the sync_partners table - that's the caller's responsibility.
-	/// We just report which devices are network-reachable right now.
-	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>> {
+	/// Returns device UUIDs that are:
+	/// 1. Members of this specific library (in devices table)
+	/// 2. Have sync_enabled=true in this library
+	/// 3. Currently network-connected
+	async fn get_connected_sync_partners(
+		&self,
+		library_id: Uuid,
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<Vec<Uuid>> {
+		use crate::infra::db::entities;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		use std::collections::HashSet;
+
+		// 1. Query devices table for THIS library with sync_enabled=true
+		let library_devices = entities::device::Entity::find()
+			.filter(entities::device::Column::SyncEnabled.eq(true))
+			.all(db)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to query library devices: {}", e))?;
+
+		let library_device_uuids: HashSet<Uuid> =
+			library_devices.iter().map(|d| d.uuid).collect();
+
+		// 2. Get network-connected devices from DeviceRegistry
 		let device_registry_arc = self.device_registry();
 		let registry = device_registry_arc.read().await;
-
-		// Get all connected devices from registry
 		let connected_devices = registry.get_connected_devices();
-
-		// Extract device UUIDs
-		let device_uuids: Vec<Uuid> = connected_devices
-			.into_iter()
-			.map(|device_info| device_info.device_id)
+		let connected_uuids: HashSet<Uuid> = connected_devices
+			.iter()
+			.map(|d| d.device_id)
 			.collect();
 
-		debug!(
-			count = device_uuids.len(),
-			"Retrieved connected sync partners"
+		// 3. Return intersection: (in library) AND (network connected)
+		let sync_partners: Vec<Uuid> = library_device_uuids
+			.intersection(&connected_uuids)
+			.copied()
+			.collect();
+
+		tracing::info!(
+			"Library-scoped sync partners: library={}, lib_devs={}, net_connected={}, partners={}",
+			library_id,
+			library_device_uuids.len(),
+			connected_uuids.len(),
+			sync_partners.len()
 		);
 
-		Ok(device_uuids)
+		Ok(sync_partners)
 	}
 
 	/// Check if a specific device is currently reachable

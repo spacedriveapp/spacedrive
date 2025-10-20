@@ -102,8 +102,9 @@ pub struct NetworkingService {
 	/// Event sender for broadcasting network events (broadcast channel allows multiple subscribers)
 	event_sender: broadcast::Sender<NetworkEvent>,
 
-	/// Active connections tracker
-	active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
+	/// Active connections tracker (keyed by NodeId and ALPN)
+	/// Each ALPN protocol requires its own connection since ALPN is negotiated at connection establishment
+	active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
 
 	/// Logger for networking operations
 	logger: Arc<dyn NetworkLogger>,
@@ -548,7 +549,7 @@ impl NetworkingService {
 					// Check if connection still exists
 					let has_connection = {
 						let connections = active_connections.read().await;
-						connections.contains_key(&node_id)
+						connections.keys().any(|(nid, _alpn)| *nid == node_id)
 					};
 
 					if !has_connection {
@@ -580,7 +581,8 @@ impl NetworkingService {
 					if let Ok(ping_data) = serde_json::to_vec(&ping_msg) {
 						// Use existing connection from active_connections
 						let connections = active_connections.read().await;
-						let ping_result = if let Some(conn) = connections.get(&node_id) {
+						let conn_opt = connections.iter().find(|((nid, _alpn), _conn)| *nid == node_id).map(|(_key, conn)| conn.clone());
+					let ping_result = if let Some(conn) = conn_opt {
 							tokio::time::timeout(tokio::time::Duration::from_secs(10), async {
 								match conn.open_bi().await {
 									Ok((mut send, mut recv)) => {
@@ -782,7 +784,14 @@ impl NetworkingService {
 	/// Get raw connected nodes directly from endpoint
 	pub async fn get_raw_connected_nodes(&self) -> Vec<NodeId> {
 		let connections = self.active_connections.read().await;
-		connections.keys().cloned().collect()
+		// Extract unique NodeIds from (NodeId, ALPN) keys
+		let mut node_ids: Vec<NodeId> = connections
+			.keys()
+			.map(|(node_id, _alpn)| *node_id)
+			.collect();
+		node_ids.sort();
+		node_ids.dedup();
+		node_ids
 	}
 
 	/// Send a message to a device
@@ -855,7 +864,9 @@ impl NetworkingService {
 	}
 
 	/// Get the active connections cache shared with the event loop
-	pub fn active_connections(&self) -> Arc<RwLock<std::collections::HashMap<NodeId, Connection>>> {
+	pub fn active_connections(
+		&self,
+	) -> Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>> {
 		self.active_connections.clone()
 	}
 
@@ -938,13 +949,13 @@ impl NetworkingService {
 					NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e))
 				})?;
 
-			// Track the outbound connection
+			// Track the outbound connection (with PAIRING_ALPN)
 			let node_id = node_addr.node_id;
 			{
 				let mut connections = self.active_connections.write().await;
-				connections.insert(node_id, conn);
+				connections.insert((node_id, PAIRING_ALPN.to_vec()), conn);
 				self.logger
-					.info(&format!("Tracked outbound connection to {}", node_id))
+					.info(&format!("Tracked outbound pairing connection to {}", node_id))
 					.await;
 			}
 
@@ -1116,13 +1127,13 @@ impl NetworkingService {
 					.info("[Relay] Successfully connected to initiator via relay!")
 					.await;
 
-				// Track the connection so it stays alive for the pairing protocol
+				// Track the connection so it stays alive for the pairing protocol (with PAIRING_ALPN)
 				{
 					let mut connections = self.active_connections.write().await;
-					connections.insert(node_id, conn);
+					connections.insert((node_id, PAIRING_ALPN.to_vec()), conn);
 					self.logger
 						.info(&format!(
-							"[Relay] Tracked relay connection to {}",
+							"[Relay] Tracked relay pairing connection to {}",
 							node_id.fmt_short()
 						))
 						.await;
