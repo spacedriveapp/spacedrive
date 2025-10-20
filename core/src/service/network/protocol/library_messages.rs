@@ -50,6 +50,21 @@ pub enum LibraryMessage {
 		success: bool,
 		message: Option<String>,
 	},
+
+	/// Request library state for collision detection before joining
+	LibraryStateRequest {
+		request_id: Uuid,
+		library_id: Uuid,
+	},
+
+	/// Response with library state
+	LibraryStateResponse {
+		request_id: Uuid,
+		library_id: Uuid,
+		library_name: String,
+		device_slugs: Vec<String>,
+		device_count: usize,
+	},
 }
 
 /// Information about a library for discovery

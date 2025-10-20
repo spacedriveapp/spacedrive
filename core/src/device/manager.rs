@@ -257,6 +257,22 @@ impl DeviceManager {
 		Ok(())
 	}
 
+	/// Update device slug (for collision resolution)
+	pub fn update_slug(&self, slug: String) -> Result<(), DeviceError> {
+		let mut config = self.config.write().map_err(|_| DeviceError::LockPoisoned)?;
+
+		config.slug = slug;
+
+		// Save to the appropriate location based on whether we have a custom data dir
+		if let Some(data_dir) = &self.data_dir {
+			config.save_to(data_dir)?;
+		} else {
+			config.save()?;
+		}
+
+		Ok(())
+	}
+
 	/// Get the master encryption key
 	pub fn master_key(&self) -> Result<[u8; 32], DeviceError> {
 		Ok(self.device_key_manager.get_master_key()?)

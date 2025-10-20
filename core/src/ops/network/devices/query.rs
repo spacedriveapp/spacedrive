@@ -72,7 +72,7 @@ impl CoreQuery for ListPairedDevicesQuery {
 				let device_type_str = format!("{:?}", info.device_type);
 
 				devices.push(PairedDeviceInfo {
-					id: info.device_id,
+					id: device_id, // Use HashMap key, not info.device_id
 					name: info.device_name.clone(),
 					device_type: device_type_str,
 					os_version: info.os_version.clone(),
