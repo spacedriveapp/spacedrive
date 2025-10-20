@@ -32,14 +32,14 @@ let client = SpacedriveClient(socketPath: "/path/to/daemon.sock")
 // Execute a query
 let status = try await client.executeQuery(
     CoreStatusQuery(),
-    method: "query:core.status.v1",
+    method: "query:core.status",
     responseType: CoreStatus.self
 )
 
 // Execute an action
 let result = try await client.executeAction(
     LibraryCreateInput(name: "My Library"),
-    method: "action:libraries.create.input.v1",
+    method: "action:libraries.create.input",
     responseType: LibraryCreateOutput.self
 )
 
@@ -56,6 +56,7 @@ for await event in client.subscribe(to: ["JobProgress", "JobCompleted"]) {
 After making changes to Rust types in the core:
 
 1. Build the core to generate the schema:
+
    ```bash
    cd core && cargo build
    ```

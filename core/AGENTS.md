@@ -20,15 +20,15 @@
 - **Resumable Jobs**: For long-running jobs that need to be resumable, store the job's state within the job's struct itself. Use `#[serde(skip)]` for fields that should not be persisted. For example, in a file copy job, the list of already copied files can be stored to allow the job to resume from where it left off.
 - **Documentation**: Use `//!` for module docs, `///` for public items, include examples
 - **Architecture**: Follow a Command Query Responsibility Segregation (CQRS) and Domain-Driven Design (DDD) pattern.
-	- **Domain**: Core data structures and business logic are located in `src/domain/`. These are the "nouns" of your system.
-	- **Operations**: State-changing commands (actions) and data-retrieving queries are located in `src/ops/`. These are the "verbs" of your system.
-	- **Actions**: Operations that modify the state of the application. They should be self-contained and transactional.
-	- **Queries**: Operations that retrieve data without modifying state. They should be efficient and optimized for reading.
+  - **Domain**: Core data structures and business logic are located in `src/domain/`. These are the "nouns" of your system.
+  - **Operations**: State-changing commands (actions) and data-retrieving queries are located in `src/ops/`. These are the "verbs" of your system.
+  - **Actions**: Operations that modify the state of the application. They should be self-contained and transactional.
+  - **Queries**: Operations that retrieve data without modifying state. They should be efficient and optimized for reading.
 - **Feature Modules**: Each new feature should be implemented in its own module within the `src/ops/` directory. For example, a new "share" feature would live in `src/ops/files/share`. Each feature module should contain the following files where applicable:
-	- `action.rs`: The main logic for the state-changing operation.
-	- `input.rs`: Data structures for the action's input.
-	- `output.rs`: Data structures for the action's output.
-	- `job.rs`: If the action is long-running, the job implementation.
+  - `action.rs`: The main logic for the state-changing operation.
+  - `input.rs`: Data structures for the action's input.
+  - `output.rs`: Data structures for the action's output.
+  - `job.rs`: If the action is long-running, the job implementation.
 - **Database**: Use SeaORM entities, async queries, proper error propagation
 - **Comments**: Minimal inline comments, focus on why not what, no TODO comments in production code
 
@@ -39,6 +39,7 @@ Spacedrive uses a **daemon-client architecture** where a single daemon process m
 > **For detailed daemon architecture documentation, see [/docs/core/daemon.md](/docs/core/daemon.md)**
 
 ### **The `Wire` Trait**
+
 All actions and queries must implement the `Wire` trait to enable type-safe client-daemon communication:
 
 ```rust
@@ -48,29 +49,35 @@ pub trait Wire {
 ```
 
 ### **Registration Macros**
+
 Instead of manually implementing `Wire`, use these registration macros that automatically:
+
 1. Implement the `Wire` trait with the correct method string
 2. Register the operation in the global registry using the `inventory` crate
 
 **For Queries:**
+
 ```rust
 crate::register_query!(NetworkStatusQuery, "network.status");
-// Generates method: "query:network.status.v1"
+// Generates method: "query:network.status"
 ```
 
 **For Library Actions:**
+
 ```rust
 crate::register_library_action!(FileCopyAction, "files.copy");
-// Generates method: "action:files.copy.input.v1"
+// Generates method: "action:files.copy.input"
 ```
 
 **For Core Actions:**
+
 ```rust
 crate::register_core_action!(LibraryCreateAction, "libraries.create");
-// Generates method: "action:libraries.create.input.v1"
+// Generates method: "action:libraries.create.input"
 ```
 
 ### **Registry System**
+
 - **Location**: `core/src/ops/registry.rs`
 - **Mechanism**: Uses the `inventory` crate for compile-time registration
 - **Global Maps**: `QUERIES` and `ACTIONS` hashmaps populated at startup
@@ -92,7 +99,6 @@ crate::register_core_action!(LibraryCreateAction, "libraries.create");
 - **Core design docs**: Live in `/docs/core/design` - planning documents, RFCs, and design decisions
 - **Application level docs**: Live in `/docs`
 - **Code docs**: Use `///` for public APIs, `//!` for module overviews, include examples
-
 
 ## Debug Instructions
 

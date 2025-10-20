@@ -96,7 +96,7 @@ src/
 ### Daemon-Client (Desktop/CLI)
 
 - Unix socket JSON-RPC 2.0
-- Wire method strings (e.g., `query:vdfs.list_entries.v1`)
+- Wire method strings (e.g., `query:vdfs.list_entries`)
 - Operations auto-register at compile time
 
 ### Embedded FFI (iOS/Mobile)

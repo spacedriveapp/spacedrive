@@ -36,8 +36,8 @@ Implement the library sync setup flow that enables paired devices to discover ea
 - [x] Devices can be registered in remote library databases
 - [x] ~~Sync leadership assigned during setup~~ (No longer applicable)
 - [x] `sync_partners` records created
-- [x] `sync_setup.discover.v1` query implemented
-- [x] `sync_setup.input.v1` action implemented
+- [x] `sync_setup.discover` query implemented
+- [x] `sync_setup.input` action implemented
 - [x] Integration tests validate cross-device setup
 
 ## References

@@ -599,7 +599,7 @@ mod tests {
 		use crate::device::DeviceManager;
 		use std::path::PathBuf;
 
-		let device_manager = Arc::new(DeviceManager::new(PathBuf::from("/tmp/test")).unwrap());
+		let device_manager = Arc::new(DeviceManager::new().unwrap());
 		let logger = Arc::new(crate::service::network::utils::SilentLogger);
 		let registry = DeviceRegistry::new(device_manager, PathBuf::from("/tmp/test"), logger).unwrap();
 		let device_registry = Arc::new(tokio::sync::RwLock::new(registry));

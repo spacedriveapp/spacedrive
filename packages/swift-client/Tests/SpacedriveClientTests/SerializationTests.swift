@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import SpacedriveClient
 
 final class SerializationTests: XCTestCase {
@@ -27,12 +28,12 @@ final class SerializationTests: XCTestCase {
     func testLibraryCreateOutputDeserialization() throws {
         // Test that we can deserialize JSON from daemon into Swift types
         let jsonString = """
-        {
-            "libraryId": "123e4567-e89b-12d3-a456-426614174000",
-            "name": "Test Library",
-            "path": "/test/path"
-        }
-        """
+            {
+                "libraryId": "123e4567-e89b-12d3-a456-426614174000",
+                "name": "Test Library",
+                "path": "/test/path"
+            }
+            """
 
         let jsonData = jsonString.data(using: .utf8)!
         let output = try JSONDecoder().decode(LibraryCreateOutput.self, from: jsonData)
@@ -46,7 +47,8 @@ final class SerializationTests: XCTestCase {
 
     func testUnionTypeSerialization() throws {
         // Test union types (enums with associated values)
-        let physicalPath = SdPath.physical(SdPathPhysicalData(deviceId: "device-123", path: "/test/file.txt"))
+        let physicalPath = SdPath.physical(
+            SdPathPhysicalData(deviceId: "device-123", path: "/test/file.txt"))
         let contentPath = SdPath.content(SdPathContentData(contentId: "content-456"))
 
         // Test physical path serialization
@@ -96,28 +98,30 @@ final class SerializationTests: XCTestCase {
 
     func testJobOutputSerialization() throws {
         // Test complex enum with associated values
-        let indexedOutput = JobOutput.indexed(JobOutputIndexedData(
-            stats: IndexerStats(files: 100, dirs: 10, bytes: 1024000, symlinks: 5, skipped: 2, errors: 0),
-            metrics: IndexerMetrics(
-                totalDuration: 30.5,
-                discoveryDuration: 5.0,
-                processingDuration: 20.0,
-                contentDuration: 5.5,
-                filesPerSecond: 3.33,
-                bytesPerSecond: 34133.33,
-                dirsPerSecond: 0.33,
-                dbWrites: 110,
-                dbReads: 50,
-                batchCount: 5,
-                avgBatchSize: 20.0,
-                totalErrors: 0,
-                criticalErrors: 0,
-                nonCriticalErrors: 0,
-                skippedPaths: 2,
-                peakMemoryBytes: 1048576,
-                avgMemoryBytes: 524288
-            )
-        ))
+        let indexedOutput = JobOutput.indexed(
+            JobOutputIndexedData(
+                stats: IndexerStats(
+                    files: 100, dirs: 10, bytes: 1_024_000, symlinks: 5, skipped: 2, errors: 0),
+                metrics: IndexerMetrics(
+                    totalDuration: 30.5,
+                    discoveryDuration: 5.0,
+                    processingDuration: 20.0,
+                    contentDuration: 5.5,
+                    filesPerSecond: 3.33,
+                    bytesPerSecond: 34133.33,
+                    dirsPerSecond: 0.33,
+                    dbWrites: 110,
+                    dbReads: 50,
+                    batchCount: 5,
+                    avgBatchSize: 20.0,
+                    totalErrors: 0,
+                    criticalErrors: 0,
+                    nonCriticalErrors: 0,
+                    skippedPaths: 2,
+                    peakMemoryBytes: 1_048_576,
+                    avgMemoryBytes: 524288
+                )
+            ))
 
         // Test serialization
         let data = try JSONEncoder().encode(indexedOutput)
@@ -166,7 +170,8 @@ final class SerializationTests: XCTestCase {
 
     func testRealDaemonIntegration() async throws {
         // Skip if daemon is not running
-        let socketPath = "\(NSHomeDirectory())/Library/Application Support/spacedrive/daemon/daemon.sock"
+        let socketPath =
+            "\(NSHomeDirectory())/Library/Application Support/spacedrive/daemon/daemon.sock"
 
         guard FileManager.default.fileExists(atPath: socketPath) else {
             throw XCTSkip("Daemon not running - skipping integration test")
@@ -178,7 +183,7 @@ final class SerializationTests: XCTestCase {
         do {
             let libraries = try await client.executeQuery(
                 LibraryListQuery(),
-                method: "query:libraries.list.v1",
+                method: "query:libraries.list",
                 responseType: [LibraryInfo].self
             )
 
@@ -188,7 +193,7 @@ final class SerializationTests: XCTestCase {
             if !libraries.isEmpty {
                 let jobsResponse = try await client.executeQuery(
                     JobListQuery(),
-                    method: "query:jobs.list.v1",
+                    method: "query:jobs.list",
                     responseType: JobListOutput.self
                 )
 

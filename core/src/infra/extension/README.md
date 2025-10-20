@@ -7,12 +7,14 @@ This module provides Spacedrive's WebAssembly-based extension system, enabling s
 ## What's Implemented
 
 ### Core Infrastructure
+
 - **`manager.rs`** - PluginManager for loading/unloading WASM modules (Wasmer integration)
 - **`host_functions.rs`** - Skeleton for `host_spacedrive_call()` and `host_spacedrive_log()`
 - **`permissions.rs`** - Capability-based security with rate limiting
 - **`types.rs`** - Extension manifest format and types
 
 ### Dependencies Added
+
 ```toml
 wasmer = "4.2"
 wasmer-middlewares = "4.2"
@@ -45,28 +47,33 @@ Operation::execute()                  // EXISTING!
 ### Pending Work
 
 **1. WASM Memory Interaction** (`host_functions.rs`)
+
 - Read/write strings from WASM linear memory
 - Read/write JSON payloads
 - UUID handling
 - Guest allocator integration
 
 **2. Full Wire Bridge** (`host_functions.rs`)
+
 - Call `RpcServer::execute_json_operation()`
 - Permission checking before operation
 - Error handling and propagation
 
 **3. Extension Operations** (`core/src/ops/`)
+
 - `ai.ocr` - OCR operation
 - `ai.classify_text` - AI classification
 - `credentials.store/get` - Credential management
 - `vdfs.write_sidecar` - Sidecar file operations
 
 **4. Test WASM Module**
+
 - Simple "hello world" .wasm file
 - Calls `spacedrive_call()` to test integration
 - Validates permission system
 
 **5. Extension SDK** (separate crate)
+
 - `spacedrive-sdk` Rust crate
 - Type-safe wrapper around `spacedrive_call()`
 - Ergonomic API for extension developers
@@ -126,7 +133,7 @@ plugin_manager.load_plugin("finance").await?;
 
 // Extension (WASM) calls:
 let result = spacedrive_call(
-    "query:ai.ocr.v1",
+    "query:ai.ocr",
     library_id,
     json!({ "data": pdf_bytes, "options": { "language": "eng" } })
 );
@@ -154,5 +161,4 @@ cargo run --bin spacedrive extension load ./plugins/test-plugin
 
 ---
 
-*Last Updated: October 2025 - Initial integration*
-
+_Last Updated: October 2025 - Initial integration_

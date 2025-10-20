@@ -4,14 +4,14 @@ import PackageDescription
 let package = Package(
     name: "SpacedriveClient",
     platforms: [
-        .macOS(.v13),
-        .iOS(.v16)
+        .macOS(3),
+        .iOS(6),
     ],
     products: [
         .library(
             name: "SpacedriveClient",
             targets: ["SpacedriveClient"]
-        ),
+        )
     ],
     dependencies: [
         // No external dependencies needed - everything is generated!

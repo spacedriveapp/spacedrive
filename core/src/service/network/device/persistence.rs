@@ -512,7 +512,6 @@ mod tests {
 				device_id,
 				device_info.clone(),
 				session_keys.clone(),
-				vec!["127.0.0.1:8080".to_string()],
 			)
 			.await
 			.unwrap();

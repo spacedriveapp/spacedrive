@@ -623,8 +623,11 @@ impl PeerSync {
 			while is_running.load(Ordering::SeqCst) {
 				match subscriber.recv().await {
 					Ok(Event::Custom { event_type, data }) => {
+						info!("PeerSync received event: {}", event_type);
 						match event_type.as_str() {
 							"sync:state_change" => {
+								info!("Handling state change event for sync broadcast");
+
 								if let Err(e) = Self::handle_state_change_event_static(
 									library_id,
 									data,

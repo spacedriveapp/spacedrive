@@ -298,7 +298,7 @@ mod tests {
 #[macro_export]
 macro_rules! action_method {
 	($name:literal) => {
-		concat!("action:", $name, ".input.v1")
+		concat!("action:", $name, ".input")
 	};
 }
 
@@ -306,7 +306,7 @@ macro_rules! action_method {
 #[macro_export]
 macro_rules! query_method {
 	($name:literal) => {
-		concat!("query:", $name, ".v1")
+		concat!("query:", $name, "")
 	};
 }
 

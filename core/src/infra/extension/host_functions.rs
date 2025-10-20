@@ -30,7 +30,7 @@ pub struct PluginEnv {
 /// It routes calls to the existing Wire operation registry.
 ///
 /// # Arguments
-/// - `method_ptr`, `method_len`: Wire method string (e.g., "query:ai.ocr.v1")
+/// - `method_ptr`, `method_len`: Wire method string (e.g., "query:ai.ocr")
 /// - `library_id_ptr`: 0 for None, or pointer to 16 UUID bytes
 /// - `payload_ptr`, `payload_len`: JSON payload string
 ///

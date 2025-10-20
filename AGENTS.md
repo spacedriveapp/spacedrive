@@ -101,15 +101,15 @@ Never implement `Wire` manually. Use registration macros:
 ```rust
 // Queries
 crate::register_query!(NetworkStatusQuery, "network.status");
-// Generates: "query:network.status.v1"
+// Generates: "query:network.status"
 
 // Library Actions
 crate::register_library_action!(FileCopyAction, "files.copy");
-// Generates: "action:files.copy.input.v1"
+// Generates: "action:files.copy.input"
 
 // Core Actions
 crate::register_core_action!(LibraryCreateAction, "libraries.create");
-// Generates: "action:libraries.create.input.v1"
+// Generates: "action:libraries.create.input"
 ```
 
 **Registry System:**

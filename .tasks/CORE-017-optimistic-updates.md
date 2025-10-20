@@ -35,7 +35,7 @@ await cache.updateOptimistically(pendingId, {
 
 try {
 	// 2. Send action to server
-	const confirmed = await client.action("albums.rename.v1", {
+	const confirmed = await client.action("albums.rename", {
 		id: albumId,
 		name: newName,
 	});

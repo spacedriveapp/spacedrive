@@ -37,6 +37,7 @@ This module handles library synchronization setup between paired devices. It is 
 ## Current Implementation Status
 
 ### Phase 1: Basic Structure (Complete)
+
 - [x] Directory structure and module organization
 - [x] Input/Output types with proper serialization
 - [x] CQRS action and query registration
@@ -45,12 +46,14 @@ This module handles library synchronization setup between paired devices. It is 
 - [x] Error handling and logging
 
 ### Phase 2: Network Implementation (Pending)
+
 - [ ] LibraryMessage handler in messaging protocol
 - [ ] Actual library discovery over network
 - [ ] Remote device registration requests
 - [ ] Bi-directional library setup
 
 ### Phase 3: Full Sync Support (Future)
+
 - [ ] Library merging (MergeIntoLocal, MergeIntoRemote)
 - [ ] Shared library creation
 - [ ] Conflict resolution
@@ -93,6 +96,7 @@ VALUES (remote_device_id, 'Remote Device', 'Desktop', '1.0', ...);
 ```
 
 This enables:
+
 - Future sync operations
 - Device-to-device file operations (Spacedrop)
 - Multi-device library awareness
@@ -100,80 +104,90 @@ This enables:
 ## Integration Points
 
 ### With Pairing System
+
 - Depends on: Device must be in `Paired` or `Connected` state
 - Location: `core/src/service/network/protocol/pairing/`
 
 ### With Library Manager
+
 - Uses: `LibraryManager::get_library()` for validation
 - Accesses: Library database for device registration
 - Location: `core/src/library/manager.rs`
 
 ### With Networking Service
+
 - Uses: `NetworkingService::device_registry()` for device info
 - Future: Will use messaging protocol for remote operations
 - Location: `core/src/service/network/core/`
 
 ### With Sync System (Future)
+
 - Will integrate with: Sync jobs, leader election, merge operations
 - Design: See `docs/core/design/SYNC_DESIGN.md` lines 245-311
 - Location: TBD (`core/src/sync/` when implemented)
 
 ## API Endpoints
 
-### Query: `query:network.sync_setup.discover.v1`
+### Query: `query:network.sync_setup.discover`
+
 **Input:**
+
 ```json
 {
-  "device_id": "uuid-of-paired-device"
+	"device_id": "uuid-of-paired-device"
 }
 ```
 
 **Output:**
+
 ```json
 {
-  "device_id": "uuid",
-  "device_name": "Device Name",
-  "libraries": [
-    {
-      "id": "uuid",
-      "name": "My Library",
-      "description": "Optional description",
-      "created_at": "2025-01-01T00:00:00Z",
-      "statistics": {
-        "total_entries": 1000,
-        "total_locations": 5,
-        "total_size_bytes": 1000000,
-        "device_count": 2
-      }
-    }
-  ],
-  "is_online": true
+	"device_id": "uuid",
+	"device_name": "Device Name",
+	"libraries": [
+		{
+			"id": "uuid",
+			"name": "My Library",
+			"description": "Optional description",
+			"created_at": "2025-01-01T00:00:00Z",
+			"statistics": {
+				"total_entries": 1000,
+				"total_locations": 5,
+				"total_size_bytes": 1000000,
+				"device_count": 2
+			}
+		}
+	],
+	"is_online": true
 }
 ```
 
-### Action: `action:network.sync_setup.input.v1`
+### Action: `action:network.sync_setup.input`
+
 **Input:**
+
 ```json
 {
-  "local_device_id": "uuid",
-  "remote_device_id": "uuid",
-  "local_library_id": "uuid",
-  "remote_library_id": "uuid",
-  "action": {
-    "type": "RegisterOnly"
-  },
-  "leader_device_id": "uuid"
+	"local_device_id": "uuid",
+	"remote_device_id": "uuid",
+	"local_library_id": "uuid",
+	"remote_library_id": "uuid",
+	"action": {
+		"type": "RegisterOnly"
+	},
+	"leader_device_id": "uuid"
 }
 ```
 
 **Output:**
+
 ```json
 {
-  "success": true,
-  "local_library_id": "uuid",
-  "remote_library_id": "uuid",
-  "devices_registered": true,
-  "message": "Devices successfully registered for library access"
+	"success": true,
+	"local_library_id": "uuid",
+	"remote_library_id": "uuid",
+	"devices_registered": true,
+	"message": "Devices successfully registered for library access"
 }
 ```
 
@@ -187,6 +201,7 @@ This enables:
 ## Future Enhancements
 
 See `SYNC_DESIGN.md` for full sync system design including:
+
 - Library merging strategies
 - Conflict resolution
 - Sync jobs and state machines
@@ -199,4 +214,3 @@ See `SYNC_DESIGN.md` for full sync system design including:
 - Full implementation awaits messaging protocol extension
 - Design aligns with provisional sync architecture
 - Maintains backward compatibility with existing pairing system
-

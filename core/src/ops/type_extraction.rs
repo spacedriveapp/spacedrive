@@ -306,7 +306,7 @@ pub struct ApiFunction {
 	pub method_name: String,
 	/// The full identifier (e.g., "libraries.create", "jobs.list")
 	pub identifier: String,
-	/// The wire method string (e.g., "action:libraries.create.input.v1")
+	/// The wire method string (e.g., "action:libraries.create.input")
 	pub wire_method: String,
 	/// Whether this is an action (true) or query (false)
 	pub is_action: bool,
@@ -689,8 +689,8 @@ mod tests {
 		assert!(swift_code.contains("responseType:"));
 
 		// Verify wire method strings are included
-		assert!(swift_code.contains("action:libraries.create.input.v1"));
-		assert!(swift_code.contains("query:jobs.list.v1"));
+		assert!(swift_code.contains("action:libraries.create.input"));
+		assert!(swift_code.contains("query:jobs.list"));
 
 		println!("Swift code generation test passed!");
 	}
