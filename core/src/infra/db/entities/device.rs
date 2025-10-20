@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "devices")]
 pub struct Model {
 	#[sea_orm(primary_key)]
+	#[serde(default)]
 	pub id: i32,
 	pub uuid: Uuid,
 	pub name: String,
@@ -18,7 +19,9 @@ pub struct Model {
 	pub is_online: bool,
 	pub last_seen_at: DateTimeUtc,
 	pub capabilities: Json, // DeviceCapabilities as JSON
+	#[serde(default)]
 	pub created_at: DateTimeUtc,
+	#[serde(default)]
 	pub updated_at: DateTimeUtc,
 
 	// Sync coordination fields (added in m20251009_000001_add_sync_to_devices)

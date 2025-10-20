@@ -63,8 +63,8 @@ pub struct PairingProtocolHandler {
 	/// Endpoint for creating and managing connections
 	endpoint: Option<Endpoint>,
 
-	/// Cached connections to remote nodes (reused for multiple message streams)
-	connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
+	/// Cached connections to remote nodes (keyed by NodeId and ALPN)
+	connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
 }
 
 impl PairingProtocolHandler {
@@ -77,7 +77,7 @@ impl PairingProtocolHandler {
 			crate::service::network::core::event_loop::EventLoopCommand,
 		>,
 		endpoint: Option<Endpoint>,
-		active_connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
+		active_connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
 	) -> Self {
 		Self {
 			identity,
@@ -103,7 +103,7 @@ impl PairingProtocolHandler {
 		>,
 		data_dir: PathBuf,
 		endpoint: Option<Endpoint>,
-		active_connections: Arc<RwLock<HashMap<NodeId, Connection>>>,
+		active_connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
 	) -> Self {
 		let persistence = Arc::new(PairingPersistence::new(data_dir));
 		Self {

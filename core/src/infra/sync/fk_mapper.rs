@@ -217,7 +217,26 @@ pub async fn map_sync_json_to_local(
 			.parse()?;
 
 		// Map UUID to local ID
-		let local_id = lookup_local_id_for_uuid(fk.target_table, uuid, db).await?;
+		// If the referenced record doesn't exist yet (sync dependency), set FK to NULL
+		let local_id = match lookup_local_id_for_uuid(fk.target_table, uuid, db).await {
+			Ok(id) => id,
+			Err(e) => {
+				// Referenced record not found - set FK to NULL (will be fixed on next sync)
+				tracing::warn!(
+					"FK reference not found: {} -> {} (uuid={}), setting to NULL: {}",
+					fk.local_field,
+					fk.target_table,
+					uuid,
+					e
+				);
+				data[fk.local_field] = Value::Null;
+				// Remove UUID field
+				if let Some(obj) = data.as_object_mut() {
+					obj.remove(&uuid_field);
+				}
+				continue;
+			}
+		};
 
 		// Replace UUID with local ID
 		data[fk.local_field] = json!(local_id);

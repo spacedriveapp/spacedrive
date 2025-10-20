@@ -84,7 +84,9 @@ impl Syncable for Model {
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		&["device"] // Location belongs to a device
+		// Location belongs to a device
+		// Note: entry_id FK is optional (can be NULL), so no hard dependency on entry
+		&["device"]
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {

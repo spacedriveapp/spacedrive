@@ -78,8 +78,8 @@ pub struct NetworkingEventLoop {
 	/// Our network identity
 	identity: NetworkIdentity,
 
-	/// Active connections tracker
-	active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
+	/// Active connections tracker (keyed by NodeId and ALPN)
+	active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
 
 	/// Logger for event loop operations
 	logger: Arc<dyn NetworkLogger>,
@@ -93,7 +93,7 @@ impl NetworkingEventLoop {
 		device_registry: Arc<RwLock<DeviceRegistry>>,
 		event_sender: broadcast::Sender<NetworkEvent>,
 		identity: NetworkIdentity,
-		active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
+		active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
 		logger: Arc<dyn NetworkLogger>,
 	) -> Self {
 		let (command_tx, command_rx) = mpsc::unbounded_channel();
@@ -195,10 +195,11 @@ impl NetworkingEventLoop {
 			}
 		};
 
-		// Track the connection
+		// Track the connection (keyed by node_id and alpn)
 		{
+			let alpn_bytes = conn.alpn().unwrap_or_default();
 			let mut connections = self.active_connections.write().await;
-			connections.insert(remote_node_id, conn.clone());
+			connections.insert((remote_node_id, alpn_bytes), conn.clone());
 		}
 
 		// For now, we'll need to detect ALPN from the first stream
@@ -271,7 +272,7 @@ impl NetworkingEventLoop {
 			// Only remove connection if it's actually closed
 			if conn.close_reason().is_some() {
 				let mut connections = active_connections.write().await;
-				connections.remove(&remote_node_id);
+				let alpn_bytes = conn.alpn().unwrap_or_default(); connections.remove(&(remote_node_id, alpn_bytes));
 				logger
 					.info(&format!(
 						"Connection to {} removed (closed)",
@@ -546,7 +547,7 @@ impl NetworkingEventLoop {
 				// Remove from active connections
 				{
 					let mut connections = self.active_connections.write().await;
-					connections.remove(&node_id);
+					connections.retain(|(nid, _alpn), _conn| *nid != node_id);
 				}
 
 				// Update device registry to mark as disconnected
@@ -612,7 +613,7 @@ impl NetworkingEventLoop {
 			EventLoopCommand::TrackOutboundConnection { node_id, conn } => {
 				// Add outbound connection to active connections map
 				let mut connections = self.active_connections.write().await;
-				connections.insert(node_id, conn);
+				let alpn_bytes = conn.alpn().unwrap_or_default(); connections.insert((node_id, alpn_bytes), conn);
 				self.logger
 					.debug(&format!("Tracked outbound connection to {}", node_id))
 					.await;
@@ -679,7 +680,7 @@ impl NetworkingEventLoop {
 				// Track the connection
 				{
 					let mut connections = self.active_connections.write().await;
-					connections.insert(node_id, conn.clone());
+					let alpn_bytes = conn.alpn().unwrap_or_default(); connections.insert((node_id, alpn_bytes), conn.clone());
 				}
 
 				// Open appropriate stream based on protocol

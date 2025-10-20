@@ -96,26 +96,40 @@ pub trait NetworkTransport: Send + Sync {
 		request: SyncMessage,
 	) -> Result<SyncMessage>;
 
-	/// Get list of currently connected sync partner devices
+	/// Get list of currently connected sync partner devices FOR THIS LIBRARY
 	///
 	/// Returns UUIDs of devices that are:
-	/// - Listed in devices table with sync_enabled=true
-	/// - Currently connected (have active network connection)
+	/// 1. Registered in THIS library's devices table (same library membership)
+	/// 2. Have sync_enabled=true in this library
+	/// 3. Currently network-connected (can receive messages)
 	///
-	/// This is used to optimize broadcasting - only send to devices that can receive.
+	/// This prevents sync from running between devices in different libraries.
+	///
+	/// # Arguments
+	///
+	/// * `library_id` - UUID of the library to check partners for
+	/// * `db` - Database connection to query devices table
 	///
 	/// # Returns
 	///
-	/// Vector of device UUIDs that are currently reachable for sync messages.
-	/// Empty vector if no sync partners are connected.
+	/// Vector of device UUIDs that are:
+	/// - Members of this specific library
+	/// - Have sync enabled
+	/// - Currently reachable via network
 	///
-	/// # Implementation Note
+	/// Empty vector if no sync partners meet all criteria.
 	///
-	/// This should query:
-	/// 1. `devices` table for sync_enabled=true devices
-	/// 2. `device_registry` for connection status
-	/// 3. Return intersection of (enabled) AND (connected)
-	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>>;
+	/// # Implementation
+	///
+	/// Must query devices table scoped to library:
+	/// 1. SELECT uuid FROM devices WHERE library_id=? AND sync_enabled=true
+	/// 2. Check which ones are in DeviceRegistry as connected
+	/// 3. Return intersection
+	async fn get_connected_sync_partners(
+		&self,
+		library_id: Uuid,
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<Vec<Uuid>>;
 
 	/// Check if a specific device is currently reachable
 	///
@@ -208,7 +222,11 @@ impl NetworkTransport for MockNetworkTransport {
 		}
 	}
 
-	async fn get_connected_sync_partners(&self) -> Result<Vec<Uuid>> {
+	async fn get_connected_sync_partners(
+		&self,
+		_library_id: Uuid,
+		_db: &sea_orm::DatabaseConnection,
+	) -> Result<Vec<Uuid>> {
 		// For tests, return empty list
 		Ok(vec![])
 	}

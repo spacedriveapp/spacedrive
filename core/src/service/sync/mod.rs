@@ -140,8 +140,11 @@ impl SyncService {
 					match state {
 						DeviceSyncState::Uninitialized => {
 							if !backfill_attempted {
-								// Get available sync partners from network
-								match peer_sync.network().get_connected_sync_partners().await {
+								// Get available sync partners from network (library-scoped)
+								match peer_sync.network().get_connected_sync_partners(
+									peer_sync.library_id(),
+									peer_sync.db(),
+								).await {
 									Ok(partners) if !partners.is_empty() => {
 										info!("Device uninitialized - attempting automatic backfill");
 										info!("Found {} connected partners, starting backfill", partners.len());
