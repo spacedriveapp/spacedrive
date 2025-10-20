@@ -283,8 +283,7 @@ impl BackfillManager {
 
 	/// Request state batch from peer
 	///
-	/// Sends a StateRequest and waits for the StateResponse.
-	/// Uses oneshot channel to receive response from protocol handler.
+	/// Sends a StateRequest via bidirectional stream and waits for StateResponse.
 	async fn request_state_batch(
 		&self,
 		peer: Uuid,
@@ -293,20 +292,6 @@ impl BackfillManager {
 		since: Option<DateTime<Utc>>,
 		batch_size: usize,
 	) -> Result<SyncMessage> {
-		// Create channel for response
-		let (tx, rx) = oneshot::channel();
-
-		// Store sender so protocol handler can deliver response
-		{
-			let mut pending = self.pending_state_response.lock().await;
-			if pending.is_some() {
-				return Err(anyhow::anyhow!(
-					"Cannot send StateRequest - previous request still pending"
-				));
-			}
-			*pending = Some(tx);
-		}
-
 		// Create and send request
 		let request = SyncMessage::StateRequest {
 			library_id: self.library_id,
@@ -317,58 +302,25 @@ impl BackfillManager {
 			batch_size,
 		};
 
-		self.peer_sync
+		// Use send_sync_request which handles bidirectional stream and response
+		let response = self
+			.peer_sync
 			.network()
-			.send_sync_message(peer, request)
+			.send_sync_request(peer, request)
 			.await?;
-
-		// Wait for response with timeout
-		let response = tokio::time::timeout(
-			tokio::time::Duration::from_secs(REQUEST_TIMEOUT_SECS),
-			rx,
-		)
-		.await
-		.map_err(|_| {
-			// Timeout - clean up pending channel
-			let pending = self.pending_state_response.clone();
-			tokio::spawn(async move {
-				*pending.lock().await = None;
-			});
-			anyhow::anyhow!(
-				"StateRequest timeout after {}s - peer {} not responding",
-				REQUEST_TIMEOUT_SECS,
-				peer
-			)
-		})?
-		.map_err(|_| anyhow::anyhow!("StateRequest channel closed unexpectedly"))?;
 
 		Ok(response)
 	}
 
 	/// Request shared changes from peer
 	///
-	/// Sends a SharedChangeRequest and waits for the SharedChangeResponse.
-	/// Uses oneshot channel to receive response from protocol handler.
+	/// Sends a SharedChangeRequest via bidirectional stream and waits for SharedChangeResponse.
 	async fn request_shared_changes(
 		&self,
 		peer: Uuid,
 		since_hlc: Option<HLC>,
 		limit: usize,
 	) -> Result<SyncMessage> {
-		// Create channel for response
-		let (tx, rx) = oneshot::channel();
-
-		// Store sender so protocol handler can deliver response
-		{
-			let mut pending = self.pending_shared_response.lock().await;
-			if pending.is_some() {
-				return Err(anyhow::anyhow!(
-					"Cannot send SharedChangeRequest - previous request still pending"
-				));
-			}
-			*pending = Some(tx);
-		}
-
 		// Create and send request
 		let request = SyncMessage::SharedChangeRequest {
 			library_id: self.library_id,
@@ -376,30 +328,12 @@ impl BackfillManager {
 			limit,
 		};
 
-		self.peer_sync
+		// Use send_sync_request which handles bidirectional stream and response
+		let response = self
+			.peer_sync
 			.network()
-			.send_sync_message(peer, request)
+			.send_sync_request(peer, request)
 			.await?;
-
-		// Wait for response with timeout
-		let response = tokio::time::timeout(
-			tokio::time::Duration::from_secs(REQUEST_TIMEOUT_SECS),
-			rx,
-		)
-		.await
-		.map_err(|_| {
-			// Timeout - clean up pending channel
-			let pending = self.pending_shared_response.clone();
-			tokio::spawn(async move {
-				*pending.lock().await = None;
-			});
-			anyhow::anyhow!(
-				"SharedChangeRequest timeout after {}s - peer {} not responding",
-				REQUEST_TIMEOUT_SECS,
-				peer
-			)
-		})?
-		.map_err(|_| anyhow::anyhow!("SharedChangeRequest channel closed unexpectedly"))?;
 
 		Ok(response)
 	}

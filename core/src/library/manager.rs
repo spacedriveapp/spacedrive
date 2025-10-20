@@ -710,13 +710,57 @@ impl LibraryManager {
 				.map_err(LibraryError::DatabaseError)?;
 
 			debug!("Updated device {} in library {}", device.id, library.id());
+
+			// Broadcast update via sync
+			if let Some(_sync_service) = library.sync_service() {
+				let updated_model = entities::device::Entity::find()
+					.filter(entities::device::Column::Uuid.eq(device.id))
+					.one(db.conn())
+					.await
+					.map_err(LibraryError::DatabaseError)?
+					.ok_or_else(|| LibraryError::Other("Device not found after update".to_string()))?;
+
+				if let Err(e) = library
+					.sync_model(&updated_model, crate::infra::sync::ChangeType::Update)
+					.await
+				{
+					warn!("Failed to sync device update: {}", e);
+				}
+			}
 		} else {
+			// First time registration - check for slug collisions
+			let existing_slugs: Vec<String> = entities::device::Entity::find()
+				.all(db.conn())
+				.await
+				.map_err(LibraryError::DatabaseError)?
+				.iter()
+				.map(|d| d.slug.clone())
+				.collect();
+
+			let original_slug = device.slug.clone();
+			let candidate_slug = Library::ensure_unique_slug(&original_slug, &existing_slugs);
+
+			// If renamed, update DeviceConfig
+			if candidate_slug != original_slug {
+				warn!(
+					"Device slug collision in library {}. Renaming '{}' to '{}'",
+					library.id(),
+					original_slug,
+					candidate_slug
+				);
+
+				// Update config via public API
+				self.device_manager
+					.update_slug(candidate_slug.clone())
+					.map_err(|e| LibraryError::Other(format!("Failed to update device slug: {}", e)))?;
+			}
+
 			// Register the device for the first time
 			let device_model = entities::device::ActiveModel {
 				id: sea_orm::ActiveValue::NotSet,
 				uuid: Set(device.id),
 				name: Set(device.name.clone()),
-				slug: Set(device.slug.clone()),
+				slug: Set(candidate_slug.clone()),
 				os: Set(device.os.to_string()),
 				os_version: Set(None),
 				hardware_model: Set(device.hardware_model),
@@ -736,7 +780,7 @@ impl LibraryManager {
 				updated_at: Set(Utc::now()),
 			};
 
-			device_model
+			let inserted_model = device_model
 				.insert(db.conn())
 				.await
 				.map_err(LibraryError::DatabaseError)?;
@@ -746,6 +790,23 @@ impl LibraryManager {
 				device.id,
 				library.id()
 			);
+
+			// Broadcast device record via sync
+			if let Some(_sync_service) = library.sync_service() {
+				if let Err(e) = library
+					.sync_model(&inserted_model, crate::infra::sync::ChangeType::Insert)
+					.await
+				{
+					warn!("Failed to sync device registration: {}", e);
+				} else {
+					info!("Device record broadcast to sync partners");
+				}
+			}
+
+			// Reload library's device cache
+			if let Err(e) = library.reload_device_cache().await {
+				warn!("Failed to reload device cache after registration: {}", e);
+			}
 		}
 
 		Ok(())

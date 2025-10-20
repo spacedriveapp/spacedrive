@@ -273,6 +273,31 @@ impl Library {
 		Ok(())
 	}
 
+	/// Ensure slug is unique within existing slugs
+	/// Appends -2, -3, etc. if collision detected (like VolumeManager does)
+	pub fn ensure_unique_slug(base_slug: &str, existing_slugs: &[String]) -> String {
+		let mut candidate = base_slug.to_string();
+		let mut counter = 2;
+
+		while existing_slugs.contains(&candidate) {
+			candidate = format!("{}-{}", base_slug, counter);
+			counter += 1;
+
+			if counter > 1000 {
+				// Fallback: use UUID suffix if too many collisions
+				let uuid_suffix = Uuid::new_v4()
+					.to_string()
+					.split('-')
+					.next()
+					.unwrap()
+					.to_string();
+				return format!("{}-{}", base_slug, uuid_suffix);
+			}
+		}
+
+		candidate
+	}
+
 	/// Get the thumbnail directory for this library
 	pub fn thumbnails_dir(&self) -> PathBuf {
 		self.path.join("thumbnails")
