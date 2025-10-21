@@ -800,7 +800,7 @@ impl Library {
 
 		// Get all location root entry IDs for this library
 		let locations = location::Entity::find().all(db).await?;
-		let location_root_entry_ids: Vec<i32> = locations.iter().map(|l| l.entry_id).collect();
+		let location_root_entry_ids: Vec<i32> = locations.iter().filter_map(|l| l.entry_id).collect();
 
 		debug!(
 			location_count = locations.len(),
@@ -991,7 +991,7 @@ impl Library {
 		// Get all location root entry IDs for this library
 		debug!("Fetching location root entry IDs");
 		let locations = location::Entity::find().all(db).await?;
-		let location_root_entry_ids: Vec<i32> = locations.iter().map(|l| l.entry_id).collect();
+		let location_root_entry_ids: Vec<i32> = locations.iter().filter_map(|l| l.entry_id).collect();
 		debug!(
 			location_count = locations.len(),
 			"Found {} locations",

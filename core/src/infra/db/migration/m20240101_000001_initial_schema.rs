@@ -390,7 +390,7 @@ impl MigrationTrait for Migration {
 							.unique_key(),
 					)
 					.col(ColumnDef::new(Locations::DeviceId).integer().not_null())
-					.col(ColumnDef::new(Locations::EntryId).integer().not_null())
+					.col(ColumnDef::new(Locations::EntryId).integer()) // Nullable to handle circular FK with entries
 					.col(ColumnDef::new(Locations::Name).string())
 					.col(ColumnDef::new(Locations::IndexMode).string().not_null())
 					.col(ColumnDef::new(Locations::ScanState).string().not_null())

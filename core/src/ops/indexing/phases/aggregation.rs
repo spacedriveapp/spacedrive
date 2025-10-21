@@ -44,8 +44,11 @@ pub async fn run_aggregation_phase(
 		.map(|ec| ec.descendant_id)
 		.collect::<Vec<i32>>();
 
-	// Add the root entry itself
-	let mut all_entry_ids = vec![location_record.entry_id];
+	// Add the root entry itself (skip if location has no entry_id)
+	let Some(root_entry_id) = location_record.entry_id else {
+		return Ok(());  // Skip if location not yet synced
+	};
+	let mut all_entry_ids = vec![root_entry_id];
 	all_entry_ids.extend(descendant_ids);
 
 	// Now get all directories from these entries
@@ -221,15 +224,23 @@ pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbEr
 		);
 
 		// Find all directories under this location using closure table
+		let Some(root_entry_id) = location.entry_id else {
+			tracing::warn!(
+				"Skipping location {} - entry_id not set (not yet synced)",
+				location.name.as_deref().unwrap_or("Unknown")
+			);
+			continue;
+		};
+
 		let descendant_ids = entry_closure::Entity::find()
-			.filter(entry_closure::Column::AncestorId.eq(location.entry_id))
+			.filter(entry_closure::Column::AncestorId.eq(root_entry_id))
 			.all(db)
 			.await?
 			.into_iter()
 			.map(|ec| ec.descendant_id)
 			.collect::<Vec<i32>>();
 
-		let mut all_entry_ids = vec![location.entry_id];
+		let mut all_entry_ids = vec![root_entry_id];
 		all_entry_ids.extend(descendant_ids);
 
 		let mut directories: Vec<entities::entry::Model> = Vec::new();

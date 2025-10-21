@@ -11,7 +11,7 @@ pub struct Model {
 	pub id: i32,
 	pub uuid: Uuid,
 	pub device_id: i32,
-	pub entry_id: i32,
+	pub entry_id: Option<i32>, // Nullable to handle circular FK with entries during sync
 	pub name: Option<String>,
 	pub index_mode: String, // "shallow", "content", "deep"
 	pub scan_state: String, // "pending", "scanning", "completed", "error"
@@ -85,7 +85,9 @@ impl Syncable for Model {
 
 	fn sync_depends_on() -> &'static [&'static str] {
 		// Location belongs to a device
-		// Note: entry_id FK is optional (can be NULL), so no hard dependency on entry
+		// Note: entry_id references the root entry of this location's tree, but this creates
+		// a circular dependency (location → entry, entry → location). We handle this by making
+		// entry_id nullable during sync and fixing it up after both are synced.
 		&["device"]
 	}
 
@@ -181,12 +183,16 @@ impl Syncable for Model {
 		)
 		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid device_id: {}", e)))?;
 
-		let entry_id: i32 = serde_json::from_value(
-			data.get("entry_id")
-				.ok_or_else(|| sea_orm::DbErr::Custom("Missing entry_id".to_string()))?
-				.clone(),
-		)
-		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid entry_id: {}", e)))?;
+		// entry_id may be null if the referenced entry hasn't been synced yet (circular FK)
+		let entry_id: Option<i32> = data
+			.get("entry_id")
+			.and_then(|v| {
+				if v.is_null() {
+					None
+				} else {
+					serde_json::from_value(v.clone()).ok()
+				}
+			});
 
 		// Build ActiveModel for upsert
 		use sea_orm::{ActiveValue::NotSet, Set};

@@ -49,7 +49,9 @@ pub async fn run_processing_phase(
 
 	let device_id = location_record.device_id;
 	let location_id_i32 = location_record.id;
-	let location_entry_id = location_record.entry_id;
+	let location_entry_id = location_record.entry_id.ok_or_else(|| {
+		JobError::execution("Location entry_id not set (not yet synced)")
+	})?;
 	ctx.log(format!(
 		"Found location record: device_id={}, location_id={}, entry_id={}",
 		device_id, location_id_i32, location_entry_id

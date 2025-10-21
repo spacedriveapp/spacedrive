@@ -59,7 +59,10 @@ impl LibraryAction for LocationRescanAction {
 			})?;
 
 		// Get the location's path using PathResolver
-		let location_path_buf = PathResolver::get_full_path(library.db().conn(), location.entry_id)
+		let entry_id = location.entry_id.ok_or_else(|| {
+			ActionError::Internal("Location entry_id not set (not yet synced)".to_string())
+		})?;
+		let location_path_buf = PathResolver::get_full_path(library.db().conn(), entry_id)
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to get location path: {}", e)))?;
 		let location_path_str = location_path_buf.to_string_lossy().to_string();

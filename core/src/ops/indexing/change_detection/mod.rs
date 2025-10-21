@@ -98,7 +98,7 @@ impl ChangeDetector {
 			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
 
 		// Create a database persistence instance to leverage the scoped query logic
-		let persistence = DatabasePersistence::new(ctx, 0, Some(location_record.entry_id)); // device_id not needed for query
+		let persistence = DatabasePersistence::new(ctx, 0, location_record.entry_id); // device_id not needed for query
 
 		// Use the scoped query method
 		let existing_entries = persistence.get_existing_entries(indexing_path).await?;

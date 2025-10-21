@@ -60,7 +60,7 @@ impl SyncProtocolHandler {
 	}
 
 	/// Handle an incoming sync message
-	async fn handle_sync_message(
+	pub async fn handle_sync_message(
 		&self,
 		from_device: Uuid,
 		message: SyncMessage,
