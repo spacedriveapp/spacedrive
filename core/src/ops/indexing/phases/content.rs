@@ -5,6 +5,7 @@ use crate::{
 	infra::job::generic_progress::ToGenericProgress,
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
+		ctx::IndexingCtx,
 		entry::EntryProcessor,
 		state::{IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
@@ -95,6 +96,10 @@ pub async fn run_content_phase(
 		// Wait for all content hash generations to complete
 		let hash_results = futures::future::join_all(content_hash_futures).await;
 
+		// Collect results for batch syncing
+		let mut content_identities_to_sync = Vec::new();
+		let mut entries_to_sync = Vec::new();
+
 		// Process results
 		for (entry_id, path, hash_result) in hash_results {
 			// Check for interruption during result processing
@@ -111,12 +116,17 @@ pub async fn run_content_phase(
 					)
 					.await
 					{
-						Ok(()) => {
+						Ok(result) => {
 							ctx.log(format!(
 								"Created content identity for {}: {}",
 								path.display(),
 								content_hash
 							));
+
+							// Collect for batch sync
+							content_identities_to_sync.push(result.content_identity);
+							entries_to_sync.push(result.entry);
+
 							success_count += 1;
 						}
 						Err(e) => {
@@ -146,6 +156,72 @@ pub async fn run_content_phase(
 						error: e.to_string(),
 					});
 					error_count += 1;
+				}
+			}
+		}
+
+		// Batch sync content identities (shared resources)
+		if !content_identities_to_sync.is_empty() {
+			match IndexingCtx::library(ctx) {
+				Some(library) => {
+					match library
+						.sync_models_batch(
+							&content_identities_to_sync,
+							crate::infra::sync::ChangeType::Insert,
+							ctx.library_db(),
+						)
+						.await
+					{
+						Ok(()) => {
+							ctx.log(format!(
+								"Batch synced {} content identities",
+								content_identities_to_sync.len()
+							));
+						}
+						Err(e) => {
+							tracing::warn!(
+								"Failed to batch sync {} content identities: {}",
+								content_identities_to_sync.len(),
+								e
+							);
+						}
+					}
+				}
+				None => {
+					ctx.log("Sync disabled - content identities saved locally only");
+				}
+			}
+		}
+
+		// Batch sync entries (device-owned, only those with UUIDs after content ID assignment)
+		if !entries_to_sync.is_empty() {
+			match IndexingCtx::library(ctx) {
+				Some(library) => {
+					match library
+						.sync_models_batch(
+							&entries_to_sync,
+							crate::infra::sync::ChangeType::Update,
+							ctx.library_db(),
+						)
+						.await
+					{
+						Ok(()) => {
+							ctx.log(format!(
+								"Batch synced {} entries with content IDs",
+								entries_to_sync.len()
+							));
+						}
+						Err(e) => {
+							tracing::warn!(
+								"Failed to batch sync {} entries: {}",
+								entries_to_sync.len(),
+								e
+							);
+						}
+					}
+				}
+				None => {
+					ctx.log("Sync disabled - entries saved locally only");
 				}
 			}
 		}
