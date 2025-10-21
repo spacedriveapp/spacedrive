@@ -785,6 +785,22 @@ impl PeerSync {
 									warn!(error = %e, "Failed to handle state change batch event");
 								}
 							}
+							"sync:shared_change_batch" => {
+								info!("Handling shared change batch event for sync broadcast");
+								if let Err(e) = Self::handle_shared_change_batch_event_static(
+									library_id,
+									data,
+									&network,
+									&state,
+									&buffer,
+									&retry_queue,
+									&db,
+								)
+								.await
+								{
+									warn!(error = %e, "Failed to handle shared change batch event");
+								}
+							}
 							_ => {
 								// Ignore other custom events
 							}
@@ -1306,6 +1322,94 @@ impl PeerSync {
 			success = success_count,
 			errors = error_count,
 			"State change batch broadcast complete"
+		);
+
+		Ok(())
+	}
+
+	/// Handle shared change batch event from TransactionManager
+	async fn handle_shared_change_batch_event_static(
+		library_id: Uuid,
+		data: serde_json::Value,
+		network: &Arc<dyn NetworkTransport>,
+		state: &Arc<RwLock<DeviceSyncState>>,
+		buffer: &Arc<BufferQueue>,
+		_retry_queue: &Arc<RetryQueue>,
+		db: &Arc<sea_orm::DatabaseConnection>,
+	) -> Result<()> {
+		// Parse entries array from event data
+		let entries: Vec<SharedChangeEntry> = data
+			.get("entries")
+			.and_then(|v| v.as_array())
+			.ok_or_else(|| anyhow::anyhow!("Missing entries in shared_change_batch event"))?
+			.iter()
+			.filter_map(|entry_value| serde_json::from_value(entry_value.clone()).ok())
+			.collect();
+
+		if entries.is_empty() {
+			return Ok(());
+		}
+
+		info!(
+			entry_count = entries.len(),
+			"Handling shared change batch for broadcast"
+		);
+
+		// Check if we should buffer
+		let current_state = state.read().await;
+		if current_state.should_buffer() {
+			info!("Buffering shared batch during backfill (not broadcasting)");
+			for entry in entries {
+				buffer
+					.push(super::state::BufferedUpdate::SharedChange(entry))
+					.await;
+			}
+			return Ok(());
+		}
+		drop(current_state);
+
+		// Create batch message
+		let message = SyncMessage::SharedChangeBatch {
+			library_id,
+			entries: entries.clone(),
+		};
+
+		// Get connected partners
+		let connected_partners = network.get_connected_sync_partners(library_id, db).await?;
+
+		if connected_partners.is_empty() {
+			debug!("No connected partners for shared batch, will retry on next connection");
+			// Note: Entries are already in peer_log, will be sent during backfill
+			return Ok(());
+		}
+
+		debug!(
+			entry_count = entries.len(),
+			partner_count = connected_partners.len(),
+			"Broadcasting shared change batch to sync partners"
+		);
+
+		// Broadcast to all partners
+		use futures::future::join_all;
+		let send_futures: Vec<_> = connected_partners
+			.iter()
+			.map(|&partner| {
+				let network = network.clone();
+				let message = message.clone();
+				async move { network.send_sync_message(partner, message).await }
+			})
+			.collect();
+
+		let results = join_all(send_futures).await;
+
+		let success_count = results.iter().filter(|r| r.is_ok()).count();
+		let error_count = results.iter().filter(|r| r.is_err()).count();
+
+		info!(
+			entry_count = entries.len(),
+			success = success_count,
+			errors = error_count,
+			"Shared change batch broadcast complete"
 		);
 
 		Ok(())

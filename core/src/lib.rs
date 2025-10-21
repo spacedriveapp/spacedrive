@@ -245,6 +245,18 @@ impl Core {
 			{
 				Ok(()) => {
 					info!("Networking service initialized");
+
+					// Start the networking service (event loop + Iroh endpoint)
+					match services.start_networking().await {
+						Ok(()) => {
+							info!("Networking service started (event loop + endpoint)");
+						}
+						Err(e) => {
+							error!("Failed to start networking service: {}", e);
+							// Continue without networking
+						}
+					}
+
 					// Store networking service in context so it can be accessed
 					if let Some(networking) = services.networking() {
 						context.set_networking(networking.clone()).await;

@@ -164,6 +164,12 @@ impl NetworkingService {
 
 	/// Start the networking service
 	pub async fn start(&mut self) -> Result<()> {
+		// Check if already started
+		if self.endpoint.is_some() {
+			self.logger.info("Networking service already started, skipping").await;
+			return Ok(());
+		}
+
 		// Create Iroh endpoint with discovery and relay configuration
 		let secret_key = self.identity.to_iroh_secret_key()?;
 
