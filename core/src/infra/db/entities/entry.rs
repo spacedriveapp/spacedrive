@@ -177,6 +177,20 @@ impl crate::infra::sync::Syncable for Model {
 				}
 			};
 
+			// For directories, include the absolute path from directory_paths
+			// This ensures receiving devices get identical paths for universal addressing
+			if entry.kind == 1 {
+				// Directory
+				if let Ok(Some(dir_path)) = super::directory_paths::Entity::find_by_id(entry.id)
+					.one(db)
+					.await
+				{
+					if let Some(obj) = json.as_object_mut() {
+						obj.insert("directory_path".to_string(), serde_json::Value::String(dir_path.path));
+					}
+				}
+			}
+
 			// Convert FK integer IDs to UUIDs
 			for fk in <Model as Syncable>::foreign_key_mappings() {
 				if let Err(e) =
@@ -382,8 +396,35 @@ impl Model {
 
 		// If this is a directory, create or update its entry in the directory_paths table
 		if EntryKind::from(kind) == EntryKind::Directory {
-			// Rebuild directory path from parent chain
-			Self::rebuild_directory_path(entry_id, parent_id, &name, db).await?;
+			// Check if path was included in sync data (preferred - ensures identical paths)
+			let path_applied = if let Some(path_value) = data.get("directory_path") {
+				if let Some(path_str) = path_value.as_str() {
+					// Use the synced absolute path directly from owning device
+					let dir_path = super::directory_paths::ActiveModel {
+						entry_id: Set(entry_id),
+						path: Set(path_str.to_string()),
+					};
+
+					// Try insert, fall back to update if exists
+					match dir_path.clone().insert(db).await {
+						Ok(_) => true,
+						Err(_) => {
+							// Already exists, update it
+							dir_path.update(db).await.is_ok()
+						}
+					}
+				} else {
+					false
+				}
+			} else {
+				false
+			};
+
+			// Fallback: rebuild from parent chain if path wasn't synced
+			// (backward compatibility or if syncing from older version)
+			if !path_applied {
+				Self::rebuild_directory_path(entry_id, parent_id, &name, db).await?;
+			}
 		}
 
 		Ok(())
