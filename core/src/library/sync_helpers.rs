@@ -249,6 +249,7 @@ impl Library {
 		);
 
 		// Generate HLCs and append to peer log in batch
+		let mut entries = Vec::new();
 		for (record_uuid, data) in records {
 			let hlc = hlc_gen.next();
 
@@ -265,15 +266,17 @@ impl Library {
 				.await
 				.map_err(|e| anyhow::anyhow!("Failed to append to peer log: {}", e))?;
 
-			// Emit event for broadcast
-			self.transaction_manager().event_bus().emit(Event::Custom {
-				event_type: "sync:shared_change".to_string(),
-				data: serde_json::json!({
-					"library_id": self.id(),
-					"entry": entry,
-				}),
-			});
+			entries.push(entry);
 		}
+
+		// Emit single batch event for all records
+		self.transaction_manager().event_bus().emit(Event::Custom {
+			event_type: "sync:shared_change_batch".to_string(),
+			data: serde_json::json!({
+				"library_id": self.id(),
+				"entries": entries,
+			}),
+		});
 
 		Ok(())
 	}
