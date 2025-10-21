@@ -165,8 +165,19 @@ impl LocationManager {
 		txn.commit().await?;
 		info!("Created location record with ID: {}", location_record.id);
 
-		// Sync location to other devices (has FK relationships: device_id, entry_id)
+		// Sync location root entry FIRST (before location) to ensure FK dependency exists
+		// Location references entry_id, so entry must exist in sync system before location is synced
 		use crate::infra::sync::ChangeType;
+		library
+			.sync_model_with_db(&entry_record, ChangeType::Insert, library.db().conn())
+			.await
+			.map_err(|e| {
+				warn!("Failed to sync location root entry: {}", e);
+				e
+			})
+			.ok();
+
+		// Now sync location to other devices (has FK relationships: device_id, entry_id)
 		library
 			.sync_model_with_db(&location_record, ChangeType::Insert, library.db().conn())
 			.await
