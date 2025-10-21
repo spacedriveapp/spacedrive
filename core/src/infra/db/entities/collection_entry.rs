@@ -89,6 +89,7 @@ impl Syncable for Model {
 	async fn query_for_sync(
 		_device_id: Option<Uuid>,
 		since: Option<DateTime<Utc>>,
+		_cursor: Option<(DateTime<Utc>, Uuid)>,
 		batch_size: usize,
 		db: &DatabaseConnection,
 	) -> Result<Vec<(Uuid, serde_json::Value, DateTime<Utc>)>, sea_orm::DbErr> {

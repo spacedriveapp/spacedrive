@@ -186,6 +186,7 @@ impl Syncable for Model {
 	async fn query_for_sync(
 		_device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
+		_cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
 		batch_size: usize,
 		db: &DatabaseConnection,
 	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {

@@ -207,9 +207,23 @@ impl SyncProtocolHandler {
 					"Processing StateRequest"
 				);
 
+				// Parse checkpoint to get cursor (timestamp + uuid)
+				let cursor = checkpoint.as_ref().and_then(|chk| {
+					let parts: Vec<&str> = chk.split('|').collect();
+					if parts.len() == 2 {
+						let ts = chrono::DateTime::parse_from_rfc3339(parts[0])
+							.ok()?
+							.with_timezone(&chrono::Utc);
+						let uuid = Uuid::parse_str(parts[1]).ok()?;
+						Some((ts, uuid))
+					} else {
+						None
+					}
+				});
+
 				// Query local state
 				let records = peer_sync
-					.get_device_state(model_types.clone(), device_id, since, batch_size)
+					.get_device_state(model_types.clone(), device_id, since, cursor, batch_size)
 					.await
 					.map_err(|e| {
 						NetworkingError::Protocol(format!("Failed to query device state: {}", e))
@@ -218,12 +232,21 @@ impl SyncProtocolHandler {
 				let has_more = records.len() >= batch_size;
 				let model_type = model_types.first().cloned().unwrap_or_default();
 
+				// Create checkpoint: "timestamp|uuid" format
+				let next_checkpoint = if has_more {
+					records.last().map(|r| {
+						format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid)
+					})
+				} else {
+					None
+				};
+
 				Ok(Some(SyncMessage::StateResponse {
 					library_id,
 					model_type,
 					device_id: device_id.unwrap_or(from_device),
 					records,
-					checkpoint: None, // TODO: Implement checkpoint tracking
+					checkpoint: next_checkpoint,
 					has_more,
 				}))
 			}

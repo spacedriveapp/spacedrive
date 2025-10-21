@@ -163,6 +163,7 @@ pub trait Syncable: Serialize + Clone {
 	fn query_for_sync(
 		device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
+		cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
 		batch_size: usize,
 		db: &DatabaseConnection,
 	) -> impl std::future::Future<
@@ -176,6 +177,7 @@ pub trait Syncable: Serialize + Clone {
 	{
 		async move {
 			// Default implementation returns empty - models must override
+			let _ = (device_id, since, cursor, batch_size, db);
 			Ok(Vec::new())
 		}
 	}

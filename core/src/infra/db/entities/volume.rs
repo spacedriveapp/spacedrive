@@ -121,17 +121,36 @@ impl Syncable for Model {
 	async fn query_for_sync(
 		_device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
+		cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
 		batch_size: usize,
 		db: &DatabaseConnection,
 	) -> Result<Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, sea_orm::DbErr> {
 		use crate::infra::sync::Syncable;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+		use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 
 		let mut query = Entity::find();
 
 		if let Some(since_time) = since {
 			query = query.filter(Column::LastSeenAt.gte(since_time));
 		}
+
+		// Cursor-based pagination with tie-breaker
+		if let Some((cursor_ts, cursor_uuid)) = cursor {
+			query = query.filter(
+				Condition::any()
+					.add(Column::LastSeenAt.gt(cursor_ts))
+					.add(
+						Condition::all()
+							.add(Column::LastSeenAt.eq(cursor_ts))
+							.add(Column::Uuid.gt(cursor_uuid)),
+					),
+			);
+		}
+
+		// Order by last_seen_at + uuid for deterministic pagination
+		query = query
+			.order_by_asc(Column::LastSeenAt)
+			.order_by_asc(Column::Uuid);
 
 		query = query.limit(batch_size as u64);
 

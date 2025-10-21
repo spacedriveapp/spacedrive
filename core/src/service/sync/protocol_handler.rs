@@ -88,23 +88,50 @@ impl StateSyncHandler {
 		model_types: Vec<String>,
 		device_id: Option<Uuid>,
 		since: Option<DateTime<Utc>>,
+		checkpoint: Option<String>,
 		batch_size: usize,
 	) -> Result<Vec<SyncMessage>> {
 		let mut responses = Vec::new();
 
 		for model_type in model_types {
+			// Parse checkpoint to get cursor (timestamp + uuid tie-breaker)
+			let cursor = checkpoint.as_ref().and_then(|chk| {
+				let parts: Vec<&str> = chk.split('|').collect();
+				if parts.len() == 2 {
+					let ts = DateTime::parse_from_rfc3339(parts[0])
+						.ok()?
+						.with_timezone(&chrono::Utc);
+					let uuid = Uuid::parse_str(parts[1]).ok()?;
+					Some((ts, uuid))
+				} else {
+					None
+				}
+			});
+
 			let records = self
-				.query_state(&model_type, device_id, since, batch_size)
+				.query_state(&model_type, device_id, since, cursor, batch_size)
 				.await?;
 
 			if !records.is_empty() {
+				// If we got exactly batch_size records, there may be more
+				let has_more = records.len() >= batch_size;
+
+				// Create checkpoint: "timestamp|uuid" format
+				let next_checkpoint = if has_more {
+					records.last().map(|r| {
+						format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid)
+					})
+				} else {
+					None
+				};
+
 				responses.push(SyncMessage::StateResponse {
 					library_id: self.library_id,
 					model_type,
 					device_id: device_id.unwrap_or(Uuid::nil()),
 					records,
-					checkpoint: None, // TODO: Implement checkpointing
-					has_more: false,  // TODO: Implement pagination
+					checkpoint: next_checkpoint,
+					has_more,
 				});
 			}
 		}
@@ -118,6 +145,7 @@ impl StateSyncHandler {
 		model_type: &str,
 		device_id: Option<Uuid>,
 		since: Option<DateTime<Utc>>,
+		cursor: Option<(DateTime<Utc>, Uuid)>,
 		limit: usize,
 	) -> Result<Vec<StateRecord>> {
 		// Get table name from registry (no hardcoding!)
@@ -145,7 +173,27 @@ impl StateSyncHandler {
 			format!(" WHERE {}", conditions.join(" AND "))
 		};
 
-		let query = format!("SELECT * FROM {}{} LIMIT ?", table_name, where_clause);
+		// Cursor-based pagination with tie-breaker
+		// Handles batches with identical timestamps (common during indexing)
+		let pagination_clause = if let Some((cursor_ts, cursor_uuid)) = cursor {
+			values.push(cursor_ts.to_rfc3339().into());
+			values.push(cursor_uuid.to_string().into());
+			" AND ((updated_at > ?) OR (updated_at = ? AND uuid > ?))"
+		} else {
+			""
+		};
+
+		// Repeat cursor_ts value for the equality check
+		if cursor.is_some() {
+			let (cursor_ts, _) = cursor.unwrap();
+			values.push(cursor_ts.to_rfc3339().into());
+		}
+
+		// Order by updated_at for logical ordering, uuid as tiebreaker for determinism
+		let query = format!(
+			"SELECT * FROM {}{}{} ORDER BY updated_at ASC, uuid ASC LIMIT ?",
+			table_name, where_clause, pagination_clause
+		);
 		values.push((limit as i64).into());
 
 		let rows = self

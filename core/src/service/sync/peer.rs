@@ -362,10 +362,30 @@ impl PeerSync {
 	/// Set initial watermarks after backfill (called by backfill manager)
 	pub async fn set_initial_watermarks(&self) -> Result<()> {
 		use crate::infra::db::entities;
-		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 
-		// Get current time as initial state watermark
 		let now = chrono::Utc::now();
+
+		// Query the actual max modified_at from entries to set accurate watermark
+		// This prevents marking ourselves as "caught up" when we only have partial data
+		let max_entry_timestamp: Option<chrono::DateTime<chrono::Utc>> = self
+			.db
+			.as_ref()
+			.query_one(sea_orm::Statement::from_string(
+				sea_orm::DbBackend::Sqlite,
+				"SELECT MAX(modified_at) as max_ts FROM entries".to_string(),
+			))
+			.await
+			.ok()
+			.flatten()
+			.and_then(|row| {
+				let ts_str: Option<String> = row.try_get("", "max_ts").ok()?;
+				ts_str.and_then(|s| chrono::DateTime::parse_from_rfc3339(s.as_str()).ok())
+					.map(|dt| dt.with_timezone(&chrono::Utc))
+			});
+
+		// Use the max timestamp from synced data, or current time if no data synced yet
+		let state_watermark = max_entry_timestamp.unwrap_or(now);
 
 		// Get current HLC from generator as shared watermark
 		let current_hlc = self.hlc_generator.lock().await.next();
@@ -379,7 +399,7 @@ impl PeerSync {
 			.ok_or_else(|| anyhow::anyhow!("Device not found: {}", self.device_id))?;
 
 		let mut device_active: entities::device::ActiveModel = device.into();
-		device_active.last_state_watermark = Set(Some(now));
+		device_active.last_state_watermark = Set(Some(state_watermark));
 		device_active.last_shared_watermark = Set(Some(
 			serde_json::to_string(&current_hlc).unwrap_or_default()
 		));
@@ -388,7 +408,10 @@ impl PeerSync {
 		device_active.update(self.db.as_ref()).await
 			.map_err(|e| anyhow::anyhow!("Failed to set initial watermarks: {}", e))?;
 
-		info!("Set initial watermarks: state={}, shared={}, last_sync_at={}", now, current_hlc, now);
+		info!(
+			"Set initial watermarks: state={} (from synced data), shared={}, last_sync_at={}",
+			state_watermark, current_hlc, now
+		);
 		Ok(())
 	}
 
@@ -2068,6 +2091,7 @@ impl PeerSync {
 		model_types: Vec<String>,
 		device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
+		cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
 		batch_size: usize,
 	) -> Result<Vec<crate::service::network::protocol::sync::messages::StateRecord>> {
 		use crate::service::network::protocol::sync::messages::StateRecord;
@@ -2076,6 +2100,7 @@ impl PeerSync {
 			model_types = ?model_types,
 			device_id = ?device_id,
 			since = ?since,
+			cursor = ?cursor,
 			batch_size = batch_size,
 			"Querying device state for backfill"
 		);
@@ -2088,11 +2113,12 @@ impl PeerSync {
 				break;
 			}
 
-			// Query through the registry - completely domain-agnostic
+			// Query through the registry with cursor for DB-level pagination
 			match crate::infra::sync::registry::query_device_state(
 				&model_type,
 				device_id,
 				since,
+				cursor,
 				remaining_batch,
 				self.db.clone(),
 			)
@@ -2175,9 +2201,10 @@ impl PeerSync {
 		debug!("Querying full shared resource state for backfill");
 
 		// Query all shared models through the registry (fully generic)
+		// Use large limit for full state snapshot (no pagination here since it's a fallback)
 		let all_shared_state = crate::infra::sync::registry::query_all_shared_models(
-			None, // No since filter - get everything
-			CATCHUP_BATCH_SIZE,
+			None,   // No since filter - get everything
+			100000, // Large limit to capture all shared resources (including pre-sync data)
 			self.db.clone(),
 		)
 		.await

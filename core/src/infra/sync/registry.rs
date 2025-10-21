@@ -31,9 +31,10 @@ pub type SharedApplyFn = fn(
 /// Parameters: device_id, since, batch_size, db
 /// Returns: Vec of (uuid, data, timestamp)
 pub type StateQueryFn = fn(
-	Option<uuid::Uuid>,
-	Option<chrono::DateTime<chrono::Utc>>,
-	usize,
+	Option<uuid::Uuid>,                                      // device_id filter
+	Option<chrono::DateTime<chrono::Utc>>,                   // since watermark
+	Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>,     // cursor for pagination
+	usize,                                                    // batch_size
 	Arc<DatabaseConnection>,
 ) -> Pin<
 	Box<
@@ -179,9 +180,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					async move { location::Model::apply_state_change(data, db.as_ref()).await },
 				)
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					location::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+					location::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
 		),
@@ -195,9 +196,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|data, db| {
 				Box::pin(async move { volume::Model::apply_state_change(data, db.as_ref()).await })
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					volume::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+					volume::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
 		),
@@ -211,9 +212,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|data, db| {
 				Box::pin(async move { entry::Model::apply_state_change(data, db.as_ref()).await })
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					entry::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+					entry::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
 		),
@@ -227,9 +228,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|data, db| {
 				Box::pin(async move { device::Model::apply_state_change(data, db.as_ref()).await })
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					device::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+					device::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
 		),
@@ -244,9 +245,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|entry, db| {
 				Box::pin(async move { tag::Model::apply_shared_change(entry, db.as_ref()).await })
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					tag::Model::query_for_sync(device_id, since, batch_size, db.as_ref()).await
+					tag::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
 		),
@@ -262,9 +263,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					collection::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					collection::Model::query_for_sync(device_id, since, batch_size, db.as_ref())
+					collection::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
 						.await
 				})
 			},
@@ -281,11 +282,12 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					content_identity::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
 					content_identity::Model::query_for_sync(
 						device_id,
 						since,
+						cursor,
 						batch_size,
 						db.as_ref(),
 					)
@@ -305,11 +307,12 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					user_metadata::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
 					user_metadata::Model::query_for_sync(
 						device_id,
 						since,
+						cursor,
 						batch_size,
 						db.as_ref(),
 					)
@@ -330,11 +333,12 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					collection_entry::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
 					collection_entry::Model::query_for_sync(
 						device_id,
 						since,
+						cursor,
 						batch_size,
 						db.as_ref(),
 					)
@@ -354,11 +358,12 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					user_metadata_tag::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
 					user_metadata_tag::Model::query_for_sync(
 						device_id,
 						since,
+						cursor,
 						batch_size,
 						db.as_ref(),
 					)
@@ -378,11 +383,12 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					tag_relationship::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
-			|device_id, since, batch_size, db| {
+			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
 					tag_relationship::Model::query_for_sync(
 						device_id,
 						since,
+						cursor,
 						batch_size,
 						db.as_ref(),
 					)
@@ -486,6 +492,7 @@ pub async fn query_device_state(
 	model_type: &str,
 	device_id: Option<uuid::Uuid>,
 	since: Option<chrono::DateTime<chrono::Utc>>,
+	cursor: Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>,
 	batch_size: usize,
 	db: Arc<DatabaseConnection>,
 ) -> Result<Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>, ApplyError> {
@@ -508,8 +515,8 @@ pub async fn query_device_state(
 			.ok_or_else(|| ApplyError::MissingQueryFunction(model_type.to_string()))?
 	}; // Lock is dropped here
 
-	// Call the registered query function
-	query_fn(device_id, since, batch_size, db)
+	// Call the registered query function with cursor for pagination
+	query_fn(device_id, since, cursor, batch_size, db)
 		.await
 		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
 }
@@ -545,7 +552,7 @@ pub async fn query_all_shared_models(
 	let mut results = HashMap::new();
 
 	for (model_type, query_fn) in shared_models {
-		match query_fn(None, since, batch_size, db.clone()).await {
+		match query_fn(None, since, None, batch_size, db.clone()).await {
 			Ok(records) => {
 				if !records.is_empty() {
 					tracing::info!(

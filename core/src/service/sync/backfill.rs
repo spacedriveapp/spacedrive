@@ -132,12 +132,12 @@ impl BackfillManager {
 			};
 		}
 
-		// Phase 2: Backfill device-owned state
+		// Phase 2: Backfill shared resources FIRST (entries depend on content_identities)
+		self.backfill_shared_resources(selected_peer).await?;
+
+		// Phase 3: Backfill device-owned state (after shared dependencies exist)
 		// For initial backfill, don't use watermark (get everything)
 		self.backfill_device_owned_state(selected_peer, None).await?;
-
-		// Phase 3: Backfill shared resources
-		self.backfill_shared_resources(selected_peer).await?;
 
 		// Phase 4: Transition to ready (processes buffer)
 		self.peer_sync.transition_to_ready().await?;
@@ -167,13 +167,13 @@ impl BackfillManager {
 			"Starting incremental catch-up"
 		);
 
-		// Backfill device-owned state since watermark
-		self.backfill_device_owned_state(peer, state_watermark).await?;
-
-		// Backfill shared resources since watermark
+		// Backfill shared resources FIRST (device-owned models depend on them)
 		// For now, just do full backfill of shared resources
 		// TODO: Parse HLC from string watermark when HLC implements FromStr
 		self.backfill_shared_resources(peer).await?;
+
+		// Backfill device-owned state since watermark (after shared dependencies exist)
+		self.backfill_device_owned_state(peer, state_watermark).await?;
 
 		// Update watermarks after catch-up
 		self.set_initial_watermarks_after_backfill().await?;
@@ -252,13 +252,14 @@ impl BackfillManager {
 				"Backfilling model type"
 			);
 
-			// Request state in batches
+			// Request state in batches with cursor-based pagination
+			let mut cursor_checkpoint: Option<String> = None;
 			loop {
 				let response = self
 					.request_state_batch(
 						peer,
 						vec![model_type.clone()],
-						None,
+						cursor_checkpoint.clone(),
 						since_watermark,
 						DEFAULT_BATCH_SIZE,
 					)
@@ -284,8 +285,11 @@ impl BackfillManager {
 						.map_err(|e| anyhow::anyhow!("{}", e))?;
 					}
 
-					current_checkpoint.update(chk, 0.5); // TODO: Calculate actual progress
+					current_checkpoint.update(chk.clone(), 0.5); // TODO: Calculate actual progress
 					current_checkpoint.save().await?;
+
+					// Update cursor for next iteration
+					cursor_checkpoint = chk;
 
 					if !has_more {
 						break;
@@ -316,30 +320,99 @@ impl BackfillManager {
 			info!("Backfilling shared resources (full)");
 		}
 
-		// Request shared changes from peer
-		let response = self
-			.request_shared_changes(peer, since_hlc, DEFAULT_BATCH_SIZE)
-			.await?;
+		// Request shared changes from peer in batches (can be 100k+ records)
+		let mut last_hlc = since_hlc;
+		let mut total_applied = 0;
 
-		if let SyncMessage::SharedChangeResponse {
-			entries,
-			current_state,
-			..
-		} = response
-		{
-			// Apply entries in HLC order (already sorted from peer)
-			for entry in entries {
-				self.log_handler.handle_shared_change(entry).await?;
-			}
+		loop {
+			let response = self
+				.request_shared_changes(peer, last_hlc, DEFAULT_BATCH_SIZE)
+				.await?;
 
-			// If logs were pruned, use current_state fallback
-			if let Some(state) = current_state {
-				info!("Applying current shared state (logs were pruned)");
-				// TODO: Deserialize and insert tags, albums, etc.
+			if let SyncMessage::SharedChangeResponse {
+				entries,
+				current_state,
+				has_more,
+				..
+			} = response
+			{
+				let batch_size = entries.len();
+
+				// Apply entries in HLC order (already sorted from peer)
+				for entry in &entries {
+					self.log_handler.handle_shared_change(entry.clone()).await?;
+				}
+
+				total_applied += batch_size;
+				info!("Applied {} shared changes (total: {})", batch_size, total_applied);
+
+				// Update cursor to last HLC for next batch
+				if let Some(last_entry) = entries.last() {
+					last_hlc = Some(last_entry.hlc);
+				}
+
+				// Apply current_state snapshot (contains pre-sync data not in peer_log)
+				if let Some(state) = current_state {
+					if let Some(state_map) = state.as_object() {
+						for (model_type, records_value) in state_map {
+							if let Some(records_array) = records_value.as_array() {
+								info!(
+									model_type = %model_type,
+									count = records_array.len(),
+									"Applying current state snapshot for pre-sync data"
+								);
+
+								for record_value in records_array {
+									if let Some(record_obj) = record_value.as_object() {
+										if let (Some(uuid_value), Some(data)) =
+											(record_obj.get("uuid"), record_obj.get("data"))
+										{
+											if let Some(uuid_str) = uuid_value.as_str() {
+												if let Ok(record_uuid) = Uuid::parse_str(uuid_str) {
+													// Construct a synthetic SharedChangeEntry for application
+													// Generate HLC for ordering (pre-sync data gets current HLC)
+													let hlc = {
+														let mut hlc_gen = self.peer_sync.hlc_generator().lock().await;
+														hlc_gen.next()
+													};
+
+													let entry = crate::infra::sync::SharedChangeEntry {
+														hlc,
+														model_type: model_type.clone(),
+														record_uuid,
+														change_type: crate::infra::sync::ChangeType::Insert,
+														data: data.clone(),
+													};
+
+													let db = self.peer_sync.db().clone();
+													if let Err(e) = crate::infra::sync::registry::apply_shared_change(entry, db).await {
+														warn!(
+															model_type = %model_type,
+															uuid = %record_uuid,
+															error = %e,
+															"Failed to apply current state record"
+														);
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				// Continue if there are more entries
+				if !has_more || batch_size == 0 {
+					break;
+				}
+			} else {
+				break;
 			}
 		}
 
-		info!("Shared resources backfill complete");
+		info!("Shared resources backfill complete (total: {} entries)", total_applied);
 
 		Ok(())
 	}
@@ -351,7 +424,7 @@ impl BackfillManager {
 		&self,
 		peer: Uuid,
 		model_types: Vec<String>,
-		device_id: Option<Uuid>,
+		checkpoint: Option<String>,
 		since: Option<DateTime<Utc>>,
 		batch_size: usize,
 	) -> Result<SyncMessage> {
@@ -359,9 +432,9 @@ impl BackfillManager {
 		let request = SyncMessage::StateRequest {
 			library_id: self.library_id,
 			model_types: model_types.clone(),
-			device_id,
+			device_id: None,
 			since,
-			checkpoint: None,
+			checkpoint,
 			batch_size,
 		};
 
