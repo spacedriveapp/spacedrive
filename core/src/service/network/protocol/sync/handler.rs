@@ -85,8 +85,15 @@ impl SyncProtocolHandler {
 				data,
 				timestamp,
 			} => {
+				info!(
+					from_device = %from_device,
+					model_type = %model_type,
+					record_uuid = %record_uuid,
+					"Processing state change"
+				);
+
 				let change = StateChangeMessage {
-					model_type,
+					model_type: model_type.clone(),
 					record_uuid,
 					device_id,
 					data,
@@ -97,8 +104,18 @@ impl SyncProtocolHandler {
 					.on_state_change_received(change)
 					.await
 					.map_err(|e| {
+						warn!(
+							model_type = %model_type,
+							error = %e,
+							"Failed to apply state change"
+						);
 						NetworkingError::Protocol(format!("Failed to apply state change: {}", e))
 					})?;
+
+				info!(
+					model_type = %model_type,
+					"State change applied successfully"
+				);
 
 				Ok(None) // No response needed
 			}

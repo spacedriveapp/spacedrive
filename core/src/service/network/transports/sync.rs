@@ -73,12 +73,28 @@ impl NetworkTransport for NetworkingService {
 			anyhow::anyhow!("Failed to connect to {}: {}", target_device, e)
 		})?;
 
+		// Track outbound connection so we can receive incoming streams on it
+		if let Some(cmd_sender) = self.command_sender() {
+			use crate::service::network::core::event_loop::EventLoopCommand;
+			let _ = cmd_sender.send(EventLoopCommand::TrackOutboundConnection {
+				node_id,
+				conn: conn.clone(),
+			});
+		}
+
 		// Open a unidirectional stream and send the message
 		let mut send = conn
 			.open_uni()
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to open stream: {}", e))?;
 
+		// Write length prefix (required by multiplexer)
+		let len = bytes.len() as u32;
+		send.write_all(&len.to_be_bytes())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to write length prefix: {}", e))?;
+
+		// Write message bytes
 		send.write_all(&bytes).await.map_err(|e| {
 			warn!(
 				device_uuid = %target_device,
@@ -148,6 +164,15 @@ impl NetworkTransport for NetworkingService {
 			);
 			anyhow::anyhow!("Failed to connect to {}: {}", target_device, e)
 		})?;
+
+		// Track outbound connection so we can receive incoming streams on it
+		if let Some(cmd_sender) = self.command_sender() {
+			use crate::service::network::core::event_loop::EventLoopCommand;
+			let _ = cmd_sender.send(EventLoopCommand::TrackOutboundConnection {
+				node_id,
+				conn: conn.clone(),
+			});
+		}
 
 		// Open bidirectional stream
 		let (mut send, mut recv) = conn
@@ -220,7 +245,7 @@ impl NetworkTransport for NetworkingService {
 	/// Returns device UUIDs that are:
 	/// 1. Members of this specific library (in devices table)
 	/// 2. Have sync_enabled=true in this library
-	/// 3. Currently network-connected
+	/// 3. Currently network-connected (according to Iroh)
 	async fn get_connected_sync_partners(
 		&self,
 		library_id: Uuid,
@@ -228,7 +253,6 @@ impl NetworkTransport for NetworkingService {
 	) -> Result<Vec<Uuid>> {
 		use crate::infra::db::entities;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-		use std::collections::HashSet;
 
 		// 1. Query devices table for THIS library with sync_enabled=true
 		let library_devices = entities::device::Entity::find()
@@ -237,29 +261,27 @@ impl NetworkTransport for NetworkingService {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to query library devices: {}", e))?;
 
-		let library_device_uuids: HashSet<Uuid> =
-			library_devices.iter().map(|d| d.uuid).collect();
+		// 2. Get Iroh endpoint for checking connection state
+		let endpoint = self
+			.endpoint()
+			.ok_or_else(|| anyhow::anyhow!("Network endpoint not initialized"))?;
 
-		// 2. Get network-connected devices from DeviceRegistry
+		// 3. Get DeviceRegistry to check Iroh connection state
 		let device_registry_arc = self.device_registry();
 		let registry = device_registry_arc.read().await;
-		let connected_devices = registry.get_connected_devices();
-		let connected_uuids: HashSet<Uuid> = connected_devices
-			.iter()
-			.map(|d| d.device_id)
-			.collect();
 
-		// 3. Return intersection: (in library) AND (network connected)
-		let sync_partners: Vec<Uuid> = library_device_uuids
-			.intersection(&connected_uuids)
-			.copied()
+		// 4. Filter to only devices that Iroh reports as connected
+		let sync_partners: Vec<Uuid> = library_devices
+			.iter()
+			.filter(|device| registry.is_node_connected(endpoint, device.uuid))
+			.map(|device| device.uuid)
 			.collect();
 
 		tracing::info!(
-			"Library-scoped sync partners: library={}, lib_devs={}, net_connected={}, partners={}",
+			"Library-scoped sync partners: library={}, lib_devs={}, iroh_connected={}, partners={}",
 			library_id,
-			library_device_uuids.len(),
-			connected_uuids.len(),
+			library_devices.len(),
+			sync_partners.len(),
 			sync_partners.len()
 		);
 
@@ -270,20 +292,17 @@ impl NetworkTransport for NetworkingService {
 	///
 	/// Returns true if:
 	/// - Device UUID is mapped to a NodeId in DeviceRegistry
-	/// - Device has an active network connection (we can reach it)
+	/// - Iroh reports an active connection to the device
 	async fn is_device_reachable(&self, device_uuid: Uuid) -> bool {
+		let endpoint = match self.endpoint() {
+			Some(ep) => ep,
+			None => return false,
+		};
+
 		let device_registry_arc = self.device_registry();
 		let registry = device_registry_arc.read().await;
 
-		// Check if device is in registry and mapped to a node
-		if registry.get_node_id_for_device(device_uuid).is_some() {
-			// Device is registered and mapped - assume reachable
-			// Actual connectivity will be determined when we try to send
-			// (Iroh endpoint handles connection establishment)
-			return true;
-		}
-
-		false
+		registry.is_node_connected(endpoint, device_uuid)
 	}
 
 	fn transport_name(&self) -> &'static str {

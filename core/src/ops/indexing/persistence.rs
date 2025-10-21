@@ -249,6 +249,28 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 
+		// Sync entry to other devices
+		tracing::info!(
+			"ENTRY_SYNC: About to sync entry name={} uuid={:?}",
+			result.name,
+			result.uuid
+		);
+		if let Err(e) = self
+			.ctx
+			.library()
+			.sync_model_with_db(&result, crate::infra::sync::ChangeType::Insert, self.ctx.library_db())
+			.await
+		{
+			// Log but don't fail the job if sync fails
+			tracing::warn!("ENTRY_SYNC: Failed to sync entry {}: {}", result.uuid.map(|u| u.to_string()).unwrap_or_else(|| "no-uuid".to_string()), e);
+		} else {
+			tracing::info!(
+				"ENTRY_SYNC: Successfully synced entry name={} uuid={:?}",
+				result.name,
+				result.uuid
+			);
+		}
+
 		// Cache the entry ID for potential children
 		{
 			let mut cache = self.entry_id_cache.write().await;

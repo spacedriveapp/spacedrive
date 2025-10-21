@@ -21,10 +21,12 @@ pub use state::{
 	select_backfill_peer, BackfillCheckpoint, BufferQueue, BufferedUpdate, DeviceSyncState,
 	PeerInfo, StateChangeMessage,
 };
+use crate::infra::db::entities;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 pub use backfill::BackfillManager;
@@ -187,11 +189,76 @@ impl SyncService {
 						}
 
 						DeviceSyncState::Ready => {
-							// Normal operation - periodic maintenance
-							// TODO: Implement:
-							// - Log pruning
-							// - Heartbeat to peers
-							// - Monitor for new peers
+							// Check for connected partners and catch up if watermarks are outdated
+							match peer_sync.network().get_connected_sync_partners(
+								peer_sync.library_id(),
+								peer_sync.db(),
+							).await {
+								Ok(partners) if !partners.is_empty() => {
+									// Check if we need to catch up
+									let our_device = match entities::device::Entity::find()
+										.filter(entities::device::Column::Uuid.eq(peer_sync.device_id()))
+										.one(peer_sync.db().as_ref())
+										.await
+									{
+										Ok(Some(device)) => device,
+										Ok(None) => continue,
+										Err(e) => {
+											debug!("Failed to query device record: {}", e);
+											continue;
+										}
+									};
+
+									// Trigger catch-up if we haven't synced recently
+									let should_catch_up = if let Some(last_sync) = our_device.last_sync_at {
+										let time_since_sync = chrono::Utc::now().signed_duration_since(last_sync);
+										time_since_sync.num_seconds() > 60
+									} else {
+										true
+									};
+
+									if should_catch_up {
+										info!(
+											"Triggering incremental catch-up since watermarks: state={:?}, shared={:?}",
+											our_device.last_state_watermark,
+											our_device.last_shared_watermark
+										);
+
+										// Pick first partner for catch-up
+										let catch_up_peer = partners[0];
+
+										// Transition to CatchingUp state
+										{
+											let mut state = peer_sync.state.write().await;
+											*state = DeviceSyncState::CatchingUp { buffered_count: 0 };
+										}
+
+										// Perform incremental catch-up using watermarks
+										match backfill_manager.catch_up_from_peer(
+											catch_up_peer,
+											our_device.last_state_watermark,
+											our_device.last_shared_watermark,
+										).await {
+											Ok(()) => {
+												info!("Incremental catch-up completed");
+												// Transition back to Ready
+												let mut state = peer_sync.state.write().await;
+												*state = DeviceSyncState::Ready;
+											}
+											Err(e) => {
+												warn!("Incremental catch-up failed: {}", e);
+												// Transition back to Ready even on error
+												let mut state = peer_sync.state.write().await;
+												*state = DeviceSyncState::Ready;
+											}
+										}
+									}
+								}
+								Ok(_) => {}
+								Err(e) => {
+									debug!("Failed to get connected partners: {}", e);
+								}
+							}
 						}
 
 						DeviceSyncState::Backfilling { .. } | DeviceSyncState::CatchingUp { .. } => {

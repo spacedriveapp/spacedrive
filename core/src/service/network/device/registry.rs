@@ -433,6 +433,128 @@ impl DeviceRegistry {
 		self.get_node_by_device(device_id)
 	}
 
+	/// Check if a device is currently connected according to Iroh
+	///
+	/// This is the canonical way to check device connectivity. It queries Iroh's endpoint
+	/// directly to get real-time connection state, rather than relying on cached state.
+	///
+	/// Returns true if:
+	/// - Device UUID is mapped to a NodeId
+	/// - Iroh reports an active connection (Direct, Relay, or Mixed)
+	/// - Connection type is not None
+	pub fn is_node_connected(&self, endpoint: &iroh::Endpoint, device_id: Uuid) -> bool {
+		// Get NodeId for this device
+		let node_id = match self.get_node_id_for_device(device_id) {
+			Some(id) => id,
+			None => return false,
+		};
+
+		// Query Iroh for current connection state
+		match endpoint.remote_info(node_id) {
+			Some(remote_info) => {
+				// Check if connection type indicates an active connection
+				!matches!(
+					remote_info.conn_type,
+					iroh::endpoint::ConnectionType::None
+				)
+			}
+			None => false,
+		}
+	}
+
+	/// Get device UUID from node ID
+	pub fn get_device_by_node_id(&self, node_id: NodeId) -> Option<Uuid> {
+		self.node_to_device.get(&node_id).copied()
+	}
+
+	/// Update device connection state from Iroh RemoteInfo
+	///
+	/// This is called by the connection monitor to update DeviceRegistry state
+	/// based on Iroh's actual connection state. This is cosmetic only - sync
+	/// routing uses is_node_connected() which queries Iroh directly.
+	pub async fn update_device_from_connection(
+		&mut self,
+		device_id: Uuid,
+		node_id: NodeId,
+		conn_type: iroh::endpoint::ConnectionType,
+		latency: Option<std::time::Duration>,
+	) -> Result<()> {
+		// Update node-to-device mapping
+		self.node_to_device.insert(node_id, device_id);
+
+		// Get current device state
+		let current_state = match self.devices.get(&device_id) {
+			Some(state) => state.clone(),
+			None => return Ok(()), // Device not in registry
+		};
+
+		// Determine if we should be in Connected state
+		let should_be_connected = !matches!(conn_type, iroh::endpoint::ConnectionType::None);
+
+		match current_state {
+			DeviceState::Paired {
+				info, session_keys, ..
+			} if should_be_connected => {
+				// Transition from Paired to Connected
+				let state = DeviceState::Connected {
+					info,
+					session_keys,
+					connected_at: Utc::now(),
+					connection: ConnectionInfo {
+						latency_ms: latency.map(|d| d.as_millis() as u32),
+						rx_bytes: 0,
+						tx_bytes: 0,
+					},
+				};
+				self.devices.insert(device_id, state);
+
+				// Update persistence
+				self.persistence
+					.update_device_connection(device_id, true, None)
+					.await
+					.ok();
+			}
+			DeviceState::Connected {
+				info,
+				session_keys,
+				connected_at,
+				mut connection,
+			} if should_be_connected => {
+				// Already connected, just update latency
+				connection.latency_ms = latency.map(|d| d.as_millis() as u32);
+				let state = DeviceState::Connected {
+					info,
+					session_keys,
+					connected_at,
+					connection,
+				};
+				self.devices.insert(device_id, state);
+			}
+			DeviceState::Connected {
+				info, session_keys, ..
+			} if !should_be_connected => {
+				// Transition from Connected to Paired (connection lost)
+				let state = DeviceState::Paired {
+					info,
+					session_keys,
+					paired_at: Utc::now(),
+				};
+				self.devices.insert(device_id, state);
+
+				// Update persistence
+				self.persistence
+					.update_device_connection(device_id, false, None)
+					.await
+					.ok();
+			}
+			_ => {
+				// No state change needed
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Get session keys for a device
 	pub fn get_session_keys(&self, device_id: Uuid) -> Option<super::SessionKeys> {
 		match self.devices.get(&device_id) {

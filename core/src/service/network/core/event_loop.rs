@@ -143,6 +143,9 @@ impl NetworkingEventLoop {
 	async fn run(&mut self) -> Result<()> {
 		self.logger.info("Networking event loop started").await;
 
+		// Create interval for connection state monitoring
+		let mut connection_monitor_interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+
 		loop {
 			tokio::select! {
 				// Handle incoming connections
@@ -168,6 +171,11 @@ impl NetworkingEventLoop {
 						}
 						_ => self.handle_command(cmd).await,
 					}
+				}
+
+				// Monitor connection state and update DeviceRegistry
+				_ = connection_monitor_interval.tick() => {
+					self.update_connection_states().await;
 				}
 
 				// Handle shutdown signal
@@ -420,16 +428,33 @@ impl NetworkingEventLoop {
 				uni_result = conn.accept_uni() => {
 					match uni_result {
 						Ok(recv) => {
-							logger.debug(&format!("Accepted unidirectional stream from {}", remote_node_id)).await;
-							// Unidirectional streams are for file transfer
+							logger.info(&format!("Accepted unidirectional stream from {}", remote_node_id)).await;
+
+							// Get ALPN to determine which protocol handler to use
+							let alpn_bytes = conn.alpn().unwrap_or_default();
 							let registry = protocol_registry.read().await;
-							if let Some(handler) = registry.get_handler("file_transfer") {
-								logger.debug("Directing unidirectional stream to file transfer handler").await;
-								handler.handle_stream(
-									Box::new(tokio::io::empty()), // No send stream for unidirectional
-									Box::new(recv),
-									remote_node_id,
-								).await;
+
+							// Route based on ALPN
+							if alpn_bytes == SYNC_ALPN {
+								if let Some(handler) = registry.get_handler("sync") {
+									logger.info("Directing unidirectional stream to sync handler").await;
+									handler.handle_stream(
+										Box::new(tokio::io::empty()), // No send stream for unidirectional
+										Box::new(recv),
+										remote_node_id,
+									).await;
+								}
+							} else if alpn_bytes == FILE_TRANSFER_ALPN {
+								if let Some(handler) = registry.get_handler("file_transfer") {
+									logger.debug("Directing unidirectional stream to file transfer handler").await;
+									handler.handle_stream(
+										Box::new(tokio::io::empty()), // No send stream for unidirectional
+										Box::new(recv),
+										remote_node_id,
+									).await;
+								}
+							} else {
+								logger.debug(&format!("Unknown ALPN for unidirectional stream: {:?}", alpn_bytes)).await;
 							}
 						}
 					Err(e) => {
@@ -612,11 +637,51 @@ impl NetworkingEventLoop {
 
 			EventLoopCommand::TrackOutboundConnection { node_id, conn } => {
 				// Add outbound connection to active connections map
-				let mut connections = self.active_connections.write().await;
-				let alpn_bytes = conn.alpn().unwrap_or_default(); connections.insert((node_id, alpn_bytes), conn);
+				let alpn_bytes = conn.alpn().unwrap_or_default();
+				{
+					let mut connections = self.active_connections.write().await;
+					connections.insert((node_id, alpn_bytes.clone()), conn.clone());
+				}
+
 				self.logger
-					.debug(&format!("Tracked outbound connection to {}", node_id))
+					.info(&format!(
+						"Tracking outbound connection to {} (ALPN: {:?}), spawning stream handler",
+						node_id,
+						String::from_utf8_lossy(&alpn_bytes)
+					))
 					.await;
+
+				// Spawn handler task to accept incoming streams on this outbound connection
+				// This is critical - Iroh connections are bidirectional, so we need to listen
+				// for streams even on connections we initiated
+				let protocol_registry = self.protocol_registry.clone();
+				let device_registry = self.device_registry.clone();
+				let event_sender = self.event_sender.clone();
+				let command_sender = self.command_tx.clone();
+				let logger = self.logger.clone();
+				let active_connections = self.active_connections.clone();
+
+				tokio::spawn(async move {
+					Self::handle_incoming_connection(
+						conn.clone(),
+						protocol_registry,
+						device_registry,
+						event_sender,
+						command_sender,
+						node_id,
+						logger.clone(),
+					)
+					.await;
+
+					// Clean up when handler exits
+					if conn.close_reason().is_some() {
+						let mut connections = active_connections.write().await;
+						connections.remove(&(node_id, alpn_bytes));
+						logger
+							.info(&format!("Outbound connection to {} closed and removed", node_id))
+							.await;
+					}
+				});
 			}
 
 			EventLoopCommand::Shutdown => {
@@ -808,5 +873,61 @@ impl NetworkingEventLoop {
 					.await;
 			}
 		}
+	}
+
+	/// Update DeviceRegistry connection states based on Iroh's remote_info
+	///
+	/// This monitors Iroh connections and updates the DeviceRegistry state accordingly.
+	/// Devices transition to Connected when Iroh reports an active connection, and back
+	/// to Paired when the connection is lost. This is cosmetic only - sync routing uses
+	/// is_node_connected() which queries Iroh directly.
+	async fn update_connection_states(&self) {
+		// Get all remote info from Iroh
+		let remote_infos: Vec<_> = self.endpoint.remote_info_iter().collect();
+
+		// Lock registry for updates
+		let mut registry = self.device_registry.write().await;
+
+		// Track which devices we've seen as connected
+		let mut connected_node_ids = std::collections::HashSet::new();
+
+		// Update devices that Iroh reports as connected
+		for remote_info in remote_infos {
+			// Check if this is an active connection
+			let is_connected = !matches!(
+				remote_info.conn_type,
+				iroh::endpoint::ConnectionType::None
+			);
+
+			if is_connected {
+				connected_node_ids.insert(remote_info.node_id);
+
+				// Find device for this node
+				if let Some(device_id) = registry
+					.get_device_by_node_id(remote_info.node_id)
+				{
+					// Update to Connected state if not already
+					if let Err(e) = registry
+						.update_device_from_connection(
+							device_id,
+							remote_info.node_id,
+							remote_info.conn_type,
+							remote_info.latency,
+						)
+						.await
+					{
+						self.logger
+							.debug(&format!(
+								"Failed to update device {} connection state: {}",
+								device_id, e
+							))
+							.await;
+					}
+				}
+			}
+		}
+
+		// Mark devices as no longer connected if they're not in Iroh's list
+		// (This is handled by update_device_from_connection when conn_type is None)
 	}
 }

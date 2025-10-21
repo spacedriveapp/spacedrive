@@ -173,6 +173,7 @@ pub async fn run_processing_phase(
 		// Accumulate related rows for bulk insert
 		let mut bulk_self_closures: Vec<entities::entry_closure::ActiveModel> = Vec::new();
 		let mut bulk_dir_paths: Vec<entities::directory_paths::ActiveModel> = Vec::new();
+		let mut created_entries: Vec<entities::entry::Model> = Vec::new();
 
 		// Process batch - check for changes and create/update entries
 		// (Already sorted globally by depth)
@@ -231,7 +232,8 @@ pub async fn run_processing_phase(
 					)
 					.await
 					{
-						Ok(entry_id) => {
+						Ok(entry_model) => {
+							let entry_id = entry_model.id;
 							ctx.log(format!(
 								"Created entry {}: {}",
 								entry_id,
@@ -243,6 +245,9 @@ pub async fn run_processing_phase(
 							if mode >= IndexMode::Content && entry.kind == EntryKind::File {
 								state.entries_for_content.push((entry_id, entry.path));
 							}
+
+							// Collect for batch sync after transaction commits
+							created_entries.push(entry_model);
 							// end Some(Change::New)
 						}
 						Err(e) => {
@@ -365,6 +370,32 @@ pub async fn run_processing_phase(
 		txn.commit().await.map_err(|e| {
 			JobError::execution(format!("Failed to commit processing transaction: {}", e))
 		})?;
+
+		// Batch sync entries that have UUIDs (directories and empty files)
+		// Regular files will be synced after content identification assigns UUIDs
+		let entries_with_uuids: Vec<_> = created_entries
+			.into_iter()
+			.filter(|e| e.uuid.is_some())
+			.collect();
+
+		if !entries_with_uuids.is_empty() {
+			match ctx
+				.library()
+				.sync_models_batch(&entries_with_uuids, crate::infra::sync::ChangeType::Insert, ctx.library_db())
+				.await
+			{
+				Ok(()) => {
+					ctx.log(format!(
+						"Batch synced {} entries with UUIDs (directories/empty files)",
+						entries_with_uuids.len()
+					));
+				}
+				Err(e) => {
+					// Log but don't fail the job
+					tracing::warn!("Failed to batch sync {} entries: {}", entries_with_uuids.len(), e);
+				}
+			}
+		}
 
 		ctx.log(format!(
 			"Processed batch {}/{}: {} entries",

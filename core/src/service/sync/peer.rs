@@ -383,11 +383,12 @@ impl PeerSync {
 		device_active.last_shared_watermark = Set(Some(
 			serde_json::to_string(&current_hlc).unwrap_or_default()
 		));
+		device_active.last_sync_at = Set(Some(now));
 
 		device_active.update(self.db.as_ref()).await
 			.map_err(|e| anyhow::anyhow!("Failed to set initial watermarks: {}", e))?;
 
-		info!("Set initial watermarks: state={}, shared={}", now, current_hlc);
+		info!("Set initial watermarks: state={}, shared={}, last_sync_at={}", now, current_hlc, now);
 		Ok(())
 	}
 
@@ -766,6 +767,22 @@ impl PeerSync {
 								.await
 								{
 									warn!(error = %e, "Failed to handle shared change event");
+								}
+							}
+							"sync:state_change_batch" => {
+								info!("Handling state change batch event for sync broadcast");
+								if let Err(e) = Self::handle_state_change_batch_event_static(
+									library_id,
+									data,
+									&network,
+									&state,
+									&buffer,
+									&retry_queue,
+									&db,
+								)
+								.await
+								{
+									warn!(error = %e, "Failed to handle state change batch event");
 								}
 							}
 							_ => {
@@ -1169,6 +1186,126 @@ impl PeerSync {
 			success = success_count,
 			errors = error_count,
 			"State change broadcast complete"
+		);
+
+		Ok(())
+	}
+
+	/// Handle state change batch event from TransactionManager
+	async fn handle_state_change_batch_event_static(
+		library_id: Uuid,
+		data: serde_json::Value,
+		network: &Arc<dyn NetworkTransport>,
+		state: &Arc<RwLock<DeviceSyncState>>,
+		buffer: &Arc<BufferQueue>,
+		retry_queue: &Arc<RetryQueue>,
+		db: &Arc<sea_orm::DatabaseConnection>,
+	) -> Result<()> {
+		let model_type: String = data
+			.get("model_type")
+			.and_then(|v| v.as_str())
+			.ok_or_else(|| anyhow::anyhow!("Missing model_type in batch event"))?
+			.to_string();
+
+		let device_id: Uuid = data
+			.get("device_id")
+			.and_then(|v| v.as_str())
+			.and_then(|s| s.parse().ok())
+			.ok_or_else(|| anyhow::anyhow!("Missing device_id in batch event"))?;
+
+		// Records is an array of [uuid, data] tuples
+		let records: Vec<(Uuid, serde_json::Value)> = data
+			.get("records")
+			.and_then(|v| v.as_array())
+			.ok_or_else(|| anyhow::anyhow!("Missing records in batch event"))?
+			.iter()
+			.filter_map(|item| {
+				let arr = item.as_array()?;
+				if arr.len() != 2 {
+					return None;
+				}
+				let uuid_str = arr[0].as_str()?;
+				let uuid = uuid_str.parse().ok()?;
+				let data = arr[1].clone();
+				Some((uuid, data))
+			})
+			.collect();
+
+		let timestamp: chrono::DateTime<chrono::Utc> = data
+			.get("timestamp")
+			.and_then(|v| v.as_str())
+			.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+			.map(|dt| dt.with_timezone(&chrono::Utc))
+			.ok_or_else(|| anyhow::anyhow!("Missing timestamp in batch event"))?;
+
+		info!(
+			model_type = %model_type,
+			record_count = records.len(),
+			"Handling state change batch for broadcast"
+		);
+
+		// Check if we should buffer
+		let current_state = state.read().await;
+		if current_state.should_buffer() {
+			info!("Buffering batch during backfill (not broadcasting)");
+			return Ok(());
+		}
+		drop(current_state);
+
+		// Create batch message
+		let mut batch_records = Vec::new();
+		for (record_uuid, record_data) in records {
+			batch_records.push(crate::service::network::protocol::sync::messages::StateRecord {
+				uuid: record_uuid,
+				data: record_data,
+				timestamp,
+			});
+		}
+
+		let batch_count = batch_records.len();
+		let message = crate::service::network::protocol::sync::messages::SyncMessage::StateBatch {
+			library_id,
+			model_type: model_type.clone(),
+			device_id,
+			records: batch_records,
+		};
+
+		// Get connected partners
+		let connected_partners = network.get_connected_sync_partners(library_id, db).await?;
+
+		if connected_partners.is_empty() {
+			info!("No connected partners for batch, queuing for retry");
+			let all_devices = Self::get_library_devices_static(db).await?;
+			for partner_device in all_devices {
+				if partner_device != device_id {
+					retry_queue.enqueue(partner_device, message.clone()).await;
+				}
+			}
+			return Ok(());
+		}
+
+		// Broadcast to all partners
+		use futures::future::join_all;
+		let send_futures: Vec<_> = connected_partners
+			.iter()
+			.map(|&partner| {
+				let network = network.clone();
+				let message = message.clone();
+				async move { network.send_sync_message(partner, message).await }
+			})
+			.collect();
+
+		let results = join_all(send_futures).await;
+
+		let success_count = results.iter().filter(|r| r.is_ok()).count();
+		let error_count = results.iter().filter(|r| r.is_err()).count();
+
+		info!(
+			model_type = %model_type,
+			record_count = batch_count,
+			success = success_count,
+			errors = error_count,
+			"State change batch broadcast complete"
 		);
 
 		Ok(())

@@ -51,14 +51,11 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 			.get_device_state(self.device_id)
 			.ok_or_else(|| QueryError::Internal(format!("Device not found: {}", self.device_id)))?;
 
-		// Check if device is paired
-		let (device_info, is_online) = match device_state {
-			crate::service::network::device::DeviceState::Paired { info, .. } => {
-				(info.clone(), false)
-			}
-			crate::service::network::device::DeviceState::Connected { info, .. } => {
-				(info.clone(), true)
-			}
+		// Check if device is paired (Paired, Connected, or Disconnected are all valid)
+		let device_info = match device_state {
+			crate::service::network::device::DeviceState::Paired { info, .. } => info.clone(),
+			crate::service::network::device::DeviceState::Connected { info, .. } => info.clone(),
+			crate::service::network::device::DeviceState::Disconnected { info, .. } => info.clone(),
 			_ => {
 				return Err(QueryError::Internal(format!(
 					"Device {} is not paired. Complete pairing first.",
@@ -66,6 +63,13 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 				)));
 			}
 		};
+
+		// Check if device is actually online according to Iroh (not cached state)
+		let endpoint = networking
+			.endpoint()
+			.ok_or_else(|| QueryError::Internal("Network endpoint not initialized".to_string()))?;
+
+		let is_online = registry.is_node_connected(endpoint, self.device_id);
 
 		drop(registry);
 

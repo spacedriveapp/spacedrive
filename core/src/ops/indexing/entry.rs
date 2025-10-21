@@ -154,7 +154,7 @@ impl EntryProcessor {
 		conn: &C,
 		out_self_closures: &mut Vec<entry_closure::ActiveModel>,
 		out_dir_paths: &mut Vec<directory_paths::ActiveModel>,
-	) -> Result<i32, JobError> {
+	) -> Result<entities::entry::Model, JobError> {
 		// Extract file extension (without dot) for files, None for directories
 		let extension = match entry.kind {
 			EntryKind::File => entry
@@ -318,7 +318,7 @@ impl EntryProcessor {
 		// Cache the entry ID for potential children
 		state.entry_id_cache.insert(entry.path.clone(), result.id);
 
-		Ok(result.id)
+		Ok(result)
 	}
 
 	/// Create an entry, starting and committing its own transaction (single insert)
@@ -349,32 +349,60 @@ impl EntryProcessor {
 		)
 		.await;
 
-		if result.is_ok() {
-			if !self_closures.is_empty() {
-				entry_closure::Entity::insert_many(self_closures)
-					.exec(&txn)
-					.await
-					.map_err(|e| {
-						JobError::execution(format!("Failed to bulk insert self-closures: {}", e))
-					})?;
+		let entry_model = match result {
+			Ok(model) => model,
+			Err(e) => {
+				let _ = txn.rollback().await;
+				return Err(e);
 			}
-			if !dir_paths.is_empty() {
-				directory_paths::Entity::insert_many(dir_paths)
-					.exec(&txn)
-					.await
-					.map_err(|e| {
-						JobError::execution(format!("Failed to bulk insert directory paths: {}", e))
-					})?;
-			}
-			txn.commit()
+		};
+
+		if !self_closures.is_empty() {
+			entry_closure::Entity::insert_many(self_closures)
+				.exec(&txn)
 				.await
-				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
-		} else {
-			// Best-effort rollback
-			let _ = txn.rollback().await;
+				.map_err(|e| {
+					JobError::execution(format!("Failed to bulk insert self-closures: {}", e))
+				})?;
+		}
+		if !dir_paths.is_empty() {
+			directory_paths::Entity::insert_many(dir_paths)
+				.exec(&txn)
+				.await
+				.map_err(|e| {
+					JobError::execution(format!("Failed to bulk insert directory paths: {}", e))
+				})?;
+		}
+		txn.commit()
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
+
+		// Sync entry to other devices
+		if let Some(library) = ctx.library() {
+			tracing::info!(
+				"ENTRY_SYNC: About to sync entry name={} uuid={:?}",
+				entry_model.name,
+				entry_model.uuid
+			);
+			if let Err(e) = library
+				.sync_model_with_db(&entry_model, crate::infra::sync::ChangeType::Insert, ctx.library_db())
+				.await
+			{
+				tracing::warn!(
+					"ENTRY_SYNC: Failed to sync entry {}: {}",
+					entry_model.uuid.map(|u| u.to_string()).unwrap_or_else(|| "no-uuid".to_string()),
+					e
+				);
+			} else {
+				tracing::info!(
+					"ENTRY_SYNC: Successfully synced entry name={} uuid={:?}",
+					entry_model.name,
+					entry_model.uuid
+				);
+			}
 		}
 
-		result
+		Ok(entry_model.id)
 	}
 
 	/// Update an existing entry
@@ -795,9 +823,23 @@ impl EntryProcessor {
 			}
 		}
 
-		entry_active.update(ctx.library_db()).await.map_err(|e| {
+		let updated_entry = entry_active.update(ctx.library_db()).await.map_err(|e| {
 			JobError::execution(format!("Failed to link content identity to entry: {}", e))
 		})?;
+
+		// Sync the entry now that it has a UUID
+		if let Some(library) = ctx.library() {
+			if let Err(e) = library
+				.sync_model_with_db(&updated_entry, crate::infra::sync::ChangeType::Update, ctx.library_db())
+				.await
+			{
+				tracing::warn!(
+					"Failed to sync entry after UUID assignment {}: {}",
+					updated_entry.uuid.map(|u| u.to_string()).unwrap_or_else(|| "no-uuid".to_string()),
+					e
+				);
+			}
+		}
 
 		// TODO: Re-enable Live Photo detection after sidecar system is fully working
 		// if let Some(live_photo) = LivePhotoDetector::detect_pair(path) {

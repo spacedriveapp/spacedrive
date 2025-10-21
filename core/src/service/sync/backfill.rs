@@ -133,7 +133,8 @@ impl BackfillManager {
 		}
 
 		// Phase 2: Backfill device-owned state
-		self.backfill_device_owned_state(selected_peer).await?;
+		// For initial backfill, don't use watermark (get everything)
+		self.backfill_device_owned_state(selected_peer, None).await?;
 
 		// Phase 3: Backfill shared resources
 		self.backfill_shared_resources(selected_peer).await?;
@@ -149,9 +150,52 @@ impl BackfillManager {
 		Ok(())
 	}
 
+	/// Perform incremental catch-up using watermarks
+	///
+	/// Called when device is Ready and reconnects after offline period.
+	/// Only fetches changes newer than our watermarks.
+	pub async fn catch_up_from_peer(
+		&self,
+		peer: Uuid,
+		state_watermark: Option<chrono::DateTime<chrono::Utc>>,
+		shared_watermark: Option<String>,
+	) -> Result<()> {
+		info!(
+			peer = %peer,
+			state_since = ?state_watermark,
+			shared_since = ?shared_watermark,
+			"Starting incremental catch-up"
+		);
+
+		// Backfill device-owned state since watermark
+		self.backfill_device_owned_state(peer, state_watermark).await?;
+
+		// Backfill shared resources since watermark
+		// For now, just do full backfill of shared resources
+		// TODO: Parse HLC from string watermark when HLC implements FromStr
+		self.backfill_shared_resources(peer).await?;
+
+		// Update watermarks after catch-up
+		self.set_initial_watermarks_after_backfill().await?;
+
+		info!("Incremental catch-up complete");
+		Ok(())
+	}
+
 	/// Backfill device-owned state from all peers in dependency order
-	async fn backfill_device_owned_state(&self, primary_peer: Uuid) -> Result<()> {
-		info!("Backfilling device-owned state");
+	///
+	/// If `since_watermark` is provided, only requests changes newer than the watermark.
+	/// This enables incremental catch-up instead of full re-sync.
+	async fn backfill_device_owned_state(
+		&self,
+		primary_peer: Uuid,
+		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
+	) -> Result<()> {
+		if let Some(since) = since_watermark {
+			info!("Backfilling device-owned state incrementally since {:?}", since);
+		} else {
+			info!("Backfilling device-owned state (full)");
+		}
 
 		// Compute sync order based on model dependencies to prevent FK violations
 		let sync_order = crate::infra::sync::compute_registry_sync_order()
@@ -174,7 +218,7 @@ impl BackfillManager {
 		// TODO: Get list of all peers, not just primary
 		// For now, just backfill from primary peer
 		let checkpoint = self
-			.backfill_peer_state(primary_peer, model_types.clone(), None)
+			.backfill_peer_state(primary_peer, model_types.clone(), None, since_watermark)
 			.await?;
 
 		info!(
@@ -186,11 +230,14 @@ impl BackfillManager {
 	}
 
 	/// Backfill state from a specific peer
+	///
+	/// If `since_watermark` is provided, only fetches changes newer than the watermark.
 	async fn backfill_peer_state(
 		&self,
 		peer: Uuid,
 		model_types: Vec<String>,
 		checkpoint: Option<BackfillCheckpoint>,
+		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
 	) -> Result<BackfillCheckpoint> {
 		let mut current_checkpoint = checkpoint.unwrap_or_else(|| BackfillCheckpoint::start(peer));
 
@@ -212,7 +259,7 @@ impl BackfillManager {
 						peer,
 						vec![model_type.clone()],
 						None,
-						None,
+						since_watermark,
 						DEFAULT_BATCH_SIZE,
 					)
 					.await?;
@@ -254,11 +301,24 @@ impl BackfillManager {
 
 	/// Backfill shared resources
 	async fn backfill_shared_resources(&self, peer: Uuid) -> Result<()> {
-		info!("Backfilling shared resources");
+		self.backfill_shared_resources_since(peer, None).await
+	}
+
+	/// Backfill shared resources since a specific HLC watermark
+	async fn backfill_shared_resources_since(
+		&self,
+		peer: Uuid,
+		since_hlc: Option<crate::infra::sync::HLC>,
+	) -> Result<()> {
+		if let Some(hlc) = since_hlc {
+			info!("Backfilling shared resources incrementally since {:?}", hlc);
+		} else {
+			info!("Backfilling shared resources (full)");
+		}
 
 		// Request shared changes from peer
 		let response = self
-			.request_shared_changes(peer, None, DEFAULT_BATCH_SIZE)
+			.request_shared_changes(peer, since_hlc, DEFAULT_BATCH_SIZE)
 			.await?;
 
 		if let SyncMessage::SharedChangeResponse {
