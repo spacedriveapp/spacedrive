@@ -1064,6 +1064,16 @@ impl PeerSync {
 			return Ok(());
 		}
 
+		// Create sync message
+		let message = SyncMessage::StateChange {
+			library_id,
+			model_type: change.model_type.clone(),
+			record_uuid: change.record_uuid,
+			device_id: change.device_id,
+			data: change.data.clone(),
+			timestamp: Utc::now(),
+		};
+
 		// Get all connected sync partners (library-scoped)
 		debug!("About to call network.get_connected_sync_partners() on handle_state_change_event_static");
 		let connected_partners = network.get_connected_sync_partners(library_id, db).await.map_err(|e| {
@@ -1078,19 +1088,20 @@ impl PeerSync {
 		);
 
 		if connected_partners.is_empty() {
-			debug!("[Static Handler] No connected sync partners to broadcast to");
+			debug!("[Static Handler] No connected sync partners to broadcast to, queuing for retry");
+
+			// Get all library devices for queueing
+			let library_devices = Self::get_library_devices_static(db).await?;
+
+			// Queue for all devices except self
+			for device_id in library_devices {
+				if device_id != change.device_id {
+					retry_queue.enqueue(device_id, message.clone()).await;
+				}
+			}
+
 			return Ok(());
 		}
-
-		// Create sync message
-		let message = SyncMessage::StateChange {
-			library_id,
-			model_type: change.model_type.clone(),
-			record_uuid: change.record_uuid,
-			device_id: change.device_id,
-			data: change.data.clone(),
-			timestamp: Utc::now(),
-		};
 
 		debug!(
 			model_type = %change.model_type,
@@ -1186,12 +1197,6 @@ impl PeerSync {
 			"Broadcasting shared change from event"
 		);
 
-		// Broadcast to peers (entry is already in peer_log via TransactionManager)
-		let message = SyncMessage::SharedChange {
-			library_id,
-			entry: entry.clone(),
-		};
-
 		let current_state = *state.read().await;
 		if current_state.should_buffer() {
 			debug!("Buffering own shared change during backfill");
@@ -1201,6 +1206,12 @@ impl PeerSync {
 			return Ok(());
 		}
 
+		// Broadcast to peers (entry is already in peer_log via TransactionManager)
+		let message = SyncMessage::SharedChange {
+			library_id,
+			entry: entry.clone(),
+		};
+
 		// Get all connected sync partners (library-scoped)
 		let connected_partners = network.get_connected_sync_partners(library_id, db).await.map_err(|e| {
 			warn!(error = %e, "Failed to get connected partners");
@@ -1208,7 +1219,18 @@ impl PeerSync {
 		})?;
 
 		if connected_partners.is_empty() {
-			debug!("No connected sync partners to broadcast to");
+			debug!("No connected sync partners to broadcast to, queuing for retry");
+
+			// Get all library devices for queueing
+			let library_devices = Self::get_library_devices_static(db).await?;
+
+			// Queue for all devices except self
+			for device_id in library_devices {
+				if device_id != entry.hlc.device_id {
+					retry_queue.enqueue(device_id, message.clone()).await;
+				}
+			}
+
 			return Ok(());
 		}
 
@@ -1318,6 +1340,16 @@ impl PeerSync {
 			return Ok(());
 		}
 
+		// Create sync message
+		let message = SyncMessage::StateChange {
+			library_id: self.library_id,
+			model_type: change.model_type.clone(),
+			record_uuid: change.record_uuid,
+			device_id: change.device_id,
+			data: change.data.clone(),
+			timestamp: Utc::now(),
+		};
+
 		// Get all connected sync partners
 		let connected_partners = self
 			.network
@@ -1329,19 +1361,20 @@ impl PeerSync {
 			})?;
 
 		if connected_partners.is_empty() {
-			debug!("No connected sync partners to broadcast to");
+			debug!("No connected sync partners to broadcast to, queuing for retry");
+
+			// Get all library devices for queueing
+			let library_devices = self.get_library_devices().await?;
+
+			// Queue for all devices except self
+			for device_id in library_devices {
+				if device_id != self.device_id {
+					self.retry_queue.enqueue(device_id, message.clone()).await;
+				}
+			}
+
 			return Ok(());
 		}
-
-		// Create sync message
-		let message = SyncMessage::StateChange {
-			library_id: self.library_id,
-			model_type: change.model_type.clone(),
-			record_uuid: change.record_uuid,
-			device_id: change.device_id,
-			data: change.data.clone(),
-			timestamp: Utc::now(),
-		};
 
 		debug!(
 			model_type = %change.model_type,
@@ -1447,6 +1480,12 @@ impl PeerSync {
 			return Ok(());
 		}
 
+		// Create sync message
+		let message = SyncMessage::SharedChange {
+			library_id: self.library_id,
+			entry: entry.clone(),
+		};
+
 		// Get all connected sync partners
 		let connected_partners = self
 			.network
@@ -1458,15 +1497,20 @@ impl PeerSync {
 			})?;
 
 		if connected_partners.is_empty() {
-			debug!("No connected sync partners to broadcast to");
+			debug!("No connected sync partners to broadcast to, queuing for retry");
+
+			// Get all library devices for queueing
+			let library_devices = self.get_library_devices().await?;
+
+			// Queue for all devices except self
+			for device_id in library_devices {
+				if device_id != self.device_id {
+					self.retry_queue.enqueue(device_id, message.clone()).await;
+				}
+			}
+
 			return Ok(());
 		}
-
-		// Create sync message
-		let message = SyncMessage::SharedChange {
-			library_id: self.library_id,
-			entry: entry.clone(),
-		};
 
 		debug!(
 			hlc = %hlc,
@@ -1753,6 +1797,25 @@ impl PeerSync {
 	/// Get network transport name (for debugging)
 	pub fn transport_name(&self) -> &'static str {
 		self.network.transport_name()
+	}
+
+	/// Get all library devices with sync enabled
+	async fn get_library_devices(&self) -> Result<Vec<Uuid>> {
+		Self::get_library_devices_static(&self.db).await
+	}
+
+	/// Get all library devices with sync enabled (static version)
+	async fn get_library_devices_static(db: &DatabaseConnection) -> Result<Vec<Uuid>> {
+		use crate::infra::db::entities;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let library_devices = entities::device::Entity::find()
+			.filter(entities::device::Column::SyncEnabled.eq(true))
+			.all(db)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to query library devices: {}", e))?;
+
+		Ok(library_devices.iter().map(|d| d.uuid).collect())
 	}
 
 	/// Get device-owned state for backfill (StateRequest)
