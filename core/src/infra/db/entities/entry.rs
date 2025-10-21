@@ -78,7 +78,10 @@ impl crate::infra::sync::Syncable for Model {
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		&["location"] // Entry belongs to a location
+		// Entries don't belong to locations - locations are virtual and can reference
+		// a root entry. Entries only depend on their parent entry (self-reference),
+		// user_metadata, and content_identity (all optional FKs).
+		&[]
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {

@@ -771,8 +771,15 @@ impl EntryProcessor {
 		entry_active.content_id = Set(Some(content_id));
 
 		// Assign UUID if not already assigned (Entry now ready for sync)
-		if let Set(None) = entry_active.uuid {
-			entry_active.uuid = Set(Some(Uuid::new_v4()));
+		use sea_orm::ActiveValue::{NotSet, Set, Unchanged};
+		match &entry_active.uuid {
+			Set(None) | NotSet | Unchanged(None) => {
+				let new_uuid = Uuid::new_v4();
+				entry_active.uuid = Set(Some(new_uuid));
+			}
+			Set(Some(_)) | Unchanged(Some(_)) => {
+				// Already has UUID, no action needed
+			}
 		}
 
 		entry_active.update(ctx.library_db()).await.map_err(|e| {

@@ -245,7 +245,7 @@ pub async fn create_location(
 		id: Set(0), // Auto-increment
 		uuid: Set(location_id),
 		device_id: Set(device_id),
-		entry_id: Set(entry_id),
+		entry_id: Set(Some(entry_id)),
 		name: Set(Some(name.clone())),
 		index_mode: Set(args.index_mode.to_string()),
 		scan_state: Set("pending".to_string()),

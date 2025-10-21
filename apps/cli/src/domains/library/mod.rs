@@ -14,7 +14,7 @@ use sd_core::ops::libraries::{
 };
 use sd_core::ops::network::sync_setup::{
 	discovery::{output::DiscoverRemoteLibrariesOutput, query::DiscoverRemoteLibrariesInput},
-	input::LibrarySyncSetupInput,
+	input::{LibrarySyncAction, LibrarySyncSetupInput},
 	output::LibrarySyncSetupOutput,
 };
 
@@ -215,7 +215,12 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 				});
 			}
 			SyncSetupCmd::Setup(args) => {
-				let input = args.to_input(ctx)?;
+				let input = if args.is_interactive() {
+					run_interactive_sync_setup(ctx).await?
+				} else {
+					args.to_input(ctx)?
+				};
+
 				let out: LibrarySyncSetupOutput = execute_core_action!(ctx, input);
 				print_output!(ctx, &out, |o: &LibrarySyncSetupOutput| {
 					if o.success {
@@ -234,4 +239,159 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 		},
 	}
 	Ok(())
+}
+
+async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInput> {
+	use crate::util::confirm::{select, text};
+	use sd_core::ops::network::devices::{output::ListPairedDevicesOutput, query::ListPairedDevicesInput};
+
+	println!("\n=== Library Sync Setup ===\n");
+
+	// Get local device ID from config
+	let config_path = ctx.data_dir.join("device.json");
+	if !config_path.exists() {
+		anyhow::bail!("Device config not found. Please run the daemon first to initialize device config.");
+	}
+	let config_data = std::fs::read_to_string(&config_path)?;
+	let device_config: sd_core::device::DeviceConfig = serde_json::from_str(&config_data)?;
+	let local_device_id = device_config.id;
+
+	// Step 1: Select local library
+	let libraries: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(
+		ctx,
+		sd_core::ops::libraries::list::query::ListLibrariesInput {
+			include_stats: false
+		}
+	);
+
+	if libraries.is_empty() {
+		anyhow::bail!("No libraries found. Create a library first with:\n  sd library create <name>");
+	}
+
+	let library_choices: Vec<String> = libraries
+		.iter()
+		.map(|lib| format!("{} ({})", lib.name, lib.id))
+		.collect();
+
+	let library_idx = select("Select local library to sync", &library_choices)?;
+	let local_library_id = libraries[library_idx].id;
+
+	println!("\n✓ Selected local library: {}\n", libraries[library_idx].name);
+
+	// Step 2: Select remote device from paired devices
+	let paired_devices: ListPairedDevicesOutput = execute_core_query!(
+		ctx,
+		ListPairedDevicesInput {
+			connected_only: false
+		}
+	);
+
+	if paired_devices.devices.is_empty() {
+		anyhow::bail!(
+			"No paired devices found.\n\
+			Pair a device first with:\n\
+			  sd network pair generate  # on this device\n\
+			  sd network pair join <code>  # on the other device"
+		);
+	}
+
+	let device_choices: Vec<String> = paired_devices
+		.devices
+		.iter()
+		.map(|d| {
+			let status = if d.is_connected { "connected" } else { "paired" };
+			format!("{} - {} ({})", d.name, d.os_version, status)
+		})
+		.collect();
+
+	let device_idx = select("Select remote device to sync with", &device_choices)?;
+	let remote_device = &paired_devices.devices[device_idx];
+	let remote_device_id = remote_device.id;
+
+	println!("\n✓ Selected remote device: {}\n", remote_device.name);
+
+	// Step 3: Discover remote libraries
+	println!("Discovering libraries on remote device...\n");
+
+	let discovery_input = DiscoverRemoteLibrariesInput {
+		device_id: remote_device_id,
+	};
+	let discovery_out: DiscoverRemoteLibrariesOutput = execute_core_query!(ctx, discovery_input);
+
+	if !discovery_out.is_online {
+		anyhow::bail!("Remote device {} is not online", remote_device.name);
+	}
+
+	// Step 4: Select sync action
+	let action_idx = select(
+		"Select sync action",
+		&[
+			"Register existing library (sync with existing library on remote device)".to_string(),
+			"Create shared library (create new shared library on both devices)".to_string(),
+		],
+	)?;
+
+	let action = match action_idx {
+		0 => {
+			// Register existing library
+			if discovery_out.libraries.is_empty() {
+				anyhow::bail!("No libraries found on remote device. Use 'Create shared library' instead.");
+			}
+
+			let remote_lib_choices: Vec<String> = discovery_out
+				.libraries
+				.iter()
+				.map(|lib| {
+					format!(
+						"{} ({} entries, {} locations)",
+						lib.name, lib.statistics.total_entries, lib.statistics.total_locations
+					)
+				})
+				.collect();
+
+			let remote_lib_idx = select("Select remote library to sync with", &remote_lib_choices)?;
+			let remote_library_id = discovery_out.libraries[remote_lib_idx].id;
+
+			println!(
+				"\n✓ Will sync with remote library: {}\n",
+				discovery_out.libraries[remote_lib_idx].name
+			);
+
+			(LibrarySyncAction::RegisterOnly, Some(remote_library_id))
+		}
+		1 => {
+			// Create shared library - the local library selected earlier will be shared to the remote device
+			let name = libraries[library_idx].name.clone();
+
+			println!(
+				"\n✓ Will share library '{}' to remote device '{}'\n",
+				name, remote_device.name
+			);
+
+			(
+				LibrarySyncAction::CreateShared {
+					leader_device_id: local_device_id,
+					name,
+				},
+				None,
+			)
+		}
+		_ => unreachable!(),
+	};
+
+	let leader_device_id = match &action.0 {
+		LibrarySyncAction::CreateShared {
+			leader_device_id, ..
+		} => *leader_device_id,
+		_ => local_device_id,
+	};
+
+	Ok(LibrarySyncSetupInput {
+		local_device_id,
+		remote_device_id,
+		local_library_id,
+		remote_library_id: action.1,
+		action: action.0,
+		leader_device_id,
+	})
 }

@@ -96,35 +96,48 @@ impl From<DiscoverArgs> for DiscoverRemoteLibrariesInput {
 pub struct SetupArgs {
 	/// Local library ID
 	#[arg(long)]
-	pub local_library: Uuid,
+	pub local_library: Option<Uuid>,
 
 	/// Remote device ID (paired device)
 	#[arg(long)]
-	pub remote_device: Uuid,
+	pub remote_device: Option<Uuid>,
 
 	/// Remote library ID (optional for register-only mode)
 	#[arg(long)]
 	pub remote_library: Option<Uuid>,
 
 	/// Sync action: register-only, create-shared
-	#[arg(long, default_value = "register-only")]
-	pub action: String,
+	#[arg(long)]
+	pub action: Option<String>,
 
 	/// Library name for create-shared action
 	#[arg(long)]
 	pub name: Option<String>,
 
 	/// DEPRICATED: Leader device: "local" or "remote"
-	#[arg(long, default_value = "local")]
-	pub leader: String,
+	#[arg(long)]
+	pub leader: Option<String>,
 
 	/// Local device ID (optional, uses current device if not specified)
 	#[arg(long)]
 	pub local_device: Option<Uuid>,
+
+	/// Use interactive mode (default if no arguments provided)
+	#[arg(short, long)]
+	pub interactive: bool,
 }
 
 impl SetupArgs {
+	pub fn is_interactive(&self) -> bool {
+		self.interactive || (self.local_library.is_none() && self.remote_device.is_none())
+	}
+
 	pub fn to_input(&self, ctx: &crate::context::Context) -> anyhow::Result<LibrarySyncSetupInput> {
+		let local_library = self.local_library
+			.ok_or_else(|| anyhow::anyhow!("--local-library is required"))?;
+		let remote_device = self.remote_device
+			.ok_or_else(|| anyhow::anyhow!("--remote-device is required"))?;
+
 		// Get local device ID from config or argument
 		let local_device_id = if let Some(id) = self.local_device {
 			id
@@ -140,14 +153,16 @@ impl SetupArgs {
 		};
 
 		// Determine leader device ID
-		let leader_device_id = match self.leader.as_str() {
+		let leader = self.leader.as_deref().unwrap_or("local");
+		let leader_device_id = match leader {
 			"local" => local_device_id,
-			"remote" => self.remote_device,
+			"remote" => remote_device,
 			_ => anyhow::bail!("Leader must be 'local' or 'remote'"),
 		};
 
 		// Parse action
-		let action = match self.action.as_str() {
+		let action_str = self.action.as_deref().unwrap_or("register-only");
+		let action = match action_str {
 			"register-only" => LibrarySyncAction::RegisterOnly,
 			"create-shared" => {
 				let name = self
@@ -161,14 +176,14 @@ impl SetupArgs {
 			}
 			_ => anyhow::bail!(
 				"Invalid action '{}'. Supported: register-only, create-shared",
-				self.action
+				action_str
 			),
 		};
 
 		Ok(LibrarySyncSetupInput {
 			local_device_id,
-			remote_device_id: self.remote_device,
-			local_library_id: self.local_library,
+			remote_device_id: remote_device,
+			local_library_id: local_library,
 			remote_library_id: self.remote_library,
 			action,
 			leader_device_id,

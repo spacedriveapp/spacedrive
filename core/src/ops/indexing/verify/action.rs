@@ -213,7 +213,10 @@ impl IndexVerifyAction {
 
 		let mut target_location = None;
 		for loc in locations {
-			let loc_path = PathResolver::get_full_path(db, loc.entry_id)
+			let entry_id = loc.entry_id.ok_or_else(|| {
+				ActionError::Internal("Location has no entry_id".to_string())
+			})?;
+			let loc_path = PathResolver::get_full_path(db, entry_id)
 				.await
 				.map_err(|e| {
 					ActionError::Internal(format!("Failed to get location path: {}", e))
@@ -336,55 +339,56 @@ impl IndexVerifyAction {
 				}
 			} else {
 				// Traverse from location root to find the target directory
-				let mut current_parent_id = Some(location.entry_id);
+				let mut current_parent_id = location.entry_id.ok_or_else(|| {
+					ActionError::Internal("Location has no entry_id".to_string())
+				})?;
 
 				for component in &components {
-					if let Some(parent_id) = current_parent_id {
-						// Find child with this name
-						let child = entities::entry::Entity::find()
-							.filter(entities::entry::Column::ParentId.eq(parent_id))
-							.filter(entities::entry::Column::Name.eq(*component))
-							.one(db)
-							.await
-							.map_err(|e| {
-								ActionError::Internal(format!("Failed to query entry: {}", e))
-							})?;
+					// Find child with this name
+					let child = entities::entry::Entity::find()
+						.filter(entities::entry::Column::ParentId.eq(current_parent_id))
+						.filter(entities::entry::Column::Name.eq(*component))
+						.one(db)
+						.await
+						.map_err(|e| {
+							ActionError::Internal(format!("Failed to query entry: {}", e))
+						})?;
 
-						current_parent_id = child.as_ref().map(|c| c.id);
+					if let Some(c) = child {
+						current_parent_id = c.id;
 					} else {
-						break;
+						// Path not found in database
+						return Ok(entries_map);
 					}
 				}
 
-				if let Some(target_entry_id) = current_parent_id {
-					// Get all descendants of this subdirectory
-					let descendant_closures = entities::entry_closure::Entity::find()
-						.filter(entities::entry_closure::Column::AncestorId.eq(target_entry_id))
-						.all(db)
+				// Get all descendants of this subdirectory
+				let descendant_closures = entities::entry_closure::Entity::find()
+					.filter(entities::entry_closure::Column::AncestorId.eq(current_parent_id))
+					.all(db)
+					.await
+					.map_err(|e| {
+						ActionError::Internal(format!("Failed to query entry closure: {}", e))
+					})?;
+
+				let descendant_ids: Vec<i32> = descendant_closures
+					.iter()
+					.map(|ec| ec.descendant_id)
+					.collect();
+
+				let entries = entities::entry::Entity::find()
+					.filter(entities::entry::Column::Id.is_in(descendant_ids))
+					.all(db)
+					.await
+					.map_err(|e| {
+						ActionError::Internal(format!("Failed to query entries: {}", e))
+					})?;
+
+				for entry in entries {
+					let full_path = PathResolver::get_full_path(db, entry.id)
 						.await
-						.map_err(|e| {
-							ActionError::Internal(format!("Failed to query entry closure: {}", e))
-						})?;
-
-					let descendant_ids: Vec<i32> = descendant_closures
-						.iter()
-						.map(|ec| ec.descendant_id)
-						.collect();
-
-					let entries = entities::entry::Entity::find()
-						.filter(entities::entry::Column::Id.is_in(descendant_ids))
-						.all(db)
-						.await
-						.map_err(|e| {
-							ActionError::Internal(format!("Failed to query entries: {}", e))
-						})?;
-
-					for entry in entries {
-						let full_path = PathResolver::get_full_path(db, entry.id)
-							.await
-							.unwrap_or_else(|_| PathBuf::from(&entry.name));
-						entries_map.insert(full_path.clone(), (entry, full_path));
-					}
+						.unwrap_or_else(|_| PathBuf::from(&entry.name));
+					entries_map.insert(full_path.clone(), (entry, full_path));
 				}
 			}
 

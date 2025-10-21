@@ -311,7 +311,10 @@ impl JobHandler for IndexerJob {
 				.await
 				.map_err(|e| JobError::execution(e.to_string()))?
 				.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
-			let path_str = PathResolver::get_directory_path(db.conn(), location.entry_id)
+			let entry_id = location.entry_id.ok_or_else(|| {
+				JobError::execution("Location has no entry_id".to_string())
+			})?;
+			let path_str = PathResolver::get_directory_path(db.conn(), entry_id)
 				.await
 				.map_err(|e| JobError::execution(e.to_string()))?;
 			std::path::PathBuf::from(path_str)

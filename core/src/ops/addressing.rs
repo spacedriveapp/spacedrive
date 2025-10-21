@@ -392,7 +392,7 @@ impl PathResolver {
 		// Create a map for quick lookup
 		let location_map: HashMap<i32, location::Model> = locations
 			.into_iter()
-			.map(|loc| (loc.entry_id, loc))
+			.filter_map(|loc| loc.entry_id.map(|id| (id, loc)))
 			.collect();
 
 		// Get devices for all locations

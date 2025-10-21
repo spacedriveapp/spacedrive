@@ -492,12 +492,18 @@ impl LocationWatcher {
 					debug!("Found {} locations in library {}", locations.len(), library.id());
 
 					for location in locations {
+						// Skip locations without entry_id (not yet synced)
+						let Some(entry_id) = location.entry_id else {
+							debug!("Skipping location {} without entry_id", location.uuid);
+							continue;
+						};
+
 						// Get the full path using PathResolver with timeout
 						let path_result = tokio::time::timeout(
 							std::time::Duration::from_secs(5),
 							crate::ops::indexing::path_resolver::PathResolver::get_full_path(
 								db,
-								location.entry_id,
+								entry_id,
 							)
 						)
 						.await;

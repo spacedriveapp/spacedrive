@@ -145,7 +145,7 @@ impl LocationManager {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(location_id),
 			device_id: Set(device_id),
-			entry_id: Set(entry_id),
+			entry_id: Set(Some(entry_id)),
 			name: Set(Some(display_name.clone())),
 			index_mode: Set(index_mode.to_string()),
 			scan_state: Set("pending".to_string()),
@@ -479,7 +479,11 @@ impl LocationManager {
 
 		let mut managed_locations = Vec::new();
 		for loc in locations {
-			let path = PathResolver::get_full_path(library.db().conn(), loc.entry_id).await?;
+			// Skip locations without entry_id (not yet synced)
+			let Some(entry_id) = loc.entry_id else {
+				continue;
+			};
+			let path = PathResolver::get_full_path(library.db().conn(), entry_id).await?;
 			managed_locations.push(ManagedLocation {
 				id: loc.uuid,
 				name: loc.name.unwrap_or_else(|| "Unknown".to_string()),
@@ -511,7 +515,11 @@ impl LocationManager {
 			.await?
 			.ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
-		let path = PathResolver::get_full_path(library.db().conn(), location.entry_id).await?;
+		// Skip if location doesn't have entry_id yet (not synced)
+		let entry_id = location.entry_id
+			.ok_or_else(|| LocationError::Other("Location entry not yet synced".to_string()))?;
+
+		let path = PathResolver::get_full_path(library.db().conn(), entry_id).await?;
 
 		let managed_location = ManagedLocation {
 			id: location.uuid,
