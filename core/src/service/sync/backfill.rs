@@ -141,6 +141,9 @@ impl BackfillManager {
 		// Phase 4: Transition to ready (processes buffer)
 		self.peer_sync.transition_to_ready().await?;
 
+		// Phase 5: Set initial watermarks after backfill
+		self.set_initial_watermarks_after_backfill().await?;
+
 		info!("Backfill complete, device is ready");
 
 		Ok(())
@@ -355,5 +358,10 @@ impl BackfillManager {
 		}
 
 		Ok(())
+	}
+
+	/// Set initial watermarks after backfill completes
+	async fn set_initial_watermarks_after_backfill(&self) -> Result<()> {
+		self.peer_sync.set_initial_watermarks().await
 	}
 }
