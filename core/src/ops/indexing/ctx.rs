@@ -15,6 +15,11 @@ pub trait IndexingCtx {
 	/// Access to the library database connection
 	fn library_db(&self) -> &DatabaseConnection;
 
+	/// Access to the library for sync operations (optional - only available in job context)
+	fn library(&self) -> Option<&Library> {
+		None
+	}
+
 	/// Lightweight logging hook
 	fn log(&self, message: impl AsRef<str>) {
 		tracing::debug!(message = %message.as_ref());
@@ -24,6 +29,10 @@ pub trait IndexingCtx {
 impl<'a> IndexingCtx for JobContext<'a> {
 	fn library_db(&self) -> &DatabaseConnection {
 		self.library_db()
+	}
+
+	fn library(&self) -> Option<&Library> {
+		Some(self.library())
 	}
 }
 
