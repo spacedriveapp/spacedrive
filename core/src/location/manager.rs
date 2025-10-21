@@ -97,6 +97,7 @@ impl LocationManager {
 			_ => unreachable!("Content paths already rejected"),
 		};
 
+		let now = chrono::Utc::now();
 		let entry_model = entities::entry::ActiveModel {
 			uuid: Set(Some(Uuid::new_v4())),
 			name: Set(directory_name.clone()),
@@ -108,9 +109,10 @@ impl LocationManager {
 			aggregate_size: Set(0),
 			child_count: Set(0),
 			file_count: Set(0),
-			created_at: Set(chrono::Utc::now()),
-			modified_at: Set(chrono::Utc::now()),
+			created_at: Set(now),
+			modified_at: Set(now),
 			accessed_at: Set(None),
+			indexed_at: Set(Some(now)), // Record when location root was created
 			permissions: Set(None),
 			inode: Set(None),
 			parent_id: Set(None), // Location root has no parent

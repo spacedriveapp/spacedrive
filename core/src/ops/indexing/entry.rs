@@ -256,6 +256,7 @@ impl EntryProcessor {
 		};
 
 		// Create entry
+		let now = chrono::Utc::now();
 		let new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
 			name: Set(name.clone()),
@@ -267,10 +268,11 @@ impl EntryProcessor {
 			aggregate_size: Set(0), // Will be calculated in aggregation phase
 			child_count: Set(0),    // Will be calculated in aggregation phase
 			file_count: Set(0),     // Will be calculated in aggregation phase
-			created_at: Set(chrono::Utc::now()),
+			created_at: Set(now),
 			modified_at: Set(modified_at),
 			accessed_at: Set(None),
-			permissions: Set(None), // TODO: Could extract from metadata
+			indexed_at: Set(Some(now)), // Record when we indexed this entry
+			permissions: Set(None),     // TODO: Could extract from metadata
 			inode: Set(entry.inode.map(|i| i as i64)),
 			parent_id: Set(parent_id),
 			..Default::default()

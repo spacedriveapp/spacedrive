@@ -291,6 +291,7 @@ impl LibraryQuery for DirectoryListingQuery {
 				created_at: entry_created_at,
 				modified_at: entry_modified_at,
 				accessed_at: entry_accessed_at,
+				indexed_at: None, // Not needed for query result conversion
 				permissions: None,
 				inode: None,
 				parent_id: None,

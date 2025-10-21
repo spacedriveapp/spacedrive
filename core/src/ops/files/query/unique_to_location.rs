@@ -243,6 +243,7 @@ impl UniqueToLocationQuery {
 				created_at: chrono::Utc::now(),
 				modified_at: chrono::Utc::now(),
 				accessed_at: None,
+				indexed_at: None, // Not needed for query result conversion
 				permissions: None,
 				inode: None,
 				parent_id: None,

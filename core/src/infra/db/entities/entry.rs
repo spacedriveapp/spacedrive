@@ -23,9 +23,10 @@ pub struct Model {
 	pub created_at: DateTimeUtc,
 	pub modified_at: DateTimeUtc,
 	pub accessed_at: Option<DateTimeUtc>,
-	pub permissions: Option<String>, // Unix permissions as string
-	pub inode: Option<i64>,          // Platform-specific file identifier for change detection
-	pub parent_id: Option<i32>,      // Reference to parent entry for hierarchical relationships
+	pub indexed_at: Option<DateTimeUtc>, // When this entry was indexed/synced (for watermark tracking)
+	pub permissions: Option<String>,     // Unix permissions as string
+	pub inode: Option<i64>,              // Platform-specific file identifier for change detection
+	pub parent_id: Option<i32>,          // Reference to parent entry for hierarchical relationships
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -74,7 +75,7 @@ impl crate::infra::sync::Syncable for Model {
 	}
 
 	fn exclude_fields() -> Option<&'static [&'static str]> {
-		Some(&["id"]) // Only exclude database PK
+		Some(&["id", "indexed_at"]) // Exclude PK and indexed_at (set locally)
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
@@ -131,33 +132,53 @@ impl crate::infra::sync::Syncable for Model {
 		query = query.filter(Column::Uuid.is_not_null());
 
 		// Filter by watermark timestamp if specified
+		// Use indexed_at (when we indexed/synced) not modified_at (file modification time)
 		if let Some(since_time) = since {
-			query = query.filter(Column::ModifiedAt.gte(since_time));
+			query = query.filter(Column::IndexedAt.gte(since_time));
 		}
 
 		// Cursor-based pagination with tie-breaker
-		// WHERE (modified_at > cursor_ts) OR (modified_at = cursor_ts AND uuid > cursor_uuid)
+		// WHERE (indexed_at > cursor_ts) OR (indexed_at = cursor_ts AND uuid > cursor_uuid)
 		if let Some((cursor_ts, cursor_uuid)) = cursor {
 			query = query.filter(
 				Condition::any()
-					.add(Column::ModifiedAt.gt(cursor_ts))
+					.add(Column::IndexedAt.gt(cursor_ts))
 					.add(
 						Condition::all()
-							.add(Column::ModifiedAt.eq(cursor_ts))
+							.add(Column::IndexedAt.eq(cursor_ts))
 							.add(Column::Uuid.gt(cursor_uuid)),
 					),
 			);
 		}
 
-		// Order by modified_at + uuid for deterministic pagination
+		// Order by indexed_at + uuid for deterministic pagination
 		query = query
-			.order_by_asc(Column::ModifiedAt)
+			.order_by_asc(Column::IndexedAt)
 			.order_by_asc(Column::Uuid);
 
 		// Apply batch limit
 		query = query.limit(batch_size as u64);
 
 		let results = query.all(db).await?;
+
+		// Batch lookup directory paths for all directories to avoid N+1 queries
+		let directory_ids: Vec<i32> = results
+			.iter()
+			.filter(|e| e.kind == 1) // Directory
+			.map(|e| e.id)
+			.collect();
+
+		let directory_paths_map: std::collections::HashMap<i32, String> = if !directory_ids.is_empty() {
+			super::directory_paths::Entity::find()
+				.filter(super::directory_paths::Column::EntryId.is_in(directory_ids))
+				.all(db)
+				.await?
+				.into_iter()
+				.map(|dp| (dp.entry_id, dp.path))
+				.collect()
+		} else {
+			std::collections::HashMap::new()
+		};
 
 		// Convert to sync format with FK mapping
 		let mut sync_results = Vec::new();
@@ -181,12 +202,9 @@ impl crate::infra::sync::Syncable for Model {
 			// This ensures receiving devices get identical paths for universal addressing
 			if entry.kind == 1 {
 				// Directory
-				if let Ok(Some(dir_path)) = super::directory_paths::Entity::find_by_id(entry.id)
-					.one(db)
-					.await
-				{
+				if let Some(path) = directory_paths_map.get(&entry.id) {
 					if let Some(obj) = json.as_object_mut() {
-						obj.insert("directory_path".to_string(), serde_json::Value::String(dir_path.path));
+						obj.insert("directory_path".to_string(), serde_json::Value::String(path.clone()));
 					}
 				}
 			}
@@ -206,7 +224,9 @@ impl crate::infra::sync::Syncable for Model {
 				}
 			}
 
-			sync_results.push((uuid, json, entry.modified_at));
+			// Use indexed_at for checkpoint/watermark tracking, fallback to modified_at if NULL
+			let timestamp = entry.indexed_at.unwrap_or(entry.modified_at);
+			sync_results.push((uuid, json, timestamp));
 		}
 
 		Ok(sync_results)
@@ -346,6 +366,8 @@ impl Model {
 		let inode: Option<i64> = serde_json::from_value(get_field("inode")?).unwrap();
 		let parent_id: Option<i32> = serde_json::from_value(get_field("parent_id")?).unwrap();
 
+		let now = chrono::Utc::now();
+
 		let entry_id = if let Some(existing_entry) = existing {
 			// Update existing entry
 			let active = ActiveModel {
@@ -363,6 +385,7 @@ impl Model {
 				created_at: Set(created_at),
 				modified_at: Set(modified_at),
 				accessed_at: Set(accessed_at),
+				indexed_at: Set(Some(now)), // Record when we synced this entry
 				permissions: Set(permissions.clone()),
 				inode: Set(inode),
 				parent_id: Set(parent_id),
@@ -386,6 +409,7 @@ impl Model {
 				created_at: Set(created_at),
 				modified_at: Set(modified_at),
 				accessed_at: Set(accessed_at),
+				indexed_at: Set(Some(now)), // Record when we synced this entry
 				permissions: Set(permissions.clone()),
 				inode: Set(inode),
 				parent_id: Set(parent_id),

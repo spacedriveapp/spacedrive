@@ -207,17 +207,9 @@ impl Library {
 			model_type
 		);
 
-		// Emit batch event (more efficient than N individual events)
-		self.transaction_manager().event_bus().emit(Event::Custom {
-			event_type: "sync:state_change_batch".to_string(),
-			data: serde_json::json!({
-				"library_id": self.id(),
-				"model_type": model_type,
-				"device_id": device_id,
-				"records": records,
-				"timestamp": chrono::Utc::now(),
-			}),
-		});
+		// No event emission for batch operations
+		// Peers will discover changes via backfill or watermark exchange
+		// This prevents event bus flooding during bulk indexing operations
 
 		Ok(())
 	}
@@ -249,7 +241,6 @@ impl Library {
 		);
 
 		// Generate HLCs and append to peer log in batch
-		let mut entries = Vec::new();
 		for (record_uuid, data) in records {
 			let hlc = hlc_gen.next();
 
@@ -265,18 +256,11 @@ impl Library {
 				.append(entry.clone())
 				.await
 				.map_err(|e| anyhow::anyhow!("Failed to append to peer log: {}", e))?;
-
-			entries.push(entry);
 		}
 
-		// Emit single batch event for all records
-		self.transaction_manager().event_bus().emit(Event::Custom {
-			event_type: "sync:shared_change_batch".to_string(),
-			data: serde_json::json!({
-				"library_id": self.id(),
-				"entries": entries,
-			}),
-		});
+		// No event emission for batch operations
+		// Entries are safely in peer_log, peers will fetch via SharedChangeRequest
+		// This prevents event bus flooding during bulk indexing operations
 
 		Ok(())
 	}

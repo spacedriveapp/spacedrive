@@ -366,14 +366,15 @@ impl PeerSync {
 
 		let now = chrono::Utc::now();
 
-		// Query the actual max modified_at from entries to set accurate watermark
-		// This prevents marking ourselves as "caught up" when we only have partial data
-		let max_entry_timestamp: Option<chrono::DateTime<chrono::Utc>> = self
+		// Query the actual max indexed_at from entries to set accurate watermark
+		// indexed_at records when we indexed/synced the entry, not when the file was modified
+		// This ensures watermark-based catch-up works correctly even for old files added later
+		let max_indexed_at: Option<chrono::DateTime<chrono::Utc>> = self
 			.db
 			.as_ref()
 			.query_one(sea_orm::Statement::from_string(
 				sea_orm::DbBackend::Sqlite,
-				"SELECT MAX(modified_at) as max_ts FROM entries".to_string(),
+				"SELECT MAX(indexed_at) as max_ts FROM entries WHERE uuid IS NOT NULL".to_string(),
 			))
 			.await
 			.ok()
@@ -384,8 +385,8 @@ impl PeerSync {
 					.map(|dt| dt.with_timezone(&chrono::Utc))
 			});
 
-		// Use the max timestamp from synced data, or current time if no data synced yet
-		let state_watermark = max_entry_timestamp.unwrap_or(now);
+		// Use the max indexed_at from synced data, or current time if no data synced yet
+		let state_watermark = max_indexed_at.unwrap_or(now);
 
 		// Get current HLC from generator as shared watermark
 		let current_hlc = self.hlc_generator.lock().await.next();
@@ -409,9 +410,10 @@ impl PeerSync {
 			.map_err(|e| anyhow::anyhow!("Failed to set initial watermarks: {}", e))?;
 
 		info!(
-			"Set initial watermarks: state={} (from synced data), shared={}, last_sync_at={}",
+			"Set initial watermarks: state={} (from max indexed_at), shared={}, last_sync_at={}",
 			state_watermark, current_hlc, now
 		);
+
 		Ok(())
 	}
 
@@ -792,40 +794,9 @@ impl PeerSync {
 									warn!(error = %e, "Failed to handle shared change event");
 								}
 							}
-							"sync:state_change_batch" => {
-								info!("Handling state change batch event for sync broadcast");
-								if let Err(e) = Self::handle_state_change_batch_event_static(
-									library_id,
-									data,
-									&network,
-									&state,
-									&buffer,
-									&retry_queue,
-									&db,
-								)
-								.await
-								{
-									warn!(error = %e, "Failed to handle state change batch event");
-								}
-							}
-							"sync:shared_change_batch" => {
-								info!("Handling shared change batch event for sync broadcast");
-								if let Err(e) = Self::handle_shared_change_batch_event_static(
-									library_id,
-									data,
-									&network,
-									&state,
-									&buffer,
-									&retry_queue,
-									&db,
-								)
-								.await
-								{
-									warn!(error = %e, "Failed to handle shared change batch event");
-								}
-							}
 							_ => {
 								// Ignore other custom events
+								// Note: Batch events removed - peers discover bulk changes via backfill
 							}
 						}
 					}
@@ -1230,213 +1201,8 @@ impl PeerSync {
 		Ok(())
 	}
 
-	/// Handle state change batch event from TransactionManager
-	async fn handle_state_change_batch_event_static(
-		library_id: Uuid,
-		data: serde_json::Value,
-		network: &Arc<dyn NetworkTransport>,
-		state: &Arc<RwLock<DeviceSyncState>>,
-		buffer: &Arc<BufferQueue>,
-		retry_queue: &Arc<RetryQueue>,
-		db: &Arc<sea_orm::DatabaseConnection>,
-	) -> Result<()> {
-		let model_type: String = data
-			.get("model_type")
-			.and_then(|v| v.as_str())
-			.ok_or_else(|| anyhow::anyhow!("Missing model_type in batch event"))?
-			.to_string();
-
-		let device_id: Uuid = data
-			.get("device_id")
-			.and_then(|v| v.as_str())
-			.and_then(|s| s.parse().ok())
-			.ok_or_else(|| anyhow::anyhow!("Missing device_id in batch event"))?;
-
-		// Records is an array of [uuid, data] tuples
-		let records: Vec<(Uuid, serde_json::Value)> = data
-			.get("records")
-			.and_then(|v| v.as_array())
-			.ok_or_else(|| anyhow::anyhow!("Missing records in batch event"))?
-			.iter()
-			.filter_map(|item| {
-				let arr = item.as_array()?;
-				if arr.len() != 2 {
-					return None;
-				}
-				let uuid_str = arr[0].as_str()?;
-				let uuid = uuid_str.parse().ok()?;
-				let data = arr[1].clone();
-				Some((uuid, data))
-			})
-			.collect();
-
-		let timestamp: chrono::DateTime<chrono::Utc> = data
-			.get("timestamp")
-			.and_then(|v| v.as_str())
-			.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-			.map(|dt| dt.with_timezone(&chrono::Utc))
-			.ok_or_else(|| anyhow::anyhow!("Missing timestamp in batch event"))?;
-
-		info!(
-			model_type = %model_type,
-			record_count = records.len(),
-			"Handling state change batch for broadcast"
-		);
-
-		// Check if we should buffer
-		let current_state = state.read().await;
-		if current_state.should_buffer() {
-			info!("Buffering batch during backfill (not broadcasting)");
-			return Ok(());
-		}
-		drop(current_state);
-
-		// Create batch message
-		let mut batch_records = Vec::new();
-		for (record_uuid, record_data) in records {
-			batch_records.push(crate::service::network::protocol::sync::messages::StateRecord {
-				uuid: record_uuid,
-				data: record_data,
-				timestamp,
-			});
-		}
-
-		let batch_count = batch_records.len();
-		let message = crate::service::network::protocol::sync::messages::SyncMessage::StateBatch {
-			library_id,
-			model_type: model_type.clone(),
-			device_id,
-			records: batch_records,
-		};
-
-		// Get connected partners
-		let connected_partners = network.get_connected_sync_partners(library_id, db).await?;
-
-		if connected_partners.is_empty() {
-			info!("No connected partners for batch, queuing for retry");
-			let all_devices = Self::get_library_devices_static(db).await?;
-			for partner_device in all_devices {
-				if partner_device != device_id {
-					retry_queue.enqueue(partner_device, message.clone()).await;
-				}
-			}
-			return Ok(());
-		}
-
-		// Broadcast to all partners
-		use futures::future::join_all;
-		let send_futures: Vec<_> = connected_partners
-			.iter()
-			.map(|&partner| {
-				let network = network.clone();
-				let message = message.clone();
-				async move { network.send_sync_message(partner, message).await }
-			})
-			.collect();
-
-		let results = join_all(send_futures).await;
-
-		let success_count = results.iter().filter(|r| r.is_ok()).count();
-		let error_count = results.iter().filter(|r| r.is_err()).count();
-
-		info!(
-			model_type = %model_type,
-			record_count = batch_count,
-			success = success_count,
-			errors = error_count,
-			"State change batch broadcast complete"
-		);
-
-		Ok(())
-	}
-
-	/// Handle shared change batch event from TransactionManager
-	async fn handle_shared_change_batch_event_static(
-		library_id: Uuid,
-		data: serde_json::Value,
-		network: &Arc<dyn NetworkTransport>,
-		state: &Arc<RwLock<DeviceSyncState>>,
-		buffer: &Arc<BufferQueue>,
-		_retry_queue: &Arc<RetryQueue>,
-		db: &Arc<sea_orm::DatabaseConnection>,
-	) -> Result<()> {
-		// Parse entries array from event data
-		let entries: Vec<SharedChangeEntry> = data
-			.get("entries")
-			.and_then(|v| v.as_array())
-			.ok_or_else(|| anyhow::anyhow!("Missing entries in shared_change_batch event"))?
-			.iter()
-			.filter_map(|entry_value| serde_json::from_value(entry_value.clone()).ok())
-			.collect();
-
-		if entries.is_empty() {
-			return Ok(());
-		}
-
-		info!(
-			entry_count = entries.len(),
-			"Handling shared change batch for broadcast"
-		);
-
-		// Check if we should buffer
-		let current_state = state.read().await;
-		if current_state.should_buffer() {
-			info!("Buffering shared batch during backfill (not broadcasting)");
-			for entry in entries {
-				buffer
-					.push(super::state::BufferedUpdate::SharedChange(entry))
-					.await;
-			}
-			return Ok(());
-		}
-		drop(current_state);
-
-		// Create batch message
-		let message = SyncMessage::SharedChangeBatch {
-			library_id,
-			entries: entries.clone(),
-		};
-
-		// Get connected partners
-		let connected_partners = network.get_connected_sync_partners(library_id, db).await?;
-
-		if connected_partners.is_empty() {
-			debug!("No connected partners for shared batch, will retry on next connection");
-			// Note: Entries are already in peer_log, will be sent during backfill
-			return Ok(());
-		}
-
-		debug!(
-			entry_count = entries.len(),
-			partner_count = connected_partners.len(),
-			"Broadcasting shared change batch to sync partners"
-		);
-
-		// Broadcast to all partners
-		use futures::future::join_all;
-		let send_futures: Vec<_> = connected_partners
-			.iter()
-			.map(|&partner| {
-				let network = network.clone();
-				let message = message.clone();
-				async move { network.send_sync_message(partner, message).await }
-			})
-			.collect();
-
-		let results = join_all(send_futures).await;
-
-		let success_count = results.iter().filter(|r| r.is_ok()).count();
-		let error_count = results.iter().filter(|r| r.is_err()).count();
-
-		info!(
-			entry_count = entries.len(),
-			success = success_count,
-			errors = error_count,
-			"Shared change batch broadcast complete"
-		);
-
-		Ok(())
-	}
+	// Batch event handlers removed - peers discover bulk changes via backfill instead of real-time events
+	// This prevents event bus flooding during large indexing operations (100k+ files)
 
 	/// Handle shared change event from TransactionManager (static version for spawned task)
 	async fn handle_shared_change_event_static(

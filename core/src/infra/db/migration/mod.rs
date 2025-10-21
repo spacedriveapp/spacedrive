@@ -15,6 +15,7 @@ mod m20251015_000001_add_device_slug;
 mod m20251015_000002_create_sync_tables;
 mod m20251016_000001_add_cloud_identifier;
 mod m20251019_000001_add_sync_to_m2m_tables;
+mod m20251021_000001_add_indexed_at_to_entries;
 
 pub struct Migrator;
 
@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251015_000002_create_sync_tables::Migration),
 			Box::new(m20251016_000001_add_cloud_identifier::Migration),
 			Box::new(m20251019_000001_add_sync_to_m2m_tables::Migration),
+			Box::new(m20251021_000001_add_indexed_at_to_entries::Migration),
 		]
 	}
 }
