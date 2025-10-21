@@ -279,25 +279,16 @@ impl Core {
 										peer_sync.set_network_events(network_events).await;
 										info!("Network event receiver wired to PeerSync for library {}", library.id());
 
-										// Create and register sync protocol handler for this library
-										let mut sync_handler = service::network::protocol::SyncProtocolHandler::new(
-										library.id(),
-										networking.device_registry(),
-									);
-										sync_handler.set_peer_sync(peer_sync.clone());
-										sync_handler.set_backfill_manager(sync_service.backfill_manager().clone());
-
-										let protocol_registry = networking.protocol_registry();
-										let result = {
-											let mut registry = protocol_registry.write().await;
-											registry.register_handler(Arc::new(sync_handler))
-										};
-
-										if let Err(e) = result {
-											warn!("Failed to register sync protocol handler for library {}: {}", library.id(), e);
-										} else {
-											info!("Sync protocol handler registered for library {}", library.id());
-										}
+										// Register library with sync multiplexer (instead of individual handler)
+										networking
+											.sync_multiplexer()
+											.register_library(
+												library.id(),
+												peer_sync.clone(),
+												sync_service.backfill_manager().clone(),
+											)
+											.await;
+										info!("Library {} registered with sync multiplexer", library.id());
 									}
 								}
 								Err(e) => {
@@ -578,6 +569,7 @@ async fn register_default_protocol_handlers(
 		registry.register_handler(pairing_handler)?;
 		registry.register_handler(Arc::new(messaging_handler))?;
 		registry.register_handler(Arc::new(file_transfer_handler))?;
+		registry.register_handler(networking.sync_multiplexer().clone())?;
 		logger
 			.info("All protocol handlers registered successfully")
 			.await;

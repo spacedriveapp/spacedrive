@@ -55,8 +55,12 @@ impl CopyDatabaseQuery {
 
 		// Check each location to see if it contains this path
 		for location in locations {
+			// Skip locations without entry_id (not yet synced)
+			let Some(entry_id) = location.entry_id else {
+				continue;
+			};
 			// Get the full path of the location's root entry
-			let location_path = match PathResolver::get_full_path(&self.db, location.entry_id).await
+			let location_path = match PathResolver::get_full_path(&self.db, entry_id).await
 			{
 				Ok(path) => path,
 				Err(_) => continue, // Skip if we can't get the path
@@ -92,7 +96,7 @@ impl CopyDatabaseQuery {
 				}
 
 				// Start from the location's root entry and traverse down
-				let mut current_parent_id = Some(location.entry_id);
+				let mut current_parent_id = location.entry_id;
 				let mut target_entry = None;
 
 				for component in components {

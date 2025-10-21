@@ -374,6 +374,17 @@ impl LibraryManager {
 						"Network event receiver wired to PeerSync for library {}",
 						config.id
 					);
+
+					// Register library with sync multiplexer
+					networking
+						.sync_multiplexer()
+						.register_library(
+							config.id,
+							peer_sync.clone(),
+							sync_service.backfill_manager().clone(),
+						)
+						.await;
+					info!("Library {} registered with sync multiplexer", config.id);
 				}
 			}
 		} else {

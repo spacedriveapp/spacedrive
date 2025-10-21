@@ -5,7 +5,7 @@ pub mod event_loop;
 use crate::device::DeviceManager;
 use crate::service::network::{
 	device::{DeviceInfo, DeviceRegistry},
-	protocol::{pairing::PairingProtocolHandler, ProtocolRegistry},
+	protocol::{pairing::PairingProtocolHandler, sync::SyncMultiplexer, ProtocolRegistry},
 	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
@@ -106,6 +106,9 @@ pub struct NetworkingService {
 	/// Each ALPN protocol requires its own connection since ALPN is negotiated at connection establishment
 	active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
 
+	/// Sync multiplexer for routing sync messages to correct library
+	sync_multiplexer: Arc<SyncMultiplexer>,
+
 	/// Logger for networking operations
 	logger: Arc<dyn NetworkLogger>,
 }
@@ -140,6 +143,9 @@ impl NetworkingService {
 			logger.clone(),
 		)?));
 
+		// Create sync multiplexer for multi-library sync routing
+		let sync_multiplexer = Arc::new(SyncMultiplexer::new(device_registry.clone()));
+
 		Ok(Self {
 			endpoint: None,
 			identity,
@@ -151,6 +157,7 @@ impl NetworkingService {
 			device_registry,
 			event_sender,
 			active_connections: Arc::new(RwLock::new(std::collections::HashMap::new())),
+			sync_multiplexer,
 			logger,
 		})
 	}
@@ -868,6 +875,11 @@ impl NetworkingService {
 		&self,
 	) -> Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>> {
 		self.active_connections.clone()
+	}
+
+	/// Get the sync multiplexer for registering library sync handlers
+	pub fn sync_multiplexer(&self) -> &Arc<SyncMultiplexer> {
+		&self.sync_multiplexer
 	}
 
 	/// Publish a discovery record for pairing session
