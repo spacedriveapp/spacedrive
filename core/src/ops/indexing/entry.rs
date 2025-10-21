@@ -719,7 +719,14 @@ impl EntryProcessor {
 
 			// Try to insert, but handle unique constraint violations
 			let result = match new_content.insert(ctx.library_db()).await {
-				Ok(model) => model,
+				Ok(model) => {
+					// Sync the new content identity if we have library context
+					if let Some(library) = ctx.library() {
+						library.sync_model(&model, crate::infra::sync::ChangeType::Insert).await
+							.map_err(|e| JobError::execution(format!("Failed to sync content identity: {}", e)))?;
+					}
+					model
+				}
 				Err(e) => {
 					// Check if it's a unique constraint violation
 					if e.to_string().contains("UNIQUE constraint failed") {
@@ -737,7 +744,7 @@ impl EntryProcessor {
 						existing_active.entry_count = Set(existing.entry_count + 1);
 						existing_active.last_verified_at = Set(chrono::Utc::now());
 
-						existing_active
+						let updated = existing_active
 							.update(ctx.library_db())
 							.await
 							.map_err(|e| {
@@ -747,7 +754,13 @@ impl EntryProcessor {
 								))
 							})?;
 
-						existing
+						// Sync the update if we have library context
+						if let Some(library) = ctx.library() {
+							library.sync_model(&updated, crate::infra::sync::ChangeType::Update).await
+								.map_err(|e| JobError::execution(format!("Failed to sync content identity update: {}", e)))?;
+						}
+
+						updated
 					} else {
 						return Err(JobError::execution(format!(
 							"Failed to create content identity: {}",
