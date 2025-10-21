@@ -292,7 +292,9 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 		let library_id = self.ctx.library().id();
 
 		// Delegate to existing implementation with the library_id
-		EntryProcessor::link_to_content_identity(self.ctx, entry_id, path, cas_id, library_id).await
+		EntryProcessor::link_to_content_identity(self.ctx, entry_id, path, cas_id, library_id)
+			.await
+			.map(|_| ())
 	}
 
 	async fn get_existing_entries(

@@ -53,6 +53,13 @@ impl From<DirEntry> for EntryMetadata {
 /// Handles entry creation and updates in the database
 pub struct EntryProcessor;
 
+/// Result of content identity linking (for batch sync)
+pub struct ContentLinkResult {
+	pub content_identity: entities::content_identity::Model,
+	pub entry: entities::entry::Model,
+	pub is_new_content: bool,
+}
+
 impl EntryProcessor {
 	/// Get platform-specific inode
 	#[cfg(unix)]
@@ -629,13 +636,14 @@ impl EntryProcessor {
 
 	/// Create or find content identity and link to entry with deterministic UUID
 	/// This method implements the content identification phase logic
+	/// Returns models for batch syncing (caller responsible for sync)
 	pub async fn link_to_content_identity(
 		ctx: &impl IndexingCtx,
 		entry_id: i32,
 		path: &Path,
 		content_hash: String,
 		library_id: Uuid,
-	) -> Result<(), JobError> {
+	) -> Result<ContentLinkResult, JobError> {
 		// Check if content identity already exists by content_hash
 		let existing = entities::content_identity::Entity::find()
 			.filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
@@ -643,21 +651,20 @@ impl EntryProcessor {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to query content identity: {}", e)))?;
 
-		let content_id = if let Some(existing) = existing {
+		let (content_model, is_new_content) = if let Some(existing) = existing {
 			// Increment entry count for existing content
-			let existing_id = existing.id;
 			let mut existing_active: entities::content_identity::ActiveModel = existing.into();
 			existing_active.entry_count = Set(existing_active.entry_count.unwrap() + 1);
 			existing_active.last_verified_at = Set(chrono::Utc::now());
 
-			existing_active
+			let updated = existing_active
 				.update(ctx.library_db())
 				.await
 				.map_err(|e| {
 					JobError::execution(format!("Failed to update content identity: {}", e))
 				})?;
 
-			existing_id
+			(updated, false)
 		} else {
 			// Create new content identity with deterministic UUID (ready for sync)
 			let file_size = tokio::fs::symlink_metadata(path)
@@ -747,14 +754,7 @@ impl EntryProcessor {
 
 			// Try to insert, but handle unique constraint violations
 			let result = match new_content.insert(ctx.library_db()).await {
-				Ok(model) => {
-					// Sync the new content identity if we have library context
-					if let Some(library) = ctx.library() {
-						library.sync_model(&model, crate::infra::sync::ChangeType::Insert).await
-							.map_err(|e| JobError::execution(format!("Failed to sync content identity: {}", e)))?;
-					}
-					model
-				}
+				Ok(model) => (model, true),
 				Err(e) => {
 					// Check if it's a unique constraint violation
 					if e.to_string().contains("UNIQUE constraint failed") {
@@ -782,13 +782,7 @@ impl EntryProcessor {
 								))
 							})?;
 
-						// Sync the update if we have library context
-						if let Some(library) = ctx.library() {
-							library.sync_model(&updated, crate::infra::sync::ChangeType::Update).await
-								.map_err(|e| JobError::execution(format!("Failed to sync content identity update: {}", e)))?;
-						}
-
-						updated
+						(updated, false)
 					} else {
 						return Err(JobError::execution(format!(
 							"Failed to create content identity: {}",
@@ -798,7 +792,7 @@ impl EntryProcessor {
 				}
 			};
 
-			result.id
+			result
 		};
 
 		// Update Entry with content_id AND assign UUID (now ready for sync)
@@ -809,7 +803,7 @@ impl EntryProcessor {
 			.ok_or_else(|| JobError::execution("Entry not found after creation".to_string()))?;
 
 		let mut entry_active: entities::entry::ActiveModel = entry.into();
-		entry_active.content_id = Set(Some(content_id));
+		entry_active.content_id = Set(Some(content_model.id));
 
 		// Assign UUID if not already assigned (Entry now ready for sync)
 		use sea_orm::ActiveValue::{NotSet, Set, Unchanged};
@@ -827,27 +821,17 @@ impl EntryProcessor {
 			JobError::execution(format!("Failed to link content identity to entry: {}", e))
 		})?;
 
-		// Sync the entry now that it has a UUID
-		if let Some(library) = ctx.library() {
-			if let Err(e) = library
-				.sync_model_with_db(&updated_entry, crate::infra::sync::ChangeType::Update, ctx.library_db())
-				.await
-			{
-				tracing::warn!(
-					"Failed to sync entry after UUID assignment {}: {}",
-					updated_entry.uuid.map(|u| u.to_string()).unwrap_or_else(|| "no-uuid".to_string()),
-					e
-				);
-			}
-		}
-
 		// TODO: Re-enable Live Photo detection after sidecar system is fully working
 		// if let Some(live_photo) = LivePhotoDetector::detect_pair(path) {
 		//     // This would create a virtual sidecar for the video component
 		//     Self::handle_live_photo_detection(ctx, content_id, content_hash, path, &live_photo, library_id).await?;
 		// }
 
-		Ok(())
+		Ok(ContentLinkResult {
+			content_identity: content_model,
+			entry: updated_entry,
+			is_new_content,
+		})
 	}
 
 	// TODO: Refactor this to use virtual sidecars when re-enabling
