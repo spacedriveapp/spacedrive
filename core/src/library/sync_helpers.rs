@@ -24,7 +24,7 @@ use crate::infra::{
 	sync::{ChangeType, Syncable},
 };
 use anyhow::Result;
-use sea_orm::DatabaseConnection;
+use sea_orm::{DatabaseConnection, EntityTrait};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
@@ -74,6 +74,33 @@ impl Library {
 				.map_err(|e| {
 					anyhow::anyhow!("FK conversion failed for {}: {}", fk.local_field, e)
 				})?;
+		}
+
+		// Special handling for Entry model: include directory_path for location roots
+		// Location roots need absolute paths for universal addressing
+		// Regular directories get paths via batch sync (query_for_sync)
+		if M::SYNC_MODEL == "entry" {
+			let is_directory = data.get("kind").and_then(|v| v.as_i64()) == Some(1);
+			let is_root = data.get("parent_id").map(|v| v.is_null()).unwrap_or(false);
+
+			if is_directory && is_root {
+				// This is a location root - include absolute path
+				if let Some(id) = data.get("id").and_then(|v| v.as_i64()) {
+					use crate::infra::db::entities::directory_paths;
+					use sea_orm::ColumnTrait;
+					use sea_orm::QueryFilter;
+
+					if let Ok(Some(dir_path)) = directory_paths::Entity::find()
+						.filter(directory_paths::Column::EntryId.eq(id as i32))
+						.one(db)
+						.await
+					{
+						if let Some(obj) = data.as_object_mut() {
+							obj.insert("directory_path".to_string(), serde_json::Value::String(dir_path.path));
+						}
+					}
+				}
+			}
 		}
 
 		if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
