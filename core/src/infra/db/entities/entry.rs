@@ -444,11 +444,13 @@ impl Model {
 				false
 			};
 
-			// Fallback: rebuild from parent chain if path wasn't synced
-			// (backward compatibility or if syncing from older version)
-			if !path_applied {
-				Self::rebuild_directory_path(entry_id, parent_id, &name, db).await?;
-			}
+			// Don't rebuild as fallback during sync - this can overwrite correct paths
+			// rebuild_directory_path() sets root paths to just the name ("Downloads")
+			// which would overwrite the correct absolute path ("/Users/jamespine/Downloads")
+			// Path should either:
+			// 1. Be included in sync data (location roots, new code)
+			// 2. Be created during local indexing (has full filesystem path)
+			// If neither, the path will be missing but won't corrupt existing correct paths
 		}
 
 		Ok(())
