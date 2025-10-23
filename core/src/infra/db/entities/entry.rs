@@ -239,6 +239,25 @@ impl crate::infra::sync::Syncable for Model {
 	) -> Result<(), sea_orm::DbErr> {
 		Model::apply_state_change(data, db).await
 	}
+
+	/// Apply deletion by UUID (cascades to entry subtree)
+	async fn apply_deletion(uuid: Uuid, db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+		// Find entry by UUID
+		let entry = match Entity::find()
+			.filter(Column::Uuid.eq(uuid))
+			.one(db)
+			.await?
+		{
+			Some(e) => e,
+			None => return Ok(()), // Already deleted, idempotent
+		};
+
+		// Use delete_subtree_internal to cascade delete entire subtree
+		// This avoids creating tombstones (we're applying a tombstone)
+		crate::ops::indexing::responder::delete_subtree_internal(entry.id, db).await?;
+
+		Ok(())
+	}
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -339,6 +358,12 @@ impl Model {
 		let entry_uuid = entry_uuid
 			.ok_or_else(|| sea_orm::DbErr::Custom("Cannot sync entry without UUID".to_string()))?;
 
+		// Check if entry was deleted (prevents race condition)
+		if Self::is_tombstoned(entry_uuid, db).await? {
+			tracing::debug!(uuid = %entry_uuid, "Skipping state change for tombstoned entry");
+			return Ok(());
+		}
+
 		// Check if entry already exists by UUID
 		use sea_orm::{ActiveValue::NotSet, ColumnTrait, EntityTrait, QueryFilter, Set};
 
@@ -365,6 +390,23 @@ impl Model {
 			serde_json::from_value(get_field("permissions")?).unwrap();
 		let inode: Option<i64> = serde_json::from_value(get_field("inode")?).unwrap();
 		let parent_id: Option<i32> = serde_json::from_value(get_field("parent_id")?).unwrap();
+
+		// Check if parent is tombstoned (prevents orphaned children)
+		if let Some(parent) = parent_id {
+			// Get parent's UUID to check tombstone
+			if let Some(parent_entry) = Entity::find_by_id(parent).one(db).await? {
+				if let Some(parent_uuid) = parent_entry.uuid {
+					if Self::is_tombstoned(parent_uuid, db).await? {
+						tracing::debug!(
+							uuid = %entry_uuid,
+							parent_uuid = %parent_uuid,
+							"Skipping entry - parent is tombstoned"
+						);
+						return Ok(());
+					}
+				}
+			}
+		}
 
 		let now = chrono::Utc::now();
 

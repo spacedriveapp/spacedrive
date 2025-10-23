@@ -1914,6 +1914,40 @@ impl PeerSync {
 		Ok(all_records)
 	}
 
+	/// Get deletion tombstones for incremental sync
+	pub async fn get_deletion_tombstones(
+		&self,
+		model_type: &str,
+		device_id: Option<Uuid>,
+		since: chrono::DateTime<chrono::Utc>,
+	) -> Result<Vec<Uuid>> {
+		use crate::infra::db::entities::device_state_tombstone;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let mut query = device_state_tombstone::Entity::find()
+			.filter(device_state_tombstone::Column::ModelType.eq(model_type))
+			.filter(device_state_tombstone::Column::DeletedAt.gte(since));
+
+		// Filter by device if specified
+		if let Some(dev_id) = device_id {
+			// Map device UUID to local ID
+			if let Some(device) = crate::infra::db::entities::device::Entity::find()
+				.filter(crate::infra::db::entities::device::Column::Uuid.eq(dev_id))
+				.one(self.db.as_ref())
+				.await?
+			{
+				query = query.filter(device_state_tombstone::Column::DeviceId.eq(device.id));
+			} else {
+				// Device not found, no tombstones
+				return Ok(vec![]);
+			}
+		}
+
+		let tombstones = query.all(self.db.as_ref()).await?;
+
+		Ok(tombstones.into_iter().map(|t| t.record_uuid).collect())
+	}
+
 	/// Get shared changes from peer log (SharedChangeRequest)
 	pub async fn get_shared_changes(
 		&self,

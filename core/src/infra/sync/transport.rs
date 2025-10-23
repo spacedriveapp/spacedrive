@@ -207,6 +207,7 @@ impl NetworkTransport for MockNetworkTransport {
 				model_type: "device".to_string(),
 				device_id: target_device,
 				records: vec![],
+				deleted_uuids: vec![],
 				checkpoint: None,
 				has_more: false,
 			}),

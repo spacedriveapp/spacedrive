@@ -13,7 +13,7 @@ use crate::ops::indexing::rules::{build_default_ruler, RuleToggles, RulerDecisio
 use crate::ops::indexing::state::{DirEntry, IndexerState};
 use crate::ops::indexing::{ctx::ResponderCtx, IndexingCtx};
 use anyhow::Result;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
 use std::path::Path;
 use std::sync::Arc;
 use tracing::debug;
@@ -361,9 +361,60 @@ async fn resolve_file_entry_id(ctx: &impl IndexingCtx, abs_path: &Path) -> Resul
 	Ok(model.map(|m| m.id))
 }
 
-/// Best-effort deletion of an entry and its subtree
+/// Best-effort deletion of an entry and its subtree (with tombstone creation)
+///
+/// This variant is used for local deletions (watcher, indexer) and creates
+/// a tombstone for the root entry UUID to sync the deletion to other devices.
 async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 	let txn = ctx.library_db().begin().await?;
+
+	// Get root entry UUID
+	let root_entry = entities::entry::Entity::find_by_id(entry_id)
+		.one(&txn)
+		.await?
+		.ok_or_else(|| anyhow::anyhow!("Entry not found: {}", entry_id))?;
+
+	// Check if UUID is present (entries without UUIDs aren't sync-ready yet)
+	let root_uuid = match root_entry.uuid {
+		Some(uuid) => uuid,
+		None => {
+			// No UUID means not sync-ready, skip tombstone creation and just delete without tombstones
+			tracing::debug!("Entry {} has no UUID, skipping tombstone", entry_id);
+			return delete_subtree_no_txn(entry_id, &txn).await.map_err(|e| anyhow::anyhow!(e));
+		}
+	};
+
+	// Find the location this entry belongs to by finding a location with entry_id matching any ancestor
+	// Walk up the tree to find the root entry (which should be the location's entry_id)
+	let mut current_id = entry_id;
+	let mut visited = std::collections::HashSet::new();
+	let location = loop {
+		visited.insert(current_id);
+
+		// Try to find a location with this entry_id
+		if let Some(loc) = entities::location::Entity::find()
+			.filter(entities::location::Column::EntryId.eq(current_id))
+			.one(&txn)
+			.await?
+		{
+			break loc;
+		}
+
+		// Get parent entry
+		let entry = entities::entry::Entity::find_by_id(current_id)
+			.one(&txn)
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Entry not found during tree traversal"))?;
+
+		match entry.parent_id {
+			Some(parent) if !visited.contains(&parent) => current_id = parent,
+			_ => return Err(anyhow::anyhow!("Could not find location for entry {}", entry_id)),
+		}
+	};
+
+	let device_id = location.device_id;
+
+	// Find all descendants
 	let mut to_delete_ids: Vec<i32> = vec![entry_id];
 	if let Ok(rows) = entities::entry_closure::Entity::find()
 		.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
@@ -374,6 +425,8 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 	}
 	to_delete_ids.sort_unstable();
 	to_delete_ids.dedup();
+
+	// Delete entries and related data
 	if !to_delete_ids.is_empty() {
 		let _ = entities::entry_closure::Entity::delete_many()
 			.filter(entities::entry_closure::Column::DescendantId.is_in(to_delete_ids.clone()))
@@ -392,7 +445,88 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 			.exec(&txn)
 			.await;
 	}
+
+	// Create tombstone for root UUID only (children cascade on receiver)
+	use sea_orm::ActiveValue::{NotSet, Set};
+	let tombstone = entities::device_state_tombstone::ActiveModel {
+		id: NotSet,
+		model_type: Set("entry".to_string()),
+		record_uuid: Set(root_uuid),
+		device_id: Set(device_id),
+		deleted_at: Set(chrono::Utc::now().into()),
+	};
+
+	use sea_orm::sea_query::OnConflict;
+	entities::device_state_tombstone::Entity::insert(tombstone)
+		.on_conflict(
+			OnConflict::columns(vec![
+				entities::device_state_tombstone::Column::ModelType,
+				entities::device_state_tombstone::Column::RecordUuid,
+				entities::device_state_tombstone::Column::DeviceId,
+			])
+			.do_nothing()
+			.to_owned(),
+		)
+		.exec(&txn)
+		.await?;
+
 	txn.commit().await?;
+	Ok(())
+}
+
+/// Best-effort deletion of an entry and its subtree (without tombstone creation)
+///
+/// This variant is used when applying deletion tombstones from sync to avoid
+/// recursion. It performs the same deletions but does not create new tombstones.
+pub async fn delete_subtree_internal(
+	entry_id: i32,
+	db: &sea_orm::DatabaseConnection,
+) -> Result<(), sea_orm::DbErr> {
+	use sea_orm::TransactionTrait;
+
+	let txn = db.begin().await?;
+	delete_subtree_no_txn(entry_id, &txn).await?;
+	txn.commit().await?;
+	Ok(())
+}
+
+/// Helper to delete subtree without transaction management (for use within existing transactions)
+async fn delete_subtree_no_txn<C>(entry_id: i32, db: &C) -> Result<(), sea_orm::DbErr>
+where
+	C: sea_orm::ConnectionTrait,
+{
+	// Find all descendants
+	let mut to_delete_ids: Vec<i32> = vec![entry_id];
+	if let Ok(rows) = entities::entry_closure::Entity::find()
+		.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
+		.all(db)
+		.await
+	{
+		to_delete_ids.extend(rows.into_iter().map(|r| r.descendant_id));
+	}
+	to_delete_ids.sort_unstable();
+	to_delete_ids.dedup();
+
+	// Delete entries and related data
+	if !to_delete_ids.is_empty() {
+		let _ = entities::entry_closure::Entity::delete_many()
+			.filter(entities::entry_closure::Column::DescendantId.is_in(to_delete_ids.clone()))
+			.exec(db)
+			.await;
+		let _ = entities::entry_closure::Entity::delete_many()
+			.filter(entities::entry_closure::Column::AncestorId.is_in(to_delete_ids.clone()))
+			.exec(db)
+			.await;
+		let _ = entities::directory_paths::Entity::delete_many()
+			.filter(entities::directory_paths::Column::EntryId.is_in(to_delete_ids.clone()))
+			.exec(db)
+			.await;
+		let _ = entities::entry::Entity::delete_many()
+			.filter(entities::entry::Column::Id.is_in(to_delete_ids))
+			.exec(db)
+			.await;
+	}
+
 	Ok(())
 }
 

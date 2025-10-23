@@ -47,6 +47,9 @@ pub enum SyncMessage {
 		model_type: String,
 		device_id: Uuid,
 		records: Vec<StateRecord>,
+		/// Root UUIDs of deleted trees (cascade on receiver)
+		#[serde(default)]
+		deleted_uuids: Vec<Uuid>,
 		checkpoint: Option<String>,
 		has_more: bool,
 	},

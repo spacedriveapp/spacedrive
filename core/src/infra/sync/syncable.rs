@@ -225,6 +225,64 @@ pub trait Syncable: Serialize + Clone {
 			Ok(())
 		}
 	}
+
+	/// Apply a deletion by UUID (device-owned models only)
+	///
+	/// This is called when a deletion tombstone is received during sync.
+	/// The implementation should:
+	/// 1. Find the record by UUID
+	/// 2. Delete it (with any necessary cascades)
+	/// 3. Be idempotent (no-op if already deleted)
+	///
+	/// # Parameters
+	/// - `uuid`: The UUID of the record to delete
+	/// - `db`: Database connection
+	///
+	/// # Note
+	/// For entries, this triggers cascading deletion via delete_subtree_internal.
+	/// For locations, this deletes the location and its root entry tree.
+	/// For volumes, this simply deletes the volume record.
+	fn apply_deletion(
+		uuid: Uuid,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<(), sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default implementation is no-op (models must override if they support deletion sync)
+			let _ = (uuid, db);
+			Ok(())
+		}
+	}
+
+	/// Check if a record is tombstoned (deleted)
+	///
+	/// Used during apply_state_change to prevent re-creating deleted records.
+	/// This handles the race condition where a deletion tombstone arrives
+	/// before or during backfill of the record itself.
+	///
+	/// # Parameters
+	/// - `uuid`: The UUID of the record to check
+	/// - `db`: Database connection
+	///
+	/// # Returns
+	/// True if the record has been tombstoned (deleted), false otherwise
+	async fn is_tombstoned(uuid: Uuid, db: &DatabaseConnection) -> Result<bool, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let exists = crate::infra::db::entities::device_state_tombstone::Entity::find()
+			.filter(
+				crate::infra::db::entities::device_state_tombstone::Column::ModelType
+					.eq(Self::SYNC_MODEL),
+			)
+			.filter(crate::infra::db::entities::device_state_tombstone::Column::RecordUuid.eq(uuid))
+			.one(db)
+			.await?
+			.is_some();
+
+		Ok(exists)
+	}
 }
 
 /// Helper to validate that a model's sync_id is unique

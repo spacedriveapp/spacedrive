@@ -150,9 +150,26 @@ impl BackfillManager {
 		state_watermark: Option<chrono::DateTime<chrono::Utc>>,
 		shared_watermark: Option<String>,
 	) -> Result<()> {
+		// Check watermark age - force full sync if too old (tombstones may be pruned)
+		let watermark_age = state_watermark
+			.map(|w| chrono::Utc::now() - w)
+			.unwrap_or(chrono::Duration::max_value());
+
+		let threshold_days = self.config.retention.force_full_sync_threshold_days;
+		let effective_state_watermark = if watermark_age > chrono::Duration::days(threshold_days as i64) {
+			warn!(
+				"State watermark is {} days old (> {} days), forcing full sync to ensure consistency",
+				watermark_age.num_days(),
+				threshold_days
+			);
+			None // Force full sync
+		} else {
+			state_watermark
+		};
+
 		info!(
 			peer = %peer,
-			state_since = ?state_watermark,
+			state_since = ?effective_state_watermark,
 			shared_since = ?shared_watermark,
 			"Starting incremental catch-up"
 		);
@@ -163,7 +180,7 @@ impl BackfillManager {
 		let max_shared_hlc = self.backfill_shared_resources(peer).await?;
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)
-		let final_state_checkpoint = self.backfill_device_owned_state(peer, state_watermark).await?;
+		let final_state_checkpoint = self.backfill_device_owned_state(peer, effective_state_watermark).await?;
 
 		// Update watermarks from actual received data (not local DB query)
 		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc).await?;
@@ -260,21 +277,30 @@ impl BackfillManager {
 				// Apply batch
 				if let SyncMessage::StateResponse {
 					records,
+					deleted_uuids,
 					has_more,
 					checkpoint: chk,
 					..
 				} = response
 				{
+					let db = self.peer_sync.db().clone();
+
+					// Apply updates via registry
 					for record in records {
-						// Apply via registry
-						let db = self.peer_sync.db().clone();
 						crate::infra::sync::registry::apply_state_change(
 							&model_type,
 							record.data,
-							db,
+							db.clone(),
 						)
 						.await
 						.map_err(|e| anyhow::anyhow!("{}", e))?;
+					}
+
+					// Apply deletions via registry
+					for uuid in deleted_uuids {
+						crate::infra::sync::registry::apply_deletion(&model_type, uuid, db.clone())
+							.await
+							.map_err(|e| anyhow::anyhow!("{}", e))?;
 					}
 
 					current_checkpoint.update(chk.clone(), 0.5); // TODO: Calculate actual progress

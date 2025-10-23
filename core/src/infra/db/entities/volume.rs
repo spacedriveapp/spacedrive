@@ -184,6 +184,12 @@ impl Syncable for Model {
 		)
 		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
 
+		// Check if volume was deleted (prevents race condition)
+		if Self::is_tombstoned(volume_uuid, db).await? {
+			tracing::debug!(uuid = %volume_uuid, "Skipping state change for tombstoned volume");
+			return Ok(());
+		}
+
 		let device_uuid: Uuid = serde_json::from_value(
 			data.get("device_id")
 				.ok_or_else(|| sea_orm::DbErr::Custom("Missing device_id".to_string()))?
@@ -249,6 +255,17 @@ impl Syncable for Model {
 					])
 					.to_owned(),
 			)
+			.exec(db)
+			.await?;
+
+		Ok(())
+	}
+
+	/// Apply deletion by UUID (simple delete, no cascades)
+	async fn apply_deletion(uuid: Uuid, db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+		// Delete volume by UUID (idempotent - no error if not found)
+		Entity::delete_many()
+			.filter(Column::Uuid.eq(uuid))
 			.exec(db)
 			.await?;
 

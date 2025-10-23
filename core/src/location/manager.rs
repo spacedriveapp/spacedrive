@@ -460,27 +460,58 @@ impl LocationManager {
 		library: &Library,
 		location_id: Uuid,
 	) -> LocationResult<()> {
+		use sea_orm::{ActiveValue::NotSet, Set, TransactionTrait};
+
 		info!("Removing location {}", location_id);
+
+		// Start a transaction for atomicity
+		let txn = library.db().conn().begin().await?;
 
 		// Find the location
 		let location = entities::location::Entity::find()
 			.filter(entities::location::Column::Uuid.eq(location_id))
-			.one(library.db().conn())
+			.one(&txn)
 			.await?
 			.ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
-		// Delete the root entry first if it exists
-		// This cascades to all child entries via entry_closure FK constraints
+		// Delete the root entry tree first if it exists
+		// Use delete_subtree_internal to avoid creating entry tombstones (we'll tombstone the location instead)
 		if let Some(entry_id) = location.entry_id {
-			entities::entry::Entity::delete_by_id(entry_id)
-				.exec(library.db().conn())
-				.await?;
+			crate::ops::indexing::responder::delete_subtree_internal(entry_id, library.db().conn())
+				.await
+				.map_err(|e| LocationError::Other(format!("Failed to delete entry tree: {}", e)))?;
 		}
 
-		// Delete the location
+		// Delete the location record
 		entities::location::Entity::delete_by_id(location.id)
-			.exec(library.db().conn())
+			.exec(&txn)
 			.await?;
+
+		// Create tombstone for the location
+		let tombstone = entities::device_state_tombstone::ActiveModel {
+			id: NotSet,
+			model_type: Set("location".to_string()),
+			record_uuid: Set(location_id),
+			device_id: Set(location.device_id),
+			deleted_at: Set(chrono::Utc::now().into()),
+		};
+
+		use sea_orm::sea_query::OnConflict;
+		entities::device_state_tombstone::Entity::insert(tombstone)
+			.on_conflict(
+				OnConflict::columns(vec![
+					entities::device_state_tombstone::Column::ModelType,
+					entities::device_state_tombstone::Column::RecordUuid,
+					entities::device_state_tombstone::Column::DeviceId,
+				])
+				.do_nothing()
+				.to_owned(),
+			)
+			.exec(&txn)
+			.await?;
+
+		// Commit transaction
+		txn.commit().await?;
 
 		// Emit event
 		self.events.emit(Event::LocationRemoved {

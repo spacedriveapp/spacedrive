@@ -195,6 +195,12 @@ impl Syncable for Model {
 		)
 		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
 
+		// Check if location was deleted (prevents race condition)
+		if Self::is_tombstoned(location_uuid, db).await? {
+			tracing::debug!(uuid = %location_uuid, "Skipping state change for tombstoned location");
+			return Ok(());
+		}
+
 		let device_id: i32 = serde_json::from_value(
 			data.get("device_id")
 				.ok_or_else(|| sea_orm::DbErr::Custom("Missing device_id".to_string()))?
@@ -260,6 +266,30 @@ impl Syncable for Model {
 			)
 			.exec(db)
 			.await?;
+
+		Ok(())
+	}
+
+	/// Apply deletion by UUID (cascades to entry tree)
+	async fn apply_deletion(uuid: Uuid, db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+		// Find location by UUID
+		let location = match Entity::find()
+			.filter(Column::Uuid.eq(uuid))
+			.one(db)
+			.await?
+		{
+			Some(loc) => loc,
+			None => return Ok(()), // Already deleted, idempotent
+		};
+
+		// Delete root entry tree first if it exists
+		// Use delete_subtree_internal to avoid creating tombstones (we're applying a tombstone)
+		if let Some(entry_id) = location.entry_id {
+			crate::ops::indexing::responder::delete_subtree_internal(entry_id, db).await?;
+		}
+
+		// Delete location record
+		Entity::delete_by_id(location.id).exec(db).await?;
 
 		Ok(())
 	}

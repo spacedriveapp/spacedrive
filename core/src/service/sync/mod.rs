@@ -310,6 +310,101 @@ impl SyncService {
 		is_running.store(false, Ordering::SeqCst);
 		info!("Sync loop stopped");
 	}
+
+	/// Unified pruning task for sync coordination data
+	///
+	/// Prunes both peer log (shared resources) and tombstones (device-owned deletions)
+	/// using the same acknowledgment-based pattern.
+	async fn run_pruning_task(
+		config: Arc<crate::infra::sync::SyncConfig>,
+		peer_sync: Arc<PeerSync>,
+	) {
+		let interval_secs = config.monitoring.pruning_interval_secs;
+		let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_secs));
+
+		info!("Starting unified pruning task (interval: {}s)", interval_secs);
+
+		loop {
+			interval.tick().await;
+
+			if let Err(e) = Self::prune_sync_coordination_data(&config, &peer_sync).await {
+				warn!(
+					library_id = %peer_sync.library_id(),
+					error = %e,
+					"Failed to prune sync coordination data"
+				);
+			}
+		}
+	}
+
+	/// Prune sync coordination data (tombstones and peer log)
+	///
+	/// Uses unified acknowledgment-based pruning for both:
+	/// - Tombstones (device-owned deletions) - pruned when all devices synced past them
+	/// - Peer log (shared resources) - pruned when all peers acknowledged
+	async fn prune_sync_coordination_data(
+		config: &crate::infra::sync::SyncConfig,
+		peer_sync: &PeerSync,
+	) -> Result<()> {
+		// 1. Prune tombstones (device-owned deletions, in library.db)
+		let pruned_tombstones = Self::prune_tombstones_acked(config, peer_sync.db()).await?;
+
+		// 2. Prune peer log (shared resources, in sync.db)
+		let pruned_peer_log = peer_sync.peer_log().prune_acked().await.unwrap_or(0);
+
+		if pruned_tombstones > 0 || pruned_peer_log > 0 {
+			info!(
+				library_id = %peer_sync.library_id(),
+				tombstones_pruned = pruned_tombstones,
+				peer_log_pruned = pruned_peer_log,
+				"Pruned sync coordination data (ack-based)"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// Prune tombstones that all devices have synced past
+	async fn prune_tombstones_acked(
+		config: &crate::infra::sync::SyncConfig,
+		db: &Arc<sea_orm::DatabaseConnection>,
+	) -> Result<usize> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		// Get all devices that have completed at least one sync
+		let synced_devices = entities::device::Entity::find()
+			.filter(entities::device::Column::LastSyncAt.is_not_null())
+			.all(db.as_ref())
+			.await?;
+
+		if synced_devices.is_empty() {
+			return Ok(0);
+		}
+
+		// Find minimum watermark (slowest device)
+		let min_watermark = synced_devices
+			.iter()
+			.filter_map(|d| d.last_state_watermark)
+			.min();
+
+		let Some(min_wm) = min_watermark else {
+			return Ok(0);
+		};
+
+		// Safety limit: Don't keep tombstones longer than configured max retention
+		// Prevents one offline device from blocking pruning forever
+		let max_retention = chrono::Utc::now()
+			- chrono::Duration::days(config.retention.tombstone_max_retention_days as i64);
+		let effective_cutoff = min_wm.min(max_retention);
+
+		// Prune tombstones older than effective cutoff
+		let result = entities::device_state_tombstone::Entity::delete_many()
+			.filter(entities::device_state_tombstone::Column::DeletedAt.lt(effective_cutoff))
+			.exec(db.as_ref())
+			.await?;
+
+		Ok(result.rows_affected as usize)
+	}
 }
 
 #[async_trait]
@@ -349,7 +444,14 @@ impl crate::service::Service for SyncService {
 			Self::run_sync_loop(config, peer_sync, backfill_manager, is_running, shutdown_rx).await;
 		});
 
-		info!("Peer sync service started");
+		// Spawn unified pruning task (runs hourly)
+		let config_clone = self.config.clone();
+		let peer_sync_clone = self.peer_sync.clone();
+		tokio::spawn(async move {
+			Self::run_pruning_task(config_clone, peer_sync_clone).await;
+		});
+
+		info!("Peer sync service started (with pruning task)");
 
 		Ok(())
 	}
