@@ -535,6 +535,12 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(AuditLog::CompletedAt).timestamp_with_time_zone())
 					.col(ColumnDef::new(AuditLog::ErrorMessage).string())
 					.col(ColumnDef::new(AuditLog::ResultPayload).string())
+					.col(
+						ColumnDef::new(AuditLog::Version)
+							.big_integer()
+							.not_null()
+							.default(1),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -941,6 +947,7 @@ enum AuditLog {
 	CompletedAt,
 	ErrorMessage,
 	ResultPayload,
+	Version,
 }
 
 #[derive(DeriveIden)]

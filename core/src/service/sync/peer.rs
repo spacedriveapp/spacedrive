@@ -101,34 +101,6 @@ use super::{
 	state::{BufferQueue, DeviceSyncState, StateChangeMessage},
 };
 
-/// Timeout for sending sync messages to peers
-///
-/// Messages taking longer than this are cancelled to prevent blocking
-/// on slow or unresponsive devices.
-const SYNC_MESSAGE_TIMEOUT_SECS: u64 = 30;
-
-/// Interval for processing retry queue
-///
-/// Failed messages are retried every 10 seconds with exponential backoff.
-const RETRY_PROCESSOR_INTERVAL_SECS: u64 = 10;
-
-/// Interval for pruning acknowledged log entries
-///
-/// Runs every 5 minutes to clean up peer log entries that all devices
-/// have acknowledged receiving.
-const LOG_PRUNER_INTERVAL_SECS: u64 = 300;
-
-/// Main sync loop interval
-///
-/// Checks sync state and performs maintenance every 5 seconds.
-const SYNC_LOOP_INTERVAL_SECS: u64 = 5;
-
-/// Default batch size for catch-up requests
-///
-/// Used when requesting missing changes from peers during reconnection.
-/// Same as backfill batch size for consistency.
-const CATCHUP_BATCH_SIZE: usize = 10_000;
-
 /// Peer sync service for leaderless architecture
 ///
 /// Handles both state-based (device-owned) and log-based (shared) sync.
@@ -157,6 +129,9 @@ pub struct PeerSync {
 	/// Per-peer sync log
 	pub(super) peer_log: Arc<PeerLog>,
 
+	/// Sync configuration
+	config: Arc<crate::infra::sync::SyncConfig>,
+
 	/// Event bus
 	event_bus: Arc<EventBus>,
 
@@ -181,6 +156,7 @@ impl PeerSync {
 		device_id: Uuid,
 		peer_log: Arc<PeerLog>,
 		network: Arc<dyn NetworkTransport>,
+		config: Arc<crate::infra::sync::SyncConfig>,
 	) -> Result<Self> {
 		let library_id = library.id();
 
@@ -199,6 +175,7 @@ impl PeerSync {
 			buffer: Arc::new(BufferQueue::new()),
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
 			peer_log,
+			config,
 			event_bus: library.event_bus().clone(),
 			retry_queue: Arc::new(RetryQueue::new()),
 			is_running: Arc::new(AtomicBool::new(false)),
@@ -551,7 +528,7 @@ impl PeerSync {
 			let request = SyncMessage::SharedChangeRequest {
 				library_id: self.library_id,
 				since_hlc: my_shared_watermark,
-				limit: CATCHUP_BATCH_SIZE,
+				limit: self.config.batching.backfill_batch_size,
 			};
 
 			self.network
@@ -664,6 +641,7 @@ impl PeerSync {
 		let retry_queue = self.retry_queue.clone();
 		let network = self.network.clone();
 		let is_running = self.is_running.clone();
+		let config = self.config.clone();
 
 		tokio::spawn(async move {
 			info!("Started retry queue processor");
@@ -671,7 +649,7 @@ impl PeerSync {
 			while is_running.load(Ordering::SeqCst) {
 				// Check for ready messages at configured interval
 				tokio::time::sleep(tokio::time::Duration::from_secs(
-					RETRY_PROCESSOR_INTERVAL_SECS,
+					config.network.sync_loop_interval_secs,
 				))
 				.await;
 
@@ -711,14 +689,17 @@ impl PeerSync {
 	fn start_log_pruner(&self) {
 		let peer_log = self.peer_log.clone();
 		let is_running = self.is_running.clone();
+		let config = self.config.clone();
 
 		tokio::spawn(async move {
 			info!("Started log pruner");
 
 			while is_running.load(Ordering::SeqCst) {
 				// Prune at configured interval
-				tokio::time::sleep(tokio::time::Duration::from_secs(LOG_PRUNER_INTERVAL_SECS))
-					.await;
+				tokio::time::sleep(tokio::time::Duration::from_secs(
+					config.monitoring.pruning_interval_secs
+				))
+				.await;
 
 				match peer_log.prune_acked().await {
 					Ok(count) if count > 0 => {
@@ -753,6 +734,7 @@ impl PeerSync {
 		let retry_queue = self.retry_queue.clone();
 		let mut subscriber = self.event_bus.subscribe();
 		let is_running = self.is_running.clone();
+		let config = self.config.clone();
 
 		tokio::spawn(async move {
 			info!(
@@ -776,6 +758,7 @@ impl PeerSync {
 									&buffer,
 									&retry_queue,
 									&db,
+									&config,
 								)
 								.await
 								{
@@ -791,6 +774,7 @@ impl PeerSync {
 									&buffer,
 									&retry_queue,
 									&db,
+									&config,
 								)
 								.await
 								{
@@ -1039,6 +1023,7 @@ impl PeerSync {
 		buffer: &Arc<BufferQueue>,
 		retry_queue: &Arc<RetryQueue>,
 		db: &Arc<sea_orm::DatabaseConnection>,
+		config: &Arc<crate::infra::sync::SyncConfig>,
 	) -> Result<()> {
 		let model_type: String = data
 			.get("model_type")
@@ -1143,6 +1128,7 @@ impl PeerSync {
 		// Broadcast to all partners in parallel
 		use futures::future::join_all;
 
+		let timeout_secs = config.network.message_timeout_secs;
 		let send_futures: Vec<_> = connected_partners
 			.iter()
 			.map(|&partner| {
@@ -1150,7 +1136,7 @@ impl PeerSync {
 				let msg = message.clone();
 				async move {
 					match tokio::time::timeout(
-						std::time::Duration::from_secs(SYNC_MESSAGE_TIMEOUT_SECS),
+						std::time::Duration::from_secs(timeout_secs),
 						network.send_sync_message(partner, msg),
 					)
 					.await
@@ -1161,7 +1147,7 @@ impl PeerSync {
 							partner,
 							Err(anyhow::anyhow!(
 								"Send timeout after {}s",
-								SYNC_MESSAGE_TIMEOUT_SECS
+								timeout_secs
 							)),
 						),
 					}
@@ -1216,6 +1202,7 @@ impl PeerSync {
 		buffer: &Arc<BufferQueue>,
 		retry_queue: &Arc<RetryQueue>,
 		db: &Arc<sea_orm::DatabaseConnection>,
+		config: &Arc<crate::infra::sync::SyncConfig>,
 	) -> Result<()> {
 		let entry: SharedChangeEntry = serde_json::from_value(
 			data.get("entry")
@@ -1277,6 +1264,7 @@ impl PeerSync {
 		// Broadcast to all partners in parallel
 		use futures::future::join_all;
 
+		let timeout_secs = config.network.message_timeout_secs;
 		let send_futures: Vec<_> = connected_partners
 			.iter()
 			.map(|&partner| {
@@ -1284,7 +1272,7 @@ impl PeerSync {
 				let msg = message.clone();
 				async move {
 					match tokio::time::timeout(
-						std::time::Duration::from_secs(SYNC_MESSAGE_TIMEOUT_SECS),
+						std::time::Duration::from_secs(timeout_secs),
 						network.send_sync_message(partner, msg),
 					)
 					.await
@@ -1295,7 +1283,7 @@ impl PeerSync {
 							partner,
 							Err(anyhow::anyhow!(
 								"Send timeout after {}s",
-								SYNC_MESSAGE_TIMEOUT_SECS
+								timeout_secs
 							)),
 						),
 					}
