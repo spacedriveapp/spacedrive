@@ -5,7 +5,7 @@ use crate::infra::event::{Event, EventBus, FsRawEventKind};
 use crate::service::Service;
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
-use sea_orm::EntityTrait;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -353,6 +353,40 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
+		// CRITICAL: Verify this device owns the location (defense in depth)
+		// This prevents watching locations owned by other devices
+		let libraries = self.context.libraries().await;
+		if let Some(library) = libraries.get_library(location.library_id).await {
+			let db = library.db().conn();
+			let current_device_uuid = crate::device::get_current_device_id();
+
+			// Query the location to check ownership
+			if let Ok(Some(location_record)) = crate::infra::db::entities::location::Entity::find()
+				.filter(crate::infra::db::entities::location::Column::Uuid.eq(location.id))
+				.one(db)
+				.await
+			{
+				// Get the owning device
+				if let Ok(Some(owning_device)) = crate::infra::db::entities::device::Entity::find_by_id(location_record.device_id)
+					.one(db)
+					.await
+				{
+					if owning_device.uuid != current_device_uuid {
+						warn!(
+							"Refusing to watch location {} owned by device {} (current device: {})",
+							location.id,
+							owning_device.uuid,
+							current_device_uuid
+						);
+						return Err(anyhow::anyhow!(
+							"Cannot watch location {} - owned by different device",
+							location.id
+						));
+					}
+				}
+			}
+		}
+
 		// First, add to watched_locations map
 		{
 			let mut locations = self.watched_locations.write().await;
@@ -481,10 +515,42 @@ impl LocationWatcher {
 			// Query locations for this library
 			let db = library.db().conn();
 
+			// Get current device UUID (this device)
+			let current_device_uuid = crate::device::get_current_device_id();
+
+			// First, get the current device's database ID by UUID
+			let current_device = match crate::infra::db::entities::device::Entity::find()
+				.filter(crate::infra::db::entities::device::Column::Uuid.eq(current_device_uuid))
+				.one(db)
+				.await
+			{
+				Ok(Some(device)) => device,
+				Ok(None) => {
+					warn!(
+						"Current device {} not found in library {} database, skipping location loading",
+						current_device_uuid,
+						library.id()
+					);
+					continue;
+				}
+				Err(e) => {
+					warn!(
+						"Failed to query device {} in library {}: {}, skipping",
+						current_device_uuid,
+						library.id(),
+						e
+					);
+					continue;
+				}
+			};
+
 			// Add timeout to the database query
+			// CRITICAL: Only watch locations owned by THIS device
 			let locations_result = tokio::time::timeout(
 				std::time::Duration::from_secs(10),
-				crate::infra::db::entities::location::Entity::find().all(db)
+				crate::infra::db::entities::location::Entity::find()
+					.filter(crate::infra::db::entities::location::Column::DeviceId.eq(current_device.id))
+					.all(db)
 			).await;
 
 			match locations_result {
