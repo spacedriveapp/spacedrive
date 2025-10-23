@@ -16,6 +16,7 @@ mod m20251015_000002_create_sync_tables;
 mod m20251016_000001_add_cloud_identifier;
 mod m20251019_000001_add_sync_to_m2m_tables;
 mod m20251021_000001_add_indexed_at_to_entries;
+mod m20251022_000001_add_version_to_audit_log;
 
 pub struct Migrator;
 
@@ -37,6 +38,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251016_000001_add_cloud_identifier::Migration),
 			Box::new(m20251019_000001_add_sync_to_m2m_tables::Migration),
 			Box::new(m20251021_000001_add_indexed_at_to_entries::Migration),
+			Box::new(m20251022_000001_add_version_to_audit_log::Migration),
 		]
 	}
 }

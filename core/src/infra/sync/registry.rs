@@ -162,7 +162,7 @@ pub async fn register_shared(
 /// All domain-specific logic lives in the entity implementations, not here.
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 	use crate::infra::db::entities::{
-		collection, collection_entry, content_identity, device, entry, location, tag,
+		audit_log, collection, collection_entry, content_identity, device, entry, location, tag,
 		tag_relationship, user_metadata, user_metadata_tag, volume,
 	};
 
@@ -398,6 +398,31 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 		),
 	);
 
+	registry.insert(
+		"audit_log".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"audit_log",
+			"audit_log",
+			|entry, db| {
+				Box::pin(async move {
+					audit_log::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, cursor, batch_size, db| {
+				Box::pin(async move {
+					audit_log::Model::query_for_sync(
+						device_id,
+						since,
+						cursor,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+		),
+	);
+
 	registry
 }
 
@@ -620,7 +645,7 @@ pub enum ApplyError {
 /// ```
 pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::DependencyError> {
 	use crate::infra::db::entities::{
-		collection, collection_entry, content_identity, device, entry, location, tag,
+		audit_log, collection, collection_entry, content_identity, device, entry, location, tag,
 		tag_relationship, user_metadata, user_metadata_tag, volume,
 	};
 
@@ -657,6 +682,10 @@ pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::Depende
 		(
 			tag_relationship::Model::SYNC_MODEL,
 			tag_relationship::Model::sync_depends_on(),
+		),
+		(
+			audit_log::Model::SYNC_MODEL,
+			audit_log::Model::sync_depends_on(),
 		),
 	];
 
@@ -709,8 +738,8 @@ mod tests {
 	async fn test_sync_order_computation() {
 		let order = compute_registry_sync_order().await.unwrap();
 
-		// Verify all models are present (8 base + 3 M2M)
-		assert_eq!(order.len(), 11);
+		// Verify all models are present (8 base + 3 M2M + audit_log)
+		assert_eq!(order.len(), 12);
 		assert!(order.contains(&"device".to_string()));
 		assert!(order.contains(&"location".to_string()));
 		assert!(order.contains(&"volume".to_string()));
@@ -722,6 +751,7 @@ mod tests {
 		assert!(order.contains(&"collection_entry".to_string()));
 		assert!(order.contains(&"user_metadata_tag".to_string()));
 		assert!(order.contains(&"tag_relationship".to_string()));
+		assert!(order.contains(&"audit_log".to_string()));
 
 		// Verify dependency ordering
 		let device_idx = order.iter().position(|m| m == "device").unwrap();

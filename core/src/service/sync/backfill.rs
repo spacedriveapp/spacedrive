@@ -24,19 +24,6 @@ use tokio::sync::{oneshot, Mutex};
 use tracing::{info, warn};
 use uuid::Uuid;
 
-/// Default batch size for backfill requests
-///
-/// Limits memory usage while still being efficient for large datasets.
-/// Smaller batches = more round trips but lower memory.
-/// Larger batches = fewer round trips but higher memory.
-const DEFAULT_BATCH_SIZE: usize = 10_000;
-
-/// Timeout for backfill requests
-///
-/// If peer doesn't respond within this time, request fails and backfill
-/// can retry with different peer.
-const REQUEST_TIMEOUT_SECS: u64 = 60;
-
 /// Manages backfill process for new devices
 pub struct BackfillManager {
 	library_id: Uuid,
@@ -44,6 +31,7 @@ pub struct BackfillManager {
 	peer_sync: Arc<PeerSync>,
 	state_handler: Arc<StateSyncHandler>,
 	log_handler: Arc<LogSyncHandler>,
+	config: Arc<crate::infra::sync::SyncConfig>,
 
 	/// Pending state request channel (backfill is sequential, only one at a time)
 	pending_state_response: Arc<Mutex<Option<oneshot::Sender<SyncMessage>>>>,
@@ -59,6 +47,7 @@ impl BackfillManager {
 		peer_sync: Arc<PeerSync>,
 		state_handler: Arc<StateSyncHandler>,
 		log_handler: Arc<LogSyncHandler>,
+		config: Arc<crate::infra::sync::SyncConfig>,
 	) -> Self {
 		Self {
 			library_id,
@@ -66,6 +55,7 @@ impl BackfillManager {
 			peer_sync,
 			state_handler,
 			log_handler,
+			config,
 			pending_state_response: Arc::new(Mutex::new(None)),
 			pending_shared_response: Arc::new(Mutex::new(None)),
 		}
@@ -263,7 +253,7 @@ impl BackfillManager {
 						vec![model_type.clone()],
 						cursor_checkpoint.clone(),
 						since_watermark,
-						DEFAULT_BATCH_SIZE,
+						self.config.batching.backfill_batch_size,
 					)
 					.await?;
 
@@ -329,7 +319,7 @@ impl BackfillManager {
 
 		loop {
 			let response = self
-				.request_shared_changes(peer, last_hlc, DEFAULT_BATCH_SIZE)
+				.request_shared_changes(peer, last_hlc, self.config.batching.backfill_batch_size)
 				.await?;
 
 			if let SyncMessage::SharedChangeResponse {

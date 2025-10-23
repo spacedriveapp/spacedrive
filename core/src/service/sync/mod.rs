@@ -32,16 +32,14 @@ use uuid::Uuid;
 pub use backfill::BackfillManager;
 pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
 
-/// Main sync loop interval
-///
-/// Checks sync state and performs maintenance every 5 seconds.
-const SYNC_LOOP_INTERVAL_SECS: u64 = 5;
-
 /// Sync service for a library (Leaderless)
 ///
 /// This service runs in the background for the lifetime of an open library,
 /// handling real-time peer-to-peer synchronization.
 pub struct SyncService {
+	/// Sync configuration
+	config: Arc<crate::infra::sync::SyncConfig>,
+
 	/// Peer sync handler
 	peer_sync: Arc<PeerSync>,
 
@@ -64,6 +62,23 @@ impl SyncService {
 		device_id: Uuid,
 		network: Arc<dyn crate::infra::sync::NetworkTransport>,
 	) -> Result<Self> {
+		Self::new_from_library_with_config(
+			library,
+			device_id,
+			network,
+			crate::infra::sync::SyncConfig::default(),
+		)
+		.await
+	}
+
+	/// Create a new sync service with custom configuration
+	pub async fn new_from_library_with_config(
+		library: &Library,
+		device_id: Uuid,
+		network: Arc<dyn crate::infra::sync::NetworkTransport>,
+		config: crate::infra::sync::SyncConfig,
+	) -> Result<Self> {
+		let config = Arc::new(config);
 		let library_id = library.id();
 
 		// Create sync.db (peer log) for this device
@@ -74,7 +89,7 @@ impl SyncService {
 		);
 
 		// Create peer sync handler with network transport
-		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log, network).await?);
+		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log, network, config.clone()).await?);
 
 		// Create protocol handlers
 		let state_handler = Arc::new(StateSyncHandler::new(library_id, library.db().clone()));
@@ -91,20 +106,29 @@ impl SyncService {
 			peer_sync.clone(),
 			state_handler,
 			log_handler,
+			config.clone(),
 		));
 
 		info!(
 			library_id = %library_id,
 			device_id = %device_id,
-			"Created peer sync service (leaderless)"
+			batch_size = config.batching.backfill_batch_size,
+			retention_days = config.retention.tombstone_max_retention_days,
+			"Created peer sync service with config"
 		);
 
 		Ok(Self {
+			config,
 			peer_sync,
 			backfill_manager,
 			is_running: Arc::new(AtomicBool::new(false)),
 			shutdown_tx: Arc::new(Mutex::new(None)),
 		})
+	}
+
+	/// Get the current sync configuration
+	pub fn config(&self) -> &Arc<crate::infra::sync::SyncConfig> {
+		&self.config
 	}
 
 	/// Get the peer sync handler
@@ -124,6 +148,7 @@ impl SyncService {
 	/// - Triggers automatic backfill from available peers
 	/// - Runs periodic maintenance (log pruning, heartbeats)
 	async fn run_sync_loop(
+		config: Arc<crate::infra::sync::SyncConfig>,
 		peer_sync: Arc<PeerSync>,
 		backfill_manager: Arc<BackfillManager>,
 		is_running: Arc<AtomicBool>,
@@ -270,8 +295,8 @@ impl SyncService {
 						}
 					}
 
-					// Sleep before next iteration
-					tokio::time::sleep(tokio::time::Duration::from_secs(SYNC_LOOP_INTERVAL_SECS))
+					// Sleep before next iteration (configurable)
+					tokio::time::sleep(tokio::time::Duration::from_secs(config.network.sync_loop_interval_secs))
 						.await;
 				}
 			} => {
@@ -316,11 +341,12 @@ impl crate::service::Service for SyncService {
 		self.peer_sync.start().await?;
 
 		// Spawn sync loop with orchestration
+		let config = self.config.clone();
 		let peer_sync = self.peer_sync.clone();
 		let backfill_manager = self.backfill_manager.clone();
 		let is_running = self.is_running.clone();
 		tokio::spawn(async move {
-			Self::run_sync_loop(peer_sync, backfill_manager, is_running, shutdown_rx).await;
+			Self::run_sync_loop(config, peer_sync, backfill_manager, is_running, shutdown_rx).await;
 		});
 
 		info!("Peer sync service started");
