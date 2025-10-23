@@ -433,6 +433,7 @@ impl LocationWorker {
 		if let Err(e) = responder::apply_batch(
 			&self.context,
 			self.library_id,
+			self.location_id,
 			raw_events,
 			self.rule_toggles,
 			&self.location_root,
