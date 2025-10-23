@@ -229,8 +229,20 @@ impl SyncProtocolHandler {
 						NetworkingError::Protocol(format!("Failed to query device state: {}", e))
 					})?;
 
-				let has_more = records.len() >= batch_size;
+				// Query tombstones if incremental sync
 				let model_type = model_types.first().cloned().unwrap_or_default();
+				let deleted_uuids = if let Some(since_time) = since {
+					peer_sync
+						.get_deletion_tombstones(&model_type, device_id, since_time)
+						.await
+						.map_err(|e| {
+							NetworkingError::Protocol(format!("Failed to query tombstones: {}", e))
+						})?
+				} else {
+					vec![] // Full sync doesn't need tombstones
+				};
+
+				let has_more = records.len() >= batch_size;
 
 				// Create checkpoint: "timestamp|uuid" format
 				let next_checkpoint = if has_more {
@@ -246,6 +258,7 @@ impl SyncProtocolHandler {
 					model_type,
 					device_id: device_id.unwrap_or(from_device),
 					records,
+					deleted_uuids,
 					checkpoint: next_checkpoint,
 					has_more,
 				}))

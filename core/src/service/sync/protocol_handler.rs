@@ -112,7 +112,15 @@ impl StateSyncHandler {
 				.query_state(&model_type, device_id, since, cursor, batch_size)
 				.await?;
 
-			if !records.is_empty() {
+			// Query tombstones if this is an incremental sync
+			let deleted_uuids = if let Some(since_time) = since {
+				self.query_tombstones(&model_type, device_id, since_time)
+					.await?
+			} else {
+				vec![] // Full sync doesn't need tombstones
+			};
+
+			if !records.is_empty() || !deleted_uuids.is_empty() {
 				// If we got exactly batch_size records, there may be more
 				let has_more = records.len() >= batch_size;
 
@@ -130,6 +138,7 @@ impl StateSyncHandler {
 					model_type,
 					device_id: device_id.unwrap_or(Uuid::nil()),
 					records,
+					deleted_uuids,
 					checkpoint: next_checkpoint,
 					has_more,
 				});
@@ -220,6 +229,40 @@ impl StateSyncHandler {
 		}
 
 		Ok(records)
+	}
+
+	/// Query deletion tombstones for incremental sync
+	async fn query_tombstones(
+		&self,
+		model_type: &str,
+		device_id: Option<Uuid>,
+		since: DateTime<Utc>,
+	) -> Result<Vec<Uuid>> {
+		use crate::infra::db::entities::device_state_tombstone;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let mut query = device_state_tombstone::Entity::find()
+			.filter(device_state_tombstone::Column::ModelType.eq(model_type))
+			.filter(device_state_tombstone::Column::DeletedAt.gte(since));
+
+		// Filter by device if specified
+		if let Some(dev_id) = device_id {
+			// Map device UUID to local ID
+			if let Some(device) = crate::infra::db::entities::device::Entity::find()
+				.filter(crate::infra::db::entities::device::Column::Uuid.eq(dev_id))
+				.one(self.db.conn())
+				.await?
+			{
+				query = query.filter(device_state_tombstone::Column::DeviceId.eq(device.id));
+			} else {
+				// Device not found, no tombstones
+				return Ok(vec![]);
+			}
+		}
+
+		let tombstones = query.all(self.db.conn()).await?;
+
+		Ok(tombstones.into_iter().map(|t| t.record_uuid).collect())
 	}
 }
 
