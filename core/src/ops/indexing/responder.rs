@@ -23,6 +23,7 @@ use uuid::Uuid;
 pub async fn apply(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
+	location_id: Uuid,
 	kind: FsRawEventKind,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
@@ -32,7 +33,16 @@ pub async fn apply(
 
 	match kind {
 		FsRawEventKind::Create { path } => {
-			handle_create(&ctx, &path, rule_toggles, location_root).await?
+			handle_create(
+				&ctx,
+				context,
+				library_id,
+				location_id,
+				&path,
+				rule_toggles,
+				location_root,
+			)
+			.await?
 		}
 		FsRawEventKind::Modify { path } => {
 			handle_modify(&ctx, &path, rule_toggles, location_root).await?
@@ -49,6 +59,7 @@ pub async fn apply(
 pub async fn apply_batch(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
+	location_id: Uuid,
 	events: Vec<FsRawEventKind>,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
@@ -99,7 +110,17 @@ pub async fn apply_batch(
 
 	// Process creates
 	for path in creates {
-		if let Err(e) = handle_create(&ctx, &path, rule_toggles, location_root).await {
+		if let Err(e) = handle_create(
+			&ctx,
+			context,
+			library_id,
+			location_id,
+			&path,
+			rule_toggles,
+			location_root,
+		)
+		.await
+		{
 			tracing::error!("Failed to handle create for {}: {}", path.display(), e);
 		}
 	}
@@ -157,6 +178,9 @@ async fn should_filter_path(
 /// Handle create: extract metadata and insert via EntryProcessor
 async fn handle_create(
 	ctx: &impl IndexingCtx,
+	context: &Arc<CoreContext>,
+	library_id: Uuid,
+	location_id: Uuid,
 	path: &Path,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
@@ -178,7 +202,28 @@ async fn handle_create(
 
 	// Minimal state provides parent cache used by EntryProcessor
 	let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(path));
-	let _ = EntryProcessor::create_entry(
+
+	// CRITICAL: Seed the location root entry into cache to scope parent lookup
+	// This ensures parents are found within THIS location's tree, not another device's location
+	// with the same path. Without this, create_entry could attach to the wrong location's tree.
+	if let Ok(Some(location_record)) = entities::location::Entity::find()
+		.filter(entities::location::Column::Uuid.eq(location_id))
+		.one(ctx.library_db())
+		.await
+	{
+		if let Some(location_entry_id) = location_record.entry_id {
+			state
+				.entry_id_cache
+				.insert(location_root.to_path_buf(), location_entry_id);
+			debug!(
+				"Seeded location root {} (entry {}) into cache for scoped parent lookup",
+				location_root.display(),
+				location_entry_id
+			);
+		}
+	}
+
+	let entry_id = EntryProcessor::create_entry(
 		&mut state,
 		ctx,
 		&dir_entry,
@@ -186,6 +231,41 @@ async fn handle_create(
 		path.parent().unwrap_or_else(|| Path::new("/")),
 	)
 	.await?;
+
+	debug!("Created entry {} for path: {}", entry_id, path.display());
+
+	// If this is a directory, spawn a recursive indexer job to index its contents
+	if dir_entry.kind == super::state::EntryKind::Directory {
+		debug!(
+			"Created directory detected, spawning recursive indexer job for: {}",
+			path.display()
+		);
+
+		// Get the library to access the job manager
+		if let Some(library) = context.get_library(library_id).await {
+			// Create a recursive indexer job for this directory subtree
+			let indexer_job = super::job::IndexerJob::from_location(
+				location_id,
+				crate::domain::addressing::SdPath::local(path),
+				super::job::IndexMode::Content,
+			);
+
+			// Dispatch the job asynchronously (fire and forget)
+			if let Err(e) = library.jobs().dispatch(indexer_job).await {
+				tracing::warn!(
+					"Failed to spawn indexer job for directory {}: {}",
+					path.display(),
+					e
+				);
+			} else {
+				debug!(
+					"✓ Spawned recursive indexer job for directory: {}",
+					path.display()
+				);
+			}
+		}
+	}
+
 	Ok(())
 }
 
@@ -246,7 +326,10 @@ async fn handle_rename(
 	// Check if the destination path should be filtered
 	// If the file is being moved to a filtered location, we should remove it from the database
 	if should_filter_path(to, rule_toggles, location_root).await? {
-		debug!("Destination path is filtered, removing entry: {}", to.display());
+		debug!(
+			"Destination path is filtered, removing entry: {}",
+			to.display()
+		);
 		// Treat this as a removal of the source file
 		return handle_remove(ctx, from).await;
 	}
@@ -316,6 +399,11 @@ async fn resolve_directory_entry_id(
 	abs_path: &Path,
 ) -> Result<Option<i32>> {
 	let path_str = abs_path.to_string_lossy().to_string();
+
+	// CRITICAL: Path alone is ambiguous if multiple devices have same paths
+	// Query could return entries from any device's location
+	// TODO: Scope by location_root to ensure we only find entries in THIS location's tree
+	// For now, this returns the first match (usually correct if only one device has the path)
 	let model = entities::directory_paths::Entity::find()
 		.filter(entities::directory_paths::Column::Path.eq(path_str))
 		.one(ctx.library_db())
@@ -330,6 +418,9 @@ async fn resolve_file_entry_id(ctx: &impl IndexingCtx, abs_path: &Path) -> Resul
 		None => return Ok(None),
 	};
 	let parent_str = parent.to_string_lossy().to_string();
+
+	// CRITICAL: Same ambiguity issue as resolve_directory_entry_id
+	// TODO: Scope by location to ensure we find the correct parent
 	let parent_dir = match entities::directory_paths::Entity::find()
 		.filter(entities::directory_paths::Column::Path.eq(parent_str))
 		.one(ctx.library_db())
@@ -380,7 +471,9 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 		None => {
 			// No UUID means not sync-ready, skip tombstone creation and just delete without tombstones
 			tracing::debug!("Entry {} has no UUID, skipping tombstone", entry_id);
-			return delete_subtree_no_txn(entry_id, &txn).await.map_err(|e| anyhow::anyhow!(e));
+			return delete_subtree_no_txn(entry_id, &txn)
+				.await
+				.map_err(|e| anyhow::anyhow!(e));
 		}
 	};
 
@@ -408,13 +501,18 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 
 		match entry.parent_id {
 			Some(parent) if !visited.contains(&parent) => current_id = parent,
-			_ => return Err(anyhow::anyhow!("Could not find location for entry {}", entry_id)),
+			_ => {
+				return Err(anyhow::anyhow!(
+					"Could not find location for entry {}",
+					entry_id
+				))
+			}
 		}
 	};
 
 	let device_id = location.device_id;
 
-	// Find all descendants
+	// Find all descendants using closure table
 	let mut to_delete_ids: Vec<i32> = vec![entry_id];
 	if let Ok(rows) = entities::entry_closure::Entity::find()
 		.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
@@ -423,8 +521,37 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 	{
 		to_delete_ids.extend(rows.into_iter().map(|r| r.descendant_id));
 	}
+
+	// IMPORTANT: Also find descendants by parent_id recursively as a fallback
+	// This handles cases where the closure table is incomplete (e.g., race conditions during indexing)
+	let mut queue = vec![entry_id];
+	let mut visited = std::collections::HashSet::from([entry_id]);
+
+	while let Some(parent) = queue.pop() {
+		// Find all children of this parent
+		if let Ok(children) = entities::entry::Entity::find()
+			.filter(entities::entry::Column::ParentId.eq(parent))
+			.all(&txn)
+			.await
+		{
+			for child in children {
+				if visited.insert(child.id) {
+					to_delete_ids.push(child.id);
+					queue.push(child.id);
+				}
+			}
+		}
+	}
+
 	to_delete_ids.sort_unstable();
 	to_delete_ids.dedup();
+
+	tracing::debug!(
+		"Deleting entry {} and {} descendants (total {} entries)",
+		entry_id,
+		to_delete_ids.len() - 1,
+		to_delete_ids.len()
+	);
 
 	// Delete entries and related data
 	if !to_delete_ids.is_empty() {
