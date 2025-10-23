@@ -469,7 +469,15 @@ impl LocationManager {
 			.await?
 			.ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
-		// Delete the location (cascades to entries)
+		// Delete the root entry first if it exists
+		// This cascades to all child entries via entry_closure FK constraints
+		if let Some(entry_id) = location.entry_id {
+			entities::entry::Entity::delete_by_id(entry_id)
+				.exec(library.db().conn())
+				.await?;
+		}
+
+		// Delete the location
 		entities::location::Entity::delete_by_id(location.id)
 			.exec(library.db().conn())
 			.await?;
