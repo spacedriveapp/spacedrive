@@ -107,10 +107,19 @@ impl ActionManager {
 			completed_at: Set(None),
 			error_message: Set(None),
 			result_payload: Set(None),
+			version: Set(1),
 			..Default::default()
 		};
 
-		audit_entry.insert(db).await.map_err(ActionError::SeaOrm)
+		let model = audit_entry.insert(db).await.map_err(ActionError::SeaOrm)?;
+
+		// Sync the audit log creation
+		library
+			.sync_model(&model, crate::infra::sync::ChangeType::Insert)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to sync audit log: {}", e)))?;
+
+		Ok(model)
 	}
 
 	/// Finalize the audit log entry with the result
@@ -143,17 +152,26 @@ impl ActionManager {
 			Ok(output) => {
 				active_model.status = Set(audit_log::ActionStatus::Completed);
 				active_model.completed_at = Set(Some(chrono::Utc::now()));
-				// Extract job_id if present in certain output types
 				active_model.result_payload = Set(Some(output.clone()));
+				// Increment version for sync conflict resolution
+				active_model.version = Set(active_model.version.clone().unwrap() + 1);
 			}
 			Err(error) => {
 				active_model.status = Set(audit_log::ActionStatus::Failed);
 				active_model.completed_at = Set(Some(chrono::Utc::now()));
 				active_model.error_message = Set(Some(error.to_string()));
+				// Increment version for sync conflict resolution
+				active_model.version = Set(active_model.version.clone().unwrap() + 1);
 			}
 		}
 
-		active_model.update(db).await.map_err(ActionError::SeaOrm)?;
+		let updated = active_model.update(db).await.map_err(ActionError::SeaOrm)?;
+
+		// Sync the update
+		library
+			.sync_model(&updated, crate::infra::sync::ChangeType::Update)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to sync audit log update: {}", e)))?;
 
 		Ok(())
 	}

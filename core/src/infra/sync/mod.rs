@@ -5,8 +5,10 @@
 //! - Per-peer logs for shared resource changes
 //! - Syncable trait for model registration
 //! - Transaction manager for atomic commits
+//! - Unified configuration for all sync behavior
 //!
 
+pub mod config;
 pub mod dependency_graph;
 pub mod deterministic;
 pub mod fk_mapper;
@@ -17,6 +19,9 @@ pub mod syncable;
 pub mod transaction;
 pub mod transport;
 
+pub use config::{
+	BatchingConfig, MonitoringConfig, NetworkConfig, PruningStrategy, RetentionConfig, SyncConfig,
+};
 pub use dependency_graph::{compute_sync_order, DependencyError};
 pub use deterministic::{
 	deterministic_system_album_uuid, deterministic_system_tag_uuid, system_tags,
