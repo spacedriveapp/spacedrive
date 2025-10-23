@@ -47,6 +47,15 @@ pub type StateQueryFn = fn(
 	>,
 >;
 
+/// Type alias for deletion apply function (device-owned models)
+///
+/// Parameters: uuid of record to delete, db
+/// Returns: Result indicating success/failure
+pub type StateDeleteFn = fn(
+	uuid::Uuid,
+	Arc<DatabaseConnection>,
+) -> Pin<Box<dyn Future<Output = Result<(), sea_orm::DbErr>> + Send>>;
+
 /// Registry of syncable models
 ///
 /// Maps model_type strings (e.g., "album", "tag") to their registration info.
@@ -75,6 +84,9 @@ pub struct SyncableModelRegistration {
 
 	/// Query function for backfill (both device-owned and shared models)
 	pub state_query_fn: Option<StateQueryFn>,
+
+	/// Deletion apply function for device-owned models
+	pub state_delete_fn: Option<StateDeleteFn>,
 }
 
 impl SyncableModelRegistration {
@@ -84,6 +96,7 @@ impl SyncableModelRegistration {
 		table_name: &'static str,
 		apply_fn: StateApplyFn,
 		query_fn: StateQueryFn,
+		delete_fn: Option<StateDeleteFn>,
 	) -> Self {
 		Self {
 			model_type,
@@ -92,6 +105,7 @@ impl SyncableModelRegistration {
 			state_apply_fn: Some(apply_fn),
 			shared_apply_fn: None,
 			state_query_fn: Some(query_fn),
+			state_delete_fn: delete_fn,
 		}
 	}
 
@@ -108,6 +122,7 @@ impl SyncableModelRegistration {
 			state_apply_fn: None,
 			shared_apply_fn: Some(apply_fn),
 			state_query_fn: None,
+			state_delete_fn: None,
 		}
 	}
 
@@ -125,6 +140,7 @@ impl SyncableModelRegistration {
 			state_apply_fn: None,
 			shared_apply_fn: Some(apply_fn),
 			state_query_fn: Some(query_fn),
+			state_delete_fn: None,
 		}
 	}
 }
@@ -135,11 +151,12 @@ pub async fn register_device_owned(
 	table_name: &'static str,
 	apply_fn: StateApplyFn,
 	query_fn: StateQueryFn,
+	delete_fn: Option<StateDeleteFn>,
 ) {
 	let mut registry = SYNCABLE_REGISTRY.write().await;
 	registry.insert(
 		model_type.to_string(),
-		SyncableModelRegistration::device_owned(model_type, table_name, apply_fn, query_fn),
+		SyncableModelRegistration::device_owned(model_type, table_name, apply_fn, query_fn, delete_fn),
 	);
 }
 
@@ -185,6 +202,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					location::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
+			Some(|uuid, db| {
+				Box::pin(async move { location::Model::apply_deletion(uuid, db.as_ref()).await })
+			}),
 		),
 	);
 
@@ -201,6 +221,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					volume::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
+			Some(|uuid, db| {
+				Box::pin(async move { volume::Model::apply_deletion(uuid, db.as_ref()).await })
+			}),
 		),
 	);
 
@@ -217,6 +240,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					entry::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
+			Some(|uuid, db| {
+				Box::pin(async move { entry::Model::apply_deletion(uuid, db.as_ref()).await })
+			}),
 		),
 	);
 
@@ -233,6 +259,7 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					device::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
 				})
 			},
+			None, // Devices don't support deletion sync
 		),
 	);
 
@@ -478,6 +505,39 @@ pub async fn apply_state_change(
 		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
 }
 
+/// Apply a deletion by UUID (device-owned model)
+///
+/// Routes to the appropriate model's apply_deletion function via registry.
+pub async fn apply_deletion(
+	model_type: &str,
+	uuid: uuid::Uuid,
+	db: Arc<DatabaseConnection>,
+) -> Result<(), ApplyError> {
+	let delete_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let registration = registry
+			.get(model_type)
+			.ok_or_else(|| ApplyError::UnknownModel(model_type.to_string()))?;
+
+		if !registration.is_device_owned {
+			return Err(ApplyError::WrongSyncType {
+				model: model_type.to_string(),
+				expected: "device-owned".to_string(),
+				got: "shared".to_string(),
+			});
+		}
+
+		registration
+			.state_delete_fn
+			.ok_or_else(|| ApplyError::MissingDeletionHandler(model_type.to_string()))?
+	}; // Lock is dropped here
+
+	// Call the registered deletion function
+	delete_fn(uuid, db)
+		.await
+		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
+}
+
 /// Apply a log-based sync entry (shared model)
 ///
 /// Routes to the appropriate model's apply_shared_change function via registry.
@@ -620,6 +680,9 @@ pub enum ApplyError {
 
 	#[error("Missing query function for model: {0}")]
 	MissingQueryFunction(String),
+
+	#[error("Missing deletion handler for model: {0}")]
+	MissingDeletionHandler(String),
 
 	#[error("Database error: {0}")]
 	DatabaseError(String),
