@@ -100,8 +100,16 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 					println!("Expires at: {}", o.expires_at);
 				});
 			}
-			PairCmd::Join { .. } => {
-				let input = pc.to_join_input().unwrap();
+			PairCmd::Join { ref code, ref relay_url, ref node_id, ref session_id } => {
+				// Check if we should run interactive mode
+				let input = if let Some(input) = pc.to_join_input() {
+					// Non-interactive: code and possibly flags were provided
+					input
+				} else {
+					// Interactive mode: no code provided, enter interactive flow
+					run_interactive_pair_join(ctx, code.as_deref()).await?
+				};
+
 				let out: PairJoinOutput = execute_action!(ctx, input);
 				print_output!(ctx, &out, |o: &PairJoinOutput| {
 					println!("Paired with {} ({})", o.device_name, o.paired_device_id);
@@ -194,4 +202,71 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 		}
 	}
 	Ok(())
+}
+
+async fn run_interactive_pair_join(ctx: &Context, code: Option<&str>) -> Result<sd_core::ops::network::pair::join::input::PairJoinInput> {
+	use crate::util::confirm::{select, text};
+
+	println!("\n=== Interactive Pairing ===\n");
+
+	// Ask for pairing code if not provided
+	let code = if let Some(c) = code {
+		c.to_string()
+	} else {
+		text("Enter the 12-word pairing code", false)?.unwrap()
+	};
+
+	// Get network status to check for relay URL
+	let status: sd_core::ops::network::status::NetworkStatus = execute_core_query!(
+		ctx,
+		sd_core::ops::network::status::query::NetworkStatusQueryInput
+	);
+
+	// Ask if they want to use relay for internet pairing
+	let use_relay = select(
+		"Select pairing mode",
+		&[
+			"Local network pairing (LAN only)".to_string(),
+			"Internet pairing (via relay server)".to_string(),
+		],
+	)?;
+
+	let final_code = if use_relay == 1 {
+		// Internet pairing - need relay info
+		println!("\nFor internet pairing, you need:");
+		println!("  1. Node ID (from the QR code or pairing output)");
+		println!("  2. Session ID (from the QR code or pairing output)");
+		if let Some(relay_url) = &status.relay_url {
+			println!("  3. Relay URL (default: {})", relay_url);
+		} else {
+			println!("  3. Relay URL (from the QR code or pairing output)");
+		}
+		println!();
+
+		let node_id = text("Node ID", false)?.unwrap();
+		let session_id = text("Session ID", false)?.unwrap();
+
+		let relay_url = if let Some(default_relay) = &status.relay_url {
+			text(&format!("Relay URL (default: {})", default_relay), true)?
+				.unwrap_or_else(|| default_relay.clone())
+		} else {
+			text("Relay URL", false)?.unwrap()
+		};
+
+		// Construct QR JSON format
+		serde_json::json!({
+			"version": 1,
+			"words": code,
+			"node_id": node_id,
+			"relay_url": relay_url,
+			"session_id": session_id
+		}).to_string()
+	} else {
+		// Local pairing - just use the words
+		code
+	};
+
+	Ok(sd_core::ops::network::pair::join::input::PairJoinInput {
+		code: final_code,
+	})
 }

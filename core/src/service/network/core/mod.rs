@@ -996,6 +996,16 @@ impl NetworkingService {
 		}
 	}
 
+	/// Get the configured relay URL
+	pub async fn get_relay_url(&self) -> Option<String> {
+		if let Some(endpoint) = &self.endpoint {
+			let relay = endpoint.home_relay().initialized().await;
+			Some(relay.to_string())
+		} else {
+			None
+		}
+	}
+
 	/// Try to discover the initiator via mDNS (fast for local networks)
 	async fn try_mdns_discovery(&self, session_id: Uuid, force_relay: bool) -> Result<()> {
 		use futures::StreamExt;

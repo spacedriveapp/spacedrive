@@ -360,36 +360,39 @@ impl PeerSync {
 	}
 
 	/// Set initial watermarks after backfill (called by backfill manager)
-	pub async fn set_initial_watermarks(&self) -> Result<()> {
+	///
+	/// Uses actual checkpoints from received data instead of querying local database
+	/// This prevents watermark drift due to clock skew between devices
+	pub async fn set_initial_watermarks(
+		&self,
+		final_state_checkpoint: Option<String>,
+		max_shared_hlc: Option<crate::infra::sync::HLC>,
+	) -> Result<()> {
 		use crate::infra::db::entities;
 		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 
 		let now = chrono::Utc::now();
 
-		// Query the actual max indexed_at from entries to set accurate watermark
-		// indexed_at records when we indexed/synced the entry, not when the file was modified
-		// This ensures watermark-based catch-up works correctly even for old files added later
-		let max_indexed_at: Option<chrono::DateTime<chrono::Utc>> = self
-			.db
-			.as_ref()
-			.query_one(sea_orm::Statement::from_string(
-				sea_orm::DbBackend::Sqlite,
-				"SELECT MAX(indexed_at) as max_ts FROM entries WHERE uuid IS NOT NULL".to_string(),
-			))
-			.await
-			.ok()
-			.flatten()
-			.and_then(|row| {
-				let ts_str: Option<String> = row.try_get("", "max_ts").ok()?;
-				ts_str.and_then(|s| chrono::DateTime::parse_from_rfc3339(s.as_str()).ok())
-					.map(|dt| dt.with_timezone(&chrono::Utc))
-			});
+		// Parse state checkpoint (timestamp|uuid format) to extract timestamp
+		// Use the timestamp from the last record RECEIVED, not from our local database
+		let state_watermark = if let Some(checkpoint) = final_state_checkpoint {
+			let ts_str = checkpoint.split('|').next().unwrap_or("");
+			chrono::DateTime::parse_from_rfc3339(ts_str)
+				.ok()
+				.map(|dt| dt.with_timezone(&chrono::Utc))
+				.unwrap_or(now)
+		} else {
+			// No data received, use current time
+			now
+		};
 
-		// Use the max indexed_at from synced data, or current time if no data synced yet
-		let state_watermark = max_indexed_at.unwrap_or(now);
-
-		// Get current HLC from generator as shared watermark
-		let current_hlc = self.hlc_generator.lock().await.next();
+		// Use the max HLC from received shared data, or generate new one if no data received
+		let shared_watermark_hlc = max_shared_hlc.unwrap_or_else(|| {
+			// No shared data received, generate current HLC as baseline
+			futures::executor::block_on(async {
+				self.hlc_generator.lock().await.next()
+			})
+		});
 
 		// Update this device's watermarks
 		let device = entities::device::Entity::find()
@@ -402,7 +405,7 @@ impl PeerSync {
 		let mut device_active: entities::device::ActiveModel = device.into();
 		device_active.last_state_watermark = Set(Some(state_watermark));
 		device_active.last_shared_watermark = Set(Some(
-			serde_json::to_string(&current_hlc).unwrap_or_default()
+			serde_json::to_string(&shared_watermark_hlc).unwrap_or_default()
 		));
 		device_active.last_sync_at = Set(Some(now));
 
@@ -410,8 +413,8 @@ impl PeerSync {
 			.map_err(|e| anyhow::anyhow!("Failed to set initial watermarks: {}", e))?;
 
 		info!(
-			"Set initial watermarks: state={} (from max indexed_at), shared={}, last_sync_at={}",
-			state_watermark, current_hlc, now
+			"Set watermarks from received data: state={} (from checkpoint), shared={} (from max HLC), last_sync_at={}",
+			state_watermark, shared_watermark_hlc, now
 		);
 
 		Ok(())
