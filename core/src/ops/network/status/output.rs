@@ -11,4 +11,5 @@ pub struct NetworkStatus {
 	pub paired_devices: usize,
 	pub connected_devices: usize,
 	pub version: String,
+	pub relay_url: Option<String>,
 }

@@ -133,17 +133,17 @@ impl BackfillManager {
 		}
 
 		// Phase 2: Backfill shared resources FIRST (entries depend on content_identities)
-		self.backfill_shared_resources(selected_peer).await?;
+		let max_shared_hlc = self.backfill_shared_resources(selected_peer).await?;
 
 		// Phase 3: Backfill device-owned state (after shared dependencies exist)
 		// For initial backfill, don't use watermark (get everything)
-		self.backfill_device_owned_state(selected_peer, None).await?;
+		let final_state_checkpoint = self.backfill_device_owned_state(selected_peer, None).await?;
 
 		// Phase 4: Transition to ready (processes buffer)
 		self.peer_sync.transition_to_ready().await?;
 
-		// Phase 5: Set initial watermarks after backfill
-		self.set_initial_watermarks_after_backfill().await?;
+		// Phase 5: Set initial watermarks from actual received data (not local DB query)
+		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc).await?;
 
 		info!("Backfill complete, device is ready");
 
@@ -170,13 +170,13 @@ impl BackfillManager {
 		// Backfill shared resources FIRST (device-owned models depend on them)
 		// For now, just do full backfill of shared resources
 		// TODO: Parse HLC from string watermark when HLC implements FromStr
-		self.backfill_shared_resources(peer).await?;
+		let max_shared_hlc = self.backfill_shared_resources(peer).await?;
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)
-		self.backfill_device_owned_state(peer, state_watermark).await?;
+		let final_state_checkpoint = self.backfill_device_owned_state(peer, state_watermark).await?;
 
-		// Update watermarks after catch-up
-		self.set_initial_watermarks_after_backfill().await?;
+		// Update watermarks from actual received data (not local DB query)
+		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc).await?;
 
 		info!("Incremental catch-up complete");
 		Ok(())
@@ -185,12 +185,12 @@ impl BackfillManager {
 	/// Backfill device-owned state from all peers in dependency order
 	///
 	/// If `since_watermark` is provided, only requests changes newer than the watermark.
-	/// This enables incremental catch-up instead of full re-sync.
+	/// Returns the final checkpoint string (timestamp|uuid) for watermark update.
 	async fn backfill_device_owned_state(
 		&self,
 		primary_peer: Uuid,
 		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
-	) -> Result<()> {
+	) -> Result<Option<String>> {
 		if let Some(since) = since_watermark {
 			info!("Backfilling device-owned state incrementally since {:?}", since);
 		} else {
@@ -223,10 +223,12 @@ impl BackfillManager {
 
 		info!(
 			progress = checkpoint.progress,
+			final_checkpoint = ?checkpoint.resume_token,
 			"Device-owned state backfill complete"
 		);
 
-		Ok(())
+		// Return the final checkpoint for watermark update
+		Ok(checkpoint.resume_token)
 	}
 
 	/// Backfill state from a specific peer
@@ -304,16 +306,17 @@ impl BackfillManager {
 	}
 
 	/// Backfill shared resources
-	async fn backfill_shared_resources(&self, peer: Uuid) -> Result<()> {
+	async fn backfill_shared_resources(&self, peer: Uuid) -> Result<Option<crate::infra::sync::HLC>> {
 		self.backfill_shared_resources_since(peer, None).await
 	}
 
 	/// Backfill shared resources since a specific HLC watermark
+	/// Returns the maximum HLC received (for watermark update)
 	async fn backfill_shared_resources_since(
 		&self,
 		peer: Uuid,
 		since_hlc: Option<crate::infra::sync::HLC>,
-	) -> Result<()> {
+	) -> Result<Option<crate::infra::sync::HLC>> {
 		if let Some(hlc) = since_hlc {
 			info!("Backfilling shared resources incrementally since {:?}", hlc);
 		} else {
@@ -414,7 +417,8 @@ impl BackfillManager {
 
 		info!("Shared resources backfill complete (total: {} entries)", total_applied);
 
-		Ok(())
+		// Return the max HLC from received data for accurate watermark tracking
+		Ok(last_hlc)
 	}
 
 	/// Request state batch from peer
@@ -494,7 +498,12 @@ impl BackfillManager {
 	}
 
 	/// Set initial watermarks after backfill completes
-	async fn set_initial_watermarks_after_backfill(&self) -> Result<()> {
-		self.peer_sync.set_initial_watermarks().await
+	/// Uses actual checkpoints from received data, not local database queries
+	async fn set_initial_watermarks_after_backfill(
+		&self,
+		final_state_checkpoint: Option<String>,
+		max_shared_hlc: Option<crate::infra::sync::HLC>,
+	) -> Result<()> {
+		self.peer_sync.set_initial_watermarks(final_state_checkpoint, max_shared_hlc).await
 	}
 }
