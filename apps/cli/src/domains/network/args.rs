@@ -21,7 +21,19 @@ pub enum PairCmd {
 		auto_accept: bool,
 	},
 	/// Join using a pairing code (joiner)
-	Join { code: String },
+	Join {
+		/// Pairing code (12 words or JSON). If not provided, enters interactive mode.
+		code: Option<String>,
+		/// Relay URL for internet pairing (optional)
+		#[arg(long)]
+		relay_url: Option<String>,
+		/// Node ID for internet pairing (optional, required if relay_url is provided)
+		#[arg(long)]
+		node_id: Option<String>,
+		/// Session ID for internet pairing (optional, required if relay_url is provided)
+		#[arg(long)]
+		session_id: Option<String>,
+	},
 	/// Show pairing sessions
 	Status,
 	/// Cancel a pairing session
@@ -40,7 +52,36 @@ impl PairCmd {
 
 	pub fn to_join_input(&self) -> Option<PairJoinInput> {
 		match self {
-			Self::Join { code } => Some(PairJoinInput { code: code.clone() }),
+			Self::Join { code, relay_url, node_id, session_id } => {
+				// Code is required for non-interactive mode
+				let code = code.as_ref()?.clone();
+
+				// If relay URL is provided, construct QR JSON format
+				let code = if let Some(relay_url) = relay_url {
+					// Validate node_id and session_id are also provided
+					let node_id = node_id.as_ref().expect("--node-id is required when --relay-url is provided");
+					let session_id = session_id.as_ref().expect("--session-id is required when --relay-url is provided");
+
+					// First try to parse as JSON (in case they passed the full QR JSON)
+					if code.trim().starts_with('{') {
+						// Already JSON, just use it
+						code
+					} else {
+						// Plain words - construct QR JSON format
+						serde_json::json!({
+							"version": 1,
+							"words": code,
+							"node_id": node_id,
+							"relay_url": relay_url,
+							"session_id": session_id
+						}).to_string()
+					}
+				} else {
+					code
+				};
+
+				Some(PairJoinInput { code })
+			}
 			_ => None,
 		}
 	}
