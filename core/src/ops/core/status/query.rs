@@ -105,6 +105,7 @@ impl CoreQuery for CoreStatusQuery {
 
 		// Get network status and paired devices
 		let network_status = if let Some(networking) = context.get_networking().await {
+			let relay_url = networking.get_relay_url().await;
 			NetworkStatus {
 				running: true,
 				node_id: Some(networking.node_id().to_string()),
@@ -112,6 +113,7 @@ impl CoreQuery for CoreStatusQuery {
 				paired_devices: 0,     // TODO: Get actual paired device count
 				connected_devices: 0,  // TODO: Get actual connected device count
 				version: env!("CARGO_PKG_VERSION").to_string(),
+				relay_url,
 			}
 		} else {
 			NetworkStatus {
@@ -121,6 +123,7 @@ impl CoreQuery for CoreStatusQuery {
 				paired_devices: 0,
 				connected_devices: 0,
 				version: env!("CARGO_PKG_VERSION").to_string(),
+				relay_url: None,
 			}
 		};
 

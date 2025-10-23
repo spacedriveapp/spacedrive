@@ -42,6 +42,7 @@ impl CoreQuery for NetworkStatusQuery {
 				guard.get_paired_devices().len()
 			};
 			let connected = net.get_connected_devices().await.len();
+			let relay_url = net.get_relay_url().await;
 			Ok(NetworkStatus {
 				running: true,
 				node_id: Some(node_id),
@@ -49,6 +50,7 @@ impl CoreQuery for NetworkStatusQuery {
 				paired_devices: paired,
 				connected_devices: connected,
 				version: env!("CARGO_PKG_VERSION").to_string(),
+				relay_url,
 			})
 		} else {
 			Ok(NetworkStatus {
@@ -58,6 +60,7 @@ impl CoreQuery for NetworkStatusQuery {
 				paired_devices: 0,
 				connected_devices: 0,
 				version: env!("CARGO_PKG_VERSION").to_string(),
+				relay_url: None,
 			})
 		}
 	}
