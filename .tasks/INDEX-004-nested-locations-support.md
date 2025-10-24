@@ -224,26 +224,74 @@ if entry.indexed_at.is_some() {
 
 **Option B: Innermost location wins (efficient)**
 ```rust
-// In the watcher event dispatch:
-fn find_deepest_watching_location(path: &Path) -> Option<Uuid> {
-    // Find all locations that contain this path
-    let candidates = self.watched_locations
-        .iter()
-        .filter(|(_, loc)| path.starts_with(&loc.path))
-        .collect::<Vec<_>>();
+// In the watcher event dispatch or routing:
+async fn find_deepest_watching_location(
+    &self,
+    event_path: &Path,
+    library_id: Uuid,
+    db: &DatabaseConnection,
+) -> Result<Option<Uuid>> {
+    // NOTE: All locations in watched_locations are already filtered to THIS device
+    // (INDEX-003 Phase 1 ensures only owned locations are watched)
 
-    // Return the one with the longest path (deepest nesting)
-    candidates
+    let mut candidates = Vec::new();
+
+    for (location_id, watched_loc) in self.watched_locations.read().await.iter() {
+        // Get location's entry record to check tree relationship
+        let location_record = location::Entity::find()
+            .filter(location::Column::Uuid.eq(*location_id))
+            .one(db)
+            .await?;
+
+        if let Some(loc) = location_record {
+            if let Some(root_entry_id) = loc.entry_id {
+                // Check if event path is under this location's entry tree
+                // Use entry_closure and directory_paths, not path string matching
+                if is_path_in_entry_tree(event_path, root_entry_id, db).await? {
+                    // Get depth of location's root in the overall entry tree
+                    let depth = get_entry_depth(root_entry_id, db).await?;
+                    candidates.push((*location_id, depth));
+                }
+            }
+        }
+    }
+
+    // Return location with deepest (highest depth value) root entry
+    // Deeper in tree = more nested = should take precedence
+    Ok(candidates
         .into_iter()
-        .max_by_key(|(_, loc)| loc.path.components().count())
-        .map(|(id, _)| *id)
+        .max_by_key(|(_, depth)| *depth)
+        .map(|(id, _)| id))
 }
 
-// Only dispatch event to the innermost location
-if let Some(location_id) = find_deepest_watching_location(&event.path) {
-    dispatch_to_worker(location_id, event).await;
+async fn is_path_in_entry_tree(
+    path: &Path,
+    root_entry_id: i32,
+    db: &DatabaseConnection,
+) -> Result<bool> {
+    // Try to resolve the path within this entry tree
+    let path_str = path.to_string_lossy().to_string();
+
+    let result = db
+        .query_one(Statement::from_sql_and_values(
+            DbBackend::Sqlite,
+            r#"
+            SELECT 1
+            FROM directory_paths dp
+            INNER JOIN entry_closure ec ON ec.descendant_id = dp.entry_id
+            WHERE dp.path = ?
+              AND ec.ancestor_id = ?
+            LIMIT 1
+            "#,
+            vec![path_str.into(), root_entry_id.into()],
+        ))
+        .await?;
+
+    Ok(result.is_some())
 }
 ```
+
+**Device filtering note**: Since INDEX-003 Phase 1 ensures only this device's locations are loaded into `watched_locations`, we don't need additional device_id filtering here. All locations in the HashMap are guaranteed to be owned by the current device.
 
 **Recommendation**: Start with Option A (both trigger), optimize to Option B later.
 
@@ -311,12 +359,12 @@ async fn delete_location(&self, location_id: Uuid, db: &DatabaseConnection) -> R
 
 **Current sync** (no nesting support):
 - Location A syncs → creates entries 1-5
-- Location B syncs → creates duplicate entries 100-102 ❌
+- Location B syncs → creates duplicate entries 100-102 
 
 **With nesting support**:
-- Location A syncs → creates entries 1-5 ✅
-- Location B syncs → just creates location record pointing to existing entry 2 ✅
-- No entry duplication ✅
+- Location A syncs → creates entries 1-5 
+- Location B syncs → just creates location record pointing to existing entry 2 
+- No entry duplication 
 
 **Implementation**: Location sync already uses `entry_id` reference, so this works automatically! Just need to ensure receiving device doesn't re-create entries.
 
@@ -575,8 +623,8 @@ mv /Documents/Work /Documents/Personal/Work
 **Current behavior**:
 - Location A's watcher detects rename
 - Updates entry 2's parent from entry 1 to entry 3 (Personal)
-- Location B's `entry_id` still points to entry 2 ✅
-- Location B's path is now wrong ❌
+- Location B's `entry_id` still points to entry 2 
+- Location B's path is now wrong 
 
 **Solution**: Update location path when root entry moves:
 ```rust
@@ -636,7 +684,7 @@ fn get_effective_index_mode(path: &Path, db: &DatabaseConnection) -> IndexMode {
 **With nesting**:
 - Location B syncs → `entry_id: 2`
 - Entry 2 might not exist yet on receiving device!
-- Foreign key constraint violation ❌
+- Foreign key constraint violation 
 
 **Solution**: Defer nested location sync until parent location syncs:
 ```rust
