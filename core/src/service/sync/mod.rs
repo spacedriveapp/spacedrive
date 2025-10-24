@@ -160,7 +160,7 @@ impl SyncService {
 	/// Emit metrics update event
 	pub async fn emit_metrics_event(&self, library_id: Uuid) {
 		// Create a snapshot of current metrics
-		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(&self.metrics).await;
+		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(self.metrics.metrics()).await;
 		
 		// Emit event
 		self.peer_sync.event_bus().emit(crate::infra::event::Event::Custom {
@@ -484,10 +484,10 @@ impl crate::service::Service for SyncService {
 
 		// Spawn metrics persistence task (runs every 5 minutes)
 		let metrics = self.metrics.clone();
-		let library_id = library_id;
+		let library_id = self.library_id;
 		let db = self.peer_sync.db().clone();
 		tokio::spawn(async move {
-			Self::run_metrics_persistence_task(metrics, library_id, db).await;
+			run_metrics_persistence_task(metrics, library_id, db).await;
 		});
 
 		info!("Peer sync service started (with pruning task)");
@@ -517,35 +517,35 @@ impl crate::service::Service for SyncService {
 
 		Ok(())
 	}
+}
 
-	/// Background task for persisting metrics snapshots
-	async fn run_metrics_persistence_task(
-		metrics: Arc<SyncMetricsCollector>,
-		library_id: Uuid,
-		db: Arc<sea_orm::DatabaseConnection>,
-	) {
-		let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 minutes
+/// Background task for persisting metrics snapshots
+async fn run_metrics_persistence_task(
+	metrics: Arc<SyncMetricsCollector>,
+	library_id: Uuid,
+	db: Arc<sea_orm::DatabaseConnection>,
+) {
+	let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 minutes
+	
+	info!("Starting metrics persistence task (interval: 5m)");
+	
+	loop {
+		interval.tick().await;
 		
-		info!("Starting metrics persistence task (interval: 5m)");
+		// Create snapshot
+		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(metrics.metrics()).await;
 		
-		loop {
-			interval.tick().await;
-			
-			// Create snapshot
-			let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(&metrics).await;
-			
-			// Store in database
-			if let Err(e) = crate::service::sync::metrics::persistence::store_metrics_snapshot(
-				&db,
-				library_id,
-				snapshot,
-			).await {
-				warn!(
-					library_id = %library_id,
-					error = %e,
-					"Failed to persist metrics snapshot"
-				);
-			}
+		// Store in database
+		if let Err(e) = crate::service::sync::metrics::persistence::store_metrics_snapshot(
+			&db,
+			library_id,
+			snapshot,
+		).await {
+			warn!(
+				library_id = %library_id,
+				error = %e,
+				"Failed to persist metrics snapshot"
+			);
 		}
 	}
 }

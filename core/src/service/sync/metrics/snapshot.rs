@@ -31,7 +31,7 @@ pub struct SyncMetricsSnapshot {
 }
 
 /// State metrics snapshot
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SyncStateSnapshot {
     pub current_state: DeviceSyncState,
     pub state_entered_at: DateTime<Utc>,
@@ -42,7 +42,7 @@ pub struct SyncStateSnapshot {
 }
 
 /// Operation metrics snapshot
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OperationSnapshot {
     // Broadcasts
     pub broadcasts_sent: u64,
@@ -69,7 +69,7 @@ pub struct OperationSnapshot {
 }
 
 /// Data volume metrics snapshot
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DataVolumeSnapshot {
     pub entries_synced: HashMap<String, u64>,
     pub entries_by_device: HashMap<Uuid, DeviceMetricsSnapshot>,
@@ -90,7 +90,7 @@ pub struct DeviceMetricsSnapshot {
 }
 
 /// Performance metrics snapshot
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PerformanceSnapshot {
     pub broadcast_latency: LatencySnapshot,
     pub apply_latency: LatencySnapshot,
@@ -114,7 +114,7 @@ pub struct LatencySnapshot {
 }
 
 /// Error metrics snapshot
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ErrorSnapshot {
     pub total_errors: u64,
     pub network_errors: u64,
@@ -281,7 +281,7 @@ impl SyncMetricsSnapshot {
         self.data_volume.last_sync_per_model.retain(|model, _| model == model_type);
         
 		// Filter recent errors
-		self.errors.recent_errors.retain(|error| error.model_type.as_ref() == Some(&model_type.to_string()));
+		self.errors.recent_errors.retain(|error| error.model_type.as_ref() == Some(model_type));
     }
 }
 

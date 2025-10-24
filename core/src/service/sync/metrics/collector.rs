@@ -29,6 +29,11 @@ impl SyncMetricsCollector {
         self.max_history_size = size;
         self
     }
+
+    /// Get the underlying metrics
+    pub fn metrics(&self) -> &Arc<SyncMetrics> {
+        &self.metrics
+    }
     
     /// Get reference to metrics
     pub fn metrics(&self) -> &Arc<SyncMetrics> {
@@ -83,10 +88,16 @@ impl SyncMetricsCollector {
         
         // Update time in previous state
         {
+            let mut state_entered_at = self.metrics.state.state_entered_at.write().await;
             let mut total_time = self.metrics.state.total_time_in_state.write().await;
-            let duration = now.signed_duration_since(*self.metrics.state.state_entered_at.read().await);
+            
+            // Calculate duration BEFORE updating the entry time
+            let duration = now.signed_duration_since(*state_entered_at);
             *total_time.entry(from).or_insert(std::time::Duration::ZERO) += 
                 std::time::Duration::from_millis(duration.num_milliseconds().max(0) as u64);
+            
+            // Update entry time for new state AFTER calculating duration
+            *state_entered_at = now;
         }
         
         debug!(

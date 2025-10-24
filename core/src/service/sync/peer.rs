@@ -2135,7 +2135,8 @@ impl PeerSync {
 		}
 
 		// Record state transition
-		self.metrics.record_state_transition(current_state, DeviceSyncState::CatchingUp { buffered_count: 0 }, Some("transitioning to ready".to_string())).await?;
+		let buffered_count = self.buffer.len().await;
+		self.metrics.record_state_transition(current_state, DeviceSyncState::CatchingUp { buffered_count }, Some("transitioning to ready".to_string())).await?;
 
 		// Process buffer
 		while let Some(update) = self.buffer.pop_ordered().await {
@@ -2156,7 +2157,8 @@ impl PeerSync {
 		}
 
 		// Record state transition
-		self.metrics.record_state_transition(DeviceSyncState::CatchingUp { buffered_count: 0 }, DeviceSyncState::Ready, Some("buffered updates processed".to_string())).await?;
+		let buffered_count = self.buffer.len().await;
+		self.metrics.record_state_transition(DeviceSyncState::CatchingUp { buffered_count }, DeviceSyncState::Ready, Some("buffered updates processed".to_string())).await?;
 
 		info!("Sync service is now ready");
 
