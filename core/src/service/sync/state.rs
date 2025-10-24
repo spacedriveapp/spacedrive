@@ -11,7 +11,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 /// Device sync state for state machine
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DeviceSyncState {
 	/// Not yet synced, no backfill started
 	Uninitialized,

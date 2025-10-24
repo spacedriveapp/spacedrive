@@ -10,6 +10,7 @@ pub mod location;
 pub mod logs;
 pub mod network;
 pub mod search;
+pub mod sync;
 pub mod tag;
 pub mod update;
 pub mod volume;

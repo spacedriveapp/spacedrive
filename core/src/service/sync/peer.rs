@@ -147,6 +147,9 @@ pub struct PeerSync {
 			Option<broadcast::Receiver<crate::service::network::core::NetworkEvent>>,
 		>,
 	>,
+
+	/// Metrics collector for observability
+	metrics: Arc<super::metrics::SyncMetricsCollector>,
 }
 
 impl PeerSync {
@@ -157,6 +160,7 @@ impl PeerSync {
 		peer_log: Arc<PeerLog>,
 		network: Arc<dyn NetworkTransport>,
 		config: Arc<crate::infra::sync::SyncConfig>,
+		metrics: Arc<super::metrics::SyncMetricsCollector>,
 	) -> Result<Self> {
 		let library_id = library.id();
 
@@ -180,6 +184,7 @@ impl PeerSync {
 			retry_queue: Arc::new(RetryQueue::new()),
 			is_running: Arc::new(AtomicBool::new(false)),
 			network_events: Arc::new(tokio::sync::Mutex::new(None)),
+			metrics,
 		})
 	}
 
@@ -1404,6 +1409,9 @@ impl PeerSync {
 			"Broadcasting state change to sync partners"
 		);
 
+		// Record start time for latency tracking
+		let start_time = std::time::Instant::now();
+
 		// Broadcast to all partners in parallel using futures::join_all
 		use futures::future::join_all;
 
@@ -1454,6 +1462,18 @@ impl PeerSync {
 				}
 			}
 		}
+
+		// Record metrics
+		self.metrics.record_broadcast(true, None);
+		if error_count > 0 {
+			for _ in 0..error_count {
+				self.metrics.record_failed_broadcast();
+			}
+		}
+
+		// Record latency
+		let latency_ms = start_time.elapsed().as_millis() as u64;
+		self.metrics.record_broadcast_latency(latency_ms);
 
 		info!(
 			model_type = %change.model_type,
@@ -1541,6 +1561,9 @@ impl PeerSync {
 			"Broadcasting shared change to sync partners"
 		);
 
+		// Record start time for latency tracking
+		let start_time = std::time::Instant::now();
+
 		// Broadcast to all partners in parallel using futures::join_all
 		use futures::future::join_all;
 
@@ -1592,6 +1615,18 @@ impl PeerSync {
 			}
 		}
 
+		// Record metrics
+		self.metrics.record_broadcast(false, None);
+		if error_count > 0 {
+			for _ in 0..error_count {
+				self.metrics.record_failed_broadcast();
+			}
+		}
+
+		// Record latency
+		let latency_ms = start_time.elapsed().as_millis() as u64;
+		self.metrics.record_broadcast_latency(latency_ms);
+
 		info!(
 			hlc = %hlc,
 			model_type = %model_type,
@@ -1605,6 +1640,9 @@ impl PeerSync {
 
 	/// Handle received state change
 	pub async fn on_state_change_received(&self, change: StateChangeMessage) -> Result<()> {
+		// Record metrics
+		self.metrics.record_changes_received(1);
+
 		let state = self.state().await;
 
 		if state.should_buffer() {
@@ -1622,6 +1660,9 @@ impl PeerSync {
 
 	/// Handle received shared change
 	pub async fn on_shared_change_received(&self, entry: SharedChangeEntry) -> Result<()> {
+		// Record metrics
+		self.metrics.record_changes_received(1);
+
 		// Update causality
 		self.hlc_generator.lock().await.update(entry.hlc);
 
@@ -1646,6 +1687,9 @@ impl PeerSync {
 
 	/// Apply state change to database
 	async fn apply_state_change(&self, change: StateChangeMessage) -> Result<()> {
+		// Record start time for latency tracking
+		let start_time = std::time::Instant::now();
+
 		debug!(
 			model_type = %change.model_type,
 			record_uuid = %change.record_uuid,
@@ -1660,7 +1704,27 @@ impl PeerSync {
 			self.db.clone(),
 		)
 		.await
-		.map_err(|e| anyhow::anyhow!("Failed to apply state change: {}", e))?;
+		.map_err(|e| {
+			// Record error metrics (spawn async task)
+			let metrics = self.metrics.clone();
+			let model_type = change.model_type.clone();
+			let error_msg = format!("Failed to apply state change: {}", e);
+			tokio::spawn(async move {
+				let _ = metrics.record_error(
+					super::metrics::ErrorEvent::new("apply".to_string(), error_msg)
+						.with_model_type(model_type)
+				).await;
+			});
+			anyhow::anyhow!("Failed to apply state change: {}", e)
+		})?;
+
+		// Record metrics
+		self.metrics.record_changes_applied(1);
+		self.metrics.record_entries_synced(&change.model_type, 1).await;
+
+		// Record latency
+		let latency_ms = start_time.elapsed().as_millis() as u64;
+		self.metrics.record_apply_latency(latency_ms);
 
 		info!(
 			model_type = %change.model_type,
@@ -1686,6 +1750,9 @@ impl PeerSync {
 
 	/// Apply shared change to database with conflict resolution
 	async fn apply_shared_change(&self, entry: SharedChangeEntry) -> Result<()> {
+		// Record start time for latency tracking
+		let start_time = std::time::Instant::now();
+
 		debug!(
 			hlc = %entry.hlc,
 			model_type = %entry.model_type,
@@ -1713,13 +1780,33 @@ impl PeerSync {
 		// Use the registry to route to the appropriate apply function
 		crate::infra::sync::apply_shared_change(entry.clone(), self.db.clone())
 			.await
-			.map_err(|e| anyhow::anyhow!("Failed to apply shared change: {}", e))?;
+			.map_err(|e| {
+				// Record error metrics (spawn async task)
+				let metrics = self.metrics.clone();
+				let model_type = entry.model_type.clone();
+				let error_msg = format!("Failed to apply shared change: {}", e);
+				tokio::spawn(async move {
+					let _ = metrics.record_error(
+						super::metrics::ErrorEvent::new("apply".to_string(), error_msg)
+							.with_model_type(model_type)
+					).await;
+				});
+				anyhow::anyhow!("Failed to apply shared change: {}", e)
+			})?;
 
 		// Record this change in our peer log (track what we've applied)
 		self.peer_log
 			.append(entry.clone())
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to append to peer log: {}", e))?;
+
+		// Record metrics
+		self.metrics.record_changes_applied(1);
+		self.metrics.record_entries_synced(&entry.model_type, 1).await;
+
+		// Record latency
+		let latency_ms = start_time.elapsed().as_millis() as u64;
+		self.metrics.record_apply_latency(latency_ms);
 
 		info!(
 			hlc = %entry.hlc,
@@ -2047,6 +2134,9 @@ impl PeerSync {
 			};
 		}
 
+		// Record state transition
+		self.metrics.record_state_transition(current_state, DeviceSyncState::CatchingUp { buffered_count: 0 }, Some("transitioning to ready".to_string())).await?;
+
 		// Process buffer
 		while let Some(update) = self.buffer.pop_ordered().await {
 			match update {
@@ -2065,6 +2155,9 @@ impl PeerSync {
 			*state = DeviceSyncState::Ready;
 		}
 
+		// Record state transition
+		self.metrics.record_state_transition(DeviceSyncState::CatchingUp { buffered_count: 0 }, DeviceSyncState::Ready, Some("buffered updates processed".to_string())).await?;
+
 		info!("Sync service is now ready");
 
 		// Emit event
@@ -2077,5 +2170,10 @@ impl PeerSync {
 		});
 
 		Ok(())
+	}
+
+	/// Get the event bus
+	pub fn event_bus(&self) -> &Arc<EventBus> {
+		&self.event_bus
 	}
 }

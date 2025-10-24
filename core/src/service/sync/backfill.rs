@@ -8,6 +8,7 @@
 //! 5. Transition to ready
 
 use super::{
+	metrics::SyncMetricsCollector,
 	peer::PeerSync,
 	protocol_handler::{LogSyncHandler, StateSyncHandler},
 	state::{select_backfill_peer, BackfillCheckpoint, DeviceSyncState, PeerInfo},
@@ -32,6 +33,7 @@ pub struct BackfillManager {
 	state_handler: Arc<StateSyncHandler>,
 	log_handler: Arc<LogSyncHandler>,
 	config: Arc<crate::infra::sync::SyncConfig>,
+	metrics: Arc<SyncMetricsCollector>,
 
 	/// Pending state request channel (backfill is sequential, only one at a time)
 	pending_state_response: Arc<Mutex<Option<oneshot::Sender<SyncMessage>>>>,
@@ -48,6 +50,7 @@ impl BackfillManager {
 		state_handler: Arc<StateSyncHandler>,
 		log_handler: Arc<LogSyncHandler>,
 		config: Arc<crate::infra::sync::SyncConfig>,
+		metrics: Arc<SyncMetricsCollector>,
 	) -> Self {
 		Self {
 			library_id,
@@ -56,6 +59,7 @@ impl BackfillManager {
 			state_handler,
 			log_handler,
 			config,
+			metrics,
 			pending_state_response: Arc::new(Mutex::new(None)),
 			pending_shared_response: Arc::new(Mutex::new(None)),
 		}
@@ -97,6 +101,9 @@ impl BackfillManager {
 
 	/// Start complete backfill process
 	pub async fn start_backfill(&self, available_peers: Vec<PeerInfo>) -> Result<()> {
+		// Record metrics
+		self.metrics.record_backfill_session_start();
+
 		info!(
 			library_id = %self.library_id,
 			device_id = %self.device_id,
@@ -155,6 +162,9 @@ impl BackfillManager {
 		// Phase 5: Set initial watermarks from actual received data (not local DB query)
 		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc).await?;
 
+		// Record metrics
+		self.metrics.record_backfill_session_complete();
+
 		info!("Backfill complete, device is ready");
 
 		Ok(())
@@ -204,6 +214,9 @@ impl BackfillManager {
 
 		// Update watermarks from actual received data (not local DB query)
 		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc).await?;
+
+		// Record metrics
+		self.metrics.record_backfill_session_complete();
 
 		info!("Incremental catch-up complete");
 		Ok(())
@@ -305,6 +318,9 @@ impl BackfillManager {
 				{
 					let db = self.peer_sync.db().clone();
 
+					// Record data volume metrics before consuming records
+					let records_count = records.len() as u64;
+
 					// Apply updates via registry
 					for record in records {
 						crate::infra::sync::registry::apply_state_change(
@@ -316,6 +332,9 @@ impl BackfillManager {
 						.map_err(|e| anyhow::anyhow!("{}", e))?;
 					}
 
+					// Record data volume metrics
+					self.metrics.record_entries_synced(&model_type, records_count).await;
+
 					// Apply deletions via registry
 					for uuid in deleted_uuids {
 						crate::infra::sync::registry::apply_deletion(&model_type, uuid, db.clone())
@@ -325,6 +344,9 @@ impl BackfillManager {
 
 					current_checkpoint.update(chk.clone(), 0.5); // TODO: Calculate actual progress
 					current_checkpoint.save().await?;
+
+					// Record pagination round
+					self.metrics.record_backfill_pagination_round();
 
 					// Update cursor for next iteration
 					cursor_checkpoint = chk;
@@ -383,6 +405,11 @@ impl BackfillManager {
 				}
 
 				total_applied += batch_size;
+				
+				// Record metrics
+				self.metrics.record_backfill_pagination_round();
+				self.metrics.record_entries_synced("shared", batch_size as u64).await;
+				
 				info!("Applied {} shared changes (total: {})", batch_size, total_applied);
 
 				// Update cursor to last HLC for next batch
