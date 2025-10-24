@@ -1,6 +1,6 @@
 //! Entry entity
 
-use sea_orm::entity::prelude::*;
+use sea_orm::{entity::prelude::*, ConnectionTrait, DbBackend, Statement};
 use serde::{Deserialize, Serialize};
 
 use crate::infra::sync::Syncable;
@@ -141,13 +141,11 @@ impl crate::infra::sync::Syncable for Model {
 		// WHERE (indexed_at > cursor_ts) OR (indexed_at = cursor_ts AND uuid > cursor_uuid)
 		if let Some((cursor_ts, cursor_uuid)) = cursor {
 			query = query.filter(
-				Condition::any()
-					.add(Column::IndexedAt.gt(cursor_ts))
-					.add(
-						Condition::all()
-							.add(Column::IndexedAt.eq(cursor_ts))
-							.add(Column::Uuid.gt(cursor_uuid)),
-					),
+				Condition::any().add(Column::IndexedAt.gt(cursor_ts)).add(
+					Condition::all()
+						.add(Column::IndexedAt.eq(cursor_ts))
+						.add(Column::Uuid.gt(cursor_uuid)),
+				),
 			);
 		}
 
@@ -168,17 +166,18 @@ impl crate::infra::sync::Syncable for Model {
 			.map(|e| e.id)
 			.collect();
 
-		let directory_paths_map: std::collections::HashMap<i32, String> = if !directory_ids.is_empty() {
-			super::directory_paths::Entity::find()
-				.filter(super::directory_paths::Column::EntryId.is_in(directory_ids))
-				.all(db)
-				.await?
-				.into_iter()
-				.map(|dp| (dp.entry_id, dp.path))
-				.collect()
-		} else {
-			std::collections::HashMap::new()
-		};
+		let directory_paths_map: std::collections::HashMap<i32, String> =
+			if !directory_ids.is_empty() {
+				super::directory_paths::Entity::find()
+					.filter(super::directory_paths::Column::EntryId.is_in(directory_ids))
+					.all(db)
+					.await?
+					.into_iter()
+					.map(|dp| (dp.entry_id, dp.path))
+					.collect()
+			} else {
+				std::collections::HashMap::new()
+			};
 
 		// Convert to sync format with FK mapping
 		let mut sync_results = Vec::new();
@@ -204,7 +203,10 @@ impl crate::infra::sync::Syncable for Model {
 				// Directory
 				if let Some(path) = directory_paths_map.get(&entry.id) {
 					if let Some(obj) = json.as_object_mut() {
-						obj.insert("directory_path".to_string(), serde_json::Value::String(path.clone()));
+						obj.insert(
+							"directory_path".to_string(),
+							serde_json::Value::String(path.clone()),
+						);
 					}
 				}
 			}
@@ -243,11 +245,7 @@ impl crate::infra::sync::Syncable for Model {
 	/// Apply deletion by UUID (cascades to entry subtree)
 	async fn apply_deletion(uuid: Uuid, db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
 		// Find entry by UUID
-		let entry = match Entity::find()
-			.filter(Column::Uuid.eq(uuid))
-			.one(db)
-			.await?
-		{
+		let entry = match Entity::find().filter(Column::Uuid.eq(uuid)).one(db).await? {
 			Some(e) => e,
 			None => return Ok(()), // Already deleted, idempotent
 		};
@@ -460,6 +458,11 @@ impl Model {
 			inserted.id
 		};
 
+		// Rebuild entry_closure for this synced entry
+		// Without this, the entry only has a self-reference and cannot be queried
+		// for descendants, breaking subtree operations, location scoping, etc.
+		Self::rebuild_entry_closure(entry_id, parent_id, db).await?;
+
 		// If this is a directory, create or update its entry in the directory_paths table
 		if EntryKind::from(kind) == EntryKind::Directory {
 			// Check if path was included in sync data (preferred - ensures identical paths)
@@ -493,6 +496,58 @@ impl Model {
 			// 1. Be included in sync data (location roots, new code)
 			// 2. Be created during local indexing (has full filesystem path)
 			// If neither, the path will be missing but won't corrupt existing correct paths
+		}
+
+		Ok(())
+	}
+
+	/// Rebuild entry_closure records for a synced entry
+	///
+	/// This is critical for maintaining the closure table when entries are synced.
+	/// Without this, synced entries only have self-references and cannot be queried
+	/// for descendants, which breaks subtree operations and location scoping.
+	async fn rebuild_entry_closure(
+		entry_id: i32,
+		parent_id: Option<i32>,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		use sea_orm::{ConnectionTrait, Set};
+
+		// Delete existing closure records for this entry (as descendant)
+		// This ensures we don't have stale relationships if parent changed
+		super::entry_closure::Entity::delete_many()
+			.filter(super::entry_closure::Column::DescendantId.eq(entry_id))
+			.exec(db)
+			.await?;
+
+		// Insert self-reference (depth 0)
+		let self_closure = super::entry_closure::ActiveModel {
+			ancestor_id: Set(entry_id),
+			descendant_id: Set(entry_id),
+			depth: Set(0),
+		};
+		self_closure.insert(db).await?;
+
+		// If there's a parent, copy all parent's ancestors
+		// This creates the transitive closure relationships
+		if let Some(parent_id) = parent_id {
+			db.execute(Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				r#"
+				INSERT INTO entry_closure (ancestor_id, descendant_id, depth)
+				SELECT ancestor_id, ?, depth + 1
+				FROM entry_closure
+				WHERE descendant_id = ?
+				"#,
+				vec![entry_id.into(), parent_id.into()],
+			))
+			.await?;
+
+			tracing::debug!(
+				entry_id = entry_id,
+				parent_id = parent_id,
+				"Rebuilt entry_closure for synced entry"
+			);
 		}
 
 		Ok(())
@@ -549,6 +604,86 @@ impl Model {
 			)
 			.exec(db)
 			.await?;
+
+		Ok(())
+	}
+
+	/// Bulk rebuild entire entry_closure table from scratch
+	///
+	/// This is a safety measure to run after backfill or if the closure table
+	/// becomes corrupted. Rebuilds all relationships from the parent_id links.
+	pub async fn rebuild_all_entry_closures(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+		tracing::info!("Starting bulk entry_closure rebuild...");
+
+		// Clear existing closure table
+		super::entry_closure::Entity::delete_many()
+			.exec(db)
+			.await?;
+
+		// 1. Insert all self-references (depth 0)
+		db.execute(Statement::from_sql_and_values(
+			DbBackend::Sqlite,
+			r#"
+			INSERT INTO entry_closure (ancestor_id, descendant_id, depth)
+			SELECT id, id, 0 FROM entries
+			"#,
+			vec![],
+		))
+		.await?;
+
+		// 2. Recursively build parent-child relationships
+		// Keep inserting until no new relationships found
+		let mut iteration = 0;
+		loop {
+			let result = db
+				.execute(Statement::from_sql_and_values(
+					DbBackend::Sqlite,
+					r#"
+					INSERT OR IGNORE INTO entry_closure (ancestor_id, descendant_id, depth)
+					SELECT ec.ancestor_id, e.id, ec.depth + 1
+					FROM entries e
+					INNER JOIN entry_closure ec ON ec.descendant_id = e.parent_id
+					WHERE e.parent_id IS NOT NULL
+					  AND NOT EXISTS (
+						SELECT 1 FROM entry_closure
+						WHERE ancestor_id = ec.ancestor_id
+						  AND descendant_id = e.id
+					  )
+					"#,
+					vec![],
+				))
+				.await?;
+
+			iteration += 1;
+			let rows_affected = result.rows_affected();
+
+			tracing::debug!(
+				iteration = iteration,
+				rows_inserted = rows_affected,
+				"entry_closure rebuild iteration"
+			);
+
+			if rows_affected == 0 {
+				break; // No more relationships to add
+			}
+
+			if iteration > 100 {
+				return Err(sea_orm::DbErr::Custom(
+					"entry_closure rebuild exceeded max iterations - possible cycle".to_string(),
+				));
+			}
+		}
+
+		// Count final relationships
+		let total = super::entry_closure::Entity::find()
+			.count(db)
+			.await?;
+
+		tracing::info!(
+			iterations = iteration,
+			total_relationships = total,
+			"Bulk entry_closure rebuild complete"
+		);
 
 		Ok(())
 	}
