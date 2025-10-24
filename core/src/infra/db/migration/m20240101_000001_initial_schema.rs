@@ -11,42 +11,6 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
 	async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-		// Create libraries table
-		manager
-			.create_table(
-				Table::create()
-					.table(Libraries::Table)
-					.if_not_exists()
-					.col(
-						ColumnDef::new(Libraries::Id)
-							.integer()
-							.not_null()
-							.auto_increment()
-							.primary_key(),
-					)
-					.col(
-						ColumnDef::new(Libraries::Uuid)
-							.uuid()
-							.not_null()
-							.unique_key(),
-					)
-					.col(ColumnDef::new(Libraries::Name).string().not_null())
-					.col(ColumnDef::new(Libraries::DbVersion).integer().not_null())
-					.col(ColumnDef::new(Libraries::SyncId).uuid())
-					.col(
-						ColumnDef::new(Libraries::CreatedAt)
-							.timestamp_with_time_zone()
-							.not_null(),
-					)
-					.col(
-						ColumnDef::new(Libraries::UpdatedAt)
-							.timestamp_with_time_zone()
-							.not_null(),
-					)
-					.to_owned(),
-			)
-			.await?;
-
 		// Create devices table
 		manager
 			.create_table(
@@ -762,27 +726,12 @@ impl MigrationTrait for Migration {
 		manager
 			.drop_table(Table::drop().table(Devices::Table).to_owned())
 			.await?;
-		manager
-			.drop_table(Table::drop().table(Libraries::Table).to_owned())
-			.await?;
 
 		Ok(())
 	}
 }
 
 // Table identifiers
-
-#[derive(DeriveIden)]
-enum Libraries {
-	Table,
-	Id,
-	Uuid,
-	Name,
-	DbVersion,
-	SyncId,
-	CreatedAt,
-	UpdatedAt,
-}
 
 #[derive(DeriveIden)]
 enum Devices {

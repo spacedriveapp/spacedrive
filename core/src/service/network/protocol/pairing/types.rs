@@ -78,7 +78,7 @@ impl PairingCode {
 		});
 
 		// Derive session ID from the secret to ensure consistency with parsing
-		// This is critical: both encode and decode paths must derive the same session_id
+		// both encode and decode paths must derive the same session_id
 		let derived_session_id = Self::derive_session_id(&secret);
 
 		Self {
@@ -289,7 +289,7 @@ impl PairingCode {
 		});
 
 		// Derive session ID from the secret to ensure consistency with parsing
-		// This is critical: both encode and decode paths must derive the same session_id
+		// both encode and decode paths must derive the same session_id
 		let derived_session_id = Self::derive_session_id(&secret);
 
 		Self {

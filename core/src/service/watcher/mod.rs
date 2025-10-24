@@ -353,7 +353,7 @@ impl LocationWatcher {
 			return Ok(());
 		}
 
-		// CRITICAL: Verify this device owns the location (defense in depth)
+		// Verify this device owns the location (defense in depth)
 		// This prevents watching locations owned by other devices
 		let libraries = self.context.libraries().await;
 		if let Some(library) = libraries.get_library(location.library_id).await {
@@ -367,16 +367,17 @@ impl LocationWatcher {
 				.await
 			{
 				// Get the owning device
-				if let Ok(Some(owning_device)) = crate::infra::db::entities::device::Entity::find_by_id(location_record.device_id)
+				if let Ok(Some(owning_device)) =
+					crate::infra::db::entities::device::Entity::find_by_id(
+						location_record.device_id,
+					)
 					.one(db)
 					.await
 				{
 					if owning_device.uuid != current_device_uuid {
 						warn!(
 							"Refusing to watch location {} owned by device {} (current device: {})",
-							location.id,
-							owning_device.uuid,
-							current_device_uuid
+							location.id, owning_device.uuid, current_device_uuid
 						);
 						return Err(anyhow::anyhow!(
 							"Cannot watch location {} - owned by different device",
@@ -545,17 +546,25 @@ impl LocationWatcher {
 			};
 
 			// Add timeout to the database query
-			// CRITICAL: Only watch locations owned by THIS device
+			// Only watch locations owned by THIS device
 			let locations_result = tokio::time::timeout(
 				std::time::Duration::from_secs(10),
 				crate::infra::db::entities::location::Entity::find()
-					.filter(crate::infra::db::entities::location::Column::DeviceId.eq(current_device.id))
-					.all(db)
-			).await;
+					.filter(
+						crate::infra::db::entities::location::Column::DeviceId
+							.eq(current_device.id),
+					)
+					.all(db),
+			)
+			.await;
 
 			match locations_result {
 				Ok(Ok(locations)) => {
-					debug!("Found {} locations in library {}", locations.len(), library.id());
+					debug!(
+						"Found {} locations in library {}",
+						locations.len(),
+						library.id()
+					);
 
 					for location in locations {
 						// Skip locations without entry_id (not yet synced)
@@ -568,9 +577,8 @@ impl LocationWatcher {
 						let path_result = tokio::time::timeout(
 							std::time::Duration::from_secs(5),
 							crate::ops::indexing::path_resolver::PathResolver::get_full_path(
-								db,
-								entry_id,
-							)
+								db, entry_id,
+							),
 						)
 						.await;
 
@@ -618,10 +626,16 @@ impl LocationWatcher {
 								}
 							}
 							Ok(Err(e)) => {
-								warn!("Failed to get path for location {}: {}, skipping", location.uuid, e);
+								warn!(
+									"Failed to get path for location {}: {}, skipping",
+									location.uuid, e
+								);
 							}
 							Err(_) => {
-								warn!("Timeout getting path for location {}, skipping", location.uuid);
+								warn!(
+									"Timeout getting path for location {}, skipping",
+									location.uuid
+								);
 							}
 						}
 					}
