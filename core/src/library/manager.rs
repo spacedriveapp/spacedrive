@@ -190,6 +190,119 @@ impl LibraryManager {
 		Ok(library)
 	}
 
+	/// Create library with specific UUID and pre-register an initial device
+	/// Used when creating a shared library - the requesting device is pre-registered
+	/// so the current device can detect slug collisions and rename itself
+	pub async fn create_library_with_id_and_initial_device(
+		&self,
+		library_id: Uuid,
+		name: impl Into<String>,
+		description: Option<String>,
+		initial_device_id: Uuid,
+		initial_device_name: String,
+		initial_device_slug: String,
+		context: Arc<CoreContext>,
+	) -> Result<Arc<Library>> {
+		let name = name.into();
+
+		// Validate name
+		if name.is_empty() {
+			return Err(LibraryError::InvalidName(
+				"Name cannot be empty".to_string(),
+			));
+		}
+
+		// Sanitize name for filesystem
+		let safe_name = sanitize_filename(&name);
+
+		// Use default library location
+		let base_path = self.search_paths.first().cloned().unwrap_or_else(|| {
+			dirs::home_dir()
+				.unwrap_or_else(|| PathBuf::from("."))
+				.join("Spacedrive")
+				.join("Libraries")
+		});
+
+		// Ensure base path exists
+		tokio::fs::create_dir_all(&base_path).await.map_err(|e| {
+			LibraryError::IoError(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				format!("Failed to create libraries directory: {}", e),
+			))
+		})?;
+
+		// Find unique library path
+		let library_path = find_unique_library_path(&base_path, &safe_name).await?;
+
+		// Create library directory
+		tokio::fs::create_dir_all(&library_path).await?;
+
+		// Initialize library with provided UUID
+		self.initialize_library_with_id(&library_path, library_id, name.clone(), description, context.clone())
+			.await?;
+
+		// Pre-register the initial device BEFORE opening the library
+		// This ensures when ensure_device_registered runs, it detects the collision
+		let db_path = library_path.join("database.db");
+		let db_url = format!("sqlite://{}?mode=rwc", db_path.display());
+		let db_conn = sea_orm::Database::connect(&db_url)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		use crate::infra::db::entities;
+		use chrono::Utc;
+		use sea_orm::{ActiveModelTrait, Set};
+
+		let initial_device_model = entities::device::ActiveModel {
+			id: sea_orm::ActiveValue::NotSet,
+			uuid: Set(initial_device_id),
+			name: Set(initial_device_name),
+			slug: Set(initial_device_slug),
+			os: Set("Desktop".to_string()),
+			os_version: Set(None),
+			hardware_model: Set(None),
+			network_addresses: Set(serde_json::json!([])),
+			is_online: Set(false),
+			last_seen_at: Set(Utc::now()),
+			capabilities: Set(serde_json::json!({
+				"indexing": true,
+				"p2p": true,
+				"volume_detection": true
+			})),
+			created_at: Set(Utc::now()),
+			updated_at: Set(Utc::now()),
+			sync_enabled: Set(true),
+			last_sync_at: Set(None),
+			last_state_watermark: Set(None),
+			last_shared_watermark: Set(None),
+		};
+
+		initial_device_model
+			.insert(&db_conn)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		info!(
+			"Pre-registered requesting device {} in library {}",
+			initial_device_id, library_id
+		);
+
+		// Close the temporary connection
+		drop(db_conn);
+
+		// Now open the library (which will call ensure_device_registered for current device)
+		let library = self.open_library(&library_path, context).await?;
+
+		// Emit event
+		self.event_bus.emit(Event::LibraryCreated {
+			id: library.id(),
+			name: library.name().await,
+			path: library_path.clone(),
+		});
+
+		Ok(library)
+	}
+
 	/// Internal library creation with optional sync init
 	async fn create_library_internal(
 		&self,
@@ -739,7 +852,8 @@ impl LibraryManager {
 				}
 			}
 		} else {
-			// First time registration - check for slug collisions
+			// First time registration - check if OUR slug conflicts with existing devices
+			// Only the joining device renames itself, never rename existing devices
 			let existing_slugs: Vec<String> = entities::device::Entity::find()
 				.all(db.conn())
 				.await
@@ -748,22 +862,28 @@ impl LibraryManager {
 				.map(|d| d.slug.clone())
 				.collect();
 
-			let original_slug = device.slug.clone();
-			let candidate_slug = Library::ensure_unique_slug(&original_slug, &existing_slugs);
+			// Get current device's effective slug for this library
+			let current_slug = self
+				.device_manager
+				.slug_for_library(library.id())
+				.map_err(|e| LibraryError::Other(format!("Failed to get device slug: {}", e)))?;
 
-			// If renamed, update DeviceConfig
-			if candidate_slug != original_slug {
+			let unique_slug = Library::ensure_unique_slug(&current_slug, &existing_slugs);
+
+			// If OUR slug conflicts, store library-specific override
+			if unique_slug != current_slug {
 				warn!(
-					"Device slug collision in library {}. Renaming '{}' to '{}'",
+					"Device slug collision in library {}. This device will use '{}' instead of '{}' in this library",
 					library.id(),
-					original_slug,
-					candidate_slug
+					unique_slug,
+					current_slug
 				);
 
-				// Update config via public API
 				self.device_manager
-					.update_slug(candidate_slug.clone())
-					.map_err(|e| LibraryError::Other(format!("Failed to update device slug: {}", e)))?;
+					.set_library_slug(library.id(), unique_slug.clone())
+					.map_err(|e| {
+						LibraryError::Other(format!("Failed to set library-specific slug: {}", e))
+					})?;
 			}
 
 			// Register the device for the first time
@@ -771,7 +891,7 @@ impl LibraryManager {
 				id: sea_orm::ActiveValue::NotSet,
 				uuid: Set(device.id),
 				name: Set(device.name.clone()),
-				slug: Set(candidate_slug.clone()),
+				slug: Set(unique_slug.clone()),
 				os: Set(device.os.to_string()),
 				os_version: Set(None),
 				hardware_model: Set(device.hardware_model),

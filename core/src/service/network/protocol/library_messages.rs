@@ -42,6 +42,10 @@ pub enum LibraryMessage {
 		library_id: Uuid,
 		library_name: String,
 		description: Option<String>,
+		/// Info about the requesting device (to pre-register before library creation)
+		requesting_device_id: Uuid,
+		requesting_device_name: String,
+		requesting_device_slug: String,
 	},
 
 	/// Response to library creation request
@@ -49,6 +53,8 @@ pub enum LibraryMessage {
 		request_id: Uuid,
 		success: bool,
 		message: Option<String>,
+		/// The slug this device is using in the shared library (may be renamed due to collision)
+		device_slug: Option<String>,
 	},
 
 	/// Request library state for collision detection before joining

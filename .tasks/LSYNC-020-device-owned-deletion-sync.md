@@ -25,8 +25,8 @@ Device A: Location removed from local DB (cascade deletes entries via FK)
 Device B: Still shows "Photos" location and all 10,000 entries
 Device C: Still shows "Photos" location and all 10,000 entries
     ↓
-Library state is permanently inconsistent 
-VDFS contract violated 
+Library state is permanently inconsistent
+VDFS contract violated
 ```
 
 ### Root Cause
@@ -53,10 +53,11 @@ Track deletions using **tombstones** that leverage the existing `entry_closure` 
 ### Key Insight: Leverage Tree Structure
 
 Entries already form a tree via `entry_closure`. When we delete a folder with 10,000 files:
+
 - **Traditional approach**: Create 10,000 tombstones (one per entry)
 - **Cascading approach**: Create 1 tombstone (just the root), receiving device cascades automatically
 
-**Compression ratio: 10,000:1** 
+**Compression ratio: 10,000:1**
 
 ### High-Level Flow
 
@@ -77,7 +78,7 @@ Device B: Looks up folder by UUID, calls delete_subtree()
     ↓
 Device B: Cascade deletes all 10,000 children automatically
     ↓
-Result: VDFS consistency restored ✅
+Result: VDFS consistency restored 
 ```
 
 ## Technical Design
@@ -102,12 +103,14 @@ Both run in same hourly pruning task!
 ```
 
 **Why tombstones stay in library.db:**
+
 - Atomic transactions (create entries + tombstones together)
 - Foreign key constraints work (to devices table)
 - No coupling - indexer/watcher don't need sync.db access
 - Simpler error handling (single database transaction)
 
 **Why pruning is unified:**
+
 - Same conceptual model (ack-based pruning)
 - One configuration point for retention policy
 - Easier to understand and maintain
@@ -135,6 +138,7 @@ CREATE INDEX idx_tombstones_lookup
 ```
 
 **Storage characteristics with cascading + ack-based pruning:**
+
 ```
 Normal operation (all devices online, hourly pruning):
 - Tombstones live ~1 hour max
@@ -155,7 +159,7 @@ Worst case (broken watermarks, 30-day fallback):
 Without cascading would be:
 - Entries: 100 + 10,000 = 10,100 tombstones
 - Storage: ~1.5 MB
-- Compression: 89:1 with cascading! 
+- Compression: 89:1 with cascading!
 ```
 
 ### Protocol Changes
@@ -186,6 +190,7 @@ StateResponse {
 #### 1. Entry Deletion with Cascading Tombstone
 
 Entry deletions happen in two places:
+
 - **File watcher** (`watcher/worker.rs` → `responder::handle_remove()`)
 - **Change detector** (indexer re-scan finds deleted files)
 
@@ -264,11 +269,13 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 ```
 
 **Key points:**
+
 - Delete 10,000 entries → Create 1 tombstone
 - Atomic transaction (all-or-nothing)
 - Works for files (no children) and folders (many children)
 
 **Note:** We'll need two variants of `delete_subtree()`:
+
 - `delete_subtree()` - Creates tombstones (used by watcher/indexer)
 - `delete_subtree_internal()` - No tombstones (used by `apply_deletion` to avoid recursion)
 
@@ -460,7 +467,7 @@ impl Syncable for Model {
     async fn apply_state_change(data: serde_json::Value, db: &DatabaseConnection) -> Result<(), DbErr> {
         let uuid: Uuid = extract_uuid_from_json(&data)?;
 
-        // CRITICAL: Check if location was deleted (prevents race condition)
+        // Check if location was deleted (prevents race condition)
         if Self::is_tombstoned(uuid, db).await? {
             debug!("Skipping state change for tombstoned location {}", uuid);
             return Ok(());
@@ -492,7 +499,7 @@ impl Syncable for Model {
     async fn apply_state_change(data: serde_json::Value, db: &DatabaseConnection) -> Result<(), DbErr> {
         let uuid: Uuid = extract_uuid_from_json(&data)?;
 
-        // CRITICAL: Check if entry was deleted (prevents race condition)
+        // Check if entry was deleted (prevents race condition)
         if Self::is_tombstoned(uuid, db).await? {
             debug!("Skipping state change for tombstoned entry {}", uuid);
             return Ok(());
@@ -606,6 +613,7 @@ async fn apply_state_batch(&self, response: StateResponse) -> Result<()> {
 ```
 
 **Benefits:**
+
 - Completely generic - no model-specific code in backfill handler
 - Matches existing sync design (updates use `apply_state_change`, deletions use `apply_deletion`)
 - Extensible - new models just implement the trait method
@@ -719,6 +727,7 @@ impl SyncService {
 ```
 
 **Key insights:**
+
 - Both use "min of all devices" pattern (HLC for shared, watermark for device-owned)
 - Both have safety limits (7 days for tombstones, similar for peer log)
 - Both run in same task (unified pruning)
@@ -737,7 +746,7 @@ Device A: Delete /Photos (parent folder)
 Device B: Receives tombstone for /Photos
     → Calls delete_subtree()
     → File already gone (no-op, idempotent)
-    → Successfully deletes /Photos ✅
+    → Successfully deletes /Photos 
 ```
 
 **Verdict:** Safe! `delete_subtree()` handles missing children gracefully.
@@ -756,7 +765,7 @@ Later deletes /Photos (parent):
 Receiving device processes all 4 tombstones:
 - Deletes individual files first
 - Then deletes /Photos (cascade to already-deleted children is no-op)
-- Correct final state ✅
+- Correct final state 
 ```
 
 **Verdict:** Order-independent, idempotent.
@@ -779,7 +788,7 @@ Device B receives tombstone:
 - Calls delete_subtree() on /Photos entry
 - Cascades to /Subfolder
 - file1.jpg, file2.jpg never made it to B anyway
-- Correct state ✅
+- Correct state 
 ```
 
 **Verdict:** Safe! Can only delete what exists locally.
@@ -827,6 +836,7 @@ async fn apply_state_change(data: Json, db: &DatabaseConnection) -> Result<(), D
 ```
 
 **This prevents:**
+
 - Re-creating deleted records during backfill
 - Creating orphaned children when parent is deleted
 
@@ -863,14 +873,14 @@ pub async fn catch_up_from_peer(
 
 A comprehensive audit of the sync codebase confirmed the design is sound with minor additions needed.
 
-### Protocol Compatibility ✅
+### Protocol Compatibility 
 
 - StateResponse uses serde JSON serialization (backward compatible)
 - Adding `deleted_uuids: Vec<Uuid>` as optional field is safe
 - Old clients will ignore unknown fields gracefully
 - No breaking changes to existing messages
 
-### Registry Pattern Compatibility ✅
+### Registry Pattern Compatibility 
 
 - Registry uses function pointers (easy to add deletion dispatch)
 - Can add `StateDeleteFn` type alongside `StateApplyFn`
@@ -880,11 +890,13 @@ A comprehensive audit of the sync codebase confirmed the design is sound with mi
 ### Existing Deletion Paths Identified
 
 **Device-Owned Models:**
+
 - `location::Manager::remove_location()` - Only local deletion, NO sync
 - `responder::delete_subtree()` - Entry deletion via watcher, NO sync
 - File delete operations - Local only, NO sync
 
 **Shared Models:**
+
 - Tags/Collections already support `ChangeType::Delete` via peer log
 - Uses HLC-based sync with acknowledgments
 - Device-owned models lack equivalent
@@ -897,7 +909,7 @@ A comprehensive audit of the sync codebase confirmed the design is sound with mi
 
 **Additional:** For entries, also check if parent is tombstoned (prevents orphaned children).
 
-### Watermark Infrastructure ✅
+### Watermark Infrastructure 
 
 - `devices.last_state_watermark` already tracks device-owned sync progress
 - Can reuse for tombstone acknowledgment (no new table needed)
@@ -906,29 +918,21 @@ A comprehensive audit of the sync codebase confirmed the design is sound with mi
 ### Files Requiring Modification
 
 **Core Infrastructure (4 files):**
+
 1. `core/src/infra/sync/syncable.rs` - Add `apply_deletion()` and `is_tombstoned()` methods
 2. `core/src/infra/sync/registry.rs` - Add deletion dispatch function
 3. `core/src/service/network/protocol/sync/messages.rs` - Add `deleted_uuids` field
 4. `core/src/infra/db/entities/device_state_tombstone.rs` - New entity model
 
-**Model Implementations (3 files):**
-5. `core/src/infra/db/entities/location.rs` - Implement tombstone check + apply_deletion
-6. `core/src/infra/db/entities/entry.rs` - Implement tombstone check + apply_deletion
-7. `core/src/infra/db/entities/volume.rs` - Implement tombstone check + apply_deletion
+**Model Implementations (3 files):** 5. `core/src/infra/db/entities/location.rs` - Implement tombstone check + apply_deletion 6. `core/src/infra/db/entities/entry.rs` - Implement tombstone check + apply_deletion 7. `core/src/infra/db/entities/volume.rs` - Implement tombstone check + apply_deletion
 
-**Deletion Logic (2 files):**
-8. `core/src/ops/indexing/responder.rs` - Split delete_subtree variants, create tombstones
-9. `core/src/location/manager.rs` - Create tombstones on location deletion
+**Deletion Logic (2 files):** 8. `core/src/ops/indexing/responder.rs` - Split delete_subtree variants, create tombstones 9. `core/src/location/manager.rs` - Create tombstones on location deletion
 
-**Sync Protocol (2 files):**
-10. `core/src/service/sync/protocol_handler.rs` - Query tombstones in StateResponse
-11. `core/src/service/sync/backfill.rs` - Process deleted_uuids via registry
+**Sync Protocol (2 files):** 10. `core/src/service/sync/protocol_handler.rs` - Query tombstones in StateResponse 11. `core/src/service/sync/backfill.rs` - Process deleted_uuids via registry
 
-**Pruning (1 file):**
-12. `core/src/service/sync/mod.rs` - Unified ack-based pruning task
+**Pruning (1 file):** 12. `core/src/service/sync/mod.rs` - Unified ack-based pruning task
 
-**Migration (1 file):**
-13. New migration file for `device_state_tombstones` table
+**Migration (1 file):** 13. New migration file for `device_state_tombstones` table
 
 **Total: 13 files** (no deletions, all additions/modifications)
 
@@ -949,7 +953,7 @@ Storage: 113 × 150 bytes = ~17 KB
 Without cascading:
 - Entry tombstones: 100 + 10,000 = 10,100 tombstones
 - Storage: ~1.5 MB
-- Compression ratio: 89:1 
+- Compression ratio: 89:1
 ```
 
 ### Network Overhead (With Cascading)
@@ -961,7 +965,7 @@ StateResponse for folder deletion:
 vs without cascading:
 - deleted_uuids: [...10000 UUIDs...]  // 360 KB
 
-Network compression: 10,000:1 
+Network compression: 10,000:1
 ```
 
 ### Query Performance
@@ -1109,6 +1113,7 @@ async fn test_watermark_too_old_forces_full_sync() {
 **Solution:** Only tombstone the root UUID. Receiving device uses `entry_closure` to cascade automatically.
 
 **Benefits:**
+
 - **Massive compression** - 100:1 to 10,000:1 for folders
 - **Leverages existing tree structure** - `entry_closure` does the heavy lifting
 - **Order-independent** - Process deletions in any order
@@ -1123,6 +1128,7 @@ async fn test_watermark_too_old_forces_full_sync() {
 **Solution:** Extend `Syncable` trait with `apply_deletion()` method. Use registry pattern for dispatch.
 
 **Benefits:**
+
 - **Consistent with library sync design** - Matches existing `apply_state_change()` pattern
 - **Completely generic** - Backfill handler has zero model-specific code
 - **Extensible** - New models just implement the trait method
@@ -1137,6 +1143,7 @@ async fn test_watermark_too_old_forces_full_sync() {
 **Solution:** Use the same "min of all devices" pattern for both. Single unified pruning task.
 
 **Benefits:**
+
 - **Conceptually unified** - Peer log and tombstones both use ack-based pruning
 - **Aggressive cleanup** - Prunes within 1 hour when all devices caught up
 - **Safety limits** - 7-day max prevents offline devices blocking forever
@@ -1184,6 +1191,7 @@ SyncRetentionPolicy {
 ```
 
 **Single config affects:**
+
 - Peer log pruning (shared resources)
 - Tombstone pruning (device-owned deletions)
 - Both watermark-based sync mechanisms
@@ -1211,6 +1219,7 @@ SyncRetentionPolicy {
 ---
 
 **Next Steps:**
+
 1. Review and approve cascading tombstone design
 2. Implement Phase 1 (schema + tombstone creation)
 3. Implement Phase 2 (sync protocol changes)

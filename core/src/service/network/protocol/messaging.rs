@@ -274,12 +274,40 @@ impl MessagingProtocolHandler {
 							continue;
 						}
 						Ok(None) => {
-							// Register new device
+							// Get existing slugs for collision detection
+							let existing_slugs: Vec<String> = match entities::device::Entity::find()
+								.all(db.conn())
+								.await
+							{
+								Ok(devices) => devices.iter().map(|d| d.slug.clone()).collect(),
+								Err(e) => {
+									success = false;
+									error_msg = Some(format!("Database error: {}", e));
+									break;
+								}
+							};
+
+							// Check if the device's slug conflicts and rename if needed
+							let unique_slug = crate::library::Library::ensure_unique_slug(
+								&device_slug,
+								&existing_slugs,
+							);
+
+							if unique_slug != device_slug {
+								tracing::info!(
+									"Device slug collision in library {}. Registering device as '{}' instead of '{}'",
+									library.id(),
+									unique_slug,
+									device_slug
+								);
+							}
+
+							// Register remote device
 							let device_model = entities::device::ActiveModel {
 								id: sea_orm::ActiveValue::NotSet,
 								uuid: Set(device_id),
 								name: Set(device_name.clone()),
-								slug: Set(device_slug.clone()),
+								slug: Set(unique_slug),
 								os: Set(os_name.clone()),
 								os_version: Set(os_version.clone()),
 								hardware_model: Set(hardware_model.clone()),
@@ -333,11 +361,16 @@ impl MessagingProtocolHandler {
 				library_id,
 				library_name,
 				description,
+				requesting_device_id,
+				requesting_device_name,
+				requesting_device_slug,
 			} => {
 				tracing::info!(
-					"Received CreateSharedLibraryRequest: {} ({})",
+					"Received CreateSharedLibraryRequest: {} ({}) from device {} (slug: {})",
 					library_name,
-					library_id
+					library_id,
+					requesting_device_id,
+					requesting_device_slug
 				);
 
 				let context = self.context.as_ref().ok_or_else(|| {
@@ -347,29 +380,56 @@ impl MessagingProtocolHandler {
 				let library_manager = context.libraries().await;
 
 				// Check if library already exists
-				if let Some(_existing) = library_manager.get_library(library_id).await {
+				if let Some(existing_library) = library_manager.get_library(library_id).await {
 					tracing::info!("Library {} already exists, returning success", library_id);
+
+					// Get this device's slug in the library
+					let device_slug = context
+						.device_manager
+						.slug_for_library(library_id)
+						.ok();
+
 					let response = Message::Library(LibraryMessage::CreateSharedLibraryResponse {
 						request_id,
 						success: true,
 						message: Some("Library already exists".to_string()),
+						device_slug,
 					});
 					return serde_json::to_vec(&response)
 						.map_err(|e| NetworkingError::Serialization(e));
 				}
 
 				// Create library with specific UUID
+				// Note: We pass the requesting device info so it can be pre-registered
+				// before ensure_device_registered runs for the current device
 				match library_manager
-					.create_library_with_id(library_id, library_name.clone(), description, context.clone())
+					.create_library_with_id_and_initial_device(
+						library_id,
+						library_name.clone(),
+						description,
+						requesting_device_id,
+						requesting_device_name,
+						requesting_device_slug,
+						context.clone(),
+					)
 					.await
 				{
 					Ok(_) => {
 						tracing::info!("Successfully created shared library: {}", library_name);
+
+						// Get this device's resolved slug in the new library
+						// After ensure_device_registered, this will return the collision-resolved slug
+						let device_slug = context
+							.device_manager
+							.slug_for_library(library_id)
+							.ok();
+
 						let response =
 							Message::Library(LibraryMessage::CreateSharedLibraryResponse {
 								request_id,
 								success: true,
 								message: None,
+								device_slug,
 							});
 						serde_json::to_vec(&response)
 							.map_err(|e| NetworkingError::Serialization(e))
@@ -381,6 +441,7 @@ impl MessagingProtocolHandler {
 								request_id,
 								success: false,
 								message: Some(e.to_string()),
+								device_slug: None,
 							});
 						serde_json::to_vec(&response)
 							.map_err(|e| NetworkingError::Serialization(e))
