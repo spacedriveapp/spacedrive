@@ -8,23 +8,26 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum LibrarySyncAction {
-	/// Keep libraries separate, only register devices in each other's libraries
-	/// This allows Spacedrop and future selective sync without full library merge
-	RegisterOnly,
-
-	/// Future: Merge remote library into local (local becomes leader)
+	/// Share local library to remote device (creates same library with same UUID on remote)
+	/// This is the primary way to create a shared library
 	#[serde(rename_all = "camelCase")]
-	MergeIntoLocal { remote_library_id: Uuid },
+	ShareLocalLibrary { library_name: String },
 
-	/// Future: Merge local library into remote (remote becomes leader)
+	/// Join an existing remote library (creates same library with same UUID locally)
+	/// Use this when the other device has already shared their library
 	#[serde(rename_all = "camelCase")]
-	MergeIntoRemote { local_library_id: Uuid },
+	JoinRemoteLibrary {
+		remote_library_id: Uuid,
+		remote_library_name: String,
+	},
 
-	/// Future: Create new shared library (choose leader)
+	/// Future: Merge two different libraries into one (combines data from both)
+	/// Not yet implemented - requires full sync system
 	#[serde(rename_all = "camelCase")]
-	CreateShared {
-		leader_device_id: Uuid,
-		name: String,
+	MergeLibraries {
+		local_library_id: Uuid,
+		remote_library_id: Uuid,
+		merged_name: String,
 	},
 }
 

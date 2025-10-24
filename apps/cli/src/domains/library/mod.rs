@@ -326,16 +326,31 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 	let action_idx = select(
 		"Select sync action",
 		&[
-			"Register existing library (sync with existing library on remote device)".to_string(),
-			"Create shared library (create new shared library on both devices)".to_string(),
+			"Share my library to remote device (create shared library from local)".to_string(),
+			"Join remote library (use their existing library)".to_string(),
+			"Merge libraries (combine two libraries) [NOT YET IMPLEMENTED]".to_string(),
 		],
 	)?;
 
 	let action = match action_idx {
 		0 => {
-			// Register existing library
+			// Share local library
+			let name = libraries[library_idx].name.clone();
+
+			println!(
+				"\n✓ Will share library '{}' to remote device '{}'\n",
+				name, remote_device.name
+			);
+
+			(
+				LibrarySyncAction::ShareLocalLibrary { library_name: name },
+				None,
+			)
+		}
+		1 => {
+			// Join remote library
 			if discovery_out.libraries.is_empty() {
-				anyhow::bail!("No libraries found on remote device. Use 'Create shared library' instead.");
+				anyhow::bail!("No libraries found on remote device. Use 'Share my library' instead.");
 			}
 
 			let remote_lib_choices: Vec<String> = discovery_out
@@ -349,42 +364,30 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 				})
 				.collect();
 
-			let remote_lib_idx = select("Select remote library to sync with", &remote_lib_choices)?;
-			let remote_library_id = discovery_out.libraries[remote_lib_idx].id;
+			let remote_lib_idx = select("Select remote library to join", &remote_lib_choices)?;
+			let remote_library = &discovery_out.libraries[remote_lib_idx];
 
 			println!(
-				"\n✓ Will sync with remote library: {}\n",
-				discovery_out.libraries[remote_lib_idx].name
-			);
-
-			(LibrarySyncAction::RegisterOnly, Some(remote_library_id))
-		}
-		1 => {
-			// Create shared library - the local library selected earlier will be shared to the remote device
-			let name = libraries[library_idx].name.clone();
-
-			println!(
-				"\n✓ Will share library '{}' to remote device '{}'\n",
-				name, remote_device.name
+				"\n✓ Will join remote library: {}\n",
+				remote_library.name
 			);
 
 			(
-				LibrarySyncAction::CreateShared {
-					leader_device_id: local_device_id,
-					name,
+				LibrarySyncAction::JoinRemoteLibrary {
+					remote_library_id: remote_library.id,
+					remote_library_name: remote_library.name.clone(),
 				},
-				None,
+				Some(remote_library.id),
 			)
+		}
+		2 => {
+			anyhow::bail!("Library merging is not yet implemented");
 		}
 		_ => unreachable!(),
 	};
 
-	let leader_device_id = match &action.0 {
-		LibrarySyncAction::CreateShared {
-			leader_device_id, ..
-		} => *leader_device_id,
-		_ => local_device_id,
-	};
+	// Leader device is always local for now (deprecated concept but still in input struct)
+	let leader_device_id = local_device_id;
 
 	Ok(LibrarySyncSetupInput {
 		local_device_id,

@@ -161,21 +161,45 @@ impl SetupArgs {
 		};
 
 		// Parse action
-		let action_str = self.action.as_deref().unwrap_or("register-only");
+		let action_str = self.action.as_deref().unwrap_or("share-local");
 		let action = match action_str {
-			"register-only" => LibrarySyncAction::RegisterOnly,
-			"create-shared" => {
+			"share-local" => {
 				let name = self
 					.name
 					.clone()
-					.ok_or_else(|| anyhow::anyhow!("--name is required for create-shared action"))?;
-				LibrarySyncAction::CreateShared {
-					leader_device_id,
-					name,
+					.ok_or_else(|| anyhow::anyhow!("--name is required for share-local action"))?;
+				LibrarySyncAction::ShareLocalLibrary { library_name: name }
+			}
+			"join-remote" => {
+				let remote_library_id = self
+					.remote_library
+					.ok_or_else(|| anyhow::anyhow!("--remote-library is required for join-remote action"))?;
+				let name = self
+					.name
+					.clone()
+					.ok_or_else(|| anyhow::anyhow!("--name is required for join-remote action"))?;
+				LibrarySyncAction::JoinRemoteLibrary {
+					remote_library_id,
+					remote_library_name: name,
+				}
+			}
+			"merge" => {
+				let local_library_id = local_library;
+				let remote_library_id = self
+					.remote_library
+					.ok_or_else(|| anyhow::anyhow!("--remote-library is required for merge action"))?;
+				let name = self
+					.name
+					.clone()
+					.ok_or_else(|| anyhow::anyhow!("--name is required for merge action"))?;
+				LibrarySyncAction::MergeLibraries {
+					local_library_id,
+					remote_library_id,
+					merged_name: name,
 				}
 			}
 			_ => anyhow::bail!(
-				"Invalid action '{}'. Supported: register-only, create-shared",
+				"Invalid action '{}'. Supported: share-local, join-remote, merge",
 				action_str
 			),
 		};
