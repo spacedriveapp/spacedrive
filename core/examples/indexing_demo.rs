@@ -49,18 +49,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			include_debug: true,             // Include debug logs for full detail
 		};
 
-		config.save()?;
-		println!(
-			"   Job logging enabled to: {}",
-			config.job_logs_dir().display()
-		);
-	}
+	config.save()?;
+	println!("   Job logging enabled (logs stored per-library)");
+}
 
 	let core = Core::new(data_dir.clone()).await?;
 	println!("   Core initialized with job logging");
 	println!("   Device ID: {}", core.device.device_id()?);
 	println!("   Data directory: {:?}", data_dir);
-	println!("   Job logs directory: {:?}\n", data_dir.join("job_logs"));
 
 	// 2. Get or create library
 	println!("2. Setting up library...");

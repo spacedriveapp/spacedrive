@@ -671,9 +671,7 @@ impl LibraryManager {
 		context: Arc<CoreContext>,
 	) -> Result<()> {
 		// Create subdirectories
-		tokio::fs::create_dir_all(path.join("thumbnails")).await?;
 		tokio::fs::create_dir_all(path.join("previews")).await?;
-		tokio::fs::create_dir_all(path.join("indexes")).await?;
 		tokio::fs::create_dir_all(path.join("exports")).await?;
 		// Virtual Sidecar root (for derivative data linked by Entry/Content IDs)
 		tokio::fs::create_dir_all(path.join("sidecars")).await?;
@@ -730,9 +728,7 @@ impl LibraryManager {
 		context: Arc<CoreContext>,
 	) -> Result<()> {
 		// Create subdirectories
-		tokio::fs::create_dir_all(path.join("thumbnails")).await?;
 		tokio::fs::create_dir_all(path.join("previews")).await?;
-		tokio::fs::create_dir_all(path.join("indexes")).await?;
 		tokio::fs::create_dir_all(path.join("exports")).await?;
 		tokio::fs::create_dir_all(path.join("sidecars")).await?;
 

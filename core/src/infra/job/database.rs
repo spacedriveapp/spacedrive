@@ -115,12 +115,13 @@ pub mod checkpoint {
 }
 
 /// Initialize job database
-pub async fn init_database(path: &Path) -> JobResult<DatabaseConnection> {
-	// Ensure the directory exists
-	tokio::fs::create_dir_all(path).await?;
+pub async fn init_database(db_file_path: &Path) -> JobResult<DatabaseConnection> {
+	// Ensure the parent directory exists
+	if let Some(parent) = db_file_path.parent() {
+		tokio::fs::create_dir_all(parent).await?;
+	}
 
-	let db_path = path.join("jobs.db");
-	let db_url = format!("sqlite://{}?mode=rwc", db_path.display());
+	let db_url = format!("sqlite://{}?mode=rwc", db_file_path.display());
 
 	let db = sea_orm::Database::connect(&db_url).await?;
 

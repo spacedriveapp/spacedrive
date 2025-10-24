@@ -176,11 +176,6 @@ impl AppConfig {
 		self.data_dir.join("libraries")
 	}
 
-	/// Get the path for job logs directory
-	pub fn job_logs_dir(&self) -> PathBuf {
-		self.data_dir.join(&self.job_logging.log_directory)
-	}
-
 	/// Ensure all required directories exist
 	///
 	/// Note: On iOS, create_dir_all() can fail with "Operation not permitted" due to sandboxing
@@ -199,9 +194,7 @@ impl AppConfig {
 			fs::create_dir_all(&self.data_dir)?;
 			fs::create_dir_all(self.logs_dir())?;
 			fs::create_dir_all(self.libraries_dir())?;
-			if self.job_logging.enabled {
-				fs::create_dir_all(self.job_logs_dir())?;
-			}
+			// Job logs are now stored per-library
 		}
 
 		Ok(())

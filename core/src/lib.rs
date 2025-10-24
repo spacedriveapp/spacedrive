@@ -140,16 +140,14 @@ impl Core {
 			library_key_manager.clone(),
 		);
 
-		// Enable per-job file logging by default
-		let mut app_config = config.write().await;
-		if !app_config.job_logging.enabled {
-			app_config.job_logging.enabled = true;
-		}
-		// Ensure directory exists and apply to context
-		let logs_dir = app_config.job_logs_dir();
-		let _ = std::fs::create_dir_all(&logs_dir);
-		context_inner.set_job_logging(app_config.job_logging.clone(), logs_dir);
-		drop(app_config);
+	// Enable per-job file logging by default
+	let mut app_config = config.write().await;
+	if !app_config.job_logging.enabled {
+		app_config.job_logging.enabled = true;
+	}
+	// Job logs are now stored per-library, not globally
+	context_inner.set_job_logging(app_config.job_logging.clone(), None);
+	drop(app_config);
 
 		// Create the shared context
 		let context = Arc::new(context_inner);

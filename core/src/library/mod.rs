@@ -303,6 +303,11 @@ impl Library {
 		self.path.join("thumbnails")
 	}
 
+	/// Get the job logs directory for this library
+	pub fn job_logs_dir(&self) -> PathBuf {
+		self.path.join("logs")
+	}
+
 	/// Get the path for a specific thumbnail with size
 	pub fn thumbnail_path(&self, cas_id: &str, size: u32) -> PathBuf {
 		if cas_id.len() < 4 {
