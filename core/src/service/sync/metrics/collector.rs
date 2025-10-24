@@ -35,11 +35,6 @@ impl SyncMetricsCollector {
         &self.metrics
     }
     
-    /// Get reference to metrics
-    pub fn metrics(&self) -> &Arc<SyncMetrics> {
-        &self.metrics
-    }
-    
     /// Record a state transition
     pub async fn record_state_transition(
         &self,
