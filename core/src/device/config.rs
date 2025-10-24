@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -16,6 +17,13 @@ pub struct DeviceConfig {
 
 	/// Unique slug for URI addressing
 	pub slug: String,
+
+	/// Per-library slug overrides for collision resolution
+	/// Maps library_id -> slug
+	/// When a device joins a library where its slug conflicts with another device,
+	/// the slug for that specific library is stored here without affecting other libraries
+	#[serde(default)]
+	pub library_slug_overrides: HashMap<Uuid, String>,
 
 	/// When this device was first initialized
 	pub created_at: DateTime<Utc>,
@@ -40,6 +48,7 @@ impl DeviceConfig {
 			id: Uuid::new_v4(),
 			name,
 			slug,
+			library_slug_overrides: HashMap::new(),
 			created_at: Utc::now(),
 			hardware_model: None,
 			os,

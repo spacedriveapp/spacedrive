@@ -257,11 +257,27 @@ impl DeviceManager {
 		Ok(())
 	}
 
-	/// Update device slug (for collision resolution)
-	pub fn update_slug(&self, slug: String) -> Result<(), DeviceError> {
+	/// Get the effective slug for this device in a specific library context
+	/// Returns library-specific override if set, otherwise returns global slug
+	pub fn slug_for_library(&self, library_id: Uuid) -> Result<String, DeviceError> {
+		let config = self.config.read().map_err(|_| DeviceError::LockPoisoned)?;
+
+		// Check for library-specific override first
+		if let Some(override_slug) = config.library_slug_overrides.get(&library_id) {
+			return Ok(override_slug.clone());
+		}
+
+		// Fall back to global slug
+		Ok(config.slug.clone())
+	}
+
+	/// Set a library-specific slug override (for collision resolution)
+	/// This allows the device to have different slugs in different libraries
+	/// without modifying the global slug or affecting other libraries
+	pub fn set_library_slug(&self, library_id: Uuid, slug: String) -> Result<(), DeviceError> {
 		let mut config = self.config.write().map_err(|_| DeviceError::LockPoisoned)?;
 
-		config.slug = slug;
+		config.library_slug_overrides.insert(library_id, slug);
 
 		// Save to the appropriate location based on whether we have a custom data dir
 		if let Some(data_dir) = &self.data_dir {
