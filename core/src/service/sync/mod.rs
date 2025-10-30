@@ -484,7 +484,7 @@ impl crate::service::Service for SyncService {
 
 		// Spawn metrics persistence task (runs every 5 minutes)
 		let metrics = self.metrics.clone();
-		let library_id = self.library_id;
+		let library_id = self.peer_sync.library_id();
 		let db = self.peer_sync.db().clone();
 		tokio::spawn(async move {
 			run_metrics_persistence_task(metrics, library_id, db).await;
