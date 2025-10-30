@@ -9,7 +9,6 @@ pub enum SidecarKind {
 	Embeddings,
 	Ocr,
 	Transcript,
-	LivePhotoVideo,
 }
 
 impl SidecarKind {
@@ -20,7 +19,6 @@ impl SidecarKind {
 			Self::Embeddings => "embeddings",
 			Self::Ocr => "ocr",
 			Self::Transcript => "transcript",
-			Self::LivePhotoVideo => "live_photo_video",
 		}
 	}
 
@@ -31,7 +29,6 @@ impl SidecarKind {
 			Self::Embeddings => "embeddings",
 			Self::Ocr => "ocr",
 			Self::Transcript => "transcript",
-			Self::LivePhotoVideo => "live_photos",
 		}
 	}
 }
@@ -52,7 +49,6 @@ impl TryFrom<&str> for SidecarKind {
 			"embeddings" => Ok(Self::Embeddings),
 			"ocr" => Ok(Self::Ocr),
 			"transcript" => Ok(Self::Transcript),
-			"live_photo_video" => Ok(Self::LivePhotoVideo),
 			_ => Err(format!("Invalid sidecar kind: {}", value)),
 		}
 	}

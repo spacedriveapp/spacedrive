@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -73,7 +74,7 @@ impl Default for SyncStateMetrics {
 }
 
 /// State transition event
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct StateTransition {
     pub from: DeviceSyncState,
     pub to: DeviceSyncState,
@@ -325,7 +326,7 @@ impl Default for ErrorMetrics {
 }
 
 /// Error event for tracking recent errors
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ErrorEvent {
     pub timestamp: DateTime<Utc>,
     pub error_type: String,

@@ -4,12 +4,13 @@ use crate::service::sync::state::DeviceSyncState;
 use crate::service::sync::metrics::types::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
 /// Point-in-time snapshot of all sync metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SyncMetricsSnapshot {
     /// When this snapshot was taken
     pub timestamp: DateTime<Utc>,
@@ -31,18 +32,18 @@ pub struct SyncMetricsSnapshot {
 }
 
 /// State metrics snapshot
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct SyncStateSnapshot {
     pub current_state: DeviceSyncState,
     pub state_entered_at: DateTime<Utc>,
     pub uptime_seconds: u64,
     pub state_history: Vec<StateTransition>,
-    pub total_time_in_state: HashMap<DeviceSyncState, u64>, // milliseconds
-    pub transition_count: HashMap<(DeviceSyncState, DeviceSyncState), u64>,
+    pub total_time_in_state: Vec<(DeviceSyncState, u64)>, // milliseconds
+    pub transition_count: Vec<((DeviceSyncState, DeviceSyncState), u64)>,
 }
 
 /// Operation metrics snapshot
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct OperationSnapshot {
     // Broadcasts
     pub broadcasts_sent: u64,
@@ -69,7 +70,7 @@ pub struct OperationSnapshot {
 }
 
 /// Data volume metrics snapshot
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct DataVolumeSnapshot {
     pub entries_synced: HashMap<String, u64>,
     pub entries_by_device: HashMap<Uuid, DeviceMetricsSnapshot>,
@@ -80,7 +81,7 @@ pub struct DataVolumeSnapshot {
 }
 
 /// Device metrics snapshot
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DeviceMetricsSnapshot {
     pub device_id: Uuid,
     pub device_name: String,
@@ -90,7 +91,7 @@ pub struct DeviceMetricsSnapshot {
 }
 
 /// Performance metrics snapshot
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct PerformanceSnapshot {
     pub broadcast_latency: LatencySnapshot,
     pub apply_latency: LatencySnapshot,
@@ -105,7 +106,7 @@ pub struct PerformanceSnapshot {
 }
 
 /// Latency metrics snapshot
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LatencySnapshot {
     pub count: u64,
     pub avg_ms: f64,
@@ -114,7 +115,7 @@ pub struct LatencySnapshot {
 }
 
 /// Error metrics snapshot
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct ErrorSnapshot {
     pub total_errors: u64,
     pub network_errors: u64,
@@ -141,7 +142,10 @@ impl SyncMetricsSnapshot {
             .iter()
             .map(|(k, v)| (*k, v.as_millis() as u64))
             .collect();
-        let transition_count = metrics.state.transition_count.read().await.clone();
+        let transition_count = metrics.state.transition_count.read().await
+            .iter()
+            .map(|(k, v)| (*k, *v))
+            .collect();
         
         let state = SyncStateSnapshot {
             current_state,
@@ -281,7 +285,18 @@ impl SyncMetricsSnapshot {
         self.data_volume.last_sync_per_model.retain(|model, _| model == model_type);
         
 		// Filter recent errors
-		self.errors.recent_errors.retain(|error| error.model_type.as_ref() == Some(model_type));
+		self.errors.recent_errors.retain(|error| error.model_type.as_deref() == Some(model_type));
+    }
+}
+
+impl Default for LatencySnapshot {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            avg_ms: 0.0,
+            min_ms: 0,
+            max_ms: 0,
+        }
     }
 }
 

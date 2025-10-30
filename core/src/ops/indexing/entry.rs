@@ -823,48 +823,12 @@ impl EntryProcessor {
 			JobError::execution(format!("Failed to link content identity to entry: {}", e))
 		})?;
 
-		// TODO: Re-enable Live Photo detection after sidecar system is fully working
-		// if let Some(live_photo) = LivePhotoDetector::detect_pair(path) {
-		//     // This would create a virtual sidecar for the video component
-		//     Self::handle_live_photo_detection(ctx, content_id, content_hash, path, &live_photo, library_id).await?;
-		// }
-
 		Ok(ContentLinkResult {
 			content_identity: content_model,
 			entry: updated_entry,
 			is_new_content,
 		})
 	}
-
-	// TODO: Refactor this to use virtual sidecars when re-enabling
-	// /// Handle Live Photo detection - creates a virtual sidecar for the video component
-	// async fn handle_live_photo_detection(
-	//     ctx: &JobContext<'_>,
-	//     image_content_uuid: &Uuid,
-	//     path: &Path,
-	//     live_photo: &crate::ops::media::LivePhoto,
-	//     library_id: Uuid,
-	// ) -> Result<(), JobError> {
-	//     // Only process if this is the image component
-	//     if path != live_photo.image_path {
-	//         return Ok(());
-	//     }
-	//
-	//     // The video becomes a virtual sidecar of the image
-	//     // This would:
-	//     // 1. Create a sidecar record with kind = LivePhotoVideo
-	//     // 2. Set the sidecar's content_uuid to the image's content UUID
-	//     // 3. Store the video file in the sidecar location
-	//     // 4. The video file itself wouldn't get its own entry in the main entries table
-	//
-	//     ctx.log(format!(
-	//         "Would create Live Photo sidecar: {} (image) -> {} (video sidecar)",
-	//         live_photo.image_path.display(),
-	//         live_photo.video_path.display()
-	//     ));
-	//
-	//     Ok(())
-	// }
 
 	/// Simple move entry within existing transaction (no directory path cascade updates)
 	pub async fn simple_move_entry_in_conn(
