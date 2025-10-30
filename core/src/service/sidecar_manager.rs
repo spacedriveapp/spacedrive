@@ -643,7 +643,6 @@ impl SidecarManager {
 			"embeddings",
 			"ocr",
 			"transcript",
-			"live_photos",
 		] {
 			let kind_path = content_path.join(kind_str);
 			if !kind_path.exists() {
@@ -656,7 +655,6 @@ impl SidecarManager {
 				"embeddings" => SidecarKind::Embeddings,
 				"ocr" => SidecarKind::Ocr,
 				"transcript" => SidecarKind::Transcript,
-				"live_photos" => SidecarKind::LivePhotoVideo,
 				_ => continue,
 			};
 

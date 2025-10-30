@@ -5,6 +5,7 @@
 //! - Log-based sync with HLC for shared resources
 
 pub mod backfill;
+pub mod metrics;
 pub mod peer;
 pub mod protocol_handler;
 pub mod retry_queue;
@@ -29,6 +30,8 @@ use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
+pub use metrics::SyncMetricsCollector;
+
 pub use backfill::BackfillManager;
 pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
 
@@ -45,6 +48,9 @@ pub struct SyncService {
 
 	/// Backfill manager for orchestrating initial sync
 	backfill_manager: Arc<BackfillManager>,
+
+	/// Metrics collector for observability
+	metrics: Arc<SyncMetricsCollector>,
 
 	/// Whether the service is running
 	is_running: Arc<AtomicBool>,
@@ -88,8 +94,11 @@ impl SyncService {
 				.map_err(|e| anyhow::anyhow!("Failed to open sync.db: {}", e))?,
 		);
 
+		// Create metrics collector
+		let metrics = Arc::new(SyncMetricsCollector::new());
+
 		// Create peer sync handler with network transport
-		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log, network, config.clone()).await?);
+		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log, network, config.clone(), metrics.clone()).await?);
 
 		// Create protocol handlers
 		let state_handler = Arc::new(StateSyncHandler::new(library_id, library.db().clone()));
@@ -107,6 +116,7 @@ impl SyncService {
 			state_handler,
 			log_handler,
 			config.clone(),
+			metrics.clone(),
 		));
 
 		info!(
@@ -121,6 +131,7 @@ impl SyncService {
 			config,
 			peer_sync,
 			backfill_manager,
+			metrics,
 			is_running: Arc::new(AtomicBool::new(false)),
 			shutdown_tx: Arc::new(Mutex::new(None)),
 		})
@@ -139,6 +150,26 @@ impl SyncService {
 	/// Get the backfill manager
 	pub fn backfill_manager(&self) -> &Arc<BackfillManager> {
 		&self.backfill_manager
+	}
+
+	/// Get the metrics collector
+	pub fn metrics(&self) -> &Arc<SyncMetricsCollector> {
+		&self.metrics
+	}
+
+	/// Emit metrics update event
+	pub async fn emit_metrics_event(&self, library_id: Uuid) {
+		// Create a snapshot of current metrics
+		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(self.metrics.metrics()).await;
+		
+		// Emit event
+		self.peer_sync.event_bus().emit(crate::infra::event::Event::Custom {
+			event_type: "sync:metrics_updated".to_string(),
+			data: serde_json::json!({
+				"library_id": library_id,
+				"metrics": snapshot
+			}),
+		});
 	}
 
 	/// Main sync loop (spawned as background task)
@@ -451,6 +482,14 @@ impl crate::service::Service for SyncService {
 			Self::run_pruning_task(config_clone, peer_sync_clone).await;
 		});
 
+		// Spawn metrics persistence task (runs every 5 minutes)
+		let metrics = self.metrics.clone();
+		let library_id = self.peer_sync.library_id();
+		let db = self.peer_sync.db().clone();
+		tokio::spawn(async move {
+			run_metrics_persistence_task(metrics, library_id, db).await;
+		});
+
 		info!("Peer sync service started (with pruning task)");
 
 		Ok(())
@@ -477,5 +516,36 @@ impl crate::service::Service for SyncService {
 		info!("Peer sync service stopped");
 
 		Ok(())
+	}
+}
+
+/// Background task for persisting metrics snapshots
+async fn run_metrics_persistence_task(
+	metrics: Arc<SyncMetricsCollector>,
+	library_id: Uuid,
+	db: Arc<sea_orm::DatabaseConnection>,
+) {
+	let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 minutes
+	
+	info!("Starting metrics persistence task (interval: 5m)");
+	
+	loop {
+		interval.tick().await;
+		
+		// Create snapshot
+		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(metrics.metrics()).await;
+		
+		// Store in database
+		if let Err(e) = crate::service::sync::metrics::persistence::store_metrics_snapshot(
+			&db,
+			library_id,
+			snapshot,
+		).await {
+			warn!(
+				library_id = %library_id,
+				error = %e,
+				"Failed to persist metrics snapshot"
+			);
+		}
 	}
 }
