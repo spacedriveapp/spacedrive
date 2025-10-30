@@ -264,9 +264,8 @@ async fn run_scenario(
 	println!("Booting isolated core for scenario '{}'...", scenario);
 	let boot = bench::core_boot::boot_isolated_with_core(&scenario, None).await?;
 	println!(
-		"Core boot complete. Data dir: {} | Job logs: {}",
-		boot.data_dir.display(),
-		boot.job_logs_dir.display()
+		"Core boot complete. Data dir: {} | Job logs: per-library",
+		boot.data_dir.display()
 	);
 
 	// Parse recipe

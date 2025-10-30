@@ -72,9 +72,9 @@ impl CoreContext {
 	}
 
 	/// Set job logging configuration
-	pub fn set_job_logging(&mut self, config: JobLoggingConfig, logs_dir: PathBuf) {
+	pub fn set_job_logging(&mut self, config: JobLoggingConfig, logs_dir: Option<PathBuf>) {
 		self.job_logging_config = Some(config);
-		self.job_logs_dir = Some(logs_dir);
+		self.job_logs_dir = logs_dir;
 	}
 
 	/// Helper method for services to get the networking service

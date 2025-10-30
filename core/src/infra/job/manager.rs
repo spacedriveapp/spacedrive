@@ -52,7 +52,7 @@ impl JobManager {
 		context: Arc<CoreContext>,
 		library_id: uuid::Uuid,
 	) -> JobResult<Self> {
-		// Initialize job database
+		// Initialize job database at library root
 		let job_db_path = data_dir.join("jobs.db");
 		let db = database::init_database(&job_db_path).await?;
 
@@ -277,7 +277,7 @@ impl JobManager {
 		let executor = erased_job.create_executor(
 			job_id,
 			job_name.to_string(),
-			library,
+			library.clone(),
 			self.db.clone(),
 			status_tx.clone(),
 			progress_tx,
@@ -289,7 +289,7 @@ impl JobManager {
 			networking,
 			volume_manager,
 			self.context.job_logging_config.clone(),
-			self.context.job_logs_dir.clone(),
+			Some(library.job_logs_dir()),
 			Some(persistence_complete_tx),
 		);
 

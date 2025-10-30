@@ -4,15 +4,13 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct CoreBoot {
 	pub data_dir: PathBuf,
-	pub job_logs_dir: PathBuf,
 	pub core: Arc<sd_core::Core>,
 }
 
 impl CoreBoot {
-	pub fn new(data_dir: PathBuf, job_logs_dir: PathBuf, core: Arc<sd_core::Core>) -> Self {
+	pub fn new(data_dir: PathBuf, core: Arc<sd_core::Core>) -> Self {
 		Self {
 			data_dir,
-			job_logs_dir,
 			core,
 		}
 	}
@@ -40,7 +38,6 @@ pub async fn boot_isolated_with_core(
 	if bench_cfg.job_logging.max_file_size < 50 * 1024 * 1024 {
 		bench_cfg.job_logging.max_file_size = 50 * 1024 * 1024;
 	}
-	let job_logs_dir = bench_cfg.job_logs_dir();
 	bench_cfg
 		.save()
 		.map_err(|e| anyhow::anyhow!("save bench config: {}", e))?;
@@ -49,5 +46,5 @@ pub async fn boot_isolated_with_core(
 		.await
 		.map_err(|e| anyhow::anyhow!("init core: {}", e))?;
 	let core = Arc::new(core);
-	Ok(CoreBoot::new(bench_data_dir, job_logs_dir, core))
+	Ok(CoreBoot::new(bench_data_dir, core))
 }
