@@ -56,6 +56,7 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'en', label: 'English' },
 	{ value: 'de', label: 'Deutsch' },
 	{ value: 'es', label: 'Español' },
+	{ value: 'pl', label: 'Polski' },
 	{ value: 'cs', label: 'Czech' },
 	{ value: 'fr', label: 'Français' },
 	{ value: 'tr', label: 'Türkçe' },
