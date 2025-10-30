@@ -3,6 +3,7 @@
 use crate::infra::sync::{SharedChangeEntry, HLC};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::sync::Arc;
@@ -11,7 +12,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 /// Device sync state for state machine
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 pub enum DeviceSyncState {
 	/// Not yet synced, no backfill started
 	Uninitialized,
@@ -29,6 +30,12 @@ pub enum DeviceSyncState {
 
 	/// Sync paused (offline or user disabled)
 	Paused,
+}
+
+impl Default for DeviceSyncState {
+	fn default() -> Self {
+		DeviceSyncState::Uninitialized
+	}
 }
 
 impl DeviceSyncState {
