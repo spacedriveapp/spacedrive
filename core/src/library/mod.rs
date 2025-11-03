@@ -52,6 +52,9 @@ pub struct Library {
 	/// Sync service for real-time synchronization (initialized after library creation)
 	sync_service: OnceCell<Arc<crate::service::sync::SyncService>>,
 
+	/// File sync service for cross-location file synchronization (initialized after library creation)
+	file_sync_service: OnceCell<Arc<crate::service::file_sync::FileSyncService>>,
+
 	/// Library-specific device cache (slug → UUID)
 	/// Loaded from this library's devices table for per-library device resolution
 	device_cache: Arc<StdRwLock<HashMap<String, Uuid>>>,
@@ -103,6 +106,29 @@ impl Library {
 	/// Get the sync service
 	pub fn sync_service(&self) -> Option<&Arc<crate::service::sync::SyncService>> {
 		self.sync_service.get()
+	}
+
+	/// Get the file sync service
+	pub fn file_sync_service(&self) -> Option<&Arc<crate::service::file_sync::FileSyncService>> {
+		self.file_sync_service.get()
+	}
+
+	/// Initialize the file sync service (called during library setup)
+	pub fn init_file_sync_service(self: &Arc<Self>) -> Result<()> {
+		if self.file_sync_service.get().is_some() {
+			warn!("File sync service already initialized for library {}", self.id());
+			return Ok(());
+		}
+
+		let file_sync_service = crate::service::file_sync::FileSyncService::new(self.clone());
+
+		self.file_sync_service
+			.set(Arc::new(file_sync_service))
+			.map_err(|_| LibraryError::Other("File sync service already initialized".to_string()))?;
+
+		info!("File sync service initialized for library {}", self.id());
+
+		Ok(())
 	}
 
 	/// Get core context

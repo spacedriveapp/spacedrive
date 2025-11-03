@@ -431,6 +431,7 @@ impl LibraryManager {
 			event_bus: self.event_bus.clone(),
 			transaction_manager,
 			sync_service: OnceCell::new(), // Initialized later
+			file_sync_service: OnceCell::new(), // Initialized later
 			device_cache: Arc::new(std::sync::RwLock::new(device_cache)),
 			_lock: lock,
 		});
