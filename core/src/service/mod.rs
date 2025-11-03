@@ -11,6 +11,7 @@ use tracing::info;
 
 pub mod device;
 pub mod file_sharing;
+pub mod file_sync;
 pub mod network;
 pub mod session;
 pub mod sidecar_manager;
