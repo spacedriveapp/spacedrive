@@ -1,6 +1,6 @@
 {
 	"name": "@jamiepine/ui",
-	"version": "1.0.7",
+	"version": "1.0.9",
 	"license": "GPL-3.0-only",
 	"main": "dist/index.mjs",
 	"module": "dist/index.mjs",
