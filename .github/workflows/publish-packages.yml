@@ -84,7 +84,7 @@ jobs:
 
             # Replace workspace:* with actual version for @jamiepine/assets
             ASSETS_VERSION=$(node -p "require('../assets/package.json').version")
-            sed -i "s/\"@jamiepine\/assets\": \"workspace:\*\"/\"@jamiepine\/assets\": \"^$ASSETS_VERSION\"/" package.json
+            node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.dependencies['@jamiepine/assets']='^$ASSETS_VERSION'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t'));"
 
             # Build
             pnpm build
