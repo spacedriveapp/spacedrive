@@ -74,17 +74,16 @@ jobs:
             echo "Changes detected in @jamiepine/ui"
             cd packages/ui
 
-            # Bump patch version
-            CURRENT_VERSION=$(node -p "require('./package.json').version")
+            # Bump patch version and replace workspace dependency using jq to preserve all fields
+            CURRENT_VERSION=$(jq -r '.version' package.json)
             NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+            ASSETS_VERSION=$(jq -r '.version' ../assets/package.json)
             echo "Bumping version from $CURRENT_VERSION to $NEW_VERSION"
+            echo "Replacing workspace:* with ^$ASSETS_VERSION"
 
-            # Update version in package.json
-            npm version $NEW_VERSION --no-git-tag-version
-
-            # Replace workspace:* with actual version for @jamiepine/assets (using jq to preserve structure)
-            ASSETS_VERSION=$(node -p "require('../assets/package.json').version")
-            jq --arg ver "^$ASSETS_VERSION" '.dependencies["@jamiepine/assets"] = $ver' package.json > package.json.tmp && mv package.json.tmp package.json
+            jq --arg ver "$NEW_VERSION" --arg assets "^$ASSETS_VERSION" \
+              '.version = $ver | .dependencies["@jamiepine/assets"] = $assets' \
+              package.json > package.json.tmp && mv package.json.tmp package.json
 
             # Build
             pnpm build
