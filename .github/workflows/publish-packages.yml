@@ -82,9 +82,9 @@ jobs:
             # Update version in package.json
             npm version $NEW_VERSION --no-git-tag-version
 
-            # Replace workspace:* with actual version for @jamiepine/assets
+            # Replace workspace:* with actual version for @jamiepine/assets (using jq to preserve structure)
             ASSETS_VERSION=$(node -p "require('../assets/package.json').version")
-            node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.dependencies['@jamiepine/assets']='^$ASSETS_VERSION'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t'));"
+            jq --arg ver "^$ASSETS_VERSION" '.dependencies["@jamiepine/assets"] = $ver' package.json > package.json.tmp && mv package.json.tmp package.json
 
             # Build
             pnpm build
