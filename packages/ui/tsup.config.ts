@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
 	entry: ['src/index.ts', 'src/forms/index.ts'],
 	format: ['esm'],
-	dts: true,
+	dts: false,
 	clean: true,
 	external: [
 		'react',
@@ -12,7 +12,9 @@ export default defineConfig({
 		'@jamiepine/assets',
 		'zod',
 		'clsx',
-		'class-variance-authority'
+		'class-variance-authority',
+		'react-hook-form',
+		'valtio'
 	],
 	treeshake: true,
 	sourcemap: true,
