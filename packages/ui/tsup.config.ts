@@ -15,5 +15,8 @@ export default defineConfig({
 		'class-variance-authority'
 	],
 	treeshake: true,
-	sourcemap: true
+	sourcemap: true,
+	esbuildOptions(options) {
+		options.jsx = 'automatic';
+	}
 });
