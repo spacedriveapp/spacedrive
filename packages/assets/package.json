@@ -1,16 +1,9 @@
 {
-	"name": "@jamiepine/assets",
-	"version": "1.0.2",
+	"name": "@sd/assets",
+	"version": "1.0.0",
 	"license": "GPL-3.0-only",
+	"private": true,
 	"sideEffects": false,
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/jamiepine/spacedrive2.git",
-		"directory": "packages/assets"
-	},
-	"publishConfig": {
-		"registry": "https://npm.pkg.github.com"
-	},
 	"scripts": {
 		"gen": "node ./scripts/generate.mjs"
 	}
