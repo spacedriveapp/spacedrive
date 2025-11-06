@@ -1,5 +1,0 @@
-[build]
-builder = "RAILPACK"
-
-[deploy]
-startCommand = "cd apps/landing && pnpm start"
