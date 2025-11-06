@@ -1,10 +1,13 @@
 {
 	"name": "@jamiepine/ui",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"license": "GPL-3.0-only",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
-	"sideEffects": ["./style/index.js", "./style/style.scss"],
+	"sideEffects": [
+		"./style/index.js",
+		"./style/style.scss"
+	],
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/jamiepine/spacedrive2.git",
