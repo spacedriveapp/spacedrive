@@ -1,1 +1,3 @@
-Shared assets between all apps, like SVG's are put here.
+# @sd/assets
+
+Shared assets for Spacedrive applications.
