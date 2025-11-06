@@ -2,7 +2,7 @@
 
 import { Check } from '@phosphor-icons/react';
 import * as RS from '@radix-ui/react-select';
-import { ReactComponent as ChevronDouble } from '@sd/assets/svgs/chevron-double.svg';
+import { ReactComponent as ChevronDouble } from '@jamiepine/assets/svgs/chevron-double.svg';
 import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 import { forwardRef, PropsWithChildren } from 'react';

@@ -1,7 +1,7 @@
 'use client';
 
 import { Menu, Transition } from '@headlessui/react';
-import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
+import { ReactComponent as CaretDown } from '@jamiepine/assets/svgs/caret.svg';
 import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 import { forwardRef, Fragment, PropsWithChildren } from 'react';

@@ -14,7 +14,10 @@ export default defineConfig({
 		'clsx',
 		'class-variance-authority',
 		'react-hook-form',
-		'valtio'
+		'valtio',
+		'rooks',
+		'@zxcvbn-ts/core',
+		'@zxcvbn-ts/language-en'
 	],
 	treeshake: true,
 	sourcemap: true,
