@@ -10,3 +10,9 @@
 [submodule "docs"]
 	path = docs
 	url = https://github.com/spacedriveapp/docs.git
+[submodule "apps/landing"]
+	path = apps/landing
+	url = https://github.com/spacedriveapp/landing.git
+[submodule "apps/api"]
+	path = apps/api
+	url = https://github.com/spacedriveapp/api.git
