@@ -9,3 +9,4 @@ Shared UI components for Spacedrive applications.
 Trigger
 Publish
 Publish 1.0.9
+Publish with jq
