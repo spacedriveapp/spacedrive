@@ -1,1 +1,6 @@
-Dockerfile
+# Ignore root Dockerfile (Spacedrive core)
+/Dockerfile
+
+# Ignore Rust/core stuff
+/target
+/Cargo.lock
