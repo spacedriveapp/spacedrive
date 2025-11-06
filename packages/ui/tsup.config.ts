@@ -17,8 +17,12 @@ export default defineConfig({
 		'valtio',
 		'rooks',
 		'@zxcvbn-ts/core',
-		'@zxcvbn-ts/language-en'
+		'@zxcvbn-ts/language-en',
+		'@zxcvbn-ts/language-common'
 	],
+	noExternal: [],
+	bundle: true,
+	splitting: false,
 	treeshake: true,
 	sourcemap: true,
 	esbuildOptions(options) {

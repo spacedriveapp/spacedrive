@@ -7,7 +7,8 @@ import { ReactElement, ReactNode, useEffect } from 'react';
 import { FieldValues, UseFormHandleSubmit } from 'react-hook-form';
 import { proxy, ref, subscribe, useSnapshot } from 'valtio';
 
-import { Button, Loader } from '../';
+import { Button } from './Button';
+import { Loader } from './Loader';
 import { Form, FormProps } from './forms/Form';
 
 export function createDialogState(open = false) {
