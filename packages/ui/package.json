@@ -2,7 +2,9 @@
 	"name": "@jamiepine/ui",
 	"version": "1.0.2",
 	"license": "GPL-3.0-only",
-	"main": "dist/index.js",
+	"main": "dist/index.mjs",
+	"module": "dist/index.mjs",
+	"type": "module",
 	"sideEffects": [
 		"./style/index.js",
 		"./style/style.scss"
@@ -16,8 +18,8 @@
 		"registry": "https://npm.pkg.github.com"
 	},
 	"exports": {
-		".": "./dist/index.js",
-		"./forms": "./dist/forms/index.js",
+		".": "./dist/index.mjs",
+		"./forms": "./dist/forms/index.mjs",
 		"./postcss": "./style/postcss.config.js",
 		"./tailwind": "./style/tailwind.js",
 		"./style": "./style/index.js",
