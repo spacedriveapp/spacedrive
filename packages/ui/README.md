@@ -7,3 +7,4 @@ Shared UI components for Spacedrive applications.
 
 
 Trigger
+Publish
