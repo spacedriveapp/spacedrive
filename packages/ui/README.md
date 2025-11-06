@@ -1,3 +1,3 @@
-# @sd/ui
+# @jamiepine/ui
 
 Shared UI components for Spacedrive applications.
