@@ -33,7 +33,7 @@ jobs:
           scope: '@sd'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Check and publish @sd/assets
         if: github.event_name == 'push'
