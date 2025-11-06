@@ -3,7 +3,6 @@
 	"version": "1.0.2",
 	"license": "GPL-3.0-only",
 	"main": "dist/index.js",
-	"types": "dist/index.d.ts",
 	"sideEffects": [
 		"./style/index.js",
 		"./style/style.scss"
@@ -17,14 +16,8 @@
 		"registry": "https://npm.pkg.github.com"
 	},
 	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
-		},
-		"./forms": {
-			"types": "./dist/forms/index.d.ts",
-			"default": "./dist/forms/index.js"
-		},
+		".": "./dist/index.js",
+		"./forms": "./dist/forms/index.js",
 		"./postcss": "./style/postcss.config.js",
 		"./tailwind": "./style/tailwind.js",
 		"./style": "./style/index.js",
