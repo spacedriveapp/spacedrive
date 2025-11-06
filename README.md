@@ -268,13 +268,14 @@ For detailed contribution guidelines and architecture documentation, see [CONTRI
 
 ## Get Involved
 
-- **⭐ Star the repo** to show your support.
-- **💬 Join the [Discord](https://discord.gg/gTaF2Z44f5)** to chat with the developers and community.
-- **📖 Read the [Whitepaper](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)** to understand the full vision.
-- **🧩 Build an Extension:** Check out the [SDK documentation](docs/sdk.md) and create your own extensions.
+- **Star the repo** to show your support.
+- **Join the [Discord](https://discord.gg/gTaF2Z44f5)** to chat with the developers and community.
+- **Read the [Whitepaper](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)** to understand the full vision.
+- **Build an Extension:** Check out the [SDK documentation](docs/sdk.md) and create your own extensions.
 
 ---
 
 <p align="center">
   <em>Your files, unified. Your data, private. Your experience, limitless.</em>
 </p>
+
