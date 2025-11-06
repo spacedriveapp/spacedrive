@@ -82,6 +82,10 @@ jobs:
             # Update version in package.json
             npm version $NEW_VERSION --no-git-tag-version
 
+            # Replace workspace:* with actual version for @jamiepine/assets
+            ASSETS_VERSION=$(node -p "require('../assets/package.json').version")
+            sed -i "s/\"@jamiepine\/assets\": \"workspace:\*\"/\"@jamiepine\/assets\": \"^$ASSETS_VERSION\"/" package.json
+
             # Build
             pnpm build
 
