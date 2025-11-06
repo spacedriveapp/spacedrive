@@ -253,6 +253,7 @@ impl SidecarManager {
 
 		// Insert pending record
 		let sidecar = sidecar::ActiveModel {
+			uuid: ActiveValue::Set(Uuid::new_v4()), // Generate UUID for sync
 			content_uuid: ActiveValue::Set(*content_uuid),
 			kind: ActiveValue::Set(kind.as_str().to_string()),
 			variant: ActiveValue::Set(variant.as_str().to_string()),

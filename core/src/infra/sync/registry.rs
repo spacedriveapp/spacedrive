@@ -179,8 +179,8 @@ pub async fn register_shared(
 /// All domain-specific logic lives in the entity implementations, not here.
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 	use crate::infra::db::entities::{
-		audit_log, collection, collection_entry, content_identity, device, entry, location, tag,
-		tag_relationship, user_metadata, user_metadata_tag, volume,
+		audit_log, collection, collection_entry, content_identity, device, entry, location, sidecar,
+		tag, tag_relationship, user_metadata, user_metadata_tag, volume,
 	};
 
 	let mut registry = HashMap::new();
@@ -438,6 +438,31 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
 					audit_log::Model::query_for_sync(
+						device_id,
+						since,
+						cursor,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+		),
+	);
+
+	registry.insert(
+		"sidecar".to_string(),
+		SyncableModelRegistration::shared_with_query(
+			"sidecar",
+			"sidecars",
+			|entry, db| {
+				Box::pin(async move {
+					sidecar::Model::apply_shared_change(entry, db.as_ref()).await
+				})
+			},
+			|device_id, since, cursor, batch_size, db| {
+				Box::pin(async move {
+					sidecar::Model::query_for_sync(
 						device_id,
 						since,
 						cursor,

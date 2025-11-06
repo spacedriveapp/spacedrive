@@ -7,8 +7,8 @@ parent: CORE-000
 priority: High
 tags: [core, vdfs, sidecars, derivatives, addressing]
 whitepaper: Section 4.1.5
-last_updated: 2025-11-01
-related_tasks: [CORE-002, VSS-001, VSS-002]
+last_updated: 2025-11-05
+related_tasks: [CORE-002, VSS-001, VSS-002, VSS-004]
 ---
 
 ## Description
@@ -22,12 +22,16 @@ Implement the Virtual Sidecar System (VSS) for managing derivative data—thumbn
 ### Completed (Infrastructure)
 
 1. Database schema (`sidecars` and `sidecar_availability` tables)
+   - `sidecars`: Content-scoped metadata (syncs via library sync)
+   - `sidecar_availability`: Local tracking only (what THIS device has)
 2. `SidecarManager` service with core CRUD operations
 3. Deterministic path computation with 2-level hex sharding
 4. Presence queries (local + remote device availability)
 5. Reference sidecar support (track without moving files)
 6. Bootstrap scan for filesystem reconciliation
 7. Get-or-enqueue pattern for lazy materialization
+
+**Scaling:** Each device tracks only its own sidecars in `sidecar_availability`. Desktop with all sidecars = 6M rows. Phone with selective sync = 100K rows. Discovery of what peers have uses network queries, not database sync.
 
 ### Not Implemented (Integration)
 

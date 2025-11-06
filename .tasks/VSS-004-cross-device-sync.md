@@ -14,7 +14,9 @@ dependencies: [VSS-001, VSS-002]
 
 ## Description
 
-Implement cross-device sidecar synchronization, enabling devices to share and reuse generated sidecars instead of regenerating them locally. This is critical for "generate once, use everywhere" efficiency.
+Implement cross-device sidecar discovery and transfer, enabling devices to share and reuse generated sidecars instead of regenerating them locally. This is critical for "generate once, use everywhere" efficiency.
+
+**Discovery Model:** Devices periodically gossip availability digests over the network. When looking for a sidecar, devices query connected peers directly (not via database sync). The `sidecar_availability` table tracks only what the current device has locally.
 
 See `workbench/core/storage/VIRTUAL_SIDECAR_SYSTEM_V2.md` Section "Cross-Device Sync" for complete specification.
 
@@ -26,12 +28,13 @@ See `workbench/core/storage/VIRTUAL_SIDECAR_SYSTEM_V2.md` Section "Cross-Device 
 
 ## Tasks
 
-### Availability Exchange Protocol
+### Availability Discovery Protocol
 - [ ] Implement `AvailabilityDigest` structure
-- [ ] Create digest from local sidecars
-- [ ] Implement digest exchange via network protocol
-- [ ] Update `sidecar_availability` table from peer digests
-- [ ] Add periodic sync scheduler (every 5 minutes)
+- [ ] Create digest from local sidecars (what THIS device has)
+- [ ] Implement digest gossip via network protocol
+- [ ] Cache peer availability in memory (short-lived, rebuilable)
+- [ ] Add periodic gossip scheduler (every 5 minutes)
+- [ ] Implement network query: "Do you have sidecar X?"
 
 ### Sidecar Transfer Protocol
 - [ ] Implement `SidecarTransferJob`

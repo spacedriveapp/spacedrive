@@ -273,6 +273,12 @@ impl LibraryQuery for DirectoryListingQuery {
 						content_id: *content_id,
 					}
 				}
+			SdPath::Sidecar { .. } => {
+				// This shouldn't happen since we error on Sidecar paths earlier
+				return Err(QueryError::Internal(
+					"Sidecar paths not supported for directory listing".to_string(),
+				));
+			}
 			};
 
 			// Create entity model for conversion
@@ -446,6 +452,12 @@ impl DirectoryListingQuery {
 					}
 				}
 			}
+		SdPath::Sidecar { .. } => {
+			// Sidecar paths are not supported for directory browsing
+			Err(QueryError::Internal(
+				"Sidecar paths not supported for directory browsing".to_string(),
+			))
+		}
 			SdPath::Content { .. } => {
 				// Content-addressed paths are not supported for directory browsing
 				Err(QueryError::Internal(

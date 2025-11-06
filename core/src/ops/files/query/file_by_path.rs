@@ -162,6 +162,11 @@ impl FileByPathQuery {
 					.await?
 					.ok_or_else(|| QueryError::Internal("Entry not found for content".to_string()))
 			}
+		SdPath::Sidecar { .. } => {
+			return Err(QueryError::Internal(
+				"Sidecar paths not yet implemented for file queries".to_string(),
+			));
+		}
 		}
 	}
 

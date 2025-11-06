@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SidecarKind {
 	Thumb,
@@ -54,7 +55,7 @@ impl TryFrom<&str> for SidecarKind {
 	}
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 pub struct SidecarVariant(pub String);
 
 impl SidecarVariant {
@@ -99,7 +100,7 @@ impl From<String> for SidecarVariant {
 /// - 10x faster to parse
 /// - Already used in Spacedrive (job serialization)
 /// - Enables sub-30ms semantic search on 1M+ files
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SidecarFormat {
 	Webp,

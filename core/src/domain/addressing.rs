@@ -5,6 +5,7 @@
 //! file system.
 
 use crate::device::{get_current_device_id, get_current_device_slug};
+use crate::ops::sidecar::types::{SidecarFormat, SidecarKind, SidecarVariant};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;
@@ -17,6 +18,7 @@ use uuid::Uuid;
 /// An SdPath can represent:
 /// - A physical file at a specific path on a specific device
 /// - A content-addressed file that can be sourced from any device
+/// - A sidecar (derivative data) attached to content
 ///
 /// This enum-based approach enables resilient file operations by allowing
 /// content-based paths to be resolved to optimal physical locations at runtime.
@@ -42,6 +44,18 @@ pub enum SdPath {
 	Content {
 		/// The unique content identifier
 		content_id: Uuid,
+	},
+	/// A derivative data file (thumbnail, OCR text, embedding, etc.)
+	/// Sidecars are content-scoped and addressed by content + kind + variant
+	Sidecar {
+		/// The content this sidecar is derived from
+		content_id: Uuid,
+		/// The type of sidecar (thumb, ocr, embeddings, etc.)
+		kind: SidecarKind,
+		/// The specific variant (e.g., "grid@2x", "1080p", "all-MiniLM-L6-v2")
+		variant: SidecarVariant,
+		/// The storage format (webp, json, msgpack, etc.)
+		format: SidecarFormat,
 	},
 }
 
@@ -69,11 +83,20 @@ impl<'de> Deserialize<'de> for SdPath {
 		}
 
 		#[derive(Deserialize)]
+		struct SdPathSidecarHelper {
+			content_id: String,
+			kind: String,
+			variant: String,
+			format: String,
+		}
+
+		#[derive(Deserialize)]
 		#[serde(untagged)]
 		enum SdPathHelper {
 			Physical { Physical: SdPathPhysicalHelper },
 			Cloud { Cloud: SdPathCloudHelper },
 			Content { Content: SdPathContentHelper },
+			Sidecar { Sidecar: SdPathSidecarHelper },
 		}
 
 		let helper = SdPathHelper::deserialize(deserializer)?;
@@ -101,6 +124,21 @@ impl<'de> Deserialize<'de> for SdPath {
 				let content_id =
 					Uuid::parse_str(&content.content_id).map_err(serde::de::Error::custom)?;
 				Ok(SdPath::Content { content_id })
+			}
+			SdPathHelper::Sidecar { Sidecar: sidecar } => {
+				let content_id =
+					Uuid::parse_str(&sidecar.content_id).map_err(serde::de::Error::custom)?;
+				let kind =
+					SidecarKind::try_from(sidecar.kind.as_str()).map_err(serde::de::Error::custom)?;
+				let variant = SidecarVariant::new(sidecar.variant);
+				let format = SidecarFormat::try_from(sidecar.format.as_str())
+					.map_err(serde::de::Error::custom)?;
+				Ok(SdPath::Sidecar {
+					content_id,
+					kind,
+					variant,
+					format,
+				})
 			}
 		}
 	}
@@ -138,6 +176,21 @@ impl SdPath {
 		Self::Content { content_id }
 	}
 
+	/// Create a sidecar SdPath
+	pub fn sidecar(
+		content_id: Uuid,
+		kind: SidecarKind,
+		variant: impl Into<SidecarVariant>,
+		format: SidecarFormat,
+	) -> Self {
+		Self::Sidecar {
+			content_id,
+			kind,
+			variant: variant.into(),
+			format,
+		}
+	}
+
 	/// Create an SdPath for a local file on this device
 	pub fn local(path: impl Into<PathBuf>) -> Self {
 		Self::Physical {
@@ -152,6 +205,7 @@ impl SdPath {
 			Self::Physical { device_slug, .. } => *device_slug == get_current_device_slug(),
 			Self::Cloud { .. } => false,   // Cloud paths are never local
 			Self::Content { .. } => false, // Content paths are abstract, not inherently local
+			Self::Sidecar { .. } => false, // Sidecar paths are abstract, must be resolved
 		}
 	}
 
@@ -167,6 +221,7 @@ impl SdPath {
 			}
 			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
 		}
 	}
 
@@ -187,6 +242,20 @@ impl SdPath {
 			Self::Content { content_id } => {
 				format!("content://{}", content_id)
 			}
+			Self::Sidecar {
+				content_id,
+				kind,
+				variant,
+				format,
+			} => {
+				format!(
+					"sidecar://{}/{}/{}.{}",
+					content_id,
+					kind.directory(),
+					variant.as_str(),
+					format.extension()
+				)
+			}
 		}
 	}
 
@@ -196,6 +265,10 @@ impl SdPath {
 			Self::Physical { path, .. } => path.file_name()?.to_str(),
 			Self::Cloud { path, .. } => path.split('/').last(),
 			Self::Content { .. } => None, // Content paths don't have filenames
+			Self::Sidecar { variant, format, .. } => {
+				// Return the filename part: "grid@2x.webp"
+				Some(Box::leak(format!("{}.{}", variant.as_str(), format.extension()).into_boxed_str()))
+			}
 		}
 	}
 
@@ -219,6 +292,7 @@ impl SdPath {
 				})
 			}
 			Self::Content { .. } => None, // Content paths don't have parents
+			Self::Sidecar { .. } => None, // Sidecar paths don't have parents
 		}
 	}
 
@@ -251,6 +325,7 @@ impl SdPath {
 				}
 			}
 			Self::Content { .. } => panic!("Cannot join paths to content addresses"),
+			Self::Sidecar { .. } => panic!("Cannot join paths to sidecar addresses"),
 		}
 	}
 
@@ -276,6 +351,7 @@ impl SdPath {
 				volume_manager.find_cloud_volume(*service, identifier).await
 			}
 			Self::Content { .. } => None, // Content paths don't have volumes until resolved
+			Self::Sidecar { .. } => None, // Sidecar paths don't have volumes until resolved
 		}
 	}
 
@@ -323,6 +399,7 @@ impl SdPath {
 	/// - "local://device-slug/path/to/file" -> Physical path
 	/// - "s3://bucket/path/to/file" -> Cloud path
 	/// - "content://content_id" -> Content path
+	/// - "sidecar://content_id/thumbs/grid@2x.webp" -> Sidecar path
 	/// - "/local/path" -> Local physical path
 	///
 	/// Note: This is a synchronous version that doesn't require context.
@@ -353,6 +430,52 @@ impl SdPath {
 				Ok(Self::Physical {
 					device_slug: slug,
 					path: PathBuf::from("/").join(path),
+				})
+			}
+
+			"sidecar" => {
+				// Parse: sidecar://550e8400-e29b-41d4-a716-446655440000/thumbs/grid@2x.webp
+				let path_parts: Vec<&str> = rest.splitn(2, '/').collect();
+				if path_parts.len() != 2 {
+					return Err(SdPathParseError::InvalidSidecarPath);
+				}
+
+				let content_id = Uuid::parse_str(path_parts[0])
+					.map_err(|_| SdPathParseError::InvalidContentId)?;
+
+				let sidecar_path = path_parts[1];
+				let sidecar_parts: Vec<&str> = sidecar_path.split('/').collect();
+				if sidecar_parts.len() != 2 {
+					return Err(SdPathParseError::InvalidSidecarPath);
+				}
+
+				let kind_dir = sidecar_parts[0];
+				let file_name = sidecar_parts[1];
+
+				// Parse kind from directory name
+				let kind = match kind_dir {
+					"thumbs" => SidecarKind::Thumb,
+					"proxies" => SidecarKind::Proxy,
+					"embeddings" => SidecarKind::Embeddings,
+					"ocr" => SidecarKind::Ocr,
+					"transcript" => SidecarKind::Transcript,
+					_ => return Err(SdPathParseError::InvalidSidecarKind),
+				};
+
+				// Parse variant and extension from filename
+				let (variant_str, ext) = file_name
+					.rsplit_once('.')
+					.ok_or(SdPathParseError::MissingExtension)?;
+
+				let variant = SidecarVariant::new(variant_str);
+				let format =
+					SidecarFormat::try_from(ext).map_err(|_| SdPathParseError::InvalidSidecarFormat)?;
+
+				Ok(Self::Sidecar {
+					content_id,
+					kind,
+					variant,
+					format,
 				})
 			}
 
@@ -405,6 +528,7 @@ impl SdPath {
 			Self::Physical { device_slug, .. } => Some(device_slug),
 			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
 		}
 	}
 
@@ -421,13 +545,15 @@ impl SdPath {
 			Self::Physical { path, .. } => Some(path),
 			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
 		}
 	}
 
-	/// Get the content ID if this is a Content path
+	/// Get the content ID if this is a Content or Sidecar path
 	pub fn content_id(&self) -> Option<Uuid> {
 		match self {
 			Self::Content { content_id } => Some(*content_id),
+			Self::Sidecar { content_id, .. } => Some(*content_id),
 			Self::Physical { .. } => None,
 			Self::Cloud { .. } => None,
 		}
@@ -443,6 +569,7 @@ impl SdPath {
 			} => Some((*service, identifier.as_str())),
 			Self::Physical { .. } => None,
 			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
 		}
 	}
 
@@ -459,6 +586,7 @@ impl SdPath {
 			Self::Cloud { path, .. } => Some(path),
 			Self::Physical { .. } => None,
 			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
 		}
 	}
 
@@ -477,12 +605,18 @@ impl SdPath {
 		matches!(self, Self::Content { .. })
 	}
 
+	/// Check if this is a Sidecar path
+	pub fn is_sidecar(&self) -> bool {
+		matches!(self, Self::Sidecar { .. })
+	}
+
 	/// Try to get as a Physical path, returning device_slug and path
 	pub fn as_physical(&self) -> Option<(&str, &PathBuf)> {
 		match self {
 			Self::Physical { device_slug, path } => Some((device_slug.as_str(), path)),
 			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
 		}
 	}
 
@@ -495,6 +629,22 @@ impl SdPath {
 				path,
 			} => Some((*service, identifier.as_str(), path.as_str())),
 			Self::Physical { .. } => None,
+			Self::Content { .. } => None,
+			Self::Sidecar { .. } => None,
+		}
+	}
+
+	/// Try to get as a Sidecar path, returning content_id, kind, variant, and format
+	pub fn as_sidecar(&self) -> Option<(Uuid, &SidecarKind, &SidecarVariant, &SidecarFormat)> {
+		match self {
+			Self::Sidecar {
+				content_id,
+				kind,
+				variant,
+				format,
+			} => Some((*content_id, kind, variant, format)),
+			Self::Physical { .. } => None,
+			Self::Cloud { .. } => None,
 			Self::Content { .. } => None,
 		}
 	}
@@ -523,6 +673,10 @@ impl SdPath {
 				// In the future, use job_ctx.library_db() to query for content instances
 				Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
 			}
+			Self::Sidecar { content_id, .. } => {
+				// TODO: Implement sidecar resolution
+				Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
+			}
 		}
 	}
 }
@@ -534,6 +688,11 @@ pub enum PathResolutionError {
 	DeviceOffline(Uuid),
 	NoActiveLibrary,
 	DatabaseError(String),
+	SidecarNotFound {
+		content_id: Uuid,
+		kind: String,
+		variant: String,
+	},
 }
 
 impl fmt::Display for PathResolutionError {
@@ -545,6 +704,15 @@ impl fmt::Display for PathResolutionError {
 			Self::DeviceOffline(id) => write!(f, "Device is offline: {}", id),
 			Self::NoActiveLibrary => write!(f, "No active library"),
 			Self::DatabaseError(msg) => write!(f, "Database error: {}", msg),
+			Self::SidecarNotFound {
+				content_id,
+				kind,
+				variant,
+			} => write!(
+				f,
+				"Sidecar not found: {} {} {} for content {}",
+				kind, variant, kind, content_id
+			),
 		}
 	}
 }
@@ -564,9 +732,13 @@ pub enum SdPathParseError {
 	InvalidDeviceId,
 	InvalidVolumeId,
 	InvalidContentId,
-	UnknownScheme,  // NEW: Unknown URI scheme
-	VolumeNotFound, // NEW: Cloud volume not found
-	DeviceNotFound, // NEW: Device slug not found
+	UnknownScheme,
+	VolumeNotFound,
+	DeviceNotFound,
+	InvalidSidecarPath,
+	InvalidSidecarKind,
+	InvalidSidecarFormat,
+	MissingExtension,
 }
 
 impl fmt::Display for SdPathParseError {
@@ -579,6 +751,10 @@ impl fmt::Display for SdPathParseError {
 			Self::UnknownScheme => write!(f, "Unknown URI scheme"),
 			Self::VolumeNotFound => write!(f, "Cloud volume not found"),
 			Self::DeviceNotFound => write!(f, "Device not found by slug"),
+			Self::InvalidSidecarPath => write!(f, "Invalid sidecar path format"),
+			Self::InvalidSidecarKind => write!(f, "Invalid sidecar kind"),
+			Self::InvalidSidecarFormat => write!(f, "Invalid sidecar format"),
+			Self::MissingExtension => write!(f, "Missing file extension in sidecar path"),
 		}
 	}
 }
@@ -720,5 +896,109 @@ mod tests {
 		// Test local path without scheme
 		let path = SdPath::from_uri("/local/path").unwrap();
 		assert!(path.is_local());
+	}
+
+	#[test]
+	fn test_sdpath_sidecar_creation() {
+		let content_id = Uuid::new_v4();
+		let path = SdPath::sidecar(
+			content_id,
+			SidecarKind::Thumb,
+			"grid@2x",
+			SidecarFormat::Webp,
+		);
+
+		match path {
+			SdPath::Sidecar {
+				content_id: cid,
+				kind,
+				variant,
+				format,
+			} => {
+				assert_eq!(cid, content_id);
+				assert_eq!(kind, SidecarKind::Thumb);
+				assert_eq!(variant.as_str(), "grid@2x");
+				assert_eq!(format, SidecarFormat::Webp);
+			}
+			_ => panic!("Expected Sidecar variant"),
+		}
+	}
+
+	#[test]
+	fn test_sdpath_sidecar_display() {
+		let content_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+		let path = SdPath::sidecar(
+			content_id,
+			SidecarKind::Thumb,
+			"grid@2x",
+			SidecarFormat::Webp,
+		);
+
+		let display = path.display();
+		assert_eq!(
+			display,
+			"sidecar://550e8400-e29b-41d4-a716-446655440000/thumbs/grid@2x.webp"
+		);
+	}
+
+	#[test]
+	fn test_sdpath_sidecar_uri_parsing() {
+		let uri = "sidecar://550e8400-e29b-41d4-a716-446655440000/thumbs/grid@2x.webp";
+		let path = SdPath::from_uri(uri).unwrap();
+
+		match path {
+			SdPath::Sidecar {
+				content_id,
+				kind,
+				variant,
+				format,
+			} => {
+				assert_eq!(
+					content_id,
+					Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap()
+				);
+				assert_eq!(kind, SidecarKind::Thumb);
+				assert_eq!(variant.as_str(), "grid@2x");
+				assert_eq!(format, SidecarFormat::Webp);
+			}
+			_ => panic!("Expected Sidecar variant"),
+		}
+
+		// Test other sidecar kinds
+		let uri = "sidecar://550e8400-e29b-41d4-a716-446655440000/embeddings/all-MiniLM-L6-v2.msgpack";
+		let path = SdPath::from_uri(uri).unwrap();
+		match path {
+			SdPath::Sidecar { kind, format, .. } => {
+				assert_eq!(kind, SidecarKind::Embeddings);
+				assert_eq!(format, SidecarFormat::MessagePack);
+			}
+			_ => panic!("Expected Sidecar variant"),
+		}
+
+		// Test OCR
+		let uri = "sidecar://550e8400-e29b-41d4-a716-446655440000/ocr/default.json";
+		let path = SdPath::from_uri(uri).unwrap();
+		match path {
+			SdPath::Sidecar { kind, .. } => {
+				assert_eq!(kind, SidecarKind::Ocr);
+			}
+			_ => panic!("Expected Sidecar variant"),
+		}
+	}
+
+	#[test]
+	fn test_sdpath_sidecar_is_sidecar() {
+		let content_id = Uuid::new_v4();
+		let path = SdPath::sidecar(
+			content_id,
+			SidecarKind::Thumb,
+			"grid@2x",
+			SidecarFormat::Webp,
+		);
+
+		assert!(path.is_sidecar());
+		assert!(!path.is_physical());
+		assert!(!path.is_cloud());
+		assert!(!path.is_content());
 	}
 }

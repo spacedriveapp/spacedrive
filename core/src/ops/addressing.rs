@@ -38,6 +38,16 @@ impl PathResolver {
 			SdPath::Cloud { .. } => Ok(path.clone()),
 			// If content-based, find the optimal physical path
 			SdPath::Content { content_id } => unimplemented!(),
+			// Sidecar paths need to be resolved to physical locations
+			SdPath::Sidecar {
+				content_id,
+				kind,
+				variant,
+				format,
+			} => {
+				self.resolve_sidecar(context, *content_id, kind, variant, format)
+					.await
+			}
 		}
 	}
 
@@ -177,6 +187,31 @@ impl PathResolver {
 		}
 
 		metrics
+	}
+
+	/// Resolve a sidecar path to a physical location
+	///
+	/// NOTE: This is a placeholder implementation. Full sidecar resolution
+	/// will be implemented in VSS-001 task and will include:
+	/// - Checking local filesystem
+	/// - Querying sidecar_availability for remote devices
+	/// - Enqueuing generation if not found
+	/// - Returning appropriate ResolvedPath variants
+	async fn resolve_sidecar(
+		&self,
+		_context: &CoreContext,
+		content_id: Uuid,
+		kind: &crate::ops::sidecar::types::SidecarKind,
+		variant: &crate::ops::sidecar::types::SidecarVariant,
+		_format: &crate::ops::sidecar::types::SidecarFormat,
+	) -> Result<SdPath, PathResolutionError> {
+		// TODO: Implement full sidecar resolution
+		// For now, return not found to avoid breaking existing code
+		Err(PathResolutionError::SidecarNotFound {
+			content_id,
+			kind: kind.as_str().to_string(),
+			variant: variant.as_str().to_string(),
+		})
 	}
 
 	/// Resolve a content-based path to an optimal physical location

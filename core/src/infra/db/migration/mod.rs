@@ -17,6 +17,7 @@ mod m20251016_000001_add_cloud_identifier;
 mod m20251019_000001_add_sync_to_m2m_tables;
 mod m20251021_000001_add_indexed_at_to_entries;
 mod m20251023_000001_create_device_state_tombstones;
+mod m20251102_000001_add_uuid_to_sidecars;
 
 pub struct Migrator;
 
@@ -39,6 +40,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251019_000001_add_sync_to_m2m_tables::Migration),
 			Box::new(m20251021_000001_add_indexed_at_to_entries::Migration),
 			Box::new(m20251023_000001_create_device_state_tombstones::Migration),
+			Box::new(m20251102_000001_add_uuid_to_sidecars::Migration),
 		]
 	}
 }

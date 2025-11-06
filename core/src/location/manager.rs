@@ -64,6 +64,11 @@ impl LocationManager {
 					"Content paths cannot be used as locations".to_string(),
 				));
 			}
+		crate::domain::addressing::SdPath::Sidecar { .. } => {
+			return Err(LocationError::InvalidPath(
+				"Sidecar paths cannot be used as locations".to_string(),
+			));
+		}
 		}
 
 		// Begin transaction

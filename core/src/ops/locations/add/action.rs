@@ -166,6 +166,12 @@ impl LibraryAction for LocationAddAction {
 					message: "Content paths cannot be used as locations".to_string(),
 				});
 			}
+		SdPath::Sidecar { .. } => {
+			return Err(ActionError::Validation {
+				field: "path".to_string(),
+				message: "Sidecar paths cannot be used as locations".to_string(),
+			});
+		}
 		}
 
 		// Check for duplicate locations
