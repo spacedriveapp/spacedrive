@@ -72,8 +72,67 @@ impl LibraryQuery for FileByIdQuery {
 			path: format!("/{}", entry_model.name).into(),
 		};
 
+		// Fetch content identity and sidecars if file has content_id
+		let (content_identity_domain, sidecars) = if let Some(content_id) = entry_model.content_id {
+			// Get content identity
+			if let Some(content_identity_model) = content_identity::Entity::find_by_id(content_id)
+				.one(db.conn())
+				.await?
+			{
+				let content_uuid = content_identity_model.uuid;
+
+				// Fetch sidecars for this content UUID
+				let sidecars = if let Some(uuid) = content_uuid {
+					sidecar::Entity::find()
+						.filter(sidecar::Column::ContentUuid.eq(uuid))
+						.all(db.conn())
+						.await?
+						.into_iter()
+						.map(|s| crate::domain::Sidecar {
+							id: s.id,
+							content_uuid: s.content_uuid,
+							kind: s.kind,
+							variant: s.variant,
+							format: s.format,
+							status: s.status,
+							size: s.size,
+							created_at: s.created_at,
+							updated_at: s.updated_at,
+						})
+						.collect()
+				} else {
+					Vec::new()
+				};
+
+				// Convert content_identity to domain type
+				let content_identity = crate::domain::ContentIdentity {
+					uuid: content_identity_model.uuid.unwrap_or_else(|| Uuid::new_v4()),
+					kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
+					content_hash: content_identity_model.content_hash,
+					integrity_hash: content_identity_model.integrity_hash,
+					mime_type_id: content_identity_model.mime_type_id,
+					text_content: content_identity_model.text_content,
+					total_size: content_identity_model.total_size,
+					entry_count: content_identity_model.entry_count,
+					first_seen_at: content_identity_model.first_seen_at,
+					last_verified_at: content_identity_model.last_verified_at,
+				};
+
+				(Some(content_identity), sidecars)
+			} else {
+				(None, Vec::new())
+			}
+		} else {
+			(None, Vec::new())
+		};
+
 		// Convert to File using from_entity_model
-		let file = File::from_entity_model(entry_model, sd_path);
+		let mut file = File::from_entity_model(entry_model, sd_path);
+		file.sidecars = sidecars;
+		file.content_identity = content_identity_domain;
+		if let Some(ref ci) = file.content_identity {
+			file.content_kind = ci.kind;
+		}
 
 		Ok(Some(file))
 	}

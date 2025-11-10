@@ -49,7 +49,7 @@ Before you begin, ensure you have the following installed:
 | Xcode | Latest                         | iOS/macOS development        |
 | Git   | Any recent version             | Version control & submodules |
 
-**Note:** Node.js and pnpm are only needed if you're working on TypeScript client generation or shared UI packages.
+**Note:** Bun is only needed if you're working on TypeScript client generation or shared UI packages.
 
 [`rustup`](https://rustup.rs/) should automatically pick up the correct Rust version from the project's `rust-toolchain.toml`.
 
@@ -230,8 +230,8 @@ The cross platform desktop app will use Tauri and will also be maintained as a s
 ```bash
 # Future workflow (when desktop submodule exists)
 cd apps/desktop
-pnpm install
-pnpm tauri dev
+bun install
+bun tauri dev
 ```
 
 ## Extension Development
@@ -263,7 +263,7 @@ The TypeScript client (`packages/ts-client`) provides a type-safe interface to t
 ```bash
 # From the ts-client directory
 cd packages/ts-client
-pnpm run generate-types
+bun run generate-types
 
 # Or run directly from core
 cargo run --bin generate_typescript_types --manifest-path core/Cargo.toml
@@ -273,8 +273,8 @@ cargo run --bin generate_typescript_types --manifest-path core/Cargo.toml
 
 ```bash
 cd packages/ts-client
-pnpm install
-pnpm build
+bun install
+bun build
 ```
 
 The TypeScript client is primarily used by the desktop GUI (future) and can be used to build custom interfaces.
@@ -481,10 +481,10 @@ Read the full analysis in [docs/overview/history.mdx](docs/overview/history.mdx)
 **V1 Workflow:**
 
 ```bash
-pnpm i
-pnpm prep  # Generate Prisma client + rspc types
-pnpm tauri dev  # Desktop
-pnpm mobile ios  # React Native mobile
+bun install
+bun prep  # Generate Prisma client + rspc types
+bun tauri dev  # Desktop
+bun mobile ios  # React Native mobile
 cargo run -p sd-server  # Backend server
 ```
 
@@ -493,7 +493,7 @@ cargo run -p sd-server  # Backend server
 ```bash
 cargo run -p sd-cli -- library create "My Library"  # CLI-first
 open apps/ios/Spacedrive.xcodeproj  # Native iOS (submodule)
-# Desktop: cd apps/desktop && pnpm tauri dev (when submodule exists)
+# Desktop: cd apps/desktop && bun tauri dev (when submodule exists)
 ```
 
 ### File Structure Comparison
@@ -662,14 +662,14 @@ packages/
 
 ### Quick Reference: Command Mapping
 
-| V1 Command               | V2 Equivalent                                        |
-| ------------------------ | ---------------------------------------------------- |
-| `pnpm i`                 | Not needed (unless working on ts-client)             |
-| `pnpm prep`              | Not needed (Specta generates on build)               |
-| `pnpm tauri dev`         | Will be `cd apps/desktop && pnpm tauri dev` (future) |
-| `pnpm mobile ios`        | `open apps/ios/Spacedrive.xcodeproj`                 |
-| `cargo run -p sd-server` | `cargo run -p sd-cli`                                |
-| `pnpm dev:web`           | Not yet available (web in progress)                  |
+| V1 Command               | V2 Equivalent                                      |
+| ------------------------ | -------------------------------------------------- |
+| `bun install`            | Not needed (unless working on ts-client)           |
+| `bun prep`               | Not needed (Specta generates on build)             |
+| `bun tauri dev`          | Will be `cd apps/desktop && bun tauri dev` (future)|
+| `bun mobile ios`         | `open apps/ios/Spacedrive.xcodeproj`               |
+| `cargo run -p sd-server` | `cargo run -p sd-cli`                              |
+| `bun dev:web`            | Not yet available (web in progress)                |
 
 ### Getting Help with Migration
 

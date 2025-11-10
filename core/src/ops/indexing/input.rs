@@ -34,7 +34,7 @@ impl IndexInput {
 			library_id,
 			paths: paths.into_iter().collect(),
 			scope: IndexScope::Recursive,
-			mode: IndexMode::Content,
+			mode: IndexMode::Deep,
 			include_hidden: false,
 			persistence: IndexPersistence::Ephemeral,
 		}

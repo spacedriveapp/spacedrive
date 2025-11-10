@@ -5,6 +5,7 @@
 //! can run independently or be triggered after indexing operations.
 
 pub mod action;
+mod config;
 mod error;
 mod generator;
 mod job;
@@ -12,6 +13,7 @@ mod state;
 mod utils;
 
 pub use action::ThumbnailAction;
+pub use config::{ThumbnailVariantConfig, ThumbnailVariants};
 pub use error::{ThumbnailError, ThumbnailResult};
 pub use generator::{ImageGenerator, ThumbnailGenerator, ThumbnailInfo, VideoGenerator};
 pub use job::{ThumbnailJob, ThumbnailJobConfig};

@@ -107,8 +107,12 @@ impl ImageGenerator {
 			// Convert to RGB8 for consistency
 			let rgb_thumbnail = thumbnail.to_rgb8();
 
-			// Encode as WebP using webp crate (same as sd-ffmpeg)
-			let webp_encoder = webp::Encoder::from_rgb(&rgb_thumbnail, target_width, target_height);
+			// Get actual dimensions from the resized image (may differ from calculated due to rounding)
+			let actual_width = rgb_thumbnail.width();
+			let actual_height = rgb_thumbnail.height();
+
+			// Encode as WebP using actual dimensions
+			let webp_encoder = webp::Encoder::from_rgb(&rgb_thumbnail, actual_width, actual_height);
 			let webp_memory = webp_encoder.encode(quality as f32);
 			let webp_data = webp_memory.to_vec();
 
@@ -117,7 +121,7 @@ impl ImageGenerator {
 
 			Ok::<ThumbnailInfo, ThumbnailError>(ThumbnailInfo {
 				size_bytes: webp_data.len(),
-				dimensions: (target_width, target_height),
+				dimensions: (actual_width, actual_height),
 				format: "webp".to_string(),
 			})
 		})
@@ -234,8 +238,12 @@ impl DocumentGenerator {
 			// Convert to RGB8 for WebP encoding
 			let rgb_thumbnail = thumbnail.to_rgb8();
 
-			// Encode as WebP
-			let webp_encoder = webp::Encoder::from_rgb(&rgb_thumbnail, target_width, target_height);
+			// Get actual dimensions from the resized image
+			let actual_width = rgb_thumbnail.width();
+			let actual_height = rgb_thumbnail.height();
+
+			// Encode as WebP using actual dimensions
+			let webp_encoder = webp::Encoder::from_rgb(&rgb_thumbnail, actual_width, actual_height);
 			let webp_memory = webp_encoder.encode(quality as f32);
 			let webp_data = webp_memory.to_vec();
 
@@ -244,7 +252,7 @@ impl DocumentGenerator {
 
 			Ok::<ThumbnailInfo, ThumbnailError>(ThumbnailInfo {
 				size_bytes: webp_data.len(),
-				dimensions: (target_width, target_height),
+				dimensions: (actual_width, actual_height),
 				format: "webp".to_string(),
 			})
 		})

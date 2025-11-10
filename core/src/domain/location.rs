@@ -4,13 +4,15 @@
 //! They can be on any device and are addressed using SdPath.
 
 use crate::domain::addressing::SdPath;
+use crate::domain::resource::Identifiable;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::time::Duration;
 use uuid::Uuid;
 
 /// An indexed directory that Spacedrive monitors
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Location {
 	/// Unique identifier
 	pub id: Uuid,
@@ -51,7 +53,7 @@ pub struct Location {
 }
 
 /// How deeply to index files in this location
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
 pub enum IndexMode {
 	/// Just filesystem metadata (name, size, dates)
 	Shallow,
@@ -64,7 +66,7 @@ pub enum IndexMode {
 }
 
 /// Current scanning state of a location
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
 pub enum ScanState {
 	/// Not currently being scanned
 	Idle,
@@ -181,7 +183,65 @@ impl Location {
 
 impl Default for IndexMode {
 	fn default() -> Self {
-		IndexMode::Content
+		IndexMode::Deep
+	}
+}
+
+impl Identifiable for Location {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str {
+		"location"
+	}
+}
+
+impl Location {
+	/// Build Location from database model (for event emission)
+	pub fn from_db_model(
+		model: &crate::infra::db::entities::location::Model,
+		library_id: Uuid,
+		sd_path: SdPath,
+	) -> Self {
+		let index_mode = match model.index_mode.as_str() {
+			"shallow" => IndexMode::Shallow,
+			"content" => IndexMode::Content,
+			"deep" => IndexMode::Deep,
+			_ => IndexMode::Deep,
+		};
+
+		let scan_state = match model.scan_state.as_str() {
+			"pending" | "idle" => ScanState::Idle,
+			"scanning" => ScanState::Scanning { progress: 0 },
+			"completed" => ScanState::Completed,
+			"error" | "failed" => ScanState::Failed,
+			_ => ScanState::Idle,
+		};
+
+		Self {
+			id: model.uuid,
+			library_id,
+			sd_path,
+			name: model.name.clone().unwrap_or_else(|| "Unknown".to_string()),
+			index_mode,
+			scan_interval: None,
+			total_size: model.total_byte_size as u64,
+			file_count: model.total_file_count as u64,
+			directory_count: 0, // Not tracked in DB model yet
+			scan_state,
+			created_at: model.created_at.into(),
+			updated_at: model.updated_at.into(),
+			last_scan_at: model.last_scan_at.map(|dt| dt.into()),
+			is_available: true,
+			ignore_patterns: vec![
+				".*".to_string(),
+				"*.tmp".to_string(),
+				"node_modules".to_string(),
+				"__pycache__".to_string(),
+				".git".to_string(),
+			],
+		}
 	}
 }
 

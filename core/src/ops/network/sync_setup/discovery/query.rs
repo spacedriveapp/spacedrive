@@ -1,9 +1,10 @@
 //! Query for discovering libraries on a remote paired device
 
-use super::output::{DiscoverRemoteLibrariesOutput, LibraryStatistics, RemoteLibraryInfo};
+use super::output::{DiscoverRemoteLibrariesOutput, RemoteLibraryInfo};
 use crate::{
 	context::CoreContext,
 	infra::query::{CoreQuery, QueryError, QueryResult},
+	library::config::LibraryStatistics,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -111,10 +112,14 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 						description: lib.description,
 						created_at: lib.created_at,
 						statistics: LibraryStatistics {
-							total_entries: lib.total_entries,
-							total_locations: lib.total_locations,
-							total_size_bytes: lib.total_size_bytes,
-							device_count: lib.device_count,
+							total_files: lib.total_entries,
+							total_size: lib.total_size_bytes,
+							location_count: lib.total_locations as u32,
+							tag_count: 0, // Not available from network protocol
+							thumbnail_count: 0, // Not available from network protocol
+							database_size: 0, // Not available from network protocol
+							last_indexed: None, // Not available from network protocol
+							updated_at: chrono::Utc::now(), // Current time
 						},
 					})
 					.collect();

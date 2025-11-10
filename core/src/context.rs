@@ -4,7 +4,8 @@ use crate::{
 	config::JobLoggingConfig, crypto::library_key_manager::LibraryKeyManager,
 	device::DeviceManager, infra::action::manager::ActionManager, infra::event::EventBus,
 	infra::sync::TransactionManager, library::LibraryManager, service::network::NetworkingService,
-	service::session::SessionStateService, volume::VolumeManager,
+	service::session::SessionStateService, service::sidecar_manager::SidecarManager,
+	volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
@@ -17,6 +18,7 @@ pub struct CoreContext {
 	pub volume_manager: Arc<VolumeManager>,
 	pub library_key_manager: Arc<LibraryKeyManager>,
 	// This is wrapped in an RwLock to allow it to be set after initialization
+	pub sidecar_manager: Arc<RwLock<Option<Arc<SidecarManager>>>>,
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
 	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
@@ -41,6 +43,7 @@ impl CoreContext {
 			library_manager: Arc::new(RwLock::new(library_manager)),
 			volume_manager,
 			library_key_manager,
+			sidecar_manager: Arc::new(RwLock::new(None)),
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
 			plugin_manager: Arc::new(RwLock::new(None)),
@@ -110,5 +113,15 @@ impl CoreContext {
 		&self,
 	) -> Option<Arc<RwLock<crate::infra::extension::PluginManager>>> {
 		self.plugin_manager.read().await.clone()
+	}
+
+	/// Helper method to get the sidecar manager
+	pub async fn get_sidecar_manager(&self) -> Option<Arc<SidecarManager>> {
+		self.sidecar_manager.read().await.clone()
+	}
+
+	/// Method for Core to set sidecar manager after it's initialized
+	pub async fn set_sidecar_manager(&self, sidecar_manager: Arc<SidecarManager>) {
+		*self.sidecar_manager.write().await = Some(sidecar_manager);
 	}
 }

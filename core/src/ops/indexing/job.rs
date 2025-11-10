@@ -528,6 +528,30 @@ impl JobHandler for IndexerJob {
 		// Log summary
 		ctx.log(&metrics.format_summary());
 
+		// If Deep mode, dispatch thumbnail generation job after indexing completes
+		if self.config.mode == IndexMode::Deep && !self.config.is_ephemeral() {
+			use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
+
+			ctx.log("Deep mode enabled - dispatching thumbnail generation job");
+
+			// Dispatch thumbnail job for all entries in this location
+			let thumbnail_config = ThumbnailJobConfig::default();
+			let thumbnail_job = ThumbnailJob::new(thumbnail_config);
+
+			match ctx.library().jobs().dispatch(thumbnail_job).await {
+				Ok(_handle) => {
+					ctx.log("Successfully dispatched thumbnail generation job");
+				}
+				Err(e) => {
+					ctx.log(format!(
+						"Warning: Failed to dispatch thumbnail job: {}",
+						e
+					));
+					// Don't fail the indexing job if thumbnail dispatch fails
+				}
+			}
+		}
+
 		// Generate final output
 		Ok(IndexerOutput {
 			location_id: self.config.location_id,

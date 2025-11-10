@@ -1,39 +1,48 @@
 {
-	"name": "spacedrive",
-	"private": true,
-	"scripts": {},
-	"pnpm": {
-		"overrides": {
-			"@types/node": ">18.18.x",
-			"react-router": "=6.20.1",
-			"react-router-dom": "=6.20.1",
-			"@remix-run/router": "=1.13.1",
-			"@contentlayer/cli": "=0.3.4",
-			"tailwindcss-animate": "=1.0.7"
-		}
-	},
-	"devDependencies": {
-		"@babel/plugin-syntax-import-assertions": "^7.24.0",
-		"@cspell/dict-rust": "^4.0.2",
-		"@cspell/dict-typescript": "^3.1.2",
-		"@ianvs/prettier-plugin-sort-imports": "^4.3.1",
-		"@taplo/cli": "^0.7.0",
-		"cspell": "^8.6.0",
-		"prettier": "^3.3.3",
-		"prettier-plugin-tailwindcss": "^0.6.6",
-		"turbo": "^1.12.5",
-		"turbo-ignore": "^1.12.5",
-		"typescript": "^5.6.2",
-		"vite": "^5.4.9"
-	},
-	"engines": {
-		"pnpm": ">=9.0.0",
-		"npm": "pnpm",
-		"yarn": "pnpm",
-		"node": ">=18.18 <19 || >=20.1"
-	},
-	"eslintConfig": {
-		"root": true
-	},
-	"packageManager": "pnpm@9.12.2"
+  "name": "spacedrive",
+  "private": true,
+  "scripts": {},
+  "devDependencies": {
+    "@babel/plugin-syntax-import-assertions": "^7.24.0",
+    "@cspell/dict-rust": "^4.0.2",
+    "@cspell/dict-typescript": "^3.1.2",
+    "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
+    "@taplo/cli": "^0.7.0",
+    "cspell": "^8.6.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.6",
+    "turbo": "^1.12.5",
+    "turbo-ignore": "^1.12.5",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.9"
+  },
+  "engines": {
+    "bun": ">=1.3.0",
+    "node": ">=18.18 <19 || >=20.1"
+  },
+  "eslintConfig": {
+    "root": true
+  },
+  "packageManager": "bun@1.3.0",
+  "overrides": {
+    "@types/node": ">18.18.x",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router": "=6.20.1",
+    "react-router-dom": "=6.20.1",
+    "@remix-run/router": "=1.13.1",
+    "@contentlayer/cli": "=0.3.4",
+    "tailwindcss-animate": "=1.0.7",
+    "@sinclair/typebox": "^0.34.41"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "scripts",
+    ".github/actions/*"
+  ],
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "gray-matter": "^4.0.3"
+  }
 }

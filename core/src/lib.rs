@@ -167,6 +167,11 @@ impl Core {
 		// Initialize services first, passing them the context
 		let mut services = Services::new(context.clone());
 
+		// Set sidecar manager in context so it can be accessed by jobs
+		context
+			.set_sidecar_manager(services.sidecar_manager.clone())
+			.await;
+
 		// Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
 		let mut loaded_libraries: Vec<Arc<crate::library::Library>> =

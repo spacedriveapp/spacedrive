@@ -186,6 +186,10 @@ async fn check_for_simple_conflicts(
 			// Content paths cannot be destinations for copy operations
 			return Ok(false);
 		}
+		SdPath::Sidecar { .. } => {
+			// Sidecar paths cannot be destinations for copy operations
+			return Ok(false);
+		}
 	};
 
 	// Resolve the actual destination file path using the same logic as the core copy job

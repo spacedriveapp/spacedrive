@@ -1,27 +1,59 @@
 /**
- * @spacedrive/client - Type-safe TypeScript client for Spacedrive daemon
+ * @sd/ts-client - Type-safe TypeScript client for Spacedrive
  *
- * This package provides a complete type-safe interface to the Spacedrive daemon,
+ * This package provides a complete type-safe interface to the Spacedrive core,
  * automatically generated from the Rust core types using Specta.
  *
- * @example
+ * @example Basic Client Usage
  * ```typescript
- * import { SpacedriveClient } from '@spacedrive/client';
+ * import { SpacedriveClient } from '@sd/ts-client';
  *
- * const client = new SpacedriveClient();
+ * // Create client (Tauri)
+ * const client = SpacedriveClient.fromTauri(invoke, listen);
  *
- * // Type-safe API calls
- * const libraries = await client.getLibraries();
- * const jobs = await client.getJobs();
+ * // Direct API calls (type-safe!)
+ * const libraries = await client.execute('query:libraries.list', {});
+ * ```
  *
- * // Type-safe event subscription
- * await client.subscribe(['JobStarted', 'JobProgress', 'JobCompleted']);
- * client.on('event', (event) => {
- *   // event is fully typed as Event union
- *   console.log('Received event:', event);
- * });
+ * @example React Hooks Usage
+ * ```typescript
+ * import { SpacedriveProvider, useLibraryQuery, useCoreMutation } from '@sd/ts-client/hooks';
+ *
+ * function App() {
+ *   return (
+ *     <SpacedriveProvider client={client}>
+ *       <FileExplorer />
+ *     </SpacedriveProvider>
+ *   );
+ * }
+ *
+ * function FileExplorer() {
+ *   const { data: files } = useLibraryQuery({
+ *     type: 'files.directory_listing',
+ *     input: { path: '/' }
+ *   });
+ *
+ *   const createTag = useCoreMutation('tags.create');
+ *
+ *   return <div>{files?.entries.map(f => f.name)}</div>;
+ * }
  * ```
  */
 
-export { SpacedriveClient } from './client';
-export * from './types';
+// Core client
+export { SpacedriveClient } from "./client";
+export type { Transport } from "./transport";
+export { UnixSocketTransport, TauriTransport } from "./transport";
+
+// Event filtering utilities
+export {
+	DEFAULT_EVENT_SUBSCRIPTION,
+	NOISY_EVENTS,
+	type EventVariant,
+} from "./event-filter";
+
+// React hooks (requires @tanstack/react-query peer dependency)
+export * from "./hooks";
+
+// All auto-generated types
+export * from "./generated/types";

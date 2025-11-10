@@ -563,7 +563,7 @@ impl JobManager {
 			job,
 			job_id,
 			J::NAME.to_string(),
-			library,
+			library.clone(),
 			self.db.clone(),
 			status_tx.clone(),
 			progress_tx,
@@ -575,7 +575,7 @@ impl JobManager {
 			networking,
 			volume_manager,
 			self.context.job_logging_config.clone(),
-			self.context.job_logs_dir.clone(),
+			Some(library.job_logs_dir()),
 			Some(persistence_complete_tx),
 		);
 

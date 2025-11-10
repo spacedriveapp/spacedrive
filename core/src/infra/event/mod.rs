@@ -159,6 +159,21 @@ pub enum Event {
 		device_id: Uuid,
 	},
 
+	// Generic resource events (normalized cache)
+	// Works for ALL resources: Location, Tag, Album, File, etc.
+	ResourceChanged {
+		/// Resource type identifier (e.g., "location", "tag", "album")
+		resource_type: String,
+		/// The full resource data as JSON
+		resource: serde_json::Value,
+	},
+	ResourceDeleted {
+		/// Resource type identifier
+		resource_type: String,
+		/// The deleted resource's ID
+		resource_id: Uuid,
+	},
+
 	// Legacy events (for compatibility)
 	LocationAdded {
 		library_id: Uuid,

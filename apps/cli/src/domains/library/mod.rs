@@ -204,11 +204,11 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 								println!("  Description: {}", desc);
 							}
 							println!("  Created: {}", lib.created_at.format("%Y-%m-%d %H:%M:%S"));
-							println!("  Entries: {}", lib.statistics.total_entries);
-							println!("  Locations: {}", lib.statistics.total_locations);
-							println!("  Devices: {}", lib.statistics.device_count);
-							if lib.statistics.total_size_bytes > 0 {
-								println!("  Size: {} bytes", lib.statistics.total_size_bytes);
+							println!("  Files: {}", lib.statistics.total_files);
+							println!("  Locations: {}", lib.statistics.location_count);
+							println!("  Thumbnails: {}", lib.statistics.thumbnail_count);
+							if lib.statistics.total_size > 0 {
+								println!("  Size: {} bytes", lib.statistics.total_size);
 							}
 						}
 					}
@@ -359,7 +359,7 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 				.map(|lib| {
 					format!(
 						"{} ({} entries, {} locations)",
-						lib.name, lib.statistics.total_entries, lib.statistics.total_locations
+						lib.name, lib.statistics.total_files, lib.statistics.location_count
 					)
 				})
 				.collect();

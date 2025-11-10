@@ -490,13 +490,9 @@ impl Library {
 	) -> Result<crate::infra::job::handle::JobHandle> {
 		use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 
-		let config = ThumbnailJobConfig {
-			sizes: self.config().await.settings.thumbnail_sizes.clone(),
-			quality: self.config().await.settings.thumbnail_quality,
-			regenerate: false,
-			batch_size: 50,
-			max_concurrent: 4,
-		};
+		let config = ThumbnailJobConfig::from_sizes(
+			self.config().await.settings.thumbnail_sizes.clone(),
+		);
 
 		let job = if let Some(ids) = entry_ids {
 			ThumbnailJob::for_entries(ids, config)

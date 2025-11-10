@@ -1,20 +1,22 @@
 {
 	"compilerOptions": {
-		"target": "ES2020",
 		"module": "ESNext",
-		"lib": ["ES2020", "DOM", "DOM.Iterable"],
-		"jsx": "react-jsx",
-		"declaration": true,
-		"declarationMap": true,
-		"moduleResolution": "bundler",
-		"allowImportingTsExtensions": true,
-		"resolveJsonModule": true,
-		"allowJs": true,
-		"strict": true,
-		"esModuleInterop": true,
+		"target": "ESNext",
+		"lib": ["dom", "dom.iterable", "esnext"],
 		"skipLibCheck": true,
+		"strict": true,
 		"forceConsistentCasingInFileNames": true,
+		"noEmit": true,
+		"esModuleInterop": true,
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"jsx": "react-jsx",
+		"composite": true,
 		"rootDir": "src",
-		"declarationDir": "dist"
-	}
+		"declarationDir": "dist",
+		"declaration": true
+	},
+	"include": ["src"],
+	"exclude": ["node_modules", "dist"]
 }

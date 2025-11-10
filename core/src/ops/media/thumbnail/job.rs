@@ -1,11 +1,15 @@
 //! Thumbnail generation job implementation
 
-use crate::infra::job::prelude::*;
+use crate::{
+	infra::job::prelude::*,
+	ops::sidecar::types::{SidecarKind, SidecarStatus, SidecarVariant},
+};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
 
 use super::{
+	config::{ThumbnailVariantConfig, ThumbnailVariants},
 	error::{ThumbnailError, ThumbnailResult},
 	generator::ThumbnailGenerator,
 	state::{ThumbnailEntry, ThumbnailPhase, ThumbnailState, ThumbnailStats},
@@ -14,11 +18,9 @@ use super::{
 /// Configuration for thumbnail generation job
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThumbnailJobConfig {
-	/// Target thumbnail sizes to generate
-	pub sizes: Vec<u32>,
-
-	/// Quality setting (0-100)
-	pub quality: u8,
+	/// Target thumbnail variants to generate
+	#[serde(skip)]
+	pub variants: Vec<ThumbnailVariantConfig>,
 
 	/// Whether to regenerate existing thumbnails
 	pub regenerate: bool,
@@ -33,11 +35,40 @@ pub struct ThumbnailJobConfig {
 impl Default for ThumbnailJobConfig {
 	fn default() -> Self {
 		Self {
-			sizes: vec![128, 256, 512],
-			quality: 85,
+			variants: ThumbnailVariants::defaults(),
 			regenerate: false,
 			batch_size: 50,
 			max_concurrent: 4,
+		}
+	}
+}
+
+impl ThumbnailJobConfig {
+	/// Create a config with all standard variants
+	pub fn all_variants() -> Self {
+		Self {
+			variants: ThumbnailVariants::all(),
+			..Default::default()
+		}
+	}
+
+	/// Create a config with specific variants
+	pub fn with_variants(variants: Vec<ThumbnailVariantConfig>) -> Self {
+		Self {
+			variants,
+			..Default::default()
+		}
+	}
+
+	/// Create a config from legacy size list (for backward compatibility)
+	pub fn from_sizes(sizes: Vec<u32>) -> Self {
+		let variants = sizes
+			.into_iter()
+			.filter_map(|size| ThumbnailVariants::from_size(size))
+			.collect();
+		Self {
+			variants,
+			..Default::default()
 		}
 	}
 }
@@ -221,62 +252,113 @@ impl ThumbnailJob {
 		));
 		ctx.log("Starting thumbnail discovery phase");
 
-		// Build MIME type conditions based on available features
-		let mut mime_conditions = vec![
-			"e.mime_type LIKE 'image/%'",
-			"e.mime_type = 'application/pdf'",
-		];
+		use crate::infra::db::entities::{content_identity, entry};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 
-		#[cfg(feature = "ffmpeg")]
-		{
-			mime_conditions.push("e.mime_type LIKE 'video/%'");
+		let library = ctx.library();
+		let db = library.db().conn();
+
+		// Build query for entries with content
+		let mut query = entry::Entity::find()
+			.find_also_related(content_identity::Entity)
+			.filter(content_identity::Column::Uuid.is_not_null());
+
+		// Filter by specific entry IDs if provided
+		if let Some(ref ids) = entry_ids {
+			query = query.filter(entry::Column::Id.is_in(ids.clone()));
 		}
 
-		let mime_condition = mime_conditions.join(" OR ");
+		// Filter by file kind (0 = File) and supported extensions
+		// TODO: Add proper MIME type support to Entry model
+		query = query
+			.filter(entry::Column::Kind.eq(0)) // Only files
+			.order_by_desc(entry::Column::Size);
 
-		let query = if let Some(ref entry_ids) = entry_ids {
-			format!(
-				"SELECT e.id, ci.cas_id, e.mime_type, e.size, e.relative_path
-                 FROM entries e
-                 JOIN content_identity ci ON e.content_id = ci.id
-                 WHERE e.id IN ({})
-                 AND ci.cas_id IS NOT NULL
-                 AND ({})
-                 ORDER BY e.size DESC",
-				entry_ids
-					.iter()
-					.map(|id| format!("'{}'", id))
-					.collect::<Vec<_>>()
-					.join(", "),
-				mime_condition
-			)
-		} else {
-			format!(
-				"SELECT e.id, ci.cas_id, e.mime_type, e.size, e.relative_path
-                 FROM entries e
-                 JOIN content_identity ci ON e.content_id = ci.id
-                 WHERE ci.cas_id IS NOT NULL
-                 AND ({})
-                 ORDER BY e.size DESC",
-				mime_condition
-			)
-		};
+		// Execute query
+		let results = query
+			.all(db)
+			.await
+			.map_err(|e| JobError::execution(format!("Database query failed: {}", e)))?;
 
-		// This is a placeholder - in real implementation, we'd use the database
-		// For now, we'll create some mock entries
-		let entries = Self::mock_database_query_static(&query).await?;
+		ctx.log(format!("Query returned {} entries with potential content", results.len()));
 
-		// Filter entries that already have thumbnails (unless regenerating)
-		for entry in entries {
-			if !config.regenerate
-				&& Self::has_all_thumbnails_static(&entry.cas_id, config, ctx).await?
-			{
-				state.record_skipped();
-				continue;
+		// Process results and check for existing sidecars
+		let sidecar_manager = library
+			.core_context()
+			.get_sidecar_manager()
+			.await
+			.ok_or_else(|| JobError::execution("SidecarManager not available"))?;
+
+		let mut skipped_no_content = 0;
+		let mut skipped_no_uuid = 0;
+
+		for (entry_model, content_opt) in results {
+			let content = match content_opt {
+				Some(c) => c,
+				None => {
+					skipped_no_content += 1;
+					continue;
+				}
+			};
+
+			// Skip if content doesn't have a UUID yet
+			let content_uuid = match content.uuid {
+				Some(uuid) => uuid,
+				None => {
+					skipped_no_uuid += 1;
+					continue;
+				}
+			};
+
+			// Get full path for this entry
+			use crate::ops::indexing::PathResolver;
+			let full_path = match PathResolver::get_full_path(db, entry_model.id).await {
+				Ok(p) => p,
+				Err(e) => {
+					ctx.log(format!("Failed to resolve path for entry {}: {}", entry_model.id, e));
+					continue;
+				}
+			};
+
+			// Check if all required sidecar variants exist
+			if !config.regenerate {
+				let mut all_exist = true;
+				for variant_config in &config.variants {
+					if !sidecar_manager
+						.exists(
+							&library.id(),
+							&content_uuid,
+							&SidecarKind::Thumb,
+							&variant_config.variant,
+							&variant_config.format(),
+						)
+						.await
+						.unwrap_or(false)
+					{
+						all_exist = false;
+						break;
+					}
+				}
+
+				if all_exist {
+					state.record_skipped();
+					continue;
+				}
 			}
 
-			state.pending_entries.push(entry);
+			state.pending_entries.push(ThumbnailEntry {
+				entry_id: entry_model.uuid.unwrap_or_else(Uuid::new_v4),
+				content_uuid,
+				extension: entry_model.extension,
+				file_size: entry_model.size as u64,
+				relative_path: full_path.to_string_lossy().to_string(),
+			});
 		}
+
+		ctx.log(format!(
+			"Discovery filtering: skipped {} (no content), {} (no UUID)",
+			skipped_no_content, skipped_no_uuid
+		));
 
 		state.stats.discovered_count = state.pending_entries.len() as u64;
 
@@ -391,21 +473,6 @@ impl ThumbnailJob {
 		Ok(())
 	}
 
-	/// Check if all required thumbnails exist for a CAS ID
-	async fn has_all_thumbnails_static(
-		cas_id: &str,
-		config: &ThumbnailJobConfig,
-		ctx: &JobContext<'_>,
-	) -> JobResult<bool> {
-		let library = ctx.library();
-		for &size in &config.sizes {
-			if !library.has_thumbnail(cas_id, size).await {
-				return Ok(false);
-			}
-		}
-		Ok(true)
-	}
-
 	/// Generate thumbnails for a single entry
 	async fn generate_thumbnails_for_entry_static(
 		entry: &ThumbnailEntry,
@@ -415,16 +482,37 @@ impl ThumbnailJob {
 		use super::generator::ThumbnailGenerator;
 		use super::utils::ThumbnailUtils;
 
-		// Validate parameters
-		for &size in &config.sizes {
-			ThumbnailUtils::validate_thumbnail_params(size, config.quality)?;
-		}
+		// Get library and sidecar manager
+		let library = ctx.library();
+		let sidecar_manager = library
+			.core_context()
+			.get_sidecar_manager()
+			.await
+			.ok_or_else(|| ThumbnailError::other("SidecarManager not available"))?;
+
+		// Determine MIME type from extension
+		let mime_type = entry
+			.extension
+			.as_ref()
+			.and_then(|ext| {
+				match ext.to_lowercase().as_str() {
+					"jpg" | "jpeg" => Some("image/jpeg"),
+					"png" => Some("image/png"),
+					"gif" => Some("image/gif"),
+					"webp" => Some("image/webp"),
+					"bmp" => Some("image/bmp"),
+					"pdf" => Some("application/pdf"),
+					#[cfg(feature = "ffmpeg")]
+					"mp4" | "mov" | "avi" | "mkv" | "webm" => Some("video/mp4"),
+					_ => None,
+				}
+			})
+			.unwrap_or("image/jpeg"); // Default to image/jpeg
 
 		// Create appropriate generator for the file type
-		let generator = ThumbnailGenerator::for_mime_type(&entry.mime_type)?;
+		let generator = ThumbnailGenerator::for_mime_type(mime_type)?;
 
 		// Get the full path to the source file
-		let library = ctx.library();
 		let source_path = library.path().join(&entry.relative_path);
 
 		if !source_path.exists() {
@@ -433,28 +521,76 @@ impl ThumbnailJob {
 
 		let mut total_thumbnail_size = 0u64;
 
-		// Generate thumbnails for each configured size
-		for &size in &config.sizes {
+		// Generate thumbnails for each configured variant
+		for variant_config in &config.variants {
+			// Validate parameters
+			ThumbnailUtils::validate_thumbnail_params(
+				variant_config.size,
+				variant_config.quality,
+			)?;
+
 			// Skip if thumbnail already exists (unless regenerating)
-			if !config.regenerate && library.has_thumbnail(&entry.cas_id, size).await {
+			if !config.regenerate
+				&& sidecar_manager
+					.exists(
+						&library.id(),
+						&entry.content_uuid,
+						&SidecarKind::Thumb,
+						&variant_config.variant,
+						&variant_config.format(),
+					)
+					.await
+					.unwrap_or(false)
+			{
 				continue;
 			}
 
-			// Build thumbnail output path
-			let thumbnail_path = library.thumbnail_path(&entry.cas_id, size);
+			// Compute sidecar path
+			let sidecar_path = sidecar_manager
+				.compute_path(
+					&library.id(),
+					&entry.content_uuid,
+					&SidecarKind::Thumb,
+					&variant_config.variant,
+					&variant_config.format(),
+				)
+				.await
+				.map_err(|e| ThumbnailError::other(format!("Path computation failed: {}", e)))?;
+
+			let thumbnail_path = sidecar_path.absolute_path;
 
 			// Ensure directory exists
 			ThumbnailUtils::ensure_thumbnail_dirs(&thumbnail_path).await?;
 
 			// Generate the thumbnail
 			let thumbnail_info = generator
-				.generate(&source_path, &thumbnail_path, size, config.quality)
+				.generate(
+					&source_path,
+					&thumbnail_path,
+					variant_config.size,
+					variant_config.quality,
+				)
 				.await?;
+
+			// Record the sidecar in the database
+			sidecar_manager
+				.record_sidecar(
+					library,
+					&entry.content_uuid,
+					&SidecarKind::Thumb,
+					&variant_config.variant,
+					&variant_config.format(),
+					thumbnail_info.size_bytes as u64,
+					None, // checksum
+				)
+				.await
+				.map_err(|e| ThumbnailError::other(format!("Failed to record sidecar: {}", e)))?;
 
 			total_thumbnail_size += thumbnail_info.size_bytes as u64;
 
 			ctx.log(format!(
-				"Generated {}x{} thumbnail for {} ({}KB)",
+				"Generated {} thumbnail ({}x{}) for {} ({}KB)",
+				variant_config.variant.as_str(),
 				thumbnail_info.dimensions.0,
 				thumbnail_info.dimensions.1,
 				entry.relative_path,
@@ -463,36 +599,5 @@ impl ThumbnailJob {
 		}
 
 		Ok(total_thumbnail_size)
-	}
-
-	/// Mock database query for development
-	async fn mock_database_query_static(_query: &str) -> JobResult<Vec<ThumbnailEntry>> {
-		// TODO: Replace with actual database query
-		let mut entries = vec![ThumbnailEntry {
-			entry_id: Uuid::new_v4(),
-			cas_id: "abc123def456".to_string(),
-			mime_type: "image/jpeg".to_string(),
-			file_size: 1024 * 1024,
-			relative_path: "photos/vacation.jpg".to_string(),
-		}];
-
-		// Only add video entry if FFmpeg feature is enabled
-		#[cfg(feature = "ffmpeg")]
-		{
-			entries.push(ThumbnailEntry {
-				entry_id: Uuid::new_v4(),
-				cas_id: "def456ghi789".to_string(),
-				mime_type: "video/mp4".to_string(),
-				file_size: 10 * 1024 * 1024,
-				relative_path: "videos/movie.mp4".to_string(),
-			});
-		}
-
-		#[cfg(not(feature = "ffmpeg"))]
-		{
-			let _ = &mut entries; // Suppress unused variable warning
-		}
-
-		Ok(entries)
 	}
 }

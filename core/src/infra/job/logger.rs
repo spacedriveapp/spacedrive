@@ -219,6 +219,11 @@ impl FileJobLogger {
 		log_path: PathBuf,
 		config: JobLoggingConfig,
 	) -> std::io::Result<Self> {
+		// Ensure parent directory exists
+		if let Some(parent) = log_path.parent() {
+			std::fs::create_dir_all(parent)?;
+		}
+
 		let file = OpenOptions::new()
 			.create(true)
 			.append(true)

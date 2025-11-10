@@ -9,6 +9,8 @@ members = [
 	# "apps/mobile/modules/sd-core/ios/crate",
 	# "apps/server",
 	"apps/cli",
+	"apps/tauri/sd-tauri-core",
+	"apps/tauri/src-tauri",
 	"core",
 	"core/benchmarks",
 	"crates/*",

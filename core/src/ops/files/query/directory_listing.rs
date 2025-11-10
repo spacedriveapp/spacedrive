@@ -217,6 +217,41 @@ impl LibraryQuery for DirectoryListingQuery {
 		// Get total count for pagination - use the count from the already fetched entries
 		let total_count = rows.len() as u32;
 
+		// Collect all content UUIDs for batch sidecar query
+		let content_uuids: Vec<Uuid> = rows
+			.iter()
+			.filter_map(|row| row.try_get::<Option<Uuid>>("", "content_identity_uuid").ok().flatten())
+			.collect();
+
+		// Batch fetch all sidecars for these content UUIDs
+		let all_sidecars = if !content_uuids.is_empty() {
+			sidecar::Entity::find()
+				.filter(sidecar::Column::ContentUuid.is_in(content_uuids.clone()))
+				.all(db.conn())
+				.await?
+		} else {
+			Vec::new()
+		};
+
+		// Group sidecars by content_uuid for fast lookup
+		let mut sidecars_by_content: HashMap<Uuid, Vec<crate::domain::file::Sidecar>> = HashMap::new();
+		for s in all_sidecars {
+			sidecars_by_content
+				.entry(s.content_uuid)
+				.or_insert_with(Vec::new)
+				.push(crate::domain::file::Sidecar {
+					id: s.id,
+					content_uuid: s.content_uuid,
+					kind: s.kind,
+					variant: s.variant,
+					format: s.format,
+					status: s.status,
+					size: s.size,
+					created_at: s.created_at,
+					updated_at: s.updated_at,
+				});
+		}
+
 		// Convert to File objects
 		let mut files = Vec::new();
 		for row in rows {
@@ -337,6 +372,11 @@ impl LibraryQuery for DirectoryListingQuery {
 					last_verified_at: ci_last_verified,
 				});
 				file.content_kind = kind;
+
+				// Add sidecars from batch lookup
+				if let Some(sidecars) = sidecars_by_content.get(&ci_uuid) {
+					file.sidecars = sidecars.clone();
+				}
 			}
 
 			files.push(file);

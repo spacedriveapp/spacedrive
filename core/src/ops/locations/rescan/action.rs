@@ -76,7 +76,7 @@ impl LibraryAction for LocationRescanAction {
 				"shallow" => IndexMode::Shallow,
 				"content" => IndexMode::Content,
 				"deep" => IndexMode::Deep,
-				_ => IndexMode::Content,
+				_ => IndexMode::Deep,
 			}
 		};
 

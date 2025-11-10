@@ -174,14 +174,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
 
-      - name: Setup Node.js, pnpm and dependencies
-        uses: ./.github/actions/setup-pnpm
+      - name: Setup Bun and dependencies
+        uses: ./.github/actions/setup-bun
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: |
-          pnpm tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }}
+          bun tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}

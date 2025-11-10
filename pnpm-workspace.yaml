@@ -1,5 +1,0 @@
-packages:
-  - "packages/*"
-  - "apps/*"
-  - "scripts"
-  - ".github/actions/*"

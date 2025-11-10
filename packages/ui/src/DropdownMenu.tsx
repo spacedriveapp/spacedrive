@@ -1,174 +1,89 @@
 'use client';
 
-import * as RadixDM from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
-import React, {
-	ContextType,
-	createContext,
-	PropsWithChildren,
-	ReactNode,
-	Suspense,
-	useCallback,
-	useContext,
-	useRef,
-	useState
-} from 'react';
-import { Link } from 'react-router-dom';
+import { type ReactNode, type PropsWithChildren, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-import {
-	contextMenuClassNames,
-	ContextMenuDivItem,
-	contextMenuItemClassNames,
-	ContextMenuItemProps,
-	contextMenuSeparatorClassNames
-} from './ContextMenu';
+// Minimal base styles - customize via className prop
+const baseMenuStyles = 'overflow-hidden w-full';
+const baseItemWrapperStyles = 'w-full';
+const baseItemStyles = 'flex w-full items-center cursor-pointer';
+const baseSeparatorStyles = 'border-b';
 
-interface DropdownMenuProps
-	extends RadixDM.MenuContentProps,
-		Pick<RadixDM.DropdownMenuProps, 'onOpenChange'> {
-	trigger: React.ReactNode;
-	triggerClassName?: string;
-	alignToTrigger?: boolean;
+// ===== ROOT COMPONENT =====
+interface DropdownMenuProps {
+	trigger: ReactNode;
+	className?: string;
+	onOpenChange?: (open: boolean) => void;
 }
 
-const DropdownMenuContext = createContext<boolean | null>(null);
-
-export const useDropdownMenuContext = <T extends boolean>({ suspense }: { suspense?: T } = {}) => {
-	const ctx = useContext(DropdownMenuContext);
-
-	if (suspense && ctx === null) throw new Error('DropdownMenuContext.Provider not found!');
-
-	return ctx as T extends true
-		? NonNullable<ContextType<typeof DropdownMenuContext>>
-		: NonNullable<ContextType<typeof DropdownMenuContext>> | undefined;
-};
-
-const Root = (props: PropsWithChildren<DropdownMenuProps>) => {
-	const {
-		alignToTrigger,
-		onOpenChange,
-		trigger,
-		triggerClassName,
-		asChild = true,
-		className,
-		children,
-		...contentProps
-	} = props;
-
-	const [width, setWidth] = useState<number>();
-
-	const measureRef = useCallback(
-		(ref: HTMLButtonElement | null) => {
-			if (alignToTrigger && ref) setWidth(ref.getBoundingClientRect().width);
-		},
-		[alignToTrigger]
-	);
-
-	return (
-		<RadixDM.Root onOpenChange={onOpenChange}>
-			<RadixDM.Trigger ref={measureRef} className={triggerClassName} asChild={asChild}>
-				{trigger}
-			</RadixDM.Trigger>
-			<RadixDM.Portal>
-				<Suspense fallback={null}>
-					<RadixDM.Content
-						className={clsx(
-							contextMenuClassNames,
-							width && '!min-w-0 max-w-none',
-							className
-						)}
-						align="start"
-						style={{ width }}
-						{...contentProps}
-					>
-						<DropdownMenuContext.Provider value={true}>
-							{children}
-						</DropdownMenuContext.Provider>
-					</RadixDM.Content>
-				</Suspense>
-			</RadixDM.Portal>
-		</RadixDM.Root>
-	);
-};
-
-const Separator = (props: { className?: string }) => (
-	<RadixDM.Separator className={clsx(contextMenuSeparatorClassNames, props.className)} />
-);
-
-const SubMenu = ({
-	label,
-	icon,
-	iconProps,
-	keybind,
-	variant,
+function Root({
+	onOpenChange,
+	trigger,
 	className,
-	...props
-}: RadixDM.MenuSubContentProps & ContextMenuItemProps & { trigger?: ReactNode }) => {
-	return (
-		<RadixDM.Sub>
-			<RadixDM.SubTrigger className={contextMenuItemClassNames}>
-				{props.trigger || (
-					<ContextMenuDivItem
-						rightArrow
-						{...{ label, icon, iconProps, keybind, variant }}
-					/>
-				)}
-			</RadixDM.SubTrigger>
-			<RadixDM.Portal>
-				<Suspense fallback={null}>
-					<RadixDM.SubContent
-						className={clsx(contextMenuClassNames, className)}
-						{...props}
-					/>
-				</Suspense>
-			</RadixDM.Portal>
-		</RadixDM.Sub>
-	);
-};
-
-interface DropdownItemProps extends ContextMenuItemProps {
-	to?: string;
-	selected?: boolean;
-}
-
-const Item = ({
-	icon,
-	iconProps,
-	label,
 	children,
-	keybind,
-	variant,
-	className,
-	selected,
-	to,
-	...props
-}: DropdownItemProps & RadixDM.MenuItemProps) => {
-	const ref = useRef<HTMLDivElement>(null);
+}: PropsWithChildren<DropdownMenuProps>) {
+	const [isOpen, setIsOpen] = useState(false);
 
-	const renderInner = (
-		// to style this, pass in variant
-		<ContextMenuDivItem
-			className={clsx(selected && 'bg-accent text-white')}
-			{...{ icon, iconProps, label, keybind, variant, children }}
-		/>
-	);
+	const handleOpenChange = (open: boolean) => {
+		setIsOpen(open);
+		onOpenChange?.(open);
+	};
 
 	return (
-		<RadixDM.Item ref={ref} className={clsx(contextMenuItemClassNames, className)} {...props}>
-			{to ? (
-				<Link to={to} onClick={() => ref.current?.click()}>
-					{renderInner}
-				</Link>
-			) : (
-				renderInner
-			)}
-		</RadixDM.Item>
+		<div className="w-full">
+			<div onClick={() => handleOpenChange(!isOpen)}>{trigger}</div>
+
+			<AnimatePresence>
+				{isOpen && (
+					<motion.div
+						initial={{ height: 0, opacity: 0 }}
+						animate={{ height: 'auto', opacity: 1 }}
+						exit={{ height: 0, opacity: 0 }}
+						transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
+						className="overflow-hidden"
+					>
+						<div className={clsx(baseMenuStyles, 'mt-1', className)}>
+							{children}
+						</div>
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</div>
 	);
-};
+}
+
+// ===== ITEM COMPONENT =====
+interface ItemProps {
+	icon?: React.ElementType;
+	label?: string;
+	children?: ReactNode;
+	selected?: boolean;
+	onClick?: () => void;
+	className?: string;
+}
+
+function Item({ icon: Icon, label, children, selected, className, onClick }: ItemProps) {
+	return (
+		<div className={baseItemWrapperStyles}>
+			<button
+				onClick={onClick}
+				className={clsx(baseItemStyles, className)}
+			>
+				{Icon && <Icon className="mr-2 size-4" weight="bold" />}
+				{label || children}
+			</button>
+		</div>
+	);
+}
+
+// ===== SEPARATOR COMPONENT =====
+function Separator({ className }: { className?: string }) {
+	return <div className={clsx(baseSeparatorStyles, className)} />;
+}
 
 export const DropdownMenu = {
 	Root,
 	Item,
 	Separator,
-	SubMenu
 };

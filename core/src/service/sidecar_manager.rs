@@ -271,14 +271,54 @@ impl SidecarManager {
 
 		sidecar.insert(db.conn()).await?;
 
-		// TODO: Dispatch to job system
-		info!(
-			"Enqueued sidecar generation: {} {} {} for {}",
-			kind.as_str(),
-			variant.as_str(),
-			format.as_str(),
-			content_uuid
-		);
+		// Dispatch to job system based on sidecar kind
+		match kind {
+			SidecarKind::Thumb => {
+				// For thumbnails, we need to find the entry and dispatch a thumbnail job
+				// We'll dispatch a job for this specific content_uuid
+				use crate::infra::db::entities::{content_identity, entry};
+				use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig, ThumbnailVariants};
+				use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+				// Find an entry with this content_uuid
+				let entry_with_content = entry::Entity::find()
+					.find_also_related(content_identity::Entity)
+					.filter(content_identity::Column::Uuid.eq(*content_uuid))
+					.one(db.conn())
+					.await?;
+
+				if let Some((entry_model, _)) = entry_with_content {
+					if let Some(entry_uuid) = entry_model.uuid {
+						// Dispatch thumbnail job for this specific entry
+						let config = ThumbnailJobConfig::default();
+						let job = ThumbnailJob::for_entries(vec![entry_uuid], config);
+
+						library.jobs().dispatch(job).await.map_err(|e| {
+							anyhow::anyhow!("Failed to dispatch thumbnail job: {}", e)
+						})?;
+
+						info!(
+							"Dispatched thumbnail job for {} {} {} (content: {})",
+							kind.as_str(),
+							variant.as_str(),
+							format.as_str(),
+							content_uuid
+						);
+					}
+				}
+			}
+			_ => {
+				// For other sidecar types, just log for now
+				// TODO: Implement dispatch for OCR, transcripts, etc.
+				info!(
+					"Enqueued sidecar generation: {} {} {} for {} (no job dispatch yet)",
+					kind.as_str(),
+					variant.as_str(),
+					format.as_str(),
+					content_uuid
+				);
+			}
+		}
 
 		Ok(())
 	}
@@ -440,6 +480,7 @@ impl SidecarManager {
 
 		// Upsert sidecar record
 		let sidecar = sidecar::ActiveModel {
+			uuid: ActiveValue::Set(Uuid::new_v4()),
 			content_uuid: ActiveValue::Set(*content_uuid),
 			kind: ActiveValue::Set(kind.as_str().to_string()),
 			variant: ActiveValue::Set(variant.as_str().to_string()),

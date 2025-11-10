@@ -1,5 +1,5 @@
-name: Setup Node.js, pnpm and dependencies
-description: Setup Node.js, pnpm and dependencies
+name: Setup Bun and dependencies
+description: Setup Bun and dependencies
 inputs:
   token:
     description: Github token
@@ -173,19 +173,14 @@ runs:
         source ~/.profile
 
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-
-    - name: Install Node.js
-      uses: actions/setup-node@v4
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
       with:
-        token: ${{ inputs.token }}
-        check-latest: true
-        node-version-file: '.nvmrc'
+        bun-version: latest
 
-    - name: Install pnpm deps
+    - name: Install dependencies
       shell: ${{ runner.os == 'Windows' && 'powershell' || 'bash' }}
       env:
         NODE_ENV: debug
         GITHUB_TOKEN: ${{ inputs.token }}
-      run: pnpm i --frozen-lockfile
+      run: bun install --frozen-lockfile

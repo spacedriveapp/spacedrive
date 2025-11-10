@@ -1,5 +1,6 @@
 //! Output types for library discovery
 
+use crate::library::config::LibraryStatistics;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -23,23 +24,6 @@ pub struct RemoteLibraryInfo {
 
 	/// Statistics about the library
 	pub statistics: LibraryStatistics,
-}
-
-/// Statistics about a remote library
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct LibraryStatistics {
-	/// Total number of entries (files + directories)
-	pub total_entries: u64,
-
-	/// Total number of locations indexed
-	pub total_locations: u64,
-
-	/// Total size of all files in bytes
-	pub total_size_bytes: u64,
-
-	/// Number of devices registered in this library
-	pub device_count: u64,
 }
 
 /// Output from discovering remote libraries

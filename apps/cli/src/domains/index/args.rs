@@ -53,7 +53,7 @@ pub struct IndexStartArgs {
 	pub library: Option<Uuid>,
 
 	/// Indexing mode
-	#[arg(long, value_enum, default_value = "content")]
+	#[arg(long, value_enum, default_value = "deep")]
 	pub mode: IndexModeArg,
 
 	/// Indexing scope

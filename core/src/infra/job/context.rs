@@ -12,7 +12,7 @@ use sea_orm::DatabaseConnection;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex, RwLock};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 /// Context provided to jobs during execution
 pub struct JobContext<'a> {
@@ -177,7 +177,7 @@ impl<'a> JobContext<'a> {
 	/// Log a message
 	pub fn log(&self, message: impl Into<String>) {
 		let msg = message.into();
-		debug!(job_id = %self.id, "{}", msg);
+		info!(job_id = %self.id, "{}", msg);
 
 		// Also log to file if enabled
 		if let Some(logger) = &self.file_logger {

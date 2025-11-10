@@ -17,8 +17,8 @@ pub enum ThumbnailPhase {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThumbnailEntry {
 	pub entry_id: Uuid,
-	pub cas_id: String,
-	pub mime_type: String,
+	pub content_uuid: Uuid,
+	pub extension: Option<String>,
 	pub file_size: u64,
 	pub relative_path: String,
 }

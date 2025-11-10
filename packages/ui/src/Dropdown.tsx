@@ -1,7 +1,6 @@
 'use client';
 
 import { Menu, Transition } from '@headlessui/react';
-import { ReactComponent as CaretDown } from '@sd/assets/svgs/caret.svg';
 import { cva, VariantProps } from 'class-variance-authority';
 import clsx from 'clsx';
 import { forwardRef, Fragment, PropsWithChildren } from 'react';
@@ -9,6 +8,19 @@ import { Link } from 'react-router-dom';
 
 import * as UI from '.';
 import { tw } from './utils';
+
+const CaretDown = (props: React.SVGProps<SVGSVGElement>) => (
+	<svg width="29" height="18" viewBox="0 0 29 18" fill="none" {...props}>
+		<path
+			d="M0.214203 3.80705L4.02126 0L17.9805 13.9592L14.1734 17.7663L0.214203 3.80705Z"
+			fill="#D9D9D9"
+		/>
+		<path
+			d="M28.1356 3.80705L24.3286 0L10.3694 13.9592L14.1764 17.7663L28.1356 3.80705Z"
+			fill="#D9D9D9"
+		/>
+	</svg>
+);
 
 export const Section = tw.div`px-1 py-1 space-y-0.5`;
 

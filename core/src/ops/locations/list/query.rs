@@ -1,7 +1,8 @@
 use super::output::{LocationInfo, LocationsListOutput};
+use crate::domain::addressing::SdPath;
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{context::CoreContext, infra::query::LibraryQuery};
-use sea_orm::EntityTrait;
+use sea_orm::{ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -28,25 +29,68 @@ impl LibraryQuery for LocationsListQuery {
 		let library_id = session
 			.current_library_id
 			.ok_or_else(|| QueryError::Internal("No library selected".to_string()))?;
-		// Fetch library and query locations table
+
 		let library = context
 			.libraries()
 			.await
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
+
 		let db = library.db().conn();
+
 		let rows = crate::infra::db::entities::location::Entity::find()
+			.find_also_related(crate::infra::db::entities::entry::Entity)
 			.all(db)
 			.await?;
+
 		let mut out = Vec::new();
-		for r in rows {
+
+		for (location, entry_opt) in rows {
+			let entry = match entry_opt {
+				Some(e) => e,
+				None => {
+					tracing::warn!(
+						location_id = %location.uuid,
+						"Location has no root entry, skipping"
+					);
+					continue;
+				}
+			};
+
+			let directory_path = crate::infra::db::entities::directory_paths::Entity::find_by_id(entry.id)
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					QueryError::Internal(format!(
+						"No directory path found for location {} entry {}",
+						location.uuid, entry.id
+					))
+				})?;
+
+			let device = crate::infra::db::entities::device::Entity::find_by_id(location.device_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					QueryError::Internal(format!(
+						"Device not found for location {}",
+						location.uuid
+					))
+				})?;
+
+			let sd_path = SdPath::Physical {
+				device_slug: device.slug.clone(),
+				path: directory_path.path.clone().into(),
+			};
+
 			out.push(LocationInfo {
-				id: r.uuid,
-				path: std::path::PathBuf::from(r.name.clone().unwrap_or_default()),
-				name: r.name.clone(),
+				id: location.uuid,
+				path: directory_path.path.clone().into(),
+				name: location.name.clone(),
+				sd_path,
 			});
 		}
+
 		Ok(LocationsListOutput { locations: out })
 	}
 }

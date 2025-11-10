@@ -84,6 +84,38 @@ impl ContentKind {
 	pub fn from_file_type(file_type: &crate::filetype::FileType) -> Self {
 		file_type.category
 	}
+
+	/// Convert from database ID to ContentKind
+	pub fn from_id(id: i32) -> Self {
+		match id {
+			0 => Self::Unknown,
+			1 => Self::Image,
+			2 => Self::Video,
+			3 => Self::Audio,
+			4 => Self::Document,
+			5 => Self::Archive,
+			6 => Self::Code,
+			7 => Self::Text,
+			8 => Self::Database,
+			9 => Self::Book,
+			10 => Self::Font,
+			11 => Self::Mesh,
+			12 => Self::Config,
+			13 => Self::Encrypted,
+			14 => Self::Key,
+			15 => Self::Executable,
+			16 => Self::Binary,
+			17 => Self::Spreadsheet,
+			18 => Self::Presentation,
+			19 => Self::Email,
+			20 => Self::Calendar,
+			21 => Self::Contact,
+			22 => Self::Web,
+			23 => Self::Shortcut,
+			24 => Self::Package,
+			_ => Self::Unknown,
+		}
+	}
 }
 
 /// Size threshold for sampling vs full hashing (100KB)

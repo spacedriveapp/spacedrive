@@ -1,264 +1,243 @@
-import { createConnection, Socket } from "net";
-import { EventEmitter } from "events";
-import {
-	Event,
-	JobOutput,
-	JobStatus,
-	LibraryCreateInput,
-	LibraryCreateOutput,
-	LibraryInfo,
-	JobListOutput,
-} from "./types";
+import type { Transport } from "./transport";
+import { UnixSocketTransport, TauriTransport } from "./transport";
+import type { Event } from "./generated/types";
 
 /**
- * Type-safe TypeScript client for Spacedrive daemon
- *
- * Provides a clean interface for executing queries, actions, and subscribing to events
- * from the Spacedrive core using Unix domain sockets.
+ * Simple event emitter for browser compatibility
  */
-export class SpacedriveClient extends EventEmitter {
-	private socketPath: string;
+class SimpleEventEmitter {
+	private listeners: Map<string, Set<Function>> = new Map();
 
-	constructor(
-		socketPath: string = process.env.HOME +
-			"/Library/Application Support/spacedrive/daemon/daemon.sock",
-	) {
-		super();
-		this.socketPath = socketPath;
+	on(event: string, listener: Function) {
+		if (!this.listeners.has(event)) {
+			this.listeners.set(event, new Set());
+		}
+		this.listeners.get(event)!.add(listener);
 	}
 
-	// MARK: - Core API Methods
-
-	/**
-	 * Execute a query operation
-	 */
-	async executeQuery<Q, R>(query: Q, method: string): Promise<R> {
-		console.log(`Executing query: ${method}`);
-
-		const request = {
-			JsonQuery: {
-				method,
-				payload: query,
-			},
-		};
-
-		const response = await this.sendRequest(request);
-
-		if ("JsonOk" in response) {
-			console.log("Query successful");
-			return response.JsonOk;
-		} else if ("Error" in response) {
-			throw new Error(`Query failed: ${response.Error}`);
-		} else {
-			throw new Error(
-				`Unexpected response to query: ${JSON.stringify(response)}`,
-			);
+	emit(event: string, ...args: any[]) {
+		const listeners = this.listeners.get(event);
+		if (listeners) {
+			listeners.forEach((listener) => listener(...args));
 		}
 	}
 
-	/**
-	 * Execute an action operation
-	 */
-	async executeAction<A, R>(action: A, method: string): Promise<R> {
-		const request = {
-			JsonAction: {
-				method,
-				payload: action,
-			},
+	once(event: string, listener: Function) {
+		const onceWrapper = (...args: any[]) => {
+			listener(...args);
+			this.off(event, onceWrapper);
 		};
+		this.on(event, onceWrapper);
+	}
 
-		const response = await this.sendRequest(request);
+	off(event: string, listener: Function) {
+		const listeners = this.listeners.get(event);
+		if (listeners) {
+			listeners.delete(listener);
+		}
+	}
+}
 
+/**
+ * Type-safe TypeScript client for Spacedrive
+ *
+ * This client mirrors the Swift client architecture with:
+ * - Namespaced APIs (libraries, files, jobs, etc.)
+ * - Type-safe operations using generated types
+ * - Library context management
+ * - Event subscription system
+ */
+export class SpacedriveClient extends SimpleEventEmitter {
+	private transport: Transport;
+	private currentLibraryId: string | null = null;
+
+	constructor(transport: Transport) {
+		super();
+		this.transport = transport;
+	}
+
+	/**
+	 * Create client for Bun/Node.js using Unix socket
+	 */
+	static fromSocket(socketPath: string): SpacedriveClient {
+		return new SpacedriveClient(new UnixSocketTransport(socketPath));
+	}
+
+	/**
+	 * Create client for Tauri using IPC
+	 */
+	static fromTauri(
+		invoke: (cmd: string, args?: any) => Promise<any>,
+		listen: (event: string, handler: (event: any) => void) => Promise<() => void>
+	): SpacedriveClient {
+		return new SpacedriveClient(new TauriTransport(invoke, listen));
+	}
+
+
+	// MARK: - Library Context Management
+
+	/**
+	 * Get the currently active library ID
+	 */
+	getCurrentLibraryId(): string | null {
+		return this.currentLibraryId;
+	}
+
+	/**
+	 * Set the currently active library
+	 */
+	setCurrentLibrary(libraryId: string): void {
+		this.currentLibraryId = libraryId;
+	}
+
+	/**
+	 * Clear the currently active library
+	 */
+	clearCurrentLibrary(): void {
+		this.currentLibraryId = null;
+	}
+
+	/**
+	 * Switch to a library by ID
+	 * Verifies the library exists before switching
+	 */
+	async switchToLibrary(libraryId: string): Promise<void> {
+		// Verify library exists by calling the query directly
+		const libraries = await this.execute<{}, any[]>("query:libraries.list", {});
+		const libraryExists = libraries.some((lib: any) => lib.id === libraryId);
+
+		if (!libraryExists) {
+			throw new Error(`Library with ID '${libraryId}' not found`);
+		}
+
+		this.setCurrentLibrary(libraryId);
+	}
+
+	/**
+	 * Get information about the currently active library
+	 */
+	async getCurrentLibraryInfo() {
+		const libraryId = this.getCurrentLibraryId();
+		if (!libraryId) return null;
+
+		const libraries = await this.execute<{}, any[]>("query:libraries.list", {});
+		return libraries.find((lib: any) => lib.id === libraryId) ?? null;
+	}
+
+	/**
+	 * Require a current library or throw
+	 * @internal
+	 */
+	requireCurrentLibrary(): string {
+		const libraryId = this.getCurrentLibraryId();
+		if (!libraryId) {
+			throw new Error(
+				"This operation requires an active library. Use switchToLibrary() first."
+			);
+		}
+		return libraryId;
+	}
+
+	// MARK: - Core Execution Methods
+
+	/**
+	 * Execute a wire method with the given input
+	 * This is the low-level method used by TanStack Query hooks
+	 */
+	async execute<I, O>(wireMethod: string, input: I): Promise<O> {
+		// Determine if this is a query or action based on wire method prefix
+		const isQuery = wireMethod.startsWith("query:");
+		const isAction = wireMethod.startsWith("action:");
+
+		if (!isQuery && !isAction) {
+			throw new Error(`Invalid wire method: ${wireMethod}`);
+		}
+
+		const request = isQuery
+			? {
+					Query: {
+						method: wireMethod,
+						library_id: this.currentLibraryId,  // ← Sibling field!
+						payload: input,
+					},
+			  }
+			: {
+					Action: {
+						method: wireMethod,
+						library_id: this.currentLibraryId,  // ← Sibling field!
+						payload: input,
+					},
+			  };
+
+		console.log("SpacedriveClient.execute - Sending request:", {
+			wireMethod,
+			input,
+			currentLibraryId: this.currentLibraryId,
+			request,
+		});
+
+		const response = await this.transport.sendRequest(request);
+
+		console.log("SpacedriveClient.execute - Received response:", response);
+
+		// Handle different response formats
 		if ("JsonOk" in response) {
 			return response.JsonOk;
-		} else if ("Error" in response) {
-			throw new Error(`Action failed: ${response.Error}`);
-		} else {
+		} else if ("json" in response) {
+			// Wire protocol uses lowercase "json" for success
+			return response.json;
+		} else if ("Error" in response || "error" in response) {
+			const error = response.Error || response.error;
 			throw new Error(
-				`Unexpected response to action: ${JSON.stringify(response)}`,
+				`${isQuery ? "Query" : "Action"} failed: ${JSON.stringify(error)}`
 			);
+		} else {
+			throw new Error(`Unexpected response: ${JSON.stringify(response)}`);
 		}
 	}
 
 	/**
 	 * Subscribe to events from the daemon
 	 */
-	async subscribe(eventTypes: string[] = []): Promise<void> {
-		console.log("Starting event subscription...");
+	async subscribe(callback?: (event: Event) => void): Promise<() => void> {
+		const unlisten = await this.transport.subscribe((event) => {
+			// Note: Noisy events (LogMessage, JobProgress, IndexingProgress) are filtered server-side
+			// via event_types subscription in transport.ts
 
-		const socket = await this.createConnection();
+			// Log only important events
+			if ("ResourceChanged" in event) {
+				console.log("ResourceChanged:", event.ResourceChanged.resource_type);
+			} else if ("ResourceDeleted" in event) {
+				console.log("️ ResourceDeleted:", event.ResourceDeleted.resource_type);
+			} else {
+				console.log("SpacedriveClient - Event:", Object.keys(event)[0]);
+			}
 
-		// Send subscription request
-		const subscribeRequest = {
-			Subscribe: {
-				event_types: eventTypes,
-				filter: null,
-			},
-		};
+			// Emit to SimpleEventEmitter (useNormalizedCache listens to this)
+			this.emit("spacedrive-event", event);
 
-		await this.sendRequestOverSocket(subscribeRequest, socket);
-
-		// Listen for events
-		socket.on("data", (data: Buffer) => {
-			const lines = data
-				.toString()
-				.split("\n")
-				.filter((line) => line.trim());
-
-			for (const line of lines) {
-				try {
-					const response = JSON.parse(line);
-
-					if ("Event" in response) {
-						const event: Event = response.Event;
-						console.log("Received event:", event);
-						this.emit("spacedrive-event", event);
-					} else if (line.includes("Subscribed")) {
-						console.log("Event subscription active");
-						this.emit("subscribed");
-					}
-				} catch (error) {
-					console.error("Failed to parse event:", error);
-					console.error("Raw line:", line);
-				}
+			if (callback) {
+				callback(event);
 			}
 		});
 
-		socket.on("error", (error) => {
-			console.error("Socket error:", error);
-			this.emit("error", error);
-		});
-
-		socket.on("close", () => {
-			console.log("Socket closed");
-			this.emit("disconnected");
-		});
+		return unlisten;
 	}
 
 	/**
 	 * Ping the daemon to test connectivity
 	 */
 	async ping(): Promise<void> {
-		console.log("Sending ping...");
-		const response = await this.sendRequest("Ping");
+		const response = await this.transport.sendRequest("Ping");
 
 		if (response === "Pong") {
 			console.log("Ping successful!");
 		} else {
-			throw new Error(
-				`Unexpected ping response: ${JSON.stringify(response)}`,
-			);
+			throw new Error(`Unexpected ping response: ${JSON.stringify(response)}`);
 		}
 	}
 
-	// MARK: - Convenience Methods
-
-	/**
-	 * Create a library using generated types
-	 */
-	async createLibrary(
-		name: string,
-		path?: string,
-	): Promise<LibraryCreateOutput> {
-		const input: LibraryCreateInput = { name, path: path || null };
-		return this.executeAction(input, "action:libraries.create.input");
-	}
-
-	/**
-	 * Get list of libraries
-	 */
-	async getLibraries(includeStats: boolean = false): Promise<LibraryInfo[]> {
-		const query = { include_stats: includeStats };
-		return this.executeQuery(query, "query:libraries.list");
-	}
-
-	/**
-	 * Get list of jobs
-	 */
-	async getJobs(status?: JobStatus): Promise<JobListOutput> {
-		const query = { status: status || null };
-		return this.executeQuery(query, "query:jobs.list");
-	}
-
-	// MARK: - Private Implementation
-
-	private async sendRequest(request: any): Promise<any> {
-		const socket = await this.createConnection();
-
-		try {
-			await this.sendRequestOverSocket(request, socket);
-			return await this.readResponseFromSocket(socket);
-		} finally {
-			socket.destroy();
-		}
-	}
-
-	private createConnection(): Promise<Socket> {
-		return new Promise((resolve, reject) => {
-			console.log(`Connecting to daemon at: ${this.socketPath}`);
-
-			const socket = createConnection(this.socketPath);
-
-			socket.on("connect", () => {
-				console.log("Connected to daemon");
-				resolve(socket);
-			});
-
-			socket.on("error", (error) => {
-				console.error("Connection failed:", error);
-				reject(error);
-			});
-		});
-	}
-
-	private sendRequestOverSocket(request: any, socket: Socket): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const requestLine = JSON.stringify(request) + "\n";
-			console.log(`Sending: ${requestLine.trim()}`);
-
-			socket.write(requestLine, (error) => {
-				if (error) {
-					reject(error);
-				} else {
-					resolve();
-				}
-			});
-		});
-	}
-
-	private readResponseFromSocket(socket: Socket): Promise<any> {
-		return new Promise((resolve, reject) => {
-			let buffer = "";
-
-			const onData = (data: Buffer) => {
-				buffer += data.toString();
-
-				// Check for complete line
-				const newlineIndex = buffer.indexOf("\n");
-				if (newlineIndex !== -1) {
-					const line = buffer.slice(0, newlineIndex).trim();
-					console.log(`Received: ${line}`);
-
-					try {
-						const response = JSON.parse(line);
-						socket.off("data", onData);
-						resolve(response);
-					} catch (error) {
-						socket.off("data", onData);
-						reject(new Error(`Failed to parse response: ${error}`));
-					}
-				}
-			};
-
-			socket.on("data", onData);
-
-			socket.on("error", (error) => {
-				socket.off("data", onData);
-				reject(error);
-			});
-		});
-	}
 }
 
 // Export all types for convenience
-export * from "./types";
+export * from "./generated/types";

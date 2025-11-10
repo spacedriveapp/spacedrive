@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [features]
 default = []
-# FFmpeg support for video thumbnails
+# FFmpeg support for video thumbnails (enable for release builds)
 ffmpeg = ["dep:sd-ffmpeg"]
 # AI models support
 ai = []

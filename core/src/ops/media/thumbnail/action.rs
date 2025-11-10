@@ -43,13 +43,8 @@ impl LibraryAction for ThumbnailAction {
 		library: std::sync::Arc<crate::library::Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Create thumbnail job config
-		let config = ThumbnailJobConfig {
-			sizes: vec![self.input.size],
-			quality: self.input.quality,
-			regenerate: false,
-			..Default::default()
-		};
+		// Create thumbnail job config from size
+		let config = ThumbnailJobConfig::from_sizes(vec![self.input.size]);
 
 		// Create job instance directly
 		let job = ThumbnailJob::new(config);

@@ -212,11 +212,28 @@ impl LocationManager {
 			watch_enabled: true,
 		};
 
-		// Emit location added event
+		// Emit location added event (legacy)
 		self.events.emit(Event::LocationAdded {
 			library_id: library.id(),
 			location_id,
-			path: location_path,
+			path: location_path.clone(),
+		});
+
+		// Emit generic resource event (normalized cache)
+		// Use LocationInfo to match what the query returns
+		use crate::ops::locations::list::output::LocationInfo;
+		let location_info = LocationInfo {
+			id: location_id,
+			path: location_path.clone(),
+			name: Some(display_name.clone()),
+			sd_path: sd_path.clone(),
+		};
+
+		info!("Emitting ResourceChanged event for location: {:?}", location_info);
+
+		self.events.emit(Event::ResourceChanged {
+			resource_type: "location".to_string(),
+			resource: serde_json::to_value(&location_info).unwrap(),
 		});
 
 		// Also emit indexing started event
@@ -518,10 +535,16 @@ impl LocationManager {
 		// Commit transaction
 		txn.commit().await?;
 
-		// Emit event
+		// Emit legacy event
 		self.events.emit(Event::LocationRemoved {
 			library_id: library.id(),
 			location_id,
+		});
+
+		// Emit generic resource deleted event (normalized cache)
+		self.events.emit(Event::ResourceDeleted {
+			resource_type: "location".to_string(),
+			resource_id: location_id,
 		});
 
 		info!("Successfully removed location {}", location_id);
@@ -548,7 +571,7 @@ impl LocationManager {
 				device_id: loc.device_id,
 				library_id: library.id(),
 				indexing_enabled: true,
-				index_mode: loc.index_mode.parse().unwrap_or(IndexMode::Content),
+				index_mode: loc.index_mode.parse().unwrap_or(IndexMode::Deep),
 				watch_enabled: true,
 			});
 		}
@@ -585,7 +608,7 @@ impl LocationManager {
 			device_id: location.device_id,
 			library_id: library.id(),
 			indexing_enabled: true,
-			index_mode: location.index_mode.parse().unwrap_or(IndexMode::Content),
+			index_mode: location.index_mode.parse().unwrap_or(IndexMode::Deep),
 			watch_enabled: true,
 		};
 
