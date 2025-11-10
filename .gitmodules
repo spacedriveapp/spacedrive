@@ -16,3 +16,6 @@
 [submodule "apps/api"]
 	path = apps/api
 	url = https://github.com/spacedriveapp/api.git
+[submodule "packages/interface"]
+	path = packages/interface
+	url = git@github.com:spacedriveapp/interface.git
