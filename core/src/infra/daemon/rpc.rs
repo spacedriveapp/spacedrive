@@ -281,32 +281,15 @@ impl RpcServer {
 		event_types: &[String],
 		filter: &Option<EventFilter>,
 	) -> bool {
-		// If no specific event types requested, forward all events
-		if event_types.is_empty() {
-			return true;
-		}
+		// If event_types is empty, forward all events
+		// Otherwise, treat event_types as an INCLUSION list (only forward these)
+		if !event_types.is_empty() {
+			// Use the Event's own variant_name() method - single source of truth!
+			let event_type = event.variant_name();
 
-		// Check if event type matches subscription
-		let event_type = match event {
-			Event::JobProgress { .. } => "JobProgress",
-			Event::JobStarted { .. } => "JobStarted",
-			Event::JobCompleted { .. } => "JobCompleted",
-			Event::JobFailed { .. } => "JobFailed",
-			Event::JobCancelled { .. } => "JobCancelled",
-			Event::JobPaused { .. } => "JobPaused",
-			Event::JobResumed { .. } => "JobResumed",
-			Event::LibraryCreated { .. } => "LibraryCreated",
-			Event::LibraryOpened { .. } => "LibraryOpened",
-			Event::LibraryClosed { .. } => "LibraryClosed",
-			Event::IndexingStarted { .. } => "IndexingStarted",
-			Event::IndexingProgress { .. } => "IndexingProgress",
-			Event::IndexingCompleted { .. } => "IndexingCompleted",
-			Event::LogMessage { .. } => "LogMessage",
-			_ => "Other",
-		};
-
-		if !event_types.contains(&event_type.to_string()) {
-			return false;
+			if !event_types.contains(&event_type.to_string()) {
+				return false;
+			}
 		}
 
 		// Apply additional filters if specified

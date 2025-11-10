@@ -11,7 +11,7 @@ use tracing::{debug, warn};
 use uuid::Uuid;
 
 /// A central event type that represents all events that can be emitted throughout the system
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, strum::AsRefStr)]
 #[serde(rename_all_fields = "snake_case")]
 pub enum Event {
 	// Core lifecycle events
@@ -219,6 +219,14 @@ pub enum Event {
 		#[specta(skip)]
 		data: serde_json::Value,
 	},
+}
+
+impl Event {
+	/// Get the variant name of this event
+	/// Uses strum::AsRefStr - automatically derived, no boilerplate!
+	pub fn variant_name(&self) -> &str {
+		self.as_ref()
+	}
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution

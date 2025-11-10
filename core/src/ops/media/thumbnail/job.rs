@@ -376,7 +376,20 @@ impl ThumbnailJob {
 			state.stats.discovered_count,
 			state.batches.len()
 		));
-		ctx.progress(Progress::count(0, state.batches.len()));
+
+		// Send progress update for start of processing phase
+		let progress = ThumbnailProgress {
+			phase: state.phase.clone(),
+			generated_count: state.stats.generated_count,
+			skipped_count: state.stats.skipped_count,
+			error_count: state.stats.error_count,
+			total_count: state.stats.discovered_count,
+			current_file: None,
+			estimated_time_remaining: None,
+		};
+
+		use crate::infra::job::generic_progress::ToGenericProgress;
+		ctx.progress(Progress::generic(progress.to_generic_progress()));
 
 		Ok(())
 	}
@@ -429,10 +442,7 @@ impl ThumbnailJob {
 				}
 			}
 
-			// Update progress
-			ctx.progress(Progress::count(batch_idx + 1, total_batches));
-
-			// Update detailed progress
+			// Update progress with generic progress
 			let progress = ThumbnailProgress {
 				phase: state.phase.clone(),
 				generated_count: state.stats.generated_count,
@@ -442,8 +452,9 @@ impl ThumbnailJob {
 				current_file: batch.last().map(|e| e.relative_path.clone()),
 				estimated_time_remaining: None, // TODO: Calculate ETA
 			};
-			let progress_json = serde_json::to_value(progress).unwrap_or(serde_json::Value::Null);
-			ctx.progress(Progress::Structured(progress_json));
+
+			use crate::infra::job::generic_progress::ToGenericProgress;
+			ctx.progress(Progress::generic(progress.to_generic_progress()));
 
 			// Checkpoint every 10 batches
 			if batch_idx % 10 == 0 {

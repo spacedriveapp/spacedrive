@@ -9,6 +9,7 @@ mod config;
 mod error;
 mod generator;
 mod job;
+mod progress;
 mod state;
 mod utils;
 

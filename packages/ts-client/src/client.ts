@@ -201,16 +201,17 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 */
 	async subscribe(callback?: (event: Event) => void): Promise<() => void> {
 		const unlisten = await this.transport.subscribe((event) => {
-			// Note: Noisy events (LogMessage, JobProgress, IndexingProgress) are filtered server-side
-			// via event_types subscription in transport.ts
+			// Log ALL events to debug ResourceChanged issue
+			const eventType = Object.keys(event)[0];
 
-			// Log only important events
 			if ("ResourceChanged" in event) {
-				console.log("ResourceChanged:", event.ResourceChanged.resource_type);
+				console.log("ResourceChanged:", event.ResourceChanged.resource_type, event.ResourceChanged);
 			} else if ("ResourceDeleted" in event) {
 				console.log("️ ResourceDeleted:", event.ResourceDeleted.resource_type);
+			} else if ("JobProgress" in event) {
+				// Don't log progress events, too spammy
 			} else {
-				console.log("SpacedriveClient - Event:", Object.keys(event)[0]);
+				console.log("SpacedriveClient - Event:", eventType);
 			}
 
 			// Emit to SimpleEventEmitter (useNormalizedCache listens to this)

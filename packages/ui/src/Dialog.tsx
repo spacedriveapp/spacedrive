@@ -139,6 +139,7 @@ export interface DialogProps<S extends FieldValues>
 	formClassName?: string;
 	icon?: ReactNode;
 	hideButtons?: boolean;
+	hideHeader?: boolean; // Hide the title bar completely
 	ignoreClickOutside?: boolean;
 }
 
@@ -284,15 +285,17 @@ export function Dialog<S extends FieldValues>({
 									setOpen(false);
 								}}
 								className={clsx(
-									'!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-md',
+									'!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-xl',
 									'border border-app-line bg-app-box text-ink shadow-app-shade',
 									props.formClassName
 								)}
 							>
-								<RDialog.Title className="flex items-center gap-2.5 border-b border-app-line bg-app-input/60 p-3 font-bold">
-									{props.icon && props.icon}
-									{props.title}
-								</RDialog.Title>
+								{!props.hideHeader && (
+									<RDialog.Title className="flex items-center gap-2.5 border-b border-app-line bg-app-input/60 p-3 font-bold">
+										{props.icon && props.icon}
+										{props.title}
+									</RDialog.Title>
+								)}
 								<div className="p-5">
 									{props.description && (
 										<RDialog.Description className="mb-2 text-sm text-ink-dull">

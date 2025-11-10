@@ -55,9 +55,10 @@ export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
 	"VolumeSpeedTested",
 	"VolumeMountChanged",
 	"VolumeError",
-	// Job lifecycle (no progress spam)
+	// Job lifecycle
 	"JobQueued",
 	"JobStarted",
+	"JobProgress",
 	"JobCompleted",
 	"JobFailed",
 	"JobCancelled",
@@ -87,6 +88,5 @@ export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
  */
 export const NOISY_EVENTS: EventVariant[] = [
 	"LogMessage",
-	"JobProgress",
 	"IndexingProgress",
 ];

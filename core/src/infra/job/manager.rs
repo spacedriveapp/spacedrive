@@ -210,9 +210,19 @@ impl JobManager {
 		let job_type_str = job_name.to_string();
 		tokio::spawn(async move {
 			let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
+			let mut last_emit = std::time::Instant::now();
+			let throttle_duration = std::time::Duration::from_millis(100);
+
 			while let Some(progress) = progress_rx.recv().await {
 				*latest_progress_clone.lock().await = Some(progress.clone());
 				let _ = broadcast_tx_clone.send(progress.clone());
+
+				// Throttle JobProgress events to prevent flooding the event bus
+				let now = std::time::Instant::now();
+				if now.duration_since(last_emit) < throttle_duration {
+					continue;
+				}
+				last_emit = now;
 
 				// Emit enhanced progress event
 				use crate::infra::event::Event;
@@ -468,7 +478,9 @@ impl JobManager {
 		tokio::spawn(async move {
 			let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 			let mut last_db_update = std::time::Instant::now();
+			let mut last_event_emit = std::time::Instant::now();
 			const DB_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
+			const EVENT_EMIT_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 
 			while let Some(progress) = progress_rx.recv().await {
 				// Store latest progress
@@ -485,6 +497,12 @@ impl JobManager {
 					}
 					last_db_update = std::time::Instant::now();
 				}
+
+				// Throttle event emission to prevent flooding
+				if last_event_emit.elapsed() < EVENT_EMIT_INTERVAL {
+					continue;
+				}
+				last_event_emit = std::time::Instant::now();
 
 				// Emit enhanced progress event
 				use crate::infra::event::Event;
@@ -1034,8 +1052,11 @@ impl JobManager {
 						tokio::spawn(async move {
 							let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 							let mut last_db_update = std::time::Instant::now();
+							let mut last_event_emit = std::time::Instant::now();
 							const DB_UPDATE_INTERVAL: std::time::Duration =
 								std::time::Duration::from_secs(2);
+							const EVENT_EMIT_INTERVAL: std::time::Duration =
+								std::time::Duration::from_millis(100);
 
 							while let Some(progress) = progress_rx.recv().await {
 								// Store latest progress
@@ -1054,7 +1075,13 @@ impl JobManager {
 									last_db_update = std::time::Instant::now();
 								}
 
-								// Emit enhanced progress event (THIS WAS MISSING!)
+								// Throttle event emission to prevent flooding
+								if last_event_emit.elapsed() < EVENT_EMIT_INTERVAL {
+									continue;
+								}
+								last_event_emit = std::time::Instant::now();
+
+								// Emit enhanced progress event
 								use crate::infra::event::Event;
 
 								// Extract generic progress data if available
@@ -1441,9 +1468,19 @@ impl JobManager {
 			let job_type_str = job_name.clone();
 			tokio::spawn(async move {
 				let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
+				let mut last_emit = std::time::Instant::now();
+				let throttle_duration = std::time::Duration::from_millis(100);
+
 				while let Some(progress) = progress_rx.recv().await {
 					*latest_progress_clone.lock().await = Some(progress.clone());
 					let _ = broadcast_tx_clone.send(progress.clone());
+
+					// Throttle JobProgress events to prevent flooding the event bus
+					let now = std::time::Instant::now();
+					if now.duration_since(last_emit) < throttle_duration {
+						continue;
+					}
+					last_emit = now;
 
 					// Emit progress event
 					event_bus.emit(Event::JobProgress {

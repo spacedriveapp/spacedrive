@@ -61,6 +61,18 @@ impl<'a> JobContext<'a> {
 			let _ = logger.log("PROGRESS", &progress.to_string());
 		}
 
+		// Debug logging for thumbnail job progress
+		if let Progress::Generic(ref gp) = progress {
+			tracing::info!(
+				"JOB_PROGRESS: phase={}, percentage={}, completed={}/{}, message={}",
+				gp.phase,
+				gp.percentage,
+				gp.completion.completed,
+				gp.completion.total,
+				gp.message
+			);
+		}
+
 		if let Err(e) = self.progress_tx.send(progress) {
 			warn!("Failed to send progress update: {}", e);
 		}
@@ -87,7 +99,9 @@ impl<'a> JobContext<'a> {
 			let _ = logger.log("ERROR", &error_msg);
 		}
 
-		self.progress(Progress::indeterminate(format!("{}", error_msg)));
+		// Don't send progress updates for errors - they reset the progress bar
+		// Just log the error and increment the count
+		tracing::warn!("Non-critical job error: {}", error_msg);
 
 		// Increment error count
 		if let Ok(mut metrics) = self.metrics.try_lock() {

@@ -62,21 +62,7 @@ export function useNormalizedCache<I, O>({
 		queryFn: async () => {
 			// Client.execute() automatically adds library_id to the request
 			// as a sibling field to payload (not inside it!)
-			console.log("useNormalizedCache queryFn:", {
-				wireMethod,
-				input,
-				libraryId,
-				resourceType,
-			});
-
-			try {
-				const result = await client.execute<I, O>(wireMethod, input);
-				console.log("useNormalizedCache result:", result);
-				return result;
-			} catch (error) {
-				console.error("useNormalizedCache error:", error);
-				throw error;
-			}
+			return await client.execute<I, O>(wireMethod, input);
 		},
 		enabled: enabled && !!libraryId,
 	});
@@ -84,25 +70,18 @@ export function useNormalizedCache<I, O>({
 	// Listen for ResourceChanged events and update cache atomically
 	useEffect(() => {
 		const handleEvent = (event: any) => {
-			console.log("useNormalizedCache - Event received:", { event, resourceType });
+			// Fast path: ignore job/indexing progress events immediately
+			if ("JobProgress" in event || "IndexingProgress" in event) {
+				return;
+			}
 
 			// Check if this is a ResourceChanged event for our resource type
 			if ("ResourceChanged" in event) {
 				const { resource_type, resource } = event.ResourceChanged;
 
-				console.log("useNormalizedCache - ResourceChanged:", {
-					resource_type,
-					matchesOurType: resource_type === resourceType,
-					resource,
-				});
-
 				if (resource_type === resourceType) {
-					console.log("useNormalizedCache - Updating cache for:", { queryKey, resource });
-
 					// Atomic update: merge this resource into the query data
 					queryClient.setQueryData<O>(queryKey, (oldData) => {
-						console.log("useNormalizedCache - setQueryData oldData:", oldData);
-
 						if (!oldData) return oldData;
 
 						// Handle both array responses and wrapped responses
