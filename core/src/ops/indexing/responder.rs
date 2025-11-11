@@ -5,6 +5,8 @@
 //! real entry IDs and performs identity-preserving updates.
 
 use crate::context::CoreContext;
+use crate::domain::content_identity::ContentHashGenerator;
+use crate::domain::ResourceManager;
 use crate::infra::db::entities;
 use crate::infra::event::FsRawEventKind;
 use crate::ops::indexing::entry::EntryProcessor;
@@ -16,7 +18,7 @@ use anyhow::Result;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
 use std::path::Path;
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 /// Apply a raw FS change by resolving it to DB operations (create/modify/move/delete)
@@ -45,11 +47,11 @@ pub async fn apply(
 			.await?
 		}
 		FsRawEventKind::Modify { path } => {
-			handle_modify(&ctx, location_id, &path, rule_toggles, location_root).await?
+			handle_modify(&ctx, context, library_id, location_id, &path, rule_toggles, location_root).await?
 		}
-		FsRawEventKind::Remove { path } => handle_remove(&ctx, location_id, &path).await?,
+		FsRawEventKind::Remove { path } => handle_remove(&ctx, context, location_id, &path).await?,
 		FsRawEventKind::Rename { from, to } => {
-			handle_rename(&ctx, location_id, &from, &to, rule_toggles, location_root).await?
+			handle_rename(&ctx, context, location_id, &from, &to, rule_toggles, location_root).await?
 		}
 	}
 	Ok(())
@@ -67,6 +69,18 @@ pub async fn apply_batch(
 	if events.is_empty() {
 		return Ok(());
 	}
+
+	use std::sync::atomic::{AtomicU64, Ordering};
+	static CALL_COUNTER: AtomicU64 = AtomicU64::new(0);
+	let call_id = CALL_COUNTER.fetch_add(1, Ordering::SeqCst);
+
+	debug!(
+		"[BATCH #{}] Responder received batch of {} events for location {} (thread {:?})",
+		call_id,
+		events.len(),
+		location_id,
+		std::thread::current().id()
+	);
 
 	// Lightweight indexing context for DB access
 	let ctx = ResponderCtx::new(context, library_id).await?;
@@ -86,12 +100,29 @@ pub async fn apply_batch(
 		}
 	}
 
+	// Deduplicate events - macOS FSEvents can send duplicate Create events for the same file
+	// when it's written in stages (common for screenshots, large files, etc)
+	creates.sort();
+	creates.dedup();
+	modifies.sort();
+	modifies.dedup();
+	removes.sort();
+	removes.dedup();
+
 	// Process in order: removes first, then renames, then creates, then modifies
 	// This ensures we don't try to create files that should be removed, etc.
 
+	debug!(
+		"Processing batch: {} creates, {} modifies, {} removes, {} renames",
+		creates.len(),
+		modifies.len(),
+		removes.len(),
+		renames.len()
+	);
+
 	// Process removes
 	for path in removes {
-		if let Err(e) = handle_remove(&ctx, location_id, &path).await {
+		if let Err(e) = handle_remove(&ctx, context, location_id, &path).await {
 			tracing::error!("Failed to handle remove for {}: {}", path.display(), e);
 		}
 	}
@@ -99,7 +130,7 @@ pub async fn apply_batch(
 	// Process renames
 	for (from, to) in renames {
 		if let Err(e) =
-			handle_rename(&ctx, location_id, &from, &to, rule_toggles, location_root).await
+			handle_rename(&ctx, context, location_id, &from, &to, rule_toggles, location_root).await
 		{
 			tracing::error!(
 				"Failed to handle rename from {} to {}: {}",
@@ -111,7 +142,8 @@ pub async fn apply_batch(
 	}
 
 	// Process creates
-	for path in creates {
+	for (idx, path) in creates.iter().enumerate() {
+		debug!("[BATCH #{}] Processing create {}/{}: {}", call_id, idx + 1, creates.len(), path.display());
 		if let Err(e) = handle_create(
 			&ctx,
 			context,
@@ -125,11 +157,12 @@ pub async fn apply_batch(
 		{
 			tracing::error!("Failed to handle create for {}: {}", path.display(), e);
 		}
+		debug!("[BATCH #{}] Completed create {}/{}", call_id, idx + 1, creates.len());
 	}
 
 	// Process modifies
 	for path in modifies {
-		if let Err(e) = handle_modify(&ctx, location_id, &path, rule_toggles, location_root).await {
+		if let Err(e) = handle_modify(&ctx, context, library_id, location_id, &path, rule_toggles, location_root).await {
 			tracing::error!("Failed to handle modify for {}: {}", path.display(), e);
 		}
 	}
@@ -204,11 +237,24 @@ async fn handle_create(
 
 	// Check if path should be filtered
 	if should_filter_path(path, rule_toggles, location_root).await? {
-		debug!("Skipping filtered path: {}", path.display());
+		debug!("✗ Skipping filtered path: {}", path.display());
 		return Ok(());
 	}
 
+	debug!("→ Processing create for: {}", path.display());
 	let dir_entry = build_dir_entry(path).await?;
+
+	// Check if entry already exists at this exact path (race condition from duplicate watcher events)
+	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
+	if let Some(existing_id) = resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await? {
+		debug!(
+			"Entry already exists at path {} (entry_id={}), treating as modify instead of create",
+			path.display(),
+			existing_id
+		);
+		// Treat as a modify instead
+		return handle_modify(ctx, context, library_id, location_id, path, rule_toggles, location_root).await;
+	}
 
 	// If inode matches an existing entry at another path, treat this as a move
 	if handle_move_by_inode(ctx, path, dir_entry.inode).await? {
@@ -247,7 +293,16 @@ async fn handle_create(
 	)
 	.await?;
 
-	debug!("Created entry {} for path: {}", entry_id, path.display());
+	debug!("✓ Created entry {} for path: {}", entry_id, path.display());
+
+	// Get the entry UUID for event emission
+	let entry_uuid = match entities::entry::Entity::find_by_id(entry_id)
+		.one(ctx.library_db())
+		.await?
+	{
+		Some(entry) => entry.uuid,
+		None => None,
+	};
 
 	// If this is a directory, spawn a recursive indexer job to index its contents
 	if dir_entry.kind == super::state::EntryKind::Directory {
@@ -267,7 +322,7 @@ async fn handle_create(
 
 			// Dispatch the job asynchronously (fire and forget)
 			if let Err(e) = library.jobs().dispatch(indexer_job).await {
-				tracing::warn!(
+				warn!(
 					"Failed to spawn indexer job for directory {}: {}",
 					path.display(),
 					e
@@ -279,6 +334,48 @@ async fn handle_create(
 				);
 			}
 		}
+	} else {
+		// For files, run content identification inline (single file is fast)
+		debug!("→ Generating content hash for single file: {}", path.display());
+
+		if let Ok(content_hash) = ContentHashGenerator::generate_content_hash(path).await {
+			debug!("✓ Generated content hash: {}", content_hash);
+
+			// Link the content identity
+			if let Err(e) = EntryProcessor::link_to_content_identity(
+				ctx,
+				entry_id,
+				path,
+				content_hash,
+				library_id,
+			)
+			.await
+			{
+				warn!("Failed to link content identity for {}: {}", path.display(), e);
+			} else {
+				debug!("✓ Linked content identity for entry {}", entry_id);
+			}
+		} else {
+			debug!("✗ Failed to generate content hash for {}", path.display());
+		}
+	}
+
+	// Emit resource event for the created entry
+	if let Some(uuid) = entry_uuid {
+		debug!("→ Emitting resource event for entry {}", uuid);
+		let resource_manager = ResourceManager::new(
+			Arc::new(ctx.library_db().clone()),
+			context.events.clone(),
+		);
+
+		if let Err(e) = resource_manager
+			.emit_resource_events("entry", vec![uuid])
+			.await
+		{
+			warn!("Failed to emit resource event for created entry: {}", e);
+		} else {
+			debug!("✓ Emitted resource event for entry {}", uuid);
+		}
 	}
 
 	Ok(())
@@ -287,6 +384,8 @@ async fn handle_create(
 /// Handle modify: resolve entry ID by path, then update
 async fn handle_modify(
 	ctx: &impl IndexingCtx,
+	context: &Arc<CoreContext>,
+	library_id: Uuid,
 	location_id: Uuid,
 	path: &Path,
 	rule_toggles: RuleToggles,
@@ -296,9 +395,11 @@ async fn handle_modify(
 
 	// Check if path should be filtered
 	if should_filter_path(path, rule_toggles, location_root).await? {
-		debug!("Skipping filtered path: {}", path.display());
+		debug!("✗ Skipping filtered path: {}", path.display());
 		return Ok(());
 	}
+
+	debug!("→ Processing modify for: {}", path.display());
 
 	// Get location root entry ID for scoped queries
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
@@ -314,19 +415,74 @@ async fn handle_modify(
 		resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await?
 	{
 		let dir_entry = DirEntry {
-			path: meta.path,
+			path: meta.path.clone(),
 			kind: meta.kind,
 			size: meta.size,
 			modified: meta.modified,
 			inode: meta.inode,
 		};
 		EntryProcessor::update_entry(ctx, entry_id, &dir_entry).await?;
+		debug!("✓ Updated entry {} for path: {}", entry_id, path.display());
+
+		// Get entry UUID for event emission
+		let entry_uuid = match entities::entry::Entity::find_by_id(entry_id)
+			.one(ctx.library_db())
+			.await?
+		{
+			Some(entry) => entry.uuid,
+			None => None,
+		};
+
+		// For files, regenerate content hash if size changed
+		if dir_entry.kind == super::state::EntryKind::File {
+			debug!("→ Regenerating content hash for modified file: {}", path.display());
+
+			if let Ok(content_hash) = ContentHashGenerator::generate_content_hash(path).await {
+				debug!("✓ Generated content hash: {}", content_hash);
+
+				if let Err(e) = EntryProcessor::link_to_content_identity(
+					ctx,
+					entry_id,
+					path,
+					content_hash,
+					library_id,
+				)
+				.await
+				{
+					warn!("Failed to link content identity for {}: {}", path.display(), e);
+				} else {
+					debug!("✓ Linked content identity for entry {}", entry_id);
+				}
+			} else {
+				debug!("✗ Failed to generate content hash for {}", path.display());
+			}
+		}
+
+		// Emit resource event for the updated entry
+		if let Some(uuid) = entry_uuid {
+			debug!("→ Emitting resource event for modified entry {}", uuid);
+			let resource_manager = ResourceManager::new(
+				Arc::new(ctx.library_db().clone()),
+				context.events.clone(),
+			);
+
+			if let Err(e) = resource_manager
+				.emit_resource_events("entry", vec![uuid])
+				.await
+			{
+				warn!("Failed to emit resource event for modified entry: {}", e);
+			} else {
+				debug!("✓ Emitted resource event for entry {}", uuid);
+			}
+		}
+	} else {
+		debug!("✗ Entry not found for path, skipping modify: {}", path.display());
 	}
 	Ok(())
 }
 
 /// Handle remove: resolve entry ID and delete subtree (closure table + cache)
-async fn handle_remove(ctx: &impl IndexingCtx, location_id: Uuid, path: &Path) -> Result<()> {
+async fn handle_remove(ctx: &impl IndexingCtx, context: &Arc<CoreContext>, location_id: Uuid, path: &Path) -> Result<()> {
 	debug!("Remove: {}", path.display());
 
 	// Get location root entry ID for scoped queries
@@ -335,7 +491,30 @@ async fn handle_remove(ctx: &impl IndexingCtx, location_id: Uuid, path: &Path) -
 	if let Some(entry_id) =
 		resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await?
 	{
+		// Get entry UUID before deleting
+		let entry_uuid = match entities::entry::Entity::find_by_id(entry_id)
+			.one(ctx.library_db())
+			.await?
+		{
+			Some(entry) => entry.uuid,
+			None => None,
+		};
+
+		debug!("→ Deleting entry {} for path: {}", entry_id, path.display());
 		delete_subtree(ctx, entry_id).await?;
+		debug!("✓ Deleted entry {} for path: {}", entry_id, path.display());
+
+		// Emit ResourceDeleted event if entry had a UUID
+		if let Some(uuid) = entry_uuid {
+			debug!("→ Emitting ResourceDeleted event for entry {}", uuid);
+			context.events.emit(crate::infra::event::Event::ResourceDeleted {
+				resource_type: "file".to_string(),
+				resource_id: uuid,
+			});
+			debug!("✓ Emitted ResourceDeleted event for entry {}", uuid);
+		}
+	} else {
+		debug!("✗ Entry not found for path, skipping remove: {}", path.display());
 	}
 	Ok(())
 }
@@ -343,6 +522,7 @@ async fn handle_remove(ctx: &impl IndexingCtx, location_id: Uuid, path: &Path) -
 /// Handle rename/move: resolve source entry and move via EntryProcessor
 async fn handle_rename(
 	ctx: &impl IndexingCtx,
+	context: &Arc<CoreContext>,
 	location_id: Uuid,
 	from: &Path,
 	to: &Path,
@@ -358,12 +538,14 @@ async fn handle_rename(
 	// If the file is being moved to a filtered location, we should remove it from the database
 	if should_filter_path(to, rule_toggles, location_root).await? {
 		debug!(
-			"Destination path is filtered, removing entry: {}",
+			"✗ Destination path is filtered, removing entry: {}",
 			to.display()
 		);
 		// Treat this as a removal of the source file
-		return handle_remove(ctx, location_id, from).await;
+		return handle_remove(ctx, context, location_id, from).await;
 	}
+
+	debug!("→ Processing rename for: {} -> {}", from.display(), to.display());
 
 	if let Some(entry_id) =
 		resolve_entry_id_by_path_scoped(ctx, from, location_root_entry_id).await?
@@ -727,6 +909,9 @@ async fn handle_move_by_inode(
 		Some(i) if i != 0 => i as i64,
 		_ => return Ok(false),
 	};
+
+	debug!("→ Checking inode {} for potential move detection", inode_val);
+
 	if let Some(existing) = entities::entry::Entity::find()
 		.filter(entities::entry::Column::Inode.eq(inode_val))
 		.one(ctx.library_db())
@@ -736,8 +921,23 @@ async fn handle_move_by_inode(
 		let old_path = PathResolver::get_full_path(ctx.library_db(), existing.id)
 			.await
 			.unwrap_or_else(|_| std::path::PathBuf::from(&existing.name));
+
+		debug!(
+			"Found existing entry {} (uuid={:?}) with inode {}: old_path={}, new_path={}",
+			existing.id,
+			existing.uuid,
+			inode_val,
+			old_path.display(),
+			new_path.display()
+		);
+
 		if old_path != new_path {
 			// File was moved to a different path
+			debug!(
+				"✓ Detected inode-based move: {} → {}",
+				old_path.display(),
+				new_path.display()
+			);
 			let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(&old_path));
 			EntryProcessor::move_entry(
 				&mut state,
@@ -748,18 +948,23 @@ async fn handle_move_by_inode(
 				new_path.parent().unwrap_or_else(|| Path::new("/")),
 			)
 			.await?;
+			debug!("✓ Completed inode-based move for entry {}", existing.id);
 			return Ok(true);
 		} else {
 			// Same path, same inode - this is a modification (macOS FSEvents reports as Create)
 			// Update the existing entry instead of creating a duplicate
 			debug!(
-				"Entry already exists at path with same inode, updating instead of creating: {}",
+				"Entry already exists at path with same inode {}, updating instead of creating: {}",
+				inode_val,
 				new_path.display()
 			);
 			let dir_entry = build_dir_entry(new_path).await?;
 			EntryProcessor::update_entry(ctx, existing.id, &dir_entry).await?;
+			debug!("✓ Updated entry {} via inode match", existing.id);
 			return Ok(true);
 		}
+	} else {
+		debug!("✗ No existing entry found with inode {}", inode_val);
 	}
 	Ok(false)
 }

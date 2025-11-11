@@ -9,7 +9,7 @@ use std::path::PathBuf;
 pub mod app_config;
 pub mod migration;
 
-pub use app_config::{AppConfig, JobLoggingConfig, ServiceConfig};
+pub use app_config::{AppConfig, JobLoggingConfig, ServiceConfig, LoggingConfig, LogStreamConfig};
 pub use migration::Migrate;
 
 /// Platform-specific data directory resolution

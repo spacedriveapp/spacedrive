@@ -12,6 +12,7 @@ pub mod file;
 pub mod location;
 pub mod resource;
 pub mod resource_manager;
+pub mod space;
 pub mod tag;
 pub mod user_metadata;
 pub mod volume;
@@ -24,6 +25,9 @@ pub use file::{EntryKind, File, Sidecar};
 pub use location::{IndexMode, Location, ScanState};
 pub use resource::Identifiable;
 pub use resource_manager::ResourceManager;
+pub use space::{
+	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,
+};
 pub use tag::{
 	OrganizationalPattern, PatternType, PrivacyLevel, RelationshipType, Tag, TagApplication,
 	TagError, TagRelationship, TagSource, TagType,

@@ -8,6 +8,7 @@ import { DragOverlay } from "./routes/DragOverlay";
 import { ContextMenuWindow } from "./routes/ContextMenuWindow";
 import { DragDemo } from "./components/DragDemo";
 import { platform } from "./platform";
+import { initializeContextMenuHandler } from "./contextMenu";
 
 function App() {
   console.log("App component rendering");
@@ -19,10 +20,23 @@ function App() {
   useEffect(() => {
     console.log("Tauri App mounting...");
 
-    // Get current window label to determine which UI to show
+    // Initialize Tauri native context menu handler
+    initializeContextMenuHandler();
+
+    // Prevent default context menu globally (except in context menu windows)
     const currentWindow = getCurrentWebviewWindow();
     const label = currentWindow.label;
     console.log("Window label:", label);
+
+    // Prevent default browser context menu globally (except in context menu windows)
+    if (!label.startsWith("context-menu")) {
+      const preventContextMenu = (e: Event) => {
+        // Default behavior: prevent browser context menu
+        // React's onContextMenu handlers can override this with their own preventDefault
+        e.preventDefault();
+      };
+      document.addEventListener('contextmenu', preventContextMenu, { capture: false });
+    }
 
     // Set route based on window label
     if (label === "floating-controls") {

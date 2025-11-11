@@ -220,20 +220,22 @@ export function useNormalizedCache<I, O>({
               } else if (resourceFilter) {
                 for (const resource of resources) {
                   if (!seenIds.has(resource.id)) {
-                    // Check by content_id instead of using potentially stale filter
-                    let shouldAppend = false;
+                    // Always use resourceFilter to check if file belongs in current scope
+                    // The filter checks parent path for Physical paths, which is correct for new files
+                    const shouldAppend = resourceFilter(resource);
 
-                    if (resource.sd_path?.Content?.content_id) {
-                      const eventContentId = resource.sd_path.Content.content_id;
-                      shouldAppend = newData.some((f: any) =>
-                        f.content_identity?.uuid === eventContentId
-                      );
-                    } else {
-                      shouldAppend = resourceFilter(resource);
-                    }
+                    console.log('[useNormalizedCache] Batch - checking resource:', {
+                      name: resource.name,
+                      id: resource.id,
+                      shouldAppend,
+                      seenIds: Array.from(seenIds)
+                    });
 
                     if (shouldAppend) {
                       newData.push(resource);
+                      console.log('[useNormalizedCache] ✓ Appended new resource:', resource.name);
+                    } else {
+                      console.log('[useNormalizedCache] ✗ Rejected resource (filter returned false):', resource.name);
                     }
                   }
                 }
@@ -272,19 +274,9 @@ export function useNormalizedCache<I, O>({
                 } else if (resourceFilter) {
                   for (const resource of resources) {
                     if (!seenIds.has(resource.id)) {
-                      // Check if this resource belongs in our scope
-                      // For Content paths, match by content_id against current array
-                      let shouldAppend = false;
-
-                      if (resource.sd_path?.Content?.content_id) {
-                        const eventContentId = resource.sd_path.Content.content_id;
-                        shouldAppend = array.some((f: any) =>
-                          f.content_identity?.uuid === eventContentId
-                        );
-                      } else {
-                        // Fallback to provided filter
-                        shouldAppend = resourceFilter(resource);
-                      }
+                      // Always use resourceFilter to check if file belongs in current scope
+                      // The filter checks parent path for Physical paths, which is correct for new files
+                      const shouldAppend = resourceFilter(resource);
 
                       if (shouldAppend) {
                         array.push(resource);

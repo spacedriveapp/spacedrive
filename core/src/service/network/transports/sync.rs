@@ -201,9 +201,9 @@ impl NetworkTransport for NetworkingService {
 		// Read response with timeout
 		let result = timeout(Duration::from_secs(60), async {
 			let mut len_buf = [0u8; 4];
-			recv.read_exact(&mut len_buf).await.map_err(|e| {
-				anyhow::anyhow!("Failed to read response length: {}", e)
-			})?;
+			recv.read_exact(&mut len_buf)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to read response length: {}", e))?;
 			let resp_len = u32::from_be_bytes(len_buf) as usize;
 
 			debug!("Receiving sync response of {} bytes", resp_len);
@@ -277,13 +277,13 @@ impl NetworkTransport for NetworkingService {
 			.map(|device| device.uuid)
 			.collect();
 
-		tracing::info!(
-			"Library-scoped sync partners: library={}, lib_devs={}, iroh_connected={}, partners={}",
-			library_id,
-			library_devices.len(),
-			sync_partners.len(),
-			sync_partners.len()
-		);
+		// tracing::info!(
+		// 	"Library-scoped sync partners: library={}, lib_devs={}, iroh_connected={}, partners={}",
+		// 	library_id,
+		// 	library_devices.len(),
+		// 	sync_partners.len(),
+		// 	sync_partners.len()
+		// );
 
 		Ok(sync_partners)
 	}

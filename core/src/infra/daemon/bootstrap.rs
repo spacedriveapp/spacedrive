@@ -56,13 +56,15 @@ pub async fn start_default_server(
 }
 
 /// Initialize tracing with file logging to {data_dir}/logs/daemon.log
+/// Supports multi-stream logging with per-stream filters
 fn initialize_tracing_with_file_logging(
 	data_dir: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
+	use crate::config::AppConfig;
 	use crate::infra::event::log_emitter::LogEventLayer;
 	use std::sync::Once;
 	use tracing_appender::rolling::{RollingFileAppender, Rotation};
-	use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+	use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 	static INIT: Once = Once::new();
 	let mut result: Result<(), Box<dyn std::error::Error>> = Ok(());
@@ -75,29 +77,81 @@ fn initialize_tracing_with_file_logging(
 			return;
 		}
 
-		// Set up environment filter
-		let env_filter = std::env::var("RUST_LOG")
-			.unwrap_or_else(|_| "sd_core=info,spacedrive=info".to_string());
+		// Load config to get logging streams
+		let config = match AppConfig::load_from(data_dir) {
+			Ok(c) => c,
+			Err(e) => {
+				warn!("Failed to load config for logging streams: {}, using defaults", e);
+				AppConfig::default_with_dir(data_dir.clone())
+			}
+		};
 
-		// Create file appender that rotates daily
-		let file_appender = RollingFileAppender::new(Rotation::DAILY, logs_dir, "daemon.log");
+		// Set up main environment filter (for stdout and main daemon.log)
+		let main_filter = std::env::var("RUST_LOG")
+			.unwrap_or_else(|_| config.logging.main_filter.clone());
 
-		// Set up layered subscriber with stdout, file output, and log event streaming layer
+		// Create main daemon.log file appender
+		let main_file_appender = RollingFileAppender::new(Rotation::DAILY, &logs_dir, "daemon.log");
+
+		// Start building the subscriber with stdout and main file layers
+		let mut layers = Vec::new();
+
+		// Stdout layer with main filter
+		layers.push(
+			fmt::layer()
+				.with_target(true)
+				.with_thread_ids(true)
+				.with_writer(std::io::stdout)
+				.with_filter(EnvFilter::try_from_default_env()
+					.unwrap_or_else(|_| EnvFilter::new(&main_filter)))
+				.boxed()
+		);
+
+		// Main daemon.log file layer with main filter
+		layers.push(
+			fmt::layer()
+				.with_target(true)
+				.with_thread_ids(true)
+				.with_ansi(false)
+				.with_writer(main_file_appender)
+				.with_filter(EnvFilter::new(&main_filter))
+				.boxed()
+		);
+
+		// Add custom log streams
+		for stream in config.logging.streams.iter().filter(|s| s.enabled) {
+			info!("Configuring log stream: {} -> {} (filter: {})",
+				stream.name, stream.file_name, stream.filter);
+
+			let stream_appender = RollingFileAppender::new(
+				Rotation::DAILY,
+				&logs_dir,
+				&stream.file_name
+			);
+
+			match EnvFilter::try_new(&stream.filter) {
+				Ok(filter) => {
+					layers.push(
+						fmt::layer()
+							.with_target(true)
+							.with_thread_ids(true)
+							.with_ansi(false)
+							.with_writer(stream_appender)
+							.with_filter(filter)
+							.boxed()
+					);
+					info!("Log stream '{}' configured successfully", stream.name);
+				}
+				Err(e) => {
+					warn!("Failed to parse filter for log stream '{}': {}. Skipping stream.",
+						stream.name, e);
+				}
+			}
+		}
+
+		// Set up layered subscriber with all streams plus the log event streaming layer
 		if let Err(e) = tracing_subscriber::registry()
-			.with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(env_filter)))
-			.with(
-				fmt::layer()
-					.with_target(true)
-					.with_thread_ids(true)
-					.with_writer(std::io::stdout),
-			)
-			.with(
-				fmt::layer()
-					.with_target(true)
-					.with_thread_ids(true)
-					.with_ansi(false) // No ANSI colors in log files
-					.with_writer(file_appender),
-			)
+			.with(layers)
 			.with(LogEventLayer::new())
 			.try_init()
 		{

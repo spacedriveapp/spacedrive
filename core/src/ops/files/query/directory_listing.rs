@@ -288,10 +288,17 @@ impl LibraryQuery for DirectoryListingQuery {
 			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 
 			// Build SdPath for this entry (child of the parent path)
+			// IMPORTANT: Include extension in the path for files
+			let full_name = if let Some(ext) = &entry_extension {
+				format!("{}.{}", entry_name, ext)
+			} else {
+				entry_name.clone()
+			};
+
 			let entry_sd_path = match &self.input.path {
 				SdPath::Physical { device_slug, path } => SdPath::Physical {
 					device_slug: device_slug.clone(),
-					path: path.join(&entry_name).into(),
+					path: path.join(&full_name).into(),
 				},
 				SdPath::Cloud {
 					service,
@@ -300,7 +307,7 @@ impl LibraryQuery for DirectoryListingQuery {
 				} => SdPath::Cloud {
 					service: *service,
 					identifier: identifier.clone(),
-					path: format!("{}/{}", path, entry_name),
+					path: format!("{}/{}", path, full_name),
 				},
 				SdPath::Content { content_id } => {
 					// This shouldn't happen since we error on Content paths earlier

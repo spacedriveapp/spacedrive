@@ -193,7 +193,7 @@ impl TestConfigBuilder {
 	/// Build the AppConfig
 	pub fn build(self) -> AppConfig {
 		AppConfig {
-			version: 3,
+			version: 4,
 			data_dir: self.data_dir,
 			log_level: self.log_level,
 			telemetry_enabled: self.telemetry_enabled,
@@ -209,6 +209,7 @@ impl TestConfigBuilder {
 				volume_monitoring_enabled: self.volume_monitoring_enabled,
 				location_watcher_enabled: self.location_watcher_enabled,
 			},
+			logging: crate::config::app_config::LoggingConfig::default(),
 		}
 	}
 

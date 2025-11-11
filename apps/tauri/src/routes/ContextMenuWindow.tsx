@@ -27,23 +27,33 @@ export function ContextMenuWindow() {
 	const window = getCurrentWebviewWindow();
 
 	useEffect(() => {
+		console.log('[ContextMenuWindow] Component mounted');
+		console.log('[ContextMenuWindow] Window location:', window.location.href);
+
 		// Extract context ID from URL params
 		const params = new URLSearchParams(window.location.search);
 		const id = params.get("context");
+		console.log('[ContextMenuWindow] Context ID from params:', id);
+		console.log('[ContextMenuWindow] All params:', Array.from(params.entries()));
 		setContextId(id);
 
 		if (!id) {
-			console.error("No context ID provided");
+			console.error("[ContextMenuWindow] No context ID provided");
 			return;
 		}
 
 		// Listen for menu data event
 		const setupMenu = async () => {
+			console.log('[ContextMenuWindow] Setting up menu listener...');
 			const { listen } = await import("@tauri-apps/api/event");
 
+			const eventName = `context-menu-data-${id}`;
+			console.log('[ContextMenuWindow] Listening for event:', eventName);
+
 			const unlisten = await listen<ContextMenuData>(
-				`context-menu-data-${id}`,
+				eventName,
 				(event) => {
+					console.log('[ContextMenuWindow] Received menu data:', event.payload);
 					const data = event.payload;
 					setItems(data.items);
 
@@ -51,6 +61,7 @@ export function ContextMenuWindow() {
 					requestAnimationFrame(() => {
 						if (menuRef.current) {
 							const { width, height } = menuRef.current.getBoundingClientRect();
+							console.log('[ContextMenuWindow] Positioning menu:', { width, height, x: data.x, y: data.y });
 
 							// Position the menu at the cursor
 							invoke("position_context_menu", {
@@ -65,6 +76,7 @@ export function ContextMenuWindow() {
 				}
 			);
 
+			console.log('[ContextMenuWindow] Listener set up successfully');
 			return unlisten;
 		};
 

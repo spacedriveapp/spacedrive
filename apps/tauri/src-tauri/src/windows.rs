@@ -329,14 +329,14 @@ impl SpacedriveWindow {
             Self::ContextMenu { context_id } => {
                 let url = format!("/contextmenu?context={}", context_id);
                 let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
-                    .title("")
+                    .title("Context Menu Debug")
                     .inner_size(250.0, 300.0) // Initial size, will be adjusted by content
                     .resizable(false)
-                    .decorations(false)
-                    .transparent(true)
+                    .decorations(true) // TEMP: Show decorations for debugging
+                    .transparent(false) // TEMP: Not transparent for debugging
                     .always_on_top(true)
-                    .skip_taskbar(true)
-                    .visible(false) // Position first, then show
+                    .skip_taskbar(false) // TEMP: Show in taskbar for debugging
+                    .visible(true) // TEMP: Make visible immediately for debugging
                     .focused(true)
                     .build()
                     .map_err(|e| format!("Failed to create context menu: {}", e))?;

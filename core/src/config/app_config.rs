@@ -33,6 +33,10 @@ pub struct AppConfig {
 	/// Service configuration
 	#[serde(default)]
 	pub services: ServiceConfig,
+
+	/// Daemon logging configuration with multi-stream support
+	#[serde(default)]
+	pub logging: LoggingConfig,
 }
 
 /// Configuration for core services
@@ -81,6 +85,46 @@ impl Default for JobLoggingConfig {
 			log_directory: "job_logs".to_string(),
 			max_file_size: 10 * 1024 * 1024, // 10MB default
 			include_debug: false,
+		}
+	}
+}
+
+/// Configuration for a single log stream
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogStreamConfig {
+	/// Name of the log stream
+	pub name: String,
+
+	/// Output file name (relative to logs directory)
+	pub file_name: String,
+
+	/// RUST_LOG-style filter for this stream
+	/// Examples:
+	/// - "sd_core::service::watcher=debug" - all watcher logs at debug+
+	/// - "sd_core::infra::event=trace" - event system at trace level
+	/// - "sd_core::service::watcher=debug,sd_core::service::watcher::platform=trace" - multiple targets
+	pub filter: String,
+
+	/// Whether this stream is enabled
+	pub enabled: bool,
+}
+
+/// Configuration for daemon-level logging with multiple streams
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingConfig {
+	/// Main daemon log filter (used for daemon.log and stdout)
+	pub main_filter: String,
+
+	/// Additional log streams with custom filters
+	#[serde(default)]
+	pub streams: Vec<LogStreamConfig>,
+}
+
+impl Default for LoggingConfig {
+	fn default() -> Self {
+		Self {
+			main_filter: "sd_core=info,spacedrive=info".to_string(),
+			streams: vec![],
 		}
 	}
 }
@@ -151,6 +195,7 @@ impl AppConfig {
 			preferences: Preferences::default(),
 			job_logging: JobLoggingConfig::default(),
 			services: ServiceConfig::default(),
+			logging: LoggingConfig::default(),
 		}
 	}
 
@@ -214,7 +259,7 @@ impl Migrate for AppConfig {
 	}
 
 	fn target_version() -> u32 {
-		3 // Updated schema version for service configuration
+		4 // Updated schema version for multi-stream logging
 	}
 
 	fn migrate(&mut self) -> Result<()> {
@@ -228,15 +273,21 @@ impl Migrate for AppConfig {
 				// Migration from v1 to v2: Add job logging config
 				self.job_logging = JobLoggingConfig::default();
 				self.version = 2;
-				Ok(())
+				self.migrate()
 			}
 			2 => {
 				// Migration from v2 to v3: Add service configuration and remove P2P config
 				self.services = ServiceConfig::default();
 				self.version = 3;
+				self.migrate()
+			}
+			3 => {
+				// Migration from v3 to v4: Add multi-stream logging configuration
+				self.logging = LoggingConfig::default();
+				self.version = 4;
 				Ok(())
 			}
-			3 => Ok(()), // Already at target version
+			4 => Ok(()), // Already at target version
 			v => Err(anyhow!("Unknown config version: {}", v)),
 		}
 	}

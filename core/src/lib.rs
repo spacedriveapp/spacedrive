@@ -206,21 +206,25 @@ impl Core {
 		// Initialize sidecar manager for each loaded library
 		for library in &loaded_libraries {
 			info!("Initializing sidecar manager for library {}", library.id());
-			if let Err(e) = services.sidecar_manager.init_library(&library).await {
+			if let Err(e) = services.sidecar_manager.init_library(library).await {
 				error!(
 					"Failed to initialize sidecar manager for library {}: {}",
 					library.id(),
 					e
 				);
 			} else {
-				// Run bootstrap scan
-				if let Err(e) = services.sidecar_manager.bootstrap_scan(&library).await {
-					error!(
-						"Failed to run sidecar bootstrap scan for library {}: {}",
-						library.id(),
-						e
-					);
-				}
+				// Run bootstrap scan in background to avoid blocking startup
+				let sidecar_manager = services.sidecar_manager.clone();
+				let library = Arc::clone(library);
+				tokio::spawn(async move {
+					if let Err(e) = sidecar_manager.bootstrap_scan(&library).await {
+						error!(
+							"Failed to run sidecar bootstrap scan for library {}: {}",
+							library.id(),
+							e
+						);
+					}
+				});
 			}
 		}
 

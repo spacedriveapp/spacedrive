@@ -272,6 +272,25 @@ impl File {
 			.map(|ci| (ci.id, ci))
 			.collect();
 
+		// Batch load alternate paths (all entries with same content_id)
+		// This populates the alternate_paths field so frontend filters can check physical locations
+		let all_entries_with_content = if !content_ids.is_empty() {
+			entry::Entity::find()
+				.filter(entry::Column::ContentId.is_in(content_ids.clone()))
+				.all(db)
+				.await?
+		} else {
+			Vec::new()
+		};
+
+		// Group entries by content_id for alternate paths lookup
+		let mut entries_by_content_id: HashMap<i32, Vec<entry::Model>> = HashMap::new();
+		for e in all_entries_with_content {
+			if let Some(cid) = e.content_id {
+				entries_by_content_id.entry(cid).or_default().push(e);
+			}
+		}
+
 		// Batch load content kinds for proper icon display
 		use crate::infra::db::entities::content_kind;
 		let kind_ids: Vec<i32> = content_by_id.values()
@@ -362,7 +381,7 @@ impl File {
 			// Start with basic File from entity
 			let mut file = File::from_entity_model(entry_model.clone(), sd_path);
 
-			// Enrich with content identity
+			// Enrich with content identity and alternate paths
 			if let Some(content_id) = entry_model.content_id {
 				if let Some(ci) = content_by_id.get(&content_id) {
 					if let Some(ci_uuid) = ci.uuid {
@@ -382,6 +401,23 @@ impl File {
 						// Add sidecars
 						if let Some(sidecars) = sidecars_by_content_uuid.get(&ci_uuid) {
 							file.sidecars = sidecars.clone();
+						}
+
+						// Populate alternate_paths with ALL physical paths (including current entry)
+						// This allows frontend filters to check if a Content-based file exists in the current directory
+						if let Some(alt_entries) = entries_by_content_id.get(&content_id) {
+							for alt_entry in alt_entries {
+								// Build physical path for each entry with this content
+								if let Ok(physical_path) = crate::ops::indexing::PathResolver::get_full_path(db, alt_entry.id).await {
+									// Get device slug - walk up to find location
+									let device_slug = crate::device::get_current_device_slug();
+
+									file.alternate_paths.push(SdPath::Physical {
+										device_slug,
+										path: physical_path,
+									});
+								}
+							}
 						}
 					}
 				}

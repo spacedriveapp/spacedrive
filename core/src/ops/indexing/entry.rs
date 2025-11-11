@@ -251,6 +251,13 @@ impl EntryProcessor {
 
 		// Create entry
 		let now = chrono::Utc::now();
+		tracing::debug!(
+			"Creating entry: name={}, path={}, inode={:?}, parent_id={:?}",
+			name,
+			entry.path.display(),
+			entry.inode,
+			parent_id
+		);
 		let new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
 			name: Set(name.clone()),
@@ -277,6 +284,13 @@ impl EntryProcessor {
 			.insert(conn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to create entry: {}", e)))?;
+
+		tracing::debug!(
+			"Entry inserted in DB: id={}, name={}, inode={:?}",
+			result.id,
+			result.name,
+			result.inode
+		);
 
 		// Populate closure table
 		// First, insert self-reference

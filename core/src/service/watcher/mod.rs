@@ -204,9 +204,12 @@ impl LocationWatcher {
 		{
 			let workers = self.workers.read().await;
 			if let Some(sender) = workers.get(&location_id) {
+				debug!("Worker already exists for location {}, reusing", location_id);
 				return Ok(sender.clone());
 			}
 		}
+
+		info!("Creating new worker for location {}", location_id);
 
 		// Get rule toggles and location root from watched locations
 		let (rule_toggles, location_root) = {
@@ -1050,6 +1053,27 @@ impl Service for LocationWatcher {
 
 		// Clean up watcher
 		*self.watcher.write().await = None;
+
+		// Clean up all workers (dropping the senders will close the channels and stop the workers)
+		let worker_count = {
+			let mut workers = self.workers.write().await;
+			let count = workers.len();
+			workers.clear();
+			count
+		};
+
+		info!("Stopped {} location workers", worker_count);
+
+		// Clean up worker metrics
+		{
+			let mut metrics_map = self.worker_metrics.write().await;
+			metrics_map.clear();
+		}
+
+		// Clean up metrics collector
+		{
+			*self.metrics_collector.write().await = None;
+		}
 
 		info!("Location watcher service stopped");
 		Ok(())
