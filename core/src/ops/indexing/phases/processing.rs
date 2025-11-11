@@ -371,28 +371,49 @@ pub async fn run_processing_phase(
 			JobError::execution(format!("Failed to commit processing transaction: {}", e))
 		})?;
 
-		// Batch sync entries that have UUIDs (directories and empty files)
-		// Regular files will be synced after content identification assigns UUIDs
-		let entries_with_uuids: Vec<_> = created_entries
-			.into_iter()
-			.filter(|e| e.uuid.is_some())
-			.collect();
+		// All entries now have UUIDs assigned during creation
+		// Sync directories and empty files immediately (sync-ready)
+		// Regular files will be synced again after content identification
+		if !created_entries.is_empty() {
+			// Collect entry UUIDs for resource events
+			let entry_uuids: Vec<Uuid> = created_entries
+				.iter()
+				.filter_map(|e| e.uuid)
+				.collect();
 
-		if !entries_with_uuids.is_empty() {
+			// Batch sync entries (only sync-ready ones will be included by query_for_sync filter)
 			match ctx
 				.library()
-				.sync_models_batch(&entries_with_uuids, crate::infra::sync::ChangeType::Insert, ctx.library_db())
+				.sync_models_batch(&created_entries, crate::infra::sync::ChangeType::Insert, ctx.library_db())
 				.await
 			{
 				Ok(()) => {
 					ctx.log(format!(
-						"Batch synced {} entries with UUIDs (directories/empty files)",
-						entries_with_uuids.len()
+						"Batch synced {} entries (directories/empty files are sync-ready)",
+						created_entries.len()
 					));
 				}
 				Err(e) => {
 					// Log but don't fail the job
-					tracing::warn!("Failed to batch sync {} entries: {}", entries_with_uuids.len(), e);
+					tracing::warn!("Failed to batch sync {} entries: {}", created_entries.len(), e);
+				}
+			}
+
+			// Emit ResourceChangedBatch events for UI
+			if !entry_uuids.is_empty() {
+				let library = ctx.library();
+				let events = library.event_bus().clone();
+				let db = Arc::new(ctx.library_db().clone());
+
+				let resource_manager = crate::domain::ResourceManager::new(db, events);
+
+				if let Err(e) = resource_manager
+					.emit_resource_events("entry", entry_uuids)
+					.await
+				{
+					tracing::warn!("Failed to emit resource events for created entries: {}", e);
+				} else {
+					ctx.log("Emitted resource events for created entries");
 				}
 			}
 		}

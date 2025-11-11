@@ -272,6 +272,26 @@ impl File {
 			.map(|ci| (ci.id, ci))
 			.collect();
 
+		// Batch load content kinds for proper icon display
+		use crate::infra::db::entities::content_kind;
+		let kind_ids: Vec<i32> = content_by_id.values()
+			.map(|ci| ci.kind_id)
+			.collect();
+
+		let content_kinds = if !kind_ids.is_empty() {
+			content_kind::Entity::find()
+				.filter(content_kind::Column::Id.is_in(kind_ids))
+				.all(db)
+				.await?
+		} else {
+			Vec::new()
+		};
+
+		let kind_by_id: HashMap<i32, ContentKind> = content_kinds
+			.into_iter()
+			.map(|ck| (ck.id, ContentKind::from_id(ck.id)))
+			.collect();
+
 		// Batch load sidecars
 		let content_uuids: Vec<Uuid> = content_by_id.values()
 			.filter_map(|ci| ci.uuid)
@@ -351,7 +371,7 @@ impl File {
 							content_hash: ci.content_hash.clone(),
 							integrity_hash: ci.integrity_hash.clone(),
 							mime_type_id: ci.mime_type_id,
-							kind: ContentKind::Unknown, // TODO: Load from content_kinds table
+							kind: kind_by_id.get(&ci.kind_id).copied().unwrap_or(ContentKind::Unknown),
 							total_size: ci.total_size,
 							entry_count: ci.entry_count,
 							first_seen_at: ci.first_seen_at,

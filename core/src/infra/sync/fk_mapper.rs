@@ -138,7 +138,7 @@ async fn lookup_uuid_for_local_id(
 				.ok_or_else(|| anyhow!("Entry with id={} not found", local_id))?;
 			entry
 				.uuid
-				.ok_or_else(|| anyhow!("Entry id={} has no UUID (not sync-ready)", local_id))
+				.ok_or_else(|| anyhow!("Entry id={} has no UUID (data consistency error)", local_id))
 		}
 		"locations" => {
 			let location = entities::location::Entity::find_by_id(local_id)

@@ -426,6 +426,7 @@ fn main() {
 			windows::close_window,
 			windows::list_windows,
 			windows::apply_macos_styling,
+			windows::position_context_menu,
 			drag::begin_drag,
 			drag::end_drag,
 			drag::get_drag_session

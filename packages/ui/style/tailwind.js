@@ -47,7 +47,7 @@ module.exports = function (app, options) {
 				colors: {
 					accent: {
 						DEFAULT: alpha('--color-accent'),
-						faint: alpha('--color-accent-faint'),
+						faint: 'hsl(var(--color-accent-faint))',
 						deep: alpha('--color-accent-deep')
 					},
 					ink: {

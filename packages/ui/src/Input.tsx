@@ -28,14 +28,14 @@ export type TextareaProps = InputBaseProps & React.ComponentProps<"textarea">;
 export const inputSizes = {
   xs: "h-[25px]",
   sm: "h-[30px]",
-  md: "h-[34px]",
-  lg: "h-[38px]",
-  xl: "h-[42px]",
+  md: "h-[36px]",
+  lg: "h-[42px]",
+  xl: "h-[48px]",
 };
 
 export const inputStyles = cva(
   [
-    "rounded-md border text-sm leading-4",
+    "rounded-lg border text-sm leading-4",
     "outline-none transition-all focus-within:ring-2",
     "text-ink",
   ],
@@ -43,8 +43,7 @@ export const inputStyles = cva(
     variants: {
       variant: {
         default: [
-          "border-app-line bg-app-input/50 placeholder-ink-faint focus-within:bg-app-focus",
-          "focus-within:border-app-divider/80 focus-within:ring-app-selected/30",
+          "border-app-line bg-app-input/50 border-app-line active:border-app-line placeholder-ink-faint",
         ],
         transparent: [
           "border-transparent bg-transparent placeholder-ink-dull focus-within:bg-transparent",

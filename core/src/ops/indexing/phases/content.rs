@@ -193,7 +193,7 @@ pub async fn run_content_phase(
 			}
 		}
 
-		// Batch sync entries (device-owned, only those with UUIDs after content ID assignment)
+		// Batch sync entries (device-owned, now sync-ready with content_id assigned)
 		if !entries_to_sync.is_empty() {
 			match IndexingCtx::library(ctx) {
 				Some(library) => {

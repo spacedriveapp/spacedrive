@@ -60,9 +60,9 @@ impl LibraryQuery for FileByPathQuery {
 		let entry_model = self.find_entry_by_sd_path(&sd_path, db.conn()).await?;
 
 		// Only proceed if this is actually a file (not a directory)
-		if entry_model.kind == 1 {
-			return Ok(None);
-		}
+		// if entry_model.kind == 1 {
+		// 	return Ok(None);
+		// }
 
 		// Convert to File using from_entity_model
 		let file = File::from_entity_model(entry_model, sd_path);
@@ -162,14 +162,13 @@ impl FileByPathQuery {
 					.await?
 					.ok_or_else(|| QueryError::Internal("Entry not found for content".to_string()))
 			}
-		SdPath::Sidecar { .. } => {
-			return Err(QueryError::Internal(
-				"Sidecar paths not yet implemented for file queries".to_string(),
-			));
-		}
+			SdPath::Sidecar { .. } => {
+				return Err(QueryError::Internal(
+					"Sidecar paths not yet implemented for file queries".to_string(),
+				));
+			}
 		}
 	}
-
 }
 
 crate::register_library_query!(FileByPathQuery, "files.by_path");

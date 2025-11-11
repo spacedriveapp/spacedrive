@@ -2,6 +2,45 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 
+/**
+ * Deep merge that preserves existing non-null values
+ * Incoming data always wins UNLESS it's null/undefined and existing has a value
+ */
+function deepMerge(existing: any, incoming: any): any {
+  // If incoming is null/undefined, keep existing
+  if (incoming === null || incoming === undefined) {
+    return existing !== null && existing !== undefined ? existing : incoming;
+  }
+
+  // If types don't match or not objects, incoming wins
+  if (typeof existing !== 'object' || typeof incoming !== 'object' ||
+      Array.isArray(existing) || Array.isArray(incoming)) {
+    return incoming;
+  }
+
+  // Both are objects - deep merge
+  const merged: any = { ...incoming };
+
+  for (const key in existing) {
+    if (!(key in incoming)) {
+      // Key exists in old but not new - preserve it
+      merged[key] = existing[key];
+    } else if (incoming[key] === null || incoming[key] === undefined) {
+      // Key exists in both but new is null - preserve old
+      if (existing[key] !== null && existing[key] !== undefined) {
+        merged[key] = existing[key];
+      }
+    } else if (typeof existing[key] === 'object' && typeof incoming[key] === 'object' &&
+               !Array.isArray(existing[key]) && !Array.isArray(incoming[key])) {
+      // Both are objects - recurse
+      merged[key] = deepMerge(existing[key], incoming[key]);
+    }
+    // else: incoming wins (has non-null value)
+  }
+
+  return merged;
+}
+
 interface UseNormalizedCacheOptions<I> {
   /** Wire method to call (e.g., "query:locations.list") */
   wireMethod: string;
@@ -84,10 +123,7 @@ export function useNormalizedCache<I, O>({
       // Check if this is a ResourceChanged event for our resource type
       if ("ResourceChanged" in event) {
         const { resource_type, resource } = event.ResourceChanged;
-        console.log(
-          `ResourceChanged: ${resource_type} - ${resource}`,
-          event,
-        );
+
         if (resource_type === resourceType) {
           // Atomic update: merge this resource into the query data
           queryClient.setQueryData<O>(queryKey, (oldData) => {
@@ -104,7 +140,7 @@ export function useNormalizedCache<I, O>({
 
               if (existingIndex >= 0) {
                 const newData = [...oldData];
-                newData[existingIndex] = resource;
+                newData[existingIndex] = deepMerge(oldData[existingIndex], resource);
                 return newData as O;
               }
 
@@ -130,7 +166,7 @@ export function useNormalizedCache<I, O>({
 
                 if (existingIndex >= 0) {
                   const newArray = [...array];
-                  newArray[existingIndex] = resource;
+                  newArray[existingIndex] = deepMerge(array[existingIndex], resource);
                   return { ...oldData, [arrayField]: newArray };
                 }
 
@@ -148,26 +184,6 @@ export function useNormalizedCache<I, O>({
         }
       } else if ("ResourceChangedBatch" in event) {
         const { resource_type, resources } = event.ResourceChangedBatch;
-        console.log(
-          `ResourceChangedBatch: ${resource_type} (${Array.isArray(resources) ? resources.length : "not array"} items)`,
-          event,
-        );
-
-        if (resource_type === resourceType && Array.isArray(resources)) {
-          console.log(
-            `Batch matches our resourceType (${resourceType}), updating cache with ${resources.length} items`,
-          );
-        } else {
-          console.log(
-            `️  Skipping batch - resourceType mismatch or not array:`,
-            {
-              event_type: resource_type,
-              our_type: resourceType,
-              matches: resource_type === resourceType,
-              is_array: Array.isArray(resources),
-            },
-          );
-        }
 
         if (resource_type === resourceType && Array.isArray(resources)) {
           // Atomic update: merge all resources into the query data
@@ -182,11 +198,12 @@ export function useNormalizedCache<I, O>({
               const newData = [...oldData];
               const seenIds = new Set();
 
-              // Update existing items
+              // Update existing items with deep merge
               for (let i = 0; i < newData.length; i++) {
                 const item: any = newData[i];
                 if (resourceMap.has(item.id)) {
-                  newData[i] = resourceMap.get(item.id);
+                  const incomingResource = resourceMap.get(item.id);
+                  newData[i] = deepMerge(item, incomingResource);
                   seenIds.add(item.id);
                 }
               }
@@ -202,8 +219,22 @@ export function useNormalizedCache<I, O>({
                 }
               } else if (resourceFilter) {
                 for (const resource of resources) {
-                  if (!seenIds.has(resource.id) && resourceFilter(resource)) {
-                    newData.push(resource);
+                  if (!seenIds.has(resource.id)) {
+                    // Check by content_id instead of using potentially stale filter
+                    let shouldAppend = false;
+
+                    if (resource.sd_path?.Content?.content_id) {
+                      const eventContentId = resource.sd_path.Content.content_id;
+                      shouldAppend = newData.some((f: any) =>
+                        f.content_identity?.uuid === eventContentId
+                      );
+                    } else {
+                      shouldAppend = resourceFilter(resource);
+                    }
+
+                    if (shouldAppend) {
+                      newData.push(resource);
+                    }
                   }
                 }
               }
@@ -219,11 +250,12 @@ export function useNormalizedCache<I, O>({
                 const array = [...(oldData as any)[arrayField]];
                 const seenIds = new Set();
 
-                // Update existing items
+                // Update existing items with deep merge
                 for (let i = 0; i < array.length; i++) {
                   const item: any = array[i];
                   if (resourceMap.has(item.id)) {
-                    array[i] = resourceMap.get(item.id);
+                    const incomingResource = resourceMap.get(item.id);
+                    array[i] = deepMerge(item, incomingResource);
                     seenIds.add(item.id);
                   }
                 }
@@ -239,8 +271,24 @@ export function useNormalizedCache<I, O>({
                   }
                 } else if (resourceFilter) {
                   for (const resource of resources) {
-                    if (!seenIds.has(resource.id) && resourceFilter(resource)) {
-                      array.push(resource);
+                    if (!seenIds.has(resource.id)) {
+                      // Check if this resource belongs in our scope
+                      // For Content paths, match by content_id against current array
+                      let shouldAppend = false;
+
+                      if (resource.sd_path?.Content?.content_id) {
+                        const eventContentId = resource.sd_path.Content.content_id;
+                        shouldAppend = array.some((f: any) =>
+                          f.content_identity?.uuid === eventContentId
+                        );
+                      } else {
+                        // Fallback to provided filter
+                        shouldAppend = resourceFilter(resource);
+                      }
+
+                      if (shouldAppend) {
+                        array.push(resource);
+                      }
                     }
                   }
                 }

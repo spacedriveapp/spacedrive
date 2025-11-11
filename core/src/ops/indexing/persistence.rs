@@ -152,16 +152,10 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
-		// Determine if UUID should be assigned immediately
-		// - Directories: Assign UUID immediately (no content to identify)
-		// - Empty files: Assign UUID immediately (size = 0, no content to hash)
-		// - Regular files: Assign UUID after content identification completes
-		let should_assign_uuid = entry.kind == EntryKind::Directory || entry.size == 0;
-		let entry_uuid = if should_assign_uuid {
-			Some(Uuid::new_v4())
-		} else {
-			None // Will be assigned during content identification phase
-		};
+		// All entries get UUIDs immediately for UI normalized caching compatibility.
+		// Sync readiness is now determined by content_id presence (for regular files)
+		// or by entry kind (for directories/empty files).
+		let entry_uuid = Some(Uuid::new_v4());
 
 		// Create entry
 		let mut new_entry = entities::entry::ActiveModel {

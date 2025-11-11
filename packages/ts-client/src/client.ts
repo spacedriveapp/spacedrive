@@ -178,24 +178,8 @@ export class SpacedriveClient extends SimpleEventEmitter {
 
 		const response = await this.transport.sendRequest(request);
 
-		console.log("SpacedriveClient.execute - Received response:", response);
-
 		// Handle different response formats
 		if ("JsonOk" in response) {
-			// Debug directory listing responses
-			if (wireMethod === "query:files.directory_listing" && response.JsonOk?.files) {
-				const fileWithContent = response.JsonOk.files.find((f: any) => f.content_identity);
-				if (fileWithContent) {
-					console.log("Directory listing - file with content:", {
-						name: fileWithContent.name,
-						hasContentIdentity: !!fileWithContent.content_identity,
-						contentIdentity: fileWithContent.content_identity,
-						hasSidecars: !!fileWithContent.sidecars,
-						sidecarCount: fileWithContent.sidecars?.length,
-						sidecars: fileWithContent.sidecars
-					});
-				}
-			}
 			return response.JsonOk;
 		} else if ("json" in response) {
 			// Wire protocol uses lowercase "json" for success
@@ -215,19 +199,6 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 */
 	async subscribe(callback?: (event: Event) => void): Promise<() => void> {
 		const unlisten = await this.transport.subscribe((event) => {
-			// Log ALL events to debug ResourceChanged issue
-			const eventType = Object.keys(event)[0];
-
-			if ("ResourceChanged" in event) {
-				console.log("ResourceChanged:", event.ResourceChanged.resource_type, event.ResourceChanged);
-			} else if ("ResourceDeleted" in event) {
-				console.log("️ ResourceDeleted:", event.ResourceDeleted.resource_type);
-			} else if ("JobProgress" in event) {
-				// Don't log progress events, too spammy
-			} else {
-				console.log("SpacedriveClient - Event:", eventType);
-			}
-
 			// Emit to SimpleEventEmitter (useNormalizedCache listens to this)
 			this.emit("spacedrive-event", event);
 

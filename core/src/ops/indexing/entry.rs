@@ -211,16 +211,10 @@ impl EntryProcessor {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
-		// Determine if UUID should be assigned immediately
-		// - Directories: Assign UUID immediately (no content to identify)
-		// - Empty files: Assign UUID immediately (size = 0, no content to hash)
-		// - Regular files: Assign UUID after content identification completes
-		let should_assign_uuid = entry.kind == EntryKind::Directory || entry.size == 0;
-		let entry_uuid = if should_assign_uuid {
-			Some(Uuid::new_v4())
-		} else {
-			None // Will be assigned during content identification phase
-		};
+		// All entries get UUIDs immediately for UI normalized caching compatibility.
+		// Sync readiness is now determined by content_id presence (for regular files)
+		// or by entry kind (for directories/empty files).
+		let entry_uuid = Some(Uuid::new_v4());
 
 		// Find parent entry ID
 		let parent_id = if let Some(parent_path) = entry.path.parent() {
@@ -797,7 +791,7 @@ impl EntryProcessor {
 			result
 		};
 
-		// Update Entry with content_id AND assign UUID (now ready for sync)
+		// Update Entry with content_id (now sync-ready for regular files)
 		let entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(ctx.library_db())
 			.await
@@ -806,18 +800,6 @@ impl EntryProcessor {
 
 		let mut entry_active: entities::entry::ActiveModel = entry.into();
 		entry_active.content_id = Set(Some(content_model.id));
-
-		// Assign UUID if not already assigned (Entry now ready for sync)
-		use sea_orm::ActiveValue::{NotSet, Set, Unchanged};
-		match &entry_active.uuid {
-			Set(None) | NotSet | Unchanged(None) => {
-				let new_uuid = Uuid::new_v4();
-				entry_active.uuid = Set(Some(new_uuid));
-			}
-			Set(Some(_)) | Unchanged(Some(_)) => {
-				// Already has UUID, no action needed
-			}
-		}
 
 		let updated_entry = entry_active.update(ctx.library_db()).await.map_err(|e| {
 			JobError::execution(format!("Failed to link content identity to entry: {}", e))

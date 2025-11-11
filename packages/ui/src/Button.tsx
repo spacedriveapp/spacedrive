@@ -60,7 +60,7 @@ export const buttonStyles = cva(
           "border border-app-line/80 hover:border-app-line focus:ring-1 focus:ring-accent",
         ],
         accent: [
-          "border border-accent-faint bg-accent text-white shadow-md shadow-app-shade/10 hover:bg-accent-faint hover:border-accent focus:outline-none",
+          "border-accent bg-accent text-white shadow-md shadow-app-shade/10 hover:brightness-110 focus:outline-none",
           "focus:ring-1 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app-selected",
         ],
         colored: [

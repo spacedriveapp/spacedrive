@@ -25,6 +25,7 @@ export function ShinyToggle<T extends string>({
 			{options.map((option) => (
 				<button
 					key={option.value}
+					type="button"
 					onClick={() => onChange(option.value)}
 					className="relative px-3 py-1.5 text-sm font-medium transition-colors"
 				>

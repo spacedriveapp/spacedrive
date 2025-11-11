@@ -5,6 +5,7 @@ import { Explorer, FloatingControls, LocationCacheDemo, Inspector, QuickPreview,
 import { SpacedriveClient, TauriTransport } from "@sd/ts-client";
 import { useEffect, useState } from "react";
 import { DragOverlay } from "./routes/DragOverlay";
+import { ContextMenuWindow } from "./routes/ContextMenuWindow";
 import { DragDemo } from "./components/DragDemo";
 import { platform } from "./platform";
 
@@ -28,6 +29,8 @@ function App() {
       setRoute("/floating-controls");
     } else if (label.startsWith("drag-overlay")) {
       setRoute("/drag-overlay");
+    } else if (label.startsWith("context-menu")) {
+      setRoute("/contextmenu");
     } else if (label.startsWith("drag-demo")) {
       setRoute("/drag-demo");
     } else if (label.startsWith("settings")) {
@@ -70,6 +73,10 @@ function App() {
 
   if (route === "/drag-overlay") {
     return <DragOverlay />;
+  }
+
+  if (route === "/contextmenu") {
+    return <ContextMenuWindow />;
   }
 
   if (route === "/drag-demo") {

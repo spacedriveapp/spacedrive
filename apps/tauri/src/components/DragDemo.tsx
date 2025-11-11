@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
+import { Copy, Trash, Eye, Share } from '@phosphor-icons/react';
 import { useDragOperation } from '../hooks/useDragOperation';
 import { useDropZone } from '../hooks/useDropZone';
+import { useContextMenu } from '@sd/interface';
 import type { DragItem } from '../lib/drag';
 
 export function DragDemo() {
@@ -8,8 +10,56 @@ export function DragDemo() {
     '/Users/example/Documents/report.pdf',
     '/Users/example/Pictures/photo.jpg',
   ]);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [draggingFile, setDraggingFile] = useState<string | null>(null);
   const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  // Context menu for files
+  const contextMenu = useContextMenu({
+    items: [
+      {
+        icon: Copy,
+        label: 'Copy',
+        onClick: () => alert(`Copying: ${selectedFile}`),
+        keybind: '⌘C',
+        condition: () => selectedFile !== null,
+      },
+      {
+        icon: Eye,
+        label: 'Quick Look',
+        onClick: () => alert(`Quick Look: ${selectedFile}`),
+        keybind: 'Space',
+      },
+      { type: 'separator' },
+      {
+        icon: Share,
+        label: 'Share',
+        submenu: [
+          {
+            label: 'AirDrop',
+            onClick: () => alert('AirDrop share'),
+          },
+          {
+            label: 'Messages',
+            onClick: () => alert('Messages share'),
+          },
+        ],
+      },
+      { type: 'separator' },
+      {
+        icon: Trash,
+        label: 'Delete',
+        onClick: () => {
+          if (selectedFile && confirm(`Delete ${selectedFile}?`)) {
+            setSelectedFiles(files => files.filter(f => f !== selectedFile));
+            setSelectedFile(null);
+          }
+        },
+        keybind: '⌘⌫',
+        variant: 'danger' as const,
+      },
+    ],
+  });
 
   const { isDragging, startDrag, cursorPosition } = useDragOperation({
     onDragStart: (sessionId) => {
@@ -93,11 +143,18 @@ export function DragDemo() {
               className={`bg-gray-800 p-4 rounded-lg border transition-colors cursor-move select-none ${
                 draggingFile === file
                   ? 'border-blue-500 bg-blue-900/20'
+                  : selectedFile === file
+                  ? 'border-green-500 bg-green-900/20'
                   : 'border-gray-700 hover:border-blue-500'
               }`}
               onMouseDown={(e) => {
                 e.preventDefault();
                 handleMouseDown(file, e);
+              }}
+              onClick={() => setSelectedFile(file)}
+              onContextMenu={(e) => {
+                setSelectedFile(file);
+                contextMenu.show(e);
               }}
             >
               <div className="flex items-center gap-3">
@@ -112,6 +169,8 @@ export function DragDemo() {
         </div>
         <p className="text-sm text-gray-400">
           Click and drag these files - move them out of the window to start native drag!
+          <br />
+          Right-click on a file to test the native context menu.
         </p>
       </div>
 
@@ -169,6 +228,7 @@ export function DragDemo() {
           <li>The custom overlay window follows your cursor during the drag</li>
           <li>Drop zones in other Spacedrive windows can receive the dragged files</li>
           <li>All drag state is synchronized across windows via Tauri events</li>
+          <li><strong>Right-click files for native context menu</strong> - transparent window positioned at cursor</li>
         </ul>
       </div>
     </div>

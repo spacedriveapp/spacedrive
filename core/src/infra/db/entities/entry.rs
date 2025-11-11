@@ -10,7 +10,7 @@ use crate::infra::sync::Syncable;
 pub struct Model {
 	#[sea_orm(primary_key)]
 	pub id: i32,
-	pub uuid: Option<Uuid>, // None until content identification phase complete (sync readiness indicator)
+	pub uuid: Option<Uuid>, // Always present (assigned during indexing for UI caching compatibility)
 	pub name: String,
 	pub kind: i32,                 // Entry type: 0=File, 1=Directory, 2=Symlink
 	pub extension: Option<String>, // File extension (without dot), None for directories
@@ -128,8 +128,16 @@ impl crate::infra::sync::Syncable for Model {
 
 		let mut query = Entity::find();
 
-		// Only sync entries that have UUIDs (are sync-ready)
-		query = query.filter(Column::Uuid.is_not_null());
+		// Only sync entries that are sync-ready:
+		// - Directories (kind=1) are always ready
+		// - Empty files (size=0) are always ready
+		// - Regular files are ready only when content_id is present
+		query = query.filter(
+			Condition::any()
+				.add(Column::Kind.eq(1)) // Directory
+				.add(Column::Size.eq(0)) // Empty file
+				.add(Column::ContentId.is_not_null()), // Regular file with content
+		);
 
 		// Filter by watermark timestamp if specified
 		// Use indexed_at (when we indexed/synced) not modified_at (file modification time)
@@ -288,17 +296,17 @@ impl Model {
 		EntryKind::from(self.kind)
 	}
 
-	/// UUID Assignment Rules:
-	/// - Directories: Assign UUID immediately (no content to identify)
-	/// - Empty files: Assign UUID immediately (size = 0, no content to hash)
-	/// - Regular files: Assign UUID after content identification completes
-	pub fn should_assign_uuid_immediately(&self) -> bool {
-		self.entry_kind() == EntryKind::Directory || self.size == 0
-	}
-
-	/// Check if this entry is ready for sync (has UUID assigned)
+	/// Sync Readiness Rules:
+	/// - Directories: Always ready (no content to identify)
+	/// - Empty files: Always ready (size = 0, no content to hash)
+	/// - Regular files: Ready only after content identification (content_id present)
 	pub fn is_sync_ready(&self) -> bool {
-		self.uuid.is_some()
+		// Directories and empty files are always ready
+		if self.entry_kind() == EntryKind::Directory || self.size == 0 {
+			return true;
+		}
+		// Regular files require content identification
+		self.content_id.is_some()
 	}
 
 	/// Apply device-owned state change (idempotent upsert)
@@ -349,12 +357,12 @@ impl Model {
 				.ok_or_else(|| sea_orm::DbErr::Custom(format!("Missing field: {}", name)))
 		};
 
-		// Only sync entries that have UUIDs (sync-ready entries)
+		// Extract UUID (all entries should have UUIDs from indexing)
 		let entry_uuid: Option<Uuid> = serde_json::from_value(get_field("uuid")?)
 			.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
 
 		let entry_uuid = entry_uuid
-			.ok_or_else(|| sea_orm::DbErr::Custom("Cannot sync entry without UUID".to_string()))?;
+			.ok_or_else(|| sea_orm::DbErr::Custom("Cannot sync entry without UUID (data consistency error)".to_string()))?;
 
 		// Check if entry was deleted (prevents race condition)
 		if Self::is_tombstoned(entry_uuid, db).await? {

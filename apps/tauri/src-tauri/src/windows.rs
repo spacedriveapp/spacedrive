@@ -46,6 +46,11 @@ pub enum SpacedriveWindow {
     DragOverlay {
         session_id: String,
     },
+
+    /// Context menu (native transparent window at cursor)
+    ContextMenu {
+        context_id: String,
+    },
 }
 
 impl SpacedriveWindow {
@@ -73,6 +78,7 @@ impl SpacedriveWindow {
             Self::FloatingControls => "floating-controls".to_string(),
             Self::DragDemo => "drag-demo".to_string(),
             Self::DragOverlay { session_id } => format!("drag-overlay-{}", session_id),
+            Self::ContextMenu { context_id } => format!("context-menu-{}", context_id),
         }
     }
 
@@ -319,6 +325,24 @@ impl SpacedriveWindow {
 
                 Ok(window)
             }
+
+            Self::ContextMenu { context_id } => {
+                let url = format!("/contextmenu?context={}", context_id);
+                let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
+                    .title("")
+                    .inner_size(250.0, 300.0) // Initial size, will be adjusted by content
+                    .resizable(false)
+                    .decorations(false)
+                    .transparent(true)
+                    .always_on_top(true)
+                    .skip_taskbar(true)
+                    .visible(false) // Position first, then show
+                    .focused(true)
+                    .build()
+                    .map_err(|e| format!("Failed to create context menu: {}", e))?;
+
+                Ok(window)
+            }
         }
     }
 }
@@ -386,7 +410,6 @@ pub async fn close_window(app: AppHandle, label: String) -> Result<(), String> {
 pub fn apply_macos_styling(app: AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        use tauri::Webview;
         let window = app.get_webview_window(
             &app.webview_windows()
                 .keys()
@@ -416,4 +439,50 @@ pub async fn list_windows(app: AppHandle) -> Result<Vec<String>, String> {
         .into_iter()
         .map(|(label, _)| label)
         .collect())
+}
+
+/// Tauri command to position and show context menu with screen boundary detection
+#[tauri::command]
+pub async fn position_context_menu(
+    app: AppHandle,
+    label: String,
+    x: f64,
+    y: f64,
+    menu_width: f64,
+    menu_height: f64,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window(&label)
+        .ok_or("Context menu window not found")?;
+
+    use tauri::{PhysicalPosition, Position};
+
+    // Get current monitor
+    let monitor = window
+        .current_monitor()
+        .map_err(|e| e.to_string())?
+        .ok_or("No monitor found")?;
+
+    let monitor_size = monitor.size();
+    let monitor_pos = monitor.position();
+
+    // Calculate final position with screen boundary clamping
+    let final_x = ((x as i32) + monitor_pos.x)
+        .min(monitor_pos.x + monitor_size.width as i32 - menu_width as i32)
+        .max(monitor_pos.x);
+
+    let final_y = ((y as i32) + monitor_pos.y)
+        .min(monitor_pos.y + monitor_size.height as i32 - menu_height as i32)
+        .max(monitor_pos.y);
+
+    // Position window
+    window
+        .set_position(Position::Physical(PhysicalPosition::new(final_x, final_y)))
+        .map_err(|e| e.to_string())?;
+
+    // Show and focus
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+
+    Ok(())
 }
