@@ -342,7 +342,7 @@ async fn handle_create(
 			debug!("✓ Generated content hash: {}", content_hash);
 
 			// Link the content identity
-			if let Err(e) = EntryProcessor::link_to_content_identity(
+			match EntryProcessor::link_to_content_identity(
 				ctx,
 				entry_id,
 				path,
@@ -351,9 +351,59 @@ async fn handle_create(
 			)
 			.await
 			{
-				warn!("Failed to link content identity for {}: {}", path.display(), e);
-			} else {
-				debug!("✓ Linked content identity for entry {}", entry_id);
+				Ok(link_result) => {
+					debug!("✓ Linked content identity for entry {}", entry_id);
+
+					// Generate thumbnails for the file
+					if let Some(library) = context.get_library(library_id).await {
+						debug!("→ Generating thumbnails for: {}", path.display());
+
+						// Get MIME type from content identity
+						let mime_type = if let Ok(Some(ci)) = crate::infra::db::entities::content_identity::Entity::find_by_id(link_result.content_identity.id)
+							.one(ctx.library_db())
+							.await
+						{
+							if let Some(mime_id) = ci.mime_type_id {
+								if let Ok(Some(mime_record)) = crate::infra::db::entities::mime_type::Entity::find_by_id(mime_id)
+									.one(ctx.library_db())
+									.await
+								{
+									Some(mime_record.mime_type)
+								} else {
+									None
+								}
+							} else {
+								None
+							}
+						} else {
+							None
+						};
+
+						if let Some(mime) = mime_type {
+							match crate::ops::media::thumbnail::generate_thumbnails_for_file(
+								&library,
+								&link_result.content_identity.uuid.expect("ContentIdentity should have UUID"),
+								path,
+								&mime,
+							)
+							.await
+							{
+								Ok(count) if count > 0 => {
+									debug!("✓ Generated {} thumbnails for: {}", count, path.display());
+								}
+								Ok(_) => {
+									debug!("No thumbnails generated for: {}", path.display());
+								}
+								Err(e) => {
+									debug!("Thumbnail generation failed for {}: {}", path.display(), e);
+								}
+							}
+						}
+					}
+				}
+				Err(e) => {
+					warn!("Failed to link content identity for {}: {}", path.display(), e);
+				}
 			}
 		} else {
 			debug!("✗ Failed to generate content hash for {}", path.display());

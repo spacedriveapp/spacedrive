@@ -224,18 +224,8 @@ export function useNormalizedCache<I, O>({
                     // The filter checks parent path for Physical paths, which is correct for new files
                     const shouldAppend = resourceFilter(resource);
 
-                    console.log('[useNormalizedCache] Batch - checking resource:', {
-                      name: resource.name,
-                      id: resource.id,
-                      shouldAppend,
-                      seenIds: Array.from(seenIds)
-                    });
-
                     if (shouldAppend) {
                       newData.push(resource);
-                      console.log('[useNormalizedCache] ✓ Appended new resource:', resource.name);
-                    } else {
-                      console.log('[useNormalizedCache] ✗ Rejected resource (filter returned false):', resource.name);
                     }
                   }
                 }
