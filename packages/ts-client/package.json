@@ -40,8 +40,9 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@types/ws": "^8.0.0",
     "ws": "^8.0.0",
-    "@types/ws": "^8.0.0"
+    "zustand": "^5.0.8"
   },
   "files": [
     "dist/**/*",

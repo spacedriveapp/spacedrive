@@ -182,7 +182,7 @@
         "sonner": "^1.0.3",
         "tailwind-merge": "^1.14.0",
         "zod": "^3.23",
-        "zustand": "^5.0.2",
+        "zustand": "^5.0.8",
       },
       "devDependencies": {
         "@types/react": "npm:types-react@rc",
@@ -196,6 +196,7 @@
       "dependencies": {
         "@types/ws": "^8.0.0",
         "ws": "^8.0.0",
+        "zustand": "^5.0.8",
       },
       "devDependencies": {
         "@tanstack/react-query": "^5.62.0",

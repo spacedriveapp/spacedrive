@@ -16,7 +16,7 @@ inquire     = "0.7"
 qr2term     = "0.3"
 ratatui     = "0.26"
 reqwest     = { version = "0.12", features = ["json"] }
-sd-core     = { path = "../../core", features = ["cli"] }
+sd-core     = { path = "../../core", features = ["cli", "heif", "ffmpeg"] }
 serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"
 tokio       = { version = "1", features = ["full"] }

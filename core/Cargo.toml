@@ -10,7 +10,7 @@ ffmpeg = ["dep:sd-ffmpeg"]
 # AI models support
 ai = []
 # HEIF image support
-heif = []
+heif = ["sd-images/heif"]
 # Mobile platform support
 mobile = []
 # CLI support (clap is now always available)

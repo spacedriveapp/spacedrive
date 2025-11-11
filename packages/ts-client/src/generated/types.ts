@@ -5,6 +5,14 @@
 
 export type ActionContextInfo = { action_type: string; initiated_at: string; initiated_by: string | null; action_input: JsonValue; context: JsonValue };
 
+export type AddGroupInput = { space_id: string; name: string; group_type: GroupType };
+
+export type AddGroupOutput = { group: SpaceGroup };
+
+export type AddItemInput = { space_id: string; group_id: string | null; item_type: ItemType };
+
+export type AddItemOutput = { item: SpaceItem };
+
 /**
  * Represents an APFS container (physical storage with multiple volumes)
  */
@@ -196,6 +204,14 @@ export type DateField = "CreatedAt" | "ModifiedAt" | "AccessedAt";
  * Filter for a time-based field
  */
 export type DateRangeFilter = { field: DateField; start: string | null; end: string | null };
+
+export type DeleteGroupInput = { group_id: string };
+
+export type DeleteGroupOutput = { success: boolean };
+
+export type DeleteItemInput = { item_id: string };
+
+export type DeleteItemOutput = { success: boolean };
 
 export type DeviceInfo = { id: string; name: string; os: string; hardware_model: string | null; created_at: string };
 
@@ -708,6 +724,35 @@ export type GetSyncMetricsOutput = {
 metrics: SyncMetricsSnapshot };
 
 /**
+ * Types of groups that can appear in a space
+ */
+export type GroupType = 
+/**
+ * Fixed quick navigation (Overview, Recents, Favorites)
+ */
+"QuickAccess" | 
+/**
+ * Device with its volumes and locations as children
+ */
+{ Device: { device_id: string } } | 
+/**
+ * All locations across all devices
+ */
+"Locations" | 
+/**
+ * Tag collection
+ */
+"Tags" | 
+/**
+ * Cloud storage providers
+ */
+"Cloud" | 
+/**
+ * User-defined custom group
+ */
+"Custom";
+
+/**
  * Canonical input for indexing requests from any interface (CLI, API, etc.)
  */
 export type IndexInput = { 
@@ -908,6 +953,39 @@ hierarchy_errors: IntegrityDifference[];
 summary: string };
 
 export type IssueType = { type: "MissingFromIndex" } | { type: "StaleInIndex" } | { type: "SizeMismatch" } | { type: "ModifiedTimeMismatch" } | { type: "InodeMismatch" } | { type: "ExtensionMismatch" } | { type: "ParentMismatch" } | { type: "KindMismatch" };
+
+/**
+ * Types of items that can appear in a group
+ */
+export type ItemType = 
+/**
+ * Overview screen (fixed)
+ */
+"Overview" | 
+/**
+ * Recent files (fixed)
+ */
+"Recents" | 
+/**
+ * Favorited files (fixed)
+ */
+"Favorites" | 
+/**
+ * Indexed location
+ */
+{ Location: { location_id: string } } | 
+/**
+ * Storage volume (with locations as children)
+ */
+{ Volume: { volume_id: string } } | 
+/**
+ * Tag filter
+ */
+{ Tag: { tag_id: string } } | 
+/**
+ * Any arbitrary path (dragged from explorer)
+ */
+{ Path: { sd_path: SdPath } };
 
 export type JobCancelInput = { job_id: string };
 
@@ -1421,6 +1499,69 @@ export type LocationsListOutput = { locations: LocationInfo[] };
 export type LocationsListQueryInput = null;
 
 /**
+ * Input for media listing
+ */
+export type MediaListingInput = { 
+/**
+ * The directory path to list media for
+ */
+path: SdPath; 
+/**
+ * Whether to include media from descendant directories (default: false)
+ */
+include_descendants: boolean | null; 
+/**
+ * Which media types to include (default: both Image and Video)
+ */
+media_types: ContentKind[] | null; 
+/**
+ * Optional limit on number of results (default: 1000)
+ */
+limit: number | null; 
+/**
+ * Sort order for results
+ */
+sort_by: MediaSortBy };
+
+/**
+ * Output containing media files
+ */
+export type MediaListingOutput = { 
+/**
+ * Media files (images/videos)
+ */
+files: File[]; 
+/**
+ * Total count of media files found
+ */
+total_count: number; 
+/**
+ * Whether there are more results than returned
+ */
+has_more: boolean };
+
+/**
+ * Sort options for media listing
+ */
+export type MediaSortBy = 
+/**
+ * Sort by modification date (newest first)
+ */
+"modified" | 
+/**
+ * Sort by creation date (newest first)
+ */
+"created" | 
+/**
+ * Sort by name (alphabetical)
+ */
+"name" | 
+/**
+ * Sort by size (largest first)
+ */
+"size";
+
+/**
  * Mount type classification
  */
 export type MountType = 
@@ -1624,6 +1765,12 @@ createdAt: string;
  * Statistics about the library
  */
 statistics: LibraryStatistics };
+
+export type ReorderGroupsInput = { space_id: string; group_ids: string[] };
+
+export type ReorderItemsInput = { group_id: string; item_ids: string[] };
+
+export type ReorderOutput = { success: boolean };
 
 /**
  * Detailed breakdown of how the score was calculated
@@ -1855,9 +2002,154 @@ export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedA
  */
 export type SortOptions = { field: SortField; direction: SortDirection };
 
+/**
+ * A Space defines a sidebar layout and filtering context
+ */
+export type Space = { 
+/**
+ * Unique identifier
+ */
+id: string; 
+/**
+ * Human-friendly name (e.g., "All Devices", "Work Files")
+ */
+name: string; 
+/**
+ * Icon identifier (Phosphor icon name or emoji)
+ */
+icon: string; 
+/**
+ * Color for visual identification (hex format: #RRGGBB)
+ */
+color: string; 
+/**
+ * Sort order in space switcher
+ */
+order: number; 
+/**
+ * Timestamps
+ */
+created_at: string; updated_at: string };
+
+export type SpaceCreateInput = { name: string; icon: string; color: string };
+
+export type SpaceCreateOutput = { space: Space };
+
+export type SpaceDeleteInput = { space_id: string };
+
+export type SpaceDeleteOutput = { success: boolean };
+
+export type SpaceGetOutput = { space: Space };
+
+export type SpaceGetQueryInput = { space_id: string };
+
+/**
+ * A SpaceGroup is a collapsible section in the sidebar
+ */
+export type SpaceGroup = { 
+/**
+ * Unique identifier
+ */
+id: string; 
+/**
+ * Space this group belongs to
+ */
+space_id: string; 
+/**
+ * Group name (e.g., "Quick Access", "MacBook Pro")
+ */
+name: string; 
+/**
+ * Type of group (determines content and behavior)
+ */
+group_type: GroupType; 
+/**
+ * Whether group is collapsed
+ */
+is_collapsed: boolean; 
+/**
+ * Sort order within space
+ */
+order: number; 
+/**
+ * Timestamp
+ */
+created_at: string };
+
+/**
+ * A group with its items
+ */
+export type SpaceGroupWithItems = { 
+/**
+ * The group
+ */
+group: SpaceGroup; 
+/**
+ * Items in this group (sorted by order)
+ */
+items: SpaceItem[] };
+
+/**
+ * An item within a space (can be space-level or within a group)
+ */
+export type SpaceItem = { 
+/**
+ * Unique identifier
+ */
+id: string; 
+/**
+ * Space this item belongs to
+ */
+space_id: string; 
+/**
+ * Group this item belongs to (None = space-level item)
+ */
+group_id: string | null; 
+/**
+ * Type and data of this item
+ */
+item_type: ItemType; 
+/**
+ * Sort order within space or group
+ */
+order: number; 
+/**
+ * Timestamp
+ */
+created_at: string };
+
+/**
+ * Complete sidebar layout for a space
+ */
+export type SpaceLayout = { 
+/**
+ * The space
+ */
+space: Space; 
+/**
+ * Space-level items (pinned shortcuts, no group)
+ */
+space_items: SpaceItem[]; 
+/**
+ * Groups with their items
+ */
+groups: SpaceGroupWithItems[] };
+
+export type SpaceLayoutOutput = { layout: SpaceLayout };
+
+export type SpaceLayoutQueryInput = { space_id: string };
+
+export type SpaceUpdateInput = { space_id: string; name: string | null; icon: string | null; color: string | null };
+
+export type SpaceUpdateOutput = { space: Space };
+
 export type SpacedropSendInput = { device_id: string; paths: SdPath[]; sender: string | null };
 
 export type SpacedropSendOutput = { job_id: string | null; session_id: string | null };
+
+export type SpacesListOutput = { spaces: Space[] };
+
+export type SpacesListQueryInput = null;
 
 /**
  * State transition event
@@ -2054,6 +2346,10 @@ total_count: number;
  * Total size of unique files in bytes
  */
 total_size: number };
+
+export type UpdateGroupInput = { group_id: string; name: string | null; is_collapsed: boolean | null };
+
+export type UpdateGroupOutput = { group: SpaceGroup };
 
 /**
  * A volume in Spacedrive - unified model for runtime and database
@@ -2286,133 +2582,161 @@ fingerprint: VolumeFingerprint };
 // ===== API Type Unions =====
 
 export type CoreAction =
-     { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
-  |  { type: 'network.stop'; input: NetworkStopInput; output: NetworkStopOutput }
+     { type: 'network.sync_setup'; input: LibrarySyncSetupInput; output: LibrarySyncSetupOutput }
   |  { type: 'network.device.revoke'; input: DeviceRevokeInput; output: DeviceRevokeOutput }
+  |  { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
+  |  { type: 'network.stop'; input: NetworkStopInput; output: NetworkStopOutput }
   |  { type: 'network.pair.cancel'; input: PairCancelInput; output: PairCancelOutput }
-  |  { type: 'network.pair.generate'; input: PairGenerateInput; output: PairGenerateOutput }
-  |  { type: 'network.pair.join'; input: PairJoinInput; output: PairJoinOutput }
-  |  { type: 'network.sync_setup'; input: LibrarySyncSetupInput; output: LibrarySyncSetupOutput }
   |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
-  |  { type: 'network.spacedrop.send'; input: SpacedropSendInput; output: SpacedropSendOutput }
+  |  { type: 'network.pair.generate'; input: PairGenerateInput; output: PairGenerateOutput }
   |  { type: 'network.start'; input: NetworkStartInput; output: NetworkStartOutput }
+  |  { type: 'network.pair.join'; input: PairJoinInput; output: PairJoinOutput }
+  |  { type: 'network.spacedrop.send'; input: SpacedropSendInput; output: SpacedropSendOutput }
 ;
 
 export type LibraryAction =
-     { type: 'indexing.verify'; input: IndexVerifyInput; output: IndexVerifyOutput }
-  |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
-  |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
-  |  { type: 'locations.rescan'; input: LocationRescanInput; output: LocationRescanOutput }
-  |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
-  |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
-  |  { type: 'volumes.untrack'; input: VolumeUntrackInput; output: VolumeUntrackOutput }
-  |  { type: 'volumes.speed_test'; input: VolumeSpeedTestInput; output: VolumeSpeedTestOutput }
-  |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
+     { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
+  |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
   |  { type: 'volumes.track'; input: VolumeTrackInput; output: VolumeTrackOutput }
-  |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
-  |  { type: 'volumes.remove_cloud'; input: VolumeRemoveCloudInput; output: VolumeRemoveCloudOutput }
+  |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
+  |  { type: 'spaces.delete_group'; input: DeleteGroupInput; output: DeleteGroupOutput }
+  |  { type: 'volumes.speed_test'; input: VolumeSpeedTestInput; output: VolumeSpeedTestOutput }
+  |  { type: 'spaces.update_group'; input: UpdateGroupInput; output: UpdateGroupOutput }
   |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
+  |  { type: 'spaces.update'; input: SpaceUpdateInput; output: SpaceUpdateOutput }
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
-  |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
-  |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
   |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
-  |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
+  |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
+  |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
+  |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
+  |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
   |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
+  |  { type: 'spaces.delete_item'; input: DeleteItemInput; output: DeleteItemOutput }
+  |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
+  |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
+  |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
+  |  { type: 'volumes.remove_cloud'; input: VolumeRemoveCloudInput; output: VolumeRemoveCloudOutput }
+  |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
+  |  { type: 'volumes.untrack'; input: VolumeUntrackInput; output: VolumeUntrackOutput }
+  |  { type: 'spaces.delete'; input: SpaceDeleteInput; output: SpaceDeleteOutput }
+  |  { type: 'locations.rescan'; input: LocationRescanInput; output: LocationRescanOutput }
+  |  { type: 'spaces.reorder_items'; input: ReorderItemsInput; output: ReorderOutput }
+  |  { type: 'spaces.reorder_groups'; input: ReorderGroupsInput; output: ReorderOutput }
   |  { type: 'media.thumbnail'; input: ThumbnailInput; output: JobReceipt }
+  |  { type: 'indexing.verify'; input: IndexVerifyInput; output: IndexVerifyOutput }
+  |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
 ;
 
 export type CoreQuery =
-     { type: 'network.status'; input: NetworkStatusQueryInput; output: NetworkStatus }
-  |  { type: 'core.status'; input: Empty; output: CoreStatus }
-  |  { type: 'network.sync_setup.discover'; input: DiscoverRemoteLibrariesInput; output: DiscoverRemoteLibrariesOutput }
-  |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
+     { type: 'core.status'; input: Empty; output: CoreStatus }
+  |  { type: 'network.status'; input: NetworkStatusQueryInput; output: NetworkStatus }
   |  { type: 'network.pair.status'; input: PairStatusQueryInput; output: PairStatusOutput }
-  |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
   |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
+  |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
+  |  { type: 'network.sync_setup.discover'; input: DiscoverRemoteLibrariesInput; output: DiscoverRemoteLibrariesOutput }
+  |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
 ;
 
 export type LibraryQuery =
-     { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
+     { type: 'files.unique_to_location'; input: UniqueToLocationInput; output: UniqueToLocationOutput }
+  |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
+  |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayoutOutput }
+  |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
+  |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
+  |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
   |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
-  |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
-  |  { type: 'files.unique_to_location'; input: UniqueToLocationInput; output: UniqueToLocationOutput }
-  |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
-  |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
-  |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
+  |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
+  |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
+  |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [LibraryDeviceInfo] }
+  |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
+  |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
+  |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: LibraryInfoOutput }
+  |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
+  |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
+  |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
   |  { type: 'test.ping'; input: PingInput; output: PingOutput }
   |  { type: 'locations.suggested'; input: SuggestedLocationsQueryInput; output: SuggestedLocationsOutput }
-  |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [LibraryDeviceInfo] }
-  |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
-  |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: LibraryInfoOutput }
-  |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
-  |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
 ;
 
 // ===== Wire Method Mappings =====
 
 export const WIRE_METHODS = {
   coreActions: {
+    'network.sync_setup': 'action:network.sync_setup.input',
+    'network.device.revoke': 'action:network.device.revoke.input',
     'libraries.delete': 'action:libraries.delete.input',
     'network.stop': 'action:network.stop.input',
-    'network.device.revoke': 'action:network.device.revoke.input',
     'network.pair.cancel': 'action:network.pair.cancel.input',
-    'network.pair.generate': 'action:network.pair.generate.input',
-    'network.pair.join': 'action:network.pair.join.input',
-    'network.sync_setup': 'action:network.sync_setup.input',
     'libraries.create': 'action:libraries.create.input',
-    'network.spacedrop.send': 'action:network.spacedrop.send.input',
+    'network.pair.generate': 'action:network.pair.generate.input',
     'network.start': 'action:network.start.input',
+    'network.pair.join': 'action:network.pair.join.input',
+    'network.spacedrop.send': 'action:network.spacedrop.send.input',
   },
 
   libraryActions: {
-    'indexing.verify': 'action:indexing.verify.input',
-    'volumes.add_cloud': 'action:volumes.add_cloud.input',
-    'tags.apply': 'action:tags.apply.input',
-    'locations.rescan': 'action:locations.rescan.input',
-    'jobs.cancel': 'action:jobs.cancel.input',
-    'locations.remove': 'action:locations.remove.input',
-    'volumes.untrack': 'action:volumes.untrack.input',
-    'volumes.speed_test': 'action:volumes.speed_test.input',
-    'indexing.start': 'action:indexing.start.input',
-    'volumes.track': 'action:volumes.track.input',
-    'libraries.rename': 'action:libraries.rename.input',
-    'volumes.remove_cloud': 'action:volumes.remove_cloud.input',
-    'libraries.export': 'action:libraries.export.input',
-    'jobs.resume': 'action:jobs.resume.input',
-    'locations.add': 'action:locations.add.input',
     'files.delete': 'action:files.delete.input',
+    'spaces.create': 'action:spaces.create.input',
+    'volumes.track': 'action:volumes.track.input',
+    'volumes.add_cloud': 'action:volumes.add_cloud.input',
+    'spaces.delete_group': 'action:spaces.delete_group.input',
+    'volumes.speed_test': 'action:volumes.speed_test.input',
+    'spaces.update_group': 'action:spaces.update_group.input',
+    'libraries.export': 'action:libraries.export.input',
+    'spaces.update': 'action:spaces.update.input',
+    'jobs.resume': 'action:jobs.resume.input',
     'jobs.pause': 'action:jobs.pause.input',
-    'tags.create': 'action:tags.create.input',
+    'indexing.start': 'action:indexing.start.input',
+    'locations.add': 'action:locations.add.input',
+    'locations.remove': 'action:locations.remove.input',
+    'spaces.add_group': 'action:spaces.add_group.input',
     'files.copy': 'action:files.copy.input',
+    'spaces.delete_item': 'action:spaces.delete_item.input',
+    'libraries.rename': 'action:libraries.rename.input',
+    'spaces.add_item': 'action:spaces.add_item.input',
+    'tags.apply': 'action:tags.apply.input',
+    'volumes.remove_cloud': 'action:volumes.remove_cloud.input',
+    'jobs.cancel': 'action:jobs.cancel.input',
+    'volumes.untrack': 'action:volumes.untrack.input',
+    'spaces.delete': 'action:spaces.delete.input',
+    'locations.rescan': 'action:locations.rescan.input',
+    'spaces.reorder_items': 'action:spaces.reorder_items.input',
+    'spaces.reorder_groups': 'action:spaces.reorder_groups.input',
     'media.thumbnail': 'action:media.thumbnail.input',
+    'indexing.verify': 'action:indexing.verify.input',
+    'tags.create': 'action:tags.create.input',
   },
 
   coreQueries: {
-    'network.status': 'query:network.status',
     'core.status': 'query:core.status',
-    'network.sync_setup.discover': 'query:network.sync_setup.discover',
-    'libraries.list': 'query:libraries.list',
+    'network.status': 'query:network.status',
     'network.pair.status': 'query:network.pair.status',
-    'network.devices.list': 'query:network.devices.list',
     'core.events.list': 'query:core.events.list',
+    'libraries.list': 'query:libraries.list',
+    'network.sync_setup.discover': 'query:network.sync_setup.discover',
+    'network.devices.list': 'query:network.devices.list',
   },
 
   libraryQueries: {
-    'files.directory_listing': 'query:files.directory_listing',
-    'files.by_path': 'query:files.by_path',
-    'files.by_id': 'query:files.by_id',
     'files.unique_to_location': 'query:files.unique_to_location',
-    'volumes.list': 'query:volumes.list',
-    'locations.list': 'query:locations.list',
-    'tags.search': 'query:tags.search',
+    'spaces.list': 'query:spaces.list',
+    'spaces.get_layout': 'query:spaces.get_layout',
+    'files.media_listing': 'query:files.media_listing',
+    'spaces.get': 'query:spaces.get',
+    'jobs.list': 'query:jobs.list',
+    'files.by_path': 'query:files.by_path',
+    'files.directory_listing': 'query:files.directory_listing',
     'jobs.info': 'query:jobs.info',
+    'volumes.list': 'query:volumes.list',
+    'devices.list': 'query:devices.list',
+    'files.by_id': 'query:files.by_id',
+    'tags.search': 'query:tags.search',
+    'libraries.info': 'query:libraries.info',
+    'search.files': 'query:search.files',
+    'sync.metrics': 'query:sync.metrics',
+    'locations.list': 'query:locations.list',
     'test.ping': 'query:test.ping',
     'locations.suggested': 'query:locations.suggested',
-    'devices.list': 'query:devices.list',
-    'sync.metrics': 'query:sync.metrics',
-    'libraries.info': 'query:libraries.info',
-    'jobs.list': 'query:jobs.list',
-    'search.files': 'query:search.files',
   },
 } as const;

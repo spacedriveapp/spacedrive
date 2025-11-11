@@ -47,8 +47,21 @@ impl SidecarManager {
 		let library_path = library.path();
 		let sidecars_dir = library_path.join("sidecars");
 
+		info!(
+			"Initializing sidecar manager for library {} at path: {}",
+			library.id(),
+			library_path.display()
+		);
+
 		// Ensure sidecars directory exists
-		tokio::fs::create_dir_all(&sidecars_dir).await?;
+		tokio::fs::create_dir_all(&sidecars_dir).await.map_err(|e| {
+			error!(
+				"Failed to create sidecars directory {}: {}",
+				sidecars_dir.display(),
+				e
+			);
+			e
+		})?;
 
 		// Create path builder
 		let builder = Arc::new(SidecarPathBuilder::new(&library_path));
@@ -56,7 +69,11 @@ impl SidecarManager {
 		let mut builders = self.path_builders.write().await;
 		builders.insert(library.id(), builder);
 
-		info!("Initialized sidecar manager for library {}", library.id());
+		info!(
+			"Successfully initialized sidecar manager for library {} (path builders count: {})",
+			library.id(),
+			builders.len()
+		);
 		Ok(())
 	}
 

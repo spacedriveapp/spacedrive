@@ -109,7 +109,6 @@ fn setup() -> Result<()> {
 		println!();
 		println!("Creating symlinks for shared libraries...");
 		native_deps::symlink_libs_macos(&project_root, &native_deps_dir)?;
-		println!("   ✓ Symlinks created");
 	}
 
 	#[cfg(target_os = "linux")]

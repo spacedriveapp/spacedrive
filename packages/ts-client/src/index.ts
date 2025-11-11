@@ -55,5 +55,8 @@ export {
 // React hooks (requires @tanstack/react-query peer dependency)
 export * from "./hooks";
 
+// Zustand stores
+export * from "./stores/sidebar";
+
 // All auto-generated types
 export * from "./generated/types";

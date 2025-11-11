@@ -40,6 +40,21 @@ impl CoreAction for LibraryCreateAction {
 			)
 			.await?;
 
+		// Initialize sidecar manager for the new library
+		if let Err(e) = context
+			.get_sidecar_manager()
+			.await
+			.ok_or_else(|| ActionError::Internal("Sidecar manager not available".to_string()))?
+			.init_library(&library)
+			.await
+		{
+			tracing::error!(
+				"Failed to initialize sidecar manager for library {}: {}",
+				library.id(),
+				e
+			);
+		}
+
 		// Get the library details
 		let library_id = library.id();
 		let name = library.name().await;

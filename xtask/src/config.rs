@@ -105,18 +105,12 @@ pub fn generate_cargo_config(
 		.collect::<Vec<_>>()
 		.join("\n");
 
-	// Add cargo aliases at the end
-	let with_aliases = format!(
-        "{}\n\n# Cargo aliases for xtask commands\n[alias]\n# Run xtask commands\nxtask = \"run --package xtask --\"\n# Shortcut for building iOS framework\nios = \"run --package xtask -- build-ios\"\n",
-        rendered.trim()
-    );
-
 	// Validate TOML before writing
-	toml::from_str::<toml::Value>(&with_aliases).context("Generated config is not valid TOML")?;
+	toml::from_str::<toml::Value>(&rendered).context("Generated config is not valid TOML")?;
 
 	// Write output
 	let output_path = root.join(".cargo").join("config.toml");
-	fs::write(&output_path, with_aliases).context("Failed to write config.toml")?;
+	fs::write(&output_path, rendered).context("Failed to write config.toml")?;
 
 	println!("   ✓ Generated {}", output_path.display());
 

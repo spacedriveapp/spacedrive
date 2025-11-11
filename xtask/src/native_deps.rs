@@ -87,32 +87,102 @@ pub fn symlink_libs_macos(root: &Path, native_deps: &Path) -> Result<()> {
 	{
 		use std::os::unix::fs as unix_fs;
 
-		let lib_dir = native_deps.join("lib");
-		if !lib_dir.exists() {
-			return Ok(()); // No libs to symlink
+		// Create Spacedrive.framework symlink for dylibs (matches v1 behavior)
+		let framework = native_deps.join("Spacedrive.framework");
+		if framework.exists() {
+			// Sign all dylibs in the framework (required for macOS 13+)
+			let libs_dir = framework.join("Libraries");
+			if libs_dir.exists() {
+				println!("   Signing framework libraries...");
+				for entry in fs::read_dir(&libs_dir)? {
+					let entry = entry?;
+					let path = entry.path();
+					if path.extension().and_then(|s| s.to_str()) == Some("dylib") {
+						// Remove signature first
+						let _ = std::process::Command::new("codesign")
+							.args(&["--remove-signature", path.to_str().unwrap()])
+							.output();
+
+						// Sign with ad-hoc signature (- means ad-hoc)
+						let status = std::process::Command::new("codesign")
+							.args(&["-s", "-", "-f", path.to_str().unwrap()])
+							.status()
+							.context("Failed to run codesign")?;
+
+						if !status.success() {
+							println!("    Warning: Failed to sign {}", path.display());
+						}
+					}
+				}
+				println!("   ✓ Signed framework libraries");
+			}
+
+			let target_frameworks = root.join("target").join("Frameworks");
+			fs::create_dir_all(&target_frameworks)?;
+
+			let framework_link = target_frameworks.join("Spacedrive.framework");
+
+			// Remove existing symlink if present
+			let _ = fs::remove_file(&framework_link);
+
+			unix_fs::symlink(&framework, &framework_link)
+				.context("Failed to symlink Spacedrive.framework")?;
+
+			println!("   ✓ Linked Spacedrive.framework (includes libheif)");
 		}
 
-		// Create symlink in root for FFmpeg
-		let target = root.join("target");
-		fs::create_dir_all(&target)?;
+		// Also symlink individual dylibs from lib/ to target/ for easier access
+		let lib_dir = native_deps.join("lib");
+		if lib_dir.exists() {
+			let target = root.join("target");
 
-		for entry in fs::read_dir(&lib_dir)? {
-			let entry = entry?;
-			let filename = entry.file_name();
-			let filename_str = filename.to_string_lossy();
+			for entry in fs::read_dir(&lib_dir)? {
+				let entry = entry?;
+				let filename = entry.file_name();
+				let filename_str = filename.to_string_lossy();
 
-			// Only symlink dylibs
-			if filename_str.ends_with(".dylib") {
-				let src = entry.path();
-				let dst = target.join(&filename);
+				// Only symlink dylibs
+				if filename_str.ends_with(".dylib") {
+					let src = entry.path();
+					let dst = target.join(&filename);
 
-				// Remove existing symlink if present
-				let _ = fs::remove_file(&dst);
+					// Remove existing symlink if present
+					let _ = fs::remove_file(&dst);
 
-				unix_fs::symlink(&src, &dst)
-					.with_context(|| format!("Failed to symlink {}", filename_str))?;
+					unix_fs::symlink(&src, &dst)
+						.with_context(|| format!("Failed to symlink {}", filename_str))?;
+				}
 			}
 		}
+	}
+
+	Ok(())
+}
+
+/// Bundle libheif from Homebrew (macOS temporary solution)
+///
+/// This copies libheif from Homebrew to the target directory until it's included
+/// in the native-deps package. On macOS, libheif is available via Homebrew and
+/// we bundle it for development builds.
+pub fn bundle_libheif_from_homebrew(root: &Path) -> Result<()> {
+	#[cfg(target_os = "macos")]
+	{
+		let homebrew_libheif = Path::new("/opt/homebrew/lib/libheif.1.dylib");
+
+		if !homebrew_libheif.exists() {
+			println!(" libheif not found in Homebrew. Install with: brew install libheif");
+			println!("   HEIC support will not be available.");
+			return Ok(());
+		}
+
+		let target_dir = root.join("target");
+		fs::create_dir_all(&target_dir)?;
+
+		let dest = target_dir.join("libheif.1.dylib");
+		fs::copy(homebrew_libheif, &dest)
+			.context("Failed to copy libheif from Homebrew")?;
+
+		println!("   ✓ Bundled libheif from Homebrew");
 	}
 
 	Ok(())
