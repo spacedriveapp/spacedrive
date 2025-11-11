@@ -11,6 +11,7 @@ pub mod device;
 pub mod file;
 pub mod location;
 pub mod resource;
+pub mod resource_manager;
 pub mod tag;
 pub mod user_metadata;
 pub mod volume;
@@ -22,6 +23,7 @@ pub use device::{Device, OperatingSystem};
 pub use file::{EntryKind, File, Sidecar};
 pub use location::{IndexMode, Location, ScanState};
 pub use resource::Identifiable;
+pub use resource_manager::ResourceManager;
 pub use tag::{
 	OrganizationalPattern, PatternType, PrivacyLevel, RelationshipType, Tag, TagApplication,
 	TagError, TagRelationship, TagSource, TagType,

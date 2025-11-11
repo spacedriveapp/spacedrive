@@ -232,6 +232,30 @@ pub async fn run_content_phase(
 		// Update rate tracking
 		state.items_since_last_update += chunk_len as u64;
 
+		// Emit ResourceChanged events for affected Files
+		if !entries_to_sync.is_empty() {
+			// Collect entry UUIDs from successfully processed entries
+			let entry_ids_for_events: Vec<uuid::Uuid> = entries_to_sync
+				.iter()
+				.filter_map(|entry_model| entry_model.uuid)
+				.collect();
+
+			if !entry_ids_for_events.is_empty() {
+				let library = ctx.library();
+				let events = library.event_bus().clone();
+				let db = Arc::new(ctx.library_db().clone());
+
+				let resource_manager = crate::domain::ResourceManager::new(db, events);
+
+				if let Err(e) = resource_manager
+					.emit_resource_events("entry", entry_ids_for_events)
+					.await
+				{
+					tracing::warn!("Failed to emit resource events after content batch: {}", e);
+				}
+			}
+		}
+
 		// State is automatically saved during job serialization on shutdown
 	}
 

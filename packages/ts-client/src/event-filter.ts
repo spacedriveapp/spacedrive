@@ -73,6 +73,7 @@ export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
 	"DeviceDisconnected",
 	// Resource events (normalized cache updates)
 	"ResourceChanged",
+	"ResourceChangedBatch",
 	"ResourceDeleted",
 	// Legacy compatibility events
 	"LocationAdded",

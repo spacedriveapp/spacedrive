@@ -167,6 +167,13 @@ pub enum Event {
 		/// The full resource data as JSON
 		resource: serde_json::Value,
 	},
+	ResourceChangedBatch {
+		/// Resource type identifier (e.g., "file")
+		resource_type: String,
+		/// Array of full resource data as JSON
+		/// Used for batch updates during indexing to reduce event overhead
+		resources: serde_json::Value,
+	},
 	ResourceDeleted {
 		/// Resource type identifier
 		resource_type: String,

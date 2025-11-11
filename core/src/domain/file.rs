@@ -216,6 +216,162 @@ impl File {
 	pub fn is_archive(&self) -> bool {
 		self.content_kind == ContentKind::Archive
 	}
+
+	/// Batch construct File instances from entry UUIDs
+	///
+	/// This is used by the ResourceManager to emit File events when
+	/// dependencies (Entry, ContentIdentity, Sidecar) change.
+	///
+	/// Efficiently loads all necessary data in batch queries and constructs
+	/// fully-populated File instances.
+	pub async fn from_entry_uuids(
+		db: &sea_orm::DatabaseConnection,
+		entry_uuids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<File>> {
+		use crate::infra::db::entities::{content_identity, entry, location, sidecar};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		use std::collections::HashMap;
+
+		if entry_uuids.is_empty() {
+			return Ok(Vec::new());
+		}
+
+		// Batch load all entries
+		let entries = entry::Entity::find()
+			.filter(entry::Column::Uuid.is_in(entry_uuids.iter().copied()))
+			.all(db)
+			.await?;
+
+		if entries.is_empty() {
+			return Ok(Vec::new());
+		}
+
+		// Collect content_ids and location_ids for batch loading
+		let content_ids: Vec<i32> = entries
+			.iter()
+			.filter_map(|e| e.content_id)
+			.collect();
+
+		// Load locations to build SdPaths
+		// For now, we need to build a path from the entry. The challenge is that entries
+		// don't store full paths - we need to traverse up to the location root.
+		// This is a simplified version that creates Content-based paths when content_id exists
+
+		// Batch load content identities
+		let content_identities = if !content_ids.is_empty() {
+			content_identity::Entity::find()
+				.filter(content_identity::Column::Id.is_in(content_ids.clone()))
+				.all(db)
+				.await?
+		} else {
+			Vec::new()
+		};
+
+		let content_by_id: HashMap<i32, content_identity::Model> = content_identities
+			.into_iter()
+			.map(|ci| (ci.id, ci))
+			.collect();
+
+		// Batch load sidecars
+		let content_uuids: Vec<Uuid> = content_by_id.values()
+			.filter_map(|ci| ci.uuid)
+			.collect();
+
+		let sidecars = if !content_uuids.is_empty() {
+			sidecar::Entity::find()
+				.filter(sidecar::Column::ContentUuid.is_in(content_uuids.clone()))
+				.all(db)
+				.await?
+		} else {
+			Vec::new()
+		};
+
+		let mut sidecars_by_content_uuid: HashMap<Uuid, Vec<Sidecar>> = HashMap::new();
+		for s in sidecars {
+			sidecars_by_content_uuid
+				.entry(s.content_uuid)
+				.or_default()
+				.push(Sidecar {
+					id: s.id,
+					content_uuid: s.content_uuid,
+					kind: s.kind,
+					variant: s.variant,
+					format: s.format,
+					status: s.status,
+					size: s.size,
+					created_at: s.created_at,
+					updated_at: s.updated_at,
+				});
+		}
+
+		// Build File instances
+		let mut files = Vec::new();
+		for entry_model in entries {
+			let entry_uuid = entry_model.uuid.ok_or_else(|| {
+				crate::common::errors::CoreError::InvalidOperation(
+					format!("Entry {} missing UUID", entry_model.id)
+				)
+			})?;
+
+			// Build SdPath - use Content path if content_id exists, otherwise need location path
+			// For the resource manager use case, we'll use Content paths as the canonical identifier
+			let sd_path = if let Some(content_id) = entry_model.content_id {
+				if let Some(ci) = content_by_id.get(&content_id) {
+					if let Some(ci_uuid) = ci.uuid {
+						SdPath::Content {
+							content_id: ci_uuid,
+						}
+					} else {
+						tracing::warn!("Entry {} has ContentIdentity without UUID", entry_model.id);
+						continue;
+					}
+				} else {
+					// Fallback: use entry UUID as synthetic path
+					// This shouldn't normally happen but provides a fallback
+					tracing::warn!("Entry {} has content_id but ContentIdentity not found", entry_model.id);
+					continue;
+				}
+			} else {
+				// No content identity - we'd need to build the full filesystem path
+				// For now, skip entries without content_id as they can't be properly addressed
+				// in the virtual resource system
+				tracing::debug!("Skipping entry {} without content_id for resource event", entry_model.id);
+				continue;
+			};
+
+			// Start with basic File from entity
+			let mut file = File::from_entity_model(entry_model.clone(), sd_path);
+
+			// Enrich with content identity
+			if let Some(content_id) = entry_model.content_id {
+				if let Some(ci) = content_by_id.get(&content_id) {
+					if let Some(ci_uuid) = ci.uuid {
+						file.content_identity = Some(ContentIdentity {
+							uuid: ci_uuid,
+							content_hash: ci.content_hash.clone(),
+							integrity_hash: ci.integrity_hash.clone(),
+							mime_type_id: ci.mime_type_id,
+							kind: ContentKind::Unknown, // TODO: Load from content_kinds table
+							total_size: ci.total_size,
+							entry_count: ci.entry_count,
+							first_seen_at: ci.first_seen_at,
+							last_verified_at: ci.last_verified_at,
+							text_content: ci.text_content.clone(),
+						});
+
+						// Add sidecars
+						if let Some(sidecars) = sidecars_by_content_uuid.get(&ci_uuid) {
+							file.sidecars = sidecars.clone();
+						}
+					}
+				}
+			}
+
+			files.push(file);
+		}
+
+		Ok(files)
+	}
 }
 
 impl Sidecar {

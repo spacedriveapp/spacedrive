@@ -33,7 +33,10 @@ export class TauriTransport implements Transport {
 
 	async subscribe(callback: (event: any) => void): Promise<() => void> {
 		// Start the event subscription on the backend
-		await this.invoke("subscribe_to_events");
+		// Pass the event filter from frontend so Tauri layer doesn't need to maintain its own list
+		await this.invoke("subscribe_to_events", {
+			event_types: DEFAULT_EVENT_SUBSCRIPTION,
+		});
 
 		// Listen to forwarded events from Tauri
 		const unlisten = await this.listen("core-event", (tauriEvent: any) => {

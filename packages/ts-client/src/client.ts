@@ -182,6 +182,20 @@ export class SpacedriveClient extends SimpleEventEmitter {
 
 		// Handle different response formats
 		if ("JsonOk" in response) {
+			// Debug directory listing responses
+			if (wireMethod === "query:files.directory_listing" && response.JsonOk?.files) {
+				const fileWithContent = response.JsonOk.files.find((f: any) => f.content_identity);
+				if (fileWithContent) {
+					console.log("Directory listing - file with content:", {
+						name: fileWithContent.name,
+						hasContentIdentity: !!fileWithContent.content_identity,
+						contentIdentity: fileWithContent.content_identity,
+						hasSidecars: !!fileWithContent.sidecars,
+						sidecarCount: fileWithContent.sidecars?.length,
+						sidecars: fileWithContent.sidecars
+					});
+				}
+			}
 			return response.JsonOk;
 		} else if ("json" in response) {
 			// Wire protocol uses lowercase "json" for success

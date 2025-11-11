@@ -58,6 +58,7 @@ fn get_default_event_subscription() -> Vec<&'static str> {
 		"DeviceDisconnected",
 		// Resource events
 		"ResourceChanged",
+		"ResourceChangedBatch",
 		"ResourceDeleted",
 		// Legacy compatibility
 		"LocationAdded",
@@ -190,6 +191,7 @@ async fn daemon_request(
 async fn subscribe_to_events(
 	app: tauri::AppHandle,
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
+	event_types: Option<Vec<String>>,
 ) -> Result<(), String> {
 	let daemon_state = state.read().await;
 
@@ -212,12 +214,16 @@ async fn subscribe_to_events(
 
 		let (reader, mut writer) = stream.into_split();
 
-		// Send subscription request - subscribe only to relevant events
-		// Excludes noisy events: LogMessage, JobProgress, IndexingProgress
-		// See packages/ts-client/src/event-filter.ts for the canonical list
+		// Send subscription request
+		// Frontend controls which events to subscribe to via event_types parameter
+		// Falls back to default list if not provided (for backwards compatibility)
+		let events = event_types.unwrap_or_else(|| {
+			get_default_event_subscription().iter().map(|s| s.to_string()).collect()
+		});
+
 		let subscribe_request = json!({
 			"Subscribe": {
-				"event_types": get_default_event_subscription(),
+				"event_types": events,
 				"filter": null
 			}
 		});

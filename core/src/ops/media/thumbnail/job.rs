@@ -456,6 +456,32 @@ impl ThumbnailJob {
 			use crate::infra::job::generic_progress::ToGenericProgress;
 			ctx.progress(Progress::generic(progress.to_generic_progress()));
 
+			// Emit ResourceChanged events for affected Files after each batch
+			if !batch.is_empty() {
+				let entry_uuids: Vec<uuid::Uuid> = batch
+					.iter()
+					.map(|entry| entry.entry_id)
+					.collect();
+
+				if !entry_uuids.is_empty() {
+					let library = ctx.library();
+					let events = library.event_bus().clone();
+					let db = std::sync::Arc::new(ctx.library_db().clone());
+
+					let resource_manager = crate::domain::ResourceManager::new(db, events);
+
+					// Emit events for sidecar changes (which map to files)
+					// The sidecar UUIDs are in the database, and the ResourceManager
+					// will map them to the affected file entries
+					if let Err(e) = resource_manager
+						.emit_resource_events("entry", entry_uuids)
+						.await
+					{
+						tracing::warn!("Failed to emit resource events after thumbnail batch: {}", e);
+					}
+				}
+			}
+
 			// Checkpoint every 10 batches
 			if batch_idx % 10 == 0 {
 				ctx.checkpoint().await?;
