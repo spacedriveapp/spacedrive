@@ -130,9 +130,14 @@ impl MigrationTrait for Migration {
 							.unique_key(),
 					)
 					.col(
-						ColumnDef::new(SpaceItems::GroupId)
+						ColumnDef::new(SpaceItems::SpaceId)
 							.integer()
 							.not_null(),
+					)
+					.col(
+						ColumnDef::new(SpaceItems::GroupId)
+							.integer()
+							.null(), // Nullable - None = space-level item
 					)
 					.col(ColumnDef::new(SpaceItems::ItemType).string().not_null())
 					.col(
@@ -146,6 +151,13 @@ impl MigrationTrait for Migration {
 							.timestamp()
 							.not_null()
 							.default(Expr::current_timestamp()),
+					)
+					.foreign_key(
+						ForeignKey::create()
+							.name("fk_space_item_space")
+							.from(SpaceItems::Table, SpaceItems::SpaceId)
+							.to(Spaces::Table, Spaces::Id)
+							.on_delete(ForeignKeyAction::Cascade),
 					)
 					.foreign_key(
 						ForeignKey::create()
@@ -185,6 +197,16 @@ impl MigrationTrait for Migration {
 					.name("idx_space_groups_order")
 					.table(SpaceGroups::Table)
 					.col(SpaceGroups::Order)
+					.to_owned(),
+			)
+			.await?;
+
+		manager
+			.create_index(
+				Index::create()
+					.name("idx_space_items_space_id")
+					.table(SpaceItems::Table)
+					.col(SpaceItems::SpaceId)
 					.to_owned(),
 			)
 			.await?;
@@ -261,6 +283,7 @@ enum SpaceItems {
 	Table,
 	Id,
 	Uuid,
+	SpaceId,
 	GroupId,
 	ItemType,
 	Order,

@@ -31,23 +31,51 @@ impl LibraryAction for AddItemAction {
 	) -> Result<Self::Output, ActionError> {
 		let db = library.db().conn();
 
-		// Verify group exists
-		let group_model = crate::infra::db::entities::space_group::Entity::find()
-			.filter(crate::infra::db::entities::space_group::Column::Uuid.eq(self.input.group_id))
+		// Verify space exists
+		let space_model = crate::infra::db::entities::space::Entity::find()
+			.filter(crate::infra::db::entities::space::Column::Uuid.eq(self.input.space_id))
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Group {} not found", self.input.group_id)))?;
+			.ok_or_else(|| ActionError::Internal(format!("Space {} not found", self.input.space_id)))?;
 
-		// Get max order for this group
-		let max_order = crate::infra::db::entities::space_item::Entity::find()
-			.filter(crate::infra::db::entities::space_item::Column::GroupId.eq(group_model.id))
-			.order_by_desc(crate::infra::db::entities::space_item::Column::Order)
-			.one(db)
-			.await
-			.map_err(ActionError::SeaOrm)?
-			.map(|i| i.order)
-			.unwrap_or(-1);
+		// Verify group exists if group_id is provided
+		let group_model_id = if let Some(group_id) = self.input.group_id {
+			let group_model = crate::infra::db::entities::space_group::Entity::find()
+				.filter(crate::infra::db::entities::space_group::Column::Uuid.eq(group_id))
+				.one(db)
+				.await
+				.map_err(ActionError::SeaOrm)?
+				.ok_or_else(|| ActionError::Internal(format!("Group {} not found", group_id)))?;
+
+			Some(group_model.id)
+		} else {
+			None
+		};
+
+		// Get max order (either for space-level or group-level items)
+		let max_order = if let Some(group_id) = group_model_id {
+			// Max order within group
+			crate::infra::db::entities::space_item::Entity::find()
+				.filter(crate::infra::db::entities::space_item::Column::GroupId.eq(Some(group_id)))
+				.order_by_desc(crate::infra::db::entities::space_item::Column::Order)
+				.one(db)
+				.await
+				.map_err(ActionError::SeaOrm)?
+				.map(|i| i.order)
+				.unwrap_or(-1)
+		} else {
+			// Max order for space-level items
+			crate::infra::db::entities::space_item::Entity::find()
+				.filter(crate::infra::db::entities::space_item::Column::SpaceId.eq(space_model.id))
+				.filter(crate::infra::db::entities::space_item::Column::GroupId.is_null())
+				.order_by_desc(crate::infra::db::entities::space_item::Column::Order)
+				.one(db)
+				.await
+				.map_err(ActionError::SeaOrm)?
+				.map(|i| i.order)
+				.unwrap_or(-1)
+		};
 
 		let item_id = uuid::Uuid::new_v4();
 		let now = Utc::now();
@@ -59,7 +87,8 @@ impl LibraryAction for AddItemAction {
 		let active_model = crate::infra::db::entities::space_item::ActiveModel {
 			id: Set(0),
 			uuid: Set(item_id),
-			group_id: Set(group_model.id),
+			space_id: Set(space_model.id),
+			group_id: Set(group_model_id),
 			item_type: Set(item_type_json),
 			order: Set(max_order + 1),
 			created_at: Set(now.into()),
@@ -69,6 +98,7 @@ impl LibraryAction for AddItemAction {
 
 		let item = SpaceItem {
 			id: result.uuid,
+			space_id: self.input.space_id,
 			group_id: self.input.group_id,
 			item_type: self.input.item_type,
 			order: result.order,

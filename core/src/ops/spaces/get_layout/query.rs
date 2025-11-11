@@ -2,7 +2,7 @@ use super::output::SpaceLayoutOutput;
 use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout};
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{context::CoreContext, infra::query::LibraryQuery};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, sea_query::Expr};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -63,6 +63,30 @@ impl LibraryQuery for SpaceLayoutQuery {
 			updated_at: space_model.updated_at.into(),
 		};
 
+		// Get space-level items (no group)
+		let space_item_models = crate::infra::db::entities::space_item::Entity::find()
+			.filter(crate::infra::db::entities::space_item::Column::SpaceId.eq(space_model.id))
+			.filter(crate::infra::db::entities::space_item::Column::GroupId.is_null())
+			.order_by_asc(crate::infra::db::entities::space_item::Column::Order)
+			.all(db)
+			.await?;
+
+		let mut space_items = Vec::new();
+
+		for item_model in space_item_models {
+			let item_type: ItemType = serde_json::from_str(&item_model.item_type)
+				.map_err(|e| QueryError::Internal(format!("Failed to parse item_type: {}", e)))?;
+
+			space_items.push(SpaceItem {
+				id: item_model.uuid,
+				space_id: self.space_id,
+				group_id: None,
+				item_type,
+				order: item_model.order,
+				created_at: item_model.created_at.into(),
+			});
+		}
+
 		// Get groups for this space
 		let group_models = crate::infra::db::entities::space_group::Entity::find()
 			.filter(crate::infra::db::entities::space_group::Column::SpaceId.eq(space_model.id))
@@ -89,7 +113,7 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 			// Get items for this group
 			let item_models = crate::infra::db::entities::space_item::Entity::find()
-				.filter(crate::infra::db::entities::space_item::Column::GroupId.eq(group_model.id))
+				.filter(crate::infra::db::entities::space_item::Column::GroupId.eq(Some(group_model.id)))
 				.order_by_asc(crate::infra::db::entities::space_item::Column::Order)
 				.all(db)
 				.await?;
@@ -103,7 +127,8 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 				items.push(SpaceItem {
 					id: item_model.uuid,
-					group_id: group_model.uuid,
+					space_id: self.space_id,
+					group_id: Some(group_model.uuid),
 					item_type,
 					order: item_model.order,
 					created_at: item_model.created_at.into(),
@@ -113,7 +138,11 @@ impl LibraryQuery for SpaceLayoutQuery {
 			groups.push(SpaceGroupWithItems { group, items });
 		}
 
-		let layout = SpaceLayout { space, groups };
+		let layout = SpaceLayout {
+			space,
+			space_items,
+			groups,
+		};
 
 		Ok(SpaceLayoutOutput { layout })
 	}

@@ -10,8 +10,9 @@ pub struct Model {
 	#[sea_orm(primary_key)]
 	pub id: i32,
 	pub uuid: Uuid,
-	pub group_id: i32,
-	pub item_type: String, // JSON-serialized ItemType enum
+	pub space_id: i32,
+	pub group_id: Option<i32>, // Nullable - None = space-level item
+	pub item_type: String,     // JSON-serialized ItemType enum
 	pub order: i32,
 	pub created_at: DateTimeUtc,
 }
@@ -19,11 +20,23 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
 	#[sea_orm(
+		belongs_to = "super::space::Entity",
+		from = "Column::SpaceId",
+		to = "super::space::Column::Id"
+	)]
+	Space,
+	#[sea_orm(
 		belongs_to = "super::space_group::Entity",
 		from = "Column::GroupId",
 		to = "super::space_group::Column::Id"
 	)]
 	SpaceGroup,
+}
+
+impl Related<super::space::Entity> for Entity {
+	fn to() -> RelationDef {
+		Relation::Space.def()
+	}
 }
 
 impl Related<super::space_group::Entity> for Entity {
@@ -49,18 +62,18 @@ impl Syncable for Model {
 	}
 
 	fn exclude_fields() -> Option<&'static [&'static str]> {
-		Some(&["id", "group_id"])
+		Some(&["id", "space_id", "group_id"])
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		&["space_group"]
+		&["space", "space_group"]
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
-		vec![crate::infra::sync::FKMapping::new(
-			"group_id",
-			"space_groups",
-		)]
+		vec![
+			crate::infra::sync::FKMapping::new("space_id", "spaces"),
+			crate::infra::sync::FKMapping::new("group_id", "space_groups"),
+		]
 	}
 
 	async fn query_for_sync(

@@ -1012,7 +1012,8 @@ impl LibraryManager {
 			let item_model = crate::infra::db::entities::space_item::ActiveModel {
 				id: Set(0),
 				uuid: Set(uuid::Uuid::new_v4()),
-				group_id: Set(group_result.id),
+				space_id: Set(space_result.id),
+				group_id: Set(Some(group_result.id)),
 				item_type: Set(item_type_json),
 				order: Set(order),
 				created_at: Set(now.into()),

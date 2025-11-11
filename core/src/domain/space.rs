@@ -160,19 +160,22 @@ pub enum GroupType {
 	Custom,
 }
 
-/// An item within a group
+/// An item within a space (can be space-level or within a group)
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SpaceItem {
 	/// Unique identifier
 	pub id: Uuid,
 
-	/// Group this item belongs to
-	pub group_id: Uuid,
+	/// Space this item belongs to
+	pub space_id: Uuid,
+
+	/// Group this item belongs to (None = space-level item)
+	pub group_id: Option<Uuid>,
 
 	/// Type and data of this item
 	pub item_type: ItemType,
 
-	/// Sort order within group
+	/// Sort order within space or group
 	pub order: i32,
 
 	/// Timestamp
@@ -180,11 +183,24 @@ pub struct SpaceItem {
 }
 
 impl SpaceItem {
-	/// Create a new item
-	pub fn new(group_id: Uuid, item_type: ItemType) -> Self {
+	/// Create a new item within a group
+	pub fn new(space_id: Uuid, group_id: Uuid, item_type: ItemType) -> Self {
 		Self {
 			id: Uuid::new_v4(),
-			group_id,
+			space_id,
+			group_id: Some(group_id),
+			item_type,
+			order: 0,
+			created_at: Utc::now(),
+		}
+	}
+
+	/// Create a new space-level item (not in any group)
+	pub fn new_space_level(space_id: Uuid, item_type: ItemType) -> Self {
+		Self {
+			id: Uuid::new_v4(),
+			space_id,
+			group_id: None,
 			item_type,
 			order: 0,
 			created_at: Utc::now(),
@@ -192,28 +208,33 @@ impl SpaceItem {
 	}
 
 	/// Create an Overview item
-	pub fn create_overview(group_id: Uuid) -> Self {
-		Self::new(group_id, ItemType::Overview)
+	pub fn create_overview(space_id: Uuid, group_id: Uuid) -> Self {
+		Self::new(space_id, group_id, ItemType::Overview)
 	}
 
 	/// Create a Recents item
-	pub fn create_recents(group_id: Uuid) -> Self {
-		Self::new(group_id, ItemType::Recents)
+	pub fn create_recents(space_id: Uuid, group_id: Uuid) -> Self {
+		Self::new(space_id, group_id, ItemType::Recents)
 	}
 
 	/// Create a Favorites item
-	pub fn create_favorites(group_id: Uuid) -> Self {
-		Self::new(group_id, ItemType::Favorites)
+	pub fn create_favorites(space_id: Uuid, group_id: Uuid) -> Self {
+		Self::new(space_id, group_id, ItemType::Favorites)
 	}
 
 	/// Create a Location item
-	pub fn create_location(group_id: Uuid, location_id: Uuid) -> Self {
-		Self::new(group_id, ItemType::Location { location_id })
+	pub fn create_location(space_id: Uuid, group_id: Uuid, location_id: Uuid) -> Self {
+		Self::new(space_id, group_id, ItemType::Location { location_id })
 	}
 
 	/// Create a Path item (arbitrary SdPath)
-	pub fn create_path(group_id: Uuid, sd_path: SdPath) -> Self {
-		Self::new(group_id, ItemType::Path { sd_path })
+	pub fn create_path(space_id: Uuid, group_id: Uuid, sd_path: SdPath) -> Self {
+		Self::new(space_id, group_id, ItemType::Path { sd_path })
+	}
+
+	/// Create a space-level Path item (pinned shortcut)
+	pub fn create_space_level_path(space_id: Uuid, sd_path: SdPath) -> Self {
+		Self::new_space_level(space_id, ItemType::Path { sd_path })
 	}
 }
 
@@ -257,6 +278,9 @@ pub enum ItemType {
 pub struct SpaceLayout {
 	/// The space
 	pub space: Space,
+
+	/// Space-level items (pinned shortcuts, no group)
+	pub space_items: Vec<SpaceItem>,
 
 	/// Groups with their items
 	pub groups: Vec<SpaceGroupWithItems>,
@@ -331,15 +355,31 @@ mod tests {
 
 	#[test]
 	fn test_item_creation() {
+		let space_id = Uuid::new_v4();
 		let group_id = Uuid::new_v4();
 
-		let overview = SpaceItem::create_overview(group_id);
+		let overview = SpaceItem::create_overview(space_id, group_id);
 		assert_eq!(overview.item_type, ItemType::Overview);
+		assert_eq!(overview.group_id, Some(group_id));
 
-		let recents = SpaceItem::create_recents(group_id);
+		let recents = SpaceItem::create_recents(space_id, group_id);
 		assert_eq!(recents.item_type, ItemType::Recents);
 
-		let favorites = SpaceItem::create_favorites(group_id);
+		let favorites = SpaceItem::create_favorites(space_id, group_id);
 		assert_eq!(favorites.item_type, ItemType::Favorites);
+	}
+
+	#[test]
+	fn test_space_level_item() {
+		let space_id = Uuid::new_v4();
+		let sd_path = crate::domain::SdPath::Physical {
+			device_slug: "macbook".to_string(),
+			path: "/Users/me/Documents".into(),
+		};
+
+		let item = SpaceItem::create_space_level_path(space_id, sd_path);
+		assert_eq!(item.space_id, space_id);
+		assert_eq!(item.group_id, None);
+		assert!(matches!(item.item_type, ItemType::Path { .. }));
 	}
 }

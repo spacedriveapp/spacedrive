@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AddItemInput {
-	pub group_id: Uuid,
+	pub space_id: Uuid,
+	pub group_id: Option<Uuid>, // None = space-level item
 	pub item_type: ItemType,
 }
