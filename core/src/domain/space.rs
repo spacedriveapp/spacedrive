@@ -17,9 +17,6 @@ pub struct Space {
 	/// Unique identifier
 	pub id: Uuid,
 
-	/// Library this space belongs to
-	pub library_id: Uuid,
-
 	/// Human-friendly name (e.g., "All Devices", "Work Files")
 	pub name: String,
 
@@ -39,11 +36,10 @@ pub struct Space {
 
 impl Space {
 	/// Create a new space
-	pub fn new(library_id: Uuid, name: String, icon: String, color: String) -> Self {
+	pub fn new(name: String, icon: String, color: String) -> Self {
 		let now = Utc::now();
 		Self {
 			id: Uuid::new_v4(),
-			library_id,
 			name,
 			icon,
 			color,
@@ -59,9 +55,8 @@ impl Space {
 	}
 
 	/// Create a default "All Devices" space
-	pub fn create_default(library_id: Uuid) -> Self {
+	pub fn create_default() -> Self {
 		Self::new(
-			library_id,
 			"All Devices".to_string(),
 			"Planet".to_string(),
 			"#3B82F6".to_string(),
@@ -283,15 +278,12 @@ mod tests {
 
 	#[test]
 	fn test_space_creation() {
-		let library_id = Uuid::new_v4();
 		let space = Space::new(
-			library_id,
 			"Test Space".to_string(),
 			"Folder".to_string(),
 			"#FF0000".to_string(),
 		);
 
-		assert_eq!(space.library_id, library_id);
 		assert_eq!(space.name, "Test Space");
 		assert_eq!(space.icon, "Folder");
 		assert_eq!(space.color, "#FF0000");
@@ -300,8 +292,7 @@ mod tests {
 
 	#[test]
 	fn test_default_space() {
-		let library_id = Uuid::new_v4();
-		let space = Space::create_default(library_id);
+		let space = Space::create_default();
 
 		assert_eq!(space.name, "All Devices");
 		assert_eq!(space.icon, "Planet");

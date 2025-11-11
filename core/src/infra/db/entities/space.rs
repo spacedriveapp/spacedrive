@@ -10,7 +10,6 @@ pub struct Model {
 	#[sea_orm(primary_key)]
 	pub id: i32,
 	pub uuid: Uuid,
-	pub library_id: i32,
 	pub name: String,
 	pub icon: String,
 	pub color: String,
@@ -50,7 +49,7 @@ impl Syncable for Model {
 	}
 
 	fn exclude_fields() -> Option<&'static [&'static str]> {
-		Some(&["id", "library_id"])
+		Some(&["id"])
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {

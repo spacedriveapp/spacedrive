@@ -293,6 +293,9 @@ impl LibraryManager {
 		// Now open the library (which will call ensure_device_registered for current device)
 		let library = self.open_library(&library_path, context).await?;
 
+		// Create default space with Quick Access group
+		self.create_default_space(&library).await?;
+
 		// Emit event
 		self.event_bus.emit(Event::LibraryCreated {
 			id: library.id(),
@@ -353,6 +356,9 @@ impl LibraryManager {
 
 		// Open the newly created library
 		let library = self.open_library(&library_path, context.clone()).await?;
+
+		// Create default space with Quick Access group
+		self.create_default_space(&library).await?;
 
 		// Emit event
 		self.event_bus.emit(Event::LibraryCreated {
@@ -936,6 +942,89 @@ impl LibraryManager {
 				warn!("Failed to reload device cache after registration: {}", e);
 			}
 		}
+
+		Ok(())
+	}
+
+	/// Create default space with Quick Access group for new libraries
+	async fn create_default_space(&self, library: &Arc<Library>) -> Result<()> {
+		use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceItem};
+		use chrono::Utc;
+		use sea_orm::{ActiveModelTrait, Set};
+
+		let db = library.db().conn();
+
+		// Create default space
+		let space_id = uuid::Uuid::new_v4();
+		let now = Utc::now();
+
+		let space_model = crate::infra::db::entities::space::ActiveModel {
+			id: Set(0),
+			uuid: Set(space_id),
+			name: Set("All Devices".to_string()),
+			icon: Set("Planet".to_string()),
+			color: Set("#3B82F6".to_string()),
+			order: Set(0),
+			created_at: Set(now.into()),
+			updated_at: Set(now.into()),
+		};
+
+		let space_result = space_model
+			.insert(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		info!("Created default space for library {}", library.id());
+
+		// Create Quick Access group
+		let group_id = uuid::Uuid::new_v4();
+
+		let group_type_json = serde_json::to_string(&GroupType::QuickAccess)
+			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
+
+		let group_model = crate::infra::db::entities::space_group::ActiveModel {
+			id: Set(0),
+			uuid: Set(group_id),
+			space_id: Set(space_result.id),
+			name: Set("Quick Access".to_string()),
+			group_type: Set(group_type_json),
+			is_collapsed: Set(false),
+			order: Set(0),
+			created_at: Set(now.into()),
+		};
+
+		let group_result = group_model
+			.insert(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		// Create Quick Access items (Overview, Recents, Favorites)
+		let items = vec![
+			(ItemType::Overview, 0),
+			(ItemType::Recents, 1),
+			(ItemType::Favorites, 2),
+		];
+
+		for (item_type, order) in items {
+			let item_type_json = serde_json::to_string(&item_type)
+				.map_err(|e| LibraryError::Other(format!("Failed to serialize item_type: {}", e)))?;
+
+			let item_model = crate::infra::db::entities::space_item::ActiveModel {
+				id: Set(0),
+				uuid: Set(uuid::Uuid::new_v4()),
+				group_id: Set(group_result.id),
+				item_type: Set(item_type_json),
+				order: Set(order),
+				created_at: Set(now.into()),
+			};
+
+			item_model
+				.insert(db)
+				.await
+				.map_err(LibraryError::DatabaseError)?;
+		}
+
+		info!("Created default Quick Access group for library {}", library.id());
 
 		Ok(())
 	}

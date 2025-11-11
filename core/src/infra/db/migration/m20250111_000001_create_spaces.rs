@@ -30,7 +30,6 @@ impl MigrationTrait for Migration {
 							.not_null()
 							.unique_key(),
 					)
-					.col(ColumnDef::new(Spaces::LibraryId).integer().not_null())
 					.col(ColumnDef::new(Spaces::Name).string().not_null())
 					.col(ColumnDef::new(Spaces::Icon).string().not_null())
 					.col(ColumnDef::new(Spaces::Color).string().not_null())
@@ -159,17 +158,7 @@ impl MigrationTrait for Migration {
 			)
 			.await?;
 
-		// Create indexes for better query performance
-		manager
-			.create_index(
-				Index::create()
-					.name("idx_spaces_library_id")
-					.table(Spaces::Table)
-					.col(Spaces::LibraryId)
-					.to_owned(),
-			)
-			.await?;
-
+		// Create index for better query performance
 		manager
 			.create_index(
 				Index::create()
@@ -246,7 +235,6 @@ enum Spaces {
 	Table,
 	Id,
 	Uuid,
-	LibraryId,
 	Name,
 	Icon,
 	Color,
