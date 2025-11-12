@@ -7,7 +7,8 @@
 use axum::{
 	body::Body,
 	extract::{Path, State},
-	http::{header, HeaderValue, Response, StatusCode},
+	http::{header, HeaderValue, Request, Response, StatusCode},
+	middleware::{self, Next},
 	routing::get,
 	Router,
 };
@@ -66,7 +67,13 @@ async fn serve_sidecar(
 	// Example: sidecars/content/0c/c0/0cc0b48f-a475-53ec-a580-bc7d47b486a9/thumbs/detail@1x.webp
 	let first_two = &content_uuid[0..2];
 	let next_two = &content_uuid[2..4];
-	let kind_plural = format!("{}s", kind); // "thumb" -> "thumbs"
+
+	// Special case: "transcript" stays singular (not "transcripts")
+	let kind_dir = if kind == "transcript" {
+		kind.to_string()
+	} else {
+		format!("{}s", kind) // "thumb" -> "thumbs"
+	};
 
 	let sidecar_path = library_folder
 		.join("sidecars")
@@ -74,7 +81,7 @@ async fn serve_sidecar(
 		.join(first_two)
 		.join(next_two)
 		.join(&content_uuid)
-		.join(&kind_plural)
+		.join(&kind_dir)
 		.join(&variant_and_ext);
 
 	// Security: prevent directory traversal
@@ -138,6 +145,16 @@ async fn serve_sidecar(
 		})
 }
 
+/// CORS middleware to add headers to all responses (including errors)
+async fn add_cors_headers(request: Request<Body>, next: Next) -> Response<Body> {
+	let mut response = next.run(request).await;
+	response.headers_mut().insert(
+		header::ACCESS_CONTROL_ALLOW_ORIGIN,
+		HeaderValue::from_static("*"),
+	);
+	response
+}
+
 /// Create the HTTP router
 fn create_router(data_dir: PathBuf) -> Router {
 	let state = ServerState { data_dir };
@@ -147,6 +164,7 @@ fn create_router(data_dir: PathBuf) -> Router {
 			"/sidecar/:library_id/:content_uuid/:kind/*variant",
 			get(serve_sidecar),
 		)
+		.layer(middleware::from_fn(add_cors_headers))
 		.with_state(state)
 }
 

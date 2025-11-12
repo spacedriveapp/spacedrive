@@ -4,7 +4,7 @@ use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, File},
-	infra::db::entities::{content_identity, entry, sidecar, tag, user_metadata_tag},
+	infra::db::entities::{content_identity, device, directory_paths, entry, location, sidecar, tag, user_metadata_tag},
 	infra::query::LibraryQuery,
 };
 use sea_orm::{
@@ -13,7 +13,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
 /// Query to get a file by its ID with all related data
@@ -65,12 +65,8 @@ impl LibraryQuery for FileByIdQuery {
 			return Ok(None);
 		}
 
-		// Create placeholder SdPath
-		// TODO: Resolve actual path from database
-		let sd_path = SdPath::Physical {
-			device_slug: format!("placeholder-{}", Uuid::new_v4()),
-			path: format!("/{}", entry_model.name).into(),
-		};
+		// Resolve the full absolute path for this file
+		let sd_path = self.resolve_file_path(&entry_model, db.conn()).await?;
 
 		// Fetch content identity and sidecars if file has content_id
 		let (content_identity_domain, sidecars) = if let Some(content_id) = entry_model.content_id {
@@ -135,6 +131,84 @@ impl LibraryQuery for FileByIdQuery {
 		}
 
 		Ok(Some(file))
+	}
+}
+
+impl FileByIdQuery {
+	/// Resolve the full absolute SdPath for a file entry
+	async fn resolve_file_path(
+		&self,
+		entry: &entry::Model,
+		db: &DatabaseConnection,
+	) -> QueryResult<SdPath> {
+		// Walk up the entry hierarchy to build the full path
+		let mut path_components = Vec::new();
+
+		// Add the file name with extension
+		let file_name = if let Some(ext) = &entry.extension {
+			format!("{}.{}", entry.name, ext)
+		} else {
+			entry.name.clone()
+		};
+		path_components.push(file_name);
+
+		// Walk up parent chain
+		let mut current_parent_id = entry.parent_id;
+		let mut location_entry_id = None;
+
+		while let Some(parent_id) = current_parent_id {
+			let parent = entry::Entity::find_by_id(parent_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| QueryError::Internal("Parent entry not found".to_string()))?;
+
+			// Check if this is the location root (no parent)
+			if parent.parent_id.is_none() {
+				location_entry_id = Some(parent.id);
+				break;
+			}
+
+			// Add parent directory name to path
+			path_components.push(parent.name.clone());
+			current_parent_id = parent.parent_id;
+		}
+
+		// Reverse to get correct order (root -> file)
+		path_components.reverse();
+
+		// Get location info
+		let location_entry_id = location_entry_id
+			.ok_or_else(|| QueryError::Internal("Could not find location root".to_string()))?;
+
+		let location_model = location::Entity::find()
+			.filter(location::Column::EntryId.eq(location_entry_id))
+			.one(db)
+			.await?
+			.ok_or_else(|| QueryError::Internal("Location not found for entry".to_string()))?;
+
+		// Get device slug
+		let device_model = device::Entity::find_by_id(location_model.device_id)
+			.one(db)
+			.await?
+			.ok_or_else(|| QueryError::Internal("Device not found".to_string()))?;
+
+		// Get location root absolute path
+		let location_root_path = directory_paths::Entity::find()
+			.filter(directory_paths::Column::EntryId.eq(location_entry_id))
+			.one(db)
+			.await?
+			.ok_or_else(|| QueryError::Internal("Location root path not found".to_string()))?;
+
+		// Build absolute path: location_root + relative components
+		let mut absolute_path = PathBuf::from(&location_root_path.path);
+		for component in path_components {
+			absolute_path.push(component);
+		}
+
+		Ok(SdPath::Physical {
+			device_slug: device_model.slug,
+			path: absolute_path.into(),
+		})
 	}
 }
 

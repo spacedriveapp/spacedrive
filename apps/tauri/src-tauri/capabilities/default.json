@@ -11,8 +11,10 @@
 		"core:window:allow-close",
 		"core:window:allow-get-all-windows",
 		"core:webview:allow-create-webview-window",
+		"core:path:default",
 		"dialog:allow-open",
 		"dialog:allow-save",
-		"shell:allow-open"
+		"shell:allow-open",
+		"fs:allow-home-read-recursive"
 	]
 }

@@ -11,7 +11,7 @@ sd-desktop-macos = { path = "../crates/macos" }
 
 [dependencies]
 # Tauri
-tauri = { version = "2.1", features = ["macos-private-api", "devtools"] }
+tauri = { version = "2.1", features = ["macos-private-api", "devtools", "protocol-asset"] }
 tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-shell = "2.0"

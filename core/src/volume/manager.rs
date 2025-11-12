@@ -345,14 +345,14 @@ impl VolumeManager {
 
 								let mut volumes = self.volumes.write().await;
 
-								// Cache by mount_point string (includes suffix if added for uniqueness)
-								let mount_point_str = volume.mount_point.to_string_lossy().to_string();
-
 								volumes.insert(fingerprint.clone(), volume.clone());
 
-								// Update mount point cache for fast cloud volume lookup using mount_point (with suffix)
-								let mut mount_point_cache = self.mount_point_cache.write().await;
-								mount_point_cache.insert(mount_point_str, fingerprint.clone());
+								// Update mount point cache for fast cloud volume lookup using cloud_identifier
+								if let Some(ref cloud_id) = volume.cloud_identifier {
+									let cache_key = format!("{}://{}", credential.service.scheme(), cloud_id);
+									let mut mount_point_cache = self.mount_point_cache.write().await;
+									mount_point_cache.insert(cache_key, fingerprint.clone());
+								}
 
 								loaded_count += 1;
 								info!("Loaded cloud volume {} ({:?}) from database", db_volume.display_name.as_ref().unwrap_or(&"Unknown".to_string()), credential.service);
@@ -1009,7 +1009,6 @@ impl VolumeManager {
 	/// This adds the volume to the internal volumes map so it can be tracked
 	pub async fn register_cloud_volume(&self, volume: Volume) {
 		let fingerprint = volume.fingerprint.clone();
-		let mount_point_str = volume.mount_point.to_string_lossy().to_string();
 
 		let mut volumes = self.volumes.write().await;
 
@@ -1018,11 +1017,14 @@ impl VolumeManager {
 			volume.name, fingerprint
 		);
 
-		volumes.insert(fingerprint.clone(), volume);
+		// Update mount point cache for fast cloud volume lookup using cloud_identifier
+		if let Some((service, identifier)) = volume.parse_cloud_identity() {
+			let cache_key = format!("{}://{}", service.scheme(), identifier);
+			let mut mount_point_cache = self.mount_point_cache.write().await;
+			mount_point_cache.insert(cache_key, fingerprint.clone());
+		}
 
-		// Update mount point cache for fast cloud volume lookup using mount_point (with suffix)
-		let mut mount_point_cache = self.mount_point_cache.write().await;
-		mount_point_cache.insert(mount_point_str, fingerprint);
+		volumes.insert(fingerprint.clone(), volume);
 	}
 
 	/// Track a volume in the specified library

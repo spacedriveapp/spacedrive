@@ -140,14 +140,14 @@ impl Core {
 			library_key_manager.clone(),
 		);
 
-	// Enable per-job file logging by default
-	let mut app_config = config.write().await;
-	if !app_config.job_logging.enabled {
-		app_config.job_logging.enabled = true;
-	}
-	// Job logs are now stored per-library, not globally
-	context_inner.set_job_logging(app_config.job_logging.clone(), None);
-	drop(app_config);
+		// Enable per-job file logging by default
+		let mut app_config = config.write().await;
+		if !app_config.job_logging.enabled {
+			app_config.job_logging.enabled = true;
+		}
+		// Job logs are now stored per-library, not globally
+		context_inner.set_job_logging(app_config.job_logging.clone(), None);
+		drop(app_config);
 
 		// Create the shared context
 		let context = Arc::new(context_inner);
@@ -213,18 +213,18 @@ impl Core {
 					e
 				);
 			} else {
-				// Run bootstrap scan in background to avoid blocking startup
-				let sidecar_manager = services.sidecar_manager.clone();
-				let library = Arc::clone(library);
-				tokio::spawn(async move {
-					if let Err(e) = sidecar_manager.bootstrap_scan(&library).await {
-						error!(
-							"Failed to run sidecar bootstrap scan for library {}: {}",
-							library.id(),
-							e
-						);
-					}
-				});
+				// // Run bootstrap scan in background to avoid blocking startup
+				// let sidecar_manager = services.sidecar_manager.clone();
+				// let library = Arc::clone(library);
+				// tokio::spawn(async move {
+				// 	if let Err(e) = sidecar_manager.bootstrap_scan(&library).await {
+				// 		error!(
+				// 			"Failed to run sidecar bootstrap scan for library {}: {}",
+				// 			library.id(),
+				// 			e
+				// 		);
+				// 	}
+				// });
 			}
 		}
 
@@ -307,7 +307,10 @@ impl Core {
 												sync_service.backfill_manager().clone(),
 											)
 											.await;
-										info!("Library {} registered with sync multiplexer", library.id());
+										info!(
+											"Library {} registered with sync multiplexer",
+											library.id()
+										);
 									}
 								}
 								Err(e) => {
@@ -338,10 +341,8 @@ impl Core {
 		if service_config.networking_enabled {
 			if let Some(networking) = services.networking() {
 				// Set up event bridge to integrate network events with core event system
-				let event_bridge = NetworkEventBridge::new(
-					networking.subscribe_events(),
-					events.clone(),
-				);
+				let event_bridge =
+					NetworkEventBridge::new(networking.subscribe_events(), events.clone());
 				tokio::spawn(event_bridge.run());
 				info!("Network event bridge initialized");
 
@@ -563,9 +564,7 @@ async fn register_default_protocol_handlers(
 	);
 
 	// Start cleanup task for expired sessions
-	service::network::protocol::PairingProtocolHandler::start_cleanup_task(
-		pairing_handler.clone(),
-	);
+	service::network::protocol::PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
 
 	let mut messaging_handler = service::network::protocol::MessagingProtocolHandler::new(
 		networking.device_registry(),
