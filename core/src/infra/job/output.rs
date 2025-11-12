@@ -68,6 +68,20 @@ pub enum JobOutput {
 		total_bytes_validated: u64,
 	},
 
+	/// OCR text extraction output
+	OcrExtraction {
+		total_processed: usize,
+		success_count: usize,
+		error_count: usize,
+	},
+
+	/// Speech-to-text transcription output
+	SpeechToText {
+		total_processed: usize,
+		success_count: usize,
+		error_count: usize,
+	},
+
 	/// Generic output with custom data
 	#[specta(skip)]
 	Custom(serde_json::Value),
@@ -231,6 +245,28 @@ impl fmt::Display for JobOutput {
 					f,
 					"Validated {} files ({} issues, {} bytes)",
 					validated_count, issues_found, total_bytes_validated
+				)
+			}
+			Self::OcrExtraction {
+				total_processed,
+				success_count,
+				error_count,
+			} => {
+				write!(
+					f,
+					"OCR: {} processed ({} success, {} errors)",
+					total_processed, success_count, error_count
+				)
+			}
+			Self::SpeechToText {
+				total_processed,
+				success_count,
+				error_count,
+			} => {
+				write!(
+					f,
+					"Speech-to-text: {} processed ({} success, {} errors)",
+					total_processed, success_count, error_count
 				)
 			}
 			Self::Custom(_) => write!(f, "Custom output"),

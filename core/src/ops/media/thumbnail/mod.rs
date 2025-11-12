@@ -9,6 +9,7 @@ mod config;
 mod error;
 mod generator;
 mod job;
+pub mod processor;
 mod progress;
 mod state;
 mod utils;
@@ -18,6 +19,7 @@ pub use config::{ThumbnailVariantConfig, ThumbnailVariants};
 pub use error::{ThumbnailError, ThumbnailResult};
 pub use generator::{ImageGenerator, ThumbnailGenerator, ThumbnailInfo, VideoGenerator};
 pub use job::{ThumbnailJob, ThumbnailJobConfig};
+pub use processor::ThumbnailProcessor;
 pub use state::{ThumbnailEntry, ThumbnailPhase, ThumbnailState, ThumbnailStats};
 pub use utils::ThumbnailUtils;
 

@@ -7,10 +7,12 @@ use crate::{
 	ops::indexing::{
 		ctx::IndexingCtx,
 		entry::EntryProcessor,
-		state::{IndexError, IndexPhase, IndexerProgress, IndexerState},
+		processor::{ContentHashProcessor, ProcessorEntry},
+		state::{IndexError, IndexPhase, IndexerProgress, IndexerState, EntryKind},
 	},
 };
 use std::sync::Arc;
+use tracing::warn;
 
 /// Run the content identification phase
 pub async fn run_content_phase(

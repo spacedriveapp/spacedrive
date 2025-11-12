@@ -959,7 +959,7 @@ impl LibraryManager {
 	async fn create_default_space(&self, library: &Arc<Library>) -> Result<()> {
 		use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceItem};
 		use chrono::Utc;
-		use sea_orm::{ActiveModelTrait, Set};
+		use sea_orm::{ActiveModelTrait, NotSet, Set};
 
 		let db = library.db().conn();
 
@@ -968,7 +968,7 @@ impl LibraryManager {
 		let now = Utc::now();
 
 		let space_model = crate::infra::db::entities::space::ActiveModel {
-			id: Set(0),
+			id: NotSet,
 			uuid: Set(space_id),
 			name: Set("All Devices".to_string()),
 			icon: Set("Planet".to_string()),
@@ -992,7 +992,7 @@ impl LibraryManager {
 			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
 
 		let group_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: Set(0),
+			id: NotSet,
 			uuid: Set(group_id),
 			space_id: Set(space_result.id),
 			name: Set("Quick Access".to_string()),
@@ -1019,7 +1019,7 @@ impl LibraryManager {
 				.map_err(|e| LibraryError::Other(format!("Failed to serialize item_type: {}", e)))?;
 
 			let item_model = crate::infra::db::entities::space_item::ActiveModel {
-				id: Set(0),
+				id: NotSet,
 				uuid: Set(uuid::Uuid::new_v4()),
 				space_id: Set(space_result.id),
 				group_id: Set(Some(group_result.id)),

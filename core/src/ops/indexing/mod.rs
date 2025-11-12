@@ -19,6 +19,7 @@ pub mod metrics;
 pub mod path_resolver;
 pub mod persistence;
 pub mod phases;
+pub mod processor;
 pub mod progress;
 pub mod responder;
 pub mod rules;

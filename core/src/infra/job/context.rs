@@ -39,6 +39,11 @@ impl<'a> JobContext<'a> {
 		&self.library
 	}
 
+	/// Get the library Arc (cheap clone for passing to processors)
+	pub fn library_arc(&self) -> Arc<Library> {
+		Arc::clone(&self.library)
+	}
+
 	/// Get the library database connection
 	pub fn library_db(&self) -> &DatabaseConnection {
 		self.library.db().conn()

@@ -124,6 +124,13 @@ export function useNormalizedCache<I, O>({
       if ("ResourceChanged" in event) {
         const { resource_type, resource } = event.ResourceChanged;
 
+        console.log('[ResourceEvent] ResourceChanged:', {
+          resourceType: resource_type,
+          ourType: resourceType,
+          resourceName: resource?.name,
+          resourceId: resource?.id,
+        });
+
         if (resource_type === resourceType) {
           // Atomic update: merge this resource into the query data
           queryClient.setQueryData<O>(queryKey, (oldData) => {
@@ -185,6 +192,13 @@ export function useNormalizedCache<I, O>({
       } else if ("ResourceChangedBatch" in event) {
         const { resource_type, resources } = event.ResourceChangedBatch;
 
+        console.log('[ResourceEvent] ResourceChangedBatch:', {
+          resourceType: resource_type,
+          ourType: resourceType,
+          count: resources?.length,
+          firstResource: resources?.[0]?.name,
+        });
+
         if (resource_type === resourceType && Array.isArray(resources)) {
           // Atomic update: merge all resources into the query data
           queryClient.setQueryData<O>(queryKey, (oldData) => {
@@ -218,6 +232,13 @@ export function useNormalizedCache<I, O>({
                   }
                 }
               } else if (resourceFilter) {
+                // Track content UUIDs to avoid duplicates (same content, different entries)
+                const seenContentIds = new Set(
+                  newData
+                    .filter((item: any) => item.content_identity?.uuid)
+                    .map((item: any) => item.content_identity.uuid)
+                );
+
                 for (const resource of resources) {
                   if (!seenIds.has(resource.id)) {
                     // Always use resourceFilter to check if file belongs in current scope
@@ -225,6 +246,21 @@ export function useNormalizedCache<I, O>({
                     const shouldAppend = resourceFilter(resource);
 
                     if (shouldAppend) {
+                      // For Content-based paths, deduplicate by content UUID to avoid showing
+                      // multiple entries for the same content in the same directory
+                      if (resource.sd_path?.Content && resource.content_identity?.uuid) {
+                        const contentId = resource.content_identity.uuid;
+                        if (seenContentIds.has(contentId)) {
+                          console.log('[Cache] Skipping duplicate content:', {
+                            name: resource.name,
+                            contentId,
+                            reason: 'Already have file with this content in cache'
+                          });
+                          continue; // Skip - already have this content
+                        }
+                        seenContentIds.add(contentId);
+                      }
+
                       newData.push(resource);
                     }
                   }

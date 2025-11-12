@@ -5,15 +5,20 @@
 //! real entry IDs and performs identity-preserving updates.
 
 use crate::context::CoreContext;
-use crate::domain::content_identity::ContentHashGenerator;
 use crate::domain::ResourceManager;
 use crate::infra::db::entities;
 use crate::infra::event::FsRawEventKind;
 use crate::ops::indexing::entry::EntryProcessor;
 use crate::ops::indexing::path_resolver::PathResolver;
+use crate::ops::indexing::processor::{
+	self, ContentHashProcessor, LocationProcessorConfig, ProcessorEntry, ProcessorResult,
+};
 use crate::ops::indexing::rules::{build_default_ruler, RuleToggles, RulerDecision};
 use crate::ops::indexing::state::{DirEntry, IndexerState};
 use crate::ops::indexing::{ctx::ResponderCtx, IndexingCtx};
+use crate::ops::media::{
+	ocr::OcrProcessor, speech::SpeechToTextProcessor, thumbnail::ThumbnailProcessor,
+};
 use anyhow::Result;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
 use std::path::Path;
@@ -335,78 +340,72 @@ async fn handle_create(
 			}
 		}
 	} else {
-		// For files, run content identification inline (single file is fast)
-		debug!("→ Generating content hash for single file: {}", path.display());
+		// For files, run processors inline (single file processing)
+		if let Some(library) = context.get_library(library_id).await {
+			// Load processor configuration for this location
+			let proc_config = processor::load_location_processor_config(location_id, ctx.library_db())
+				.await
+				.unwrap_or_default();
 
-		if let Ok(content_hash) = ContentHashGenerator::generate_content_hash(path).await {
-			debug!("✓ Generated content hash: {}", content_hash);
+			// Build processor entry (with MIME type after content linking)
+			let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
 
-			// Link the content identity
-			match EntryProcessor::link_to_content_identity(
-				ctx,
-				entry_id,
-				path,
-				content_hash,
-				library_id,
-			)
-			.await
+			// Run content hash processor first
+			if proc_config
+				.watcher_processors
+				.iter()
+				.any(|c| c.processor_type == "content_hash" && c.enabled)
 			{
-				Ok(link_result) => {
-					debug!("✓ Linked content identity for entry {}", entry_id);
-
-					// Generate thumbnails for the file
-					if let Some(library) = context.get_library(library_id).await {
-						debug!("→ Generating thumbnails for: {}", path.display());
-
-						// Get MIME type from content identity
-						let mime_type = if let Ok(Some(ci)) = crate::infra::db::entities::content_identity::Entity::find_by_id(link_result.content_identity.id)
-							.one(ctx.library_db())
-							.await
-						{
-							if let Some(mime_id) = ci.mime_type_id {
-								if let Ok(Some(mime_record)) = crate::infra::db::entities::mime_type::Entity::find_by_id(mime_id)
-									.one(ctx.library_db())
-									.await
-								{
-									Some(mime_record.mime_type)
-								} else {
-									None
-								}
-							} else {
-								None
-							}
-						} else {
-							None
-						};
-
-						if let Some(mime) = mime_type {
-							match crate::ops::media::thumbnail::generate_thumbnails_for_file(
-								&library,
-								&link_result.content_identity.uuid.expect("ContentIdentity should have UUID"),
-								path,
-								&mime,
-							)
-							.await
-							{
-								Ok(count) if count > 0 => {
-									debug!("✓ Generated {} thumbnails for: {}", count, path.display());
-								}
-								Ok(_) => {
-									debug!("No thumbnails generated for: {}", path.display());
-								}
-								Err(e) => {
-									debug!("Thumbnail generation failed for {}: {}", path.display(), e);
-								}
-							}
-						}
-					}
-				}
-				Err(e) => {
-					warn!("Failed to link content identity for {}: {}", path.display(), e);
+				let content_proc = ContentHashProcessor::new(library_id);
+				if let Err(e) = content_proc.process(ctx, &proc_entry).await {
+					warn!("Content hash processing failed: {}", e);
 				}
 			}
-		} else {
-			debug!("✗ Failed to generate content hash for {}", path.display());
+
+			// Reload processor entry to get updated content_id and MIME type
+			let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
+
+			// Run thumbnail processor
+			if proc_config
+				.watcher_processors
+				.iter()
+				.any(|c| c.processor_type == "thumbnail" && c.enabled)
+			{
+				let thumb_proc = ThumbnailProcessor::new(library.clone());
+				if thumb_proc.should_process(&proc_entry) {
+					if let Err(e) = thumb_proc.process(ctx.library_db(), &proc_entry).await {
+						warn!("Thumbnail processing failed: {}", e);
+					}
+				}
+			}
+
+			// Run OCR processor
+			if proc_config
+				.watcher_processors
+				.iter()
+				.any(|c| c.processor_type == "ocr" && c.enabled)
+			{
+				let ocr_proc = OcrProcessor::new(library.clone());
+				if ocr_proc.should_process(&proc_entry) {
+					if let Err(e) = ocr_proc.process(ctx.library_db(), &proc_entry).await {
+						warn!("OCR processing failed: {}", e);
+					}
+				}
+			}
+
+			// Run speech-to-text processor
+			if proc_config
+				.watcher_processors
+				.iter()
+				.any(|c| c.processor_type == "speech_to_text" && c.enabled)
+			{
+				let speech_proc = SpeechToTextProcessor::new(library.clone());
+				if speech_proc.should_process(&proc_entry) {
+					if let Err(e) = speech_proc.process(ctx.library_db(), &proc_entry).await {
+						warn!("Speech-to-text processing failed: {}", e);
+					}
+				}
+			}
 		}
 	}
 
@@ -483,28 +482,73 @@ async fn handle_modify(
 			None => None,
 		};
 
-		// For files, regenerate content hash if size changed
+		// For files, run processors on the modified file
 		if dir_entry.kind == super::state::EntryKind::File {
-			debug!("→ Regenerating content hash for modified file: {}", path.display());
+			if let Some(library) = context.get_library(library_id).await {
+				// Load processor configuration
+				let proc_config = processor::load_location_processor_config(location_id, ctx.library_db())
+					.await
+					.unwrap_or_default();
 
-			if let Ok(content_hash) = ContentHashGenerator::generate_content_hash(path).await {
-				debug!("✓ Generated content hash: {}", content_hash);
+				// Build processor entry
+				let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
 
-				if let Err(e) = EntryProcessor::link_to_content_identity(
-					ctx,
-					entry_id,
-					path,
-					content_hash,
-					library_id,
-				)
-				.await
+				// Run content hash processor first
+				if proc_config
+					.watcher_processors
+					.iter()
+					.any(|c| c.processor_type == "content_hash" && c.enabled)
 				{
-					warn!("Failed to link content identity for {}: {}", path.display(), e);
-				} else {
-					debug!("✓ Linked content identity for entry {}", entry_id);
+					let content_proc = ContentHashProcessor::new(library_id);
+					if let Err(e) = content_proc.process(ctx, &proc_entry).await {
+						warn!("Content hash processing failed: {}", e);
+					}
 				}
-			} else {
-				debug!("✗ Failed to generate content hash for {}", path.display());
+
+				// Reload processor entry to get updated content_id and MIME type
+				let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
+
+				// Run thumbnail processor
+				if proc_config
+					.watcher_processors
+					.iter()
+					.any(|c| c.processor_type == "thumbnail" && c.enabled)
+				{
+					let thumb_proc = ThumbnailProcessor::new(library.clone());
+					if thumb_proc.should_process(&proc_entry) {
+						if let Err(e) = thumb_proc.process(ctx.library_db(), &proc_entry).await {
+							warn!("Thumbnail processing failed: {}", e);
+						}
+					}
+				}
+
+				// Run OCR processor
+				if proc_config
+					.watcher_processors
+					.iter()
+					.any(|c| c.processor_type == "ocr" && c.enabled)
+				{
+					let ocr_proc = OcrProcessor::new(library.clone());
+					if ocr_proc.should_process(&proc_entry) {
+						if let Err(e) = ocr_proc.process(ctx.library_db(), &proc_entry).await {
+							warn!("OCR processing failed: {}", e);
+						}
+					}
+				}
+
+				// Run speech-to-text processor
+				if proc_config
+					.watcher_processors
+					.iter()
+					.any(|c| c.processor_type == "speech_to_text" && c.enabled)
+				{
+					let speech_proc = SpeechToTextProcessor::new(library.clone());
+					if speech_proc.should_process(&proc_entry) {
+						if let Err(e) = speech_proc.process(ctx.library_db(), &proc_entry).await {
+							warn!("Speech-to-text processing failed: {}", e);
+						}
+					}
+				}
 			}
 		}
 
@@ -651,6 +695,59 @@ async fn build_dir_entry(path: &Path) -> Result<DirEntry> {
 		size: meta.size,
 		modified: meta.modified,
 		inode: meta.inode,
+	})
+}
+
+/// Build a ProcessorEntry from database entry
+async fn build_processor_entry(ctx: &impl IndexingCtx, entry_id: i32, path: &Path) -> Result<ProcessorEntry> {
+	use sea_orm::EntityTrait;
+
+	let entry = entities::entry::Entity::find_by_id(entry_id)
+		.one(ctx.library_db())
+		.await?
+		.ok_or_else(|| anyhow::anyhow!("Entry not found"))?;
+
+	// Get MIME type if content exists
+	let mime_type = if let Some(content_id) = entry.content_id {
+		if let Ok(Some(ci)) = entities::content_identity::Entity::find_by_id(content_id)
+			.one(ctx.library_db())
+			.await
+		{
+			if let Some(mime_id) = ci.mime_type_id {
+				if let Ok(Some(mime)) = entities::mime_type::Entity::find_by_id(mime_id)
+					.one(ctx.library_db())
+					.await
+				{
+					Some(mime.mime_type)
+				} else {
+					None
+				}
+			} else {
+				None
+			}
+		} else {
+			None
+		}
+	} else {
+		None
+	};
+
+	// Convert DB entry kind to domain EntryKind
+	let kind = match entry.kind {
+		0 => super::state::EntryKind::File,
+		1 => super::state::EntryKind::Directory,
+		2 => super::state::EntryKind::Symlink,
+		_ => super::state::EntryKind::File,
+	};
+
+	Ok(ProcessorEntry {
+		id: entry.id,
+		uuid: entry.uuid,
+		path: path.to_path_buf(),
+		kind,
+		size: entry.size as u64,
+		content_id: entry.content_id,
+		mime_type,
 	})
 }
 

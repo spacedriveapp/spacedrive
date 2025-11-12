@@ -7,16 +7,12 @@
 use axum::{
 	body::Body,
 	extract::{Path, State},
-	http::{Response, StatusCode, header, HeaderValue},
+	http::{header, HeaderValue, Response, StatusCode},
 	routing::get,
 	Router,
 };
 use std::{net::Ipv4Addr, path::PathBuf};
-use tokio::{
-	fs::File,
-	io,
-	net::TcpListener,
-};
+use tokio::{fs::File, io, net::TcpListener};
 use tracing::{error, info};
 
 #[derive(Clone)]
@@ -26,10 +22,7 @@ pub struct ServerState {
 }
 
 /// Find library folder by UUID (reads library.json files to match ID)
-async fn find_library_folder(
-	data_dir: &PathBuf,
-	library_id: &str,
-) -> Result<PathBuf, StatusCode> {
+async fn find_library_folder(data_dir: &PathBuf, library_id: &str) -> Result<PathBuf, StatusCode> {
 	let libraries_dir = data_dir.join("libraries");
 
 	// Read all .sdlibrary folders
@@ -64,12 +57,7 @@ async fn find_library_folder(
 /// Serve a sidecar file (e.g., thumbnail)
 async fn serve_sidecar(
 	State(state): State<ServerState>,
-	Path((library_id, content_uuid, kind, variant_and_ext)): Path<(
-		String,
-		String,
-		String,
-		String,
-	)>,
+	Path((library_id, content_uuid, kind, variant_and_ext)): Path<(String, String, String, String)>,
 ) -> Result<Response<Body>, StatusCode> {
 	// Find the actual library folder (might be named differently than the ID)
 	let library_folder = find_library_folder(&state.data_dir, &library_id).await?;
@@ -98,8 +86,6 @@ async fn serve_sidecar(
 		);
 		return Err(StatusCode::FORBIDDEN);
 	}
-
-	info!("Attempting to serve sidecar from: {:?}", sidecar_path);
 
 	// Open the file
 	let file = File::open(&sidecar_path).await.map_err(|e| {

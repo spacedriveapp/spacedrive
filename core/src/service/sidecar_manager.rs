@@ -490,6 +490,21 @@ impl SidecarManager {
 		size: u64,
 		checksum: Option<String>,
 	) -> Result<()> {
+		self.record_sidecar_internal(library, content_uuid, kind, variant, format, size, checksum, true)
+			.await
+	}
+
+	async fn record_sidecar_internal(
+		&self,
+		library: &Library,
+		content_uuid: &Uuid,
+		kind: &SidecarKind,
+		variant: &SidecarVariant,
+		format: &SidecarFormat,
+		size: u64,
+		checksum: Option<String>,
+		emit_events: bool,
+	) -> Result<()> {
 		let db = library.db();
 		let path = self
 			.compute_path(&library.id(), content_uuid, kind, variant, format)
@@ -543,6 +558,42 @@ impl SidecarManager {
 			None,
 		)
 		.await?;
+
+		// Emit ResourceChanged event for the sidecar
+		// The resource manager will map sidecar → file automatically
+		// Skip during bootstrap to avoid spamming frontend with thousands of events
+		if emit_events {
+			use crate::domain::ResourceManager;
+			use crate::infra::db::entities::sidecar;
+			use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+			// Find the sidecar record we just created/updated to get its UUID
+			let sidecar_record = sidecar::Entity::find()
+				.filter(sidecar::Column::ContentUuid.eq(*content_uuid))
+				.filter(sidecar::Column::Kind.eq(kind.as_str()))
+				.filter(sidecar::Column::Variant.eq(variant.as_str()))
+				.one(db.conn())
+				.await?;
+
+			if let Some(sc) = sidecar_record {
+				let resource_manager = ResourceManager::new(
+					std::sync::Arc::new(db.conn().clone()),
+					library.event_bus().clone(),
+				);
+
+				// Emit sidecar event - ResourceManager will map to affected Files
+				if let Err(e) = resource_manager
+					.emit_resource_events("sidecar", vec![sc.uuid])
+					.await
+				{
+					tracing::warn!("Failed to emit resource events for sidecar creation: {}", e);
+				} else {
+					tracing::debug!(
+						"Emitted sidecar resource event (will map to File updates)"
+					);
+				}
+			}
+		}
 
 		Ok(())
 	}
