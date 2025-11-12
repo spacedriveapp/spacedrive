@@ -42,6 +42,9 @@ pub enum SpacedriveWindow {
     /// Drag demo window
     DragDemo,
 
+    /// Spacedrop window
+    Spacedrop,
+
     /// Drag overlay (cursor-tracking preview during drag operations)
     DragOverlay {
         session_id: String,
@@ -77,6 +80,7 @@ impl SpacedriveWindow {
             Self::SearchOverlay => "search-overlay".to_string(),
             Self::FloatingControls => "floating-controls".to_string(),
             Self::DragDemo => "drag-demo".to_string(),
+            Self::Spacedrop => "spacedrop".to_string(),
             Self::DragOverlay { session_id } => format!("drag-overlay-{}", session_id),
             Self::ContextMenu { context_id } => format!("context-menu-{}", context_id),
         }
@@ -301,6 +305,20 @@ impl SpacedriveWindow {
                     "Drag Demo",
                     (600.0, 400.0),
                     (400.0, 300.0),
+                    true,
+                    false,
+                    false,
+                )
+            }
+
+            Self::Spacedrop => {
+                create_window(
+                    app,
+                    &label,
+                    "/spacedrop",
+                    "Spacedrop",
+                    (800.0, 600.0),
+                    (600.0, 400.0),
                     true,
                     false,
                     false,

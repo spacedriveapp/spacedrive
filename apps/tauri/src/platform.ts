@@ -1,5 +1,6 @@
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { convertFileSrc as tauriConvertFileSrc } from "@tauri-apps/api/core";
 import type { Platform } from "@sd/interface/platform";
 
 /**
@@ -44,5 +45,9 @@ export const platform: Platform = {
 	confirm(message: string, callback: (result: boolean) => void) {
 		// Use browser confirm for now - could be replaced with custom dialog
 		callback(window.confirm(message));
+	},
+
+	convertFileSrc(filePath: string) {
+		return tauriConvertFileSrc(filePath);
 	},
 };

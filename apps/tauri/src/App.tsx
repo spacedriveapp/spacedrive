@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { DragOverlay } from "./routes/DragOverlay";
 import { ContextMenuWindow } from "./routes/ContextMenuWindow";
 import { DragDemo } from "./components/DragDemo";
+import { SpacedropWindow } from "./routes/Spacedrop";
 import { platform } from "./platform";
 import { initializeContextMenuHandler } from "./contextMenu";
 
@@ -47,6 +48,8 @@ function App() {
       setRoute("/contextmenu");
     } else if (label.startsWith("drag-demo")) {
       setRoute("/drag-demo");
+    } else if (label.startsWith("spacedrop")) {
+      setRoute("/spacedrop");
     } else if (label.startsWith("settings")) {
       setRoute("/settings");
     } else if (label.startsWith("inspector")) {
@@ -95,6 +98,10 @@ function App() {
 
   if (route === "/drag-demo") {
     return <DragDemo />;
+  }
+
+  if (route === "/spacedrop") {
+    return <SpacedropWindow />;
   }
 
   if (error) {
