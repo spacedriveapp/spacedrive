@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import {
   beginDrag,
@@ -28,22 +28,32 @@ export function useDragOperation(options: UseDragOperationOptions = {}) {
     y: number;
   } | null>(null);
 
+  const onDragStartRef = useRef(options.onDragStart);
+  const onDragMoveRef = useRef(options.onDragMove);
+  const onDragEndRef = useRef(options.onDragEnd);
+
+  useEffect(() => {
+    onDragStartRef.current = options.onDragStart;
+    onDragMoveRef.current = options.onDragMove;
+    onDragEndRef.current = options.onDragEnd;
+  }, [options.onDragStart, options.onDragMove, options.onDragEnd]);
+
   useEffect(() => {
     const unlistenBegan = onDragBegan((event) => {
       setIsDragging(true);
-      options.onDragStart?.(event.sessionId);
+      onDragStartRef.current?.(event.sessionId);
     });
 
     const unlistenMoved = onDragMoved((event: DragMoveEvent) => {
       setCursorPosition({ x: event.x, y: event.y });
-      options.onDragMove?.(event.x, event.y);
+      onDragMoveRef.current?.(event.x, event.y);
     });
 
     const unlistenEnded = onDragEnded((event) => {
       setIsDragging(false);
       setCurrentSession(null);
       setCursorPosition(null);
-      options.onDragEnd?.(event.result);
+      onDragEndRef.current?.(event.result);
     });
 
     return () => {
@@ -51,7 +61,7 @@ export function useDragOperation(options: UseDragOperationOptions = {}) {
       unlistenMoved.then((fn) => fn());
       unlistenEnded.then((fn) => fn());
     };
-  }, [options.onDragStart, options.onDragMove, options.onDragEnd]);
+  }, []);
 
   const startDrag = useCallback(
     async (config: Omit<DragConfig, 'overlayUrl' | 'overlaySize'>) => {

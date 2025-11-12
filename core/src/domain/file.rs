@@ -92,6 +92,33 @@ pub struct Sidecar {
 	pub updated_at: DateTime<Utc>,
 }
 
+impl crate::domain::resource::Identifiable for File {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str {
+		"file"
+	}
+
+	fn sync_dependencies() -> &'static [&'static str] {
+		&["entry", "content_identity", "sidecar"]
+	}
+
+	fn alternate_ids(&self) -> Vec<Uuid> {
+		// Files can be matched by content UUID
+		if let Some(content) = &self.content_identity {
+			vec![content.uuid]
+		} else {
+			vec![]
+		}
+	}
+
+	fn no_merge_fields() -> &'static [&'static str] {
+		&["sd_path"]
+	}
+}
+
 impl File {
 	/// Construct a File directly from entity model and SdPath
 	///

@@ -1,6 +1,10 @@
 import AppKit
 import SwiftRs
 
+// Forward declaration of Rust callback
+@_silgen_name("rust_drag_ended_callback")
+func rust_drag_ended_callback(_ sessionId: UnsafePointer<CChar>, _ wasDropped: Bool)
+
 private var activeDragSources: [String: NativeDragSource] = [:]
 private var dragSourcesLock = NSLock()
 
@@ -110,13 +114,16 @@ public func beginNativeDrag(
 @_cdecl("end_native_drag")
 public func endNativeDrag(sessionId: SRString) {
     let sessionIdStr = sessionId.toString()
+    print("[DRAG] end_native_drag called for session: \(sessionIdStr)")
 
     dragSourcesLock.lock()
     if let source = activeDragSources.removeValue(forKey: sessionIdStr) {
         dragSourcesLock.unlock()
+        print("[DRAG] Cleaning up drag source for session: \(sessionIdStr)")
         source.cleanup()
     } else {
         dragSourcesLock.unlock()
+        print("[DRAG] No active drag source found for session: \(sessionIdStr)")
     }
 }
 
@@ -292,10 +299,20 @@ class NativeDragSource: NSObject, NSDraggingSource, NSFilePromiseProviderDelegat
         operation: NSDragOperation
     ) {
         let eventType: String
+        let wasDropped: Bool
         if operation.rawValue == 0 {
             eventType = "cancelled"
+            wasDropped = false
         } else {
             eventType = "dropped"
+            wasDropped = true
+        }
+
+        print("[DRAG] Drag session ended: session=\(sessionId), type=\(eventType), operation=\(operation.rawValue)")
+
+        // Call Rust callback to notify that drag ended
+        sessionId.withCString { cString in
+            rust_drag_ended_callback(cString, wasDropped)
         }
 
         NotificationCenter.default.post(
@@ -310,10 +327,17 @@ class NativeDragSource: NSObject, NSDraggingSource, NSFilePromiseProviderDelegat
         )
 
         dragSourcesLock.lock()
-        activeDragSources.removeValue(forKey: sessionId)
+        let removed = activeDragSources.removeValue(forKey: sessionId)
         dragSourcesLock.unlock()
 
+        if removed != nil {
+            print("[DRAG] Removed drag source from active sources: \(sessionId)")
+        } else {
+            print("[DRAG] WARNING: Drag source not found in active sources: \(sessionId)")
+        }
+
         cleanup()
+        print("[DRAG] Cleanup completed for session: \(sessionId)")
     }
 
     func filePromiseProvider(

@@ -234,6 +234,7 @@ impl LocationManager {
 		self.events.emit(Event::ResourceChanged {
 			resource_type: "location".to_string(),
 			resource: serde_json::to_value(&location_info).unwrap(),
+			metadata: None, // Location has no special merge rules
 		});
 
 		// Also emit indexing started event

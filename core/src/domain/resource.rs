@@ -43,6 +43,36 @@ pub trait Identifiable: Serialize + for<'de> Deserialize<'de> + Type {
 	{
 		&[]
 	}
+
+	/// Additional identifiers for matching updates (besides primary ID)
+	///
+	/// For resources with multiple valid identifiers, return alternate IDs.
+	/// The frontend cache will match updates by primary ID OR any alternate ID.
+	///
+	/// Example:
+	/// - File with content: `vec![content_identity.uuid]`
+	/// - Entry with inode: `vec![inode_based_id]`
+	///
+	/// Default: no alternate IDs
+	fn alternate_ids(&self) -> Vec<Uuid> {
+		vec![]
+	}
+
+	/// Fields that should never be deep-merged, only replaced
+	///
+	/// For fields where merging doesn't make sense (e.g., paths, enums),
+	/// list them here and they'll always be replaced with incoming value.
+	///
+	/// Example:
+	/// - File: `&["sd_path"]` (paths are atomic, can't merge Physical + Content)
+	///
+	/// Default: merge all fields
+	fn no_merge_fields() -> &'static [&'static str]
+	where
+		Self: Sized,
+	{
+		&[]
+	}
 }
 
 /// Helper to check if a resource type is virtual (has dependencies)

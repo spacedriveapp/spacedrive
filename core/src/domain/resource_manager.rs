@@ -8,7 +8,8 @@
 //! and emits appropriate events for the frontend normalized cache.
 
 use crate::common::errors::Result;
-use crate::infra::event::{Event, EventBus};
+use crate::domain::resource::Identifiable;
+use crate::infra::event::{Event, EventBus, ResourceMetadata};
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -103,6 +104,18 @@ impl ResourceManager {
 					);
 
 					if !files.is_empty() {
+						// Build metadata from Identifiable trait
+						let metadata = ResourceMetadata {
+							no_merge_fields: crate::domain::File::no_merge_fields()
+								.iter()
+								.map(|s| s.to_string())
+								.collect(),
+							alternate_ids: files
+								.iter()
+								.flat_map(|f| f.alternate_ids())
+								.collect(),
+						};
+
 						self.events.emit(Event::ResourceChangedBatch {
 							resource_type: "file".to_string(),
 							resources: serde_json::to_value(&files).map_err(|e| {
@@ -110,6 +123,7 @@ impl ResourceManager {
 									"Failed to serialize files: {}", e
 								))
 							})?,
+							metadata: Some(metadata),
 						});
 					}
 				}

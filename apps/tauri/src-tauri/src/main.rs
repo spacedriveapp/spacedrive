@@ -375,6 +375,11 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 				.accelerator("Cmd+D")
 				.build(app)?,
 		)
+		.item(
+			&MenuItemBuilder::with_id("spacedrop", "Spacedrop")
+				.accelerator("Cmd+Shift+D")
+				.build(app)?,
+		)
 		.build()?;
 
 	let menu = MenuBuilder::new(app).item(&view_menu).build()?;
@@ -391,6 +396,15 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					windows::show_window(app_clone, windows::SpacedriveWindow::DragDemo).await
 				{
 					tracing::error!("Failed to show drag demo: {}", e);
+				}
+			});
+		} else if event.id() == "spacedrop" {
+			let app_clone = app_handle.clone();
+			tauri::async_runtime::spawn(async move {
+				if let Err(e) =
+					windows::show_window(app_clone, windows::SpacedriveWindow::Spacedrop).await
+				{
+					tracing::error!("Failed to show spacedrop: {}", e);
 				}
 			});
 		}
@@ -429,7 +443,8 @@ fn main() {
 			windows::position_context_menu,
 			drag::begin_drag,
 			drag::end_drag,
-			drag::get_drag_session
+			drag::get_drag_session,
+			drag::force_clear_drag_state
 		])
 		.setup(|app| {
 			// Setup native menu
@@ -456,6 +471,40 @@ fn main() {
 						}
 					}
 				}
+
+				// Setup drag ended callback
+				let app_handle = app.handle().clone();
+				sd_desktop_macos::set_drag_ended_callback(move |session_id: &str, was_dropped: bool| {
+					tracing::info!("[DRAG] Swift callback: session_id={}, was_dropped={}", session_id, was_dropped);
+					let coordinator = app_handle.state::<drag::DragCoordinator>();
+					let result = if was_dropped {
+						drag::DragResult::Dropped {
+							operation: drag::DragOperation::Copy,
+							target: None,
+						}
+					} else {
+						drag::DragResult::Cancelled
+					};
+					coordinator.end_drag(&app_handle, result);
+
+					// Hide and then close the overlay window after a delay to avoid focus issues
+					let overlay_label = format!("drag-overlay-{}", session_id);
+					if let Some(overlay) = app_handle.get_webview_window(&overlay_label) {
+						tracing::debug!("[DRAG] Hiding overlay window from callback: {}", overlay_label);
+						// First hide it immediately
+						overlay.hide().ok();
+
+						// Then close it after a short delay to avoid window focus flashing
+						let overlay_clone = overlay.clone();
+						std::thread::spawn(move || {
+							std::thread::sleep(std::time::Duration::from_millis(100));
+							overlay_clone.close().ok();
+						});
+					} else {
+						tracing::warn!("[DRAG] Overlay window not found in callback: {}", overlay_label);
+					}
+				});
+				tracing::info!("Drag ended callback registered");
 			}
 
 			// Get data directory (use default Spacedrive location)

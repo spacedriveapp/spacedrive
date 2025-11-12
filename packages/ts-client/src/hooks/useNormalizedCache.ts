@@ -4,9 +4,13 @@ import { useSpacedriveClient } from "./useClient";
 
 /**
  * Deep merge that preserves existing non-null values
- * Incoming data always wins UNLESS it's null/undefined and existing has a value
+ * Uses metadata from Identifiable trait to determine merge behavior
+ *
+ * @param existing - The current cached value
+ * @param incoming - The new value from the event
+ * @param noMergeFields - Fields to replace (from Identifiable.no_merge_fields)
  */
-function deepMerge(existing: any, incoming: any): any {
+function deepMerge(existing: any, incoming: any, noMergeFields: string[] = []): any {
   // If incoming is null/undefined, keep existing
   if (incoming === null || incoming === undefined) {
     return existing !== null && existing !== undefined ? existing : incoming;
@@ -22,6 +26,11 @@ function deepMerge(existing: any, incoming: any): any {
   const merged: any = { ...incoming };
 
   for (const key in existing) {
+    // Check if this field should not be merged (from backend Identifiable trait)
+    if (noMergeFields.includes(key)) {
+      continue; // Use incoming value as-is
+    }
+
     if (!(key in incoming)) {
       // Key exists in old but not new - preserve it
       merged[key] = existing[key];
@@ -33,12 +42,36 @@ function deepMerge(existing: any, incoming: any): any {
     } else if (typeof existing[key] === 'object' && typeof incoming[key] === 'object' &&
                !Array.isArray(existing[key]) && !Array.isArray(incoming[key])) {
       // Both are objects - recurse
-      merged[key] = deepMerge(existing[key], incoming[key]);
+      merged[key] = deepMerge(existing[key], incoming[key], noMergeFields);
     }
     // else: incoming wins (has non-null value)
   }
 
   return merged;
+}
+
+/**
+ * Check if a resource matches by ID or alternate IDs
+ * Uses metadata from Identifiable trait for matching
+ */
+function resourceMatches(
+  existing: any,
+  incoming: any,
+  alternateIds: string[] = []
+): boolean {
+  // Match by primary ID
+  if (existing.id === incoming.id) {
+    return true;
+  }
+
+  // Match by any alternate ID (e.g., content UUID for Files)
+  for (const altId of alternateIds) {
+    if (existing.id === altId || incoming.id === altId) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 interface UseNormalizedCacheOptions<I> {
@@ -106,7 +139,7 @@ export function useNormalizedCache<I, O>({
     queryKey,
     queryFn: async () => {
       // Client.execute() automatically adds library_id to the request
-      // as a sibling field to payload (not inside it!)
+      // as a sibling field to payload
       return await client.execute<I, O>(wireMethod, input);
     },
     enabled: enabled && !!libraryId,
@@ -122,7 +155,9 @@ export function useNormalizedCache<I, O>({
 
       // Check if this is a ResourceChanged event for our resource type
       if ("ResourceChanged" in event) {
-        const { resource_type, resource } = event.ResourceChanged;
+        const { resource_type, resource, metadata } = event.ResourceChanged;
+
+          const noMergeFields = metadata?.no_merge_fields || [];
 
         console.log('[ResourceEvent] ResourceChanged:', {
           resourceType: resource_type,
@@ -147,7 +182,7 @@ export function useNormalizedCache<I, O>({
 
               if (existingIndex >= 0) {
                 const newData = [...oldData];
-                newData[existingIndex] = deepMerge(oldData[existingIndex], resource);
+                newData[existingIndex] = deepMerge(oldData[existingIndex], resource, noMergeFields);
                 return newData as O;
               }
 
@@ -173,7 +208,7 @@ export function useNormalizedCache<I, O>({
 
                 if (existingIndex >= 0) {
                   const newArray = [...array];
-                  newArray[existingIndex] = deepMerge(array[existingIndex], resource);
+                  newArray[existingIndex] = deepMerge(array[existingIndex], resource, noMergeFields);
                   return { ...oldData, [arrayField]: newArray };
                 }
 
@@ -184,27 +219,67 @@ export function useNormalizedCache<I, O>({
 
                 return oldData;
               }
+
+              // Handle single object response (e.g., files.by_id returns a single File)
+              // Check if oldData is a single resource object
+              if ((oldData as any).id === resource.id) {
+                // This is the file we're displaying - merge the update
+                // console.log('[Cache] Updating single resource:', {
+                //   oldId: (oldData as any).id,
+                //   newId: resource.id,
+                //   name: resource.name,
+                // });
+                return deepMerge(oldData, resource, noMergeFields) as O;
+              }
+
+              // Also check by content UUID for single object
+              if (
+                (oldData as any).content_identity?.uuid &&
+                (oldData as any).content_identity.uuid === resource.content_identity?.uuid
+              ) {
+                // console.log('[Cache] Updating single resource by content UUID:', {
+                //   contentId: resource.content_identity.uuid,
+                //   name: resource.name,
+                // });
+                return deepMerge(oldData, resource, noMergeFields) as O;
+              }
             }
 
             return oldData;
           });
         }
       } else if ("ResourceChangedBatch" in event) {
-        const { resource_type, resources } = event.ResourceChangedBatch;
+        const { resource_type, resources, metadata } = event.ResourceChangedBatch;
 
-        console.log('[ResourceEvent] ResourceChangedBatch:', {
-          resourceType: resource_type,
-          ourType: resourceType,
-          count: resources?.length,
-          firstResource: resources?.[0]?.name,
-        });
+        // console.log('[ResourceEvent] ResourceChangedBatch:', {
+        //   resourceType: resource_type,
+        //   ourType: resourceType,
+        //   count: resources?.length,
+        //   firstResource: resources?.[0]?.name,
+        // });
 
         if (resource_type === resourceType && Array.isArray(resources)) {
+          // Extract merge config from Identifiable metadata
+          const noMergeFields = metadata?.no_merge_fields || [];
+          const alternateIds = metadata?.alternate_ids || [];
+
           // Atomic update: merge all resources into the query data
           queryClient.setQueryData<O>(queryKey, (oldData) => {
             if (!oldData) return oldData;
 
-            // Create a map of incoming resources by ID for efficient lookup
+            // Helper: check if resource matches by ID or alternate IDs
+            const matches = (existing: any, incoming: any) => {
+              if (existing.id === incoming.id) return true;
+              // Check alternate IDs (e.g., content UUID for Files)
+              return alternateIds.some(altId =>
+                existing.id === altId ||
+                existing.content_identity?.uuid === altId ||
+                incoming.id === altId ||
+                incoming.content_identity?.uuid === altId
+              );
+            };
+
+            // Create a map of incoming resources
             const resourceMap = new Map(resources.map((r: any) => [r.id, r]));
 
             if (Array.isArray(oldData)) {
@@ -232,44 +307,96 @@ export function useNormalizedCache<I, O>({
                   }
                 }
               } else if (resourceFilter) {
-                // Track content UUIDs to avoid duplicates (same content, different entries)
-                const seenContentIds = new Set(
-                  newData
-                    .filter((item: any) => item.content_identity?.uuid)
-                    .map((item: any) => item.content_identity.uuid)
-                );
-
                 for (const resource of resources) {
-                  if (!seenIds.has(resource.id)) {
-                    // Always use resourceFilter to check if file belongs in current scope
-                    // The filter checks parent path for Physical paths, which is correct for new files
-                    const shouldAppend = resourceFilter(resource);
+                  if (seenIds.has(resource.id)) {
+                    continue; // Already updated by ID
+                  }
 
-                    if (shouldAppend) {
-                      // For Content-based paths, deduplicate by content UUID to avoid showing
-                      // multiple entries for the same content in the same directory
-                      if (resource.sd_path?.Content && resource.content_identity?.uuid) {
-                        const contentId = resource.content_identity.uuid;
-                        if (seenContentIds.has(contentId)) {
-                          console.log('[Cache] Skipping duplicate content:', {
-                            name: resource.name,
-                            contentId,
-                            reason: 'Already have file with this content in cache'
-                          });
-                          continue; // Skip - already have this content
-                        }
-                        seenContentIds.add(contentId);
-                      }
+                  // Check if we should process this resource
+                  const shouldAppend = resourceFilter(resource);
+                  if (!shouldAppend) {
+                    continue;
+                  }
 
-                      newData.push(resource);
+                  // For Content-based paths with multiple entries, update by content UUID
+                  // (sidecar events can create multiple File resources for the same content)
+                  if (resource.sd_path?.Content && resource.content_identity?.uuid) {
+                    const contentId = resource.content_identity.uuid;
+
+                    // Find existing item with same content
+                    const existingIndex = newData.findIndex(
+                      (item: any) => item.content_identity?.uuid === contentId
+                    );
+
+                    if (existingIndex >= 0) {
+                      // Update existing item (merge sidecars, etc.)
+                      newData[existingIndex] = deepMerge(newData[existingIndex], resource, noMergeFields);
+                      console.log('[Cache] Updated existing file by content UUID:', {
+                        name: resource.name,
+                        contentId,
+                      });
+                      continue;
                     }
                   }
+
+                  // New item - append it
+                  newData.push(resource);
                 }
               }
 
               return newData as O;
             } else if (oldData && typeof oldData === "object") {
-              // Wrapped response
+              // Check if this is a single resource object (File) vs wrapper ({files: [...]})
+              // Single resource has: id, name, sd_path
+              // Wrapper has: files (array), has_more, total_count
+              const isSingleResource = !!(oldData as any).id && !!(oldData as any).sd_path;
+
+              console.log('[Cache] Batch - response type check:', {
+                isSingleResource,
+                hasId: !!(oldData as any).id,
+                hasSdPath: !!(oldData as any).sd_path,
+                firstKey: Object.keys(oldData)[0],
+              });
+
+              if (isSingleResource) {
+                // Single object response - check each incoming resource
+                console.log('[Cache] Single object mode - checking resources:', {
+                  oldDataId: (oldData as any).id,
+                  oldDataContentId: (oldData as any).content_identity?.uuid,
+                  incomingCount: resources.length,
+                  incomingIds: resources.map((r: any) => r.id),
+                  incomingContentIds: resources.map((r: any) => r.content_identity?.uuid),
+                });
+
+                for (const resource of resources) {
+                  // Match by ID
+                  if ((oldData as any).id === resource.id) {
+                    console.log('[Cache] ✓ Updating single object by ID:', {
+                      name: resource.name,
+                      id: resource.id,
+                    });
+                    return deepMerge(oldData, resource, noMergeFields) as O;
+                  }
+
+                  // Match by content UUID
+                  if (
+                    (oldData as any).content_identity?.uuid &&
+                    (oldData as any).content_identity.uuid === resource.content_identity?.uuid
+                  ) {
+                    console.log('[Cache] ✓ Updating single object by content UUID:', {
+                      name: resource.name,
+                      contentId: resource.content_identity.uuid,
+                    });
+                    return deepMerge(oldData, resource, noMergeFields) as O;
+                  }
+                }
+
+                console.log('[Cache] ✗ No match found for single object');
+                // No match - return unchanged
+                return oldData;
+              }
+
+              // Wrapped response with array field
               const arrayField = Object.keys(oldData).find((key) =>
                 Array.isArray((oldData as any)[key]),
               );
@@ -299,15 +426,35 @@ export function useNormalizedCache<I, O>({
                   }
                 } else if (resourceFilter) {
                   for (const resource of resources) {
-                    if (!seenIds.has(resource.id)) {
-                      // Always use resourceFilter to check if file belongs in current scope
-                      // The filter checks parent path for Physical paths, which is correct for new files
-                      const shouldAppend = resourceFilter(resource);
+                    if (seenIds.has(resource.id)) {
+                      continue; // Already updated by ID
+                    }
 
-                      if (shouldAppend) {
-                        array.push(resource);
+                    const shouldAppend = resourceFilter(resource);
+                    if (!shouldAppend) {
+                      continue;
+                    }
+
+                    // For Content-based paths, update existing item by content UUID
+                    if (resource.sd_path?.Content && resource.content_identity?.uuid) {
+                      const contentId = resource.content_identity.uuid;
+                      const existingIndex = array.findIndex(
+                        (item: any) => item.content_identity?.uuid === contentId
+                      );
+
+                      if (existingIndex >= 0) {
+                        // Update existing item
+                        array[existingIndex] = deepMerge(array[existingIndex], resource, noMergeFields);
+                        console.log('[Cache] Updated existing file by content UUID:', {
+                          name: resource.name,
+                          contentId,
+                        });
+                        continue;
                       }
                     }
+
+                    // New item - append
+                    array.push(resource);
                   }
                 }
 

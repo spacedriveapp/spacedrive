@@ -146,7 +146,34 @@ impl JobHandler for SpeechToTextJob {
 				continue;
 			}
 
-			match processor.process(ctx.library_db(), &proc_entry).await {
+			// Get audio duration for progress estimation
+			let audio_duration = super::get_audio_duration_public(path).await.unwrap_or(1.0);
+
+			// Report that we're starting to process this file
+			ctx.progress(Progress::Indeterminate(format!(
+				"Transcribing {}...",
+				path.file_name()
+					.and_then(|n| n.to_str())
+					.unwrap_or("file")
+			)));
+
+			// Spawn progress simulation task
+			// Note: We can't easily share ctx across tasks, so we'll just use indeterminate progress
+			// The percentage will be updated after completion based on files processed
+			let progress_task = tokio::spawn(async move {
+				// Estimate transcription takes ~2x the audio duration
+				let transcription_duration = audio_duration * 2.0;
+
+				// Just sleep for the estimated duration to keep the indeterminate progress active
+				tokio::time::sleep(std::time::Duration::from_secs_f32(transcription_duration)).await;
+			});
+
+			let result = processor.process(ctx.library_db(), &proc_entry).await;
+
+			// Cancel progress simulation
+			progress_task.abort();
+
+			match result {
 				Ok(result) if result.success => {
 					ctx.log(format!(
 						"Transcribed {}: {} bytes",
@@ -171,7 +198,7 @@ impl JobHandler for SpeechToTextJob {
 
 			self.state.processed += 1;
 
-			// Report progress
+			// Report progress with count
 			ctx.progress(Progress::Count {
 				current: self.state.processed,
 				total,

@@ -121,10 +121,14 @@ impl SpeechToTextProcessor {
 			.map_err(|e| anyhow::anyhow!("Failed to compute path: {}", e))?;
 
 		// Transcribe audio
+		let data_dir = crate::config::default_data_dir()
+			.map_err(|e| anyhow::anyhow!("Failed to get data dir: {}", e))?;
+
 		let srt_content = super::transcribe_audio_file(
 			&entry.path,
 			&self.model,
 			self.language.as_deref(),
+			&data_dir,
 		)
 		.await?;
 

@@ -10,6 +10,15 @@ use tokio::sync::broadcast;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
+/// Metadata for resource cache updates
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ResourceMetadata {
+	/// Fields that should be replaced, not merged
+	pub no_merge_fields: Vec<String>,
+	/// Alternate IDs for matching (besides primary ID)
+	pub alternate_ids: Vec<Uuid>,
+}
+
 /// A central event type that represents all events that can be emitted throughout the system
 #[derive(Debug, Clone, Serialize, Deserialize, Type, strum::AsRefStr)]
 #[serde(rename_all_fields = "snake_case")]
@@ -166,6 +175,9 @@ pub enum Event {
 		resource_type: String,
 		/// The full resource data as JSON
 		resource: serde_json::Value,
+		/// Metadata for proper cache updates
+		#[serde(default)]
+		metadata: Option<ResourceMetadata>,
 	},
 	ResourceChangedBatch {
 		/// Resource type identifier (e.g., "file")
@@ -173,6 +185,9 @@ pub enum Event {
 		/// Array of full resource data as JSON
 		/// Used for batch updates during indexing to reduce event overhead
 		resources: serde_json::Value,
+		/// Metadata for proper cache updates
+		#[serde(default)]
+		metadata: Option<ResourceMetadata>,
 	},
 	ResourceDeleted {
 		/// Resource type identifier

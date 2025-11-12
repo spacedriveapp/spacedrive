@@ -20,30 +20,44 @@ export function useDropZone(options: UseDropZoneOptions = {}) {
   const currentWindowLabel = getCurrentWebviewWindow().label;
   const currentSessionRef = useRef<string | null>(null);
 
+  const onDropRef = useRef(options.onDrop);
+  const onDragEnterRef = useRef(options.onDragEnter);
+  const onDragLeaveRef = useRef(options.onDragLeave);
+
+  useEffect(() => {
+    onDropRef.current = options.onDrop;
+    onDragEnterRef.current = options.onDragEnter;
+    onDragLeaveRef.current = options.onDragLeave;
+  }, [options.onDrop, options.onDragEnter, options.onDragLeave]);
+
   useEffect(() => {
     const unlistenEntered = onDragEntered((event) => {
       if (event.windowLabel === currentWindowLabel) {
         setIsHovered(true);
-        options.onDragEnter?.();
+        onDragEnterRef.current?.();
       }
     });
 
     const unlistenLeft = onDragLeft((event) => {
       if (event.windowLabel === currentWindowLabel) {
         setIsHovered(false);
-        options.onDragLeave?.();
+        onDragLeaveRef.current?.();
       }
     });
 
     const unlistenEnded = onDragEnded((event) => {
-      if (currentSessionRef.current === event.sessionId && isHovered) {
-        if (event.result.type === 'Dropped') {
-          options.onDrop?.(dragItems);
-        }
-      }
-      setIsHovered(false);
-      setDragItems([]);
-      currentSessionRef.current = null;
+      setIsHovered((prevHovered) => {
+        setDragItems((prevItems) => {
+          if (currentSessionRef.current === event.sessionId && prevHovered) {
+            if (event.result.type === 'Dropped') {
+              onDropRef.current?.(prevItems);
+            }
+          }
+          return [];
+        });
+        currentSessionRef.current = null;
+        return false;
+      });
     });
 
     return () => {
@@ -51,7 +65,7 @@ export function useDropZone(options: UseDropZoneOptions = {}) {
       unlistenLeft.then((fn) => fn());
       unlistenEnded.then((fn) => fn());
     };
-  }, [currentWindowLabel, options.onDrop, options.onDragEnter, options.onDragLeave, isHovered, dragItems]);
+  }, [currentWindowLabel]);
 
   const dropZoneProps = {
     'data-drop-zone': true,

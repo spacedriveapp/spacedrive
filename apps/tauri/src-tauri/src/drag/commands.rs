@@ -14,7 +14,13 @@ pub async fn begin_drag(
     let coordinator = app.state::<DragCoordinator>();
     let session_id = uuid::Uuid::new_v4().to_string();
 
-    coordinator.begin_drag(&app, config.clone(), source_window_label.clone())?;
+    match coordinator.begin_drag(&app, config.clone(), source_window_label.clone()) {
+        Ok(_) => {},
+        Err(e) => {
+            tracing::error!("Failed to begin drag: {}", e);
+            return Err(e);
+        }
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -81,10 +87,17 @@ pub async fn begin_drag(
         tracing::info!("Swift begin_native_drag returned: {}", success);
 
         if !success {
+            tracing::error!("Native drag failed, cleaning up state");
+            coordinator.force_clear_state(&app);
+
+            if let Some(overlay) = app.get_webview_window(&format!("drag-overlay-{}", session_id)) {
+                overlay.close().ok();
+            }
+
             return Err("Failed to begin native drag".to_string());
         }
 
-        tracing::info!("Drag started successfully");
+        tracing::info!("Drag started successfully: session_id={}", session_id);
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -101,6 +114,8 @@ pub async fn end_drag(
     session_id: String,
     result: DragResult,
 ) -> Result<(), String> {
+    tracing::info!("end_drag called: session_id={}, result={:?}", session_id, result);
+
     let coordinator = app.state::<DragCoordinator>();
     coordinator.end_drag(&app, result);
 
@@ -110,8 +125,12 @@ pub async fn end_drag(
             sd_desktop_macos::end_native_drag(&session_id.as_str().into());
         }
 
-        if let Some(overlay) = app.get_webview_window(&format!("drag-overlay-{}", session_id)) {
+        let overlay_label = format!("drag-overlay-{}", session_id);
+        if let Some(overlay) = app.get_webview_window(&overlay_label) {
+            tracing::debug!("Closing overlay window: {}", overlay_label);
             overlay.close().ok();
+        } else {
+            tracing::warn!("Overlay window not found during cleanup: {}", overlay_label);
         }
     }
 
@@ -122,4 +141,12 @@ pub async fn end_drag(
 pub async fn get_drag_session(app: AppHandle) -> Result<Option<DragSession>, String> {
     let coordinator = app.state::<DragCoordinator>();
     Ok(coordinator.current_session())
+}
+
+#[tauri::command]
+pub async fn force_clear_drag_state(app: AppHandle) -> Result<(), String> {
+    tracing::warn!("force_clear_drag_state called - this should only be used for debugging");
+    let coordinator = app.state::<DragCoordinator>();
+    coordinator.force_clear_state(&app);
+    Ok(())
 }

@@ -113,6 +113,11 @@ sd-images    = { path = "../crates/images" }
 tokio-rustls = "0.26"
 webp         = "0.3"
 
+# Speech-to-text dependencies (always included)
+whisper-rs = "0.15"
+hound      = "3.5"  # WAV file reading
+rubato     = "0.16" # Audio resampling to 16kHz
+
 # Networking
 # Iroh P2P networking with iOS support (using Oscar's patches)
 iroh = { git = "https://github.com/n0-computer/iroh", rev = "e0c5091008d42f4c577f72b1085dfb26c28bd56f", features = [
