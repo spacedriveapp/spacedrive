@@ -42,7 +42,9 @@
   "dependencies": {
     "@types/ws": "^8.0.0",
     "ws": "^8.0.0",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "react": "^19.0.0",
+    "@tanstack/react-query": "^5.62.0"
   },
   "files": [
     "dist/**/*",

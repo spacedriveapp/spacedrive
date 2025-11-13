@@ -6,5 +6,8 @@
 	"sideEffects": false,
 	"scripts": {
 		"gen": "node ./scripts/generate.mjs"
+	},
+	"dependencies": {
+		"react": "^19.0.0"
 	}
 }

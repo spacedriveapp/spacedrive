@@ -5,19 +5,10 @@
 			"path": "apps/tauri"
 		},
 		{
-			"path": "apps/mobile"
-		},
-		{
-			"path": "apps/web"
-		},
-		{
 			"path": "apps/landing"
 		},
-		// {
-		// 	"path": "interface"
-		// },
 		{
-			"path": "packages/client"
+			"path": "apps/api"
 		},
 		{
 			"path": "packages/ui"

@@ -156,6 +156,9 @@
     "packages/assets": {
       "name": "@sd/assets",
       "version": "1.0.0",
+      "dependencies": {
+        "react": "^19.0.0",
+      },
     },
     "packages/interface": {
       "name": "@sd/interface",
@@ -196,7 +199,9 @@
       "name": "@sd/ts-client",
       "version": "0.1.0",
       "dependencies": {
+        "@tanstack/react-query": "^5.62.0",
         "@types/ws": "^8.0.0",
+        "react": "^19.0.0",
         "ws": "^8.0.0",
         "zustand": "^5.0.8",
       },
