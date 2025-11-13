@@ -70,7 +70,28 @@ export class SpacedriveClient extends SimpleEventEmitter {
 		invoke: (cmd: string, args?: any) => Promise<any>,
 		listen: (event: string, handler: (event: any) => void) => Promise<() => void>
 	): SpacedriveClient {
-		return new SpacedriveClient(new TauriTransport(invoke, listen));
+		const client = new SpacedriveClient(new TauriTransport(invoke, listen));
+		client.setupEventLogging();
+		return client;
+	}
+
+	/**
+	 * Setup global event logging (logs each event once)
+	 */
+	private setupEventLogging() {
+		this.on("spacedrive-event", (event: any) => {
+			if ("ResourceChanged" in event) {
+				const { resource_type, resource } = event.ResourceChanged;
+				console.log(`[${resource_type}] ResourceChanged`, { id: resource?.id, name: resource?.name });
+			} else if ("ResourceChangedBatch" in event) {
+				const { resource_type, resources } = event.ResourceChangedBatch;
+				const count = Array.isArray(resources) ? resources.length : 1;
+				console.log(`[${resource_type}] ResourceChangedBatch (${count} items)`);
+			} else if ("ResourceDeleted" in event) {
+				const { resource_type, resource_id } = event.ResourceDeleted;
+				console.log(`[${resource_type}] ResourceDeleted`, { id: resource_id });
+			}
+		});
 	}
 
 

@@ -68,6 +68,22 @@ impl LibraryAction for SpaceUpdateAction {
 
 		let result = active_model.update(db).await.map_err(ActionError::SeaOrm)?;
 
+		// Sync to peers (emits direct event)
+		library
+			.sync_model(&result, crate::infra::sync::ChangeType::Update)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to sync space: {}", e)))?;
+
+		// Emit virtual resource events (space_layout) via ResourceManager
+		let resource_manager = crate::domain::ResourceManager::new(
+			std::sync::Arc::new(library.db().conn().clone()),
+			library.event_bus().clone(),
+		);
+		resource_manager
+			.emit_resource_events("space", vec![result.uuid])
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to emit resource events: {}", e)))?;
+
 		let space = Space {
 			id: result.uuid,
 			name: result.name,

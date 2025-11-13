@@ -139,6 +139,7 @@ impl LibraryQuery for SpaceLayoutQuery {
 		}
 
 		let layout = SpaceLayout {
+			id: self.space_id,
 			space,
 			space_items,
 			groups,

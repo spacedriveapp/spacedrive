@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 
@@ -10,15 +10,23 @@ import { useSpacedriveClient } from "./useClient";
  * @param incoming - The new value from the event
  * @param noMergeFields - Fields to replace (from Identifiable.no_merge_fields)
  */
-function deepMerge(existing: any, incoming: any, noMergeFields: string[] = []): any {
+function deepMerge(
+  existing: any,
+  incoming: any,
+  noMergeFields: string[] = [],
+): any {
   // If incoming is null/undefined, keep existing
   if (incoming === null || incoming === undefined) {
     return existing !== null && existing !== undefined ? existing : incoming;
   }
 
   // If types don't match or not objects, incoming wins
-  if (typeof existing !== 'object' || typeof incoming !== 'object' ||
-      Array.isArray(existing) || Array.isArray(incoming)) {
+  if (
+    typeof existing !== "object" ||
+    typeof incoming !== "object" ||
+    Array.isArray(existing) ||
+    Array.isArray(incoming)
+  ) {
     return incoming;
   }
 
@@ -39,8 +47,12 @@ function deepMerge(existing: any, incoming: any, noMergeFields: string[] = []): 
       if (existing[key] !== null && existing[key] !== undefined) {
         merged[key] = existing[key];
       }
-    } else if (typeof existing[key] === 'object' && typeof incoming[key] === 'object' &&
-               !Array.isArray(existing[key]) && !Array.isArray(incoming[key])) {
+    } else if (
+      typeof existing[key] === "object" &&
+      typeof incoming[key] === "object" &&
+      !Array.isArray(existing[key]) &&
+      !Array.isArray(incoming[key])
+    ) {
       // Both are objects - recurse
       merged[key] = deepMerge(existing[key], incoming[key], noMergeFields);
     }
@@ -57,7 +69,7 @@ function deepMerge(existing: any, incoming: any, noMergeFields: string[] = []): 
 function resourceMatches(
   existing: any,
   incoming: any,
-  alternateIds: string[] = []
+  alternateIds: string[] = [],
 ): boolean {
   // Match by primary ID
   if (existing.id === incoming.id) {
@@ -132,7 +144,8 @@ export function useNormalizedCache<I, O>({
   const libraryId = client.getCurrentLibraryId();
 
   // Include library ID in key so switching libraries triggers refetch
-  const queryKey = [wireMethod, libraryId, input];
+  // useMemo to prevent array recreation on every render
+  const queryKey = useMemo(() => [wireMethod, libraryId, input], [wireMethod, libraryId, JSON.stringify(input)]);
 
   // Use TanStack Query normally
   const query = useQuery<O>({
@@ -157,19 +170,33 @@ export function useNormalizedCache<I, O>({
       if ("ResourceChanged" in event) {
         const { resource_type, resource, metadata } = event.ResourceChanged;
 
-          const noMergeFields = metadata?.no_merge_fields || [];
+        const noMergeFields = metadata?.no_merge_fields || [];
 
-        console.log('[ResourceEvent] ResourceChanged:', {
-          resourceType: resource_type,
-          ourType: resourceType,
-          resourceName: resource?.name,
-          resourceId: resource?.id,
-        });
+        // console.log('[ResourceEvent] ResourceChanged:', {
+        //   resourceType: resource_type,
+        //   ourType: resourceType,
+        //   wireMethod,
+        //   resource,
+        //   queryKey,
+        // });
 
         if (resource_type === resourceType) {
+          console.log(
+            "[ResourceEvent] Type matches! Updating cache for",
+            wireMethod,
+          );
+
           // Atomic update: merge this resource into the query data
           queryClient.setQueryData<O>(queryKey, (oldData) => {
-            if (!oldData) return oldData;
+            console.log("[ResourceEvent] setQueryData called");
+            console.log("  oldData:", oldData);
+            console.log("  resource:", resource);
+            console.log("  resourceType:", resourceType);
+
+            if (!oldData) {
+              console.log("[ResourceEvent] No oldData, cannot update");
+              return oldData;
+            }
 
             // Handle both array responses and wrapped responses
             // e.g., LocationsListOutput = { locations: LocationInfo[] }
@@ -181,15 +208,33 @@ export function useNormalizedCache<I, O>({
               );
 
               if (existingIndex >= 0) {
+                console.log(
+                  "[Cache] Updating existing item in array at index",
+                  existingIndex,
+                );
                 const newData = [...oldData];
-                newData[existingIndex] = deepMerge(oldData[existingIndex], resource, noMergeFields);
+                newData[existingIndex] = deepMerge(
+                  oldData[existingIndex],
+                  resource,
+                  noMergeFields,
+                );
                 return newData as O;
               }
 
               // Append if this is a global list OR resource passes filter
-              if (isGlobalList || (resourceFilter && resourceFilter(resource))) {
+              if (
+                isGlobalList ||
+                (resourceFilter && resourceFilter(resource))
+              ) {
+                console.log(
+                  "[Cache] Appending new item to array (isGlobalList:",
+                  isGlobalList,
+                  ")",
+                );
                 return [...oldData, resource] as O;
               }
+
+              console.log("[Cache] ️ Skipping - not in list scope");
 
               return oldData;
             } else if (oldData && typeof oldData === "object") {
@@ -208,16 +253,42 @@ export function useNormalizedCache<I, O>({
 
                 if (existingIndex >= 0) {
                   const newArray = [...array];
-                  newArray[existingIndex] = deepMerge(array[existingIndex], resource, noMergeFields);
+                  newArray[existingIndex] = deepMerge(
+                    array[existingIndex],
+                    resource,
+                    noMergeFields,
+                  );
+                  console.log(`[${resource_type}] Updated existing item in wrapped array`, { wireMethod, field: arrayField, id: resource.id });
                   return { ...oldData, [arrayField]: newArray };
                 }
 
                 // Append if this is a global list OR resource passes filter
-                if (isGlobalList || (resourceFilter && resourceFilter(resource))) {
+                if (
+                  isGlobalList ||
+                  (resourceFilter && resourceFilter(resource))
+                ) {
+                  console.log(`[${resource_type}] Appended to wrapped array`, { wireMethod, field: arrayField, id: resource.id });
                   return { ...oldData, [arrayField]: [...array, resource] };
                 }
 
                 return oldData;
+              }
+
+              // Check for wrapped single-object field (e.g., { layout: SpaceLayout })
+              for (const key of Object.keys(oldData)) {
+                const wrappedValue = (oldData as any)[key];
+                if (
+                  wrappedValue &&
+                  typeof wrappedValue === "object" &&
+                  !Array.isArray(wrappedValue) &&
+                  wrappedValue.id === resource.id
+                ) {
+                  console.log(`[${resource_type}] Updated wrapped object`, { wireMethod, field: key, id: resource.id });
+                  return {
+                    ...oldData,
+                    [key]: deepMerge(wrappedValue, resource, noMergeFields),
+                  } as O;
+                }
               }
 
               // Handle single object response (e.g., files.by_id returns a single File)
@@ -235,7 +306,8 @@ export function useNormalizedCache<I, O>({
               // Also check by content UUID for single object
               if (
                 (oldData as any).content_identity?.uuid &&
-                (oldData as any).content_identity.uuid === resource.content_identity?.uuid
+                (oldData as any).content_identity.uuid ===
+                  resource.content_identity?.uuid
               ) {
                 // console.log('[Cache] Updating single resource by content UUID:', {
                 //   contentId: resource.content_identity.uuid,
@@ -249,16 +321,27 @@ export function useNormalizedCache<I, O>({
           });
         }
       } else if ("ResourceChangedBatch" in event) {
-        const { resource_type, resources, metadata } = event.ResourceChangedBatch;
+        const { resource_type, resources, metadata } =
+          event.ResourceChangedBatch;
 
-        // console.log('[ResourceEvent] ResourceChangedBatch:', {
+        // console.log("[ResourceEvent] ResourceChangedBatch:", {
         //   resourceType: resource_type,
         //   ourType: resourceType,
-        //   count: resources?.length,
-        //   firstResource: resources?.[0]?.name,
+        //   wireMethod,
+        //   isArray: Array.isArray(resources),
+        //   count: Array.isArray(resources) ? resources.length : "not array",
+        //   firstItem: Array.isArray(resources) ? resources[0] : resources,
         // });
 
         if (resource_type === resourceType && Array.isArray(resources)) {
+          console.log("[ResourceChangedBatch]", {
+            resourceType: resource_type,
+            ourType: resourceType,
+            wireMethod,
+            isArray: Array.isArray(resources),
+            count: Array.isArray(resources) ? resources.length : "not array",
+            firstItem: Array.isArray(resources) ? resources[0] : resources,
+          });
           // Extract merge config from Identifiable metadata
           const noMergeFields = metadata?.no_merge_fields || [];
           const alternateIds = metadata?.alternate_ids || [];
@@ -271,11 +354,12 @@ export function useNormalizedCache<I, O>({
             const matches = (existing: any, incoming: any) => {
               if (existing.id === incoming.id) return true;
               // Check alternate IDs (e.g., content UUID for Files)
-              return alternateIds.some(altId =>
-                existing.id === altId ||
-                existing.content_identity?.uuid === altId ||
-                incoming.id === altId ||
-                incoming.content_identity?.uuid === altId
+              return alternateIds.some(
+                (altId) =>
+                  existing.id === altId ||
+                  existing.content_identity?.uuid === altId ||
+                  incoming.id === altId ||
+                  incoming.content_identity?.uuid === altId,
               );
             };
 
@@ -320,21 +404,31 @@ export function useNormalizedCache<I, O>({
 
                   // For Content-based paths with multiple entries, update by content UUID
                   // (sidecar events can create multiple File resources for the same content)
-                  if (resource.sd_path?.Content && resource.content_identity?.uuid) {
+                  if (
+                    resource.sd_path?.Content &&
+                    resource.content_identity?.uuid
+                  ) {
                     const contentId = resource.content_identity.uuid;
 
                     // Find existing item with same content
                     const existingIndex = newData.findIndex(
-                      (item: any) => item.content_identity?.uuid === contentId
+                      (item: any) => item.content_identity?.uuid === contentId,
                     );
 
                     if (existingIndex >= 0) {
                       // Update existing item (merge sidecars, etc.)
-                      newData[existingIndex] = deepMerge(newData[existingIndex], resource, noMergeFields);
-                      console.log('[Cache] Updated existing file by content UUID:', {
-                        name: resource.name,
-                        contentId,
-                      });
+                      newData[existingIndex] = deepMerge(
+                        newData[existingIndex],
+                        resource,
+                        noMergeFields,
+                      );
+                      console.log(
+                        "[Cache] Updated existing file by content UUID:",
+                        {
+                          name: resource.name,
+                          contentId,
+                        },
+                      );
                       continue;
                     }
                   }
@@ -349,29 +443,35 @@ export function useNormalizedCache<I, O>({
               // Check if this is a single resource object (File) vs wrapper ({files: [...]})
               // Single resource has: id, name, sd_path
               // Wrapper has: files (array), has_more, total_count
-              const isSingleResource = !!(oldData as any).id && !!(oldData as any).sd_path;
+              const isSingleResource =
+                !!(oldData as any).id && !!(oldData as any).sd_path;
 
-              console.log('[Cache] Batch - response type check:', {
-                isSingleResource,
-                hasId: !!(oldData as any).id,
-                hasSdPath: !!(oldData as any).sd_path,
-                firstKey: Object.keys(oldData)[0],
-              });
+              // console.log("[Cache] Batch - response type check:", {
+              //   isSingleResource,
+              //   hasId: !!(oldData as any).id,
+              //   hasSdPath: !!(oldData as any).sd_path,
+              //   firstKey: Object.keys(oldData)[0],
+              // });
 
               if (isSingleResource) {
                 // Single object response - check each incoming resource
-                console.log('[Cache] Single object mode - checking resources:', {
-                  oldDataId: (oldData as any).id,
-                  oldDataContentId: (oldData as any).content_identity?.uuid,
-                  incomingCount: resources.length,
-                  incomingIds: resources.map((r: any) => r.id),
-                  incomingContentIds: resources.map((r: any) => r.content_identity?.uuid),
-                });
+                console.log(
+                  "[Cache] Single object mode - checking resources:",
+                  {
+                    oldDataId: (oldData as any).id,
+                    oldDataContentId: (oldData as any).content_identity?.uuid,
+                    incomingCount: resources.length,
+                    incomingIds: resources.map((r: any) => r.id),
+                    incomingContentIds: resources.map(
+                      (r: any) => r.content_identity?.uuid,
+                    ),
+                  },
+                );
 
                 for (const resource of resources) {
                   // Match by ID
                   if ((oldData as any).id === resource.id) {
-                    console.log('[Cache] ✓ Updating single object by ID:', {
+                    console.log("[Cache] ✓ Updating single object by ID:", {
                       name: resource.name,
                       id: resource.id,
                     });
@@ -381,17 +481,21 @@ export function useNormalizedCache<I, O>({
                   // Match by content UUID
                   if (
                     (oldData as any).content_identity?.uuid &&
-                    (oldData as any).content_identity.uuid === resource.content_identity?.uuid
+                    (oldData as any).content_identity.uuid ===
+                      resource.content_identity?.uuid
                   ) {
-                    console.log('[Cache] ✓ Updating single object by content UUID:', {
-                      name: resource.name,
-                      contentId: resource.content_identity.uuid,
-                    });
+                    console.log(
+                      "[Cache] ✓ Updating single object by content UUID:",
+                      {
+                        name: resource.name,
+                        contentId: resource.content_identity.uuid,
+                      },
+                    );
                     return deepMerge(oldData, resource, noMergeFields) as O;
                   }
                 }
 
-                console.log('[Cache] ✗ No match found for single object');
+                console.log("[Cache] ✗ No match found for single object");
                 // No match - return unchanged
                 return oldData;
               }
@@ -436,19 +540,30 @@ export function useNormalizedCache<I, O>({
                     }
 
                     // For Content-based paths, update existing item by content UUID
-                    if (resource.sd_path?.Content && resource.content_identity?.uuid) {
+                    if (
+                      resource.sd_path?.Content &&
+                      resource.content_identity?.uuid
+                    ) {
                       const contentId = resource.content_identity.uuid;
                       const existingIndex = array.findIndex(
-                        (item: any) => item.content_identity?.uuid === contentId
+                        (item: any) =>
+                          item.content_identity?.uuid === contentId,
                       );
 
                       if (existingIndex >= 0) {
                         // Update existing item
-                        array[existingIndex] = deepMerge(array[existingIndex], resource, noMergeFields);
-                        console.log('[Cache] Updated existing file by content UUID:', {
-                          name: resource.name,
-                          contentId,
-                        });
+                        array[existingIndex] = deepMerge(
+                          array[existingIndex],
+                          resource,
+                          noMergeFields,
+                        );
+                        console.log(
+                          "[Cache] Updated existing file by content UUID:",
+                          {
+                            name: resource.name,
+                            contentId,
+                          },
+                        );
                         continue;
                       }
                     }

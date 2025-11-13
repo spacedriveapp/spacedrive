@@ -274,7 +274,7 @@ export function Dialog<S extends FieldValues>({
           e.preventDefault();
           await onSubmit?.(e);
           dialog.onSubmit?.();
-          setOpen(false);
+          // Note: onSubmit handler should manage dialog.state.open if needed
         }}
       >
         {props.ctaLabel}
@@ -293,7 +293,7 @@ export function Dialog<S extends FieldValues>({
             e.preventDefault();
             await onSubmit?.(e);
             dialog.onSubmit?.();
-            setOpen(false);
+            // Note: onSubmit handler should manage dialog.state.open if needed
           }}
         >
           {props.ctaLabel}
@@ -309,7 +309,7 @@ export function Dialog<S extends FieldValues>({
             e.preventDefault();
             await onSubmitSecond?.(e);
             dialog.onSubmit?.();
-            setOpen(false);
+            // Note: onSubmit handler should manage dialog.state.open if needed
           }}
         >
           {props.ctaSecondLabel}
@@ -344,7 +344,11 @@ export function Dialog<S extends FieldValues>({
                 form={form}
                 onSubmit={async (e) => {
                   e?.preventDefault();
-                  setOpen(false);
+                  // Only close dialog if there's an actual submit handler
+                  // This prevents closing on intermediate steps (like picker screens)
+                  if (onSubmit) {
+                    await onSubmit(e);
+                  }
                 }}
                 className={clsx(
                   "!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-xl",

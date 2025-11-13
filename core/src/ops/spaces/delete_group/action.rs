@@ -36,8 +36,16 @@ impl LibraryAction for DeleteGroupAction {
 			.map_err(ActionError::SeaOrm)?
 			.ok_or_else(|| ActionError::Internal(format!("Group {} not found", self.input.group_id)))?;
 
+		let group_id = group_model.uuid;
+
 		// Delete will cascade to items due to foreign key constraints
 		group_model.delete(db).await.map_err(ActionError::SeaOrm)?;
+
+		// Emit ResourceDeleted event for the group
+		library.event_bus().emit(crate::infra::event::Event::ResourceDeleted {
+			resource_type: "space_group".to_string(),
+			resource_id: group_id,
+		});
 
 		Ok(DeleteGroupOutput { success: true })
 	}

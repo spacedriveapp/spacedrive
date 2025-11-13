@@ -13,7 +13,10 @@ pub mod ocr;
 pub mod speech;
 pub mod thumbnail;
 
-pub use metadata_extractor::{extract_audio_metadata, extract_image_metadata, extract_video_metadata};
+pub use metadata_extractor::extract_image_metadata;
+
+#[cfg(feature = "ffmpeg")]
+pub use metadata_extractor::{extract_audio_metadata, extract_video_metadata};
 pub use ocr::{OcrJob, OcrProcessor};
 pub use speech::{SpeechToTextJob, SpeechToTextProcessor};
 pub use thumbnail::ThumbnailJob;

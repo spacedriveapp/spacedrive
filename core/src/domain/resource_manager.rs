@@ -25,6 +25,178 @@ impl ResourceManager {
 		Self { db, events }
 	}
 
+	/// Emit direct ResourceChanged events for simple resources
+	async fn emit_direct_events(&self, resource_type: &str, resource_ids: &[Uuid]) -> Result<()> {
+		use crate::infra::db::entities::{space, space_group, space_item};
+		use crate::domain::{Space, SpaceGroup, SpaceItem, GroupType, ItemType};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		match resource_type {
+			"space" => {
+				for &space_id in resource_ids {
+					if let Some(space_model) = space::Entity::find()
+						.filter(space::Column::Uuid.eq(space_id))
+						.one(&*self.db)
+						.await?
+					{
+						let space = Space {
+							id: space_model.uuid,
+							name: space_model.name,
+							icon: space_model.icon,
+							color: space_model.color,
+							order: space_model.order,
+							created_at: space_model.created_at.into(),
+							updated_at: space_model.updated_at.into(),
+						};
+
+						self.events.emit(Event::ResourceChanged {
+							resource_type: "space".to_string(),
+							resource: serde_json::to_value(&space).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize space: {}", e))
+							})?,
+							metadata: None,
+						});
+					}
+				}
+			}
+			"space_group" => {
+				for &group_id in resource_ids {
+					if let Some(group_model) = space_group::Entity::find()
+						.filter(space_group::Column::Uuid.eq(group_id))
+						.one(&*self.db)
+						.await?
+					{
+						let space_model = space::Entity::find_by_id(group_model.space_id)
+							.one(&*self.db)
+							.await?;
+
+						let space_id = space_model.map(|s| s.uuid).unwrap_or(group_id);
+
+						let group_type: GroupType = serde_json::from_str(&group_model.group_type)
+							.map_err(|e| crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to parse group_type: {}", e)))?;
+
+						let group = SpaceGroup {
+							id: group_model.uuid,
+							space_id,
+							name: group_model.name,
+							group_type,
+							is_collapsed: group_model.is_collapsed,
+							order: group_model.order,
+							created_at: group_model.created_at.into(),
+						};
+
+						self.events.emit(Event::ResourceChanged {
+							resource_type: "space_group".to_string(),
+							resource: serde_json::to_value(&group).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize group: {}", e))
+							})?,
+							metadata: None,
+						});
+					}
+				}
+			}
+			"location" => {
+				use crate::infra::db::entities::{location, device, entry, directory_paths};
+				use crate::ops::locations::list::output::LocationInfo;
+				use crate::domain::addressing::SdPath;
+
+				for &location_id in resource_ids {
+					// Build LocationInfo the same way as LocationsListQuery
+					let location_with_entry = location::Entity::find()
+						.filter(location::Column::Uuid.eq(location_id))
+						.find_also_related(entry::Entity)
+						.one(&*self.db)
+						.await?;
+
+					if let Some((loc, entry_opt)) = location_with_entry {
+						let Some(entry) = entry_opt else {
+							tracing::warn!("Location {} has no root entry, skipping event", location_id);
+							continue;
+						};
+
+						let Some(dir_path) = directory_paths::Entity::find_by_id(entry.id)
+							.one(&*self.db)
+							.await? else {
+							tracing::warn!("No directory path for location {} entry {}", location_id, entry.id);
+							continue;
+						};
+
+						let Some(device_model) = device::Entity::find_by_id(loc.device_id)
+							.one(&*self.db)
+							.await? else {
+							tracing::warn!("Device not found for location {}", location_id);
+							continue;
+						};
+
+						let sd_path = SdPath::Physical {
+							device_slug: device_model.slug.clone(),
+							path: dir_path.path.clone().into(),
+						};
+
+						let location_info = LocationInfo {
+							id: loc.uuid,
+							path: dir_path.path.into(),
+							name: loc.name.clone(),
+							sd_path,
+						};
+
+						self.events.emit(Event::ResourceChanged {
+							resource_type: "location".to_string(),
+							resource: serde_json::to_value(&location_info).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize location: {}", e))
+							})?,
+							metadata: None,
+						});
+					}
+				}
+			}
+			"space_item" => {
+				for &item_id in resource_ids {
+					if let Some(item_model) = space_item::Entity::find()
+						.filter(space_item::Column::Uuid.eq(item_id))
+						.one(&*self.db)
+						.await?
+					{
+						let space_model = space::Entity::find_by_id(item_model.space_id)
+							.one(&*self.db)
+							.await?;
+
+						let space_id = space_model.map(|s| s.uuid).unwrap_or(item_id);
+
+						let item_type: ItemType = serde_json::from_str(&item_model.item_type)
+							.map_err(|e| crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to parse item_type: {}", e)))?;
+
+						let item = SpaceItem {
+							id: item_model.uuid,
+							space_id,
+							group_id: item_model.group_id.and_then(|id| {
+								// Need to look up group UUID from ID
+								// For now just skip group_id
+								None
+							}),
+							item_type,
+							order: item_model.order,
+							created_at: item_model.created_at.into(),
+						};
+
+						self.events.emit(Event::ResourceChanged {
+							resource_type: "space_item".to_string(),
+							resource: serde_json::to_value(&item).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize item: {}", e))
+							})?,
+							metadata: None,
+						});
+					}
+				}
+			}
+			_ => {
+				// Unknown resource type, skip direct emission
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Emit events for a resource change, handling virtual resource mapping
 	///
 	/// For simple resources (backed by single table):
@@ -60,6 +232,9 @@ impl ResourceManager {
 			return Ok(());
 		}
 
+		// Emit direct events first (for simple list queries)
+		self.emit_direct_events(resource_type, &resource_ids).await?;
+
 		// Check if any virtual resources depend on this type
 		let mut all_virtual_resources = Vec::new();
 
@@ -72,12 +247,7 @@ impl ResourceManager {
 		}
 
 		if all_virtual_resources.is_empty() {
-			// No virtual resources depend on this - emit direct event
-			// (Only if the resource type itself is identifiable)
-			tracing::debug!(
-				"No virtual resources depend on {}, skipping event",
-				resource_type
-			);
+			// No virtual resources to emit
 			return Ok(());
 		}
 
@@ -124,6 +294,39 @@ impl ResourceManager {
 								))
 							})?,
 							metadata: Some(metadata),
+						});
+					}
+				}
+				"space_layout" => {
+					// Construct SpaceLayout instances from space IDs
+					let layouts = crate::domain::SpaceLayout::from_space_ids(&self.db, &virtual_ids).await?;
+
+					tracing::info!(
+						"Emitting {} SpaceLayout ResourceChanged events (from {} {})",
+						layouts.len(),
+						resource_type,
+						if virtual_ids.len() == 1 { "change" } else { "changes" }
+					);
+
+					// Emit individual ResourceChanged events (not batch) for each layout
+					// because the query returns a single layout, not an array
+					for layout in layouts {
+						let serialized = serde_json::to_value(&layout).map_err(|e| {
+							crate::common::errors::CoreError::Other(anyhow::anyhow!(
+								"Failed to serialize space layout: {}", e
+							))
+						})?;
+
+						tracing::info!(
+							"Emitting ResourceChanged for space_layout id={}, serialized size: {} bytes",
+							layout.space.id,
+							serde_json::to_string(&serialized).unwrap_or_default().len()
+						);
+
+						self.events.emit(Event::ResourceChanged {
+							resource_type: "space_layout".to_string(),
+							resource: serialized,
+							metadata: None,
 						});
 					}
 				}

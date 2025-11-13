@@ -219,23 +219,14 @@ impl LocationManager {
 			path: location_path.clone(),
 		});
 
-		// Emit generic resource event (normalized cache)
-		// Use LocationInfo to match what the query returns
-		use crate::ops::locations::list::output::LocationInfo;
-		let location_info = LocationInfo {
-			id: location_id,
-			path: location_path.clone(),
-			name: Some(display_name.clone()),
-			sd_path: sd_path.clone(),
-		};
-
-		info!("Emitting ResourceChanged event for location: {:?}", location_info);
-
-		self.events.emit(Event::ResourceChanged {
-			resource_type: "location".to_string(),
-			resource: serde_json::to_value(&location_info).unwrap(),
-			metadata: None, // Location has no special merge rules
-		});
+		// Emit resource events via ResourceManager (not from sync system)
+		let resource_manager = crate::domain::ResourceManager::new(
+			std::sync::Arc::new(library.db().conn().clone()),
+			std::sync::Arc::new(self.events.clone()),
+		);
+		if let Err(e) = resource_manager.emit_resource_events("location", vec![location_id]).await {
+			warn!("Failed to emit location resource events: {}", e);
+		}
 
 		// Also emit indexing started event
 		self.events.emit(Event::IndexingStarted { location_id });

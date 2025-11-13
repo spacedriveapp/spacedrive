@@ -116,6 +116,51 @@ pub async fn map_dependency_to_virtual_ids(
 			results.push(("file", vec![dependency_id]));
 		}
 
+		"space" | "space_group" | "space_item" => {
+			// SpaceLayout depends on Space, SpaceGroup, SpaceItem
+			// Find the space_id to identify which layout needs updating
+			use crate::infra::db::entities::{space, space_group, space_item};
+
+			let space_id = match dependency_type {
+				"space" => dependency_id,
+				"space_group" => {
+					// Get space_id from group
+					if let Some(group) = space_group::Entity::find()
+						.filter(space_group::Column::Uuid.eq(dependency_id))
+						.one(db)
+						.await?
+					{
+						space::Entity::find_by_id(group.space_id)
+							.one(db)
+							.await?
+							.map(|s| s.uuid)
+							.unwrap_or(dependency_id)
+					} else {
+						dependency_id
+					}
+				}
+				"space_item" => {
+					// Get space_id from item
+					if let Some(item) = space_item::Entity::find()
+						.filter(space_item::Column::Uuid.eq(dependency_id))
+						.one(db)
+						.await?
+					{
+						space::Entity::find_by_id(item.space_id)
+							.one(db)
+							.await?
+							.map(|s| s.uuid)
+							.unwrap_or(dependency_id)
+					} else {
+						dependency_id
+					}
+				}
+				_ => dependency_id,
+			};
+
+			results.push(("space_layout", vec![space_id]));
+		}
+
 		"content_identity" => {
 			// File depends on ContentIdentity
 			// Find all Entries with this content_id

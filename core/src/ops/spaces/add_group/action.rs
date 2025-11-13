@@ -61,7 +61,7 @@ impl LibraryAction for AddGroupAction {
 			.map_err(|e| ActionError::Internal(format!("Failed to serialize group_type: {}", e)))?;
 
 		let active_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: Set(0),
+			id: sea_orm::NotSet,
 			uuid: Set(group_id),
 			space_id: Set(space_model.id),
 			name: Set(self.input.name.clone()),
@@ -72,6 +72,22 @@ impl LibraryAction for AddGroupAction {
 		};
 
 		let result = active_model.insert(db).await.map_err(ActionError::SeaOrm)?;
+
+		// Sync to peers (emits direct event)
+		library
+			.sync_model(&result, crate::infra::sync::ChangeType::Insert)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to sync group: {}", e)))?;
+
+		// Emit virtual resource events (space_layout) via ResourceManager
+		let resource_manager = crate::domain::ResourceManager::new(
+			std::sync::Arc::new(library.db().conn().clone()),
+			library.event_bus().clone(),
+		);
+		resource_manager
+			.emit_resource_events("space_group", vec![result.uuid])
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to emit resource events: {}", e)))?;
 
 		let group = SpaceGroup {
 			id: result.uuid,

@@ -58,6 +58,7 @@ use crate::domains::{
 	logs::{self, LogsCmd},
 	network::{self, NetworkCmd},
 	search::{self, SearchCmd},
+	spaces::{self, SpacesCmd},
 	sync::{self, SyncCmd},
 	tag::{self, TagCmd},
 	update,
@@ -205,6 +206,9 @@ enum Commands {
 	/// Search operations
 	#[command(subcommand)]
 	Search(SearchCmd),
+	/// Spaces operations
+	#[command(subcommand)]
+	Spaces(SpacesCmd),
 	/// Sync operations and metrics
 	#[command(subcommand)]
 	Sync(SyncCmd),
@@ -700,6 +704,7 @@ async fn run_client_command(
 		Commands::Sync(cmd) => sync::run(&ctx, cmd).await?,
 		Commands::Logs(cmd) => logs::run(&ctx, cmd).await?,
 		Commands::Search(cmd) => search::run(&ctx, cmd).await?,
+		Commands::Spaces(cmd) => spaces::exec(cmd, &ctx).await?,
 		Commands::Tag(cmd) => tag::run(&ctx, cmd).await?,
 		Commands::Volume(cmd) => volume::run(&ctx, cmd).await?,
 		Commands::Cloud => cloud::run(&ctx).await?,

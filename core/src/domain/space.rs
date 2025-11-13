@@ -120,11 +120,7 @@ impl SpaceGroup {
 
 	/// Create a Device group
 	pub fn create_device(space_id: Uuid, device_id: Uuid, device_name: String) -> Self {
-		Self::new(
-			space_id,
-			device_name,
-			GroupType::Device { device_id },
-		)
+		Self::new(space_id, device_name, GroupType::Device { device_id })
 	}
 }
 
@@ -172,7 +168,7 @@ pub struct SpaceItem {
 	/// Group this item belongs to (None = space-level item)
 	pub group_id: Option<Uuid>,
 
-	/// Type and data of this item
+	/// Type discriminant (for quick type checking)
 	pub item_type: ItemType,
 
 	/// Sort order within space or group
@@ -272,10 +268,12 @@ pub enum ItemType {
 	/// Any arbitrary path (dragged from explorer)
 	Path { sd_path: SdPath },
 }
-
 /// Complete sidebar layout for a space
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SpaceLayout {
+	/// Unique identifier (same as space.id for cache matching)
+	pub id: Uuid,
+
 	/// The space
 	pub space: Space,
 
@@ -284,6 +282,149 @@ pub struct SpaceLayout {
 
 	/// Groups with their items
 	pub groups: Vec<SpaceGroupWithItems>,
+}
+
+impl SpaceLayout {
+	/// Construct SpaceLayout from space IDs (for resource manager)
+	pub async fn from_space_ids(
+		db: &sea_orm::DatabaseConnection,
+		space_ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>> {
+		use crate::infra::db::entities::{space, space_group, space_item};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
+		let mut layouts = Vec::new();
+
+		for &space_id in space_ids {
+			// Get space
+			let space_model = space::Entity::find()
+				.filter(space::Column::Uuid.eq(space_id))
+				.one(db)
+				.await?;
+
+			let Some(space_model) = space_model else {
+				continue;
+			};
+
+			let space = Space {
+				id: space_model.uuid,
+				name: space_model.name,
+				icon: space_model.icon,
+				color: space_model.color,
+				order: space_model.order,
+				created_at: space_model.created_at.into(),
+				updated_at: space_model.updated_at.into(),
+			};
+
+			// Get space-level items
+			let space_item_models = space_item::Entity::find()
+				.filter(space_item::Column::SpaceId.eq(space_model.id))
+				.filter(space_item::Column::GroupId.is_null())
+				.order_by_asc(space_item::Column::Order)
+				.all(db)
+				.await?;
+
+			let mut space_items = Vec::new();
+			for item_model in space_item_models {
+				let item_type: ItemType =
+					serde_json::from_str(&item_model.item_type).map_err(|e| {
+						crate::common::errors::CoreError::Other(anyhow::anyhow!(
+							"Failed to parse item_type: {}",
+							e
+						))
+					})?;
+
+				space_items.push(SpaceItem {
+					id: item_model.uuid,
+					space_id,
+					group_id: None,
+					item_type,
+					order: item_model.order,
+					created_at: item_model.created_at.into(),
+				});
+			}
+
+			// Get groups with items
+			let group_models = space_group::Entity::find()
+				.filter(space_group::Column::SpaceId.eq(space_model.id))
+				.order_by_asc(space_group::Column::Order)
+				.all(db)
+				.await?;
+
+			let mut groups = Vec::new();
+			for group_model in group_models {
+				let group_type: GroupType =
+					serde_json::from_str(&group_model.group_type).map_err(|e| {
+						crate::common::errors::CoreError::Other(anyhow::anyhow!(
+							"Failed to parse group_type: {}",
+							e
+						))
+					})?;
+
+				let group = SpaceGroup {
+					id: group_model.uuid,
+					space_id,
+					name: group_model.name,
+					group_type,
+					is_collapsed: group_model.is_collapsed,
+					order: group_model.order,
+					created_at: group_model.created_at.into(),
+				};
+
+				// Get items for this group
+				let item_models = space_item::Entity::find()
+					.filter(space_item::Column::GroupId.eq(Some(group_model.id)))
+					.order_by_asc(space_item::Column::Order)
+					.all(db)
+					.await?;
+
+				let mut items = Vec::new();
+				for item_model in item_models {
+					let item_type: ItemType =
+						serde_json::from_str(&item_model.item_type).map_err(|e| {
+							crate::common::errors::CoreError::Other(anyhow::anyhow!(
+								"Failed to parse item_type: {}",
+								e
+							))
+						})?;
+
+					items.push(SpaceItem {
+						id: item_model.uuid,
+						space_id,
+						group_id: Some(group_model.uuid),
+						item_type,
+						order: item_model.order,
+						created_at: item_model.created_at.into(),
+					});
+				}
+
+				groups.push(SpaceGroupWithItems { group, items });
+			}
+
+			layouts.push(SpaceLayout {
+				id: space_id,
+				space,
+				space_items,
+				groups,
+			});
+		}
+
+		Ok(layouts)
+	}
+}
+
+impl Identifiable for SpaceLayout {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str {
+		"space_layout"
+	}
+
+	fn sync_dependencies() -> &'static [&'static str] {
+		&["space", "space_group", "space_item"]
+	}
 }
 
 /// A group with its items
