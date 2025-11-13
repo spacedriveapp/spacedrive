@@ -281,15 +281,30 @@ impl CopyStrategy for RemoteTransferStrategy {
 		let networking = ctx.networking_service()
 			.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
 
-		// Get local path
-		let local_path = source.as_local_path()
-			.ok_or_else(|| anyhow::anyhow!("Source must be local path"))?;
+		// Get local path - handle both Physical and Sidecar variants
+		let local_path = if let Some(path) = source.as_local_path() {
+			// Direct physical path
+			path.to_path_buf()
+		} else if let Some((content_id, kind, variant, format)) = source.as_sidecar() {
+			// Sidecar path - need to compute physical location
+			let sidecar_manager = ctx.sidecar_manager().await
+				.ok_or_else(|| anyhow::anyhow!("Sidecar manager not available"))?;
+			let library_id = library.id();
+			let computed_path = sidecar_manager
+				.compute_path(&library_id, &content_id, &kind, &variant, &format)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to compute sidecar path: {}", e))?;
+
+			computed_path.absolute_path
+		} else {
+			return Err(anyhow::anyhow!("Source must be either Physical or Sidecar path"));
+		};
 
 		// Read file metadata
-		let metadata = tokio::fs::metadata(local_path).await?;
+		let metadata = tokio::fs::metadata(&local_path).await?;
 		let file_size = metadata.len();
 
-		let checksum = calculate_file_checksum(local_path).await
+		let checksum = calculate_file_checksum(&local_path).await
 			.map(Some)
 			.map_err(|e| anyhow::anyhow!("Failed to calculate checksum: {}", e))?;
 
@@ -348,7 +363,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 		ctx.log(format!("Transfer initiated with ID: {}", transfer_id));
 
 		let result = stream_file_data(
-			local_path,
+			&local_path,
 			transfer_id,
 			file_transfer_protocol,
 			file_size,

@@ -1,0 +1,329 @@
+═══════════════════════════════════════════════════════════════════════════════
+  SPACEDRIVE EVENT SYSTEM & NAVIGATION - ARCHITECTURE SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+1. RESOURCE EVENTS RECEIVED/HANDLED IN packages/interface
+───────────────────────────────────────────────────────────────────────────────
+
+   Event Flow:
+   ┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
+   │   Backend   │────→│ SpacedriveClient │────→│ Components   │
+   │   (Rust)    │     │   SimpleEmitter  │     │   & Hooks    │
+   └─────────────┘     └──────────────────┘     └──────────────┘
+        emit          client.on(
+      ResourceChanged   'spacedrive-event',
+      LocationAdded       handler)
+
+   Location Components:
+   • AddLocationModal.tsx - Creates new locations (has onLocationAdded callback)
+   • LocationsSection.tsx - List of locations, handles add action
+   • LocationsGroup.tsx - Sidebar locations with navigation
+
+   Event Listeners Available:
+   • useEvent() hook - Listen to specific event types
+   • useNormalizedCache() hook - Auto-update cache from ResourceChanged
+   • client.on() / client.off() - Direct listener subscription
+
+
+2. LOCATION CREATION EVENT STRUCTURE
+───────────────────────────────────────────────────────────────────────────────
+
+   Option A: LocationAdded Event (Legacy)
+   ─────────────────────────────────
+   {
+     LocationAdded: {
+       library_id: string,
+       location_id: string,
+       path: string
+     }
+   }
+
+   Option B: ResourceChanged Event (Recommended) ← PREFER THIS
+   ────────────────────────────────────────
+   {
+     ResourceChanged: {
+       resource_type: "location",
+       resource: {
+         id: string,
+         name: string,
+         path: string,
+         indexed_at: string,
+         ...other LocationInfo fields
+       },
+       metadata?: {
+         no_merge_fields?: string[],
+         alternate_ids?: string[]
+       }
+     }
+   }
+
+   Event Detection Pattern:
+   CORRECT:   if ('LocationAdded' in event) { event.LocationAdded.location_id }
+   CORRECT:   if ('ResourceChanged' in event) { event.ResourceChanged.resource.id }
+   WRONG:     if (event.type === 'LocationAdded') { }
+                 [Events don't have .type - they're discriminated unions]
+
+
+3. NAVIGATION IMPLEMENTATION
+───────────────────────────────────────────────────────────────────────────────
+
+   Router Setup:
+   • createBrowserRouter() from react-router-dom
+   • Route: /location/:locationId → ExplorerView component
+   • Routes defined in: router.tsx
+
+   Navigation Pattern:
+   ┌─────────────────────────────────────────────────────┐
+   │ import { useNavigate } from 'react-router-dom';     │
+   │                                                      │
+   │ function Component() {                              │
+   │   const navigate = useNavigate();                   │
+   │   navigate(`/location/${locationId}`);              │
+   │ }                                                    │
+   └─────────────────────────────────────────────────────┘
+
+   Current Usage Examples:
+   • LocationsGroup.tsx - Line 44: navigate(`/location/${location.id}`)
+   • LocationsSection.tsx - Line 24 & 29: navigate when clicking or adding
+   • AddLocationModal.tsx - Currently has callback that triggers navigate
+
+
+4. EVENT LISTENERS & HANDLERS
+───────────────────────────────────────────────────────────────────────────────
+
+   useEvent Hook (Manual Control)
+   ──────────────────────────────
+   Location: /packages/interface/src/hooks/useEvent.ts
+   
+   export function useEvent(eventType: string, handler: (event: any) => void) {
+     const client = useSpacedriveClient();
+     useEffect(() => {
+       client.on('spacedrive-event', handleEvent);
+       return () => client.off('spacedrive-event', handleEvent);
+     }, [eventType, client]);
+   }
+
+   Usage:
+   useEvent('LocationAdded', (event) => {
+     const { location_id } = event.LocationAdded;
+     navigate(`/location/${location_id}`);
+   });
+
+
+   useNormalizedCache Hook (Auto-Update)
+   ─────────────────────────────────────
+   Location: /packages/ts-client/src/hooks/useNormalizedCache.ts
+   
+   const { data: locationsData } = useNormalizedCache({
+     wireMethod: 'query:locations.list',
+     input: {},
+     resourceType: 'location',        ← Matches event.ResourceChanged.resource_type
+     isGlobalList: true,              ← Auto-appends new locations
+   });
+
+   What it does:
+   1. Fetches data via TanStack Query
+   2. Listens for ResourceChanged events
+   3. If resource_type matches AND isGlobalList=true: appends to list
+   4. Component re-renders instantly with new data
+   5. No manual event handling needed!
+
+
+   SimpleEventEmitter (Core)
+   ────────────────────────
+   Location: /packages/ts-client/src/client.ts (lines 8-39)
+   
+   Methods:
+   • on(event, listener) - Add listener
+   • off(event, listener) - Remove listener
+   • emit(event, ...args) - Emit event (called automatically by transport)
+   • once(event, listener) - One-time listener
+
+
+5. CURRENT FLOW: ADDING A LOCATION
+───────────────────────────────────────────────────────────────────────────────
+
+   Timeline:
+   ─────────
+   T0:  User clicks "Add Location"
+   T1:  AddLocationDialog opens
+   T2:  User fills form and submits
+   T3:  useAddLocationDialog(callback) is called
+   T4:  Dialog submits form
+   T5:  addLocation.mutateAsync(input) - API call
+   T6:  Backend creates location in database
+   T7:  Backend emits ResourceChanged event
+   T8:  Event arrives at client (1-500ms delay)
+   T9:  Mutation returns result with location.id
+   T10: onLocationAdded callback fires (currently immediate)
+   T11: navigate(`/location/{locationId}`) executes
+   T12: User sees ExplorerView (may be empty until ResourceChanged processes)
+
+   ISSUE: Navigation happens at T10, but event processing happens at T8
+          → User might navigate before location is ready
+
+
+6. KEY FILES & ABSOLUTE PATHS
+───────────────────────────────────────────────────────────────────────────────
+
+   Core Event System:
+   ✓ /Users/jamespine/Projects/spacedrive/packages/ts-client/src/client.ts
+     - SpacedriveClient class with SimpleEventEmitter
+     - subscribe() method that emits events
+     - Lines 8-39: SimpleEventEmitter implementation
+
+   ✓ /Users/jamespine/Projects/spacedrive/packages/ts-client/src/event-filter.ts
+     - DEFAULT_EVENT_SUBSCRIPTION list
+     - Event type definitions
+
+   ✓ /Users/jamespine/Projects/spacedrive/packages/ts-client/src/generated/types.ts
+     - Auto-generated Event union type (line 424)
+     - All event definitions
+
+   Event Hooks:
+   ✓ /Users/jamespine/Projects/spacedrive/packages/interface/src/hooks/useEvent.ts
+     - useEvent() - manual event listening
+     - useAllEvents() - listen to all events
+
+   ✓ /Users/jamespine/Projects/spacedrive/packages/ts-client/src/hooks/useNormalizedCache.ts
+     - useNormalizedCache() - auto-updating cache from ResourceChanged
+     - Lines 150-500: Event handling logic
+
+   Location Components:
+   ✓ /Users/jamespine/Projects/spacedrive/packages/interface/src/components/Explorer/components/AddLocationModal.tsx
+     - useAddLocationDialog() - dialog factory
+     - onLocationAdded callback (line 241-242)
+
+   ✓ /Users/jamespine/Projects/spacedrive/packages/interface/src/components/Explorer/components/LocationsSection.tsx
+     - useNormalizedCache for locations list
+     - handleAddLocation with navigate (lines 27-30)
+
+   ✓ /Users/jamespine/Projects/spacedrive/packages/interface/src/components/SpacesSidebar/LocationsGroup.tsx
+     - Locations sidebar with navigate
+
+   Router:
+   ✓ /Users/jamespine/Projects/spacedrive/packages/interface/src/router.tsx
+     - Route definition: "location/:locationId"
+
+
+7. RECOMMENDED IMPLEMENTATION APPROACH
+───────────────────────────────────────────────────────────────────────────────
+
+   Option 1: Wait for Event in AddLocationModal (RECOMMENDED)
+   ──────────────────────────────────────────
+   Modify AddLocationModal.tsx onSubmit handler:
+
+   const onSubmit = form.handleSubmit(async (data) => {
+     const result = await addLocation.mutateAsync(input);
+     dialog.state.open = false;
+
+     if (result?.id) {
+       // Wait for ResourceChanged event
+       let unsubscribe: (() => void) | undefined;
+       const timeout = setTimeout(() => {
+         unsubscribe?.();
+         props.onLocationAdded?.(result.id);  // Fallback
+       }, 5000);
+
+       unsubscribe = client.on('spacedrive-event', (event) => {
+         if ('ResourceChanged' in event &&
+             event.ResourceChanged.resource_type === 'location' &&
+             event.ResourceChanged.resource.id === result.id) {
+           clearTimeout(timeout);
+           unsubscribe?.();
+           props.onLocationAdded?.(result.id);  // NOW safe to navigate
+         }
+       });
+     }
+   });
+
+   Benefits:
+   • Simple - one component change
+   • Reliable - waits for actual location confirmation
+   • Safe - timeout fallback prevents hanging
+
+
+   Option 2: Create useOnLocationCreated Hook
+   ──────────────────────────────────────────
+   Create /packages/interface/src/hooks/useOnLocationCreated.ts
+
+   export function useOnLocationCreated(
+     callback: (locationId: string) => void
+   ) {
+     const client = useSpacedriveClient();
+     useEffect(() => {
+       const handleEvent = (event: any) => {
+         if ('ResourceChanged' in event &&
+             event.ResourceChanged.resource_type === 'location') {
+           callback(event.ResourceChanged.resource.id);
+         }
+       };
+       client.on('spacedrive-event', handleEvent);
+       return () => client.off('spacedrive-event', handleEvent);
+     }, [callback, client]);
+   }
+
+   Usage in LocationsSection:
+   const navigate = useNavigate();
+   useOnLocationCreated((locationId) => {
+     navigate(`/location/${locationId}`);
+   });
+
+   Benefits:
+   • Reusable in other components
+   • Cleaner separation of concerns
+   • Global location creation handling
+
+
+8. IMPORTANT NOTES
+───────────────────────────────────────────────────────────────────────────────
+
+   ✓ useNormalizedCache already handles ResourceChanged events
+     - No custom event handling needed for location list updates
+     - Just use isGlobalList: true to auto-append new items
+
+   ✓ Client.on() returns unsubscribe function, not named "off"
+     - unsubscribe = client.on(...)
+     - unsubscribe?.()  to remove listener
+
+   ✓ Events are discriminated unions
+     - Use 'in' operator to check event type
+     - NOT if (event.type === '...')
+
+   ✓ Resource type must match
+     - resource_type field comes from event
+     - For locations: event.ResourceChanged.resource_type === 'location'
+
+   ✓ Always add timeout when waiting for events
+     - Prevents infinite waiting if event doesn't arrive
+     - Graceful fallback to immediate navigation
+
+   ✓ Clean up listeners in useEffect
+     - Call unsubscribe() in cleanup function
+     - Prevents memory leaks
+
+
+9. SUMMARY
+───────────────────────────────────────────────────────────────────────────────
+
+   WHERE ARE EVENTS HANDLED?
+   • useNormalizedCache hook (ts-client) - auto-updates caches
+   • useEvent hook (interface) - manual event listening
+   • Components - via callbacks
+
+   HOW ARE LOCATION CREATION EVENTS STRUCTURED?
+   • LocationAdded event: { location_id, library_id, path }
+   • ResourceChanged event: { resource_type: 'location', resource: {...} }
+   • PREFER ResourceChanged - it has full location object
+
+   HOW IS NAVIGATION IMPLEMENTED?
+   • React Router with useNavigate hook
+   • Route: /location/:locationId
+   • Called after location confirmed by event
+
+   WHAT EVENT LISTENERS ARE AVAILABLE?
+   • client.on('spacedrive-event', handler) - Direct
+   • useEvent(eventType, handler) - Hook with cleanup
+   • useNormalizedCache() - Auto-update hook
+
+═══════════════════════════════════════════════════════════════════════════════

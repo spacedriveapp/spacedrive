@@ -59,6 +59,11 @@ impl<'a> JobContext<'a> {
 		self.volume_manager.clone()
 	}
 
+	/// Get sidecar manager from core context
+	pub async fn sidecar_manager(&self) -> Option<Arc<crate::service::sidecar_manager::SidecarManager>> {
+		self.library.core_context().get_sidecar_manager().await
+	}
+
 	/// Report progress
 	pub fn progress(&self, progress: Progress) {
 		// Log progress messages to file if enabled

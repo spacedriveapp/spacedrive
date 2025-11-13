@@ -47,6 +47,14 @@ pub enum JobOutput {
 		total_bytes: u64,
 	},
 
+	/// Sidecar sync operation output
+	SidecarSync {
+		discovered: usize,
+		transferred: usize,
+		failed: usize,
+		total_bytes: u64,
+	},
+
 	/// File delete operation output
 	FileDelete {
 		deleted_count: usize,
@@ -173,6 +181,18 @@ impl fmt::Display for JobOutput {
 				total_bytes,
 			} => {
 				write!(f, "Copied {} files ({} bytes)", copied_count, total_bytes)
+			}
+			Self::SidecarSync {
+				discovered,
+				transferred,
+				failed,
+				total_bytes,
+			} => {
+				write!(
+					f,
+					"Synced {} of {} sidecars ({} bytes, {} failed)",
+					transferred, discovered, total_bytes, failed
+				)
 			}
 			Self::Indexed { stats, metrics } => {
 				write!(

@@ -32,6 +32,10 @@ impl SidecarKind {
 			Self::Transcript => "transcript",
 		}
 	}
+
+	pub fn from_str(s: &str) -> Result<Self, String> {
+		Self::try_from(s)
+	}
 }
 
 impl fmt::Display for SidecarKind {

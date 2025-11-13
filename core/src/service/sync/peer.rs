@@ -114,6 +114,9 @@ pub struct PeerSync {
 	/// Database connection
 	db: Arc<DatabaseConnection>,
 
+	/// Library reference for job dispatch
+	library: Arc<Library>,
+
 	/// Network transport for sending sync messages
 	network: Arc<dyn NetworkTransport>,
 
@@ -155,7 +158,7 @@ pub struct PeerSync {
 impl PeerSync {
 	/// Create new peer sync service
 	pub async fn new(
-		library: &Library,
+		library: Arc<Library>,
 		device_id: Uuid,
 		peer_log: Arc<PeerLog>,
 		network: Arc<dyn NetworkTransport>,
@@ -174,6 +177,7 @@ impl PeerSync {
 			library_id,
 			device_id,
 			db: Arc::new(library.db().conn().clone()),
+			library: library.clone(),
 			network,
 			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
 			buffer: Arc::new(BufferQueue::new()),
@@ -1859,20 +1863,51 @@ impl PeerSync {
 		match entry.change_type {
 			ChangeType::Delete => {
 				self.event_bus.emit(Event::ResourceDeleted {
-					resource_type: entry.model_type,
+					resource_type: entry.model_type.clone(),
 					resource_id: entry.record_uuid,
 				});
 			}
 			ChangeType::Insert | ChangeType::Update => {
 				self.event_bus.emit(Event::ResourceChanged {
-					resource_type: entry.model_type,
+					resource_type: entry.model_type.clone(),
 					resource: entry.data,
 					metadata: None,
 				});
 			}
 		}
 
+		// Trigger sidecar sync if this was a sidecar change
+		if entry.model_type == "sidecar" {
+			self.trigger_sidecar_sync().await;
+		}
+
 		Ok(())
+	}
+
+	/// Trigger sidecar sync job after sidecar metadata changes
+	async fn trigger_sidecar_sync(&self) {
+		use crate::{
+			ops::sidecar::SidecarSyncJob,
+			service::sidecar_sync::{SidecarSyncFilters, SidecarSyncMode},
+		};
+
+		// TODO: Check library settings for auto_sync_after_library_sync
+		// TODO: Get job manager from library to dispatch sync job
+		// For now, just log that we would trigger sync
+		debug!("Sidecar metadata changed - would trigger sync job here");
+
+		// Future implementation:
+		// let job = SidecarSyncJob {
+		//     filters: SidecarSyncFilters {
+		//         kinds: None,
+		//         content_uuids: None,
+		//         max_count: Some(100),
+		//         cursor: None,
+		//     },
+		//     mode: SidecarSyncMode::PullMissing,
+		//     completed_indices: vec![],
+		// };
+		// library.job_manager().dispatch(job).await?;
 	}
 
 	/// Record ACK from peer and prune
