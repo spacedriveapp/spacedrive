@@ -576,7 +576,9 @@ pub static NO_SYSTEM_FILES: Lazy<SystemIndexerRule> = Lazy::new(|| {
                     "/System/Volumes/Data/{System,Network,Library,Applications,.PreviousSystemInformation,.com.apple.templatemigration.boot-install}",
                     "/Users/*/{Library,Applications}",
                     "/System/Volumes/Data/Users/*/{Library,Applications}",
-                    "**/*.photoslibrary/{database,external,private,resources,scope}",
+                    // Apple Photos library internal folders - reject both folder and contents
+                    "**/*.photoslibrary/{database,external,internal,private,resources,scopes}",
+                    "**/*.photoslibrary/{database,external,internal,private,resources,scopes}/**",
                     "**/.{DocumentRevisions-V100,fseventsd,Spotlight-V100,TemporaryItems,Trashes,VolumeIcon.icns,com.apple.timemachine.donotpresent}",
                     "**/.{AppleDB,AppleDesktop,apdisk}",
                     "**/{Network Trash Folder,Temporary Items}",

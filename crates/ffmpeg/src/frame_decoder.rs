@@ -191,10 +191,27 @@ impl FrameDecoder {
 		let height = new_frame.as_ref().height.unsigned_abs();
 		let line_size = usize::try_from(new_frame.as_ref().linesize[0])?;
 
-		let mut data = Vec::with_capacity(line_size * usize::try_from(height)?);
-		data.extend_from_slice(unsafe {
-			std::slice::from_raw_parts(new_frame.as_ref().data[0], data.capacity())
-		});
+		// For RGB24 format, each pixel is 3 bytes
+		let bytes_per_pixel = 3;
+		let row_bytes = usize::try_from(width)? * bytes_per_pixel;
+		let total_bytes = row_bytes * usize::try_from(height)?;
+
+		// Copy line by line to avoid including padding bytes
+		// FFmpeg may add padding to linesize for alignment, which would corrupt the image
+		// if we copied it as one contiguous block
+		let mut data = Vec::with_capacity(total_bytes);
+		let frame_data = unsafe {
+			std::slice::from_raw_parts(
+				new_frame.as_ref().data[0],
+				line_size * usize::try_from(height)?,
+			)
+		};
+
+		for y in 0..usize::try_from(height)? {
+			let line_start = y * line_size;
+			let line_end = line_start + row_bytes;
+			data.extend_from_slice(&frame_data[line_start..line_end]);
+		}
 
 		Ok(VideoFrame {
 			data,

@@ -81,6 +81,11 @@ warnings: string[];
 message: string };
 
 /**
+ * Audio metadata extracted from FFmpeg
+ */
+export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
+
+/**
  * Cloud service type identifier
  */
 export type CloudServiceType = "s3" | "gdrive" | "dropbox" | "onedrive" | "gcs" | "azblob" | "b2" | "wasabi" | "spaces" | "cloud";
@@ -526,13 +531,21 @@ tags: Tag[];
  */
 sidecars: Sidecar[]; 
 /**
+ * Media-specific metadata (extracted from EXIF/FFmpeg)
+ */
+image_media_data: ImageMediaData | null; video_media_data: VideoMediaData | null; audio_media_data: AudioMediaData | null; 
+/**
  * Timestamps for creation, modification, and access
  */
 created_at: string; modified_at: string; accessed_at: string | null; 
 /**
  * Additional computed fields
  */
-content_kind: ContentKind; extension: string | null; kind: EntryKind; is_local: boolean };
+content_kind: ContentKind; extension: string | null; kind: EntryKind; is_local: boolean; 
+/**
+ * Video duration (for grid display optimization)
+ */
+duration_seconds: number | null };
 
 /**
  * Query to get a file by its ID with all related data
@@ -795,6 +808,11 @@ export type GroupType =
  * User-defined custom group
  */
 "Custom";
+
+/**
+ * Image metadata extracted from EXIF
+ */
+export type ImageMediaData = { uuid: string; width: number; height: number; date_taken: string | null; latitude: number | null; longitude: number | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; focal_length: string | null; aperture: string | null; shutter_speed: string | null; iso: number | null; orientation: number | null; color_space: string | null; color_profile: string | null; bit_depth: string | null; artist: string | null; copyright: string | null; description: string | null };
 
 /**
  * Canonical input for indexing requests from any interface (CLI, API, etc.)
@@ -1608,6 +1626,10 @@ export type MediaSortBy =
  * Sort by creation date (newest first)
  */
 "created" | 
+/**
+ * Sort by date taken/captured (newest first)
+ */
+"datetaken" | 
 /**
  * Sort by name (alphabetical)
  */
@@ -2520,6 +2542,11 @@ export type UpdateGroupInput = { group_id: string; name: string | null; is_colla
 export type UpdateGroupOutput = { group: SpaceGroup };
 
 /**
+ * Video metadata extracted from FFmpeg
+ */
+export type VideoMediaData = { uuid: string; width: number; height: number; duration_seconds: number | null; bit_rate: number | null; codec: string | null; pixel_format: string | null; color_space: string | null; color_range: string | null; color_primaries: string | null; color_transfer: string | null; fps_num: number | null; fps_den: number | null; audio_codec: string | null; audio_channels: string | null; audio_sample_rate: number | null; audio_bit_rate: number | null; title: string | null; artist: string | null; album: string | null; creation_time: string | null; date_captured: string | null };
+
+/**
  * A volume in Spacedrive - unified model for runtime and database
  */
 export type Volume = { 
@@ -2750,173 +2777,173 @@ fingerprint: VolumeFingerprint };
 // ===== API Type Unions =====
 
 export type CoreAction =
-     { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
-  |  { type: 'network.pair.generate'; input: PairGenerateInput; output: PairGenerateOutput }
-  |  { type: 'network.stop'; input: NetworkStopInput; output: NetworkStopOutput }
-  |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
-  |  { type: 'network.pair.cancel'; input: PairCancelInput; output: PairCancelOutput }
-  |  { type: 'network.pair.join'; input: PairJoinInput; output: PairJoinOutput }
-  |  { type: 'network.spacedrop.send'; input: SpacedropSendInput; output: SpacedropSendOutput }
+     { type: 'network.sync_setup'; input: LibrarySyncSetupInput; output: LibrarySyncSetupOutput }
+  |  { type: 'network.start'; input: NetworkStartInput; output: NetworkStartOutput }
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
+  |  { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
+  |  { type: 'network.pair.cancel'; input: PairCancelInput; output: PairCancelOutput }
+  |  { type: 'network.stop'; input: NetworkStopInput; output: NetworkStopOutput }
+  |  { type: 'network.pair.generate'; input: PairGenerateInput; output: PairGenerateOutput }
+  |  { type: 'network.spacedrop.send'; input: SpacedropSendInput; output: SpacedropSendOutput }
+  |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
   |  { type: 'network.device.revoke'; input: DeviceRevokeInput; output: DeviceRevokeOutput }
-  |  { type: 'network.sync_setup'; input: LibrarySyncSetupInput; output: LibrarySyncSetupOutput }
-  |  { type: 'network.start'; input: NetworkStartInput; output: NetworkStartOutput }
+  |  { type: 'network.pair.join'; input: PairJoinInput; output: PairJoinOutput }
 ;
 
 export type LibraryAction =
-     { type: 'volumes.track'; input: VolumeTrackInput; output: VolumeTrackOutput }
-  |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
-  |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
+     { type: 'volumes.remove_cloud'; input: VolumeRemoveCloudInput; output: VolumeRemoveCloudOutput }
+  |  { type: 'volumes.untrack'; input: VolumeUntrackInput; output: VolumeUntrackOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
-  |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
+  |  { type: 'locations.rescan'; input: LocationRescanInput; output: LocationRescanOutput }
+  |  { type: 'volumes.track'; input: VolumeTrackInput; output: VolumeTrackOutput }
+  |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
+  |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
   |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
+  |  { type: 'media.speech.transcribe'; input: TranscribeAudioInput; output: TranscribeAudioOutput }
   |  { type: 'spaces.update_group'; input: UpdateGroupInput; output: UpdateGroupOutput }
-  |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
-  |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
-  |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
+  |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
+  |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
+  |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
   |  { type: 'spaces.update'; input: SpaceUpdateInput; output: SpaceUpdateOutput }
+  |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
   |  { type: 'spaces.reorder_items'; input: ReorderItemsInput; output: ReorderOutput }
   |  { type: 'spaces.reorder_groups'; input: ReorderGroupsInput; output: ReorderOutput }
-  |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
-  |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
-  |  { type: 'spaces.delete_group'; input: DeleteGroupInput; output: DeleteGroupOutput }
-  |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
+  |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
+  |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
   |  { type: 'spaces.delete'; input: SpaceDeleteInput; output: SpaceDeleteOutput }
   |  { type: 'indexing.verify'; input: IndexVerifyInput; output: IndexVerifyOutput }
-  |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
-  |  { type: 'volumes.untrack'; input: VolumeUntrackInput; output: VolumeUntrackOutput }
+  |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
+  |  { type: 'spaces.delete_group'; input: DeleteGroupInput; output: DeleteGroupOutput }
+  |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
   |  { type: 'media.thumbnail.regenerate'; input: RegenerateThumbnailInput; output: RegenerateThumbnailOutput }
   |  { type: 'media.thumbnail'; input: ThumbnailInput; output: JobReceipt }
-  |  { type: 'volumes.speed_test'; input: VolumeSpeedTestInput; output: VolumeSpeedTestOutput }
+  |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
   |  { type: 'spaces.delete_item'; input: DeleteItemInput; output: DeleteItemOutput }
-  |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
-  |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
-  |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
-  |  { type: 'locations.rescan'; input: LocationRescanInput; output: LocationRescanOutput }
   |  { type: 'media.ocr.extract'; input: ExtractTextInput; output: ExtractTextOutput }
-  |  { type: 'volumes.remove_cloud'; input: VolumeRemoveCloudInput; output: VolumeRemoveCloudOutput }
-  |  { type: 'media.speech.transcribe'; input: TranscribeAudioInput; output: TranscribeAudioOutput }
+  |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
+  |  { type: 'volumes.speed_test'; input: VolumeSpeedTestInput; output: VolumeSpeedTestOutput }
+  |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
 ;
 
 export type CoreQuery =
-     { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
-  |  { type: 'network.status'; input: NetworkStatusQueryInput; output: NetworkStatus }
-  |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
-  |  { type: 'core.status'; input: Empty; output: CoreStatus }
-  |  { type: 'network.pair.status'; input: PairStatusQueryInput; output: PairStatusOutput }
-  |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
+     { type: 'network.status'; input: NetworkStatusQueryInput; output: NetworkStatus }
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
+  |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
+  |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
+  |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
+  |  { type: 'network.pair.status'; input: PairStatusQueryInput; output: PairStatusOutput }
+  |  { type: 'core.status'; input: Empty; output: CoreStatus }
   |  { type: 'network.sync_setup.discover'; input: DiscoverRemoteLibrariesInput; output: DiscoverRemoteLibrariesOutput }
 ;
 
 export type LibraryQuery =
-     { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
-  |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
-  |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: LibraryInfoOutput }
-  |  { type: 'test.ping'; input: PingInput; output: PingOutput }
-  |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
-  |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
-  |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayoutOutput }
+     { type: 'test.ping'; input: PingInput; output: PingOutput }
   |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
-  |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
-  |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
+  |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [LibraryDeviceInfo] }
+  |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
+  |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: LibraryInfoOutput }
+  |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
+  |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
+  |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
+  |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
+  |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
+  |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
   |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
   |  { type: 'locations.suggested'; input: SuggestedLocationsQueryInput; output: SuggestedLocationsOutput }
-  |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
   |  { type: 'files.unique_to_location'; input: UniqueToLocationInput; output: UniqueToLocationOutput }
-  |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
-  |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [LibraryDeviceInfo] }
-  |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
-  |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
+  |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
+  |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayoutOutput }
+  |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
+  |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
 ;
 
 // ===== Wire Method Mappings =====
 
 export const WIRE_METHODS = {
   coreActions: {
-    'libraries.delete': 'action:libraries.delete.input',
-    'network.pair.generate': 'action:network.pair.generate.input',
-    'network.stop': 'action:network.stop.input',
-    'libraries.create': 'action:libraries.create.input',
-    'network.pair.cancel': 'action:network.pair.cancel.input',
-    'network.pair.join': 'action:network.pair.join.input',
-    'network.spacedrop.send': 'action:network.spacedrop.send.input',
-    'models.whisper.delete': 'action:models.whisper.delete.input',
-    'models.whisper.download': 'action:models.whisper.download.input',
-    'network.device.revoke': 'action:network.device.revoke.input',
     'network.sync_setup': 'action:network.sync_setup.input',
     'network.start': 'action:network.start.input',
+    'models.whisper.delete': 'action:models.whisper.delete.input',
+    'models.whisper.download': 'action:models.whisper.download.input',
+    'libraries.delete': 'action:libraries.delete.input',
+    'network.pair.cancel': 'action:network.pair.cancel.input',
+    'network.stop': 'action:network.stop.input',
+    'network.pair.generate': 'action:network.pair.generate.input',
+    'network.spacedrop.send': 'action:network.spacedrop.send.input',
+    'libraries.create': 'action:libraries.create.input',
+    'network.device.revoke': 'action:network.device.revoke.input',
+    'network.pair.join': 'action:network.pair.join.input',
   },
 
   libraryActions: {
-    'volumes.track': 'action:volumes.track.input',
-    'jobs.pause': 'action:jobs.pause.input',
-    'files.delete': 'action:files.delete.input',
+    'volumes.remove_cloud': 'action:volumes.remove_cloud.input',
+    'volumes.untrack': 'action:volumes.untrack.input',
     'libraries.rename': 'action:libraries.rename.input',
-    'tags.apply': 'action:tags.apply.input',
+    'locations.rescan': 'action:locations.rescan.input',
+    'volumes.track': 'action:volumes.track.input',
+    'spaces.add_group': 'action:spaces.add_group.input',
+    'spaces.create': 'action:spaces.create.input',
     'spaces.add_item': 'action:spaces.add_item.input',
+    'media.speech.transcribe': 'action:media.speech.transcribe.input',
     'spaces.update_group': 'action:spaces.update_group.input',
-    'files.copy': 'action:files.copy.input',
-    'libraries.export': 'action:libraries.export.input',
-    'jobs.resume': 'action:jobs.resume.input',
     'locations.add': 'action:locations.add.input',
+    'jobs.cancel': 'action:jobs.cancel.input',
+    'files.copy': 'action:files.copy.input',
+    'volumes.add_cloud': 'action:volumes.add_cloud.input',
     'spaces.update': 'action:spaces.update.input',
+    'indexing.start': 'action:indexing.start.input',
     'spaces.reorder_items': 'action:spaces.reorder_items.input',
     'spaces.reorder_groups': 'action:spaces.reorder_groups.input',
-    'spaces.create': 'action:spaces.create.input',
-    'volumes.add_cloud': 'action:volumes.add_cloud.input',
-    'spaces.delete_group': 'action:spaces.delete_group.input',
-    'locations.remove': 'action:locations.remove.input',
+    'jobs.pause': 'action:jobs.pause.input',
+    'libraries.export': 'action:libraries.export.input',
     'spaces.delete': 'action:spaces.delete.input',
     'indexing.verify': 'action:indexing.verify.input',
-    'indexing.start': 'action:indexing.start.input',
-    'volumes.untrack': 'action:volumes.untrack.input',
+    'files.delete': 'action:files.delete.input',
+    'spaces.delete_group': 'action:spaces.delete_group.input',
+    'tags.create': 'action:tags.create.input',
     'media.thumbnail.regenerate': 'action:media.thumbnail.regenerate.input',
     'media.thumbnail': 'action:media.thumbnail.input',
-    'volumes.speed_test': 'action:volumes.speed_test.input',
+    'tags.apply': 'action:tags.apply.input',
     'spaces.delete_item': 'action:spaces.delete_item.input',
-    'jobs.cancel': 'action:jobs.cancel.input',
-    'spaces.add_group': 'action:spaces.add_group.input',
-    'tags.create': 'action:tags.create.input',
-    'locations.rescan': 'action:locations.rescan.input',
     'media.ocr.extract': 'action:media.ocr.extract.input',
-    'volumes.remove_cloud': 'action:volumes.remove_cloud.input',
-    'media.speech.transcribe': 'action:media.speech.transcribe.input',
+    'jobs.resume': 'action:jobs.resume.input',
+    'volumes.speed_test': 'action:volumes.speed_test.input',
+    'locations.remove': 'action:locations.remove.input',
   },
 
   coreQueries: {
-    'network.devices.list': 'query:network.devices.list',
     'network.status': 'query:network.status',
-    'models.whisper.list': 'query:models.whisper.list',
-    'core.status': 'query:core.status',
-    'network.pair.status': 'query:network.pair.status',
-    'core.events.list': 'query:core.events.list',
     'libraries.list': 'query:libraries.list',
+    'models.whisper.list': 'query:models.whisper.list',
+    'core.events.list': 'query:core.events.list',
+    'network.devices.list': 'query:network.devices.list',
+    'network.pair.status': 'query:network.pair.status',
+    'core.status': 'query:core.status',
     'network.sync_setup.discover': 'query:network.sync_setup.discover',
   },
 
   libraryQueries: {
-    'jobs.list': 'query:jobs.list',
-    'search.files': 'query:search.files',
-    'libraries.info': 'query:libraries.info',
     'test.ping': 'query:test.ping',
-    'files.media_listing': 'query:files.media_listing',
-    'locations.list': 'query:locations.list',
-    'spaces.get_layout': 'query:spaces.get_layout',
     'files.by_id': 'query:files.by_id',
-    'volumes.list': 'query:volumes.list',
-    'spaces.get': 'query:spaces.get',
+    'devices.list': 'query:devices.list',
+    'tags.search': 'query:tags.search',
+    'libraries.info': 'query:libraries.info',
+    'spaces.list': 'query:spaces.list',
+    'locations.list': 'query:locations.list',
+    'files.media_listing': 'query:files.media_listing',
+    'search.files': 'query:search.files',
     'files.directory_listing': 'query:files.directory_listing',
+    'jobs.info': 'query:jobs.info',
+    'files.by_path': 'query:files.by_path',
     'sync.metrics': 'query:sync.metrics',
     'locations.suggested': 'query:locations.suggested',
-    'jobs.info': 'query:jobs.info',
     'files.unique_to_location': 'query:files.unique_to_location',
-    'tags.search': 'query:tags.search',
-    'devices.list': 'query:devices.list',
-    'files.by_path': 'query:files.by_path',
-    'spaces.list': 'query:spaces.list',
+    'volumes.list': 'query:volumes.list',
+    'spaces.get_layout': 'query:spaces.get_layout',
+    'jobs.list': 'query:jobs.list',
+    'spaces.get': 'query:spaces.get',
   },
 } as const;

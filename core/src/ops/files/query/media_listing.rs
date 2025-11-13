@@ -14,7 +14,7 @@ use crate::{
 		ContentKind,
 	},
 	infra::db::entities::{
-		content_identity, directory_paths, entry, sidecar, video_media_data,
+		content_identity, directory_paths, entry, image_media_data, sidecar, video_media_data,
 	},
 	infra::query::LibraryQuery,
 };
@@ -47,6 +47,8 @@ pub enum MediaSortBy {
 	Modified,
 	/// Sort by creation date (newest first)
 	Created,
+	/// Sort by date taken/captured (newest first)
+	DateTaken,
 	/// Sort by name (alphabetical)
 	Name,
 	/// Sort by size (largest first)
@@ -78,7 +80,7 @@ impl MediaListingQuery {
 				include_descendants: Some(false),
 				media_types: Some(vec![ContentKind::Image, ContentKind::Video]),
 				limit: Some(1000),
-				sort_by: MediaSortBy::Modified,
+				sort_by: MediaSortBy::DateTaken,
 			},
 		}
 	}
@@ -187,12 +189,15 @@ impl LibraryQuery for MediaListingQuery {
 				ck.name as content_kind_name,
 				dp.path as directory_path,
 				vmd.uuid as video_media_uuid,
-				vmd.duration_seconds as video_duration_seconds
+				vmd.duration_seconds as video_duration_seconds,
+				vmd.date_captured as video_date_captured,
+				imd.date_taken as image_date_taken
 			FROM entries e
 			INNER JOIN content_identities ci ON e.content_id = ci.id
 			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
 			LEFT JOIN directory_paths dp ON e.parent_id = dp.entry_id
 			LEFT JOIN video_media_data vmd ON ci.video_media_data_id = vmd.id
+			LEFT JOIN image_media_data imd ON ci.image_media_data_id = imd.id
 			WHERE ci.kind_id IN ({})
 		"#,
 			media_type_ids_str
@@ -211,6 +216,10 @@ impl LibraryQuery for MediaListingQuery {
 		match self.input.sort_by {
 			MediaSortBy::Modified => sql_query.push_str(" ORDER BY e.modified_at DESC"),
 			MediaSortBy::Created => sql_query.push_str(" ORDER BY e.created_at DESC"),
+			MediaSortBy::DateTaken => {
+				// Use date_taken for images, date_captured for videos, fall back to modified_at
+				sql_query.push_str(" ORDER BY COALESCE(imd.date_taken, vmd.date_captured, e.modified_at) DESC")
+			}
 			MediaSortBy::Name => sql_query.push_str(" ORDER BY e.name ASC"),
 			MediaSortBy::Size => sql_query.push_str(" ORDER BY e.size DESC"),
 		}
