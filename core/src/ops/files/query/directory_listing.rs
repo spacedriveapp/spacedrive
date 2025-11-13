@@ -13,7 +13,7 @@ use crate::{
 		tag::Tag,
 	},
 	infra::db::entities::{
-		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag,
+		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag, video_media_data,
 	},
 	infra::query::LibraryQuery,
 };
@@ -165,10 +165,13 @@ impl LibraryQuery for DirectoryListingQuery {
 				ci.first_seen_at as first_seen_at,
 				ci.last_verified_at as last_verified_at,
 				ck.id as content_kind_id,
-				ck.name as content_kind_name
+				ck.name as content_kind_name,
+				vmd.uuid as video_media_uuid,
+				vmd.duration_seconds as video_duration_seconds
 			FROM entries e
 			LEFT JOIN content_identities ci ON e.content_id = ci.id
 			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
+			LEFT JOIN video_media_data vmd ON ci.video_media_data_id = vmd.id
 			WHERE e.parent_id = ?1
 		"#
 		.to_string();
@@ -287,6 +290,10 @@ impl LibraryQuery for DirectoryListingQuery {
 			// Content kind data
 			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 
+			// Video media data (just duration for grid display)
+			let video_media_uuid: Option<Uuid> = row.try_get("", "video_media_uuid").ok();
+			let video_duration_seconds: Option<f64> = row.try_get("", "video_duration_seconds").ok();
+
 			// Build SdPath for this entry (child of the parent path)
 			// IMPORTANT: Include extension in the path for files
 			let full_name = if let Some(ext) = &entry_extension {
@@ -384,6 +391,34 @@ impl LibraryQuery for DirectoryListingQuery {
 				if let Some(sidecars) = sidecars_by_content.get(&ci_uuid) {
 					file.sidecars = sidecars.clone();
 				}
+			}
+
+			// Add video duration if available (minimal VideoMediaData for normalized cache)
+			if let (Some(vmd_uuid), Some(duration)) = (video_media_uuid, video_duration_seconds) {
+				file.video_media_data = Some(crate::domain::VideoMediaData {
+					uuid: vmd_uuid,
+					width: 0,
+					height: 0,
+					duration_seconds: Some(duration),
+					bit_rate: None,
+					codec: None,
+					pixel_format: None,
+					color_space: None,
+					color_range: None,
+					color_primaries: None,
+					color_transfer: None,
+					fps_num: None,
+					fps_den: None,
+					audio_codec: None,
+					audio_channels: None,
+					audio_sample_rate: None,
+					audio_bit_rate: None,
+					title: None,
+					artist: None,
+					album: None,
+					creation_time: None,
+					date_captured: None,
+				});
 			}
 
 			files.push(file);

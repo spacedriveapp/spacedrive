@@ -8820,6 +8820,7 @@ dependencies = [
  "rustls",
  "sd-ffmpeg",
  "sd-images",
+ "sd-media-metadata",
  "sd-task-system",
  "sea-orm",
  "sea-orm-migration",

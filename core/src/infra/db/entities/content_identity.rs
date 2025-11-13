@@ -18,6 +18,9 @@ pub struct Model {
 	pub text_content: Option<String>,
 	pub total_size: i64,  // Size of one instance of this content
 	pub entry_count: i32, // Entries in THIS library only
+	pub image_media_data_id: Option<i32>,
+	pub video_media_data_id: Option<i32>,
+	pub audio_media_data_id: Option<i32>,
 	pub first_seen_at: DateTimeUtc,
 	pub last_verified_at: DateTimeUtc,
 }
@@ -38,6 +41,24 @@ pub enum Relation {
 		to = "super::mime_type::Column::Id"
 	)]
 	MimeType,
+	#[sea_orm(
+		belongs_to = "super::image_media_data::Entity",
+		from = "Column::ImageMediaDataId",
+		to = "super::image_media_data::Column::Id"
+	)]
+	ImageMediaData,
+	#[sea_orm(
+		belongs_to = "super::video_media_data::Entity",
+		from = "Column::VideoMediaDataId",
+		to = "super::video_media_data::Column::Id"
+	)]
+	VideoMediaData,
+	#[sea_orm(
+		belongs_to = "super::audio_media_data::Entity",
+		from = "Column::AudioMediaDataId",
+		to = "super::audio_media_data::Column::Id"
+	)]
+	AudioMediaData,
 }
 
 impl Related<super::entry::Entity> for Entity {
@@ -55,6 +76,24 @@ impl Related<super::content_kind::Entity> for Entity {
 impl Related<super::mime_type::Entity> for Entity {
 	fn to() -> RelationDef {
 		Relation::MimeType.def()
+	}
+}
+
+impl Related<super::image_media_data::Entity> for Entity {
+	fn to() -> RelationDef {
+		Relation::ImageMediaData.def()
+	}
+}
+
+impl Related<super::video_media_data::Entity> for Entity {
+	fn to() -> RelationDef {
+		Relation::VideoMediaData.def()
+	}
+}
+
+impl Related<super::audio_media_data::Entity> for Entity {
+	fn to() -> RelationDef {
+		Relation::AudioMediaData.def()
 	}
 }
 
@@ -103,6 +142,9 @@ impl Syncable for Model {
 			"mime_type_id",
 			"kind_id",
 			"entry_count",
+			"image_media_data_id",
+			"video_media_data_id",
+			"audio_media_data_id",
 			"first_seen_at",
 			"last_verified_at",
 		])
@@ -218,6 +260,9 @@ impl Syncable for Model {
 					)
 					.unwrap()),
 					entry_count: Set(0),
+					image_media_data_id: Set(None),
+					video_media_data_id: Set(None),
+					audio_media_data_id: Set(None),
 					first_seen_at: Set(chrono::Utc::now().into()),
 					last_verified_at: Set(chrono::Utc::now().into()),
 				};

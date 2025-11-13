@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod drag;
+mod files;
 mod server;
 mod windows;
 
@@ -444,7 +445,9 @@ fn main() {
 			drag::begin_drag,
 			drag::end_drag,
 			drag::get_drag_session,
-			drag::force_clear_drag_state
+			drag::force_clear_drag_state,
+			files::reveal_file,
+			files::get_sidecar_path
 		])
 		.setup(|app| {
 			// Setup native menu

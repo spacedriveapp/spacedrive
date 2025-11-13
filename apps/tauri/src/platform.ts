@@ -1,6 +1,6 @@
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
-import { convertFileSrc as tauriConvertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc as tauriConvertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { Platform } from "@sd/interface/platform";
 
 /**
@@ -49,5 +49,25 @@ export const platform: Platform = {
 
 	convertFileSrc(filePath: string) {
 		return tauriConvertFileSrc(filePath);
+	},
+
+	async revealFile(filePath: string) {
+		await invoke("reveal_file", { path: filePath });
+	},
+
+	async getSidecarPath(
+		libraryId: string,
+		contentUuid: string,
+		kind: string,
+		variant: string,
+		format: string
+	) {
+		return await invoke<string>("get_sidecar_path", {
+			libraryId,
+			contentUuid,
+			kind,
+			variant,
+			format,
+		});
 	},
 };

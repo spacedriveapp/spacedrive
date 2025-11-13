@@ -8,6 +8,7 @@
 use crate::domain::{
 	addressing::SdPath,
 	content_identity::{ContentIdentity, ContentKind},
+	media_data::{AudioMediaData, ImageMediaData, VideoMediaData},
 	tag::Tag,
 };
 use crate::ops::sidecar::types::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
@@ -66,6 +67,11 @@ pub struct File {
 	/// A list of sidecars associated with this file
 	pub sidecars: Vec<Sidecar>,
 
+	/// Media-specific metadata (extracted from EXIF/FFmpeg)
+	pub image_media_data: Option<ImageMediaData>,
+	pub video_media_data: Option<VideoMediaData>,
+	pub audio_media_data: Option<AudioMediaData>,
+
 	/// Timestamps for creation, modification, and access
 	pub created_at: DateTime<Utc>,
 	pub modified_at: DateTime<Utc>,
@@ -76,6 +82,9 @@ pub struct File {
 	pub extension: Option<String>,
 	pub kind: EntryKind,
 	pub is_local: bool,
+
+	/// Video duration (for grid display optimization)
+	pub duration_seconds: Option<f64>,
 }
 
 /// Domain representation of a sidecar
@@ -102,7 +111,7 @@ impl crate::domain::resource::Identifiable for File {
 	}
 
 	fn sync_dependencies() -> &'static [&'static str] {
-		&["entry", "content_identity", "sidecar"]
+		&["entry", "content_identity", "sidecar", "image_media_data", "video_media_data", "audio_media_data"]
 	}
 
 	fn alternate_ids(&self) -> Vec<Uuid> {
@@ -167,6 +176,9 @@ impl File {
 			alternate_paths: Vec::new(),
 			tags: Vec::new(),
 			sidecars: Vec::new(),
+			image_media_data: None,
+			video_media_data: None,
+			audio_media_data: None,
 			created_at: model.created_at,
 			modified_at: model.modified_at,
 			accessed_at: model.accessed_at,
@@ -174,6 +186,7 @@ impl File {
 			extension,
 			kind,
 			is_local,
+			duration_seconds: None,
 		}
 	}
 

@@ -18,6 +18,7 @@ pub enum ThumbnailPhase {
 pub struct ThumbnailEntry {
 	pub entry_id: Uuid,
 	pub content_uuid: Uuid,
+	pub content_kind_id: i32,
 	pub extension: Option<String>,
 	pub file_size: u64,
 	pub relative_path: String,

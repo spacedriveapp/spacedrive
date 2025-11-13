@@ -107,11 +107,12 @@ rmp-serde      = "1.3"                              # MessagePack serialization 
 sd-task-system = { path = "../crates/task-system" }
 
 # Media processing dependencies
-image        = "0.25"
-sd-ffmpeg    = { path = "../crates/ffmpeg", optional = true }
-sd-images    = { path = "../crates/images" }
-tokio-rustls = "0.26"
-webp         = "0.3"
+image            = "0.25"
+sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
+sd-images        = { path = "../crates/images" }
+sd-media-metadata = { path = "../crates/media-metadata" }
+tokio-rustls     = "0.26"
+webp             = "0.3"
 
 # Speech-to-text dependencies (always included)
 whisper-rs = "0.15"

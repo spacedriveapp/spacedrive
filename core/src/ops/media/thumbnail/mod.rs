@@ -149,5 +149,127 @@ pub async fn generate_thumbnails_for_file(
 		}
 	}
 
+	// Extract and store media metadata if we generated at least one thumbnail
+	if generated_count > 0 {
+		let db = library.db().conn();
+
+		// Determine content kind from MIME type (1=Image, 2=Video, 3=Audio)
+		let content_kind_id = if mime_type.starts_with("image/") {
+			1
+		} else if mime_type.starts_with("video/") {
+			2
+		} else if mime_type.starts_with("audio/") {
+			3
+		} else {
+			0 // Unknown
+		};
+
+		// Generate deterministic UUID for media data based on content and kind
+		let kind_suffix = match content_kind_id {
+			1 => "image",
+			2 => "video",
+			3 => "audio",
+			_ => return Ok(generated_count),
+		};
+		let media_data_uuid = Uuid::new_v5(content_uuid, kind_suffix.as_bytes());
+
+		match content_kind_id {
+			1 => {
+				// Image
+				use crate::ops::media::extract_image_metadata;
+				match extract_image_metadata(source_path, media_data_uuid).await {
+					Ok(image_data) => {
+						use crate::infra::db::entities::{content_identity, image_media_data};
+						use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+
+						// Insert image media data
+						if let Ok(inserted) = image_data.insert(db).await {
+							// Update content identity with FK
+							if let Ok(Some(content)) = content_identity::Entity::find()
+								.filter(content_identity::Column::Uuid.eq(*content_uuid))
+								.one(db)
+								.await
+							{
+								let mut active: content_identity::ActiveModel = content.into();
+								active.image_media_data_id = Set(Some(inserted.id));
+								let _ = active.update(db).await;
+
+								debug!("Extracted image metadata for {}", source_path.display());
+							}
+						}
+					}
+					Err(e) => {
+						debug!("Failed to extract image metadata: {}", e);
+					}
+				}
+			}
+			2 => {
+				// Video
+				#[cfg(feature = "ffmpeg")]
+				{
+					use crate::ops::media::extract_video_metadata;
+					match extract_video_metadata(source_path, media_data_uuid).await {
+						Ok(video_data) => {
+							use crate::infra::db::entities::{content_identity, video_media_data};
+							use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+
+							// Insert video media data
+							if let Ok(inserted) = video_data.insert(db).await {
+								// Update content identity with FK
+								if let Ok(Some(content)) = content_identity::Entity::find()
+									.filter(content_identity::Column::Uuid.eq(*content_uuid))
+									.one(db)
+									.await
+								{
+									let mut active: content_identity::ActiveModel = content.into();
+									active.video_media_data_id = Set(Some(inserted.id));
+									let _ = active.update(db).await;
+
+									debug!("Extracted video metadata for {}", source_path.display());
+								}
+							}
+						}
+						Err(e) => {
+							debug!("Failed to extract video metadata: {}", e);
+						}
+					}
+				}
+			}
+			3 => {
+				// Audio
+				#[cfg(feature = "ffmpeg")]
+				{
+					use crate::ops::media::extract_audio_metadata;
+					match extract_audio_metadata(source_path, media_data_uuid).await {
+						Ok(audio_data) => {
+							use crate::infra::db::entities::{audio_media_data, content_identity};
+							use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+
+							// Insert audio media data
+							if let Ok(inserted) = audio_data.insert(db).await {
+								// Update content identity with FK
+								if let Ok(Some(content)) = content_identity::Entity::find()
+									.filter(content_identity::Column::Uuid.eq(*content_uuid))
+									.one(db)
+									.await
+								{
+									let mut active: content_identity::ActiveModel = content.into();
+									active.audio_media_data_id = Set(Some(inserted.id));
+									let _ = active.update(db).await;
+
+									debug!("Extracted audio metadata for {}", source_path.display());
+								}
+							}
+						}
+						Err(e) => {
+							debug!("Failed to extract audio metadata: {}", e);
+						}
+					}
+				}
+			}
+			_ => {}
+		}
+	}
+
 	Ok(generated_count)
 }

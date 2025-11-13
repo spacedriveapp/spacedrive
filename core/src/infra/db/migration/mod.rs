@@ -20,6 +20,7 @@ mod m20251023_000001_create_device_state_tombstones;
 mod m20251102_000001_add_uuid_to_sidecars;
 mod m20251109_000001_add_new_content_kinds;
 mod m20250111_000001_create_spaces;
+mod m20251112_000001_create_media_data_tables;
 
 pub struct Migrator;
 
@@ -45,6 +46,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251102_000001_add_uuid_to_sidecars::Migration),
 			Box::new(m20251109_000001_add_new_content_kinds::Migration),
 			Box::new(m20250111_000001_create_spaces::Migration),
+			Box::new(m20251112_000001_create_media_data_tables::Migration),
 		]
 	}
 }
