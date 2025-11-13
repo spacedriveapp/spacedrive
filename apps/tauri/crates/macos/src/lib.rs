@@ -62,7 +62,8 @@ pub extern "C" fn rust_drag_ended_callback(session_id: *const std::ffi::c_char, 
 	};
 
 	unsafe {
-		if let Some(callback) = &DRAG_ENDED_CALLBACK {
+		let callback_ptr = &raw const DRAG_ENDED_CALLBACK;
+		if let Some(callback) = (*callback_ptr).as_ref() {
 			callback(&session_id_str, was_dropped);
 		}
 	}

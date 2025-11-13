@@ -421,7 +421,7 @@ async fn remove_volume_interactive(ctx: &Context) -> Result<()> {
 		fingerprint: selected_volume.fingerprint.clone(),
 	};
 
-	execute_action!(ctx, input);
+	let _: () = execute_action!(ctx, input);
 
 	println!("\nRemoved cloud volume '{}'", selected_volume.name);
 
