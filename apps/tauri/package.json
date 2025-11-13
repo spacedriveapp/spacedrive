@@ -19,6 +19,7 @@
 		"tauri:build": "bunx tauri build"
 	},
 	"dependencies": {
+		"@phosphor-icons/react": "^2.1.0",
 		"@sd/interface": "workspace:*",
 		"@sd/ts-client": "workspace:*",
 		"@sd/ui": "workspace:*",

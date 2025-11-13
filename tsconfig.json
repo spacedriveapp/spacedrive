@@ -2,7 +2,7 @@
 	"files": [],
 	"references": [
 		{
-			"path": "apps/desktop"
+			"path": "apps/tauri"
 		},
 		{
 			"path": "apps/mobile"
