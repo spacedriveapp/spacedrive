@@ -1735,14 +1735,11 @@ impl PeerSync {
 		// Update state watermark for the device
 		self.update_state_watermark(change.device_id, change.timestamp).await?;
 
-		// Emit event
-		self.event_bus.emit(Event::Custom {
-			event_type: format!("{}_synced", change.model_type),
-			data: serde_json::json!({
-				"library_id": self.library_id,
-				"record_uuid": change.record_uuid,
-				"device_id": change.device_id,
-			}),
+		// Emit resource event for UI reactivity
+		self.event_bus.emit(Event::ResourceChanged {
+			resource_type: change.model_type.clone(),
+			resource: change.data,
+			metadata: None,
 		});
 
 		Ok(())
@@ -1857,15 +1854,23 @@ impl PeerSync {
 			}
 		}
 
-		// Emit event
-		self.event_bus.emit(Event::Custom {
-			event_type: format!("{}_synced", entry.model_type),
-			data: serde_json::json!({
-				"library_id": self.library_id,
-				"record_uuid": entry.record_uuid,
-				"hlc": entry.hlc.to_string(),
-			}),
-		});
+		// Emit resource event for UI reactivity
+		use crate::infra::sync::peer_log::ChangeType;
+		match entry.change_type {
+			ChangeType::Delete => {
+				self.event_bus.emit(Event::ResourceDeleted {
+					resource_type: entry.model_type,
+					resource_id: entry.record_uuid,
+				});
+			}
+			ChangeType::Insert | ChangeType::Update => {
+				self.event_bus.emit(Event::ResourceChanged {
+					resource_type: entry.model_type,
+					resource: entry.data,
+					metadata: None,
+				});
+			}
+		}
 
 		Ok(())
 	}

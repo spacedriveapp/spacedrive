@@ -234,9 +234,17 @@ impl Library {
 			model_type
 		);
 
-		// No event emission for batch operations
+		// Emit batch resource event for UI reactivity
+		let resources: Vec<_> = records.iter().map(|(_, data)| data.clone()).collect();
+		self.event_bus().emit(Event::ResourceChangedBatch {
+			resource_type: model_type.to_string(),
+			resources: serde_json::to_value(&resources)
+				.map_err(|e| anyhow::anyhow!("Failed to serialize batch resources: {}", e))?,
+			metadata: None,
+		});
+
+		// Internal sync coordination events still suppressed for batch operations
 		// Peers will discover changes via backfill or watermark exchange
-		// This prevents event bus flooding during bulk indexing operations
 
 		Ok(())
 	}
@@ -267,6 +275,10 @@ impl Library {
 			model_type
 		);
 
+		// Collect resources and IDs for batch event
+		let record_ids: Vec<_> = records.iter().map(|(id, _)| *id).collect();
+		let resources_for_event: Vec<_> = records.iter().map(|(_, data)| data.clone()).collect();
+
 		// Generate HLCs and append to peer log in batch
 		for (record_uuid, data) in records {
 			let hlc = hlc_gen.next();
@@ -285,9 +297,31 @@ impl Library {
 				.map_err(|e| anyhow::anyhow!("Failed to append to peer log: {}", e))?;
 		}
 
-		// No event emission for batch operations
+		// Emit batch resource event for UI reactivity
+		use crate::infra::sync::ChangeType as CT;
+		match change_type {
+			CT::Delete => {
+				// For batch deletes, emit individual delete events since ResourceDeletedBatch doesn't exist
+				// This should be rare for batch operations anyway
+				for record_uuid in record_ids {
+					self.event_bus().emit(Event::ResourceDeleted {
+						resource_type: model_type.to_string(),
+						resource_id: record_uuid,
+					});
+				}
+			}
+			CT::Insert | CT::Update => {
+				self.event_bus().emit(Event::ResourceChangedBatch {
+					resource_type: model_type.to_string(),
+					resources: serde_json::to_value(&resources_for_event)
+						.map_err(|e| anyhow::anyhow!("Failed to serialize batch resources: {}", e))?,
+					metadata: None,
+				});
+			}
+		}
+
+		// Internal sync coordination events still suppressed for batch operations
 		// Entries are safely in peer_log, peers will fetch via SharedChangeRequest
-		// This prevents event bus flooding during bulk indexing operations
 
 		Ok(())
 	}

@@ -111,7 +111,14 @@ impl TransactionManager {
 			"Committing device-owned data"
 		);
 
-		// Emit event for state broadcast
+		// Emit resource event for UI reactivity
+		self.event_bus.emit(Event::ResourceChanged {
+			resource_type: model_type.to_string(),
+			resource: data.clone(),
+			metadata: None,
+		});
+
+		// Emit internal coordination event for sync broadcast
 		// The SyncService will pick this up and broadcast to peers
 		self.event_bus.emit(Event::Custom {
 			event_type: "sync:state_change".to_string(),
@@ -182,7 +189,25 @@ impl TransactionManager {
 			"Shared change written to peer log"
 		);
 
-		// Emit event for broadcast
+		// Emit resource event for UI reactivity
+		use crate::infra::sync::ChangeType;
+		match change_type {
+			ChangeType::Delete => {
+				self.event_bus.emit(Event::ResourceDeleted {
+					resource_type: model_type.to_string(),
+					resource_id: record_uuid,
+				});
+			}
+			ChangeType::Insert | ChangeType::Update => {
+				self.event_bus.emit(Event::ResourceChanged {
+					resource_type: model_type.to_string(),
+					resource: data,
+					metadata: None,
+				});
+			}
+		}
+
+		// Emit internal coordination event for sync broadcast
 		// The SyncService will pick this up and broadcast to peers
 		self.event_bus.emit(Event::Custom {
 			event_type: "sync:shared_change".to_string(),
