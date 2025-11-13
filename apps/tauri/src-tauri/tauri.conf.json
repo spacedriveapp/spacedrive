@@ -4,7 +4,7 @@
 	"identifier": "com.spacedrive.desktop",
 	"build": {
 		"beforeDevCommand": "bun run dev:with-daemon",
-		"beforeBuildCommand": "cargo build --release --bin sd-daemon --manifest-path ../../../Cargo.toml && bun run build",
+		"beforeBuildCommand": "cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml && bun run build",
 		"devUrl": "http://localhost:1420",
 		"frontendDist": "../dist"
 	},
