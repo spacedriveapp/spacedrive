@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"dev:with-daemon": "bun ./scripts/dev-with-daemon.ts",
-		"build": "tsc && vite build",
+		"build": "vite build",
 		"build:daemon": "cargo build --bin sd-daemon --manifest-path ../../Cargo.toml",
 		"build:daemon:release": "cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml",
 		"preview": "vite preview",
