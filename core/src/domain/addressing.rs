@@ -673,76 +673,9 @@ impl SdPath {
 				// In the future, use job_ctx.library_db() to query for content instances
 				Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
 			}
-			Self::Sidecar {
-				content_id,
-				kind,
-				variant,
-				format,
-			} => {
-				use crate::infra::db::entities::sidecar_availability;
-				use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-				let library = job_ctx.library();
-				let db = library.db();
-
-				// 1. Check local filesystem first
-				let sidecar_manager = job_ctx.sidecar_manager()
-					.await
-					.ok_or_else(|| PathResolutionError::DatabaseError("Sidecar manager not available".to_string()))?;
-				let library_id = library.id();
-				let local_path = sidecar_manager
-					.compute_path(&library_id, content_id, kind, variant, format)
-					.await
-					.map_err(|e| PathResolutionError::DatabaseError(e.to_string()))?;
-
-				if tokio::fs::try_exists(&local_path.absolute_path)
-					.await
-					.unwrap_or(false)
-				{
-					// Already have it locally - return physical path
-					use crate::device::get_current_device_slug;
-					return Ok(SdPath::Physical {
-						device_slug: get_current_device_slug(),
-						path: local_path.absolute_path,
-					});
-				}
-
-				// 2. Query sidecar_availability for remote devices
-				let availability = sidecar_availability::Entity::find()
-					.filter(sidecar_availability::Column::ContentUuid.eq(*content_id))
-					.filter(sidecar_availability::Column::Kind.eq(kind.as_str()))
-					.filter(sidecar_availability::Column::Variant.eq(variant.as_str()))
-					.filter(sidecar_availability::Column::Has.eq(true))
-					.all(db.conn())
-					.await
-					.map_err(|e| PathResolutionError::DatabaseError(e.to_string()))?;
-
-				// 3. Filter to online devices only
-				let networking = job_ctx
-					.networking_service()
-					.ok_or(PathResolutionError::NoActiveLibrary)?;
-
-				let online_devices = networking.get_connected_devices().await;
-				let online_device_ids: std::collections::HashSet<uuid::Uuid> = online_devices
-					.iter()
-					.map(|d| d.device_id)
-					.collect();
-
-				let online_sources: Vec<_> = availability
-					.into_iter()
-					.filter(|a| online_device_ids.contains(&a.device_uuid))
-					.collect();
-
-				if online_sources.is_empty() {
-					return Err(PathResolutionError::SidecarNotFound {
-						content_id: *content_id,
-						kind: kind.to_string(),
-						variant: variant.to_string(),
-					});
-				}
-
-				// 4. Return sidecar path - RemoteTransferStrategy will handle resolution
-				Ok(self.clone())
+			Self::Sidecar { content_id, .. } => {
+				// TODO: Implement sidecar resolution
+				Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
 			}
 		}
 	}

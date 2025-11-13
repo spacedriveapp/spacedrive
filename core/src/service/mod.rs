@@ -15,7 +15,6 @@ pub mod file_sync;
 pub mod network;
 pub mod session;
 pub mod sidecar_manager;
-pub mod sidecar_sync;
 pub mod sync;
 pub mod volume_monitor;
 pub mod watcher;
