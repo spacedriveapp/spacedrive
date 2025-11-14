@@ -76,7 +76,7 @@ async fn get_layout(ctx: &Context, space_id: String) -> Result<()> {
 	let space_uuid = Uuid::parse_str(&space_id)?;
 
 	let input = SpaceLayoutQueryInput { space_id: space_uuid };
-	let response = ctx.core.query(&input, Some(library_id)).await?;
+	let response: serde_json::Value = ctx.core.query(&input, Some(library_id)).await?;
 
 	println!("\nRaw layout response:");
 	println!("{}", serde_json::to_string_pretty(&response)?);
