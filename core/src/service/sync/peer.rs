@@ -1753,12 +1753,41 @@ impl PeerSync {
 		)
 		.await?;
 
-		// Emit resource event for UI reactivity
-		self.event_bus.emit(Event::ResourceChanged {
-			resource_type: change.model_type.clone(),
-			resource: change.data,
-			metadata: None,
-		});
+		// Emit resource event for UI reactivity using ResourceManager
+		// This ensures proper resource format (LocationInfo, etc.) instead of raw DB model
+		if let Some(uuid_value) = change.data.get("uuid") {
+			if let Some(uuid_str) = uuid_value.as_str() {
+				if let Ok(uuid) = Uuid::parse_str(uuid_str) {
+					let resource_manager = crate::domain::ResourceManager::new(
+						self.db.clone(),
+						self.event_bus.clone(),
+					);
+
+					if let Err(e) = resource_manager
+						.emit_resource_events(&change.model_type, vec![uuid])
+						.await
+					{
+						warn!(
+							model_type = %change.model_type,
+							uuid = %uuid,
+							error = %e,
+							"Failed to emit resource event after state change"
+						);
+					}
+				} else {
+					warn!(
+						model_type = %change.model_type,
+						uuid_str = %uuid_str,
+						"Failed to parse UUID from state change"
+					);
+				}
+			}
+		} else {
+			warn!(
+				model_type = %change.model_type,
+				"No UUID found in state change data, skipping resource event"
+			);
+		}
 
 		Ok(())
 	}
@@ -1876,7 +1905,8 @@ impl PeerSync {
 			}
 		}
 
-		// Emit resource event for UI reactivity
+		// Emit resource event for UI reactivity using ResourceManager
+		// This ensures proper resource format (LocationInfo, etc.) instead of raw DB model
 		use crate::infra::sync::peer_log::ChangeType;
 		match entry.change_type {
 			ChangeType::Delete => {
@@ -1886,11 +1916,21 @@ impl PeerSync {
 				});
 			}
 			ChangeType::Insert | ChangeType::Update => {
-				self.event_bus.emit(Event::ResourceChanged {
-					resource_type: entry.model_type,
-					resource: entry.data,
-					metadata: None,
-				});
+				// Use ResourceManager to fetch and emit properly formatted resource
+				let resource_manager =
+					crate::domain::ResourceManager::new(self.db.clone(), self.event_bus.clone());
+
+				if let Err(e) = resource_manager
+					.emit_resource_events(&entry.model_type, vec![entry.record_uuid])
+					.await
+				{
+					warn!(
+						model_type = %entry.model_type,
+						uuid = %entry.record_uuid,
+						error = %e,
+						"Failed to emit resource event after shared change"
+					);
+				}
 			}
 		}
 
