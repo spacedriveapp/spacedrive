@@ -157,13 +157,16 @@ pub struct LibraryStatistics {
 	/// Number of tags created
 	pub tag_count: u32,
 
-	/// Number of devices in this library
+	/// Number of devices in this library (v2 field, defaults to 0 for old configs)
+	#[serde(default)]
 	pub device_count: u32,
 
-	/// Total storage capacity across all volumes (in bytes)
+	/// Total storage capacity across all volumes in bytes (v2 field, defaults to 0 for old configs)
+	#[serde(default)]
 	pub total_capacity: u64,
 
-	/// Available storage across all volumes (in bytes)
+	/// Available storage across all volumes in bytes (v2 field, defaults to 0 for old configs)
+	#[serde(default)]
 	pub available_capacity: u64,
 
 	/// Number of thumbnails generated
