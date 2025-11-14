@@ -73,21 +73,48 @@ pub trait Identifiable: Serialize + for<'de> Deserialize<'de> + Type {
 	{
 		&[]
 	}
-}
 
-/// Helper to check if a resource type is virtual (has dependencies)
-pub fn is_virtual_resource(resource_type: &str) -> bool {
-	match resource_type {
-		"file" => true, // File = Entry + ContentIdentity + Sidecar
-		_ => false,
+	/// Route a dependency change to affected virtual resource IDs
+	///
+	/// For virtual resources, implement this to map changes in dependency resources
+	/// to the IDs of affected virtual resource instances.
+	///
+	/// Example:
+	/// - File: When ContentIdentity changes, find all Entry UUIDs that reference it
+	/// - SpaceLayout: When SpaceGroup changes, find parent Space UUID
+	///
+	/// Default: empty (not a virtual resource, or doesn't depend on this type)
+	async fn route_from_dependency(
+		_db: &sea_orm::DatabaseConnection,
+		_dependency_type: &str,
+		_dependency_id: Uuid,
+	) -> crate::common::errors::Result<Vec<Uuid>>
+	where
+		Self: Sized,
+	{
+		Ok(vec![])
 	}
-}
 
-/// Get dependencies for a resource type
-pub fn get_dependencies(resource_type: &str) -> &'static [&'static str] {
-	match resource_type {
-		"file" => &["entry", "content_identity", "sidecar"],
-		_ => &[],
+	/// Construct virtual resource instances from IDs
+	///
+	/// For virtual resources, implement this to build complete domain models
+	/// from a list of IDs. This is used by ResourceManager to emit events.
+	///
+	/// Example:
+	/// - File::from_ids() → File::from_entry_uuids()
+	/// - SpaceLayout::from_ids() → SpaceLayout::from_space_ids()
+	///
+	/// Default: Not implemented (only virtual resources need this)
+	async fn from_ids(
+		_db: &sea_orm::DatabaseConnection,
+		_ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		Err(crate::common::errors::CoreError::InvalidOperation(
+			format!("from_ids not implemented for {}", Self::resource_type()),
+		))
 	}
 }
 
@@ -97,128 +124,25 @@ pub fn get_dependencies(resource_type: &str) -> &'static [&'static str] {
 /// Given a change to a dependency (e.g., ContentIdentity created),
 /// determine which virtual resources (e.g., Files) are affected.
 ///
+/// Now fully generic - uses the resource registry instead of hardcoded match statements.
+///
 /// Returns: (virtual_resource_type, vec![virtual_resource_ids])
 pub async fn map_dependency_to_virtual_ids(
 	db: &sea_orm::DatabaseConnection,
 	dependency_type: &str,
 	dependency_id: Uuid,
 ) -> crate::common::errors::Result<Vec<(&'static str, Vec<Uuid>)>> {
-	use crate::infra::db::entities::{content_identity, entry, sidecar};
-	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
 	let mut results = Vec::new();
 
-	// Check if any virtual resources depend on this type
-	match dependency_type {
-		"entry" => {
-			// File depends on Entry
-			// File ID = Entry UUID
-			results.push(("file", vec![dependency_id]));
-		}
+	// Find all virtual resources that depend on this dependency type
+	let dependents = crate::domain::resource_registry::find_dependents(dependency_type);
 
-		"space" | "space_group" | "space_item" => {
-			// SpaceLayout depends on Space, SpaceGroup, SpaceItem
-			// Find the space_id to identify which layout needs updating
-			use crate::infra::db::entities::{space, space_group, space_item};
+	// For each dependent virtual resource, call its routing function
+	for resource_info in dependents {
+		let ids = (resource_info.router)(db, dependency_type, dependency_id).await?;
 
-			let space_id = match dependency_type {
-				"space" => dependency_id,
-				"space_group" => {
-					// Get space_id from group
-					if let Some(group) = space_group::Entity::find()
-						.filter(space_group::Column::Uuid.eq(dependency_id))
-						.one(db)
-						.await?
-					{
-						space::Entity::find_by_id(group.space_id)
-							.one(db)
-							.await?
-							.map(|s| s.uuid)
-							.unwrap_or(dependency_id)
-					} else {
-						dependency_id
-					}
-				}
-				"space_item" => {
-					// Get space_id from item
-					if let Some(item) = space_item::Entity::find()
-						.filter(space_item::Column::Uuid.eq(dependency_id))
-						.one(db)
-						.await?
-					{
-						space::Entity::find_by_id(item.space_id)
-							.one(db)
-							.await?
-							.map(|s| s.uuid)
-							.unwrap_or(dependency_id)
-					} else {
-						dependency_id
-					}
-				}
-				_ => dependency_id,
-			};
-
-			results.push(("space_layout", vec![space_id]));
-		}
-
-		"content_identity" => {
-			// File depends on ContentIdentity
-			// Find all Entries with this content_id
-			let ci = content_identity::Entity::find()
-				.filter(content_identity::Column::Uuid.eq(dependency_id))
-				.one(db)
-				.await?
-				.ok_or_else(|| crate::common::errors::CoreError::NotFound(format!("ContentIdentity {} not found", dependency_id)))?;
-
-			let entry_models = entry::Entity::find()
-				.filter(entry::Column::ContentId.eq(ci.id))
-				.all(db)
-				.await?;
-
-			let file_ids: Vec<Uuid> = entry_models
-				.into_iter()
-				.filter_map(|e| e.uuid)
-				.collect();
-
-			if !file_ids.is_empty() {
-				results.push(("file", file_ids));
-			}
-		}
-
-		"sidecar" => {
-			// File depends on Sidecar
-			// Find Entry by content_uuid
-			let sc = sidecar::Entity::find()
-				.filter(sidecar::Column::Uuid.eq(dependency_id))
-				.one(db)
-				.await?
-				.ok_or_else(|| crate::common::errors::CoreError::NotFound(format!("Sidecar {} not found", dependency_id)))?;
-
-			// Find entries with matching content_identity UUID
-			let ci_opt = content_identity::Entity::find()
-				.filter(content_identity::Column::Uuid.eq(sc.content_uuid))
-				.one(db)
-				.await?;
-
-			if let Some(ci) = ci_opt {
-				let entry_models = entry::Entity::find()
-					.filter(entry::Column::ContentId.eq(ci.id))
-					.all(db)
-					.await?;
-
-				let file_ids: Vec<Uuid> = entry_models
-					.into_iter()
-					.filter_map(|e| e.uuid)
-					.collect();
-
-				if !file_ids.is_empty() {
-					results.push(("file", file_ids));
-				}
-			}
-		}
-
-		_ => {
-			// No virtual resources depend on this type
+		if !ids.is_empty() {
+			results.push((resource_info.resource_type, ids));
 		}
 	}
 

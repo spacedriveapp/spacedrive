@@ -425,6 +425,72 @@ impl Identifiable for SpaceLayout {
 	fn sync_dependencies() -> &'static [&'static str] {
 		&["space", "space_group", "space_item"]
 	}
+
+	async fn route_from_dependency(
+		db: &sea_orm::DatabaseConnection,
+		dependency_type: &str,
+		dependency_id: Uuid,
+	) -> crate::common::errors::Result<Vec<Uuid>> {
+		use crate::infra::db::entities::{space, space_group, space_item};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let space_id = match dependency_type {
+			// Pattern 1: Direct - SpaceLayout ID = Space ID
+			"space" => dependency_id,
+
+			// Pattern 3: Hierarchical rollup - navigate to parent Space
+			"space_group" => {
+				if let Some(group) = space_group::Entity::find()
+					.filter(space_group::Column::Uuid.eq(dependency_id))
+					.one(db)
+					.await?
+				{
+					space::Entity::find_by_id(group.space_id)
+						.one(db)
+						.await?
+						.map(|s| s.uuid)
+						.unwrap_or(dependency_id)
+				} else {
+					dependency_id
+				}
+			}
+
+			"space_item" => {
+				if let Some(item) = space_item::Entity::find()
+					.filter(space_item::Column::Uuid.eq(dependency_id))
+					.one(db)
+					.await?
+				{
+					space::Entity::find_by_id(item.space_id)
+						.one(db)
+						.await?
+						.map(|s| s.uuid)
+						.unwrap_or(dependency_id)
+				} else {
+					dependency_id
+				}
+			}
+
+			// When location/volume/tag/device changes, invalidate all spaces
+			// (they will be re-queried with fresh JOINed data)
+			"location" | "volume" | "tag" | "device" => {
+				// Return all space IDs to invalidate all layouts
+				let all_spaces = space::Entity::find().all(db).await?;
+				return Ok(all_spaces.into_iter().map(|s| s.uuid).collect());
+			}
+
+			_ => return Ok(vec![]),
+		};
+
+		Ok(vec![space_id])
+	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>> {
+		SpaceLayout::from_space_ids(db, ids).await
+	}
 }
 
 /// A group with its items

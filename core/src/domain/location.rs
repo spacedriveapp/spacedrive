@@ -50,6 +50,10 @@ pub struct Location {
 
 	/// Hidden glob patterns (e.g., [".*", "node_modules"])
 	pub ignore_patterns: Vec<String>,
+
+	/// Job execution policies for this location
+	#[serde(default)]
+	pub job_policies: JobPolicies,
 }
 
 /// How deeply to index files in this location
@@ -118,6 +122,7 @@ impl Location {
 				"__pycache__".to_string(),  // Python
 				".git".to_string(),         // Git
 			],
+			job_policies: JobPolicies::default(),
 		}
 	}
 
@@ -219,6 +224,12 @@ impl Location {
 			_ => ScanState::Idle,
 		};
 
+		let job_policies = model
+			.job_policies
+			.as_ref()
+			.and_then(|json| serde_json::from_str(json).ok())
+			.unwrap_or_default();
+
 		Self {
 			id: model.uuid,
 			library_id,
@@ -241,6 +252,200 @@ impl Location {
 				"__pycache__".to_string(),
 				".git".to_string(),
 			],
+			job_policies,
+		}
+	}
+}
+
+/// Job execution policies for a location
+///
+/// Controls which automated jobs run on this location and their configuration.
+/// This allows per-location customization of thumbnail generation, OCR, speech-to-text, etc.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct JobPolicies {
+	/// Thumbnail generation policy
+	#[serde(default)]
+	pub thumbnail: ThumbnailPolicy,
+
+	/// OCR (text extraction) policy
+	#[serde(default)]
+	pub ocr: OcrPolicy,
+
+	/// Speech-to-text transcription policy
+	#[serde(default)]
+	pub speech_to_text: SpeechPolicy,
+
+	/// Object detection policy (future)
+	#[serde(default)]
+	pub object_detection: ObjectDetectionPolicy,
+}
+
+impl Default for JobPolicies {
+	fn default() -> Self {
+		Self {
+			thumbnail: ThumbnailPolicy::default(),
+			ocr: OcrPolicy::default(),
+			speech_to_text: SpeechPolicy::default(),
+			object_detection: ObjectDetectionPolicy::default(),
+		}
+	}
+}
+
+/// Thumbnail generation policy
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ThumbnailPolicy {
+	/// Whether to generate thumbnails for this location
+	pub enabled: bool,
+
+	/// Specific thumbnail sizes to generate (empty = use defaults)
+	pub sizes: Vec<u32>,
+
+	/// JPEG quality (0-100)
+	pub quality: u8,
+
+	/// Whether to regenerate existing thumbnails
+	pub regenerate: bool,
+}
+
+impl Default for ThumbnailPolicy {
+	fn default() -> Self {
+		Self {
+			enabled: true,
+			sizes: vec![], // Empty = use defaults from ThumbnailVariants
+			quality: 85,
+			regenerate: false,
+		}
+	}
+}
+
+impl ThumbnailPolicy {
+	/// Convert this policy to a ThumbnailJobConfig for job dispatch
+	pub fn to_job_config(&self) -> crate::ops::media::thumbnail::ThumbnailJobConfig {
+		use crate::ops::media::thumbnail::{ThumbnailJobConfig, ThumbnailVariants};
+
+		let variants = if self.sizes.is_empty() {
+			// Use defaults if no specific sizes configured
+			ThumbnailVariants::defaults()
+		} else {
+			// Map configured sizes to variants
+			self.sizes
+				.iter()
+				.filter_map(|&size| ThumbnailVariants::from_size(size))
+				.collect()
+		};
+
+		ThumbnailJobConfig {
+			variants,
+			regenerate: self.regenerate,
+			batch_size: 50,
+			max_concurrent: 4,
+		}
+	}
+}
+
+/// OCR (text extraction) policy
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct OcrPolicy {
+	/// Whether to run OCR on this location
+	pub enabled: bool,
+
+	/// Languages to use for OCR (e.g., ["eng", "spa"])
+	pub languages: Vec<String>,
+
+	/// Minimum confidence threshold (0.0 - 1.0)
+	pub min_confidence: f32,
+
+	/// Whether to reprocess files that already have text
+	pub reprocess: bool,
+}
+
+impl Default for OcrPolicy {
+	fn default() -> Self {
+		Self {
+			enabled: false,
+			languages: vec!["eng".to_string()],
+			min_confidence: 0.6,
+			reprocess: false,
+		}
+	}
+}
+
+impl OcrPolicy {
+	/// Convert this policy to an OcrJobConfig for job dispatch
+	pub fn to_job_config(&self, location_id: Option<Uuid>) -> crate::ops::media::ocr::OcrJobConfig {
+		crate::ops::media::ocr::OcrJobConfig {
+			location_id,
+			entry_uuid: None,
+			languages: self.languages.clone(),
+			min_confidence: self.min_confidence,
+			reprocess: self.reprocess,
+		}
+	}
+}
+
+/// Speech-to-text transcription policy
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SpeechPolicy {
+	/// Whether to run speech-to-text on this location
+	pub enabled: bool,
+
+	/// Language for transcription
+	pub language: Option<String>,
+
+	/// Model to use (e.g., "base", "small", "medium", "large")
+	pub model: String,
+
+	/// Whether to reprocess files that already have transcriptions
+	pub reprocess: bool,
+}
+
+impl Default for SpeechPolicy {
+	fn default() -> Self {
+		Self {
+			enabled: false,
+			language: None, // Auto-detect
+			model: "base".to_string(),
+			reprocess: false,
+		}
+	}
+}
+
+impl SpeechPolicy {
+	/// Convert this policy to a SpeechToTextJobConfig for job dispatch
+	pub fn to_job_config(&self, location_id: Option<Uuid>) -> crate::ops::media::speech::SpeechToTextJobConfig {
+		crate::ops::media::speech::SpeechToTextJobConfig {
+			location_id,
+			entry_uuid: None,
+			language: self.language.clone(),
+			model: self.model.clone(),
+			reprocess: self.reprocess,
+		}
+	}
+}
+
+/// Object detection policy (for future AI features)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ObjectDetectionPolicy {
+	/// Whether to run object detection on this location
+	pub enabled: bool,
+
+	/// Minimum confidence threshold (0.0 - 1.0)
+	pub min_confidence: f32,
+
+	/// Categories to detect (empty = all)
+	pub categories: Vec<String>,
+
+	/// Whether to reprocess files that already have object data
+	pub reprocess: bool,
+}
+
+impl Default for ObjectDetectionPolicy {
+	fn default() -> Self {
+		Self {
+			enabled: false,
+			min_confidence: 0.7,
+			categories: vec![],
+			reprocess: false,
 		}
 	}
 }

@@ -145,7 +145,7 @@ impl LibraryQuery for SpaceLayoutQuery {
 			groups,
 		};
 
-		Ok(SpaceLayoutOutput { layout })
+		Ok(layout)
 	}
 }
 

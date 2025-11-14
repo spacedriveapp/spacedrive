@@ -83,11 +83,26 @@ impl LibraryQuery for LocationsListQuery {
 				path: directory_path.path.clone().into(),
 			};
 
+			let job_policies = location
+				.job_policies
+				.as_ref()
+				.and_then(|json| serde_json::from_str(json).ok())
+				.unwrap_or_default();
+
 			out.push(LocationInfo {
 				id: location.uuid,
 				path: directory_path.path.clone().into(),
 				name: location.name.clone(),
 				sd_path,
+				job_policies,
+				index_mode: location.index_mode.clone(),
+				scan_state: location.scan_state.clone(),
+				last_scan_at: location.last_scan_at,
+				error_message: location.error_message.clone(),
+				total_file_count: location.total_file_count,
+				total_byte_size: location.total_byte_size,
+				created_at: location.created_at,
+				updated_at: location.updated_at,
 			});
 		}
 

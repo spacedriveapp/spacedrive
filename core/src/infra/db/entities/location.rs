@@ -19,6 +19,7 @@ pub struct Model {
 	pub error_message: Option<String>,
 	pub total_file_count: i64,
 	pub total_byte_size: i64,
+	pub job_policies: Option<String>, // JSON-serialized JobPolicies
 	pub created_at: DateTimeUtc,
 	pub updated_at: DateTimeUtc,
 }
@@ -78,6 +79,7 @@ impl Syncable for Model {
 			"id",
 			"scan_state",
 			"error_message",
+			"job_policies", // Local configuration, not synced
 			"created_at",
 			"updated_at",
 		])
@@ -244,6 +246,7 @@ impl Syncable for Model {
 				.get("total_byte_size")
 				.and_then(|v| v.as_i64())
 				.unwrap_or(0)),
+			job_policies: NotSet, // Local config, not synced
 			created_at: Set(chrono::Utc::now().into()), // Local timestamp
 			updated_at: Set(chrono::Utc::now().into()), // Local timestamp
 		};

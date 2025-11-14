@@ -111,7 +111,14 @@ impl crate::domain::resource::Identifiable for File {
 	}
 
 	fn sync_dependencies() -> &'static [&'static str] {
-		&["entry", "content_identity", "sidecar", "image_media_data", "video_media_data", "audio_media_data"]
+		&[
+			"entry",
+			"content_identity",
+			"sidecar",
+			"image_media_data",
+			"video_media_data",
+			"audio_media_data",
+		]
 	}
 
 	fn alternate_ids(&self) -> Vec<Uuid> {
@@ -125,6 +132,84 @@ impl crate::domain::resource::Identifiable for File {
 
 	fn no_merge_fields() -> &'static [&'static str] {
 		&["sd_path"]
+	}
+
+	async fn route_from_dependency(
+		db: &sea_orm::DatabaseConnection,
+		dependency_type: &str,
+		dependency_id: Uuid,
+	) -> crate::common::errors::Result<Vec<Uuid>> {
+		use crate::infra::db::entities::{content_identity, entry, sidecar};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		match dependency_type {
+			// Pattern 1: Direct mapping - File ID = Entry UUID
+			"entry" => Ok(vec![dependency_id]),
+
+			// Pattern 2: Fan-out via content identity
+			"content_identity" => {
+				let ci = content_identity::Entity::find()
+					.filter(content_identity::Column::Uuid.eq(dependency_id))
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						crate::common::errors::CoreError::NotFound(format!(
+							"ContentIdentity {} not found",
+							dependency_id
+						))
+					})?;
+
+				let entries = entry::Entity::find()
+					.filter(entry::Column::ContentId.eq(ci.id))
+					.all(db)
+					.await?;
+
+				Ok(entries.into_iter().filter_map(|e| e.uuid).collect())
+			}
+
+			// Pattern 2: Fan-out via sidecar
+			"sidecar" => {
+				let sc = sidecar::Entity::find()
+					.filter(sidecar::Column::Uuid.eq(dependency_id))
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						crate::common::errors::CoreError::NotFound(format!(
+							"Sidecar {} not found",
+							dependency_id
+						))
+					})?;
+
+				// Find entries with matching content_identity UUID
+				let ci_opt = content_identity::Entity::find()
+					.filter(content_identity::Column::Uuid.eq(sc.content_uuid))
+					.one(db)
+					.await?;
+
+				if let Some(ci) = ci_opt {
+					let entries = entry::Entity::find()
+						.filter(entry::Column::ContentId.eq(ci.id))
+						.all(db)
+						.await?;
+
+					Ok(entries.into_iter().filter_map(|e| e.uuid).collect())
+				} else {
+					Ok(vec![])
+				}
+			}
+
+			// Media data types - for now return empty, can be implemented later
+			"image_media_data" | "video_media_data" | "audio_media_data" => Ok(vec![]),
+
+			_ => Ok(vec![]),
+		}
+	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>> {
+		File::from_entry_uuids(db, ids).await
 	}
 }
 
@@ -171,7 +256,7 @@ impl File {
 			id,
 			sd_path,
 			name: model.name,
-			size: model.size as u64,
+			size: model.aggregate_size.max(model.size) as u64,
 			content_identity: None,
 			alternate_paths: Vec::new(),
 			tags: Vec::new(),
@@ -287,10 +372,7 @@ impl File {
 		}
 
 		// Collect content_ids and location_ids for batch loading
-		let content_ids: Vec<i32> = entries
-			.iter()
-			.filter_map(|e| e.content_id)
-			.collect();
+		let content_ids: Vec<i32> = entries.iter().filter_map(|e| e.content_id).collect();
 
 		// Load locations to build SdPaths
 		// For now, we need to build a path from the entry. The challenge is that entries
@@ -333,9 +415,7 @@ impl File {
 
 		// Batch load content kinds for proper icon display
 		use crate::infra::db::entities::content_kind;
-		let kind_ids: Vec<i32> = content_by_id.values()
-			.map(|ci| ci.kind_id)
-			.collect();
+		let kind_ids: Vec<i32> = content_by_id.values().map(|ci| ci.kind_id).collect();
 
 		let content_kinds = if !kind_ids.is_empty() {
 			content_kind::Entity::find()
@@ -352,9 +432,7 @@ impl File {
 			.collect();
 
 		// Batch load sidecars
-		let content_uuids: Vec<Uuid> = content_by_id.values()
-			.filter_map(|ci| ci.uuid)
-			.collect();
+		let content_uuids: Vec<Uuid> = content_by_id.values().filter_map(|ci| ci.uuid).collect();
 
 		let sidecars = if !content_uuids.is_empty() {
 			sidecar::Entity::find()
@@ -387,9 +465,10 @@ impl File {
 		let mut files = Vec::new();
 		for entry_model in entries {
 			let entry_uuid = entry_model.uuid.ok_or_else(|| {
-				crate::common::errors::CoreError::InvalidOperation(
-					format!("Entry {} missing UUID", entry_model.id)
-				)
+				crate::common::errors::CoreError::InvalidOperation(format!(
+					"Entry {} missing UUID",
+					entry_model.id
+				))
 			})?;
 
 			// Build SdPath - use Content path if content_id exists, otherwise need location path
@@ -407,14 +486,20 @@ impl File {
 				} else {
 					// Fallback: use entry UUID as synthetic path
 					// This shouldn't normally happen but provides a fallback
-					tracing::warn!("Entry {} has content_id but ContentIdentity not found", entry_model.id);
+					tracing::warn!(
+						"Entry {} has content_id but ContentIdentity not found",
+						entry_model.id
+					);
 					continue;
 				}
 			} else {
 				// No content identity - we'd need to build the full filesystem path
 				// For now, skip entries without content_id as they can't be properly addressed
 				// in the virtual resource system
-				tracing::debug!("Skipping entry {} without content_id for resource event", entry_model.id);
+				tracing::debug!(
+					"Skipping entry {} without content_id for resource event",
+					entry_model.id
+				);
 				continue;
 			};
 
@@ -430,7 +515,10 @@ impl File {
 							content_hash: ci.content_hash.clone(),
 							integrity_hash: ci.integrity_hash.clone(),
 							mime_type_id: ci.mime_type_id,
-							kind: kind_by_id.get(&ci.kind_id).copied().unwrap_or(ContentKind::Unknown),
+							kind: kind_by_id
+								.get(&ci.kind_id)
+								.copied()
+								.unwrap_or(ContentKind::Unknown),
 							total_size: ci.total_size,
 							entry_count: ci.entry_count,
 							first_seen_at: ci.first_seen_at,
@@ -448,7 +536,13 @@ impl File {
 						if let Some(alt_entries) = entries_by_content_id.get(&content_id) {
 							for alt_entry in alt_entries {
 								// Build physical path for each entry with this content
-								if let Ok(physical_path) = crate::ops::indexing::PathResolver::get_full_path(db, alt_entry.id).await {
+								if let Ok(physical_path) =
+									crate::ops::indexing::PathResolver::get_full_path(
+										db,
+										alt_entry.id,
+									)
+									.await
+								{
 									// Get device slug - walk up to find location
 									let device_slug = crate::device::get_current_device_slug();
 
@@ -522,4 +616,3 @@ impl Sidecar {
 		}
 	}
 }
-

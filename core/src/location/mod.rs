@@ -253,6 +253,7 @@ pub async fn create_location(
 		error_message: Set(None),
 		total_file_count: Set(0),
 		total_byte_size: Set(0),
+		job_policies: Set(None), // Use defaults
 		created_at: Set(chrono::Utc::now()),
 		updated_at: Set(chrono::Utc::now()),
 	};

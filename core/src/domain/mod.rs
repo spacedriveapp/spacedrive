@@ -13,6 +13,7 @@ pub mod location;
 pub mod media_data;
 pub mod resource;
 pub mod resource_manager;
+pub mod resource_registry;
 pub mod space;
 pub mod tag;
 pub mod user_metadata;

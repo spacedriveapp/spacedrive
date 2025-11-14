@@ -149,6 +149,9 @@ impl LibraryQuery for DirectoryListingQuery {
 				e.kind as entry_kind,
 				e.extension as entry_extension,
 				e.size as entry_size,
+				e.aggregate_size as entry_aggregate_size,
+				e.child_count as entry_child_count,
+				e.file_count as entry_file_count,
 				e.created_at as entry_created_at,
 				e.modified_at as entry_modified_at,
 				e.accessed_at as entry_accessed_at,
@@ -265,6 +268,9 @@ impl LibraryQuery for DirectoryListingQuery {
 			let entry_kind: i32 = row.try_get("", "entry_kind").unwrap_or(0);
 			let entry_extension: Option<String> = row.try_get("", "entry_extension").ok();
 			let entry_size: i64 = row.try_get("", "entry_size").unwrap_or(0);
+			let entry_aggregate_size: i64 = row.try_get("", "entry_aggregate_size").unwrap_or(0);
+			let entry_child_count: i32 = row.try_get("", "entry_child_count").unwrap_or(0);
+			let entry_file_count: i32 = row.try_get("", "entry_file_count").unwrap_or(0);
 			let entry_created_at: chrono::DateTime<chrono::Utc> = row
 				.try_get("", "entry_created_at")
 				.unwrap_or_else(|_| chrono::Utc::now());
@@ -340,9 +346,9 @@ impl LibraryQuery for DirectoryListingQuery {
 				metadata_id: None,
 				content_id: None,
 				size: entry_size,
-				aggregate_size: 0,
-				child_count: 0,
-				file_count: 0,
+				aggregate_size: entry_aggregate_size,
+				child_count: entry_child_count,
+				file_count: entry_file_count,
 				created_at: entry_created_at,
 				modified_at: entry_modified_at,
 				accessed_at: entry_accessed_at,

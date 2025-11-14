@@ -99,6 +99,8 @@ interface UseNormalizedCacheOptions<I> {
   isGlobalList?: boolean;
   /** Optional filter function to check if a resource belongs in this query */
   resourceFilter?: (resource: any) => boolean;
+  /** Resource ID for single-resource queries (filters events to matching ID only) */
+  resourceId?: string;
 }
 
 /**
@@ -136,6 +138,7 @@ export function useNormalizedCache<I, O>({
   enabled = true,
   isGlobalList = false,
   resourceFilter,
+  resourceId,
 }: UseNormalizedCacheOptions<I>) {
   const client = useSpacedriveClient();
   const queryClient = useQueryClient();
@@ -334,19 +337,19 @@ export function useNormalizedCache<I, O>({
         // });
 
         if (resource_type === resourceType && Array.isArray(resources)) {
-          console.log("[ResourceChangedBatch]", {
-            resourceType: resource_type,
-            ourType: resourceType,
-            wireMethod,
-            isArray: Array.isArray(resources),
-            count: Array.isArray(resources) ? resources.length : "not array",
-            firstItem: Array.isArray(resources) ? resources[0] : resources,
-          });
+          // Filter to matching resourceId if specified (for single-resource queries)
+          const filteredResources = resourceId
+            ? resources.filter((r: any) => r.id === resourceId)
+            : resources;
+
+          if (filteredResources.length === 0) {
+            return; // No matching resources for this query
+          }
           // Extract merge config from Identifiable metadata
           const noMergeFields = metadata?.no_merge_fields || [];
           const alternateIds = metadata?.alternate_ids || [];
 
-          // Atomic update: merge all resources into the query data
+          // Atomic update: merge filtered resources into the query data
           queryClient.setQueryData<O>(queryKey, (oldData) => {
             if (!oldData) return oldData;
 
@@ -363,8 +366,8 @@ export function useNormalizedCache<I, O>({
               );
             };
 
-            // Create a map of incoming resources
-            const resourceMap = new Map(resources.map((r: any) => [r.id, r]));
+            // Create a map of filtered incoming resources
+            const resourceMap = new Map(filteredResources.map((r: any) => [r.id, r]));
 
             if (Array.isArray(oldData)) {
               // Direct array response
@@ -440,11 +443,10 @@ export function useNormalizedCache<I, O>({
 
               return newData as O;
             } else if (oldData && typeof oldData === "object") {
-              // Check if this is a single resource object (File) vs wrapper ({files: [...]})
-              // Single resource has: id, name, sd_path
-              // Wrapper has: files (array), has_more, total_count
-              const isSingleResource =
-                !!(oldData as any).id && !!(oldData as any).sd_path;
+              // Check if this is a single resource object vs wrapper
+              // Single resource has: id field
+              // Wrapper has: array field (files, locations, etc.) + pagination fields
+              const isSingleResource = !!(oldData as any).id;
 
               // console.log("[Cache] Batch - response type check:", {
               //   isSingleResource,

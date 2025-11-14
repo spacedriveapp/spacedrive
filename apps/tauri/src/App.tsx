@@ -145,7 +145,7 @@ function App() {
   if (route === "/inspector") {
     return (
       <div className="h-screen bg-app overflow-hidden">
-        <Inspector showPopOutButton={false} />
+        <Inspector variant={null} showPopOutButton={false} />
       </div>
     );
   }
