@@ -22,6 +22,7 @@ mod m20251109_000001_add_new_content_kinds;
 mod m20250111_000001_create_spaces;
 mod m20251112_000001_create_media_data_tables;
 mod m20251113_000001_add_job_policies_to_locations;
+mod m20251114_000001_add_unique_constraint_to_volumes_uuid;
 
 pub struct Migrator;
 
@@ -49,6 +50,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20250111_000001_create_spaces::Migration),
 			Box::new(m20251112_000001_create_media_data_tables::Migration),
 			Box::new(m20251113_000001_add_job_policies_to_locations::Migration),
+			Box::new(m20251114_000001_add_unique_constraint_to_volumes_uuid::Migration),
 		]
 	}
 }
