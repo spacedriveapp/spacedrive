@@ -2,9 +2,9 @@
 
 use sd_core::{
 	infra::sync::{NetworkTransport, Syncable},
-	service::network::protocol::sync::messages::SyncMessage,
+	service::{network::protocol::sync::messages::SyncMessage, sync::SyncService},
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::{Arc, Weak}};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -16,6 +16,8 @@ pub struct MockTransport {
 	queues: Arc<Mutex<HashMap<Uuid, Vec<(Uuid, SyncMessage)>>>>,
 	/// Complete message history: (from, to, message)
 	history: Arc<Mutex<Vec<(Uuid, Uuid, SyncMessage)>>>,
+	/// Shared sync service registry for request/response handling
+	sync_services: Arc<Mutex<HashMap<Uuid, Weak<SyncService>>>>,
 }
 
 impl MockTransport {
@@ -25,12 +27,14 @@ impl MockTransport {
 		connected_peers: Vec<Uuid>,
 		queues: Arc<Mutex<HashMap<Uuid, Vec<(Uuid, SyncMessage)>>>>,
 		history: Arc<Mutex<Vec<(Uuid, Uuid, SyncMessage)>>>,
+		sync_services: Arc<Mutex<HashMap<Uuid, Weak<SyncService>>>>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			my_device_id,
 			connected_peers,
 			queues,
 			history,
+			sync_services,
 		})
 	}
 
@@ -38,11 +42,17 @@ impl MockTransport {
 	pub fn new_pair(device_a: Uuid, device_b: Uuid) -> (Arc<Self>, Arc<Self>) {
 		let queues = Arc::new(Mutex::new(HashMap::new()));
 		let history = Arc::new(Mutex::new(Vec::new()));
+		let sync_services = Arc::new(Mutex::new(HashMap::new()));
 
-		let transport_a = Self::new(device_a, vec![device_b], queues.clone(), history.clone());
-		let transport_b = Self::new(device_b, vec![device_a], queues.clone(), history.clone());
+		let transport_a = Self::new(device_a, vec![device_b], queues.clone(), history.clone(), sync_services.clone());
+		let transport_b = Self::new(device_b, vec![device_a], queues.clone(), history.clone(), sync_services.clone());
 
 		(transport_a, transport_b)
+	}
+	
+	/// Register a sync service for request/response handling
+	pub async fn register_sync_service(&self, device_id: Uuid, sync_service: Weak<SyncService>) {
+		self.sync_services.lock().await.insert(device_id, sync_service);
 	}
 
 	/// Process incoming messages by delivering them to the sync service
@@ -192,13 +202,14 @@ impl MockTransport {
 					batch_size: _,
 				} => {
 					let response = SyncMessage::StateResponse {
-						library_id,
-						model_type: model_types.first().cloned().unwrap_or_default(),
-						device_id: requested_device_id.unwrap_or(self.my_device_id),
-						records: vec![],
-						has_more: false,
-						checkpoint: None,
-					};
+					library_id,
+					model_type: model_types.first().cloned().unwrap_or_default(),
+					device_id: requested_device_id.unwrap_or(self.my_device_id),
+					records: vec![],
+					deleted_uuids: vec![],
+					has_more: false,
+					checkpoint: None,
+				};
 
 					self.send_sync_message(sender, response).await?;
 				}
@@ -257,7 +268,132 @@ impl NetworkTransport for MockTransport {
 		Ok(())
 	}
 
-	async fn get_connected_sync_partners(&self) -> anyhow::Result<Vec<Uuid>> {
+	async fn send_sync_request(
+		&self,
+		target_device: Uuid,
+		request: SyncMessage,
+	) -> anyhow::Result<SyncMessage> {
+		// For testing: invoke the actual protocol handler on the target device
+		// This simulates the bidirectional stream request/response pattern
+		
+		if !self.connected_peers.contains(&target_device) {
+			return Err(anyhow::anyhow!("device {} not connected", target_device));
+		}
+
+		// Get the target device's sync service
+		let sync_service = {
+			let services = self.sync_services.lock().await;
+			services
+				.get(&target_device)
+				.and_then(|weak| weak.upgrade())
+				.ok_or_else(|| anyhow::anyhow!("Target sync service not registered for device {}", target_device))?
+		};
+
+		// Record in history
+		self.history
+			.lock()
+			.await
+			.push((self.my_device_id, target_device, request.clone()));
+
+		// Process the request through the target's protocol handler to get real response
+		let response = match &request {
+			SyncMessage::StateRequest {
+				model_types,
+				device_id,
+				since,
+				checkpoint,
+				batch_size,
+				..
+			} => {
+				// Parse checkpoint cursor
+				let cursor = checkpoint.as_ref().and_then(|chk| {
+					let parts: Vec<&str> = chk.split('|').collect();
+					if parts.len() == 2 {
+						let ts = chrono::DateTime::parse_from_rfc3339(parts[0])
+							.ok()?
+							.with_timezone(&chrono::Utc);
+						let uuid = Uuid::parse_str(parts[1]).ok()?;
+						Some((ts, uuid))
+					} else {
+						None
+					}
+				});
+
+				// Query actual state from target device's database
+				let records = sync_service
+					.peer_sync()
+					.get_device_state(model_types.clone(), *device_id, *since, cursor, *batch_size)
+					.await?;
+
+				// Query tombstones if incremental sync
+				let deleted_uuids = if let Some(since_time) = since {
+					sync_service
+						.peer_sync()
+						.get_deletion_tombstones(
+							model_types.first().unwrap_or(&String::new()),
+							*device_id,
+							*since_time,
+						)
+						.await?
+				} else {
+					vec![]
+				};
+
+				let has_more = records.len() >= *batch_size;
+				let next_checkpoint = if has_more {
+					records.last().map(|r| {
+						format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid)
+					})
+				} else {
+					None
+				};
+
+				SyncMessage::StateResponse {
+					library_id: request.library_id(),
+					model_type: model_types.first().cloned().unwrap_or_default(),
+					device_id: device_id.unwrap_or(target_device),
+					records,
+					deleted_uuids,
+					checkpoint: next_checkpoint,
+					has_more,
+				}
+			}
+			SyncMessage::SharedChangeRequest { since_hlc, limit, .. } => {
+				// Query actual shared changes from target device
+				let (entries, has_more) = sync_service
+					.peer_sync()
+					.get_shared_changes(*since_hlc, *limit)
+					.await?;
+
+				// Include current state snapshot if initial backfill
+				let current_state = if since_hlc.is_none() {
+					Some(sync_service.peer_sync().get_full_shared_state().await?)
+				} else {
+					None
+				};
+
+				SyncMessage::SharedChangeResponse {
+					library_id: request.library_id(),
+					entries,
+					current_state,
+					has_more,
+				}
+			}
+			_ => {
+				return Err(anyhow::anyhow!(
+					"send_sync_request called with non-request message type"
+				));
+			}
+		};
+
+		Ok(response)
+	}
+
+	async fn get_connected_sync_partners(
+		&self,
+		_library_id: Uuid,
+		_db: &sea_orm::DatabaseConnection,
+	) -> anyhow::Result<Vec<Uuid>> {
 		Ok(self.connected_peers.clone())
 	}
 
