@@ -37,7 +37,11 @@ pub async fn detect_non_apfs_volumes(
 			let fields: Vec<&str> = line.split_whitespace().collect();
 			if fields.len() >= 9 {
 				let filesystem = fields[0];
-				let mount_point = fields[8..].join(" ");
+				let mut mount_point = fields[8..].join(" ");
+				// Remove leading "- " if present (can happen with some df formats)
+				if mount_point.starts_with("- ") {
+					mount_point = mount_point[2..].to_string();
+				}
 
 				// Skip APFS filesystems (already handled by APFS detection)
 				if filesystem.starts_with("/dev/disk") && mount_point.starts_with("/") {
@@ -75,16 +79,27 @@ pub async fn detect_non_apfs_volumes(
 					MountType::System
 				};
 
-				let disk_type = detect_disk_type(&mount_path).unwrap_or(DiskType::Unknown);
-				let file_system = detect_filesystem(&mount_path)
-					.unwrap_or(FileSystem::Other("Unknown".to_string()));
+			let disk_type = detect_disk_type(&mount_path).unwrap_or(DiskType::Unknown);
+			let file_system = detect_filesystem(&mount_path)
+				.unwrap_or(FileSystem::Other("Unknown".to_string()));
 
-				let volume_type = classify_volume(&mount_path, &file_system, &name);
-				let fingerprint =
-					VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
-				let now = chrono::Utc::now();
+			let volume_type = classify_volume(&mount_path, &file_system, &name);
+			let fingerprint =
+				VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
+			
+			// Auto-track eligibility: Primary, UserData, System volumes
+			// Also track Secondary volumes if they're system mounts
+			let auto_track_eligible = matches!(
+				volume_type,
+				crate::volume::types::VolumeType::Primary 
+				| crate::volume::types::VolumeType::UserData
+				| crate::volume::types::VolumeType::System
+			) || (volume_type == crate::volume::types::VolumeType::Secondary 
+				&& mount_type == crate::volume::types::MountType::System);
+			
+			let now = chrono::Utc::now();
 
-				let volume = Volume {
+			let volume = Volume {
 					id: uuid::Uuid::new_v4(),
 					fingerprint,
 
@@ -106,14 +121,11 @@ pub async fn detect_non_apfs_volumes(
 					backend: None,
 					cloud_identifier: None,
 					apfs_container: None,
-					container_volume_id: None,
-					path_mappings: Vec::new(),
-					is_user_visible: true,
-					auto_track_eligible: matches!(
-						volume_type,
-						crate::volume::types::VolumeType::Primary
-					),
-					read_speed_mbps: None,
+				container_volume_id: None,
+				path_mappings: Vec::new(),
+				is_user_visible: true,
+				auto_track_eligible,
+				read_speed_mbps: None,
 					write_speed_mbps: None,
 					created_at: now,
 					updated_at: now,

@@ -2,7 +2,10 @@
 
 use super::processor::OcrProcessor;
 use crate::{
-	infra::{db::entities::entry, job::{prelude::*, traits::DynJob}},
+	infra::{
+		db::entities::entry,
+		job::{prelude::*, traits::DynJob},
+	},
 	ops::indexing::processor::ProcessorEntry,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -237,14 +240,20 @@ impl OcrJob {
 					}
 
 					if let Some(mime_id) = ci.mime_type_id {
-						if let Ok(Some(mime)) = mime_type::Entity::find_by_id(mime_id).one(db).await {
+						if let Ok(Some(mime)) = mime_type::Entity::find_by_id(mime_id).one(db).await
+						{
 							if super::is_ocr_supported(&mime.mime_type) {
-								if let Ok(path) =
-									crate::ops::indexing::PathResolver::get_full_path(db, entry_model.id).await
+								if let Ok(path) = crate::ops::indexing::PathResolver::get_full_path(
+									db,
+									entry_model.id,
+								)
+								.await
 								{
-									self.state
-										.entries
-										.push((entry_model.id, path, Some(mime.mime_type)));
+									self.state.entries.push((
+										entry_model.id,
+										path,
+										Some(mime.mime_type),
+									));
 								}
 							}
 						}
@@ -252,7 +261,10 @@ impl OcrJob {
 				}
 			}
 
-			ctx.log(format!("Single file discovered: {} entries", self.state.entries.len()));
+			ctx.log(format!(
+				"Single file discovered: {} entries",
+				self.state.entries.len()
+			));
 			return Ok(());
 		}
 

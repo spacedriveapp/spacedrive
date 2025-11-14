@@ -474,12 +474,13 @@ impl LibraryManager {
 		}
 
 		// Now that the library is registered and sidecar manager is initialized, resume interrupted jobs
-		if let Err(e) = library.jobs.resume_interrupted_jobs_after_load().await {
-			warn!(
-				"Failed to resume interrupted jobs for library {}: {}",
-				config.id, e
-			);
-		}
+		// DISABLED: Jobs will remain paused on startup instead of auto-resuming
+		// if let Err(e) = library.jobs.resume_interrupted_jobs_after_load().await {
+		// 	warn!(
+		// 		"Failed to resume interrupted jobs for library {}: {}",
+		// 		config.id, e
+		// 	);
+		// }
 
 		// Initialize sync service if networking is available
 		// If networking isn't ready, sync simply won't be initialized until caller does it explicitly
@@ -985,36 +986,14 @@ impl LibraryManager {
 
 		info!("Created default space for library {}", library.id());
 
-		// Create Quick Access group
-		let group_id = uuid::Uuid::new_v4();
-
-		let group_type_json = serde_json::to_string(&GroupType::QuickAccess)
-			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
-
-		let group_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: NotSet,
-			uuid: Set(group_id),
-			space_id: Set(space_result.id),
-			name: Set("Quick Access".to_string()),
-			group_type: Set(group_type_json),
-			is_collapsed: Set(false),
-			order: Set(0),
-			created_at: Set(now.into()),
-		};
-
-		let group_result = group_model
-			.insert(db)
-			.await
-			.map_err(LibraryError::DatabaseError)?;
-
-		// Create Quick Access items (Overview, Recents, Favorites)
-		let items = vec![
+		// Create space-level items (Overview, Recents, Favorites) - these appear outside groups
+		let space_items = vec![
 			(ItemType::Overview, 0),
 			(ItemType::Recents, 1),
 			(ItemType::Favorites, 2),
 		];
 
-		for (item_type, order) in items {
+		for (item_type, order) in space_items {
 			let item_type_json = serde_json::to_string(&item_type)
 				.map_err(|e| LibraryError::Other(format!("Failed to serialize item_type: {}", e)))?;
 
@@ -1022,7 +1001,7 @@ impl LibraryManager {
 				id: NotSet,
 				uuid: Set(uuid::Uuid::new_v4()),
 				space_id: Set(space_result.id),
-				group_id: Set(Some(group_result.id)),
+				group_id: Set(None), // Space-level items have no group
 				item_type: Set(item_type_json),
 				order: Set(order),
 				created_at: Set(now.into()),
@@ -1034,7 +1013,53 @@ impl LibraryManager {
 				.map_err(LibraryError::DatabaseError)?;
 		}
 
-		info!("Created default Quick Access group for library {}", library.id());
+		info!("Created default space-level items for library {}", library.id());
+
+		// Create Locations group
+		let locations_group_id = uuid::Uuid::new_v4();
+		let locations_type_json = serde_json::to_string(&GroupType::Locations)
+			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
+
+		let locations_group_model = crate::infra::db::entities::space_group::ActiveModel {
+			id: NotSet,
+			uuid: Set(locations_group_id),
+			space_id: Set(space_result.id),
+			name: Set("Locations".to_string()),
+			group_type: Set(locations_type_json),
+			is_collapsed: Set(false),
+			order: Set(0),
+			created_at: Set(now.into()),
+		};
+
+		locations_group_model
+			.insert(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		info!("Created default Locations group for library {}", library.id());
+
+		// Create Volumes group
+		let volumes_group_id = uuid::Uuid::new_v4();
+		let volumes_type_json = serde_json::to_string(&GroupType::Volumes)
+			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
+
+		let volumes_group_model = crate::infra::db::entities::space_group::ActiveModel {
+			id: NotSet,
+			uuid: Set(volumes_group_id),
+			space_id: Set(space_result.id),
+			name: Set("Volumes".to_string()),
+			group_type: Set(volumes_type_json),
+			is_collapsed: Set(false),
+			order: Set(1),
+			created_at: Set(now.into()),
+		};
+
+		volumes_group_model
+			.insert(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		info!("Created default Volumes group for library {}", library.id());
 
 		Ok(())
 	}

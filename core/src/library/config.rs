@@ -157,6 +157,15 @@ pub struct LibraryStatistics {
 	/// Number of tags created
 	pub tag_count: u32,
 
+	/// Number of devices in this library
+	pub device_count: u32,
+
+	/// Total storage capacity across all volumes (in bytes)
+	pub total_capacity: u64,
+
+	/// Available storage across all volumes (in bytes)
+	pub available_capacity: u64,
+
 	/// Number of thumbnails generated
 	pub thumbnail_count: u64,
 
@@ -177,6 +186,9 @@ impl Default for LibraryStatistics {
 			total_size: 0,
 			location_count: 0,
 			tag_count: 0,
+			device_count: 0,
+			total_capacity: 0,
+			available_capacity: 0,
 			thumbnail_count: 0,
 			database_size: 0,
 			last_indexed: None,

@@ -36,8 +36,9 @@ impl VolumeClassifier for MacOSClassifier {
 			// System internal volumes
 			path if path.starts_with("/System/Volumes/") => VolumeType::System,
 
-			// macOS autofs system
+			// macOS autofs system and /home mount
 			path if mount_str.contains("auto_home")
+				|| mount_str.as_ref() == "/home"
 				|| info.file_system == FileSystem::Other("autofs".to_string()) =>
 			{
 				VolumeType::System

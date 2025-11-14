@@ -95,15 +95,61 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	) -> JobResult<i32> {
 		use super::entry::EntryProcessor;
 
-		// Find parent entry ID
+		// CRITICAL FIX: Do NOT clone the cache!
+		// The previous clone-modify-write pattern caused cache corruption:
+		// 1. Thread A clones cache, processes entry, writes back
+		// 2. Thread B clones cache (stale snapshot), processes entry, writes back
+		// 3. Thread B's write overwrites Thread A's updates -> lost updates
+		// 4. Worse: concurrent HashMap mutations could cause data corruption
+		//
+		// Instead, we manage the cache directly with proper locking.
+		// We look up the parent, then create the entry, then cache it.
+		// All cache operations are protected by the RwLock.
+
+		// Find parent entry ID with proper locking
 		let parent_id = if let Some(parent_path) = entry.path.parent() {
-			let cache = self.entry_id_cache.read().await;
-			cache.get(parent_path).copied()
+			// Try cache first (read lock)
+			let cached_parent = {
+				let cache = self.entry_id_cache.read().await;
+				cache.get(parent_path).copied()
+			};
+
+			if let Some(id) = cached_parent {
+				Some(id)
+			} else {
+				// Not in cache, check database (no lock held during async DB query)
+				let parent_path_str = parent_path.to_string_lossy().to_string();
+				if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
+					.filter(entities::directory_paths::Column::Path.eq(&parent_path_str))
+					.one(self.ctx.library_db())
+					.await
+				{
+					// Found in database, cache it (write lock)
+					let mut cache = self.entry_id_cache.write().await;
+					cache.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
+					Some(dir_path_record.entry_id)
+				} else {
+					// Parent truly not found
+					tracing::warn!(
+						"Parent not found for {}: {}",
+						entry.path.display(),
+						parent_path.display()
+					);
+					None
+				}
+			}
 		} else {
 			None
 		};
 
-		// Extract file extension (without dot) for files, None for directories
+		// Now create the entry using the old implementation (not EntryProcessor)
+		// We can't easily use EntryProcessor without IndexerState, and creating
+		// IndexerState with clone causes the bug we're trying to fix.
+		// TODO: Refactor EntryProcessor to work without full IndexerState
+
+		// For now, inline the entry creation logic with our properly-locked cache
+		use entities::entry_closure;
+
 		let extension = match entry.kind {
 			EntryKind::File => entry
 				.path
@@ -113,35 +159,25 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			EntryKind::Directory | EntryKind::Symlink => None,
 		};
 
-		// Get file/directory name
-		// For files: use stem (name without extension)
-		// For directories: use full name (including .app, etc.)
 		let name = match entry.kind {
-			EntryKind::File => {
-				// For files, use stem (without extension)
-				entry
-					.path
-					.file_stem()
-					.map(|stem| stem.to_string_lossy().to_string())
-					.unwrap_or_else(|| {
-						entry
-							.path
-							.file_name()
-							.map(|n| n.to_string_lossy().to_string())
-							.unwrap_or_else(|| "unknown".to_string())
-					})
-			}
-			EntryKind::Directory | EntryKind::Symlink => {
-				// For directories and symlinks, use full name
-				entry
-					.path
-					.file_name()
-					.map(|n| n.to_string_lossy().to_string())
-					.unwrap_or_else(|| "unknown".to_string())
-			}
+			EntryKind::File => entry
+				.path
+				.file_stem()
+				.map(|stem| stem.to_string_lossy().to_string())
+				.unwrap_or_else(|| {
+					entry
+						.path
+						.file_name()
+						.map(|n| n.to_string_lossy().to_string())
+						.unwrap_or_else(|| "unknown".to_string())
+				}),
+			EntryKind::Directory | EntryKind::Symlink => entry
+				.path
+				.file_name()
+				.map(|n| n.to_string_lossy().to_string())
+				.unwrap_or_else(|| "unknown".to_string()),
 		};
 
-		// Convert timestamps
 		let modified_at = entry
 			.modified
 			.and_then(|t| {
@@ -152,33 +188,28 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
-		// All entries get UUIDs immediately for UI normalized caching compatibility.
-		// Sync readiness is now determined by content_id presence (for regular files)
-		// or by entry kind (for directories/empty files).
 		let entry_uuid = Some(Uuid::new_v4());
 
-		// Create entry
-		let mut new_entry = entities::entry::ActiveModel {
+		let new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
 			name: Set(name.clone()),
 			kind: Set(EntryProcessor::entry_kind_to_int(entry.kind)),
 			extension: Set(extension),
-			metadata_id: Set(None), // User metadata only created when user adds metadata
-			content_id: Set(None),  // Will be set later if content indexing is enabled
+			metadata_id: Set(None),
+			content_id: Set(None),
 			size: Set(entry.size as i64),
-			aggregate_size: Set(0), // Will be calculated in aggregation phase
-			child_count: Set(0),    // Will be calculated in aggregation phase
-			file_count: Set(0),     // Will be calculated in aggregation phase
+			aggregate_size: Set(0),
+			child_count: Set(0),
+			file_count: Set(0),
 			created_at: Set(chrono::Utc::now()),
 			modified_at: Set(modified_at),
 			accessed_at: Set(None),
-			permissions: Set(None), // TODO: Could extract from metadata
+			permissions: Set(None),
 			inode: Set(entry.inode.map(|i| i as i64)),
 			parent_id: Set(parent_id),
 			..Default::default()
 		};
 
-		// Begin transaction for atomic entry creation and closure table population
 		let txn = self
 			.ctx
 			.library_db()
@@ -186,14 +217,11 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
 
-		// Insert the entry
 		let result = new_entry
 			.insert(&txn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to create entry: {}", e)))?;
 
-		// Populate closure table
-		// First, insert self-reference
 		let self_closure = entry_closure::ActiveModel {
 			ancestor_id: Set(result.id),
 			descendant_id: Set(result.id),
@@ -205,9 +233,7 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to insert self-closure: {}", e)))?;
 
-		// If there's a parent, copy all parent's ancestors
 		if let Some(parent_id) = parent_id {
-			// Insert closure entries for all ancestors
 			txn.execute(Statement::from_sql_and_values(
 				DbBackend::Sqlite,
 				"INSERT INTO entry_closure (ancestor_id, descendant_id, depth) \
@@ -222,12 +248,8 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			})?;
 		}
 
-		// If this is a directory, populate the directory_paths table
 		if entry.kind == EntryKind::Directory {
-			// Use the absolute path from the DirEntry which contains the full filesystem path
 			let absolute_path = entry.path.to_string_lossy().to_string();
-
-			// Insert into directory_paths table
 			let dir_path_entry = entities::directory_paths::ActiveModel {
 				entry_id: Set(result.id),
 				path: Set(absolute_path),
@@ -238,12 +260,10 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			})?;
 		}
 
-		// Commit transaction
 		txn.commit()
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 
-		// Sync entry to other devices
 		tracing::info!(
 			"ENTRY_SYNC: About to sync entry name={} uuid={:?}",
 			result.name,
@@ -255,7 +275,6 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			.sync_model_with_db(&result, crate::infra::sync::ChangeType::Insert, self.ctx.library_db())
 			.await
 		{
-			// Log but don't fail the job if sync fails
 			tracing::warn!("ENTRY_SYNC: Failed to sync entry {}: {}", result.uuid.map(|u| u.to_string()).unwrap_or_else(|| "no-uuid".to_string()), e);
 		} else {
 			tracing::info!(
@@ -265,7 +284,7 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			);
 		}
 
-		// Cache the entry ID for potential children
+		// Cache the entry ID for potential children (write lock)
 		{
 			let mut cache = self.entry_id_cache.write().await;
 			cache.insert(entry.path.clone(), result.id);

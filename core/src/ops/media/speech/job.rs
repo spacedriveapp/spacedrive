@@ -2,7 +2,10 @@
 
 use super::processor::SpeechToTextProcessor;
 use crate::{
-	infra::{db::entities::entry, job::{prelude::*, traits::DynJob}},
+	infra::{
+		db::entities::entry,
+		job::{prelude::*, traits::DynJob},
+	},
 	ops::indexing::processor::ProcessorEntry,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -152,9 +155,7 @@ impl JobHandler for SpeechToTextJob {
 			// Report that we're starting to process this file
 			ctx.progress(Progress::Indeterminate(format!(
 				"Transcribing {}...",
-				path.file_name()
-					.and_then(|n| n.to_str())
-					.unwrap_or("file")
+				path.file_name().and_then(|n| n.to_str()).unwrap_or("file")
 			)));
 
 			// Spawn progress simulation task
@@ -165,7 +166,8 @@ impl JobHandler for SpeechToTextJob {
 				let transcription_duration = audio_duration * 2.0;
 
 				// Just sleep for the estimated duration to keep the indeterminate progress active
-				tokio::time::sleep(std::time::Duration::from_secs_f32(transcription_duration)).await;
+				tokio::time::sleep(std::time::Duration::from_secs_f32(transcription_duration))
+					.await;
 			});
 
 			let result = processor.process(ctx.library_db(), &proc_entry).await;
@@ -259,12 +261,20 @@ impl SpeechToTextJob {
 					.await
 				{
 					if let Some(mime_id) = ci.mime_type_id {
-						if let Ok(Some(mime)) = mime_type::Entity::find_by_id(mime_id).one(db).await {
+						if let Ok(Some(mime)) = mime_type::Entity::find_by_id(mime_id).one(db).await
+						{
 							if super::is_speech_supported(&mime.mime_type) {
-								if let Ok(path) =
-									crate::ops::indexing::PathResolver::get_full_path(db, entry_model.id).await
+								if let Ok(path) = crate::ops::indexing::PathResolver::get_full_path(
+									db,
+									entry_model.id,
+								)
+								.await
 								{
-									self.state.entries.push((entry_model.id, path, Some(mime.mime_type)));
+									self.state.entries.push((
+										entry_model.id,
+										path,
+										Some(mime.mime_type),
+									));
 								}
 							}
 						}
@@ -272,7 +282,10 @@ impl SpeechToTextJob {
 				}
 			}
 
-			ctx.log(format!("Single file discovered: {} entries", self.state.entries.len()));
+			ctx.log(format!(
+				"Single file discovered: {} entries",
+				self.state.entries.len()
+			));
 			return Ok(());
 		}
 

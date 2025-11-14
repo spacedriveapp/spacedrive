@@ -294,6 +294,25 @@ impl RpcServer {
 
 		// Apply additional filters if specified
 		if let Some(filter) = filter {
+			// Filter by resource type
+			if let Some(filter_resource_type) = &filter.resource_type {
+				if let Some(event_resource_type) = event.resource_type() {
+					if event_resource_type != filter_resource_type {
+						return false;
+					}
+				} else {
+					// Event is not a resource event, but filter expects one
+					return false;
+				}
+			}
+
+			// Filter by path scope (for resource events)
+			if let Some(path_scope) = &filter.path_scope {
+				if !event.affects_path(path_scope) {
+					return false;
+				}
+			}
+
 			match event {
 				Event::JobProgress { job_id, .. }
 				| Event::JobStarted { job_id, .. }

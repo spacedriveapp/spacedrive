@@ -123,13 +123,11 @@ impl Syncable for Model {
 		// Cursor-based pagination with tie-breaker
 		if let Some((cursor_ts, cursor_uuid)) = cursor {
 			query = query.filter(
-				Condition::any()
-					.add(Column::UpdatedAt.gt(cursor_ts))
-					.add(
-						Condition::all()
-							.add(Column::UpdatedAt.eq(cursor_ts))
-							.add(Column::Uuid.gt(cursor_uuid)),
-					),
+				Condition::any().add(Column::UpdatedAt.gt(cursor_ts)).add(
+					Condition::all()
+						.add(Column::UpdatedAt.eq(cursor_ts))
+						.add(Column::Uuid.gt(cursor_uuid)),
+				),
 			);
 		}
 
@@ -211,15 +209,13 @@ impl Syncable for Model {
 		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid device_id: {}", e)))?;
 
 		// entry_id may be null if the referenced entry hasn't been synced yet (circular FK)
-		let entry_id: Option<i32> = data
-			.get("entry_id")
-			.and_then(|v| {
-				if v.is_null() {
-					None
-				} else {
-					serde_json::from_value(v.clone()).ok()
-				}
-			});
+		let entry_id: Option<i32> = data.get("entry_id").and_then(|v| {
+			if v.is_null() {
+				None
+			} else {
+				serde_json::from_value(v.clone()).ok()
+			}
+		});
 
 		// Build ActiveModel for upsert
 		use sea_orm::{ActiveValue::NotSet, Set};
@@ -246,7 +242,7 @@ impl Syncable for Model {
 				.get("total_byte_size")
 				.and_then(|v| v.as_i64())
 				.unwrap_or(0)),
-			job_policies: NotSet, // Local config, not synced
+			job_policies: NotSet,                       // Local config, not synced
 			created_at: Set(chrono::Utc::now().into()), // Local timestamp
 			updated_at: Set(chrono::Utc::now().into()), // Local timestamp
 		};
@@ -276,11 +272,7 @@ impl Syncable for Model {
 	/// Apply deletion by UUID (cascades to entry tree)
 	async fn apply_deletion(uuid: Uuid, db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
 		// Find location by UUID
-		let location = match Entity::find()
-			.filter(Column::Uuid.eq(uuid))
-			.one(db)
-			.await?
-		{
+		let location = match Entity::find().filter(Column::Uuid.eq(uuid)).one(db).await? {
 			Some(loc) => loc,
 			None => return Ok(()), // Already deleted, idempotent
 		};
@@ -320,6 +312,7 @@ mod tests {
 			error_message: None,
 			total_file_count: 100,
 			total_byte_size: 1000000,
+			job_policies: None,
 			created_at: chrono::Utc::now().into(),
 			updated_at: chrono::Utc::now().into(),
 		};

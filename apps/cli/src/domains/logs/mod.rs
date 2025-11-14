@@ -71,6 +71,8 @@ async fn run_logs_follow(ctx: &Context, args: LogsFollowArgs) -> Result<()> {
 		library_id: None,
 		job_id: args.job_id.clone(),
 		device_id: None,
+		resource_type: None,
+		path_scope: None,
 	};
 
 	// Try to subscribe to events, fall back to polling if not supported

@@ -116,7 +116,10 @@ impl Library {
 	/// Initialize the file sync service (called during library setup)
 	pub fn init_file_sync_service(self: &Arc<Self>) -> Result<()> {
 		if self.file_sync_service.get().is_some() {
-			warn!("File sync service already initialized for library {}", self.id());
+			warn!(
+				"File sync service already initialized for library {}",
+				self.id()
+			);
 			return Ok(());
 		}
 
@@ -124,7 +127,9 @@ impl Library {
 
 		self.file_sync_service
 			.set(Arc::new(file_sync_service))
-			.map_err(|_| LibraryError::Other("File sync service already initialized".to_string()))?;
+			.map_err(|_| {
+				LibraryError::Other("File sync service already initialized".to_string())
+			})?;
 
 		info!("File sync service initialized for library {}", self.id());
 
@@ -233,10 +238,7 @@ impl Library {
 			.await
 			.map_err(|e| LibraryError::Other(format!("Failed to load devices: {}", e)))?;
 
-		let cache: HashMap<String, Uuid> = devices
-			.into_iter()
-			.map(|d| (d.slug, d.uuid))
-			.collect();
+		let cache: HashMap<String, Uuid> = devices.into_iter().map(|d| (d.slug, d.uuid)).collect();
 
 		debug!("Loaded {} devices into library cache", cache.len());
 
@@ -490,9 +492,8 @@ impl Library {
 	) -> Result<crate::infra::job::handle::JobHandle> {
 		use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 
-		let config = ThumbnailJobConfig::from_sizes(
-			self.config().await.settings.thumbnail_sizes.clone(),
-		);
+		let config =
+			ThumbnailJobConfig::from_sizes(self.config().await.settings.thumbnail_sizes.clone());
 
 		let job = if let Some(ids) = entry_ids {
 			ThumbnailJob::for_entries(ids, config)
@@ -562,6 +563,37 @@ impl Library {
 		);
 
 		stats
+	}
+
+	/// Calculate statistics directly from database (for queries)
+	/// This is synchronous and queries the database directly for accurate real-time stats
+	pub async fn calculate_statistics_for_query(&self) -> Result<LibraryStatistics> {
+		let library_id = self.id();
+		let library_name = self.name().await;
+
+		debug!(
+			library_id = %library_id,
+			library_name = %library_name,
+			"Calculating statistics from database for query"
+		);
+
+		// Calculate all statistics from database
+		let stats = self.calculate_all_statistics().await?;
+
+		debug!(
+			library_id = %library_id,
+			library_name = %library_name,
+			total_files = stats.total_files,
+			total_size = stats.total_size,
+			location_count = stats.location_count,
+			tag_count = stats.tag_count,
+			device_count = stats.device_count,
+			total_capacity = stats.total_capacity,
+			available_capacity = stats.available_capacity,
+			"Completed database statistics calculation for query"
+		);
+
+		Ok(stats)
 	}
 
 	/// Trigger async statistics recalculation
@@ -637,6 +669,9 @@ impl Library {
 			total_size = stats.total_size,
 			location_count = stats.location_count,
 			tag_count = stats.tag_count,
+			device_count = stats.device_count,
+			total_capacity = stats.total_capacity,
+			available_capacity = stats.available_capacity,
 			thumbnail_count = stats.thumbnail_count,
 			database_size = stats.database_size,
 			"Calculated library statistics"
@@ -694,6 +729,9 @@ impl Library {
 			total_size = stats.total_size,
 			location_count = stats.location_count,
 			tag_count = stats.tag_count,
+			device_count = stats.device_count,
+			total_capacity = stats.total_capacity,
+			available_capacity = stats.available_capacity,
 			thumbnail_count = stats.thumbnail_count,
 			database_size = stats.database_size,
 			"Calculated library statistics (instance method)"
@@ -756,6 +794,24 @@ impl Library {
 		let tag_count = Self::calculate_tag_count_static(&db_conn).await?;
 		debug!(tag_count = tag_count, "Completed tag count calculation");
 
+		debug!("Starting device count calculation");
+		// Calculate device count
+		let device_count = Self::calculate_device_count_static(&db_conn).await?;
+		debug!(
+			device_count = device_count,
+			"Completed device count calculation"
+		);
+
+		debug!("Starting volume capacity calculation");
+		// Calculate volume capacity
+		let (total_capacity, available_capacity) =
+			Self::calculate_volume_capacity_static(&db_conn).await?;
+		debug!(
+			total_capacity = total_capacity,
+			available_capacity = available_capacity,
+			"Completed volume capacity calculation"
+		);
+
 		debug!("Starting thumbnail count calculation");
 		// Calculate thumbnail count
 		let thumbnail_count = Self::calculate_thumbnail_count_static(path).await?;
@@ -777,6 +833,9 @@ impl Library {
 			total_size,
 			location_count,
 			tag_count,
+			device_count,
+			total_capacity,
+			available_capacity,
 			thumbnail_count,
 			database_size,
 			last_indexed: None, // Will be preserved from existing config
@@ -797,6 +856,12 @@ impl Library {
 		// Calculate tag count
 		let tag_count = self.calculate_tag_count(db).await?;
 
+		// Calculate device count
+		let device_count = self.calculate_device_count(db).await?;
+
+		// Calculate volume capacity
+		let (total_capacity, available_capacity) = self.calculate_volume_capacity(db).await?;
+
 		// Calculate thumbnail count
 		let thumbnail_count = self.calculate_thumbnail_count().await?;
 
@@ -808,6 +873,9 @@ impl Library {
 			total_size,
 			location_count,
 			tag_count,
+			device_count,
+			total_capacity,
+			available_capacity,
 			thumbnail_count,
 			database_size,
 			last_indexed: self.config.read().await.statistics.last_indexed,
@@ -827,7 +895,8 @@ impl Library {
 
 		// Get all location root entry IDs for this library
 		let locations = location::Entity::find().all(db).await?;
-		let location_root_entry_ids: Vec<i32> = locations.iter().filter_map(|l| l.entry_id).collect();
+		let location_root_entry_ids: Vec<i32> =
+			locations.iter().filter_map(|l| l.entry_id).collect();
 
 		debug!(
 			location_count = locations.len(),
@@ -918,6 +987,110 @@ impl Library {
 		debug!(tag_count = count, "Completed tag count calculation");
 
 		Ok(count)
+	}
+
+	/// Calculate device count
+	async fn calculate_device_count(&self, db: &sea_orm::DatabaseConnection) -> Result<u32> {
+		use crate::infra::db::entities::device;
+		use sea_orm::{EntityTrait, QueryTrait};
+
+		debug!("Starting device count calculation");
+		let devices = device::Entity::find().all(db).await?;
+		let count = devices.len() as u32;
+
+		debug!(device_count = count, "Completed device count calculation");
+
+		Ok(count)
+	}
+
+	/// Calculate volume capacity (total and available) across all volumes
+	/// Only counts user-relevant volumes (Primary, UserData, External, Secondary)
+	/// Excludes system volumes (VM, Recovery, Preboot, etc.)
+	/// Excludes volumes that are subpaths of other volumes (e.g., /System/Volumes/Data/home inside /System/Volumes/Data)
+	async fn calculate_volume_capacity(
+		&self,
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<(u64, u64)> {
+		use crate::infra::db::entities::volume;
+		use sea_orm::{EntityTrait, QueryTrait};
+
+		debug!("Starting volume capacity calculation");
+		let volumes = volume::Entity::find().all(db).await?;
+
+		// First pass: filter to user-visible volumes
+		let mut user_volumes: Vec<_> = volumes
+			.into_iter()
+			.filter(|vol| {
+				let volume_type = vol.volume_type.as_deref().unwrap_or("Unknown");
+				matches!(
+					volume_type,
+					"Primary" | "UserData" | "External" | "Secondary"
+				)
+			})
+			.collect();
+
+		// Deduplicate by fingerprint first (same physical volume tracked multiple times)
+		let mut seen_fingerprints = std::collections::HashSet::new();
+		user_volumes.retain(|v| seen_fingerprints.insert(v.fingerprint.clone()));
+
+		// Sort by mount point length (shorter first) to detect parent volumes first
+		user_volumes.sort_by_key(|v| v.mount_point.as_ref().map(|m| m.len()).unwrap_or(0));
+
+		let mut total_capacity = 0u64;
+		let mut available_capacity = 0u64;
+		let mut counted_volumes = 0;
+		let mut excluded_by_subpath = 0;
+
+		let mut counted_mount_points: Vec<String> = Vec::new();
+
+		for vol in user_volumes {
+			let mount_point = match &vol.mount_point {
+				Some(mp) => mp,
+				None => continue,
+			};
+
+			// Check if this volume's mount point is a subpath of any already-counted volume
+			let is_subpath = counted_mount_points
+				.iter()
+				.any(|parent| mount_point.starts_with(parent) && mount_point != parent);
+
+			if is_subpath {
+				debug!(
+					volume_type = vol.volume_type.as_deref().unwrap_or("Unknown"),
+					mount_point = ?mount_point,
+					"Excluding volume: subpath of already-counted volume"
+				);
+				excluded_by_subpath += 1;
+				continue;
+			}
+
+			// Count this volume
+			if let Some(capacity) = vol.total_capacity {
+				total_capacity = total_capacity.saturating_add(capacity as u64);
+				counted_volumes += 1;
+				counted_mount_points.push(mount_point.clone());
+				debug!(
+					volume_type = vol.volume_type.as_deref().unwrap_or("Unknown"),
+					mount_point = ?mount_point,
+					capacity = capacity,
+					fingerprint = vol.fingerprint,
+					"Counted volume"
+				);
+			}
+			if let Some(available) = vol.available_capacity {
+				available_capacity = available_capacity.saturating_add(available as u64);
+			}
+		}
+
+		debug!(
+			total_capacity = total_capacity,
+			available_capacity = available_capacity,
+			counted_volumes = counted_volumes,
+			excluded_by_subpath = excluded_by_subpath,
+			"Completed volume capacity calculation"
+		);
+
+		Ok((total_capacity, available_capacity))
 	}
 
 	/// Calculate thumbnail count by scanning thumbnail directory
@@ -1018,7 +1191,8 @@ impl Library {
 		// Get all location root entry IDs for this library
 		debug!("Fetching location root entry IDs");
 		let locations = location::Entity::find().all(db).await?;
-		let location_root_entry_ids: Vec<i32> = locations.iter().filter_map(|l| l.entry_id).collect();
+		let location_root_entry_ids: Vec<i32> =
+			locations.iter().filter_map(|l| l.entry_id).collect();
 		debug!(
 			location_count = locations.len(),
 			"Found {} locations",
@@ -1085,6 +1259,109 @@ impl Library {
 		let count = tag::Entity::find().count(db).await?;
 		debug!(tag_count = count, "Tag count query completed successfully");
 		Ok(count as u32)
+	}
+
+	/// Calculate device count (static version)
+	async fn calculate_device_count_static(db: &sea_orm::DatabaseConnection) -> Result<u32> {
+		use crate::infra::db::entities::device;
+		use sea_orm::{EntityTrait, PaginatorTrait, QuerySelect, QueryTrait, Select};
+
+		debug!("Executing device count query");
+		let count = device::Entity::find().count(db).await?;
+		debug!(
+			device_count = count,
+			"Device count query completed successfully"
+		);
+		Ok(count as u32)
+	}
+
+	/// Calculate volume capacity (total and available) across all volumes (static version)
+	/// Only counts user-relevant volumes (Primary, UserData, External, Secondary)
+	/// Excludes system volumes (VM, Recovery, Preboot, etc.)
+	/// Excludes volumes that are subpaths of other volumes (e.g., /System/Volumes/Data/home inside /System/Volumes/Data)
+	async fn calculate_volume_capacity_static(
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<(u64, u64)> {
+		use crate::infra::db::entities::volume;
+		use sea_orm::{EntityTrait, QueryTrait};
+
+		debug!("Executing volume capacity query");
+		let volumes = volume::Entity::find().all(db).await?;
+
+		// First pass: filter to user-visible volumes
+		let mut user_volumes: Vec<_> = volumes
+			.into_iter()
+			.filter(|vol| {
+				let volume_type = vol.volume_type.as_deref().unwrap_or("Unknown");
+				matches!(
+					volume_type,
+					"Primary" | "UserData" | "External" | "Secondary"
+				)
+			})
+			.collect();
+
+		// Deduplicate by fingerprint first (same physical volume tracked multiple times)
+		let mut seen_fingerprints = std::collections::HashSet::new();
+		user_volumes.retain(|v| seen_fingerprints.insert(v.fingerprint.clone()));
+
+		// Sort by mount point length (shorter first) to detect parent volumes first
+		user_volumes.sort_by_key(|v| v.mount_point.as_ref().map(|m| m.len()).unwrap_or(0));
+
+		let mut total_capacity = 0u64;
+		let mut available_capacity = 0u64;
+		let mut counted_volumes = 0;
+		let mut excluded_by_subpath = 0;
+
+		let mut counted_mount_points: Vec<String> = Vec::new();
+
+		for vol in user_volumes {
+			let mount_point = match &vol.mount_point {
+				Some(mp) => mp,
+				None => continue,
+			};
+
+			// Check if this volume's mount point is a subpath of any already-counted volume
+			let is_subpath = counted_mount_points
+				.iter()
+				.any(|parent| mount_point.starts_with(parent) && mount_point != parent);
+
+			if is_subpath {
+				debug!(
+					volume_type = vol.volume_type.as_deref().unwrap_or("Unknown"),
+					mount_point = ?mount_point,
+					"Excluding volume: subpath of already-counted volume"
+				);
+				excluded_by_subpath += 1;
+				continue;
+			}
+
+			// Count this volume
+			if let Some(capacity) = vol.total_capacity {
+				total_capacity = total_capacity.saturating_add(capacity as u64);
+				counted_volumes += 1;
+				counted_mount_points.push(mount_point.clone());
+				debug!(
+					volume_type = vol.volume_type.as_deref().unwrap_or("Unknown"),
+					mount_point = ?mount_point,
+					capacity = capacity,
+					fingerprint = vol.fingerprint,
+					"Counted volume"
+				);
+			}
+			if let Some(available) = vol.available_capacity {
+				available_capacity = available_capacity.saturating_add(available as u64);
+			}
+		}
+
+		debug!(
+			total_capacity = total_capacity,
+			available_capacity = available_capacity,
+			counted_volumes = counted_volumes,
+			excluded_by_subpath = excluded_by_subpath,
+			"Volume capacity query completed successfully"
+		);
+
+		Ok((total_capacity, available_capacity))
 	}
 
 	/// Calculate thumbnail count by scanning thumbnail directory (static version)

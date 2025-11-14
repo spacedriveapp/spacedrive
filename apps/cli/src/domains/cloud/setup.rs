@@ -344,10 +344,7 @@ async fn add_gcs_interactive(ctx: &Context) -> Result<()> {
 	execute_add_cloud(ctx, input).await
 }
 
-async fn execute_add_cloud(
-	ctx: &Context,
-	input: VolumeAddCloudInput,
-) -> Result<()> {
+async fn execute_add_cloud(ctx: &Context, input: VolumeAddCloudInput) -> Result<()> {
 	print!("Connecting to cloud storage... ");
 	std::io::Write::flush(&mut std::io::stdout())?;
 
@@ -367,8 +364,12 @@ async fn execute_add_cloud(
 }
 
 async fn list_volumes(ctx: &Context) -> Result<()> {
-	let volumes: sd_core::ops::volumes::list::VolumeListOutput =
-		execute_query!(ctx, VolumeListQueryInput {});
+	let volumes: sd_core::ops::volumes::list::VolumeListOutput = execute_query!(
+		ctx,
+		VolumeListQueryInput {
+			filter: sd_core::ops::volumes::VolumeFilter::TrackedOnly
+		}
+	);
 
 	if volumes.volumes.is_empty() {
 		println!("\nNo cloud volumes found.");
@@ -379,7 +380,7 @@ async fn list_volumes(ctx: &Context) -> Result<()> {
 	println!("\nCloud Volumes:\n");
 	for vol in &volumes.volumes {
 		println!("  • {} ({})", vol.name, vol.fingerprint.short_id());
-		println!("    UUID:   {}", vol.uuid);
+		println!("    UUID:   {}", vol.id);
 		println!("    Type:   {}", vol.volume_type);
 		println!("    FP:     {}", vol.fingerprint);
 		println!();
@@ -389,8 +390,12 @@ async fn list_volumes(ctx: &Context) -> Result<()> {
 }
 
 async fn remove_volume_interactive(ctx: &Context) -> Result<()> {
-	let volumes: sd_core::ops::volumes::list::VolumeListOutput =
-		execute_query!(ctx, VolumeListQueryInput {});
+	let volumes: sd_core::ops::volumes::list::VolumeListOutput = execute_query!(
+		ctx,
+		VolumeListQueryInput {
+			filter: sd_core::ops::volumes::VolumeFilter::TrackedOnly
+		}
+	);
 
 	if volumes.volumes.is_empty() {
 		println!("\nNo cloud volumes to remove.");

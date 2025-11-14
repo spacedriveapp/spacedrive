@@ -17,9 +17,10 @@ pub struct VolumeFingerprint(pub String);
 
 impl VolumeFingerprint {
 	/// Create a new volume fingerprint from volume properties
+	/// Uses stable identifiers: UUIDs + total physical capacity + filesystem
 	pub fn new(name: &str, total_bytes: u64, file_system: &str) -> Self {
 		let mut hasher = blake3::Hasher::new();
-		hasher.update(b"content_based:");
+		hasher.update(b"uuid_based:");
 		hasher.update(name.as_bytes());
 		hasher.update(&total_bytes.to_be_bytes());
 		hasher.update(file_system.as_bytes());
@@ -103,6 +104,7 @@ pub struct ApfsVolumeInfo {
 	pub role: ApfsVolumeRole,
 	pub name: String,
 	pub mount_point: Option<PathBuf>,
+	pub snapshot_mount_point: Option<PathBuf>,
 	pub capacity_consumed: u64,
 	pub sealed: bool,
 	pub filevault: bool,
@@ -729,7 +731,9 @@ impl Volume {
 	/// - "s3://my-bucket" → Some((S3, "my-bucket"))
 	/// - "gdrive://My Drive" → Some((GoogleDrive, "My Drive"))
 	/// - "/mnt/local" → None
-	pub fn parse_cloud_identity(&self) -> Option<(crate::volume::backend::CloudServiceType, String)> {
+	pub fn parse_cloud_identity(
+		&self,
+	) -> Option<(crate::volume::backend::CloudServiceType, String)> {
 		use crate::volume::backend::CloudServiceType;
 
 		// If we have a stored cloud_identifier, use it with the service from mount_point

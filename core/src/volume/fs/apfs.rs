@@ -46,6 +46,7 @@ pub async fn detect_containers() -> VolumeResult<Vec<ApfsContainer>> {
 
 /// Parse the output of `diskutil apfs list`
 fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
+	warn!("APFS_PARSE: Starting to parse diskutil output");
 	let mut containers = Vec::new();
 	let mut current_container: Option<ApfsContainer> = None;
 	let mut current_volumes = Vec::new();
@@ -113,23 +114,32 @@ fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
 			}
 		}
 		// Volume header: "+-> Volume disk3s5 589962A3-6036-4CAA-BE8E-0E90B5921035"
-		else if line.starts_with("+-> Volume ") {
+		// Can be prefixed with "|   " like "|   +-> Volume"
+		else if line.starts_with("+-> Volume ") || line.contains("+-> Volume ") {
 			let parts: Vec<&str> = line.split_whitespace().collect();
+			warn!("APFS_PARSE: Found volume header, parts: {:?}", parts);
 			if parts.len() >= 4 {
 				let disk_id = parts[2].to_string(); // e.g., "disk3s5"
 				let uuid = parts[3].to_string();
 
 				let volume_info = ApfsVolumeInfo {
-					disk_id,
+					disk_id: disk_id.clone(),
 					uuid,
 					role: ApfsVolumeRole::Other("Unknown".to_string()),
 					name: String::new(),
 					mount_point: None,
+					snapshot_mount_point: None,
 					capacity_consumed: 0,
 					sealed: false,
 					filevault: false,
 				};
+				warn!("APFS_PARSE: Added volume_info for {}", disk_id);
 				current_volumes.push(volume_info);
+			} else {
+				warn!(
+					"APFS_PARSE: Volume header has wrong number of parts: {}",
+					parts.len()
+				);
 			}
 		}
 		// Volume role: "|   APFS Volume Disk (Role): disk3s5 (Data)"
@@ -147,17 +157,22 @@ fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
 			}
 		}
 		// Mount point: "|   Mount Point: /System/Volumes/Data"
-		else if line.contains("Mount Point:")
-			&& !line.contains("Snapshot Mount Point:")
-			&& !current_volumes.is_empty()
-		{
+		else if line.contains("Mount Point:") && !current_volumes.is_empty() {
 			let last_volume = current_volumes.last_mut().unwrap();
 			debug!("Found mount point line: '{}'", line);
-			if let Some(mount_point) = extract_mount_point_from_line(line) {
-				debug!("Extracted mount point: '{}'", mount_point);
-				last_volume.mount_point = Some(PathBuf::from(mount_point));
+
+			if line.contains("Snapshot Mount Point:") {
+				// Prefer snapshot mount point (e.g., / for root)
+				if let Some(mount_point) = extract_mount_point_from_line(line) {
+					debug!("Extracted snapshot mount point: '{}'", mount_point);
+					last_volume.snapshot_mount_point = Some(PathBuf::from(mount_point));
+				}
 			} else {
-				debug!("Failed to extract mount point from line: '{}'", line);
+				// Regular volume mount point
+				if let Some(mount_point) = extract_mount_point_from_line(line) {
+					debug!("Extracted mount point: '{}'", mount_point);
+					last_volume.mount_point = Some(PathBuf::from(mount_point));
+				}
 			}
 		}
 		// Capacity consumed: "|   Capacity Consumed: 821093748736 B (821.1 GB)"
@@ -188,7 +203,21 @@ fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
 		containers.push(container);
 	}
 
-	debug!("Detected {} APFS containers", containers.len());
+	warn!("APFS_PARSE: Parsed {} containers", containers.len());
+	for container in &containers {
+		warn!(
+			"APFS_PARSE: Container {} has {} volumes",
+			container.container_id,
+			container.volumes.len()
+		);
+		for vol in &container.volumes {
+			warn!(
+				"APFS_PARSE:   Volume '{}' ({}), Mount: {:?}, Role: {:?}",
+				vol.name, vol.disk_id, vol.mount_point, vol.role
+			);
+		}
+	}
+
 	Ok(containers)
 }
 
@@ -261,19 +290,39 @@ pub fn containers_to_volumes(
 	device_id: Uuid,
 	config: &VolumeDetectionConfig,
 ) -> VolumeResult<Vec<Volume>> {
+	warn!(
+		"APFS_CONVERT: Converting container {} with {} volumes, include_system={}",
+		container.container_id,
+		container.volumes.len(),
+		config.include_system
+	);
 	let mut volumes = Vec::new();
 
 	for volume_info in &container.volumes {
-		// Only process mounted volumes
-		if let Some(mount_point) = &volume_info.mount_point {
+		// Prefer snapshot mount point if available (e.g., / for root instead of /System/Volumes/Update/mnt1)
+		let effective_mount_point = volume_info
+			.snapshot_mount_point
+			.as_ref()
+			.or(volume_info.mount_point.as_ref());
+
+		warn!(
+			"APFS_CONVERT: Processing volume '{}' role={:?} mount={:?} snapshot={:?}",
+			volume_info.name,
+			volume_info.role,
+			volume_info.mount_point,
+			volume_info.snapshot_mount_point
+		);
+
+		// Only process mounted volumes (including snapshot mounts)
+		if let Some(mount_point) = effective_mount_point {
 			// Skip system volumes unless configured to include them
 			if !config.include_system
 				&& matches!(
 					volume_info.role,
 					ApfsVolumeRole::System | ApfsVolumeRole::Preboot | ApfsVolumeRole::Recovery
 				) {
-				debug!(
-					"Skipping system volume: {} ({})",
+				warn!(
+					"APFS_CONVERT: Skipping system volume: {} ({})",
 					volume_info.name, volume_info.role
 				);
 				continue;
@@ -286,22 +335,57 @@ pub fn containers_to_volumes(
 				Vec::new()
 			};
 
-			// Create volume fingerprint using container info for better uniqueness
+			// Create volume fingerprint using stable identifiers only
+			// Use UUIDs for fingerprint (stable across reboots), not disk IDs (disk3 can become disk4)
+			// DO NOT use capacity_consumed as it changes when files are added/deleted!
+			// Use container total capacity (stable for the physical drive)
 			let fingerprint = crate::volume::types::VolumeFingerprint::new(
-				&format!("{}:{}", container.container_id, volume_info.disk_id),
-				container.total_capacity,
+				&format!("{}:{}", container.uuid, volume_info.uuid),
+				container.total_capacity, // Use container capacity (stable), not consumed (changes)
 				"APFS",
+			);
+
+			warn!(
+				"APFS_CONVERT: Generated fingerprint {} for volume '{}' (consumed: {} bytes)",
+				fingerprint.short_id(),
+				volume_info.name,
+				volume_info.capacity_consumed
 			);
 
 			// Determine mount and volume types
 			let mount_type = determine_mount_type(&volume_info.role, mount_point);
 			let volume_type = classify_volume_type(&volume_info.role, mount_point);
 
-			// Get space information (would need platform-specific implementation)
+			// Auto-track eligibility: Primary, UserData, System volumes
+			// Also track Secondary volumes if they're system mounts (e.g., developer tools)
+			let auto_track_eligible = matches!(
+				volume_type,
+				crate::volume::types::VolumeType::UserData
+					| crate::volume::types::VolumeType::Primary
+					| crate::volume::types::VolumeType::System
+			) || (volume_type
+				== crate::volume::types::VolumeType::Secondary
+				&& mount_type == crate::volume::types::MountType::System);
+
+			warn!(
+				"APFS_CONVERT: Volume '{}' classified as Type={:?}, auto_track_eligible={}",
+				volume_info.name, volume_type, auto_track_eligible
+			);
+
+			// Get space information (total capacity and available space)
 			let (total_bytes, available_bytes) = get_volume_space_info(mount_point)?;
 
 			// Create volume with APFS container information
 			let now = chrono::Utc::now();
+
+			// Collect all mount points (both regular and snapshot)
+			let mut all_mount_points = vec![mount_point.clone()];
+			if let Some(physical) = &volume_info.mount_point {
+				if physical != mount_point {
+					all_mount_points.push(physical.clone());
+				}
+			}
+
 			let volume = Volume {
 				id: uuid::Uuid::new_v4(),
 				fingerprint,
@@ -310,7 +394,7 @@ pub fn containers_to_volumes(
 				library_id: None,
 				is_tracked: false,
 				mount_point: mount_point.clone(),
-				mount_points: vec![mount_point.clone()],
+				mount_points: all_mount_points,
 				volume_type,
 				mount_type,
 				disk_type: DiskType::Unknown,
@@ -326,10 +410,7 @@ pub fn containers_to_volumes(
 				container_volume_id: Some(volume_info.disk_id.clone()),
 				path_mappings,
 				is_user_visible: true,
-				auto_track_eligible: matches!(
-					volume_type,
-					crate::volume::types::VolumeType::UserData
-				),
+				auto_track_eligible,
 				read_speed_mbps: None,
 				write_speed_mbps: None,
 				created_at: now,
@@ -346,14 +427,24 @@ pub fn containers_to_volumes(
 			};
 
 			volumes.push(volume);
-			debug!(
-				"Added APFS volume: {} at {}",
+			warn!(
+				"APFS_CONVERT: Added APFS volume: {} at {}",
 				volume_info.name,
 				mount_point.display()
+			);
+		} else {
+			warn!(
+				"APFS_CONVERT: Skipping unmounted volume: {}",
+				volume_info.name
 			);
 		}
 	}
 
+	warn!(
+		"APFS_CONVERT: Converted {} volumes from container {}",
+		volumes.len(),
+		container.container_id
+	);
 	Ok(volumes)
 }
 

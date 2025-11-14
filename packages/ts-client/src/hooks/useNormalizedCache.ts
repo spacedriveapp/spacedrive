@@ -101,6 +101,15 @@ interface UseNormalizedCacheOptions<I> {
   resourceFilter?: (resource: any) => boolean;
   /** Resource ID for single-resource queries (filters events to matching ID only) */
   resourceId?: string;
+  /**
+   * Optional path scope for filtering events to a specific directory/path.
+   * When provided, the backend includes affected_paths in event metadata for efficient filtering.
+   *
+   * Note: Full server-side filtering is available via EventFilter.path_scope in the daemon,
+   * but current client architecture uses a single global subscription. Future enhancement
+   * could create separate filtered subscriptions per hook.
+   */
+  pathScope?: import("../types").SdPath;
 }
 
 /**
@@ -139,6 +148,7 @@ export function useNormalizedCache<I, O>({
   isGlobalList = false,
   resourceFilter,
   resourceId,
+  pathScope,
 }: UseNormalizedCacheOptions<I>) {
   const client = useSpacedriveClient();
   const queryClient = useQueryClient();
@@ -163,6 +173,21 @@ export function useNormalizedCache<I, O>({
 
   // Listen for ResourceChanged events and update cache atomically
   useEffect(() => {
+    // Helper: Check if event affects the pathScope (if specified)
+    const eventAffectsPath = (metadata: any): boolean => {
+      if (!pathScope) return true; // No path filter, accept all
+
+      const affectedPaths = metadata?.affected_paths || [];
+      if (affectedPaths.length === 0) return true; // Global resource, no paths
+
+      // Check if any affected path matches our pathScope
+      return affectedPaths.some((affectedPath: any) => {
+        // For now, do a simple JSON comparison
+        // In the future, could use more sophisticated path matching
+        return JSON.stringify(affectedPath) === JSON.stringify(pathScope);
+      });
+    };
+
     const handleEvent = (event: any) => {
       // Fast path: ignore job/indexing progress events immediately
       if ("JobProgress" in event || "IndexingProgress" in event) {
@@ -183,7 +208,7 @@ export function useNormalizedCache<I, O>({
         //   queryKey,
         // });
 
-        if (resource_type === resourceType) {
+        if (resource_type === resourceType && eventAffectsPath(metadata)) {
           console.log(
             "[ResourceEvent] Type matches! Updating cache for",
             wireMethod,
@@ -336,7 +361,7 @@ export function useNormalizedCache<I, O>({
         //   firstItem: Array.isArray(resources) ? resources[0] : resources,
         // });
 
-        if (resource_type === resourceType && Array.isArray(resources)) {
+        if (resource_type === resourceType && Array.isArray(resources) && eventAffectsPath(metadata)) {
           // Filter to matching resourceId if specified (for single-resource queries)
           const filteredResources = resourceId
             ? resources.filter((r: any) => r.id === resourceId)
@@ -456,21 +481,34 @@ export function useNormalizedCache<I, O>({
               // });
 
               if (isSingleResource) {
-                // Single object response - check each incoming resource
-                console.log(
-                  "[Cache] Single object mode - checking resources:",
-                  {
-                    oldDataId: (oldData as any).id,
-                    oldDataContentId: (oldData as any).content_identity?.uuid,
-                    incomingCount: resources.length,
-                    incomingIds: resources.map((r: any) => r.id),
-                    incomingContentIds: resources.map(
-                      (r: any) => r.content_identity?.uuid,
-                    ),
-                  },
-                );
+                // For File resources with sd_path, validate path matches (prevent cross-path pollution)
+                const oldPath = (oldData as any).sd_path;
 
-                for (const resource of resources) {
+                if (oldPath) {
+                  // This is a File with a path - filter to matching path only
+                  const filteredByPath = filteredResources.filter((resource: any) => {
+                    if (!resource.sd_path) return false;
+
+                    // Deep compare sd_path objects
+                    return JSON.stringify(oldPath) === JSON.stringify(resource.sd_path);
+                  });
+
+                  if (filteredByPath.length === 0) {
+                    return oldData; // No matching paths, don't update
+                  }
+
+                  // Update to only process path-matching resources
+                  filteredResources.length = 0;
+                  filteredResources.push(...filteredByPath);
+                  resourceMap.clear();
+                  filteredByPath.forEach(r => resourceMap.set(r.id, r));
+                }
+
+                // For non-File resources (SpaceLayout, etc), no path filtering needed
+                // They're already filtered by resourceId above
+
+                // Single object response - check each incoming resource
+                for (const resource of filteredResources) {
                   // Match by ID
                   if ((oldData as any).id === resource.id) {
                     console.log("[Cache] ✓ Updating single object by ID:", {
@@ -622,7 +660,7 @@ export function useNormalizedCache<I, O>({
     return () => {
       client.off("spacedrive-event", handleEvent);
     };
-  }, [resourceType, queryKey, queryClient]);
+  }, [resourceType, queryKey, queryClient, pathScope]);
 
   return query;
 }

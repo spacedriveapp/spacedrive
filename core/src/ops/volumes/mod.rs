@@ -14,7 +14,7 @@ pub mod track;
 pub mod untrack;
 
 pub use add_cloud::{action::VolumeAddCloudAction, VolumeAddCloudOutput};
-pub use list::{VolumeListOutput, VolumeListQuery, VolumeListQueryInput};
+pub use list::{VolumeFilter, VolumeListOutput, VolumeListQuery, VolumeListQueryInput};
 pub use remove_cloud::{action::VolumeRemoveCloudAction, VolumeRemoveCloudOutput};
 pub use speed_test::{action::VolumeSpeedTestAction, VolumeSpeedTestOutput};
 pub use track::{action::VolumeTrackAction, VolumeTrackOutput};

@@ -123,7 +123,7 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 		use sd_core::ops::volumes::list::VolumeListQueryInput;
 
 		let volumes: sd_core::ops::volumes::list::VolumeListOutput =
-			execute_query!(ctx, VolumeListQueryInput {});
+            execute_query!(ctx, VolumeListQueryInput { filter: sd_core::ops::volumes::VolumeFilter::TrackedOnly });
 
 		if volumes.volumes.is_empty() {
 			anyhow::bail!(

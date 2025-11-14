@@ -2,10 +2,12 @@
 
 pub mod log_emitter;
 
+use crate::domain::SdPath;
 use crate::infra::job::{generic_progress::GenericProgress, output::JobOutput};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use tokio::sync::broadcast;
 use tracing::{debug, warn};
 use uuid::Uuid;
@@ -17,6 +19,41 @@ pub struct ResourceMetadata {
 	pub no_merge_fields: Vec<String>,
 	/// Alternate IDs for matching (besides primary ID)
 	pub alternate_ids: Vec<Uuid>,
+	/// Paths affected by this resource event (for path-scoped filtering)
+	#[serde(default)]
+	pub affected_paths: Vec<SdPath>,
+}
+
+/// Filter for event subscriptions to enable path-scoped event delivery
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SubscriptionFilter {
+	/// Global subscription - receives all events of this type
+	Global {
+		resource_type: String,
+	},
+	/// Path-scoped subscription - only events affecting this path
+	PathScoped {
+		resource_type: String,
+		path_scope: SdPath,
+	},
+}
+
+impl SubscriptionFilter {
+	/// Check if this filter matches the given event
+	pub fn matches(&self, event: &Event) -> bool {
+		match self {
+			Self::Global { resource_type } => {
+				event.resource_type().map_or(false, |rt| rt == resource_type)
+			}
+			Self::PathScoped {
+				resource_type,
+				path_scope,
+			} => {
+				event.resource_type().map_or(false, |rt| rt == resource_type)
+					&& event.affects_path(path_scope)
+			}
+		}
+	}
 }
 
 /// A central event type that represents all events that can be emitted throughout the system
@@ -249,6 +286,104 @@ impl Event {
 	pub fn variant_name(&self) -> &str {
 		self.as_ref()
 	}
+
+	/// Get the resource type if this is a resource event
+	pub fn resource_type(&self) -> Option<&str> {
+		match self {
+			Event::ResourceChanged { resource_type, .. }
+			| Event::ResourceChangedBatch { resource_type, .. }
+			| Event::ResourceDeleted { resource_type, .. } => Some(resource_type),
+			_ => None,
+		}
+	}
+
+	/// Check if this event affects the given path scope
+	pub fn affects_path(&self, scope: &SdPath) -> bool {
+		let affected_paths = match self {
+			Event::ResourceChanged { metadata, .. }
+			| Event::ResourceChangedBatch { metadata, .. } => {
+				metadata.as_ref().map(|m| &m.affected_paths)
+			}
+			_ => None,
+		};
+
+		let Some(paths) = affected_paths else {
+			// No path metadata - can't determine if it matches, so include it
+			return true;
+		};
+
+		if paths.is_empty() {
+			// Empty affected_paths means this is a global resource (location, space, etc.)
+			return true;
+		}
+
+		// Check if any affected path matches the scope
+		paths.iter().any(|affected_path| {
+			match (scope, affected_path) {
+				// Physical path matching - check if file is in the scoped directory
+				(
+					SdPath::Physical {
+						device_slug: scope_device,
+						path: scope_path,
+					},
+					SdPath::Physical {
+						device_slug: file_device,
+						path: file_path,
+					},
+				) => {
+					// Must be same device and file must be in the scope directory
+					scope_device == file_device && file_path.starts_with(scope_path)
+				}
+				// Content ID matching - exact match
+				(
+					SdPath::Content {
+						content_id: scope_id,
+					},
+					SdPath::Content {
+						content_id: file_id,
+					},
+				) => scope_id == file_id,
+				// Cloud path matching
+				(
+					SdPath::Cloud {
+						service: scope_service,
+						identifier: scope_id,
+						path: scope_path,
+					},
+					SdPath::Cloud {
+						service: file_service,
+						identifier: file_id,
+						path: file_path,
+					},
+				) => {
+					scope_service == file_service
+						&& scope_id == file_id
+						&& file_path.starts_with(scope_path.as_str())
+				}
+				// Sidecar matching - match by content ID
+				(
+					SdPath::Content {
+						content_id: scope_id,
+					},
+					SdPath::Sidecar {
+						content_id: file_id,
+						..
+					},
+				)
+				| (
+					SdPath::Sidecar {
+						content_id: scope_id,
+						..
+					},
+					SdPath::Content {
+						content_id: file_id,
+					},
+				) => scope_id == file_id,
+				// Mixed types don't match
+				_ => false,
+			}
+		})
+	}
 }
 
 /// Raw filesystem event kinds emitted by the watcher without DB resolution
@@ -269,42 +404,129 @@ pub enum FileOperation {
 	Rename,
 }
 
-/// Event bus for broadcasting events
+/// A filtered subscriber with its own broadcast channel
+#[derive(Debug)]
+struct FilteredSubscriber {
+	id: Uuid,
+	filters: Vec<SubscriptionFilter>,
+	sender: broadcast::Sender<Event>,
+}
+
+/// Event bus for broadcasting events with optional filtering
 #[derive(Debug, Clone)]
 pub struct EventBus {
+	// Legacy broadcast for unfiltered subscriptions
 	sender: broadcast::Sender<Event>,
+	// Filtered subscribers
+	subscribers: Arc<RwLock<Vec<FilteredSubscriber>>>,
 }
 
 impl EventBus {
 	/// Create a new event bus with specified capacity
 	pub fn new(capacity: usize) -> Self {
 		let (sender, _) = broadcast::channel(capacity);
-		Self { sender }
-	}
-
-	/// Emit an event to all subscribers
-	pub fn emit(&self, event: Event) {
-		match self.sender.send(event.clone()) {
-			Ok(subscriber_count) => {
-				debug!("Event emitted to {} subscribers", subscriber_count);
-			}
-			Err(_) => {
-				// No subscribers - this is fine, just debug log it
-				debug!("Event emitted but no subscribers: {:?}", event);
-			}
+		Self {
+			sender,
+			subscribers: Arc::new(RwLock::new(Vec::new())),
 		}
 	}
 
-	/// Subscribe to events
+	/// Emit an event to all subscribers (filtered and unfiltered)
+	pub fn emit(&self, event: Event) {
+		// Emit to legacy unfiltered subscribers
+		match self.sender.send(event.clone()) {
+			Ok(count) => {
+				if count > 0 {
+					debug!("Event emitted to {} unfiltered subscribers", count);
+				}
+			}
+			Err(_) => {}
+		}
+
+		// Emit to filtered subscribers
+		let subscribers = self.subscribers.read().unwrap();
+		let mut matched_count = 0;
+
+		for subscriber in subscribers.iter() {
+			// Check if any filter matches
+			let matches = subscriber
+				.filters
+				.iter()
+				.any(|filter| filter.matches(&event));
+
+			if matches {
+				match subscriber.sender.send(event.clone()) {
+					Ok(_) => {
+						matched_count += 1;
+					}
+					Err(_) => {
+						// Subscriber channel closed - will be cleaned up later
+					}
+				}
+			}
+		}
+
+		if matched_count > 0 {
+			debug!(
+				"Event emitted to {} filtered subscribers",
+				matched_count
+			);
+		}
+	}
+
+	/// Subscribe to all events (unfiltered)
 	pub fn subscribe(&self) -> EventSubscriber {
 		EventSubscriber {
 			receiver: self.sender.subscribe(),
+			subscription_id: None,
+			event_bus: None,
 		}
 	}
 
-	/// Get the number of active subscribers
+	/// Subscribe with filters
+	pub fn subscribe_filtered(&self, filters: Vec<SubscriptionFilter>) -> EventSubscriber {
+		let id = Uuid::new_v4();
+		let (sender, receiver) = broadcast::channel(1024);
+
+		let subscriber = FilteredSubscriber { id, filters, sender };
+
+		self.subscribers.write().unwrap().push(subscriber);
+
+		debug!(
+			"Created filtered subscription {} with {} filters",
+			id,
+			self.subscribers.read().unwrap().last().unwrap().filters.len()
+		);
+
+		EventSubscriber {
+			receiver,
+			subscription_id: Some(id),
+			event_bus: Some(self.clone()),
+		}
+	}
+
+	/// Unsubscribe a filtered subscription
+	pub fn unsubscribe(&self, subscription_id: Uuid) {
+		let mut subscribers = self.subscribers.write().unwrap();
+		subscribers.retain(|s| s.id != subscription_id);
+		debug!("Unsubscribed filtered subscription {}", subscription_id);
+	}
+
+	/// Get the number of active subscribers (unfiltered + filtered)
 	pub fn subscriber_count(&self) -> usize {
-		self.sender.receiver_count()
+		let filtered_count = self.subscribers.read().unwrap().len();
+		self.sender.receiver_count() + filtered_count
+	}
+
+	/// Clean up closed subscriber channels
+	pub fn cleanup_closed_subscribers(&self) {
+		let mut subscribers = self.subscribers.write().unwrap();
+		let before = subscribers.len();
+		subscribers.retain(|s| s.sender.receiver_count() > 0);
+		let removed = before - subscribers.len();
+		if removed > 0 {
+			debug!("Cleaned up {} closed filtered subscriptions", removed);
+		}
 	}
 }
 
@@ -318,6 +540,8 @@ impl Default for EventBus {
 #[derive(Debug)]
 pub struct EventSubscriber {
 	receiver: broadcast::Receiver<Event>,
+	subscription_id: Option<Uuid>,
+	event_bus: Option<EventBus>,
 }
 
 impl EventSubscriber {
@@ -344,6 +568,20 @@ impl EventSubscriber {
 			if filter(&event) {
 				return Ok(event);
 			}
+		}
+	}
+
+	/// Get the subscription ID if this is a filtered subscription
+	pub fn subscription_id(&self) -> Option<Uuid> {
+		self.subscription_id
+	}
+}
+
+impl Drop for EventSubscriber {
+	fn drop(&mut self) {
+		// Auto-unsubscribe filtered subscriptions when dropped
+		if let (Some(id), Some(bus)) = (self.subscription_id, &self.event_bus) {
+			bus.unsubscribe(id);
 		}
 	}
 }

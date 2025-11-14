@@ -146,6 +146,9 @@ pub enum GroupType {
 	/// All locations across all devices
 	Locations,
 
+	/// All volumes across all devices
+	Volumes,
+
 	/// Tag collection
 	Tags,
 

@@ -557,6 +557,14 @@ impl VolumeManager {
 
 		// Detect current volumes
 		let detected_volumes = detection::detect_volumes(device_id, config).await?;
+		warn!("VOLUME_DETECT: Detected {} volumes", detected_volumes.len());
+		for vol in &detected_volumes {
+			warn!(
+				"VOLUME_DETECT: Found '{}' at {} - Type: {:?}, Auto-track: {}",
+				vol.name, vol.mount_point.display(), vol.volume_type, vol.auto_track_eligible
+			);
+		}
+
 		let mut current_volumes = volumes.write().await;
 		let mut cache = path_cache.write().await;
 
@@ -1319,15 +1327,25 @@ impl VolumeManager {
 		&self,
 		library: &crate::library::Library,
 	) -> VolumeResult<Vec<entities::volume::Model>> {
-		let eligible_volumes: Vec<_> = self
-			.volumes
-			.read()
-			.await
+		let all_volumes = self.volumes.read().await;
+		let total_count = all_volumes.len();
+
+		warn!("AUTO_TRACK: Total volumes detected: {}", total_count);
+		for (fp, vol) in all_volumes.iter() {
+			warn!(
+				"AUTO_TRACK: Volume '{}' - Type: {:?}, Eligible: {}, Fingerprint: {}",
+				vol.name, vol.volume_type, vol.auto_track_eligible, fp
+			);
+		}
+
+		let eligible_volumes: Vec<_> = all_volumes
 			.values()
 			.filter(|v| v.auto_track_eligible)
 			.cloned()
 			.collect();
+		drop(all_volumes);
 
+		warn!("AUTO_TRACK: Eligible volumes for tracking: {}", eligible_volumes.len());
 		let mut tracked_volumes = Vec::new();
 
 		for volume in eligible_volumes {

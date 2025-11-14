@@ -4,10 +4,24 @@
  */
 
 import { DEFAULT_EVENT_SUBSCRIPTION } from "./event-filter";
+import type { SdPath } from "./types";
+
+export interface EventFilter {
+	library_id?: string;
+	job_id?: string;
+	device_id?: string;
+	resource_type?: string;
+	path_scope?: SdPath;
+}
+
+export interface SubscriptionOptions {
+	event_types?: string[];
+	filter?: EventFilter;
+}
 
 export interface Transport {
 	sendRequest(request: any): Promise<any>;
-	subscribe(callback: (event: any) => void): Promise<() => void>;
+	subscribe(callback: (event: any) => void, options?: SubscriptionOptions): Promise<() => void>;
 }
 
 /**
@@ -31,11 +45,12 @@ export class TauriTransport implements Transport {
 		return response;
 	}
 
-	async subscribe(callback: (event: any) => void): Promise<() => void> {
+	async subscribe(callback: (event: any) => void, options?: SubscriptionOptions): Promise<() => void> {
 		// Start the event subscription on the backend
 		// Pass the event filter from frontend so Tauri layer doesn't need to maintain its own list
 		await this.invoke("subscribe_to_events", {
-			event_types: DEFAULT_EVENT_SUBSCRIPTION,
+			event_types: options?.event_types ?? DEFAULT_EVENT_SUBSCRIPTION,
+			filter: options?.filter ?? null,
 		});
 
 		// Listen to forwarded events from Tauri
@@ -82,7 +97,7 @@ export class UnixSocketTransport implements Transport {
 		throw new Error("Connection closed without response");
 	}
 
-	async subscribe(callback: (event: any) => void): Promise<() => void> {
+	async subscribe(callback: (event: any) => void, options?: SubscriptionOptions): Promise<() => void> {
 		// @ts-ignore - Bun global
 		const socket = await Bun.connect({
 			unix: this.socketPath,
@@ -91,8 +106,8 @@ export class UnixSocketTransport implements Transport {
 		// Subscribe to relevant events (excludes spammy LogMessage/JobProgress)
 		const subscribeRequest = {
 			Subscribe: {
-				event_types: DEFAULT_EVENT_SUBSCRIPTION,
-				filter: null,
+				event_types: options?.event_types ?? DEFAULT_EVENT_SUBSCRIPTION,
+				filter: options?.filter ?? null,
 			},
 		};
 

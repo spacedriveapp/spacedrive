@@ -25,6 +25,42 @@ impl ResourceManager {
 		Self { db, events }
 	}
 
+	/// Extract affected paths from File resources for path-scoped filtering
+	fn extract_file_paths(resources: &[serde_json::Value]) -> Vec<crate::domain::SdPath> {
+		use std::collections::HashSet;
+
+		let mut paths = HashSet::new();
+
+		for resource in resources {
+			// Extract sd_path (primary path)
+			if let Some(sd_path) = resource.get("sd_path") {
+				if let Ok(path) = serde_json::from_value::<crate::domain::SdPath>(sd_path.clone()) {
+					// For physical paths, add the parent directory
+					// This ensures directory views get notified of child changes
+					if let Some(parent) = path.parent() {
+						paths.insert(parent);
+					}
+					paths.insert(path);
+				}
+			}
+
+			// Extract alternate_paths (all other physical locations)
+			if let Some(alt_paths) = resource.get("alternate_paths") {
+				if let Ok(path_list) = serde_json::from_value::<Vec<crate::domain::SdPath>>(alt_paths.clone()) {
+					for path in path_list {
+						// Add parent directories for alternate paths too
+						if let Some(parent) = path.parent() {
+							paths.insert(parent);
+						}
+						paths.insert(path);
+					}
+				}
+			}
+		}
+
+		paths.into_iter().collect()
+	}
+
 	/// Emit direct ResourceChanged events for simple resources
 	async fn emit_direct_events(&self, resource_type: &str, resource_ids: &[Uuid]) -> Result<()> {
 		use crate::infra::db::entities::{space, space_group, space_item};
@@ -300,6 +336,13 @@ impl ResourceManager {
 				if virtual_ids.len() == 1 { "change" } else { "changes" }
 			);
 
+			// Extract affected paths for path-scoped filtering
+			let affected_paths = if virtual_type == "file" {
+				Self::extract_file_paths(&resources_json)
+			} else {
+				vec![]
+			};
+
 			// Build metadata
 			let metadata = ResourceMetadata {
 				no_merge_fields: resource_info
@@ -310,6 +353,7 @@ impl ResourceManager {
 				// Note: alternate_ids would need to be extracted from deserialized resources
 				// For now, we'll leave it empty as it's harder to extract generically
 				alternate_ids: vec![],
+				affected_paths,
 			};
 
 			// Emit as batch for efficiency

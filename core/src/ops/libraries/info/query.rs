@@ -56,17 +56,30 @@ impl LibraryQuery for LibraryInfoQuery {
 		// Get library path
 		let path = library.path().to_path_buf();
 
-		// Get updated statistics (reloads from disk)
-		let statistics = library.get_statistics().await;
+		// Calculate statistics fresh from database
+		tracing::debug!(
+			library_id = %library_id,
+			library_name = %config.name,
+			"Calculating real-time statistics from database"
+		);
+
+		let statistics = library
+			.calculate_statistics_for_query()
+			.await
+			.map_err(|e| QueryError::Internal(format!("Failed to calculate statistics: {}", e)))?;
 
 		tracing::debug!(
 			library_id = %config.id,
 			library_name = %config.name,
 			total_files = statistics.total_files,
 			total_size = statistics.total_size,
+			location_count = statistics.location_count,
+			tag_count = statistics.tag_count,
+			device_count = statistics.device_count,
+			total_capacity = statistics.total_capacity,
+			available_capacity = statistics.available_capacity,
 			database_size = statistics.database_size,
-			updated_at = %statistics.updated_at,
-			"Returning library info with updated statistics"
+			"Returning library info with fresh database statistics"
 		);
 
 		Ok(LibraryInfoOutput {

@@ -18,6 +18,10 @@ pub enum VolumeCmd {
 	AddCloud(VolumeAddCloudArgs),
 	/// Remove a cloud storage volume from the library
 	RemoveCloud(VolumeRemoveCloudArgs),
+	/// List all detected volumes
+	List,
+	/// Scan for volumes and auto-track eligible ones
+	Scan,
 }
 
 pub async fn run(ctx: &Context, cmd: VolumeCmd) -> Result<()> {
@@ -59,6 +63,38 @@ pub async fn run(ctx: &Context, cmd: VolumeCmd) -> Result<()> {
 			print_output!(ctx, &out, |o: &VolumeRemoveCloudOutput| {
 				println!("Removed cloud volume {}", o.fingerprint);
 			});
+		}
+		VolumeCmd::List => {
+			ctx.require_current_library()?;
+
+			let input = sd_core::ops::volumes::list::query::VolumeListQueryInput {
+				filter: sd_core::ops::volumes::VolumeFilter::TrackedOnly,
+			};
+			let output: sd_core::ops::volumes::list::output::VolumeListOutput =
+				execute_query!(ctx, input);
+
+			if output.volumes.is_empty() {
+				println!("No volumes tracked in the current library.");
+				println!("\nVolumes must be detected and tracked by the backend.");
+				return Ok(());
+			}
+
+			println!("Tracked {} volume(s):\n", output.volumes.len());
+
+			for volume in output.volumes {
+				println!("{}", volume.name);
+				println!("   ID: {}", volume.id);
+				println!("   Fingerprint: {}", volume.fingerprint);
+				println!("   Type: {}", volume.volume_type);
+				if let Some(mount) = &volume.mount_point {
+					println!("   Mount: {}", mount);
+				}
+				println!();
+			}
+		}
+		VolumeCmd::Scan => {
+			println!("Volume scanning must be triggered by the backend.");
+			println!("Restart the application to trigger volume detection.");
 		}
 	}
 	Ok(())
