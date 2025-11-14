@@ -4,7 +4,10 @@ use sd_core::{
 	infra::sync::{NetworkTransport, Syncable},
 	service::{network::protocol::sync::messages::SyncMessage, sync::SyncService},
 };
-use std::{collections::HashMap, sync::{Arc, Weak}};
+use std::{
+	collections::HashMap,
+	sync::{Arc, Weak},
+};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -44,15 +47,30 @@ impl MockTransport {
 		let history = Arc::new(Mutex::new(Vec::new()));
 		let sync_services = Arc::new(Mutex::new(HashMap::new()));
 
-		let transport_a = Self::new(device_a, vec![device_b], queues.clone(), history.clone(), sync_services.clone());
-		let transport_b = Self::new(device_b, vec![device_a], queues.clone(), history.clone(), sync_services.clone());
+		let transport_a = Self::new(
+			device_a,
+			vec![device_b],
+			queues.clone(),
+			history.clone(),
+			sync_services.clone(),
+		);
+		let transport_b = Self::new(
+			device_b,
+			vec![device_a],
+			queues.clone(),
+			history.clone(),
+			sync_services.clone(),
+		);
 
 		(transport_a, transport_b)
 	}
-	
+
 	/// Register a sync service for request/response handling
 	pub async fn register_sync_service(&self, device_id: Uuid, sync_service: Weak<SyncService>) {
-		self.sync_services.lock().await.insert(device_id, sync_service);
+		self.sync_services
+			.lock()
+			.await
+			.insert(device_id, sync_service);
 	}
 
 	/// Process incoming messages by delivering them to the sync service
@@ -80,31 +98,45 @@ impl MockTransport {
 				} => {
 					sync_service
 						.peer_sync()
-						.on_state_change_received(sd_core::service::sync::state::StateChangeMessage {
-							model_type,
-							record_uuid,
-							device_id,
-							data,
-							timestamp,
-						})
+						.on_state_change_received(
+							sd_core::service::sync::state::StateChangeMessage {
+								model_type,
+								record_uuid,
+								device_id,
+								data,
+								timestamp,
+							},
+						)
 						.await?;
 				}
-				SyncMessage::SharedChange { library_id: _, entry } => {
-					sync_service.peer_sync().on_shared_change_received(entry).await?;
+				SyncMessage::SharedChange {
+					library_id: _,
+					entry,
+				} => {
+					sync_service
+						.peer_sync()
+						.on_shared_change_received(entry)
+						.await?;
 				}
 				SyncMessage::AckSharedChanges {
 					library_id: _,
 					from_device,
 					up_to_hlc,
 				} => {
-					sync_service.peer_sync().on_ack_received(from_device, up_to_hlc).await?;
+					sync_service
+						.peer_sync()
+						.on_ack_received(from_device, up_to_hlc)
+						.await?;
 				}
 				SyncMessage::SharedChangeRequest {
 					library_id,
 					since_hlc,
 					limit,
 				} => {
-					let (entries, has_more) = sync_service.peer_sync().get_shared_changes(since_hlc, limit).await?;
+					let (entries, has_more) = sync_service
+						.peer_sync()
+						.get_shared_changes(since_hlc, limit)
+						.await?;
 					let current_state = if since_hlc.is_none() {
 						Some(sync_service.peer_sync().get_full_shared_state().await?)
 					} else {
@@ -120,23 +152,37 @@ impl MockTransport {
 
 					self.send_sync_message(sender, response).await?;
 				}
-				SyncMessage::SharedChangeResponse { entries, current_state, .. } => {
+				SyncMessage::SharedChangeResponse {
+					entries,
+					current_state,
+					..
+				} => {
 					// Deliver to backfill manager (it handles duplicate/unexpected responses gracefully)
-					let _ = sync_service.backfill_manager().deliver_shared_response(message_clone).await;
+					let _ = sync_service
+						.backfill_manager()
+						.deliver_shared_response(message_clone)
+						.await;
 
 					// Also process entries directly (for tests that send manual requests)
 					for entry in entries {
-						sync_service.peer_sync().on_shared_change_received(entry).await?;
+						sync_service
+							.peer_sync()
+							.on_shared_change_received(entry)
+							.await?;
 					}
 
 					// Apply current_state snapshot if provided
 					if let Some(state) = current_state {
 						if let Some(tags) = state["tag"].as_array() {
 							for tag_data in tags {
-								let uuid: Uuid = Uuid::parse_str(tag_data["uuid"].as_str().unwrap())?;
+								let uuid: Uuid =
+									Uuid::parse_str(tag_data["uuid"].as_str().unwrap())?;
 								let data = tag_data["data"].clone();
 
-								use sd_core::infra::{db::entities, sync::{ChangeType, SharedChangeEntry, HLC}};
+								use sd_core::infra::{
+									db::entities,
+									sync::{ChangeType, SharedChangeEntry, HLC},
+								};
 								entities::tag::Model::apply_shared_change(
 									SharedChangeEntry {
 										hlc: HLC::now(self.my_device_id),
@@ -158,10 +204,16 @@ impl MockTransport {
 					my_state_watermark: peer_state_watermark,
 					my_shared_watermark: peer_shared_watermark,
 				} => {
-					let (our_state_watermark, our_shared_watermark) = sync_service.peer_sync().get_watermarks().await;
+					let (our_state_watermark, our_shared_watermark) =
+						sync_service.peer_sync().get_watermarks().await;
 
-					let needs_state_catchup = matches!((peer_state_watermark, our_state_watermark), (Some(p), Some(o)) if o > p) || matches!((peer_state_watermark, our_state_watermark), (None, Some(_)));
-					let needs_shared_catchup = matches!((peer_shared_watermark, our_shared_watermark), (Some(p), Some(o)) if o > p) || matches!((peer_shared_watermark, our_shared_watermark), (None, Some(_)));
+					let needs_state_catchup = matches!((peer_state_watermark, our_state_watermark), (Some(p), Some(o)) if o > p)
+						|| matches!((peer_state_watermark, our_state_watermark), (None, Some(_)));
+					let needs_shared_catchup = matches!((peer_shared_watermark, our_shared_watermark), (Some(p), Some(o)) if o > p)
+						|| matches!(
+							(peer_shared_watermark, our_shared_watermark),
+							(None, Some(_))
+						);
 
 					let response = SyncMessage::WatermarkExchangeResponse {
 						library_id,
@@ -202,19 +254,22 @@ impl MockTransport {
 					batch_size: _,
 				} => {
 					let response = SyncMessage::StateResponse {
-					library_id,
-					model_type: model_types.first().cloned().unwrap_or_default(),
-					device_id: requested_device_id.unwrap_or(self.my_device_id),
-					records: vec![],
-					deleted_uuids: vec![],
-					has_more: false,
-					checkpoint: None,
-				};
+						library_id,
+						model_type: model_types.first().cloned().unwrap_or_default(),
+						device_id: requested_device_id.unwrap_or(self.my_device_id),
+						records: vec![],
+						deleted_uuids: vec![],
+						has_more: false,
+						checkpoint: None,
+					};
 
 					self.send_sync_message(sender, response).await?;
 				}
 				SyncMessage::StateResponse { .. } => {
-					sync_service.backfill_manager().deliver_state_response(message_clone).await?;
+					sync_service
+						.backfill_manager()
+						.deliver_state_response(message_clone)
+						.await?;
 				}
 				_ => {}
 			}
@@ -248,7 +303,11 @@ impl MockTransport {
 
 #[async_trait::async_trait]
 impl NetworkTransport for MockTransport {
-	async fn send_sync_message(&self, target_device: Uuid, message: SyncMessage) -> anyhow::Result<()> {
+	async fn send_sync_message(
+		&self,
+		target_device: Uuid,
+		message: SyncMessage,
+	) -> anyhow::Result<()> {
 		if !self.connected_peers.contains(&target_device) {
 			return Err(anyhow::anyhow!("device {} not connected", target_device));
 		}
@@ -275,7 +334,7 @@ impl NetworkTransport for MockTransport {
 	) -> anyhow::Result<SyncMessage> {
 		// For testing: invoke the actual protocol handler on the target device
 		// This simulates the bidirectional stream request/response pattern
-		
+
 		if !self.connected_peers.contains(&target_device) {
 			return Err(anyhow::anyhow!("device {} not connected", target_device));
 		}
@@ -286,7 +345,12 @@ impl NetworkTransport for MockTransport {
 			services
 				.get(&target_device)
 				.and_then(|weak| weak.upgrade())
-				.ok_or_else(|| anyhow::anyhow!("Target sync service not registered for device {}", target_device))?
+				.ok_or_else(|| {
+					anyhow::anyhow!(
+						"Target sync service not registered for device {}",
+						target_device
+					)
+				})?
 		};
 
 		// Record in history
@@ -341,9 +405,9 @@ impl NetworkTransport for MockTransport {
 
 				let has_more = records.len() >= *batch_size;
 				let next_checkpoint = if has_more {
-					records.last().map(|r| {
-						format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid)
-					})
+					records
+						.last()
+						.map(|r| format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid))
 				} else {
 					None
 				};
@@ -358,7 +422,9 @@ impl NetworkTransport for MockTransport {
 					has_more,
 				}
 			}
-			SyncMessage::SharedChangeRequest { since_hlc, limit, .. } => {
+			SyncMessage::SharedChangeRequest {
+				since_hlc, limit, ..
+			} => {
 				// Query actual shared changes from target device
 				let (entries, has_more) = sync_service
 					.peer_sync()

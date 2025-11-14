@@ -166,18 +166,19 @@ async fn test_global_watermark_filters_earlier_resources() -> anyhow::Result<()>
 	.await?;
 
 	// Query entries with watermark
-	let entries_result = entities::entry::Model::query_for_sync(
-		None,
-		Some(watermark_at_t25),
-		None,
-		1000,
-		db,
-	)
-	.await?;
+	let entries_result =
+		entities::entry::Model::query_for_sync(None, Some(watermark_at_t25), None, 1000, db)
+			.await?;
 
 	println!("Query Results:");
-	println!("  Locations returned: {} (expected 0 due to watermark filter)", locations_result.len());
-	println!("  Entries returned:   {} (expected some, those >= T+25)", entries_result.len());
+	println!(
+		"  Locations returned: {} (expected 0 due to watermark filter)",
+		locations_result.len()
+	);
+	println!(
+		"  Entries returned:   {} (expected some, those >= T+25)",
+		entries_result.len()
+	);
 	println!();
 
 	println!("=== Demonstrating the Bug ===\n");
@@ -250,4 +251,3 @@ async fn test_per_resource_watermark_solution() -> anyhow::Result<()> {
 
 	Ok(())
 }
-

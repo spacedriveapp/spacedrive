@@ -108,20 +108,34 @@ impl WatermarkTestSetup {
 		let (transport_a, transport_b) = MockTransport::new_pair(device_a_id, device_b_id);
 
 		library_a
-			.init_sync_service(device_a_id, transport_a.clone() as Arc<dyn NetworkTransport>)
+			.init_sync_service(
+				device_a_id,
+				transport_a.clone() as Arc<dyn NetworkTransport>,
+			)
 			.await?;
 		library_b
-			.init_sync_service(device_b_id, transport_b.clone() as Arc<dyn NetworkTransport>)
+			.init_sync_service(
+				device_b_id,
+				transport_b.clone() as Arc<dyn NetworkTransport>,
+			)
 			.await?;
 
 		// Register sync services with transports for request/response BEFORE backfill starts
 		if let Some(sync_a) = library_a.sync_service() {
-			transport_a.register_sync_service(device_a_id, Arc::downgrade(&sync_a)).await;
-			transport_b.register_sync_service(device_a_id, Arc::downgrade(&sync_a)).await; // Register on both
+			transport_a
+				.register_sync_service(device_a_id, Arc::downgrade(&sync_a))
+				.await;
+			transport_b
+				.register_sync_service(device_a_id, Arc::downgrade(&sync_a))
+				.await; // Register on both
 		}
 		if let Some(sync_b) = library_b.sync_service() {
-			transport_a.register_sync_service(device_b_id, Arc::downgrade(&sync_b)).await; // Register on both
-			transport_b.register_sync_service(device_b_id, Arc::downgrade(&sync_b)).await;
+			transport_a
+				.register_sync_service(device_b_id, Arc::downgrade(&sync_b))
+				.await; // Register on both
+			transport_b
+				.register_sync_service(device_b_id, Arc::downgrade(&sync_b))
+				.await;
 		}
 
 		let setup = Self {
@@ -315,9 +329,9 @@ impl WatermarkTestSetup {
 		timestamp: chrono::DateTime<chrono::Utc>,
 	) -> anyhow::Result<entities::volume::Model> {
 		use sd_core::domain::volume::VolumeFingerprint;
-		
+
 		let fingerprint = VolumeFingerprint::new(name, 1_000_000_000, "ext4");
-		
+
 		let volume = entities::volume::ActiveModel {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(Uuid::new_v4()),
@@ -395,11 +409,7 @@ async fn test_watermark_bug_with_10k_mixed_resources() -> anyhow::Result<()> {
 	for i in 0..50 {
 		let timestamp = base_time + chrono::Duration::minutes(i as i64 % 5);
 		let location = setup
-			.create_location_with_timestamp(
-				&format!("Location_{}", i),
-				device_a.id,
-				timestamp,
-			)
+			.create_location_with_timestamp(&format!("Location_{}", i), device_a.id, timestamp)
 			.await?;
 		setup
 			.library_a
@@ -417,7 +427,8 @@ async fn test_watermark_bug_with_10k_mixed_resources() -> anyhow::Result<()> {
 	println!("Creating 12,000 entries with timestamps at T+20 minutes onwards...");
 	println!("(This will be batched into multiple syncs)");
 	for i in 0..12_000 {
-		let timestamp = base_time + chrono::Duration::minutes(20) + chrono::Duration::seconds(i as i64);
+		let timestamp =
+			base_time + chrono::Duration::minutes(20) + chrono::Duration::seconds(i as i64);
 		let entry = setup
 			.create_entry_with_timestamp(&format!("Entry_{}", i), 0, timestamp)
 			.await?;
@@ -454,14 +465,17 @@ async fn test_watermark_bug_with_10k_mixed_resources() -> anyhow::Result<()> {
 	// Check how much synced
 	let locations_partial = setup.count_locations(&setup.library_b).await?;
 	let entries_partial = setup.count_entries(&setup.library_b).await?;
-	
+
 	println!("\nAfter first backfill pass:");
 	println!("  Locations: {}", locations_partial);
 	println!("  Entries:   {}", entries_partial);
 
 	// Get watermark after partial sync
 	let watermark_after_partial = setup.get_device_watermark().await?;
-	println!("\nWatermark after partial sync: {:?}", watermark_after_partial);
+	println!(
+		"\nWatermark after partial sync: {:?}",
+		watermark_after_partial
+	);
 
 	println!("\n=== Phase 3: Simulate disconnection and create MORE entries ===\n");
 
@@ -486,7 +500,10 @@ async fn test_watermark_bug_with_10k_mixed_resources() -> anyhow::Result<()> {
 
 	let entries_mid = setup.count_entries(&setup.library_b).await?;
 	let watermark_mid = setup.get_device_watermark().await?;
-	println!("After syncing some new entries: {} total entries", entries_mid);
+	println!(
+		"After syncing some new entries: {} total entries",
+		entries_mid
+	);
 	println!("Watermark advanced to: {:?}", watermark_mid);
 
 	println!("\n=== Phase 4: Reconnect and trigger catchup ===\n");
@@ -496,11 +513,12 @@ async fn test_watermark_bug_with_10k_mixed_resources() -> anyhow::Result<()> {
 	println!("Triggering watermark-based catchup...");
 	let sync_b = setup.library_b.sync_service().unwrap();
 	let backfill_mgr = sync_b.backfill_manager();
-	
+
 	// Get current watermark before catchup
-	let (state_watermark_before, shared_watermark_before) = sync_b.peer_sync().get_watermarks().await;
+	let (state_watermark_before, shared_watermark_before) =
+		sync_b.peer_sync().get_watermarks().await;
 	println!("Using watermark for catchup: {:?}", state_watermark_before);
-	
+
 	// Call catch_up_from_peer directly (watermark exchange doesn't trigger it due to TODO)
 	backfill_mgr
 		.catch_up_from_peer(
@@ -525,7 +543,10 @@ async fn test_watermark_bug_with_10k_mixed_resources() -> anyhow::Result<()> {
 
 	println!("Sync Results:");
 	println!("  Locations: {} / 50 expected", locations_synced);
-	println!("  Entries:   {} / 15,000 expected (12k initial + 3k more)", entries_synced);
+	println!(
+		"  Entries:   {} / 15,000 expected (12k initial + 3k more)",
+		entries_synced
+	);
 
 	println!("\n=== Assertions ===\n");
 
@@ -550,4 +571,3 @@ async fn test_watermark_bug_with_10k_mixed_resources() -> anyhow::Result<()> {
 
 	Ok(())
 }
-
