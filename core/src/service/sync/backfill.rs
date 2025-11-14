@@ -282,6 +282,19 @@ impl BackfillManager {
 				"Resource type backfill complete"
 			);
 
+			// Update per-resource watermark after successful backfill
+			// This prevents re-syncing already backfilled data on next connection
+			let watermark_time = chrono::Utc::now();
+			self.peer_sync
+				.update_resource_watermark(primary_peer, &model_type, watermark_time)
+				.await?;
+
+			info!(
+				model_type = %model_type,
+				watermark = %watermark_time,
+				"Updated resource watermark after backfill"
+			);
+
 			// Keep the last checkpoint for legacy compatibility
 			final_checkpoint = checkpoint.resume_token;
 		}
