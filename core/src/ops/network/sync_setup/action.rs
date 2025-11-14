@@ -188,11 +188,9 @@ impl LibrarySyncSetupAction {
 				})),
 				created_at: Set(Utc::now()),
 				updated_at: Set(Utc::now()),
-				sync_enabled: Set(true),
-				last_sync_at: Set(None),
-				last_state_watermark: Set(None),
-				last_shared_watermark: Set(None),
-			};
+			sync_enabled: Set(true),
+			last_sync_at: Set(None),
+		};
 
 			device_model
 				.insert(db.conn())

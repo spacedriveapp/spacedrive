@@ -80,7 +80,10 @@
 use crate::{
 	infra::{
 		event::{Event, EventBus},
-		sync::{HLCGenerator, NetworkTransport, PeerLog, PeerLogError, SharedChangeEntry, HLC},
+		sync::{
+			HLCGenerator, NetworkTransport, PeerLog, PeerLogError, ResourceWatermarkStore,
+			SharedChangeEntry, HLC,
+		},
 	},
 	library::Library,
 	service::network::protocol::sync::messages::SyncMessage,
@@ -126,8 +129,14 @@ pub struct PeerSync {
 	/// HLC generator for this device
 	hlc_generator: Arc<tokio::sync::Mutex<HLCGenerator>>,
 
-	/// Per-peer sync log
+	/// Per-peer sync log (stored in sync.db)
 	pub(super) peer_log: Arc<PeerLog>,
+
+	/// Per-resource watermark store (stored in sync.db)
+	watermark_store: ResourceWatermarkStore,
+
+	/// Backfill manager (optional, set after construction to avoid circular refs)
+	backfill_manager: Arc<RwLock<Option<std::sync::Weak<super::backfill::BackfillManager>>>>,
 
 	/// Sync configuration
 	config: Arc<crate::infra::sync::SyncConfig>,
@@ -170,6 +179,9 @@ impl PeerSync {
 			"Creating peer sync service"
 		);
 
+		// Create watermark store for per-resource tracking
+		let watermark_store = ResourceWatermarkStore::new(device_id);
+
 		Ok(Self {
 			library_id,
 			device_id,
@@ -179,6 +191,8 @@ impl PeerSync {
 			buffer: Arc::new(BufferQueue::new()),
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
 			peer_log,
+			watermark_store,
+			backfill_manager: Arc::new(RwLock::new(None)),
 			config,
 			event_bus: library.event_bus().clone(),
 			retry_queue: Arc::new(RetryQueue::new()),
@@ -186,6 +200,14 @@ impl PeerSync {
 			network_events: Arc::new(tokio::sync::Mutex::new(None)),
 			metrics,
 		})
+	}
+
+	/// Set backfill manager reference (called after construction to avoid circular refs)
+	pub async fn set_backfill_manager(
+		&self,
+		manager: std::sync::Weak<super::backfill::BackfillManager>,
+	) {
+		*self.backfill_manager.write().await = Some(manager);
 	}
 
 	/// Set network event receiver for connection tracking
@@ -216,167 +238,150 @@ impl PeerSync {
 		self.library_id
 	}
 
-	/// Query watermarks from devices table (shared helper)
+	/// Get per-resource watermark for a specific peer and resource type
+	///
+	/// Returns the watermark from sync.db tracking this peer's sync progress
+	/// for the given resource type (location, entry, volume, etc.)
+	pub async fn get_resource_watermark(
+		&self,
+		peer_device_id: Uuid,
+		resource_type: &str,
+	) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
+		self.watermark_store
+			.get(self.peer_log.conn(), peer_device_id, resource_type)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to get resource watermark: {}", e))
+	}
+
+	/// Update per-resource watermark after processing state changes
+	///
+	/// Only updates if the new watermark is newer than the existing one.
+	pub async fn update_resource_watermark(
+		&self,
+		peer_device_id: Uuid,
+		resource_type: &str,
+		timestamp: chrono::DateTime<chrono::Utc>,
+	) -> Result<()> {
+		self.watermark_store
+			.upsert(
+				self.peer_log.conn(),
+				peer_device_id,
+				resource_type,
+				timestamp,
+			)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to update resource watermark: {}", e))?;
+
+		debug!(
+			peer = %peer_device_id,
+			resource = %resource_type,
+			watermark = %timestamp,
+			"Updated resource watermark in sync.db"
+		);
+
+		Ok(())
+	}
+
+	/// Get all watermarks for a peer (for diagnostics)
+	pub async fn get_all_watermarks_for_peer(
+		&self,
+		peer_device_id: Uuid,
+	) -> Result<Vec<(String, chrono::DateTime<chrono::Utc>)>> {
+		self.watermark_store
+			.get_all_for_peer(self.peer_log.conn(), peer_device_id)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to get peer watermarks: {}", e))
+	}
+
+	/// Query watermarks from sync.db (per-resource aggregation)
+	///
+	/// For state watermark: Returns the maximum (most recent) timestamp across all resources
+	/// For shared watermark: Returns the maximum HLC from peer log
 	async fn query_device_watermarks(
 		device_id: Uuid,
-		db: &DatabaseConnection,
+		peer_log: &Arc<crate::infra::sync::PeerLog>,
 	) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
-		use crate::infra::db::entities;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-		match entities::device::Entity::find()
-			.filter(entities::device::Column::Uuid.eq(device_id))
-			.one(db)
+		// Get max state watermark by aggregating across all resources
+		let state_watermark = match crate::infra::sync::ResourceWatermarkStore::new(device_id)
+			.get_max_watermark(peer_log.conn())
 			.await
 		{
-			Ok(Some(device)) => {
-				let state_watermark = device.last_state_watermark;
-
-				// Deserialize shared watermark from JSON
-				let shared_watermark = device
-					.last_shared_watermark
-					.as_ref()
-					.and_then(|json_str| serde_json::from_str(json_str).ok());
-
-				(state_watermark, shared_watermark)
-			}
-			Ok(None) => {
-				warn!(
-					device_id = %device_id,
-					"Device not found in devices table, returning None watermarks"
-				);
-				(None, None)
-			}
+			Ok(max) => max,
 			Err(e) => {
 				warn!(
 					device_id = %device_id,
 					error = %e,
-					"Failed to query watermarks from devices table"
+					"Failed to query per-resource watermarks, returning None"
 				);
-				(None, None)
+				None
 			}
-		}
+		};
+
+		// Get max shared watermark from peer log
+		let shared_watermark = match peer_log.get_max_hlc().await {
+			Ok(max) => max,
+			Err(e) => {
+				warn!(
+					device_id = %device_id,
+					error = %e,
+					"Failed to query max HLC from peer log"
+				);
+				None
+			}
+		};
+
+		(state_watermark, shared_watermark)
 	}
 
 	/// Get watermarks for heartbeat and reconnection sync
 	///
-	/// Returns (state_watermark, shared_watermark) from the devices table.
-	/// State watermark tracks device-owned data (locations, entries).
-	/// Shared watermark (HLC) tracks shared resources (tags, albums).
+	/// Returns (state_watermark, shared_watermark) aggregated from sync.db.
+	/// State watermark: Maximum timestamp across all per-resource watermarks.
+	/// Shared watermark (HLC): Maximum HLC from peer log.
 	pub async fn get_watermarks(&self) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
-		Self::query_device_watermarks(self.device_id, self.db.as_ref()).await
-	}
-
-	/// Update state watermark for a device after processing state changes
-	async fn update_state_watermark(&self, device_id: Uuid, timestamp: chrono::DateTime<chrono::Utc>) -> Result<()> {
-		use crate::infra::db::entities;
-		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
-
-		// Find device and update watermark
-		let device = entities::device::Entity::find()
-			.filter(entities::device::Column::Uuid.eq(device_id))
-			.one(self.db.as_ref())
-			.await
-			.map_err(|e| anyhow::anyhow!("Failed to query device: {}", e))?
-			.ok_or_else(|| anyhow::anyhow!("Device not found: {}", device_id))?;
-
-		let mut device_active: entities::device::ActiveModel = device.into();
-
-		// Update watermark if this timestamp is newer
-		match &device_active.last_state_watermark {
-			Set(Some(current)) | sea_orm::ActiveValue::Unchanged(Some(current)) if timestamp <= *current => {
-				// Don't update if we already have a newer watermark
-				return Ok(());
-			}
-			_ => {
-				device_active.last_state_watermark = Set(Some(timestamp));
-			}
-		}
-
-		device_active.update(self.db.as_ref()).await
-			.map_err(|e| anyhow::anyhow!("Failed to update state watermark: {}", e))?;
-
-		debug!("Updated state watermark for device {} to {}", device_id, timestamp);
-		Ok(())
+		Self::query_device_watermarks(self.device_id, &self.peer_log).await
 	}
 
 	/// Update shared watermark for this device after processing shared changes
+	///
+	/// Note: Shared watermark is now tracked automatically in the peer log.
+	/// This method ensures the HLC generator is updated for causality.
 	async fn update_shared_watermark(&self, hlc: HLC) -> Result<()> {
-		use crate::infra::db::entities;
-		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+		// Update HLC generator to maintain causality
+		self.hlc_generator.lock().await.update(hlc);
 
-		// Find device and update watermark
-		let device = entities::device::Entity::find()
-			.filter(entities::device::Column::Uuid.eq(self.device_id))
-			.one(self.db.as_ref())
-			.await
-			.map_err(|e| anyhow::anyhow!("Failed to query device: {}", e))?
-			.ok_or_else(|| anyhow::anyhow!("Device not found: {}", self.device_id))?;
-
-		let mut device_active: entities::device::ActiveModel = device.into();
-
-		// Serialize HLC to JSON
-		let hlc_json = serde_json::to_string(&hlc)
-			.map_err(|e| anyhow::anyhow!("Failed to serialize HLC: {}", e))?;
-
-		// Update watermark if this HLC is newer
-		let should_update = match &device_active.last_shared_watermark {
-			Set(Some(current_json)) | sea_orm::ActiveValue::Unchanged(Some(current_json)) => {
-				if let Ok(current_hlc) = serde_json::from_str::<HLC>(current_json) {
-					hlc > current_hlc
-				} else {
-					true  // Invalid JSON, update anyway
-				}
-			}
-			_ => true  // No watermark set yet
-		};
-
-		if should_update {
-			device_active.last_shared_watermark = Set(Some(hlc_json));
-			device_active.update(self.db.as_ref()).await
-				.map_err(|e| anyhow::anyhow!("Failed to update shared watermark: {}", e))?;
-			debug!("Updated shared watermark for device {} to {}", self.device_id, hlc);
-		}
+		debug!(
+			hlc = %hlc,
+			"Updated shared watermark (HLC generator updated for causality)"
+		);
 
 		Ok(())
 	}
 
-	/// Set initial watermarks after backfill (called by backfill manager)
+	/// Mark backfill complete by updating last_sync_at
 	///
-	/// Uses actual checkpoints from received data instead of querying local database
-	/// This prevents watermark drift due to clock skew between devices
+	/// Note: Per-resource watermarks are now tracked automatically as data is received.
+	/// This method only updates the last_sync_at timestamp.
 	pub async fn set_initial_watermarks(
 		&self,
-		final_state_checkpoint: Option<String>,
+		_final_state_checkpoint: Option<String>,
 		max_shared_hlc: Option<crate::infra::sync::HLC>,
 	) -> Result<()> {
 		use crate::infra::db::entities;
-		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
+		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 
 		let now = chrono::Utc::now();
 
-		// Parse state checkpoint (timestamp|uuid format) to extract timestamp
-		// Use the timestamp from the last record RECEIVED, not from our local database
-		let state_watermark = if let Some(checkpoint) = final_state_checkpoint {
-			let ts_str = checkpoint.split('|').next().unwrap_or("");
-			chrono::DateTime::parse_from_rfc3339(ts_str)
-				.ok()
-				.map(|dt| dt.with_timezone(&chrono::Utc))
-				.unwrap_or(now)
-		} else {
-			// No data received, use current time
-			now
-		};
+		// Update shared watermark (HLC generator) if we received shared data
+		if let Some(hlc) = max_shared_hlc {
+			self.hlc_generator.lock().await.update(hlc);
+			debug!(
+				hlc = %hlc,
+				"Updated HLC generator from backfill max HLC"
+			);
+		}
 
-		// Use the max HLC from received shared data, or generate new one if no data received
-		let shared_watermark_hlc = max_shared_hlc.unwrap_or_else(|| {
-			// No shared data received, generate current HLC as baseline
-			futures::executor::block_on(async {
-				self.hlc_generator.lock().await.next()
-			})
-		});
-
-		// Update this device's watermarks
+		// Update last_sync_at to mark backfill complete
 		let device = entities::device::Entity::find()
 			.filter(entities::device::Column::Uuid.eq(self.device_id))
 			.one(self.db.as_ref())
@@ -385,18 +390,16 @@ impl PeerSync {
 			.ok_or_else(|| anyhow::anyhow!("Device not found: {}", self.device_id))?;
 
 		let mut device_active: entities::device::ActiveModel = device.into();
-		device_active.last_state_watermark = Set(Some(state_watermark));
-		device_active.last_shared_watermark = Set(Some(
-			serde_json::to_string(&shared_watermark_hlc).unwrap_or_default()
-		));
 		device_active.last_sync_at = Set(Some(now));
 
-		device_active.update(self.db.as_ref()).await
-			.map_err(|e| anyhow::anyhow!("Failed to set initial watermarks: {}", e))?;
+		device_active
+			.update(self.db.as_ref())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to update last_sync_at: {}", e))?;
 
 		info!(
-			"Set watermarks from received data: state={} (from checkpoint), shared={} (from max HLC), last_sync_at={}",
-			state_watermark, shared_watermark_hlc, now
+			last_sync_at = %now,
+			"Backfill complete, per-resource watermarks tracked in sync.db"
 		);
 
 		Ok(())
@@ -514,13 +517,33 @@ impl PeerSync {
 
 		// Trigger catch-up if needed
 		if we_need_state_catchup {
-			info!(peer = %peer_id, "Requesting incremental state catch-up");
-			// TODO: Implement incremental state request
-			// For now, log that full backfill will occur
-			warn!(
-				peer = %peer_id,
-				"Incremental state catch-up not yet implemented, will use backfill"
-			);
+			info!(peer = %peer_id, "Triggering incremental state catch-up");
+
+			// Get backfill manager if available
+			let backfill_mgr = self.backfill_manager.read().await;
+			if let Some(weak_ref) = backfill_mgr.as_ref() {
+				if let Some(manager) = weak_ref.upgrade() {
+					// Trigger incremental catch-up from this peer
+					if let Err(e) = manager
+						.catch_up_from_peer(
+							peer_id,
+							my_state_watermark,
+							my_shared_watermark.map(|hlc| hlc.to_string()),
+						)
+						.await
+					{
+						warn!(
+							peer = %peer_id,
+							error = %e,
+							"Failed to trigger catch-up, will retry on next watermark exchange"
+						);
+					}
+				} else {
+					warn!("BackfillManager weak reference expired");
+				}
+			} else {
+				warn!("BackfillManager not set on PeerSync, cannot trigger catch-up");
+			}
 		}
 
 		if we_need_shared_catchup {
@@ -569,30 +592,21 @@ impl PeerSync {
 		Ok(())
 	}
 
-	/// Update peer's watermarks in the devices table
+	/// Update peer's last seen timestamp after watermark exchange
+	///
+	/// Note: Peer watermarks are now tracked per-resource in sync.db.
+	/// This method only updates the peer's updated_at timestamp for diagnostics.
 	async fn update_peer_watermarks(
 		&self,
 		peer_id: Uuid,
-		state_watermark: Option<chrono::DateTime<chrono::Utc>>,
-		shared_watermark: Option<HLC>,
+		_state_watermark: Option<chrono::DateTime<chrono::Utc>>,
+		_shared_watermark: Option<HLC>,
 	) -> Result<()> {
 		use crate::infra::db::entities;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-		// Serialize shared watermark to JSON
-		let shared_watermark_json = shared_watermark
-			.map(|hlc| serde_json::to_string(&hlc).ok())
-			.flatten();
-
+		// Just update the updated_at timestamp to track when we last heard from peer
 		entities::device::Entity::update_many()
-			.col_expr(
-				entities::device::Column::LastStateWatermark,
-				sea_orm::sea_query::Expr::value(state_watermark),
-			)
-			.col_expr(
-				entities::device::Column::LastSharedWatermark,
-				sea_orm::sea_query::Expr::value(shared_watermark_json),
-			)
 			.col_expr(
 				entities::device::Column::UpdatedAt,
 				sea_orm::sea_query::Expr::value(Utc::now()),
@@ -603,9 +617,7 @@ impl PeerSync {
 
 		debug!(
 			peer = %peer_id,
-			state_watermark = ?state_watermark,
-			shared_watermark = ?shared_watermark,
-			"Updated peer watermarks in devices table"
+			"Updated peer timestamp after watermark exchange"
 		);
 
 		Ok(())
@@ -702,7 +714,7 @@ impl PeerSync {
 			while is_running.load(Ordering::SeqCst) {
 				// Prune at configured interval
 				tokio::time::sleep(tokio::time::Duration::from_secs(
-					config.monitoring.pruning_interval_secs
+					config.monitoring.pruning_interval_secs,
 				))
 				.await;
 
@@ -858,17 +870,12 @@ impl PeerSync {
 								}
 
 								// Trigger watermark exchange for reconnection sync
-								if let Err(e) = Self::trigger_watermark_exchange(
-									library_id, device_id, peer_id, &db, &network,
-								)
-								.await
-								{
-									warn!(
-										peer_id = %peer_id,
-										error = %e,
-										"Failed to trigger watermark exchange"
-									);
-								}
+								// Note: We need peer_log reference here, which is not available in static context
+								// This will be triggered via PeerSync::exchange_watermarks_and_catchup() instead
+								debug!(
+									peer_id = %peer_id,
+									"Skipping watermark exchange from network listener (will be handled by PeerSync)"
+								);
 							}
 							NetworkEvent::ConnectionLost {
 								device_id: peer_id,
@@ -978,7 +985,7 @@ impl PeerSync {
 		library_id: Uuid,
 		device_id: Uuid,
 		peer_id: Uuid,
-		db: &DatabaseConnection,
+		peer_log: &Arc<crate::infra::sync::PeerLog>,
 		network: &Arc<dyn NetworkTransport>,
 	) -> Result<()> {
 		info!(
@@ -987,9 +994,9 @@ impl PeerSync {
 			"Triggering watermark exchange with peer"
 		);
 
-		// Query our watermarks from devices table
+		// Query our watermarks from sync.db
 		let (my_state_watermark, my_shared_watermark) =
-			Self::query_device_watermarks(device_id, db).await;
+			Self::query_device_watermarks(device_id, peer_log).await;
 
 		debug!(
 			peer = %peer_id,
@@ -1096,10 +1103,13 @@ impl PeerSync {
 
 		// Get all connected sync partners (library-scoped)
 		debug!("About to call network.get_connected_sync_partners() on handle_state_change_event_static");
-		let connected_partners = network.get_connected_sync_partners(library_id, db).await.map_err(|e| {
-			warn!(error = %e, "Failed to get connected partners");
-			e
-		})?;
+		let connected_partners = network
+			.get_connected_sync_partners(library_id, db)
+			.await
+			.map_err(|e| {
+				warn!(error = %e, "Failed to get connected partners");
+				e
+			})?;
 
 		debug!(
 			count = connected_partners.len(),
@@ -1108,7 +1118,9 @@ impl PeerSync {
 		);
 
 		if connected_partners.is_empty() {
-			debug!("[Static Handler] No connected sync partners to broadcast to, queuing for retry");
+			debug!(
+				"[Static Handler] No connected sync partners to broadcast to, queuing for retry"
+			);
 
 			// Get all library devices for queueing
 			let library_devices = Self::get_library_devices_static(db).await?;
@@ -1150,10 +1162,7 @@ impl PeerSync {
 						Ok(Err(e)) => (partner, Err(e)),
 						Err(_) => (
 							partner,
-							Err(anyhow::anyhow!(
-								"Send timeout after {}s",
-								timeout_secs
-							)),
+							Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
 						),
 					}
 				}
@@ -1238,10 +1247,13 @@ impl PeerSync {
 		};
 
 		// Get all connected sync partners (library-scoped)
-		let connected_partners = network.get_connected_sync_partners(library_id, db).await.map_err(|e| {
-			warn!(error = %e, "Failed to get connected partners");
-			e
-		})?;
+		let connected_partners = network
+			.get_connected_sync_partners(library_id, db)
+			.await
+			.map_err(|e| {
+				warn!(error = %e, "Failed to get connected partners");
+				e
+			})?;
 
 		if connected_partners.is_empty() {
 			debug!("No connected sync partners to broadcast to, queuing for retry");
@@ -1286,10 +1298,7 @@ impl PeerSync {
 						Ok(Err(e)) => (partner, Err(e)),
 						Err(_) => (
 							partner,
-							Err(anyhow::anyhow!(
-								"Send timeout after {}s",
-								timeout_secs
-							)),
+							Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
 						),
 					}
 				}
@@ -1710,17 +1719,21 @@ impl PeerSync {
 			let model_type = change.model_type.clone();
 			let error_msg = format!("Failed to apply state change: {}", e);
 			tokio::spawn(async move {
-				let _ = metrics.record_error(
-					super::metrics::ErrorEvent::new("apply".to_string(), error_msg)
-						.with_model_type(model_type)
-				).await;
+				let _ = metrics
+					.record_error(
+						super::metrics::ErrorEvent::new("apply".to_string(), error_msg)
+							.with_model_type(model_type),
+					)
+					.await;
 			});
 			anyhow::anyhow!("Failed to apply state change: {}", e)
 		})?;
 
 		// Record metrics
 		self.metrics.record_changes_applied(1);
-		self.metrics.record_entries_synced(&change.model_type, 1).await;
+		self.metrics
+			.record_entries_synced(&change.model_type, 1)
+			.await;
 
 		// Record latency
 		let latency_ms = start_time.elapsed().as_millis() as u64;
@@ -1732,8 +1745,13 @@ impl PeerSync {
 			"State change applied successfully"
 		);
 
-		// Update state watermark for the device
-		self.update_state_watermark(change.device_id, change.timestamp).await?;
+		// Update PER-RESOURCE watermark (FIX: use resource-specific tracking)
+		self.update_resource_watermark(
+			change.device_id,
+			&change.model_type, // Resource type (location, entry, volume, etc.)
+			change.timestamp,
+		)
+		.await?;
 
 		// Emit resource event for UI reactivity
 		self.event_bus.emit(Event::ResourceChanged {
@@ -1783,10 +1801,12 @@ impl PeerSync {
 				let model_type = entry.model_type.clone();
 				let error_msg = format!("Failed to apply shared change: {}", e);
 				tokio::spawn(async move {
-					let _ = metrics.record_error(
-						super::metrics::ErrorEvent::new("apply".to_string(), error_msg)
-							.with_model_type(model_type)
-					).await;
+					let _ = metrics
+						.record_error(
+							super::metrics::ErrorEvent::new("apply".to_string(), error_msg)
+								.with_model_type(model_type),
+						)
+						.await;
 				});
 				anyhow::anyhow!("Failed to apply shared change: {}", e)
 			})?;
@@ -1799,7 +1819,9 @@ impl PeerSync {
 
 		// Record metrics
 		self.metrics.record_changes_applied(1);
-		self.metrics.record_entries_synced(&entry.model_type, 1).await;
+		self.metrics
+			.record_entries_synced(&entry.model_type, 1)
+			.await;
 
 		// Record latency
 		let latency_ms = start_time.elapsed().as_millis() as u64;
@@ -2141,7 +2163,13 @@ impl PeerSync {
 
 		// Record state transition
 		let buffered_count = self.buffer.len().await;
-		self.metrics.record_state_transition(current_state, DeviceSyncState::CatchingUp { buffered_count }, Some("transitioning to ready".to_string())).await?;
+		self.metrics
+			.record_state_transition(
+				current_state,
+				DeviceSyncState::CatchingUp { buffered_count },
+				Some("transitioning to ready".to_string()),
+			)
+			.await?;
 
 		// Process buffer
 		while let Some(update) = self.buffer.pop_ordered().await {
@@ -2163,7 +2191,13 @@ impl PeerSync {
 
 		// Record state transition
 		let buffered_count = self.buffer.len().await;
-		self.metrics.record_state_transition(DeviceSyncState::CatchingUp { buffered_count }, DeviceSyncState::Ready, Some("buffered updates processed".to_string())).await?;
+		self.metrics
+			.record_state_transition(
+				DeviceSyncState::CatchingUp { buffered_count },
+				DeviceSyncState::Ready,
+				Some("buffered updates processed".to_string()),
+			)
+			.await?;
 
 		info!("Sync service is now ready");
 

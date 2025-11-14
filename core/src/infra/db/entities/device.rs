@@ -25,10 +25,9 @@ pub struct Model {
 	pub updated_at: DateTimeUtc,
 
 	// Sync coordination fields (added in m20251009_000001_add_sync_to_devices)
+	// Watermarks moved to sync.db per-resource tracking (m20251115_000001)
 	pub sync_enabled: bool,
 	pub last_sync_at: Option<DateTimeUtc>,
-	pub last_state_watermark: Option<DateTimeUtc>,
-	pub last_shared_watermark: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -187,8 +186,6 @@ impl crate::infra::sync::Syncable for Model {
 			updated_at: Set(chrono::Utc::now().into()),
 			sync_enabled: Set(true),
 			last_sync_at: Set(None),
-			last_state_watermark: Set(device.last_state_watermark),
-			last_shared_watermark: Set(device.last_shared_watermark),
 		};
 
 		// Idempotent upsert by UUID
@@ -205,8 +202,6 @@ impl crate::infra::sync::Syncable for Model {
 						Column::IsOnline,
 						Column::LastSeenAt,
 						Column::Capabilities,
-						Column::LastStateWatermark,
-						Column::LastSharedWatermark,
 						Column::UpdatedAt,
 					])
 					.to_owned(),

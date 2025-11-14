@@ -270,12 +270,10 @@ impl LibraryManager {
 				"volume_detection": true
 			})),
 			created_at: Set(Utc::now()),
-			updated_at: Set(Utc::now()),
-			sync_enabled: Set(true),
-			last_sync_at: Set(None),
-			last_state_watermark: Set(None),
-			last_shared_watermark: Set(None),
-		};
+		updated_at: Set(Utc::now()),
+		sync_enabled: Set(true),
+		last_sync_at: Set(None),
+	};
 
 		initial_device_model
 			.insert(&db_conn)
@@ -916,13 +914,11 @@ impl LibraryManager {
 					"p2p": true,
 					"volume_detection": true
 				})),
-				created_at: Set(device.created_at),
-				sync_enabled: Set(true), // Enable sync by default for this device
-				last_sync_at: Set(None),
-				last_state_watermark: Set(None),
-				last_shared_watermark: Set(None),
-				updated_at: Set(Utc::now()),
-			};
+			created_at: Set(device.created_at),
+			sync_enabled: Set(true), // Enable sync by default for this device
+			last_sync_at: Set(None),
+			updated_at: Set(Utc::now()),
+		};
 
 			let inserted_model = device_model
 				.insert(db.conn())

@@ -6,8 +6,11 @@
 //! - Syncable trait for model registration
 //! - Transaction manager for atomic commits
 //! - Unified configuration for all sync behavior
+//! - Per-resource watermarks for incremental sync
+//! - Checkpoint persistence for resumable backfill
 //!
 
+pub mod checkpoints;
 pub mod config;
 pub mod dependency_graph;
 pub mod deterministic;
@@ -18,7 +21,9 @@ pub mod registry;
 pub mod syncable;
 pub mod transaction;
 pub mod transport;
+pub mod watermarks;
 
+pub use checkpoints::{BackfillCheckpoint, BackfillCheckpointStore, CheckpointError};
 pub use config::{
 	BatchingConfig, MonitoringConfig, NetworkConfig, PruningStrategy, RetentionConfig, SyncConfig,
 };
@@ -36,3 +41,4 @@ pub use registry::{
 pub use syncable::Syncable;
 pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};
 pub use transport::NetworkTransport;
+pub use watermarks::{ResourceWatermarkStore, WatermarkError};

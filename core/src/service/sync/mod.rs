@@ -119,6 +119,9 @@ impl SyncService {
 			metrics.clone(),
 		));
 
+		// Set backfill manager reference on peer_sync (for triggering catch-up)
+		peer_sync.set_backfill_manager(Arc::downgrade(&backfill_manager)).await;
+
 		info!(
 			library_id = %library_id,
 			device_id = %device_id,
@@ -274,10 +277,13 @@ impl SyncService {
 									};
 
 									if should_catch_up {
+										// Get current watermarks from sync.db
+										let (state_watermark, shared_watermark) = peer_sync.get_watermarks().await;
+										
 										info!(
 											"Triggering incremental catch-up since watermarks: state={:?}, shared={:?}",
-											our_device.last_state_watermark,
-											our_device.last_shared_watermark
+											state_watermark,
+											shared_watermark
 										);
 
 										// Pick first partner for catch-up
@@ -290,10 +296,13 @@ impl SyncService {
 										}
 
 										// Perform incremental catch-up using watermarks
+										// Convert HLC to string for API
+										let shared_watermark_str = shared_watermark.map(|hlc| hlc.to_string());
+										
 										match backfill_manager.catch_up_from_peer(
 											catch_up_peer,
-											our_device.last_state_watermark,
-											our_device.last_shared_watermark,
+											state_watermark,
+											shared_watermark_str,
 										).await {
 											Ok(()) => {
 												info!("Incremental catch-up completed");
@@ -396,43 +405,33 @@ impl SyncService {
 	}
 
 	/// Prune tombstones that all devices have synced past
+	///
+	/// Note: With per-resource watermarks, this is now a simpler time-based pruning.
+	/// Tombstones older than max retention are pruned automatically.
 	async fn prune_tombstones_acked(
 		config: &crate::infra::sync::SyncConfig,
 		db: &Arc<sea_orm::DatabaseConnection>,
 	) -> Result<usize> {
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-		// Get all devices that have completed at least one sync
-		let synced_devices = entities::device::Entity::find()
-			.filter(entities::device::Column::LastSyncAt.is_not_null())
-			.all(db.as_ref())
-			.await?;
-
-		if synced_devices.is_empty() {
-			return Ok(0);
-		}
-
-		// Find minimum watermark (slowest device)
-		let min_watermark = synced_devices
-			.iter()
-			.filter_map(|d| d.last_state_watermark)
-			.min();
-
-		let Some(min_wm) = min_watermark else {
-			return Ok(0);
-		};
-
-		// Safety limit: Don't keep tombstones longer than configured max retention
-		// Prevents one offline device from blocking pruning forever
+		// Use time-based pruning with max retention limit
+		// This prevents one offline device from blocking pruning forever
 		let max_retention = chrono::Utc::now()
 			- chrono::Duration::days(config.retention.tombstone_max_retention_days as i64);
-		let effective_cutoff = min_wm.min(max_retention);
 
-		// Prune tombstones older than effective cutoff
+		// Prune tombstones older than max retention
 		let result = entities::device_state_tombstone::Entity::delete_many()
-			.filter(entities::device_state_tombstone::Column::DeletedAt.lt(effective_cutoff))
+			.filter(entities::device_state_tombstone::Column::DeletedAt.lt(max_retention))
 			.exec(db.as_ref())
 			.await?;
+
+		if result.rows_affected > 0 {
+			debug!(
+				pruned = result.rows_affected,
+				cutoff = %max_retention,
+				"Pruned tombstones older than max retention"
+			);
+		}
 
 		Ok(result.rows_affected as usize)
 	}

@@ -208,12 +208,10 @@ impl DeviceManager {
 				"volume_detection": true
 			}),
 			is_online: true,
-			last_seen_at: chrono::Utc::now(),
-			sync_enabled: true,
-			last_sync_at: None,
-			last_state_watermark: None,
-			last_shared_watermark: None,
-			created_at: chrono::Utc::now(),
+		last_seen_at: chrono::Utc::now(),
+		sync_enabled: true,
+		last_sync_at: None,
+		created_at: chrono::Utc::now(),
 			updated_at: chrono::Utc::now(),
 		}
 	}

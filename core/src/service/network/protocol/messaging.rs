@@ -320,12 +320,10 @@ impl MessagingProtocolHandler {
 									"volume_detection": true
 								})),
 								created_at: Set(Utc::now()),
-								sync_enabled: Set(true), // Enable sync for registered devices
-								last_sync_at: Set(None),
-								last_state_watermark: Set(None),
-								last_shared_watermark: Set(None),
-								updated_at: Set(Utc::now()),
-							};
+							sync_enabled: Set(true), // Enable sync for registered devices
+							last_sync_at: Set(None),
+							updated_at: Set(Utc::now()),
+						};
 
 							if let Err(e) = device_model.insert(db.conn()).await {
 								success = false;

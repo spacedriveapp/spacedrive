@@ -224,18 +224,14 @@ impl BackfillManager {
 
 	/// Backfill device-owned state from all peers in dependency order
 	///
-	/// If `since_watermark` is provided, only requests changes newer than the watermark.
-	/// Returns the final checkpoint string (timestamp|uuid) for watermark update.
+	/// Uses per-resource watermarks for each model type to enable independent sync progress.
+	/// Returns the final checkpoint string (timestamp|uuid) for global watermark update (legacy).
 	async fn backfill_device_owned_state(
 		&self,
 		primary_peer: Uuid,
-		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
+		_since_watermark: Option<chrono::DateTime<chrono::Utc>>,  // Deprecated: use per-resource watermarks
 	) -> Result<Option<String>> {
-		if let Some(since) = since_watermark {
-			info!("Backfilling device-owned state incrementally since {:?}", since);
-		} else {
-			info!("Backfilling device-owned state (full)");
-		}
+		info!("Backfilling device-owned state with per-resource watermarks");
 
 		// Compute sync order based on model dependencies to prevent FK violations
 		let sync_order = crate::infra::sync::compute_registry_sync_order()
@@ -255,20 +251,45 @@ impl BackfillManager {
 			}
 		}
 
-		// TODO: Get list of all peers, not just primary
-		// For now, just backfill from primary peer
-		let checkpoint = self
-			.backfill_peer_state(primary_peer, model_types.clone(), None, since_watermark)
-			.await?;
+		// Backfill each resource type with its own watermark
+		let mut final_checkpoint: Option<String> = None;
+		for model_type in model_types {
+			// Get per-resource watermark for this model type
+			let resource_watermark = self.peer_sync
+				.get_resource_watermark(primary_peer, &model_type)
+				.await?;
 
-		info!(
-			progress = checkpoint.progress,
-			final_checkpoint = ?checkpoint.resume_token,
-			"Device-owned state backfill complete"
-		);
+			info!(
+				model_type = %model_type,
+				watermark = ?resource_watermark,
+				"Backfilling resource type with per-resource watermark"
+			);
 
-		// Return the final checkpoint for watermark update
-		Ok(checkpoint.resume_token)
+			// Backfill this resource type
+			let checkpoint = self
+				.backfill_peer_state(
+					primary_peer,
+					vec![model_type.clone()],
+					None,
+					resource_watermark,  // Per-resource watermark!
+				)
+				.await?;
+
+			info!(
+				model_type = %model_type,
+				progress = checkpoint.progress,
+				final_checkpoint = ?checkpoint.resume_token,
+				"Resource type backfill complete"
+			);
+
+			// Keep the last checkpoint for legacy compatibility
+			final_checkpoint = checkpoint.resume_token;
+		}
+
+		info!("Device-owned state backfill complete (all resource types)");
+
+		// Return the final checkpoint for legacy watermark update
+		Ok(final_checkpoint)
 	}
 
 	/// Backfill state from a specific peer

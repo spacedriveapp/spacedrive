@@ -97,6 +97,16 @@ impl PeerLog {
 		.await
 		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
 
+		// device_resource_watermarks table (per-resource sync tracking)
+		super::watermarks::ResourceWatermarkStore::init_table(conn)
+			.await
+			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		// backfill_checkpoints table (resumable backfill)
+		super::checkpoints::BackfillCheckpointStore::init_table(conn)
+			.await
+			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
 		Ok(())
 	}
 
@@ -195,6 +205,36 @@ impl PeerLog {
 		}
 
 		Ok(entries)
+	}
+
+	/// Get the maximum HLC from the peer log
+	///
+	/// Returns the most recent HLC across all shared changes.
+	/// This represents the current shared watermark for this device.
+	pub async fn get_max_hlc(&self) -> Result<Option<HLC>, PeerLogError> {
+		let result = self
+			.conn
+			.query_one(Statement::from_string(
+				DbBackend::Sqlite,
+				"SELECT MAX(hlc) as max_hlc FROM shared_changes".to_string(),
+			))
+			.await
+			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		match result {
+			Some(row) => {
+				let hlc_str: Option<String> = row.try_get("", "max_hlc").ok();
+
+				if let Some(hlc_s) = hlc_str {
+					let hlc = HLC::from_string(&hlc_s)
+						.map_err(|e| PeerLogError::ParseError(e.to_string()))?;
+					Ok(Some(hlc))
+				} else {
+					Ok(None)
+				}
+			}
+			None => Ok(None),
+		}
 	}
 
 	/// Record peer acknowledgment of changes up to an HLC

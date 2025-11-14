@@ -46,12 +46,6 @@ pub struct Device {
 	/// Last time this device synced
 	pub last_sync_at: Option<DateTime<Utc>>,
 
-	/// Watermark for device-owned data (locations, entries)
-	pub last_state_watermark: Option<DateTime<Utc>>,
-
-	/// Watermark for shared resources (tags, albums) as JSON-serialized HLC
-	pub last_shared_watermark: Option<String>,
-
 	/// When this device was first added
 	pub created_at: DateTime<Utc>,
 
@@ -103,9 +97,7 @@ impl Device {
 			last_seen_at: now,
 			sync_enabled: true,
 			last_sync_at: None,
-			last_state_watermark: None,
-			last_shared_watermark: None,
-			created_at: now,
+		created_at: now,
 			updated_at: now,
 		}
 	}
@@ -227,11 +219,9 @@ impl From<Device> for entities::device::ActiveModel {
 			last_seen_at: Set(device.last_seen_at),
 			capabilities: Set(device.capabilities),
 			created_at: Set(device.created_at),
-			sync_enabled: Set(device.sync_enabled),
-			last_sync_at: Set(device.last_sync_at),
-			last_state_watermark: Set(device.last_state_watermark),
-			last_shared_watermark: Set(device.last_shared_watermark),
-			updated_at: Set(device.updated_at),
+		sync_enabled: Set(device.sync_enabled),
+		last_sync_at: Set(device.last_sync_at),
+		updated_at: Set(device.updated_at),
 		}
 	}
 }
@@ -252,12 +242,10 @@ impl TryFrom<entities::device::Model> for Device {
 			network_addresses,
 			capabilities: model.capabilities,
 			is_online: model.is_online,
-			last_seen_at: model.last_seen_at,
-			sync_enabled: model.sync_enabled,
-			last_sync_at: model.last_sync_at,
-			last_state_watermark: model.last_state_watermark,
-			last_shared_watermark: model.last_shared_watermark,
-			created_at: model.created_at,
+		last_seen_at: model.last_seen_at,
+		sync_enabled: model.sync_enabled,
+		last_sync_at: model.last_sync_at,
+		created_at: model.created_at,
 			updated_at: model.updated_at,
 		})
 	}

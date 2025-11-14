@@ -6,6 +6,7 @@
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::sync::Mutex;
 use uuid::Uuid;
 
@@ -156,6 +157,18 @@ impl std::fmt::Display for HLC {
 			self.counter,
 			&self.device_id.to_string()[..8]
 		)
+	}
+}
+
+/// Implement FromStr trait for HLC parsing from strings
+///
+/// This enables parsing HLC from watermark strings stored in database.
+/// Required for TODO #3: HLC incremental sync.
+impl FromStr for HLC {
+	type Err = HLCError;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Self::from_string(s)
 	}
 }
 
