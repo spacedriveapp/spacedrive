@@ -56,17 +56,58 @@ impl LibraryQuery for LibraryInfoQuery {
 		// Get library path
 		let path = library.path().to_path_buf();
 
-		// Calculate statistics fresh from database
-		tracing::debug!(
-			library_id = %library_id,
-			library_name = %config.name,
-			"Calculating real-time statistics from database"
-		);
+		// Check if cached statistics are empty/stale (never calculated or all zeros)
+		let cached_stats = config.statistics.clone();
+		let is_stale = cached_stats.total_files == 0
+			&& cached_stats.location_count == 0
+			&& cached_stats.tag_count == 0;
 
-		let statistics = library
-			.calculate_statistics_for_query()
-			.await
-			.map_err(|e| QueryError::Internal(format!("Failed to calculate statistics: {}", e)))?;
+		let statistics = if is_stale {
+			// First load or completely empty - calculate synchronously
+			tracing::debug!(
+				library_id = %library_id,
+				library_name = %config.name,
+				"Cached statistics are empty, calculating synchronously for first load"
+			);
+
+			let stats = library
+				.calculate_statistics_for_query()
+				.await
+				.map_err(|e| QueryError::Internal(format!("Failed to calculate statistics: {}", e)))?;
+
+			// Also trigger background save and event emission
+			// (non-blocking, happens after we return the stats to the user)
+			if let Err(e) = library.recalculate_statistics().await {
+				tracing::warn!(
+					library_id = %library_id,
+					library_name = %config.name,
+					error = %e,
+					"Failed to trigger background statistics save after sync calculation"
+				);
+			}
+
+			stats
+		} else {
+			// Return cached statistics immediately (non-blocking)
+			tracing::debug!(
+				library_id = %library_id,
+				library_name = %config.name,
+				"Returning cached statistics and triggering background recalculation"
+			);
+
+			// Trigger background recalculation (non-blocking)
+			// This will emit a ResourceChanged event when complete
+			if let Err(e) = library.recalculate_statistics().await {
+				tracing::warn!(
+					library_id = %library_id,
+					library_name = %config.name,
+					error = %e,
+					"Failed to trigger background statistics recalculation"
+				);
+			}
+
+			cached_stats
+		};
 
 		tracing::debug!(
 			library_id = %config.id,
@@ -79,7 +120,7 @@ impl LibraryQuery for LibraryInfoQuery {
 			total_capacity = statistics.total_capacity,
 			available_capacity = statistics.available_capacity,
 			database_size = statistics.database_size,
-			"Returning library info with fresh database statistics"
+			"Returning library info with cached statistics"
 		);
 
 		Ok(LibraryInfoOutput {

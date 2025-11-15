@@ -171,6 +171,19 @@ export function useNormalizedCache<I, O>({
     enabled: enabled && !!libraryId,
   });
 
+  // Listen for library changes and refetch
+  useEffect(() => {
+    const handleLibraryChange = (newLibraryId: string) => {
+      console.log(`[useNormalizedCache] Library changed to ${newLibraryId}, refetching ${wireMethod}`);
+      query.refetch();
+    };
+
+    client.on("library-changed", handleLibraryChange);
+    return () => {
+      client.off("library-changed", handleLibraryChange);
+    };
+  }, [client, query, wireMethod]);
+
   // Listen for ResourceChanged events and update cache atomically
   useEffect(() => {
     // Helper: Check if event affects the pathScope (if specified)

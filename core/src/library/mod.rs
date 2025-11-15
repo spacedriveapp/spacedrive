@@ -693,7 +693,38 @@ impl Library {
 			"Saved updated statistics to library.json"
 		);
 
-		// Emit event that statistics were updated
+		// Emit ResourceChanged event for normalizedCache
+		// Build the full library info output to match query response
+		let library_output = crate::ops::libraries::info::output::LibraryInfoOutput {
+			id: config.id,
+			name: config.name.clone(),
+			description: config.description.clone(),
+			path: path.clone(),
+			created_at: config.created_at,
+			updated_at: config.updated_at,
+			settings: config.settings.clone(),
+			statistics: stats.clone(),
+		};
+
+		// Serialize to JSON for the event
+		let resource_json = serde_json::to_value(&library_output)
+			.unwrap_or_else(|e| {
+				warn!(
+					library_id = %library_id,
+					error = %e,
+					"Failed to serialize library info for ResourceChanged event"
+				);
+				serde_json::Value::Null
+			});
+
+		// Emit ResourceChanged event that normalizedCache will pick up
+		event_bus.emit(crate::infra::event::Event::ResourceChanged {
+			resource_type: "library".to_string(),
+			resource: resource_json,
+			metadata: None,
+		});
+
+		// Also emit the legacy event for backwards compatibility
 		event_bus.emit(crate::infra::event::Event::LibraryStatisticsUpdated {
 			library_id,
 			statistics: stats,
@@ -702,7 +733,7 @@ impl Library {
 		info!(
 			library_id = %library_id,
 			library_name = %config.name,
-			"Statistics calculation and save completed successfully"
+			"Statistics calculation and save completed successfully, events emitted"
 		);
 
 		Ok(())
@@ -749,7 +780,39 @@ impl Library {
 			"Updated and saved statistics via update_statistics method"
 		);
 
-		// Emit event that statistics were updated
+		// Emit ResourceChanged event for normalizedCache
+		let config = self.config.read().await;
+		let library_output = crate::ops::libraries::info::output::LibraryInfoOutput {
+			id: config.id,
+			name: config.name.clone(),
+			description: config.description.clone(),
+			path: self.path().to_path_buf(),
+			created_at: config.created_at,
+			updated_at: config.updated_at,
+			settings: config.settings.clone(),
+			statistics: stats.clone(),
+		};
+		drop(config);
+
+		// Serialize to JSON for the event
+		let resource_json = serde_json::to_value(&library_output)
+			.unwrap_or_else(|e| {
+				warn!(
+					library_id = %library_id,
+					error = %e,
+					"Failed to serialize library info for ResourceChanged event"
+				);
+				serde_json::Value::Null
+			});
+
+		// Emit ResourceChanged event that normalizedCache will pick up
+		self.event_bus.emit(crate::infra::event::Event::ResourceChanged {
+			resource_type: "library".to_string(),
+			resource: resource_json,
+			metadata: None,
+		});
+
+		// Also emit the legacy event for backwards compatibility
 		self.event_bus
 			.emit(crate::infra::event::Event::LibraryStatisticsUpdated {
 				library_id: self.id(),
@@ -759,7 +822,7 @@ impl Library {
 		info!(
 			library_id = %library_id,
 			library_name = %library_name,
-			"Instance-based statistics calculation completed successfully"
+			"Instance-based statistics calculation completed successfully, events emitted"
 		);
 
 		Ok(())

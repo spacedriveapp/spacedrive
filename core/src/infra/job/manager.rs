@@ -329,6 +329,8 @@ impl JobManager {
 				let job_id_clone = job_id.clone();
 				let event_bus = self.context.events.clone();
 				let job_type_str = job_name.to_string();
+				let library_id_clone = self.library_id;
+				let context = self.context.clone();
 				tokio::spawn(async move {
 					let mut status_rx = status_tx.subscribe();
 					while status_rx.changed().await.is_ok() {
@@ -355,6 +357,33 @@ impl JobManager {
 									job_id: job_id_clone.to_string(),
 									job_type: job_type_str.clone(),
 									output,
+								});
+
+								// Trigger library statistics recalculation after job completion
+								let library_id_for_stats = library_id_clone;
+								let context_for_stats = context.clone();
+								tokio::spawn(async move {
+									if let Some(library) = context_for_stats
+										.libraries()
+										.await
+										.get_library(library_id_for_stats)
+										.await
+									{
+										if let Err(e) = library.recalculate_statistics().await {
+											warn!(
+												library_id = %library_id_for_stats,
+												job_id = %job_id_clone,
+												error = %e,
+												"Failed to trigger library statistics recalculation after job completion"
+											);
+										} else {
+											debug!(
+												library_id = %library_id_for_stats,
+												job_id = %job_id_clone,
+												"Triggered library statistics recalculation after job completion"
+											);
+										}
+									}
 								});
 
 								// Remove from running jobs
@@ -622,6 +651,8 @@ impl JobManager {
 				let job_id_clone = job_id.clone();
 				let event_bus = self.context.events.clone();
 				let job_type_str = J::NAME;
+				let library_id_clone = self.library_id;
+				let context = self.context.clone();
 				tokio::spawn(async move {
 					info!("Started cleanup monitor for job {}", job_id_clone);
 					let mut status_monitor = status_rx_cleanup;
@@ -650,6 +681,33 @@ impl JobManager {
 									job_id: job_id_clone.to_string(),
 									job_type: job_type_str.to_string(),
 									output: output.unwrap_or(JobOutput::Success),
+								});
+
+								// Trigger library statistics recalculation after job completion
+								let library_id_for_stats = library_id_clone;
+								let context_for_stats = context.clone();
+								tokio::spawn(async move {
+									if let Some(library) = context_for_stats
+										.libraries()
+										.await
+										.get_library(library_id_for_stats)
+										.await
+									{
+										if let Err(e) = library.recalculate_statistics().await {
+											warn!(
+												library_id = %library_id_for_stats,
+												job_id = %job_id_clone,
+												error = %e,
+												"Failed to trigger library statistics recalculation after job completion"
+											);
+										} else {
+											debug!(
+												library_id = %library_id_for_stats,
+												job_id = %job_id_clone,
+												"Triggered library statistics recalculation after job completion"
+											);
+										}
+									}
 								});
 
 								// Remove from running jobs
@@ -1203,6 +1261,8 @@ impl JobManager {
 								let job_id_clone = job_id.clone();
 								let event_bus = self.context.events.clone();
 								let job_type_str = job_record.name.to_string();
+								let library_id_clone = self.library_id;
+								let context = self.context.clone();
 								tokio::spawn(async move {
 									let mut status_rx = status_tx.subscribe();
 									while status_rx.changed().await.is_ok() {
@@ -1230,6 +1290,34 @@ impl JobManager {
 													job_type: job_type_str.clone(),
 													output: output.unwrap_or(JobOutput::Success),
 												});
+
+												// Trigger library statistics recalculation after job completion
+												let library_id_for_stats = library_id_clone;
+												let context_for_stats = context.clone();
+												tokio::spawn(async move {
+													if let Some(library) = context_for_stats
+														.libraries()
+														.await
+														.get_library(library_id_for_stats)
+														.await
+													{
+														if let Err(e) = library.recalculate_statistics().await {
+															warn!(
+																library_id = %library_id_for_stats,
+																job_id = %job_id_clone,
+																error = %e,
+																"Failed to trigger library statistics recalculation after resumed job completion"
+															);
+														} else {
+															debug!(
+																library_id = %library_id_for_stats,
+																job_id = %job_id_clone,
+																"Triggered library statistics recalculation after resumed job completion"
+															);
+														}
+													}
+												});
+
 												// Remove from running jobs
 												running_jobs.write().await.remove(&job_id_clone);
 												info!("Resumed job {} completed and removed from running jobs", job_id_clone);
@@ -1567,6 +1655,8 @@ impl JobManager {
 			let job_id_clone = job_id.clone();
 			let event_bus = self.context.events.clone();
 			let job_type_str = job_name.clone();
+			let library_id_clone = self.library_id;
+			let context = self.context.clone();
 			tokio::spawn(async move {
 				let mut status_rx = status_tx.subscribe();
 				while status_rx.changed().await.is_ok() {
@@ -1591,6 +1681,34 @@ impl JobManager {
 								job_type: job_type_str.clone(),
 								output: output.unwrap_or(JobOutput::Success),
 							});
+
+							// Trigger library statistics recalculation after job completion
+							let library_id_for_stats = library_id_clone;
+							let context_for_stats = context.clone();
+							tokio::spawn(async move {
+								if let Some(library) = context_for_stats
+									.libraries()
+									.await
+									.get_library(library_id_for_stats)
+									.await
+								{
+									if let Err(e) = library.recalculate_statistics().await {
+										warn!(
+											library_id = %library_id_for_stats,
+											job_id = %job_id_clone,
+											error = %e,
+											"Failed to trigger library statistics recalculation after resumed job completion"
+										);
+									} else {
+										debug!(
+											library_id = %library_id_for_stats,
+											job_id = %job_id_clone,
+											"Triggered library statistics recalculation after resumed job completion"
+										);
+									}
+								}
+							});
+
 							running_jobs.write().await.remove(&job_id_clone);
 							info!("Resumed job {} completed", job_id_clone);
 							break;

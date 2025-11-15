@@ -109,6 +109,9 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 */
 	setCurrentLibrary(libraryId: string): void {
 		this.currentLibraryId = libraryId;
+
+		// Emit a library-changed event that hooks can listen to
+		this.emit("library-changed", libraryId);
 	}
 
 	/**
