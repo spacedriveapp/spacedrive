@@ -1888,14 +1888,33 @@ impl PeerSync {
 		);
 
 		// Use the registry to route to the appropriate apply function
-		crate::infra::sync::apply_state_change(
+		if let Err(e) = crate::infra::sync::apply_state_change(
 			&change.model_type,
 			change.data.clone(),
 			self.db.clone(),
 		)
 		.await
-		.map_err(|e| {
-			// Record error metrics (spawn async task)
+		{
+			let error_str = e.to_string();
+
+			// Check if this is a sync dependency error (FK reference missing)
+			if error_str.contains("Sync dependency missing") {
+				// Buffer this change for retry when dependency arrives
+				warn!(
+					model_type = %change.model_type,
+					record_uuid = %change.record_uuid,
+					"Sync dependency missing, buffering for retry: {}",
+					error_str
+				);
+
+				self.buffer
+					.push(super::state::BufferedUpdate::StateChange(change))
+					.await;
+
+				return Ok(()); // Buffered, will retry later
+			}
+
+			// Other errors - record metrics and propagate
 			let metrics = self.metrics.clone();
 			let model_type = change.model_type.clone();
 			let error_msg = format!("Failed to apply state change: {}", e);
@@ -1907,8 +1926,9 @@ impl PeerSync {
 					)
 					.await;
 			});
-			anyhow::anyhow!("Failed to apply state change: {}", e)
-		})?;
+
+			return Err(anyhow::anyhow!("Failed to apply state change: {}", e));
+		}
 
 		// Record metrics
 		self.metrics.record_changes_applied(1);
@@ -2032,6 +2052,44 @@ impl PeerSync {
 		self.metrics
 			.record_entries_synced(&entry.model_type, 1)
 			.await;
+
+		// Retry buffered state changes that were waiting for this dependency
+		// If we just applied a content_identity, retry buffered entries (they might reference it)
+		if entry.model_type == "content_identity" {
+			let buffer_len = self.buffer.len().await;
+			if buffer_len > 0 {
+				debug!(
+					buffered_count = buffer_len,
+					"Content_identity applied, retrying buffered state changes"
+				);
+
+				// Process buffer (entries waiting for content_identity dependencies)
+				while let Some(update) = self.buffer.pop_ordered().await {
+					match update {
+						super::state::BufferedUpdate::StateChange(change) => {
+							// Retry applying - should succeed now that content_identity exists
+							if let Err(e) = self.apply_state_change(change.clone()).await {
+								// Still failing - re-buffer it
+								warn!(
+									error = %e,
+									record_uuid = %change.record_uuid,
+									"Buffered state change still failing after content_identity, re-buffering"
+								);
+								self.buffer
+									.push(super::state::BufferedUpdate::StateChange(change))
+									.await;
+							}
+						}
+						super::state::BufferedUpdate::SharedChange(shared_entry) => {
+							// Re-buffer shared changes (not related to content_identity dependency)
+							self.buffer
+								.push(super::state::BufferedUpdate::SharedChange(shared_entry))
+								.await;
+						}
+					}
+				}
+			}
+		}
 
 		// Record latency
 		let latency_ms = start_time.elapsed().as_millis() as u64;
