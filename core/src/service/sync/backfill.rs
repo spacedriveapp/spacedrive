@@ -266,7 +266,7 @@ impl BackfillManager {
 			);
 
 			// Backfill this resource type
-			let checkpoint = self
+			let (checkpoint, max_received_timestamp) = self
 				.backfill_peer_state(
 					primary_peer,
 					vec![model_type.clone()],
@@ -282,18 +282,31 @@ impl BackfillManager {
 				"Resource type backfill complete"
 			);
 
-			// Update per-resource watermark after successful backfill
-			// This prevents re-syncing already backfilled data on next connection
-			let watermark_time = chrono::Utc::now();
-			self.peer_sync
-				.update_resource_watermark(primary_peer, &model_type, watermark_time)
-				.await?;
+			// Update per-resource watermark using max timestamp from received data
+			// This ensures the watermark reflects actual data, not just completion time
+			if let Some(max_ts) = max_received_timestamp {
+				self.peer_sync
+					.update_resource_watermark(primary_peer, &model_type, max_ts)
+					.await?;
 
-			info!(
-				model_type = %model_type,
-				watermark = %watermark_time,
-				"Updated resource watermark after backfill"
-			);
+				info!(
+					model_type = %model_type,
+					watermark = %max_ts,
+					"Updated resource watermark from received data (not Utc::now())"
+				);
+			} else {
+				// No data received, use completion time as fallback
+				let watermark_time = chrono::Utc::now();
+				self.peer_sync
+					.update_resource_watermark(primary_peer, &model_type, watermark_time)
+					.await?;
+
+				info!(
+					model_type = %model_type,
+					watermark = %watermark_time,
+					"No data received, using completion time as watermark"
+				);
+			}
 
 			// Keep the last checkpoint for legacy compatibility
 			final_checkpoint = checkpoint.resume_token;
@@ -308,14 +321,16 @@ impl BackfillManager {
 	/// Backfill state from a specific peer
 	///
 	/// If `since_watermark` is provided, only fetches changes newer than the watermark.
+	/// Returns the checkpoint and the maximum timestamp from received data (for watermark update).
 	async fn backfill_peer_state(
 		&self,
 		peer: Uuid,
 		model_types: Vec<String>,
 		checkpoint: Option<BackfillCheckpoint>,
 		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
-	) -> Result<BackfillCheckpoint> {
+	) -> Result<(BackfillCheckpoint, Option<chrono::DateTime<chrono::Utc>>)> {
 		let mut current_checkpoint = checkpoint.unwrap_or_else(|| BackfillCheckpoint::start(peer));
+		let mut max_timestamp: Option<chrono::DateTime<chrono::Utc>> = since_watermark;
 
 		for model_type in model_types {
 			if current_checkpoint.completed_models.contains(&model_type) {
@@ -354,6 +369,17 @@ impl BackfillManager {
 
 					// Record data volume metrics before consuming records
 					let records_count = records.len() as u64;
+
+					// Track max timestamp from received records for accurate watermark
+					for record in &records {
+						if let Some(max) = max_timestamp {
+							if record.timestamp > max {
+								max_timestamp = Some(record.timestamp);
+							}
+						} else {
+							max_timestamp = Some(record.timestamp);
+						}
+					}
 
 					// Apply updates via registry
 					for record in records {
@@ -394,7 +420,7 @@ impl BackfillManager {
 			current_checkpoint.mark_completed(model_type);
 		}
 
-		Ok(current_checkpoint)
+		Ok((current_checkpoint, max_timestamp))
 	}
 
 	/// Backfill shared resources

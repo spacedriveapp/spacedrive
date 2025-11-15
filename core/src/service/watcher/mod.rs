@@ -204,7 +204,10 @@ impl LocationWatcher {
 		{
 			let workers = self.workers.read().await;
 			if let Some(sender) = workers.get(&location_id) {
-				debug!("Worker already exists for location {}, reusing", location_id);
+				debug!(
+					"Worker already exists for location {}, reusing",
+					location_id
+				);
 				return Ok(sender.clone());
 			}
 		}
@@ -1001,7 +1004,7 @@ impl LocationWatcher {
 						// Ignore other events
 					}
 					Err(e) => {
-						error!("Location event listener error: {}", e);
+						// error!("Location event listener error: {}", e);
 						// Continue listening despite errors
 					}
 				}

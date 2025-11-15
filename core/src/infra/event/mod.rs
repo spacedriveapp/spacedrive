@@ -28,9 +28,7 @@ pub struct ResourceMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SubscriptionFilter {
 	/// Global subscription - receives all events of this type
-	Global {
-		resource_type: String,
-	},
+	Global { resource_type: String },
 	/// Path-scoped subscription - only events affecting this path
 	PathScoped {
 		resource_type: String,
@@ -42,14 +40,16 @@ impl SubscriptionFilter {
 	/// Check if this filter matches the given event
 	pub fn matches(&self, event: &Event) -> bool {
 		match self {
-			Self::Global { resource_type } => {
-				event.resource_type().map_or(false, |rt| rt == resource_type)
-			}
+			Self::Global { resource_type } => event
+				.resource_type()
+				.map_or(false, |rt| rt == resource_type),
 			Self::PathScoped {
 				resource_type,
 				path_scope,
 			} => {
-				event.resource_type().map_or(false, |rt| rt == resource_type)
+				event
+					.resource_type()
+					.map_or(false, |rt| rt == resource_type)
 					&& event.affects_path(path_scope)
 			}
 		}
@@ -301,9 +301,7 @@ impl Event {
 	pub fn affects_path(&self, scope: &SdPath) -> bool {
 		let affected_paths = match self {
 			Event::ResourceChanged { metadata, .. }
-			| Event::ResourceChangedBatch { metadata, .. } => {
-				metadata.as_ref().map(|m| &m.affected_paths)
-			}
+			| Event::ResourceChangedBatch { metadata, .. } => metadata.as_ref().map(|m| &m.affected_paths),
 			_ => None,
 		};
 
@@ -433,12 +431,12 @@ impl EventBus {
 
 	/// Emit an event to all subscribers (filtered and unfiltered)
 	pub fn emit(&self, event: Event) {
-		// Emit to legacy unfiltered subscribers
+		// Emit to unfiltered subscribers
 		match self.sender.send(event.clone()) {
 			Ok(count) => {
-				if count > 0 {
-					debug!("Event emitted to {} unfiltered subscribers", count);
-				}
+				// if count > 0 {
+				// 	debug!("Event emitted to {} unfiltered subscribers", count);
+				// }
 			}
 			Err(_) => {}
 		}
@@ -467,10 +465,7 @@ impl EventBus {
 		}
 
 		if matched_count > 0 {
-			debug!(
-				"Event emitted to {} filtered subscribers",
-				matched_count
-			);
+			debug!("Event emitted to {} filtered subscribers", matched_count);
 		}
 	}
 
@@ -488,14 +483,24 @@ impl EventBus {
 		let id = Uuid::new_v4();
 		let (sender, receiver) = broadcast::channel(1024);
 
-		let subscriber = FilteredSubscriber { id, filters, sender };
+		let subscriber = FilteredSubscriber {
+			id,
+			filters,
+			sender,
+		};
 
 		self.subscribers.write().unwrap().push(subscriber);
 
 		debug!(
 			"Created filtered subscription {} with {} filters",
 			id,
-			self.subscribers.read().unwrap().last().unwrap().filters.len()
+			self.subscribers
+				.read()
+				.unwrap()
+				.last()
+				.unwrap()
+				.filters
+				.len()
 		);
 
 		EventSubscriber {
