@@ -63,7 +63,10 @@ pub enum BulkOperation {
 /// Coordinates atomic writes, sync log creation, and event emission.
 /// In the leaderless architecture, all devices can write without role checks.
 pub struct TransactionManager {
-	/// Event bus for emitting events after successful commits
+	/// Dedicated sync event bus for sync coordination events
+	sync_events: Arc<crate::infra::sync::SyncEventBus>,
+
+	/// General event bus for non-sync events (if needed)
 	event_bus: Arc<EventBus>,
 
 	/// Current sequence number per library (library_id -> sequence)
@@ -72,17 +75,30 @@ pub struct TransactionManager {
 }
 
 impl TransactionManager {
-	/// Create a new transaction manager
-	pub fn new(event_bus: Arc<EventBus>) -> Self {
+	/// Create a new transaction manager with both event buses
+	///
+	/// # Arguments
+	/// * `sync_events` - Dedicated sync event bus (high priority, large capacity)
+	/// * `event_bus` - General event bus (for non-sync events if needed)
+	pub fn new(
+		sync_events: Arc<crate::infra::sync::SyncEventBus>,
+		event_bus: Arc<EventBus>,
+	) -> Self {
 		Self {
+			sync_events,
 			event_bus,
 			sync_sequence: Arc::new(Mutex::new(std::collections::HashMap::new())),
 		}
 	}
 
-	/// Get the event bus
+	/// Get the general event bus
 	pub fn event_bus(&self) -> &Arc<EventBus> {
 		&self.event_bus
+	}
+
+	/// Get the sync event bus
+	pub fn sync_events(&self) -> &Arc<crate::infra::sync::SyncEventBus> {
+		&self.sync_events
 	}
 
 	/// Commit device-owned resource (state-based sync)
@@ -114,18 +130,14 @@ impl TransactionManager {
 		// Note: Resource events are emitted by callers via ResourceManager
 		// to ensure proper domain model structure (not raw DB JSON)
 
-		// Emit internal coordination event for sync broadcast
-		// The SyncService will pick this up and broadcast to peers
-		self.event_bus.emit(Event::Custom {
-			event_type: "sync:state_change".to_string(),
-			data: serde_json::json!({
-				"library_id": library_id,
-				"model_type": model_type,
-				"record_uuid": record_uuid,
-				"device_id": device_id,
-				"data": data,
-				"timestamp": chrono::Utc::now(),
-			}),
+		// Emit to dedicated sync event bus for PeerSync to broadcast to peers
+		self.sync_events.emit(crate::infra::sync::SyncEvent::StateChange {
+			library_id,
+			model_type: model_type.to_string(),
+			record_uuid,
+			device_id,
+			data,
+			timestamp: chrono::Utc::now(),
 		});
 
 		Ok(())
@@ -188,15 +200,12 @@ impl TransactionManager {
 		// Note: Resource events are emitted by callers via ResourceManager
 		// to ensure proper domain model structure (not raw DB JSON)
 
-		// Emit internal coordination event for sync broadcast
-		// The SyncService will pick this up and broadcast to peers
-		self.event_bus.emit(Event::Custom {
-			event_type: "sync:shared_change".to_string(),
-			data: serde_json::json!({
-				"library_id": library_id,
-				"entry": entry,
-			}),
-		});
+		// Emit to dedicated sync event bus for PeerSync to broadcast to peers
+		self.sync_events
+			.emit(crate::infra::sync::SyncEvent::SharedChange {
+				library_id,
+				entry,
+			});
 
 		Ok(())
 	}
@@ -274,8 +283,9 @@ mod tests {
 
 	#[test]
 	fn test_transaction_manager_creation() {
+		let sync_events = Arc::new(crate::infra::sync::SyncEventBus::default());
 		let event_bus = Arc::new(EventBus::default());
 
-		let _tm = TransactionManager::new(event_bus);
+		let _tm = TransactionManager::new(sync_events, event_bus);
 	}
 }

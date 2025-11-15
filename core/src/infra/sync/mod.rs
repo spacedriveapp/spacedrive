@@ -14,6 +14,7 @@ pub mod checkpoints;
 pub mod config;
 pub mod dependency_graph;
 pub mod deterministic;
+pub mod event_bus;
 pub mod fk_mapper;
 pub mod hlc;
 pub mod peer_log;
@@ -31,6 +32,7 @@ pub use dependency_graph::{compute_sync_order, DependencyError};
 pub use deterministic::{
 	deterministic_system_album_uuid, deterministic_system_tag_uuid, system_tags,
 };
+pub use event_bus::{SyncEvent, SyncEventBus};
 pub use fk_mapper::{convert_fk_to_uuid, map_sync_json_to_local, FKMapping};
 pub use hlc::{HLCGenerator, HLC};
 pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};

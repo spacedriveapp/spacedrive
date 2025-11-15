@@ -412,8 +412,12 @@ impl LibraryManager {
 			.device_id()
 			.map_err(|e| LibraryError::Other(format!("Failed to get device ID: {}", e)))?;
 
-		// Create transaction manager
+		// Create dedicated sync event bus (separate from general event bus)
+		let sync_events = Arc::new(crate::infra::sync::SyncEventBus::new());
+
+		// Create transaction manager with both event buses
 		let transaction_manager = Arc::new(crate::infra::sync::TransactionManager::new(
+			sync_events.clone(),
 			self.event_bus.clone(),
 		));
 
@@ -433,6 +437,7 @@ impl LibraryManager {
 			db,
 			jobs: job_manager,
 			event_bus: self.event_bus.clone(),
+			sync_events,
 			transaction_manager,
 			sync_service: OnceCell::new(), // Initialized later
 			file_sync_service: OnceCell::new(), // Initialized later

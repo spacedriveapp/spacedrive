@@ -165,13 +165,12 @@ impl SyncService {
 		// Create a snapshot of current metrics
 		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(self.metrics.metrics()).await;
 		
-		// Emit event
-		self.peer_sync.event_bus().emit(crate::infra::event::Event::Custom {
-			event_type: "sync:metrics_updated".to_string(),
-			data: serde_json::json!({
-				"library_id": library_id,
-				"metrics": snapshot
-			}),
+		// Emit to sync event bus (non-critical, can be dropped if bus is under load)
+		let metrics_data = serde_json::to_value(&snapshot).unwrap_or_else(|_| serde_json::json!({}));
+		
+		self.peer_sync.sync_events.emit(crate::infra::sync::SyncEvent::MetricsUpdated {
+			library_id,
+			metrics: metrics_data,
 		});
 	}
 

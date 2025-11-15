@@ -16,7 +16,10 @@ pub use lock::LibraryLock;
 pub use manager::{DiscoveredLibrary, LibraryManager};
 
 use crate::infra::{
-	db::Database, event::EventBus, job::manager::JobManager, sync::TransactionManager,
+	db::Database,
+	event::EventBus,
+	job::manager::JobManager,
+	sync::{SyncEventBus, TransactionManager},
 };
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
@@ -43,8 +46,11 @@ pub struct Library {
 	/// Job manager for this library
 	jobs: Arc<JobManager>,
 
-	/// Event bus for emitting events
+	/// General event bus for UI, jobs, volume events, etc
 	event_bus: Arc<EventBus>,
+
+	/// Dedicated sync event bus (prevents starvation from high-volume events)
+	sync_events: Arc<SyncEventBus>,
 
 	/// Transaction manager for atomic writes + sync logging
 	transaction_manager: Arc<TransactionManager>,
@@ -88,9 +94,14 @@ impl Library {
 		&self.db
 	}
 
-	/// Get the event bus
+	/// Get the general event bus (for UI, jobs, volumes, etc)
 	pub fn event_bus(&self) -> &Arc<EventBus> {
 		&self.event_bus
+	}
+
+	/// Get the dedicated sync event bus
+	pub fn sync_events(&self) -> &Arc<SyncEventBus> {
+		&self.sync_events
 	}
 
 	/// Get the job manager

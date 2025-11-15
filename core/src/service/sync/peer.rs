@@ -141,8 +141,11 @@ pub struct PeerSync {
 	/// Sync configuration
 	config: Arc<crate::infra::sync::SyncConfig>,
 
-	/// Event bus
+	/// General event bus (for emitting resource events, metrics)
 	event_bus: Arc<EventBus>,
+
+	/// Dedicated sync event bus (for receiving sync coordination events)
+	pub(crate) sync_events: Arc<crate::infra::sync::SyncEventBus>,
 
 	/// Retry queue for failed messages
 	retry_queue: Arc<RetryQueue>,
@@ -195,6 +198,7 @@ impl PeerSync {
 			backfill_manager: Arc::new(RwLock::new(None)),
 			config,
 			event_bus: library.event_bus().clone(),
+			sync_events: library.sync_events().clone(),
 			retry_queue: Arc::new(RetryQueue::new()),
 			is_running: Arc::new(AtomicBool::new(false)),
 			network_events: Arc::new(tokio::sync::Mutex::new(None)),
@@ -741,7 +745,7 @@ impl PeerSync {
 		let library_id = self.library_id;
 		let network = self.network.clone();
 		info!(
-			"PeerSync event listener cloning network transport: {:?}",
+			"PeerSync sync event listener cloning network transport: {:?}",
 			std::any::type_name_of_val(&*network)
 		);
 		let state = self.state.clone();
@@ -749,27 +753,56 @@ impl PeerSync {
 		let db = self.db.clone();
 		let event_bus_for_emit = self.event_bus.clone();
 		let retry_queue = self.retry_queue.clone();
-		let mut subscriber = self.event_bus.subscribe();
+		let mut subscriber = self.sync_events.subscribe();
 		let is_running = self.is_running.clone();
 		let config = self.config.clone();
 
 		tokio::spawn(async move {
 			info!(
-				"PeerSync event listener started with network transport: {}",
+				"PeerSync sync event listener started with network transport: {}",
 				network.transport_name()
 			);
 
+			// Track event statistics for lag diagnostics
+			let mut last_event_type: Option<String> = None;
+			let mut state_change_count = 0u64;
+			let mut shared_change_count = 0u64;
+			let mut last_lag_warning = std::time::Instant::now();
+			let lag_warning_cooldown = std::time::Duration::from_secs(5);
+
 			while is_running.load(Ordering::SeqCst) {
 				match subscriber.recv().await {
-					Ok(Event::Custom { event_type, data }) => {
-						info!("PeerSync received event: {}", event_type);
-						match event_type.as_str() {
-							"sync:state_change" => {
-								info!("Handling state change event for sync broadcast");
+					Ok(sync_event) => {
+						use crate::infra::sync::SyncEvent;
+
+						match sync_event {
+							SyncEvent::StateChange {
+								library_id: event_library_id,
+								model_type,
+								record_uuid,
+								device_id,
+								data,
+								timestamp,
+							} => {
+								state_change_count += 1;
+								last_event_type = Some(format!("StateChange({})", model_type));
+
+								info!(
+									model_type = %model_type,
+									record_uuid = %record_uuid,
+									"PeerSync received state change event"
+								);
 
 								if let Err(e) = Self::handle_state_change_event_static(
 									library_id,
-									data,
+									serde_json::json!({
+										"library_id": event_library_id,
+										"model_type": model_type,
+										"record_uuid": record_uuid,
+										"device_id": device_id,
+										"data": data,
+										"timestamp": timestamp,
+									}),
 									&network,
 									&state,
 									&buffer,
@@ -782,10 +815,28 @@ impl PeerSync {
 									warn!(error = %e, "Failed to handle state change event");
 								}
 							}
-							"sync:shared_change" => {
+							SyncEvent::SharedChange {
+								library_id: event_library_id,
+								entry,
+							} => {
+								shared_change_count += 1;
+								last_event_type = Some(format!(
+									"SharedChange({}, HLC:{})",
+									entry.model_type, entry.hlc
+								));
+
+								info!(
+									hlc = %entry.hlc,
+									model_type = %entry.model_type,
+									"PeerSync received shared change event"
+								);
+
 								if let Err(e) = Self::handle_shared_change_event_static(
 									library_id,
-									data,
+									serde_json::json!({
+										"library_id": event_library_id,
+										"entry": entry,
+									}),
 									&network,
 									&state,
 									&buffer,
@@ -798,29 +849,43 @@ impl PeerSync {
 									warn!(error = %e, "Failed to handle shared change event");
 								}
 							}
-							_ => {
-								// Ignore other custom events
-								// Note: Batch events removed - peers discover bulk changes via backfill
+							SyncEvent::MetricsUpdated { .. } => {
+								// Ignore metrics events in the sync event listener
+								// (metrics are for observability, not sync coordination)
 							}
 						}
 					}
-					Ok(_) => {
-						// Ignore non-custom events
-					}
 					Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-						warn!(
-							skipped = skipped,
-							"Event listener lagged, some events skipped"
-						);
+						// Rate-limit lag warnings to prevent spam
+						let now = std::time::Instant::now();
+						if now.duration_since(last_lag_warning) >= lag_warning_cooldown {
+							error!(
+								skipped = skipped,
+								last_event = ?last_event_type,
+								state_changes = state_change_count,
+								shared_changes = shared_change_count,
+								"CRITICAL: Sync event listener lagged! Data loss occurred. \
+								This likely includes StateChange or SharedChange events. \
+								Lost events may cause sync inconsistency - full backfill may be needed. \
+								With 10k capacity, this indicates extreme system load or a bug."
+							);
+
+							last_lag_warning = now;
+						} else {
+							debug!(
+								skipped = skipped,
+								"Sync event listener lagged (warning suppressed)"
+							);
+						}
 					}
 					Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-						info!("Event bus closed, stopping event listener");
+						info!("Sync event bus closed, stopping event listener");
 						break;
 					}
 				}
 			}
 
-			info!("PeerSync event listener stopped");
+			info!("PeerSync sync event listener stopped");
 		});
 	}
 
