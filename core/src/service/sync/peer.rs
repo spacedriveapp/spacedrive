@@ -2295,15 +2295,81 @@ impl PeerSync {
 			)
 			.await?;
 
-		// Process buffer
+		// Process buffer - apply locally AND broadcast to peers
+		// Critical: Buffered changes must be broadcast after backfill completes
+		// Previously these were only applied locally, causing 65% data loss
+		let mut state_changes_to_broadcast = Vec::new();
+		let mut shared_changes_to_broadcast = Vec::new();
+
 		while let Some(update) = self.buffer.pop_ordered().await {
 			match update {
 				super::state::BufferedUpdate::StateChange(change) => {
-					self.apply_state_change(change).await?;
+					self.apply_state_change(change.clone()).await?;
+					state_changes_to_broadcast.push(change);
 				}
 				super::state::BufferedUpdate::SharedChange(entry) => {
-					self.apply_shared_change(entry).await?;
+					self.apply_shared_change(entry.clone()).await?;
+					shared_changes_to_broadcast.push(entry);
 				}
+			}
+		}
+
+		info!(
+			state_changes = state_changes_to_broadcast.len(),
+			shared_changes = shared_changes_to_broadcast.len(),
+			"Processing buffered updates - will broadcast to peers after local application"
+		);
+
+		// Now broadcast all buffered changes to peers (they're in Ready state now)
+		for change in state_changes_to_broadcast {
+			if let Err(e) = Self::handle_state_change_event_static(
+				self.library_id,
+				serde_json::json!({
+					"library_id": self.library_id,
+					"model_type": change.model_type,
+					"record_uuid": change.record_uuid,
+					"device_id": change.device_id,
+					"data": change.data,
+					"timestamp": change.timestamp,
+				}),
+				&self.network,
+				&self.state,
+				&self.buffer,
+				&self.retry_queue,
+				&self.db,
+				&self.config,
+			)
+			.await
+			{
+				warn!(
+					error = %e,
+					record_uuid = %change.record_uuid,
+					"Failed to broadcast buffered state change to peers"
+				);
+			}
+		}
+
+		for entry in shared_changes_to_broadcast {
+			if let Err(e) = Self::handle_shared_change_event_static(
+				self.library_id,
+				serde_json::json!({
+					"library_id": self.library_id,
+					"entry": entry,
+				}),
+				&self.network,
+				&self.state,
+				&self.buffer,
+				&self.retry_queue,
+				&self.db,
+				&self.config,
+			)
+			.await
+			{
+				warn!(
+					error = %e,
+					hlc = %entry.hlc,
+					"Failed to broadcast buffered shared change to peers"
+				);
 			}
 		}
 

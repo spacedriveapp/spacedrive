@@ -79,10 +79,10 @@ impl crate::infra::sync::Syncable for Model {
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		// Entries don't belong to locations - locations are virtual and can reference
-		// a root entry. Entries only depend on their parent entry (self-reference),
-		// user_metadata, and content_identity (all optional FKs).
-		&[]
+		// Entries depend on content_identity and user_metadata to ensure FK references
+		// exist before entries arrive. parent_id is self-reference (handled via closure rebuild).
+		// This prevents entries arriving with content_id references that don't exist yet.
+		&["content_identity", "user_metadata"]
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
