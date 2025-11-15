@@ -1,0 +1,531 @@
+---
+title: "Linux Deployment"
+description: "Deploy Spacedrive CLI and daemon on Linux systems"
+---
+
+## Overview
+
+The Spacedrive daemon and CLI can be deployed on Linux systems in several ways:
+- **Docker** - Recommended for easy deployment and isolation
+- **Native binaries** - Direct installation for TrueNAS, Raspberry Pi, and other Linux systems
+- **Systemd service** - Auto-start on boot with native binaries
+
+## Docker Deployment
+
+### Prerequisites
+
+- Docker 20.10+ or Docker Engine
+- Docker Compose (optional, but recommended)
+
+### Quick Start with Docker Compose
+
+1. **Create docker-compose.yml**:
+
+```yaml
+version: '3.8'
+
+services:
+  spacedrive:
+    image: spacedrive:latest
+    container_name: spacedrive-daemon
+    restart: unless-stopped
+    volumes:
+      - spacedrive-data:/data
+      # Mount directories to index
+      - /path/to/your/files:/mnt/files:ro
+    environment:
+      - SPACEDRIVE_DATA_DIR=/data
+
+volumes:
+  spacedrive-data:
+```
+
+2. **Build and start**:
+
+```bash
+# Build the image
+docker compose build
+
+# Start the daemon
+docker compose up -d
+
+# View logs
+docker compose logs -f
+```
+
+### Docker CLI Commands
+
+```bash
+# Build image
+docker build -t spacedrive:latest .
+
+# Run daemon
+docker run -d \
+  --name spacedrive-daemon \
+  --restart unless-stopped \
+  -v spacedrive-data:/data \
+  -v /path/to/files:/mnt/files:ro \
+  spacedrive:latest
+
+# View status
+docker exec spacedrive-daemon sd-cli status
+
+# View logs
+docker logs -f spacedrive-daemon
+
+# Execute CLI commands
+docker exec spacedrive-daemon sd-cli library list
+```
+
+### Multi-Architecture Support
+
+The Dockerfile supports both x86_64 and ARM64:
+
+```bash
+# Build for ARM64 (Raspberry Pi)
+docker build --platform linux/arm64 -t spacedrive:arm64 .
+
+# Build for x86_64 (servers, TrueNAS)
+docker build --platform linux/amd64 -t spacedrive:amd64 .
+
+# Build multi-arch with buildx
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t spacedrive:latest \
+  --push .
+```
+
+## Native Binary Deployment
+
+### Installation
+
+1. **Download binaries**:
+
+```bash
+# For x86_64 Linux
+curl -LO https://github.com/YOUR_ORG/releases/latest/download/sd-linux-x86_64
+curl -LO https://github.com/YOUR_ORG/releases/latest/download/sd-daemon-linux-x86_64
+
+# For ARM64 (Raspberry Pi)
+curl -LO https://github.com/YOUR_ORG/releases/latest/download/sd-linux-aarch64
+curl -LO https://github.com/YOUR_ORG/releases/latest/download/sd-daemon-linux-aarch64
+```
+
+2. **Install binaries**:
+
+```bash
+# Move to PATH
+sudo mv sd-linux-* /usr/local/bin/sd-cli
+sudo mv sd-daemon-linux-* /usr/local/bin/sd-daemon
+
+# Set permissions
+sudo chmod +x /usr/local/bin/sd-cli /usr/local/bin/sd-daemon
+
+# Test installation
+sd-cli --version
+```
+
+### Running the Daemon
+
+```bash
+# Start in foreground (for testing)
+sd-cli start --foreground
+
+# Start in background
+sd-cli start
+
+# Check status
+sd-cli status
+
+# Stop daemon
+sd-cli stop
+```
+
+## Systemd Service (Auto-Start)
+
+### Installation
+
+The CLI includes built-in systemd service management:
+
+```bash
+# Install and enable auto-start
+sd-cli daemon install
+
+# Check status
+sd-cli daemon status
+
+# Uninstall auto-start
+sd-cli daemon uninstall
+```
+
+This creates a systemd user service at:
+```
+~/.config/systemd/user/spacedrive-daemon.service
+```
+
+### Manual Systemd Setup
+
+If you prefer manual setup, create the service file:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/spacedrive-daemon.service << 'EOF'
+[Unit]
+Description=Spacedrive Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/sd-daemon --data-dir %h/.local/share/spacedrive
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
+EOF
+```
+
+Then enable and start:
+
+```bash
+# Reload systemd
+systemctl --user daemon-reload
+
+# Enable auto-start
+systemctl --user enable spacedrive-daemon
+
+# Start now
+systemctl --user start spacedrive-daemon
+
+# Check status
+systemctl --user status spacedrive-daemon
+
+# View logs
+journalctl --user -u spacedrive-daemon -f
+```
+
+## TrueNAS Deployment
+
+### TrueNAS SCALE (Debian-based)
+
+TrueNAS SCALE supports Docker, so you can use either method:
+
+#### Option 1: Docker (Recommended)
+
+1. Enable Docker/Kubernetes in TrueNAS SCALE Apps
+2. Deploy using the docker-compose.yml above
+3. Mount your TrueNAS pools as volumes
+
+#### Option 2: Native Binary
+
+```bash
+# SSH into TrueNAS
+ssh admin@truenas
+
+# Download and install binaries
+curl -LO https://github.com/YOUR_ORG/releases/latest/download/sd-linux-x86_64
+curl -LO https://github.com/YOUR_ORG/releases/latest/download/sd-daemon-linux-x86_64
+
+sudo mv sd-linux-x86_64 /usr/local/bin/sd-cli
+sudo mv sd-daemon-linux-x86_64 /usr/local/bin/sd-daemon
+sudo chmod +x /usr/local/bin/sd-cli /usr/local/bin/sd-daemon
+
+# Set up systemd service
+sd-cli daemon install
+
+# Index your pools
+sd-cli location add /mnt/pool1
+sd-cli location add /mnt/pool2
+```
+
+### TrueNAS CORE (FreeBSD)
+
+Currently unsupported. Use TrueNAS SCALE (recommended) or run in a Linux VM.
+
+## Raspberry Pi Deployment
+
+### Prerequisites
+
+- Raspberry Pi 3/4/5 or newer
+- Raspberry Pi OS (64-bit recommended)
+- At least 1GB free RAM
+
+### Installation
+
+```bash
+# Update system
+sudo apt-get update && sudo apt-get upgrade -y
+
+# Download ARM64 binaries
+wget https://github.com/YOUR_ORG/releases/latest/download/sd-linux-aarch64
+wget https://github.com/YOUR_ORG/releases/latest/download/sd-daemon-linux-aarch64
+
+# Install
+sudo mv sd-linux-aarch64 /usr/local/bin/sd-cli
+sudo mv sd-daemon-linux-aarch64 /usr/local/bin/sd-daemon
+sudo chmod +x /usr/local/bin/sd-cli /usr/local/bin/sd-daemon
+
+# Install auto-start
+sd-cli daemon install
+
+# Start daemon
+sudo systemctl --user start spacedrive-daemon
+```
+
+### Performance Tips
+
+- Use external SSD for better I/O performance
+- Limit concurrent indexing jobs: `sd-cli config set jobs.max_concurrent 2`
+- Disable thumbnail generation for large libraries to save RAM
+
+## Configuration
+
+### Data Directory
+
+By default, data is stored at:
+- Native: `~/.local/share/spacedrive` (Linux)
+- Docker: `/data` (mapped to volume)
+
+Override with `--data-dir` flag:
+
+```bash
+sd-cli --data-dir /mnt/external/spacedrive start
+```
+
+### Auto-Update
+
+Configure update repository:
+
+```bash
+# Set your releases repo
+sd-cli config set update.repo "your-org/spacedrive-cli-releases"
+
+# Check for updates
+sd-cli update
+
+# Auto-update on schedule (cron)
+echo "0 2 * * * /usr/local/bin/sd-cli update --force" | crontab -
+```
+
+### Multiple Instances
+
+Run multiple daemon instances:
+
+```bash
+# Instance for work files
+sd-cli --instance work --data-dir ~/spacedrive-work start
+
+# Instance for personal files
+sd-cli --instance personal --data-dir ~/spacedrive-personal start
+
+# Install both as services
+sd-cli --instance work daemon install
+sd-cli --instance personal daemon install
+```
+
+## Monitoring
+
+### Health Checks
+
+```bash
+# Check daemon status
+sd-cli status
+
+# Check systemd service
+systemctl --user status spacedrive-daemon
+
+# View recent logs
+journalctl --user -u spacedrive-daemon --since "1 hour ago"
+
+# Follow logs in real-time
+sd-cli logs follow
+```
+
+### Resource Usage
+
+```bash
+# Check memory usage
+ps aux | grep sd-daemon
+
+# Check disk usage
+du -sh ~/.local/share/spacedrive
+
+# Monitor with htop
+htop -p $(pgrep sd-daemon)
+```
+
+## Troubleshooting
+
+### Daemon Won't Start
+
+```bash
+# Check logs
+journalctl --user -u spacedrive-daemon -n 50
+
+# Or with CLI
+sd-cli logs follow
+
+# Reset data and restart
+sd-cli restart --reset
+```
+
+### Permission Issues
+
+```bash
+# Fix binary permissions
+sudo chmod +x /usr/local/bin/sd-cli /usr/local/bin/sd-daemon
+
+# Fix data directory permissions
+chmod -R u+rw ~/.local/share/spacedrive
+```
+
+### Port Conflicts
+
+If you see "address already in use":
+
+```bash
+# Check what's using the socket
+lsof ~/.local/share/spacedrive/daemon/daemon.sock
+
+# Kill old process
+pkill sd-daemon
+
+# Restart
+sd-cli start
+```
+
+### Out of Memory (Raspberry Pi)
+
+```bash
+# Check available memory
+free -h
+
+# Reduce concurrent jobs
+sd-cli config set jobs.max_concurrent 1
+
+# Restart daemon
+sd-cli restart
+```
+
+## Security Considerations
+
+### Running as Non-Root
+
+Always run as a regular user, never as root:
+
+```bash
+# DON'T do this
+sudo sd-cli start  # ❌
+
+# DO this instead
+sd-cli start  # ✓
+```
+
+### Firewall Configuration
+
+If enabling API access (future):
+
+```bash
+# Allow specific port
+sudo ufw allow 8080/tcp
+
+# Or limit to local network
+sudo ufw allow from 192.168.1.0/24 to any port 8080
+```
+
+### File Permissions
+
+Ensure indexed directories are readable:
+
+```bash
+# Check permissions
+ls -la /path/to/index
+
+# Fix if needed
+chmod -R u+r /path/to/index
+```
+
+## Uninstallation
+
+### Remove Daemon
+
+```bash
+# Stop daemon
+sd-cli stop
+
+# Remove auto-start
+sd-cli daemon uninstall
+
+# Remove binaries
+sudo rm /usr/local/bin/sd-cli /usr/local/bin/sd-daemon
+
+# Remove data (optional)
+rm -rf ~/.local/share/spacedrive
+```
+
+### Remove Docker
+
+```bash
+# Stop and remove container
+docker compose down
+
+# Remove volumes
+docker volume rm spacedrive-data
+
+# Remove image
+docker rmi spacedrive:latest
+```
+
+## Advanced Configuration
+
+### Custom Systemd Service Options
+
+Edit `~/.config/systemd/user/spacedrive-daemon.service`:
+
+```ini
+[Service]
+# Limit memory usage
+MemoryMax=1G
+
+# Set nice priority
+Nice=10
+
+# Set I/O priority
+IOSchedulingClass=best-effort
+IOSchedulingPriority=5
+
+# Environment variables
+Environment="RUST_LOG=info"
+```
+
+Then reload and restart:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user restart spacedrive-daemon
+```
+
+### Docker Resource Limits
+
+In docker-compose.yml:
+
+```yaml
+services:
+  spacedrive:
+    # ... other config ...
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          memory: 512M
+```
+
+## Next Steps
+
+- [CLI Architecture](/core/cli) - Learn about the CLI architecture
+- [Library Sync Setup](/cli/library-sync-setup) - Set up multi-device sync
+- [Multi-Instance](/cli/multi-instance) - Run multiple daemon instances

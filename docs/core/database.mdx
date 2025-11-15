@@ -1,0 +1,303 @@
+---
+title: Database
+sidebarTitle: Database
+---
+
+Spacedrive uses SQLite with SeaORM for database operations. The database is embedded within each library, providing fast local queries and simple backup strategies.
+
+## Technology Stack
+
+We chose SQLite and SeaORM for specific technical reasons:
+
+**SQLite** provides embedded database functionality without external dependencies. It runs in-process with zero network overhead and supports advanced features like WAL mode for concurrent access.
+
+**SeaORM** offers type-safe database access in Rust. It generates compile-time checked queries, manages schema migrations automatically, and provides connection pooling out of the box.
+
+This combination replaced our previous prisma-client-rust dependency, which was abandoned upstream.
+
+## Database Configuration
+
+Each library configures SQLite for optimal performance:
+
+```rust
+use sea_orm::{Database, ConnectOptions};
+
+async fn create_connection(database_url: &str) -> Result<DatabaseConnection, DbErr> {
+    let mut opt = ConnectOptions::new(database_url.to_owned());
+    opt.max_connections(10)
+        .min_connections(1)
+        .connect_timeout(Duration::from_secs(10))
+        .idle_timeout(Duration::from_secs(300))
+        .sqlx_logging(false); // Disable in production
+
+    let db = Database::connect(opt).await?;
+
+    // Configure SQLite for performance
+    db.execute_unprepared("PRAGMA journal_mode = WAL").await?;
+    db.execute_unprepared("PRAGMA synchronous = NORMAL").await?;
+    db.execute_unprepared("PRAGMA cache_size = 10000").await?;
+    db.execute_unprepared("PRAGMA temp_store = MEMORY").await?;
+
+    Ok(db)
+}
+```
+
+These pragmas enable:
+
+**WAL Mode**: Allows readers and writers to work concurrently.
+
+**Normal Synchronous**: Balances durability with performance.
+
+**Large Cache**: Keeps frequently accessed data in memory.
+
+**Memory Temp Store**: Uses RAM for temporary tables.
+
+## Storage Efficiency
+
+Our schema design minimizes storage overhead through careful optimization. For a typical library with 100,000 files:
+
+| Component    | Size     | Notes                             |
+| ------------ | -------- | --------------------------------- |
+| **Database** | ~650 MB  | Includes all metadata and indexes |
+| **Indexes**  | ~150 MB  | Optimized for common queries      |
+| **WAL File** | `<32 MB` | Write-ahead log for durability    |
+
+Compared to naive implementations, this represents a 70% reduction in storage requirements.
+
+## Migration System
+
+SeaORM manages schema changes through versioned migrations. Each migration defines forward and rollback operations:
+
+```rust
+use sea_orm_migration::prelude::*;
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait::async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // Apply schema changes
+        manager.create_table(...).await
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // Revert changes
+        manager.drop_table(...).await
+    }
+}
+```
+
+The migration system tracks applied migrations in a `seaql_migrations` table. This ensures each migration runs exactly once.
+
+Apply migrations during library initialization:
+
+```rust
+use sea_orm_migration::MigratorTrait;
+
+// Apply pending migrations
+Migrator::up(db, None).await?;
+
+// Check migration status
+let applied = Migrator::status(db).await?;
+```
+
+## Performance Optimizations
+
+### Index Strategy
+
+Indexes are critical for query performance. We maintain indexes for:
+
+**UUID Lookups**: Every table with a UUID has a unique index for O(1) lookups.
+
+**Foreign Keys**: All foreign key columns are indexed for fast joins.
+
+**Common Filters**: Frequently queried columns like `kind`, `size`, and `favorite` have dedicated indexes.
+
+**Composite Indexes**: Multi-column indexes optimize specific query patterns.
+
+Create partial indexes for better performance:
+
+```sql
+-- Index only file entries, not directories
+CREATE INDEX idx_file_sizes ON entries(size)
+WHERE kind = 0;
+
+-- Index only favorited items
+CREATE INDEX idx_favorites ON user_metadata(uuid)
+WHERE favorite = 1;
+```
+
+### Query Performance
+
+SeaORM automatically uses prepared statements for repeated queries. This avoids SQL parsing overhead and enables query plan caching.
+
+For UI responsiveness, always paginate large result sets:
+
+```rust
+let page_size = 50;
+let entries = Entry::find()
+    .order_by_asc(entry::Column::Name)
+    .limit(page_size)
+    .offset(page * page_size)
+    .all(db)
+    .await?;
+```
+
+Use `select_only()` to fetch only required columns:
+
+```rust
+let names = Entry::find()
+    .select_only()
+    .column(entry::Column::Name)
+    .into_tuple::<String>()
+    .all(db)
+    .await?;
+```
+
+### Connection Pooling
+
+SeaORM manages a connection pool automatically. Configure pool settings based on your workload:
+
+```rust
+opt.max_connections(10)     // Maximum concurrent connections
+   .min_connections(1)      // Minimum idle connections
+   .connect_timeout(Duration::from_secs(10))
+   .idle_timeout(Duration::from_secs(300));
+```
+
+These settings balance resource usage with responsiveness. Most operations complete within a single connection.
+
+## Backup and Recovery
+
+Libraries support multiple backup strategies:
+
+### File-Based Backup
+
+The simplest backup method copies the database file:
+
+```rust
+use std::fs;
+
+async fn backup_database(library_path: &Path) -> Result<(), std::io::Error> {
+    let db_path = library_path.join("database.db");
+    let backup_dir = library_path.join("backups");
+    fs::create_dir_all(&backup_dir)?;
+
+    let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+    let backup_path = backup_dir.join(format!("database_{}.db", timestamp));
+
+    fs::copy(&db_path, &backup_path)?;
+    Ok(())
+}
+```
+
+### SQLite Backup API
+
+For live backups without stopping operations:
+
+```rust
+db.execute_unprepared(
+    "VACUUM INTO '/path/to/backup.db'"
+).await?;
+```
+
+This creates a compacted backup while the database remains accessible.
+
+### Crash Recovery
+
+WAL mode provides automatic crash recovery. If Spacedrive crashes, SQLite automatically rolls back incomplete transactions on the next startup.
+
+The WAL file contains all pending writes. SQLite replays this journal to restore database consistency.
+
+<Warning>
+	Never delete the `-wal` or `-shm` files manually. SQLite uses these for
+	recovery.
+</Warning>
+
+## Maintenance Operations
+
+### Database Optimization
+
+Run optimization periodically to maintain performance:
+
+```rust
+async fn optimize_database(db: &DatabaseConnection) -> Result<(), DbErr> {
+    // Update query planner statistics
+    db.execute_unprepared("ANALYZE").await?;
+
+    // Rebuild database file to reclaim space
+    db.execute_unprepared("VACUUM").await?;
+
+    // Optimize based on recent queries
+    db.execute_unprepared("PRAGMA optimize").await?;
+
+    Ok(())
+}
+```
+
+**ANALYZE** updates table statistics for better query planning.
+
+**VACUUM** rebuilds the database file, removing deleted data and defragmenting tables.
+
+**PRAGMA optimize** analyzes recent query patterns to suggest new indexes.
+
+### Integrity Checks
+
+Verify database integrity after crashes or disk errors:
+
+```rust
+let result = db.execute_unprepared("PRAGMA integrity_check").await?;
+```
+
+This performs extensive validation of database structures and returns any corruption found.
+
+### Size Monitoring
+
+Track database growth over time:
+
+```rust
+let page_count: i64 = db.query_one(
+    Statement::from_string(
+        DbBackend::Sqlite,
+        "PRAGMA page_count".to_string()
+    )
+).await?;
+
+let page_size: i64 = db.query_one(
+    Statement::from_string(
+        DbBackend::Sqlite,
+        "PRAGMA page_size".to_string()
+    )
+).await?;
+
+let size_bytes = page_count * page_size;
+```
+
+## Extension Support
+
+Spacedrive extensions can create custom tables at runtime. The database layer provides APIs for:
+
+**Table Creation**: Extensions define tables with proper namespacing.
+
+**Migration Tracking**: Each extension manages its own schema versions.
+
+**Foreign Keys**: Extensions can reference core tables safely.
+
+**Cleanup**: Tables are removed when extensions uninstall.
+
+See the Data Model documentation for details on extension table design.
+
+## Future Enhancements
+
+Planned database improvements include:
+
+**Full-Text Search**: SQLite FTS5 for searching file content and metadata.
+
+**JSON Operations**: Native JSON functions for querying structured data.
+
+**R-Tree Indexes**: Spatial indexing for geographic data.
+
+**Encryption**: SQLCipher integration for at-rest encryption.
+
+These features will be added as libraries need them, maintaining backward compatibility.

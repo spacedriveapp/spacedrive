@@ -1,0 +1,381 @@
+---
+title: Cloud Integration
+sidebarTitle: Cloud Integration
+---
+
+Spacedrive treats cloud storage as native volumes, enabling seamless file management across local and cloud storage. The system leverages OpenDAL to support over 40 cloud services while maintaining consistent performance and behavior.
+
+## How Cloud Volumes Work
+
+Cloud volumes appear and function identically to local volumes in Spacedrive. When you connect a cloud service, it becomes a volume with the same capabilities as your local drives. Files are indexed, searchable, and manageable without downloading entire contents.
+
+The key innovation is content identification consistency. Whether a file lives on your SSD or in S3, Spacedrive generates the same content hash, enabling accurate deduplication and tracking across all storage locations.
+
+### Connecting Cloud Storage
+
+Add cloud storage through the action system:
+
+```rust
+let input = VolumeAddCloudInput {
+    service: CloudServiceType::S3,
+    display_name: "My Bucket".to_string(),
+    config: CloudStorageConfig::S3 {
+        bucket: "my-bucket".to_string(),
+        region: "us-west-2".to_string(),
+        access_key_id: "...".to_string(),
+        secret_access_key: "...".to_string(),
+        endpoint: None,
+    },
+};
+
+dispatcher.execute_library_action::<VolumeAddCloudAction>(input, ctx).await?;
+```
+
+Once connected, the volume behaves like any other storage device. Browse directories, search files, and perform operations without thinking about the underlying storage type.
+
+<Note>
+	Once indexed, you can search, browse thumbnails, and view metadata for cloud
+	files even when offline. Only file content operations require an active
+	internet connection.
+</Note>
+
+### Path Representation
+
+Cloud paths use service-native URIs that match industry standards:
+
+```
+s3://my-bucket/photos/vacation.jpg
+gdrive://My Drive/Documents/contract.pdf
+onedrive://Documents/budget.xlsx
+dropbox://Apps/Spacedrive/backup.zip
+azblob://container/data/export.csv
+gcs://bucket/logs/app.log
+```
+
+These URIs match the format used by AWS CLI, gsutil, and other cloud tools. Copy a path from Spacedrive and paste it directly into cloud provider CLI commands.
+
+Internally, Spacedrive uses the `SdPath` enum with identity-based addressing:
+
+```rust
+pub enum SdPath {
+    Physical {
+        device_slug: String,  // URL-safe device identifier
+        path: PathBuf,
+    },
+    Cloud {
+        service: CloudServiceType,  // S3, GoogleDrive, etc.
+        identifier: String,          // Bucket/drive/container name
+        path: String,                // Path within the service
+    },
+    Content {
+        content_id: Uuid,
+    },
+}
+```
+
+The service and identifier are stored directly in the path, enabling self-contained cloud addressing. The VolumeManager maintains an in-memory cache mapping mount points to volume fingerprints for O(1) lookups during volume resolution.
+
+See [Unified Addressing](/docs/core/addressing) for complete details on URI formats and resolution.
+
+## Supported Services
+
+Spacedrive supports all major cloud providers through OpenDAL:
+
+**Object Storage**: S3, Azure Blob, Google Cloud Storage, MinIO, Backblaze B2, Cloudflare R2
+
+**Consumer Cloud**: Google Drive, Dropbox, OneDrive, iCloud Drive, pCloud, MEGA
+
+**Enterprise Storage**: SharePoint, Box, Nextcloud, Seafile, WebDAV
+
+**Regional Services**: Alibaba Cloud OSS, Tencent COS, Huawei OBS, Baidu BOS
+
+Each service maintains its native features while presenting a unified interface through Spacedrive.
+
+## Content Identification
+
+Spacedrive uses its sampling algorithm for all files, regardless of storage location. For files over 100KB, only 58KB of data transfers to generate the content hash:
+
+- 8KB header sample
+- 40KB from four evenly-spaced positions
+- 8KB footer sample
+
+This approach ensures identical files have matching identities whether stored locally or in the cloud. A photo on Google Drive and its copy on your laptop share the same content hash, enabling true cross-platform deduplication.
+
+### Performance Impact
+
+| File Size | Data Transfer | Identification Time (100 Mbps) |
+| --------- | ------------- | ------------------------------ |
+| 10 MB     | 10 MB         | 0.8 seconds                    |
+| 100 MB    | 58 KB         | 0.005 seconds                  |
+| 1 GB      | 58 KB         | 0.005 seconds                  |
+| 10 GB     | 58 KB         | 0.005 seconds                  |
+
+The constant transfer size for large files makes cloud indexing predictable and fast.
+
+## Credential Management
+
+Cloud credentials are encrypted with XChaCha20-Poly1305 using your library key. Credentials store in your OS keyring: Keychain on macOS, Credential Manager on Windows, Secret Service on Linux. Each library maintains separate credentials for isolation.
+
+```rust
+let credential_manager = CloudCredentialManager::new(library_key_manager);
+credential_manager
+    .store_credential(library_id, &volume_fingerprint, &credential)
+    .await?;
+```
+
+API keys and access credentials remain encrypted at rest. Removing a cloud volume purges its credentials from storage immediately.
+
+<Info>
+	Spacedrive never stores credentials in plain text or transmits them outside
+	the secure credential flow.
+</Info>
+
+## Indexing Cloud Content
+
+The indexer handles cloud volumes intelligently:
+
+**Discovery Phase**: Lists directories using native cloud APIs for efficiency
+
+**Processing Phase**: Creates database entries identical to local files. Cloud entries are treated as new during initial indexing since metadata-based change detection is not yet implemented.
+
+**Content Phase**: Uses ranged reads to generate content hashes without full downloads
+
+**Aggregation Phase**: Calculates directory sizes and statistics
+
+The indexer protects the location root entry from deletion during change detection. This entry represents the mount point itself rather than a filesystem object, ensuring the location remains valid throughout indexing.
+
+Cloud indexing supports the same modes as local indexing:
+
+```rust
+// Quick scan for navigation
+let path = SdPath::from_uri_with_context(
+    "s3://my-bucket/",
+    &context
+).await?;
+
+let config = IndexerJobConfig::ui_navigation(path, IndexMode::Shallow);
+
+// Deep scan with content identification
+let path = SdPath::from_uri_with_context(
+    "s3://my-bucket/",
+    &context
+).await?;
+
+let config = IndexerJobConfig::new(path, IndexMode::Content);
+```
+
+## File Operations
+
+Standard file operations work transparently across cloud volumes:
+
+```rust
+// Copy from cloud to local
+let src = SdPath::from_uri_with_context(
+    "gdrive://Work/photos/vacation.jpg",
+    &context
+).await?;
+
+let dst = SdPath::from_uri_with_context(
+    "local://macbook/backup/",
+    &context
+).await?;
+
+let input = FileCopyInput::new(vec![src], dst);
+let result = dispatcher.execute_library_action::<FileCopyAction>(
+    input,
+    session_context
+).await?;
+
+// Move between cloud services
+let src = SdPath::from_uri_with_context(
+    "s3://archive/report.pdf",
+    &context
+).await?;
+
+let dst = SdPath::from_uri_with_context(
+    "gdrive://Work/documents/",
+    &context
+).await?;
+
+let job = FileCopyJob::new(
+    SdPathBatch::new(vec![src]),
+    dst
+).with_move(true);
+
+library.jobs().dispatch(job).await?;
+```
+
+Operations optimize based on source and destination capabilities. Same-cloud moves use native APIs when available. Cross-cloud transfers stream data efficiently without temporary files.
+
+<Warning>
+	Large file operations between cloud services depend on your internet
+	bandwidth. Monitor transfer progress through the job system.
+</Warning>
+
+## Caching Strategy
+
+Cloud volumes implement intelligent caching:
+
+**Metadata Cache**: Directory listings and file information cache for 5 minutes
+
+**Content Cache**: Recently accessed file chunks remain in memory
+
+**Thumbnail Cache**: Generated thumbnails store locally like any other sidecar
+
+Cache invalidation happens automatically on file modifications. Manual refresh forces fresh metadata retrieval from cloud services.
+
+## Best Practices
+
+### Organization
+
+Structure cloud volumes based on access patterns:
+
+- Archive volumes for infrequent access
+- Working volumes for active projects
+- Backup volumes for redundancy
+
+### Performance
+
+Optimize cloud operations:
+
+- Index during off-peak hours for large volumes
+- Enable shallow indexing for frequently changing directories
+- Use persistent indexing for stable archives
+
+### Security
+
+Protect cloud data:
+
+- Enable two-factor authentication on cloud accounts
+- Rotate API keys periodically
+- Review cloud volume access in library settings
+
+## Limitations
+
+Cloud volumes have some constraints:
+
+**Network Dependency**: Operations require internet connectivity
+
+**API Rate Limits**: Some services throttle requests during heavy usage
+
+**Cost Considerations**: Cloud providers may charge for API calls and bandwidth
+
+**Feature Parity**: Not all cloud services support all operations (some are read-only)
+
+## Common Patterns
+
+### Cloud Backup
+
+Set up automatic cloud backup:
+
+```rust
+// Add cloud volume as backup destination
+let backup_volume = volume_manager
+    .add_cloud_volume(CloudServiceType::S3, backup_credentials)
+    .await?;
+
+// Create backup job
+let src = SdPath::from_uri_with_context(
+    "local://macbook/Users/james/Documents/important/",
+    &context
+).await?;
+
+let dst = SdPath::from_uri_with_context(
+    "s3://backup-bucket/backups/",
+    &context
+).await?;
+
+let backup_job = FileCopyJob::new(
+    SdPathBatch::new(vec![src]),
+    dst
+).with_options(CopyOptions {
+    preserve_timestamps: true,
+    verify_checksum: true,
+    ..Default::default()
+});
+
+library.jobs().dispatch(backup_job).await?;
+```
+
+### Multi-Cloud Search
+
+Search across all storage locations:
+
+```rust
+// Search includes cloud volumes automatically
+let results = search_manager
+    .search("vacation photos")
+    .across_all_volumes()
+    .await?;
+```
+
+### Hybrid Workflows
+
+Combine local and cloud storage:
+
+```rust
+// Move old projects to cloud archive
+let src = SdPath::from_uri_with_context(
+    "local://macbook/Users/james/projects/MyVideoProject",
+    &context
+).await?;
+
+let dst = SdPath::from_uri_with_context(
+    "s3://archive/projects/archived/",
+    &context
+).await?;
+
+let move_job = FileCopyJob::new(src, dst).with_move(true);
+
+// Schedule regular archival
+scheduler.add_recurring_job(move_job, Schedule::Weekly);
+```
+
+## Troubleshooting
+
+### Authentication Issues
+
+If cloud authentication fails:
+
+1. Verify credentials in cloud provider dashboard
+2. Check for expired tokens (OAuth services)
+3. Confirm API permissions include required scopes
+4. Review firewall settings for cloud endpoints
+
+### Slow Performance
+
+For sluggish cloud operations:
+
+1. Check internet connection speed
+2. Verify you're not hitting API rate limits
+3. Enable metadata caching if disabled
+4. Consider indexing during off-peak hours
+
+### Sync Conflicts
+
+When files change outside Spacedrive:
+
+1. Manually refresh the cloud volume
+2. Re-index affected directories
+3. Check cloud provider's version history
+4. Resolve conflicts through the UI
+
+<Tip>
+	Enable cloud provider webhooks when available for real-time change
+	notifications.
+</Tip>
+
+## Known Issues
+
+**Change Detection**: Cloud files are treated as new on each reindex. The system cannot yet detect modifications using cloud provider metadata. This means reindexing will recreate entries rather than updating them.
+
+**File Watcher**: Cloud volumes do not support real-time file monitoring. Changes made outside Spacedrive require manual refresh or reindexing to appear.
+
+**OAuth Tokens**: Token refresh is not yet implemented. You must re-authenticate manually when tokens expire.
+
+## Related Documentation
+
+- [Volumes](/docs/core/volumes) - Volume system fundamentals
+- [Indexing](/docs/core/indexing) - How Spacedrive indexes files
+- [Jobs](/docs/core/jobs) - Monitor long-running operations
+- [Security](/docs/security) - Credential and encryption details

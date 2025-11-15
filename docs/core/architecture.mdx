@@ -1,0 +1,156 @@
+---
+title: Architecture Overview
+sidebarTitle: Overview
+---
+
+Spacedrive operates as a distributed, local-first system. Your data stays on your devices. A Rust core manages everything through a Virtual Distributed File System (VDFS). No cloud servers control your files.
+
+## System Design
+
+The architecture follows a client-server pattern on your own hardware. A daemon process runs the core engine. Clients connect to access functionality. Every device functions as an equal peer in the network.
+
+<Info>
+	The daemon runs continuously in the background, indexing files and syncing
+	data even when no UI is open.
+</Info>
+
+## Core Components
+
+### The Spacedrive Daemon
+
+The daemon is a headless process that runs the VDFS core. It manages the library database, executes background jobs, and exposes an RPC interface for clients.
+
+The daemon handles three primary responsibilities:
+
+1. Core engine lifecycle management
+2. Background task execution (indexing, sync, analysis)
+3. Client communication through RPC
+
+### Client Applications
+
+Clients provide the user interface without containing business logic. The desktop app, mobile app, and CLI all connect to the daemon to execute operations. This separation keeps interfaces lightweight and ensures consistent behavior across platforms.
+
+### Communication Protocol
+
+Spacedrive implements Command Query Responsibility Segregation (CQRS) over RPC. Every operation falls into one of two categories:
+
+**Commands** change system state. They follow a three-phase lifecycle:
+
+```
+Preview → Commit → Verify
+```
+
+This ensures mutations are safe and auditable. Moving a file first previews the change, commits the operation, then verifies completion.
+
+**Queries** read data without side effects. Listing files or searching tags executes instantly without modifying state.
+
+<Note>
+	The strict separation between commands and queries prevents accidental data
+	modification during read operations.
+</Note>
+
+## Code Organization
+
+### Operations (`core/src/ops`)
+
+Operations implement the CQRS handlers. Each domain has its own module:
+
+- `ops/entry` - File and folder operations
+- `ops/tag` - Tag management
+- `ops/location` - Location indexing
+- `ops/collection` - Collection handling
+
+This modular structure keeps related functionality together while maintaining clear boundaries between domains.
+
+### Services (`core/src/service`)
+
+Services orchestrate complex processes using lower-level operations:
+
+**NetworkService** manages peer-to-peer connections between devices.
+
+**SyncService** coordinates metadata synchronization across the network.
+
+**JobManager** executes durable background tasks like file analysis and thumbnail generation.
+
+Services run continuously, responding to events and coordinating between different parts of the system.
+
+## Mobile Architecture
+
+iOS and Android apps embed the entire Rust core directly in the application binary. This embedded core enables mobile devices to function as complete Spacedrive nodes.
+
+Your phone can:
+
+- Index local photos and files
+- Manage its own SQLite database
+- Sync directly with other devices
+- Operate without a desktop connection
+
+<Tip>
+	The embedded core enables camera roll backup directly from your phone to any
+	device on your network.
+</Tip>
+
+## System Lifecycle
+
+The typical execution flow follows these steps:
+
+### Startup Sequence
+
+1. **Daemon Launch**: The daemon starts when you launch the GUI app or run `sd start`. CLI users can optionally configure auto-start on login using `sd daemon install` on macOS.
+2. **Library Load**: SQLite database opens and VDFS core initializes
+3. **Service Activation**: Background services start and announce on the network
+4. **Client Connection**: UI applications connect via RPC socket
+
+### Runtime Operation
+
+During normal operation, clients send commands and queries to the daemon. The daemon processes requests, updates the database, and returns results. Background services continue indexing files and syncing with peers.
+
+### Shutdown Process
+
+The daemon stops all services gracefully. Pending database transactions complete. Open connections close. The library saves its state for the next startup.
+
+## Performance Characteristics
+
+The architecture optimizes for local-first operation:
+
+**Zero network latency** for local operations. File browsing and searching execute against the local database.
+
+**Parallel processing** across multiple CPU cores. The Rust core uses async/await for concurrent operations.
+
+**Minimal memory footprint** through lazy loading. Only active data loads into memory.
+
+**Background indexing** without blocking the UI. File analysis happens in separate worker threads.
+
+## Security Model
+
+Every component enforces security at multiple levels:
+
+Database encryption protects data at rest. RPC authentication prevents unauthorized access. Peer verification ensures you only sync with trusted devices.
+
+<Warning>
+	The daemon's RPC interface binds to localhost only. Remote access requires
+	explicit SSH tunneling or VPN configuration.
+</Warning>
+
+## Extension System
+
+Spacedrive provides a comprehensive SDK for building extensions that integrate seamlessly with core functionality. Extensions run in sandboxed WASM environments while maintaining full access to Spacedrive's capabilities.
+
+The SDK enables developers to:
+
+- Define custom data models that sync across devices
+- Build specialized interfaces for specific workflows
+- Create AI-powered agents for data analysis
+- Connect external services and platforms
+
+Extensions can share models and build on each other's data. A photo management extension can provide face data to a contacts extension. An email archive can feed into knowledge management tools.
+
+Learn more about building extensions in the [Spacedrive Developer SDK](/docs/extensions/introduction) documentation.
+
+## Next Steps
+
+Understanding the architecture provides the foundation for working with Spacedrive. Explore these topics next:
+
+- [Libraries](/docs/core/libraries) - How Spacedrive organizes your data
+- [Networking](/docs/core/networking) - Peer-to-peer communication details
+- [Sync](/docs/core/sync) - Multi-device synchronization protocols

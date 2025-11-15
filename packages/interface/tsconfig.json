@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"composite": true,
+		"jsx": "react-jsx",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"target": "ES2022",
+		"moduleResolution": "bundler",
+		"baseUrl": ".",
+		"paths": {
+			"~/*": ["./src/*"]
+		}
+	},
+	"include": ["src"]
+}

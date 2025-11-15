@@ -1,0 +1,444 @@
+---
+title: Unified Addressing
+sidebarTitle: Addressing
+---
+
+Spacedrive uses a unified addressing scheme that works seamlessly across local devices, cloud storage, and content-addressed files. Every file has a single, intuitive URI that tells you exactly where it lives - whether it's on your laptop, in S3, or stored by content hash.
+
+```
+local://jamies-macbook/Users/james/Documents/report.pdf
+s3://my-bucket/photos/2024/vacation.jpg
+content://550e8400-e29b-41d4-a716-446655440000
+```
+
+The same URI format works across all storage types, matching industry-standard cloud tools like AWS CLI and gsutil. Copy a path from Spacedrive and paste it directly into your terminal.
+
+## URI Formats
+
+### Cloud Storage - Service-Native URIs
+
+Cloud files use the same URI format as their native tools:
+
+```
+s3://my-bucket/photos/2024/vacation/IMG_0123.jpg
+gdrive://My Drive/Documents/Contract 2024.pdf
+onedrive://Documents/Budget Spreadsheet.xlsx
+dropbox://Apps/Spacedrive/backup-2024-10.zip
+azblob://container/data/export-2024.csv
+gcs://my-bucket/logs/application-2024-10-15.log
+```
+
+**Pattern**: `{service}://{identifier}/{path}`
+
+Where:
+
+- `{service}`: Cloud service type (s3, gdrive, onedrive, dropbox, azblob, gcs, b2, wasabi, spaces)
+- `{identifier}`: Service-specific root (bucket name, folder, container)
+- `{path}`: Path within the service
+
+<Tip>
+	These URIs match AWS CLI, gsutil, and other cloud tools exactly. Copy a path
+	from Spacedrive and paste it into `aws s3 cp` without modification.
+</Tip>
+
+### Local Files - Device-Aware URIs
+
+Local files include the device name for multi-device clarity:
+
+```
+local://jamies-macbook/Users/james/Documents/report.pdf
+local://home-server/mnt/storage/media/movies/Inception.mkv
+local://work-desktop/C:/Projects/spacedrive/README.md
+```
+
+**Pattern**: `local://{device-slug}/{path}`
+
+Where:
+
+- `{device-slug}`: URL-safe device identifier (generated from device name)
+- `{path}`: Absolute path on that device
+
+<Note>
+	Device slugs are generated automatically from your device name by converting
+	to lowercase and replacing non-alphanumeric characters with hyphens. "Jamie's
+	MacBook Pro" becomes `jamies-macbook-pro`.
+</Note>
+
+### Content-Addressed Files
+
+Content URIs reference files by their content hash, independent of location:
+
+```
+content://550e8400-e29b-41d4-a716-446655440000
+```
+
+**Pattern**: `content://{uuid}`
+
+This enables location-independent operations. The same photo stored on multiple devices and in cloud storage shares one content URI. Spacedrive resolves it to the most efficient available location.
+
+## Device Slug System
+
+Spacedrive generates URL-safe slugs from device names to create stable, human-readable URIs.
+
+### Slug Generation
+
+```rust
+// Convert device name to slug
+let name = "Jamie's MacBook Pro";
+let slug = name.to_lowercase()
+    .chars()
+    .map(|c| if c.is_alphanumeric() { c } else { '-' })
+    .collect::<String>()
+    .trim_matches('-');
+// Result: "jamies-macbook-pro"
+```
+
+Examples:
+
+- "Jamie's MacBook" → `jamies-macbook`
+- "Home Server 2024" → `home-server-2024`
+- "DESKTOP-ABC123" → `desktop-abc123`
+
+### Slug Uniqueness
+
+Each device's slug must be unique within your Spacedrive network. The database enforces this with a unique constraint on the `slug` column. If you try to add a device with a duplicate name, you'll need to rename one device.
+
+<Warning>
+	If two devices have the same name (e.g., both "MacBook Pro"), you must give
+	them distinct names before they can sync. Spacedrive will warn you during
+	pairing.
+</Warning>
+
+### Resolution
+
+When parsing a `local://` URI, Spacedrive looks up the device by slug:
+
+```rust
+// Parse: local://jamies-macbook/Users/james/file.txt
+let device_id = device_manager.resolve_by_slug("jamies-macbook")?;
+let path = PathBuf::from("/Users/james/file.txt");
+```
+
+Currently, slug resolution only works for the current device. Remote device paths use UUIDs internally but display with slugs for user-facing operations.
+
+## How It Works
+
+Spacedrive maintains user-friendly URIs in the display layer while using efficient internal identifiers for operations.
+
+### User-Facing Display
+
+```rust
+// Display path to user
+let display_uri = sd_path.display_with_context(&context).await;
+println!("{}", display_uri);
+// Output: "s3://media-bucket/videos/demo.mp4"
+```
+
+### Internal Representation
+
+```rust
+pub enum SdPath {
+    Physical {
+        device_slug: String,       // URL-safe device identifier
+        path: PathBuf,
+    },
+    Cloud {
+        service: CloudServiceType, // Cloud service type (S3, GoogleDrive, etc.)
+        identifier: String,        // Service identifier (bucket, drive name, etc.)
+        path: String,              // Path within the service
+    },
+    Content {
+        content_id: Uuid,
+    },
+}
+```
+
+### Resolution Flow
+
+```
+User Input:     s3://my-bucket/file.jpg
+                     ↓
+Parse Scheme:   "s3" → CloudServiceType::S3
+                     ↓
+Parse Identity: identifier = "my-bucket"
+                path = "file.jpg"
+                     ↓
+Create SdPath:  SdPath::Cloud { service: S3, identifier: "my-bucket", path: "file.jpg" }
+                     ↓
+Find Volume:    VolumeManager::find_cloud_volume(S3, "my-bucket")
+                     ↓
+Mount Cache:    "s3://my-bucket" → VolumeFingerprint (O(1) lookup)
+                     ↓
+Operations:     Use volume backend for I/O operations
+```
+
+The service and identifier are stored directly in the `SdPath`, making cloud paths self-contained. The VolumeManager maintains a mount point cache for fast volume lookups.
+
+## Cloud Service Schemes
+
+Spacedrive supports these cloud URI schemes:
+
+| Service              | Scheme        | Example                                |
+| -------------------- | ------------- | -------------------------------------- |
+| Amazon S3            | `s3://`       | `s3://my-bucket/path/file.jpg`         |
+| Google Drive         | `gdrive://`   | `gdrive://My Drive/Documents/file.pdf` |
+| OneDrive             | `onedrive://` | `onedrive://Documents/file.xlsx`       |
+| Dropbox              | `dropbox://`  | `dropbox://Apps/Spacedrive/file.zip`   |
+| Azure Blob           | `azblob://`   | `azblob://container/data/file.csv`     |
+| Google Cloud Storage | `gcs://`      | `gcs://bucket/logs/file.log`           |
+| Backblaze B2         | `b2://`       | `b2://bucket/backups/file.tar`         |
+| Wasabi               | `wasabi://`   | `wasabi://bucket/archive/file.zip`     |
+| DigitalOcean Spaces  | `spaces://`   | `spaces://space/assets/file.png`       |
+
+S3-compatible services (MinIO, Cloudflare R2, Wasabi, etc.) use the `s3://` scheme with custom endpoints.
+
+## Parsing URIs
+
+### From User Input
+
+```rust
+use sd_core::domain::addressing::SdPath;
+
+// Parse cloud URI
+let path = SdPath::from_uri_with_context(
+    "s3://my-bucket/photos/vacation.jpg",
+    &context
+).await?;
+
+// Parse local URI
+let path = SdPath::from_uri_with_context(
+    "local://jamies-macbook/Users/james/file.txt",
+    &context
+).await?;
+
+// Parse content URI
+let path = SdPath::from_uri_with_context(
+    "content://550e8400-e29b-41d4-a716-446655440000",
+    &context
+).await?;
+```
+
+### Error Handling
+
+```rust
+match SdPath::from_uri_with_context(uri, &context).await {
+    Ok(path) => { /* Use path */ }
+    Err(SdPathParseError::UnknownScheme) => {
+        // Invalid URI scheme
+    }
+    Err(SdPathParseError::VolumeNotFound) => {
+        // Cloud volume doesn't exist or isn't added
+    }
+    Err(SdPathParseError::DeviceNotFound) => {
+        // Device slug not found
+    }
+    Err(_) => {
+        // Other parse errors
+    }
+}
+```
+
+## CLI Usage
+
+The unified addressing scheme makes CLI operations intuitive:
+
+```bash
+# Copy from Google Drive to S3
+sd cp gdrive://Work/report.pdf s3://backup/documents/
+
+# List files on remote device
+sd ls local://home-server/mnt/media/movies/
+
+# Search across all storage
+sd search "*.mp4"
+# Results show unified URIs:
+#   gdrive://Videos/vacation.mp4
+#   s3://media/clips/demo.mp4
+#   local://macbook/Users/james/Downloads/tutorial.mp4
+
+# Sync local to cloud
+sd sync local://macbook/Photos/ s3://backup/photos/
+```
+
+## Code Examples
+
+### File Operations
+
+```rust
+// Copy from cloud to local
+let src = SdPath::from_uri_with_context(
+    "gdrive://Work/presentation.pptx",
+    &context
+).await?;
+
+let dst = SdPath::from_uri_with_context(
+    "local://macbook/Desktop/",
+    &context
+).await?;
+
+copy_action.execute(src, dst).await?;
+```
+
+### Display Paths
+
+```rust
+// Get user-friendly URI for display
+let uri = sd_path.display_with_context(&context).await;
+println!("File location: {}", uri);
+
+// Examples:
+// "s3://media-bucket/videos/demo.mp4"
+// "local://jamies-macbook/Users/james/file.txt"
+// "content://550e8400-e29b-41d4-a716-446655440000"
+```
+
+### Building Paths
+
+```rust
+// Create cloud path
+let path = SdPath::Cloud {
+    service: CloudServiceType::S3,
+    identifier: "my-bucket".to_string(),
+    path: "photos/vacation.jpg".to_string(),
+};
+
+// Create local path
+let path = SdPath::Physical {
+    device_slug: "jamies-macbook".to_string(),
+    path: PathBuf::from("/Users/james/file.txt"),
+};
+
+// Create content path
+let path = SdPath::Content {
+    content_id: Uuid::new_v4(),
+};
+```
+
+## Industry Standard Alignment
+
+Spacedrive's addressing matches industry tools:
+
+**AWS CLI**:
+
+```bash
+aws s3 cp s3://bucket/file.jpg local-file.jpg
+sd cp s3://bucket/file.jpg local://macbook/Desktop/file.jpg
+```
+
+**gsutil**:
+
+```bash
+gsutil cp gs://bucket/file.jpg local-file.jpg
+sd cp gcs://bucket/file.jpg local://macbook/Desktop/file.jpg
+```
+
+**Azure CLI**:
+
+```bash
+az storage blob download --container container --name file.csv
+sd cp azblob://container/file.csv local://macbook/Desktop/file.csv
+```
+
+The alignment eliminates context switching between tools. URIs copy-paste directly between Spacedrive and native cloud tools.
+
+## Benefits
+
+### Self-Documenting
+
+URIs clearly show where files live:
+
+```
+s3://media-bucket/photos/vacation.jpg
+     ↑           ↑
+   Service    Bucket
+```
+
+No need to remember which cloud provider or check internal IDs.
+
+### Cross-Storage Operations
+
+Operations work identically across storage types:
+
+```rust
+// Same API for all storage backends
+copy(src, dst).await?;
+
+// Works for any combination:
+// - local → local
+// - local → cloud
+// - cloud → cloud
+// - cloud → local
+```
+
+### Location Independence
+
+Content URIs enable operations without knowing physical location:
+
+```rust
+// Reference by content, not location
+let file = SdPath::Content { content_id };
+
+// Spacedrive finds the best location:
+// - Fastest device (SSD vs HDD)
+// - Lowest cost (local vs cloud egress)
+// - Highest availability
+```
+
+## Limitations
+
+### Device Slug Resolution
+
+Device slug resolution works for all devices in the library through an in-memory cache. When a library opens, all device slugs are loaded into the DeviceManager's cache, enabling instant O(1) resolution for any device whether online or offline.
+
+The cache updates automatically when:
+
+- A library is opened (loads all devices from database)
+- New devices pair and sync
+- The library closes (cache is cleared)
+
+This means `local://` URIs can reference any device in the library, not just the current device.
+
+### Cloud Volume Lookup
+
+Cloud volumes use an O(1) mount point cache for fast lookups. The cache maps mount point strings (e.g., `"s3://my-bucket"`) to volume fingerprints. For volumes added before the cache was implemented, a linear scan serves as a fallback.
+
+### Slug Collisions
+
+If two devices would generate the same slug, the second device must be renamed. There's no automatic disambiguation.
+
+## Best Practices
+
+### URI Display
+
+Use `display()` to convert SdPath to a user-facing URI string. The method generates the appropriate format automatically based on the path type.
+
+### URI Parsing
+
+Use `from_uri()` when parsing user input. The method parses service-native URIs and validates the format.
+
+### Device Naming
+
+Choose distinct device names to avoid slug collisions. Include location or purpose in names:
+
+- "jamies-macbook-home"
+- "jamies-macbook-work"
+- "home-server-basement"
+- "backup-nas-office"
+
+### Cloud Mount Points
+
+Spacedrive ensures cloud mount points are unique by appending `-2`, `-3` if collisions occur:
+
+```
+s3://my-bucket      ← First S3 volume with this bucket
+s3://my-bucket-2    ← Second volume (different credentials or endpoint)
+```
+
+This enables multiple configurations for the same cloud resource.
+
+## Related Documentation
+
+- [Devices](/docs/core/devices) - Device management and pairing
+- [Volumes](/docs/core/volumes) - Volume system and cloud integration
+- [Cloud Integration](/docs/core/cloud-integration) - Cloud storage details
+- [Data Model](/docs/core/data-model) - SdPath internal representation

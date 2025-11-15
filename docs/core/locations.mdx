@@ -1,0 +1,352 @@
+---
+title: Locations
+sidebarTitle: Locations
+---
+
+Locations are directories that Spacedrive tracks and monitors. When you add a location, Spacedrive indexes its contents and watches for changes in real-time.
+
+## What is a Location?
+
+A location is any folder on your device that you want Spacedrive to manage. Once added:
+
+- Files are indexed immediately
+- Changes are detected in real-time
+- Metadata syncs across your devices
+- Content gets unique identifiers for deduplication
+
+### Core Properties
+
+```rust
+pub struct Location {
+    pub id: Uuid,                    // Unique identifier
+    pub library_id: Uuid,            // Library this belongs to
+    pub sd_path: SdPathSerialized,   // Cross-device path (includes device)
+    pub name: String,                // Display name
+    pub index_mode: IndexMode,       // Indexing depth
+    pub scan_interval: Option<Duration>, // Auto-rescan frequency
+    pub scan_state: ScanState,       // Current scanning status
+    pub total_size: u64,             // Total bytes
+    pub file_count: u64,             // Number of files
+    pub directory_count: u64,        // Number of directories
+    pub last_scan_at: Option<DateTime<Utc>>, // Last scan time
+    pub ignore_patterns: Vec<String>, // Patterns to exclude
+}
+```
+
+### Index Modes
+
+Choose how deeply Spacedrive analyzes your files:
+
+- **Shallow**: Basic metadata only (name, size, dates)
+- **Content**: Includes content hashing for deduplication
+- **Deep**: Full media processing with thumbnails and metadata
+
+### Scan States
+
+Locations track their scanning status:
+
+```rust
+pub enum ScanState {
+    Idle,                    // Not scanning
+    Scanning { progress: u8 }, // Currently scanning (0-100%)
+    Completed,               // Scan finished successfully
+    Failed,                  // Scan encountered errors
+    Paused,                  // Scan was paused
+}
+```
+
+## Adding Locations
+
+### Using the CLI
+
+```bash
+# Add a location
+spacedrive location add ~/Documents --name "Documents"
+
+# Add with deep indexing
+spacedrive location add ~/Photos --name "Photos" --mode deep
+
+# List all locations
+spacedrive location list
+```
+
+### Using the API
+
+```rust
+let (location_id, job_id) = location_manager
+    .add_location(
+        library,
+        PathBuf::from("/Users/alice/Desktop"),
+        Some("Desktop".to_string()),
+        device_id,
+        IndexMode::Content,
+    )
+    .await?;
+```
+
+### What Happens When You Add a Location
+
+1. **Path validation** - Ensures the directory exists
+2. **Duplicate check** - Prevents adding the same path twice
+3. **Database record** - Stores location metadata
+4. **Indexing job** - Starts scanning files
+5. **Watcher setup** - Begins monitoring changes
+6. **Event broadcast** - Notifies other services
+
+## File System Watching
+
+The watcher service provides real-time monitoring across all platforms.
+
+### Platform Support
+
+**macOS**: Uses FSEvents for efficient volume-level monitoring
+**Linux**: Uses inotify for precise file-level events
+**Windows**: Uses ReadDirectoryChangesW for real-time updates
+
+### Event Types
+
+The watcher detects these file system changes:
+
+```rust
+pub enum WatcherEvent {
+    Create,     // New file or directory
+    Modify,     // Content or metadata changed
+    Remove,     // File or directory deleted
+    Rename {    // Move or rename operation
+        from: PathBuf,
+        to: PathBuf,
+    },
+}
+```
+
+### Automatic Filtering
+
+The watcher ignores noise by default:
+
+- Temporary files (`.tmp`, `.temp`, `~backup`)
+- System files (`.DS_Store`, `Thumbs.db`)
+- Editor swap files (`.swp`, `.swo`)
+- Build artifacts (unless explicitly included)
+
+<Note>
+Hidden files are ignored except important ones like `.gitignore` and `.env`.
+</Note>
+
+## Configuration
+
+### Watcher Settings
+
+Configure the watcher for your needs:
+
+```rust
+LocationWatcherConfig {
+    debounce_duration: Duration::from_millis(100),  // Event consolidation
+    event_buffer_size: 1000,                        // Queue size
+    debug_mode: false,                              // Detailed logging
+}
+```
+
+### Performance Tuning
+
+**For large directories** (>100k files):
+- Increase buffer size to prevent event loss
+- Use longer debounce periods
+- Consider excluding cache directories
+
+**For network drives**:
+- Enable polling fallback
+- Increase debounce duration
+- Monitor connection stability
+
+**For SSDs vs HDDs**:
+- SSDs: Shorter debounce, larger buffers
+- HDDs: Longer debounce for mechanical latency
+
+## Watching Events
+
+Subscribe to location events in your code:
+
+```rust
+let mut events = event_bus.subscribe();
+
+while let Ok(event) = events.recv().await {
+    match event {
+        Event::EntryCreated { path, .. } => {
+            println!("New file: {}", path);
+        }
+        Event::EntryModified { path, .. } => {
+            println!("File changed: {}", path);
+        }
+        _ => {}
+    }
+}
+```
+
+### Event Flow
+
+When a file changes:
+
+1. Operating system detects change
+2. Watcher receives raw event
+3. Event is filtered and debounced
+4. Structured event is created
+5. Event bus broadcasts to subscribers
+6. Services react (indexer, sync, UI)
+
+## Managing Locations
+
+### Pause Watching
+
+Temporarily stop monitoring without removing:
+
+```bash
+spacedrive location pause <location-id>
+```
+
+### Update Settings
+
+Change location configuration:
+
+```bash
+# Disable watching
+spacedrive location update <location-id> --watch false
+
+# Change index mode
+spacedrive location update <location-id> --mode shallow
+```
+
+### Remove Location
+
+Stop tracking a directory:
+
+```bash
+spacedrive location remove <location-id>
+```
+
+<Warning>
+Removing a location doesn't delete files. It only stops Spacedrive from tracking them.
+</Warning>
+
+## Troubleshooting
+
+### High CPU Usage
+
+If watching causes high CPU:
+
+1. Check for directories with rapid changes
+2. Increase debounce duration
+3. Exclude problematic subdirectories
+4. Temporarily disable watching
+
+```bash
+# Find active locations
+spacedrive location list --verbose
+
+# Disable problematic location
+spacedrive location update <id> --watch false
+```
+
+### Missing Changes
+
+If file changes aren't detected:
+
+1. Verify location has watching enabled
+2. Check file system permissions
+3. Ensure platform limits aren't exceeded
+4. Try restarting the watcher
+
+### Duplicate Events
+
+If you see the same change multiple times:
+
+1. Increase debounce duration
+2. Check for symlink loops
+3. Verify you're not watching overlapping paths
+
+### Debug Mode
+
+Enable detailed logging:
+
+```bash
+# Set debug mode
+export SPACEDRIVE_WATCHER_DEBUG=1
+
+# Run with verbose logging
+spacedrive --log-level debug
+```
+
+## Platform Limits
+
+### macOS
+- FSEvents may coalesce rapid changes
+- Volume-level monitoring affects all locations on a drive
+
+### Linux
+- inotify has a watch descriptor limit (usually 8192)
+- Increase with: `echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches`
+
+### Windows
+- Long paths require special handling
+- Network drives may fall back to polling
+
+## Best Practices
+
+### Location Organization
+
+1. **Avoid overlapping paths** - Don't add both parent and child directories
+2. **Group related content** - One location per project or media type
+3. **Consider performance** - Separate frequently-changing directories
+
+### Exclusion Patterns
+
+Create `.spacedriveignore` files to exclude:
+
+```
+# Build artifacts
+node_modules/
+target/
+dist/
+
+# Cache directories
+.cache/
+*.tmp
+
+# Large generated files
+*.log
+*.dump
+```
+
+### Network Locations
+
+For network-attached storage:
+
+1. Use Content index mode (avoid Deep)
+2. Increase debounce to 500ms+
+3. Monitor connection stability
+4. Consider scheduled indexing instead
+
+## Integration
+
+### Services Using Location Events
+
+- **Indexer**: Re-analyzes modified files
+- **Search**: Updates search index
+- **Sync**: Propagates changes to other devices
+- **Thumbnails**: Regenerates previews
+- **Frontend**: Updates UI in real-time
+
+### Event Priority
+
+Critical events are processed first:
+
+1. User-initiated changes
+2. Create/delete operations
+3. Modifications
+4. Metadata updates
+
+## Related Documentation
+
+- [Indexing](/docs/core/indexing) - How files are analyzed
+- [Sync](/docs/core/sync) - Cross-device synchronization
+- [Events](/docs/core/events) - Event system architecture
+- [Performance](/docs/core/performance) - Optimization guide

@@ -1,0 +1,362 @@
+---
+title: "CLI Architecture"
+description: "Command-line interface for Spacedrive v2"
+---
+
+## Overview
+
+The Spacedrive CLI (`sd`) is a command-line interface for interacting with the Spacedrive daemon. It provides a comprehensive set of commands for managing libraries, files, devices, and daemon lifecycle.
+
+## Architecture
+
+The CLI follows a client-daemon architecture:
+
+- **CLI Binary** (`sd-cli` / `sd`) - The client that sends commands
+- **Daemon Binary** (`sd-daemon`) - The background service that does the actual work
+- **Unix Socket** - Communication channel between CLI and daemon
+
+```
+┌─────────┐      Unix Socket      ┌──────────┐
+│   sd    │ ◄──────────────────► │ sd-daemon│
+│ (client)│                       │ (server) │
+└─────────┘                       └──────────┘
+                                       │
+                                       ▼
+                                  ┌──────────┐
+                                  │ Libraries│
+                                  └──────────┘
+```
+
+## Daemon Management
+
+### Starting the Daemon
+
+```bash
+# Start in background
+sd start
+
+# Start in foreground (see logs)
+sd start --foreground
+```
+
+The daemon:
+- Runs as a background process
+- Listens on a Unix socket at `~/Library/Application Support/spacedrive/daemon/daemon.sock`
+- Manages all libraries and background tasks
+- Can run multiple instances with `--instance` flag
+
+### Auto-Start on Login
+
+Install the daemon to start automatically on system boot:
+
+```bash
+# Install LaunchAgent (macOS)
+sd daemon install
+
+# Check status
+sd daemon status
+
+# Uninstall
+sd daemon uninstall
+```
+
+This creates a LaunchAgent at `~/Library/LaunchAgents/com.spacedrive.daemon.plist` that:
+- Starts daemon on user login
+- Restarts if it crashes
+- Logs to `~/Library/Application Support/spacedrive/logs/`
+
+### Multi-Instance Support
+
+Run multiple daemon instances for different data directories:
+
+```bash
+# Start with custom instance name
+sd --instance work start
+sd --instance personal start
+
+# Each instance gets its own socket
+# daemon-work.sock
+# daemon-personal.sock
+```
+
+## Configuration
+
+The CLI stores configuration in `~/Library/Application Support/spacedrive/cli.json`:
+
+```json
+{
+  "current_library_id": "uuid-here",
+  "update": {
+    "repo": "spacedriveapp/spacedrive-cli-releases",
+    "channel": "stable"
+  }
+}
+```
+
+### Config Commands
+
+```bash
+# View all configuration
+sd config show
+
+# Get specific value
+sd config get update.repo
+
+# Set value
+sd config set update.repo "your-org/releases-repo"
+```
+
+## Auto-Update System
+
+The CLI includes a built-in update mechanism that fetches releases from a public GitHub repository.
+
+### Update Architecture
+
+```
+┌─────────┐                          ┌────────────┐
+│sd update│ ──── GitHub API ────────►│  Releases  │
+└─────────┘                          │ Repository │
+     │                               └────────────┘
+     │ Download binaries                   │
+     ▼                                     │
+┌─────────────────┐                       │
+│ sd-macos-arm64  │◄──────────────────────┘
+│ sd-daemon-...   │
+└─────────────────┘
+     │
+     │ Atomic replacement
+     ▼
+┌─────────────────┐
+│ Installed bins  │
+└─────────────────┘
+```
+
+### Update Process
+
+1. **Check for updates**: Queries GitHub API for latest release
+2. **Download binaries**: Fetches platform-specific binaries
+3. **Verify integrity**: Checks file sizes match expected values
+4. **Atomic replacement**: Replaces binaries with rollback on failure
+5. **Restart daemon**: If daemon was running, restarts it
+
+```bash
+# Check and install updates
+sd update
+
+# Force reinstall current version
+sd update --force
+```
+
+### Release Repository Setup
+
+The update system uses a public GitHub repository containing only releases (no source code):
+
+1. Create public repo: `your-org/spacedrive-cli-releases`
+2. For each release:
+   - Create empty commit: `git commit --allow-empty -m "Release v0.1.0"`
+   - Tag it: `git tag v0.1.0`
+   - Create GitHub release with binaries as assets
+3. Configure CLI: `sd config set update.repo "your-org/spacedrive-cli-releases"`
+
+The CI workflow automatically builds binaries for:
+- macOS (arm64, x86_64)
+- Linux (x86_64) - coming soon
+- Windows (x86_64) - coming soon
+
+## Command Structure
+
+All CLI commands follow this pattern:
+
+```bash
+sd [--data-dir PATH] [--instance NAME] [--format FORMAT] <command> [args]
+```
+
+### Global Flags
+
+- `--data-dir` - Override default data directory
+- `--instance` - Connect to specific daemon instance
+- `--format` - Output format: `human` (default) or `json`
+
+### Core Commands
+
+| Command | Description |
+|---------|-------------|
+| `sd start` | Start the daemon |
+| `sd stop` | Stop the daemon |
+| `sd restart` | Restart the daemon |
+| `sd status` | Show system status |
+| `sd update` | Update CLI and daemon |
+
+### Domain Commands
+
+| Command | Description |
+|---------|-------------|
+| `sd library` | Manage libraries |
+| `sd location` | Manage indexed locations |
+| `sd file` | File operations |
+| `sd index` | Indexing operations |
+| `sd search` | Search files |
+| `sd tag` | Tag management |
+| `sd volume` | Volume operations |
+| `sd device` | Device management |
+| `sd job` | Job control |
+| `sd network` | Networking and pairing |
+| `sd logs` | View daemon logs |
+| `sd config` | Configuration management |
+| `sd daemon` | Daemon lifecycle |
+
+## Binary Distribution
+
+For development and testing, binaries can be distributed without building from source:
+
+1. **Build release binaries**:
+   ```bash
+   cargo build --release --bin sd-cli --bin sd-daemon
+   ```
+
+2. **Copy both binaries** to target machine:
+   - `sd-cli` → rename to `sd`
+   - `sd-daemon` → keep as `sd-daemon`
+
+3. **Place in PATH**:
+   ```bash
+   mv sd ~/.local/bin/
+   mv sd-daemon ~/.local/bin/
+   chmod +x ~/.local/bin/sd ~/.local/bin/sd-daemon
+   ```
+
+4. **Remove quarantine** (macOS):
+   ```bash
+   xattr -d com.apple.quarantine ~/.local/bin/sd
+   xattr -d com.apple.quarantine ~/.local/bin/sd-daemon
+   ```
+
+Both binaries must be in the same directory as the CLI expects to find the daemon binary in its parent directory.
+
+## Development
+
+### Building
+
+```bash
+# Build CLI only
+cargo build --package sd-cli
+
+# Build both CLI and daemon
+cargo build --bin sd-cli --bin sd-daemon
+
+# Release build
+cargo build --release --bin sd-cli --bin sd-daemon
+```
+
+### Code Structure
+
+```
+apps/cli/
+├── src/
+│   ├── main.rs          # Entry point, daemon lifecycle
+│   ├── config.rs        # CLI configuration
+│   ├── context.rs       # Execution context
+│   ├── domains/         # Command domains
+│   │   ├── config/      # Config commands
+│   │   ├── daemon/      # Daemon management
+│   │   ├── update/      # Auto-update system
+│   │   ├── library/     # Library operations
+│   │   ├── location/    # Location operations
+│   │   └── ...
+│   └── util/            # Shared utilities
+└── Cargo.toml
+
+core/
+└── src/
+    └── bin/
+        └── daemon.rs    # Daemon binary
+```
+
+### Adding New Commands
+
+1. Create a new module in `domains/`
+2. Define command enum with clap derives
+3. Implement `run()` function
+4. Register in `domains/mod.rs` and `main.rs`
+
+Example:
+
+```rust
+// domains/myfeature/mod.rs
+use anyhow::Result;
+use clap::Subcommand;
+
+#[derive(Subcommand, Debug)]
+pub enum MyFeatureCmd {
+    /// Do something
+    Action { arg: String },
+}
+
+pub async fn run(ctx: &Context, cmd: MyFeatureCmd) -> Result<()> {
+    match cmd {
+        MyFeatureCmd::Action { arg } => {
+            // Implementation
+        }
+    }
+    Ok(())
+}
+```
+
+## Security Considerations
+
+### Instance Name Validation
+
+Instance names are validated to prevent path traversal:
+- Only alphanumeric, dash, and underscore allowed
+- Max 64 characters
+- Cannot be empty
+
+### Binary Verification
+
+The update system verifies downloaded binaries:
+- File size must match release asset size
+- Future: SHA256 checksum verification
+
+### Daemon Socket Permissions
+
+The Unix socket is created with restrictive permissions (user-only access).
+
+## Troubleshooting
+
+### Daemon Won't Start
+
+```bash
+# Check if already running
+sd status
+
+# View logs
+sd logs follow
+
+# Reset data and restart
+sd restart --reset
+```
+
+### Update Fails
+
+```bash
+# Check configuration
+sd config show
+
+# Verify repo is accessible
+curl https://api.github.com/repos/YOUR_ORG/YOUR_REPO/releases/latest
+
+# Force clean reinstall
+sd update --force
+```
+
+### Socket Connection Errors
+
+The daemon socket is located at:
+```
+~/Library/Application Support/spacedrive/daemon/daemon.sock
+```
+
+If connection fails:
+1. Verify daemon is running: `ps aux | grep sd-daemon`
+2. Check socket exists: `ls -la <socket-path>`
+3. Restart daemon: `sd restart`

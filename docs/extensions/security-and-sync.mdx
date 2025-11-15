@@ -1,0 +1,58 @@
+---
+title: Security and Sync
+sidebarTitle: Security & Sync
+---
+
+## A Secure and Synchronized Ecosystem
+
+Spacedrive extensions are designed to be powerful, but also secure and well-behaved citizens of the user's digital ecosystem. This is achieved through a multi-layered security model and deep integration with Spacedrive's native sync capabilities.
+
+### Migration Security
+
+When an extension needs to change its database schema, it does so through a migration system that is carefully controlled by the Spacedrive core.
+
+- **SQL Validation**: All migration SQL is parsed and validated before execution. An extension can only modify its own tables (i.e., those prefixed with `ext_{extension_id}_`).
+- **Restricted Operations**: Extensions are only allowed to perform a specific set of DDL operations (`CREATE TABLE`, `ALTER TABLE`, etc.). Any attempts to modify core tables or other extensions' tables are blocked.
+- **Sandboxed Execution**: Migrations are run in a restricted database connection that uses an authorizer to enforce these rules at a low level.
+
+### Permission System
+
+Extensions must declare their required permissions in their manifest file. Users are prompted to grant these permissions upon installation and can scope them to specific locations in their library.
+
+```json
+{
+  "id": "photos",
+  "permissions": {
+    "tables": {
+      "own": ["ext_photos_*"]
+      "read": ["entries", "content_identities"],
+      "write": []
+    }
+  }
+}
+```
+
+This ensures that users have full control over what data an extension can access.
+
+### SQL Injection Prevention
+
+The SDK's query APIs use prepared statements to prevent SQL injection vulnerabilities. All user-provided input is treated as parameters, not as part of the SQL query itself.
+
+## Extension Model Sync
+
+Extension models are first-class participants in Spacedrive's leaderless, hybrid sync system. This means that data created by an extension on one device will automatically sync to all other devices.
+
+### Sync Strategies
+
+Spacedrive uses two primary sync strategies, and extensions can choose the appropriate one for each of their models:
+
+1.  **State-Based Sync (`device_owned`)**: Used for data that is owned by a single device. Only the owning device can modify the data, and other devices receive read-only copies. This is useful for device-specific state, like the progress of a local analysis job.
+
+2.  **Log-Based Sync (`shared`)**: Used for resources that can be modified by any device, such as tags, albums, or a `Person` model. This system uses Hybrid Logical Clocks (HLCs) to order events and resolve conflicts, ensuring eventual consistency across all peers.
+
+### How It Works
+
+- **`Syncable` Trait**: The `#[model]` macro automatically implements the `Syncable` trait for your models, which integrates them into the sync system.
+- **Shared Infrastructure**: Extension models use the same sync infrastructure (database tables and network protocol) as core Spacedrive models. The `model_type` field in the sync log distinguishes between core models and extension models.
+- **Dependency Resolution**: The sync system can handle dependencies between models. For example, if a `FaceDetection` model depends on a `Person` model, the `Person` model will be synced first.
+- **Conflict Resolution**: For shared models, conflicts are automatically resolved using HLCs to determine which change came last. Last-write-wins is the default strategy.

@@ -1,0 +1,678 @@
+---
+title: Networking
+sidebarTitle: Networking
+---
+
+Spacedrive connects devices directly using Iroh, a peer-to-peer networking library built on QUIC. This enables secure communication between your devices without relying on cloud servers.
+
+## Architecture
+
+The networking system manages all device-to-device communication through a single service that handles connections, protocols, and state management.
+
+### Core Components
+
+**NetworkingService** coordinates all networking operations. It manages the Iroh endpoint, tracks device states, and routes messages to protocol handlers.
+
+```rust
+pub struct NetworkingService {
+    endpoint: Endpoint,              // Iroh's QUIC endpoint
+    device_registry: DeviceRegistry, // Tracks all known devices
+    protocol_registry: ProtocolRegistry, // Routes messages
+    identity: NetworkIdentity,       // Cryptographic identity
+}
+```
+
+**NetworkIdentity** manages your device's cryptographic identity using Ed25519 keys. This identity persists across sessions and proves your device's authenticity to others.
+
+```rust
+pub struct NetworkIdentity {
+    node_id: NodeId,           // Derived from public key
+    signing_key: SigningKey,   // Ed25519 private key
+    verifying_key: VerifyingKey, // Ed25519 public key
+}
+```
+
+**DeviceRegistry** maintains the state of all discovered and paired devices. It provides a single source of truth for device relationships.
+
+```rust
+pub enum DeviceState {
+    Discovered { node_addr: NodeAddr },
+    Pairing { session_id: Uuid },
+    Paired { session_keys: SessionKeys },
+    Connected { connection: Connection },
+    Disconnected { reason: DisconnectReason },
+}
+```
+
+### Network Transport
+
+Iroh provides the underlying transport using QUIC, which offers:
+
+- **Built-in encryption** using TLS 1.3
+- **Multiplexed streams** over a single connection
+- **Reliable delivery** with automatic retransmission
+- **NAT traversal** with 90%+ success rate
+- **Relay fallback** when direct connections fail
+
+### Protocol System
+
+The networking module uses ALPN (Application-Layer Protocol Negotiation) to route connections to specific protocol handlers.
+
+```rust
+// Protocol registration
+registry.register("pairing/1.0", PairingProtocol::new());
+registry.register("sync/1.0", SyncProtocol::new());
+registry.register("transfer/1.0", TransferProtocol::new());
+
+// Connection routing based on ALPN
+match alpn {
+    "pairing/1.0" => pairing_handler.handle(connection),
+    "sync/1.0" => sync_handler.handle(connection),
+    _ => Err(UnknownProtocol)
+}
+```
+
+## Device Discovery
+
+Devices find each other through multiple mechanisms:
+
+### Local Network Discovery
+
+Iroh automatically discovers devices on your local network using mDNS. When a device starts, it broadcasts its presence and listens for others.
+
+```rust
+// Automatic local discovery
+endpoint.discovery().add_discovery(Box::new(
+    DnsDiscovery::builder().build()
+));
+```
+
+### Manual Connection
+
+You can connect to devices using their NodeAddr, which includes their NodeId and network addresses.
+
+```rust
+// Connect to a specific device
+let node_addr = NodeAddr {
+    node_id: NodeId::from_str("...")?,
+    relay_url: Some("https://relay.iroh.network"),
+    direct_addresses: vec!["192.168.1.100:11204".parse()?],
+};
+
+endpoint.connect(node_addr, "sync/1.0").await?;
+```
+
+<Note>
+Direct addresses work on local networks. The relay URL enables connections across the internet when direct connections fail.
+</Note>
+
+## Device Pairing
+
+Pairing establishes trust between devices using cryptographic signatures and user-friendly codes.
+
+### Pairing Flow
+
+The initiator generates a pairing code that the joiner enters to establish trust.
+
+<Steps>
+<Step title="Generate Pairing Code">
+The initiator creates a BIP39 mnemonic code:
+```rust
+// Initiator generates code
+let code = PairingCode::generate(); // "brave-lion-sunset"
+```
+</Step>
+
+<Step title="Exchange Device Info">
+Both devices exchange their information and public keys:
+```rust
+pub struct DeviceInfo {
+    pub device_id: Uuid,
+    pub device_name: String,
+    pub device_type: DeviceType,
+    pub public_key: VerifyingKey,
+}
+```
+</Step>
+
+<Step title="Challenge-Response">
+The initiator challenges the joiner to prove they have the code:
+```rust
+// Initiator sends challenge
+let challenge = Challenge::random();
+
+// Joiner signs challenge
+let signature = identity.sign(&challenge);
+
+// Initiator verifies signature
+identity.verify(&challenge, &signature)?;
+```
+</Step>
+
+<Step title="Establish Session">
+Both devices derive session keys for future communication:
+```rust
+// Derive shared secret using ECDH
+let shared_secret = ecdh(my_private, their_public);
+
+// Derive session keys
+let keys = SessionKeys::from_shared_secret(shared_secret);
+```
+</Step>
+</Steps>
+
+### Pairing Security
+
+The pairing protocol prevents several attacks:
+
+- **Man-in-the-middle**: Public key exchange with out-of-band verification
+- **Replay attacks**: Fresh challenges for each pairing attempt
+- **Brute force**: Rate limiting on pairing attempts
+- **Eavesdropping**: All communication encrypted after initial handshake
+
+## Message Protocol
+
+Paired devices communicate using an encrypted messaging protocol.
+
+### Message Types
+
+```rust
+pub enum NetworkMessage {
+    // Library discovery
+    LibraryAnnounce { libraries: Vec<LibraryInfo> },
+    LibraryRequest { library_id: Uuid },
+    
+    // Sync coordination
+    SyncRequest { library_id: Uuid, after: HLC },
+    SyncResponse { entries: Vec<SyncEntry> },
+    
+    // File operations
+    FileRequest { entry_id: Uuid },
+    FileResponse { chunks: Vec<Chunk> },
+    
+    // Diagnostics
+    Ping { timestamp: SystemTime },
+    Pong { timestamp: SystemTime },
+}
+```
+
+### Message Flow
+
+Messages are serialized as JSON and encrypted using session keys:
+
+```rust
+// Send a message
+async fn send_message(
+    connection: &mut Connection,
+    message: NetworkMessage,
+    keys: &SessionKeys,
+) -> Result<()> {
+    // Serialize to JSON
+    let json = serde_json::to_vec(&message)?;
+    
+    // Encrypt with session key
+    let encrypted = keys.encrypt(&json)?;
+    
+    // Send over QUIC stream
+    let mut stream = connection.open_uni().await?;
+    stream.write_all(&encrypted).await?;
+    stream.finish().await?;
+    
+    Ok(())
+}
+```
+
+### Reliability
+
+QUIC provides reliable delivery, but the application layer adds:
+
+- **Message acknowledgments** for critical operations
+- **Automatic retries** with exponential backoff
+- **Connection health monitoring** with periodic pings
+- **Graceful reconnection** after network changes
+
+## File Transfer
+
+The file transfer protocol enables secure, resumable file sharing between devices.
+
+### Transfer Process
+
+<Steps>
+<Step title="Request File">
+Device A requests a file by its entry ID:
+```rust
+let request = FileRequest {
+    entry_id: Uuid::parse_str("...")?,
+    resume_from: Some(1048576), // Resume from 1MB
+};
+```
+</Step>
+
+<Step title="Stream Chunks">
+Device B streams the file in encrypted chunks:
+```rust
+// 256KB chunks
+const CHUNK_SIZE: usize = 262144;
+
+while let Some(chunk) = file.read_chunk(CHUNK_SIZE).await? {
+    let encrypted = session_keys.encrypt(&chunk)?;
+    stream.write_all(&encrypted).await?;
+}
+```
+</Step>
+
+<Step title="Verify Transfer">
+Both devices verify the transfer using checksums:
+```rust
+let checksum = blake3::hash(&file_data);
+if checksum != expected_checksum {
+    return Err(TransferError::ChecksumMismatch);
+}
+```
+</Step>
+</Steps>
+
+### Transfer Features
+
+- **Resumable transfers**: Continue from where you left off
+- **Progress tracking**: Real-time updates on transfer status
+- **Bandwidth throttling**: Respect network limits
+- **Parallel transfers**: Multiple files simultaneously
+- **Compression**: Optional gzip compression for text files
+
+## Connection Management
+
+The event loop handles all incoming connections and routes them appropriately.
+
+### Event Loop
+
+```rust
+pub struct NetworkingEventLoop {
+    endpoint: Endpoint,
+    registry: ProtocolRegistry,
+    commands: mpsc::Receiver<NetworkCommand>,
+}
+
+impl NetworkingEventLoop {
+    pub async fn run(mut self) -> Result<()> {
+        loop {
+            select! {
+                // Handle incoming connections
+                Some(connection) = self.endpoint.accept() => {
+                    let alpn = connection.alpn();
+                    let handler = self.registry.get(alpn)?;
+                    tokio::spawn(handler.handle(connection));
+                }
+                
+                // Process commands
+                Some(cmd) = self.commands.recv() => {
+                    self.handle_command(cmd).await?;
+                }
+            }
+        }
+    }
+}
+```
+
+### Connection States
+
+Connections transition through several states:
+
+1. **Connecting**: Initial QUIC handshake
+2. **Connected**: Active connection, can send/receive
+3. **Idle**: No recent activity, may be closed
+4. **Closing**: Graceful shutdown in progress
+5. **Closed**: Connection terminated
+
+### Keep-Alive
+
+Connections are kept alive using periodic pings:
+
+```rust
+// Ping every 30 seconds of inactivity
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(30);
+
+async fn keep_alive_loop(connection: Connection) {
+    let mut interval = tokio::time::interval(KEEP_ALIVE_INTERVAL);
+    
+    loop {
+        interval.tick().await;
+        
+        if let Err(_) = send_ping(&connection).await {
+            // Connection lost
+            break;
+        }
+    }
+}
+```
+
+## NAT Traversal
+
+Iroh handles NAT traversal automatically using several techniques:
+
+### Direct Connection
+
+First, Iroh attempts a direct connection using known addresses:
+
+```rust
+// Try direct addresses first
+for addr in &node_addr.direct_addresses {
+    if let Ok(conn) = endpoint.connect_direct(addr).await {
+        return Ok(conn);
+    }
+}
+```
+
+### STUN
+
+If direct connection fails, Iroh uses STUN to discover public addresses:
+
+```rust
+// STUN automatically handled by Iroh
+// Discovers public IP and port mapping
+let public_addr = endpoint.my_addr().await?;
+```
+
+### Relay Fallback
+
+When both devices are behind symmetric NATs, Iroh falls back to relay servers:
+
+```rust
+// Relay connection automatic in Iroh
+// Uses relay_url from NodeAddr
+let conn = endpoint.connect(node_addr, alpn).await?;
+// This may be relayed if direct connection impossible
+```
+
+<Info>
+Relay servers don't decrypt your data. They only forward encrypted packets between devices.
+</Info>
+
+## Security
+
+### Encryption Layers
+
+The networking stack provides multiple encryption layers:
+
+1. **Transport encryption**: QUIC's built-in TLS 1.3
+2. **Application encryption**: Additional encryption using session keys
+3. **File encryption**: Per-file encryption keys for transfers
+
+### Key Management
+
+```rust
+pub struct KeyHierarchy {
+    // Long-term identity
+    device_key: SigningKey,
+    
+    // Per-pairing session keys
+    session_keys: HashMap<DeviceId, SessionKeys>,
+    
+    // Per-transfer ephemeral keys
+    transfer_keys: HashMap<TransferId, TransferKeys>,
+}
+```
+
+### Trust Model
+
+- **Device identity**: Ed25519 signatures prove device authenticity
+- **Pairing verification**: Out-of-band code exchange prevents MITM
+- **Forward secrecy**: New keys for each session and transfer
+- **No central authority**: Direct device-to-device trust
+
+## API Usage
+
+### Initialize Networking
+
+```rust
+// In Core initialization
+let networking = NetworkingService::new(
+    data_dir.clone(),
+    device_id,
+)?;
+
+// Start the event loop
+let event_loop = networking.spawn_event_loop();
+tokio::spawn(event_loop.run());
+```
+
+### Pair Devices
+
+```rust
+// Generate pairing code (initiator)
+let code = core.networking()
+    .start_pairing_as_initiator()
+    .await?;
+
+println!("Share this code: {}", code);
+
+// Join pairing (joiner)
+core.networking()
+    .join_pairing(&code)
+    .await?;
+```
+
+### Send Messages
+
+```rust
+// Get paired device
+let device = core.networking()
+    .get_device(device_id)?;
+
+// Send sync request
+let message = NetworkMessage::SyncRequest {
+    library_id,
+    after: last_sync_hlc,
+};
+
+device.send_message(message).await?;
+```
+
+### Transfer Files
+
+```rust
+// Share a file
+let transfer = core.share_with_device(
+    entry_id,
+    device_id,
+    TransferOptions {
+        compress: true,
+        encrypt: true,
+    },
+).await?;
+
+// Monitor progress
+while let Some(progress) = transfer.progress().await {
+    println!("Transfer: {}%", progress.percentage);
+}
+```
+
+## Performance
+
+### Benchmarks
+
+Typical performance on local network:
+
+- **Connection setup**: 10-50ms
+- **Message latency**: 1-5ms
+- **File transfer**: 100MB/s+ (gigabit network)
+- **Memory usage**: ~10MB per connection
+
+### Optimization Strategies
+
+1. **Connection pooling**: Reuse connections for multiple operations
+2. **Stream multiplexing**: Multiple logical streams over one connection
+3. **Adaptive chunking**: Adjust chunk size based on network conditions
+4. **Compression**: Enable for text-heavy workloads
+
+## Troubleshooting
+
+### Connection Issues
+
+If devices can't connect:
+
+```bash
+# Check if port is open
+nc -zv 192.168.1.100 11204
+
+# Monitor Iroh logs
+RUST_LOG=iroh=debug cargo run
+
+# Test connectivity
+iroh doctor connect <node-id>
+```
+
+### Common Problems
+
+**Problem**: "Connection refused"
+- Check firewall allows UDP port 11204
+- Verify both devices are running
+- Ensure correct NodeId
+
+**Problem**: "Connection timeout"
+- Check network allows UDP traffic
+- Try relay connection instead of direct
+- Verify NAT type using STUN
+
+**Problem**: "Pairing failed"
+- Ensure pairing code is entered correctly
+- Check code hasn't expired (5 minute timeout)
+- Verify clocks are roughly synchronized
+
+### Debug Commands
+
+```rust
+// Get connection info
+let info = endpoint.connection_info(node_id).await?;
+println!("RTT: {:?}", info.rtt);
+println!("Congestion: {:?}", info.congestion_window);
+
+// List connections
+for conn in endpoint.connections() {
+    println!("Connected to: {}", conn.remote_node_id());
+}
+
+// Force relay connection
+let mut node_addr = node_addr.clone();
+node_addr.direct_addresses.clear(); // Force relay
+```
+
+## Implementation Details
+
+### Protocol Registration
+
+New protocols are registered during initialization:
+
+```rust
+impl Protocol for CustomProtocol {
+    fn alpn(&self) -> &[u8] {
+        b"custom/1.0"
+    }
+    
+    async fn handle(
+        &self,
+        connection: Connection,
+    ) -> Result<()> {
+        // Handle incoming connection
+    }
+}
+
+// Register during startup
+networking.register_protocol(Box::new(CustomProtocol::new()));
+```
+
+### Error Handling
+
+The networking module uses a typed error system:
+
+```rust
+pub enum NetworkError {
+    // Connection errors
+    ConnectionFailed(node_id: NodeId),
+    ConnectionTimeout(duration: Duration),
+    
+    // Protocol errors
+    UnknownProtocol(alpn: String),
+    ProtocolViolation(reason: String),
+    
+    // Security errors
+    InvalidSignature,
+    DecryptionFailed,
+    
+    // Device errors
+    DeviceNotPaired(device_id: Uuid),
+    DeviceOffline(device_id: Uuid),
+}
+```
+
+### State Persistence
+
+Device relationships persist across restarts:
+
+```rust
+// Saved to disk
+pub struct PersistedNetworkState {
+    // Our identity
+    identity: NetworkIdentity,
+    
+    // Paired devices
+    paired_devices: Vec<PairedDevice>,
+    
+    // Relay preferences
+    preferred_relays: Vec<Url>,
+}
+
+// Location: ~/.spacedrive/network_state.json
+```
+
+## Future Development
+
+### Planned Features
+
+**Enhanced Discovery**
+- DHT-based global discovery
+- Bluetooth device discovery
+- QR code pairing
+
+**Advanced Protocols**
+- Video streaming protocol
+- Real-time collaboration
+- Distributed compute
+
+**Infrastructure**
+- Custom relay servers
+- Relay server selection
+- Bandwidth quotas
+
+**Performance**
+- Protocol buffer serialization
+- Native stream handling
+- Zero-copy transfers
+
+### Extension Points
+
+The networking module is designed for extensibility:
+
+```rust
+// Custom protocol implementation
+pub trait NetworkProtocol: Send + Sync {
+    fn alpn(&self) -> &[u8];
+    fn handle(&self, conn: Connection) -> BoxFuture<Result<()>>;
+}
+
+// Custom discovery mechanism
+pub trait Discovery: Send + Sync {
+    fn discover(&self) -> BoxStream<NodeAddr>;
+}
+
+// Custom relay selection
+pub trait RelaySelector: Send + Sync {
+    fn select(&self, relays: &[Url]) -> Url;
+}
+```
+
+## Related Documentation
+
+- [Devices](/docs/core/devices) - Device identity and pairing
+- [Sync](/docs/core/sync) - Data synchronization over network
+- [Security](/docs/core/security) - Encryption and trust model

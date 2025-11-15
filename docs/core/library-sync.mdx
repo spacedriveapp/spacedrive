@@ -1,0 +1,673 @@
+---
+title: Library Sync
+sidebarTitle: Library Sync
+---
+
+Spacedrive synchronizes library metadata across all your devices using a leaderless peer-to-peer model. Every device is equal. No central server, no single point of failure.
+
+## How Sync Works
+
+Sync uses two protocols based on data ownership:
+
+**Device-owned data** (locations, files): The owning device broadcasts its current state. Other devices receive and apply updates. No conflicts possible since only the owner can modify.
+
+**Shared resources** (tags, collections): Any device can modify. Changes are ordered using Hybrid Logical Clocks (HLC) to ensure consistency across all devices.
+
+<Info>
+	Library Sync handles metadata synchronization. For file content
+	synchronization between storage locations, see [File
+	Sync](/docs/core/file-sync).
+</Info>
+
+## Quick Reference
+
+| Data Type     | Ownership    | Sync Method     | Conflict Resolution |
+| ------------- | ------------ | --------------- | ------------------- |
+| Locations     | Device-owned | State broadcast | None needed         |
+| Files/Folders | Device-owned | State broadcast | None needed         |
+| Tags          | Shared       | HLC-ordered log | Union merge         |
+| Collections   | Shared       | HLC-ordered log | Union merge         |
+| User Metadata | Mixed        | Varies by scope | Context-dependent   |
+
+## Data Ownership
+
+Spacedrive recognizes that some data naturally belongs to specific devices.
+
+### Device-Owned Data
+
+Only the device with physical access can modify:
+
+- **Locations**: Filesystem paths like `/Users/alice/Photos`
+- **Entries**: Files and folders within those locations
+- **Volumes**: Physical drives and mount points
+
+### Shared Resources
+
+Any device can create or modify:
+
+- **Tags**: Labels applied to files
+- **Collections**: Groups of files
+- **User Metadata**: Notes, ratings, custom fields
+- **Extension Data**: Custom models from extensions
+
+This ownership model eliminates most conflicts and simplifies synchronization.
+
+## Sync Protocols
+
+### State-Based Sync (Device-Owned)
+
+<Info>
+	This sync protocol is tested in `test_sync_location_device_owned_state_based`
+	at core/tests/sync_integration_test.rs:647
+</Info>
+
+When you add a location on Device A:
+
+```
+1. Device A inserts location in database
+2. Device A broadcasts: "Here's my current state"
+3. Other devices receive and update
+4. Complete in ~100ms
+```
+
+No version tracking needed. The owner's state is always authoritative.
+
+### Log-Based Sync (Shared Resources)
+
+<Info>
+	This sync protocol is tested in `test_sync_tag_shared_hlc_based` at
+	core/tests/sync_integration_test.rs:830
+</Info>
+
+When you create a tag on Device A:
+
+```
+1. Device A inserts tag in database
+2. Device A generates HLC timestamp
+3. Device A appends to sync log
+4. Device A broadcasts change with HLC
+5. Other devices apply in HLC order
+6. After acknowledgment, prune from log
+```
+
+The log ensures all devices apply changes in the same order.
+
+## Hybrid Logical Clocks
+
+<Info>
+	HLC conflict resolution is tested in `test_concurrent_tag_updates_hlc_conflict_resolution`
+	at core/tests/sync_integration_test.rs:1972
+</Info>
+
+HLCs provide global ordering without synchronized clocks:
+
+```rust
+HLC {
+    timestamp: 1730000000000,  // Physical time (ms)
+    counter: 0,                // Logical counter
+    device_id: "device-a-uuid" // Tie-breaker
+}
+```
+
+Properties:
+
+- Events maintain causal ordering
+- Any two HLCs can be compared
+- No clock synchronization required
+
+### Conflict Resolution
+
+When two devices concurrently modify the same record, the change with the higher HLC wins (Last Write Wins):
+
+```
+Device A creates tag "Version A" with HLC(1000, 0, device-a)
+Device B creates tag "Version B" with HLC(1100, 0, device-b)
+
+After sync, both devices converge to "Version B" (higher HLC)
+```
+
+The sync system checks the peer log before applying changes to ensure only newer updates are applied.
+
+## Database Architecture
+
+### Main Database (database.db)
+
+Contains all library data from all devices:
+
+```sql
+-- Device-owned tables
+CREATE TABLE locations (
+    id INTEGER PRIMARY KEY,
+    uuid TEXT UNIQUE,
+    device_id INTEGER,  -- Owner
+    path TEXT,
+    name TEXT
+);
+
+CREATE TABLE entries (
+    id INTEGER PRIMARY KEY,
+    uuid TEXT UNIQUE,
+    location_id INTEGER,  -- Inherits ownership
+    name TEXT,
+    kind INTEGER,
+    size_bytes INTEGER
+);
+
+-- Shared resource tables
+CREATE TABLE tags (
+    id INTEGER PRIMARY KEY,
+    uuid TEXT UNIQUE,
+    canonical_name TEXT
+    -- No device_id (anyone can modify)
+);
+```
+
+### Sync Database (sync.db)
+
+Contains only pending changes for shared resources:
+
+```sql
+CREATE TABLE shared_changes (
+    hlc TEXT PRIMARY KEY,
+    model_type TEXT,
+    record_uuid TEXT,
+    change_type TEXT,  -- insert/update/delete
+    data TEXT         -- JSON payload
+);
+
+CREATE TABLE peer_acks (
+    peer_device_id TEXT PRIMARY KEY,
+    last_acked_hlc TEXT
+);
+```
+
+<Note>
+	The sync database stays small (under 1MB) due to aggressive pruning after
+	acknowledgments.
+</Note>
+
+## Using the Sync API
+
+The sync API handles all complexity internally:
+
+```rust
+// Sync a simple model
+let tag = create_tag("Vacation");
+library.sync_model(&tag, ChangeType::Insert).await?;
+
+// Sync a model with foreign keys
+let location = create_location("/Photos");
+library.sync_model_with_db(&location, ChangeType::Insert, db).await?;
+
+// Bulk sync (much faster for many items)
+library.sync_models_batch(&entries, ChangeType::Insert, db).await?;
+```
+
+The API automatically:
+
+- Detects ownership type
+- Manages HLC timestamps
+- Converts between local IDs and UUIDs
+- Handles network broadcast
+- Manages the sync log
+
+## Implementing Syncable Models
+
+To make a model syncable:
+
+```rust
+impl Syncable for YourModel {
+    const SYNC_MODEL: &'static str = "your_model";
+
+    fn sync_id(&self) -> Uuid {
+        self.uuid
+    }
+
+    fn sync_depends_on() -> &'static [&'static str] {
+        &["parent_model"]  // Models that must sync first
+    }
+
+    fn foreign_key_mappings() -> Vec<FKMapping> {
+        vec![
+            FKMapping::new("device_id", "devices"),
+            FKMapping::new("parent_id", "your_models"),
+        ]
+    }
+}
+```
+
+### Dependency Resolution Algorithm
+
+To prevent foreign key violations, the sync system must process models in a specific order (e.g., `Device` records must exist before the `Location` records that depend on them). Spacedrive determines this order automatically at startup using a deterministic algorithm.
+
+The process works as follows:
+
+1.  **Dependency Declaration**: Each syncable model declares its parent models using the `sync_depends_on()` function. This creates a dependency graph where an edge from `Location` to `Device` means `Location` depends on `Device`.
+
+2.  **Topological Sort**: The `SyncRegistry` takes the full list of models and their dependencies and performs a **topological sort** using Kahn's algorithm. This algorithm produces a linear ordering of the models where every parent model comes before its children. It also detects impossible sync scenarios by reporting any circular dependencies (e.g., A depends on B, and B depends on A).
+
+3.  **Ordered Execution**: The `BackfillManager` receives this ordered list (e.g., `["device", "tag", "location", "entry"]`) and uses it to sync data in the correct sequence, guaranteeing that no foreign key violations can occur.
+
+### Dependency Management
+
+The sync system respects model dependencies:
+
+```
+device
+  └→ location (needs device)
+       └→ entry (needs location)
+
+tag (independent)
+collection (independent)
+```
+
+This prevents foreign key violations during sync.
+
+### Foreign Key Translation
+
+The sync system must ensure that relationships between models are preserved across devices. Since each device uses local, auto-incrementing integer IDs for performance, these IDs cannot be used for cross-device references.
+
+This is where foreign key translation comes in, a process orchestrated by the `foreign_key_mappings()` function on the `Syncable` trait.
+
+**The Process:**
+
+1.  **Outgoing**: When a record is being prepared for sync, the system uses the `foreign_key_mappings()` definition to find all integer foreign key fields (e.g., `parent_id: 42`). It looks up the corresponding UUID for each of these IDs in the local database and sends the UUIDs over the network (e.g., `parent_uuid: "abc-123..."`).
+
+2.  **Incoming**: When a device receives a record, it does the reverse. It uses `foreign_key_mappings()` to identify the incoming UUID foreign keys, looks up the corresponding local integer ID for each UUID, and replaces them before inserting the record into its own database (e.g., `parent_uuid: "abc-123..."` → `parent_id: 15`).
+
+This entire translation process is automatic and transparent.
+
+<Info>
+	**Separation of Concerns:** - `sync_depends_on()`: Determines the **order** of
+	model synchronization at a high level. - `foreign_key_mappings()`: Handles the
+	**translation** of specific foreign key fields within a model during the
+	actual data transfer.
+</Info>
+
+## Sync Flows
+
+<Info>
+	The complete sync infrastructure is validated in `test_sync_infrastructure_summary`
+	at core/tests/sync_integration_test.rs:1093
+</Info>
+
+### Creating a Location
+
+<Info>
+	Location sync with entries is tested in `test_sync_entry_with_location` at
+	core/tests/sync_integration_test.rs:939
+</Info>
+
+<Steps>
+<Step title="Device A Creates Location">
+User adds `/Users/alice/Documents`:
+- Insert into local database
+- Call `library.sync_model(&location)`
+- Broadcast state to peers
+</Step>
+
+<Step title="Device B Receives Update">
+	Receives state broadcast: - Map device UUID to local ID - Insert location
+	(read-only view) - Update UI instantly
+</Step>
+
+<Step title="Complete">
+Total time: ~100ms
+No conflicts possible
+</Step>
+</Steps>
+
+### Creating a Tag
+
+<Steps>
+<Step title="Device A Creates Tag">
+User creates "Important" tag:
+- Insert into local database
+- Generate HLC timestamp
+- Append to sync log
+- Broadcast to peers
+</Step>
+
+<Step title="Device B Applies Change">
+	Receives tag creation: - Update local HLC - Apply change in order - Send
+	acknowledgment
+</Step>
+
+<Step title="Log Cleanup">
+After all acknowledgments:
+- Remove from sync log
+- Log stays small
+</Step>
+</Steps>
+
+### New Device Joins
+
+<Steps>
+<Step title="Request Device-Owned Data">
+New device asks each peer:
+- "Send your locations"
+- "Send your entries"
+- Apply in dependency order
+</Step>
+
+<Step title="Request Shared Resources">
+	New device requests: - All historical changes - Current state snapshot - Apply
+	in HLC order
+</Step>
+
+<Step title="Catch Up">
+Process any changes that occurred during backfill.
+Transition to live sync.
+Device fully synchronized!
+</Step>
+</Steps>
+
+## Advanced Features
+
+### Transitive Sync
+
+<Info>
+	Transitive sync is tested in `test_sync_transitive_three_devices`
+	at core/tests/sync_integration_test.rs:1304
+</Info>
+
+Spacedrive does not require a direct connection between all devices to keep them in sync. Changes can propagate transitively through intermediaries, ensuring the entire library eventually reaches a consistent state.
+
+This is made possible by two core architectural principles:
+
+1.  **Complete State Replication**: Every device maintains a full and independent copy of the entire library's shared state (like tags, collections, etc.). When Device A syncs a new tag to Device B, that tag becomes a permanent part of Device B's database, not just a temporary message.
+
+2.  **State-Based Backfill**: When a new or offline device (Device C) connects to any peer in the library (Device B), it initiates a backfill process. As part of this process, Device C requests the complete current state of all shared resources from Device B.
+
+**How it Works in Practice:**
+
+<Steps>
+	<Step title="1. Device A syncs to B">
+		Device A creates a new tag. It connects to Device B and syncs the tag. The
+		tag is now stored in the database on both A and B. Device A then goes
+		offline.
+	</Step>
+	<Step title="2. Device C connects to B">
+		Device C comes online and connects only to Device B. It has never
+		communicated with Device A.
+	</Step>
+	<Step title="3. Device C Backfills from B">
+		Device C requests the complete state of all shared resources from Device B.
+		Since Device B has a full copy of the library state (including the tag from
+		Device A), it sends that tag to Device C.
+	</Step>
+	<Step title="4. Library is Consistent">
+		Device C now has the tag created by Device A, even though they never
+		connected directly. The change has propagated transitively.
+	</Step>
+</Steps>
+
+This architecture provides significant redundancy and resilience, as the library can stay in sync as long as there is any path of connectivity between peers.
+
+### Delete Handling
+
+<Info>
+	Update and delete operations are tested in `test_sync_update_and_delete_operations`
+	at core/tests/sync_integration_test.rs:2064
+</Info>
+
+**Device-owned**: Stop broadcasting. Others detect absence and remove.
+
+**Shared resources**: Use state reconciliation. Periodically compare full state to detect deletions without privacy-leaking tombstones.
+
+All CRUD operations (Create, Update, Delete) use the same sync protocol with appropriate `ChangeType` values.
+
+### Pre-Sync Data
+
+<Info>
+	Pre-sync data backfill is tested in
+	`test_sync_backfill_includes_pre_sync_data` at
+	core/tests/sync_integration_test.rs:1142
+</Info>
+
+Data created before enabling sync is included:
+
+```rust
+SharedChangeResponse {
+    entries: [...],     // Recent changes
+    current_state: {
+        tags: [...],    // ALL tags including pre-sync
+    }
+}
+```
+
+### Watermark-Based Incremental Sync
+
+<Info>
+	Watermark-based reconnection sync is tested in `test_watermark_reconnection_sync`
+	at core/tests/sync_integration_test.rs:1744
+</Info>
+
+When devices reconnect after being offline, they use watermarks to avoid full re-sync:
+
+**State Watermark**: Tracks the timestamp of the last device-owned state update received.
+
+**Shared Watermark (HLC)**: Tracks the last HLC seen for shared resource changes.
+
+On reconnection:
+1. Device B sends its watermarks to Device A
+2. Device A responds with only changes since those watermarks
+3. Incremental sync completes in milliseconds instead of full backfill
+
+This dramatically improves reconnection performance for devices that sync frequently.
+
+### Connection State Tracking
+
+<Info>
+	Connection state tracking is tested in `test_connection_state_tracking`
+	at core/tests/sync_integration_test.rs:1562
+</Info>
+
+The sync system automatically tracks device connectivity:
+
+```sql
+UPDATE devices SET
+    is_online = true,
+    last_seen_at = NOW()
+WHERE uuid = 'peer-device-id';
+```
+
+This enables:
+- UI indicators showing which devices are online
+- Sync scheduling based on connectivity
+- Offline-first operations with eventual consistency
+
+### Derived Tables
+
+Some data is computed locally and never syncs:
+
+- **directory_paths**: A lookup table for the full paths of directories.
+- **entry_closure**: Parent-child relationships
+- **tag_closure**: Tag hierarchies
+
+These rebuild automatically from synced base data.
+
+## Portable Volumes & Ownership Changes
+
+A key feature of Spacedrive is the ability to move external drives between devices without losing track of the data. This is handled through a special sync process that allows the "ownership" of a `Location` to change.
+
+### Changing Device Ownership
+
+When you move a volume from one device to another, the `Location` associated with that volume must be assigned a new owner. This process is designed to be extremely efficient, avoiding the need for costly re-indexing or bulk data updates.
+
+It is handled using a **Hybrid Ownership Sync** model:
+
+<Steps>
+	<Step title="Ownership Change is Requested">
+		When a device detects a known volume that it does not own, it broadcasts a
+		special `RequestLocationOwnership` event. Unlike normal device-owned data,
+		this event is sent to the HLC-ordered log, treating it like a shared
+		resource update.
+	</Step>
+	<Step title="Peers Process the Change">
+		Every device in the library processes this event in the same, deterministic
+		order. Upon processing, each peer performs a single, atomic update on its
+		local database: `UPDATE locations SET device_id = 'new_owner_id' WHERE uuid
+		= 'location_uuid'`
+	</Step>
+	<Step title="Ownership is Transferred Instantly">
+		This single-row update is all that is required. Because an `Entry`'s
+		ownership is inherited from its parent `Location` at runtime, this change
+		instantly transfers ownership of millions of files. No bulk updates are
+		needed on the `entries` or `directory_paths` tables. The new owner then
+		takes over state-based sync for that `Location`.
+	</Step>
+</Steps>
+
+### Handling Mount Point Changes
+
+A simpler scenario is when a volume's mount point changes on the same device (e.g., from `D:\` to `E:\` on Windows).
+
+1.  **Location Update**: The owning device updates the `path` field on its `Location` record.
+2.  **Path Table Migration**: This change requires a bulk update on the `directory_paths` table to replace the old path prefix with the new one (e.g., `REPLACE(path, 'D:\', 'E:\')`).
+3.  **No Entry Update**: Crucially, the main `entries` table, which is the largest, is completely untouched. This makes the operation much faster than a full re-index.
+
+## Performance
+
+### Sync Characteristics
+
+| Aspect    | Device-Owned  | Shared Resources  |
+| --------- | ------------- | ----------------- |
+| Latency   | ~100ms        | ~150ms            |
+| Storage   | No log        | Less than 1MB log |
+| Conflicts | Impossible    | HLC-resolved      |
+| Offline   | Full function | Queues changes    |
+
+### Optimizations
+
+- **Batching**: `30-120x` faster for bulk operations
+- **Compression**: Reduces network traffic
+- **Pruning**: Aggressive log cleanup
+- **Caching**: `15-minute` cache for backfill
+
+## Troubleshooting
+
+### Changes Not Syncing
+
+Check:
+
+1. Devices are paired and online
+2. Both devices joined the library
+3. Network connectivity between devices
+4. Sync service is running
+
+Debug commands:
+
+```bash
+# Check pending changes
+sqlite3 sync.db "SELECT COUNT(*) FROM shared_changes"
+
+# Verify peer connections
+sd sync status
+
+# Monitor sync activity
+RUST_LOG=sd_core::sync=debug cargo run
+```
+
+### Common Issues
+
+**Large sync.db**: Peers not acknowledging. Check network connectivity.
+
+**Missing data**: Verify dependency order. Parents must sync before children.
+
+**Conflicts**: Check HLC implementation maintains ordering.
+
+## Implementation Status
+
+<Info>
+	All 10 sync integration tests passing as of October 2025.
+	See `core/tests/sync_integration_test.rs` for full test suite.
+</Info>
+
+### Production Ready
+
+- One-line sync API
+- HLC implementation (thread-safe)
+- Syncable trait infrastructure
+- Foreign key mapping
+- Dependency ordering
+- Network transport (Iroh/QUIC)
+- Backfill orchestration
+- State snapshots
+- HLC conflict resolution
+- Watermark-based incremental sync
+- Connection state tracking
+- Transitive sync
+
+### Currently Syncing
+
+- **Device** (state-based)
+- **Location** (state-based)
+- **Entry** (state-based)
+- **Tag** (HLC-ordered)
+
+### Ready for Implementation
+
+These models have UUIDs but need Syncable trait:
+
+- **UserMetadata** (mixed ownership)
+- **ContentIdentity** (shared)
+- **Collection** (shared)
+- **Volume** (device-owned)
+
+### Known Limitations
+
+1. **Model coverage**: Only core models implemented so far
+2. **Extension sync**: Framework ready, awaiting SDK
+3. **Request correlation**: Needs request IDs for robustness
+4. **Bulk indexing**: File indexer needs integration
+5. **Checkpoint persistence**: Currently memory-only
+
+## Future Development
+
+### Planned Features
+
+- Extension model sync
+- Custom conflict resolution
+- Bandwidth management
+- Selective sync
+- Schema versioning
+
+### Extension Sync (Future)
+
+Extensions will define syncable models:
+
+```rust
+#[model(
+    table_name = "album",
+    sync_strategy = "shared"
+)]
+struct Album {
+    #[primary_key]
+    id: Uuid,
+    title: String,
+    #[metadata]
+    metadata_id: i32,
+}
+```
+
+Extension models will use the same sync infrastructure as core models.
+
+## Summary
+
+Spacedrive sync provides:
+
+1. **True peer-to-peer**: No central authority
+2. **Conflict-free**: Ownership model prevents conflicts
+3. **Efficient**: Minimal overhead, fast propagation
+4. **Resilient**: Works offline, handles failures
+5. **Simple**: One-line API for developers
+6. **Redundant**: Any peer can serve any data
+
+The hybrid approach combines the best of state-based and log-based sync to deliver reliable multi-device synchronization.
+
+## Related Documentation
+
+- [Devices](/docs/core/devices) - Device pairing and management
+- [Networking](/docs/core/networking) - Network transport layer
+- [Libraries](/docs/core/libraries) - Library structure and management

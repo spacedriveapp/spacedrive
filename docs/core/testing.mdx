@@ -1,0 +1,301 @@
+---
+title: Testing
+sidebarTitle: Testing
+---
+
+Testing in Spacedrive Core ensures reliability across single-device operations and multi-device networking scenarios. This guide covers the available frameworks, patterns, and best practices.
+
+## Testing Infrastructure
+
+Spacedrive Core provides two primary testing approaches:
+
+1. **Standard Tests** - For unit and single-core integration testing
+2. **Subprocess Framework** - For multi-device networking and distributed scenarios
+
+### Test Organization
+
+Tests live in two locations:
+- `core/tests/` - Integration tests that verify complete workflows
+- `core/src/testing/` - Test framework utilities and helpers
+
+## Standard Testing
+
+For single-device tests, use Tokio's async test framework:
+
+```rust
+#[tokio::test]
+async fn test_library_creation() {
+    let setup = IntegrationTestSetup::new("library_test").await.unwrap();
+    let core = setup.create_core().await.unwrap();
+    
+    let library = core.libraries
+        .create_library("Test Library", None)
+        .await
+        .unwrap();
+    
+    assert!(!library.id.is_empty());
+}
+```
+
+### Integration Test Setup
+
+The `IntegrationTestSetup` utility provides isolated test environments:
+
+```rust
+// Basic setup
+let setup = IntegrationTestSetup::new("test_name").await?;
+
+// Custom configuration
+let setup = IntegrationTestSetup::with_config("test_name", |builder| {
+    builder
+        .log_level("debug")
+        .networking_enabled(true)
+        .volume_monitoring_enabled(false)
+}).await?;
+```
+
+Key features:
+- Isolated temporary directories per test
+- Structured logging to `test_data/{test_name}/library/logs/`
+- Automatic cleanup on drop
+- Configurable app settings
+
+## Subprocess Testing Framework
+
+The subprocess framework enables testing of multi-device scenarios like pairing, file transfer, and synchronization.
+
+### Architecture
+
+The framework spawns separate `cargo test` processes for each device role:
+
+```rust
+let mut runner = CargoTestRunner::new()
+    .with_timeout(Duration::from_secs(90))
+    .add_subprocess("alice", "alice_scenario")
+    .add_subprocess("bob", "bob_scenario");
+
+runner.run_until_success(|outputs| {
+    outputs.values().all(|output| output.contains("SUCCESS"))
+}).await?;
+```
+
+### Writing Multi-Device Tests
+
+Create separate test functions for each device role:
+
+```rust
+#[tokio::test]
+async fn test_device_pairing() {
+    let mut runner = CargoTestRunner::new()
+        .add_subprocess("alice", "alice_pairing")
+        .add_subprocess("bob", "bob_pairing");
+        
+    runner.run_until_success(|outputs| {
+        outputs.values().all(|o| o.contains("PAIRING_SUCCESS"))
+    }).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore]
+async fn alice_pairing() {
+    if env::var("TEST_ROLE").unwrap_or_default() != "alice" {
+        return;
+    }
+    
+    let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").unwrap());
+    let core = create_test_core(data_dir).await.unwrap();
+    
+    // Alice initiates pairing
+    let (code, _) = core.start_pairing_as_initiator().await.unwrap();
+    fs::write("/tmp/pairing_code.txt", &code).unwrap();
+    
+    // Wait for connection
+    wait_for_connection(&core).await;
+    println!("PAIRING_SUCCESS");
+}
+```
+
+<Note>
+Device scenario functions must be marked with `#[ignore]` to prevent direct execution. They only run when called by the subprocess framework.
+</Note>
+
+### Process Coordination
+
+Processes coordinate through:
+- **Environment variables**: `TEST_ROLE` and `TEST_DATA_DIR`
+- **Temporary files**: Share data like pairing codes
+- **Output patterns**: Success markers for the runner to detect
+
+## Common Test Patterns
+
+### Event Monitoring
+
+Wait for specific Core events with timeouts:
+
+```rust
+let mut events = core.events.subscribe();
+
+let event = wait_for_event(
+    &mut events,
+    |e| matches!(e, Event::JobCompleted { .. }),
+    Duration::from_secs(30)
+).await?;
+```
+
+### Database Verification
+
+Query the database directly to verify state:
+
+```rust
+use sd_core::entities;
+
+let entries = entities::entry::Entity::find()
+    .filter(entities::entry::Column::Name.contains("test"))
+    .all(db.conn())
+    .await?;
+
+assert_eq!(entries.len(), expected_count);
+```
+
+### Job Testing
+
+Test job execution and resumption:
+
+```rust
+// Start a job
+let job_id = core.jobs.dispatch(IndexingJob::new(...)).await?;
+
+// Monitor progress
+wait_for_event(&mut events, |e| matches!(
+    e, 
+    Event::JobProgress { id, .. } if *id == job_id
+), timeout).await?;
+
+// Verify completion
+let job = core.jobs.get_job(job_id).await?;
+assert_eq!(job.status, JobStatus::Completed);
+```
+
+### Mock Transport for Sync Testing
+
+Test synchronization without real networking:
+
+```rust
+let transport = Arc::new(Mutex::new(Vec::new()));
+
+let mut core_a = create_test_core().await?;
+let mut core_b = create_test_core().await?;
+
+// Connect cores with mock transport
+connect_with_mock_transport(&mut core_a, &mut core_b, transport).await?;
+
+// Verify sync
+perform_operation_on_a(&core_a).await?;
+wait_for_sync(&core_b).await?;
+```
+
+## Test Helpers
+
+### Common Utilities
+
+The framework provides helper functions in `core/tests/helpers/mod.rs`:
+
+- `wait_for_event()` - Wait for specific events with timeout
+- `create_test_location()` - Set up test locations with files
+- `count_location_entries()` - Query entry counts
+- `wait_for_job_completion()` - Monitor job execution
+
+### Test Volumes
+
+For volume-related tests, use the test volume utilities:
+
+```rust
+use helpers::test_volumes;
+
+let volume = test_volumes::create_test_volume().await?;
+// Test volume operations
+test_volumes::cleanup_test_volume(volume).await?;
+```
+
+## Running Tests
+
+### All Tests
+```bash
+cargo test --workspace
+```
+
+### Specific Test
+```bash
+cargo test test_device_pairing --nocapture
+```
+
+### Debug Subprocess Tests
+```bash
+# Run individual scenario
+TEST_ROLE=alice TEST_DATA_DIR=/tmp/test cargo test alice_scenario -- --ignored --nocapture
+```
+
+### With Logging
+```bash
+RUST_LOG=debug cargo test test_name --nocapture
+```
+
+## Best Practices
+
+### Test Structure
+
+1. **Use descriptive names**: `test_cross_device_file_transfer` over `test_transfer`
+2. **One concern per test**: Focus on a single feature or workflow
+3. **Clean up resources**: Use RAII patterns or explicit cleanup
+
+### Subprocess Tests
+
+1. **Always use `#[ignore]`** on scenario functions
+2. **Check TEST_ROLE early**: Return immediately if role doesn't match
+3. **Use clear success patterns**: Print distinct markers for the runner
+4. **Set appropriate timeouts**: Balance between test speed and reliability
+
+### Debugging
+
+<Tip>
+When tests fail, check the logs in `test_data/{test_name}/library/logs/` for detailed information about what went wrong.
+</Tip>
+
+Common debugging approaches:
+- Run with `--nocapture` to see all output
+- Check job logs in `test_data/{test_name}/library/job_logs/`
+- Run scenarios individually with manual environment variables
+- Use `RUST_LOG=trace` for maximum verbosity
+
+### Performance
+
+1. **Run tests in parallel**: Use `cargo test` default parallelism
+2. **Minimize sleeps**: Use event waiting instead of fixed delays
+3. **Share setup code**: Extract common initialization into helpers
+
+## Writing New Tests
+
+### Single-Device Test Checklist
+
+- [ ] Create test with `#[tokio::test]`
+- [ ] Use `IntegrationTestSetup` for isolation
+- [ ] Wait for events instead of sleeping
+- [ ] Verify both positive and negative cases
+- [ ] Clean up temporary files
+
+### Multi-Device Test Checklist
+
+- [ ] Create orchestrator function with `CargoTestRunner`
+- [ ] Create scenario functions with `#[ignore]`
+- [ ] Add TEST_ROLE guards to scenarios
+- [ ] Define clear success patterns
+- [ ] Handle process coordination properly
+- [ ] Set reasonable timeouts
+
+## Examples
+
+For complete examples, refer to:
+- `tests/device_pairing_test.rs` - Multi-device pairing
+- `tests/sync_integration_test.rs` - Complex sync scenarios
+- `tests/job_resumption_integration_test.rs` - Job interruption handling
+- `tests/file_transfer_test.rs` - Cross-device file operations

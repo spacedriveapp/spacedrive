@@ -1,0 +1,439 @@
+---
+title: Volumes
+sidebarTitle: Volumes
+---
+
+Spacedrive detects and tracks storage volumes across all platforms, including local drives and cloud storage. The volume system enables intelligent file operations by understanding where data lives and how to move it efficiently.
+
+## How It Works
+
+The volume system operates in two modes:
+
+1. **Runtime Detection** - Automatically discovers all mounted storage devices
+2. **Volume Tracking** - Persists volumes you choose to track across sessions
+
+When you connect a drive or add cloud storage, Spacedrive detects it immediately. If you choose to track that volume, it remembers your preferences and recognizes it when reconnected.
+
+## Storage Backends
+
+Spacedrive supports two types of storage backends:
+
+- **Local Filesystems** - Physical drives mounted on your system (APFS, NTFS, Ext4, etc.)
+- **Cloud Storage** - S3, Google Drive, Dropbox, OneDrive, and 40+ other services via OpenDAL
+
+## Volume Identification
+
+Each volume gets a unique fingerprint based on hardware identifiers, capacity, and filesystem type:
+
+```rust
+let volume = volume_manager.volume_for_path(&path).await;
+println!("Volume: {} ({})", volume.name, volume.fingerprint);
+```
+
+This fingerprint remains stable even when mount points change.
+
+### Unified Addressing
+
+Spacedrive uses service-native URIs for cloud volumes that match industry tools:
+
+```
+s3://my-bucket/photos/vacation.jpg       ← Amazon S3
+gdrive://My Drive/Documents/report.pdf   ← Google Drive
+onedrive://Documents/budget.xlsx         ← OneDrive
+azblob://container/data/export.csv       ← Azure Blob
+gcs://bucket/logs/app.log                ← Google Cloud Storage
+```
+
+These URIs work identically to local volume paths and enable seamless operations across all storage backends. See [Unified Addressing](/docs/core/addressing) for complete details.
+
+## Volume Types
+
+### Mount Types
+- **System** - Root filesystem and boot partitions
+- **External** - USB drives and removable storage
+- **Network** - NFS, SMB mounts
+- **Cloud** - Cloud storage services (S3, Google Drive, Dropbox, OneDrive, etc.)
+
+### Disk Types
+- **SSD** - Solid state drives with fast random access
+- **HDD** - Traditional spinning disks
+- **Network** - Remote storage over network
+- **Virtual** - RAM disks and virtual filesystems
+
+### Filesystems
+Spacedrive recognizes major filesystems including APFS, NTFS, Ext4, Btrfs, ZFS, FAT32, and ExFAT.
+
+### Cloud Services
+Supports 40+ cloud services via OpenDAL:
+- **S3** - Amazon S3, Cloudflare R2, MinIO, Wasabi, Backblaze B2
+- **Google Drive** - Consumer and Workspace accounts
+- **Dropbox** - Personal and Business
+- **OneDrive** - Personal and Business
+- **Google Cloud Storage** - GCS buckets
+- **Azure Blob Storage** - Azure containers
+
+## Using Volumes
+
+### Get Volume Information
+
+```rust
+// Find volume for a path
+let volume = volume_manager.volume_for_path("/Users/data").await;
+
+// List all volumes
+let volumes = volume_manager.get_all_volumes().await;
+
+// Check available space
+let available = volume.total_bytes_available;
+```
+
+### Track Volumes
+
+Convert a runtime-detected volume into a tracked volume:
+
+```rust
+volume_manager.track_volume(
+    &volume.fingerprint,
+    &library_context,
+    Some("My Backup Drive".to_string())
+).await?;
+```
+
+Tracked volumes persist across sessions and can have custom names, colors, and icons.
+
+### Add Cloud Volumes
+
+Add cloud storage as a tracked volume:
+
+```rust
+use sd_core::ops::volumes::add_cloud::{CloudStorageConfig, VolumeAddCloudInput};
+
+// Add S3 bucket via action
+let input = VolumeAddCloudInput {
+    service: CloudServiceType::S3,
+    display_name: "My S3 Bucket".to_string(),
+    config: CloudStorageConfig::S3 {
+        bucket: "my-bucket".to_string(),
+        region: "us-west-2".to_string(),
+        access_key_id: "AKIAXXXX".to_string(),
+        secret_access_key: "secret".to_string(),
+        endpoint: None, // Optional: for S3-compatible services
+    },
+};
+
+let output = action_manager.execute(input, library, context).await?;
+```
+
+#### CLI Usage
+
+Add cloud volumes from the command line:
+
+```bash
+# Amazon S3
+sd volume add-cloud "My S3 Bucket" \
+  --service s3 \
+  --bucket my-bucket \
+  --region us-west-2 \
+  --access-key-id AKIAXXXX \
+  --secret-access-key secret123
+
+# Cloudflare R2
+sd volume add-cloud "R2 Storage" \
+  --service s3 \
+  --bucket my-r2-bucket \
+  --region auto \
+  --access-key-id xxx \
+  --secret-access-key yyy \
+  --endpoint https://account.r2.cloudflarestorage.com
+
+# MinIO (self-hosted)
+sd volume add-cloud "MinIO Local" \
+  --service s3 \
+  --bucket test \
+  --region us-east-1 \
+  --access-key-id minioadmin \
+  --secret-access-key minioadmin \
+  --endpoint http://localhost:9000
+
+# Remove cloud volume
+sd volume remove-cloud <fingerprint> -y
+```
+
+Cloud volumes work identically to local volumes for indexing, searching, and file operations.
+
+### Volume Events
+
+Monitor volume state changes:
+
+```rust
+let mut events = event_bus.subscribe();
+
+while let Ok(event) = events.recv().await {
+    match event {
+        Event::VolumeAdded(volume) => {
+            // New volume connected
+        }
+        Event::VolumeRemoved { fingerprint } => {
+            // Volume disconnected
+        }
+        _ => {}
+    }
+}
+```
+
+## Copy-on-Write and Server-Side Operations
+
+Spacedrive uses optimal copy strategies based on the storage backend:
+
+```rust
+if volume.supports_cow() {
+    // Use fast COW copy (APFS, Btrfs, ZFS, ReFS)
+    perform_cow_copy(&src, &dst).await?;
+} else if volume.supports_server_side_copy() {
+    // Cloud server-side copy (S3, GCS, Azure)
+    perform_server_side_copy(&src, &dst).await?;
+} else {
+    // Standard streaming copy
+    perform_regular_copy(&src, &dst).await?;
+}
+```
+
+<Info>
+- COW copies on supported filesystems are nearly instant regardless of file size
+- Server-side cloud copies avoid downloading/uploading data through your machine
+- Cross-cloud operations automatically stream through local system
+</Info>
+
+## Smart File Operations
+
+Volume awareness enables optimal file operations:
+
+```rust
+// Check if paths are on same volume
+let same_volume = volume_manager.same_volume(&src, &dst).await;
+
+if same_volume {
+    // Fast move operation (local) or server-side rename (cloud)
+    fs::rename(&src, &dst).await?;
+} else {
+    // Cross-volume copy required
+    copy_cross_volume(&src, &dst).await?;
+}
+```
+
+### Cloud-Specific Optimizations
+
+Cloud volumes automatically use efficient operations:
+
+- **Ranged Reads** - Download only needed portions of files
+- **Content Hashing** - Sample-based hashing uses ~58KB for large files
+- **Parallel Operations** - Concurrent metadata and content fetches
+- **Metadata Caching** - Reduces redundant API calls
+
+## Performance Monitoring
+
+Test volume read/write speeds:
+
+```rust
+let (read_mbps, write_mbps) = volume_manager
+    .run_speed_test(&fingerprint).await?;
+```
+
+## Platform Detection
+
+### macOS
+Uses `diskutil` and `df` to detect APFS volumes and identify SSD/HDD types.
+
+### Linux
+Parses `/sys/block/` and `df` output for filesystem and disk type information.
+
+### Windows
+Uses PowerShell cmdlets for volume enumeration (implementation pending).
+
+### Cloud Storage
+
+Uses OpenDAL for unified cloud service integration. Credentials are encrypted with library keys and stored securely in the OS keyring.
+
+#### Supported Cloud Services
+
+Fully integrated and tested:
+- **S3 and Compatible** - Amazon S3, Cloudflare R2, MinIO, Wasabi, Backblaze B2, DigitalOcean Spaces
+
+Implemented with OpenDAL backend:
+- Google Drive
+- Dropbox
+- OneDrive
+- Google Cloud Storage
+- Azure Blob Storage
+
+Note: OAuth flow for consumer cloud services (Google Drive, Dropbox, OneDrive) requires manual credential setup. Native OAuth integration coming soon.
+
+#### Credential Security
+
+Cloud credentials are:
+- Encrypted with library-specific keys using XChaCha20-Poly1305
+- Stored in OS keyring (Keychain on macOS, Credential Manager on Windows, Secret Service on Linux)
+- Never written to disk in plaintext
+- Automatically deleted when volumes are removed
+
+## Configuration
+
+```rust
+let config = VolumeDetectionConfig {
+    include_system: false,     // Skip system volumes
+    include_virtual: false,    // Skip virtual filesystems
+    refresh_interval_secs: 30, // Monitor interval
+};
+
+let volume_manager = VolumeManager::new(device_id, config, event_bus);
+```
+
+### Cloud Volume Configuration
+
+Cloud volumes require service-specific configuration:
+
+```rust
+// S3-compatible services
+CloudStorageConfig::S3 {
+    bucket: "bucket-name".to_string(),
+    region: "us-west-2".to_string(),
+    access_key_id: "key".to_string(),
+    secret_access_key: "secret".to_string(),
+    endpoint: Some("https://custom-endpoint.com".to_string()), // Optional
+}
+```
+
+The `endpoint` parameter enables use of S3-compatible services:
+- Cloudflare R2: `https://<account>.r2.cloudflarestorage.com`
+- MinIO: `http://localhost:9000` or your server URL
+- Wasabi: `https://s3.<region>.wasabisys.com`
+- Backblaze B2: `https://s3.<region>.backblazeb2.com`
+- DigitalOcean Spaces: `https://<region>.digitaloceanspaces.com`
+
+## Error Handling
+
+```rust
+match volume_manager.track_volume(&library, &fingerprint, None).await {
+    Ok(tracked) => {
+        println!("Volume tracked: {}", tracked.display_name.unwrap_or_default());
+    }
+    Err(VolumeError::NotFound(fp)) => {
+        // Volume no longer available
+    }
+    Err(VolumeError::Platform(msg)) => {
+        // Platform-specific error
+    }
+    Err(VolumeError::Database(msg)) => {
+        // Database operation failed
+    }
+}
+```
+
+### Cloud-Specific Errors
+
+Cloud volumes may encounter additional error conditions:
+
+```rust
+use sd_core::crypto::cloud_credentials::CloudCredentialError;
+
+match credential_manager.get_credential(library_id, &fingerprint) {
+    Ok(cred) => { /* Use credentials */ }
+    Err(CloudCredentialError::NotFound(lib_id, fp)) => {
+        // Credentials not found - volume may have been removed
+    }
+    Err(CloudCredentialError::Keyring(e)) => {
+        // OS keyring access failed
+    }
+    Err(CloudCredentialError::Decryption(e)) => {
+        // Credential decryption failed - may need re-authentication
+    }
+}
+```
+
+## Best Practices
+
+### Performance
+- Cache volume lookups for hot paths
+- Use COW or server-side operations when available
+- Check space before large operations
+- For cloud: Use ranged reads for metadata extraction
+
+### User Experience
+- Show tracking prompts for new external drives
+- Display volume capacity and network status in the UI
+- Allow custom naming and organization
+- Show cloud sync status and quota information
+
+### Reliability
+- Handle disconnections gracefully (especially for cloud)
+- Validate fingerprints before operations
+- Monitor available space and network connectivity
+- Implement retry logic for transient cloud errors
+
+### Security
+- Store cloud credentials encrypted in OS keyring using XChaCha20-Poly1305
+- Use library-specific encryption keys for credential protection
+- Credentials are bound to both library ID and volume fingerprint
+- OAuth 2.0 with PKCE support planned for Google Drive, Dropbox, OneDrive
+- Never log credentials, tokens, or sensitive configuration
+- Automatic credential cleanup when volumes are removed
+
+## Common Patterns
+
+### Adding Locations
+
+When users add a location, suggest tracking its volume:
+
+```rust
+if let Some(volume) = volume_manager.volume_for_path(&location_path).await {
+    if !volume_manager.is_volume_tracked(&volume.fingerprint).await? {
+        // Prompt: "Track this volume for better performance?"
+    }
+}
+```
+
+### Space Checks
+
+Before large operations:
+
+```rust
+let required_bytes = calculate_operation_size();
+let volumes = volume_manager.volumes_with_space(required_bytes).await;
+
+if volumes.is_empty() {
+    return Err("Insufficient space on any volume");
+}
+```
+
+## Volume Statistics
+
+Tracked volumes maintain statistics:
+
+- Total files and directories
+- Read/write performance metrics (local) or API latency (cloud)
+- Last seen timestamp
+- Last sync timestamp (for cloud volumes)
+- User preferences (favorite, color, icon)
+
+These help users understand their storage usage and performance characteristics.
+
+## Content Deduplication Across Storage
+
+Spacedrive uses consistent content hashing across all storage backends:
+
+```rust
+// Same file gets same content hash regardless of location
+let local_hash = hash_file("/local/photo.jpg").await?;
+let cloud_hash = hash_file("s3://bucket/photo.jpg").await?;
+
+assert_eq!(local_hash, cloud_hash); // Same content = same hash
+```
+
+This enables true cross-storage deduplication:
+- Identify duplicates between local drives and cloud storage
+- Skip uploading files that already exist in cloud
+- Find files across all storage locations using content hash
+
+<Info>
+Large files (>100KB) use sample-based hashing, transferring only ~58KB for content identification regardless of file size. This makes cloud indexing efficient even on slow connections.
+</Info>

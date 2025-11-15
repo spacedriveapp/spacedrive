@@ -1,0 +1,62 @@
+---
+title: Library
+sidebarTitle: Library
+---
+
+Libraries are self-contained directories that store all your data, metadata, and thumbnails in one place. Each library lives in a single folder with a `.sdlibrary` extension. You can move libraries between machines, back them up to external drives, or share them with others by copying the directory. When you open a library, Spacedrive loads its database and configuration into memory and locks it to prevent corruption from concurrent access.
+
+## Structure
+
+Each library contains `library.json` for configuration and metadata, `database.db` for the SQLite database, and a `thumbnails/` directory with two-level sharding for performance. The thumbnails directory includes `metadata.json` for generation settings. A `.sdlibrary.lock` file appears when the library is open to prevent multiple processes from accessing it simultaneously.
+
+Future directories include `previews/` for full-size previews, `indexes/` for search indexes, and `exports/` for temporary exports.
+
+## Core Components
+
+The **LibraryManager** creates, opens, and discovers libraries on your system. Each active **Library** instance holds a database connection and loaded configuration. The **LibraryConfig** stores settings like thumbnail quality and sync preferences in `library.json`.
+
+## Working with Libraries
+
+Create a library with `create_library("My Photos", None)`. Omit the path to use your default libraries directory. Open an existing library with `open_library()` by providing its path. The manager checks for lock files and loads configuration before returning the instance.
+
+Scan your system for libraries with `scan_for_libraries()`. This searches common locations and returns metadata without opening each library.
+
+## Thumbnail Management
+
+Libraries store thumbnails using content-addressed storage with two-level directory sharding. Save thumbnails with `save_thumbnail()`, check existence with `has_thumbnail()`, and retrieve them with `get_thumbnail()`. Thumbnails organize automatically into subdirectories based on their content hash.
+
+## Configuration
+
+The `library.json` file stores all library settings:
+
+<ResponseField name="library.json" type="Configuration Object">
+  <Expandable title="properties">
+    <ResponseField name="version" type="number">
+      Schema version for compatibility
+    </ResponseField>
+    
+    <ResponseField name="id" type="string">
+      Unique UUID for the library
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Display name of the library
+    </ResponseField>
+    
+    <ResponseField name="settings" type="object">
+      User-configurable options including thumbnail quality and sync preferences
+    </ResponseField>
+    
+    <ResponseField name="statistics" type="object">
+      Cached counts and sizes for quick display
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Portability
+
+Self-contained libraries work immediately after copying to a new location with zero configuration. Copy the entire folder to create a complete backup. Store libraries on external drives, network shares, or cloud-synced folders for automatic backup.
+
+<Info>
+Future versions will add new directories for features like search indexes and version history without breaking existing libraries.
+</Info>

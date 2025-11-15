@@ -1,0 +1,89 @@
+/* Spacedrive V2 - Color System (matching V1) */
+
+:root {
+	/* Hue for dark theme */
+	--dark-hue: 235;
+
+	/* Sidebar colors (dark theme) - values only, no hsl() wrapper for Tailwind compatibility */
+	--color-sidebar: 235, 15%, 7%;
+	--color-sidebar-box: 235, 15%, 16%;
+	--color-sidebar-line: 235, 15%, 23%;
+	--color-sidebar-ink: 235, 15%, 92%;
+	--color-sidebar-ink-dull: 235, 10%, 70%;
+	--color-sidebar-ink-faint: 235, 10%, 55%;
+	--color-sidebar-divider: 235, 15%, 17%;
+	--color-sidebar-button: 235, 15%, 18%;
+	--color-sidebar-selected: 235, 15%, 24%;
+
+	/* Main app colors (dark theme) */
+	--color-app: 235, 15%, 13%;
+	--color-app-box: 235, 15%, 18%;
+	--color-app-overlay: 235, 15%, 16%;
+	--color-app-line: 235, 15%, 23%;
+	--color-app-frame: 235, 15%, 25%;
+
+	/* Accent color */
+	--color-accent: 220, 90%, 56%;
+
+	/* Text colors (ink) */
+	--color-ink: 235, 15%, 92%;
+	--color-ink-dull: 235, 10%, 70%;
+	--color-ink-faint: 235, 10%, 55%;
+
+	/* Menu colors (for dropdowns, context menus) */
+	--color-menu: 235, 15%, 13%;
+	--color-menu-line: 235, 15%, 23%;
+	--color-menu-hover: 235, 15%, 20%;
+	--color-menu-selected: 235, 15%, 24%;
+	--color-menu-shade: 235, 15%, 8%;
+	--color-menu-ink: 235, 15%, 92%;
+	--color-menu-faint: 235, 10%, 55%;
+}
+
+/* Top bar blur effect (macOS specific) */
+.top-bar-blur {
+	backdrop-filter: saturate(120%) blur(18px);
+}
+
+/* Window frame border (macOS) */
+.frame::before {
+	content: "";
+	pointer-events: none;
+	user-select: none;
+	position: absolute;
+	inset: 0px;
+	border-radius: inherit;
+	padding: 1px;
+	background: var(--color-app-frame);
+	mask: linear-gradient(black, black) content-box content-box,
+		linear-gradient(black, black);
+	mask-composite: xor;
+	-webkit-mask-composite: xor;
+	z-index: 9999;
+}
+
+/* Scrollbar styling */
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
+.no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+/* Fade mask for scrollable content */
+.mask-fade-out {
+	mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
+	-webkit-mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
+}
+
+/* Checkerboard pattern for transparent images */
+.checkerboard {
+	background-image: linear-gradient(45deg, #16161b 25%, transparent 25%),
+		linear-gradient(-45deg, #16161b 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, #16161b 75%),
+		linear-gradient(-45deg, transparent 75%, #16161b 75%);
+	background-size: 20px 20px;
+	background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}

@@ -1,0 +1,114 @@
+import { createContext, useContext, PropsWithChildren } from "react";
+
+/**
+ * Platform abstraction layer
+ *
+ * This allows the interface to remain platform-agnostic while providing
+ * platform-specific functionality like file pickers, native commands, etc.
+ */
+export type Platform = {
+	/** Platform discriminator */
+	platform: "web" | "tauri";
+
+	/** Open native directory picker dialog (Tauri only) */
+	openDirectoryPickerDialog?(opts?: {
+		title?: string;
+		multiple?: boolean;
+	}): Promise<string | string[] | null>;
+
+	/** Open native file picker dialog (Tauri only) */
+	openFilePickerDialog?(opts?: {
+		title?: string;
+		multiple?: boolean;
+	}): Promise<string | string[] | null>;
+
+	/** Save file picker dialog (Tauri only) */
+	saveFilePickerDialog?(opts?: {
+		title?: string;
+		defaultPath?: string;
+	}): Promise<string | null>;
+
+	/** Open a URL in the default browser */
+	openLink(url: string): void;
+
+	/** Show native confirmation dialog */
+	confirm(message: string, callback: (result: boolean) => void): void;
+
+	/** Convert a file path to a URL that can be loaded in the webview */
+	convertFileSrc?(filePath: string): string;
+
+	/** Reveal a file in the native file manager (Finder on macOS, Explorer on Windows, etc.) */
+	revealFile?(filePath: string): Promise<void>;
+
+	/** Get the physical path to a sidecar file */
+	getSidecarPath?(
+		libraryId: string,
+		contentUuid: string,
+		kind: string,
+		variant: string,
+		format: string
+	): Promise<string>;
+
+	/** Update native menu item states (Tauri only) */
+	updateMenuItems?(items: MenuItemState[]): Promise<void>;
+
+	/** Get the current library ID from platform state (Tauri global state) */
+	getCurrentLibraryId?(): Promise<string | null>;
+
+	/** Set the current library ID in platform state and sync to all windows (Tauri only) */
+	setCurrentLibraryId?(libraryId: string): Promise<void>;
+
+	/** Listen for library ID changes across all windows (Tauri only) */
+	onLibraryIdChanged?(callback: (libraryId: string) => void): Promise<() => void>;
+
+	/** Show a specific window type (Tauri only) */
+	showWindow?(window: any): Promise<void>;
+
+	/** Close a window by label (Tauri only) */
+	closeWindow?(label: string): Promise<void>;
+
+	/** Listen for window events (Tauri only) */
+	onWindowEvent?(event: string, callback: () => void): Promise<() => void>;
+
+	/** Get current window label (Tauri only) */
+	getCurrentWindowLabel?(): string;
+
+	/** Close current window (Tauri only) */
+	closeCurrentWindow?(): Promise<void>;
+
+	/** Get currently selected file IDs from platform state (Tauri only) */
+	getSelectedFileIds?(): Promise<string[]>;
+
+	/** Set selected file IDs in platform state and sync to all windows (Tauri only) */
+	setSelectedFileIds?(fileIds: string[]): Promise<void>;
+
+	/** Listen for selected file changes across all windows (Tauri only) */
+	onSelectedFilesChanged?(callback: (fileIds: string[]) => void): Promise<() => void>;
+};
+
+/** Menu item state for native menus */
+export interface MenuItemState {
+	/** Unique identifier for the menu item */
+	id: string;
+	/** Whether the menu item is enabled */
+	enabled: boolean;
+}
+
+const PlatformContext = createContext<Platform | undefined>(undefined);
+
+export function usePlatform(): Platform {
+	const ctx = useContext(PlatformContext);
+	if (!ctx) {
+		throw new Error(
+			"usePlatform must be used within a PlatformProvider. Make sure PlatformProvider is mounted above this component."
+		);
+	}
+	return ctx;
+}
+
+export function PlatformProvider({
+	platform,
+	children,
+}: PropsWithChildren<{ platform: Platform }>) {
+	return <PlatformContext.Provider value={platform}>{children}</PlatformContext.Provider>;
+}

@@ -1,0 +1,57 @@
+---
+title: UI Integration
+sidebarTitle: UI Integration
+---
+
+## Extending the Spacedrive Interface
+
+Extensions are not limited to background tasks and data processing; they can also add new elements to the Spacedrive user interface. This is done through a `ui_manifest.json` file that is packaged with your extension.
+
+This declarative approach allows extensions to add UI components without needing to write any frontend code. The Spacedrive application interprets this manifest and renders the appropriate UI elements.
+
+### `ui_manifest.json`
+
+Here is an example of what a `ui_manifest.json` file might look like for a Photos extension:
+
+```json
+{
+	"sidebar_sections": [
+		{
+			"id": "people",
+			"label": "People",
+			"icon": "assets/people_icon.png",
+			"query": "tags LIKE '#person:%'",
+			"render_type": "list"
+		}
+	],
+	"views": [
+		{
+			"id": "places_map",
+			"label": "Places",
+			"component": "map_view",
+			"data_source": "query:exif_gps"
+		}
+	]
+}
+```
+
+### Sidebar Sections
+
+You can add new sections to the main sidebar in Spacedrive. Each section is defined by:
+
+-   `id`: A unique identifier for the section.
+-   `label`: The text that will be displayed in the sidebar.
+-   `icon`: The path to an icon to be displayed next to the label.
+-   `query`: A VDFS query that provides the data for this section.
+-   `render_type`: The type of component to use for rendering the data (e.g., `list`, `grid`).
+
+### Views
+
+Views are custom UI components that can be displayed in the main content area. They are defined by:
+
+-   `id`: A unique identifier for the view.
+-   `label`: The title of the view.
+-   `component`: The name of a core-provided component to use for rendering (e.g., `map_view`).
+-   `data_source`: The source of the data for the view, which can be a VDFS query or another data source.
+
+By using these declarative UI components, extensions can provide a rich user experience that is consistent with the rest of the Spacedrive application.

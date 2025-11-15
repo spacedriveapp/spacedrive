@@ -1,0 +1,338 @@
+---
+title: Operations
+sidebarTitle: Operations
+---
+
+The operations system automatically generates type-safe Swift and TypeScript clients from Rust API definitions. Define your API once in Rust and get native clients for iOS, web, and desktop without manual synchronization.
+
+## How It Works
+
+The system uses compile-time type extraction to discover all operations and generate client code during the build process. This eliminates the traditional API boundary.
+
+### Define Operations
+
+Operations are either Actions (write) or Queries (read):
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CreateLibraryInput {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+pub struct CreateLibraryAction {
+	input: CreateLibraryInput
+	// action state can be held here
+}
+
+impl CoreAction for CreateLibraryAction {
+    type Input = CreateLibraryInput;
+    type Output = Library;
+
+    async fn validate(self, context: Arc<CoreContext>) -> Result<bool, ActionError> {
+    	// Check if the library already exists
+     	Ok(false)
+    }
+
+    async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
+      	// Create library and return it
+    }
+
+    async fn undo(self, context: Arc<CoreContext>) -> Result<bool, ActionError> {
+        // Undo this action
+    }
+}
+```
+
+### Register and Generate
+
+Register the operation with a single macro:
+
+```rust
+register_core_action!(CreateLibraryAction, "libraries.create");
+```
+
+The build process automatically:
+
+1. Extracts type information using Specta
+2. Generates Swift and TypeScript type definitions
+3. Creates native API methods for each client
+
+### Use Generated Clients
+
+Swift:
+
+```swift
+let library = try await spacedrive.libraries.create(
+    CreateLibraryInput(name: "My Library", description: nil)
+)
+```
+
+TypeScript:
+
+```typescript
+const library = await spacedrive.libraries.create({
+	name: "My Library",
+});
+```
+
+## Operation Types
+
+### Actions
+
+Actions modify state and typically return job receipts or updated entities:
+
+```rust
+pub trait LibraryAction {
+    type Input: Send + Sync + 'static;
+    type Output: Send + Sync + 'static;
+
+    fn from_input(input: Self::Input) -> Result<Self, String>;
+    fn execute(self, library: Arc<Library>, context: Arc<CoreContext>)
+        -> impl Future<Output = Result<Self::Output, ActionError>>;
+    fn action_kind(&self) -> &'static str;
+}
+```
+
+### Queries
+
+Queries retrieve data without side effects:
+
+```rust
+pub trait LibraryQuery {
+    type Input: Send + Sync + 'static;
+    type Output: Send + Sync + 'static;
+
+    fn from_input(input: Self::Input) -> QueryResult<Self>;
+    fn execute(self, context: Arc<CoreContext>, session: SessionContext)
+        -> impl Future<Output = QueryResult<Self::Output>>;
+}
+```
+
+## Type System
+
+All standard Rust types are supported through Specta:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct FileOperationResult {
+    pub succeeded: Vec<PathBuf>,
+    pub failed: HashMap<PathBuf, String>,
+    pub stats: OperationStats,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub enum OperationError {
+    NotFound(String),
+    PermissionDenied,
+    DiskFull { required: u64, available: u64 },
+}
+```
+
+<Note>
+	The `Type` derive is required for all types used in operations. This enables
+	Specta to extract type information for client generation.
+</Note>
+
+## Wire Protocol
+
+Operations use a consistent wire protocol:
+
+- Actions: `action:{category}.{operation}.input.v{version}`
+- Queries: `query:{scope}.{operation}.v{version}`
+
+Examples:
+
+- `action:files.copy.input`
+- `query:library.stats`
+
+## Adding Operations
+
+### 1. Create Input/Output Types
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SearchInput {
+    pub query: String,
+    pub filters: SearchFilters,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SearchResult {
+    pub items: Vec<SearchItem>,
+    pub total_count: u64,
+}
+```
+
+### 2. Implement the Operation
+
+For a query:
+
+```rust
+pub struct SearchQuery {
+    query: String,
+    filters: SearchFilters,
+    limit: u32,
+}
+
+impl LibraryQuery for SearchQuery {
+    type Input = SearchInput;
+    type Output = SearchResult;
+
+    fn from_input(input: Self::Input) -> QueryResult<Self> {
+        Ok(Self {
+            query: input.query,
+            filters: input.filters,
+            limit: input.limit,
+        })
+    }
+
+    async fn execute(self, context: Arc<CoreContext>, session: SessionContext)
+        -> QueryResult<Self::Output> {
+        // Perform search and return results
+    }
+}
+```
+
+### 3. Register It
+
+```rust
+register_library_query!(SearchQuery, "search");
+```
+
+### 4. Build and Use
+
+After building, the operation is available in all clients automatically.
+
+## iOS Integration
+
+The iOS app embeds the Rust core and communicates through FFI:
+
+```rust
+#[no_mangle]
+pub extern "C" fn handle_core_msg(
+    query: *const c_char,
+    callback: extern "C" fn(*mut c_void, *const c_char),
+    callback_data: *mut c_void,
+) {
+    // Parse JSON-RPC request
+    // Execute operation using same registry
+    // Return JSON response
+}
+```
+
+Swift calls through the FFI boundary using the generated types.
+
+## Code Generation Details
+
+### Build Process
+
+The build script runs during `cargo build`:
+
+```rust
+// build.rs
+fn main() {
+    generate_swift_api_code().expect("Failed to generate Swift code");
+}
+```
+
+### Type Extraction
+
+A binary extracts all registered operations:
+
+```rust
+// generate_swift_types binary
+fn main() {
+    let (operations, queries, types) = generate_spacedrive_api();
+
+    // Generate Swift code
+    let swift_types = specta_swift::Swift::new().export(&types)?;
+    let api_methods = generate_api_methods(&operations, &queries);
+
+    // Write to Swift package
+    fs::write("SpacedriveTypes.swift", swift_types)?;
+    fs::write("SpacedriveAPI.swift", api_methods)?;
+}
+```
+
+### Registration Internals
+
+The registration macros use inventory for compile-time collection:
+
+```rust
+inventory::submit! {
+    TypeExtractorEntry {
+        extractor: SearchQuery::extract_types,
+        identifier: "search",
+    }
+}
+```
+
+## Best Practices
+
+### Operation Design
+
+Keep operations focused with clear inputs and outputs. Use appropriate scopes (Library vs Core) based on whether the operation needs library context.
+
+### Type Design
+
+Flatten structures when possible and use Rust enums for variants. Document fields as comments flow through to generated code.
+
+### Error Handling
+
+Define specific error types for each operation:
+
+```rust
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub enum SearchError {
+    InvalidQuery(String),
+    IndexNotReady,
+    TooManyResults { max: u32, requested: u32 },
+}
+```
+
+### Performance
+
+For large result sets, consider pagination or streaming:
+
+```rust
+#[derive(Type)]
+pub struct PaginatedSearch {
+    pub query: String,
+    pub cursor: Option<String>,
+    pub limit: u32,
+}
+```
+
+## Advanced Features
+
+### Batch Operations
+
+```rust
+#[derive(Type)]
+pub struct BatchDeleteInput {
+    pub items: Vec<ItemIdentifier>,
+    pub skip_trash: bool,
+}
+```
+
+### Operation Metadata
+
+Operations can provide UI hints:
+
+```rust
+impl OperationMetadata for DeleteAction {
+    fn display_name() -> &'static str { "Delete Items" }
+    fn dangerous() -> bool { true }
+    fn confirmation_required() -> bool { true }
+}
+```
+
+<Tip>
+	Run `cargo run --bin generate_swift_types` to debug type extraction issues.
+	Check the generated files in
+	`packages/swift/Sources/SpacedriveClient/Generated/`.
+</Tip>
+
+The operations system eliminates manual API maintenance while providing type-safe, performant clients across all platforms.

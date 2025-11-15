@@ -1,0 +1,50 @@
+{
+	"name": "@sd/interface",
+	"version": "0.0.0",
+	"private": true,
+	"license": "GPL-3.0-only",
+	"main": "src/index.tsx",
+	"types": "src/index.tsx",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.tsx",
+		"./app": "./src/App.tsx",
+		"./styles.css": "./src/styles.css"
+	},
+	"scripts": {
+		"lint": "eslint src --cache",
+		"typecheck": "tsc -b"
+	},
+	"dependencies": {
+		"@phosphor-icons/react": "^2.1.0",
+		"@radix-ui/react-dialog": "^1.0.5",
+		"@radix-ui/react-dropdown-menu": "^2.0.6",
+		"@radix-ui/react-tooltip": "^1.0.7",
+		"@sd/assets": "workspace:*",
+		"@sd/ui": "workspace:*",
+		"@tanstack/react-query": "^5.90.7",
+		"@tanstack/react-query-devtools": "^5.90.2",
+		"@tanstack/react-virtual": "^3.13.12",
+		"@types/d3": "^7.4.3",
+		"class-variance-authority": "^0.7.0",
+		"clsx": "^2.0.0",
+		"d3": "^7.9.0",
+		"framer-motion": "^12.23.24",
+		"qrcode": "^1.5.4",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"react-hook-form": "^7.53.2",
+		"react-router-dom": "^6.20.1",
+		"rooks": "^9.3.0",
+		"sonner": "^1.0.3",
+		"tailwind-merge": "^1.14.0",
+		"zod": "^3.23",
+		"zustand": "^5.0.8",
+		"@sd/ts-client": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/react": "npm:types-react@rc",
+		"@types/react-dom": "npm:types-react-dom@rc",
+		"typescript": "^5.6.2"
+	}
+}

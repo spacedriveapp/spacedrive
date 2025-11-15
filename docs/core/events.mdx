@@ -1,0 +1,708 @@
+---
+title: Unified Resource Event System
+sidebarTitle: Events
+---
+
+**Status**: Implementation Ready
+**Version**: 2.0
+**Last Updated**: 2025-10-08
+
+## Overview
+
+Spacedrive's event system broadcasts real-time updates to all connected clients. This document specifies the **unified resource event architecture** that eliminates ~40 specialized event variants in favor of generic, horizontally-scalable events.
+
+## The Problem
+
+**Current system** (`core/src/infra/event/mod.rs` has 40+ variants):
+
+```rust
+Event::EntryCreated { library_id, entry_id }
+Event::EntryModified { library_id, entry_id }
+Event::VolumeAdded(Volume)
+Event::LibraryCreated { id, name, path }
+Event::JobStarted { job_id, job_type }
+// ... 35 more variants
+```
+
+**Issues**:
+
+- Manual emission scattered across codebase (easy to forget)
+- Adding new resource = new event variant + client code changes
+- No type safety between events and resources
+- Clients must handle each variant specifically
+- Horizontal scaling requires per-resource boilerplate
+
+## The Solution: Generic Resource Events
+
+All resources implementing `Identifiable` use a unified event structure. The TransactionManager emits these automatically.
+
+### Event Structure
+
+```rust
+/// Unified event wrapper
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct Event {
+    /// Standard metadata for all events
+    pub envelope: EventEnvelope,
+
+    /// The actual event payload
+    pub kind: EventKind,
+}
+
+/// Standard envelope (addresses TODO on line 353 of current event/mod.rs)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct EventEnvelope {
+    /// Event ID for deduplication
+    pub id: Uuid,
+
+    /// When this event occurred
+    pub timestamp: DateTime<Utc>,
+
+    /// Library context (if applicable)
+    pub library_id: Option<Uuid>,
+
+    /// Sequence number for ordering and gap detection
+    pub sequence: Option<u64&gt;,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(tag = "type", content = "data")]
+pub enum EventKind {
+    // ============================================
+    // GENERIC RESOURCE EVENTS (for Identifiable)
+    // ============================================
+
+    /// A resource was created or updated
+    ResourceChanged {
+        /// Resource type from Identifiable::resource_type (e.g., "file", "album")
+        resource_type: String,
+
+        /// The full resource as JSON (client deserializes generically)
+        #[specta(skip)]
+        resource: serde_json::Value,
+    },
+
+    /// Multiple resources changed in a batch
+    ResourceBatchChanged {
+        resource_type: String,
+        resources: Vec<serde_json::Value>,
+        operation: BatchOperation,
+    },
+
+    /// A resource was deleted
+    ResourceDeleted {
+        resource_type: String,
+        resource_id: Uuid,
+    },
+
+    /// Bulk operation completed (notification only, no individual resources)
+    BulkOperationCompleted {
+        resource_type: String,
+        affected_count: usize,
+        operation_token: Uuid,
+        hints: serde_json::Value, // location_id, etc.
+    },
+
+    // ============================================
+    // INFRASTRUCTURE EVENTS (not resources)
+    // ============================================
+
+    /// Core lifecycle
+    CoreStarted,
+    CoreShutdown,
+
+    /// Library lifecycle
+    LibraryOpened { id: Uuid, name: String },
+    LibraryClosed { id: Uuid },
+
+    /// Job status (not a domain resource)
+    Job {
+        job_id: String,
+        status: JobStatus,
+        progress: Option<f64&gt;,
+        message: Option<String>,
+        generic_progress: Option<GenericProgress>,
+    },
+
+    /// Raw filesystem changes (before DB resolution)
+    FsRawChange { kind: FsRawEventKind },
+
+    /// Log streaming
+    LogMessage {
+        timestamp: DateTime<Utc>,
+        level: String,
+        target: String,
+        message: String,
+        job_id: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub enum BatchOperation {
+    Index,
+    Search,
+    Update,
+    WatcherBatch,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub enum JobStatus {
+    Queued,
+    Started,
+    Progress,
+    Completed { output: JobOutput },
+    Failed { error: String },
+    Cancelled,
+    Paused,
+    Resumed,
+}
+```
+
+## TransactionManager Integration
+
+The TM automatically emits events after successful commits:
+
+```rust
+impl TransactionManager {
+    /// Emit resource changed event (automatic)
+    fn emit_resource_changed<R: Identifiable + Serialize>(
+        &self,
+        library_id: Uuid,
+        resource: &R,
+    ) {
+        let event = Event {
+            envelope: EventEnvelope {
+                id: Uuid::new_v4(),
+                timestamp: Utc::now(),
+                library_id: Some(library_id),
+                sequence: None,
+            },
+            kind: EventKind::ResourceChanged {
+                resource_type: R::resource_type().to_string(),
+                resource: serde_json::to_value(resource).unwrap(),
+            },
+        };
+
+        self.event_bus.emit(event);
+    }
+
+    /// Commit automatically emits
+    pub async fn commit<M, R>(
+        &self,
+        library: Arc<Library>,
+        model: M,
+    ) -> Result<R, TxError>
+    where
+        M: Syncable + IntoActiveModel,
+        R: Identifiable + From<M>,
+    {
+        // 1. Atomic transaction (DB + sync log)
+        let saved_model = /* ... */;
+
+        // 2. Convert to client resource
+        let resource = R::from(saved_model);
+
+        // 3. Emit automatically
+        self.emit_resource_changed(library.id(), &resource);
+
+        Ok(resource)
+    }
+}
+```
+
+**Result**: Application code never calls `event_bus.emit()` manually!
+
+## Client-Side: Zero-Friction Event Handling
+
+The true power is realized on the client through **type registries**.
+
+### Swift Implementation
+
+```swift
+// ===================================================
+// ONE-TIME SETUP: Type registry (auto-maintained)
+// ===================================================
+
+protocol CacheableResource: Identifiable, Codable {
+    static var resourceType: String { get }
+}
+
+class ResourceTypeRegistry {
+    private static var decoders: [String: (Data) throws -> any CacheableResource] = [:]
+
+    static func register<T: CacheableResource>(_ type: T.Type) {
+        decoders[T.resourceType] = { data in
+            try JSONDecoder().decode(T.self, from: data)
+        }
+    }
+
+    static func decode(resourceType: String, from data: Data) throws -> any CacheableResource {
+        guard let decoder = decoders[resourceType] else {
+            throw CacheError.unknownResourceType(resourceType)
+        }
+        return try decoder(data)
+    }
+}
+
+// Register types (auto-generated via specta codegen)
+extension File: CacheableResource { static let resourceType = "file" }
+extension Album: CacheableResource { static let resourceType = "album" }
+extension Tag: CacheableResource { static let resourceType = "tag" }
+extension Location: CacheableResource { static let resourceType = "location" }
+// Add 100 more: event handler NEVER changes!
+
+// ===================================================
+// PERMANENT: Generic event handler
+// THIS CODE NEVER CHANGES WHEN ADDING NEW RESOURCES!
+// ===================================================
+
+actor EventCacheUpdater {
+    let cache: NormalizedCache
+
+    func handleEvent(_ event: Event) async {
+        switch event.kind {
+        case .ResourceChanged(let resourceType, let resourceJSON):
+            do {
+                // Works for ALL current and future resources!
+                let resource = try ResourceTypeRegistry.decode(
+                    resourceType: resourceType,
+                    from: resourceJSON
+                )
+                await cache.updateEntity(resource)
+            } catch {
+                print("Failed to decode \(resourceType): \(error)")
+            }
+
+        case .ResourceBatchChanged(let resourceType, let resourcesJSON, _):
+            // Generic batch handling
+            let resources = resourcesJSON.compactMap { json in
+                try? ResourceTypeRegistry.decode(resourceType: resourceType, from: json)
+            }
+            for resource in resources {
+                await cache.updateEntity(resource)
+            }
+
+        case .BulkOperationCompleted(let resourceType, let count, _, let hints):
+            // Invalidate affected queries
+            print("Bulk operation: \(count) \(resourceType) items")
+            await cache.invalidateQueriesForResource(resourceType, hints: hints)
+
+        case .ResourceDeleted(let resourceType, let resourceId):
+            // Generic deletion
+            await cache.deleteEntity(resourceType: resourceType, id: resourceId)
+
+        // Infrastructure events
+        case .Job(let jobId, let status, let progress, _):
+            await cache.updateJobStatus(jobId: jobId, status: status, progress: progress)
+
+        default:
+            break
+        }
+    }
+}
+```
+
+**Key Achievement**: Adding a 101st resource requires **zero changes** to event handling!
+
+### TypeScript Implementation
+
+```typescript
+// ===================================================
+// Auto-generated by: cargo run --bin specta-gen
+// ===================================================
+
+// src/bindings/resourceRegistry.ts
+import { File } from "./File";
+import { Album } from "./Album";
+import { Tag } from "./Tag";
+import { Location } from "./Location";
+
+export const resourceTypeMap = {
+	file: File,
+	album: Album,
+	tag: Tag,
+	location: Location,
+	// ... all Identifiable types
+} as const;
+
+// ===================================================
+// PERMANENT: Generic event handler (never changes!)
+// ===================================================
+
+export class EventCacheUpdater {
+	constructor(private cache: NormalizedCache) {}
+
+	handleEvent(event: Event) {
+		switch (event.kind.type) {
+			case "ResourceChanged": {
+				const { resource_type, resource } = event.kind.data;
+
+				// Generic decode via auto-generated registry!
+				const decoded = ResourceTypeRegistry.decode(resource_type, resource);
+				this.cache.updateEntity(resource_type, decoded);
+				break;
+			}
+
+			case "ResourceBatchChanged": {
+				const { resource_type, resources } = event.kind.data;
+				resources.forEach((r) => {
+					const decoded = ResourceTypeRegistry.decode(resource_type, r);
+					this.cache.updateEntity(resource_type, decoded);
+				});
+				break;
+			}
+
+			case "BulkOperationCompleted": {
+				const { resource_type, hints } = event.kind.data;
+				this.cache.invalidateQueries(resource_type, hints);
+				break;
+			}
+
+			case "ResourceDeleted": {
+				const { resource_type, resource_id } = event.kind.data;
+				this.cache.deleteEntity(resource_type, resource_id);
+				break;
+			}
+		}
+	}
+}
+
+// ===================================================
+// Generic type registry
+// ===================================================
+
+class ResourceTypeRegistry {
+	private static validators = new Map<string, (data: unknown) => any>();
+
+	static register<T>(resourceType: string, validator: (data: unknown) => T) {
+		this.validators.set(resourceType, validator);
+	}
+
+	static decode(resourceType: string, data: unknown): any {
+		const validator = this.validators.get(resourceType);
+		if (!validator) {
+			throw new Error(`Unknown resource type: ${resourceType}`);
+		}
+		return validator(data);
+	}
+}
+
+// Auto-registration from generated map
+Object.entries(resourceTypeMap).forEach(([type, TypeClass]) => {
+	ResourceTypeRegistry.register(
+		type,
+		(data) => data as InstanceType<typeof TypeClass>,
+	);
+});
+```
+
+## Specta Codegen Integration
+
+Spacedrive uses `specta` to generate TypeScript types from Rust. This extends to the event system:
+
+### Rust: Mark Types for Export
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Type)] // Type = specta
+pub struct Album {
+    pub id: Uuid,
+    pub name: String,
+    pub cover_entry_uuid: Option<Uuid>,
+}
+
+impl Identifiable for Album {
+    type Id = Uuid;
+    fn resource_id(&self) -> Self::Id { self.id }
+    fn resource_type() -> &'static str { "album" }
+}
+```
+
+### Build Script
+
+```rust
+// xtask/src/specta_gen.rs
+fn main() {
+    let mut builder = TypeCollection::default();
+
+    // Export all Identifiable types
+    builder.register::<File>();
+    builder.register::<Album>();
+    builder.register::<Tag>();
+    builder.register::<Location>();
+
+    // Auto-generate resourceRegistry.ts
+    generate_resource_registry(&builder);
+
+    // Generate types
+    builder.export_ts("../packages/client/src/bindings/").unwrap();
+}
+```
+
+**Result**: Run `cargo xtask specta-gen` → TypeScript types + registry auto-update!
+
+## Migration Strategy
+
+### Phase 1: Additive (No Breaking Changes)
+
+- Keep all existing Event variants
+- Add new `ResourceChanged`, `ResourceBatchChanged`, etc.
+- TransactionManager emits new events
+- Old manual emissions still work
+- Clients can gradually adopt new events
+
+### Phase 2: Parallel Systems
+
+- New resources (Albums) use unified events only
+- Existing resources (Files, Tags) emit both old and new
+- Clients migrate to new event handlers one resource at a time
+- Measure: No regressions in UI responsiveness
+
+### Phase 3: Deprecation
+
+- Mark old variants as `#[deprecated]`
+- Remove manual `event_bus.emit()` calls from ops
+- Clients fully migrated to generic handlers
+
+### Phase 4: Cleanup
+
+- Remove old event variants
+- Codegen verification: All Identifiable types have registry entries
+- Performance testing: Ensure no regression
+
+## Event Emission Guidelines
+
+### DO: Let TransactionManager Handle It
+
+```rust
+// CORRECT: TM emits automatically
+pub async fn create_album(tm: &TransactionManager, library: Arc<Library>, name: String) -> Result<Album> {
+    let model = albums::ActiveModel { /* ... */ };
+    let album = tm.commit::<albums::Model, Album>(library, model).await?;
+    Ok(album) // Event emitted automatically!
+}
+```
+
+### DON'T: Manual Event Emission
+
+```rust
+// WRONG: Manual emission (error-prone, bypasses sync)
+pub async fn create_album(library: Arc<Library>, name: String) -> Result<Album> {
+    let model = albums::ActiveModel { /* ... */ };
+    model.insert(db).await?; // No sync log!
+
+    event_bus.emit(Event::AlbumCreated { /* ... */ }); // Can forget this!
+
+    Ok(album)
+}
+```
+
+## Event Types by Category
+
+### Resource Events (Automatic via TM)
+
+- `ResourceChanged` - Single create/update
+- `ResourceBatchChanged` - Batch updates (10-1K items)
+- `ResourceDeleted` - Single deletion
+- `BulkOperationCompleted` - Bulk notification (1K+ items)
+
+**Resources**:
+
+- File (from Entry persistence model)
+- Album
+- Tag
+- Location
+- Device
+- ContentIdentity
+- Sidecar
+- Collection
+- Label
+
+### Infrastructure Events (Manual, Specific)
+
+- `CoreStarted`, `CoreShutdown` - Daemon lifecycle
+- `LibraryOpened`, `LibraryClosed` - Library state
+- `Job { status, progress }` - Job execution
+- `FsRawChange` - Watcher events (pre-database)
+- `LogMessage` - Log streaming
+
+## Complete Example: Album Creation
+
+### Rust Core
+
+```rust
+// ops/albums/create/action.rs
+impl LibraryAction for CreateAlbumAction {
+    async fn execute(
+        self,
+        library: Arc<Library>,
+        context: Arc<CoreContext>,
+    ) -> Result<Self::Output, ActionError> {
+        let tm = context.transaction_manager();
+
+        let model = albums::ActiveModel {
+            id: NotSet,
+            uuid: Set(Uuid::new_v4()),
+            name: Set(self.input.name),
+            version: Set(1),
+            created_at: Set(Utc::now()),
+            updated_at: Set(Utc::now()),
+        };
+
+        // TM handles: DB write + sync log + event emission
+        let album = tm.commit::<albums::Model, Album>(library, model)
+            .await
+            .map_err(|e| ActionError::Internal(e.to_string()))?;
+
+        Ok(CreateAlbumOutput { album })
+    }
+}
+
+// domain/album.rs
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct Album {
+    pub id: Uuid,
+    pub name: String,
+    pub cover_entry_uuid: Option<Uuid>,
+}
+
+impl Identifiable for Album {
+    type Id = Uuid;
+    fn resource_id(&self) -> Self::Id { self.id }
+    fn resource_type() -> &'static str { "album" }
+}
+
+impl From<albums::Model> for Album {
+    fn from(model: albums::Model) -> Self {
+        Self {
+            id: model.uuid,
+            name: model.name,
+            cover_entry_uuid: model.cover_entry_uuid,
+        }
+    }
+}
+```
+
+### Swift Client
+
+```swift
+// NO RESOURCE-SPECIFIC CODE NEEDED!
+// The generic handler already works:
+
+// User taps "Create Album"
+try await client.action("albums.create", input: ["name": "Vacation 2025"])
+
+// Event arrives:
+// Event {
+//   envelope: { id, timestamp, library_id, sequence },
+//   kind: ResourceChanged {
+//     resource_type: "album",
+//     resource: { "id": "uuid-...", "name": "Vacation 2025" }
+//   }
+// }
+
+// Generic handler processes it:
+let resource = try ResourceTypeRegistry.decode("album", from: resourceJSON)
+await cache.updateEntity(resource)
+
+// SwiftUI view updates automatically!
+```
+
+## Performance
+
+### Bandwidth
+
+**Single update**:
+
+- Album resource: ~200 bytes JSON
+- File resource: ~500 bytes JSON
+- Overhead: ~100 bytes (envelope)
+- Total: &lt;1KB per event
+
+**Bulk operation**:
+
+- Metadata only: ~500 bytes
+- NO individual resources sent
+- Client invalidates queries, refetches on demand
+
+### Event Bus Capacity
+
+- Tokio broadcast channel: 1024 event buffer (configurable)
+- Slow subscribers lag detection
+- No blocking on emit (fire-and-forget)
+
+## Testing
+
+### Unit Tests
+
+```rust
+#[tokio::test]
+async fn test_resource_changed_emission() {
+    let event_bus = EventBus::new(100);
+    let mut subscriber = event_bus.subscribe();
+
+    let tm = TransactionManager::new(event_bus.clone());
+
+    // Commit should emit ResourceChanged
+    let album = tm.commit::<albums::Model, Album>(library, model).await.unwrap();
+
+    let event = subscriber.recv().await.unwrap();
+    match event.kind {
+        EventKind::ResourceChanged { resource_type, resource } => {
+            assert_eq!(resource_type, "album");
+            let decoded: Album = serde_json::from_value(resource).unwrap();
+            assert_eq!(decoded.id, album.id);
+        }
+        _ => panic!("Wrong event type"),
+    }
+}
+```
+
+### Integration Tests
+
+- Create resource on Device A → Event emitted
+- Device B receives sync entry → Event emitted locally
+- Client cache updates → UI reflects change
+
+## Migration Checklist
+
+- [ ] Implement new Event enum with EventEnvelope
+- [ ] Update TransactionManager to emit ResourceChanged
+- [ ] Create ResourceTypeRegistry for Swift
+- [ ] Create ResourceTypeRegistry for TypeScript
+- [ ] Update specta codegen to generate registry
+- [ ] Migrate Albums to unified events
+- [ ] Migrate Tags to unified events
+- [ ] Migrate Locations to unified events
+- [ ] Migrate Files to unified events
+- [ ] Remove old event variants
+- [ ] Remove manual event_bus.emit() calls
+
+## Benefits Summary
+
+### Rust Core
+
+- Zero manual event emission
+- 40 variants → 5 generic variants
+- Type-safe: Events always match resources
+- Centralized: All emission in TransactionManager
+
+### Clients
+
+- Zero switch statements per resource
+- Type registry handles all deserialization
+- Auto-generated via specta
+- Add 100 resources: zero event handling changes
+
+### Maintenance
+
+- Less code: ~2000 lines eliminated
+- No forgetting: TM always emits
+- Consistent: Same pattern everywhere
+- Scalable: Horizontal scaling achieved
+
+## References
+
+- **Sync System**: `docs/core/sync.md`
+- **Client Cache**: `docs/core/normalized_cache.md`
+- **Current Implementation**: `core/src/infra/event/mod.rs`
+- **Design Details**: `docs/core/design/sync/UNIFIED_RESOURCE_EVENTS.md`

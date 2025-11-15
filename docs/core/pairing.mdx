@@ -1,0 +1,454 @@
+---
+title: Device Pairing
+sidebarTitle: Device Pairing
+---
+
+Device pairing establishes trust between Spacedrive instances using cryptographic signatures and user-friendly codes. Once paired, devices can communicate securely and share data directly.
+
+## How Pairing Works
+
+Pairing uses a 12-word code to create a secure connection between two devices. The initiator generates the code, and the joiner enters it to establish trust.
+
+### The Pairing Code
+
+Instead of complex cryptographic hashes, Spacedrive uses BIP39 mnemonic codes:
+
+```
+brave-lion-sunset-river-eagle-mountain-forest-ocean-thunder-crystal-diamond-phoenix
+```
+
+These codes are:
+
+- Easy to read and type
+- Contain 128 bits of entropy
+- Valid for 5 minutes
+- Never reused
+
+### Security Model
+
+The pairing protocol provides multiple security guarantees:
+
+**Authentication**: Devices prove their identity using Ed25519 signatures
+**Confidentiality**: All communication encrypted with session keys
+**Integrity**: Challenge-response prevents tampering
+**Forward secrecy**: New keys for each session
+
+## Pairing Process
+
+### For the Initiator
+
+<Steps>
+<Step title="Generate Code">
+Call the pairing API to generate a code:
+```typescript
+const code = await client.action("network.pair.generate", {});
+console.log(`Share this code: ${code.code}`);
+```
+</Step>
+
+<Step title="Wait for Connection">
+	The device advertises on the network and waits for a joiner. The code expires
+	after 5 minutes.
+</Step>
+
+<Step title="Verify Joiner">
+	When a joiner connects, the initiator sends a cryptographic challenge to
+	verify they have the correct code.
+</Step>
+
+<Step title="Complete Pairing">
+After verification, both devices exchange session keys and save the pairing relationship.
+</Step>
+</Steps>
+
+### For the Joiner
+
+<Steps>
+<Step title="Enter Code">
+Enter the 12-word code from the initiator:
+```typescript
+await client.action("network.pair.join", {
+    code: "brave-lion-sunset-..."
+});
+```
+</Step>
+
+<Step title="Discover Device">
+	The system searches for the initiator using: - Local network discovery (mDNS)
+	- Internet discovery (DHT lookup) - Relay servers (if needed)
+</Step>
+
+<Step title="Prove Identity">
+	Sign a challenge from the initiator to prove you have the code and own your
+	device keys.
+</Step>
+
+<Step title="Save Relationship">
+Store the paired device information and session keys for future communication.
+</Step>
+</Steps>
+
+## Technical Architecture
+
+### Protocol Messages
+
+The pairing protocol uses four message types:
+
+```rust
+pub enum PairingMessage {
+    // Joiner → Initiator: "I want to pair"
+    PairingRequest {
+        session_id: Uuid,
+        device_info: DeviceInfo,
+        public_key: Vec<u8>,
+    },
+
+    // Initiator → Joiner: "Prove you have the code"
+    Challenge {
+        session_id: Uuid,
+        challenge: Vec<u8>,  // 32 random bytes
+        device_info: DeviceInfo,
+    },
+
+    // Joiner → Initiator: "Here's my signature"
+    Response {
+        session_id: Uuid,
+        response: Vec<u8>,   // 64-byte Ed25519 signature
+        device_info: DeviceInfo,
+    },
+
+    // Initiator → Joiner: "Pairing complete"
+    Complete {
+        session_id: Uuid,
+        success: bool,
+        reason: Option<String>,
+    },
+}
+```
+
+### State Machine
+
+The PairingProtocolHandler manages session state:
+
+```rust
+pub enum PairingState {
+    // Initiator states
+    WaitingForConnection,    // Code generated, waiting
+    ChallengeIssued,        // Sent challenge to joiner
+
+    // Joiner states
+    Connecting,             // Looking for initiator
+    ChallengeReceived,      // Got challenge, signing
+
+    // Terminal states
+    Completed,              // Success!
+    Failed(String),         // Something went wrong
+}
+```
+
+### Session Management
+
+Each pairing attempt creates a session:
+
+```rust
+pub struct PairingSession {
+    session_id: Uuid,           // Derived from code
+    state: PairingState,        // Current state
+    remote_device: Option<DeviceInfo>,
+    created_at: SystemTime,
+    expires_at: SystemTime,     // 5 minutes later
+}
+```
+
+<Warning>
+	Sessions expire after 5 minutes. Users must complete pairing within this time
+	window.
+</Warning>
+
+## Discovery Mechanisms
+
+Devices find each other through multiple methods:
+
+### Local Network (mDNS)
+
+On the same network, devices discover each other instantly:
+
+```rust
+// Automatic local discovery
+discovery.add_mdns();
+
+// Broadcasts: "I'm pairing with session X"
+// Listens for: "I have session X"
+```
+
+### Internet (DHT)
+
+For pairing across networks, devices use a distributed hash table:
+
+```rust
+// Publish to DHT
+let key = session_id.to_bytes();
+let record = PairingAdvertisement {
+    device_info,
+    addresses: endpoint.my_addresses(),
+};
+dht.put_record(key, record);
+
+// Query DHT
+let addresses = dht.get_record(session_id).await?;
+```
+
+### Relay Servers
+
+When direct connection fails, devices connect through relay servers:
+
+```rust
+// Automatic relay fallback
+if direct_connection_failed {
+    connection = relay.connect(remote_id).await?;
+}
+```
+
+<Info>
+	Relay servers only forward encrypted traffic. They cannot read your data or
+	compromise security.
+</Info>
+
+## Cryptographic Details
+
+### Challenge-Response Authentication
+
+The challenge-response prevents replay attacks and verifies device identity:
+
+```rust
+// Initiator generates challenge
+let challenge = rand::thread_rng().gen::<[u8; 32]>();
+
+// Joiner signs challenge
+let signature = signing_key.sign(&challenge);
+
+// Initiator verifies signature
+let valid = verifying_key.verify(&challenge, &signature).is_ok();
+```
+
+### Key Derivation
+
+Session keys are derived from the pairing code and device identities:
+
+```rust
+// Derive shared secret from pairing code
+let shared_secret = hkdf::extract(
+    &pairing_code.secret,
+    &[initiator_id, joiner_id].concat()
+);
+
+// Generate session keys
+let (tx_key, rx_key) = hkdf::expand(
+    &shared_secret,
+    b"spacedrive-session-keys",
+    64
+);
+```
+
+### Transport Security
+
+All pairing communication uses encrypted channels:
+
+1. **QUIC encryption**: TLS 1.3 at transport layer
+2. **Application encryption**: Additional layer using session keys
+3. **Perfect forward secrecy**: New keys each session
+
+## Error Handling
+
+### Common Errors
+
+```rust
+pub enum PairingError {
+    // User errors
+    InvalidCode,            // Wrong or malformed code
+    CodeExpired,           // Took too long
+
+    // Network errors
+    DeviceNotFound,        // Can't find initiator
+    ConnectionFailed,      // Network issues
+
+    // Security errors
+    InvalidSignature,      // Challenge verification failed
+    UntrustedDevice,       // Device key mismatch
+
+    // State errors
+    SessionNotFound,       // Unknown session ID
+    InvalidState,          // Wrong state transition
+}
+```
+
+### Recovery Strategies
+
+**Invalid code**: Check spelling, ensure correct code
+**Connection failed**: Check network, firewall settings
+**Timeout**: Generate new code and try again
+**Signature failed**: Restart both applications
+
+## Implementation Guide
+
+### Starting Pairing (Initiator)
+
+```rust
+// High-level API
+pub async fn start_pairing_as_initiator(
+    &self
+) -> Result<PairingCode> {
+    // Generate secure code
+    let code = PairingCode::generate();
+    let session_id = code.derive_session_id();
+
+    // Create session
+    let session = PairingSession::new_initiator(session_id);
+    self.sessions.insert(session_id, session);
+
+    // Advertise on network
+    self.advertise_pairing(session_id).await?;
+
+    Ok(code)
+}
+```
+
+### Joining Pairing (Joiner)
+
+```rust
+// High-level API
+pub async fn start_pairing_as_joiner(
+    &self,
+    code: &str
+) -> Result<()> {
+    // Parse and validate code
+    let pairing_code = PairingCode::from_str(code)?;
+    let session_id = pairing_code.derive_session_id();
+
+    // Create session
+    let session = PairingSession::new_joiner(session_id);
+    self.sessions.insert(session_id, session);
+
+    // Find and connect to initiator
+    let initiator = self.discover_initiator(session_id).await?;
+    self.connect_and_pair(initiator, session_id).await?;
+
+    Ok(())
+}
+```
+
+### Handling Protocol Messages
+
+```rust
+impl PairingProtocolHandler {
+    async fn handle_message(
+        &mut self,
+        msg: PairingMessage,
+        peer_id: PeerId,
+    ) -> Result<()> {
+        match msg {
+            PairingMessage::PairingRequest { .. } => {
+                self.handle_pairing_request(..);
+            }
+            PairingMessage::Challenge { .. } => {
+                self.handle_challenge(..);
+            }
+            PairingMessage::Response { .. } => {
+                self.handle_response(..);
+            }
+            PairingMessage::Complete { .. } => {
+                self.handle_complete(..);
+            }
+        }
+    }
+}
+```
+
+## Testing Pairing
+
+### Unit Tests
+
+```rust
+#[test]
+fn test_pairing_code_generation() {
+    let code = PairingCode::generate();
+    assert_eq!(code.words.len(), 12);
+    assert!(code.is_valid());
+}
+
+#[test]
+fn test_challenge_response() {
+    let (signing_key, verifying_key) = generate_keypair();
+    let challenge = generate_challenge();
+
+    let signature = signing_key.sign(&challenge);
+    assert!(verifying_key.verify(&challenge, &signature).is_ok());
+}
+```
+
+### Integration Tests
+
+```rust
+#[tokio::test]
+async fn test_full_pairing_flow() {
+    // Start initiator
+    let code = initiator.start_pairing_as_initiator().await?;
+
+    // Join with code
+    joiner.start_pairing_as_joiner(&code.to_string()).await?;
+
+    // Verify both paired
+    assert!(initiator.is_paired_with(joiner.device_id()));
+    assert!(joiner.is_paired_with(initiator.device_id()));
+}
+```
+
+## Best Practices
+
+### For Users
+
+1. **Share codes securely**: Use encrypted messaging or voice calls
+2. **Complete quickly**: Codes expire in 5 minutes
+3. **Verify device names**: Check the paired device is correct
+4. **One code at a time**: Cancel old attempts before starting new ones
+
+### For Developers
+
+1. **Handle all states**: Account for every possible state transition
+2. **Clean up sessions**: Remove expired sessions promptly
+3. **Log failures**: Record why pairing failed for debugging
+4. **Test edge cases**: Network failures, timeouts, wrong codes
+
+## Troubleshooting
+
+### Pairing Fails Immediately
+
+Check:
+
+- Both devices have network connectivity
+- Firewalls allow Spacedrive traffic
+- System time is roughly correct (within 5 minutes)
+
+### Cannot Find Device
+
+Try:
+
+- Ensuring both devices are online
+- Checking they're on compatible networks
+- Using relay servers if behind strict NATs
+- Generating a fresh code
+
+### Code Invalid or Expired
+
+Solutions:
+
+- Double-check spelling of all 12 words
+- Ensure code was entered within 5 minutes
+- Generate new code if expired
+- Check for typos in word order
+
+## Related Documentation
+
+- [Networking](/docs/core/networking) - Network transport details
+- [Devices](/docs/core/devices) - Device management system
+- [Security](/docs/core/security) - Cryptographic architecture

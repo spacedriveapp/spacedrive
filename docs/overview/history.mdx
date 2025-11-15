@@ -1,0 +1,293 @@
+---
+title: Spacedrive - A Historical Chronicle
+sidebarTitle: History
+---
+
+## Table of Contents
+
+1. [Introduction](#introduction)
+2. [Origins (2021-2022)](#origins-2021-2022)
+3. [Open Source Launch (May 2022)](#open-source-launch-may-2022)
+4. [Seed Funding (2022-2023)](#seed-funding-2022-2023)
+5. [Technical Architecture V1](#technical-architecture-v1)
+6. [Community Growth](#community-growth)
+7. [Why V1 Failed](#why-v1-failed)
+8. [V2 Rewrite (2025)](#v2-rewrite-2025)
+9. [Development Approach](#development-approach)
+10. [Lessons Learned](#lessons-learned)
+11. [Future Direction](#future-direction)
+
+## Introduction
+
+Spacedrive is a cross-platform file manager built to unify file access across devices and cloud services. This document tracks the project's evolution from initial development through its V1 challenges and V2 rewrite.
+
+## Origins (2021-2022)
+
+Started in early 2021 as a personal project to solve file fragmentation across devices and cloud services. Core concept: a Virtual Distributed File System (VDFS) that would make device boundaries transparent.
+
+Initial goals:
+
+- Single interface for all storage locations
+- Content-addressable file identification
+- Cross-platform native apps
+- No vendor lock-in
+
+## Open Source Launch (May 2022)
+
+Released on GitHub in May 2022. Reached #1 on GitHub Trending for 3 days, accumulated 10,000+ stars in the first week.
+
+The reception indicated the problem resonated with developers managing files across multiple devices and cloud services.
+
+## Seed Funding (2022-2023)
+
+Raised $2M seed round (June 2022) led by OSS Capital. Investors included Naval Ravikant, Guillermo Rauch, Tobias Lütke, Tom Preston-Werner, and others.
+
+Team grew to ~12 people working remotely. 100+ open source contributors participated.
+
+## Technical Architecture V1
+
+Built on what we called the "PRRTT stack":
+
+- **Prisma** for database ORM
+- **Rust** for core backend
+- **React** for UI
+- **TypeScript** for frontend
+- **Tauri** for native apps
+
+Key features shipped:
+
+- SQLite-backed file indexing
+- Cross-platform support (Windows, macOS, Linux)
+- Peer-to-peer networking foundation
+- Content-addressable storage
+
+By early 2025: 35,000 GitHub stars, 500,000+ installations.
+
+## Community Growth
+
+- 35,000+ GitHub stars by 2025
+- 1,100+ forks
+- 117+ contributors
+- Active Discord community
+- Translations in 11 languages
+
+## Why V1 Failed
+
+By early 2025, V1 became unmaintainable. The decision to rewrite wasn't driven by perfectionism—the codebase had reached a state where shipping features or fixing bugs was no longer viable.
+
+### Infrastructure Collapse
+
+**Prisma deprecation**: The Rust client engine was deprecated, leaving the project on an unmaintained fork with no migration path. Every database interaction depended on infrastructure we could no longer update or fix.
+
+**libp2p reliability**: P2P networking was fundamentally broken. File transfers would hang, connections would drop, and debugging was nearly impossible. The networking layer—core to the product vision—couldn't be trusted.
+
+**Dependency maintenance**: The team built `prisma-client-rust` and `rspc` out of necessity, then couldn't maintain them. These weren't side projects, they were critical infrastructure that became technical debt.
+
+### Product Limitations
+
+**No SDK**: The community couldn't extend functionality. In a file manager where everyone has unique workflows, this was fatal. Users wanted custom integrations but had no way to build them.
+
+**No CLI**: Automated workflows and scripting were impossible. Power users—the core audience—couldn't integrate Spacedrive into their existing tooling.
+
+**Incomplete search**: Despite positioning as a search-focused tool, only basic SQL `LIKE` queries worked. No full-text indexing, no content search, no semantic search. The core value proposition was half-built.
+
+### Development Velocity Collapse
+
+**No integration tests**: Rapid prototyping without full integration testing meant every release broke something. Manual testing couldn't scale, and regressions were constant.
+
+**Job system boilerplate**: Adding any file operation required 500-1000+ lines of boilerplate. Simple features took weeks to implement, making iteration impossible.
+
+**Poor modularity**: Refactors that developers knew were necessary couldn't be completed. The interconnected layers meant touching one thing broke three others. Technical debt compounded faster than it could be paid down.
+
+**Incomplete migrations**: The codebase had `old_*` files still in active use alongside new systems. Every migration stalled partway through, leaving the codebase in a perpetual transition state.
+
+### Architecture Dead Ends
+
+**Dual file systems**: Two incompatible systems (indexed database files vs. ephemeral filesystem access) made basic operations like copying between locations impossible. Every file operation needed two implementations, and they'd drift out of sync.
+
+**Sync confusion**: Complex CRDTs built on top of Prisma with unclear boundaries between local and shared data. The team couldn't decide what should sync and what shouldn't, so the implementation was never finished.
+
+**Query invalidation**: Backend code contained hardcoded frontend cache keys (`invalidate_query!(library, "search.paths")`), creating tight coupling that made refactoring impossible.
+
+### Business Model Misalignment
+
+**Cloud focus**: Development prioritized a cloud revenue model with high overhead, low margins, and questionable alignment with the core product. Resources went toward infrastructure that didn't serve users or validate product-market fit. (V2 pivots to premium extensions following the COSS model.)
+
+### Process Breakdown
+
+**Slow release cycles**: Inefficient project management meant features took months to ship. Community momentum stalled.
+
+**Delayed refactors**: Developers knew what needed to be fixed, but priorities kept shifting. Technical debt accumulated while the team chased features.
+
+**No AI tooling**: The complexity required to work across the stack didn't have the AI assistance available today. What would now take hours took weeks.
+
+### V1 as Necessary R&D
+
+V1's apparent failure was actually essential research. The team pioneered a cross-platform file manager with P2P networking and content-addressable storage—problems with no existing solutions. Every architectural mistake taught us what not to do. Every incomplete migration revealed where boundaries should exist. Every performance bottleneck showed us where to optimize.
+
+Without V1, we'd have no idea how to build V2. The technical achievements—SQLite-backed indexing, cross-platform support, content-addressable storage—proved the core concepts worked. The failures showed us how to structure them properly.
+
+The rewrite wasn't a failure of the team. It was the natural outcome of exploring genuinely hard problems without a map.
+
+## V2 Rewrite (2025)
+
+V2 was rebuilt over 4 months by the founder using AI-accelerated development, systematically addressing every failure from V1. Each architectural decision directly solves a specific problem that made V1 unmaintainable.
+
+### Infrastructure: No More Deprecated Dependencies
+
+**Problem**: Prisma Rust deprecated, libp2p unreliable, custom infrastructure becoming debt.
+
+**Solution**:
+
+- Replaced Prisma with **SeaORM** - actively maintained ORM
+- Replaced libp2p with **Iroh** - purpose-built for reliable P2P with QUIC transport and NAT traversal that actually works
+- Moved away from custom infrastructure where possible
+
+### Product: SDK, CLI, and Real Search
+
+**Problem**: No SDK meant community couldn't extend. No CLI meant no automation. Search was SQL `LIKE` queries.
+
+**Solution**:
+
+- **WASM Extension System** with complete Rust SDK - extensions are first-class, sandboxed, and can define their own data models
+- **Production CLI** (`sd-cli`) for library management, indexing, and automation
+- **FTS5 full-text search** with semantic re-ranking - sub-100ms queries on 1M+ files
+
+Launch extensions (Chronicle for research, Cipher for passwords, Atlas for CRM, Ledger for finances) prove the SDK works.
+
+### Development Velocity: Eliminated Boilerplate
+
+**Problem**: 500-1000+ lines of boilerplate per file operation. No integration tests. Poor modularity made refactors impossible.
+
+**Solution**:
+
+- **Procedural macros** for job system - reduced to ~50 lines per job (95% reduction)
+- **Entry-centric model** - files and directories unified, eliminating dual implementations
+- **Integration test suite** - every major operation has tests that run against real SQLite
+- **Clear domain boundaries** - each module (location, library, volume, sync) is independent
+
+Development speed increased 10x. Adding new file operations went from weeks to hours.
+
+### Architecture: Solved the Dual File System Problem
+
+**Problem**: Indexed files vs. ephemeral files created two incompatible worlds. Copying between them was impossible.
+
+**Solution**: **Universal `SdPath` addressing**
+
+```rust
+pub enum SdPath {
+    Physical { device_id: Uuid, path: PathBuf },
+    Cloud { volume_id: Uuid, path: String },
+    Content { content_id: Uuid },
+}
+```
+
+Every file in Spacedrive—indexed or not, local, cloud, or remote—has a single address. Operations work uniformly across all storage. Device and cloud boundaries disappeared.
+
+### Sync: Domain Separation That Works
+
+**Problem**: Custom CRDT implementation never finished. Unclear boundaries between local and shared data.
+
+**Solution**: **Domain-separated sync with HLC timestamps**
+
+Instead of trying to sync everything, V2 defines clear boundaries:
+
+- **Shared**: Library metadata, tags, device list
+- **Local-only**: Volume mounts, locations, indexing state
+
+Leaderless P2P synchronization using Hybrid Logical Clocks. No coordination required, no consensus algorithms. It just works offline.
+
+### Coupling: Event-Driven Architecture
+
+**Problem**: Backend code had hardcoded frontend cache keys (`invalidate_query!`). Tight coupling made changes impossible.
+
+**Solution**: **EventBus with domain events**
+
+Components publish events (`EntryCreated`, `LocationIndexed`, `SyncCompleted`). Subscribers react independently. Backend has zero knowledge of frontend caching.
+
+This eliminated cross-layer coupling entirely.
+
+### Business Model: COSS Over Cloud
+
+**Problem**: Cloud revenue model with high overhead, low margins, misaligned with product.
+
+**Solution**: **Commercial Open Source Software (COSS) model**
+
+- Core file manager: free forever
+- Premium extensions (Photos, Chronicle, Guardian, Studio): paid
+- Self-hostable: no forced cloud dependency
+- Team/enterprise features: paid tiers
+
+Revenue aligns with value delivered. Resources go toward features users want, not cloud infrastructure.
+
+### Actions: Preview Before Commit
+
+**Problem**: File operations were destructive and unpredictable.
+
+**Solution**: **Transactional action system**
+
+Every destructive operation follows preview-commit-verify flow:
+
+1. Simulate the operation
+2. Show user exact changes
+3. Execute only on approval
+4. Verify completion
+
+Conflicts are caught before execution. Users always know what will happen.
+
+### Performance: Production-Ready Metrics
+
+V2 isn't just architecturally sound—it's fast:
+
+- **8,500 files/second** indexing (multi-phase resumable pipeline)
+- **~55ms search** on 1M entries (FTS5 with semantic re-ranking)
+- **~150MB memory** for 1M files (efficient SQLite schema)
+- **110 MB/s P2P transfers** (Iroh with QUIC transport)
+
+Enterprise capabilities running on consumer hardware.
+
+## Development Approach
+
+Spacedrive’s rewrite from scratch, despite limited resources, was made feasible by advancements in AI-driven code generation for Rust in 2025. Tools like Claude 3.5 Opus, GPT-5, and Gemini’s expansive context window enabled translating detailed specifications into robust implementations across the entire codebase. The workflow centered on iteratively refining specs and test cases, ensuring implementations adhered to strict code style guidelines and passed all tests. This AI-accelerated, spec-first, test-driven approach enabled rapid development with a single-person team.
+
+**Why this worked:**
+
+The codebase prioritizes simplicity and structure over complexity. Domains—library, location, volume, sync, and networking are organized into isolated modules with well-defined boundaries. Documentation supports every layer, inline comments detail execution, and integration tests validate behavior.
+
+The original team established core concepts: file system abstractions, job system architecture, and sync protocol design. This rewrite leveraged these foundations but swapped much of the custom infrastructure for reliable, community-maintained tools.
+
+## Lessons Learned
+
+1. **User experience drives architecture** - Implementation details shouldn't leak into UX (dual file systems)
+2. **Ship simple first** - Basic solutions are better than perfect ones that never ship
+3. **Maintain what you create** - Don't create infrastructure you can't support long-term
+4. **Reduce boilerplate** - Developer friction directly impacts iteration speed
+5. **Deliver on core promises** - Search was a key value prop but remained weak
+6. **One concept, one implementation** - Multiple representations of the same thing create confusion
+7. **Complete migrations** - Don't start new ones until old systems are removed
+8. **Loose coupling** - Event-driven beats direct dependencies
+9. **Decide and move** - Imperfect decisions beat analysis paralysis
+10. **Maintain momentum** - Regular releases keep community engaged
+
+## Future Direction
+
+Near-term:
+
+- Production release of V2
+- Mobile apps (iOS, Android)
+- Developer SDK
+- Extension ecosystem
+
+Long-term business model:
+
+- Free for individual use
+- Paid extensions
+- Team collaboration features
+- Enterprise security/compliance
+- Optional cloud services
+
+The core principle remains: files shouldn't be stuck in device ecosystems. Open source technology ensures users retain control over their data.
+
+---
+
+_Development continues at [github.com/spacedriveapp/spacedrive](https://github.com/spacedriveapp/spacedrive)_

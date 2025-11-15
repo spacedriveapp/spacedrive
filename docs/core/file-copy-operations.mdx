@@ -1,0 +1,134 @@
+---
+title: File Copy Operations
+sidebarTitle: Copy Operations
+---
+
+Spacedrive uses a strategy-based copy system that automatically selects the optimal method for moving or copying files. The system analyzes your hardware topology, filesystem capabilities, and operation context to choose between instant atomic operations, zero-copy techniques, streaming transfers, or encrypted network transfers.
+
+## Strategy Selection
+
+When you copy or move files, Spacedrive evaluates the source and destination to pick the best approach. The router examines device IDs, volume relationships, and filesystem types to determine which strategy delivers the fastest, most reliable result.
+
+You can control strategy selection through three copy methods:
+
+**Auto** - Spacedrive analyzes your system and picks the optimal strategy. This is the default mode and works well for most operations.
+
+**Atomic** - Forces instant operations when possible. Moves use `fs::rename()` for metadata-only changes, while copies leverage Copy-on-Write features like APFS clones or Btrfs reflinks.
+
+**Streaming** - Ensures progress tracking and cancellation support by forcing chunked streaming copies, regardless of filesystem capabilities.
+
+## Available Strategies
+
+### LocalMoveStrategy
+
+Moves files on the same volume using atomic filesystem renames. The operation completes in microseconds by updating metadata pointers rather than copying data. Works for any file size since no data actually moves.
+
+```rust
+// Same-volume move: instant metadata update
+fs::rename(source_path, dest_path).await?;
+```
+
+<Note>
+This strategy only works when source and destination are on the same physical volume. Cross-volume moves automatically fall back to streaming copy with source deletion.
+</Note>
+
+### FastCopyStrategy
+
+Copies files using `std::fs::copy()`, which automatically leverages filesystem optimizations. On APFS, this creates instant clones. On Btrfs and ZFS, it uses reflinks. On ReFS, it performs block clones. Other filesystems fall back to standard copying.
+
+```rust
+// Automatic CoW optimization based on filesystem
+std::fs::copy(&source_path, &dest_path)
+```
+
+The strategy skips progress callbacks since CoW operations complete near-instantly. Checksum verification runs after the copy if enabled.
+
+### LocalStreamCopyStrategy
+
+Performs chunked streaming copies for cross-volume operations or when you need progress tracking. The strategy reads source files in volume-aware buffer sizes, writes to the destination, and reports progress every 50ms.
+
+The implementation supports:
+
+- Volume-aware buffer sizing (queries VolumeManager for optimal chunk size)
+- Blake3 checksum verification during transfer
+- Cancellation with automatic cleanup of partial files
+- Permission and timestamp preservation
+- Directory recursion with per-file progress
+
+<Tip>
+Buffer sizes automatically adjust based on source and destination volumes. SSDs typically use larger buffers than HDDs, and the strategy picks the minimum of both volumes for cross-device transfers.
+</Tip>
+
+### RemoteTransferStrategy
+
+Handles file transfers between devices over the network. Files are encrypted using session keys, split into 64KB chunks, and streamed to the remote device through the networking service.
+
+The transfer protocol includes:
+
+- Per-chunk Blake3 checksums for integrity verification
+- XChaCha20-Poly1305 encryption with unique nonces
+- Transfer state tracking for fault tolerance
+- Final checksum verification after completion
+
+```rust
+// Transfer request structure
+FileTransferMessage::TransferRequest {
+    transfer_id,
+    file_metadata,
+    transfer_mode: TransferMode::TrustedCopy,
+    chunk_size,
+    total_chunks,
+    destination_path,
+}
+```
+
+Network transfers report progress through the same callback system as local copies, giving you consistent UI feedback across all operation types.
+
+## Copy Method Selection
+
+The router uses this logic to pick strategies:
+
+**Cross-device operations** - Always use RemoteTransferStrategy, regardless of copy method setting.
+
+**Same-device with Atomic method** - Use LocalMoveStrategy for moves, FastCopyStrategy for copies.
+
+**Same-device with Streaming method** - Always use LocalStreamCopyStrategy.
+
+**Same-device with Auto method** - Analyze volume relationships:
+- Same storage + move → LocalMoveStrategy
+- Same storage + copy + CoW filesystem → FastCopyStrategy
+- Cross-storage → LocalStreamCopyStrategy
+
+## Progress Tracking
+
+The job system uses a `ProgressAggregator` that tracks overall progress across multiple files. Strategies call a progress callback with current bytes copied and total file size. The aggregator accumulates this across files to compute job-level progress.
+
+When a file completes, strategies signal completion by passing `u64::MAX` as the signal value. The aggregator increments the completed file count and updates the bytes offset for the next file.
+
+The job reports progress through five phases:
+
+**Initializing** - Sets up internal state and validates paths.
+
+**DatabaseQuery** - Attempts to get instant size estimates from indexed file metadata.
+
+**Preparation** - Calculates actual total size by walking the filesystem.
+
+**Copying** - Executes the selected strategy for each source path.
+
+**Complete** - Reports final counts and returns the job output.
+
+## Error Handling
+
+Copy operations collect errors in a `failed_copies` vector rather than stopping execution. This lets you see which files succeeded and which failed in a single job run.
+
+For move operations, if the copy succeeds but source deletion fails, the operation logs the error but doesn't mark the file as failed. The file exists at the destination, which is the primary goal of the operation.
+
+<Warning>
+When using checksum verification, corrupted copies are automatically deleted to prevent partial or incorrect files from persisting.
+</Warning>
+
+## Job Resumption
+
+FileCopyJob tracks completed files in `completed_indices` and checkpoints every 20 files. If the job is interrupted, you can restart it and already-completed files will be skipped. The progress aggregator accounts for skipped files when calculating overall progress.
+
+This works for both single-file and directory operations. Each source path in the batch counts as one index, even if it contains hundreds of files.

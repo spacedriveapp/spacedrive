@@ -1,0 +1,15 @@
+/* Anchor hover styles */
+.nav-anchor:hover {
+	@apply text-[#36a3ff];
+}
+
+/* Icon wrapper on hover */
+.nav-anchor:hover div {
+	background: #36A3FF !important;
+	filter: brightness(1) !important;
+}
+
+/* Icon SVG on hover */
+.nav-anchor:hover svg {
+	@apply bg-white !important;
+}

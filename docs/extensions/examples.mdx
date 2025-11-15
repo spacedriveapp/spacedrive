@@ -1,0 +1,105 @@
+---
+title: Examples
+sidebarTitle: Examples
+---
+
+## Example: A Simple CRM Extension
+
+To see how the core concepts of the Spacedrive SDK come together, let's look at an example of a simple CRM (Customer Relationship Management) extension. This extension will allow us to manage contacts, companies, and deals.
+
+### 1. Model Definitions
+
+First, we define our data models using the `#[model]` attribute.
+
+```rust
+#[model(table_name = "contact")]
+#[index("email")]
+pub struct Contact {
+    #[primary_key]
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+    #[foreign_key(Company)]
+    pub company_id: Option<Uuid>,
+    #[metadata]
+    pub metadata_id: i32,
+}
+
+#[model(table_name = "company")]
+pub struct Company {
+    #[primary_key]
+    pub id: Uuid,
+    pub name: String,
+    pub website: Option<String>,
+    #[metadata]
+    pub metadata_id: i32,
+}
+
+#[model(table_name = "deal")]
+pub struct Deal {
+    #[primary_key]
+    pub id: Uuid,
+    #[foreign_key(Contact)]
+    pub contact_id: Uuid,
+    pub title: String,
+    pub amount: f64,
+    pub stage: String, // e.g., "lead", "negotiation", "closed"
+    #[metadata]
+    pub metadata_id: i32,
+}
+```
+
+This will create three tables in the database: `ext_crm_contact`, `ext_crm_company`, and `ext_crm_deal`, with the appropriate columns, indexes, and foreign keys.
+
+### 2. A Job to Create a Contact
+
+Next, we can create a job that adds a new contact to our CRM.
+
+```rust
+#[job]
+async fn create_contact(ctx: &JobContext, data: CreateContactInput) -> Result<Contact> {
+    let contact = Contact {
+        id: Uuid::new_v4(),
+        name: data.name,
+        email: data.email,
+        company_id: data.company_id,
+        metadata_id: 0, // Will be auto-created by the core
+    };
+
+    // Create the model in the database
+    ctx.vdfs().create_model(contact).await?;
+
+    // Tag the new contact
+    ctx.vdfs().add_tag_to_model(contact.id, "#new-lead").await?;
+
+    Ok(contact)
+}
+```
+
+### 3. A Query to Find Contacts
+
+Finally, we can create a query to find contacts, potentially with joins to other tables.
+
+```rust
+#[query]
+async fn find_contacts(
+    ctx: &JobContext,
+    filters: ContactFilters
+) -> Result<Vec<ContactWithCompany>> {
+    let query = ctx.vdfs()
+        .query_models::<Contact>()
+        .join::<Company>("company_id", "id")
+        .select(&[
+            "Contact.*",
+            "Company.name as company_name",
+        ]);
+
+    if let Some(tag) = filters.tag {
+        query = query.with_tag(&tag);
+    }
+
+    query.collect().await
+}
+```
+
+This simple example demonstrates how you can use the Spacedrive SDK to quickly build powerful, data-driven applications as extensions. With real database tables, automatic sync, and integration with core features like tagging, the possibilities are nearly limitless.

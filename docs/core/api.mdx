@@ -1,0 +1,268 @@
+---
+title: API
+sidebarTitle: API
+---
+
+The API infrastructure provides a secure, unified entry point for all Spacedrive operations. It handles authentication, authorization, session management, and request routing across CLI, and native applications.
+
+## Architecture Overview
+
+All API requests flow through a common pipeline:
+
+```
+Application → SessionContext → ApiDispatcher → PermissionLayer → Operation
+```
+
+This design enforces security policies consistently while providing rich context to operations.
+
+## Session Management
+
+Sessions encapsulate all request context, replacing simple parameter passing with structured metadata:
+
+```rust
+let session = SessionContext::new()
+    .with_auth(AuthenticationInfo {
+        device_id: device_uuid,
+        auth_level: AuthLevel::Device,
+        token: Some(device_token),
+    })
+    .with_library(library_uuid)
+    .with_permissions(permission_set)
+    .with_source(RequestSource::CLI);
+```
+
+Sessions include:
+
+**Authentication Info**: Device or user credentials and authorization level.
+
+**Library Context**: Currently selected library for scoped operations.
+
+**Permission Set**: Granular permissions for the session.
+
+**Request Metadata**: Tracking information for auditing and debugging.
+
+## API Dispatcher
+
+The dispatcher provides a unified interface for all operations:
+
+```rust
+// Execute a library action
+let result = api.execute_library_action(
+    CreateLocationAction { path: "/Users/data" },
+    session
+).await?;
+
+// Execute a core query
+let libraries = api.execute_core_query(
+    ListLibrariesQuery {},
+    session
+).await?;
+```
+
+The dispatcher automatically:
+
+- Validates session permissions
+- Ensures library context for library operations
+- Tracks request metadata
+- Converts errors to API errors
+
+## Permission System
+
+Permissions control access to specific operations:
+
+```rust
+#[derive(Debug, Clone)]
+pub struct PermissionSet {
+    pub core: CorePermissions,
+    pub library: LibraryPermissions,
+    pub network: NetworkPermissions,
+    pub jobs: JobPermissions,
+}
+```
+
+Each category has granular permissions:
+
+```rust
+pub struct LibraryPermissions {
+    pub read_entries: bool,
+    pub write_entries: bool,
+    pub manage_locations: bool,
+    pub manage_tags: bool,
+    pub execute_jobs: bool,
+}
+```
+
+### Permission Policies
+
+Configure enforcement behavior:
+
+```rust
+// Development: Log warnings but allow operations
+let api = ApiDispatcher::new(core, PermissionPolicy::Warn);
+
+// Production: Strictly enforce permissions
+let api = ApiDispatcher::new(core, PermissionPolicy::Strict);
+```
+
+### Authorization Levels
+
+Four hierarchical levels provide increasing access:
+
+**None**: No authentication required (public operations only).
+
+**Device**: Authenticated device with basic permissions.
+
+**User**: Authenticated user with full library access.
+
+**Admin**: System administrator with all permissions.
+
+Higher levels inherit permissions from lower levels.
+
+## Error Handling
+
+API errors provide structured information for clients:
+
+```rust
+pub enum ApiError {
+    // Authentication/authorization failures
+    Unauthorized { required_level: AuthLevel },
+    PermissionDenied { operation: String, permission: String },
+
+    // Validation errors
+    ValidationError { field: String, message: String },
+    InvalidInput { details: String },
+
+    // Execution errors
+    OperationFailed { operation: String, error: String },
+    ResourceNotFound { resource: String, id: String },
+
+    // System errors
+    DatabaseError(String),
+    InternalError(String),
+}
+```
+
+Errors automatically map to HTTP status codes for REST endpoints.
+
+## Middleware Pipeline
+
+Cross-cutting concerns are handled through composable middleware:
+
+```rust
+let pipeline = MiddlewarePipeline::new()
+    .add(LoggingMiddleware::new())
+    .add(MetricsMiddleware::new(metrics_registry))
+    .add(RateLimitMiddleware::new(rate_limiter));
+```
+
+### Logging Middleware
+
+Tracks all requests with timing information:
+
+```
+[API] files.copy started (request_id: 7f3a2b1c)
+[API] files.copy completed in 145ms (request_id: 7f3a2b1c)
+```
+
+### Metrics Middleware
+
+Records operation metrics for monitoring:
+
+- Request count by operation
+- Response times (p50, p90, p99)
+- Error rates by type
+- Active request count
+
+## Request Sources
+
+Track where API calls originate:
+
+```rust
+pub enum RequestSource {
+    CLI,          // Command-line interface
+    Swift,        // iOS/macOS application
+    Internal,     // Internal system calls
+}
+```
+
+This enables source-specific behavior like CLI-friendly error messages.
+
+## API Discovery
+
+Applications can query available operations:
+
+```rust
+let surface = api.describe_api();
+
+for op in surface.operations {
+    println!("{} - {}", op.name, op.description);
+    println!("  Permissions: {:?}", op.required_permissions);
+    println!("  Auth Level: {:?}", op.required_auth_level);
+}
+```
+
+This powers dynamic UI generation and permission checking.
+
+## Integration Examples
+
+### CLI Integration
+
+```rust
+// Create session from CLI context
+let session = SessionContext::new()
+    .with_auth(cli_auth_info())
+    .with_library(current_library_id())
+    .with_source(RequestSource::CLI);
+
+// Execute operation
+match api.execute_library_action(action, session).await {
+    Ok(result) => println!("Success: {:?}", result),
+    Err(ApiError::PermissionDenied { permission, .. }) => {
+        eprintln!("Permission denied: {}", permission);
+    }
+    Err(e) => eprintln!("Error: {}", e),
+}
+```
+
+### Swift Integration
+
+```swift
+// Swift SDK uses generated types with session management
+let session = SessionContext(
+    auth: deviceAuth,
+    library: currentLibrary.id,
+    source: .swift
+)
+
+let location = try await api.libraries.createLocation(
+    CreateLocationInput(path: "/Users/data"),
+    session: session
+)
+```
+
+## Security Best Practices
+
+**Always use strict permissions in production**: Development warnings help identify missing permissions during development.
+
+**Validate library context**: Library operations must have `current_library_id` set in the session.
+
+**Track request metadata**: Use request IDs for debugging distributed operations.
+
+**Handle errors appropriately**: Convert internal errors to user-friendly messages at the boundary.
+
+## Future Enhancements
+
+Planned improvements include:
+
+**User Authentication**: OAuth and session token support.
+
+**Rate Limiting**: Per-user and per-operation limits.
+
+**Request Caching**: Smart caching for read operations.
+
+**WebSocket Support**: Real-time operation subscriptions.
+
+<Note>
+	The API infrastructure is designed to be transport-agnostic. While examples
+	show Rust usage, the same patterns apply to REST endpoints and FFI boundaries.
+</Note>

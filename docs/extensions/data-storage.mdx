@@ -1,0 +1,67 @@
+---
+title: Data Storage
+sidebarTitle: Data Storage
+---
+
+## Runtime Extension Tables
+
+One of the most powerful features of the Spacedrive SDK is the ability for extensions to create real database tables at runtime.
+
+Spacedrive extensions define their models in Rust, and the SDK automatically generates the corresponding SQL tables when the extension is loaded. These tables are prefixed with the extension's ID to ensure isolation and security (e.g., `ext_photos_person`).
+
+#### Model Definition
+
+```rust
+#[model(
+    table_name = "person",
+    version = "1.0.0",
+    sync_strategy = "shared"
+)]
+pub struct Person {
+    #[primary_key]
+    pub id: Uuid,
+    pub name: String,
+    #[indexed]
+    pub email: Option<String>,
+    #[metadata]
+    pub metadata_id: i32,
+}
+```
+
+#### Generated Schema
+
+This Rust struct will generate the following SQL table:
+
+```sql
+CREATE TABLE ext_photos_person (
+    id BLOB PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT,
+    metadata_id INTEGER NOT NULL,
+    FOREIGN KEY (metadata_id) REFERENCES user_metadata(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_ext_photos_person_email ON ext_photos_person(email);
+```
+
+### Linking to Core Systems
+
+Extension models are not isolated silos. They are deeply integrated with Spacedrive's core systems.
+
+- **Tagging and Collections**: By adding the `#[metadata]` attribute to a field, your model is linked to the `user_metadata` table. This allows your custom data models to be tagged, added to collections, and searched just like any other file in Spacedrive.
+
+- **Core Entities**: You can define foreign key relationships to core Spacedrive tables like `entries` or `content_identities`. This allows you to, for example, create an `Album` model that has a many-to-many relationship with photos (entries).
+
+### Migrations
+
+As you develop your extension, you will inevitably need to change your data models. The Spacedrive SDK includes a migration system to manage schema changes.
+
+- **Migration Files**: You can provide SQL migration files with your extension (e.g., `v1.1.0_add_birthdate.sql`).
+- **Automatic Execution**: When a user updates your extension, Spacedrive will automatically run the necessary migrations to bring their database schema up to date.
+
+### Benefits of Runtime Tables
+
+- **Performance**: Indexed SQL queries are significantly faster than in-memory filtering of JSON.
+- **Complex Queries**: You can perform complex SQL queries with joins, aggregations, and more.
+- **Referential Integrity**: Foreign keys ensure that your data remains consistent.
+- **Developer Experience**: You can work with your data using familiar, type-safe, ORM-like patterns in Rust.

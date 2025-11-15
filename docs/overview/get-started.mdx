@@ -1,0 +1,201 @@
+---
+title: Get Started with Spacedrive
+sidebarTitle: Get Started
+---
+
+Spacedrive unifies your files across all devices into one seamless experience. This guide walks you through initial setup and core concepts to get you organizing files in minutes.
+
+You'll install Spacedrive, create your first library, and understand how the distributed filesystem works. By the end, you'll have a foundation for managing files across all your devices.
+
+## Install Spacedrive
+
+Spacedrive runs as a background service (daemon) with a separate user interface. This architecture enables features like offline sync and multi-device coordination.
+
+<Steps>
+<Step title="Download the App">
+Visit [spacedrive.com/download](https://spacedrive.com/download) and get the installer for your platform. Spacedrive supports macOS, Windows, Linux, iOS, and Android.
+</Step>
+<Step title="Run the Installer">
+Follow your platform's standard installation process. On macOS, drag Spacedrive to Applications. On Windows, run the installer. Linux users can use AppImage or package managers.
+</Step>
+<Step title="Launch Spacedrive">
+Open Spacedrive from your applications. The daemon starts automatically in the background. You'll see the setup wizard on first launch.
+</Step>
+</Steps>
+
+<Note>
+The daemon runs separately from the UI. Closing the app window doesn't stop file syncing or background operations. CLI users can set up auto-start with `sd daemon install` on macOS.
+</Note>
+
+## Create Your First Library
+
+Libraries organize your files and settings. Think of a library as a unified view of all your data across devices.
+
+<Steps>
+<Step title="Choose Library Name">
+Pick a descriptive name like "Personal" or "Work". You can create multiple libraries later for different purposes.
+</Step>
+<Step title="Select Storage Location">
+Spacedrive stores library data in a local database. Choose the default location or pick a custom path with sufficient space.
+</Step>
+<Step title="Complete Setup">
+Click "Create Library" to initialize your database. Spacedrive creates the necessary structures for organizing your files.
+</Step>
+</Steps>
+
+Your library starts empty. Next, you'll add locations to begin organizing files.
+
+## Understand Key Concepts
+
+Spacedrive introduces concepts that differ from traditional file managers:
+
+### Libraries
+A library is your personal database of file information. It stores:
+- File metadata and organization
+- Tags and custom attributes  
+- Device relationships
+- Sync settings
+
+<Info>
+Libraries remain local to each device but can sync organizational data between devices you own.
+</Info>
+
+### Locations
+Locations are folders on your device that Spacedrive monitors. Adding a location indexes its contents into your library without moving files.
+
+### Virtual Filesystem (VDFS)
+Spacedrive creates a unified view of files across all devices. Files keep their physical location but appear in one searchable interface.
+
+### SD Paths
+Universal file addresses that work across all storage types. Spacedrive uses three types of paths:
+
+- **Physical**: Traditional filesystem paths on local devices (`/Users/jane/Documents/report.pdf`)
+- **Cloud**: Cloud storage paths for services like S3, Google Drive, or Dropbox (`photos/vacation/beach.jpg`)
+- **Content**: Content-addressed paths that find files by their content, regardless of location
+
+This unified system means you can copy files between your laptop, external drive, and cloud storage using the same commands.
+
+## Navigate the Interface
+
+The Spacedrive interface provides powerful tools for file management:
+
+**Sidebar** - Switch between libraries, access locations, and view system status. Collapsible for more workspace.
+
+**Explorer** - Browse files with list or grid views. Supports columns, sorting, and filtering like traditional file managers.
+
+**Inspector** - View and edit file metadata. Add tags, see technical details, and manage file relationships.
+
+**Search Bar** - Find files instantly across all indexed locations. Supports filters and advanced queries.
+
+**Job Manager** - Monitor background operations like indexing and sync. Access via the status indicator.
+
+<Tip>
+Use keyboard shortcuts for efficiency. Press `⌘/` (Mac) or `Ctrl+/` (Windows/Linux) to see all available shortcuts.
+</Tip>
+
+## Add Your First Location
+
+Connect a folder to start organizing files:
+
+<Steps>
+<Step title="Open Location Settings">
+Click the + button next to "Locations" in the sidebar or go to Settings → Locations.
+</Step>
+<Step title="Select a Folder">
+Choose a folder to index. Start with something manageable like Documents or Pictures.
+</Step>
+<Step title="Configure Indexing">
+Select indexing depth:
+- **Shallow**: File names and basic metadata only (fastest)
+- **Deep**: Full content analysis including thumbnails (recommended)
+</Step>
+<Step title="Start Indexing">
+Click "Add Location" to begin. Monitor progress in the job manager (status bar).
+</Step>
+</Steps>
+
+<Warning>
+Initial indexing time depends on folder size and depth selected. A folder with 10,000 files typically takes 2-5 minutes for deep indexing.
+</Warning>
+
+## Organize with Tags
+
+Tags provide flexible organization without moving files:
+
+<Steps>
+<Step title="Create a Tag">
+Right-click any file and select "Add Tag" or use Settings → Tags to create tags first.
+</Step>
+<Step title="Apply Tags">
+Select multiple files and apply tags in bulk. Tags sync across devices.
+</Step>
+<Step title="Filter by Tags">
+Click tags in the sidebar to filter your view instantly.
+</Step>
+</Steps>
+
+Tags support colors and hierarchies for advanced organization.
+
+## Search Across Everything
+
+Spacedrive's search works across all indexed locations simultaneously:
+
+```
+photo                    # Find all photos
+tag:vacation            # Files tagged "vacation"  
+size:>10MB              # Large files
+modified:<7d            # Changed in last week
+```
+
+<Info>
+Search runs locally for privacy. No file data leaves your devices.
+</Info>
+
+## Connect Another Device
+
+Expand Spacedrive to multiple devices:
+
+<Steps>
+<Step title="Install on Second Device">
+Download and install Spacedrive on another computer or mobile device.
+</Step>
+<Step title="Sign In">
+Use the same account to link devices (coming soon) or set up peer-to-peer pairing.
+</Step>
+<Step title="Enable Sync">
+Choose which organizational data to sync. File content remains on original devices.
+</Step>
+</Steps>
+
+Connected devices share tags, comments, and organization while keeping files in place.
+
+## Next Steps
+
+You now have Spacedrive running with your first library and location. Explore these features:
+
+- **[Back Up Photos from iPhone](/guides/backup-photos-ios)** - Automatic photo backup
+- **[Manage Your Libraries](/guides/manage-libraries)** - Multiple library workflows
+- **[Add and Index Locations](/guides/add-index-locations)** - Advanced indexing options
+
+<Note>
+Join our [Discord community](https://discord.gg/spacedrive) for help, tips, and updates on new features.
+</Note>
+
+## Troubleshooting
+
+### Spacedrive won't start
+- Check if the daemon is running in your system processes
+- Restart your computer to clear any stuck processes
+- Reinstall if issues persist
+
+### Indexing seems slow
+- Start with shallow indexing for large folders
+- Ensure your disk isn't full
+- Check job manager for detailed progress
+
+### Can't see files
+- Verify the location was added successfully
+- Check if indexing completed in job manager
+- Ensure you're viewing the correct library
+
+Need more help? Visit our [troubleshooting guide](/troubleshooting) or ask in Discord.
