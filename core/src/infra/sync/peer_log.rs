@@ -258,12 +258,17 @@ impl PeerLog {
 	}
 
 	/// Get the minimum HLC that all peers have acknowledged
+	///
+	/// Excludes self-ACKs (where peer_device_id == our device_id) from calculation.
+	/// Self-ACKs should never exist, but filtering them defensively prevents stale
+	/// self-ACKs from blocking pruning.
 	async fn get_min_acked_hlc(&self) -> Result<Option<HLC>, PeerLogError> {
 		let result = self
 			.conn
-			.query_one(Statement::from_string(
+			.query_one(Statement::from_sql_and_values(
 				DbBackend::Sqlite,
-				"SELECT MIN(last_acked_hlc) as min_hlc FROM peer_acks".to_string(),
+				"SELECT MIN(last_acked_hlc) as min_hlc FROM peer_acks WHERE peer_device_id != ?",
+				vec![self.device_id.to_string().into()],
 			))
 			.await
 			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;

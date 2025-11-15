@@ -2004,13 +2004,28 @@ impl PeerSync {
 
 	/// Record ACK from peer and prune
 	pub async fn on_ack_received(&self, peer_id: Uuid, up_to_hlc: HLC) -> Result<()> {
-		// Record ACK
+		// Don't record ACKs from ourselves (defense in depth)
+		if peer_id == self.device_id {
+			debug!(
+				hlc = %up_to_hlc,
+				"Ignoring self-ACK (should not happen, indicates bug in sender)"
+			);
+			return Ok(());
+		}
+
+		// Record ACK from peer
 		self.peer_log
 			.record_ack(peer_id, up_to_hlc)
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to record ACK: {}", e))?;
 
-		// Try to prune
+		debug!(
+			peer = %peer_id,
+			hlc = %up_to_hlc,
+			"Recorded ACK from peer"
+		);
+
+		// Try to prune based on ACKs
 		let pruned = self
 			.peer_log
 			.prune_acked()
@@ -2018,7 +2033,11 @@ impl PeerSync {
 			.map_err(|e| anyhow::anyhow!("Failed to prune: {}", e))?;
 
 		if pruned > 0 {
-			info!(pruned = pruned, "Pruned shared changes log");
+			info!(
+				pruned = pruned,
+				peer = %peer_id,
+				"Pruned shared changes after ACK"
+			);
 		}
 
 		Ok(())

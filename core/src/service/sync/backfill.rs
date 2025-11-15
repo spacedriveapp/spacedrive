@@ -512,32 +512,46 @@ impl BackfillManager {
 				// Send ACK back to peer for pruning (matches real-time path behavior)
 				// This allows the sender to prune acknowledged changes from their sync.db
 				if let Some(up_to_hlc) = max_hlc_in_batch {
-					let ack_message = SyncMessage::AckSharedChanges {
-						library_id: self.library_id,
-						from_device: self.device_id,
-						up_to_hlc,
-					};
+					// Check if these changes were created by us
+					let change_creator = up_to_hlc.device_id;
 
-					// Send ACK via network (best-effort, don't fail backfill if ACK fails)
-					if let Err(e) = self
-						.peer_sync
-						.network()
-						.send_sync_message(peer, ack_message)
-						.await
-					{
-						warn!(
-							peer = %peer,
-							hlc = %up_to_hlc,
-							error = %e,
-							"Failed to send ACK for shared changes (pruning may be delayed)"
-						);
-					} else {
-						info!(
-							peer = %peer,
+					if change_creator == self.device_id {
+						// These are our own changes (synced to peer, now coming back during backfill)
+						// Don't ACK them - we don't need to tell ourselves we've seen our own changes
+						tracing::debug!(
 							hlc = %up_to_hlc,
 							batch_size = batch_size,
-							"Sent ACK for shared changes batch"
+							"Skipping self-ACK during backfill (changes created by us)"
 						);
+					} else {
+						// These are peer's changes - send ACK so they can prune
+						let ack_message = SyncMessage::AckSharedChanges {
+							library_id: self.library_id,
+							from_device: self.device_id,
+							up_to_hlc,
+						};
+
+						// Send ACK via network (best-effort, don't fail backfill if ACK fails)
+						if let Err(e) = self
+							.peer_sync
+							.network()
+							.send_sync_message(peer, ack_message)
+							.await
+						{
+							warn!(
+								peer = %peer,
+								hlc = %up_to_hlc,
+								error = %e,
+								"Failed to send ACK for shared changes (pruning may be delayed)"
+							);
+						} else {
+							info!(
+								peer = %peer,
+								hlc = %up_to_hlc,
+								batch_size = batch_size,
+								"Sent ACK for peer's shared changes"
+							);
+						}
 					}
 				}
 
