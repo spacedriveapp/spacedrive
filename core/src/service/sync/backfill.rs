@@ -134,7 +134,9 @@ impl BackfillManager {
 
 		// Phase 3: Backfill device-owned state (after shared dependencies exist)
 		// For initial backfill, don't use watermark (get everything)
-		let final_state_checkpoint = self.backfill_device_owned_state(selected_peer, None).await?;
+		let final_state_checkpoint = self
+			.backfill_device_owned_state(selected_peer, None)
+			.await?;
 
 		// Phase 3.5: Rebuild closure tables (safety measure)
 		// The per-entry rebuild in apply_state_change() should have handled entry_closure,
@@ -143,7 +145,9 @@ impl BackfillManager {
 		let db = self.peer_sync.db();
 
 		// Rebuild entry_closure
-		if let Err(e) = crate::infra::db::entities::entry::Model::rebuild_all_entry_closures(db).await {
+		if let Err(e) =
+			crate::infra::db::entities::entry::Model::rebuild_all_entry_closures(db).await
+		{
 			tracing::warn!("Failed to rebuild entry_closure table: {}", e);
 			// Don't fail backfill, just warn
 		}
@@ -160,7 +164,8 @@ impl BackfillManager {
 		self.peer_sync.transition_to_ready().await?;
 
 		// Phase 5: Set initial watermarks from actual received data (not local DB query)
-		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc).await?;
+		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc)
+			.await?;
 
 		// Record metrics
 		self.metrics.record_backfill_session_complete();
@@ -186,16 +191,17 @@ impl BackfillManager {
 			.unwrap_or(chrono::Duration::max_value());
 
 		let threshold_days = self.config.retention.force_full_sync_threshold_days;
-		let effective_state_watermark = if watermark_age > chrono::Duration::days(threshold_days as i64) {
-			warn!(
+		let effective_state_watermark =
+			if watermark_age > chrono::Duration::days(threshold_days as i64) {
+				warn!(
 				"State watermark is {} days old (> {} days), forcing full sync to ensure consistency",
 				watermark_age.num_days(),
 				threshold_days
 			);
-			None // Force full sync
-		} else {
-			state_watermark
-		};
+				None // Force full sync
+			} else {
+				state_watermark
+			};
 
 		info!(
 			peer = %peer,
@@ -210,10 +216,13 @@ impl BackfillManager {
 		let max_shared_hlc = self.backfill_shared_resources(peer).await?;
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)
-		let final_state_checkpoint = self.backfill_device_owned_state(peer, effective_state_watermark).await?;
+		let final_state_checkpoint = self
+			.backfill_device_owned_state(peer, effective_state_watermark)
+			.await?;
 
 		// Update watermarks from actual received data (not local DB query)
-		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc).await?;
+		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc)
+			.await?;
 
 		// Record metrics
 		self.metrics.record_backfill_session_complete();
@@ -229,7 +238,7 @@ impl BackfillManager {
 	async fn backfill_device_owned_state(
 		&self,
 		primary_peer: Uuid,
-		_since_watermark: Option<chrono::DateTime<chrono::Utc>>,  // Deprecated: use per-resource watermarks
+		_since_watermark: Option<chrono::DateTime<chrono::Utc>>, // Deprecated: use per-resource watermarks
 	) -> Result<Option<String>> {
 		info!("Backfilling device-owned state with per-resource watermarks");
 
@@ -255,7 +264,8 @@ impl BackfillManager {
 		let mut final_checkpoint: Option<String> = None;
 		for model_type in model_types {
 			// Get per-resource watermark for this model type
-			let resource_watermark = self.peer_sync
+			let resource_watermark = self
+				.peer_sync
 				.get_resource_watermark(primary_peer, &model_type)
 				.await?;
 
@@ -271,7 +281,7 @@ impl BackfillManager {
 					primary_peer,
 					vec![model_type.clone()],
 					None,
-					resource_watermark,  // Per-resource watermark!
+					resource_watermark, // Per-resource watermark!
 				)
 				.await?;
 
@@ -381,11 +391,35 @@ impl BackfillManager {
 						}
 					}
 
-					// Apply updates via registry
-					for record in records {
+					// Batch FK resolution for all records (365x query reduction)
+					// Collect all record data first
+					let record_data: Vec<serde_json::Value> =
+						records.iter().map(|r| r.data.clone()).collect();
+
+					// Get FK mappings for this model type
+					let fk_mappings =
+						crate::infra::sync::get_fk_mappings(&model_type).unwrap_or_default();
+
+					// Batch process FK mappings if any exist
+					let processed_data = if !fk_mappings.is_empty() && !record_data.is_empty() {
+						// Single query per FK type instead of N queries per record
+						crate::infra::sync::batch_map_sync_json_to_local(
+							record_data,
+							fk_mappings,
+							&db,
+						)
+						.await
+						.map_err(|e| anyhow::anyhow!("Batch FK mapping failed: {}", e))?
+					} else {
+						record_data
+					};
+
+					// Apply updates via registry with FKs already resolved
+					// The idempotent map_sync_json_to_local in apply_state_change will skip already-resolved FKs
+					for data in processed_data {
 						crate::infra::sync::registry::apply_state_change(
 							&model_type,
-							record.data,
+							data,
 							db.clone(),
 						)
 						.await
@@ -393,7 +427,9 @@ impl BackfillManager {
 					}
 
 					// Record data volume metrics
-					self.metrics.record_entries_synced(&model_type, records_count).await;
+					self.metrics
+						.record_entries_synced(&model_type, records_count)
+						.await;
 
 					// Apply deletions via registry
 					for uuid in deleted_uuids {
@@ -424,7 +460,10 @@ impl BackfillManager {
 	}
 
 	/// Backfill shared resources
-	async fn backfill_shared_resources(&self, peer: Uuid) -> Result<Option<crate::infra::sync::HLC>> {
+	async fn backfill_shared_resources(
+		&self,
+		peer: Uuid,
+	) -> Result<Option<crate::infra::sync::HLC>> {
 		self.backfill_shared_resources_since(peer, None).await
 	}
 
@@ -444,6 +483,7 @@ impl BackfillManager {
 		// Request shared changes from peer in batches (can be 100k+ records)
 		let mut last_hlc = since_hlc;
 		let mut total_applied = 0;
+		let mut last_progress_log = 0;
 
 		loop {
 			let response = self
@@ -459,18 +499,68 @@ impl BackfillManager {
 			{
 				let batch_size = entries.len();
 
+				// Track max HLC for ACK (critical for pruning)
+				let max_hlc_in_batch = entries.last().map(|e| e.hlc);
+
 				// Apply entries in HLC order (already sorted from peer)
 				for entry in &entries {
 					self.log_handler.handle_shared_change(entry.clone()).await?;
 				}
 
 				total_applied += batch_size;
-				
+
+				// Send ACK back to peer for pruning (matches real-time path behavior)
+				// This allows the sender to prune acknowledged changes from their sync.db
+				if let Some(up_to_hlc) = max_hlc_in_batch {
+					let ack_message = SyncMessage::AckSharedChanges {
+						library_id: self.library_id,
+						from_device: self.device_id,
+						up_to_hlc,
+					};
+
+					// Send ACK via network (best-effort, don't fail backfill if ACK fails)
+					if let Err(e) = self
+						.peer_sync
+						.network()
+						.send_sync_message(peer, ack_message)
+						.await
+					{
+						warn!(
+							peer = %peer,
+							hlc = %up_to_hlc,
+							error = %e,
+							"Failed to send ACK for shared changes (pruning may be delayed)"
+						);
+					} else {
+						info!(
+							peer = %peer,
+							hlc = %up_to_hlc,
+							batch_size = batch_size,
+							"Sent ACK for shared changes batch"
+						);
+					}
+				}
+
 				// Record metrics
 				self.metrics.record_backfill_pagination_round();
-				self.metrics.record_entries_synced("shared", batch_size as u64).await;
-				
-				info!("Applied {} shared changes (total: {})", batch_size, total_applied);
+				self.metrics
+					.record_entries_synced("shared", batch_size as u64)
+					.await;
+
+				// Log progress every 10,000 records for large backfills
+				if total_applied >= last_progress_log + 10_000 {
+					info!(
+						total_applied = total_applied,
+						batch_size = batch_size,
+						"Backfilling shared resources - progress update"
+					);
+					last_progress_log = total_applied;
+				} else {
+					info!(
+						"Applied {} shared changes (total: {})",
+						batch_size, total_applied
+					);
+				}
 
 				// Update cursor to last HLC for next batch
 				if let Some(last_entry) = entries.last() {
@@ -498,7 +588,11 @@ impl BackfillManager {
 													// Construct a synthetic SharedChangeEntry for application
 													// Generate HLC for ordering (pre-sync data gets current HLC)
 													let hlc = {
-														let mut hlc_gen = self.peer_sync.hlc_generator().lock().await;
+														let mut hlc_gen = self
+															.peer_sync
+															.hlc_generator()
+															.lock()
+															.await;
 														hlc_gen.next()
 													};
 
@@ -538,7 +632,10 @@ impl BackfillManager {
 			}
 		}
 
-		info!("Shared resources backfill complete (total: {} entries)", total_applied);
+		info!(
+			"Shared resources backfill complete (total: {} entries)",
+			total_applied
+		);
 
 		// Return the max HLC from received data for accurate watermark tracking
 		Ok(last_hlc)
@@ -627,7 +724,9 @@ impl BackfillManager {
 		final_state_checkpoint: Option<String>,
 		max_shared_hlc: Option<crate::infra::sync::HLC>,
 	) -> Result<()> {
-		self.peer_sync.set_initial_watermarks(final_state_checkpoint, max_shared_hlc).await
+		self.peer_sync
+			.set_initial_watermarks(final_state_checkpoint, max_shared_hlc)
+			.await
 	}
 }
 
@@ -642,9 +741,7 @@ async fn rebuild_tag_closure_table(db: &sea_orm::DatabaseConnection) -> Result<(
 	tracing::info!("Starting tag_closure rebuild from tag_relationships...");
 
 	// Clear existing tag_closure table
-	tag_closure::Entity::delete_many()
-		.exec(db)
-		.await?;
+	tag_closure::Entity::delete_many().exec(db).await?;
 
 	// 1. Insert self-references for all tags (depth 0)
 	db.execute(Statement::from_sql_and_values(

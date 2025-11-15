@@ -33,12 +33,14 @@ pub use deterministic::{
 	deterministic_system_album_uuid, deterministic_system_tag_uuid, system_tags,
 };
 pub use event_bus::{SyncEvent, SyncEventBus};
-pub use fk_mapper::{convert_fk_to_uuid, map_sync_json_to_local, FKMapping};
+pub use fk_mapper::{
+	batch_map_sync_json_to_local, convert_fk_to_uuid, map_sync_json_to_local, FKMapping,
+};
 pub use hlc::{HLCGenerator, HLC};
 pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};
 pub use registry::{
-	apply_shared_change, apply_state_change, compute_registry_sync_order, get_table_name,
-	is_device_owned, ApplyError, SyncableModelRegistration,
+	apply_shared_change, apply_state_change, compute_registry_sync_order, get_fk_mappings,
+	get_table_name, is_device_owned, ApplyError, SyncableModelRegistration,
 };
 pub use syncable::Syncable;
 pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};

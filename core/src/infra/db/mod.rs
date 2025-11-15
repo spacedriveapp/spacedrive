@@ -33,12 +33,19 @@ impl Database {
 
 		let db_url = format!("sqlite://{}?mode=rwc", path.display());
 
+		// Connection pool sizing for concurrent indexing + sync operations
+		// Supports: indexing (3-5) + sync (8-10) + content ID (3-5) + network (5-8) + headroom (5-10)
+		let pool_size = std::env::var("SPACEDRIVE_DB_POOL_SIZE")
+			.ok()
+			.and_then(|s| s.parse().ok())
+			.unwrap_or(30);
+
 		let mut opt = ConnectOptions::new(db_url);
-		opt.max_connections(5) // Reduced from 10 to 5
-			.min_connections(1) // Reduced from 5 to 1
-			.connect_timeout(Duration::from_secs(8))
-			.idle_timeout(Duration::from_secs(8))
-			.max_lifetime(Duration::from_secs(8))
+		opt.max_connections(pool_size)
+			.min_connections(5)
+			.connect_timeout(Duration::from_secs(30))
+			.idle_timeout(Duration::from_secs(30))
+			.max_lifetime(Duration::from_secs(30))
 			.sqlx_logging(false); // We'll use tracing instead
 
 		let conn = SeaDatabase::connect(opt).await?;
@@ -91,12 +98,18 @@ impl Database {
 
 		let db_url = format!("sqlite://{}", path.display());
 
+		// Use same connection pool sizing as create()
+		let pool_size = std::env::var("SPACEDRIVE_DB_POOL_SIZE")
+			.ok()
+			.and_then(|s| s.parse().ok())
+			.unwrap_or(30);
+
 		let mut opt = ConnectOptions::new(db_url);
-		opt.max_connections(5) // Reduced from 10 to 5
-			.min_connections(1) // Reduced from 5 to 1
-			.connect_timeout(Duration::from_secs(8))
-			.idle_timeout(Duration::from_secs(8))
-			.max_lifetime(Duration::from_secs(8))
+		opt.max_connections(pool_size)
+			.min_connections(5)
+			.connect_timeout(Duration::from_secs(30))
+			.idle_timeout(Duration::from_secs(30))
+			.max_lifetime(Duration::from_secs(30))
 			.sqlx_logging(false);
 
 		let conn = SeaDatabase::connect(opt).await?;

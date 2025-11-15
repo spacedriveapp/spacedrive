@@ -12,28 +12,88 @@ pub mod retry_queue;
 pub mod state;
 
 // No longer need SyncLogDb in leaderless architecture
-use crate::library::Library;
-use crate::service::network::protocol::SyncProtocolHandler;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
 use anyhow::Result;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use once_cell::sync::OnceCell;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use tokio::sync::{Mutex, RwLock};
+use tracing::{debug, info, warn};
+use uuid::Uuid;
+
+use crate::infra::db::entities;
+use crate::library::Library;
+use crate::service::network::protocol::SyncProtocolHandler;
+
 pub use peer::PeerSync;
 pub use state::{
 	select_backfill_peer, BackfillCheckpoint, BufferQueue, BufferedUpdate, DeviceSyncState,
 	PeerInfo, StateChangeMessage,
 };
-use crate::infra::db::entities;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
-use tracing::{debug, info, warn};
-use uuid::Uuid;
 
 pub use metrics::SyncMetricsCollector;
 
 pub use backfill::BackfillManager;
 pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
+
+/// Retry state for incremental catch-up operations
+///
+/// Implements exponential backoff to prevent infinite retry loops when catch-up fails.
+/// After 5 consecutive failures, escalates to full backfill.
+#[derive(Debug, Clone)]
+struct CatchUpRetryState {
+	consecutive_failures: u32,
+	last_attempt: DateTime<Utc>,
+	next_retry_after: DateTime<Utc>,
+}
+
+impl CatchUpRetryState {
+	fn new() -> Self {
+		Self {
+			consecutive_failures: 0,
+			last_attempt: Utc::now(),
+			next_retry_after: Utc::now(),
+		}
+	}
+
+	fn record_failure(&mut self) {
+		self.consecutive_failures += 1;
+		self.last_attempt = Utc::now();
+
+		// Exponential backoff: 10s, 20s, 40s, 80s, 160s (capped at 5 min)
+		let backoff_secs = std::cmp::min(10 * (2_u64.pow(self.consecutive_failures)), 300);
+		self.next_retry_after = Utc::now() + chrono::Duration::seconds(backoff_secs as i64);
+
+		warn!(
+			failures = self.consecutive_failures,
+			next_retry_in_secs = backoff_secs,
+			"Catch-up failed, backing off"
+		);
+	}
+
+	fn record_success(&mut self) {
+		if self.consecutive_failures > 0 {
+			info!(
+				previous_failures = self.consecutive_failures,
+				"Catch-up succeeded, resetting retry state"
+			);
+		}
+		self.consecutive_failures = 0;
+		self.next_retry_after = Utc::now();
+	}
+
+	fn should_retry(&self) -> bool {
+		Utc::now() >= self.next_retry_after
+	}
+
+	fn should_escalate(&self) -> bool {
+		// After 5 consecutive failures, escalate to full backfill
+		self.consecutive_failures >= 5
+	}
+}
 
 /// Sync service for a library (Leaderless)
 ///
@@ -190,6 +250,7 @@ impl SyncService {
 		info!("Starting peer sync loop (leaderless)");
 
 		let mut backfill_attempted = false;
+		let mut retry_state = CatchUpRetryState::new();
 
 		tokio::select! {
 			_ = async {
@@ -275,7 +336,23 @@ impl SyncService {
 										true
 									};
 
-									if should_catch_up {
+									// Check if we should retry based on exponential backoff
+									if should_catch_up && retry_state.should_retry() {
+										// Check if we should escalate to full backfill after repeated failures
+										if retry_state.should_escalate() {
+											warn!(
+												failures = retry_state.consecutive_failures,
+												"Too many catch-up failures, escalating to full backfill"
+											);
+											retry_state.record_success(); // Reset retry state
+											
+											// Transition to Uninitialized to trigger full backfill
+											let mut state = peer_sync.state.write().await;
+											*state = DeviceSyncState::Uninitialized;
+											backfill_attempted = false; // Allow backfill to run again
+											continue; // Skip to next iteration
+										}
+										
 										// Get current watermarks from sync.db
 										let (state_watermark, shared_watermark) = peer_sync.get_watermarks().await;
 										
@@ -305,12 +382,14 @@ impl SyncService {
 										).await {
 											Ok(()) => {
 												info!("Incremental catch-up completed");
+												retry_state.record_success();
 												// Transition back to Ready
 												let mut state = peer_sync.state.write().await;
 												*state = DeviceSyncState::Ready;
 											}
 											Err(e) => {
 												warn!("Incremental catch-up failed: {}", e);
+												retry_state.record_failure();
 												// Transition back to Ready even on error
 												let mut state = peer_sync.state.write().await;
 												*state = DeviceSyncState::Ready;

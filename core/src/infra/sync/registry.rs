@@ -497,6 +497,40 @@ pub async fn is_device_owned(model_type: &str) -> bool {
 		.unwrap_or(false)
 }
 
+/// Get foreign key mappings for a model type
+///
+/// Returns the FK mappings defined by each model's Syncable implementation.
+/// Used for batch FK resolution during sync to reduce database queries from N*M to M.
+pub fn get_fk_mappings(model_type: &str) -> Option<Vec<super::FKMapping>> {
+	use super::FKMapping;
+
+	match model_type {
+		"entry" => Some(vec![
+			FKMapping::new("parent_id", "entries"),
+			FKMapping::new("metadata_id", "user_metadata"),
+			FKMapping::new("content_id", "content_identities"),
+		]),
+		"location" => Some(vec![FKMapping::new("device_id", "devices")]),
+		"collection_entry" => Some(vec![
+			FKMapping::new("collection_id", "collection"),
+			FKMapping::new("entry_id", "entries"),
+		]),
+		"user_metadata_tag" => Some(vec![
+			FKMapping::new("metadata_id", "user_metadata"),
+			FKMapping::new("tag_id", "tag"),
+		]),
+		"tag_relationship" => Some(vec![
+			FKMapping::new("parent_tag_id", "tag"),
+			FKMapping::new("child_tag_id", "tag"),
+		]),
+		// Models without FKs
+		"device" | "volume" | "user_metadata" | "tag" | "collection" => Some(vec![]),
+		// Shared models (no FKs in sync data)
+		"content_identity" => Some(vec![]),
+		_ => None,
+	}
+}
+
 /// Apply a state-based sync entry (device-owned model)
 ///
 /// Routes to the appropriate model's apply_state_change function via registry.
