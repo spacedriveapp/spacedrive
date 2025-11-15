@@ -126,6 +126,10 @@ pub struct PeerSync {
 	/// Buffer for updates during backfill/catch-up
 	buffer: Arc<BufferQueue>,
 
+	/// Last real-time broadcast activity (for catch-up lock mechanism)
+	/// When real-time broadcasts are active, catch-up is skipped to prevent duplication
+	last_realtime_activity: Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
+
 	/// HLC generator for this device
 	hlc_generator: Arc<tokio::sync::Mutex<HLCGenerator>>,
 
@@ -192,6 +196,7 @@ impl PeerSync {
 			network,
 			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
 			buffer: Arc::new(BufferQueue::new()),
+			last_realtime_activity: Arc::new(RwLock::new(None)),
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
 			peer_log,
 			watermark_store,
@@ -240,6 +245,24 @@ impl PeerSync {
 	/// Get this library's ID
 	pub fn library_id(&self) -> Uuid {
 		self.library_id
+	}
+
+	/// Check if real-time sync is currently active (lock mechanism)
+	///
+	/// Returns true if real-time broadcasts happened in the last 60 seconds.
+	/// Used to prevent catch-up from overlapping with active real-time sync.
+	pub async fn is_realtime_active(&self) -> bool {
+		if let Some(last_activity) = *self.last_realtime_activity.read().await {
+			let elapsed = chrono::Utc::now().signed_duration_since(last_activity);
+			elapsed.num_seconds() < 60
+		} else {
+			false
+		}
+	}
+
+	/// Update real-time activity timestamp (called after successful broadcast)
+	async fn mark_realtime_activity(&self) {
+		*self.last_realtime_activity.write().await = Some(chrono::Utc::now());
 	}
 
 	/// Get per-resource watermark for a specific peer and resource type
@@ -750,6 +773,7 @@ impl PeerSync {
 		);
 		let state = self.state.clone();
 		let buffer = self.buffer.clone();
+		let last_realtime_activity = self.last_realtime_activity.clone();
 		let db = self.db.clone();
 		let event_bus_for_emit = self.event_bus.clone();
 		let retry_queue = self.retry_queue.clone();
@@ -809,6 +833,7 @@ impl PeerSync {
 									&retry_queue,
 									&db,
 									&config,
+									&last_realtime_activity,
 								)
 								.await
 								{
@@ -1101,6 +1126,7 @@ impl PeerSync {
 		retry_queue: &Arc<RetryQueue>,
 		db: &Arc<sea_orm::DatabaseConnection>,
 		config: &Arc<crate::infra::sync::SyncConfig>,
+		last_realtime_activity: &Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
 	) -> Result<()> {
 		let model_type: String = data
 			.get("model_type")
@@ -1253,6 +1279,11 @@ impl PeerSync {
 					retry_queue.enqueue(partner_uuid, message.clone()).await;
 				}
 			}
+		}
+
+		// Mark real-time activity if any broadcasts succeeded (lock mechanism)
+		if success_count > 0 {
+			*last_realtime_activity.write().await = Some(chrono::Utc::now());
 		}
 
 		info!(
@@ -2334,6 +2365,7 @@ impl PeerSync {
 				&self.retry_queue,
 				&self.db,
 				&self.config,
+				&self.last_realtime_activity,
 			)
 			.await
 			{

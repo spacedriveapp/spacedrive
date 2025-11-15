@@ -328,8 +328,17 @@ impl SyncService {
 										}
 									};
 
-									// Trigger catch-up if we haven't synced recently
-									let should_catch_up = if let Some(last_sync) = our_device.last_sync_at {
+									// Check if real-time sync is active (lock mechanism)
+									// If real-time broadcasts are happening, skip catch-up to prevent duplication
+									let realtime_active = peer_sync.is_realtime_active().await;
+
+									// Trigger catch-up if:
+									// - Real-time is NOT active (60+ seconds since last broadcast), AND
+									// - We haven't synced recently (fallback time check)
+									let should_catch_up = if realtime_active {
+										debug!("Skipping catch-up - real-time sync is active (lock mechanism)");
+										false
+									} else if let Some(last_sync) = our_device.last_sync_at {
 										let time_since_sync = chrono::Utc::now().signed_duration_since(last_sync);
 										time_since_sync.num_seconds() > 60
 									} else {
