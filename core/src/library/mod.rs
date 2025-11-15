@@ -35,7 +35,7 @@ pub struct Library {
 	path: PathBuf,
 
 	/// Library configuration
-	config: RwLock<LibraryConfig>,
+	config: Arc<RwLock<LibraryConfig>>,
 
 	/// Core context for accessing system services
 	core_context: Arc<crate::context::CoreContext>,
@@ -615,6 +615,7 @@ impl Library {
 		let path = self.path().to_path_buf();
 		let db = self.db().clone();
 		let config = self.config.read().await.clone();
+		let config_lock = Arc::clone(&self.config);
 
 		info!(
 			library_id = %library_id,
@@ -636,6 +637,7 @@ impl Library {
 				path,
 				db,
 				config,
+				config_lock,
 			)
 			.await
 			{
@@ -663,6 +665,7 @@ impl Library {
 		path: PathBuf,
 		db: Arc<Database>,
 		mut config: LibraryConfig,
+		config_lock: Arc<RwLock<LibraryConfig>>,
 	) -> Result<()> {
 		debug!(
 			library_id = %library_id,
@@ -703,6 +706,17 @@ impl Library {
 			config_path = %config_path.display(),
 			"Saved updated statistics to library.json"
 		);
+
+		// Update the in-memory config cache
+		{
+			let mut cached_config = config_lock.write().await;
+			cached_config.statistics = stats.clone();
+			debug!(
+				library_id = %library_id,
+				library_name = %config.name,
+				"Updated in-memory config cache with new statistics"
+			);
+		}
 
 		// Emit ResourceChanged event for normalizedCache
 		// Build the full library info output to match query response

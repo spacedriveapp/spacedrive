@@ -7,12 +7,14 @@ import {
 	DeviceMobile,
 	CaretDown,
 	GearSix,
+	CloudArrowUp,
 } from "@phosphor-icons/react";
 import { TopBarButton, Popover, usePopover } from "@sd/ui";
 import clsx from "clsx";
 import { TopBarPortal } from "../../TopBar";
 import { PairingModal } from "../../components/PairingModal";
 import { useAddLocationDialog } from "../../components/explorer/components/AddLocationModal";
+import { useSyncSetupDialog } from "../../components/SyncSetupModal";
 import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
@@ -83,6 +85,10 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 		useAddLocationDialog((locationId) => {
 			navigate(`/location/${locationId}`);
 		});
+	};
+
+	const handleSyncSetup = () => {
+		useSyncSetupDialog();
 	};
 
 	return (
@@ -170,6 +176,13 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 							onClick={() => setIsPairingOpen(true)}
 						>
 							Pair
+						</TopBarButton>
+						<TopBarButton
+							icon={CloudArrowUp}
+							title="Setup Sync"
+							onClick={handleSyncSetup}
+						>
+							Setup Sync
 						</TopBarButton>
 						<TopBarButton
 							icon={ArrowsClockwise}
