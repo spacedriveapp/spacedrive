@@ -79,19 +79,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 * Setup global event logging (logs each event once)
 	 */
 	private setupEventLogging() {
-		this.on("spacedrive-event", (event: any) => {
-			if ("ResourceChanged" in event) {
-				const { resource_type, resource } = event.ResourceChanged;
-				console.log(`[${resource_type}] ResourceChanged`, { id: resource?.id, name: resource?.name });
-			} else if ("ResourceChangedBatch" in event) {
-				const { resource_type, resources } = event.ResourceChangedBatch;
-				const count = Array.isArray(resources) ? resources.length : 1;
-				console.log(`[${resource_type}] ResourceChangedBatch (${count} items)`);
-			} else if ("ResourceDeleted" in event) {
-				const { resource_type, resource_id } = event.ResourceDeleted;
-				console.log(`[${resource_type}] ResourceDeleted`, { id: resource_id });
-			}
-		});
+		// Event logging removed for production - enable in debug mode if needed
 	}
 
 
@@ -106,12 +94,15 @@ export class SpacedriveClient extends SimpleEventEmitter {
 
 	/**
 	 * Set the currently active library
+	 * @param emitEvent - Whether to emit library-changed event (default: true). Set to false when already triggered by external event.
 	 */
-	setCurrentLibrary(libraryId: string): void {
+	setCurrentLibrary(libraryId: string, emitEvent: boolean = true): void {
 		this.currentLibraryId = libraryId;
 
-		// Emit a library-changed event that hooks can listen to
-		this.emit("library-changed", libraryId);
+		// Emit a library-changed event that hooks can listen to (unless already triggered externally)
+		if (emitEvent) {
+			this.emit("library-changed", libraryId);
+		}
 	}
 
 	/**
@@ -192,13 +183,6 @@ export class SpacedriveClient extends SimpleEventEmitter {
 						payload: input,
 					},
 			  };
-
-		console.log("SpacedriveClient.execute - Sending request:", {
-			wireMethod,
-			input,
-			currentLibraryId: this.currentLibraryId,
-			request,
-		});
 
 		const response = await this.transport.sendRequest(request);
 

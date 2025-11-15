@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 
@@ -153,14 +153,27 @@ export function useNormalizedCache<I, O>({
   const client = useSpacedriveClient();
   const queryClient = useQueryClient();
 
-  // Get current library ID for library-scoped queries
-  const libraryId = client.getCurrentLibraryId();
+  // Track library ID reactively so queryKey updates when it changes
+  const [libraryId, setLibraryId] = useState<string | null>(client.getCurrentLibraryId());
+
+  // Listen for library ID changes and update our state (causes re-render)
+  useEffect(() => {
+    const handleLibraryChange = (newLibraryId: string) => {
+      setLibraryId(newLibraryId);
+    };
+
+    client.on("library-changed", handleLibraryChange);
+    return () => {
+      client.off("library-changed", handleLibraryChange);
+    };
+  }, [client, wireMethod]);
 
   // Include library ID in key so switching libraries triggers refetch
   // useMemo to prevent array recreation on every render
   const queryKey = useMemo(() => [wireMethod, libraryId, input], [wireMethod, libraryId, JSON.stringify(input)]);
 
   // Use TanStack Query normally
+  // When libraryId changes, queryKey changes, and TanStack Query automatically fetches new data
   const query = useQuery<O>({
     queryKey,
     queryFn: async () => {
@@ -170,19 +183,6 @@ export function useNormalizedCache<I, O>({
     },
     enabled: enabled && !!libraryId,
   });
-
-  // Listen for library changes and refetch
-  useEffect(() => {
-    const handleLibraryChange = (newLibraryId: string) => {
-      console.log(`[useNormalizedCache] Library changed to ${newLibraryId}, refetching ${wireMethod}`);
-      query.refetch();
-    };
-
-    client.on("library-changed", handleLibraryChange);
-    return () => {
-      client.off("library-changed", handleLibraryChange);
-    };
-  }, [client, query, wireMethod]);
 
   // Listen for ResourceChanged events and update cache atomically
   useEffect(() => {
@@ -213,29 +213,10 @@ export function useNormalizedCache<I, O>({
 
         const noMergeFields = metadata?.no_merge_fields || [];
 
-        // console.log('[ResourceEvent] ResourceChanged:', {
-        //   resourceType: resource_type,
-        //   ourType: resourceType,
-        //   wireMethod,
-        //   resource,
-        //   queryKey,
-        // });
-
         if (resource_type === resourceType && eventAffectsPath(metadata)) {
-          console.log(
-            "[ResourceEvent] Type matches! Updating cache for",
-            wireMethod,
-          );
-
           // Atomic update: merge this resource into the query data
           queryClient.setQueryData<O>(queryKey, (oldData) => {
-            console.log("[ResourceEvent] setQueryData called");
-            console.log("  oldData:", oldData);
-            console.log("  resource:", resource);
-            console.log("  resourceType:", resourceType);
-
             if (!oldData) {
-              console.log("[ResourceEvent] No oldData, cannot update");
               return oldData;
             }
 
@@ -249,10 +230,6 @@ export function useNormalizedCache<I, O>({
               );
 
               if (existingIndex >= 0) {
-                console.log(
-                  "[Cache] Updating existing item in array at index",
-                  existingIndex,
-                );
                 const newData = [...oldData];
                 newData[existingIndex] = deepMerge(
                   oldData[existingIndex],
