@@ -302,7 +302,9 @@ impl Library {
 		let record_ids: Vec<_> = records.iter().map(|(id, _)| *id).collect();
 		let resources_for_event: Vec<_> = records.iter().map(|(_, data)| data.clone()).collect();
 
-		// Generate HLCs and append to peer log in batch
+		// Generate HLCs, append to peer log, AND emit real-time events (for instant sync)
+		let mut entries_to_broadcast = Vec::new();
+
 		for (record_uuid, data) in records {
 			let hlc = hlc_gen.next();
 
@@ -314,10 +316,24 @@ impl Library {
 				data,
 			};
 
+			// Write to peer log (for durability and pruning)
 			peer_log
 				.append(entry.clone())
 				.await
 				.map_err(|e| anyhow::anyhow!("Failed to append to peer log: {}", e))?;
+
+			// Collect for real-time broadcast
+			entries_to_broadcast.push(entry);
+		}
+
+		// Emit real-time broadcasts for instant sync (HLC dedup prevents double-processing)
+		for entry in entries_to_broadcast {
+			self.transaction_manager().sync_events().emit(
+				crate::infra::sync::SyncEvent::SharedChange {
+					library_id: self.id(),
+					entry,
+				},
+			);
 		}
 
 		// Emit batch resource event for UI reactivity
@@ -343,9 +359,6 @@ impl Library {
 				});
 			}
 		}
-
-		// Internal sync coordination events still suppressed for batch operations
-		// Entries are safely in peer_log, peers will fetch via SharedChangeRequest
 
 		Ok(())
 	}

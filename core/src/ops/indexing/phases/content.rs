@@ -195,6 +195,11 @@ pub async fn run_content_phase(
 			}
 		}
 
+		// Yield to allow content_identity events to be emitted before entry updates
+		// This ensures content_identities arrive on receiving devices before entries that reference them
+		// Prevents FK orphaning where entry UPDATE arrives before content_identity exists
+		tokio::task::yield_now().await;
+
 		// Batch sync entries (device-owned, now sync-ready with content_id assigned)
 		if !entries_to_sync.is_empty() {
 			match IndexingCtx::library(ctx) {
