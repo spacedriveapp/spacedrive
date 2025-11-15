@@ -46,7 +46,7 @@ pub async fn detect_containers() -> VolumeResult<Vec<ApfsContainer>> {
 
 /// Parse the output of `diskutil apfs list`
 fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
-	warn!("APFS_PARSE: Starting to parse diskutil output");
+	debug!("APFS_PARSE: Starting to parse diskutil output");
 	let mut containers = Vec::new();
 	let mut current_container: Option<ApfsContainer> = None;
 	let mut current_volumes = Vec::new();
@@ -117,7 +117,7 @@ fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
 		// Can be prefixed with "|   " like "|   +-> Volume"
 		else if line.starts_with("+-> Volume ") || line.contains("+-> Volume ") {
 			let parts: Vec<&str> = line.split_whitespace().collect();
-			warn!("APFS_PARSE: Found volume header, parts: {:?}", parts);
+			debug!("APFS_PARSE: Found volume header, parts: {:?}", parts);
 			if parts.len() >= 4 {
 				let disk_id = parts[2].to_string(); // e.g., "disk3s5"
 				let uuid = parts[3].to_string();
@@ -133,10 +133,10 @@ fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
 					sealed: false,
 					filevault: false,
 				};
-				warn!("APFS_PARSE: Added volume_info for {}", disk_id);
+				debug!("APFS_PARSE: Added volume_info for {}", disk_id);
 				current_volumes.push(volume_info);
 			} else {
-				warn!(
+				debug!(
 					"APFS_PARSE: Volume header has wrong number of parts: {}",
 					parts.len()
 				);
@@ -203,15 +203,15 @@ fn parse_apfs_list_output(output: &str) -> VolumeResult<Vec<ApfsContainer>> {
 		containers.push(container);
 	}
 
-	warn!("APFS_PARSE: Parsed {} containers", containers.len());
+	debug!("APFS_PARSE: Parsed {} containers", containers.len());
 	for container in &containers {
-		warn!(
+		debug!(
 			"APFS_PARSE: Container {} has {} volumes",
 			container.container_id,
 			container.volumes.len()
 		);
 		for vol in &container.volumes {
-			warn!(
+			debug!(
 				"APFS_PARSE:   Volume '{}' ({}), Mount: {:?}, Role: {:?}",
 				vol.name, vol.disk_id, vol.mount_point, vol.role
 			);
@@ -290,7 +290,7 @@ pub fn containers_to_volumes(
 	device_id: Uuid,
 	config: &VolumeDetectionConfig,
 ) -> VolumeResult<Vec<Volume>> {
-	warn!(
+	debug!(
 		"APFS_CONVERT: Converting container {} with {} volumes, include_system={}",
 		container.container_id,
 		container.volumes.len(),
@@ -305,7 +305,7 @@ pub fn containers_to_volumes(
 			.as_ref()
 			.or(volume_info.mount_point.as_ref());
 
-		warn!(
+		debug!(
 			"APFS_CONVERT: Processing volume '{}' role={:?} mount={:?} snapshot={:?}",
 			volume_info.name,
 			volume_info.role,
@@ -321,7 +321,7 @@ pub fn containers_to_volumes(
 					volume_info.role,
 					ApfsVolumeRole::System | ApfsVolumeRole::Preboot | ApfsVolumeRole::Recovery
 				) {
-				warn!(
+				debug!(
 					"APFS_CONVERT: Skipping system volume: {} ({})",
 					volume_info.name, volume_info.role
 				);
@@ -345,7 +345,7 @@ pub fn containers_to_volumes(
 				"APFS",
 			);
 
-			warn!(
+			debug!(
 				"APFS_CONVERT: Generated fingerprint {} for volume '{}' (consumed: {} bytes)",
 				fingerprint.short_id(),
 				volume_info.name,
@@ -367,7 +367,7 @@ pub fn containers_to_volumes(
 				== crate::volume::types::VolumeType::Secondary
 				&& mount_type == crate::volume::types::MountType::System);
 
-			warn!(
+			debug!(
 				"APFS_CONVERT: Volume '{}' classified as Type={:?}, auto_track_eligible={}",
 				volume_info.name, volume_type, auto_track_eligible
 			);
@@ -427,20 +427,20 @@ pub fn containers_to_volumes(
 			};
 
 			volumes.push(volume);
-			warn!(
+			debug!(
 				"APFS_CONVERT: Added APFS volume: {} at {}",
 				volume_info.name,
 				mount_point.display()
 			);
 		} else {
-			warn!(
+			debug!(
 				"APFS_CONVERT: Skipping unmounted volume: {}",
 				volume_info.name
 			);
 		}
 	}
 
-	warn!(
+	debug!(
 		"APFS_CONVERT: Converted {} volumes from container {}",
 		volumes.len(),
 		container.container_id

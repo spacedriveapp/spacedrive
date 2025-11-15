@@ -557,9 +557,9 @@ impl VolumeManager {
 
 		// Detect current volumes
 		let detected_volumes = detection::detect_volumes(device_id, config).await?;
-		warn!("VOLUME_DETECT: Detected {} volumes", detected_volumes.len());
+		debug!("VOLUME_DETECT: Detected {} volumes", detected_volumes.len());
 		for vol in &detected_volumes {
-			warn!(
+			debug!(
 				"VOLUME_DETECT: Found '{}' at {} - Type: {:?}, Auto-track: {}",
 				vol.name, vol.mount_point.display(), vol.volume_type, vol.auto_track_eligible
 			);
@@ -1330,9 +1330,9 @@ impl VolumeManager {
 		let all_volumes = self.volumes.read().await;
 		let total_count = all_volumes.len();
 
-		warn!("AUTO_TRACK: Total volumes detected: {}", total_count);
+		debug!("AUTO_TRACK: Total volumes detected: {}", total_count);
 		for (fp, vol) in all_volumes.iter() {
-			warn!(
+			debug!(
 				"AUTO_TRACK: Volume '{}' - Type: {:?}, Eligible: {}, Fingerprint: {}",
 				vol.name, vol.volume_type, vol.auto_track_eligible, fp
 			);
@@ -1345,7 +1345,7 @@ impl VolumeManager {
 			.collect();
 		drop(all_volumes);
 
-		warn!("AUTO_TRACK: Eligible volumes for tracking: {}", eligible_volumes.len());
+		debug!("AUTO_TRACK: Eligible volumes for tracking: {}", eligible_volumes.len());
 		let mut tracked_volumes = Vec::new();
 
 		for volume in eligible_volumes {

@@ -91,26 +91,26 @@ async fn detect_macos_volumes(
 	use crate::volume::fs::apfs;
 	use std::process::Command;
 
-	warn!("MACOS_DETECT: Starting macOS volume detection");
+	debug!("MACOS_DETECT: Starting macOS volume detection");
 	let mut volumes = Vec::new();
 
 	// Detect APFS containers using filesystem-specific module
 	let containers = apfs::detect_containers().await?;
-	warn!("MACOS_DETECT: Detected {} APFS containers", containers.len());
+	debug!("MACOS_DETECT: Detected {} APFS containers", containers.len());
 
 	// Convert APFS containers to volumes
 	for container in containers {
 		let converted = apfs::containers_to_volumes(container, device_id, config)?;
-		warn!("MACOS_DETECT: Container converted to {} volumes", converted.len());
+		debug!("MACOS_DETECT: Container converted to {} volumes", converted.len());
 		volumes.extend(converted);
 	}
 
 	// Detect non-APFS volumes using traditional methods
 	let generic_volumes = detect_generic_volumes_macos(device_id, config).await?;
-	warn!("MACOS_DETECT: Detected {} generic (non-APFS) volumes", generic_volumes.len());
+	debug!("MACOS_DETECT: Detected {} generic (non-APFS) volumes", generic_volumes.len());
 	volumes.extend(generic_volumes);
 
-	warn!("MACOS_DETECT: Total volumes detected: {}", volumes.len());
+	debug!("MACOS_DETECT: Total volumes detected: {}", volumes.len());
 	Ok(volumes)
 }
 
