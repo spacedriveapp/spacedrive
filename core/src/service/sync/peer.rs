@@ -1143,18 +1143,14 @@ impl PeerSync {
 		debug!(
 			model_type = %change.model_type,
 			record_uuid = %change.record_uuid,
-			"Broadcasting state change from event"
+			device_id = %device_id,
+			"Broadcasting state change from event (our own change)"
 		);
 
-		// Check if we should buffer
-		let current_state = *state.read().await;
-		if current_state.should_buffer() {
-			debug!("Buffering own state change during backfill");
-			buffer
-				.push(super::state::BufferedUpdate::StateChange(change))
-				.await;
-			return Ok(());
-		}
+		// CRITICAL: Never buffer our OWN state changes
+		// This function handles local events (from our transaction manager), not incoming network messages
+		// Buffering our own changes causes data loss when we're serving backfill requests
+		// Only incoming changes from peers should be buffered during our backfill
 
 		// Create sync message
 		let message = SyncMessage::StateChange {
