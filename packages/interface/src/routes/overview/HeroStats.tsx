@@ -9,6 +9,7 @@ interface HeroStatsProps {
 	locationCount: number;
 	tagCount: number;
 	deviceCount: number;
+	uniqueContentCount: number;
 }
 
 function formatBytes(bytes: number): string {
@@ -25,6 +26,7 @@ export function HeroStats({
 	totalFiles,
 	locationCount,
 	deviceCount,
+	uniqueContentCount,
 }: HeroStatsProps) {
 	const usagePercent = totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
 
@@ -55,7 +57,7 @@ export function HeroStats({
 					icon={Files}
 					label="Files Indexed"
 					value={totalFiles.toLocaleString()}
-					subtitle={`across ${locationCount} locations`}
+					subtitle={`${uniqueContentCount.toLocaleString()} unique files`}
 					color="from-purple-500 to-pink-500"
 				/>
 

@@ -60,6 +60,7 @@ export function Overview() {
 						locationCount={stats.location_count}
 						tagCount={stats.tag_count}
 						deviceCount={stats.device_count}
+						uniqueContentCount={Number(stats.unique_content_count)}
 					/>
 					<ContentBreakdown totalFiles={Number(stats.total_files)} />
 				</div>

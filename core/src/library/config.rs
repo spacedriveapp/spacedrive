@@ -161,6 +161,10 @@ pub struct LibraryStatistics {
 	#[serde(default)]
 	pub device_count: u32,
 
+	/// Number of unique content identities in this library (v2 field, defaults to 0 for old configs)
+	#[serde(default)]
+	pub unique_content_count: u64,
+
 	/// Total storage capacity across all volumes in bytes (v2 field, defaults to 0 for old configs)
 	#[serde(default)]
 	pub total_capacity: u64,
@@ -190,6 +194,7 @@ impl Default for LibraryStatistics {
 			location_count: 0,
 			tag_count: 0,
 			device_count: 0,
+			unique_content_count: 0,
 			total_capacity: 0,
 			available_capacity: 0,
 			thumbnail_count: 0,

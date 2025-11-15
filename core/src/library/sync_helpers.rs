@@ -259,8 +259,15 @@ impl Library {
 			metadata: None,
 		});
 
-		// Internal sync coordination events still suppressed for batch operations
-		// Peers will discover changes via backfill or watermark exchange
+		// Emit StateChange events for sync coordination
+		// Previously suppressed to avoid network overhead, but this caused 97% data loss
+		// when combined with watermark bugs. Real-time broadcast is critical for reliability.
+		for (record_uuid, data) in records {
+			self.transaction_manager()
+				.commit_device_owned(self.id(), model_type, record_uuid, device_id, data)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to commit device-owned data: {}", e))?;
+		}
 
 		Ok(())
 	}

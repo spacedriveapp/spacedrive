@@ -718,15 +718,14 @@ impl Library {
 		};
 
 		// Serialize to JSON for the event
-		let resource_json = serde_json::to_value(&library_output)
-			.unwrap_or_else(|e| {
-				warn!(
-					library_id = %library_id,
-					error = %e,
-					"Failed to serialize library info for ResourceChanged event"
-				);
-				serde_json::Value::Null
-			});
+		let resource_json = serde_json::to_value(&library_output).unwrap_or_else(|e| {
+			warn!(
+				library_id = %library_id,
+				error = %e,
+				"Failed to serialize library info for ResourceChanged event"
+			);
+			serde_json::Value::Null
+		});
 
 		// Emit ResourceChanged event that normalizedCache will pick up
 		event_bus.emit(crate::infra::event::Event::ResourceChanged {
@@ -806,22 +805,22 @@ impl Library {
 		drop(config);
 
 		// Serialize to JSON for the event
-		let resource_json = serde_json::to_value(&library_output)
-			.unwrap_or_else(|e| {
-				warn!(
-					library_id = %library_id,
-					error = %e,
-					"Failed to serialize library info for ResourceChanged event"
-				);
-				serde_json::Value::Null
-			});
+		let resource_json = serde_json::to_value(&library_output).unwrap_or_else(|e| {
+			warn!(
+				library_id = %library_id,
+				error = %e,
+				"Failed to serialize library info for ResourceChanged event"
+			);
+			serde_json::Value::Null
+		});
 
 		// Emit ResourceChanged event that normalizedCache will pick up
-		self.event_bus.emit(crate::infra::event::Event::ResourceChanged {
-			resource_type: "library".to_string(),
-			resource: resource_json,
-			metadata: None,
-		});
+		self.event_bus
+			.emit(crate::infra::event::Event::ResourceChanged {
+				resource_type: "library".to_string(),
+				resource: resource_json,
+				metadata: None,
+			});
 
 		// Also emit the legacy event for backwards compatibility
 		self.event_bus
@@ -876,6 +875,14 @@ impl Library {
 			"Completed device count calculation"
 		);
 
+		debug!("Starting unique content count calculation");
+		// Calculate unique content count
+		let unique_content_count = Self::calculate_unique_content_count_static(&db_conn).await?;
+		debug!(
+			unique_content_count = unique_content_count,
+			"Completed unique content count calculation"
+		);
+
 		debug!("Starting volume capacity calculation");
 		// Calculate volume capacity
 		let (total_capacity, available_capacity) =
@@ -908,6 +915,7 @@ impl Library {
 			location_count,
 			tag_count,
 			device_count,
+			unique_content_count,
 			total_capacity,
 			available_capacity,
 			thumbnail_count,
@@ -933,6 +941,9 @@ impl Library {
 		// Calculate device count
 		let device_count = self.calculate_device_count(db).await?;
 
+		// Calculate unique content count
+		let unique_content_count = self.calculate_unique_content_count(db).await?;
+
 		// Calculate volume capacity
 		let (total_capacity, available_capacity) = self.calculate_volume_capacity(db).await?;
 
@@ -948,6 +959,7 @@ impl Library {
 			location_count,
 			tag_count,
 			device_count,
+			unique_content_count,
 			total_capacity,
 			available_capacity,
 			thumbnail_count,
@@ -1073,6 +1085,25 @@ impl Library {
 		let count = devices.len() as u32;
 
 		debug!(device_count = count, "Completed device count calculation");
+
+		Ok(count)
+	}
+
+	/// Calculate unique content count
+	async fn calculate_unique_content_count(
+		&self,
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<u64> {
+		use crate::infra::db::entities::content_identity;
+		use sea_orm::{EntityTrait, PaginatorTrait};
+
+		debug!("Starting unique content count calculation");
+		let count = content_identity::Entity::find().count(db).await?;
+
+		debug!(
+			unique_content_count = count,
+			"Completed unique content count calculation"
+		);
 
 		Ok(count)
 	}
@@ -1347,6 +1378,22 @@ impl Library {
 			"Device count query completed successfully"
 		);
 		Ok(count as u32)
+	}
+
+	/// Calculate unique content count (static version)
+	async fn calculate_unique_content_count_static(
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<u64> {
+		use crate::infra::db::entities::content_identity;
+		use sea_orm::{EntityTrait, PaginatorTrait};
+
+		debug!("Executing unique content count query");
+		let count = content_identity::Entity::find().count(db).await?;
+		debug!(
+			unique_content_count = count,
+			"Unique content count query completed successfully"
+		);
+		Ok(count)
 	}
 
 	/// Calculate volume capacity (total and available) across all volumes (static version)

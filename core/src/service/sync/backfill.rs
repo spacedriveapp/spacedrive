@@ -293,7 +293,8 @@ impl BackfillManager {
 			);
 
 			// Update per-resource watermark using max timestamp from received data
-			// This ensures the watermark reflects actual data, not just completion time
+			// CRITICAL: Only update if data was actually received!
+			// Advancing watermark without receiving data causes permanent data loss
 			if let Some(max_ts) = max_received_timestamp {
 				self.peer_sync
 					.update_resource_watermark(primary_peer, &model_type, max_ts)
@@ -302,19 +303,14 @@ impl BackfillManager {
 				info!(
 					model_type = %model_type,
 					watermark = %max_ts,
-					"Updated resource watermark from received data (not Utc::now())"
+					"Updated resource watermark from received data"
 				);
 			} else {
-				// No data received, use completion time as fallback
-				let watermark_time = chrono::Utc::now();
-				self.peer_sync
-					.update_resource_watermark(primary_peer, &model_type, watermark_time)
-					.await?;
-
+				// No data received - watermark MUST NOT advance!
+				// If we advanced it, we'd filter out unsynced data permanently
 				info!(
 					model_type = %model_type,
-					watermark = %watermark_time,
-					"No data received, using completion time as watermark"
+					"No data received, watermark unchanged (prevents data loss)"
 				);
 			}
 
@@ -340,7 +336,9 @@ impl BackfillManager {
 		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
 	) -> Result<(BackfillCheckpoint, Option<chrono::DateTime<chrono::Utc>>)> {
 		let mut current_checkpoint = checkpoint.unwrap_or_else(|| BackfillCheckpoint::start(peer));
-		let mut max_timestamp: Option<chrono::DateTime<chrono::Utc>> = since_watermark;
+		// Track max timestamp from ONLY received records (not initialized to watermark)
+		// Initializing to since_watermark caused bug where watermark advanced even when no data received
+		let mut max_timestamp: Option<chrono::DateTime<chrono::Utc>> = None;
 
 		for model_type in model_types {
 			if current_checkpoint.completed_models.contains(&model_type) {

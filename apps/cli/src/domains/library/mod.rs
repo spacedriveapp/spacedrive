@@ -124,17 +124,18 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 				println!();
 				println!("Statistics");
 				println!("----------");
-				println!("Total files: {}", info.statistics.total_files);
-				println!("Total size: {} bytes", info.statistics.total_size);
-				println!("Locations: {}", info.statistics.location_count);
-				println!("Tags: {}", info.statistics.tag_count);
-				println!("Devices: {}", info.statistics.device_count);
-				println!("Total capacity: {} bytes", info.statistics.total_capacity);
-				println!(
-					"Available capacity: {} bytes",
-					info.statistics.available_capacity
-				);
-				println!("Thumbnails: {}", info.statistics.thumbnail_count);
+			println!("Total files: {}", info.statistics.total_files);
+			println!("Unique content: {}", info.statistics.unique_content_count);
+			println!("Total size: {} bytes", info.statistics.total_size);
+			println!("Locations: {}", info.statistics.location_count);
+			println!("Tags: {}", info.statistics.tag_count);
+			println!("Devices: {}", info.statistics.device_count);
+			println!("Total capacity: {} bytes", info.statistics.total_capacity);
+			println!(
+				"Available capacity: {} bytes",
+				info.statistics.available_capacity
+			);
+			println!("Thumbnails: {}", info.statistics.thumbnail_count);
 				println!("Database size: {} bytes", info.statistics.database_size);
 				if let Some(last_indexed) = info.statistics.last_indexed {
 					println!(
