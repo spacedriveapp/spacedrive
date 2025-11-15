@@ -17,3 +17,6 @@ pnpm-lock.yaml -diff linguist-generated
 /docs/* linguist-documentation
 /crates/*/example/**/* linguist-documentation
 /crates/*/examples/**/* linguist-documentation
+
+# TEST: Ignore .tex files from language statistics
+**/*.tex linguist-detectable=false
