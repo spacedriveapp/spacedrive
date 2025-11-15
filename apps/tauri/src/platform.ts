@@ -1,6 +1,8 @@
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { convertFileSrc as tauriConvertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Platform } from "@sd/interface/platform";
 
 /**
@@ -69,5 +71,68 @@ export const platform: Platform = {
 			variant,
 			format,
 		});
+	},
+
+	async updateMenuItems(items) {
+		await invoke("update_menu_items", { items });
+	},
+
+	async getCurrentLibraryId() {
+		try {
+			return await invoke<string>("get_current_library_id");
+		} catch {
+			return null;
+		}
+	},
+
+	async setCurrentLibraryId(libraryId: string) {
+		await invoke("set_current_library_id", { libraryId });
+	},
+
+	async onLibraryIdChanged(callback: (libraryId: string) => void) {
+		const unlisten = await listen<string>("library-changed", (event) => {
+			callback(event.payload);
+		});
+		return unlisten;
+	},
+
+	async showWindow(window: any) {
+		await invoke("show_window", { window });
+	},
+
+	async closeWindow(label: string) {
+		await invoke("close_window", { label });
+	},
+
+	async onWindowEvent(event: string, callback: () => void) {
+		const unlisten = await listen(event, () => {
+			callback();
+		});
+		return unlisten;
+	},
+
+	getCurrentWindowLabel() {
+		const window = getCurrentWebviewWindow();
+		return window.label;
+	},
+
+	async closeCurrentWindow() {
+		const window = getCurrentWebviewWindow();
+		await window.close();
+	},
+
+	async getSelectedFileIds() {
+		return await invoke<string[]>("get_selected_file_ids");
+	},
+
+	async setSelectedFileIds(fileIds: string[]) {
+		await invoke("set_selected_file_ids", { fileIds });
+	},
+
+	async onSelectedFilesChanged(callback: (fileIds: string[]) => void) {
+		const unlisten = await listen<string[]>("selected-files-changed", (event) => {
+			callback(event.payload);
+		});
+		return unlisten;
 	},
 };

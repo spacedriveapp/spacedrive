@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Explorer, FloatingControls, LocationCacheDemo, Inspector, QuickPreview, PlatformProvider } from "@sd/interface";
+import { Explorer, FloatingControls, LocationCacheDemo, PopoutInspector, QuickPreview, PlatformProvider, SpacedriveProvider } from "@sd/interface";
 import { SpacedriveClient, TauriTransport } from "@sd/ts-client";
 import { useEffect, useState } from "react";
 import { DragOverlay } from "./routes/DragOverlay";
@@ -12,22 +12,17 @@ import { platform } from "./platform";
 import { initializeContextMenuHandler } from "./contextMenu";
 
 function App() {
-  console.log("App component rendering");
-
   const [client, setClient] = useState<SpacedriveClient | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<string>("/");
 
   useEffect(() => {
-    console.log("Tauri App mounting...");
-
     // Initialize Tauri native context menu handler
     initializeContextMenuHandler();
 
     // Prevent default context menu globally (except in context menu windows)
     const currentWindow = getCurrentWebviewWindow();
     const label = currentWindow.label;
-    console.log("Window label:", label);
 
     // Prevent default browser context menu globally (except in context menu windows)
     if (!label.startsWith("context-menu")) {
@@ -65,23 +60,37 @@ function App() {
 
     // Create Tauri-based client
     try {
-      console.log("Creating SpacedriveClient with TauriTransport...");
       const transport = new TauriTransport(invoke, listen);
       const spacedrive = new SpacedriveClient(transport);
       setClient(spacedrive);
-      console.log("Client created successfully");
+
+      // Query current library ID from platform state (for popout windows)
+      if (platform.getCurrentLibraryId) {
+        platform.getCurrentLibraryId()
+          .then((libraryId) => {
+            if (libraryId) {
+              spacedrive.setCurrentLibrary(libraryId, false); // Don't emit - already in sync
+            }
+          })
+          .catch(() => {
+            // Library not selected yet - this is fine for initial load
+          });
+      }
+
+      // Listen for library-changed events via platform (emitted when library switches)
+      if (platform.onLibraryIdChanged) {
+        platform.onLibraryIdChanged((newLibraryId) => {
+          spacedrive.setCurrentLibrary(newLibraryId, true); // DO emit - hooks need to know!
+        });
+      }
 
       // Start event subscription
-      spacedrive.subscribe().then(() => {
-        console.log("Event subscription active");
-      });
+      spacedrive.subscribe();
     } catch (err) {
       console.error("Failed to create client:", err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
-
-  console.log("App render state:", { hasClient: !!client, hasError: !!error, route });
 
   // Routes that don't need the client
   if (route === "/floating-controls") {
@@ -144,9 +153,13 @@ function App() {
 
   if (route === "/inspector") {
     return (
-      <div className="h-screen bg-app overflow-hidden">
-        <Inspector variant={null} showPopOutButton={false} />
-      </div>
+      <PlatformProvider platform={platform}>
+        <SpacedriveProvider client={client}>
+          <div className="h-screen bg-app overflow-hidden">
+            <PopoutInspector />
+          </div>
+        </SpacedriveProvider>
+      </PlatformProvider>
     );
   }
 
