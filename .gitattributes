@@ -20,3 +20,7 @@ pnpm-lock.yaml -diff linguist-generated
 
 # TEST: Ignore .tex files from language statistics
 **/*.tex linguist-detectable=false
+
+# Ignore TypeScript/JavaScript apps and extensions from language statistics
+apps/** linguist-detectable=false
+extensions/** linguist-detectable=false
