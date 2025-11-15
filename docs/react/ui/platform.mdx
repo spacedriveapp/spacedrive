@@ -1,0 +1,486 @@
+---
+title: Platform Abstraction
+sidebarTitle: Platform
+---
+
+The platform abstraction layer enables the Spacedrive interface to run on multiple platforms (Web, Tauri, React Native) while accessing platform-specific features.
+
+## Problem
+
+Spacedrive runs on:
+- **Desktop** via Tauri (native file pickers, native dialogs)
+- **Web** via browser (limited native APIs)
+- **Mobile** via React Native (different native APIs)
+
+We need a single codebase that works everywhere without `if (isTauri)` checks scattered throughout.
+
+## Solution
+
+The `Platform` type and `usePlatform()` hook provide a clean abstraction:
+
+```tsx
+// Component doesn't know or care which platform it's on
+function FilePicker() {
+  const platform = usePlatform();
+
+  const handlePickFile = async () => {
+    if (platform.openFilePickerDialog) {
+      const path = await platform.openFilePickerDialog({ multiple: false });
+      console.log('Selected:', path);
+    } else {
+      // Fallback for platforms without native picker
+      console.log('Use web file input instead');
+    }
+  };
+
+  return <button onClick={handlePickFile}>Pick File</button>;
+}
+```
+
+## Platform Type
+
+```tsx
+type Platform = {
+  // Platform discriminator
+  platform: "web" | "tauri";
+
+  // Open native directory picker dialog (Tauri only)
+  openDirectoryPickerDialog?(opts?: {
+    title?: string;
+    multiple?: boolean;
+  }): Promise<string | string[] | null>;
+
+  // Open native file picker dialog (Tauri only)
+  openFilePickerDialog?(opts?: {
+    title?: string;
+    multiple?: boolean;
+  }): Promise<string | string[] | null>;
+
+  // Save file picker dialog (Tauri only)
+  saveFilePickerDialog?(opts?: {
+    title?: string;
+    defaultPath?: string;
+  }): Promise<string | null>;
+
+  // Open a URL in the default browser
+  openLink(url: string): void;
+
+  // Show native confirmation dialog
+  confirm(message: string, callback: (result: boolean) => void): void;
+};
+```
+
+## Usage
+
+### Setup
+
+Wrap your app with `PlatformProvider`:
+
+```tsx
+import { PlatformProvider, Platform } from '@sd/interface';
+
+// Tauri implementation
+const tauriPlatform: Platform = {
+  platform: 'tauri',
+  openDirectoryPickerDialog: async (opts) => {
+    return await window.__TAURI__.dialog.open({
+      directory: true,
+      title: opts?.title,
+      multiple: opts?.multiple,
+    });
+  },
+  openFilePickerDialog: async (opts) => {
+    return await window.__TAURI__.dialog.open({
+      directory: false,
+      title: opts?.title,
+      multiple: opts?.multiple,
+    });
+  },
+  saveFilePickerDialog: async (opts) => {
+    return await window.__TAURI__.dialog.save({
+      title: opts?.title,
+      defaultPath: opts?.defaultPath,
+    });
+  },
+  openLink: (url) => {
+    window.__TAURI__.shell.open(url);
+  },
+  confirm: (message, callback) => {
+    window.__TAURI__.dialog.confirm(message).then(callback);
+  },
+};
+
+// Web implementation
+const webPlatform: Platform = {
+  platform: 'web',
+  // No native dialogs
+  openLink: (url) => {
+    window.open(url, '_blank');
+  },
+  confirm: (message, callback) => {
+    callback(window.confirm(message));
+  },
+};
+
+function App() {
+  const platform = window.__TAURI__ ? tauriPlatform : webPlatform;
+
+  return (
+    <PlatformProvider platform={platform}>
+      <YourApp />
+    </PlatformProvider>
+  );
+}
+```
+
+### Using in Components
+
+```tsx
+import { usePlatform } from '@sd/interface';
+
+function AddLocationButton() {
+  const platform = usePlatform();
+
+  const handleAddLocation = async () => {
+    // Check if native picker is available
+    if (platform.openDirectoryPickerDialog) {
+      const path = await platform.openDirectoryPickerDialog({
+        title: 'Select folder to index',
+        multiple: false,
+      });
+
+      if (path && typeof path === 'string') {
+        // Create location with selected path
+        await createLocation({ path });
+      }
+    } else {
+      // Web fallback: show manual path input
+      showManualPathDialog();
+    }
+  };
+
+  return (
+    <button onClick={handleAddLocation}>
+      Add Location
+    </button>
+  );
+}
+```
+
+### Opening External Links
+
+```tsx
+function HelpButton() {
+  const platform = usePlatform();
+
+  return (
+    <button onClick={() => platform.openLink('https://spacedrive.com/docs')}>
+      Open Documentation
+    </button>
+  );
+}
+```
+
+### Confirmation Dialogs
+
+```tsx
+function DeleteButton({ itemName }: { itemName: string }) {
+  const platform = usePlatform();
+
+  const handleDelete = () => {
+    platform.confirm(
+      `Are you sure you want to delete "${itemName}"?`,
+      (confirmed) => {
+        if (confirmed) {
+          performDelete();
+        }
+      }
+    );
+  };
+
+  return <button onClick={handleDelete}>Delete</button>;
+}
+```
+
+## Checking Platform Type
+
+```tsx
+function FeatureGate() {
+  const platform = usePlatform();
+
+  if (platform.platform === 'web') {
+    return <div>Web-specific UI</div>;
+  }
+
+  return <div>Desktop-specific UI</div>;
+}
+```
+
+## Optional Methods Pattern
+
+All platform-specific methods are **optional** (marked with `?`). This enables:
+
+1. **Graceful degradation** - Components can check availability and provide fallbacks
+2. **Type safety** - TypeScript enforces checking before calling
+3. **Platform flexibility** - New platforms can implement only what they support
+
+```tsx
+// Good - checks availability
+if (platform.openFilePickerDialog) {
+  await platform.openFilePickerDialog();
+} else {
+  // Fallback for platforms without native picker
+}
+
+// Bad - will error at runtime on web
+await platform.openFilePickerDialog(); // Type error!
+```
+
+## Adding New Platform Methods
+
+To add a new platform capability:
+
+1. Update the `Platform` type in `platform.tsx`
+2. Implement for each platform (Tauri, Web, React Native)
+3. Use with optional chaining in components
+
+```tsx
+// 1. Add to Platform type
+type Platform = {
+  // ... existing methods
+
+  // New method
+  showNotification?(opts: {
+    title: string;
+    body: string;
+  }): void;
+};
+
+// 2. Implement for Tauri
+const tauriPlatform: Platform = {
+  // ... existing methods
+
+  showNotification: (opts) => {
+    window.__TAURI__.notification.sendNotification(opts);
+  },
+};
+
+// 3. Implement for Web
+const webPlatform: Platform = {
+  // ... existing methods
+
+  showNotification: (opts) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(opts.title, { body: opts.body });
+    }
+  },
+};
+
+// 4. Use in components
+function NotifyButton() {
+  const platform = usePlatform();
+
+  const notify = () => {
+    platform.showNotification?.({
+      title: 'Hello',
+      body: 'World',
+    });
+  };
+
+  return <button onClick={notify}>Notify</button>;
+}
+```
+
+## Best Practices
+
+### Provide Fallbacks
+
+Always have a fallback for platforms without the feature:
+
+```tsx
+// Good
+const pickFile = async () => {
+  if (platform.openFilePickerDialog) {
+    return await platform.openFilePickerDialog();
+  } else {
+    // Show web file input or manual path entry
+    return await showWebFilePicker();
+  }
+};
+
+// Bad - feature just doesn't work on some platforms
+const pickFile = async () => {
+  return await platform.openFilePickerDialog?.();
+  // Returns undefined on web, no fallback!
+};
+```
+
+### Don't Check Platform String
+
+Avoid checking `platform.platform` directly. Check method availability instead:
+
+```tsx
+// Good - feature detection
+if (platform.openDirectoryPickerDialog) {
+  // Use native picker
+}
+
+// Bad - platform detection
+if (platform.platform === 'tauri') {
+  // Assumes Tauri = has picker (maybe not in future)
+}
+```
+
+### Keep Platform Logic Minimal
+
+Platform-specific code should be minimal. Most logic should be platform-agnostic:
+
+```tsx
+// Good - only picker is platform-specific
+async function addLocation() {
+  const path = await pickDirectory(); // Platform abstraction
+  const location = createLocationFromPath(path); // Platform-agnostic
+  await saveLocation(location); // Platform-agnostic
+  showSuccessMessage(); // Platform-agnostic
+}
+
+// Bad - too much platform-specific code
+async function addLocationTauri() {
+  // Entire flow is Tauri-specific, can't reuse
+}
+async function addLocationWeb() {
+  // Duplicate logic for web
+}
+```
+
+### Use Context, Not Props
+
+Use `usePlatform()` hook instead of prop drilling:
+
+```tsx
+// Good
+function DeepComponent() {
+  const platform = usePlatform(); // Available anywhere
+}
+
+// Bad
+function Parent() {
+  return <Child platform={platform} />;
+}
+function Child({ platform }: { platform: Platform }) {
+  return <GrandChild platform={platform} />;
+}
+```
+
+## Platform Implementations
+
+### Tauri
+
+```tsx
+const tauriPlatform: Platform = {
+  platform: 'tauri',
+  openDirectoryPickerDialog: async (opts) => {
+    return await window.__TAURI__.dialog.open({
+      directory: true,
+      title: opts?.title,
+      multiple: opts?.multiple,
+    });
+  },
+  openFilePickerDialog: async (opts) => {
+    return await window.__TAURI__.dialog.open({
+      directory: false,
+      title: opts?.title,
+      multiple: opts?.multiple,
+    });
+  },
+  saveFilePickerDialog: async (opts) => {
+    return await window.__TAURI__.dialog.save({
+      title: opts?.title,
+      defaultPath: opts?.defaultPath,
+    });
+  },
+  openLink: (url) => {
+    window.__TAURI__.shell.open(url);
+  },
+  confirm: (message, callback) => {
+    window.__TAURI__.dialog.confirm(message).then(callback);
+  },
+};
+```
+
+### Web
+
+```tsx
+const webPlatform: Platform = {
+  platform: 'web',
+  openLink: (url) => {
+    window.open(url, '_blank');
+  },
+  confirm: (message, callback) => {
+    callback(window.confirm(message));
+  },
+  // Native pickers not available
+};
+```
+
+### React Native (Future)
+
+```tsx
+const rnPlatform: Platform = {
+  platform: 'mobile',
+  openDirectoryPickerDialog: async (opts) => {
+    // Use react-native-document-picker or similar
+    return await DocumentPicker.pickDirectory();
+  },
+  openLink: (url) => {
+    Linking.openURL(url);
+  },
+  confirm: (message, callback) => {
+    Alert.alert(
+      'Confirm',
+      message,
+      [
+        { text: 'Cancel', onPress: () => callback(false) },
+        { text: 'OK', onPress: () => callback(true) },
+      ]
+    );
+  },
+};
+```
+
+## Error Handling
+
+```tsx
+async function pickFile() {
+  const platform = usePlatform();
+
+  if (!platform.openFilePickerDialog) {
+    throw new Error('File picker not available on this platform');
+  }
+
+  try {
+    const path = await platform.openFilePickerDialog();
+    if (!path) {
+      // User cancelled
+      return null;
+    }
+    return path;
+  } catch (error) {
+    console.error('Failed to pick file:', error);
+    return null;
+  }
+}
+```
+
+## Summary
+
+The platform abstraction layer:
+
+- **Single codebase** works on Web, Tauri, and React Native
+- **Clean API** via `usePlatform()` hook
+- **Type-safe** with optional methods
+- **Graceful degradation** with feature detection
+- **Minimal boilerplate** using React Context
+- **Easy to extend** with new platform methods
+
+Use it whenever you need platform-specific functionality like native dialogs, file pickers, or shell commands.

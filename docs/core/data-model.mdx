@@ -82,7 +82,7 @@ The `Entry` is the core entity representing a file or directory. The database en
 ```rust Expandable theme={null}
 pub struct Entry {
     pub id: i32,                      // Database primary key
-    pub uuid: Option<Uuid>,           // Global identifier (assigned after content ID)
+    pub uuid: Option<Uuid>,           // Global identifier (assigned immediately during indexing)
     pub name: String,                 // File or directory name
     pub kind: i32,                    // 0=File, 1=Directory, 2=Symlink
     pub extension: Option<String>,    // File extension (without dot)
@@ -112,13 +112,13 @@ pub struct Entry {
 
 ### UUID Assignment
 
-UUIDs indicate sync readiness:
+All entries receive UUIDs immediately during indexing for UI caching compatibility. However, sync readiness is determined separately:
 
-- **Directories** - Assigned immediately (no content to identify)
-- **Empty files** - Assigned immediately (size = 0)
-- **Regular files** - Assigned after content identification
+- **Directories** - Sync ready immediately (no content to identify)
+- **Empty files** - Sync ready immediately (size = 0)
+- **Regular files** - Sync ready only after content identification (content_id present)
 
-This ensures files sync only after proper content identification.
+This ensures files sync only after proper content identification, while allowing the UI to cache and track all entries from the moment they're discovered.
 
 ### Hierarchical Queries
 
@@ -280,8 +280,8 @@ pub struct TagRelationship {
 Examples:
 
 - Parent/Child: "Animals" → "Dogs" → "Puppies"
-- Synonyms: "Car" ↔ "Automobile"
-- Related: "Photography" ↔ "Camera"
+- Synonyms: "Car" "Automobile"
+- Related: "Photography" "Camera"
 
 Tag hierarchies use closure tables for efficient ancestor/descendant queries, similar to entries.
 

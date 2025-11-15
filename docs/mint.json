@@ -34,6 +34,11 @@
 			"name": "CLI",
 			"icon": "terminal",
 			"url": "cli"
+		},
+		{
+			"name": "Interface",
+			"icon": "palette",
+			"url": "react"
 		}
 	],
 	"navigation": [
@@ -122,6 +127,17 @@
 				"cli/library-sync-setup",
 				"cli/multi-instance",
 				"cli/index-verify"
+			]
+		},
+		{
+			"group": "React UI",
+			"icon": "palette",
+			"pages": [
+				"react/ui/colors",
+				"react/ui/primitives",
+				"react/ui/hooks",
+				"react/ui/normalized-cache",
+				"react/ui/platform"
 			]
 		}
 	]

@@ -1,0 +1,633 @@
+---
+title: React Hooks
+sidebarTitle: Hooks
+---
+
+Spacedrive provides type-safe React hooks for data fetching, mutations, and event subscriptions. All types are auto-generated from Rust definitions.
+
+## Data Fetching Hooks
+
+### useCoreQuery
+
+Type-safe hook for core-scoped queries (operations that don't require a library).
+
+```tsx
+import { useCoreQuery } from '@sd/interface';
+
+function LibraryList() {
+  const { data: libraries, isLoading, error } = useCoreQuery({
+    type: 'libraries.list',
+    input: { include_stats: false },
+  });
+
+  if (isLoading) return <Loader />;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      {libraries?.map(lib => (
+        <div key={lib.id}>{lib.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Features:**
+- **Auto-generated types** - `type` and `input` are type-checked against Rust definitions
+- **TanStack Query** - Full TanStack Query API available
+- **Automatic caching** - Query results are cached by key
+- **Type inference** - `data` type is automatically inferred
+
+**Examples:**
+
+```tsx
+// Get node information
+const { data: nodeInfo } = useCoreQuery({
+  type: 'node.info',
+  input: {},
+});
+
+// List all libraries with stats
+const { data: libraries } = useCoreQuery({
+  type: 'libraries.list',
+  input: { include_stats: true },
+});
+
+// With TanStack Query options
+const { data: libraries } = useCoreQuery(
+  {
+    type: 'libraries.list',
+    input: {},
+  },
+  {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  }
+);
+```
+
+### useLibraryQuery
+
+Type-safe hook for library-scoped queries (operations within a specific library).
+
+```tsx
+import { useLibraryQuery } from '@sd/interface';
+
+function FileExplorer({ path }: { path: string }) {
+  const { data, isLoading } = useLibraryQuery({
+    type: 'files.directory_listing',
+    input: { path },
+  });
+
+  if (isLoading) return <Loader />;
+
+  return (
+    <div>
+      {data?.entries.map(entry => (
+        <div key={entry.id}>{entry.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Features:**
+- **Automatic library scoping** - Uses current library ID from client
+- **Library switching** - Automatically refetches when library changes
+- **Type safety** - Input/output types inferred from operation
+- **Disabled when no library** - Query is disabled if no library selected
+
+**Examples:**
+
+```tsx
+// Get directory listing
+const { data: files } = useLibraryQuery({
+  type: 'files.directory_listing',
+  input: { path: '/photos' },
+});
+
+// List all locations
+const { data: locations } = useLibraryQuery({
+  type: 'locations.list',
+  input: {},
+});
+
+// Get file metadata
+const { data: metadata } = useLibraryQuery({
+  type: 'files.get_metadata',
+  input: { path: '/photos/IMG_1234.jpg' },
+});
+
+// Search files
+const { data: results } = useLibraryQuery({
+  type: 'files.search',
+  input: { query: 'vacation', filters: [] },
+});
+```
+
+### useNormalizedCache
+
+Event-driven cache updates for real-time sync across devices. See [Normalized Cache](/react/ui/normalized-cache) for full documentation.
+
+```tsx
+import { useNormalizedCache } from '@sd/interface';
+
+function LocationsList() {
+  const { data: locations } = useNormalizedCache({
+    wireMethod: 'query:locations.list',
+    input: {},
+    resourceType: 'location',
+    isGlobalList: true,
+  });
+
+  return (
+    <div>
+      {locations?.map(location => (
+        <div key={location.id}>{location.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+**When to use:**
+- List queries that need instant updates across devices
+- File listings that change frequently
+- Real-time resource monitoring
+
+## Mutation Hooks
+
+### useCoreMutation
+
+Type-safe hook for core-scoped mutations (operations that don't require a library).
+
+```tsx
+import { useCoreMutation } from '@sd/interface';
+
+function CreateLibraryButton() {
+  const createLib = useCoreMutation('libraries.create');
+
+  const handleCreate = () => {
+    createLib.mutate(
+      { name: 'My Library', path: null },
+      {
+        onSuccess: (library) => {
+          console.log('Created:', library.name);
+        },
+        onError: (error) => {
+          console.error('Failed:', error.message);
+        },
+      }
+    );
+  };
+
+  return (
+    <button onClick={handleCreate} disabled={createLib.isPending}>
+      {createLib.isPending ? 'Creating...' : 'Create Library'}
+    </button>
+  );
+}
+```
+
+**Features:**
+- **Type-safe input** - Mutation input is type-checked
+- **Type-safe output** - Success callback receives typed result
+- **Loading states** - `isPending`, `isSuccess`, `isError`
+- **TanStack Query integration** - Full mutation API available
+
+**Examples:**
+
+```tsx
+// Create library
+const createLib = useCoreMutation('libraries.create');
+createLib.mutate({ name: 'Photos', path: '/Users/me/Photos' });
+
+// Delete library
+const deleteLib = useCoreMutation('libraries.delete');
+deleteLib.mutate({ id: '123' });
+
+// Update node config
+const updateConfig = useCoreMutation('node.update_config');
+updateConfig.mutate({ theme: 'dark', port: 8080 });
+```
+
+### useLibraryMutation
+
+Type-safe hook for library-scoped mutations (operations within a specific library).
+
+```tsx
+import { useLibraryMutation } from '@sd/interface';
+
+function ApplyTagsButton({ fileIds, tagIds }: { fileIds: number[], tagIds: string[] }) {
+  const applyTags = useLibraryMutation('tags.apply');
+
+  return (
+    <button
+      onClick={() =>
+        applyTags.mutate(
+          { entry_ids: fileIds, tag_ids: tagIds },
+          {
+            onSuccess: () => {
+              toast.success('Tags applied!');
+            },
+          }
+        )
+      }
+      disabled={applyTags.isPending}
+    >
+      Apply Tags
+    </button>
+  );
+}
+```
+
+**Features:**
+- **Automatic library scoping** - Uses current library ID
+- **Type safety** - Input/output types inferred
+- **Error handling** - Throws if no library selected
+- **TanStack Query callbacks** - onSuccess, onError, onSettled
+
+**Examples:**
+
+```tsx
+// Create location
+const createLocation = useLibraryMutation('locations.create');
+createLocation.mutate({ path: '/Users/me/Photos', index_mode: 'deep' });
+
+// Delete files
+const deleteFiles = useLibraryMutation('files.delete');
+deleteFiles.mutate({ paths: ['/photo1.jpg', '/photo2.jpg'] });
+
+// Apply tags
+const applyTags = useLibraryMutation('tags.apply');
+applyTags.mutate({ entry_ids: [1, 2, 3], tag_ids: ['tag-uuid'] });
+
+// Move files
+const moveFiles = useLibraryMutation('files.move');
+moveFiles.mutate({ source: '/old/path', destination: '/new/path' });
+```
+
+## Event Hooks
+
+### useEvent
+
+Subscribe to specific Spacedrive events.
+
+```tsx
+import { useEvent } from '@sd/interface';
+
+function JobProgress() {
+  const [progress, setProgress] = useState(0);
+
+  useEvent('JobProgress', (event) => {
+    const jobProgress = event.JobProgress;
+    setProgress(jobProgress.progress_percentage);
+  });
+
+  return <ProgressBar value={progress} />;
+}
+```
+
+**Features:**
+- **Event filtering** - Only receives events of specified type
+- **Automatic cleanup** - Unsubscribes on unmount
+- **Type-safe** - Event type is checked at compile time
+
+**Examples:**
+
+```tsx
+// Listen for file creation
+useEvent('FileCreated', (event) => {
+  console.log('New file:', event.FileCreated.path);
+});
+
+// Listen for indexing progress
+useEvent('IndexingProgress', (event) => {
+  const { location_id, progress } = event.IndexingProgress;
+  updateProgress(location_id, progress);
+});
+
+// Listen for library sync events
+useEvent('LibrarySynced', (event) => {
+  console.log('Library synced:', event.LibrarySynced.library_id);
+});
+
+// Listen for job completion
+useEvent('JobCompleted', (event) => {
+  const job = event.JobCompleted;
+  toast.success(`Job ${job.name} completed!`);
+});
+```
+
+### useAllEvents
+
+Subscribe to all Spacedrive events (useful for debugging).
+
+```tsx
+import { useAllEvents } from '@sd/interface';
+
+function EventDebugger() {
+  useAllEvents((event) => {
+    console.log('Event:', event);
+  });
+
+  return <div>Check console for events</div>;
+}
+```
+
+**Warning:** This can be noisy. Use `useEvent` for specific events in production.
+
+## Custom Hooks
+
+### useLibraries
+
+Convenience hook for fetching all libraries.
+
+```tsx
+import { useLibraries } from '@sd/interface';
+
+function LibraryDropdown() {
+  const { data: libraries, isLoading } = useLibraries();
+
+  if (isLoading) return <Loader />;
+
+  return (
+    <select>
+      {libraries?.map(lib => (
+        <option key={lib.id} value={lib.id}>
+          {lib.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+```
+
+**With stats:**
+
+```tsx
+const { data: libraries } = useLibraries(true);
+
+libraries?.forEach(lib => {
+  console.log(`${lib.name}: ${lib.statistics?.total_files} files`);
+});
+```
+
+## Client Hook
+
+### useSpacedriveClient
+
+Access the Spacedrive client instance directly.
+
+```tsx
+import { useSpacedriveClient } from '@sd/interface';
+
+function LibrarySwitcher() {
+  const client = useSpacedriveClient();
+  const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(null);
+
+  const switchLibrary = (id: string) => {
+    client.setCurrentLibrary(id);
+    setCurrentLibraryId(id);
+  };
+
+  return (
+    <div>
+      <button onClick={() => switchLibrary('lib-123')}>
+        Switch to Library 123
+      </button>
+    </div>
+  );
+}
+```
+
+**Client methods:**
+- `client.setCurrentLibrary(id: string)` - Switch to a library
+- `client.getCurrentLibraryId()` - Get current library ID
+- `client.execute(method, input)` - Execute RPC method directly
+- `client.on(event, handler)` - Subscribe to events
+- `client.off(event, handler)` - Unsubscribe from events
+
+## Hook Patterns
+
+### Combining Queries
+
+```tsx
+function Dashboard() {
+  const { data: libraries } = useLibraries();
+  const { data: nodeInfo } = useCoreQuery({
+    type: 'node.info',
+    input: {},
+  });
+  const { data: jobs } = useLibraryQuery({
+    type: 'jobs.list',
+    input: {},
+  });
+
+  return (
+    <div>
+      <h1>{nodeInfo?.name}</h1>
+      <p>{libraries?.length} libraries</p>
+      <p>{jobs?.length} running jobs</p>
+    </div>
+  );
+}
+```
+
+### Dependent Queries
+
+```tsx
+function FileDetails({ path }: { path: string }) {
+  // First get file info
+  const { data: file } = useLibraryQuery({
+    type: 'files.get',
+    input: { path },
+  });
+
+  // Then get metadata (only if file exists)
+  const { data: metadata } = useLibraryQuery(
+    {
+      type: 'files.get_metadata',
+      input: { file_id: file?.id },
+    },
+    {
+      enabled: !!file,
+    }
+  );
+
+  return <div>{metadata?.size} bytes</div>;
+}
+```
+
+### Mutations with Refetch
+
+```tsx
+function DeleteButton({ fileId }: { fileId: number }) {
+  const queryClient = useQueryClient();
+  const deleteFile = useLibraryMutation('files.delete');
+
+  const handleDelete = () => {
+    deleteFile.mutate(
+      { file_ids: [fileId] },
+      {
+        onSuccess: () => {
+          // Refetch file list after deletion
+          queryClient.invalidateQueries(['files.directory_listing']);
+        },
+      }
+    );
+  };
+
+  return <button onClick={handleDelete}>Delete</button>;
+}
+```
+
+### Optimistic Updates
+
+```tsx
+function RenameButton({ fileId, currentName }: { fileId: number, currentName: string }) {
+  const queryClient = useQueryClient();
+  const rename = useLibraryMutation('files.rename');
+
+  const handleRename = (newName: string) => {
+    rename.mutate(
+      { file_id: fileId, new_name: newName },
+      {
+        // Optimistically update UI before server confirms
+        onMutate: async (variables) => {
+          // Cancel outgoing refetches
+          await queryClient.cancelQueries(['files.get', fileId]);
+
+          // Snapshot previous value
+          const previous = queryClient.getQueryData(['files.get', fileId]);
+
+          // Optimistically update
+          queryClient.setQueryData(['files.get', fileId], (old: any) => ({
+            ...old,
+            name: variables.new_name,
+          }));
+
+          return { previous };
+        },
+        // Rollback on error
+        onError: (err, variables, context) => {
+          queryClient.setQueryData(['files.get', fileId], context?.previous);
+        },
+        // Refetch after success or error
+        onSettled: () => {
+          queryClient.invalidateQueries(['files.get', fileId]);
+        },
+      }
+    );
+  };
+
+  return <button onClick={() => handleRename('New Name')}>Rename</button>;
+}
+```
+
+## Best Practices
+
+### Use the Right Hook
+
+```tsx
+// Good - core query for libraries
+const { data: libraries } = useCoreQuery({
+  type: 'libraries.list',
+  input: {},
+});
+
+// Bad - library query for core operation
+const { data: libraries } = useLibraryQuery({
+  type: 'libraries.list', // Type error!
+  input: {},
+});
+
+// Good - library query for files
+const { data: files } = useLibraryQuery({
+  type: 'files.directory_listing',
+  input: { path: '/' },
+});
+```
+
+### Set Appropriate Stale Times
+
+```tsx
+// Static data - long stale time
+const { data: nodeInfo } = useCoreQuery(
+  {
+    type: 'node.info',
+    input: {},
+  },
+  {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  }
+);
+
+// Dynamic data - short stale time or use useNormalizedCache
+const { data: files } = useNormalizedCache({
+  wireMethod: 'query:files.directory_listing',
+  input: { path },
+  resourceType: 'file',
+});
+```
+
+### Handle Loading and Error States
+
+```tsx
+// Good - handles all states
+function FileList() {
+  const { data, isLoading, error } = useLibraryQuery({
+    type: 'files.directory_listing',
+    input: { path: '/' },
+  });
+
+  if (isLoading) return <Loader />;
+  if (error) return <ErrorMessage error={error} />;
+  if (!data) return <EmptyState />;
+
+  return <div>{data.entries.map(...)}</div>;
+}
+
+// Bad - assumes data exists
+function FileList() {
+  const { data } = useLibraryQuery({
+    type: 'files.directory_listing',
+    input: { path: '/' },
+  });
+
+  return <div>{data.entries.map(...)}</div>; // Can crash!
+}
+```
+
+### Invalidate Related Queries
+
+```tsx
+const createLocation = useLibraryMutation('locations.create');
+
+const handleCreate = () => {
+  createLocation.mutate(
+    { path: '/photos' },
+    {
+      onSuccess: () => {
+        // Invalidate related queries
+        queryClient.invalidateQueries(['locations.list']);
+        queryClient.invalidateQueries(['files.directory_listing']);
+      },
+    }
+  );
+};
+```
+
+## Summary
+
+Spacedrive's React hooks provide:
+
+- **Type safety** - All operations are type-checked against Rust definitions
+- **Auto-generation** - Types are generated from Rust, never manually written
+- **TanStack Query** - Full TanStack Query API available
+- **Library scoping** - Automatic library ID management
+- **Event subscriptions** - Real-time updates via WebSocket
+- **Normalized cache** - Instant cross-device sync
+
+Use `useCoreQuery` and `useLibraryQuery` for data fetching, `useCoreMutation` and `useLibraryMutation` for mutations, and `useEvent` for event subscriptions.

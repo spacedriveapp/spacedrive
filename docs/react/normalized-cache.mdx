@@ -1,0 +1,855 @@
+# Normalized Cache Pattern
+
+**Status**: Production Ready
+**Version**: 1.0
+**Use Case**: Real-time UI updates without manual refetching
+
+---
+
+## Overview
+
+The **normalized cache** provides instant UI updates when resources change on any device. Instead of manually invalidating queries or polling for changes, events from the backend automatically update your component's data.
+
+### How It Works
+
+```
+Device A (Browser)          Device B (CLI/Mobile)
+     │                           │
+     │                           │ User creates tag
+     │                           ├──> Backend: tags.create
+     │                           ├──> DB: Insert
+     │    ┌──────────────────────┤
+     │    │ Event: ResourceChanged
+     │    │ { resource_type: "tag", resource: {...} }
+     │    │
+     ├────┴──> useNormalizedCache
+     │         ├─ Receives event
+     │         ├─ Calls queryClient.setQueryData()
+     │         └─ Component re-renders
+     │
+     └──> New tag appears instantly!
+          (No loading state, no network call)
+```
+
+---
+
+## Basic Usage
+
+### 1. Import the Hook
+
+```tsx
+import { useNormalizedCache } from '@sd/interface/context';
+import type { LocationInfo, LocationsListOutput } from '@sd/interface/context';
+```
+
+### 2. Use in Your Component
+
+```tsx
+function LocationList() {
+    const locationsQuery = useNormalizedCache<null, LocationsListOutput>({
+        wireMethod: "query:locations.list",
+        input: null,
+        resourceType: "location",
+    });
+
+    const locations = locationsQuery.data?.locations || [];
+
+    return (
+        <div>
+            {locations.map(location => (
+                <LocationCard key={location.id} location={location} />
+            ))}
+        </div>
+    );
+}
+```
+
+**That's it!** When locations are created, updated, or deleted on any device, your component updates instantly.
+
+---
+
+## API Reference
+
+### `useNormalizedCache<I, O>(options)`
+
+A TanStack Query wrapper that adds event-driven cache updates.
+
+#### Parameters
+
+```typescript
+{
+    wireMethod: string;      // e.g., "query:tags.list"
+    input: I;                // Query input (type-safe!)
+    resourceType: string;    // e.g., "tag" (matches Rust Identifiable::resource_type)
+    enabled?: boolean;       // Default: true
+}
+```
+
+#### Returns
+
+Standard TanStack Query result:
+
+```typescript
+{
+    data: O | undefined;
+    isLoading: boolean;
+    isFetching: boolean;
+    error: Error | null;
+    refetch: () => void;
+    // ... all other useQuery fields
+}
+```
+
+---
+
+## Examples
+
+### Tags
+
+```tsx
+function TagBrowser() {
+    const tagsQuery = useNormalizedCache<TagsListInput, TagsListOutput>({
+        wireMethod: "query:tags.list",
+        input: { search: "" },
+        resourceType: "tag",
+    });
+
+    const tags = tagsQuery.data?.tags || [];
+
+    return (
+        <div className="flex flex-wrap gap-2">
+            {tags.map(tag => (
+                <TagChip
+                    key={tag.id}
+                    name={tag.name}
+                    color={tag.color}
+                />
+            ))}
+        </div>
+    );
+}
+```
+
+**When a tag is created:**
+- Backend emits `ResourceChanged { resource_type: "tag", resource: { id, name, color } }`
+- Hook receives event, matches `resource_type === "tag"`
+- Calls `setQueryData()` to merge new tag
+- Component re-renders with new tag instantly
+
+### Albums
+
+```tsx
+function AlbumGrid() {
+    const albumsQuery = useNormalizedCache<{}, AlbumsListOutput>({
+        wireMethod: "query:albums.list",
+        input: {},
+        resourceType: "album",
+    });
+
+    const albums = albumsQuery.data?.albums || [];
+
+    return (
+        <div className="grid grid-cols-4 gap-4">
+            {albums.map(album => (
+                <AlbumCard key={album.id} album={album} />
+            ))}
+        </div>
+    );
+}
+```
+
+### Files (Future - Virtual Resource)
+
+```tsx
+function FileExplorer({ path }: { path: string }) {
+    const filesQuery = useNormalizedCache<{ path: string }, FilesListOutput>({
+        wireMethod: "query:files.directory_listing",
+        input: { path },
+        resourceType: "file",
+    });
+
+    const files = filesQuery.data?.files || [];
+
+    return (
+        <div>
+            {files.map(file => (
+                <FileCard key={file.id} file={file} />
+            ))}
+        </div>
+    );
+}
+```
+
+---
+
+## Implementation Guide
+
+Want to add normalized cache to a new resource? Follow these steps:
+
+### Step 1: Rust - Add Identifiable Trait
+
+```rust
+// core/src/domain/your_resource.rs
+use crate::domain::resource::Identifiable;
+use specta::Type;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct YourResource {
+    pub id: Uuid,
+    // ... your fields
+}
+
+impl Identifiable for YourResource {
+    fn id(&self) -> Uuid {
+        self.id
+    }
+
+    fn resource_type() -> &'static str {
+        "your_resource"  // lowercase, singular
+    }
+}
+```
+
+### Step 2: Rust - Emit Events in Operations
+
+**In create/update operations:**
+
+```rust
+// core/src/ops/your_resources/create.rs
+pub async fn create_your_resource(
+    events: &EventBus,
+    // ... params
+) -> Result<YourResource> {
+    // ... create in DB
+
+    info!("Emitting ResourceChanged event for your_resource: {:?}", resource);
+
+    events.emit(Event::ResourceChanged {
+        resource_type: "your_resource".to_string(),
+        resource: serde_json::to_value(&resource).unwrap(),
+    });
+
+    Ok(resource)
+}
+```
+
+**In delete operations:**
+
+```rust
+// core/src/ops/your_resources/delete.rs
+pub async fn delete_your_resource(
+    events: &EventBus,
+    id: Uuid,
+) -> Result<()> {
+    // ... delete from DB
+
+    events.emit(Event::ResourceDeleted {
+        resource_type: "your_resource".to_string(),
+        resource_id: id,
+    });
+
+    Ok(())
+}
+```
+
+### Step 3: TypeScript - Use the Hook
+
+```tsx
+import { useNormalizedCache } from '@sd/interface/context';
+
+function YourResourceList() {
+    const query = useNormalizedCache<YourResourceInput, YourResourceOutput>({
+        wireMethod: "query:your_resources.list",
+        input: { /* your input */ },
+        resourceType: "your_resource",  // ← Must match Rust!
+    });
+
+    const items = query.data?.items || [];
+
+    return (
+        <div>
+            {items.map(item => (
+                <YourResourceCard key={item.id} item={item} />
+            ))}
+        </div>
+    );
+}
+```
+
+---
+
+## Event Flow Details
+
+### What Happens on Create
+
+```rust
+// Backend: Create operation completes
+let resource = create_your_resource(...).await?;
+
+// Emit event
+events.emit(Event::ResourceChanged {
+    resource_type: "your_resource".to_string(),
+    resource: serde_json::to_value(&resource).unwrap(),
+});
+```
+
+```typescript
+// Frontend: Event arrives
+client.on("spacedrive-event", (event) => {
+    if ("ResourceChanged" in event) {
+        const { resource_type, resource } = event.ResourceChanged;
+
+        if (resource_type === "your_resource") {
+            // Atomic update!
+            queryClient.setQueryData(queryKey, (oldData) => {
+                // Merge new resource into existing data
+                return [...oldData, resource];
+            });
+        }
+    }
+});
+```
+
+### What Happens on Update
+
+```rust
+// Backend: Update operation completes
+let updated_resource = update_your_resource(...).await?;
+
+// Emit same event type (not a separate "Updated" variant!)
+events.emit(Event::ResourceChanged {
+    resource_type: "your_resource".to_string(),
+    resource: serde_json::to_value(&updated_resource).unwrap(),
+});
+```
+
+```typescript
+// Frontend: Event arrives, finds existing resource by ID
+queryClient.setQueryData(queryKey, (oldData) => {
+    const existingIndex = oldData.findIndex(item => item.id === resource.id);
+
+    if (existingIndex >= 0) {
+        // Replace existing
+        const newData = [...oldData];
+        newData[existingIndex] = resource;
+        return newData;
+    }
+
+    // Not found - append (shouldn't happen for updates)
+    return [...oldData, resource];
+});
+```
+
+### What Happens on Delete
+
+```rust
+// Backend: Delete operation completes
+delete_your_resource(...).await?;
+
+// Emit deletion event
+events.emit(Event::ResourceDeleted {
+    resource_type: "your_resource".to_string(),
+    resource_id: id,
+});
+```
+
+```typescript
+// Frontend: Event arrives
+queryClient.setQueryData(queryKey, (oldData) => {
+    // Remove deleted resource
+    return oldData.filter(item => item.id !== resource_id);
+});
+```
+
+---
+
+## Library Scoping
+
+The hook automatically handles library switching:
+
+```typescript
+function TagList() {
+    const tagsQuery = useNormalizedCache({
+        wireMethod: "query:tags.list",
+        input: {},
+        resourceType: "tag",
+    });
+
+    // When user switches libraries:
+    // 1. client.setCurrentLibrary(newId)
+    // 2. Query key changes: [..., 'old-lib-id'] → [..., 'new-lib-id']
+    // 3. TanStack Query automatically refetches
+    // 4. New library's tags appear
+}
+```
+
+**Query key structure:**
+```typescript
+[wireMethod, libraryId, input]
+// Example: ["query:tags.list", "uuid-123", {}]
+```
+
+**When library changes, the entire key changes → automatic refetch!** ✅
+
+---
+
+## TanStack Query Integration
+
+`useNormalizedCache` is **not a replacement** for TanStack Query - it's a **wrapper** that adds event handling.
+
+### All TanStack Query Features Work
+
+```tsx
+const tagsQuery = useNormalizedCache({
+    wireMethod: "query:tags.list",
+    input: {},
+    resourceType: "tag",
+});
+
+// Standard TanStack Query API:
+tagsQuery.refetch();           // Manual refetch
+tagsQuery.isLoading;           // Loading state
+tagsQuery.isFetching;          // Background refetch
+tagsQuery.error;               // Error state
+tagsQuery.dataUpdatedAt;       // Last update timestamp
+```
+
+### Refetching Behavior Preserved
+
+```tsx
+// TanStack Query still refetches based on:
+// - staleTime (default: 30s)
+// - Window focus
+// - Network reconnect
+// - Manual refetch()
+
+// Events provide INSTANT updates
+// Background refetches provide eventual consistency
+```
+
+### When to Invalidate Manually
+
+```tsx
+// After bulk operations (e.g., "delete all tags with color red")
+// Backend emits BulkOperationCompleted (no individual resources)
+const deleteTags = useCoreMutation("tags.delete_bulk");
+
+await deleteTags.mutateAsync({ color: "red" });
+
+// Invalidate manually
+queryClient.invalidateQueries({ queryKey: ["query:tags.list"] });
+```
+
+---
+
+## Response Format Handling
+
+The hook automatically handles both **array** and **wrapped** responses:
+
+### Direct Array
+
+```typescript
+// If query returns: Tag[]
+const tags = tagsQuery.data || [];
+```
+
+### Wrapped Object
+
+```typescript
+// If query returns: { tags: Tag[] }
+const tags = tagsQuery.data?.tags || [];
+
+// Hook auto-detects the array field and updates it
+```
+
+### Custom Structure
+
+If your response has a unique structure, you may need to handle it manually:
+
+```typescript
+// Use regular useLibraryQuery and listen to events yourself
+const tagsQuery = useLibraryQuery({ type: "tags.list", input: {} });
+
+useEffect(() => {
+    const handleEvent = (event) => {
+        if ("ResourceChanged" in event && event.ResourceChanged.resource_type === "tag") {
+            // Custom update logic
+            queryClient.setQueryData(queryKey, (old) => {
+                return customMerge(old, event.ResourceChanged.resource);
+            });
+        }
+    };
+
+    client.on("spacedrive-event", handleEvent);
+    return () => client.off("spacedrive-event", handleEvent);
+}, []);
+```
+
+---
+
+## Best Practices
+
+### 1. Match Resource Types Exactly
+
+```rust
+// Rust
+impl Identifiable for Tag {
+    fn resource_type() -> &'static str {
+        "tag"  // ← lowercase, singular
+    }
+}
+```
+
+```typescript
+// TypeScript
+useNormalizedCache({
+    resourceType: "tag",  // ← Must match exactly!
+})
+```
+
+### 2. Emit the Same Type the Query Returns
+
+```rust
+// If your query returns TagInfo (minimal type)
+use crate::ops::tags::list::output::TagInfo;
+
+let tag_info = TagInfo {
+    id: tag.id,
+    name: tag.name,
+    color: tag.color,
+};
+
+events.emit(Event::ResourceChanged {
+    resource_type: "tag".to_string(),
+    resource: serde_json::to_value(&tag_info).unwrap(),
+});
+```
+
+```typescript
+// Your hook will receive the same TagInfo type
+const tags = tagsQuery.data?.tags || [];  // TagInfo[]
+```
+
+### 3. Emit on All Mutations
+
+Emit events for:
+- Create
+- Update (same `ResourceChanged` event!)
+- Delete (`ResourceDeleted`)
+- Bulk updates (emit for each resource OR use `BulkOperationCompleted`)
+
+### 4. Add Logging During Development
+
+```rust
+info!("Emitting ResourceChanged event for {}: {:?}",
+    YourResource::resource_type(),
+    resource
+);
+```
+
+```typescript
+console.log("Received ResourceChanged event:", event.ResourceChanged);
+```
+
+Remove logs once stable.
+
+---
+
+## Advanced Patterns
+
+### Conditional Event Emission
+
+Only emit events when someone is listening:
+
+```rust
+if events.subscriber_count() > 0 {
+    events.emit(Event::ResourceChanged { ... });
+}
+```
+
+### Optimistic Updates (Future)
+
+For immediate feedback on mutations:
+
+```typescript
+const createTag = useCoreMutation("tags.create");
+
+await createTag.mutateAsync(
+    { name: "New Tag", color: "#FF0000" },
+    {
+        onMutate: async (variables) => {
+            // Optimistic update
+            const tempId = crypto.randomUUID();
+            queryClient.setQueryData(queryKey, (old) => {
+                return [...old, { id: tempId, ...variables }];
+            });
+
+            return { tempId };
+        },
+        onSuccess: (realTag, variables, context) => {
+            // Replace temp with real (event will also arrive)
+            queryClient.setQueryData(queryKey, (old) => {
+                return old.map(item =>
+                    item.id === context.tempId ? realTag : item
+                );
+            });
+        },
+    }
+);
+```
+
+### Virtual Resources
+
+For resources that depend on multiple tables (like `File`):
+
+```rust
+// core/src/domain/file.rs
+impl Identifiable for File {
+    fn resource_type() -> &'static str { "file" }
+
+    // Declare dependencies
+    fn sync_dependencies() -> &'static [&'static str] {
+        &["entry", "sidecar", "content_identity"]
+    }
+}
+```
+
+**Transaction Manager** (future) will:
+1. Detect when Entry/Sidecar/ContentIdentity changes
+2. Check "who depends on this?" → File
+3. Rebuild File resource from joined data
+4. Emit `ResourceChanged` for File
+
+**Your component doesn't change:**
+```typescript
+const filesQuery = useNormalizedCache({
+    wireMethod: "query:files.directory_listing",
+    input: { path: "/" },
+    resourceType: "file",  // Works the same!
+});
+```
+
+---
+
+## Debugging
+
+### Check Event Flow
+
+```typescript
+// Add temporary logging
+const client = useSpacedriveClient();
+
+useEffect(() => {
+    const handleEvent = (event: any) => {
+        console.log("All events:", event);
+
+        if ("ResourceChanged" in event) {
+            console.log("ResourceChanged:", event.ResourceChanged);
+        }
+    };
+
+    client.on("spacedrive-event", handleEvent);
+    return () => client.off("spacedrive-event", handleEvent);
+}, []);
+```
+
+### Check TanStack Query Cache
+
+Use **React Query DevTools**:
+
+```tsx
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+<ReactQueryDevtools initialIsOpen={false} />
+```
+
+Look for your query by key: `["query:tags.list", "lib-id", {}]`
+
+Check:
+- **Data** - Should update when events arrive
+- **Last Updated** - Timestamp changes
+- **Observers** - Your component is subscribed
+
+---
+
+## Performance
+
+### Memory Usage
+
+Uses **TanStack Query's existing cache** - no separate entity store needed.
+
+**Typical:**
+- 10 queries × 100 items each = 1,000 items cached
+- ~1MB memory (depends on resource size)
+
+### Event Size
+
+**Small resources:**
+- Tag: ~150 bytes JSON
+- Location: ~300 bytes JSON
+- Album: ~200 bytes JSON
+
+**Large resources:**
+- File: ~500-1000 bytes JSON (with metadata)
+
+**Even 100 concurrent updates = ~50KB** (negligible)
+
+### Update Latency
+
+- Event received → Cache updated: **Less than 1ms**
+- Cache updated → React re-render: **Less than 16ms** (1 frame)
+- **Total: Less than 20ms** from backend to UI
+
+---
+
+## Limitations
+
+### Not All Resources Need This
+
+**Use normalized cache for:**
+- Lists that change frequently (locations, tags, files)
+- Cross-device scenarios (mobile + desktop)
+- Real-time collaboration features
+
+**Don't use for:**
+- One-time queries (core.status, jobs.info)
+- Paginated/infinite lists (use regular useQuery + manual invalidation)
+- Search results (volatile, invalidate manually)
+
+### Edge Cases
+
+**Bulk Operations:**
+- Indexing 10,000 files → Don't emit 10,000 events!
+- Use `BulkOperationCompleted` + manual invalidation
+- Or emit events only for resources currently in view
+
+**Pagination:**
+- Normalized cache works per-page
+- Cross-page updates may require refetch
+- Consider using cursor-based pagination with stable IDs
+
+---
+
+## Migration from Regular Queries
+
+### Before (Manual Invalidation)
+
+```tsx
+const tagsQuery = useLibraryQuery({
+    type: "tags.list",
+    input: {},
+});
+
+const createTag = useCoreMutation("tags.create");
+
+await createTag.mutateAsync(newTag, {
+    onSuccess: () => {
+        // Manual invalidation required!
+        queryClient.invalidateQueries({ queryKey: ["tags.list"] });
+    },
+});
+```
+
+### After (Automatic Updates)
+
+```tsx
+const tagsQuery = useNormalizedCache({
+    wireMethod: "query:tags.list",
+    input: {},
+    resourceType: "tag",
+});
+
+const createTag = useCoreMutation("tags.create");
+
+await createTag.mutateAsync(newTag);
+// No onSuccess needed! Event handles it automatically.
+```
+
+---
+
+## Troubleshooting
+
+### "No events arriving"
+
+**Check:**
+1. Is daemon running with latest code? (`bun run tauri:dev` rebuilds it)
+2. Are events being emitted? (check daemon logs for `Emitting...`)
+3. Is event subscription active? (check console for `"Event subscription active"`)
+4. Is `resource_type` matching exactly? (case-sensitive!)
+
+### "Data not updating"
+
+**Check:**
+1. Does `resource.id` exist? (required for merging)
+2. Is the response format expected? (array vs wrapped object)
+3. Check TanStack Query DevTools - is `setQueryData` being called?
+4. Are there multiple query instances with different keys?
+
+### "Library switching doesn't refetch"
+
+**Check:**
+1. Is `libraryId` in the query key?
+2. Is `client.getCurrentLibraryId()` returning the new ID?
+3. Is the query `enabled: !!libraryId`?
+
+---
+
+## Future Enhancements
+
+### Phase 2: Transaction Manager Integration
+
+Automatic event emission from Transaction Manager:
+
+```rust
+// Future: One-liner in operations
+let tag = tm.commit_with_event(library, tag_model, |saved| Tag::from(saved)).await?;
+// ↑ Automatically emits ResourceChanged!
+```
+
+### Phase 3: Persistence
+
+Cache persists to IndexedDB (web) or SQLite (Tauri) for offline support:
+
+```typescript
+// Future: Offline-first queries
+const tagsQuery = useNormalizedCache({
+    wireMethod: "query:tags.list",
+    input: {},
+    resourceType: "tag",
+    persistToDisk: true,  // ← Survives app restart
+});
+```
+
+### Phase 4: Generic Events Everywhere
+
+All resources use `ResourceChanged` instead of specific variants:
+- Remove: `EntryCreated`, `VolumeAdded`, `TagUpdated`, etc. (40+ variants)
+- Keep: `ResourceChanged`, `ResourceDeleted` (2 variants)
+- **Event enum stays small forever!**
+
+---
+
+## Related
+
+- **Implementation Plan**: `workbench/interface/NORMALIZED_CACHE_IMPLEMENTATION_PLAN.md`
+- **Unified Events Design**: `workbench/core/sync/UNIFIED_RESOURCE_EVENTS.md`
+- **Cache Design**: `workbench/normalized-cache.md`
+- **Interface Rules**: `packages/interface/CLAUDE.md`
+
+---
+
+## Quick Start Checklist
+
+Adding normalized cache to a new resource:
+
+- [ ] Implement `Identifiable` trait in Rust
+- [ ] Add `Type` derive to struct
+- [ ] Emit `ResourceChanged` in create/update operations
+- [ ] Emit `ResourceDeleted` in delete operations
+- [ ] Use `useNormalizedCache` hook in React component
+- [ ] Match `resourceType` string exactly
+- [ ] Test: Create resource, verify instant update
+- [ ] Test: Delete resource, verify instant removal
+- [ ] Test: Switch libraries, verify refetch
+
+**That's it! The pattern scales to infinite resources.** 

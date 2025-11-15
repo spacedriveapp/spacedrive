@@ -1,0 +1,276 @@
+---
+title: Colors
+sidebarTitle: Colors
+---
+
+Spacedrive uses a semantic color system built on CSS variables and HSL values. The system provides context-aware colors that automatically support theming and opacity modifiers.
+
+## Color Architecture
+
+Colors are defined as HSL triplets (hue, saturation, lightness) in CSS variables, then referenced via Tailwind's `alpha()` function for opacity support.
+
+```css
+/* Definition */
+--color-accent: 208, 100%, 57%;
+
+/* Usage in Tailwind */
+bg-accent      /* hsla(var(--color-accent), 1) */
+bg-accent/50   /* hsla(var(--color-accent), 0.5) */
+```
+
+This approach enables:
+- Full opacity control (`/10`, `/20`, `/50`, etc.)
+- Runtime theme switching
+- Type-safe Tailwind classes
+
+## Color Categories
+
+### Accent Colors
+
+Primary brand colors for interactive elements.
+
+```tsx
+<div className="bg-accent text-white">
+  Primary action button
+</div>
+
+<div className="border border-accent/20 bg-accent/5">
+  Subtle accent background
+</div>
+```
+
+**Variants:**
+- `accent` - Default accent (220, 90%, 56%)
+
+### Text Colors (Ink)
+
+Hierarchical text colors for content.
+
+```tsx
+<h1 className="text-ink">Primary heading</h1>
+<p className="text-ink-dull">Secondary text</p>
+<span className="text-ink-faint">Tertiary/disabled text</span>
+```
+
+**Hierarchy:**
+- `ink` - Primary text (92% lightness)
+- `ink-dull` - Secondary text (70% lightness)
+- `ink-faint` - Tertiary text (55% lightness)
+
+### App Colors
+
+Main application area colors for backgrounds, borders, and surfaces.
+
+```tsx
+<div className="bg-app border border-app-line">
+  <div className="bg-app-box">
+    Card or panel
+  </div>
+
+  <input className="bg-app-input border-app-line" />
+
+  <button className="hover:bg-app-hover active:bg-app-selected">
+    Interactive element
+  </button>
+</div>
+```
+
+**Color Scale:**
+- `app` - Base background (235, 15%, 13%)
+- `app-box` - Card/panel background (235, 15%, 18%)
+- `app-overlay` - Overlay background (235, 15%, 16%)
+- `app-line` - Border color (235, 15%, 23%)
+- `app-frame` - Frame border (235, 15%, 25%)
+
+**Use Case Examples:**
+
+```tsx
+// Layered cards
+<div className="bg-app">
+  <div className="bg-app-box border border-app-line">
+    <div className="bg-app-dark-box">
+      Nested content
+    </div>
+  </div>
+</div>
+
+// Interactive elements
+<button className="bg-app-button border-app-line hover:bg-app-hover">
+  Button
+</button>
+
+// Form inputs
+<input className="bg-app-input border-app-line focus:bg-app-focus" />
+```
+
+### Sidebar Colors
+
+Sidebar-specific colors that can differ from main app area.
+
+```tsx
+<aside className="bg-sidebar">
+  <nav className="bg-sidebar-box border-sidebar-line">
+    <a className="text-sidebar-ink hover:bg-sidebar-selected">
+      Nav item
+    </a>
+  </nav>
+</aside>
+```
+
+**Scale:**
+- `sidebar` - Base (235, 15%, 7%)
+- `sidebar-box` - Panels (235, 15%, 16%)
+- `sidebar-line` - Borders (235, 15%, 23%)
+- `sidebar-selected` - Selected state (235, 15%, 24%)
+- `sidebar-button` - Button background (235, 15%, 18%)
+- `sidebar-divider` - Dividers (235, 15%, 17%)
+- `sidebar-ink` / `sidebar-ink-dull` / `sidebar-ink-faint` - Text hierarchy
+
+### Menu Colors
+
+Context menu and dropdown colors.
+
+```tsx
+<div className="bg-menu border-menu-line">
+  <button className="text-menu-ink hover:bg-menu-hover">
+    Menu item
+  </button>
+</div>
+```
+
+**Scale:**
+- `menu` - Base (235, 15%, 13%)
+- `menu-line` - Borders (235, 15%, 23%)
+- `menu-hover` - Hover state (235, 15%, 20%)
+- `menu-selected` - Selected state (235, 15%, 24%)
+- `menu-shade` - Shadow (235, 15%, 8%)
+- `menu-ink` - Primary text (235, 15%, 92%)
+- `menu-faint` - Secondary text (235, 10%, 55%)
+
+## Theming
+
+### Dark Theme (Default)
+
+Uses `--dark-hue: 235` with low lightness values.
+
+### Light Theme
+
+Add `.vanilla-theme` class to root for light mode. Uses `--light-hue: 235` with high lightness values.
+
+```tsx
+<html className="vanilla-theme">
+  {/* Entire app switches to light theme */}
+</html>
+```
+
+The same color classes (`text-ink`, `bg-app-box`, etc.) automatically adapt to the theme.
+
+### Custom Themes
+
+Create custom themes by defining a new class with color overrides:
+
+```css
+.custom-theme {
+  --dark-hue: 280; /* Purple-tinted theme */
+  --color-accent: 280, 100%, 60%;
+  /* Other color overrides */
+}
+```
+
+## Best Practices
+
+### Use Semantic Names
+
+Don't use raw colors:
+```tsx
+<div className="bg-gray-800 text-gray-200">
+```
+
+Use semantic colors:
+```tsx
+<div className="bg-app-box text-ink">
+```
+
+### Respect Context
+
+Don't mix contexts unnecessarily:
+```tsx
+<div className="bg-sidebar">
+  <p className="text-app-ink"> {/* Wrong context */}
+</div>
+```
+
+Use matching context:
+```tsx
+<div className="bg-sidebar">
+  <p className="text-sidebar-ink">
+</div>
+```
+
+### Use Opacity for Variations
+
+Don't hardcode alpha values:
+```tsx
+<div style={{ backgroundColor: 'rgba(...)' }}>
+```
+
+Use Tailwind opacity:
+```tsx
+<div className="bg-accent/10">
+```
+
+### Leverage Interaction States
+
+```tsx
+<button className="
+  bg-app-button
+  border-app-line
+  hover:bg-app-hover
+  active:bg-app-selected
+  focus:ring-accent
+">
+  Button with full interaction states
+</button>
+```
+
+## Color Reference
+
+### Complete Color List
+
+**Accent:**
+- `accent`, `accent-faint`, `accent-deep`
+
+**Text:**
+- `ink`, `ink-dull`, `ink-faint`
+
+**App:**
+- `app`, `app-box`, `app-dark-box`, `app-darker-box`, `app-light-box`
+- `app-input`, `app-focus`, `app-button`
+- `app-line`, `app-divider`
+- `app-hover`, `app-selected`, `app-active`
+- `app-overlay`, `app-shade`, `app-frame`, `app-slider`
+
+**Sidebar:**
+- `sidebar`, `sidebar-box`, `sidebar-line`
+- `sidebar-ink`, `sidebar-ink-dull`, `sidebar-ink-faint`
+- `sidebar-divider`, `sidebar-button`, `sidebar-selected`, `sidebar-shade`
+
+**Menu:**
+- `menu`, `menu-line`, `menu-hover`, `menu-selected`
+- `menu-ink`, `menu-faint`, `menu-shade`
+
+## Migration from Generic Colors
+
+If you have code using generic Tailwind colors, migrate to semantic names:
+
+| Old | New |
+|-----|-----|
+| `text-white` | `text-ink` |
+| `text-gray-400` | `text-ink-dull` |
+| `text-gray-500` | `text-ink-faint` |
+| `bg-gray-800` | `bg-app-box` |
+| `bg-gray-900` | `bg-app` |
+| `border-gray-700` | `border-app-line` |
+| `hover:bg-gray-700` | `hover:bg-app-hover` |
+
+This ensures your UI automatically adapts to theme changes.

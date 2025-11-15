@@ -3,9 +3,9 @@ title: Core Concepts
 sidebarTitle: Core Concepts
 ---
 
-## The Building Blocks of Extensions
+Extensions in Spacedrive are built with Rust macros that generate the integration code for you. Define your data models, jobs, and agents using attributes. The SDK handles sync, permissions, and sandboxing automatically.
 
-Spacedrive extensions are built using a declarative, attribute-based approach in Rust. These attributes allow you to define the structure and behavior of your extension in a clear and concise way. This document covers the primary concepts you'll use to build your own extensions.
+This page covers the five building blocks: extensions, models, jobs, agents, and actions. Each concept maps to a macro that generates the boilerplate.
 
 ### 1. Extension Definition (`#[extension]`)
 

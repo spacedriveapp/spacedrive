@@ -1,0 +1,411 @@
+---
+title: Normalized Cache
+sidebarTitle: Normalized Cache
+---
+
+The `useNormalizedCache` hook provides real-time, event-driven cache updates for TanStack Query. It enables instant UI updates across all devices without manual refetching.
+
+## Problem
+
+Traditional data fetching has two issues:
+
+1. **Stale Data** - Users see outdated data until the next refetch
+2. **Cross-Device Sync** - Changes on Device A aren't immediately visible on Device B
+
+## Solution
+
+`useNormalizedCache` wraps TanStack Query and listens for WebSocket events from the Spacedrive daemon. When data changes:
+
+1. Backend emits `ResourceChanged` event
+2. Hook atomically updates TanStack Query cache
+3. React re-renders with fresh data
+4. User sees changes instantly
+
+TanStack Query still handles its normal refetching logic (staleTime, cacheTime, etc.), but events provide instant updates.
+
+## Architecture
+
+```
+┌─────────────┐                    ┌──────────────┐
+│  Device A   │───── mutation ────│   Daemon     │
+└─────────────┘                    │              │
+                                   │  emits event │
+┌─────────────┐                    │              │
+│  Device B   │──── WebSocket ────│              │
+│             │      event         └──────────────┘
+│ useNormalized
+│   Cache()   │
+│  ↓ update   │
+│ TanStack    │
+│  Query      │
+│  ↓ re-render│
+│  Component  │
+└─────────────┘
+```
+
+## Basic Usage
+
+### Simple List Query
+
+```tsx
+import { useNormalizedCache } from '@sd/ts-client';
+
+function LocationsList() {
+  const { data: locations, isLoading } = useNormalizedCache({
+    wireMethod: 'query:locations.list',
+    input: {},
+    resourceType: 'location',
+    isGlobalList: true,
+  });
+
+  if (isLoading) return <Loader />;
+
+  return (
+    <div>
+      {locations?.map(location => (
+        <div key={location.id}>{location.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+When a location is created, updated, or deleted:
+1. Backend emits `ResourceChanged` event with `resource_type: "location"`
+2. Hook updates the cache
+3. Component re-renders with new data
+
+### Filtered Query with Resource Filter
+
+```tsx
+function DirectoryListing({ path }: { path: string }) {
+  const { data: files } = useNormalizedCache({
+    wireMethod: 'query:files.directory_listing',
+    input: { path },
+    resourceType: 'file',
+    resourceFilter: (file) => {
+      // Only accept files whose parent path matches our directory
+      return file.parent_path === path;
+    },
+  });
+
+  return (
+    <div>
+      {files?.map(file => (
+        <FileItem key={file.id} file={file} />
+      ))}
+    </div>
+  );
+}
+```
+
+The `resourceFilter` ensures only relevant files are added to this query's cache.
+
+## Hook Options
+
+```tsx
+interface UseNormalizedCacheOptions<I> {
+  // Wire method to call (e.g., "query:locations.list")
+  wireMethod: string;
+
+  // Input for the query
+  input: I;
+
+  // Resource type for event filtering (e.g., "location", "file")
+  resourceType: string;
+
+  // Whether query is enabled (default: true)
+  enabled?: boolean;
+
+  // Whether this is a global list that accepts all new items (default: false)
+  isGlobalList?: boolean;
+
+  // Filter function to check if resource belongs in this query
+  resourceFilter?: (resource: any) => boolean;
+}
+```
+
+### When to use `isGlobalList`
+
+Set `isGlobalList: true` when the query returns **all resources of that type**:
+
+```tsx
+// Global list - returns all locations
+useNormalizedCache({
+  wireMethod: 'query:locations.list',
+  input: {},
+  resourceType: 'location',
+  isGlobalList: true, // New locations should be added to this list
+});
+
+// Not a global list - returns files in specific directory
+useNormalizedCache({
+  wireMethod: 'query:files.directory_listing',
+  input: { path: '/photos' },
+  resourceType: 'file',
+  isGlobalList: false, // Don't add all new files, only those in /photos
+});
+```
+
+### When to use `resourceFilter`
+
+Use `resourceFilter` when you need to check if an incoming resource belongs in this specific query:
+
+```tsx
+useNormalizedCache({
+  wireMethod: 'query:files.directory_listing',
+  input: { path: currentPath },
+  resourceType: 'file',
+  resourceFilter: (file) => {
+    // Only accept files in this directory
+    return file.parent_path === currentPath;
+  },
+});
+```
+
+## Event Types
+
+The hook listens for three event types:
+
+### ResourceChanged
+
+Single resource updated or created.
+
+```rust
+ResourceChanged {
+  resource_type: "location",
+  resource: { id: 1, name: "Photos", ... }
+}
+```
+
+### ResourceChangedBatch
+
+Multiple resources updated or created at once (performance optimization).
+
+```rust
+ResourceChangedBatch {
+  resource_type: "file",
+  resources: [
+    { id: 1, name: "photo1.jpg", ... },
+    { id: 2, name: "photo2.jpg", ... },
+  ]
+}
+```
+
+### ResourceDeleted
+
+Resource deleted.
+
+```rust
+ResourceDeleted {
+  resource_type: "location",
+  resource_id: 42
+}
+```
+
+## Deep Merge Strategy
+
+When a resource update arrives, the hook performs a **deep merge** that preserves non-null existing values:
+
+```tsx
+// Existing cache data
+{
+  id: 1,
+  name: "Photos",
+  metadata: { size: 1024, created_at: "2024-01-01" }
+}
+
+// Incoming event (partial update)
+{
+  id: 1,
+  name: "My Photos",
+  metadata: { size: 2048 }
+}
+
+// Result after deep merge
+{
+  id: 1,
+  name: "My Photos",  // Updated
+  metadata: {
+    size: 2048,       // Updated
+    created_at: "2024-01-01"  // Preserved!
+  }
+}
+```
+
+This prevents losing data when the backend sends partial updates.
+
+## Library Scoping
+
+The hook automatically includes the current library ID in the query key:
+
+```tsx
+const libraryId = client.getCurrentLibraryId();
+const queryKey = [wireMethod, libraryId, input];
+```
+
+This ensures:
+1. Switching libraries triggers a refetch
+2. Events are scoped to the current library
+3. Different libraries don't interfere with each other
+
+## Array vs Wrapped Responses
+
+The hook handles both response formats:
+
+**Direct array:**
+```tsx
+type Response = LocationInfo[];
+```
+
+**Wrapped response:**
+```tsx
+type Response = {
+  locations: LocationInfo[];
+};
+```
+
+It automatically detects the array field and updates it correctly.
+
+## Performance Characteristics
+
+- **Event latency:** Less than 20ms from backend to UI update
+- **Memory:** O(n) where n = number of active queries
+- **CPU:** O(1) per event (direct cache update)
+- **Network:** Zero - events come via existing WebSocket
+
+## Best Practices
+
+### Use for List Queries
+
+**Good:**
+```tsx
+// List of resources that can change
+const { data: locations } = useNormalizedCache({
+  wireMethod: 'query:locations.list',
+  input: {},
+  resourceType: 'location',
+  isGlobalList: true,
+});
+```
+
+**Bad:**
+```tsx
+// Single static resource - use regular useQuery
+const { data: config } = useNormalizedCache({
+  wireMethod: 'query:config.get',
+  input: {},
+  resourceType: 'config',  // Events unlikely, overhead not worth it
+});
+```
+
+### Provide Accurate Filters
+
+**Good:**
+```tsx
+// Precise filter based on actual relationship
+resourceFilter: (file) => file.parent_path === currentPath
+```
+
+**Bad:**
+```tsx
+// Vague filter that might let incorrect items through
+resourceFilter: (file) => file.name.includes('photo')
+```
+
+### Combine with TanStack Query Options
+
+```tsx
+const { data } = useNormalizedCache({
+  wireMethod: 'query:files.directory_listing',
+  input: { path },
+  resourceType: 'file',
+  // TanStack Query options work normally
+  staleTime: 5 * 60 * 1000,  // 5 minutes
+  cacheTime: 10 * 60 * 1000, // 10 minutes
+  refetchOnWindowFocus: true,
+});
+```
+
+## Debugging
+
+### Check Event Flow
+
+```tsx
+useEffect(() => {
+  const handleEvent = (event: any) => {
+    console.log('Event received:', event);
+  };
+  const unsubscribe = client.on('spacedrive-event', handleEvent);
+  return unsubscribe;
+}, []);
+```
+
+### Inspect Query Cache
+
+```tsx
+import { useQueryClient } from '@tanstack/react-query';
+
+const queryClient = useQueryClient();
+
+// View all queries
+console.log(queryClient.getQueryCache().getAll());
+
+// View specific query
+const queryKey = ['query:locations.list', libraryId, {}];
+console.log(queryClient.getQueryData(queryKey));
+```
+
+## Migration from useQuery
+
+Replace:
+```tsx
+import { useQuery } from '@tanstack/react-query';
+
+const { data } = useQuery({
+  queryKey: ['locations'],
+  queryFn: () => client.query('locations.list', {}),
+});
+```
+
+With:
+```tsx
+import { useNormalizedCache } from '@sd/ts-client';
+
+const { data } = useNormalizedCache({
+  wireMethod: 'query:locations.list',
+  input: {},
+  resourceType: 'location',
+  isGlobalList: true,
+});
+```
+
+## Advanced: Content Addressing
+
+For Content-addressed paths (CAS), the hook includes special logic:
+
+```tsx
+// Files with same content_id belong together even if paths differ
+if (resource.sd_path?.Content?.content_id) {
+  const eventContentId = resource.sd_path.Content.content_id;
+  shouldAppend = existingFiles.some(f =>
+    f.content_identity?.uuid === eventContentId
+  );
+}
+```
+
+This handles deduplication scenarios where the same file content exists at multiple paths.
+
+## Summary
+
+`useNormalizedCache` provides:
+
+- **Real-time updates** via WebSocket events
+- **Cross-device sync** out of the box
+- **Zero refetch delay** for instant UX
+- **TanStack Query compatibility** - all normal features work
+- **Smart filtering** with `isGlobalList` and `resourceFilter`
+- **Deep merge** to preserve data
+- **Library scoping** automatically
+
+Use it for any list query where data can change and you want instant updates across all clients.

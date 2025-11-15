@@ -1,0 +1,493 @@
+---
+title: UI Primitives
+sidebarTitle: Primitives
+---
+
+Spacedrive's UI is built on a set of reusable primitives from `@sd/ui`. These components provide consistent styling and behavior across the application.
+
+## Design Principles
+
+### Composition Over Configuration
+
+Primitives are simple, composable building blocks rather than complex configured components.
+
+```tsx
+// Complex configuration
+<DataTable
+  columns={...}
+  data={...}
+  filters={...}
+  pagination={...}
+/>
+
+// Composable primitives
+<div className="overflow-hidden rounded-lg border border-app-line">
+  <table className="w-full">
+    <thead className="bg-app-box">
+      <tr>
+        <th className="px-4 py-3 text-xs text-ink-dull">Name</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-app-line">
+      {data.map(item => (
+        <tr className="bg-app-input/30">
+          <td className="px-4 py-3 text-ink">{item.name}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+```
+
+### Semantic Color Usage
+
+All primitives use semantic color tokens, never raw Tailwind colors.
+
+```tsx
+// Raw colors
+<div className="bg-gray-800 text-gray-200">
+
+// Semantic colors
+<div className="bg-app-box text-ink">
+```
+
+### Consistent Patterns
+
+Common patterns are standardized across primitives:
+
+**Card Pattern:**
+```tsx
+<div className="relative overflow-hidden rounded-2xl bg-sidebar/90 backdrop-blur-xl shadow-2xl">
+  <div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
+  <div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
+
+  <div className="noise noise-faded noise-sm p-6">
+    {/* Content */}
+  </div>
+</div>
+```
+
+**List Item Pattern:**
+```tsx
+<div className="rounded-lg border border-app-line bg-app-input/30 p-4 hover:bg-app-input/40">
+  {/* Content */}
+</div>
+```
+
+**Table Pattern:**
+```tsx
+<div className="overflow-hidden rounded-lg border border-app-line">
+  <table className="w-full">
+    <thead className="bg-app-box">
+      <tr>
+        <th className="px-4 py-3 text-xs font-medium text-gray-400">
+          Column
+        </th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-app-line">
+      <tr className="bg-app-input/30 hover:bg-app-input/50">
+        <td className="px-4 py-3 text-ink">Data</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+## Core Primitives
+
+### Button
+
+Versatile button component with multiple variants and sizes.
+
+```tsx
+import { Button } from '@sd/ui';
+
+<Button variant="accent" size="md">
+  Primary Action
+</Button>
+
+<Button variant="gray" size="sm">
+  Secondary Action
+</Button>
+
+<Button variant="default" size="lg">
+  Tertiary Action
+</Button>
+```
+
+**Variants:**
+- `default` - Transparent with border, hover/active states
+- `gray` - App button background with hover/focus states
+- `accent` - Accent blue background with white text
+- `subtle` - Transparent border, subtle hover
+- `outline` - Sidebar line border style
+- `dotted` - Dashed border for add/create actions
+- `colored` - Custom colored backgrounds (pass bg color class)
+- `bare` - No styling whatsoever
+
+**Sizes:**
+- `xs` - Extra small (px-1.5 py-0.5, text-xs)
+- `sm` - Small (px-2 py-0.5, text-sm) - default
+- `md` - Medium (px-2.5 py-1.5, text-sm)
+- `lg` - Large (px-3 py-1.5, text-md)
+- `icon` - Square icon button (!p-1)
+
+**Best Practice:** Wrap icons and text in flex containers to prevent stacking:
+
+```tsx
+<Button className="flex items-center gap-2">
+  <Icon size={16} weight="fill" />
+  <span>Label</span>
+</Button>
+```
+
+### Input
+
+Form input with semantic styling and size variants.
+
+```tsx
+import { Input, Label } from '@sd/ui';
+
+<div>
+  <Label>Username</Label>
+  <Input
+    placeholder="Enter username"
+    size="lg"
+    error={hasError}
+  />
+</div>
+```
+
+**Variants:**
+- `default` - Standard input with border and background
+- `transparent` - Transparent background, no border on focus
+
+**Sizes:**
+- `xs` - 25px height
+- `sm` - 30px height (default)
+- `md` - 36px height
+- `lg` - 42px height
+- `xl` - 48px height
+
+**Props:**
+- `error` - Shows error state (red border/ring)
+- `icon` - Icon component or React node
+- `iconPosition` - `'left'` | `'right'` (default: `'left'`)
+- `right` - React node to display on the right side
+- `inputElementClassName` - Additional classes for the input element itself
+
+**Additional Components:**
+- `SearchInput` - Input with MagnifyingGlass icon pre-configured
+- `PasswordInput` - Input with eye icon toggle for show/hide password
+- `TextArea` - Multi-line text input with same styling system
+- `Label` - Semantic label component with slug prop for htmlFor
+
+### Form Components
+
+React Hook Form integration with automatic validation display.
+
+```tsx
+import { Form, InputField, z } from '@sd/ui/src/forms';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const schema = z.object({
+  username: z.string().min(3),
+  email: z.string().email(),
+});
+
+function MyForm() {
+  const form = useForm({
+    resolver: zodResolver(schema),
+  });
+
+  return (
+    <Form form={form} onSubmit={form.handleSubmit(onSubmit)}>
+      <InputField
+        name="username"
+        label="Username"
+        placeholder="Enter username"
+      />
+      <InputField
+        name="email"
+        label="Email"
+        type="email"
+      />
+      <Button type="submit">Submit</Button>
+    </Form>
+  );
+}
+```
+
+### Switch
+
+Toggle switch for boolean settings.
+
+```tsx
+import { Switch } from '@sd/ui';
+
+const [enabled, setEnabled] = useState(false);
+
+<div className="flex items-center justify-between">
+  <div>
+    <div className="text-sm text-ink">Enable Feature</div>
+    <div className="text-xs text-ink-dull">Description</div>
+  </div>
+  <Switch checked={enabled} onCheckedChange={setEnabled} />
+</div>
+```
+
+### ShinyToggle
+
+Animated toggle component for switching between multiple options with a smooth glowing indicator.
+
+```tsx
+import { ShinyToggle } from '@sd/ui';
+
+const [view, setView] = useState<'grid' | 'list'>('grid');
+
+<ShinyToggle
+  value={view}
+  onChange={setView}
+  options={[
+    { value: 'grid', label: 'Grid', count: 42 },
+    { value: 'list', label: 'List', count: 42 },
+  ]}
+/>
+```
+
+**Features:**
+- Smooth animated indicator using Framer Motion
+- Gradient background with glow effect
+- Optional count badges
+- Type-safe with generics
+- Fully accessible
+
+**Props:**
+- `value` - Current selected value (generic type T)
+- `onChange` - Callback when selection changes
+- `options` - Array of `{ value: T, label: ReactNode, count?: number }`
+- `className` - Additional classes for the container
+
+### DropdownMenu
+
+Context menu and dropdown with Radix UI.
+
+```tsx
+import { DropdownMenu } from '@sd/ui';
+
+<DropdownMenu.Root
+  trigger={
+    <button>Open Menu</button>
+  }
+>
+  <DropdownMenu.Item
+    label="Action"
+    icon={IconComponent}
+    onClick={handleClick}
+  />
+  <DropdownMenu.Separator />
+  <DropdownMenu.Item
+    label="Delete"
+    icon={TrashIcon}
+    variant="danger"
+  />
+</DropdownMenu.Root>
+```
+
+## Glassmorphism Effect
+
+Spacedrive's signature glassmorphism effect combines backdrop blur, transparency, and gradient borders.
+
+```tsx
+<div className="relative overflow-hidden rounded-2xl bg-sidebar/90 backdrop-blur-xl shadow-2xl">
+  {/* Top gradient border */}
+  <div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
+
+  {/* Bottom gradient border */}
+  <div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
+
+  {/* Content with noise texture */}
+  <div className="noise noise-faded noise-sm p-6">
+    Content
+  </div>
+</div>
+```
+
+**Noise Variants:**
+- `noise` - Base noise texture
+- `noise-faded` - Faded intensity
+- `noise-sm` - Small grain size
+
+## Progress Bars
+
+Consistent progress bar pattern for resource usage.
+
+```tsx
+<div>
+  <div className="mb-2 flex items-center justify-between text-xs">
+    <span className="text-ink-dull">Storage</span>
+    <span className="text-ink">45/100 GB</span>
+  </div>
+  <div className="h-2 overflow-hidden rounded-full bg-app-box">
+    <div
+      className="h-full bg-accent"
+      style={{ width: '45%' }}
+    />
+  </div>
+</div>
+```
+
+**Color by type:**
+- Storage: `bg-accent` (blue)
+- AI/Compute: `bg-purple-500`
+- Bandwidth: `bg-green-500`
+- Progress: `bg-blue-500`
+- Success: `bg-green-400`
+
+## Status Badges
+
+Standard status badge pattern.
+
+```tsx
+const STATUS_CONFIG = {
+  running: { color: 'text-green-400', bg: 'bg-green-500/20' },
+  stopped: { color: 'text-gray-400', bg: 'bg-gray-500/20' },
+  error: { color: 'text-red-400', bg: 'bg-red-500/20' },
+};
+
+<div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${STATUS_CONFIG.running.bg}`}>
+  <div className="h-1.5 w-1.5 rounded-full bg-green-400" />
+  <span className={`text-xs font-medium ${STATUS_CONFIG.running.color}`}>
+    Running
+  </span>
+</div>
+```
+
+## Empty States
+
+Pattern for when lists/grids are empty.
+
+```tsx
+<div className="rounded-lg border border-dashed border-app-line bg-app-box/50 p-12 text-center">
+  <Icon size={48} weight="fill" className="mx-auto mb-3 text-ink-dull" />
+  <h3 className="mb-1 text-lg font-semibold text-white">
+    No items yet
+  </h3>
+  <p className="mb-4 text-sm text-ink-dull">
+    Description of what would appear here
+  </p>
+  <Button variant="accent" size="lg">
+    Create First Item
+  </Button>
+</div>
+```
+
+## Gradients
+
+### Background Gradients
+
+```tsx
+<div className="bg-gradient-to-br from-accent to-blue-600">
+  Icon background
+</div>
+
+<div className="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
+  Gradient text
+</div>
+```
+
+### Border Gradients
+
+```tsx
+<div className="h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
+```
+
+## Typography Scale
+
+Consistent text sizing across the app.
+
+```tsx
+<h1 className="text-3xl font-bold text-ink">
+  Page Title
+</h1>
+
+<h2 className="text-xl font-semibold text-white">
+  Section Title
+</h2>
+
+<p className="text-sm text-ink-dull">
+  Description text
+</p>
+
+<span className="text-xs text-ink-faint">
+  Helper text
+</span>
+```
+
+**Scale:**
+- `text-xs` (12px) - Helper text, labels
+- `text-sm` (14px) - Body text, descriptions
+- `text-base` (16px) - Default body
+- `text-lg` (18px) - Subheadings
+- `text-xl` (20px) - Section titles
+- `text-2xl` (24px) - Card titles
+- `text-3xl` (30px) - Page titles
+
+## Icons
+
+Use Phosphor Icons with consistent sizing and weights.
+
+```tsx
+import { Icon } from '@phosphor-icons/react';
+
+<Icon size={16} weight="fill" />  // Buttons, small UI
+<Icon size={20} weight="fill" />  // Medium UI elements
+<Icon size={24} weight="fill" />  // Large icons
+<Icon size={32} weight="fill" />  // Headers
+<Icon size={48} weight="fill" />  // Empty states
+```
+
+**Weight Guidelines:**
+- `regular` - Default, inactive states
+- `fill` - Active states, buttons, emphasis
+- `bold` - Strong emphasis
+
+## Spacing Scale
+
+Consistent spacing using Tailwind's scale.
+
+**Common patterns:**
+- Card padding: `p-6`
+- Button padding: `px-3 py-1.5` (md), `px-2.5 py-1.5` (sm)
+- Section spacing: `space-y-4` or `space-y-6`
+- Grid gaps: `gap-4` or `gap-6`
+- Icon-text gap: `gap-2` or `gap-3`
+
+## Accessibility
+
+### Color Contrast
+
+All semantic colors meet WCAG AA standards:
+- `text-ink` on `bg-app` - AAA
+- `text-ink-dull` on `bg-app-box` - AA
+- `text-ink-faint` on `bg-app-input` - AA (minimum)
+
+### Focus States
+
+Interactive elements include focus rings:
+
+```tsx
+<button className="
+  focus:outline-none
+  focus:ring-2
+  focus:ring-accent
+  focus:ring-offset-2
+  focus:ring-offset-app-box
+">
+```
+
+### Keyboard Navigation
+
+All interactive primitives support keyboard navigation out of the box via Radix UI.

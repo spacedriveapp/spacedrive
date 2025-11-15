@@ -3,20 +3,23 @@ title: Introduction to Extensions
 sidebarTitle: Introduction
 ---
 
-## The Power of Extensibility
+Extensions turn Spacedrive into a platform. Build custom tools for any workflow using Rust, compile to WASM, and integrate seamlessly with Spacedrive's sync, search, and storage infrastructure.
 
-Spacedrive is designed to be a flexible and powerful platform for managing your personal data. While the core application provides a robust set of features for file management, synchronization, and organization, the true power of Spacedrive lies in its extensibility.
+Extensions are not plugins that bolt onto the side. They're first-class applications built on Spacedrive's primitives. They get their own database tables, declare their own file storage locations, create AI agents with persistent memory, and appear indistinguishable from core features.
 
-The **Spacedrive Developer SDK** allows developers to build first-class extensions that are indistinguishable from core functionality. Extensions can introduce new features, data models, and even AI-powered agents to create highly specialized and personalized experiences.
+The extension system runs in a secure WASM sandbox with fine-grained permissions. Extensions can read and write files, create custom data models, run background jobs, and propose actions—all while staying isolated and safe.
 
-A sandboxed **WASM-based extension system** ensures that extensions run in a secure and isolated environment, while a comprehensive Rust SDK provides all the tools necessary to build powerful and efficient plugins.
+## What You Can Build
 
-## Why Build an Extension?
+Extensions can access Spacedrive's full capabilities. Define custom database tables that sync automatically. Create AI agents with unlimited memory. Run durable background jobs. Generate derivative sidecars. Propose file operations with user approval.
 
-- **Solve Your Own Problems:** Create custom solutions for your unique workflows.
-- **Share with the Community:** Publish your extensions on the Spacedrive Extension Store and share them with other users.
-- **Integrate with Other Services:** Build extensions that connect Spacedrive to other services and platforms you use.
-- **Contribute to the Ecosystem:** Help grow the Spacedrive ecosystem by creating new and innovative extensions.
+**Photos Extension:** Face recognition, place identification, automatic albums. Adds "People" to the sidebar, creates face cluster models, generates embedding sidecars.
+
+**Email Archive:** IMAP sync to standard .eml files. The user picks where emails go. Spacedrive indexes them automatically. Extension queries via core search, enriches with analysis sidecars.
+
+**Ledger:** Receipt OCR, expense tracking, tax prep. Extension creates Transaction models in its database, stores receipt PDFs as files, extracts data to sidecars.
+
+The SDK handles sync, search, and indexing. You focus on your domain logic.
 
 ## Planned Extensions
 

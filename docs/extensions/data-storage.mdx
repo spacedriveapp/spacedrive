@@ -3,11 +3,9 @@ title: Data Storage
 sidebarTitle: Data Storage
 ---
 
-## Runtime Extension Tables
+Extensions get their own database tables and file storage locations. You define data models in Rust, and Spacedrive creates the tables automatically. You declare storage locations, and users choose where files go during installation.
 
-One of the most powerful features of the Spacedrive SDK is the ability for extensions to create real database tables at runtime.
-
-Spacedrive extensions define their models in Rust, and the SDK automatically generates the corresponding SQL tables when the extension is loaded. These tables are prefixed with the extension's ID to ensure isolation and security (e.g., `ext_photos_person`).
+Extensions use three storage layers: database tables for domain models, files in user-controlled locations for original data, and sidecars for derivative intelligence. Spacedrive handles sync, indexing, and search automatically.
 
 #### Model Definition
 
@@ -59,9 +57,55 @@ As you develop your extension, you will inevitably need to change your data mode
 - **Migration Files**: You can provide SQL migration files with your extension (e.g., `v1.1.0_add_birthdate.sql`).
 - **Automatic Execution**: When a user updates your extension, Spacedrive will automatically run the necessary migrations to bring their database schema up to date.
 
-### Benefits of Runtime Tables
+### Extension Locations
 
-- **Performance**: Indexed SQL queries are significantly faster than in-memory filtering of JSON.
-- **Complex Queries**: You can perform complex SQL queries with joins, aggregations, and more.
-- **Referential Integrity**: Foreign keys ensure that your data remains consistent.
-- **Developer Experience**: You can work with your data using familiar, type-safe, ORM-like patterns in Rust.
+Extensions that create files must declare their storage locations. Users choose where the data goes during installation.
+
+```json
+{
+  "extension_id": "com.spacedrive.email",
+  "locations": [
+    {
+      "id": "email_archive",
+      "name": "Email Archive",
+      "purpose": "Store archived emails in .eml format",
+      "suggested_path": "~/Spacedrive/Email Archive",
+      "user_selects_path": true
+    }
+  ]
+}
+```
+
+When you write files to this location, Spacedrive indexes them automatically. Query via the core entries table, not a custom cache.
+
+```rust
+// Write file to extension's location
+let entry = ctx.write_file_to_location(
+    "email_archive",
+    "inbox/email.eml",
+    email_data,
+).await?;
+
+// Core creates Entry automatically
+// Query later via core VDFS
+let emails = ctx.query_entries()
+    .in_location("email_archive")
+    .with_extension("eml")
+    .execute().await?;
+```
+
+### What to Store Where
+
+**Database tables:** Domain models, configuration, relationships
+- EmailAccount, Transaction, Contact
+- NOT file metadata (use core entries table)
+
+**Files:** Original user data in standard formats
+- .eml files, receipt PDFs, research papers
+- User chooses where these go
+- Spacedrive indexes automatically
+
+**Sidecars:** Derivative analysis and intelligence
+- OCR text, embeddings, extracted metadata
+- Stored in library's sidecar directory
+- Portable with your library
