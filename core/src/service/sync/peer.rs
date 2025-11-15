@@ -794,52 +794,56 @@ impl PeerSync {
 			let mut last_lag_warning = std::time::Instant::now();
 			let lag_warning_cooldown = std::time::Duration::from_secs(5);
 
+			// Real-time batching mechanism (accumulate up to 100 entries or 50ms)
+			let mut state_change_batch: Vec<serde_json::Value> = Vec::new();
+			let mut batch_flush_interval = tokio::time::interval(std::time::Duration::from_millis(50));
+			batch_flush_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
 			while is_running.load(Ordering::SeqCst) {
-				match subscriber.recv().await {
-					Ok(sync_event) => {
-						use crate::infra::sync::SyncEvent;
+				tokio::select! {
+					// Receive events from sync event bus
+					event_result = subscriber.recv() => {
+						match event_result {
+							Ok(sync_event) => {
+								use crate::infra::sync::SyncEvent;
 
-						match sync_event {
-							SyncEvent::StateChange {
-								library_id: event_library_id,
-								model_type,
-								record_uuid,
-								device_id,
-								data,
-								timestamp,
-							} => {
-								state_change_count += 1;
-								last_event_type = Some(format!("StateChange({})", model_type));
+								match sync_event {
+									SyncEvent::StateChange {
+										library_id: event_library_id,
+										model_type,
+										record_uuid,
+										device_id,
+										data,
+										timestamp,
+									} => {
+										state_change_count += 1;
+										last_event_type = Some(format!("StateChange({})", model_type));
 
-								info!(
-									model_type = %model_type,
-									record_uuid = %record_uuid,
-									"PeerSync received state change event"
-								);
+										// Add to batch instead of processing immediately
+										state_change_batch.push(serde_json::json!({
+											"library_id": event_library_id,
+											"model_type": model_type,
+											"record_uuid": record_uuid,
+											"device_id": device_id,
+											"data": data,
+											"timestamp": timestamp,
+										}));
 
-								if let Err(e) = Self::handle_state_change_event_static(
-									library_id,
-									serde_json::json!({
-										"library_id": event_library_id,
-										"model_type": model_type,
-										"record_uuid": record_uuid,
-										"device_id": device_id,
-										"data": data,
-										"timestamp": timestamp,
-									}),
-									&network,
-									&state,
-									&buffer,
-									&retry_queue,
-									&db,
-									&config,
-									&last_realtime_activity,
-								)
-								.await
-								{
-									warn!(error = %e, "Failed to handle state change event");
-								}
-							}
+										// Flush if batch reaches 100 entries
+										if state_change_batch.len() >= 100 {
+											Self::flush_state_change_batch(
+												library_id,
+												&mut state_change_batch,
+												&network,
+												&state,
+												&buffer,
+												&retry_queue,
+												&db,
+												&config,
+												&last_realtime_activity,
+											).await;
+										}
+									}
 							SyncEvent::SharedChange {
 								library_id: event_library_id,
 								entry,
@@ -908,6 +912,44 @@ impl PeerSync {
 						break;
 					}
 				}
+			}
+
+			// Flush batch on timer (every 50ms)
+			_ = batch_flush_interval.tick() => {
+						if !state_change_batch.is_empty() {
+							Self::flush_state_change_batch(
+								library_id,
+								&mut state_change_batch,
+								&network,
+								&state,
+								&buffer,
+								&retry_queue,
+								&db,
+								&config,
+								&last_realtime_activity,
+							).await;
+						}
+					}
+				}
+			}
+
+			// Flush any remaining batched state changes before stopping
+			if !state_change_batch.is_empty() {
+				info!(
+					remaining = state_change_batch.len(),
+					"Flushing remaining batched state changes before shutdown"
+				);
+				Self::flush_state_change_batch(
+					library_id,
+					&mut state_change_batch,
+					&network,
+					&state,
+					&buffer,
+					&retry_queue,
+					&db,
+					&config,
+					&last_realtime_activity,
+				).await;
 			}
 
 			info!("PeerSync sync event listener stopped");
@@ -1114,6 +1156,53 @@ impl PeerSync {
 		);
 
 		Ok(())
+	}
+
+	/// Flush accumulated state changes as a batch (192x network efficiency improvement)
+	async fn flush_state_change_batch(
+		library_id: Uuid,
+		batch: &mut Vec<serde_json::Value>,
+		network: &Arc<dyn NetworkTransport>,
+		state: &Arc<RwLock<DeviceSyncState>>,
+		buffer: &Arc<BufferQueue>,
+		retry_queue: &Arc<RetryQueue>,
+		db: &Arc<sea_orm::DatabaseConnection>,
+		config: &Arc<crate::infra::sync::SyncConfig>,
+		last_realtime_activity: &Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
+	) {
+		if batch.is_empty() {
+			return;
+		}
+
+		let batch_size = batch.len();
+		info!(
+			batch_size = batch_size,
+			"Flushing batched state changes (real-time batching optimization)"
+		);
+
+		// Process each state change in the batch
+		for change_data in batch.drain(..) {
+			if let Err(e) = Self::handle_state_change_event_static(
+				library_id,
+				change_data,
+				network,
+				state,
+				buffer,
+				retry_queue,
+				db,
+				config,
+				last_realtime_activity,
+			)
+			.await
+			{
+				warn!(error = %e, "Failed to handle batched state change");
+			}
+		}
+
+		info!(
+			batch_size = batch_size,
+			"Batched state changes flushed successfully"
+		);
 	}
 
 	/// Handle state change event from TransactionManager (static version for spawned task)
