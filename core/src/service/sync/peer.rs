@@ -296,8 +296,8 @@ impl PeerSync {
 			.unwrap_or(0);
 		counts.insert("location".to_string(), location_count);
 
-		// Entry count (via location ownership chain)
-		// Query entries where location.device_id matches
+		// Entry count (via location ownership chain using closure table)
+		// Query entries where location.device_id matches via entry_closure table
 		let entry_count: u64 = {
 			use sea_orm::sea_query::{Expr, Query};
 			use sea_orm::{FromQueryResult, Statement};
@@ -310,10 +310,11 @@ impl PeerSync {
 			let stmt = Statement::from_sql_and_values(
 				sea_orm::DbBackend::Sqlite,
 				r#"
-			SELECT COUNT(*) as count
-			FROM entries e
-			INNER JOIN locations l ON e.location_id = l.id
-			WHERE l.device_id = ?
+			SELECT COUNT(DISTINCT ec.descendant_id) as count
+			FROM entry_closure ec
+			WHERE ec.ancestor_id IN (
+				SELECT entry_id FROM locations WHERE device_id = ?
+			)
 			"#,
 				vec![device_internal_id.into()],
 			);
