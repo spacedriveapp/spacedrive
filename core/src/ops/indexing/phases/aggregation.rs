@@ -134,6 +134,8 @@ pub async fn run_aggregation_phase(
 				active_dir.aggregate_size = Set(aggregate_size);
 				active_dir.child_count = Set(child_count);
 				active_dir.file_count = Set(file_count);
+				// Update indexed_at so aggregate changes are picked up by sync
+				active_dir.indexed_at = Set(Some(chrono::Utc::now()));
 
 				active_dir.update(ctx.library_db()).await.map_err(|e| {
 					JobError::execution(format!("Failed to update directory aggregates: {}", e))
@@ -288,6 +290,8 @@ pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbEr
 					active_dir.aggregate_size = Set(aggregate_size);
 					active_dir.child_count = Set(child_count);
 					active_dir.file_count = Set(file_count);
+					// Update indexed_at so aggregate changes are picked up by sync
+					active_dir.indexed_at = Set(Some(chrono::Utc::now()));
 
 					active_dir.update(db).await?;
 				}

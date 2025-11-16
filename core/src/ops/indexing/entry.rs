@@ -455,6 +455,11 @@ impl EntryProcessor {
 			entry_active.inode = Set(Some(inode as i64));
 		}
 
+		// TODO: Rename indexed_at to last_indexed_at to better reflect its purpose
+		// Update indexed_at so incremental sync picks up this change
+		// Without this, modified entries would be skipped by watermark-based queries
+		entry_active.indexed_at = Set(Some(chrono::Utc::now()));
+
 		entry_active
 			.update(ctx.library_db())
 			.await
