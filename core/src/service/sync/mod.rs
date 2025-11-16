@@ -354,20 +354,21 @@ impl SyncService {
 								// Per-peer tracking prevents one stuck peer from blocking all catch-up
 								let realtime_active = peer_sync.is_realtime_active_for_peer(catch_up_peer).await;
 
-								// Trigger catch-up if:
-								// - Real-time is NOT active (30+ seconds since last successful broadcast to this peer), AND
-								// - We haven't synced recently (fallback time check)
+								// Sync loop is now passive - watermark exchanges drive catch-up via:
+								// 1. Periodic watermark check (every 1 min) with count validation
+								// 2. Reconnection events (immediate)
+								// 3. Data available notifications (after bulk ops)
+								//
+								// This loop only handles edge cases where retry state indicates we're stuck
 								let should_catch_up = if realtime_active {
 									debug!(
 										peer = %catch_up_peer,
 										"Skipping catch-up - real-time sync to this peer is active"
 									);
 									false
-								} else if let Some(last_sync) = our_device.last_sync_at {
-									let time_since_sync = chrono::Utc::now().signed_duration_since(last_sync);
-									time_since_sync.num_seconds() > 60
 								} else {
-									true
+									// Only trigger if we have consecutive failures (stuck state)
+									retry_state.consecutive_failures > 0
 								};
 
 								// Check if we should retry based on exponential backoff
