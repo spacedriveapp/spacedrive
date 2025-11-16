@@ -775,21 +775,18 @@ impl PeerSync {
 					.copied()
 					.unwrap_or(0);
 
-				// Only flag mismatch if watermarks appear synchronized
-				// If watermarks already show divergence, normal catch-up will handle it
-				let watermarks_appear_synced = match (
-					my_resource_watermarks.get(resource_type),
-					peer_resource_watermarks.get(resource_type),
-				) {
-					(Some(my_ts), Some(peer_ts)) => {
-						let diff_seconds = (my_ts.timestamp() - peer_ts.timestamp()).abs();
-						diff_seconds < 10 // Within 10 seconds = appear synchronized
-					}
-					(None, None) => true, // Both missing watermarks = appear synchronized
-					_ => false, // One has watermark, one doesn't = watermarks diverge, catch-up will fix it
-				};
+				// If counts mismatch, we ALWAYS need to fix it
+				// Don't rely on watermark comparison alone - counts are the source of truth
+				if our_count != *peer_actual_count {
+					let watermark_diff_seconds = my_resource_watermarks
+						.get(resource_type)
+						.and_then(|my_ts| {
+							peer_resource_watermarks
+								.get(resource_type)
+								.map(|peer_ts| (my_ts.timestamp() - peer_ts.timestamp()).abs())
+						})
+						.unwrap_or(0);
 
-				if our_count != *peer_actual_count && watermarks_appear_synced {
 					warn!(
 						peer = %peer_id,
 						resource = %resource_type,
@@ -798,31 +795,17 @@ impl PeerSync {
 						gap = i64::abs(our_count as i64 - *peer_actual_count as i64),
 						our_watermark = ?my_resource_watermarks.get(resource_type),
 						peer_watermark = ?peer_resource_watermarks.get(resource_type),
-						"COUNT MISMATCH WITH SYNCED WATERMARKS! Watermark leapfrog bug detected"
+						watermark_diff_seconds = watermark_diff_seconds,
+						"COUNT MISMATCH DETECTED! Triggering surgical recovery"
 					);
 					mismatched_resource_types.push(resource_type.clone());
 					mismatch_details.push(format!(
-						"{}({}/{}, wm_diff={}s)",
+						"{}({}/{}, Δ{})",
 						resource_type,
 						our_count,
 						peer_actual_count,
-						my_resource_watermarks
-							.get(resource_type)
-							.and_then(|my_ts| {
-								peer_resource_watermarks
-									.get(resource_type)
-									.map(|peer_ts| (my_ts.timestamp() - peer_ts.timestamp()).abs())
-							})
-							.unwrap_or(0)
+						i64::abs(our_count as i64 - *peer_actual_count as i64)
 					));
-				} else if our_count != *peer_actual_count {
-					debug!(
-						peer = %peer_id,
-						resource = %resource_type,
-						our_count = our_count,
-						peer_actual = peer_actual_count,
-						"Count mismatch but watermarks diverge - normal catch-up will fix it"
-					);
 				}
 			}
 
