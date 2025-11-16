@@ -62,7 +62,7 @@ export function Overview() {
 						deviceCount={stats.device_count}
 						uniqueContentCount={Number(stats.unique_content_count)}
 					/>
-					<ContentBreakdown totalFiles={Number(stats.total_files)} />
+					{/* <ContentBreakdown totalFiles={Number(stats.total_files)} /> */}
 				</div>
 			</div>
 		</>

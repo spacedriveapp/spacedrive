@@ -1127,7 +1127,7 @@ impl PeerSync {
 
 	/// Start periodic watermark check (safety net for missed events)
 	///
-	/// Exchanges watermarks with all connected peers every 5 minutes to ensure
+	/// Exchanges watermarks with all connected peers every 1 minute to ensure
 	/// sync divergence is detected even if events are dropped or broadcasts fail.
 	fn start_periodic_watermark_check(&self) {
 		let library_id = self.library_id;
@@ -1138,21 +1138,23 @@ impl PeerSync {
 		let is_running = self.is_running.clone();
 
 		tokio::spawn(async move {
-			info!("Started periodic watermark check (every 5 minutes)");
+			info!("Started periodic watermark check (every 1 minute)");
 
-			// Wait 5 minutes before first check (allow initial sync to complete)
-			tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+			// Wait 1 minute before first check (allow initial sync to complete)
+			tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
 
 			while is_running.load(Ordering::SeqCst) {
-				// Check every 5 minutes
-				tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+				// Check every 1 minute
+				tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+
+				info!("Periodic watermark check interval elapsed, checking for connected partners");
 
 				// Get connected sync partners
 				match network.get_connected_sync_partners(library_id, &db).await {
 					Ok(partners) if !partners.is_empty() => {
-						debug!(
+						info!(
 							partner_count = partners.len(),
-							"Running periodic watermark check"
+							"Running periodic watermark check with connected partners"
 						);
 
 						// Exchange watermarks with all peers
@@ -1168,15 +1170,15 @@ impl PeerSync {
 									"Periodic watermark check failed for peer"
 								);
 							} else {
-								debug!(
+								info!(
 									peer = %peer_id,
-									"Periodic watermark exchange triggered"
+									"Periodic watermark exchange triggered successfully"
 								);
 							}
 						}
 					}
 					Ok(_) => {
-						debug!("No connected partners for periodic watermark check");
+						info!("No connected partners for periodic watermark check");
 					}
 					Err(e) => {
 						warn!(error = %e, "Failed to get connected partners for periodic watermark check");

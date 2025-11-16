@@ -143,7 +143,7 @@ impl Library {
 				LibraryError::Other("File sync service already initialized".to_string())
 			})?;
 
-		info!("File sync service initialized for library {}", self.id());
+		debug!("File sync service initialized for library {}", self.id());
 
 		Ok(())
 	}
@@ -396,7 +396,7 @@ impl Library {
 
 	/// Shutdown the library, gracefully stopping all jobs
 	pub async fn shutdown(&self) -> Result<()> {
-		info!("Shutting down library {}", self.id());
+		debug!("Shutting down library {}", self.id());
 
 		// Stop sync service
 		if let Some(sync_service) = self.sync_service() {
@@ -414,7 +414,7 @@ impl Library {
 		self.save_config(&*config).await?;
 
 		// Close library database connection properly
-		info!("Closing library database connection");
+		debug!("Closing library database connection");
 
 		// First, checkpoint the WAL file to merge it back into the main database
 		use sea_orm::{ConnectionTrait, Statement};
@@ -430,13 +430,13 @@ impl Library {
 		{
 			warn!("Failed to checkpoint WAL file: {}", e);
 		} else {
-			info!("WAL file checkpointed successfully");
+			debug!("WAL file checkpointed successfully");
 		}
 
 		if let Err(e) = self.db.as_ref().conn().clone().close().await {
 			warn!("Failed to close library database connection: {}", e);
 		} else {
-			info!("Library database connection closed successfully");
+			debug!("Library database connection closed successfully");
 		}
 
 		// Clear device cache from DeviceManager
@@ -618,7 +618,7 @@ impl Library {
 		let config = self.config.read().await.clone();
 		let config_lock = Arc::clone(&self.config);
 
-		info!(
+		debug!(
 			library_id = %library_id,
 			library_name = %library_name,
 			"Starting async statistics recalculation for library"
@@ -649,11 +649,11 @@ impl Library {
 					"Failed to calculate library statistics"
 				);
 			} else {
-				info!(
-					library_id = %library_id,
-					library_name = %library_name,
-					"Background statistics calculation completed successfully"
-				);
+				// debug!(
+				// 	library_id = %library_id,
+				// 	library_name = %library_name,
+				// 	"Background statistics calculation completed successfully"
+				// );
 			}
 		});
 		Ok(())
@@ -677,7 +677,7 @@ impl Library {
 		let mut stats = Self::calculate_all_statistics_static(&db, &path).await?;
 		stats.updated_at = chrono::Utc::now();
 
-		info!(
+		debug!(
 			library_id = %library_id,
 			library_name = %config.name,
 			total_files = stats.total_files,
@@ -755,7 +755,7 @@ impl Library {
 			statistics: stats,
 		});
 
-		info!(
+		debug!(
 			library_id = %library_id,
 			library_name = %config.name,
 			"Statistics calculation and save completed successfully, events emitted"
@@ -778,7 +778,7 @@ impl Library {
 		let mut stats = self.calculate_all_statistics().await?;
 		stats.updated_at = chrono::Utc::now();
 
-		info!(
+		debug!(
 			library_id = %library_id,
 			library_name = %library_name,
 			total_files = stats.total_files,
@@ -844,7 +844,7 @@ impl Library {
 				statistics: stats,
 			});
 
-		info!(
+		debug!(
 			library_id = %library_id,
 			library_name = %library_name,
 			"Instance-based statistics calculation completed successfully, events emitted"
