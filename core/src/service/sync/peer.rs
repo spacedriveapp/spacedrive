@@ -800,9 +800,9 @@ impl PeerSync {
 					.copied()
 					.unwrap_or(0);
 
-				// If counts mismatch, we ALWAYS need to fix it
-				// Don't rely on watermark comparison alone - counts are the source of truth
-				if our_count != *peer_actual_count {
+				// If WE have less than peer actually owns, we're behind and need catch-up
+				// Don't trigger if we have MORE (that would mean peer is behind, they'll catch up from us)
+				if our_count < *peer_actual_count {
 					let watermark_diff_seconds = my_resource_watermarks
 						.get(resource_type)
 						.and_then(|my_ts| {
