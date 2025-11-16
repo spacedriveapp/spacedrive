@@ -1,6 +1,9 @@
 //! Library information output types
 
-use crate::library::config::{LibrarySettings, LibraryStatistics};
+use crate::{
+	domain::resource::Identifiable,
+	library::config::{LibrarySettings, LibraryStatistics},
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -33,4 +36,17 @@ pub struct LibraryInfoOutput {
 
 	/// Library statistics
 	pub statistics: LibraryStatistics,
+}
+
+impl Identifiable for LibraryInfoOutput {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str {
+		"library"
+	}
+
+	// Simple resource with no sync dependencies or special merge behavior
+	// All default implementations are sufficient
 }
