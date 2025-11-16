@@ -861,10 +861,19 @@ impl PeerSync {
 
 						// Get current shared watermark to preserve it
 						let (_my_state, my_shared) = self.get_watermarks().await;
-						let shared_watermark_str = my_shared.map(|hlc| hlc.to_string());
+						let shared_watermark_str = if let Some(hlc) = my_shared {
+							// Have shared watermark - use it to skip shared backfill
+							Some(hlc.to_string())
+						} else {
+							// No shared watermark but surgical recovery only fixes device-owned data
+							// Use a sentinel value to skip shared backfill entirely
+							// The backfill manager will see this and skip shared resources
+							info!(peer = %peer_id, "No shared watermark but surgical recovery targets device-owned only");
+							Some("SKIP_SHARED".to_string())
+						};
 
 						// State watermark = None (cleared for mismatched resources)
-						// Shared watermark = current (preserved to skip shared backfill)
+						// Shared watermark = current or SKIP (preserved to skip shared backfill)
 						manager.catch_up_from_peer(peer_id, None, shared_watermark_str).await?;
 					}
 				} else {
