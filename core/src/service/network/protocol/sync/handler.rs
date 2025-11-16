@@ -475,42 +475,15 @@ impl SyncProtocolHandler {
 			}))
 		}
 
-		SyncMessage::WatermarkExchangeResponse {
-			library_id,
-			device_id,
-			shared_watermark: peer_shared_watermark,
-			needs_state_catchup,
-			needs_shared_catchup,
-			resource_watermarks: peer_resource_watermarks,
-			my_actual_resource_counts: peer_actual_counts,
-		} => {
-			debug!(
+		SyncMessage::WatermarkExchangeResponse { .. } => {
+			// Responses should never arrive as separate messages - they come back
+			// on the bidirectional stream when using send_sync_request().
+			// If we see this, it means someone used send_sync_message() for a request
+			// that expects a response.
+			warn!(
 				from_device = %from_device,
-				peer_shared_watermark = ?peer_shared_watermark,
-				needs_state_catchup = needs_state_catchup,
-				needs_shared_catchup = needs_shared_catchup,
-				peer_resource_count = peer_resource_watermarks.len(),
-				peer_actual_counts = ?peer_actual_counts,
-				"Processing WatermarkExchangeResponse with counts"
+				"Received WatermarkExchangeResponse as incoming message (should arrive via bi-directional stream). Ignoring."
 			);
-
-			peer_sync
-				.on_watermark_exchange_response(
-					from_device,
-					peer_shared_watermark,
-					needs_state_catchup,
-					needs_shared_catchup,
-					peer_resource_watermarks,
-					peer_actual_counts,
-				)
-				.await
-				.map_err(|e| {
-					NetworkingError::Protocol(format!(
-						"Failed to handle watermark exchange response: {}",
-						e
-					))
-				})?;
-
 			Ok(None)
 		}
 
