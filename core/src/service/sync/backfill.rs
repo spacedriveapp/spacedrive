@@ -22,7 +22,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{oneshot, Mutex};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Manages backfill process for new devices
@@ -387,6 +387,14 @@ impl BackfillManager {
 					// Record data volume metrics before consuming records
 					let records_count = records.len() as u64;
 
+					debug!(
+						model_type = %model_type,
+						records_count = records_count,
+						deleted_count = deleted_uuids.len(),
+						has_more = has_more,
+						"Received StateResponse batch"
+					);
+
 					// Track max timestamp from received records for accurate watermark
 					for record in &records {
 						if let Some(max) = max_timestamp {
@@ -675,6 +683,8 @@ impl BackfillManager {
 	) -> Result<SyncMessage> {
 		// Create and send request
 		// CRITICAL: Pass peer device_id to filter query to only their entries
+		let has_checkpoint = checkpoint.is_some();
+
 		let request = SyncMessage::StateRequest {
 			library_id: self.library_id,
 			model_types: model_types.clone(),
@@ -683,6 +693,15 @@ impl BackfillManager {
 			checkpoint,
 			batch_size,
 		};
+
+		debug!(
+			peer = %peer,
+			model_types = ?model_types,
+			since = ?since,
+			batch_size = batch_size,
+			has_checkpoint = has_checkpoint,
+			"Sending StateRequest with device ownership filter"
+		);
 
 		// Use send_sync_request which handles bidirectional stream and response
 		let response = self

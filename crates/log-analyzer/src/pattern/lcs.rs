@@ -96,3 +96,4 @@ mod tests {
 		assert_eq!(variable_pos, vec![2]); // Only position 2 varies
 	}
 }
+

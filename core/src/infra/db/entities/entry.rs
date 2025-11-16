@@ -138,28 +138,15 @@ impl crate::infra::sync::Syncable for Model {
 				.await?;
 
 			if let Some(dev) = device {
-				// Join to locations and filter by device_id
-				// Use entry_closure to efficiently filter entries under this device's locations
-				use sea_orm::{JoinType, RelationTrait};
+				// Use raw SQL for device ownership filter (same proven pattern as get_device_owned_counts)
+				// Filter to only entries whose root location is owned by this device via entry_closure
+				use sea_orm::sea_query::SimpleExpr;
 
-				// Filter to only entries whose root location is owned by this device
-				// This uses the location relationship via parent chain
 				query = query.filter(
-					Column::Id.in_subquery(
-						sea_orm::sea_query::Query::select()
-							.column(super::entry_closure::Column::DescendantId)
-							.from(super::entry_closure::Entity)
-							.and_where(
-								super::entry_closure::Column::AncestorId.in_subquery(
-									sea_orm::sea_query::Query::select()
-										.column(super::location::Column::EntryId)
-										.from(super::location::Entity)
-										.and_where(super::location::Column::DeviceId.eq(dev.id))
-										.take(),
-								),
-							)
-							.take(),
-					),
+					SimpleExpr::from(sea_orm::sea_query::Expr::cust_with_values::<&str, sea_orm::Value, Vec<sea_orm::Value>>(
+						"id IN (SELECT DISTINCT ec.descendant_id FROM entry_closure ec WHERE ec.ancestor_id IN (SELECT entry_id FROM locations WHERE device_id = ?))",
+						vec![dev.id.into()],
+					))
 				);
 			} else {
 				// Device not found, return empty
@@ -400,8 +387,11 @@ impl Model {
 		let entry_uuid: Option<Uuid> = serde_json::from_value(get_field("uuid")?)
 			.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
 
-		let entry_uuid = entry_uuid
-			.ok_or_else(|| sea_orm::DbErr::Custom("Cannot sync entry without UUID (data consistency error)".to_string()))?;
+		let entry_uuid = entry_uuid.ok_or_else(|| {
+			sea_orm::DbErr::Custom(
+				"Cannot sync entry without UUID (data consistency error)".to_string(),
+			)
+		})?;
 
 		// Check if entry was deleted (prevents race condition)
 		if Self::is_tombstoned(entry_uuid, db).await? {
@@ -663,9 +653,7 @@ impl Model {
 		tracing::info!("Starting bulk entry_closure rebuild...");
 
 		// Clear existing closure table
-		super::entry_closure::Entity::delete_many()
-			.exec(db)
-			.await?;
+		super::entry_closure::Entity::delete_many().exec(db).await?;
 
 		// 1. Insert all self-references (depth 0)
 		db.execute(Statement::from_sql_and_values(
@@ -722,9 +710,7 @@ impl Model {
 		}
 
 		// Count final relationships
-		let total = super::entry_closure::Entity::find()
-			.count(db)
-			.await?;
+		let total = super::entry_closure::Entity::find().count(db).await?;
 
 		tracing::info!(
 			iterations = iteration,
