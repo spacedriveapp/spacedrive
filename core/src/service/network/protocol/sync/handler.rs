@@ -394,98 +394,123 @@ impl SyncProtocolHandler {
 				}))
 			}
 
-		SyncMessage::WatermarkExchangeRequest {
-			library_id,
-			device_id,
-			my_shared_watermark: peer_shared_watermark,
-			my_resource_watermarks: peer_resource_watermarks,
-			my_peer_resource_counts: peer_counts_of_our_data,
-		} => {
-			debug!(
-				from_device = %from_device,
-				peer_shared_watermark = ?peer_shared_watermark,
-				peer_resource_count = peer_resource_watermarks.len(),
-				peer_counts_of_us = ?peer_counts_of_our_data,
-				"Processing WatermarkExchangeRequest with count validation"
-			);
+			SyncMessage::WatermarkExchangeRequest {
+				library_id,
+				device_id,
+				my_shared_watermark: peer_shared_watermark,
+				my_resource_watermarks: peer_resource_watermarks,
+				my_peer_resource_counts: peer_counts_of_our_data,
+				my_peer_resource_hashes: peer_hashes_of_our_data,
+			} => {
+				debug!(
+					from_device = %from_device,
+					peer_shared_watermark = ?peer_shared_watermark,
+					peer_resource_count = peer_resource_watermarks.len(),
+					peer_counts_of_us = ?peer_counts_of_our_data,
+					peer_hashes_of_us = ?peer_hashes_of_our_data,
+					"Processing WatermarkExchangeRequest with count and hash validation"
+				);
 
-			// Get our current watermarks
-			let (_our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
-			let our_resource_watermarks =
-				crate::infra::sync::ResourceWatermarkStore::new(peer_sync.device_id())
-					.get_our_resource_watermarks(peer_sync.peer_log_conn())
+				// Get our current watermarks
+				let (_our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
+				let our_resource_watermarks =
+					crate::infra::sync::ResourceWatermarkStore::new(peer_sync.device_id())
+						.get_our_resource_watermarks(peer_sync.peer_log_conn())
+						.await
+						.unwrap_or_default();
+
+				// Get our ACTUAL counts (what we truly own)
+				let our_actual_resource_counts =
+					crate::service::sync::PeerSync::get_device_owned_counts(
+						peer_sync.device_id(),
+						peer_sync.db(),
+					)
 					.await
 					.unwrap_or_default();
 
-			// Get our ACTUAL counts (what we truly own)
-			let our_actual_resource_counts = crate::service::sync::PeerSync::get_device_owned_counts(
-				peer_sync.device_id(),
-				peer_sync.db(),
-			)
-			.await
-			.unwrap_or_default();
+				// Determine if peer needs catch-up by comparing per-resource watermarks
+				let mut needs_state_catchup = false;
+				for (resource_type, our_ts) in &our_resource_watermarks {
+					match peer_resource_watermarks.get(resource_type) {
+						Some(peer_ts) if our_ts > peer_ts => {
+							needs_state_catchup = true;
+							break;
+						}
+						None => {
+							needs_state_catchup = true;
+							break;
+						}
+						_ => {}
+					}
+				}
 
-			// Determine if peer needs catch-up by comparing per-resource watermarks
-			let mut needs_state_catchup = false;
-			for (resource_type, our_ts) in &our_resource_watermarks {
-				match peer_resource_watermarks.get(resource_type) {
-					Some(peer_ts) if our_ts > peer_ts => {
+				// Also check if we have resources peer doesn't know about
+				for resource_type in our_resource_watermarks.keys() {
+					if !peer_resource_watermarks.contains_key(resource_type) {
 						needs_state_catchup = true;
 						break;
 					}
-					None => {
-						needs_state_catchup = true;
-						break;
+				}
+
+				let needs_shared_catchup = match (peer_shared_watermark, our_shared_watermark) {
+					(Some(peer_hlc), Some(our_hlc)) => our_hlc > peer_hlc,
+					(None, Some(_)) => true,
+					_ => false,
+				};
+
+				// Compute content hashes for update detection (SQL-level aggregate, ~50ms)
+				let mut our_actual_resource_hashes = std::collections::HashMap::new();
+				// Only compute hash for entries currently (most important for update detection)
+				if our_actual_resource_counts.contains_key("entry") {
+					if let Ok(Some(hash)) =
+						crate::service::sync::peer::PeerSync::compute_entry_content_hash(
+							peer_sync.device_id(),
+							peer_sync.db(),
+						)
+						.await
+					{
+						our_actual_resource_hashes.insert("entry".to_string(), hash);
+						debug!(
+							from_device = %from_device,
+							entry_hash = hash,
+							"Computed our entry content hash for update detection"
+						);
 					}
-					_ => {}
 				}
+
+				debug!(
+					from_device = %from_device,
+					needs_state_catchup = needs_state_catchup,
+					needs_shared_catchup = needs_shared_catchup,
+					our_resource_count = our_resource_watermarks.len(),
+					our_actual_counts = ?our_actual_resource_counts,
+					our_actual_hashes = ?our_actual_resource_hashes,
+					"Responding to watermark exchange with counts and hashes for gap/update detection"
+				);
+
+				Ok(Some(SyncMessage::WatermarkExchangeResponse {
+					library_id: self.library_id,
+					device_id: peer_sync.device_id(),
+					shared_watermark: our_shared_watermark,
+					needs_state_catchup,
+					needs_shared_catchup,
+					resource_watermarks: our_resource_watermarks,
+					my_actual_resource_counts: our_actual_resource_counts,
+					my_actual_resource_hashes: our_actual_resource_hashes,
+				}))
 			}
 
-			// Also check if we have resources peer doesn't know about
-			for resource_type in our_resource_watermarks.keys() {
-				if !peer_resource_watermarks.contains_key(resource_type) {
-					needs_state_catchup = true;
-					break;
-				}
+			SyncMessage::WatermarkExchangeResponse { .. } => {
+				// Responses should never arrive as separate messages - they come back
+				// on the bidirectional stream when using send_sync_request().
+				// If we see this, it means someone used send_sync_message() for a request
+				// that expects a response.
+				warn!(
+					from_device = %from_device,
+					"Received WatermarkExchangeResponse as incoming message (should arrive via bi-directional stream). Ignoring."
+				);
+				Ok(None)
 			}
-
-			let needs_shared_catchup = match (peer_shared_watermark, our_shared_watermark) {
-				(Some(peer_hlc), Some(our_hlc)) => our_hlc > peer_hlc,
-				(None, Some(_)) => true,
-				_ => false,
-			};
-
-			debug!(
-				from_device = %from_device,
-				needs_state_catchup = needs_state_catchup,
-				needs_shared_catchup = needs_shared_catchup,
-				our_resource_count = our_resource_watermarks.len(),
-				our_actual_counts = ?our_actual_resource_counts,
-				"Responding to watermark exchange with actual counts"
-			);
-
-			Ok(Some(SyncMessage::WatermarkExchangeResponse {
-				library_id: self.library_id,
-				device_id: peer_sync.device_id(),
-				shared_watermark: our_shared_watermark,
-				needs_state_catchup,
-				needs_shared_catchup,
-				resource_watermarks: our_resource_watermarks,
-				my_actual_resource_counts: our_actual_resource_counts,
-			}))
-		}
-
-		SyncMessage::WatermarkExchangeResponse { .. } => {
-			// Responses should never arrive as separate messages - they come back
-			// on the bidirectional stream when using send_sync_request().
-			// If we see this, it means someone used send_sync_message() for a request
-			// that expects a response.
-			warn!(
-				from_device = %from_device,
-				"Received WatermarkExchangeResponse as incoming message (should arrive via bi-directional stream). Ignoring."
-			);
-			Ok(None)
-		}
 
 			SyncMessage::DataAvailableNotification {
 				library_id,

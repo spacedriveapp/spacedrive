@@ -1,0 +1,3 @@
+# Ignore core directory changes to prevent auto-reload
+../../../core/
+../../../target/

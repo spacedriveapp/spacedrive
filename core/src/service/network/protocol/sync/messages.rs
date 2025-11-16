@@ -110,6 +110,10 @@ pub enum SyncMessage {
 		/// Maps resource_type -> count of records we have from this peer
 		#[serde(default)]
 		my_peer_resource_counts: std::collections::HashMap<String, u64>,
+		/// Content hashes of peer's device-owned resources (for update detection)
+		/// Maps resource_type -> aggregate hash of all records we have from this peer
+		#[serde(default)]
+		my_peer_resource_hashes: std::collections::HashMap<String, u64>,
 	},
 
 	/// Response with peer's watermarks
@@ -125,6 +129,10 @@ pub enum SyncMessage {
 		/// Maps resource_type -> actual count of records we own
 		#[serde(default)]
 		my_actual_resource_counts: std::collections::HashMap<String, u64>,
+		/// Content hashes of our device-owned resources (for update detection)
+		/// Maps resource_type -> aggregate hash of all records we own
+		#[serde(default)]
+		my_actual_resource_hashes: std::collections::HashMap<String, u64>,
 	},
 
 	/// Proactive notification that sender has new data available

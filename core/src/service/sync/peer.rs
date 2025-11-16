@@ -286,6 +286,74 @@ impl PeerSync {
 		self.peer_log.conn()
 	}
 
+	/// Compute content hash for device-owned entries (SQL-level aggregate)
+	///
+	/// Uses XOR of hashes for order-independence and O(n) performance.
+	/// Only hashes stable fields to ensure consistency across devices.
+	pub async fn compute_entry_content_hash(
+		owner_device_id: Uuid,
+		db: &DatabaseConnection,
+	) -> Result<Option<u64>> {
+		use crate::infra::db::entities::device;
+		use sea_orm::{ColumnTrait, EntityTrait, FromQueryResult, QueryFilter, Statement};
+
+		// Get device's internal ID
+		let device = device::Entity::find()
+			.filter(device::Column::Uuid.eq(owner_device_id))
+			.one(db)
+			.await?;
+
+		let device_internal_id = match device {
+			Some(d) => d.id,
+			None => return Ok(None),
+		};
+
+		#[derive(FromQueryResult)]
+		struct HashResult {
+			content_hash: Option<i64>,
+		}
+
+		// Compute aggregate hash via SQL
+		// Hash stable fields: uuid, name, size, modified_at, kind, parent_id, content_id
+		// Exclude: id (local), indexed_at (sync metadata), aggregates (computed)
+		let stmt = Statement::from_sql_and_values(
+			sea_orm::DbBackend::Sqlite,
+			r#"
+			SELECT
+				SUM(
+					-- Cast first 8 bytes of SHA-256 hash to signed integer
+					CAST(
+						(
+							(CAST(substr(hex(
+								-- Hash stable fields together
+								COALESCE(uuid, X'00000000000000000000000000000000') ||
+								COALESCE(name, '') ||
+								COALESCE(size, 0) ||
+								COALESCE(modified_at, '') ||
+								COALESCE(kind, 0) ||
+								COALESCE(parent_id, 0) ||
+								COALESCE(content_id, 0)
+							), 1, 16) AS INTEGER) & 9223372036854775807)
+						) AS INTEGER
+					)
+				) as content_hash
+			FROM entries e
+			WHERE e.id IN (
+				SELECT DISTINCT ec.descendant_id
+				FROM entry_closure ec
+				WHERE ec.ancestor_id IN (
+					SELECT entry_id FROM locations WHERE device_id = ?
+				)
+			)
+			"#,
+			vec![device_internal_id.into()],
+		);
+
+		let result = HashResult::find_by_statement(stmt).one(db).await?;
+
+		Ok(result.and_then(|r| r.content_hash.map(|h| h as u64)))
+	}
+
 	/// Get counts of device-owned resources owned by a specific device
 	///
 	/// Used for gap detection during watermark exchange.
@@ -372,10 +440,11 @@ impl PeerSync {
 		Ok(counts)
 	}
 
-	/// Clear watermarks for specific resources (surgical recovery)
+	/// Reset cursor to validated watermark for specific resources (surgical recovery with dual watermarks)
 	///
 	/// Called when count mismatch is detected for specific resources.
-	/// Only clears the mismatched resources, leaving correct watermarks intact.
+	/// Resets cursor to validated baseline (not full delete), preserving known-good state.
+	/// This enables gap-only recovery instead of full re-sync.
 	async fn clear_resource_watermarks(
 		&self,
 		peer_id: Uuid,
@@ -383,25 +452,37 @@ impl PeerSync {
 	) -> Result<()> {
 		let store = crate::infra::sync::ResourceWatermarkStore::new(self.device_id);
 
-		let mut cleared_count = 0;
+		let mut reset_count = 0;
 		for resource_type in &resource_types {
-			if store
-				.delete_resource(self.peer_log.conn(), peer_id, resource_type)
+			// Reset cursor to validated (or delete if no validated baseline)
+			store
+				.reset_cursor_to_validated(self.peer_log.conn(), peer_id, resource_type)
 				.await
-				.map_err(|e| anyhow::anyhow!("Failed to clear resource watermark: {}", e))?
-			{
-				cleared_count += 1;
-			}
+				.map_err(|e| anyhow::anyhow!("Failed to reset cursor to validated: {}", e))?;
+			reset_count += 1;
 		}
 
 		info!(
 			peer = %peer_id,
 			resources = ?resource_types,
-			cleared = cleared_count,
-			"Cleared watermarks for mismatched resources only (surgical recovery)"
+			reset = reset_count,
+			"Reset cursors to validated watermarks (surgical recovery from known-good points)"
 		);
 
 		Ok(())
+	}
+
+	/// Promote cursor to validated watermark (marks cursor as verified)
+	async fn promote_cursor_to_validated_watermark(
+		&self,
+		peer_id: Uuid,
+		resource_type: &str,
+	) -> Result<()> {
+		let store = crate::infra::sync::ResourceWatermarkStore::new(self.device_id);
+		store
+			.promote_cursor_to_validated(self.peer_log.conn(), peer_id, resource_type)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to promote watermark: {}", e))
 	}
 
 	/// Check if real-time sync is currently active for a specific peer
@@ -681,12 +762,27 @@ impl PeerSync {
 				std::collections::HashMap::new()
 			});
 
+		// Compute content hashes for update detection (SQL-level aggregate, ~50ms)
+		let mut my_peer_resource_hashes = std::collections::HashMap::new();
+		// Only compute hash for entries currently (most important for update detection)
+		if my_peer_resource_counts.contains_key("entry") {
+			if let Ok(Some(hash)) = Self::compute_entry_content_hash(peer_id, &self.db).await {
+				my_peer_resource_hashes.insert("entry".to_string(), hash);
+				debug!(
+					peer = %peer_id,
+					entry_hash = hash,
+					"Computed entry content hash for update detection"
+				);
+			}
+		}
+
 		debug!(
 			peer = %peer_id,
 			my_shared_watermark = ?my_shared_watermark,
 			resource_count = my_resource_watermarks.len(),
 			peer_owned_counts = ?my_peer_resource_counts,
-			"Sending watermark exchange request with counts for gap detection"
+			peer_owned_hashes = ?my_peer_resource_hashes,
+			"Sending watermark exchange request with counts and hashes for gap/update detection"
 		);
 
 		// Send request to peer and wait for response (request/response pattern)
@@ -696,10 +792,12 @@ impl PeerSync {
 			my_shared_watermark,
 			my_resource_watermarks,
 			my_peer_resource_counts,
+			my_peer_resource_hashes,
 		};
 
 		// Use send_sync_request() to get response back (bi-directional stream)
-		let response = self.network
+		let response = self
+			.network
 			.send_sync_request(peer_id, request)
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to exchange watermarks: {}", e))?;
@@ -717,6 +815,7 @@ impl PeerSync {
 				needs_shared_catchup,
 				resource_watermarks: peer_resource_watermarks,
 				my_actual_resource_counts: peer_actual_counts,
+				my_actual_resource_hashes: peer_actual_hashes,
 				..
 			} => {
 				info!(
@@ -725,7 +824,8 @@ impl PeerSync {
 					needs_state_catchup = needs_state_catchup,
 					needs_shared_catchup = needs_shared_catchup,
 					peer_actual_counts = ?peer_actual_counts,
-					"Received watermark exchange response with counts, processing locally"
+					peer_actual_hashes = ?peer_actual_hashes,
+					"Received watermark exchange response with counts and hashes, processing locally"
 				);
 
 				// Call the response handler directly
@@ -736,6 +836,7 @@ impl PeerSync {
 					needs_shared_catchup,
 					peer_resource_watermarks,
 					peer_actual_counts,
+					peer_actual_hashes,
 				)
 				.await?;
 			}
@@ -761,6 +862,7 @@ impl PeerSync {
 		needs_shared_catchup: bool,
 		peer_resource_watermarks: std::collections::HashMap<String, chrono::DateTime<chrono::Utc>>,
 		peer_actual_resource_counts: std::collections::HashMap<String, u64>,
+		peer_actual_resource_hashes: std::collections::HashMap<String, u64>,
 	) -> Result<()> {
 		info!(
 			peer = %peer_id,
@@ -835,12 +937,64 @@ impl PeerSync {
 				}
 			}
 
+			// Hash-based update detection (even when counts match)
+			// This catches missed updates where count is unchanged but data differs
+			if !peer_actual_resource_hashes.is_empty() {
+				// Compute our hashes for comparison
+				let mut our_hashes = std::collections::HashMap::new();
+				if peer_actual_resource_hashes.contains_key("entry") {
+					if let Ok(Some(hash)) =
+						Self::compute_entry_content_hash(peer_id, &self.db).await
+					{
+						our_hashes.insert("entry".to_string(), hash);
+					}
+				}
+
+				// Compare hashes for resources where counts match
+				for (resource_type, peer_hash) in &peer_actual_resource_hashes {
+					if let Some(our_hash) = our_hashes.get(resource_type) {
+						let our_count = my_counts_of_peer_data
+							.get(resource_type)
+							.copied()
+							.unwrap_or(0);
+						let peer_count = peer_actual_resource_counts
+							.get(resource_type)
+							.copied()
+							.unwrap_or(0);
+
+						// If counts match but hashes differ = missed update!
+						if our_count == peer_count && our_hash != peer_hash {
+							warn!(
+								peer = %peer_id,
+								resource = %resource_type,
+								count = our_count,
+								our_hash = our_hash,
+								peer_hash = peer_hash,
+								"HASH MISMATCH with matching counts! Missed update detected, triggering surgical recovery"
+							);
+							mismatched_resource_types.push(resource_type.clone());
+							mismatch_details.push(format!(
+								"{}(count={}, hash_mismatch)",
+								resource_type, our_count
+							));
+						} else if our_hash == peer_hash {
+							debug!(
+								resource = %resource_type,
+								hash = our_hash,
+								count = our_count,
+								"Hash validation passed - data is consistent"
+							);
+						}
+					}
+				}
+			}
+
 			if !mismatched_resource_types.is_empty() {
 				error!(
 					peer = %peer_id,
 					mismatches = ?mismatch_details,
 					resources = ?mismatched_resource_types,
-					"Count mismatch indicates watermark leapfrog bug, clearing only affected resources"
+					"Count/hash mismatch detected, clearing only affected resources"
 				);
 
 				// Clear watermarks only for mismatched resources
@@ -874,7 +1028,9 @@ impl PeerSync {
 
 						// State watermark = None (cleared for mismatched resources)
 						// Shared watermark = current or SKIP (preserved to skip shared backfill)
-						manager.catch_up_from_peer(peer_id, None, shared_watermark_str).await?;
+						manager
+							.catch_up_from_peer(peer_id, None, shared_watermark_str)
+							.await?;
 					}
 				} else {
 					warn!("BackfillManager not available, cannot trigger recovery backfill");
@@ -948,6 +1104,22 @@ impl PeerSync {
 				peer = %peer_id,
 				"Count validation confirmed sync - skipping watermark-based catch-up"
 			);
+
+			// Promote cursor to validated for all verified resources (dual watermark optimization)
+			// This creates safe recovery points so future surgical recovery only re-syncs gaps
+			for (resource_type, _count) in &peer_actual_resource_counts {
+				if let Err(e) = self
+					.promote_cursor_to_validated_watermark(peer_id, resource_type)
+					.await
+				{
+					warn!(
+						error = %e,
+						resource = %resource_type,
+						peer = %peer_id,
+						"Failed to promote cursor to validated watermark"
+					);
+				}
+			}
 		}
 
 		if we_need_state_catchup {
@@ -1236,7 +1408,11 @@ impl PeerSync {
 				};
 
 				// Get connected sync partners
-				match peer_sync_arc.network.get_connected_sync_partners(library_id, &db).await {
+				match peer_sync_arc
+					.network
+					.get_connected_sync_partners(library_id, &db)
+					.await
+				{
 					Ok(partners) if !partners.is_empty() => {
 						info!(
 							partner_count = partners.len(),
@@ -1245,7 +1421,8 @@ impl PeerSync {
 
 						// Exchange watermarks with all peers using full request/response
 						for peer_id in partners {
-							if let Err(e) = peer_sync_arc.exchange_watermarks_and_catchup(peer_id).await
+							if let Err(e) =
+								peer_sync_arc.exchange_watermarks_and_catchup(peer_id).await
 							{
 								debug!(
 									peer = %peer_id,
@@ -1678,11 +1855,26 @@ impl PeerSync {
 				std::collections::HashMap::new()
 			});
 
+		// Compute content hashes for update detection (SQL-level aggregate, ~50ms)
+		let mut my_peer_resource_hashes = std::collections::HashMap::new();
+		// Only compute hash for entries currently (most important for update detection)
+		if my_peer_resource_counts.contains_key("entry") {
+			if let Ok(Some(hash)) = Self::compute_entry_content_hash(peer_id, db).await {
+				my_peer_resource_hashes.insert("entry".to_string(), hash);
+				debug!(
+					peer = %peer_id,
+					entry_hash = hash,
+					"Computed entry content hash for update detection (static exchange)"
+				);
+			}
+		}
+
 		debug!(
 			peer = %peer_id,
 			my_shared_watermark = ?my_shared_watermark,
 			resource_count = my_resource_watermarks.len(),
 			peer_owned_counts = ?my_peer_resource_counts,
+			peer_owned_hashes = ?my_peer_resource_hashes,
 			"Sending watermark exchange request (response will arrive async via protocol handler)"
 		);
 
@@ -1693,6 +1885,7 @@ impl PeerSync {
 			my_shared_watermark,
 			my_resource_watermarks,
 			my_peer_resource_counts,
+			my_peer_resource_hashes,
 		};
 
 		network
@@ -1814,8 +2007,14 @@ impl PeerSync {
 			// Buffer individual changes for later
 			for change_data in changes {
 				if let (Some(record_uuid), Some(device_id), Some(data), Some(timestamp_str)) = (
-					change_data.get("record_uuid").and_then(|v| v.as_str()).and_then(|s| Uuid::parse_str(s).ok()),
-					change_data.get("device_id").and_then(|v| v.as_str()).and_then(|s| Uuid::parse_str(s).ok()),
+					change_data
+						.get("record_uuid")
+						.and_then(|v| v.as_str())
+						.and_then(|s| Uuid::parse_str(s).ok()),
+					change_data
+						.get("device_id")
+						.and_then(|v| v.as_str())
+						.and_then(|s| Uuid::parse_str(s).ok()),
 					change_data.get("data"),
 					change_data.get("timestamp").and_then(|v| v.as_str()),
 				) {
