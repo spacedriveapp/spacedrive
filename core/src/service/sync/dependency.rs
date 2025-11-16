@@ -108,6 +108,26 @@ impl DependencyTracker {
 	pub async fn dependency_count(&self) -> usize {
 		self.waiting_for.read().await.len()
 	}
+
+	/// Get all pending dependency UUIDs (for requesting from peers)
+	///
+	/// Returns a list of UUIDs that are currently blocking updates.
+	/// These can be requested from peers to resolve stuck dependencies.
+	pub async fn get_pending_dependency_uuids(&self) -> Vec<Uuid> {
+		let waiting = self.waiting_for.read().await;
+		waiting.keys().copied().collect()
+	}
+
+	/// Clear all pending dependencies (timeout/force sync fallback)
+	///
+	/// Call this as a last resort when dependencies cannot be resolved.
+	/// Returns the number of dependencies cleared.
+	pub async fn clear_all(&self) -> usize {
+		let mut waiting = self.waiting_for.write().await;
+		let count = waiting.len();
+		waiting.clear();
+		count
+	}
 }
 
 impl Default for DependencyTracker {

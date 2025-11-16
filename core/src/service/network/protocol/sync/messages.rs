@@ -103,18 +103,20 @@ pub enum SyncMessage {
 	WatermarkExchangeRequest {
 		library_id: Uuid,
 		device_id: Uuid, // Requesting device
-		my_state_watermark: Option<DateTime<Utc>>,
 		my_shared_watermark: Option<HLC>,
+		/// Per-resource state watermarks (resource_type -> timestamp)
+		my_resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
 	},
 
 	/// Response with peer's watermarks
 	WatermarkExchangeResponse {
 		library_id: Uuid,
 		device_id: Uuid, // Responding device
-		state_watermark: Option<DateTime<Utc>>,
 		shared_watermark: Option<HLC>,
 		needs_state_catchup: bool,   // If true, peer needs our state
 		needs_shared_catchup: bool,  // If true, peer needs our shared changes
+		/// Per-resource state watermarks (resource_type -> timestamp)
+		resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
 	},
 
 	/// Error response

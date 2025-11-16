@@ -75,6 +75,7 @@ Syncable
 thumbstrips
 tobiaslutke
 tokio
+tombstoned
 typecheck
 unwatch
 uuid

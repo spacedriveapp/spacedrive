@@ -31,10 +31,10 @@ pub type SharedApplyFn = fn(
 /// Parameters: device_id, since, batch_size, db
 /// Returns: Vec of (uuid, data, timestamp)
 pub type StateQueryFn = fn(
-	Option<uuid::Uuid>,                                      // device_id filter
-	Option<chrono::DateTime<chrono::Utc>>,                   // since watermark
-	Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>,     // cursor for pagination
-	usize,                                                    // batch_size
+	Option<uuid::Uuid>,                                  // device_id filter
+	Option<chrono::DateTime<chrono::Utc>>,               // since watermark
+	Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>, // cursor for pagination
+	usize,                                               // batch_size
 	Arc<DatabaseConnection>,
 ) -> Pin<
 	Box<
@@ -156,7 +156,9 @@ pub async fn register_device_owned(
 	let mut registry = SYNCABLE_REGISTRY.write().await;
 	registry.insert(
 		model_type.to_string(),
-		SyncableModelRegistration::device_owned(model_type, table_name, apply_fn, query_fn, delete_fn),
+		SyncableModelRegistration::device_owned(
+			model_type, table_name, apply_fn, query_fn, delete_fn,
+		),
 	);
 }
 
@@ -179,8 +181,8 @@ pub async fn register_shared(
 /// All domain-specific logic lives in the entity implementations, not here.
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 	use crate::infra::db::entities::{
-		audit_log, collection, collection_entry, content_identity, device, entry, location, sidecar,
-		tag, tag_relationship, user_metadata, user_metadata_tag, volume,
+		audit_log, collection, collection_entry, content_identity, device, entry, location,
+		sidecar, tag, tag_relationship, user_metadata, user_metadata_tag, volume,
 	};
 
 	let mut registry = HashMap::new();
@@ -199,7 +201,14 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					location::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+					location::Model::query_for_sync(
+						device_id,
+						since,
+						cursor,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
 				})
 			},
 			Some(|uuid, db| {
@@ -218,7 +227,8 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					volume::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+					volume::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
+						.await
 				})
 			},
 			Some(|uuid, db| {
@@ -237,7 +247,8 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					entry::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+					entry::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
+						.await
 				})
 			},
 			Some(|uuid, db| {
@@ -256,7 +267,8 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					device::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+					device::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
+						.await
 				})
 			},
 			None, // Devices don't support deletion sync
@@ -274,7 +286,8 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					tag::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+					tag::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
+						.await
 				})
 			},
 		),
@@ -286,14 +299,20 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			"collection",
 			"collection",
 			|entry, db| {
-				Box::pin(async move {
-					collection::Model::apply_shared_change(entry, db.as_ref()).await
-				})
+				Box::pin(
+					async move { collection::Model::apply_shared_change(entry, db.as_ref()).await },
+				)
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
-					collection::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
-						.await
+					collection::Model::query_for_sync(
+						device_id,
+						since,
+						cursor,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
 				})
 			},
 		),
@@ -431,9 +450,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			"audit_log",
 			"audit_log",
 			|entry, db| {
-				Box::pin(async move {
-					audit_log::Model::apply_shared_change(entry, db.as_ref()).await
-				})
+				Box::pin(
+					async move { audit_log::Model::apply_shared_change(entry, db.as_ref()).await },
+				)
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
@@ -456,9 +475,9 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 			"sidecar",
 			"sidecars",
 			|entry, db| {
-				Box::pin(async move {
-					sidecar::Model::apply_shared_change(entry, db.as_ref()).await
-				})
+				Box::pin(
+					async move { sidecar::Model::apply_shared_change(entry, db.as_ref()).await },
+				)
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
@@ -534,11 +553,48 @@ pub fn get_fk_mappings(model_type: &str) -> Option<Vec<super::FKMapping>> {
 /// Apply a state-based sync entry (device-owned model)
 ///
 /// Routes to the appropriate model's apply_state_change function via registry.
+/// Enforces tombstone check to prevent resurrection of deleted records.
 pub async fn apply_state_change(
 	model_type: &str,
 	data: serde_json::Value,
 	db: Arc<DatabaseConnection>,
 ) -> Result<(), ApplyError> {
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	// Extract UUID from data for tombstone check
+	let record_uuid = data
+		.get("uuid")
+		.and_then(|v| v.as_str())
+		.and_then(|s| uuid::Uuid::parse_str(s).ok())
+		.ok_or_else(|| {
+			ApplyError::DatabaseError(
+				"Missing or invalid UUID in state change data".to_string(),
+			)
+		})?;
+
+	// Check if record is tombstoned (prevents resurrection of deleted records)
+	let is_tombstoned = crate::infra::db::entities::device_state_tombstone::Entity::find()
+		.filter(
+			crate::infra::db::entities::device_state_tombstone::Column::ModelType.eq(model_type),
+		)
+		.filter(
+			crate::infra::db::entities::device_state_tombstone::Column::RecordUuid
+				.eq(record_uuid),
+		)
+		.one(db.as_ref())
+		.await
+		.map_err(|e| ApplyError::DatabaseError(e.to_string()))?
+		.is_some();
+
+	if is_tombstoned {
+		tracing::debug!(
+			model_type = %model_type,
+			uuid = %record_uuid,
+			"Skipping state change for tombstoned record (prevents resurrection)"
+		);
+		return Ok(());
+	}
+
 	let apply_fn = {
 		let registry = SYNCABLE_REGISTRY.read().await;
 		let registration = registry
@@ -681,7 +737,10 @@ pub async fn query_all_shared_models(
 	since: Option<chrono::DateTime<chrono::Utc>>,
 	batch_size: usize,
 	db: Arc<DatabaseConnection>,
-) -> Result<HashMap<String, Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>>, ApplyError> {
+) -> Result<
+	HashMap<String, Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>>,
+	ApplyError,
+> {
 	// Collect all shared models with query functions
 	let shared_models: Vec<(String, StateQueryFn)> = {
 		let registry = SYNCABLE_REGISTRY.read().await;

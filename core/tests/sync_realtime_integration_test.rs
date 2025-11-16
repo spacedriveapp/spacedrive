@@ -1066,7 +1066,7 @@ impl Drop for SyncTestHarness {
 //
 
 /// Test: Location 1 indexed on Alice, syncs to Bob in real-time
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_realtime_sync_alice_to_bob() -> anyhow::Result<()> {
 	let harness = SyncTestHarness::new("realtime_alice_to_bob").await?;
 
@@ -1206,7 +1206,7 @@ async fn test_realtime_sync_alice_to_bob() -> anyhow::Result<()> {
 }
 
 /// Test: Location indexed on Bob, syncs to Alice (reverse direction)
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_realtime_sync_bob_to_alice() -> anyhow::Result<()> {
 	let harness = SyncTestHarness::new("realtime_bob_to_alice").await?;
 
@@ -1241,7 +1241,7 @@ async fn test_realtime_sync_bob_to_alice() -> anyhow::Result<()> {
 }
 
 /// Test: Concurrent indexing on both devices
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_concurrent_indexing() -> anyhow::Result<()> {
 	let harness = SyncTestHarness::new("concurrent_indexing").await?;
 
@@ -1287,7 +1287,7 @@ async fn test_concurrent_indexing() -> anyhow::Result<()> {
 	Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_content_identity_linkage() -> anyhow::Result<()> {
 	let harness = SyncTestHarness::new("content_identity_linkage").await?;
 

@@ -48,6 +48,8 @@ impl SyncConfig {
 				state_broadcast_batch_size: 500,
 				shared_broadcast_batch_size: 50,
 				max_snapshot_size: 50_000,
+				realtime_batch_max_entries: 50,
+				realtime_batch_flush_interval_ms: 25,
 			},
 			retention: RetentionConfig {
 				strategy: PruningStrategy::AcknowledgmentBased,
@@ -83,6 +85,8 @@ impl SyncConfig {
 				state_broadcast_batch_size: 2_000,
 				shared_broadcast_batch_size: 200,
 				max_snapshot_size: 200_000,
+				realtime_batch_max_entries: 200,
+				realtime_batch_flush_interval_ms: 100,
 			},
 			retention: RetentionConfig {
 				strategy: PruningStrategy::Conservative {
@@ -120,6 +124,8 @@ impl SyncConfig {
 				state_broadcast_batch_size: 500,
 				shared_broadcast_batch_size: 50,
 				max_snapshot_size: 50_000,
+				realtime_batch_max_entries: 50,
+				realtime_batch_flush_interval_ms: 100,
 			},
 			retention: RetentionConfig {
 				strategy: PruningStrategy::TimeBased { retention_days: 14 },
@@ -168,6 +174,18 @@ pub struct BatchingConfig {
 	/// Used for: SharedChangeResponse.current_state limit
 	/// Default: 100,000
 	pub max_snapshot_size: usize,
+
+	/// Real-time batching: maximum entries before flush
+	///
+	/// Used for: Event listener batching in peer.rs
+	/// Default: 100
+	pub realtime_batch_max_entries: usize,
+
+	/// Real-time batching: flush interval in milliseconds
+	///
+	/// Used for: Event listener batching in peer.rs
+	/// Default: 50ms
+	pub realtime_batch_flush_interval_ms: u64,
 }
 
 impl Default for BatchingConfig {
@@ -177,6 +195,8 @@ impl Default for BatchingConfig {
 			state_broadcast_batch_size: 1_000,
 			shared_broadcast_batch_size: 100,
 			max_snapshot_size: 100_000,
+			realtime_batch_max_entries: 100,
+			realtime_batch_flush_interval_ms: 50,
 		}
 	}
 }

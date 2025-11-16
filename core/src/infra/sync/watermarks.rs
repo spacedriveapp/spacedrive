@@ -256,6 +256,49 @@ impl ResourceWatermarkStore {
 
 		Ok(result.rows_affected() as usize)
 	}
+
+	/// Get our latest watermark for each resource type (aggregated across all peers)
+	///
+	/// Returns a HashMap mapping resource_type -> max(last_watermark) across all peers.
+	/// This represents what we've successfully received from our peers.
+	pub async fn get_our_resource_watermarks<C: ConnectionTrait>(
+		&self,
+		conn: &C,
+	) -> Result<std::collections::HashMap<String, DateTime<Utc>>, WatermarkError> {
+		let rows = conn
+			.query_all(Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				r#"
+				SELECT resource_type, MAX(last_watermark) as max_watermark
+				FROM device_resource_watermarks
+				WHERE device_uuid = ?
+				GROUP BY resource_type
+				ORDER BY resource_type
+				"#,
+				vec![self.device_uuid.to_string().into()],
+			))
+			.await
+			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
+
+		let mut results = std::collections::HashMap::new();
+		for row in rows {
+			let resource_type: String = row
+				.try_get("", "resource_type")
+				.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
+
+			let watermark_str: String = row
+				.try_get("", "max_watermark")
+				.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
+
+			let dt = DateTime::parse_from_rfc3339(&watermark_str)
+				.map_err(|e| WatermarkError::ParseError(e.to_string()))?
+				.with_timezone(&Utc);
+
+			results.insert(resource_type, dt);
+		}
+
+		Ok(results)
+	}
 }
 
 /// Watermark errors

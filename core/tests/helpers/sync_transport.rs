@@ -201,14 +201,35 @@ impl MockTransport {
 				SyncMessage::WatermarkExchangeRequest {
 					library_id,
 					device_id: requesting_device_id,
-					my_state_watermark: peer_state_watermark,
 					my_shared_watermark: peer_shared_watermark,
+					my_resource_watermarks: peer_resource_watermarks,
 				} => {
-					let (our_state_watermark, our_shared_watermark) =
+					let (_our_state_watermark, our_shared_watermark) =
 						sync_service.peer_sync().get_watermarks().await;
 
-					let needs_state_catchup = matches!((peer_state_watermark, our_state_watermark), (Some(p), Some(o)) if o > p)
-						|| matches!((peer_state_watermark, our_state_watermark), (None, Some(_)));
+					// Get our per-resource watermarks
+					let our_resource_watermarks =
+						sd_core::infra::sync::ResourceWatermarkStore::new(self.my_device_id)
+							.get_our_resource_watermarks(sync_service.peer_sync().peer_log_conn())
+							.await
+							.unwrap_or_default();
+
+					// Compare per-resource watermarks to determine if peer needs catch-up
+					let mut needs_state_catchup = false;
+					for (resource_type, our_ts) in &our_resource_watermarks {
+						match peer_resource_watermarks.get(resource_type) {
+							Some(peer_ts) if our_ts > peer_ts => {
+								needs_state_catchup = true;
+								break;
+							}
+							None => {
+								needs_state_catchup = true;
+								break;
+							}
+							_ => {}
+						}
+					}
+
 					let needs_shared_catchup = matches!((peer_shared_watermark, our_shared_watermark), (Some(p), Some(o)) if o > p)
 						|| matches!(
 							(peer_shared_watermark, our_shared_watermark),
@@ -218,10 +239,10 @@ impl MockTransport {
 					let response = SyncMessage::WatermarkExchangeResponse {
 						library_id,
 						device_id: self.my_device_id,
-						state_watermark: our_state_watermark,
 						shared_watermark: our_shared_watermark,
 						needs_state_catchup,
 						needs_shared_catchup,
+						resource_watermarks: our_resource_watermarks,
 					};
 
 					self.send_sync_message(sender, response).await?;
@@ -229,19 +250,19 @@ impl MockTransport {
 				SyncMessage::WatermarkExchangeResponse {
 					library_id: _,
 					device_id: peer_device_id,
-					state_watermark: peer_state_watermark,
 					shared_watermark: peer_shared_watermark,
 					needs_state_catchup,
 					needs_shared_catchup,
+					resource_watermarks: peer_resource_watermarks,
 				} => {
 					sync_service
 						.peer_sync()
 						.on_watermark_exchange_response(
 							peer_device_id,
-							peer_state_watermark,
 							peer_shared_watermark,
 							needs_state_catchup,
 							needs_shared_catchup,
+							peer_resource_watermarks,
 						)
 						.await?;
 				}

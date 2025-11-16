@@ -251,6 +251,11 @@ impl PeerSync {
 		self.library_id
 	}
 
+	/// Get peer log connection for watermark queries
+	pub fn peer_log_conn(&self) -> &sea_orm::DatabaseConnection {
+		self.peer_log.conn()
+	}
+
 	/// Check if real-time sync is currently active (lock mechanism)
 	///
 	/// Returns true if real-time broadcasts happened in the last 60 seconds.
@@ -448,21 +453,31 @@ impl PeerSync {
 		);
 
 		// Get our watermarks
-		let (my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
+		let (_my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
+
+		// Get per-resource watermarks for fine-grained comparison
+		let my_resource_watermarks =
+			crate::infra::sync::ResourceWatermarkStore::new(self.device_id)
+				.get_our_resource_watermarks(self.peer_log.conn())
+				.await
+				.unwrap_or_else(|e| {
+					warn!(error = %e, "Failed to get per-resource watermarks");
+					std::collections::HashMap::new()
+				});
 
 		debug!(
 			peer = %peer_id,
-			my_state_watermark = ?my_state_watermark,
 			my_shared_watermark = ?my_shared_watermark,
-			"Sending watermark exchange request"
+			resource_count = my_resource_watermarks.len(),
+			"Sending watermark exchange request with per-resource watermarks"
 		);
 
 		// Send request to peer
 		let request = SyncMessage::WatermarkExchangeRequest {
 			library_id: self.library_id,
 			device_id: self.device_id,
-			my_state_watermark,
 			my_shared_watermark,
+			my_resource_watermarks,
 		};
 
 		self.network
@@ -485,45 +500,73 @@ impl PeerSync {
 	pub async fn on_watermark_exchange_response(
 		&self,
 		peer_id: Uuid,
-		peer_state_watermark: Option<chrono::DateTime<chrono::Utc>>,
 		peer_shared_watermark: Option<HLC>,
 		needs_state_catchup: bool,
 		needs_shared_catchup: bool,
+		peer_resource_watermarks: std::collections::HashMap<String, chrono::DateTime<chrono::Utc>>,
 	) -> Result<()> {
 		info!(
 			peer = %peer_id,
-			peer_state_watermark = ?peer_state_watermark,
 			peer_shared_watermark = ?peer_shared_watermark,
 			needs_state_catchup = needs_state_catchup,
 			needs_shared_catchup = needs_shared_catchup,
-			"Received watermark exchange response"
+			peer_resource_count = peer_resource_watermarks.len(),
+			"Received watermark exchange response with per-resource watermarks"
 		);
 
 		// Get our watermarks to compare
-		let (my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
+		let (_my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
+		let my_resource_watermarks =
+			crate::infra::sync::ResourceWatermarkStore::new(self.device_id)
+				.get_our_resource_watermarks(self.peer_log.conn())
+				.await
+				.unwrap_or_default();
 
-		// Determine if WE need to catch up based on watermark comparison
+		// Determine if WE need to catch up based on per-resource watermark comparison
 		let mut we_need_state_catchup = false;
 		let mut we_need_shared_catchup = false;
+		let mut resources_needing_catchup = Vec::new();
 
-		// Compare state watermarks (timestamps)
-		match (my_state_watermark, peer_state_watermark) {
-			(Some(my_ts), Some(peer_ts)) if peer_ts > my_ts => {
-				info!(
-					peer = %peer_id,
-					my_timestamp = %my_ts,
-					peer_timestamp = %peer_ts,
-					"Peer has newer state, need to catch up"
-				);
-				we_need_state_catchup = true;
+		// Compare per-resource watermarks (CRITICAL FIX: Issue #10)
+		// This fixes the bug where global watermark comparison missed per-resource divergence
+		for (resource_type, peer_ts) in &peer_resource_watermarks {
+			match my_resource_watermarks.get(resource_type) {
+				Some(my_ts) if peer_ts > my_ts => {
+					info!(
+						peer = %peer_id,
+						resource_type = %resource_type,
+						my_timestamp = %my_ts,
+						peer_timestamp = %peer_ts,
+						"Peer has newer data for this resource"
+					);
+					resources_needing_catchup.push(resource_type.clone());
+					we_need_state_catchup = true;
+				}
+				None => {
+					info!(
+						peer = %peer_id,
+						resource_type = %resource_type,
+						peer_timestamp = %peer_ts,
+						"We have no watermark for this resource, need catch-up"
+					);
+					resources_needing_catchup.push(resource_type.clone());
+					we_need_state_catchup = true;
+				}
+				_ => {
+					debug!(
+						resource_type = %resource_type,
+						"Resource in sync with peer"
+					);
+				}
 			}
-			(None, Some(_)) => {
-				info!(peer = %peer_id, "We have no state watermark, need full state catch-up");
-				we_need_state_catchup = true;
-			}
-			_ => {
-				debug!(peer = %peer_id, "State watermarks in sync");
-			}
+		}
+
+		if we_need_state_catchup {
+			info!(
+				peer = %peer_id,
+				resources = ?resources_needing_catchup,
+				"Need state catch-up for specific resources"
+			);
 		}
 
 		// Compare shared watermarks (HLC)
@@ -555,10 +598,11 @@ impl PeerSync {
 			if let Some(weak_ref) = backfill_mgr.as_ref() {
 				if let Some(manager) = weak_ref.upgrade() {
 					// Trigger incremental catch-up from this peer
+					// Note: We now use per-resource watermarks instead of global state watermark
 					if let Err(e) = manager
 						.catch_up_from_peer(
 							peer_id,
-							my_state_watermark,
+							None, // Per-resource watermarks used instead of global
 							my_shared_watermark.map(|hlc| hlc.to_string()),
 						)
 						.await
@@ -615,7 +659,8 @@ impl PeerSync {
 		}
 
 		// Update devices table with peer's watermarks for future comparisons
-		self.update_peer_watermarks(peer_id, peer_state_watermark, peer_shared_watermark)
+		// Note: We now track per-resource watermarks, not global state watermark
+		self.update_peer_watermarks(peer_id, None, peer_shared_watermark)
 			.await?;
 
 		info!(peer = %peer_id, "Watermark exchange complete");
@@ -798,10 +843,11 @@ impl PeerSync {
 			let mut last_lag_warning = std::time::Instant::now();
 			let lag_warning_cooldown = std::time::Duration::from_secs(5);
 
-			// Real-time batching mechanism (accumulate up to 100 entries or 50ms)
+			// Real-time batching mechanism (configurable via SyncConfig)
 			let mut state_change_batch: Vec<serde_json::Value> = Vec::new();
-			let mut batch_flush_interval =
-				tokio::time::interval(std::time::Duration::from_millis(50));
+			let mut batch_flush_interval = tokio::time::interval(std::time::Duration::from_millis(
+				config.batching.realtime_batch_flush_interval_ms,
+			));
 			batch_flush_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
 			while is_running.load(Ordering::SeqCst) {
@@ -824,18 +870,18 @@ impl PeerSync {
 											state_change_count += 1;
 											last_event_type = Some(format!("StateChange({})", model_type));
 
-											// Add to batch instead of processing immediately
-											state_change_batch.push(serde_json::json!({
-												"library_id": event_library_id,
-												"model_type": model_type,
-												"record_uuid": record_uuid,
-												"device_id": device_id,
-												"data": data,
-												"timestamp": timestamp,
-											}));
+										// Add to batch instead of processing immediately
+										state_change_batch.push(serde_json::json!({
+											"library_id": event_library_id,
+											"model_type": model_type,
+											"record_uuid": record_uuid,
+											"device_id": device_id,
+											"data": data,
+											"timestamp": timestamp,
+										}));
 
-											// Flush if batch reaches 100 entries
-											if state_change_batch.len() >= 100 {
+										// Flush if batch reaches configured max entries
+										if state_change_batch.len() >= config.batching.realtime_batch_max_entries {
 												Self::flush_state_change_batch(
 													library_id,
 													&mut state_change_batch,
@@ -919,7 +965,7 @@ impl PeerSync {
 					}
 				}
 
-				// Flush batch on timer (every 50ms)
+				// Flush batch on timer (configurable interval)
 				_ = batch_flush_interval.tick() => {
 							if !state_change_batch.is_empty() {
 								Self::flush_state_change_batch(
@@ -1133,22 +1179,31 @@ impl PeerSync {
 		);
 
 		// Query our watermarks from sync.db
-		let (my_state_watermark, my_shared_watermark) =
+		let (_my_state_watermark, my_shared_watermark) =
 			Self::query_device_watermarks(device_id, peer_log).await;
+
+		// Get per-resource watermarks for fine-grained comparison
+		let my_resource_watermarks = crate::infra::sync::ResourceWatermarkStore::new(device_id)
+			.get_our_resource_watermarks(peer_log.conn())
+			.await
+			.unwrap_or_else(|e| {
+				warn!(error = %e, "Failed to get per-resource watermarks in static exchange");
+				std::collections::HashMap::new()
+			});
 
 		debug!(
 			peer = %peer_id,
-			my_state_watermark = ?my_state_watermark,
 			my_shared_watermark = ?my_shared_watermark,
-			"Sending watermark exchange request"
+			resource_count = my_resource_watermarks.len(),
+			"Sending watermark exchange request with per-resource watermarks"
 		);
 
 		// Send request to peer
 		let request = SyncMessage::WatermarkExchangeRequest {
 			library_id,
 			device_id,
-			my_state_watermark,
 			my_shared_watermark,
+			my_resource_watermarks,
 		};
 
 		network
@@ -1249,9 +1304,17 @@ impl PeerSync {
 		let timestamp = data
 			.get("timestamp")
 			.and_then(|v| v.as_str())
-			.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-			.map(|dt| dt.with_timezone(&chrono::Utc))
-			.unwrap_or_else(Utc::now);
+			.ok_or_else(|| anyhow::anyhow!("Missing or invalid timestamp in state_change event"))?;
+
+		let timestamp = chrono::DateTime::parse_from_rfc3339(timestamp)
+			.map_err(|e| {
+				anyhow::anyhow!(
+					"Failed to parse timestamp '{}': {}. This may indicate clock skew.",
+					timestamp,
+					e
+				)
+			})?
+			.with_timezone(&chrono::Utc);
 
 		let change = StateChangeMessage {
 			model_type,
@@ -2357,9 +2420,6 @@ impl PeerSync {
 	}
 
 	/// Get device-owned state for backfill (StateRequest)
-	///
-	/// This is completely domain-agnostic - it delegates to the Syncable trait
-	/// implementations in each entity. No switch statements, no domain logic.
 	pub async fn get_device_state(
 		&self,
 		model_types: Vec<String>,
@@ -2601,15 +2661,43 @@ impl PeerSync {
 			}
 		}
 
-		// Process dependency tracker (NEW: flush all tracked dependencies)
-		// Note: We can't easily extract from HashMap during iteration, so we log the issue
-		// In practice, dependencies should have been resolved during normal operation
-		// This is a fallback for stuck dependencies
+		// Process dependency tracker - handle unresolved dependencies
+		// This is a fallback for dependencies that couldn't be resolved during normal operation
 		if !dep_stats.is_empty() {
 			warn!(
-				"Dependency tracker still has {} unresolved dependencies - these entries may have circular or missing parent references",
-				dep_stats.total_dependencies
+				dependencies = dep_stats.total_dependencies,
+				waiting_updates = dep_stats.total_waiting_updates,
+				"Dependency tracker has unresolved dependencies at Ready transition"
 			);
+
+			// Get list of missing UUIDs for diagnostic purposes
+			let missing_uuids = self.dependency_tracker.get_pending_dependency_uuids().await;
+
+			if missing_uuids.len() <= 10 {
+				// Log specific UUIDs if count is manageable
+				warn!(
+					?missing_uuids,
+					"Missing dependency UUIDs (may be circular references or orphaned data)"
+				);
+			} else {
+				warn!(
+					missing_count = missing_uuids.len(),
+					sample_uuids = ?&missing_uuids[..10],
+					"Many missing dependencies (showing first 10)"
+				);
+			}
+
+			// Strategy: Clear dependencies after logging to prevent blocking sync indefinitely
+			// These entries either have:
+			// - Circular dependencies (impossible to resolve)
+			// - References to deleted records
+			// - Incomplete sync data from peer
+			// They will be resynced on next full backfill if the data becomes available
+			let cleared_count = self.dependency_tracker.clear_all().await;
+			warn!(
+			cleared_count,
+			"Cleared unresolved dependencies to prevent sync deadlock. These updates will be retried on next full sync."
+		);
 		}
 
 		info!(
