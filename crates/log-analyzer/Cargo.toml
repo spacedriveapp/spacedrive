@@ -1,0 +1,39 @@
+[package]
+name = "log-analyzer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Spacedrive Technology Inc."]
+license = "AGPL-3.0-only"
+
+[dependencies]
+# Core functionality
+regex = "1.10"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
+
+# Utilities
+tracing = "0.1"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# CLI (optional)
+clap = { version = "4.4", features = ["derive"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.35", features = ["full"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tempfile = "3.8"
+
+[features]
+default = []
+cli = ["clap"]
+
+[[example]]
+name = "analyze_sync_log"
+required-features = ["cli"]
+

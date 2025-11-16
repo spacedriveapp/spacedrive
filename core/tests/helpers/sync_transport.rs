@@ -299,6 +299,66 @@ impl MockTransport {
 			.map(|(_, t, msg)| (*t, msg.clone()))
 			.collect()
 	}
+
+	/// Get total message count in history
+	pub async fn total_message_count(&self) -> usize {
+		self.history.lock().await.len()
+	}
+
+	/// Get queue size for a device
+	pub async fn queue_size(&self, device_id: Uuid) -> usize {
+		self.queues
+			.lock()
+			.await
+			.get(&device_id)
+			.map(|q| q.len())
+			.unwrap_or(0)
+	}
+
+	/// Deliver a single message to a sync service (simulates production handle_sync_message)
+	async fn deliver_message(
+		sync_service: &sd_core::service::sync::SyncService,
+		_sender: Uuid,
+		message: SyncMessage,
+	) -> anyhow::Result<()> {
+		use sd_core::service::sync::state::StateChangeMessage;
+
+		match message {
+			SyncMessage::StateChange {
+				library_id: _,
+				model_type,
+				record_uuid,
+				device_id,
+				data,
+				timestamp,
+			} => {
+				let change = StateChangeMessage {
+					model_type,
+					record_uuid,
+					device_id,
+					data,
+					timestamp,
+				};
+				sync_service
+					.peer_sync()
+					.on_state_change_received(change)
+					.await?;
+			}
+			SyncMessage::SharedChange {
+				library_id: _,
+				entry,
+			} => {
+				sync_service
+					.peer_sync()
+					.on_shared_change_received(entry)
+					.await?;
+			}
+			_ => {
+				// Other message types handled differently
+			}
+		}
+		Ok(())
+	}
 }
 
 #[async_trait::async_trait]
@@ -312,17 +372,55 @@ impl NetworkTransport for MockTransport {
 			return Err(anyhow::anyhow!("device {} not connected", target_device));
 		}
 
-		let mut queues = self.queues.lock().await;
-		queues
-			.entry(target_device)
-			.or_insert_with(Vec::new)
-			.push((self.my_device_id, message.clone()));
-		drop(queues);
-
+		// Record in history
 		self.history
 			.lock()
 			.await
-			.push((self.my_device_id, target_device, message));
+			.push((self.my_device_id, target_device, message.clone()));
+
+		// In production, handle_sync_message is called synchronously (no spawn)
+		// It's already within an async context (the network stream handler)
+		// We should do the same - deliver immediately in this async fn
+
+		tracing::trace!(
+			from = %self.my_device_id,
+			to = %target_device,
+			message_type = ?std::mem::discriminant(&message),
+			"[MockTransport] send_sync_message called, delivering immediately"
+		);
+
+		// Get target's sync service
+		let sync_service = {
+			let services = self.sync_services.lock().await;
+			services
+				.get(&target_device)
+				.and_then(|weak| weak.upgrade())
+				.ok_or_else(|| {
+					tracing::warn!(
+						target = %target_device,
+						"[MockTransport] Target sync service not registered"
+					);
+					anyhow::anyhow!(
+						"Target sync service not registered for device {}",
+						target_device
+					)
+				})?
+		};
+
+		// Deliver immediately (simulates production's synchronous handle_sync_message call)
+		tracing::debug!(
+			from = %self.my_device_id,
+			to = %target_device,
+			"[MockTransport] Delivering message to target sync service"
+		);
+
+		MockTransport::deliver_message(&sync_service, self.my_device_id, message).await?;
+
+		tracing::debug!(
+			from = %self.my_device_id,
+			to = %target_device,
+			"[MockTransport] Message delivered successfully"
+		);
 
 		Ok(())
 	}

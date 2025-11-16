@@ -128,17 +128,17 @@ impl TransactionManager {
 		);
 
 		// Note: Resource events are emitted by callers via ResourceManager
-		// to ensure proper domain model structure (not raw DB JSON)
 
 		// Emit to dedicated sync event bus for PeerSync to broadcast to peers
-		self.sync_events.emit(crate::infra::sync::SyncEvent::StateChange {
-			library_id,
-			model_type: model_type.to_string(),
-			record_uuid,
-			device_id,
-			data,
-			timestamp: chrono::Utc::now(),
-		});
+		self.sync_events
+			.emit(crate::infra::sync::SyncEvent::StateChange {
+				library_id,
+				model_type: model_type.to_string(),
+				record_uuid,
+				device_id,
+				data,
+				timestamp: chrono::Utc::now(),
+			});
 
 		Ok(())
 	}
@@ -202,10 +202,7 @@ impl TransactionManager {
 
 		// Emit to dedicated sync event bus for PeerSync to broadcast to peers
 		self.sync_events
-			.emit(crate::infra::sync::SyncEvent::SharedChange {
-				library_id,
-				entry,
-			});
+			.emit(crate::infra::sync::SyncEvent::SharedChange { library_id, entry });
 
 		Ok(())
 	}

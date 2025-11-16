@@ -167,6 +167,7 @@ pub async fn create_location(
 		.to_string();
 
 	// Create entry for the location directory
+	let now = chrono::Utc::now();
 	let entry_model = entities::entry::ActiveModel {
 		uuid: Set(Some(Uuid::new_v4())),
 		name: Set(directory_name.clone()),
@@ -178,9 +179,10 @@ pub async fn create_location(
 		aggregate_size: Set(0),
 		child_count: Set(0),
 		file_count: Set(0),
-		created_at: Set(chrono::Utc::now()),
-		modified_at: Set(chrono::Utc::now()),
+		created_at: Set(now),
+		modified_at: Set(now),
 		accessed_at: Set(None),
+		indexed_at: Set(Some(now)), // CRITICAL: Must be set for sync to work (enables StateChange emission)
 		permissions: Set(None),
 		inode: Set(None),
 		parent_id: Set(None), // Location root has no parent
@@ -271,7 +273,60 @@ pub async fn create_location(
 
 	info!("Created location '{}' with ID: {}", name, location_db_id);
 
-	// Emit location added event
+	// Emit StateChange event for root entry
+	// The raw transaction above doesn't use TransactionManager, so we must manually emit
+	// This ensures the root directory syncs to other devices BEFORE its children
+
+	// Get device UUID from device_id (internal ID)
+	let device_record = entities::device::Entity::find_by_id(device_id)
+		.one(library.db().conn())
+		.await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?
+		.ok_or_else(|| LocationError::DatabaseError("Device not found".to_string()))?;
+
+	let root_entry_uuid = entry_record.uuid.expect("Root entry should have UUID");
+	let root_entry_data = serde_json::to_value(&entry_record).map_err(|e| {
+		LocationError::DatabaseError(format!("Failed to serialize root entry: {}", e))
+	})?;
+
+	library
+		.transaction_manager()
+		.commit_device_owned(
+			library.id(),
+			"entry",
+			root_entry_uuid,
+			device_record.uuid,
+			root_entry_data,
+		)
+		.await
+		.map_err(|e| {
+			LocationError::DatabaseError(format!(
+				"Failed to emit StateChange for root entry: {}",
+				e
+			))
+		})?;
+
+	// Emit StateChange event for location
+	// This ensures the location syncs to other devices with proper entry_id
+	let location_data = serde_json::to_value(&location_record).map_err(|e| {
+		LocationError::DatabaseError(format!("Failed to serialize location: {}", e))
+	})?;
+
+	library
+		.transaction_manager()
+		.commit_device_owned(
+			library.id(),
+			"location",
+			location_id,
+			device_record.uuid,
+			location_data,
+		)
+		.await
+		.map_err(|e| {
+			LocationError::DatabaseError(format!("Failed to emit StateChange for location: {}", e))
+		})?;
+
+	// Emit location added event (for UI)
 	events.emit(Event::LocationAdded {
 		library_id: library.id(),
 		location_id,

@@ -5,6 +5,7 @@
 //! - Log-based sync with HLC for shared resources
 
 pub mod backfill;
+pub mod dependency;
 pub mod metrics;
 pub mod peer;
 pub mod protocol_handler;
@@ -158,7 +159,17 @@ impl SyncService {
 		let metrics = Arc::new(SyncMetricsCollector::new());
 
 		// Create peer sync handler with network transport
-		let peer_sync = Arc::new(PeerSync::new(library, device_id, peer_log, network, config.clone(), metrics.clone()).await?);
+		let peer_sync = Arc::new(
+			PeerSync::new(
+				library,
+				device_id,
+				peer_log,
+				network,
+				config.clone(),
+				metrics.clone(),
+			)
+			.await?,
+		);
 
 		// Create protocol handlers
 		let state_handler = Arc::new(StateSyncHandler::new(library_id, library.db().clone()));
@@ -180,7 +191,9 @@ impl SyncService {
 		));
 
 		// Set backfill manager reference on peer_sync (for triggering catch-up)
-		peer_sync.set_backfill_manager(Arc::downgrade(&backfill_manager)).await;
+		peer_sync
+			.set_backfill_manager(Arc::downgrade(&backfill_manager))
+			.await;
 
 		info!(
 			library_id = %library_id,
@@ -223,15 +236,21 @@ impl SyncService {
 	/// Emit metrics update event
 	pub async fn emit_metrics_event(&self, library_id: Uuid) {
 		// Create a snapshot of current metrics
-		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(self.metrics.metrics()).await;
-		
+		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(
+			self.metrics.metrics(),
+		)
+		.await;
+
 		// Emit to sync event bus (non-critical, can be dropped if bus is under load)
-		let metrics_data = serde_json::to_value(&snapshot).unwrap_or_else(|_| serde_json::json!({}));
-		
-		self.peer_sync.sync_events.emit(crate::infra::sync::SyncEvent::MetricsUpdated {
-			library_id,
-			metrics: metrics_data,
-		});
+		let metrics_data =
+			serde_json::to_value(&snapshot).unwrap_or_else(|_| serde_json::json!({}));
+
+		self.peer_sync
+			.sync_events
+			.emit(crate::infra::sync::SyncEvent::MetricsUpdated {
+				library_id,
+				metrics: metrics_data,
+			});
 	}
 
 	/// Main sync loop (spawned as background task)
@@ -247,7 +266,7 @@ impl SyncService {
 		is_running: Arc<AtomicBool>,
 		mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 	) {
-		info!("Starting peer sync loop (leaderless)");
+		info!("Starting peer sync loop");
 
 		let mut backfill_attempted = false;
 		let mut retry_state = CatchUpRetryState::new();
@@ -354,17 +373,17 @@ impl SyncService {
 												"Too many catch-up failures, escalating to full backfill"
 											);
 											retry_state.record_success(); // Reset retry state
-											
+
 											// Transition to Uninitialized to trigger full backfill
 											let mut state = peer_sync.state.write().await;
 											*state = DeviceSyncState::Uninitialized;
 											backfill_attempted = false; // Allow backfill to run again
 											continue; // Skip to next iteration
 										}
-										
+
 										// Get current watermarks from sync.db
 										let (state_watermark, shared_watermark) = peer_sync.get_watermarks().await;
-										
+
 										info!(
 											"Triggering incremental catch-up since watermarks: state={:?}, shared={:?}",
 											state_watermark,
@@ -383,7 +402,7 @@ impl SyncService {
 										// Perform incremental catch-up using watermarks
 										// Convert HLC to string for API
 										let shared_watermark_str = shared_watermark.map(|hlc| hlc.to_string());
-										
+
 										match backfill_manager.catch_up_from_peer(
 											catch_up_peer,
 											state_watermark,
@@ -449,7 +468,10 @@ impl SyncService {
 		let interval_secs = config.monitoring.pruning_interval_secs;
 		let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_secs));
 
-		info!("Starting unified pruning task (interval: {}s)", interval_secs);
+		info!(
+			"Starting unified pruning task (interval: {}s)",
+			interval_secs
+		);
 
 		loop {
 			interval.tick().await;
@@ -612,21 +634,24 @@ async fn run_metrics_persistence_task(
 	db: Arc<sea_orm::DatabaseConnection>,
 ) {
 	let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 minutes
-	
+
 	info!("Starting metrics persistence task (interval: 5m)");
-	
+
 	loop {
 		interval.tick().await;
-		
+
 		// Create snapshot
-		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(metrics.metrics()).await;
-		
+		let snapshot = crate::service::sync::metrics::snapshot::SyncMetricsSnapshot::from_metrics(
+			metrics.metrics(),
+		)
+		.await;
+
 		// Store in database
 		if let Err(e) = crate::service::sync::metrics::persistence::store_metrics_snapshot(
-			&db,
-			library_id,
-			snapshot,
-		).await {
+			&db, library_id, snapshot,
+		)
+		.await
+		{
 			warn!(
 				library_id = %library_id,
 				error = %e,

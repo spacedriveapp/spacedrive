@@ -230,7 +230,7 @@ mod tests {
 			hlc: HLC::new(1, 0, Uuid::new_v4()),
 			model_type: "tag".to_string(),
 			record_uuid: Uuid::new_v4(),
-			change_type: ChangeType::Upsert,
+			change_type: ChangeType::Insert,
 			data: serde_json::json!({"name": "important"}),
 		};
 
@@ -273,7 +273,7 @@ mod tests {
 				hlc: HLC::new(1, 0, Uuid::new_v4()),
 				model_type: "tag".to_string(),
 				record_uuid: Uuid::new_v4(),
-				change_type: ChangeType::Upsert,
+				change_type: ChangeType::Insert,
 				data: serde_json::json!({}),
 			},
 		};
