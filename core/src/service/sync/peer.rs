@@ -1050,7 +1050,7 @@ impl PeerSync {
 	}
 
 	/// Start the sync service
-	pub async fn start(&self) -> Result<()> {
+	pub async fn start(self: &Arc<Self>) -> Result<()> {
 		if self.is_running.load(Ordering::SeqCst) {
 			warn!("Peer sync service already running");
 			return Ok(());
@@ -1168,12 +1168,11 @@ impl PeerSync {
 	///
 	/// Exchanges watermarks with all connected peers every 1 minute to ensure
 	/// sync divergence is detected even if events are dropped or broadcasts fail.
-	fn start_periodic_watermark_check(&self) {
+	/// Uses full request/response pattern for count validation.
+	fn start_periodic_watermark_check(self: &Arc<Self>) {
+		let peer_sync = Arc::downgrade(self);
 		let library_id = self.library_id;
-		let device_id = self.device_id;
-		let network = self.network.clone();
 		let db = self.db.clone();
-		let peer_log = self.peer_log.clone();
 		let is_running = self.is_running.clone();
 
 		tokio::spawn(async move {
@@ -1188,30 +1187,36 @@ impl PeerSync {
 
 				info!("Periodic watermark check interval elapsed, checking for connected partners");
 
+				// Upgrade weak reference
+				let peer_sync_arc = match peer_sync.upgrade() {
+					Some(ps) => ps,
+					None => {
+						warn!("PeerSync dropped, stopping periodic watermark check");
+						break;
+					}
+				};
+
 				// Get connected sync partners
-				match network.get_connected_sync_partners(library_id, &db).await {
+				match peer_sync_arc.network.get_connected_sync_partners(library_id, &db).await {
 					Ok(partners) if !partners.is_empty() => {
 						info!(
 							partner_count = partners.len(),
 							"Running periodic watermark check with connected partners"
 						);
 
-						// Exchange watermarks with all peers
+						// Exchange watermarks with all peers using full request/response
 						for peer_id in partners {
-							if let Err(e) = Self::trigger_watermark_exchange(
-								library_id, device_id, peer_id, &peer_log, &network, &db,
-							)
-							.await
+							if let Err(e) = peer_sync_arc.exchange_watermarks_and_catchup(peer_id).await
 							{
 								debug!(
 									peer = %peer_id,
 									error = %e,
-									"Periodic watermark check failed for peer"
+									"Periodic watermark exchange failed for peer"
 								);
 							} else {
 								info!(
 									peer = %peer_id,
-									"Periodic watermark exchange triggered successfully"
+									"Periodic watermark exchange completed with count validation"
 								);
 							}
 						}
