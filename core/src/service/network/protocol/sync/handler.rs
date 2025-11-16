@@ -394,99 +394,122 @@ impl SyncProtocolHandler {
 				}))
 			}
 
-			SyncMessage::WatermarkExchangeRequest {
-				library_id,
-				device_id,
-				my_shared_watermark: peer_shared_watermark,
-				my_resource_watermarks: peer_resource_watermarks,
-			} => {
-				debug!(
-					from_device = %from_device,
-					peer_shared_watermark = ?peer_shared_watermark,
-					peer_resource_count = peer_resource_watermarks.len(),
-					"Processing WatermarkExchangeRequest with per-resource watermarks"
-				);
+		SyncMessage::WatermarkExchangeRequest {
+			library_id,
+			device_id,
+			my_shared_watermark: peer_shared_watermark,
+			my_resource_watermarks: peer_resource_watermarks,
+			my_peer_resource_counts: peer_counts_of_our_data,
+		} => {
+			debug!(
+				from_device = %from_device,
+				peer_shared_watermark = ?peer_shared_watermark,
+				peer_resource_count = peer_resource_watermarks.len(),
+				peer_counts_of_us = ?peer_counts_of_our_data,
+				"Processing WatermarkExchangeRequest with count validation"
+			);
 
-				// Get our current watermarks
-				let (_our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
-				let our_resource_watermarks =
-					crate::infra::sync::ResourceWatermarkStore::new(peer_sync.device_id())
-						.get_our_resource_watermarks(peer_sync.peer_log_conn())
-						.await
-						.unwrap_or_default();
+			// Get our current watermarks
+			let (_our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
+			let our_resource_watermarks =
+				crate::infra::sync::ResourceWatermarkStore::new(peer_sync.device_id())
+					.get_our_resource_watermarks(peer_sync.peer_log_conn())
+					.await
+					.unwrap_or_default();
 
-				// Determine if peer needs catch-up by comparing per-resource watermarks
-				let mut needs_state_catchup = false;
-				for (resource_type, our_ts) in &our_resource_watermarks {
-					match peer_resource_watermarks.get(resource_type) {
-						Some(peer_ts) if our_ts > peer_ts => {
-							needs_state_catchup = true;
-							break;
-						}
-						None => {
-							needs_state_catchup = true;
-							break;
-						}
-						_ => {}
+			// Get our ACTUAL counts (what we truly own)
+			let our_actual_resource_counts = crate::service::sync::PeerSync::get_device_owned_counts(
+				peer_sync.device_id(),
+				peer_sync.db(),
+			)
+			.await
+			.unwrap_or_default();
+
+			// Determine if peer needs catch-up by comparing per-resource watermarks
+			let mut needs_state_catchup = false;
+			for (resource_type, our_ts) in &our_resource_watermarks {
+				match peer_resource_watermarks.get(resource_type) {
+					Some(peer_ts) if our_ts > peer_ts => {
+						needs_state_catchup = true;
+						break;
 					}
+					None => {
+						needs_state_catchup = true;
+						break;
+					}
+					_ => {}
 				}
-
-				let needs_shared_catchup = match (peer_shared_watermark, our_shared_watermark) {
-					(Some(peer_hlc), Some(our_hlc)) => our_hlc > peer_hlc,
-					(None, Some(_)) => true,
-					_ => false,
-				};
-
-				info!(
-					from_device = %from_device,
-					needs_state_catchup = needs_state_catchup,
-					needs_shared_catchup = needs_shared_catchup,
-					our_resource_count = our_resource_watermarks.len(),
-					"Responding to watermark exchange request with per-resource watermarks"
-				);
-
-				Ok(Some(SyncMessage::WatermarkExchangeResponse {
-					library_id: self.library_id,
-					device_id: peer_sync.device_id(),
-					shared_watermark: our_shared_watermark,
-					needs_state_catchup,
-					needs_shared_catchup,
-					resource_watermarks: our_resource_watermarks,
-				}))
 			}
 
-			SyncMessage::WatermarkExchangeResponse {
-				library_id,
-				device_id,
-				shared_watermark: peer_shared_watermark,
+			// Also check if we have resources peer doesn't know about
+			for resource_type in our_resource_watermarks.keys() {
+				if !peer_resource_watermarks.contains_key(resource_type) {
+					needs_state_catchup = true;
+					break;
+				}
+			}
+
+			let needs_shared_catchup = match (peer_shared_watermark, our_shared_watermark) {
+				(Some(peer_hlc), Some(our_hlc)) => our_hlc > peer_hlc,
+				(None, Some(_)) => true,
+				_ => false,
+			};
+
+			debug!(
+				from_device = %from_device,
+				needs_state_catchup = needs_state_catchup,
+				needs_shared_catchup = needs_shared_catchup,
+				our_resource_count = our_resource_watermarks.len(),
+				our_actual_counts = ?our_actual_resource_counts,
+				"Responding to watermark exchange with actual counts"
+			);
+
+			Ok(Some(SyncMessage::WatermarkExchangeResponse {
+				library_id: self.library_id,
+				device_id: peer_sync.device_id(),
+				shared_watermark: our_shared_watermark,
 				needs_state_catchup,
 				needs_shared_catchup,
-				resource_watermarks: peer_resource_watermarks,
-			} => {
-				debug!(
-					from_device = %from_device,
-					peer_shared_watermark = ?peer_shared_watermark,
-					needs_state_catchup = needs_state_catchup,
-					needs_shared_catchup = needs_shared_catchup,
-					peer_resource_count = peer_resource_watermarks.len(),
-					"Processing WatermarkExchangeResponse with per-resource watermarks"
-				);
+				resource_watermarks: our_resource_watermarks,
+				my_actual_resource_counts: our_actual_resource_counts,
+			}))
+		}
 
-				peer_sync
-					.on_watermark_exchange_response(
-						from_device,
-						peer_shared_watermark,
-						needs_state_catchup,
-						needs_shared_catchup,
-						peer_resource_watermarks,
-					)
-					.await
-					.map_err(|e| {
-						NetworkingError::Protocol(format!(
-							"Failed to handle watermark exchange response: {}",
-							e
-						))
-					})?;
+		SyncMessage::WatermarkExchangeResponse {
+			library_id,
+			device_id,
+			shared_watermark: peer_shared_watermark,
+			needs_state_catchup,
+			needs_shared_catchup,
+			resource_watermarks: peer_resource_watermarks,
+			my_actual_resource_counts: peer_actual_counts,
+		} => {
+			debug!(
+				from_device = %from_device,
+				peer_shared_watermark = ?peer_shared_watermark,
+				needs_state_catchup = needs_state_catchup,
+				needs_shared_catchup = needs_shared_catchup,
+				peer_resource_count = peer_resource_watermarks.len(),
+				peer_actual_counts = ?peer_actual_counts,
+				"Processing WatermarkExchangeResponse with counts"
+			);
+
+			peer_sync
+				.on_watermark_exchange_response(
+					from_device,
+					peer_shared_watermark,
+					needs_state_catchup,
+					needs_shared_catchup,
+					peer_resource_watermarks,
+					peer_actual_counts,
+				)
+				.await
+				.map_err(|e| {
+					NetworkingError::Protocol(format!(
+						"Failed to handle watermark exchange response: {}",
+						e
+					))
+				})?;
 
 			Ok(None)
 		}

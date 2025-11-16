@@ -261,6 +261,123 @@ impl PeerSync {
 		self.peer_log.conn()
 	}
 
+	/// Get counts of device-owned resources owned by a specific device
+	///
+	/// Used for gap detection during watermark exchange.
+	/// Only counts non-deleted records where device ownership matches.
+	pub async fn get_device_owned_counts(
+		owner_device_id: Uuid,
+		db: &DatabaseConnection,
+	) -> Result<std::collections::HashMap<String, u64>> {
+		use crate::infra::db::entities::{device, entry, location, volume};
+		use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect};
+
+		let mut counts = std::collections::HashMap::new();
+
+		// Get device's internal ID from UUID
+		let device = device::Entity::find()
+			.filter(device::Column::Uuid.eq(owner_device_id))
+			.one(db)
+			.await?;
+
+		let device_internal_id = match device {
+			Some(d) => d.id,
+			None => {
+				debug!(device_id = %owner_device_id, "Device not found for count query");
+				return Ok(counts);
+			}
+		};
+
+		// Location count (owned by device)
+		let location_count = location::Entity::find()
+			.filter(location::Column::DeviceId.eq(device_internal_id))
+			.count(db)
+			.await
+			.unwrap_or(0);
+		counts.insert("location".to_string(), location_count);
+
+		// Entry count (via location ownership chain)
+		// Query entries where location.device_id matches
+		let entry_count: u64 = {
+			use sea_orm::sea_query::{Expr, Query};
+			use sea_orm::{FromQueryResult, Statement};
+
+			#[derive(FromQueryResult)]
+			struct CountResult {
+				count: i64,
+			}
+
+			let stmt = Statement::from_sql_and_values(
+				sea_orm::DbBackend::Sqlite,
+				r#"
+			SELECT COUNT(*) as count
+			FROM entries e
+			INNER JOIN locations l ON e.location_id = l.id
+			WHERE l.device_id = ?
+			"#,
+				vec![device_internal_id.into()],
+			);
+
+			let result = CountResult::find_by_statement(stmt)
+				.one(db)
+				.await
+				.unwrap_or(None);
+
+			result.map(|r| r.count as u64).unwrap_or(0)
+		};
+		counts.insert("entry".to_string(), entry_count);
+
+		// Volume count (owned by device)
+		let volume_count = volume::Entity::find()
+			.filter(volume::Column::DeviceId.eq(device_internal_id))
+			.count(db)
+			.await
+			.unwrap_or(0);
+		counts.insert("volume".to_string(), volume_count);
+
+		debug!(
+			device_id = %owner_device_id,
+			location_count = location_count,
+			entry_count = entry_count,
+			volume_count = volume_count,
+			"Queried device-owned resource counts"
+		);
+
+		Ok(counts)
+	}
+
+	/// Clear watermarks for specific resources (surgical recovery)
+	///
+	/// Called when count mismatch is detected for specific resources.
+	/// Only clears the mismatched resources, leaving correct watermarks intact.
+	async fn clear_resource_watermarks(
+		&self,
+		peer_id: Uuid,
+		resource_types: Vec<String>,
+	) -> Result<()> {
+		let store = crate::infra::sync::ResourceWatermarkStore::new(self.device_id);
+
+		let mut cleared_count = 0;
+		for resource_type in &resource_types {
+			if store
+				.delete_resource(self.peer_log.conn(), peer_id, resource_type)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to clear resource watermark: {}", e))?
+			{
+				cleared_count += 1;
+			}
+		}
+
+		info!(
+			peer = %peer_id,
+			resources = ?resource_types,
+			cleared = cleared_count,
+			"Cleared watermarks for mismatched resources only (surgical recovery)"
+		);
+
+		Ok(())
+	}
+
 	/// Check if real-time sync is currently active for a specific peer
 	///
 	/// Returns true if real-time broadcasts to this peer succeeded in the last 30 seconds.
@@ -530,11 +647,20 @@ impl PeerSync {
 					std::collections::HashMap::new()
 				});
 
+		// Get counts of peer's device-owned resources that we have synced (for gap detection)
+		let my_peer_resource_counts = Self::get_device_owned_counts(peer_id, &self.db)
+			.await
+			.unwrap_or_else(|e| {
+				warn!(error = %e, peer = %peer_id, "Failed to get peer resource counts");
+				std::collections::HashMap::new()
+			});
+
 		debug!(
 			peer = %peer_id,
 			my_shared_watermark = ?my_shared_watermark,
 			resource_count = my_resource_watermarks.len(),
-			"Sending watermark exchange request with per-resource watermarks"
+			peer_owned_counts = ?my_peer_resource_counts,
+			"Sending watermark exchange request with counts for gap detection"
 		);
 
 		// Send request to peer
@@ -543,6 +669,7 @@ impl PeerSync {
 			device_id: self.device_id,
 			my_shared_watermark,
 			my_resource_watermarks,
+			my_peer_resource_counts,
 		};
 
 		self.network
@@ -552,7 +679,7 @@ impl PeerSync {
 
 		info!(
 			peer = %peer_id,
-			"Watermark exchange request sent, waiting for response"
+			"Watermark exchange request sent with resource counts"
 		);
 
 		Ok(())
@@ -569,6 +696,7 @@ impl PeerSync {
 		needs_state_catchup: bool,
 		needs_shared_catchup: bool,
 		peer_resource_watermarks: std::collections::HashMap<String, chrono::DateTime<chrono::Utc>>,
+		peer_actual_resource_counts: std::collections::HashMap<String, u64>,
 	) -> Result<()> {
 		info!(
 			peer = %peer_id,
@@ -576,7 +704,7 @@ impl PeerSync {
 			needs_state_catchup = needs_state_catchup,
 			needs_shared_catchup = needs_shared_catchup,
 			peer_resource_count = peer_resource_watermarks.len(),
-			"Received watermark exchange response with per-resource watermarks"
+			"Received watermark exchange response with resource counts"
 		);
 
 		// Get our watermarks to compare
@@ -586,6 +714,124 @@ impl PeerSync {
 				.get_our_resource_watermarks(self.peer_log.conn())
 				.await
 				.unwrap_or_default();
+
+		// Count-based gap detection (detects watermark leapfrog bugs)
+		// Only run when NOT in real-time sync or active backfill
+		let state = self.state().await;
+		let realtime_active = self.is_realtime_active_for_peer(peer_id).await;
+		let in_stable_state = state.is_ready() && !realtime_active;
+
+		if in_stable_state && !peer_actual_resource_counts.is_empty() {
+			// Get what we think peer has
+			let my_counts_of_peer_data = Self::get_device_owned_counts(peer_id, &self.db)
+				.await
+				.unwrap_or_default();
+
+			let mut mismatched_resource_types = Vec::new();
+			let mut mismatch_details = Vec::new();
+
+			for (resource_type, peer_actual_count) in &peer_actual_resource_counts {
+				let our_count = my_counts_of_peer_data
+					.get(resource_type)
+					.copied()
+					.unwrap_or(0);
+
+				// Only flag mismatch if watermarks appear synchronized
+				// If watermarks already show divergence, normal catch-up will handle it
+				let watermarks_appear_synced = match (
+					my_resource_watermarks.get(resource_type),
+					peer_resource_watermarks.get(resource_type),
+				) {
+					(Some(my_ts), Some(peer_ts)) => {
+						let diff_seconds = (my_ts.timestamp() - peer_ts.timestamp()).abs();
+						diff_seconds < 10 // Within 10 seconds = appear synchronized
+					}
+					(None, None) => true, // Both missing watermarks = appear synchronized
+					_ => false, // One has watermark, one doesn't = watermarks diverge, catch-up will fix it
+				};
+
+				if our_count != *peer_actual_count && watermarks_appear_synced {
+					warn!(
+						peer = %peer_id,
+						resource = %resource_type,
+						our_count = our_count,
+						peer_actual = peer_actual_count,
+						gap = i64::abs(our_count as i64 - *peer_actual_count as i64),
+						our_watermark = ?my_resource_watermarks.get(resource_type),
+						peer_watermark = ?peer_resource_watermarks.get(resource_type),
+						"COUNT MISMATCH WITH SYNCED WATERMARKS! Watermark leapfrog bug detected"
+					);
+					mismatched_resource_types.push(resource_type.clone());
+					mismatch_details.push(format!(
+						"{}({}/{}, wm_diff={}s)",
+						resource_type,
+						our_count,
+						peer_actual_count,
+						my_resource_watermarks
+							.get(resource_type)
+							.and_then(|my_ts| {
+								peer_resource_watermarks
+									.get(resource_type)
+									.map(|peer_ts| (my_ts.timestamp() - peer_ts.timestamp()).abs())
+							})
+							.unwrap_or(0)
+					));
+				} else if our_count != *peer_actual_count {
+					debug!(
+						peer = %peer_id,
+						resource = %resource_type,
+						our_count = our_count,
+						peer_actual = peer_actual_count,
+						"Count mismatch but watermarks diverge - normal catch-up will fix it"
+					);
+				}
+			}
+
+			if !mismatched_resource_types.is_empty() {
+				error!(
+					peer = %peer_id,
+					mismatches = ?mismatch_details,
+					resources = ?mismatched_resource_types,
+					"Count mismatch indicates watermark leapfrog bug, clearing only affected resources"
+				);
+
+				// Clear watermarks only for mismatched resources
+				// This preserves correct watermarks for other resources
+				self.clear_resource_watermarks(peer_id, mismatched_resource_types.clone())
+					.await?;
+
+				// Trigger catch-up for affected resources
+				let backfill_mgr = self.backfill_manager.read().await;
+				if let Some(weak_ref) = backfill_mgr.as_ref() {
+					if let Some(manager) = weak_ref.upgrade() {
+						info!(
+							peer = %peer_id,
+							resources = ?mismatched_resource_types,
+							"Initiating targeted backfill for resources with count mismatch"
+						);
+						// Force full backfill for affected resources (no watermarks)
+						manager.catch_up_from_peer(peer_id, None, None).await?;
+					}
+				} else {
+					warn!("BackfillManager not available, cannot trigger recovery backfill");
+				}
+
+				return Ok(());
+			} else {
+				debug!(
+					peer = %peer_id,
+					"Count validation passed - no gaps detected"
+				);
+			}
+		} else {
+			debug!(
+				peer = %peer_id,
+				state = ?state,
+				realtime_active = realtime_active,
+				has_counts = !peer_actual_resource_counts.is_empty(),
+				"Skipping count-based gap detection - not in stable state or no counts provided"
+			);
+		}
 
 		// Determine if WE need to catch up based on per-resource watermark comparison
 		let mut we_need_state_catchup = false;
@@ -1334,11 +1580,15 @@ impl PeerSync {
 				std::collections::HashMap::new()
 			});
 
+		// Note: Counts unavailable in static context (no db access)
+		// This is fine - counts only used when called from instance method
+		let my_peer_resource_counts = std::collections::HashMap::new();
+
 		debug!(
 			peer = %peer_id,
 			my_shared_watermark = ?my_shared_watermark,
 			resource_count = my_resource_watermarks.len(),
-			"Sending watermark exchange request with per-resource watermarks"
+			"Sending watermark exchange request (static trigger, counts unavailable)"
 		);
 
 		// Send request to peer
@@ -1347,6 +1597,7 @@ impl PeerSync {
 			device_id,
 			my_shared_watermark,
 			my_resource_watermarks,
+			my_peer_resource_counts,
 		};
 
 		network

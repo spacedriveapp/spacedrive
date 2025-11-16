@@ -106,6 +106,10 @@ pub enum SyncMessage {
 		my_shared_watermark: Option<HLC>,
 		/// Per-resource state watermarks (resource_type -> timestamp)
 		my_resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
+		/// Counts of peer's device-owned resources that we have synced (for gap detection)
+		/// Maps resource_type -> count of records we have from this peer
+		#[serde(default)]
+		my_peer_resource_counts: std::collections::HashMap<String, u64>,
 	},
 
 	/// Response with peer's watermarks
@@ -117,6 +121,10 @@ pub enum SyncMessage {
 		needs_shared_catchup: bool,  // If true, peer needs our shared changes
 		/// Per-resource state watermarks (resource_type -> timestamp)
 		resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
+		/// Our actual device-owned resource counts (for gap detection)
+		/// Maps resource_type -> actual count of records we own
+		#[serde(default)]
+		my_actual_resource_counts: std::collections::HashMap<String, u64>,
 	},
 
 	/// Proactive notification that sender has new data available

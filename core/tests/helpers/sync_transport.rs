@@ -198,55 +198,65 @@ impl MockTransport {
 						}
 					}
 				}
-				SyncMessage::WatermarkExchangeRequest {
-					library_id,
-					device_id: requesting_device_id,
-					my_shared_watermark: peer_shared_watermark,
-					my_resource_watermarks: peer_resource_watermarks,
-				} => {
-					let (_our_state_watermark, our_shared_watermark) =
-						sync_service.peer_sync().get_watermarks().await;
+			SyncMessage::WatermarkExchangeRequest {
+				library_id,
+				device_id: requesting_device_id,
+				my_shared_watermark: peer_shared_watermark,
+				my_resource_watermarks: peer_resource_watermarks,
+				my_peer_resource_counts: _peer_counts,
+			} => {
+				let (_our_state_watermark, our_shared_watermark) =
+					sync_service.peer_sync().get_watermarks().await;
 
-					// Get our per-resource watermarks
-					let our_resource_watermarks =
-						sd_core::infra::sync::ResourceWatermarkStore::new(self.my_device_id)
-							.get_our_resource_watermarks(sync_service.peer_sync().peer_log_conn())
-							.await
-							.unwrap_or_default();
+				// Get our per-resource watermarks
+				let our_resource_watermarks =
+					sd_core::infra::sync::ResourceWatermarkStore::new(self.my_device_id)
+						.get_our_resource_watermarks(sync_service.peer_sync().peer_log_conn())
+						.await
+						.unwrap_or_default();
 
-					// Compare per-resource watermarks to determine if peer needs catch-up
-					let mut needs_state_catchup = false;
-					for (resource_type, our_ts) in &our_resource_watermarks {
-						match peer_resource_watermarks.get(resource_type) {
-							Some(peer_ts) if our_ts > peer_ts => {
-								needs_state_catchup = true;
-								break;
-							}
-							None => {
-								needs_state_catchup = true;
-								break;
-							}
-							_ => {}
+				// Get our actual counts
+				let our_actual_counts = sd_core::service::sync::PeerSync::get_device_owned_counts(
+					self.my_device_id,
+					sync_service.peer_sync().db(),
+				)
+				.await
+				.unwrap_or_default();
+
+				// Compare per-resource watermarks to determine if peer needs catch-up
+				let mut needs_state_catchup = false;
+				for (resource_type, our_ts) in &our_resource_watermarks {
+					match peer_resource_watermarks.get(resource_type) {
+						Some(peer_ts) if our_ts > peer_ts => {
+							needs_state_catchup = true;
+							break;
 						}
+						None => {
+							needs_state_catchup = true;
+							break;
+						}
+						_ => {}
 					}
+				}
 
-					let needs_shared_catchup = matches!((peer_shared_watermark, our_shared_watermark), (Some(p), Some(o)) if o > p)
-						|| matches!(
-							(peer_shared_watermark, our_shared_watermark),
-							(None, Some(_))
-						);
+				let needs_shared_catchup = matches!((peer_shared_watermark, our_shared_watermark), (Some(p), Some(o)) if o > p)
+					|| matches!(
+						(peer_shared_watermark, our_shared_watermark),
+						(None, Some(_))
+					);
 
-					let response = SyncMessage::WatermarkExchangeResponse {
-						library_id,
-						device_id: self.my_device_id,
-						shared_watermark: our_shared_watermark,
-						needs_state_catchup,
-						needs_shared_catchup,
-						resource_watermarks: our_resource_watermarks,
-					};
+				let response = SyncMessage::WatermarkExchangeResponse {
+					library_id,
+					device_id: self.my_device_id,
+					shared_watermark: our_shared_watermark,
+					needs_state_catchup,
+					needs_shared_catchup,
+					resource_watermarks: our_resource_watermarks,
+					my_actual_resource_counts: our_actual_counts,
+				};
 
-				self.send_sync_message(sender, response).await?;
-			}
+			self.send_sync_message(sender, response).await?;
+		}
 			SyncMessage::DataAvailableNotification {
 				device_id,
 				resource_types,
@@ -264,25 +274,27 @@ impl MockTransport {
 					warn!(error = %e, "Failed to trigger watermark exchange from notification");
 				}
 			}
-			SyncMessage::WatermarkExchangeResponse {
-					library_id: _,
-					device_id: peer_device_id,
-					shared_watermark: peer_shared_watermark,
-					needs_state_catchup,
-					needs_shared_catchup,
-					resource_watermarks: peer_resource_watermarks,
-				} => {
-					sync_service
-						.peer_sync()
-						.on_watermark_exchange_response(
-							peer_device_id,
-							peer_shared_watermark,
-							needs_state_catchup,
-							needs_shared_catchup,
-							peer_resource_watermarks,
-						)
-						.await?;
-				}
+		SyncMessage::WatermarkExchangeResponse {
+				library_id: _,
+				device_id: peer_device_id,
+				shared_watermark: peer_shared_watermark,
+				needs_state_catchup,
+				needs_shared_catchup,
+				resource_watermarks: peer_resource_watermarks,
+				my_actual_resource_counts: peer_actual_counts,
+			} => {
+				sync_service
+					.peer_sync()
+					.on_watermark_exchange_response(
+						peer_device_id,
+						peer_shared_watermark,
+						needs_state_catchup,
+						needs_shared_catchup,
+						peer_resource_watermarks,
+						peer_actual_counts,
+					)
+					.await?;
+			}
 				SyncMessage::StateRequest {
 					library_id,
 					model_types,
