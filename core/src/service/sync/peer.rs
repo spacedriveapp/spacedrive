@@ -664,7 +664,7 @@ impl PeerSync {
 			"Sending watermark exchange request with counts for gap detection"
 		);
 
-		// Send request to peer
+		// Send request to peer and wait for response (request/response pattern)
 		let request = SyncMessage::WatermarkExchangeRequest {
 			library_id: self.library_id,
 			device_id: self.device_id,
@@ -673,15 +673,53 @@ impl PeerSync {
 			my_peer_resource_counts,
 		};
 
-		self.network
-			.send_sync_message(peer_id, request)
+		// Use send_sync_request() to get response back (bi-directional stream)
+		let response = self.network
+			.send_sync_request(peer_id, request)
 			.await
-			.map_err(|e| anyhow::anyhow!("Failed to send watermark exchange request: {}", e))?;
+			.map_err(|e| anyhow::anyhow!("Failed to exchange watermarks: {}", e))?;
 
 		info!(
 			peer = %peer_id,
-			"Watermark exchange request sent with resource counts"
+			"Watermark exchange request sent, received response"
 		);
+
+		// Process the response
+		match response {
+			SyncMessage::WatermarkExchangeResponse {
+				shared_watermark: peer_shared_watermark,
+				needs_state_catchup,
+				needs_shared_catchup,
+				resource_watermarks: peer_resource_watermarks,
+				my_actual_resource_counts: peer_actual_counts,
+				..
+			} => {
+				info!(
+					peer = %peer_id,
+					peer_shared_watermark = ?peer_shared_watermark,
+					needs_state_catchup = needs_state_catchup,
+					needs_shared_catchup = needs_shared_catchup,
+					peer_actual_counts = ?peer_actual_counts,
+					"Received watermark exchange response with counts, processing locally"
+				);
+
+				// Call the response handler directly
+				self.on_watermark_exchange_response(
+					peer_id,
+					peer_shared_watermark,
+					needs_state_catchup,
+					needs_shared_catchup,
+					peer_resource_watermarks,
+					peer_actual_counts,
+				)
+				.await?;
+			}
+			_ => {
+				return Err(anyhow::anyhow!(
+					"Expected WatermarkExchangeResponse, got different message type"
+				));
+			}
+		}
 
 		Ok(())
 	}
@@ -1557,6 +1595,10 @@ impl PeerSync {
 	}
 
 	/// Trigger watermark exchange with peer (static for spawned task)
+	///
+	/// Note: This is fire-and-forget from static context. The response will be
+	/// handled via the protocol handler callback to on_watermark_exchange_response().
+	/// For full request/response pattern, use the instance method exchange_watermarks_and_catchup().
 	async fn trigger_watermark_exchange(
 		library_id: Uuid,
 		device_id: Uuid,
@@ -1568,7 +1610,7 @@ impl PeerSync {
 		info!(
 			peer = %peer_id,
 			device = %device_id,
-			"Triggering watermark exchange with peer"
+			"Triggering watermark exchange with peer (fire-and-forget from static context)"
 		);
 
 		// Query our watermarks from sync.db
@@ -1597,10 +1639,10 @@ impl PeerSync {
 			my_shared_watermark = ?my_shared_watermark,
 			resource_count = my_resource_watermarks.len(),
 			peer_owned_counts = ?my_peer_resource_counts,
-			"Sending watermark exchange request with counts"
+			"Sending watermark exchange request (response will arrive async via protocol handler)"
 		);
 
-		// Send request to peer
+		// Send request - response will come back via protocol handler asynchronously
 		let request = SyncMessage::WatermarkExchangeRequest {
 			library_id,
 			device_id,
@@ -1614,9 +1656,9 @@ impl PeerSync {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to send watermark exchange request: {}", e))?;
 
-		info!(
+		debug!(
 			peer = %peer_id,
-			"Watermark exchange request sent, waiting for response"
+			"Watermark exchange request sent (response will be handled by protocol handler)"
 		);
 
 		Ok(())
