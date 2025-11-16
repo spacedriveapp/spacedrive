@@ -488,6 +488,31 @@ impl SyncProtocolHandler {
 						))
 					})?;
 
+			Ok(None)
+		}
+
+			SyncMessage::DataAvailableNotification {
+				library_id,
+				device_id,
+				resource_types,
+				approx_count,
+			} => {
+				info!(
+					from_device = %from_device,
+					resources = ?resource_types,
+					count = approx_count,
+					"Peer notified us of new data available, triggering watermark exchange"
+				);
+
+				// Trigger immediate watermark exchange to discover and sync new data
+				if let Err(e) = peer_sync.exchange_watermarks_and_catchup(from_device).await {
+					warn!(
+						from_device = %from_device,
+						error = %e,
+						"Failed to trigger watermark exchange after data available notification"
+					);
+				}
+
 				Ok(None)
 			}
 

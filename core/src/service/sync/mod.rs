@@ -347,51 +347,55 @@ impl SyncService {
 										}
 									};
 
-									// Check if real-time sync is active (lock mechanism)
-									// If real-time broadcasts are happening, skip catch-up to prevent duplication
-									let realtime_active = peer_sync.is_realtime_active().await;
+								// Pick first partner for catch-up check
+								let catch_up_peer = partners[0];
 
-									// Trigger catch-up if:
-									// - Real-time is NOT active (60+ seconds since last broadcast), AND
-									// - We haven't synced recently (fallback time check)
-									let should_catch_up = if realtime_active {
-										debug!("Skipping catch-up - real-time sync is active (lock mechanism)");
-										false
-									} else if let Some(last_sync) = our_device.last_sync_at {
-										let time_since_sync = chrono::Utc::now().signed_duration_since(last_sync);
-										time_since_sync.num_seconds() > 60
-									} else {
-										true
-									};
+								// Check if real-time sync is active for this specific peer
+								// Per-peer tracking prevents one stuck peer from blocking all catch-up
+								let realtime_active = peer_sync.is_realtime_active_for_peer(catch_up_peer).await;
 
-									// Check if we should retry based on exponential backoff
-									if should_catch_up && retry_state.should_retry() {
-										// Check if we should escalate to full backfill after repeated failures
-										if retry_state.should_escalate() {
-											warn!(
-												failures = retry_state.consecutive_failures,
-												"Too many catch-up failures, escalating to full backfill"
-											);
-											retry_state.record_success(); // Reset retry state
+								// Trigger catch-up if:
+								// - Real-time is NOT active (30+ seconds since last successful broadcast to this peer), AND
+								// - We haven't synced recently (fallback time check)
+								let should_catch_up = if realtime_active {
+									debug!(
+										peer = %catch_up_peer,
+										"Skipping catch-up - real-time sync to this peer is active"
+									);
+									false
+								} else if let Some(last_sync) = our_device.last_sync_at {
+									let time_since_sync = chrono::Utc::now().signed_duration_since(last_sync);
+									time_since_sync.num_seconds() > 60
+								} else {
+									true
+								};
 
-											// Transition to Uninitialized to trigger full backfill
-											let mut state = peer_sync.state.write().await;
-											*state = DeviceSyncState::Uninitialized;
-											backfill_attempted = false; // Allow backfill to run again
-											continue; // Skip to next iteration
-										}
-
-										// Get current watermarks from sync.db
-										let (state_watermark, shared_watermark) = peer_sync.get_watermarks().await;
-
-										info!(
-											"Triggering incremental catch-up since watermarks: state={:?}, shared={:?}",
-											state_watermark,
-											shared_watermark
+								// Check if we should retry based on exponential backoff
+								if should_catch_up && retry_state.should_retry() {
+									// Check if we should escalate to full backfill after repeated failures
+									if retry_state.should_escalate() {
+										warn!(
+											failures = retry_state.consecutive_failures,
+											"Too many catch-up failures, escalating to full backfill"
 										);
+										retry_state.record_success(); // Reset retry state
 
-										// Pick first partner for catch-up
-										let catch_up_peer = partners[0];
+										// Transition to Uninitialized to trigger full backfill
+										let mut state = peer_sync.state.write().await;
+										*state = DeviceSyncState::Uninitialized;
+										backfill_attempted = false; // Allow backfill to run again
+										continue; // Skip to next iteration
+									}
+
+									// Get current watermarks from sync.db
+									let (state_watermark, shared_watermark) = peer_sync.get_watermarks().await;
+
+									info!(
+										peer = %catch_up_peer,
+										"Triggering incremental catch-up since watermarks: state={:?}, shared={:?}",
+										state_watermark,
+										shared_watermark
+									);
 
 										// Transition to CatchingUp state
 										{

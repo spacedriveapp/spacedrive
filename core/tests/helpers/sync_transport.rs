@@ -245,9 +245,26 @@ impl MockTransport {
 						resource_watermarks: our_resource_watermarks,
 					};
 
-					self.send_sync_message(sender, response).await?;
+				self.send_sync_message(sender, response).await?;
+			}
+			SyncMessage::DataAvailableNotification {
+				device_id,
+				resource_types,
+				approx_count,
+				..
+			} => {
+				info!(
+					from_device = %device_id,
+					resources = ?resource_types,
+					count = approx_count,
+					"Received data available notification in mock transport"
+				);
+				// Trigger watermark exchange
+				if let Err(e) = sync_service.peer_sync().exchange_watermarks_and_catchup(device_id).await {
+					warn!(error = %e, "Failed to trigger watermark exchange from notification");
 				}
-				SyncMessage::WatermarkExchangeResponse {
+			}
+			SyncMessage::WatermarkExchangeResponse {
 					library_id: _,
 					device_id: peer_device_id,
 					shared_watermark: peer_shared_watermark,

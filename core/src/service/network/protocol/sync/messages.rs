@@ -119,6 +119,19 @@ pub enum SyncMessage {
 		resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
 	},
 
+	/// Proactive notification that sender has new data available
+	///
+	/// Triggers watermark exchange on receiver to discover and sync new data.
+	/// Sent after bulk operations complete (indexing, bulk tag application, etc.)
+	DataAvailableNotification {
+		library_id: Uuid,
+		device_id: Uuid, // Sender device
+		/// Hint about which resource types changed (for logging/metrics)
+		resource_types: Vec<String>,
+		/// Approximate count of changes (for logging/metrics)
+		approx_count: u64,
+	},
+
 	/// Error response
 	Error { library_id: Uuid, message: String },
 }
@@ -147,6 +160,7 @@ impl SyncMessage {
 			| SyncMessage::Heartbeat { library_id, .. }
 			| SyncMessage::WatermarkExchangeRequest { library_id, .. }
 			| SyncMessage::WatermarkExchangeResponse { library_id, .. }
+			| SyncMessage::DataAvailableNotification { library_id, .. }
 			| SyncMessage::Error { library_id, .. } => *library_id,
 		}
 	}
@@ -171,6 +185,7 @@ impl SyncMessage {
 				| SyncMessage::SharedChange { .. }
 				| SyncMessage::SharedChangeBatch { .. }
 				| SyncMessage::AckSharedChanges { .. }
+				| SyncMessage::DataAvailableNotification { .. }
 		)
 	}
 }
