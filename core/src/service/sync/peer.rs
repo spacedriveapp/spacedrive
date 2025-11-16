@@ -785,14 +785,15 @@ impl PeerSync {
 		let realtime_active = self.is_realtime_active_for_peer(peer_id).await;
 		let in_stable_state = state.is_ready() && !realtime_active;
 
+		// Track mismatched resources outside the block for watermark comparison check
+		let mut mismatched_resource_types = Vec::new();
+		let mut mismatch_details = Vec::new();
+
 		if in_stable_state && !peer_actual_resource_counts.is_empty() {
 			// Get what we think peer has
 			let my_counts_of_peer_data = Self::get_device_owned_counts(peer_id, &self.db)
 				.await
 				.unwrap_or_default();
-
-			let mut mismatched_resource_types = Vec::new();
-			let mut mismatch_details = Vec::new();
 
 			for (resource_type, peer_actual_count) in &peer_actual_resource_counts {
 				let our_count = my_counts_of_peer_data
