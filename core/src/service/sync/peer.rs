@@ -1813,21 +1813,25 @@ impl PeerSync {
 			);
 			// Buffer individual changes for later
 			for change_data in changes {
-				if let (Some(record_uuid), Some(device_id), Some(data)) = (
+				if let (Some(record_uuid), Some(device_id), Some(data), Some(timestamp_str)) = (
 					change_data.get("record_uuid").and_then(|v| v.as_str()).and_then(|s| Uuid::parse_str(s).ok()),
 					change_data.get("device_id").and_then(|v| v.as_str()).and_then(|s| Uuid::parse_str(s).ok()),
 					change_data.get("data"),
+					change_data.get("timestamp").and_then(|v| v.as_str()),
 				) {
-					buffer
-						.push(super::state::BufferedUpdate::StateChange(
-							super::state::StateChangeMessage {
-								model_type: model_type.clone(),
-								record_uuid,
-								device_id,
-								data: data.clone(),
-							},
-						))
-						.await;
+					if let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(timestamp_str) {
+						buffer
+							.push(super::state::BufferedUpdate::StateChange(
+								super::state::StateChangeMessage {
+									model_type: model_type.clone(),
+									record_uuid,
+									device_id,
+									data: data.clone(),
+									timestamp: timestamp.with_timezone(&chrono::Utc),
+								},
+							))
+							.await;
+					}
 				}
 			}
 			return Ok(());
