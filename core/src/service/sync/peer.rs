@@ -2917,7 +2917,7 @@ impl PeerSync {
 		let mut all_records = Vec::new();
 		let mut remaining_batch = batch_size;
 
-		for model_type in model_types {
+		for model_type in &model_types {
 			if remaining_batch == 0 {
 				break;
 			}
