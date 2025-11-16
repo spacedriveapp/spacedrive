@@ -413,6 +413,12 @@ impl SyncTestHarness {
 					{
 						event_log.lock().await.push(event);
 					}
+					Event::JobCompleted { .. }
+					| Event::JobStarted { .. }
+					| Event::JobFailed { .. } => {
+						// Capture job lifecycle events to track when indexing is truly complete
+						event_log.lock().await.push(event);
+					}
 					Event::Custom { event_type, .. } if event_type == "sync_ready" => {
 						event_log.lock().await.push(event);
 					}
@@ -485,8 +491,11 @@ impl SyncTestHarness {
 		let mut last_alice_content = 0;
 		let mut last_bob_entries = 0;
 		let mut last_bob_content = 0;
+		let mut last_orphaned_bob = u64::MAX;
 		let mut stable_iterations = 0;
 		let mut no_progress_iterations = 0;
+		let mut orphaned_no_progress_iterations = 0;
+		let mut last_activity = tokio::time::Instant::now();
 
 		while start.elapsed() < max_duration {
 			// Messages are now auto-delivered (no manual pumping needed)
@@ -506,7 +515,15 @@ impl SyncTestHarness {
 				.count(self.library_bob.db().conn())
 				.await?;
 
-			// Check if we're making progress
+			// Check orphaned files
+			let orphaned_bob = entities::entry::Entity::find()
+				.filter(entities::entry::Column::Kind.eq(0))
+				.filter(entities::entry::Column::Size.gt(0))
+				.filter(entities::entry::Column::ContentId.is_null())
+				.count(self.library_bob.db().conn())
+				.await?;
+
+			// Check if we're making progress on entries
 			if bob_entries == last_bob_entries {
 				no_progress_iterations += 1;
 				if no_progress_iterations >= 10 {
@@ -519,11 +536,63 @@ impl SyncTestHarness {
 				}
 			} else {
 				no_progress_iterations = 0;
+				last_activity = tokio::time::Instant::now();
 			}
 
-			// Check if counts match and are stable
-			if alice_entries == bob_entries && alice_content == bob_content {
-				// Counts match - verify they stay matched (not just passing through)
+			// Check if orphaned files are decreasing
+			if orphaned_bob < last_orphaned_bob {
+				// Progress on orphaned files - reset timer
+				orphaned_no_progress_iterations = 0;
+				last_activity = tokio::time::Instant::now();
+			} else if orphaned_bob > 0 {
+				// Orphaned files exist and not decreasing
+				orphaned_no_progress_iterations += 1;
+			}
+
+			// CRITICAL: Timeout if no activity for 5 seconds (50 iterations)
+			// BUT: Only timeout if content identification jobs are NOT running on Alice
+			// (Content ID jobs may pause on large files, causing temporary inactivity)
+			if last_activity.elapsed() > Duration::from_secs(5) && orphaned_bob > 0 {
+				// Check if Alice still has running jobs by inspecting events
+				let events = self.event_log_alice.lock().await;
+				let mut active_jobs = std::collections::HashSet::new();
+
+				for event in events.iter() {
+					match event {
+						Event::JobStarted { job_id, .. } => {
+							active_jobs.insert(job_id.clone());
+						}
+						Event::JobCompleted { job_id, .. } | Event::JobFailed { job_id, .. } => {
+							active_jobs.remove(job_id);
+						}
+						_ => {}
+					}
+				}
+				drop(events);
+
+				let jobs_running = !active_jobs.is_empty();
+
+				if !jobs_running {
+					// No jobs running and no progress - this is a real stall
+					anyhow::bail!(
+						"Sync stalled: No progress for 5 seconds and no jobs running. \
+						{} orphaned files remain. Entry updates with content_id linkages stopped.",
+						orphaned_bob
+					);
+				} else {
+					tracing::debug!(
+						orphaned_bob = orphaned_bob,
+						active_jobs = active_jobs.len(),
+						"Orphaned files present but jobs still active - continuing to wait"
+					);
+					// Reset timer - jobs are still working
+					last_activity = tokio::time::Instant::now();
+				}
+			}
+
+			// CRITICAL: Check if counts match, stable, AND zero orphaned files
+			if alice_entries == bob_entries && alice_content == bob_content && orphaned_bob == 0 {
+				// All data synced AND all linkages complete - verify stable
 				if alice_entries == last_alice_entries
 					&& alice_content == last_alice_content
 					&& bob_entries == last_bob_entries
@@ -537,7 +606,8 @@ impl SyncTestHarness {
 							bob_entries = bob_entries,
 							alice_content = alice_content,
 							bob_content = bob_content,
-							"Sync completed - databases match and stable"
+							orphaned_bob = orphaned_bob,
+							"Sync completed - databases match, stable, and ZERO orphaned files"
 						);
 						return Ok(());
 					}
@@ -546,6 +616,16 @@ impl SyncTestHarness {
 				}
 			} else {
 				stable_iterations = 0;
+
+				// Log progress if we're close but orphaned files remain
+				if alice_entries == bob_entries && alice_content == bob_content && orphaned_bob > 0
+				{
+					tracing::debug!(
+						orphaned_bob = orphaned_bob,
+						"Data synced but {} orphaned files remain (waiting for content_id linkage updates)",
+						orphaned_bob
+					);
+				}
 			}
 
 			// If we're very close and making very slow/no progress, consider it good enough
@@ -554,8 +634,8 @@ impl SyncTestHarness {
 			let entry_diff = (alice_entries as i64 - bob_entries as i64).abs();
 			let content_diff = (alice_content as i64 - bob_content as i64).abs();
 
-			if entry_diff <= 5 && content_diff <= 5 {
-				// Both entries AND content within tolerance
+			if entry_diff <= 5 && content_diff <= 5 && orphaned_bob == 0 {
+				// Both entries AND content within tolerance AND zero orphaned files
 				if no_progress_iterations >= 10 {
 					tracing::warn!(
 						alice_entries = alice_entries,
@@ -587,6 +667,7 @@ impl SyncTestHarness {
 			last_alice_content = alice_content;
 			last_bob_entries = bob_entries;
 			last_bob_content = bob_content;
+			last_orphaned_bob = orphaned_bob;
 
 			tokio::time::sleep(Duration::from_millis(100)).await;
 		}
@@ -1110,22 +1191,15 @@ async fn test_realtime_sync_alice_to_bob() -> anyhow::Result<()> {
 		"Orphaned file count (files without content_id)"
 	);
 
-	// Verify Bob has few or no orphaned files (allowing for some in-flight updates)
-	// Allow up to 5% orphaned files due to content_id linkage updates still in flight
-	let total_files = entities::entry::Entity::find()
-		.filter(entities::entry::Column::Kind.eq(0))
-		.filter(entities::entry::Column::Size.gt(0))
-		.count(harness.library_bob.db().conn())
-		.await?;
-
-	let max_allowed_orphaned = ((total_files as f64) * 0.05).ceil() as u64;
-
-	assert!(
-		orphaned_bob <= max_allowed_orphaned,
-		"Too many orphaned files on Bob: {}/{} ({:.1}%, max allowed: 5%)",
-		orphaned_bob,
-		total_files,
-		(orphaned_bob as f64 / total_files as f64) * 100.0
+	// CRITICAL: Verify ZERO orphaned files
+	// In a distributed file sync system, every file must have its content_id properly linked
+	// No tolerance for incomplete sync - this is production file management
+	assert_eq!(
+		orphaned_bob, 0,
+		"Bob has orphaned files without content_id: {} files (should be 0). \
+		This means content_id linkage updates haven't fully synced. \
+		Alice orphaned: {}",
+		orphaned_bob, orphaned_alice
 	);
 
 	Ok(())

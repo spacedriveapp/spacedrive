@@ -15,6 +15,8 @@
 		"dialog:allow-open",
 		"dialog:allow-save",
 		"shell:allow-open",
-		"fs:allow-home-read-recursive"
+		"fs:allow-home-read-recursive",
+		"clipboard-manager:allow-read-text",
+		"clipboard-manager:allow-write-text"
 	]
 }
