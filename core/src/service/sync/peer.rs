@@ -195,12 +195,37 @@ impl PeerSync {
 		// Create watermark store for per-resource tracking
 		let watermark_store = ResourceWatermarkStore::new(device_id);
 
+		// Determine initial sync state based on existing watermarks in sync.db
+		// If we have watermarks, we've synced before → start as Ready
+		// Otherwise → start as Uninitialized and trigger backfill
+		let initial_state = {
+			let max_watermark = watermark_store
+				.get_max_watermark(peer_log.conn())
+				.await
+				.unwrap_or(None);
+
+			if max_watermark.is_some() {
+				info!(
+					device_id = %device_id,
+					max_watermark = ?max_watermark,
+					"Found existing watermarks in sync.db, starting in Ready state (resuming sync)"
+				);
+				DeviceSyncState::Ready
+			} else {
+				info!(
+					device_id = %device_id,
+					"No watermarks found in sync.db, starting in Uninitialized state (will backfill)"
+				);
+				DeviceSyncState::Uninitialized
+			}
+		};
+
 		Ok(Self {
 			library_id,
 			device_id,
 			db: Arc::new(library.db().conn().clone()),
 			network,
-			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
+			state: Arc::new(RwLock::new(initial_state)),
 			buffer: Arc::new(BufferQueue::new()),
 			last_realtime_activity_per_peer: Arc::new(
 				RwLock::new(std::collections::HashMap::new()),
