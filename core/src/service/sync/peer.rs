@@ -888,42 +888,56 @@ impl PeerSync {
 		}
 
 		// Determine if WE need to catch up based on per-resource watermark comparison
+		// BUT: Skip watermark comparison if count validation already determined we're synced
 		let mut we_need_state_catchup = false;
 		let mut we_need_shared_catchup = false;
 		let mut resources_needing_catchup = Vec::new();
 
-		// Compare per-resource watermarks (CRITICAL FIX: Issue #10)
-		// This fixes the bug where global watermark comparison missed per-resource divergence
-		for (resource_type, peer_ts) in &peer_resource_watermarks {
-			match my_resource_watermarks.get(resource_type) {
-				Some(my_ts) if peer_ts > my_ts => {
-					info!(
-						peer = %peer_id,
-						resource_type = %resource_type,
-						my_timestamp = %my_ts,
-						peer_timestamp = %peer_ts,
-						"Peer has newer data for this resource"
-					);
-					resources_needing_catchup.push(resource_type.clone());
-					we_need_state_catchup = true;
-				}
-				None => {
-					info!(
-						peer = %peer_id,
-						resource_type = %resource_type,
-						peer_timestamp = %peer_ts,
-						"We have no watermark for this resource, need catch-up"
-					);
-					resources_needing_catchup.push(resource_type.clone());
-					we_need_state_catchup = true;
-				}
-				_ => {
-					debug!(
-						resource_type = %resource_type,
-						"Resource in sync with peer"
-					);
+		// If count validation ran and found no gaps, trust counts over watermarks
+		// This prevents unnecessary catch-up when counts match but watermarks are stale
+		let counts_validated_and_synced = in_stable_state
+			&& !peer_actual_resource_counts.is_empty()
+			&& mismatched_resource_types.is_empty();
+
+		if !counts_validated_and_synced {
+			// Compare per-resource watermarks (CRITICAL FIX: Issue #10)
+			// This fixes the bug where global watermark comparison missed per-resource divergence
+			for (resource_type, peer_ts) in &peer_resource_watermarks {
+				match my_resource_watermarks.get(resource_type) {
+					Some(my_ts) if peer_ts > my_ts => {
+						info!(
+							peer = %peer_id,
+							resource_type = %resource_type,
+							my_timestamp = %my_ts,
+							peer_timestamp = %peer_ts,
+							"Peer has newer data for this resource"
+						);
+						resources_needing_catchup.push(resource_type.clone());
+						we_need_state_catchup = true;
+					}
+					None => {
+						info!(
+							peer = %peer_id,
+							resource_type = %resource_type,
+							peer_timestamp = %peer_ts,
+							"We have no watermark for this resource, need catch-up"
+						);
+						resources_needing_catchup.push(resource_type.clone());
+						we_need_state_catchup = true;
+					}
+					_ => {
+						debug!(
+							resource_type = %resource_type,
+							"Resource in sync with peer"
+						);
+					}
 				}
 			}
+		} else {
+			info!(
+				peer = %peer_id,
+				"Count validation confirmed sync - skipping watermark-based catch-up"
+			);
 		}
 
 		if we_need_state_catchup {
