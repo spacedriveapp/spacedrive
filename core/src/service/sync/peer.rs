@@ -1158,7 +1158,7 @@ impl PeerSync {
 						// Exchange watermarks with all peers
 						for peer_id in partners {
 							if let Err(e) = Self::trigger_watermark_exchange(
-								library_id, device_id, peer_id, &peer_log, &network,
+								library_id, device_id, peer_id, &peer_log, &network, &db,
 							)
 							.await
 							{
@@ -1434,7 +1434,7 @@ impl PeerSync {
 								// CRITICAL FIX: Actually trigger watermark exchange on reconnection
 								// This fixes the 20-minute idle bug where events die but no recovery happens
 								if let Err(e) = Self::trigger_watermark_exchange(
-									library_id, device_id, peer_id, &peer_log, &network,
+									library_id, device_id, peer_id, &peer_log, &network, &db,
 								)
 								.await
 								{
@@ -1560,6 +1560,7 @@ impl PeerSync {
 		peer_id: Uuid,
 		peer_log: &Arc<crate::infra::sync::PeerLog>,
 		network: &Arc<dyn NetworkTransport>,
+		db: &Arc<DatabaseConnection>,
 	) -> Result<()> {
 		info!(
 			peer = %peer_id,
@@ -1580,15 +1581,20 @@ impl PeerSync {
 				std::collections::HashMap::new()
 			});
 
-		// Note: Counts unavailable in static context (no db access)
-		// This is fine - counts only used when called from instance method
-		let my_peer_resource_counts = std::collections::HashMap::new();
+		// Get counts of peer's resources (for gap detection)
+		let my_peer_resource_counts = Self::get_device_owned_counts(peer_id, db)
+			.await
+			.unwrap_or_else(|e| {
+				warn!(error = %e, peer = %peer_id, "Failed to get peer resource counts in static exchange");
+				std::collections::HashMap::new()
+			});
 
 		debug!(
 			peer = %peer_id,
 			my_shared_watermark = ?my_shared_watermark,
 			resource_count = my_resource_watermarks.len(),
-			"Sending watermark exchange request (static trigger, counts unavailable)"
+			peer_owned_counts = ?my_peer_resource_counts,
+			"Sending watermark exchange request with counts"
 		);
 
 		// Send request to peer
