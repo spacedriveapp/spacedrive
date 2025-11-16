@@ -221,7 +221,8 @@ impl BackfillManager {
 				use std::str::FromStr;
 				crate::infra::sync::HLC::from_str(&s).ok()
 			});
-			self.backfill_shared_resources_since(peer, since_hlc).await?
+			self.backfill_shared_resources_since(peer, since_hlc)
+				.await?
 		};
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)

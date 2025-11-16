@@ -154,17 +154,6 @@ impl crate::infra::sync::Syncable for Model {
 			}
 		}
 
-		// Only sync entries that are sync-ready:
-		// - Directories (kind=1) are always ready
-		// - Empty files (size=0) are always ready
-		// - Regular files are ready only when content_id is present
-		query = query.filter(
-			Condition::any()
-				.add(Column::Kind.eq(1)) // Directory
-				.add(Column::Size.eq(0)) // Empty file
-				.add(Column::ContentId.is_not_null()), // Regular file with content
-		);
-
 		// Filter by watermark timestamp if specified
 		// Use indexed_at (when we indexed/synced) not modified_at (file modification time)
 		if let Some(since_time) = since {
@@ -320,19 +309,6 @@ impl Model {
 	/// Get the entry kind as enum
 	pub fn entry_kind(&self) -> EntryKind {
 		EntryKind::from(self.kind)
-	}
-
-	/// Sync Readiness Rules:
-	/// - Directories: Always ready (no content to identify)
-	/// - Empty files: Always ready (size = 0, no content to hash)
-	/// - Regular files: Ready only after content identification (content_id present)
-	pub fn is_sync_ready(&self) -> bool {
-		// Directories and empty files are always ready
-		if self.entry_kind() == EntryKind::Directory || self.size == 0 {
-			return true;
-		}
-		// Regular files require content identification
-		self.content_id.is_some()
 	}
 
 	/// Apply device-owned state change (idempotent upsert)
