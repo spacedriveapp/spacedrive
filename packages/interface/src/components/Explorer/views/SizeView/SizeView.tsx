@@ -100,8 +100,14 @@ export function SizeView() {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
-    const g = svg.append("g");
-    gRef.current = g;
+
+    // Only create g element if it doesn't exist
+    let g = gRef.current;
+    if (!g || g.empty()) {
+      svg.selectAll("*").remove();
+      g = svg.append("g");
+      gRef.current = g;
+    }
 
     const updateTextOnZoom = (scale: number) => {
       // Update text transform for constant size
@@ -206,11 +212,17 @@ export function SizeView() {
 
   // Update chart data (preserves zoom state)
   useEffect(() => {
-    if (!svgRef.current || !gRef.current || bubbleData.length === 0) return;
+    if (!svgRef.current || !gRef.current) return;
 
     const g = gRef.current;
     const width = svgRef.current.clientWidth;
     const height = svgRef.current.clientHeight;
+
+    // Clear bubbles if no data or no dimensions
+    if (bubbleData.length === 0 || width === 0 || height === 0) {
+      g.selectAll("g.bubble-node").remove();
+      return;
+    }
 
     const pack = d3.pack()
       .size([width, height])
@@ -455,14 +467,6 @@ export function SizeView() {
       );
   };
 
-  if (bubbleData.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-ink-dull">No files with size data to display</p>
-      </div>
-    );
-  }
-
   return (
     <div className="relative w-full h-full overflow-hidden">
       <svg
@@ -470,6 +474,13 @@ export function SizeView() {
         className="w-full h-full"
         style={{ fontFamily: "system-ui, sans-serif" }}
       />
+
+      {/* Empty state message */}
+      {bubbleData.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <p className="text-ink-dull">No files with size data to display</p>
+        </div>
+      )}
 
       {/* Floating footer controls */}
       <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-app-box/95 backdrop-blur-lg border border-app-line rounded-lg p-1.5 shadow-lg">
