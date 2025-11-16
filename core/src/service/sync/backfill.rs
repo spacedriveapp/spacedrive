@@ -669,10 +669,11 @@ impl BackfillManager {
 		batch_size: usize,
 	) -> Result<SyncMessage> {
 		// Create and send request
+		// CRITICAL: Pass peer device_id to filter query to only their entries
 		let request = SyncMessage::StateRequest {
 			library_id: self.library_id,
 			model_types: model_types.clone(),
-			device_id: None,
+			device_id: Some(peer),
 			since,
 			checkpoint,
 			batch_size,

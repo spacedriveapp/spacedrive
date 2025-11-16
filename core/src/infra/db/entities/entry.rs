@@ -117,7 +117,7 @@ impl crate::infra::sync::Syncable for Model {
 	///
 	/// Note: This method handles FK to UUID conversion internally before returning.
 	async fn query_for_sync(
-		_device_id: Option<Uuid>,
+		device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
 		cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
 		batch_size: usize,
@@ -127,6 +127,45 @@ impl crate::infra::sync::Syncable for Model {
 		use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 
 		let mut query = Entity::find();
+
+		// Filter by device ownership if specified (critical for device-owned data sync)
+		// Entries are owned via their location's device_id
+		if let Some(owner_device_uuid) = device_id {
+			// Get device's internal ID
+			let device = super::device::Entity::find()
+				.filter(super::device::Column::Uuid.eq(owner_device_uuid))
+				.one(db)
+				.await?;
+
+			if let Some(dev) = device {
+				// Join to locations and filter by device_id
+				// Use entry_closure to efficiently filter entries under this device's locations
+				use sea_orm::{JoinType, RelationTrait};
+
+				// Filter to only entries whose root location is owned by this device
+				// This uses the location relationship via parent chain
+				query = query.filter(
+					Column::Id.in_subquery(
+						sea_orm::sea_query::Query::select()
+							.column(super::entry_closure::Column::DescendantId)
+							.from(super::entry_closure::Entity)
+							.and_where(
+								super::entry_closure::Column::AncestorId.in_subquery(
+									sea_orm::sea_query::Query::select()
+										.column(super::location::Column::EntryId)
+										.from(super::location::Entity)
+										.and_where(super::location::Column::DeviceId.eq(dev.id))
+										.take(),
+								),
+							)
+							.take(),
+					),
+				);
+			} else {
+				// Device not found, return empty
+				return Ok(Vec::new());
+			}
+		}
 
 		// Only sync entries that are sync-ready:
 		// - Directories (kind=1) are always ready

@@ -2959,8 +2959,10 @@ impl PeerSync {
 		}
 
 		info!(
+			model_types = ?model_types,
+			device_id = ?device_id,
 			count = all_records.len(),
-			"Retrieved device state records for backfill"
+			"Retrieved device state records for backfill (server responding to StateRequest)"
 		);
 
 		Ok(all_records)
