@@ -282,6 +282,12 @@ impl ResourceManager {
 		if resource_ids.is_empty() {
 			return Ok(());
 		}
+		
+		tracing::debug!(
+			resource_type = %resource_type,
+			count = resource_ids.len(),
+			"ResourceManager::emit_resource_events called"
+		);
 
 		// Emit direct events first (for simple list queries)
 		self.emit_direct_events(resource_type, &resource_ids).await?;
@@ -293,12 +299,22 @@ impl ResourceManager {
 			let virtual_mappings = map_dependency_to_virtual_ids(&self.db, resource_type, resource_id).await?;
 
 			for (virtual_type, virtual_ids) in virtual_mappings {
+				tracing::debug!(
+					base_resource = %resource_type,
+					base_id = %resource_id,
+					virtual_type = %virtual_type,
+					virtual_count = virtual_ids.len(),
+					"Mapped to virtual resource"
+				);
 				all_virtual_resources.push((virtual_type, virtual_ids));
 			}
 		}
 
 		if all_virtual_resources.is_empty() {
-			// No virtual resources to emit
+			tracing::debug!(
+				resource_type = %resource_type,
+				"No virtual resources depend on this type, skipping virtual emission"
+			);
 			return Ok(());
 		}
 

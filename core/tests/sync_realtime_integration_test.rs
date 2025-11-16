@@ -111,6 +111,7 @@ impl SyncTestHarness {
 						 sd_core::service::sync::dependency=debug,\
 						 sd_core::infra::sync=debug,\
 						 sd_core::infra::db::entities=debug,\
+						 sd_core::domain=debug,\
 						 sync_realtime_integration_test=debug,\
 						 helpers=trace",
 				)
@@ -399,7 +400,7 @@ impl SyncTestHarness {
 					| Event::ResourceChangedBatch { resource_type, .. }
 						if matches!(
 							resource_type.as_str(),
-							"entry" | "location" | "content_identity" | "device"
+							"entry" | "location" | "content_identity" | "device" | "file"
 						) =>
 					{
 						event_log.lock().await.push(event);
@@ -407,7 +408,7 @@ impl SyncTestHarness {
 					Event::ResourceDeleted { resource_type, .. }
 						if matches!(
 							resource_type.as_str(),
-							"entry" | "location" | "content_identity"
+							"entry" | "location" | "content_identity" | "file"
 						) =>
 					{
 						event_log.lock().await.push(event);
@@ -486,7 +487,6 @@ impl SyncTestHarness {
 		let mut last_bob_content = 0;
 		let mut stable_iterations = 0;
 		let mut no_progress_iterations = 0;
-		let mut alice_stable_iterations = 0;
 
 		while start.elapsed() < max_duration {
 			// Messages are now auto-delivered (no manual pumping needed)
@@ -506,13 +506,6 @@ impl SyncTestHarness {
 				.count(self.library_bob.db().conn())
 				.await?;
 
-			// Check if Alice has stabilized (stopped generating new data)
-			if alice_entries == last_alice_entries && alice_content == last_alice_content {
-				alice_stable_iterations += 1;
-			} else {
-				alice_stable_iterations = 0;
-			}
-
 			// Check if we're making progress
 			if bob_entries == last_bob_entries {
 				no_progress_iterations += 1;
@@ -528,12 +521,14 @@ impl SyncTestHarness {
 				no_progress_iterations = 0;
 			}
 
-			// CRITICAL: Only check sync completion if Alice has stabilized first
-			// This prevents false positives where we match at an intermediate state
-			// while Alice is still generating content identities
-			if alice_stable_iterations >= 5 {
-				// Alice stable for 5 iterations (500ms), now check if Bob caught up
-				if alice_entries == bob_entries && alice_content == bob_content {
+			// Check if counts match and are stable
+			if alice_entries == bob_entries && alice_content == bob_content {
+				// Counts match - verify they stay matched (not just passing through)
+				if alice_entries == last_alice_entries
+					&& alice_content == last_alice_content
+					&& bob_entries == last_bob_entries
+					&& bob_content == last_bob_content
+				{
 					stable_iterations += 1;
 					if stable_iterations >= 5 {
 						tracing::info!(
@@ -542,7 +537,7 @@ impl SyncTestHarness {
 							bob_entries = bob_entries,
 							alice_content = alice_content,
 							bob_content = bob_content,
-							"Sync completed - Alice stable and Bob caught up"
+							"Sync completed - databases match and stable"
 						);
 						return Ok(());
 					}
@@ -551,12 +546,6 @@ impl SyncTestHarness {
 				}
 			} else {
 				stable_iterations = 0;
-				tracing::debug!(
-					alice_stable_iters = alice_stable_iterations,
-					alice_entries = alice_entries,
-					alice_content = alice_content,
-					"Waiting for Alice to stabilize before checking sync"
-				);
 			}
 
 			// If we're very close and making very slow/no progress, consider it good enough

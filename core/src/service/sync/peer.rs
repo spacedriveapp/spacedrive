@@ -2051,8 +2051,8 @@ impl PeerSync {
 			}
 		}
 
-		// Emit resource event for UI reactivity using ResourceManager
-		// This ensures proper resource format (LocationInfo, etc.) instead of raw DB model
+		// Emit resource event for UI reactivity using ResourceManager (non-blocking)
+		// This ensures proper resource format (LocationInfo, File, etc.) instead of raw DB model
 		if let Some(uuid_value) = change.data.get("uuid") {
 			if let Some(uuid_str) = uuid_value.as_str() {
 				if let Ok(uuid) = Uuid::parse_str(uuid_str) {
@@ -2060,18 +2060,22 @@ impl PeerSync {
 						self.db.clone(),
 						self.event_bus.clone(),
 					);
+					let model_type = change.model_type.clone();
 
-					if let Err(e) = resource_manager
-						.emit_resource_events(&change.model_type, vec![uuid])
-						.await
-					{
-						warn!(
-							model_type = %change.model_type,
-							uuid = %uuid,
-							error = %e,
-							"Failed to emit resource event after state change"
-						);
-					}
+					// Spawn to avoid blocking sync message processing
+					tokio::spawn(async move {
+						if let Err(e) = resource_manager
+							.emit_resource_events(&model_type, vec![uuid])
+							.await
+						{
+							warn!(
+								model_type = %model_type,
+								uuid = %uuid,
+								error = %e,
+								"Failed to emit resource event after state change"
+							);
+						}
+					});
 				} else {
 					warn!(
 						model_type = %change.model_type,
