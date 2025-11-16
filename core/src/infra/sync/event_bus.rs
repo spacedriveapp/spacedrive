@@ -96,11 +96,11 @@ impl SyncEvent {
 impl SyncEventBus {
 	/// Create a new sync event bus with large capacity
 	///
-	/// Capacity is 10,000 events - sync is critical and should rarely lag.
-	/// If lag occurs with this capacity, it indicates extreme system load or a bug.
+	/// Capacity is 100,000 events - sync is critical and should handle bulk indexing.
+	/// Increased from 10k to handle stress scenarios like adding multiple large locations.
 	pub fn new() -> Self {
-		let (sender, _) = broadcast::channel(10_000);
-		debug!("Created sync event bus with capacity 10,000");
+		let (sender, _) = broadcast::channel(100_000);
+		debug!("Created sync event bus with capacity 100,000");
 		Self { sender }
 	}
 
