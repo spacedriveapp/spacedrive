@@ -1940,8 +1940,13 @@ impl PeerSync {
 			}
 		}
 
-		// Spawn a broadcast task per model_type batch
-		// This sends 1 StateBatch message instead of N StateChange messages
+		// Spawn broadcast tasks with concurrency limiting
+		// This prevents overwhelming the network/receiver with too many concurrent sends
+		use futures::stream::{FuturesUnordered, StreamExt};
+
+		let mut broadcast_tasks = FuturesUnordered::new();
+		const MAX_CONCURRENT_BROADCASTS: usize = 10;
+
 		for (model_type, changes) in batches_by_model {
 			let library_id = library_id;
 			let network = network.clone();
@@ -1952,7 +1957,7 @@ impl PeerSync {
 			let config = config.clone();
 			let last_realtime_activity_per_peer = last_realtime_activity_per_peer.clone();
 
-			tokio::spawn(async move {
+			let task = tokio::spawn(async move {
 				if let Err(e) = Self::broadcast_state_batch_static(
 					library_id,
 					model_type,
@@ -1970,6 +1975,25 @@ impl PeerSync {
 					warn!(error = %e, "Failed to broadcast state batch in background task");
 				}
 			});
+
+			broadcast_tasks.push(task);
+
+			// Limit concurrent broadcasts to prevent overwhelming receiver
+			if broadcast_tasks.len() >= MAX_CONCURRENT_BROADCASTS {
+				// Wait for one to complete before spawning more
+				if let Some(result) = broadcast_tasks.next().await {
+					if let Err(e) = result {
+						warn!(error = %e, "Broadcast task panicked");
+					}
+				}
+			}
+		}
+
+		// Wait for remaining tasks to complete
+		while let Some(result) = broadcast_tasks.next().await {
+			if let Err(e) = result {
+				warn!(error = %e, "Broadcast task panicked");
+			}
 		}
 
 		info!(

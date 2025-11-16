@@ -337,29 +337,48 @@ impl NetworkTransport for NetworkingService {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to query library devices: {}", e))?;
 
-		// 2. Get Iroh endpoint for checking connection state
+		// 2. Get our own device ID to exclude from partners
+		let our_device_id = self.device_id();
+
+		// 3. Get Iroh endpoint for checking connection state
 		let endpoint = self
 			.endpoint()
 			.ok_or_else(|| anyhow::anyhow!("Network endpoint not initialized"))?;
 
-		// 3. Get DeviceRegistry to check Iroh connection state
+		// 4. Get DeviceRegistry to check which devices have NodeId mappings (paired devices)
 		let device_registry_arc = self.device_registry();
 		let registry = device_registry_arc.read().await;
 
-		// 4. Filter to only devices that Iroh reports as connected
+		// 5. Filter to OTHER devices in this library that are paired
+		// We don't check Iroh connection state because:
+		// - Connections may be idle (no active streams) but still reachable
+		// - send_sync_message establishes connections on-demand
+		// - Better to attempt send and handle failure than skip paired devices
 		let sync_partners: Vec<Uuid> = library_devices
 			.iter()
-			.filter(|device| registry.is_node_connected(endpoint, device.uuid))
+			.filter(|device| {
+				// Exclude ourselves (can't sync with self)
+				if device.uuid == our_device_id {
+					return false;
+				}
+
+				// Must have NodeId mapping (paired via pairing protocol)
+				// This ensures device is known to our network layer
+				registry.get_node_id_for_device(device.uuid).is_some()
+			})
 			.map(|device| device.uuid)
 			.collect();
 
-		// tracing::info!(
-		// 	"Library-scoped sync partners: library={}, lib_devs={}, iroh_connected={}, partners={}",
-		// 	library_id,
-		// 	library_devices.len(),
-		// 	sync_partners.len(),
-		// 	sync_partners.len()
-		// );
+		tracing::debug!(
+			library_id = %library_id,
+			our_device_id = %our_device_id,
+			total_lib_devices = library_devices.len(),
+			sync_enabled_devices = library_devices.iter().filter(|d| d.sync_enabled).count(),
+			paired_devices = library_devices.iter().filter(|d| registry.get_node_id_for_device(d.uuid).is_some()).count(),
+			sync_partners = sync_partners.len(),
+			partner_uuids = ?sync_partners,
+			"Computed library sync partners"
+		);
 
 		Ok(sync_partners)
 	}
