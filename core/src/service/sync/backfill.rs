@@ -211,9 +211,13 @@ impl BackfillManager {
 		);
 
 		// Backfill shared resources FIRST (device-owned models depend on them)
-		// For now, just do full backfill of shared resources
-		// TODO: Parse HLC from string watermark when HLC implements FromStr
-		let max_shared_hlc = self.backfill_shared_resources(peer).await?;
+		// Parse HLC from string watermark to enable incremental shared backfill
+		let since_hlc = shared_watermark.and_then(|s| {
+			use std::str::FromStr;
+			crate::infra::sync::HLC::from_str(&s).ok()
+		});
+
+		let max_shared_hlc = self.backfill_shared_resources_since(peer, since_hlc).await?;
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)
 		let final_state_checkpoint = self

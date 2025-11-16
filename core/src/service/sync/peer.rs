@@ -847,17 +847,24 @@ impl PeerSync {
 				self.clear_resource_watermarks(peer_id, mismatched_resource_types.clone())
 					.await?;
 
-				// Trigger catch-up for affected resources
+				// Trigger catch-up for affected resources ONLY
+				// CRITICAL: Preserve shared watermark to avoid unnecessary shared resource backfill
 				let backfill_mgr = self.backfill_manager.read().await;
 				if let Some(weak_ref) = backfill_mgr.as_ref() {
 					if let Some(manager) = weak_ref.upgrade() {
 						info!(
 							peer = %peer_id,
 							resources = ?mismatched_resource_types,
-							"Initiating targeted backfill for resources with count mismatch"
+							"Initiating surgical backfill (device-owned resources only, preserving shared watermark)"
 						);
-						// Force full backfill for affected resources (no watermarks)
-						manager.catch_up_from_peer(peer_id, None, None).await?;
+
+						// Get current shared watermark to preserve it
+						let (_my_state, my_shared) = self.get_watermarks().await;
+						let shared_watermark_str = my_shared.map(|hlc| hlc.to_string());
+
+						// State watermark = None (cleared for mismatched resources)
+						// Shared watermark = current (preserved to skip shared backfill)
+						manager.catch_up_from_peer(peer_id, None, shared_watermark_str).await?;
 					}
 				} else {
 					warn!("BackfillManager not available, cannot trigger recovery backfill");
