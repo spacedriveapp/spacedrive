@@ -101,7 +101,7 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 	const uri = sdPathToUri(path);
 	const currentDir = getCurrentDirectoryName(path);
 	const segments = parsePathSegments(path);
-	
+
 	// Get device icon based on the device_slug
 	const deviceIcon = (() => {
 		if ("Physical" in path) {

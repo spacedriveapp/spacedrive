@@ -26,7 +26,7 @@ use crate::{
 	infra::{
 		action::{builder::ActionBuilder, manager::ActionManager, CoreAction, LibraryAction},
 		api::ApiDispatcher,
-		event::{Event, EventBus},
+		event::{log_emitter::LogBus, Event, EventBus},
 		query::QueryManager,
 	},
 	library::LibraryManager,
@@ -60,6 +60,9 @@ pub struct Core {
 
 	/// Event bus for state changes
 	pub events: Arc<EventBus>,
+
+	/// Dedicated log streaming bus (separate from events to avoid overhead)
+	pub logs: Arc<LogBus>,
 
 	/// Container for high-level services
 	pub services: Services,
@@ -108,6 +111,9 @@ impl Core {
 
 		// Create event bus
 		let events = Arc::new(EventBus::default());
+
+		// Create dedicated log bus (separate from events to avoid overhead)
+		let logs = Arc::new(LogBus::default());
 
 		// Initialize volume manager
 		let volume_config = VolumeDetectionConfig::default();
@@ -369,8 +375,8 @@ impl Core {
 		));
 		context.set_action_manager(action_manager).await;
 
-		// Set up log event emitter
-		setup_log_event_emitter(events.clone());
+		// Set up log event emitter (no-op, actual setup happens in daemon bootstrap)
+		// The LogEventLayer is added as a tracing subscriber layer in bootstrap.rs
 
 		// Initialize API dispatcher
 		let api_dispatcher = ApiDispatcher::new(context.clone());
@@ -396,6 +402,7 @@ impl Core {
 			libraries,
 			volumes,
 			events,
+			logs,
 			services,
 			plugin_manager: Some(plugin_manager),
 			context,

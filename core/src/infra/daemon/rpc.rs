@@ -9,7 +9,7 @@ use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
 use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter};
-use crate::infra::event::log_emitter::set_global_log_event_bus;
+use crate::infra::event::log_emitter::{set_global_log_bus, LogMessage};
 use crate::infra::event::{Event, EventSubscriber};
 use crate::Core;
 
@@ -134,13 +134,13 @@ impl RpcServer {
 	async fn start_event_broadcaster(&self) -> Result<(), Box<dyn std::error::Error>> {
 		let core = self.core.clone();
 
-		// Make the core's EventBus globally available to the LogEventLayer
-		set_global_log_event_bus(core.events.clone());
+		// Make the core's LogBus globally available to the LogEventLayer
+		set_global_log_bus(core.logs.clone());
+		tracing::info!("Log bus registered for realtime streaming");
+
+		// Start main event broadcaster
 		let mut event_subscriber = core.events.subscribe();
 		let connections = self.connections.clone();
-
-		// Optional: can emit a one-off info to prove the pipe works
-		tracing::info!("Log event bus registered for realtime streaming");
 
 		tokio::spawn(async move {
 			while let Ok(event) = event_subscriber.recv().await {
@@ -160,73 +160,39 @@ impl RpcServer {
 			}
 		});
 
-		Ok(())
-	}
+		// Start separate log message broadcaster
+		let mut log_subscriber = core.logs.subscribe();
+		let connections_for_logs = self.connections.clone();
 
-	/// Emit test log events to demonstrate the log streaming functionality
-	async fn emit_test_log_events(event_bus: &Arc<crate::infra::event::EventBus>) {
-		use crate::infra::event::Event;
-		use chrono::Utc;
+		tokio::spawn(async move {
+			while let Ok(log_msg) = log_subscriber.recv().await {
+				let connections_read = connections_for_logs.read().await;
 
-		tracing::info!("Emitting test log events to event bus");
+				// Convert LogMessage to Event for transport compatibility
+				let event = Event::LogMessage {
+					timestamp: log_msg.timestamp,
+					level: log_msg.level,
+					target: log_msg.target,
+					message: log_msg.message,
+					job_id: log_msg.job_id,
+					library_id: log_msg.library_id,
+				};
 
-		// Emit a series of test log events
-		let events = vec![
-			Event::LogMessage {
-				timestamp: Utc::now(),
-				level: "INFO".to_string(),
-				target: "sd_core::daemon".to_string(),
-				message: "Spacedrive daemon started successfully".to_string(),
-				job_id: None,
-				library_id: None,
-			},
-			Event::LogMessage {
-				timestamp: Utc::now(),
-				level: "INFO".to_string(),
-				target: "sd_core::event".to_string(),
-				message: "Log event streaming initialized".to_string(),
-				job_id: None,
-				library_id: None,
-			},
-			Event::LogMessage {
-				timestamp: Utc::now(),
-				level: "DEBUG".to_string(),
-				target: "sd_core::rpc".to_string(),
-				message: "RPC server listening for connections".to_string(),
-				job_id: None,
-				library_id: None,
-			},
-		];
-
-		for (i, event) in events.into_iter().enumerate() {
-			tracing::info!("Emitting test event {}: {:?}", i + 1, event);
-			event_bus.emit(event);
-			// Small delay between events
-			tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-		}
-
-		// Emit periodic heartbeat events every 10 seconds for testing
-		tokio::spawn({
-			let event_bus = event_bus.clone();
-			async move {
-				let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
-				loop {
-					interval.tick().await;
-					let heartbeat_event = Event::LogMessage {
-						timestamp: Utc::now(),
-						level: "DEBUG".to_string(),
-						target: "sd_core::daemon".to_string(),
-						message: "Daemon heartbeat".to_string(),
-						job_id: None,
-						library_id: None,
-					};
-					tracing::info!("Emitting heartbeat event: {:?}", heartbeat_event);
-					event_bus.emit(heartbeat_event);
+				// Broadcast to connections that subscribed to LogMessage events
+				for connection in connections_read.values() {
+					if Self::should_forward_event(
+						&event,
+						&connection.event_types,
+						&connection.filter,
+					) {
+						// Ignore errors if connection is closed
+						let _ = connection.event_tx.send(event.clone());
+					}
 				}
 			}
 		});
 
-		tracing::info!("Test log events setup complete");
+		Ok(())
 	}
 
 	/// Execute a JSON operation using the registry handlers

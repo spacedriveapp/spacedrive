@@ -1,21 +1,72 @@
-//! Log event emitter for streaming logs to CLI clients
+//! Dedicated log streaming bus for CLI clients
+//!
+//! This is separate from the main event bus to avoid polluting it with high-volume log events.
 
-use super::{Event, EventBus};
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::sync::{Arc, OnceLock};
+use tokio::sync::broadcast;
 use tracing::{field::Visit, Event as TracingEvent, Level, Subscriber};
 use tracing_subscriber::{layer::Context, Layer};
 use uuid::Uuid;
 
-/// Global holder for the daemon's EventBus used for log streaming
-static LOG_EVENT_BUS: OnceLock<Arc<EventBus>> = OnceLock::new();
-
-/// Set the global EventBus for log streaming. Safe to call once.
-pub fn set_global_log_event_bus(event_bus: Arc<EventBus>) {
-	let _ = LOG_EVENT_BUS.set(event_bus);
+/// A log message event (separate from main Event enum)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct LogMessage {
+	pub timestamp: chrono::DateTime<chrono::Utc>,
+	pub level: String,
+	pub target: String,
+	pub message: String,
+	pub job_id: Option<String>,
+	pub library_id: Option<Uuid>,
 }
 
-/// A tracing layer that emits log events to the event bus (if available)
+/// Dedicated broadcast channel for log streaming
+#[derive(Debug, Clone)]
+pub struct LogBus {
+	sender: broadcast::Sender<LogMessage>,
+}
+
+impl LogBus {
+	/// Create a new log bus with specified capacity
+	pub fn new(capacity: usize) -> Self {
+		let (sender, _) = broadcast::channel(capacity);
+		Self { sender }
+	}
+
+	/// Emit a log message to all subscribers
+	pub fn emit(&self, log: LogMessage) {
+		// Ignore errors - no subscribers is fine
+		let _ = self.sender.send(log);
+	}
+
+	/// Subscribe to log messages
+	pub fn subscribe(&self) -> broadcast::Receiver<LogMessage> {
+		self.sender.subscribe()
+	}
+
+	/// Get the number of active subscribers
+	pub fn subscriber_count(&self) -> usize {
+		self.sender.receiver_count()
+	}
+}
+
+impl Default for LogBus {
+	fn default() -> Self {
+		Self::new(1024)
+	}
+}
+
+/// Global holder for the daemon's LogBus
+static LOG_BUS: OnceLock<Arc<LogBus>> = OnceLock::new();
+
+/// Set the global LogBus for log streaming. Safe to call once.
+pub fn set_global_log_bus(log_bus: Arc<LogBus>) {
+	let _ = LOG_BUS.set(log_bus);
+}
+
+/// A tracing layer that emits log messages to the log bus (if available)
 pub struct LogEventLayer;
 
 impl LogEventLayer {
@@ -30,12 +81,17 @@ where
 {
 	fn on_event(&self, event: &TracingEvent<'_>, ctx: Context<'_, S>) {
 		// If no global bus set yet, skip
-		let Some(event_bus) = LOG_EVENT_BUS.get() else {
+		let Some(log_bus) = LOG_BUS.get() else {
 			return;
 		};
 
 		// Only emit events for INFO level and above to avoid spam
 		if event.metadata().level() > &Level::INFO {
+			return;
+		}
+
+		// Only emit if someone is listening (avoid overhead)
+		if log_bus.subscriber_count() == 0 {
 			return;
 		}
 
@@ -46,8 +102,8 @@ where
 		// Try to extract job_id and library_id from span context
 		let (job_id, library_id) = extract_context_ids(&ctx, event);
 
-		// Create log event
-		let log_event = Event::LogMessage {
+		// Create log message
+		let log_message = LogMessage {
 			timestamp: Utc::now(),
 			level: event.metadata().level().to_string(),
 			target: event.metadata().target().to_string(),
@@ -56,8 +112,8 @@ where
 			library_id,
 		};
 
-		// Emit to event bus (ignore errors to avoid logging loops)
-		let _ = event_bus.emit(log_event);
+		// Emit to log bus (ignore errors to avoid logging loops)
+		log_bus.emit(log_message);
 	}
 }
 
