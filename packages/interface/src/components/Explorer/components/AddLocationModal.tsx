@@ -61,60 +61,39 @@ const indexModes: Array<{
 
 const jobOptions: JobOption[] = [
   {
-    id: "extract_metadata",
-    label: "Extract Metadata",
-    description: "Extract EXIF, ID3, and other metadata from files",
+    id: "thumbnail",
+    label: "Generate Thumbnails",
+    description: "Create preview thumbnails for images and videos",
     presets: ["Content", "Deep"],
     order: 1,
   },
   {
-    id: "generate_thumbnails",
-    label: "Generate Thumbnails",
-    description: "Create image/video thumbnails for preview",
+    id: "thumbstrip",
+    label: "Generate Thumbstrips",
+    description: "Create video storyboard grids (5×5 grid of frames)",
     presets: ["Deep"],
     order: 2,
   },
   {
-    id: "media_analysis",
-    label: "Media Analysis",
-    description: "Analyze media dimensions and properties",
-    presets: ["Content", "Deep"],
+    id: "proxy",
+    label: "Generate Proxies",
+    description: "Create scrubbing proxies for videos (~8s per video)",
+    presets: [], // Disabled by default
     order: 3,
   },
   {
-    id: "detect_duplicates",
-    label: "Detect Duplicates",
-    description: "Find duplicate files via content hashing",
+    id: "ocr",
+    label: "Extract Text (OCR)",
+    description: "OCR and text extraction from images/PDFs",
     presets: [],
     order: 4,
   },
   {
-    id: "extract_text",
-    label: "Extract Text",
-    description: "OCR and text extraction from images/PDFs",
+    id: "speech_to_text",
+    label: "Speech to Text",
+    description: "Transcribe audio and video files",
     presets: [],
     order: 5,
-  },
-  {
-    id: "archive_extraction",
-    label: "Archive Extraction",
-    description: "Index contents of ZIP, TAR files",
-    presets: [],
-    order: 6,
-  },
-  {
-    id: "checksum_generation",
-    label: "Checksum Generation",
-    description: "Generate file integrity checksums",
-    presets: [],
-    order: 7,
-  },
-  {
-    id: "ai_tagging",
-    label: "AI Tagging",
-    description: "Auto-tag files using AI analysis",
-    presets: [],
-    order: 8,
   },
 ];
 
@@ -221,6 +200,13 @@ function AddLocationDialog(props: {
   };
 
   const onSubmit = form.handleSubmit(async (data) => {
+    // Build job policies from selected jobs
+    const job_policies: any = {};
+    
+    selectedJobs.forEach((jobId) => {
+      job_policies[jobId] = { enabled: true };
+    });
+
     const input: LocationAddInput = {
       path: {
         Physical: {
@@ -230,11 +216,11 @@ function AddLocationDialog(props: {
       },
       name: data.name || null,
       mode: data.mode,
+      job_policies,
     };
 
     try {
       const result = await addLocation.mutateAsync(input);
-      // TODO: Dispatch additional jobs based on selectedJobs
       dialog.state.open = false;
 
       // Call the callback to navigate to the new location

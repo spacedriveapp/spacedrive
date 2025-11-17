@@ -262,6 +262,10 @@ pub struct JobPolicies {
 	#[serde(default)]
 	pub thumbnail: ThumbnailPolicy,
 
+	/// Thumbstrip generation policy
+	#[serde(default)]
+	pub thumbstrip: ThumbstripPolicy,
+
 	/// OCR (text extraction) policy
 	#[serde(default)]
 	pub ocr: OcrPolicy,
@@ -279,6 +283,7 @@ impl Default for JobPolicies {
 	fn default() -> Self {
 		Self {
 			thumbnail: ThumbnailPolicy::default(),
+			thumbstrip: ThumbstripPolicy::default(),
 			ocr: OcrPolicy::default(),
 			speech_to_text: SpeechPolicy::default(),
 			object_detection: ObjectDetectionPolicy::default(),
@@ -334,6 +339,36 @@ impl ThumbnailPolicy {
 			regenerate: self.regenerate,
 			batch_size: 50,
 			max_concurrent: 4,
+		}
+	}
+}
+
+/// Thumbstrip generation policy
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ThumbstripPolicy {
+	/// Whether to generate thumbstrips for this location
+	pub enabled: bool,
+
+	/// Whether to regenerate existing thumbstrips
+	pub regenerate: bool,
+}
+
+impl Default for ThumbstripPolicy {
+	fn default() -> Self {
+		Self {
+			enabled: false, // Disabled by default (expensive operation)
+			regenerate: false,
+		}
+	}
+}
+
+impl ThumbstripPolicy {
+	/// Convert this policy to a ThumbstripJobConfig for job dispatch
+	pub fn to_job_config(&self) -> crate::ops::media::thumbstrip::ThumbstripJobConfig {
+		crate::ops::media::thumbstrip::ThumbstripJobConfig {
+			variants: crate::ops::media::thumbstrip::ThumbstripVariants::defaults(),
+			regenerate: self.regenerate,
+			batch_size: 10,
 		}
 	}
 }

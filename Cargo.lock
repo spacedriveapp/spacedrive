@@ -898,6 +898,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "blurhash"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e79769241dcd44edf79a732545e8b5cec84c247ac060f5252cd51885d093a8fc"
+
+[[package]]
 name = "borsh"
 version = "1.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8825,6 +8831,7 @@ dependencies = [
  "bincode",
  "bip39",
  "blake3",
+ "blurhash",
  "bytes",
  "chacha20poly1305 0.10.1",
  "chrono",

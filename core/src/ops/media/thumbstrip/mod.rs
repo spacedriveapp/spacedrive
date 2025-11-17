@@ -24,7 +24,7 @@ use crate::library::Library;
 use crate::ops::sidecar::types::SidecarKind;
 use std::path::Path;
 use std::sync::Arc;
-use tracing::{debug, warn};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 /// Generate thumbstrip for a single video file
@@ -59,26 +59,62 @@ pub async fn generate_thumbstrip_for_file(
 
 	let mut generated_count = 0;
 
+	info!(
+		"Generating {} thumbstrip variants for {} (regenerate: {})",
+		variants.len(),
+		video_path.display(),
+		regenerate
+	);
+
 	for variant_config in variants {
+		info!(
+			"Processing variant: {} for {}",
+			variant_config.variant.as_str(),
+			content_uuid
+		);
+
 		// Check if already exists
-		if !regenerate
-			&& sidecar_manager
-				.exists(
-					&library.id(),
-					content_uuid,
-					&SidecarKind::Thumbstrip,
-					&variant_config.variant,
-					&variant_config.format(),
-				)
-				.await
-				.unwrap_or(false)
-		{
-			debug!(
-				"Thumbstrip already exists for {}: {}",
+		let exists_result = sidecar_manager
+			.exists(
+				&library.id(),
 				content_uuid,
-				variant_config.variant.as_str()
-			);
-			continue;
+				&SidecarKind::Thumbstrip,
+				&variant_config.variant,
+				&variant_config.format(),
+			)
+			.await;
+
+		match exists_result {
+			Ok(true) if !regenerate => {
+				info!(
+					"Thumbstrip already exists for {}: {}, skipping",
+					content_uuid,
+					variant_config.variant.as_str()
+				);
+				continue;
+			}
+			Ok(false) => {
+				info!(
+					"Thumbstrip does not exist for {}: {}, will generate",
+					content_uuid,
+					variant_config.variant.as_str()
+				);
+			}
+			Ok(true) => {
+				info!(
+					"Thumbstrip exists but regenerate=true for {}: {}, will regenerate",
+					content_uuid,
+					variant_config.variant.as_str()
+				);
+			}
+			Err(e) => {
+				warn!(
+					"Failed to check thumbstrip existence for {}: {}, will attempt generation anyway: {}",
+					content_uuid,
+					variant_config.variant.as_str(),
+					e
+				);
+			}
 		}
 
 		// Compute output path
@@ -124,7 +160,7 @@ pub async fn generate_thumbstrip_for_file(
 						e
 					);
 				} else {
-					debug!(
+					info!(
 						"✓ Generated thumbstrip {}: {}x{} ({} frames, {} KB)",
 						variant_config.variant.as_str(),
 						thumbstrip_info.dimensions.0,

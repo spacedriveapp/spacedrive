@@ -21,7 +21,7 @@ use crate::ops::media::{
 	thumbnail::ThumbnailProcessor, thumbstrip::ThumbstripProcessor,
 };
 use anyhow::Result;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
+use sea_orm::{ColumnTrait, DbErr, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
 use std::path::Path;
 use std::sync::Arc;
 use tracing::{debug, warn};
@@ -348,16 +348,62 @@ async fn handle_create(
 		}
 	}
 
-	let entry_id = EntryProcessor::create_entry(
+	// Try to create the entry, handling unique constraint violations with upsert
+	let entry_id = match EntryProcessor::create_entry(
 		&mut state,
 		ctx,
 		&dir_entry,
 		0, // device_id not needed here
 		path.parent().unwrap_or_else(|| Path::new("/")),
 	)
-	.await?;
+	.await
+	{
+		Ok(id) => {
+			debug!("✓ Created entry {} for path: {}", id, path.display());
+			id
+		}
+		Err(e) if is_unique_constraint_violation(&e) => {
+			// Entry was created concurrently by another event, update it instead
+			debug!(
+				"Unique constraint violation for {}, updating existing entry (race condition)",
+				path.display()
+			);
 
-	debug!("✓ Created entry {} for path: {}", entry_id, path.display());
+			// Find the existing entry that caused the constraint violation
+			if let Some(existing_id) =
+				resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await?
+			{
+				// Update the existing entry with new metadata (including potentially new inode)
+				EntryProcessor::update_entry(ctx, existing_id, &dir_entry).await?;
+				debug!(
+					"✓ Updated existing entry {} with new metadata (inode: {:?})",
+					existing_id, dir_entry.inode
+				);
+
+				// Treat as modify for processor pipeline
+				return handle_modify(
+					ctx,
+					context,
+					library_id,
+					location_id,
+					path,
+					rule_toggles,
+					location_root,
+				)
+				.await;
+			} else {
+				// Shouldn't happen - we got unique constraint but can't find the entry
+				warn!(
+					"Unique constraint violation but entry not found for path: {}",
+					path.display()
+				);
+				return Err(e.into());
+			}
+		}
+		Err(e) => {
+			return Err(e.into());
+		}
+	};
 
 	// Get the entry UUID for event emission
 	let entry_uuid = match entities::entry::Entity::find_by_id(entry_id)
@@ -976,6 +1022,15 @@ async fn resolve_file_entry_id_scoped(
 	}
 	let model = q.one(ctx.library_db()).await?;
 	Ok(model.map(|m| m.id))
+}
+
+/// Check if an error is a unique constraint violation
+fn is_unique_constraint_violation(error: &crate::infra::job::error::JobError) -> bool {
+	// Check if the error contains SQLite unique constraint violation messages
+	let error_msg = error.to_string().to_lowercase();
+	error_msg.contains("unique constraint")
+		|| error_msg.contains("unique index")
+		|| error_msg.contains("constraint failed")
 }
 
 /// Best-effort deletion of an entry and its subtree (with tombstone creation)

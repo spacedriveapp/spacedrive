@@ -185,6 +185,8 @@ impl LibraryQuery for MediaListingQuery {
 				dp.path as directory_path,
 				vmd.uuid as video_media_uuid,
 				vmd.duration_seconds as video_duration_seconds,
+				vmd.width as video_width,
+				vmd.height as video_height,
 				vmd.date_captured as video_date_captured,
 				imd.date_taken as image_date_taken
 			FROM entries e
@@ -345,10 +347,12 @@ impl LibraryQuery for MediaListingQuery {
 			// Directory path
 			let directory_path: Option<String> = row.try_get("", "directory_path").ok();
 
-			// Video media data (just duration for grid display)
+			// Video media data
 			let video_media_uuid: Option<Uuid> = row.try_get("", "video_media_uuid").ok();
 			let video_duration_seconds: Option<f64> =
 				row.try_get("", "video_duration_seconds").ok();
+			let video_width: Option<i32> = row.try_get("", "video_width").ok();
+			let video_height: Option<i32> = row.try_get("", "video_height").ok();
 
 			// Build full path with extension
 			let full_name = if let Some(ext) = &entry_extension {
@@ -473,13 +477,13 @@ impl LibraryQuery for MediaListingQuery {
 				}
 			}
 
-			// Add video duration if available (minimal VideoMediaData for normalized cache)
-			if let (Some(vmd_uuid), Some(duration)) = (video_media_uuid, video_duration_seconds) {
+			// Add video media data if available
+			if let Some(vmd_uuid) = video_media_uuid {
 				file.video_media_data = Some(crate::domain::VideoMediaData {
 					uuid: vmd_uuid,
-					width: 0,
-					height: 0,
-					duration_seconds: Some(duration),
+					width: video_width.unwrap_or(0) as u32,
+					height: video_height.unwrap_or(0) as u32,
+					duration_seconds: video_duration_seconds,
 					bit_rate: None,
 					codec: None,
 					pixel_format: None,
@@ -498,6 +502,7 @@ impl LibraryQuery for MediaListingQuery {
 					album: None,
 					creation_time: None,
 					date_captured: None,
+					blurhash: None,
 				});
 			}
 

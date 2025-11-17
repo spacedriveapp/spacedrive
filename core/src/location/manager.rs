@@ -43,6 +43,7 @@ impl LocationManager {
 		device_id: i32,
 		index_mode: IndexMode,
 		action_context: Option<crate::infra::action::context::ActionContext>,
+		job_policies: Option<String>,
 	) -> LocationResult<(Uuid, String)> {
 		info!("Adding location: {}", sd_path);
 
@@ -160,7 +161,7 @@ impl LocationManager {
 			error_message: Set(None),
 			total_file_count: Set(0),
 			total_byte_size: Set(0),
-			job_policies: Set(None), // Use defaults
+			job_policies: Set(job_policies), // Save configured policies
 			created_at: Set(chrono::Utc::now()),
 			updated_at: Set(chrono::Utc::now()),
 		};

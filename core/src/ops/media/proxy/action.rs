@@ -158,9 +158,7 @@ impl LibraryAction for GenerateProxyAction {
 
 		if !result.success {
 			return Err(ActionError::Internal(
-				result
-					.error
-					.unwrap_or_else(|| "Unknown error".to_string()),
+				result.error.unwrap_or_else(|| "Unknown error".to_string()),
 			));
 		}
 
@@ -180,4 +178,3 @@ impl LibraryAction for GenerateProxyAction {
 }
 
 crate::register_library_action!(GenerateProxyAction, "media.proxy.generate");
-

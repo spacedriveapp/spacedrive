@@ -25,6 +25,7 @@ pub struct LocationAddInput {
 	pub path: crate::domain::addressing::SdPath,
 	pub name: Option<String>,
 	pub mode: IndexMode,
+	pub job_policies: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +80,13 @@ impl LibraryAction for LocationAddAction {
 		// Create action context for job tracking
 		let action_context = self.create_action_context();
 
+		// Serialize job_policies to JSON string if provided
+		let job_policies_json = self
+			.input
+			.job_policies
+			.as_ref()
+			.and_then(|jp| serde_json::to_string(jp).ok());
+
 		let (location_id, job_id_string) = location_manager
 			.add_location(
 				library.clone(),
@@ -87,6 +95,7 @@ impl LibraryAction for LocationAddAction {
 				device_record.id,
 				location_mode,
 				Some(action_context),
+				job_policies_json,
 			)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;

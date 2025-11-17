@@ -5,6 +5,7 @@ import type { File } from '@sd/ts-client/generated/types';
 import { Subtitles, type SubtitleSettings } from './Subtitles';
 import { SubtitleSettingsMenu } from './SubtitleSettingsMenu';
 import { useZoomPan } from './useZoomPan';
+import { TimelineScrubber } from './TimelineScrubber';
 
 interface VideoPlayerProps {
 	src: string;
@@ -40,6 +41,7 @@ export function VideoPlayer({ src, file }: VideoPlayerProps) {
 		position: 'bottom',
 		backgroundOpacity: 0.9
 	});
+	const [timelineHover, setTimelineHover] = useState<{ percent: number; mouseX: number } | null>(null);
 	const hideControlsTimeout = useRef<NodeJS.Timeout>();
 	const { zoom, zoomIn, zoomOut, reset, transform } = useZoomPan(videoContainerRef);
 
@@ -131,6 +133,12 @@ export function VideoPlayer({ src, file }: VideoPlayerProps) {
 		videoRef.current.currentTime = percent * duration;
 	};
 
+	const handleTimelineHover = (e: React.MouseEvent<HTMLDivElement>) => {
+		const rect = e.currentTarget.getBoundingClientRect();
+		const percent = (e.clientX - rect.left) / rect.width;
+		setTimelineHover({ percent, mouseX: e.clientX });
+	};
+
 	const toggleFullscreen = () => {
 		if (!containerRef.current) return;
 		if (document.fullscreenElement) {
@@ -200,16 +208,36 @@ export function VideoPlayer({ src, file }: VideoPlayerProps) {
 						transition={{ duration: 0.2 }}
 						className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-4 pt-16"
 					>
-						{/* Progress Bar */}
+						{/* Timeline Scrubber Preview */}
+						{timelineHover && (
+							<TimelineScrubber
+								file={file}
+								hoverPercent={timelineHover.percent}
+								mouseX={timelineHover.mouseX}
+								duration={duration}
+							/>
+						)}
+
+						{/* Progress Bar with Thick Hover Area */}
 						<div
-							className="group mb-3 cursor-pointer"
+							className="group mb-3 cursor-pointer relative py-2 -my-2"
 							onMouseDown={(e) => {
 								setSeeking(true);
 								handleSeek(e);
 							}}
-							onMouseMove={(e) => seeking && handleSeek(e)}
+							onMouseMove={(e) => {
+								if (seeking) {
+									handleSeek(e);
+								} else {
+									handleTimelineHover(e);
+								}
+							}}
+							onMouseEnter={handleTimelineHover}
 							onMouseUp={() => setSeeking(false)}
-							onMouseLeave={() => setSeeking(false)}
+							onMouseLeave={() => {
+								setSeeking(false);
+								setTimelineHover(null);
+							}}
 						>
 							<div className="relative h-1 w-full overflow-hidden rounded-full bg-white/20 transition-all group-hover:h-1.5">
 								{/* Progress */}

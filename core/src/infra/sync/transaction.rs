@@ -70,6 +70,7 @@ pub struct TransactionManager {
 	event_bus: Arc<EventBus>,
 
 	/// Current sequence number per library (library_id -> sequence)
+	/// TODO: Replace with HLC in leaderless architecture
 	sync_sequence: Arc<Mutex<std::collections::HashMap<Uuid, u64>>>,
 }
 

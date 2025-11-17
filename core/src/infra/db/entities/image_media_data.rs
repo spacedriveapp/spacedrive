@@ -13,6 +13,7 @@ pub struct Model {
 	pub uuid: Uuid,
 	pub width: i32,
 	pub height: i32,
+	pub blurhash: Option<String>,
 	pub date_taken: Option<DateTimeUtc>,
 	pub latitude: Option<f64>,
 	pub longitude: Option<f64>,
@@ -152,6 +153,12 @@ impl Syncable for Model {
 							.unwrap_or(serde_json::Value::Null),
 					)
 					.unwrap_or(0)),
+					blurhash: Set(serde_json::from_value(
+						data.get("blurhash")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
 					date_taken: Set(serde_json::from_value(
 						data.get("date_taken")
 							.cloned()
@@ -262,6 +269,7 @@ impl Syncable for Model {
 							.update_columns([
 								Column::Width,
 								Column::Height,
+								Column::Blurhash,
 								Column::DateTaken,
 								Column::Latitude,
 								Column::Longitude,

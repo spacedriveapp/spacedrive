@@ -7,7 +7,9 @@
 //! - Video transcoding
 //! - Audio metadata extraction
 //! - Image optimization
+//! - Blurhash generation for image placeholders
 
+pub mod blurhash;
 pub mod metadata_extractor;
 pub mod ocr;
 pub mod proxy;
@@ -15,10 +17,12 @@ pub mod speech;
 pub mod thumbnail;
 pub mod thumbstrip;
 
-pub use metadata_extractor::extract_image_metadata;
+pub use metadata_extractor::{extract_image_metadata, extract_image_metadata_with_blurhash};
 
 #[cfg(feature = "ffmpeg")]
-pub use metadata_extractor::{extract_audio_metadata, extract_video_metadata};
+pub use metadata_extractor::{
+	extract_audio_metadata, extract_video_metadata, extract_video_metadata_with_blurhash,
+};
 pub use ocr::{OcrJob, OcrProcessor};
 pub use proxy::{ProxyJob, ProxyProcessor};
 pub use speech::{SpeechToTextJob, SpeechToTextProcessor};

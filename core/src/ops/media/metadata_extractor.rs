@@ -7,9 +7,21 @@ use std::path::Path;
 use uuid::Uuid;
 
 /// Extract image metadata from EXIF
+///
+/// Optionally pass a blurhash if it has already been generated elsewhere
+/// (e.g., during thumbnail generation).
 pub async fn extract_image_metadata(
 	path: &Path,
 	uuid: Uuid,
+) -> Result<image_media_data::ActiveModel, Box<dyn std::error::Error + Send + Sync>> {
+	extract_image_metadata_with_blurhash(path, uuid, None).await
+}
+
+/// Extract image metadata from EXIF with optional blurhash
+pub async fn extract_image_metadata_with_blurhash(
+	path: &Path,
+	uuid: Uuid,
+	blurhash: Option<String>,
 ) -> Result<image_media_data::ActiveModel, Box<dyn std::error::Error + Send + Sync>> {
 	// Extract EXIF metadata
 	let exif = sd_media_metadata::exif::ExifMetadata::from_path(path)
@@ -27,6 +39,7 @@ pub async fn extract_image_metadata(
 		uuid: Set(uuid),
 		width: Set(exif.resolution.width as i32),
 		height: Set(exif.resolution.height as i32),
+		blurhash: Set(blurhash),
 		date_taken: Set(date_taken.map(Into::into)),
 		latitude: Set(None),  // TODO: Extract from EXIF location
 		longitude: Set(None), // TODO: Extract from EXIF location
@@ -50,10 +63,23 @@ pub async fn extract_image_metadata(
 }
 
 /// Extract video metadata from FFmpeg
+///
+/// Optionally pass a blurhash if it has already been generated elsewhere
+/// (e.g., during thumbnail generation).
 #[cfg(feature = "ffmpeg")]
 pub async fn extract_video_metadata(
 	path: &Path,
 	uuid: Uuid,
+) -> Result<video_media_data::ActiveModel, Box<dyn std::error::Error + Send + Sync>> {
+	extract_video_metadata_with_blurhash(path, uuid, None).await
+}
+
+/// Extract video metadata from FFmpeg with optional blurhash
+#[cfg(feature = "ffmpeg")]
+pub async fn extract_video_metadata_with_blurhash(
+	path: &Path,
+	uuid: Uuid,
+	blurhash: Option<String>,
 ) -> Result<video_media_data::ActiveModel, Box<dyn std::error::Error + Send + Sync>> {
 	// Probe with FFmpeg
 	let metadata = sd_ffmpeg::probe(path).await?;
@@ -183,6 +209,7 @@ pub async fn extract_video_metadata(
 		uuid: Set(uuid),
 		width: Set(width),
 		height: Set(height),
+		blurhash: Set(blurhash),
 		duration_seconds: Set(metadata.duration.map(|d| d as f64 / 1_000_000.0)),
 		bit_rate: Set(Some(metadata.bit_rate)),
 		codec: Set(codec),

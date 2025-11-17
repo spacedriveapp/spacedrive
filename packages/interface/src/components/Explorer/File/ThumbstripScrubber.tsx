@@ -7,6 +7,8 @@ interface ThumbstripScrubberProps {
 	size: number;
 	onMouseEnter?: () => void;
 	onMouseLeave?: () => void;
+	/** Whether thumbnail is cropped to square (media view) or maintains aspect ratio */
+	squareMode?: boolean;
 }
 
 /**
@@ -25,16 +27,16 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 	size,
 	onMouseEnter,
 	onMouseLeave,
+	squareMode = false,
 }: ThumbstripScrubberProps) {
 	const [hoverProgress, setHoverProgress] = useState(0);
 	const [isHovering, setIsHovering] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
-	console.log("file in thumbstrip scrubber", file);
+
 	// Find thumbstrip sidecar
 	const thumbstripSidecar = file.sidecars?.find(
 		(s) => s.kind === "thumbstrip",
 	);
-	console.log("thumbstripSidecar in thumbstrip scrubber", thumbstripSidecar);
 
 	if (!thumbstripSidecar) {
 		return null;
@@ -57,16 +59,26 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 			? file.video_media_data.width / file.video_media_data.height
 			: 16 / 9;
 
-	// Calculate dimensions to maintain aspect ratio within square container
+	// Calculate dimensions based on mode
 	let scrubberWidth = size;
 	let scrubberHeight = size;
+	let objectFit: "contain" | "cover" = "contain";
 
-	if (videoAspectRatio > 1) {
-		// Landscape video - constrain by width
-		scrubberHeight = size / videoAspectRatio;
+	if (squareMode) {
+		// Square mode (media view): Fill the entire square container
+		scrubberWidth = size;
+		scrubberHeight = size;
+		objectFit = "cover"; // Crop to fill
 	} else {
-		// Portrait video - constrain by height
-		scrubberWidth = size * videoAspectRatio;
+		// Aspect ratio mode: Maintain video aspect ratio within container
+		if (videoAspectRatio > 1) {
+			// Landscape video - constrain by width
+			scrubberHeight = size / videoAspectRatio;
+		} else {
+			// Portrait video - constrain by height
+			scrubberWidth = size * videoAspectRatio;
+		}
+		objectFit = "contain";
 	}
 
 	// Build thumbstrip URL
@@ -133,8 +145,14 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 						width: scrubberWidth,
 						height: scrubberHeight,
 						backgroundImage: `url(${thumbstripUrl})`,
-						backgroundSize: `${grid.columns * 100}% ${grid.rows * 100}%`,
-						backgroundPosition: `${spriteX}% ${spriteY}%`,
+						backgroundSize:
+							objectFit === "cover"
+								? "cover"
+								: `${grid.columns * 100}% ${grid.rows * 100}%`,
+						backgroundPosition:
+							objectFit === "cover"
+								? `${hoverProgress * 100}% center`
+								: `${spriteX}% ${spriteY}%`,
 						backgroundRepeat: "no-repeat",
 						imageRendering: "crisp-edges",
 					}}
@@ -142,7 +160,7 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 					{/* Progress indicator */}
 					<div className="absolute bottom-1 left-1 right-1 h-0.5 bg-black/50 rounded-full overflow-hidden">
 						<div
-							className="h-full bg-accent transition-all duration-75"
+							className="h-full bg-accent"
 							style={{ width: `${hoverProgress * 100}%` }}
 						/>
 					</div>

@@ -170,7 +170,11 @@ export const Thumb = memo(function Thumb({
 
 			{/* Thumbstrip scrubber overlay (for videos with thumbstrips) */}
 			{isVideo && hasThumbstrip && thumbLoaded && (
-				<ThumbstripScrubber file={file} size={size} />
+				<ThumbstripScrubber 
+					file={file} 
+					size={size}
+					squareMode={false} // Could be passed as prop based on view mode
+				/>
 			)}
 		</div>
 	);

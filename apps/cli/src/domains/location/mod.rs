@@ -45,6 +45,7 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 					path: sd_path,
 					name: args.name,
 					mode,
+					job_policies: None,
 				}
 			};
 
@@ -204,5 +205,6 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 		path: sd_path,
 		name,
 		mode,
+		job_policies: None,
 	})
 }

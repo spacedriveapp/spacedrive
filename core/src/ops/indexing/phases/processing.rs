@@ -18,6 +18,15 @@ use std::{path::Path, sync::Arc};
 use tracing::warn;
 use uuid::Uuid;
 
+/// Check if an error is a unique constraint violation
+fn is_unique_constraint_violation(error: &JobError) -> bool {
+	// Check if the error contains SQLite unique constraint violation messages
+	let error_msg = error.to_string().to_lowercase();
+	error_msg.contains("unique constraint")
+		|| error_msg.contains("unique index")
+		|| error_msg.contains("constraint failed")
+}
+
 /// Run the processing phase of indexing
 pub async fn run_processing_phase(
 	location_id: Uuid,
@@ -251,16 +260,27 @@ pub async fn run_processing_phase(
 							// end Some(Change::New)
 						}
 						Err(e) => {
-							let error_msg = format!(
-								"Failed to create entry for {}: {}",
-								entry.path.display(),
-								e
-							);
-							ctx.add_non_critical_error(error_msg);
-							state.add_error(IndexError::CreateEntry {
-								path: entry.path.to_string_lossy().to_string(),
-								error: e.to_string(),
-							});
+							// Check if this is a unique constraint violation
+							// This can happen when the watcher creates an entry while the indexer is running
+							if is_unique_constraint_violation(&e) {
+								ctx.log(format!(
+									"Entry already exists (created by watcher): {}",
+									entry.path.display()
+								));
+								// This is not an error - the entry exists, which is what we want
+								// Just skip it and continue
+							} else {
+								let error_msg = format!(
+									"Failed to create entry for {}: {}",
+									entry.path.display(),
+									e
+								);
+								ctx.add_non_critical_error(error_msg);
+								state.add_error(IndexError::CreateEntry {
+									path: entry.path.to_string_lossy().to_string(),
+									error: e.to_string(),
+								});
+							}
 						}
 					}
 				}

@@ -536,21 +536,30 @@ impl ThumbnailJob {
 			.ok_or_else(|| ThumbnailError::other("SidecarManager not available"))?;
 
 		// Determine MIME type from extension
-		let mime_type = entry
-			.extension
-			.as_ref()
-			.and_then(|ext| match ext.to_lowercase().as_str() {
-				"jpg" | "jpeg" => Some("image/jpeg"),
-				"png" => Some("image/png"),
-				"gif" => Some("image/gif"),
-				"webp" => Some("image/webp"),
-				"bmp" => Some("image/bmp"),
-				"pdf" => Some("application/pdf"),
-				#[cfg(feature = "ffmpeg")]
-				"mp4" | "mov" | "avi" | "mkv" | "webm" => Some("video/mp4"),
-				_ => None,
-			})
-			.unwrap_or("image/jpeg"); // Default to image/jpeg
+		let mime_type =
+			entry
+				.extension
+				.as_ref()
+				.and_then(|ext| match ext.to_lowercase().as_str() {
+					"jpg" | "jpeg" => Some("image/jpeg"),
+					"png" => Some("image/png"),
+					"gif" => Some("image/gif"),
+					"webp" => Some("image/webp"),
+					"bmp" => Some("image/bmp"),
+					"pdf" => Some("application/pdf"),
+					#[cfg(feature = "ffmpeg")]
+					"mp4" | "mov" | "avi" | "mkv" | "webm" | "flv" | "wmv" | "m4v" => Some("video/mp4"),
+					_ => None,
+				});
+
+		// Skip files with unsupported extensions
+		let mime_type = match mime_type {
+			Some(mt) => mt,
+			None => {
+				// Skip unsupported file types
+				return Ok(0);
+			}
+		};
 
 		// Create appropriate generator for the file type
 		let generator = ThumbnailGenerator::for_mime_type(mime_type)?;

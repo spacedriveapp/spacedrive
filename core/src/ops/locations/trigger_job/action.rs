@@ -23,6 +23,7 @@ use uuid::Uuid;
 #[serde(rename_all = "snake_case")]
 pub enum JobType {
 	Thumbnail,
+	Thumbstrip,
 	Ocr,
 	SpeechToText,
 	ObjectDetection,
@@ -32,6 +33,7 @@ impl std::fmt::Display for JobType {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			JobType::Thumbnail => write!(f, "thumbnail"),
+			JobType::Thumbstrip => write!(f, "thumbstrip"),
 			JobType::Ocr => write!(f, "ocr"),
 			JobType::SpeechToText => write!(f, "speech_to_text"),
 			JobType::ObjectDetection => write!(f, "object_detection"),
@@ -110,6 +112,22 @@ impl LibraryAction for LocationTriggerJobAction {
 
 				library.jobs().dispatch(job).await.map_err(|e| {
 					ActionError::Internal(format!("Failed to dispatch thumbnail job: {}", e))
+				})?
+			}
+
+			JobType::Thumbstrip => {
+				if !job_policies.thumbstrip.enabled && !self.input.force {
+					return Err(ActionError::Validation {
+						field: "job_type".to_string(),
+						message: "Thumbstrip generation is disabled for this location. Use force=true to override.".to_string(),
+					});
+				}
+
+				let config = job_policies.thumbstrip.to_job_config();
+				let job = crate::ops::media::thumbstrip::ThumbstripJob::new(config);
+
+				library.jobs().dispatch(job).await.map_err(|e| {
+					ActionError::Internal(format!("Failed to dispatch thumbstrip job: {}", e))
 				})?
 			}
 

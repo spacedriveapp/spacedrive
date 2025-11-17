@@ -10,6 +10,7 @@ pub struct ThumbnailInfo {
 	pub size_bytes: usize,
 	pub dimensions: (u32, u32),
 	pub format: String,
+	pub blurhash: Option<String>,
 }
 
 /// Multi-format thumbnail generator
@@ -92,6 +93,18 @@ impl ImageGenerator {
 			let img = sd_images::format_image(&source_path)
 				.map_err(|e| ThumbnailError::other(format!("Failed to load image: {}", e)))?;
 
+			// Generate blurhash from original image for better quality
+			// Wrap in catch_unwind since blurhash library can panic on some images
+			let blurhash = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+				crate::ops::media::blurhash::generate_blurhash(&img)
+			}))
+			.ok()
+			.and_then(|result| result.ok())
+			.or_else(|| {
+				tracing::warn!("Failed to generate blurhash for image (caught panic or error)");
+				None
+			});
+
 			// Calculate target dimensions maintaining aspect ratio
 			let (original_width, original_height) = (img.width(), img.height());
 			let (target_width, target_height) =
@@ -111,6 +124,17 @@ impl ImageGenerator {
 			let actual_width = rgb_thumbnail.width();
 			let actual_height = rgb_thumbnail.height();
 
+			// Verify buffer size matches expected dimensions
+			let expected_size = (actual_width * actual_height * 3) as usize;
+			let actual_size = rgb_thumbnail.as_raw().len();
+
+			if expected_size != actual_size {
+				return Err(ThumbnailError::other(format!(
+					"Image buffer size mismatch: expected {} bytes for {}x{}, got {} bytes",
+					expected_size, actual_width, actual_height, actual_size
+				)));
+			}
+
 			// Encode as WebP using actual dimensions
 			let webp_encoder = webp::Encoder::from_rgb(&rgb_thumbnail, actual_width, actual_height);
 			let webp_memory = webp_encoder.encode(quality as f32);
@@ -123,6 +147,7 @@ impl ImageGenerator {
 				size_bytes: webp_data.len(),
 				dimensions: (actual_width, actual_height),
 				format: "webp".to_string(),
+				blurhash,
 			})
 		})
 		.await
@@ -154,6 +179,51 @@ impl VideoGenerator {
 				return Err(ThumbnailError::InvalidQuality(quality));
 			}
 
+			// Generate blurhash from first video frame
+			let source_path_clone = source_path.to_path_buf();
+			let blurhash = tokio::task::spawn_blocking(move || {
+				// Decode first frame to generate blurhash
+				let mut decoder =
+					match sd_ffmpeg::FrameDecoder::new(&source_path_clone, true, false) {
+						Ok(d) => d,
+						Err(e) => {
+							tracing::debug!("Failed to create frame decoder for blurhash: {}", e);
+							return None;
+						}
+					};
+
+				if let Err(e) = decoder.decode_video_frame() {
+					tracing::debug!("Failed to decode video frame for blurhash: {}", e);
+					return None;
+				}
+
+				// Get frame as image (scaled to 256px for blurhash generation)
+				let frame = match decoder
+					.get_scaled_video_frame(Some(sd_ffmpeg::ThumbnailSize::Scale(256)), true)
+				{
+					Ok(f) => f,
+					Err(e) => {
+						tracing::debug!("Failed to extract frame for blurhash: {}", e);
+						return None;
+					}
+				};
+
+				// Convert to DynamicImage
+				let img = match image::RgbImage::from_raw(frame.width, frame.height, frame.data) {
+					Some(img) => image::DynamicImage::ImageRgb8(img),
+					None => {
+						tracing::debug!("Failed to create image from frame data");
+						return None;
+					}
+				};
+
+				// Generate blurhash
+				crate::ops::media::blurhash::generate_blurhash(&img).ok()
+			})
+			.await
+			.ok()
+			.flatten();
+
 			// Use sd-ffmpeg helper function to generate thumbnail
 			sd_ffmpeg::to_thumbnail(
 				source_path,
@@ -176,6 +246,7 @@ impl VideoGenerator {
 				size_bytes: file_size,
 				dimensions,
 				format: "webp".to_string(),
+				blurhash,
 			})
 		}
 
@@ -223,6 +294,14 @@ impl DocumentGenerator {
 			let img = sd_images::format_image(&source_path)
 				.map_err(|e| ThumbnailError::other(format!("Failed to load PDF: {}", e)))?;
 
+			// Generate blurhash from original image
+			let blurhash = crate::ops::media::blurhash::generate_blurhash(&img)
+				.ok()
+				.or_else(|| {
+					tracing::debug!("Failed to generate blurhash for PDF");
+					None
+				});
+
 			// Calculate target dimensions maintaining aspect ratio
 			let (original_width, original_height) = (img.width(), img.height());
 			let (target_width, target_height) =
@@ -254,6 +333,7 @@ impl DocumentGenerator {
 				size_bytes: webp_data.len(),
 				dimensions: (actual_width, actual_height),
 				format: "webp".to_string(),
+				blurhash,
 			})
 		})
 		.await

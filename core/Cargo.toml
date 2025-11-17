@@ -107,6 +107,7 @@ rmp-serde      = "1.3"                              # MessagePack serialization 
 sd-task-system = { path = "../crates/task-system" }
 
 # Media processing dependencies
+blurhash         = "0.2"
 image            = "0.25"
 sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
 sd-images        = { path = "../crates/images" }

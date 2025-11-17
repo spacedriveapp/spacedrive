@@ -1,9 +1,28 @@
 import clsx from "clsx";
-import { Copy, Trash, Eye, FolderOpen, MagnifyingGlass } from "@phosphor-icons/react";
+import {
+	Copy,
+	Trash,
+	Eye,
+	FolderOpen,
+	MagnifyingGlass,
+	Image,
+	Video,
+	Microphone,
+	FileText,
+	Stack,
+	Sparkle,
+	FilmStrip,
+	Waveform,
+	MagicWand,
+	TextAa,
+	Crop,
+	FileVideo,
+} from "@phosphor-icons/react";
 import type { File } from "@sd/ts-client/generated/types";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useContextMenu } from "../../../../hooks/useContextMenu";
+import { useJobDispatch } from "../../../../hooks/useJobDispatch";
 import { useLibraryMutation } from "../../../../context";
 import { usePlatform } from "../../../../platform";
 import { formatBytes } from "../../utils";
@@ -21,6 +40,7 @@ export function FileCard({ file, selected, focused, onSelect }: FileCardProps) {
   const platform = usePlatform();
   const copyFiles = useLibraryMutation("files.copy");
   const deleteFiles = useLibraryMutation("files.delete");
+  const { runJob } = useJobDispatch();
 
   // Get the files to operate on (multi-select or just this file)
   const getTargetFiles = () => {
@@ -149,6 +169,217 @@ export function FileCard({ file, selected, focused, onSelect }: FileCardProps) {
           const clipboard = window.__SPACEDRIVE__?.clipboard;
           return !!clipboard && !!clipboard.files && clipboard.files.length > 0;
         },
+      },
+      // Media Processing submenu
+      {
+        type: "submenu",
+        icon: Image,
+        label: "Image Processing",
+        condition: () => file.content_identity?.kind === "image",
+        submenu: [
+          {
+            icon: Sparkle,
+            label: "Generate Blurhash",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("thumbnail", {
+                file_ids: targets.map((f) => f.id),
+                generate_blurhash: true,
+              });
+            },
+            condition: () => !file.image_media_data?.blurhash,
+          },
+          {
+            icon: Crop,
+            label: "Regenerate Thumbnail",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("thumbnail", {
+                file_ids: targets.map((f) => f.id),
+                force: true,
+              });
+            },
+          },
+          {
+            icon: TextAa,
+            label: "Extract Text (OCR)",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("ocr", {
+                file_ids: targets.map((f) => f.id),
+              });
+            },
+            keybind: "⌘⇧T",
+          },
+        ],
+      },
+      {
+        type: "submenu",
+        icon: Video,
+        label: "Video Processing",
+        condition: () => file.content_identity?.kind === "video",
+        submenu: [
+          {
+            icon: FilmStrip,
+            label: "Generate Thumbstrip",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("thumbstrip", {
+                file_ids: targets.map((f) => f.id),
+                frame_count: 10,
+              });
+            },
+            condition: () => !file.sidecars?.some((s) => s.kind === "thumbstrip"),
+          },
+          {
+            icon: Sparkle,
+            label: "Generate Blurhash",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("thumbnail", {
+                file_ids: targets.map((f) => f.id),
+                generate_blurhash: true,
+              });
+            },
+            condition: () => !file.video_media_data?.blurhash,
+          },
+          {
+            icon: Crop,
+            label: "Regenerate Thumbnail",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("thumbnail", {
+                file_ids: targets.map((f) => f.id),
+                force: true,
+              });
+            },
+          },
+          {
+            icon: Waveform,
+            label: "Extract Subtitles",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("speech_to_text", {
+                file_ids: targets.map((f) => f.id),
+                output_format: "srt",
+              });
+            },
+          },
+          {
+            icon: FileVideo,
+            label: "Generate Proxy",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("proxy", {
+                file_ids: targets.map((f) => f.id),
+                quality: "720p",
+              });
+            },
+            keybind: "⌘⇧P",
+          },
+        ],
+      },
+      {
+        type: "submenu",
+        icon: Microphone,
+        label: "Audio Processing",
+        condition: () => file.content_identity?.kind === "audio",
+        submenu: [
+          {
+            icon: TextAa,
+            label: "Transcribe Audio",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("speech_to_text", {
+                file_ids: targets.map((f) => f.id),
+                model: "whisper-base",
+              });
+            },
+            keybind: "⌘⇧T",
+          },
+        ],
+      },
+      {
+        type: "submenu",
+        icon: FileText,
+        label: "Document Processing",
+        condition: () => ["pdf", "doc", "docx"].includes(file.extension || ""),
+        submenu: [
+          {
+            icon: TextAa,
+            label: "Extract Text (OCR)",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("ocr", {
+                file_ids: targets.map((f) => f.id),
+              });
+            },
+            keybind: "⌘⇧T",
+          },
+          {
+            icon: Crop,
+            label: "Regenerate Thumbnail",
+            onClick: async () => {
+              const targets = getTargetFiles();
+              await runJob("thumbnail", {
+                file_ids: targets.map((f) => f.id),
+                force: true,
+              });
+            },
+          },
+        ],
+      },
+      // Batch operations submenu
+      {
+        type: "submenu",
+        icon: Stack,
+        label: `Process ${selectedFiles.length} Items`,
+        condition: () => selected && selectedFiles.length > 1,
+        submenu: [
+          {
+            icon: Crop,
+            label: "Regenerate All Thumbnails",
+            onClick: async () => {
+              await runJob("thumbnail", {
+                file_ids: selectedFiles.map((f) => f.id),
+                force: true,
+              });
+            },
+          },
+          {
+            icon: Sparkle,
+            label: "Generate Blurhashes",
+            onClick: async () => {
+              await runJob("thumbnail", {
+                file_ids: selectedFiles.map((f) => f.id),
+                generate_blurhash: true,
+              });
+            },
+            keybind: "⌘⇧B",
+          },
+          {
+            icon: TextAa,
+            label: "Extract Text from All",
+            onClick: async () => {
+              await runJob("ocr", {
+                file_ids: selectedFiles.map((f) => f.id),
+              });
+            },
+          },
+          {
+            icon: FilmStrip,
+            label: "Generate Thumbstrips (Videos)",
+            onClick: async () => {
+              const videos = selectedFiles.filter((f) => f.content_identity?.kind === "video");
+              if (videos.length > 0) {
+                await runJob("thumbstrip", {
+                  file_ids: videos.map((f) => f.id),
+                });
+              }
+            },
+            condition: () => selectedFiles.some((f) => f.content_identity?.kind === "video"),
+          },
+        ],
       },
       { type: "separator" },
       {

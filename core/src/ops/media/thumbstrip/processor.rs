@@ -65,18 +65,38 @@ impl ThumbstripProcessor {
 
 	pub fn should_process(&self, entry: &ProcessorEntry) -> bool {
 		if !matches!(entry.kind, EntryKind::File) {
+			debug!("Not a file, skipping");
 			return false;
 		}
 
 		if entry.content_id.is_none() {
+			debug!("No content_id, skipping");
 			return false;
 		}
 
-		// Only video files
-		entry
+		// Only video files - check both MIME type and extension
+		let is_video = entry
 			.mime_type
 			.as_ref()
 			.map_or(false, |m| m.starts_with("video/"))
+			|| entry
+				.mime_type
+				.as_ref()
+				.and_then(|ext| {
+					// Common video extensions
+					matches!(
+						ext.to_lowercase().as_str(),
+						"mp4" | "mov" | "avi" | "mkv" | "webm" | "flv" | "wmv" | "m4v"
+					)
+					.then_some(true)
+				})
+				.unwrap_or(false);
+
+		if !is_video {
+			debug!("Not a video file (mime: {:?}), skipping", entry.mime_type);
+		}
+
+		is_video
 	}
 
 	pub async fn process(

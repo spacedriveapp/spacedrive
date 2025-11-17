@@ -36,21 +36,36 @@ impl ThumbstripJob {
 	}
 
 	async fn run_discovery(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
-		use crate::infra::db::entities::{content_identity, entry};
+		use crate::infra::db::entities::{content_identity, entry, mime_type};
 		use sea_orm::{
-			ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait,
+			ColumnTrait, EntityTrait, FromQueryResult, JoinType, QueryFilter, QuerySelect,
+			RelationTrait,
 		};
 
 		ctx.log("Starting thumbstrip discovery phase");
 
 		let db = ctx.library_db();
 
-		// Query for video entries with content
+		#[derive(Debug, FromQueryResult)]
+		struct EntryWithMimeType {
+			entry_id: i32,
+			mime_type: Option<String>,
+		}
+
+		// Query for video entries with MIME types in one go
 		let results = entry::Entity::find()
+			.select_only()
+			.column_as(entry::Column::Id, "entry_id")
+			.column_as(mime_type::Column::MimeType, "mime_type")
 			.filter(entry::Column::Kind.eq(0)) // Files only
 			.join(JoinType::InnerJoin, entry::Relation::ContentIdentity.def())
+			.join(
+				JoinType::LeftJoin,
+				content_identity::Relation::MimeType.def(),
+			)
 			.filter(content_identity::Column::KindId.eq(2)) // Video kind
 			.filter(content_identity::Column::Uuid.is_not_null())
+			.into_model::<EntryWithMimeType>()
 			.all(db)
 			.await
 			.map_err(|e| JobError::execution(format!("Database query failed: {}", e)))?;
@@ -58,14 +73,14 @@ impl ThumbstripJob {
 		ctx.log(format!("Found {} video entries", results.len()));
 
 		// Build entry list
-		for entry_model in results {
-			let path = crate::ops::indexing::PathResolver::get_full_path(db, entry_model.id)
+		for result in results {
+			let path = crate::ops::indexing::PathResolver::get_full_path(db, result.entry_id)
 				.await
 				.map_err(|e| JobError::execution(format!("Failed to resolve path: {}", e)))?;
 
 			self.state
 				.entries
-				.push((entry_model.id, path, entry_model.extension));
+				.push((result.entry_id, path, result.mime_type));
 		}
 
 		ctx.log(format!(
@@ -158,9 +173,16 @@ impl JobHandler for ThumbstripJob {
 
 			// Check if processor should run
 			if !processor.should_process(&proc_entry) {
+				ctx.log(format!(
+					"Processor.should_process returned false for {} (mime: {:?})",
+					path.display(),
+					mime_type
+				));
 				self.state.processed += 1;
 				continue;
 			}
+
+			ctx.log(format!("Processor will process: {}", path.display()));
 
 			// Process entry using processor
 			match processor.process(ctx.library_db(), &proc_entry).await {

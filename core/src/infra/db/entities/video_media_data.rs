@@ -13,6 +13,7 @@ pub struct Model {
 	pub uuid: Uuid,
 	pub width: i32,
 	pub height: i32,
+	pub blurhash: Option<String>,
 	pub duration_seconds: Option<f64>,
 	pub bit_rate: Option<i64>,
 	pub codec: Option<String>,
@@ -151,6 +152,12 @@ impl Syncable for Model {
 							.unwrap_or(serde_json::Value::Null),
 					)
 					.unwrap_or(0)),
+					blurhash: Set(serde_json::from_value(
+						data.get("blurhash")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
+					)
+					.unwrap()),
 					duration_seconds: Set(serde_json::from_value(
 						data.get("duration_seconds")
 							.cloned()
@@ -275,6 +282,7 @@ impl Syncable for Model {
 							.update_columns([
 								Column::Width,
 								Column::Height,
+								Column::Blurhash,
 								Column::DurationSeconds,
 								Column::BitRate,
 								Column::Codec,

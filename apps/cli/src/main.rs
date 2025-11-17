@@ -50,6 +50,7 @@ use crate::domains::{
 	cloud, config as config_cmd,
 	daemon::{self, DaemonCmd},
 	devices::{self, DevicesCmd},
+	events::{self, EventsCmd},
 	file::{self, FileCmd},
 	index::{self, IndexCmd},
 	job::{self, JobCmd},
@@ -182,6 +183,9 @@ enum Commands {
 	/// Device operations (library database)
 	#[command(subcommand)]
 	Devices(DevicesCmd),
+	/// Monitor event bus in real-time
+	#[command(subcommand)]
+	Events(EventsCmd),
 	/// Libraries operations
 	#[command(subcommand)]
 	Library(LibraryCmd),
@@ -695,6 +699,7 @@ async fn run_client_command(
 			}
 		}
 		Commands::Devices(cmd) => devices::run(&ctx, cmd).await?,
+		Commands::Events(cmd) => events::run(&ctx, cmd).await?,
 		Commands::Library(cmd) => library::run(&ctx, cmd).await?,
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,

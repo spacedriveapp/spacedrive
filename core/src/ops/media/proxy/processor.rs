@@ -86,11 +86,14 @@ impl ProxyProcessor {
 			return false;
 		}
 
-		// Only video files
-		entry
-			.mime_type
-			.as_ref()
-			.map_or(false, |m| m.starts_with("video/"))
+		// Only video files - check both MIME type and extension
+		entry.mime_type.as_ref().map_or(false, |m| {
+			m.starts_with("video/")
+				|| matches!(
+					m.to_lowercase().as_str(),
+					"mp4" | "mov" | "avi" | "mkv" | "webm" | "flv" | "wmv" | "m4v"
+				)
+		})
 	}
 
 	pub async fn process(

@@ -2,6 +2,7 @@ pub mod cloud;
 pub mod config;
 pub mod daemon;
 pub mod devices;
+pub mod events;
 pub mod file;
 pub mod index;
 pub mod job;

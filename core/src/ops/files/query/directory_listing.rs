@@ -166,7 +166,9 @@ impl LibraryQuery for DirectoryListingQuery {
 				ck.id as content_kind_id,
 				ck.name as content_kind_name,
 				vmd.uuid as video_media_uuid,
-				vmd.duration_seconds as video_duration_seconds
+				vmd.duration_seconds as video_duration_seconds,
+				vmd.width as video_width,
+				vmd.height as video_height
 			FROM entries e
 			LEFT JOIN content_identities ci ON e.content_id = ci.id
 			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
@@ -297,10 +299,12 @@ impl LibraryQuery for DirectoryListingQuery {
 			// Content kind data
 			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 
-			// Video media data (just duration for grid display)
+			// Video media data
 			let video_media_uuid: Option<Uuid> = row.try_get("", "video_media_uuid").ok();
 			let video_duration_seconds: Option<f64> =
 				row.try_get("", "video_duration_seconds").ok();
+			let video_width: Option<i32> = row.try_get("", "video_width").ok();
+			let video_height: Option<i32> = row.try_get("", "video_height").ok();
 
 			// Build SdPath for this entry (child of the parent path)
 			// IMPORTANT: Include extension in the path for files
@@ -396,13 +400,13 @@ impl LibraryQuery for DirectoryListingQuery {
 				}
 			}
 
-			// Add video duration if available (minimal VideoMediaData for normalized cache)
-			if let (Some(vmd_uuid), Some(duration)) = (video_media_uuid, video_duration_seconds) {
+			// Add video media data if available
+			if let Some(vmd_uuid) = video_media_uuid {
 				file.video_media_data = Some(crate::domain::VideoMediaData {
 					uuid: vmd_uuid,
-					width: 0,
-					height: 0,
-					duration_seconds: Some(duration),
+					width: video_width.unwrap_or(0) as u32,
+					height: video_height.unwrap_or(0) as u32,
+					duration_seconds: video_duration_seconds,
 					bit_rate: None,
 					codec: None,
 					pixel_format: None,
@@ -421,6 +425,7 @@ impl LibraryQuery for DirectoryListingQuery {
 					album: None,
 					creation_time: None,
 					date_captured: None,
+					blurhash: None,
 				});
 			}
 
