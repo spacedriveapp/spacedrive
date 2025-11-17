@@ -59,27 +59,24 @@ impl FileDeleteProtocolHandler {
 			// Execute deletion using the strategy
 			// Note: We're creating a minimal job context for this operation
 			// In a full implementation, this might integrate with the job system
-			let results = match Self::execute_deletion_with_strategy(&strategy, &paths, mode.clone())
-				.await
-			{
-				Ok(results) => results,
-				Err(e) => {
-					return Ok(FileDeleteMessage::Response {
-						request_id,
-						results: paths
-							.iter()
-							.map(|path| {
-								crate::ops::files::delete::strategy::DeleteResult {
+			let results =
+				match Self::execute_deletion_with_strategy(&strategy, &paths, mode.clone()).await {
+					Ok(results) => results,
+					Err(e) => {
+						return Ok(FileDeleteMessage::Response {
+							request_id,
+							results: paths
+								.iter()
+								.map(|path| crate::ops::files::delete::strategy::DeleteResult {
 									path: path.clone(),
 									success: false,
 									bytes_freed: 0,
 									error: Some(format!("Strategy execution failed: {}", e)),
-								}
-							})
-							.collect(),
-					});
-				}
-			};
+								})
+								.collect(),
+						});
+					}
+				};
 
 			Ok(FileDeleteMessage::Response {
 				request_id,
@@ -248,4 +245,3 @@ impl super::ProtocolHandler for FileDeleteProtocolHandler {
 		Ok(())
 	}
 }
-

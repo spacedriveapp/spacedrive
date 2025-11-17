@@ -1,8 +1,8 @@
 //! Get sync metrics action
 
+use crate::context::CoreContext;
 use crate::infra::query::{LibraryQuery, QueryError, QueryResult};
 use crate::service::sync::metrics::snapshot::SyncMetricsSnapshot;
-use crate::context::CoreContext;
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -38,27 +38,28 @@ impl LibraryQuery for GetSyncMetrics {
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| QueryError::LibraryNotFound(library_id))?;
-		
-		let sync_service = library.sync_service()
+
+		let sync_service = library
+			.sync_service()
 			.ok_or_else(|| QueryError::Internal("Sync service not available".to_string()))?;
 		let metrics = sync_service.metrics();
-		
+
 		// Create a snapshot of current metrics
 		let mut snapshot = SyncMetricsSnapshot::from_metrics(metrics.metrics()).await;
-		
+
 		// Apply filters
 		if let Some(since) = input.since {
 			snapshot.filter_since(since);
 		}
-		
+
 		if let Some(peer_id) = input.peer_id {
 			snapshot.filter_by_peer(peer_id);
 		}
-		
+
 		if let Some(model_type) = input.model_type {
 			snapshot.filter_by_model(&model_type);
 		}
-		
+
 		// Apply category filters
 		if input.state_only.unwrap_or(false) {
 			// Keep only state metrics, clear others
@@ -67,7 +68,7 @@ impl LibraryQuery for GetSyncMetrics {
 			snapshot.performance = Default::default();
 			snapshot.errors = Default::default();
 		}
-		
+
 		if input.operations_only.unwrap_or(false) {
 			// Keep only operation metrics, clear others
 			snapshot.state = Default::default();
@@ -75,7 +76,7 @@ impl LibraryQuery for GetSyncMetrics {
 			snapshot.performance = Default::default();
 			snapshot.errors = Default::default();
 		}
-		
+
 		if input.errors_only.unwrap_or(false) {
 			// Keep only error metrics, clear others
 			snapshot.state = Default::default();
@@ -83,7 +84,7 @@ impl LibraryQuery for GetSyncMetrics {
 			snapshot.data_volume = Default::default();
 			snapshot.performance = Default::default();
 		}
-		
+
 		Ok(GetSyncMetricsOutput { metrics: snapshot })
 	}
 }

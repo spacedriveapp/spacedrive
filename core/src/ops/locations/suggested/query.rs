@@ -48,7 +48,9 @@ impl LibraryQuery for SuggestedLocationsQuery {
 			.filter(crate::infra::db::entities::device::Column::Uuid.eq(current_device_uuid))
 			.one(db)
 			.await?
-			.ok_or_else(|| QueryError::Internal("Current device not found in library".to_string()))?;
+			.ok_or_else(|| {
+				QueryError::Internal("Current device not found in library".to_string())
+			})?;
 
 		// Get all existing locations for this device with their paths
 		let existing_locations = crate::infra::db::entities::location::Entity::find()

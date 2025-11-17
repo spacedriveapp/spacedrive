@@ -83,13 +83,16 @@ impl LibraryQuery for FileSearchQuery {
 		// Perform the search based on mode
 		let results = match self.input.mode {
 			crate::ops::search::input::SearchMode::Fast => {
-				self.execute_fast_search(db.conn(), &device_slug_map).await?
+				self.execute_fast_search(db.conn(), &device_slug_map)
+					.await?
 			}
 			crate::ops::search::input::SearchMode::Normal => {
-				self.execute_normal_search(db.conn(), &device_slug_map).await?
+				self.execute_normal_search(db.conn(), &device_slug_map)
+					.await?
 			}
 			crate::ops::search::input::SearchMode::Full => {
-				self.execute_full_search(db.conn(), &device_slug_map).await?
+				self.execute_full_search(db.conn(), &device_slug_map)
+					.await?
 			}
 		};
 
@@ -852,9 +855,15 @@ impl FileSearchQuery {
 
 		// First get the basic search results
 		let entry_results = match self.input.mode {
-			crate::ops::search::input::SearchMode::Fast => self.execute_fast_search(db, &device_slug_map).await?,
-			crate::ops::search::input::SearchMode::Normal => self.execute_normal_search(db, &device_slug_map).await?,
-			crate::ops::search::input::SearchMode::Full => self.execute_full_search(db, &device_slug_map).await?,
+			crate::ops::search::input::SearchMode::Fast => {
+				self.execute_fast_search(db, &device_slug_map).await?
+			}
+			crate::ops::search::input::SearchMode::Normal => {
+				self.execute_normal_search(db, &device_slug_map).await?
+			}
+			crate::ops::search::input::SearchMode::Full => {
+				self.execute_full_search(db, &device_slug_map).await?
+			}
 		};
 
 		if entry_results.is_empty() {
@@ -875,7 +884,6 @@ impl FileSearchQuery {
 
 		Ok(enhanced_results)
 	}
-
 }
 
 crate::register_library_query!(FileSearchQuery, "search.files");

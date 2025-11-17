@@ -140,10 +140,7 @@ mod tests {
 
 	#[test]
 	fn test_custom_variant_name() {
-		assert_eq!(
-			ThumbnailVariants::variant_name_for_size(256),
-			"grid@1x"
-		);
+		assert_eq!(ThumbnailVariants::variant_name_for_size(256), "grid@1x");
 		assert_eq!(
 			ThumbnailVariants::variant_name_for_size(999),
 			"custom@999px"

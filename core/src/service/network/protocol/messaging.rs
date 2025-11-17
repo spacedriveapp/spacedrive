@@ -275,17 +275,15 @@ impl MessagingProtocolHandler {
 						}
 						Ok(None) => {
 							// Get existing slugs for collision detection
-							let existing_slugs: Vec<String> = match entities::device::Entity::find()
-								.all(db.conn())
-								.await
-							{
-								Ok(devices) => devices.iter().map(|d| d.slug.clone()).collect(),
-								Err(e) => {
-									success = false;
-									error_msg = Some(format!("Database error: {}", e));
-									break;
-								}
-							};
+							let existing_slugs: Vec<String> =
+								match entities::device::Entity::find().all(db.conn()).await {
+									Ok(devices) => devices.iter().map(|d| d.slug.clone()).collect(),
+									Err(e) => {
+										success = false;
+										error_msg = Some(format!("Database error: {}", e));
+										break;
+									}
+								};
 
 							// Check if the device's slug conflicts and rename if needed
 							let unique_slug = crate::library::Library::ensure_unique_slug(
@@ -320,10 +318,10 @@ impl MessagingProtocolHandler {
 									"volume_detection": true
 								})),
 								created_at: Set(Utc::now()),
-							sync_enabled: Set(true), // Enable sync for registered devices
-							last_sync_at: Set(None),
-							updated_at: Set(Utc::now()),
-						};
+								sync_enabled: Set(true), // Enable sync for registered devices
+								last_sync_at: Set(None),
+								updated_at: Set(Utc::now()),
+							};
 
 							if let Err(e) = device_model.insert(db.conn()).await {
 								success = false;
@@ -382,10 +380,7 @@ impl MessagingProtocolHandler {
 					tracing::info!("Library {} already exists, returning success", library_id);
 
 					// Get this device's slug in the library
-					let device_slug = context
-						.device_manager
-						.slug_for_library(library_id)
-						.ok();
+					let device_slug = context.device_manager.slug_for_library(library_id).ok();
 
 					let response = Message::Library(LibraryMessage::CreateSharedLibraryResponse {
 						request_id,
@@ -417,10 +412,7 @@ impl MessagingProtocolHandler {
 
 						// Get this device's resolved slug in the new library
 						// After ensure_device_registered, this will return the collision-resolved slug
-						let device_slug = context
-							.device_manager
-							.slug_for_library(library_id)
-							.ok();
+						let device_slug = context.device_manager.slug_for_library(library_id).ok();
 
 						let response =
 							Message::Library(LibraryMessage::CreateSharedLibraryResponse {
@@ -429,8 +421,7 @@ impl MessagingProtocolHandler {
 								message: None,
 								device_slug,
 							});
-						serde_json::to_vec(&response)
-							.map_err(|e| NetworkingError::Serialization(e))
+						serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
 					}
 					Err(e) => {
 						tracing::error!("Failed to create library: {}", e);
@@ -441,8 +432,7 @@ impl MessagingProtocolHandler {
 								message: Some(e.to_string()),
 								device_slug: None,
 							});
-						serde_json::to_vec(&response)
-							.map_err(|e| NetworkingError::Serialization(e))
+						serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
 					}
 				}
 			}
@@ -463,9 +453,12 @@ impl MessagingProtocolHandler {
 				})?;
 
 				let library_manager = context.libraries().await;
-				let library = library_manager.get_library(library_id).await.ok_or_else(|| {
-					NetworkingError::Protocol(format!("Library {} not found", library_id))
-				})?;
+				let library = library_manager
+					.get_library(library_id)
+					.await
+					.ok_or_else(|| {
+						NetworkingError::Protocol(format!("Library {} not found", library_id))
+					})?;
 
 				let db = library.db();
 
@@ -503,7 +496,6 @@ impl MessagingProtocolHandler {
 			}
 		}
 	}
-
 
 	/// Send a library message to a remote node and wait for response
 	/// Uses cached connections and creates new streams (Iroh best practice)
@@ -544,17 +536,16 @@ impl MessagingProtocolHandler {
 
 		// Send with length prefix
 		let len = msg_data.len() as u32;
-		send.write_all(&len.to_be_bytes()).await.map_err(|e| {
-			NetworkingError::Transport(format!("Failed to send length: {}", e))
-		})?;
-		send.write_all(&msg_data).await.map_err(|e| {
-			NetworkingError::Transport(format!("Failed to send data: {}", e))
-		})?;
+		send.write_all(&len.to_be_bytes())
+			.await
+			.map_err(|e| NetworkingError::Transport(format!("Failed to send length: {}", e)))?;
+		send.write_all(&msg_data)
+			.await
+			.map_err(|e| NetworkingError::Transport(format!("Failed to send data: {}", e)))?;
 
 		// Properly close stream (Iroh best practice)
-		send.finish().map_err(|e| {
-			NetworkingError::Transport(format!("Failed to finish stream: {}", e))
-		})?;
+		send.finish()
+			.map_err(|e| NetworkingError::Transport(format!("Failed to finish stream: {}", e)))?;
 
 		tracing::debug!("Message sent, waiting for response...");
 
@@ -601,7 +592,6 @@ impl MessagingProtocolHandler {
 		}
 	}
 }
-
 
 #[async_trait]
 impl ProtocolHandler for MessagingProtocolHandler {
@@ -662,29 +652,38 @@ impl ProtocolHandler for MessagingProtocolHandler {
 							// Handle library message - need to derive device_id from node_id
 							// For now, use a placeholder (TODO: proper mapping)
 							// Map node_id to device_id using registry
-						let device_id_opt = {
-							let registry = self.device_registry.read().await;
-							registry.get_device_by_node(remote_node_id)
-						};
+							let device_id_opt = {
+								let registry = self.device_registry.read().await;
+								registry.get_device_by_node(remote_node_id)
+							};
 
-						let resp = match device_id_opt {
-							Some(device_id) => {
-								match self.handle_library_message(device_id, lib_msg.clone()).await {
-									Ok(resp) => resp,
-									Err(e) => {
-										tracing::error!("Failed to handle library message: {}", e);
-										Vec::new()
+							let resp = match device_id_opt {
+								Some(device_id) => {
+									match self
+										.handle_library_message(device_id, lib_msg.clone())
+										.await
+									{
+										Ok(resp) => resp,
+										Err(e) => {
+											tracing::error!(
+												"Failed to handle library message: {}",
+												e
+											);
+											Vec::new()
+										}
 									}
 								}
-							}
-							None => {
-								tracing::warn!("Received library message from unknown node {}", remote_node_id);
-								Vec::new()
-							}
-						};
-						resp
-					}
-					Message::Goodbye { reason, .. } => {
+								None => {
+									tracing::warn!(
+										"Received library message from unknown node {}",
+										remote_node_id
+									);
+									Vec::new()
+								}
+							};
+							resp
+						}
+						Message::Goodbye { reason, .. } => {
 							// Received graceful disconnect from remote device
 							eprintln!("Remote device disconnecting gracefully: {}", reason);
 							// Close the stream by breaking the loop

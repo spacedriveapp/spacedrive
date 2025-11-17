@@ -215,9 +215,7 @@ impl CloudBackend {
 		}
 
 		let operator = opendal::Operator::new(builder)
-			.map_err(|e| {
-				VolumeError::Platform(format!("Failed to create GCS operator: {}", e))
-			})?
+			.map_err(|e| VolumeError::Platform(format!("Failed to create GCS operator: {}", e)))?
 			.finish();
 
 		Ok(Self {

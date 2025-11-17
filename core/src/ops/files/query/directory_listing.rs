@@ -6,14 +6,10 @@
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	domain::{
-		addressing::SdPath,
-		content_identity::ContentIdentity,
-		file::File,
-		tag::Tag,
-	},
+	domain::{addressing::SdPath, content_identity::ContentIdentity, file::File, tag::Tag},
 	infra::db::entities::{
-		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag, video_media_data,
+		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag,
+		video_media_data,
 	},
 	infra::query::LibraryQuery,
 };
@@ -226,7 +222,11 @@ impl LibraryQuery for DirectoryListingQuery {
 		// Collect all content UUIDs for batch sidecar query
 		let content_uuids: Vec<Uuid> = rows
 			.iter()
-			.filter_map(|row| row.try_get::<Option<Uuid>>("", "content_identity_uuid").ok().flatten())
+			.filter_map(|row| {
+				row.try_get::<Option<Uuid>>("", "content_identity_uuid")
+					.ok()
+					.flatten()
+			})
 			.collect();
 
 		// Batch fetch all sidecars for these content UUIDs
@@ -240,7 +240,8 @@ impl LibraryQuery for DirectoryListingQuery {
 		};
 
 		// Group sidecars by content_uuid for fast lookup
-		let mut sidecars_by_content: HashMap<Uuid, Vec<crate::domain::file::Sidecar>> = HashMap::new();
+		let mut sidecars_by_content: HashMap<Uuid, Vec<crate::domain::file::Sidecar>> =
+			HashMap::new();
 		for s in all_sidecars {
 			sidecars_by_content
 				.entry(s.content_uuid)
@@ -298,7 +299,8 @@ impl LibraryQuery for DirectoryListingQuery {
 
 			// Video media data (just duration for grid display)
 			let video_media_uuid: Option<Uuid> = row.try_get("", "video_media_uuid").ok();
-			let video_duration_seconds: Option<f64> = row.try_get("", "video_duration_seconds").ok();
+			let video_duration_seconds: Option<f64> =
+				row.try_get("", "video_duration_seconds").ok();
 
 			// Build SdPath for this entry (child of the parent path)
 			// IMPORTANT: Include extension in the path for files
@@ -328,12 +330,12 @@ impl LibraryQuery for DirectoryListingQuery {
 						content_id: *content_id,
 					}
 				}
-			SdPath::Sidecar { .. } => {
-				// This shouldn't happen since we error on Sidecar paths earlier
-				return Err(QueryError::Internal(
-					"Sidecar paths not supported for directory listing".to_string(),
-				));
-			}
+				SdPath::Sidecar { .. } => {
+					// This shouldn't happen since we error on Sidecar paths earlier
+					return Err(QueryError::Internal(
+						"Sidecar paths not supported for directory listing".to_string(),
+					));
+				}
 			};
 
 			// Create entity model for conversion
@@ -362,12 +364,7 @@ impl LibraryQuery for DirectoryListingQuery {
 			let mut file = File::from_entity_model(entity_model, entry_sd_path);
 
 			// Add content identity if available
-			if let (
-				Some(ci_uuid),
-				Some(ci_hash),
-				Some(ci_first_seen),
-				Some(ci_last_verified),
-			) = (
+			if let (Some(ci_uuid), Some(ci_hash), Some(ci_first_seen), Some(ci_last_verified)) = (
 				content_identity_uuid,
 				content_hash,
 				first_seen_at,
@@ -540,12 +537,12 @@ impl DirectoryListingQuery {
 					}
 				}
 			}
-		SdPath::Sidecar { .. } => {
-			// Sidecar paths are not supported for directory browsing
-			Err(QueryError::Internal(
-				"Sidecar paths not supported for directory browsing".to_string(),
-			))
-		}
+			SdPath::Sidecar { .. } => {
+				// Sidecar paths are not supported for directory browsing
+				Err(QueryError::Internal(
+					"Sidecar paths not supported for directory browsing".to_string(),
+				))
+			}
 			SdPath::Content { .. } => {
 				// Content-addressed paths are not supported for directory browsing
 				Err(QueryError::Internal(
@@ -554,7 +551,6 @@ impl DirectoryListingQuery {
 			}
 		}
 	}
-
 }
 
 // Register the query

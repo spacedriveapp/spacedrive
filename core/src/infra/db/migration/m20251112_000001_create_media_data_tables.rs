@@ -39,7 +39,11 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(ImageMediaData::Aperture).string().null())
 					.col(ColumnDef::new(ImageMediaData::ShutterSpeed).string().null())
 					.col(ColumnDef::new(ImageMediaData::Iso).integer().null())
-					.col(ColumnDef::new(ImageMediaData::Orientation).small_integer().null())
+					.col(
+						ColumnDef::new(ImageMediaData::Orientation)
+							.small_integer()
+							.null(),
+					)
 					.col(ColumnDef::new(ImageMediaData::ColorSpace).string().null())
 					.col(ColumnDef::new(ImageMediaData::ColorProfile).string().null())
 					.col(ColumnDef::new(ImageMediaData::BitDepth).string().null())
@@ -134,11 +138,19 @@ impl MigrationTrait for Migration {
 							.string()
 							.null(),
 					)
-					.col(ColumnDef::new(VideoMediaData::ColorTransfer).string().null())
+					.col(
+						ColumnDef::new(VideoMediaData::ColorTransfer)
+							.string()
+							.null(),
+					)
 					.col(ColumnDef::new(VideoMediaData::FpsNum).integer().null())
 					.col(ColumnDef::new(VideoMediaData::FpsDen).integer().null())
 					.col(ColumnDef::new(VideoMediaData::AudioCodec).string().null())
-					.col(ColumnDef::new(VideoMediaData::AudioChannels).string().null())
+					.col(
+						ColumnDef::new(VideoMediaData::AudioChannels)
+							.string()
+							.null(),
+					)
 					.col(
 						ColumnDef::new(VideoMediaData::AudioSampleRate)
 							.integer()
@@ -152,8 +164,16 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(VideoMediaData::Title).string().null())
 					.col(ColumnDef::new(VideoMediaData::Artist).string().null())
 					.col(ColumnDef::new(VideoMediaData::Album).string().null())
-					.col(ColumnDef::new(VideoMediaData::CreationTime).timestamp().null())
-					.col(ColumnDef::new(VideoMediaData::DateCaptured).timestamp().null())
+					.col(
+						ColumnDef::new(VideoMediaData::CreationTime)
+							.timestamp()
+							.null(),
+					)
+					.col(
+						ColumnDef::new(VideoMediaData::DateCaptured)
+							.timestamp()
+							.null(),
+					)
 					.col(
 						ColumnDef::new(VideoMediaData::CreatedAt)
 							.timestamp()
@@ -323,7 +343,11 @@ impl MigrationTrait for Migration {
 			.alter_table(
 				Table::alter()
 					.table(ContentIdentities::Table)
-					.add_column(ColumnDef::new(ContentIdentities::ImageMediaDataId).integer().null())
+					.add_column(
+						ColumnDef::new(ContentIdentities::ImageMediaDataId)
+							.integer()
+							.null(),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -332,7 +356,11 @@ impl MigrationTrait for Migration {
 			.alter_table(
 				Table::alter()
 					.table(ContentIdentities::Table)
-					.add_column(ColumnDef::new(ContentIdentities::VideoMediaDataId).integer().null())
+					.add_column(
+						ColumnDef::new(ContentIdentities::VideoMediaDataId)
+							.integer()
+							.null(),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -341,7 +369,11 @@ impl MigrationTrait for Migration {
 			.alter_table(
 				Table::alter()
 					.table(ContentIdentities::Table)
-					.add_column(ColumnDef::new(ContentIdentities::AudioMediaDataId).integer().null())
+					.add_column(
+						ColumnDef::new(ContentIdentities::AudioMediaDataId)
+							.integer()
+							.null(),
+					)
 					.to_owned(),
 			)
 			.await?;

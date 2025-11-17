@@ -49,9 +49,9 @@ pub async fn run_processing_phase(
 
 	let device_id = location_record.device_id;
 	let location_id_i32 = location_record.id;
-	let location_entry_id = location_record.entry_id.ok_or_else(|| {
-		JobError::execution("Location entry_id not set (not yet synced)")
-	})?;
+	let location_entry_id = location_record
+		.entry_id
+		.ok_or_else(|| JobError::execution("Location entry_id not set (not yet synced)"))?;
 	ctx.log(format!(
 		"Found location record: device_id={}, location_id={}, entry_id={}",
 		device_id, location_id_i32, location_entry_id
@@ -376,15 +376,16 @@ pub async fn run_processing_phase(
 		// Regular files will be synced again after content identification
 		if !created_entries.is_empty() {
 			// Collect entry UUIDs for resource events
-			let entry_uuids: Vec<Uuid> = created_entries
-				.iter()
-				.filter_map(|e| e.uuid)
-				.collect();
+			let entry_uuids: Vec<Uuid> = created_entries.iter().filter_map(|e| e.uuid).collect();
 
 			// Batch sync entries (only sync-ready ones will be included by query_for_sync filter)
 			match ctx
 				.library()
-				.sync_models_batch(&created_entries, crate::infra::sync::ChangeType::Insert, ctx.library_db())
+				.sync_models_batch(
+					&created_entries,
+					crate::infra::sync::ChangeType::Insert,
+					ctx.library_db(),
+				)
 				.await
 			{
 				Ok(()) => {
@@ -395,7 +396,11 @@ pub async fn run_processing_phase(
 				}
 				Err(e) => {
 					// Log but don't fail the job
-					tracing::warn!("Failed to batch sync {} entries: {}", created_entries.len(), e);
+					tracing::warn!(
+						"Failed to batch sync {} entries: {}",
+						created_entries.len(),
+						e
+					);
 				}
 			}
 

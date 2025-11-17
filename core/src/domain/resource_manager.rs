@@ -46,7 +46,9 @@ impl ResourceManager {
 
 			// Extract alternate_paths (all other physical locations)
 			if let Some(alt_paths) = resource.get("alternate_paths") {
-				if let Ok(path_list) = serde_json::from_value::<Vec<crate::domain::SdPath>>(alt_paths.clone()) {
+				if let Ok(path_list) =
+					serde_json::from_value::<Vec<crate::domain::SdPath>>(alt_paths.clone())
+				{
 					for path in path_list {
 						// Add parent directories for alternate paths too
 						if let Some(parent) = path.parent() {
@@ -63,8 +65,8 @@ impl ResourceManager {
 
 	/// Emit direct ResourceChanged events for simple resources
 	async fn emit_direct_events(&self, resource_type: &str, resource_ids: &[Uuid]) -> Result<()> {
+		use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceItem};
 		use crate::infra::db::entities::{space, space_group, space_item};
-		use crate::domain::{Space, SpaceGroup, SpaceItem, GroupType, ItemType};
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		match resource_type {
@@ -88,7 +90,10 @@ impl ResourceManager {
 						self.events.emit(Event::ResourceChanged {
 							resource_type: "space".to_string(),
 							resource: serde_json::to_value(&space).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize space: {}", e))
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize space: {}",
+									e
+								))
 							})?,
 							metadata: None,
 						});
@@ -109,7 +114,12 @@ impl ResourceManager {
 						let space_id = space_model.map(|s| s.uuid).unwrap_or(group_id);
 
 						let group_type: GroupType = serde_json::from_str(&group_model.group_type)
-							.map_err(|e| crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to parse group_type: {}", e)))?;
+							.map_err(|e| {
+							crate::common::errors::CoreError::Other(anyhow::anyhow!(
+								"Failed to parse group_type: {}",
+								e
+							))
+						})?;
 
 						let group = SpaceGroup {
 							id: group_model.uuid,
@@ -124,7 +134,10 @@ impl ResourceManager {
 						self.events.emit(Event::ResourceChanged {
 							resource_type: "space_group".to_string(),
 							resource: serde_json::to_value(&group).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize group: {}", e))
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize group: {}",
+									e
+								))
 							})?,
 							metadata: None,
 						});
@@ -132,9 +145,9 @@ impl ResourceManager {
 				}
 			}
 			"location" => {
-				use crate::infra::db::entities::{location, device, entry, directory_paths};
-				use crate::ops::locations::list::output::LocationInfo;
 				use crate::domain::addressing::SdPath;
+				use crate::infra::db::entities::{device, directory_paths, entry, location};
+				use crate::ops::locations::list::output::LocationInfo;
 
 				for &location_id in resource_ids {
 					// Build LocationInfo the same way as LocationsListQuery
@@ -146,20 +159,29 @@ impl ResourceManager {
 
 					if let Some((loc, entry_opt)) = location_with_entry {
 						let Some(entry) = entry_opt else {
-							tracing::warn!("Location {} has no root entry, skipping event", location_id);
+							tracing::warn!(
+								"Location {} has no root entry, skipping event",
+								location_id
+							);
 							continue;
 						};
 
 						let Some(dir_path) = directory_paths::Entity::find_by_id(entry.id)
 							.one(&*self.db)
-							.await? else {
-							tracing::warn!("No directory path for location {} entry {}", location_id, entry.id);
+							.await?
+						else {
+							tracing::warn!(
+								"No directory path for location {} entry {}",
+								location_id,
+								entry.id
+							);
 							continue;
 						};
 
 						let Some(device_model) = device::Entity::find_by_id(loc.device_id)
 							.one(&*self.db)
-							.await? else {
+							.await?
+						else {
 							tracing::warn!("Device not found for location {}", location_id);
 							continue;
 						};
@@ -194,7 +216,10 @@ impl ResourceManager {
 						self.events.emit(Event::ResourceChanged {
 							resource_type: "location".to_string(),
 							resource: serde_json::to_value(&location_info).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize location: {}", e))
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize location: {}",
+									e
+								))
 							})?,
 							metadata: None,
 						});
@@ -215,7 +240,12 @@ impl ResourceManager {
 						let space_id = space_model.map(|s| s.uuid).unwrap_or(item_id);
 
 						let item_type: ItemType = serde_json::from_str(&item_model.item_type)
-							.map_err(|e| crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to parse item_type: {}", e)))?;
+							.map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to parse item_type: {}",
+									e
+								))
+							})?;
 
 						let item = SpaceItem {
 							id: item_model.uuid,
@@ -233,7 +263,10 @@ impl ResourceManager {
 						self.events.emit(Event::ResourceChanged {
 							resource_type: "space_item".to_string(),
 							resource: serde_json::to_value(&item).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!("Failed to serialize item: {}", e))
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize item: {}",
+									e
+								))
 							})?,
 							metadata: None,
 						});
@@ -282,7 +315,7 @@ impl ResourceManager {
 		if resource_ids.is_empty() {
 			return Ok(());
 		}
-		
+
 		tracing::debug!(
 			resource_type = %resource_type,
 			count = resource_ids.len(),
@@ -290,13 +323,15 @@ impl ResourceManager {
 		);
 
 		// Emit direct events first (for simple list queries)
-		self.emit_direct_events(resource_type, &resource_ids).await?;
+		self.emit_direct_events(resource_type, &resource_ids)
+			.await?;
 
 		// Check if any virtual resources depend on this type
 		let mut all_virtual_resources = Vec::new();
 
 		for resource_id in resource_ids {
-			let virtual_mappings = map_dependency_to_virtual_ids(&self.db, resource_type, resource_id).await?;
+			let virtual_mappings =
+				map_dependency_to_virtual_ids(&self.db, resource_type, resource_id).await?;
 
 			for (virtual_type, virtual_ids) in virtual_mappings {
 				tracing::debug!(
@@ -349,7 +384,11 @@ impl ResourceManager {
 				resources_json.len(),
 				virtual_type,
 				resource_type,
-				if virtual_ids.len() == 1 { "change" } else { "changes" }
+				if virtual_ids.len() == 1 {
+					"change"
+				} else {
+					"changes"
+				}
 			);
 
 			// Extract affected paths for path-scoped filtering

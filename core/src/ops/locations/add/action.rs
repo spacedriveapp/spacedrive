@@ -122,7 +122,10 @@ impl LibraryAction for LocationAddAction {
 		use crate::domain::addressing::SdPath;
 
 		match &self.input.path {
-			SdPath::Physical { device_slug: _, path } => {
+			SdPath::Physical {
+				device_slug: _,
+				path,
+			} => {
 				// Validate local filesystem path
 				if !path.exists() {
 					return Err(ActionError::Validation {
@@ -166,12 +169,12 @@ impl LibraryAction for LocationAddAction {
 					message: "Content paths cannot be used as locations".to_string(),
 				});
 			}
-		SdPath::Sidecar { .. } => {
-			return Err(ActionError::Validation {
-				field: "path".to_string(),
-				message: "Sidecar paths cannot be used as locations".to_string(),
-			});
-		}
+			SdPath::Sidecar { .. } => {
+				return Err(ActionError::Validation {
+					field: "path".to_string(),
+					message: "Sidecar paths cannot be used as locations".to_string(),
+				});
+			}
 		}
 
 		// Check for duplicate locations

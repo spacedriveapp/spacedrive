@@ -474,16 +474,16 @@ impl MigrationTrait for Migration {
 		// 	.get_connection()
 		// 	.execute_unprepared(
 		// 		"CREATE VIRTUAL TABLE IF NOT EXISTS tag_search_fts USING fts5(
-        //             tag_id UNINDEXED,
-        //             canonical_name,
-        //             display_name,
-        //             formal_name,
-        //             abbreviation,
-        //             aliases,
-        //             description,
-        //             content='tag',
-        //             content_rowid='id'
-        //         )",
+		//             tag_id UNINDEXED,
+		//             canonical_name,
+		//             display_name,
+		//             formal_name,
+		//             abbreviation,
+		//             aliases,
+		//             description,
+		//             content='tag',
+		//             content_rowid='id'
+		//         )",
 		// 	)
 		// 	.await?;
 
@@ -492,14 +492,14 @@ impl MigrationTrait for Migration {
 		// 	.get_connection()
 		// 	.execute_unprepared(
 		// 		"CREATE TRIGGER IF NOT EXISTS tag_ai AFTER INSERT ON tag BEGIN
-        //             INSERT INTO tag_search_fts(
-        //                 rowid, tag_id, canonical_name, display_name, formal_name,
-        //                 abbreviation, aliases, description
-        //             ) VALUES (
-        //                 NEW.id, NEW.id, NEW.canonical_name, NEW.display_name, NEW.formal_name,
-        //                 NEW.abbreviation, NEW.aliases, NEW.description
-        //             );
-        //         END",
+		//             INSERT INTO tag_search_fts(
+		//                 rowid, tag_id, canonical_name, display_name, formal_name,
+		//                 abbreviation, aliases, description
+		//             ) VALUES (
+		//                 NEW.id, NEW.id, NEW.canonical_name, NEW.display_name, NEW.formal_name,
+		//                 NEW.abbreviation, NEW.aliases, NEW.description
+		//             );
+		//         END",
 		// 	)
 		// 	.await?;
 
@@ -507,10 +507,10 @@ impl MigrationTrait for Migration {
 		// 	.get_connection()
 		// 	.execute_unprepared(
 		// 		"CREATE TRIGGER IF NOT EXISTS tag_au AFTER UPDATE ON tag BEGIN
-        //             DELETE FROM tag_search_fts WHERE rowid = OLD.id;
-        //             INSERT INTO tag_search_fts(rowid, tag_id, canonical_name, display_name, formal_name, abbreviation, aliases, description)
-        //             VALUES (NEW.id, NEW.id, NEW.canonical_name, NEW.display_name, NEW.formal_name, NEW.abbreviation, NEW.aliases, NEW.description);
-        //         END",
+		//             DELETE FROM tag_search_fts WHERE rowid = OLD.id;
+		//             INSERT INTO tag_search_fts(rowid, tag_id, canonical_name, display_name, formal_name, abbreviation, aliases, description)
+		//             VALUES (NEW.id, NEW.id, NEW.canonical_name, NEW.display_name, NEW.formal_name, NEW.abbreviation, NEW.aliases, NEW.description);
+		//         END",
 		// 	)
 		// 	.await?;
 
@@ -518,8 +518,8 @@ impl MigrationTrait for Migration {
 		// 	.get_connection()
 		// 	.execute_unprepared(
 		// 		"CREATE TRIGGER IF NOT EXISTS tag_ad AFTER DELETE ON tag BEGIN
-        //             DELETE FROM tag_search_fts WHERE rowid = OLD.id;
-        //         END",
+		//             DELETE FROM tag_search_fts WHERE rowid = OLD.id;
+		//         END",
 		// 	)
 		// 	.await?;
 

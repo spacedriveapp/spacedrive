@@ -96,18 +96,27 @@ async fn detect_macos_volumes(
 
 	// Detect APFS containers using filesystem-specific module
 	let containers = apfs::detect_containers().await?;
-	debug!("MACOS_DETECT: Detected {} APFS containers", containers.len());
+	debug!(
+		"MACOS_DETECT: Detected {} APFS containers",
+		containers.len()
+	);
 
 	// Convert APFS containers to volumes
 	for container in containers {
 		let converted = apfs::containers_to_volumes(container, device_id, config)?;
-		debug!("MACOS_DETECT: Container converted to {} volumes", converted.len());
+		debug!(
+			"MACOS_DETECT: Container converted to {} volumes",
+			converted.len()
+		);
 		volumes.extend(converted);
 	}
 
 	// Detect non-APFS volumes using traditional methods
 	let generic_volumes = detect_generic_volumes_macos(device_id, config).await?;
-	debug!("MACOS_DETECT: Detected {} generic (non-APFS) volumes", generic_volumes.len());
+	debug!(
+		"MACOS_DETECT: Detected {} generic (non-APFS) volumes",
+		generic_volumes.len()
+	);
 	volumes.extend(generic_volumes);
 
 	debug!("MACOS_DETECT: Total volumes detected: {}", volumes.len());

@@ -49,9 +49,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			include_debug: true,             // Include debug logs for full detail
 		};
 
-	config.save()?;
-	println!("   Job logging enabled (logs stored per-library)");
-}
+		config.save()?;
+		println!("   Job logging enabled (logs stored per-library)");
+	}
 
 	let core = Core::new(data_dir.clone()).await?;
 	println!("   Core initialized with job logging");

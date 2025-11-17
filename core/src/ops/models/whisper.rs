@@ -46,12 +46,8 @@ impl WhisperModel {
 
 	pub fn download_url(&self) -> &'static str {
 		match self {
-			Self::Tiny => {
-				"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
-			}
-			Self::Base => {
-				"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
-			}
+			Self::Tiny => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+			Self::Base => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
 			Self::Small => {
 				"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
 			}
@@ -66,11 +62,11 @@ impl WhisperModel {
 
 	pub fn size_bytes(&self) -> u64 {
 		match self {
-			Self::Tiny => 75 * 1024 * 1024,      // 75 MB
-			Self::Base => 142 * 1024 * 1024,     // 142 MB
-			Self::Small => 466 * 1024 * 1024,    // 466 MB
-			Self::Medium => 1500 * 1024 * 1024,  // 1.5 GB
-			Self::Large => 3100 * 1024 * 1024,   // 3.1 GB
+			Self::Tiny => 75 * 1024 * 1024,     // 75 MB
+			Self::Base => 142 * 1024 * 1024,    // 142 MB
+			Self::Small => 466 * 1024 * 1024,   // 466 MB
+			Self::Medium => 1500 * 1024 * 1024, // 1.5 GB
+			Self::Large => 3100 * 1024 * 1024,  // 3.1 GB
 		}
 	}
 
@@ -96,7 +92,13 @@ impl WhisperModel {
 	}
 
 	pub fn all() -> Vec<Self> {
-		vec![Self::Tiny, Self::Base, Self::Small, Self::Medium, Self::Large]
+		vec![
+			Self::Tiny,
+			Self::Base,
+			Self::Small,
+			Self::Medium,
+			Self::Large,
+		]
 	}
 }
 

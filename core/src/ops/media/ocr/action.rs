@@ -68,7 +68,10 @@ impl LibraryAction for ExtractTextAction {
 		tracing::info!("Dispatching OCR job for entry: {}", self.input.entry_uuid);
 
 		// Create job config for single file
-		let languages = self.input.languages.unwrap_or_else(|| vec!["eng".to_string()]);
+		let languages = self
+			.input
+			.languages
+			.unwrap_or_else(|| vec!["eng".to_string()]);
 
 		let job_config = super::job::OcrJobConfig {
 			location_id: None,

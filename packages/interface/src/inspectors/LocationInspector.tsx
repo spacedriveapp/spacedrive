@@ -15,6 +15,8 @@ import {
   ToggleRight,
   X,
   Play,
+  FilmStrip,
+  VideoCamera,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import {
@@ -252,6 +254,8 @@ function JobsTab({ location }: { location: LocationInfo }) {
   };
 
   const thumbnails = location.job_policies?.thumbnail?.enabled ?? true;
+  const thumbstrips = location.job_policies?.thumbstrip?.enabled ?? true;
+  const proxies = location.job_policies?.proxy?.enabled ?? false;
   const ocr = location.job_policies?.ocr?.enabled ?? false;
   const speech = location.job_policies?.speech_to_text?.enabled ?? false;
 
@@ -280,6 +284,44 @@ function JobsTab({ location }: { location: LocationInfo }) {
               })
             }
             isTriggering={triggerJob.isPending}
+          />
+          <JobConfigRow
+            label="Generate Thumbstrips"
+            description="Create video storyboard grids (5×5 grid of frames)"
+            enabled={thumbstrips}
+            onToggle={(enabled) =>
+              updatePolicy({
+                thumbstrip: { ...location.job_policies.thumbstrip, enabled },
+              })
+            }
+            onTrigger={() =>
+              triggerJob.mutate({
+                location_id: location.id,
+                job_type: "thumbstrip",
+                force: false,
+              })
+            }
+            isTriggering={triggerJob.isPending}
+            icon={FilmStrip}
+          />
+          <JobConfigRow
+            label="Generate Proxies"
+            description="Create scrubbing proxies for videos (180p @ 15fps)"
+            enabled={proxies}
+            onToggle={(enabled) =>
+              updatePolicy({
+                proxy: { ...location.job_policies.proxy, enabled },
+              })
+            }
+            onTrigger={() =>
+              triggerJob.mutate({
+                location_id: location.id,
+                job_type: "proxy",
+                force: false,
+              })
+            }
+            isTriggering={triggerJob.isPending}
+            icon={VideoCamera}
           />
         </div>
       </Section>
@@ -546,6 +588,7 @@ interface JobConfigRowProps {
   onToggle: (enabled: boolean) => void;
   onTrigger: () => void;
   isTriggering: boolean;
+  icon?: React.ComponentType<any>;
 }
 
 function JobConfigRow({
@@ -555,6 +598,7 @@ function JobConfigRow({
   onToggle,
   onTrigger,
   isTriggering,
+  icon: Icon,
 }: JobConfigRowProps) {
   return (
     <div className="w-full flex items-start gap-3 p-2 hover:bg-app-box/40 rounded-lg transition-colors">
@@ -570,10 +614,13 @@ function JobConfigRow({
             weight="fill"
           />
         )}
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-medium text-sidebar-ink">{label}</div>
-          <div className="text-[11px] text-sidebar-inkDull mt-0.5">
-            {description}
+        <div className="flex-1 min-w-0 flex items-start gap-2">
+          {Icon && <Icon className="size-4 text-sidebar-inkDull shrink-0 mt-0.5" weight="bold" />}
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium text-sidebar-ink">{label}</div>
+            <div className="text-[11px] text-sidebar-inkDull mt-0.5">
+              {description}
+            </div>
           </div>
         </div>
       </button>

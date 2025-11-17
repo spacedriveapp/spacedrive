@@ -137,13 +137,11 @@ impl Syncable for Model {
 		// Cursor-based pagination with tie-breaker
 		if let Some((cursor_ts, cursor_uuid)) = cursor {
 			query = query.filter(
-				Condition::any()
-					.add(Column::LastSeenAt.gt(cursor_ts))
-					.add(
-						Condition::all()
-							.add(Column::LastSeenAt.eq(cursor_ts))
-							.add(Column::Uuid.gt(cursor_uuid)),
-					),
+				Condition::any().add(Column::LastSeenAt.gt(cursor_ts)).add(
+					Condition::all()
+						.add(Column::LastSeenAt.eq(cursor_ts))
+						.add(Column::Uuid.gt(cursor_uuid)),
+				),
 			);
 		}
 
@@ -217,18 +215,39 @@ impl Syncable for Model {
 			is_online: Set(false),
 			total_capacity: Set(data.get("total_capacity").and_then(|v| v.as_i64())),
 			available_capacity: Set(data.get("available_capacity").and_then(|v| v.as_i64())),
-			read_speed_mbps: Set(data.get("read_speed_mbps").and_then(|v| v.as_i64()).map(|v| v as i32)),
-			write_speed_mbps: Set(data.get("write_speed_mbps").and_then(|v| v.as_i64()).map(|v| v as i32)),
+			read_speed_mbps: Set(data
+				.get("read_speed_mbps")
+				.and_then(|v| v.as_i64())
+				.map(|v| v as i32)),
+			write_speed_mbps: Set(data
+				.get("write_speed_mbps")
+				.and_then(|v| v.as_i64())
+				.map(|v| v as i32)),
 			last_speed_test_at: Set(None),
-			file_system: Set(data.get("file_system").and_then(|v| v.as_str()).map(String::from)),
-			mount_point: Set(data.get("mount_point").and_then(|v| v.as_str()).map(String::from)),
+			file_system: Set(data
+				.get("file_system")
+				.and_then(|v| v.as_str())
+				.map(String::from)),
+			mount_point: Set(data
+				.get("mount_point")
+				.and_then(|v| v.as_str())
+				.map(String::from)),
 			is_removable: Set(data.get("is_removable").and_then(|v| v.as_bool())),
 			is_network_drive: Set(data.get("is_network_drive").and_then(|v| v.as_bool())),
-			device_model: Set(data.get("device_model").and_then(|v| v.as_str()).map(String::from)),
-			volume_type: Set(data.get("volume_type").and_then(|v| v.as_str()).map(String::from)),
+			device_model: Set(data
+				.get("device_model")
+				.and_then(|v| v.as_str())
+				.map(String::from)),
+			volume_type: Set(data
+				.get("volume_type")
+				.and_then(|v| v.as_str())
+				.map(String::from)),
 			is_user_visible: Set(data.get("is_user_visible").and_then(|v| v.as_bool())),
 			auto_track_eligible: Set(data.get("auto_track_eligible").and_then(|v| v.as_bool())),
-			cloud_identifier: Set(data.get("cloud_identifier").and_then(|v| v.as_str()).map(String::from)),
+			cloud_identifier: Set(data
+				.get("cloud_identifier")
+				.and_then(|v| v.as_str())
+				.map(String::from)),
 		};
 
 		Entity::insert(active)

@@ -240,9 +240,10 @@ impl Syncable for Model {
 			ChangeType::Insert | ChangeType::Update => {
 				// Map UUIDs to local IDs for FK fields
 				use crate::infra::sync::fk_mapper;
-				let data = fk_mapper::map_sync_json_to_local(entry.data, Self::foreign_key_mappings(), db)
-					.await
-					.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
+				let data =
+					fk_mapper::map_sync_json_to_local(entry.data, Self::foreign_key_mappings(), db)
+						.await
+						.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
 
 				let data = data.as_object().ok_or_else(|| {
 					sea_orm::DbErr::Custom("UserMetadataTag data is not an object".to_string())
@@ -257,7 +258,9 @@ impl Syncable for Model {
 
 				let user_metadata_id: i32 = serde_json::from_value(
 					data.get("user_metadata_id")
-						.ok_or_else(|| sea_orm::DbErr::Custom("Missing user_metadata_id".to_string()))?
+						.ok_or_else(|| {
+							sea_orm::DbErr::Custom("Missing user_metadata_id".to_string())
+						})?
 						.clone(),
 				)
 				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid user_metadata_id: {}", e)))?;
@@ -277,14 +280,17 @@ impl Syncable for Model {
 				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid device_uuid: {}", e)))?;
 
 				// Dynamic ownership enforcement: check parent user_metadata scope
-				use sea_orm::{EntityTrait, QueryFilter, ColumnTrait};
+				use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 				let parent_metadata = super::user_metadata::Entity::find()
 					.filter(super::user_metadata::Column::Id.eq(user_metadata_id))
 					.one(db)
 					.await?
-					.ok_or_else(|| sea_orm::DbErr::Custom(format!(
-						"Parent user_metadata not found for id: {}", user_metadata_id
-					)))?;
+					.ok_or_else(|| {
+						sea_orm::DbErr::Custom(format!(
+							"Parent user_metadata not found for id: {}",
+							user_metadata_id
+						))
+					})?;
 
 				// If entry-scoped, verify the change came from the entry's owning device
 				if let Some(entry_uuid) = parent_metadata.entry_uuid {

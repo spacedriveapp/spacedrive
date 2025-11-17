@@ -149,7 +149,10 @@ async fn alice_indexes_scenario() {
 				.unwrap();
 
 			if final_entry_count == entry_count {
-				println!("Alice: Indexing complete! Found {} entry entries", final_entry_count);
+				println!(
+					"Alice: Indexing complete! Found {} entry entries",
+					final_entry_count
+				);
 				job_completed = true;
 				break;
 			}
@@ -161,7 +164,10 @@ async fn alice_indexes_scenario() {
 		}
 
 		if attempts % 10 == 0 {
-			println!("Alice: Still waiting for indexing... (current count: {})", entry_count);
+			println!(
+				"Alice: Still waiting for indexing... (current count: {})",
+				entry_count
+			);
 		}
 	}
 
@@ -231,12 +237,7 @@ async fn alice_indexes_scenario() {
 	loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
-		let connected_devices = core
-			.services
-			.device
-			.get_connected_devices()
-			.await
-			.unwrap();
+		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			println!("Alice: Bob paired successfully!");
 			break;
@@ -331,12 +332,7 @@ async fn bob_backfills_scenario() {
 	loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
-		let connected_devices = core
-			.services
-			.device
-			.get_connected_devices()
-			.await
-			.unwrap();
+		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
 			println!("Bob: Connected to Alice!");
 			break;

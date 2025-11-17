@@ -41,7 +41,10 @@ impl MigrationTrait for Migration {
 					.foreign_key(
 						ForeignKey::create()
 							.name("fk_tombstone_device")
-							.from(DeviceStateTombstones::Table, DeviceStateTombstones::DeviceId)
+							.from(
+								DeviceStateTombstones::Table,
+								DeviceStateTombstones::DeviceId,
+							)
 							.to(Devices::Table, Devices::Id)
 							.on_delete(ForeignKeyAction::Cascade),
 					)

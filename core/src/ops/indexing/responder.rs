@@ -17,7 +17,8 @@ use crate::ops::indexing::rules::{build_default_ruler, RuleToggles, RulerDecisio
 use crate::ops::indexing::state::{DirEntry, IndexerState};
 use crate::ops::indexing::{ctx::ResponderCtx, IndexingCtx};
 use crate::ops::media::{
-	ocr::OcrProcessor, speech::SpeechToTextProcessor, thumbnail::ThumbnailProcessor,
+	ocr::OcrProcessor, proxy::ProxyProcessor, speech::SpeechToTextProcessor,
+	thumbnail::ThumbnailProcessor, thumbstrip::ThumbstripProcessor,
 };
 use anyhow::Result;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
@@ -52,11 +53,29 @@ pub async fn apply(
 			.await?
 		}
 		FsRawEventKind::Modify { path } => {
-			handle_modify(&ctx, context, library_id, location_id, &path, rule_toggles, location_root).await?
+			handle_modify(
+				&ctx,
+				context,
+				library_id,
+				location_id,
+				&path,
+				rule_toggles,
+				location_root,
+			)
+			.await?
 		}
 		FsRawEventKind::Remove { path } => handle_remove(&ctx, context, location_id, &path).await?,
 		FsRawEventKind::Rename { from, to } => {
-			handle_rename(&ctx, context, location_id, &from, &to, rule_toggles, location_root).await?
+			handle_rename(
+				&ctx,
+				context,
+				location_id,
+				&from,
+				&to,
+				rule_toggles,
+				location_root,
+			)
+			.await?
 		}
 	}
 	Ok(())
@@ -134,8 +153,16 @@ pub async fn apply_batch(
 
 	// Process renames
 	for (from, to) in renames {
-		if let Err(e) =
-			handle_rename(&ctx, context, location_id, &from, &to, rule_toggles, location_root).await
+		if let Err(e) = handle_rename(
+			&ctx,
+			context,
+			location_id,
+			&from,
+			&to,
+			rule_toggles,
+			location_root,
+		)
+		.await
 		{
 			tracing::error!(
 				"Failed to handle rename from {} to {}: {}",
@@ -148,7 +175,13 @@ pub async fn apply_batch(
 
 	// Process creates
 	for (idx, path) in creates.iter().enumerate() {
-		debug!("[BATCH #{}] Processing create {}/{}: {}", call_id, idx + 1, creates.len(), path.display());
+		debug!(
+			"[BATCH #{}] Processing create {}/{}: {}",
+			call_id,
+			idx + 1,
+			creates.len(),
+			path.display()
+		);
 		if let Err(e) = handle_create(
 			&ctx,
 			context,
@@ -162,12 +195,27 @@ pub async fn apply_batch(
 		{
 			tracing::error!("Failed to handle create for {}: {}", path.display(), e);
 		}
-		debug!("[BATCH #{}] Completed create {}/{}", call_id, idx + 1, creates.len());
+		debug!(
+			"[BATCH #{}] Completed create {}/{}",
+			call_id,
+			idx + 1,
+			creates.len()
+		);
 	}
 
 	// Process modifies
 	for path in modifies {
-		if let Err(e) = handle_modify(&ctx, context, library_id, location_id, &path, rule_toggles, location_root).await {
+		if let Err(e) = handle_modify(
+			&ctx,
+			context,
+			library_id,
+			location_id,
+			&path,
+			rule_toggles,
+			location_root,
+		)
+		.await
+		{
 			tracing::error!("Failed to handle modify for {}: {}", path.display(), e);
 		}
 	}
@@ -251,14 +299,25 @@ async fn handle_create(
 
 	// Check if entry already exists at this exact path (race condition from duplicate watcher events)
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
-	if let Some(existing_id) = resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await? {
+	if let Some(existing_id) =
+		resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await?
+	{
 		debug!(
 			"Entry already exists at path {} (entry_id={}), treating as modify instead of create",
 			path.display(),
 			existing_id
 		);
 		// Treat as a modify instead
-		return handle_modify(ctx, context, library_id, location_id, path, rule_toggles, location_root).await;
+		return handle_modify(
+			ctx,
+			context,
+			library_id,
+			location_id,
+			path,
+			rule_toggles,
+			location_root,
+		)
+		.await;
 	}
 
 	// If inode matches an existing entry at another path, treat this as a move
@@ -343,9 +402,10 @@ async fn handle_create(
 		// For files, run processors inline (single file processing)
 		if let Some(library) = context.get_library(library_id).await {
 			// Load processor configuration for this location
-			let proc_config = processor::load_location_processor_config(location_id, ctx.library_db())
-				.await
-				.unwrap_or_default();
+			let proc_config =
+				processor::load_location_processor_config(location_id, ctx.library_db())
+					.await
+					.unwrap_or_default();
 
 			// Build processor entry (with MIME type after content linking)
 			let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
@@ -375,6 +435,66 @@ async fn handle_create(
 				if thumb_proc.should_process(&proc_entry) {
 					if let Err(e) = thumb_proc.process(ctx.library_db(), &proc_entry).await {
 						warn!("Thumbnail processing failed: {}", e);
+					}
+				}
+			}
+
+			// Run thumbstrip processor
+			if proc_config
+				.watcher_processors
+				.iter()
+				.any(|c| c.processor_type == "thumbstrip" && c.enabled)
+			{
+				let settings = proc_config
+					.watcher_processors
+					.iter()
+					.find(|c| c.processor_type == "thumbstrip")
+					.map(|c| &c.settings);
+
+				let thumbstrip_proc = if let Some(settings) = settings {
+					ThumbstripProcessor::new(library.clone())
+						.with_settings(settings)
+						.unwrap_or_else(|e| {
+							warn!("Failed to parse thumbstrip settings: {}", e);
+							ThumbstripProcessor::new(library.clone())
+						})
+				} else {
+					ThumbstripProcessor::new(library.clone())
+				};
+
+				if thumbstrip_proc.should_process(&proc_entry) {
+					if let Err(e) = thumbstrip_proc.process(ctx.library_db(), &proc_entry).await {
+						warn!("Thumbstrip processing failed: {}", e);
+					}
+				}
+			}
+
+			// Run proxy processor
+			if proc_config
+				.watcher_processors
+				.iter()
+				.any(|c| c.processor_type == "proxy" && c.enabled)
+			{
+				let settings = proc_config
+					.watcher_processors
+					.iter()
+					.find(|c| c.processor_type == "proxy")
+					.map(|c| &c.settings);
+
+				let proxy_proc = if let Some(settings) = settings {
+					ProxyProcessor::new(library.clone())
+						.with_settings(settings)
+						.unwrap_or_else(|e| {
+							warn!("Failed to parse proxy settings: {}", e);
+							ProxyProcessor::new(library.clone())
+						})
+				} else {
+					ProxyProcessor::new(library.clone())
+				};
+
+				if proxy_proc.should_process(&proc_entry) {
+					if let Err(e) = proxy_proc.process(ctx.library_db(), &proc_entry).await {
+						warn!("Proxy processing failed: {}", e);
 					}
 				}
 			}
@@ -412,10 +532,8 @@ async fn handle_create(
 	// Emit resource event for the created entry
 	if let Some(uuid) = entry_uuid {
 		debug!("→ Emitting resource event for entry {}", uuid);
-		let resource_manager = ResourceManager::new(
-			Arc::new(ctx.library_db().clone()),
-			context.events.clone(),
-		);
+		let resource_manager =
+			ResourceManager::new(Arc::new(ctx.library_db().clone()), context.events.clone());
 
 		if let Err(e) = resource_manager
 			.emit_resource_events("entry", vec![uuid])
@@ -486,9 +604,10 @@ async fn handle_modify(
 		if dir_entry.kind == super::state::EntryKind::File {
 			if let Some(library) = context.get_library(library_id).await {
 				// Load processor configuration
-				let proc_config = processor::load_location_processor_config(location_id, ctx.library_db())
-					.await
-					.unwrap_or_default();
+				let proc_config =
+					processor::load_location_processor_config(location_id, ctx.library_db())
+						.await
+						.unwrap_or_default();
 
 				// Build processor entry
 				let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
@@ -555,10 +674,8 @@ async fn handle_modify(
 		// Emit resource event for the updated entry
 		if let Some(uuid) = entry_uuid {
 			debug!("→ Emitting resource event for modified entry {}", uuid);
-			let resource_manager = ResourceManager::new(
-				Arc::new(ctx.library_db().clone()),
-				context.events.clone(),
-			);
+			let resource_manager =
+				ResourceManager::new(Arc::new(ctx.library_db().clone()), context.events.clone());
 
 			if let Err(e) = resource_manager
 				.emit_resource_events("entry", vec![uuid])
@@ -570,13 +687,21 @@ async fn handle_modify(
 			}
 		}
 	} else {
-		debug!("✗ Entry not found for path, skipping modify: {}", path.display());
+		debug!(
+			"✗ Entry not found for path, skipping modify: {}",
+			path.display()
+		);
 	}
 	Ok(())
 }
 
 /// Handle remove: resolve entry ID and delete subtree (closure table + cache)
-async fn handle_remove(ctx: &impl IndexingCtx, context: &Arc<CoreContext>, location_id: Uuid, path: &Path) -> Result<()> {
+async fn handle_remove(
+	ctx: &impl IndexingCtx,
+	context: &Arc<CoreContext>,
+	location_id: Uuid,
+	path: &Path,
+) -> Result<()> {
 	debug!("Remove: {}", path.display());
 
 	// Get location root entry ID for scoped queries
@@ -601,14 +726,19 @@ async fn handle_remove(ctx: &impl IndexingCtx, context: &Arc<CoreContext>, locat
 		// Emit ResourceDeleted event if entry had a UUID
 		if let Some(uuid) = entry_uuid {
 			debug!("→ Emitting ResourceDeleted event for entry {}", uuid);
-			context.events.emit(crate::infra::event::Event::ResourceDeleted {
-				resource_type: "file".to_string(),
-				resource_id: uuid,
-			});
+			context
+				.events
+				.emit(crate::infra::event::Event::ResourceDeleted {
+					resource_type: "file".to_string(),
+					resource_id: uuid,
+				});
 			debug!("✓ Emitted ResourceDeleted event for entry {}", uuid);
 		}
 	} else {
-		debug!("✗ Entry not found for path, skipping remove: {}", path.display());
+		debug!(
+			"✗ Entry not found for path, skipping remove: {}",
+			path.display()
+		);
 	}
 	Ok(())
 }
@@ -639,7 +769,11 @@ async fn handle_rename(
 		return handle_remove(ctx, context, location_id, from).await;
 	}
 
-	debug!("→ Processing rename for: {} -> {}", from.display(), to.display());
+	debug!(
+		"→ Processing rename for: {} -> {}",
+		from.display(),
+		to.display()
+	);
 
 	if let Some(entry_id) =
 		resolve_entry_id_by_path_scoped(ctx, from, location_root_entry_id).await?
@@ -699,7 +833,11 @@ async fn build_dir_entry(path: &Path) -> Result<DirEntry> {
 }
 
 /// Build a ProcessorEntry from database entry
-async fn build_processor_entry(ctx: &impl IndexingCtx, entry_id: i32, path: &Path) -> Result<ProcessorEntry> {
+async fn build_processor_entry(
+	ctx: &impl IndexingCtx,
+	entry_id: i32,
+	path: &Path,
+) -> Result<ProcessorEntry> {
 	use sea_orm::EntityTrait;
 
 	let entry = entities::entry::Entity::find_by_id(entry_id)
@@ -1057,7 +1195,10 @@ async fn handle_move_by_inode(
 		_ => return Ok(false),
 	};
 
-	debug!("→ Checking inode {} for potential move detection", inode_val);
+	debug!(
+		"→ Checking inode {} for potential move detection",
+		inode_val
+	);
 
 	if let Some(existing) = entities::entry::Entity::find()
 		.filter(entities::entry::Column::Inode.eq(inode_val))

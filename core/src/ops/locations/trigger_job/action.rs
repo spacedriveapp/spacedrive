@@ -108,29 +108,26 @@ impl LibraryAction for LocationTriggerJobAction {
 				let config = job_policies.thumbnail.to_job_config();
 				let job = crate::ops::media::thumbnail::ThumbnailJob::new(config);
 
-				library
-					.jobs()
-					.dispatch(job)
-					.await
-					.map_err(|e| ActionError::Internal(format!("Failed to dispatch thumbnail job: {}", e)))?
+				library.jobs().dispatch(job).await.map_err(|e| {
+					ActionError::Internal(format!("Failed to dispatch thumbnail job: {}", e))
+				})?
 			}
 
 			JobType::Ocr => {
 				if !job_policies.ocr.enabled && !self.input.force {
 					return Err(ActionError::Validation {
 						field: "job_type".to_string(),
-						message: "OCR is disabled for this location. Use force=true to override.".to_string(),
+						message: "OCR is disabled for this location. Use force=true to override."
+							.to_string(),
 					});
 				}
 
 				let config = job_policies.ocr.to_job_config(Some(self.input.location_id));
 				let job = crate::ops::media::ocr::OcrJob::new(config);
 
-				library
-					.jobs()
-					.dispatch(job)
-					.await
-					.map_err(|e| ActionError::Internal(format!("Failed to dispatch OCR job: {}", e)))?
+				library.jobs().dispatch(job).await.map_err(|e| {
+					ActionError::Internal(format!("Failed to dispatch OCR job: {}", e))
+				})?
 			}
 
 			JobType::SpeechToText => {
@@ -141,14 +138,14 @@ impl LibraryAction for LocationTriggerJobAction {
 					});
 				}
 
-				let config = job_policies.speech_to_text.to_job_config(Some(self.input.location_id));
+				let config = job_policies
+					.speech_to_text
+					.to_job_config(Some(self.input.location_id));
 				let job = crate::ops::media::speech::SpeechToTextJob::new(config);
 
-				library
-					.jobs()
-					.dispatch(job)
-					.await
-					.map_err(|e| ActionError::Internal(format!("Failed to dispatch speech-to-text job: {}", e)))?
+				library.jobs().dispatch(job).await.map_err(|e| {
+					ActionError::Internal(format!("Failed to dispatch speech-to-text job: {}", e))
+				})?
 			}
 
 			JobType::ObjectDetection => {

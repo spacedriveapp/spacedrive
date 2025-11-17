@@ -41,9 +41,12 @@ impl LibraryAction for UpdateGroupAction {
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Group {} not found", self.input.group_id)))?;
+			.ok_or_else(|| {
+				ActionError::Internal(format!("Group {} not found", self.input.group_id))
+			})?;
 
-		let mut active_model: crate::infra::db::entities::space_group::ActiveModel = group_model.clone().into();
+		let mut active_model: crate::infra::db::entities::space_group::ActiveModel =
+			group_model.clone().into();
 
 		if let Some(name) = self.input.name {
 			active_model.name = Set(name);

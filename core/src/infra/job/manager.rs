@@ -1301,7 +1301,9 @@ impl JobManager {
 														.get_library(library_id_for_stats)
 														.await
 													{
-														if let Err(e) = library.recalculate_statistics().await {
+														if let Err(e) =
+															library.recalculate_statistics().await
+														{
 															warn!(
 																library_id = %library_id_for_stats,
 																job_id = %job_id_clone,

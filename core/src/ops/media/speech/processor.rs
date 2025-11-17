@@ -79,7 +79,9 @@ impl SpeechToTextProcessor {
 			ci.uuid
 				.ok_or_else(|| anyhow::anyhow!("ContentIdentity missing UUID"))?
 		} else {
-			return Ok(ProcessorResult::failure("Entry has no content_id".to_string()));
+			return Ok(ProcessorResult::failure(
+				"Entry has no content_id".to_string(),
+			));
 		};
 
 		debug!("→ Transcribing audio for: {}", entry.path.display());

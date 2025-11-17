@@ -1,8 +1,10 @@
 use super::output::SpaceLayoutOutput;
-use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout};
+use crate::domain::{
+	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,
+};
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{context::CoreContext, infra::query::LibraryQuery};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, sea_query::Expr};
+use sea_orm::{sea_query::Expr, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -113,7 +115,10 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 			// Get items for this group
 			let item_models = crate::infra::db::entities::space_item::Entity::find()
-				.filter(crate::infra::db::entities::space_item::Column::GroupId.eq(Some(group_model.id)))
+				.filter(
+					crate::infra::db::entities::space_item::Column::GroupId
+						.eq(Some(group_model.id)),
+				)
 				.order_by_asc(crate::infra::db::entities::space_item::Column::Order)
 				.all(db)
 				.await?;
@@ -122,8 +127,10 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 			for item_model in item_models {
 				// Parse item_type JSON
-				let item_type: ItemType = serde_json::from_str(&item_model.item_type)
-					.map_err(|e| QueryError::Internal(format!("Failed to parse item_type: {}", e)))?;
+				let item_type: ItemType =
+					serde_json::from_str(&item_model.item_type).map_err(|e| {
+						QueryError::Internal(format!("Failed to parse item_type: {}", e))
+					})?;
 
 				items.push(SpaceItem {
 					id: item_model.uuid,

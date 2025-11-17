@@ -1,4 +1,4 @@
-use crate::domain::{Space};
+use crate::domain::Space;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 

@@ -166,7 +166,9 @@ impl NetworkingService {
 	pub async fn start(&mut self) -> Result<()> {
 		// Check if already started
 		if self.endpoint.is_some() {
-			self.logger.info("Networking service already started, skipping").await;
+			self.logger
+				.info("Networking service already started, skipping")
+				.await;
 			return Ok(());
 		}
 
@@ -594,8 +596,11 @@ impl NetworkingService {
 					if let Ok(ping_data) = serde_json::to_vec(&ping_msg) {
 						// Use existing connection from active_connections
 						let connections = active_connections.read().await;
-						let conn_opt = connections.iter().find(|((nid, _alpn), _conn)| *nid == node_id).map(|(_key, conn)| conn.clone());
-					let ping_result = if let Some(conn) = conn_opt {
+						let conn_opt = connections
+							.iter()
+							.find(|((nid, _alpn), _conn)| *nid == node_id)
+							.map(|(_key, conn)| conn.clone());
+						let ping_result = if let Some(conn) = conn_opt {
 							tokio::time::timeout(tokio::time::Duration::from_secs(10), async {
 								match conn.open_bi().await {
 									Ok((mut send, mut recv)) => {
@@ -845,20 +850,24 @@ impl NetworkingService {
 
 		// Get messaging handler from protocol registry
 		let protocol_registry = self.protocol_registry.read().await;
-		let handler = protocol_registry
-			.get_handler("messaging")
-			.ok_or_else(|| NetworkingError::Protocol("Messaging handler not registered".to_string()))?;
+		let handler = protocol_registry.get_handler("messaging").ok_or_else(|| {
+			NetworkingError::Protocol("Messaging handler not registered".to_string())
+		})?;
 
 		// Downcast to MessagingProtocolHandler to access send_library_message method
 		let messaging_handler = handler
 			.as_any()
 			.downcast_ref::<crate::service::network::protocol::MessagingProtocolHandler>()
-			.ok_or_else(|| NetworkingError::Protocol("Invalid messaging handler type".to_string()))?;
+			.ok_or_else(|| {
+				NetworkingError::Protocol("Invalid messaging handler type".to_string())
+			})?;
 
 		drop(protocol_registry);
 
 		// Delegate to handler (uses shared connection cache + timeout)
-		messaging_handler.send_library_message(node_id, request).await
+		messaging_handler
+			.send_library_message(node_id, request)
+			.await
 	}
 
 	/// Get protocol registry for registering new protocols
@@ -973,7 +982,10 @@ impl NetworkingService {
 				let mut connections = self.active_connections.write().await;
 				connections.insert((node_id, PAIRING_ALPN.to_vec()), conn);
 				self.logger
-					.info(&format!("Tracked outbound pairing connection to {}", node_id))
+					.info(&format!(
+						"Tracked outbound pairing connection to {}",
+						node_id
+					))
 					.await;
 			}
 
@@ -1304,8 +1316,15 @@ impl NetworkingService {
 		{
 			let mut registry = device_registry.write().await;
 			// Use node_addr or create an empty one if not available
-			let addr_for_registry = node_addr.clone().unwrap_or(NodeAddr::new(initiator_node_id));
-			registry.start_pairing(initiator_device_id, initiator_node_id, session_id, addr_for_registry)?;
+			let addr_for_registry = node_addr
+				.clone()
+				.unwrap_or(NodeAddr::new(initiator_node_id));
+			registry.start_pairing(
+				initiator_device_id,
+				initiator_node_id,
+				session_id,
+				addr_for_registry,
+			)?;
 		}
 
 		// Publish pairing session via mDNS using user_data field

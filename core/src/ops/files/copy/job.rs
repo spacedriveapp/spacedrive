@@ -330,8 +330,11 @@ impl JobHandler for FileCopyJob {
 			)
 			.await;
 
-			info!("[JOB] About to execute strategy for {} -> {}",
-				resolved_source.display(), final_destination.display());
+			info!(
+				"[JOB] About to execute strategy for {} -> {}",
+				resolved_source.display(),
+				final_destination.display()
+			);
 
 			// 2. Execute the strategy with progress callback
 			match strategy

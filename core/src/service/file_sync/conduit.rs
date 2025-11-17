@@ -194,11 +194,7 @@ impl ConduitManager {
 	}
 
 	/// Update generation verification status
-	pub async fn update_verification_status(
-		&self,
-		generation_id: i32,
-		status: &str,
-	) -> Result<()> {
+	pub async fn update_verification_status(&self, generation_id: i32, status: &str) -> Result<()> {
 		let gen = sync_generation::Entity::find_by_id(generation_id)
 			.one(&*self.db)
 			.await?

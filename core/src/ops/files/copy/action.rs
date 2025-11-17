@@ -382,10 +382,10 @@ impl FileCopyAction {
 				// Content paths cannot be destinations for copy operations
 				return Ok(None);
 			}
-		SdPath::Sidecar { .. } => {
-			// Sidecar paths cannot be destinations for copy operations
-			return Ok(None);
-		}
+			SdPath::Sidecar { .. } => {
+				// Sidecar paths cannot be destinations for copy operations
+				return Ok(None);
+			}
 		};
 
 		// Check if destination exists

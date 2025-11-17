@@ -128,8 +128,7 @@ impl Syncable for Model {
 	const SYNC_MODEL: &'static str = "content_identity";
 
 	fn sync_id(&self) -> Uuid {
-		self.uuid
-			.expect("ContentIdentity must have UUID for sync")
+		self.uuid.expect("ContentIdentity must have UUID for sync")
 	}
 
 	fn version(&self) -> i64 {

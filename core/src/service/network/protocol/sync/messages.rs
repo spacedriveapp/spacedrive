@@ -121,8 +121,8 @@ pub enum SyncMessage {
 		library_id: Uuid,
 		device_id: Uuid, // Responding device
 		shared_watermark: Option<HLC>,
-		needs_state_catchup: bool,   // If true, peer needs our state
-		needs_shared_catchup: bool,  // If true, peer needs our shared changes
+		needs_state_catchup: bool,  // If true, peer needs our state
+		needs_shared_catchup: bool, // If true, peer needs our shared changes
 		/// Per-resource state watermarks (resource_type -> timestamp)
 		resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
 		/// Our actual device-owned resource counts (for gap detection)

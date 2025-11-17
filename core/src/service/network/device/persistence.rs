@@ -304,7 +304,6 @@ impl DevicePersistence {
 				}
 			}
 
-
 			self.save_paired_devices(&devices).await?;
 		}
 
@@ -437,11 +436,7 @@ mod tests {
 
 		// Add paired device
 		persistence
-			.add_paired_device(
-				device_id,
-				device_info.clone(),
-				session_keys.clone(),
-			)
+			.add_paired_device(device_id, device_info.clone(), session_keys.clone())
 			.await
 			.unwrap();
 
@@ -508,11 +503,7 @@ mod tests {
 
 		// Add device (this will encrypt and save)
 		persistence
-			.add_paired_device(
-				device_id,
-				device_info.clone(),
-				session_keys.clone(),
-			)
+			.add_paired_device(device_id, device_info.clone(), session_keys.clone())
 			.await
 			.unwrap();
 

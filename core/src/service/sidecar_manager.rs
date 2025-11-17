@@ -54,14 +54,16 @@ impl SidecarManager {
 		);
 
 		// Ensure sidecars directory exists
-		tokio::fs::create_dir_all(&sidecars_dir).await.map_err(|e| {
-			error!(
-				"Failed to create sidecars directory {}: {}",
-				sidecars_dir.display(),
+		tokio::fs::create_dir_all(&sidecars_dir)
+			.await
+			.map_err(|e| {
+				error!(
+					"Failed to create sidecars directory {}: {}",
+					sidecars_dir.display(),
+					e
+				);
 				e
-			);
-			e
-		})?;
+			})?;
 
 		// Create path builder
 		let builder = Arc::new(SidecarPathBuilder::new(&library_path));
@@ -294,7 +296,9 @@ impl SidecarManager {
 				// For thumbnails, we need to find the entry and dispatch a thumbnail job
 				// We'll dispatch a job for this specific content_uuid
 				use crate::infra::db::entities::{content_identity, entry};
-				use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig, ThumbnailVariants};
+				use crate::ops::media::thumbnail::{
+					ThumbnailJob, ThumbnailJobConfig, ThumbnailVariants,
+				};
 				use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 				// Find an entry with this content_uuid
@@ -490,8 +494,17 @@ impl SidecarManager {
 		size: u64,
 		checksum: Option<String>,
 	) -> Result<()> {
-		self.record_sidecar_internal(library, content_uuid, kind, variant, format, size, checksum, true)
-			.await
+		self.record_sidecar_internal(
+			library,
+			content_uuid,
+			kind,
+			variant,
+			format,
+			size,
+			checksum,
+			true,
+		)
+		.await
 	}
 
 	async fn record_sidecar_internal(
@@ -588,9 +601,7 @@ impl SidecarManager {
 				{
 					tracing::warn!("Failed to emit resource events for sidecar creation: {}", e);
 				} else {
-					tracing::debug!(
-						"Emitted sidecar resource event (will map to File updates)"
-					);
+					tracing::debug!("Emitted sidecar resource event (will map to File updates)");
 				}
 			}
 		}
@@ -747,13 +758,7 @@ impl SidecarManager {
 		content_path: &Path,
 	) -> Result<()> {
 		// Scan each sidecar kind directory
-		for kind_str in [
-			"thumbs",
-			"proxies",
-			"embeddings",
-			"ocr",
-			"transcript",
-		] {
+		for kind_str in ["thumbs", "proxies", "embeddings", "ocr", "transcript"] {
 			let kind_path = content_path.join(kind_str);
 			if !kind_path.exists() {
 				continue;

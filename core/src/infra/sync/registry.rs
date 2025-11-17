@@ -567,9 +567,7 @@ pub async fn apply_state_change(
 		.and_then(|v| v.as_str())
 		.and_then(|s| uuid::Uuid::parse_str(s).ok())
 		.ok_or_else(|| {
-			ApplyError::DatabaseError(
-				"Missing or invalid UUID in state change data".to_string(),
-			)
+			ApplyError::DatabaseError("Missing or invalid UUID in state change data".to_string())
 		})?;
 
 	// Check if record is tombstoned (prevents resurrection of deleted records)
@@ -578,8 +576,7 @@ pub async fn apply_state_change(
 			crate::infra::db::entities::device_state_tombstone::Column::ModelType.eq(model_type),
 		)
 		.filter(
-			crate::infra::db::entities::device_state_tombstone::Column::RecordUuid
-				.eq(record_uuid),
+			crate::infra::db::entities::device_state_tombstone::Column::RecordUuid.eq(record_uuid),
 		)
 		.one(db.as_ref())
 		.await

@@ -28,7 +28,7 @@ pub async fn extract_image_metadata(
 		width: Set(exif.resolution.width as i32),
 		height: Set(exif.resolution.height as i32),
 		date_taken: Set(date_taken.map(Into::into)),
-		latitude: Set(None), // TODO: Extract from EXIF location
+		latitude: Set(None),  // TODO: Extract from EXIF location
 		longitude: Set(None), // TODO: Extract from EXIF location
 		camera_make: Set(exif.camera_data.device_make),
 		camera_model: Set(exif.camera_data.device_model),
@@ -96,7 +96,10 @@ pub async fn extract_video_metadata(
 		.unwrap_or((None, None, None, None));
 
 	// Extract Apple QuickTime capture date or fall back to standard creation time
-	tracing::debug!("Available custom metadata keys: {:?}", metadata.metadata.custom.keys().collect::<Vec<_>>());
+	tracing::debug!(
+		"Available custom metadata keys: {:?}",
+		metadata.metadata.custom.keys().collect::<Vec<_>>()
+	);
 
 	let date_captured = metadata
 		.metadata
@@ -122,40 +125,58 @@ pub async fn extract_video_metadata(
 			}
 		})
 		.or_else(|| {
-			tracing::debug!("No Apple QuickTime date found, using creation_time: {:?}", metadata.metadata.creation_time);
+			tracing::debug!(
+				"No Apple QuickTime date found, using creation_time: {:?}",
+				metadata.metadata.creation_time
+			);
 			metadata.metadata.creation_time
 		});
 
 	// Get video codec info
-	let (codec, pixel_format, color_space, color_range, color_primaries, color_transfer, fps_num, fps_den) =
-		video_stream
-			.and_then(|s| s.codec.as_ref())
-			.map(|c| {
-				let (pixel_format, color_space, color_range, color_primaries, color_transfer, fps_num, fps_den) =
-					match &c.props {
-						Some(FFmpegProps::Video(v)) => (
-							v.pixel_format.clone(),
-							v.color_space.clone(),
-							v.color_range.clone(),
-							v.color_primaries.clone(),
-							v.color_transfer.clone(),
-							Some(0), // TODO: Extract from stream
-							Some(1),
-						),
-						_ => (None, None, None, None, None, None, None),
-					};
-				(
-					c.name.clone(),
-					pixel_format,
-					color_space,
-					color_range,
-					color_primaries,
-					color_transfer,
-					fps_num,
-					fps_den,
-				)
-			})
-			.unwrap_or((None, None, None, None, None, None, None, None));
+	let (
+		codec,
+		pixel_format,
+		color_space,
+		color_range,
+		color_primaries,
+		color_transfer,
+		fps_num,
+		fps_den,
+	) = video_stream
+		.and_then(|s| s.codec.as_ref())
+		.map(|c| {
+			let (
+				pixel_format,
+				color_space,
+				color_range,
+				color_primaries,
+				color_transfer,
+				fps_num,
+				fps_den,
+			) = match &c.props {
+				Some(FFmpegProps::Video(v)) => (
+					v.pixel_format.clone(),
+					v.color_space.clone(),
+					v.color_range.clone(),
+					v.color_primaries.clone(),
+					v.color_transfer.clone(),
+					Some(0), // TODO: Extract from stream
+					Some(1),
+				),
+				_ => (None, None, None, None, None, None, None),
+			};
+			(
+				c.name.clone(),
+				pixel_format,
+				color_space,
+				color_range,
+				color_primaries,
+				color_transfer,
+				fps_num,
+				fps_den,
+			)
+		})
+		.unwrap_or((None, None, None, None, None, None, None, None));
 
 	Ok(video_media_data::ActiveModel {
 		id: sea_orm::ActiveValue::NotSet,
@@ -208,9 +229,7 @@ pub async fn extract_audio_metadata(
 		.and_then(|s| s.codec.as_ref())
 		.map(|c| {
 			let (sample_rate, channels) = match &c.props {
-				Some(FFmpegProps::Audio(a)) => {
-					(a.sample_rate, a.channel_layout.clone())
-				}
+				Some(FFmpegProps::Audio(a)) => (a.sample_rate, a.channel_layout.clone()),
 				_ => (None, None),
 			};
 			(c.name.clone(), sample_rate, channels)

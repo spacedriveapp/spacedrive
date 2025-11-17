@@ -58,24 +58,22 @@ impl LibraryQuery for LocationsListQuery {
 				}
 			};
 
-			let directory_path = crate::infra::db::entities::directory_paths::Entity::find_by_id(entry.id)
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					QueryError::Internal(format!(
-						"No directory path found for location {} entry {}",
-						location.uuid, entry.id
-					))
-				})?;
+			let directory_path =
+				crate::infra::db::entities::directory_paths::Entity::find_by_id(entry.id)
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						QueryError::Internal(format!(
+							"No directory path found for location {} entry {}",
+							location.uuid, entry.id
+						))
+					})?;
 
 			let device = crate::infra::db::entities::device::Entity::find_by_id(location.device_id)
 				.one(db)
 				.await?
 				.ok_or_else(|| {
-					QueryError::Internal(format!(
-						"Device not found for location {}",
-						location.uuid
-					))
+					QueryError::Internal(format!("Device not found for location {}", location.uuid))
 				})?;
 
 			let sd_path = SdPath::Physical {

@@ -74,9 +74,7 @@ impl DeleteStrategy for LocalDeleteStrategy {
 				}
 
 				// Cloud path - use VolumeBackend
-				_ if path.is_cloud() => {
-					self.delete_cloud_path(ctx, path, mode.clone()).await
-				}
+				_ if path.is_cloud() => self.delete_cloud_path(ctx, path, mode.clone()).await,
 
 				// Remote physical or content paths not supported
 				_ => DeleteResult {
@@ -142,10 +140,7 @@ impl LocalDeleteStrategy {
 		};
 
 		// Get the volume by service and identifier
-		let volume = match volume_manager
-			.find_cloud_volume(service, identifier)
-			.await
-		{
+		let volume = match volume_manager.find_cloud_volume(service, identifier).await {
 			Some(v) => v,
 			None => {
 				return DeleteResult {

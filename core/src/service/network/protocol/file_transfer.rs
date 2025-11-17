@@ -1015,11 +1015,14 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 							Ok(_) => {
 								if msg_type[0] != 0 {
 									self.logger
-										.error(&format!("Unexpected message type in stream: {}", msg_type[0]))
+										.error(&format!(
+											"Unexpected message type in stream: {}",
+											msg_type[0]
+										))
 										.await;
 									break;
 								}
-							},
+							}
 							Err(e) => {
 								self.logger
 									.debug(&format!("Stream ended or error reading type: {}", e))
@@ -1033,7 +1036,7 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 					// Read message length
 					let mut len_buf = [0u8; 4];
 					match recv.read_exact(&mut len_buf).await {
-						Ok(_) => {},
+						Ok(_) => {}
 						Err(e) => {
 							self.logger
 								.error(&format!("Failed to read message length: {}", e))
@@ -1054,118 +1057,131 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 
 					// Deserialize and handle
 					if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&msg_buf) {
-					self.logger
-						.debug(&format!(
-							"Received file transfer message: {}",
-							Self::truncate_message_for_logging(&message)
-						))
-						.await;
+						self.logger
+							.debug(&format!(
+								"Received file transfer message: {}",
+								Self::truncate_message_for_logging(&message)
+							))
+							.await;
 
-					// Get device ID from node ID using device registry
-					let device_id = if let Some(device_registry) = &self.device_registry {
-						let registry = device_registry.read().await;
-						registry
+						// Get device ID from node ID using device registry
+						let device_id =
+							if let Some(device_registry) = &self.device_registry {
+								let registry = device_registry.read().await;
+								registry
 							.get_device_by_node(remote_node_id)
 							.unwrap_or_else(|| {
 								// Note: Can't use await in closure, this should be refactored
 								eprintln!("Warning: Could not find device ID for node {}, using random ID", remote_node_id);
 								uuid::Uuid::new_v4()
 							})
-					} else {
-						// Note: Need to await this call properly
-						eprintln!("Warning: Device registry not available, using random device ID");
-						uuid::Uuid::new_v4()
-					};
-
-					// Process the message based on type
-					match message {
-						FileTransferMessage::TransferRequest {
-							transfer_id,
-							file_metadata,
-							destination_path,
-							..
-						} => {
-							// Handle transfer request
-							if let Err(e) = self
-								.handle_incoming_transfer_request(
-									device_id,
-									transfer_id,
-									file_metadata,
-									destination_path,
-								)
-								.await
-							{
-								self.logger
-									.error(&format!("Failed to handle transfer request: {}", e))
-									.await;
-							}
-						}
-						FileTransferMessage::FileChunk {
-							transfer_id,
-							chunk_index,
-							data,
-							nonce,
-							chunk_checksum,
-						} => {
-							// Handle file chunk
-							if let Err(e) = self
-								.handle_incoming_file_chunk(
-									transfer_id,
-									chunk_index,
-									data,
-									nonce,
-									chunk_checksum,
-								)
-								.await
-							{
-								self.logger
-									.error(&format!("Failed to handle file chunk: {}", e))
-									.await;
-							}
-						}
-						FileTransferMessage::TransferComplete {
-							transfer_id,
-							final_checksum,
-							total_bytes,
-						} => {
-							// Handle transfer completion
-							if let Err(e) = self
-								.handle_incoming_transfer_complete(
-									transfer_id,
-									final_checksum.clone(),
-									total_bytes,
-								)
-								.await
-							{
-								self.logger
-									.error(&format!("Failed to handle transfer completion: {}", e))
-									.await;
 							} else {
-								// Send TransferFinalAck response back to sender
-								self.logger
-									.info(&format!("Sending TransferFinalAck for transfer {}", transfer_id))
-									.await;
+								// Note: Need to await this call properly
+								eprintln!("Warning: Device registry not available, using random device ID");
+								uuid::Uuid::new_v4()
+							};
 
-								let ack_message = FileTransferMessage::TransferFinalAck { transfer_id };
-								if let Ok(ack_data) = rmp_serde::to_vec(&ack_message) {
-									// Send type (0) + length + data
-									let _ = send.write_u8(0).await;
-									let _ = send.write_all(&(ack_data.len() as u32).to_be_bytes()).await;
-									let _ = send.write_all(&ack_data).await;
-									let _ = send.flush().await;
-
+						// Process the message based on type
+						match message {
+							FileTransferMessage::TransferRequest {
+								transfer_id,
+								file_metadata,
+								destination_path,
+								..
+							} => {
+								// Handle transfer request
+								if let Err(e) = self
+									.handle_incoming_transfer_request(
+										device_id,
+										transfer_id,
+										file_metadata,
+										destination_path,
+									)
+									.await
+								{
 									self.logger
-										.info(&format!("TransferFinalAck sent for transfer {}", transfer_id))
+										.error(&format!("Failed to handle transfer request: {}", e))
 										.await;
 								}
 							}
+							FileTransferMessage::FileChunk {
+								transfer_id,
+								chunk_index,
+								data,
+								nonce,
+								chunk_checksum,
+							} => {
+								// Handle file chunk
+								if let Err(e) = self
+									.handle_incoming_file_chunk(
+										transfer_id,
+										chunk_index,
+										data,
+										nonce,
+										chunk_checksum,
+									)
+									.await
+								{
+									self.logger
+										.error(&format!("Failed to handle file chunk: {}", e))
+										.await;
+								}
+							}
+							FileTransferMessage::TransferComplete {
+								transfer_id,
+								final_checksum,
+								total_bytes,
+							} => {
+								// Handle transfer completion
+								if let Err(e) = self
+									.handle_incoming_transfer_complete(
+										transfer_id,
+										final_checksum.clone(),
+										total_bytes,
+									)
+									.await
+								{
+									self.logger
+										.error(&format!(
+											"Failed to handle transfer completion: {}",
+											e
+										))
+										.await;
+								} else {
+									// Send TransferFinalAck response back to sender
+									self.logger
+										.info(&format!(
+											"Sending TransferFinalAck for transfer {}",
+											transfer_id
+										))
+										.await;
+
+									let ack_message =
+										FileTransferMessage::TransferFinalAck { transfer_id };
+									if let Ok(ack_data) = rmp_serde::to_vec(&ack_message) {
+										// Send type (0) + length + data
+										let _ = send.write_u8(0).await;
+										let _ = send
+											.write_all(&(ack_data.len() as u32).to_be_bytes())
+											.await;
+										let _ = send.write_all(&ack_data).await;
+										let _ = send.flush().await;
+
+										self.logger
+											.info(&format!(
+												"TransferFinalAck sent for transfer {}",
+												transfer_id
+											))
+											.await;
+									}
+								}
+							}
+							_ => {
+								self.logger
+									.warn("Received unexpected file transfer message type")
+									.await;
+							}
 						}
-						_ => {
-							self.logger
-								.warn("Received unexpected file transfer message type")
-								.await;
-						}
-					}
 					} // Close the if let Ok(message)
 				} // Close the loop
 			}

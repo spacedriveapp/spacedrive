@@ -280,7 +280,10 @@ impl ThumbnailJob {
 			.await
 			.map_err(|e| JobError::execution(format!("Database query failed: {}", e)))?;
 
-		ctx.log(format!("Query returned {} entries with potential content", results.len()));
+		ctx.log(format!(
+			"Query returned {} entries with potential content",
+			results.len()
+		));
 
 		// Process results and check for existing sidecars
 		let sidecar_manager = library
@@ -315,7 +318,10 @@ impl ThumbnailJob {
 			let full_path = match PathResolver::get_full_path(db, entry_model.id).await {
 				Ok(p) => p,
 				Err(e) => {
-					ctx.log(format!("Failed to resolve path for entry {}: {}", entry_model.id, e));
+					ctx.log(format!(
+						"Failed to resolve path for entry {}: {}",
+						entry_model.id, e
+					));
 					continue;
 				}
 			};
@@ -459,10 +465,8 @@ impl ThumbnailJob {
 
 			// Emit ResourceChanged events for affected Files after each batch
 			if !batch.is_empty() {
-				let entry_uuids: Vec<uuid::Uuid> = batch
-					.iter()
-					.map(|entry| entry.entry_id)
-					.collect();
+				let entry_uuids: Vec<uuid::Uuid> =
+					batch.iter().map(|entry| entry.entry_id).collect();
 
 				if !entry_uuids.is_empty() {
 					let library = ctx.library();
@@ -478,7 +482,10 @@ impl ThumbnailJob {
 						.emit_resource_events("entry", entry_uuids)
 						.await
 					{
-						tracing::warn!("Failed to emit resource events after thumbnail batch: {}", e);
+						tracing::warn!(
+							"Failed to emit resource events after thumbnail batch: {}",
+							e
+						);
 					}
 				}
 			}
@@ -532,18 +539,16 @@ impl ThumbnailJob {
 		let mime_type = entry
 			.extension
 			.as_ref()
-			.and_then(|ext| {
-				match ext.to_lowercase().as_str() {
-					"jpg" | "jpeg" => Some("image/jpeg"),
-					"png" => Some("image/png"),
-					"gif" => Some("image/gif"),
-					"webp" => Some("image/webp"),
-					"bmp" => Some("image/bmp"),
-					"pdf" => Some("application/pdf"),
-					#[cfg(feature = "ffmpeg")]
-					"mp4" | "mov" | "avi" | "mkv" | "webm" => Some("video/mp4"),
-					_ => None,
-				}
+			.and_then(|ext| match ext.to_lowercase().as_str() {
+				"jpg" | "jpeg" => Some("image/jpeg"),
+				"png" => Some("image/png"),
+				"gif" => Some("image/gif"),
+				"webp" => Some("image/webp"),
+				"bmp" => Some("image/bmp"),
+				"pdf" => Some("application/pdf"),
+				#[cfg(feature = "ffmpeg")]
+				"mp4" | "mov" | "avi" | "mkv" | "webm" => Some("video/mp4"),
+				_ => None,
 			})
 			.unwrap_or("image/jpeg"); // Default to image/jpeg
 
@@ -562,10 +567,7 @@ impl ThumbnailJob {
 		// Generate thumbnails for each configured variant
 		for variant_config in &config.variants {
 			// Validate parameters
-			ThumbnailUtils::validate_thumbnail_params(
-				variant_config.size,
-				variant_config.quality,
-			)?;
+			ThumbnailUtils::validate_thumbnail_params(variant_config.size, variant_config.quality)?;
 
 			// Skip if thumbnail already exists (unless regenerating)
 			if !config.regenerate
@@ -649,7 +651,9 @@ impl ThumbnailJob {
 					match extract_image_metadata(&source_path, media_data_uuid).await {
 						Ok(image_data) => {
 							use crate::infra::db::entities::{content_identity, image_media_data};
-							use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+							use sea_orm::{
+								ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set,
+							};
 
 							// Insert image media data
 							if let Ok(inserted) = image_data.insert(db).await {
@@ -663,7 +667,10 @@ impl ThumbnailJob {
 									active.image_media_data_id = Set(Some(inserted.id));
 									let _ = active.update(db).await;
 
-									ctx.log(format!("Extracted image metadata for {}", entry.relative_path));
+									ctx.log(format!(
+										"Extracted image metadata for {}",
+										entry.relative_path
+									));
 								}
 							}
 						}
@@ -680,22 +687,32 @@ impl ThumbnailJob {
 						use crate::ops::media::extract_video_metadata;
 						match extract_video_metadata(&source_path, media_data_uuid).await {
 							Ok(video_data) => {
-								use crate::infra::db::entities::{content_identity, video_media_data};
-								use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+								use crate::infra::db::entities::{
+									content_identity, video_media_data,
+								};
+								use sea_orm::{
+									ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set,
+								};
 
 								// Insert video media data
 								if let Ok(inserted) = video_data.insert(db).await {
 									// Update content identity with FK
 									if let Ok(Some(content)) = content_identity::Entity::find()
-										.filter(content_identity::Column::Uuid.eq(entry.content_uuid))
+										.filter(
+											content_identity::Column::Uuid.eq(entry.content_uuid),
+										)
 										.one(db)
 										.await
 									{
-										let mut active: content_identity::ActiveModel = content.into();
+										let mut active: content_identity::ActiveModel =
+											content.into();
 										active.video_media_data_id = Set(Some(inserted.id));
 										let _ = active.update(db).await;
 
-										ctx.log(format!("Extracted video metadata for {}", entry.relative_path));
+										ctx.log(format!(
+											"Extracted video metadata for {}",
+											entry.relative_path
+										));
 									}
 								}
 							}
@@ -713,22 +730,32 @@ impl ThumbnailJob {
 						use crate::ops::media::extract_audio_metadata;
 						match extract_audio_metadata(&source_path, media_data_uuid).await {
 							Ok(audio_data) => {
-								use crate::infra::db::entities::{audio_media_data, content_identity};
-								use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+								use crate::infra::db::entities::{
+									audio_media_data, content_identity,
+								};
+								use sea_orm::{
+									ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set,
+								};
 
 								// Insert audio media data
 								if let Ok(inserted) = audio_data.insert(db).await {
 									// Update content identity with FK
 									if let Ok(Some(content)) = content_identity::Entity::find()
-										.filter(content_identity::Column::Uuid.eq(entry.content_uuid))
+										.filter(
+											content_identity::Column::Uuid.eq(entry.content_uuid),
+										)
 										.one(db)
 										.await
 									{
-										let mut active: content_identity::ActiveModel = content.into();
+										let mut active: content_identity::ActiveModel =
+											content.into();
 										active.audio_media_data_id = Set(Some(inserted.id));
 										let _ = active.update(db).await;
 
-										ctx.log(format!("Extracted audio metadata for {}", entry.relative_path));
+										ctx.log(format!(
+											"Extracted audio metadata for {}",
+											entry.relative_path
+										));
 									}
 								}
 							}

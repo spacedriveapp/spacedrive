@@ -27,7 +27,7 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use crate::{format_ctx::FFmpegFormatContext, frame_decoder::FrameDecoder, utils::from_path};
+use crate::{format_ctx::FFmpegFormatContext, utils::from_path};
 
 use std::path::Path;
 
@@ -45,7 +45,7 @@ mod utils;
 mod video_frame;
 
 pub use error::Error;
-pub use frame_decoder::ThumbnailSize;
+pub use frame_decoder::{FrameDecoder, ThumbnailSize, VideoFrame};
 pub use model::FFmpegMediaData;
 pub use thumbnailer::ThumbnailerBuilder;
 use tokio::task::spawn_blocking;

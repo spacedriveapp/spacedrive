@@ -48,7 +48,9 @@ impl LibraryAction for SpaceUpdateAction {
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Space {} not found", self.input.space_id)))?;
+			.ok_or_else(|| {
+				ActionError::Internal(format!("Space {} not found", self.input.space_id))
+			})?;
 
 		let mut active_model: crate::infra::db::entities::space::ActiveModel = space_model.into();
 

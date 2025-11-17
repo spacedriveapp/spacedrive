@@ -24,12 +24,7 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(
-						ColumnDef::new(Spaces::Uuid)
-							.uuid()
-							.not_null()
-							.unique_key(),
-					)
+					.col(ColumnDef::new(Spaces::Uuid).uuid().not_null().unique_key())
 					.col(ColumnDef::new(Spaces::Name).string().not_null())
 					.col(ColumnDef::new(Spaces::Icon).string().not_null())
 					.col(ColumnDef::new(Spaces::Color).string().not_null())
@@ -74,11 +69,7 @@ impl MigrationTrait for Migration {
 							.not_null()
 							.unique_key(),
 					)
-					.col(
-						ColumnDef::new(SpaceGroups::SpaceId)
-							.integer()
-							.not_null(),
-					)
+					.col(ColumnDef::new(SpaceGroups::SpaceId).integer().not_null())
 					.col(ColumnDef::new(SpaceGroups::Name).string().not_null())
 					.col(ColumnDef::new(SpaceGroups::GroupType).string().not_null())
 					.col(
@@ -129,15 +120,9 @@ impl MigrationTrait for Migration {
 							.not_null()
 							.unique_key(),
 					)
+					.col(ColumnDef::new(SpaceItems::SpaceId).integer().not_null())
 					.col(
-						ColumnDef::new(SpaceItems::SpaceId)
-							.integer()
-							.not_null(),
-					)
-					.col(
-						ColumnDef::new(SpaceItems::GroupId)
-							.integer()
-							.null(), // Nullable - None = space-level item
+						ColumnDef::new(SpaceItems::GroupId).integer().null(), // Nullable - None = space-level item
 					)
 					.col(ColumnDef::new(SpaceItems::ItemType).string().not_null())
 					.col(

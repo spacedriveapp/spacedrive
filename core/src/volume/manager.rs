@@ -307,7 +307,10 @@ impl VolumeManager {
 									id: db_volume.uuid,
 									fingerprint: fingerprint.clone(),
 									device_id: db_volume.device_id,
-									name: db_volume.display_name.clone().unwrap_or_else(|| "Cloud Volume".to_string()),
+									name: db_volume
+										.display_name
+										.clone()
+										.unwrap_or_else(|| "Cloud Volume".to_string()),
 									library_id: None,
 									is_tracked: true,
 									mount_point: std::path::PathBuf::from(mount_point_str),
@@ -315,9 +318,13 @@ impl VolumeManager {
 									volume_type: crate::volume::types::VolumeType::Network,
 									mount_type: crate::volume::types::MountType::Network,
 									disk_type: crate::volume::types::DiskType::Unknown,
-									file_system: crate::volume::types::FileSystem::Other(format!("{:?}", credential.service)),
+									file_system: crate::volume::types::FileSystem::Other(format!(
+										"{:?}",
+										credential.service
+									)),
 									total_capacity: db_volume.total_capacity.unwrap_or(0) as u64,
-									available_space: db_volume.available_capacity.unwrap_or(0) as u64,
+									available_space: db_volume.available_capacity.unwrap_or(0)
+										as u64,
 									is_read_only: false,
 									is_mounted: true,
 									hardware_id: None,
@@ -327,7 +334,9 @@ impl VolumeManager {
 									container_volume_id: None,
 									path_mappings: Vec::new(),
 									is_user_visible: db_volume.is_user_visible.unwrap_or(true),
-									auto_track_eligible: db_volume.auto_track_eligible.unwrap_or(false),
+									auto_track_eligible: db_volume
+										.auto_track_eligible
+										.unwrap_or(false),
 									read_speed_mbps: db_volume.read_speed_mbps.map(|s| s as u64),
 									write_speed_mbps: db_volume.write_speed_mbps.map(|s| s as u64),
 									created_at: db_volume.tracked_at,
@@ -349,16 +358,28 @@ impl VolumeManager {
 
 								// Update mount point cache for fast cloud volume lookup using cloud_identifier
 								if let Some(ref cloud_id) = volume.cloud_identifier {
-									let cache_key = format!("{}://{}", credential.service.scheme(), cloud_id);
-									let mut mount_point_cache = self.mount_point_cache.write().await;
+									let cache_key =
+										format!("{}://{}", credential.service.scheme(), cloud_id);
+									let mut mount_point_cache =
+										self.mount_point_cache.write().await;
 									mount_point_cache.insert(cache_key, fingerprint.clone());
 								}
 
 								loaded_count += 1;
-								info!("Loaded cloud volume {} ({:?}) from database", db_volume.display_name.as_ref().unwrap_or(&"Unknown".to_string()), credential.service);
+								info!(
+									"Loaded cloud volume {} ({:?}) from database",
+									db_volume
+										.display_name
+										.as_ref()
+										.unwrap_or(&"Unknown".to_string()),
+									credential.service
+								);
 							}
 							Err(e) => {
-								warn!("Failed to recreate cloud backend for volume {}: {}", fingerprint.0, e);
+								warn!(
+									"Failed to recreate cloud backend for volume {}: {}",
+									fingerprint.0, e
+								);
 							}
 						}
 					}
@@ -561,7 +582,10 @@ impl VolumeManager {
 		for vol in &detected_volumes {
 			debug!(
 				"VOLUME_DETECT: Found '{}' at {} - Type: {:?}, Auto-track: {}",
-				vol.name, vol.mount_point.display(), vol.volume_type, vol.auto_track_eligible
+				vol.name,
+				vol.mount_point.display(),
+				vol.volume_type,
+				vol.auto_track_eligible
 			);
 		}
 
@@ -1345,7 +1369,10 @@ impl VolumeManager {
 			.collect();
 		drop(all_volumes);
 
-		debug!("AUTO_TRACK: Eligible volumes for tracking: {}", eligible_volumes.len());
+		debug!(
+			"AUTO_TRACK: Eligible volumes for tracking: {}",
+			eligible_volumes.len()
+		);
 		let mut tracked_volumes = Vec::new();
 
 		for volume in eligible_volumes {

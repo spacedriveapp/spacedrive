@@ -31,10 +31,11 @@ pub struct VirtualResourceInfo {
 	) -> Pin<Box<dyn Future<Output = Result<Vec<Uuid>>> + Send + 'a>>,
 
 	/// Function to construct virtual resources from IDs
-	pub constructor: for<'a> fn(
-		&'a DatabaseConnection,
-		&'a [Uuid],
-	) -> Pin<Box<dyn Future<Output = Result<Vec<serde_json::Value>>> + Send + 'a>>,
+	pub constructor:
+		for<'a> fn(
+			&'a DatabaseConnection,
+			&'a [Uuid],
+		) -> Pin<Box<dyn Future<Output = Result<Vec<serde_json::Value>>> + Send + 'a>>,
 
 	/// Static list of fields that should not be merged (for metadata)
 	pub no_merge_fields: &'static [&'static str],
@@ -71,9 +72,9 @@ static VIRTUAL_RESOURCES: Lazy<Vec<VirtualResourceInfo>> = Lazy::new(|| {
 			resource_type: SpaceLayout::resource_type(),
 			dependencies: SpaceLayout::sync_dependencies(),
 			router: |db, dep_type, dep_id| {
-				Box::pin(async move {
-					SpaceLayout::route_from_dependency(db, dep_type, dep_id).await
-				})
+				Box::pin(
+					async move { SpaceLayout::route_from_dependency(db, dep_type, dep_id).await },
+				)
 			},
 			constructor: |db, ids| {
 				Box::pin(async move {

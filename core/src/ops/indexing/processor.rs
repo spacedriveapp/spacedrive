@@ -83,6 +83,23 @@ impl Default for LocationProcessorConfig {
 					}),
 				},
 				ProcessorConfig {
+					processor_type: "thumbstrip".to_string(),
+					enabled: true, // Fast enough for auto-generation (~6s)
+					settings: serde_json::json!({
+						"variants": ["thumbstrip_preview"],
+						"regenerate": false
+					}),
+				},
+				ProcessorConfig {
+					processor_type: "proxy".to_string(),
+					enabled: false, // Disabled by default (user opt-in, ~8s per video)
+					settings: serde_json::json!({
+						"enabled": false,
+						"max_file_size_gb": 5,
+						"use_hardware_accel": true
+					}),
+				},
+				ProcessorConfig {
 					processor_type: "ocr".to_string(),
 					enabled: false, // Disabled by default (expensive)
 					settings: serde_json::json!({

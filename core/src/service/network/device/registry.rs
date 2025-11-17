@@ -93,10 +93,10 @@ impl DeviceRegistry {
 			}
 
 			// Cache the paired device slug for pre-library address resolution
-			if let Err(e) = self.device_manager.cache_paired_device(
-				persisted_device.device_info.device_slug.clone(),
-				device_id,
-			) {
+			if let Err(e) = self
+				.device_manager
+				.cache_paired_device(persisted_device.device_info.device_slug.clone(), device_id)
+			{
 				self.logger
 					.warn(&format!(
 						"Failed to cache paired device slug for {}: {}",
@@ -453,10 +453,7 @@ impl DeviceRegistry {
 		match endpoint.remote_info(node_id) {
 			Some(remote_info) => {
 				// Check if connection type indicates an active connection
-				!matches!(
-					remote_info.conn_type,
-					iroh::endpoint::ConnectionType::None
-				)
+				!matches!(remote_info.conn_type, iroh::endpoint::ConnectionType::None)
 			}
 			None => false,
 		}
@@ -673,16 +670,9 @@ impl DeviceRegistry {
 	}
 
 	/// Set a device as connected with its node ID
-	pub async fn set_device_connected(
-		&mut self,
-		device_id: Uuid,
-		node_id: NodeId,
-	) -> Result<()> {
+	pub async fn set_device_connected(&mut self, device_id: Uuid, node_id: NodeId) -> Result<()> {
 		self.logger
-			.info(&format!(
-				"Setting device {} as connected",
-				device_id
-			))
+			.info(&format!("Setting device {} as connected", device_id))
 			.await; // <-- Add this line
 
 		// Update the node_to_device mapping

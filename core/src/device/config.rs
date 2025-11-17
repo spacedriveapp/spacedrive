@@ -34,6 +34,10 @@ pub struct DeviceConfig {
 	/// Operating system
 	pub os: String,
 
+	/// Operating system version (if detectable)
+	#[serde(default)]
+	pub os_version: Option<String>,
+
 	/// Spacedrive version that created this config
 	pub version: String,
 }
@@ -52,6 +56,7 @@ impl DeviceConfig {
 			created_at: Utc::now(),
 			hardware_model: None,
 			os,
+			os_version: None,
 			version: env!("CARGO_PKG_VERSION").to_string(),
 		}
 	}

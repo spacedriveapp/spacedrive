@@ -402,12 +402,19 @@ impl EntryProcessor {
 				entry_model.uuid
 			);
 			if let Err(e) = library
-				.sync_model_with_db(&entry_model, crate::infra::sync::ChangeType::Insert, ctx.library_db())
+				.sync_model_with_db(
+					&entry_model,
+					crate::infra::sync::ChangeType::Insert,
+					ctx.library_db(),
+				)
 				.await
 			{
 				tracing::warn!(
 					"ENTRY_SYNC: Failed to sync entry {}: {}",
-					entry_model.uuid.map(|u| u.to_string()).unwrap_or_else(|| "no-uuid".to_string()),
+					entry_model
+						.uuid
+						.map(|u| u.to_string())
+						.unwrap_or_else(|| "no-uuid".to_string()),
 					e
 				);
 			} else {
@@ -787,15 +794,16 @@ impl EntryProcessor {
 						existing_active.entry_count = Set(existing.entry_count + 1);
 						existing_active.last_verified_at = Set(chrono::Utc::now());
 
-						let updated = existing_active
-							.update(ctx.library_db())
-							.await
-							.map_err(|e| {
-								JobError::execution(format!(
-									"Failed to update content identity: {}",
-									e
-								))
-							})?;
+						let updated =
+							existing_active
+								.update(ctx.library_db())
+								.await
+								.map_err(|e| {
+									JobError::execution(format!(
+										"Failed to update content identity: {}",
+										e
+									))
+								})?;
 
 						(updated, false)
 					} else {

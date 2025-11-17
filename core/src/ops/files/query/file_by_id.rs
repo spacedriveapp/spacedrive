@@ -4,7 +4,10 @@ use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, File},
-	infra::db::entities::{audio_media_data, content_identity, device, directory_paths, entry, image_media_data, location, sidecar, tag, user_metadata_tag, video_media_data},
+	infra::db::entities::{
+		audio_media_data, content_identity, device, directory_paths, entry, image_media_data,
+		location, sidecar, tag, user_metadata_tag, video_media_data,
+	},
 	infra::query::LibraryQuery,
 };
 use sea_orm::{
@@ -72,90 +75,99 @@ impl LibraryQuery for FileByIdQuery {
 		let sd_path = self.resolve_file_path(&entry_model, db.conn()).await?;
 
 		// Process content identity and load media data
-		let (content_identity_domain, sidecars, image_media, video_media, audio_media) = if let Some(content_identity_model) = content_identity_model_opt {
-			let content_uuid = content_identity_model.uuid;
+		let (content_identity_domain, sidecars, image_media, video_media, audio_media) =
+			if let Some(content_identity_model) = content_identity_model_opt {
+				let content_uuid = content_identity_model.uuid;
 
-			// Load media data in parallel using JOINs
-			let (image_media_opt, video_media_opt, audio_media_opt) = tokio::join!(
-				async {
-					if let Some(image_id) = content_identity_model.image_media_data_id {
-						image_media_data::Entity::find_by_id(image_id)
-							.one(db.conn())
-							.await
-							.ok()
-							.flatten()
-							.map(Into::into)
-					} else {
-						None
+				// Load media data in parallel using JOINs
+				let (image_media_opt, video_media_opt, audio_media_opt) = tokio::join!(
+					async {
+						if let Some(image_id) = content_identity_model.image_media_data_id {
+							image_media_data::Entity::find_by_id(image_id)
+								.one(db.conn())
+								.await
+								.ok()
+								.flatten()
+								.map(Into::into)
+						} else {
+							None
+						}
+					},
+					async {
+						if let Some(video_id) = content_identity_model.video_media_data_id {
+							video_media_data::Entity::find_by_id(video_id)
+								.one(db.conn())
+								.await
+								.ok()
+								.flatten()
+								.map(Into::into)
+						} else {
+							None
+						}
+					},
+					async {
+						if let Some(audio_id) = content_identity_model.audio_media_data_id {
+							audio_media_data::Entity::find_by_id(audio_id)
+								.one(db.conn())
+								.await
+								.ok()
+								.flatten()
+								.map(Into::into)
+						} else {
+							None
+						}
 					}
-				},
-				async {
-					if let Some(video_id) = content_identity_model.video_media_data_id {
-						video_media_data::Entity::find_by_id(video_id)
-							.one(db.conn())
-							.await
-							.ok()
-							.flatten()
-							.map(Into::into)
-					} else {
-						None
-					}
-				},
-				async {
-					if let Some(audio_id) = content_identity_model.audio_media_data_id {
-						audio_media_data::Entity::find_by_id(audio_id)
-							.one(db.conn())
-							.await
-							.ok()
-							.flatten()
-							.map(Into::into)
-					} else {
-						None
-					}
-				}
-			);
+				);
 
-			// Fetch sidecars for this content UUID
-			let sidecars = if let Some(uuid) = content_uuid {
-				sidecar::Entity::find()
-					.filter(sidecar::Column::ContentUuid.eq(uuid))
-					.all(db.conn())
-					.await?
-					.into_iter()
-					.map(|s| crate::domain::Sidecar {
-						id: s.id,
-						content_uuid: s.content_uuid,
-						kind: s.kind,
-						variant: s.variant,
-						format: s.format,
-						status: s.status,
-						size: s.size,
-						created_at: s.created_at,
-						updated_at: s.updated_at,
-					})
-					.collect()
+				// Fetch sidecars for this content UUID
+				let sidecars = if let Some(uuid) = content_uuid {
+					sidecar::Entity::find()
+						.filter(sidecar::Column::ContentUuid.eq(uuid))
+						.all(db.conn())
+						.await?
+						.into_iter()
+						.map(|s| crate::domain::Sidecar {
+							id: s.id,
+							content_uuid: s.content_uuid,
+							kind: s.kind,
+							variant: s.variant,
+							format: s.format,
+							status: s.status,
+							size: s.size,
+							created_at: s.created_at,
+							updated_at: s.updated_at,
+						})
+						.collect()
+				} else {
+					Vec::new()
+				};
+
+				// Convert content_identity to domain type
+				let content_identity = crate::domain::ContentIdentity {
+					uuid: content_identity_model
+						.uuid
+						.unwrap_or_else(|| Uuid::new_v4()),
+					kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
+					content_hash: content_identity_model.content_hash,
+					integrity_hash: content_identity_model.integrity_hash,
+					mime_type_id: content_identity_model.mime_type_id,
+					text_content: content_identity_model.text_content,
+					total_size: content_identity_model.total_size,
+					entry_count: content_identity_model.entry_count,
+					first_seen_at: content_identity_model.first_seen_at,
+					last_verified_at: content_identity_model.last_verified_at,
+				};
+
+				(
+					Some(content_identity),
+					sidecars,
+					image_media_opt,
+					video_media_opt,
+					audio_media_opt,
+				)
 			} else {
-				Vec::new()
+				(None, Vec::new(), None, None, None)
 			};
-
-			// Convert content_identity to domain type
-			let content_identity = crate::domain::ContentIdentity {
-				uuid: content_identity_model.uuid.unwrap_or_else(|| Uuid::new_v4()),
-				kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
-				content_hash: content_identity_model.content_hash,
-				integrity_hash: content_identity_model.integrity_hash,
-				mime_type_id: content_identity_model.mime_type_id,
-				text_content: content_identity_model.text_content,
-				total_size: content_identity_model.total_size,
-				entry_count: content_identity_model.entry_count,
-				first_seen_at: content_identity_model.first_seen_at,
-				last_verified_at: content_identity_model.last_verified_at,
-			};
-
-			(Some(content_identity), sidecars, image_media_opt, video_media_opt, audio_media_opt)
-		} else {
-			(None, Vec::new(), None, None, None)
-		};
 
 		// Convert to File using from_entity_model
 		let mut file = File::from_entity_model(entry_model, sd_path);

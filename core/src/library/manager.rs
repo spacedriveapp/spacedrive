@@ -174,8 +174,14 @@ impl LibraryManager {
 		tokio::fs::create_dir_all(&library_path).await?;
 
 		// Initialize library with provided UUID (instead of generating new one)
-		self.initialize_library_with_id(&library_path, library_id, name, description, context.clone())
-			.await?;
+		self.initialize_library_with_id(
+			&library_path,
+			library_id,
+			name,
+			description,
+			context.clone(),
+		)
+		.await?;
 
 		// Open the newly created library
 		let library = self.open_library(&library_path, context).await?;
@@ -238,8 +244,14 @@ impl LibraryManager {
 		tokio::fs::create_dir_all(&library_path).await?;
 
 		// Initialize library with provided UUID
-		self.initialize_library_with_id(&library_path, library_id, name.clone(), description, context.clone())
-			.await?;
+		self.initialize_library_with_id(
+			&library_path,
+			library_id,
+			name.clone(),
+			description,
+			context.clone(),
+		)
+		.await?;
 
 		// Pre-register the initial device BEFORE opening the library
 		// This ensures when ensure_device_registered runs, it detects the collision
@@ -270,10 +282,10 @@ impl LibraryManager {
 				"volume_detection": true
 			})),
 			created_at: Set(Utc::now()),
-		updated_at: Set(Utc::now()),
-		sync_enabled: Set(true),
-		last_sync_at: Set(None),
-	};
+			updated_at: Set(Utc::now()),
+			sync_enabled: Set(true),
+			last_sync_at: Set(None),
+		};
 
 		initial_device_model
 			.insert(&db_conn)
@@ -439,7 +451,7 @@ impl LibraryManager {
 			event_bus: self.event_bus.clone(),
 			sync_events,
 			transaction_manager,
-			sync_service: OnceCell::new(), // Initialized later
+			sync_service: OnceCell::new(),      // Initialized later
 			file_sync_service: OnceCell::new(), // Initialized later
 			device_cache: Arc::new(std::sync::RwLock::new(device_cache)),
 			_lock: lock,
@@ -783,7 +795,10 @@ impl LibraryManager {
 				))
 			})?;
 
-		info!("Initialized encryption key for shared library '{}'", config.name);
+		info!(
+			"Initialized encryption key for shared library '{}'",
+			config.name
+		);
 
 		// Save configuration
 		let config_path = path.join("library.json");
@@ -797,7 +812,10 @@ impl LibraryManager {
 		// Run initial migrations
 		db.migrate().await?;
 
-		info!("Shared library '{}' initialized at {:?} with ID {}", config.name, path, library_id);
+		info!(
+			"Shared library '{}' initialized at {:?} with ID {}",
+			config.name, path, library_id
+		);
 
 		Ok(())
 	}
@@ -847,6 +865,7 @@ impl LibraryManager {
 
 			// Update fields that may have changed
 			device_model.name = Set(device.name.clone());
+			device_model.os_version = Set(device.os_version);
 			device_model.hardware_model = Set(device.hardware_model);
 			device_model.is_online = Set(true);
 			device_model.last_seen_at = Set(Utc::now());
@@ -866,7 +885,9 @@ impl LibraryManager {
 					.one(db.conn())
 					.await
 					.map_err(LibraryError::DatabaseError)?
-					.ok_or_else(|| LibraryError::Other("Device not found after update".to_string()))?;
+					.ok_or_else(|| {
+						LibraryError::Other("Device not found after update".to_string())
+					})?;
 
 				if let Err(e) = library
 					.sync_model(&updated_model, crate::infra::sync::ChangeType::Update)
@@ -917,7 +938,7 @@ impl LibraryManager {
 				name: Set(device.name.clone()),
 				slug: Set(unique_slug.clone()),
 				os: Set(device.os.to_string()),
-				os_version: Set(None),
+				os_version: Set(device.os_version),
 				hardware_model: Set(device.hardware_model),
 				network_addresses: Set(serde_json::json!(device.network_addresses)),
 				is_online: Set(true),
@@ -927,11 +948,11 @@ impl LibraryManager {
 					"p2p": true,
 					"volume_detection": true
 				})),
-			created_at: Set(device.created_at),
-			sync_enabled: Set(true), // Enable sync by default for this device
-			last_sync_at: Set(None),
-			updated_at: Set(Utc::now()),
-		};
+				created_at: Set(device.created_at),
+				sync_enabled: Set(true), // Enable sync by default for this device
+				last_sync_at: Set(None),
+				updated_at: Set(Utc::now()),
+			};
 
 			let inserted_model = device_model
 				.insert(db.conn())
@@ -1003,8 +1024,9 @@ impl LibraryManager {
 		];
 
 		for (item_type, order) in space_items {
-			let item_type_json = serde_json::to_string(&item_type)
-				.map_err(|e| LibraryError::Other(format!("Failed to serialize item_type: {}", e)))?;
+			let item_type_json = serde_json::to_string(&item_type).map_err(|e| {
+				LibraryError::Other(format!("Failed to serialize item_type: {}", e))
+			})?;
 
 			let item_model = crate::infra::db::entities::space_item::ActiveModel {
 				id: NotSet,
@@ -1022,7 +1044,10 @@ impl LibraryManager {
 				.map_err(LibraryError::DatabaseError)?;
 		}
 
-		info!("Created default space-level items for library {}", library.id());
+		info!(
+			"Created default space-level items for library {}",
+			library.id()
+		);
 
 		// Create Locations group
 		let locations_group_id = uuid::Uuid::new_v4();
@@ -1045,7 +1070,10 @@ impl LibraryManager {
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
-		info!("Created default Locations group for library {}", library.id());
+		info!(
+			"Created default Locations group for library {}",
+			library.id()
+		);
 
 		// Create Volumes group
 		let volumes_group_id = uuid::Uuid::new_v4();

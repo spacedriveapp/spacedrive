@@ -272,10 +272,21 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 		if let Err(e) = self
 			.ctx
 			.library()
-			.sync_model_with_db(&result, crate::infra::sync::ChangeType::Insert, self.ctx.library_db())
+			.sync_model_with_db(
+				&result,
+				crate::infra::sync::ChangeType::Insert,
+				self.ctx.library_db(),
+			)
 			.await
 		{
-			tracing::warn!("ENTRY_SYNC: Failed to sync entry {}: {}", result.uuid.map(|u| u.to_string()).unwrap_or_else(|| "no-uuid".to_string()), e);
+			tracing::warn!(
+				"ENTRY_SYNC: Failed to sync entry {}: {}",
+				result
+					.uuid
+					.map(|u| u.to_string())
+					.unwrap_or_else(|| "no-uuid".to_string()),
+				e
+			);
 		} else {
 			tracing::info!(
 				"ENTRY_SYNC: Successfully synced entry name={} uuid={:?}",

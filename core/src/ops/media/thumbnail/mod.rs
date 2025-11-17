@@ -53,7 +53,10 @@ pub async fn generate_thumbnails_for_file(
 
 	// Check if thumbnail generation is supported for this file type
 	if !ThumbnailUtils::is_thumbnail_supported(mime_type) {
-		debug!("Thumbnail generation not supported for MIME type: {}", mime_type);
+		debug!(
+			"Thumbnail generation not supported for MIME type: {}",
+			mime_type
+		);
 		return Ok(0);
 	}
 
@@ -106,7 +109,12 @@ pub async fn generate_thumbnails_for_file(
 
 		// Generate thumbnail
 		match generator
-			.generate(source_path, &output_path.absolute_path, variant_config.size, variant_config.quality)
+			.generate(
+				source_path,
+				&output_path.absolute_path,
+				variant_config.size,
+				variant_config.quality,
+			)
 			.await
 		{
 			Ok(thumbnail_info) => {
@@ -180,7 +188,9 @@ pub async fn generate_thumbnails_for_file(
 				match extract_image_metadata(source_path, media_data_uuid).await {
 					Ok(image_data) => {
 						use crate::infra::db::entities::{content_identity, image_media_data};
-						use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+						use sea_orm::{
+							ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set,
+						};
 
 						// Insert image media data
 						if let Ok(inserted) = image_data.insert(db).await {
@@ -211,7 +221,9 @@ pub async fn generate_thumbnails_for_file(
 					match extract_video_metadata(source_path, media_data_uuid).await {
 						Ok(video_data) => {
 							use crate::infra::db::entities::{content_identity, video_media_data};
-							use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+							use sea_orm::{
+								ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set,
+							};
 
 							// Insert video media data
 							if let Ok(inserted) = video_data.insert(db).await {
@@ -225,7 +237,10 @@ pub async fn generate_thumbnails_for_file(
 									active.video_media_data_id = Set(Some(inserted.id));
 									let _ = active.update(db).await;
 
-									debug!("Extracted video metadata for {}", source_path.display());
+									debug!(
+										"Extracted video metadata for {}",
+										source_path.display()
+									);
 								}
 							}
 						}
@@ -243,7 +258,9 @@ pub async fn generate_thumbnails_for_file(
 					match extract_audio_metadata(source_path, media_data_uuid).await {
 						Ok(audio_data) => {
 							use crate::infra::db::entities::{audio_media_data, content_identity};
-							use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+							use sea_orm::{
+								ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set,
+							};
 
 							// Insert audio media data
 							if let Ok(inserted) = audio_data.insert(db).await {
@@ -257,7 +274,10 @@ pub async fn generate_thumbnails_for_file(
 									active.audio_media_data_id = Set(Some(inserted.id));
 									let _ = active.update(db).await;
 
-									debug!("Extracted audio metadata for {}", source_path.display());
+									debug!(
+										"Extracted audio metadata for {}",
+										source_path.display()
+									);
 								}
 							}
 						}

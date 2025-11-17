@@ -7,7 +7,7 @@ use crate::{
 	},
 	library::Library,
 	ops::files::{
-		copy::{job::FileCopyJob, job::CopyOptions},
+		copy::{job::CopyOptions, job::FileCopyJob},
 		delete::{job::DeleteJob, job::DeleteMode},
 	},
 };
@@ -82,9 +82,7 @@ impl FileSyncService {
 
 		// Check if already syncing
 		if self.active_syncs.read().await.contains_key(&conduit_id) {
-			return Err(anyhow::anyhow!(
-				"Sync already in progress for this conduit"
-			));
+			return Err(anyhow::anyhow!("Sync already in progress for this conduit"));
 		}
 
 		// Calculate sync operations
@@ -158,10 +156,7 @@ impl FileSyncService {
 			target_to_source: target_to_source.clone(),
 		};
 
-		self.active_syncs
-			.write()
-			.await
-			.insert(conduit_id, sync_op);
+		self.active_syncs.write().await.insert(conduit_id, sync_op);
 
 		// Start monitoring background task
 		let service = self.clone();
@@ -272,7 +267,10 @@ impl FileSyncService {
 		};
 
 		// Phase 1: Wait for all copy jobs to complete
-		info!("Waiting for copy jobs to complete for conduit {}", conduit_id);
+		info!(
+			"Waiting for copy jobs to complete for conduit {}",
+			conduit_id
+		);
 
 		// Note: In a real implementation, we'd use JobManager's wait_for_completion
 		// For now, we'll simulate completion
@@ -290,9 +288,7 @@ impl FileSyncService {
 		self.conduit_manager
 			.complete_generation(generation_id)
 			.await?;
-		self.conduit_manager
-			.update_after_sync(conduit_id)
-			.await?;
+		self.conduit_manager.update_after_sync(conduit_id).await?;
 
 		info!(
 			"Sync operations completed for conduit {}, starting verification",
@@ -307,7 +303,10 @@ impl FileSyncService {
 		// Remove from active syncs
 		self.active_syncs.write().await.remove(&conduit_id);
 
-		info!("Sync fully completed and verified for conduit {}", conduit_id);
+		info!(
+			"Sync fully completed and verified for conduit {}",
+			conduit_id
+		);
 
 		Ok(())
 	}

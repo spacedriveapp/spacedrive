@@ -64,11 +64,11 @@ impl LocationManager {
 					"Content paths cannot be used as locations".to_string(),
 				));
 			}
-		crate::domain::addressing::SdPath::Sidecar { .. } => {
-			return Err(LocationError::InvalidPath(
-				"Sidecar paths cannot be used as locations".to_string(),
-			));
-		}
+			crate::domain::addressing::SdPath::Sidecar { .. } => {
+				return Err(LocationError::InvalidPath(
+					"Sidecar paths cannot be used as locations".to_string(),
+				));
+			}
 		}
 
 		// Begin transaction
@@ -225,7 +225,10 @@ impl LocationManager {
 			std::sync::Arc::new(library.db().conn().clone()),
 			std::sync::Arc::new(self.events.clone()),
 		);
-		if let Err(e) = resource_manager.emit_resource_events("location", vec![location_id]).await {
+		if let Err(e) = resource_manager
+			.emit_resource_events("location", vec![location_id])
+			.await
+		{
 			warn!("Failed to emit location resource events: {}", e);
 		}
 
@@ -457,10 +460,7 @@ impl LocationManager {
 			.await
 			.map_err(|e| LocationError::Other(format!("Database error: {}", e)))?
 			.ok_or_else(|| {
-				LocationError::Other(format!(
-					"Cloud volume {} not found",
-					expected_mount_point
-				))
+				LocationError::Other(format!("Cloud volume {} not found", expected_mount_point))
 			})?;
 
 		// TODO: Validate that we can connect to the volume
@@ -589,7 +589,8 @@ impl LocationManager {
 			.ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
 		// Skip if location doesn't have entry_id yet (not synced)
-		let entry_id = location.entry_id
+		let entry_id = location
+			.entry_id
 			.ok_or_else(|| LocationError::Other("Location entry not yet synced".to_string()))?;
 
 		let path = PathResolver::get_full_path(library.db().conn(), entry_id).await?;

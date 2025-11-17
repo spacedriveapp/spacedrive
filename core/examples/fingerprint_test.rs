@@ -41,10 +41,7 @@ fn main() {
 		"  Using consumed (100GB tmrw): {}",
 		fp_with_consumed_100.short_id()
 	);
-	println!(
-		"  Total stays same:     {}",
-		fp_with_total == fp_with_total
-	);
+	println!("  Total stays same:     {}", fp_with_total == fp_with_total);
 	println!(
 		"  Consumed changes:     {} (BAD!)\n",
 		fp_with_consumed_50 != fp_with_consumed_100

@@ -213,9 +213,9 @@ impl IndexVerifyAction {
 
 		let mut target_location = None;
 		for loc in locations {
-			let entry_id = loc.entry_id.ok_or_else(|| {
-				ActionError::Internal("Location has no entry_id".to_string())
-			})?;
+			let entry_id = loc
+				.entry_id
+				.ok_or_else(|| ActionError::Internal("Location has no entry_id".to_string()))?;
 			let loc_path = PathResolver::get_full_path(db, entry_id)
 				.await
 				.map_err(|e| {
@@ -339,9 +339,9 @@ impl IndexVerifyAction {
 				}
 			} else {
 				// Traverse from location root to find the target directory
-				let mut current_parent_id = location.entry_id.ok_or_else(|| {
-					ActionError::Internal("Location has no entry_id".to_string())
-				})?;
+				let mut current_parent_id = location
+					.entry_id
+					.ok_or_else(|| ActionError::Internal("Location has no entry_id".to_string()))?;
 
 				for component in &components {
 					// Find child with this name

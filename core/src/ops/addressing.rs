@@ -502,12 +502,12 @@ impl PathResolver {
 
 		// Return the best instance
 		candidates.first().and_then(|(_, inst)| {
-			device_slug_map.get(&inst.device_id).map(|device_slug| {
-				SdPath::Physical {
+			device_slug_map
+				.get(&inst.device_id)
+				.map(|device_slug| SdPath::Physical {
 					device_slug: device_slug.clone(),
 					path: inst.path.clone(),
-				}
-			})
+				})
 		})
 	}
 

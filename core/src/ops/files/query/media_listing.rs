@@ -7,12 +7,7 @@
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	domain::{
-		addressing::SdPath,
-		content_identity::ContentIdentity,
-		file::File,
-		ContentKind,
-	},
+	domain::{addressing::SdPath, content_identity::ContentIdentity, file::File, ContentKind},
 	infra::db::entities::{
 		content_identity, directory_paths, entry, image_media_data, sidecar, video_media_data,
 	},
@@ -218,7 +213,9 @@ impl LibraryQuery for MediaListingQuery {
 			MediaSortBy::Created => sql_query.push_str(" ORDER BY e.created_at DESC"),
 			MediaSortBy::DateTaken => {
 				// Use date_taken for images, date_captured for videos, fall back to modified_at
-				sql_query.push_str(" ORDER BY COALESCE(imd.date_taken, vmd.date_captured, e.modified_at) DESC")
+				sql_query.push_str(
+					" ORDER BY COALESCE(imd.date_taken, vmd.date_captured, e.modified_at) DESC",
+				)
 			}
 			MediaSortBy::Name => sql_query.push_str(" ORDER BY e.name ASC"),
 			MediaSortBy::Size => sql_query.push_str(" ORDER BY e.size DESC"),
@@ -273,7 +270,11 @@ impl LibraryQuery for MediaListingQuery {
 		// Collect all content UUIDs for batch sidecar query
 		let content_uuids: Vec<Uuid> = rows
 			.iter()
-			.filter_map(|row| row.try_get::<Option<Uuid>>("", "content_identity_uuid").ok().flatten())
+			.filter_map(|row| {
+				row.try_get::<Option<Uuid>>("", "content_identity_uuid")
+					.ok()
+					.flatten()
+			})
 			.collect();
 
 		// Batch fetch all sidecars for these content UUIDs
@@ -287,7 +288,8 @@ impl LibraryQuery for MediaListingQuery {
 		};
 
 		// Group sidecars by content_uuid for fast lookup
-		let mut sidecars_by_content: HashMap<Uuid, Vec<crate::domain::file::Sidecar>> = HashMap::new();
+		let mut sidecars_by_content: HashMap<Uuid, Vec<crate::domain::file::Sidecar>> =
+			HashMap::new();
 		for s in all_sidecars {
 			sidecars_by_content
 				.entry(s.content_uuid)
@@ -345,7 +347,8 @@ impl LibraryQuery for MediaListingQuery {
 
 			// Video media data (just duration for grid display)
 			let video_media_uuid: Option<Uuid> = row.try_get("", "video_media_uuid").ok();
-			let video_duration_seconds: Option<f64> = row.try_get("", "video_duration_seconds").ok();
+			let video_duration_seconds: Option<f64> =
+				row.try_get("", "video_duration_seconds").ok();
 
 			// Build full path with extension
 			let full_name = if let Some(ext) = &entry_extension {
@@ -438,12 +441,7 @@ impl LibraryQuery for MediaListingQuery {
 			let mut file = File::from_entity_model(entity_model, entry_sd_path);
 
 			// Add content identity if available
-			if let (
-				Some(ci_uuid),
-				Some(ci_hash),
-				Some(ci_first_seen),
-				Some(ci_last_verified),
-			) = (
+			if let (Some(ci_uuid), Some(ci_hash), Some(ci_first_seen), Some(ci_last_verified)) = (
 				content_identity_uuid,
 				content_hash,
 				first_seen_at,

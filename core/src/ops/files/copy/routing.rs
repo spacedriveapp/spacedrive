@@ -22,8 +22,11 @@ impl CopyStrategyRouter {
 		copy_method: &CopyMethod,
 		volume_manager: Option<&VolumeManager>,
 	) -> Box<dyn CopyStrategy> {
-		info!("[ROUTING] Selecting strategy for source device {:?} -> destination device {:?}",
-			source.device_slug(), destination.device_slug());
+		info!(
+			"[ROUTING] Selecting strategy for source device {:?} -> destination device {:?}",
+			source.device_slug(),
+			destination.device_slug()
+		);
 
 		// Cross-device transfer - always use network strategy
 		// Compare device slugs to detect if paths are on different devices

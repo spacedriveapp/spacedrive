@@ -143,9 +143,10 @@ impl Syncable for Model {
 			ChangeType::Insert | ChangeType::Update => {
 				// Map UUIDs to local IDs for FK fields
 				use crate::infra::sync::fk_mapper;
-				let data = fk_mapper::map_sync_json_to_local(entry.data, Self::foreign_key_mappings(), db)
-					.await
-					.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
+				let data =
+					fk_mapper::map_sync_json_to_local(entry.data, Self::foreign_key_mappings(), db)
+						.await
+						.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
 
 				let data = data.as_object().ok_or_else(|| {
 					sea_orm::DbErr::Custom("CollectionEntry data is not an object".to_string())

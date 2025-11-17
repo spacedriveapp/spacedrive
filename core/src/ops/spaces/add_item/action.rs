@@ -37,7 +37,9 @@ impl LibraryAction for AddItemAction {
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Space {} not found", self.input.space_id)))?;
+			.ok_or_else(|| {
+				ActionError::Internal(format!("Space {} not found", self.input.space_id))
+			})?;
 
 		// Verify group exists if group_id is provided
 		let group_model_id = if let Some(group_id) = self.input.group_id {

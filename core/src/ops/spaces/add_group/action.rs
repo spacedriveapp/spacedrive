@@ -41,7 +41,9 @@ impl LibraryAction for AddGroupAction {
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Space {} not found", self.input.space_id)))?;
+			.ok_or_else(|| {
+				ActionError::Internal(format!("Space {} not found", self.input.space_id))
+			})?;
 
 		// Get max order for this space
 		let max_order = crate::infra::db::entities::space_group::Entity::find()

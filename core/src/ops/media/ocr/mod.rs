@@ -15,10 +15,7 @@ use anyhow::Result;
 use std::path::Path;
 
 /// Extract text from an image or PDF using tesseract
-pub async fn extract_text_from_file(
-	source_path: &Path,
-	languages: &[String],
-) -> Result<String> {
+pub async fn extract_text_from_file(source_path: &Path, languages: &[String]) -> Result<String> {
 	use tokio::task::spawn_blocking;
 
 	let source = source_path.to_path_buf();

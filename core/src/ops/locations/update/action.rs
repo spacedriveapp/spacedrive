@@ -73,18 +73,16 @@ impl LibraryAction for LocationUpdateAction {
 		}
 
 		if let Some(ref job_policies) = self.input.job_policies {
-			let json_str = serde_json::to_string(job_policies)
-				.map_err(|e| ActionError::Internal(format!("Failed to serialize job policies: {}", e)))?;
+			let json_str = serde_json::to_string(job_policies).map_err(|e| {
+				ActionError::Internal(format!("Failed to serialize job policies: {}", e))
+			})?;
 			active.job_policies = Set(Some(json_str));
 		}
 
 		active.updated_at = Set(chrono::Utc::now());
 
 		// Execute update
-		active
-			.update(db)
-			.await
-			.map_err(ActionError::SeaOrm)?;
+		active.update(db).await.map_err(ActionError::SeaOrm)?;
 
 		Ok(LocationUpdateOutput { id: self.input.id })
 	}

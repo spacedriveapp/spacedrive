@@ -17,9 +17,7 @@ impl MigrationTrait for Migration {
 				Table::alter()
 					.table(Alias::new("collection_entry"))
 					.add_column(
-						ColumnDef::new(Alias::new("uuid"))
-							.uuid()
-							.null() // Allow NULL temporarily for existing rows
+						ColumnDef::new(Alias::new("uuid")).uuid().null(), // Allow NULL temporarily for existing rows
 					)
 					.to_owned(),
 			)
@@ -33,7 +31,7 @@ impl MigrationTrait for Migration {
 						ColumnDef::new(Alias::new("version"))
 							.big_integer()
 							.not_null()
-							.default(1)
+							.default(1),
 					)
 					.to_owned(),
 			)
@@ -47,7 +45,7 @@ impl MigrationTrait for Migration {
 						ColumnDef::new(Alias::new("updated_at"))
 							.timestamp_with_time_zone()
 							.not_null()
-							.default(Expr::current_timestamp())
+							.default(Expr::current_timestamp()),
 					)
 					.to_owned(),
 			)
@@ -71,10 +69,7 @@ impl MigrationTrait for Migration {
 				Table::alter()
 					.table(Alias::new("user_metadata_tag"))
 					.add_column(
-						ColumnDef::new(Alias::new("uuid"))
-							.uuid()
-							.not_null()
-							.null()  // Allow NULL temporarily
+						ColumnDef::new(Alias::new("uuid")).uuid().not_null().null(), // Allow NULL temporarily
 					)
 					.to_owned(),
 			)
@@ -88,7 +83,7 @@ impl MigrationTrait for Migration {
 						ColumnDef::new(Alias::new("version"))
 							.big_integer()
 							.not_null()
-							.default(1)
+							.default(1),
 					)
 					.to_owned(),
 			)
@@ -112,10 +107,7 @@ impl MigrationTrait for Migration {
 				Table::alter()
 					.table(Alias::new("tag_relationship"))
 					.add_column(
-						ColumnDef::new(Alias::new("uuid"))
-							.uuid()
-							.not_null()
-							.null()  // Allow NULL temporarily
+						ColumnDef::new(Alias::new("uuid")).uuid().not_null().null(), // Allow NULL temporarily
 					)
 					.to_owned(),
 			)
@@ -129,7 +121,7 @@ impl MigrationTrait for Migration {
 						ColumnDef::new(Alias::new("version"))
 							.big_integer()
 							.not_null()
-							.default(1)
+							.default(1),
 					)
 					.to_owned(),
 			)
@@ -143,7 +135,7 @@ impl MigrationTrait for Migration {
 						ColumnDef::new(Alias::new("updated_at"))
 							.timestamp_with_time_zone()
 							.not_null()
-							.default(Expr::current_timestamp())
+							.default(Expr::current_timestamp()),
 					)
 					.to_owned(),
 			)

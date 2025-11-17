@@ -126,9 +126,7 @@ impl Syncable for Model {
 					id: NotSet,
 					uuid: Set(uuid),
 					name: Set(serde_json::from_value(
-						data.get("name")
-							.cloned()
-							.unwrap_or(serde_json::Value::Null),
+						data.get("name").cloned().unwrap_or(serde_json::Value::Null),
 					)
 					.unwrap()),
 					description: Set(serde_json::from_value(

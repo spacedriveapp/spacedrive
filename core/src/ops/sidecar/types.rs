@@ -6,6 +6,7 @@ use std::fmt;
 #[serde(rename_all = "snake_case")]
 pub enum SidecarKind {
 	Thumb,
+	Thumbstrip,
 	Proxy,
 	Embeddings,
 	Ocr,
@@ -16,6 +17,7 @@ impl SidecarKind {
 	pub fn as_str(&self) -> &'static str {
 		match self {
 			Self::Thumb => "thumb",
+			Self::Thumbstrip => "thumbstrip",
 			Self::Proxy => "proxy",
 			Self::Embeddings => "embeddings",
 			Self::Ocr => "ocr",
@@ -26,6 +28,7 @@ impl SidecarKind {
 	pub fn directory(&self) -> &'static str {
 		match self {
 			Self::Thumb => "thumbs",
+			Self::Thumbstrip => "thumbstrips",
 			Self::Proxy => "proxies",
 			Self::Embeddings => "embeddings",
 			Self::Ocr => "ocr",
@@ -46,6 +49,7 @@ impl TryFrom<&str> for SidecarKind {
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		match value {
 			"thumb" => Ok(Self::Thumb),
+			"thumbstrip" => Ok(Self::Thumbstrip),
 			"proxy" => Ok(Self::Proxy),
 			"embeddings" => Ok(Self::Embeddings),
 			"ocr" => Ok(Self::Ocr),

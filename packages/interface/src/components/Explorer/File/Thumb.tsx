@@ -2,6 +2,7 @@ import { useState, memo, useEffect } from "react";
 import clsx from "clsx";
 import { getIcon } from "@sd/assets/util";
 import type { File } from "@sd/ts-client/generated/types";
+import { ThumbstripScrubber } from "./ThumbstripScrubber";
 
 interface ThumbProps {
 	file: File;
@@ -41,6 +42,10 @@ export const Thumb = memo(function Thumb({
 	}, [thumbError, cacheKey]);
 
 	const iconSize = size * iconScale;
+
+	// Check if this is a video with thumbstrip sidecar
+	const isVideo = file.content_identity?.kind === "video";
+	const hasThumbstrip = file.sidecars?.some((s) => s.kind === "thumbstrip");
 
 	// Get appropriate thumbnail URL from sidecars based on size
 	const getThumbnailUrl = (targetSize: number) => {
@@ -161,6 +166,11 @@ export const Thumb = memo(function Thumb({
 					onLoad={() => setThumbLoaded(true)}
 					onError={() => setThumbError(true)}
 				/>
+			)}
+
+			{/* Thumbstrip scrubber overlay (for videos with thumbstrips) */}
+			{isVideo && hasThumbstrip && thumbLoaded && (
+				<ThumbstripScrubber file={file} size={size} />
 			)}
 		</div>
 	);

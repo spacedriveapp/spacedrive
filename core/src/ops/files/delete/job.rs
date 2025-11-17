@@ -108,11 +108,9 @@ impl JobHandler for DeleteJob {
 
 		// Select strategy based on path topology
 		let volume_manager = ctx.volume_manager();
-		let strategy = DeleteStrategyRouter::select_strategy(
-			&self.targets.paths,
-			volume_manager.as_deref(),
-		)
-		.await;
+		let strategy =
+			DeleteStrategyRouter::select_strategy(&self.targets.paths, volume_manager.as_deref())
+				.await;
 
 		let strategy_description =
 			DeleteStrategyRouter::describe_strategy(&self.targets.paths).await;

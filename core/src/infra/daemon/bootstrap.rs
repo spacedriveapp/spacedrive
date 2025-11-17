@@ -64,7 +64,9 @@ fn initialize_tracing_with_file_logging(
 	use crate::infra::event::log_emitter::LogEventLayer;
 	use std::sync::Once;
 	use tracing_appender::rolling::{RollingFileAppender, Rotation};
-	use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+	use tracing_subscriber::{
+		fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+	};
 
 	static INIT: Once = Once::new();
 	let mut result: Result<(), Box<dyn std::error::Error>> = Ok(());
@@ -81,14 +83,17 @@ fn initialize_tracing_with_file_logging(
 		let config = match AppConfig::load_from(data_dir) {
 			Ok(c) => c,
 			Err(e) => {
-				warn!("Failed to load config for logging streams: {}, using defaults", e);
+				warn!(
+					"Failed to load config for logging streams: {}, using defaults",
+					e
+				);
 				AppConfig::default_with_dir(data_dir.clone())
 			}
 		};
 
 		// Set up main environment filter (for stdout and main daemon.log)
-		let main_filter = std::env::var("RUST_LOG")
-			.unwrap_or_else(|_| config.logging.main_filter.clone());
+		let main_filter =
+			std::env::var("RUST_LOG").unwrap_or_else(|_| config.logging.main_filter.clone());
 
 		// Create main daemon.log file appender
 		let main_file_appender = RollingFileAppender::new(Rotation::DAILY, &logs_dir, "daemon.log");
@@ -102,9 +107,11 @@ fn initialize_tracing_with_file_logging(
 				.with_target(true)
 				.with_thread_ids(true)
 				.with_writer(std::io::stdout)
-				.with_filter(EnvFilter::try_from_default_env()
-					.unwrap_or_else(|_| EnvFilter::new(&main_filter)))
-				.boxed()
+				.with_filter(
+					EnvFilter::try_from_default_env()
+						.unwrap_or_else(|_| EnvFilter::new(&main_filter)),
+				)
+				.boxed(),
 		);
 
 		// Main daemon.log file layer with main filter
@@ -115,19 +122,18 @@ fn initialize_tracing_with_file_logging(
 				.with_ansi(false)
 				.with_writer(main_file_appender)
 				.with_filter(EnvFilter::new(&main_filter))
-				.boxed()
+				.boxed(),
 		);
 
 		// Add custom log streams
 		for stream in config.logging.streams.iter().filter(|s| s.enabled) {
-			info!("Configuring log stream: {} -> {} (filter: {})",
-				stream.name, stream.file_name, stream.filter);
-
-			let stream_appender = RollingFileAppender::new(
-				Rotation::DAILY,
-				&logs_dir,
-				&stream.file_name
+			info!(
+				"Configuring log stream: {} -> {} (filter: {})",
+				stream.name, stream.file_name, stream.filter
 			);
+
+			let stream_appender =
+				RollingFileAppender::new(Rotation::DAILY, &logs_dir, &stream.file_name);
 
 			match EnvFilter::try_new(&stream.filter) {
 				Ok(filter) => {
@@ -138,13 +144,15 @@ fn initialize_tracing_with_file_logging(
 							.with_ansi(false)
 							.with_writer(stream_appender)
 							.with_filter(filter)
-							.boxed()
+							.boxed(),
 					);
 					info!("Log stream '{}' configured successfully", stream.name);
 				}
 				Err(e) => {
-					warn!("Failed to parse filter for log stream '{}': {}. Skipping stream.",
-						stream.name, e);
+					warn!(
+						"Failed to parse filter for log stream '{}': {}. Skipping stream.",
+						stream.name, e
+					);
 				}
 			}
 		}

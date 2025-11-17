@@ -34,17 +34,21 @@ impl LibraryAction for DeleteItemAction {
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Item {} not found", self.input.item_id)))?;
+			.ok_or_else(|| {
+				ActionError::Internal(format!("Item {} not found", self.input.item_id))
+			})?;
 
 		let item_id = item_model.uuid;
 
 		item_model.delete(db).await.map_err(ActionError::SeaOrm)?;
 
 		// Emit ResourceDeleted event for the item
-		library.event_bus().emit(crate::infra::event::Event::ResourceDeleted {
-			resource_type: "space_item".to_string(),
-			resource_id: item_id,
-		});
+		library
+			.event_bus()
+			.emit(crate::infra::event::Event::ResourceDeleted {
+				resource_type: "space_item".to_string(),
+				resource_id: item_id,
+			});
 
 		Ok(DeleteItemOutput { success: true })
 	}

@@ -188,9 +188,9 @@ impl LibrarySyncSetupAction {
 				})),
 				created_at: Set(Utc::now()),
 				updated_at: Set(Utc::now()),
-			sync_enabled: Set(true),
-			last_sync_at: Set(None),
-		};
+				sync_enabled: Set(true),
+				last_sync_at: Set(None),
+			};
 
 			device_model
 				.insert(db.conn())
@@ -305,16 +305,17 @@ impl LibrarySyncSetupAction {
 					.get_networking()
 					.await
 					.ok_or_else(|| ActionError::Internal("Networking not available".to_string()))?;
-				let local_device_config = context
-					.device_manager
-					.config()
-					.map_err(|e| ActionError::Internal(format!("Failed to get device config: {}", e)))?;
+				let local_device_config = context.device_manager.config().map_err(|e| {
+					ActionError::Internal(format!("Failed to get device config: {}", e))
+				})?;
 
 				// Get library-specific slug (uses override if set, otherwise global slug)
 				let local_device_slug = context
 					.device_manager
 					.slug_for_library(library_id)
-					.map_err(|e| ActionError::Internal(format!("Failed to get device slug: {}", e)))?;
+					.map_err(|e| {
+						ActionError::Internal(format!("Failed to get device slug: {}", e))
+					})?;
 
 				let register_request = LibraryMessage::RegisterDeviceRequest {
 					request_id: Uuid::new_v4(),
@@ -357,7 +358,10 @@ impl LibrarySyncSetupAction {
 					local_library_id: library_id,
 					remote_library_id: Some(library_id),
 					devices_registered: true,
-					message: format!("Successfully shared library '{}' to remote device", library_name),
+					message: format!(
+						"Successfully shared library '{}' to remote device",
+						library_name
+					),
 				})
 			}
 			LibraryMessage::CreateSharedLibraryResponse {
@@ -494,7 +498,10 @@ impl LibrarySyncSetupAction {
 			local_library_id: remote_library_id,
 			remote_library_id: Some(remote_library_id),
 			devices_registered: true,
-			message: format!("Successfully joined remote library '{}'", remote_library_name),
+			message: format!(
+				"Successfully joined remote library '{}'",
+				remote_library_name
+			),
 		})
 	}
 }

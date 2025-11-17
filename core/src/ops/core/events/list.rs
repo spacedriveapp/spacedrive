@@ -105,8 +105,8 @@ impl CoreQuery for ListEventsQuery {
 
 		// Define noisy events (high-frequency, excluded by default)
 		let noisy_events = vec![
-			"LogMessage",      // Every log becomes an event
-			"JobProgress",     // Sent frequently during job execution
+			"LogMessage",       // Every log becomes an event
+			"JobProgress",      // Sent frequently during job execution
 			"IndexingProgress", // Sent frequently during indexing
 		]
 		.into_iter()

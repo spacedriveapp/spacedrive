@@ -41,7 +41,7 @@ pub struct FrameDecoder {
 }
 
 impl FrameDecoder {
-	pub(crate) fn new(
+	pub fn new(
 		filename: impl AsRef<Path>,
 		allow_seek: bool,
 		prefer_embedded: bool,
@@ -92,11 +92,11 @@ impl FrameDecoder {
 		})
 	}
 
-	pub(crate) const fn use_embedded(&self) -> bool {
+	pub const fn use_embedded(&self) -> bool {
 		self.embedded
 	}
 
-	pub(crate) fn decode_video_frame(&mut self) -> Result<(), Error> {
+	pub fn decode_video_frame(&mut self) -> Result<(), Error> {
 		let mut frame_finished = false;
 
 		while !frame_finished && self.find_packet_for_stream() {
@@ -110,7 +110,7 @@ impl FrameDecoder {
 		Ok(())
 	}
 
-	pub(crate) fn seek(&mut self, seconds: i64) -> Result<(), Error> {
+	pub fn seek(&mut self, seconds: i64) -> Result<(), Error> {
 		if !self.allow_seek {
 			return Ok(());
 		}
@@ -146,7 +146,7 @@ impl FrameDecoder {
 		}
 	}
 
-	pub(crate) fn get_scaled_video_frame(
+	pub fn get_scaled_video_frame(
 		&mut self,
 		size: Option<ThumbnailSize>,
 		maintain_aspect_ratio: bool,

@@ -19,9 +19,22 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(SyncConduit::Uuid).binary().not_null().unique_key())
-					.col(ColumnDef::new(SyncConduit::SourceEntryId).integer().not_null())
-					.col(ColumnDef::new(SyncConduit::TargetEntryId).integer().not_null())
+					.col(
+						ColumnDef::new(SyncConduit::Uuid)
+							.binary()
+							.not_null()
+							.unique_key(),
+					)
+					.col(
+						ColumnDef::new(SyncConduit::SourceEntryId)
+							.integer()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(SyncConduit::TargetEntryId)
+							.integer()
+							.not_null(),
+					)
 					.col(ColumnDef::new(SyncConduit::SyncMode).string().not_null())
 					.col(
 						ColumnDef::new(SyncConduit::Enabled)
@@ -49,7 +62,9 @@ impl MigrationTrait for Migration {
 							.default(3),
 					)
 					.col(ColumnDef::new(SyncConduit::BandwidthLimitMbps).integer())
-					.col(ColumnDef::new(SyncConduit::LastSyncCompletedAt).timestamp_with_time_zone())
+					.col(
+						ColumnDef::new(SyncConduit::LastSyncCompletedAt).timestamp_with_time_zone(),
+					)
 					.col(
 						ColumnDef::new(SyncConduit::SyncGeneration)
 							.big_integer()
@@ -127,8 +142,16 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(SyncGeneration::ConduitId).integer().not_null())
-					.col(ColumnDef::new(SyncGeneration::Generation).big_integer().not_null())
+					.col(
+						ColumnDef::new(SyncGeneration::ConduitId)
+							.integer()
+							.not_null(),
+					)
+					.col(
+						ColumnDef::new(SyncGeneration::Generation)
+							.big_integer()
+							.not_null(),
+					)
 					.col(
 						ColumnDef::new(SyncGeneration::StartedAt)
 							.timestamp_with_time_zone()

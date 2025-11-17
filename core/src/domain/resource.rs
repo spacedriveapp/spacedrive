@@ -112,9 +112,10 @@ pub trait Identifiable: Serialize + for<'de> Deserialize<'de> + Type {
 	where
 		Self: Sized,
 	{
-		Err(crate::common::errors::CoreError::InvalidOperation(
-			format!("from_ids not implemented for {}", Self::resource_type()),
-		))
+		Err(crate::common::errors::CoreError::InvalidOperation(format!(
+			"from_ids not implemented for {}",
+			Self::resource_type()
+		)))
 	}
 }
 

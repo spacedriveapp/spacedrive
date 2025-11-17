@@ -65,7 +65,9 @@ pub async fn transcribe_audio_file(
 		params.set_print_timestamps(true);
 
 		// Run transcription
-		let mut state = ctx.create_state().context("Failed to create whisper state")?;
+		let mut state = ctx
+			.create_state()
+			.context("Failed to create whisper state")?;
 		state
 			.full(params, &audio_data)
 			.context("Transcription failed")?;
@@ -76,9 +78,7 @@ pub async fn transcribe_audio_file(
 		for (index, segment) in state.as_iter().enumerate() {
 			let start_ts = segment.start_timestamp() as f64 / 100.0; // centiseconds to seconds
 			let end_ts = segment.end_timestamp() as f64 / 100.0;
-			let text = segment
-				.to_str()
-				.context("Failed to get segment text")?;
+			let text = segment.to_str().context("Failed to get segment text")?;
 
 			srt.push_str(&format_srt_segment(index + 1, start_ts, end_ts, text));
 		}
@@ -91,15 +91,15 @@ pub async fn transcribe_audio_file(
 /// Load audio file and convert to 16kHz mono f32 samples required by Whisper
 fn load_audio_samples(path: &Path) -> Result<Vec<f32>> {
 	use hound::WavReader;
-	use rubato::{Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction};
+	use rubato::{
+		Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+	};
 
 	// For non-WAV files (like MP4 videos), extract audio using FFmpeg first
 	let (wav_path, is_temp) = if path.extension().and_then(|e| e.to_str()) != Some("wav") {
 		// Create temporary WAV file
-		let temp_wav = std::env::temp_dir().join(format!(
-			"whisper_audio_{}.wav",
-			uuid::Uuid::new_v4()
-		));
+		let temp_wav =
+			std::env::temp_dir().join(format!("whisper_audio_{}.wav", uuid::Uuid::new_v4()));
 
 		// Use FFmpeg to extract audio as 16kHz mono WAV
 		extract_audio_to_wav(path, &temp_wav)?;
@@ -123,9 +123,7 @@ fn load_audio_samples(path: &Path) -> Result<Vec<f32>> {
 				.collect::<Result<Vec<_>, _>>()?,
 			32 => {
 				if spec.sample_format == hound::SampleFormat::Float {
-					reader
-						.samples::<f32>()
-						.collect::<Result<Vec<_>, _>>()?
+					reader.samples::<f32>().collect::<Result<Vec<_>, _>>()?
 				} else {
 					reader
 						.samples::<i32>()
@@ -183,10 +181,7 @@ fn load_audio_samples(path: &Path) -> Result<Vec<f32>> {
 			let _ = std::fs::remove_file(&wav_path);
 		}
 
-		anyhow::bail!(
-			"Failed to read WAV file: {}",
-			wav_path.display()
-		)
+		anyhow::bail!("Failed to read WAV file: {}", wav_path.display())
 	}
 }
 
@@ -209,7 +204,7 @@ fn extract_audio_to_wav(input_path: &Path, output_path: &Path) -> Result<()> {
 			"-ar",
 			"16000", // 16kHz sample rate
 			"-ac",
-			"1", // Mono
+			"1",  // Mono
 			"-y", // Overwrite output file
 			output_path.to_str().context("Invalid output path")?,
 		])

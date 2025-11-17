@@ -117,7 +117,10 @@ impl JobHandler for ModelDownloadJob {
 
 impl ModelDownloadJob {
 	async fn initialize(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
-		ctx.log(format!("Initializing download for model: {}", self.config.model_id));
+		ctx.log(format!(
+			"Initializing download for model: {}",
+			self.config.model_id
+		));
 
 		// Parse model ID and get download info
 		if let Some(model) = WhisperModel::from_str(&self.config.model_id.replace("whisper-", "")) {
@@ -199,7 +202,8 @@ impl ModelDownloadJob {
 			if self.state.downloaded_bytes - last_checkpoint > 10 * 1024 * 1024 {
 				ctx.checkpoint().await?;
 				last_checkpoint = self.state.downloaded_bytes;
-				let progress_pct = (self.state.downloaded_bytes as f64 / self.state.total_bytes as f64) * 100.0;
+				let progress_pct =
+					(self.state.downloaded_bytes as f64 / self.state.total_bytes as f64) * 100.0;
 				debug!(
 					"Download progress: {:.1}% ({} MB / {} MB)",
 					progress_pct,

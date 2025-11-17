@@ -144,7 +144,8 @@ impl NetworkingEventLoop {
 		self.logger.info("Networking event loop started").await;
 
 		// Create interval for connection state monitoring
-		let mut connection_monitor_interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+		let mut connection_monitor_interval =
+			tokio::time::interval(tokio::time::Duration::from_secs(10));
 
 		loop {
 			tokio::select! {
@@ -280,7 +281,8 @@ impl NetworkingEventLoop {
 			// Only remove connection if it's actually closed
 			if conn.close_reason().is_some() {
 				let mut connections = active_connections.write().await;
-				let alpn_bytes = conn.alpn().unwrap_or_default(); connections.remove(&(remote_node_id, alpn_bytes));
+				let alpn_bytes = conn.alpn().unwrap_or_default();
+				connections.remove(&(remote_node_id, alpn_bytes));
 				logger
 					.info(&format!(
 						"Connection to {} removed (closed)",
@@ -678,7 +680,10 @@ impl NetworkingEventLoop {
 						let mut connections = active_connections.write().await;
 						connections.remove(&(node_id, alpn_bytes));
 						logger
-							.info(&format!("Outbound connection to {} closed and removed", node_id))
+							.info(&format!(
+								"Outbound connection to {} closed and removed",
+								node_id
+							))
 							.await;
 					}
 				});
@@ -745,7 +750,8 @@ impl NetworkingEventLoop {
 				// Track the connection
 				{
 					let mut connections = self.active_connections.write().await;
-					let alpn_bytes = conn.alpn().unwrap_or_default(); connections.insert((node_id, alpn_bytes), conn.clone());
+					let alpn_bytes = conn.alpn().unwrap_or_default();
+					connections.insert((node_id, alpn_bytes), conn.clone());
 				}
 
 				// Open appropriate stream based on protocol
@@ -894,18 +900,14 @@ impl NetworkingEventLoop {
 		// Update devices that Iroh reports as connected
 		for remote_info in remote_infos {
 			// Check if this is an active connection
-			let is_connected = !matches!(
-				remote_info.conn_type,
-				iroh::endpoint::ConnectionType::None
-			);
+			let is_connected =
+				!matches!(remote_info.conn_type, iroh::endpoint::ConnectionType::None);
 
 			if is_connected {
 				connected_node_ids.insert(remote_info.node_id);
 
 				// Find device for this node
-				if let Some(device_id) = registry
-					.get_device_by_node_id(remote_info.node_id)
-				{
+				if let Some(device_id) = registry.get_device_by_node_id(remote_info.node_id) {
 					// Update to Connected state if not already
 					if let Err(e) = registry
 						.update_device_from_connection(

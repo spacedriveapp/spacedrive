@@ -128,8 +128,8 @@ impl<'de> Deserialize<'de> for SdPath {
 			SdPathHelper::Sidecar { Sidecar: sidecar } => {
 				let content_id =
 					Uuid::parse_str(&sidecar.content_id).map_err(serde::de::Error::custom)?;
-				let kind =
-					SidecarKind::try_from(sidecar.kind.as_str()).map_err(serde::de::Error::custom)?;
+				let kind = SidecarKind::try_from(sidecar.kind.as_str())
+					.map_err(serde::de::Error::custom)?;
 				let variant = SidecarVariant::new(sidecar.variant);
 				let format = SidecarFormat::try_from(sidecar.format.as_str())
 					.map_err(serde::de::Error::custom)?;
@@ -265,9 +265,13 @@ impl SdPath {
 			Self::Physical { path, .. } => path.file_name()?.to_str(),
 			Self::Cloud { path, .. } => path.split('/').last(),
 			Self::Content { .. } => None, // Content paths don't have filenames
-			Self::Sidecar { variant, format, .. } => {
+			Self::Sidecar {
+				variant, format, ..
+			} => {
 				// Return the filename part: "grid@2x.webp"
-				Some(Box::leak(format!("{}.{}", variant.as_str(), format.extension()).into_boxed_str()))
+				Some(Box::leak(
+					format!("{}.{}", variant.as_str(), format.extension()).into_boxed_str(),
+				))
 			}
 		}
 	}
@@ -468,8 +472,8 @@ impl SdPath {
 					.ok_or(SdPathParseError::MissingExtension)?;
 
 				let variant = SidecarVariant::new(variant_str);
-				let format =
-					SidecarFormat::try_from(ext).map_err(|_| SdPathParseError::InvalidSidecarFormat)?;
+				let format = SidecarFormat::try_from(ext)
+					.map_err(|_| SdPathParseError::InvalidSidecarFormat)?;
 
 				Ok(Self::Sidecar {
 					content_id,
@@ -965,7 +969,8 @@ mod tests {
 		}
 
 		// Test other sidecar kinds
-		let uri = "sidecar://550e8400-e29b-41d4-a716-446655440000/embeddings/all-MiniLM-L6-v2.msgpack";
+		let uri =
+			"sidecar://550e8400-e29b-41d4-a716-446655440000/embeddings/all-MiniLM-L6-v2.msgpack";
 		let path = SdPath::from_uri(uri).unwrap();
 		match path {
 			SdPath::Sidecar { kind, format, .. } => {

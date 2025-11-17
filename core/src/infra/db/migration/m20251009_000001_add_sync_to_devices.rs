@@ -42,7 +42,9 @@ impl MigrationTrait for Migration {
 			.alter_table(
 				Table::alter()
 					.table(Devices::Table)
-					.add_column(ColumnDef::new(Devices::LastStateWatermark).timestamp_with_time_zone())
+					.add_column(
+						ColumnDef::new(Devices::LastStateWatermark).timestamp_with_time_zone(),
+					)
 					.to_owned(),
 			)
 			.await?;

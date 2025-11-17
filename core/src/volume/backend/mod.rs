@@ -61,7 +61,9 @@ pub enum BackendType {
 }
 
 /// Cloud service type identifier
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, specta::Type,
+)]
 pub enum CloudServiceType {
 	#[serde(rename = "s3")]
 	S3,

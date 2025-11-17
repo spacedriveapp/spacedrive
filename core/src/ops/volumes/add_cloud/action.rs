@@ -126,7 +126,8 @@ impl LibraryAction for VolumeAddCloudAction {
 
 				let cloud_identifier = bucket.clone();
 				let desired_mount_point = format!("s3://{}", bucket);
-				let mount_point = context.volume_manager
+				let mount_point = context
+					.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
@@ -148,7 +149,10 @@ impl LibraryAction for VolumeAddCloudAction {
 				)
 				.await
 				.map_err(|e| {
-					ActionError::InvalidInput(format!("Failed to create Google Drive backend: {}", e))
+					ActionError::InvalidInput(format!(
+						"Failed to create Google Drive backend: {}",
+						e
+					))
 				})?;
 
 				let credential = CloudCredential::new_oauth(
@@ -160,7 +164,8 @@ impl LibraryAction for VolumeAddCloudAction {
 
 				let cloud_identifier = root.as_deref().unwrap_or("root").to_string();
 				let desired_mount_point = format!("gdrive://{}", cloud_identifier);
-				let mount_point = context.volume_manager
+				let mount_point = context
+					.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
@@ -194,7 +199,8 @@ impl LibraryAction for VolumeAddCloudAction {
 
 				let cloud_identifier = root.as_deref().unwrap_or("root").to_string();
 				let desired_mount_point = format!("onedrive://{}", cloud_identifier);
-				let mount_point = context.volume_manager
+				let mount_point = context
+					.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
@@ -228,7 +234,8 @@ impl LibraryAction for VolumeAddCloudAction {
 
 				let cloud_identifier = root.as_deref().unwrap_or("root").to_string();
 				let desired_mount_point = format!("dropbox://{}", cloud_identifier);
-				let mount_point = context.volume_manager
+				let mount_point = context
+					.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
@@ -260,7 +267,8 @@ impl LibraryAction for VolumeAddCloudAction {
 
 				let cloud_identifier = container.clone();
 				let desired_mount_point = format!("azblob://{}", container);
-				let mount_point = context.volume_manager
+				let mount_point = context
+					.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
@@ -290,7 +298,8 @@ impl LibraryAction for VolumeAddCloudAction {
 
 				let cloud_identifier = bucket.clone();
 				let desired_mount_point = format!("gcs://{}", bucket);
-				let mount_point = context.volume_manager
+				let mount_point = context
+					.volume_manager
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 

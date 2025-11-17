@@ -56,15 +56,36 @@ impl DeviceManager {
 	/// Initialize the device manager with a custom data directory and optional device name
 	pub fn init(data_dir: &PathBuf, device_name: Option<String>) -> Result<Self, DeviceError> {
 		let mut config = match DeviceConfig::load_from(data_dir) {
-			Ok(config) => config,
+			Ok(mut config) => {
+				// For existing configs, detect and populate missing fields
+				let mut needs_save = false;
+
+				if config.hardware_model.is_none() {
+					config.hardware_model = detect_hardware_model();
+					needs_save = true;
+				}
+
+				if config.os_version.is_none() {
+					config.os_version = detect_os_version();
+					needs_save = true;
+				}
+
+				// Save if we detected any new values
+				if needs_save {
+					config.save_to(data_dir)?;
+				}
+
+				config
+			}
 			Err(DeviceError::NotInitialized) => {
 				// Create new device configuration
 				let os = detect_os();
 				let name = device_name.clone().unwrap_or_else(get_device_name);
 				let mut config = DeviceConfig::new(name, os);
 
-				// Try to detect hardware model
+				// Try to detect hardware model and OS version
 				config.hardware_model = detect_hardware_model();
+				config.os_version = detect_os_version();
 
 				// Save the new configuration
 				config.save_to(data_dir)?;
@@ -157,17 +178,26 @@ impl DeviceManager {
 		use sea_orm::EntityTrait;
 
 		let devices = device::Entity::find().all(db).await.map_err(|e| {
-			DeviceError::Io(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+			DeviceError::Io(std::io::Error::new(
+				std::io::ErrorKind::Other,
+				e.to_string(),
+			))
 		})?;
 
-		let mut cache = self.paired_device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+		let mut cache = self
+			.paired_device_cache
+			.write()
+			.map_err(|_| DeviceError::LockPoisoned)?;
 		cache.clear();
 
 		for device in devices {
 			cache.insert(device.slug, device.uuid);
 		}
 
-		tracing::debug!("Loaded {} devices into DeviceManager paired cache", cache.len());
+		tracing::debug!(
+			"Loaded {} devices into DeviceManager paired cache",
+			cache.len()
+		);
 
 		Ok(())
 	}
@@ -175,7 +205,10 @@ impl DeviceManager {
 	/// Clear the paired device cache
 	/// Used for cleanup when pairing state needs to be reset
 	pub fn clear_paired_device_cache(&self) -> Result<(), DeviceError> {
-		let mut cache = self.paired_device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+		let mut cache = self
+			.paired_device_cache
+			.write()
+			.map_err(|_| DeviceError::LockPoisoned)?;
 		let count = cache.len();
 		cache.clear();
 		tracing::debug!("Cleared {} paired devices from DeviceManager cache", count);
@@ -185,7 +218,10 @@ impl DeviceManager {
 	/// Add a paired device to the pre-library cache (when new device pairs)
 	/// For library-specific device caching, use Library::cache_device() instead
 	pub fn cache_paired_device(&self, slug: String, device_id: Uuid) -> Result<(), DeviceError> {
-		let mut cache = self.paired_device_cache.write().map_err(|_| DeviceError::LockPoisoned)?;
+		let mut cache = self
+			.paired_device_cache
+			.write()
+			.map_err(|_| DeviceError::LockPoisoned)?;
 		cache.insert(slug.clone(), device_id);
 		tracing::debug!("Cached paired device: {} -> {}", slug, device_id);
 		Ok(())
@@ -199,7 +235,7 @@ impl DeviceManager {
 			name: config.name.clone(),
 			slug: config.slug.clone(),
 			os: parse_os(&config.os),
-			os_version: None,
+			os_version: config.os_version.clone(),
 			hardware_model: config.hardware_model.clone(),
 			network_addresses: vec![],
 			capabilities: serde_json::json!({
@@ -208,10 +244,10 @@ impl DeviceManager {
 				"volume_detection": true
 			}),
 			is_online: true,
-		last_seen_at: chrono::Utc::now(),
-		sync_enabled: true,
-		last_sync_at: None,
-		created_at: chrono::Utc::now(),
+			last_seen_at: chrono::Utc::now(),
+			sync_enabled: true,
+			last_sync_at: None,
+			created_at: chrono::Utc::now(),
 			updated_at: chrono::Utc::now(),
 		}
 	}
@@ -233,6 +269,7 @@ impl DeviceManager {
 		device.id = config.id;
 		device.slug = config.slug.clone();
 		device.os = parse_os(&config.os);
+		device.os_version = config.os_version.clone();
 		device.hardware_model = config.hardware_model.clone();
 		device.created_at = config.created_at;
 
@@ -341,21 +378,104 @@ fn parse_os(os: &str) -> OperatingSystem {
 fn detect_hardware_model() -> Option<String> {
 	#[cfg(target_os = "macos")]
 	{
-		// Try to get model from system_profiler
 		use std::process::Command;
 
-		let output = Command::new("system_profiler")
-			.args(&["SPHardwareDataType", "-json"])
+		let output = Command::new("sysctl")
+			.args(["-n", "hw.model"])
 			.output()
 			.ok()?;
 
 		if output.status.success() {
-			let json_str = String::from_utf8_lossy(&output.stdout);
-			// Simple extraction - in production would use proper JSON parsing
-			if let Some(start) = json_str.find("\"machine_model\":") {
-				let substr = &json_str[start + 17..];
-				if let Some(end) = substr.find('"') {
-					return Some(substr[..end].to_string());
+			let model = String::from_utf8_lossy(&output.stdout).trim().to_string();
+			if !model.is_empty() {
+				return Some(model);
+			}
+		}
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		use std::process::Command;
+
+		let output = Command::new("wmic")
+			.args(["computersystem", "get", "model"])
+			.output()
+			.ok()?;
+
+		if output.status.success() {
+			let stdout = String::from_utf8_lossy(&output.stdout);
+			if let Some(model) = stdout.lines().nth(1) {
+				let model = model.trim().to_string();
+				if !model.is_empty() {
+					return Some(model);
+				}
+			}
+		}
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		use std::fs;
+
+		if let Ok(model) = fs::read_to_string("/sys/devices/virtual/dmi/id/product_name") {
+			let model = model.trim().to_string();
+			if !model.is_empty() && model != "System Product Name" {
+				return Some(model);
+			}
+		}
+	}
+
+	None
+}
+
+/// Try to detect OS version
+fn detect_os_version() -> Option<String> {
+	#[cfg(target_os = "macos")]
+	{
+		use std::process::Command;
+
+		let output = Command::new("sw_vers")
+			.args(["-productVersion"])
+			.output()
+			.ok()?;
+
+		if output.status.success() {
+			let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+			if !version.is_empty() {
+				return Some(version);
+			}
+		}
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		use std::process::Command;
+
+		let output = Command::new("cmd").args(["/c", "ver"]).output().ok()?;
+
+		if output.status.success() {
+			let stdout = String::from_utf8_lossy(&output.stdout);
+			if let Some(start) = stdout.find("Version ") {
+				let version_str = &stdout[start + 8..];
+				if let Some(end) = version_str.find(']') {
+					return Some(version_str[..end].trim().to_string());
+				}
+			}
+		}
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		use std::fs;
+
+		if let Ok(contents) = fs::read_to_string("/etc/os-release") {
+			for line in contents.lines() {
+				if line.starts_with("VERSION=") || line.starts_with("VERSION_ID=") {
+					let version = line.split('=').nth(1)?;
+					let version = version.trim_matches('"').to_string();
+					if !version.is_empty() {
+						return Some(version);
+					}
 				}
 			}
 		}

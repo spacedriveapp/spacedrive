@@ -8,7 +8,7 @@ use crate::{
 		ctx::IndexingCtx,
 		entry::EntryProcessor,
 		processor::{ContentHashProcessor, ProcessorEntry},
-		state::{IndexError, IndexPhase, IndexerProgress, IndexerState, EntryKind},
+		state::{EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
 };
 use std::sync::Arc;

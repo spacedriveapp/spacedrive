@@ -100,9 +100,7 @@ impl SyncResolver {
 			.ok_or_else(|| anyhow::anyhow!("Invalid sync mode"))?;
 
 		match mode {
-			sync_conduit::SyncMode::Mirror => {
-				Ok(self.resolve_mirror(&source_map, &target_map))
-			}
+			sync_conduit::SyncMode::Mirror => Ok(self.resolve_mirror(&source_map, &target_map)),
 			sync_conduit::SyncMode::Bidirectional => {
 				self.resolve_bidirectional(&source_map, &target_map, conduit)
 					.await
@@ -181,10 +179,9 @@ impl SyncResolver {
 		for (path, source_entry_with_path) in source_map {
 			if let Some(target_entry_with_path) = target_map.get(path) {
 				// File exists in both - check if content differs
-				if self.content_differs(
-					&source_entry_with_path.entry,
-					&target_entry_with_path.entry,
-				) {
+				if self
+					.content_differs(&source_entry_with_path.entry, &target_entry_with_path.entry)
+				{
 					operations
 						.source_to_target
 						.to_copy
@@ -263,7 +260,9 @@ impl SyncResolver {
 					} else if target_changed {
 						// Target changed, source unchanged -> copy to source
 						if let Some(ref mut target_to_source) = operations.target_to_source {
-							target_to_source.to_copy.push(target_entry_with_path.clone());
+							target_to_source
+								.to_copy
+								.push(target_entry_with_path.clone());
 						}
 					}
 				}
@@ -277,7 +276,9 @@ impl SyncResolver {
 				(None, Some(target_entry_with_path)) => {
 					// Only in target -> copy to source
 					if let Some(ref mut target_to_source) = operations.target_to_source {
-						target_to_source.to_copy.push(target_entry_with_path.clone());
+						target_to_source
+							.to_copy
+							.push(target_entry_with_path.clone());
 					}
 				}
 				(None, None) => unreachable!(),

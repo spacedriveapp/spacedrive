@@ -58,10 +58,7 @@ pub enum LibraryMessage {
 	},
 
 	/// Request library state for collision detection before joining
-	LibraryStateRequest {
-		request_id: Uuid,
-		library_id: Uuid,
-	},
+	LibraryStateRequest { request_id: Uuid, library_id: Uuid },
 
 	/// Response with library state
 	LibraryStateResponse {

@@ -107,7 +107,9 @@ impl ThumbnailProcessor {
 			ci.uuid
 				.ok_or_else(|| anyhow::anyhow!("ContentIdentity missing UUID"))?
 		} else {
-			return Ok(ProcessorResult::failure("Entry has no content_id".to_string()));
+			return Ok(ProcessorResult::failure(
+				"Entry has no content_id".to_string(),
+			));
 		};
 
 		let mime_type = entry
@@ -132,7 +134,11 @@ impl ThumbnailProcessor {
 		.map_err(|e| anyhow::anyhow!("Thumbnail generation failed: {}", e))?;
 
 		if count > 0 {
-			debug!("✓ Generated {} thumbnails for: {}", count, entry.path.display());
+			debug!(
+				"✓ Generated {} thumbnails for: {}",
+				count,
+				entry.path.display()
+			);
 		}
 
 		Ok(ProcessorResult::success(count, 0))

@@ -171,7 +171,9 @@ impl ActionManager {
 		library
 			.sync_model(&updated, crate::infra::sync::ChangeType::Update)
 			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to sync audit log update: {}", e)))?;
+			.map_err(|e| {
+				ActionError::Internal(format!("Failed to sync audit log update: {}", e))
+			})?;
 
 		Ok(())
 	}

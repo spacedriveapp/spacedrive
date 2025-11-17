@@ -66,7 +66,10 @@ impl<J: JobHandler> JobExecutor<J> {
 		let file_logger = if let (Some(config), Some(logs_dir)) =
 			(&job_logging_config, &job_logs_dir)
 		{
-			info!("Creating job logger at: {:?}", logs_dir.join(format!("{}.log", job_id)));
+			info!(
+				"Creating job logger at: {:?}",
+				logs_dir.join(format!("{}.log", job_id))
+			);
 			let log_file = logs_dir.join(format!("{}.log", job_id));
 			match super::logger::FileJobLogger::new(job_id, log_file.clone(), config.clone()) {
 				Ok(logger) => {
@@ -80,7 +83,11 @@ impl<J: JobHandler> JobExecutor<J> {
 				}
 			}
 		} else {
-			info!("Job logging disabled - config: {:?}, logs_dir: {:?}", job_logging_config.is_some(), job_logs_dir.is_some());
+			info!(
+				"Job logging disabled - config: {:?}, logs_dir: {:?}",
+				job_logging_config.is_some(),
+				job_logs_dir.is_some()
+			);
 			None
 		};
 

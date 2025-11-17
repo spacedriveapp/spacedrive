@@ -82,13 +82,11 @@ impl Syncable for Model {
 
 		if let Some((cursor_ts, cursor_uuid)) = cursor {
 			query = query.filter(
-				Condition::any()
-					.add(Column::UpdatedAt.gt(cursor_ts))
-					.add(
-						Condition::all()
-							.add(Column::UpdatedAt.eq(cursor_ts))
-							.add(Column::Uuid.gt(cursor_uuid)),
-					),
+				Condition::any().add(Column::UpdatedAt.gt(cursor_ts)).add(
+					Condition::all()
+						.add(Column::UpdatedAt.eq(cursor_ts))
+						.add(Column::Uuid.gt(cursor_uuid)),
+				),
 			);
 		}
 
@@ -161,11 +159,15 @@ impl Syncable for Model {
 					)
 					.unwrap()),
 					codec: Set(serde_json::from_value(
-						data.get("codec").cloned().unwrap_or(serde_json::Value::Null),
+						data.get("codec")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
 					)
 					.unwrap()),
 					title: Set(serde_json::from_value(
-						data.get("title").cloned().unwrap_or(serde_json::Value::Null),
+						data.get("title")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
 					)
 					.unwrap()),
 					artist: Set(serde_json::from_value(
@@ -175,7 +177,9 @@ impl Syncable for Model {
 					)
 					.unwrap()),
 					album: Set(serde_json::from_value(
-						data.get("album").cloned().unwrap_or(serde_json::Value::Null),
+						data.get("album")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
 					)
 					.unwrap()),
 					album_artist: Set(serde_json::from_value(
@@ -185,7 +189,9 @@ impl Syncable for Model {
 					)
 					.unwrap()),
 					genre: Set(serde_json::from_value(
-						data.get("genre").cloned().unwrap_or(serde_json::Value::Null),
+						data.get("genre")
+							.cloned()
+							.unwrap_or(serde_json::Value::Null),
 					)
 					.unwrap()),
 					year: Set(serde_json::from_value(

@@ -93,12 +93,7 @@ pub enum ScanState {
 
 impl Location {
 	/// Create a new location
-	pub fn new(
-		library_id: Uuid,
-		name: String,
-		sd_path: SdPath,
-		index_mode: IndexMode,
-	) -> Self {
+	pub fn new(library_id: Uuid, name: String, sd_path: SdPath, index_mode: IndexMode) -> Self {
 		let now = Utc::now();
 		Self {
 			id: Uuid::new_v4(),
@@ -412,7 +407,10 @@ impl Default for SpeechPolicy {
 
 impl SpeechPolicy {
 	/// Convert this policy to a SpeechToTextJobConfig for job dispatch
-	pub fn to_job_config(&self, location_id: Option<Uuid>) -> crate::ops::media::speech::SpeechToTextJobConfig {
+	pub fn to_job_config(
+		&self,
+		location_id: Option<Uuid>,
+	) -> crate::ops::media::speech::SpeechToTextJobConfig {
 		crate::ops::media::speech::SpeechToTextJobConfig {
 			location_id,
 			entry_uuid: None,

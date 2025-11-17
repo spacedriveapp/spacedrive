@@ -44,10 +44,7 @@ impl CoreAction for DownloadWhisperModelAction {
 		Ok(Self::new(input))
 	}
 
-	async fn execute(
-		self,
-		context: Arc<CoreContext>,
-	) -> Result<Self::Output, ActionError> {
+	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
 		// Parse model
 		let model = WhisperModel::from_str(&self.input.model).ok_or_else(|| {
 			ActionError::InvalidInput(format!("Invalid model name: {}", self.input.model))
@@ -113,10 +110,7 @@ impl CoreAction for DeleteWhisperModelAction {
 		Ok(Self { input })
 	}
 
-	async fn execute(
-		self,
-		_context: Arc<CoreContext>,
-	) -> Result<Self::Output, ActionError> {
+	async fn execute(self, _context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
 		let model = WhisperModel::from_str(&self.input.model).ok_or_else(|| {
 			ActionError::InvalidInput(format!("Invalid model name: {}", self.input.model))
 		})?;

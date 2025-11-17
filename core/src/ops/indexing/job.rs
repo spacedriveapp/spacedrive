@@ -311,9 +311,9 @@ impl JobHandler for IndexerJob {
 				.await
 				.map_err(|e| JobError::execution(e.to_string()))?
 				.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
-			let entry_id = location.entry_id.ok_or_else(|| {
-				JobError::execution("Location has no entry_id".to_string())
-			})?;
+			let entry_id = location
+				.entry_id
+				.ok_or_else(|| JobError::execution("Location has no entry_id".to_string()))?;
 			let path_str = PathResolver::get_directory_path(db.conn(), entry_id)
 				.await
 				.map_err(|e| JobError::execution(e.to_string()))?;
@@ -543,10 +543,7 @@ impl JobHandler for IndexerJob {
 					ctx.log("Successfully dispatched thumbnail generation job");
 				}
 				Err(e) => {
-					ctx.log(format!(
-						"Warning: Failed to dispatch thumbnail job: {}",
-						e
-					));
+					ctx.log(format!("Warning: Failed to dispatch thumbnail job: {}", e));
 					// Don't fail the indexing job if thumbnail dispatch fails
 				}
 			}

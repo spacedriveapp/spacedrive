@@ -46,7 +46,7 @@ pub async fn run_aggregation_phase(
 
 	// Add the root entry itself (skip if location has no entry_id)
 	let Some(root_entry_id) = location_record.entry_id else {
-		return Ok(());  // Skip if location not yet synced
+		return Ok(()); // Skip if location not yet synced
 	};
 	let mut all_entry_ids = vec![root_entry_id];
 	all_entry_ids.extend(descendant_ids);

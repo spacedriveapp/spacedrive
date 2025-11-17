@@ -143,7 +143,10 @@ impl LibraryAction for RegenerateThumbnailAction {
 				.await
 			{
 				if let Some(mime_id) = ci.mime_type_id {
-					if let Ok(Some(mime)) = entities::mime_type::Entity::find_by_id(mime_id).one(db).await {
+					if let Ok(Some(mime)) = entities::mime_type::Entity::find_by_id(mime_id)
+						.one(db)
+						.await
+					{
 						Some(mime.mime_type)
 					} else {
 						None
@@ -179,7 +182,8 @@ impl LibraryAction for RegenerateThumbnailAction {
 		};
 
 		// Create thumbnail processor with custom settings
-		let mut processor = ThumbnailProcessor::new(library.clone()).with_regenerate(self.input.force);
+		let mut processor =
+			ThumbnailProcessor::new(library.clone()).with_regenerate(self.input.force);
 
 		// Apply custom variants if provided
 		if let Some(variant_names) = &self.input.variants {
@@ -206,9 +210,7 @@ impl LibraryAction for RegenerateThumbnailAction {
 
 		if !result.success {
 			return Err(ActionError::Internal(
-				result
-					.error
-					.unwrap_or_else(|| "Unknown error".to_string()),
+				result.error.unwrap_or_else(|| "Unknown error".to_string()),
 			));
 		}
 

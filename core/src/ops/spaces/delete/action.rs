@@ -34,7 +34,9 @@ impl LibraryAction for SpaceDeleteAction {
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Space {} not found", self.input.space_id)))?;
+			.ok_or_else(|| {
+				ActionError::Internal(format!("Space {} not found", self.input.space_id))
+			})?;
 
 		let space_id = space_model.uuid;
 
@@ -42,10 +44,12 @@ impl LibraryAction for SpaceDeleteAction {
 		space_model.delete(db).await.map_err(ActionError::SeaOrm)?;
 
 		// Emit ResourceDeleted event for real-time UI updates
-		library.event_bus().emit(crate::infra::event::Event::ResourceDeleted {
-			resource_type: "space".to_string(),
-			resource_id: space_id,
-		});
+		library
+			.event_bus()
+			.emit(crate::infra::event::Event::ResourceDeleted {
+				resource_type: "space".to_string(),
+				resource_id: space_id,
+			});
 
 		Ok(SpaceDeleteOutput { success: true })
 	}
