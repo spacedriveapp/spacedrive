@@ -23,15 +23,16 @@ async fn run_events_monitor(ctx: &Context, args: EventsMonitorArgs) -> Result<()
 	println!("Monitoring events - Press Ctrl+C to exit");
 
 	// Parse event types filter
-	let event_types_filter: Option<HashSet<String>> = args.event_type.as_ref().map(|types| {
-		types
-			.split(',')
-			.map(|s| s.trim().to_string())
-			.collect()
-	});
+	let event_types_filter: Option<HashSet<String>> = args
+		.event_type
+		.as_ref()
+		.map(|types| types.split(',').map(|s| s.trim().to_string()).collect());
 
 	if let Some(ref types) = event_types_filter {
-		println!("Filtering by event types: {}", types.iter().cloned().collect::<Vec<_>>().join(", "));
+		println!(
+			"Filtering by event types: {}",
+			types.iter().cloned().collect::<Vec<_>>().join(", ")
+		);
 	}
 	if let Some(ref lib_id) = args.library_id {
 		println!("Filtering by library: {}", lib_id);
@@ -127,25 +128,49 @@ fn summarize_event(event: &Event) -> String {
 		Event::LibraryClosed { name, id } => {
 			format!("Library '{}' closed ({})", name, id)
 		}
-		Event::LibraryDeleted { name, id, deleted_data } => {
-			format!("Library '{}' deleted ({}, data: {})", name, id, deleted_data)
+		Event::LibraryDeleted {
+			name,
+			id,
+			deleted_data,
+		} => {
+			format!(
+				"Library '{}' deleted ({}, data: {})",
+				name, id, deleted_data
+			)
 		}
 		Event::LibraryStatisticsUpdated { library_id, .. } => {
 			format!("Statistics updated for library {}", library_id)
 		}
 
 		// Entry events
-		Event::EntryCreated { entry_id, library_id } => {
+		Event::EntryCreated {
+			entry_id,
+			library_id,
+		} => {
 			format!("Entry {} created in library {}", entry_id, library_id)
 		}
-		Event::EntryModified { entry_id, library_id } => {
+		Event::EntryModified {
+			entry_id,
+			library_id,
+		} => {
 			format!("Entry {} modified in library {}", entry_id, library_id)
 		}
-		Event::EntryDeleted { entry_id, library_id } => {
+		Event::EntryDeleted {
+			entry_id,
+			library_id,
+		} => {
 			format!("Entry {} deleted in library {}", entry_id, library_id)
 		}
-		Event::EntryMoved { entry_id, old_path, new_path, .. } => {
-			format!("Entry {} moved from '{}' to '{}'", entry_id, old_path, new_path)
+		Event::EntryMoved {
+			entry_id,
+			old_path,
+			new_path,
+			..
+		} => {
+			format!(
+				"Entry {} moved from '{}' to '{}'",
+				entry_id, old_path, new_path
+			)
 		}
 
 		// Filesystem events
@@ -153,25 +178,39 @@ fn summarize_event(event: &Event) -> String {
 			format!("Filesystem change in library {}: {:?}", library_id, kind)
 		}
 
-	// Volume events
-	Event::VolumeAdded(vol) => {
-		format!("Volume added: {} ({})", vol.name, vol.fingerprint.0)
-	}
-	Event::VolumeRemoved { fingerprint } => {
-		format!("Volume removed: {}", fingerprint.0)
-	}
-	Event::VolumeUpdated { fingerprint, .. } => {
-		format!("Volume updated: {}", fingerprint.0)
-	}
-	Event::VolumeSpeedTested { fingerprint, read_speed_mbps, write_speed_mbps } => {
-		format!("Volume {} speed: read {}MB/s, write {}MB/s", fingerprint.0, read_speed_mbps, write_speed_mbps)
-	}
-	Event::VolumeMountChanged { fingerprint, is_mounted } => {
-		format!("Volume {} mount changed: {}", fingerprint.0, if *is_mounted { "mounted" } else { "unmounted" })
-	}
-	Event::VolumeError { fingerprint, error } => {
-		format!("Volume {} error: {}", fingerprint.0, error)
-	}
+		// Volume events
+		Event::VolumeAdded(vol) => {
+			format!("Volume added: {} ({})", vol.name, vol.fingerprint.0)
+		}
+		Event::VolumeRemoved { fingerprint } => {
+			format!("Volume removed: {}", fingerprint.0)
+		}
+		Event::VolumeUpdated { fingerprint, .. } => {
+			format!("Volume updated: {}", fingerprint.0)
+		}
+		Event::VolumeSpeedTested {
+			fingerprint,
+			read_speed_mbps,
+			write_speed_mbps,
+		} => {
+			format!(
+				"Volume {} speed: read {}MB/s, write {}MB/s",
+				fingerprint.0, read_speed_mbps, write_speed_mbps
+			)
+		}
+		Event::VolumeMountChanged {
+			fingerprint,
+			is_mounted,
+		} => {
+			format!(
+				"Volume {} mount changed: {}",
+				fingerprint.0,
+				if *is_mounted { "mounted" } else { "unmounted" }
+			)
+		}
+		Event::VolumeError { fingerprint, error } => {
+			format!("Volume {} error: {}", fingerprint.0, error)
+		}
 
 		// Job events
 		Event::JobQueued { job_id, job_type } => {
@@ -180,14 +219,42 @@ fn summarize_event(event: &Event) -> String {
 		Event::JobStarted { job_id, job_type } => {
 			format!("Job started: {} ({})", job_type, &job_id[..8])
 		}
-		Event::JobProgress { job_id, job_type, progress, message, .. } => {
-			let msg = message.as_ref().map(|m| format!(" - {}", m)).unwrap_or_default();
-			format!("Job progress: {} ({}) - {:.1}%{}", job_type, &job_id[..8], progress, msg)
+		Event::JobProgress {
+			job_id,
+			job_type,
+			progress,
+			message,
+			..
+		} => {
+			let msg = message
+				.as_ref()
+				.map(|m| format!(" - {}", m))
+				.unwrap_or_default();
+			format!(
+				"Job progress: {} ({}) - {:.1}%{}",
+				job_type,
+				&job_id[..8],
+				progress,
+				msg
+			)
 		}
-		Event::JobCompleted { job_id, job_type, output } => {
-			format!("Job completed: {} ({}) - {:?}", job_type, &job_id[..8], output)
+		Event::JobCompleted {
+			job_id,
+			job_type,
+			output,
+		} => {
+			format!(
+				"Job completed: {} ({}) - {:?}",
+				job_type,
+				&job_id[..8],
+				output
+			)
 		}
-		Event::JobFailed { job_id, job_type, error } => {
+		Event::JobFailed {
+			job_id,
+			job_type,
+			error,
+		} => {
 			format!("Job failed: {} ({}) - {}", job_type, &job_id[..8], error)
 		}
 		Event::JobCancelled { job_id, job_type } => {
@@ -204,19 +271,36 @@ fn summarize_event(event: &Event) -> String {
 		Event::IndexingStarted { location_id } => {
 			format!("Indexing started for location {}", location_id)
 		}
-		Event::IndexingProgress { location_id, processed, total } => {
+		Event::IndexingProgress {
+			location_id,
+			processed,
+			total,
+		} => {
 			let total_str = total.map(|t| format!("/{}", t)).unwrap_or_default();
-			format!("Indexing location {}: {}{} processed", location_id, processed, total_str)
+			format!(
+				"Indexing location {}: {}{} processed",
+				location_id, processed, total_str
+			)
 		}
-		Event::IndexingCompleted { location_id, total_files, total_dirs } => {
-			format!("Indexing completed for location {}: {} files, {} dirs", location_id, total_files, total_dirs)
+		Event::IndexingCompleted {
+			location_id,
+			total_files,
+			total_dirs,
+		} => {
+			format!(
+				"Indexing completed for location {}: {} files, {} dirs",
+				location_id, total_files, total_dirs
+			)
 		}
 		Event::IndexingFailed { location_id, error } => {
 			format!("Indexing failed for location {}: {}", location_id, error)
 		}
 
 		// Device events
-		Event::DeviceConnected { device_id, device_name } => {
+		Event::DeviceConnected {
+			device_id,
+			device_name,
+		} => {
 			format!("Device connected: {} ({})", device_name, device_id)
 		}
 		Event::DeviceDisconnected { device_id } => {
@@ -224,48 +308,64 @@ fn summarize_event(event: &Event) -> String {
 		}
 
 		// Resource events
-		Event::ResourceChanged { resource_type, resource, .. } => {
+		Event::ResourceChanged {
+			resource_type,
+			resource,
+			..
+		} => {
 			if let Some(id) = resource.get("id") {
 				format!("Resource changed: {} ({})", resource_type, id)
 			} else {
 				format!("Resource changed: {}", resource_type)
 			}
 		}
-		Event::ResourceChangedBatch { resource_type, resources, .. } => {
+		Event::ResourceChangedBatch {
+			resource_type,
+			resources,
+			..
+		} => {
 			if let Some(arr) = resources.as_array() {
 				format!("Resources changed: {} ({} items)", resource_type, arr.len())
 			} else {
 				format!("Resources changed: {} (batch)", resource_type)
 			}
 		}
-		Event::ResourceDeleted { resource_type, resource_id } => {
+		Event::ResourceDeleted {
+			resource_type,
+			resource_id,
+		} => {
 			format!("Resource deleted: {} ({})", resource_type, resource_id)
 		}
 
 		// Legacy location events
-		Event::LocationAdded { location_id, path, .. } => {
+		Event::LocationAdded {
+			location_id, path, ..
+		} => {
 			format!("Location added: {} at {}", location_id, path.display())
 		}
 		Event::LocationRemoved { location_id, .. } => {
 			format!("Location removed: {}", location_id)
 		}
-		Event::FilesIndexed { location_id, count, .. } => {
+		Event::FilesIndexed {
+			location_id, count, ..
+		} => {
 			format!("Files indexed: {} files at location {}", count, location_id)
 		}
 		Event::ThumbnailsGenerated { count, .. } => {
 			format!("Thumbnails generated: {}", count)
 		}
-		Event::FileOperationCompleted { operation, affected_files, .. } => {
-			format!("File operation completed: {:?} ({} files)", operation, affected_files)
+		Event::FileOperationCompleted {
+			operation,
+			affected_files,
+			..
+		} => {
+			format!(
+				"File operation completed: {:?} ({} files)",
+				operation, affected_files
+			)
 		}
 		Event::FilesModified { paths, .. } => {
 			format!("Files modified: {} files", paths.len())
-		}
-
-		// Log events
-		Event::LogMessage { level, target, message, job_id, .. } => {
-			let job_info = job_id.as_ref().map(|id| format!(" [job:{}]", &id[..8])).unwrap_or_default();
-			format!("{} {}{}: {}", level, target, job_info, message)
 		}
 
 		// Custom events

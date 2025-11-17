@@ -13,13 +13,14 @@ use crate::infra::event::log_emitter::{set_global_log_bus, LogMessage};
 use crate::infra::event::{Event, EventSubscriber};
 use crate::Core;
 
-/// Connection information for event streaming
+/// Connection information for event and log streaming
 #[derive(Debug)]
 struct Connection {
 	id: Uuid,
-	event_tx: mpsc::UnboundedSender<Event>,
+	response_tx: mpsc::UnboundedSender<DaemonResponse>,
 	event_types: Vec<String>,
 	filter: Option<EventFilter>,
+	log_filter: Option<crate::infra::daemon::types::LogFilter>,
 }
 
 /// Minimal JSON-over-UDS RPC server with event streaming support
@@ -154,43 +155,17 @@ impl RpcServer {
 						&connection.filter,
 					) {
 						// Ignore errors if connection is closed
-						let _ = connection.event_tx.send(event.clone());
+						let _ = connection
+							.response_tx
+							.send(DaemonResponse::Event(event.clone()));
 					}
 				}
 			}
 		});
 
-		// Start separate log message broadcaster
-		let mut log_subscriber = core.logs.subscribe();
-		let connections_for_logs = self.connections.clone();
-
-		tokio::spawn(async move {
-			while let Ok(log_msg) = log_subscriber.recv().await {
-				let connections_read = connections_for_logs.read().await;
-
-				// Convert LogMessage to Event for transport compatibility
-				let event = Event::LogMessage {
-					timestamp: log_msg.timestamp,
-					level: log_msg.level,
-					target: log_msg.target,
-					message: log_msg.message,
-					job_id: log_msg.job_id,
-					library_id: log_msg.library_id,
-				};
-
-				// Broadcast to connections that subscribed to LogMessage events
-				for connection in connections_read.values() {
-					if Self::should_forward_event(
-						&event,
-						&connection.event_types,
-						&connection.filter,
-					) {
-						// Ignore errors if connection is closed
-						let _ = connection.event_tx.send(event.clone());
-					}
-				}
-			}
-		});
+		// Note: Log messages are NOT broadcast as events anymore
+		// They use a separate dedicated LogBus (core.logs)
+		// Clients subscribe to logs separately, not through the event bus
 
 		Ok(())
 	}
@@ -296,27 +271,6 @@ impl RpcServer {
 						return id == filter_library_id;
 					}
 				}
-				Event::LogMessage {
-					job_id, library_id, ..
-				} => {
-					// Filter by job ID if specified
-					if let Some(filter_job_id) = &filter.job_id {
-						if let Some(log_job_id) = job_id {
-							return log_job_id == filter_job_id;
-						} else {
-							return false; // No job ID in log, but filter requires one
-						}
-					}
-
-					// Filter by library ID if specified
-					if let Some(filter_library_id) = &filter.library_id {
-						if let Some(log_library_id) = library_id {
-							return log_library_id == filter_library_id;
-						} else {
-							return false; // No library ID in log, but filter requires one
-						}
-					}
-				}
 				_ => {}
 			}
 		}
@@ -337,8 +291,8 @@ impl RpcServer {
 		let mut buf_reader = BufReader::new(reader);
 		let mut line = String::new();
 
-		// Channel for sending events to this connection
-		let (event_tx, mut event_rx) = mpsc::unbounded_channel::<Event>();
+		// Channel for sending events/logs to this connection
+		let (response_tx, mut response_rx) = mpsc::unbounded_channel::<DaemonResponse>();
 
 		loop {
 			tokio::select! {
@@ -359,7 +313,7 @@ impl RpcServer {
 										&shutdown_tx,
 										&connections,
 										connection_id,
-										&event_tx
+										&response_tx
 									).await;
 
 									// Send response
@@ -372,14 +326,14 @@ impl RpcServer {
 
 									// For non-streaming requests, close connection after response
 									match response {
-										DaemonResponse::Subscribed => {
+										DaemonResponse::Subscribed | DaemonResponse::LogsSubscribed => {
 											// Keep connection open for streaming
 										}
-										DaemonResponse::Unsubscribed => {
+										DaemonResponse::Unsubscribed | DaemonResponse::LogsUnsubscribed => {
 											// Close connection after unsubscribe
 											break;
 										}
-										DaemonResponse::Event(_) => {
+										DaemonResponse::Event(_) | DaemonResponse::LogMessage(_) => {
 											// This shouldn't happen in request processing
 										}
 										_ => {
@@ -407,9 +361,8 @@ impl RpcServer {
 					}
 				}
 
-				// Handle outgoing events to client
-				Some(event) = event_rx.recv() => {
-					let response = DaemonResponse::Event(event);
+				// Handle outgoing responses (events/logs) to client
+				Some(response) = response_rx.recv() => {
 					let response_json = serde_json::to_string(&response)
 						.map_err(|e| DaemonError::SerializationError(e.to_string()).to_string())?;
 
@@ -436,7 +389,7 @@ impl RpcServer {
 		shutdown_tx: &mpsc::Sender<()>,
 		connections: &Arc<RwLock<HashMap<Uuid, Connection>>>,
 		connection_id: Uuid,
-		event_tx: &mpsc::UnboundedSender<Event>,
+		response_tx: &mpsc::UnboundedSender<DaemonResponse>,
 	) -> DaemonResponse {
 		match request {
 			DaemonRequest::Ping => DaemonResponse::Pong,
@@ -472,9 +425,10 @@ impl RpcServer {
 				// Register connection for event streaming
 				let connection = Connection {
 					id: connection_id,
-					event_tx: event_tx.clone(),
+					response_tx: response_tx.clone(),
 					event_types,
 					filter,
+					log_filter: None,
 				};
 
 				connections.write().await.insert(connection_id, connection);
@@ -485,6 +439,61 @@ impl RpcServer {
 				// Remove connection from event streaming
 				connections.write().await.remove(&connection_id);
 				DaemonResponse::Unsubscribed
+			}
+
+			DaemonRequest::SubscribeLogs { filter } => {
+				// Start log streaming for this connection
+				let mut log_subscriber = core.logs.subscribe();
+				let tx = response_tx.clone();
+				let filter_clone = filter.clone();
+
+				// Spawn task to forward log messages
+				tokio::spawn(async move {
+					while let Ok(log_msg) = log_subscriber.recv().await {
+						// Apply filter if specified
+						if let Some(ref f) = filter_clone {
+							// Filter by job_id
+							if let Some(ref filter_job_id) = f.job_id {
+								if log_msg.job_id.as_ref() != Some(filter_job_id) {
+									continue;
+								}
+							}
+
+							// Filter by library_id
+							if let Some(ref filter_library_id) = f.library_id {
+								if log_msg.library_id.as_ref() != Some(filter_library_id) {
+									continue;
+								}
+							}
+
+							// Filter by level
+							if let Some(ref filter_level) = f.level {
+								if !log_msg.level.eq_ignore_ascii_case(filter_level) {
+									continue;
+								}
+							}
+
+							// Filter by target
+							if let Some(ref filter_target) = f.target {
+								if !log_msg.target.contains(filter_target) {
+									continue;
+								}
+							}
+						}
+
+						// Send log message to client
+						if tx.send(DaemonResponse::LogMessage(log_msg)).is_err() {
+							break; // Connection closed
+						}
+					}
+				});
+
+				DaemonResponse::LogsSubscribed
+			}
+
+			DaemonRequest::UnsubscribeLogs => {
+				// Log subscription cleanup happens automatically when connection closes
+				DaemonResponse::LogsUnsubscribed
 			}
 
 			DaemonRequest::Shutdown => {

@@ -262,16 +262,6 @@ pub enum Event {
 		paths: Vec<PathBuf>,
 	},
 
-	// Log events
-	LogMessage {
-		timestamp: chrono::DateTime<chrono::Utc>,
-		level: String,
-		target: String,
-		message: String,
-		job_id: Option<String>,
-		library_id: Option<Uuid>,
-	},
-
 	// Custom events for extensibility
 	Custom {
 		event_type: String,

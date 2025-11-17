@@ -64,89 +64,67 @@ async fn run_logs_follow(ctx: &Context, args: LogsFollowArgs) -> Result<()> {
 	// First, show recent historical logs
 	show_recent_historical_logs(ctx, &args).await?;
 
-	// Subscribe to log events
-	let event_types = vec!["LogMessage".to_string()];
-
-	let filter = EventFilter {
-		library_id: None,
-		job_id: args.job_id.clone(),
-		device_id: None,
-		resource_type: None,
-		path_scope: None,
-	};
-
-	// Try to subscribe to events, fall back to polling if not supported
-	match ctx.core.subscribe_events(event_types, Some(filter)).await {
-		Ok(mut event_stream) => {
+	// Subscribe to log messages via the dedicated LogBus
+	match ctx
+		.core
+		.subscribe_logs(
+			args.job_id.clone(),
+			args.level.clone(),
+			args.component.clone(),
+		)
+		.await
+	{
+		Ok(mut log_stream) => {
 			println!("Connected to real-time log stream");
 
-			// Listen for log events
-			while let Some(event) = event_stream.recv().await {
-				if let Event::LogMessage {
-					timestamp,
-					level,
-					target,
-					message,
-					job_id,
-					library_id,
-				} = event
-				{
-					// Apply client-side filters
-					if let Some(ref filter_level) = args.level {
-						if !level_matches(&level, filter_level) {
-							continue;
-						}
-					}
+			// Listen for log messages
+			while let Some(log_msg) = log_stream.recv().await {
+				// Apply client-side filters (server-side filtering already applied)
 
-					if let Some(ref filter_component) = args.component {
-						if !target.contains(filter_component) {
-							continue;
-						}
-					}
+				// Format and display the log message
+				let formatted_time = format_timestamp(log_msg.timestamp, args.timestamps);
+				let level_colored = colorize_level(&log_msg.level);
+				let target_formatted = if args.verbose {
+					format!(" {}", log_msg.target)
+				} else {
+					String::new()
+				};
 
-					// Format and display the log message
-					let formatted_time = format_timestamp(timestamp, args.timestamps);
-					let level_colored = colorize_level(&level);
-					let target_formatted = if args.verbose {
-						format!(" {}", target)
-					} else {
-						String::new()
-					};
+				let job_info = if args.show_job_id {
+					log_msg
+						.job_id
+						.as_ref()
+						.map(|id| format!(" [job:{}]", &id[..8]))
+						.unwrap_or_default()
+				} else {
+					String::new()
+				};
 
-					let job_info = if args.show_job_id {
-						job_id
-							.as_ref()
-							.map(|id| format!(" [job:{}]", &id[..8]))
-							.unwrap_or_default()
-					} else {
-						String::new()
-					};
+				let library_info = if args.show_library_id {
+					log_msg
+						.library_id
+						.as_ref()
+						.map(|id| format!(" [lib:{}]", &id.to_string()[..8]))
+						.unwrap_or_default()
+				} else {
+					String::new()
+				};
 
-					let library_info = if args.show_library_id {
-						library_id
-							.as_ref()
-							.map(|id| format!(" [lib:{}]", &id.to_string()[..8]))
-							.unwrap_or_default()
-					} else {
-						String::new()
-					};
-
-					println!(
-						"{}{}{}{}{} {}",
-						formatted_time,
-						level_colored,
-						target_formatted,
-						job_info,
-						library_info,
-						message
-					);
-				}
+				println!(
+					"{}{}{}{}{} {}",
+					formatted_time,
+					level_colored,
+					target_formatted,
+					job_info,
+					library_info,
+					log_msg.message
+				);
 			}
 		}
 
 		Err(_) => {
 			println!("Real-time log streaming not available");
-			println!("Make sure the daemon is running with event streaming support");
+			println!("Make sure the daemon is running with log streaming support");
 		}
 	}
 

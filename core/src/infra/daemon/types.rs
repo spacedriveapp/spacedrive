@@ -23,6 +23,13 @@ pub enum DaemonRequest {
 	},
 	/// Unsubscribe from events
 	Unsubscribe,
+	/// Subscribe to real-time log messages (separate from event bus)
+	SubscribeLogs {
+		/// Optional filter for specific job/library
+		filter: Option<LogFilter>,
+	},
+	/// Unsubscribe from logs
+	UnsubscribeLogs,
 	Shutdown,
 }
 
@@ -39,6 +46,19 @@ pub struct EventFilter {
 	pub resource_type: Option<String>,
 	/// Filter by path scope (only for resource events)
 	pub path_scope: Option<crate::domain::SdPath>,
+}
+
+/// Filter criteria for log subscriptions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogFilter {
+	/// Filter by library ID
+	pub library_id: Option<uuid::Uuid>,
+	/// Filter by job ID
+	pub job_id: Option<String>,
+	/// Filter by log level (e.g., "INFO", "WARN", "ERROR")
+	pub level: Option<String>,
+	/// Filter by target/component (e.g., "sd_core::ops")
+	pub target: Option<String>,
 }
 
 /// Comprehensive daemon error types
@@ -103,4 +123,10 @@ pub enum DaemonResponse {
 	Subscribed,
 	/// Unsubscription acknowledgment
 	Unsubscribed,
+	/// Real-time log message from the log bus
+	LogMessage(crate::infra::event::log_emitter::LogMessage),
+	/// Log subscription acknowledgment
+	LogsSubscribed,
+	/// Log unsubscription acknowledgment
+	LogsUnsubscribed,
 }

@@ -7,8 +7,9 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::infra::daemon::client::DaemonClient;
-use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter};
+use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter, LogFilter};
 use crate::infra::event::Event;
+use crate::infra::event::log_emitter::LogMessage;
 
 pub trait Wire {
 	const METHOD: &'static str;
@@ -95,6 +96,26 @@ impl CoreClient {
 	) -> Result<EventStream> {
 		EventStream::new(self.daemon.clone(), event_types, filter).await
 	}
+
+	/// Subscribe to real-time log messages from the core
+	pub async fn subscribe_logs(
+		&self,
+		job_id: Option<String>,
+		level: Option<String>,
+		target: Option<String>,
+	) -> Result<LogStream> {
+		let filter = if job_id.is_some() || level.is_some() || target.is_some() {
+			Some(LogFilter {
+				library_id: None,
+				job_id,
+				level,
+				target,
+			})
+		} else {
+			None
+		};
+		LogStream::new(self.daemon.clone(), filter).await
+	}
 }
 
 /// Stream of events from the core
@@ -155,5 +176,58 @@ impl EventStream {
 	/// Try to receive an event without blocking
 	pub fn try_recv(&mut self) -> Result<Event, mpsc::error::TryRecvError> {
 		self.event_rx.try_recv()
+	}
+}
+
+/// Stream of log messages from the core
+pub struct LogStream {
+	daemon: DaemonClient,
+	log_rx: mpsc::UnboundedReceiver<LogMessage>,
+	_handle: tokio::task::JoinHandle<()>,
+}
+
+impl LogStream {
+	async fn new(daemon: DaemonClient, filter: Option<LogFilter>) -> Result<Self> {
+		let (log_tx, log_rx) = mpsc::unbounded_channel();
+
+		// Start streaming connection
+		let daemon_clone = daemon.clone();
+		let handle = tokio::spawn(async move {
+			if let Err(e) = Self::stream_logs(daemon_clone, filter, log_tx).await {
+				eprintln!("Log streaming error: {}", e);
+			}
+		});
+
+		Ok(Self {
+			daemon,
+			log_rx,
+			_handle: handle,
+		})
+	}
+
+	async fn stream_logs(
+		daemon: DaemonClient,
+		filter: Option<LogFilter>,
+		log_tx: mpsc::UnboundedSender<LogMessage>,
+	) -> Result<()> {
+		let request = DaemonRequest::SubscribeLogs { filter };
+
+		// Use the same stream infrastructure but for log messages
+		daemon
+			.stream_logs(&request, log_tx)
+			.await
+			.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+		Ok(())
+	}
+
+	/// Receive the next log message
+	pub async fn recv(&mut self) -> Option<LogMessage> {
+		self.log_rx.recv().await
+	}
+
+	/// Try to receive a log message without blocking
+	pub fn try_recv(&mut self) -> Result<LogMessage, mpsc::error::TryRecvError> {
+		self.log_rx.try_recv()
 	}
 }
