@@ -85,7 +85,7 @@ impl Device {
 			name,
 			slug,
 			os: detect_operating_system(),
-			os_version: None,
+			os_version: detect_os_version(),
 			hardware_model: detect_hardware_model(),
 			network_addresses: Vec::new(),
 			capabilities: serde_json::json!({
@@ -97,7 +97,7 @@ impl Device {
 			last_seen_at: now,
 			sync_enabled: true,
 			last_sync_at: None,
-		created_at: now,
+			created_at: now,
 			updated_at: now,
 		}
 	}
@@ -180,8 +180,129 @@ fn detect_operating_system() -> OperatingSystem {
 
 /// Get hardware model information
 fn detect_hardware_model() -> Option<String> {
-	// This would use platform-specific APIs
-	// For now, return None
+	#[cfg(target_os = "macos")]
+	{
+		use std::process::Command;
+
+		let output = Command::new("sysctl")
+			.args(["-n", "hw.model"])
+			.output()
+			.ok()?;
+
+		if output.status.success() {
+			let model = String::from_utf8_lossy(&output.stdout).trim().to_string();
+			if !model.is_empty() {
+				return Some(model);
+			}
+		}
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		// Use wmic to get computer model
+		use std::process::Command;
+
+		let output = Command::new("wmic")
+			.args(["computersystem", "get", "model"])
+			.output()
+			.ok()?;
+
+		if output.status.success() {
+			let stdout = String::from_utf8_lossy(&output.stdout);
+			// Skip first line (header) and get model
+			if let Some(model) = stdout.lines().nth(1) {
+				let model = model.trim().to_string();
+				if !model.is_empty() {
+					return Some(model);
+				}
+			}
+		}
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		// Try to read from DMI
+		use std::fs;
+
+		if let Ok(model) = fs::read_to_string("/sys/devices/virtual/dmi/id/product_name") {
+			let model = model.trim().to_string();
+			if !model.is_empty() && model != "System Product Name" {
+				return Some(model);
+			}
+		}
+	}
+
+	None
+}
+
+/// Get operating system version
+fn detect_os_version() -> Option<String> {
+	#[cfg(target_os = "macos")]
+	{
+		use std::process::Command;
+
+		let output = Command::new("sw_vers")
+			.args(["-productVersion"])
+			.output()
+			.ok()?;
+
+		if output.status.success() {
+			let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+			if !version.is_empty() {
+				return Some(version);
+			}
+		}
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		use std::process::Command;
+
+		let output = Command::new("cmd").args(["/c", "ver"]).output().ok()?;
+
+		if output.status.success() {
+			let stdout = String::from_utf8_lossy(&output.stdout);
+			// Extract version from output like "Microsoft Windows [Version 10.0.19045.3570]"
+			if let Some(start) = stdout.find("Version ") {
+				let version_str = &stdout[start + 8..];
+				if let Some(end) = version_str.find(']') {
+					return Some(version_str[..end].trim().to_string());
+				}
+			}
+		}
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		use std::fs;
+
+		// Try to read from /etc/os-release
+		if let Ok(contents) = fs::read_to_string("/etc/os-release") {
+			for line in contents.lines() {
+				if line.starts_with("VERSION=") || line.starts_with("VERSION_ID=") {
+					let version = line.split('=').nth(1)?;
+					let version = version.trim_matches('"').to_string();
+					if !version.is_empty() {
+						return Some(version);
+					}
+				}
+			}
+		}
+	}
+
+	#[cfg(target_os = "ios")]
+	{
+		// iOS version detection would require iOS-specific APIs
+		// This would typically be done via the iOS SDK
+		return None;
+	}
+
+	#[cfg(target_os = "android")]
+	{
+		// Android version detection would require Android-specific APIs
+		return None;
+	}
+
 	None
 }
 
@@ -219,9 +340,9 @@ impl From<Device> for entities::device::ActiveModel {
 			last_seen_at: Set(device.last_seen_at),
 			capabilities: Set(device.capabilities),
 			created_at: Set(device.created_at),
-		sync_enabled: Set(device.sync_enabled),
-		last_sync_at: Set(device.last_sync_at),
-		updated_at: Set(device.updated_at),
+			sync_enabled: Set(device.sync_enabled),
+			last_sync_at: Set(device.last_sync_at),
+			updated_at: Set(device.updated_at),
 		}
 	}
 }
@@ -242,10 +363,10 @@ impl TryFrom<entities::device::Model> for Device {
 			network_addresses,
 			capabilities: model.capabilities,
 			is_online: model.is_online,
-		last_seen_at: model.last_seen_at,
-		sync_enabled: model.sync_enabled,
-		last_sync_at: model.last_sync_at,
-		created_at: model.created_at,
+			last_seen_at: model.last_seen_at,
+			sync_enabled: model.sync_enabled,
+			last_sync_at: model.last_sync_at,
+			created_at: model.created_at,
 			updated_at: model.updated_at,
 		})
 	}

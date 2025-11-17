@@ -1484,6 +1484,7 @@ impl PeerSync {
 
 			// Real-time batching mechanism (configurable via SyncConfig)
 			let mut state_change_batch: Vec<serde_json::Value> = Vec::new();
+			let mut shared_change_batch: Vec<crate::infra::sync::SharedChangeEntry> = Vec::new();
 			let mut batch_flush_interval = tokio::time::interval(std::time::Duration::from_millis(
 				config.batching.realtime_batch_flush_interval_ms,
 			));
@@ -1491,139 +1492,147 @@ impl PeerSync {
 
 			while is_running.load(Ordering::SeqCst) {
 				tokio::select! {
-						// Receive events from sync event bus
-						event_result = subscriber.recv() => {
-							match event_result {
-								Ok(sync_event) => {
-									use crate::infra::sync::SyncEvent;
+							// Receive events from sync event bus
+							event_result = subscriber.recv() => {
+								match event_result {
+									Ok(sync_event) => {
+										use crate::infra::sync::SyncEvent;
 
-									match sync_event {
-										SyncEvent::StateChange {
-											library_id: event_library_id,
-											model_type,
-											record_uuid,
-											device_id,
-											data,
-											timestamp,
-										} => {
-											state_change_count += 1;
-											last_event_type = Some(format!("StateChange({})", model_type));
+										match sync_event {
+											SyncEvent::StateChange {
+												library_id: event_library_id,
+												model_type,
+												record_uuid,
+												device_id,
+												data,
+												timestamp,
+											} => {
+												state_change_count += 1;
+												last_event_type = Some(format!("StateChange({})", model_type));
+
+											// Add to batch instead of processing immediately
+											state_change_batch.push(serde_json::json!({
+												"library_id": event_library_id,
+												"model_type": model_type,
+												"record_uuid": record_uuid,
+												"device_id": device_id,
+												"data": data,
+												"timestamp": timestamp,
+											}));
+
+											// Flush if batch reaches configured max entries
+											if state_change_batch.len() >= config.batching.realtime_batch_max_entries {
+													Self::flush_state_change_batch(
+														library_id,
+														&mut state_change_batch,
+														&network,
+														&state,
+														&buffer,
+														&retry_queue,
+														&db,
+														&config,
+														&last_realtime_activity_per_peer,
+													).await;
+												}
+											}
+									SyncEvent::SharedChange {
+										library_id: event_library_id,
+										entry,
+									} => {
+										shared_change_count += 1;
+										last_event_type = Some(format!(
+											"SharedChange({}, HLC:{})",
+											entry.model_type, entry.hlc
+										));
 
 										// Add to batch instead of processing immediately
-										state_change_batch.push(serde_json::json!({
-											"library_id": event_library_id,
-											"model_type": model_type,
-											"record_uuid": record_uuid,
-											"device_id": device_id,
-											"data": data,
-											"timestamp": timestamp,
-										}));
+										shared_change_batch.push(entry);
 
 										// Flush if batch reaches configured max entries
-										if state_change_batch.len() >= config.batching.realtime_batch_max_entries {
-												Self::flush_state_change_batch(
-													library_id,
-													&mut state_change_batch,
-													&network,
-													&state,
-													&buffer,
-													&retry_queue,
-													&db,
-													&config,
-													&last_realtime_activity_per_peer,
-												).await;
-											}
+										if shared_change_batch.len() >= config.batching.realtime_batch_max_entries {
+											Self::flush_shared_change_batch(
+												library_id,
+												&mut shared_change_batch,
+												&network,
+												&state,
+												&buffer,
+												&retry_queue,
+												&db,
+												&config,
+												&last_realtime_activity_per_peer,
+											).await;
 										}
-								SyncEvent::SharedChange {
-									library_id: event_library_id,
-									entry,
-								} => {
-									shared_change_count += 1;
-									last_event_type = Some(format!(
-										"SharedChange({}, HLC:{})",
-										entry.model_type, entry.hlc
-									));
-
-									info!(
-										hlc = %entry.hlc,
-										model_type = %entry.model_type,
-										"PeerSync received shared change event"
-									);
-
-									if let Err(e) = Self::handle_shared_change_event_static(
-										library_id,
-										serde_json::json!({
-											"library_id": event_library_id,
-											"entry": entry,
-										}),
-										&network,
-										&state,
-										&buffer,
-										&retry_queue,
-										&db,
-										&config,
-									)
-									.await
-									{
-										warn!(error = %e, "Failed to handle shared change event");
+									}
+									SyncEvent::MetricsUpdated { .. } => {
+										// Ignore metrics events in the sync event listener
+										// (metrics are for observability, not sync coordination)
 									}
 								}
-								SyncEvent::MetricsUpdated { .. } => {
-									// Ignore metrics events in the sync event listener
-									// (metrics are for observability, not sync coordination)
+							}
+							Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+								// Rate-limit lag warnings to prevent spam
+								let now = std::time::Instant::now();
+								if now.duration_since(last_lag_warning) >= lag_warning_cooldown {
+									error!(
+										skipped = skipped,
+										last_event = ?last_event_type,
+										state_changes = state_change_count,
+										shared_changes = shared_change_count,
+										"CRITICAL: Sync event listener lagged! Data loss occurred. \
+										This likely includes StateChange or SharedChange events. \
+										Lost events may cause sync inconsistency - full backfill may be needed. \
+										With 100k capacity, this indicates extreme system load or a bug."
+									);
+
+									last_lag_warning = now;
+								} else {
+									debug!(
+										skipped = skipped,
+										"Sync event listener lagged (warning suppressed)"
+									);
 								}
 							}
-						}
-						Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-							// Rate-limit lag warnings to prevent spam
-							let now = std::time::Instant::now();
-							if now.duration_since(last_lag_warning) >= lag_warning_cooldown {
-								error!(
-									skipped = skipped,
-									last_event = ?last_event_type,
-									state_changes = state_change_count,
-									shared_changes = shared_change_count,
-									"CRITICAL: Sync event listener lagged! Data loss occurred. \
-									This likely includes StateChange or SharedChange events. \
-									Lost events may cause sync inconsistency - full backfill may be needed. \
-									With 100k capacity, this indicates extreme system load or a bug."
-								);
-
-								last_lag_warning = now;
-							} else {
-								debug!(
-									skipped = skipped,
-									"Sync event listener lagged (warning suppressed)"
-								);
+							Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+								info!("Sync event bus closed, stopping event listener");
+								break;
 							}
 						}
-						Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-							info!("Sync event bus closed, stopping event listener");
-							break;
+					}
+
+					// Flush batches on timer (configurable interval)
+					_ = batch_flush_interval.tick() => {
+						if !state_change_batch.is_empty() {
+							Self::flush_state_change_batch(
+								library_id,
+								&mut state_change_batch,
+								&network,
+								&state,
+								&buffer,
+								&retry_queue,
+								&db,
+								&config,
+								&last_realtime_activity_per_peer,
+							).await;
+						}
+
+						if !shared_change_batch.is_empty() {
+							Self::flush_shared_change_batch(
+								library_id,
+								&mut shared_change_batch,
+								&network,
+								&state,
+								&buffer,
+								&retry_queue,
+								&db,
+								&config,
+								&last_realtime_activity_per_peer,
+							).await;
 						}
 					}
 				}
-
-				// Flush batch on timer (configurable interval)
-				_ = batch_flush_interval.tick() => {
-							if !state_change_batch.is_empty() {
-								Self::flush_state_change_batch(
-									library_id,
-									&mut state_change_batch,
-									&network,
-									&state,
-									&buffer,
-									&retry_queue,
-									&db,
-									&config,
-									&last_realtime_activity_per_peer,
-								).await;
-							}
-						}
-					}
 			}
 
-			// Flush any remaining batched state changes before stopping
+			// Flush any remaining batched changes before stopping
 			if !state_change_batch.is_empty() {
 				info!(
 					remaining = state_change_batch.len(),
@@ -1632,6 +1641,25 @@ impl PeerSync {
 				Self::flush_state_change_batch(
 					library_id,
 					&mut state_change_batch,
+					&network,
+					&state,
+					&buffer,
+					&retry_queue,
+					&db,
+					&config,
+					&last_realtime_activity_per_peer,
+				)
+				.await;
+			}
+
+			if !shared_change_batch.is_empty() {
+				info!(
+					remaining = shared_change_batch.len(),
+					"Flushing remaining batched shared changes before shutdown"
+				);
+				Self::flush_shared_change_batch(
+					library_id,
+					&mut shared_change_batch,
 					&network,
 					&state,
 					&buffer,
@@ -1999,6 +2027,115 @@ impl PeerSync {
 		info!(
 			batch_size = batch_size,
 			"Batched state changes spawned to background tasks"
+		);
+	}
+
+	/// Flush accumulated shared changes as a batch (same efficiency as StateChange batching)
+	async fn flush_shared_change_batch(
+		library_id: Uuid,
+		batch: &mut Vec<crate::infra::sync::SharedChangeEntry>,
+		network: &Arc<dyn NetworkTransport>,
+		state: &Arc<RwLock<DeviceSyncState>>,
+		buffer: &Arc<BufferQueue>,
+		retry_queue: &Arc<RetryQueue>,
+		db: &Arc<sea_orm::DatabaseConnection>,
+		config: &Arc<crate::infra::sync::SyncConfig>,
+		last_realtime_activity_per_peer: &Arc<
+			RwLock<std::collections::HashMap<Uuid, chrono::DateTime<chrono::Utc>>>,
+		>,
+	) {
+		if batch.is_empty() {
+			return;
+		}
+
+		let batch_size = batch.len();
+		info!(
+			batch_size = batch_size,
+			"Flushing batched shared changes with network batching"
+		);
+
+		// Create SharedChangeBatch message
+		use crate::service::network::protocol::sync::messages::SyncMessage;
+		let message = SyncMessage::SharedChangeBatch {
+			library_id,
+			entries: batch.drain(..).collect(),
+		};
+
+		// Get connected partners
+		let connected_partners = match network.get_connected_sync_partners(library_id, db).await {
+			Ok(partners) => partners,
+			Err(e) => {
+				warn!(error = %e, "Failed to get connected partners for shared batch");
+				return;
+			}
+		};
+
+		if connected_partners.is_empty() {
+			debug!("No connected partners for shared change batch");
+			return;
+		}
+
+		// Broadcast to all partners in parallel
+		use futures::future::join_all;
+		let timeout_secs = config.network.message_timeout_secs;
+
+		let send_futures: Vec<_> = connected_partners
+			.iter()
+			.map(|&partner| {
+				let network = network.clone();
+				let msg = message.clone();
+				async move {
+					match tokio::time::timeout(
+						std::time::Duration::from_secs(timeout_secs),
+						network.send_sync_message(partner, msg),
+					)
+					.await
+					{
+						Ok(Ok(())) => (partner, Ok(())),
+						Ok(Err(e)) => (partner, Err(e)),
+						Err(_) => (
+							partner,
+							Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
+						),
+					}
+				}
+			})
+			.collect();
+
+		let results = join_all(send_futures).await;
+
+		let mut success_count = 0;
+		let mut error_count = 0;
+		let mut successful_peers = Vec::new();
+
+		for (partner_uuid, result) in results {
+			match result {
+				Ok(()) => {
+					success_count += 1;
+					successful_peers.push(partner_uuid);
+				}
+				Err(e) => {
+					error_count += 1;
+					warn!(partner = %partner_uuid, error = %e, "Failed to send SharedChangeBatch");
+					retry_queue.enqueue(partner_uuid, message.clone()).await;
+				}
+			}
+		}
+
+		// Mark real-time activity
+		if !successful_peers.is_empty() {
+			let now = chrono::Utc::now();
+			let mut activity_map = last_realtime_activity_per_peer.write().await;
+			for peer_id in successful_peers {
+				activity_map.insert(peer_id, now);
+			}
+		}
+
+		info!(
+			batch_size = batch_size,
+			success = success_count,
+			errors = error_count,
+			"SharedChangeBatch broadcast complete"
 		);
 	}
 
@@ -3652,18 +3789,31 @@ impl PeerSync {
 			"Processing buffered updates - will broadcast to peers after local application"
 		);
 
-		// Now broadcast all buffered changes to peers (they're in Ready state now)
-		for change in state_changes_to_broadcast {
-			if let Err(e) = Self::handle_state_change_event_static(
+		// Now broadcast all buffered changes to peers using batching for efficiency
+		if !state_changes_to_broadcast.is_empty() {
+			info!(
+				count = state_changes_to_broadcast.len(),
+				"Broadcasting buffered state changes as batches"
+			);
+
+			// Convert to batch format and flush
+			let mut state_batch: Vec<serde_json::Value> = state_changes_to_broadcast
+				.into_iter()
+				.map(|change| {
+					serde_json::json!({
+						"library_id": self.library_id,
+						"model_type": change.model_type,
+						"record_uuid": change.record_uuid,
+						"device_id": change.device_id,
+						"data": change.data,
+						"timestamp": change.timestamp,
+					})
+				})
+				.collect();
+
+			Self::flush_state_change_batch(
 				self.library_id,
-				serde_json::json!({
-					"library_id": self.library_id,
-					"model_type": change.model_type,
-					"record_uuid": change.record_uuid,
-					"device_id": change.device_id,
-					"data": change.data,
-					"timestamp": change.timestamp,
-				}),
+				&mut state_batch,
 				&self.network,
 				&self.state,
 				&self.buffer,
@@ -3672,38 +3822,29 @@ impl PeerSync {
 				&self.config,
 				&self.last_realtime_activity_per_peer,
 			)
-			.await
-			{
-				warn!(
-					error = %e,
-					record_uuid = %change.record_uuid,
-					"Failed to broadcast buffered state change to peers"
-				);
-			}
+			.await;
 		}
 
-		for entry in shared_changes_to_broadcast {
-			if let Err(e) = Self::handle_shared_change_event_static(
+		if !shared_changes_to_broadcast.is_empty() {
+			info!(
+				count = shared_changes_to_broadcast.len(),
+				"Broadcasting buffered shared changes as batches"
+			);
+
+			// Flush as batch
+			let mut shared_batch = shared_changes_to_broadcast;
+			Self::flush_shared_change_batch(
 				self.library_id,
-				serde_json::json!({
-					"library_id": self.library_id,
-					"entry": entry,
-				}),
+				&mut shared_batch,
 				&self.network,
 				&self.state,
 				&self.buffer,
 				&self.retry_queue,
 				&self.db,
 				&self.config,
+				&self.last_realtime_activity_per_peer,
 			)
-			.await
-			{
-				warn!(
-					error = %e,
-					hlc = %entry.hlc,
-					"Failed to broadcast buffered shared change to peers"
-				);
-			}
+			.await;
 		}
 
 		// Now ready!

@@ -200,6 +200,7 @@
       "name": "@sd/ts-client",
       "version": "0.1.0",
       "dependencies": {
+        "@sd/assets": "workspace:*",
         "@tanstack/react-query": "^5.62.0",
         "@types/ws": "^8.0.0",
         "react": "^19.0.0",

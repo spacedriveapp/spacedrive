@@ -10,7 +10,7 @@
 use super::{
 	metrics::SyncMetricsCollector,
 	peer::PeerSync,
-	protocol_handler::{LogSyncHandler, StateSyncHandler},
+	protocol_handler::LogSyncHandler,
 	state::{select_backfill_peer, BackfillCheckpoint, DeviceSyncState, PeerInfo},
 };
 use crate::{
@@ -30,7 +30,6 @@ pub struct BackfillManager {
 	library_id: Uuid,
 	device_id: Uuid,
 	peer_sync: Arc<PeerSync>,
-	state_handler: Arc<StateSyncHandler>,
 	log_handler: Arc<LogSyncHandler>,
 	config: Arc<crate::infra::sync::SyncConfig>,
 	metrics: Arc<SyncMetricsCollector>,
@@ -47,7 +46,6 @@ impl BackfillManager {
 		library_id: Uuid,
 		device_id: Uuid,
 		peer_sync: Arc<PeerSync>,
-		state_handler: Arc<StateSyncHandler>,
 		log_handler: Arc<LogSyncHandler>,
 		config: Arc<crate::infra::sync::SyncConfig>,
 		metrics: Arc<SyncMetricsCollector>,
@@ -56,7 +54,6 @@ impl BackfillManager {
 			library_id,
 			device_id,
 			peer_sync,
-			state_handler,
 			log_handler,
 			config,
 			metrics,

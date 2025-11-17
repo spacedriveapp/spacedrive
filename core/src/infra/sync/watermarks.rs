@@ -44,9 +44,6 @@ impl ResourceWatermarkStore {
 		.await
 		.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
 
-		// Migrate existing tables from single watermark to dual watermark
-		Self::migrate_to_dual_watermarks(conn).await?;
-
 		// Create indexes for efficient queries
 		conn.execute(Statement::from_string(
 			DbBackend::Sqlite,
@@ -69,56 +66,6 @@ impl ResourceWatermarkStore {
 		))
 		.await
 		.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-		Ok(())
-	}
-
-	/// Migrate existing single-watermark tables to dual-watermark schema
-	async fn migrate_to_dual_watermarks<C: ConnectionTrait>(
-		conn: &C,
-	) -> Result<(), WatermarkError> {
-		// Check if migration needed by checking for old column name
-		let check_result = conn
-			.query_one(Statement::from_string(
-				DbBackend::Sqlite,
-				"SELECT name FROM pragma_table_info('device_resource_watermarks') WHERE name='last_watermark'"
-					.to_string(),
-			))
-			.await;
-
-		// If last_watermark column exists, we need to migrate
-		if check_result.is_ok() && check_result.unwrap().is_some() {
-			tracing::info!("Migrating watermarks table from single to dual watermark schema");
-
-			// Rename last_watermark to cursor_watermark
-			conn.execute(Statement::from_string(
-				DbBackend::Sqlite,
-				"ALTER TABLE device_resource_watermarks RENAME COLUMN last_watermark TO cursor_watermark"
-					.to_string(),
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-			// Add validated_watermark column (nullable)
-			conn.execute(Statement::from_string(
-				DbBackend::Sqlite,
-				"ALTER TABLE device_resource_watermarks ADD COLUMN validated_watermark TEXT"
-					.to_string(),
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-			// Add last_validated_at column (nullable)
-			conn.execute(Statement::from_string(
-				DbBackend::Sqlite,
-				"ALTER TABLE device_resource_watermarks ADD COLUMN last_validated_at TEXT"
-					.to_string(),
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-			tracing::info!("Watermarks table migration complete");
-		}
 
 		Ok(())
 	}

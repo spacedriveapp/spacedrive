@@ -18,6 +18,7 @@ import { useSyncSetupDialog } from "../../components/SyncSetupModal";
 import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
+import { useNormalizedCache } from "@sd/ts-client";
 
 interface OverviewTopBarProps {
 	libraryName?: string;
@@ -29,6 +30,7 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 	const client = useSpacedriveClient();
 	const platform = usePlatform();
 	const { data: libraries } = useLibraries();
+
 	const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
 		() => client.getCurrentLibraryId(), // Initialize from client
 	);
@@ -53,9 +55,11 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 
 			// Set library ID via platform (syncs to all windows on Tauri)
 			if (platform.setCurrentLibraryId) {
-				platform.setCurrentLibraryId(firstLib.id).catch((err) =>
-					console.error("Failed to set library ID:", err),
-				);
+				platform
+					.setCurrentLibraryId(firstLib.id)
+					.catch((err) =>
+						console.error("Failed to set library ID:", err),
+					);
 			} else {
 				// Web fallback - just update client
 				client.setCurrentLibrary(firstLib.id);
@@ -68,9 +72,11 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 
 		// Set library ID via platform (syncs to all windows on Tauri)
 		if (platform.setCurrentLibraryId) {
-			platform.setCurrentLibraryId(libraryId).catch((err) =>
-				console.error("Failed to set library ID:", err),
-			);
+			platform
+				.setCurrentLibraryId(libraryId)
+				.catch((err) =>
+					console.error("Failed to set library ID:", err),
+				);
 		} else {
 			// Web fallback - just update client
 			client.setCurrentLibrary(libraryId);
