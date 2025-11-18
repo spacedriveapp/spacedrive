@@ -418,6 +418,9 @@ impl LibraryManager {
 		let db_path = path.join("database.db");
 		let db = Arc::new(Database::open(&db_path).await?);
 
+		// Run migrations to ensure schema is up to date
+		db.migrate().await?;
+
 		// Get this device's ID for sync coordination
 		let device_id = context
 			.device_manager
