@@ -16,7 +16,6 @@ export function LocationsGroup({ isCollapsed, onToggle }: LocationsGroupProps) {
     wireMethod: "query:locations.list",
     input: null, // Unit struct serializes as null, not {}
     resourceType: "location",
-    isGlobalList: true,
   });
 
   const locations = locationsData?.locations ?? [];

@@ -5,7 +5,6 @@ export function useSpaces() {
 		wireMethod: 'query:spaces.list',
 		input: null, // Unit struct serializes as null, not {}
 		resourceType: 'space',
-		isGlobalList: true,
 	});
 }
 

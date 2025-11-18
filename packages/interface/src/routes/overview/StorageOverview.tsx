@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { HardDrive } from "@phosphor-icons/react";
+import { HardDrive, Plus } from "@phosphor-icons/react";
 import DriveIcon from "@sd/assets/icons/Drive.png";
 import HDDIcon from "@sd/assets/icons/HDD.png";
 import ServerIcon from "@sd/assets/icons/Server.png";
@@ -7,7 +7,7 @@ import DatabaseIcon from "@sd/assets/icons/Database.png";
 import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
-import { useNormalizedCache } from "../../context";
+import { useNormalizedCache, useLibraryMutation } from "../../context";
 import type {
 	VolumeListOutput,
 	VolumeListQueryInput,
@@ -65,7 +65,6 @@ export function StorageOverview() {
 		wireMethod: "query:volumes.list",
 		input: { filter: "All" },
 		resourceType: "volume",
-		isGlobalList: true,
 	});
 
 	// Fetch all devices using normalized cache
@@ -76,7 +75,6 @@ export function StorageOverview() {
 		wireMethod: "query:devices.list",
 		input: { include_offline: true, include_details: false },
 		resourceType: "device",
-		isGlobalList: true,
 	});
 
 	if (volumesLoading || devicesLoading) {
@@ -189,6 +187,18 @@ function getDummyVolumeStats(volumeName: string) {
 }
 
 function VolumeBar({ volume, index }: VolumeBarProps) {
+	const trackVolume = useLibraryMutation("volumes.track");
+
+	const handleTrack = async () => {
+		try {
+			await trackVolume.mutateAsync({
+				fingerprint: volume.fingerprint,
+			});
+		} catch (error) {
+			console.error("Failed to track volume:", error);
+		}
+	};
+
 	// Use real data from backend, fallback to dummy data if not available
 	const useDummyData = !volume.total_capacity;
 	const dummy = useDummyData ? getDummyVolumeStats(volume.name) : null;
@@ -244,9 +254,15 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 								</span>
 							)}
 							{!volume.is_tracked && (
-								<span className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-md border border-accent/20">
-									Untracked
-								</span>
+								<button
+									onClick={handleTrack}
+									disabled={trackVolume.isPending}
+									className="px-2 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-xs rounded-md border border-accent/20 hover:border-accent/30 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+									title="Track this volume to enable deduplication and search"
+								>
+									<Plus className="size-3" weight="bold" />
+									{trackVolume.isPending ? "Tracking..." : "Track"}
+								</button>
 							)}
 							{useDummyData && (
 								<span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-600 text-xs rounded-md border border-yellow-500/20">

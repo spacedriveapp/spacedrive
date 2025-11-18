@@ -20,7 +20,6 @@ export function VolumesGroup({
 		wireMethod: "query:volumes.list",
 		input: { filter },
 		resourceType: "volume",
-		isGlobalList: true,
 	});
 
 	const volumes = volumesData?.volumes || [];

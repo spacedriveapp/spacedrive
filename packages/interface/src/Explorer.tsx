@@ -42,7 +42,6 @@ export function ExplorerLayout() {
     wireMethod: "query:locations.list",
     input: null,
     resourceType: "location",
-    isGlobalList: true,
   });
 
   // Get current location if we're on a location route

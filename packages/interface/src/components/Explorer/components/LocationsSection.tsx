@@ -18,7 +18,6 @@ export function LocationsSection() {
     wireMethod: "query:locations.list",
     input: null,
     resourceType: "location",
-    isGlobalList: true,
   });
 
   const locations = locationsQuery.data?.locations || [];
