@@ -50,6 +50,7 @@ export function FileInspector({ file }: FileInspectorProps) {
 		wireMethod: "query:files.by_id",
 		input: { file_id: file?.id || "" },
 		resourceType: "file",
+		resourceId: file?.id, // Filter batch events to only this file
 		enabled: !!file?.id,
 	});
 

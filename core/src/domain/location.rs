@@ -266,6 +266,10 @@ pub struct JobPolicies {
 	#[serde(default)]
 	pub thumbstrip: ThumbstripPolicy,
 
+	/// Proxy/sidecar generation policy (video scrubbing)
+	#[serde(default)]
+	pub proxy: ProxyPolicy,
+
 	/// OCR (text extraction) policy
 	#[serde(default)]
 	pub ocr: OcrPolicy,
@@ -284,6 +288,7 @@ impl Default for JobPolicies {
 		Self {
 			thumbnail: ThumbnailPolicy::default(),
 			thumbstrip: ThumbstripPolicy::default(),
+			proxy: ProxyPolicy::default(),
 			ocr: OcrPolicy::default(),
 			speech_to_text: SpeechPolicy::default(),
 			object_detection: ObjectDetectionPolicy::default(),
@@ -369,6 +374,25 @@ impl ThumbstripPolicy {
 			variants: crate::ops::media::thumbstrip::ThumbstripVariants::defaults(),
 			regenerate: self.regenerate,
 			batch_size: 10,
+		}
+	}
+}
+
+/// Proxy/sidecar generation policy (video scrubbing)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ProxyPolicy {
+	/// Whether to generate proxy files for this location
+	pub enabled: bool,
+
+	/// Whether to regenerate existing proxies
+	pub regenerate: bool,
+}
+
+impl Default for ProxyPolicy {
+	fn default() -> Self {
+		Self {
+			enabled: false, // Disabled by default (expensive operation)
+			regenerate: false,
 		}
 	}
 }

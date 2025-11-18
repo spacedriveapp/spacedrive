@@ -632,10 +632,12 @@ export function useNormalizedCache<I, O>({
 
 							if (isSingleResource) {
 								// For File resources with sd_path, validate path matches (prevent cross-path pollution)
+								// Skip this check if resourceId is provided - we've already filtered to the exact file
 								const oldPath = (oldData as any).sd_path;
 
-								if (oldPath) {
+								if (oldPath && !resourceId) {
 									// This is a File with a path - filter to matching path only
+									// Only needed when resourceId is NOT provided (list queries)
 									const filteredByPath =
 										filteredResources.filter(
 											(resource: any) => {
