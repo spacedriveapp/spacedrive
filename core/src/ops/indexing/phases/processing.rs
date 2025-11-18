@@ -66,6 +66,30 @@ pub async fn run_processing_phase(
 		device_id, location_id_i32, location_entry_id
 	));
 
+	// CRITICAL SAFETY CHECK: Validate that the indexing path is within this location's boundaries
+	// This prevents catastrophic cross-location deletion if the watcher routes events incorrectly
+	let location_actual_path = crate::ops::indexing::path_resolver::PathResolver::get_full_path(
+		ctx.library_db(),
+		location_entry_id,
+	)
+	.await
+	.map_err(|e| JobError::execution(format!("Failed to resolve location root path: {}", e)))?;
+
+	if !location_root_path.starts_with(&location_actual_path) {
+		return Err(JobError::execution(format!(
+			"SAFETY VIOLATION: Indexing path '{}' is outside location boundaries '{}' (location_id={}). \
+			This indicates a routing bug in the watcher. Aborting to prevent data loss.",
+			location_root_path.display(),
+			location_actual_path.display(),
+			location_id
+		)));
+	}
+
+	ctx.log(format!(
+		"✓ Validated indexing path is within location boundaries: {}",
+		location_actual_path.display()
+	));
+
 	// Add the location root entry to the cache so children can find their parent
 	state
 		.entry_id_cache

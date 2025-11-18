@@ -754,48 +754,78 @@ impl LocationWatcher {
 												kind: kind.clone(),
 											});
 
-											// Find the location for this event and route to worker
-											let locations = watched_locations.read().await;
-											for location in locations.values() {
-												if location.library_id == library_id {
-													if let Some(worker_tx) = workers.read().await.get(&location.id) {
-														// Convert FsRawEventKind back to WatcherEvent for worker
-														let watcher_event = match kind {
-															FsRawEventKind::Create { path } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Create,
-																paths: vec![path],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-															FsRawEventKind::Modify { path } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Modify,
-																paths: vec![path],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-															FsRawEventKind::Remove { path } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Remove,
-																paths: vec![path],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-															FsRawEventKind::Rename { from, to } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Rename { from, to },
-																paths: vec![],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-														};
+											// Extract path from event for location matching
+											let event_path = match &kind {
+												FsRawEventKind::Create { path } => Some(path.as_path()),
+												FsRawEventKind::Modify { path } => Some(path.as_path()),
+												FsRawEventKind::Remove { path } => Some(path.as_path()),
+												FsRawEventKind::Rename { from, .. } => Some(from.as_path()),
+											};
 
-														debug!("Sending event to worker: {:?}", watcher_event.kind);
-														if let Err(e) = worker_tx.send(watcher_event).await {
-															warn!("Failed to send event to worker for location {}: {}", location.id, e);
-														} else {
-															debug!("✓ Successfully sent event to worker");
+											// Find the location for this event by matching path prefix
+											// CRITICAL: Must match by path, not just library_id, to avoid routing
+											// events to the wrong location when multiple locations exist in one library
+											let locations = watched_locations.read().await;
+											let mut matched_location = None;
+											let mut longest_match_len = 0;
+
+											if let Some(event_path) = event_path {
+												for location in locations.values() {
+													if location.library_id == library_id && location.enabled {
+														// Check if event path is under this location's root
+														if event_path.starts_with(&location.path) {
+															let match_len = location.path.as_os_str().len();
+															// Use longest matching path to handle nested locations
+															if match_len > longest_match_len {
+																longest_match_len = match_len;
+																matched_location = Some(location.id);
+															}
 														}
-														break;
 													}
 												}
+											}
+
+											if let Some(location_id) = matched_location {
+												if let Some(worker_tx) = workers.read().await.get(&location_id) {
+													// Convert FsRawEventKind back to WatcherEvent for worker
+													let watcher_event = match kind {
+														FsRawEventKind::Create { path } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Create,
+															paths: vec![path],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+														FsRawEventKind::Modify { path } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Modify,
+															paths: vec![path],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+														FsRawEventKind::Remove { path } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Remove,
+															paths: vec![path],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+														FsRawEventKind::Rename { from, to } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Rename { from, to },
+															paths: vec![],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+													};
+
+													debug!("Routing event to location {}: {:?}", location_id, watcher_event.kind);
+													if let Err(e) = worker_tx.send(watcher_event).await {
+														warn!("Failed to send event to worker for location {}: {}", location_id, e);
+													} else {
+														debug!("✓ Successfully sent event to worker for location {}", location_id);
+													}
+												} else {
+													warn!("No worker found for matched location {}", location_id);
+												}
+											} else {
+												warn!("No matching location found for event path: {:?}", event_path);
 											}
 										}
 										other => {
@@ -831,42 +861,64 @@ impl LocationWatcher {
 												kind: kind.clone(),
 											});
 
-											// Route to appropriate worker
-											let locations = watched_locations.read().await;
-											for location in locations.values() {
-												if location.library_id == library_id {
-													if let Some(worker_tx) = workers.read().await.get(&location.id) {
-														let watcher_event = match kind {
-															FsRawEventKind::Create { path } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Create,
-																paths: vec![path],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-															FsRawEventKind::Modify { path } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Modify,
-																paths: vec![path],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-															FsRawEventKind::Remove { path } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Remove,
-																paths: vec![path],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-															FsRawEventKind::Rename { from, to } => WatcherEvent {
-																kind: event_handler::WatcherEventKind::Rename { from, to },
-																paths: vec![],
-																timestamp: std::time::SystemTime::now(),
-																attrs: vec![],
-															},
-														};
+											// Extract path from event for location matching
+											let event_path = match &kind {
+												FsRawEventKind::Create { path } => Some(path.as_path()),
+												FsRawEventKind::Modify { path } => Some(path.as_path()),
+												FsRawEventKind::Remove { path } => Some(path.as_path()),
+												FsRawEventKind::Rename { from, .. } => Some(from.as_path()),
+											};
 
-														if let Err(e) = worker_tx.send(watcher_event).await {
-															warn!("Failed to send tick event to worker for location {}: {}", location.id, e);
+											// Find the location for this event by matching path prefix
+											let locations = watched_locations.read().await;
+											let mut matched_location = None;
+											let mut longest_match_len = 0;
+
+											if let Some(event_path) = event_path {
+												for location in locations.values() {
+													if location.library_id == library_id && location.enabled {
+														if event_path.starts_with(&location.path) {
+															let match_len = location.path.as_os_str().len();
+															if match_len > longest_match_len {
+																longest_match_len = match_len;
+																matched_location = Some(location.id);
+															}
 														}
-														break;
+													}
+												}
+											}
+
+											if let Some(location_id) = matched_location {
+												if let Some(worker_tx) = workers.read().await.get(&location_id) {
+													let watcher_event = match kind {
+														FsRawEventKind::Create { path } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Create,
+															paths: vec![path],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+														FsRawEventKind::Modify { path } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Modify,
+															paths: vec![path],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+														FsRawEventKind::Remove { path } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Remove,
+															paths: vec![path],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+														FsRawEventKind::Rename { from, to } => WatcherEvent {
+															kind: event_handler::WatcherEventKind::Rename { from, to },
+															paths: vec![],
+															timestamp: std::time::SystemTime::now(),
+															attrs: vec![],
+														},
+													};
+
+													if let Err(e) = worker_tx.send(watcher_event).await {
+														warn!("Failed to send tick event to worker for location {}: {}", location_id, e);
 													}
 												}
 											}
