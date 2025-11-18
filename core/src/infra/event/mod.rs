@@ -89,6 +89,11 @@ pub enum Event {
 		statistics: crate::library::config::LibraryStatistics,
 	},
 
+	// Cache invalidation event
+	/// Refresh event - signals that all frontend caches should be invalidated
+	/// Emitted after major data recalculations (e.g., volume unique_bytes refresh)
+	Refresh,
+
 	// Entry events (file/directory operations)
 	EntryCreated {
 		library_id: Uuid,

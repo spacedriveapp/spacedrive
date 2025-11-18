@@ -56,7 +56,7 @@ fn get_volume_watch_paths() -> Vec<PathBuf> {
 /// Central manager for volume detection, monitoring, and operations
 pub struct VolumeManager {
 	/// Device ID for this manager
-	device_id: uuid::Uuid,
+	pub(crate) device_id: uuid::Uuid,
 
 	/// Currently known volumes, indexed by fingerprint
 	volumes: Arc<RwLock<HashMap<VolumeFingerprint, Volume>>>,
@@ -1457,6 +1457,159 @@ impl VolumeManager {
 						read_speed_mbps,
 						write_speed_mbps
 					);
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Calculate and save unique bytes for a specific volume (owned by this device)
+	/// This deduplicates content using content_identity hashes
+	pub async fn calculate_and_save_unique_bytes(
+		&self,
+		fingerprint: &VolumeFingerprint,
+		libraries: &[Arc<crate::library::Library>],
+	) -> VolumeResult<()> {
+		use sea_orm::{DbBackend, FromQueryResult, Statement};
+
+		for library in libraries {
+			// Check if this volume is tracked in this library
+			if self.is_volume_tracked(library, fingerprint).await? {
+				let db = library.db().conn();
+
+				// Get the volume from database to get mount_point and verify ownership
+				let db_volume = entities::volume::Entity::find()
+					.filter(entities::volume::Column::DeviceId.eq(self.device_id))
+					.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
+					.one(db)
+					.await
+					.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+				let db_volume = match db_volume {
+					Some(v) => v,
+					None => {
+						debug!(
+							"Volume {} not found or not owned by this device, skipping unique_bytes calculation",
+							fingerprint.0
+						);
+						continue;
+					}
+				};
+
+				let mount_point = match &db_volume.mount_point {
+					Some(mp) => mp,
+					None => {
+						debug!(
+							"Volume {} has no mount point, cannot calculate unique_bytes",
+							fingerprint.0
+						);
+						continue;
+					}
+				};
+
+				info!(
+					"Calculating unique bytes for volume {} in library {}",
+					fingerprint.0,
+					library.name().await
+				);
+
+				// Calculate unique bytes using content_identity deduplication
+				let query = r#"
+					SELECT COALESCE(SUM(unique_size), 0) as unique_bytes
+					FROM (
+						SELECT ci.content_hash, ci.total_size as unique_size
+						FROM entries e
+						INNER JOIN directory_paths dp ON e.id = dp.entry_id
+						INNER JOIN content_identities ci ON e.content_id = ci.id
+						WHERE dp.path LIKE ? || '%'
+						  AND e.kind = 0
+						GROUP BY ci.content_hash, ci.total_size
+					)
+				"#;
+
+				#[derive(FromQueryResult)]
+				struct UniqueResult {
+					unique_bytes: i64,
+				}
+
+				let result = UniqueResult::find_by_statement(Statement::from_sql_and_values(
+					DbBackend::Sqlite,
+					query,
+					vec![mount_point.clone().into()],
+				))
+				.one(db)
+				.await
+				.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+				let unique_bytes = result.map(|r| r.unique_bytes).unwrap_or(0);
+
+				// Update the volume record with calculated unique_bytes
+				let update_result = entities::volume::Entity::update_many()
+					.filter(entities::volume::Column::DeviceId.eq(self.device_id))
+					.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
+					.set(entities::volume::ActiveModel {
+						unique_bytes: Set(Some(unique_bytes)),
+						..Default::default()
+					})
+					.exec(db)
+					.await
+					.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+				if update_result.rows_affected > 0 {
+					info!(
+						"Saved unique_bytes for volume {} in library {}: {} bytes ({:.2} GB)",
+						fingerprint.0,
+						library.name().await,
+						unique_bytes,
+						unique_bytes as f64 / 1_073_741_824.0
+					);
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Calculate and save unique bytes for all volumes owned by this device
+	pub async fn calculate_unique_bytes_for_owned_volumes(
+		&self,
+		libraries: &[Arc<crate::library::Library>],
+	) -> VolumeResult<()> {
+		info!(
+			"Calculating unique bytes for all volumes owned by device {}",
+			self.device_id
+		);
+
+		for library in libraries {
+			let db = library.db().conn();
+
+			// Get all tracked volumes owned by this device
+			let owned_volumes = entities::volume::Entity::find()
+				.filter(entities::volume::Column::DeviceId.eq(self.device_id))
+				.all(db)
+				.await
+				.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+			info!(
+				"Found {} volumes owned by this device in library {}",
+				owned_volumes.len(),
+				library.name().await
+			);
+
+			for volume in owned_volumes {
+				let fingerprint = VolumeFingerprint(volume.fingerprint.clone());
+
+				// Calculate and save unique bytes for this volume
+				if let Err(e) = self
+					.calculate_and_save_unique_bytes(&fingerprint, &[library.clone()])
+					.await
+				{
+					warn!(
+						"Failed to calculate unique_bytes for volume {}: {}",
+						fingerprint.0, e
+					);
+					// Continue with other volumes even if one fails
 				}
 			}
 		}

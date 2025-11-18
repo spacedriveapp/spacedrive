@@ -184,28 +184,35 @@ export function useNormalizedCache<I, O>({
     enabled: enabled && !!libraryId,
   });
 
-  // Listen for ResourceChanged events and update cache atomically
-  useEffect(() => {
-    // Helper: Check if event affects the pathScope (if specified)
-    const eventAffectsPath = (metadata: any): boolean => {
-      if (!pathScope) return true; // No path filter, accept all
+	// Listen for ResourceChanged events and update cache atomically
+	useEffect(() => {
+		// Helper: Check if event affects the pathScope (if specified)
+		const eventAffectsPath = (metadata: any): boolean => {
+			if (!pathScope) return true; // No path filter, accept all
 
-      const affectedPaths = metadata?.affected_paths || [];
-      if (affectedPaths.length === 0) return true; // Global resource, no paths
+			const affectedPaths = metadata?.affected_paths || [];
+			if (affectedPaths.length === 0) return true; // Global resource, no paths
 
-      // Check if any affected path matches our pathScope
-      return affectedPaths.some((affectedPath: any) => {
-        // For now, do a simple JSON comparison
-        // In the future, could use more sophisticated path matching
-        return JSON.stringify(affectedPath) === JSON.stringify(pathScope);
-      });
-    };
+			// Check if any affected path matches our pathScope
+			return affectedPaths.some((affectedPath: any) => {
+				// For now, do a simple JSON comparison
+				// In the future, could use more sophisticated path matching
+				return JSON.stringify(affectedPath) === JSON.stringify(pathScope);
+			});
+		};
 
-    const handleEvent = (event: any) => {
-      // Fast path: ignore job/indexing progress events immediately
-      if ("JobProgress" in event || "IndexingProgress" in event) {
-        return;
-      }
+		const handleEvent = (event: any) => {
+			// Handle Refresh event - invalidate all queries
+			if ("Refresh" in event) {
+				console.log("[useNormalizedCache] Refresh event received, invalidating all queries");
+				queryClient.invalidateQueries();
+				return;
+			}
+
+			// Fast path: ignore job/indexing progress events immediately
+			if ("JobProgress" in event || "IndexingProgress" in event) {
+				return;
+			}
 
       // Check if this is a ResourceChanged event for our resource type
       if ("ResourceChanged" in event) {

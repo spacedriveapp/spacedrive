@@ -19,6 +19,9 @@ pub struct Model {
 	pub is_online: bool,
 	pub total_capacity: Option<i64>,
 	pub available_capacity: Option<i64>,
+	/// Unique bytes on this volume (deduplicated by content_identity hash)
+	/// Calculated by owning device and synced to all paired devices
+	pub unique_bytes: Option<i64>,
 	pub read_speed_mbps: Option<i32>,
 	pub write_speed_mbps: Option<i32>,
 	pub last_speed_test_at: Option<DateTimeUtc>,
@@ -215,6 +218,7 @@ impl Syncable for Model {
 			is_online: Set(false),
 			total_capacity: Set(data.get("total_capacity").and_then(|v| v.as_i64())),
 			available_capacity: Set(data.get("available_capacity").and_then(|v| v.as_i64())),
+			unique_bytes: Set(data.get("unique_bytes").and_then(|v| v.as_i64())),
 			read_speed_mbps: Set(data
 				.get("read_speed_mbps")
 				.and_then(|v| v.as_i64())
@@ -259,6 +263,7 @@ impl Syncable for Model {
 						Column::DisplayName,
 						Column::TotalCapacity,
 						Column::AvailableCapacity,
+						Column::UniqueBytes,
 						Column::ReadSpeedMbps,
 						Column::WriteSpeedMbps,
 						Column::FileSystem,

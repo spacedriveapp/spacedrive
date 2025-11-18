@@ -108,7 +108,7 @@ Log-based sync uses two mechanisms depending on the scenario:
 5. After acknowledgment, prune from log
 ```
 
-The log ensures all devices apply changes in the same order. Batch operations provide 99x reduction in network traffic.
+The log ensures all devices apply changes in the same order. Batch operations reduce network overhead by sending one message instead of one per item.
 
 For large datasets, the system uses HLC-based pagination. Each batch request includes the last seen HLC, and the peer responds with the next batch. This scales to millions of shared resources.
 
@@ -335,8 +335,7 @@ User adds `/Users/alice/Documents`:
 </Step>
 
 <Step title="Complete">
-Total time: ~100ms
-No conflicts possible
+No conflicts possible (ownership is exclusive)
 </Step>
 </Steps>
 
@@ -491,9 +490,13 @@ The receiving device applies both the incremental changes and the current state 
 
 When devices reconnect after being offline, they use watermarks to avoid full re-sync.
 
-**State Watermark**: Timestamp of the last device-owned state update received (stored in `last_state_watermark`).
+**Per-Resource Watermarks**: Each resource type (location, entry, volume) tracks its own timestamp watermark per peer device. This prevents watermark advancement in one resource from filtering out records in another resource with earlier timestamps.
 
-**Shared Watermark**: HLC of the last shared resource change seen (stored in `last_shared_watermark`).
+**Dual Watermark System**:
+- **Cursor Watermark**: Current optimistic sync position (may have gaps)
+- **Validated Watermark**: Last known-good position where record counts matched
+
+**Shared Watermark**: HLC of the last shared resource change seen.
 
 The sync service automatically monitors connectivity. When devices reconnect or fall behind, the system checks watermarks at configured intervals. If a device has fallen behind, incremental catch-up begins automatically.
 
@@ -502,14 +505,14 @@ During catch-up, the device sends a `StateRequest` with the `since` parameter se
 Example flow when Device B reconnects:
 
 ```
-1. Device B checks watermark: last_state_watermark = 2025-10-20 14:30:00
-2. Device B sends StateRequest(since: 2025-10-20 14:30:00) to Device A
+1. Device B checks entry watermark for Device A: 2025-10-20 14:30:00
+2. Device B sends StateRequest(model_types: ["entry"], since: 2025-10-20 14:30:00) to Device A
 3. Device A queries: SELECT * FROM entries WHERE updated_at >= '2025-10-20 14:30:00'
 4. Device A responds with StateResponse containing 3 new entries
-5. Device B applies changes and updates watermark
+5. Device B applies changes and updates entry watermark for Device A
 ```
 
-This typically syncs a small number of changed records instead of re-syncing the entire dataset, completing in milliseconds.
+This syncs only changed records instead of re-syncing the entire dataset.
 
 ### Pagination for Large Datasets
 
@@ -621,12 +624,11 @@ A simpler scenario is when a volume's mount point changes on the same device (e.
 
 ### Sync Characteristics
 
-| Aspect    | Device-Owned  | Shared Resources  |
-| --------- | ------------- | ----------------- |
-| Latency   | ~100ms        | ~150ms            |
-| Storage   | No log        | Less than 1MB log |
-| Conflicts | Impossible    | HLC-resolved      |
-| Offline   | Full function | Queues changes    |
+| Aspect    | Device-Owned        | Shared Resources  |
+| --------- | ------------------- | ----------------- |
+| Storage   | No log              | Small peer log    |
+| Conflicts | Impossible          | HLC-resolved      |
+| Offline   | Queues state changes | Queues to peer log |
 
 ### Optimizations
 
@@ -716,10 +718,12 @@ RUST_LOG=sd_core::sync=debug cargo run
 - **CollectionEntry** - Many-to-many collection relationships
 - **UserMetadataTag** - Many-to-many tag relationships
 - **TagRelationship** - Tag hierarchy relationships
+- **AuditLog** - Action audit trail for compliance
+- **Sidecar** - Generated files (thumbnails, previews, metadata caches)
 
-All models sync automatically during creation, updates, and deletions. File indexing uses batch sync for both device-owned entries (`StateBatch`) and shared content identities (`SharedChangeBatch`), providing 99x reduction in network overhead.
+All models sync automatically during creation, updates, and deletions. File indexing uses batch sync for both device-owned entries (`StateBatch`) and shared content identities (`SharedChangeBatch`) to reduce network overhead.
 
-**Deletion sync:** Device-owned models (locations, entries, volumes) use cascading tombstones for efficient deletion propagation. The `device_state_tombstones` table tracks root UUIDs of deleted trees. Shared models use standard `ChangeType::Delete` in the peer log. Both mechanisms prune automatically once all devices have synced.
+**Deletion sync:** Device-owned models (locations, entries, volumes) use cascading tombstones. The `device_state_tombstones` table tracks root UUIDs of deleted trees. Shared models use standard `ChangeType::Delete` in the peer log. Both mechanisms prune automatically once all devices have synced.
 
 ## Extension Sync
 
@@ -812,7 +816,7 @@ The sync system combines state-based and log-based protocols to provide reliable
 
 **Log-based sync** for shared resources uses Hybrid Logical Clocks to maintain causal ordering without clock synchronization. All devices converge to the same state regardless of network topology.
 
-**Automatic recovery** handles offline periods through watermark-based incremental sync. Reconnecting devices send pull requests with watermarks, receiving only changes since their last sync. This typically transfers a small number of changed records instead of re-syncing the entire dataset, completing in milliseconds.
+**Automatic recovery** handles offline periods through watermark-based incremental sync. Reconnecting devices send pull requests with watermarks, receiving only changes since their last sync. This typically transfers a small number of changed records instead of re-syncing the entire dataset.
 
 The system is production-ready with all core models syncing automatically. Extensions can use the same infrastructure to sync custom models.
 

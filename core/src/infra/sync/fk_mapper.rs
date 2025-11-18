@@ -196,7 +196,7 @@ async fn lookup_uuid_for_local_id(
 /// Records not found are omitted from the result map (caller must handle missing entries).
 ///
 /// This function performs a single SQL query with WHERE id IN (...) instead of
-/// N individual queries, reducing database roundtrips by 365x for typical sync operations.
+/// N individual queries.
 pub async fn batch_lookup_uuids_for_local_ids(
 	table: &str,
 	local_ids: HashSet<i32>,
@@ -362,8 +362,7 @@ pub async fn map_sync_json_to_local(
 ///
 /// This function processes multiple records at once, using batch FK lookups
 /// to reduce database queries from N*M (N records × M FKs) to M (one per FK type).
-///
-/// This is a 365x reduction for typical sync workloads with 1000 records and 3 FKs each.
+
 pub async fn batch_map_sync_json_to_local(
 	mut records: Vec<Value>,
 	mappings: Vec<FKMapping>,

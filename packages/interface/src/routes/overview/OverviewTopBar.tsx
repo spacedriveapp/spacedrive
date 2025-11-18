@@ -18,7 +18,7 @@ import { useSyncSetupDialog } from "../../components/SyncSetupModal";
 import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
-import { useNormalizedCache } from "@sd/ts-client";
+import { useLibraryMutation } from "@sd/ts-client";
 
 interface OverviewTopBarProps {
 	libraryName?: string;
@@ -30,7 +30,6 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 	const client = useSpacedriveClient();
 	const platform = usePlatform();
 	const { data: libraries } = useLibraries();
-
 	const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
 		() => client.getCurrentLibraryId(), // Initialize from client
 	);
@@ -95,6 +94,27 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 
 	const handleSyncSetup = () => {
 		useSyncSetupDialog();
+	};
+
+	// Mutation for refreshing volume statistics
+	// @ts-expect-error - volumes.refresh not in generated types yet
+	const volumeRefreshMutation = useLibraryMutation("volumes.refresh");
+	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	const handleRefresh = async () => {
+		setIsRefreshing(true);
+		try {
+			const result = (await volumeRefreshMutation.mutateAsync({
+				force: false,
+			} as any)) as any;
+			console.log(
+				`Volume refresh complete: ${result.volumes_refreshed} refreshed, ${result.volumes_failed} failed`,
+			);
+		} catch (error) {
+			console.error("Failed to refresh volumes:", error);
+		} finally {
+			setIsRefreshing(false);
+		}
 	};
 
 	return (
@@ -193,6 +213,9 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 						<TopBarButton
 							icon={ArrowsClockwise}
 							title="Refresh Statistics"
+							onClick={handleRefresh}
+							disabled={isRefreshing}
+							className={clsx(isRefreshing && "animate-spin")}
 						>
 							Refresh
 						</TopBarButton>

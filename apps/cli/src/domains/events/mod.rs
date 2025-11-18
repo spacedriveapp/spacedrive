@@ -118,6 +118,9 @@ fn summarize_event(event: &Event) -> String {
 		Event::CoreStarted => "Core started".to_string(),
 		Event::CoreShutdown => "Core shutting down".to_string(),
 
+		// Cache invalidation
+		Event::Refresh => "Cache refresh triggered".to_string(),
+
 		// Library events
 		Event::LibraryCreated { name, id, .. } => {
 			format!("Library '{}' created ({})", name, id)

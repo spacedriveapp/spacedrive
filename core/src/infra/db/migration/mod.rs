@@ -25,6 +25,7 @@ mod m20251113_000001_add_job_policies_to_locations;
 mod m20251114_000001_add_unique_constraint_to_volumes_uuid;
 mod m20251117_000001_add_blurhash_to_media_data;
 mod m20251117_000002_add_unique_constraint_to_entries;
+mod m20251117_000003_add_unique_bytes_to_volumes;
 
 pub struct Migrator;
 
@@ -55,6 +56,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251114_000001_add_unique_constraint_to_volumes_uuid::Migration),
 			Box::new(m20251117_000001_add_blurhash_to_media_data::Migration),
 			Box::new(m20251117_000002_add_unique_constraint_to_entries::Migration),
+			Box::new(m20251117_000003_add_unique_bytes_to_volumes::Migration),
 		]
 	}
 }

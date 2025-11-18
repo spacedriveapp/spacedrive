@@ -343,8 +343,7 @@ impl BackfillManager {
 		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
 	) -> Result<(BackfillCheckpoint, Option<chrono::DateTime<chrono::Utc>>)> {
 		let mut current_checkpoint = checkpoint.unwrap_or_else(|| BackfillCheckpoint::start(peer));
-		// Track max timestamp from ONLY received records (not initialized to watermark)
-		// Initializing to since_watermark caused bug where watermark advanced even when no data received
+		// Track max timestamp from received records
 		let mut max_timestamp: Option<chrono::DateTime<chrono::Utc>> = None;
 
 		for model_type in model_types {
@@ -393,7 +392,7 @@ impl BackfillManager {
 						"Received StateResponse batch"
 					);
 
-					// Batch FK resolution for all records (365x query reduction)
+					// Batch FK resolution for all records
 					// Collect all record data WITH timestamps for watermark tracking
 					let records_with_timestamps: Vec<(
 						serde_json::Value,

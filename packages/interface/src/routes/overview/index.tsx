@@ -62,6 +62,10 @@ export function Overview() {
 						deviceCount={stats.device_count}
 						uniqueContentCount={Number(stats.unique_content_count)}
 					/>
+
+					{/* Storage Volumes */}
+					<StorageOverview />
+
 					{/* <ContentBreakdown totalFiles={Number(stats.total_files)} /> */}
 				</div>
 			</div>
