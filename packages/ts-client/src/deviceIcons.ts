@@ -117,3 +117,4 @@ export function getDeviceIconBySlug(
 	const device = devices.get(deviceSlug);
 	return device ? getDeviceIcon(device) : Laptop; // Default to Laptop if device not found
 }
+
