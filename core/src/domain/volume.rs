@@ -3,6 +3,7 @@
 //! This represents volumes in Spacedrive, combining runtime detection capabilities
 //! with database tracking and user preferences. Supports local, network, and cloud volumes.
 
+use crate::domain::resource::Identifiable;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -524,6 +525,19 @@ pub enum FileSystem {
 
 	/// Other filesystem
 	Other(String),
+}
+
+impl Identifiable for Volume {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str
+	where
+		Self: Sized,
+	{
+		"volume"
+	}
 }
 
 impl Volume {

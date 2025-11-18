@@ -53,11 +53,7 @@ function getVolumeIcon(volumeType: string, name?: string): string {
 }
 
 function getDiskTypeLabel(diskType: string): string {
-	return diskType === "SSD"
-		? "SSD"
-		: diskType === "HDD"
-			? "HDD"
-			: diskType;
+	return diskType === "SSD" ? "SSD" : diskType === "HDD" ? "HDD" : diskType;
 }
 
 export function StorageOverview() {
@@ -101,14 +97,19 @@ export function StorageOverview() {
 	const volumes = volumesData?.volumes || [];
 	const devices = devicesData || [];
 
+	// Filter to only show user-visible volumes
+	const userVisibleVolumes = volumes.filter(
+		(volume) => volume.is_user_visible !== false,
+	);
+
 	// Group volumes by device - note: VolumeItem doesn't have device_id yet
 	// So we'll just show all volumes ungrouped for now
 	// TODO: Backend needs to add device_id to VolumeItem
-	const volumesByDevice: Record<string, typeof volumes> = {};
+	const volumesByDevice: Record<string, typeof userVisibleVolumes> = {};
 
 	// For now, create a single "All Devices" group
-	if (volumes.length > 0) {
-		volumesByDevice["all"] = volumes;
+	if (userVisibleVolumes.length > 0) {
+		volumesByDevice["all"] = userVisibleVolumes;
 	}
 
 	return (
@@ -118,9 +119,9 @@ export function StorageOverview() {
 					Storage Volumes
 				</h2>
 				<p className="text-sm text-ink-dull mt-1">
-					{volumes.length}{" "}
-					{volumes.length === 1 ? "volume" : "volumes"} across{" "}
-					{devices.length}{" "}
+					{userVisibleVolumes.length}{" "}
+					{userVisibleVolumes.length === 1 ? "volume" : "volumes"}{" "}
+					across {devices.length}{" "}
 					{devices.length === 1 ? "device" : "devices"}
 				</p>
 			</div>
@@ -145,7 +146,7 @@ export function StorageOverview() {
 					},
 				)}
 
-				{volumes.length === 0 && (
+				{userVisibleVolumes.length === 0 && (
 					<div className="text-center py-12 text-ink-faint">
 						<HardDrive className="size-12 mx-auto mb-3 opacity-20" />
 						<p className="text-sm">No volumes detected</p>

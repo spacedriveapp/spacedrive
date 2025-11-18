@@ -1,64 +1,70 @@
-//! Untrack volume action
-//!
-//! This action removes volume tracking from a library.
+//! Volume untrack action
 
-use super::output::VolumeUntrackOutput;
+use super::{VolumeUntrackInput, VolumeUntrackOutput};
 use crate::{
 	context::CoreContext,
-	infra::action::{error::ActionError, LibraryAction},
-	volume::VolumeFingerprint,
+	domain::{resource::Identifiable, volume::Volume},
+	infra::{action::error::ActionError, db::entities, event::Event},
 };
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
-use specta::Type;
+use std::sync::Arc;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct VolumeUntrackInput {
-	pub fingerprint: VolumeFingerprint,
-}
-
-/// Input for untracking a volume
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VolumeUntrackAction {
-	/// The fingerprint of the volume to untrack
 	input: VolumeUntrackInput,
 }
 
 impl VolumeUntrackAction {
-	/// Create a new volume untrack action
 	pub fn new(input: VolumeUntrackInput) -> Self {
 		Self { input }
 	}
 }
 
-// Implement the unified ActionTrait (following VolumeTrackAction model)
-impl LibraryAction for VolumeUntrackAction {
+crate::register_library_action!(VolumeUntrackAction, "volumes.untrack");
+
+impl crate::infra::action::LibraryAction for VolumeUntrackAction {
 	type Input = VolumeUntrackInput;
 	type Output = VolumeUntrackOutput;
 
-	fn from_input(input: VolumeUntrackInput) -> Result<Self, String> {
+	fn from_input(input: Self::Input) -> Result<Self, String> {
 		Ok(VolumeUntrackAction::new(input))
 	}
 
 	async fn execute(
 		self,
-		library: std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
+		library: Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Untrack the volume from the database
-		context
-			.volume_manager
-			.untrack_volume(&library, &self.input.fingerprint)
-			.await
-			.map_err(|e| ActionError::InvalidInput(format!("Volume untracking failed: {}", e)))?;
+		let db = library.db().conn();
 
-		// Return native output directly
-		Ok(VolumeUntrackOutput::new(self.input.fingerprint))
+		// Find the volume in the database
+		let volume = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Uuid.eq(self.input.volume_id))
+			.one(db)
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?
+			.ok_or_else(|| ActionError::Internal("Volume not found".to_string()))?;
+
+		// Delete the volume from database
+		entities::volume::Entity::delete_by_id(volume.id)
+			.exec(db)
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?;
+
+		// Emit ResourceDeleted event
+		context.events.emit(Event::ResourceDeleted {
+			resource_type: Volume::resource_type().to_string(),
+			resource_id: self.input.volume_id,
+		});
+
+		Ok(VolumeUntrackOutput {
+			volume_id: self.input.volume_id,
+			success: true,
+		})
 	}
 
 	fn action_kind(&self) -> &'static str {
 		"volumes.untrack"
 	}
 }
-
-// Register action
-crate::register_library_action!(VolumeUntrackAction, "volumes.untrack");

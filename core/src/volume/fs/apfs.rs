@@ -356,20 +356,19 @@ pub fn containers_to_volumes(
 			let mount_type = determine_mount_type(&volume_info.role, mount_point);
 			let volume_type = classify_volume_type(&volume_info.role, mount_point);
 
-			// Auto-track eligibility: Primary, UserData, System volumes
-			// Also track Secondary volumes if they're system mounts (e.g., developer tools)
+			// Determine if volume should be user-visible
+			let is_user_visible = should_be_user_visible(mount_point, &volume_info.role, &volume_info.name);
+
+			// Auto-track eligibility: Only UserData volume
+			// Previously we auto-tracked System, Primary, etc., but that created too many overlapping volumes
 			let auto_track_eligible = matches!(
 				volume_type,
 				crate::volume::types::VolumeType::UserData
-					| crate::volume::types::VolumeType::Primary
-					| crate::volume::types::VolumeType::System
-			) || (volume_type
-				== crate::volume::types::VolumeType::Secondary
-				&& mount_type == crate::volume::types::MountType::System);
+			) && is_user_visible;
 
 			debug!(
-				"APFS_CONVERT: Volume '{}' classified as Type={:?}, auto_track_eligible={}",
-				volume_info.name, volume_type, auto_track_eligible
+				"APFS_CONVERT: Volume '{}' classified as Type={:?}, user_visible={}, auto_track_eligible={}",
+				volume_info.name, volume_type, is_user_visible, auto_track_eligible
 			);
 
 			// Get space information (total capacity and available space)
@@ -409,7 +408,7 @@ pub fn containers_to_volumes(
 				apfs_container: Some(container.clone()),
 				container_volume_id: Some(volume_info.disk_id.clone()),
 				path_mappings,
-				is_user_visible: true,
+				is_user_visible,
 				auto_track_eligible,
 				read_speed_mbps: None,
 				write_speed_mbps: None,
@@ -492,6 +491,56 @@ fn classify_volume_type(
 			}
 		}
 	}
+}
+
+/// Determine if a volume should be visible to the user
+/// Filters out system volumes that are redundant or not useful for user interaction
+fn should_be_user_visible(
+	mount_point: &PathBuf,
+	role: &ApfsVolumeRole,
+	name: &str,
+) -> bool {
+	let mount_str = mount_point.to_string_lossy();
+
+	// Hide system utility volumes
+	match role {
+		ApfsVolumeRole::Preboot | ApfsVolumeRole::Recovery | ApfsVolumeRole::VM => return false,
+		_ => {}
+	}
+
+	// Hide specific mount points
+	if mount_str.starts_with("/System/Volumes/Preboot")
+		|| mount_str.starts_with("/System/Volumes/VM")
+		|| mount_str.starts_with("/System/Volumes/Hardware")
+		|| mount_str.starts_with("/System/Volumes/Update")
+		|| mount_str.starts_with("/System/Volumes/xarts")
+		|| mount_str.starts_with("/System/Volumes/iSCPreboot")
+	{
+		return false;
+	}
+
+	// Hide iOS Simulator volumes
+	if mount_str.starts_with("/Library/Developer/CoreSimulator") {
+		return false;
+	}
+
+	// Hide home autofs mounts
+	if mount_str.contains("/home") && name.to_lowercase() == "home" {
+		return false;
+	}
+
+	// Hide snapshot mounts (usually contain @ symbol)
+	if mount_str.contains("@") {
+		return false;
+	}
+
+	// Hide the root "/" volume if it's a system volume (prefer showing Data volume instead)
+	// The Data volume is where actual user files live in modern macOS
+	if mount_str.as_ref() == "/" && matches!(role, ApfsVolumeRole::System) {
+		return false;
+	}
+
+	true
 }
 
 /// Get volume space information (platform-specific implementation needed)

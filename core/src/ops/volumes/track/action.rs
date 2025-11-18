@@ -1,23 +1,14 @@
-//! Track volume action
-//!
-//! This action tracks a volume within a library, allowing Spacedrive to monitor
-//! and index files on the volume.
+//! Volume track action
 
-use super::output::VolumeTrackOutput;
+use super::{VolumeTrackInput, VolumeTrackOutput};
 use crate::{
 	context::CoreContext,
-	infra::action::{error::ActionError, LibraryAction},
+	domain::{resource::Identifiable, volume::Volume},
+	infra::{action::error::ActionError, event::Event},
 	volume::VolumeFingerprint,
 };
 use serde::{Deserialize, Serialize};
-use specta::Type;
-use uuid::Uuid;
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct VolumeTrackInput {
-	pub fingerprint: VolumeFingerprint,
-	pub name: Option<String>,
-}
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VolumeTrackAction {
@@ -28,67 +19,64 @@ impl VolumeTrackAction {
 	pub fn new(input: VolumeTrackInput) -> Self {
 		Self { input }
 	}
-
-	/// Create a volume track action with a name
-	pub fn with_name(fingerprint: VolumeFingerprint, name: String) -> Self {
-		Self::new(VolumeTrackInput {
-			fingerprint,
-			name: Some(name),
-		})
-	}
-
-	/// Create a volume track action without a name
-	pub fn without_name(fingerprint: VolumeFingerprint) -> Self {
-		Self::new(VolumeTrackInput {
-			fingerprint,
-			name: None,
-		})
-	}
 }
 
-impl LibraryAction for VolumeTrackAction {
+crate::register_library_action!(VolumeTrackAction, "volumes.track");
+
+impl crate::infra::action::LibraryAction for VolumeTrackAction {
 	type Input = VolumeTrackInput;
 	type Output = VolumeTrackOutput;
 
-	fn from_input(input: VolumeTrackInput) -> Result<Self, String> {
+	fn from_input(input: Self::Input) -> Result<Self, String> {
 		Ok(VolumeTrackAction::new(input))
 	}
 
 	async fn execute(
 		self,
-		library: std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
+		library: Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Check if volume exists
-		let volume = context
-			.volume_manager
-			.get_volume(&self.input.fingerprint)
-			.await
-			.ok_or_else(|| ActionError::InvalidInput("Volume not found".to_string()))?;
+		let fingerprint = VolumeFingerprint::from_string(&self.input.fingerprint)
+			.map_err(|e| ActionError::Internal(format!("Invalid fingerprint: {}", e)))?;
 
-		if !volume.is_mounted {
-			return Err(ActionError::InvalidInput(
-				"Cannot track unmounted volume".to_string(),
-			));
+		// Track the volume
+		let tracked_volume = context
+			.volume_manager
+			.track_volume(&library, &fingerprint, self.input.display_name.clone())
+			.await
+			.map_err(|e| ActionError::Internal(e.to_string()))?;
+
+		// Get the volume from volume manager to emit full Volume resource
+		let volumes = context.volume_manager.get_all_volumes().await;
+		let volume = volumes
+			.iter()
+			.find(|v| v.fingerprint == fingerprint)
+			.cloned();
+
+		// Emit ResourceChanged event
+		if let Some(mut vol) = volume {
+			vol.is_tracked = true;
+			vol.library_id = Some(library.id());
+
+			context.events.emit(Event::ResourceChanged {
+				resource_type: Volume::resource_type().to_string(),
+				resource: serde_json::to_value(&vol)
+					.map_err(|e| ActionError::Internal(e.to_string()))?,
+				metadata: None,
+			});
 		}
 
-		// Track the volume in the database
-		let tracked = context
-			.volume_manager
-			.track_volume(&library, &self.input.fingerprint, self.input.name.clone())
-			.await
-			.map_err(|e| ActionError::InvalidInput(format!("Volume tracking failed: {}", e)))?;
-
-		Ok(VolumeTrackOutput::new(
-			self.input.fingerprint,
-			tracked.display_name.unwrap_or(volume.name),
-		))
+		Ok(VolumeTrackOutput {
+			volume_id: tracked_volume.uuid,
+			fingerprint: tracked_volume.fingerprint,
+			name: tracked_volume
+				.display_name
+				.unwrap_or_else(|| "Unnamed".to_string()),
+			is_online: tracked_volume.is_online,
+		})
 	}
 
 	fn action_kind(&self) -> &'static str {
 		"volumes.track"
 	}
 }
-
-// Register action
-crate::register_library_action!(VolumeTrackAction, "volumes.track");

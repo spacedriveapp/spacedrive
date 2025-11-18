@@ -59,7 +59,7 @@ impl VolumeListQuery {
 
 		// Query to calculate unique bytes on this volume:
 		// 1. Join entries with directory_paths to get full paths
-		// 2. Filter entries whose paths start with this volume's mount point  
+		// 2. Filter entries whose paths start with this volume's mount point
 		// 3. Join with content_identity to get content hashes
 		// 4. Group by content_hash to deduplicate, then sum total_size
 		let query = r#"
@@ -158,7 +158,11 @@ impl LibraryQuery for VolumeListQuery {
 		let db = library.db().conn();
 
 		// Get tracked volumes from database (includes volumes from ALL devices)
-		let tracked_volumes = entities::volume::Entity::find().all(db).await?;
+		// Only include user-visible volumes
+		let tracked_volumes = entities::volume::Entity::find()
+			.filter(entities::volume::Column::IsUserVisible.eq(true))
+			.all(db)
+			.await?;
 
 		// Create a map of tracked volumes by fingerprint
 		let mut tracked_map: HashMap<String, entities::volume::Model> = tracked_volumes
@@ -209,7 +213,8 @@ impl LibraryQuery for VolumeListQuery {
 				if matches!(self.filter, VolumeFilter::All) {
 					let all_volumes = volume_manager.get_all_volumes().await;
 					for vol in all_volumes {
-						if !tracked_map.contains_key(&vol.fingerprint.0) {
+						// Only show user-visible volumes
+						if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
 							volume_items.push(super::output::VolumeItem {
 								id: vol.id,
 								name: vol.name.clone(),
@@ -235,9 +240,9 @@ impl LibraryQuery for VolumeListQuery {
 				// Get all detected volumes from volume manager (current device only)
 				let all_volumes = volume_manager.get_all_volumes().await;
 
-				// Only return volumes that are NOT tracked
+				// Only return volumes that are NOT tracked and are user-visible
 				for vol in all_volumes {
-					if !tracked_map.contains_key(&vol.fingerprint.0) {
+					if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
 						volume_items.push(super::output::VolumeItem {
 							id: vol.id,
 							name: vol.name.clone(),

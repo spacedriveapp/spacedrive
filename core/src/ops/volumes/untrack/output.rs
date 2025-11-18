@@ -1,19 +1,14 @@
-//! Volume untrack operation output types
+//! Volume untrack output
 
-use crate::volume::VolumeFingerprint;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use uuid::Uuid;
 
-/// Output from volume untrack operation
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeUntrackOutput {
-	/// The fingerprint of the untracked volume
-	pub fingerprint: VolumeFingerprint,
-}
+	/// UUID of the untracked volume
+	pub volume_id: Uuid,
 
-impl VolumeUntrackOutput {
-	/// Create new volume untrack output
-	pub fn new(fingerprint: VolumeFingerprint) -> Self {
-		Self { fingerprint }
-	}
+	/// Whether the operation was successful
+	pub success: bool,
 }

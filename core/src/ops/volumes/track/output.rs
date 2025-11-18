@@ -1,25 +1,20 @@
-//! Volume track operation output types
+//! Volume track output
 
-use crate::volume::VolumeFingerprint;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use uuid::Uuid;
 
-/// Output from volume track operation
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeTrackOutput {
-	/// The fingerprint of the tracked volume
-	pub fingerprint: VolumeFingerprint,
+	/// UUID of the tracked volume
+	pub volume_id: Uuid,
 
-	/// The display name of the tracked volume
-	pub volume_name: String,
-}
+	/// Fingerprint of the volume
+	pub fingerprint: String,
 
-impl VolumeTrackOutput {
-	/// Create new volume track output
-	pub fn new(fingerprint: VolumeFingerprint, volume_name: String) -> Self {
-		Self {
-			fingerprint,
-			volume_name,
-		}
-	}
+	/// Display name
+	pub name: String,
+
+	/// Whether the volume is currently online
+	pub is_online: bool,
 }
