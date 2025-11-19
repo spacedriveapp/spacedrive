@@ -615,6 +615,10 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		.build()?;
 
 	// File menu with explorer actions
+	let open_library_item = MenuItemBuilder::with_id("open-library", "Open Library...")
+		.accelerator("Cmd+O")
+		.build(app)?;
+
 	let copy_item = MenuItemBuilder::with_id("copy", "Copy")
 		.accelerator("Cmd+C")
 		.enabled(false)
@@ -652,6 +656,8 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 	menu_items_map.insert("delete".to_string(), delete_item.clone());
 
 	let file_menu = SubmenuBuilder::new(app, "File")
+		.item(&open_library_item)
+		.separator()
 		.item(&copy_item)
 		.item(&paste_item)
 		.item(&cut_item)
@@ -694,6 +700,111 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 	app.on_menu_event(move |_app, event| {
 		let event_id = event.id().as_ref();
 		match event_id {
+			"open-library" => {
+				let app_clone = app_handle.clone();
+				tauri::async_runtime::spawn(async move {
+					use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+
+					// Show folder picker dialog
+					let folder_path = app_clone.dialog().file()
+						.set_title("Select Library Folder")
+						.set_directory(dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from(".")))
+						.blocking_pick_folder();
+
+					if let Some(path) = folder_path {
+						tracing::info!("Selected library path: {:?}", path);
+
+						// Get daemon state
+						let daemon_state: tauri::State<Arc<RwLock<DaemonState>>> = app_clone.state();
+						let state = daemon_state.read().await;
+
+						// Create the JSON-RPC request
+						let request = serde_json::json!({
+							"jsonrpc": "2.0",
+							"id": 1,
+							"method": "action:libraries.open.input",
+							"params": {
+								"path": path.to_string_lossy().to_string()
+							}
+						});
+
+						drop(state);
+
+						// Send request to daemon using the daemon_request logic
+						use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+						use tokio::net::UnixStream;
+
+						let state = daemon_state.read().await;
+						let socket_path = state.socket_path.clone();
+						drop(state);
+
+						match UnixStream::connect(&socket_path).await {
+							Ok(mut stream) => {
+								// Send request
+								let request_line = match serde_json::to_string(&request) {
+									Ok(s) => s,
+									Err(e) => {
+										tracing::error!("Failed to serialize request: {}", e);
+										return;
+									}
+								};
+
+								if let Err(e) = stream.write_all(format!("{}\n", request_line).as_bytes()).await {
+									tracing::error!("Failed to write request: {}", e);
+									app_clone.dialog()
+										.message(format!("Failed to send request to daemon: {}", e))
+										.kind(MessageDialogKind::Error)
+										.title("Error")
+										.blocking_show();
+									return;
+								}
+
+								// Read response
+								let mut reader = BufReader::new(stream);
+								let mut response_line = String::new();
+
+								match reader.read_line(&mut response_line).await {
+									Ok(_) => {
+										match serde_json::from_str::<serde_json::Value>(&response_line) {
+											Ok(response) => {
+												tracing::info!("Library opened successfully: {:?}", response);
+												// Emit event to notify frontend
+												if let Err(e) = app_clone.emit("library-opened", response) {
+													tracing::error!("Failed to emit library-opened event: {}", e);
+												}
+											}
+											Err(e) => {
+												tracing::error!("Failed to parse response: {}", e);
+												app_clone.dialog()
+													.message(format!("Failed to open library: {}", e))
+													.kind(MessageDialogKind::Error)
+													.title("Error")
+													.blocking_show();
+											}
+										}
+									}
+									Err(e) => {
+										tracing::error!("Failed to read response: {}", e);
+										app_clone.dialog()
+											.message(format!("Failed to read response from daemon: {}", e))
+											.kind(MessageDialogKind::Error)
+											.title("Error")
+											.blocking_show();
+									}
+								}
+							}
+							Err(e) => {
+								tracing::error!("Failed to connect to daemon: {}", e);
+								app_clone.dialog()
+									.message(format!("Failed to connect to daemon: {}", e))
+									.kind(MessageDialogKind::Error)
+									.title("Error")
+									.blocking_show();
+							}
+						}
+					}
+				});
+			}
 			"drag-demo" => {
 				let app_clone = app_handle.clone();
 				tauri::async_runtime::spawn(async move {

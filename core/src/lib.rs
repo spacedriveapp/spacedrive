@@ -209,6 +209,14 @@ impl Core {
 			}
 		}
 
+		// Set context in library manager and start filesystem watching
+		libraries.set_context(context.clone()).await;
+		if let Err(e) = libraries.start_watching().await {
+			warn!("Failed to start library filesystem watcher: {}", e);
+		} else {
+			info!("Library filesystem watcher started");
+		}
+
 		// Initialize sidecar manager for each loaded library
 		for library in &loaded_libraries {
 			info!("Initializing sidecar manager for library {}", library.id());

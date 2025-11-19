@@ -55,6 +55,10 @@ pub enum LibraryError {
 	#[error("Job system error: {0}")]
 	JobError(#[from] crate::infra::job::error::JobError),
 
+	/// Filesystem watcher error
+	#[error("Filesystem watcher error: {0}")]
+	WatcherError(#[from] notify::Error),
+
 	/// Generic error
 	#[error("{0}")]
 	Other(String),

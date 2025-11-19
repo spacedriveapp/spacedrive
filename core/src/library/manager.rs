@@ -18,12 +18,14 @@ use crate::{
 	volume::VolumeManager,
 };
 use chrono::Utc;
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use once_cell::sync::OnceCell;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
+use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -55,6 +57,15 @@ pub struct LibraryManager {
 	// session: Arc<SessionStateService>,
 	volume_manager: Arc<VolumeManager>,
 	device_manager: Arc<DeviceManager>,
+
+	/// Filesystem watcher for detecting library changes
+	watcher: Arc<RwLock<Option<RecommendedWatcher>>>,
+
+	/// Whether filesystem watching is active
+	is_watching: Arc<RwLock<bool>>,
+
+	/// Core context (needed for opening libraries on filesystem events)
+	context: Arc<RwLock<Option<Arc<CoreContext>>>>,
 }
 
 impl LibraryManager {
@@ -78,6 +89,9 @@ impl LibraryManager {
 			event_bus,
 			volume_manager,
 			device_manager,
+			watcher: Arc::new(RwLock::new(None)),
+			is_watching: Arc::new(RwLock::new(false)),
+			context: Arc::new(RwLock::new(None)),
 		}
 	}
 
@@ -96,6 +110,9 @@ impl LibraryManager {
 			event_bus,
 			volume_manager,
 			device_manager,
+			watcher: Arc::new(RwLock::new(None)),
+			is_watching: Arc::new(RwLock::new(false)),
+			context: Arc::new(RwLock::new(None)),
 		}
 	}
 
@@ -1162,6 +1179,261 @@ impl LibraryManager {
 		info!("Deleted library {}", id);
 
 		Ok(())
+	}
+
+	/// Start filesystem watching on the libraries directory
+	pub async fn start_watching(&self) -> Result<()> {
+		if *self.is_watching.read().await {
+			warn!("Library watcher is already running");
+			return Ok(());
+		}
+
+		// Get the primary search path (libraries directory)
+		let watch_path = match self.search_paths.first() {
+			Some(path) => path.clone(),
+			None => {
+				warn!("No search paths configured for library manager");
+				return Ok(());
+			}
+		};
+
+		// Ensure the directory exists
+		if !watch_path.exists() {
+			info!("Creating libraries directory: {:?}", watch_path);
+			tokio::fs::create_dir_all(&watch_path).await?;
+		}
+
+		info!("Starting library watcher on {:?}", watch_path);
+
+		let (tx, mut rx) = mpsc::channel(100);
+		let tx_clone = tx.clone();
+
+		let libraries = self.libraries.clone();
+		let event_bus = self.event_bus.clone();
+		let is_watching = self.is_watching.clone();
+		let context = self.context.clone();
+		let watch_path_clone = watch_path.clone();
+
+		// Create filesystem watcher
+		let mut watcher = notify::recommended_watcher(move |res: std::result::Result<notify::Event, notify::Error>| {
+			match res {
+				Ok(event) => {
+					// Use try_send since we're in a sync context
+					if let Err(e) = tx_clone.try_send(event) {
+						error!("Failed to send library watcher event: {}", e);
+					}
+				}
+				Err(e) => {
+					error!("Library filesystem watcher error: {}", e);
+				}
+			}
+		})?;
+
+		// Configure with polling interval
+		watcher.configure(Config::default().with_poll_interval(Duration::from_millis(500)))?;
+
+		// Watch the libraries directory (non-recursive)
+		watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
+
+		// Store the watcher
+		*self.watcher.write().await = Some(watcher);
+		*self.is_watching.write().await = true;
+
+		// Start event processing loop
+		tokio::spawn(async move {
+			info!("Library watcher event loop started");
+
+			// Debouncing: collect events and process them after a delay
+			let mut pending_creates: HashMap<PathBuf, std::time::Instant> = HashMap::new();
+			let mut pending_removes: HashMap<PathBuf, std::time::Instant> = HashMap::new();
+			let debounce_duration = Duration::from_millis(500);
+
+			loop {
+				tokio::select! {
+					Some(event) = rx.recv() => {
+						let now = std::time::Instant::now();
+
+						for path in &event.paths {
+							// Only process .sdlibrary directories
+							if !is_library_directory(path) {
+								continue;
+							}
+
+							match event.kind {
+								notify::EventKind::Create(_) | notify::EventKind::Modify(_) => {
+									debug!("Library create/modify event: {:?}", path);
+									pending_creates.insert(path.clone(), now);
+									pending_removes.remove(path);
+								}
+								notify::EventKind::Remove(_) => {
+									debug!("Library remove event: {:?}", path);
+									pending_removes.insert(path.clone(), now);
+									pending_creates.remove(path);
+								}
+								_ => {}
+							}
+						}
+					}
+					_ = tokio::time::sleep(Duration::from_millis(100)) => {
+						let now = std::time::Instant::now();
+
+						// Process creates that have been stable for debounce duration
+						let mut to_create = Vec::new();
+						pending_creates.retain(|path, time| {
+							if now.duration_since(*time) >= debounce_duration {
+								to_create.push(path.clone());
+								false
+							} else {
+								true
+							}
+						});
+
+						for path in to_create {
+							// Check if the library exists and is valid
+							if path.exists() && is_library_directory(&path) {
+								debug!("Processing library create: {:?}", path);
+
+								// Get the context
+								let ctx = match context.read().await.as_ref() {
+									Some(ctx) => ctx.clone(),
+									None => {
+										warn!("Core context not available, skipping library open");
+										continue;
+									}
+								};
+
+								// Load library config to get ID
+								match LibraryConfig::load(&path.join("library.json")).await {
+									Ok(config) => {
+										// Check if already open
+										if libraries.read().await.contains_key(&config.id) {
+											debug!("Library {} already open, skipping", config.id);
+											continue;
+										}
+
+										// Create a temporary LibraryManager to access open_library
+										// We can't call self.open_library directly from spawn
+										let temp_manager = LibraryManager {
+											libraries: libraries.clone(),
+											search_paths: vec![watch_path_clone.clone()],
+											event_bus: event_bus.clone(),
+											volume_manager: ctx.volume_manager.clone(),
+											device_manager: ctx.device_manager.clone(),
+											watcher: Arc::new(RwLock::new(None)),
+											is_watching: Arc::new(RwLock::new(false)),
+											context: Arc::new(RwLock::new(None)),
+										};
+
+										match temp_manager.open_library(&path, ctx).await {
+											Ok(library) => {
+												info!("Auto-opened library from filesystem: {} at {:?}", library.id(), path);
+											}
+											Err(LibraryError::AlreadyOpen(id)) => {
+												debug!("Library {} already open", id);
+											}
+											Err(e) => {
+												warn!("Failed to auto-open library from {:?}: {}", path, e);
+											}
+										}
+									}
+									Err(e) => {
+										warn!("Failed to load library config from {:?}: {}", path, e);
+									}
+								}
+							}
+						}
+
+						// Process removes that have been stable for debounce duration
+						let mut to_remove = Vec::new();
+						pending_removes.retain(|path, time| {
+							if now.duration_since(*time) >= debounce_duration {
+								to_remove.push(path.clone());
+								false
+							} else {
+								true
+							}
+						});
+
+						for path in to_remove {
+							// Check if the library directory no longer exists
+							if !path.exists() {
+								debug!("Processing library remove: {:?}", path);
+
+								// Find the library by path
+								let libs = libraries.read().await;
+								let library_id = libs.iter()
+									.find(|(_, lib)| lib.path() == path)
+									.map(|(id, _)| *id);
+								drop(libs);
+
+								if let Some(id) = library_id {
+									// Get context for closing library
+									let ctx = match context.read().await.as_ref() {
+										Some(ctx) => ctx.clone(),
+										None => {
+											warn!("Core context not available");
+											continue;
+										}
+									};
+
+									// Create a temporary LibraryManager to access close_library
+									let temp_manager = LibraryManager {
+										libraries: libraries.clone(),
+										search_paths: vec![watch_path_clone.clone()],
+										event_bus: event_bus.clone(),
+										volume_manager: ctx.volume_manager.clone(),
+										device_manager: ctx.device_manager.clone(),
+										watcher: Arc::new(RwLock::new(None)),
+										is_watching: Arc::new(RwLock::new(false)),
+										context: Arc::new(RwLock::new(None)),
+									};
+
+									match temp_manager.close_library(id).await {
+										Ok(_) => {
+											info!("Auto-closed library {} (directory removed)", id);
+										}
+										Err(e) => {
+											warn!("Failed to auto-close library {}: {}", id, e);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				// Check if we should stop
+				if !*is_watching.read().await {
+					info!("Library watcher shutting down");
+					break;
+				}
+			}
+
+			info!("Library watcher event loop stopped");
+		});
+
+		Ok(())
+	}
+
+	/// Stop filesystem watching
+	pub async fn stop_watching(&self) -> Result<()> {
+		if !*self.is_watching.read().await {
+			return Ok(());
+		}
+
+		info!("Stopping library watcher");
+
+		*self.is_watching.write().await = false;
+		*self.watcher.write().await = None;
+
+		info!("Library watcher stopped");
+
+		Ok(())
+	}
+
+	/// Set the core context (needed for opening libraries in watcher)
+	pub async fn set_context(&self, context: Arc<CoreContext>) {
+		*self.context.write().await = Some(context);
 	}
 }
 
