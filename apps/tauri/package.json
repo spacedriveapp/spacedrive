@@ -16,6 +16,7 @@
 		"typecheck": "tsc -b",
 		"tauri": "bunx tauri",
 		"tauri:dev": "bunx tauri dev",
+		"tauri:dev:no-watch": "bunx tauri dev --no-watch",
 		"tauri:build": "bunx tauri build"
 	},
 	"dependencies": {

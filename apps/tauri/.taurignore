@@ -1,0 +1,20 @@
+# Ignore core changes - only reload for tauri app changes
+../../core/**
+../../crates/**
+../../target/**
+../../extensions/**
+
+# Ignore other apps
+../cli/**
+../ios/**
+../macos/**
+../landing/**
+
+# Ignore workbench and docs
+../../workbench/**
+../../docs/**
+
+# Ignore test files
+../../test_snapshots/**
+
+

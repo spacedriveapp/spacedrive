@@ -42,7 +42,7 @@
 			},
 			"assetProtocol": {
 				"enable": true,
-				"scope": ["$HOME/**"]
+				"scope": ["$HOME/**", "/Volumes/**"]
 			}
 		}
 	},
