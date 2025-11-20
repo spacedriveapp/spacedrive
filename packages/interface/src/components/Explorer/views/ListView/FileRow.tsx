@@ -6,16 +6,18 @@ import { formatBytes, formatRelativeTime } from "../../utils";
 
 interface FileRowProps {
   file: File;
+  files: File[];
   selected: boolean;
-  onSelect: (file: File, multi?: boolean) => void;
+  onSelect: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
 }
 
-export function FileRow({ file, selected, onSelect }: FileRowProps) {
+export function FileRow({ file, files, selected, onSelect }: FileRowProps) {
   const { setCurrentPath } = useExplorer();
 
   const handleClick = (e: React.MouseEvent) => {
     const multi = e.metaKey || e.ctrlKey;
-    onSelect(file, multi);
+    const range = e.shiftKey;
+    onSelect(file, files, multi, range);
   };
 
   const handleDoubleClick = () => {

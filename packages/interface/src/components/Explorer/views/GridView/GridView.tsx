@@ -1,10 +1,29 @@
 import { useExplorer } from "../../context";
+import { useNormalizedCache } from "../../../../context";
 import { FileCard } from "./FileCard";
+import type { DirectorySortBy } from "@sd/ts-client/generated/types";
 
 export function GridView() {
-  const { files, selectedFiles, selectFile, viewSettings, focusedIndex } =
+  const { currentPath, sortBy, selectedFiles, selectFile, viewSettings, focusedIndex } =
     useExplorer();
   const { gridSize, gapSize } = viewSettings;
+
+  const directoryQuery = useNormalizedCache({
+    wireMethod: "query:files.directory_listing",
+    input: currentPath
+      ? {
+          path: currentPath,
+          limit: null,
+          include_hidden: false,
+          sort_by: sortBy as DirectorySortBy,
+        }
+      : null!,
+    resourceType: "file",
+    enabled: !!currentPath,
+    pathScope: currentPath ?? undefined,
+  });
+
+  const files = directoryQuery.data?.files || [];
 
   return (
     <div
@@ -18,6 +37,7 @@ export function GridView() {
         <FileCard
           key={file.id}
           file={file}
+          files={files}
           selected={selectedFiles.some((f) => f.id === file.id)}
           focused={index === focusedIndex}
           onSelect={selectFile}

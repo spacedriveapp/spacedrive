@@ -29,12 +29,13 @@ import { formatBytes } from "../../utils";
 
 interface FileCardProps {
   file: File;
+  files: File[];
   selected: boolean;
   focused: boolean;
-  onSelect: (file: File, multi?: boolean, range?: boolean) => void;
+  onSelect: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
 }
 
-export function FileCard({ file, selected, focused, onSelect }: FileCardProps) {
+export function FileCard({ file, files, selected, focused, onSelect }: FileCardProps) {
   const { setCurrentPath, viewSettings, selectedFiles, currentPath } = useExplorer();
   const { gridSize, showFileSize } = viewSettings;
   const platform = usePlatform();
@@ -417,7 +418,7 @@ export function FileCard({ file, selected, focused, onSelect }: FileCardProps) {
     const multi = e.metaKey || e.ctrlKey;
     const range = e.shiftKey;
     console.log("FileCard clicked:", file.name, "multi:", multi, "range:", range, "currently selected:", selected);
-    onSelect(file, multi, range);
+    onSelect(file, files, multi, range);
   };
 
   const handleDoubleClick = () => {
@@ -432,7 +433,7 @@ export function FileCard({ file, selected, focused, onSelect }: FileCardProps) {
 
     // Select the file if not already selected
     if (!selected) {
-      onSelect(file, false, false);
+      onSelect(file, files, false, false);
     }
 
     await contextMenu.show(e);

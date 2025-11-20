@@ -37,13 +37,13 @@ interface ExplorerState {
 
   selectedFiles: File[];
   setSelectedFiles: (files: File[]) => void;
-  selectFile: (file: File, multi?: boolean, range?: boolean) => void;
+  selectFile: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
   clearSelection: () => void;
-  selectAll: () => void;
+  selectAll: (files: File[]) => void;
 
   focusedIndex: number;
   setFocusedIndex: (index: number) => void;
-  moveFocus: (direction: "up" | "down" | "left" | "right") => void;
+  moveFocus: (direction: "up" | "down" | "left" | "right", files: File[]) => void;
 
   viewMode: "grid" | "list" | "media" | "column" | "size";
   setViewMode: (mode: "grid" | "list" | "media" | "column" | "size") => void;
@@ -63,12 +63,8 @@ interface ExplorerState {
   setQuickPreviewFileId: (fileId: string | null) => void;
   openQuickPreview: () => void;
   closeQuickPreview: () => void;
-  goToNextPreview: () => void;
-  goToPreviousPreview: () => void;
-
-  files: File[];
-  isLoading: boolean;
-  error: Error | null;
+  goToNextPreview: (files: File[]) => void;
+  goToPreviousPreview: (files: File[]) => void;
 
   devices: Map<string, LibraryDeviceInfo>;
 }
@@ -137,36 +133,10 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     setViewSettingsInternal((prev) => ({ ...prev, ...settings }));
   };
 
-  const directoryQuery = useNormalizedCache({
-    wireMethod: "query:files.directory_listing",
-    input: currentPath
-      ? {
-          path: currentPath,
-          limit: null,
-          include_hidden: false,
-          sort_by: sortBy as DirectorySortBy,
-        }
-      : null!,
-    resourceType: "file",
-    enabled: !!currentPath,
-    // Path-scoped filtering: backend now includes affected_paths in metadata
-    // and filters events efficiently using parent directory matching
-    pathScope: currentPath ?? undefined,
-  });
-
   const devicesQuery = useLibraryQuery({
     type: "devices.list",
     input: { include_offline: true, include_details: false },
   });
-
-  const files = directoryQuery.data?.files || [];
-
-  // Initialize focused index when files load
-  useEffect(() => {
-    if (files.length > 0 && focusedIndex === -1) {
-      setFocusedIndex(0);
-    }
-  }, [files, focusedIndex]);
 
   const devices = useMemo(() => {
     const deviceList = devicesQuery.data || [];
@@ -179,12 +149,12 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     setLastSelectedIndex(-1);
   };
 
-  const selectAll = () => {
+  const selectAll = (files: File[]) => {
     setSelectedFiles([...files]);
     setLastSelectedIndex(files.length - 1);
   };
 
-  const moveFocus = (direction: "up" | "down" | "left" | "right") => {
+  const moveFocus = (direction: "up" | "down" | "left" | "right", files: File[]) => {
     if (files.length === 0) return;
 
     let newIndex = focusedIndex;
@@ -218,62 +188,6 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Keyboard event handling
-  useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      // Arrow keys: Navigation
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        e.preventDefault();
-        const direction = e.key.replace("Arrow", "").toLowerCase() as
-          | "up"
-          | "down"
-          | "left"
-          | "right";
-        moveFocus(direction);
-        return;
-      }
-
-      // Cmd/Ctrl+A: Select all
-      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-        e.preventDefault();
-        selectAll();
-        return;
-      }
-
-      // Spacebar: Open Quick Preview (in-app modal)
-      if (e.code === "Space" && selectedFiles.length === 1) {
-        e.preventDefault();
-        setQuickPreviewFileId(selectedFiles[0].id);
-        return;
-      }
-
-      // Enter: Navigate into directory (for column view)
-      if (e.key === "Enter" && selectedFiles.length === 1) {
-        const selected = selectedFiles[0];
-        if (selected.kind === "Directory") {
-          e.preventDefault();
-          setCurrentPath(selected.sd_path);
-        }
-        return;
-      }
-
-      // Escape: Clear selection
-      if (e.code === "Escape" && selectedFiles.length > 0) {
-        clearSelection();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    selectedFiles,
-    focusedIndex,
-    files,
-    viewMode,
-    viewSettings,
-    sidebarVisible,
-    inspectorVisible,
-  ]);
 
   const goBack = () => {
     if (historyIndex > 0) {
@@ -309,7 +223,7 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     setLastSelectedIndex(-1);
   };
 
-  const selectFile = (file: File, multi = false, range = false) => {
+  const selectFile = (file: File, files: File[], multi = false, range = false) => {
     const fileIndex = files.findIndex((f) => f.id === file.id);
 
     console.log("selectFile called:", {
@@ -356,7 +270,7 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     setQuickPreviewFileId(null);
   };
 
-  const goToNextPreview = () => {
+  const goToNextPreview = (files: File[]) => {
     if (!quickPreviewFileId) return;
     const currentIndex = files.findIndex(f => f.id === quickPreviewFileId);
     if (currentIndex < files.length - 1) {
@@ -364,7 +278,7 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const goToPreviousPreview = () => {
+  const goToPreviousPreview = (files: File[]) => {
     if (!quickPreviewFileId) return;
     const currentIndex = files.findIndex(f => f.id === quickPreviewFileId);
     if (currentIndex > 0) {
@@ -405,9 +319,6 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     closeQuickPreview,
     goToNextPreview,
     goToPreviousPreview,
-    files,
-    isLoading: directoryQuery.isLoading,
-    error: directoryQuery.error as Error | null,
     devices,
   };
 
