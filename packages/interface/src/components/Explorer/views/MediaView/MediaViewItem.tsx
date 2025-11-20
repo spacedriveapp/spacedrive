@@ -388,6 +388,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 				className="w-full h-full"
 				frameClassName="w-full h-full object-cover"
 				iconScale={0.5}
+				squareMode={true}
 			/>
 
 			{/* Selection overlay */}

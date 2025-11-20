@@ -172,6 +172,7 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 		device_id: None,
 		resource_type: None,
 		path_scope: None,
+		include_descendants: None,
 	});
 
 	// Try to subscribe to events, fall back to polling if not supported

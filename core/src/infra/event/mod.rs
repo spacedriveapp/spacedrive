@@ -50,7 +50,7 @@ impl SubscriptionFilter {
 				event
 					.resource_type()
 					.map_or(false, |rt| rt == resource_type)
-					&& event.affects_path(path_scope)
+					&& event.affects_path(path_scope, true) // SubscriptionFilter is legacy, default to recursive
 			}
 		}
 	}
@@ -293,7 +293,11 @@ impl Event {
 	}
 
 	/// Check if this event affects the given path scope
-	pub fn affects_path(&self, scope: &SdPath) -> bool {
+	///
+	/// # Arguments
+	/// * `scope` - The path scope to check against
+	/// * `include_descendants` - If true, match all descendants (recursive). If false, only exact matches (direct children)
+	pub fn affects_path(&self, scope: &SdPath, include_descendants: bool) -> bool {
 		let affected_paths = match self {
 			Event::ResourceChanged { metadata, .. }
 			| Event::ResourceChangedBatch { metadata, .. } => metadata.as_ref().map(|m| &m.affected_paths),
@@ -302,35 +306,43 @@ impl Event {
 
 		let Some(paths) = affected_paths else {
 			// No path metadata - can't determine if it matches, so include it
+			tracing::debug!("No path metadata in event, including by default");
 			return true;
 		};
 
 		if paths.is_empty() {
 			// Empty affected_paths means this is a global resource (location, space, etc.)
+			tracing::debug!("Empty affected_paths (global resource), including");
 			return true;
 		}
 
-		// Check if any affected path matches the scope
-		paths.iter().any(|affected_path| {
+		// Handle non-hierarchical paths first (Content ID, Cloud, Sidecar)
+		// These work the same in both exact and recursive mode
+		let has_non_physical_match = paths.iter().any(|affected_path| {
 			match (scope, affected_path) {
-				// Physical path matching - check if file is in the scoped directory
-				(
-					SdPath::Physical {
-						device_slug: scope_device,
-						path: scope_path,
-					},
-					SdPath::Physical {
-						device_slug: file_device,
-						path: file_path,
-					},
-				) => {
-					// Must be same device and file must be in the scope directory
-					scope_device == file_device && file_path.starts_with(scope_path)
-				}
 				// Content ID matching - exact match
 				(
 					SdPath::Content {
 						content_id: scope_id,
+					},
+					SdPath::Content {
+						content_id: file_id,
+					},
+				) => scope_id == file_id,
+				// Sidecar matching - match by content ID
+				(
+					SdPath::Content {
+						content_id: scope_id,
+					},
+					SdPath::Sidecar {
+						content_id: file_id,
+						..
+					},
+				)
+				| (
+					SdPath::Sidecar {
+						content_id: scope_id,
+						..
 					},
 					SdPath::Content {
 						content_id: file_id,
@@ -351,31 +363,109 @@ impl Event {
 				) => {
 					scope_service == file_service
 						&& scope_id == file_id
-						&& file_path.starts_with(scope_path.as_str())
+						&& if include_descendants {
+							file_path.starts_with(scope_path.as_str())
+						} else {
+							file_path == scope_path
+						}
 				}
-				// Sidecar matching - match by content ID
-				(
-					SdPath::Content {
-						content_id: scope_id,
-					},
-					SdPath::Sidecar {
-						content_id: file_id,
-						..
-					},
-				)
-				| (
-					SdPath::Sidecar {
-						content_id: scope_id,
-						..
-					},
-					SdPath::Content {
-						content_id: file_id,
-					},
-				) => scope_id == file_id,
-				// Mixed types don't match
 				_ => false,
 			}
-		})
+		});
+
+		if has_non_physical_match {
+			return true;
+		}
+
+		// For exact mode with Physical paths: check if ANY file is a direct child
+		if !include_descendants {
+			// Exact mode: find if there's at least one file that's a direct child
+			let has_direct_child = paths.iter().any(|affected_path| {
+				if let (
+					SdPath::Physical {
+						device_slug: scope_device,
+						path: scope_path,
+					},
+					SdPath::Physical {
+						device_slug: file_device,
+						path: file_path,
+					},
+				) = (scope, affected_path)
+				{
+					if scope_device != file_device {
+						return false;
+					}
+
+					// Exact mode: ONLY match the scope directory itself
+					// This indicates files are DIRECTLY in this directory
+					// Subdirectories in affected_paths mean files are in THOSE subdirectories
+					let matches = file_path == scope_path;
+
+					tracing::debug!(
+						"Exact mode check: scope={}, file={}, matches={}",
+						scope_path.display(),
+						file_path.display(),
+						matches
+					);
+
+					matches
+				} else {
+					false
+				}
+			});
+
+			tracing::debug!(
+				"Exact mode final: scope={:?}, has_direct_child={}",
+				scope,
+				has_direct_child
+			);
+
+			return has_direct_child;
+		}
+
+		// Recursive mode for Physical paths only
+		let result = paths.iter().any(|affected_path| {
+			match (scope, affected_path) {
+				// Physical path matching - recursive mode
+				(
+					SdPath::Physical {
+						device_slug: scope_device,
+						path: scope_path,
+					},
+					SdPath::Physical {
+						device_slug: file_device,
+						path: file_path,
+					},
+				) => {
+					if scope_device != file_device {
+						return false;
+					}
+
+					// Recursive: match all descendants
+					let matches = file_path.starts_with(scope_path);
+
+					tracing::debug!(
+						"Recursive mode check: scope={}, file={}, matches={}",
+						scope_path.display(),
+						file_path.display(),
+						matches
+					);
+
+					matches
+				}
+				// All other path types handled above
+				_ => false,
+			}
+		});
+
+		tracing::debug!(
+			"affects_path final result: scope={:?}, include_descendants={}, result={}",
+			scope,
+			include_descendants,
+			result
+		);
+
+		result
 	}
 }
 

@@ -29,7 +29,8 @@
 		"@tauri-apps/plugin-fs": "^2.0.1",
 		"@tauri-apps/plugin-shell": "^2.0.1",
 		"react": "^19.0.0",
-		"react-dom": "^19.0.0"
+		"react-dom": "^19.0.0",
+		"react-scan": "^0.4.3"
 	},
 	"devDependencies": {
 		"@tauri-apps/cli": "^2.1.0",

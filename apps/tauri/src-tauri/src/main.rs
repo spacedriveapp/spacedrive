@@ -15,6 +15,7 @@ use tauri::menu::MenuItem;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use tokio::sync::RwLock;
+use tokio::sync::oneshot;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Default event subscription list - mirrors packages/ts-client/src/event-filter.ts
@@ -85,10 +86,218 @@ struct DaemonState {
 	daemon_process: Option<std::sync::Arc<tokio::sync::Mutex<Option<std::process::Child>>>>,
 }
 
+/// Daemon connection pool - maintains ONE persistent connection for all subscriptions
+/// Multiplexes Subscribe/Unsubscribe messages over a single Unix socket
+struct DaemonConnectionPool {
+	socket_path: PathBuf,
+	writer: Arc<tokio::sync::Mutex<Option<tokio::net::unix::OwnedWriteHalf>>>,
+	subscriptions: Arc<RwLock<HashMap<u64, ()>>>,
+	counter: std::sync::atomic::AtomicU64,
+	initialized: Arc<tokio::sync::Mutex<bool>>,
+}
+
+impl DaemonConnectionPool {
+	fn new(socket_path: PathBuf) -> Self {
+		Self {
+			socket_path,
+			writer: Arc::new(tokio::sync::Mutex::new(None)),
+			subscriptions: Arc::new(RwLock::new(HashMap::new())),
+			counter: std::sync::atomic::AtomicU64::new(0),
+			initialized: Arc::new(tokio::sync::Mutex::new(false)),
+		}
+	}
+
+	async fn ensure_connected(&self, app: &AppHandle) -> Result<(), String> {
+		let mut initialized = self.initialized.lock().await;
+
+		if *initialized {
+			return Ok(());
+		}
+
+		tracing::info!("Initializing persistent daemon connection");
+
+		use tokio::io::{AsyncBufReadExt, BufReader};
+		use tokio::net::UnixStream;
+
+		let stream = UnixStream::connect(&self.socket_path)
+			.await
+			.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
+
+		let (reader, writer) = stream.into_split();
+
+		*self.writer.lock().await = Some(writer);
+
+		// Spawn persistent reader task that broadcasts to all listeners
+		let app_clone = app.clone();
+		tokio::spawn(async move {
+			let mut reader = BufReader::new(reader);
+			let mut buffer = String::new();
+
+			loop {
+				buffer.clear();
+				match reader.read_line(&mut buffer).await {
+					Ok(0) => {
+						tracing::warn!("Daemon connection closed");
+						break;
+					}
+					Ok(_) => {
+						let line = buffer.trim();
+						if line.is_empty() {
+							continue;
+						}
+
+						match serde_json::from_str::<serde_json::Value>(line) {
+							Ok(response) => {
+								if let Some(event) = response.get("Event") {
+									// Broadcast to all frontend listeners
+									let _ = app_clone.emit("core-event", event);
+								}
+							}
+							Err(e) => {
+								tracing::error!("Failed to parse event: {}", e);
+							}
+						}
+					}
+					Err(e) => {
+						tracing::error!("Failed to read from daemon: {}", e);
+						break;
+					}
+				}
+			}
+
+			tracing::warn!("Daemon connection reader ended");
+		});
+
+		*initialized = true;
+		tracing::info!("Persistent daemon connection ready");
+		Ok(())
+	}
+
+	fn next_id(&self) -> u64 {
+		self.counter
+			.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+	}
+
+	async fn subscribe(
+		&self,
+		subscription_id: u64,
+		event_types: Vec<String>,
+		filter: Option<serde_json::Value>,
+	) -> Result<(), String> {
+		use tokio::io::AsyncWriteExt;
+
+		let mut writer_guard = self.writer.lock().await;
+		let writer = writer_guard
+			.as_mut()
+			.ok_or("Connection not initialized")?;
+
+		let subscribe_request = json!({
+			"Subscribe": {
+				"event_types": event_types,
+				"filter": filter
+			}
+		});
+
+		let request_line =
+			format!("{}\n", serde_json::to_string(&subscribe_request).unwrap());
+		writer
+			.write_all(request_line.as_bytes())
+			.await
+			.map_err(|e| format!("Failed to send Subscribe: {}", e))?;
+
+		self.subscriptions.write().await.insert(subscription_id, ());
+		
+		let total = self.subscriptions.read().await.len();
+		tracing::info!(
+			subscription_id = subscription_id,
+			total_subscriptions = total,
+			"Subscribe sent over persistent connection"
+		);
+
+		Ok(())
+	}
+
+	async fn unsubscribe(&self, subscription_id: u64) -> Result<(), String> {
+		use tokio::io::AsyncWriteExt;
+
+		if self
+			.subscriptions
+			.write()
+			.await
+			.remove(&subscription_id)
+			.is_none()
+		{
+			return Err(format!("Subscription {} not found", subscription_id));
+		}
+
+		let mut writer_guard = self.writer.lock().await;
+		let writer = writer_guard
+			.as_mut()
+			.ok_or("Connection not initialized")?;
+
+		let unsubscribe_request = json!({"Unsubscribe": {}});
+		let request_line =
+			format!("{}\n", serde_json::to_string(&unsubscribe_request).unwrap());
+		
+		writer
+			.write_all(request_line.as_bytes())
+			.await
+			.map_err(|e| format!("Failed to send Unsubscribe: {}", e))?;
+
+		let remaining = self.subscriptions.read().await.len();
+		tracing::info!(
+			subscription_id = subscription_id,
+			remaining_subscriptions = remaining,
+			"Unsubscribe sent over persistent connection"
+		);
+
+		Ok(())
+	}
+}
+
+/// Manages active subscriptions and their cancellation channels
+struct SubscriptionManager {
+	subscriptions: Arc<RwLock<HashMap<u64, oneshot::Sender<()>>>>,
+	counter: std::sync::atomic::AtomicU64,
+}
+
+impl SubscriptionManager {
+	fn new() -> Self {
+		Self {
+			subscriptions: Arc::new(RwLock::new(HashMap::new())),
+			counter: std::sync::atomic::AtomicU64::new(0),
+		}
+	}
+
+	fn next_id(&self) -> u64 {
+		self.counter
+			.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+	}
+
+	async fn register(&self, subscription_id: u64, cancel_tx: oneshot::Sender<()>) {
+		self.subscriptions
+			.write()
+			.await
+			.insert(subscription_id, cancel_tx);
+	}
+
+	async fn cancel(&self, subscription_id: u64) -> bool {
+		if let Some(cancel_tx) = self.subscriptions.write().await.remove(&subscription_id) {
+			// Send cancellation signal (ignore if receiver is already dropped)
+			let _ = cancel_tx.send(());
+			true
+		} else {
+			false
+		}
+	}
+}
+
 /// App state - stores global application state shared across all windows
 struct AppState {
 	current_library_id: Arc<RwLock<Option<String>>>,
 	selected_file_ids: Arc<RwLock<Vec<String>>>,
+	connection_pool: Arc<DaemonConnectionPool>,
+	subscription_manager: SubscriptionManager,
 }
 
 /// Daemon status for frontend
@@ -170,9 +379,7 @@ async fn set_library_id(
 
 /// Get the current library ID from app state (accessible by all windows)
 #[tauri::command]
-async fn get_current_library_id(
-	app_state: tauri::State<'_, AppState>,
-) -> Result<String, String> {
+async fn get_current_library_id(app_state: tauri::State<'_, AppState>) -> Result<String, String> {
 	let library_id = app_state.current_library_id.read().await;
 	library_id
 		.clone()
@@ -219,7 +426,11 @@ async fn set_current_library_id(
 		// Inject into all windows
 		for window in app.webview_windows().values() {
 			if let Err(e) = window.eval(&script) {
-				tracing::warn!("Failed to inject globals into window {}: {}", window.label(), e);
+				tracing::warn!(
+					"Failed to inject globals into window {}: {}",
+					window.label(),
+					e
+				);
 			}
 		}
 	}
@@ -311,20 +522,42 @@ async fn daemon_request(
 }
 
 /// Subscribe to daemon events and forward them to the frontend
+/// Returns a subscription ID that can be used to unsubscribe
 #[tauri::command]
+#[allow(non_snake_case)]
 async fn subscribe_to_events(
 	app: tauri::AppHandle,
-	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
-	event_types: Option<Vec<String>>,
-) -> Result<(), String> {
-	let daemon_state = state.read().await;
+	daemon_state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
+	app_state: tauri::State<'_, AppState>,
+	eventTypes: Option<Vec<String>>,
+	filter: Option<serde_json::Value>,
+) -> Result<u64, String> {
+	let daemon_state = daemon_state.read().await;
 
-	tracing::info!("Starting event subscription...");
+	// Generate unique subscription ID
+	let subscription_id = app_state.subscription_manager.next_id();
+
+	tracing::info!(
+		subscription_id = subscription_id,
+		"Starting event subscription with filter: {:?}, eventTypes: {:?}",
+		filter,
+		eventTypes
+	);
 
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 	use tokio::net::UnixStream;
+	use tokio::sync::oneshot;
 
 	let socket_path = daemon_state.socket_path.clone();
+
+	// Create cancellation channel
+	let (cancel_tx, mut cancel_rx) = oneshot::channel::<()>();
+
+	// Register the cancellation sender
+	app_state
+		.subscription_manager
+		.register(subscription_id, cancel_tx)
+		.await;
 
 	// Spawn background task to listen for events
 	tauri::async_runtime::spawn(async move {
@@ -339,16 +572,19 @@ async fn subscribe_to_events(
 		let (reader, mut writer) = stream.into_split();
 
 		// Send subscription request
-		// Frontend controls which events to subscribe to via event_types parameter
+		// Frontend controls which events to subscribe to via eventTypes parameter
 		// Falls back to default list if not provided (for backwards compatibility)
-		let events = event_types.unwrap_or_else(|| {
-			get_default_event_subscription().iter().map(|s| s.to_string()).collect()
+		let events = eventTypes.unwrap_or_else(|| {
+			get_default_event_subscription()
+				.iter()
+				.map(|s| s.to_string())
+				.collect()
 		});
 
 		let subscribe_request = json!({
 			"Subscribe": {
 				"event_types": events,
-				"filter": null
+				"filter": filter
 			}
 		});
 
@@ -358,7 +594,10 @@ async fn subscribe_to_events(
 			return;
 		}
 
-		tracing::info!("Event subscription active");
+		tracing::info!(
+			subscription_id = subscription_id,
+			"Event subscription active"
+		);
 
 		// Listen for events and emit to frontend
 		let mut reader = BufReader::new(reader);
@@ -366,58 +605,107 @@ async fn subscribe_to_events(
 
 		loop {
 			buffer.clear();
-			match reader.read_line(&mut buffer).await {
-				Ok(0) => {
-					tracing::warn!("Event stream closed");
+
+			tokio::select! {
+				// Check for cancellation
+				_ = &mut cancel_rx => {
+					tracing::info!(subscription_id = subscription_id, "Subscription cancelled by frontend");
 					break;
 				}
-				Ok(_) => {
-					let line = buffer.trim();
-					if line.is_empty() {
-						continue;
-					}
 
-					match serde_json::from_str::<serde_json::Value>(line) {
-						Ok(response) => {
-							if let Some(event) = response.get("Event") {
-								// tracing::info!("Emitting event to frontend: {:?}", event);
-								// Emit to frontend via Tauri events
-								if let Err(e) = app.emit("core-event", event) {
-									tracing::error!("Failed to emit event: {}", e);
+				// Read events from daemon
+				result = reader.read_line(&mut buffer) => {
+					match result {
+						Ok(0) => {
+							tracing::warn!(subscription_id = subscription_id, "Event stream closed");
+							break;
+						}
+						Ok(_) => {
+							let line = buffer.trim();
+							if line.is_empty() {
+								continue;
+							}
+
+							match serde_json::from_str::<serde_json::Value>(line) {
+								Ok(response) => {
+									if let Some(event) = response.get("Event") {
+										// Emit to frontend via Tauri events
+										if let Err(e) = app.emit("core-event", event) {
+											tracing::error!(subscription_id = subscription_id, "Failed to emit event: {}", e);
+										}
+									}
+								}
+								Err(e) => {
+									tracing::error!(subscription_id = subscription_id, "Failed to parse event: {}. Raw: {}", e, line);
 								}
 							}
 						}
 						Err(e) => {
-							tracing::error!("Failed to parse event: {}. Raw: {}", e, line);
+							tracing::error!(subscription_id = subscription_id, "Failed to read event: {}", e);
+							break;
 						}
 					}
-				}
-				Err(e) => {
-					tracing::error!("Failed to read event: {}", e);
-					break;
 				}
 			}
 		}
 
-		tracing::info!("Event subscription ended");
+		tracing::info!(
+			subscription_id = subscription_id,
+			"Event subscription ended, sending Unsubscribe"
+		);
+
+		// Send Unsubscribe request to daemon to clean up connection
+		let unsubscribe_request = json!({"Unsubscribe": {}});
+		let unsubscribe_line =
+			format!("{}\n", serde_json::to_string(&unsubscribe_request).unwrap());
+		if let Err(e) = writer.write_all(unsubscribe_line.as_bytes()).await {
+			tracing::warn!(
+				subscription_id = subscription_id,
+				"Failed to send Unsubscribe: {}",
+				e
+			);
+		} else {
+			tracing::info!(
+				subscription_id = subscription_id,
+				"Unsubscribe sent successfully"
+			);
+		}
 	});
 
-	Ok(())
+	Ok(subscription_id)
+}
+
+/// Unsubscribe from daemon events
+#[tauri::command]
+async fn unsubscribe_from_events(
+	app_state: tauri::State<'_, AppState>,
+	subscription_id: u64,
+) -> Result<(), String> {
+	let cancelled = app_state.subscription_manager.cancel(subscription_id).await;
+	if cancelled {
+		tracing::info!(
+			subscription_id = subscription_id,
+			"Unsubscribed successfully"
+		);
+		Ok(())
+	} else {
+		Err(format!("Subscription {} not found", subscription_id))
+	}
 }
 
 /// Update menu item states
 #[tauri::command]
-async fn update_menu_items(
-	app: AppHandle,
-	items: Vec<MenuItemState>,
-) -> Result<(), String> {
+async fn update_menu_items(app: AppHandle, items: Vec<MenuItemState>) -> Result<(), String> {
 	if let Some(menu_state) = app.try_state::<MenuState>() {
 		let menu_items = menu_state.items.read().await;
 
 		for item_state in items {
 			if let Some(menu_item) = menu_items.get(&item_state.id) {
 				menu_item.set_enabled(item_state.enabled).map_err(|e| {
-					format!("Failed to set menu item '{}' enabled state: {}", item_state.id, e)
+					format!(
+						"Failed to set menu item '{}' enabled state: {}",
+						item_state.id, e
+					)
 				})?;
 			}
 		}
@@ -451,7 +739,10 @@ async fn start_daemon_process(
 ) -> Result<(), String> {
 	let (data_dir, socket_path) = {
 		let daemon_state = state.read().await;
-		(daemon_state.data_dir.clone(), daemon_state.socket_path.clone())
+		(
+			daemon_state.data_dir.clone(),
+			daemon_state.socket_path.clone(),
+		)
 	};
 
 	// Check if already running
@@ -484,7 +775,9 @@ async fn stop_daemon_process(
 	if let Some(process_arc) = daemon_state.daemon_process.take() {
 		let mut process_lock = process_arc.lock().await;
 		if let Some(mut child) = process_lock.take() {
-			child.kill().map_err(|e| format!("Failed to kill daemon: {}", e))?;
+			child
+				.kill()
+				.map_err(|e| format!("Failed to kill daemon: {}", e))?;
 			tracing::info!("Daemon process killed");
 		}
 	}
@@ -539,7 +832,10 @@ async fn is_daemon_running(socket_path: &PathBuf) -> bool {
 }
 
 /// Start the daemon as a background process
-async fn start_daemon(data_dir: &PathBuf, socket_path: &PathBuf) -> Result<std::process::Child, String> {
+async fn start_daemon(
+	data_dir: &PathBuf,
+	socket_path: &PathBuf,
+) -> Result<std::process::Child, String> {
 	// Find the daemon binary
 	let daemon_path = if cfg!(debug_assertions) {
 		// In dev mode, look in workspace target directory
@@ -598,7 +894,7 @@ async fn start_daemon(data_dir: &PathBuf, socket_path: &PathBuf) -> Result<std::
 }
 
 fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-	use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder, PredefinedMenuItem};
+	use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 
 	// Store menu items for dynamic updates
 	let mut menu_items_map = HashMap::new();
@@ -706,17 +1002,24 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 					// Show folder picker dialog
-					let folder_path = app_clone.dialog().file()
+					let folder_path = app_clone
+						.dialog()
+						.file()
 						.set_title("Select Library Folder")
-						.set_directory(dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from(".")))
+						.set_directory(std::path::PathBuf::from("."))
 						.blocking_pick_folder();
 
 					if let Some(path) = folder_path {
 						tracing::info!("Selected library path: {:?}", path);
 
 						// Get daemon state
-						let daemon_state: tauri::State<Arc<RwLock<DaemonState>>> = app_clone.state();
+						let daemon_state: tauri::State<Arc<RwLock<DaemonState>>> =
+							app_clone.state();
 						let state = daemon_state.read().await;
+
+						// Convert FilePath to PathBuf
+						let default_path = std::path::PathBuf::from(".");
+						let path_buf = path.as_path().unwrap_or(&default_path);
 
 						// Create the JSON-RPC request
 						let request = serde_json::json!({
@@ -724,7 +1027,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 							"id": 1,
 							"method": "action:libraries.open.input",
 							"params": {
-								"path": path.to_string_lossy().to_string()
+								"path": path_buf.to_string_lossy().to_string()
 							}
 						});
 
@@ -749,9 +1052,13 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 									}
 								};
 
-								if let Err(e) = stream.write_all(format!("{}\n", request_line).as_bytes()).await {
+								if let Err(e) = stream
+									.write_all(format!("{}\n", request_line).as_bytes())
+									.await
+								{
 									tracing::error!("Failed to write request: {}", e);
-									app_clone.dialog()
+									app_clone
+										.dialog()
 										.message(format!("Failed to send request to daemon: {}", e))
 										.kind(MessageDialogKind::Error)
 										.title("Error")
@@ -765,18 +1072,32 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
 								match reader.read_line(&mut response_line).await {
 									Ok(_) => {
-										match serde_json::from_str::<serde_json::Value>(&response_line) {
+										match serde_json::from_str::<serde_json::Value>(
+											&response_line,
+										) {
 											Ok(response) => {
-												tracing::info!("Library opened successfully: {:?}", response);
+												tracing::info!(
+													"Library opened successfully: {:?}",
+													response
+												);
 												// Emit event to notify frontend
-												if let Err(e) = app_clone.emit("library-opened", response) {
-													tracing::error!("Failed to emit library-opened event: {}", e);
+												if let Err(e) =
+													app_clone.emit("library-opened", response)
+												{
+													tracing::error!(
+														"Failed to emit library-opened event: {}",
+														e
+													);
 												}
 											}
 											Err(e) => {
 												tracing::error!("Failed to parse response: {}", e);
-												app_clone.dialog()
-													.message(format!("Failed to open library: {}", e))
+												app_clone
+													.dialog()
+													.message(format!(
+														"Failed to open library: {}",
+														e
+													))
 													.kind(MessageDialogKind::Error)
 													.title("Error")
 													.blocking_show();
@@ -785,8 +1106,12 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 									}
 									Err(e) => {
 										tracing::error!("Failed to read response: {}", e);
-										app_clone.dialog()
-											.message(format!("Failed to read response from daemon: {}", e))
+										app_clone
+											.dialog()
+											.message(format!(
+												"Failed to read response from daemon: {}",
+												e
+											))
 											.kind(MessageDialogKind::Error)
 											.title("Error")
 											.blocking_show();
@@ -795,7 +1120,8 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 							}
 							Err(e) => {
 								tracing::error!("Failed to connect to daemon: {}", e);
-								app_clone.dialog()
+								app_clone
+									.dialog()
 									.message(format!("Failed to connect to daemon: {}", e))
 									.kind(MessageDialogKind::Error)
 									.title("Error")
@@ -865,6 +1191,7 @@ fn main() {
 			set_selected_file_ids,
 			daemon_request,
 			subscribe_to_events,
+			unsubscribe_from_events,
 			update_menu_items,
 			get_daemon_status,
 			start_daemon_process,
@@ -910,36 +1237,48 @@ fn main() {
 
 				// Setup drag ended callback
 				let app_handle = app.handle().clone();
-				sd_desktop_macos::set_drag_ended_callback(move |session_id: &str, was_dropped: bool| {
-					tracing::info!("[DRAG] Swift callback: session_id={}, was_dropped={}", session_id, was_dropped);
-					let coordinator = app_handle.state::<drag::DragCoordinator>();
-					let result = if was_dropped {
-						drag::DragResult::Dropped {
-							operation: drag::DragOperation::Copy,
-							target: None,
+				sd_desktop_macos::set_drag_ended_callback(
+					move |session_id: &str, was_dropped: bool| {
+						tracing::info!(
+							"[DRAG] Swift callback: session_id={}, was_dropped={}",
+							session_id,
+							was_dropped
+						);
+						let coordinator = app_handle.state::<drag::DragCoordinator>();
+						let result = if was_dropped {
+							drag::DragResult::Dropped {
+								operation: drag::DragOperation::Copy,
+								target: None,
+							}
+						} else {
+							drag::DragResult::Cancelled
+						};
+						coordinator.end_drag(&app_handle, result);
+
+						// Hide and then close the overlay window after a delay to avoid focus issues
+						let overlay_label = format!("drag-overlay-{}", session_id);
+						if let Some(overlay) = app_handle.get_webview_window(&overlay_label) {
+							tracing::debug!(
+								"[DRAG] Hiding overlay window from callback: {}",
+								overlay_label
+							);
+							// First hide it immediately
+							overlay.hide().ok();
+
+							// Then close it after a short delay to avoid window focus flashing
+							let overlay_clone = overlay.clone();
+							std::thread::spawn(move || {
+								std::thread::sleep(std::time::Duration::from_millis(100));
+								overlay_clone.close().ok();
+							});
+						} else {
+							tracing::warn!(
+								"[DRAG] Overlay window not found in callback: {}",
+								overlay_label
+							);
 						}
-					} else {
-						drag::DragResult::Cancelled
-					};
-					coordinator.end_drag(&app_handle, result);
-
-					// Hide and then close the overlay window after a delay to avoid focus issues
-					let overlay_label = format!("drag-overlay-{}", session_id);
-					if let Some(overlay) = app_handle.get_webview_window(&overlay_label) {
-						tracing::debug!("[DRAG] Hiding overlay window from callback: {}", overlay_label);
-						// First hide it immediately
-						overlay.hide().ok();
-
-						// Then close it after a short delay to avoid window focus flashing
-						let overlay_clone = overlay.clone();
-						std::thread::spawn(move || {
-							std::thread::sleep(std::time::Duration::from_millis(100));
-							overlay_clone.close().ok();
-						});
-					} else {
-						tracing::warn!("[DRAG] Overlay window not found in callback: {}", overlay_label);
-					}
-				});
+					},
+				);
 				tracing::info!("Drag ended callback registered");
 			}
 
@@ -979,10 +1318,12 @@ fn main() {
 				}
 			};
 
-			let app_state = AppState {
-				current_library_id: Arc::new(RwLock::new(persisted_library_id)),
-				selected_file_ids: Arc::new(RwLock::new(Vec::new())),
-			};
+		let app_state = AppState {
+			current_library_id: Arc::new(RwLock::new(persisted_library_id)),
+			selected_file_ids: Arc::new(RwLock::new(Vec::new())),
+			connection_pool: Arc::new(DaemonConnectionPool::new(socket_path.clone())),
+			subscription_manager: SubscriptionManager::new(),
+		};
 
 			app.manage(daemon_state.clone());
 			app.manage(app_state);
@@ -1019,9 +1360,10 @@ fn main() {
 				} else {
 					tracing::info!("No daemon running, starting new instance");
 					match start_daemon(&data_dir, &socket_path).await {
-						Ok(child) => {
-							(true, Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))))
-						}
+						Ok(child) => (
+							true,
+							Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))),
+						),
 						Err(e) => {
 							tracing::error!("Failed to start daemon: {}", e);
 							return;

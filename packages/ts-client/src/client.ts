@@ -1,6 +1,8 @@
 import type { Transport } from "./transport";
 import { UnixSocketTransport, TauriTransport } from "./transport";
 import type { Event } from "./generated/types";
+import { DEFAULT_EVENT_SUBSCRIPTION } from "./event-filter";
+import { SubscriptionManager } from "./subscriptionManager";
 
 /**
  * Simple event emitter for browser compatibility
@@ -50,10 +52,12 @@ class SimpleEventEmitter {
 export class SpacedriveClient extends SimpleEventEmitter {
 	private transport: Transport;
 	private currentLibraryId: string | null = null;
+	private subscriptionManager: SubscriptionManager;
 
 	constructor(transport: Transport) {
 		super();
 		this.transport = transport;
+		this.subscriptionManager = new SubscriptionManager(transport);
 	}
 
 	/**
@@ -68,7 +72,10 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 */
 	static fromTauri(
 		invoke: (cmd: string, args?: any) => Promise<any>,
-		listen: (event: string, handler: (event: any) => void) => Promise<() => void>
+		listen: (
+			event: string,
+			handler: (event: any) => void,
+		) => Promise<() => void>,
 	): SpacedriveClient {
 		const client = new SpacedriveClient(new TauriTransport(invoke, listen));
 		client.setupEventLogging();
@@ -81,7 +88,6 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	private setupEventLogging() {
 		// Event logging removed for production - enable in debug mode if needed
 	}
-
 
 	// MARK: - Library Context Management
 
@@ -118,8 +124,13 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 */
 	async switchToLibrary(libraryId: string): Promise<void> {
 		// Verify library exists by calling the query directly
-		const libraries = await this.execute<{}, any[]>("query:libraries.list", {});
-		const libraryExists = libraries.some((lib: any) => lib.id === libraryId);
+		const libraries = await this.execute<{}, any[]>(
+			"query:libraries.list",
+			{},
+		);
+		const libraryExists = libraries.some(
+			(lib: any) => lib.id === libraryId,
+		);
 
 		if (!libraryExists) {
 			throw new Error(`Library with ID '${libraryId}' not found`);
@@ -135,7 +146,10 @@ export class SpacedriveClient extends SimpleEventEmitter {
 		const libraryId = this.getCurrentLibraryId();
 		if (!libraryId) return null;
 
-		const libraries = await this.execute<{}, any[]>("query:libraries.list", {});
+		const libraries = await this.execute<{}, any[]>(
+			"query:libraries.list",
+			{},
+		);
 		return libraries.find((lib: any) => lib.id === libraryId) ?? null;
 	}
 
@@ -147,7 +161,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
 		const libraryId = this.getCurrentLibraryId();
 		if (!libraryId) {
 			throw new Error(
-				"This operation requires an active library. Use switchToLibrary() first."
+				"This operation requires an active library. Use switchToLibrary() first.",
 			);
 		}
 		return libraryId;
@@ -172,17 +186,17 @@ export class SpacedriveClient extends SimpleEventEmitter {
 			? {
 					Query: {
 						method: wireMethod,
-						library_id: this.currentLibraryId,  // ← Sibling field!
+						library_id: this.currentLibraryId, // ← Sibling field!
 						payload: input,
 					},
-			  }
+				}
 			: {
 					Action: {
 						method: wireMethod,
-						library_id: this.currentLibraryId,  // ← Sibling field!
+						library_id: this.currentLibraryId, // ← Sibling field!
 						payload: input,
 					},
-			  };
+				};
 
 		const response = await this.transport.sendRequest(request);
 
@@ -195,7 +209,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
 		} else if ("Error" in response || "error" in response) {
 			const error = response.Error || response.error;
 			throw new Error(
-				`${isQuery ? "Query" : "Action"} failed: ${JSON.stringify(error)}`
+				`${isQuery ? "Query" : "Action"} failed: ${JSON.stringify(error)}`,
 			);
 		} else {
 			throw new Error(`Unexpected response: ${JSON.stringify(response)}`);
@@ -207,15 +221,35 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 */
 	async subscribe(callback?: (event: Event) => void): Promise<() => void> {
 		const unlisten = await this.transport.subscribe((event) => {
-			// Emit to SimpleEventEmitter (useNormalizedCache listens to this)
-			this.emit("spacedrive-event", event);
-
 			if (callback) {
 				callback(event);
 			}
 		});
 
 		return unlisten;
+	}
+
+	/**
+	 * Subscribe to filtered events from the daemon
+	 * Uses subscription manager to multiplex connections
+	 */
+	async subscribeFiltered(
+		filter: {
+			resource_type?: string;
+			path_scope?: import("./types").SdPath;
+			library_id?: string;
+			include_descendants?: boolean;
+		},
+		callback: (event: Event) => void,
+	): Promise<() => void> {
+		return this.subscriptionManager.subscribe(filter, callback);
+	}
+
+	/**
+	 * Get subscription manager stats for debugging
+	 */
+	getSubscriptionStats() {
+		return this.subscriptionManager.getStats();
 	}
 
 	/**
@@ -227,10 +261,11 @@ export class SpacedriveClient extends SimpleEventEmitter {
 		if (response === "Pong") {
 			console.log("Ping successful!");
 		} else {
-			throw new Error(`Unexpected ping response: ${JSON.stringify(response)}`);
+			throw new Error(
+				`Unexpected ping response: ${JSON.stringify(response)}`,
+			);
 		}
 	}
-
 }
 
 // Export all types for convenience

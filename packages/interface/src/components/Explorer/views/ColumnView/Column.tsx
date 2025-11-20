@@ -30,47 +30,8 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
       sort_by: "name",
     },
     resourceType: "file",
-    resourceFilter: (file: any) => {
-      if (!file.sd_path) return false;
-
-      const filePath = file.sd_path;
-
-      if (filePath.Physical && path?.Physical) {
-        if (filePath.Physical.device_slug !== path.Physical.device_slug) {
-          return false;
-        }
-
-        const filePathStr = filePath.Physical.path;
-        const scopePathStr = path.Physical.path;
-        const fileParent = filePathStr.substring(0, filePathStr.lastIndexOf('/'));
-
-        return fileParent === scopePathStr;
-      }
-
-      if (filePath.Content && path?.Physical) {
-        const alternates = file.alternate_paths || [];
-
-        for (const altPath of alternates) {
-          if (altPath.Physical) {
-            if (altPath.Physical.device_slug !== path.Physical.device_slug) {
-              continue;
-            }
-
-            const altPathStr = altPath.Physical.path;
-            const scopePathStr = path.Physical.path;
-            const altParent = altPathStr.substring(0, altPathStr.lastIndexOf('/'));
-
-            if (altParent === scopePathStr) {
-              return true;
-            }
-          }
-        }
-
-        return false;
-      }
-
-      return false;
-    },
+    pathScope: path,
+    // includeDescendants defaults to false for exact directory matching
   });
 
   const files = directoryQuery.data?.files || [];

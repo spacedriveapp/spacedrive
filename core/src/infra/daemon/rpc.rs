@@ -149,11 +149,20 @@ impl RpcServer {
 
 				// Broadcast event to all subscribed connections
 				for connection in connections_read.values() {
-					if Self::should_forward_event(
+					let should_forward = Self::should_forward_event(
 						&event,
 						&connection.event_types,
 						&connection.filter,
-					) {
+					);
+
+					if should_forward {
+						tracing::debug!(
+							"Forwarding event to connection: connection_id={}, event_type={}, filter={:?}",
+							connection.id,
+							event.variant_name(),
+							connection.filter
+						);
+
 						// Ignore errors if connection is closed
 						let _ = connection
 							.response_tx
@@ -249,7 +258,17 @@ impl RpcServer {
 
 			// Filter by path scope (for resource events)
 			if let Some(path_scope) = &filter.path_scope {
-				if !event.affects_path(path_scope) {
+				let include_descendants = filter.include_descendants.unwrap_or(false);
+				let affects = event.affects_path(path_scope, include_descendants);
+
+				tracing::debug!(
+					"Path scope filter check: scope={:?}, include_descendants={}, affects={}",
+					path_scope,
+					include_descendants,
+					affects
+				);
+
+				if !affects {
 					return false;
 				}
 			}
@@ -422,12 +441,19 @@ impl RpcServer {
 				event_types,
 				filter,
 			} => {
+				tracing::info!(
+					"New subscription created: connection_id={}, filter={:?}, event_types={:?}",
+					connection_id,
+					filter,
+					event_types
+				);
+
 				// Register connection for event streaming
 				let connection = Connection {
 					id: connection_id,
 					response_tx: response_tx.clone(),
-					event_types,
-					filter,
+					event_types: event_types.clone(),
+					filter: filter.clone(),
 					log_filter: None,
 				};
 

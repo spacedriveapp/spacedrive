@@ -12,6 +12,7 @@ export interface EventFilter {
 	device_id?: string;
 	resource_type?: string;
 	path_scope?: SdPath;
+	include_descendants?: boolean;
 }
 
 export interface SubscriptionOptions {
@@ -21,7 +22,10 @@ export interface SubscriptionOptions {
 
 export interface Transport {
 	sendRequest(request: any): Promise<any>;
-	subscribe(callback: (event: any) => void, options?: SubscriptionOptions): Promise<() => void>;
+	subscribe(
+		callback: (event: any) => void,
+		options?: SubscriptionOptions,
+	): Promise<() => void>;
 }
 
 /**
@@ -30,11 +34,17 @@ export interface Transport {
  */
 export class TauriTransport implements Transport {
 	private invoke: (cmd: string, args?: any) => Promise<any>;
-	private listen: (event: string, handler: (event: any) => void) => Promise<() => void>;
+	private listen: (
+		event: string,
+		handler: (event: any) => void,
+	) => Promise<() => void>;
 
 	constructor(
 		invoke: (cmd: string, args?: any) => Promise<any>,
-		listen: (event: string, handler: (event: any) => void) => Promise<() => void>
+		listen: (
+			event: string,
+			handler: (event: any) => void,
+		) => Promise<() => void>,
 	) {
 		this.invoke = invoke;
 		this.listen = listen;
@@ -45,20 +55,44 @@ export class TauriTransport implements Transport {
 		return response;
 	}
 
-	async subscribe(callback: (event: any) => void, options?: SubscriptionOptions): Promise<() => void> {
+	async subscribe(
+		callback: (event: any) => void,
+		options?: SubscriptionOptions,
+	): Promise<() => void> {
 		// Start the event subscription on the backend
-		// Pass the event filter from frontend so Tauri layer doesn't need to maintain its own list
-		await this.invoke("subscribe_to_events", {
-			event_types: options?.event_types ?? DEFAULT_EVENT_SUBSCRIPTION,
+		// Returns subscription ID for cleanup
+		const args = {
+			eventTypes: options?.event_types ?? DEFAULT_EVENT_SUBSCRIPTION,
 			filter: options?.filter ?? null,
-		});
+		};
+		console.log(
+			"[TauriTransport] Invoking subscribe_to_events with:",
+			args,
+		);
+		const subscriptionId = await this.invoke("subscribe_to_events", args);
 
 		// Listen to forwarded events from Tauri
 		const unlisten = await this.listen("core-event", (tauriEvent: any) => {
 			callback(tauriEvent.payload);
 		});
 
-		return unlisten;
+		// Return cleanup function that properly unsubscribes
+		return async () => {
+			console.log(
+				"[TauriTransport] Unsubscribing from subscription:",
+				subscriptionId,
+			);
+			unlisten(); // Stop frontend listener
+
+			// Tell backend to close the subscription and socket
+			try {
+				await this.invoke("unsubscribe_from_events", {
+					subscriptionId,
+				});
+			} catch (e) {
+				console.warn("[TauriTransport] Failed to unsubscribe:", e);
+			}
+		};
 	}
 }
 
@@ -97,7 +131,10 @@ export class UnixSocketTransport implements Transport {
 		throw new Error("Connection closed without response");
 	}
 
-	async subscribe(callback: (event: any) => void, options?: SubscriptionOptions): Promise<() => void> {
+	async subscribe(
+		callback: (event: any) => void,
+		options?: SubscriptionOptions,
+	): Promise<() => void> {
 		// @ts-ignore - Bun global
 		const socket = await Bun.connect({
 			unix: this.socketPath,

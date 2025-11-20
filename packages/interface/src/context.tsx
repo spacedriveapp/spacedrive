@@ -14,8 +14,11 @@ export {
 	useLibraryQuery,
 	useCoreMutation,
 	useLibraryMutation,
-	useNormalizedCache,
+	useNormalizedQuery,
 } from "@sd/ts-client/hooks";
+
+// Deprecated - use useNormalizedQuery instead
+export { useNormalizedQuery as useNormalizedCache } from "@sd/ts-client/hooks";
 
 // Export client type
 export type { SpacedriveClient } from "@sd/ts-client";

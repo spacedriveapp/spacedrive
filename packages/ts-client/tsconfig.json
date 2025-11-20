@@ -1,28 +1,23 @@
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "lib": ["ES2020"],
-    "jsx": "react-jsx",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true
-  },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts"
-  ]
+	"compilerOptions": {
+		"target": "ES2020",
+		"module": "commonjs",
+		"lib": ["ES2020"],
+		"jsx": "react-jsx",
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"moduleResolution": "node",
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+		"types": ["jest", "node"]
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

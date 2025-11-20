@@ -62,13 +62,29 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 	// Calculate dimensions based on mode
 	let scrubberWidth = size;
 	let scrubberHeight = size;
-	let objectFit: "contain" | "cover" = "contain";
+	let backgroundSizeWidth = grid.columns * 100;
+	let backgroundSizeHeight = grid.rows * 100;
 
 	if (squareMode) {
-		// Square mode (media view): Fill the entire square container
+		// Square mode (media view): Each frame maintains aspect ratio and crops to fill square
 		scrubberWidth = size;
 		scrubberHeight = size;
-		objectFit = "cover"; // Crop to fill
+
+		// Calculate background size so each frame fills the square with object-fit: cover behavior
+		// Each frame should maintain its aspect ratio while filling the square container
+		if (videoAspectRatio > 1) {
+			// Landscape video: width must scale up to fill square height
+			// If frame is 16:9 in 100x100 square, frame becomes 178x100 to fill height
+			// Background for 5x5 grid: 5 * 178 = 890% wide, 5 * 100 = 500% tall
+			backgroundSizeWidth = grid.columns * 100 * videoAspectRatio;
+			backgroundSizeHeight = grid.rows * 100;
+		} else {
+			// Portrait video: height must scale up to fill square width
+			// If frame is 9:16 in 100x100 square, frame becomes 100x178 to fill width
+			// Background for 5x5 grid: 5 * 100 = 500% wide, 5 * 178 = 890% tall
+			backgroundSizeWidth = grid.columns * 100;
+			backgroundSizeHeight = (grid.rows * 100) / videoAspectRatio;
+		}
 	} else {
 		// Aspect ratio mode: Maintain video aspect ratio within container
 		if (videoAspectRatio > 1) {
@@ -78,7 +94,6 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 			// Portrait video - constrain by height
 			scrubberWidth = size * videoAspectRatio;
 		}
-		objectFit = "contain";
 	}
 
 	// Build thumbstrip URL
@@ -91,8 +106,6 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 
 	const thumbstripUrl = `${serverUrl}/sidecar/${libraryId}/${file.content_identity.uuid}/${thumbstripSidecar.kind}/${thumbstripSidecar.variant}.${thumbstripSidecar.format}`;
 
-	console.log("thumbstripUrl in thumbstrip scrubber", thumbstripUrl);
-
 	// Calculate which frame to show based on hover position
 	const frameIndex = Math.min(
 		Math.floor(hoverProgress * totalFrames),
@@ -103,9 +116,27 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 	const col = frameIndex % grid.columns;
 
 	// Calculate sprite position (as percentages for responsive sizing)
-	// Avoid division by zero for 1x1 grids
-	const spriteX = grid.columns > 1 ? (col / (grid.columns - 1)) * 100 : 0;
-	const spriteY = grid.rows > 1 ? (row / (grid.rows - 1)) * 100 : 0;
+	// CSS backgroundPosition percentage = (container - background) * percentage
+	// For uniform scaling (500% x 500%): standard formula works
+	// For non-uniform scaling: need to adjust for actual background dimensions
+	let spriteX: number;
+	let spriteY: number;
+
+	if (grid.columns > 1) {
+		// How much we need to offset: col * (100% / columns) of background size
+		// backgroundPosition % = offset / (container - background)
+		const offsetXPercent = (col / grid.columns) * backgroundSizeWidth;
+		spriteX = (offsetXPercent / (backgroundSizeWidth - 100)) * 100;
+	} else {
+		spriteX = 0;
+	}
+
+	if (grid.rows > 1) {
+		const offsetYPercent = (row / grid.rows) * backgroundSizeHeight;
+		spriteY = (offsetYPercent / (backgroundSizeHeight - 100)) * 100;
+	} else {
+		spriteY = 0;
+	}
 
 	// Handle mouse move to update hover progress
 	const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -145,14 +176,10 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 						width: scrubberWidth,
 						height: scrubberHeight,
 						backgroundImage: `url(${thumbstripUrl})`,
-						backgroundSize:
-							objectFit === "cover"
-								? "cover"
-								: `${grid.columns * 100}% ${grid.rows * 100}%`,
-						backgroundPosition:
-							objectFit === "cover"
-								? `${hoverProgress * 100}% center`
-								: `${spriteX}% ${spriteY}%`,
+						// Use calculated background size for proper sprite sheet scaling
+						backgroundSize: `${backgroundSizeWidth}% ${backgroundSizeHeight}%`,
+						// Always use sprite coordinates for positioning
+						backgroundPosition: `${spriteX}% ${spriteY}%`,
 						backgroundRepeat: "no-repeat",
 						imageRendering: "crisp-edges",
 					}}

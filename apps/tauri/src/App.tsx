@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Explorer, FloatingControls, LocationCacheDemo, PopoutInspector, QuickPreview, PlatformProvider, SpacedriveProvider } from "@sd/interface";
 import { SpacedriveClient, TauriTransport } from "@sd/ts-client";
 import { useEffect, useState } from "react";
+import { scan } from "react-scan";
 import { DragOverlay } from "./routes/DragOverlay";
 import { ContextMenuWindow } from "./routes/ContextMenuWindow";
 import { DragDemo } from "./components/DragDemo";
@@ -17,6 +18,14 @@ function App() {
   const [route, setRoute] = useState<string>("/");
 
   useEffect(() => {
+    // Enable react-scan in development
+    if (import.meta.env.DEV) {
+      scan({
+        enabled: true,
+        log: false,
+      });
+    }
+
     // Initialize Tauri native context menu handler
     initializeContextMenuHandler();
 
@@ -84,8 +93,7 @@ function App() {
         });
       }
 
-      // Start event subscription
-      spacedrive.subscribe();
+      // No global subscription needed - each useNormalizedCache creates its own filtered subscription
     } catch (err) {
       console.error("Failed to create client:", err);
       setError(err instanceof Error ? err.message : String(err));

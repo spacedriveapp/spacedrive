@@ -10,6 +10,7 @@ interface ThumbProps {
 	className?: string;
 	frameClassName?: string; // Custom frame styling (border, radius, bg)
 	iconScale?: number; // Scale factor for fallback icon (0-1, default 1)
+	squareMode?: boolean; // Whether thumbnail is cropped to square (media view) or maintains aspect ratio
 }
 
 // Global cache for thumbnail loaded states (survives component unmount/remount)
@@ -22,6 +23,7 @@ export const Thumb = memo(function Thumb({
 	className,
 	frameClassName,
 	iconScale = 1,
+	squareMode = false,
 }: ThumbProps) {
 	const cacheKey = `${file.id}-${size}`;
 
@@ -173,7 +175,7 @@ export const Thumb = memo(function Thumb({
 				<ThumbstripScrubber 
 					file={file} 
 					size={size}
-					squareMode={false} // Could be passed as prop based on view mode
+					squareMode={squareMode}
 				/>
 			)}
 		</div>

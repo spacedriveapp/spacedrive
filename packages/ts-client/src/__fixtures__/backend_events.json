@@ -1,0 +1,1714 @@
+{
+  "events": {},
+  "metadata": {
+    "device_slug": "james-s-macbook-pro",
+    "generated_at": "2025-11-20T10:06:06.151396+00:00",
+    "test_location_path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+  },
+  "test_cases": [
+    {
+      "description": "Directory view should only show direct children, filtering out subdirectory files",
+      "events": [
+        {
+          "ResourceChangedBatch": {
+            "metadata": {
+              "affected_paths": [
+                {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested"
+                  }
+                }
+              ],
+              "alternate_ids": [],
+              "no_merge_fields": [
+                "sd_path"
+              ]
+            },
+            "resource_type": "file",
+            "resources": [
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "afa020c6ae2455ab",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.161850Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.161850Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149522Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "4f5b1083-26e3-4ca7-8b27-070366bfb865",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "0f13868ab591b5b6",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.165765Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.165765Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 18,
+                  "uuid": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149873Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "66f007a7-f6dd-41f9-b0a1-219331687460",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                "sidecars": [],
+                "size": 18,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "f92f0c02499b55ea",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.169343Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.169343Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150018Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "85c408be-aeed-421a-83b7-847ef8c3cfad",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "d851ec7f6bebf998",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.172762Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.172762Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 16,
+                  "uuid": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150141Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "a48c0076-815c-4ebb-b9c3-f1e7e30f9c4d",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "deep_file",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                "sidecars": [],
+                "size": 16,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "fa54456baed9953b",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.157858Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.157858Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 22,
+                  "uuid": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149304Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "f3ff72a8-6d48-4c9f-be1b-cb45093bda83",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                "sidecars": [],
+                "size": 22,
+                "tags": [],
+                "video_media_data": null
+              }
+            ]
+          }
+        },
+        {
+          "ResourceChangedBatch": {
+            "metadata": {
+              "affected_paths": [
+                {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                  }
+                }
+              ],
+              "alternate_ids": [],
+              "no_merge_fields": [
+                "sd_path"
+              ]
+            },
+            "resource_type": "file",
+            "resources": [
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "afa020c6ae2455ab",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.161850Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.161850Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149522Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "4f5b1083-26e3-4ca7-8b27-070366bfb865",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "0f13868ab591b5b6",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.165765Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.165765Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 18,
+                  "uuid": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149873Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "66f007a7-f6dd-41f9-b0a1-219331687460",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                "sidecars": [],
+                "size": 18,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "f92f0c02499b55ea",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.169343Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.169343Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150018Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "85c408be-aeed-421a-83b7-847ef8c3cfad",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "d851ec7f6bebf998",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.172762Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.172762Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 16,
+                  "uuid": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150141Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "a48c0076-815c-4ebb-b9c3-f1e7e30f9c4d",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "deep_file",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                "sidecars": [],
+                "size": 16,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "fa54456baed9953b",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.157858Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.157858Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 22,
+                  "uuid": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149304Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "f3ff72a8-6d48-4c9f-be1b-cb45093bda83",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                "sidecars": [],
+                "size": 22,
+                "tags": [],
+                "video_media_data": null
+              }
+            ]
+          }
+        }
+      ],
+      "expected_file_count": 2,
+      "expected_file_names": [
+        "direct_child1",
+        "direct_child2"
+      ],
+      "expected_final_state": {
+        "files": [
+          {
+            "accessed_at": null,
+            "alternate_paths": [],
+            "audio_media_data": null,
+            "content_identity": {
+              "content_hash": "fa54456baed9953b",
+              "entry_count": 1,
+              "first_seen_at": "2025-11-20T10:05:34.157858Z",
+              "integrity_hash": null,
+              "kind": "text",
+              "last_verified_at": "2025-11-20T10:05:34.157858Z",
+              "mime_type_id": 1,
+              "text_content": null,
+              "total_size": 22,
+              "uuid": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+            },
+            "content_kind": "text",
+            "created_at": "2025-11-20T10:05:34.149304Z",
+            "duration_seconds": null,
+            "extension": "txt",
+            "id": "f3ff72a8-6d48-4c9f-be1b-cb45093bda83",
+            "image_media_data": null,
+            "is_local": true,
+            "kind": {
+              "File": {
+                "extension": "txt"
+              }
+            },
+            "modified_at": "2025-11-20T10:05:33Z",
+            "name": "direct_child1",
+            "sd_path": {
+              "Physical": {
+                "device_slug": "james-s-macbook-pro",
+                "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+              }
+            },
+            "sidecars": [],
+            "size": 22,
+            "tags": [],
+            "video_media_data": null
+          },
+          {
+            "accessed_at": null,
+            "alternate_paths": [],
+            "audio_media_data": null,
+            "content_identity": {
+              "content_hash": "afa020c6ae2455ab",
+              "entry_count": 1,
+              "first_seen_at": "2025-11-20T10:05:34.161850Z",
+              "integrity_hash": null,
+              "kind": "text",
+              "last_verified_at": "2025-11-20T10:05:34.161850Z",
+              "mime_type_id": 1,
+              "text_content": null,
+              "total_size": 20,
+              "uuid": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+            },
+            "content_kind": "text",
+            "created_at": "2025-11-20T10:05:34.149522Z",
+            "duration_seconds": null,
+            "extension": "txt",
+            "id": "4f5b1083-26e3-4ca7-8b27-070366bfb865",
+            "image_media_data": null,
+            "is_local": true,
+            "kind": {
+              "File": {
+                "extension": "txt"
+              }
+            },
+            "modified_at": "2025-11-20T10:05:33Z",
+            "name": "direct_child2",
+            "sd_path": {
+              "Physical": {
+                "device_slug": "james-s-macbook-pro",
+                "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+              }
+            },
+            "sidecars": [],
+            "size": 20,
+            "tags": [],
+            "video_media_data": null
+          }
+        ]
+      },
+      "initial_state": {
+        "files": []
+      },
+      "name": "directory_view_exact_mode",
+      "query": {
+        "includeDescendants": false,
+        "input": {
+          "include_hidden": false,
+          "limit": null,
+          "path": {
+            "Physical": {
+              "device_slug": "james-s-macbook-pro",
+              "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+            }
+          },
+          "sort_by": "name"
+        },
+        "pathScope": {
+          "Physical": {
+            "device_slug": "james-s-macbook-pro",
+            "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+          }
+        },
+        "resourceType": "file",
+        "wireMethod": "query:files.directory_listing"
+      }
+    },
+    {
+      "description": "Media view should show all files recursively including subdirectories",
+      "events": [
+        {
+          "ResourceChangedBatch": {
+            "metadata": {
+              "affected_paths": [
+                {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested"
+                  }
+                }
+              ],
+              "alternate_ids": [],
+              "no_merge_fields": [
+                "sd_path"
+              ]
+            },
+            "resource_type": "file",
+            "resources": [
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "afa020c6ae2455ab",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.161850Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.161850Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149522Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "4f5b1083-26e3-4ca7-8b27-070366bfb865",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "0f13868ab591b5b6",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.165765Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.165765Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 18,
+                  "uuid": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149873Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "66f007a7-f6dd-41f9-b0a1-219331687460",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                "sidecars": [],
+                "size": 18,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "f92f0c02499b55ea",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.169343Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.169343Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150018Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "85c408be-aeed-421a-83b7-847ef8c3cfad",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "d851ec7f6bebf998",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.172762Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.172762Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 16,
+                  "uuid": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150141Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "a48c0076-815c-4ebb-b9c3-f1e7e30f9c4d",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "deep_file",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                "sidecars": [],
+                "size": 16,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "fa54456baed9953b",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.157858Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.157858Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 22,
+                  "uuid": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149304Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "f3ff72a8-6d48-4c9f-be1b-cb45093bda83",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                "sidecars": [],
+                "size": 22,
+                "tags": [],
+                "video_media_data": null
+              }
+            ]
+          }
+        },
+        {
+          "ResourceChangedBatch": {
+            "metadata": {
+              "affected_paths": [
+                {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested"
+                  }
+                },
+                {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                {
+                  "Physical": {
+                    "device_slug": "james-s-macbook-pro",
+                    "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                  }
+                }
+              ],
+              "alternate_ids": [],
+              "no_merge_fields": [
+                "sd_path"
+              ]
+            },
+            "resource_type": "file",
+            "resources": [
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "afa020c6ae2455ab",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.161850Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.161850Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149522Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "4f5b1083-26e3-4ca7-8b27-070366bfb865",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild2.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "0f13868ab591b5b6",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.165765Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.165765Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 18,
+                  "uuid": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149873Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "66f007a7-f6dd-41f9-b0a1-219331687460",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild2",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "37036672-fbdb-5f78-aaa4-16cc973e87ff"
+                  }
+                },
+                "sidecars": [],
+                "size": 18,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/grandchild1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "f92f0c02499b55ea",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.169343Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.169343Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 20,
+                  "uuid": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150018Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "85c408be-aeed-421a-83b7-847ef8c3cfad",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "grandchild1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4a2e963f-2fd3-5f25-90e6-80d1a626247b"
+                  }
+                },
+                "sidecars": [],
+                "size": 20,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder/nested/deep_file.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "d851ec7f6bebf998",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.172762Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.172762Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 16,
+                  "uuid": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.150141Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "a48c0076-815c-4ebb-b9c3-f1e7e30f9c4d",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "deep_file",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "4e09dc49-16d4-56d2-bc12-a8ff5f52d6c2"
+                  }
+                },
+                "sidecars": [],
+                "size": 16,
+                "tags": [],
+                "video_media_data": null
+              },
+              {
+                "accessed_at": null,
+                "alternate_paths": [
+                  {
+                    "Physical": {
+                      "device_slug": "james-s-macbook-pro",
+                      "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+                    }
+                  }
+                ],
+                "audio_media_data": null,
+                "content_identity": {
+                  "content_hash": "fa54456baed9953b",
+                  "entry_count": 1,
+                  "first_seen_at": "2025-11-20T10:05:34.157858Z",
+                  "integrity_hash": null,
+                  "kind": "text",
+                  "last_verified_at": "2025-11-20T10:05:34.157858Z",
+                  "mime_type_id": 1,
+                  "text_content": null,
+                  "total_size": 22,
+                  "uuid": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                },
+                "content_kind": "unknown",
+                "created_at": "2025-11-20T10:05:34.149304Z",
+                "duration_seconds": null,
+                "extension": "txt",
+                "id": "f3ff72a8-6d48-4c9f-be1b-cb45093bda83",
+                "image_media_data": null,
+                "is_local": false,
+                "kind": {
+                  "File": {
+                    "extension": "txt"
+                  }
+                },
+                "modified_at": "2025-11-20T10:05:33Z",
+                "name": "direct_child1",
+                "sd_path": {
+                  "Content": {
+                    "content_id": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+                  }
+                },
+                "sidecars": [],
+                "size": 22,
+                "tags": [],
+                "video_media_data": null
+              }
+            ]
+          }
+        }
+      ],
+      "expected_file_count": 3,
+      "expected_file_names": [
+        "direct_child1",
+        "direct_child2",
+        "subfolder"
+      ],
+      "expected_final_state": {
+        "files": [
+          {
+            "accessed_at": null,
+            "alternate_paths": [],
+            "audio_media_data": null,
+            "content_identity": {
+              "content_hash": "fa54456baed9953b",
+              "entry_count": 1,
+              "first_seen_at": "2025-11-20T10:05:34.157858Z",
+              "integrity_hash": null,
+              "kind": "text",
+              "last_verified_at": "2025-11-20T10:05:34.157858Z",
+              "mime_type_id": 1,
+              "text_content": null,
+              "total_size": 22,
+              "uuid": "5b9e7618-c8d0-50ec-a35c-d7de8e8ac11a"
+            },
+            "content_kind": "text",
+            "created_at": "2025-11-20T10:05:34.149304Z",
+            "duration_seconds": null,
+            "extension": "txt",
+            "id": "f3ff72a8-6d48-4c9f-be1b-cb45093bda83",
+            "image_media_data": null,
+            "is_local": true,
+            "kind": {
+              "File": {
+                "extension": "txt"
+              }
+            },
+            "modified_at": "2025-11-20T10:05:33Z",
+            "name": "direct_child1",
+            "sd_path": {
+              "Physical": {
+                "device_slug": "james-s-macbook-pro",
+                "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child1.txt"
+              }
+            },
+            "sidecars": [],
+            "size": 22,
+            "tags": [],
+            "video_media_data": null
+          },
+          {
+            "accessed_at": null,
+            "alternate_paths": [],
+            "audio_media_data": null,
+            "content_identity": {
+              "content_hash": "afa020c6ae2455ab",
+              "entry_count": 1,
+              "first_seen_at": "2025-11-20T10:05:34.161850Z",
+              "integrity_hash": null,
+              "kind": "text",
+              "last_verified_at": "2025-11-20T10:05:34.161850Z",
+              "mime_type_id": 1,
+              "text_content": null,
+              "total_size": 20,
+              "uuid": "2e8b05ca-26ca-5653-95f5-40f72b6e0426"
+            },
+            "content_kind": "text",
+            "created_at": "2025-11-20T10:05:34.149522Z",
+            "duration_seconds": null,
+            "extension": "txt",
+            "id": "4f5b1083-26e3-4ca7-8b27-070366bfb865",
+            "image_media_data": null,
+            "is_local": true,
+            "kind": {
+              "File": {
+                "extension": "txt"
+              }
+            },
+            "modified_at": "2025-11-20T10:05:33Z",
+            "name": "direct_child2",
+            "sd_path": {
+              "Physical": {
+                "device_slug": "james-s-macbook-pro",
+                "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/direct_child2.txt"
+              }
+            },
+            "sidecars": [],
+            "size": 20,
+            "tags": [],
+            "video_media_data": null
+          },
+          {
+            "accessed_at": null,
+            "alternate_paths": [],
+            "audio_media_data": null,
+            "content_identity": null,
+            "content_kind": "unknown",
+            "created_at": "2025-11-20T10:05:34.148950Z",
+            "duration_seconds": null,
+            "extension": null,
+            "id": "4033a83e-ab13-43c6-9381-6adb57584260",
+            "image_media_data": null,
+            "is_local": true,
+            "kind": "Directory",
+            "modified_at": "2025-11-20T10:05:33Z",
+            "name": "subfolder",
+            "sd_path": {
+              "Physical": {
+                "device_slug": "james-s-macbook-pro",
+                "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location/subfolder"
+              }
+            },
+            "sidecars": [],
+            "size": 160,
+            "tags": [],
+            "video_media_data": null
+          }
+        ]
+      },
+      "initial_state": {
+        "files": []
+      },
+      "name": "media_view_recursive_mode",
+      "query": {
+        "includeDescendants": true,
+        "input": {
+          "include_descendants": true,
+          "limit": 10000,
+          "media_types": null,
+          "path": {
+            "Physical": {
+              "device_slug": "james-s-macbook-pro",
+              "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+            }
+          },
+          "sort_by": "name"
+        },
+        "pathScope": {
+          "Physical": {
+            "device_slug": "james-s-macbook-pro",
+            "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+          }
+        },
+        "resourceType": "file",
+        "wireMethod": "query:files.media_listing"
+      }
+    },
+    {
+      "description": "Location list should update when locations are created or modified",
+      "events": [
+        {
+          "ResourceChanged": {
+            "metadata": null,
+            "resource": {
+              "created_at": "2025-11-20T10:05:34.138643Z",
+              "error_message": null,
+              "id": "b08cfae8-2013-442c-b953-abd90387e3e5",
+              "index_mode": "deep",
+              "job_policies": {
+                "object_detection": {
+                  "categories": [],
+                  "enabled": false,
+                  "min_confidence": 0.699999988079071,
+                  "reprocess": false
+                },
+                "ocr": {
+                  "enabled": false,
+                  "languages": [
+                    "eng"
+                  ],
+                  "min_confidence": 0.6000000238418579,
+                  "reprocess": false
+                },
+                "proxy": {
+                  "enabled": false,
+                  "regenerate": false
+                },
+                "speech_to_text": {
+                  "enabled": false,
+                  "language": null,
+                  "model": "base",
+                  "reprocess": false
+                },
+                "thumbnail": {
+                  "enabled": true,
+                  "quality": 85,
+                  "regenerate": false,
+                  "sizes": []
+                },
+                "thumbstrip": {
+                  "enabled": false,
+                  "regenerate": false
+                }
+              },
+              "last_scan_at": null,
+              "name": "Test Location",
+              "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location",
+              "scan_state": "pending",
+              "sd_path": {
+                "Physical": {
+                  "device_slug": "james-s-macbook-pro",
+                  "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+                }
+              },
+              "total_byte_size": 0,
+              "total_file_count": 0,
+              "updated_at": "2025-11-20T10:05:34.138643Z"
+            },
+            "resource_type": "location"
+          }
+        }
+      ],
+      "expected_final_state": {
+        "locations": [
+          {
+            "created_at": "2025-11-20T10:05:34.138643Z",
+            "error_message": null,
+            "id": "b08cfae8-2013-442c-b953-abd90387e3e5",
+            "index_mode": "deep",
+            "job_policies": {
+              "object_detection": {
+                "categories": [],
+                "enabled": false,
+                "min_confidence": 0.699999988079071,
+                "reprocess": false
+              },
+              "ocr": {
+                "enabled": false,
+                "languages": [
+                  "eng"
+                ],
+                "min_confidence": 0.6000000238418579,
+                "reprocess": false
+              },
+              "proxy": {
+                "enabled": false,
+                "regenerate": false
+              },
+              "speech_to_text": {
+                "enabled": false,
+                "language": null,
+                "model": "base",
+                "reprocess": false
+              },
+              "thumbnail": {
+                "enabled": true,
+                "quality": 85,
+                "regenerate": false,
+                "sizes": []
+              },
+              "thumbstrip": {
+                "enabled": false,
+                "regenerate": false
+              }
+            },
+            "last_scan_at": null,
+            "name": "Test Location",
+            "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location",
+            "scan_state": "scanning",
+            "sd_path": {
+              "Physical": {
+                "device_slug": "james-s-macbook-pro",
+                "path": "/var/folders/97/kz1bsl6s5s5343pr3syfp90m0000gn/T/.tmp7xnA3u/test_location"
+              }
+            },
+            "total_byte_size": 0,
+            "total_file_count": 0,
+            "updated_at": "2025-11-20T10:05:34.140345Z"
+          }
+        ]
+      },
+      "expected_location_count": 1,
+      "expected_location_names": [
+        "Test Location"
+      ],
+      "initial_state": {
+        "locations": []
+      },
+      "name": "location_updates",
+      "query": {
+        "includeDescendants": false,
+        "input": null,
+        "pathScope": null,
+        "resourceType": "location",
+        "wireMethod": "query:locations.list"
+      }
+    }
+  ]
+}

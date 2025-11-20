@@ -122,6 +122,8 @@ export function MediaView() {
 				}
 			: null!,
 		resourceType: "file",
+		pathScope: currentPath,
+		includeDescendants: true, // Recursive - show all media in subdirectories
 		enabled: !!currentPath,
 		// No resourceFilter needed - the backend query already filters for media
 	});

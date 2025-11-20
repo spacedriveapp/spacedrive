@@ -112,12 +112,14 @@ interface UseNormalizedCacheOptions<I> {
 	/**
 	 * Optional path scope for filtering events to a specific directory/path.
 	 * When provided, the backend includes affected_paths in event metadata for efficient filtering.
-	 *
-	 * Note: Full server-side filtering is available via EventFilter.path_scope in the daemon,
-	 * but current client architecture uses a single global subscription. Future enhancement
-	 * could create separate filtered subscriptions per hook.
 	 */
 	pathScope?: import("../types").SdPath;
+	/**
+	 * Whether to include descendants (recursive matching) or only direct children (exact matching).
+	 * - false (default): Only match files whose parent directory exactly equals pathScope (directory view)
+	 * - true: Match all files under pathScope recursively (media view, search results)
+	 */
+	includeDescendants?: boolean;
 }
 
 /**
@@ -156,6 +158,7 @@ export function useNormalizedCache<I, O>({
 	resourceFilter,
 	resourceId,
 	pathScope,
+	includeDescendants = false,
 }: UseNormalizedCacheOptions<I>) {
 	const client = useSpacedriveClient();
 	const queryClient = useQueryClient();
@@ -196,103 +199,8 @@ export function useNormalizedCache<I, O>({
 		enabled: enabled && !!libraryId,
 	});
 
-	// Listen for ResourceChanged events and update cache atomically
+	// Listen for ResourceChanged events via filtered subscription
 	useEffect(() => {
-		// Helper: Check if event affects the pathScope (if specified)
-		const eventAffectsPath = (metadata: any): boolean => {
-			if (!pathScope) return true; // No path filter, accept all
-
-			const affectedPaths = metadata?.affected_paths || [];
-			if (affectedPaths.length === 0) return true; // Global resource, no paths
-
-			// Check if any affected path matches our pathScope
-			return affectedPaths.some((affectedPath: any) => {
-				// Handle Physical paths with hierarchy
-				if ("Physical" in pathScope && "Physical" in affectedPath) {
-					// Handle both device_id (manual types) and device_slug (generated types)
-					const scopeDevice =
-						(pathScope.Physical as any).device_slug ||
-						(pathScope.Physical as any).device_id;
-					const scopePath = (pathScope.Physical as any).path;
-					const fileDevice =
-						(affectedPath.Physical as any).device_slug ||
-						(affectedPath.Physical as any).device_id;
-					const filePath = (affectedPath.Physical as any).path;
-
-					// Must be same device AND file must be under scope directory
-					return (
-						scopeDevice === fileDevice &&
-						filePath.startsWith(scopePath)
-					);
-				}
-
-				// Handle Content ID paths
-				if ("Content" in pathScope && "Content" in affectedPath) {
-					const scope = pathScope as {
-						Content: { content_id: string };
-					};
-					const affected = affectedPath as {
-						Content: { content_id: string };
-					};
-					return (
-						scope.Content.content_id === affected.Content.content_id
-					);
-				}
-
-				// Handle Sidecar paths (match by content ID)
-				if ("Content" in pathScope && "Sidecar" in affectedPath) {
-					const scope = pathScope as {
-						Content: { content_id: string };
-					};
-					const affected = affectedPath as {
-						Sidecar: { content_id: string };
-					};
-					return (
-						scope.Content.content_id === affected.Sidecar.content_id
-					);
-				}
-				if ("Sidecar" in pathScope && "Content" in affectedPath) {
-					const scope = pathScope as {
-						Sidecar: { content_id: string };
-					};
-					const affected = affectedPath as {
-						Content: { content_id: string };
-					};
-					return (
-						scope.Sidecar.content_id === affected.Content.content_id
-					);
-				}
-
-				// Handle Cloud paths
-				if ("Cloud" in pathScope && "Cloud" in affectedPath) {
-					const scope = pathScope as {
-						Cloud: {
-							service: string;
-							identifier: string;
-							path: string;
-						};
-					};
-					const affected = affectedPath as {
-						Cloud: {
-							service: string;
-							identifier: string;
-							path: string;
-						};
-					};
-					return (
-						scope.Cloud.service === affected.Cloud.service &&
-						scope.Cloud.identifier === affected.Cloud.identifier &&
-						affected.Cloud.path.startsWith(scope.Cloud.path)
-					);
-				}
-
-				// Fallback to exact match for unknown types
-				return (
-					JSON.stringify(affectedPath) === JSON.stringify(pathScope)
-				);
-			});
-		};
-
 		const handleEvent = (event: any) => {
 			// Handle Refresh event - invalidate all queries
 			if ("Refresh" in event) {
@@ -324,11 +232,7 @@ export function useNormalizedCache<I, O>({
 						event,
 					);
 
-				if (
-					resource_type === resourceType &&
-					eventAffectsPath(metadata)
-				) {
-					console.log("ResourceChanged event affects path", metadata);
+				if (resource_type === resourceType) {
 					// Atomic update: merge this resource into the query data
 					queryClient.setQueryData<O>(queryKey, (oldData) => {
 						if (!oldData) {
@@ -499,21 +403,82 @@ export function useNormalizedCache<I, O>({
 						"targeted ResourceChangedBatch event",
 						resource_type,
 						resourceType,
-						"passes path filter:",
-						eventAffectsPath(metadata),
 						metadata,
 					);
 				}
 
 				if (
 					resource_type === resourceType &&
-					Array.isArray(resources) &&
-					eventAffectsPath(metadata)
+					Array.isArray(resources)
 				) {
-					// Filter to matching resourceId if specified (for single-resource queries)
-					const filteredResources = resourceId
-						? resources.filter((r: any) => r.id === resourceId)
-						: resources;
+					// Filter resources by resourceId and pathScope
+					let filteredResources = resources;
+
+					// Filter by resourceId if specified
+					if (resourceId) {
+						filteredResources = filteredResources.filter(
+							(r: any) => r.id === resourceId,
+						);
+					}
+
+					// Filter by pathScope for file resources
+					if (
+						pathScope &&
+						resourceType === "file" &&
+						!includeDescendants
+					) {
+						// Exact mode: only include files directly in this directory
+						const beforeCount = filteredResources.length;
+						filteredResources = filteredResources.filter(
+							(resource: any) => {
+								const filePath = resource.sd_path;
+								if (!filePath?.Physical) {
+									console.log(
+										"[Batch filter] No Physical path, skipping:",
+										resource.name,
+									);
+									return false;
+								}
+
+								const pathStr = filePath.Physical.path;
+								const scopeStr = (pathScope as any).Physical
+									?.path;
+								if (!scopeStr) {
+									console.log(
+										"[Batch filter] No scope path, skipping:",
+										resource.name,
+									);
+									return false;
+								}
+
+								// Get parent directory of the file
+								const lastSlash = pathStr.lastIndexOf("/");
+								if (lastSlash === -1) return false;
+								const parentDir = pathStr.substring(
+									0,
+									lastSlash,
+								);
+
+								const matches = parentDir === scopeStr;
+								console.log(
+									"[Batch filter]",
+									resource.name,
+									"- parent:",
+									parentDir,
+									"scope:",
+									scopeStr,
+									"match:",
+									matches,
+								);
+
+								// Only include if parent directory exactly matches scope
+								return matches;
+							},
+						);
+						console.log(
+							`[Batch filter] Filtered ${beforeCount} → ${filteredResources.length} files for exact pathScope matching`,
+						);
+					}
 
 					if (filteredResources.length === 0) {
 						return; // No matching resources for this query
@@ -833,13 +798,52 @@ export function useNormalizedCache<I, O>({
 			}
 		};
 
-		// Subscribe to events
-		const unsubscribe = client.on("spacedrive-event", handleEvent);
+		// Create filtered subscription for this specific hook
+		if (!libraryId) return;
+
+		// For file queries, require pathScope to prevent overly broad subscriptions
+		if (resourceType === "file" && !pathScope) {
+			console.log(
+				"[useNormalizedCache] Skipping subscription - file query requires pathScope",
+			);
+			return;
+		}
+
+		let unsubscribe: (() => void) | undefined;
+
+		const filter = {
+			resource_type: resourceType,
+			path_scope: pathScope,
+			library_id: libraryId,
+			include_descendants: includeDescendants,
+		};
+
+		console.log("[useNormalizedCache] Creating filtered subscription:", {
+			wireMethod,
+			filter,
+		});
+
+		client.subscribeFiltered(filter, handleEvent).then((unsub) => {
+			unsubscribe = unsub;
+		});
 
 		return () => {
-			client.off("spacedrive-event", handleEvent);
+			console.log("[useNormalizedCache] Cleaning up subscription:", {
+				wireMethod,
+				filter,
+			});
+			unsubscribe?.();
 		};
-	}, [resourceType, queryKey, queryClient, pathScope]);
+	}, [
+		client,
+		resourceType,
+		pathScope,
+		libraryId,
+		includeDescendants,
+		queryKey,
+		queryClient,
+		resourceId,
+	]);
 
 	return query;
 }

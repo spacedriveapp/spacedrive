@@ -52,6 +52,7 @@ async fn run_events_monitor(ctx: &Context, args: EventsMonitorArgs) -> Result<()
 		device_id: args.device_id,
 		resource_type: None,
 		path_scope: None,
+		include_descendants: None,
 	};
 
 	// Subscribe to all events (we'll filter by type client-side)
