@@ -4,6 +4,7 @@ import {
   useState,
   useMemo,
   useEffect,
+  useCallback,
   type ReactNode,
 } from "react";
 import { useLibraryQuery, useNormalizedCache } from "../../context";
@@ -104,60 +105,68 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
   }, [devicesQuery.data]);
 
 
-  const goBack = () => {
+  const goBack = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       setCurrentPathInternal(history[newIndex]);
     }
-  };
+  }, [historyIndex, history]);
 
-  const goForward = () => {
+  const goForward = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       setCurrentPathInternal(history[newIndex]);
     }
-  };
+  }, [historyIndex, history]);
 
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
 
-  const setCurrentPath = (path: SdPath | null) => {
+  const setCurrentPath = useCallback((path: SdPath | null) => {
     if (path) {
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push(path);
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
+      setHistory((prev) => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(path);
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+      });
     }
     setCurrentPathInternal(path);
-  };
+  }, [historyIndex]);
 
-  const openQuickPreview = (fileId: string) => {
+  const openQuickPreview = useCallback((fileId: string) => {
     setQuickPreviewFileId(fileId);
-  };
+  }, []);
 
-  const closeQuickPreview = () => {
+  const closeQuickPreview = useCallback(() => {
     setQuickPreviewFileId(null);
-  };
+  }, []);
 
-  const goToNextPreview = (files: File[]) => {
-    if (!quickPreviewFileId) return;
-    const currentIndex = files.findIndex(f => f.id === quickPreviewFileId);
-    if (currentIndex < files.length - 1) {
-      setQuickPreviewFileId(files[currentIndex + 1].id);
-    }
-  };
+  const goToNextPreview = useCallback((files: File[]) => {
+    setQuickPreviewFileId((current) => {
+      if (!current) return current;
+      const currentIndex = files.findIndex(f => f.id === current);
+      if (currentIndex < files.length - 1) {
+        return files[currentIndex + 1].id;
+      }
+      return current;
+    });
+  }, []);
 
-  const goToPreviousPreview = (files: File[]) => {
-    if (!quickPreviewFileId) return;
-    const currentIndex = files.findIndex(f => f.id === quickPreviewFileId);
-    if (currentIndex > 0) {
-      setQuickPreviewFileId(files[currentIndex - 1].id);
-    }
-  };
+  const goToPreviousPreview = useCallback((files: File[]) => {
+    setQuickPreviewFileId((current) => {
+      if (!current) return current;
+      const currentIndex = files.findIndex(f => f.id === current);
+      if (currentIndex > 0) {
+        return files[currentIndex - 1].id;
+      }
+      return current;
+    });
+  }, []);
 
-  const value: ExplorerState = {
+  const value: ExplorerState = useMemo(() => ({
     currentPath,
     setCurrentPath,
     history,
@@ -183,7 +192,26 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     goToNextPreview,
     goToPreviousPreview,
     devices,
-  };
+  }), [
+    currentPath,
+    history,
+    historyIndex,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+    viewMode,
+    sortBy,
+    viewSettings,
+    sidebarVisible,
+    inspectorVisible,
+    quickPreviewFileId,
+    openQuickPreview,
+    closeQuickPreview,
+    goToNextPreview,
+    goToPreviousPreview,
+    devices,
+  ]);
 
   return (
     <ExplorerContext.Provider value={value}>

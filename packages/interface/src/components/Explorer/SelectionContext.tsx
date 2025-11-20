@@ -63,44 +63,52 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
   const selectFile = useCallback((file: File, files: File[], multi = false, range = false) => {
     const fileIndex = files.findIndex((f) => f.id === file.id);
 
-    if (range && lastSelectedIndex !== -1) {
-      const start = Math.min(lastSelectedIndex, fileIndex);
-      const end = Math.max(lastSelectedIndex, fileIndex);
-      const rangeFiles = files.slice(start, end + 1);
-      setSelectedFiles(rangeFiles);
-      setFocusedIndex(fileIndex);
-    } else if (multi) {
-      const isSelected = selectedFiles.some((f) => f.id === file.id);
-      if (isSelected) {
-        setSelectedFiles(selectedFiles.filter((f) => f.id !== file.id));
+    setLastSelectedIndex((prevLastIndex) => {
+      if (range && prevLastIndex !== -1) {
+        const start = Math.min(prevLastIndex, fileIndex);
+        const end = Math.max(prevLastIndex, fileIndex);
+        const rangeFiles = files.slice(start, end + 1);
+        setSelectedFiles(rangeFiles);
+        setFocusedIndex(fileIndex);
+        return prevLastIndex;
+      } else if (multi) {
+        setSelectedFiles((prev) => {
+          const isSelected = prev.some((f) => f.id === file.id);
+          if (isSelected) {
+            return prev.filter((f) => f.id !== file.id);
+          } else {
+            return [...prev, file];
+          }
+        });
+        setFocusedIndex(fileIndex);
+        return fileIndex;
       } else {
-        setSelectedFiles([...selectedFiles, file]);
+        setSelectedFiles([file]);
+        setFocusedIndex(fileIndex);
+        return fileIndex;
       }
-      setLastSelectedIndex(fileIndex);
-      setFocusedIndex(fileIndex);
-    } else {
-      setSelectedFiles([file]);
-      setLastSelectedIndex(fileIndex);
-      setFocusedIndex(fileIndex);
-    }
-  }, [selectedFiles, lastSelectedIndex]);
+    });
+  }, []);
 
   const moveFocus = useCallback((direction: "up" | "down" | "left" | "right", files: File[]) => {
     if (files.length === 0) return;
 
-    let newIndex = focusedIndex;
+    setFocusedIndex((currentFocusedIndex) => {
+      let newIndex = currentFocusedIndex;
 
-    if (direction === "up") newIndex = Math.max(0, focusedIndex - 1);
-    if (direction === "down") newIndex = Math.min(files.length - 1, focusedIndex + 1);
-    if (direction === "left") newIndex = Math.max(0, focusedIndex - 1);
-    if (direction === "right") newIndex = Math.min(files.length - 1, focusedIndex + 1);
+      if (direction === "up") newIndex = Math.max(0, currentFocusedIndex - 1);
+      if (direction === "down") newIndex = Math.min(files.length - 1, currentFocusedIndex + 1);
+      if (direction === "left") newIndex = Math.max(0, currentFocusedIndex - 1);
+      if (direction === "right") newIndex = Math.min(files.length - 1, currentFocusedIndex + 1);
 
-    if (newIndex !== focusedIndex) {
-      setFocusedIndex(newIndex);
-      setSelectedFiles([files[newIndex]]);
-      setLastSelectedIndex(newIndex);
-    }
-  }, [focusedIndex]);
+      if (newIndex !== currentFocusedIndex) {
+        setSelectedFiles([files[newIndex]]);
+        setLastSelectedIndex(newIndex);
+      }
+
+      return newIndex;
+    });
+  }, []);
 
   // Create a Set of selected file IDs for O(1) lookup
   const selectedFileIds = useMemo(
@@ -114,7 +122,7 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     [selectedFileIds]
   );
 
-  const value = {
+  const value = useMemo(() => ({
     selectedFiles,
     selectedFileIds,
     isSelected,
@@ -125,7 +133,16 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     focusedIndex,
     setFocusedIndex,
     moveFocus,
-  };
+  }), [
+    selectedFiles,
+    selectedFileIds,
+    isSelected,
+    selectFile,
+    clearSelection,
+    selectAll,
+    focusedIndex,
+    moveFocus,
+  ]);
 
   return <SelectionContext.Provider value={value}>{children}</SelectionContext.Provider>;
 }

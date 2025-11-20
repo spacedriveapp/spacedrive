@@ -1,10 +1,12 @@
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { useNormalizedCache } from "../../../../context";
 import { FileCard } from "./FileCard";
 import type { DirectorySortBy } from "@sd/ts-client/generated/types";
 
 export function GridView() {
   const { currentPath, sortBy, viewSettings } = useExplorer();
+  const { isSelected, focusedIndex, selectedFiles, selectFile } = useSelection();
   const { gridSize, gapSize } = viewSettings;
 
   const directoryQuery = useNormalizedCache({
@@ -38,6 +40,10 @@ export function GridView() {
           file={file}
           fileIndex={index}
           allFiles={files}
+          selected={isSelected(file.id)}
+          focused={index === focusedIndex}
+          selectedFiles={selectedFiles}
+          selectFile={selectFile}
         />
       ))}
     </div>

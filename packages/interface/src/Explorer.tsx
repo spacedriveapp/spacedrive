@@ -1,13 +1,22 @@
 import { SpacedriveProvider, type SpacedriveClient } from "./context";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { RouterProvider, Outlet, useLocation, useParams } from "react-router-dom";
+import {
+  RouterProvider,
+  Outlet,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { useEffect, useMemo } from "react";
 import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExplorerProvider, useExplorer, Sidebar } from "./components/explorer";
-import { SelectionProvider, useSelection } from "./components/Explorer/SelectionContext";
+import {
+  SelectionProvider,
+  useSelection,
+} from "./components/Explorer/SelectionContext";
+import { KeyboardHandler } from "./components/Explorer/KeyboardHandler";
 import { SpacesSidebar } from "./components/SpacesSidebar";
 import { QuickPreviewModal } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
@@ -37,7 +46,10 @@ export function ExplorerLayout() {
   const isOverview = location.pathname === "/";
 
   // Fetch locations to get current location info
-  const locationsQuery = useNormalizedCache<null, { locations: LocationInfo[] }>({
+  const locationsQuery = useNormalizedCache<
+    null,
+    { locations: LocationInfo[] }
+  >({
     wireMethod: "query:locations.list",
     input: null,
     resourceType: "location",
@@ -46,7 +58,11 @@ export function ExplorerLayout() {
   // Get current location if we're on a location route
   const currentLocation = useMemo(() => {
     if (!params.locationId || !locationsQuery.data?.locations) return null;
-    return locationsQuery.data.locations.find(loc => loc.id === params.locationId) || null;
+    return (
+      locationsQuery.data.locations.find(
+        (loc) => loc.id === params.locationId,
+      ) || null
+    );
   }, [params.locationId, locationsQuery.data]);
 
   useEffect(() => {
@@ -57,10 +73,13 @@ export function ExplorerLayout() {
 
     (async () => {
       try {
-        unlisten = await platform.onWindowEvent("inspector-window-closed", () => {
-          // Show embedded inspector when floating window closes
-          setInspectorVisible(true);
-        });
+        unlisten = await platform.onWindowEvent(
+          "inspector-window-closed",
+          () => {
+            // Show embedded inspector when floating window closes
+            setInspectorVisible(true);
+          },
+        );
       } catch (err) {
         console.error("Failed to setup inspector close listener:", err);
       }
@@ -112,6 +131,9 @@ export function ExplorerLayout() {
         {/* Router content renders here */}
         <Outlet />
       </div>
+
+      {/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
+      <KeyboardHandler />
 
       <AnimatePresence initial={false}>
         {/* Hide inspector on Overview screen */}

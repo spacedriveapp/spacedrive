@@ -1,0 +1,16 @@
+[package]
+name = "gpui-photo-grid"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gpui-photo-grid"
+path = "src/main.rs"
+
+[dependencies]
+gpui = { path = "/Users/jamespine/Projects/zed/crates/gpui" }
+reqwest_client = { path = "/Users/jamespine/Projects/zed/crates/reqwest_client" }
+sd-client = { path = "../../crates/sd-client" }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+env_logger = "0.11"

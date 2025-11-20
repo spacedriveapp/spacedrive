@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useExplorer } from "./context";
 import { useNormalizedCache } from "../../context";
-import { useExplorerKeyboard } from "./hooks/useExplorerKeyboard";
 import { GridView } from "./views/GridView";
 import { ListView } from "./views/ListView";
 import { MediaView } from "./views/MediaView";
@@ -28,9 +27,6 @@ import { SortMenu } from "./SortMenu";
 
 export function ExplorerView() {
   const { locationId } = useParams();
-
-  // Enable keyboard navigation
-  useExplorerKeyboard();
   const {
     sidebarVisible,
     setSidebarVisible,
@@ -59,7 +55,9 @@ export function ExplorerView() {
   // Set currentPath from location ID (only when location changes)
   useEffect(() => {
     if (locationId && locationsQuery.data?.locations) {
-      const location = locationsQuery.data.locations.find((loc: any) => loc.id === locationId);
+      const location = locationsQuery.data.locations.find(
+        (loc: any) => loc.id === locationId,
+      );
       if (location?.sd_path) {
         // Only set if different to avoid infinite loops
         const currentPathStr = JSON.stringify(currentPath);
@@ -140,7 +138,11 @@ export function ExplorerView() {
               />
             </TopBarButtonGroup>
             <ViewSettings />
-            <SortMenu sortBy={sortBy} onSortChange={setSortBy} viewMode={viewMode} />
+            <SortMenu
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              viewMode={viewMode}
+            />
             <TopBarButton
               icon={Info}
               onClick={() => setInspectorVisible(!inspectorVisible)}

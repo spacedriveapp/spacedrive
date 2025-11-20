@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import { useTopBar } from "./Context";
 import clsx from "clsx";
 
@@ -7,7 +7,7 @@ interface TopBarProps {
 	inspectorWidth?: number;
 }
 
-export function TopBar({ sidebarWidth = 0, inspectorWidth = 0 }: TopBarProps) {
+export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 0 }: TopBarProps) {
 	const { setLeftRef, setCenterRef, setRightRef } = useTopBar();
 	const leftRef = useRef<HTMLDivElement>(null);
 	const centerRef = useRef<HTMLDivElement>(null);
@@ -38,4 +38,4 @@ export function TopBar({ sidebarWidth = 0, inspectorWidth = 0 }: TopBarProps) {
 			</div>
 		</div>
 	);
-}
+});

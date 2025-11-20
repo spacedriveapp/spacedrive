@@ -1,3 +1,4 @@
+import { memo } from "react";
 import clsx from "clsx";
 import {
 	Copy,
@@ -32,20 +33,19 @@ interface FileCardProps {
   file: File;
   fileIndex: number;
   allFiles: File[];
+  selected: boolean;
+  focused: boolean;
+  selectedFiles: File[];
+  selectFile: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
 }
 
-export function FileCard({ file, fileIndex, allFiles }: FileCardProps) {
+export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, selected, focused, selectedFiles, selectFile }: FileCardProps) {
   const { setCurrentPath, viewSettings, currentPath } = useExplorer();
-  const { selectedFiles, selectFile, isSelected, focusedIndex } = useSelection();
   const { gridSize, showFileSize } = viewSettings;
   const platform = usePlatform();
   const copyFiles = useLibraryMutation("files.copy");
   const deleteFiles = useLibraryMutation("files.delete");
   const { runJob } = useJobDispatch();
-
-  // Compute selection/focus state
-  const selected = isSelected(file.id);
-  const focused = fileIndex === focusedIndex;
 
   // Get the files to operate on (multi-select or just this file)
   const getTargetFiles = () => {
@@ -481,4 +481,13 @@ export function FileCard({ file, fileIndex, allFiles }: FileCardProps) {
       </div>
     </FileComponent>
   );
-}
+}, (prev, next) => {
+  // Custom comparison - rerender if file object, selection, or focus changed
+  // Ignore selectedFiles and selectFile function reference changes
+  if (prev.file !== next.file) return false; // File object reference changed
+  if (prev.selected !== next.selected) return false; // Selection state changed
+  if (prev.focused !== next.focused) return false; // Focus state changed
+  if (prev.fileIndex !== next.fileIndex) return false; // Index changed
+  // Ignore: allFiles, selectedFiles, selectFile (passed through to handlers)
+  return true; // Props are equal, skip rerender
+});

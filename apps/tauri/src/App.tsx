@@ -1,10 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Explorer, FloatingControls, LocationCacheDemo, PopoutInspector, QuickPreview, PlatformProvider, SpacedriveProvider } from "@sd/interface";
+import {
+  Explorer,
+  FloatingControls,
+  LocationCacheDemo,
+  PopoutInspector,
+  QuickPreview,
+  PlatformProvider,
+  SpacedriveProvider,
+} from "@sd/interface";
 import { SpacedriveClient, TauriTransport } from "@sd/ts-client";
 import { useEffect, useState } from "react";
-import { scan } from "react-scan";
 import { DragOverlay } from "./routes/DragOverlay";
 import { ContextMenuWindow } from "./routes/ContextMenuWindow";
 import { DragDemo } from "./components/DragDemo";
@@ -18,12 +25,14 @@ function App() {
   const [route, setRoute] = useState<string>("/");
 
   useEffect(() => {
-    // Enable react-scan in development
+    // React Scan disabled - too heavy for development
+    // Uncomment if you need to debug render performance:
     if (import.meta.env.DEV) {
-      scan({
-        enabled: true,
-        log: false,
-      });
+      setTimeout(() => {
+        import("react-scan").then(({ scan }) => {
+          scan({ enabled: true, log: false });
+        });
+      }, 2000);
     }
 
     // Initialize Tauri native context menu handler
@@ -40,7 +49,9 @@ function App() {
         // React's onContextMenu handlers can override this with their own preventDefault
         e.preventDefault();
       };
-      document.addEventListener('contextmenu', preventContextMenu, { capture: false });
+      document.addEventListener("contextmenu", preventContextMenu, {
+        capture: false,
+      });
     }
 
     // Set route based on window label
@@ -75,7 +86,8 @@ function App() {
 
       // Query current library ID from platform state (for popout windows)
       if (platform.getCurrentLibraryId) {
-        platform.getCurrentLibraryId()
+        platform
+          .getCurrentLibraryId()
           .then((libraryId) => {
             if (libraryId) {
               spacedrive.setCurrentLibrary(libraryId, false); // Don't emit - already in sync
