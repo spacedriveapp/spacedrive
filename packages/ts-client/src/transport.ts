@@ -65,10 +65,6 @@ export class TauriTransport implements Transport {
 			eventTypes: options?.event_types ?? DEFAULT_EVENT_SUBSCRIPTION,
 			filter: options?.filter ?? null,
 		};
-		console.log(
-			"[TauriTransport] Invoking subscribe_to_events with:",
-			args,
-		);
 		const subscriptionId = await this.invoke("subscribe_to_events", args);
 
 		// Listen to forwarded events from Tauri
@@ -78,13 +74,7 @@ export class TauriTransport implements Transport {
 
 		// Return cleanup function that properly unsubscribes
 		return async () => {
-			console.log(
-				"[TauriTransport] Unsubscribing from subscription:",
-				subscriptionId,
-			);
-			unlisten(); // Stop frontend listener
-
-			// Tell backend to close the subscription and socket
+			unlisten();
 			try {
 				await this.invoke("unsubscribe_from_events", {
 					subscriptionId,

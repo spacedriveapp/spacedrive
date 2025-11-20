@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { useLibraryQuery, useLibraryMutation } from "../../../context";
-import { useEvent } from "../../../hooks/useEvent";
+import { useState, useEffect, useRef } from "react";
+import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../context";
 import type { JobListItem } from "../types";
 
 export function useJobManager() {
   const [jobs, setJobs] = useState<JobListItem[]>([]);
+  const client = useSpacedriveClient();
 
   const { data, isLoading, error, refetch } = useLibraryQuery({
     type: "jobs.list",
@@ -14,64 +14,66 @@ export function useJobManager() {
   const pauseMutation = useLibraryMutation("jobs.pause");
   const resumeMutation = useLibraryMutation("jobs.resume");
 
+  // Ref for stable refetch access
+  const refetchRef = useRef(refetch);
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
   useEffect(() => {
     if (data?.jobs) {
       setJobs(data.jobs);
     }
   }, [data]);
 
-  useEvent("JobQueued", () => {
-    refetch();
-  });
+  // Subscribe to job events using filtered subscription
+  useEffect(() => {
+    if (!client) return;
 
-  useEvent("JobStarted", () => {
-    refetch();
-  });
+    let unsubscribe: (() => void) | undefined;
 
-  useEvent("JobProgress", (event: any) => {
-    const progressData = event.JobProgress;
-    if (!progressData) return;
+    const handleEvent = (event: any) => {
+      if ("JobQueued" in event || "JobStarted" in event || "JobCompleted" in event ||
+          "JobFailed" in event || "JobPaused" in event || "JobResumed" in event ||
+          "JobCancelled" in event) {
+        refetchRef.current();
+      } else if ("JobProgress" in event) {
+        const progressData = event.JobProgress;
+        if (!progressData) return;
 
-    setJobs((prev) =>
-      prev.map((job) => {
-        if (job.id !== progressData.job_id) return job;
+        setJobs((prev) =>
+          prev.map((job) => {
+            if (job.id !== progressData.job_id) return job;
 
-        // Extract rich metadata from generic_progress
-        const generic = progressData.generic_progress;
+            const generic = progressData.generic_progress;
 
-        return {
-          ...job,
-          progress: progressData.progress,
-          // Store additional metadata for better UI
-          ...(generic && {
-            current_phase: generic.phase,
-            current_path: generic.current_path,
-            status_message: generic.message,
+            return {
+              ...job,
+              progress: progressData.progress,
+              ...(generic && {
+                current_phase: generic.phase,
+                current_path: generic.current_path,
+                status_message: generic.message,
+              }),
+            };
           }),
-        };
-      }),
-    );
-  });
+        );
+      }
+    };
 
-  useEvent("JobCompleted", () => {
-    refetch();
-  });
+    // Subscribe to job events only
+    const filter = {
+      event_types: ["JobQueued", "JobStarted", "JobProgress", "JobCompleted", "JobFailed", "JobPaused", "JobResumed", "JobCancelled"],
+    };
 
-  useEvent("JobFailed", () => {
-    refetch();
-  });
+    client.subscribeFiltered(filter, handleEvent).then((unsub) => {
+      unsubscribe = unsub;
+    });
 
-  useEvent("JobPaused", () => {
-    refetch();
-  });
-
-  useEvent("JobResumed", () => {
-    refetch();
-  });
-
-  useEvent("JobCancelled", () => {
-    refetch();
-  });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [client]);
 
   const pause = async (jobId: string) => {
     await pauseMutation.mutateAsync({ job_id: jobId });

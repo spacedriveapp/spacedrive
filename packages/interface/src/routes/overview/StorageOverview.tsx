@@ -163,29 +163,6 @@ interface VolumeBarProps {
 	index: number;
 }
 
-// Dummy data generator - used when backend doesn't provide data yet
-function getDummyVolumeStats(volumeName: string) {
-	const hash = volumeName
-		.split("")
-		.reduce((acc, char) => acc + char.charCodeAt(0), 0);
-	const totalCapacity =
-		[500, 1000, 2000, 4000][hash % 4] * 1024 * 1024 * 1024;
-	const usedPercent = [0.3, 0.5, 0.7, 0.85, 0.95][hash % 5];
-	const usedBytes = Math.floor(totalCapacity * usedPercent);
-	const uniquePercent = [0.6, 0.7, 0.8, 0.9][hash % 4];
-	const uniqueBytes = Math.floor(usedBytes * uniquePercent);
-
-	return {
-		totalCapacity,
-		usedBytes,
-		uniqueBytes,
-		availableBytes: totalCapacity - usedBytes,
-		fileSystem: ["APFS", "NTFS", "ext4", "exFAT"][hash % 4],
-		diskType: ["SSD", "HDD", "NVMe"][hash % 3],
-		readSpeed: [3500, 550, 120][hash % 3],
-	};
-}
-
 function VolumeBar({ volume, index }: VolumeBarProps) {
 	const trackVolume = useLibraryMutation("volumes.track");
 
@@ -199,31 +176,24 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 		}
 	};
 
-	// Use real data from backend, fallback to dummy data if not available
-	const useDummyData = !volume.total_capacity;
-	const dummy = useDummyData ? getDummyVolumeStats(volume.name) : null;
+	if (!volume.total_capacity) {
+		return null;
+	}
 
-	const totalCapacity = volume.total_capacity || dummy!.totalCapacity;
-	const availableBytes = volume.available_capacity || dummy!.availableBytes;
+	const totalCapacity = volume.total_capacity;
+	const availableBytes = volume.available_capacity || 0;
 	const usedBytes = totalCapacity - availableBytes;
 
-	// Calculate unique bytes - if backend provides it, use it; otherwise estimate
-	const uniqueBytes =
-		volume.unique_bytes !== null
-			? volume.unique_bytes
-			: useDummyData
-				? dummy!.uniqueBytes
-				: Math.floor(usedBytes * 0.7);
-
+	const uniqueBytes = volume.unique_bytes ?? Math.floor(usedBytes * 0.7);
 	const duplicateBytes = usedBytes - uniqueBytes;
 
 	const usagePercent = (usedBytes / totalCapacity) * 100;
 	const uniquePercent = (uniqueBytes / totalCapacity) * 100;
 	const duplicatePercent = (duplicateBytes / totalCapacity) * 100;
 
-	const fileSystem = volume.file_system || dummy?.fileSystem || "Unknown";
-	const diskType = volume.disk_type || dummy?.diskType || "Unknown";
-	const readSpeed = volume.read_speed_mbps || dummy?.readSpeed;
+	const fileSystem = volume.file_system || "Unknown";
+	const diskType = volume.disk_type || "Unknown";
+	const readSpeed = volume.read_speed_mbps;
 
 	const iconSrc = getVolumeIcon(volume.volume_type, volume.name);
 
@@ -263,11 +233,6 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 									<Plus className="size-3" weight="bold" />
 									{trackVolume.isPending ? "Tracking..." : "Track"}
 								</button>
-							)}
-							{useDummyData && (
-								<span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-600 text-xs rounded-md border border-yellow-500/20">
-									Demo Data
-								</span>
 							)}
 						</div>
 						<div className="text-right">

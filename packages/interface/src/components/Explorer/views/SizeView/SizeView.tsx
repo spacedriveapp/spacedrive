@@ -304,7 +304,7 @@ export function SizeView() {
         clickTimeoutRef.current = setTimeout(() => {
           const multi = event.metaKey || event.ctrlKey;
           const range = event.shiftKey;
-          selectFileRef.current(d.data.file, multi, range);
+          selectFileRef.current(d.data.file, filesRef.current, multi, range);
 
           // Zoom to center this circle
           if (!multi && !range && svgRef.current && zoomBehaviorRef.current) {

@@ -66,11 +66,6 @@ impl LibraryQuery for FileByIdQuery {
 
 		let (entry_model, content_identity_model_opt) = entry_with_relations;
 
-		// Only proceed if this is actually a file (not a directory)
-		if entry_model.kind == 1 {
-			return Ok(None);
-		}
-
 		// Resolve the full absolute path for this file
 		let sd_path = self.resolve_file_path(&entry_model, db.conn()).await?;
 

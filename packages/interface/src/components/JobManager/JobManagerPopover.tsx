@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobList } from "./components/JobList";
+import { useJobCount } from "./hooks/useJobCount";
 import { useJobManager } from "./hooks/useJobManager";
 import { CARD_HEIGHT } from "./types";
 
@@ -14,9 +15,11 @@ interface JobManagerPopoverProps {
 
 export function JobManagerPopover({ className }: JobManagerPopoverProps) {
   const navigate = useNavigate();
-  const { jobs, activeJobCount, pause, resume } = useJobManager();
   const popover = usePopover();
   const [showOnlyRunning, setShowOnlyRunning] = useState(true);
+
+  // Lightweight hook for trigger badge/icon
+  const { activeJobCount, hasRunningJobs } = useJobCount();
 
   // Reset filter to "active only" when popover opens
   useEffect(() => {
@@ -24,13 +27,6 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
       setShowOnlyRunning(true);
     }
   }, [popover.open]);
-
-  const hasRunningJobs = jobs.some(job => job.status === "running");
-
-  // Filter jobs based on toggle
-  const filteredJobs = showOnlyRunning
-    ? jobs.filter(job => job.status === "running" || job.status === "paused")
-    : jobs;
 
   return (
     <Popover
@@ -95,19 +91,44 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
         </div>
       </div>
 
-      {/* Animated scrollable job list */}
-      <motion.div
-        className="overflow-y-auto no-scrollbar"
-        initial={false}
-        animate={{
-          height: filteredJobs.length === 0
-            ? CARD_HEIGHT + 16 // Minimum: one job height + padding
-            : Math.min(filteredJobs.length * (CARD_HEIGHT + 8) + 16, 400)
-        }}
-        transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-      >
-        <JobList jobs={filteredJobs} onPause={pause} onResume={resume} />
-      </motion.div>
+      {/* Popover content with full job manager */}
+      {popover.open && (
+        <JobManagerPopoverContent
+          showOnlyRunning={showOnlyRunning}
+          setShowOnlyRunning={setShowOnlyRunning}
+        />
+      )}
     </Popover>
+  );
+}
+
+function JobManagerPopoverContent({
+  showOnlyRunning,
+  setShowOnlyRunning,
+}: {
+  showOnlyRunning: boolean;
+  setShowOnlyRunning: (value: boolean) => void;
+}) {
+  // Full job manager with progress subscriptions (only when popover is open)
+  const { jobs, pause, resume } = useJobManager();
+
+  const filteredJobs = showOnlyRunning
+    ? jobs.filter((job) => job.status === "running" || job.status === "paused")
+    : jobs;
+
+  return (
+    <motion.div
+      className="overflow-y-auto no-scrollbar"
+      initial={false}
+      animate={{
+        height:
+          filteredJobs.length === 0
+            ? CARD_HEIGHT + 16
+            : Math.min(filteredJobs.length * (CARD_HEIGHT + 8) + 16, 400),
+      }}
+      transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+    >
+      <JobList jobs={filteredJobs} onPause={pause} onResume={resume} />
+    </motion.div>
   );
 }

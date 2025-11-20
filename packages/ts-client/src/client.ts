@@ -239,6 +239,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
 			path_scope?: import("./types").SdPath;
 			library_id?: string;
 			include_descendants?: boolean;
+			event_types?: string[];
 		},
 		callback: (event: Event) => void,
 	): Promise<() => void> {

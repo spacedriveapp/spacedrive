@@ -49,6 +49,7 @@ export class SubscriptionManager {
 			resource_type: filter.resource_type ?? null,
 			path_scope: filter.path_scope ?? null,
 			include_descendants: filter.include_descendants ?? false,
+			event_types: filter.event_types ?? [],
 		});
 	}
 
@@ -65,9 +66,12 @@ export class SubscriptionManager {
 
 		// Create new subscription if needed
 		if (!entry) {
-			console.log(
-				`[SubscriptionManager] Creating new subscription for key: ${key}`,
-			);
+			const eventTypes = filter.event_types ?? [
+				"ResourceChanged",
+				"ResourceChangedBatch",
+				"ResourceDeleted",
+				"Refresh",
+			];
 
 			const unsubscribe = await this.transport.subscribe(
 				(event) => {
@@ -78,12 +82,7 @@ export class SubscriptionManager {
 					}
 				},
 				{
-					event_types: [
-						"ResourceChanged",
-						"ResourceChangedBatch",
-						"ResourceDeleted",
-						"Refresh",
-					],
+					event_types: eventTypes,
 					filter: {
 						resource_type: filter.resource_type,
 						path_scope: filter.path_scope,
@@ -100,10 +99,6 @@ export class SubscriptionManager {
 			};
 
 			this.subscriptions.set(key, entry);
-		} else {
-			console.log(
-				`[SubscriptionManager] Reusing existing subscription for key: ${key} (refCount: ${entry.refCount})`,
-			);
 		}
 
 		// Add listener and increment ref count
@@ -119,15 +114,9 @@ export class SubscriptionManager {
 			currentEntry.listeners.delete(callback);
 			currentEntry.refCount--;
 
-			console.log(
-				`[SubscriptionManager] Listener removed from ${key} (refCount: ${currentEntry.refCount})`,
-			);
 
 			// Cleanup subscription if no more listeners
 			if (currentEntry.refCount === 0) {
-				console.log(
-					`[SubscriptionManager] Destroying subscription for key: ${key}`,
-				);
 				currentEntry.unsubscribe();
 				this.subscriptions.delete(key);
 			}
