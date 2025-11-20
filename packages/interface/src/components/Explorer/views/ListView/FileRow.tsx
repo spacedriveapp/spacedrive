@@ -2,22 +2,25 @@ import clsx from "clsx";
 import type { File } from "@sd/ts-client/generated/types";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { formatBytes, formatRelativeTime } from "../../utils";
 
 interface FileRowProps {
   file: File;
-  files: File[];
-  selected: boolean;
-  onSelect: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
+  fileIndex: number;
+  allFiles: File[];
 }
 
-export function FileRow({ file, files, selected, onSelect }: FileRowProps) {
+export function FileRow({ file, fileIndex, allFiles }: FileRowProps) {
   const { setCurrentPath } = useExplorer();
+  const { selectFile, isSelected } = useSelection();
+
+  const selected = isSelected(file.id);
 
   const handleClick = (e: React.MouseEvent) => {
     const multi = e.metaKey || e.ctrlKey;
     const range = e.shiftKey;
-    onSelect(file, files, multi, range);
+    selectFile(file, allFiles, multi, range);
   };
 
   const handleDoubleClick = () => {

@@ -20,6 +20,7 @@ import {
 import type { File } from "@sd/ts-client/generated/types";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { useContextMenu } from "../../../../hooks/useContextMenu";
 import { useJobDispatch } from "../../../../hooks/useJobDispatch";
 import { useLibraryMutation } from "../../../../context";
@@ -33,20 +34,23 @@ function formatDuration(seconds: number): string {
 
 interface MediaViewItemProps {
 	file: File;
+	allFiles: File[];
 	selected: boolean;
 	focused: boolean;
-	onSelect: (file: File, multi?: boolean, range?: boolean) => void;
+	onSelect: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
 	size: number;
 }
 
 export const MediaViewItem = memo(function MediaViewItem({
 	file,
+	allFiles,
 	selected,
 	focused,
 	onSelect,
 	size,
 }: MediaViewItemProps) {
-	const { selectedFiles, currentPath } = useExplorer();
+	const { currentPath } = useExplorer();
+	const { selectedFiles } = useSelection();
 	const platform = usePlatform();
 	const copyFiles = useLibraryMutation("files.copy");
 	const deleteFiles = useLibraryMutation("files.delete");
@@ -358,7 +362,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 	const handleClick = (e: React.MouseEvent) => {
 		const multi = e.metaKey || e.ctrlKey;
 		const range = e.shiftKey;
-		onSelect(file, multi, range);
+		onSelect(file, allFiles, multi, range);
 	};
 
 	const handleContextMenu = async (e: React.MouseEvent) => {
@@ -366,7 +370,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 		e.stopPropagation();
 
 		if (!selected) {
-			onSelect(file, false, false);
+			onSelect(file, allFiles, false, false);
 		}
 
 		await contextMenu.show(e);

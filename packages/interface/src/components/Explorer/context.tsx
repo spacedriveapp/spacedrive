@@ -35,16 +35,6 @@ interface ExplorerState {
   canGoBack: boolean;
   canGoForward: boolean;
 
-  selectedFiles: File[];
-  setSelectedFiles: (files: File[]) => void;
-  selectFile: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
-  clearSelection: () => void;
-  selectAll: (files: File[]) => void;
-
-  focusedIndex: number;
-  setFocusedIndex: (index: number) => void;
-  moveFocus: (direction: "up" | "down" | "left" | "right", files: File[]) => void;
-
   viewMode: "grid" | "list" | "media" | "column" | "size";
   setViewMode: (mode: "grid" | "list" | "media" | "column" | "size") => void;
 
@@ -61,7 +51,7 @@ interface ExplorerState {
 
   quickPreviewFileId: string | null;
   setQuickPreviewFileId: (fileId: string | null) => void;
-  openQuickPreview: () => void;
+  openQuickPreview: (fileId: string) => void;
   closeQuickPreview: () => void;
   goToNextPreview: (files: File[]) => void;
   goToPreviousPreview: (files: File[]) => void;
@@ -76,9 +66,6 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
   const [currentPath, setCurrentPathInternal] = useState<SdPath | null>(null);
   const [history, setHistory] = useState<SdPath[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
   const [viewMode, setViewMode] = useState<"grid" | "list" | "media" | "column" | "size">("grid");
   const [sortBy, setSortBy] = useState<DirectorySortBy | MediaSortBy>("name");
 
@@ -102,33 +89,6 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
   const [inspectorVisible, setInspectorVisible] = useState(true);
   const [quickPreviewFileId, setQuickPreviewFileId] = useState<string | null>(null);
 
-  // Sync selected file IDs to platform (for cross-window state sharing)
-  useEffect(() => {
-    const fileIds = selectedFiles.map((f) => f.id);
-
-    if (platform.setSelectedFileIds) {
-      platform.setSelectedFileIds(fileIds).catch((err) => {
-        console.error("Failed to sync selected files to platform:", err);
-      });
-    }
-  }, [selectedFiles, platform]);
-
-  // Update native menu items based on selection
-  useEffect(() => {
-    const hasSelection = selectedFiles.length > 0;
-    const isSingleSelection = selectedFiles.length === 1;
-
-    platform.updateMenuItems?.([
-      { id: "copy", enabled: hasSelection },
-      { id: "cut", enabled: hasSelection },
-      { id: "duplicate", enabled: hasSelection },
-      { id: "rename", enabled: isSingleSelection },
-      { id: "delete", enabled: hasSelection },
-      // Paste is always available (depends on clipboard, not selection)
-      { id: "paste", enabled: true },
-    ]);
-  }, [selectedFiles, platform]);
-
   const setViewSettings = (settings: Partial<ViewSettings>) => {
     setViewSettingsInternal((prev) => ({ ...prev, ...settings }));
   };
@@ -143,58 +103,12 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     return new Map(deviceList.map((d) => [d.id, d]));
   }, [devicesQuery.data]);
 
-  const clearSelection = () => {
-    setSelectedFiles([]);
-    setFocusedIndex(-1);
-    setLastSelectedIndex(-1);
-  };
-
-  const selectAll = (files: File[]) => {
-    setSelectedFiles([...files]);
-    setLastSelectedIndex(files.length - 1);
-  };
-
-  const moveFocus = (direction: "up" | "down" | "left" | "right", files: File[]) => {
-    if (files.length === 0) return;
-
-    let newIndex = focusedIndex;
-
-    if (viewMode === "list" || viewMode === "column") {
-      if (direction === "up") newIndex = Math.max(0, focusedIndex - 1);
-      if (direction === "down")
-        newIndex = Math.min(files.length - 1, focusedIndex + 1);
-      // For column view, left/right will be handled separately for column navigation
-    } else {
-      const containerWidth =
-        window.innerWidth -
-        (sidebarVisible ? 224 : 0) -
-        (inspectorVisible ? 284 : 0) -
-        48;
-      const itemWidth = viewSettings.gridSize + viewSettings.gapSize;
-      const columns = Math.floor(containerWidth / itemWidth);
-
-      if (direction === "up") newIndex = Math.max(0, focusedIndex - columns);
-      if (direction === "down")
-        newIndex = Math.min(files.length - 1, focusedIndex + columns);
-      if (direction === "left") newIndex = Math.max(0, focusedIndex - 1);
-      if (direction === "right")
-        newIndex = Math.min(files.length - 1, focusedIndex + 1);
-    }
-
-    if (newIndex !== focusedIndex) {
-      setFocusedIndex(newIndex);
-      setSelectedFiles([files[newIndex]]);
-      setLastSelectedIndex(newIndex);
-    }
-  };
-
 
   const goBack = () => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       setCurrentPathInternal(history[newIndex]);
-      setSelectedFiles([]);
     }
   };
 
@@ -203,7 +117,6 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       setCurrentPathInternal(history[newIndex]);
-      setSelectedFiles([]);
     }
   };
 
@@ -218,52 +131,10 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
       setHistoryIndex(newHistory.length - 1);
     }
     setCurrentPathInternal(path);
-    setSelectedFiles([]);
-    setFocusedIndex(-1);
-    setLastSelectedIndex(-1);
   };
 
-  const selectFile = (file: File, files: File[], multi = false, range = false) => {
-    const fileIndex = files.findIndex((f) => f.id === file.id);
-
-    console.log("selectFile called:", {
-      fileName: file.name,
-      fileId: file.id,
-      multi,
-      range,
-      fileIndex,
-      currentSelected: selectedFiles.length,
-    });
-
-    if (range && lastSelectedIndex !== -1) {
-      // Shift+Click: Select range
-      const start = Math.min(lastSelectedIndex, fileIndex);
-      const end = Math.max(lastSelectedIndex, fileIndex);
-      const rangeFiles = files.slice(start, end + 1);
-      setSelectedFiles(rangeFiles);
-      setFocusedIndex(fileIndex);
-    } else if (multi) {
-      // Cmd/Ctrl+Click: Toggle selection
-      const isSelected = selectedFiles.some((f) => f.id === file.id);
-      if (isSelected) {
-        setSelectedFiles(selectedFiles.filter((f) => f.id !== file.id));
-      } else {
-        setSelectedFiles([...selectedFiles, file]);
-      }
-      setLastSelectedIndex(fileIndex);
-      setFocusedIndex(fileIndex);
-    } else {
-      // Normal click: Select single
-      setSelectedFiles([file]);
-      setLastSelectedIndex(fileIndex);
-      setFocusedIndex(fileIndex);
-    }
-  };
-
-  const openQuickPreview = () => {
-    if (selectedFiles.length === 1) {
-      setQuickPreviewFileId(selectedFiles[0].id);
-    }
+  const openQuickPreview = (fileId: string) => {
+    setQuickPreviewFileId(fileId);
   };
 
   const closeQuickPreview = () => {
@@ -295,14 +166,6 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     goForward,
     canGoBack,
     canGoForward,
-    selectedFiles,
-    setSelectedFiles,
-    selectFile,
-    clearSelection,
-    selectAll,
-    focusedIndex,
-    setFocusedIndex,
-    moveFocus,
     viewMode,
     setViewMode,
     sortBy,

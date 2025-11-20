@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import type { SdPath } from "@sd/ts-client/generated/types";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { Column } from "./Column";
 
 export function ColumnView() {
-  const { currentPath, setCurrentPath, selectedFiles } = useExplorer();
+  const { currentPath, setCurrentPath } = useExplorer();
+  const { selectedFiles } = useSelection();
   const [columnStack, setColumnStack] = useState<SdPath[]>([]);
 
   // Initialize column stack when currentPath changes

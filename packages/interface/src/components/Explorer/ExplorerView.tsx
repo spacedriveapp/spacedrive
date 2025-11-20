@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useExplorer } from "./context";
 import { useNormalizedCache } from "../../context";
+import { useExplorerKeyboard } from "./hooks/useExplorerKeyboard";
 import { GridView } from "./views/GridView";
 import { ListView } from "./views/ListView";
 import { MediaView } from "./views/MediaView";
@@ -27,6 +28,9 @@ import { SortMenu } from "./SortMenu";
 
 export function ExplorerView() {
   const { locationId } = useParams();
+
+  // Enable keyboard navigation
+  useExplorerKeyboard();
   const {
     sidebarVisible,
     setSidebarVisible,

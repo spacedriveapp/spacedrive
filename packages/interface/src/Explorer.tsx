@@ -7,6 +7,7 @@ import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExplorerProvider, useExplorer, Sidebar } from "./components/explorer";
+import { SelectionProvider, useSelection } from "./components/Explorer/SelectionContext";
 import { SpacesSidebar } from "./components/SpacesSidebar";
 import { QuickPreviewModal } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
@@ -26,12 +27,10 @@ export function ExplorerLayout() {
     sidebarVisible,
     inspectorVisible,
     setInspectorVisible,
-    selectedFiles,
     quickPreviewFileId,
     closeQuickPreview,
     goToNextPreview,
     goToPreviousPreview,
-    files,
   } = useExplorer();
 
   // Check if we're on Overview (hide inspector)
@@ -87,20 +86,6 @@ export function ExplorerLayout() {
     }
   };
 
-  // Compute inspector variant based on selection
-  const inspectorVariant: InspectorVariant = useMemo(() => {
-    // If a file is selected, show file inspector
-    if (selectedFiles.length > 0 && selectedFiles[0]) {
-      return { type: "file", file: selectedFiles[0] };
-    }
-    // If we're viewing a location with no file selected, show location inspector
-    if (currentLocation) {
-      return { type: "location", location: currentLocation };
-    }
-    // Otherwise show empty state
-    return { type: "empty" };
-  }, [selectedFiles, currentLocation]);
-
   return (
     <div className="relative flex h-screen select-none overflow-hidden text-sidebar-ink bg-app rounded-[10px] border border-transparent frame">
       <TopBar
@@ -140,7 +125,7 @@ export function ExplorerLayout() {
           >
             <div className="w-[280px] min-w-[280px] flex flex-col h-full p-2 bg-app">
               <Inspector
-                variant={inspectorVariant}
+                currentLocation={currentLocation}
                 onPopOut={handlePopOutInspector}
               />
             </div>
@@ -148,19 +133,16 @@ export function ExplorerLayout() {
         )}
       </AnimatePresence>
 
-      {/* Quick Preview Modal */}
+      {/* Quick Preview Modal - TODO: Fix files reference */}
       {quickPreviewFileId && (
         <QuickPreviewModal
           fileId={quickPreviewFileId}
           isOpen={!!quickPreviewFileId}
           onClose={closeQuickPreview}
-          onNext={goToNextPreview}
-          onPrevious={goToPreviousPreview}
-          hasPrevious={files.findIndex((f) => f.id === quickPreviewFileId) > 0}
-          hasNext={
-            files.findIndex((f) => f.id === quickPreviewFileId) <
-            files.length - 1
-          }
+          onNext={() => goToNextPreview([])}
+          onPrevious={() => goToPreviousPreview([])}
+          hasPrevious={false}
+          hasNext={false}
         />
       )}
     </div>
@@ -173,9 +155,11 @@ export function Explorer({ client }: AppProps) {
   return (
     <SpacedriveProvider client={client}>
       <TopBarProvider>
-        <ExplorerProvider>
-          <RouterProvider router={router} />
-        </ExplorerProvider>
+        <SelectionProvider>
+          <ExplorerProvider>
+            <RouterProvider router={router} />
+          </ExplorerProvider>
+        </SelectionProvider>
       </TopBarProvider>
       <Dialogs />
       <ReactQueryDevtools initialIsOpen={false} />

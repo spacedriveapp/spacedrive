@@ -4,7 +4,7 @@ import { FileRow } from "./FileRow";
 import type { DirectorySortBy } from "@sd/ts-client/generated/types";
 
 export function ListView() {
-  const { currentPath, sortBy, selectedFiles, selectFile } = useExplorer();
+  const { currentPath, sortBy } = useExplorer();
 
   const directoryQuery = useNormalizedCache({
     wireMethod: "query:files.directory_listing",
@@ -33,13 +33,12 @@ export function ListView() {
         <div className="w-24">Type</div>
       </div>
 
-      {files.map((file) => (
+      {files.map((file, index) => (
         <FileRow
           key={file.id}
           file={file}
-          files={files}
-          selected={selectedFiles.some((f) => f.id === file.id)}
-          onSelect={selectFile}
+          fileIndex={index}
+          allFiles={files}
         />
       ))}
     </div>

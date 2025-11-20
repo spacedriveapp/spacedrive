@@ -5,6 +5,7 @@ import type { File, SdPath } from "@sd/ts-client/generated/types";
 import { useNormalizedCache } from "../../../../context";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { useContextMenu } from "../../../../hooks/useContextMenu";
 import { Copy, Trash, Eye, FolderOpen } from "@phosphor-icons/react";
 import { useLibraryMutation } from "../../../../context";
@@ -17,7 +18,8 @@ interface ColumnProps {
 
 export function Column({ path, isActive, onNavigate }: ColumnProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const { selectFile, selectedFiles, focusedIndex, currentPath, viewSettings } = useExplorer();
+  const { currentPath, viewSettings } = useExplorer();
+  const { selectFile, selectedFiles, focusedIndex, isSelected } = useSelection();
   const copyFiles = useLibraryMutation("files.copy");
   const deleteFiles = useLibraryMutation("files.delete");
 
@@ -193,7 +195,7 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const file = files[virtualRow.index];
-            const isSelected = selectedFiles.some((f) => f.id === file.id);
+            const fileIsSelected = isSelected(file.id);
             const isFocused = focusedIndex === virtualRow.index;
 
             return (
@@ -210,7 +212,7 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
               >
                 <ColumnItem
                   file={file}
-                  selected={isSelected}
+                  selected={fileIsSelected}
                   focused={isFocused}
                   onClick={handleItemClick}
                   onContextMenu={(e) => handleContextMenu(e, file)}

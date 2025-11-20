@@ -8,6 +8,7 @@ import {
 	useCallback,
 } from "react";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { useNormalizedCache } from "../../../../context";
 import { MediaViewItem } from "./MediaViewItem";
 import { DateHeader, DATE_HEADER_HEIGHT } from "./DateHeader";
@@ -16,13 +17,11 @@ import { formatDate, getItemDate, normalizeDateToMidnight } from "./utils";
 export function MediaView() {
 	const {
 		currentPath,
-		selectedFiles,
-		selectFile,
 		viewSettings,
-		focusedIndex,
 		sortBy,
 		setSortBy,
 	} = useExplorer();
+	const { selectedFiles, selectFile, focusedIndex, isSelected, selectedFileIds } = useSelection();
 
 	// Set default sort to "datetaken" when entering media view
 	useEffect(() => {
@@ -140,10 +139,6 @@ export function MediaView() {
 		}
 	}, [files, elementReady]);
 
-	// Create a Set of selected file IDs for O(1) lookup instead of O(n) array search
-	const selectedFileIds = useMemo(() => {
-		return new Set(selectedFiles.map((f) => f.id));
-	}, [selectedFiles]);
 
 	// Calculate columns based on container width and grid size
 	const columns = useMemo(() => {
@@ -351,6 +346,7 @@ export function MediaView() {
 								>
 									<MediaViewItem
 										file={file}
+										allFiles={files}
 										selected={selectedFileIds.has(file.id)}
 										focused={i === focusedIndex}
 										onSelect={selectFile}

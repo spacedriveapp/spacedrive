@@ -21,6 +21,7 @@ import {
 import type { File } from "@sd/ts-client/generated/types";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { useContextMenu } from "../../../../hooks/useContextMenu";
 import { useJobDispatch } from "../../../../hooks/useJobDispatch";
 import { useLibraryMutation } from "../../../../context";
@@ -29,19 +30,22 @@ import { formatBytes } from "../../utils";
 
 interface FileCardProps {
   file: File;
-  files: File[];
-  selected: boolean;
-  focused: boolean;
-  onSelect: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
+  fileIndex: number;
+  allFiles: File[];
 }
 
-export function FileCard({ file, files, selected, focused, onSelect }: FileCardProps) {
-  const { setCurrentPath, viewSettings, selectedFiles, currentPath } = useExplorer();
+export function FileCard({ file, fileIndex, allFiles }: FileCardProps) {
+  const { setCurrentPath, viewSettings, currentPath } = useExplorer();
+  const { selectedFiles, selectFile, isSelected, focusedIndex } = useSelection();
   const { gridSize, showFileSize } = viewSettings;
   const platform = usePlatform();
   const copyFiles = useLibraryMutation("files.copy");
   const deleteFiles = useLibraryMutation("files.delete");
   const { runJob } = useJobDispatch();
+
+  // Compute selection/focus state
+  const selected = isSelected(file.id);
+  const focused = fileIndex === focusedIndex;
 
   // Get the files to operate on (multi-select or just this file)
   const getTargetFiles = () => {
@@ -417,8 +421,7 @@ export function FileCard({ file, files, selected, focused, onSelect }: FileCardP
   const handleClick = (e: React.MouseEvent) => {
     const multi = e.metaKey || e.ctrlKey;
     const range = e.shiftKey;
-    console.log("FileCard clicked:", file.name, "multi:", multi, "range:", range, "currently selected:", selected);
-    onSelect(file, files, multi, range);
+    selectFile(file, allFiles, multi, range);
   };
 
   const handleDoubleClick = () => {
@@ -431,9 +434,8 @@ export function FileCard({ file, files, selected, focused, onSelect }: FileCardP
     e.preventDefault();
     e.stopPropagation();
 
-    // Select the file if not already selected
     if (!selected) {
-      onSelect(file, files, false, false);
+      selectFile(file, allFiles, false, false);
     }
 
     await contextMenu.show(e);

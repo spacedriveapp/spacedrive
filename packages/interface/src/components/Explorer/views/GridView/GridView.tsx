@@ -4,8 +4,7 @@ import { FileCard } from "./FileCard";
 import type { DirectorySortBy } from "@sd/ts-client/generated/types";
 
 export function GridView() {
-  const { currentPath, sortBy, selectedFiles, selectFile, viewSettings, focusedIndex } =
-    useExplorer();
+  const { currentPath, sortBy, viewSettings } = useExplorer();
   const { gridSize, gapSize } = viewSettings;
 
   const directoryQuery = useNormalizedCache({
@@ -37,10 +36,8 @@ export function GridView() {
         <FileCard
           key={file.id}
           file={file}
-          files={files}
-          selected={selectedFiles.some((f) => f.id === file.id)}
-          focused={index === focusedIndex}
-          onSelect={selectFile}
+          fileIndex={index}
+          allFiles={files}
         />
       ))}
     </div>

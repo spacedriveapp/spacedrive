@@ -1,8 +1,10 @@
 import { ArrowSquareOut } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useParams } from "react-router-dom";
 import type { File, LocationInfo } from "@sd/ts-client/generated/types";
-import { useLibraryQuery } from "./context";
+import { useLibraryQuery, useNormalizedCache } from "./context";
 import { usePlatform } from "./platform";
+import { useSelection } from "./components/Explorer/SelectionContext";
 import { FileInspector } from "./inspectors/FileInspector";
 import { LocationInspector } from "./inspectors/LocationInspector";
 
@@ -13,16 +15,28 @@ export type InspectorVariant =
   | null;
 
 interface InspectorProps {
-  variant: InspectorVariant;
   onPopOut?: () => void;
   showPopOutButton?: boolean;
+  currentLocation?: LocationInfo | null;
 }
 
 export function Inspector({
-  variant,
   onPopOut,
   showPopOutButton = true,
+  currentLocation,
 }: InspectorProps) {
+  const { selectedFiles } = useSelection();
+
+  // Compute inspector variant based on selection
+  const variant: InspectorVariant = useMemo(() => {
+    if (selectedFiles.length > 0 && selectedFiles[0]) {
+      return { type: "file", file: selectedFiles[0] };
+    }
+    if (currentLocation) {
+      return { type: "location", location: currentLocation };
+    }
+    return { type: "empty" };
+  }, [selectedFiles, currentLocation]);
   // Note: Window styling is now handled by the Tauri app layer
   // No need for interface package to call platform-specific commands
 

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import * as d3 from "d3";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File, DirectorySortBy } from "@sd/ts-client/generated/types";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
+import { useNormalizedCache } from "../../../../context";
 import { formatBytes } from "../../utils";
 import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
 import { ArrowsOut, ArrowCounterClockwise, Plus, Minus } from "@phosphor-icons/react";
@@ -79,7 +81,26 @@ function getFileType(file: File): string {
 }
 
 export function SizeView() {
-  const { files, selectedFiles, selectFile, setCurrentPath } = useExplorer();
+  const { currentPath, sortBy, setCurrentPath } = useExplorer();
+  const { selectedFiles, selectFile } = useSelection();
+
+  const directoryQuery = useNormalizedCache({
+    wireMethod: "query:files.directory_listing",
+    input: currentPath
+      ? {
+          path: currentPath,
+          limit: null,
+          include_hidden: false,
+          sort_by: sortBy as DirectorySortBy,
+        }
+      : null!,
+    resourceType: "file",
+    enabled: !!currentPath,
+    pathScope: currentPath ?? undefined,
+  });
+
+  const files = directoryQuery.data?.files || [];
+
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(1);
@@ -88,12 +109,14 @@ export function SizeView() {
   // Use refs for stable function references
   const selectFileRef = useRef(selectFile);
   const setCurrentPathRef = useRef(setCurrentPath);
+  const filesRef = useRef(files);
   const gRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
 
   useEffect(() => {
     selectFileRef.current = selectFile;
     setCurrentPathRef.current = setCurrentPath;
-  }, [selectFile, setCurrentPath]);
+    filesRef.current = files;
+  }, [selectFile, setCurrentPath, files]);
 
   // Initialize zoom behavior once
   useEffect(() => {
