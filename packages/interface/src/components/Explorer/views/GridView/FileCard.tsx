@@ -70,7 +70,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
         icon: FolderOpen,
         label: "Open",
         onClick: () => {
-          if (file.kind.type === "Directory") {
+          if (file.kind === "Directory") {
             setCurrentPath(file.sd_path);
           } else {
             console.log("Open file:", file.name);
@@ -78,7 +78,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
           }
         },
         keybind: "⌘O",
-        condition: () => file.kind.type === "Directory" || file.kind.type === "File",
+        condition: () => file.kind === "Directory" || file.kind === "File",
       },
       {
         icon: MagnifyingGlass,
@@ -308,7 +308,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
         type: "submenu",
         icon: FileText,
         label: "Document Processing",
-        condition: () => ["pdf", "doc", "docx"].includes(file.kind.type === "File" ? file.kind.data?.extension || "" : ""),
+        condition: () => file.kind === "File" && ["pdf", "doc", "docx"].includes(file.extension || ""),
         submenu: [
           {
             icon: TextAa,
@@ -425,7 +425,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
   };
 
   const handleDoubleClick = () => {
-    if (file.kind.type === "Directory") {
+    if (file.kind === "Directory") {
       setCurrentPath(file.sd_path);
     }
   };

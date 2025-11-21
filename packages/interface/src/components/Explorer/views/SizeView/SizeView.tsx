@@ -29,7 +29,7 @@ function getTailwindColor(className: string): string {
 }
 
 function getFileColorClass(file: File): string {
-  if (file.kind.type === "Directory") return "bg-accent";
+  if (file.kind === "Directory") return "bg-accent";
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
 
@@ -71,7 +71,7 @@ function getFileColor(file: File): string {
 }
 
 function getFileType(file: File): string {
-  if (file.kind.type === "Directory") return "Folder";
+  if (file.kind === "Directory") return "Folder";
 
   const name = file.name;
   const lastDot = name.lastIndexOf(".");
@@ -348,7 +348,7 @@ export function SizeView() {
         }
 
         // Navigate if directory
-        if (d.data.file.kind.type === "Directory") {
+        if (d.data.file.kind === "Directory") {
           setCurrentPathRef.current(d.data.file.sd_path);
         }
       })

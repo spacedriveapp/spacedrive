@@ -67,7 +67,7 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
         icon: FolderOpen,
         label: "Open",
         onClick: (file: File) => {
-          if (file.kind.type === "Directory") {
+          if (file.kind === "Directory") {
             onNavigate(file.sd_path);
           }
         },

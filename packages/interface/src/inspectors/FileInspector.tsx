@@ -137,6 +137,7 @@ function OverviewTab({ file }: { file: File }) {
         <FileComponent.Thumb
           file={file}
           size={200}
+          iconScale={0.6}
           className="w-full max-w-full"
         />
       </div>

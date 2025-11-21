@@ -40,7 +40,7 @@ export function ColumnItem({
     >
       <FileComponent.Thumb file={file} size={20} />
       <span className="text-sm truncate flex-1">{file.name}</span>
-      {file.kind.type === "Directory" && (
+      {file.kind === "Directory" && (
         <svg
           className="size-3 text-ink-dull"
           fill="none"

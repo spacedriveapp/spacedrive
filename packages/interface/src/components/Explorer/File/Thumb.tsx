@@ -147,7 +147,8 @@ export const Thumb = memo(function Thumb({
         alt=""
         className={clsx(
           "object-contain transition-opacity",
-          thumbLoaded && "opacity-0",
+          // Only hide icon if we actually have a thumbnail that loaded
+          thumbLoaded && thumbnailSrc && "opacity-0",
         )}
         style={{
           width: iconSize,
@@ -191,16 +192,21 @@ export function Icon({
   size?: number;
   className?: string;
 }) {
-  const kindCapitalized = file.content_identity?.kind
-    ? file.content_identity.kind.charAt(0).toUpperCase() +
-      file.content_identity.kind.slice(1)
-    : "Document";
+  // This is jank and has to be done in several places. Ideally a util function.
+  const fileKind =
+    file?.content_identity?.kind && file.content_identity.kind !== "unknown"
+      ? file.content_identity.kind
+      : file.kind === "File"
+        ? file.extension || "File"
+        : file.kind;
+  // this too
+  const kindCapitalized = fileKind.charAt(0).toUpperCase() + fileKind.slice(1);
 
   const icon = getIcon(
     kindCapitalized,
     true, // Dark theme
-    file.kind.type === "File" ? file.kind.data?.extension : undefined,
-    file.kind.type === "Directory",
+    file.extension,
+    file.kind === "Directory",
   );
 
   return (

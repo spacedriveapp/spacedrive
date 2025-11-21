@@ -11,7 +11,7 @@ interface SizeCircleProps {
 
 // Get file extension or type
 function getFileType(file: File): string {
-  if (file.kind.type === "Directory") return "Folder";
+  if (file.kind === "Directory") return "Folder";
 
   const name = file.name;
   const lastDot = name.lastIndexOf(".");
@@ -22,7 +22,7 @@ function getFileType(file: File): string {
 
 // Get color based on file type
 function getFileColor(file: File): string {
-  if (file.kind.type === "Directory") return "bg-blue-500";
+  if (file.kind === "Directory") return "bg-blue-500";
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
 

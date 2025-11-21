@@ -24,7 +24,7 @@ export function FileRow({ file, fileIndex, allFiles }: FileRowProps) {
   };
 
   const handleDoubleClick = () => {
-    if (file.kind.type === "Directory") {
+    if (file.kind === "Directory") {
       setCurrentPath(file.sd_path);
     }
   };
@@ -60,7 +60,7 @@ export function FileRow({ file, fileIndex, allFiles }: FileRowProps) {
         {formatRelativeTime(file.modified_at)}
       </div>
       <div className="w-24 text-sm text-ink-dull">
-        {file.kind.type === "File" ? file.kind.data?.extension || "—" : "Folder"}
+        {file.kind === "File" ? file.extension || "—" : "Folder"}
       </div>
     </div>
   );
