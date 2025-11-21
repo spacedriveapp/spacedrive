@@ -1,6 +1,6 @@
 import { useLibraryQuery } from "../../context";
 import { usePlatform } from "../../platform";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 import { useEffect, useState } from "react";
 import { formatBytes } from "../Explorer/utils";
 import { X } from "@phosphor-icons/react";

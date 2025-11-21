@@ -205,6 +205,11 @@ export function handleResourceEvent(
   queryKey: any[],
   queryClient: QueryClient,
 ) {
+  // Skip string events (like "CoreStarted", "CoreShutdown")
+  if (typeof event === "string") {
+    return;
+  }
+
   // Refresh event - invalidate all queries
   if ("Refresh" in event) {
     queryClient.invalidateQueries();

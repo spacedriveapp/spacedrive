@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
@@ -24,7 +24,7 @@ export function FileRow({ file, fileIndex, allFiles }: FileRowProps) {
   };
 
   const handleDoubleClick = () => {
-    if (file.kind === "Directory") {
+    if (file.kind.type === "Directory") {
       setCurrentPath(file.sd_path);
     }
   };
@@ -60,7 +60,7 @@ export function FileRow({ file, fileIndex, allFiles }: FileRowProps) {
         {formatRelativeTime(file.modified_at)}
       </div>
       <div className="w-24 text-sm text-ink-dull">
-        {file.extension || "Folder"}
+        {file.kind.type === "File" ? file.kind.data?.extension || "—" : "Folder"}
       </div>
     </div>
   );

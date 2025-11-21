@@ -1,4 +1,4 @@
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 
 export function formatDate(
 	date: Date | { from: Date; to: Date },

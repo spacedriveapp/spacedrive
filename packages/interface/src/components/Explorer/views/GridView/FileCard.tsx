@@ -19,7 +19,7 @@ import {
 	Crop,
 	FileVideo,
 } from "@phosphor-icons/react";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
@@ -70,7 +70,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
         icon: FolderOpen,
         label: "Open",
         onClick: () => {
-          if (file.kind === "Directory") {
+          if (file.kind.type === "Directory") {
             setCurrentPath(file.sd_path);
           } else {
             console.log("Open file:", file.name);
@@ -78,7 +78,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
           }
         },
         keybind: "⌘O",
-        condition: () => file.kind === "Directory" || file.kind === "File",
+        condition: () => file.kind.type === "Directory" || file.kind.type === "File",
       },
       {
         icon: MagnifyingGlass,
@@ -308,7 +308,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
         type: "submenu",
         icon: FileText,
         label: "Document Processing",
-        condition: () => ["pdf", "doc", "docx"].includes(file.extension || ""),
+        condition: () => ["pdf", "doc", "docx"].includes(file.kind.type === "File" ? file.kind.data?.extension || "" : ""),
         submenu: [
           {
             icon: TextAa,
@@ -425,7 +425,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
   };
 
   const handleDoubleClick = () => {
-    if (file.kind === "Directory") {
+    if (file.kind.type === "Directory") {
       setCurrentPath(file.sd_path);
     }
   };

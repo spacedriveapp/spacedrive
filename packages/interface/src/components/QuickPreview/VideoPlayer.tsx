@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, SpeakerHigh, SpeakerSlash, ArrowsOut, ClosedCaptioning, MagnifyingGlassPlus, MagnifyingGlassMinus, ArrowCounterClockwise, Gear } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { File } from '@sd/ts-client/generated/types';
+import type { File } from '@sd/ts-client';
 import { Subtitles, type SubtitleSettings } from './Subtitles';
 import { SubtitleSettingsMenu } from './SubtitleSettingsMenu';
 import { useZoomPan } from './useZoomPan';

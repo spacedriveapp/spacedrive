@@ -4,7 +4,7 @@ import type {
 	SpaceGroup as SpaceGroupType,
 	SpaceItem as SpaceItemType,
 	GroupType,
-} from '@sd/ts-client/generated/types';
+} from '@sd/ts-client';
 import { useSidebarStore } from '@sd/ts-client/stores/sidebar';
 import { SpaceItem } from './SpaceItem';
 import { DeviceGroup } from './DeviceGroup';

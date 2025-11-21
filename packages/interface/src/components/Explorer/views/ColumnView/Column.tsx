@@ -1,7 +1,7 @@
 import { useRef, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
-import type { File, SdPath } from "@sd/ts-client/generated/types";
+import type { File, SdPath } from "@sd/ts-client";
 import { useNormalizedCache } from "../../../../context";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
@@ -67,7 +67,7 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
         icon: FolderOpen,
         label: "Open",
         onClick: (file: File) => {
-          if (file.kind === "Directory") {
+          if (file.kind.type === "Directory") {
             onNavigate(file.sd_path);
           }
         },

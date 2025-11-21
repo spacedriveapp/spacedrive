@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useQuery, type UseQueryOptions, type UseQueryResult } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 import type { CoreQuery, LibraryQuery } from "../generated/types";

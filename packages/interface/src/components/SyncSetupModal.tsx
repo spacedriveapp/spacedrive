@@ -8,7 +8,7 @@ import {
 	Share,
 	SignIn
 } from '@phosphor-icons/react';
-import type { LibrarySyncAction, PairedDeviceInfo, RemoteLibraryInfo } from '@sd/ts-client/generated/types';
+import type { LibrarySyncAction, PairedDeviceInfo, RemoteLibraryInfo } from '@sd/ts-client';
 import { Button, Dialog, dialogManager, useDialog } from '@sd/ui';
 import { useCoreQuery, useCoreMutation, useSpacedriveClient } from '../context';
 

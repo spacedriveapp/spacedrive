@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 import { formatBytes, formatRelativeTime } from "../utils";
 
 interface MetadataProps {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import { usePlatform } from "../../platform";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 
 interface SelectionContextValue {
   selectedFiles: File[];

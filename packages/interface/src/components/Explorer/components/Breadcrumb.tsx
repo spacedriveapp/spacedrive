@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { SdPath } from "@sd/ts-client/generated/types";
+import type { SdPath } from "@sd/ts-client";
 
 interface BreadcrumbProps {
   path: SdPath;

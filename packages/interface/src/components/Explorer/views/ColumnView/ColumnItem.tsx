@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 
 interface ColumnItemProps {
@@ -40,7 +40,7 @@ export function ColumnItem({
     >
       <FileComponent.Thumb file={file} size={20} />
       <span className="text-sm truncate flex-1">{file.name}</span>
-      {file.kind === "Directory" && (
+      {file.kind.type === "Directory" && (
         <svg
           className="size-3 text-ink-dull"
           fill="none"

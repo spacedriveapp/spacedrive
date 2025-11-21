@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useRef, useEffect } from "react";
 import { Plus } from "@phosphor-icons/react";
-import type { LocationInfo } from "@sd/ts-client/generated/types";
+import type { LocationInfo } from "@sd/ts-client";
 import { useNormalizedCache } from "../../../context";
 import { Section } from "./Section";
 import { SidebarItem } from "./SidebarItem";

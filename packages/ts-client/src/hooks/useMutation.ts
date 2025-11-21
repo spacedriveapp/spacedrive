@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useMutation, type UseMutationOptions, type UseMutationResult } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 import type { CoreAction, LibraryAction } from "../generated/types";

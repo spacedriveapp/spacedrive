@@ -17,7 +17,7 @@ import {
 	Crop,
 	FileVideo,
 } from "@phosphor-icons/react";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";

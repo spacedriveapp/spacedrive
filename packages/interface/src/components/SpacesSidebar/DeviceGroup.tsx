@@ -1,6 +1,6 @@
 import { CaretRight, Desktop } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import type { SpaceItem as SpaceItemType } from '@sd/ts-client/generated/types';
+import type { SpaceItem as SpaceItemType } from '@sd/ts-client';
 import { SpaceItem } from './SpaceItem';
 
 interface DeviceGroupProps {

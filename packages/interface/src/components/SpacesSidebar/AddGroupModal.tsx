@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Input, Label, dialogManager, useDialog, Dialog } from '@sd/ui';
 import { useLibraryMutation } from '@sd/ts-client';
 import { useForm } from 'react-hook-form';
-import type { GroupType } from '@sd/ts-client/generated/types';
+import type { GroupType } from '@sd/ts-client';
 
 interface FormData {
 	groupName: string;

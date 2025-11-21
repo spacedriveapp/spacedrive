@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { File as FileType } from "@sd/ts-client/generated/types";
+import type { File as FileType } from "@sd/ts-client";
 import { Thumb } from "./Thumb";
 import { Title } from "./Title";
 import { Metadata } from "./Metadata";

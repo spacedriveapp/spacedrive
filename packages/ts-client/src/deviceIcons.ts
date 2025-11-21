@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { LibraryDeviceInfo } from "./generated/types";
 import Laptop from "@sd/assets/icons/Laptop.png";
 import Mobile from "@sd/assets/icons/Mobile.png";

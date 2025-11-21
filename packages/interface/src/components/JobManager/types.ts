@@ -1,4 +1,4 @@
-import type { JobStatus, JobListItem as GeneratedJobListItem, JsonValue, SdPath } from "@sd/ts-client/generated/types";
+import type { JobStatus, JobListItem as GeneratedJobListItem, JsonValue, SdPath } from "@sd/ts-client";
 
 // Extend the generated type with runtime fields from JobProgress events
 export type JobListItem = GeneratedJobListItem & {

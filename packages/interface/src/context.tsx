@@ -28,4 +28,4 @@ export type {
 	LocationInfo,
 	LocationsListOutput,
 	LibraryInfo,
-} from "@sd/ts-client/generated/types";
+} from "@sd/ts-client";

@@ -22,7 +22,7 @@ import { QuickPreviewModal } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
 import { useNormalizedCache } from "./context";
 import { usePlatform } from "./platform";
-import type { LocationInfo } from "@sd/ts-client/generated/types";
+import type { LocationInfo } from "@sd/ts-client";
 
 interface AppProps {
   client: SpacedriveClient;

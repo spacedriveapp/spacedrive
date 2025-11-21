@@ -2,7 +2,7 @@ import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedCache } from "../../../../context";
 import { FileCard } from "./FileCard";
-import type { DirectorySortBy } from "@sd/ts-client/generated/types";
+import type { DirectorySortBy } from "@sd/ts-client";
 
 export function GridView() {
   const { currentPath, sortBy, viewSettings } = useExplorer();

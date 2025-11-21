@@ -1,4 +1,4 @@
-import type { JobStatus } from "@sd/ts-client/generated/types";
+import type { JobStatus } from "@sd/ts-client";
 import {
   MagnifyingGlass,
   Image,

@@ -1,4 +1,4 @@
-import type { JobStatus } from "@sd/ts-client/generated/types";
+import type { JobStatus } from "@sd/ts-client";
 import { JOB_STATUS_COLORS, PROGRESS_BAR_HEIGHT } from "../types";
 
 interface JobProgressBarProps {

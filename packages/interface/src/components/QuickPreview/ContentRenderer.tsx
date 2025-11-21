@@ -1,4 +1,4 @@
-import type { File, ContentKind } from "@sd/ts-client/generated/types";
+import type { File, ContentKind } from "@sd/ts-client";
 import { File as FileComponent } from "../Explorer/File";
 import { formatBytes } from "../Explorer/utils";
 import { usePlatform } from "../../platform";
@@ -295,7 +295,7 @@ function DefaultRenderer({ file }: ContentRendererProps) {
 
 export function ContentRenderer({ file }: ContentRendererProps) {
   // Handle directories first
-  if (file.kind === "Directory") {
+  if (file.kind.type === "Directory") {
     return (
       <div className="flex flex-col items-center justify-center h-full text-ink-dull">
         <img src={Folder} alt="Folder Icon" className="w-16 h-16 mb-4" />

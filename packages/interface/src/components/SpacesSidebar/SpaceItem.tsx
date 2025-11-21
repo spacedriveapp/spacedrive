@@ -12,7 +12,7 @@ import { Location } from "@sd/assets/icons";
 import type {
 	SpaceItem as SpaceItemType,
 	ItemType,
-} from "@sd/ts-client/generated/types";
+} from "@sd/ts-client";
 
 interface SpaceItemProps {
 	item: SpaceItemType;

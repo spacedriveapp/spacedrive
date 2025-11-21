@@ -2,7 +2,7 @@ import { CaretRight } from "@phosphor-icons/react";
 import clsx from "clsx";
 import { useNormalizedCache } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
-import type { VolumeItem } from "@sd/ts-client/generated/types";
+import type { VolumeItem } from "@sd/ts-client";
 
 interface VolumesGroupProps {
 	isCollapsed: boolean;

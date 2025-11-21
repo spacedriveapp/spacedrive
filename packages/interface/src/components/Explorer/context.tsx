@@ -16,7 +16,7 @@ import type {
   LibraryDeviceInfo,
   DirectorySortBy,
   MediaSortBy,
-} from "@sd/ts-client/generated/types";
+} from "@sd/ts-client";
 
 interface ViewSettings {
   gridSize: number; // 80-400px

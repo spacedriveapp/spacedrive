@@ -14,7 +14,7 @@ import type {
 	VolumeItem,
 	LibraryDeviceInfo,
 	ListLibraryDevicesInput,
-} from "@sd/ts-client/generated/types";
+} from "@sd/ts-client";
 
 function formatBytes(bytes: number): string {
 	if (bytes === 0) return "0 B";

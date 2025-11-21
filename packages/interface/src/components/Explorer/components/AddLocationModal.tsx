@@ -15,7 +15,7 @@ import * as Tabs from "@sd/ui/Tabs";
 import type {
   IndexMode,
   LocationAddInput,
-} from "@sd/ts-client/generated/types";
+} from "@sd/ts-client";
 import { useLibraryMutation, useLibraryQuery } from "../../../context";
 import { usePlatform } from "../../../platform";
 import { NewLocation } from "@sd/assets/icons";

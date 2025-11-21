@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo, useState } from "react";
 import * as d3 from "d3";
-import type { File, DirectorySortBy } from "@sd/ts-client/generated/types";
+import type { File, DirectorySortBy } from "@sd/ts-client";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedCache } from "../../../../context";
@@ -29,7 +29,7 @@ function getTailwindColor(className: string): string {
 }
 
 function getFileColorClass(file: File): string {
-  if (file.kind === "Directory") return "bg-accent";
+  if (file.kind.type === "Directory") return "bg-accent";
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
 
@@ -71,7 +71,7 @@ function getFileColor(file: File): string {
 }
 
 function getFileType(file: File): string {
-  if (file.kind === "Directory") return "Folder";
+  if (file.kind.type === "Directory") return "Folder";
 
   const name = file.name;
   const lastDot = name.lastIndexOf(".");
@@ -348,7 +348,7 @@ export function SizeView() {
         }
 
         // Navigate if directory
-        if (d.data.file.kind === "Directory") {
+        if (d.data.file.kind.type === "Directory") {
           setCurrentPathRef.current(d.data.file.sd_path);
         }
       })

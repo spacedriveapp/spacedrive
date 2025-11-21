@@ -20,6 +20,7 @@ interface EventFilter {
 	resource_type?: string;
 	path_scope?: any;
 	include_descendants?: boolean;
+	event_types?: string[];
 }
 
 interface SubscriptionEntry {

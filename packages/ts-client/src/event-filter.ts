@@ -88,6 +88,5 @@ export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
  * Noisy events that are excluded from the default subscription
  */
 export const NOISY_EVENTS: EventVariant[] = [
-	"LogMessage",
 	"IndexingProgress",
 ];

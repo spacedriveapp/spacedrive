@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { SdPath } from "@sd/ts-client/generated/types";
+import type { SdPath } from "@sd/ts-client";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { Column } from "./Column";
@@ -19,7 +19,7 @@ export function ColumnView() {
 
   // Add a column when a directory is selected
   useEffect(() => {
-    if (selectedFiles.length === 1 && selectedFiles[0].kind === "Directory") {
+    if (selectedFiles.length === 1 && selectedFiles[0].kind.type === "Directory") {
       const selectedDir = selectedFiles[0];
       const selectedPath = selectedDir.sd_path;
 

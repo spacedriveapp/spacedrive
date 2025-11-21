@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo } from "react";
 import clsx from "clsx";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 
 interface ThumbstripScrubberProps {
 	file: File;

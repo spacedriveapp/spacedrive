@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import clsx from "clsx";
 import { CaretRight } from "@phosphor-icons/react";
-import type { SdPath, LibraryDeviceInfo } from "@sd/ts-client/generated/types";
+import type { SdPath, LibraryDeviceInfo } from "@sd/ts-client";
 import { getDeviceIconBySlug } from "@sd/ts-client";
 import { sdPathToUri } from "../utils";
 import LaptopIcon from "@sd/assets/icons/Laptop.png";

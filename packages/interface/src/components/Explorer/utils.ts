@@ -2,7 +2,7 @@ import LaptopIcon from "@sd/assets/icons/Laptop.png";
 import MobileIcon from "@sd/assets/icons/Mobile.png";
 import ServerIcon from "@sd/assets/icons/Server.png";
 import PCIcon from "@sd/assets/icons/PC.png";
-import type { SdPath } from "@sd/ts-client/generated/types";
+import type { SdPath } from "@sd/ts-client";
 
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";

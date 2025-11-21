@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useExplorer } from "../context";
 import { useSelection } from "../SelectionContext";
 import { useNormalizedCache } from "../../../context";
-import type { DirectorySortBy } from "@sd/ts-client/generated/types";
+import type { DirectorySortBy } from "@sd/ts-client";
 
 export function useExplorerKeyboard() {
   const { currentPath, sortBy, setCurrentPath, viewMode, viewSettings, sidebarVisible, inspectorVisible, openQuickPreview } = useExplorer();
@@ -85,7 +85,7 @@ export function useExplorerKeyboard() {
       // Enter: Navigate into directory (for column view)
       if (e.key === "Enter" && selectedFiles.length === 1) {
         const selected = selectedFiles[0];
-        if (selected.kind === "Directory") {
+        if (selected.kind.type === "Directory") {
           e.preventDefault();
           setCurrentPath(selected.sd_path);
         }

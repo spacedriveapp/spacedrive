@@ -11,7 +11,7 @@ import { DevicesPanel } from "./DevicesPanel";
 import { ContentBreakdown } from "./ContentBreakdown";
 import { OverviewTopBar } from "./OverviewTopBar";
 import { useNormalizedCache } from "../../context";
-import type { LibraryInfoOutput } from "@sd/ts-client/generated/types";
+import type { LibraryInfoOutput } from "@sd/ts-client";
 
 export function Overview() {
 	// Fetch library info with statistics using normalizedCache

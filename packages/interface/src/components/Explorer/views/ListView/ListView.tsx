@@ -1,7 +1,7 @@
 import { useExplorer } from "../../context";
 import { useNormalizedCache } from "../../../../context";
 import { FileRow } from "./FileRow";
-import type { DirectorySortBy } from "@sd/ts-client/generated/types";
+import type { DirectorySortBy } from "@sd/ts-client";
 
 export function ListView() {
   const { currentPath, sortBy } = useExplorer();

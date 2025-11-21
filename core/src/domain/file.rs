@@ -21,19 +21,13 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
 pub enum EntryKind {
 	/// Regular file
-	File {
-		/// File extension (without dot)
-		extension: Option<String>,
-	},
+	File,
 
 	/// Directory
 	Directory,
 
 	/// Symbolic link
-	Symlink {
-		/// Target path
-		target: String,
-	},
+	Symlink,
 }
 
 /// Represents a file within the Spacedrive VDFS.
@@ -49,8 +43,14 @@ pub struct File {
 	/// The universal path to the file in Spacedrive's VDFS
 	pub sd_path: SdPath,
 
+	/// The file kind (file, directory, symlink)
+	pub kind: EntryKind,
+
 	/// The name of the file, including the extension
 	pub name: String,
+
+	/// The file extension (without dot)
+	pub extension: Option<String>,
 
 	/// The size of the file in bytes
 	pub size: u64,
@@ -78,10 +78,8 @@ pub struct File {
 	pub accessed_at: Option<DateTime<Utc>>,
 
 	/// Additional computed fields
-	pub content_kind: ContentKind,
-	pub extension: Option<String>,
-	pub kind: EntryKind,
-	pub is_local: bool,
+	pub content_kind: ContentKind, // This is redundant with ContentIdentity, it lives inside
+	pub is_local: bool, // this is also redundant with SdPath
 
 	/// Video duration (for grid display optimization)
 	pub duration_seconds: Option<f64>,
@@ -226,22 +224,13 @@ impl File {
 
 		// Convert entity kind to domain EntryKind
 		let kind = match model.kind {
-			0 => EntryKind::File {
-				extension: model.extension.clone(),
-			},
+			0 => EntryKind::File,
 			1 => EntryKind::Directory,
-			2 => EntryKind::Symlink {
-				target: String::new(),
-			},
-			_ => EntryKind::File {
-				extension: model.extension.clone(),
-			},
+			2 => EntryKind::Symlink,
+			_ => EntryKind::File,
 		};
 
-		let extension = match &kind {
-			EntryKind::File { extension } => extension.clone(),
-			_ => None,
-		};
+		let extension = model.extension.clone();
 
 		// Generate UUID from id if uuid is None
 		let id = model.uuid.unwrap_or_else(|| {

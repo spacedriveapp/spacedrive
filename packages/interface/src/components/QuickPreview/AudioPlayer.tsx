@@ -8,7 +8,7 @@ import {
 	SkipForward,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { File } from "@sd/ts-client/generated/types";
+import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../Explorer/File";
 import { formatBytes } from "../Explorer/utils";
 

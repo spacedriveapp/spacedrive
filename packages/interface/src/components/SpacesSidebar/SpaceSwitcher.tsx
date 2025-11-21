@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { CaretDown, Plus, GearSix } from '@phosphor-icons/react';
 import { DropdownMenu } from '@sd/ui';
-import type { Space } from '@sd/ts-client/generated/types';
+import type { Space } from '@sd/ts-client';
 import { useCreateSpaceDialog } from './CreateSpaceModal';
 
 interface SpaceSwitcherProps {

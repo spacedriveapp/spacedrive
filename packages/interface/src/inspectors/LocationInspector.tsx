@@ -27,7 +27,7 @@ import {
 	TabContent,
 } from "../components/Inspector";
 import clsx from "clsx";
-import type { LocationInfo } from "@sd/ts-client/generated/types";
+import type { LocationInfo } from "@sd/ts-client";
 import { useLibraryMutation } from "../context";
 import LocationIcon from "@sd/assets/icons/Location.png";
 

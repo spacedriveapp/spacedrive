@@ -4,6 +4,16 @@
 	"description": "Type-safe TypeScript client for Spacedrive daemon",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./generated/types": {
+			"types": "./dist/generated/types.d.ts",
+			"default": "./dist/generated/types.js"
+		}
+	},
 	"scripts": {
 		"build": "tsc",
 		"dev": "tsc --watch",

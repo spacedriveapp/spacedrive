@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { File } from '@sd/ts-client/generated/types';
+import type { File } from '@sd/ts-client';
 
 interface TimelineScrubberProps {
 	file: File;
