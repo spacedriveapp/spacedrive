@@ -328,23 +328,59 @@ async fn handle_create(
 	// Minimal state provides parent cache used by EntryProcessor
 	let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(path));
 
-	// Seed the location root entry into cache to scope parent lookup
-	// This ensures parents are found within THIS location's tree, not another device's location
-	// with the same path. Without this, create_entry could attach to the wrong location's tree.
+	// Seed ancestor directories into cache, not just location root
 	if let Ok(Some(location_record)) = entities::location::Entity::find()
 		.filter(entities::location::Column::Uuid.eq(location_id))
 		.one(ctx.library_db())
 		.await
 	{
 		if let Some(location_entry_id) = location_record.entry_id {
+			// Seed location root
 			state
 				.entry_id_cache
 				.insert(location_root.to_path_buf(), location_entry_id);
 			debug!(
-				"Seeded location root {} (entry {}) into cache for scoped parent lookup",
+				"Seeded location root {} (entry {}) into cache",
 				location_root.display(),
 				location_entry_id
 			);
+
+			// Seed all intermediate ancestors between location root and target path
+			// This ensures parent lookup succeeds for deeply nested paths
+			if let Ok(stripped) = path.strip_prefix(location_root) {
+				let mut current_path = location_root.to_path_buf();
+
+				for component in stripped
+					.ancestors()
+					.skip(1)
+					.collect::<Vec<_>>()
+					.iter()
+					.rev()
+				{
+					if let Some(comp_name) = component.file_name() {
+						current_path.push(comp_name);
+
+						// Look up this ancestor in directory_paths table
+						if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
+							.filter(
+								entities::directory_paths::Column::Path
+									.eq(current_path.to_string_lossy().to_string()),
+							)
+							.one(ctx.library_db())
+							.await
+						{
+							state
+								.entry_id_cache
+								.insert(current_path.clone(), dir_path_record.entry_id);
+							debug!(
+								"Seeded ancestor {} (entry {}) into cache",
+								current_path.display(),
+								dir_path_record.entry_id
+							);
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -423,11 +459,32 @@ async fn handle_create(
 
 		// Get the library to access the job manager
 		if let Some(library) = context.get_library(library_id).await {
+			// Query the location to get its index_mode policy
+			let location_record = entities::location::Entity::find()
+				.filter(entities::location::Column::Uuid.eq(location_id))
+				.one(ctx.library_db())
+				.await
+				.ok()
+				.flatten();
+
+			// Determine index mode from location policy (default to Content if not found)
+			let index_mode = if let Some(loc) = location_record {
+				match loc.index_mode.as_str() {
+					"shallow" => super::job::IndexMode::Shallow,
+					"content" => super::job::IndexMode::Content,
+					"deep" => super::job::IndexMode::Deep,
+					_ => super::job::IndexMode::Content,
+				}
+			} else {
+				super::job::IndexMode::Content
+			};
+
 			// Create a recursive indexer job for this directory subtree
+			// Use the location's index_mode to respect thumbnail/thumbstrip policies
 			let indexer_job = super::job::IndexerJob::from_location(
 				location_id,
 				crate::domain::addressing::SdPath::local(path),
-				super::job::IndexMode::Content,
+				index_mode,
 			);
 
 			// Dispatch the job asynchronously (fire and forget)
@@ -439,7 +496,8 @@ async fn handle_create(
 				);
 			} else {
 				debug!(
-					"✓ Spawned recursive indexer job for directory: {}",
+					"✓ Spawned recursive indexer job (mode: {:?}) for directory: {}",
+					index_mode,
 					path.display()
 				);
 			}

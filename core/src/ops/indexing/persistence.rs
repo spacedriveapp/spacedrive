@@ -6,7 +6,7 @@
 use crate::{
 	filetype::FileTypeRegistry,
 	infra::{
-		db::entities::{self, entry_closure},
+		db::entities::{self, directory_paths, entry_closure},
 		job::prelude::{JobContext, JobError, JobResult},
 	},
 };
@@ -335,9 +335,23 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			None => return Ok(HashMap::new()),
 		};
 
-		// Get all descendants of the location root using the closure table
+		// Query descendants of the indexing path
+		let indexing_path_str = indexing_path.to_string_lossy().to_string();
+		let indexing_path_entry_id = if let Ok(Some(dir_record)) = directory_paths::Entity::find()
+			.filter(directory_paths::Column::Path.eq(&indexing_path_str))
+			.one(self.ctx.library_db())
+			.await
+		{
+			// Indexing path exists in DB - use its entry ID
+			dir_record.entry_id
+		} else {
+			// This is safe because if the path doesn't exist, there are no descendants to delete
+			location_root_entry_id
+		};
+
+		// Get all descendants of the indexing path
 		let descendant_ids = entry_closure::Entity::find()
-			.filter(entry_closure::Column::AncestorId.eq(location_root_entry_id))
+			.filter(entry_closure::Column::AncestorId.eq(indexing_path_entry_id))
 			.all(self.ctx.library_db())
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
@@ -345,8 +359,8 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			.map(|ec| ec.descendant_id)
 			.collect::<Vec<i32>>();
 
-		// Add the root entry itself
-		let mut all_entry_ids = vec![location_root_entry_id];
+		// Add the indexing path entry itself
+		let mut all_entry_ids = vec![indexing_path_entry_id];
 		all_entry_ids.extend(descendant_ids);
 
 		// Fetch all entries (chunked to avoid SQLite variable limit)

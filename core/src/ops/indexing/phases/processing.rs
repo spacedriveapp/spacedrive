@@ -90,10 +90,49 @@ pub async fn run_processing_phase(
 		location_actual_path.display()
 	));
 
-	// Add the location root entry to the cache so children can find their parent
+	// Seed cache with ancestor directories from location root to indexing path
+
+	// First, add the actual location root
 	state
 		.entry_id_cache
-		.insert(location_root_path.to_path_buf(), location_entry_id);
+		.insert(location_actual_path.clone(), location_entry_id);
+
+	// If we're indexing a subpath (not the location root itself), seed all ancestors
+	if location_root_path != &location_actual_path {
+		// Traverse from location root to indexing path, seeding each directory
+		if let Ok(relative_path) = location_root_path.strip_prefix(&location_actual_path) {
+			let mut current_path = location_actual_path.clone();
+
+			for component in relative_path.components() {
+				current_path.push(component);
+
+				// Look up this ancestor directory in the database
+				if let Ok(Some(dir_record)) = entities::directory_paths::Entity::find()
+					.filter(
+						entities::directory_paths::Column::Path
+							.eq(current_path.to_string_lossy().to_string()),
+					)
+					.one(ctx.library_db())
+					.await
+				{
+					state
+						.entry_id_cache
+						.insert(current_path.clone(), dir_record.entry_id);
+					ctx.log(format!(
+						"Seeded ancestor {} (entry {}) into cache",
+						current_path.display(),
+						dir_record.entry_id
+					));
+				} else {
+					// Ancestor not yet indexed - this is OK, it will be created during this job
+					ctx.log(format!(
+						"Ancestor {} not yet in database, will be created during indexing",
+						current_path.display()
+					));
+				}
+			}
+		}
+	}
 
 	// Load existing entries for change detection scoped to the indexing path
 	// Note: location_root_path is the actual path being indexed (could be a subpath of the location)
