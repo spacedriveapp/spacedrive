@@ -185,4 +185,44 @@ impl IndexerState {
 	pub fn create_batch(&mut self) -> Vec<DirEntry> {
 		std::mem::take(&mut self.pending_entries)
 	}
+
+	/// Seed the entry ID cache with all ancestor directories from location root to target path
+	/// This prevents the ghost folder bug where subpath reindexing creates entries with wrong parent_id
+	pub async fn seed_ancestor_cache<'a>(
+		&mut self,
+		db: &sea_orm::DatabaseConnection,
+		location_root_path: &std::path::Path,
+		location_entry_id: i32,
+		target_path: &std::path::Path,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+		use crate::infra::db::entities::directory_paths;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		// Seed location root
+		self.entry_id_cache
+			.insert(location_root_path.to_path_buf(), location_entry_id);
+
+		// Seed all intermediate ancestors between location root and target path
+		if let Ok(relative_path) = target_path.strip_prefix(location_root_path) {
+			let mut current_path = location_root_path.to_path_buf();
+
+			for component in relative_path.components() {
+				current_path.push(component);
+
+				// Look up this ancestor in directory_paths table
+				if let Ok(Some(dir_record)) = directory_paths::Entity::find()
+					.filter(
+						directory_paths::Column::Path.eq(current_path.to_string_lossy().to_string()),
+					)
+					.one(db)
+					.await
+				{
+					self.entry_id_cache
+						.insert(current_path.clone(), dir_record.entry_id);
+				}
+			}
+		}
+
+		Ok(())
+	}
 }

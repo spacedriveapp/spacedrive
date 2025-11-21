@@ -328,59 +328,16 @@ async fn handle_create(
 	// Minimal state provides parent cache used by EntryProcessor
 	let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(path));
 
-	// Seed ancestor directories into cache, not just location root
+	// Seed ancestor directories into cache to prevent ghost folder bug
 	if let Ok(Some(location_record)) = entities::location::Entity::find()
 		.filter(entities::location::Column::Uuid.eq(location_id))
 		.one(ctx.library_db())
 		.await
 	{
 		if let Some(location_entry_id) = location_record.entry_id {
-			// Seed location root
-			state
-				.entry_id_cache
-				.insert(location_root.to_path_buf(), location_entry_id);
-			debug!(
-				"Seeded location root {} (entry {}) into cache",
-				location_root.display(),
-				location_entry_id
-			);
-
-			// Seed all intermediate ancestors between location root and target path
-			// This ensures parent lookup succeeds for deeply nested paths
-			if let Ok(stripped) = path.strip_prefix(location_root) {
-				let mut current_path = location_root.to_path_buf();
-
-				for component in stripped
-					.ancestors()
-					.skip(1)
-					.collect::<Vec<_>>()
-					.iter()
-					.rev()
-				{
-					if let Some(comp_name) = component.file_name() {
-						current_path.push(comp_name);
-
-						// Look up this ancestor in directory_paths table
-						if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
-							.filter(
-								entities::directory_paths::Column::Path
-									.eq(current_path.to_string_lossy().to_string()),
-							)
-							.one(ctx.library_db())
-							.await
-						{
-							state
-								.entry_id_cache
-								.insert(current_path.clone(), dir_path_record.entry_id);
-							debug!(
-								"Seeded ancestor {} (entry {}) into cache",
-								current_path.display(),
-								dir_path_record.entry_id
-							);
-						}
-					}
-				}
-			}
+			let _ = state
+				.seed_ancestor_cache(ctx.library_db(), location_root, location_entry_id, path)
+				.await;
 		}
 	}
 
