@@ -21,4 +21,3 @@ pub fn export_json(templates: &[Template], groups: &[LogGroup]) -> Result<String
 
 
 
-

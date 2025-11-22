@@ -150,4 +150,3 @@ fn render_group(
 	
 	Ok(())
 }
-

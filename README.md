@@ -2,13 +2,13 @@
   <img width="150" height="150" src="packages/assets/images/AppLogoV2.png" alt="Spacedrive Logo">
   <h1 align="center">Spacedrive</h1>
   <p align="center">
-  	The operating system for your personal data
+  	A file manager built on a virtual distributed filesystem
     <br />
     <a href="https://spacedrive.com"><strong>spacedrive.com</strong></a>
     ·
     <a href="https://discord.gg/gTaF2Z44f5"><strong>Discord</strong></a>
     ·
-    <a href="https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md"><strong>Read the Whitepaper</strong></a>
+    <a href="https://spacedrive.com/whitepaper"><strong>Whitepaper</strong></a>
   </p>
   <p align="center">
     <a href="https://discord.gg/gTaF2Z44f5">
@@ -26,91 +26,124 @@
   </p>
 </p>
 
-Spacedrive is an open source file manager that unifies your files across all your devices. Built on a **Virtual Distributed File System (VDFS)** written in Rust, it turns a scattered collection of files into a single, organized library you can access from anywhere. Dissolving ecosystem boundries and ensuring data ownership.
+Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (VDFS) written in Rust.
 
-**Now in Version 2.0:** After 3 years of learning from V1's architectural challenges, Spacedrive has been reimagined from the ground up. V2 introduces universal file addressing with **SdPath** that makes device boundaries transparent, an entry-centric model for instant organization, domain-separated sync that actually works, and an event-driven architecture that eliminates coupling. Every fatal flaw from V1 has been systematically addressed, resulting in a production-ready foundation that delivers on the original vision.
+Organize files across multiple devices, clouds, and platforms from a single interface. Tag once, access everywhere. Never lose track of where your files are.
 
----
-
-## Break Free from Cloud Lock-In
-
-Spacedrive provides **free, local-first backup** directly to your own devices. Backup photos, documents, or any files from your phone to your Mac, NAS, or any paired Spacedrive device—completely P2P with no cloud middleman.
-
-- **Your devices, your rules** - Backup to Mac, NAS, external drives, or any device you own
-- **Fully configurable** - WiFi-only, charging-only, custom paths, selective backup
-- **True privacy** - Files transfer directly between your devices via encrypted P2P
-- **Works offline** - No internet required when devices are on the same network
-- **VDFS-powered** - Metadata and thumbnails are always accessible locally, on all devices.
-
-This is core Spacedrive functionality, included free for everyone. **iOS photo backup is available today**, with Android coming soon.
+> **Note:** This is Spacedrive v2 (2025)—a complete architectural rewrite. After three years of learning from v1's challenges, the entire system was rebuilt from scratch to deliver on the original vision: true cross-device file management with a working sync engine, P2P networking, and a sustainable architecture. If you're looking for the previous version, see the [v1 branch](https://github.com/spacedriveapp/spacedrive/tree/v1).
 
 ---
 
-## Architectural Principles
+## The Problem
 
-Spacedrive is built on four foundational principles:
+Your data lives everywhere—laptop, phone, NAS, external drives, Dropbox, Google Drive. Each location is its own silo. Finding files requires remembering which device you used last. Cloud services lock you into their ecosystems. Traditional file managers can't see beyond the local filesystem.
 
-- **Unified Data Model**: A content-aware VDFS that treats files as first-class objects with rich metadata, enabling deduplication and redundancy tracking.
-- **Safe Operations**: Transactional actions that simulate and preview changes before execution, ensuring predictability.
-- **Resilient Sync**: Leaderless P2P synchronization with domain separation for conflict-free replication.
-- **AI-Native Design**: Extension-based agents for semantic search, automation, and natural language queries.
-  These enable offline-first operation, sub-100ms semantic search, and efficient management of libraries with over a million files.
+## The Solution
 
-## Features
+Spacedrive creates a unified index of all your data, regardless of where it physically lives. A file on your Mac's SSD and the same file on your NAS backup are recognized as one piece of content. Tag it once, access it from anywhere. The files stay where they are—Spacedrive just makes them universally addressable.
 
-| Feature                 | Description                                                                                                                                                                | Status      |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **Filesystem Indexing** | A multi-phase, resumable pipeline that discovers and processes file metadata. Uses real-time watchers and efficient offline change detection.                              | Done        |
-| **Durable Jobs**        | A resilient system that executes long-running tasks as durable jobs that survive restarts and network interruptions.                                                       | Done        |
-| **Actions**             | A transactional system where all operations are validated and can be previewed before execution, ensuring safe and predictable outcomes.                                   | Done        |
-| **Storage Volumes**     | Automatically discovers, classifies, and monitors all storage locations, from internal drives to network shares.                                                           | Done        |
-| **Device Sync**         | Leaderless, offline-first library (metadata) synchronization between peers.                                                                                                | Done        |
-| **Networking**          | Secure peer-to-peer device pairing using Iroh, local first with E2E encrypted cloud relay fallback.                                                                        | Done        |
-| **Semantic Tags**       | Graph-based tagging with contextual disambiguation, hierarchies, aliases, and compositional attributes for nuanced organization.                                           | In Progress |
-| **Spacedrop**           | AirDrop-style P2P file sharing between devices with automatic protocol selection and consent-based transfers.                                                              | In Progress |
-| **Content Identity**    | Blake3-based content addressing with adaptive hashing (sampling for large files) enabling cross-device deduplication.                                                      | Done        |
-| **File Type Detection** | Extension and magic byte matching with priority-based disambiguation across 100+ file types and MIME mappings. Extendible with TOML configuration and custom file loaders. | Done        |
-| **Search**              | Combines high-speed keyword filtering (FTS5) with semantic re-ranking for natural language queries.                                                                        | In Progress |
-| **Extensions**          | Extend core functionality into domain-specific use cases with sandboxed WASM extensions.                                                                                   | In Progress |
-| **Third-Party Cloud**   | Connect S3, Google Drive, Dropbox as cloud volumes, cloud indexing.                                                                                                        | In Progress |
-| **Virtual Sidecars**    | Manage derivitive data automatically; thumbnails, proxy media, OCR text extraction, Live Photos and more.                                                                  | Done        |
-| **Library Encryption**  | At-rest encryption using OS keychain for key storage (SQLCipher integration pending).                                                                                      | In Progress |
-| **AI & Intelligence**   | An observe-orient-act event loop for autonomous agents to perform tasks like file organization and analysis.                                                               | Planned     |
+---
 
-## How it Works
+## Architecture
 
-The heart of Spacedrive is the **Virtual Distributed File System (VDFS)**. It indexes your files in a local-first database, creating a unified view of your data. It doesn't matter if a file is on `C:\Users\...` or `~/Documents`—Spacedrive makes it accessible from any of your connected devices.
+Spacedrive is built on four core principles:
 
-The true power of Spacedrive is its extensibility. A sandboxed **WASM-based extension system** allows for the creation of powerful plugins that can introduce new features, data models, and AI agents. With a comprehensive Rust SDK, developers can build first-class extensions that are indistinguishable from core functionality.
+### 1. Virtual Distributed Filesystem (VDFS)
+Files and folders become first-class objects with rich metadata, independent of their physical location. Every file gets a universal address (`SdPath`) that works across devices. Content-aware addressing means you can reference files by what they contain, not just where they live.
 
-## Platform Support
+### 2. Content Identity System
+Adaptive hashing (BLAKE3 with strategic sampling for large files) creates a unique fingerprint for every piece of content. This enables:
+- **Deduplication**: Recognize identical files across devices
+- **Redundancy tracking**: Know where your backups are
+- **Content-based operations**: "Copy this file from wherever it's available"
 
-| Platform    | Core (Rust) | CLI       | GUI         |
-| ----------- | ----------- | --------- | ----------- |
-| **macOS**   | Available   | Available | Available   |
-| **Windows** | Available   | Available | In Progress |
-| **Linux**   | Available   | Available | In Progress |
-| **iOS**     | Available   | N/A       | Available   |
-| **Android** | Available   | N/A       | In Progress |
-| **Web**     | N/A         | N/A       | In Progress |
+### 3. Transactional Actions
+Every file operation can be previewed before execution. See exactly what will happen—space savings, conflicts, estimated time—then approve or cancel. Operations become durable jobs that survive network interruptions and device restarts.
+
+### 4. Leaderless Sync
+Peer-to-peer synchronization without central coordinators. Device-specific data (your filesystem index) uses state replication. Shared metadata (tags, ratings) uses a lightweight HLC-ordered log with deterministic conflict resolution. No leader election, no single point of failure.
+
+---
+
+## Core Features
+
+| Feature                 | Description                                                                                                                                                                |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Cross-Platform**      | macOS, Windows, Linux, iOS, Android                                                                                                                                        |
+| **Multi-Device Index**  | Unified view of files across all your devices                                                                                                                              |
+| **Content Addressing**  | Find optimal file copies automatically (local-first, then LAN, then cloud)                                                                                                 |
+| **Smart Deduplication** | Identify identical files regardless of name or location                                                                                                                    |
+| **Cloud Integration**   | Index S3, Google Drive, Dropbox as first-class volumes                                                                                                                     |
+| **P2P Networking**      | Direct device connections with automatic NAT traversal (Iroh + QUIC)                                                                                                       |
+| **Semantic Tags**       | Graph-based tagging with hierarchies, aliases, and contextual disambiguation                                                                                               |
+| **Action Preview**      | Simulate any operation before execution                                                                                                                                    |
+| **Offline-First**       | Full functionality without internet, syncs when devices reconnect                                                                                                          |
+| **Local Backup**        | P2P backup between your own devices (iOS photo backup available now)                                                                                                       |
+| **Extension System**    | WASM-based plugins for domain-specific functionality                                                                                                                       |
+
+---
+
+## Tech Stack
+
+**Core**
+- **Rust** - Entire VDFS implementation (~183k lines)
+- **SQLite + SeaORM** - Local-first database with type-safe queries
+- **Iroh** - P2P networking with QUIC transport and hole-punching
+- **BLAKE3** - Fast cryptographic hashing for content identity
+- **WASM** - Sandboxed extension runtime
+
+**Apps**
+- **Swift** - Native iOS/macOS with embedded Rust core via FFI
+- **React** - Cross-platform desktop (Tauri) and web interface
+
+**Architecture Patterns**
+- Event-driven design with centralized EventBus
+- CQRS: Actions (mutations) and Queries (reads) with preview-commit-verify
+- Durable jobs with MessagePack serialization
+- Domain-separated sync with clear data ownership boundaries
+
+---
+
+## Project Structure
+
+```
+spacedrive/
+├── core/              # Rust VDFS implementation
+│   ├── src/
+│   │   ├── domain/    # Core models (Entry, Library, Device, Tag)
+│   │   ├── ops/       # CQRS operations (actions & queries)
+│   │   ├── infra/     # Infrastructure (DB, events, jobs, sync)
+│   │   ├── service/   # High-level services (network, file sharing)
+│   │   ├── location/  # Location management and indexing
+│   │   ├── library/   # Library lifecycle and operations
+│   │   └── volume/    # Volume detection and fingerprinting
+├── apps/
+│   ├── cli/           # Rust CLI
+│   ├── ios/           # Native Swift app
+│   ├── macos/         # Native Swift app
+│   └── desktop/       # Tauri desktop app
+├── extensions/        # WASM extensions
+├── crates/            # Shared Rust utilities
+└── docs/              # Architecture documentation
+```
+
+---
 
 ## Extensions
 
-Spacedrive's WASM-based extension system enables both professional tools and data archival capabilities. Extensions can share models and build on each other's data.
+Spacedrive's WASM-based extension system enables specialized functionality while maintaining security and portability.
 
 ### Professional Extensions
 
-Our lineup of industry extensions.
-
 | Extension     | Purpose                         | Key Features                                                                | Status      |
 | ------------- | ------------------------------- | --------------------------------------------------------------------------- | ----------- |
-| **Guardian**  | Backup & redundancy monitoring  | Content identity tracking, zero-redundancy alerts, smart backup suggestions | Planned     |
 | **Photos**    | AI-powered photo management     | Face recognition, place identification, moments, scene classification       | In Progress |
 | **Chronicle** | Research & knowledge management | Document analysis, knowledge graphs, AI summaries                           | In Progress |
-| **Ledger**    | Financial intelligence          | Receipt OCR, expense tracking, tax preparation                              | Planned     |
 | **Atlas**     | Dynamic CRM & team knowledge    | Runtime schemas, contact tracking, deal pipelines                           | In Progress |
-| **Cipher**    | Security & encryption           | Password manager, file encryption, breach alerts                            | Planned     |
 | **Studio**    | Digital asset management        | Scene detection, transcription, proxy generation                            | Planned     |
+| **Ledger**    | Financial intelligence          | Receipt OCR, expense tracking, tax preparation                              | Planned     |
+| **Guardian**  | Backup & redundancy monitoring  | Content identity tracking, zero-redundancy alerts, smart backup suggestions | Planned     |
+| **Cipher**    | Security & encryption           | Password manager, file encryption, breach alerts                            | Planned     |
 
 ### Open Source Archive Extensions
 
@@ -123,66 +156,7 @@ Our lineup of industry extensions.
 | **Tweet Archive**   | Twitter backup          | Chronicle, Analytics     | Planned |
 | **GitHub Tracker**  | Repository tracking     | Chronicle                | Planned |
 
-## Privacy & Security First
-
-Your privacy is paramount. Spacedrive is a **local-first** application. Your data and metadata live on your devices.
-
-- **End-to-End Encryption:** All network traffic is encrypted using modern protocols.
-- **Encryption-at-Rest:** Libraries can be encrypted on disk with SQLCipher, protecting your data if a device is lost or stolen.
-- **No Central Servers:** Your files are your own. Optional cloud integration is available for backup and remote access, but it's never required.
-
-## Tech Stack & Architecture
-
-### Core Technologies
-
-- **Rust** - Pure Rust implementation with async/await throughout (Tokio runtime)
-- **Swift** - Native iOS/macOS apps with embedded Rust core via FFI
-- **SQLite + SeaORM** - Local-first database with type-safe queries
-- **Iroh** - P2P networking with QUIC transport and NAT hole-punching
-- **WASM** - Sandboxed extension system for user plugins
-
-### Project Structure
-
-```
-spacedrive/
-├── core/              # Rust VDFS implementation (the heart of V2)
-│   ├── src/
-│   │   ├── domain/    # Core models (Entry, Library, Device, Tag)
-│   │   ├── ops/       # CQRS operations (actions & queries)
-│   │   ├── infra/     # Infrastructure (DB, events, jobs, sync)
-│   │   ├── service/   # High-level services (network, file sharing)
-│   │   ├── location/  # Location management and indexing
-│   │   ├── library/   # Library lifecycle and operations
-│   │   └── volume/    # Volume detection and fingerprinting
-│   └── examples/      # Working examples demonstrating features
-├── apps/
-│   ├── cli/           # Rust CLI for library management
-│   ├── ios/           # Native Swift app with embedded core
-│   └── macos/         # Native Swift app with embedded core
-├── extensions/        # WASM extensions (Photos, Chronicle, etc.)
-├── crates/            # Shared Rust crates (utilities, types)
-└── docs/              # Architecture docs and whitepaper
-```
-
-### Architecture Highlights
-
-- **Entry-Centric Model**: Files and directories are unified as Entries with optional content identity
-- **SdPath Addressing**: Universal file addressing (`sd://device/{id}/path` or `sd://content/{cas_id}`)
-- **Event-Driven**: EventBus eliminates coupling between core subsystems
-- **CQRS Pattern**: Actions (mutations) and Queries (reads) with preview-commit-verify flow
-- **Durable Jobs**: Long-running operations survive app restarts via MessagePack serialization
-- **Domain-Separated Sync**: Leaderless P2P sync with HLC timestamps and clear data boundaries
-- **Embedded Core**: iOS/macOS apps embed the full Rust core for offline-first operation
-
-### Development philosophy
-
-## AI-Accelerated Development
-
-Spacedrive is built with AI assistance in mind. The codebase is agent-friendly with complete documentation, integration test coverage, and structured in-repo task tracking (`.tasks`) that allows coding agents to manage scope effectively.
-
-The whitepaper serves dual purposes: a north star for the open source community and a canonical reference for AI context. For high-level architectural work, large context window models (1M+ tokens) should be used to ground design decisions in actual implementations.
-
-Given Spacedrive's complexity—multiple intricate layers working in harmony—spec-driven development and comprehensive testing aren't optional. They're how we maintain coherence while moving fast.
+---
 
 ## Getting Started
 
@@ -192,8 +166,6 @@ Given Spacedrive's complexity—multiple intricate layers working in harmony—s
 - **Xcode** (for iOS/macOS development)
 
 ### Quick Start with CLI
-
-The CLI is the fastest way to explore Spacedrive's capabilities:
 
 ```bash
 # Clone the repository
@@ -209,39 +181,35 @@ cargo run -p sd-cli -- library create "My Library"
 # Add a location to index
 cargo run -p sd-cli -- location add ~/Documents
 
-# List indexed files
+# Search indexed files
 cargo run -p sd-cli -- search .
 ```
 
-### iOS/macOS App Development
-
-The native apps embed the Rust core directly:
+### iOS/macOS Development
 
 ```bash
 # Open the iOS project
 open apps/ios/Spacedrive.xcodeproj
 
-# Or open the macOS project
+# Or macOS project
 open apps/macos/Spacedrive.xcodeproj
 
 # Build from Xcode or command line
 xcodebuild -project apps/ios/Spacedrive.xcodeproj -scheme Spacedrive
 ```
 
-The Rust core is automatically compiled when building the iOS/macOS apps through Xcode build phases.
+The Rust core is automatically compiled during Xcode builds.
 
 ### Running Examples
-
-The `core/examples/` directory contains working demonstrations:
 
 ```bash
 # Run the indexing demo
 cargo run --example indexing_demo
 
-# Run the file type detection demo
+# Run file type detection demo
 cargo run --example file_type_demo
 
-# See all available examples
+# See all examples
 ls core/examples/
 ```
 
@@ -251,31 +219,53 @@ ls core/examples/
 # Run all tests
 cargo test
 
-# Run tests for a specific package
+# Run tests for specific package
 cargo test -p sd-core
 
-# Build the CLI in release mode
+# Build CLI in release mode
 cargo build -p sd-cli --release
 
 # Format code
 cargo fmt
 
-# Run clippy lints
+# Run lints
 cargo clippy
 ```
 
-For detailed contribution guidelines and architecture documentation, see [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/core/architecture.md](docs/core/architecture.md).
+---
+
+## Privacy & Security
+
+Spacedrive is **local-first**. Your data stays on your devices.
+
+- **End-to-End Encryption**: All P2P traffic encrypted via QUIC/TLS
+- **At-Rest Encryption**: Libraries can be encrypted on disk (SQLCipher)
+- **No Telemetry**: Zero tracking or analytics in the open source version
+- **Self-Hostable**: Run your own relay servers and cloud cores
+- **Data Sovereignty**: You control where your data lives
+
+Optional cloud integration (Spacedrive Cloud) is available for backup and remote access, but it's never required. The cloud service runs unmodified Spacedrive core as a standard P2P device—no special privileges, no custom APIs.
+
+---
+
+## Documentation
+
+- **[Whitepaper](https://spacedrive.com/whitepaper)** - Complete technical architecture
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
+- **[Architecture Docs](docs/core/architecture.md)** - Detailed system design
+- **[Extension SDK](docs/sdk.md)** - Build your own extensions
+
+---
 
 ## Get Involved
 
-- **Star the repo** to show your support.
-- **Join the [Discord](https://discord.gg/gTaF2Z44f5)** to chat with the developers and community.
-- **Read the [Whitepaper](https://github.com/spacedriveapp/spacedrive/blob/main/docs/whitepaper.md)** to understand the full vision.
-- **Build an Extension:** Check out the [SDK documentation](docs/sdk.md) and create your own extensions.
+- **Star the repo** to support the project
+- **Join [Discord](https://discord.gg/gTaF2Z44f5)** to chat with developers and community
+- **Read the [Whitepaper](https://spacedrive.com/whitepaper)** for the full technical vision
+- **Build an Extension** - Check out the [SDK docs](docs/sdk.md)
 
 ---
 
 <p align="center">
-  <em>Your files, unified. Your data, private. Your experience, limitless.</em>
+  <em>Your files, unified. Your data, sovereign.</em>
 </p>
-

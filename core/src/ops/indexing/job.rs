@@ -735,29 +735,36 @@ impl IndexerJob {
 		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
 		volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	) -> JobResult<()> {
-		use super::entry::EntryProcessor;
+		use super::persistence::PersistenceFactory;
 
 		ctx.log("Starting ephemeral processing");
 
-		for batch in &state.entry_batches {
-			for entry in batch {
-				// Extract metadata
-				let metadata = EntryProcessor::extract_metadata(&entry.path, volume_backend)
-					.await
-					.map_err(|e| {
-						JobError::execution(format!("Failed to extract metadata: {}", e))
-					})?;
+		// Get root path from ephemeral index
+		let root_path = {
+			let index = ephemeral_index.read().await;
+			index.root_path.clone()
+		};
 
-				// Store in ephemeral index
-				{
-					let mut index = ephemeral_index.write().await;
-					index.add_entry(entry.path.clone(), metadata);
-					index.stats = state.stats; // Update stats
-				}
+		// Get event bus from library
+		let event_bus = Some(ctx.library().event_bus().clone());
+
+		// Create ephemeral persistence layer (emits events as entries are stored)
+		let persistence = PersistenceFactory::ephemeral(
+			ephemeral_index.clone(),
+			event_bus,
+			root_path.clone(),
+		);
+
+		// Process all batches through persistence layer
+		while let Some(batch) = state.entry_batches.pop() {
+			for entry in batch {
+				// Store entry (this will emit ResourceChanged events)
+				persistence
+					.store_entry(&entry, None, &root_path)
+					.await?;
 			}
 		}
 
-		state.entry_batches.clear();
 		state.phase = Phase::ContentIdentification;
 
 		ctx.log("Ephemeral processing complete");

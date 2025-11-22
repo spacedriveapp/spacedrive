@@ -431,13 +431,21 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 pub struct EphemeralPersistence {
 	index: Arc<RwLock<EphemeralIndex>>,
 	next_entry_id: Arc<RwLock<i32>>,
+	event_bus: Option<Arc<crate::infra::event::EventBus>>,
+	root_path: PathBuf,
 }
 
 impl EphemeralPersistence {
-	pub fn new(index: Arc<RwLock<EphemeralIndex>>) -> Self {
+	pub fn new(
+		index: Arc<RwLock<EphemeralIndex>>,
+		event_bus: Option<Arc<crate::infra::event::EventBus>>,
+		root_path: PathBuf,
+	) -> Self {
 		Self {
 			index,
 			next_entry_id: Arc::new(RwLock::new(1)),
+			event_bus,
+			root_path,
 		}
 	}
 
@@ -465,10 +473,14 @@ impl IndexPersistence for EphemeralPersistence {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to extract metadata: {}", e)))?;
 
+		// Generate a stable UUID for this ephemeral entry
+		let entry_id = self.get_next_id().await;
+		let entry_uuid = Uuid::new_v4();
+
 		// Store in ephemeral index
 		{
 			let mut index = self.index.write().await;
-			index.add_entry(entry.path.clone(), metadata);
+			index.add_entry(entry.path.clone(), metadata.clone());
 
 			// Update stats
 			match entry.kind {
@@ -479,7 +491,50 @@ impl IndexPersistence for EphemeralPersistence {
 			index.stats.bytes += entry.size;
 		}
 
-		Ok(self.get_next_id().await)
+		// Emit ResourceChanged event for UI
+		if let Some(event_bus) = &self.event_bus {
+			use crate::device::get_current_device_slug;
+			use crate::domain::addressing::SdPath;
+			use crate::domain::file::File;
+			use crate::infra::event::{Event, ResourceMetadata};
+
+			// Build SdPath - for ephemeral indexing, we use Physical paths
+			let device_slug = get_current_device_slug();
+
+			let sd_path = SdPath::Physical {
+				device_slug: device_slug.clone(),
+				path: entry.path.clone(),
+			};
+
+			// Build File domain object from ephemeral data
+			let file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
+
+			// Emit event with path metadata for filtering
+			let parent_path = entry.path.parent().map(|p| SdPath::Physical {
+				device_slug: file.sd_path.device_slug().unwrap_or("local").to_string(),
+				path: p.to_path_buf(),
+			});
+
+			let affected_paths = if let Some(parent) = parent_path {
+				vec![parent]
+			} else {
+				vec![]
+			};
+
+			if let Ok(resource_json) = serde_json::to_value(&file) {
+				event_bus.emit(Event::ResourceChanged {
+					resource_type: "file".to_string(),
+					resource: resource_json,
+					metadata: Some(ResourceMetadata {
+						no_merge_fields: vec!["sd_path".to_string()],
+						alternate_ids: vec![],
+						affected_paths,
+					}),
+				});
+			}
+		}
+
+		Ok(entry_id)
 	}
 
 	async fn store_content_identity(
@@ -557,7 +612,9 @@ impl PersistenceFactory {
 	/// Create an ephemeral persistence instance
 	pub fn ephemeral(
 		index: Arc<RwLock<EphemeralIndex>>,
+		event_bus: Option<Arc<crate::infra::event::EventBus>>,
+		root_path: PathBuf,
 	) -> Box<dyn IndexPersistence + Send + Sync> {
-		Box::new(EphemeralPersistence::new(index))
+		Box::new(EphemeralPersistence::new(index, event_bus, root_path))
 	}
 }

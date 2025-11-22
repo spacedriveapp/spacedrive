@@ -132,9 +132,28 @@ impl LibraryQuery for DirectoryListingQuery {
 
 		let db = library.db();
 
-		// First, find the parent directory entry
-		let parent_entry = self.find_parent_directory(db.conn()).await?;
-		let parent_id = parent_entry.id;
+		// Try to find the parent directory entry
+		match self.find_parent_directory(db.conn()).await {
+			Ok(parent_entry) => {
+				// Path is indexed - query from database
+				let parent_id = parent_entry.id;
+				self.query_indexed_directory_impl(parent_id, db.conn()).await
+			}
+			Err(_) => {
+				// Path not indexed - trigger ephemeral indexing and return empty
+				self.query_ephemeral_directory_impl(context, library_id).await
+			}
+		}
+	}
+}
+
+impl DirectoryListingQuery {
+	/// Query indexed directory from database
+	async fn query_indexed_directory_impl(
+		&self,
+		parent_id: i32,
+		db: &DatabaseConnection,
+	) -> QueryResult<DirectoryListingOutput> {
 
 		// Build efficient SQL query to get all data in one go
 		let mut sql_query = r#"
@@ -199,7 +218,6 @@ impl LibraryQuery for DirectoryListingQuery {
 
 		// Execute the query
 		let rows = db
-			.conn()
 			.query_all(sea_orm::Statement::from_sql_and_values(
 				sea_orm::DatabaseBackend::Sqlite,
 				&sql_query,
@@ -235,7 +253,7 @@ impl LibraryQuery for DirectoryListingQuery {
 		let all_sidecars = if !content_uuids.is_empty() {
 			sidecar::Entity::find()
 				.filter(sidecar::Column::ContentUuid.is_in(content_uuids.clone()))
-				.all(db.conn())
+				.all(db)
 				.await?
 		} else {
 			Vec::new()
@@ -442,6 +460,54 @@ impl LibraryQuery for DirectoryListingQuery {
 			files,
 			total_count,
 			has_more,
+		})
+	}
+
+	/// Query ephemeral directory (not indexed) - trigger on-demand indexing
+	async fn query_ephemeral_directory_impl(
+		&self,
+		context: Arc<CoreContext>,
+		library_id: Uuid,
+	) -> QueryResult<DirectoryListingOutput> {
+		use crate::ops::indexing::{IndexerJob, IndexerJobConfig, IndexMode, IndexScope};
+
+		tracing::info!(
+			"Path not indexed, triggering ephemeral indexing for: {:?}",
+			self.input.path
+		);
+
+		// Get library to dispatch indexer job
+		if let Some(library) = context.get_library(library_id).await {
+			// Create ephemeral indexer job for this directory (shallow, current scope only)
+			let config = IndexerJobConfig::ephemeral_browse(
+				self.input.path.clone(),
+				IndexScope::Current, // Only current directory, not recursive
+			);
+
+			let indexer_job = IndexerJob::new(config);
+
+			// Dispatch job asynchronously (fire and forget)
+			// The job will emit ResourceChanged events as files are discovered
+			if let Err(e) = library.jobs().dispatch(indexer_job).await {
+				tracing::warn!(
+					"Failed to dispatch ephemeral indexer for {:?}: {}",
+					self.input.path,
+					e
+				);
+			} else {
+				tracing::info!(
+					"Dispatched ephemeral indexer for {:?}",
+					self.input.path
+				);
+			}
+		}
+
+		// Return empty result immediately
+		// UI will receive ResourceChanged events and populate incrementally
+		Ok(DirectoryListingOutput {
+			files: Vec::new(),
+			total_count: 0,
+			has_more: false,
 		})
 	}
 }

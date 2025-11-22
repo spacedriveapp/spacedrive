@@ -235,7 +235,7 @@ impl DaemonConnectionPool {
 			.as_mut()
 			.ok_or("Connection not initialized")?;
 
-		let unsubscribe_request = json!({"Unsubscribe": {}});
+		let unsubscribe_request = json!("Unsubscribe");
 		let request_line =
 			format!("{}\n", serde_json::to_string(&unsubscribe_request).unwrap());
 		
@@ -655,7 +655,7 @@ async fn subscribe_to_events(
 		);
 
 		// Send Unsubscribe request to daemon to clean up connection
-		let unsubscribe_request = json!({"Unsubscribe": {}});
+		let unsubscribe_request = json!("Unsubscribe");
 		let unsubscribe_line =
 			format!("{}\n", serde_json::to_string(&unsubscribe_request).unwrap());
 		if let Err(e) = writer.write_all(unsubscribe_line.as_bytes()).await {

@@ -264,6 +264,87 @@ impl File {
 		}
 	}
 
+	/// Construct a File from ephemeral indexing data (no database)
+	///
+	/// This is used for ephemeral indexing where files are discovered but not persisted to the database.
+	pub fn from_ephemeral(
+		id: Uuid,
+		metadata: &crate::ops::indexing::entry::EntryMetadata,
+		sd_path: SdPath,
+	) -> Self {
+		let is_local = sd_path.is_local();
+
+		// Extract name and extension from path
+		let file_name = metadata.path.file_name()
+			.and_then(|n| n.to_str())
+			.unwrap_or("unknown");
+
+		let (name, extension) = if metadata.kind == crate::ops::indexing::state::EntryKind::File {
+			let extension = metadata.path.extension()
+				.and_then(|e| e.to_str())
+				.map(|s| s.to_lowercase());
+
+			let name = metadata.path.file_stem()
+				.and_then(|s| s.to_str())
+				.unwrap_or(file_name)
+				.to_string();
+
+			(name, extension)
+		} else {
+			(file_name.to_string(), None)
+		};
+
+		// Convert indexing EntryKind to domain EntryKind
+		let kind = match metadata.kind {
+			crate::ops::indexing::state::EntryKind::File => EntryKind::File,
+			crate::ops::indexing::state::EntryKind::Directory => EntryKind::Directory,
+			crate::ops::indexing::state::EntryKind::Symlink => EntryKind::Symlink,
+		};
+
+		// Convert SystemTime to chrono::DateTime
+		let created_at = metadata.created
+			.and_then(|t| chrono::DateTime::from_timestamp(
+				t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
+				0,
+			))
+			.unwrap_or_else(chrono::Utc::now);
+
+		let modified_at = metadata.modified
+			.and_then(|t| chrono::DateTime::from_timestamp(
+				t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
+				0,
+			))
+			.unwrap_or_else(chrono::Utc::now);
+
+		let accessed_at = metadata.accessed
+			.and_then(|t| chrono::DateTime::from_timestamp(
+				t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
+				0,
+			));
+
+		Self {
+			id,
+			sd_path,
+			name,
+			size: metadata.size,
+			content_identity: None,
+			alternate_paths: Vec::new(),
+			tags: Vec::new(),
+			sidecars: Vec::new(),
+			image_media_data: None,
+			video_media_data: None,
+			audio_media_data: None,
+			created_at,
+			modified_at,
+			accessed_at,
+			content_kind: ContentKind::Unknown,
+			extension,
+			kind,
+			is_local,
+			duration_seconds: None,
+		}
+	}
+
 	/// Check if this file has content identity information
 	pub fn has_content_identity(&self) -> bool {
 		self.content_identity.is_some()
