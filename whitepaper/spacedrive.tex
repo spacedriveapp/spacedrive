@@ -361,56 +361,42 @@ This design provides several critical advantages: its self-contained nature simp
 
 \subsubsection{The Entry-Centric Data Model}
 \label{sec:entry-centric}
-The fundamental unit within a Library is the \textbf{Entry}---a universal representation that treats files and directories uniformly. Unlike traditional filesystems that separate metadata from content, every Entry in Spacedrive is designed for immediate metadata capability, building upon early work in document-centric computing~\cite{dourish_presto_1999}:
+The fundamental unit within a Library is the \textbf{Entry}---a universal representation that treats files and directories as first-class, queryable objects. This design, building upon early work in document-centric computing~\cite{dourish_presto_1999}, enables the VDFS to maintain rich metadata and relationships independently of the underlying filesystem.
 
-
-Every file and directory in Spacedrive is represented as an Entry with the following key properties:
+\textbf{Uniform Representation}: Unlike traditional filesystems where directories and files have fundamentally different representations, every filesystem entity becomes an Entry with consistent properties:
 
 \begin{table}[h]
 \footnotesize
 \centering
 \begin{tabular}{@{}ll@{}}
 \toprule
-\textbf{Field} & \textbf{Description} \\
+\textbf{Field} & \textbf{Purpose} \\
 \midrule
 Unique ID & Globally unique, immutable identifier \\
-Universal Path & Complete location with device ID \\
-Name \& Type & File/directory name and type \\
-\textbf{Metadata ID} & \textbf{Instant tagging without content analysis} \\
-Parent ID & Direct link to parent Entry for fast hierarchy traversal \\
-Content ID & Links to deduplication fingerprint \\
-Discovery Time & First detection timestamp \\
+Universal Path & Complete location addressing (SdPath) \\
+Parent ID & Direct hierarchical relationship \\
+Metadata ID & Links to user-assigned metadata \\
+Content ID & Links to content identity (for deduplication) \\
+Discovery Time & Temporal tracking \\
 \bottomrule
 \end{tabular}
-\caption{Entry data model fields}
+\caption{Entry data model}
 \label{tab:entry-fields}
 \end{table}
 
-\textbf{Key Property}: Entries are created immediately during the discovery phase (detailed in Section~\ref{sec:indexing-engine}), enabling low-latency browsing and tagging. The \texttt{metadata\_id} ensures every Entry can receive user metadata the moment it's discovered. Simultaneously, the \texttt{parent\_id} provides a direct link to its parent, allowing the system to instantly place the new file in the correct hierarchical context and transactionally update the index, while slower content analysis continues asynchronously. This "metadata-first" approach reduces delay when organizing files—whether browsing managed Locations or exploring external drives through ephemeral mode (Section~\ref{sec:indexing-scopes}).
+\textbf{Architectural Benefits}: This entry-centric approach provides several key advantages:
 
-This "metadata-first" capability is a direct result of the indexer's multi-phase architecture (detailed in Section~\ref{sec:indexing-engine}). The initial \textbf{Discovery phase} is a high-speed filesystem traversal that creates a lightweight \texttt{Entry} record for each item it finds. This record, containing the essential \texttt{metadata\_id}, is established almost instantly, allowing for immediate user interaction like tagging. Slower, content-aware operations like hashing and media analysis occur in subsequent, asynchronous phases, enriching the \texttt{Entry} over time without blocking initial organization.
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Metadata Independence}: User metadata (tags, ratings, notes) persists regardless of filesystem changes. Moving or renaming files preserves all organizational work.
+ 
+ \item \textbf{Universal Queryability}: Every entity can be searched, filtered, and organized through the same query interface, whether it's a file, directory, or even ephemeral content.
+ 
+ \item \textbf{Relationship Tracking}: The parent ID creates an explicit graph structure that enables O(1) hierarchical queries through the closure table (Section~\ref{sec:indexing-engine}), replacing slow path-based traversals.
+ 
+ \item \textbf{Content Separation}: The optional content ID links entries to the deduplication system without coupling file identity to content analysis. An entry can exist and be organized before its content is analyzed.
+\end{itemize}
 
-Furthermore, the indexing engine supports an \textbf{ephemeral mode}, which creates temporary, in-memory \texttt{Entry} records for files outside any formally managed \texttt{Location}. When a user browses a filesystem directly, these ephemeral entries are generated on-the-fly and presented "inline" alongside any previously indexed entries, creating an integrated view. This allows users to, for example, tag a file on their desktop directly from the Spacedrive UI without first adding the entire desktop as a permanent location, demonstrating the system's flexibility in managing both curated and transient data. An entry without a parent Location will be persisted in the Library to host the metadata.
-
-The Entry structure demonstrates this separation of concerns:
-
-\begin{lstlisting}[language=Rust, caption={Simplified Entry structure showing metadata-first design}]
-pub struct Entry {
-    pub id: Uuid,
-    pub path: SdPath,
-    pub name: String,
-    pub metadata_id: Uuid,  // Immediate metadata capability
-    pub content_id: Option<ContentId>,  // Populated asynchronously
-    pub discovered_at: DateTime<Utc>,
-}
-
-impl Entry {
-    pub fn tag(&self, tag: &Tag) -> Result<()> {
-        // Can tag immediately, no content_id required
-        self.metadata_id.add_tag(tag)
-    }
-}
-\end{lstlisting}
+\textbf{Ephemeral Mode}: The indexing engine extends this model to support temporary, in-memory Entry records for unindexed content. When browsing external drives or remote devices, ephemeral entries are generated on-the-fly and presented alongside persisted entries, creating a unified view. Users can tag and organize these files immediately; if an entry lacks a parent Location, it persists in the Library with its metadata intact, demonstrating how the entry-centric model handles both permanent and transient data uniformly.
 
 \subsubsection{Semantic Tagging Architecture}
 Spacedrive employs a graph-based tagging architecture that supports semantic organization while maintaining ease of use. This system recognizes that human organization relies on context, relationships, and multiple perspectives---capabilities that traditional flat tagging systems cannot provide.
@@ -689,6 +675,32 @@ $H_{adaptive}(F) = \begin{cases} H(size \oplus F) & \text{if } S_F < 100 \text{ 
 
 Where $H(x)$ is the BLAKE3 hash function including the file size in bytes as a prefix, $H_{header}$ is the 8KB header, $S_1$ through $S_4$ are four 10KB samples evenly distributed through the file body, $F_{footer}$ is the 8KB footer, and $\oplus$ denotes the concatenation operation.
 
+\paragraph{Two-Tier Hashing: Performance vs. Security Trade-off}
+
+The Content Identity system separates identity (for deduplication) from integrity (for verification) through a two-tier hashing architecture:
+
+\textbf{Initial Indexing (Sampled Hash)}: During discovery, only the sampled hash is computed. For large files, this reads ~58KB of data (8KB header + 4×10KB samples + 8KB footer) instead of the entire file. A 10GB video requires ~58KB of I/O instead of 10GB—approximately 170,000× less data read. Only the first 16 characters of the resulting BLAKE3 hex hash are stored as the content identifier, providing sufficient uniqueness for deduplication (collision probability <$10^{-19}$ for libraries under 1 billion files).
+
+\textbf{Lazy Integrity Validation}: Complete BLAKE3 hashes of entire file contents are generated on-demand by background \texttt{ValidationJobs}:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Scheduling}: ValidationJobs run during idle periods (low CPU usage, device charging)
+ \item \textbf{Priority}: Security-sensitive files and recently transferred files validated first
+ \item \textbf{Verification}: Full hash compared against expected content ID; mismatches trigger corruption alerts
+ \item \textbf{Recovery}: System automatically offers restoration from known-good copies on other devices
+\end{itemize}
+
+\textbf{When Full Integrity Matters}:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Large File Transfers}: Verify no corruption during cross-device operations
+ \item \textbf{Backup Verification}: Ensure bit-perfect copies in archival storage
+ \item \textbf{Security-Sensitive Files}: Cryptographic proof of content authenticity
+ \item \textbf{Forensic Analysis}: Detect tampering in legal or compliance scenarios
+\end{itemize}
+
+This architecture enables instant indexing (sub-second per file) while preserving cryptographic guarantees for scenarios requiring absolute verification. Users benefit from immediate deduplication without waiting hours for full cryptographic hashing of large media libraries.
+
 \subsubsection{Content Identity Management}
 Each unique piece of content receives a \textbf{Content Identity} record that tracks all instances across the Library:
 
@@ -790,7 +802,49 @@ To manage the complexity of file system analysis, the indexer employs a four-pha
 
 After a file's content and type are identified, the system can then dispatch specialized, asynchronous jobs for deeper analysis. These jobs are registered and defined by installed extensions, allowing for a modular approach to intelligence. For example, a Photos extension might queue an \texttt{ImageAnalysisJob} for images, while a developer extension might trigger a \texttt{CodeAnalysisJob} for source files. This ensures that deeper analysis is only performed when relevant to the user's workflow and installed extensions.
 
-This multi-phase architecture, combined with a persistent job queue, makes the indexing process resumable. If an operation is interrupted, it can be restarted from the last completed phase, reducing the risk of data loss and redundant work.
+\paragraph{Checkpoint Architecture and Resumability}
+
+The multi-phase design enables robust resumability critical for mobile devices and large libraries where indexing can span hours and face multiple interruptions.
+
+\textbf{Phase Separation Rationale}: Each phase has distinct failure modes and I/O characteristics requiring independent error handling:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Discovery}: Filesystem traversal fails on permission errors or unmounted volumes
+ \item \textbf{Processing}: Database writes fail on constraint violations or lock timeouts
+ \item \textbf{Aggregation}: Hierarchical calculations fail on corrupted parent-child references
+ \item \textbf{Content ID}: File hashing fails on file locks, read errors, or offline volumes
+\end{itemize}
+
+\textbf{Checkpoint Mechanism}: Jobs checkpoint automatically after each batch (default: 1,000 entries). State serialization uses MessagePack for compact binary encoding. Each checkpoint captures:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Current phase identifier
+ \item Batch cursor position
+ \item Set of processed entry IDs
+ \item Phase-specific state (e.g., discovered paths queue, aggregation stack)
+\end{itemize}
+
+\textbf{Resumability Flow}: When an indexing job is interrupted:
+
+\begin{enumerate}[noitemsep, topsep=0pt]
+ \item Job interrupted (crash, user cancellation, device offline, low battery)
+ \item Current state persisted to \texttt{jobs.db} with last completed phase
+ \item On restart: Load serialized state from database
+ \item Jump to last completed phase, skip already-processed entries
+ \item Continue from checkpoint cursor position
+\end{enumerate}
+
+This architecture transforms hours-long indexing operations into resilient, interruptible workflows. A user can index a 500GB photo library over multiple days, pausing for battery conservation or device shutdown, with zero redundant work on resume.
+
+\textbf{Ephemeral Mode Architecture}: The indexer's ephemeral mode creates in-memory \texttt{Entry} records for unindexed paths, enabling three critical use cases:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Exploratory Browsing}: Users can explore external drives or removable media before committing to permanent indexing, with full metadata capabilities (tagging, organizing) available immediately
+ \item \textbf{Remote Filesystem Access}: When browsing a peer device, lightweight ephemeral entries stream in real-time without polluting the local database
+ \item \textbf{Lazy Refresh Navigation}: During directory browsing, existing indexed data displays instantly while a background validation job updates changed entries
+\end{itemize}
+
+These ephemeral entries appear indistinguishable from persisted entries in the UI, creating a unified browsing experience across indexed and non-indexed data.
 
 \subsubsection{Flexible Indexing Scopes and Persistence}
 \label{sec:indexing-scopes}
@@ -883,57 +937,7 @@ Spacedrive's multi-phase indexing pipeline extends naturally to remote volumes (
 \item \textbf{Metadata-Only Mode}: Initial indexing fetches only stats (size, mod time) for quick Entry creation; defer content analysis to on-demand jobs.
 \end{itemize}
 
-This design minimizes bandwidth/costs: e.g., hashing a 10GB file uses only ~64KB of ranged data (8KB header + 4×10KB samples + 8KB footer) instead of full transfer. Recent OpenDAL enhancements (v0.49, 2025) improve concurrent listing and metadata handling, enabling ~450 files/sec for cloud indexing.
-
-\begin{lstlisting}[language=Rust, caption={Remote indexing and adaptive hashing with OpenDAL}]
-use opendal::{Operator, Result as OpResult};
-use blake3::Hasher;
-
-// Build Operator from Location config
-async fn build_operator(location: &Location) -> OpResult<Operator> {
-    // Scheme-specific builder (e.g., for S3, FTP); creds from vault
-    let mut builder = services::from_scheme(&location.scheme)?;
-    builder.finish().await
-}
-
-// Remote hashing: Adaptive BLAKE3 algorithm matching V1
-async fn hash_remote_entry(op: &Operator, entry: &Entry) -> Result<ContentId> {
-    let meta = op.stat(&entry.path).await?;
-    let size = meta.content_length();
-
-    let mut hasher = Hasher::new();
-    hasher.update(&size.to_le_bytes());
-
-    const MINIMUM_FILE_SIZE: u64 = 100 * 1024; // 100KB
-    const SAMPLE_SIZE: u64 = 10 * 1024; // 10KB
-    const HEADER_OR_FOOTER_SIZE: u64 = 8 * 1024; // 8KB
-
-    if size < MINIMUM_FILE_SIZE {
-        let content = op.read(&entry.path).await?;
-        hasher.update(&content);
-    } else {
-        // Header
-        let header = op.read_with(&entry.path).range(0..HEADER_OR_FOOTER_SIZE).await?;
-        hasher.update(&header);
-
-        // 4 evenly spaced samples
-        let seek_jump = (size - HEADER_OR_FOOTER_SIZE * 2) / 4;
-        for i in 0..4 {
-            let start = HEADER_OR_FOOTER_SIZE + i * seek_jump;
-            let chunk = op.read_with(&entry.path).range(start..start + SAMPLE_SIZE).await?;
-            hasher.update(&chunk);
-        }
-
-        // Footer
-        let footer_start = size - HEADER_OR_FOOTER_SIZE;
-        let footer = op.read_with(&entry.path).range(footer_start..size).await?;
-        hasher.update(&footer);
-    }
-    Ok(ContentId::from(hasher.finalize().to_hex()[..16]))
-}
-\end{lstlisting}
-
-\footnotetext{OpenDAL v0.49 changelog emphasizes ranged reads and metadata alignment for services like S3/GCS~\cite{opendal-changelog-2025}.}
+This design minimizes bandwidth and costs: hashing a 10GB file uses only ~64KB of ranged data (8KB header + 4×10KB samples + 8KB footer) instead of full transfer. The implementation builds scheme-specific OpenDAL operators (for S3, FTP, etc.) from location configuration, retrieving credentials from the secure vault. Remote hashing applies the same adaptive BLAKE3 strategy as local files, using ranged reads for efficient sampling without downloading entire files. Recent OpenDAL enhancements (v0.49, 2025) improve concurrent listing and metadata handling~\cite{opendal-changelog-2025}.
 
 \subsubsection{High-Performance Hierarchical Indexing}
 To overcome the scaling limitations of traditional path-based queries, Spacedrive's index uses a \textbf{Closure Table} for all hierarchical data. This database pattern pre-calculates and stores all ancestor-descendant relationships in an \texttt{EntryClosure} table, transforming slow string comparisons into highly efficient, indexed integer joins.
@@ -1082,9 +1086,38 @@ The UI supports screen readers for natural language commands and high-contrast m
 
 \subsubsection{The Simulation Engine}
 
-The Spacedrive index serves as the basis for a simulation engine. Since every file and its metadata are cataloged, we can model the effects of an operation in memory with high accuracy:
+The Spacedrive index serves as the basis for a simulation engine that provides accurate operation previews through complete knowledge of the VDFS state.
 
-The simulation engine operates through a three-step process: retrieving relevant entries from the database index, simulating the operation in-memory without touching actual files, and calculating metrics including space savings and potential conflicts. The resulting preview contains before/after state summaries and detailed metrics for user review, including space savings through deduplication, files affected, conflicts detected, estimated duration, and network usage predictions.
+\paragraph{Index-Based Simulation Architecture}
+
+The simulation engine's power derives from having complete metadata for every file without filesystem access:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Zero I/O Preview}: All predictions via SQL queries against the VDFS index—no filesystem reads during preview generation
+ \item \textbf{Complete Knowledge}: Every file's size, content hash, location, permissions, and relationships are instantly available
+ \item \textbf{Deduplication Awareness}: Content Identity table enables instant duplicate detection across all devices
+ \item \textbf{Hierarchical Operations}: Closure table enables O(1) queries for directory subtrees, avoiding recursive scans
+\end{itemize}
+
+This architecture transforms operation planning from a slow, I/O-bound process into a fast, in-memory query execution.
+
+\paragraph{Content-Aware Path Resolution}
+
+For operations using \texttt{SdPath::Content} addressing, the simulation engine performs optimal path resolution through a cost function evaluation:
+
+\begin{enumerate}[noitemsep, topsep=0pt]
+ \item \textbf{Content Lookup}: Query Content Identity table for all file instances across all devices
+ \item \textbf{Candidate Evaluation}: Score each instance using a cost function:
+   \begin{itemize}[noitemsep]
+     \item \textbf{Locality}: Local device copies = 0 cost (instant access)
+     \item \textbf{Network Proximity}: Iroh provides real-time latency/bandwidth estimates per peer
+     \item \textbf{Storage Tier}: PhysicalClass prioritizes SSD over HDD for source files
+     \item \textbf{Device Availability}: Filter for currently online devices only
+   \end{itemize}
+ \item \textbf{Path Selection}: Select lowest-cost valid path; simulation proceeds with this resolved path
+\end{enumerate}
+
+This enables accurate time estimation even when the optimal source device differs from the user's assumption.
 
 \textbf{Operational Conflict Detection}
 
@@ -1270,17 +1303,52 @@ Traditional distributed consensus algorithms struggle with the mixed requirement
 
 Data is separated into two domains with tailored replication strategies:
 
-\textbf{Device-Authoritative Data (State-Based Sync)}
+\textbf{Device-Authoritative Data (Watermark-Based Sync)}
 
-Each device maintains authoritative control over its own filesystem index, including its Locations, Entries, and Volumes. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible. Synchronization is therefore achieved through simple and efficient \textbf{state-based replication}:
+Each device maintains authoritative control over its own filesystem index, including its Locations, Entries, and Volumes. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible. Synchronization employs a sophisticated \textbf{per-resource watermark system} that enables efficient incremental sync with surgical recovery capabilities.
+
+\paragraph{Per-Resource Watermark Architecture}
+Rather than tracking sync progress globally, the system maintains independent watermarks for each resource type (locations, entries, volumes, tags, etc.). This granular approach enables surgical recovery: when a gap is detected in entry synchronization, only entries need re-syncing---location and volume sync remain unaffected. This prevents cross-contamination where advancing one watermark doesn't inadvertently affect another resource's sync state.
+
+\paragraph{Dual Watermark Strategy}
+Each resource employs two watermarks for robust gap detection:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Data}: Entry records, device-specific paths, Location metadata, device-specific audit logs
- \item \textbf{Mechanism}: When a change occurs (e.g., a new file is indexed), the device broadcasts the current state of the affected records to all peers
- \item \textbf{Conflicts}: Impossible---each device is the sole authority for its own data
- \item \textbf{Resolution}: Peers apply these changes idempotently via upsert operations. No ordered log is required, as the owning device is the definitive source of truth
- \item \textbf{Efficiency}: Timestamp-based delta sync allows incremental updates without maintaining a persistent change log
+ \item \textbf{Cursor Watermark}: Advances optimistically with each received record during normal operation
+ \item \textbf{Validated Watermark}: Only advances after integrity validation passes (count verification and hash comparison)
+ \item \textbf{Gap Recovery}: On detecting inconsistency, reset cursor to validated watermark for surgical re-sync of only affected records
 \end{itemize}
+
+\paragraph{Integrity Validation Mechanisms}
+During watermark exchange between peers, the system performs dual validation:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Count-Based Gap Detection}: Compare expected vs. actual record counts per resource type
+ \item \textbf{Hash-Based Update Detection}: Aggregated hash of resource data catches missed modifications
+ \item Both validations run during peer reconnection to identify drift
+\end{itemize}
+
+\paragraph{Escalation Strategy}
+The system employs graduated recovery mechanisms:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Normal Flow}: Incremental catch-up using watermark-based delta sync
+ \item \textbf{Detected Gaps}: Surgical recovery of affected resources only
+ \item \textbf{Persistent Failures}: After 5 consecutive catch-up failures, escalate to full resource backfill
+ \item \textbf{Post-Backfill}: Reset watermarks and return to incremental mode
+\end{itemize}
+
+\paragraph{Watermark Exchange Protocol}
+When devices reconnect, bidirectional negotiation occurs:
+
+\begin{enumerate}[noitemsep, topsep=0pt]
+ \item Each device sends: watermarks + counts + hashes for all resources
+ \item Peer responds with: actual counts/hashes + \texttt{needs\_catchup} flags
+ \item Surgical recovery initiated only for mismatched resources
+ \item Validated watermarks advance only after successful verification
+\end{enumerate}
+
+This watermark architecture enables Spacedrive to efficiently sync massive libraries without full re-indexing after network interruptions, providing reliability without the complexity of conflict-free replicated data types (CRDTs).
 
 \textbf{Truly Shared Data (Log-Based Sync with HLC)}
 
@@ -1321,17 +1389,48 @@ This peer-to-peer model provides significant practical advantages:
 
 Spacedrive's networking architecture departs from fragmented, protocol-specific implementations, introducing a \textbf{unified networking layer} powered by Iroh. This consolidation eliminates the complexity of managing separate networking stacks for sync, file transfer, and device discovery, achieving enterprise-level connectivity reliability on consumer networks:
 
-\textbf{Superior NAT Traversal}
+\paragraph{ALPN Protocol Multiplexing}
 
-All networking protocols share a single Iroh endpoint. ALPN allows pairing, file transfer, and sync to use the same connection. One connection between devices handles all protocols with automatic stream management and shared encryption.
+Application-Layer Protocol Negotiation (ALPN) enables multiple Spacedrive protocols to coexist on a single QUIC connection, eliminating the overhead of separate connections:
 
-Performance improvements over the previous fragmented implementation:
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Superior NAT traversal} leveraging Iroh's modern hole-punching techniques~\cite{iroh_networking}
- \item \textbf{Sub-2-second connection establishment} (down from 3-5 seconds)
- \item \textbf{60\% reduction in networking code} through protocol consolidation
- \item \textbf{Single connection per device pair} supporting all protocols concurrently
- \item \textbf{Native mobile platform support} (iOS, Android, ESP32)
+ \item \textbf{Single Connection Per Device Pair}: One QUIC connection handles pairing, sync, file transfer, and messaging
+ \item \textbf{Stream-Level Routing}: Each protocol identified by ALPN string (e.g., \texttt{spacedrive/sync/1}, \texttt{spacedrive/files/1})
+ \item \textbf{No Connection Multiplicity}: Protocols become streams, not separate connections—eliminating coordination overhead
+ \item \textbf{Shared Congestion Control}: All streams benefit from unified bandwidth allocation
+\end{itemize}
+
+\paragraph{Connection Efficiency Gains}
+
+Consolidating protocols onto a single connection provides measurable performance improvements:
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Single TCP/QUIC Handshake}: One handshake per device pair instead of N handshakes for N protocols
+ \item \textbf{Shared Congestion Control}: All operations benefit from unified bandwidth allocation
+ \item \textbf{Connection Reuse}: Eliminates re-establishment overhead for subsequent operations
+ \item \textbf{Sub-2-Second Establishment}: Connection ready in <2s (down from 3-5s with separate connections)
+ \item \textbf{60\% Code Reduction}: Protocol consolidation eliminates coordination logic
+\end{itemize}
+
+\paragraph{Deterministic Connection Initiation}
+
+To prevent race conditions in P2P networks, Spacedrive employs deterministic connection roles:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Role Assignment}: Only the device with lower NodeId initiates outbound connections
+ \item \textbf{Race Prevention}: Eliminates simultaneous connection attempts from both peers
+ \item \textbf{Simpler State Machine}: Each device knows its role (initiator or responder) deterministically
+ \item \textbf{Automatic Reconnection}: Role remains consistent across reconnection attempts
+\end{itemize}
+
+\paragraph{Pairing Security Model}
+
+Initial device pairing employs a secure challenge-response protocol:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{BIP39 Mnemonic Codes}: 12-word codes derived from 256-bit secrets for human-readable pairing
+ \item \textbf{Challenge-Response Handshake}: Four-message protocol prevents replay attacks
+ \item \textbf{Ed25519 Signatures}: Cryptographic authentication prevents man-in-the-middle attacks
+ \item \textbf{Device Fingerprints}: Visual verification prevents MITM during initial pairing
 \end{itemize}
 
 \textbf{QUIC-Based Transport Layer}
@@ -1719,11 +1818,55 @@ Each extension agent is sandboxed within a WASM runtime with explicit permission
 
 Extension-based agents operate through three core primitives:
 
-\textbf{Memory Systems}: Each agent maintains persistent knowledge through specialized memory types. \textit{Temporal Memory} stores time-ordered events (e.g., "photo analyzed, 2 faces detected, scene: beach"), enabling queries like "photos analyzed last week with beach scenes." \textit{Associative Memory} maintains a semantic knowledge graph (e.g., face clusters, place associations) that supports similarity searches and cross-domain queries like "places where Alice frequently appears." \textit{Working Memory} tracks current state and pending work transactionally.
+\paragraph{Memory Systems}
+Each agent maintains persistent knowledge across restarts through specialized memory types:
 
-\textbf{Event-Driven Processing}: Agents react to the VDFS through lifecycle hooks: \texttt{on\_startup} initializes the agent, \texttt{on\_event} handlers respond to filesystem events like \texttt{EntryCreated}, and \texttt{scheduled} tasks run on cron-like schedules. This reactive architecture enables agents to maintain up-to-date knowledge without polling, processing new data as it arrives.
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \textbf{Temporal Memory}: Time-ordered event stream supporting temporal queries. For example, \texttt{since(timestamp)} retrieves all events after a given time, enabling queries like "photos analyzed in the last week with beach scenes." Events are stored with full timestamps and searchable metadata.
+ 
+ \item \textbf{Associative Memory}: Semantic knowledge graph supporting similarity-based retrieval. Agents query by semantic similarity with configurable thresholds (e.g., "find faces similar to this cluster with >0.85 similarity"). Enables cross-domain queries like "places where Alice frequently appears" by traversing relationships between face clusters and GPS locations.
+ 
+ \item \textbf{Working Memory}: Transactional current state tracking. Maintains active plans, queued operations, and in-progress analysis. Persists across agent restarts, enabling resumable workflows.
+\end{itemize}
 
-\textbf{Safe Actions}: Agents propose changes through the same Action System used by human users. When the Photos agent identifies a face cluster, it generates a \texttt{BatchTagAction} to tag relevant photos, complete with a preview showing exactly which files will be modified. All agent-initiated actions are auditable, reversible, and require the same validation as user commands.
+These memory systems provide agents with persistent knowledge, transforming them from stateless processors into intelligent assistants that learn and adapt.
+
+\paragraph{Event-Driven Processing}
+Agents react to the VDFS through declarative lifecycle hooks defined in the SDK:
+
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item \texttt{\#[on\_startup]}: Initialization hook for loading models and restoring state
+ \item \texttt{\#[on\_event(EntryCreated)]}: React to specific filesystem events  
+ \item \texttt{\#[scheduled(cron = "0 2 * * *")]}: Time-based triggers for batch processing
+ \item \texttt{\#[filter(".extension().is\_image()")]}: Entry filtering expressions to target specific file types
+\end{itemize}
+
+This declarative approach enables agents to specify complex reactive behaviors without manual event loop management.
+
+\begin{lstlisting}[language=Rust, caption={Event-driven agent structure using SDK attributes}]
+#[agent]
+impl PhotosAgent {
+    #[on_startup]
+    async fn initialize(&self, ctx: &AgentContext) {
+        // Load face detection model and restore memory
+    }
+    
+    #[on_event(EntryCreated)]
+    #[filter(".extension().is_image()")]
+    async fn on_new_photo(&self, entry: Entry, ctx: &AgentContext) {
+        // Queue photo for analysis
+        ctx.memory.temporal.record(PhotoDiscovered { entry });
+    }
+    
+    #[scheduled(cron = "0 */4 * * *")]  // Every 4 hours
+    async fn batch_analysis(&self, ctx: &AgentContext) {
+        // Process queued photos in batches
+    }
+}
+\end{lstlisting}
+
+\paragraph{Safe Actions}
+Agents propose changes through the same Action System used by human users. When the Photos agent identifies a face cluster, it generates a \texttt{BatchTagAction} to tag relevant photos, complete with a preview showing exactly which files will be modified. All agent-initiated actions are auditable, reversible, and require the same validation as user commands. This ensures agents operate within the same safety boundaries as manual operations.
 
 \subsubsection{Domain-Specific Intelligence}
 

@@ -17,6 +17,7 @@ import {
   useSelection,
 } from "./components/Explorer/SelectionContext";
 import { KeyboardHandler } from "./components/Explorer/KeyboardHandler";
+import { TagAssignmentMode } from "./components/Explorer/TagAssignmentMode";
 import { SpacesSidebar } from "./components/SpacesSidebar";
 import { QuickPreviewModal } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
@@ -40,6 +41,8 @@ export function ExplorerLayout() {
     closeQuickPreview,
     goToNextPreview,
     goToPreviousPreview,
+    tagModeActive,
+    setTagModeActive,
   } = useExplorer();
 
   // Check if we're on Overview (hide inspector)
@@ -134,6 +137,12 @@ export function ExplorerLayout() {
 
       {/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
       <KeyboardHandler />
+
+      {/* Tag Assignment Mode */}
+      <TagAssignmentMode
+        isActive={tagModeActive}
+        onExit={() => setTagModeActive(false)}
+      />
 
       <AnimatePresence initial={false}>
         {/* Hide inspector on Overview screen */}

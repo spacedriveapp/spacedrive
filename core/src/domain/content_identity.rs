@@ -168,6 +168,12 @@ impl ContentHashGenerator {
 		path: &std::path::Path,
 		size: u64,
 	) -> Result<String, ContentHashError> {
+		// Reject empty files - they should not have content identities
+		// All empty files would have the same hash, causing them to be treated as identical
+		if size == 0 {
+			return Err(ContentHashError::EmptyFile);
+		}
+
 		if size <= MINIMUM_FILE_SIZE {
 			// Small file: read entire content
 			Self::generate_full_hash_with_backend(backend, path, size).await
@@ -265,6 +271,9 @@ pub enum ContentHashError {
 
 	#[error("File too large to process")]
 	FileTooLarge,
+
+	#[error("Empty files cannot have content identity")]
+	EmptyFile,
 }
 
 impl std::fmt::Display for ContentKind {

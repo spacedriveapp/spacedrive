@@ -20,35 +20,46 @@ The `useNormalizedQuery` hook provides instant, event-driven cache updates with 
 
 ## Architecture
 
-```
-┌─────────────────────────────────┐
-│  Device A: Create file          │
-└─────────────────────────────────┘
-              ↓
-┌─────────────────────────────────┐
-│  Backend: Emit event            │
-│  (10,000 events during index)   │
-└─────────────────────────────────┘
-              ↓
-┌─────────────────────────────────┐
-│  Server Filter: Per subscription│
-│  Desktop: 100 events (1%)       │
-│  Movies: 500 events (5%)        │
-│  Inspector: 1-5 events (0.05%)  │
-└─────────────────────────────────┘
-              ↓
-┌─────────────────────────────────┐
-│  Subscription Manager           │
-│  Multiplexes identical filters  │
-│  1 backend sub → N hooks        │
-└─────────────────────────────────┘
-              ↓
-┌─────────────────────────────────┐
-│  Client: Validate & filter      │
-│  Apply to TanStack Query cache  │
-│  React re-renders               │
-└─────────────────────────────────┘
-```
+import { FlowDiagram } from '/snippets/FlowDiagram.mdx';
+
+<FlowDiagram steps={[
+  {
+    title: "Device A: Create file",
+    description: "User creates or modifies a file on their device"
+  },
+  {
+    title: "Backend: Emit event",
+    description: "Backend detects change and emits events to all connected clients",
+    metrics: { "During indexing": "10,000 events" }
+  },
+  {
+    title: "Server Filter: Per subscription",
+    description: "Events are filtered server-side based on subscription criteria",
+    items: [
+      "Desktop: 100 events (1%)",
+      "Movies: 500 events (5%)",
+      "Inspector: 1-5 events (0.05%)"
+    ]
+  },
+  {
+    title: "Subscription Manager",
+    description: "Multiplexes identical filters to optimize connections",
+    items: [
+      "1 backend sub → N hooks",
+      "Auto deduplication",
+      "Reference counting"
+    ]
+  },
+  {
+    title: "Client: Validate & filter",
+    description: "Final validation and cache updates trigger React re-renders",
+    items: [
+      "Valibot validation",
+      "Client-side filtering",
+      "Atomic cache updates"
+    ]
+  }
+]} />
 
 ## Basic Usage
 

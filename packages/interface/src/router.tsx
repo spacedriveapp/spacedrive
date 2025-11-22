@@ -4,6 +4,7 @@ import { ExplorerView } from "./components/explorer";
 import { ExplorerLayout } from "./Explorer";
 import { JobsScreen } from "./components/JobManager";
 import { DaemonManager } from "./routes/DaemonManager";
+import { TagView } from "./routes/tag";
 
 /**
  * Router for the main Explorer interface
@@ -36,7 +37,7 @@ export function createExplorerRouter() {
 				},
 				{
 					path: "tag/:tagId",
-					element: <div className="flex items-center justify-center h-full text-ink">Tag view (coming soon)</div>,
+					element: <TagView />,
 				},
 				{
 					path: "search",

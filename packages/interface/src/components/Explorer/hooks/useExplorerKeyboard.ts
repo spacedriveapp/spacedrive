@@ -5,7 +5,7 @@ import { useNormalizedCache } from "../../../context";
 import type { DirectorySortBy } from "@sd/ts-client";
 
 export function useExplorerKeyboard() {
-  const { currentPath, sortBy, setCurrentPath, viewMode, viewSettings, sidebarVisible, inspectorVisible, openQuickPreview } = useExplorer();
+  const { currentPath, sortBy, setCurrentPath, viewMode, viewSettings, sidebarVisible, inspectorVisible, openQuickPreview, tagModeActive, setTagModeActive } = useExplorer();
   const { selectedFiles, selectFile, selectAll, clearSelection, focusedIndex, setFocusedIndex, setSelectedFiles } = useSelection();
 
   // Query files for keyboard operations
@@ -89,6 +89,13 @@ export function useExplorerKeyboard() {
           e.preventDefault();
           setCurrentPath(selected.sd_path);
         }
+        return;
+      }
+
+      // T: Enter tag assignment mode
+      if (e.key === "t" && !e.metaKey && !e.ctrlKey && !tagModeActive) {
+        e.preventDefault();
+        setTagModeActive(true);
         return;
       }
 

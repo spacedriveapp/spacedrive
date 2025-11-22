@@ -14,16 +14,13 @@ import {
   Info,
   ArrowLeft,
   ArrowRight,
-  Rows,
-  GridFour,
-  Camera,
-  Columns,
-  ChartPieSlice,
+  Tag as TagIcon,
 } from "@phosphor-icons/react";
 import { TopBarButton, TopBarButtonGroup, SearchBar } from "@sd/ui";
 import { PathBar } from "./components/PathBar";
 import { ViewSettings } from "../Explorer/ViewSettings";
 import { SortMenu } from "./SortMenu";
+import { ViewModeMenu } from "./ViewModeMenu";
 
 export function ExplorerView() {
   const { locationId } = useParams();
@@ -32,6 +29,8 @@ export function ExplorerView() {
     setSidebarVisible,
     inspectorVisible,
     setInspectorVisible,
+    tagModeActive,
+    setTagModeActive,
     viewMode,
     setViewMode,
     sortBy,
@@ -110,33 +109,13 @@ export function ExplorerView() {
         right={
           <div className="flex items-center gap-2">
             <SearchBar className="w-64" placeholder="Search..." />
-            <TopBarButtonGroup>
-              <TopBarButton
-                icon={Rows}
-                active={viewMode === "list"}
-                onClick={() => setViewMode("list")}
-              />
-              <TopBarButton
-                icon={GridFour}
-                active={viewMode === "grid"}
-                onClick={() => setViewMode("grid")}
-              />
-              <TopBarButton
-                icon={Columns}
-                active={viewMode === "column"}
-                onClick={() => setViewMode("column")}
-              />
-              <TopBarButton
-                icon={Camera}
-                active={viewMode === "media"}
-                onClick={() => setViewMode("media")}
-              />
-              <TopBarButton
-                icon={ChartPieSlice}
-                active={viewMode === "size"}
-                onClick={() => setViewMode("size")}
-              />
-            </TopBarButtonGroup>
+            <TopBarButton
+              icon={TagIcon}
+              onClick={() => setTagModeActive(!tagModeActive)}
+              active={tagModeActive}
+              tooltip="Tag Mode (T)"
+            />
+            <ViewModeMenu viewMode={viewMode} onViewModeChange={setViewMode} />
             <ViewSettings />
             <SortMenu
               sortBy={sortBy}

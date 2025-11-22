@@ -771,30 +771,10 @@ async fn handle_remove(
 	if let Some(entry_id) =
 		resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await?
 	{
-		// Get entry UUID before deleting
-		let entry_uuid = match entities::entry::Entity::find_by_id(entry_id)
-			.one(ctx.library_db())
-			.await?
-		{
-			Some(entry) => entry.uuid,
-			None => None,
-		};
-
 		debug!("→ Deleting entry {} for path: {}", entry_id, path.display());
-		delete_subtree(ctx, entry_id).await?;
+		delete_subtree(ctx, context, location_id, entry_id).await?;
 		debug!("✓ Deleted entry {} for path: {}", entry_id, path.display());
-
-		// Emit ResourceDeleted event if entry had a UUID
-		if let Some(uuid) = entry_uuid {
-			debug!("→ Emitting ResourceDeleted event for entry {}", uuid);
-			context
-				.events
-				.emit(crate::infra::event::Event::ResourceDeleted {
-					resource_type: "file".to_string(),
-					resource_id: uuid,
-				});
-			debug!("✓ Emitted ResourceDeleted event for entry {}", uuid);
-		}
+		// Note: ResourceDeleted events are emitted by sync_models_batch in delete_subtree
 	} else {
 		debug!(
 			"✗ Entry not found for path, skipping remove: {}",
@@ -1052,82 +1032,32 @@ fn is_unique_constraint_violation(error: &crate::infra::job::error::JobError) ->
 ///
 /// This variant is used for local deletions (watcher, indexer) and creates
 /// a tombstone for the root entry UUID to sync the deletion to other devices.
-async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
-	let txn = ctx.library_db().begin().await?;
+async fn delete_subtree(
+	ctx: &impl IndexingCtx,
+	context: &Arc<CoreContext>,
+	location_id: Uuid,
+	entry_id: i32,
+) -> Result<()> {
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-	// Get root entry UUID
-	let root_entry = entities::entry::Entity::find_by_id(entry_id)
-		.one(&txn)
-		.await?
-		.ok_or_else(|| anyhow::anyhow!("Entry not found: {}", entry_id))?;
-
-	// Check if UUID is present (entries without UUIDs aren't sync-ready yet)
-	let root_uuid = match root_entry.uuid {
-		Some(uuid) => uuid,
-		None => {
-			// No UUID means not sync-ready, skip tombstone creation and just delete without tombstones
-			tracing::debug!("Entry {} has no UUID, skipping tombstone", entry_id);
-			return delete_subtree_no_txn(entry_id, &txn)
-				.await
-				.map_err(|e| anyhow::anyhow!(e));
-		}
-	};
-
-	// Find the location this entry belongs to by finding a location with entry_id matching any ancestor
-	// Walk up the tree to find the root entry (which should be the location's entry_id)
-	let mut current_id = entry_id;
-	let mut visited = std::collections::HashSet::new();
-	let location = loop {
-		visited.insert(current_id);
-
-		// Try to find a location with this entry_id
-		if let Some(loc) = entities::location::Entity::find()
-			.filter(entities::location::Column::EntryId.eq(current_id))
-			.one(&txn)
-			.await?
-		{
-			break loc;
-		}
-
-		// Get parent entry
-		let entry = entities::entry::Entity::find_by_id(current_id)
-			.one(&txn)
-			.await?
-			.ok_or_else(|| anyhow::anyhow!("Entry not found during tree traversal"))?;
-
-		match entry.parent_id {
-			Some(parent) if !visited.contains(&parent) => current_id = parent,
-			_ => {
-				return Err(anyhow::anyhow!(
-					"Could not find location for entry {}",
-					entry_id
-				))
-			}
-		}
-	};
-
-	let device_id = location.device_id;
-
-	// Find all descendants using closure table
+	// Step 1: Collect all entry IDs in the subtree
 	let mut to_delete_ids: Vec<i32> = vec![entry_id];
 	if let Ok(rows) = entities::entry_closure::Entity::find()
 		.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
-		.all(&txn)
+		.all(ctx.library_db())
 		.await
 	{
 		to_delete_ids.extend(rows.into_iter().map(|r| r.descendant_id));
 	}
 
 	// IMPORTANT: Also find descendants by parent_id recursively as a fallback
-	// This handles cases where the closure table is incomplete (e.g., race conditions during indexing)
 	let mut queue = vec![entry_id];
 	let mut visited = std::collections::HashSet::from([entry_id]);
 
 	while let Some(parent) = queue.pop() {
-		// Find all children of this parent
 		if let Ok(children) = entities::entry::Entity::find()
 			.filter(entities::entry::Column::ParentId.eq(parent))
-			.all(&txn)
+			.all(ctx.library_db())
 			.await
 		{
 			for child in children {
@@ -1149,7 +1079,39 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 		to_delete_ids.len()
 	);
 
-	// Delete entries and related data
+	// Step 2: Fetch all entry models that will be deleted
+	let entries_to_delete = if !to_delete_ids.is_empty() {
+		let mut all_entries = Vec::new();
+		// Chunk to avoid SQLite variable limit
+		for chunk in to_delete_ids.chunks(900) {
+			let batch = entities::entry::Entity::find()
+				.filter(entities::entry::Column::Id.is_in(chunk.to_vec()))
+				.all(ctx.library_db())
+				.await?;
+			all_entries.extend(batch);
+		}
+		all_entries
+	} else {
+		Vec::new()
+	};
+
+	if !entries_to_delete.is_empty() {
+		if let Some(library) = context.get_library(location_id).await {
+			// Use sync_models_batch for proper sync and event handling
+			// This will create tombstones for all entries and emit ResourceDeleted events
+			let _ = library
+				.sync_models_batch(
+					&entries_to_delete,
+					crate::infra::sync::ChangeType::Delete,
+					ctx.library_db(),
+				)
+				.await;
+		}
+	}
+
+	// Step 4: Now perform the actual database deletion
+	let txn = ctx.library_db().begin().await?;
+
 	if !to_delete_ids.is_empty() {
 		let _ = entities::entry_closure::Entity::delete_many()
 			.filter(entities::entry_closure::Column::DescendantId.is_in(to_delete_ids.clone()))
@@ -1168,30 +1130,6 @@ async fn delete_subtree(ctx: &impl IndexingCtx, entry_id: i32) -> Result<()> {
 			.exec(&txn)
 			.await;
 	}
-
-	// Create tombstone for root UUID only (children cascade on receiver)
-	use sea_orm::ActiveValue::{NotSet, Set};
-	let tombstone = entities::device_state_tombstone::ActiveModel {
-		id: NotSet,
-		model_type: Set("entry".to_string()),
-		record_uuid: Set(root_uuid),
-		device_id: Set(device_id),
-		deleted_at: Set(chrono::Utc::now().into()),
-	};
-
-	use sea_orm::sea_query::OnConflict;
-	entities::device_state_tombstone::Entity::insert(tombstone)
-		.on_conflict(
-			OnConflict::columns(vec![
-				entities::device_state_tombstone::Column::ModelType,
-				entities::device_state_tombstone::Column::RecordUuid,
-				entities::device_state_tombstone::Column::DeviceId,
-			])
-			.do_nothing()
-			.to_owned(),
-		)
-		.exec(&txn)
-		.await?;
 
 	txn.commit().await?;
 	Ok(())

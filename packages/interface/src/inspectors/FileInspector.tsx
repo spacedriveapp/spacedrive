@@ -31,6 +31,7 @@ import {
   Tabs,
   TabContent,
 } from "../components/Inspector";
+import { TagSelectorButton } from "../components/Tags";
 import clsx from "clsx";
 import type { File } from "@sd/ts-client";
 import { useNormalizedCache, useLibraryMutation } from "../context";
@@ -45,6 +46,9 @@ interface FileInspectorProps {
 
 export function FileInspector({ file }: FileInspectorProps) {
   const [activeTab, setActiveTab] = useState("overview");
+
+  const applyTag = useLibraryMutation('tags.apply');
+  const removeTag = useLibraryMutation('tags.remove');
 
   const fileQuery = useNormalizedCache<{ file_id: string }, File>({
     wireMethod: "query:files.by_id",
@@ -311,17 +315,39 @@ function OverviewTab({ file }: { file: File }) {
       </Section>
 
       {/* Tags */}
-      {file.tags && file.tags.length > 0 && (
-        <Section title="Tags" icon={TagIcon}>
-          <div className="flex flex-wrap gap-1.5">
-            {file.tags.map((tag) => (
-              <Tag key={tag.id} color={tag.color || "#3B82F6"}>
-                {tag.canonical_name}
-              </Tag>
-            ))}
-          </div>
-        </Section>
-      )}
+      <Section title="Tags" icon={TagIcon}>
+        <div className="flex flex-wrap gap-1.5">
+          {file.tags && file.tags.length > 0 && file.tags.map((tag) => (
+            <Tag
+              key={tag.id}
+              color={tag.color || "#3B82F6"}
+              size="sm"
+            >
+              {tag.canonical_name}
+            </Tag>
+          ))}
+
+          {/* Add Tag Button */}
+          <TagSelectorButton
+            onSelect={async (tag) => {
+              await applyTag.mutateAsync({
+                file_ids: [file.id],
+                tag_applications: [{
+                  tag_id: tag.id,
+                  source: 'User',
+                  confidence: 1.0,
+                }],
+              });
+            }}
+            contextTags={file.tags || []}
+            trigger={
+              <button className="px-2 py-0.5 text-xs font-medium rounded-full bg-app-box hover:bg-app-hover border border-app-line text-ink-dull hover:text-ink transition-colors">
+                + Add tags
+              </button>
+            }
+          />
+        </div>
+      </Section>
 
       {/* AI Processing */}
       {(isImage || isVideo || isAudio) && (

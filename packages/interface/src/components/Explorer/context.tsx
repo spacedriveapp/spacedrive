@@ -57,6 +57,9 @@ interface ExplorerState {
   goToNextPreview: (files: File[]) => void;
   goToPreviousPreview: (files: File[]) => void;
 
+  tagModeActive: boolean;
+  setTagModeActive: (active: boolean) => void;
+
   devices: Map<string, LibraryDeviceInfo>;
 }
 
@@ -89,6 +92,7 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [inspectorVisible, setInspectorVisible] = useState(true);
   const [quickPreviewFileId, setQuickPreviewFileId] = useState<string | null>(null);
+  const [tagModeActive, setTagModeActive] = useState(false);
 
   const setViewSettings = (settings: Partial<ViewSettings>) => {
     setViewSettingsInternal((prev) => ({ ...prev, ...settings }));
@@ -191,6 +195,8 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     closeQuickPreview,
     goToNextPreview,
     goToPreviousPreview,
+    tagModeActive,
+    setTagModeActive,
     devices,
   }), [
     currentPath,
@@ -210,6 +216,7 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     closeQuickPreview,
     goToNextPreview,
     goToPreviousPreview,
+    tagModeActive,
     devices,
   ]);
 

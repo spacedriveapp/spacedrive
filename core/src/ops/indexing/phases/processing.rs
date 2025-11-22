@@ -506,19 +506,14 @@ pub async fn run_processing_phase(
 						entry_id
 					));
 
-					// Check for interruption before deletion transaction
+					// Check for interruption before deletion
 					ctx.check_interrupt().await?;
 
-					// Best-effort subtree deletion: remove closure links, directory path cache, and entries
-					let txn = ctx.library_db().begin().await.map_err(|e| {
-						JobError::execution(format!("Failed to begin deletion transaction: {}", e))
-					})?;
-
-					// Collect subtree descendant IDs (including the entry itself)
+					// Collect all entry IDs in the subtree
 					let mut to_delete_ids: Vec<i32> = vec![entry_id];
 					match entities::entry_closure::Entity::find()
 						.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
-						.all(&txn)
+						.all(ctx.library_db())
 						.await
 					{
 						Ok(rows) => {
@@ -530,15 +525,51 @@ pub async fn run_processing_phase(
 								entry_id, e
 							);
 							ctx.add_non_critical_error(msg);
-							// Attempt to delete just the single entry below
 						}
 					}
 
-					// De-duplicate IDs
 					to_delete_ids.sort_unstable();
 					to_delete_ids.dedup();
 
-					// Remove closure links referencing any of the subtree nodes (as ancestor or descendant)
+					// Fetch all entry models that will be deleted
+					let entries_to_delete = if !to_delete_ids.is_empty() {
+						let mut all_entries = Vec::new();
+						for chunk in to_delete_ids.chunks(900) {
+							let batch = entities::entry::Entity::find()
+								.filter(entities::entry::Column::Id.is_in(chunk.to_vec()))
+								.all(ctx.library_db())
+								.await
+								.map_err(|e| {
+									JobError::execution(format!("Failed to fetch entries: {}", e))
+								})?;
+							all_entries.extend(batch);
+						}
+						all_entries
+					} else {
+						Vec::new()
+					};
+
+					// Use sync_models_batch to handle sync tombstones AND event emission
+					// Called before actual deletion so sync can create tombstones
+					if !entries_to_delete.is_empty() {
+						if let Err(e) = ctx
+							.library()
+							.sync_models_batch(
+								&entries_to_delete,
+								crate::infra::sync::ChangeType::Delete,
+								ctx.library_db(),
+							)
+							.await
+						{
+							ctx.add_non_critical_error(format!("Failed to sync deletions: {}", e));
+						}
+					}
+
+					// Step 4: Perform the actual database deletion
+					let txn = ctx.library_db().begin().await.map_err(|e| {
+						JobError::execution(format!("Failed to begin deletion transaction: {}", e))
+					})?;
+
 					if !to_delete_ids.is_empty() {
 						use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 						let _ = entities::entry_closure::Entity::delete_many()
@@ -555,8 +586,6 @@ pub async fn run_processing_phase(
 							)
 							.exec(&txn)
 							.await;
-
-						// Remove directory path cache rows
 						let _ = entities::directory_paths::Entity::delete_many()
 							.filter(
 								entities::directory_paths::Column::EntryId
@@ -564,8 +593,6 @@ pub async fn run_processing_phase(
 							)
 							.exec(&txn)
 							.await;
-
-						// Finally remove entries themselves
 						let _ = entities::entry::Entity::delete_many()
 							.filter(entities::entry::Column::Id.is_in(to_delete_ids))
 							.exec(&txn)

@@ -28,6 +28,7 @@ import { useJobDispatch } from "../../../../hooks/useJobDispatch";
 import { useLibraryMutation } from "../../../../context";
 import { usePlatform } from "../../../../platform";
 import { formatBytes } from "../../utils";
+import { TagDot } from "../../../Tags";
 
 interface FileCardProps {
   file: File;
@@ -476,6 +477,27 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
         {showFileSize && file.size > 0 && (
           <div className="text-xs text-ink-dull mt-0.5">
             {formatBytes(file.size)}
+          </div>
+        )}
+
+        {/* Tag Indicators */}
+        {file.tags && file.tags.length > 0 && (
+          <div
+            className="flex items-center gap-1 mt-1"
+            title={file.tags.map(t => t.canonical_name).join(', ')}
+          >
+            {file.tags.slice(0, 3).map((tag) => (
+              <TagDot
+                key={tag.id}
+                color={tag.color || '#3B82F6'}
+                tooltip={tag.canonical_name}
+              />
+            ))}
+            {file.tags.length > 3 && (
+              <span className="text-[10px] text-ink-faint font-medium">
+                +{file.tags.length - 3}
+              </span>
+            )}
           </div>
         )}
       </div>

@@ -197,3 +197,15 @@ pattern = "D0 CF 11 E0 A1 B1 1A E1"
 offset = 0
 priority = 80
 
+[[file_types]]
+id = "application/x-subrip"
+name = "SubRip Subtitle"
+extensions = ["srt"]
+mime_types = ["application/x-subrip", "text/plain"]
+uti = "public.srt-subtitle"
+category = "document"
+priority = 100
+
+[file_types.metadata]
+text_based = true
+

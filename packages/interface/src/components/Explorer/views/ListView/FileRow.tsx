@@ -4,6 +4,7 @@ import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { formatBytes, formatRelativeTime } from "../../utils";
+import { TagPill } from "../../../Tags";
 
 interface FileRowProps {
   file: File;
@@ -43,15 +44,35 @@ export function FileRow({ file, fileIndex, allFiles }: FileRowProps) {
       >
         <FileComponent.Thumb file={file} size={16} />
       </div>
-      <div className="flex-1 flex items-center">
+      <div className="flex-1 flex items-center gap-2 min-w-0">
         <div
           className={clsx(
-            "text-sm truncate px-2 py-0.5 rounded-md transition-colors inline-block max-w-full",
+            "text-sm truncate px-2 py-0.5 rounded-md transition-colors inline-block",
             selected ? "bg-accent text-white" : "text-ink"
           )}
         >
           {file.name}
         </div>
+
+        {/* Tag Pills (compact) */}
+        {file.tags && file.tags.length > 0 && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {file.tags.slice(0, 2).map((tag) => (
+              <TagPill
+                key={tag.id}
+                color={tag.color || '#3B82F6'}
+                size="xs"
+              >
+                {tag.canonical_name}
+              </TagPill>
+            ))}
+            {file.tags.length > 2 && (
+              <span className="text-[10px] text-ink-faint">
+                +{file.tags.length - 2}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="w-24 text-sm text-ink-dull">
         {file.size > 0 ? formatBytes(file.size) : "—"}

@@ -147,17 +147,25 @@ pub async fn run_content_phase(
 					}
 				}
 				Err(e) => {
-					let error_msg = format!(
-						"Failed to generate content hash for {}: {}",
-						path.display(),
-						e
-					);
-					ctx.add_non_critical_error(error_msg);
-					state.add_error(IndexError::ContentId {
-						path: path.to_string_lossy().to_string(),
-						error: e.to_string(),
-					});
-					error_count += 1;
+					// Empty files are expected and shouldn't be treated as errors
+					if matches!(e, crate::domain::ContentHashError::EmptyFile) {
+						ctx.log(format!(
+							"Skipping empty file (no content identity needed): {}",
+							path.display()
+						));
+					} else {
+						let error_msg = format!(
+							"Failed to generate content hash for {}: {}",
+							path.display(),
+							e
+						);
+						ctx.add_non_critical_error(error_msg);
+						state.add_error(IndexError::ContentId {
+							path: path.to_string_lossy().to_string(),
+							error: e.to_string(),
+						});
+						error_count += 1;
+					}
 				}
 			}
 		}
