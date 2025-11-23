@@ -50,13 +50,30 @@
 		"active": true,
 		"targets": "all",
 		"publisher": "Spacedrive Technology Inc.",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"fileAssociations": [
+			{
+				"ext": ["memory"],
+				"name": "Spacedrive Memory",
+				"description": "Spacedrive Memory File",
+				"role": "Editor",
+				"mimeType": "application/x-spacedrive-memory"
+			}
+		],
 		"linux": {
 			"deb": {
 				"depends": ["libc6", "libxdo3", "libwebkit2gtk-4.1-0", "libgtk-3-0"]
 			}
 		},
 		"macOS": {
-			"minimumSystemVersion": "10.15"
+			"minimumSystemVersion": "10.15",
+			"signingIdentity": "Apple Development: James Pine (TU2EDB6U4N)"
 		},
 		"windows": {
 			"webviewInstallMode": {

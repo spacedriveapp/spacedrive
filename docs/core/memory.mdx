@@ -1,0 +1,252 @@
+---
+title: Memory Files
+sidebarTitle: Memory Files
+---
+
+Memory files are Spacedrive's knowledge management primitive. They make AI context portable, persistent, and owned by you. Create a memory file for any task—analyzing financial records, organizing research, refactoring code, understanding email archives—and the knowledge stays with your files forever.
+
+A memory file is a single-file archive containing document references, learned facts, and vector embeddings. Open it and your AI agent has perfect context instantly. Return to a project months later and continue exactly where you left off. Share a memory file and transfer weeks of accumulated knowledge in seconds.
+
+## The Problem
+
+Traditional AI tools store your knowledge in their cloud. Cursor, ChatGPT, and others keep conversation history and context on their servers. You can't export it, version it, or control where it lives. Your knowledge is trapped in their infrastructure.
+
+Memory files solve this by making knowledge a first-class file type. They live in your filesystem, sync through peer-to-peer connections, and work entirely offline. You own the data.
+
+## File Format
+
+Memory files use a custom archive format optimized for incremental updates. The format stores MessagePack-encoded data with an append-only design.
+
+```
+my-task.memory (single file)
+├─ Header (64 bytes)
+│  ├─ Magic: "SDMEMORY"
+│  ├─ Version: u32
+│  └─ Index offset: u64
+├─ Data section (append-only)
+│  ├─ metadata.msgpack
+│  ├─ documents.msgpack
+│  ├─ facts.msgpack
+│  └─ embeddings.msgpack
+└─ Index (at end)
+   └─ File locations
+```
+
+Updates work by appending new versions of files. The index at the end points to the latest version of each file. Reading requires a single seek operation to the index, then another seek to the file data.
+
+<Info>
+Memory files are recognized by magic bytes `SDMEMORY` and the `.memory` extension. They appear as document files in Spacedrive.
+</Info>
+
+## Structure
+
+### Documents
+
+Document references track files relevant to your task. Each document includes a title, optional summary, and relevance score.
+
+```rust
+Document {
+    id: 1,
+    title: "library_sync.mdx",
+    summary: "Explains dual sync protocols",
+    doc_type: Documentation,
+    relevance_score: 1.0,
+}
+```
+
+Documents can reference Spacedrive content via UUID or point to external files via path. The summary helps agents understand document purpose without reading the entire file.
+
+### Facts
+
+Facts capture learned knowledge extracted from documents and conversations. Each fact includes a type, confidence score, and optional source reference.
+
+```rust
+Fact {
+    id: 1,
+    text: "Device-owned data uses state-based sync",
+    fact_type: Principle,
+    confidence: 1.0,
+    verified: true,
+}
+```
+
+Fact types include Principle, Decision, Pattern, Issue, and Detail. Agents prioritize verified facts with high confidence scores when preparing context.
+
+### Embeddings
+
+Vector embeddings enable semantic search within the memory. Each document can have an associated embedding vector for similarity-based retrieval.
+
+The current implementation uses MessagePack-serialized vectors with cosine similarity search. This works efficiently for memories containing hundreds of documents. Larger memories will migrate to LanceDB for sub-linear search performance.
+
+### Scope
+
+Memories can be scoped to different parts of your filesystem.
+
+**Directory scope** attaches the memory to a specific folder:
+```rust
+MemoryScope::Directory {
+    path: "/core/src/sync"
+}
+```
+
+**Project scope** covers an entire repository:
+```rust
+MemoryScope::Project {
+    root_path: "/Projects/spacedrive"
+}
+```
+
+**Standalone memories** are portable knowledge packages independent of location:
+```rust
+MemoryScope::Standalone
+```
+
+## Usage
+
+Memory files integrate with AI agents through a loading mechanism. When an agent loads a memory, it receives curated context instead of discovering it through search.
+
+<Steps>
+<Step title="Create Memory">
+Create a memory file for your task or domain. This can happen automatically during agent conversations or manually through the UI.
+</Step>
+
+<Step title="Add Knowledge">
+Documents and facts accumulate as you work. High-quality conversations automatically generate facts. Manual curation refines the knowledge base.
+</Step>
+
+<Step title="Load in Agent">
+Open the memory file or load it into a chat session. The agent receives instant context without searching your filesystem.
+</Step>
+
+<Step title="Continuous Improvement">
+As you continue working, the memory grows. Facts get verified, new documents added, relevance scores adjusted.
+</Step>
+</Steps>
+
+## Creating Memories
+
+Memory files can be created for any task. Research projects accumulate papers and notes. Accounting work gathers receipts and transactions. Code refactoring collects relevant modules and design decisions.
+
+```rust
+let memory = MemoryFile::create(
+    "tax-preparation".to_string(),
+    MemoryScope::Directory {
+        path: "/Documents/Finance/2024".to_string()
+    },
+    &output_path,
+).await?;
+```
+
+The create operation initializes an empty archive with the standard file structure. New memories contain no documents or facts until you add them. Extensions can create memories automatically during analysis workflows.
+
+## Adding Knowledge
+
+Add documents to track relevant files:
+
+```rust
+let doc_id = memory.add_document(
+    Some(content_uuid),
+    "library_sync.mdx".to_string(),
+    Some("Complete sync protocol documentation".to_string()),
+    DocumentType::Documentation,
+).await?;
+```
+
+Extract facts from those documents:
+
+```rust
+memory.add_fact(
+    "Shared resources use HLC ordering".to_string(),
+    FactType::Principle,
+    1.0,
+    Some(doc_id),
+).await?;
+```
+
+Add embeddings for semantic search:
+
+```rust
+let vector = embedding_model.encode(&document_text)?;
+memory.add_embedding(doc_id, vector).await?;
+```
+
+## Searching
+
+Search for similar documents by vector similarity:
+
+```rust
+let query_vector = embedding_model.encode("sync protocols")?;
+let similar_docs = memory.search_similar(query_vector, 10).await?;
+```
+
+The search returns document IDs ranked by relevance. You can then retrieve the full document information or load the referenced files.
+
+## Composition
+
+Load multiple memories for work spanning different domains. A business analysis might combine financial records, email context, and project documentation. Development work might load architecture, implementation, and testing knowledge.
+
+```rust
+agent.load_memories(vec![
+    "quarterly-finances.memory",
+    "client-communications.memory",
+    "project-timeline.memory",
+]).await?;
+```
+
+The agent combines knowledge from all loaded memories. This enables reasoning across domains without maintaining a single monolithic knowledge base.
+
+<Tip>
+Create focused memories for specific tasks. Compose them as needed rather than building one large memory for everything.
+</Tip>
+
+## Performance
+
+Memory file operations complete quickly due to the indexed format.
+
+Opening a memory with 100 documents takes under 100ms. This includes loading metadata, documents, facts, and initializing the vector store.
+
+Searching 500 embeddings completes in 20-50ms using cosine similarity. For memories exceeding 1000 documents, migration to LanceDB provides sub-20ms search through HNSW indexing.
+
+Updates append to the archive without rewriting existing data. Adding a document or fact takes 5-10ms. The index update is the only write to existing file regions.
+
+## Storage
+
+Memory files store data efficiently through MessagePack encoding. A typical memory with 100 documents, 50 facts, and embeddings occupies 5-10MB on disk.
+
+The archive format allows files to grow incrementally. Adding new knowledge appends data without reading or rewriting the entire file. Periodic compaction removes old versions of updated files, though this is rarely needed.
+
+## Ownership
+
+Memory files are your data. They live in your filesystem, sync through Spacedrive's peer-to-peer network, and work entirely offline. No cloud service processes your knowledge. No API tracks your conversations.
+
+You can copy memory files like any document. Share them with colleagues to transfer domain expertise. Back them up with your files. Version them in git. The knowledge is yours.
+
+<Note>
+Memory files are regular Spacedrive content. They sync across devices, appear in search results, and can be tagged and organized like any other file.
+</Note>
+
+## Use Cases
+
+**Research** - Papers, notes, and extracted insights for academic or business research. Query your accumulated knowledge semantically across hundreds of documents.
+
+**Financial Analysis** - Receipts, statements, and transaction patterns for accounting or tax preparation. Facts capture tax rules and categorization decisions.
+
+**Email Archives** - Conversations, contacts, and relationship timelines. Search semantically across years of correspondence.
+
+**Development** - Code, documentation, and architectural decisions for software projects. Context that would take hours to rebuild loads in milliseconds.
+
+**Knowledge Management** - Any domain where you need to understand large document collections. Medical records, legal cases, historical research, personal archives.
+
+## The Difference
+
+Traditional AI tools offer powerful capabilities but keep your knowledge trapped. Cursor provides excellent code assistance but conversations disappear. ChatGPT stores your data in the cloud. Notion AI requires internet and vendor trust.
+
+Spacedrive makes knowledge a file type. Memory files live alongside the documents they describe. They sync through your devices using the same infrastructure as your photos and files. Extensions can create and use memories without special permissions. Agents load them like opening a document.
+
+This approach enables capabilities impossible with cloud services. Share a memory file and instantly transfer domain expertise. Version a memory file to track knowledge evolution. Merge memories to combine research from multiple projects. Back up memories with your regular backup strategy.
+
+## Related Documentation
+
+- [Virtual Sidecars](/docs/core/virtual-sidecars) - Pre-analyzed file data
+- [Extensions](/docs/extensions/introduction) - Building extensions with memory support
+- [Library Sync](/docs/core/library-sync) - How memories sync across devices

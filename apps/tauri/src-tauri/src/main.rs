@@ -915,24 +915,6 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		.accelerator("Cmd+O")
 		.build(app)?;
 
-	let copy_item = MenuItemBuilder::with_id("copy", "Copy")
-		.accelerator("Cmd+C")
-		.enabled(false)
-		.build(app)?;
-	menu_items_map.insert("copy".to_string(), copy_item.clone());
-
-	let paste_item = MenuItemBuilder::with_id("paste", "Paste")
-		.accelerator("Cmd+V")
-		.enabled(false)
-		.build(app)?;
-	menu_items_map.insert("paste".to_string(), paste_item.clone());
-
-	let cut_item = MenuItemBuilder::with_id("cut", "Cut")
-		.accelerator("Cmd+X")
-		.enabled(false)
-		.build(app)?;
-	menu_items_map.insert("cut".to_string(), cut_item.clone());
-
 	let duplicate_item = MenuItemBuilder::with_id("duplicate", "Duplicate")
 		.accelerator("Cmd+D")
 		.enabled(false)
@@ -954,14 +936,22 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 	let file_menu = SubmenuBuilder::new(app, "File")
 		.item(&open_library_item)
 		.separator()
-		.item(&copy_item)
-		.item(&paste_item)
-		.item(&cut_item)
 		.item(&duplicate_item)
 		.separator()
 		.item(&rename_item)
 		.separator()
 		.item(&delete_item)
+		.build()?;
+
+	// Edit menu with native clipboard operations
+	let edit_menu = SubmenuBuilder::new(app, "Edit")
+		.item(&PredefinedMenuItem::undo(app, None)?)
+		.item(&PredefinedMenuItem::redo(app, None)?)
+		.separator()
+		.item(&PredefinedMenuItem::cut(app, None)?)
+		.item(&PredefinedMenuItem::copy(app, None)?)
+		.item(&PredefinedMenuItem::paste(app, None)?)
+		.item(&PredefinedMenuItem::select_all(app, None)?)
 		.build()?;
 
 	let view_menu = SubmenuBuilder::new(app, "View")
@@ -980,6 +970,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 	let menu = MenuBuilder::new(app)
 		.item(&app_menu)
 		.item(&file_menu)
+		.item(&edit_menu)
 		.item(&view_menu)
 		.build()?;
 
@@ -1152,7 +1143,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 				});
 			}
 			// File menu actions - emit events to frontend
-			"copy" | "paste" | "cut" | "duplicate" | "rename" | "delete" => {
+			"duplicate" | "rename" | "delete" => {
 				if let Err(e) = app_handle.emit("menu-action", event_id) {
 					tracing::error!("Failed to emit menu action: {}", e);
 				}

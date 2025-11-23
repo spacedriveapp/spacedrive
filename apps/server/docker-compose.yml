@@ -1,0 +1,60 @@
+services:
+  spacedrive:
+    build:
+      context: ../..
+      dockerfile: apps/server/Dockerfile
+    container_name: spacedrive-server
+    restart: unless-stopped
+
+    # Ports
+    ports:
+      - "8080:8080"  # HTTP server
+      - "7373:7373"  # P2P networking
+
+    # Volumes
+    volumes:
+      - spacedrive-data:/data
+      # Optional: Mount your file systems here
+      # - /mnt/storage:/storage:ro
+
+    # Environment variables
+    environment:
+      # Data directory (inside container)
+      - DATA_DIR=/data
+
+      # HTTP server port
+      - PORT=8080
+
+      # Authentication (REQUIRED for security!)
+      # Format: "username:password,username2:password2"
+      # Or set to "disabled" to disable auth (NOT RECOMMENDED)
+      - SD_AUTH=${SD_AUTH:-admin:changeme}
+
+      # Enable P2P networking
+      - SD_P2P=true
+
+      # Logging
+      - RUST_LOG=info,sd_core=debug
+
+      # Timezone
+      - TZ=UTC
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+volumes:
+  spacedrive-data:
+    driver: local

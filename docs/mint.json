@@ -1,144 +1,145 @@
 {
-	"$schema": "https://mintlify.com/schema.json",
-	"name": "Spacedrive",
-	"logo": {
-		"light": "/logo/spacedrive-logo.png",
-		"dark": "/logo/spacedrive-logo.png"
-	},
-	"favicon": "/public/favicon.png",
-	"colors": {
-		"primary": "#36A3FF",
-		"light": "#36A3FF",
-		"dark": "#36A3FF"
-	},
-	"styles": {
-		"css": ["/custom.css"]
-	},
-	"anchors": [
-		{
-			"name": "Overview",
-			"icon": "book-open",
-			"url": "overview"
-		},
-		{
-			"name": "Developer",
-			"icon": "code",
-			"url": "core"
-		},
-		{
-			"name": "SDK",
-			"icon": "puzzle-piece",
-			"url": "extensions"
-		},
-		{
-			"name": "CLI",
-			"icon": "terminal",
-			"url": "cli"
-		},
-		{
-			"name": "Interface",
-			"icon": "palette",
-			"url": "react"
-		}
-	],
-	"navigation": [
-		{
-			"group": "Getting Started",
-			"icon": "book-open",
-			"pages": [
-				"overview/introduction",
-				"overview/whitepaper",
-				"overview/philosophy",
-				"overview/history"
-			]
-		},
-		{
-			"group": "User Guides",
-			"icon": "compass",
-			"pages": [
-				"overview/get-started",
-				"overview/backup-photos-ios",
-				"overview/manage-libraries",
-				"overview/add-index-locations"
-			]
-		},
-		{
-			"group": "Architecture",
-			"icon": "cube",
-			"pages": [
-				"core/architecture",
-				"core/library",
-				"core/data-model",
-				"core/addressing",
-				"core/jobs",
-				"core/ops",
-				"core/api",
-				"core/events"
-			]
-		},
-		{
-			"group": "File Management",
-			"icon": "folder",
-			"pages": [
-				"core/indexing",
-				"core/locations",
-				"core/devices",
-				"core/volumes",
-				"core/file-copy-operations",
-				"core/tagging",
-				"core/virtual-sidecars"
-			]
-		},
-		{
-			"group": "Sync & Network",
-			"icon": "network-wired",
-			"pages": [
-				"core/networking",
-				"core/pairing",
-				"core/library-sync",
-				"core/file-sync",
-				"core/cloud-integration"
-			]
-		},
-		{
-			"group": "Development",
-			"icon": "flask",
-			"pages": ["core/database", "core/testing", "core/cli"]
-		},
-		{
-			"group": "Extension SDK",
-			"icon": "code",
-			"pages": [
-				"extensions/introduction",
-				"extensions/getting-started",
-				"extensions/core-concepts",
-				"extensions/data-storage",
-				"extensions/security-and-sync",
-				"extensions/ui-integration",
-				"extensions/examples"
-			]
-		},
-		{
-			"group": "CLI Reference",
-			"icon": "terminal",
-			"pages": [
-				"cli/overview",
-				"cli/linux-deployment",
-				"cli/library-sync-setup",
-				"cli/multi-instance",
-				"cli/index-verify"
-			]
-		},
-		{
-			"group": "React UI",
-			"icon": "palette",
-			"pages": [
-				"react/ui/colors",
-				"react/ui/primitives",
-				"react/ui/hooks",
-				"react/ui/normalized-cache",
-				"react/ui/platform"
-			]
-		}
-	]
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Spacedrive",
+  "logo": {
+    "light": "/logo/spacedrive-logo.png",
+    "dark": "/logo/spacedrive-logo.png"
+  },
+  "favicon": "/public/favicon.png",
+  "colors": {
+    "primary": "#36A3FF",
+    "light": "#36A3FF",
+    "dark": "#36A3FF"
+  },
+  "styles": {
+    "css": ["/custom.css"]
+  },
+  "anchors": [
+    {
+      "name": "Overview",
+      "icon": "book-open",
+      "url": "overview"
+    },
+    {
+      "name": "Developer",
+      "icon": "code",
+      "url": "core"
+    },
+    {
+      "name": "SDK",
+      "icon": "puzzle-piece",
+      "url": "extensions"
+    },
+    {
+      "name": "CLI",
+      "icon": "terminal",
+      "url": "cli"
+    },
+    {
+      "name": "Interface",
+      "icon": "palette",
+      "url": "react"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "icon": "book-open",
+      "pages": [
+        "overview/introduction",
+        "overview/whitepaper",
+        "overview/philosophy",
+        "overview/history"
+      ]
+    },
+    {
+      "group": "User Guides",
+      "icon": "compass",
+      "pages": [
+        "overview/get-started",
+        "overview/backup-photos-ios",
+        "overview/manage-libraries",
+        "overview/add-index-locations"
+      ]
+    },
+    {
+      "group": "Architecture",
+      "icon": "cube",
+      "pages": [
+        "core/architecture",
+        "core/library",
+        "core/data-model",
+        "core/addressing",
+        "core/jobs",
+        "core/ops",
+        "core/api",
+        "core/events",
+        "core/memory"
+      ]
+    },
+    {
+      "group": "File Management",
+      "icon": "folder",
+      "pages": [
+        "core/indexing",
+        "core/locations",
+        "core/devices",
+        "core/volumes",
+        "core/file-copy-operations",
+        "core/tagging",
+        "core/virtual-sidecars"
+      ]
+    },
+    {
+      "group": "Sync & Network",
+      "icon": "network-wired",
+      "pages": [
+        "core/networking",
+        "core/pairing",
+        "core/library-sync",
+        "core/file-sync",
+        "core/cloud-integration"
+      ]
+    },
+    {
+      "group": "Development",
+      "icon": "flask",
+      "pages": ["core/database", "core/testing", "core/cli"]
+    },
+    {
+      "group": "Extension SDK",
+      "icon": "code",
+      "pages": [
+        "extensions/introduction",
+        "extensions/getting-started",
+        "extensions/core-concepts",
+        "extensions/data-storage",
+        "extensions/security-and-sync",
+        "extensions/ui-integration",
+        "extensions/examples"
+      ]
+    },
+    {
+      "group": "CLI Reference",
+      "icon": "terminal",
+      "pages": [
+        "cli/overview",
+        "cli/linux-deployment",
+        "cli/library-sync-setup",
+        "cli/multi-instance",
+        "cli/index-verify"
+      ]
+    },
+    {
+      "group": "React UI",
+      "icon": "palette",
+      "pages": [
+        "react/ui/colors",
+        "react/ui/primitives",
+        "react/ui/hooks",
+        "react/ui/normalized-cache",
+        "react/ui/platform"
+      ]
+    }
+  ]
 }

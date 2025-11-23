@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Power, Check, Warning, CircleNotch } from '@phosphor-icons/react';
-import { invoke } from '@tauri-apps/api/core';
+import { usePlatform } from '../platform';
 
 interface DaemonStatus {
 	is_running: boolean;
@@ -10,6 +10,7 @@ interface DaemonStatus {
 }
 
 export function DaemonManager() {
+	const platform = usePlatform();
 	const [status, setStatus] = useState<DaemonStatus | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -23,10 +24,12 @@ export function DaemonManager() {
 	}, []);
 
 	async function checkDaemonStatus() {
+		if (!platform.getDaemonStatus) return;
+
 		setIsLoading(true);
 		setError(null);
 		try {
-			const daemonStatus = await invoke<DaemonStatus>('get_daemon_status');
+			const daemonStatus = await platform.getDaemonStatus();
 			setStatus(daemonStatus);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
@@ -37,10 +40,12 @@ export function DaemonManager() {
 	}
 
 	async function handleStartDaemon() {
+		if (!platform.startDaemonProcess) return;
+
 		setIsStarting(true);
 		setError(null);
 		try {
-			await invoke('start_daemon_process');
+			await platform.startDaemonProcess();
 			await checkDaemonStatus();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
@@ -50,10 +55,12 @@ export function DaemonManager() {
 	}
 
 	async function handleStopDaemon() {
+		if (!platform.stopDaemonProcess) return;
+
 		setIsStopping(true);
 		setError(null);
 		try {
-			await invoke('stop_daemon_process');
+			await platform.stopDaemonProcess();
 			await checkDaemonStatus();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
@@ -63,8 +70,10 @@ export function DaemonManager() {
 	}
 
 	async function handleOpenSettings() {
+		if (!platform.openMacOSSettings) return;
+
 		try {
-			await invoke('open_macos_settings');
+			await platform.openMacOSSettings();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		}

@@ -1,0 +1,50 @@
+[package]
+name    = "sd-server"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+# Include bundled web assets (production builds)
+assets  = []
+
+[dependencies]
+# Spacedrive core
+sd-core = { path = "../../core", features = ["ffmpeg", "heif"] }
+
+# HTTP server
+axum       = "0.7"
+axum-extra = { version = "0.9", features = ["typed-header"] }
+http       = "1.1"
+tokio      = { version = "1", features = ["rt-multi-thread", "signal", "sync", "io-util"] }
+tower      = "0.4"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+
+# Auth
+secstr = "0.5"
+
+# Static assets
+include_dir = "0.7"
+mime_guess  = "2.0"
+
+# Serialization
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow    = "1"
+thiserror = "1"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Dev dependencies
+tempfile = "3"
+
+[[bin]]
+name = "sd-server"
+path = "src/main.rs"

@@ -521,18 +521,58 @@ function AddStorageDialog(props: {
 			throw new Error("Unsupported cloud provider");
 		}
 
-		const input: VolumeAddCloudInput = {
+		const volumeInput: VolumeAddCloudInput = {
 			service: provider.cloudServiceType,
 			display_name: data.display_name,
 			config,
 		};
 
 		try {
-			const result = await addCloudVolume.mutateAsync(input);
+			// Step 1: Add the cloud volume and get fingerprint
+			const volumeResult = await addCloudVolume.mutateAsync(volumeInput);
+
+			// Determine the cloud identifier based on provider type
+			let cloudIdentifier: string;
+			if (
+				provider.cloudServiceType === "s3" ||
+				provider.cloudServiceType === "b2" ||
+				provider.cloudServiceType === "wasabi" ||
+				provider.cloudServiceType === "spaces"
+			) {
+				cloudIdentifier = data.bucket!;
+			} else if (provider.cloudServiceType === "azblob") {
+				cloudIdentifier = data.container!;
+			} else if (provider.cloudServiceType === "gcs") {
+				cloudIdentifier = data.bucket!;
+			} else if (
+				provider.cloudServiceType === "gdrive" ||
+				provider.cloudServiceType === "dropbox" ||
+				provider.cloudServiceType === "onedrive"
+			) {
+				cloudIdentifier = data.root || "root";
+			} else {
+				cloudIdentifier = "root";
+			}
+
+			// Step 2: Create a location for the cloud volume so it gets indexed
+			const locationInput: LocationAddInput = {
+				path: {
+					Cloud: {
+						service: provider.cloudServiceType,
+						identifier: cloudIdentifier,
+						path: "",
+					},
+				},
+				name: data.display_name,
+				mode: "Deep",
+				job_policies: {},
+			};
+
+			const locationResult = await addLocation.mutateAsync(locationInput);
 			dialog.state.open = false;
 
-			if (result?.fingerprint && props.onStorageAdded) {
-				props.onStorageAdded(result.fingerprint);
+			if (locationResult?.id && props.onStorageAdded) {
+				props.onStorageAdded(locationResult.id);
 			}
 		} catch (error) {
 			console.error("Failed to add cloud storage:", error);

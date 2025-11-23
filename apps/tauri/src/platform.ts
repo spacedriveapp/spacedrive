@@ -135,4 +135,25 @@ export const platform: Platform = {
 		});
 		return unlisten;
 	},
+
+	async getDaemonStatus() {
+		return await invoke<{
+			is_running: boolean;
+			socket_path: string;
+			server_url: string | null;
+			started_by_us: boolean;
+		}>("get_daemon_status");
+	},
+
+	async startDaemonProcess() {
+		await invoke("start_daemon_process");
+	},
+
+	async stopDaemonProcess() {
+		await invoke("stop_daemon_process");
+	},
+
+	async openMacOSSettings() {
+		await invoke("open_macos_settings");
+	},
 };

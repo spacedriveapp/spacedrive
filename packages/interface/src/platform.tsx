@@ -84,6 +84,23 @@ export type Platform = {
 
 	/** Listen for selected file changes across all windows (Tauri only) */
 	onSelectedFilesChanged?(callback: (fileIds: string[]) => void): Promise<() => void>;
+
+	/** Get daemon status (Tauri only) */
+	getDaemonStatus?(): Promise<{
+		is_running: boolean;
+		socket_path: string;
+		server_url: string | null;
+		started_by_us: boolean;
+	}>;
+
+	/** Start daemon process (Tauri only) */
+	startDaemonProcess?(): Promise<void>;
+
+	/** Stop daemon process (Tauri only) */
+	stopDaemonProcess?(): Promise<void>;
+
+	/** Open macOS system settings (Tauri/macOS only) */
+	openMacOSSettings?(): Promise<void>;
 };
 
 /** Menu item state for native menus */
