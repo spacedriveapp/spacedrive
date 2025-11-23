@@ -70,10 +70,7 @@ impl SearchTagsInput {
 
 	/// Validate the input
 	pub fn validate(&self) -> Result<(), String> {
-		if self.query.trim().is_empty() {
-			return Err("query cannot be empty".to_string());
-		}
-
+		// Empty query is allowed (returns all tags)
 		if self.query.len() > 1000 {
 			return Err("query cannot exceed 1000 characters".to_string());
 		}

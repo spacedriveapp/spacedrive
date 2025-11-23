@@ -539,7 +539,7 @@ impl IndexPersistence for EphemeralPersistence {
 
 	async fn store_content_identity(
 		&self,
-		_entry_id: i32,
+		entry_id: i32,
 		path: &Path,
 		cas_id: String,
 	) -> JobResult<()> {
@@ -559,14 +559,83 @@ impl IndexPersistence for EphemeralPersistence {
 
 		let content_identity = EphemeralContentIdentity {
 			cas_id: cas_id.clone(),
-			mime_type,
+			mime_type: mime_type.clone(),
 			file_size,
 			entry_count: 1,
 		};
 
+		// Store in ephemeral index
 		{
 			let mut index = self.index.write().await;
-			index.add_content_identity(cas_id, content_identity);
+			index.add_content_identity(cas_id.clone(), content_identity);
+		}
+
+		// Emit ResourceChanged event with updated content_identity
+		if let Some(event_bus) = &self.event_bus {
+			use crate::device::get_current_device_slug;
+			use crate::domain::addressing::SdPath;
+			use crate::domain::content_identity::ContentIdentity;
+			use crate::domain::file::File;
+			use crate::infra::event::{Event, ResourceMetadata};
+
+			// Get the stored metadata for this entry
+			let metadata_opt = {
+				let index = self.index.read().await;
+				index.entries.get(path).cloned()
+			};
+
+			if let Some(metadata) = metadata_opt {
+				// Build SdPath
+				let device_slug = get_current_device_slug();
+				let sd_path = SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: path.to_path_buf(),
+				};
+
+				// Generate UUID for this file (use entry_id as seed for consistency)
+				let entry_uuid = uuid::Uuid::from_u128(entry_id as u128);
+
+				// Build File with content_identity
+				let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
+
+				// Add content identity
+				file.content_identity = Some(ContentIdentity {
+					uuid: uuid::Uuid::new_v4(),
+					kind: crate::domain::ContentKind::Unknown, // TODO: detect from mime_type
+					content_hash: cas_id.clone(),
+					integrity_hash: None,
+					mime_type_id: None,
+					text_content: None,
+					total_size: file_size as i64,
+					entry_count: 1,
+					first_seen_at: chrono::Utc::now(),
+					last_verified_at: chrono::Utc::now(),
+				});
+
+				// Emit event with updated file
+				let parent_path = path.parent().map(|p| SdPath::Physical {
+					device_slug,
+					path: p.to_path_buf(),
+				});
+
+				let affected_paths = if let Some(parent) = parent_path {
+					vec![parent]
+				} else {
+					vec![]
+				};
+
+				if let Ok(resource_json) = serde_json::to_value(&file) {
+					event_bus.emit(Event::ResourceChanged {
+						resource_type: "file".to_string(),
+						resource: resource_json,
+						metadata: Some(ResourceMetadata {
+							no_merge_fields: vec!["sd_path".to_string()],
+							alternate_ids: vec![],
+							affected_paths,
+						}),
+					});
+				}
+			}
 		}
 
 		Ok(())

@@ -10,6 +10,8 @@ use specta::Type;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use super::resource::Identifiable;
+
 /// A tag with advanced capabilities for contextual organization
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
 pub struct Tag {
@@ -437,4 +439,19 @@ pub enum TagError {
 
 	#[error("Database error: {0}")]
 	DatabaseError(String),
+}
+
+// Implement Identifiable for normalized cache support
+impl Identifiable for Tag {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str {
+		"tag"
+	}
+
+	fn sync_dependencies() -> &'static [&'static str] {
+		&[] // Tags are a simple resource backed by the tags table
+	}
 }

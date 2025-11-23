@@ -85,14 +85,15 @@ export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
 
 	const createTag = useLibraryMutation('tags.create');
 
-	// Fetch tags with real-time updates
+	// Fetch tags with real-time updates using search with empty query
 	const { data: tagsData, isLoading } = useNormalizedQuery({
-		wireMethod: 'query:tags.list',
-		input: null,
+		wireMethod: 'query:tags.search',
+		input: { query: '' },
 		resourceType: 'tag'
 	});
 
-	const tags = tagsData?.tags ?? [];
+	// Extract tags from search results (tags is an array of { tag, relevance, ... })
+	const tags = tagsData?.tags?.map((result: any) => result.tag) ?? [];
 
 	const handleCreateTag = async () => {
 		if (!newTagName.trim()) return;
@@ -100,6 +101,7 @@ export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
 		try {
 			const result = await createTag.mutateAsync({
 				canonical_name: newTagName.trim(),
+				aliases: [],
 				color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
 			});
 

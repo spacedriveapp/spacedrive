@@ -209,3 +209,21 @@ priority = 100
 [file_types.metadata]
 text_based = true
 
+# Spacedrive Memory Files
+[[file_types]]
+id = "application/x-spacedrive-memory"
+name = "Spacedrive Memory"
+extensions = ["memory"]
+mime_types = ["application/x-spacedrive-memory"]
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "53 44 4D 45 4D 01"  # "SDMEM\x01"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+spacedrive = true
+ai_knowledge = true
+memory_file = true

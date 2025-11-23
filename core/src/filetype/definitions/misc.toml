@@ -332,7 +332,6 @@ priority = 85
 text_file = true
 typescript = true
 
-# Encrypted/Spacedrive specific
 [[file_types]]
 id = "application/x-spacedrive-encrypted"
 name = "Spacedrive Encrypted"

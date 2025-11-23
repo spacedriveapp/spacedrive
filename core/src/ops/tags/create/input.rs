@@ -35,6 +35,19 @@ pub struct CreateTagInput {
 
 	/// Initial attributes
 	pub attributes: Option<HashMap<String, serde_json::Value>>,
+
+	/// Optional: Targets to immediately apply this tag to after creation
+	pub apply_to: Option<ApplyToTargets>,
+}
+
+/// Targets for immediately applying a newly created tag
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(tag = "type", content = "ids")]
+pub enum ApplyToTargets {
+	/// Apply to content identities (all instances)
+	Content(Vec<Uuid>),
+	/// Apply to specific entries (single instance)
+	Entry(Vec<i32>),
 }
 
 impl CreateTagInput {
@@ -55,6 +68,7 @@ impl CreateTagInput {
 			privacy_level: None,
 			search_weight: None,
 			attributes: None,
+			apply_to: None,
 		}
 	}
 

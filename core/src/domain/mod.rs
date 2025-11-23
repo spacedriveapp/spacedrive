@@ -11,6 +11,7 @@ pub mod device;
 pub mod file;
 pub mod location;
 pub mod media_data;
+pub mod memory;
 pub mod resource;
 pub mod resource_manager;
 pub mod resource_registry;
@@ -26,6 +27,7 @@ pub use device::{Device, OperatingSystem};
 pub use file::{EntryKind, File, Sidecar};
 pub use location::{IndexMode, Location, ScanState};
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
+pub use memory::{MemoryFile, MemoryMetadata, MemoryScope};
 pub use resource::Identifiable;
 pub use resource_manager::ResourceManager;
 pub use space::{

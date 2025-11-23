@@ -36,8 +36,8 @@ interface ExplorerState {
   canGoBack: boolean;
   canGoForward: boolean;
 
-  viewMode: "grid" | "list" | "media" | "column" | "size";
-  setViewMode: (mode: "grid" | "list" | "media" | "column" | "size") => void;
+  viewMode: "grid" | "list" | "media" | "column" | "size" | "knowledge";
+  setViewMode: (mode: "grid" | "list" | "media" | "column" | "size" | "knowledge") => void;
 
   sortBy: DirectorySortBy | MediaSortBy;
   setSortBy: (sort: DirectorySortBy | MediaSortBy) => void;
@@ -70,7 +70,7 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
   const [currentPath, setCurrentPathInternal] = useState<SdPath | null>(null);
   const [history, setHistory] = useState<SdPath[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "media" | "column" | "size">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "media" | "column" | "size" | "knowledge">("grid");
   const [sortBy, setSortBy] = useState<DirectorySortBy | MediaSortBy>("name");
 
   // Update sort when switching to media view

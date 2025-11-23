@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useExplorer } from "./context";
 import { useNormalizedCache } from "../../context";
 import { GridView } from "./views/GridView";
@@ -7,6 +7,7 @@ import { ListView } from "./views/ListView";
 import { MediaView } from "./views/MediaView";
 import { ColumnView } from "./views/ColumnView";
 import { SizeView } from "./views/SizeView";
+import { KnowledgeView } from "./views/KnowledgeView";
 import { EmptyView } from "./views/EmptyView";
 import { TopBarPortal } from "../../TopBar";
 import {
@@ -24,6 +25,7 @@ import { ViewModeMenu } from "./ViewModeMenu";
 
 export function ExplorerView() {
   const { locationId } = useParams();
+  const [searchParams] = useSearchParams();
   const {
     sidebarVisible,
     setSidebarVisible,
@@ -50,6 +52,26 @@ export function ExplorerView() {
     input: null,
     resourceType: "location",
   });
+
+  // Set currentPath from query parameter (for direct path navigation like volumes)
+  useEffect(() => {
+    const pathParam = searchParams.get("path");
+    if (pathParam) {
+      try {
+        const sdPath = JSON.parse(decodeURIComponent(pathParam));
+        const currentPathStr = JSON.stringify(currentPath);
+        const newPathStr = JSON.stringify(sdPath);
+
+        if (currentPathStr !== newPathStr) {
+          console.log("Setting currentPath from query param:", sdPath);
+          setCurrentPath(sdPath);
+        }
+      } catch (e) {
+        console.error("Failed to parse path query parameter:", e);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Set currentPath from location ID (only when location changes)
   useEffect(() => {
@@ -141,6 +163,8 @@ export function ExplorerView() {
             <ColumnView />
           ) : viewMode === "size" ? (
             <SizeView />
+          ) : viewMode === "knowledge" ? (
+            <KnowledgeView />
           ) : (
             <MediaView />
           )}

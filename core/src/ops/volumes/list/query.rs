@@ -13,6 +13,7 @@ use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QuerySelec
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::HashMap, sync::Arc};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum VolumeFilter {
@@ -164,6 +165,13 @@ impl LibraryQuery for VolumeListQuery {
 			.all(db)
 			.await?;
 
+		// Fetch all devices to get slugs
+		let devices = entities::device::Entity::find().all(db).await?;
+		let device_slug_map: HashMap<Uuid, String> = devices
+			.into_iter()
+			.map(|d| (d.uuid, d.slug))
+			.collect();
+
 		// Create a map of tracked volumes by fingerprint
 		let mut tracked_map: HashMap<String, entities::volume::Model> = tracked_volumes
 			.into_iter()
@@ -183,6 +191,12 @@ impl LibraryQuery for VolumeListQuery {
 					// Determine disk type from device_model or volume_type
 					let disk_type =
 						Self::infer_disk_type(&tracked_vol.device_model, &tracked_vol.volume_type);
+
+					// Get device slug for this volume
+					let device_slug = device_slug_map
+						.get(&tracked_vol.device_id)
+						.cloned()
+						.unwrap_or_else(|| "unknown".to_string());
 
 					volume_items.push(super::output::VolumeItem {
 						id: tracked_vol.uuid,
@@ -206,6 +220,7 @@ impl LibraryQuery for VolumeListQuery {
 						read_speed_mbps: tracked_vol.read_speed_mbps.map(|s| s as u32),
 						write_speed_mbps: tracked_vol.write_speed_mbps.map(|s| s as u32),
 						device_id: tracked_vol.device_id,
+						device_slug,
 					});
 				}
 
@@ -215,6 +230,11 @@ impl LibraryQuery for VolumeListQuery {
 					for vol in all_volumes {
 						// Only show user-visible volumes
 						if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
+							let device_slug = device_slug_map
+								.get(&vol.device_id)
+								.cloned()
+								.unwrap_or_else(|| "unknown".to_string());
+
 							volume_items.push(super::output::VolumeItem {
 								id: vol.id,
 								name: vol.name.clone(),
@@ -231,6 +251,7 @@ impl LibraryQuery for VolumeListQuery {
 								read_speed_mbps: vol.read_speed_mbps.map(|s| s as u32),
 								write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
 								device_id: vol.device_id,
+								device_slug,
 							});
 						}
 					}
@@ -243,6 +264,11 @@ impl LibraryQuery for VolumeListQuery {
 				// Only return volumes that are NOT tracked and are user-visible
 				for vol in all_volumes {
 					if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
+						let device_slug = device_slug_map
+							.get(&vol.device_id)
+							.cloned()
+							.unwrap_or_else(|| "unknown".to_string());
+
 						volume_items.push(super::output::VolumeItem {
 							id: vol.id,
 							name: vol.name.clone(),
@@ -259,6 +285,7 @@ impl LibraryQuery for VolumeListQuery {
 							read_speed_mbps: vol.read_speed_mbps.map(|s| s as u32),
 							write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
 							device_id: vol.device_id,
+							device_slug,
 						});
 					}
 				}

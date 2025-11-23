@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import clsx from 'clsx';
+import { Popover, usePopover } from '@sd/ui';
 import { useNormalizedQuery, useLibraryMutation } from '../../context';
 import type { Tag } from '@sd/ts-client';
 
@@ -11,6 +11,10 @@ interface TagSelectorProps {
 	contextTags?: Tag[];
 	autoFocus?: boolean;
 	className?: string;
+	/** Optional file ID to apply newly created tags to */
+	fileId?: string;
+	/** Optional content identity UUID (preferred for content-based tagging) */
+	contentId?: string;
 }
 
 /**
@@ -22,21 +26,24 @@ export function TagSelector({
 	onClose,
 	contextTags = [],
 	autoFocus = true,
-	className
+	className,
+	fileId,
+	contentId
 }: TagSelectorProps) {
 	const [query, setQuery] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
 	const createTag = useLibraryMutation('tags.create');
 
-	// Fetch all tags
+	// Fetch all tags using search with empty query
 	const { data: tagsData } = useNormalizedQuery({
-		wireMethod: 'query:tags.list',
-		input: null,
+		wireMethod: 'query:tags.search',
+		input: { query: '' },
 		resourceType: 'tag'
 	});
 
-	const allTags = tagsData?.tags ?? [];
+	// Extract tags from search results (tags is an array of { tag, relevance, ... })
+	const allTags = tagsData?.tags?.map((result: any) => result.tag) ?? [];
 
 	// Check if query matches an existing tag
 	const exactMatch = allTags.find(
@@ -93,7 +100,13 @@ export function TagSelector({
 		try {
 			const newTag = await createTag.mutateAsync({
 				canonical_name: query.trim(),
+				aliases: [],
 				color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`, // Random color
+				apply_to: contentId
+					? { type: 'Content', ids: [contentId] }
+					: fileId
+					? { type: 'Entry', ids: [parseInt(fileId)] }
+					: undefined,
 			});
 
 			// Select the newly created tag
@@ -108,10 +121,10 @@ export function TagSelector({
 	};
 
 	return (
-		<div className={clsx('flex flex-col bg-menu border border-menu-line rounded-lg shadow-lg overflow-hidden', className)}>
+		<div className={clsx('flex flex-col overflow-hidden', className)}>
 			{/* Search Input */}
-			<div className="flex items-center gap-2 px-3 py-2 border-b border-menu-line">
-				<MagnifyingGlass size={16} className="text-menu-ink-dull flex-shrink-0" />
+			<div className="flex items-center gap-2 px-3 py-2 border-b border-app-line">
+				<MagnifyingGlass size={16} className="text-ink-dull flex-shrink-0" />
 				<input
 					type="text"
 					value={query}
@@ -119,7 +132,7 @@ export function TagSelector({
 					onKeyDown={handleKeyDown}
 					placeholder="Search tags..."
 					autoFocus={autoFocus}
-					className="flex-1 bg-transparent text-sm text-menu-ink placeholder:text-menu-ink-faint outline-none"
+					className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none"
 				/>
 			</div>
 
@@ -131,24 +144,24 @@ export function TagSelector({
 						onClick={handleCreateTag}
 						onMouseEnter={() => setSelectedIndex(-1)}
 						className={clsx(
-							'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors border-b border-menu-line',
+							'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors border-b border-app-line',
 							selectedIndex === -1
-								? 'bg-menu-hover text-menu-ink'
-								: 'text-menu-ink-dull hover:bg-menu-hover hover:text-menu-ink'
+								? 'bg-app-hover text-ink'
+								: 'text-ink-dull hover:bg-app-hover hover:text-ink'
 						)}
 					>
 						<Plus size={16} weight="bold" className="flex-shrink-0" />
 						<span className="flex-1 text-left">
 							Create tag "<strong>{query}</strong>"
 						</span>
-						<kbd className="text-xs text-menu-ink-faint px-1.5 py-0.5 rounded bg-menu-line">
+						<kbd className="text-xs text-ink-faint px-1.5 py-0.5 rounded bg-app-line">
 							↵
 						</kbd>
 					</button>
 				)}
 
 				{filteredTags.length === 0 && !query.trim() ? (
-					<div className="px-3 py-4 text-sm text-menu-ink-dull text-center">
+					<div className="px-3 py-4 text-sm text-ink-dull text-center">
 						No tags yet
 					</div>
 				) : filteredTags.length === 0 && query.trim() ? null : (
@@ -160,8 +173,8 @@ export function TagSelector({
 							className={clsx(
 								'flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors',
 								index === selectedIndex
-									? 'bg-menu-hover text-menu-ink'
-									: 'text-menu-ink-dull hover:bg-menu-hover hover:text-menu-ink'
+									? 'bg-app-hover text-ink'
+									: 'text-ink-dull hover:bg-app-hover hover:text-ink'
 							)}
 						>
 							{/* Color dot */}
@@ -175,7 +188,7 @@ export function TagSelector({
 
 							{/* Namespace badge */}
 							{tag.namespace && (
-								<span className="text-xs text-menu-ink-faint px-1.5 py-0.5 rounded bg-menu-line">
+								<span className="text-xs text-ink-faint px-1.5 py-0.5 rounded bg-app-line">
 									{tag.namespace}
 								</span>
 							)}
@@ -191,49 +204,34 @@ interface TagSelectorButtonProps {
 	onSelect: (tag: Tag) => void;
 	trigger: React.ReactNode;
 	contextTags?: Tag[];
+	/** Optional file ID to apply newly created tags to */
+	fileId?: string;
+	/** Optional content identity UUID (preferred for content-based tagging) */
+	contentId?: string;
 }
 
 /**
  * Wrapper component that shows TagSelector in a dropdown when trigger is clicked
  */
-export function TagSelectorButton({ onSelect, trigger, contextTags }: TagSelectorButtonProps) {
-	const [isOpen, setIsOpen] = useState(false);
+export function TagSelectorButton({ onSelect, trigger, contextTags, fileId, contentId }: TagSelectorButtonProps) {
+	const popover = usePopover();
 
 	return (
-		<div className="relative">
-			<div onClick={() => setIsOpen(!isOpen)}>
-				{trigger}
-			</div>
-
-			<AnimatePresence>
-				{isOpen && (
-					<>
-						{/* Backdrop */}
-						<div
-							className="fixed inset-0 z-40"
-							onClick={() => setIsOpen(false)}
-						/>
-
-						{/* Dropdown */}
-						<motion.div
-							initial={{ opacity: 0, y: -8 }}
-							animate={{ opacity: 1, y: 0 }}
-							exit={{ opacity: 0, y: -8 }}
-							transition={{ duration: 0.15 }}
-							className="absolute top-full left-0 mt-1 w-64 z-50"
-						>
-							<TagSelector
-								onSelect={(tag) => {
-									onSelect(tag);
-									setIsOpen(false);
-								}}
-								onClose={() => setIsOpen(false)}
-								contextTags={contextTags}
-							/>
-						</motion.div>
-					</>
-				)}
-			</AnimatePresence>
-		</div>
+		<Popover
+			popover={popover}
+			trigger={trigger}
+			className="w-64 p-0"
+		>
+			<TagSelector
+				onSelect={(tag) => {
+					onSelect(tag);
+					popover.setOpen(false);
+				}}
+				onClose={() => popover.setOpen(false)}
+				contextTags={contextTags}
+				fileId={fileId}
+				contentId={contentId}
+			/>
+		</Popover>
 	);
 }

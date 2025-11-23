@@ -22,6 +22,10 @@ interface SpaceItemProps {
 	className?: string;
 	/** Optional icon weight (default: "bold") */
 	iconWeight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
+	/** Optional onClick handler to override default navigation */
+	onClick?: () => void;
+	/** Volume data for constructing explorer path */
+	volumeData?: { device_slug: string; mount_path: string };
 }
 
 function getItemIcon(itemType: ItemType): any {
@@ -64,14 +68,25 @@ function getItemLabel(itemType: ItemType): string {
 	return "Unknown";
 }
 
-function getItemPath(itemType: ItemType): string | null {
+function getItemPath(itemType: ItemType, volumeData?: { device_slug: string; mount_path: string }): string | null {
 	if (itemType === "Overview") return "/";
 	if (itemType === "Recents") return "/recents";
 	if (itemType === "Favorites") return "/favorites";
 	if (typeof itemType === "object" && "Location" in itemType)
 		return `/location/${itemType.Location.location_id}`;
-	if (typeof itemType === "object" && "Volume" in itemType)
+	if (typeof itemType === "object" && "Volume" in itemType) {
+		// Navigate to explorer with volume's root path
+		if (volumeData) {
+			const sdPath = {
+				Physical: {
+					device_slug: volumeData.device_slug,
+					path: volumeData.mount_path || "/",
+				},
+			};
+			return `/explorer?path=${encodeURIComponent(JSON.stringify(sdPath))}`;
+		}
 		return `/volume/${itemType.Volume.volume_id}`;
+	}
 	if (typeof itemType === "object" && "Tag" in itemType)
 		return `/tag/${itemType.Tag.tag_id}`;
 	return null;
@@ -82,6 +97,8 @@ export function SpaceItem({
 	rightComponent,
 	className,
 	iconWeight = "bold",
+	onClick,
+	volumeData,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -101,13 +118,15 @@ export function SpaceItem({
 		// Handle proper SpaceItem
 		iconData = getItemIcon(item.item_type);
 		label = getItemLabel(item.item_type);
-		path = getItemPath(item.item_type);
+		path = getItemPath(item.item_type, volumeData);
 	}
 
 	const isActive = location.pathname === path;
 
 	const handleClick = () => {
-		if (path) {
+		if (onClick) {
+			onClick();
+		} else if (path) {
 			navigate(path);
 		}
 	};

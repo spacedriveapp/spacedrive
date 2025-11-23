@@ -279,6 +279,106 @@ impl DirectoryListingQuery {
 				});
 		}
 
+		// Collect entry UUIDs for tag lookup
+		let entry_uuids: Vec<Uuid> = rows
+			.iter()
+			.filter_map(|row| {
+				row.try_get::<Option<Uuid>>("", "entry_uuid")
+					.ok()
+					.flatten()
+			})
+			.collect();
+
+		// Batch fetch tags for these entries (both entry-scoped and content-scoped)
+		let mut tags_by_entry: HashMap<Uuid, Vec<crate::domain::tag::Tag>> = HashMap::new();
+
+		if !entry_uuids.is_empty() || !content_uuids.is_empty() {
+			use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+			tracing::debug!("Loading tags for {} entries and {} content identities", entry_uuids.len(), content_uuids.len());
+
+			// Load user_metadata for entries and content
+			let mut metadata_records = user_metadata::Entity::find()
+				.filter(
+					user_metadata::Column::EntryUuid.is_in(entry_uuids.clone())
+						.or(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.clone()))
+				)
+				.all(db)
+				.await?;
+
+			tracing::debug!("Found {} metadata records", metadata_records.len());
+
+			if !metadata_records.is_empty() {
+				let metadata_ids: Vec<i32> = metadata_records.iter().map(|m| m.id).collect();
+
+				// Load user_metadata_tag records
+				let metadata_tags = user_metadata_tag::Entity::find()
+					.filter(user_metadata_tag::Column::UserMetadataId.is_in(metadata_ids))
+					.all(db)
+					.await?;
+
+				// Get all unique tag IDs
+				let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
+				let unique_tag_ids: std::collections::HashSet<i32> = tag_ids.iter().cloned().collect();
+
+				tracing::debug!("Found {} user_metadata_tag records with {} unique tags", metadata_tags.len(), unique_tag_ids.len());
+
+				// Load tag entities
+				let tag_models = tag::Entity::find()
+					.filter(tag::Column::Id.is_in(tag_ids))
+					.all(db)
+					.await?;
+
+				tracing::debug!("Loaded {} tag models", tag_models.len());
+
+				// Build tag_db_id -> Tag mapping
+				let tag_map: HashMap<i32, crate::domain::tag::Tag> = tag_models
+					.into_iter()
+					.filter_map(|t| {
+						let db_id = t.id;
+						crate::ops::tags::manager::model_to_domain(t).ok().map(|tag| (db_id, tag))
+					})
+					.collect();
+
+				tracing::debug!("Built tag map with {} entries", tag_map.len());
+
+				// Build metadata_id -> Vec<Tag> mapping
+				let mut tags_by_metadata: HashMap<i32, Vec<crate::domain::tag::Tag>> = HashMap::new();
+				for mt in metadata_tags {
+					if let Some(tag) = tag_map.get(&mt.tag_id) {
+						tags_by_metadata
+							.entry(mt.user_metadata_id)
+							.or_insert_with(Vec::new)
+							.push(tag.clone());
+					}
+				}
+
+				// Map tags to entries (prioritize entry-scoped, fall back to content-scoped)
+				for metadata in metadata_records {
+					if let Some(tags) = tags_by_metadata.get(&metadata.id) {
+						// Entry-scoped metadata (higher priority)
+						if let Some(entry_uuid) = metadata.entry_uuid {
+							tags_by_entry.insert(entry_uuid, tags.clone());
+						}
+						// Content-scoped metadata (applies to all entries with this content)
+						else if let Some(content_uuid) = metadata.content_identity_uuid {
+							// Apply to all entries with this content_uuid
+							for row in &rows {
+								if let Some(ci_uuid) = row.try_get::<Option<Uuid>>("", "content_identity_uuid").ok().flatten() {
+									if ci_uuid == content_uuid {
+										if let Some(entry_uuid) = row.try_get::<Option<Uuid>>("", "entry_uuid").ok().flatten() {
+											// Only set if not already set by entry-scoped metadata
+											tags_by_entry.entry(entry_uuid).or_insert_with(|| tags.clone());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// Convert to File objects
 		let mut files = Vec::new();
 		for row in rows {
@@ -445,6 +545,14 @@ impl DirectoryListingQuery {
 					date_captured: None,
 					blurhash: None,
 				});
+			}
+
+			// Add tags from batch lookup
+			if let Some(entry_uuid_val) = entry_uuid {
+				if let Some(tags) = tags_by_entry.get(&entry_uuid_val) {
+					tracing::debug!("Adding {} tags to entry {}", tags.len(), entry_uuid_val);
+					file.tags = tags.clone();
+				}
 			}
 
 			files.push(file);

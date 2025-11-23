@@ -20,6 +20,10 @@ export function createExplorerRouter() {
 					element: <Overview />,
 				},
 				{
+					path: "explorer",
+					element: <ExplorerView />,
+				},
+				{
 					path: "location/:locationId",
 					element: <ExplorerView />,
 				},

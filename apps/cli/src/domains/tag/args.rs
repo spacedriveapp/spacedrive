@@ -2,7 +2,9 @@ use clap::Args;
 use uuid::Uuid;
 
 use sd_core::ops::tags::{
-	apply::input::ApplyTagsInput, create::input::CreateTagInput, search::input::SearchTagsInput,
+	apply::input::{ApplyTagsInput, TagTargets},
+	create::input::CreateTagInput,
+	search::input::SearchTagsInput,
 };
 
 #[derive(Args, Debug)]
@@ -34,7 +36,7 @@ pub struct TagApplyArgs {
 
 impl From<TagApplyArgs> for ApplyTagsInput {
 	fn from(args: TagApplyArgs) -> Self {
-		ApplyTagsInput::user_tags(args.entries, args.tags)
+		ApplyTagsInput::user_tags_entry(args.entries, args.tags)
 	}
 }
 

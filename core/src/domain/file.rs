@@ -116,6 +116,9 @@ impl crate::domain::resource::Identifiable for File {
 			"image_media_data",
 			"video_media_data",
 			"audio_media_data",
+			"user_metadata",
+			"user_metadata_tag",
+			"tag",
 		]
 	}
 

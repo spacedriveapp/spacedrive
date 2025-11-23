@@ -13,7 +13,7 @@ import { TopBarButton, Popover, usePopover } from "@sd/ui";
 import clsx from "clsx";
 import { TopBarPortal } from "../../TopBar";
 import { PairingModal } from "../../components/PairingModal";
-import { useAddLocationDialog } from "../../components/explorer/components/AddLocationModal";
+import { useAddStorageDialog } from "../../components/Explorer/components/AddStorageModal";
 import { useSyncSetupDialog } from "../../components/SyncSetupModal";
 import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
@@ -86,9 +86,9 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 		(lib) => lib.id === currentLibraryId,
 	);
 
-	const handleAddLocation = () => {
-		useAddLocationDialog((locationId) => {
-			navigate(`/location/${locationId}`);
+	const handleAddStorage = () => {
+		useAddStorageDialog((id) => {
+			navigate(`/location/${id}`);
 		});
 	};
 
@@ -222,9 +222,9 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 						<TopBarButton
 							icon={Plus}
 							className="!bg-accent hover:!bg-accent-deep !text-white"
-							onClick={handleAddLocation}
+							onClick={handleAddStorage}
 						>
-							Add Location
+							Add Storage
 						</TopBarButton>
 					</div>
 				}

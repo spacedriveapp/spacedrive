@@ -47,9 +47,6 @@ interface FileInspectorProps {
 export function FileInspector({ file }: FileInspectorProps) {
   const [activeTab, setActiveTab] = useState("overview");
 
-  const applyTag = useLibraryMutation('tags.apply');
-  const removeTag = useLibraryMutation('tags.remove');
-
   const fileQuery = useNormalizedCache<{ file_id: string }, File>({
     wireMethod: "query:files.by_id",
     input: { file_id: file?.id || "" },
@@ -114,6 +111,9 @@ function OverviewTab({ file }: { file: File }) {
     });
   };
 
+  // Tag mutations
+  const applyTag = useLibraryMutation("tags.apply");
+
   // AI Processing mutations
   const extractText = useLibraryMutation("media.ocr.extract");
   const transcribeAudio = useLibraryMutation("media.speech.transcribe");
@@ -150,6 +150,7 @@ function OverviewTab({ file }: { file: File }) {
       <div className="px-2 text-center">
         <h4 className="text-sm font-semibold text-sidebar-ink truncate">
           {file.name}
+          {file.extension ? `.${file.extension}` : ""}
         </h4>
         <p className="text-xs text-sidebar-inkDull mt-1">{fileKind}</p>
       </div>
@@ -317,29 +318,31 @@ function OverviewTab({ file }: { file: File }) {
       {/* Tags */}
       <Section title="Tags" icon={TagIcon}>
         <div className="flex flex-wrap gap-1.5">
-          {file.tags && file.tags.length > 0 && file.tags.map((tag) => (
-            <Tag
-              key={tag.id}
-              color={tag.color || "#3B82F6"}
-              size="sm"
-            >
-              {tag.canonical_name}
-            </Tag>
-          ))}
+          {file.tags &&
+            file.tags.length > 0 &&
+            file.tags.map((tag) => (
+              <Tag key={tag.id} color={tag.color || "#3B82F6"} size="sm">
+                {tag.canonical_name}
+              </Tag>
+            ))}
 
           {/* Add Tag Button */}
           <TagSelectorButton
             onSelect={async (tag) => {
+              // Use content-based tagging by default (tags all instances)
+              // Fall back to entry-based if no content identity
               await applyTag.mutateAsync({
-                file_ids: [file.id],
-                tag_applications: [{
-                  tag_id: tag.id,
-                  source: 'User',
-                  confidence: 1.0,
-                }],
+                targets: file.content_identity?.uuid
+                  ? { type: "Content", ids: [file.content_identity.uuid] }
+                  : { type: "Entry", ids: [parseInt(file.id)] },
+                tag_ids: [tag.id],
+                source: "User",
+                confidence: 1.0,
               });
             }}
             contextTags={file.tags || []}
+            fileId={file.id}
+            contentId={file.content_identity?.uuid}
             trigger={
               <button className="px-2 py-0.5 text-xs font-medium rounded-full bg-app-box hover:bg-app-hover border border-app-line text-ink-dull hover:text-ink transition-colors">
                 + Add tags

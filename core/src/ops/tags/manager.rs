@@ -31,7 +31,7 @@ pub struct TagManager {
 }
 
 // Helper function to convert database model to domain model
-fn model_to_domain(model: tag::Model) -> Result<Tag, TagError> {
+pub(crate) fn model_to_domain(model: tag::Model) -> Result<Tag, TagError> {
 	let aliases: Vec<String> = model
 		.aliases
 		.as_ref()
@@ -689,43 +689,53 @@ impl TagManager {
 	) -> Result<Vec<Tag>, TagError> {
 		let db = &*self.db;
 
-		// Try FTS5 search first, fall back to LIKE patterns if FTS5 is not available
 		let mut tag_db_ids = Vec::new();
 
-		// Attempt FTS5 search (skip if FTS5 table doesn't exist)
-		if let Ok(fts_results) = db.query_all(
-            sea_orm::Statement::from_string(
-                sea_orm::DatabaseBackend::Sqlite,
-                format!(
-                    "SELECT rowid FROM tag_search_fts WHERE tag_search_fts MATCH '{}' ORDER BY bm25(tag_search_fts)",
-                    query.replace("\"", "\"\"")
-                )
-            )
-        ).await {
-            for row in fts_results {
-                if let Ok(tag_id) = row.try_get::<i32>("", "rowid") {
-                    tag_db_ids.push(tag_id);
-                }
-            }
-        }
-
-		// If FTS5 didn't return results, fall back to LIKE patterns
-		if tag_db_ids.is_empty() {
-			let search_pattern = format!("%{}%", query);
-			let like_models = tag::Entity::find()
-				.filter(
-					tag::Column::CanonicalName
-						.like(&search_pattern)
-						.or(tag::Column::DisplayName.like(&search_pattern))
-						.or(tag::Column::FormalName.like(&search_pattern))
-						.or(tag::Column::Abbreviation.like(&search_pattern))
-						.or(tag::Column::Description.like(&search_pattern)),
-				)
+		// If query is empty, return all tags (with filters applied)
+		if query.trim().is_empty() {
+			let all_models = tag::Entity::find()
 				.all(&*db)
 				.await
 				.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-			tag_db_ids = like_models.into_iter().map(|m| m.id).collect();
+			tag_db_ids = all_models.into_iter().map(|m| m.id).collect();
+		} else {
+			// Try FTS5 search first, fall back to LIKE patterns if FTS5 is not available
+			// Attempt FTS5 search (skip if FTS5 table doesn't exist)
+			if let Ok(fts_results) = db.query_all(
+	            sea_orm::Statement::from_string(
+	                sea_orm::DatabaseBackend::Sqlite,
+	                format!(
+	                    "SELECT rowid FROM tag_search_fts WHERE tag_search_fts MATCH '{}' ORDER BY bm25(tag_search_fts)",
+	                    query.replace("\"", "\"\"")
+	                )
+	            )
+	        ).await {
+	            for row in fts_results {
+	                if let Ok(tag_id) = row.try_get::<i32>("", "rowid") {
+	                    tag_db_ids.push(tag_id);
+	                }
+	            }
+	        }
+
+			// If FTS5 didn't return results, fall back to LIKE patterns
+			if tag_db_ids.is_empty() {
+				let search_pattern = format!("%{}%", query);
+				let like_models = tag::Entity::find()
+					.filter(
+						tag::Column::CanonicalName
+							.like(&search_pattern)
+							.or(tag::Column::DisplayName.like(&search_pattern))
+							.or(tag::Column::FormalName.like(&search_pattern))
+							.or(tag::Column::Abbreviation.like(&search_pattern))
+							.or(tag::Column::Description.like(&search_pattern)),
+					)
+					.all(&*db)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+				tag_db_ids = like_models.into_iter().map(|m| m.id).collect();
+			}
 		}
 
 		if tag_db_ids.is_empty() {

@@ -1,5 +1,6 @@
 import { CaretRight } from "@phosphor-icons/react";
 import clsx from "clsx";
+import { useNavigate } from "react-router-dom";
 import { useNormalizedCache } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
 import type { VolumeItem } from "@sd/ts-client";
@@ -16,6 +17,8 @@ export function VolumesGroup({
 	onToggle,
 	filter = "All",
 }: VolumesGroupProps) {
+	const navigate = useNavigate();
+
 	const { data: volumesData } = useNormalizedCache({
 		wireMethod: "query:volumes.list",
 		input: { filter },
@@ -76,6 +79,10 @@ export function VolumesGroup({
 										},
 									} as any
 								}
+								volumeData={{
+									device_slug: volume.device_slug,
+									mount_path: volume.mount_point || "/",
+								}}
 								rightComponent={getVolumeBadges(volume)}
 								className={
 									volume.is_tracked

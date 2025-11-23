@@ -29,12 +29,13 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 	// Fetch all tags (for now, we'll use the first 10 as the default palette)
 	// TODO: Implement user-defined palettes
 	const { data: tagsData } = useNormalizedQuery({
-		wireMethod: 'query:tags.list',
-		input: null,
+		wireMethod: 'query:tags.search',
+		input: { query: '' },
 		resourceType: 'tag'
 	});
 
-	const allTags = tagsData?.tags ?? [];
+	// Extract tags from search results (tags is an array of { tag, relevance, ... })
+	const allTags = tagsData?.tags?.map((result: any) => result.tag) ?? [];
 	const paletteTags = allTags.slice(0, 10); // First 10 tags for now
 
 	// Keyboard shortcuts

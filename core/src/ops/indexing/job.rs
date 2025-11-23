@@ -126,7 +126,7 @@ impl IndexerJobConfig {
 		Self {
 			location_id: None,
 			path,
-			mode: IndexMode::Shallow,
+			mode: IndexMode::Content, // Enable content identification for ephemeral browsing
 			scope,
 			persistence: IndexPersistence::Ephemeral,
 			max_depth: if scope == IndexScope::Current {
@@ -759,9 +759,14 @@ impl IndexerJob {
 		while let Some(batch) = state.entry_batches.pop() {
 			for entry in batch {
 				// Store entry (this will emit ResourceChanged events)
-				persistence
+				let entry_id = persistence
 					.store_entry(&entry, None, &root_path)
 					.await?;
+
+				// Queue files for content identification
+				if entry.kind == super::state::EntryKind::File && entry.size > 0 {
+					state.entries_for_content.push((entry_id, entry.path.clone()));
+				}
 			}
 		}
 
@@ -775,15 +780,104 @@ impl IndexerJob {
 	async fn run_ephemeral_content_phase_static(
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
-		_ephemeral_index: Arc<RwLock<EphemeralIndex>>,
+		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
 	) -> JobResult<()> {
-		ctx.log("Starting ephemeral content identification");
+		use crate::domain::content_identity::ContentHashGenerator;
+		use crate::ops::indexing::persistence::PersistenceFactory;
 
-		// For ephemeral jobs, we can skip heavy content processing or do it lightly
-		// This is mainly for demonstration - in practice you might generate CAS IDs
+		ctx.log(format!(
+			"Starting ephemeral content identification for {} files",
+			state.entries_for_content.len()
+		));
+
+		if state.entries_for_content.is_empty() {
+			state.phase = Phase::Complete;
+			return Ok(());
+		}
+
+		// Get root path and event bus
+		let (root_path, event_bus) = {
+			let index = ephemeral_index.read().await;
+			(index.root_path.clone(), Some(ctx.library().event_bus().clone()))
+		};
+
+		// Create ephemeral persistence for event emission
+		let persistence = PersistenceFactory::ephemeral(
+			ephemeral_index.clone(),
+			event_bus,
+			root_path,
+		);
+
+		// Process files for content identification
+		let mut success_count = 0;
+		let mut error_count = 0;
+
+		// Process in chunks to emit progress
+		const CHUNK_SIZE: usize = 50;
+		let total = state.entries_for_content.len();
+
+		while !state.entries_for_content.is_empty() {
+			ctx.check_interrupt().await?;
+
+			let chunk_size = CHUNK_SIZE.min(state.entries_for_content.len());
+			let chunk: Vec<_> = state.entries_for_content.drain(..chunk_size).collect();
+
+			// Process chunk in parallel
+			let hash_futures: Vec<_> = chunk
+				.iter()
+				.map(|(entry_id, path)| async move {
+					let hash_result = ContentHashGenerator::generate_content_hash(path).await;
+					(*entry_id, path.clone(), hash_result)
+				})
+				.collect();
+
+			let results = futures::future::join_all(hash_futures).await;
+
+			// Store results and emit events
+			for (entry_id, path, hash_result) in results {
+				match hash_result {
+					Ok(cas_id) => {
+						// Store via persistence (this emits ResourceChanged event with content_identity)
+						if let Err(e) = persistence.store_content_identity(entry_id, &path, cas_id.clone()).await {
+							ctx.add_non_critical_error(format!(
+								"Failed to store content identity for {}: {}",
+								path.display(),
+								e
+							));
+							error_count += 1;
+						} else {
+							success_count += 1;
+						}
+					}
+					Err(e) => {
+						// Skip empty files or errors
+						if !matches!(e, crate::domain::ContentHashError::EmptyFile) {
+							ctx.add_non_critical_error(format!(
+								"Failed to hash {}: {}",
+								path.display(),
+								e
+							));
+							error_count += 1;
+						}
+					}
+				}
+			}
+
+			ctx.log(format!(
+				"Content identification progress: {}/{} (success: {}, errors: {})",
+				total - state.entries_for_content.len(),
+				total,
+				success_count,
+				error_count
+			));
+		}
 
 		state.phase = Phase::Complete;
-		ctx.log("Ephemeral content identification complete");
+		ctx.log(format!(
+			"Ephemeral content identification complete: {} files processed, {} errors",
+			success_count,
+			error_count
+		));
 
 		Ok(())
 	}

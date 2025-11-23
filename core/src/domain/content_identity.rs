@@ -59,6 +59,7 @@ pub enum ContentKind {
 	Shortcut = 23,
 	Package = 24,
 	ModelEntry = 25,
+	Memory = 26,
 }
 
 // Translate database entity into domain model
@@ -113,6 +114,8 @@ impl ContentKind {
 			22 => Self::Web,
 			23 => Self::Shortcut,
 			24 => Self::Package,
+			25 => Self::ModelEntry,
+			26 => Self::Memory,
 			_ => Self::Unknown,
 		}
 	}
@@ -305,6 +308,7 @@ impl std::fmt::Display for ContentKind {
 			ContentKind::Shortcut => "shortcut",
 			ContentKind::Package => "package",
 			ContentKind::ModelEntry => "model_entry",
+			ContentKind::Memory => "memory",
 		};
 		write!(f, "{}", s)
 	}

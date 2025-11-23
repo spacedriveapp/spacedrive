@@ -1,6 +1,6 @@
 //! Apply semantic tags action
 
-use super::{input::ApplyTagsInput, output::ApplyTagsOutput};
+use super::{input::{ApplyTagsInput, TagTargets}, output::ApplyTagsOutput};
 use crate::{
 	context::CoreContext,
 	domain::tag::{TagApplication, TagSource},
@@ -45,7 +45,7 @@ impl LibraryAction for ApplyTagsAction {
 		let device_id = library.id(); // Use library ID as device ID
 
 		let mut warnings = Vec::new();
-		let mut successfully_tagged_entries = Vec::new();
+		let mut successfully_tagged_count = 0;
 
 		// Create tag applications from input
 		let tag_applications: Vec<TagApplication> = self
@@ -71,32 +71,67 @@ impl LibraryAction for ApplyTagsAction {
 			})
 			.collect();
 
-		// Apply tags to each entry
-		for entry_id in &self.input.entry_ids {
-			// Look up actual entry UUID from entry ID
-			let entry_uuid = lookup_entry_uuid(&db.conn(), *entry_id)
-				.await
-				.map_err(|e| {
-					ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
-				})?;
-			match metadata_manager
-				.apply_semantic_tags(entry_uuid, tag_applications.clone(), device_id)
-				.await
-			{
-				Ok(()) => {
-					successfully_tagged_entries.push(*entry_id);
+		// Handle both content-based and entry-based tagging
+		match &self.input.targets {
+			TagTargets::Content(content_ids) => {
+				// Content-based tagging: apply to content identity (tags all instances)
+				for &content_id in content_ids {
+					match metadata_manager
+						.apply_semantic_tags_to_content(content_id, tag_applications.clone(), device_id)
+						.await
+					{
+						Ok(models) => {
+							successfully_tagged_count += 1;
+							// Sync each user_metadata_tag model
+							for model in models {
+								library
+									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
+									.await
+									.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+							}
+						}
+						Err(e) => {
+							warnings.push(format!("Failed to tag content {}: {}", content_id, e));
+						}
+					}
 				}
-				Err(e) => {
-					warnings.push(format!("Failed to tag entry {}: {}", entry_id, e));
+			}
+			TagTargets::Entry(entry_ids) => {
+				// Entry-based tagging: apply to specific entry instance
+				for &entry_id in entry_ids {
+					// Look up actual entry UUID from entry ID
+					let entry_uuid = lookup_entry_uuid(&db.conn(), entry_id)
+						.await
+						.map_err(|e| {
+							ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
+						})?;
+					match metadata_manager
+						.apply_semantic_tags_to_entry(entry_uuid, tag_applications.clone(), device_id)
+						.await
+					{
+						Ok(models) => {
+							successfully_tagged_count += 1;
+							// Sync each user_metadata_tag model
+							for model in models {
+								library
+									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
+									.await
+									.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+							}
+						}
+						Err(e) => {
+							warnings.push(format!("Failed to tag entry {}: {}", entry_id, e));
+						}
+					}
 				}
 			}
 		}
 
 		let output = ApplyTagsOutput::success(
-			successfully_tagged_entries.len(),
+			successfully_tagged_count,
 			self.input.tag_ids.len(),
 			self.input.tag_ids.clone(),
-			successfully_tagged_entries,
+			vec![], // TODO: Return target IDs if needed
 		);
 
 		if !warnings.is_empty() {

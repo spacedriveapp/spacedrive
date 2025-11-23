@@ -6,7 +6,7 @@ use crate::{
 	domain::{addressing::SdPath, File},
 	infra::db::entities::{
 		audio_media_data, content_identity, device, directory_paths, entry, image_media_data,
-		location, sidecar, tag, user_metadata_tag, video_media_data,
+		location, sidecar, tag, user_metadata, user_metadata_tag, video_media_data,
 	},
 	infra::query::LibraryQuery,
 };
@@ -165,7 +165,7 @@ impl LibraryQuery for FileByIdQuery {
 			};
 
 		// Convert to File using from_entity_model
-		let mut file = File::from_entity_model(entry_model, sd_path);
+		let mut file = File::from_entity_model(entry_model.clone(), sd_path);
 		file.sidecars = sidecars;
 		file.content_identity = content_identity_domain;
 		file.image_media_data = image_media;
@@ -174,6 +174,55 @@ impl LibraryQuery for FileByIdQuery {
 		file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
 		if let Some(ref ci) = file.content_identity {
 			file.content_kind = ci.kind;
+		}
+
+		// Load tags for this entry
+		if let Some(entry_uuid) = entry_model.uuid {
+			use std::collections::HashMap;
+
+			// Load user_metadata for this entry (both entry-scoped and content-scoped)
+			let mut metadata_filter = user_metadata::Column::EntryUuid.eq(entry_uuid);
+
+			// Also check for content-scoped metadata if content identity exists
+			if let Some(ref ci) = file.content_identity {
+				metadata_filter = metadata_filter.or(user_metadata::Column::ContentIdentityUuid.eq(ci.uuid));
+			}
+
+			let metadata_records = user_metadata::Entity::find()
+				.filter(metadata_filter)
+				.all(db.conn())
+				.await?;
+
+			if !metadata_records.is_empty() {
+				let metadata_ids: Vec<i32> = metadata_records.iter().map(|m| m.id).collect();
+
+				// Load user_metadata_tag records
+				let metadata_tags = user_metadata_tag::Entity::find()
+					.filter(user_metadata_tag::Column::UserMetadataId.is_in(metadata_ids))
+					.all(db.conn())
+					.await?;
+
+				if !metadata_tags.is_empty() {
+					let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
+
+					// Load tag entities
+					let tag_models = tag::Entity::find()
+						.filter(tag::Column::Id.is_in(tag_ids))
+						.all(db.conn())
+						.await?;
+
+					// Convert to domain tags
+					let mut tags = Vec::new();
+					for tag_model in tag_models {
+						if let Ok(domain_tag) = crate::ops::tags::manager::model_to_domain(tag_model) {
+							tags.push(domain_tag);
+						}
+					}
+
+					file.tags = tags;
+					tracing::debug!("Loaded {} tags for entry {}", file.tags.len(), entry_uuid);
+				}
+			}
 		}
 
 		Ok(Some(file))

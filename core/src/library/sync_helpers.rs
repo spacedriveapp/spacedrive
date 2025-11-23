@@ -42,13 +42,35 @@ impl Library {
 			.to_sync_json()
 			.map_err(|e| anyhow::anyhow!("Failed to serialize model: {}", e))?;
 
-		if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
-			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data)
+		let result = if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
+			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data.clone())
 				.await
 		} else {
-			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data)
+			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data.clone())
 				.await
+		};
+
+		// Emit resource event for frontend reactivity
+		if result.is_ok() {
+			use crate::infra::sync::ChangeType as CT;
+			match change_type {
+				CT::Delete => {
+					self.event_bus().emit(Event::ResourceDeleted {
+						resource_type: M::SYNC_MODEL.to_string(),
+						resource_id: model.sync_id(),
+					});
+				}
+				CT::Insert | CT::Update => {
+					self.event_bus().emit(Event::ResourceChanged {
+						resource_type: M::SYNC_MODEL.to_string(),
+						resource: data,
+						metadata: None,
+					});
+				}
+			}
 		}
+
+		result
 	}
 
 	/// Sync a model with FK conversion (for models with relationships)
@@ -119,13 +141,35 @@ impl Library {
 			}
 		}
 
-		if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
-			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data)
+		let result = if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
+			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data.clone())
 				.await
 		} else {
-			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data)
+			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data.clone())
 				.await
+		};
+
+		// Emit resource event for frontend reactivity
+		if result.is_ok() {
+			use crate::infra::sync::ChangeType as CT;
+			match change_type {
+				CT::Delete => {
+					self.event_bus().emit(Event::ResourceDeleted {
+						resource_type: M::SYNC_MODEL.to_string(),
+						resource_id: model.sync_id(),
+					});
+				}
+				CT::Insert | CT::Update => {
+					self.event_bus().emit(Event::ResourceChanged {
+						resource_type: M::SYNC_MODEL.to_string(),
+						resource: data,
+						metadata: None,
+					});
+				}
+			}
 		}
+
+		result
 	}
 
 	/// Batch sync multiple models (optimized for bulk operations)

@@ -1,14 +1,16 @@
 //! Create semantic tag action
 
-use super::{input::CreateTagInput, output::CreateTagOutput};
+use super::{input::{ApplyToTargets, CreateTagInput}, output::CreateTagOutput};
 use crate::infra::sync::ChangeType;
 use crate::{
 	context::CoreContext,
-	domain::tag::{PrivacyLevel, Tag, TagType},
+	domain::tag::{PrivacyLevel, Tag, TagApplication, TagSource, TagType},
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
 	ops::tags::manager::TagManager,
+	ops::metadata::manager::UserMetadataManager,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -70,6 +72,66 @@ impl LibraryAction for CreateTagAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to sync tag: {}", e)))?;
 
+		// If apply_to is provided, apply the tag to those targets
+		if let Some(targets) = &self.input.apply_to {
+			let metadata_manager = UserMetadataManager::new(Arc::new(library.db().conn().clone()));
+
+			// Create a tag application for this newly created tag
+			let tag_application = TagApplication {
+				tag_id: tag_entity.uuid,
+				applied_context: None,
+				applied_variant: None,
+				confidence: 1.0,
+				source: TagSource::User,
+				instance_attributes: Default::default(),
+				created_at: Utc::now(),
+				device_uuid: device_id,
+			};
+
+			match targets {
+				ApplyToTargets::Content(content_ids) => {
+					// Apply to content identities (all instances)
+					for &content_id in content_ids {
+						let models = metadata_manager
+							.apply_semantic_tags_to_content(content_id, vec![tag_application.clone()], device_id)
+							.await
+							.map_err(|e| ActionError::Internal(format!("Failed to apply tag to content: {}", e)))?;
+
+						// Sync each user_metadata_tag model
+						for model in models {
+							library
+								.sync_model(&model, ChangeType::Insert)
+								.await
+								.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+						}
+					}
+				}
+				ApplyToTargets::Entry(entry_ids) => {
+					// Apply to specific entries
+					for &entry_id in entry_ids {
+						// Look up entry UUID from database ID
+						let entry_uuid = lookup_entry_uuid(&library.db().conn(), entry_id)
+							.await
+							.map_err(|e| ActionError::Internal(format!("Failed to lookup entry UUID: {}", e)))?;
+
+						// Apply the tag
+						let models = metadata_manager
+							.apply_semantic_tags_to_entry(entry_uuid, vec![tag_application.clone()], device_id)
+							.await
+							.map_err(|e| ActionError::Internal(format!("Failed to apply tag to entry: {}", e)))?;
+
+						// Sync each user_metadata_tag model
+						for model in models {
+							library
+								.sync_model(&model, ChangeType::Insert)
+								.await
+								.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+						}
+					}
+				}
+			}
+		}
+
 		Ok(CreateTagOutput::from_entity(&tag_entity))
 	}
 
@@ -80,3 +142,19 @@ impl LibraryAction for CreateTagAction {
 
 // Register library action
 crate::register_library_action!(CreateTagAction, "tags.create");
+
+/// Look up entry UUID from entry database ID
+async fn lookup_entry_uuid(db: &sea_orm::DatabaseConnection, entry_id: i32) -> Result<Uuid, String> {
+	use crate::infra::db::entities::entry;
+	use sea_orm::EntityTrait;
+
+	let entry_model = entry::Entity::find_by_id(entry_id)
+		.one(db)
+		.await
+		.map_err(|e| format!("Database error: {}", e))?
+		.ok_or_else(|| format!("Entry with ID {} not found", entry_id))?;
+
+	entry_model
+		.uuid
+		.ok_or_else(|| format!("Entry {} has no UUID assigned", entry_id))
+}

@@ -35,8 +35,13 @@ impl UserMetadataManager {
 		}
 	}
 
-	/// Get user metadata for an entry (creates if doesn't exist)
+	/// Get or create entry-scoped metadata (legacy method)
 	pub async fn get_or_create_metadata(&self, entry_uuid: Uuid) -> Result<UserMetadata, TagError> {
+		self.get_or_create_entry_metadata(entry_uuid).await
+	}
+
+	/// Get or create entry-scoped metadata (tags specific to this file instance)
+	pub async fn get_or_create_entry_metadata(&self, entry_uuid: Uuid) -> Result<UserMetadata, TagError> {
 		let db = &*self.db;
 
 		// First try to find existing metadata
@@ -44,7 +49,7 @@ impl UserMetadataManager {
 			return Ok(metadata);
 		}
 
-		// Create new metadata if it doesn't exist
+		// Create new entry-scoped metadata if it doesn't exist
 		let metadata_uuid = Uuid::new_v4();
 		let new_metadata = user_metadata::ActiveModel {
 			id: NotSet,
@@ -59,14 +64,43 @@ impl UserMetadataManager {
 			updated_at: Set(Utc::now()),
 		};
 
-		let result = new_metadata
+		new_metadata
 			.insert(&*db)
 			.await
 			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-		// No need to update entry - the metadata is linked via entry_uuid
+		Ok(UserMetadata::new(metadata_uuid))
+	}
 
-		// Return the new metadata
+	/// Get or create content-scoped metadata (tags apply to all instances of this content)
+	pub async fn get_or_create_content_metadata(&self, content_identity_uuid: Uuid) -> Result<UserMetadata, TagError> {
+		let db = &*self.db;
+
+		// First try to find existing metadata
+		if let Some(metadata) = self.get_metadata_by_content_uuid(content_identity_uuid).await? {
+			return Ok(metadata);
+		}
+
+		// Create new content-scoped metadata if it doesn't exist
+		let metadata_uuid = Uuid::new_v4();
+		let new_metadata = user_metadata::ActiveModel {
+			id: NotSet,
+			uuid: Set(metadata_uuid),
+			entry_uuid: Set(None),
+			content_identity_uuid: Set(Some(content_identity_uuid)),
+			notes: Set(None),
+			favorite: Set(false),
+			hidden: Set(false),
+			custom_data: Set(serde_json::json!({})),
+			created_at: Set(Utc::now()),
+			updated_at: Set(Utc::now()),
+		};
+
+		new_metadata
+			.insert(&*db)
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
 		Ok(UserMetadata::new(metadata_uuid))
 	}
 
@@ -91,17 +125,39 @@ impl UserMetadataManager {
 		Ok(None)
 	}
 
-	/// Apply semantic tags to an entry
-	pub async fn apply_semantic_tags(
+	/// Get user metadata for content by content identity UUID
+	pub async fn get_metadata_by_content_uuid(
 		&self,
-		entry_uuid: Uuid,
-		tag_applications: Vec<TagApplication>,
-		device_uuid: Uuid,
-	) -> Result<(), TagError> {
+		content_identity_uuid: Uuid,
+	) -> Result<Option<UserMetadata>, TagError> {
 		let db = &*self.db;
 
-		// Ensure metadata exists for this entry
-		let metadata = self.get_or_create_metadata(entry_uuid).await?;
+		// Find metadata by content identity UUID
+		let metadata_model = user_metadata::Entity::find()
+			.filter(user_metadata::Column::ContentIdentityUuid.eq(content_identity_uuid))
+			.one(&*db)
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+		if let Some(model) = metadata_model {
+			return Ok(Some(self.model_to_domain(model).await?));
+		}
+
+		Ok(None)
+	}
+
+	/// Apply semantic tags to a content identity (tags all instances of this content)
+	/// Returns the created user_metadata_tag models for syncing
+	pub async fn apply_semantic_tags_to_content(
+		&self,
+		content_identity_uuid: Uuid,
+		tag_applications: Vec<TagApplication>,
+		device_uuid: Uuid,
+	) -> Result<Vec<user_metadata_tag::Model>, TagError> {
+		let db = &*self.db;
+
+		// Get or create content-scoped metadata
+		let metadata = self.get_or_create_content_metadata(content_identity_uuid).await?;
 
 		// Get the database ID for the user metadata
 		let metadata_model = user_metadata::Entity::find()
@@ -112,6 +168,58 @@ impl UserMetadataManager {
 			.ok_or(TagError::DatabaseError(
 				"UserMetadata not found".to_string(),
 			))?;
+
+		self.apply_tags_to_metadata(metadata_model.id, &tag_applications, device_uuid).await
+	}
+
+	/// Apply semantic tags to a specific entry (tags only this instance)
+	/// Returns the created user_metadata_tag models for syncing
+	pub async fn apply_semantic_tags_to_entry(
+		&self,
+		entry_uuid: Uuid,
+		tag_applications: Vec<TagApplication>,
+		device_uuid: Uuid,
+	) -> Result<Vec<user_metadata_tag::Model>, TagError> {
+		let db = &*self.db;
+
+		// Get or create entry-scoped metadata
+		let metadata = self.get_or_create_entry_metadata(entry_uuid).await?;
+
+		// Get the database ID for the user metadata
+		let metadata_model = user_metadata::Entity::find()
+			.filter(user_metadata::Column::Uuid.eq(metadata.id))
+			.one(&*db)
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?
+			.ok_or(TagError::DatabaseError(
+				"UserMetadata not found".to_string(),
+			))?;
+
+		self.apply_tags_to_metadata(metadata_model.id, &tag_applications, device_uuid).await
+	}
+
+	/// Apply semantic tags to an entry (legacy method - uses entry-scoped)
+	/// Returns the created user_metadata_tag models for syncing
+	pub async fn apply_semantic_tags(
+		&self,
+		entry_uuid: Uuid,
+		tag_applications: Vec<TagApplication>,
+		device_uuid: Uuid,
+	) -> Result<Vec<user_metadata_tag::Model>, TagError> {
+		self.apply_semantic_tags_to_entry(entry_uuid, tag_applications, device_uuid).await
+	}
+
+	/// Internal: Apply tags to a metadata record (shared logic)
+	/// Returns the created/updated user_metadata_tag models for syncing
+	async fn apply_tags_to_metadata(
+		&self,
+		metadata_db_id: i32,
+		tag_applications: &[TagApplication],
+		device_uuid: Uuid,
+	) -> Result<Vec<user_metadata_tag::Model>, TagError> {
+		let db = &*self.db;
+
+		let mut created_models = Vec::new();
 
 		// Convert tag UUIDs to database IDs
 		let tag_uuids: Vec<Uuid> = tag_applications.iter().map(|app| app.tag_id).collect();
@@ -125,11 +233,11 @@ impl UserMetadataManager {
 			tag_models.into_iter().map(|m| (m.uuid, m.id)).collect();
 
 		// Insert tag applications
-		for app in &tag_applications {
+		for app in tag_applications {
 			if let Some(&tag_db_id) = uuid_to_db_id.get(&app.tag_id) {
 				let tag_application = user_metadata_tag::ActiveModel {
 					id: NotSet,
-					user_metadata_id: Set(metadata_model.id),
+					user_metadata_id: Set(metadata_db_id),
 					tag_id: Set(tag_db_id),
 					applied_context: Set(app.applied_context.clone()),
 					applied_variant: Set(app.applied_variant.clone()),
@@ -152,41 +260,49 @@ impl UserMetadataManager {
 				};
 
 				// Insert or update if exists
-				if let Err(_) = tag_application.insert(&*db).await {
-					// If insert fails due to unique constraint, update existing
-					let existing = user_metadata_tag::Entity::find()
-						.filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_model.id))
-						.filter(user_metadata_tag::Column::TagId.eq(tag_db_id))
-						.one(&*db)
-						.await
-						.map_err(|e| TagError::DatabaseError(e.to_string()))?;
-
-					if let Some(existing_model) = existing {
-						let mut update_model: user_metadata_tag::ActiveModel =
-							existing_model.into();
-						update_model.applied_context = Set(app.applied_context.clone());
-						update_model.applied_variant = Set(app.applied_variant.clone());
-						update_model.confidence = Set(app.confidence);
-						update_model.source = Set(app.source.as_str().to_string());
-						update_model.instance_attributes =
-							Set(if app.instance_attributes.is_empty() {
-								None
-							} else {
-								Some(
-									serde_json::to_value(&app.instance_attributes)
-										.unwrap()
-										.into(),
-								)
-							});
-						update_model.updated_at = Set(Utc::now());
-						update_model.device_uuid = Set(device_uuid);
-
-						update_model
-							.update(&*db)
+				let model = match tag_application.clone().insert(&*db).await {
+					Ok(model) => model,
+					Err(_) => {
+						// If insert fails due to unique constraint, update existing
+						let existing = user_metadata_tag::Entity::find()
+							.filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_db_id))
+							.filter(user_metadata_tag::Column::TagId.eq(tag_db_id))
+							.one(&*db)
 							.await
 							.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+						if let Some(existing_model) = existing {
+							let mut update_model: user_metadata_tag::ActiveModel =
+								existing_model.into();
+							update_model.applied_context = Set(app.applied_context.clone());
+							update_model.applied_variant = Set(app.applied_variant.clone());
+							update_model.confidence = Set(app.confidence);
+							update_model.source = Set(app.source.as_str().to_string());
+							update_model.instance_attributes =
+								Set(if app.instance_attributes.is_empty() {
+									None
+								} else {
+									Some(
+										serde_json::to_value(&app.instance_attributes)
+											.unwrap()
+											.into(),
+									)
+								});
+							update_model.updated_at = Set(Utc::now());
+							update_model.device_uuid = Set(device_uuid);
+							update_model.version = Set(update_model.version.unwrap() + 1);
+
+							update_model
+								.update(&*db)
+								.await
+								.map_err(|e| TagError::DatabaseError(e.to_string()))?
+						} else {
+							continue;
+						}
 					}
-				}
+				};
+
+				created_models.push(model);
 			}
 		}
 
@@ -195,7 +311,7 @@ impl UserMetadataManager {
 			.record_tag_usage(&tag_applications)
 			.await?;
 
-		Ok(())
+		Ok(created_models)
 	}
 
 	/// Remove semantic tags from an entry
@@ -403,7 +519,8 @@ impl UserMetadataManager {
 		};
 
 		self.apply_semantic_tags(Uuid::new_v4(), vec![tag_application], device_uuid)
-			.await // TODO: Look up actual UUID
+			.await
+			.map(|_| ()) // TODO: Look up actual UUID and sync models
 	}
 
 	/// Apply multiple semantic tags to an entry (user-applied)
@@ -419,7 +536,8 @@ impl UserMetadataManager {
 			.collect();
 
 		self.apply_semantic_tags(Uuid::new_v4(), tag_applications, device_uuid)
-			.await // TODO: Look up actual UUID
+			.await
+			.map(|_| ()) // TODO: Look up actual UUID and sync models
 	}
 
 	/// Apply AI-suggested semantic tags with confidence scores
@@ -439,7 +557,8 @@ impl UserMetadataManager {
 			.collect();
 
 		self.apply_semantic_tags(Uuid::new_v4(), tag_applications, device_uuid)
-			.await // TODO: Look up actual UUID
+			.await
+			.map(|_| ()) // TODO: Look up actual UUID and sync models
 	}
 
 	/// Find entries by semantic tags (supports hierarchy)

@@ -43,10 +43,12 @@ export function ExplorerLayout() {
     goToPreviousPreview,
     tagModeActive,
     setTagModeActive,
+    viewMode,
   } = useExplorer();
 
-  // Check if we're on Overview (hide inspector)
+  // Check if we're on Overview (hide inspector) or in Knowledge view (has its own inspector)
   const isOverview = location.pathname === "/";
+  const isKnowledgeView = viewMode === "knowledge";
 
   // Fetch locations to get current location info
   const locationsQuery = useNormalizedCache<
@@ -112,7 +114,7 @@ export function ExplorerLayout() {
     <div className="relative flex h-screen select-none overflow-hidden text-sidebar-ink bg-app rounded-[10px] border border-transparent frame">
       <TopBar
         sidebarWidth={sidebarVisible ? 224 : 0}
-        inspectorWidth={inspectorVisible && !isOverview ? 284 : 0}
+        inspectorWidth={inspectorVisible && !isOverview && !isKnowledgeView ? 284 : 0}
       />
 
       <AnimatePresence initial={false} mode="popLayout">
@@ -145,8 +147,8 @@ export function ExplorerLayout() {
       />
 
       <AnimatePresence initial={false}>
-        {/* Hide inspector on Overview screen */}
-        {inspectorVisible && !isOverview && (
+        {/* Hide inspector on Overview screen and Knowledge view (has its own) */}
+        {inspectorVisible && !isOverview && !isKnowledgeView && (
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: 280 }}

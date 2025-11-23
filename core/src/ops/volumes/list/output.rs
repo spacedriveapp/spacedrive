@@ -32,6 +32,8 @@ pub struct VolumeItem {
 	pub write_speed_mbps: Option<u32>,
 	/// Device ID that owns this volume
 	pub device_id: Uuid,
+	/// Device slug for constructing SdPaths
+	pub device_slug: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

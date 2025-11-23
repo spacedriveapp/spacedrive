@@ -9,11 +9,12 @@ import {
   ChartPieSlice,
   Clock,
   SquaresFour,
+  Sparkle,
 } from "@phosphor-icons/react";
 import clsx from "clsx";
 import { TopBarButton } from "@sd/ui";
 
-type ViewMode = "list" | "grid" | "column" | "media" | "size";
+type ViewMode = "list" | "grid" | "column" | "media" | "size" | "knowledge";
 
 interface ViewOption {
   id: ViewMode | "timeline";
@@ -60,11 +61,18 @@ const viewOptions: ViewOption[] = [
     keybind: "⌘5",
   },
   {
+    id: "knowledge",
+    label: "Knowledge",
+    icon: Sparkle,
+    color: "bg-purple-500",
+    keybind: "⌘6",
+  },
+  {
     id: "timeline",
     label: "Timeline",
     icon: Clock,
     color: "bg-yellow-500",
-    keybind: "⌘6",
+    keybind: "⌘7",
   },
 ];
 
@@ -136,9 +144,9 @@ export function ViewModeMenu({
                 top: `${position.top}px`,
                 right: `${position.right}px`,
               }}
-              className="w-[280px] rounded-lg bg-menu border border-menu-line shadow-2xl p-2 z-50"
+              className="w-[240px] rounded-lg bg-menu border border-menu-line shadow-2xl p-2 z-50"
             >
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-3 gap-1">
                 {viewOptions.map((option) => (
                   <button
                     key={`${option.id}-${option.label}`}
@@ -149,8 +157,8 @@ export function ViewModeMenu({
                       setIsOpen(false);
                     }}
                     className={clsx(
-                      "flex items-center gap-3 px-2.5 py-2 rounded-md",
-                      "transition-colors text-left",
+                      "flex flex-col items-center gap-1.5 px-2 py-2 rounded-md",
+                      "transition-colors",
                       option.id === "timeline" &&
                         "opacity-50 cursor-not-allowed",
                       viewMode === option.id
@@ -158,22 +166,15 @@ export function ViewModeMenu({
                         : "hover:bg-menu-hover",
                     )}
                   >
-                    <div
-                      className={clsx(
-                        "flex items-center justify-center size-8 rounded-md",
-                        option.color,
-                      )}
-                    >
-                      <option.icon
-                        className="size-4 text-white"
-                        weight="bold"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-menu-ink">
+                    <option.icon
+                      className="size-6 text-menu-ink"
+                      weight={viewMode === option.id ? "fill" : "bold"}
+                    />
+                    <div className="flex flex-col items-center gap-0.5">
+                      <div className="text-xs font-medium text-menu-ink">
                         {option.label}
                       </div>
-                      <div className="text-[11px] text-menu-faint">
+                      <div className="text-[10px] text-menu-faint">
                         {option.keybind}
                       </div>
                     </div>
