@@ -10,7 +10,7 @@
 use super::{
 	metrics::SyncMetricsCollector,
 	peer::PeerSync,
-	protocol_handler::LogSyncHandler,
+	protocol_handler::{LogSyncHandler, StateSyncHandler},
 	state::{select_backfill_peer, BackfillCheckpoint, DeviceSyncState, PeerInfo},
 };
 use crate::{
@@ -22,7 +22,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{oneshot, Mutex};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use uuid::Uuid;
 
 /// Manages backfill process for new devices
@@ -30,6 +30,7 @@ pub struct BackfillManager {
 	library_id: Uuid,
 	device_id: Uuid,
 	peer_sync: Arc<PeerSync>,
+	state_handler: Arc<StateSyncHandler>,
 	log_handler: Arc<LogSyncHandler>,
 	config: Arc<crate::infra::sync::SyncConfig>,
 	metrics: Arc<SyncMetricsCollector>,
@@ -46,6 +47,7 @@ impl BackfillManager {
 		library_id: Uuid,
 		device_id: Uuid,
 		peer_sync: Arc<PeerSync>,
+		state_handler: Arc<StateSyncHandler>,
 		log_handler: Arc<LogSyncHandler>,
 		config: Arc<crate::infra::sync::SyncConfig>,
 		metrics: Arc<SyncMetricsCollector>,
@@ -54,6 +56,7 @@ impl BackfillManager {
 			library_id,
 			device_id,
 			peer_sync,
+			state_handler,
 			log_handler,
 			config,
 			metrics,
@@ -208,19 +211,9 @@ impl BackfillManager {
 		);
 
 		// Backfill shared resources FIRST (device-owned models depend on them)
-		// Parse HLC from string watermark to enable incremental shared backfill
-		// Special case: "SKIP_SHARED" sentinel means surgical recovery for device-owned only
-		let max_shared_hlc = if shared_watermark.as_deref() == Some("SKIP_SHARED") {
-			info!("Surgical recovery: skipping shared backfill (device-owned resources only)");
-			None
-		} else {
-			let since_hlc = shared_watermark.and_then(|s| {
-				use std::str::FromStr;
-				crate::infra::sync::HLC::from_str(&s).ok()
-			});
-			self.backfill_shared_resources_since(peer, since_hlc)
-				.await?
-		};
+		// For now, just do full backfill of shared resources
+		// TODO: Parse HLC from string watermark when HLC implements FromStr
+		let max_shared_hlc = self.backfill_shared_resources(peer).await?;
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)
 		let final_state_checkpoint = self
@@ -343,7 +336,8 @@ impl BackfillManager {
 		since_watermark: Option<chrono::DateTime<chrono::Utc>>,
 	) -> Result<(BackfillCheckpoint, Option<chrono::DateTime<chrono::Utc>>)> {
 		let mut current_checkpoint = checkpoint.unwrap_or_else(|| BackfillCheckpoint::start(peer));
-		// Track max timestamp from received records
+		// Track max timestamp from ONLY received records (not initialized to watermark)
+		// Initializing to since_watermark caused bug where watermark advanced even when no data received
 		let mut max_timestamp: Option<chrono::DateTime<chrono::Utc>> = None;
 
 		for model_type in model_types {
@@ -384,113 +378,56 @@ impl BackfillManager {
 					// Record data volume metrics before consuming records
 					let records_count = records.len() as u64;
 
-					debug!(
-						model_type = %model_type,
-						records_count = records_count,
-						deleted_count = deleted_uuids.len(),
-						has_more = has_more,
-						"Received StateResponse batch"
-					);
+					// Track max timestamp from received records for accurate watermark
+					for record in &records {
+						if let Some(max) = max_timestamp {
+							if record.timestamp > max {
+								max_timestamp = Some(record.timestamp);
+							}
+						} else {
+							max_timestamp = Some(record.timestamp);
+						}
+					}
 
-					// Batch FK resolution for all records
-					// Collect all record data WITH timestamps for watermark tracking
-					let records_with_timestamps: Vec<(
-						serde_json::Value,
-						chrono::DateTime<chrono::Utc>,
-					)> = records
-						.iter()
-						.map(|r| (r.data.clone(), r.timestamp))
-						.collect();
+					// Batch FK resolution for all records (365x query reduction)
+					// Collect all record data first
+					let record_data: Vec<serde_json::Value> =
+						records.iter().map(|r| r.data.clone()).collect();
 
 					// Get FK mappings for this model type
 					let fk_mappings =
 						crate::infra::sync::get_fk_mappings(&model_type).unwrap_or_default();
 
 					// Batch process FK mappings if any exist
-					// This now filters out records with missing FK dependencies
-					let processed_data_with_ts: Vec<(
-						serde_json::Value,
-						chrono::DateTime<chrono::Utc>,
-					)> = if !fk_mappings.is_empty() && !records_with_timestamps.is_empty() {
-						let record_data: Vec<serde_json::Value> = records_with_timestamps
-							.iter()
-							.map(|(d, _)| d.clone())
-							.collect();
-
+					let processed_data = if !fk_mappings.is_empty() && !record_data.is_empty() {
 						// Single query per FK type instead of N queries per record
-						let mapped = crate::infra::sync::batch_map_sync_json_to_local(
+						crate::infra::sync::batch_map_sync_json_to_local(
 							record_data,
 							fk_mappings,
 							&db,
 						)
 						.await
-						.map_err(|e| anyhow::anyhow!("Batch FK mapping failed: {}", e))?;
-
-						// Reconstruct with timestamps, only for successfully mapped records
-						let mut result = Vec::new();
-						let mut original_idx = 0;
-						for mapped_data in mapped {
-							// Find corresponding timestamp from original records
-							// FK mapping preserves order, so we can match by index
-							while original_idx < records_with_timestamps.len() {
-								let (orig_data, orig_ts) = &records_with_timestamps[original_idx];
-								original_idx += 1;
-
-								// Match by UUID to be safe
-								if let (Some(mapped_uuid), Some(orig_uuid)) = (
-									mapped_data.get("uuid").and_then(|v| v.as_str()),
-									orig_data.get("uuid").and_then(|v| v.as_str()),
-								) {
-									if mapped_uuid == orig_uuid {
-										result.push((mapped_data, *orig_ts));
-										break;
-									}
-								}
-							}
-						}
-						result
+						.map_err(|e| anyhow::anyhow!("Batch FK mapping failed: {}", e))?
 					} else {
-						records_with_timestamps
+						record_data
 					};
 
 					// Apply updates via registry with FKs already resolved
-					// Track max timestamp ONLY from successfully applied records
-					for (data, record_timestamp) in &processed_data_with_ts {
-						// Apply the record
+					// The idempotent map_sync_json_to_local in apply_state_change will skip already-resolved FKs
+					for data in processed_data {
 						crate::infra::sync::registry::apply_state_change(
 							&model_type,
-							data.clone(),
+							data,
 							db.clone(),
 						)
 						.await
 						.map_err(|e| anyhow::anyhow!("{}", e))?;
-
-						// Track timestamp for watermark (only from successfully applied)
-						if let Some(max) = max_timestamp {
-							if record_timestamp > &max {
-								max_timestamp = Some(*record_timestamp);
-							}
-						} else {
-							max_timestamp = Some(*record_timestamp);
-						}
 					}
 
-					// Record data volume metrics (count successfully applied records)
-					let applied_count = processed_data_with_ts.len() as u64;
+					// Record data volume metrics
 					self.metrics
-						.record_entries_synced(&model_type, applied_count)
+						.record_entries_synced(&model_type, records_count)
 						.await;
-
-					// Log if we filtered out records due to missing dependencies
-					if applied_count < records_count {
-						info!(
-							model_type = %model_type,
-							received = records_count,
-							applied = applied_count,
-							filtered = records_count - applied_count,
-							"Some records skipped due to missing FK dependencies (will retry on next sync)"
-						);
-					}
 
 					// Apply deletions via registry
 					for uuid in deleted_uuids {
@@ -728,26 +665,14 @@ impl BackfillManager {
 		batch_size: usize,
 	) -> Result<SyncMessage> {
 		// Create and send request
-		// CRITICAL: Pass peer device_id to filter query to only their entries
-		let has_checkpoint = checkpoint.is_some();
-
 		let request = SyncMessage::StateRequest {
 			library_id: self.library_id,
 			model_types: model_types.clone(),
-			device_id: Some(peer),
+			device_id: None,
 			since,
 			checkpoint,
 			batch_size,
 		};
-
-		debug!(
-			peer = %peer,
-			model_types = ?model_types,
-			since = ?since,
-			batch_size = batch_size,
-			has_checkpoint = has_checkpoint,
-			"Sending StateRequest with device ownership filter"
-		);
 
 		// Use send_sync_request which handles bidirectional stream and response
 		let response = self

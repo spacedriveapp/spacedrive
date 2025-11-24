@@ -26,7 +26,10 @@ fn test_fingerprint_deterministic() {
 	let fp2 = VolumeFingerprint::new(uuid_str, capacity, "APFS");
 	let fp3 = VolumeFingerprint::new(uuid_str, capacity, "APFS");
 
-	assert_eq!(fp1, fp2, "Fingerprints should be identical for same inputs");
+	assert_eq!(
+		fp1, fp2,
+		"Fingerprints should be identical for same inputs"
+	);
 	assert_eq!(fp2, fp3, "Fingerprints should be deterministic");
 
 	println!("Fingerprint is deterministic: {}", fp1.short_id());
@@ -145,10 +148,7 @@ async fn test_real_volume_fingerprints_remain_stable() {
 	println!("First detection - {} volumes:", volumes_first.len());
 	for volume in &volumes_first {
 		let fp_string = volume.fingerprint.to_string();
-		first_fingerprints.insert(
-			volume.mount_point.to_string_lossy().to_string(),
-			fp_string.clone(),
-		);
+		first_fingerprints.insert(volume.mount_point.to_string_lossy().to_string(), fp_string.clone());
 
 		println!(
 			"  {} → fingerprint: {}",
@@ -290,3 +290,4 @@ async fn test_what_properties_change_on_real_volumes() {
 		println!();
 	}
 }
+

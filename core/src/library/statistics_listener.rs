@@ -24,17 +24,16 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 /// - Automatically restarts when new events arrive
 pub fn spawn_statistics_listener(library: Arc<Library>, event_bus: Arc<EventBus>) {
 	let library_id = library.id();
-	let library_name = tokio::task::block_in_place(|| {
-		tokio::runtime::Handle::current().block_on(async { library.name().await })
-	});
-
-	info!(
-		library_id = %library_id,
-		library_name = %library_name,
-		"Spawning statistics recalculation listener"
-	);
 
 	tokio::spawn(async move {
+		let library_name = library.name().await;
+
+		info!(
+			library_id = %library_id,
+			library_name = %library_name,
+			"Spawning statistics recalculation listener"
+		);
+
 		let mut subscriber = event_bus.subscribe();
 
 		// Wait for first ResourceChanged event to start

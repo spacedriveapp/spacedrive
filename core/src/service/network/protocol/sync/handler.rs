@@ -246,9 +246,9 @@ impl SyncProtocolHandler {
 
 				// Create checkpoint: "timestamp|uuid" format
 				let next_checkpoint = if has_more {
-					records
-						.last()
-						.map(|r| format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid))
+					records.last().map(|r| {
+						format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid)
+					})
 				} else {
 					None
 				};
@@ -397,60 +397,25 @@ impl SyncProtocolHandler {
 			SyncMessage::WatermarkExchangeRequest {
 				library_id,
 				device_id,
+				my_state_watermark: peer_state_watermark,
 				my_shared_watermark: peer_shared_watermark,
-				my_resource_watermarks: peer_resource_watermarks,
-				my_peer_resource_counts: peer_counts_of_our_data,
-				my_peer_resource_hashes: peer_hashes_of_our_data,
 			} => {
 				debug!(
 					from_device = %from_device,
+					peer_state_watermark = ?peer_state_watermark,
 					peer_shared_watermark = ?peer_shared_watermark,
-					peer_resource_count = peer_resource_watermarks.len(),
-					peer_counts_of_us = ?peer_counts_of_our_data,
-					peer_hashes_of_us = ?peer_hashes_of_our_data,
-					"Processing WatermarkExchangeRequest with count and hash validation"
+					"Processing WatermarkExchangeRequest"
 				);
 
 				// Get our current watermarks
-				let (_our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
-				let our_resource_watermarks =
-					crate::infra::sync::ResourceWatermarkStore::new(peer_sync.device_id())
-						.get_our_resource_watermarks(peer_sync.peer_log_conn())
-						.await
-						.unwrap_or_default();
+				let (our_state_watermark, our_shared_watermark) = peer_sync.get_watermarks().await;
 
-				// Get our ACTUAL counts (what we truly own)
-				let our_actual_resource_counts =
-					crate::service::sync::PeerSync::get_device_owned_counts(
-						peer_sync.device_id(),
-						peer_sync.db(),
-					)
-					.await
-					.unwrap_or_default();
-
-				// Determine if peer needs catch-up by comparing per-resource watermarks
-				let mut needs_state_catchup = false;
-				for (resource_type, our_ts) in &our_resource_watermarks {
-					match peer_resource_watermarks.get(resource_type) {
-						Some(peer_ts) if our_ts > peer_ts => {
-							needs_state_catchup = true;
-							break;
-						}
-						None => {
-							needs_state_catchup = true;
-							break;
-						}
-						_ => {}
-					}
-				}
-
-				// Also check if we have resources peer doesn't know about
-				for resource_type in our_resource_watermarks.keys() {
-					if !peer_resource_watermarks.contains_key(resource_type) {
-						needs_state_catchup = true;
-						break;
-					}
-				}
+				// Determine if peer needs catch-up by comparing watermarks
+				let needs_state_catchup = match (peer_state_watermark, our_state_watermark) {
+					(Some(peer_ts), Some(our_ts)) => our_ts > peer_ts,
+					(None, Some(_)) => true,
+					_ => false,
+				};
 
 				let needs_shared_catchup = match (peer_shared_watermark, our_shared_watermark) {
 					(Some(peer_hlc), Some(our_hlc)) => our_hlc > peer_hlc,
@@ -458,81 +423,55 @@ impl SyncProtocolHandler {
 					_ => false,
 				};
 
-				// Compute content hashes for update detection (SQL-level aggregate, ~50ms)
-				let mut our_actual_resource_hashes = std::collections::HashMap::new();
-				// Only compute hash for entries currently (most important for update detection)
-				if our_actual_resource_counts.contains_key("entry") {
-					if let Ok(Some(hash)) =
-						crate::service::sync::peer::PeerSync::compute_entry_content_hash(
-							peer_sync.device_id(),
-							peer_sync.db(),
-						)
-						.await
-					{
-						our_actual_resource_hashes.insert("entry".to_string(), hash);
-						debug!(
-							from_device = %from_device,
-							entry_hash = hash,
-							"Computed our entry content hash for update detection"
-						);
-					}
-				}
-
-				debug!(
+				info!(
 					from_device = %from_device,
 					needs_state_catchup = needs_state_catchup,
 					needs_shared_catchup = needs_shared_catchup,
-					our_resource_count = our_resource_watermarks.len(),
-					our_actual_counts = ?our_actual_resource_counts,
-					our_actual_hashes = ?our_actual_resource_hashes,
-					"Responding to watermark exchange with counts and hashes for gap/update detection"
+					"Responding to watermark exchange request"
 				);
 
 				Ok(Some(SyncMessage::WatermarkExchangeResponse {
 					library_id: self.library_id,
 					device_id: peer_sync.device_id(),
+					state_watermark: our_state_watermark,
 					shared_watermark: our_shared_watermark,
 					needs_state_catchup,
 					needs_shared_catchup,
-					resource_watermarks: our_resource_watermarks,
-					my_actual_resource_counts: our_actual_resource_counts,
-					my_actual_resource_hashes: our_actual_resource_hashes,
 				}))
 			}
 
-			SyncMessage::WatermarkExchangeResponse { .. } => {
-				// Responses should never arrive as separate messages - they come back
-				// on the bidirectional stream when using send_sync_request().
-				// If we see this, it means someone used send_sync_message() for a request
-				// that expects a response.
-				warn!(
-					from_device = %from_device,
-					"Received WatermarkExchangeResponse as incoming message (should arrive via bi-directional stream). Ignoring."
-				);
-				Ok(None)
-			}
-
-			SyncMessage::DataAvailableNotification {
+			SyncMessage::WatermarkExchangeResponse {
 				library_id,
 				device_id,
-				resource_types,
-				approx_count,
+				state_watermark: peer_state_watermark,
+				shared_watermark: peer_shared_watermark,
+				needs_state_catchup,
+				needs_shared_catchup,
 			} => {
-				info!(
+				debug!(
 					from_device = %from_device,
-					resources = ?resource_types,
-					count = approx_count,
-					"Peer notified us of new data available, triggering watermark exchange"
+					peer_state_watermark = ?peer_state_watermark,
+					peer_shared_watermark = ?peer_shared_watermark,
+					needs_state_catchup = needs_state_catchup,
+					needs_shared_catchup = needs_shared_catchup,
+					"Processing WatermarkExchangeResponse"
 				);
 
-				// Trigger immediate watermark exchange to discover and sync new data
-				if let Err(e) = peer_sync.exchange_watermarks_and_catchup(from_device).await {
-					warn!(
-						from_device = %from_device,
-						error = %e,
-						"Failed to trigger watermark exchange after data available notification"
-					);
-				}
+				peer_sync
+					.on_watermark_exchange_response(
+						from_device,
+						peer_state_watermark,
+						peer_shared_watermark,
+						needs_state_catchup,
+						needs_shared_catchup,
+					)
+					.await
+					.map_err(|e| {
+						NetworkingError::Protocol(format!(
+							"Failed to handle watermark exchange response: {}",
+							e
+						))
+					})?;
 
 				Ok(None)
 			}
@@ -570,10 +509,7 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 	) {
 		use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-		tracing::info!(
-			"SyncProtocolHandler: Stream accepted from node {}",
-			remote_node_id
-		);
+		tracing::info!("SyncProtocolHandler: Stream accepted from node {}", remote_node_id);
 
 		// Map node_id to device_id using device registry
 		let from_device = {
@@ -596,10 +532,7 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 		};
 
 		// Read request with length prefix
-		tracing::info!(
-			"SyncProtocolHandler: Reading request from device {}...",
-			from_device
-		);
+		tracing::info!("SyncProtocolHandler: Reading request from device {}...", from_device);
 		let mut len_buf = [0u8; 4];
 		if let Err(e) = recv.read_exact(&mut len_buf).await {
 			// This is normal if peer just opened connection to test connectivity
@@ -728,14 +661,13 @@ mod tests {
 	#[test]
 	fn test_handler_creation() {
 		// Test uses mock registry
-		use crate::device::DeviceManager;
 		use crate::service::network::device::DeviceRegistry;
+		use crate::device::DeviceManager;
 		use std::path::PathBuf;
 
 		let device_manager = Arc::new(DeviceManager::new().unwrap());
 		let logger = Arc::new(crate::service::network::utils::SilentLogger);
-		let registry =
-			DeviceRegistry::new(device_manager, PathBuf::from("/tmp/test"), logger).unwrap();
+		let registry = DeviceRegistry::new(device_manager, PathBuf::from("/tmp/test"), logger).unwrap();
 		let device_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
 		let handler = SyncProtocolHandler::new(Uuid::new_v4(), device_registry);

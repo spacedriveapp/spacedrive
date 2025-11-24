@@ -96,7 +96,7 @@ impl Syncable for Model {
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
 		vec![
 			crate::infra::sync::FKMapping::new("device_id", "devices"),
-			crate::infra::sync::FKMapping::new("entry_id", "entries"),
+			crate::infra::sync::FKMapping::new_nullable("entry_id", "entries"),
 		]
 	}
 

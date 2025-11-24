@@ -3,12 +3,12 @@
 //! Tests the strategy pattern implementation for file deletion operations,
 //! including local deletion and strategy routing.
 
-use bytes::Bytes;
 use sd_core::{
 	domain::addressing::SdPath,
 	ops::files::delete::{routing::DeleteStrategyRouter, strategy::LocalDeleteStrategy},
 	volume::backend::{CloudBackend, CloudServiceType, VolumeBackend},
 };
+use bytes::Bytes;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use tokio::fs;
@@ -165,6 +165,7 @@ async fn test_delete_strategy_router_description() {
 	println!("test_delete_strategy_router_description passed!");
 }
 
+
 #[tokio::test]
 async fn test_delete_modes_all_types() {
 	// Test all three delete modes work correctly
@@ -273,28 +274,16 @@ async fn test_cloud_backend_delete_directory() {
 		.unwrap();
 
 	// Verify files exist
-	assert!(backend
-		.exists(Path::new("test_dir/file1.txt"))
-		.await
-		.unwrap());
-	assert!(backend
-		.exists(Path::new("test_dir/file2.txt"))
-		.await
-		.unwrap());
+	assert!(backend.exists(Path::new("test_dir/file1.txt")).await.unwrap());
+	assert!(backend.exists(Path::new("test_dir/file2.txt")).await.unwrap());
 
 	// Delete the entire directory
 	let result = backend.delete(Path::new("test_dir/")).await;
 	assert!(result.is_ok(), "Directory delete failed: {:?}", result);
 
 	// Verify directory and files no longer exist
-	assert!(!backend
-		.exists(Path::new("test_dir/file1.txt"))
-		.await
-		.unwrap());
-	assert!(!backend
-		.exists(Path::new("test_dir/file2.txt"))
-		.await
-		.unwrap());
+	assert!(!backend.exists(Path::new("test_dir/file1.txt")).await.unwrap());
+	assert!(!backend.exists(Path::new("test_dir/file2.txt")).await.unwrap());
 
 	println!("test_cloud_backend_delete_directory passed!");
 }

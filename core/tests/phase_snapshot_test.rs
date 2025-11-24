@@ -6,7 +6,10 @@
 //! - Saves snapshots to disk for manual inspection
 
 use sd_core::{
-	infra::{db::entities, event::Event},
+	infra::{
+		db::entities,
+		event::Event,
+	},
 	location::{create_location, IndexMode, LocationCreateArgs},
 	Core,
 };
@@ -32,7 +35,8 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 	eprintln!("Created test library");
 
 	// Get Desktop path
-	let desktop_path = dirs::desktop_dir().expect("Could not find Desktop directory");
+	let desktop_path = dirs::desktop_dir()
+		.expect("Could not find Desktop directory");
 
 	eprintln!("Will index: {:?}", desktop_path);
 
@@ -52,8 +56,7 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 	};
 
 	// Create output directory for snapshots in project root
-	let snapshot_dir =
-		std::path::PathBuf::from("/Users/jamespine/Projects/spacedrive/test_snapshots");
+	let snapshot_dir = std::path::PathBuf::from("/Users/jamespine/Projects/spacedrive/test_snapshots");
 	std::fs::create_dir_all(&snapshot_dir)?;
 	eprintln!("Snapshots will be saved to: {:?}\n", snapshot_dir);
 
@@ -125,34 +128,27 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 
 					// Save previous phase
 					if !current_phase_events.is_empty() {
-						phase_events
-							.push((current_phase_name.clone(), current_phase_events.clone()));
+						phase_events.push((current_phase_name.clone(), current_phase_events.clone()));
 					}
 					current_phase_name = "Discovery".to_string();
 					current_phase_events.clear();
 				}
-				Event::JobProgress {
-					job_type, message, ..
-				} if job_type == "indexer" => {
+				Event::JobProgress { job_type, message, .. } if job_type == "indexer" => {
 					if let Some(msg) = message {
 						if msg.contains("Processing entries") && !processing_complete {
 							eprintln!("Phase: Processing");
 							processing_complete = true;
 
 							// Save previous phase
-							phase_events
-								.push((current_phase_name.clone(), current_phase_events.clone()));
+							phase_events.push((current_phase_name.clone(), current_phase_events.clone()));
 							current_phase_name = "Processing".to_string();
 							current_phase_events.clear();
-						} else if msg.contains("Generating content identities")
-							&& !content_phase_complete
-						{
+						} else if msg.contains("Generating content identities") && !content_phase_complete {
 							eprintln!("Phase: Content Identification");
 							content_phase_complete = true;
 
 							// Save previous phase
-							phase_events
-								.push((current_phase_name.clone(), current_phase_events.clone()));
+							phase_events.push((current_phase_name.clone(), current_phase_events.clone()));
 							current_phase_name = "Content".to_string();
 							current_phase_events.clear();
 						}
@@ -164,8 +160,7 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 						job_completed = true;
 
 						// Save final phase
-						phase_events
-							.push((current_phase_name.clone(), current_phase_events.clone()));
+						phase_events.push((current_phase_name.clone(), current_phase_events.clone()));
 					}
 				}
 				Event::JobCompleted { job_type, .. } => {
@@ -175,8 +170,7 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 
 						// Save final phase
 						if !current_phase_events.is_empty() {
-							phase_events
-								.push((current_phase_name.clone(), current_phase_events.clone()));
+							phase_events.push((current_phase_name.clone(), current_phase_events.clone()));
 						}
 					}
 				}
@@ -205,20 +199,14 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 		let mut all_files_in_phase = vec![];
 
 		for event in phase_event_list {
-			if let Event::ResourceChangedBatch {
-				resource_type,
-				resources,
-			} = event
-			{
+			if let Event::ResourceChangedBatch { resource_type, resources } = event {
 				if resource_type == "file" {
 					if let Some(files_array) = resources.as_array() {
 						// Save batch metadata
-						phase_data["file_batches"].as_array_mut().unwrap().push(
-							serde_json::json!({
-								"batch_size": files_array.len(),
-								"sample_file": files_array.first(),
-							}),
-						);
+						phase_data["file_batches"].as_array_mut().unwrap().push(serde_json::json!({
+							"batch_size": files_array.len(),
+							"sample_file": files_array.first(),
+						}));
 
 						// Collect all files
 						for file in files_array {
@@ -235,8 +223,7 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 		let filename = snapshot_dir.join(format!("phase_{}.json", phase_name));
 		let json = serde_json::to_string_pretty(&phase_data)?;
 		std::fs::write(&filename, json)?;
-		eprintln!(
-			"Saved phase {} with {} total files across {} batches",
+		eprintln!("Saved phase {} with {} total files across {} batches",
 			phase_name,
 			all_files_in_phase.len(),
 			phase_data["file_batches"].as_array().unwrap().len()
@@ -254,24 +241,18 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 		.all(db.conn())
 		.await?;
 
-	eprintln!(
-		"Found {} file entries in database",
-		entries_with_content.len()
-	);
+	eprintln!("Found {} file entries in database", entries_with_content.len());
 
 	// Save ALL entries to check ID matching
-	let all_entries: Vec<_> = entries_with_content
-		.iter()
-		.map(|e| {
-			serde_json::json!({
-				"entry_id": e.id,
-				"entry_uuid": e.uuid,
-				"name": e.name,
-				"content_id_fk": e.content_id,
-				"extension": e.extension,
-			})
+	let all_entries: Vec<_> = entries_with_content.iter().map(|e| {
+		serde_json::json!({
+			"entry_id": e.id,
+			"entry_uuid": e.uuid,
+			"name": e.name,
+			"content_id_fk": e.content_id,
+			"extension": e.extension,
 		})
-		.collect();
+	}).collect();
 
 	let entries_file = snapshot_dir.join("db_entries_all.json");
 	std::fs::write(&entries_file, serde_json::to_string_pretty(&all_entries)?)?;

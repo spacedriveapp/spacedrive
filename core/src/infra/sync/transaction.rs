@@ -254,6 +254,7 @@ impl TransactionManager {
 	}
 
 	/// Get the next sequence number for a library
+	/// TODO: Replace with HLC in leaderless architecture
 	async fn next_sequence(&self, library_id: Uuid) -> Result<u64> {
 		let mut sequences = self.sync_sequence.lock().await;
 		let seq = sequences.entry(library_id).or_insert(0);

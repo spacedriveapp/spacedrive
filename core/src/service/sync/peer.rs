@@ -126,12 +126,9 @@ pub struct PeerSync {
 	/// Buffer for updates during backfill/catch-up
 	buffer: Arc<BufferQueue>,
 
-	/// Last successful real-time broadcast per peer (for catch-up lock mechanism)
-	/// When real-time broadcasts to a specific peer are active, catch-up for that peer
-	/// is skipped to prevent duplication. Per-peer tracking prevents one stuck peer
-	/// from blocking recovery for all peers.
-	last_realtime_activity_per_peer:
-		Arc<RwLock<std::collections::HashMap<Uuid, chrono::DateTime<chrono::Utc>>>>,
+	/// Last real-time broadcast activity (for catch-up lock mechanism)
+	/// When real-time broadcasts are active, catch-up is skipped to prevent duplication
+	last_realtime_activity: Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
 
 	/// HLC generator for this device
 	hlc_generator: Arc<tokio::sync::Mutex<HLCGenerator>>,
@@ -195,41 +192,14 @@ impl PeerSync {
 		// Create watermark store for per-resource tracking
 		let watermark_store = ResourceWatermarkStore::new(device_id);
 
-		// Determine initial sync state based on existing watermarks in sync.db
-		// If we have watermarks, we've synced before → start as Ready
-		// Otherwise → start as Uninitialized and trigger backfill
-		let initial_state = {
-			let max_watermark = watermark_store
-				.get_max_watermark(peer_log.conn())
-				.await
-				.unwrap_or(None);
-
-			if max_watermark.is_some() {
-				info!(
-					device_id = %device_id,
-					max_watermark = ?max_watermark,
-					"Found existing watermarks in sync.db, starting in Ready state (resuming sync)"
-				);
-				DeviceSyncState::Ready
-			} else {
-				info!(
-					device_id = %device_id,
-					"No watermarks found in sync.db, starting in Uninitialized state (will backfill)"
-				);
-				DeviceSyncState::Uninitialized
-			}
-		};
-
 		Ok(Self {
 			library_id,
 			device_id,
 			db: Arc::new(library.db().conn().clone()),
 			network,
-			state: Arc::new(RwLock::new(initial_state)),
+			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
 			buffer: Arc::new(BufferQueue::new()),
-			last_realtime_activity_per_peer: Arc::new(
-				RwLock::new(std::collections::HashMap::new()),
-			),
+			last_realtime_activity: Arc::new(RwLock::new(None)),
 			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
 			peer_log,
 			watermark_store,
@@ -281,235 +251,22 @@ impl PeerSync {
 		self.library_id
 	}
 
-	/// Get peer log connection for watermark queries
-	pub fn peer_log_conn(&self) -> &sea_orm::DatabaseConnection {
-		self.peer_log.conn()
-	}
-
-	/// Compute content hash for device-owned entries (SQL-level aggregate)
+	/// Check if real-time sync is currently active (lock mechanism)
 	///
-	/// Uses XOR of hashes for order-independence and O(n) performance.
-	/// Only hashes stable fields to ensure consistency across devices.
-	pub async fn compute_entry_content_hash(
-		owner_device_id: Uuid,
-		db: &DatabaseConnection,
-	) -> Result<Option<u64>> {
-		use crate::infra::db::entities::device;
-		use sea_orm::{ColumnTrait, EntityTrait, FromQueryResult, QueryFilter, Statement};
-
-		// Get device's internal ID
-		let device = device::Entity::find()
-			.filter(device::Column::Uuid.eq(owner_device_id))
-			.one(db)
-			.await?;
-
-		let device_internal_id = match device {
-			Some(d) => d.id,
-			None => return Ok(None),
-		};
-
-		#[derive(FromQueryResult)]
-		struct HashResult {
-			content_hash: Option<i64>,
-		}
-
-		// Compute aggregate hash via SQL
-		// Hash stable fields: uuid, name, size, modified_at, kind, parent_id, content_id
-		// Exclude: id (local), indexed_at (sync metadata), aggregates (computed)
-		let stmt = Statement::from_sql_and_values(
-			sea_orm::DbBackend::Sqlite,
-			r#"
-			SELECT
-				SUM(
-					-- Cast first 8 bytes of SHA-256 hash to signed integer
-					CAST(
-						(
-							(CAST(substr(hex(
-								-- Hash stable fields together
-								COALESCE(uuid, X'00000000000000000000000000000000') ||
-								COALESCE(name, '') ||
-								COALESCE(size, 0) ||
-								COALESCE(modified_at, '') ||
-								COALESCE(kind, 0) ||
-								COALESCE(parent_id, 0) ||
-								COALESCE(content_id, 0)
-							), 1, 16) AS INTEGER) & 9223372036854775807)
-						) AS INTEGER
-					)
-				) as content_hash
-			FROM entries e
-			WHERE e.id IN (
-				SELECT DISTINCT ec.descendant_id
-				FROM entry_closure ec
-				WHERE ec.ancestor_id IN (
-					SELECT entry_id FROM locations WHERE device_id = ?
-				)
-			)
-			"#,
-			vec![device_internal_id.into()],
-		);
-
-		let result = HashResult::find_by_statement(stmt).one(db).await?;
-
-		Ok(result.and_then(|r| r.content_hash.map(|h| h as u64)))
-	}
-
-	/// Get counts of device-owned resources owned by a specific device
-	///
-	/// Used for gap detection during watermark exchange.
-	/// Only counts non-deleted records where device ownership matches.
-	pub async fn get_device_owned_counts(
-		owner_device_id: Uuid,
-		db: &DatabaseConnection,
-	) -> Result<std::collections::HashMap<String, u64>> {
-		use crate::infra::db::entities::{device, entry, location, volume};
-		use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect};
-
-		let mut counts = std::collections::HashMap::new();
-
-		// Get device's internal ID from UUID
-		let device = device::Entity::find()
-			.filter(device::Column::Uuid.eq(owner_device_id))
-			.one(db)
-			.await?;
-
-		let device_internal_id = match device {
-			Some(d) => d.id,
-			None => {
-				debug!(device_id = %owner_device_id, "Device not found for count query");
-				return Ok(counts);
-			}
-		};
-
-		// Location count (owned by device)
-		let location_count = location::Entity::find()
-			.filter(location::Column::DeviceId.eq(device_internal_id))
-			.count(db)
-			.await
-			.unwrap_or(0);
-		counts.insert("location".to_string(), location_count);
-
-		// Entry count (via location ownership chain using closure table)
-		// Query entries where location.device_id matches via entry_closure table
-		let entry_count: u64 = {
-			use sea_orm::sea_query::{Expr, Query};
-			use sea_orm::{FromQueryResult, Statement};
-
-			#[derive(FromQueryResult)]
-			struct CountResult {
-				count: i64,
-			}
-
-			let stmt = Statement::from_sql_and_values(
-				sea_orm::DbBackend::Sqlite,
-				r#"
-			SELECT COUNT(DISTINCT ec.descendant_id) as count
-			FROM entry_closure ec
-			WHERE ec.ancestor_id IN (
-				SELECT entry_id FROM locations WHERE device_id = ?
-			)
-			"#,
-				vec![device_internal_id.into()],
-			);
-
-			let result = CountResult::find_by_statement(stmt)
-				.one(db)
-				.await
-				.unwrap_or(None);
-
-			result.map(|r| r.count as u64).unwrap_or(0)
-		};
-		counts.insert("entry".to_string(), entry_count);
-
-		// Volume count (owned by device)
-		let volume_count = volume::Entity::find()
-			.filter(volume::Column::DeviceId.eq(device_internal_id))
-			.count(db)
-			.await
-			.unwrap_or(0);
-		counts.insert("volume".to_string(), volume_count);
-
-		debug!(
-			device_id = %owner_device_id,
-			location_count = location_count,
-			entry_count = entry_count,
-			volume_count = volume_count,
-			"Queried device-owned resource counts"
-		);
-
-		Ok(counts)
-	}
-
-	/// Reset cursor to validated watermark for specific resources (surgical recovery with dual watermarks)
-	///
-	/// Called when count mismatch is detected for specific resources.
-	/// Resets cursor to validated baseline (not full delete), preserving known-good state.
-	/// This enables gap-only recovery instead of full re-sync.
-	async fn clear_resource_watermarks(
-		&self,
-		peer_id: Uuid,
-		resource_types: Vec<String>,
-	) -> Result<()> {
-		let store = crate::infra::sync::ResourceWatermarkStore::new(self.device_id);
-
-		let mut reset_count = 0;
-		for resource_type in &resource_types {
-			// Reset cursor to validated (or delete if no validated baseline)
-			store
-				.reset_cursor_to_validated(self.peer_log.conn(), peer_id, resource_type)
-				.await
-				.map_err(|e| anyhow::anyhow!("Failed to reset cursor to validated: {}", e))?;
-			reset_count += 1;
-		}
-
-		info!(
-			peer = %peer_id,
-			resources = ?resource_types,
-			reset = reset_count,
-			"Reset cursors to validated watermarks (surgical recovery from known-good points)"
-		);
-
-		Ok(())
-	}
-
-	/// Promote cursor to validated watermark (marks cursor as verified)
-	async fn promote_cursor_to_validated_watermark(
-		&self,
-		peer_id: Uuid,
-		resource_type: &str,
-	) -> Result<()> {
-		let store = crate::infra::sync::ResourceWatermarkStore::new(self.device_id);
-		store
-			.promote_cursor_to_validated(self.peer_log.conn(), peer_id, resource_type)
-			.await
-			.map_err(|e| anyhow::anyhow!("Failed to promote watermark: {}", e))
-	}
-
-	/// Check if real-time sync is currently active for a specific peer
-	///
-	/// Returns true if real-time broadcasts to this peer succeeded in the last 30 seconds.
+	/// Returns true if real-time broadcasts happened in the last 60 seconds.
 	/// Used to prevent catch-up from overlapping with active real-time sync.
-	/// Per-peer tracking prevents one stuck peer from blocking recovery for others.
-	pub async fn is_realtime_active_for_peer(&self, peer_id: Uuid) -> bool {
-		if let Some(last_activity) = self
-			.last_realtime_activity_per_peer
-			.read()
-			.await
-			.get(&peer_id)
-		{
-			let elapsed = chrono::Utc::now().signed_duration_since(*last_activity);
-			elapsed.num_seconds() < 30 // Reduced from 60s to 30s for faster recovery
+	pub async fn is_realtime_active(&self) -> bool {
+		if let Some(last_activity) = *self.last_realtime_activity.read().await {
+			let elapsed = chrono::Utc::now().signed_duration_since(last_activity);
+			elapsed.num_seconds() < 60
 		} else {
 			false
 		}
 	}
 
-	/// Update real-time activity timestamp for a specific peer (called after successful broadcast)
-	async fn mark_realtime_activity_for_peer(&self, peer_id: Uuid) {
-		self.last_realtime_activity_per_peer
-			.write()
-			.await
-			.insert(peer_id, chrono::Utc::now());
+	/// Update real-time activity timestamp (called after successful broadcast)
+	async fn mark_realtime_activity(&self) {
+		*self.last_realtime_activity.write().await = Some(chrono::Utc::now());
 	}
 
 	/// Get per-resource watermark for a specific peer and resource type
@@ -679,57 +436,6 @@ impl PeerSync {
 		Ok(())
 	}
 
-	/// Notify all connected peers that we have new data available
-	///
-	/// This proactively triggers watermark exchange on peers after bulk operations.
-	/// Prevents the "20-minute idle" bug where events die and peers don't notice.
-	pub async fn notify_peers_of_new_data(
-		&self,
-		resource_types: Vec<String>,
-		approx_count: u64,
-	) -> Result<()> {
-		let connected_partners = self
-			.network
-			.get_connected_sync_partners(self.library_id, &self.db)
-			.await?;
-
-		if connected_partners.is_empty() {
-			debug!("No connected partners, skipping data available notification");
-			return Ok(());
-		}
-
-		info!(
-			resources = ?resource_types,
-			count = approx_count,
-			peer_count = connected_partners.len(),
-			"Notifying peers of new data available"
-		);
-
-		let notification = SyncMessage::DataAvailableNotification {
-			library_id: self.library_id,
-			device_id: self.device_id,
-			resource_types,
-			approx_count,
-		};
-
-		// Broadcast to all connected peers (fire and forget - they'll request via watermark exchange)
-		for peer_id in connected_partners {
-			if let Err(e) = self
-				.network
-				.send_sync_message(peer_id, notification.clone())
-				.await
-			{
-				warn!(
-					peer = %peer_id,
-					error = %e,
-					"Failed to send data available notification"
-				);
-			}
-		}
-
-		Ok(())
-	}
-
 	/// Exchange watermarks with a peer and trigger catch-up if needed
 	///
 	/// Sends a WatermarkExchangeRequest to the peer with our watermarks.
@@ -742,110 +448,32 @@ impl PeerSync {
 		);
 
 		// Get our watermarks
-		let (_my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
-
-		// Get per-resource watermarks for fine-grained comparison
-		let my_resource_watermarks =
-			crate::infra::sync::ResourceWatermarkStore::new(self.device_id)
-				.get_our_resource_watermarks(self.peer_log.conn())
-				.await
-				.unwrap_or_else(|e| {
-					warn!(error = %e, "Failed to get per-resource watermarks");
-					std::collections::HashMap::new()
-				});
-
-		// Get counts of peer's device-owned resources that we have synced (for gap detection)
-		let my_peer_resource_counts = Self::get_device_owned_counts(peer_id, &self.db)
-			.await
-			.unwrap_or_else(|e| {
-				warn!(error = %e, peer = %peer_id, "Failed to get peer resource counts");
-				std::collections::HashMap::new()
-			});
-
-		// Compute content hashes for update detection (SQL-level aggregate, ~50ms)
-		let mut my_peer_resource_hashes = std::collections::HashMap::new();
-		// Only compute hash for entries currently (most important for update detection)
-		if my_peer_resource_counts.contains_key("entry") {
-			if let Ok(Some(hash)) = Self::compute_entry_content_hash(peer_id, &self.db).await {
-				my_peer_resource_hashes.insert("entry".to_string(), hash);
-				debug!(
-					peer = %peer_id,
-					entry_hash = hash,
-					"Computed entry content hash for update detection"
-				);
-			}
-		}
+		let (my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
 
 		debug!(
 			peer = %peer_id,
+			my_state_watermark = ?my_state_watermark,
 			my_shared_watermark = ?my_shared_watermark,
-			resource_count = my_resource_watermarks.len(),
-			peer_owned_counts = ?my_peer_resource_counts,
-			peer_owned_hashes = ?my_peer_resource_hashes,
-			"Sending watermark exchange request with counts and hashes for gap/update detection"
+			"Sending watermark exchange request"
 		);
 
-		// Send request to peer and wait for response (request/response pattern)
+		// Send request to peer
 		let request = SyncMessage::WatermarkExchangeRequest {
 			library_id: self.library_id,
 			device_id: self.device_id,
+			my_state_watermark,
 			my_shared_watermark,
-			my_resource_watermarks,
-			my_peer_resource_counts,
-			my_peer_resource_hashes,
 		};
 
-		// Use send_sync_request() to get response back (bi-directional stream)
-		let response = self
-			.network
-			.send_sync_request(peer_id, request)
+		self.network
+			.send_sync_message(peer_id, request)
 			.await
-			.map_err(|e| anyhow::anyhow!("Failed to exchange watermarks: {}", e))?;
+			.map_err(|e| anyhow::anyhow!("Failed to send watermark exchange request: {}", e))?;
 
 		info!(
 			peer = %peer_id,
-			"Watermark exchange request sent, received response"
+			"Watermark exchange request sent, waiting for response"
 		);
-
-		// Process the response
-		match response {
-			SyncMessage::WatermarkExchangeResponse {
-				shared_watermark: peer_shared_watermark,
-				needs_state_catchup,
-				needs_shared_catchup,
-				resource_watermarks: peer_resource_watermarks,
-				my_actual_resource_counts: peer_actual_counts,
-				my_actual_resource_hashes: peer_actual_hashes,
-				..
-			} => {
-				info!(
-					peer = %peer_id,
-					peer_shared_watermark = ?peer_shared_watermark,
-					needs_state_catchup = needs_state_catchup,
-					needs_shared_catchup = needs_shared_catchup,
-					peer_actual_counts = ?peer_actual_counts,
-					peer_actual_hashes = ?peer_actual_hashes,
-					"Received watermark exchange response with counts and hashes, processing locally"
-				);
-
-				// Call the response handler directly
-				self.on_watermark_exchange_response(
-					peer_id,
-					peer_shared_watermark,
-					needs_state_catchup,
-					needs_shared_catchup,
-					peer_resource_watermarks,
-					peer_actual_counts,
-					peer_actual_hashes,
-				)
-				.await?;
-			}
-			_ => {
-				return Err(anyhow::anyhow!(
-					"Expected WatermarkExchangeResponse, got different message type"
-				));
-			}
-		}
 
 		Ok(())
 	}
@@ -857,277 +485,45 @@ impl PeerSync {
 	pub async fn on_watermark_exchange_response(
 		&self,
 		peer_id: Uuid,
+		peer_state_watermark: Option<chrono::DateTime<chrono::Utc>>,
 		peer_shared_watermark: Option<HLC>,
 		needs_state_catchup: bool,
 		needs_shared_catchup: bool,
-		peer_resource_watermarks: std::collections::HashMap<String, chrono::DateTime<chrono::Utc>>,
-		peer_actual_resource_counts: std::collections::HashMap<String, u64>,
-		peer_actual_resource_hashes: std::collections::HashMap<String, u64>,
 	) -> Result<()> {
 		info!(
 			peer = %peer_id,
+			peer_state_watermark = ?peer_state_watermark,
 			peer_shared_watermark = ?peer_shared_watermark,
 			needs_state_catchup = needs_state_catchup,
 			needs_shared_catchup = needs_shared_catchup,
-			peer_resource_count = peer_resource_watermarks.len(),
-			"Received watermark exchange response with resource counts"
+			"Received watermark exchange response"
 		);
 
 		// Get our watermarks to compare
-		let (_my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
-		let my_resource_watermarks =
-			crate::infra::sync::ResourceWatermarkStore::new(self.device_id)
-				.get_our_resource_watermarks(self.peer_log.conn())
-				.await
-				.unwrap_or_default();
+		let (my_state_watermark, my_shared_watermark) = self.get_watermarks().await;
 
-		// Count-based gap detection (detects watermark leapfrog bugs)
-		// Only run when NOT in real-time sync or active backfill
-		let state = self.state().await;
-		let realtime_active = self.is_realtime_active_for_peer(peer_id).await;
-		let in_stable_state = state.is_ready() && !realtime_active;
-
-		// Track mismatched resources outside the block for watermark comparison check
-		let mut mismatched_resource_types = Vec::new();
-		let mut mismatch_details = Vec::new();
-
-		if in_stable_state && !peer_actual_resource_counts.is_empty() {
-			// Get what we think peer has
-			let my_counts_of_peer_data = Self::get_device_owned_counts(peer_id, &self.db)
-				.await
-				.unwrap_or_default();
-
-			for (resource_type, peer_actual_count) in &peer_actual_resource_counts {
-				let our_count = my_counts_of_peer_data
-					.get(resource_type)
-					.copied()
-					.unwrap_or(0);
-
-				// If WE have less than peer actually owns, we're behind and need catch-up
-				// Don't trigger if we have MORE (that would mean peer is behind, they'll catch up from us)
-				if our_count < *peer_actual_count {
-					let watermark_diff_seconds = my_resource_watermarks
-						.get(resource_type)
-						.and_then(|my_ts| {
-							peer_resource_watermarks
-								.get(resource_type)
-								.map(|peer_ts| (my_ts.timestamp() - peer_ts.timestamp()).abs())
-						})
-						.unwrap_or(0);
-
-					warn!(
-						peer = %peer_id,
-						resource = %resource_type,
-						our_count = our_count,
-						peer_actual = peer_actual_count,
-						gap = i64::abs(our_count as i64 - *peer_actual_count as i64),
-						our_watermark = ?my_resource_watermarks.get(resource_type),
-						peer_watermark = ?peer_resource_watermarks.get(resource_type),
-						watermark_diff_seconds = watermark_diff_seconds,
-						"COUNT MISMATCH DETECTED! Triggering surgical recovery"
-					);
-					mismatched_resource_types.push(resource_type.clone());
-					mismatch_details.push(format!(
-						"{}({}/{}, Δ{})",
-						resource_type,
-						our_count,
-						peer_actual_count,
-						i64::abs(our_count as i64 - *peer_actual_count as i64)
-					));
-				}
-			}
-
-			// Hash-based update detection (even when counts match)
-			// This catches missed updates where count is unchanged but data differs
-			if !peer_actual_resource_hashes.is_empty() {
-				// Compute our hashes for comparison
-				let mut our_hashes = std::collections::HashMap::new();
-				if peer_actual_resource_hashes.contains_key("entry") {
-					if let Ok(Some(hash)) =
-						Self::compute_entry_content_hash(peer_id, &self.db).await
-					{
-						our_hashes.insert("entry".to_string(), hash);
-					}
-				}
-
-				// Compare hashes for resources where counts match
-				for (resource_type, peer_hash) in &peer_actual_resource_hashes {
-					if let Some(our_hash) = our_hashes.get(resource_type) {
-						let our_count = my_counts_of_peer_data
-							.get(resource_type)
-							.copied()
-							.unwrap_or(0);
-						let peer_count = peer_actual_resource_counts
-							.get(resource_type)
-							.copied()
-							.unwrap_or(0);
-
-						// If counts match but hashes differ = missed update!
-						if our_count == peer_count && our_hash != peer_hash {
-							warn!(
-								peer = %peer_id,
-								resource = %resource_type,
-								count = our_count,
-								our_hash = our_hash,
-								peer_hash = peer_hash,
-								"HASH MISMATCH with matching counts! Missed update detected, triggering surgical recovery"
-							);
-							mismatched_resource_types.push(resource_type.clone());
-							mismatch_details.push(format!(
-								"{}(count={}, hash_mismatch)",
-								resource_type, our_count
-							));
-						} else if our_hash == peer_hash {
-							debug!(
-								resource = %resource_type,
-								hash = our_hash,
-								count = our_count,
-								"Hash validation passed - data is consistent"
-							);
-						}
-					}
-				}
-			}
-
-			if !mismatched_resource_types.is_empty() {
-				error!(
-					peer = %peer_id,
-					mismatches = ?mismatch_details,
-					resources = ?mismatched_resource_types,
-					"Count/hash mismatch detected, clearing only affected resources"
-				);
-
-				// Clear watermarks only for mismatched resources
-				// This preserves correct watermarks for other resources
-				self.clear_resource_watermarks(peer_id, mismatched_resource_types.clone())
-					.await?;
-
-				// Trigger catch-up for affected resources ONLY
-				// CRITICAL: Preserve shared watermark to avoid unnecessary shared resource backfill
-				let backfill_mgr = self.backfill_manager.read().await;
-				if let Some(weak_ref) = backfill_mgr.as_ref() {
-					if let Some(manager) = weak_ref.upgrade() {
-						info!(
-							peer = %peer_id,
-							resources = ?mismatched_resource_types,
-							"Initiating surgical backfill (device-owned resources only, preserving shared watermark)"
-						);
-
-						// Get current shared watermark to preserve it
-						let (_my_state, my_shared) = self.get_watermarks().await;
-						let shared_watermark_str = if let Some(hlc) = my_shared {
-							// Have shared watermark - use it to skip shared backfill
-							Some(hlc.to_string())
-						} else {
-							// No shared watermark but surgical recovery only fixes device-owned data
-							// Use a sentinel value to skip shared backfill entirely
-							// The backfill manager will see this and skip shared resources
-							info!(peer = %peer_id, "No shared watermark but surgical recovery targets device-owned only");
-							Some("SKIP_SHARED".to_string())
-						};
-
-						// State watermark = None (cleared for mismatched resources)
-						// Shared watermark = current or SKIP (preserved to skip shared backfill)
-						manager
-							.catch_up_from_peer(peer_id, None, shared_watermark_str)
-							.await?;
-					}
-				} else {
-					warn!("BackfillManager not available, cannot trigger recovery backfill");
-				}
-
-				return Ok(());
-			} else {
-				debug!(
-					peer = %peer_id,
-					"Count validation passed - no gaps detected"
-				);
-			}
-		} else {
-			debug!(
-				peer = %peer_id,
-				state = ?state,
-				realtime_active = realtime_active,
-				has_counts = !peer_actual_resource_counts.is_empty(),
-				"Skipping count-based gap detection - not in stable state or no counts provided"
-			);
-		}
-
-		// Determine if WE need to catch up based on per-resource watermark comparison
-		// BUT: Skip watermark comparison if count validation already determined we're synced
+		// Determine if WE need to catch up based on watermark comparison
 		let mut we_need_state_catchup = false;
 		let mut we_need_shared_catchup = false;
-		let mut resources_needing_catchup = Vec::new();
 
-		// If count validation ran and found no gaps, trust counts over watermarks
-		// This prevents unnecessary catch-up when counts match but watermarks are stale
-		let counts_validated_and_synced = in_stable_state
-			&& !peer_actual_resource_counts.is_empty()
-			&& mismatched_resource_types.is_empty();
-
-		if !counts_validated_and_synced {
-			// Compare per-resource watermarks (CRITICAL FIX: Issue #10)
-			// This fixes the bug where global watermark comparison missed per-resource divergence
-			for (resource_type, peer_ts) in &peer_resource_watermarks {
-				match my_resource_watermarks.get(resource_type) {
-					Some(my_ts) if peer_ts > my_ts => {
-						info!(
-							peer = %peer_id,
-							resource_type = %resource_type,
-							my_timestamp = %my_ts,
-							peer_timestamp = %peer_ts,
-							"Peer has newer data for this resource"
-						);
-						resources_needing_catchup.push(resource_type.clone());
-						we_need_state_catchup = true;
-					}
-					None => {
-						info!(
-							peer = %peer_id,
-							resource_type = %resource_type,
-							peer_timestamp = %peer_ts,
-							"We have no watermark for this resource, need catch-up"
-						);
-						resources_needing_catchup.push(resource_type.clone());
-						we_need_state_catchup = true;
-					}
-					_ => {
-						debug!(
-							resource_type = %resource_type,
-							"Resource in sync with peer"
-						);
-					}
-				}
+		// Compare state watermarks (timestamps)
+		match (my_state_watermark, peer_state_watermark) {
+			(Some(my_ts), Some(peer_ts)) if peer_ts > my_ts => {
+				info!(
+					peer = %peer_id,
+					my_timestamp = %my_ts,
+					peer_timestamp = %peer_ts,
+					"Peer has newer state, need to catch up"
+				);
+				we_need_state_catchup = true;
 			}
-		} else {
-			info!(
-				peer = %peer_id,
-				"Count validation confirmed sync - skipping watermark-based catch-up"
-			);
-
-			// Promote cursor to validated for all verified resources (dual watermark optimization)
-			// This creates safe recovery points so future surgical recovery only re-syncs gaps
-			for (resource_type, _count) in &peer_actual_resource_counts {
-				if let Err(e) = self
-					.promote_cursor_to_validated_watermark(peer_id, resource_type)
-					.await
-				{
-					warn!(
-						error = %e,
-						resource = %resource_type,
-						peer = %peer_id,
-						"Failed to promote cursor to validated watermark"
-					);
-				}
+			(None, Some(_)) => {
+				info!(peer = %peer_id, "We have no state watermark, need full state catch-up");
+				we_need_state_catchup = true;
 			}
-		}
-
-		if we_need_state_catchup {
-			info!(
-				peer = %peer_id,
-				resources = ?resources_needing_catchup,
-				"Need state catch-up for specific resources"
-			);
+			_ => {
+				debug!(peer = %peer_id, "State watermarks in sync");
+			}
 		}
 
 		// Compare shared watermarks (HLC)
@@ -1159,11 +555,10 @@ impl PeerSync {
 			if let Some(weak_ref) = backfill_mgr.as_ref() {
 				if let Some(manager) = weak_ref.upgrade() {
 					// Trigger incremental catch-up from this peer
-					// Note: We now use per-resource watermarks instead of global state watermark
 					if let Err(e) = manager
 						.catch_up_from_peer(
 							peer_id,
-							None, // Per-resource watermarks used instead of global
+							my_state_watermark,
 							my_shared_watermark.map(|hlc| hlc.to_string()),
 						)
 						.await
@@ -1220,8 +615,7 @@ impl PeerSync {
 		}
 
 		// Update devices table with peer's watermarks for future comparisons
-		// Note: We now track per-resource watermarks, not global state watermark
-		self.update_peer_watermarks(peer_id, None, peer_shared_watermark)
+		self.update_peer_watermarks(peer_id, peer_state_watermark, peer_shared_watermark)
 			.await?;
 
 		info!(peer = %peer_id, "Watermark exchange complete");
@@ -1261,7 +655,7 @@ impl PeerSync {
 	}
 
 	/// Start the sync service
-	pub async fn start(self: &Arc<Self>) -> Result<()> {
+	pub async fn start(&self) -> Result<()> {
 		if self.is_running.load(Ordering::SeqCst) {
 			warn!("Peer sync service already running");
 			return Ok(());
@@ -1286,9 +680,6 @@ impl PeerSync {
 
 		// Start background task for periodic log pruning
 		self.start_log_pruner();
-
-		// Start periodic watermark check (safety net for missed events)
-		self.start_periodic_watermark_check();
 
 		Ok(())
 	}
@@ -1375,81 +766,6 @@ impl PeerSync {
 		});
 	}
 
-	/// Start periodic watermark check (safety net for missed events)
-	///
-	/// Exchanges watermarks with all connected peers every 1 minute to ensure
-	/// sync divergence is detected even if events are dropped or broadcasts fail.
-	/// Uses full request/response pattern for count validation.
-	fn start_periodic_watermark_check(self: &Arc<Self>) {
-		let peer_sync = Arc::downgrade(self);
-		let library_id = self.library_id;
-		let db = self.db.clone();
-		let is_running = self.is_running.clone();
-
-		tokio::spawn(async move {
-			info!("Started periodic watermark check (every 1 minute)");
-
-			// Wait 1 minute before first check (allow initial sync to complete)
-			tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-
-			while is_running.load(Ordering::SeqCst) {
-				// Check every 1 minute
-				tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-
-				info!("Periodic watermark check interval elapsed, checking for connected partners");
-
-				// Upgrade weak reference
-				let peer_sync_arc = match peer_sync.upgrade() {
-					Some(ps) => ps,
-					None => {
-						warn!("PeerSync dropped, stopping periodic watermark check");
-						break;
-					}
-				};
-
-				// Get connected sync partners
-				match peer_sync_arc
-					.network
-					.get_connected_sync_partners(library_id, &db)
-					.await
-				{
-					Ok(partners) if !partners.is_empty() => {
-						info!(
-							partner_count = partners.len(),
-							"Running periodic watermark check with connected partners"
-						);
-
-						// Exchange watermarks with all peers using full request/response
-						for peer_id in partners {
-							if let Err(e) =
-								peer_sync_arc.exchange_watermarks_and_catchup(peer_id).await
-							{
-								debug!(
-									peer = %peer_id,
-									error = %e,
-									"Periodic watermark exchange failed for peer"
-								);
-							} else {
-								info!(
-									peer = %peer_id,
-									"Periodic watermark exchange completed with count validation"
-								);
-							}
-						}
-					}
-					Ok(_) => {
-						info!("No connected partners for periodic watermark check");
-					}
-					Err(e) => {
-						warn!(error = %e, "Failed to get connected partners for periodic watermark check");
-					}
-				}
-			}
-
-			info!("Periodic watermark check stopped");
-		});
-	}
-
 	/// Start event listener for TransactionManager sync events
 	fn start_event_listener(&self) {
 		// Clone necessary fields for the spawned task
@@ -1461,7 +777,7 @@ impl PeerSync {
 		);
 		let state = self.state.clone();
 		let buffer = self.buffer.clone();
-		let last_realtime_activity_per_peer = self.last_realtime_activity_per_peer.clone();
+		let last_realtime_activity = self.last_realtime_activity.clone();
 		let db = self.db.clone();
 		let event_bus_for_emit = self.event_bus.clone();
 		let retry_queue = self.retry_queue.clone();
@@ -1482,9 +798,8 @@ impl PeerSync {
 			let mut last_lag_warning = std::time::Instant::now();
 			let lag_warning_cooldown = std::time::Duration::from_secs(5);
 
-			// Real-time batching mechanism (configurable via SyncConfig)
+			// Real-time batching mechanism (accumulate up to 100 entries or 50ms)
 			let mut state_change_batch: Vec<serde_json::Value> = Vec::new();
-			let mut shared_change_batch: Vec<crate::infra::sync::SharedChangeEntry> = Vec::new();
 			let mut batch_flush_interval = tokio::time::interval(std::time::Duration::from_millis(
 				config.batching.realtime_batch_flush_interval_ms,
 			));
@@ -1492,23 +807,23 @@ impl PeerSync {
 
 			while is_running.load(Ordering::SeqCst) {
 				tokio::select! {
-							// Receive events from sync event bus
-							event_result = subscriber.recv() => {
-								match event_result {
-									Ok(sync_event) => {
-										use crate::infra::sync::SyncEvent;
+						// Receive events from sync event bus
+						event_result = subscriber.recv() => {
+							match event_result {
+								Ok(sync_event) => {
+									use crate::infra::sync::SyncEvent;
 
-										match sync_event {
-											SyncEvent::StateChange {
-												library_id: event_library_id,
-												model_type,
-												record_uuid,
-												device_id,
-												data,
-												timestamp,
-											} => {
-												state_change_count += 1;
-												last_event_type = Some(format!("StateChange({})", model_type));
+									match sync_event {
+										SyncEvent::StateChange {
+											library_id: event_library_id,
+											model_type,
+											record_uuid,
+											device_id,
+											data,
+											timestamp,
+										} => {
+											state_change_count += 1;
+											last_event_type = Some(format!("StateChange({})", model_type));
 
 											// Add to batch instead of processing immediately
 											state_change_batch.push(serde_json::json!({
@@ -1522,117 +837,109 @@ impl PeerSync {
 
 											// Flush if batch reaches configured max entries
 											if state_change_batch.len() >= config.batching.realtime_batch_max_entries {
-													Self::flush_state_change_batch(
-														library_id,
-														&mut state_change_batch,
-														&network,
-														&state,
-														&buffer,
-														&retry_queue,
-														&db,
-														&config,
-														&last_realtime_activity_per_peer,
-													).await;
-												}
+												Self::flush_state_change_batch(
+													library_id,
+													&mut state_change_batch,
+													&network,
+													&state,
+													&buffer,
+													&retry_queue,
+													&db,
+													&config,
+													&last_realtime_activity,
+												).await;
 											}
-									SyncEvent::SharedChange {
-										library_id: event_library_id,
-										entry,
-									} => {
-										shared_change_count += 1;
-										last_event_type = Some(format!(
-											"SharedChange({}, HLC:{})",
-											entry.model_type, entry.hlc
-										));
-
-										// Add to batch instead of processing immediately
-										shared_change_batch.push(entry);
-
-										// Flush if batch reaches configured max entries
-										if shared_change_batch.len() >= config.batching.realtime_batch_max_entries {
-											Self::flush_shared_change_batch(
-												library_id,
-												&mut shared_change_batch,
-												&network,
-												&state,
-												&buffer,
-												&retry_queue,
-												&db,
-												&config,
-												&last_realtime_activity_per_peer,
-											).await;
 										}
-									}
-									SyncEvent::MetricsUpdated { .. } => {
-										// Ignore metrics events in the sync event listener
-										// (metrics are for observability, not sync coordination)
-									}
-								}
-							}
-							Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-								// Rate-limit lag warnings to prevent spam
-								let now = std::time::Instant::now();
-								if now.duration_since(last_lag_warning) >= lag_warning_cooldown {
-									error!(
-										skipped = skipped,
-										last_event = ?last_event_type,
-										state_changes = state_change_count,
-										shared_changes = shared_change_count,
-										"CRITICAL: Sync event listener lagged! Data loss occurred. \
-										This likely includes StateChange or SharedChange events. \
-										Lost events may cause sync inconsistency - full backfill may be needed. \
-										With 100k capacity, this indicates extreme system load or a bug."
+								SyncEvent::SharedChange {
+									library_id: event_library_id,
+									entry,
+								} => {
+									shared_change_count += 1;
+									last_event_type = Some(format!(
+										"SharedChange({}, HLC:{})",
+										entry.model_type, entry.hlc
+									));
+
+									info!(
+										hlc = %entry.hlc,
+										model_type = %entry.model_type,
+										"PeerSync received shared change event"
 									);
 
-									last_lag_warning = now;
-								} else {
-									debug!(
-										skipped = skipped,
-										"Sync event listener lagged (warning suppressed)"
-									);
+									if let Err(e) = Self::handle_shared_change_event_static(
+										library_id,
+										serde_json::json!({
+											"library_id": event_library_id,
+											"entry": entry,
+										}),
+										&network,
+										&state,
+										&buffer,
+										&retry_queue,
+										&db,
+										&config,
+									)
+									.await
+									{
+										warn!(error = %e, "Failed to handle shared change event");
+									}
+								}
+								SyncEvent::MetricsUpdated { .. } => {
+									// Ignore metrics events in the sync event listener
+									// (metrics are for observability, not sync coordination)
 								}
 							}
-							Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-								info!("Sync event bus closed, stopping event listener");
-								break;
+						}
+						Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+							// Rate-limit lag warnings to prevent spam
+							let now = std::time::Instant::now();
+							if now.duration_since(last_lag_warning) >= lag_warning_cooldown {
+								error!(
+									skipped = skipped,
+									last_event = ?last_event_type,
+									state_changes = state_change_count,
+									shared_changes = shared_change_count,
+									"CRITICAL: Sync event listener lagged! Data loss occurred. \
+									This likely includes StateChange or SharedChange events. \
+									Lost events may cause sync inconsistency - full backfill may be needed. \
+									With 10k capacity, this indicates extreme system load or a bug."
+								);
+
+								last_lag_warning = now;
+							} else {
+								debug!(
+									skipped = skipped,
+									"Sync event listener lagged (warning suppressed)"
+								);
 							}
 						}
-					}
-
-					// Flush batches on timer (configurable interval)
-					_ = batch_flush_interval.tick() => {
-						if !state_change_batch.is_empty() {
-							Self::flush_state_change_batch(
-								library_id,
-								&mut state_change_batch,
-								&network,
-								&state,
-								&buffer,
-								&retry_queue,
-								&db,
-								&config,
-								&last_realtime_activity_per_peer,
-							).await;
-						}
-
-						if !shared_change_batch.is_empty() {
-							Self::flush_shared_change_batch(
-								library_id,
-								&mut shared_change_batch,
-								&network,
-								&state,
-								&buffer,
-								&retry_queue,
-								&db,
-								&config,
-								&last_realtime_activity_per_peer,
-							).await;
+						Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+							info!("Sync event bus closed, stopping event listener");
+							break;
 						}
 					}
 				}
+
+				// Flush batch on timer (every 50ms)
+				_ = batch_flush_interval.tick() => {
+							if !state_change_batch.is_empty() {
+								Self::flush_state_change_batch(
+									library_id,
+									&mut state_change_batch,
+									&network,
+									&state,
+									&buffer,
+									&retry_queue,
+									&db,
+									&config,
+									&last_realtime_activity,
+								).await;
+							}
+						}
+					}
 			}
 
-			// Flush any remaining batched changes before stopping
+			// Flush any remaining batched state changes before stopping
 			if !state_change_batch.is_empty() {
 				info!(
 					remaining = state_change_batch.len(),
@@ -1647,26 +954,7 @@ impl PeerSync {
 					&retry_queue,
 					&db,
 					&config,
-					&last_realtime_activity_per_peer,
-				)
-				.await;
-			}
-
-			if !shared_change_batch.is_empty() {
-				info!(
-					remaining = shared_change_batch.len(),
-					"Flushing remaining batched shared changes before shutdown"
-				);
-				Self::flush_shared_change_batch(
-					library_id,
-					&mut shared_change_batch,
-					&network,
-					&state,
-					&buffer,
-					&retry_queue,
-					&db,
-					&config,
-					&last_realtime_activity_per_peer,
+					&last_realtime_activity,
 				)
 				.await;
 			}
@@ -1690,7 +978,7 @@ impl PeerSync {
 		let library_id = self.library_id;
 		let device_id = self.device_id;
 		let network = self.network.clone();
-		let peer_log = self.peer_log.clone(); // CRITICAL FIX: Pass peer_log to spawned task
+		let peer_log = self.peer_log.clone();
 
 		tokio::spawn(async move {
 			info!("PeerSync network event listener started");
@@ -1724,7 +1012,7 @@ impl PeerSync {
 								// CRITICAL FIX: Actually trigger watermark exchange on reconnection
 								// This fixes the 20-minute idle bug where events die but no recovery happens
 								if let Err(e) = Self::trigger_watermark_exchange(
-									library_id, device_id, peer_id, &peer_log, &network, &db,
+									library_id, device_id, peer_id, &peer_log, &network,
 								)
 								.await
 								{
@@ -1844,76 +1132,36 @@ impl PeerSync {
 	}
 
 	/// Trigger watermark exchange with peer (static for spawned task)
-	///
-	/// Note: This is fire-and-forget from static context. The response will be
-	/// handled via the protocol handler callback to on_watermark_exchange_response().
-	/// For full request/response pattern, use the instance method exchange_watermarks_and_catchup().
 	async fn trigger_watermark_exchange(
 		library_id: Uuid,
 		device_id: Uuid,
 		peer_id: Uuid,
 		peer_log: &Arc<crate::infra::sync::PeerLog>,
 		network: &Arc<dyn NetworkTransport>,
-		db: &Arc<DatabaseConnection>,
 	) -> Result<()> {
 		info!(
 			peer = %peer_id,
 			device = %device_id,
-			"Triggering watermark exchange with peer (fire-and-forget from static context)"
+			"Triggering watermark exchange with peer"
 		);
 
 		// Query our watermarks from sync.db
-		let (_my_state_watermark, my_shared_watermark) =
+		let (my_state_watermark, my_shared_watermark) =
 			Self::query_device_watermarks(device_id, peer_log).await;
-
-		// Get per-resource watermarks for fine-grained comparison
-		let my_resource_watermarks = crate::infra::sync::ResourceWatermarkStore::new(device_id)
-			.get_our_resource_watermarks(peer_log.conn())
-			.await
-			.unwrap_or_else(|e| {
-				warn!(error = %e, "Failed to get per-resource watermarks in static exchange");
-				std::collections::HashMap::new()
-			});
-
-		// Get counts of peer's resources (for gap detection)
-		let my_peer_resource_counts = Self::get_device_owned_counts(peer_id, db)
-			.await
-			.unwrap_or_else(|e| {
-				warn!(error = %e, peer = %peer_id, "Failed to get peer resource counts in static exchange");
-				std::collections::HashMap::new()
-			});
-
-		// Compute content hashes for update detection (SQL-level aggregate, ~50ms)
-		let mut my_peer_resource_hashes = std::collections::HashMap::new();
-		// Only compute hash for entries currently (most important for update detection)
-		if my_peer_resource_counts.contains_key("entry") {
-			if let Ok(Some(hash)) = Self::compute_entry_content_hash(peer_id, db).await {
-				my_peer_resource_hashes.insert("entry".to_string(), hash);
-				debug!(
-					peer = %peer_id,
-					entry_hash = hash,
-					"Computed entry content hash for update detection (static exchange)"
-				);
-			}
-		}
 
 		debug!(
 			peer = %peer_id,
+			my_state_watermark = ?my_state_watermark,
 			my_shared_watermark = ?my_shared_watermark,
-			resource_count = my_resource_watermarks.len(),
-			peer_owned_counts = ?my_peer_resource_counts,
-			peer_owned_hashes = ?my_peer_resource_hashes,
-			"Sending watermark exchange request (response will arrive async via protocol handler)"
+			"Sending watermark exchange request"
 		);
 
-		// Send request - response will come back via protocol handler asynchronously
+		// Send request to peer
 		let request = SyncMessage::WatermarkExchangeRequest {
 			library_id,
 			device_id,
+			my_state_watermark,
 			my_shared_watermark,
-			my_resource_watermarks,
-			my_peer_resource_counts,
-			my_peer_resource_hashes,
 		};
 
 		network
@@ -1921,15 +1169,15 @@ impl PeerSync {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to send watermark exchange request: {}", e))?;
 
-		debug!(
+		info!(
 			peer = %peer_id,
-			"Watermark exchange request sent (response will be handled by protocol handler)"
+			"Watermark exchange request sent, waiting for response"
 		);
 
 		Ok(())
 	}
 
-	/// Flush accumulated state changes as a batch (192x network efficiency improvement)
+	/// Flush accumulated state changes as a batch
 	async fn flush_state_change_batch(
 		library_id: Uuid,
 		batch: &mut Vec<serde_json::Value>,
@@ -1939,9 +1187,7 @@ impl PeerSync {
 		retry_queue: &Arc<RetryQueue>,
 		db: &Arc<sea_orm::DatabaseConnection>,
 		config: &Arc<crate::infra::sync::SyncConfig>,
-		last_realtime_activity_per_peer: &Arc<
-			RwLock<std::collections::HashMap<Uuid, chrono::DateTime<chrono::Utc>>>,
-		>,
+		last_realtime_activity: &Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
 	) {
 		if batch.is_empty() {
 			return;
@@ -1950,393 +1196,32 @@ impl PeerSync {
 		let batch_size = batch.len();
 		info!(
 			batch_size = batch_size,
-			"Flushing batched state changes with network batching (100x efficiency)"
+			"Flushing batched state changes (real-time batching optimization)"
 		);
 
-		// Group changes by model_type for StateBatch messages
-		use std::collections::HashMap;
-		let mut batches_by_model: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
-
+		// Process each state change in the batch
 		for change_data in batch.drain(..) {
-			if let Some(model_type) = change_data.get("model_type").and_then(|v| v.as_str()) {
-				batches_by_model
-					.entry(model_type.to_string())
-					.or_default()
-					.push(change_data);
-			} else {
-				warn!("State change missing model_type, skipping");
-			}
-		}
-
-		// Spawn broadcast tasks with concurrency limiting
-		// This prevents overwhelming the network/receiver with too many concurrent sends
-		use futures::stream::{FuturesUnordered, StreamExt};
-
-		let mut broadcast_tasks = FuturesUnordered::new();
-		const MAX_CONCURRENT_BROADCASTS: usize = 10;
-
-		for (model_type, changes) in batches_by_model {
-			let library_id = library_id;
-			let network = network.clone();
-			let state = state.clone();
-			let buffer = buffer.clone();
-			let retry_queue = retry_queue.clone();
-			let db = db.clone();
-			let config = config.clone();
-			let last_realtime_activity_per_peer = last_realtime_activity_per_peer.clone();
-
-			let task = tokio::spawn(async move {
-				if let Err(e) = Self::broadcast_state_batch_static(
-					library_id,
-					model_type,
-					changes,
-					&network,
-					&state,
-					&buffer,
-					&retry_queue,
-					&db,
-					&config,
-					&last_realtime_activity_per_peer,
-				)
-				.await
-				{
-					warn!(error = %e, "Failed to broadcast state batch in background task");
-				}
-			});
-
-			broadcast_tasks.push(task);
-
-			// Limit concurrent broadcasts to prevent overwhelming receiver
-			if broadcast_tasks.len() >= MAX_CONCURRENT_BROADCASTS {
-				// Wait for one to complete before spawning more
-				if let Some(result) = broadcast_tasks.next().await {
-					if let Err(e) = result {
-						warn!(error = %e, "Broadcast task panicked");
-					}
-				}
-			}
-		}
-
-		// Wait for remaining tasks to complete
-		while let Some(result) = broadcast_tasks.next().await {
-			if let Err(e) = result {
-				warn!(error = %e, "Broadcast task panicked");
-			}
-		}
-
-		info!(
-			batch_size = batch_size,
-			"Batched state changes spawned to background tasks"
-		);
-	}
-
-	/// Flush accumulated shared changes as a batch (same efficiency as StateChange batching)
-	async fn flush_shared_change_batch(
-		library_id: Uuid,
-		batch: &mut Vec<crate::infra::sync::SharedChangeEntry>,
-		network: &Arc<dyn NetworkTransport>,
-		state: &Arc<RwLock<DeviceSyncState>>,
-		buffer: &Arc<BufferQueue>,
-		retry_queue: &Arc<RetryQueue>,
-		db: &Arc<sea_orm::DatabaseConnection>,
-		config: &Arc<crate::infra::sync::SyncConfig>,
-		last_realtime_activity_per_peer: &Arc<
-			RwLock<std::collections::HashMap<Uuid, chrono::DateTime<chrono::Utc>>>,
-		>,
-	) {
-		if batch.is_empty() {
-			return;
-		}
-
-		let batch_size = batch.len();
-		info!(
-			batch_size = batch_size,
-			"Flushing batched shared changes with network batching"
-		);
-
-		// Create SharedChangeBatch message
-		use crate::service::network::protocol::sync::messages::SyncMessage;
-		let message = SyncMessage::SharedChangeBatch {
-			library_id,
-			entries: batch.drain(..).collect(),
-		};
-
-		// Get connected partners
-		let connected_partners = match network.get_connected_sync_partners(library_id, db).await {
-			Ok(partners) => partners,
-			Err(e) => {
-				warn!(error = %e, "Failed to get connected partners for shared batch");
-				return;
-			}
-		};
-
-		if connected_partners.is_empty() {
-			debug!("No connected partners for shared change batch");
-			return;
-		}
-
-		// Broadcast to all partners in parallel
-		use futures::future::join_all;
-		let timeout_secs = config.network.message_timeout_secs;
-
-		let send_futures: Vec<_> = connected_partners
-			.iter()
-			.map(|&partner| {
-				let network = network.clone();
-				let msg = message.clone();
-				async move {
-					match tokio::time::timeout(
-						std::time::Duration::from_secs(timeout_secs),
-						network.send_sync_message(partner, msg),
-					)
-					.await
-					{
-						Ok(Ok(())) => (partner, Ok(())),
-						Ok(Err(e)) => (partner, Err(e)),
-						Err(_) => (
-							partner,
-							Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
-						),
-					}
-				}
-			})
-			.collect();
-
-		let results = join_all(send_futures).await;
-
-		let mut success_count = 0;
-		let mut error_count = 0;
-		let mut successful_peers = Vec::new();
-
-		for (partner_uuid, result) in results {
-			match result {
-				Ok(()) => {
-					success_count += 1;
-					successful_peers.push(partner_uuid);
-				}
-				Err(e) => {
-					error_count += 1;
-					warn!(partner = %partner_uuid, error = %e, "Failed to send SharedChangeBatch");
-					retry_queue.enqueue(partner_uuid, message.clone()).await;
-				}
-			}
-		}
-
-		// Mark real-time activity
-		if !successful_peers.is_empty() {
-			let now = chrono::Utc::now();
-			let mut activity_map = last_realtime_activity_per_peer.write().await;
-			for peer_id in successful_peers {
-				activity_map.insert(peer_id, now);
-			}
-		}
-
-		info!(
-			batch_size = batch_size,
-			success = success_count,
-			errors = error_count,
-			"SharedChangeBatch broadcast complete"
-		);
-	}
-
-	/// Broadcast a batch of state changes as a single StateBatch message (static version)
-	async fn broadcast_state_batch_static(
-		library_id: Uuid,
-		model_type: String,
-		changes: Vec<serde_json::Value>,
-		network: &Arc<dyn NetworkTransport>,
-		state: &Arc<RwLock<DeviceSyncState>>,
-		buffer: &Arc<BufferQueue>,
-		retry_queue: &Arc<RetryQueue>,
-		db: &Arc<sea_orm::DatabaseConnection>,
-		config: &Arc<crate::infra::sync::SyncConfig>,
-		last_realtime_activity_per_peer: &Arc<
-			RwLock<std::collections::HashMap<Uuid, chrono::DateTime<chrono::Utc>>>,
-		>,
-	) -> Result<()> {
-		use crate::service::network::protocol::sync::messages::{StateRecord, SyncMessage};
-
-		// Check if we should buffer during backfill
-		let current_state = state.read().await;
-		if current_state.should_buffer() {
-			drop(current_state);
-			debug!(
-				model_type = %model_type,
-				count = changes.len(),
-				"Buffering state batch during backfill"
-			);
-			// Buffer individual changes for later
-			for change_data in changes {
-				if let (Some(record_uuid), Some(device_id), Some(data), Some(timestamp_str)) = (
-					change_data
-						.get("record_uuid")
-						.and_then(|v| v.as_str())
-						.and_then(|s| Uuid::parse_str(s).ok()),
-					change_data
-						.get("device_id")
-						.and_then(|v| v.as_str())
-						.and_then(|s| Uuid::parse_str(s).ok()),
-					change_data.get("data"),
-					change_data.get("timestamp").and_then(|v| v.as_str()),
-				) {
-					if let Ok(timestamp) = chrono::DateTime::parse_from_rfc3339(timestamp_str) {
-						buffer
-							.push(super::state::BufferedUpdate::StateChange(
-								super::state::StateChangeMessage {
-									model_type: model_type.clone(),
-									record_uuid,
-									device_id,
-									data: data.clone(),
-									timestamp: timestamp.with_timezone(&chrono::Utc),
-								},
-							))
-							.await;
-					}
-				}
-			}
-			return Ok(());
-		}
-		drop(current_state);
-
-		// Extract device_id from first change (all changes in batch have same device_id)
-		let device_id = changes
-			.first()
-			.and_then(|c| c.get("device_id"))
-			.and_then(|v| v.as_str())
-			.and_then(|s| Uuid::parse_str(s).ok())
-			.ok_or_else(|| anyhow::anyhow!("Missing device_id in state batch"))?;
-
-		// Convert changes to StateRecord format
-		let mut records = Vec::with_capacity(changes.len());
-		for change_data in changes {
-			if let (Some(uuid_str), Some(data), Some(timestamp_str)) = (
-				change_data.get("record_uuid").and_then(|v| v.as_str()),
-				change_data.get("data"),
-				change_data.get("timestamp").and_then(|v| v.as_str()),
-			) {
-				if let (Ok(uuid), Ok(timestamp)) = (
-					Uuid::parse_str(uuid_str),
-					chrono::DateTime::parse_from_rfc3339(timestamp_str),
-				) {
-					records.push(StateRecord {
-						uuid,
-						data: data.clone(),
-						timestamp: timestamp.with_timezone(&chrono::Utc),
-					});
-				}
-			}
-		}
-
-		if records.is_empty() {
-			warn!(model_type = %model_type, "No valid records in state batch");
-			return Ok(());
-		}
-
-		// Create StateBatch message
-		let message = SyncMessage::StateBatch {
-			library_id,
-			model_type: model_type.clone(),
-			device_id,
-			records: records.clone(),
-		};
-
-		// Get connected sync partners
-		let connected_partners = network
-			.get_connected_sync_partners(library_id, db)
+			if let Err(e) = Self::handle_state_change_event_static(
+				library_id,
+				change_data,
+				network,
+				state,
+				buffer,
+				retry_queue,
+				db,
+				config,
+				last_realtime_activity,
+			)
 			.await
-			.map_err(|e| {
-				warn!(error = %e, "Failed to get connected partners for batch");
-				e
-			})?;
-
-		if connected_partners.is_empty() {
-			debug!(
-				model_type = %model_type,
-				records = records.len(),
-				"No connected partners for state batch"
-			);
-			return Ok(());
-		}
-
-		debug!(
-			model_type = %model_type,
-			records = records.len(),
-			partners = connected_partners.len(),
-			"Broadcasting StateBatch to sync partners (100x network efficiency)"
-		);
-
-		// Broadcast to all partners in parallel
-		use futures::future::join_all;
-
-		let timeout_secs = config.network.message_timeout_secs;
-		let send_futures: Vec<_> = connected_partners
-			.iter()
-			.map(|&partner| {
-				let network = network.clone();
-				let msg = message.clone();
-				async move {
-					match tokio::time::timeout(
-						std::time::Duration::from_secs(timeout_secs),
-						network.send_sync_message(partner, msg),
-					)
-					.await
-					{
-						Ok(Ok(())) => (partner, Ok(())),
-						Ok(Err(e)) => (partner, Err(e)),
-						Err(_) => (
-							partner,
-							Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
-						),
-					}
-				}
-			})
-			.collect();
-
-		let results = join_all(send_futures).await;
-
-		// Process results
-		let mut success_count = 0;
-		let mut error_count = 0;
-		let mut successful_peers = Vec::new();
-
-		for (partner_uuid, result) in results {
-			match result {
-				Ok(()) => {
-					success_count += 1;
-					successful_peers.push(partner_uuid);
-					debug!(partner = %partner_uuid, "StateBatch sent successfully");
-				}
-				Err(e) => {
-					error_count += 1;
-					warn!(
-						partner = %partner_uuid,
-						error = %e,
-						"Failed to send StateBatch to partner, enqueuing for retry"
-					);
-					// Enqueue for retry
-					retry_queue.enqueue(partner_uuid, message.clone()).await;
-				}
-			}
-		}
-
-		// Mark real-time activity per successful peer
-		if !successful_peers.is_empty() {
-			let now = chrono::Utc::now();
-			let mut activity_map = last_realtime_activity_per_peer.write().await;
-			for peer_id in successful_peers {
-				activity_map.insert(peer_id, now);
+			{
+				warn!(error = %e, "Failed to handle batched state change");
 			}
 		}
 
 		info!(
-			model_type = %model_type,
-			records = records.len(),
-			success = success_count,
-			errors = error_count,
-			"StateBatch broadcast complete (100x efficiency vs individual messages)"
+			batch_size = batch_size,
+			"Batched state changes flushed successfully"
 		);
-
-		Ok(())
 	}
 
 	/// Handle state change event from TransactionManager (static version for spawned task)
@@ -2349,9 +1234,7 @@ impl PeerSync {
 		retry_queue: &Arc<RetryQueue>,
 		db: &Arc<sea_orm::DatabaseConnection>,
 		config: &Arc<crate::infra::sync::SyncConfig>,
-		last_realtime_activity_per_peer: &Arc<
-			RwLock<std::collections::HashMap<Uuid, chrono::DateTime<chrono::Utc>>>,
-		>,
+		last_realtime_activity: &Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
 	) -> Result<()> {
 		let model_type: String = data
 			.get("model_type")
@@ -2379,17 +1262,9 @@ impl PeerSync {
 		let timestamp = data
 			.get("timestamp")
 			.and_then(|v| v.as_str())
-			.ok_or_else(|| anyhow::anyhow!("Missing or invalid timestamp in state_change event"))?;
-
-		let timestamp = chrono::DateTime::parse_from_rfc3339(timestamp)
-			.map_err(|e| {
-				anyhow::anyhow!(
-					"Failed to parse timestamp '{}': {}. This may indicate clock skew.",
-					timestamp,
-					e
-				)
-			})?
-			.with_timezone(&chrono::Utc);
+			.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+			.map(|dt| dt.with_timezone(&chrono::Utc))
+			.unwrap_or_else(Utc::now);
 
 		let change = StateChangeMessage {
 			model_type,
@@ -2491,16 +1366,14 @@ impl PeerSync {
 
 		let results = join_all(send_futures).await;
 
-		// Process results and mark per-peer activity
+		// Process results
 		let mut success_count = 0;
 		let mut error_count = 0;
-		let mut successful_peers = Vec::new();
 
 		for (partner_uuid, result) in results {
 			match result {
 				Ok(()) => {
 					success_count += 1;
-					successful_peers.push(partner_uuid);
 					debug!(partner = %partner_uuid, "State change sent successfully");
 				}
 				Err(e) => {
@@ -2516,13 +1389,9 @@ impl PeerSync {
 			}
 		}
 
-		// Mark real-time activity per successful peer (prevents one stuck peer from blocking all catch-up)
-		if !successful_peers.is_empty() {
-			let now = chrono::Utc::now();
-			let mut activity_map = last_realtime_activity_per_peer.write().await;
-			for peer_id in successful_peers {
-				activity_map.insert(peer_id, now);
-			}
+		// Mark real-time activity if any broadcasts succeeded (lock mechanism)
+		if success_count > 0 {
+			*last_realtime_activity.write().await = Some(chrono::Utc::now());
 		}
 
 		info!(
@@ -3195,8 +2064,8 @@ impl PeerSync {
 			}
 		}
 
-		// Emit resource event for UI reactivity using ResourceManager (non-blocking)
-		// This ensures proper resource format (LocationInfo, File, etc.) instead of raw DB model
+		// Emit resource event for UI reactivity using ResourceManager
+		// This ensures proper resource format (LocationInfo, etc.) instead of raw DB model
 		if let Some(uuid_value) = change.data.get("uuid") {
 			if let Some(uuid_str) = uuid_value.as_str() {
 				if let Ok(uuid) = Uuid::parse_str(uuid_str) {
@@ -3204,22 +2073,18 @@ impl PeerSync {
 						self.db.clone(),
 						self.event_bus.clone(),
 					);
-					let model_type = change.model_type.clone();
 
-					// Spawn to avoid blocking sync message processing
-					tokio::spawn(async move {
-						if let Err(e) = resource_manager
-							.emit_resource_events(&model_type, vec![uuid])
-							.await
-						{
-							warn!(
-								model_type = %model_type,
-								uuid = %uuid,
-								error = %e,
-								"Failed to emit resource event after state change"
-							);
-						}
-					});
+					if let Err(e) = resource_manager
+						.emit_resource_events(&change.model_type, vec![uuid])
+						.await
+					{
+						warn!(
+							model_type = %change.model_type,
+							uuid = %uuid,
+							error = %e,
+							"Failed to emit resource event after state change"
+						);
+					}
 				} else {
 					warn!(
 						model_type = %change.model_type,
@@ -3501,6 +2366,9 @@ impl PeerSync {
 	}
 
 	/// Get device-owned state for backfill (StateRequest)
+	///
+	/// This is completely domain-agnostic - it delegates to the Syncable trait
+	/// implementations in each entity. No switch statements, no domain logic.
 	pub async fn get_device_state(
 		&self,
 		model_types: Vec<String>,
@@ -3523,7 +2391,7 @@ impl PeerSync {
 		let mut all_records = Vec::new();
 		let mut remaining_batch = batch_size;
 
-		for model_type in &model_types {
+		for model_type in model_types {
 			if remaining_batch == 0 {
 				break;
 			}
@@ -3565,10 +2433,8 @@ impl PeerSync {
 		}
 
 		info!(
-			model_types = ?model_types,
-			device_id = ?device_id,
 			count = all_records.len(),
-			"Retrieved device state records for backfill (server responding to StateRequest)"
+			"Retrieved device state records for backfill"
 		);
 
 		Ok(all_records)
@@ -3744,43 +2610,15 @@ impl PeerSync {
 			}
 		}
 
-		// Process dependency tracker - handle unresolved dependencies
-		// This is a fallback for dependencies that couldn't be resolved during normal operation
+		// Process dependency tracker (NEW: flush all tracked dependencies)
+		// Note: We can't easily extract from HashMap during iteration, so we log the issue
+		// In practice, dependencies should have been resolved during normal operation
+		// This is a fallback for stuck dependencies
 		if !dep_stats.is_empty() {
 			warn!(
-				dependencies = dep_stats.total_dependencies,
-				waiting_updates = dep_stats.total_waiting_updates,
-				"Dependency tracker has unresolved dependencies at Ready transition"
+				"Dependency tracker still has {} unresolved dependencies - these entries may have circular or missing parent references",
+				dep_stats.total_dependencies
 			);
-
-			// Get list of missing UUIDs for diagnostic purposes
-			let missing_uuids = self.dependency_tracker.get_pending_dependency_uuids().await;
-
-			if missing_uuids.len() <= 10 {
-				// Log specific UUIDs if count is manageable
-				warn!(
-					?missing_uuids,
-					"Missing dependency UUIDs (may be circular references or orphaned data)"
-				);
-			} else {
-				warn!(
-					missing_count = missing_uuids.len(),
-					sample_uuids = ?&missing_uuids[..10],
-					"Many missing dependencies (showing first 10)"
-				);
-			}
-
-			// Strategy: Clear dependencies after logging to prevent blocking sync indefinitely
-			// These entries either have:
-			// - Circular dependencies (impossible to resolve)
-			// - References to deleted records
-			// - Incomplete sync data from peer
-			// They will be resynced on next full backfill if the data becomes available
-			let cleared_count = self.dependency_tracker.clear_all().await;
-			warn!(
-			cleared_count,
-			"Cleared unresolved dependencies to prevent sync deadlock. These updates will be retried on next full sync."
-		);
 		}
 
 		info!(
@@ -3789,62 +2627,58 @@ impl PeerSync {
 			"Processing buffered updates - will broadcast to peers after local application"
 		);
 
-		// Now broadcast all buffered changes to peers using batching for efficiency
-		if !state_changes_to_broadcast.is_empty() {
-			info!(
-				count = state_changes_to_broadcast.len(),
-				"Broadcasting buffered state changes as batches"
-			);
-
-			// Convert to batch format and flush
-			let mut state_batch: Vec<serde_json::Value> = state_changes_to_broadcast
-				.into_iter()
-				.map(|change| {
-					serde_json::json!({
-						"library_id": self.library_id,
-						"model_type": change.model_type,
-						"record_uuid": change.record_uuid,
-						"device_id": change.device_id,
-						"data": change.data,
-						"timestamp": change.timestamp,
-					})
-				})
-				.collect();
-
-			Self::flush_state_change_batch(
+		// Now broadcast all buffered changes to peers (they're in Ready state now)
+		for change in state_changes_to_broadcast {
+			if let Err(e) = Self::handle_state_change_event_static(
 				self.library_id,
-				&mut state_batch,
+				serde_json::json!({
+					"library_id": self.library_id,
+					"model_type": change.model_type,
+					"record_uuid": change.record_uuid,
+					"device_id": change.device_id,
+					"data": change.data,
+					"timestamp": change.timestamp,
+				}),
 				&self.network,
 				&self.state,
 				&self.buffer,
 				&self.retry_queue,
 				&self.db,
 				&self.config,
-				&self.last_realtime_activity_per_peer,
+				&self.last_realtime_activity,
 			)
-			.await;
+			.await
+			{
+				warn!(
+					error = %e,
+					record_uuid = %change.record_uuid,
+					"Failed to broadcast buffered state change to peers"
+				);
+			}
 		}
 
-		if !shared_changes_to_broadcast.is_empty() {
-			info!(
-				count = shared_changes_to_broadcast.len(),
-				"Broadcasting buffered shared changes as batches"
-			);
-
-			// Flush as batch
-			let mut shared_batch = shared_changes_to_broadcast;
-			Self::flush_shared_change_batch(
+		for entry in shared_changes_to_broadcast {
+			if let Err(e) = Self::handle_shared_change_event_static(
 				self.library_id,
-				&mut shared_batch,
+				serde_json::json!({
+					"library_id": self.library_id,
+					"entry": entry,
+				}),
 				&self.network,
 				&self.state,
 				&self.buffer,
 				&self.retry_queue,
 				&self.db,
 				&self.config,
-				&self.last_realtime_activity_per_peer,
 			)
-			.await;
+			.await
+			{
+				warn!(
+					error = %e,
+					hlc = %entry.hlc,
+					"Failed to broadcast buffered shared change to peers"
+				);
+			}
 		}
 
 		// Now ready!

@@ -29,15 +29,6 @@ pub struct HLC {
 }
 
 impl HLC {
-	/// Create a new HLC with explicit timestamp, counter, and device ID
-	pub fn new(timestamp: u64, counter: u64, device_id: Uuid) -> Self {
-		Self {
-			timestamp,
-			counter,
-			device_id,
-		}
-	}
-
 	/// Create a new HLC with current time and zero counter
 	pub fn now(device_id: Uuid) -> Self {
 		Self {

@@ -96,11 +96,11 @@ impl SyncEvent {
 impl SyncEventBus {
 	/// Create a new sync event bus with large capacity
 	///
-	/// Capacity is 100,000 events - sync is critical and should handle bulk indexing.
-	/// Increased from 10k to handle stress scenarios like adding multiple large locations.
+	/// Capacity is 10,000 events - sync is critical and should rarely lag.
+	/// If lag occurs with this capacity, it indicates extreme system load or a bug.
 	pub fn new() -> Self {
-		let (sender, _) = broadcast::channel(100_000);
-		debug!("Created sync event bus with capacity 100,000");
+		let (sender, _) = broadcast::channel(10_000);
+		debug!("Created sync event bus with capacity 10,000");
 		Self { sender }
 	}
 
@@ -227,7 +227,7 @@ mod tests {
 
 		let library_id = Uuid::new_v4();
 		let entry = SharedChangeEntry {
-			hlc: HLC::new(1, 0, Uuid::new_v4()),
+			hlc: HLC::now(Uuid::new_v4()),
 			model_type: "tag".to_string(),
 			record_uuid: Uuid::new_v4(),
 			change_type: ChangeType::Insert,
@@ -270,7 +270,7 @@ mod tests {
 		let shared_event = SyncEvent::SharedChange {
 			library_id: Uuid::new_v4(),
 			entry: SharedChangeEntry {
-				hlc: HLC::new(1, 0, Uuid::new_v4()),
+				hlc: HLC::now(Uuid::new_v4()),
 				model_type: "tag".to_string(),
 				record_uuid: Uuid::new_v4(),
 				change_type: ChangeType::Insert,

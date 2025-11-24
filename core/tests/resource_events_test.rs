@@ -47,20 +47,14 @@ impl EventCollector {
 							Event::ResourceChanged { resource_type, .. } => {
 								eprintln!("Received ResourceChanged event: {}", resource_type);
 							}
-							Event::ResourceChangedBatch {
-								resource_type,
-								resources,
-							} => {
+							Event::ResourceChangedBatch { resource_type, resources } => {
 								batch_event_count += 1;
 								let count = if let Some(arr) = resources.as_array() {
 									arr.len()
 								} else {
 									0
 								};
-								eprintln!(
-									"Received ResourceChangedBatch event #{}: {} ({} items)",
-									batch_event_count, resource_type, count
-								);
+								eprintln!("Received ResourceChangedBatch event #{}: {} ({} items)", batch_event_count, resource_type, count);
 							}
 							Event::IndexingCompleted { .. } => {
 								eprintln!("Indexing completed");
@@ -85,10 +79,7 @@ impl EventCollector {
 		.await;
 
 		if timeout_result.is_err() {
-			eprintln!(
-				"️  Event collection timed out (collected {} events, {} batch events)",
-				event_count, batch_event_count
-			);
+			eprintln!("️  Event collection timed out (collected {} events, {} batch events)", event_count, batch_event_count);
 		}
 	}
 
@@ -104,24 +95,15 @@ impl EventCollector {
 		for event in events.iter() {
 			match event {
 				Event::ResourceChanged { resource_type, .. } => {
-					*stats
-						.resource_changed
-						.entry(resource_type.clone())
-						.or_insert(0) += 1;
+					*stats.resource_changed.entry(resource_type.clone()).or_insert(0) += 1;
 				}
-				Event::ResourceChangedBatch {
-					resource_type,
-					resources,
-				} => {
+				Event::ResourceChangedBatch { resource_type, resources } => {
 					let count = if let Some(arr) = resources.as_array() {
 						arr.len()
 					} else {
 						1
 					};
-					*stats
-						.resource_changed_batch
-						.entry(resource_type.clone())
-						.or_insert(0) += count;
+					*stats.resource_changed_batch.entry(resource_type.clone()).or_insert(0) += count;
 				}
 				Event::IndexingStarted { .. } => {
 					stats.indexing_started += 1;
@@ -208,7 +190,8 @@ async fn test_resource_events_during_indexing() -> Result<(), Box<dyn std::error
 	eprintln!("Created test library");
 
 	// Use Desktop directory for real-world testing
-	let desktop_path = dirs::desktop_dir().expect("Could not find Desktop directory");
+	let desktop_path = dirs::desktop_dir()
+		.expect("Could not find Desktop directory");
 
 	eprintln!("Using Desktop directory: {:?}", desktop_path);
 
@@ -276,10 +259,7 @@ async fn test_resource_events_during_indexing() -> Result<(), Box<dyn std::error
 
 	if *file_events > 0 {
 		eprintln!("\nSUCCESS: Normalized cache for Files is working!");
-		eprintln!(
-			"   Received {} file resource events during indexing",
-			file_events
-		);
+		eprintln!("   Received {} file resource events during indexing", file_events);
 	} else {
 		eprintln!("\nFAIL: No file resource events received");
 		eprintln!("   The normalized cache system is not emitting file events");
@@ -287,3 +267,4 @@ async fn test_resource_events_during_indexing() -> Result<(), Box<dyn std::error
 
 	Ok(())
 }
+

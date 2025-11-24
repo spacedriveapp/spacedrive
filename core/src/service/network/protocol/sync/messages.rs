@@ -103,49 +103,18 @@ pub enum SyncMessage {
 	WatermarkExchangeRequest {
 		library_id: Uuid,
 		device_id: Uuid, // Requesting device
+		my_state_watermark: Option<DateTime<Utc>>,
 		my_shared_watermark: Option<HLC>,
-		/// Per-resource state watermarks (resource_type -> timestamp)
-		my_resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
-		/// Counts of peer's device-owned resources that we have synced (for gap detection)
-		/// Maps resource_type -> count of records we have from this peer
-		#[serde(default)]
-		my_peer_resource_counts: std::collections::HashMap<String, u64>,
-		/// Content hashes of peer's device-owned resources (for update detection)
-		/// Maps resource_type -> aggregate hash of all records we have from this peer
-		#[serde(default)]
-		my_peer_resource_hashes: std::collections::HashMap<String, u64>,
 	},
 
 	/// Response with peer's watermarks
 	WatermarkExchangeResponse {
 		library_id: Uuid,
 		device_id: Uuid, // Responding device
+		state_watermark: Option<DateTime<Utc>>,
 		shared_watermark: Option<HLC>,
-		needs_state_catchup: bool,  // If true, peer needs our state
-		needs_shared_catchup: bool, // If true, peer needs our shared changes
-		/// Per-resource state watermarks (resource_type -> timestamp)
-		resource_watermarks: std::collections::HashMap<String, DateTime<Utc>>,
-		/// Our actual device-owned resource counts (for gap detection)
-		/// Maps resource_type -> actual count of records we own
-		#[serde(default)]
-		my_actual_resource_counts: std::collections::HashMap<String, u64>,
-		/// Content hashes of our device-owned resources (for update detection)
-		/// Maps resource_type -> aggregate hash of all records we own
-		#[serde(default)]
-		my_actual_resource_hashes: std::collections::HashMap<String, u64>,
-	},
-
-	/// Proactive notification that sender has new data available
-	///
-	/// Triggers watermark exchange on receiver to discover and sync new data.
-	/// Sent after bulk operations complete (indexing, bulk tag application, etc.)
-	DataAvailableNotification {
-		library_id: Uuid,
-		device_id: Uuid, // Sender device
-		/// Hint about which resource types changed (for logging/metrics)
-		resource_types: Vec<String>,
-		/// Approximate count of changes (for logging/metrics)
-		approx_count: u64,
+		needs_state_catchup: bool,   // If true, peer needs our state
+		needs_shared_catchup: bool,  // If true, peer needs our shared changes
 	},
 
 	/// Error response
@@ -176,7 +145,6 @@ impl SyncMessage {
 			| SyncMessage::Heartbeat { library_id, .. }
 			| SyncMessage::WatermarkExchangeRequest { library_id, .. }
 			| SyncMessage::WatermarkExchangeResponse { library_id, .. }
-			| SyncMessage::DataAvailableNotification { library_id, .. }
 			| SyncMessage::Error { library_id, .. } => *library_id,
 		}
 	}
@@ -201,7 +169,6 @@ impl SyncMessage {
 				| SyncMessage::SharedChange { .. }
 				| SyncMessage::SharedChangeBatch { .. }
 				| SyncMessage::AckSharedChanges { .. }
-				| SyncMessage::DataAvailableNotification { .. }
 		)
 	}
 }

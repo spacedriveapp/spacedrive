@@ -38,7 +38,7 @@ pub use state::{
 pub use metrics::SyncMetricsCollector;
 
 pub use backfill::BackfillManager;
-pub use protocol_handler::LogSyncHandler;
+pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
 
 /// Retry state for incremental catch-up operations
 ///
@@ -171,7 +171,8 @@ impl SyncService {
 			.await?,
 		);
 
-		// Create protocol handler for shared resources
+		// Create protocol handlers
+		let state_handler = Arc::new(StateSyncHandler::new(library_id, library.db().clone()));
 		let log_handler = Arc::new(LogSyncHandler::new(
 			library_id,
 			library.db().clone(),
@@ -183,6 +184,7 @@ impl SyncService {
 			library_id,
 			device_id,
 			peer_sync.clone(),
+			state_handler,
 			log_handler,
 			config.clone(),
 			metrics.clone(),
@@ -345,56 +347,51 @@ impl SyncService {
 										}
 									};
 
-								// Pick first partner for catch-up check
-								let catch_up_peer = partners[0];
+									// Check if real-time sync is active (lock mechanism)
+									// If real-time broadcasts are happening, skip catch-up to prevent duplication
+									let realtime_active = peer_sync.is_realtime_active().await;
 
-								// Check if real-time sync is active for this specific peer
-								// Per-peer tracking prevents one stuck peer from blocking all catch-up
-								let realtime_active = peer_sync.is_realtime_active_for_peer(catch_up_peer).await;
+									// Trigger catch-up if:
+									// - Real-time is NOT active (60+ seconds since last broadcast), AND
+									// - We haven't synced recently (fallback time check)
+									let should_catch_up = if realtime_active {
+										debug!("Skipping catch-up - real-time sync is active (lock mechanism)");
+										false
+									} else if let Some(last_sync) = our_device.last_sync_at {
+										let time_since_sync = chrono::Utc::now().signed_duration_since(last_sync);
+										time_since_sync.num_seconds() > 60
+									} else {
+										true
+									};
 
-								// Sync loop is now passive - watermark exchanges drive catch-up via:
-								// 1. Periodic watermark check (every 1 min) with count validation
-								// 2. Reconnection events (immediate)
-								// 3. Data available notifications (after bulk ops)
-								//
-								// This loop only handles edge cases where retry state indicates we're stuck
-								let should_catch_up = if realtime_active {
-									debug!(
-										peer = %catch_up_peer,
-										"Skipping catch-up - real-time sync to this peer is active"
-									);
-									false
-								} else {
-									// Only trigger if we have consecutive failures (stuck state)
-									retry_state.consecutive_failures > 0
-								};
+									// Check if we should retry based on exponential backoff
+									if should_catch_up && retry_state.should_retry() {
+										// Check if we should escalate to full backfill after repeated failures
+										if retry_state.should_escalate() {
+											warn!(
+												failures = retry_state.consecutive_failures,
+												"Too many catch-up failures, escalating to full backfill"
+											);
+											retry_state.record_success(); // Reset retry state
 
-								// Check if we should retry based on exponential backoff
-								if should_catch_up && retry_state.should_retry() {
-									// Check if we should escalate to full backfill after repeated failures
-									if retry_state.should_escalate() {
-										warn!(
-											failures = retry_state.consecutive_failures,
-											"Too many catch-up failures, escalating to full backfill"
+											// Transition to Uninitialized to trigger full backfill
+											let mut state = peer_sync.state.write().await;
+											*state = DeviceSyncState::Uninitialized;
+											backfill_attempted = false; // Allow backfill to run again
+											continue; // Skip to next iteration
+										}
+
+										// Get current watermarks from sync.db
+										let (state_watermark, shared_watermark) = peer_sync.get_watermarks().await;
+
+										info!(
+											"Triggering incremental catch-up since watermarks: state={:?}, shared={:?}",
+											state_watermark,
+											shared_watermark
 										);
-										retry_state.record_success(); // Reset retry state
 
-										// Transition to Uninitialized to trigger full backfill
-										let mut state = peer_sync.state.write().await;
-										*state = DeviceSyncState::Uninitialized;
-										backfill_attempted = false; // Allow backfill to run again
-										continue; // Skip to next iteration
-									}
-
-									// Get current watermarks from sync.db
-									let (state_watermark, shared_watermark) = peer_sync.get_watermarks().await;
-
-									info!(
-										peer = %catch_up_peer,
-										"Triggering incremental catch-up since watermarks: state={:?}, shared={:?}",
-										state_watermark,
-										shared_watermark
-									);
+										// Pick first partner for catch-up
+										let catch_up_peer = partners[0];
 
 										// Transition to CatchingUp state
 										{

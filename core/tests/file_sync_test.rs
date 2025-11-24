@@ -254,7 +254,10 @@ async fn test_conduit_enable_disable() {
 	assert!(!updated.enabled);
 
 	// Re-enable
-	conduit_manager.set_enabled(conduit.id, true).await.unwrap();
+	conduit_manager
+		.set_enabled(conduit.id, true)
+		.await
+		.unwrap();
 
 	let updated = conduit_manager.get_conduit(conduit.id).await.unwrap();
 	assert!(updated.enabled);
@@ -267,10 +270,7 @@ async fn test_mirror_sync_empty_to_empty() {
 	let setup = FileSyncTestSetup::new().await.unwrap();
 
 	// Create empty source and target directories
-	let source = setup
-		.create_entry("source_empty", 1, None, 0)
-		.await
-		.unwrap();
+	let source = setup.create_entry("source_empty", 1, None, 0).await.unwrap();
 	let target = setup
 		.create_entry("target_empty", 1, None, 0)
 		.await

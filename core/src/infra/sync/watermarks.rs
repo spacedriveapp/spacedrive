@@ -24,7 +24,7 @@ impl ResourceWatermarkStore {
 
 	/// Initialize the watermarks table in sync.db
 	pub async fn init_table<C: ConnectionTrait>(conn: &C) -> Result<(), WatermarkError> {
-		// Create main watermarks table with dual watermarks
+		// Create main watermarks table
 		conn.execute(Statement::from_string(
 			DbBackend::Sqlite,
 			r#"
@@ -32,9 +32,7 @@ impl ResourceWatermarkStore {
 				device_uuid TEXT NOT NULL,
 				peer_device_uuid TEXT NOT NULL,
 				resource_type TEXT NOT NULL,
-				cursor_watermark TEXT NOT NULL,
-				validated_watermark TEXT,
-				last_validated_at TEXT,
+				last_watermark TEXT NOT NULL,
 				updated_at TEXT NOT NULL,
 				PRIMARY KEY (device_uuid, peer_device_uuid, resource_type)
 			)
@@ -70,8 +68,8 @@ impl ResourceWatermarkStore {
 		Ok(())
 	}
 
-	/// Get cursor watermark (current sync position, may have gaps)
-	pub async fn get_cursor<C: ConnectionTrait>(
+	/// Get watermark for a specific resource type from a peer
+	pub async fn get<C: ConnectionTrait>(
 		&self,
 		conn: &C,
 		peer_device_uuid: Uuid,
@@ -81,7 +79,7 @@ impl ResourceWatermarkStore {
 			.query_one(Statement::from_sql_and_values(
 				DbBackend::Sqlite,
 				r#"
-				SELECT cursor_watermark FROM device_resource_watermarks
+				SELECT last_watermark FROM device_resource_watermarks
 				WHERE device_uuid = ? AND peer_device_uuid = ? AND resource_type = ?
 				"#,
 				vec![
@@ -96,7 +94,7 @@ impl ResourceWatermarkStore {
 		match result {
 			Some(row) => {
 				let watermark_str: String = row
-					.try_get("", "cursor_watermark")
+					.try_get("", "last_watermark")
 					.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
 
 				let dt = DateTime::parse_from_rfc3339(&watermark_str)
@@ -109,61 +107,7 @@ impl ResourceWatermarkStore {
 		}
 	}
 
-	/// Get validated watermark (last known-good position where counts matched)
-	pub async fn get_validated<C: ConnectionTrait>(
-		&self,
-		conn: &C,
-		peer_device_uuid: Uuid,
-		resource_type: &str,
-	) -> Result<Option<DateTime<Utc>>, WatermarkError> {
-		let result = conn
-			.query_one(Statement::from_sql_and_values(
-				DbBackend::Sqlite,
-				r#"
-				SELECT validated_watermark FROM device_resource_watermarks
-				WHERE device_uuid = ? AND peer_device_uuid = ? AND resource_type = ?
-				"#,
-				vec![
-					self.device_uuid.to_string().into(),
-					peer_device_uuid.to_string().into(),
-					resource_type.into(),
-				],
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-		match result {
-			Some(row) => {
-				let watermark_str: Option<String> = row.try_get("", "validated_watermark").ok();
-
-				if let Some(wm_str) = watermark_str {
-					let dt = DateTime::parse_from_rfc3339(&wm_str)
-						.map_err(|e| WatermarkError::ParseError(e.to_string()))?
-						.with_timezone(&Utc);
-
-					Ok(Some(dt))
-				} else {
-					Ok(None)
-				}
-			}
-			None => Ok(None),
-		}
-	}
-
-	/// Get watermark for a specific resource type from a peer (uses cursor_watermark)
-	/// This maintains backward compatibility with existing code
-	pub async fn get<C: ConnectionTrait>(
-		&self,
-		conn: &C,
-		peer_device_uuid: Uuid,
-		resource_type: &str,
-	) -> Result<Option<DateTime<Utc>>, WatermarkError> {
-		// Delegate to get_cursor for backward compatibility
-		self.get_cursor(conn, peer_device_uuid, resource_type).await
-	}
-
-	/// Upsert cursor watermark (only if newer than existing)
-	/// This maintains backward compatibility with existing code
+	/// Upsert a resource watermark (only if newer than existing)
 	pub async fn upsert<C: ConnectionTrait>(
 		&self,
 		conn: &C,
@@ -171,23 +115,8 @@ impl ResourceWatermarkStore {
 		resource_type: &str,
 		watermark: DateTime<Utc>,
 	) -> Result<(), WatermarkError> {
-		// Delegate to update_cursor for backward compatibility
-		self.update_cursor(conn, peer_device_uuid, resource_type, watermark)
-			.await
-	}
-
-	/// Update cursor watermark (current sync position)
-	pub async fn update_cursor<C: ConnectionTrait>(
-		&self,
-		conn: &C,
-		peer_device_uuid: Uuid,
-		resource_type: &str,
-		watermark: DateTime<Utc>,
-	) -> Result<(), WatermarkError> {
 		// Check if newer before updating
-		let existing = self
-			.get_cursor(conn, peer_device_uuid, resource_type)
-			.await?;
+		let existing = self.get(conn, peer_device_uuid, resource_type).await?;
 
 		if let Some(existing_ts) = existing {
 			if watermark <= existing_ts {
@@ -196,16 +125,16 @@ impl ResourceWatermarkStore {
 			}
 		}
 
-		// Upsert (insert or replace) - only updates cursor_watermark
+		// Upsert (insert or replace)
 		conn.execute(Statement::from_sql_and_values(
 			DbBackend::Sqlite,
 			r#"
 			INSERT INTO device_resource_watermarks
-			(device_uuid, peer_device_uuid, resource_type, cursor_watermark, updated_at)
+			(device_uuid, peer_device_uuid, resource_type, last_watermark, updated_at)
 			VALUES (?, ?, ?, ?, ?)
 			ON CONFLICT (device_uuid, peer_device_uuid, resource_type)
 			DO UPDATE SET
-				cursor_watermark = excluded.cursor_watermark,
+				last_watermark = excluded.last_watermark,
 				updated_at = excluded.updated_at
 			"#,
 			vec![
@@ -222,103 +151,7 @@ impl ResourceWatermarkStore {
 		Ok(())
 	}
 
-	/// Promote cursor to validated watermark (when counts match)
-	/// This marks the cursor position as verified and creates a safe recovery point
-	pub async fn promote_cursor_to_validated<C: ConnectionTrait>(
-		&self,
-		conn: &C,
-		peer_device_uuid: Uuid,
-		resource_type: &str,
-	) -> Result<(), WatermarkError> {
-		let cursor = self
-			.get_cursor(conn, peer_device_uuid, resource_type)
-			.await?;
-
-		if let Some(cursor_ts) = cursor {
-			conn.execute(Statement::from_sql_and_values(
-				DbBackend::Sqlite,
-				r#"
-				UPDATE device_resource_watermarks
-				SET validated_watermark = cursor_watermark,
-					last_validated_at = ?,
-					updated_at = ?
-				WHERE device_uuid = ? AND peer_device_uuid = ? AND resource_type = ?
-				"#,
-				vec![
-					Utc::now().to_rfc3339().into(),
-					Utc::now().to_rfc3339().into(),
-					self.device_uuid.to_string().into(),
-					peer_device_uuid.to_string().into(),
-					resource_type.into(),
-				],
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-			tracing::debug!(
-				resource = %resource_type,
-				peer = %peer_device_uuid,
-				watermark = %cursor_ts,
-				"Promoted cursor to validated watermark (counts matched)"
-			);
-		}
-
-		Ok(())
-	}
-
-	/// Reset cursor to validated watermark (surgical recovery)
-	/// Preserves the validated baseline and forces re-sync from that point
-	pub async fn reset_cursor_to_validated<C: ConnectionTrait>(
-		&self,
-		conn: &C,
-		peer_device_uuid: Uuid,
-		resource_type: &str,
-	) -> Result<(), WatermarkError> {
-		let validated = self
-			.get_validated(conn, peer_device_uuid, resource_type)
-			.await?;
-
-		if let Some(validated_ts) = validated {
-			conn.execute(Statement::from_sql_and_values(
-				DbBackend::Sqlite,
-				r#"
-				UPDATE device_resource_watermarks
-				SET cursor_watermark = validated_watermark,
-					updated_at = ?
-				WHERE device_uuid = ? AND peer_device_uuid = ? AND resource_type = ?
-				"#,
-				vec![
-					Utc::now().to_rfc3339().into(),
-					self.device_uuid.to_string().into(),
-					peer_device_uuid.to_string().into(),
-					resource_type.into(),
-				],
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-			tracing::info!(
-				resource = %resource_type,
-				peer = %peer_device_uuid,
-				validated_ts = %validated_ts,
-				"Reset cursor to validated watermark (surgical recovery from known-good point)"
-			);
-		} else {
-			// No validated watermark, clear cursor entirely (full resync)
-			self.delete_resource(conn, peer_device_uuid, resource_type)
-				.await?;
-
-			tracing::info!(
-				resource = %resource_type,
-				peer = %peer_device_uuid,
-				"No validated watermark, cleared cursor (full resync required)"
-			);
-		}
-
-		Ok(())
-	}
-
-	/// Get all cursor watermarks for a peer (for diagnostics/debugging)
+	/// Get all watermarks for a peer (for diagnostics/debugging)
 	pub async fn get_all_for_peer<C: ConnectionTrait>(
 		&self,
 		conn: &C,
@@ -328,7 +161,7 @@ impl ResourceWatermarkStore {
 			.query_all(Statement::from_sql_and_values(
 				DbBackend::Sqlite,
 				r#"
-				SELECT resource_type, cursor_watermark FROM device_resource_watermarks
+				SELECT resource_type, last_watermark FROM device_resource_watermarks
 				WHERE device_uuid = ? AND peer_device_uuid = ?
 				ORDER BY resource_type
 				"#,
@@ -347,7 +180,7 @@ impl ResourceWatermarkStore {
 				.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
 
 			let watermark_str: String = row
-				.try_get("", "cursor_watermark")
+				.try_get("", "last_watermark")
 				.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
 
 			let dt = DateTime::parse_from_rfc3339(&watermark_str)
@@ -360,9 +193,9 @@ impl ResourceWatermarkStore {
 		Ok(results)
 	}
 
-	/// Get maximum cursor watermark across all resource types for this device
+	/// Get maximum watermark across all resource types for this device
 	///
-	/// Returns the most recent cursor watermark across all resource types.
+	/// Returns the most recent watermark across all resource types.
 	/// This is useful for determining overall sync progress.
 	pub async fn get_max_watermark<C: ConnectionTrait>(
 		&self,
@@ -372,7 +205,7 @@ impl ResourceWatermarkStore {
 			.query_one(Statement::from_sql_and_values(
 				DbBackend::Sqlite,
 				r#"
-				SELECT MAX(cursor_watermark) as max_watermark FROM device_resource_watermarks
+				SELECT MAX(last_watermark) as max_watermark FROM device_resource_watermarks
 				WHERE device_uuid = ?
 				"#,
 				vec![self.device_uuid.to_string().into()],
@@ -382,7 +215,9 @@ impl ResourceWatermarkStore {
 
 		match result {
 			Some(row) => {
-				let watermark_str: Option<String> = row.try_get("", "max_watermark").ok();
+				let watermark_str: Option<String> = row
+					.try_get("", "max_watermark")
+					.ok();
 
 				if let Some(wm_str) = watermark_str {
 					let dt = DateTime::parse_from_rfc3339(&wm_str)
@@ -396,34 +231,6 @@ impl ResourceWatermarkStore {
 			}
 			None => Ok(None),
 		}
-	}
-
-	/// Delete watermark for a specific resource type from a peer
-	///
-	/// Used for surgical recovery when count mismatch is detected for a single resource.
-	pub async fn delete_resource<C: ConnectionTrait>(
-		&self,
-		conn: &C,
-		peer_device_uuid: Uuid,
-		resource_type: &str,
-	) -> Result<bool, WatermarkError> {
-		let result = conn
-			.execute(Statement::from_sql_and_values(
-				DbBackend::Sqlite,
-				r#"
-				DELETE FROM device_resource_watermarks
-				WHERE device_uuid = ? AND peer_device_uuid = ? AND resource_type = ?
-				"#,
-				vec![
-					self.device_uuid.to_string().into(),
-					peer_device_uuid.to_string().into(),
-					resource_type.into(),
-				],
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-		Ok(result.rows_affected() > 0)
 	}
 
 	/// Delete all watermarks for a peer (cleanup on peer removal)
@@ -448,49 +255,6 @@ impl ResourceWatermarkStore {
 			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
 
 		Ok(result.rows_affected() as usize)
-	}
-
-	/// Get our latest cursor watermark for each resource type (aggregated across all peers)
-	///
-	/// Returns a HashMap mapping resource_type -> max(cursor_watermark) across all peers.
-	/// This represents what we've successfully received from our peers.
-	pub async fn get_our_resource_watermarks<C: ConnectionTrait>(
-		&self,
-		conn: &C,
-	) -> Result<std::collections::HashMap<String, DateTime<Utc>>, WatermarkError> {
-		let rows = conn
-			.query_all(Statement::from_sql_and_values(
-				DbBackend::Sqlite,
-				r#"
-				SELECT resource_type, MAX(cursor_watermark) as max_watermark
-				FROM device_resource_watermarks
-				WHERE device_uuid = ?
-				GROUP BY resource_type
-				ORDER BY resource_type
-				"#,
-				vec![self.device_uuid.to_string().into()],
-			))
-			.await
-			.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-		let mut results = std::collections::HashMap::new();
-		for row in rows {
-			let resource_type: String = row
-				.try_get("", "resource_type")
-				.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-			let watermark_str: String = row
-				.try_get("", "max_watermark")
-				.map_err(|e| WatermarkError::QueryError(e.to_string()))?;
-
-			let dt = DateTime::parse_from_rfc3339(&watermark_str)
-				.map_err(|e| WatermarkError::ParseError(e.to_string()))?
-				.with_timezone(&Utc);
-
-			results.insert(resource_type, dt);
-		}
-
-		Ok(results)
 	}
 }
 
@@ -540,7 +304,10 @@ mod tests {
 		// Verify retrieval
 		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
 		assert!(retrieved.is_some());
-		assert_eq!(retrieved.unwrap().timestamp(), timestamp1.timestamp());
+		assert_eq!(
+			retrieved.unwrap().timestamp(),
+			timestamp1.timestamp()
+		);
 
 		// Update with newer timestamp
 		let timestamp2 = timestamp1 + chrono::Duration::seconds(10);
@@ -551,7 +318,10 @@ mod tests {
 
 		// Verify update
 		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
-		assert_eq!(retrieved.unwrap().timestamp(), timestamp2.timestamp());
+		assert_eq!(
+			retrieved.unwrap().timestamp(),
+			timestamp2.timestamp()
+		);
 
 		// Attempt update with older timestamp (should be ignored)
 		let timestamp0 = timestamp1 - chrono::Duration::seconds(10);
@@ -562,7 +332,10 @@ mod tests {
 
 		// Verify still has timestamp2 (newer)
 		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
-		assert_eq!(retrieved.unwrap().timestamp(), timestamp2.timestamp());
+		assert_eq!(
+			retrieved.unwrap().timestamp(),
+			timestamp2.timestamp()
+		);
 	}
 
 	#[tokio::test]
@@ -652,3 +425,4 @@ mod tests {
 		assert_eq!(all.len(), 0);
 	}
 }
+

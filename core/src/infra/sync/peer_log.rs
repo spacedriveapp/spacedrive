@@ -260,32 +260,9 @@ impl PeerLog {
 	/// Get the minimum HLC that all peers have acknowledged
 	///
 	/// Excludes self-ACKs (where peer_device_id == our device_id) from calculation.
-	/// Self-ACKs should never exist - if detected, a warning is logged.
+	/// Self-ACKs should never exist, but filtering them defensively prevents stale
+	/// self-ACKs from blocking pruning.
 	async fn get_min_acked_hlc(&self) -> Result<Option<HLC>, PeerLogError> {
-		// Check for self-ACKs (should never exist)
-		let self_ack_check = self
-			.conn
-			.query_one(Statement::from_sql_and_values(
-				DbBackend::Sqlite,
-				"SELECT COUNT(*) as count FROM peer_acks WHERE peer_device_id = ?",
-				vec![self.device_id.to_string().into()],
-			))
-			.await
-			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
-
-		if let Some(row) = self_ack_check {
-			let count: i64 = row
-				.try_get("", "count")
-				.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
-			if count > 0 {
-				tracing::warn!(
-					device_id = %self.device_id,
-					self_ack_count = count,
-					"Self-ACKs detected in peer_acks table (should never exist). This indicates a bug in ACK handling."
-				);
-			}
-		}
-
 		let result = self
 			.conn
 			.query_one(Statement::from_sql_and_values(
