@@ -26,6 +26,8 @@ interface SpaceItemProps {
 	onClick?: () => void;
 	/** Volume data for constructing explorer path */
 	volumeData?: { device_slug: string; mount_path: string };
+	/** Optional custom icon (as image path) to override default icon */
+	customIcon?: string;
 }
 
 function getItemIcon(itemType: ItemType): any {
@@ -99,6 +101,7 @@ export function SpaceItem({
 	iconWeight = "bold",
 	onClick,
 	volumeData,
+	customIcon,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -121,7 +124,18 @@ export function SpaceItem({
 		path = getItemPath(item.item_type, volumeData);
 	}
 
-	const isActive = location.pathname === path;
+	// Override with custom icon if provided
+	if (customIcon) {
+		iconData = { type: "image", icon: customIcon };
+	}
+
+	// Check if this item is active
+	// For paths with query params (like volumes), compare full path including search
+	const isActive = path
+		? path.includes("?")
+			? location.pathname + location.search === path
+			: location.pathname === path
+		: false;
 
 	const handleClick = () => {
 		if (onClick) {

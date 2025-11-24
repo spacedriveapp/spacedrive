@@ -237,7 +237,10 @@ impl LibraryQuery for VolumeListQuery {
 
 							volume_items.push(super::output::VolumeItem {
 								id: vol.id,
-								name: vol.name.clone(),
+								name: vol
+									.display_name
+									.clone()
+									.unwrap_or_else(|| vol.name.clone()),
 								fingerprint: vol.fingerprint.clone(),
 								volume_type: format!("{:?}", vol.volume_type),
 								mount_point: Some(vol.mount_point.to_string_lossy().to_string()),
@@ -271,7 +274,10 @@ impl LibraryQuery for VolumeListQuery {
 
 						volume_items.push(super::output::VolumeItem {
 							id: vol.id,
-							name: vol.name.clone(),
+							name: vol
+								.display_name
+								.clone()
+								.unwrap_or_else(|| vol.name.clone()),
 							fingerprint: vol.fingerprint.clone(),
 							volume_type: format!("{:?}", vol.volume_type),
 							mount_point: Some(vol.mount_point.to_string_lossy().to_string()),

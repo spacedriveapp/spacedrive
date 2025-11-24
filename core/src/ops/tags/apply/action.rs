@@ -71,6 +71,9 @@ impl LibraryAction for ApplyTagsAction {
 			})
 			.collect();
 
+		// Collect affected entry UUIDs for resource events
+		let mut affected_entry_uuids = Vec::new();
+
 		// Handle both content-based and entry-based tagging
 		match &self.input.targets {
 			TagTargets::Content(content_ids) => {
@@ -82,12 +85,30 @@ impl LibraryAction for ApplyTagsAction {
 					{
 						Ok(models) => {
 							successfully_tagged_count += 1;
-							// Sync each user_metadata_tag model
+							// Sync each user_metadata_tag model (for cross-device sync)
 							for model in models {
 								library
 									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
 									.await
 									.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+							}
+
+							// Find all entries with this content_id to emit resource events
+							use crate::infra::db::entities::{content_identity, entry};
+							use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+							if let Ok(Some(ci)) = content_identity::Entity::find()
+								.filter(content_identity::Column::Uuid.eq(content_id))
+								.one(db.conn())
+								.await
+							{
+								if let Ok(entries) = entry::Entity::find()
+									.filter(entry::Column::ContentId.eq(ci.id))
+									.all(db.conn())
+									.await
+								{
+									affected_entry_uuids.extend(entries.into_iter().filter_map(|e| e.uuid));
+								}
 							}
 						}
 						Err(e) => {
@@ -111,19 +132,36 @@ impl LibraryAction for ApplyTagsAction {
 					{
 						Ok(models) => {
 							successfully_tagged_count += 1;
-							// Sync each user_metadata_tag model
+							// Sync each user_metadata_tag model (for cross-device sync)
 							for model in models {
 								library
 									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
 									.await
 									.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
 							}
+
+							// Track this entry for resource events
+							affected_entry_uuids.push(entry_uuid);
 						}
 						Err(e) => {
 							warnings.push(format!("Failed to tag entry {}: {}", entry_id, e));
 						}
 					}
 				}
+			}
+		}
+
+		// Emit resource events for affected files (frontend reactivity)
+		if !affected_entry_uuids.is_empty() {
+			let resource_manager = crate::domain::ResourceManager::new(
+				Arc::new(db.conn().clone()),
+				_context.events.clone(),
+			);
+			if let Err(e) = resource_manager
+				.emit_resource_events("file", affected_entry_uuids)
+				.await
+			{
+				tracing::warn!("Failed to emit file resource events after tagging: {}", e);
 			}
 		}
 

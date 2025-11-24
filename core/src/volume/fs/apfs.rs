@@ -385,6 +385,13 @@ pub fn containers_to_volumes(
 				}
 			}
 
+			// Determine display name - show "Macintosh HD" for the main Data volume
+			let display_name = if mount_point.to_string_lossy() == "/System/Volumes/Data" {
+				"Macintosh HD".to_string()
+			} else {
+				volume_info.name.clone()
+			};
+
 			let volume = Volume {
 				id: uuid::Uuid::new_v4(),
 				fingerprint,
@@ -418,7 +425,7 @@ pub fn containers_to_volumes(
 				total_files: None,
 				total_directories: None,
 				last_stats_update: None,
-				display_name: Some(volume_info.name.clone()),
+				display_name: Some(display_name),
 				is_favorite: false,
 				color: None,
 				icon: None,
@@ -501,6 +508,10 @@ fn should_be_user_visible(
 	name: &str,
 ) -> bool {
 	let mount_str = mount_point.to_string_lossy();
+	debug!(
+		"VISIBILITY: Checking volume: name='{}' role={:?} mount='{}'",
+		name, role, mount_str
+	);
 
 	// Hide system utility volumes
 	match role {
@@ -524,8 +535,12 @@ fn should_be_user_visible(
 		return false;
 	}
 
-	// Hide home autofs mounts
-	if mount_str.contains("/home") && name.to_lowercase() == "home" {
+	// Hide home autofs mounts (e.g., /System/Volumes/Data/home)
+	if name.to_lowercase() == "home" && mount_str.ends_with("/home") {
+		debug!(
+			"VISIBILITY: Hiding home volume: name='{}' mount='{}'",
+			name, mount_str
+		);
 		return false;
 	}
 

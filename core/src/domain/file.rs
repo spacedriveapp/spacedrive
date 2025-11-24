@@ -202,6 +202,155 @@ impl crate::domain::resource::Identifiable for File {
 			// Media data types - for now return empty, can be implemented later
 			"image_media_data" | "video_media_data" | "audio_media_data" => Ok(vec![]),
 
+			// Pattern 3: Route from user_metadata_tag to affected files
+			"user_metadata_tag" => {
+				use crate::infra::db::entities::user_metadata;
+
+				// Get the user_metadata_tag to find its parent user_metadata
+				let umt = crate::infra::db::entities::user_metadata_tag::Entity::find()
+					.filter(crate::infra::db::entities::user_metadata_tag::Column::Uuid.eq(dependency_id))
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						crate::common::errors::CoreError::NotFound(format!(
+							"UserMetadataTag {} not found",
+							dependency_id
+						))
+					})?;
+
+				// Get the parent user_metadata
+				let metadata = user_metadata::Entity::find_by_id(umt.user_metadata_id)
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						crate::common::errors::CoreError::NotFound(format!(
+							"UserMetadata {} not found",
+							umt.user_metadata_id
+						))
+					})?;
+
+				// Route based on metadata scope (entry-scoped or content-scoped)
+				if let Some(entry_uuid) = metadata.entry_uuid {
+					// Entry-scoped: affects only this entry
+					Ok(vec![entry_uuid])
+				} else if let Some(content_uuid) = metadata.content_identity_uuid {
+					// Content-scoped: affects all entries with this content
+					let ci = content_identity::Entity::find()
+						.filter(content_identity::Column::Uuid.eq(content_uuid))
+						.one(db)
+						.await?
+						.ok_or_else(|| {
+							crate::common::errors::CoreError::NotFound(format!(
+								"ContentIdentity {} not found",
+								content_uuid
+							))
+						})?;
+
+					let entries = entry::Entity::find()
+						.filter(entry::Column::ContentId.eq(ci.id))
+						.all(db)
+						.await?;
+
+					Ok(entries.into_iter().filter_map(|e| e.uuid).collect())
+				} else {
+					Ok(vec![])
+				}
+			}
+
+			// Pattern 3: Route from user_metadata to affected files
+			"user_metadata" => {
+				use crate::infra::db::entities::user_metadata;
+
+				let metadata = user_metadata::Entity::find()
+					.filter(user_metadata::Column::Uuid.eq(dependency_id))
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						crate::common::errors::CoreError::NotFound(format!(
+							"UserMetadata {} not found",
+							dependency_id
+						))
+					})?;
+
+				// Route based on metadata scope
+				if let Some(entry_uuid) = metadata.entry_uuid {
+					Ok(vec![entry_uuid])
+				} else if let Some(content_uuid) = metadata.content_identity_uuid {
+					let ci = content_identity::Entity::find()
+						.filter(content_identity::Column::Uuid.eq(content_uuid))
+						.one(db)
+						.await?
+						.ok_or_else(|| {
+							crate::common::errors::CoreError::NotFound(format!(
+								"ContentIdentity {} not found",
+								content_uuid
+							))
+						})?;
+
+					let entries = entry::Entity::find()
+						.filter(entry::Column::ContentId.eq(ci.id))
+						.all(db)
+						.await?;
+
+					Ok(entries.into_iter().filter_map(|e| e.uuid).collect())
+				} else {
+					Ok(vec![])
+				}
+			}
+
+			// Pattern 4: Route from tag changes (affects all files with this tag)
+			"tag" => {
+				use crate::infra::db::entities::{user_metadata, user_metadata_tag};
+
+				// Find all user_metadata_tag records with this tag
+				let tag_model = crate::infra::db::entities::tag::Entity::find()
+					.filter(crate::infra::db::entities::tag::Column::Uuid.eq(dependency_id))
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						crate::common::errors::CoreError::NotFound(format!(
+							"Tag {} not found",
+							dependency_id
+						))
+					})?;
+
+				let metadata_tags = user_metadata_tag::Entity::find()
+					.filter(user_metadata_tag::Column::TagId.eq(tag_model.id))
+					.all(db)
+					.await?;
+
+				let mut affected_entries = Vec::new();
+
+				for umt in metadata_tags {
+					// Get the parent user_metadata
+					if let Some(metadata) = user_metadata::Entity::find_by_id(umt.user_metadata_id)
+						.one(db)
+						.await?
+					{
+						// Route based on metadata scope
+						if let Some(entry_uuid) = metadata.entry_uuid {
+							affected_entries.push(entry_uuid);
+						} else if let Some(content_uuid) = metadata.content_identity_uuid {
+							// Content-scoped: get all entries with this content
+							if let Some(ci) = content_identity::Entity::find()
+								.filter(content_identity::Column::Uuid.eq(content_uuid))
+								.one(db)
+								.await?
+							{
+								let entries = entry::Entity::find()
+									.filter(entry::Column::ContentId.eq(ci.id))
+									.all(db)
+									.await?;
+
+								affected_entries.extend(entries.into_iter().filter_map(|e| e.uuid));
+							}
+						}
+					}
+				}
+
+				Ok(affected_entries)
+			}
+
 			_ => Ok(vec![]),
 		}
 	}

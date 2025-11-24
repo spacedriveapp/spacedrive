@@ -43,4 +43,12 @@ pub struct LibraryDeviceInfo {
 
 	/// Device capabilities (if available)
 	pub capabilities: Option<serde_json::Value>,
+
+	/// Whether this device is only paired (not registered in library)
+	#[serde(default)]
+	pub is_paired: bool,
+
+	/// Whether this device is currently connected via network (only relevant for paired devices)
+	#[serde(default)]
+	pub is_connected: bool,
 }

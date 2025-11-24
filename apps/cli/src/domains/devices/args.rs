@@ -11,6 +11,10 @@ pub struct DevicesListArgs {
 	/// Include detailed information (capabilities, network addresses, etc.)
 	#[arg(long, default_value_t = false)]
 	pub detailed: bool,
+
+	/// Show paired network devices in addition to library devices
+	#[arg(long, default_value_t = false)]
+	pub show_paired: bool,
 }
 
 impl DevicesListArgs {
@@ -18,6 +22,7 @@ impl DevicesListArgs {
 		ListLibraryDevicesInput {
 			include_offline: self.include_offline,
 			include_details: self.detailed,
+			show_paired: self.show_paired,
 		}
 	}
 }

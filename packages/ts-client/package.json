@@ -6,12 +6,16 @@
 	"types": "dist/index.d.ts",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
 		},
 		"./generated/types": {
-			"types": "./dist/generated/types.d.ts",
-			"default": "./dist/generated/types.js"
+			"types": "./src/generated/types.ts",
+			"default": "./src/generated/types.ts"
+		},
+		"./hooks": {
+			"types": "./src/hooks/index.ts",
+			"default": "./src/hooks/index.ts"
 		}
 	},
 	"scripts": {

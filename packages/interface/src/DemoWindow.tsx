@@ -1,4 +1,4 @@
-import { ShinyButton } from "@sd/ui/ShinyButton";
+import { ShinyButton } from "@sd/ui";
 import { SpacedriveProvider } from "./context";
 import { useLibraries } from "./hooks/useLibraries";
 import { useAllEvents } from "./hooks/useEvent";

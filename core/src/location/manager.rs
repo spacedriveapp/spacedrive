@@ -221,7 +221,17 @@ impl LocationManager {
 			path: location_path.clone(),
 		});
 
-		// Resource events are now automatically emitted by sync_model_with_db above
+		// Emit resource events via ResourceManager (builds proper domain model)
+		let resource_manager = crate::domain::ResourceManager::new(
+			std::sync::Arc::new(library.db().conn().clone()),
+			std::sync::Arc::new(self.events.clone()),
+		);
+		if let Err(e) = resource_manager
+			.emit_resource_events("location", vec![location_id])
+			.await
+		{
+			warn!("Failed to emit location resource events: {}", e);
+		}
 
 		// Also emit indexing started event
 		self.events.emit(Event::IndexingStarted { location_id });

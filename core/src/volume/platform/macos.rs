@@ -87,6 +87,9 @@ pub async fn detect_non_apfs_volumes(
 				let fingerprint =
 					VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
 
+				// Check if volume should be user-visible
+				let is_user_visible = should_be_user_visible(&mount_path, &name);
+
 				// Auto-track eligibility: Primary, UserData, System volumes
 				// Also track Secondary volumes if they're system mounts
 				let auto_track_eligible = matches!(
@@ -124,7 +127,7 @@ pub async fn detect_non_apfs_volumes(
 					apfs_container: None,
 					container_volume_id: None,
 					path_mappings: Vec::new(),
-					is_user_visible: true,
+					is_user_visible,
 					auto_track_eligible,
 					read_speed_mbps: None,
 					write_speed_mbps: None,
@@ -232,6 +235,32 @@ fn detect_filesystem(mount_point: &PathBuf) -> VolumeResult<FileSystem> {
 		}
 		_ => Ok(FileSystem::Other("Unknown".to_string())),
 	}
+}
+
+/// Determine if a non-APFS volume should be visible to the user
+fn should_be_user_visible(mount_point: &PathBuf, name: &str) -> bool {
+	let mount_str = mount_point.to_string_lossy();
+
+	// Hide home autofs mounts (e.g., /System/Volumes/Data/home)
+	if name.to_lowercase() == "home" && mount_str.ends_with("/home") {
+		debug!(
+			"VISIBILITY: Hiding home volume (non-APFS): name='{}' mount='{}'",
+			name, mount_str
+		);
+		return false;
+	}
+
+	// Hide iOS Simulator volumes
+	if mount_str.starts_with("/Library/Developer/CoreSimulator") {
+		return false;
+	}
+
+	// Hide snapshot mounts
+	if mount_str.contains("@") {
+		return false;
+	}
+
+	true
 }
 
 /// Get volume space information using df

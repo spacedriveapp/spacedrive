@@ -25,7 +25,7 @@ export function LocationsGroup({ isCollapsed, onToggle }: LocationsGroupProps) {
       {/* Header */}
       <button
         onClick={onToggle}
-        className="mb-1 flex w-full items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-sidebar-ink-faint hover:text-sidebar-ink"
+        className="mb-1 flex w-full cursor-default items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-sidebar-ink-faint hover:text-sidebar-ink"
       >
         <CaretRight
           className={clsx("transition-transform", !isCollapsed && "rotate-90")}

@@ -43,6 +43,7 @@ function AddGroupDialog(props: { id: number; spaceId: string }) {
 						onChange={(e) => setGroupType(e.target.value as GroupType)}
 						className="w-full rounded-lg border border-app-line bg-app-input px-3 py-2 text-sm text-ink"
 					>
+						<option value="Devices">All Devices</option>
 						<option value="Locations">All Locations</option>
 						<option value="Tags">Tags</option>
 						<option value="Cloud">Cloud Storage</option>
@@ -65,6 +66,7 @@ function AddGroupDialog(props: { id: number; spaceId: string }) {
 }
 
 function getDefaultName(groupType: GroupType): string {
+	if (groupType === 'Devices') return 'Devices';
 	if (groupType === 'Locations') return 'Locations';
 	if (groupType === 'Tags') return 'Tags';
 	if (groupType === 'Cloud') return 'Cloud';

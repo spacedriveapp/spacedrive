@@ -3,13 +3,78 @@ import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
 import { useNormalizedCache } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
-import type { VolumeItem } from "@sd/ts-client";
+import type { VolumeItem, CloudServiceType } from "@sd/ts-client";
+
+// Import cloud provider icons
+import DriveAmazonS3 from "@sd/assets/icons/Drive-AmazonS3.png";
+import DriveGoogleDrive from "@sd/assets/icons/Drive-GoogleDrive.png";
+import DriveDropbox from "@sd/assets/icons/Drive-Dropbox.png";
+import DriveOneDrive from "@sd/assets/icons/Drive-OneDrive.png";
+import DriveBackBlaze from "@sd/assets/icons/Drive-BackBlaze.png";
+import DrivePCloud from "@sd/assets/icons/Drive-PCloud.png";
+import DriveBox from "@sd/assets/icons/Drive-Box.png";
+import HDDIcon from "@sd/assets/icons/HDD.png";
+import DriveIcon from "@sd/assets/icons/Drive.png";
 
 interface VolumesGroupProps {
 	isCollapsed: boolean;
 	onToggle: () => void;
 	/** Filter to show tracked, untracked, or all volumes (default: "All") */
 	filter?: "TrackedOnly" | "UntrackedOnly" | "All";
+}
+
+// Map cloud service types to icons
+const cloudProviderIcons: Record<CloudServiceType, string> = {
+	s3: DriveAmazonS3,
+	gdrive: DriveGoogleDrive,
+	dropbox: DriveDropbox,
+	onedrive: DriveOneDrive,
+	gcs: DriveGoogleDrive,
+	azblob: DriveBox,
+	b2: DriveBackBlaze,
+	wasabi: DriveAmazonS3,
+	spaces: DriveAmazonS3,
+	cloud: DrivePCloud,
+};
+
+// Helper to parse cloud service from volume fingerprint
+function parseCloudService(volume: VolumeItem): CloudServiceType | null {
+	// Check if this is a cloud volume by looking at mount_point pattern
+	const mountPoint = volume.mount_point;
+	if (!mountPoint) return null;
+
+	// Parse mount_point for cloud service (format: "s3://bucket-name")
+	const match = mountPoint.match(/^(\w+):\/\//);
+	if (!match) return null;
+
+	const scheme = match[1];
+
+	// Verify it's a cloud scheme (not file:// or other local schemes)
+	if (scheme === "s3" || scheme === "gdrive" || scheme === "dropbox" ||
+	    scheme === "onedrive" || scheme === "gcs" || scheme === "azblob" ||
+	    scheme === "b2" || scheme === "wasabi" || scheme === "spaces" ||
+	    scheme === "cloud") {
+		return scheme as CloudServiceType;
+	}
+
+	return null;
+}
+
+// Get icon for a volume based on its type
+function getVolumeIcon(volume: VolumeItem): string {
+	// Check if it's a cloud volume (by mount_point pattern or filesystem type)
+	const cloudService = parseCloudService(volume);
+	if (cloudService) {
+		return cloudProviderIcons[cloudService] || DriveIcon;
+	}
+
+	// For external drives, use HDD icon
+	if (volume.volume_type === "External") {
+		return HDDIcon;
+	}
+
+	// Default to generic drive icon
+	return DriveIcon;
 }
 
 export function VolumesGroup({
@@ -44,16 +109,13 @@ export function VolumesGroup({
 			{/* Group Header */}
 			<button
 				onClick={onToggle}
-				className="mb-1 flex w-full items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-sidebar-ink-faint hover:text-sidebar-ink"
+				className="mb-1 flex w-full cursor-default items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-sidebar-ink-faint hover:text-sidebar-ink"
 			>
-				<div
-					className={clsx(
-						"transition-transform",
-						!isCollapsed && "rotate-90",
-					)}
-				>
-					<CaretRight size={10} weight="bold" />
-				</div>
+				<CaretRight
+					className={clsx("transition-transform", !isCollapsed && "rotate-90")}
+					size={10}
+					weight="bold"
+				/>
 				<span>Volumes</span>
 			</button>
 
@@ -84,14 +146,7 @@ export function VolumesGroup({
 									mount_path: volume.mount_point || "/",
 								}}
 								rightComponent={getVolumeBadges(volume)}
-								className={
-									volume.is_tracked
-										? "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected transition-colors"
-										: "text-sidebar-ink-faint hover:text-sidebar-inkDull hover:bg-sidebar-box transition-colors"
-								}
-								iconWeight={
-									volume.is_tracked ? "bold" : "regular"
-								}
+								customIcon={getVolumeIcon(volume)}
 							/>
 						))
 					)}

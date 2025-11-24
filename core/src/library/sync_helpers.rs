@@ -37,40 +37,22 @@ impl Library {
 	/// foreign keys are already UUIDs.
 	///
 	/// **Examples**: Tag, Device, Album
+	///
+	/// **Note**: This only handles sync (cross-device replication). Resource events
+	/// for frontend reactivity are emitted separately by ResourceManager when it
+	/// detects sync changes via the transaction manager.
 	pub async fn sync_model<M: Syncable>(&self, model: &M, change_type: ChangeType) -> Result<()> {
 		let data = model
 			.to_sync_json()
 			.map_err(|e| anyhow::anyhow!("Failed to serialize model: {}", e))?;
 
-		let result = if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
-			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data.clone())
+		if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
+			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data)
 				.await
 		} else {
-			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data.clone())
+			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data)
 				.await
-		};
-
-		// Emit resource event for frontend reactivity
-		if result.is_ok() {
-			use crate::infra::sync::ChangeType as CT;
-			match change_type {
-				CT::Delete => {
-					self.event_bus().emit(Event::ResourceDeleted {
-						resource_type: M::SYNC_MODEL.to_string(),
-						resource_id: model.sync_id(),
-					});
-				}
-				CT::Insert | CT::Update => {
-					self.event_bus().emit(Event::ResourceChanged {
-						resource_type: M::SYNC_MODEL.to_string(),
-						resource: data,
-						metadata: None,
-					});
-				}
-			}
 		}
-
-		result
 	}
 
 	/// Sync a model with FK conversion (for models with relationships)
@@ -79,6 +61,10 @@ impl Library {
 	/// Required for proper sync of related data.
 	///
 	/// **Examples**: Location (has device_id, entry_id), Entry (has parent_id, metadata_id)
+	///
+	/// **Note**: This only handles sync (cross-device replication). Resource events
+	/// for frontend reactivity are emitted separately by ResourceManager when it
+	/// detects sync changes via the transaction manager.
 	pub async fn sync_model_with_db<M: Syncable>(
 		&self,
 		model: &M,
@@ -141,35 +127,13 @@ impl Library {
 			}
 		}
 
-		let result = if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
-			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data.clone())
+		if crate::infra::sync::is_device_owned(M::SYNC_MODEL).await {
+			self.sync_device_owned_internal(M::SYNC_MODEL, model.sync_id(), data)
 				.await
 		} else {
-			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data.clone())
+			self.sync_shared_internal(M::SYNC_MODEL, model.sync_id(), change_type, data)
 				.await
-		};
-
-		// Emit resource event for frontend reactivity
-		if result.is_ok() {
-			use crate::infra::sync::ChangeType as CT;
-			match change_type {
-				CT::Delete => {
-					self.event_bus().emit(Event::ResourceDeleted {
-						resource_type: M::SYNC_MODEL.to_string(),
-						resource_id: model.sync_id(),
-					});
-				}
-				CT::Insert | CT::Update => {
-					self.event_bus().emit(Event::ResourceChanged {
-						resource_type: M::SYNC_MODEL.to_string(),
-						resource: data,
-						metadata: None,
-					});
-				}
-			}
 		}
-
-		result
 	}
 
 	/// Batch sync multiple models (optimized for bulk operations)

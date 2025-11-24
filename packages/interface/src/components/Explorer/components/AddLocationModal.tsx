@@ -11,7 +11,7 @@ import {
   useDialog,
   TopBarButton,
 } from "@sd/ui";
-import * as Tabs from "@sd/ui/Tabs";
+import { Tabs } from "@sd/ui";
 import type {
   IndexMode,
   LocationAddInput,

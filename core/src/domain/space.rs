@@ -143,6 +143,9 @@ pub enum GroupType {
 	/// Device with its volumes and locations as children
 	Device { device_id: Uuid },
 
+	/// All devices (library and paired) across the system
+	Devices,
+
 	/// All locations across all devices
 	Locations,
 

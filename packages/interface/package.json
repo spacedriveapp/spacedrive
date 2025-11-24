@@ -9,6 +9,7 @@
 	"exports": {
 		".": "./src/index.tsx",
 		"./app": "./src/App.tsx",
+		"./platform": "./src/platform.tsx",
 		"./styles.css": "./src/styles.css"
 	},
 	"scripts": {

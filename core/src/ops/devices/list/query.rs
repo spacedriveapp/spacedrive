@@ -19,6 +19,10 @@ pub struct ListLibraryDevicesInput {
 
 	/// Whether to include detailed capabilities and sync leadership info (default: false)
 	pub include_details: bool,
+
+	/// Whether to also include paired network devices (default: false)
+	#[serde(default)]
+	pub show_paired: bool,
 }
 
 /// Query to list all devices from the library database
@@ -34,6 +38,7 @@ impl ListLibraryDevicesQuery {
 			input: ListLibraryDevicesInput {
 				include_offline: true,
 				include_details: false,
+				show_paired: false,
 			},
 		}
 	}
@@ -44,6 +49,7 @@ impl ListLibraryDevicesQuery {
 			input: ListLibraryDevicesInput {
 				include_offline: true,
 				include_details: true,
+				show_paired: false,
 			},
 		}
 	}
@@ -54,6 +60,7 @@ impl ListLibraryDevicesQuery {
 			input: ListLibraryDevicesInput {
 				include_offline: false,
 				include_details: false,
+				show_paired: false,
 			},
 		}
 	}
@@ -133,7 +140,59 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 				is_current: device.uuid == current_device_id,
 				network_addresses,
 				capabilities,
+				is_paired: false,
+				is_connected: false,
 			});
+		}
+
+		// If show_paired is true, also fetch paired network devices
+		if self.input.show_paired {
+			// Get networking service
+			if let Some(networking) = context.get_networking().await {
+				let device_registry = networking.device_registry();
+				let registry = device_registry.read().await;
+				let all_devices = registry.get_all_devices();
+
+				for (device_id, state) in all_devices {
+					// Skip if this device is already in the library
+					if result.iter().any(|d| d.id == device_id) {
+						continue;
+					}
+
+					use crate::service::network::device::DeviceState;
+
+					let (device_info, is_connected) = match state {
+						DeviceState::Paired { info, .. } => (Some(info), false),
+						DeviceState::Connected { info, .. } => (Some(info), true),
+						DeviceState::Disconnected { info, .. } => (Some(info), false),
+						_ => (None, false),
+					};
+
+					if let Some(info) = device_info {
+						// Filter by online status if requested
+						if !self.input.include_offline && !is_connected {
+							continue;
+						}
+
+						result.push(LibraryDeviceInfo {
+							id: device_id,
+							name: info.device_name.clone(),
+							os: format!("{:?}", info.device_type),
+							os_version: Some(info.os_version.clone()),
+							hardware_model: None,
+							is_online: is_connected,
+							last_seen_at: info.last_seen,
+							created_at: info.last_seen, // Use last_seen as fallback
+							updated_at: info.last_seen,
+							is_current: false,
+							network_addresses: Vec::new(),
+							capabilities: None,
+							is_paired: true,
+							is_connected,
+						});
+					}
+				}
+			}
 		}
 
 		Ok(result)

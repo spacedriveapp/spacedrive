@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { GearSix } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
-import { useSidebarStore } from "@sd/ts-client/stores/sidebar";
+import { useSidebarStore } from "@sd/ts-client";
 import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 import { SpaceGroup } from "./SpaceGroup";

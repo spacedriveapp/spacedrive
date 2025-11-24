@@ -16,7 +16,7 @@ import {
 	useDialog,
 	TopBarButton,
 } from "@sd/ui";
-import * as Tabs from "@sd/ui/Tabs";
+import { Tabs } from "@sd/ui";
 import type {
 	IndexMode,
 	LocationAddInput,
@@ -319,14 +319,17 @@ function AddStorageDialog(props: {
 
 	const addLocation = useLibraryMutation("locations.add");
 	const addCloudVolume = useLibraryMutation("volumes.add_cloud");
+	const trackVolume = useLibraryMutation("volumes.track");
 	const { data: suggestedLocations } = useLibraryQuery({
 		type: "locations.suggested",
 		input: null,
 	});
-	const { data: volumes } = useLibraryQuery({
+	const { data: volumesData } = useLibraryQuery({
 		type: "volumes.list",
 		input: { filter: "UntrackedOnly" },
 	});
+
+	const volumes = volumesData?.volumes || [];
 
 	const localForm = useForm<LocalFolderFormData>({
 		defaultValues: {
@@ -424,6 +427,38 @@ function AddStorageDialog(props: {
 		localForm.setValue("path", path);
 		localForm.setValue("name", name);
 		setStep("local-config");
+	};
+
+	const handleVolumeSelect = async (volume: any) => {
+		try {
+			// Step 1: Track the volume
+			const trackResult = await trackVolume.mutateAsync({
+				fingerprint: volume.fingerprint,
+				display_name: volume.name,
+			});
+
+			// Step 2: Create a location for the volume's mount point
+			const locationInput: LocationAddInput = {
+				path: {
+					Physical: {
+						device_slug: "local",
+						path: volume.mount_point || "/",
+					},
+				},
+				name: volume.name,
+				mode: "Deep",
+				job_policies: {},
+			};
+
+			const locationResult = await addLocation.mutateAsync(locationInput);
+			dialog.state.open = false;
+
+			if (locationResult?.id && props.onStorageAdded) {
+				props.onStorageAdded(locationResult.id);
+			}
+		} catch (error) {
+			console.error("Failed to track volume and add location:", error);
+		}
 	};
 
 	const onSubmitLocal = localForm.handleSubmit(async (data) => {
@@ -750,6 +785,7 @@ function AddStorageDialog(props: {
 								<button
 									key={volume.fingerprint}
 									type="button"
+									onClick={() => handleVolumeSelect(volume)}
 									className={clsx(
 										"w-full flex items-center gap-3 rounded-lg border p-3 text-left",
 										"transition-all hover:scale-[1.01]",
@@ -766,7 +802,7 @@ function AddStorageDialog(props: {
 										</div>
 									</div>
 									<div className="text-xs text-ink-dull">
-										{(volume.total_capacity_bytes / 1e9).toFixed(0)} GB
+										{volume.total_capacity ? (volume.total_capacity / 1e9).toFixed(0) : '?'} GB
 									</div>
 								</button>
 							))}

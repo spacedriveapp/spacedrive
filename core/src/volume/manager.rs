@@ -1387,16 +1387,22 @@ impl VolumeManager {
 			}
 
 			if !self.is_volume_tracked(library, &volume.fingerprint).await? {
+				// Use display_name if available, otherwise fall back to name
+				let display_name = volume
+					.display_name
+					.clone()
+					.unwrap_or_else(|| volume.name.clone());
+
 				match self
-					.track_volume(library, &volume.fingerprint, Some(volume.name.clone()))
+					.track_volume(library, &volume.fingerprint, Some(display_name.clone()))
 					.await
 				{
 					Ok(tracked_volume) => {
-						info!("Auto-tracked volume: {}", volume.name);
+						info!("Auto-tracked volume: {}", display_name);
 						tracked_volumes.push(tracked_volume);
 					}
 					Err(e) => {
-						warn!("Failed to auto-track volume {}: {}", volume.name, e);
+						warn!("Failed to auto-track volume {}: {}", display_name, e);
 					}
 				}
 			}

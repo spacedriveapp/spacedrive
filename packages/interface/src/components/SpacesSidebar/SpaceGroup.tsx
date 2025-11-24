@@ -5,9 +5,10 @@ import type {
 	SpaceItem as SpaceItemType,
 	GroupType,
 } from '@sd/ts-client';
-import { useSidebarStore } from '@sd/ts-client/stores/sidebar';
+import { useSidebarStore } from '@sd/ts-client';
 import { SpaceItem } from './SpaceItem';
 import { DeviceGroup } from './DeviceGroup';
+import { DevicesGroup } from './DevicesGroup';
 import { LocationsGroup } from './LocationsGroup';
 import { VolumesGroup } from './VolumesGroup';
 import { TagsGroup } from './TagsGroup';
@@ -32,6 +33,11 @@ export function SpaceGroup({ group, items }: SpaceGroupProps) {
 				onToggle={() => toggleGroup(group.id)}
 			/>
 		);
+	}
+
+	// Devices group - fetches all devices (library + paired)
+	if (group.group_type === 'Devices') {
+		return <DevicesGroup isCollapsed={isCollapsed} onToggle={() => toggleGroup(group.id)} />;
 	}
 
 	// Locations group - fetches all locations
