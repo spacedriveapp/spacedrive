@@ -24,13 +24,14 @@ export function getDeviceIcon(device: LibraryDeviceInfo): DeviceIcon {
 	if (device.hardware_model) {
 		const model = device.hardware_model.toLowerCase();
 
-		// Mac Studio
-		if (model.includes("mac studio") || model.includes("macstudio")) {
+		// Mac Studio: Mac13,1 Mac13,2 (M1 Max/Ultra 2022), Mac14,13 Mac14,14 (M2 Max/Ultra 2023)
+		// Mac Pro: Mac14,8 (M2 Ultra 2023)
+		if (model.match(/mac1[34],(1|2|8|13|14)/)) {
 			return SilverBox;
 		}
 
-		// Mac Mini
-		if (model.includes("mac mini") || model.includes("macmini")) {
+		// Mac Mini: Mac14,3 Mac14,12 (M2/Pro 2023), Mac15,12 Mac15,13 (M4 2024)
+		if (model.match(/mac1[45],(3|12|13)/)) {
 			return MiniSilverBox;
 		}
 

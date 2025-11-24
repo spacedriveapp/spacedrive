@@ -1,7 +1,9 @@
 {
   "name": "spacedrive",
   "private": true,
-  "scripts": {},
+  "scripts": {
+    "preinstall": "npx only-allow bun"
+  },
   "devDependencies": {
     "@babel/plugin-syntax-import-assertions": "^7.24.0",
     "@cspell/dict-rust": "^4.0.2",

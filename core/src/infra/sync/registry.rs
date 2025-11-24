@@ -535,7 +535,7 @@ pub fn get_fk_mappings(model_type: &str) -> Option<Vec<super::FKMapping>> {
 			FKMapping::new("entry_id", "entries"),
 		]),
 		"user_metadata_tag" => Some(vec![
-			FKMapping::new("metadata_id", "user_metadata"),
+			FKMapping::new("user_metadata_id", "user_metadata"),
 			FKMapping::new("tag_id", "tag"),
 		]),
 		"tag_relationship" => Some(vec![

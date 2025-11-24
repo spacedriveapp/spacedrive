@@ -29,3 +29,6 @@ export type {
 	LocationsListOutput,
 	LibraryInfo,
 } from "@sd/ts-client";
+
+// Export icon utilities
+export { getDeviceIcon, getVolumeIcon } from "@sd/ts-client";

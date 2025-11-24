@@ -1,30 +1,11 @@
 import { CaretRight, Desktop, WifiHigh } from "@phosphor-icons/react";
 import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
-import { useLibraryQuery } from "../../context";
-import NodeIcon from "@sd/assets/icons/Node.png";
-import LaptopIcon from "@sd/assets/icons/Laptop.png";
-import MobileIcon from "@sd/assets/icons/Mobile.png";
-import PCIcon from "@sd/assets/icons/PC.png";
+import { useLibraryQuery, getDeviceIcon } from "../../context";
 
 interface DevicesGroupProps {
 	isCollapsed: boolean;
 	onToggle: () => void;
-}
-
-// Helper to get icon based on OS
-function getDeviceIcon(os: string): string {
-	const osLower = os.toLowerCase();
-	if (osLower.includes("mac") || osLower.includes("darwin")) {
-		return LaptopIcon;
-	}
-	if (osLower.includes("ios") || osLower.includes("android")) {
-		return MobileIcon;
-	}
-	if (osLower.includes("windows") || osLower.includes("linux")) {
-		return PCIcon;
-	}
-	return NodeIcon;
 }
 
 export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
@@ -77,7 +58,7 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 								)}
 							>
 								{/* Device Icon */}
-								<img src={getDeviceIcon(device.os)} alt="" className="size-4" />
+								<img src={getDeviceIcon(device)} alt="" className="size-4" />
 
 								{/* Device Name */}
 								<span className="flex-1 truncate text-left">{device.name}</span>

@@ -59,8 +59,9 @@ export * from "./hooks";
 // Zustand stores
 export * from "./stores/sidebar";
 
-// Device utilities
+// Device and volume utilities
 export * from "./deviceIcons";
+export * from "./volumeIcons";
 
 // All auto-generated types
 export * from "./generated/types";

@@ -57,6 +57,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		"// This file is auto-generated. See core/src/bin/generate_typescript_types.rs\n\n",
 	);
 
+	// Add Empty type for unit type (())
+	typescript_code.push_str("// Empty type for operations with no input\n");
+	typescript_code.push_str("export type Empty = Record<string, never>;\n\n");
+
 	// Generate all types using Specta TypeScript
 	// Note: TypeScript Specta doesn't have built-in duplicate handling like Swift
 	// The error about duplicate types is expected - multiple operations reference the same types
