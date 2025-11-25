@@ -108,4 +108,100 @@ impl Syncable for Model {
 
 		Ok(sync_results)
 	}
+
+	async fn apply_shared_change(
+		entry: crate::infra::sync::SharedChangeEntry,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		use crate::infra::sync::ChangeType;
+		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, NotSet};
+
+		match entry.change_type {
+			ChangeType::Insert | ChangeType::Update => {
+				let data = entry.data.as_object().ok_or_else(|| {
+					sea_orm::DbErr::Custom("Space data is not an object".to_string())
+				})?;
+
+				let uuid: Uuid = serde_json::from_value(
+					data.get("uuid")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+				let active = ActiveModel {
+					id: NotSet,
+					uuid: Set(uuid),
+					name: Set(serde_json::from_value(
+						data.get("name")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing name".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid name: {}", e)))?),
+					icon: Set(serde_json::from_value(
+						data.get("icon")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing icon".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid icon: {}", e)))?),
+					color: Set(serde_json::from_value(
+						data.get("color")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing color".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid color: {}", e)))?),
+					order: Set(serde_json::from_value(
+						data.get("order")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing order".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid order: {}", e)))?),
+					created_at: Set(serde_json::from_value(
+						data.get("created_at")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing created_at".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid created_at: {}", e)))?),
+					updated_at: Set(serde_json::from_value(
+						data.get("updated_at")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing updated_at".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid updated_at: {}", e)))?),
+				};
+
+				// Upsert by UUID
+				let existing = Entity::find().filter(Column::Uuid.eq(uuid)).one(db).await?;
+
+				if let Some(existing_model) = existing {
+					let mut active = active;
+					active.id = Set(existing_model.id);
+					active.update(db).await?;
+				} else {
+					active.insert(db).await?;
+				}
+
+				Ok(())
+			}
+			ChangeType::Delete => {
+				let data = entry.data.as_object().ok_or_else(|| {
+					sea_orm::DbErr::Custom("Space data is not an object".to_string())
+				})?;
+
+				let uuid: Uuid = serde_json::from_value(
+					data.get("uuid")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+				Entity::delete_many()
+					.filter(Column::Uuid.eq(uuid))
+					.exec(db)
+					.await?;
+
+				Ok(())
+			}
+		}
+	}
 }

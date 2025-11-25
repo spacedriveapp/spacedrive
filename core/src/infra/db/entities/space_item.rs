@@ -124,4 +124,104 @@ impl Syncable for Model {
 
 		Ok(sync_results)
 	}
+
+	async fn apply_shared_change(
+		entry: crate::infra::sync::SharedChangeEntry,
+		db: &DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		use crate::infra::sync::{ChangeType, fk_mapper};
+		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, NotSet};
+
+		match entry.change_type {
+			ChangeType::Insert | ChangeType::Update => {
+				// Map UUIDs to local IDs for FK fields
+				let data =
+					fk_mapper::map_sync_json_to_local(entry.data, Self::foreign_key_mappings(), db)
+						.await
+						.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
+
+				let data = data.as_object().ok_or_else(|| {
+					sea_orm::DbErr::Custom("SpaceItem data is not an object".to_string())
+				})?;
+
+				let uuid: Uuid = serde_json::from_value(
+					data.get("uuid")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+				let space_id: i32 = serde_json::from_value(
+					data.get("space_id")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing space_id".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid space_id: {}", e)))?;
+
+				let group_id: Option<i32> = serde_json::from_value(
+					data.get("group_id")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing group_id".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid group_id: {}", e)))?;
+
+				let active = ActiveModel {
+					id: NotSet,
+					uuid: Set(uuid),
+					space_id: Set(space_id),
+					group_id: Set(group_id),
+					item_type: Set(serde_json::from_value(
+						data.get("item_type")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing item_type".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid item_type: {}", e)))?),
+					order: Set(serde_json::from_value(
+						data.get("order")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing order".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid order: {}", e)))?),
+					created_at: Set(serde_json::from_value(
+						data.get("created_at")
+							.ok_or_else(|| sea_orm::DbErr::Custom("Missing created_at".to_string()))?
+							.clone(),
+					)
+					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid created_at: {}", e)))?),
+				};
+
+				// Upsert by UUID
+				let existing = Entity::find().filter(Column::Uuid.eq(uuid)).one(db).await?;
+
+				if let Some(existing_model) = existing {
+					let mut active = active;
+					active.id = Set(existing_model.id);
+					active.update(db).await?;
+				} else {
+					active.insert(db).await?;
+				}
+
+				Ok(())
+			}
+			ChangeType::Delete => {
+				let data = entry.data.as_object().ok_or_else(|| {
+					sea_orm::DbErr::Custom("SpaceItem data is not an object".to_string())
+				})?;
+
+				let uuid: Uuid = serde_json::from_value(
+					data.get("uuid")
+						.ok_or_else(|| sea_orm::DbErr::Custom("Missing uuid".to_string()))?
+						.clone(),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid uuid: {}", e)))?;
+
+				Entity::delete_many()
+					.filter(Column::Uuid.eq(uuid))
+					.exec(db)
+					.await?;
+
+				Ok(())
+			}
+		}
+	}
 }

@@ -93,22 +93,47 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 function SyncMonitorContent({ showActivityFeed }: { showActivityFeed: boolean }) {
 	const sync = useSyncMonitor();
 
+	const getStateColor = (state: string) => {
+		switch (state) {
+			case 'Ready':
+				return 'bg-green-500';
+			case 'Backfilling':
+				return 'bg-yellow-500';
+			case 'CatchingUp':
+				return 'bg-blue-500';
+			case 'Uninitialized':
+				return 'bg-ink-faint';
+			case 'Paused':
+				return 'bg-ink-dull';
+			default:
+				return 'bg-ink-faint';
+		}
+	};
+
 	return (
-		<motion.div
-			className="overflow-y-auto no-scrollbar"
-			initial={false}
-			animate={{
-				height: showActivityFeed
-					? Math.min(sync.recentActivity.length * 40 + 16, 400)
-					: Math.min(sync.peers.length * 80 + 16, 400),
-			}}
-			transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-		>
-			{showActivityFeed ? (
-				<ActivityFeed activities={sync.recentActivity} />
-			) : (
-				<PeerList peers={sync.peers} currentState={sync.currentState} />
-			)}
-		</motion.div>
+		<>
+			<div className="px-4 py-2 border-b border-app-line bg-app-box/50">
+				<div className="flex items-center gap-2">
+					<div className={`size-2 rounded-full ${getStateColor(sync.currentState)}`} />
+					<span className="text-xs font-medium text-ink-dull">{sync.currentState}</span>
+				</div>
+			</div>
+			<motion.div
+				className="overflow-y-auto no-scrollbar"
+				initial={false}
+				animate={{
+					height: showActivityFeed
+						? Math.min(sync.recentActivity.length * 40 + 16, 400)
+						: Math.min(sync.peers.length * 80 + 16, 400),
+				}}
+				transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+			>
+				{showActivityFeed ? (
+					<ActivityFeed activities={sync.recentActivity} />
+				) : (
+					<PeerList peers={sync.peers} currentState={sync.currentState} />
+				)}
+			</motion.div>
+		</>
 	);
 }

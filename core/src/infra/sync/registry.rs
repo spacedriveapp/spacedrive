@@ -476,14 +476,14 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 		),
 	);
 
-	// Space models (device-owned)
+	// Space models (shared)
 	registry.insert(
 		"space".to_string(),
-		SyncableModelRegistration::device_owned(
+		SyncableModelRegistration::shared_with_query(
 			"space",
 			"spaces",
-			|data, db| {
-				Box::pin(async move { space::Model::apply_state_change(data, db.as_ref()).await })
+			|entry, db| {
+				Box::pin(async move { space::Model::apply_shared_change(entry, db.as_ref()).await })
 			},
 			|device_id, since, cursor, batch_size, db| {
 				Box::pin(async move {
@@ -491,20 +491,17 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 						.await
 				})
 			},
-			Some(|uuid, db| {
-				Box::pin(async move { space::Model::apply_deletion(uuid, db.as_ref()).await })
-			}),
 		),
 	);
 
 	registry.insert(
 		"space_group".to_string(),
-		SyncableModelRegistration::device_owned(
+		SyncableModelRegistration::shared_with_query(
 			"space_group",
 			"space_groups",
-			|data, db| {
+			|entry, db| {
 				Box::pin(async move {
-					space_group::Model::apply_state_change(data, db.as_ref()).await
+					space_group::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
 			|device_id, since, cursor, batch_size, db| {
@@ -519,20 +516,17 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					.await
 				})
 			},
-			Some(|uuid, db| {
-				Box::pin(async move { space_group::Model::apply_deletion(uuid, db.as_ref()).await })
-			}),
 		),
 	);
 
 	registry.insert(
 		"space_item".to_string(),
-		SyncableModelRegistration::device_owned(
+		SyncableModelRegistration::shared_with_query(
 			"space_item",
 			"space_items",
-			|data, db| {
+			|entry, db| {
 				Box::pin(async move {
-					space_item::Model::apply_state_change(data, db.as_ref()).await
+					space_item::Model::apply_shared_change(entry, db.as_ref()).await
 				})
 			},
 			|device_id, since, cursor, batch_size, db| {
@@ -547,9 +541,6 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					.await
 				})
 			},
-			Some(|uuid, db| {
-				Box::pin(async move { space_item::Model::apply_deletion(uuid, db.as_ref()).await })
-			}),
 		),
 	);
 
