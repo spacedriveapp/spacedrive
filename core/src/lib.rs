@@ -242,6 +242,9 @@ impl Core {
 			}
 		}
 
+		// Set library manager reference in volume manager so it can query tracked volumes
+		volumes.set_library_manager(Arc::downgrade(&libraries)).await;
+
 		// Load cloud volumes from database now that libraries are loaded
 		// This restores cloud volumes that were previously added
 		info!("Loading cloud volumes from database...");

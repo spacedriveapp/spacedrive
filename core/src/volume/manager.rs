@@ -81,7 +81,7 @@ pub struct VolumeManager {
 	volume_watcher: Arc<RwLock<Option<RecommendedWatcher>>>,
 
 	/// Weak reference to library manager for database operations
-	library_manager: RwLock<Option<Weak<LibraryManager>>>,
+	library_manager: Arc<RwLock<Option<Weak<LibraryManager>>>>,
 }
 
 impl VolumeManager {
@@ -100,7 +100,7 @@ impl VolumeManager {
 			events,
 			is_monitoring: Arc::new(RwLock::new(false)),
 			volume_watcher: Arc::new(RwLock::new(None)),
-			library_manager: RwLock::new(None),
+			library_manager: Arc::new(RwLock::new(None)),
 		}
 	}
 
@@ -416,6 +416,7 @@ impl VolumeManager {
 		let events = self.events.clone();
 		let config = self.config.clone();
 		let is_monitoring = self.is_monitoring.clone();
+		let library_manager = self.library_manager.clone();
 		let device_id = self.device_id;
 
 		tokio::spawn(async move {
@@ -436,6 +437,7 @@ impl VolumeManager {
 					&path_cache,
 					&events,
 					&config,
+					&library_manager,
 				)
 				.await
 				{
@@ -459,6 +461,7 @@ impl VolumeManager {
 		let path_cache = self.path_cache.clone();
 		let events = self.events.clone();
 		let config = self.config.clone();
+		let library_manager = self.library_manager.clone();
 		let device_id = self.device_id;
 		let is_monitoring = self.is_monitoring.clone();
 
@@ -516,6 +519,7 @@ impl VolumeManager {
 								&path_cache,
 								&events,
 								&config,
+								&library_manager,
 							)
 							.await
 							{
@@ -562,6 +566,7 @@ impl VolumeManager {
 			&self.path_cache,
 			&self.events,
 			&self.config,
+			&self.library_manager,
 		)
 		.await
 	}
@@ -573,6 +578,7 @@ impl VolumeManager {
 		path_cache: &Arc<RwLock<HashMap<PathBuf, VolumeFingerprint>>>,
 		events: &Arc<EventBus>,
 		config: &VolumeDetectionConfig,
+		library_manager: &RwLock<Option<Weak<LibraryManager>>>,
 	) -> VolumeResult<()> {
 		debug!("Refreshing volumes for device {}", device_id);
 
@@ -589,6 +595,40 @@ impl VolumeManager {
 			);
 		}
 
+		// Query database for tracked volumes to merge metadata
+		let mut tracked_volumes_map: HashMap<VolumeFingerprint, (Uuid, Option<String>)> = HashMap::new();
+		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
+			if let Some(lib_mgr) = lib_mgr.upgrade() {
+				let libraries = lib_mgr.get_open_libraries().await;
+				debug!("DB_MERGE: Found {} open libraries", libraries.len());
+				for library in libraries {
+					debug!("DB_MERGE: Querying library {} for tracked volumes on device {}", library.id(), device_id);
+					if let Ok(tracked_vols) = entities::volume::Entity::find()
+						.filter(entities::volume::Column::DeviceId.eq(device_id))
+						.all(library.db().conn())
+						.await
+					{
+						debug!("DB_MERGE: Found {} tracked volumes in library {}", tracked_vols.len(), library.id());
+						for db_vol in tracked_vols {
+							let fingerprint = VolumeFingerprint(db_vol.fingerprint.clone());
+							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}",
+								fingerprint.short_id(), db_vol.display_name);
+							tracked_volumes_map.insert(
+								fingerprint,
+								(library.id(), db_vol.display_name),
+							);
+						}
+					} else {
+						debug!("DB_MERGE: Failed to query tracked volumes for library {}", library.id());
+					}
+				}
+			} else {
+				debug!("DB_MERGE: Library manager weak reference could not be upgraded");
+			}
+		} else {
+			debug!("DB_MERGE: No library manager reference available");
+		}
+
 		let mut current_volumes = volumes.write().await;
 		let mut cache = path_cache.write().await;
 
@@ -596,9 +636,24 @@ impl VolumeManager {
 		let mut seen_fingerprints = std::collections::HashSet::new();
 
 		// Process detected volumes
-		for detected in detected_volumes {
+		for mut detected in detected_volumes {
 			let fingerprint = detected.fingerprint.clone();
 			seen_fingerprints.insert(fingerprint.clone());
+
+			// Merge tracked volume metadata from database
+			if let Some((library_id, display_name)) = tracked_volumes_map.get(&fingerprint) {
+				detected.is_tracked = true;
+				detected.library_id = Some(*library_id);
+				detected.display_name = display_name.clone();
+			}
+
+			debug!(
+				"Processing volume '{}' with fingerprint {} (exists in cache: {}, is_tracked: {})",
+				detected.name,
+				fingerprint.short_id(),
+				current_volumes.contains_key(&fingerprint),
+				detected.is_tracked
+			);
 
 			match current_volumes.get(&fingerprint) {
 				Some(existing) => {
@@ -613,7 +668,7 @@ impl VolumeManager {
 						// Update the volume
 						let mut updated_volume = detected.clone();
 						updated_volume.update_info(new_info.clone());
-						current_volumes.insert(fingerprint.clone(), updated_volume);
+						current_volumes.insert(fingerprint.clone(), updated_volume.clone());
 
 						// Emit update event
 						events.emit(Event::VolumeUpdated {
@@ -628,6 +683,18 @@ impl VolumeManager {
 								fingerprint: fingerprint.clone(),
 								is_mounted: new_info.is_mounted,
 							});
+						}
+
+						// Emit ResourceChanged event for UI reactivity (only for user-visible volumes)
+						if updated_volume.is_user_visible {
+							use crate::domain::{resource::Identifiable, volume::Volume};
+							if let Ok(resource) = serde_json::to_value(&updated_volume) {
+								events.emit(Event::ResourceChanged {
+									resource_type: Volume::resource_type().to_string(),
+									resource,
+									metadata: None,
+								});
+							}
 						}
 					}
 				}
@@ -644,7 +711,28 @@ impl VolumeManager {
 					current_volumes.insert(fingerprint.clone(), detected.clone());
 
 					// Emit volume added event
-					events.emit(Event::VolumeAdded(detected));
+					events.emit(Event::VolumeAdded(detected.clone()));
+
+					// Emit ResourceChanged event for UI reactivity (only for user-visible volumes)
+					if detected.is_user_visible {
+						debug!(
+							"Emitting ResourceChanged for user-visible volume: {} (is_user_visible={})",
+							detected.name, detected.is_user_visible
+						);
+						use crate::domain::{resource::Identifiable, volume::Volume};
+						if let Ok(resource) = serde_json::to_value(&detected) {
+							events.emit(Event::ResourceChanged {
+								resource_type: Volume::resource_type().to_string(),
+								resource,
+								metadata: None,
+							});
+						}
+					} else {
+						debug!(
+							"Skipping ResourceChanged for non-user-visible volume: {} (is_user_visible={})",
+							detected.name, detected.is_user_visible
+						);
+					}
 				}
 			}
 		}
@@ -664,7 +752,18 @@ impl VolumeManager {
 				cache.retain(|_, fp| fp != &fingerprint);
 
 				// Emit volume removed event
-				events.emit(Event::VolumeRemoved { fingerprint });
+				events.emit(Event::VolumeRemoved {
+					fingerprint: fingerprint.clone(),
+				});
+
+				// Emit ResourceDeleted event for UI reactivity (only for user-visible volumes)
+				if removed_volume.is_user_visible {
+					use crate::domain::{resource::Identifiable, volume::Volume};
+					events.emit(Event::ResourceDeleted {
+						resource_type: Volume::resource_type().to_string(),
+						resource_id: removed_volume.id,
+					});
+				}
 			}
 		}
 

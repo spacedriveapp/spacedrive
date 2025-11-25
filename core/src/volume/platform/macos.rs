@@ -104,7 +104,8 @@ pub async fn detect_non_apfs_volumes(
 				let now = chrono::Utc::now();
 
 				let volume = Volume {
-					id: uuid::Uuid::new_v4(),
+					// Use fingerprint to generate stable UUID (so untracked volumes don't duplicate in UI)
+					id: uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, fingerprint.0.as_bytes()),
 					fingerprint,
 
 					device_id,

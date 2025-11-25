@@ -357,14 +357,14 @@ pub fn containers_to_volumes(
 			let volume_type = classify_volume_type(&volume_info.role, mount_point);
 
 			// Determine if volume should be user-visible
-			let is_user_visible = should_be_user_visible(mount_point, &volume_info.role, &volume_info.name);
+			let is_user_visible =
+				should_be_user_visible(mount_point, &volume_info.role, &volume_info.name);
 
 			// Auto-track eligibility: Only UserData volume
 			// Previously we auto-tracked System, Primary, etc., but that created too many overlapping volumes
-			let auto_track_eligible = matches!(
-				volume_type,
-				crate::volume::types::VolumeType::UserData
-			) && is_user_visible;
+			let auto_track_eligible =
+				matches!(volume_type, crate::volume::types::VolumeType::UserData)
+					&& is_user_visible;
 
 			debug!(
 				"APFS_CONVERT: Volume '{}' classified as Type={:?}, user_visible={}, auto_track_eligible={}",
@@ -393,7 +393,8 @@ pub fn containers_to_volumes(
 			};
 
 			let volume = Volume {
-				id: uuid::Uuid::new_v4(),
+				// Use fingerprint to generate stable UUID
+				id: uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, fingerprint.0.as_bytes()),
 				fingerprint,
 				device_id,
 				name: volume_info.name.clone(),
@@ -502,11 +503,7 @@ fn classify_volume_type(
 
 /// Determine if a volume should be visible to the user
 /// Filters out system volumes that are redundant or not useful for user interaction
-fn should_be_user_visible(
-	mount_point: &PathBuf,
-	role: &ApfsVolumeRole,
-	name: &str,
-) -> bool {
+fn should_be_user_visible(mount_point: &PathBuf, role: &ApfsVolumeRole, name: &str) -> bool {
 	let mount_str = mount_point.to_string_lossy();
 	debug!(
 		"VISIBILITY: Checking volume: name='{}' role={:?} mount='{}'",
