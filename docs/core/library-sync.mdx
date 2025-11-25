@@ -234,7 +234,7 @@ The API automatically:
 
 ## Implementing Syncable Models
 
-To make a model syncable:
+To make a model syncable, implement the `Syncable` trait and register it with a macro:
 
 ```rust
 impl Syncable for YourModel {
@@ -255,7 +255,23 @@ impl Syncable for YourModel {
         ]
     }
 }
+
+// Register with sync system - choose based on ownership model:
+
+// For shared resources (any device can modify):
+crate::register_syncable_shared!(Model, "your_model", "your_table");
+
+// For device-owned data:
+crate::register_syncable_device_owned!(Model, "your_model", "your_table");
+
+// With deletion support:
+crate::register_syncable_device_owned!(Model, "your_model", "your_table", with_deletion);
+
+// With deletion + post-backfill rebuild (for closure tables):
+crate::register_syncable_device_owned!(Model, "your_model", "your_table", with_deletion, with_rebuild);
 ```
+
+The registration macros use the `inventory` crate for automatic discovery at startup - no manual registry initialization needed.
 
 ### Dependency Resolution Algorithm
 

@@ -1,7 +1,7 @@
 //! Mock network transport for sync integration tests
 
 use sd_core::{
-	infra::sync::{NetworkTransport, Syncable},
+	infra::sync::NetworkTransport,
 	service::{network::protocol::sync::messages::SyncMessage, sync::SyncService},
 };
 use std::{
@@ -171,29 +171,51 @@ impl MockTransport {
 							.await?;
 					}
 
-					// Apply current_state snapshot if provided
+					// Apply current_state snapshot if provided (polymorphic via registry)
 					if let Some(state) = current_state {
-						if let Some(tags) = state["tag"].as_array() {
-							for tag_data in tags {
-								let uuid: Uuid =
-									Uuid::parse_str(tag_data["uuid"].as_str().unwrap())?;
-								let data = tag_data["data"].clone();
+						use sd_core::infra::sync::{registry, ChangeType, SharedChangeEntry, HLC};
 
-								use sd_core::infra::{
-									db::entities,
-									sync::{ChangeType, SharedChangeEntry, HLC},
-								};
-								entities::tag::Model::apply_shared_change(
-									SharedChangeEntry {
-										hlc: HLC::now(self.my_device_id),
-										model_type: "tag".to_string(),
-										record_uuid: uuid,
-										change_type: ChangeType::Insert,
-										data,
-									},
-									sync_service.peer_sync().db().as_ref(),
-								)
-								.await?;
+						// Iterate all model types in the state snapshot
+						if let Some(state_obj) = state.as_object() {
+							for (model_type, records) in state_obj {
+								if let Some(records_arr) = records.as_array() {
+									for record_data in records_arr {
+										let uuid: Uuid = match record_data
+											.get("uuid")
+											.and_then(|v| v.as_str())
+											.and_then(|s| Uuid::parse_str(s).ok())
+										{
+											Some(u) => u,
+											None => continue,
+										};
+
+										let data = record_data
+											.get("data")
+											.cloned()
+											.unwrap_or(record_data.clone());
+
+										// Use registry to apply change polymorphically
+										if let Err(e) = registry::apply_shared_change(
+											SharedChangeEntry {
+												hlc: HLC::now(self.my_device_id),
+												model_type: model_type.clone(),
+												record_uuid: uuid,
+												change_type: ChangeType::Insert,
+												data,
+											},
+											sync_service.peer_sync().db().clone(),
+										)
+										.await
+										{
+											tracing::warn!(
+												model_type = %model_type,
+												uuid = %uuid,
+												error = %e,
+												"Failed to apply snapshot record"
+											);
+										}
+									}
+								}
 							}
 						}
 					}
@@ -249,18 +271,67 @@ impl MockTransport {
 					library_id,
 					model_types,
 					device_id: requested_device_id,
-					since: _,
-					checkpoint: _,
-					batch_size: _,
+					since,
+					checkpoint,
+					batch_size,
 				} => {
+					// Parse checkpoint cursor
+					let cursor = checkpoint.as_ref().and_then(|chk| {
+						let parts: Vec<&str> = chk.split('|').collect();
+						if parts.len() == 2 {
+							let ts = chrono::DateTime::parse_from_rfc3339(parts[0])
+								.ok()?
+								.with_timezone(&chrono::Utc);
+							let uuid = Uuid::parse_str(parts[1]).ok()?;
+							Some((ts, uuid))
+						} else {
+							None
+						}
+					});
+
+					// Query actual state from this device's database
+					let records = sync_service
+						.peer_sync()
+						.get_device_state(
+							model_types.clone(),
+							requested_device_id,
+							since,
+							cursor,
+							batch_size,
+						)
+						.await?;
+
+					// Query tombstones if incremental sync
+					let deleted_uuids = if let Some(since_time) = since {
+						sync_service
+							.peer_sync()
+							.get_deletion_tombstones(
+								model_types.first().unwrap_or(&String::new()),
+								requested_device_id,
+								since_time,
+							)
+							.await?
+					} else {
+						vec![]
+					};
+
+					let has_more = records.len() >= batch_size;
+					let next_checkpoint = if has_more {
+						records
+							.last()
+							.map(|r| format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid))
+					} else {
+						None
+					};
+
 					let response = SyncMessage::StateResponse {
 						library_id,
 						model_type: model_types.first().cloned().unwrap_or_default(),
 						device_id: requested_device_id.unwrap_or(self.my_device_id),
-						records: vec![],
-						deleted_uuids: vec![],
-						has_more: false,
-						checkpoint: None,
+						records,
+						deleted_uuids,
+						has_more,
+						checkpoint: next_checkpoint,
 					};
 
 					self.send_sync_message(sender, response).await?;
@@ -316,6 +387,9 @@ impl MockTransport {
 	}
 
 	/// Deliver a single message to a sync service (simulates production handle_sync_message)
+	///
+	/// This handles all fire-and-forget message types. Request/response pairs
+	/// (StateRequest, SharedChangeRequest) are handled by send_sync_request instead.
 	async fn deliver_message(
 		sync_service: &sd_core::service::sync::SyncService,
 		_sender: Uuid,
@@ -353,8 +427,91 @@ impl MockTransport {
 					.on_shared_change_received(entry)
 					.await?;
 			}
-			_ => {
-				// Other message types handled differently
+			SyncMessage::AckSharedChanges {
+				library_id: _,
+				from_device,
+				up_to_hlc,
+			} => {
+				sync_service
+					.peer_sync()
+					.on_ack_received(from_device, up_to_hlc)
+					.await?;
+			}
+			SyncMessage::StateResponse { .. } => {
+				sync_service
+					.backfill_manager()
+					.deliver_state_response(message)
+					.await?;
+			}
+			SyncMessage::SharedChangeResponse { .. } => {
+				sync_service
+					.backfill_manager()
+					.deliver_shared_response(message)
+					.await?;
+			}
+			// Request messages should go through send_sync_request, not deliver_message
+			SyncMessage::StateRequest { .. }
+			| SyncMessage::SharedChangeRequest { .. }
+			| SyncMessage::WatermarkExchangeRequest { .. } => {
+				tracing::warn!(
+					"Request message delivered via deliver_message instead of send_sync_request"
+				);
+			}
+			SyncMessage::WatermarkExchangeResponse {
+				library_id: _,
+				device_id: peer_device_id,
+				state_watermark: peer_state_watermark,
+				shared_watermark: peer_shared_watermark,
+				needs_state_catchup,
+				needs_shared_catchup,
+			} => {
+				sync_service
+					.peer_sync()
+					.on_watermark_exchange_response(
+						peer_device_id,
+						peer_state_watermark,
+						peer_shared_watermark,
+						needs_state_catchup,
+						needs_shared_catchup,
+					)
+					.await?;
+			}
+			SyncMessage::StateBatch {
+				model_type,
+				device_id,
+				records,
+				..
+			} => {
+				// Process batch of state changes
+				for record in records {
+					use sd_core::service::sync::state::StateChangeMessage;
+					let change = StateChangeMessage {
+						model_type: model_type.clone(),
+						record_uuid: record.uuid,
+						device_id,
+						data: record.data,
+						timestamp: record.timestamp,
+					};
+					sync_service
+						.peer_sync()
+						.on_state_change_received(change)
+						.await?;
+				}
+			}
+			SyncMessage::SharedChangeBatch { entries, .. } => {
+				// Process batch of shared changes
+				for entry in entries {
+					sync_service
+						.peer_sync()
+						.on_shared_change_received(entry)
+						.await?;
+				}
+			}
+			SyncMessage::Heartbeat { .. } => {
+				// Heartbeat - no action needed in mock
+			}
+			SyncMessage::Error { message, .. } => {
+				tracing::warn!(error = %message, "Sync error received");
 			}
 		}
 		Ok(())

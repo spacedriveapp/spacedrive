@@ -464,6 +464,21 @@ pub async fn get_table_name(model_type: &str) -> Option<&'static str> {
 		.map(|reg| reg.table_name)
 }
 
+/// Get model type for a table name (reverse lookup)
+///
+/// This is the inverse of `get_table_name()`. Used by FK mapper to convert
+/// table names (from FKMapping declarations) to model types (for registry lookup).
+pub fn get_model_type_by_table(table: &str) -> Option<&'static str> {
+	if let Ok(registry) = SYNCABLE_REGISTRY.try_read() {
+		for reg in registry.values() {
+			if reg.table_name == table {
+				return Some(reg.model_type);
+			}
+		}
+	}
+	None
+}
+
 /// Check if model is device-owned
 pub async fn is_device_owned(model_type: &str) -> bool {
 	SYNCABLE_REGISTRY

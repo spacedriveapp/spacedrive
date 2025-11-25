@@ -120,6 +120,10 @@ impl Syncable for Model {
 		Ok(sync_results)
 	}
 
+	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
+		vec![]
+	}
+
 	async fn apply_shared_change(
 		entry: SharedChangeEntry,
 		db: &DatabaseConnection,
@@ -321,3 +325,6 @@ impl Syncable for Model {
 		Ok(())
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_shared!(Model, "video_media_data", "video_media_data");

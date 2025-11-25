@@ -13,11 +13,15 @@
 //! ## The Solution
 //!
 //! Sync protocol uses UUIDs exclusively. This module provides:
-//! 1. `to_sync_json()` - Converts local integer FKs → UUIDs before sending
-//! 2. `map_uuids_to_local_ids()` - Converts UUIDs → local integer FKs on receive
+//! 1. `convert_fk_to_uuid()` - Converts local integer FKs → UUIDs before sending
+//! 2. `map_sync_json_to_local()` - Converts UUIDs → local integer FKs on receive
 //!
-//! FK lookups are resolved via the Syncable trait implementations registered in the registry.
-//! No model-specific code exists in this module - all lookups go through the registry.
+//! ## Fully Polymorphic Design
+//!
+//! This module contains ZERO model-specific code. All lookups go through the registry:
+//! - Table names are mapped to model types via `registry::get_model_type_by_table()`
+//! - FK lookups use the registered `Syncable` trait implementations
+//! - New models are automatically supported when registered via `register_syncable!` macros
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -116,31 +120,14 @@ async fn lookup_uuid_for_local_id(
 	local_id: i32,
 	db: &DatabaseConnection,
 ) -> Result<Uuid> {
-	// Map table name to model type (registry uses model names, not table names)
-	let model_type = table_to_model_type(table);
+	// Map table name to model type via registry (fully polymorphic)
+	let model_type = super::registry::get_model_type_by_table(table)
+		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
 
 	super::registry::lookup_uuid_by_id(model_type, local_id, Arc::new(db.clone()))
 		.await
 		.map_err(|e| anyhow!("FK lookup failed for {}: {}", table, e))?
 		.ok_or_else(|| anyhow!("{} with id={} not found", table, local_id))
-}
-
-/// Map table name to model type for registry lookup
-fn table_to_model_type(table: &str) -> &str {
-	match table {
-		"devices" => "device",
-		"entries" => "entry",
-		"locations" => "location",
-		"volumes" => "volume",
-		"user_metadata" => "user_metadata",
-		"content_identities" => "content_identity",
-		"collection" => "collection",
-		"tag" => "tag",
-		"spaces" => "space",
-		"space_groups" => "space_group",
-		"space_items" => "space_item",
-		_ => table, // fallback: assume table name == model type
-	}
 }
 
 /// Batch look up UUIDs for multiple local integer IDs via the registry
@@ -156,7 +143,8 @@ pub async fn batch_lookup_uuids_for_local_ids(
 		return Ok(HashMap::new());
 	}
 
-	let model_type = table_to_model_type(table);
+	let model_type = super::registry::get_model_type_by_table(table)
+		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
 
 	super::registry::batch_lookup_uuids_by_ids(model_type, local_ids, Arc::new(db.clone()))
 		.await
@@ -351,7 +339,8 @@ pub async fn batch_map_sync_json_to_local(
 
 /// Look up local integer ID for a UUID via the registry
 async fn lookup_local_id_for_uuid(table: &str, uuid: Uuid, db: &DatabaseConnection) -> Result<i32> {
-	let model_type = table_to_model_type(table);
+	let model_type = super::registry::get_model_type_by_table(table)
+		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
 
 	super::registry::lookup_id_by_uuid(model_type, uuid, Arc::new(db.clone()))
 		.await
@@ -372,7 +361,8 @@ pub async fn batch_lookup_local_ids_for_uuids(
 		return Ok(HashMap::new());
 	}
 
-	let model_type = table_to_model_type(table);
+	let model_type = super::registry::get_model_type_by_table(table)
+		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
 
 	super::registry::batch_lookup_ids_by_uuids(model_type, uuids, Arc::new(db.clone()))
 		.await
