@@ -180,7 +180,8 @@ pub async fn register_shared(
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 	use crate::infra::db::entities::{
 		audit_log, collection, collection_entry, content_identity, device, entry, location, sidecar,
-		tag, tag_relationship, user_metadata, user_metadata_tag, volume,
+		space, space_group, space_item, tag, tag_relationship, user_metadata, user_metadata_tag,
+		volume,
 	};
 
 	let mut registry = HashMap::new();
@@ -472,6 +473,83 @@ fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
 					.await
 				})
 			},
+		),
+	);
+
+	// Space models (device-owned)
+	registry.insert(
+		"space".to_string(),
+		SyncableModelRegistration::device_owned(
+			"space",
+			"spaces",
+			|data, db| {
+				Box::pin(async move { space::Model::apply_state_change(data, db.as_ref()).await })
+			},
+			|device_id, since, cursor, batch_size, db| {
+				Box::pin(async move {
+					space::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
+						.await
+				})
+			},
+			Some(|uuid, db| {
+				Box::pin(async move { space::Model::apply_deletion(uuid, db.as_ref()).await })
+			}),
+		),
+	);
+
+	registry.insert(
+		"space_group".to_string(),
+		SyncableModelRegistration::device_owned(
+			"space_group",
+			"space_groups",
+			|data, db| {
+				Box::pin(async move {
+					space_group::Model::apply_state_change(data, db.as_ref()).await
+				})
+			},
+			|device_id, since, cursor, batch_size, db| {
+				Box::pin(async move {
+					space_group::Model::query_for_sync(
+						device_id,
+						since,
+						cursor,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+			Some(|uuid, db| {
+				Box::pin(async move { space_group::Model::apply_deletion(uuid, db.as_ref()).await })
+			}),
+		),
+	);
+
+	registry.insert(
+		"space_item".to_string(),
+		SyncableModelRegistration::device_owned(
+			"space_item",
+			"space_items",
+			|data, db| {
+				Box::pin(async move {
+					space_item::Model::apply_state_change(data, db.as_ref()).await
+				})
+			},
+			|device_id, since, cursor, batch_size, db| {
+				Box::pin(async move {
+					space_item::Model::query_for_sync(
+						device_id,
+						since,
+						cursor,
+						batch_size,
+						db.as_ref(),
+					)
+					.await
+				})
+			},
+			Some(|uuid, db| {
+				Box::pin(async move { space_item::Model::apply_deletion(uuid, db.as_ref()).await })
+			}),
 		),
 	);
 
