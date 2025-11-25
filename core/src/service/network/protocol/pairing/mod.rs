@@ -198,8 +198,8 @@ impl PairingProtocolHandler {
 	/// Start a new pairing session as initiator
 	/// Returns the session ID which should be advertised via DHT by the caller
 	pub async fn start_pairing_session(&self) -> Result<Uuid> {
-		let session_id = Uuid::new_v4();
-		let pairing_code = PairingCode::from_session_id(session_id);
+		let pairing_code = PairingCode::generate()?;
+		let session_id = pairing_code.session_id();
 		self.start_pairing_session_with_id(session_id, pairing_code)
 			.await?;
 		Ok(session_id)

@@ -10,7 +10,7 @@ use crate::service::network::{
 	device::{DeviceInfo, SessionKeys},
 	NetworkingError, Result,
 };
-use iroh::NodeId;
+use iroh::{NodeId, Watcher};
 use uuid::Uuid;
 
 impl PairingProtocolHandler {
@@ -229,11 +229,18 @@ impl PairingProtocolHandler {
 				.ok();
 		}
 
+		// Get relay URL from endpoint for caching (enables reconnection via relay)
+		let relay_url = self
+			.endpoint
+			.as_ref()
+			.and_then(|ep| ep.home_relay().get().into_iter().next())
+			.map(|r| r.to_string());
+
 		// Complete pairing in device registry
 		{
 			let mut registry = self.device_registry.write().await;
 			registry
-				.complete_pairing(actual_device_id, device_info.clone(), session_keys)
+				.complete_pairing(actual_device_id, device_info.clone(), session_keys, relay_url)
 				.await?;
 		}
 

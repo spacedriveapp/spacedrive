@@ -161,6 +161,7 @@ impl DeviceRegistry {
 		device_id: Uuid,
 		info: DeviceInfo,
 		session_keys: SessionKeys,
+		relay_url: Option<String>,
 	) -> Result<()> {
 		// Parse node ID from network fingerprint
 		let node_id = info
@@ -208,10 +209,10 @@ impl DeviceRegistry {
 				.await;
 		}
 
-		// Persist the paired device for future reconnection
+		// Persist the paired device for future reconnection (with relay_url for optimization)
 		if let Err(e) = self
 			.persistence
-			.add_paired_device(device_id, info.clone(), session_keys.clone())
+			.add_paired_device(device_id, info.clone(), session_keys.clone(), relay_url)
 			.await
 		{
 			self.logger

@@ -24,11 +24,8 @@ pub struct PairingCode {
 	/// Expiration timestamp
 	expires_at: DateTime<Utc>,
 
-	/// Initiator's NodeId for relay discovery (optional for backward compatibility)
+	/// Initiator's NodeId for remote discovery via pkarr (optional - enables relay path)
 	node_id: Option<NodeId>,
-
-	/// Initiator's home relay URL for cross-network pairing (optional for backward compatibility)
-	relay_url: Option<String>,
 }
 
 impl PairingCode {
@@ -51,44 +48,13 @@ impl PairingCode {
 			session_id,
 			expires_at: Utc::now() + chrono::Duration::minutes(5),
 			node_id: None,
-			relay_url: None,
 		})
 	}
 
-	/// Generate a pairing code from a session ID
-	pub fn from_session_id(session_id: Uuid) -> Self {
-		// Use the session ID as the BIP39 entropy source (16 bytes)
-		let entropy = session_id.as_bytes();
-
-		// Expand entropy to full 32-byte secret deterministically
-		// This matches the logic in decode_from_bip39_words to ensure round-trip compatibility
-		let mut hasher = blake3::Hasher::new();
-		hasher.update(b"spacedrive-pairing-entropy-extension-v1");
-		hasher.update(entropy);
-		let derived_bytes = hasher.finalize();
-
-		let mut secret = [0u8; 32];
-		secret[..16].copy_from_slice(entropy);
-		secret[16..].copy_from_slice(&derived_bytes.as_bytes()[..16]);
-
-		// Generate BIP39 words from the entropy (first 16 bytes only, as per BIP39 standard)
-		let words = Self::encode_to_bip39_words(&secret).unwrap_or_else(|_| {
-			// Fallback to empty words if BIP39 fails
-			[const { String::new() }; 12]
-		});
-
-		// Derive session ID from the secret to ensure consistency with parsing
-		// both encode and decode paths must derive the same session_id
-		let derived_session_id = Self::derive_session_id(&secret);
-
-		Self {
-			secret,
-			words,
-			session_id: derived_session_id,
-			expires_at: Utc::now() + chrono::Duration::minutes(5),
-			node_id: None,
-			relay_url: None,
-		}
+	/// Add node_id for remote pairing via pkarr discovery
+	pub fn with_node_id(mut self, node_id: NodeId) -> Self {
+		self.node_id = Some(node_id);
+		self
 	}
 
 	/// Parse a pairing code from a BIP39 mnemonic string (for local pairing)
@@ -124,6 +90,7 @@ impl PairingCode {
 	}
 
 	/// Parse a pairing code from QR code JSON (for remote pairing)
+	/// Version 2 format: {version, words, node_id} - session_id is derived from words
 	pub fn from_qr_json(json: &str) -> crate::service::network::Result<Self> {
 		let data: serde_json::Value = serde_json::from_str(json).map_err(|e| {
 			crate::service::network::NetworkingError::Protocol(format!(
@@ -132,89 +99,28 @@ impl PairingCode {
 			))
 		})?;
 
-		// Extract session_id
-		let session_id = data
-			.get("session_id")
-			.and_then(|v| v.as_str())
-			.ok_or_else(|| {
-				crate::service::network::NetworkingError::Protocol(
-					"Missing session_id in QR code".to_string(),
-				)
-			})?
-			.parse::<uuid::Uuid>()
-			.map_err(|e| {
-				crate::service::network::NetworkingError::Protocol(format!(
-					"Invalid session_id in QR code: {}",
-					e
-				))
-			})?;
-
-		// Extract node_id
-		let node_id = data
-			.get("node_id")
-			.and_then(|v| v.as_str())
-			.map(|s| s.parse::<NodeId>())
-			.transpose()
-			.map_err(|e| {
-				crate::service::network::NetworkingError::Protocol(format!(
-					"Invalid node_id in QR code: {}",
-					e
-				))
-			})?;
-
-		// Extract relay_url
-		let relay_url = data
-			.get("relay_url")
-			.and_then(|v| v.as_str())
-			.map(|s| s.to_string());
-
-		// Extract words (BIP39 mnemonic)
+		// Extract words (BIP39 mnemonic) - required
 		let words_str = data.get("words").and_then(|v| v.as_str()).ok_or_else(|| {
 			crate::service::network::NetworkingError::Protocol(
 				"Missing words in QR code".to_string(),
 			)
 		})?;
 
-		// Parse the BIP39 words to get the secret
-		let words: Vec<String> = words_str
-			.split_whitespace()
-			.map(|s| s.to_lowercase())
-			.collect();
+		// Parse words to get the base pairing code (session_id is derived from words)
+		let mut code = Self::from_string(words_str)?;
 
-		if words.len() != 12 {
-			return Err(crate::service::network::NetworkingError::Protocol(format!(
-				"Invalid word count in QR code - expected 12 but got {}",
-				words.len()
-			)));
+		// Extract node_id (optional - enables remote pairing via pkarr)
+		if let Some(node_id_str) = data.get("node_id").and_then(|v| v.as_str()) {
+			let node_id = node_id_str.parse::<NodeId>().map_err(|e| {
+				crate::service::network::NetworkingError::Protocol(format!(
+					"Invalid node_id in QR code: {}",
+					e
+				))
+			})?;
+			code.node_id = Some(node_id);
 		}
 
-		let words_array: [String; 12] = words.try_into().map_err(|_| {
-			crate::service::network::NetworkingError::Protocol(
-				"Failed to convert words to array".to_string(),
-			)
-		})?;
-
-		// Decode BIP39 words to get secret
-		let secret = Self::decode_from_bip39_words(&words_array)?;
-
-		// Use the session_id directly from the QR code (don't re-derive it)
-		// This is critical for cross-network pairing where the initiator and joiner
-		// must use the exact same session_id
-		// node_id is required for QR code relay pairing
-		let node_id = node_id.ok_or_else(|| {
-			crate::service::network::NetworkingError::Protocol(
-				"Missing node_id in QR code".to_string(),
-			)
-		})?;
-
-		Ok(PairingCode {
-			secret,
-			words: words_array,
-			session_id, // Use the session_id from the QR code
-			expires_at: Utc::now() + chrono::Duration::minutes(5),
-			node_id: Some(node_id),
-			relay_url,
-		})
+		Ok(code)
 	}
 
 	/// Create pairing code from BIP39 words
@@ -222,7 +128,7 @@ impl PairingCode {
 		// Decode BIP39 words back to secret
 		let secret = Self::decode_from_bip39_words(words)?;
 
-		// Derive session ID from the secret using the same method as from_session_id()
+		// Derive session ID from the secret
 		// This ensures both the initiator and joiner get the same session_id
 		let session_id = Self::derive_session_id(&secret);
 
@@ -232,74 +138,7 @@ impl PairingCode {
 			session_id,
 			expires_at: Utc::now() + chrono::Duration::minutes(5),
 			node_id: None,
-			relay_url: None,
 		})
-	}
-
-	/// Create a new pairing code with relay information for cross-network pairing
-	pub fn generate_with_relay_info(
-		node_id: NodeId,
-		relay_url: Option<String>,
-	) -> crate::service::network::Result<Self> {
-		use rand::RngCore;
-
-		let mut secret = [0u8; 32];
-		rand::thread_rng().fill_bytes(&mut secret);
-
-		// Convert secret to 12 BIP39 words using proper mnemonic encoding
-		let words = Self::encode_to_bip39_words(&secret)?;
-
-		// Derive session ID from secret
-		let session_id = Self::derive_session_id(&secret);
-
-		Ok(PairingCode {
-			secret,
-			words,
-			session_id,
-			expires_at: Utc::now() + chrono::Duration::minutes(5),
-			node_id: Some(node_id),
-			relay_url,
-		})
-	}
-
-	/// Create a pairing code from session ID with relay information
-	pub fn from_session_id_with_relay_info(
-		session_id: Uuid,
-		node_id: NodeId,
-		relay_url: Option<String>,
-	) -> Self {
-		// Use the session ID as the BIP39 entropy source (16 bytes)
-		let entropy = session_id.as_bytes();
-
-		// Expand entropy to full 32-byte secret deterministically
-		// This matches the logic in decode_from_bip39_words to ensure round-trip compatibility
-		let mut hasher = blake3::Hasher::new();
-		hasher.update(b"spacedrive-pairing-entropy-extension-v1");
-		hasher.update(entropy);
-		let derived_bytes = hasher.finalize();
-
-		let mut secret = [0u8; 32];
-		secret[..16].copy_from_slice(entropy);
-		secret[16..].copy_from_slice(&derived_bytes.as_bytes()[..16]);
-
-		// Generate BIP39 words from the entropy (first 16 bytes only, as per BIP39 standard)
-		let words = Self::encode_to_bip39_words(&secret).unwrap_or_else(|_| {
-			// Fallback to empty words if BIP39 fails
-			[const { String::new() }; 12]
-		});
-
-		// Derive session ID from the secret to ensure consistency with parsing
-		// both encode and decode paths must derive the same session_id
-		let derived_session_id = Self::derive_session_id(&secret);
-
-		Self {
-			secret,
-			words,
-			session_id: derived_session_id,
-			expires_at: Utc::now() + chrono::Duration::minutes(5),
-			node_id: Some(node_id),
-			relay_url,
-		}
 	}
 
 	/// Get the session ID from this pairing code
@@ -312,14 +151,9 @@ impl PairingCode {
 		&self.secret
 	}
 
-	/// Get the initiator's NodeId for relay discovery
+	/// Get the initiator's NodeId for pkarr discovery
 	pub fn node_id(&self) -> Option<NodeId> {
 		self.node_id
-	}
-
-	/// Get the initiator's home relay URL for cross-network pairing
-	pub fn relay_url(&self) -> Option<&str> {
-		self.relay_url.as_deref()
 	}
 
 	/// Convert to display string (for local pairing - BIP39 words only)
@@ -327,14 +161,13 @@ impl PairingCode {
 		self.words.join(" ")
 	}
 
-	/// Convert to QR code JSON (for remote pairing - includes all metadata)
+	/// Convert to QR code JSON (for remote pairing)
+	/// Version 2: {version, words, node_id} - session_id derived from words, relay discovered via pkarr
 	pub fn to_qr_json(&self) -> String {
 		serde_json::json!({
-			"version": 1,
-			"session_id": self.session_id,
+			"version": 2,
 			"words": self.to_string(),
 			"node_id": self.node_id.map(|id| id.to_string()),
-			"relay_url": self.relay_url
 		})
 		.to_string()
 	}

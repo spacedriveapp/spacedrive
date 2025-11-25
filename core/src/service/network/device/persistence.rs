@@ -25,6 +25,9 @@ pub struct PersistedPairedDevice {
 	pub last_connected_at: Option<DateTime<Utc>>,
 	pub connection_attempts: u32,
 	pub trust_level: TrustLevel,
+	/// Cached relay URL for reconnection optimization (discovered via pkarr or connection)
+	#[serde(default)]
+	pub relay_url: Option<String>,
 }
 
 /// Encrypted device data for disk storage
@@ -259,6 +262,7 @@ impl DevicePersistence {
 		device_id: Uuid,
 		device_info: DeviceInfo,
 		session_keys: SessionKeys,
+		relay_url: Option<String>,
 	) -> Result<()> {
 		let mut devices = self.load_paired_devices().await?;
 
@@ -269,6 +273,7 @@ impl DevicePersistence {
 			last_connected_at: None,
 			connection_attempts: 0,
 			trust_level: TrustLevel::Trusted,
+			relay_url,
 		};
 
 		devices.insert(device_id, paired_device);
@@ -436,7 +441,7 @@ mod tests {
 
 		// Add paired device
 		persistence
-			.add_paired_device(device_id, device_info.clone(), session_keys.clone())
+			.add_paired_device(device_id, device_info.clone(), session_keys.clone(), None)
 			.await
 			.unwrap();
 
@@ -460,7 +465,7 @@ mod tests {
 		let session_keys = SessionKeys::from_shared_secret(vec![1, 2, 3, 4]);
 
 		persistence
-			.add_paired_device(device_id, device_info, session_keys)
+			.add_paired_device(device_id, device_info, session_keys, None)
 			.await
 			.unwrap();
 
@@ -478,7 +483,7 @@ mod tests {
 		let session_keys = SessionKeys::from_shared_secret(vec![1, 2, 3, 4]);
 
 		persistence
-			.add_paired_device(device_id, device_info, session_keys)
+			.add_paired_device(device_id, device_info, session_keys, None)
 			.await
 			.unwrap();
 
@@ -503,7 +508,7 @@ mod tests {
 
 		// Add device (this will encrypt and save)
 		persistence
-			.add_paired_device(device_id, device_info.clone(), session_keys.clone())
+			.add_paired_device(device_id, device_info.clone(), session_keys.clone(), None)
 			.await
 			.unwrap();
 
@@ -531,7 +536,7 @@ mod tests {
 
 		// Add device
 		persistence
-			.add_paired_device(device_id, device_info, session_keys)
+			.add_paired_device(device_id, device_info, session_keys, None)
 			.await
 			.unwrap();
 

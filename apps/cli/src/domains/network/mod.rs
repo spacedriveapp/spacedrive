@@ -100,7 +100,7 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 					println!("Expires at: {}", o.expires_at);
 				});
 			}
-			PairCmd::Join { ref code, ref relay_url, ref node_id, ref session_id } => {
+			PairCmd::Join { ref code, ref node_id } => {
 				// Check if we should run interactive mode
 				let input = if let Some(input) = pc.to_join_input() {
 					// Non-interactive: code and possibly flags were provided

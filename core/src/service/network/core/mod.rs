@@ -9,7 +9,9 @@ use crate::service::network::{
 	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
-use iroh::discovery::{mdns::MdnsDiscovery, Discovery};
+use iroh::discovery::{
+	dns::DnsDiscovery, mdns::MdnsDiscovery, pkarr::PkarrPublisher, Discovery,
+};
 use iroh::endpoint::Connection;
 use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, RelayUrl, Watcher};
 use std::sync::Arc;
@@ -175,17 +177,17 @@ impl NetworkingService {
 		// Create Iroh endpoint with discovery and relay configuration
 		let secret_key = self.identity.to_iroh_secret_key()?;
 
-		// Create discovery service - using mDNS discovery
-		let discovery = MdnsDiscovery::builder();
-
 		self.logger
 			.info(&format!(
-				"Created MdnsDiscovery builder for node {}",
+				"Creating endpoint with mDNS + pkarr discovery for node {}",
 				self.node_id
 			))
 			.await;
 
-		// Create endpoint with discovery
+		// Create endpoint with combined discovery:
+		// - mDNS for local network discovery
+		// - PkarrPublisher to publish our address to dns.iroh.link (enables remote discovery)
+		// - DnsDiscovery to resolve other nodes from dns.iroh.link
 		let endpoint = Endpoint::builder()
 			.secret_key(secret_key)
 			.alpns(vec![
@@ -195,7 +197,9 @@ impl NetworkingService {
 				SYNC_ALPN.to_vec(),
 			])
 			.relay_mode(iroh::RelayMode::Default)
-			.add_discovery(discovery)
+			.add_discovery(MdnsDiscovery::builder())
+			.add_discovery(PkarrPublisher::n0_dns())
+			.add_discovery(DnsDiscovery::n0_dns())
 			.bind_addr_v4(std::net::SocketAddrV4::new(
 				std::net::Ipv4Addr::UNSPECIFIED,
 				0,
@@ -214,7 +218,7 @@ impl NetworkingService {
 		self.endpoint = Some(endpoint.clone());
 
 		self.logger
-			.info("Endpoint bound successfully with mDNS discovery enabled")
+			.info("Endpoint bound successfully with mDNS + pkarr discovery enabled")
 			.await;
 
 		// Create and start event loop
@@ -1098,22 +1102,19 @@ impl NetworkingService {
 		))
 	}
 
-	/// Try to discover the initiator via relay (works across networks)
+	/// Try to discover the initiator via pkarr/DNS (works across networks)
+	/// Pkarr discovery automatically resolves node_id to relay_url and direct addresses
 	async fn try_relay_discovery(
 		&self,
 		pairing_code: &crate::service::network::protocol::pairing::PairingCode,
 	) -> Result<()> {
-		// Get the NodeId from the pairing code (should always be present in new implementation)
+		// Get the NodeId from the pairing code
 		let node_id = pairing_code.node_id().ok_or_else(|| {
 			NetworkingError::ConnectionFailed(
-				"Pairing code missing NodeId - this indicates a bug in the new implementation"
+				"Pairing code missing NodeId - cannot use pkarr discovery for remote pairing"
 					.to_string(),
 			)
 		})?;
-
-		let relay_url = pairing_code
-			.relay_url()
-			.map(|url| url.parse::<iroh::RelayUrl>());
 
 		let endpoint = self
 			.endpoint
@@ -1124,69 +1125,39 @@ impl NetworkingService {
 
 		self.logger
 			.info(&format!(
-				"[Relay] Attempting to connect to initiator {} via relay",
+				"[Pkarr] Attempting to discover and connect to initiator {} via pkarr/DNS",
 				node_id.fmt_short()
 			))
 			.await;
 
-		// Build NodeAddr with relay information
-		let relay_url_parsed = if let Some(relay_url) = relay_url {
-			match relay_url {
-				Ok(url) => {
-					self.logger
-						.debug(&format!("[Relay] Using relay URL: {}", url))
-						.await;
-					Some(url)
-				}
-				Err(e) => {
-					self.logger
-						.warn(&format!("[Relay] Failed to parse relay URL: {}", e))
-						.await;
-					None
-				}
-			}
-		} else {
-			self.logger
-				.warn("[Relay] No relay URL in pairing code, using default relay")
-				.await;
-			None
-		};
+		// Just provide the node_id - pkarr discovery will automatically:
+		// 1. Query dns.iroh.link/pkarr for the node's published address info
+		// 2. Get the relay_url and any direct addresses
+		// 3. Try to connect via the best available path
+		let node_addr = NodeAddr::new(node_id);
 
-		let node_addr = iroh::NodeAddr::from_parts(
-			node_id,
-			relay_url_parsed,
-			vec![], // No direct addresses initially, will use relay
-		);
-
-		// Try to connect via relay
-		let timeout = tokio::time::Duration::from_secs(10); // Longer timeout for relay
-		match tokio::time::timeout(timeout, endpoint.connect(node_addr.clone(), PAIRING_ALPN)).await
-		{
+		// Try to connect - pkarr discovery runs in the background
+		let timeout = tokio::time::Duration::from_secs(15);
+		match tokio::time::timeout(timeout, endpoint.connect(node_addr, PAIRING_ALPN)).await {
 			Ok(Ok(conn)) => {
 				self.logger
-					.info("[Relay] Successfully connected to initiator via relay!")
+					.info("[Pkarr] Successfully connected to initiator!")
 					.await;
 
-				// Track the connection so it stays alive for the pairing protocol (with PAIRING_ALPN)
+				// Track the connection for the pairing protocol
 				{
 					let mut connections = self.active_connections.write().await;
 					connections.insert((node_id, PAIRING_ALPN.to_vec()), conn);
-					self.logger
-						.info(&format!(
-							"[Relay] Tracked relay pairing connection to {}",
-							node_id.fmt_short()
-						))
-						.await;
 				}
 
 				Ok(())
 			}
 			Ok(Err(e)) => Err(NetworkingError::ConnectionFailed(format!(
-				"Failed to connect via relay: {}",
+				"Failed to connect via pkarr discovery: {}",
 				e
 			))),
 			Err(_timeout) => Err(NetworkingError::ConnectionFailed(
-				"Relay connection timeout".to_string(),
+				"Pkarr discovery connection timeout".to_string(),
 			)),
 		}
 	}
@@ -1215,29 +1186,15 @@ impl NetworkingService {
 				"Invalid pairing handler type".to_string(),
 			))?;
 
-		// Get our node information for relay discovery
+		// Get our node ID for inclusion in QR code (enables pkarr lookup for remote pairing)
 		let initiator_node_id = self.node_id();
 
-		// Get our relay URL from the endpoint (wait for relay to connect)
-		let relay_url = if let Some(endpoint) = &self.endpoint {
-			// Wait for relay to initialize (this is critical!)
-			let relay = endpoint.home_relay().initialized().await;
-			Some(relay.to_string())
-		} else {
-			None
-		};
-
-		// Generate pairing code with relay information for cross-network pairing
-		let random_seed = uuid::Uuid::new_v4();
+		// Generate pairing code with node_id for remote discovery via pkarr
+		// Note: relay_url is no longer included - joiner discovers it via pkarr/DNS
 		let pairing_code =
-			crate::service::network::protocol::pairing::PairingCode::from_session_id_with_relay_info(
-				random_seed,
-				initiator_node_id,
-				relay_url,
-			);
+			crate::service::network::protocol::pairing::PairingCode::generate()?
+				.with_node_id(initiator_node_id);
 
-		// The session_id derived from the pairing code
-		// This ensures both initiator and joiner derive the same session_id from the BIP39 words
 		let session_id = pairing_code.session_id();
 
 		// Start pairing session with the derived session_id
@@ -1245,154 +1202,44 @@ impl NetworkingService {
 			.start_pairing_session_with_id(session_id, pairing_code.clone())
 			.await?;
 
-		// Get our node address first (needed for device registry)
-		let mut node_addr = self.get_node_addr()?;
-
-		// If we don't have any direct addresses yet, wait a bit for them to be discovered
-		if let Some(addr) = &node_addr {
-			if addr.direct_addresses().count() == 0 {
-				self.logger
-					.info("No direct addresses discovered yet, waiting for endpoint to discover addresses...")
-					.await;
-
-				// Wait up to 5 seconds for addresses to be discovered
-				let mut attempts = 0;
-				const MAX_ATTEMPTS: u32 = 10;
-				const WAIT_TIME_MS: u64 = 500;
-
-				while attempts < MAX_ATTEMPTS {
-					tokio::time::sleep(tokio::time::Duration::from_millis(WAIT_TIME_MS)).await;
-					node_addr = self.get_node_addr()?;
-
-					if let Some(addr) = &node_addr {
-						if addr.direct_addresses().count() > 0 {
-							self.logger
-								.info(&format!(
-									"Discovered {} direct addresses",
-									addr.direct_addresses().count()
-								))
-								.await;
-							break;
-						}
-					}
-
-					attempts += 1;
-				}
-			}
-		}
-
-		if node_addr
-			.as_ref()
-			.map_or(true, |addr| addr.direct_addresses().count() == 0)
-		{
-			self.logger
-				.warn("No direct addresses discovered after waiting, proceeding with relay-only address")
-				.await;
-		}
-
-		self.logger
-			.info(&format!("Node address: {:?}", node_addr))
-			.await;
-		self.logger
-			.info(&format!(
-				"Direct addresses: {:?}",
-				node_addr
-					.as_ref()
-					.map(|addr| addr.direct_addresses().collect::<Vec<_>>())
-					.unwrap_or_default()
-			))
-			.await;
-		self.logger
-			.info(&format!(
-				"Relay URL: {:?}",
-				node_addr.as_ref().and_then(|addr| addr.relay_url())
-			))
-			.await;
-
-		// Register in device registry with the node address
+		// Register in device registry
 		let initiator_device_id = self.device_id();
-		let initiator_node_id = self.node_id();
+		let node_addr = self
+			.get_node_addr()?
+			.unwrap_or(NodeAddr::new(initiator_node_id));
 		let device_registry = self.device_registry();
 		{
 			let mut registry = device_registry.write().await;
-			// Use node_addr or create an empty one if not available
-			let addr_for_registry = node_addr
-				.clone()
-				.unwrap_or(NodeAddr::new(initiator_node_id));
 			registry.start_pairing(
 				initiator_device_id,
 				initiator_node_id,
 				session_id,
-				addr_for_registry,
+				node_addr,
 			)?;
 		}
 
 		// Publish pairing session via mDNS using user_data field
 		// The joiner will filter discovered nodes by this session_id
-		if let Some(endpoint) = &self.endpoint {
-			let user_data =
-				iroh::node_info::UserData::try_from(session_id.to_string()).map_err(|e| {
-					NetworkingError::Protocol(format!("Failed to create user data: {}", e))
-				})?;
+		let endpoint = self.endpoint.as_ref().ok_or(NetworkingError::Protocol(
+			"Networking not started".to_string(),
+		))?;
 
-			self.logger
-				.debug(&format!(
-					"Setting user_data for discovery: {}",
-					user_data.as_ref()
-				))
-				.await;
+		let user_data =
+			iroh::node_info::UserData::try_from(session_id.to_string()).map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to create user data: {}", e))
+			})?;
 
-			// Get current user_data before setting to verify the change
-			let current_node_data = endpoint.node_addr().get();
-			self.logger
-				.debug(&format!(
-					"Current node user_data before set: {:?}",
-					current_node_data.as_ref().and_then(|addr| {
-						// NodeAddr doesn't expose user_data, so we can't check it here
-						Some("(NodeAddr doesn't expose user_data)")
-					})
-				))
-				.await;
+		endpoint.set_user_data_for_discovery(Some(user_data));
 
-			endpoint.set_user_data_for_discovery(Some(user_data.clone()));
+		self.logger
+			.info(&format!(
+				"Broadcasting pairing session {} via mDNS + pkarr",
+				session_id
+			))
+			.await;
 
-			self.logger
-				.debug(&format!(
-					"Called endpoint.set_user_data_for_discovery with: {}",
-					user_data.as_ref()
-				))
-				.await;
-
-			self.logger
-				.info(&format!(
-					"Broadcasting pairing session {} via mDNS (set_user_data_for_discovery called)",
-					session_id
-				))
-				.await;
-
-			// Wait for mDNS re-advertisement to propagate
-			// When user_data changes, the endpoint triggers a re-publish to discovery services
-			// This delay ensures the updated broadcast (with session_id) is sent before joiners start listening
-			tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-
-			self.logger
-				.debug("mDNS re-advertisement delay completed, session_id should now be broadcast")
-				.await;
-
-			// Log current node address to verify what's being broadcast
-			if let Some(node_addr) = self.get_node_addr().ok().flatten() {
-				self.logger
-					.debug(&format!(
-						"Broadcasting with {} direct addresses",
-						node_addr.direct_addresses().count()
-					))
-					.await;
-			}
-		} else {
-			return Err(NetworkingError::Protocol(
-				"Networking not started".to_string(),
-			));
-		}
+		// Wait for discovery re-advertisement to propagate
+		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
 		let expires_in = 300; // 5 minutes
 
