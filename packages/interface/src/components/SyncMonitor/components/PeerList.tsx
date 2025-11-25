@@ -1,7 +1,7 @@
 import { Circle, Lightning } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { formatDistanceToNow } from 'date-fns';
 import type { SyncPeerActivity, SyncState } from '../types';
+import { timeAgo } from '../utils';
 
 interface PeerListProps {
 	peers: SyncPeerActivity[];
@@ -59,7 +59,7 @@ function PeerCard({ peer }: { peer: SyncPeerActivity }) {
 				<span>
 					{peer.isOnline
 						? 'Online'
-						: `Last seen ${formatDistanceToNow(new Date(peer.lastSeen), { addSuffix: true })}`}
+						: `Last seen ${timeAgo(peer.lastSeen)}`}
 				</span>
 			</div>
 

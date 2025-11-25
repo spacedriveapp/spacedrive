@@ -20,6 +20,7 @@ import { LocationsSection } from "./components/LocationsSection";
 import { Section } from "./components/Section";
 import { SidebarItem } from "./components/SidebarItem";
 import { JobManagerPopover } from "../JobManager";
+import { SyncMonitorPopover } from "../SyncMonitor";
 
 export function Sidebar() {
   const client = useSpacedriveClient();

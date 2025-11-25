@@ -40,30 +40,73 @@ impl LibraryQuery for GetSyncActivity {
 		let sync_service = library
 			.sync_service()
 			.ok_or_else(|| QueryError::Internal("Sync service not available".to_string()))?;
+
+		// Get actual current state from peer sync (not metrics, which might lag)
+		let current_state = sync_service.peer_sync().state().await;
+
 		let metrics = sync_service.metrics();
 
 		// Create a snapshot of current metrics
 		let snapshot = SyncMetricsSnapshot::from_metrics(metrics.metrics()).await;
 
-		// Transform into activity summary
-		let peers: Vec<PeerActivity> = snapshot
-			.data_volume
-			.entries_by_device
+		// Get paired/connected devices from network layer
+		let network = context.get_networking().await;
+		let (paired_devices, connected_device_ids) = if let Some(net) = network.as_ref() {
+			// Get paired devices (need to keep Arc alive and clone the result)
+			let paired = {
+				let registry_arc = net.device_registry();
+				let registry = registry_arc.read().await;
+				registry.get_paired_devices()
+			};
+
+			// Get connected devices
+			let connected = net.get_connected_devices().await;
+			let connected_ids: std::collections::HashSet<_> = connected.into_iter().map(|d| d.device_id).collect();
+			(paired, connected_ids)
+		} else {
+			(Vec::new(), std::collections::HashSet::new())
+		};
+
+		// Build peer list from paired devices, enriched with metrics data and connection status
+		let peers: Vec<PeerActivity> = paired_devices
 			.into_iter()
-			.map(|(device_id, device_metrics)| PeerActivity {
-				device_id,
-				device_name: device_metrics.device_name,
-				is_online: device_metrics.is_online,
-				last_seen: device_metrics.last_seen,
-				entries_received: device_metrics.entries_received,
-				bytes_received: snapshot.data_volume.bytes_received,
-				bytes_sent: snapshot.data_volume.bytes_sent,
-				watermark_lag_ms: snapshot.performance.watermark_lag_ms.get(&device_id).copied(),
+			.map(|device_info| {
+				// Try to get metrics for this device
+				let device_metrics = snapshot
+					.data_volume
+					.entries_by_device
+					.get(&device_info.device_id);
+
+				// Check if device is actually connected at network level
+				let is_online = connected_device_ids.contains(&device_info.device_id);
+
+				PeerActivity {
+					device_id: device_info.device_id,
+					device_name: device_info.device_name.clone(),
+					is_online,
+					last_seen: device_metrics
+						.map(|m| m.last_seen)
+						.unwrap_or_else(|| chrono::Utc::now()),
+					entries_received: device_metrics
+						.map(|m| m.entries_received)
+						.unwrap_or(0),
+					bytes_received: device_metrics
+						.map(|_| snapshot.data_volume.bytes_received)
+						.unwrap_or(0),
+					bytes_sent: device_metrics
+						.map(|_| snapshot.data_volume.bytes_sent)
+						.unwrap_or(0),
+					watermark_lag_ms: snapshot
+						.performance
+						.watermark_lag_ms
+						.get(&device_info.device_id)
+						.copied(),
+				}
 			})
 			.collect();
 
 		Ok(GetSyncActivityOutput {
-			current_state: snapshot.state.current_state,
+			current_state,
 			peers,
 			error_count: snapshot.errors.total_errors,
 		})

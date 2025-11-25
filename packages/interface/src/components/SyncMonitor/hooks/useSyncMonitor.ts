@@ -34,14 +34,21 @@ export function useSyncMonitor() {
 	useEffect(() => {
 		if (data) {
 			const stateValue = data.currentState;
-			const normalizedState: SyncState =
-				typeof stateValue === 'string'
-					? (stateValue as SyncState)
-					: 'Backfilling' in stateValue
-					? 'Backfilling'
-					: 'CatchingUp' in stateValue
-					? 'CatchingUp'
-					: 'Uninitialized';
+			let normalizedState: SyncState;
+
+			if (typeof stateValue === 'string') {
+				normalizedState = stateValue as SyncState;
+			} else if (typeof stateValue === 'object' && stateValue !== null) {
+				if ('Backfilling' in stateValue) {
+					normalizedState = 'Backfilling';
+				} else if ('CatchingUp' in stateValue) {
+					normalizedState = 'CatchingUp';
+				} else {
+					normalizedState = 'Uninitialized';
+				}
+			} else {
+				normalizedState = 'Uninitialized';
+			}
 
 			setState((prev) => ({
 				...prev,

@@ -767,8 +767,8 @@ pub enum ApplyError {
 /// ```
 pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::DependencyError> {
 	use crate::infra::db::entities::{
-		audit_log, collection, collection_entry, content_identity, device, entry, location, tag,
-		tag_relationship, user_metadata, user_metadata_tag, volume,
+		audit_log, collection, collection_entry, content_identity, device, entry, location, space,
+		space_group, space_item, tag, tag_relationship, user_metadata, user_metadata_tag, volume,
 	};
 
 	// Build iterator of (model_name, dependencies)
@@ -808,6 +808,15 @@ pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::Depende
 		(
 			audit_log::Model::SYNC_MODEL,
 			audit_log::Model::sync_depends_on(),
+		),
+		(space::Model::SYNC_MODEL, space::Model::sync_depends_on()),
+		(
+			space_group::Model::SYNC_MODEL,
+			space_group::Model::sync_depends_on(),
+		),
+		(
+			space_item::Model::SYNC_MODEL,
+			space_item::Model::sync_depends_on(),
 		),
 	];
 

@@ -10,6 +10,7 @@ use crate::service::sync::state::DeviceSyncState;
 
 /// Sync activity summary for the UI
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct GetSyncActivityOutput {
 	pub current_state: DeviceSyncState,
 	pub peers: Vec<PeerActivity>,
@@ -18,6 +19,7 @@ pub struct GetSyncActivityOutput {
 
 /// Per-peer activity information
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct PeerActivity {
 	pub device_id: Uuid,
 	pub device_name: String,

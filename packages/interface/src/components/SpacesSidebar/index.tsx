@@ -11,6 +11,7 @@ import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
 import { JobManagerPopover } from "../JobManager/JobManagerPopover";
+import { SyncMonitorPopover } from "../SyncMonitor";
 import clsx from "clsx";
 
 export function SpacesSidebar() {
@@ -103,8 +104,9 @@ export function SpacesSidebar() {
             {currentSpace && <AddGroupButton spaceId={currentSpace.id} />}
           </div>
 
-          {/* Job Manager & Settings (pinned to bottom) */}
+          {/* Sync Monitor, Job Manager & Settings (pinned to bottom) */}
           <div className="space-y-0.5">
+            <SyncMonitorPopover />
             <JobManagerPopover />
             <button
               onClick={() => navigate("/settings")}

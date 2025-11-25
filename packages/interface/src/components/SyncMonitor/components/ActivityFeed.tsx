@@ -7,8 +7,8 @@ import {
 	Circle,
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { formatDistanceToNow } from 'date-fns';
 import type { SyncActivity } from '../types';
+import { timeAgo } from '../utils';
 
 interface ActivityFeedProps {
 	activities: SyncActivity[];
@@ -81,7 +81,7 @@ function ActivityItem({ activity }: { activity: SyncActivity }) {
 			<div className="flex-1 min-w-0">
 				<p className="text-sm text-ink truncate">{activity.description}</p>
 				<p className="text-xs text-ink-faint">
-					{formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+					{timeAgo(activity.timestamp)}
 				</p>
 			</div>
 		</div>
