@@ -59,7 +59,7 @@ impl Syncable for Model {
 	}
 
 	fn exclude_fields() -> Option<&'static [&'static str]> {
-		Some(&["id", "space_id"])
+		Some(&["id"]) // Don't exclude space_id - needed for FK UUID conversion
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
@@ -105,13 +105,27 @@ impl Syncable for Model {
 
 		let mut sync_results = Vec::new();
 		for group in results {
-			let json = match group.to_sync_json() {
+			let mut json = match group.to_sync_json() {
 				Ok(j) => j,
 				Err(e) => {
 					tracing::error!("Failed to serialize space_group {}: {}", group.uuid, e);
 					continue;
 				}
 			};
+
+			// Convert FK integer IDs to UUIDs
+			for fk in <Model as Syncable>::foreign_key_mappings() {
+				if let Err(e) =
+					crate::infra::sync::fk_mapper::convert_fk_to_uuid(&mut json, &fk, db).await
+				{
+					tracing::warn!(
+						error = %e,
+						uuid = %group.uuid,
+						"Failed to convert FK to UUID for space_group"
+					);
+					continue;
+				}
+			}
 
 			sync_results.push((group.uuid, json, group.created_at));
 		}

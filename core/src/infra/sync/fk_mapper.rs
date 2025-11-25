@@ -198,6 +198,27 @@ async fn lookup_uuid_for_local_id(
 				.ok_or_else(|| anyhow!("Tag with id={} not found", local_id))?;
 			Ok(tag.uuid)
 		}
+		"spaces" => {
+			let space = entities::space::Entity::find_by_id(local_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| anyhow!("Space with id={} not found", local_id))?;
+			Ok(space.uuid)
+		}
+		"space_groups" => {
+			let group = entities::space_group::Entity::find_by_id(local_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| anyhow!("SpaceGroup with id={} not found", local_id))?;
+			Ok(group.uuid)
+		}
+		"space_items" => {
+			let item = entities::space_item::Entity::find_by_id(local_id)
+				.one(db)
+				.await?
+				.ok_or_else(|| anyhow!("SpaceItem with id={} not found", local_id))?;
+			Ok(item.uuid)
+		}
 		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
 	}
 }
@@ -285,6 +306,27 @@ pub async fn batch_lookup_uuids_for_local_ids(
 		"tag" => {
 			let records = entities::tag::Entity::find()
 				.filter(entities::tag::Column::Id.is_in(id_vec))
+				.all(db)
+				.await?;
+			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
+		}
+		"spaces" => {
+			let records = entities::space::Entity::find()
+				.filter(entities::space::Column::Id.is_in(id_vec))
+				.all(db)
+				.await?;
+			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
+		}
+		"space_groups" => {
+			let records = entities::space_group::Entity::find()
+				.filter(entities::space_group::Column::Id.is_in(id_vec))
+				.all(db)
+				.await?;
+			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
+		}
+		"space_items" => {
+			let records = entities::space_item::Entity::find()
+				.filter(entities::space_item::Column::Id.is_in(id_vec))
 				.all(db)
 				.await?;
 			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
@@ -578,6 +620,36 @@ async fn lookup_local_id_for_uuid(table: &str, uuid: Uuid, db: &DatabaseConnecti
 				})?;
 			Ok(tag.id)
 		}
+		"spaces" => {
+			let space = entities::space::Entity::find()
+				.filter(entities::space::Column::Uuid.eq(uuid))
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					anyhow!("Space with uuid={} not found (sync dependency missing)", uuid)
+				})?;
+			Ok(space.id)
+		}
+		"space_groups" => {
+			let group = entities::space_group::Entity::find()
+				.filter(entities::space_group::Column::Uuid.eq(uuid))
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					anyhow!("SpaceGroup with uuid={} not found (sync dependency missing)", uuid)
+				})?;
+			Ok(group.id)
+		}
+		"space_items" => {
+			let item = entities::space_item::Entity::find()
+				.filter(entities::space_item::Column::Uuid.eq(uuid))
+				.one(db)
+				.await?
+				.ok_or_else(|| {
+					anyhow!("SpaceItem with uuid={} not found (sync dependency missing)", uuid)
+				})?;
+			Ok(item.id)
+		}
 		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
 	}
 }
@@ -665,6 +737,27 @@ pub async fn batch_lookup_local_ids_for_uuids(
 		"tag" => {
 			let records = entities::tag::Entity::find()
 				.filter(entities::tag::Column::Uuid.is_in(uuid_vec))
+				.all(db)
+				.await?;
+			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
+		}
+		"spaces" => {
+			let records = entities::space::Entity::find()
+				.filter(entities::space::Column::Uuid.is_in(uuid_vec))
+				.all(db)
+				.await?;
+			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
+		}
+		"space_groups" => {
+			let records = entities::space_group::Entity::find()
+				.filter(entities::space_group::Column::Uuid.is_in(uuid_vec))
+				.all(db)
+				.await?;
+			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
+		}
+		"space_items" => {
+			let records = entities::space_item::Entity::find()
+				.filter(entities::space_item::Column::Uuid.is_in(uuid_vec))
 				.all(db)
 				.await?;
 			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
