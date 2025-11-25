@@ -223,3 +223,6 @@ impl Syncable for Model {
 		Ok(())
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_shared!(Model, "collection_entry", "collection_entry");

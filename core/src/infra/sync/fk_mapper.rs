@@ -16,35 +16,14 @@
 //! 1. `to_sync_json()` - Converts local integer FKs → UUIDs before sending
 //! 2. `map_uuids_to_local_ids()` - Converts UUIDs → local integer FKs on receive
 //!
-//! ## Usage
-//!
-//! Models just declare their FKs, the rest is automatic:
-//!
-//! ```rust
-//! impl Syncable for location::Model {
-//!     fn foreign_key_mappings() -> Vec<FKMapping> {
-//!         vec![
-//!             FKMapping::new("device_id", "devices"),
-//!             FKMapping::new("entry_id", "entries"),
-//!         ]
-//!     }
-//!
-//!     // to_sync_json() - uses default implementation (automatic!)
-//!
-//!     async fn apply_state_change(data: Value, db: &DatabaseConnection) -> Result<()> {
-//!         let data = map_sync_json_to_local(data, Self::foreign_key_mappings(), db).await?;
-//!         let model: Model = serde_json::from_value(data)?;
-//!         upsert_by_uuid(model).await?;
-//!         Ok(())
-//!     }
-//! }
-//! ```
+//! FK lookups are resolved via the Syncable trait implementations registered in the registry.
+//! No model-specific code exists in this module - all lookups go through the registry.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
-use crate::infra::db::entities;
 use anyhow::{anyhow, Result};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::DatabaseConnection;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -131,105 +110,43 @@ pub async fn convert_fk_to_uuid(
 	Ok(())
 }
 
-/// Look up UUID for a local integer ID in any table
+/// Look up UUID for a local integer ID via the registry
 async fn lookup_uuid_for_local_id(
 	table: &str,
 	local_id: i32,
 	db: &DatabaseConnection,
 ) -> Result<Uuid> {
+	// Map table name to model type (registry uses model names, not table names)
+	let model_type = table_to_model_type(table);
+
+	super::registry::lookup_uuid_by_id(model_type, local_id, Arc::new(db.clone()))
+		.await
+		.map_err(|e| anyhow!("FK lookup failed for {}: {}", table, e))?
+		.ok_or_else(|| anyhow!("{} with id={} not found", table, local_id))
+}
+
+/// Map table name to model type for registry lookup
+fn table_to_model_type(table: &str) -> &str {
 	match table {
-		"devices" => {
-			let device = entities::device::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Device with id={} not found", local_id))?;
-			Ok(device.uuid)
-		}
-		"entries" => {
-			let entry = entities::entry::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Entry with id={} not found", local_id))?;
-			entry.uuid.ok_or_else(|| {
-				anyhow!("Entry id={} has no UUID (data consistency error)", local_id)
-			})
-		}
-		"locations" => {
-			let location = entities::location::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Location with id={} not found", local_id))?;
-			Ok(location.uuid)
-		}
-		"user_metadata" => {
-			let metadata = entities::user_metadata::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("UserMetadata with id={} not found", local_id))?;
-			Ok(metadata.uuid)
-		}
-		"content_identities" => {
-			let content = entities::content_identity::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("ContentIdentity with id={} not found", local_id))?;
-			content
-				.uuid
-				.ok_or_else(|| anyhow!("ContentIdentity id={} has no UUID", local_id))
-		}
-		"volumes" => {
-			let volume = entities::volume::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Volume with id={} not found", local_id))?;
-			Ok(volume.uuid)
-		}
-		"collection" => {
-			let collection = entities::collection::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Collection with id={} not found", local_id))?;
-			Ok(collection.uuid)
-		}
-		"tag" => {
-			let tag = entities::tag::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Tag with id={} not found", local_id))?;
-			Ok(tag.uuid)
-		}
-		"spaces" => {
-			let space = entities::space::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Space with id={} not found", local_id))?;
-			Ok(space.uuid)
-		}
-		"space_groups" => {
-			let group = entities::space_group::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("SpaceGroup with id={} not found", local_id))?;
-			Ok(group.uuid)
-		}
-		"space_items" => {
-			let item = entities::space_item::Entity::find_by_id(local_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("SpaceItem with id={} not found", local_id))?;
-			Ok(item.uuid)
-		}
-		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
+		"devices" => "device",
+		"entries" => "entry",
+		"locations" => "location",
+		"volumes" => "volume",
+		"user_metadata" => "user_metadata",
+		"content_identities" => "content_identity",
+		"collection" => "collection",
+		"tag" => "tag",
+		"spaces" => "space",
+		"space_groups" => "space_group",
+		"space_items" => "space_item",
+		_ => table, // fallback: assume table name == model type
 	}
 }
 
-/// Batch look up UUIDs for multiple local integer IDs in any table
+/// Batch look up UUIDs for multiple local integer IDs via the registry
 ///
 /// Returns a HashMap mapping local_id -> UUID for all found records.
 /// Records not found are omitted from the result map (caller must handle missing entries).
-///
-/// This function performs a single SQL query with WHERE id IN (...) instead of
-/// N individual queries, reducing database roundtrips by 365x for typical sync operations.
 pub async fn batch_lookup_uuids_for_local_ids(
 	table: &str,
 	local_ids: HashSet<i32>,
@@ -239,100 +156,11 @@ pub async fn batch_lookup_uuids_for_local_ids(
 		return Ok(HashMap::new());
 	}
 
-	let id_vec: Vec<i32> = local_ids.into_iter().collect();
+	let model_type = table_to_model_type(table);
 
-	match table {
-		"devices" => {
-			let records = entities::device::Entity::find()
-				.filter(entities::device::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"entries" => {
-			let records = entities::entry::Entity::find()
-				.filter(entities::entry::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			let mut map = HashMap::new();
-			for r in records {
-				if let Some(uuid) = r.uuid {
-					map.insert(r.id, uuid);
-				}
-			}
-			Ok(map)
-		}
-		"locations" => {
-			let records = entities::location::Entity::find()
-				.filter(entities::location::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"user_metadata" => {
-			let records = entities::user_metadata::Entity::find()
-				.filter(entities::user_metadata::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"content_identities" => {
-			let records = entities::content_identity::Entity::find()
-				.filter(entities::content_identity::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			let mut map = HashMap::new();
-			for r in records {
-				if let Some(uuid) = r.uuid {
-					map.insert(r.id, uuid);
-				}
-			}
-			Ok(map)
-		}
-		"volumes" => {
-			let records = entities::volume::Entity::find()
-				.filter(entities::volume::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"collection" => {
-			let records = entities::collection::Entity::find()
-				.filter(entities::collection::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"tag" => {
-			let records = entities::tag::Entity::find()
-				.filter(entities::tag::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"spaces" => {
-			let records = entities::space::Entity::find()
-				.filter(entities::space::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"space_groups" => {
-			let records = entities::space_group::Entity::find()
-				.filter(entities::space_group::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		"space_items" => {
-			let records = entities::space_item::Entity::find()
-				.filter(entities::space_item::Column::Id.is_in(id_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
-		}
-		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
-	}
+	super::registry::batch_lookup_uuids_by_ids(model_type, local_ids, Arc::new(db.clone()))
+		.await
+		.map_err(|e| anyhow!("Batch FK lookup failed for {}: {}", table, e))
 }
 
 /// Convert UUIDs back to local integer IDs for database insertion
@@ -521,146 +349,20 @@ pub async fn batch_map_sync_json_to_local(
 	Ok(records)
 }
 
-/// Look up local integer ID for a UUID in any table
+/// Look up local integer ID for a UUID via the registry
 async fn lookup_local_id_for_uuid(table: &str, uuid: Uuid, db: &DatabaseConnection) -> Result<i32> {
-	match table {
-		"devices" => {
-			let device = entities::device::Entity::find()
-				.filter(entities::device::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!(
-						"Device with uuid={} not found (sync dependency missing)",
-						uuid
-					)
-				})?;
-			Ok(device.id)
-		}
-		"entries" => {
-			let entry = entities::entry::Entity::find()
-				.filter(entities::entry::Column::Uuid.eq(Some(uuid)))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!(
-						"Entry with uuid={} not found (sync dependency missing)",
-						uuid
-					)
-				})?;
-			Ok(entry.id)
-		}
-		"locations" => {
-			let location = entities::location::Entity::find()
-				.filter(entities::location::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| anyhow!("Location with uuid={} not found", uuid))?;
-			Ok(location.id)
-		}
-		"user_metadata" => {
-			let metadata = entities::user_metadata::Entity::find()
-				.filter(entities::user_metadata::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!(
-						"UserMetadata with uuid={} not found (sync dependency missing)",
-						uuid
-					)
-				})?;
-			Ok(metadata.id)
-		}
-		"content_identities" => {
-			let content = entities::content_identity::Entity::find()
-				.filter(entities::content_identity::Column::Uuid.eq(Some(uuid)))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!(
-						"ContentIdentity with uuid={} not found (sync dependency missing)",
-						uuid
-					)
-				})?;
-			Ok(content.id)
-		}
-		"volumes" => {
-			let volume = entities::volume::Entity::find()
-				.filter(entities::volume::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!(
-						"Volume with uuid={} not found (sync dependency missing)",
-						uuid
-					)
-				})?;
-			Ok(volume.id)
-		}
-		"collection" => {
-			let collection = entities::collection::Entity::find()
-				.filter(entities::collection::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!(
-						"Collection with uuid={} not found (sync dependency missing)",
-						uuid
-					)
-				})?;
-			Ok(collection.id)
-		}
-		"tag" => {
-			let tag = entities::tag::Entity::find()
-				.filter(entities::tag::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!("Tag with uuid={} not found (sync dependency missing)", uuid)
-				})?;
-			Ok(tag.id)
-		}
-		"spaces" => {
-			let space = entities::space::Entity::find()
-				.filter(entities::space::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!("Space with uuid={} not found (sync dependency missing)", uuid)
-				})?;
-			Ok(space.id)
-		}
-		"space_groups" => {
-			let group = entities::space_group::Entity::find()
-				.filter(entities::space_group::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!("SpaceGroup with uuid={} not found (sync dependency missing)", uuid)
-				})?;
-			Ok(group.id)
-		}
-		"space_items" => {
-			let item = entities::space_item::Entity::find()
-				.filter(entities::space_item::Column::Uuid.eq(uuid))
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					anyhow!("SpaceItem with uuid={} not found (sync dependency missing)", uuid)
-				})?;
-			Ok(item.id)
-		}
-		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
-	}
+	let model_type = table_to_model_type(table);
+
+	super::registry::lookup_id_by_uuid(model_type, uuid, Arc::new(db.clone()))
+		.await
+		.map_err(|e| anyhow!("FK lookup failed for {}: {}", table, e))?
+		.ok_or_else(|| anyhow!("{} with uuid={} not found (sync dependency missing)", table, uuid))
 }
 
-/// Batch look up local integer IDs for multiple UUIDs in any table
+/// Batch look up local integer IDs for multiple UUIDs via the registry
 ///
 /// Returns a HashMap mapping UUID -> local_id for all found records.
 /// Records not found are omitted from the result map (caller must handle missing entries).
-///
-/// This function performs a single SQL query with WHERE uuid IN (...) instead of
-/// N individual queries, significantly reducing database load during sync.
 pub async fn batch_lookup_local_ids_for_uuids(
 	table: &str,
 	uuids: HashSet<Uuid>,
@@ -670,100 +372,11 @@ pub async fn batch_lookup_local_ids_for_uuids(
 		return Ok(HashMap::new());
 	}
 
-	let uuid_vec: Vec<Uuid> = uuids.into_iter().collect();
+	let model_type = table_to_model_type(table);
 
-	match table {
-		"devices" => {
-			let records = entities::device::Entity::find()
-				.filter(entities::device::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"entries" => {
-			let records = entities::entry::Entity::find()
-				.filter(entities::entry::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			let mut map = HashMap::new();
-			for r in records {
-				if let Some(uuid) = r.uuid {
-					map.insert(uuid, r.id);
-				}
-			}
-			Ok(map)
-		}
-		"locations" => {
-			let records = entities::location::Entity::find()
-				.filter(entities::location::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"user_metadata" => {
-			let records = entities::user_metadata::Entity::find()
-				.filter(entities::user_metadata::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"content_identities" => {
-			let records = entities::content_identity::Entity::find()
-				.filter(entities::content_identity::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			let mut map = HashMap::new();
-			for r in records {
-				if let Some(uuid) = r.uuid {
-					map.insert(uuid, r.id);
-				}
-			}
-			Ok(map)
-		}
-		"volumes" => {
-			let records = entities::volume::Entity::find()
-				.filter(entities::volume::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"collection" => {
-			let records = entities::collection::Entity::find()
-				.filter(entities::collection::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"tag" => {
-			let records = entities::tag::Entity::find()
-				.filter(entities::tag::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"spaces" => {
-			let records = entities::space::Entity::find()
-				.filter(entities::space::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"space_groups" => {
-			let records = entities::space_group::Entity::find()
-				.filter(entities::space_group::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		"space_items" => {
-			let records = entities::space_item::Entity::find()
-				.filter(entities::space_item::Column::Uuid.is_in(uuid_vec))
-				.all(db)
-				.await?;
-			Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
-		}
-		_ => Err(anyhow!("Unknown table for FK mapping: {}", table)),
-	}
+	super::registry::batch_lookup_ids_by_uuids(model_type, uuids, Arc::new(db.clone()))
+		.await
+		.map_err(|e| anyhow!("Batch FK lookup failed for {}: {}", table, e))
 }
 
 #[cfg(test)]

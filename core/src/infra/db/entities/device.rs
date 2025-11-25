@@ -65,6 +65,56 @@ impl crate::infra::sync::Syncable for Model {
 		&[] // Device has no dependencies (root of dependency graph)
 	}
 
+	// FK Lookup Methods (device is FK target for locations, volumes)
+	async fn lookup_id_by_uuid(
+		uuid: Uuid,
+		db: &DatabaseConnection,
+	) -> Result<Option<i32>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		Ok(Entity::find()
+			.filter(Column::Uuid.eq(uuid))
+			.one(db)
+			.await?
+			.map(|d| d.id))
+	}
+
+	async fn lookup_uuid_by_id(
+		id: i32,
+		db: &DatabaseConnection,
+	) -> Result<Option<Uuid>, sea_orm::DbErr> {
+		Ok(Entity::find_by_id(id).one(db).await?.map(|d| d.uuid))
+	}
+
+	async fn batch_lookup_ids_by_uuids(
+		uuids: std::collections::HashSet<Uuid>,
+		db: &DatabaseConnection,
+	) -> Result<std::collections::HashMap<Uuid, i32>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		if uuids.is_empty() {
+			return Ok(std::collections::HashMap::new());
+		}
+		let records = Entity::find()
+			.filter(Column::Uuid.is_in(uuids))
+			.all(db)
+			.await?;
+		Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
+	}
+
+	async fn batch_lookup_uuids_by_ids(
+		ids: std::collections::HashSet<i32>,
+		db: &DatabaseConnection,
+	) -> Result<std::collections::HashMap<i32, Uuid>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		if ids.is_empty() {
+			return Ok(std::collections::HashMap::new());
+		}
+		let records = Entity::find()
+			.filter(Column::Id.is_in(ids))
+			.all(db)
+			.await?;
+		Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
+	}
+
 	/// Query devices for sync backfill
 	async fn query_for_sync(
 		device_id: Option<Uuid>,
@@ -212,3 +262,6 @@ impl crate::infra::sync::Syncable for Model {
 		Ok(())
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_device_owned!(Model, "device", "devices");

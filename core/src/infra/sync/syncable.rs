@@ -3,8 +3,9 @@
 //! Models that implement `Syncable` can be automatically logged in the sync log
 //! when they are created, updated, or deleted via the TransactionManager.
 
-use sea_orm::{ActiveModelTrait, DatabaseConnection};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Trait for database models that can be synchronized across devices
@@ -282,6 +283,110 @@ pub trait Syncable: Serialize + Clone {
 			.is_some();
 
 		Ok(exists)
+	}
+
+	// ============================================
+	// FK Lookup Methods (for generic FK mapping)
+	// ============================================
+
+	/// Lookup local integer ID by UUID
+	///
+	/// Used by FK mapper to convert UUIDs back to local IDs during sync receive.
+	/// Returns None if not found (caller handles missing records).
+	///
+	/// Models that are used as FK targets must implement this.
+	fn lookup_id_by_uuid(
+		uuid: Uuid,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<Option<i32>, sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default: not implemented (model is not an FK target)
+			let _ = (uuid, db);
+			Ok(None)
+		}
+	}
+
+	/// Lookup UUID by local integer ID
+	///
+	/// Used by FK mapper to convert local IDs to UUIDs during sync send.
+	/// Returns None if not found or if UUID is null.
+	///
+	/// Models that are used as FK targets must implement this.
+	fn lookup_uuid_by_id(
+		id: i32,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<Option<Uuid>, sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default: not implemented (model is not an FK target)
+			let _ = (id, db);
+			Ok(None)
+		}
+	}
+
+	/// Batch lookup local IDs by UUIDs (single query optimization)
+	///
+	/// Returns HashMap mapping UUID -> local_id for found records.
+	/// Records not found are omitted from the result.
+	///
+	/// This reduces database queries from N to 1 for batch FK resolution.
+	fn batch_lookup_ids_by_uuids(
+		uuids: HashSet<Uuid>,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<HashMap<Uuid, i32>, sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default: not implemented (model is not an FK target)
+			let _ = (uuids, db);
+			Ok(HashMap::new())
+		}
+	}
+
+	/// Batch lookup UUIDs by local IDs (single query optimization)
+	///
+	/// Returns HashMap mapping local_id -> UUID for found records.
+	/// Records not found or with null UUIDs are omitted from the result.
+	///
+	/// This reduces database queries from N to 1 for batch FK resolution.
+	fn batch_lookup_uuids_by_ids(
+		ids: HashSet<i32>,
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<HashMap<i32, Uuid>, sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			// Default: not implemented (model is not an FK target)
+			let _ = (ids, db);
+			Ok(HashMap::new())
+		}
+	}
+
+	// ============================================
+	// Post-Backfill Hook
+	// ============================================
+
+	/// Called after backfill completes to rebuild any derived data
+	///
+	/// Override this for models with derived tables (e.g., closure tables).
+	/// Default is no-op.
+	fn post_backfill_rebuild(
+		db: &DatabaseConnection,
+	) -> impl std::future::Future<Output = Result<(), sea_orm::DbErr>> + Send
+	where
+		Self: Sized,
+	{
+		async move {
+			let _ = db;
+			Ok(())
+		}
 	}
 }
 

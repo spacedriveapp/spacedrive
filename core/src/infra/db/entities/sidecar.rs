@@ -147,3 +147,6 @@ impl crate::infra::sync::Syncable for Model {
 		Ok(sync_data)
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_shared!(Model, "sidecar", "sidecars");

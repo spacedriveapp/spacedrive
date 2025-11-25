@@ -93,6 +93,68 @@ impl crate::infra::sync::Syncable for Model {
 		]
 	}
 
+	// FK Lookup Methods (entry is FK target for parent_id self-reference and locations)
+	async fn lookup_id_by_uuid(
+		uuid: Uuid,
+		db: &DatabaseConnection,
+	) -> Result<Option<i32>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		Ok(Entity::find()
+			.filter(Column::Uuid.eq(Some(uuid)))
+			.one(db)
+			.await?
+			.map(|e| e.id))
+	}
+
+	async fn lookup_uuid_by_id(
+		id: i32,
+		db: &DatabaseConnection,
+	) -> Result<Option<Uuid>, sea_orm::DbErr> {
+		Ok(Entity::find_by_id(id).one(db).await?.and_then(|e| e.uuid))
+	}
+
+	async fn batch_lookup_ids_by_uuids(
+		uuids: std::collections::HashSet<Uuid>,
+		db: &DatabaseConnection,
+	) -> Result<std::collections::HashMap<Uuid, i32>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		if uuids.is_empty() {
+			return Ok(std::collections::HashMap::new());
+		}
+		let uuid_opts: Vec<Option<Uuid>> = uuids.into_iter().map(Some).collect();
+		let records = Entity::find()
+			.filter(Column::Uuid.is_in(uuid_opts))
+			.all(db)
+			.await?;
+		Ok(records
+			.into_iter()
+			.filter_map(|r| r.uuid.map(|u| (u, r.id)))
+			.collect())
+	}
+
+	async fn batch_lookup_uuids_by_ids(
+		ids: std::collections::HashSet<i32>,
+		db: &DatabaseConnection,
+	) -> Result<std::collections::HashMap<i32, Uuid>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		if ids.is_empty() {
+			return Ok(std::collections::HashMap::new());
+		}
+		let records = Entity::find()
+			.filter(Column::Id.is_in(ids))
+			.all(db)
+			.await?;
+		Ok(records
+			.into_iter()
+			.filter_map(|r| r.uuid.map(|u| (r.id, u)))
+			.collect())
+	}
+
+	// Post-backfill hook to rebuild entry_closure table
+	async fn post_backfill_rebuild(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+		Self::rebuild_all_entry_closures(db).await
+	}
+
 	fn to_sync_json(&self) -> Result<serde_json::Value, serde_json::Error> {
 		// Serialize to JSON with field exclusions
 		let mut value = serde_json::to_value(self)?;
@@ -697,3 +759,6 @@ impl Model {
 		Ok(())
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_device_owned!(Model, "entry", "entries", with_deletion, with_rebuild);

@@ -422,3 +422,6 @@ impl Syncable for Model {
 		Ok(())
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_shared!(Model, "user_metadata_tag", "user_metadata_tag");

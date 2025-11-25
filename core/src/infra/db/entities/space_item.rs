@@ -76,6 +76,56 @@ impl Syncable for Model {
 		]
 	}
 
+	// FK Lookup Methods (space_item is FK target - rare but consistent pattern)
+	async fn lookup_id_by_uuid(
+		uuid: Uuid,
+		db: &DatabaseConnection,
+	) -> Result<Option<i32>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		Ok(Entity::find()
+			.filter(Column::Uuid.eq(uuid))
+			.one(db)
+			.await?
+			.map(|i| i.id))
+	}
+
+	async fn lookup_uuid_by_id(
+		id: i32,
+		db: &DatabaseConnection,
+	) -> Result<Option<Uuid>, sea_orm::DbErr> {
+		Ok(Entity::find_by_id(id).one(db).await?.map(|i| i.uuid))
+	}
+
+	async fn batch_lookup_ids_by_uuids(
+		uuids: std::collections::HashSet<Uuid>,
+		db: &DatabaseConnection,
+	) -> Result<std::collections::HashMap<Uuid, i32>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		if uuids.is_empty() {
+			return Ok(std::collections::HashMap::new());
+		}
+		let records = Entity::find()
+			.filter(Column::Uuid.is_in(uuids))
+			.all(db)
+			.await?;
+		Ok(records.into_iter().map(|r| (r.uuid, r.id)).collect())
+	}
+
+	async fn batch_lookup_uuids_by_ids(
+		ids: std::collections::HashSet<i32>,
+		db: &DatabaseConnection,
+	) -> Result<std::collections::HashMap<i32, Uuid>, sea_orm::DbErr> {
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		if ids.is_empty() {
+			return Ok(std::collections::HashMap::new());
+		}
+		let records = Entity::find()
+			.filter(Column::Id.is_in(ids))
+			.all(db)
+			.await?;
+		Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
+	}
+
 	async fn query_for_sync(
 		_device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
@@ -239,3 +289,6 @@ impl Syncable for Model {
 		}
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_shared!(Model, "space_item", "space_items");

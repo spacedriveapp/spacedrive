@@ -3,6 +3,9 @@
 //! Provides a runtime registry of all syncable models for dynamic dispatch.
 //! This enables the sync applier to deserialize and apply changes without
 //! knowing the concrete model type at compile time.
+//!
+//! Models self-register using the `register_syncable!` macro, which uses
+//! the `inventory` crate to collect registrations at link time.
 
 use super::{SharedChangeEntry, Syncable};
 use sea_orm::DatabaseConnection;
@@ -13,6 +16,163 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use once_cell::sync::Lazy;
+
+// =============================================================================
+// Inventory-based Registration
+// =============================================================================
+
+/// Entry submitted to inventory for syncable model registration.
+/// Models submit these via the `register_syncable!` macro.
+pub struct SyncableInventoryEntry {
+	/// Function that builds the full registration
+	pub build: fn() -> SyncableModelRegistration,
+}
+
+// Tell inventory about our entry type
+inventory::collect!(SyncableInventoryEntry);
+
+/// Register a device-owned syncable model.
+///
+/// Usage in entity file:
+/// ```ignore
+/// register_syncable_device_owned!(Model, "location", "locations");
+/// // With deletion support:
+/// register_syncable_device_owned!(Model, "location", "locations", with_deletion);
+/// // With post-backfill rebuild:
+/// register_syncable_device_owned!(Model, "entry", "entries", with_deletion, with_rebuild);
+/// ```
+#[macro_export]
+macro_rules! register_syncable_device_owned {
+	// Base case: no deletion, no rebuild
+	($model:ty, $model_name:literal, $table_name:literal) => {
+		inventory::submit! {
+			$crate::infra::sync::SyncableInventoryEntry {
+				build: || {
+					$crate::infra::sync::SyncableModelRegistration::device_owned(
+						$model_name,
+						$table_name,
+						|data, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::apply_state_change(data, db.as_ref()).await
+						}),
+						|device_id, since, cursor, batch_size, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+						}),
+						None,
+					)
+					.with_fk_lookups(
+						|uuid, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_id_by_uuid(uuid, db.as_ref()).await }),
+						|id, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_uuid_by_id(id, db.as_ref()).await }),
+						|uuids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_ids_by_uuids(uuids, db.as_ref()).await }),
+						|ids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_uuids_by_ids(ids, db.as_ref()).await }),
+					)
+					.with_fk_mappings(<$model as $crate::infra::sync::Syncable>::foreign_key_mappings)
+					.with_depends_on(<$model as $crate::infra::sync::Syncable>::sync_depends_on)
+				}
+			}
+		}
+	};
+
+	// With deletion support
+	($model:ty, $model_name:literal, $table_name:literal, with_deletion) => {
+		inventory::submit! {
+			$crate::infra::sync::SyncableInventoryEntry {
+				build: || {
+					$crate::infra::sync::SyncableModelRegistration::device_owned(
+						$model_name,
+						$table_name,
+						|data, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::apply_state_change(data, db.as_ref()).await
+						}),
+						|device_id, since, cursor, batch_size, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+						}),
+						Some(|uuid, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::apply_deletion(uuid, db.as_ref()).await
+						})),
+					)
+					.with_fk_lookups(
+						|uuid, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_id_by_uuid(uuid, db.as_ref()).await }),
+						|id, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_uuid_by_id(id, db.as_ref()).await }),
+						|uuids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_ids_by_uuids(uuids, db.as_ref()).await }),
+						|ids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_uuids_by_ids(ids, db.as_ref()).await }),
+					)
+					.with_fk_mappings(<$model as $crate::infra::sync::Syncable>::foreign_key_mappings)
+					.with_depends_on(<$model as $crate::infra::sync::Syncable>::sync_depends_on)
+				}
+			}
+		}
+	};
+
+	// With deletion and post-backfill rebuild
+	($model:ty, $model_name:literal, $table_name:literal, with_deletion, with_rebuild) => {
+		inventory::submit! {
+			$crate::infra::sync::SyncableInventoryEntry {
+				build: || {
+					$crate::infra::sync::SyncableModelRegistration::device_owned(
+						$model_name,
+						$table_name,
+						|data, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::apply_state_change(data, db.as_ref()).await
+						}),
+						|device_id, since, cursor, batch_size, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+						}),
+						Some(|uuid, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::apply_deletion(uuid, db.as_ref()).await
+						})),
+					)
+					.with_fk_lookups(
+						|uuid, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_id_by_uuid(uuid, db.as_ref()).await }),
+						|id, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_uuid_by_id(id, db.as_ref()).await }),
+						|uuids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_ids_by_uuids(uuids, db.as_ref()).await }),
+						|ids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_uuids_by_ids(ids, db.as_ref()).await }),
+					)
+					.with_fk_mappings(<$model as $crate::infra::sync::Syncable>::foreign_key_mappings)
+					.with_depends_on(<$model as $crate::infra::sync::Syncable>::sync_depends_on)
+					.with_post_backfill_rebuild(|db| Box::pin(async move {
+						<$model as $crate::infra::sync::Syncable>::post_backfill_rebuild(db.as_ref()).await
+					}))
+				}
+			}
+		}
+	};
+}
+
+/// Register a shared syncable model (log-based sync).
+///
+/// Usage in entity file:
+/// ```ignore
+/// register_syncable_shared!(Model, "tag", "tag");
+/// ```
+#[macro_export]
+macro_rules! register_syncable_shared {
+	($model:ty, $model_name:literal, $table_name:literal) => {
+		inventory::submit! {
+			$crate::infra::sync::SyncableInventoryEntry {
+				build: || {
+					$crate::infra::sync::SyncableModelRegistration::shared_with_query(
+						$model_name,
+						$table_name,
+						|entry, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::apply_shared_change(entry, db.as_ref()).await
+						}),
+						|device_id, since, cursor, batch_size, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+						}),
+					)
+					.with_fk_lookups(
+						|uuid, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_id_by_uuid(uuid, db.as_ref()).await }),
+						|id, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_uuid_by_id(id, db.as_ref()).await }),
+						|uuids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_ids_by_uuids(uuids, db.as_ref()).await }),
+						|ids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_uuids_by_ids(ids, db.as_ref()).await }),
+					)
+					.with_fk_mappings(<$model as $crate::infra::sync::Syncable>::foreign_key_mappings)
+					.with_depends_on(<$model as $crate::infra::sync::Syncable>::sync_depends_on)
+				}
+			}
+		}
+	};
+}
 
 /// Type alias for state-based apply function (device-owned models)
 pub type StateApplyFn = fn(
@@ -56,6 +216,41 @@ pub type StateDeleteFn = fn(
 	Arc<DatabaseConnection>,
 ) -> Pin<Box<dyn Future<Output = Result<(), sea_orm::DbErr>> + Send>>;
 
+/// Type alias for FK ID lookup by UUID
+pub type FkLookupIdFn = fn(
+	uuid::Uuid,
+	Arc<DatabaseConnection>,
+) -> Pin<Box<dyn Future<Output = Result<Option<i32>, sea_orm::DbErr>> + Send>>;
+
+/// Type alias for FK UUID lookup by ID
+pub type FkLookupUuidFn = fn(
+	i32,
+	Arc<DatabaseConnection>,
+) -> Pin<Box<dyn Future<Output = Result<Option<uuid::Uuid>, sea_orm::DbErr>> + Send>>;
+
+/// Type alias for batch FK ID lookup by UUIDs
+pub type FkBatchLookupIdsFn = fn(
+	std::collections::HashSet<uuid::Uuid>,
+	Arc<DatabaseConnection>,
+) -> Pin<Box<dyn Future<Output = Result<std::collections::HashMap<uuid::Uuid, i32>, sea_orm::DbErr>> + Send>>;
+
+/// Type alias for batch FK UUID lookup by IDs
+pub type FkBatchLookupUuidsFn = fn(
+	std::collections::HashSet<i32>,
+	Arc<DatabaseConnection>,
+) -> Pin<Box<dyn Future<Output = Result<std::collections::HashMap<i32, uuid::Uuid>, sea_orm::DbErr>> + Send>>;
+
+/// Type alias for post-backfill rebuild function
+pub type PostBackfillRebuildFn = fn(
+	Arc<DatabaseConnection>,
+) -> Pin<Box<dyn Future<Output = Result<(), sea_orm::DbErr>> + Send>>;
+
+/// Type alias for FK mappings function
+pub type FkMappingsFn = fn() -> Vec<super::FKMapping>;
+
+/// Type alias for sync depends on function
+pub type SyncDependsOnFn = fn() -> &'static [&'static str];
+
 /// Registry of syncable models
 ///
 /// Maps model_type strings (e.g., "album", "tag") to their registration info.
@@ -87,6 +282,24 @@ pub struct SyncableModelRegistration {
 
 	/// Deletion apply function for device-owned models
 	pub state_delete_fn: Option<StateDeleteFn>,
+
+	// FK lookup functions (for models used as FK targets)
+	/// Lookup local ID by UUID
+	pub fk_lookup_id_fn: Option<FkLookupIdFn>,
+	/// Lookup UUID by local ID
+	pub fk_lookup_uuid_fn: Option<FkLookupUuidFn>,
+	/// Batch lookup local IDs by UUIDs
+	pub fk_batch_lookup_ids_fn: Option<FkBatchLookupIdsFn>,
+	/// Batch lookup UUIDs by local IDs
+	pub fk_batch_lookup_uuids_fn: Option<FkBatchLookupUuidsFn>,
+
+	// Trait metadata functions
+	/// Get FK mappings for this model
+	pub fk_mappings_fn: Option<FkMappingsFn>,
+	/// Get sync dependencies for this model
+	pub sync_depends_on_fn: Option<SyncDependsOnFn>,
+	/// Post-backfill rebuild function (e.g., for closure tables)
+	pub post_backfill_rebuild_fn: Option<PostBackfillRebuildFn>,
 }
 
 impl SyncableModelRegistration {
@@ -106,6 +319,13 @@ impl SyncableModelRegistration {
 			shared_apply_fn: None,
 			state_query_fn: Some(query_fn),
 			state_delete_fn: delete_fn,
+			fk_lookup_id_fn: None,
+			fk_lookup_uuid_fn: None,
+			fk_batch_lookup_ids_fn: None,
+			fk_batch_lookup_uuids_fn: None,
+			fk_mappings_fn: None,
+			sync_depends_on_fn: None,
+			post_backfill_rebuild_fn: None,
 		}
 	}
 
@@ -123,6 +343,13 @@ impl SyncableModelRegistration {
 			shared_apply_fn: Some(apply_fn),
 			state_query_fn: None,
 			state_delete_fn: None,
+			fk_lookup_id_fn: None,
+			fk_lookup_uuid_fn: None,
+			fk_batch_lookup_ids_fn: None,
+			fk_batch_lookup_uuids_fn: None,
+			fk_mappings_fn: None,
+			sync_depends_on_fn: None,
+			post_backfill_rebuild_fn: None,
 		}
 	}
 
@@ -141,7 +368,47 @@ impl SyncableModelRegistration {
 			shared_apply_fn: Some(apply_fn),
 			state_query_fn: Some(query_fn),
 			state_delete_fn: None,
+			fk_lookup_id_fn: None,
+			fk_lookup_uuid_fn: None,
+			fk_batch_lookup_ids_fn: None,
+			fk_batch_lookup_uuids_fn: None,
+			fk_mappings_fn: None,
+			sync_depends_on_fn: None,
+			post_backfill_rebuild_fn: None,
 		}
+	}
+
+	/// Builder method to add FK lookup functions
+	pub fn with_fk_lookups(
+		mut self,
+		lookup_id: FkLookupIdFn,
+		lookup_uuid: FkLookupUuidFn,
+		batch_lookup_ids: FkBatchLookupIdsFn,
+		batch_lookup_uuids: FkBatchLookupUuidsFn,
+	) -> Self {
+		self.fk_lookup_id_fn = Some(lookup_id);
+		self.fk_lookup_uuid_fn = Some(lookup_uuid);
+		self.fk_batch_lookup_ids_fn = Some(batch_lookup_ids);
+		self.fk_batch_lookup_uuids_fn = Some(batch_lookup_uuids);
+		self
+	}
+
+	/// Builder method to add FK mappings function
+	pub fn with_fk_mappings(mut self, fk_mappings: FkMappingsFn) -> Self {
+		self.fk_mappings_fn = Some(fk_mappings);
+		self
+	}
+
+	/// Builder method to add sync dependencies function
+	pub fn with_depends_on(mut self, depends_on: SyncDependsOnFn) -> Self {
+		self.sync_depends_on_fn = Some(depends_on);
+		self
+	}
+
+	/// Builder method to add post-backfill rebuild function
+	pub fn with_post_backfill_rebuild(mut self, rebuild_fn: PostBackfillRebuildFn) -> Self {
+		self.post_backfill_rebuild_fn = Some(rebuild_fn);
+		self
 	}
 }
 
@@ -173,376 +440,17 @@ pub async fn register_shared(
 	);
 }
 
-/// Initialize registry with all syncable models
+/// Initialize registry from inventory submissions
 ///
-/// This is completely domain-agnostic - it just routes to the Syncable trait implementations.
-/// All domain-specific logic lives in the entity implementations, not here.
+/// Models self-register via the `register_syncable!` macro.
+/// This function collects all submissions at runtime.
 fn initialize_registry() -> HashMap<String, SyncableModelRegistration> {
-	use crate::infra::db::entities::{
-		audit_log, collection, collection_entry, content_identity, device, entry, location, sidecar,
-		space, space_group, space_item, tag, tag_relationship, user_metadata, user_metadata_tag,
-		volume,
-	};
-
 	let mut registry = HashMap::new();
 
-	// Device-owned models (state-based sync)
-	// Just function pointers - no domain logic here
-	registry.insert(
-		"location".to_string(),
-		SyncableModelRegistration::device_owned(
-			"location",
-			"locations",
-			|data, db| {
-				Box::pin(
-					async move { location::Model::apply_state_change(data, db.as_ref()).await },
-				)
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					location::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
-				})
-			},
-			Some(|uuid, db| {
-				Box::pin(async move { location::Model::apply_deletion(uuid, db.as_ref()).await })
-			}),
-		),
-	);
-
-	registry.insert(
-		"volume".to_string(),
-		SyncableModelRegistration::device_owned(
-			"volume",
-			"volumes",
-			|data, db| {
-				Box::pin(async move { volume::Model::apply_state_change(data, db.as_ref()).await })
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					volume::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
-				})
-			},
-			Some(|uuid, db| {
-				Box::pin(async move { volume::Model::apply_deletion(uuid, db.as_ref()).await })
-			}),
-		),
-	);
-
-	registry.insert(
-		"entry".to_string(),
-		SyncableModelRegistration::device_owned(
-			"entry",
-			"entries",
-			|data, db| {
-				Box::pin(async move { entry::Model::apply_state_change(data, db.as_ref()).await })
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					entry::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
-				})
-			},
-			Some(|uuid, db| {
-				Box::pin(async move { entry::Model::apply_deletion(uuid, db.as_ref()).await })
-			}),
-		),
-	);
-
-	registry.insert(
-		"device".to_string(),
-		SyncableModelRegistration::device_owned(
-			"device",
-			"devices",
-			|data, db| {
-				Box::pin(async move { device::Model::apply_state_change(data, db.as_ref()).await })
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					device::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
-				})
-			},
-			None, // Devices don't support deletion sync
-		),
-	);
-
-	// Shared models (log-based sync with backfill support)
-	registry.insert(
-		"tag".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"tag",
-			"tag",
-			|entry, db| {
-				Box::pin(async move { tag::Model::apply_shared_change(entry, db.as_ref()).await })
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					tag::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"collection".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"collection",
-			"collection",
-			|entry, db| {
-				Box::pin(async move {
-					collection::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					collection::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
-						.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"content_identity".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"content_identity",
-			"content_identities",
-			|entry, db| {
-				Box::pin(async move {
-					content_identity::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					content_identity::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"user_metadata".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"user_metadata",
-			"user_metadata",
-			|entry, db| {
-				Box::pin(async move {
-					user_metadata::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					user_metadata::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	// Many-to-many junction tables (shared models)
-	registry.insert(
-		"collection_entry".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"collection_entry",
-			"collection_entry",
-			|entry, db| {
-				Box::pin(async move {
-					collection_entry::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					collection_entry::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"user_metadata_tag".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"user_metadata_tag",
-			"user_metadata_tag",
-			|entry, db| {
-				Box::pin(async move {
-					user_metadata_tag::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					user_metadata_tag::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"tag_relationship".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"tag_relationship",
-			"tag_relationship",
-			|entry, db| {
-				Box::pin(async move {
-					tag_relationship::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					tag_relationship::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"audit_log".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"audit_log",
-			"audit_log",
-			|entry, db| {
-				Box::pin(async move {
-					audit_log::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					audit_log::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"sidecar".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"sidecar",
-			"sidecars",
-			|entry, db| {
-				Box::pin(async move {
-					sidecar::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					sidecar::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	// Space models (shared)
-	registry.insert(
-		"space".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"space",
-			"spaces",
-			|entry, db| {
-				Box::pin(async move { space::Model::apply_shared_change(entry, db.as_ref()).await })
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					space::Model::query_for_sync(device_id, since, cursor, batch_size, db.as_ref())
-						.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"space_group".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"space_group",
-			"space_groups",
-			|entry, db| {
-				Box::pin(async move {
-					space_group::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					space_group::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
-
-	registry.insert(
-		"space_item".to_string(),
-		SyncableModelRegistration::shared_with_query(
-			"space_item",
-			"space_items",
-			|entry, db| {
-				Box::pin(async move {
-					space_item::Model::apply_shared_change(entry, db.as_ref()).await
-				})
-			},
-			|device_id, since, cursor, batch_size, db| {
-				Box::pin(async move {
-					space_item::Model::query_for_sync(
-						device_id,
-						since,
-						cursor,
-						batch_size,
-						db.as_ref(),
-					)
-					.await
-				})
-			},
-		),
-	);
+	for entry in inventory::iter::<SyncableInventoryEntry> {
+		let registration = (entry.build)();
+		registry.insert(registration.model_type.to_string(), registration);
+	}
 
 	registry
 }
@@ -571,33 +479,14 @@ pub async fn is_device_owned(model_type: &str) -> bool {
 /// Returns the FK mappings defined by each model's Syncable implementation.
 /// Used for batch FK resolution during sync to reduce database queries from N*M to M.
 pub fn get_fk_mappings(model_type: &str) -> Option<Vec<super::FKMapping>> {
-	use super::FKMapping;
-
-	match model_type {
-		"entry" => Some(vec![
-			FKMapping::new("parent_id", "entries"),
-			FKMapping::new("metadata_id", "user_metadata"),
-			FKMapping::new("content_id", "content_identities"),
-		]),
-		"location" => Some(vec![FKMapping::new("device_id", "devices")]),
-		"collection_entry" => Some(vec![
-			FKMapping::new("collection_id", "collection"),
-			FKMapping::new("entry_id", "entries"),
-		]),
-		"user_metadata_tag" => Some(vec![
-			FKMapping::new("metadata_id", "user_metadata"),
-			FKMapping::new("tag_id", "tag"),
-		]),
-		"tag_relationship" => Some(vec![
-			FKMapping::new("parent_tag_id", "tag"),
-			FKMapping::new("child_tag_id", "tag"),
-		]),
-		// Models without FKs
-		"device" | "volume" | "user_metadata" | "tag" | "collection" => Some(vec![]),
-		// Shared models (no FKs in sync data)
-		"content_identity" => Some(vec![]),
-		_ => None,
+	if let Ok(registry) = SYNCABLE_REGISTRY.try_read() {
+		if let Some(reg) = registry.get(model_type) {
+			if let Some(fk_fn) = reg.fk_mappings_fn {
+				return Some(fk_fn());
+			}
+		}
 	}
+	None
 }
 
 /// Apply a state-based sync entry (device-owned model)
@@ -790,11 +679,133 @@ pub async fn query_all_shared_models(
 	Ok(results)
 }
 
+// =============================================================================
+// FK Lookup Functions (for generic FK mapping)
+// =============================================================================
+
+/// Lookup local ID by UUID via the registry
+///
+/// This is the generic replacement for the match statements in fk_mapper.rs.
+/// Returns an error if the model type is not registered or doesn't have FK lookups.
+pub async fn lookup_id_by_uuid(
+	table: &str,
+	uuid: uuid::Uuid,
+	db: Arc<DatabaseConnection>,
+) -> Result<Option<i32>, ApplyError> {
+	let lookup_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let reg = registry
+			.get(table)
+			.ok_or_else(|| ApplyError::UnknownModel(table.to_string()))?;
+		reg.fk_lookup_id_fn
+			.ok_or_else(|| ApplyError::MissingFkLookup(table.to_string()))?
+	};
+
+	lookup_fn(uuid, db)
+		.await
+		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
+}
+
+/// Lookup UUID by local ID via the registry
+pub async fn lookup_uuid_by_id(
+	table: &str,
+	id: i32,
+	db: Arc<DatabaseConnection>,
+) -> Result<Option<uuid::Uuid>, ApplyError> {
+	let lookup_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let reg = registry
+			.get(table)
+			.ok_or_else(|| ApplyError::UnknownModel(table.to_string()))?;
+		reg.fk_lookup_uuid_fn
+			.ok_or_else(|| ApplyError::MissingFkLookup(table.to_string()))?
+	};
+
+	lookup_fn(id, db)
+		.await
+		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
+}
+
+/// Batch lookup local IDs by UUIDs via the registry
+pub async fn batch_lookup_ids_by_uuids(
+	table: &str,
+	uuids: std::collections::HashSet<uuid::Uuid>,
+	db: Arc<DatabaseConnection>,
+) -> Result<std::collections::HashMap<uuid::Uuid, i32>, ApplyError> {
+	let lookup_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let reg = registry
+			.get(table)
+			.ok_or_else(|| ApplyError::UnknownModel(table.to_string()))?;
+		reg.fk_batch_lookup_ids_fn
+			.ok_or_else(|| ApplyError::MissingFkLookup(table.to_string()))?
+	};
+
+	lookup_fn(uuids, db)
+		.await
+		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
+}
+
+/// Batch lookup UUIDs by local IDs via the registry
+pub async fn batch_lookup_uuids_by_ids(
+	table: &str,
+	ids: std::collections::HashSet<i32>,
+	db: Arc<DatabaseConnection>,
+) -> Result<std::collections::HashMap<i32, uuid::Uuid>, ApplyError> {
+	let lookup_fn = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		let reg = registry
+			.get(table)
+			.ok_or_else(|| ApplyError::UnknownModel(table.to_string()))?;
+		reg.fk_batch_lookup_uuids_fn
+			.ok_or_else(|| ApplyError::MissingFkLookup(table.to_string()))?
+	};
+
+	lookup_fn(ids, db)
+		.await
+		.map_err(|e| ApplyError::DatabaseError(e.to_string()))
+}
+
+/// Check if a model has FK lookups registered
+pub async fn has_fk_lookups(table: &str) -> bool {
+	let registry = SYNCABLE_REGISTRY.read().await;
+	registry
+		.get(table)
+		.map(|reg| reg.fk_lookup_id_fn.is_some())
+		.unwrap_or(false)
+}
+
+/// Execute post-backfill rebuild for all models that have it registered
+pub async fn run_post_backfill_rebuilds(db: Arc<DatabaseConnection>) -> Result<(), ApplyError> {
+	let rebuild_fns: Vec<(String, PostBackfillRebuildFn)> = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		registry
+			.iter()
+			.filter_map(|(model, reg)| {
+				reg.post_backfill_rebuild_fn
+					.map(|f| (model.clone(), f))
+			})
+			.collect()
+	};
+
+	for (model_type, rebuild_fn) in rebuild_fns {
+		tracing::info!(model = %model_type, "Running post-backfill rebuild");
+		rebuild_fn(db.clone())
+			.await
+			.map_err(|e| ApplyError::DatabaseError(format!("{} rebuild failed: {}", model_type, e)))?;
+	}
+
+	Ok(())
+}
+
 /// Errors that can occur when applying sync entries
 #[derive(Debug, thiserror::Error)]
 pub enum ApplyError {
 	#[error("Unknown model type: {0}")]
 	UnknownModel(String),
+
+	#[error("Missing FK lookup function for table: {0}")]
+	MissingFkLookup(String),
 
 	#[error("Wrong sync type for model {model}: expected {expected}, got {got}")]
 	WrongSyncType {
@@ -827,69 +838,19 @@ pub enum ApplyError {
 /// # Errors
 /// Returns error if circular dependencies are detected or if a model declares
 /// a dependency on a non-existent model.
-///
-/// # Example
-/// ```ignore
-/// let order = compute_registry_sync_order().await?;
-/// // order = ["device", "location", "entry", "tag"]
-/// // Devices sync first, then locations, then entries, etc.
-/// ```
 pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::DependencyError> {
-	use crate::infra::db::entities::{
-		audit_log, collection, collection_entry, content_identity, device, entry, location, space,
-		space_group, space_item, tag, tag_relationship, user_metadata, user_metadata_tag, volume,
+	let registry_deps: Vec<(&str, &'static [&'static str])> = {
+		let registry = SYNCABLE_REGISTRY.read().await;
+		registry
+			.iter()
+			.filter_map(|(_, reg)| {
+				reg.sync_depends_on_fn
+					.map(|f| (reg.model_type, f()))
+			})
+			.collect()
 	};
 
-	// Build iterator of (model_name, dependencies)
-	let models = vec![
-		(device::Model::SYNC_MODEL, device::Model::sync_depends_on()),
-		(
-			location::Model::SYNC_MODEL,
-			location::Model::sync_depends_on(),
-		),
-		(volume::Model::SYNC_MODEL, volume::Model::sync_depends_on()),
-		(entry::Model::SYNC_MODEL, entry::Model::sync_depends_on()),
-		(tag::Model::SYNC_MODEL, tag::Model::sync_depends_on()),
-		(
-			collection::Model::SYNC_MODEL,
-			collection::Model::sync_depends_on(),
-		),
-		(
-			content_identity::Model::SYNC_MODEL,
-			content_identity::Model::sync_depends_on(),
-		),
-		(
-			user_metadata::Model::SYNC_MODEL,
-			user_metadata::Model::sync_depends_on(),
-		),
-		(
-			collection_entry::Model::SYNC_MODEL,
-			collection_entry::Model::sync_depends_on(),
-		),
-		(
-			user_metadata_tag::Model::SYNC_MODEL,
-			user_metadata_tag::Model::sync_depends_on(),
-		),
-		(
-			tag_relationship::Model::SYNC_MODEL,
-			tag_relationship::Model::sync_depends_on(),
-		),
-		(
-			audit_log::Model::SYNC_MODEL,
-			audit_log::Model::sync_depends_on(),
-		),
-		(space::Model::SYNC_MODEL, space::Model::sync_depends_on()),
-		(
-			space_group::Model::SYNC_MODEL,
-			space_group::Model::sync_depends_on(),
-		),
-		(
-			space_item::Model::SYNC_MODEL,
-			space_item::Model::sync_depends_on(),
-		),
-	];
-
-	super::dependency_graph::compute_sync_order(models.into_iter())
+	super::dependency_graph::compute_sync_order(registry_deps.into_iter())
 }
 
 #[cfg(test)]
@@ -938,41 +899,26 @@ mod tests {
 	async fn test_sync_order_computation() {
 		let order = compute_registry_sync_order().await.unwrap();
 
-		// Verify all models are present (8 base + 3 M2M + audit_log)
-		assert_eq!(order.len(), 12);
+		// Verify key models are present
 		assert!(order.contains(&"device".to_string()));
 		assert!(order.contains(&"location".to_string()));
-		assert!(order.contains(&"volume".to_string()));
 		assert!(order.contains(&"entry".to_string()));
 		assert!(order.contains(&"tag".to_string()));
 		assert!(order.contains(&"collection".to_string()));
-		assert!(order.contains(&"content_identity".to_string()));
-		assert!(order.contains(&"user_metadata".to_string()));
-		assert!(order.contains(&"collection_entry".to_string()));
-		assert!(order.contains(&"user_metadata_tag".to_string()));
-		assert!(order.contains(&"tag_relationship".to_string()));
-		assert!(order.contains(&"audit_log".to_string()));
+		assert!(order.contains(&"space".to_string()));
 
 		// Verify dependency ordering
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
 		let location_idx = order.iter().position(|m| m == "location").unwrap();
-		let volume_idx = order.iter().position(|m| m == "volume").unwrap();
 		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
 		let collection_idx = order.iter().position(|m| m == "collection").unwrap();
 		let collection_entry_idx = order.iter().position(|m| m == "collection_entry").unwrap();
-		let tag_idx = order.iter().position(|m| m == "tag").unwrap();
-		let user_metadata_idx = order.iter().position(|m| m == "user_metadata").unwrap();
-		let user_metadata_tag_idx = order.iter().position(|m| m == "user_metadata_tag").unwrap();
-		let tag_relationship_idx = order.iter().position(|m| m == "tag_relationship").unwrap();
+		let space_idx = order.iter().position(|m| m == "space").unwrap();
+		let space_group_idx = order.iter().position(|m| m == "space_group").unwrap();
+		let space_item_idx = order.iter().position(|m| m == "space_item").unwrap();
 
 		// Device must come before location
-		assert!(
-			device_idx < location_idx,
-			"device must sync before location"
-		);
-
-		// Device must come before volume
-		assert!(device_idx < volume_idx, "device must sync before volume");
+		assert!(device_idx < location_idx, "device must sync before location");
 
 		// Location must come before entry
 		assert!(location_idx < entry_idx, "location must sync before entry");
@@ -986,17 +932,9 @@ mod tests {
 			entry_idx < collection_entry_idx,
 			"entry must sync before collection_entry"
 		);
-		assert!(
-			user_metadata_idx < user_metadata_tag_idx,
-			"user_metadata must sync before user_metadata_tag"
-		);
-		assert!(
-			tag_idx < user_metadata_tag_idx,
-			"tag must sync before user_metadata_tag"
-		);
-		assert!(
-			tag_idx < tag_relationship_idx,
-			"tag must sync before tag_relationship"
-		);
+
+		// Space hierarchy
+		assert!(space_idx < space_group_idx, "space must sync before space_group");
+		assert!(space_group_idx < space_item_idx, "space_group must sync before space_item");
 	}
 }

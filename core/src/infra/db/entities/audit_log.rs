@@ -242,3 +242,6 @@ impl crate::infra::sync::Syncable for Model {
 		Ok(())
 	}
 }
+
+// Register with sync system via inventory
+crate::register_syncable_shared!(Model, "audit_log", "audit_log");
