@@ -372,6 +372,36 @@ fn summarize_event(event: &Event) -> String {
 			format!("Files modified: {} files", paths.len())
 		}
 
+		// Sync events
+		Event::SyncStateChanged {
+			previous_state,
+			new_state,
+			..
+		} => {
+			format!("Sync state changed: {} → {}", previous_state, new_state)
+		}
+		Event::SyncActivity {
+			peer_device_id,
+			count,
+			..
+		} => {
+			format!("Sync activity: {} changes from peer {}", count, peer_device_id)
+		}
+		Event::SyncConnectionChanged {
+			peer_name,
+			connected,
+			..
+		} => {
+			format!(
+				"Peer {} {}",
+				peer_name,
+				if *connected { "connected" } else { "disconnected" }
+			)
+		}
+		Event::SyncError { message, .. } => {
+			format!("Sync error: {}", message)
+		}
+
 		// Custom events
 		Event::Custom { event_type, data } => {
 			format!("Custom event: {} - {:?}", event_type, data)

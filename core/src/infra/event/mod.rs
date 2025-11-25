@@ -56,6 +56,19 @@ impl SubscriptionFilter {
 	}
 }
 
+/// Sync activity types for detailed sync monitoring
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(tag = "type", content = "data")]
+pub enum SyncActivityType {
+	BroadcastSent { changes: u64 },
+	ChangesReceived { changes: u64 },
+	ChangesApplied { changes: u64 },
+	BackfillStarted,
+	BackfillCompleted { records: u64 },
+	CatchUpStarted,
+	CatchUpCompleted,
+}
+
 /// A central event type that represents all events that can be emitted throughout the system
 #[derive(Debug, Clone, Serialize, Deserialize, Type, strum::AsRefStr)]
 #[serde(rename_all_fields = "snake_case")]
@@ -208,6 +221,36 @@ pub enum Event {
 	},
 	DeviceDisconnected {
 		device_id: Uuid,
+	},
+
+	// Sync events
+	SyncStateChanged {
+		library_id: Uuid,
+		previous_state: String,
+		new_state: String,
+		timestamp: String,
+	},
+	SyncActivity {
+		library_id: Uuid,
+		peer_device_id: Uuid,
+		activity_type: SyncActivityType,
+		model_type: Option<String>,
+		count: u64,
+		timestamp: String,
+	},
+	SyncConnectionChanged {
+		library_id: Uuid,
+		peer_device_id: Uuid,
+		peer_name: String,
+		connected: bool,
+		timestamp: String,
+	},
+	SyncError {
+		library_id: Uuid,
+		peer_device_id: Option<Uuid>,
+		error_type: String,
+		message: String,
+		timestamp: String,
 	},
 
 	// Generic resource events (normalized cache)
@@ -681,6 +724,7 @@ pub trait EventFilter {
 	fn is_library_event(&self) -> bool;
 	fn is_volume_event(&self) -> bool;
 	fn is_job_event(&self) -> bool;
+	fn is_sync_event(&self) -> bool;
 	fn is_for_library(&self, library_id: Uuid) -> bool;
 }
 
@@ -723,6 +767,16 @@ impl EventFilter for Event {
 		)
 	}
 
+	fn is_sync_event(&self) -> bool {
+		matches!(
+			self,
+			Event::SyncStateChanged { .. }
+				| Event::SyncActivity { .. }
+				| Event::SyncConnectionChanged { .. }
+				| Event::SyncError { .. }
+		)
+	}
+
 	// TODO: events should have an envelope that contains the library_id instead of this
 	fn is_for_library(&self, library_id: Uuid) -> bool {
 		match self {
@@ -758,6 +812,18 @@ impl EventFilter for Event {
 				library_id: lid, ..
 			}
 			| Event::FilesModified {
+				library_id: lid, ..
+			} => *lid == library_id,
+			Event::SyncStateChanged {
+				library_id: lid, ..
+			}
+			| Event::SyncActivity {
+				library_id: lid, ..
+			}
+			| Event::SyncConnectionChanged {
+				library_id: lid, ..
+			}
+			| Event::SyncError {
 				library_id: lid, ..
 			} => *lid == library_id,
 			_ => false,

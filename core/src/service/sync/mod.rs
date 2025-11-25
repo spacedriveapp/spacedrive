@@ -4,6 +4,7 @@
 //! - State-based sync for device-owned data
 //! - Log-based sync with HLC for shared resources
 
+pub mod activity;
 pub mod backfill;
 pub mod dependency;
 pub mod metrics;
@@ -26,9 +27,11 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::infra::db::entities;
+use crate::infra::event::EventBus;
 use crate::library::Library;
 use crate::service::network::protocol::SyncProtocolHandler;
 
+pub use activity::SyncActivityAggregator;
 pub use peer::PeerSync;
 pub use state::{
 	select_backfill_peer, BackfillCheckpoint, BufferQueue, BufferedUpdate, DeviceSyncState,
@@ -113,6 +116,9 @@ pub struct SyncService {
 	/// Metrics collector for observability
 	metrics: Arc<SyncMetricsCollector>,
 
+	/// Activity aggregator for UI events
+	activity_aggregator: Arc<SyncActivityAggregator>,
+
 	/// Whether the service is running
 	is_running: Arc<AtomicBool>,
 
@@ -195,6 +201,13 @@ impl SyncService {
 			.set_backfill_manager(Arc::downgrade(&backfill_manager))
 			.await;
 
+		// Create activity aggregator for UI events
+		let activity_aggregator = Arc::new(SyncActivityAggregator::new(
+			library_id,
+			metrics.clone(),
+			library.event_bus().clone(),
+		));
+
 		info!(
 			library_id = %library_id,
 			device_id = %device_id,
@@ -208,6 +221,7 @@ impl SyncService {
 			peer_sync,
 			backfill_manager,
 			metrics,
+			activity_aggregator,
 			is_running: Arc::new(AtomicBool::new(false)),
 			shutdown_tx: Arc::new(Mutex::new(None)),
 		})
@@ -596,6 +610,12 @@ impl crate::service::Service for SyncService {
 		let db = self.peer_sync.db().clone();
 		tokio::spawn(async move {
 			run_metrics_persistence_task(metrics, library_id, db).await;
+		});
+
+		// Spawn activity aggregator task (runs every second for real-time events)
+		let activity_aggregator = self.activity_aggregator.clone();
+		tokio::spawn(async move {
+			activity_aggregator.run().await;
 		});
 
 		info!("Peer sync service started (with pruning task)");
