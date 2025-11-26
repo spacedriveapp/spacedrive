@@ -67,7 +67,10 @@ impl PairCmd {
 					code
 				};
 
-				Some(PairJoinInput { code })
+				Some(PairJoinInput {
+				code,
+				node_id: node_id.clone(),
+			})
 			}
 			_ => None,
 		}

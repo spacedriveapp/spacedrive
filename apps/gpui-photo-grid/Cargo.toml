@@ -8,8 +8,8 @@ name = "gpui-photo-grid"
 path = "src/main.rs"
 
 [dependencies]
-gpui = { path = "/Users/jamespine/Projects/zed/crates/gpui" }
-reqwest_client = { path = "/Users/jamespine/Projects/zed/crates/reqwest_client" }
+gpui = { git = "https://github.com/zed-industries/zed", branch = "main" }
+reqwest_client = { git = "https://github.com/zed-industries/zed", branch = "main" }
 sd-client = { path = "../../crates/sd-client" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"

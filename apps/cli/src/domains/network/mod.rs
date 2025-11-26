@@ -231,7 +231,7 @@ async fn run_interactive_pair_join(ctx: &Context, code: Option<&str>) -> Result<
 		],
 	)?;
 
-	let final_code = if use_relay == 1 {
+	let (final_code, node_id) = if use_relay == 1 {
 		// Internet pairing - need relay info
 		println!("\nFor internet pairing, you need:");
 		println!("  1. Node ID (from the QR code or pairing output)");
@@ -254,19 +254,22 @@ async fn run_interactive_pair_join(ctx: &Context, code: Option<&str>) -> Result<
 		};
 
 		// Construct QR JSON format
-		serde_json::json!({
+		let code = serde_json::json!({
 			"version": 1,
 			"words": code,
 			"node_id": node_id,
 			"relay_url": relay_url,
 			"session_id": session_id
-		}).to_string()
+		}).to_string();
+
+		(code, Some(node_id))
 	} else {
 		// Local pairing - just use the words
-		code
+		(code, None)
 	};
 
 	Ok(sd_core::ops::network::pair::join::input::PairJoinInput {
 		code: final_code,
+		node_id,
 	})
 }
