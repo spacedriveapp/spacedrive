@@ -3,11 +3,6 @@ name    = "sd-server"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = []
-# Include bundled web assets (production builds)
-assets  = []
-
 [dependencies]
 # Spacedrive core
 sd-core = { path = "../../core", features = ["ffmpeg", "heif"] }
@@ -22,10 +17,6 @@ tower-http = { version = "0.5", features = ["fs", "cors"] }
 
 # Auth
 secstr = "0.5"
-
-# Static assets
-include_dir = "0.7"
-mime_guess  = "2.0"
 
 # Serialization
 serde      = { version = "1", features = ["derive"] }

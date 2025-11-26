@@ -86,6 +86,8 @@ impl crate::infra::sync::Syncable for Model {
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
+		// All FKs use dependency tracking - NEVER set to NULL on missing reference
+		// Source data with NULL values is handled correctly (null UUID → null FK)
 		vec![
 			crate::infra::sync::FKMapping::new("parent_id", "entries"),
 			crate::infra::sync::FKMapping::new("metadata_id", "user_metadata"),

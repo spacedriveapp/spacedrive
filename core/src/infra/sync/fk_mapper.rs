@@ -39,9 +39,6 @@ pub struct FKMapping {
 
 	/// Target table name (e.g., "devices")
 	pub target_table: &'static str,
-
-	/// Whether this FK can be null (for circular dependencies)
-	pub nullable: bool,
 }
 
 impl FKMapping {
@@ -49,15 +46,6 @@ impl FKMapping {
 		Self {
 			local_field,
 			target_table,
-			nullable: false,
-		}
-	}
-
-	pub fn new_nullable(local_field: &'static str, target_table: &'static str) -> Self {
-		Self {
-			local_field,
-			target_table,
-			nullable: true,
 		}
 	}
 
@@ -209,29 +197,18 @@ pub async fn map_sync_json_to_local(
 
 		// Map UUID to local ID
 		// If the referenced record doesn't exist yet (sync dependency), return error for retry
-		let local_id = match lookup_local_id_for_uuid(fk.target_table, uuid, db).await {
-			Ok(id) => id,
-			Err(e) => {
-				// Referenced record not found - this is a sync dependency issue
-				// For nullable FKs (circular dependencies), set to NULL instead of erroring
-				if fk.nullable {
-					data[fk.local_field] = Value::Null;
-					if let Some(obj) = data.as_object_mut() {
-						obj.remove(&uuid_field);
-					}
-					continue;
-				}
-
-				// For non-nullable FKs, propagate error so caller can buffer/retry
-				return Err(anyhow::anyhow!(
+		// NEVER set to NULL - that corrupts data. Caller must use dependency tracking.
+		let local_id = lookup_local_id_for_uuid(fk.target_table, uuid, db)
+			.await
+			.map_err(|e| {
+				anyhow::anyhow!(
 					"Sync dependency missing: {} -> {} (uuid={}): {}",
 					fk.local_field,
 					fk.target_table,
 					uuid,
 					e
-				));
-			}
-		};
+				)
+			})?;
 
 		// Replace UUID with local ID
 		data[fk.local_field] = json!(local_id);
@@ -250,8 +227,8 @@ pub async fn map_sync_json_to_local(
 pub struct BatchFkMapResult {
 	/// Records that were successfully mapped (all FKs resolved)
 	pub succeeded: Vec<Value>,
-	/// Records that failed due to missing non-nullable FK references
-	/// Contains (record, missing_fk_field, missing_uuid) for retry/buffering
+	/// Records that failed due to missing FK references
+	/// Contains (record, missing_fk_field, missing_uuid) for retry/dependency tracking
 	pub failed: Vec<(Value, String, Uuid)>,
 }
 
@@ -260,8 +237,8 @@ pub struct BatchFkMapResult {
 /// This function processes multiple records at once, using batch FK lookups
 /// to reduce database queries from N*M (N records × M FKs) to M (one per FK type).
 ///
-/// Records with missing non-nullable FK references are returned in `failed` for retry.
-/// Records with missing nullable FK references have the FK set to NULL and succeed.
+/// Records with missing FK references are returned in `failed` for retry via dependency tracking.
+/// NEVER sets FK to NULL on missing reference - that would corrupt data.
 pub async fn batch_map_sync_json_to_local(
 	records: Vec<Value>,
 	mappings: Vec<FKMapping>,
@@ -330,48 +307,31 @@ pub async fn batch_map_sync_json_to_local(
 			{
 				Some(uuid) => uuid,
 				None => {
-					// Invalid UUID format - set to NULL (this is a data error, not missing dep)
+					// Invalid UUID format - this is a data error, mark as failed
 					tracing::warn!(
 						fk_field = %fk.local_field,
-						"Invalid UUID format in FK field, setting to NULL"
+						"Invalid UUID format in FK field"
 					);
-					data[fk.local_field] = Value::Null;
-					if let Some(obj) = data.as_object_mut() {
-						obj.remove(&uuid_field);
-					}
+					// Use a nil UUID to indicate parse failure
+					failed_records.insert(idx, (fk.local_field.to_string(), Uuid::nil()));
 					continue;
 				}
 			};
 
 			// Look up local ID from batch results
+			// NEVER set to NULL on missing - that corrupts data. Always fail for retry.
 			let local_id = match uuid_to_id_map.get(&uuid) {
 				Some(&id) => id,
 				None => {
-					// Referenced record not found
-					if fk.nullable {
-						// Nullable FK - set to NULL and continue
-						tracing::debug!(
-							fk_field = %fk.local_field,
-							target_table = %fk.target_table,
-							uuid = %uuid,
-							"Nullable FK reference not found, setting to NULL"
-						);
-						data[fk.local_field] = Value::Null;
-						if let Some(obj) = data.as_object_mut() {
-							obj.remove(&uuid_field);
-						}
-						continue;
-					} else {
-						// Non-nullable FK - mark record as failed for retry
-						tracing::debug!(
-							fk_field = %fk.local_field,
-							target_table = %fk.target_table,
-							uuid = %uuid,
-							"Non-nullable FK reference not found, marking for retry"
-						);
-						failed_records.insert(idx, (fk.local_field.to_string(), uuid));
-						continue;
-					}
+					// Referenced record not found - mark for retry via dependency tracking
+					tracing::debug!(
+						fk_field = %fk.local_field,
+						target_table = %fk.target_table,
+						uuid = %uuid,
+						"FK reference not found, marking for retry"
+					);
+					failed_records.insert(idx, (fk.local_field.to_string(), uuid));
+					continue;
 				}
 			};
 
@@ -468,14 +428,5 @@ mod tests {
 
 		let fk = FKMapping::new("entry_id", "entries");
 		assert_eq!(fk.uuid_field_name(), "entry_uuid");
-	}
-
-	#[test]
-	fn test_fk_mapping_nullable() {
-		let non_nullable = FKMapping::new("device_id", "devices");
-		assert!(!non_nullable.nullable, "default should be non-nullable");
-
-		let nullable = FKMapping::new_nullable("parent_id", "entries");
-		assert!(nullable.nullable, "new_nullable should create nullable FK");
 	}
 }
