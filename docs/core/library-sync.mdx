@@ -68,8 +68,7 @@ This ownership model eliminates most conflicts and simplifies synchronization.
 ### State-Based Sync (Device-Owned)
 
 <Info>
-  This sync protocol is tested in `test_sync_location_device_owned_state_based`
-  in core/tests/sync_integration_test.rs
+  See `core/tests/sync_backfill_test.rs` and `core/tests/sync_realtime_test.rs` for sync protocol tests.
 </Info>
 
 State-based sync uses two mechanisms depending on the scenario:
@@ -94,8 +93,7 @@ No version tracking needed. The owner's state is always authoritative.
 ### Log-Based Sync (Shared Resources)
 
 <Info>
-  This sync protocol is tested in `test_sync_tag_shared_hlc_based` in
-  core/tests/sync_integration_test.rs
+  See `core/tests/sync_realtime_test.rs` for shared resource sync tests.
 </Info>
 
 Log-based sync uses two mechanisms depending on the scenario:
@@ -128,9 +126,7 @@ For large datasets, the system uses HLC-based pagination. Each batch request inc
 ## Hybrid Logical Clocks
 
 <Info>
-  HLC conflict resolution is tested in
-  `test_concurrent_tag_updates_hlc_conflict_resolution` in
-  core/tests/sync_integration_test.rs
+  HLC conflict resolution is covered in `core/tests/sync_realtime_test.rs`.
 </Info>
 
 HLCs provide global ordering without synchronized clocks:
@@ -336,8 +332,6 @@ impl Syncable for YourModel {
         vec![
             FKMapping::new("device_id", "devices"),
             FKMapping::new("parent_id", "your_models"),
-            // Use new_nullable for optional FKs (circular dependencies)
-            FKMapping::new_nullable("optional_ref_id", "other_table"),
         ]
     }
 }
@@ -468,15 +462,14 @@ for (record, fk_field, missing_uuid) in result.failed {
 ## Sync Flows
 
 <Info>
-  The complete sync infrastructure is validated in
-  `test_sync_infrastructure_summary` in core/tests/sync_integration_test.rs
+  See `core/tests/sync_backfill_test.rs` and `core/tests/sync_realtime_test.rs` for sync flow tests.
 </Info>
 
 ### Creating a Location
 
 <Info>
-  Location sync with entries is tested in `test_sync_entry_with_location` in
-  core/tests/sync_integration_test.rs
+  Location and entry sync is tested in `test_initial_backfill_alice_indexes_first` in
+  `core/tests/sync_backfill_test.rs`.
 </Info>
 
 <Steps>
@@ -552,8 +545,7 @@ Begin receiving real-time broadcasts.
 ### Transitive Sync
 
 <Info>
-  Transitive sync is tested in `test_sync_transitive_three_devices` in
-  core/tests/sync_integration_test.rs
+  See `core/tests/sync_backfill_test.rs` for backfill scenarios.
 </Info>
 
 Spacedrive does not require a direct connection between all devices to keep them in sync. Changes can propagate transitively through intermediaries, ensuring the entire library eventually reaches a consistent state.
@@ -592,8 +584,7 @@ This architecture provides significant redundancy and resilience, as the library
 ### Delete Handling
 
 <Info>
-  Delete operations are tested in `test_sync_deletion_with_cascading_tombstones`
-  in core/tests/sync_integration_test.rs
+  See `core/tests/sync_realtime_test.rs` for deletion sync tests.
 </Info>
 
 **Device-owned deletions** use tombstones that sync via `StateResponse`. When you delete a location or folder with thousands of files, only the root UUID is tombstoned. Receiving devices cascade the deletion through their local tree automatically.
@@ -618,9 +609,7 @@ Receiving devices look up each deleted UUID and call the same deletion logic use
 ### Pre-Sync Data
 
 <Info>
-  Pre-sync data backfill is tested in
-  `test_sync_backfill_includes_pre_sync_data` in
-  core/tests/sync_integration_test.rs
+  Pre-sync data backfill is tested in `core/tests/sync_backfill_test.rs`.
 </Info>
 
 Data created before enabling sync is included during backfill. When the peer log has been pruned or contains fewer items than expected, the response includes a current state snapshot:
@@ -642,8 +631,7 @@ The receiving device applies both the incremental changes and the current state 
 ### Watermark-Based Incremental Sync
 
 <Info>
-  Watermark-based reconnection sync is tested in
-  `test_watermark_reconnection_sync` in core/tests/sync_integration_test.rs
+  See `core/tests/sync_backfill_test.rs` for incremental sync tests.
 </Info>
 
 When devices reconnect after being offline, they use watermarks to avoid full re-sync.
@@ -718,8 +706,7 @@ Both pagination strategies ensure all records are fetched exactly once, no recor
 ### Connection State Tracking
 
 <Info>
-  Connection state tracking is tested in `test_connection_state_tracking` in
-  core/tests/sync_integration_test.rs
+  See `core/tests/sync_realtime_test.rs` for connection handling tests.
 </Info>
 
 The sync system uses the Iroh networking layer as the source of truth for device connectivity. When checking if a peer is online, the system queries Iroh's active connections directly rather than relying on cached state.
@@ -845,7 +832,7 @@ RUST_LOG=sd_core::sync=debug cargo run
 
 ## Implementation Status
 
-<Info>See `core/tests/sync_integration_test.rs` for the full test suite.</Info>
+<Info>See `core/tests/sync_backfill_test.rs`, `core/tests/sync_realtime_test.rs`, and `core/tests/sync_metrics_test.rs` for the test suite.</Info>
 
 ### Production Ready
 

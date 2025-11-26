@@ -371,6 +371,7 @@ impl BackfillManager {
 					deleted_uuids,
 					has_more,
 					checkpoint: chk,
+					device_id: source_device_id,
 					..
 				} = response
 				{
@@ -390,18 +391,89 @@ impl BackfillManager {
 						}
 					}
 
-					// Batch FK resolution for all records
-					// Collect all record data first
-					let record_data: Vec<serde_json::Value> =
+					// Collect all record data, sorting by parent depth for hierarchical models
+					let mut record_data: Vec<serde_json::Value> =
 						records.iter().map(|r| r.data.clone()).collect();
+
+					// Sort entries so records with null parent_uuid come first
+					// This ensures parents are processed before children in the same batch
+					if model_type == "entry" {
+						record_data.sort_by(|a, b| {
+							let a_has_parent = a.get("parent_uuid").map(|v| !v.is_null()).unwrap_or(false);
+							let b_has_parent = b.get("parent_uuid").map(|v| !v.is_null()).unwrap_or(false);
+							a_has_parent.cmp(&b_has_parent) // false (no parent) comes before true
+						});
+					}
 
 					// Get FK mappings for this model type
 					let fk_mappings =
 						crate::infra::sync::get_fk_mappings(&model_type).unwrap_or_default();
 
-					// Batch process FK mappings if any exist
-					let processed_data = if !fk_mappings.is_empty() && !record_data.is_empty() {
-						// Single query per FK type instead of N queries per record
+					// For hierarchical models (entries), process one at a time to handle parent→child ordering
+					// Batch FK resolution fails because children can't find parents that haven't been inserted yet
+					let processed_data = if model_type == "entry" && !fk_mappings.is_empty() {
+						// Process entries individually: resolve FK → insert → resolve deps → next
+						let mut succeeded = Vec::with_capacity(record_data.len());
+
+						for data in record_data {
+							// Try to resolve FKs for this single record
+							let result = crate::infra::sync::batch_map_sync_json_to_local(
+								vec![data.clone()],
+								fk_mappings.clone(),
+								&db,
+							)
+							.await
+							.map_err(|e| anyhow::anyhow!("FK mapping failed: {}", e))?;
+
+							if !result.succeeded.is_empty() {
+								// FK resolution succeeded - add to processing list
+								succeeded.extend(result.succeeded);
+							} else if !result.failed.is_empty() {
+								// FK resolution failed - add to dependency tracker
+								for (failed_data, fk_field, missing_uuid) in result.failed {
+									let record_uuid = failed_data
+										.get("uuid")
+										.and_then(|v| v.as_str())
+										.and_then(|s| Uuid::parse_str(s).ok());
+
+									let record_timestamp = records
+										.iter()
+										.find(|r| Some(r.uuid) == record_uuid)
+										.map(|r| r.timestamp)
+										.unwrap_or_else(chrono::Utc::now);
+
+									if let Some(uuid) = record_uuid {
+										tracing::debug!(
+											model_type = %model_type,
+											record_uuid = %uuid,
+											fk_field = %fk_field,
+											missing_uuid = %missing_uuid,
+											"Entry has missing parent - adding to dependency tracker"
+										);
+
+										let state_change = super::state::StateChangeMessage {
+											model_type: model_type.clone(),
+											record_uuid: uuid,
+											device_id: source_device_id,
+											data: failed_data,
+											timestamp: record_timestamp,
+										};
+
+										self.peer_sync
+											.dependency_tracker()
+											.add_dependency(
+												missing_uuid,
+												super::state::BufferedUpdate::StateChange(state_change),
+											)
+											.await;
+									}
+								}
+							}
+						}
+
+						succeeded
+					} else if !fk_mappings.is_empty() && !record_data.is_empty() {
+						// Non-hierarchical models: use batch FK resolution
 						let result = crate::infra::sync::batch_map_sync_json_to_local(
 							record_data,
 							fk_mappings,
@@ -410,24 +482,51 @@ impl BackfillManager {
 						.await
 						.map_err(|e| anyhow::anyhow!("Batch FK mapping failed: {}", e))?;
 
-						// Log any records that failed due to missing dependencies
-						// These would need to be retried after their dependencies arrive
+						// Add failed records to dependency tracker
 						if !result.failed.is_empty() {
-							tracing::warn!(
+							tracing::info!(
 								model_type = %model_type,
 								failed_count = result.failed.len(),
-								"Some records have missing FK dependencies during backfill"
+								"Records have missing FK dependencies - adding to dependency tracker for retry"
 							);
-							// During backfill, we process in dependency order, so missing deps
-							// indicate either a bug in ordering or data inconsistency on source.
-							// Log details for debugging but continue with succeeded records.
-							for (_, fk_field, missing_uuid) in &result.failed {
-								tracing::debug!(
-									model_type = %model_type,
-									fk_field = %fk_field,
-									missing_uuid = %missing_uuid,
-									"Record skipped due to missing FK dependency"
-								);
+
+							for (failed_data, fk_field, missing_uuid) in result.failed {
+								let record_uuid = failed_data
+									.get("uuid")
+									.and_then(|v| v.as_str())
+									.and_then(|s| Uuid::parse_str(s).ok());
+
+								let record_timestamp = records
+									.iter()
+									.find(|r| Some(r.uuid) == record_uuid)
+									.map(|r| r.timestamp)
+									.unwrap_or_else(chrono::Utc::now);
+
+								if let Some(uuid) = record_uuid {
+									tracing::debug!(
+										model_type = %model_type,
+										record_uuid = %uuid,
+										fk_field = %fk_field,
+										missing_uuid = %missing_uuid,
+										"Adding record to dependency tracker"
+									);
+
+									let state_change = super::state::StateChangeMessage {
+										model_type: model_type.clone(),
+										record_uuid: uuid,
+										device_id: source_device_id,
+										data: failed_data,
+										timestamp: record_timestamp,
+									};
+
+									self.peer_sync
+										.dependency_tracker()
+										.add_dependency(
+											missing_uuid,
+											super::state::BufferedUpdate::StateChange(state_change),
+										)
+										.await;
+								}
 							}
 						}
 
@@ -439,6 +538,12 @@ impl BackfillManager {
 					// Apply updates via registry with FKs already resolved
 					// The idempotent map_sync_json_to_local in apply_state_change will skip already-resolved FKs
 					for data in processed_data {
+						// Extract UUID before moving data
+						let record_uuid = data
+							.get("uuid")
+							.and_then(|v| v.as_str())
+							.and_then(|s| Uuid::parse_str(s).ok());
+
 						crate::infra::sync::registry::apply_state_change(
 							&model_type,
 							data,
@@ -446,6 +551,42 @@ impl BackfillManager {
 						)
 						.await
 						.map_err(|e| anyhow::anyhow!("{}", e))?;
+
+						// After successfully applying, resolve any records waiting for this one
+						// (e.g., child entries waiting for their parent entry)
+						if let Some(uuid) = record_uuid {
+							let waiting_updates = self
+								.peer_sync
+								.dependency_tracker()
+								.resolve(uuid)
+								.await;
+
+							if !waiting_updates.is_empty() {
+								tracing::info!(
+									resolved_uuid = %uuid,
+									model_type = %model_type,
+									waiting_count = waiting_updates.len(),
+									"Resolving dependent records after device-owned backfill"
+								);
+
+								for update in waiting_updates {
+									if let super::state::BufferedUpdate::StateChange(dependent_change) = update {
+										if let Err(e) = self
+											.peer_sync
+											.apply_state_change(dependent_change.clone())
+											.await
+										{
+											// If still failing (e.g., grandparent missing), re-queue
+											tracing::debug!(
+												error = %e,
+												record_uuid = %dependent_change.record_uuid,
+												"Dependent record still has missing deps, will retry"
+											);
+										}
+									}
+								}
+							}
+						}
 					}
 
 					// Record data volume metrics
@@ -527,6 +668,40 @@ impl BackfillManager {
 				// Apply entries in HLC order (already sorted from peer)
 				for entry in &entries {
 					self.log_handler.handle_shared_change(entry.clone()).await?;
+
+					// Resolve any state changes waiting for this shared resource
+					// This handles cross-type dependencies (e.g., entries waiting for content_identities)
+					let waiting_updates = self
+						.peer_sync
+						.dependency_tracker()
+						.resolve(entry.record_uuid)
+						.await;
+
+					if !waiting_updates.is_empty() {
+						tracing::debug!(
+							resolved_uuid = %entry.record_uuid,
+							model_type = %entry.model_type,
+							waiting_count = waiting_updates.len(),
+							"Resolving dependencies after shared resource backfill"
+						);
+
+						for update in waiting_updates {
+							if let super::state::BufferedUpdate::StateChange(dependent_change) = update
+							{
+								if let Err(e) = self
+									.peer_sync
+									.apply_state_change(dependent_change.clone())
+									.await
+								{
+									tracing::warn!(
+										error = %e,
+										record_uuid = %dependent_change.record_uuid,
+										"Failed to apply dependent state change after shared resource backfill"
+									);
+								}
+							}
+						}
+					}
 				}
 
 				total_applied += batch_size;
@@ -648,6 +823,41 @@ impl BackfillManager {
 															error = %e,
 															"Failed to apply current state record"
 														);
+													} else {
+														// Resolve any state changes waiting for this shared resource
+														let waiting_updates = self
+															.peer_sync
+															.dependency_tracker()
+															.resolve(record_uuid)
+															.await;
+
+														if !waiting_updates.is_empty() {
+															tracing::debug!(
+																resolved_uuid = %record_uuid,
+																model_type = %model_type,
+																waiting_count = waiting_updates.len(),
+																"Resolving dependencies after current_state snapshot"
+															);
+
+															for update in waiting_updates {
+																if let super::state::BufferedUpdate::StateChange(
+																	dependent_change,
+																) = update
+																{
+																	if let Err(e) = self
+																		.peer_sync
+																		.apply_state_change(dependent_change.clone())
+																		.await
+																	{
+																		tracing::warn!(
+																			error = %e,
+																			record_uuid = %dependent_change.record_uuid,
+																			"Failed to apply dependent state change after current_state snapshot"
+																		);
+																	}
+																}
+															}
+														}
 													}
 												}
 											}

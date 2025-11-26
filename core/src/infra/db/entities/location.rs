@@ -94,9 +94,12 @@ impl Syncable for Model {
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
+		// entry_id may be NULL in source (location created before root entry indexed)
+		// If source has entry_uuid=null → FK is null (handled by FK mapper)
+		// If source has entry_uuid=xxx but missing → fail for dependency tracking
 		vec![
 			crate::infra::sync::FKMapping::new("device_id", "devices"),
-			crate::infra::sync::FKMapping::new_nullable("entry_id", "entries"),
+			crate::infra::sync::FKMapping::new("entry_id", "entries"),
 		]
 	}
 

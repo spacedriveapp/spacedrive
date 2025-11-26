@@ -113,9 +113,9 @@
 
 \lstset{style=ruststyle} % Set default style
 
-% Define [Planned] marker for future features
-\newcommand{\planned}[1]{\textit{[Planned] #1}}
-\newcommand{\plannedSection}[1]{#1 \textit{[Planned]}}
+% Commands for future features (marker removed)
+\newcommand{\planned}[1]{#1}
+\newcommand{\plannedSection}[1]{#1}
 
 % Define Key Takeaways box environment
 \tcbuselibrary{skins,breakable}
@@ -152,7 +152,6 @@
 % --- TITLE ---
 \title{Spacedrive: Architecture of a Content-Aware Virtual File System}
 \subtitle{A Local-First VDFS for Unifying Data Across Distributed Devices}
-
 
 % --- AUTHORS ---
 \author{James Mathew Pine}
@@ -355,7 +354,7 @@ A Spacedrive Library is organized as a self-contained directory with four key co
  \item \textbf{Concurrency Protection}: Safe multi-device access control
 \end{itemize}
 
-This portable structure means that backing up your entire organizational system—all metadata, tags, ratings, and file relationships—is as simple as copying a single directory. The Library acts as a complete catalog of your digital life, preserving your organizational work even if the actual files are distributed across multiple devices and locations.
+This portable structure means that backing up your entire organizational system—all metadata, tags, and file relationships—is as simple as copying a single directory. The Library acts as a complete catalog of your digital life, preserving your organizational work even if the actual files are distributed across multiple devices and locations.
 
 This design provides several critical advantages: its self-contained nature simplifies backup and migration, and sharing involves sending the complete Library. From a security perspective, this architecture ensures that each device in a paired group builds and controls its own library database, enabling granular scoping of locations and indexed data to local or select devices, thereby enhancing data sovereignty and limiting exposure.
 
@@ -387,19 +386,19 @@ Discovery Time & Temporal tracking \\
 \textbf{Architectural Benefits}: This entry-centric approach provides several key advantages:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Metadata Independence}: User metadata (tags, ratings, notes) persists regardless of filesystem changes. Moving or renaming files preserves all organizational work.
- 
+ \item \textbf{Metadata Independence}: User metadata (tags, notes) persists regardless of filesystem changes. Moving or renaming files preserves all organizational work.
+
  \item \textbf{Universal Queryability}: Every entity can be searched, filtered, and organized through the same query interface, whether it's a file, directory, or even ephemeral content.
- 
+
  \item \textbf{Relationship Tracking}: The parent ID creates an explicit graph structure that enables O(1) hierarchical queries through the closure table (Section~\ref{sec:indexing-engine}), replacing slow path-based traversals.
- 
+
  \item \textbf{Content Separation}: The optional content ID links entries to the deduplication system without coupling file identity to content analysis. An entry can exist and be organized before its content is analyzed.
 \end{itemize}
 
 \textbf{Ephemeral Mode}: The indexing engine extends this model to support temporary, in-memory Entry records for unindexed content. When browsing external drives or remote devices, ephemeral entries are generated on-the-fly and presented alongside persisted entries, creating a unified view. Users can tag and organize these files immediately; if an entry lacks a parent Location, it persists in the Library with its metadata intact, demonstrating how the entry-centric model handles both permanent and transient data uniformly.
 
-\subsubsection{Semantic Tagging Architecture}
-Spacedrive employs a graph-based tagging architecture that supports semantic organization while maintaining ease of use. This system recognizes that human organization relies on context, relationships, and multiple perspectives---capabilities that traditional flat tagging systems cannot provide.
+\subsubsection{Semantic Tagging}
+Spacedrive employs a graph-based tagging system that supports semantic organization while maintaining ease of use. This system recognizes that human organization relies on context, relationships, and multiple perspectives---capabilities that traditional flat tagging systems cannot provide.
 
 \textbf{Contextual Tag Design}
 
@@ -458,24 +457,6 @@ pub enum SdPath {
         content_id: Uuid
     },
 }
-
-// Same API works for all addressing modes
-async fn copy_files(from: Vec<SdPath>, to: SdPath) -> Result<()> {
-    for source in from {
-        // Resolve content-aware paths to optimal physical paths
-        let resolved_source = match source {
-            SdPath::Physical { .. } => source,
-            SdPath::Cloud { .. } => source,  // Cloud paths used directly
-            SdPath::Content { content_id } => {
-                resolve_optimal_path(content_id).await?
-            }
-        };
-
-        // Execute operation using resolved paths
-        execute_transfer(&resolved_source, &to).await?;
-    }
-    Ok(())
-}
 \end{lstlisting}
 
 \textbf{Content-Aware Addressing and Optimal Path Resolution}
@@ -526,7 +507,7 @@ This design decouples clients from the complexity of path resolution. A user int
 \subsubsection{The Virtual Sidecar System: Managing Derivative Data}
 Spacedrive's VDFS model extends beyond managing original user files to also include first-class support for derivative data through a Virtual Sidecar System. For any given Entry, Spacedrive can create and manage a set of associated files—such as thumbnails, OCR text data, video transcripts, or transcoded media proxies—without ever modifying the original file.
 
-These sidecar files are stored within a managed directory inside the portable \texttt{.sdlibrary} container and are linked to the original Entry via its globally unique ID in the VDFS index. This architecture offers several key advantages:
+These sidecar files are stored within a managed directory inside the portable \texttt{.sdlibrary} container and are linked to the original Entry via its globally unique ID in the VDFS index. This offers several key advantages:
 
 \begin{itemize}[noitemsep, topsep=0pt]
     \item \textbf{Integrity}: The user's original files are never altered, preserving their integrity and original metadata.
@@ -550,7 +531,7 @@ The system combines multiple detection strategies to improve accuracy:
 \end{itemize}
 
 \paragraph{Semantic Categorization}
-Files are automatically grouped into 17 semantic categories (ContentKind) that enable intuitive organization and specialized handling:
+Files are automatically grouped into semantic categories (ContentKind) that enable intuitive organization and specialized handling:
 
 \begin{itemize}
     \item \textbf{Media Types}: Image, Video, Audio—enabling gallery views and media players
@@ -560,7 +541,7 @@ Files are automatically grouped into 17 semantic categories (ContentKind) that e
     \item \textbf{Specialized}: Mesh (3D models), Font, Encrypted, Key—each with tailored handling
 \end{itemize}
 
-\paragraph{Extensible Architecture}
+\paragraph{Extensibility}
 New file types are defined through declarative TOML specifications:
 
 \begin{lstlisting}[language=toml, caption=Example file type definition for AVIF images]
@@ -591,52 +572,9 @@ The magic byte system supports detailed patterns:
     \item Multiple patterns with different offsets and priorities
 \end{itemize}
 
-\paragraph{Rich Metadata Support}
-Each file type can include arbitrary metadata that enables specialized features:
-\begin{itemize}
-    \item \textbf{Image formats}: Color depth, transparency support, compression type
-    \item \textbf{Code files}: Language version, syntax family, build tool associations
-    \item \textbf{Media files}: Codec information, container format, streaming compatibility
-    \item \textbf{Documents}: Editability, macro support, form capabilities
-\end{itemize}
-
-This metadata integrates with the Virtual Sidecar System to enable rich querying without modifying original files. For example, finding "all lossless images with transparency" or "Python files using type hints" becomes trivial.
-
-\paragraph{Performance and Reliability}
-The implementation prioritizes real-world performance:
-\begin{itemize}
-    \item Extension-based fast path for unambiguous cases
-    \item Limited reads (8KB for magic bytes) to avoid I/O bottlenecks
-    \item Async file operations for non-blocking identification
-    \item Graceful fallbacks when files lack extensions or have misleading ones
-\end{itemize}
-
-By combining accurate identification with semantic categorization, Spacedrive supports file type detection as a useful organizational aid that reflects how users commonly categorize files.
-
-\subsubsection{User-Managed Collections}
-Spacedrive elevates ephemeral user actions, like selecting files, into a useful organizational tool through \textbf{User-Managed Collections}. This architecture provides persistence and recall features that traditional file managers lack.
-
-Ephemeral UI states, such as a user's current selection or a "cut/copy" clipboard, are managed entirely on the client-side and are not part of the core VDFS data model. However, Spacedrive provides users with the ability to persist these temporary selections into durable, named collections.
-
-This is achieved through a dedicated database schema that cleanly separates these user-created groupings from the file entries themselves:
-\begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{`collections` table}: Stores the metadata for a collection (e.g., name: "Website Assets", "Tax Documents 2024").
-    \item \textbf{`collection\_entries` junction table}: A many-to-many link between collections and entries.
-\end{itemize}
-
-This design allows a single file to exist in multiple collections without any data duplication. It correctly models a "Saved Selection" not as a property *of a file*, but as a separate, first-class object within the user's library, similar to a photo album or a music playlist. This provides a solid foundation for features like shareable lightboxes, project asset groups, and recallable user selections.
-
 % --- SECTION 4.2: CONTENT IDENTITY SYSTEM ---
-\subsection{Content Identity: The Foundation for Deduplication and Redundancy}
+\subsection{Content Identity: Deduplication and Redundancy}
 \label{sec:content-identity}
-
-\begin{keytakeaways}
-\begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Dual Purpose}: Content-aware deduplication reduces storage usage and tracks redundancy to support data protection
-\item \textbf{Adaptive Hashing}: Full analysis for small files (<10MB); strategic sampling for large files—targeting 99.9\% accuracy with up to 100× speedup
-\item \textbf{Redundancy Monitoring}: Monitors file redundancy and suggests backups for at‑risk data
-\end{itemize}
-\end{keytakeaways}
 
 Spacedrive's content-addressable storage system serves a dual purpose: it reduces storage usage through content-aware deduplication~\cite{zhu_dedup_2008} and tracks redundancy across devices. This unified approach turns content identification into a practical data protection approach:
 
@@ -648,24 +586,25 @@ The system employs different strategies based on file size, inspired by systems 
 
 Spacedrive uses a size-based approach to create unique fingerprints for files:
 
-\textbf{Small Files (under 10MB):}
+\textbf{Small Files (under 100KB):}
 \begin{itemize}[noitemsep, topsep=0pt]
 \item Complete content analysis for exact matching of identical files
 \item Detects identical files via full-hash comparison
- \item Examples: Documents, photos, configuration files
 \end{itemize}
 
-\textbf{Large Files (over 10MB):}
+\textbf{Large Files (over 100KB):}
 \begin{itemize}[noitemsep, topsep=0pt]
  \item Strategic sampling from beginning, middle, and end segments
  \item Maintains deduplication effectiveness while preserving real-time performance
- \item
-Examples: Videos, large datasets, virtual machine images
+
+\end{itemize}
+
+\textbf{Empty Files:}
+\begin{itemize}[noitemsep, topsep=0pt]
+ \item Ignored and do not receive a content identity
 \end{itemize}
 
 This approach enables effective deduplication on consumer hardware—recognizing that \texttt{vacation\_video.mp4} on your laptop is identical to \texttt{backup\_copy.mp4} on your external drive, even with different names and locations.
-\textbf{Small files} (<100KB) receive full BLAKE3 hashing for bitwise accuracy.
-\textbf{Large files} use strategic sampling: an 8KB header, four evenly-spaced 10KB samples from the file body, and an 8KB footer. This approach reduces a 10GB file hash from 30+ seconds to under 100ms while maintaining 99.9\%+ deduplication accuracy in practice.
 
 The hashing function, $H(x)$, for a file $F$ of size $S_F$ can be more accurately represented as:
 
@@ -676,10 +615,9 @@ $H_{adaptive}(F) = \begin{cases} H(size \oplus F) & \text{if } S_F < 100 \text{ 
 Where $H(x)$ is the BLAKE3 hash function including the file size in bytes as a prefix, $H_{header}$ is the 8KB header, $S_1$ through $S_4$ are four 10KB samples evenly distributed through the file body, $F_{footer}$ is the 8KB footer, and $\oplus$ denotes the concatenation operation.
 
 \paragraph{Two-Tier Hashing: Performance vs. Security Trade-off}
-
 The Content Identity system separates identity (for deduplication) from integrity (for verification) through a two-tier hashing architecture:
 
-\textbf{Initial Indexing (Sampled Hash)}: During discovery, only the sampled hash is computed. For large files, this reads ~58KB of data (8KB header + 4×10KB samples + 8KB footer) instead of the entire file. A 10GB video requires ~58KB of I/O instead of 10GB—approximately 170,000× less data read. Only the first 16 characters of the resulting BLAKE3 hex hash are stored as the content identifier, providing sufficient uniqueness for deduplication (collision probability <$10^{-19}$ for libraries under 1 billion files).
+\textbf{Initial Indexing (Sampled Hash)}: During the content indexing phase, only the sampled hash is computed. For large files, this reads ~58KB of data instead of the entire file. A 10GB video requires ~58KB of I/O instead of 10GB—approximately 170,000× less data read. Only the first 16 characters of the resulting BLAKE3 hex hash are stored as the content identifier, providing sufficient uniqueness for general deduplication.
 
 \textbf{Lazy Integrity Validation}: Complete BLAKE3 hashes of entire file contents are generated on-demand by background \texttt{ValidationJobs}:
 
@@ -693,13 +631,13 @@ The Content Identity system separates identity (for deduplication) from integrit
 \textbf{When Full Integrity Matters}:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Large File Transfers}: Verify no corruption during cross-device operations
+ \item \textbf{File Transfers}: Verify no corruption during cross-device operations
  \item \textbf{Backup Verification}: Ensure bit-perfect copies in archival storage
  \item \textbf{Security-Sensitive Files}: Cryptographic proof of content authenticity
  \item \textbf{Forensic Analysis}: Detect tampering in legal or compliance scenarios
 \end{itemize}
 
-This architecture enables instant indexing (sub-second per file) while preserving cryptographic guarantees for scenarios requiring absolute verification. Users benefit from immediate deduplication without waiting hours for full cryptographic hashing of large media libraries.
+This enables accelerated indexing while asynchronously preserving cryptographic guarantees when full integrity matters. Users benefit from immediate deduplication without waiting hours for full cryptographic hashing of large media libraries.
 
 \subsubsection{Content Identity Management}
 Each unique piece of content receives a \textbf{Content Identity} record that tracks all instances across the Library:
@@ -729,26 +667,21 @@ Timeline & First found/last verified \\
 \label{tab:content-identity}
 \end{table}
 
-
 Users can execute expressive queries like "show all instances of this photo across devices" and "calculate storage savings from deduplication." The system recognizes that \texttt{/Users/alice/vacation.jpg} and \texttt{/backup/IMG\_1234.jpg} contain identical content, presenting a unified view while maintaining the actual filesystem locations.
 
 \subsubsection{Redundancy Analysis and Protection}
 
 Beyond deduplication, the Content Identity system adds redundancy analysis to support data protection:
 
-\textbf{Redundancy Analysis}: For any file, the system instantly reports how many copies exist and where they're located. A query might reveal: "Your wedding photos have 3 copies: MacBook Pro (SSD), Home NAS (RAID), and Cloud Backup." This transparency gives users confidence that their precious memories are protected.
-
-\textbf{Risk Assessment}: By combining redundancy data with volume classifications, Spacedrive identifies at-risk files. Critical documents with only one copy on a laptop SSD are flagged as high-risk, while files with copies on both primary and backup storage are marked as secure. These signals inform AI-generated protection suggestions.
+\textbf{At Risk Files}: For any file or folder, the system knows how many copies exist and where they're located. A query might reveal: "Your wedding photos have 3 copies: MacBook Pro (SSD), Home NAS (RAID), and Cloud Backup." By intersecting two arbitrary locations, a user can instantly identify files missing from backups. Combining this redundancy data with volume classifications, Spacedrive identifies at-risk files—critical documents with only one copy on a laptop SSD are flagged as high-risk, while files with copies on both primary and backup storage are marked as secure. These signals inform AI-generated protection suggestions.
 
 \textbf{Integrity Verification}: The system employs a two-tier hashing strategy for optimal performance. During initial indexing, only the fast content hash (sampled for large files) is generated. Full integrity verification happens lazily through background \texttt{ValidationJobs} that generate complete BLAKE3 hashes of entire file contents. This approach allows rapid indexing while still providing cryptographic integrity guarantees when needed. Any mismatch between a file's integrity hash and its actual content indicates potential corruption, triggering immediate alerts and offering restoration from known-good copies on other devices.
 
 \textbf{Protection Suggestions}: When the AI identifies important files lacking redundancy—such as recently imported photos or new project documents—it generates actionable suggestions: "I noticed your 'Tax Documents 2024' folder exists only on your laptop. Would you like to create a backup on your NAS?" These suggestions appear as pre-visualized Actions, showing exactly what will happen.
 
-This dual approach—saving space through deduplication while protecting data through redundancy tracking—exemplifies Spacedrive's philosophy of putting users in control of their digital lives.
-
 
 % --- SECTION 4.3: THE INDEXING ENGINE ---
-\subsection{The Indexing Engine: A Multi-Phase Architecture}
+\subsection{The Indexing Engine}
 \label{sec:indexing-engine}
 
 \begin{keytakeaways}
@@ -760,11 +693,11 @@ This dual approach—saving space through deduplication while protecting data th
 \end{itemize}
 \end{keytakeaways}
 
-The Spacedrive index is the cornerstone of the VDFS, providing the working model that enables features like semantic search, durable jobs, and AI-native management. The Indexing Engine is a multi-phase system designed for performance, fault tolerance, and flexibility on consumer hardware, with support for both local file systems and remote volumes through OpenDAL integration.
+The Spacedrive index is the cornerstone of the VDFS, a multi-phase directory-traversal system designed for performance, fault tolerance, and flexibility on consumer hardware, with support for both local file systems and remote volumes through OpenDAL integration.
 
 \subsubsection{Multi-Phase Processing Pipeline}
 
-To manage the complexity of file system analysis, the indexer employs a four-phase pipeline. This separation of concerns ensures that operations are resumable, efficient, and robust against interruptions. Each phase transitions the state of an \texttt{Entry} from initial discovery to full integration into the Library.
+To manage the complexity of file system analysis, the indexer employs a four-phase pipeline.
 
 \begin{figure}[h]
 \centering
@@ -790,13 +723,13 @@ To manage the complexity of file system analysis, the indexer employs a four-pha
 \end{figure}
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Discovery Phase}: The engine performs a recursive traversal of a \texttt{Location}'s file system. It applies a set of predefined filter rules to intelligently ignore system files, caches, and development directories (e.g., \texttt{.git}, \texttt{node\_modules}). Discovered items are collected into batches for efficient processing.
+ \item \textbf{Discovery Phase}: The engine performs a recursive traversal of a \texttt{Location}'s file system. It applies a set of predefined filter rules to ignore system and hidden files, caches, and development directories (e.g., \texttt{.git}, \texttt{node\_modules}). During traversal, the system captures filesystem metadata including inodes and modification timestamps for each entry. Discovered items are collected into batches for efficient processing.
 
- \item \textbf{Processing Phase}: Each batch of discovered entries is processed to create or update records in the database. This phase includes \textbf{change detection}, which uses inode tracking and modification timestamps to identify new, modified, or moved files, ensuring that only necessary updates are performed.
+ \item \textbf{Processing Phase}: Each batch of discovered entries is processed to create or update records in the database. This phase includes \textbf{change detection}, which uses the captured inode and modification timestamp data to identify new, modified, or moved files, ensuring that only necessary database updates are performed.
 
  \item \textbf{Aggregation Phase}: For directories, the engine performs a bottom-up traversal to calculate aggregate statistics, such as total size and file counts. This pre-calculation makes directory size lookups an O(1) operation.
 
- \item \textbf{Phase 4: Content Identification}: For files, this phase generates a content hash (CAS ID---Content-Addressed Storage Identifier) for deduplication. It employs BLAKE3 hashing with an adaptive strategy: small files (<100KB) are fully hashed with their size prepended, while large files use sampling---an 8KB header, four evenly-spaced 10KB samples, and an 8KB footer---to maintain performance. Only the first 16 characters of the resulting hex hash are stored. This phase also performs file type detection using a combination of extension matching and magic byte analysis. For media files, the system leverages bundled FFmpeg libraries to extract rich metadata including duration, codec information, bitrate, resolution, and frame rate---all stored in dedicated media data tables for efficient querying.
+ \item \textbf{Phase 4: Content Identification}: For files, this phase generates a content hash (CAS ID---Content-Addressed Storage Identifier) for deduplication. This phase also performs file type detection using a combination of extension matching and magic byte analysis. For media files, the system leverages bundled FFmpeg libraries to extract rich metadata including duration, codec information, bitrate, resolution, and frame rate---all stored in dedicated media data tables for efficient querying.
 
 \end{itemize}
 
@@ -804,18 +737,9 @@ After a file's content and type are identified, the system can then dispatch spe
 
 \paragraph{Checkpoint Architecture and Resumability}
 
-The multi-phase design enables robust resumability critical for mobile devices and large libraries where indexing can span hours and face multiple interruptions.
+The indexing engine's design enables robust resumability critical for mobile devices and large libraries where indexing can span hours and face multiple interruptions.
 
-\textbf{Phase Separation Rationale}: Each phase has distinct failure modes and I/O characteristics requiring independent error handling:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Discovery}: Filesystem traversal fails on permission errors or unmounted volumes
- \item \textbf{Processing}: Database writes fail on constraint violations or lock timeouts
- \item \textbf{Aggregation}: Hierarchical calculations fail on corrupted parent-child references
- \item \textbf{Content ID}: File hashing fails on file locks, read errors, or offline volumes
-\end{itemize}
-
-\textbf{Checkpoint Mechanism}: Jobs checkpoint automatically after each batch (default: 1,000 entries). State serialization uses MessagePack for compact binary encoding. Each checkpoint captures:
+\textbf{Checkpoint Mechanism}: Jobs checkpoint automatically after each batch. State serialization uses MessagePack for compact binary encoding. Each checkpoint captures:
 
 \begin{itemize}[noitemsep, topsep=0pt]
  \item Current phase identifier
@@ -834,9 +758,9 @@ The multi-phase design enables robust resumability critical for mobile devices a
  \item Continue from checkpoint cursor position
 \end{enumerate}
 
-This architecture transforms hours-long indexing operations into resilient, interruptible workflows. A user can index a 500GB photo library over multiple days, pausing for battery conservation or device shutdown, with zero redundant work on resume.
+This transforms hours-long indexing operations into resilient, interruptible workflows. A user can index a 500GB photo library over multiple days, pausing for battery conservation or device shutdown, with zero redundant work on resume.
 
-\textbf{Ephemeral Mode Architecture}: The indexer's ephemeral mode creates in-memory \texttt{Entry} records for unindexed paths, enabling three critical use cases:
+\textbf{Ephemeral Mode}: The indexer's ephemeral mode creates in-memory \texttt{Entry} records for unindexed paths, enabling three critical use cases:
 
 \begin{itemize}[noitemsep, topsep=0pt]
  \item \textbf{Exploratory Browsing}: Users can explore external drives or removable media before committing to permanent indexing, with full metadata capabilities (tagging, organizing) available immediately
@@ -844,7 +768,7 @@ This architecture transforms hours-long indexing operations into resilient, inte
  \item \textbf{Lazy Refresh Navigation}: During directory browsing, existing indexed data displays instantly while a background validation job updates changed entries
 \end{itemize}
 
-These ephemeral entries appear indistinguishable from persisted entries in the UI, creating a unified browsing experience across indexed and non-indexed data.
+These in-memory ephemeral entries appear indistinguishable from persisted entries in the UI, creating a unified browsing experience across indexed and non-indexed data.
 
 \subsubsection{Flexible Indexing Scopes and Persistence}
 \label{sec:indexing-scopes}
@@ -885,11 +809,11 @@ A key strength of the watcher is its use of platform-native APIs for optimal per
 The watcher service is more than a simple event forwarder. It includes a processing pipeline:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Noise Filtering}: The watcher filters out irrelevant events from temporary files (\texttt{.tmp}, \texttt{\textasciitilde backup}), system files (\texttt{.DS\_Store}), and editor-specific files (\texttt{.swp}), ensuring that only meaningful changes are processed.
+ \item \textbf{Noise Filtering}: The watcher applies the same configurable \textbf{indexer rules engine} used during initial indexing. This allows users to customize which files are tracked---filtering system files (\texttt{.DS\_Store}, \texttt{Thumbs.db}), hidden files, git-ignored paths, and development directories (\texttt{node\_modules}, \texttt{target})---through a unified rule set.
 
  \item \textbf{Event Debouncing}: To prevent "event storms" during bulk operations (e.g., unzipping an archive), the system debounces file system events, consolidating rapid-fire changes into single, actionable events.
 
- \item \textbf{Event Bus Integration}: Processed events are published to the core \texttt{EventBus}---a centralized message routing system that enables loose coupling between services---where they trigger other components. For example, an \texttt{EntryModified} event will trigger the indexer to re-analyze a file, the search service to update its index, and the sync service to propagate the change to other devices.
+ \item \textbf{Responder Pipeline}: Processed events are dispatched to the \textbf{indexer responder}, which translates raw filesystem events into database operations. The responder resolves entry identities, updates metadata, triggers content processors (thumbnails, OCR, content hashing), and emits resource events that notify the sync service to propagate changes to other devices.
 \end{itemize}
 
 This real-time monitoring system helps Spacedrive maintain an up-to-date view of a user's files.
@@ -927,7 +851,7 @@ This hybrid approach ensures Spacedrive maintains its performance advantages whi
 \subsubsection{Extending the Indexer for Remote Volumes}
 \label{sec:remote-volumes}
 
-Spacedrive's multi-phase indexing pipeline extends naturally to remote volumes (e.g., cloud services like S3 or protocols like FTP) through integration with OpenDAL~\cite{opendal-2025}, a Rust-native library providing unified, asynchronous access to diverse storage backends. This allows treating remote storage as standard Locations without data duplication, leveraging ranged reads for efficiency and provider metadata for optimized hashing.
+Spacedrive's indexing pipeline extends naturally to remote volumes (e.g., cloud services like S3 or protocols like FTP) through integration with OpenDAL~\cite{opendal-2025}, a Rust-native library providing unified, asynchronous access to diverse storage backends. This allows treating remote storage as standard Locations without data duplication, leveraging ranged reads for efficiency and provider metadata for optimized hashing.
 
 \textbf{Key Adaptations:}
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -1129,9 +1053,9 @@ The closure table also significantly accelerates the preview generation itself. 
 \item \textbf{Resource Limitations}: Estimates memory and bandwidth requirements against device capabilities
 \end{itemize}
 
-The conflict detection system defends data integrity. The simulation engine catches conflicts during planning. Synchronization conflicts from concurrent modifications are handled through domain-specific merging (Section 15). This dual approach improves reliability in distributed file management.
+The simulation engine catches operational conflicts during planning, while Library Sync's per-model resolution handles the rare synchronization conflicts from concurrent modifications (Section~\ref{sec:library-sync}). This dual approach improves reliability in distributed file management.
 
-This is particularly powerful when combined with Native Storage Tiering (Section~\ref{sec:volume-foundation}). If a user attempts an operation on a Location they have marked with a \texttt{Hot} logical class, but it resides on a Volume physically classified as \texttt{Cold}, the simulation engine generates a clear warning in the preview: "\textbf{Warning:} This operation targets a 'hot' location on a slow archive drive. Estimated completion time may be longer than expected." This prevents user frustration by aligning expectations with physical reality before any action is committed.
+This is particularly powerful when combined with Native Storage Tiering (Section~\ref{sec:volume-foundation}). If a user attempts an operation on a Location they have marked with a \texttt{Hot} logical class, but it resides on a Volume physically classified as \texttt{Cold}, the simulation engine generates a clear warning in the preview: "\textbf{Warning:} This operation targets a 'hot' location on a slow archive drive. Estimated completion time may be longer than expected."
 
 \paragraph{Time Estimation}
 The Simulation Engine combines multiple data sources to provide accurate operation time estimates:
@@ -1233,7 +1157,7 @@ Spacedrive's Action System uses a self-registering architecture that automatical
  \item \textbf{Consistent Interface}: All operations (file copy, location management, etc.) follow the same patterns
 \end{itemize}
 
-This architecture enables easy extension of Spacedrive's capabilities while maintaining system reliability and consistent user experience across all operations.
+This enables easy extension of Spacedrive's capabilities while maintaining system reliability and consistent user experience across all operations.
 
 \subsubsection{Foundation for Advanced Capabilities}
 
@@ -1265,7 +1189,7 @@ The detailed audit trail provides the foundation for reliable operation reversal
 
 \subsubsection{Remote Action Dispatch}
 
-A key benefit of combining the Action System with the \texttt{SdPath} universal addressing scheme is the ability to dispatch actions where the execution occurs transparently on a remote device. For example, a \texttt{FileCopyAction} can specify a source \texttt{SdPath} on Device A and a destination \texttt{SdPath} on Device B. When this action is committed, the Job System intelligently routes the work. It creates a sender job on Device A and a corresponding receiver job on Device B, which coordinate the transfer over the secure P2P network. This architecture makes complex cross-device workflows trivial to express and execute, as the underlying network communication and state management are handled automatically by the core engine. All remote operations are still subject to the same validation, preview, and audit logging as local actions, ensuring a consistent security model across the entire VDFS.
+A key benefit of combining the Action System with the \texttt{SdPath} universal addressing scheme is the ability to dispatch actions where the execution occurs transparently on a remote device. For example, a \texttt{FileCopyAction} can specify a source \texttt{SdPath} on Device A and a destination \texttt{SdPath} on Device B. When this action is committed, the Job System routes the work to the appropriate device. It creates a sender job on Device A and a corresponding receiver job on Device B, which coordinate the transfer over the secure P2P network. This architecture makes complex cross-device workflows trivial to express and execute, as the underlying network communication and state management are handled automatically by the core engine. All remote operations are still subject to the same validation, preview, and audit logging as local actions, ensuring a consistent security model across the entire VDFS.
 
 \subsubsection{Handling File Ingestion and Uploads}
 \label{sec:ingestion-workflow}
@@ -1285,190 +1209,66 @@ This architecture ensures that new files are added to the user's data space in a
 \subsection{Library Sync and Networking}
 \label{sec:sync-networking}
 
-\begin{keytakeaways}
-\begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Leaderless Hybrid Model}: Eliminates bottlenecks and single points of failure with a peer-to-peer approach
-\item \textbf{Domain Separation}: Uses efficient state-based sync for device-authoritative data (e.g., file index) and a lightweight, HLC-ordered log for shared metadata (e.g., tags)
-\item \textbf{Integrated Networking}: Single Iroh endpoint handles all protocols with NAT traversal~\cite{iroh_networking}
-\item \textbf{Index-Aware Sync}: VDFS index enables rapid change detection and global deduplication
-\end{itemize}
-\end{keytakeaways}
-
-Spacedrive's distributed architecture requires capable synchronization and networking to maintain consistency across devices while preserving the local-first philosophy. This section presents the unified approach to synchronization through domain separation and the Iroh-powered networking infrastructure that enables reliable peer-to-peer communication.
+Spacedrive's distributed architecture requires synchronization and networking capable of maintaining consistency across devices while preserving local-first semantics. This section presents the approach to synchronization through domain separation and the Iroh-powered networking infrastructure~\cite{iroh_networking} that enables peer-to-peer communication.
 
 \subsubsection{Library Sync via Domain Separation}
 \label{sec:library-sync}
 
-Traditional distributed consensus algorithms struggle with the mixed requirements of personal data management. Spacedrive's \textbf{Library Sync} architecture avoids this complexity entirely through a leaderless, peer-to-peer hybrid model that aligns synchronization strategy with data ownership. This eliminates central coordinators, single points of failure, and the need for leader election.
+Traditional distributed consensus algorithms struggle with the mixed requirements of personal data management. Spacedrive's Library Sync architecture sidesteps this complexity through a leaderless, peer-to-peer hybrid model that aligns synchronization strategy with data ownership. The key insight is that personal file management exhibits a natural ownership hierarchy: each device has exclusive authority over its local filesystem, while user-generated metadata (tags, collections) represents truly shared state that any device may modify.
 
-Data is separated into two domains with tailored replication strategies:
+This domain separation eliminates central coordinators, single points of failure, and the need for leader election. Data falls into two categories with tailored replication strategies.
 
-\textbf{Device-Authoritative Data (Watermark-Based Sync)}
+\paragraph{Device-Authoritative Data}
 
-Each device maintains authoritative control over its own filesystem index, including its Locations, Entries, and Volumes. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible. Synchronization employs a sophisticated \textbf{per-resource watermark system} that enables efficient incremental sync with surgical recovery capabilities.
+Each device maintains authoritative control over its own filesystem index, including its Locations, Entries, and Volumes. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible by construction. Synchronization employs a per-resource watermark system that enables efficient incremental sync.
 
-\paragraph{Per-Resource Watermark Architecture}
-Rather than tracking sync progress globally, the system maintains independent watermarks for each resource type (locations, entries, volumes, tags, etc.). This granular approach enables surgical recovery: when a gap is detected in entry synchronization, only entries need re-syncing---location and volume sync remain unaffected. This prevents cross-contamination where advancing one watermark doesn't inadvertently affect another resource's sync state.
+Rather than tracking sync progress globally, the system maintains independent watermarks for each resource type (locations, entries, volumes). This granular approach enables targeted recovery: if entry synchronization falls behind, only entries require re-syncing while location and volume sync remain unaffected. Each watermark advances only when data is actually received---a critical invariant that prevents data loss when network requests return empty results.
 
-\paragraph{Dual Watermark Strategy}
-Each resource employs two watermarks for robust gap detection:
+When devices reconnect after an offline period, incremental catch-up requests only records newer than the stored watermark. The response uses cursor-based pagination with a \texttt{timestamp|uuid} format to handle large result sets and ensure no records are skipped even when timestamps collide. If a watermark exceeds a configurable age threshold (default 25 days), the system forces a full sync to ensure consistency, as tombstones for deletions may have been pruned beyond that point.
 
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Cursor Watermark}: Advances optimistically with each received record during normal operation
- \item \textbf{Validated Watermark}: Only advances after integrity validation passes (count verification and hash comparison)
- \item \textbf{Gap Recovery}: On detecting inconsistency, reset cursor to validated watermark for surgical re-sync of only affected records
-\end{itemize}
+\paragraph{Shared Data}
 
-\paragraph{Integrity Validation Mechanisms}
-During watermark exchange between peers, the system performs dual validation:
+User-generated metadata such as tags and collections is not owned by any single device and can be modified concurrently. This domain uses a lightweight, log-based approach where each device maintains a small per-device log (\texttt{sync.db}) of changes to shared resources. Each entry carries a Hybrid Logical Clock (HLC) timestamp---a distributed timestamp combining physical time with a logical counter that provides total ordering across all devices without clock synchronization.
 
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Count-Based Gap Detection}: Compare expected vs. actual record counts per resource type
- \item \textbf{Hash-Based Update Detection}: Aggregated hash of resource data catches missed modifications
- \item Both validations run during peer reconnection to identify drift
-\end{itemize}
+The HLC structure encodes timestamp, counter, and device identifier:
+\begin{equation}
+\text{HLC} = (\text{timestamp}_{64}, \text{counter}_{64}, \text{device\_id}_{128})
+\end{equation}
 
-\paragraph{Escalation Strategy}
-The system employs graduated recovery mechanisms:
+Comparison proceeds lexicographically: first by timestamp, then counter, then device ID. This guarantees a total ordering over all events in the system, enabling deterministic conflict resolution regardless of the order in which devices receive updates.
 
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Normal Flow}: Incremental catch-up using watermark-based delta sync
- \item \textbf{Detected Gaps}: Surgical recovery of affected resources only
- \item \textbf{Persistent Failures}: After 5 consecutive catch-up failures, escalate to full resource backfill
- \item \textbf{Post-Backfill}: Reset watermarks and return to incremental mode
-\end{itemize}
+Conflict resolution is per-model. Tag assignments use implicit union merge---when two devices tag the same file with different tags, both assignments sync as separate records and the file ends up with all tags. Scalar values such as favorites use last-writer-wins based on HLC ordering. These logs are aggressively pruned once all peers acknowledge receipt, typically maintaining fewer than 1,000 entries even with active multi-device usage.
 
-\paragraph{Watermark Exchange Protocol}
-When devices reconnect, bidirectional negotiation occurs:
+\paragraph{Explicit File Transfer}
 
-\begin{enumerate}[noitemsep, topsep=0pt]
- \item Each device sends: watermarks + counts + hashes for all resources
- \item Peer responds with: actual counts/hashes + \texttt{needs\_catchup} flags
- \item Surgical recovery initiated only for mismatched resources
- \item Validated watermarks advance only after successful verification
-\end{enumerate}
+Unlike automatic synchronization, file movements and copying in Spacedrive are explicit user commands. When a user requests ``copy my photos to the backup drive,'' this creates a deliberate operation with clear source and destination specifications, predictable error handling with retry logic, and progress tracking. This separation eliminates the complexity of implicit file content synchronization, treating transfers as user-initiated operations with well-defined semantics.
 
-This watermark architecture enables Spacedrive to efficiently sync massive libraries without full re-indexing after network interruptions, providing reliability without the complexity of conflict-free replicated data types (CRDTs).
-
-\textbf{Truly Shared Data (Log-Based Sync with HLC)}
-
-User-generated metadata such as tags, ratings, and collections is not owned by any single device and can be modified concurrently, creating potential conflicts. This domain uses a lightweight, log-based approach:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Data}: Tags, user-managed collections, favorites, and content-scoped notes
- \item \textbf{Mechanism}: Each device maintains its own small, per-device log (\texttt{sync.db}) of changes it makes to shared resources. Each entry is timestamped with a Hybrid Logical Clock (HLC)---a distributed timestamp combining physical time with a logical counter to provide total ordering across all devices
- \item \textbf{Conflict Resolution}: Changes are applied in HLC order. For tags, union-merge combines tags from all devices. For ratings and boolean flags, the change with the higher HLC wins (deterministic last-writer-wins). Notes are concatenated with source attribution
- \item \textbf{Efficiency}: These logs are aggressively pruned once all peers acknowledge receipt, typically maintaining fewer than 1,000 entries even with active multi-device usage
-\end{itemize}
-
-\textbf{File Operations (Explicit Transfer)}
-
-Unlike automatic synchronization, file movements and copying in Spacedrive are explicit user commands with clear intent and outcomes. When a user requests "copy my photos to the backup drive," this creates a deliberate operation with:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Clear source and destination specifications
- \item Predictable error handling and retry logic
- \item Progress tracking and user notification
- \item Automatic filesystem change detection that updates the index
-\end{itemize}
-
-This separation eliminates the vast complexity of file content synchronization, treating it as user-initiated operations with clear semantics and error handling.
-
-\paragraph{Leaderless Architecture Benefits}
-
-This peer-to-peer model provides significant practical advantages:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{No Bottlenecks}: Any device can make changes at any time without waiting for a coordinator
- \item \textbf{True Offline-First}: Devices queue changes locally and sync when connectivity returns, without read-only restrictions
- \item \textbf{Fault Tolerance}: No single point of failure---any peer can provide synchronization state to new devices
- \item \textbf{Reduced Complexity}: Eliminates leader election, heartbeat mechanisms, and failover logic (approximately 800 fewer lines of code)
-\end{itemize}
+The leaderless architecture provides several practical advantages. Any device can make changes without waiting for a coordinator. Devices queue changes locally and sync when connectivity returns, enabling true offline-first operation without read-only restrictions. No single point of failure exists---any peer can provide synchronization state to new devices. The absence of leader election, heartbeat mechanisms, and failover logic results in approximately 800 fewer lines of coordination code compared to leader-based alternatives.
 
 \subsubsection{Iroh-Powered Network Infrastructure}
 
-Spacedrive's networking architecture departs from fragmented, protocol-specific implementations, introducing a \textbf{unified networking layer} powered by Iroh. This consolidation eliminates the complexity of managing separate networking stacks for sync, file transfer, and device discovery, achieving enterprise-level connectivity reliability on consumer networks:
+Spacedrive's networking architecture consolidates sync, file transfer, and device discovery into a unified layer powered by Iroh. Rather than managing separate networking stacks for each protocol, all communication flows through a single QUIC endpoint per device.
 
-\paragraph{ALPN Protocol Multiplexing}
+\paragraph{Protocol Multiplexing}
 
-Application-Layer Protocol Negotiation (ALPN) enables multiple Spacedrive protocols to coexist on a single QUIC connection, eliminating the overhead of separate connections:
+Application-Layer Protocol Negotiation (ALPN) enables multiple Spacedrive protocols to coexist on a single QUIC connection. One connection per device pair handles pairing, sync, file transfer, and messaging, with each protocol identified by its ALPN string (e.g., \texttt{spacedrive/sync/1}). Protocols become streams rather than separate connections, sharing congestion control and eliminating coordination overhead. This consolidation reduces connection establishment time to under 2 seconds (from 3--5 seconds with separate connections) and eliminates approximately 60\% of networking coordination code.
 
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Single Connection Per Device Pair}: One QUIC connection handles pairing, sync, file transfer, and messaging
- \item \textbf{Stream-Level Routing}: Each protocol identified by ALPN string (e.g., \texttt{spacedrive/sync/1}, \texttt{spacedrive/files/1})
- \item \textbf{No Connection Multiplicity}: Protocols become streams, not separate connections—eliminating coordination overhead
- \item \textbf{Shared Congestion Control}: All streams benefit from unified bandwidth allocation
-\end{itemize}
+To prevent race conditions inherent in peer-to-peer networks, Spacedrive employs deterministic connection roles: only the device with the lexicographically lower NodeId initiates outbound connections. This eliminates simultaneous connection attempts and simplifies the connection state machine, as each device knows its role (initiator or responder) deterministically and consistently across reconnection attempts.
 
-\paragraph{Connection Efficiency Gains}
+\paragraph{Pairing and Security}
 
-Consolidating protocols onto a single connection provides measurable performance improvements:
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Single TCP/QUIC Handshake}: One handshake per device pair instead of N handshakes for N protocols
- \item \textbf{Shared Congestion Control}: All operations benefit from unified bandwidth allocation
- \item \textbf{Connection Reuse}: Eliminates re-establishment overhead for subsequent operations
- \item \textbf{Sub-2-Second Establishment}: Connection ready in <2s (down from 3-5s with separate connections)
- \item \textbf{60\% Code Reduction}: Protocol consolidation eliminates coordination logic
-\end{itemize}
+Initial device pairing employs a challenge-response protocol built on BIP39 mnemonic codes---12-word phrases derived from 256-bit secrets that provide human-readable verification. The four-message handshake prevents replay attacks, while Ed25519 signatures provide cryptographic authentication against man-in-the-middle attacks. Visual device fingerprints offer an additional verification layer during initial pairing.
 
-\paragraph{Deterministic Connection Initiation}
+The underlying QUIC transport provides ChaCha20-Poly1305 encryption, stream multiplexing for concurrent operations, BBR congestion control, and zero round-trip connection resumption. All traffic is encrypted end-to-end regardless of the network path.
 
-To prevent race conditions in P2P networks, Spacedrive employs deterministic connection roles:
+\paragraph{Network Discovery and Relay}
 
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Role Assignment}: Only the device with lower NodeId initiates outbound connections
- \item \textbf{Race Prevention}: Eliminates simultaneous connection attempts from both peers
- \item \textbf{Simpler State Machine}: Each device knows its role (initiator or responder) deterministically
- \item \textbf{Automatic Reconnection}: Role remains consistent across reconnection attempts
-\end{itemize}
+Devices discover each other through multiple channels simultaneously: local network mDNS broadcasting, DNS-based discovery for known devices, and relay server coordination for NAT traversal. When direct connection is not possible due to firewalls or symmetric NAT, the system routes through relay servers while maintaining end-to-end encryption---relays see only encrypted traffic and cannot inspect content.
 
-\paragraph{Pairing Security Model}
+While Spacedrive provides public relay servers, the architecture supports self-hosted deployments for organizations requiring data sovereignty or operating air-gapped networks. The relay service deploys as a single binary with minimal configuration, enabling geographic distribution near users for optimal latency. This flexibility accommodates enterprises with data residency requirements and organizations building private overlay networks.
 
-Initial device pairing employs a secure challenge-response protocol:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{BIP39 Mnemonic Codes}: 12-word codes derived from 256-bit secrets for human-readable pairing
- \item \textbf{Challenge-Response Handshake}: Four-message protocol prevents replay attacks
- \item \textbf{Ed25519 Signatures}: Cryptographic authentication prevents man-in-the-middle attacks
- \item \textbf{Device Fingerprints}: Visual verification prevents MITM during initial pairing
-\end{itemize}
-
-\textbf{QUIC-Based Transport Layer}
-
-Iroh's built-in QUIC transport provides integrated transport features including ChaCha20-Poly1305 encryption, stream multiplexing for concurrent operations, BBR congestion control for bandwidth utilization, and zero round-trip connection resumption for smooth reconnection.
-
-\textbf{Automatic Network Discovery and Connection}
-
-Spacedrive's networking system automatically handles the complex task of connecting devices across diverse network environments:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Multi-Path Discovery}: Devices find each other through multiple channels simultaneously---local network broadcasting, DNS-based discovery, and relay server coordination.
- \item \textbf{Relay Routing}: When direct connection isn't possible (due to firewalls or NAT), the system automatically routes through secure relay servers while maintaining end-to-end encryption.
- \item \textbf{Zero-Configuration Setup}: Users simply pair devices once---the networking layer handles all future connection establishment, routing decisions, and failover scenarios transparently.
-\end{itemize}
-
-\paragraph{Self-Hosted Relay Infrastructure}
-While Spacedrive provides public relay servers for convenience, the architecture fully supports self-hosted deployments:
-
-\begin{itemize}
-    \item \textbf{Zero-Trust Option}: Organizations can run private relay networks
-    \item \textbf{Simple Deployment}: Single binary with minimal configuration
-    \item \textbf{Geographic Distribution}: Deploy relays near users for optimal performance
-    \item \textbf{Compliance Ready}: Keep all traffic within organizational boundaries
-\end{itemize}
-
-This flexibility makes Spacedrive suitable for:
-\begin{itemize}
-    \item Enterprises requiring complete data sovereignty
-    \item Regions with data residency requirements
-    \item Air-gapped networks with no external connectivity
-    \item Organizations building private overlay networks (similar to Tailscale)
-\end{itemize}
-
-The relay service can be deployed as a standalone component, in Kubernetes, or as a managed service, providing deployment flexibility to match any infrastructure requirement.
-
-\paragraph{Network Architecture Flexibility}
-The Iroh-based networking supports multiple topologies:
+\paragraph{Network Topologies}
+The Iroh-based networking supports multiple deployment topologies:
 
 \begin{figure}[h]
 \centering
@@ -1519,278 +1319,24 @@ The Iroh-based networking supports multiple topologies:
 \label{fig:network-topologies}
 \end{figure}
 
-This flexibility ensures Spacedrive can adapt to any network environment while maintaining its peer-to-peer principles.
-
 \subsubsection{Spacedrop: Ephemeral Secure Sharing}
 
-Beyond trusted device pairing, Spacedrive implements \textbf{Spacedrop}---an ephemeral file sharing protocol that enables secure transfers between any devices without prior relationships. Built on the same Iroh infrastructure but with distinct security properties:
+Beyond trusted device pairing, Spacedrive implements Spacedrop---an ephemeral file sharing protocol enabling secure transfers between devices without prior relationships. Each session uses ephemeral ECDH key exchange, providing perfect forward secrecy: compromising device keys cannot decrypt past transfers, as fresh ephemeral keys are generated per session and discarded after completion.
 
-\textbf{Perfect Forward Secrecy}: Each Spacedrop session uses ephemeral ECDH key exchange, so compromising device keys cannot decrypt past transfers. The protocol generates fresh ephemeral keys for each transfer session, which are discarded after completion.
+Unlike automatic transfers between paired devices, every Spacedrop requires explicit receiver acceptance. The receiver sees the sender's device name, file metadata, and optional message before accepting, maintaining user control over incoming data. Discovery adapts to available connectivity: mDNS broadcasts for local network discovery, optional Bluetooth Low Energy advertisements for proximity detection without shared Wi-Fi, and DHT fallback for internet-wide discovery when local mechanisms fail.
 
-\textbf{User Consent Model}: Unlike automatic transfers between paired devices, every Spacedrop requires explicit receiver acceptance, maintaining user control over incoming data. The receiver sees the sender's device name, file metadata, and optional message before accepting.
-
-\textbf{Multi-Modal Discovery}: Spacedrop employs a multi-source discovery mechanism that adapts to available connectivity:
-\begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Local Network}: mDNS broadcasts for same-network discovery
-    \item \textbf{Bluetooth Low Energy}: Optional BLE advertisements for true proximity detection, enabling discovery even without shared Wi-Fi
-    \item \textbf{DHT Fallback}: Internet-wide discovery using Iroh's distributed hash table when local discovery fails
-\end{itemize}
-
-\textbf{Relay Extension}: Spacedrop can optionally leverage relay nodes (either self-hosted or through Spacedrive Cloud) to enable asynchronous transfers. Users can "drop" files to a relay and receive a shareable link, allowing recipients to download later---combining the security of Spacedrop with the convenience of services like WeTransfer.
+Spacedrop can optionally leverage relay nodes to enable asynchronous transfers. Users ``drop'' files to a relay and receive a shareable link, allowing recipients to download later---combining end-to-end encryption with the convenience of hosted file sharing services.
 
 \subsubsection{Sync Conduits: Index-Based Content Synchronization}
 \label{sec:sync-conduits}
-While Library Sync manages the replication of the VDFS index and metadata, the physical synchronization of file content is handled by an explicit, user-controlled system called \textbf{Sync Conduits}. A conduit is a durable, configurable job that defines the flow of file content between a source \texttt{Entry} and a destination \texttt{Entry}. This intentional, non-magical approach ensures users have transparent control over their data.
 
-\paragraph{Index-Driven Architecture}
-Sync Conduits leverage Spacedrive's fully replicated VDFS index to perform all sync operations through \textbf{index queries} rather than filesystem scanning. Since Library Sync ensures all devices maintain a complete, consistent view of the filesystem state across the network, File Sync can determine what needs synchronization purely through database operations. This approach transforms sync from a complex distributed systems problem into straightforward SQL queries, eliminating the need for persistent sync logs or state tracking.
+While Library Sync manages replication of the VDFS index and metadata, physical synchronization of file content is handled by Sync Conduits---durable, configurable jobs that define content flow between source and destination entries. This explicit, user-controlled approach ensures transparent control over data movement.
 
-\paragraph{The Sync Lifecycle}
-The sync process follows a deterministic, index-based workflow:
-\begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Prerequisites}: Before execution, the system verifies Library Sync is complete, ensuring all devices share an identical view of the filesystem index.
-    \item \textbf{Index Resolution}: The job queries the VDFS index for entries at both source and destination locations, comparing content hashes and timestamps to determine required operations.
-    \item \textbf{Push-Based Transfer}: The device that owns the source files initiates transfers to the destination. This model simplifies the protocol and works efficiently with mobile device constraints.
-    \item \textbf{Operation Dispatch}: The sync job orchestrates existing \texttt{FileCopyJob} and \texttt{DeleteJob} instances, leveraging their proven reliability, progress tracking, and cross-device routing capabilities.
-    \item \textbf{Receiver Validation}: The destination device validates incoming files against its local index, preventing duplicate transfers by checking content hashes before accepting data.
-\end{itemize}
+Sync Conduits leverage the fully replicated VDFS index to perform sync operations through database queries rather than filesystem scanning. Since Library Sync ensures all devices maintain a consistent view of filesystem state, determining what needs synchronization becomes a straightforward SQL query comparing content hashes and timestamps at source and destination locations. The system verifies Library Sync completion before execution, then dispatches \texttt{FileCopyJob} and \texttt{DeleteJob} instances using the proven job system infrastructure. The destination device validates incoming files against content hashes, preventing duplicate transfers.
 
-\paragraph{Sync Modes}
-Users can choose from four distinct modes when creating a Sync Conduit:
-\begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Mirror (One-Way)}: Creates an exact copy of a source location at the destination, propagating all creates, modifies, and deletes. Perfect for backup scenarios where you want a read-only copy of important data.
-    \item \textbf{Bidirectional (Two-Way)}: Keeps two locations identical across devices, with changes flowing in both directions. Each device pushes its own changes, with "last-write-wins" conflict resolution based on index timestamps.
-    \item \textbf{Selective (Smart Cache)}: Intelligently manages limited local storage by keeping frequently accessed files local while older content moves to secondary storage. Files remain visible in the VDFS index for on-demand retrieval.
-    \item \textbf{Archive (Move and Verify)}: Moves completed work to long-term storage, safely removing source files only after cryptographic verification of the transfer via content hash comparison.
-\end{itemize}
+Four sync modes accommodate different use cases. \textbf{Mirror} creates an exact one-way copy, propagating creates, modifies, and deletes for backup scenarios. \textbf{Bidirectional} keeps two locations identical with changes flowing both directions, using last-write-wins based on index timestamps. \textbf{Selective} manages limited local storage by keeping frequently accessed files local while moving older content to secondary storage, with files remaining visible in the index for on-demand retrieval. \textbf{Archive} moves files to long-term storage, removing sources only after cryptographic verification via content hash comparison.
 
-\paragraph{Index Consistency Benefits}
-The index-based approach provides several key advantages:
-\begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Performance}: No directory traversal needed---sync resolution becomes efficient database queries instead of recursive filesystem operations.
-    \item \textbf{Consistency}: Files excluded from indexing (e.g., \texttt{node\_modules}, \texttt{.git}) are automatically excluded from sync, matching user expectations.
-    \item \textbf{Simplicity}: State tracking happens through index timestamps rather than complex sync logs or hidden state files.
-    \item \textbf{Reliability}: The push-based transfer model combined with receiver validation prevents duplicate transfers and ensures deterministic behavior.
-\end{itemize}
-
-\subsection{Practical Conflict Resolution}
-While the simulation engine prevents operational conflicts before they occur, synchronization conflicts can still arise when multiple devices modify the same data concurrently. Library Sync's domain separation significantly reduces these conflicts, but when they do occur---particularly in the User Metadata domain---the system provides transparent, user-controlled conflict resolution that maintains data integrity while preserving user intent.
-
-\subsubsection{Metadata Conflict Scenarios}
-The most common conflicts occur when multiple devices modify the same content metadata simultaneously:
-
-\paragraph{Tag Conflicts}
-\textbf{Scenario}: User adds tag "vacation" on Device A while simultaneously adding tag "family" on Device B to the same photo.
-
-\textbf{Resolution Strategy}: Union merge with conflict notification, leveraging the richly-structured tag system (Section 3.3):
-
-\textbf{Tag Conflict Resolution Process}
-
-When tag conflicts occur, Spacedrive follows a structured resolution process:
-
-\textbf{Detection Phase}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item System identifies when the same file has been tagged differently on multiple devices
- \item Compares tag sets to determine if there's actual overlap or genuine conflict
- \item Analyzes tag hierarchies to identify if tags are related (e.g., both are children of the same parent tag)
- \item Generates detailed conflict context for decision-making
-\end{itemize}
-
-\textbf{Resolution Strategy}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Union Merge}: Automatically combines all tags from both devices
- \item \textbf{Conflict Notification}: Creates detailed notification explaining what was merged
- \item \textbf{User Transparency}: Provides complete visibility into the resolution process
-\end{itemize}
-
-\textbf{Outcome Tracking}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Records timestamp and source of each tag for future reference
- \item Enables user to review and modify the automatic resolution if needed
- \item Maintains audit trail of all conflict resolution decisions
-\end{itemize}
-
-
-\textbf{User Experience}:
-- Tags are automatically combined: "vacation, family"
-- User receives notification: "Combined tags for sunset.jpg: added 'vacation' and 'family' from different devices"
-- User can review and modify the combined tags if needed
-
-\begin{figure}[h]
-\centering
-\begin{tikzpicture}[
-    scale=0.85,
-    node distance=1.2cm,
-    auto,
-    % Styles
-    device/.style={rectangle, rounded corners, draw=black!70, fill=blue!15, minimum width=2cm, minimum height=0.8cm, align=center, font=\small},
-    conflict/.style={circle, draw=red!70, fill=red!15, minimum width=1.5cm, align=center, font=\small},
-    process/.style={rectangle, rounded corners, draw=black!70, fill=green!15, minimum width=2.8cm, minimum height=1cm, align=center, font=\small},
-    result/.style={rectangle, rounded corners, draw=black!70, fill=yellow!15, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\small},
-    arrow/.style={->, >=stealth, semithick},
-    conflictarrow/.style={->, >=stealth, semithick, red},
-    label/.style={font=\tiny, fill=white, inner sep=1pt}
-]
-    % Devices in a row
-    \node[device] (deviceA) {Device A\\
-    \tiny Tags: "vacation"};
-
-    \node[device, right=2cm of deviceA] (deviceB) {Device B\\
-    \tiny Tags: "family"};
-
-    % Conflict Detection centered below
-    \node[conflict, below=1.5cm of $(deviceA)!0.5!(deviceB)$] (conflict) {Conflict\\
-    \tiny Detected};
-
-    % Resolution Process
-    \node[process, below=1.2cm of conflict] (resolution) {Resolution Engine\\
-    \tiny Union merge};
-
-    % Result
-    \node[result, below=1.2cm of resolution] (merged) {Merged Result\\
-    \tiny Tags: "vacation, family"};
-
-    % Arrows
-    \draw[conflictarrow] (deviceA) -- (conflict);
-    \draw[conflictarrow] (deviceB) -- (conflict);
-    \draw[arrow] (conflict) -- (resolution);
-    \draw[arrow] (resolution) -- (merged);
-
-    % Sync arrows
-    \draw[arrow, dashed] (merged.west) to[bend left=45] node[label, pos=0.3] {\tiny Sync} (deviceA.south);
-    \draw[arrow, dashed] (merged.east) to[bend right=45] node[label, pos=0.3] {\tiny Sync} (deviceB.south);
-\end{tikzpicture}
-\caption{Tag Conflict Resolution: Union merge strategy automatically combines tags from multiple devices while notifying the user of the resolution.}
-\label{fig:tag-conflict-resolution}
-\end{figure}
-
-\paragraph{Rating Conflicts}
-\textbf{Scenario}: Photo rated 4 stars on Device A, 5 stars on Device B.
-
-\textbf{Resolution Strategy}: Deterministic resolution via Hybrid Logical Clocks (HLC):
-
-\textbf{Rating Conflict Resolution: HLC-Based Ordering}
-
-For rating conflicts, Spacedrive uses HLC timestamps rather than unreliable wall-clock time:
-
-\textbf{Conflict Scenario}: Photo rated differently on multiple devices (e.g., 4 stars vs. 5 stars)
-
-\textbf{Resolution Logic}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{HLC Comparison}: System compares the Hybrid Logical Clock timestamp of each change
- \item \textbf{Higher HLC Wins}: The change with the greater HLC value is selected (deterministic last-writer-wins)
- \item \textbf{Causality Preserved}: HLC ensures that if change A caused change B, then HLC(A) < HLC(B)
- \item \textbf{Clear Attribution}: User notification specifies which device's rating was chosen based on HLC ordering
-\end{itemize}
-
-\textbf{User Experience}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Automatic, deterministic resolution without user intervention
- \item Transparent notification: "sunset.jpg rating conflict resolved: using 5 stars (from MacBook, applied last)"
- \item User can manually override the automatic choice if they disagree with the outcome
- \item Consistent resolution across all devices (HLC provides total ordering)
-\end{itemize}
-
-\subsubsection{Advanced Conflict Scenarios}
-\paragraph{Complex Metadata Conflicts}
-\textbf{Scenario}: User creates custom metadata field "project" with value "website" on Device A, while Device B creates the same field with value "portfolio".
-
-\textbf{Custom Metadata Conflict Resolution}
-
-When users create conflicting custom metadata on different devices, Spacedrive provides guided resolution assistance:
-
-\textbf{Conflict Analysis}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item System identifies the specific metadata field and conflicting values
- \item Analyzes value types to determine if combination is possible
- \item Generates context-aware resolution suggestions based on conflict nature
-\end{itemize}
-
-\textbf{Smart Resolution Options}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Compatible Values}: For string conflicts, offers to use either value, combine them, or create custom resolution
- \item \textbf{Type Mismatches}: When data types differ, provides clear choice between local/remote values or custom entry
- \item \textbf{Contextual Suggestions}: System provides reasoning for each resolution option
-\end{itemize}
-
-\textbf{User Experience}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Clear presentation of conflict: "project field conflicts: 'website' vs 'portfolio'"
- \item Multiple resolution choices: use either value, combine as "website, portfolio", or enter custom value
- \item One-time decision with preference learning for similar future conflicts
- \item Complete transparency about which device contributed each value
-\end{itemize}
-
-\textbf{User Experience}:
-- System detects incompatible values for "project" field
-- Presents clear options: "website", "portfolio", "website, portfolio", or custom value
-- User makes one-time decision, system remembers preference for similar conflicts
-
-\subsubsection{Conflict Prevention}
-Spacedrive employs several strategies to minimize conflicts before they occur:
-
-\paragraph{Optimistic Locking}
-\textbf{Optimistic Metadata Locking Strategy}
-
-To prevent simultaneous metadata modifications that could lead to conflicts, Spacedrive employs a lightweight locking mechanism:
-
-\textbf{Lock Characteristics}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Short Duration}: 30-second locks prevent long-term resource blocking
- \item \textbf{Field-Specific}: Locks target specific metadata fields, not entire files
- \item \textbf{Device Attribution}: Clear identification of which device holds each lock
- \item \textbf{Automatic Expiration}: Locks expire automatically to prevent deadlocks
-\end{itemize}
-
-\textbf{Cross-Device Coordination}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Lock acquisition broadcasts to all connected devices in the library
- \item Other devices receive immediate notification and defer their edits
- \item Graceful handling of network interruptions during lock operations
- \item Automatic retry mechanisms for failed lock acquisitions
-\end{itemize}
-
-\textbf{User Experience Benefits}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Prevents frustrating conflicts from simultaneous editing
- \item Near-instant feedback when metadata modification is blocked
- \item Transparent handling—users don't need to understand the locking mechanism
- \item Reliable metadata consistency across all devices
-\end{itemize}
-
-\paragraph{Real-time Conflict Notifications}
-When conflicts do occur, users receive immediate, actionable notifications:
-
-\textbf{User-Friendly Conflict Notification System}
-
-Spacedrive provides clear, actionable notifications when conflicts occur and are resolved:
-
-\textbf{Notification Structure}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Clear Titles}: Descriptive headings like "Photo tags updated on both devices"
- \item \textbf{Detailed Descriptions}: Specific information about what was changed or merged
- \item \textbf{Affected Files List}: Complete inventory of files impacted by the conflict resolution
- \item \textbf{Action Options}: Clear next steps like "Tap to review" or "Changes automatically applied"
-\end{itemize}
-
-\textbf{Example Notification}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Title}: "Metadata synchronized"
- \item \textbf{Description}: "Combined tags from iPhone and MacBook for 3 photos"
- \item \textbf{Affected Files}: sunset.jpg, beach.jpg, vacation.mp4
- \item \textbf{User Action}: "Review changes" (optional)
- \item \textbf{Status}: Auto-resolved with timestamp for audit trail
-\end{itemize}
-
-\textbf{Transparency and Control}
-\begin{itemize}[noitemsep, topsep=0pt]
- \item Complete visibility into what conflicts occurred and how they were resolved
- \item Clear indication of automatic vs. manual resolution requirements
- \item Historical timestamp for tracking when conflicts were addressed
- \item Optional review actions for users who want to verify or modify automatic resolutions
-\end{itemize}
-
-This transparent, user-controlled approach to conflict resolution ensures that users maintain control over their metadata while benefiting from cross-device synchronization.
+The index-based architecture provides performance advantages over traditional sync: no directory traversal is needed, files excluded from indexing are automatically excluded from sync, and state tracking uses index timestamps rather than hidden sync logs or state files.
 
 % --- SECTION 4.6: THE AI LAYER ---
 \subsection{AI-Native VDFS: From Semantic Search to Intelligent Management}
@@ -1823,9 +1369,9 @@ Each agent maintains persistent knowledge across restarts through specialized me
 
 \begin{itemize}[noitemsep, topsep=0pt]
  \item \textbf{Temporal Memory}: Time-ordered event stream supporting temporal queries. For example, \texttt{since(timestamp)} retrieves all events after a given time, enabling queries like "photos analyzed in the last week with beach scenes." Events are stored with full timestamps and searchable metadata.
- 
+
  \item \textbf{Associative Memory}: Semantic knowledge graph supporting similarity-based retrieval. Agents query by semantic similarity with configurable thresholds (e.g., "find faces similar to this cluster with >0.85 similarity"). Enables cross-domain queries like "places where Alice frequently appears" by traversing relationships between face clusters and GPS locations.
- 
+
  \item \textbf{Working Memory}: Transactional current state tracking. Maintains active plans, queued operations, and in-progress analysis. Persists across agent restarts, enabling resumable workflows.
 \end{itemize}
 
@@ -1836,7 +1382,7 @@ Agents react to the VDFS through declarative lifecycle hooks defined in the SDK:
 
 \begin{itemize}[noitemsep, topsep=0pt]
  \item \texttt{\#[on\_startup]}: Initialization hook for loading models and restoring state
- \item \texttt{\#[on\_event(EntryCreated)]}: React to specific filesystem events  
+ \item \texttt{\#[on\_event(EntryCreated)]}: React to specific filesystem events
  \item \texttt{\#[scheduled(cron = "0 2 * * *")]}: Time-based triggers for batch processing
  \item \texttt{\#[filter(".extension().is\_image()")]}: Entry filtering expressions to target specific file types
 \end{itemize}
@@ -1850,14 +1396,14 @@ impl PhotosAgent {
     async fn initialize(&self, ctx: &AgentContext) {
         // Load face detection model and restore memory
     }
-    
+
     #[on_event(EntryCreated)]
     #[filter(".extension().is_image()")]
     async fn on_new_photo(&self, entry: Entry, ctx: &AgentContext) {
         // Queue photo for analysis
         ctx.memory.temporal.record(PhotoDiscovered { entry });
     }
-    
+
     #[scheduled(cron = "0 */4 * * *")]  // Every 4 hours
     async fn batch_analysis(&self, ctx: &AgentContext) {
         // Process queued photos in batches
@@ -3422,7 +2968,7 @@ The authors acknowledge the use of generative AI tools for assistance in draftin
 
 \subsection*{Synchronization \& Networking}
 
-\textbf{Library Sync}: Spacedrive's leaderless, peer-to-peer synchronization system. It uses a hybrid model: simple state-based replication for device-authoritative data (like the file index) and a lightweight, HLC-ordered log for resolving conflicts in truly shared data (like tags and ratings). This eliminates central coordinators and single points of failure while ensuring eventual consistency.
+\textbf{Library Sync}: Spacedrive's leaderless, peer-to-peer synchronization system. It uses a hybrid model: simple state-based replication for device-authoritative data (like the file index) and a lightweight, HLC-ordered log for shared metadata (like tags and collections). Each syncable model defines its own conflict resolution strategy, from implicit union merge for tag assignments to deterministic last-writer-wins for scalar values. This eliminates central coordinators and single points of failure while ensuring eventual consistency.
 
 \textbf{Hybrid Logical Clock (HLC)}: A distributed timestamping mechanism that combines physical time with a logical counter to create a total ordering of events across multiple devices. Used in Spacedrive to deterministically resolve conflicts for shared metadata without requiring a central coordinator
 

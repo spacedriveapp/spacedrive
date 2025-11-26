@@ -1,54 +1,11 @@
 # Spacedrive Server Docker Image
-# Multi-stage build for minimal production image
+# Single-stage build for RPC-only server (no web UI)
 
-#--
-# Base image with common dependencies
-#--
-FROM debian:bookworm-slim AS base
-
-# Configure apt for non-interactive use and caching
-RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-RUN rm -f /etc/apt/apt.conf.d/docker-clean
-
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	apt-get update && apt-get upgrade -y
-
-#--
-# Bun builder (for web assets)
-#--
-FROM oven/bun:1.3-slim AS node-builder
-
-WORKDIR /build
-
-# Copy all source code first
-COPY package.json bun.lock tsconfig.json ./
-COPY packages ./packages
-COPY apps/web ./apps/web
-
-# Create placeholder for scripts workspace (referenced in package.json)
-RUN mkdir -p scripts && echo '{"name":"scripts","private":true}' > scripts/package.json
-
-# Install dependencies
-# Note: Not using --frozen-lockfile because we add a placeholder scripts package
-# Allow partial failures - some workspace packages may not install perfectly in Docker but web build will work
-RUN bun install; exit 0
-
-# Build ts-client package (required by web app)
-WORKDIR /build/packages/ts-client
-RUN bun run build
-
-# Build web assets
-WORKDIR /build/apps/web
-RUN bun run build
-
-#--
-# Rust builder
-#--
-FROM base AS rust-builder
+FROM debian:bookworm-slim AS builder
 
 # Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-	apt-get install -y \
+	apt-get update && apt-get install -y \
 	build-essential \
 	curl \
 	git \
@@ -71,14 +28,11 @@ COPY core ./core
 COPY crates ./crates
 COPY apps/server ./apps/server
 
-# Copy built web assets from node-builder
-COPY --from=node-builder /build/apps/web/dist ./apps/web/dist
-
-# Build server with embedded assets
+# Build server (RPC only, no assets)
 RUN --mount=type=cache,target=/root/.cargo/registry \
 	--mount=type=cache,target=/root/.cargo/git \
 	--mount=type=cache,target=/build/target \
-	cargo build --release --features assets -p sd-server && \
+	cargo build --release -p sd-server && \
 	cp target/release/sd-server /usr/local/bin/sd-server
 
 #--
@@ -87,7 +41,7 @@ RUN --mount=type=cache,target=/root/.cargo/registry \
 FROM gcr.io/distroless/cc-debian12:nonroot
 
 # Copy binary
-COPY --from=rust-builder /usr/local/bin/sd-server /usr/bin/sd-server
+COPY --from=builder /usr/local/bin/sd-server /usr/bin/sd-server
 
 # Environment
 ENV DATA_DIR=/data \

@@ -1,14 +1,15 @@
 # Spacedrive Server
 
-HTTP server for Spacedrive with embedded daemon and web interface.
+HTTP server for Spacedrive with embedded daemon (RPC only, no web UI).
 
 ## Overview
 
-`sd-server` runs the Spacedrive daemon and serves a web interface over HTTP. Perfect for:
+`sd-server` runs the Spacedrive daemon and exposes RPC endpoints over HTTP. Perfect for:
 - **NAS deployments** (TrueNAS, Unraid, Synology, etc.)
 - **Headless servers**
 - **Remote access** to your Spacedrive libraries
 - **Docker/container environments**
+- **CLI-only usage** with `sd-cli`
 
 ## Architecture
 
@@ -18,8 +19,7 @@ HTTP server for Spacedrive with embedded daemon and web interface.
 │  ┌───────────────────────────────────┐  │
 │  │  Axum HTTP Server (Port 8080)     │  │
 │  │  ├─ /health (healthcheck)         │  │
-│  │  ├─ /rpc (proxy to daemon)        │  │
-│  │  └─ /* (web UI assets)            │  │
+│  │  └─ /rpc (proxy to daemon)        │  │
 │  └───────────────────────────────────┘  │
 │               ↓                          │
 │  ┌───────────────────────────────────┐  │
@@ -35,8 +35,8 @@ HTTP server for Spacedrive with embedded daemon and web interface.
 
 Unlike Tauri (desktop app), the server:
 - Embeds the daemon instead of spawning a separate process
-- Serves the web UI as static assets (when built with `--features assets`)
-- Proxies RPC requests from browser to daemon via Unix socket
+- Provides only RPC endpoints (no bundled web UI)
+- Proxies RPC requests to daemon via Unix socket
 - Provides basic auth for security
 
 ## Quick Start
@@ -45,11 +45,7 @@ Unlike Tauri (desktop app), the server:
 
 1. **Build the server:**
    ```bash
-   # Without web assets (for API-only usage)
    cargo build -p sd-server
-
-   # With bundled web UI
-   cargo build -p sd-server --features assets
    ```
 
 2. **Run the server:**
@@ -58,11 +54,12 @@ Unlike Tauri (desktop app), the server:
    cargo run -p sd-server
 
    # Production mode (requires DATA_DIR)
-   DATA_DIR=/path/to/data cargo run -p sd-server --release --features assets
+   DATA_DIR=/path/to/data cargo run -p sd-server --release
    ```
 
-3. **Access the web UI:**
-   - Open http://localhost:8080
+3. **Access the RPC endpoint:**
+   - Health check: http://localhost:8080/health
+   - RPC endpoint: http://localhost:8080/rpc
    - Default auth: disabled in dev mode
 
 ### Docker Deployment (Recommended)
@@ -170,50 +167,29 @@ docker run -d \
 
 ## Building
 
-### With Web Assets (Production)
-
 ```bash
-# Build everything (web UI + server)
-cargo build --release -p sd-server --features assets
-
-# The binary includes bundled web assets
-./target/release/sd-server --data-dir /path/to/data
-```
-
-### Without Assets (API Only)
-
-```bash
-# Build server without web UI
+# Build server (RPC only)
 cargo build --release -p sd-server
 
-# Serve API endpoints only
+# Run server
 ./target/release/sd-server --data-dir /path/to/data
 ```
 
-In this mode, you can connect with:
+You can connect with:
 - `sd-cli` (CLI client)
 - Custom HTTP clients via `/rpc`
 - Tauri desktop app configured to connect to this server
+- Future web UI (not yet implemented)
 
 ## Development Workflow
 
-1. **Run web dev server:**
-   ```bash
-   cd apps/web
-   pnpm dev
-   ```
-   This starts Vite on http://localhost:3000 with hot reload.
+```bash
+# Run server in dev mode
+cargo run -p sd-server
 
-2. **Run API server:**
-   ```bash
-   cargo run -p sd-server
-   ```
-   This starts the HTTP server on http://localhost:8080.
-
-3. **Develop:**
-   - Edit React components in `apps/web/src`
-   - Edit server code in `apps/server/src`
-   - Vite proxies `/rpc` requests to the server
+# Server starts on http://localhost:8080
+# Use sd-cli or custom client to interact with RPC endpoint
+```
 
 ## API Endpoints
 
@@ -244,21 +220,19 @@ JSON-RPC proxy to daemon.
 }
 ```
 
-### `GET /*` (with `--features assets`)
-Serves the bundled web UI. All non-API routes fallback to `index.html` for SPA routing.
 
 ## Comparison: Server vs Tauri
 
 | Feature | Server | Tauri |
 |---------|--------|-------|
 | **Platform** | Linux/Docker | macOS/Windows/Linux |
-| **UI** | Web (React in browser) | Native webview |
+| **UI** | None (RPC only) | Native webview |
 | **Daemon** | Embedded in process | Spawned as child process |
 | **Access** | Remote over HTTP | Local only |
 | **Auth** | HTTP Basic Auth | Not needed (local) |
-| **Use Case** | NAS, headless servers | Desktop workstations |
+| **Use Case** | NAS, headless servers, CLI | Desktop workstations |
 
-Both use the same Spacedrive core and `@sd/interface` package!
+Both use the same Spacedrive core!
 
 ## Troubleshooting
 
@@ -297,22 +271,13 @@ apps/server/
 ├── src/
 │   └── main.rs          # Server implementation
 ├── Cargo.toml           # Dependencies
-├── build.rs             # Web bundling script
 ├── Dockerfile           # Container image
 └── docker-compose.yml   # Docker setup
-
-apps/web/
-├── src/
-│   ├── main.tsx         # Web entry point
-│   └── platform.ts      # Web platform implementation
-├── package.json
-└── vite.config.ts
 ```
 
 **Making changes:**
 1. Server code: Edit `apps/server/src/main.rs`
-2. Web UI: Edit `apps/web/src/*` (uses `@sd/interface`)
-3. Platform integration: Edit `apps/web/src/platform.ts`
+2. Daemon integration: See `core/src/infra/daemon/`
 
 ## License
 

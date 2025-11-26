@@ -21,6 +21,8 @@ pub struct MockTransport {
 	history: Arc<Mutex<Vec<(Uuid, Uuid, SyncMessage)>>>,
 	/// Shared sync service registry for request/response handling
 	sync_services: Arc<Mutex<HashMap<Uuid, Weak<SyncService>>>>,
+	/// Devices that are "offline" and won't receive messages
+	blocked_devices: Arc<Mutex<std::collections::HashSet<Uuid>>>,
 }
 
 impl MockTransport {
@@ -31,6 +33,7 @@ impl MockTransport {
 		queues: Arc<Mutex<HashMap<Uuid, Vec<(Uuid, SyncMessage)>>>>,
 		history: Arc<Mutex<Vec<(Uuid, Uuid, SyncMessage)>>>,
 		sync_services: Arc<Mutex<HashMap<Uuid, Weak<SyncService>>>>,
+		blocked_devices: Arc<Mutex<std::collections::HashSet<Uuid>>>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			my_device_id,
@@ -38,6 +41,7 @@ impl MockTransport {
 			queues,
 			history,
 			sync_services,
+			blocked_devices,
 		})
 	}
 
@@ -46,6 +50,7 @@ impl MockTransport {
 		let queues = Arc::new(Mutex::new(HashMap::new()));
 		let history = Arc::new(Mutex::new(Vec::new()));
 		let sync_services = Arc::new(Mutex::new(HashMap::new()));
+		let blocked_devices = Arc::new(Mutex::new(std::collections::HashSet::new()));
 
 		let transport_a = Self::new(
 			device_a,
@@ -53,6 +58,7 @@ impl MockTransport {
 			queues.clone(),
 			history.clone(),
 			sync_services.clone(),
+			blocked_devices.clone(),
 		);
 		let transport_b = Self::new(
 			device_b,
@@ -60,9 +66,33 @@ impl MockTransport {
 			queues.clone(),
 			history.clone(),
 			sync_services.clone(),
+			blocked_devices.clone(),
 		);
 
 		(transport_a, transport_b)
+	}
+
+	/// Block a device from receiving messages (simulate going offline)
+	pub async fn block_device(&self, device_id: Uuid) {
+		self.blocked_devices.lock().await.insert(device_id);
+		tracing::debug!(
+			blocked = %device_id,
+			"[MockTransport] Device blocked from receiving messages"
+		);
+	}
+
+	/// Unblock a device (simulate coming online)
+	pub async fn unblock_device(&self, device_id: Uuid) {
+		self.blocked_devices.lock().await.remove(&device_id);
+		tracing::debug!(
+			unblocked = %device_id,
+			"[MockTransport] Device unblocked"
+		);
+	}
+
+	/// Check if a device is blocked
+	pub async fn is_blocked(&self, device_id: Uuid) -> bool {
+		self.blocked_devices.lock().await.contains(&device_id)
 	}
 
 	/// Register a sync service for request/response handling
@@ -527,6 +557,16 @@ impl NetworkTransport for MockTransport {
 	) -> anyhow::Result<()> {
 		if !self.connected_peers.contains(&target_device) {
 			return Err(anyhow::anyhow!("device {} not connected", target_device));
+		}
+
+		// Check if target device is blocked (simulating offline)
+		if self.blocked_devices.lock().await.contains(&target_device) {
+			tracing::trace!(
+				from = %self.my_device_id,
+				to = %target_device,
+				"[MockTransport] Message dropped - target device is blocked (offline)"
+			);
+			return Ok(()); // Silently drop the message
 		}
 
 		// Record in history

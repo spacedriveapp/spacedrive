@@ -1,7 +1,6 @@
 use axum::{
-	body::Body,
 	extract::{FromRequestParts, Request, State},
-	http::{header, HeaderValue, StatusCode},
+	http::StatusCode,
 	middleware::{self, Next},
 	response::{IntoResponse, Response},
 	routing::{get, post},
@@ -18,10 +17,6 @@ use tokio::{
 	sync::RwLock,
 };
 use tracing::{info, warn};
-
-#[cfg(feature = "assets")]
-static ASSETS_DIR: include_dir::Dir<'static> =
-	include_dir::include_dir!("$CARGO_MANIFEST_DIR/../web/dist");
 
 #[derive(Clone)]
 struct AppState {
@@ -104,62 +99,6 @@ async fn daemon_rpc(
 		.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Invalid response: {}", e)))?;
 
 	Ok(Json(response))
-}
-
-#[cfg(feature = "assets")]
-async fn serve_asset(path: String) -> Response {
-	let path = path.trim_start_matches('/');
-
-	match ASSETS_DIR.get_file(path) {
-		Some(file) => Response::builder()
-			.status(StatusCode::OK)
-			.header(
-				header::CONTENT_TYPE,
-				HeaderValue::from_str(
-					mime_guess::from_path(path)
-						.first_or_text_plain()
-						.as_ref(),
-				)
-				.unwrap(),
-			)
-			.body(Body::from(file.contents()))
-			.unwrap(),
-		None => {
-			// Fallback to index.html for SPA routing
-			match ASSETS_DIR.get_file("index.html") {
-				Some(file) => Response::builder()
-					.status(StatusCode::OK)
-					.header(
-						header::CONTENT_TYPE,
-						HeaderValue::from_str("text/html").unwrap(),
-					)
-					.body(Body::from(file.contents()))
-					.unwrap(),
-				None => Response::builder()
-					.status(StatusCode::NOT_FOUND)
-					.body(Body::empty())
-					.unwrap(),
-			}
-		}
-	}
-}
-
-#[cfg(feature = "assets")]
-async fn serve_index() -> Response {
-	match ASSETS_DIR.get_file("index.html") {
-		Some(file) => Response::builder()
-			.status(StatusCode::OK)
-			.header(
-				header::CONTENT_TYPE,
-				HeaderValue::from_str("text/html").unwrap(),
-			)
-			.body(Body::from(file.contents()))
-			.unwrap(),
-		None => Response::builder()
-			.status(StatusCode::NOT_FOUND)
-			.body(Body::empty())
-			.unwrap(),
-	}
 }
 
 #[derive(Parser, Debug)]
@@ -263,18 +202,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let app = Router::new()
 		.route("/health", get(health))
-		.route("/rpc", post(daemon_rpc));
-
-	// Add asset serving routes if assets feature is enabled
-	#[cfg(feature = "assets")]
-	let app = app
-		.route("/", get(serve_index))
-		.route("/*path", get(|axum::extract::Path(path): axum::extract::Path<String>| serve_asset(path)));
-
-	#[cfg(not(feature = "assets"))]
-	let app = app.route("/", get(|| async { "Spacedrive Server - Use with web client" }));
-
-	let app = app
+		.route("/rpc", post(daemon_rpc))
+		.route("/", get(|| async { "Spacedrive Server - RPC only (no web UI)" }))
 		.fallback(|| async {
 			(
 				StatusCode::NOT_FOUND,
@@ -289,10 +218,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	addr.set_port(args.port);
 
 	info!("🚀 Spacedrive Server listening on http://localhost:{}", args.port);
-	#[cfg(feature = "assets")]
-	info!("📦 Serving bundled web assets");
-	#[cfg(not(feature = "assets"))]
-	info!("📦 Asset serving disabled (use --features assets)");
+	info!("📦 RPC endpoint available at /rpc");
 
 	// Setup graceful shutdown
 	let shutdown_signal = shutdown_signal(daemon_handle);

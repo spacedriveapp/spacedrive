@@ -339,8 +339,10 @@ impl LogSyncHandler {
 		let has_more = entries.len() >= limit;
 		let limited: Vec<_> = entries.into_iter().take(limit).collect();
 
-		// If logs were pruned and no since_hlc, include current state as fallback
-		let current_state = if since_hlc.is_none() && limited.is_empty() {
+		// For initial sync (no watermark), always include current state
+		// This ensures shared resources like content_identities are available
+		// even if they weren't recorded in peer_log (e.g., created before sync was enabled)
+		let current_state = if since_hlc.is_none() {
 			Some(self.get_current_shared_state().await?)
 		} else {
 			None
@@ -356,12 +358,34 @@ impl LogSyncHandler {
 
 	/// Get current state of all shared resources (fallback when logs pruned)
 	async fn get_current_shared_state(&self) -> Result<serde_json::Value> {
-		// TODO: Query via registry instead of hardcoding
-		// registry.get_all_models_of_type("shared") -> serialize
-		Ok(serde_json::json!({
-			"tags": [],
-			"albums": [],
-			"user_metadata": [],
-		}))
+		// Query all shared models via registry
+		let db = Arc::new(self.db.conn().clone());
+		let results = crate::infra::sync::registry::query_all_shared_models(
+			None,     // No watermark - get everything
+			100_000,  // Large batch to get all records
+			db,
+		)
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to query shared models: {}", e))?;
+
+		// Convert to JSON format expected by backfill
+		// Format: { "model_type": [{ "uuid": "...", "data": {...} }, ...] }
+		let mut json_map = serde_json::Map::new();
+
+		for (model_type, records) in results {
+			let records_json: Vec<serde_json::Value> = records
+				.into_iter()
+				.map(|(uuid, data, _timestamp)| {
+					serde_json::json!({
+						"uuid": uuid.to_string(),
+						"data": data,
+					})
+				})
+				.collect();
+
+			json_map.insert(model_type, serde_json::Value::Array(records_json));
+		}
+
+		Ok(serde_json::Value::Object(json_map))
 	}
 }

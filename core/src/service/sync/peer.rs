@@ -784,6 +784,7 @@ impl PeerSync {
 		let mut subscriber = self.sync_events.subscribe();
 		let is_running = self.is_running.clone();
 		let config = self.config.clone();
+		let metrics = self.metrics.clone();
 
 		tokio::spawn(async move {
 			info!(
@@ -847,6 +848,7 @@ impl PeerSync {
 													&db,
 													&config,
 													&last_realtime_activity,
+													&metrics,
 												).await;
 											}
 										}
@@ -878,6 +880,7 @@ impl PeerSync {
 										&retry_queue,
 										&db,
 										&config,
+										&metrics,
 									)
 									.await
 									{
@@ -933,6 +936,7 @@ impl PeerSync {
 									&db,
 									&config,
 									&last_realtime_activity,
+									&metrics,
 								).await;
 							}
 						}
@@ -955,6 +959,7 @@ impl PeerSync {
 					&db,
 					&config,
 					&last_realtime_activity,
+					&metrics,
 				)
 				.await;
 			}
@@ -1188,6 +1193,7 @@ impl PeerSync {
 		db: &Arc<sea_orm::DatabaseConnection>,
 		config: &Arc<crate::infra::sync::SyncConfig>,
 		last_realtime_activity: &Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
+		metrics: &Arc<super::metrics::SyncMetricsCollector>,
 	) {
 		if batch.is_empty() {
 			return;
@@ -1211,6 +1217,7 @@ impl PeerSync {
 				db,
 				config,
 				last_realtime_activity,
+				metrics,
 			)
 			.await
 			{
@@ -1235,6 +1242,7 @@ impl PeerSync {
 		db: &Arc<sea_orm::DatabaseConnection>,
 		config: &Arc<crate::infra::sync::SyncConfig>,
 		last_realtime_activity: &Arc<RwLock<Option<chrono::DateTime<chrono::Utc>>>>,
+		metrics: &Arc<super::metrics::SyncMetricsCollector>,
 	) -> Result<()> {
 		let model_type: String = data
 			.get("model_type")
@@ -1337,6 +1345,9 @@ impl PeerSync {
 			"Broadcasting state change to sync partners"
 		);
 
+		// Track start time for latency metrics
+		let start_time = std::time::Instant::now();
+
 		// Broadcast to all partners in parallel
 		use futures::future::join_all;
 
@@ -1394,6 +1405,18 @@ impl PeerSync {
 			*last_realtime_activity.write().await = Some(chrono::Utc::now());
 		}
 
+		// Record metrics
+		metrics.record_broadcast(true, None);
+		if error_count > 0 {
+			for _ in 0..error_count {
+				metrics.record_failed_broadcast();
+			}
+		}
+
+		// Record latency
+		let latency_ms = start_time.elapsed().as_millis() as u64;
+		metrics.record_broadcast_latency(latency_ms);
+
 		info!(
 			model_type = %change.model_type,
 			success = success_count,
@@ -1417,6 +1440,7 @@ impl PeerSync {
 		retry_queue: &Arc<RetryQueue>,
 		db: &Arc<sea_orm::DatabaseConnection>,
 		config: &Arc<crate::infra::sync::SyncConfig>,
+		metrics: &Arc<super::metrics::SyncMetricsCollector>,
 	) -> Result<()> {
 		let entry: SharedChangeEntry = serde_json::from_value(
 			data.get("entry")
@@ -1478,6 +1502,9 @@ impl PeerSync {
 			"Broadcasting shared change to sync partners"
 		);
 
+		// Track start time for latency metrics
+		let start_time = std::time::Instant::now();
+
 		// Broadcast to all partners in parallel
 		use futures::future::join_all;
 
@@ -1529,6 +1556,18 @@ impl PeerSync {
 				}
 			}
 		}
+
+		// Record metrics
+		metrics.record_broadcast(false, None);
+		if error_count > 0 {
+			for _ in 0..error_count {
+				metrics.record_failed_broadcast();
+			}
+		}
+
+		// Record latency
+		let latency_ms = start_time.elapsed().as_millis() as u64;
+		metrics.record_broadcast_latency(latency_ms);
 
 		info!(
 			hlc = %entry.hlc,
@@ -1924,7 +1963,11 @@ impl PeerSync {
 	}
 
 	/// Apply state change to database
-	async fn apply_state_change(&self, change: StateChangeMessage) -> Result<()> {
+	///
+	/// This is the core method for applying device-owned state changes.
+	/// It handles FK resolution, watermark updates, and dependency resolution.
+	/// Made public for backfill dependency resolution.
+	pub async fn apply_state_change(&self, change: StateChangeMessage) -> Result<()> {
 		// Record start time for latency tracking
 		let start_time = std::time::Instant::now();
 
@@ -2341,6 +2384,11 @@ impl PeerSync {
 		&self.hlc_generator
 	}
 
+	/// Get dependency tracker for event-driven FK retry
+	pub fn dependency_tracker(&self) -> &Arc<super::dependency::DependencyTracker> {
+		&self.dependency_tracker
+	}
+
 	/// Get network transport name (for debugging)
 	pub fn transport_name(&self) -> &'static str {
 		self.network.transport_name()
@@ -2646,6 +2694,7 @@ impl PeerSync {
 				&self.db,
 				&self.config,
 				&self.last_realtime_activity,
+				&self.metrics,
 			)
 			.await
 			{
@@ -2670,6 +2719,7 @@ impl PeerSync {
 				&self.retry_queue,
 				&self.db,
 				&self.config,
+				&self.metrics,
 			)
 			.await
 			{
@@ -2726,7 +2776,15 @@ impl PeerSync {
 	/// ️ This is for testing only. Manually overrides the sync state.
 	/// In production, state transitions are managed automatically by the sync service.
 	pub async fn set_state_for_test(&self, new_state: DeviceSyncState) {
+		let old_state = *self.state.read().await;
 		*self.state.write().await = new_state;
+
+		// Also update metrics so tests can verify state via metrics snapshot
+		let _ = self
+			.metrics
+			.record_state_transition(old_state, new_state, Some("test helper".to_string()))
+			.await;
+
 		info!("Sync state manually set to {:?} (test helper)", new_state);
 	}
 }
