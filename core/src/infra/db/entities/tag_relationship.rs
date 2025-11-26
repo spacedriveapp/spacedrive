@@ -182,6 +182,96 @@ impl Syncable for Model {
 		Ok(sync_results)
 	}
 
+	async fn post_backfill_rebuild(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+		use super::tag_closure;
+		use sea_orm::{ConnectionTrait, DbBackend, PaginatorTrait, Statement};
+
+		tracing::info!("Starting tag_closure rebuild from tag_relationships...");
+
+		// Clear existing tag_closure table
+		tag_closure::Entity::delete_many().exec(db).await?;
+
+		// 1. Insert self-references for all tags (depth 0)
+		db.execute(Statement::from_sql_and_values(
+			DbBackend::Sqlite,
+			r#"
+			INSERT INTO tag_closure (ancestor_id, descendant_id, depth, path_strength)
+			SELECT id, id, 0, 1.0 FROM tag
+			"#,
+			vec![],
+		))
+		.await
+		.map_err(|e| sea_orm::DbErr::Custom(format!("Failed to insert self-refs: {}", e)))?;
+
+		// 2. Insert direct relationships from tag_relationship (depth 1)
+		db.execute(Statement::from_sql_and_values(
+			DbBackend::Sqlite,
+			r#"
+			INSERT OR IGNORE INTO tag_closure (ancestor_id, descendant_id, depth, path_strength)
+			SELECT parent_tag_id, child_tag_id, 1, strength
+			FROM tag_relationship
+			"#,
+			vec![],
+		))
+		.await
+		.map_err(|e| sea_orm::DbErr::Custom(format!("Failed to insert direct rels: {}", e)))?;
+
+		// 3. Recursively build transitive relationships
+		let mut iteration = 0;
+		loop {
+			let result = db
+				.execute(Statement::from_sql_and_values(
+					DbBackend::Sqlite,
+					r#"
+					INSERT OR IGNORE INTO tag_closure (ancestor_id, descendant_id, depth, path_strength)
+					SELECT tc1.ancestor_id, tc2.descendant_id, tc1.depth + tc2.depth, tc1.path_strength * tc2.path_strength
+					FROM tag_closure tc1
+					INNER JOIN tag_closure tc2 ON tc1.descendant_id = tc2.ancestor_id
+					WHERE tc1.depth > 0 OR tc2.depth > 0
+					  AND NOT EXISTS (
+						SELECT 1 FROM tag_closure
+						WHERE ancestor_id = tc1.ancestor_id
+						  AND descendant_id = tc2.descendant_id
+					  )
+					"#,
+					vec![],
+				))
+				.await
+				.map_err(|e| {
+					sea_orm::DbErr::Custom(format!("Failed to build transitive rels: {}", e))
+				})?;
+
+			iteration += 1;
+			let rows_affected = result.rows_affected();
+
+			tracing::debug!(
+				iteration = iteration,
+				rows_inserted = rows_affected,
+				"tag_closure rebuild iteration"
+			);
+
+			if rows_affected == 0 {
+				break;
+			}
+
+			if iteration > 100 {
+				return Err(sea_orm::DbErr::Custom(
+					"tag_closure rebuild exceeded max iterations - possible cycle".to_string(),
+				));
+			}
+		}
+
+		let total = tag_closure::Entity::find().count(db).await?;
+
+		tracing::info!(
+			iterations = iteration,
+			total_relationships = total,
+			"tag_closure rebuild complete"
+		);
+
+		Ok(())
+	}
+
 	async fn apply_shared_change(
 		entry: SharedChangeEntry,
 		db: &DatabaseConnection,
@@ -284,5 +374,5 @@ impl Syncable for Model {
 	}
 }
 
-// Register with sync system via inventory
-crate::register_syncable_shared!(Model, "tag_relationship", "tag_relationship");
+// Register with sync system via inventory (with_rebuild for tag_closure table)
+crate::register_syncable_shared!(Model, "tag_relationship", "tag_relationship", with_rebuild);

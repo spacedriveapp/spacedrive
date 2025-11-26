@@ -1007,15 +1007,20 @@ impl LibraryManager {
 	}
 
 	/// Create default space with Quick Access group for new libraries
+	///
+	/// Uses deterministic UUIDs so all devices create the same default space,
+	/// preventing duplicates during sync.
 	async fn create_default_space(&self, library: &Arc<Library>) -> Result<()> {
 		use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceItem};
+		use crate::infra::sync::deterministic_library_default_uuid;
 		use chrono::Utc;
 		use sea_orm::{ActiveModelTrait, NotSet, Set};
 
 		let db = library.db().conn();
+		let library_id = library.id();
 
-		// Create default space
-		let space_id = uuid::Uuid::new_v4();
+		// Create default space with deterministic UUID (same library = same UUID on all devices)
+		let space_id = deterministic_library_default_uuid(library_id, "space", "All Devices");
 		let now = Utc::now();
 
 		let space_model = crate::infra::db::entities::space::ActiveModel {
@@ -1038,19 +1043,21 @@ impl LibraryManager {
 
 		// Create space-level items (Overview, Recents, Favorites) - these appear outside groups
 		let space_items = vec![
-			(ItemType::Overview, 0),
-			(ItemType::Recents, 1),
-			(ItemType::Favorites, 2),
+			(ItemType::Overview, "Overview", 0),
+			(ItemType::Recents, "Recents", 1),
+			(ItemType::Favorites, "Favorites", 2),
 		];
 
-		for (item_type, order) in space_items {
+		for (item_type, item_name, order) in space_items {
 			let item_type_json = serde_json::to_string(&item_type).map_err(|e| {
 				LibraryError::Other(format!("Failed to serialize item_type: {}", e))
 			})?;
 
+			let item_uuid = deterministic_library_default_uuid(library_id, "space_item", item_name);
+
 			let item_model = crate::infra::db::entities::space_item::ActiveModel {
 				id: NotSet,
-				uuid: Set(uuid::Uuid::new_v4()),
+				uuid: Set(item_uuid),
 				space_id: Set(space_result.id),
 				group_id: Set(None), // Space-level items have no group
 				item_type: Set(item_type_json),
@@ -1070,7 +1077,7 @@ impl LibraryManager {
 		);
 
 		// Create Locations group
-		let locations_group_id = uuid::Uuid::new_v4();
+		let locations_group_id = deterministic_library_default_uuid(library_id, "space_group", "Locations");
 		let locations_type_json = serde_json::to_string(&GroupType::Locations)
 			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
 
@@ -1096,7 +1103,7 @@ impl LibraryManager {
 		);
 
 		// Create Volumes group
-		let volumes_group_id = uuid::Uuid::new_v4();
+		let volumes_group_id = deterministic_library_default_uuid(library_id, "space_group", "Volumes");
 		let volumes_type_json = serde_json::to_string(&GroupType::Volumes)
 			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
 

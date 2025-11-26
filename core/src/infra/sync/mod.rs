@@ -30,11 +30,13 @@ pub use config::{
 };
 pub use dependency_graph::{compute_sync_order, DependencyError};
 pub use deterministic::{
-	deterministic_system_album_uuid, deterministic_system_tag_uuid, system_tags,
+	deterministic_library_default_uuid, deterministic_system_album_uuid,
+	deterministic_system_tag_uuid, system_tags,
 };
 pub use event_bus::{SyncEvent, SyncEventBus};
 pub use fk_mapper::{
-	batch_map_sync_json_to_local, convert_fk_to_uuid, map_sync_json_to_local, FKMapping,
+	batch_map_sync_json_to_local, convert_fk_to_uuid, map_sync_json_to_local, BatchFkMapResult,
+	FKMapping,
 };
 pub use hlc::{HLCGenerator, HLC};
 pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};

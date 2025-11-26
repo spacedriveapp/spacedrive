@@ -65,6 +65,11 @@ impl BackfillManager {
 		}
 	}
 
+	/// Get metrics collector for peer latency lookups
+	pub fn metrics(&self) -> &Arc<SyncMetricsCollector> {
+		&self.metrics
+	}
+
 	/// Deliver a StateResponse to waiting request
 	///
 	/// Called by protocol handler when StateResponse is received.
@@ -138,25 +143,15 @@ impl BackfillManager {
 			.backfill_device_owned_state(selected_peer, None)
 			.await?;
 
-		// Phase 3.5: Rebuild closure tables (safety measure)
-		// The per-entry rebuild in apply_state_change() should have handled entry_closure,
-		// but run bulk rebuilds as safety measure in case of any missed entries or out-of-order syncing
-		info!("Rebuilding closure tables after backfill as safety measure...");
-		let db = self.peer_sync.db();
-
-		// Rebuild entry_closure
+		// Phase 3.5: Run post-backfill rebuilds via registry (polymorphic)
+		// Models that registered post_backfill_rebuild will have their derived tables rebuilt
+		// (e.g., entry_closure for entries, tag_closure for tag_relationships)
+		info!("Running post-backfill rebuilds via registry...");
 		if let Err(e) =
-			crate::infra::db::entities::entry::Model::rebuild_all_entry_closures(db).await
+			crate::infra::sync::registry::run_post_backfill_rebuilds(self.peer_sync.db().clone())
+				.await
 		{
-			tracing::warn!("Failed to rebuild entry_closure table: {}", e);
-			// Don't fail backfill, just warn
-		}
-
-		// Rebuild tag_closure from tag_relationships
-		// Note: tag_closure is derived from tag_relationship records, so we need to rebuild
-		// it after all tag_relationships have been synced
-		if let Err(e) = rebuild_tag_closure_table(db).await {
-			tracing::warn!("Failed to rebuild tag_closure table: {}", e);
+			tracing::warn!("Post-backfill rebuild had errors: {}", e);
 			// Don't fail backfill, just warn
 		}
 
@@ -203,17 +198,23 @@ impl BackfillManager {
 				state_watermark
 			};
 
+		// Parse shared watermark HLC for incremental sync
+		let since_hlc = shared_watermark
+			.as_ref()
+			.and_then(|s| s.parse::<crate::infra::sync::HLC>().ok());
+
 		info!(
 			peer = %peer,
 			state_since = ?effective_state_watermark,
-			shared_since = ?shared_watermark,
+			shared_since = ?since_hlc,
 			"Starting incremental catch-up"
 		);
 
 		// Backfill shared resources FIRST (device-owned models depend on them)
-		// For now, just do full backfill of shared resources
-		// TODO: Parse HLC from string watermark when HLC implements FromStr
-		let max_shared_hlc = self.backfill_shared_resources(peer).await?;
+		// Uses parsed HLC watermark for incremental sync
+		let max_shared_hlc = self
+			.backfill_shared_resources_since(peer, since_hlc)
+			.await?;
 
 		// Backfill device-owned state since watermark (after shared dependencies exist)
 		let final_state_checkpoint = self
@@ -389,7 +390,7 @@ impl BackfillManager {
 						}
 					}
 
-					// Batch FK resolution for all records (365x query reduction)
+					// Batch FK resolution for all records
 					// Collect all record data first
 					let record_data: Vec<serde_json::Value> =
 						records.iter().map(|r| r.data.clone()).collect();
@@ -401,13 +402,36 @@ impl BackfillManager {
 					// Batch process FK mappings if any exist
 					let processed_data = if !fk_mappings.is_empty() && !record_data.is_empty() {
 						// Single query per FK type instead of N queries per record
-						crate::infra::sync::batch_map_sync_json_to_local(
+						let result = crate::infra::sync::batch_map_sync_json_to_local(
 							record_data,
 							fk_mappings,
 							&db,
 						)
 						.await
-						.map_err(|e| anyhow::anyhow!("Batch FK mapping failed: {}", e))?
+						.map_err(|e| anyhow::anyhow!("Batch FK mapping failed: {}", e))?;
+
+						// Log any records that failed due to missing dependencies
+						// These would need to be retried after their dependencies arrive
+						if !result.failed.is_empty() {
+							tracing::warn!(
+								model_type = %model_type,
+								failed_count = result.failed.len(),
+								"Some records have missing FK dependencies during backfill"
+							);
+							// During backfill, we process in dependency order, so missing deps
+							// indicate either a bug in ordering or data inconsistency on source.
+							// Log details for debugging but continue with succeeded records.
+							for (_, fk_field, missing_uuid) in &result.failed {
+								tracing::debug!(
+									model_type = %model_type,
+									fk_field = %fk_field,
+									missing_uuid = %missing_uuid,
+									"Record skipped due to missing FK dependency"
+								);
+							}
+						}
+
+						result.succeeded
 					} else {
 						record_data
 					};
@@ -656,6 +680,7 @@ impl BackfillManager {
 	/// Request state batch from peer
 	///
 	/// Sends a StateRequest via bidirectional stream and waits for StateResponse.
+	/// Also measures RTT for peer latency metrics.
 	async fn request_state_batch(
 		&self,
 		peer: Uuid,
@@ -674,6 +699,9 @@ impl BackfillManager {
 			batch_size,
 		};
 
+		// Measure RTT for peer latency tracking
+		let start = std::time::Instant::now();
+
 		// Use send_sync_request which handles bidirectional stream and response
 		let response = self
 			.peer_sync
@@ -681,12 +709,17 @@ impl BackfillManager {
 			.send_sync_request(peer, request)
 			.await?;
 
+		// Record peer RTT
+		let rtt_ms = start.elapsed().as_millis() as f32;
+		self.metrics.record_peer_rtt(peer, rtt_ms).await;
+
 		Ok(response)
 	}
 
 	/// Request shared changes from peer
 	///
 	/// Sends a SharedChangeRequest via bidirectional stream and waits for SharedChangeResponse.
+	/// Also measures RTT for peer latency metrics.
 	async fn request_shared_changes(
 		&self,
 		peer: Uuid,
@@ -700,12 +733,19 @@ impl BackfillManager {
 			limit,
 		};
 
+		// Measure RTT for peer latency tracking
+		let start = std::time::Instant::now();
+
 		// Use send_sync_request which handles bidirectional stream and response
 		let response = self
 			.peer_sync
 			.network()
 			.send_sync_request(peer, request)
 			.await?;
+
+		// Record peer RTT
+		let rtt_ms = start.elapsed().as_millis() as f32;
+		self.metrics.record_peer_rtt(peer, rtt_ms).await;
 
 		Ok(response)
 	}
@@ -740,93 +780,4 @@ impl BackfillManager {
 			.set_initial_watermarks(final_state_checkpoint, max_shared_hlc)
 			.await
 	}
-}
-
-/// Rebuild tag_closure table from tag_relationship records
-///
-/// Tag closure is derived from tag_relationship records. After syncing tag_relationships,
-/// we need to rebuild the closure table to enable hierarchical tag queries.
-async fn rebuild_tag_closure_table(db: &sea_orm::DatabaseConnection) -> Result<()> {
-	use crate::infra::db::entities::{tag_closure, tag_relationship};
-	use sea_orm::{ConnectionTrait, DbBackend, EntityTrait, PaginatorTrait, Set, Statement};
-
-	tracing::info!("Starting tag_closure rebuild from tag_relationships...");
-
-	// Clear existing tag_closure table
-	tag_closure::Entity::delete_many().exec(db).await?;
-
-	// 1. Insert self-references for all tags (depth 0)
-	db.execute(Statement::from_sql_and_values(
-		DbBackend::Sqlite,
-		r#"
-		INSERT INTO tag_closure (ancestor_id, descendant_id, depth, path_strength)
-		SELECT id, id, 0, 1.0 FROM tag
-		"#,
-		vec![],
-	))
-	.await?;
-
-	// 2. Insert direct relationships from tag_relationship (depth 1)
-	db.execute(Statement::from_sql_and_values(
-		DbBackend::Sqlite,
-		r#"
-		INSERT OR IGNORE INTO tag_closure (ancestor_id, descendant_id, depth, path_strength)
-		SELECT parent_tag_id, child_tag_id, 1, strength
-		FROM tag_relationship
-		"#,
-		vec![],
-	))
-	.await?;
-
-	// 3. Recursively build transitive relationships
-	let mut iteration = 0;
-	loop {
-		let result = db
-			.execute(Statement::from_sql_and_values(
-				DbBackend::Sqlite,
-				r#"
-				INSERT OR IGNORE INTO tag_closure (ancestor_id, descendant_id, depth, path_strength)
-				SELECT tc1.ancestor_id, tc2.descendant_id, tc1.depth + tc2.depth, tc1.path_strength * tc2.path_strength
-				FROM tag_closure tc1
-				INNER JOIN tag_closure tc2 ON tc1.descendant_id = tc2.ancestor_id
-				WHERE tc1.depth > 0 OR tc2.depth > 0
-				  AND NOT EXISTS (
-					SELECT 1 FROM tag_closure
-					WHERE ancestor_id = tc1.ancestor_id
-					  AND descendant_id = tc2.descendant_id
-				  )
-				"#,
-				vec![],
-			))
-			.await?;
-
-		iteration += 1;
-		let rows_affected = result.rows_affected();
-
-		tracing::debug!(
-			iteration = iteration,
-			rows_inserted = rows_affected,
-			"tag_closure rebuild iteration"
-		);
-
-		if rows_affected == 0 {
-			break; // No more relationships to add
-		}
-
-		if iteration > 100 {
-			return Err(anyhow::anyhow!(
-				"tag_closure rebuild exceeded max iterations - possible cycle"
-			));
-		}
-	}
-
-	let total = tag_closure::Entity::find().count(db).await?;
-
-	tracing::info!(
-		iterations = iteration,
-		total_relationships = total,
-		"tag_closure rebuild complete"
-	);
-
-	Ok(())
 }

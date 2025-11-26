@@ -326,6 +326,30 @@ impl SyncMetricsCollector {
             device_metrics.is_online.store(is_online, std::sync::atomic::Ordering::Relaxed);
         }
     }
+
+    /// Record peer RTT latency from health check ping
+    pub async fn record_peer_rtt(&self, peer_id: Uuid, rtt_ms: f32) {
+        let mut peer_rtt = self.metrics.performance.peer_rtt_ms.write().await;
+        peer_rtt.insert(peer_id, rtt_ms);
+    }
+
+    /// Get peer RTT latency (returns None if never measured)
+    pub async fn get_peer_rtt(&self, peer_id: &Uuid) -> Option<f32> {
+        let peer_rtt = self.metrics.performance.peer_rtt_ms.read().await;
+        peer_rtt.get(peer_id).copied()
+    }
+
+    /// Get all peer RTT latencies
+    pub async fn get_all_peer_rtts(&self) -> std::collections::HashMap<Uuid, f32> {
+        let peer_rtt = self.metrics.performance.peer_rtt_ms.read().await;
+        peer_rtt.clone()
+    }
+
+    /// Remove peer RTT (when peer disconnects)
+    pub async fn remove_peer_rtt(&self, peer_id: &Uuid) {
+        let mut peer_rtt = self.metrics.performance.peer_rtt_ms.write().await;
+        peer_rtt.remove(peer_id);
+    }
 }
 
 impl Default for SyncMetricsCollector {

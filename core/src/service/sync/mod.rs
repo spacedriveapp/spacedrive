@@ -304,17 +304,24 @@ impl SyncService {
 										info!("Found {} connected partners, starting backfill", partners.len());
 										backfill_attempted = true;
 
-										// Convert to PeerInfo (TODO: get real latency metrics)
-										let peer_info: Vec<PeerInfo> = partners
-											.into_iter()
-											.map(|device_id| PeerInfo {
+										// Convert to PeerInfo with real latency from metrics
+										let mut peer_info: Vec<PeerInfo> = Vec::with_capacity(partners.len());
+										for device_id in partners {
+											// Get measured RTT from metrics, default to 100ms if not yet measured
+											let latency_ms = backfill_manager
+												.metrics()
+												.get_peer_rtt(&device_id)
+												.await
+												.unwrap_or(100.0);
+
+											peer_info.push(PeerInfo {
 												device_id,
-												latency_ms: 50.0, // TODO: Measure actual latency
+												latency_ms,
 												is_online: true,
-												has_complete_state: true, // Assume peers have full state
+												has_complete_state: true,
 												active_syncs: 0,
-											})
-											.collect();
+											});
+										}
 
 										// Start backfill process
 										match backfill_manager.start_backfill(peer_info).await {

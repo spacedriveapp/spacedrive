@@ -172,6 +172,36 @@ macro_rules! register_syncable_shared {
 			}
 		}
 	};
+	// Variant with post-backfill rebuild support
+	($model:ty, $model_name:literal, $table_name:literal, with_rebuild) => {
+		inventory::submit! {
+			$crate::infra::sync::SyncableInventoryEntry {
+				build: || {
+					$crate::infra::sync::SyncableModelRegistration::shared_with_query(
+						$model_name,
+						$table_name,
+						|entry, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::apply_shared_change(entry, db.as_ref()).await
+						}),
+						|device_id, since, cursor, batch_size, db| Box::pin(async move {
+							<$model as $crate::infra::sync::Syncable>::query_for_sync(device_id, since, cursor, batch_size, db.as_ref()).await
+						}),
+					)
+					.with_fk_lookups(
+						|uuid, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_id_by_uuid(uuid, db.as_ref()).await }),
+						|id, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::lookup_uuid_by_id(id, db.as_ref()).await }),
+						|uuids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_ids_by_uuids(uuids, db.as_ref()).await }),
+						|ids, db| Box::pin(async move { <$model as $crate::infra::sync::Syncable>::batch_lookup_uuids_by_ids(ids, db.as_ref()).await }),
+					)
+					.with_fk_mappings(<$model as $crate::infra::sync::Syncable>::foreign_key_mappings)
+					.with_depends_on(<$model as $crate::infra::sync::Syncable>::sync_depends_on)
+					.with_post_backfill_rebuild(|db| Box::pin(async move {
+						<$model as $crate::infra::sync::Syncable>::post_backfill_rebuild(db.as_ref()).await
+					}))
+				}
+			}
+		}
+	};
 }
 
 /// Type alias for state-based apply function (device-owned models)

@@ -191,16 +191,19 @@ pub struct PerformanceMetrics {
     pub broadcast_latency_ms: HistogramMetric,
     pub apply_latency_ms: HistogramMetric,
     pub backfill_request_latency_ms: HistogramMetric,
-    
+
     /// Watermark tracking
     pub state_watermark: AtomicU64, // Unix timestamp
     pub shared_watermark: Arc<RwLock<String>>, // HLC string
     pub watermark_lag_ms: Arc<RwLock<HashMap<Uuid, AtomicU64>>>, // Per-peer lag
-    
+
+    /// Per-peer network RTT latency (measured via health check pings)
+    pub peer_rtt_ms: Arc<RwLock<HashMap<Uuid, f32>>>,
+
     /// HLC drift tracking
     pub hlc_physical_drift_ms: AtomicI64,
     pub hlc_counter_max: AtomicU64,
-    
+
     /// Database performance
     pub db_query_duration_ms: HistogramMetric,
     pub db_query_count: AtomicU64,
@@ -215,6 +218,7 @@ impl Default for PerformanceMetrics {
             state_watermark: AtomicU64::new(Utc::now().timestamp() as u64),
             shared_watermark: Arc::new(RwLock::new(String::new())),
             watermark_lag_ms: Arc::new(RwLock::new(HashMap::new())),
+            peer_rtt_ms: Arc::new(RwLock::new(HashMap::new())),
             hlc_physical_drift_ms: AtomicI64::new(0),
             hlc_counter_max: AtomicU64::new(0),
             db_query_duration_ms: HistogramMetric::new(),

@@ -88,6 +88,12 @@ impl WatcherEvent {
 	}
 
 	/// Check if this event should be processed (filter out temporary files, etc.)
+	///
+	/// TODO: Replace this hardcoded filtering with the indexer rules engine.
+	/// The rules engine in `crate::ops::indexing::rules` already handles system files,
+	/// hidden files, git patterns, and more via configurable `RuleToggles`. This would
+	/// allow users to customize watcher filtering through the same UI as indexer rules.
+	/// See: `build_default_ruler()`, `NO_SYSTEM_FILES`, `NO_HIDDEN`, `NO_DEV_DIRS`
 	pub fn should_process(&self) -> bool {
 		for path in &self.paths {
 			let path_str = path.to_string_lossy();

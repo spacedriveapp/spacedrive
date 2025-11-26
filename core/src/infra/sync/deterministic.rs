@@ -39,6 +39,7 @@ pub const ALBUM_NAMESPACE: Uuid = Uuid::from_bytes([
 	0x6b, 0xa7, 0xb8, 0x11, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8,
 ]);
 
+
 /// Generate deterministic UUID for a system default tag
 ///
 /// This should ONLY be used for built-in system tags that ship with
@@ -134,6 +135,30 @@ pub fn deterministic_system_album_uuid(name: &str) -> Uuid {
 	Uuid::new_v5(&ALBUM_NAMESPACE, name.as_bytes())
 }
 
+/// Generate deterministic UUID for library-scoped default entities
+///
+/// This is the polymorphic way to create default entities (spaces, groups, etc.)
+/// that need consistent UUIDs across all devices sharing a library.
+///
+/// Uses library_id as the namespace, so:
+/// - Same library + same entity_type + same name = same UUID on all devices
+/// - Different libraries = different UUIDs (no cross-library collisions)
+///
+/// # Example
+/// ```rust,ignore
+/// // Default space for this library
+/// let space_id = deterministic_library_default_uuid(library_id, "space", "All Devices");
+///
+/// // Default group within that space
+/// let group_id = deterministic_library_default_uuid(library_id, "space_group", "Locations");
+///
+/// // Default item
+/// let item_id = deterministic_library_default_uuid(library_id, "space_item", "Overview");
+/// ```
+pub fn deterministic_library_default_uuid(library_id: Uuid, entity_type: &str, name: &str) -> Uuid {
+	Uuid::new_v5(&library_id, format!("{}:{}", entity_type, name).as_bytes())
+}
+
 /// When to use deterministic vs random UUIDs:
 ///
 /// USE DETERMINISTIC UUIDs FOR:
@@ -185,5 +210,28 @@ mod tests {
 		let uuid2 = deterministic_system_album_uuid("Recent Imports");
 
 		assert_eq!(uuid1, uuid2);
+	}
+
+	#[test]
+	fn test_deterministic_library_default_uuid() {
+		let library_a = Uuid::new_v4();
+		let library_b = Uuid::new_v4();
+
+		// Same library + same entity = same UUID
+		let space1 = deterministic_library_default_uuid(library_a, "space", "All Devices");
+		let space2 = deterministic_library_default_uuid(library_a, "space", "All Devices");
+		assert_eq!(space1, space2);
+
+		// Different libraries = different UUIDs
+		let space3 = deterministic_library_default_uuid(library_b, "space", "All Devices");
+		assert_ne!(space1, space3);
+
+		// Different entity types = different UUIDs
+		let group = deterministic_library_default_uuid(library_a, "space_group", "All Devices");
+		assert_ne!(space1, group);
+
+		// Different names = different UUIDs
+		let other_space = deterministic_library_default_uuid(library_a, "space", "Other Space");
+		assert_ne!(space1, other_space);
 	}
 }

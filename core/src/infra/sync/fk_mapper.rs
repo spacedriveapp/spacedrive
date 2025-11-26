@@ -121,8 +121,12 @@ async fn lookup_uuid_for_local_id(
 	db: &DatabaseConnection,
 ) -> Result<Uuid> {
 	// Map table name to model type via registry (fully polymorphic)
-	let model_type = super::registry::get_model_type_by_table(table)
-		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
+	let model_type = super::registry::get_model_type_by_table(table).ok_or_else(|| {
+		anyhow!(
+			"No model registered for table '{}' - check sync registration",
+			table
+		)
+	})?;
 
 	super::registry::lookup_uuid_by_id(model_type, local_id, Arc::new(db.clone()))
 		.await
@@ -143,8 +147,12 @@ pub async fn batch_lookup_uuids_for_local_ids(
 		return Ok(HashMap::new());
 	}
 
-	let model_type = super::registry::get_model_type_by_table(table)
-		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
+	let model_type = super::registry::get_model_type_by_table(table).ok_or_else(|| {
+		anyhow!(
+			"No model registered for table '{}' - check sync registration",
+			table
+		)
+	})?;
 
 	super::registry::batch_lookup_uuids_by_ids(model_type, local_ids, Arc::new(db.clone()))
 		.await
@@ -237,20 +245,38 @@ pub async fn map_sync_json_to_local(
 	Ok(data)
 }
 
+/// Result of batch FK mapping operation
+#[derive(Debug)]
+pub struct BatchFkMapResult {
+	/// Records that were successfully mapped (all FKs resolved)
+	pub succeeded: Vec<Value>,
+	/// Records that failed due to missing non-nullable FK references
+	/// Contains (record, missing_fk_field, missing_uuid) for retry/buffering
+	pub failed: Vec<(Value, String, Uuid)>,
+}
+
 /// Batch convert UUIDs to local IDs for multiple records
 ///
 /// This function processes multiple records at once, using batch FK lookups
 /// to reduce database queries from N*M (N records × M FKs) to M (one per FK type).
 ///
-/// This is a 365x reduction for typical sync workloads with 1000 records and 3 FKs each.
+/// Records with missing non-nullable FK references are returned in `failed` for retry.
+/// Records with missing nullable FK references have the FK set to NULL and succeed.
 pub async fn batch_map_sync_json_to_local(
-	mut records: Vec<Value>,
+	records: Vec<Value>,
 	mappings: Vec<FKMapping>,
 	db: &DatabaseConnection,
-) -> Result<Vec<Value>> {
+) -> Result<BatchFkMapResult> {
 	if records.is_empty() {
-		return Ok(records);
+		return Ok(BatchFkMapResult {
+			succeeded: records,
+			failed: vec![],
+		});
 	}
+
+	// Track which records have failed (by index) and why
+	let mut failed_records: HashMap<usize, (String, Uuid)> = HashMap::new();
+	let mut records = records;
 
 	// For each FK mapping, collect all UUIDs from all records, batch lookup, then apply
 	for fk in &mappings {
@@ -259,7 +285,12 @@ pub async fn batch_map_sync_json_to_local(
 		// Collect all UUIDs for this FK type from all records
 		let mut uuids_to_lookup: HashSet<Uuid> = HashSet::new();
 
-		for data in &records {
+		for (idx, data) in records.iter().enumerate() {
+			// Skip already-failed records
+			if failed_records.contains_key(&idx) {
+				continue;
+			}
+
 			if let Some(uuid_value) = data.get(&uuid_field) {
 				if !uuid_value.is_null() {
 					if let Some(uuid_str) = uuid_value.as_str() {
@@ -279,7 +310,12 @@ pub async fn batch_map_sync_json_to_local(
 		};
 
 		// Apply mappings to all records using the batch lookup results
-		for data in &mut records {
+		for (idx, data) in records.iter_mut().enumerate() {
+			// Skip already-failed records
+			if failed_records.contains_key(&idx) {
+				continue;
+			}
+
 			let uuid_value = data.get(&uuid_field);
 
 			if uuid_value.is_none() || uuid_value.unwrap().is_null() {
@@ -294,7 +330,11 @@ pub async fn batch_map_sync_json_to_local(
 			{
 				Some(uuid) => uuid,
 				None => {
-					// Invalid UUID format - set to NULL
+					// Invalid UUID format - set to NULL (this is a data error, not missing dep)
+					tracing::warn!(
+						fk_field = %fk.local_field,
+						"Invalid UUID format in FK field, setting to NULL"
+					);
 					data[fk.local_field] = Value::Null;
 					if let Some(obj) = data.as_object_mut() {
 						obj.remove(&uuid_field);
@@ -307,20 +347,31 @@ pub async fn batch_map_sync_json_to_local(
 			let local_id = match uuid_to_id_map.get(&uuid) {
 				Some(&id) => id,
 				None => {
-					// Referenced record not found - set FK to NULL
-					// This is controversial, may cause issues
-					tracing::warn!(
-						"FK reference not found: {} -> {} (uuid={}), setting to NULL",
-						fk.local_field,
-						fk.target_table,
-						uuid
-					);
-					data[fk.local_field] = Value::Null;
-					// Remove UUID field
-					if let Some(obj) = data.as_object_mut() {
-						obj.remove(&uuid_field);
+					// Referenced record not found
+					if fk.nullable {
+						// Nullable FK - set to NULL and continue
+						tracing::debug!(
+							fk_field = %fk.local_field,
+							target_table = %fk.target_table,
+							uuid = %uuid,
+							"Nullable FK reference not found, setting to NULL"
+						);
+						data[fk.local_field] = Value::Null;
+						if let Some(obj) = data.as_object_mut() {
+							obj.remove(&uuid_field);
+						}
+						continue;
+					} else {
+						// Non-nullable FK - mark record as failed for retry
+						tracing::debug!(
+							fk_field = %fk.local_field,
+							target_table = %fk.target_table,
+							uuid = %uuid,
+							"Non-nullable FK reference not found, marking for retry"
+						);
+						failed_records.insert(idx, (fk.local_field.to_string(), uuid));
+						continue;
 					}
-					continue;
 				}
 			};
 
@@ -334,18 +385,48 @@ pub async fn batch_map_sync_json_to_local(
 		}
 	}
 
-	Ok(records)
+	// Separate succeeded and failed records
+	let mut succeeded = Vec::with_capacity(records.len() - failed_records.len());
+	let mut failed = Vec::with_capacity(failed_records.len());
+
+	for (idx, record) in records.into_iter().enumerate() {
+		if let Some((fk_field, missing_uuid)) = failed_records.remove(&idx) {
+			failed.push((record, fk_field, missing_uuid));
+		} else {
+			succeeded.push(record);
+		}
+	}
+
+	if !failed.is_empty() {
+		tracing::info!(
+			succeeded = succeeded.len(),
+			failed = failed.len(),
+			"Batch FK mapping completed with some records pending dependencies"
+		);
+	}
+
+	Ok(BatchFkMapResult { succeeded, failed })
 }
 
 /// Look up local integer ID for a UUID via the registry
 async fn lookup_local_id_for_uuid(table: &str, uuid: Uuid, db: &DatabaseConnection) -> Result<i32> {
-	let model_type = super::registry::get_model_type_by_table(table)
-		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
+	let model_type = super::registry::get_model_type_by_table(table).ok_or_else(|| {
+		anyhow!(
+			"No model registered for table '{}' - check sync registration",
+			table
+		)
+	})?;
 
 	super::registry::lookup_id_by_uuid(model_type, uuid, Arc::new(db.clone()))
 		.await
 		.map_err(|e| anyhow!("FK lookup failed for {}: {}", table, e))?
-		.ok_or_else(|| anyhow!("{} with uuid={} not found (sync dependency missing)", table, uuid))
+		.ok_or_else(|| {
+			anyhow!(
+				"{} with uuid={} not found (sync dependency missing)",
+				table,
+				uuid
+			)
+		})
 }
 
 /// Batch look up local integer IDs for multiple UUIDs via the registry
@@ -361,8 +442,12 @@ pub async fn batch_lookup_local_ids_for_uuids(
 		return Ok(HashMap::new());
 	}
 
-	let model_type = super::registry::get_model_type_by_table(table)
-		.ok_or_else(|| anyhow!("No model registered for table '{}' - check sync registration", table))?;
+	let model_type = super::registry::get_model_type_by_table(table).ok_or_else(|| {
+		anyhow!(
+			"No model registered for table '{}' - check sync registration",
+			table
+		)
+	})?;
 
 	super::registry::batch_lookup_ids_by_uuids(model_type, uuids, Arc::new(db.clone()))
 		.await
@@ -383,5 +468,14 @@ mod tests {
 
 		let fk = FKMapping::new("entry_id", "entries");
 		assert_eq!(fk.uuid_field_name(), "entry_uuid");
+	}
+
+	#[test]
+	fn test_fk_mapping_nullable() {
+		let non_nullable = FKMapping::new("device_id", "devices");
+		assert!(!non_nullable.nullable, "default should be non-nullable");
+
+		let nullable = FKMapping::new_nullable("parent_id", "entries");
+		assert!(nullable.nullable, "new_nullable should create nullable FK");
 	}
 }
