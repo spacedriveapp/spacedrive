@@ -23,6 +23,7 @@ interface PairingModalProps {
 export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }: PairingModalProps) {
   const [mode, setMode] = useState<"generate" | "join">(initialMode);
   const [joinCode, setJoinCode] = useState("");
+  const [joinNodeId, setJoinNodeId] = useState("");
   const [autoAccept, setAutoAccept] = useState(false);
 
   const generatePairing = useCoreMutation("network.pair.generate");
@@ -53,7 +54,10 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
 
   const handleJoin = () => {
     if (!joinCode.trim()) return;
-    joinPairing.mutate({ code: joinCode });
+    joinPairing.mutate({
+      code: joinCode,
+      node_id: joinNodeId.trim() || null,
+    });
   };
 
   const handleCancel = () => {
@@ -63,6 +67,7 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
     generatePairing.reset();
     joinPairing.reset();
     setJoinCode("");
+    setJoinNodeId("");
   };
 
   const handleClose = () => {
@@ -169,6 +174,8 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
               <JoinMode
                 joinCode={joinCode}
                 setJoinCode={setJoinCode}
+                joinNodeId={joinNodeId}
+                setJoinNodeId={setJoinNodeId}
                 joinPairing={joinPairing}
                 currentSession={currentSession}
                 onJoin={handleJoin}
@@ -300,6 +307,30 @@ function GenerateMode({
               </div>
             </div>
 
+            {/* Node ID for cross-network pairing */}
+            {generatePairing.data.node_id && (
+              <div>
+                <label className="text-xs font-medium text-ink-dull uppercase tracking-wider mb-2 block">
+                  For cross-network pairing:
+                </label>
+                <div className="relative">
+                  <div className="p-3 bg-sidebar-box border border-sidebar-line rounded-lg font-mono text-xs text-ink break-all">
+                    {generatePairing.data.node_id}
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(generatePairing.data.node_id)}
+                    className="absolute top-1.5 right-1.5 p-1.5 bg-app-box hover:bg-app-hover border border-app-line rounded-md transition-colors"
+                    title="Copy Node ID"
+                  >
+                    <Copy className="size-3 text-ink-dull" weight="bold" />
+                  </button>
+                </div>
+                <p className="text-xs text-ink-dull mt-1.5">
+                  Share this Node ID if devices are on different networks
+                </p>
+              </div>
+            )}
+
             {/* Status */}
             <div className="flex items-center gap-2 p-3 bg-app-box/40 rounded-lg border border-app-line">
               <div className="size-2 rounded-full bg-accent animate-pulse" />
@@ -406,6 +437,8 @@ function GenerateMode({
 function JoinMode({
   joinCode,
   setJoinCode,
+  joinNodeId,
+  setJoinNodeId,
   joinPairing,
   currentSession,
   onJoin,
@@ -445,6 +478,24 @@ function JoinMode({
           />
           <p className="text-xs text-ink-dull mt-2">
             Paste the full code or type the 12 words separated by hyphens
+          </p>
+        </div>
+
+        {/* Node ID Input (optional, for cross-network) */}
+        <div>
+          <label className="text-xs font-medium text-ink-dull uppercase tracking-wider mb-2 block">
+            Node ID <span className="text-ink-faint">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={joinNodeId}
+            onChange={(e) => setJoinNodeId(e.target.value)}
+            placeholder="Enter Node ID for cross-network pairing"
+            disabled={isLoading || !!state}
+            className="w-full px-4 py-2.5 bg-sidebar-box border border-sidebar-line rounded-lg text-xs text-ink font-mono placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50"
+          />
+          <p className="text-xs text-ink-dull mt-1.5">
+            Required if devices are on different networks
           </p>
         </div>
 

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 pub struct PairJoinAction {
 	pub code: String,
+	pub node_id: Option<String>,
 }
 
 impl CoreAction for PairJoinAction {
@@ -11,7 +12,10 @@ impl CoreAction for PairJoinAction {
 	type Input = PairJoinInput;
 
 	fn from_input(input: Self::Input) -> std::result::Result<Self, String> {
-		Ok(Self { code: input.code })
+		Ok(Self {
+			code: input.code,
+			node_id: input.node_id,
+		})
 	}
 
 	async fn execute(
@@ -24,7 +28,7 @@ impl CoreAction for PairJoinAction {
 			.ok_or_else(|| ActionError::Internal("Networking not initialized".to_string()))?;
 
 		// Try to parse as QR code JSON first, fallback to manual word entry
-		let pairing_code = if self.code.trim().starts_with('{') {
+		let mut pairing_code = if self.code.trim().starts_with('{') {
 			// Looks like JSON (QR code)
 			crate::service::network::protocol::pairing::PairingCode::from_qr_json(&self.code)
 				.map_err(|e| ActionError::Internal(format!("Invalid QR code: {}", e)))?
@@ -33,6 +37,14 @@ impl CoreAction for PairJoinAction {
 			crate::service::network::protocol::pairing::PairingCode::from_string(&self.code)
 				.map_err(|e| ActionError::Internal(format!("Invalid pairing code: {}", e)))?
 		};
+
+		// If node_id provided separately, add it to enable relay fallback
+		if let Some(node_id_str) = &self.node_id {
+			let node_id: iroh::NodeId = node_id_str
+				.parse()
+				.map_err(|e| ActionError::Internal(format!("Invalid node ID: {}", e)))?;
+			pairing_code = pairing_code.with_node_id(node_id);
+		}
 
 		net.start_pairing_as_joiner_with_code(pairing_code, false)
 			.await

@@ -39,12 +39,14 @@ impl CoreAction for PairGenerateAction {
 
 		let session_id = pairing_code.session_id();
 		let qr_json = pairing_code.to_qr_json();
+		let node_id = pairing_code.node_id().map(|id| id.to_string());
 
 		Ok(PairGenerateOutput {
 			code,
 			session_id,
 			expires_at: Utc::now() + chrono::Duration::seconds(expires_in as i64),
 			qr_json,
+			node_id,
 		})
 	}
 
