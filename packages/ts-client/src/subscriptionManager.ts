@@ -34,6 +34,7 @@ interface SubscriptionEntry {
 
 export class SubscriptionManager {
 	private subscriptions = new Map<string, SubscriptionEntry>();
+	private pendingSubscriptions = new Map<string, Promise<SubscriptionEntry>>();
 	private transport: Transport;
 
 	constructor(transport: Transport) {
@@ -57,66 +58,97 @@ export class SubscriptionManager {
 	/**
 	 * Subscribe to filtered events
 	 * Reuses existing subscription if filter matches
+	 * Handles concurrent subscription requests for the same filter
 	 */
 	async subscribe(
 		filter: EventFilter,
 		callback: (event: Event) => void,
 	): Promise<() => void> {
 		const key = this.getFilterKey(filter);
+
+		// Check if subscription already exists
 		let entry = this.subscriptions.get(key);
-
-		// Create new subscription if needed
-		if (!entry) {
-			const eventTypes = filter.event_types ?? [
-				"ResourceChanged",
-				"ResourceChangedBatch",
-				"ResourceDeleted",
-				"Refresh",
-			];
-
-			const unsubscribe = await this.transport.subscribe(
-				(event) => {
-					// Broadcast event to all listeners
-					const currentEntry = this.subscriptions.get(key);
-					if (currentEntry) {
-						currentEntry.listeners.forEach((listener) => listener(event));
-					}
-				},
-				{
-					event_types: eventTypes,
-					filter: {
-						resource_type: filter.resource_type,
-						path_scope: filter.path_scope,
-						library_id: filter.library_id,
-						include_descendants: filter.include_descendants,
-					},
-				},
-			);
-
-			entry = {
-				unsubscribe,
-				listeners: new Set(),
-				refCount: 0,
-			};
-
-			this.subscriptions.set(key, entry);
+		if (entry) {
+			entry.listeners.add(callback);
+			entry.refCount++;
+			return this.createCleanup(key, callback);
 		}
 
-		// Add listener and increment ref count
-		entry.listeners.add(callback);
-		entry.refCount++;
+		// Check if subscription is being created (concurrent request)
+		const pending = this.pendingSubscriptions.get(key);
+		if (pending) {
+			// Wait for the in-progress subscription to complete
+			entry = await pending;
+			entry.listeners.add(callback);
+			entry.refCount++;
+			return this.createCleanup(key, callback);
+		}
 
-		// Return cleanup function
+		// Create new subscription
+		const subscriptionPromise = this.createSubscription(key, filter);
+		this.pendingSubscriptions.set(key, subscriptionPromise);
+
+		try {
+			entry = await subscriptionPromise;
+			entry.listeners.add(callback);
+			entry.refCount++;
+			return this.createCleanup(key, callback);
+		} finally {
+			this.pendingSubscriptions.delete(key);
+		}
+	}
+
+	private async createSubscription(
+		key: string,
+		filter: EventFilter,
+	): Promise<SubscriptionEntry> {
+		const eventTypes = filter.event_types ?? [
+			"ResourceChanged",
+			"ResourceChangedBatch",
+			"ResourceDeleted",
+			"Refresh",
+		];
+
+		const unsubscribe = await this.transport.subscribe(
+			(event) => {
+				// Broadcast event to all listeners
+				const currentEntry = this.subscriptions.get(key);
+				if (currentEntry) {
+					currentEntry.listeners.forEach((listener) => listener(event));
+				}
+			},
+			{
+				event_types: eventTypes,
+				filter: {
+					resource_type: filter.resource_type,
+					path_scope: filter.path_scope,
+					library_id: filter.library_id,
+					include_descendants: filter.include_descendants,
+				},
+			},
+		);
+
+		const entry: SubscriptionEntry = {
+			unsubscribe,
+			listeners: new Set(),
+			refCount: 0,
+		};
+
+		this.subscriptions.set(key, entry);
+		return entry;
+	}
+
+	private createCleanup(
+		key: string,
+		callback: (event: Event) => void,
+	): () => void {
 		return () => {
 			const currentEntry = this.subscriptions.get(key);
 			if (!currentEntry) return;
 
-			// Remove listener and decrement ref count
 			currentEntry.listeners.delete(callback);
 			currentEntry.refCount--;
 
-
-			// Cleanup subscription if no more listeners
 			if (currentEntry.refCount === 0) {
 				currentEntry.unsubscribe();
 				this.subscriptions.delete(key);

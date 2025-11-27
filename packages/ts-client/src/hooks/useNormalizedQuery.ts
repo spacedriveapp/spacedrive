@@ -151,6 +151,7 @@ export function useNormalizedQuery<I, O>(
     }
 
     let unsubscribe: (() => void) | undefined;
+    let isCancelled = false;
 
     const handleEvent = (event: Event) => {
       handleResourceEvent(
@@ -172,10 +173,15 @@ export function useNormalizedQuery<I, O>(
         handleEvent,
       )
       .then((unsub) => {
-        unsubscribe = unsub;
+        if (isCancelled) {
+          unsub();
+        } else {
+          unsubscribe = unsub;
+        }
       });
 
     return () => {
+      isCancelled = true;
       unsubscribe?.();
     };
   }, [

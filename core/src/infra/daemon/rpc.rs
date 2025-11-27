@@ -342,6 +342,10 @@ impl RpcServer {
 									if let Err(_) = writer.write_all((response_json + "\n").as_bytes()).await {
 										break; // Connection closed
 									}
+									// Flush to ensure response is sent immediately
+									if let Err(_) = writer.flush().await {
+										break; // Connection closed
+									}
 
 									// For non-streaming requests, close connection after response
 									match response {
@@ -386,6 +390,9 @@ impl RpcServer {
 						.map_err(|e| DaemonError::SerializationError(e.to_string()).to_string())?;
 
 					if let Err(_) = writer.write_all((response_json + "\n").as_bytes()).await {
+						break; // Connection closed
+					}
+					if let Err(_) = writer.flush().await {
 						break; // Connection closed
 					}
 				}
