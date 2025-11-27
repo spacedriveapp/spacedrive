@@ -684,6 +684,94 @@ impl File {
 				});
 		}
 
+		// Batch load tags (both entry-scoped and content-scoped)
+		use crate::infra::db::entities::{tag, user_metadata, user_metadata_tag};
+		let mut tags_by_entry: HashMap<Uuid, Vec<Tag>> = HashMap::new();
+
+		// Load user_metadata for entries and content
+		let metadata_records = user_metadata::Entity::find()
+			.filter(
+				user_metadata::Column::EntryUuid
+					.is_in(entry_uuids.iter().copied())
+					.or(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.clone())),
+			)
+			.all(db)
+			.await?;
+
+		if !metadata_records.is_empty() {
+			let metadata_ids: Vec<i32> = metadata_records.iter().map(|m| m.id).collect();
+
+			// Load user_metadata_tag records
+			let metadata_tags = user_metadata_tag::Entity::find()
+				.filter(user_metadata_tag::Column::UserMetadataId.is_in(metadata_ids))
+				.all(db)
+				.await?;
+
+			if !metadata_tags.is_empty() {
+				let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
+
+				// Load tag entities
+				let tag_models = tag::Entity::find()
+					.filter(tag::Column::Id.is_in(tag_ids))
+					.all(db)
+					.await?;
+
+				// Build tag_id -> Tag mapping using the tags manager converter
+				let tag_map: HashMap<i32, Tag> = tag_models
+					.into_iter()
+					.filter_map(|t| {
+						let db_id = t.id;
+						crate::ops::tags::manager::model_to_domain(t)
+							.ok()
+							.map(|tag| (db_id, tag))
+					})
+					.collect();
+
+				// Build metadata_id -> Vec<Tag> mapping
+				let mut tags_by_metadata: HashMap<i32, Vec<Tag>> = HashMap::new();
+				for mt in metadata_tags {
+					if let Some(tag) = tag_map.get(&mt.tag_id) {
+						tags_by_metadata
+							.entry(mt.user_metadata_id)
+							.or_default()
+							.push(tag.clone());
+					}
+				}
+
+				// Map tags to entries (handle both entry-scoped and content-scoped)
+				for metadata in &metadata_records {
+					if let Some(tags) = tags_by_metadata.get(&metadata.id) {
+						// Entry-scoped metadata
+						if let Some(entry_uuid) = metadata.entry_uuid {
+							tags_by_entry
+								.entry(entry_uuid)
+								.or_default()
+								.extend(tags.clone());
+						}
+						// Content-scoped metadata: apply to all entries with this content
+						else if let Some(content_uuid) = metadata.content_identity_uuid {
+							// Find all entries with this content_id
+							if let Some(ci) = content_by_id
+								.values()
+								.find(|ci| ci.uuid == Some(content_uuid))
+							{
+								if let Some(alt_entries) = entries_by_content_id.get(&ci.id) {
+									for alt_entry in alt_entries {
+										if let Some(entry_uuid) = alt_entry.uuid {
+											tags_by_entry
+												.entry(entry_uuid)
+												.or_default()
+												.extend(tags.clone());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// Build File instances
 		let mut files = Vec::new();
 		for entry_model in entries {
@@ -778,6 +866,11 @@ impl File {
 						}
 					}
 				}
+			}
+
+			// Add tags from batch lookup
+			if let Some(tags) = tags_by_entry.get(&entry_uuid) {
+				file.tags = tags.clone();
 			}
 
 			files.push(file);

@@ -315,30 +315,38 @@ export function filterBatchResources(
     !options.includeDescendants
   ) {
     filtered = filtered.filter((resource: any) => {
-      // Files can use Content-based sd_path in some events
-      // but have Physical paths in alternate_paths
-      const alternatePaths = resource.alternate_paths || [];
-      const physicalPath = alternatePaths.find((p: any) => p.Physical);
-
-      if (!physicalPath?.Physical) {
-        return false; // No physical path
-      }
-
-      const pathStr = physicalPath.Physical.path;
+      // Get the scope path (must be Physical)
       const scopeStr = (options.pathScope as any).Physical?.path;
-
       if (!scopeStr) {
-        return false; // No scope path
+        return false; // No Physical scope path
       }
+
+      // Normalize scope: remove trailing slashes for consistent comparison
+      const normalizedScope = String(scopeStr).replace(/\/+$/, "");
+
+      // Try to find a Physical path - check alternate_paths first, then sd_path
+      const alternatePaths = resource.alternate_paths || [];
+      const physicalFromAlternate = alternatePaths.find((p: any) => p.Physical);
+      const physicalFromSdPath = resource.sd_path?.Physical;
+
+      const physicalPath = physicalFromAlternate?.Physical || physicalFromSdPath;
+
+      if (!physicalPath?.path) {
+        return false; // No physical path found
+      }
+
+      const pathStr = String(physicalPath.path);
 
       // Extract parent directory from file path
       const lastSlash = pathStr.lastIndexOf("/");
-      invariant(lastSlash !== -1, "File path must have a parent directory");
+      if (lastSlash === -1) {
+        return false; // File path has no parent directory
+      }
 
       const parentDir = pathStr.substring(0, lastSlash);
 
-      // Only match if parent equals scope
-      return parentDir === scopeStr;
+      // Only match if parent equals scope (normalized)
+      return parentDir === normalizedScope;
     });
   }
 
