@@ -15,14 +15,20 @@ import { Folder } from "@sd/assets/icons";
 
 interface ContentRendererProps {
   file: File;
+  onZoomChange?: (isZoomed: boolean) => void;
 }
 
-function ImageRenderer({ file }: ContentRendererProps) {
+function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
   const platform = usePlatform();
   const containerRef = useRef<HTMLDivElement>(null);
   const [originalLoaded, setOriginalLoaded] = useState(false);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  const { zoom, zoomIn, zoomOut, reset, transform } = useZoomPan(containerRef);
+  const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } = useZoomPan(containerRef);
+
+  // Notify parent of zoom state changes
+  useEffect(() => {
+    onZoomChange?.(isZoomed);
+  }, [isZoomed, onZoomChange]);
 
   useEffect(() => {
     if (!platform.convertFileSrc) {
@@ -79,7 +85,7 @@ function ImageRenderer({ file }: ContentRendererProps) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full overflow-hidden flex items-center justify-center"
+      className={`relative w-full h-full flex items-center justify-center ${isZoomed ? 'overflow-visible' : 'overflow-hidden'}`}
     >
       {/* Zoom Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
@@ -156,7 +162,7 @@ function ImageRenderer({ file }: ContentRendererProps) {
   );
 }
 
-function VideoRenderer({ file }: ContentRendererProps) {
+function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
   const platform = usePlatform();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
@@ -195,7 +201,7 @@ function VideoRenderer({ file }: ContentRendererProps) {
     );
   }
 
-  return <VideoPlayer src={videoUrl} file={file} />;
+  return <VideoPlayer src={videoUrl} file={file} onZoomChange={onZoomChange} />;
 }
 
 function AudioRenderer({ file }: ContentRendererProps) {
@@ -247,7 +253,7 @@ function DocumentRenderer({ file }: ContentRendererProps) {
         <FileComponent.Thumb file={file} size={200} />
         <div className="mt-6 text-ink text-lg font-medium">{file.name}</div>
         <div className="text-ink-dull text-sm mt-2 capitalize">
-          {file.content_kind}
+          {file.content_identity?.kind ?? "unknown"}
         </div>
         <div className="text-ink-dull text-xs mt-1">
           {formatBytes(file.size || 0)}
@@ -283,7 +289,7 @@ function DefaultRenderer({ file }: ContentRendererProps) {
         <FileComponent.Thumb file={file} size={200} />
         <div className="mt-6 text-ink text-lg font-medium">{file.name}</div>
         <div className="text-ink-dull text-sm mt-2 capitalize">
-          {file.content_kind}
+          {file.content_identity?.kind ?? "unknown"}
         </div>
         <div className="text-ink-dull text-xs mt-1">
           {formatBytes(file.size || 0)}
@@ -293,7 +299,7 @@ function DefaultRenderer({ file }: ContentRendererProps) {
   );
 }
 
-export function ContentRenderer({ file }: ContentRendererProps) {
+export function ContentRenderer({ file, onZoomChange }: ContentRendererProps) {
   // Handle directories first
   if (file.kind.type === "Directory") {
     return (
@@ -308,13 +314,13 @@ export function ContentRenderer({ file }: ContentRendererProps) {
     );
   }
 
-  const kind = file.content_kind;
+  const kind = file.content_identity?.kind;
 
   switch (kind) {
     case "image":
-      return <ImageRenderer file={file} />;
+      return <ImageRenderer file={file} onZoomChange={onZoomChange} />;
     case "video":
-      return <VideoRenderer file={file} />;
+      return <VideoRenderer file={file} onZoomChange={onZoomChange} />;
     case "audio":
       return <AudioRenderer file={file} />;
     case "document":

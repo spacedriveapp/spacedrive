@@ -19,7 +19,7 @@ import {
 import { KeyboardHandler } from "./components/Explorer/KeyboardHandler";
 import { TagAssignmentMode } from "./components/Explorer/TagAssignmentMode";
 import { SpacesSidebar } from "./components/SpacesSidebar";
-import { QuickPreviewModal } from "./components/QuickPreview";
+import { QuickPreviewFullscreen, PREVIEW_LAYER_ID } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
 import { useNormalizedCache } from "./context";
 import { usePlatform } from "./platform";
@@ -110,11 +110,20 @@ export function ExplorerLayout() {
     }
   };
 
+  const isPreviewActive = !!quickPreviewFileId;
+
   return (
     <div className="relative flex h-screen select-none overflow-hidden text-sidebar-ink bg-app rounded-[10px] border border-transparent frame">
+      {/* Preview layer - portal target for fullscreen preview, sits between content and sidebar/inspector */}
+      <div
+        id={PREVIEW_LAYER_ID}
+        className="absolute inset-0 z-40 pointer-events-none [&>*]:pointer-events-auto"
+      />
+
       <TopBar
         sidebarWidth={sidebarVisible ? 224 : 0}
         inspectorWidth={inspectorVisible && !isOverview && !isKnowledgeView ? 284 : 0}
+        isPreviewActive={isPreviewActive}
       />
 
       <AnimatePresence initial={false} mode="popLayout">
@@ -124,15 +133,14 @@ export function ExplorerLayout() {
             animate={{ x: 0, width: 220 }}
             exit={{ x: -220, width: 0 }}
             transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
-            className="overflow-hidden"
+            className="relative z-50 overflow-hidden"
           >
-            <SpacesSidebar />
-            {/*<Sidebar />*/}
+            <SpacesSidebar isPreviewActive={isPreviewActive} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden z-30">
         {/* Router content renders here */}
         <Outlet />
       </div>
@@ -154,21 +162,22 @@ export function ExplorerLayout() {
             animate={{ width: 280 }}
             exit={{ width: 0 }}
             transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
-            className="overflow-hidden"
+            className="relative z-50 overflow-hidden"
           >
-            <div className="w-[280px] min-w-[280px] flex flex-col h-full p-2 bg-app">
+            <div className="w-[280px] min-w-[280px] flex flex-col h-full p-2 bg-transparent">
               <Inspector
                 currentLocation={currentLocation}
                 onPopOut={handlePopOutInspector}
+                isPreviewActive={isPreviewActive}
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Quick Preview Modal - TODO: Fix files reference */}
+      {/* Quick Preview - renders via portal into preview layer */}
       {quickPreviewFileId && (
-        <QuickPreviewModal
+        <QuickPreviewFullscreen
           fileId={quickPreviewFileId}
           isOpen={!!quickPreviewFileId}
           onClose={closeQuickPreview}
@@ -176,6 +185,8 @@ export function ExplorerLayout() {
           onPrevious={() => goToPreviousPreview([])}
           hasPrevious={false}
           hasNext={false}
+          sidebarWidth={sidebarVisible ? 220 : 0}
+          inspectorWidth={inspectorVisible && !isOverview && !isKnowledgeView ? 280 : 0}
         />
       )}
     </div>

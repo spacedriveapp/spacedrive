@@ -7,6 +7,7 @@ import { usePlatform } from "./platform";
 import { useSelection } from "./components/Explorer/SelectionContext";
 import { FileInspector } from "./inspectors/FileInspector";
 import { LocationInspector } from "./inspectors/LocationInspector";
+import clsx from "clsx";
 
 export type InspectorVariant =
   | { type: "file"; file: File }
@@ -18,12 +19,14 @@ interface InspectorProps {
   onPopOut?: () => void;
   showPopOutButton?: boolean;
   currentLocation?: LocationInfo | null;
+  isPreviewActive?: boolean;
 }
 
 export function Inspector({
   onPopOut,
   showPopOutButton = true,
   currentLocation,
+  isPreviewActive = false,
 }: InspectorProps) {
   const { selectedFiles } = useSelection();
 
@@ -41,7 +44,12 @@ export function Inspector({
   // No need for interface package to call platform-specific commands
 
   return (
-    <div className="flex flex-col h-full rounded-2xl overflow-hidden bg-sidebar/65">
+    <div
+      className={clsx(
+        "flex flex-col h-full rounded-2xl overflow-hidden",
+        isPreviewActive ? "backdrop-blur-2xl bg-sidebar/80" : "bg-sidebar/65",
+      )}
+    >
       <div className="relative z-[51] flex h-full flex-col p-2.5 pb-2">
         {/* Variant-specific content */}
         {!variant || variant.type === "empty" ? (

@@ -182,8 +182,9 @@ impl crate::domain::resource::Identifiable for File {
 					})?;
 
 				// Find entries with matching content_identity UUID
+				// Note: content_identity.uuid is Option<Uuid>, must wrap in Some()
 				let ci_opt = content_identity::Entity::find()
-					.filter(content_identity::Column::Uuid.eq(sc.content_uuid))
+					.filter(content_identity::Column::Uuid.eq(Some(sc.content_uuid)))
 					.one(db)
 					.await?;
 

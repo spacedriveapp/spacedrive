@@ -1,4 +1,4 @@
-import { useLibraryQuery } from "../../context";
+import { useNormalizedCache } from "../../context";
 import { usePlatform } from "../../platform";
 import type { File } from "@sd/ts-client";
 import { useEffect, useState } from "react";
@@ -17,7 +17,7 @@ function MetadataPanel({ file }: { file: File }) {
 
         <div>
           <div className="text-xs text-ink-dull mb-1">Kind</div>
-          <div className="text-sm text-ink capitalize">{file.content_kind}</div>
+          <div className="text-sm text-ink capitalize">{file.content_identity?.kind ?? "unknown"}</div>
         </div>
 
         <div>
@@ -71,15 +71,13 @@ export function QuickPreview() {
     }
   }, [platform]);
 
-  const { data: file, isLoading, error } = useLibraryQuery(
-    {
-      type: "files.by_id",
-      input: { file_id: fileId! },
-    },
-    {
-      enabled: !!fileId,
-    }
-  );
+  const { data: file, isLoading, error } = useNormalizedCache<{ file_id: string }, File>({
+    wireMethod: "query:files.by_id",
+    input: { file_id: fileId! },
+    resourceType: "file",
+    resourceId: fileId!,
+    enabled: !!fileId,
+  });
 
   const handleClose = () => {
     if (platform.closeCurrentWindow) {

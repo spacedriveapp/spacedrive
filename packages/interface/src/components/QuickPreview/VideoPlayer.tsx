@@ -10,6 +10,7 @@ import { TimelineScrubber } from './TimelineScrubber';
 interface VideoPlayerProps {
 	src: string;
 	file: File;
+	onZoomChange?: (isZoomed: boolean) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -23,7 +24,7 @@ function formatTime(seconds: number): string {
 	return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function VideoPlayer({ src, file }: VideoPlayerProps) {
+export function VideoPlayer({ src, file, onZoomChange }: VideoPlayerProps) {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -42,8 +43,13 @@ export function VideoPlayer({ src, file }: VideoPlayerProps) {
 		backgroundOpacity: 0.9
 	});
 	const [timelineHover, setTimelineHover] = useState<{ percent: number; mouseX: number } | null>(null);
-	const hideControlsTimeout = useRef<NodeJS.Timeout>();
-	const { zoom, zoomIn, zoomOut, reset, transform } = useZoomPan(videoContainerRef);
+	const hideControlsTimeout = useRef<ReturnType<typeof setTimeout>>();
+	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } = useZoomPan(videoContainerRef);
+
+	// Notify parent of zoom state changes
+	useEffect(() => {
+		onZoomChange?.(isZoomed);
+	}, [isZoomed, onZoomChange]);
 
 	// Show controls on mouse move, hide after 3s of inactivity
 	const handleMouseMove = () => {
@@ -167,7 +173,7 @@ export function VideoPlayer({ src, file }: VideoPlayerProps) {
 			{/* Video container with zoom/pan */}
 			<div
 				ref={videoContainerRef}
-				className="relative flex h-full w-full items-center justify-center overflow-hidden"
+				className={`relative flex h-full w-full items-center justify-center ${isZoomed ? 'overflow-visible' : 'overflow-hidden'}`}
 			>
 				<div style={transform} className="flex items-center justify-center">
 					<video

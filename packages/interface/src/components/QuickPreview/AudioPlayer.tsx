@@ -7,10 +7,8 @@ import {
 	SkipBack,
 	SkipForward,
 } from "@phosphor-icons/react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import type { File } from "@sd/ts-client";
-import { File as FileComponent } from "../Explorer/File";
-import { formatBytes } from "../Explorer/utils";
 
 interface SubtitleCue {
 	index: number;
@@ -240,7 +238,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 	};
 
 	return (
-		<div className="relative flex h-full w-full flex-col bg-gradient-to-br from-app via-app-box to-app">
+		<div className="relative flex h-full w-full flex-col">
 			{/* Hidden audio element */}
 			<audio
 				ref={audioRef}
@@ -255,26 +253,8 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 				onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
 			/>
 
-			{/* Main content area */}
+			{/* Main content area - Lyrics only */}
 			<div className="flex flex-1 overflow-hidden">
-				{/* Left: Artwork */}
-				<div className="flex w-[320px] flex-col items-center justify-center border-r border-app-line bg-sidebar-box/40 p-8 backdrop-blur-xl">
-					<div className="mb-6">
-						<FileComponent.Thumb file={file} size={240} />
-					</div>
-
-					<h2 className="mb-2 text-center text-xl font-bold text-ink">
-						{file.name}
-					</h2>
-
-					{file.extension && (
-						<p className="text-xs uppercase tracking-wider text-ink-dull">
-							{file.extension} Audio
-						</p>
-					)}
-				</div>
-
-				{/* Right: Lyrics */}
 				<div className="relative flex min-w-0 flex-1 items-center justify-center p-8">
 					<div className="absolute inset-0 flex w-full items-center justify-center p-8">
 						{cues.length > 0 ? (
@@ -303,14 +283,14 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 												initial={{ opacity: 0, y: 20 }}
 												animate={{ opacity: 1, y: 0 }}
 												transition={{ delay: index * 0.05 }}
-												className={`cursor-pointer whitespace-nowrap transition-all duration-300 ${
+												className={`cursor-pointer text-center text-2xl transition-all duration-300 ${
 													isActive
-														? "text-3xl font-bold text-ink"
-														: "text-2xl text-ink-faint hover:text-ink-dull"
+														? "font-bold text-white"
+														: "text-white/40 hover:text-white/60"
 												}`}
 												style={{
 													transform: isActive
-														? "scale(1.05)"
+														? "scale(1.15)"
 														: "scale(1)",
 													transformOrigin: "center",
 												}}
@@ -323,10 +303,10 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 							</div>
 						) : (
 							<div className="text-center">
-								<div className="mb-4 text-6xl font-bold text-ink-faint">
+								<div className="mb-4 text-6xl font-bold text-white/30">
 									♪
 								</div>
-								<p className="text-ink-dull">No lyrics available</p>
+								<p className="text-white/50">No lyrics available</p>
 							</div>
 						)}
 					</div>
@@ -334,7 +314,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 			</div>
 
 			{/* Bottom: Audio Controls */}
-			<div className="border-t border-app-line bg-sidebar-box/95 px-6 py-4 backdrop-blur-xl">
+			<div className="px-6 py-4">
 				{/* Progress Bar */}
 				<div
 					className="group mb-4 cursor-pointer"
@@ -346,7 +326,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 					onMouseUp={() => setSeeking(false)}
 					onMouseLeave={() => setSeeking(false)}
 				>
-					<div className="relative h-1.5 w-full overflow-hidden rounded-full bg-sidebar-line transition-all group-hover:h-2">
+					<div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/20 transition-all group-hover:h-2">
 						{/* Progress */}
 						<div
 							className="absolute left-0 top-0 h-full bg-accent transition-all"
@@ -372,7 +352,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 					{/* Left side - Fixed width */}
 					<div className="flex w-[200px] items-center gap-3">
 						{/* Time */}
-						<div className="text-sm font-medium text-ink-dull tabular-nums">
+						<div className="text-sm font-medium text-white/70 tabular-nums">
 							{formatTime(currentTime)}
 						</div>
 					</div>
@@ -381,7 +361,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 					<div className="flex flex-1 items-center justify-center gap-2">
 						<button
 							onClick={skipBack}
-							className="rounded-full p-2 text-ink transition-colors hover:bg-app-hover"
+							className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
 							title="Skip back 10s"
 						>
 							<SkipBack size={24} weight="fill" />
@@ -404,7 +384,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 
 						<button
 							onClick={skipForward}
-							className="rounded-full p-2 text-ink transition-colors hover:bg-app-hover"
+							className="rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
 							title="Skip forward 10s"
 						>
 							<SkipForward size={24} weight="fill" />
@@ -414,7 +394,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 					{/* Right side - Fixed width matching left */}
 					<div className="flex w-[200px] items-center justify-end gap-3">
 						{/* Time remaining */}
-						<div className="text-sm font-medium text-ink-dull tabular-nums">
+						<div className="text-sm font-medium text-white/70 tabular-nums">
 							-{formatTime(duration - currentTime)}
 						</div>
 
@@ -422,7 +402,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 						<div className="flex items-center gap-2">
 							<button
 								onClick={() => setMuted(!muted)}
-								className="rounded-md p-2 text-ink transition-colors hover:bg-app-hover"
+								className="rounded-md p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
 							>
 								{muted || volume === 0 ? (
 									<SpeakerSlash size={20} weight="fill" />
@@ -442,7 +422,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 									onChange={(e) =>
 										setVolume(parseFloat(e.target.value))
 									}
-									className="h-1 w-full cursor-pointer appearance-none rounded-full bg-sidebar-line [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:hover:scale-110"
+									className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:hover:scale-110"
 								/>
 							</div>
 						</div>

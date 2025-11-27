@@ -5,9 +5,10 @@ import clsx from "clsx";
 interface TopBarProps {
 	sidebarWidth?: number;
 	inspectorWidth?: number;
+	isPreviewActive?: boolean;
 }
 
-export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 0 }: TopBarProps) {
+export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 0, isPreviewActive = false }: TopBarProps) {
 	const { setLeftRef, setCenterRef, setRightRef } = useTopBar();
 	const leftRef = useRef<HTMLDivElement>(null);
 	const centerRef = useRef<HTMLDivElement>(null);
@@ -21,7 +22,7 @@ export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 
 
 	return (
 		<div
-			className="absolute inset-x-0 top-0 z-50 h-12"
+			className="absolute inset-x-0 top-0 z-[60] h-12"
 			data-tauri-drag-region
 			style={{
 				paddingLeft: sidebarWidth,
@@ -33,8 +34,10 @@ export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 
 				<div ref={centerRef} className="flex-1 flex items-center justify-center gap-2" />
 				<div ref={rightRef} className="flex items-center gap-2" />
 
-				{/* Right fade mask */}
-				<div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-app to-transparent pointer-events-none" />
+				{/* Right fade mask - hide when preview active */}
+				{!isPreviewActive && (
+					<div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-app to-transparent pointer-events-none" />
+				)}
 			</div>
 		</div>
 	);

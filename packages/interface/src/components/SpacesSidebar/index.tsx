@@ -14,7 +14,11 @@ import { JobManagerPopover } from "../JobManager/JobManagerPopover";
 import { SyncMonitorPopover } from "../SyncMonitor";
 import clsx from "clsx";
 
-export function SpacesSidebar() {
+interface SpacesSidebarProps {
+  isPreviewActive?: boolean;
+}
+
+export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
   const client = useSpacedriveClient();
   const platform = usePlatform();
   const { data: libraries } = useLibraries();
@@ -69,11 +73,11 @@ export function SpacesSidebar() {
   const { data: layout } = useSpaceLayout(currentSpace?.id ?? null);
 
   return (
-    <div className="w-[220px] min-w-[176px] max-w-[300px] flex flex-col h-full p-2 bg-app">
+    <div className="w-[220px] min-w-[176px] max-w-[300px] flex flex-col h-full p-2 bg-transparent">
       <div
         className={clsx(
           "flex flex-col h-full rounded-2xl overflow-hidden",
-          "bg-sidebar/65",
+          isPreviewActive ? "backdrop-blur-2xl bg-sidebar/80" : "bg-sidebar/65",
         )}
       >
         <nav className="relative z-[51] flex h-full flex-col gap-2.5 p-2.5 pb-2 pt-[52px]">

@@ -15,10 +15,8 @@ export {
 	useCoreMutation,
 	useLibraryMutation,
 	useNormalizedQuery,
+	useNormalizedCache, // Alias for useNormalizedQuery
 } from "@sd/ts-client/hooks";
-
-// Deprecated - use useNormalizedQuery instead
-export { useNormalizedQuery as useNormalizedCache } from "@sd/ts-client/hooks";
 
 // Export client type
 export type { SpacedriveClient } from "@sd/ts-client";

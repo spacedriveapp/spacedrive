@@ -644,22 +644,23 @@ function SidecarItem({
             try {
               const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
               if (!libraryId) {
-                alert("Library ID not found");
+                console.error("Library ID not found");
                 return;
               }
 
+              // Convert "text" format to "txt" extension (matches actual file on disk)
+              const format = sidecar.format === "text" ? "txt" : sidecar.format;
               const sidecarPath = await platform.getSidecarPath(
                 libraryId,
                 file.content_identity.uuid,
                 sidecar.kind,
                 sidecar.variant,
-                sidecar.format,
+                format,
               );
 
               await platform.revealFile(sidecarPath);
             } catch (err) {
               console.error("Failed to reveal sidecar:", err);
-              alert(`Failed to reveal sidecar: ${err}`);
             }
           }
         },

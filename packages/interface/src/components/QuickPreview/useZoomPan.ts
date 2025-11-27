@@ -148,6 +148,7 @@ export function useZoomPan(
 		zoomIn,
 		zoomOut,
 		reset,
+		isZoomed: zoom > 1,
 		transform: {
 			transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
 			transition: isDragging ? 'none' : 'transform 0.1s ease-out'

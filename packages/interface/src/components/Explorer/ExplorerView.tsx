@@ -44,7 +44,10 @@ export function ExplorerView() {
     currentPath,
     setCurrentPath,
     devices,
+    quickPreviewFileId,
   } = useExplorer();
+
+  const isPreviewActive = !!quickPreviewFileId;
 
   // Fetch locations to get the SdPath for this locationId
   const locationsQuery = useNormalizedCache({
@@ -99,59 +102,61 @@ export function ExplorerView() {
 
   return (
     <>
-      <TopBarPortal
-        left={
-          <div className="flex items-center gap-2">
-            <TopBarButton
-              icon={SidebarSimple}
-              onClick={() => setSidebarVisible(!sidebarVisible)}
-              active={sidebarVisible}
-            />
-            <TopBarButtonGroup>
+      {!isPreviewActive && (
+        <TopBarPortal
+          left={
+            <div className="flex items-center gap-2">
               <TopBarButton
-                icon={ArrowLeft}
-                onClick={goBack}
-                disabled={!canGoBack}
+                icon={SidebarSimple}
+                onClick={() => setSidebarVisible(!sidebarVisible)}
+                active={sidebarVisible}
+              />
+              <TopBarButtonGroup>
+                <TopBarButton
+                  icon={ArrowLeft}
+                  onClick={goBack}
+                  disabled={!canGoBack}
+                />
+                <TopBarButton
+                  icon={ArrowRight}
+                  onClick={goForward}
+                  disabled={!canGoForward}
+                />
+              </TopBarButtonGroup>
+              {currentPath && (
+                <PathBar
+                  path={currentPath}
+                  devices={devices}
+                  onNavigate={setCurrentPath}
+                />
+              )}
+            </div>
+          }
+          right={
+            <div className="flex items-center gap-2">
+              <SearchBar className="w-64" placeholder="Search..." />
+              <TopBarButton
+                icon={TagIcon}
+                onClick={() => setTagModeActive(!tagModeActive)}
+                active={tagModeActive}
+                tooltip="Tag Mode (T)"
+              />
+              <ViewModeMenu viewMode={viewMode} onViewModeChange={setViewMode} />
+              <ViewSettings />
+              <SortMenu
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                viewMode={viewMode}
               />
               <TopBarButton
-                icon={ArrowRight}
-                onClick={goForward}
-                disabled={!canGoForward}
+                icon={Info}
+                onClick={() => setInspectorVisible(!inspectorVisible)}
+                active={inspectorVisible}
               />
-            </TopBarButtonGroup>
-            {currentPath && (
-              <PathBar
-                path={currentPath}
-                devices={devices}
-                onNavigate={setCurrentPath}
-              />
-            )}
-          </div>
-        }
-        right={
-          <div className="flex items-center gap-2">
-            <SearchBar className="w-64" placeholder="Search..." />
-            <TopBarButton
-              icon={TagIcon}
-              onClick={() => setTagModeActive(!tagModeActive)}
-              active={tagModeActive}
-              tooltip="Tag Mode (T)"
-            />
-            <ViewModeMenu viewMode={viewMode} onViewModeChange={setViewMode} />
-            <ViewSettings />
-            <SortMenu
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              viewMode={viewMode}
-            />
-            <TopBarButton
-              icon={Info}
-              onClick={() => setInspectorVisible(!inspectorVisible)}
-              active={inspectorVisible}
-            />
-          </div>
-        }
-      />
+            </div>
+          }
+        />
+      )}
 
       <div className="relative flex w-full flex-col h-full overflow-hidden bg-app/80">
         <div className="flex-1 overflow-auto pt-[52px]">

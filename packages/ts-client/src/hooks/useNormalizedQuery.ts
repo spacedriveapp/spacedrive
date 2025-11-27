@@ -26,7 +26,6 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 import type { Event } from "../generated/types";
-import { merge } from "ts-deepmerge";
 import invariant from "tiny-invariant";
 import * as v from "valibot";
 import type { Simplify } from "type-fest";
@@ -146,7 +145,8 @@ export function useNormalizedQuery<I, O>(
     if (!libraryId) return;
 
     // Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
-    if (options.resourceType === "file" && !options.pathScope) {
+    // Unless resourceId is provided (single-file queries like FileInspector don't need pathScope)
+    if (options.resourceType === "file" && !options.pathScope && !options.resourceId) {
       return;
     }
 
@@ -182,6 +182,7 @@ export function useNormalizedQuery<I, O>(
     client,
     queryClient,
     options.resourceType,
+    options.resourceId,
     options.pathScope,
     options.includeDescendants,
     libraryId,
@@ -246,6 +247,7 @@ export function handleResourceEvent(
 
     const { resource_type, resources, metadata } =
       result.output.ResourceChangedBatch;
+
     if (resource_type === options.resourceType && Array.isArray(resources)) {
       updateBatchResources(resources, metadata, options, queryKey, queryClient);
     }
@@ -490,6 +492,14 @@ function updateWrappedCache(
   newResources: any[],
   noMergeFields: string[],
 ): any {
+  // First check: if oldData has an id that matches incoming, merge directly
+  // This handles single object responses like files.by_id
+  const match = newResources.find((r: any) => r.id === oldData.id);
+  if (match) {
+    return safeMerge(oldData, match, noMergeFields);
+  }
+
+  // Second check: wrapped responses like { files: [...] }
   const arrayField = Object.keys(oldData).find((key) =>
     Array.isArray(oldData[key]),
   );
@@ -518,17 +528,18 @@ function updateWrappedCache(
     return { ...oldData, [arrayField]: array };
   }
 
-  // Single object response
-  const match = newResources.find((r: any) => r.id === oldData.id);
-  if (match) {
-    return safeMerge(oldData, match, noMergeFields);
-  }
-
   return oldData;
 }
 
 /**
- * Safe deep merge using ts-deepmerge with noMergeFields support
+ * Safe deep merge for resource updates
+ *
+ * Arrays are REPLACED (not concatenated) because:
+ * - sidecars: Server sends complete list, duplicating would corrupt data
+ * - alternate_paths: Same - server is authoritative
+ * - tags: Same pattern
+ *
+ * Only nested objects are deep merged (like content_identity).
  *
  * Exported for testing
  */
@@ -542,17 +553,36 @@ export function safeMerge(
     return existing !== null && existing !== undefined ? existing : incoming;
   }
 
-  // For fields that should be replaced entirely, remove them from existing
-  // so ts-deepmerge doesn't try to merge them
-  if (noMergeFields.length > 0) {
-    const existingCopy = { ...existing };
-    for (const field of noMergeFields) {
-      delete existingCopy[field];
+  // Shallow merge with incoming winning, but deep merge nested objects
+  const result: any = { ...existing };
+
+  for (const key of Object.keys(incoming)) {
+    const incomingVal = incoming[key];
+    const existingVal = existing[key];
+
+    // noMergeFields: incoming always wins
+    if (noMergeFields.includes(key)) {
+      result[key] = incomingVal;
     }
-    // Now merge - incoming's noMergeFields will win
-    return merge(existingCopy, incoming);
+    // Arrays: replace entirely (don't concatenate)
+    else if (Array.isArray(incomingVal)) {
+      result[key] = incomingVal;
+    }
+    // Nested objects: deep merge recursively
+    else if (
+      incomingVal !== null &&
+      typeof incomingVal === "object" &&
+      existingVal !== null &&
+      typeof existingVal === "object" &&
+      !Array.isArray(existingVal)
+    ) {
+      result[key] = safeMerge(existingVal, incomingVal, noMergeFields);
+    }
+    // Primitives: incoming wins
+    else {
+      result[key] = incomingVal;
+    }
   }
 
-  // Standard deep merge
-  return merge(existing, incoming);
+  return result;
 }
