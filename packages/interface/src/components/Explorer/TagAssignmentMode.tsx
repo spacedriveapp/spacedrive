@@ -24,7 +24,7 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 	const { selectedFiles } = useSelection();
 	const [currentPaletteIndex, setCurrentPaletteIndex] = useState(0);
 
-	const toggleTag = useLibraryMutation('tags.toggle');
+	const applyTag = useLibraryMutation('tags.apply');
 
 	// Fetch all tags (for now, we'll use the first 10 as the default palette)
 	// TODO: Implement user-defined palettes
@@ -71,13 +71,20 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 		const tag = paletteTags[index];
 		if (!tag || selectedFiles.length === 0) return;
 
+		// Get content IDs from selected files (filter out files without content identity)
+		const contentIds = selectedFiles
+			.map(f => f.content_identity?.uuid)
+			.filter((id): id is string => id != null);
+
+		if (contentIds.length === 0) return;
+
 		try {
-			await toggleTag.mutateAsync({
-				file_ids: selectedFiles.map(f => f.id),
-				tag_id: tag.id
+			await applyTag.mutateAsync({
+				targets: { type: 'Content', ids: contentIds },
+				tag_ids: [tag.id]
 			});
 		} catch (err) {
-			console.error('Failed to toggle tag:', err);
+			console.error('Failed to apply tag:', err);
 		}
 	};
 

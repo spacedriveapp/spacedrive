@@ -326,12 +326,50 @@ impl ResourceManager {
 		self.emit_direct_events(resource_type, &resource_ids)
 			.await?;
 
+		// Check if resource_type IS a registered virtual resource
+		// If so, emit directly using its constructor (e.g., "file" with entry UUIDs)
+		if let Some(resource_info) = crate::domain::resource_registry::find_by_type(resource_type) {
+			let resources_json = (resource_info.constructor)(&self.db, &resource_ids).await?;
+
+			if !resources_json.is_empty() {
+				tracing::info!(
+					"Emitting {} {} ResourceChanged events (direct virtual resource)",
+					resources_json.len(),
+					resource_type
+				);
+
+				let affected_paths = if resource_type == "file" {
+					Self::extract_file_paths(&resources_json)
+				} else {
+					vec![]
+				};
+
+				let metadata = ResourceMetadata {
+					no_merge_fields: resource_info
+						.no_merge_fields
+						.iter()
+						.map(|s| s.to_string())
+						.collect(),
+					alternate_ids: vec![],
+					affected_paths,
+				};
+
+				self.events.emit(Event::ResourceChangedBatch {
+					resource_type: resource_type.to_string(),
+					resources: serde_json::Value::Array(resources_json),
+					metadata: Some(metadata),
+				});
+			}
+
+			return Ok(());
+		}
+
 		// Check if any virtual resources depend on this type
 		let mut all_virtual_resources = Vec::new();
 
-		for resource_id in resource_ids {
+		for resource_id in &resource_ids {
 			let virtual_mappings =
-				map_dependency_to_virtual_ids(&self.db, resource_type, resource_id).await?;
+				map_dependency_to_virtual_ids(&self.db, resource_type, *resource_id).await?;
 
 			for (virtual_type, virtual_ids) in virtual_mappings {
 				tracing::debug!(
