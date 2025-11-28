@@ -41,7 +41,7 @@ pub use state::{
 pub use metrics::SyncMetricsCollector;
 
 pub use backfill::BackfillManager;
-pub use protocol_handler::{LogSyncHandler, StateSyncHandler};
+pub use protocol_handler::LogSyncHandler;
 
 /// Retry state for incremental catch-up operations
 ///
@@ -178,7 +178,6 @@ impl SyncService {
 		);
 
 		// Create protocol handlers
-		let state_handler = Arc::new(StateSyncHandler::new(library_id, library.db().clone()));
 		let log_handler = Arc::new(LogSyncHandler::new(
 			library_id,
 			library.db().clone(),
@@ -190,7 +189,6 @@ impl SyncService {
 			library_id,
 			device_id,
 			peer_sync.clone(),
-			state_handler,
 			log_handler,
 			config.clone(),
 			metrics.clone(),
