@@ -327,7 +327,7 @@ impl PeerSync {
 	/// Query watermarks from sync.db (per-resource aggregation)
 	///
 	/// For state watermark: Returns the maximum (most recent) timestamp across all resources
-	/// For shared watermark: Returns the maximum HLC from peer log
+	/// For shared watermark: Returns the maximum HLC received from any peer
 	async fn query_device_watermarks(
 		device_id: Uuid,
 		peer_log: &Arc<crate::infra::sync::PeerLog>,
@@ -348,14 +348,18 @@ impl PeerSync {
 			}
 		};
 
-		// Get max shared watermark from peer log
-		let shared_watermark = match peer_log.get_max_hlc().await {
+		// Get max shared watermark from peer_received_watermarks (not our peer log!)
+		// This tracks what we've RECEIVED from peers, not what we've SENT
+		let shared_watermark = match crate::infra::sync::PeerWatermarkStore::new(device_id)
+			.get_max_across_all_peers(peer_log.conn())
+			.await
+		{
 			Ok(max) => max,
 			Err(e) => {
 				warn!(
 					device_id = %device_id,
 					error = %e,
-					"Failed to query max HLC from peer log"
+					"Failed to query received HLC watermarks from peers"
 				);
 				None
 			}
@@ -368,7 +372,7 @@ impl PeerSync {
 	///
 	/// Returns (state_watermark, shared_watermark) aggregated from sync.db.
 	/// State watermark: Maximum timestamp across all per-resource watermarks.
-	/// Shared watermark (HLC): Maximum HLC from peer log.
+	/// Shared watermark (HLC): Maximum HLC received from any peer.
 	pub async fn get_watermarks(&self) -> (Option<chrono::DateTime<chrono::Utc>>, Option<HLC>) {
 		Self::query_device_watermarks(self.device_id, &self.peer_log).await
 	}
@@ -389,16 +393,18 @@ impl PeerSync {
 		Ok(())
 	}
 
-	/// Mark backfill complete by updating last_sync_at
+	/// Mark backfill complete by updating last_sync_at and persisting shared watermark
 	///
 	/// Note: Per-resource watermarks are now tracked automatically as data is received.
-	/// This method only updates the last_sync_at timestamp.
+	/// This method updates the last_sync_at timestamp and persists the shared watermark.
 	pub async fn set_initial_watermarks(
 		&self,
+		peer: Uuid,
 		_final_state_checkpoint: Option<String>,
 		max_shared_hlc: Option<crate::infra::sync::HLC>,
 	) -> Result<()> {
 		use crate::infra::db::entities;
+		use crate::infra::sync::PeerWatermarkStore;
 		use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 
 		let now = chrono::Utc::now();
@@ -409,6 +415,18 @@ impl PeerSync {
 			debug!(
 				hlc = %hlc,
 				"Updated HLC generator from backfill max HLC"
+			);
+
+			// Persist the received watermark to survive restarts
+			PeerWatermarkStore::new(self.device_id)
+				.upsert(self.peer_log.conn(), peer, hlc)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to persist peer watermark: {}", e))?;
+
+			info!(
+				peer = %peer,
+				max_received_hlc = %hlc,
+				"Persisted shared watermark for peer"
 			);
 		}
 

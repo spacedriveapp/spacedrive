@@ -102,6 +102,11 @@ impl PeerLog {
 			.await
 			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
 
+		// peer_received_watermarks table (shared resource incremental sync)
+		super::peer_watermarks::PeerWatermarkStore::init_table(conn)
+			.await
+			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
 		// backfill_checkpoints table (resumable backfill)
 		super::checkpoints::BackfillCheckpointStore::init_table(conn)
 			.await

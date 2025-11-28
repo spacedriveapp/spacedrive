@@ -159,7 +159,7 @@ impl BackfillManager {
 		self.peer_sync.transition_to_ready().await?;
 
 		// Phase 5: Set initial watermarks from actual received data (not local DB query)
-		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc)
+		self.set_initial_watermarks_after_backfill(selected_peer, final_state_checkpoint, max_shared_hlc)
 			.await?;
 
 		// Record metrics
@@ -222,7 +222,7 @@ impl BackfillManager {
 			.await?;
 
 		// Update watermarks from actual received data (not local DB query)
-		self.set_initial_watermarks_after_backfill(final_state_checkpoint, max_shared_hlc)
+		self.set_initial_watermarks_after_backfill(peer, final_state_checkpoint, max_shared_hlc)
 			.await?;
 
 		// Record metrics
@@ -1074,11 +1074,12 @@ impl BackfillManager {
 	/// Uses actual checkpoints from received data, not local database queries
 	async fn set_initial_watermarks_after_backfill(
 		&self,
+		peer: Uuid,
 		final_state_checkpoint: Option<String>,
 		max_shared_hlc: Option<crate::infra::sync::HLC>,
 	) -> Result<()> {
 		self.peer_sync
-			.set_initial_watermarks(final_state_checkpoint, max_shared_hlc)
+			.set_initial_watermarks(peer, final_state_checkpoint, max_shared_hlc)
 			.await
 	}
 }
