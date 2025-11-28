@@ -115,6 +115,17 @@ impl ResourceWatermarkStore {
 		resource_type: &str,
 		watermark: DateTime<Utc>,
 	) -> Result<(), WatermarkError> {
+		// Prevent self-watermarks - device should never track watermarks for its own data
+		if peer_device_uuid == self.device_uuid {
+			tracing::warn!(
+				device_uuid = %self.device_uuid,
+				peer_device_uuid = %peer_device_uuid,
+				resource_type = %resource_type,
+				"Attempted to create self-watermark (device tracking itself) - skipping"
+			);
+			return Ok(());
+		}
+
 		// Check if newer before updating
 		let existing = self.get(conn, peer_device_uuid, resource_type).await?;
 

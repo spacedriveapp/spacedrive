@@ -330,6 +330,9 @@ impl SyncService {
 											}
 											Err(e) => {
 												warn!("Automatic backfill failed: {}", e);
+												// Reset state to Uninitialized so retry logic runs
+												let mut state = peer_sync.state.write().await;
+												*state = DeviceSyncState::Uninitialized;
 												// Reset flag to retry on next loop
 												backfill_attempted = false;
 											}

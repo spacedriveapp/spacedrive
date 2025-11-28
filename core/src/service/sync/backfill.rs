@@ -781,7 +781,25 @@ impl BackfillManager {
 				// Apply current_state snapshot (contains pre-sync data not in peer_log)
 				if let Some(state) = current_state {
 					if let Some(state_map) = state.as_object() {
-						for (model_type, records_value) in state_map {
+						// Get dependency-ordered list of models to prevent FK violations
+						// CRITICAL: Must apply parent models before children (e.g., user_metadata before user_metadata_tag)
+						let sync_order = match crate::infra::sync::registry::compute_registry_sync_order().await {
+							Ok(order) => order,
+							Err(e) => {
+								warn!("Failed to compute sync order, using unordered: {}", e);
+								// Fallback to unordered if dependency graph fails
+								state_map.keys().map(|k| k.clone()).collect::<Vec<_>>()
+							}
+						};
+
+						// Apply snapshot records in dependency order
+						for model_type in sync_order {
+							// Skip if model not in snapshot
+							let records_value = match state_map.get(&model_type) {
+								Some(val) => val,
+								None => continue,
+							};
+
 							if let Some(records_array) = records_value.as_array() {
 								info!(
 									model_type = %model_type,
