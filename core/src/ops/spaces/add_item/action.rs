@@ -8,7 +8,7 @@ use crate::{
 	},
 };
 use chrono::Utc;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, NotSet, QueryFilter, QueryOrder, Set};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,7 +87,7 @@ impl LibraryAction for AddItemAction {
 			.map_err(|e| ActionError::Internal(format!("Failed to serialize item_type: {}", e)))?;
 
 		let active_model = crate::infra::db::entities::space_item::ActiveModel {
-			id: Set(0),
+			id: NotSet,
 			uuid: Set(item_id),
 			space_id: Set(space_model.id),
 			group_id: Set(group_model_id),

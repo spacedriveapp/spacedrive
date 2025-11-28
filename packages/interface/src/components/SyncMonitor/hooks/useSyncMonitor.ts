@@ -73,6 +73,7 @@ export function useSyncMonitor() {
 		if (!client) return;
 
 		let unsubscribe: (() => void) | undefined;
+		let isCancelled = false;
 
 		const handleEvent = (event: any) => {
 			if ('SyncStateChanged' in event) {
@@ -169,10 +170,15 @@ export function useSyncMonitor() {
 		};
 
 		client.subscribeFiltered(filter, handleEvent).then((unsub) => {
-			unsubscribe = unsub;
+			if (isCancelled) {
+				unsub();
+			} else {
+				unsubscribe = unsub;
+			}
 		});
 
 		return () => {
+			isCancelled = true;
 			unsubscribe?.();
 		};
 	}, [client]);

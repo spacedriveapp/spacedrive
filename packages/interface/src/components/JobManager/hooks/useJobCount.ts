@@ -33,6 +33,7 @@ export function useJobCount() {
     if (!client) return;
 
     let unsubscribe: (() => void) | undefined;
+    let isCancelled = false;
 
     const handleEvent = (event: any) => {
       // Only care about state changes, not progress
@@ -43,8 +44,6 @@ export function useJobCount() {
         }
       } else if ("JobCompleted" in event || "JobFailed" in event || "JobCancelled" in event) {
         setActiveJobCount((prev) => Math.max(0, prev - 1));
-        // Check if any jobs still running after this completes
-        // Will be updated by query refetch
       }
     };
 
@@ -53,10 +52,15 @@ export function useJobCount() {
     };
 
     client.subscribeFiltered(filter, handleEvent).then((unsub) => {
-      unsubscribe = unsub;
+      if (isCancelled) {
+        unsub();
+      } else {
+        unsubscribe = unsub;
+      }
     });
 
     return () => {
+      isCancelled = true;
       unsubscribe?.();
     };
   }, [client]);

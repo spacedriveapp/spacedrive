@@ -31,6 +31,7 @@ export function useJobManager() {
     if (!client) return;
 
     let unsubscribe: (() => void) | undefined;
+    let isCancelled = false;
 
     const handleEvent = (event: any) => {
       if ("JobQueued" in event || "JobStarted" in event || "JobCompleted" in event ||
@@ -67,10 +68,15 @@ export function useJobManager() {
     };
 
     client.subscribeFiltered(filter, handleEvent).then((unsub) => {
-      unsubscribe = unsub;
+      if (isCancelled) {
+        unsub();
+      } else {
+        unsubscribe = unsub;
+      }
     });
 
     return () => {
+      isCancelled = true;
       unsubscribe?.();
     };
   }, [client]);

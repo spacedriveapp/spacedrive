@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag as TagIcon, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
+import { Button } from '@sd/ui';
 import { useNormalizedQuery, useLibraryMutation } from '../../context';
 import { useSelection } from './SelectionContext';
 import type { Tag } from '@sd/ts-client';
@@ -28,15 +29,22 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 
 	// Fetch all tags (for now, we'll use the first 10 as the default palette)
 	// TODO: Implement user-defined palettes
-	const { data: tagsData } = useNormalizedQuery({
+	const { data: tagsData } = useNormalizedQuery<
+		{ query: string },
+		{ tags: Array<{ tag: Tag } | Tag> }
+	>({
 		wireMethod: 'query:tags.search',
 		input: { query: '' },
 		resourceType: 'tag'
 	});
 
-	// Extract tags from search results (tags is an array of { tag, relevance, ... })
-	const allTags = tagsData?.tags?.map((result: any) => result.tag) ?? [];
-	const paletteTags = allTags.slice(0, 10); // First 10 tags for now
+	// Extract tags from search results
+	// Handle both wrapped format ({ tag, relevance }) from initial query
+	// and raw Tag objects from real-time ResourceChanged events
+	const allTags = tagsData?.tags?.map((result) =>
+		'tag' in result ? result.tag : result
+	) ?? [];
+	const paletteTags = allTags.slice(0, 10) as Tag[];
 
 	// Keyboard shortcuts
 	useEffect(() => {
@@ -101,77 +109,76 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 	return (
 		<AnimatePresence>
 			<motion.div
-				initial={{ y: -100, opacity: 0 }}
+				initial={{ y: 100, opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
-				exit={{ y: -100, opacity: 0 }}
+				exit={{ y: 100, opacity: 0 }}
 				transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-				className="fixed top-[52px] left-0 right-0 bg-app-box/95 backdrop-blur-lg border-b border-app-line z-50 px-4 py-2 shadow-lg"
+				className="absolute bottom-2 left-1 right-1 z-50"
 			>
-				<div className="flex items-center gap-3">
-					{/* Mode Label */}
-					<div className="flex items-center gap-2">
-						<TagIcon size={16} weight="bold" className="text-accent" />
-						<span className="text-sm font-semibold text-ink">Tag Mode</span>
-						{selectedFiles.length > 0 && (
-							<span className="text-xs text-ink-dull">
-								{selectedFiles.length} {selectedFiles.length === 1 ? 'item' : 'items'}
-							</span>
-						)}
+				<div className="bg-sidebar/80 backdrop-blur-xl border border-sidebar-line/50 rounded-xl px-4 py-3 shadow-lg">
+					<div className="flex items-center gap-3">
+						{/* Mode Label */}
+						<div className="flex items-center gap-2">
+							<TagIcon size={16} weight="bold" className="text-accent" />
+							<span className="text-sm font-semibold text-sidebar-ink">Tag Mode</span>
+							{selectedFiles.length > 0 && (
+								<span className="text-xs text-sidebar-inkDull">
+									{selectedFiles.length} {selectedFiles.length === 1 ? 'item' : 'items'}
+								</span>
+							)}
+						</div>
+
+						{/* Palette Tags */}
+						<div className="flex gap-1.5 flex-1">
+							{paletteTags.map((tag, index) => {
+								const active = isTagActive(tag);
+								const number = index === 9 ? 0 : index + 1;
+
+								return (
+									<button
+										key={tag.id}
+										onClick={() => handleToggleTag(index)}
+										className={clsx(
+											'inline-flex items-center gap-2 rounded-md font-medium px-2.5 py-1 text-sm transition-all',
+											active
+												? 'shadow-md scale-105'
+												: 'hover:scale-105'
+										)}
+										style={{
+											backgroundColor: active ? `${tag.color || '#3B82F6'}40` : `${tag.color || '#3B82F6'}20`,
+											color: tag.color || '#3B82F6'
+										}}
+									>
+										{/* Keyboard Number */}
+										<kbd className="px-1 py-0.5 text-[10px] font-bold rounded bg-black/20 min-w-[16px] text-center">
+											{number}
+										</kbd>
+
+										{/* Tag Name */}
+										<span className="truncate max-w-[120px]">{tag.canonical_name}</span>
+
+										{/* Active Checkmark */}
+										{active && (
+											<span className="text-xs">✓</span>
+										)}
+									</button>
+								);
+							})}
+						</div>
+
+						{/* Exit Button */}
+						<Button size="sm" variant="accent" onClick={onExit}>
+							Done
+						</Button>
 					</div>
 
-					{/* Palette Tags */}
-					<div className="flex gap-1.5 flex-1">
-						{paletteTags.map((tag, index) => {
-							const active = isTagActive(tag);
-							const number = index === 9 ? 0 : index + 1;
-
-							return (
-								<button
-									key={tag.id}
-									onClick={() => handleToggleTag(index)}
-									className={clsx(
-										'inline-flex items-center gap-2 rounded-lg font-medium px-3 py-1.5 text-sm transition-all',
-										active
-											? 'ring-2 ring-accent shadow-md scale-105'
-											: 'hover:scale-105'
-									)}
-									style={{
-										backgroundColor: active ? `${tag.color || '#3B82F6'}40` : `${tag.color || '#3B82F6'}20`,
-										color: tag.color || '#3B82F6'
-									}}
-								>
-									{/* Keyboard Number */}
-									<kbd className="px-1 py-0.5 text-[10px] font-bold rounded bg-black/20 min-w-[16px] text-center">
-										{number}
-									</kbd>
-
-									{/* Tag Name */}
-									<span className="truncate max-w-[120px]">{tag.canonical_name}</span>
-
-									{/* Active Checkmark */}
-									{active && (
-										<span className="text-xs">✓</span>
-									)}
-								</button>
-							);
-						})}
-					</div>
-
-					{/* Exit Button */}
-					<button
-						onClick={onExit}
-						className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-accent hover:bg-accent-deep text-white transition-colors"
-					>
-						Done
-					</button>
+					{/* Help Text */}
+					{selectedFiles.length === 0 && (
+						<div className="mt-2 text-xs text-sidebar-inkFaint text-center">
+							Select files to start tagging • Press 1-9/0 to toggle tags • Esc to exit
+						</div>
+					)}
 				</div>
-
-				{/* Help Text */}
-				{selectedFiles.length === 0 && (
-					<div className="mt-2 text-xs text-ink-faint text-center">
-						Select files to start tagging • Press 1-9/0 to toggle tags • Esc to exit
-					</div>
-				)}
 			</motion.div>
 		</AnimatePresence>
 	);

@@ -101,6 +101,26 @@ export type Platform = {
 
 	/** Open macOS system settings (Tauri/macOS only) */
 	openMacOSSettings?(): Promise<void>;
+
+	// Drag and Drop API (Tauri only)
+
+	/** Start a native drag operation */
+	startDrag?(config: {
+		items: Array<{
+			id: string;
+			kind: { type: "file"; path: string } | { type: "text"; content: string };
+		}>;
+		allowedOperations: Array<"copy" | "move" | "link">;
+	}): Promise<string>;
+
+	/** Listen for drag events */
+	onDragEvent?(
+		event: "began" | "moved" | "entered" | "left" | "ended",
+		callback: (payload: any) => void
+	): Promise<() => void>;
+
+	/** Check if a drag operation is in progress */
+	isDragging?(): boolean;
 };
 
 /** Menu item state for native menus */

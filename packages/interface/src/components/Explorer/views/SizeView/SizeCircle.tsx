@@ -1,6 +1,9 @@
 import clsx from "clsx";
+import { useRef } from "react";
 import type { File } from "@sd/ts-client";
 import { formatBytes } from "../../utils";
+import { setDragData, clearDragData, type SidebarDragData } from "../../../SpacesSidebar/dnd";
+import { usePlatform } from "../../../../platform";
 
 interface SizeCircleProps {
   file: File;
@@ -60,10 +63,72 @@ function getFileColor(file: File): string {
 }
 
 export function SizeCircle({ file, diameter, selected, onSelect }: SizeCircleProps) {
+  const platform = usePlatform();
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
+
   const handleClick = (e: React.MouseEvent) => {
     const multi = e.metaKey || e.ctrlKey;
     const range = e.shiftKey;
     onSelect(file, multi, range);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) {
+      dragStartPos.current = { x: e.clientX, y: e.clientY };
+    }
+  };
+
+  const handleMouseMove = async (e: React.MouseEvent) => {
+    if (!dragStartPos.current || isDraggingRef.current) return;
+    if (!platform.startDrag) return;
+
+    const dx = e.clientX - dragStartPos.current.x;
+    const dy = e.clientY - dragStartPos.current.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 8) {
+      isDraggingRef.current = true;
+
+      const dragData: SidebarDragData = {
+        type: "explorer-file",
+        sdPath: file.sd_path,
+        name: file.name,
+      };
+      setDragData(dragData);
+
+      let filePath = "";
+      if ("Physical" in file.sd_path) {
+        filePath = file.sd_path.Physical.path;
+      }
+
+      try {
+        await platform.startDrag({
+          items: [{
+            id: file.id,
+            kind: filePath ? { type: "file", path: filePath } : { type: "text", content: file.name },
+          }],
+          allowedOperations: ["copy", "move"],
+        });
+      } catch (err) {
+        console.error("Failed to start drag:", err);
+      }
+
+      dragStartPos.current = null;
+      isDraggingRef.current = false;
+      clearDragData();
+    }
+  };
+
+  const handleMouseUp = () => {
+    dragStartPos.current = null;
+    isDraggingRef.current = false;
+  };
+
+  const handleMouseLeave = () => {
+    if (!isDraggingRef.current) {
+      dragStartPos.current = null;
+    }
   };
 
   const color = getFileColor(file);
@@ -73,6 +138,10 @@ export function SizeCircle({ file, diameter, selected, onSelect }: SizeCirclePro
     <div
       className="flex flex-col items-center gap-2 cursor-pointer group"
       onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       style={{ width: `${diameter}px` }}
     >
       <div

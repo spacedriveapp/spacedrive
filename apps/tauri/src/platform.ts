@@ -4,6 +4,9 @@ import { convertFileSrc as tauriConvertFileSrc, invoke } from "@tauri-apps/api/c
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Platform } from "@sd/interface/platform";
+import { beginDrag, onDragBegan, onDragMoved, onDragEntered, onDragLeft, onDragEnded } from "./lib/drag";
+
+let _isDragging = false;
 
 /**
  * Tauri platform implementation
@@ -155,5 +158,48 @@ export const platform: Platform = {
 
 	async openMacOSSettings() {
 		await invoke("open_macos_settings");
+	},
+
+	async startDrag(config) {
+		const currentWindow = getCurrentWebviewWindow();
+		const sessionId = await beginDrag(
+			{
+				items: config.items.map(item => ({
+					id: item.id,
+					kind: item.kind,
+				})),
+				overlayUrl: "/drag-overlay",
+				overlaySize: [200, 150],
+				allowedOperations: config.allowedOperations,
+			},
+			currentWindow.label
+		);
+		_isDragging = true;
+		return sessionId;
+	},
+
+	async onDragEvent(event, callback) {
+		const handlers: Record<string, typeof onDragBegan> = {
+			began: onDragBegan,
+			moved: onDragMoved,
+			entered: onDragEntered,
+			left: onDragLeft,
+			ended: onDragEnded,
+		};
+		const handler = handlers[event];
+		if (!handler) {
+			throw new Error(`Unknown drag event: ${event}`);
+		}
+		const unlisten = await handler((payload: any) => {
+			if (event === "ended") {
+				_isDragging = false;
+			}
+			callback(payload);
+		});
+		return unlisten;
+	},
+
+	isDragging() {
+		return _isDragging;
 	},
 };

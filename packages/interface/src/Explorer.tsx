@@ -143,16 +143,16 @@ export function ExplorerLayout() {
       <div className="relative flex-1 overflow-hidden z-30">
         {/* Router content renders here */}
         <Outlet />
+
+        {/* Tag Assignment Mode - positioned at bottom of main content area */}
+        <TagAssignmentMode
+          isActive={tagModeActive}
+          onExit={() => setTagModeActive(false)}
+        />
       </div>
 
       {/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
       <KeyboardHandler />
-
-      {/* Tag Assignment Mode */}
-      <TagAssignmentMode
-        isActive={tagModeActive}
-        onExit={() => setTagModeActive(false)}
-      />
 
       <AnimatePresence initial={false}>
         {/* Hide inspector on Overview screen and Knowledge view (has its own) */}

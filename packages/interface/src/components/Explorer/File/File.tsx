@@ -10,6 +10,10 @@ interface FileProps {
   onClick?: (e: React.MouseEvent) => void;
   onDoubleClick?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
+  onMouseMove?: (e: React.MouseEvent) => void;
+  onMouseUp?: (e: React.MouseEvent) => void;
+  onMouseLeave?: (e: React.MouseEvent) => void;
   layout?: "column" | "row";
   children?: React.ReactNode;
   className?: string;
@@ -21,6 +25,10 @@ function FileComponent({
   onClick,
   onDoubleClick,
   onContextMenu,
+  onMouseDown,
+  onMouseMove,
+  onMouseUp,
+  onMouseLeave,
   layout = "column",
   children,
   className,
@@ -30,6 +38,10 @@ function FileComponent({
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseLeave}
       className={clsx(
         "cursor-default transition-colors",
         layout === "column" ? "flex flex-col" : "flex flex-row items-center",
