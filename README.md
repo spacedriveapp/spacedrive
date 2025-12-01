@@ -108,10 +108,11 @@ Peer-to-peer synchronization without central coordinators. Device-specific data 
 
 **Apps**
 
-- **CLI** - Command-line interface for library management and daemon control
-- **Server** - Headless daemon for always-on file indexing and P2P sync
+- **CLI** - Command-line interface
+- **Server** - Headless daemon for Docker deployment
 - **Tauri** - Cross-platform desktop (macOS, Windows, Linux) with React frontend
-- **React** - Web interface and shared UI components
+- **Web** - Web interface and shared UI components
+- **Mobile** - Cross-platform mobile React Native mobile app (coming soon)
 - **Prototypes** - Native Swift apps (iOS, macOS) and GPUI media viewer for exploration
 
 **Architecture Patterns**
@@ -154,6 +155,8 @@ spacedrive/
 
 Spacedrive's WASM-based extension system enables specialized functionality while maintaining security and portability.
 
+Note: This is a heavy WIP, but will be complete in the first 2.0.0-pre.1 release.
+
 ### Professional Extensions
 
 | Extension     | Purpose                         | Key Features                                                                | Status      |
@@ -185,7 +188,6 @@ Spacedrive's WASM-based extension system enables specialized functionality while
 
 - **Rust** 1.81+ ([rustup](https://rustup.rs/))
 - **Bun** 1.3+ ([bun.sh](https://bun.sh)) - For Tauri desktop app
-- **Node.js** 18+ (optional, Bun can be used instead)
 
 ### Quick Start with Desktop App (Tauri)
 
@@ -232,18 +234,31 @@ cargo run -p sd-cli -- search .
 
 Experimental native apps are available in `apps/ios/`, `apps/macos/`, and `apps/gpui-photo-grid/` but are not documented for public use. These prototypes explore platform-specific optimizations and alternative UI approaches.
 
-### Running Examples
+### Running Tests
+
+Spacedrive has a comprehensive test suite covering single-device operations and multi-device networking scenarios.
 
 ```bash
-# Run the indexing demo
-cargo run --example indexing_demo
+# Run all tests
+cargo test --workspace
 
-# Run file type detection demo
-cargo run --example file_type_demo
+# Run specific test
+cargo test test_device_pairing --nocapture
 
-# See all examples
-ls core/examples/
+# Run with detailed logging
+RUST_LOG=debug cargo test test_name --nocapture
+
+# Run core tests only
+cargo test -p sd-core
 ```
+
+See the [Testing Guide](https://v2.spacedrive.com/core/testing) for detailed documentation on:
+- Integration test framework
+- Multi-device subprocess testing
+- Event monitoring patterns
+- Test helpers and utilities
+
+All integration tests are in `core/tests/` including device pairing, sync, file transfer, and job execution tests.
 
 ### Development Commands
 
