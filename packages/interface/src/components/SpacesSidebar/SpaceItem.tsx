@@ -12,7 +12,9 @@ import { Location } from "@sd/assets/icons";
 import type {
 	SpaceItem as SpaceItemType,
 	ItemType,
+	File,
 } from "@sd/ts-client";
+import { Thumb } from "../Explorer/File/Thumb";
 
 interface SpaceItemProps {
 	item: SpaceItemType;
@@ -110,6 +112,9 @@ export function SpaceItem({
 	const isRawLocation =
 		"name" in item && "sd_path" in item && !item.item_type;
 
+	// Check if we have a resolved file
+	const resolvedFile = item.resolved_file as File | undefined;
+
 	let iconData, label, path;
 
 	if (isRawLocation) {
@@ -120,7 +125,8 @@ export function SpaceItem({
 	} else {
 		// Handle proper SpaceItem
 		iconData = getItemIcon(item.item_type);
-		label = getItemLabel(item.item_type);
+		// Use resolved file name if available, otherwise parse from item_type
+		label = resolvedFile?.name || getItemLabel(item.item_type);
 		path = getItemPath(item.item_type, volumeData);
 	}
 
@@ -156,7 +162,9 @@ export function SpaceItem({
 						: "text-sidebar-inkDull"),
 			)}
 		>
-			{iconData.type === "image" ? (
+			{resolvedFile ? (
+				<Thumb file={resolvedFile} size={16} className="shrink-0" />
+			) : iconData.type === "image" ? (
 				<img src={iconData.icon} alt="" className="size-4" />
 			) : (
 				<iconData.icon className="size-4" weight={iconWeight} />

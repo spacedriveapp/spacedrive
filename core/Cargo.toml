@@ -135,21 +135,14 @@ serde_cbor = "0.11"
 # Cryptography for signing (backward compatibility)
 ed25519-dalek = "2.1"
 
-# Legacy networking (kept for compatibility during transition)
+# Cryptography and networking utilities
 aes-gcm      = "0.10"                                           # AES-GCM encryption for secure storage
 argon2       = "0.5"                                            # Password derivation
 async-stream = "0.3"                                            # File streaming
 backoff      = "0.4"                                            # Retry logic
 bincode      = { version = "2.0.0-rc.3", features = ["serde"] } # Efficient encoding with serde compat
-mdns-sd      = "0.13"                                           # mDNS service discovery (DEPRECATED - use libp2p DHT)
 ring         = "0.16"                                           # Crypto primitives
-snow         = "0.9"                                            # Noise Protocol encryption (DEPRECATED - use libp2p noise)
-# futures-util = "0.3"        # WebSocket utilities (disabled for now)
-rcgen = "0.11" # Certificate generation (DEPRECATED - use libp2p noise)
-rustls = { version = "0.23", features = [
-	"aws_lc_rs"
-] } # TLS implementation (DEPRECATED - use libp2p noise)
-tokio-stream = "0.1" # Async streams
+tokio-stream = "0.1"                                            # Async streams
 
 # BIP39 wordlist support
 bip39 = "2.0"

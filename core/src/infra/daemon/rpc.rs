@@ -448,13 +448,6 @@ impl RpcServer {
 				event_types,
 				filter,
 			} => {
-				tracing::info!(
-					"New subscription created: connection_id={}, filter={:?}, event_types={:?}",
-					connection_id,
-					filter,
-					event_types
-				);
-
 				// Register connection for event streaming
 				let connection = Connection {
 					id: connection_id,

@@ -182,6 +182,10 @@ pub struct SpaceItem {
 
 	/// Timestamp
 	pub created_at: DateTime<Utc>,
+
+	/// Resolved file data for Path items (populated by get_layout query)
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub resolved_file: Option<Box<super::File>>,
 }
 
 impl SpaceItem {
@@ -194,6 +198,7 @@ impl SpaceItem {
 			item_type,
 			order: 0,
 			created_at: Utc::now(),
+			resolved_file: None,
 		}
 	}
 
@@ -206,6 +211,7 @@ impl SpaceItem {
 			item_type,
 			order: 0,
 			created_at: Utc::now(),
+			resolved_file: None,
 		}
 	}
 
@@ -347,6 +353,7 @@ impl SpaceLayout {
 					item_type,
 					order: item_model.order,
 					created_at: item_model.created_at.into(),
+					resolved_file: None,
 				});
 			}
 
@@ -401,6 +408,7 @@ impl SpaceLayout {
 						item_type,
 						order: item_model.order,
 						created_at: item_model.created_at.into(),
+						resolved_file: None,
 					});
 				}
 

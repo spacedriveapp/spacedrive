@@ -16,7 +16,6 @@ const dragStateListeners = new Set<DragStateListener>();
 
 export function setDragData(data: SidebarDragData | null) {
 	const wasDragging = currentDragData !== null;
-	console.log("[DnD] setDragData:", data, "was:", currentDragData);
 	currentDragData = data;
 	const isDragging = data !== null;
 

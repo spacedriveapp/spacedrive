@@ -1,12 +1,15 @@
 use super::output::SpaceLayoutOutput;
 use crate::domain::{
-	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,
+	addressing::SdPath, ContentKind, File, GroupType, ItemType, Space, SpaceGroup,
+	SpaceGroupWithItems, SpaceItem, SpaceLayout,
 };
+use crate::infra::db::entities::{content_identity, entry, sidecar, space_item};
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{context::CoreContext, infra::query::LibraryQuery};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -79,6 +82,19 @@ impl LibraryQuery for SpaceLayoutQuery {
 			let item_type: ItemType = serde_json::from_str(&item_model.item_type)
 				.map_err(|e| QueryError::Internal(format!("Failed to parse item_type: {}", e)))?;
 
+			// Resolve entry if entry_id is set
+			let resolved_file = if let Some(entry_id) = item_model.entry_id {
+				if let Ok(Some(entry_model)) = entry::Entity::find_by_id(entry_id).one(db).await {
+					build_file_from_entry(entry_model, &item_type, db)
+						.await
+						.map(Box::new)
+				} else {
+					None
+				}
+			} else {
+				None
+			};
+
 			space_items.push(SpaceItem {
 				id: item_model.uuid,
 				space_id: self.space_id,
@@ -86,6 +102,7 @@ impl LibraryQuery for SpaceLayoutQuery {
 				item_type,
 				order: item_model.order,
 				created_at: item_model.created_at.into(),
+				resolved_file,
 			});
 		}
 
@@ -132,6 +149,20 @@ impl LibraryQuery for SpaceLayoutQuery {
 						QueryError::Internal(format!("Failed to parse item_type: {}", e))
 					})?;
 
+				// Resolve entry if entry_id is set
+				let resolved_file = if let Some(entry_id) = item_model.entry_id {
+					if let Ok(Some(entry_model)) = entry::Entity::find_by_id(entry_id).one(db).await
+					{
+						build_file_from_entry(entry_model, &item_type, db)
+							.await
+							.map(Box::new)
+					} else {
+						None
+					}
+				} else {
+					None
+				};
+
 				items.push(SpaceItem {
 					id: item_model.uuid,
 					space_id: self.space_id,
@@ -139,6 +170,7 @@ impl LibraryQuery for SpaceLayoutQuery {
 					item_type,
 					order: item_model.order,
 					created_at: item_model.created_at.into(),
+					resolved_file,
 				});
 			}
 
@@ -157,3 +189,77 @@ impl LibraryQuery for SpaceLayoutQuery {
 }
 
 crate::register_library_query!(SpaceLayoutQuery, "spaces.get_layout");
+
+/// Build a minimal File object from an entry model (for sidebar display)
+async fn build_file_from_entry(
+	entry_model: entry::Model,
+	item_type: &ItemType,
+	db: &DatabaseConnection,
+) -> Option<File> {
+	// Get the SdPath from item_type
+	let sd_path = match item_type {
+		ItemType::Path { sd_path } => sd_path.clone(),
+		_ => return None,
+	};
+
+	// Get content identity if available
+	let content_identity = if let Some(content_id) = entry_model.content_id {
+		content_identity::Entity::find_by_id(content_id)
+			.one(db)
+			.await
+			.ok()
+			.flatten()
+			.map(|ci| crate::domain::ContentIdentity {
+				uuid: ci.uuid.unwrap_or_else(Uuid::new_v4),
+				kind: ContentKind::from_id(ci.kind_id),
+				content_hash: ci.content_hash,
+				integrity_hash: ci.integrity_hash,
+				mime_type_id: ci.mime_type_id,
+				text_content: ci.text_content,
+				total_size: ci.total_size,
+				entry_count: ci.entry_count,
+				first_seen_at: ci.first_seen_at,
+				last_verified_at: ci.last_verified_at,
+			})
+	} else {
+		None
+	};
+
+	// Get sidecars for thumbnails
+	let sidecars = if let Some(ref ci) = content_identity {
+		if let Some(uuid) = Some(ci.uuid) {
+			sidecar::Entity::find()
+				.filter(sidecar::Column::ContentUuid.eq(uuid))
+				.all(db)
+				.await
+				.ok()
+				.unwrap_or_default()
+				.into_iter()
+				.map(|s| crate::domain::Sidecar {
+					id: s.id,
+					content_uuid: s.content_uuid,
+					kind: s.kind,
+					variant: s.variant,
+					format: s.format,
+					status: s.status,
+					size: s.size,
+					created_at: s.created_at,
+					updated_at: s.updated_at,
+				})
+				.collect()
+		} else {
+			Vec::new()
+		}
+	} else {
+		Vec::new()
+	};
+
+	let mut file = File::from_entity_model(entry_model, sd_path);
+	file.content_identity = content_identity;
+	file.sidecars = sidecars;
+	if let Some(ref ci) = file.content_identity {
+		file.content_kind = ci.kind;
+	}
+
+	Some(file)
+}

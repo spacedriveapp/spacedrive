@@ -1,11 +1,12 @@
 use super::{input::AddItemInput, output::AddItemOutput};
 use crate::{
 	context::CoreContext,
-	domain::SpaceItem,
+	domain::{addressing::SdPath, ItemType, SpaceItem},
 	infra::action::{
 		error::{ActionError, ActionResult},
 		LibraryAction,
 	},
+	infra::db::entities::{directory_paths, entry},
 };
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, NotSet, QueryFilter, QueryOrder, Set};
@@ -82,6 +83,13 @@ impl LibraryAction for AddItemAction {
 		let item_id = uuid::Uuid::new_v4();
 		let now = Utc::now();
 
+		// Resolve entry_id if this is a Path item
+		let entry_id = if let ItemType::Path { ref sd_path } = self.input.item_type {
+			resolve_sd_path_to_entry_id(sd_path, db).await
+		} else {
+			None
+		};
+
 		// Serialize item_type to JSON
 		let item_type_json = serde_json::to_string(&self.input.item_type)
 			.map_err(|e| ActionError::Internal(format!("Failed to serialize item_type: {}", e)))?;
@@ -91,6 +99,7 @@ impl LibraryAction for AddItemAction {
 			uuid: Set(item_id),
 			space_id: Set(space_model.id),
 			group_id: Set(group_model_id),
+			entry_id: Set(entry_id),
 			item_type: Set(item_type_json),
 			order: Set(max_order + 1),
 			created_at: Set(now.into()),
@@ -121,6 +130,7 @@ impl LibraryAction for AddItemAction {
 			item_type: self.input.item_type,
 			order: result.order,
 			created_at: result.created_at.into(),
+			resolved_file: None, // Not populated in add_item, only in get_layout
 		};
 
 		Ok(AddItemOutput { item })
@@ -140,3 +150,54 @@ impl LibraryAction for AddItemAction {
 }
 
 crate::register_library_action!(AddItemAction, "spaces.add_item");
+
+/// Resolve an SdPath to an entry ID by looking up the entry in the database
+async fn resolve_sd_path_to_entry_id(
+	sd_path: &SdPath,
+	db: &sea_orm::DatabaseConnection,
+) -> Option<i32> {
+	match sd_path {
+		SdPath::Physical { path, .. } => {
+			let path_str = path.to_string_lossy();
+			let path_buf = std::path::Path::new(path_str.as_ref());
+
+			let file_name = path_buf.file_name()?.to_string_lossy().to_string();
+			let parent_path = path_buf.parent()?.to_string_lossy().to_string();
+
+			// Parse name and extension
+			let (name, extension) = if let Some(dot_idx) = file_name.rfind('.') {
+				(
+					file_name[..dot_idx].to_string(),
+					Some(file_name[dot_idx + 1..].to_string()),
+				)
+			} else {
+				(file_name.clone(), None)
+			};
+
+			// Find entry by name/extension
+			let mut query = entry::Entity::find().filter(entry::Column::Name.eq(&name));
+
+			if let Some(ext) = &extension {
+				query = query.filter(entry::Column::Extension.eq(ext));
+			}
+
+			let entries = query.all(db).await.ok()?;
+
+			// Find entry with matching parent path
+			for e in entries {
+				if let Some(parent_id) = e.parent_id {
+					if let Ok(Some(parent_path_model)) =
+						directory_paths::Entity::find_by_id(parent_id).one(db).await
+					{
+						if parent_path_model.path == parent_path {
+							return Some(e.id);
+						}
+					}
+				}
+			}
+
+			None
+		}
+		_ => None,
+	}
+}

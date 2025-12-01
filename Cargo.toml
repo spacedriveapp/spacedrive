@@ -80,10 +80,6 @@ uuid                = "1.10"                                           # Must fo
 webp                = "0.3.0"
 zeroize             = "1.8"
 
-[workspace.dependencies.rspc]
-git = "https://github.com/spacedriveapp/rspc.git"
-rev = "6a77167495"
-
 # Proper IOS Support
 # TODO: Fix the fork - it has compilation errors with TimerFuture
 # [patch.crates-io.if-watch]

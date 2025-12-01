@@ -258,6 +258,7 @@ impl ResourceManager {
 							item_type,
 							order: item_model.order,
 							created_at: item_model.created_at.into(),
+							resolved_file: None, // Not resolved in events
 						};
 
 						self.events.emit(Event::ResourceChanged {
@@ -372,22 +373,11 @@ impl ResourceManager {
 				map_dependency_to_virtual_ids(&self.db, resource_type, *resource_id).await?;
 
 			for (virtual_type, virtual_ids) in virtual_mappings {
-				tracing::debug!(
-					base_resource = %resource_type,
-					base_id = %resource_id,
-					virtual_type = %virtual_type,
-					virtual_count = virtual_ids.len(),
-					"Mapped to virtual resource"
-				);
 				all_virtual_resources.push((virtual_type, virtual_ids));
 			}
 		}
 
 		if all_virtual_resources.is_empty() {
-			tracing::debug!(
-				resource_type = %resource_type,
-				"No virtual resources depend on this type, skipping virtual emission"
-			);
 			return Ok(());
 		}
 

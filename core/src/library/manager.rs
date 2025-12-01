@@ -1060,6 +1060,7 @@ impl LibraryManager {
 				uuid: Set(item_uuid),
 				space_id: Set(space_result.id),
 				group_id: Set(None), // Space-level items have no group
+				entry_id: Set(None), // Default items don't have entries
 				item_type: Set(item_type_json),
 				order: Set(order),
 				created_at: Set(now.into()),

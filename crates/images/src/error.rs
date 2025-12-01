@@ -38,10 +38,3 @@ pub enum Error {
 	#[error("error while parsing integers")]
 	TryFromInt(#[from] TryFromIntError),
 }
-
-#[cfg(feature = "rspc")]
-impl From<Error> for rspc::Error {
-	fn from(value: Error) -> Self {
-		Self::new(rspc::ErrorCode::InternalServerError, value.to_string())
-	}
-}

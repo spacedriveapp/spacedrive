@@ -3928,17 +3928,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures-locks"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45ec6fe3675af967e67c5536c0b9d44e34e6c52f86bedc4ea49c5317b8e94d06"
-dependencies = [
- "futures-channel",
- "futures-task",
- "tokio",
-]
-
-[[package]]
 name = "futures-macro"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5362,16 +5351,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "if-addrs"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69b2eeee38fef3aa9b4cc5f1beea8a2444fc00e7377cafae396de3f5c2065e24"
-dependencies = [
- "libc",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "if-watch"
 version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5381,7 +5360,7 @@ dependencies = [
  "core-foundation 0.9.4",
  "fnv",
  "futures",
- "if-addrs 0.10.2",
+ "if-addrs",
  "ipnet",
  "log 0.4.28",
  "netlink-packet-core",
@@ -6619,22 +6598,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "macro_rules_attribute"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf0c9b980bf4f3a37fd7b1c066941dd1b1d0152ce6ee6e8fe8c49b9f6810d862"
-dependencies = [
- "macro_rules_attribute-proc_macro",
- "paste",
-]
-
-[[package]]
-name = "macro_rules_attribute-proc_macro"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58093314a45e00c77d5c508f76e77c3396afbbc0d01506e7fae47b018bac2b1d"
-
-[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6720,20 +6683,6 @@ name = "md5"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
-
-[[package]]
-name = "mdns-sd"
-version = "0.13.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "328f4e1041f7cfeb3affccb814ddbe2f004856a2ce769c8bf22080d74c5204c6"
-dependencies = [
- "fastrand 2.3.0",
- "flume",
- "if-addrs 0.13.4",
- "log 0.4.28",
- "mio 1.0.4",
- "socket2 0.5.10",
-]
 
 [[package]]
 name = "media"
@@ -7365,27 +7314,6 @@ dependencies = [
  "mio 0.8.11",
  "walkdir",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "nougat"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97b57b9ced431322f054fc673f1d3c7fa52d80efd9df74ad2fc759f044742510"
-dependencies = [
- "macro_rules_attribute",
- "nougat-proc_macros",
-]
-
-[[package]]
-name = "nougat-proc_macros"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c84f77a45e99a2f9b492695d99e1c23844619caa5f3e57647cffacad773ca257"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -9519,18 +9447,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rcgen"
-version = "0.11.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52c4f3084aa3bc7dfbba4eff4fab2a54db4324965d8872ab933565e6fbd83bc6"
-dependencies = [
- "pem",
- "ring 0.16.20",
- "time",
- "yasna",
-]
-
-[[package]]
 name = "read-fonts"
 version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10000,27 +9916,6 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "rspc"
-version = "0.1.4"
-source = "git+https://github.com/spacedriveapp/rspc.git?rev=6a77167495#6a771674950ffe5e60d3c2cee8b001796e57ed36"
-dependencies = [
- "futures",
- "futures-channel",
- "futures-locks",
- "nougat",
- "pin-project",
- "serde",
- "serde_json",
- "specta 2.0.0-rc.20",
- "specta-datatype-from",
- "specta-serde 0.0.7",
- "specta-typescript 0.0.7",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -10612,7 +10507,6 @@ dependencies = [
  "keyring",
  "libc",
  "local-ip-address",
- "mdns-sd",
  "notify",
  "once_cell",
  "opendal",
@@ -10620,14 +10514,12 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.5",
  "ratatui 0.29.0",
- "rcgen",
  "regex",
  "reqwest 0.11.27",
  "ring 0.16.20",
  "rmp",
  "rmp-serde",
  "rubato",
- "rustls",
  "sd-ffmpeg",
  "sd-images",
  "sd-media-metadata",
@@ -10638,11 +10530,10 @@ dependencies = [
  "serde_cbor",
  "serde_json",
  "sha2",
- "snow",
  "specta 2.0.0-rc.22",
- "specta-serde 0.0.9",
+ "specta-serde",
  "specta-swift",
- "specta-typescript 0.0.9",
+ "specta-typescript",
  "sqlx",
  "strum 0.26.3",
  "supports-color",
@@ -10734,7 +10625,6 @@ dependencies = [
  "libheif-sys",
  "pdfium-render",
  "resvg 0.44.0",
- "rspc",
  "serde",
  "specta 2.0.0-rc.20",
  "thiserror 2.0.16",
@@ -11624,22 +11514,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "snow"
-version = "0.9.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "850948bee068e713b8ab860fe1adc4d109676ab4c3b621fd8147f06b261f2f85"
-dependencies = [
- "aes-gcm",
- "blake2",
- "chacha20poly1305 0.10.1",
- "curve25519-dalek",
- "rand_core 0.6.4",
- "rustc_version",
- "sha2",
- "subtle",
-]
-
-[[package]]
 name = "socket2"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11761,9 +11635,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ccbb212565d2dc177bc15ecb7b039d66c4490da892436a4eee5b394d620c9bc"
 dependencies = [
  "chrono",
- "paste",
- "serde",
- "serde_json",
  "specta-macros 2.0.0-rc.17",
  "thiserror 1.0.69",
 ]
@@ -11779,17 +11650,6 @@ dependencies = [
  "serde_json",
  "specta-macros 2.0.0-rc.18",
  "uuid",
-]
-
-[[package]]
-name = "specta-datatype-from"
-version = "0.0.1"
-source = "git+https://github.com/specta-rs/specta?rev=8509af0162#8509af0162b26bb2c08e84a41cdfc4eaf67a6ab3"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn 2.0.106",
 ]
 
 [[package]]
@@ -11817,16 +11677,6 @@ dependencies = [
 
 [[package]]
 name = "specta-serde"
-version = "0.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12260cbb21abb2e83a0375b1521867910e3aed8a7afa782206150ce552cd2e5a"
-dependencies = [
- "specta 2.0.0-rc.20",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "specta-serde"
 version = "0.0.9"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
@@ -11840,18 +11690,7 @@ source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70dda
 dependencies = [
  "serde",
  "specta 2.0.0-rc.22",
- "specta-serde 0.0.9",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "specta-typescript"
-version = "0.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1e4472229365ceb6395487e3a60d921ad8e21f9ad06eaecc396f098902c9adc"
-dependencies = [
- "specta 2.0.0-rc.20",
- "specta-serde 0.0.7",
+ "specta-serde",
  "thiserror 1.0.69",
 ]
 
@@ -11861,7 +11700,7 @@ version = "0.0.9"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "specta 2.0.0-rc.22",
- "specta-serde 0.0.9",
+ "specta-serde",
 ]
 
 [[package]]
@@ -15959,15 +15798,6 @@ name = "yansi"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
-
-[[package]]
-name = "yasna"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
-dependencies = [
- "time",
-]
 
 [[package]]
 name = "yazi"

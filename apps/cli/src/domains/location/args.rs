@@ -7,7 +7,10 @@ use sd_core::{
 	ops::{
 		indexing::job::IndexMode,
 		locations::{
-			add::action::LocationAddInput, remove::action::LocationRemoveInput,
+			add::action::LocationAddInput,
+			export::LocationExportInput,
+			import::LocationImportInput,
+			remove::action::LocationRemoveInput,
 			rescan::action::LocationRescanInput,
 		},
 	},
@@ -79,6 +82,69 @@ impl From<LocationRescanArgs> for LocationRescanInput {
 		Self {
 			location_id: args.location_id,
 			full_rescan: args.force,
+		}
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct LocationExportArgs {
+	/// UUID of the location to export
+	pub location_id: Uuid,
+
+	/// Path to save the export file (SQL dump)
+	#[arg(long, short = 'o')]
+	pub output: PathBuf,
+
+	/// Include content identities (file hashes)
+	#[arg(long, default_value_t = true)]
+	pub content: bool,
+
+	/// Include media metadata (image/video/audio data)
+	#[arg(long, default_value_t = true)]
+	pub media: bool,
+
+	/// Include user metadata (notes, favorites, etc.)
+	#[arg(long, default_value_t = true)]
+	pub metadata: bool,
+
+	/// Include tags
+	#[arg(long, default_value_t = true)]
+	pub tags: bool,
+}
+
+impl From<LocationExportArgs> for LocationExportInput {
+	fn from(args: LocationExportArgs) -> Self {
+		Self {
+			location_uuid: args.location_id,
+			export_path: args.output,
+			include_content_identities: args.content,
+			include_media_data: args.media,
+			include_user_metadata: args.metadata,
+			include_tags: args.tags,
+		}
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct LocationImportArgs {
+	/// Path to the export file to import
+	pub import_path: PathBuf,
+
+	/// New name for the imported location (optional)
+	#[arg(long)]
+	pub name: Option<String>,
+
+	/// Skip entries that already exist
+	#[arg(long, default_value_t = false)]
+	pub skip_existing: bool,
+}
+
+impl From<LocationImportArgs> for LocationImportInput {
+	fn from(args: LocationImportArgs) -> Self {
+		Self {
+			import_path: args.import_path,
+			new_name: args.name,
+			skip_existing: args.skip_existing,
 		}
 	}
 }

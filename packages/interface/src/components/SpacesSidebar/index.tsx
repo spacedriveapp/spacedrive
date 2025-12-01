@@ -92,7 +92,6 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
 
     // Track drag position to detect when over sidebar
     platform.onDragEvent("moved", (payload: { x: number; y: number }) => {
-      console.log("[Sidebar] drag:moved", payload);
       if (!dropZoneRef.current) return;
 
       const rect = dropZoneRef.current.getBoundingClientRect();
@@ -108,14 +107,11 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
     // Handle drag end - check if dropped on sidebar
     platform.onDragEvent("ended", async (payload: { result?: { type: string } }) => {
       const dragData = getDragData(); // Get BEFORE clearing
-      console.log("[Sidebar] drag:ended", { payload, isHovering, currentSpace: currentSpace?.id, dragData });
 
       // Check for "dropped" (lowercase from backend)
       const wasDropped = payload.result?.type?.toLowerCase() === "dropped";
 
-      // Since drag:moved isn't firing, we can't reliably track hover.
-      // For now, if it was dropped and we have drag data from our app, add it.
-      // TODO: Use drag:moved for precise drop zone targeting once it's emitting
+      // If dropped and we have drag data from our app, add it to the space
       if (wasDropped && currentSpace && dragData) {
         try {
           await addItem.mutateAsync({
@@ -123,7 +119,6 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
             group_id: null,
             item_type: { Path: { sd_path: dragData.sdPath } },
           });
-          console.log("[Sidebar] Added item to space:", dragData.name);
         } catch (err) {
           console.error("Failed to add item to space:", err);
         }
