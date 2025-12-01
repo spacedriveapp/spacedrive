@@ -93,8 +93,9 @@ Peer-to-peer synchronization without central coordinators. Device-specific data 
 - **WASM** - Sandboxed extension runtime
 
 **Apps**
-- **Swift** - Native iOS/macOS with embedded Rust core via FFI
-- **React** - Cross-platform desktop (Tauri) and web interface
+- **Tauri** - Cross-platform desktop (macOS, Windows, Linux) with React frontend
+- **React** - Web interface and shared UI components
+- **Prototypes** - Native Swift apps (iOS, macOS) and GPUI media viewer for exploration
 
 **Architecture Patterns**
 - Event-driven design with centralized EventBus
@@ -118,10 +119,12 @@ spacedrive/
 │   │   ├── library/   # Library lifecycle and operations
 │   │   └── volume/    # Volume detection and fingerprinting
 ├── apps/
-│   ├── cli/           # Rust CLI
-│   ├── ios/           # Native Swift app
-│   ├── macos/         # Native Swift app
-│   └── desktop/       # Tauri desktop app
+│   ├── cli/           # CLI for managing libraries and running daemon
+│   ├── server/        # Headless server daemon
+│   ├── tauri/         # Cross-platform desktop app (macOS, Windows, Linux)
+│   ├── ios/           # Native prototype (private)
+│   ├── macos/         # Native prototype (private)
+│   └── gpui-photo-grid/  # GPUI media viewer prototype
 ├── extensions/        # WASM extensions
 ├── crates/            # Shared Rust utilities
 └── docs/              # Architecture documentation
@@ -163,17 +166,36 @@ Spacedrive's WASM-based extension system enables specialized functionality while
 ### Prerequisites
 
 - **Rust** 1.81+ ([rustup](https://rustup.rs/))
-- **Xcode** (for iOS/macOS development)
+- **Bun** 1.3+ ([bun.sh](https://bun.sh)) - For Tauri desktop app
+- **Node.js** 18+ (optional, Bun can be used instead)
 
-### Quick Start with CLI
+### Quick Start with Desktop App (Tauri)
+
+Spacedrive runs as a daemon (`sd-daemon`) that manages your libraries and P2P connections. The Tauri desktop app can launch its own daemon instance, or connect to a daemon started by the CLI.
 
 ```bash
 # Clone the repository
 git clone https://github.com/spacedriveapp/spacedrive
 cd spacedrive
 
+# Install dependencies
+bun install
+
+# Run the desktop app (automatically starts daemon)
+cd apps/tauri
+bun run tauri:dev
+```
+
+### Quick Start with CLI
+
+The CLI can manage libraries and run a persistent daemon that other apps connect to:
+
+```bash
 # Build and run the CLI
 cargo run -p sd-cli -- --help
+
+# Start the daemon (runs in background)
+cargo run -p sd-cli -- daemon start
 
 # Create a library
 cargo run -p sd-cli -- library create "My Library"
@@ -183,22 +205,13 @@ cargo run -p sd-cli -- location add ~/Documents
 
 # Search indexed files
 cargo run -p sd-cli -- search .
+
+# Now launch Tauri app - it will connect to the running daemon
 ```
 
-### iOS/macOS Development
+### Native Prototypes
 
-```bash
-# Open the iOS project
-open apps/ios/Spacedrive.xcodeproj
-
-# Or macOS project
-open apps/macos/Spacedrive.xcodeproj
-
-# Build from Xcode or command line
-xcodebuild -project apps/ios/Spacedrive.xcodeproj -scheme Spacedrive
-```
-
-The Rust core is automatically compiled during Xcode builds.
+Experimental native apps are available in `apps/ios/`, `apps/macos/`, and `apps/gpui-photo-grid/` but are not documented for public use. These prototypes explore platform-specific optimizations and alternative UI approaches.
 
 ### Running Examples
 
