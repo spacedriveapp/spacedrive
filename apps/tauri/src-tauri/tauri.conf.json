@@ -1,6 +1,6 @@
 {
 	"productName": "Spacedrive",
-	"version": "2.0.0-pre",
+	"version": "2.0.0-pre.1",
 	"identifier": "com.spacedrive.desktop",
 	"build": {
 		"beforeDevCommand": "bun run dev:with-daemon",

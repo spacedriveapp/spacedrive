@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name    = "sd-core"
-version = "2.0.0-pre"
+version = "2.0.0-pre.1"
 
 [features]
 default = []
