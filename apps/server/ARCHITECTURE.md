@@ -339,7 +339,7 @@ Daemon errors are passed through RPC response:
 **Trust Boundaries:**
 ```
 Internet ←[TLS]→ Reverse Proxy ←[HTTP+Auth]→ Server ←[Unix Socket]→ Daemon
-  (❌)              (✅)                (✅)           (✅)            (✅)
+  ()              ()                ()           ()            ()
 ```
 
 **Assumptions:**

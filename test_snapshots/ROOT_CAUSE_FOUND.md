@@ -57,12 +57,12 @@ const icon = getIcon(kindCapitalized, true, file.extension, ...);
 **When kind = "unknown":**
 - Capitalizes to "Unknown"
 - `getIcon("Unknown", ...)` returns generic document icon
-- Videos, images, etc. all show document icon ❌
+- Videos, images, etc. all show document icon 
 
 **When kind = "video":**
 - Capitalizes to "Video"
 - `getIcon("Video", ...)` returns video icon
-- Correct icon shows ✅
+- Correct icon shows 
 
 ## The Root Cause Code
 

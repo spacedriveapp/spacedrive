@@ -158,7 +158,7 @@ export function LocationCacheDemo() {
 					<div>Is Fetching: {locationsQuery.isFetching ? "Yes" : "No"}</div>
 					<div>Data Updated At: {locationsQuery.dataUpdatedAt ? new Date(locationsQuery.dataUpdatedAt).toLocaleTimeString() : "Never"}</div>
 					<div className="pt-1 mt-1 border-t border-sidebar-line text-sidebar-ink-faint">
-						💡 Try creating a location - it will appear instantly without refetching
+						Try creating a location - it will appear instantly without refetching
 						because the ResourceChanged event updates TanStack Query's cache atomically!
 					</div>
 				</div>

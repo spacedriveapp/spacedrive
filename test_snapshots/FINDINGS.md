@@ -1,6 +1,6 @@
 # Phase Snapshot Analysis - FINDINGS
 
-## Confirmed: IDs DO MATCH! ✅
+## Confirmed: IDs DO MATCH! 
 
 Event file with name "3AE4AB29-5EC8-4DF9-80F8-F72AE5C38FBF":
 - Event ID: `0303b9df-3b11-49a6-beb6-0fdec577fefb`

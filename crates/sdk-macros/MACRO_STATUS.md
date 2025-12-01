@@ -141,5 +141,5 @@ Photos extension needs:
 
 ---
 
-**The macro system now supports the design! Field attributes work.** ✅
+**The macro system now supports the design! Field attributes work.** 
 

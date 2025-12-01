@@ -44,7 +44,7 @@ Go to: **Apps** → **Discover Apps** → **Launch Docker Image**
 |-------|-------|
 | Image Repository | `spacedrive-server` |
 | Image Tag | `latest` |
-| **Image Pull Policy** | **Never** ⚠️ (Use local image!) |
+| **Image Pull Policy** | **Never** ️ (Use local image!) |
 
 ### Container Settings
 
@@ -73,7 +73,7 @@ Go to: **Apps** → **Discover Apps** → **Launch Docker Image**
 | Type | Host Path (or ixVolume) |
 | Host Path | `/mnt/your-pool/spacedrive` |
 | Mount Path | `/data` |
-| Read Only | ❌ (needs write access) |
+| Read Only | (needs write access) |
 
 **This stores:**
 - Library databases (`.sdlibrary/`)
@@ -90,7 +90,7 @@ Mount your existing media as read-only:
 | Type | Host Path |
 | Host Path | `/mnt/your-pool/media` |
 | Mount Path | `/media` |
-| Read Only | ✅ |
+| Read Only | |
 
 Repeat for other datasets:
 - `/mnt/your-pool/photos` → `/photos`
@@ -163,7 +163,7 @@ docker logs spacedrive
 
 Should see:
 ```
-🚀 Spacedrive Server listening on http://localhost:8080
+Spacedrive Server listening on http://localhost:8080
 ✓ Daemon started successfully
 ```
 
@@ -330,7 +330,7 @@ spacedrive.yourdomain.com {
 
 ## Security Notes
 
-**⚠️ IMPORTANT:**
+**️ IMPORTANT:**
 - **Always set SD_AUTH** - never use `SD_AUTH=disabled` on a network-accessible server
 - **Use strong passwords** - not `admin:changeme`
 - Consider **firewall rules** if exposing to internet

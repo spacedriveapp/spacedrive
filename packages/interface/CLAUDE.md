@@ -22,13 +22,13 @@
 ### What Lives Where
 
 **@sd/interface** (this package):
-- ✅ Route components and layouts
-- ✅ Feature components (Explorer, Settings, etc.)
-- ✅ React Query hook wrappers
-- ✅ UI composition and interactivity
-- ❌ NO state management (use @sd/ts-client)
-- ❌ NO primitive components (use @sd/ui)
-- ❌ NO platform APIs (use platform prop)
+- Route components and layouts
+- Feature components (Explorer, Settings, etc.)
+- React Query hook wrappers
+- UI composition and interactivity
+- NO state management (use @sd/ts-client)
+- NO primitive components (use @sd/ui)
+- NO platform APIs (use platform prop)
 
 **@sd/ts-client**:
 - Client implementation
@@ -74,7 +74,7 @@ packages/interface/
 
 **Effects are an escape hatch** - only use them to sync with external systems (network, DOM, browser APIs).
 
-**❌ DON'T use Effects for:**
+**DON'T use Effects for:**
 - Transforming data for rendering (calculate during render instead)
 - Handling user events (use event handlers)
 - Updating state based on props (calculate during render or use `key`)
@@ -82,14 +82,14 @@ packages/interface/
 - Initializing app (use module-level code)
 - Notifying parent of changes (pass callback, call in event handler)
 
-**✅ DO use Effects for:**
+**DO use Effects for:**
 - Subscribing to external systems (WebSocket, browser events)
 - Syncing with non-React widgets
 - Network requests with proper cleanup
 
 ### Examples
 
-**❌ Wrong - Don't use Effect to transform data:**
+**Wrong - Don't use Effect to transform data:**
 ```tsx
 function TodoList({ todos, filter }) {
   const [visibleTodos, setVisibleTodos] = useState([]);
@@ -100,7 +100,7 @@ function TodoList({ todos, filter }) {
 }
 ```
 
-**✅ Correct - Calculate during render:**
+**Correct - Calculate during render:**
 ```tsx
 function TodoList({ todos, filter }) {
   const visibleTodos = getFilteredTodos(todos, filter);
@@ -112,7 +112,7 @@ function TodoList({ todos, filter }) {
 }
 ```
 
-**❌ Wrong - Don't use Effect for user events:**
+**Wrong - Don't use Effect for user events:**
 ```tsx
 function ProductPage({ product, addToCart }) {
   useEffect(() => {
@@ -123,7 +123,7 @@ function ProductPage({ product, addToCart }) {
 }
 ```
 
-**✅ Correct - Use event handler:**
+**Correct - Use event handler:**
 ```tsx
 function ProductPage({ product, addToCart }) {
   function buyProduct() {
@@ -133,7 +133,7 @@ function ProductPage({ product, addToCart }) {
 }
 ```
 
-**❌ Wrong - Don't use Effect to update parent:**
+**Wrong - Don't use Effect to update parent:**
 ```tsx
 function Toggle({ onChange }) {
   const [isOn, setIsOn] = useState(false);
@@ -143,7 +143,7 @@ function Toggle({ onChange }) {
 }
 ```
 
-**✅ Correct - Call in event handler:**
+**Correct - Call in event handler:**
 ```tsx
 function Toggle({ onChange }) {
   const [isOn, setIsOn] = useState(false);
@@ -154,7 +154,7 @@ function Toggle({ onChange }) {
 }
 ```
 
-**❌ Wrong - Don't chain Effects:**
+**Wrong - Don't chain Effects:**
 ```tsx
 useEffect(() => {
   if (card.gold) setGoldCardCount(c => c + 1);
@@ -166,7 +166,7 @@ useEffect(() => {
 // Multiple render passes!
 ```
 
-**✅ Correct - Calculate in event handler:**
+**Correct - Calculate in event handler:**
 ```tsx
 function handlePlaceCard(nextCard) {
   setCard(nextCard);
@@ -184,12 +184,12 @@ function handlePlaceCard(nextCard) {
 
 ### Function components only:
 ```tsx
-// ✅ Correct
+// Correct
 function Component({ name }: { name: string }) {
   return <div>{name}</div>;
 }
 
-// ❌ Wrong
+// Wrong
 const Component: React.FC<{ name: string }> = ({ name }) => {
   return <div>{name}</div>;
 };
@@ -197,13 +197,13 @@ const Component: React.FC<{ name: string }> = ({ name }) => {
 
 **Hooks must follow rules:**
 ```tsx
-// ✅ Correct - proper cleanup
+// Correct - proper cleanup
 useEffect(() => {
   const subscription = subscribe();
   return () => subscription.unsubscribe();
 }, [dependency]);
 
-// ❌ Wrong - missing cleanup
+// Wrong - missing cleanup
 useEffect(() => {
   subscribe();
 }, []);
@@ -211,7 +211,7 @@ useEffect(() => {
 
 **Use TypeScript strictly:**
 ```tsx
-// ✅ Correct - explicit types
+// Correct - explicit types
 interface ButtonProps {
   label: string;
   onClick: () => void;
@@ -219,7 +219,7 @@ interface ButtonProps {
 
 function Button({ label, onClick }: ButtonProps) { }
 
-// ❌ Wrong - implicit any
+// Wrong - implicit any
 function Button(props) { }
 ```
 
@@ -231,14 +231,14 @@ function Button(props) { }
 
 Never use `var()` syntax directly. Always use Tailwind's semantic color classes.
 
-**❌ WRONG:**
+**WRONG:**
 ```tsx
 className="bg-[var(--color-sidebar)]"
 className="text-[var(--color-sidebar-ink)]"
 className="border-[var(--color-accent)]"
 ```
 
-**✅ CORRECT:**
+**CORRECT:**
 ```tsx
 className="bg-sidebar"
 className="text-sidebar-ink"
@@ -247,10 +247,10 @@ className="border-accent"
 
 **IMPORTANT:** CSS variables must be defined as comma-separated HSL values (not wrapped in `hsl()`):
 ```css
-/* ✅ CORRECT - bare values for Tailwind */
+/* CORRECT - bare values for Tailwind */
 --color-sidebar: 235, 15%, 7%;
 
-/* ❌ WRONG - wrapped in hsl() */
+/* WRONG - wrapped in hsl() */
 --color-sidebar: hsl(235, 15%, 7%);
 ```
 
@@ -276,11 +276,11 @@ This is because Tailwind uses `hsla(var(--color-sidebar), <alpha-value>)` which 
 ### Opacity Modifiers
 
 ```tsx
-// ✅ Use Tailwind opacity
+// Use Tailwind opacity
 className="bg-accent/10"
 className="bg-sidebar/65"
 
-// ❌ Don't use manual alpha
+// Don't use manual alpha
 className="bg-[var(--color-accent)]/10"
 ```
 
@@ -305,7 +305,7 @@ className="bg-[var(--color-accent)]/10"
 ### Component Structure
 
 ```tsx
-// ✅ Correct structure
+// Correct structure
 import { Primitive } from '@sd/ui';
 import { useSomeQuery } from '../context';
 
@@ -347,7 +347,7 @@ export { Component };
 
 **NEVER** use `<style>`, `<style jsx>`, or any inline style tags. Always use Tailwind utility classes.
 
-**❌ WRONG:**
+**WRONG:**
 ```tsx
 <style jsx>{`
   .slider::-webkit-slider-thumb {
@@ -356,7 +356,7 @@ export { Component };
 `}</style>
 ```
 
-**✅ CORRECT:**
+**CORRECT:**
 ```tsx
 className="[&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
 ```
@@ -453,7 +453,7 @@ await copyFiles.mutateAsync({
 
 ### Never Fetch Manually
 
-❌ **Wrong:**
+**Wrong:**
 ```tsx
 const [data, setData] = useState();
 useEffect(() => {
@@ -461,7 +461,7 @@ useEffect(() => {
 }, []);
 ```
 
-✅ **Correct:**
+**Correct:**
 ```tsx
 const { data } = useCoreQuery({ type: 'operation', input: {} });
 ```
@@ -498,13 +498,13 @@ const SettingsPage = lazy(() => import('./Settings'));
 
 Only when actually needed:
 ```tsx
-// ✅ Expensive computation
+// Expensive computation
 const sorted = useMemo(
   () => items.sort(expensiveCompare),
   [items]
 );
 
-// ❌ Premature optimization
+// Premature optimization
 const greeting = useMemo(() => `Hello ${name}`, [name]);
 ```
 
@@ -623,12 +623,12 @@ The window uses **native** macOS traffic lights positioned by Swift code:
 ### Window Styling
 
 ```tsx
-// ✅ Correct - accounts for native traffic lights
+// Correct - accounts for native traffic lights
 <nav className="pt-[52px] ...">
   {/* Content starts below traffic lights */}
 </nav>
 
-// ✅ Correct - window frame with rounded corners
+// Correct - window frame with rounded corners
 <div className="rounded-[10px] border-transparent frame">
   {/* App content */}
 </div>
@@ -668,10 +668,10 @@ Rules:
 Decision: Use Tailwind semantic classes, never `var()` directly.
 
 ```tsx
-// ✅ Correct
+// Correct
 className="bg-sidebar-box text-sidebar-ink border-sidebar-line"
 
-// ❌ Wrong
+// Wrong
 className="bg-[var(--color-sidebar-box)]"
 ```
 
@@ -838,11 +838,11 @@ return <div onContextMenu={contextMenu.show}>Content</div>;
 
 Use descriptive, hierarchical keys:
 ```tsx
-// ✅ Good
+// Good
 queryKey: ['libraries', 'list']
 queryKey: ['files', 'directory', libraryId, path]
 
-// ❌ Bad
+// Bad
 queryKey: ['getLibraries']
 queryKey: ['data']
 ```
@@ -931,12 +931,12 @@ import clsx from 'clsx';
 
 ### Common Mistakes
 
-❌ `<style>` or `<style jsx>` tags → ✅ Use Tailwind arbitrary variants
-❌ `className="bg-[var(--color-sidebar)]"` → ✅ `className="bg-sidebar"`
-❌ `bg-gray-900` → ✅ `bg-app`
-❌ `rounded-md` everywhere → ✅ `rounded-lg` for V2
-❌ Manual fetch → ✅ Use type-safe hooks
-❌ State in component → ✅ Use @sd/ts-client or local state
+`<style>` or `<style jsx>` tags → Use Tailwind arbitrary variants
+`className="bg-[var(--color-sidebar)]"` → `className="bg-sidebar"`
+`bg-gray-900` → `bg-app`
+`rounded-md` everywhere → `rounded-lg` for V2
+Manual fetch → Use type-safe hooks
+State in component → Use @sd/ts-client or local state
 
 ---
 
@@ -963,7 +963,7 @@ Before writing code:
 
 ## Status: Current Implementation
 
-✅ **Complete:**
+**Complete:**
 - Type-safe client with auto-generated types
 - Native macOS traffic lights
 - V1 color system as CSS variables
@@ -971,7 +971,7 @@ Before writing code:
 - Explorer with sidebar and library switcher
 - TanStack Query integration
 
-🚧 **In Progress:**
+**In Progress:**
 - Port remaining V1 components
 - Build complete Explorer (file grid/list views)
 - Settings pages

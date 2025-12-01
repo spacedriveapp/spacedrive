@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.with_env_filter("info")
 		.init();
 
-	println!("\n🧠 Creating Spacedrive Memory File\n");
+	println!("\nCreating Spacedrive Memory File\n");
 
 	// Output path
 	let output_path = PathBuf::from(
@@ -35,10 +35,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	)
 	.await?;
 
-	println!("✅ Created memory archive\n");
+	println!("Created memory archive\n");
 
 	// Add design documents
-	println!("📄 Adding documents...");
+	println!("Adding documents...");
 
 	let design_doc = memory
 		.add_document(
@@ -69,10 +69,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		)
 		.await?;
 
-	println!("  ✅ {} documents added\n", memory.get_documents().len());
+	println!("  {} documents added\n", memory.get_documents().len());
 
 	// Add learned facts
-	println!("🧩 Adding facts...");
+	println!("Adding facts...");
 
 	memory
 		.add_fact(
@@ -119,10 +119,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		)
 		.await?;
 
-	println!("  ✅ {} facts added\n", memory.get_facts().len());
+	println!("  {} facts added\n", memory.get_facts().len());
 
 	// Add embeddings
-	println!("🔢 Adding embeddings...");
+	println!("Adding embeddings...");
 
 	// 4D mock vectors (real would be 384D from AI model)
 	let design_vector = vec![0.9, 0.2, 0.7, 0.1];
@@ -134,12 +134,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	memory.add_embedding(agent_doc, agent_vector).await?;
 
 	println!(
-		"  ✅ {} embeddings added\n",
+		"  {} embeddings added\n",
 		memory.embedding_count().await?
 	);
 
 	// Test search
-	println!("🔍 Testing semantic search...");
+	println!("Testing semantic search...");
 	let query = vec![0.7, 0.15, 0.85, 0.05]; // Query: design + architecture
 	let results = memory.search_similar(query, 3).await?;
 
@@ -155,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let metadata = memory.metadata();
 	let stats = &metadata.statistics;
 
-	println!("📊 Memory Statistics:");
+	println!("Memory Statistics:");
 	println!("  Name: {}", metadata.name);
 	println!("  Scope: {}", metadata.scope.identifier());
 	println!("  Documents: {}", stats.document_count);
@@ -164,8 +164,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("  Total size: {} bytes", stats.file_size_bytes);
 	println!();
 
-	println!("✅ Memory file created successfully!");
-	println!("📁 Location: {}", output_path.display());
+	println!("Memory file created successfully!");
+	println!("Location: {}", output_path.display());
 	println!();
 	println!("Verify:");
 	println!("  file {}", output_path.display());
@@ -175,7 +175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Verify single file
 	assert!(output_path.is_file());
 	assert!(!output_path.is_dir());
-	println!("✅ Confirmed: Single file archive\n");
+	println!("Confirmed: Single file archive\n");
 
 	Ok(())
 }

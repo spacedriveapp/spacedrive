@@ -217,8 +217,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap();
 	addr.set_port(args.port);
 
-	info!("🚀 Spacedrive Server listening on http://localhost:{}", args.port);
-	info!("📦 RPC endpoint available at /rpc");
+	info!("Spacedrive Server listening on http://localhost:{}", args.port);
+	info!("RPC endpoint available at /rpc");
 
 	// Setup graceful shutdown
 	let shutdown_signal = shutdown_signal(daemon_handle);

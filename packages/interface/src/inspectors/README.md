@@ -159,8 +159,8 @@ All inspectors use shared primitives from `components/Inspector/`:
 
 ## Benefits
 
-✅ **Clean separation** - Each variant is self-contained
-✅ **Type-safe** - Union types ensure correct data
-✅ **Extensible** - Add variants without touching existing code
-✅ **Reusable** - Shared primitives reduce duplication
-✅ **Maintainable** - No conditional rendering mess
+**Clean separation** - Each variant is self-contained
+**Type-safe** - Union types ensure correct data
+**Extensible** - Add variants without touching existing code
+**Reusable** - Shared primitives reduce duplication
+**Maintainable** - No conditional rendering mess

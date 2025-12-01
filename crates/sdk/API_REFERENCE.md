@@ -526,12 +526,12 @@ cargo build --target wasm32-unknown-unknown --release
 ## Breaking Changes
 
 **None!** The existing test-extension API is preserved:
-- `ctx.log()` ✅
-- `ctx.checkpoint()` ✅
-- `ctx.check_interrupt()` ✅
-- `ctx.report_progress()` ✅
-- `ctx.increment_items()` ✅
-- `ctx.increment_bytes()` ✅
+- `ctx.log()` 
+- `ctx.checkpoint()` 
+- `ctx.check_interrupt()` 
+- `ctx.report_progress()` 
+- `ctx.increment_items()` 
+- `ctx.increment_bytes()` 
 
 New methods are additive only.
 

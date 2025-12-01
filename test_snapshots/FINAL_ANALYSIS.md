@@ -54,8 +54,8 @@ So if Discovery event had incomplete data, it never gets fixed!
 ## Data Confirms: Events Have Complete Data
 
 From snapshots:
-- Discovery: 100/100 files have content_identity ✅
-- Content: 135/135 files have content_identity ✅
+- Discovery: 100/100 files have content_identity 
+- Content: 135/135 files have content_identity 
 
 **Events are NOT missing content_identity!**
 
