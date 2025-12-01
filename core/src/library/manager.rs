@@ -441,42 +441,28 @@ impl LibraryManager {
 		let new_db_path = path.join(LIBRARY_DB_FILENAME);
 
 		if old_db_path.exists() {
-			// Check if we need to migrate
-			let should_migrate = if new_db_path.exists() {
-				// If both exist, migrate if old one is substantially larger (means new one is empty/fresh)
-				let old_size = tokio::fs::metadata(&old_db_path).await?.len();
-				let new_size = tokio::fs::metadata(&new_db_path).await?.len();
-				old_size > new_size * 10
-			} else {
-				true
-			};
+			if new_db_path.exists() {
+				return Err(LibraryError::Other(
+					"Both database.db and library.db exist. Please manually delete one.".to_string()
+				));
+			}
 
-			if should_migrate {
-				info!("Migrating database.db to library.db");
+			info!("Migrating database.db to library.db");
+			tokio::fs::rename(&old_db_path, &new_db_path)
+				.await
+				.map_err(|e| LibraryError::Other(format!("Failed to rename database: {}", e)))?;
 
-				// Remove any empty library.db first
-				if new_db_path.exists() {
-					let _ = tokio::fs::remove_file(&new_db_path).await;
-					let _ = tokio::fs::remove_file(path.join("library.db-wal")).await;
-					let _ = tokio::fs::remove_file(path.join("library.db-shm")).await;
-				}
+			// Also rename WAL and SHM files if they exist
+			let old_wal = path.join("database.db-wal");
+			let new_wal = path.join("library.db-wal");
+			if old_wal.exists() {
+				let _ = tokio::fs::rename(&old_wal, &new_wal).await;
+			}
 
-				tokio::fs::rename(&old_db_path, &new_db_path)
-					.await
-					.map_err(|e| LibraryError::Other(format!("Failed to rename database: {}", e)))?;
-
-				// Also rename WAL and SHM files if they exist
-				let old_wal = path.join("database.db-wal");
-				let new_wal = path.join("library.db-wal");
-				if old_wal.exists() {
-					let _ = tokio::fs::rename(&old_wal, &new_wal).await;
-				}
-
-				let old_shm = path.join("database.db-shm");
-				let new_shm = path.join("library.db-shm");
-				if old_shm.exists() {
-					let _ = tokio::fs::rename(&old_shm, &new_shm).await;
-				}
+			let old_shm = path.join("database.db-shm");
+			let new_shm = path.join("library.db-shm");
+			if old_shm.exists() {
+				let _ = tokio::fs::rename(&old_shm, &new_shm).await;
 			}
 		}
 
