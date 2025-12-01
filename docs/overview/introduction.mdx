@@ -1,133 +1,124 @@
 ---
 title: Welcome to Spacedrive
-description: The future of files is here
+description: Infrastructure for multi-device computing
 sidebarTitle: Introduction
 ---
 
-Your files are scattered across devices, trapped in cloud silos, and held hostage by subscription fees. Spacedrive unifies everything into one seamless experience, giving you back control of your digital life.
+<Warning>
+**Code Open-Sourced: December 1, 2025**
+
+This codebase is being released early for community testing and feedback. The first public release (2.0.0-pre.1) is coming before Christmas 2025.
+
+spacedrive.com still shows v0.4.3. The new site launches with the release. Until then, these docs are your primary resource.
+</Warning>
 
 ## What is Spacedrive?
 
-Spacedrive is an open-source file manager that creates a distributed filesystem across all your devices. Access files from anywhere, organize everything in one place, and keep your data private.
+Spacedrive is a local-first file manager that unifies data across devices without centralized cloud services. Files stay where they are. Spacedrive creates a content-aware index that makes them searchable, syncable, and manageable from anywhere.
 
-<Info>
-	**Version 2.0** - Rewritten from the ground up, feature complete and fully
-	extensible.
-</Info>
+## Why Spacedrive Exists
 
-## The Problem We Solve
+Computing was designed for single devices. File managers like Finder and Explorer assume your data lives on the computer in front of you. The shift to multi-device forced us into cloud ecosystems. Convenience required giving up data ownership.
 
-<CardGroup cols={3}>
-	<Card title="Scattered Files" icon="folder-open">
-		Files spread across phones, laptops, drives, and cloud services
-	</Card>
-	<Card title="Cloud Lock-in" icon="lock">
-		Monthly fees and vendor control over your own data
-	</Card>
-	<Card title="No Privacy" icon="eye-slash">
-		Your files processed and analyzed by third parties
-	</Card>
-</CardGroup>
+AI is accelerating this trend. Cloud services offer semantic search and intelligent analysis, but only if you upload your files to their infrastructure. Spacedrive is building the architecture for local AI on hardware you already own, on data that never leaves your control.
 
-## Your Data, Your Control
+This is infrastructure for the next era of computing.
 
-Spacedrive connects your devices directly, no middleman required:
+## Current State
 
-**Free Forever** - Open source with no subscription fees or limits.
+### What Works Now (December 2025)
 
-**True Privacy** - Files transfer directly between your devices using encrypted P2P connections.
+**MacOS (Primary Testing Platform)**
+- Tauri desktop app with working interface
+- File indexing and analysis (OCR, transcriptions, thumbnails)
+- Multi-device library sync
+- Content identity and deduplication
+- CLI for daemon management
 
-**Works Everywhere** - Mac, Windows, Linux, iOS, and Android. Your files follow you.
+**Windows & Linux (Community Testing)**
+- Everything should work theoretically
+- Not fully tested yet, bugs expected
+- Help us validate cross-platform support
 
-**No Internet Required** - Sync and access files on your local network, completely offline.
+**CLI**
+- Full library management
+- Daemon control
+- Best way to test core functionality
 
-## Key Features
+### Coming in 2.0.0-pre.1 (Before Christmas)
 
-### For Everyone
+- Mobile app (React Native)
+- Spacedrive Cloud deployment
+- Extension SDK (stable)
+- AI integration (local models)
+- File sync (currently library sync only)
+- New spacedrive.com
 
-<CardGroup cols={2}>
-	<Card title="iOS Photo Backup" icon="camera">
-		Back up photos from your iPhone to any device you own. Available today.
-	</Card>
-	<Card title="Universal Search" icon="magnifying-glass">
-		Find any file instantly across all your devices from one search box
-	</Card>
-	<Card title="Smart Organization" icon="tags">
-		Tag and organize files once, see them everywhere
-	</Card>
-	<Card title="Visual Explorer" icon="images">
-		Browse photos and videos with beautiful gallery views
-	</Card>
-</CardGroup>
+### Prototypes (Not Public)
 
-### For Power Users
+Native Swift apps (iOS, macOS) and a GPUI media viewer exist as private prototypes. These demonstrate type-safe native integration and platform-specific optimizations. They may become production apps if performance demands it.
 
-<CardGroup cols={2}>
-	<Card title="Powerful CLI" icon="terminal">
-		Full command-line control with daemon architecture
-	</Card>
-	<Card title="Content Deduplication" icon="copy">
-		Automatically detect and manage duplicate files
-	</Card>
-	<Card title="Virtual Filesystem" icon="network-wired">
-		Access remote files as if they were local
-	</Card>
-	<Card title="Extensible Platform" icon="puzzle-piece">
-		Build custom workflows with our SDK
-	</Card>
-</CardGroup>
+## How It Works
 
-## Getting Started
+Spacedrive treats files as first-class objects with content identity. A photo on your laptop and the same photo on your NAS are recognized as one piece of content.
 
-<Steps>
-	<Step title="Download">
-		Get Spacedrive for your platform from our [downloads page](/downloads)
-	</Step>
-	<Step title="Create Library">
-		Set up your first library to start organizing files
-	</Step>
-	<Step title="Add Devices">Connect your other devices to sync and share</Step>
-</Steps>
+**Core capabilities:**
+- Search millions of files in under 100ms
+- Preview operations before execution (conflicts, space savings, outcomes)
+- Sync peer-to-peer without servers or consensus protocols
+- Track redundancy across devices
+- Full offline functionality
+
+Files stay in place. Spacedrive makes them universally addressable with rich metadata.
+
+## Testing & Feedback
+
+This testing period is important. We need community help validating:
+- Cross-platform compatibility (especially Windows/Linux)
+- v1 to v2 library migration
+- Multi-device sync scenarios
+- Performance at scale
+
+Current v0.4.3 users will migrate when 2.0.0-pre.1 releases. Your testing helps ensure that transition is smooth.
 
 <Tip>
-	Start with iOS photo backup - it's the easiest way to experience Spacedrive's
-	power. Just install on your iPhone and Mac, then follow the setup wizard.
+MacOS users: Focus on testing indexing, multi-device sync, and the interface. Windows/Linux users: Report any bugs you encounter. All feedback is valuable.
 </Tip>
-
-## For Users
-
-<CardGroup cols={2}>
-	<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
-		Get up and running in 5 minutes
-	</Card>
-	<Card title="Features" icon="star" href="/features">
-		Explore what Spacedrive can do
-	</Card>
-</CardGroup>
 
 ## For Developers
 
-<CardGroup cols={2}>
-	<Card title="Architecture" icon="diagram-project" href="/core/architecture">
-		Deep dive into Spacedrive internals
-	</Card>
-	<Card title="Contributing" icon="code-branch" href="/contributing">
-		Help build the future of file management
-	</Card>
-</CardGroup>
-
-## Learn More
-
-<CardGroup cols={2}>
-	<Card title="Philosophy" icon="lightbulb" href="/philosophy">
-		Why we're building Spacedrive
-	</Card>
-	<Card title="Whitepaper" icon="file-lines" href="/whitepaper">
-		Technical vision and roadmap
-	</Card>
-</CardGroup>
-
 <Warning>
-	Spacedrive is under active development. Join our
-	[Discord](https://discord.gg/spacedrive) to follow progress and get help.
+**Most architecture docs are in the Developer section.** The core technical documentation lives under [Architecture](/core/architecture), not in overview guides.
 </Warning>
+
+Key technical docs:
+- [Architecture Overview](/core/architecture) - System design and principles
+- [Data Model](/core/data-model) - How data is structured
+- [Content Addressing](/core/addressing) - Content identity system
+- [Library Sync](/core/library-sync) - Multi-device synchronization
+- [Testing Guide](/core/testing) - Test framework and patterns
+
+## Roadmap
+
+The `.tasks` folder in the repo tracks core development work. The new landing page (releasing with 2.0.0-pre.1) will have a public roadmap. For now, `.tasks` and these docs are the best reference.
+
+<Info>
+Some guides are written as if features are complete. This is intentional—they document the release state, not current state. When features aren't ready yet, you'll see callouts like this.
+</Info>
+
+## Project Timeline
+
+Spacedrive v2 development began in June 2025. This is a ground-up rewrite addressing lessons from the v1 alpha. The architecture is designed for long-term sustainability, not quick feature delivery.
+
+Six months later, the core is stable enough for community testing. The Christmas release will be feature-complete for the advertised capabilities.
+
+## Get Involved
+
+- **Test the code** - Build from source, report bugs, validate cross-platform
+- **Join Discord** - [discord.gg/gTaF2Z44f5](https://discord.gg/gTaF2Z44f5)
+- **Read the whitepaper** - [whitepaper/spacedrive.pdf](https://github.com/spacedriveapp/spacedrive/blob/main/whitepaper/spacedrive.pdf) (work in progress)
+- **Explore architecture docs** - Start with [core/architecture](/core/architecture)
+
+<Note>
+This is a living document. As development progresses toward the Christmas release, this page will be updated to reflect current status.
+</Note>
