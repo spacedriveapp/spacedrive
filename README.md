@@ -31,7 +31,7 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 Organize files across multiple devices, clouds, and platforms from a single interface. Tag once, access everywhere. Never lose track of where your files are.
 
 > [!IMPORTANT]
-> **Hi, Jamie here!** This is Spacedrive v2 (December 2025)—a complete ground-up rewrite.
+> Hi, Jamie here! This is Spacedrive v2 (December 2025)—a complete ground-up rewrite.
 >
 > After development of the original alpha version stopped in January this year, left with the hard lessons of the incomplete alpha, I set out to completely rebuild Spacedrive from the ground up. The first release **2.0.0-pre.1** is coming before Christmas.
 >
@@ -41,11 +41,37 @@ Organize files across multiple devices, clouds, and platforms from a single inte
 
 ## The Problem
 
-Your data lives everywhere—laptop, phone, NAS, external drives, Dropbox, Google Drive. Each location is its own silo. Finding files requires remembering which device you used last. Cloud services lock you into their ecosystems. Traditional file managers can't see beyond the local filesystem.
+Computing was designed for a single-device world. The file managers we use today—Finder, Explorer, Files—were built when your data lived in one place: the computer in front of you.
 
-## The Solution
+The shift to multi-device computing forced us into cloud ecosystems. Want your files everywhere? Upload them to someone else's servers. The convenience came at a cost: **data ownership**. This wasn't accidental—centralization was the path of least resistance for solving multi-device sync.
 
-Spacedrive creates a unified index of all your data, regardless of where it physically lives. A file on your Mac's SSD and the same file on your NAS backup are recognized as one piece of content. Tag it once, access it from anywhere. The files stay where they are—Spacedrive just makes them universally addressable.
+Now AI is accelerating this trend. Cloud services offer intelligent file analysis and semantic search, but only if you upload your data to their infrastructure. As we generate more data and AI becomes more capable, we're giving away more and more to access basic computing conveniences.
+
+**The current system isn't built for a world where:**
+- You own multiple devices with underutilized compute and storage
+- Local AI models are becoming competitive with cloud alternatives
+- Privacy and data sovereignty matter
+- You shouldn't have to choose between convenience and control
+
+## The Vision
+
+Spacedrive is infrastructure for the next era of computing. It's an architecture designed for multi-device environments from the ground up—not cloud services retrofitted with offline support, but local-first sync that scales to the cloud when you want it.
+
+As local AI models improve, Spacedrive becomes the fabric that enables the same insights cloud services offer today, but running on hardware you already own, on data that never leaves your control. This is a long-term project correcting computing's trajectory toward centralization.
+
+The file explorer interface is deliberate. Everyone understands it. It's seen the least innovation in decades. And it has the most potential when you bake distributed computing, content awareness, and local AI into something universally familiar.
+
+## How It Works
+
+Spacedrive treats files as **first-class objects with content identity**, not paths. A photo on your laptop and the same photo on your NAS are recognized as one piece of content. This enables:
+
+- **Content-aware deduplication** - Track redundancy across all devices
+- **Semantic search** - Find files in under 100ms across millions of entries
+- **Transactional operations** - Preview conflicts, space savings, and outcomes before execution
+- **Peer-to-peer sync** - No servers, no consensus protocols, no single point of failure
+- **Offline-first** - Full functionality without internet, syncs when devices reconnect
+
+Files stay where they are. Spacedrive just makes them universally addressable with rich metadata and cross-device intelligence.
 
 ---
 
