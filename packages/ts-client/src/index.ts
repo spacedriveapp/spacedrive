@@ -58,6 +58,8 @@ export * from "./hooks";
 
 // Zustand stores
 export * from "./stores/sidebar";
+export * from "./stores/viewPreferences";
+export * from "./stores/sortPreferences";
 
 // Device and volume utilities
 export * from "./deviceIcons";

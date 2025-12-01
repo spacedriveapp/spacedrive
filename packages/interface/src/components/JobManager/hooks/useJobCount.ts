@@ -1,57 +1,39 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useLibraryQuery, useSpacedriveClient } from "../../../context";
 
 /**
- * Lightweight hook for job count indicator
- * Only subscribes to job state changes (not progress)
+ * Lightweight hook for job count indicator.
+ * Uses jobs.active query which only returns in-memory active jobs (not thousands from DB).
+ * Events trigger a refetch rather than incrementing/decrementing counts manually.
  */
 export function useJobCount() {
   const client = useSpacedriveClient();
-  const [activeJobCount, setActiveJobCount] = useState(0);
-  const [hasRunningJobs, setHasRunningJobs] = useState(false);
 
-  const { data } = useLibraryQuery({
-    type: "jobs.list",
-    input: { status: null },
+  const { data, refetch } = useLibraryQuery({
+    type: "jobs.active",
+    input: {},
   });
 
-  // Track active jobs from query data
-  useEffect(() => {
-    if (data?.jobs) {
-      const activeCount = data.jobs.filter(
-        (job) => job.status === "running" || job.status === "paused"
-      ).length;
-      const hasRunning = data.jobs.some((job) => job.status === "running");
-
-      setActiveJobCount(activeCount);
-      setHasRunningJobs(hasRunning);
-    }
-  }, [data]);
-
-  // Subscribe to job state changes only (not progress)
+  // Subscribe to job state changes and refetch when they occur
   useEffect(() => {
     if (!client) return;
 
     let unsubscribe: (() => void) | undefined;
     let isCancelled = false;
 
-    const handleEvent = (event: any) => {
-      // Only care about state changes, not progress
-      if ("JobQueued" in event || "JobStarted" in event) {
-        setActiveJobCount((prev) => prev + 1);
-        if ("JobStarted" in event) {
-          setHasRunningJobs(true);
-        }
-      } else if ("JobCompleted" in event || "JobFailed" in event || "JobCancelled" in event) {
-        setActiveJobCount((prev) => Math.max(0, prev - 1));
-      }
-    };
-
     const filter = {
-      event_types: ["JobQueued", "JobStarted", "JobCompleted", "JobFailed", "JobCancelled"],
+      event_types: [
+        "JobQueued",
+        "JobStarted",
+        "JobCompleted",
+        "JobFailed",
+        "JobCancelled",
+        "JobPaused",
+        "JobResumed",
+      ],
     };
 
-    client.subscribeFiltered(filter, handleEvent).then((unsub) => {
+    client.subscribeFiltered(filter, () => refetch()).then((unsub) => {
       if (isCancelled) {
         unsub();
       } else {
@@ -63,10 +45,10 @@ export function useJobCount() {
       isCancelled = true;
       unsubscribe?.();
     };
-  }, [client]);
+  }, [client, refetch]);
 
   return {
-    activeJobCount,
-    hasRunningJobs,
+    activeJobCount: (data?.running_count ?? 0) + (data?.paused_count ?? 0),
+    hasRunningJobs: (data?.running_count ?? 0) > 0,
   };
 }

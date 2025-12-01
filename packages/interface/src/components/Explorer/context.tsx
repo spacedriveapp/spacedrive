@@ -17,12 +17,43 @@ import type {
   DirectorySortBy,
   MediaSortBy,
 } from "@sd/ts-client";
+import {
+  useViewPreferencesStore,
+  useSortPreferencesStore,
+} from "@sd/ts-client";
 
 interface ViewSettings {
   gridSize: number; // 80-400px
   gapSize: number; // 1-32px
   showFileSize: boolean;
   columnWidth: number; // 200-400px for column view
+}
+
+function getSpaceItemKeyFromRoute(pathname: string, search: string): string {
+  if (pathname === "/") return "overview";
+  if (pathname === "/recents") return "recents";
+  if (pathname === "/favorites") return "favorites";
+  if (pathname.startsWith("/location/")) {
+    const locationId = pathname.replace("/location/", "");
+    return `location:${locationId}`;
+  }
+  if (pathname.startsWith("/tag/")) {
+    const tagId = pathname.replace("/tag/", "");
+    return `tag:${tagId}`;
+  }
+  if (pathname.startsWith("/volume/")) {
+    const volumeId = pathname.replace("/volume/", "");
+    return `volume:${volumeId}`;
+  }
+  if (pathname === "/explorer" && search) {
+    return `explorer:${search}`;
+  }
+  return pathname;
+}
+
+function getPathKey(sdPath: SdPath | null): string {
+  if (!sdPath) return "null";
+  return JSON.stringify(sdPath);
 }
 
 interface ExplorerState {
@@ -61,28 +92,28 @@ interface ExplorerState {
   setTagModeActive: (active: boolean) => void;
 
   devices: Map<string, LibraryDeviceInfo>;
+
+  setSpaceItemId: (id: string) => void;
 }
 
 const ExplorerContext = createContext<ExplorerState | null>(null);
 
-export function ExplorerProvider({ children }: { children: ReactNode }) {
+interface ExplorerProviderProps {
+  children: ReactNode;
+  spaceItemId?: string;
+}
+
+export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: ExplorerProviderProps) {
   const platform = usePlatform();
+  const viewPrefs = useViewPreferencesStore();
+  const sortPrefs = useSortPreferencesStore();
+
+  const [spaceItemIdInternal, setSpaceItemIdInternal] = useState(initialSpaceItemId || "default");
   const [currentPath, setCurrentPathInternal] = useState<SdPath | null>(null);
   const [history, setHistory] = useState<SdPath[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "media" | "column" | "size" | "knowledge">("grid");
-  const [sortBy, setSortBy] = useState<DirectorySortBy | MediaSortBy>("name");
-
-  // Update sort when switching to media view
-  useEffect(() => {
-    if (viewMode === "media" && sortBy === "type") {
-      // "type" is not available in media view, switch to date taken
-      setSortBy("datetaken");
-    } else if (viewMode !== "media" && sortBy === "datetaken") {
-      // "datetaken" is not available outside media view, switch to modified
-      setSortBy("modified");
-    }
-  }, [viewMode, sortBy]);
+  const [viewMode, setViewModeInternal] = useState<"grid" | "list" | "media" | "column" | "size" | "knowledge">("grid");
+  const [sortByInternal, setSortByInternal] = useState<DirectorySortBy | MediaSortBy>("name");
   const [viewSettings, setViewSettingsInternal] = useState<ViewSettings>({
     gridSize: 120,
     gapSize: 16,
@@ -94,9 +125,54 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
   const [quickPreviewFileId, setQuickPreviewFileId] = useState<string | null>(null);
   const [tagModeActive, setTagModeActive] = useState(false);
 
-  const setViewSettings = (settings: Partial<ViewSettings>) => {
-    setViewSettingsInternal((prev) => ({ ...prev, ...settings }));
-  };
+  const spaceItemKey = spaceItemIdInternal;
+  const pathKey = getPathKey(currentPath);
+
+  // Load view preferences when space item changes
+  useEffect(() => {
+    const prefs = viewPrefs.getPreferences(spaceItemKey);
+    if (prefs) {
+      setViewModeInternal(prefs.viewMode);
+      setViewSettingsInternal(prefs.viewSettings);
+    }
+  }, [spaceItemKey, viewPrefs]);
+
+  // Load sort preferences when path changes
+  useEffect(() => {
+    const sortPref = sortPrefs.getPreferences(pathKey);
+    if (sortPref) {
+      setSortByInternal(sortPref as DirectorySortBy | MediaSortBy);
+    }
+  }, [pathKey, sortPrefs]);
+
+  // Wrapper for setViewMode that persists to store
+  const setViewMode = useCallback((mode: "grid" | "list" | "media" | "column" | "size" | "knowledge") => {
+    setViewModeInternal(mode);
+    viewPrefs.setPreferences(spaceItemKey, { viewMode: mode });
+  }, [spaceItemKey, viewPrefs]);
+
+  // Wrapper for setSortBy that persists to store
+  const setSortBy = useCallback((sort: DirectorySortBy | MediaSortBy) => {
+    setSortByInternal(sort);
+    sortPrefs.setPreferences(pathKey, sort);
+  }, [pathKey, sortPrefs]);
+
+  // Update sort when switching to media view
+  useEffect(() => {
+    if (viewMode === "media" && sortByInternal === "type") {
+      setSortBy("datetaken");
+    } else if (viewMode !== "media" && sortByInternal === "datetaken") {
+      setSortBy("modified");
+    }
+  }, [viewMode, sortByInternal, setSortBy]);
+
+  const setViewSettings = useCallback((settings: Partial<ViewSettings>) => {
+    setViewSettingsInternal((prev) => {
+      const updated = { ...prev, ...settings };
+      viewPrefs.setPreferences(spaceItemKey, { viewSettings: updated });
+      return updated;
+    });
+  }, [spaceItemKey, viewPrefs]);
 
   const devicesQuery = useLibraryQuery({
     type: "devices.list",
@@ -181,7 +257,7 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     canGoForward,
     viewMode,
     setViewMode,
-    sortBy,
+    sortBy: sortByInternal,
     setSortBy,
     viewSettings,
     setViewSettings,
@@ -198,8 +274,10 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     tagModeActive,
     setTagModeActive,
     devices,
+    setSpaceItemId: setSpaceItemIdInternal,
   }), [
     currentPath,
+    setCurrentPath,
     history,
     historyIndex,
     goBack,
@@ -207,8 +285,11 @@ export function ExplorerProvider({ children }: { children: ReactNode }) {
     canGoBack,
     canGoForward,
     viewMode,
-    sortBy,
+    setViewMode,
+    sortByInternal,
+    setSortBy,
     viewSettings,
+    setViewSettings,
     sidebarVisible,
     inspectorVisible,
     quickPreviewFileId,
@@ -233,3 +314,5 @@ export function useExplorer() {
     throw new Error("useExplorer must be used within ExplorerProvider");
   return context;
 }
+
+export { getSpaceItemKeyFromRoute };

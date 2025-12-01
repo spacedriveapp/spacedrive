@@ -85,7 +85,10 @@ impl LibraryAction for AddItemAction {
 
 		// Resolve entry_id if this is a Path item
 		let entry_id = if let ItemType::Path { ref sd_path } = self.input.item_type {
-			resolve_sd_path_to_entry_id(sd_path, db).await
+			tracing::info!("Resolving SdPath to entry_id: {:?}", sd_path);
+			let resolved = resolve_sd_path_to_entry_id(sd_path, db).await;
+			tracing::info!("Resolved entry_id: {:?}", resolved);
+			resolved
 		} else {
 			None
 		};
@@ -164,6 +167,8 @@ async fn resolve_sd_path_to_entry_id(
 			let file_name = path_buf.file_name()?.to_string_lossy().to_string();
 			let parent_path = path_buf.parent()?.to_string_lossy().to_string();
 
+			tracing::debug!("Looking up entry: file_name={}, parent_path={}", file_name, parent_path);
+
 			// Parse name and extension
 			let (name, extension) = if let Some(dot_idx) = file_name.rfind('.') {
 				(
@@ -174,6 +179,8 @@ async fn resolve_sd_path_to_entry_id(
 				(file_name.clone(), None)
 			};
 
+			tracing::debug!("Parsed: name={}, extension={:?}", name, extension);
+
 			// Find entry by name/extension
 			let mut query = entry::Entity::find().filter(entry::Column::Name.eq(&name));
 
@@ -182,6 +189,7 @@ async fn resolve_sd_path_to_entry_id(
 			}
 
 			let entries = query.all(db).await.ok()?;
+			tracing::debug!("Found {} matching entries by name", entries.len());
 
 			// Find entry with matching parent path
 			for e in entries {
@@ -189,15 +197,21 @@ async fn resolve_sd_path_to_entry_id(
 					if let Ok(Some(parent_path_model)) =
 						directory_paths::Entity::find_by_id(parent_id).one(db).await
 					{
+						tracing::debug!("Entry {} parent path: {}", e.id, parent_path_model.path);
 						if parent_path_model.path == parent_path {
+							tracing::info!("Matched entry_id: {}", e.id);
 							return Some(e.id);
 						}
 					}
 				}
 			}
 
+			tracing::warn!("No matching entry found for path: {}", path_str);
 			None
 		}
-		_ => None,
+		_ => {
+			tracing::warn!("Non-Physical SdPath not supported for entry resolution");
+			None
+		}
 	}
 }

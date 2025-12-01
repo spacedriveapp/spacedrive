@@ -444,25 +444,12 @@ impl Event {
 					// Subdirectories in affected_paths mean files are in THOSE subdirectories
 					let matches = file_path == scope_path;
 
-					tracing::debug!(
-						"Exact mode check: scope={}, file={}, matches={}",
-						scope_path.display(),
-						file_path.display(),
-						matches
-					);
-
 					matches
 				} else {
 					false
 				}
 			});
-
-			tracing::debug!(
-				"Exact mode final: scope={:?}, has_direct_child={}",
-				scope,
-				has_direct_child
-			);
-
+			
 			return has_direct_child;
 		}
 

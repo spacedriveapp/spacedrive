@@ -6,9 +6,10 @@ export function useJobManager() {
   const [jobs, setJobs] = useState<JobListItem[]>([]);
   const client = useSpacedriveClient();
 
+  // Use jobs.active which only returns in-memory active jobs
   const { data, isLoading, error, refetch } = useLibraryQuery({
-    type: "jobs.list",
-    input: { status: null },
+    type: "jobs.active",
+    input: {},
   });
 
   const pauseMutation = useLibraryMutation("jobs.pause");
@@ -62,7 +63,6 @@ export function useJobManager() {
       }
     };
 
-    // Subscribe to job events only
     const filter = {
       event_types: ["JobQueued", "JobStarted", "JobProgress", "JobCompleted", "JobFailed", "JobPaused", "JobResumed", "JobCancelled"],
     };
@@ -89,13 +89,9 @@ export function useJobManager() {
     await resumeMutation.mutateAsync({ job_id: jobId });
   };
 
-  const activeJobCount = jobs.filter(
-    (job) => job.status === "running" || job.status === "paused",
-  ).length;
-
   return {
     jobs,
-    activeJobCount,
+    activeJobCount: jobs.length,
     pause,
     resume,
     isLoading,

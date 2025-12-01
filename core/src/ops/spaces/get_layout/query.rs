@@ -84,14 +84,20 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 			// Resolve entry if entry_id is set
 			let resolved_file = if let Some(entry_id) = item_model.entry_id {
+				tracing::debug!("Space item {} has entry_id: {}", item_model.uuid, entry_id);
 				if let Ok(Some(entry_model)) = entry::Entity::find_by_id(entry_id).one(db).await {
-					build_file_from_entry(entry_model, &item_type, db)
+					tracing::debug!("Found entry: name={}", entry_model.name);
+					let file = build_file_from_entry(entry_model, &item_type, db)
 						.await
-						.map(Box::new)
+						.map(Box::new);
+					tracing::info!("Built file for space item: {:?}", file.as_ref().map(|f| &f.name));
+					file
 				} else {
+					tracing::warn!("Entry {} not found for space item", entry_id);
 					None
 				}
 			} else {
+				tracing::debug!("Space item {} has no entry_id", item_model.uuid);
 				None
 			};
 
@@ -151,12 +157,17 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 				// Resolve entry if entry_id is set
 				let resolved_file = if let Some(entry_id) = item_model.entry_id {
+					tracing::debug!("Group item {} has entry_id: {}", item_model.uuid, entry_id);
 					if let Ok(Some(entry_model)) = entry::Entity::find_by_id(entry_id).one(db).await
 					{
-						build_file_from_entry(entry_model, &item_type, db)
+						tracing::debug!("Found entry: name={}", entry_model.name);
+						let file = build_file_from_entry(entry_model, &item_type, db)
 							.await
-							.map(Box::new)
+							.map(Box::new);
+						tracing::info!("Built file for group item: {:?}", file.as_ref().map(|f| &f.name));
+						file
 					} else {
+						tracing::warn!("Entry {} not found for group item", entry_id);
 						None
 					}
 				} else {

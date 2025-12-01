@@ -33,6 +33,8 @@ pub struct LocationWorker {
 	rule_toggles: crate::ops::indexing::rules::RuleToggles,
 	/// Location root path for rule evaluation
 	location_root: PathBuf,
+	/// Volume backend for this location (cached)
+	volume_backend: Arc<tokio::sync::RwLock<Option<Arc<dyn crate::volume::VolumeBackend>>>>,
 }
 
 impl LocationWorker {
@@ -58,7 +60,47 @@ impl LocationWorker {
 			metrics,
 			rule_toggles,
 			location_root,
+			volume_backend: Arc::new(tokio::sync::RwLock::new(None)),
 		}
+	}
+
+	/// Get or initialize the volume backend for this location
+	async fn get_volume_backend(&self) -> Option<Arc<dyn crate::volume::VolumeBackend>> {
+		// Check cache first
+		{
+			let backend_lock = self.volume_backend.read().await;
+			if let Some(backend) = backend_lock.as_ref() {
+				return Some(backend.clone());
+			}
+		}
+
+		// Backend not cached, resolve it
+		let backend = if let Some(mut volume) = self
+			.context
+			.volume_manager
+			.volume_for_path(&self.location_root)
+			.await
+		{
+			debug!(
+				"Resolved volume backend for location {}: {}",
+				self.location_id, volume.name
+			);
+			Some(self.context.volume_manager.backend_for_volume(&mut volume))
+		} else {
+			debug!(
+				"No volume found for location {} at path {}, using local filesystem fallback",
+				self.location_id,
+				self.location_root.display()
+			);
+			None
+		};
+
+		// Cache it
+		if let Some(ref backend) = backend {
+			*self.volume_backend.write().await = Some(backend.clone());
+		}
+
+		backend
 	}
 
 	/// Run the worker event processing loop
@@ -430,6 +472,9 @@ impl LocationWorker {
 			}
 		}
 
+		// Get volume backend for this location
+		let volume_backend = self.get_volume_backend().await;
+
 		if let Err(e) = responder::apply_batch(
 			&self.context,
 			self.library_id,
@@ -437,6 +482,7 @@ impl LocationWorker {
 			raw_events,
 			self.rule_toggles,
 			&self.location_root,
+			volume_backend.as_ref(),
 		)
 		.await
 		{

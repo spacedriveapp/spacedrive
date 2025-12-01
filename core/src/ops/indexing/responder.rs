@@ -27,6 +27,68 @@ use std::sync::Arc;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
+/// Check if a path exists, distinguishing between "doesn't exist" and "can't access"
+///
+/// This is critical for preventing false deletions when volumes go offline.
+/// Returns Ok(true) if path exists, Ok(false) if confirmed absent, Err if inaccessible.
+async fn path_exists_safe(
+	path: &Path,
+	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+) -> Result<bool> {
+	use crate::volume::error::VolumeError;
+
+	if let Some(backend) = backend {
+		// Use volume backend (works for both local and cloud)
+		match backend.exists(path).await {
+			Ok(exists) => Ok(exists),
+			Err(VolumeError::NotMounted(_)) => {
+				// Volume is not mounted - don't treat as deletion
+				warn!(
+					"Volume not mounted when checking path existence: {}",
+					path.display()
+				);
+				Err(anyhow::anyhow!("Volume not mounted, cannot verify path existence"))
+			}
+			Err(VolumeError::Io(ref e)) if e.kind() == std::io::ErrorKind::NotFound => {
+				// Path doesn't exist - this is OK, return false
+				Ok(false)
+			}
+			Err(VolumeError::Io(io_err)) => {
+				// Other IO errors (permissions, volume offline, etc.) - don't treat as deletion
+				warn!(
+					"IO error when checking path existence for {}: {}",
+					path.display(),
+					io_err
+				);
+				Err(anyhow::anyhow!("IO error, volume may be offline: {}", io_err))
+			}
+			Err(e) => {
+				// Other volume errors (timeout, permission denied, etc.)
+				warn!(
+					"Volume error when checking path existence for {}: {}",
+					path.display(),
+					e
+				);
+				Err(e.into())
+			}
+		}
+	} else {
+		// Fallback to local filesystem
+		match tokio::fs::try_exists(path).await {
+			Ok(exists) => Ok(exists),
+			Err(e) => {
+				// IO error - can't determine existence (volume may be offline)
+				warn!(
+					"Cannot verify path existence for {} (volume may be offline): {}",
+					path.display(),
+					e
+				);
+				Err(anyhow::anyhow!("Cannot access path: {}", e))
+			}
+		}
+	}
+}
+
 /// Apply a raw FS change by resolving it to DB operations (create/modify/move/delete)
 pub async fn apply(
 	context: &Arc<CoreContext>,
@@ -35,6 +97,7 @@ pub async fn apply(
 	kind: FsRawEventKind,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<()> {
 	// Lightweight indexing context for DB access
 	let ctx = ResponderCtx::new(context, library_id).await?;
@@ -49,6 +112,7 @@ pub async fn apply(
 				&path,
 				rule_toggles,
 				location_root,
+				volume_backend,
 			)
 			.await?
 		}
@@ -61,6 +125,7 @@ pub async fn apply(
 				&path,
 				rule_toggles,
 				location_root,
+				volume_backend,
 			)
 			.await?
 		}
@@ -74,6 +139,7 @@ pub async fn apply(
 				&to,
 				rule_toggles,
 				location_root,
+				volume_backend,
 			)
 			.await?
 		}
@@ -89,6 +155,7 @@ pub async fn apply_batch(
 	events: Vec<FsRawEventKind>,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<()> {
 	if events.is_empty() {
 		return Ok(());
@@ -161,6 +228,7 @@ pub async fn apply_batch(
 			&to,
 			rule_toggles,
 			location_root,
+			volume_backend,
 		)
 		.await
 		{
@@ -190,6 +258,7 @@ pub async fn apply_batch(
 			&path,
 			rule_toggles,
 			location_root,
+			volume_backend,
 		)
 		.await
 		{
@@ -213,6 +282,7 @@ pub async fn apply_batch(
 			&path,
 			rule_toggles,
 			location_root,
+			volume_backend,
 		)
 		.await
 		{
@@ -241,12 +311,34 @@ async fn should_filter_path(
 	path: &Path,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
+	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<bool> {
 	// Build ruler for this path using the same logic as the indexer
 	let ruler = build_default_ruler(rule_toggles, location_root, path).await;
 
-	// Get metadata for the path
-	let metadata = tokio::fs::metadata(path).await?;
+	// Get metadata for the path using backend if available
+	let metadata = if let Some(backend) = backend {
+		backend.metadata(path).await.map_err(|e| {
+			anyhow::anyhow!("Failed to get metadata via backend: {}", e)
+		})?
+	} else {
+		let fs_meta = tokio::fs::metadata(path).await?;
+		crate::volume::backend::RawMetadata {
+			kind: if fs_meta.is_dir() {
+				crate::ops::indexing::state::EntryKind::Directory
+			} else if fs_meta.is_symlink() {
+				crate::ops::indexing::state::EntryKind::Symlink
+			} else {
+				crate::ops::indexing::state::EntryKind::File
+			},
+			size: fs_meta.len(),
+			modified: fs_meta.modified().ok(),
+			created: fs_meta.created().ok(),
+			accessed: fs_meta.accessed().ok(),
+			inode: None,
+			permissions: None,
+		}
+	};
 
 	// Simple metadata implementation for rule evaluation
 	struct SimpleMetadata {
@@ -259,7 +351,7 @@ async fn should_filter_path(
 	}
 
 	let simple_meta = SimpleMetadata {
-		is_dir: metadata.is_dir(),
+		is_dir: metadata.kind == crate::ops::indexing::state::EntryKind::Directory,
 	};
 
 	// Evaluate the path against the ruler
@@ -285,17 +377,33 @@ async fn handle_create(
 	path: &Path,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
+	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<()> {
 	debug!("Create: {}", path.display());
 
+	// Verify path is accessible before processing
+	match path_exists_safe(path, backend).await {
+		Ok(true) => {
+			// Path exists and is accessible, proceed
+		}
+		Ok(false) => {
+			debug!("Path no longer exists, skipping create: {}", path.display());
+			return Ok(());
+		}
+		Err(e) => {
+			warn!("Skipping create event for inaccessible path {}: {}", path.display(), e);
+			return Ok(());
+		}
+	}
+
 	// Check if path should be filtered
-	if should_filter_path(path, rule_toggles, location_root).await? {
+	if should_filter_path(path, rule_toggles, location_root, backend).await? {
 		debug!("✗ Skipping filtered path: {}", path.display());
 		return Ok(());
 	}
 
 	debug!("→ Processing create for: {}", path.display());
-	let dir_entry = build_dir_entry(path).await?;
+	let dir_entry = build_dir_entry(path, backend).await?;
 
 	// Check if entry already exists at this exact path (race condition from duplicate watcher events)
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
@@ -316,12 +424,13 @@ async fn handle_create(
 			path,
 			rule_toggles,
 			location_root,
+			backend,
 		)
 		.await;
 	}
 
 	// If inode matches an existing entry at another path, treat this as a move
-	if handle_move_by_inode(ctx, path, dir_entry.inode).await? {
+	if handle_move_by_inode(ctx, path, dir_entry.inode, backend).await? {
 		return Ok(());
 	}
 
@@ -382,6 +491,7 @@ async fn handle_create(
 					path,
 					rule_toggles,
 					location_root,
+					backend,
 				)
 				.await;
 			} else {
@@ -618,11 +728,27 @@ async fn handle_modify(
 	path: &Path,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
+	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<()> {
 	debug!("Modify: {}", path.display());
 
+	// Verify path is accessible before processing
+	match path_exists_safe(path, backend).await {
+		Ok(true) => {
+			// Path exists and is accessible, proceed
+		}
+		Ok(false) => {
+			debug!("Path no longer exists, skipping modify: {}", path.display());
+			return Ok(());
+		}
+		Err(e) => {
+			warn!("Skipping modify event for inaccessible path {}: {}", path.display(), e);
+			return Ok(());
+		}
+	}
+
 	// Check if path should be filtered
-	if should_filter_path(path, rule_toggles, location_root).await? {
+	if should_filter_path(path, rule_toggles, location_root, backend).await? {
 		debug!("✗ Skipping filtered path: {}", path.display());
 		return Ok(());
 	}
@@ -633,9 +759,8 @@ async fn handle_modify(
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
 
 	// If inode indicates a move, handle as a move and skip update
-	// Responder uses direct filesystem access (None backend) since it reacts to local FS events
-	let meta = EntryProcessor::extract_metadata(path, None).await?;
-	if handle_move_by_inode(ctx, path, meta.inode).await? {
+	let meta = EntryProcessor::extract_metadata(path, backend).await?;
+	if handle_move_by_inode(ctx, path, meta.inode, backend).await? {
 		return Ok(());
 	}
 
@@ -793,15 +918,31 @@ async fn handle_rename(
 	to: &Path,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
+	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<()> {
 	debug!("Rename: {} -> {}", from.display(), to.display());
+
+	// Verify destination path is accessible before processing
+	match path_exists_safe(to, backend).await {
+		Ok(true) => {
+			// Destination exists and is accessible, proceed
+		}
+		Ok(false) => {
+			debug!("Destination path doesn't exist, skipping rename: {}", to.display());
+			return Ok(());
+		}
+		Err(e) => {
+			warn!("Skipping rename event for inaccessible destination {}: {}", to.display(), e);
+			return Ok(());
+		}
+	}
 
 	// Get location root entry ID for scoped queries
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
 
 	// Check if the destination path should be filtered
 	// If the file is being moved to a filtered location, we should remove it from the database
-	if should_filter_path(to, rule_toggles, location_root).await? {
+	if should_filter_path(to, rule_toggles, location_root, backend).await? {
 		debug!(
 			"✗ Destination path is filtered, removing entry: {}",
 			to.display()
@@ -861,9 +1002,11 @@ async fn handle_rename(
 }
 
 /// Build a DirEntry from current filesystem metadata
-async fn build_dir_entry(path: &Path) -> Result<DirEntry> {
-	// Responder uses direct filesystem access (None backend) since it reacts to local FS events
-	let meta = EntryProcessor::extract_metadata(path, None).await?;
+async fn build_dir_entry(
+	path: &Path,
+	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+) -> Result<DirEntry> {
+	let meta = EntryProcessor::extract_metadata(path, backend).await?;
 	Ok(DirEntry {
 		path: meta.path,
 		kind: meta.kind,
@@ -1197,6 +1340,7 @@ async fn handle_move_by_inode(
 	ctx: &impl IndexingCtx,
 	new_path: &Path,
 	inode: Option<u64>,
+	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<bool> {
 	let inode_val = match inode {
 		Some(i) if i != 0 => i as i64,
@@ -1254,7 +1398,7 @@ async fn handle_move_by_inode(
 				inode_val,
 				new_path.display()
 			);
-			let dir_entry = build_dir_entry(new_path).await?;
+			let dir_entry = build_dir_entry(new_path, backend).await?;
 			EntryProcessor::update_entry(ctx, existing.id, &dir_entry).await?;
 			debug!("✓ Updated entry {} via inode match", existing.id);
 			return Ok(true);

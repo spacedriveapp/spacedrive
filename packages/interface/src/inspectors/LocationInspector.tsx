@@ -19,6 +19,8 @@ import {
 	VideoCamera,
 } from "@phosphor-icons/react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import {
 	InfoRow,
 	Section,
@@ -28,6 +30,7 @@ import {
 } from "../components/Inspector";
 import clsx from "clsx";
 import type { LocationInfo } from "@sd/ts-client";
+import { Dialog, dialogManager, useDialog, type UseDialogProps } from "@sd/ui";
 import { useLibraryMutation } from "../context";
 import LocationIcon from "@sd/assets/icons/Location.png";
 
@@ -520,8 +523,67 @@ function DevicesTab({ location }: { location: LocationInfo }) {
 	);
 }
 
+interface DeleteLocationDialogProps extends UseDialogProps {
+	locationId: number;
+	locationName: string;
+}
+
+function useDeleteLocationDialog() {
+	return (locationId: number, locationName: string) =>
+		dialogManager.create((props: DeleteLocationDialogProps) => (
+			<DeleteLocationDialog {...props} locationId={locationId} locationName={locationName} />
+		));
+}
+
+function DeleteLocationDialog({ locationId, locationName, ...props }: DeleteLocationDialogProps) {
+	const dialog = useDialog(props);
+	const form = useForm();
+	const queryClient = useQueryClient();
+	const removeLocation = useLibraryMutation("locations.remove", {
+		onSuccess: () => {
+			// Manually invalidate the locations query until the backend emits ResourceDeleted events
+			// This forces a refetch so the location disappears from the sidebar immediately
+			queryClient.invalidateQueries({
+				predicate: (query) => {
+					const key = query.queryKey;
+					return Array.isArray(key) && key[0] === "query:locations.list";
+				},
+			});
+
+			// Close the dialog
+			dialogManager.setState(dialog.id, { open: false });
+		},
+	});
+
+	const handleDelete = async () => {
+		try {
+			await removeLocation.mutateAsync({
+				location_id: String(locationId),
+			});
+		} catch (error) {
+			console.error("Failed to remove location:", error);
+		}
+	};
+
+	return (
+		<Dialog
+			dialog={dialog}
+			form={form}
+			title="Remove Location"
+			description={`Are you sure you want to remove "${locationName}"? Your files will not be deleted from disk.`}
+			icon={<Trash className="text-red-400" weight="bold" />}
+			ctaLabel="Remove Location"
+			ctaDanger
+			cancelLabel="Cancel"
+			cancelBtn
+			onSubmit={handleDelete}
+			loading={removeLocation.isPending}
+		/>
+	);
+}
+
 function MoreTab({ location }: { location: LocationInfo }) {
-	const removeLocation = useLibraryMutation("locations.remove");
+	const openDeleteDialog = useDeleteLocationDialog();
 
 	const formatDate = (dateStr: string) => {
 		const date = new Date(dateStr);
@@ -559,17 +621,7 @@ function MoreTab({ location }: { location: LocationInfo }) {
 					Removing this location will not delete your files
 				</p>
 				<button
-					onClick={() => {
-						if (
-							confirm(
-								"Remove this location? Files will not be deleted from disk.",
-							)
-						) {
-							removeLocation.mutate({
-								location_id: String(location.id),
-							});
-						}
-					}}
+					onClick={() => openDeleteDialog(location.id, location.name)}
 					className="w-full px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg text-sm font-medium text-red-400 transition-colors"
 				>
 					<div className="flex items-center justify-center gap-2">

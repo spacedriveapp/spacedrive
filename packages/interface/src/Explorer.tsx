@@ -11,7 +11,7 @@ import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExplorerProvider, useExplorer, Sidebar } from "./components/explorer";
+import { ExplorerProvider, useExplorer, Sidebar, getSpaceItemKeyFromRoute } from "./components/explorer";
 import {
   SelectionProvider,
   useSelection,
@@ -44,7 +44,14 @@ export function ExplorerLayout() {
     tagModeActive,
     setTagModeActive,
     viewMode,
+    setSpaceItemId,
   } = useExplorer();
+
+  // Sync route with explorer context for view preferences
+  useEffect(() => {
+    const spaceItemKey = getSpaceItemKeyFromRoute(location.pathname, location.search);
+    setSpaceItemId(spaceItemKey);
+  }, [location.pathname, location.search, setSpaceItemId]);
 
   // Check if we're on Overview (hide inspector) or in Knowledge view (has its own inspector)
   const isOverview = location.pathname === "/";
