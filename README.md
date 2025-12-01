@@ -6,9 +6,9 @@
     <br />
     <a href="https://spacedrive.com"><strong>spacedrive.com</strong></a>
     ·
-    <a href="https://discord.gg/gTaF2Z44f5"><strong>Discord</strong></a>
+    <a href="https://v2.spacedrive.com"><strong>v2 Documentation</strong></a>
     ·
-    <a href="https://spacedrive.com/whitepaper"><strong>Whitepaper</strong></a>
+    <a href="https://discord.gg/gTaF2Z44f5"><strong>Discord</strong></a>
   </p>
   <p align="center">
     <a href="https://discord.gg/gTaF2Z44f5">
@@ -49,43 +49,49 @@ Spacedrive creates a unified index of all your data, regardless of where it phys
 Spacedrive is built on four core principles:
 
 ### 1. Virtual Distributed Filesystem (VDFS)
+
 Files and folders become first-class objects with rich metadata, independent of their physical location. Every file gets a universal address (`SdPath`) that works across devices. Content-aware addressing means you can reference files by what they contain, not just where they live.
 
 ### 2. Content Identity System
+
 Adaptive hashing (BLAKE3 with strategic sampling for large files) creates a unique fingerprint for every piece of content. This enables:
+
 - **Deduplication**: Recognize identical files across devices
 - **Redundancy tracking**: Know where your backups are
 - **Content-based operations**: "Copy this file from wherever it's available"
 
 ### 3. Transactional Actions
+
 Every file operation can be previewed before execution. See exactly what will happen—space savings, conflicts, estimated time—then approve or cancel. Operations become durable jobs that survive network interruptions and device restarts.
 
 ### 4. Leaderless Sync
+
 Peer-to-peer synchronization without central coordinators. Device-specific data (your filesystem index) uses state replication. Shared metadata (tags, ratings) uses a lightweight HLC-ordered log with deterministic conflict resolution. No leader election, no single point of failure.
 
 ---
 
 ## Core Features
 
-| Feature                 | Description                                                                                                                                                                |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Cross-Platform**      | macOS, Windows, Linux, iOS, Android                                                                                                                                        |
-| **Multi-Device Index**  | Unified view of files across all your devices                                                                                                                              |
-| **Content Addressing**  | Find optimal file copies automatically (local-first, then LAN, then cloud)                                                                                                 |
-| **Smart Deduplication** | Identify identical files regardless of name or location                                                                                                                    |
-| **Cloud Integration**   | Index S3, Google Drive, Dropbox as first-class volumes                                                                                                                     |
-| **P2P Networking**      | Direct device connections with automatic NAT traversal (Iroh + QUIC)                                                                                                       |
-| **Semantic Tags**       | Graph-based tagging with hierarchies, aliases, and contextual disambiguation                                                                                               |
-| **Action Preview**      | Simulate any operation before execution                                                                                                                                    |
-| **Offline-First**       | Full functionality without internet, syncs when devices reconnect                                                                                                          |
-| **Local Backup**        | P2P backup between your own devices (iOS photo backup available now)                                                                                                       |
-| **Extension System**    | WASM-based plugins for domain-specific functionality                                                                                                                       |
+| Feature                 | Description                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| **Cross-Platform**      | macOS, Windows, Linux, iOS, Android                                          |
+| **Multi-Device Index**  | Unified view of files across all your devices                                |
+| **Content Addressing**  | Find optimal file copies automatically (local-first, then LAN, then cloud)   |
+| **Smart Deduplication** | Identify identical files regardless of name or location                      |
+| **Cloud Integration**   | Index S3, Google Drive, Dropbox as first-class volumes                       |
+| **P2P Networking**      | Direct device connections with automatic NAT traversal (Iroh + QUIC)         |
+| **Semantic Tags**       | Graph-based tagging with hierarchies, aliases, and contextual disambiguation |
+| **Action Preview**      | Simulate any operation before execution                                      |
+| **Offline-First**       | Full functionality without internet, syncs when devices reconnect            |
+| **Local Backup**        | P2P backup between your own devices (iOS photo backup available now)         |
+| **Extension System**    | WASM-based plugins for domain-specific functionality                         |
 
 ---
 
 ## Tech Stack
 
 **Core**
+
 - **Rust** - Entire VDFS implementation (~183k lines)
 - **SQLite + SeaORM** - Local-first database with type-safe queries
 - **Iroh** - P2P networking with QUIC transport and hole-punching
@@ -93,11 +99,13 @@ Peer-to-peer synchronization without central coordinators. Device-specific data 
 - **WASM** - Sandboxed extension runtime
 
 **Apps**
+
 - **Tauri** - Cross-platform desktop (macOS, Windows, Linux) with React frontend
 - **React** - Web interface and shared UI components
 - **Prototypes** - Native Swift apps (iOS, macOS) and GPUI media viewer for exploration
 
 **Architecture Patterns**
+
 - Event-driven design with centralized EventBus
 - CQRS: Actions (mutations) and Queries (reads) with preview-commit-verify
 - Durable jobs with MessagePack serialization
@@ -180,6 +188,7 @@ cd spacedrive
 
 # Install dependencies
 bun install
+cargo xtask setup
 
 # Run the desktop app (automatically starts daemon)
 cd apps/tauri
@@ -263,7 +272,8 @@ Optional cloud integration (Spacedrive Cloud) is available for backup and remote
 
 ## Documentation
 
-- **[Whitepaper](https://spacedrive.com/whitepaper)** - Complete technical architecture
+- **[v2 Documentation](https://v2.spacedrive.com)** - Complete guides and API reference
+- **[Whitepaper](whitepaper/spacedrive.pdf)** - Technical architecture (work in progress)
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
 - **[Architecture Docs](docs/core/architecture.md)** - Detailed system design
 - **[Extension SDK](docs/sdk.md)** - Build your own extensions
@@ -274,11 +284,6 @@ Optional cloud integration (Spacedrive Cloud) is available for backup and remote
 
 - **Star the repo** to support the project
 - **Join [Discord](https://discord.gg/gTaF2Z44f5)** to chat with developers and community
-- **Read the [Whitepaper](https://spacedrive.com/whitepaper)** for the full technical vision
+- **Read the [v2 Documentation](https://v2.spacedrive.com)** for guides and API reference
+- **Read the [Whitepaper](whitepaper/spacedrive.pdf)** for the full technical vision
 - **Build an Extension** - Check out the [SDK docs](docs/sdk.md)
-
----
-
-<p align="center">
-  <em>Your files, unified. Your data, sovereign.</em>
-</p>
