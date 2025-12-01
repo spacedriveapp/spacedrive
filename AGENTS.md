@@ -90,9 +90,9 @@ impl Action for ShareFileAction {
 
 Spacedrive supports multiple communication patterns for different platforms and use cases.
 
-### Daemon-Client Communication (Desktop, CLI)
+### Daemon-Client Communication (Tauri Desktop, CLI, Web)
 
-Desktop and CLI clients connect to a daemon process via Unix domain sockets. Communication uses JSON-RPC 2.0 with Wire method strings.
+The Tauri desktop app, CLI, and web interface connect to a daemon process via Unix domain sockets (or WebSockets for web). Communication uses JSON-RPC 2.0 with Wire method strings.
 
 **Registration Macros:**
 
@@ -118,73 +118,64 @@ The `inventory` crate collects operations at compile time. When you use `registe
 
 Location: `core/src/ops/registry.rs`
 
-### Embedded Core (iOS, Mobile)
+### Tauri Desktop Development
 
-iOS and mobile apps embed the core directly as a native library rather than connecting to a daemon. Communication uses the same JSON-RPC 2.0 protocol with Wire method strings, but over FFI instead of sockets.
+The Tauri app (`apps/tauri/`) is the primary desktop application for Spacedrive. It connects to the daemon via the TypeScript client.
+
+**Development Workflow:**
+
+```bash
+# Install dependencies
+bun install
+
+# Run Tauri app in dev mode (auto-starts daemon)
+cd apps/tauri
+bun run tauri:dev
+
+# Build for production
+bun run tauri:build
+```
+
+**TypeScript Client:**
+
+The TypeScript client (`packages/ts-client/`) is auto-generated from Rust types using Specta:
+
+```bash
+# Generate TypeScript types
+cargo run --bin generate_typescript_types
+```
+
+**Output:** `packages/ts-client/src/generated.ts`
 
 **Architecture:**
 
 ```
-iOS App (Swift)
+Tauri App (React)
     ↓
-SpacedriveClient (Swift)
+@sd/ts-client (TypeScript)
     ↓
-SDIOSCore (Rust FFI)
+Daemon (Unix Socket / IPC)
     ↓
-RpcServer::execute_json_operation() (Rust)
+RpcServer (Rust)
     ↓
-Operation Registry (same as daemon!)
+Operation Registry
 ```
 
-**Key Files:**
+### Native Prototypes (iOS, macOS)
 
-- `apps/ios/sd-ios-core/src/lib.rs` - FFI bridge to Rust core
-- `packages/swift-client/` - Swift client library
-- `apps/ios/Spacedrive/Spacedrive/Managers/EmbeddedCoreManager.swift` - iOS manager
+**Note:** iOS and macOS apps are experimental prototypes, not production apps.
 
-**Benefits:**
+Native prototypes embed the core directly as a library via FFI rather than connecting to a daemon. These are located in `apps/ios/` and `apps/macos/` but are private and not documented for public use.
 
-- No daemon process needed
-- Lower latency (in-process)
-- Works offline immediately
-- Same operation registry as daemon
+**Swift Client Generation:**
 
-### Swift Client Auto-Generation
-
-Swift types are automatically generated from Rust types using Specta, similar to TypeScript generation.
-
-**Generation Process:**
+For the prototypes, Swift types can be generated:
 
 ```bash
-# Types are generated during build
 cargo run --bin generate_swift_types
 ```
 
-**Output Files:**
-
-- `packages/swift-client/Sources/SpacedriveClient/SpacedriveTypes.swift` - All types
-- `packages/swift-client/Sources/SpacedriveClient/SpacedriveAPI.swift` - API methods
-
-**How It Works:**
-
-The `generate_swift_types` binary uses Specta to export Rust types to Swift:
-
-```rust
-// core/src/bin/generate_swift_types.rs
-let (operations, queries, types) = generate_spacedrive_api();
-let api_structure = create_spacedrive_api_structure(&operations, &queries);
-
-// Generate Swift code from Specta types
-let swift = specta_swift::Swift::new()
-    .naming(specta_swift::NamingConvention::PascalCase)
-    .export(types)?;
-```
-
-**Consumed By:**
-
-- iOS app (`apps/ios/`)
-- macOS app (`apps/macos/`)
-- Any Swift-based Spacedrive client
+Output: `packages/swift-client/Sources/SpacedriveClient/`
 
 ### Extension System (WASM)
 
