@@ -108,6 +108,8 @@ Peer-to-peer synchronization without central coordinators. Device-specific data 
 
 **Apps**
 
+- **CLI** - Command-line interface for library management and daemon control
+- **Server** - Headless daemon for always-on file indexing and P2P sync
 - **Tauri** - Cross-platform desktop (macOS, Windows, Linux) with React frontend
 - **React** - Web interface and shared UI components
 - **Prototypes** - Native Swift apps (iOS, macOS) and GPUI media viewer for exploration
