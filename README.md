@@ -32,8 +32,7 @@ Organize files across multiple devices, clouds, and platforms from a single inte
 
 ---
 
-> [!IMPORTANT]
-> **Hi, Jamie here!** This is Spacedrive v2 (December 2025)—a complete ground-up rewrite.
+> [!IMPORTANT] > **Hi, Jamie here!** This is Spacedrive v2 (December 2025)—a complete ground-up rewrite.
 >
 > After development of the original alpha version stopped in January this year, left with the hard lessons of the incomplete alpha, I set out to completely rebuild Spacedrive from the ground up. The first release **2.0.0-pre.1** is coming before Christmas.
 >
