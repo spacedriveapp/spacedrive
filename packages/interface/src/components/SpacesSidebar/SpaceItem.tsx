@@ -7,6 +7,9 @@ import {
 	Folder,
 	HardDrive,
 	Tag as TagIcon,
+	FolderOpen,
+	MagnifyingGlass,
+	Trash,
 } from "@phosphor-icons/react";
 import { Location } from "@sd/assets/icons";
 import type {
@@ -15,6 +18,9 @@ import type {
 	File,
 } from "@sd/ts-client";
 import { Thumb } from "../Explorer/File/Thumb";
+import { useContextMenu } from "../../hooks/useContextMenu";
+import { usePlatform } from "../../platform";
+import { useLibraryMutation } from "../../context";
 
 interface SpaceItemProps {
 	item: SpaceItemType;
@@ -107,6 +113,8 @@ export function SpaceItem({
 }: SpaceItemProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
+	const platform = usePlatform();
+	const deleteItem = useLibraryMutation("spaces.delete_item");
 
 	// Check if this is a raw location object (has 'name' and 'sd_path' but no 'item_type')
 	const isRawLocation =
@@ -151,9 +159,75 @@ export function SpaceItem({
 		}
 	};
 
+	// Context menu for space items
+	const contextMenu = useContextMenu({
+		items: [
+			{
+				icon: FolderOpen,
+				label: "Open",
+				onClick: () => {
+					if (path) navigate(path);
+				},
+				condition: () => !!path,
+			},
+			{
+				icon: MagnifyingGlass,
+				label: "Show in Finder",
+				onClick: async () => {
+					// For Path items, get the physical path
+					if (typeof item.item_type === "object" && "Path" in item.item_type) {
+						const sdPath = item.item_type.Path.sd_path;
+						if (typeof sdPath === "object" && "Physical" in sdPath) {
+							const physicalPath = sdPath.Physical.path;
+							if (platform.revealFile) {
+								try {
+									await platform.revealFile(physicalPath);
+								} catch (err) {
+									console.error("Failed to reveal file:", err);
+								}
+							}
+						}
+					}
+				},
+				keybind: "⌘⇧R",
+				condition: () => {
+					if (typeof item.item_type === "object" && "Path" in item.item_type) {
+						const sdPath = item.item_type.Path.sd_path;
+						return typeof sdPath === "object" && "Physical" in sdPath && !!platform.revealFile;
+					}
+					return false;
+				},
+			},
+			{ type: "separator" },
+			{
+				icon: Trash,
+				label: "Remove from Space",
+				onClick: async () => {
+					if (confirm(`Remove "${label}" from this space?`)) {
+						try {
+							await deleteItem.mutateAsync({ item_id: item.id });
+						} catch (err) {
+							console.error("Failed to remove item:", err);
+						}
+					}
+				},
+				variant: "danger" as const,
+				// Can only remove custom Path items, not built-in items
+				condition: () => typeof item.item_type === "object" && "Path" in item.item_type,
+			},
+		],
+	});
+
+	const handleContextMenu = async (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		await contextMenu.show(e);
+	};
+
 	return (
 		<button
 			onClick={handleClick}
+			onContextMenu={handleContextMenu}
 			className={clsx(
 				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium",
 				className ||

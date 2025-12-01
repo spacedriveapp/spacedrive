@@ -1,10 +1,30 @@
-import { useExplorer } from "../../context";
-import { useNormalizedCache } from "../../../../context";
-import { FileRow } from "./FileRow";
-import type { DirectorySortBy } from "@sd/ts-client";
+import { useCallback, useRef, useEffect, memo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { flexRender } from "@tanstack/react-table";
+import { CaretDown } from "@phosphor-icons/react";
+import clsx from "clsx";
 
-export function ListView() {
-  const { currentPath, sortBy } = useExplorer();
+import type { File, DirectorySortBy } from "@sd/ts-client";
+
+import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
+import { useNormalizedCache } from "../../../../context";
+import { TableRow } from "./TableRow";
+import {
+  useTable,
+  ROW_HEIGHT,
+  TABLE_PADDING_X,
+  TABLE_PADDING_Y,
+  TABLE_HEADER_HEIGHT,
+} from "./useTable";
+
+export const ListView = memo(function ListView() {
+  const { currentPath, sortBy, setSortBy } = useExplorer();
+  const { focusedIndex, setFocusedIndex, selectedFiles, selectFile, moveFocus } = useSelection();
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
 
   const directoryQuery = useNormalizedCache({
     wireMethod: "query:files.directory_listing",
@@ -22,25 +42,202 @@ export function ListView() {
   });
 
   const files = directoryQuery.data?.files || [];
+  const { table } = useTable(files);
+  const { rows } = table.getRowModel();
+
+  // Virtual row rendering - uses the container as scroll element
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: useCallback(() => containerRef.current, []),
+    estimateSize: useCallback(() => ROW_HEIGHT, []),
+    paddingStart: TABLE_HEADER_HEIGHT + TABLE_PADDING_Y,
+    paddingEnd: TABLE_PADDING_Y,
+    overscan: 15,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
+  // Sync horizontal scroll between header and body
+  const handleBodyScroll = useCallback(() => {
+    if (bodyScrollRef.current && headerScrollRef.current) {
+      headerScrollRef.current.scrollLeft = bodyScrollRef.current.scrollLeft;
+    }
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const direction = e.key === "ArrowDown" ? "down" : "up";
+
+        const currentIndex = focusedIndex >= 0 ? focusedIndex : 0;
+        const newIndex =
+          direction === "down"
+            ? Math.min(currentIndex + 1, files.length - 1)
+            : Math.max(currentIndex - 1, 0);
+
+        if (e.shiftKey) {
+          // Range selection with shift
+          if (newIndex !== focusedIndex && files[newIndex]) {
+            selectFile(files[newIndex], files, false, true);
+            setFocusedIndex(newIndex);
+          }
+        } else {
+          moveFocus(direction, files);
+        }
+
+        // Scroll to keep selection visible
+        rowVirtualizer.scrollToIndex(newIndex, { align: "auto" });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusedIndex, files, selectFile, setFocusedIndex, moveFocus, rowVirtualizer]);
+
+  // Column sorting handler
+  const handleHeaderClick = useCallback(
+    (columnId: string) => {
+      const sortMap: Record<string, DirectorySortBy> = {
+        name: "name",
+        size: "size",
+        modified: "modified",
+        type: "type",
+      };
+      const newSort = sortMap[columnId];
+      if (newSort) {
+        setSortBy(newSort);
+      }
+    },
+    [setSortBy]
+  );
+
+  // Calculate total width for table
+  const headerGroups = table.getHeaderGroups();
+  const totalWidth = table.getTotalSize() + TABLE_PADDING_X * 2;
 
   return (
-    <div className="flex flex-col p-6">
-      <div className="flex items-center px-2 py-1 text-xs font-semibold text-ink-dull border-b border-app-line mb-2">
-        <div className="w-10"></div>
-        <div className="flex-1">Name</div>
-        <div className="w-24">Size</div>
-        <div className="w-32">Modified</div>
-        <div className="w-24">Type</div>
+    <div
+      ref={containerRef}
+      className="h-full overflow-auto"
+    >
+      {/* Sticky Header */}
+      <div
+        className="sticky top-0 z-10 border-b border-app-line bg-app/90 backdrop-blur-lg"
+        style={{ height: TABLE_HEADER_HEIGHT }}
+      >
+        <div
+          ref={headerScrollRef}
+          className="overflow-hidden"
+        >
+          <div
+            className="flex"
+            style={{
+              width: totalWidth,
+              paddingLeft: TABLE_PADDING_X,
+              paddingRight: TABLE_PADDING_X,
+            }}
+          >
+            {headerGroups.map((headerGroup) =>
+              headerGroup.headers.map((header) => {
+                const isSorted = sortBy === header.id;
+                const canResize = header.column.getCanResize();
+
+                return (
+                  <div
+                    key={header.id}
+                    className={clsx(
+                      "relative flex select-none items-center gap-1 px-2 py-2 text-xs font-medium",
+                      isSorted ? "text-ink" : "text-ink-dull",
+                      "cursor-pointer hover:text-ink"
+                    )}
+                    style={{ width: header.getSize() }}
+                    onClick={() => handleHeaderClick(header.id)}
+                  >
+                    <span className="truncate">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </span>
+
+                    {isSorted && (
+                      <CaretDown className="size-3 flex-shrink-0 text-ink-faint" />
+                    )}
+
+                    {/* Resize handle */}
+                    {canResize && (
+                      <div
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        onClick={(e) => e.stopPropagation()}
+                        className={clsx(
+                          "absolute right-0 top-1/2 h-4 w-1 -translate-y-1/2 cursor-col-resize rounded-full",
+                          header.column.getIsResizing()
+                            ? "bg-accent"
+                            : "bg-transparent hover:bg-ink-faint/50"
+                        )}
+                      />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
-      {files.map((file, index) => (
-        <FileRow
-          key={file.id}
-          file={file}
-          fileIndex={index}
-          allFiles={files}
-        />
-      ))}
+      {/* Virtual List Body */}
+      <div
+        ref={bodyScrollRef}
+        className="overflow-x-auto"
+        onScroll={handleBodyScroll}
+      >
+        <div
+          className="relative"
+          style={{
+            height: rowVirtualizer.getTotalSize() - TABLE_HEADER_HEIGHT,
+            width: totalWidth,
+          }}
+        >
+          <div
+            className="absolute left-0 top-0 w-full"
+            style={{
+              transform: `translateY(${(virtualRows[0]?.start ?? 0) - TABLE_HEADER_HEIGHT - TABLE_PADDING_Y}px)`,
+            }}
+          >
+            {virtualRows.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              if (!row) return null;
+
+              const file = row.original;
+              const isSelected = selectedFiles.some((f) => f.id === file.id);
+              const isFocused = focusedIndex === virtualRow.index;
+              const previousRow = rows[virtualRow.index - 1];
+              const nextRow = rows[virtualRow.index + 1];
+              const isPreviousSelected = previousRow
+                ? selectedFiles.some((f) => f.id === previousRow.original.id)
+                : false;
+              const isNextSelected = nextRow
+                ? selectedFiles.some((f) => f.id === nextRow.original.id)
+                : false;
+
+              return (
+                <TableRow
+                  key={row.id}
+                  row={row}
+                  file={file}
+                  files={files}
+                  index={virtualRow.index}
+                  isSelected={isSelected}
+                  isFocused={isFocused}
+                  isPreviousSelected={isPreviousSelected}
+                  isNextSelected={isNextSelected}
+                  measureRef={rowVirtualizer.measureElement}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+});

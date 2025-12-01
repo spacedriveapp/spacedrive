@@ -26,6 +26,7 @@
 		"@sd/ui": "workspace:*",
 		"@tanstack/react-query": "^5.90.7",
 		"@tanstack/react-query-devtools": "^5.90.2",
+		"@tanstack/react-table": "^8.21.3",
 		"@tanstack/react-virtual": "^3.13.12",
 		"@types/d3": "^7.4.3",
 		"class-variance-authority": "^0.7.0",
