@@ -16,6 +16,9 @@ pub use error::{LibraryError, Result};
 pub use lock::LibraryLock;
 pub use manager::{DiscoveredLibrary, LibraryManager};
 
+/// Filename for the library database
+pub(crate) const LIBRARY_DB_FILENAME: &str = "library.db";
+
 use crate::infra::{
 	db::Database,
 	event::EventBus,
@@ -1270,7 +1273,7 @@ impl Library {
 
 	/// Calculate database file size
 	async fn calculate_database_size(&self) -> Result<u64> {
-		let db_path = self.path().join("database.db");
+		let db_path = self.path().join(LIBRARY_DB_FILENAME);
 
 		debug!(
 			db_path = %db_path.display(),
@@ -1544,7 +1547,7 @@ impl Library {
 
 	/// Calculate database file size (static version)
 	async fn calculate_database_size_static(path: &PathBuf) -> Result<u64> {
-		let db_path = path.join("database.db");
+		let db_path = path.join(LIBRARY_DB_FILENAME);
 		if db_path.exists() {
 			let metadata = tokio::fs::metadata(&db_path).await?;
 			Ok(metadata.len())

@@ -6,6 +6,11 @@ use super::{
 	lock::LibraryLock,
 	Library, LIBRARY_CONFIG_VERSION, LIBRARY_EXTENSION,
 };
+
+/// Legacy database filename (for migration)
+const LEGACY_DB_FILENAME: &str = "database.db";
+
+use super::LIBRARY_DB_FILENAME;
 use crate::{
 	context::CoreContext,
 	device::DeviceManager,
@@ -272,7 +277,7 @@ impl LibraryManager {
 
 		// Pre-register the initial device BEFORE opening the library
 		// This ensures when ensure_device_registered runs, it detects the collision
-		let db_path = library_path.join("database.db");
+		let db_path = library_path.join(LIBRARY_DB_FILENAME);
 		let db_url = format!("sqlite://{}?mode=rwc", db_path.display());
 		let db_conn = sea_orm::Database::connect(&db_url)
 			.await
@@ -431,8 +436,32 @@ impl LibraryManager {
 			}
 		}
 
+		// Migrate old database.db to library.db if needed
+		let old_db_path = path.join(LEGACY_DB_FILENAME);
+		let new_db_path = path.join(LIBRARY_DB_FILENAME);
+
+		if old_db_path.exists() && !new_db_path.exists() {
+			info!("Migrating database.db to library.db");
+			tokio::fs::rename(&old_db_path, &new_db_path)
+				.await
+				.map_err(|e| LibraryError::Other(format!("Failed to rename database: {}", e)))?;
+
+			// Also rename WAL and SHM files if they exist
+			let old_wal = path.join("database.db-wal");
+			let new_wal = path.join("library.db-wal");
+			if old_wal.exists() {
+				let _ = tokio::fs::rename(&old_wal, &new_wal).await;
+			}
+
+			let old_shm = path.join("database.db-shm");
+			let new_shm = path.join("library.db-shm");
+			if old_shm.exists() {
+				let _ = tokio::fs::rename(&old_shm, &new_shm).await;
+			}
+		}
+
 		// Open database
-		let db_path = path.join("database.db");
+		let db_path = new_db_path;
 		let db = Arc::new(Database::open(&db_path).await?);
 
 		// Run migrations to ensure schema is up to date
@@ -767,7 +796,7 @@ impl LibraryManager {
 		tokio::fs::write(config_path, json).await?;
 
 		// Initialize database
-		let db_path = path.join("database.db");
+		let db_path = path.join(LIBRARY_DB_FILENAME);
 		let db = Database::create(&db_path).await?;
 
 		// Run initial migrations
@@ -826,7 +855,7 @@ impl LibraryManager {
 		tokio::fs::write(config_path, json).await?;
 
 		// Initialize database
-		let db_path = path.join("database.db");
+		let db_path = path.join(LIBRARY_DB_FILENAME);
 		let db = Database::create(&db_path).await?;
 
 		// Run initial migrations
