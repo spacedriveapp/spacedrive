@@ -9,7 +9,7 @@ export default defineConfig({
 		'react',
 		'react-dom',
 		'react-router-dom',
-		'@spacedriveapp/assets',
+		'@jamiepine/assets',
 		'zod',
 		'clsx',
 		'class-variance-authority',

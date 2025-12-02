@@ -1,12 +1,9 @@
 import AppKit
 import SwiftRs
 
-// Forward declarations of Rust callbacks
+// Forward declaration of Rust callback
 @_silgen_name("rust_drag_ended_callback")
 func rust_drag_ended_callback(_ sessionId: UnsafePointer<CChar>, _ wasDropped: Bool)
-
-@_silgen_name("rust_drag_moved_callback")
-func rust_drag_moved_callback(_ sessionId: UnsafePointer<CChar>, _ x: Double, _ y: Double)
 
 private var activeDragSources: [String: NativeDragSource] = [:]
 private var dragSourcesLock = NSLock()
@@ -285,10 +282,15 @@ class NativeDragSource: NSObject, NSDraggingSource, NSFilePromiseProviderDelegat
         )
         overlay.setFrameOrigin(centeredPoint)
 
-        // Call Rust callback to emit drag:moved event
-        sessionId.withCString { cString in
-            rust_drag_moved_callback(cString, screenPoint.x, screenPoint.y)
-        }
+        NotificationCenter.default.post(
+            name: Notification.Name("spacedrive.drag.moved"),
+            object: nil,
+            userInfo: [
+                "sessionId": sessionId,
+                "x": screenPoint.x,
+                "y": screenPoint.y
+            ]
+        )
     }
 
     func draggingSession(

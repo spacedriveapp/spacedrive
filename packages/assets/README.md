@@ -1,3 +1,3 @@
-# @spacedriveapp/assets
+# @jamiepine/assets
 
 Shared assets for Spacedrive applications.
