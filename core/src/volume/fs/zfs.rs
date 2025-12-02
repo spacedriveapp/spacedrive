@@ -373,7 +373,9 @@ fn parse_zfs_size(size_str: &str) -> Option<u64> {
 
 /// Enhance volume with ZFS-specific information from mount point
 pub async fn enhance_volume_from_mount(volume: &mut Volume) -> VolumeResult<()> {
-	let handler = ZfsHandler::new();
+	use super::FilesystemHandler;
+
+	let handler = ZfsHandler;
 	handler.enhance_volume(volume).await
 }
 

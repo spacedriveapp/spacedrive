@@ -284,6 +284,8 @@ fn parse_subvolume_info(output: &str) -> VolumeResult<SubvolumeInfo> {
 
 /// Enhance volume with Btrfs-specific information from mount point
 pub async fn enhance_volume_from_mount(volume: &mut Volume) -> VolumeResult<()> {
+	use super::FilesystemHandler;
+
 	let handler = BtrfsHandler::new();
 	handler.enhance_volume(volume).await
 }
