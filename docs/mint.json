@@ -73,8 +73,7 @@
         "core/jobs",
         "core/ops",
         "core/api",
-        "core/events",
-        "core/memory"
+        "core/events"
       ]
     },
     {

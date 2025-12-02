@@ -340,14 +340,15 @@ CREATE TABLE shared_changes (
     created_at TEXT NOT NULL    -- When this change was logged
 );
 
--- Peer acknowledgment tracking for pruning
+-- Peer acknowledgment tracking (outgoing - for pruning our log)
+-- Tracks which of our changes each peer has acknowledged receiving
 CREATE TABLE peer_acks (
     peer_device_id TEXT PRIMARY KEY,
     last_acked_hlc TEXT NOT NULL,
     acked_at TEXT NOT NULL
 );
 
--- Per-resource watermarks for incremental sync
+-- Per-resource watermarks for device-owned incremental sync
 CREATE TABLE device_resource_watermarks (
     device_uuid TEXT NOT NULL,
     peer_device_uuid TEXT NOT NULL,
@@ -355,6 +356,16 @@ CREATE TABLE device_resource_watermarks (
     last_watermark TEXT NOT NULL,   -- RFC3339 timestamp
     updated_at TEXT NOT NULL,
     PRIMARY KEY (device_uuid, peer_device_uuid, resource_type)
+);
+
+-- Per-peer watermarks for shared resource incremental sync (incoming)
+-- Tracks the maximum HLC we've received from each peer
+CREATE TABLE peer_received_watermarks (
+    device_uuid TEXT NOT NULL,
+    peer_device_uuid TEXT NOT NULL,
+    max_received_hlc TEXT NOT NULL, -- Maximum HLC received from this peer
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (device_uuid, peer_device_uuid)
 );
 
 -- Resumable backfill checkpoints

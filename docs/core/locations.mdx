@@ -7,31 +7,165 @@ Locations are directories that Spacedrive tracks and monitors. When you add a lo
 
 ## What is a Location?
 
-A location is any folder on your device that you want Spacedrive to manage. Once added:
+A location is any folder on your device that you want Spacedrive to index. Once added:
 
 - Files are indexed immediately
 - Changes are detected in real-time
-- Metadata syncs across your devices
+- Metadata syncs across your devices (if enabled)
 - Content gets unique identifiers for deduplication
+
+## Location Architecture
+
+Locations have a sophisticated relationship with the file index:
+
+### Root Entry
+
+When you add a location, Spacedrive creates a **root entry** in the entries table for the location directory itself. This root entry:
+
+- Has no parent (`parent_id = NULL`)
+- Gets a self-reference in the `entry_closure` table
+- Serves as the ancestor for all files/folders within the location
+- Is stored in the `directory_paths` table with its full filesystem path
+
+```rust
+// Location points to root entry
+Location {
+    entry_id: Some(123),  // References entries table
+    // ... other fields
+}
+
+// Root entry for "/Users/alice/Documents"
+Entry {
+    id: 123,
+    name: "Documents",
+    kind: Directory,
+    parent_id: None,  // Root has no parent
+    // ... other fields
+}
+```
+
+### Why Root Entries?
+
+This design enables **nested locations without duplicating the file tree**. If you have:
+
+1. Location A: `/Users/alice/Documents` (entry_id: 123)
+2. Location B: `/Users/alice/Documents/Work` (entry_id: 124)
+
+The entries table contains a single unified tree:
+
+```
+Entry(123): "Documents"           parent_id: NULL
+  ├─ Entry(124): "Work"            parent_id: 123  ← Location B points here
+  │   └─ Entry(125): "report.pdf"  parent_id: 124
+  └─ Entry(126): "Photos"          parent_id: 123
+      └─ Entry(127): "sunset.jpg"  parent_id: 126
+```
+
+**Benefits:**
+- **No duplication** - `Work/report.pdf` exists once in the database, accessible from both locations
+- **Consistent hierarchy** - Parent-child relationships are preserved regardless of location boundaries
+- **Efficient storage** - Adding nested locations doesn't create redundant entry records
+- **Flexible organization** - Users can create fine-grained locations within broader ones
+- **Different index modes** - Apply Deep indexing to `/Photos` but Shallow to `/Photos/RAW` without duplicating entries
+
+Without this design, overlapping locations would require duplicating all entries, leading to sync conflicts and wasted storage.
+
+### Entry Hierarchy
+
+All files and folders within a location form a tree structure:
+
+```
+Location (entry_id: 123)
+  └─ Entry(123): "Documents"           parent_id: NULL
+      ├─ Entry(124): "Work"            parent_id: 123
+      │   └─ Entry(125): "report.pdf"  parent_id: 124
+      └─ Entry(126): "Photos"          parent_id: 123
+          └─ Entry(127): "sunset.jpg"  parent_id: 126
+```
+
+The `entry_closure` table enables efficient queries:
+- "Find all files in this location" → Query where `ancestor_id = 123`
+- "Get file path" → Walk up closure table following parent relationships
+- "Calculate total size" → Aggregate from all descendants
+
+### Directory Paths Table
+
+Directory paths are stored separately for performance:
+
+```sql
+-- directory_paths table
+entry_id | path
+---------|---------------------------
+123      | /Users/alice/Documents
+124      | /Users/alice/Documents/Work
+126      | /Users/alice/Documents/Photos
+```
+
+This avoids storing redundant path information on every file entry and makes path-based lookups significantly faster. Only directories are stored in this table, not individual files.
+
+### Device Ownership & Sync
+
+Entries don't have a `device_id` field. Instead, **ownership is inherited from the location**:
+
+```rust
+// Location owns all its entries
+Location {
+    device_id: 42,    // Device that owns this location
+    entry_id: 123,    // Root of the entry tree
+}
+
+// Entries don't store device_id
+Entry {
+    id: 124,
+    parent_id: 123,   // Part of location's tree
+    // NO device_id field
+}
+```
+
+**Why this matters for sync:**
+
+1. **Efficient ownership queries** - Find all entries owned by a device via `entry_closure`:
+   ```sql
+   SELECT e.* FROM entries e
+   INNER JOIN entry_closure ec ON e.id = ec.descendant_id
+   WHERE ec.ancestor_id IN (
+       SELECT entry_id FROM locations WHERE device_id = ?
+   );
+   ```
+
+2. **No redundant storage** - Avoids storing device_id on millions of entry records
+
+3. **Instant ownership transfer** - When you move an external drive between devices, just update the location's `device_id`. All millions of files instantly change ownership without touching the entries table. See [Library Sync - Portable Volumes](/docs/core/library-sync#portable-volumes--ownership-changes) for details.
+
+**Sync implications:**
+- Only the owning device can modify entries in a location
+- Other devices have read-only views of remote locations
+- Location ownership change is a single-row update (not a bulk migration)
 
 ### Core Properties
 
 ```rust
 pub struct Location {
-    pub id: Uuid,                    // Unique identifier
-    pub library_id: Uuid,            // Library this belongs to
-    pub sd_path: SdPathSerialized,   // Cross-device path (includes device)
-    pub name: String,                // Display name
-    pub index_mode: IndexMode,       // Indexing depth
-    pub scan_interval: Option<Duration>, // Auto-rescan frequency
-    pub scan_state: ScanState,       // Current scanning status
-    pub total_size: u64,             // Total bytes
-    pub file_count: u64,             // Number of files
-    pub directory_count: u64,        // Number of directories
-    pub last_scan_at: Option<DateTime<Utc>>, // Last scan time
-    pub ignore_patterns: Vec<String>, // Patterns to exclude
+    pub id: i32,                     // Database primary key
+    pub uuid: Uuid,                  // Unique identifier
+    pub device_id: i32,              // Device that owns this location
+    pub entry_id: Option<i32>,       // Root entry for this location's tree
+    pub name: Option<String>,        // Display name
+    pub index_mode: String,          // "shallow" | "content" | "deep"
+    pub scan_state: String,          // "pending" | "scanning" | "completed" | "error"
+    pub last_scan_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+    pub total_file_count: i64,
+    pub total_byte_size: i64,
+    pub job_policies: Option<String>, // JSON-serialized policies
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 ```
+
+<Note>
+  See [Data Model - Location](/docs/core/data-model#location) for the complete database schema.
+</Note>
 
 ### Index Modes
 
@@ -86,12 +220,26 @@ let (location_id, job_id) = location_manager
 
 ### What Happens When You Add a Location
 
-1. **Path validation** - Ensures the directory exists
-2. **Duplicate check** - Prevents adding the same path twice
-3. **Database record** - Stores location metadata
-4. **Indexing job** - Starts scanning files
-5. **Watcher setup** - Begins monitoring changes
-6. **Event broadcast** - Notifies other services
+The location creation process is atomic (uses database transactions):
+
+1. **Path validation** - Ensures the directory exists and is accessible
+2. **Create root entry** - Creates an entry for the location directory
+   - Assigns a UUID for sync compatibility
+   - Sets `parent_id = NULL` (this is a root)
+   - Sets `indexed_at` to enable sync emission
+3. **Create closure record** - Adds self-reference to `entry_closure` table
+4. **Create directory path** - Adds full path to `directory_paths` table
+5. **Duplicate check** - Verifies no location already exists for this entry
+6. **Create location record** - Stores location metadata
+   - Links to root entry via `entry_id`
+   - Sets initial `scan_state = "pending"`
+7. **Commit transaction** - All or nothing (prevents partial state)
+8. **Emit sync event** - Broadcasts root entry StateChange for sync
+9. **Start indexing job** - Begins scanning child files/folders
+10. **Watcher setup** - Begins monitoring changes
+11. **Event broadcast** - Notifies other services
+
+If any step fails, the entire transaction rolls back.
 
 ## File System Watching
 
@@ -121,16 +269,33 @@ pub enum WatcherEvent {
 
 ### Automatic Filtering
 
-The watcher ignores noise by default:
+The watcher respects the **indexer rules** configured for each location. These rules determine which files and directories are tracked:
 
-- Temporary files (`.tmp`, `.temp`, `~backup`)
-- System files (`.DS_Store`, `Thumbs.db`)
-- Editor swap files (`.swp`, `.swo`)
-- Build artifacts (unless explicitly included)
+**Available Indexer Rules:**
+- `no_system_files` - Ignores `.DS_Store`, `Thumbs.db`, and other OS-generated files
+- `no_hidden` - Ignores hidden files (dotfiles) except important ones like `.gitignore`
+- `no_git` - Ignores `.git` directories
+- `gitignore` - Respects `.gitignore` patterns in the directory tree
+- `only_images` - Only processes image files
+- `no_dev_dirs` - Ignores `node_modules/`, `target/`, `.cache/`, and other build directories
 
-<Note>
-Hidden files are ignored except important ones like `.gitignore` and `.env`.
+**Default Configuration:**
+```rust
+RuleToggles {
+    no_system_files: true,   // Skip OS junk
+    no_hidden: false,        // Include dotfiles
+    no_git: true,            // Skip .git
+    gitignore: true,         // Respect .gitignore
+    only_images: false,      // Index all file types
+    no_dev_dirs: true,       // Skip build artifacts
+}
+```
+
+<Note type="warning">
+  Currently, the watcher uses hardcoded filtering instead of per-location indexer rules. Integration with the indexer rules engine is planned, which will allow each location to have custom filtering rules configured through the UI.
 </Note>
+
+When indexer rules integration is complete, the watcher will automatically filter events based on each location's configured rules, ensuring consistency between initial indexing and real-time change detection.
 
 ## Configuration
 
@@ -149,16 +314,19 @@ LocationWatcherConfig {
 ### Performance Tuning
 
 **For large directories** (>100k files):
+
 - Increase buffer size to prevent event loss
 - Use longer debounce periods
 - Consider excluding cache directories
 
 **For network drives**:
+
 - Enable polling fallback
 - Increase debounce duration
 - Monitor connection stability
 
 **For SSDs vs HDDs**:
+
 - SSDs: Shorter debounce, larger buffers
 - HDDs: Longer debounce for mechanical latency
 
@@ -224,7 +392,8 @@ spacedrive location remove <location-id>
 ```
 
 <Warning>
-Removing a location doesn't delete files. It only stops Spacedrive from tracking them.
+  Removing a location doesn't delete files. It only stops Spacedrive from
+  tracking them.
 </Warning>
 
 ## Troubleshooting
@@ -278,14 +447,17 @@ spacedrive --log-level debug
 ## Platform Limits
 
 ### macOS
+
 - FSEvents may coalesce rapid changes
 - Volume-level monitoring affects all locations on a drive
 
 ### Linux
+
 - inotify has a watch descriptor limit (usually 8192)
 - Increase with: `echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches`
 
 ### Windows
+
 - Long paths require special handling
 - Network drives may fall back to polling
 
@@ -293,7 +465,10 @@ spacedrive --log-level debug
 
 ### Location Organization
 
-1. **Avoid overlapping paths** - Don't add both parent and child directories
+1. **Nested locations are supported** - You can add both `/Documents` and `/Documents/Work` as separate locations
+   - The file tree is shared, not duplicated
+   - Each location provides a different "view" into the same hierarchy
+   - Useful for applying different index modes or policies to subdirectories
 2. **Group related content** - One location per project or media type
 3. **Consider performance** - Separate frequently-changing directories
 
@@ -344,9 +519,71 @@ Critical events are processed first:
 3. Modifications
 4. Metadata updates
 
+## Implementation Details
+
+### Database Schema
+
+Locations utilize three main tables:
+
+**locations** - Location metadata
+```sql
+CREATE TABLE locations (
+    id INTEGER PRIMARY KEY,
+    uuid BLOB NOT NULL UNIQUE,
+    device_id INTEGER NOT NULL,
+    entry_id INTEGER,  -- References entries(id)
+    name TEXT,
+    index_mode TEXT NOT NULL,
+    scan_state TEXT NOT NULL,
+    -- ... other fields
+    FOREIGN KEY (device_id) REFERENCES devices(id),
+    FOREIGN KEY (entry_id) REFERENCES entries(id)
+);
+```
+
+**entries** - All files and directories (see [Data Model](/docs/core/data-model#entry))
+
+**entry_closure** - Transitive closure table for hierarchy (see [Data Model](/docs/core/data-model#hierarchical-queries))
+
+**directory_paths** - Directory path cache
+```sql
+CREATE TABLE directory_paths (
+    entry_id INTEGER PRIMARY KEY,  -- References entries(id)
+    path TEXT NOT NULL,
+    FOREIGN KEY (entry_id) REFERENCES entries(id)
+);
+```
+
+### Query Patterns
+
+**Find all entries in a location:**
+```sql
+SELECT e.* FROM entries e
+INNER JOIN entry_closure ec ON e.id = ec.descendant_id
+WHERE ec.ancestor_id = (
+    SELECT entry_id FROM locations WHERE uuid = ?
+);
+```
+
+**Get full path for a directory:**
+```sql
+SELECT path FROM directory_paths
+WHERE entry_id = ?;
+```
+
+**Get full path for a file:**
+```sql
+-- Walk up parent chain and concatenate with directory path
+SELECT dp.path || '/' || e.name as full_path
+FROM entries e
+LEFT JOIN entries parent ON e.parent_id = parent.id
+LEFT JOIN directory_paths dp ON parent.id = dp.entry_id
+WHERE e.id = ?;
+```
+
 ## Related Documentation
 
+- [Data Model](/docs/core/data-model) - Complete database schema
 - [Indexing](/docs/core/indexing) - How files are analyzed
 - [Sync](/docs/core/sync) - Cross-device synchronization
 - [Events](/docs/core/events) - Event system architecture
-- [Performance](/docs/core/performance) - Optimization guide

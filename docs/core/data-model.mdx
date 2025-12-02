@@ -22,8 +22,8 @@ The system separates concerns into distinct entities:
 
 It is critical to understand the distinction between two data modeling layers in Spacedrive:
 
-- **Domain Models**: These are the rich objects used throughout the application's business logic. They contain computed fields and methods that provide a powerful, high-level interface to the underlying data. For example, the `domain::Entry` model has an `SdPath` that is constructed at runtime.
-- **Database Entity Models**: These are simpler structs that map directly to the database tables (e.g., `entities::entry::Model`). They represent the raw, persisted state of the data and are optimized for storage and query performance.
+- **Domain Models**: These are the rich objects used throughout the application's business logic. They contain computed fields and methods that provide a powerful, high-level interface to the underlying data. For example, the `domain::File` structure represents several database models such as `entities::entry`, `entities::content_identity`, and `entities::user_metadata`.
+- **Database Entity Models**: These are simpler structs that map directly to the database tables (e.g., `entities::entry`). They represent the raw, persisted state of the data and are optimized for storage and query performance.
 
 The code examples in this document generally refer to the database entity models to accurately represent what is stored on disk. The domain models provide a convenient abstraction over this raw data.
 
@@ -35,24 +35,33 @@ The `SdPath` enum is the universal addressing system for files across all storag
 pub enum SdPath {
     /// A direct pointer to a file on a specific local device
     Physical {
-        device_id: Uuid,    // The device where this file exists
-        path: PathBuf,      // The local filesystem path
+        device_slug: String,  // The device slug (e.g., "jamies-macbook")
+        path: PathBuf,        // The local filesystem path
     },
 
     /// A cloud storage path within a cloud volume
     Cloud {
-        volume_fingerprint: VolumeFingerprint,  // Blake3-based volume identifier
-        path: String,                           // The cloud-native path (e.g., "photos/vacation.jpg")
+        service: CloudServiceType,  // The cloud service type (S3, GoogleDrive, etc.)
+        identifier: String,         // The cloud identifier (bucket name, drive name, etc.)
+        path: String,              // The cloud-native path (e.g., "photos/vacation.jpg")
     },
 
     /// An abstract, location-independent handle via content ID
     Content {
         content_id: Uuid,   // The unique content identifier
     },
+
+    /// A derivative data file (thumbnail, OCR text, embedding, etc.)
+    Sidecar {
+        content_id: Uuid,         // The content this sidecar is derived from
+        kind: SidecarKind,        // The type of sidecar (thumb, ocr, embeddings, etc.)
+        variant: SidecarVariant,  // The specific variant (e.g., "grid@2x", "1080p")
+        format: SidecarFormat,    // The storage format (webp, json, msgpack, etc.)
+    },
 }
 ```
 
-This enum enables transparent operations across local filesystems, cloud storage, and content-addressed files. The `Physical` variant handles traditional filesystem paths, `Cloud` manages cloud storage locations, and `Content` enables deduplication-aware operations by referencing files by their content rather than location.
+This enum enables transparent operations across local filesystems, cloud storage, content-addressed files, and derivative data. The `Physical` variant handles traditional filesystem paths, `Cloud` manages cloud storage locations, `Content` enables deduplication-aware operations by referencing files by their content, and `Sidecar` addresses generated derivative data like thumbnails and embeddings.
 
 ### Unified Addressing
 
@@ -69,6 +78,7 @@ let uri = sd_path.display_with_context(&context).await;
 ```
 
 The addressing system uses:
+
 - **Device slugs** for local paths (e.g., `local://jamies-macbook/path`)
 - **Service-native URIs** for cloud storage (e.g., `s3://`, `gdrive://`, `onedrive://`)
 - **Content UUIDs** for location-independent references
@@ -106,6 +116,7 @@ pub struct Entry {
     pub created_at: DateTime<Utc>,
     pub modified_at: DateTime<Utc>,
     pub accessed_at: Option<DateTime<Utc>>,
+    pub indexed_at: Option<DateTime<Utc>>,  // When this entry was indexed, used for sync
 
 }
 ```
@@ -152,8 +163,10 @@ pub struct ContentIdentity {
     pub kind_id: i32,                 // FK to ContentKind (enum)
 
     // Content metadata
-    pub media_data: Option<Json>,     // Media-specific metadata
     pub text_content: Option<String>, // Extracted text
+    pub image_media_data_id: Option<i32>,  // FK to image-specific metadata
+    pub video_media_data_id: Option<i32>,  // FK to video-specific metadata
+    pub audio_media_data_id: Option<i32>,  // FK to audio-specific metadata
 
     // Statistics
     pub total_size: i64,              // Size of one instance
@@ -187,7 +200,6 @@ pub struct UserMetadata {
     // Scope - exactly one must be set
     pub entry_uuid: Option<Uuid>,           // File-specific metadata
     pub content_identity_uuid: Option<Uuid>, // Content-universal metadata
-    pub model_entity_uuid: Option<Uuid>     // Custom model entity
 
     // Organization
     pub notes: Option<String>,
@@ -204,11 +216,10 @@ pub struct UserMetadata {
 
 ### Metadata Scoping
 
-UserMetadata can be scoped three ways:
+UserMetadata can be scoped two ways:
 
 **Entry-Scoped** - Applies to a specific file instance
 **Content-Scoped** - Applies to all instances of the same content
-**Entity-Scoped** - Applies to custom extension models
 
 ## Semantic Tags
 
@@ -226,7 +237,7 @@ pub struct Tag {
     // Semantic variants
     pub formal_name: Option<String>,  // Formal variant
     pub abbreviation: Option<String>, // Short form
-    pub aliases: Vec<String>,         // Alternative names
+    pub aliases: Option<Json>,        // Vec<String> as JSON
 
     // Context
     pub namespace: Option<String>,    // Disambiguation namespace
@@ -243,8 +254,8 @@ pub struct Tag {
     pub search_weight: i32,           // Search ranking
 
     // Extensibility
-    pub attributes: HashMap<String, Value>,
-    pub composition_rules: Vec<CompositionRule>,
+    pub attributes: Option<Json>,        // HashMap<String, Value> as JSON
+    pub composition_rules: Option<Json>, // Vec<CompositionRule> as JSON
 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -294,7 +305,7 @@ pub struct Location {
     pub id: i32,
     pub uuid: Uuid,
     pub device_id: i32,               // Device that owns this location
-    pub entry_id: i32,                // Root entry for this location
+    pub entry_id: Option<i32>,        // Root entry for this location (nullable during sync)
     pub name: Option<String>,         // User-friendly name
 
     // Indexing configuration
@@ -306,6 +317,7 @@ pub struct Location {
     pub error_message: Option<String>,
     pub total_file_count: i64,
     pub total_byte_size: i64,
+    pub job_policies: Option<String>, // JSON-serialized JobPolicies (local config)
 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -328,6 +340,7 @@ pub struct Device {
     pub id: i32,
     pub uuid: Uuid,
     pub name: String,
+    pub slug: String,                 // URL-safe unique identifier
 
     // System information
     pub os: String,
@@ -371,6 +384,7 @@ pub struct Volume {
     // Capacity
     pub total_capacity: Option<i64>,
     pub available_capacity: Option<i64>,
+    pub unique_bytes: Option<i64>,    // Deduplicated storage usage
 
     // Performance
     pub read_speed_mbps: Option<i32>,
@@ -380,7 +394,11 @@ pub struct Volume {
     // Classification
     pub is_removable: Option<bool>,
     pub is_network_drive: Option<bool>,
+    pub device_model: Option<String>,
     pub volume_type: Option<String>,
+    pub is_user_visible: Option<bool>,     // Visible in UI
+    pub auto_track_eligible: Option<bool>, // Eligible for auto-tracking
+    pub cloud_identifier: Option<String>,  // Cloud volume identifier
 
     // Tracking
     pub tracked_at: DateTime<Utc>,
@@ -398,6 +416,7 @@ Sidecars store generated content like thumbnails:
 ```rust Expandable theme={null}
 pub struct Sidecar {
     pub id: i32,
+    pub uuid: Uuid,
     pub content_uuid: Uuid,           // FK to ContentIdentity
 
     // Classification
@@ -413,6 +432,7 @@ pub struct Sidecar {
     pub size: i64,
     pub checksum: Option<String>,
     pub status: String,               // "pending" | "processing" | "ready" | "error"
+    pub source: Option<String>,       // Source of the sidecar
     pub version: i32,
 
     pub created_at: DateTime<Utc>,
@@ -421,13 +441,18 @@ pub struct Sidecar {
 ```
 
 <Note>
-	Sidecars link to ContentIdentity, not Entry. This means one thumbnail serves
-	all duplicate files.
+  Sidecars link to ContentIdentity, not Entry. This means one thumbnail serves
+  all duplicate files.
 </Note>
 
 ## Extension Models
 
 Extensions create custom tables at runtime to store domain-specific data. These integrate seamlessly with core tagging and organization.
+
+<Note type="warning">
+  The extension system is currently a work in progress. The API and
+  implementation details described here are subject to change.
+</Note>
 
 ### Table Naming
 
@@ -528,7 +553,3 @@ ContentIdentity::find()
 5. **Integer PKs** - Fast local joins, UUIDs only for sync
 
 The data model provides a foundation for powerful file management that scales from single devices to complex multi-device networks.
-
-```
-
-```

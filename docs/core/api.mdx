@@ -3,7 +3,11 @@ title: API
 sidebarTitle: API
 ---
 
-The API infrastructure provides a secure, unified entry point for all Spacedrive operations. It handles authentication, authorization, session management, and request routing across CLI, and native applications.
+<Note type="warning">
+  The API infrastructure is under active development. Some features described here are planned but not yet fully implemented. This document reflects both current implementation and planned architecture.
+</Note>
+
+The API infrastructure provides a secure, unified entry point for all Spacedrive operations. It handles authentication, authorization, session management, and request routing across CLI, Tauri desktop app, and native applications.
 
 ## Architecture Overview
 
@@ -20,15 +24,11 @@ This design enforces security policies consistently while providing rich context
 Sessions encapsulate all request context, replacing simple parameter passing with structured metadata:
 
 ```rust
-let session = SessionContext::new()
-    .with_auth(AuthenticationInfo {
-        device_id: device_uuid,
-        auth_level: AuthLevel::Device,
-        token: Some(device_token),
-    })
-    .with_library(library_uuid)
-    .with_permissions(permission_set)
-    .with_source(RequestSource::CLI);
+// Create a device session (current implementation)
+let session = SessionContext::device_session(device_uuid, device_name)
+    .with_library(library_uuid);
+
+// Session includes pre-configured permissions and metadata
 ```
 
 Sessions include:
@@ -92,16 +92,16 @@ pub struct LibraryPermissions {
 }
 ```
 
-### Permission Policies
+### Permission Enforcement
 
 Configure enforcement behavior:
 
 ```rust
-// Development: Log warnings but allow operations
-let api = ApiDispatcher::new(core, PermissionPolicy::Warn);
+// Development: Permissive mode (allows all operations)
+let api = ApiDispatcher::permissive(core_context);
 
-// Production: Strictly enforce permissions
-let api = ApiDispatcher::new(core, PermissionPolicy::Strict);
+// Production: Enforce permissions
+let api = ApiDispatcher::new(core_context);
 ```
 
 ### Authorization Levels
@@ -146,13 +146,17 @@ Errors automatically map to HTTP status codes for REST endpoints.
 
 ## Middleware Pipeline
 
+<Note type="warning">
+  Middleware pipeline is partially implemented. The infrastructure exists but middleware chaining is not yet active.
+</Note>
+
 Cross-cutting concerns are handled through composable middleware:
 
 ```rust
 let pipeline = MiddlewarePipeline::new()
-    .add(LoggingMiddleware::new())
-    .add(MetricsMiddleware::new(metrics_registry))
-    .add(RateLimitMiddleware::new(rate_limiter));
+    .with_logging()
+    .with_metrics()
+    .with_rate_limiting();
 ```
 
 ### Logging Middleware
@@ -179,19 +183,29 @@ Track where API calls originate:
 
 ```rust
 pub enum RequestSource {
-    CLI,          // Command-line interface
-    Swift,        // iOS/macOS application
+    Cli,          // Command-line interface
+    Swift,        // iOS/macOS native application
     Internal,     // Internal system calls
+    Other(String), // Other sources (including Tauri desktop app)
 }
 ```
+
+<Note>
+  Tauri desktop app currently uses `Other("tauri")` or `Internal`. A dedicated `Tauri` variant is planned.
+</Note>
 
 This enables source-specific behavior like CLI-friendly error messages.
 
 ## API Discovery
 
-Applications can query available operations:
+<Note type="warning">
+  API discovery is a planned feature, not yet implemented.
+</Note>
+
+Applications will be able to query available operations:
 
 ```rust
+// Planned feature
 let surface = api.describe_api();
 
 for op in surface.operations {
@@ -201,7 +215,7 @@ for op in surface.operations {
 }
 ```
 
-This powers dynamic UI generation and permission checking.
+This will power dynamic UI generation and permission checking.
 
 ## Integration Examples
 
@@ -209,20 +223,46 @@ This powers dynamic UI generation and permission checking.
 
 ```rust
 // Create session from CLI context
-let session = SessionContext::new()
-    .with_auth(cli_auth_info())
-    .with_library(current_library_id())
-    .with_source(RequestSource::CLI);
+let session = api.create_base_session()?
+    .with_library(current_library_id());
 
 // Execute operation
 match api.execute_library_action(action, session).await {
     Ok(result) => println!("Success: {:?}", result),
-    Err(ApiError::PermissionDenied { permission, .. }) => {
-        eprintln!("Permission denied: {}", permission);
+    Err(ApiError::InsufficientPermissions { reason }) => {
+        eprintln!("Permission denied: {}", reason);
     }
     Err(e) => eprintln!("Error: {}", e),
 }
 ```
+
+### Tauri Integration
+
+The Tauri desktop app integrates with the core through Rust FFI:
+
+```rust
+// Tauri command handlers call the API dispatcher
+#[tauri::command]
+async fn create_location(
+    path: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Location, String> {
+    let session = state.api.create_base_session()
+        .map_err(|e| e.to_string())?
+        .with_library(state.current_library_id);
+
+    state.api.execute_library_action(
+        CreateLocationAction { path },
+        session
+    ).await.map_err(|e| e.to_string())
+}
+```
+
+The Tauri app can run the daemon in two modes:
+- **In-Process**: Daemon runs within the Tauri app process
+- **Background Process**: Daemon runs as a separate system process (requires macOS entitlements)
+
+See [apps/tauri/DAEMON_SETUP.md](../../apps/tauri/DAEMON_SETUP.md) for configuration details.
 
 ### Swift Integration
 
