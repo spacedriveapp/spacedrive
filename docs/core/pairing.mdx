@@ -11,18 +11,41 @@ Pairing uses a 12-word code to create a secure connection between two devices. T
 
 ### The Pairing Code
 
-Instead of complex cryptographic hashes, Spacedrive uses BIP39 mnemonic codes:
+Spacedrive uses BIP39 mnemonic codes for pairing, which come in two formats:
+
+#### Text Format (Local Network Only)
+
+A 12-word BIP39 mnemonic for manual entry:
 
 ```
-brave-lion-sunset-river-eagle-mountain-forest-ocean-thunder-crystal-diamond-phoenix
+brave lion sunset river eagle mountain forest ocean thunder crystal diamond phoenix
 ```
 
-These codes are:
-
+This format:
+- Works only on the same local network (mDNS discovery)
 - Easy to read and type
-- Contain 128 bits of entropy
+- Contains 128 bits of entropy
 - Valid for 5 minutes
 - Never reused
+
+#### QR Code Format (Local + Internet)
+
+A JSON structure that enables both local and cross-network pairing:
+
+```json
+{
+  "version": 2,
+  "words": "brave lion sunset river eagle mountain forest ocean thunder crystal diamond phoenix",
+  "node_id": "6jn4e7l3pzx2kqhv..."
+}
+```
+
+This format:
+- Works across different networks and the internet
+- Includes the initiator's node_id for pkarr discovery
+- Enables automatic relay fallback
+- Same 5-minute expiration
+- Recommended for most use cases
 
 ### Security Model
 
@@ -33,6 +56,34 @@ The pairing protocol provides multiple security guarantees:
 **Integrity**: Challenge-response prevents tampering
 **Forward secrecy**: New keys for each session
 
+## Choosing a Pairing Method
+
+### When to Use Text Codes
+
+Text-based codes are best for:
+- Devices on the same local network (home, office)
+- Quick pairing without scanning QR codes
+- Situations where QR scanning is inconvenient
+
+**Limitations:**
+- Only works on the same subnet
+- Cannot traverse NATs or firewalls
+- Requires both devices to be on the same physical or virtual network
+
+### When to Use QR Codes
+
+QR codes are recommended for:
+- Pairing across different networks
+- Remote device pairing over the internet
+- Maximum reliability (falls back to relay if needed)
+- Most production use cases
+
+**Benefits:**
+- Works anywhere with internet connectivity
+- Automatic relay fallback for NAT traversal
+- Faster on local networks (dual-path discovery)
+- More reliable overall
+
 ## Pairing Process
 
 ### For the Initiator
@@ -41,19 +92,27 @@ The pairing protocol provides multiple security guarantees:
 <Step title="Generate Code">
 Call the pairing API to generate a code:
 ```typescript
-const code = await client.action("network.pair.generate", {});
-console.log(`Share this code: ${code.code}`);
+const result = await client.action("network.pair.generate", {});
+
+// For local network pairing (manual entry)
+console.log(`Share this code: ${result.code}`);
+
+// For cross-network pairing (QR code)
+console.log(`QR code data: ${result.qr_json}`);
+// Contains: { version: 2, words: "...", node_id: "..." }
 ```
 </Step>
 
 <Step title="Wait for Connection">
-	The device advertises on the network and waits for a joiner. The code expires
-	after 5 minutes.
+	The device advertises via mDNS (local) and pkarr (internet) and waits for a joiner. The code expires after 5 minutes.
+
+	**Advertisement includes:**
+	- Session ID (via mDNS user_data)
+	- Node address published to dns.iroh.link (via pkarr)
 </Step>
 
 <Step title="Verify Joiner">
-	When a joiner connects, the initiator sends a cryptographic challenge to
-	verify they have the correct code.
+	When a joiner connects, the initiator sends a cryptographic challenge to verify they have the correct code and own their device keys.
 </Step>
 
 <Step title="Complete Pairing">
@@ -65,17 +124,33 @@ After verification, both devices exchange session keys and save the pairing rela
 
 <Steps>
 <Step title="Enter Code">
-Enter the 12-word code from the initiator:
+Enter the code from the initiator (text or QR):
 ```typescript
+// Manual entry (local network only)
 await client.action("network.pair.join", {
-    code: "brave-lion-sunset-..."
+    code: "brave lion sunset river eagle mountain forest ocean thunder crystal diamond phoenix"
+});
+
+// QR code scan (local + internet)
+await client.action("network.pair.join", {
+    code: '{"version":2,"words":"brave lion sunset...","node_id":"..."}'
+});
+
+// Manual entry with node_id (enables internet pairing)
+await client.action("network.pair.join", {
+    code: "brave lion sunset...",
+    node_id: "6jn4e7l3pzx2kqhv..."
 });
 ```
 </Step>
 
 <Step title="Discover Device">
-	The system searches for the initiator using: - Local network discovery (mDNS)
-	- Internet discovery (DHT lookup) - Relay servers (if needed)
+	The system searches for the initiator using:
+	- **Local network** (mDNS) - Scans for matching session_id
+	- **Internet** (pkarr/DNS) - Queries dns.iroh.link for node address (requires node_id)
+	- **Relay servers** - Automatic fallback if direct connection fails
+
+	With QR codes, both paths run simultaneously and the first to succeed wins.
 </Step>
 
 <Step title="Prove Identity">
@@ -167,51 +242,90 @@ pub struct PairingSession {
 
 ## Discovery Mechanisms
 
-Devices find each other through multiple methods:
+Devices find each other through multiple methods, depending on the pairing code format:
 
 ### Local Network (mDNS)
 
-On the same network, devices discover each other instantly:
+On the same network, devices discover each other instantly using multicast DNS:
 
 ```rust
-// Automatic local discovery
-discovery.add_mdns();
+// Initiator broadcasts session_id via user_data
+endpoint.set_user_data_for_discovery(Some(session_id));
 
-// Broadcasts: "I'm pairing with session X"
-// Listens for: "I have session X"
+// Joiner listens for matching session_id
+discovery_stream.filter(|item| {
+    item.node_info().data.user_data() == session_id
+});
 ```
 
-### Internet (DHT)
+**How it works:**
+- Initiator includes session_id in mDNS broadcasts
+- Joiner scans local network for matching session_id
+- Typically connects in 1-3 seconds
+- Only works on the same subnet
 
-For pairing across networks, devices use a distributed hash table:
+### Internet (Pkarr/DNS)
+
+For pairing across networks, Spacedrive uses pkarr to publish and resolve node addresses via DNS:
 
 ```rust
-// Publish to DHT
-let key = session_id.to_bytes();
-let record = PairingAdvertisement {
-    device_info,
-    addresses: endpoint.my_addresses(),
-};
-dht.put_record(key, record);
+// Automatic pkarr publishing (done by Iroh)
+.add_discovery(PkarrPublisher::n0_dns())  // Publish to dns.iroh.link
+.add_discovery(DnsDiscovery::n0_dns())    // Resolve from dns.iroh.link
 
-// Query DHT
-let addresses = dht.get_record(session_id).await?;
+// Joiner queries by node_id
+let node_addr = NodeAddr::new(node_id);  // Pkarr resolves in background
+endpoint.connect(node_addr, PAIRING_ALPN).await?;
 ```
+
+**How it works:**
+- Initiator automatically publishes its address to `dns.iroh.link` via pkarr
+- Record includes relay_url and any direct addresses
+- Joiner queries `dns.iroh.link` with the node_id from QR code
+- Pkarr returns all connection options (relay + direct)
+- Takes 5-15 seconds including DNS resolution
+
+<Info>
+Pkarr uses DNS-based discovery backed by the Mainline DHT. It's more reliable than traditional DHT for NAT traversal and works globally.
+</Info>
+
+### Dual-Path Discovery
+
+When using QR codes (with node_id), Spacedrive races both discovery methods:
+
+```rust
+tokio::select! {
+    result = try_mdns_discovery(session_id) => {
+        // Fast path: local network
+    }
+    result = try_relay_discovery(node_id) => {
+        // Reliable path: internet via pkarr
+    }
+}
+// First to succeed wins, other is canceled
+```
+
+This approach optimizes for speed on local networks while ensuring reliability across the internet.
 
 ### Relay Servers
 
-When direct connection fails, devices connect through relay servers:
+When direct connection fails, devices automatically connect through relay servers:
 
 ```rust
-// Automatic relay fallback
-if direct_connection_failed {
-    connection = relay.connect(remote_id).await?;
-}
+// Relay mode configured at startup
+.relay_mode(RelayMode::Default)  // Uses n0's production relays
+
+// Automatic relay fallback during connection
+endpoint.connect(node_addr, PAIRING_ALPN).await?;  // Tries direct, then relay
 ```
 
+**Current Configuration:**
+- Uses n0's default relay servers (North America, Europe, Asia-Pacific)
+- Relay URLs discovered automatically via pkarr
+- Custom relay support coming soon (configurable per-node)
+
 <Info>
-	Relay servers only forward encrypted traffic. They cannot read your data or
-	compromise security.
+Relay servers only forward encrypted QUIC traffic. They cannot decrypt your data or compromise security.
 </Info>
 
 ## Cryptographic Details
@@ -249,6 +363,32 @@ let (tx_key, rx_key) = hkdf::expand(
     64
 );
 ```
+
+### Pkarr Implementation
+
+Spacedrive uses pkarr for decentralized node address resolution:
+
+```rust
+// Automatic publishing (initiator)
+let endpoint = Endpoint::builder()
+    .add_discovery(PkarrPublisher::n0_dns())  // Publishes to dns.iroh.link
+    .bind().await?;
+
+// Automatic resolution (joiner)
+let endpoint = Endpoint::builder()
+    .add_discovery(DnsDiscovery::n0_dns())    // Resolves from dns.iroh.link
+    .bind().await?;
+
+// Discovery happens automatically during connection
+endpoint.connect(NodeAddr::new(node_id), PAIRING_ALPN).await?;
+```
+
+**How Pkarr Works:**
+- Uses DNS TXT records backed by the Mainline DHT
+- Records include relay URL and direct addresses
+- Automatic publishing every time the node's address changes
+- TTL-based caching for performance
+- No manual DHT interaction required
 
 ### Transport Security
 
@@ -407,10 +547,12 @@ async fn test_full_pairing_flow() {
 
 ### For Users
 
-1. **Share codes securely**: Use encrypted messaging or voice calls
-2. **Complete quickly**: Codes expire in 5 minutes
-3. **Verify device names**: Check the paired device is correct
-4. **One code at a time**: Cancel old attempts before starting new ones
+1. **Prefer QR codes**: Use QR codes for reliability across any network
+2. **Share codes securely**: Use encrypted messaging or voice calls for text codes
+3. **Complete quickly**: Codes expire in 5 minutes
+4. **Verify device names**: Check the paired device is correct
+5. **One code at a time**: Cancel old attempts before starting new ones
+6. **Check network connectivity**: For cross-network pairing, ensure internet access
 
 ### For Developers
 
@@ -431,12 +573,16 @@ Check:
 
 ### Cannot Find Device
 
-Try:
+**For text-based codes:**
+- Ensure both devices are on the same local network
+- Check that mDNS is not blocked by firewalls
+- Text codes only work locally - use QR codes for cross-network pairing
 
-- Ensuring both devices are online
-- Checking they're on compatible networks
-- Using relay servers if behind strict NATs
-- Generating a fresh code
+**For QR codes:**
+- Ensure both devices have internet connectivity
+- Check that the node_id is included in the QR code
+- Verify dns.iroh.link is accessible (not blocked by corporate firewalls)
+- Try generating a fresh code
 
 ### Code Invalid or Expired
 
