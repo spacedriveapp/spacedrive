@@ -1,11 +1,12 @@
 ---
 id: CLI-000
 title: "Epic: Command-Line Interface"
-status: In Progress
+status: Done
 assignee: james
 priority: High
 tags: [epic, cli]
 whitepaper: "N/A"
+last_updated: 2025-12-02
 ---
 
 ## Description

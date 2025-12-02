@@ -1,14 +1,14 @@
 ---
 id: LSYNC-010
 title: Peer Sync Service (Leaderless)
-status: In Progress
+status: Done
 assignee: james
 parent: LSYNC-000
 priority: High
 tags: [sync, replication, service, peer-to-peer, leaderless]
 depends_on: [LSYNC-006, LSYNC-014, LSYNC-015, LSYNC-016, LSYNC-013]
 design_doc: core/src/infra/sync/NEW_SYNC.md
-last_updated: 2025-10-15
+last_updated: 2025-12-02
 ---
 
 ## Description

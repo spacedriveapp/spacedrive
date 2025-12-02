@@ -1,12 +1,13 @@
 ---
 id: LSYNC-000
 title: "Epic: Library-based Synchronization (Leaderless)"
-status: In Progress
+status: Done
 assignee: james
 priority: High
 tags: [epic, sync, networking, library-sync, leaderless]
 whitepaper: Section 4.5.1
 design_doc: core/src/infra/sync/NEW_SYNC.md
+last_updated: 2025-12-02
 ---
 
 ## Description

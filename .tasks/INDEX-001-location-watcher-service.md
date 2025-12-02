@@ -1,12 +1,13 @@
 ---
 id: INDEX-001
 title: Location Watcher Service
-status: In Progress
+status: Done
 assignee: james
 parent: INDEX-000
 priority: High
 tags: [indexing, watcher, real-time]
 whitepaper: Section 4.3.3
+last_updated: 2025-12-02
 ---
 
 ## Description

@@ -1,11 +1,11 @@
 ---
 id: LSYNC-020
 title: Device-Owned Deletion Sync via Cascading Tombstones
-status: To Do
+status: Done
 assignee: james
 priority: High
 tags: [sync, core, bug-fix, vdfs]
-last_updated: 2025-10-22
+last_updated: 2025-12-02
 related_tasks: []
 ---
 
