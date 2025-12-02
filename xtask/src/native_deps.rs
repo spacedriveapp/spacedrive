@@ -179,8 +179,7 @@ pub fn bundle_libheif_from_homebrew(root: &Path) -> Result<()> {
 		fs::create_dir_all(&target_dir)?;
 
 		let dest = target_dir.join("libheif.1.dylib");
-		fs::copy(homebrew_libheif, &dest)
-			.context("Failed to copy libheif from Homebrew")?;
+		fs::copy(homebrew_libheif, &dest).context("Failed to copy libheif from Homebrew")?;
 
 		println!("   ✓ Bundled libheif from Homebrew");
 	}
@@ -189,7 +188,7 @@ pub fn bundle_libheif_from_homebrew(root: &Path) -> Result<()> {
 }
 
 /// Create symlinks for shared libraries on Linux
-pub fn symlink_libs_linux(_root: &Path, _native_deps: &Path) -> Result<()> {
+pub fn symlink_libs_linux(root: &Path, native_deps: &Path) -> Result<()> {
 	#[cfg(target_os = "linux")]
 	{
 		use std::os::unix::fs as unix_fs;

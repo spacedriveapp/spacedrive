@@ -58,6 +58,7 @@ specta-swift = { git = "https://github.com/jamiepine/specta", branch = "main" }
 specta-typescript = { git = "https://github.com/jamiepine/specta", branch = "main" }
 strum = { version = "0.26", features = ["derive"] }
 toml = "0.8"
+hostname = "^0.4"
 
 
 # Error handling

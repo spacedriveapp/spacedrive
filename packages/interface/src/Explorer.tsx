@@ -11,7 +11,12 @@ import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExplorerProvider, useExplorer, Sidebar, getSpaceItemKeyFromRoute } from "./components/explorer";
+import {
+  ExplorerProvider,
+  useExplorer,
+  Sidebar,
+  getSpaceItemKeyFromRoute,
+} from "./components/Explorer";
 import {
   SelectionProvider,
   useSelection,
@@ -19,7 +24,10 @@ import {
 import { KeyboardHandler } from "./components/Explorer/KeyboardHandler";
 import { TagAssignmentMode } from "./components/Explorer/TagAssignmentMode";
 import { SpacesSidebar } from "./components/SpacesSidebar";
-import { QuickPreviewFullscreen, PREVIEW_LAYER_ID } from "./components/QuickPreview";
+import {
+  QuickPreviewFullscreen,
+  PREVIEW_LAYER_ID,
+} from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
 import { useNormalizedCache } from "./context";
 import { usePlatform } from "./platform";
@@ -49,7 +57,10 @@ export function ExplorerLayout() {
 
   // Sync route with explorer context for view preferences
   useEffect(() => {
-    const spaceItemKey = getSpaceItemKeyFromRoute(location.pathname, location.search);
+    const spaceItemKey = getSpaceItemKeyFromRoute(
+      location.pathname,
+      location.search,
+    );
     setSpaceItemId(spaceItemKey);
   }, [location.pathname, location.search, setSpaceItemId]);
 
@@ -129,7 +140,9 @@ export function ExplorerLayout() {
 
       <TopBar
         sidebarWidth={sidebarVisible ? 224 : 0}
-        inspectorWidth={inspectorVisible && !isOverview && !isKnowledgeView ? 284 : 0}
+        inspectorWidth={
+          inspectorVisible && !isOverview && !isKnowledgeView ? 284 : 0
+        }
         isPreviewActive={isPreviewActive}
       />
 
@@ -193,7 +206,9 @@ export function ExplorerLayout() {
           hasPrevious={false}
           hasNext={false}
           sidebarWidth={sidebarVisible ? 220 : 0}
-          inspectorWidth={inspectorVisible && !isOverview && !isKnowledgeView ? 280 : 0}
+          inspectorWidth={
+            inspectorVisible && !isOverview && !isKnowledgeView ? 280 : 0
+          }
         />
       )}
     </div>
