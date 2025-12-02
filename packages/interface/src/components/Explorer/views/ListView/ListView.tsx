@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, memo } from "react";
+import { useCallback, useRef, useEffect, memo, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { flexRender } from "@tanstack/react-table";
 import { CaretDown } from "@phosphor-icons/react";
@@ -26,19 +26,28 @@ export const ListView = memo(function ListView() {
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
 
+  // Memoize query input to prevent unnecessary re-fetches
+  const queryInput = useMemo(
+    () =>
+      currentPath
+        ? {
+            path: currentPath,
+            limit: null,
+            include_hidden: false,
+            sort_by: sortBy as DirectorySortBy,
+          }
+        : null!,
+    [currentPath, sortBy]
+  );
+
+  const pathScope = useMemo(() => currentPath ?? undefined, [currentPath]);
+
   const directoryQuery = useNormalizedCache({
     wireMethod: "query:files.directory_listing",
-    input: currentPath
-      ? {
-          path: currentPath,
-          limit: null,
-          include_hidden: false,
-          sort_by: sortBy as DirectorySortBy,
-        }
-      : null!,
+    input: queryInput,
     resourceType: "file",
     enabled: !!currentPath,
-    pathScope: currentPath ?? undefined,
+    pathScope,
   });
 
   const files = directoryQuery.data?.files || [];
@@ -64,37 +73,44 @@ export const ListView = memo(function ListView() {
     }
   }, []);
 
-  // Keyboard navigation
+  // Store values in refs to avoid effect re-runs
+  const rowVirtualizerRef = useRef(rowVirtualizer);
+  rowVirtualizerRef.current = rowVirtualizer;
+  const filesRef = useRef(files);
+  filesRef.current = files;
+
+  // Keyboard navigation - stable effect, uses refs for changing values
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         const direction = e.key === "ArrowDown" ? "down" : "up";
+        const currentFiles = filesRef.current;
 
         const currentIndex = focusedIndex >= 0 ? focusedIndex : 0;
         const newIndex =
           direction === "down"
-            ? Math.min(currentIndex + 1, files.length - 1)
+            ? Math.min(currentIndex + 1, currentFiles.length - 1)
             : Math.max(currentIndex - 1, 0);
 
         if (e.shiftKey) {
           // Range selection with shift
-          if (newIndex !== focusedIndex && files[newIndex]) {
-            selectFile(files[newIndex], files, false, true);
+          if (newIndex !== focusedIndex && currentFiles[newIndex]) {
+            selectFile(currentFiles[newIndex], currentFiles, false, true);
             setFocusedIndex(newIndex);
           }
         } else {
-          moveFocus(direction, files);
+          moveFocus(direction, currentFiles);
         }
 
         // Scroll to keep selection visible
-        rowVirtualizer.scrollToIndex(newIndex, { align: "auto" });
+        rowVirtualizerRef.current.scrollToIndex(newIndex, { align: "auto" });
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedIndex, files, selectFile, setFocusedIndex, moveFocus, rowVirtualizer]);
+  }, [focusedIndex, selectFile, setFocusedIndex, moveFocus]);
 
   // Column sorting handler
   const handleHeaderClick = useCallback(

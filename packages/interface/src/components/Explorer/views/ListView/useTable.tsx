@@ -16,6 +16,9 @@ export const TABLE_HEADER_HEIGHT = 32;
 
 // Column definitions for the list view
 export function useTable(files: File[]) {
+  // Memoize files array reference to prevent unnecessary table updates
+  const stableFiles = useMemo(() => files, [JSON.stringify(files.map(f => f.id))]);
+
   const columns = useMemo<ColumnDef<File>[]>(
     () => [
       {
@@ -55,14 +58,16 @@ export function useTable(files: File[]) {
     []
   );
 
+  const coreRowModel = useMemo(() => getCoreRowModel<File>(), []);
+
   const table = useReactTable({
-    data: files,
+    data: stableFiles,
     columns,
     defaultColumn: {
       minSize: 60,
       maxSize: 500,
     },
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: coreRowModel,
     columnResizeMode: "onChange",
     getRowId: (row) => row.id,
   });

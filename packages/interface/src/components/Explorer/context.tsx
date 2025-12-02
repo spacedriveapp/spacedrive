@@ -135,7 +135,8 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
       setViewModeInternal(prefs.viewMode);
       setViewSettingsInternal(prefs.viewSettings);
     }
-  }, [spaceItemKey, viewPrefs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spaceItemKey]);
 
   // Load sort preferences when path changes
   useEffect(() => {
@@ -143,19 +144,22 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
     if (sortPref) {
       setSortByInternal(sortPref as DirectorySortBy | MediaSortBy);
     }
-  }, [pathKey, sortPrefs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathKey]);
 
   // Wrapper for setViewMode that persists to store
   const setViewMode = useCallback((mode: "grid" | "list" | "media" | "column" | "size" | "knowledge") => {
     setViewModeInternal(mode);
     viewPrefs.setPreferences(spaceItemKey, { viewMode: mode });
-  }, [spaceItemKey, viewPrefs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spaceItemKey]);
 
   // Wrapper for setSortBy that persists to store
   const setSortBy = useCallback((sort: DirectorySortBy | MediaSortBy) => {
     setSortByInternal(sort);
     sortPrefs.setPreferences(pathKey, sort);
-  }, [pathKey, sortPrefs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathKey]);
 
   // Update sort when switching to media view
   useEffect(() => {
@@ -166,7 +170,8 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
       setSortByInternal("modified");
       sortPrefs.setPreferences(pathKey, "modified");
     }
-  }, [viewMode, sortByInternal, pathKey, sortPrefs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, sortByInternal, pathKey]);
 
   const setViewSettings = useCallback((settings: Partial<ViewSettings>) => {
     setViewSettingsInternal((prev) => {
@@ -174,7 +179,8 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
       viewPrefs.setPreferences(spaceItemKey, { viewSettings: updated });
       return updated;
     });
-  }, [spaceItemKey, viewPrefs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spaceItemKey]);
 
   const devicesQuery = useLibraryQuery({
     type: "devices.list",
