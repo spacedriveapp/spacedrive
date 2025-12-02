@@ -223,6 +223,7 @@ cd spacedrive
 
 # Install dependencies
 bun install
+cargo install cargo-xtask # (if not already installed)
 cargo xtask setup
 
 # Run the desktop app (automatically starts daemon)
