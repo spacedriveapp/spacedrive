@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import {
 	Books,
@@ -16,6 +16,7 @@ import {
 	useDialog,
 } from "@sd/ui";
 import { queryClient } from "@sd/ts-client/hooks";
+import type { Event } from "@sd/ts-client";
 import { useCoreMutation, useSpacedriveClient } from "../context";
 import { usePlatform } from "../platform";
 
@@ -61,12 +62,28 @@ function CreateLibraryDialog(props: CreateLibraryDialogProps) {
 
 	const createLibrary = useCoreMutation("libraries.create");
 
+	// Track unsubscribe function and pending library ID in refs
+	const unsubscribeRef = useRef<(() => void) | null>(null);
+	const pendingLibraryIdRef = useRef<string | null>(null);
+	// Buffer to store events received before we know the library ID
+	const receivedEventsRef = useRef<Array<{ id: string; name: string; path: string }>>([]);
+
 	const form = useForm<CreateLibraryFormData>({
 		defaultValues: {
 			name: "",
 			path: null,
 		},
 	});
+
+	// Clean up subscription on unmount
+	useEffect(() => {
+		return () => {
+			if (unsubscribeRef.current) {
+				unsubscribeRef.current();
+				unsubscribeRef.current = null;
+			}
+		};
+	}, []);
 
 	const handleBrowse = async () => {
 		if (!platform.openDirectoryPickerDialog) {
@@ -95,12 +112,49 @@ function CreateLibraryDialog(props: CreateLibraryDialogProps) {
 
 		setStep("creating");
 		setErrorMessage(null);
+		receivedEventsRef.current = [];
+
+		// Set up event subscription BEFORE making the mutation
+		// This ensures we don't miss the LibraryCreated event
+		try {
+			const unsubscribe = await client.subscribe((event: Event) => {
+				if (
+					typeof event === "object" &&
+					"LibraryCreated" in event
+				) {
+					const libraryEvent = event.LibraryCreated;
+
+					// If we already know the library ID, check for match and close
+					if (pendingLibraryIdRef.current === libraryEvent.id) {
+						dialog.state.open = false;
+						if (unsubscribeRef.current) {
+							unsubscribeRef.current();
+							unsubscribeRef.current = null;
+						}
+					} else {
+						// Buffer the event in case it arrives before mutation resolves
+						receivedEventsRef.current.push(libraryEvent);
+					}
+				}
+			});
+			unsubscribeRef.current = unsubscribe;
+		} catch (err) {
+			console.error("Failed to subscribe to events:", err);
+		}
 
 		try {
 			const result = await createLibrary.mutateAsync({
 				name: data.name.trim(),
 				path: data.path,
 			});
+
+			// Store the library ID we're waiting for
+			pendingLibraryIdRef.current = result.library_id;
+
+			// Check if we already received the event (race condition handling)
+			const alreadyReceived = receivedEventsRef.current.some(
+				(e) => e.id === result.library_id
+			);
 
 			// Invalidate the libraries list query to refresh UI
 			await queryClient.invalidateQueries({ queryKey: ["libraries"] });
@@ -116,23 +170,35 @@ function CreateLibraryDialog(props: CreateLibraryDialogProps) {
 				client.setCurrentLibrary(result.library_id);
 			}
 
-			setStep("success");
-
 			// Call the callback if provided
 			if (props.onLibraryCreated) {
 				props.onLibraryCreated(result.library_id);
 			}
 
-			// Auto-close after a short delay
-			setTimeout(() => {
+			if (alreadyReceived) {
+				// Event was already received, close immediately
 				dialog.state.open = false;
-			}, 1500);
+				if (unsubscribeRef.current) {
+					unsubscribeRef.current();
+					unsubscribeRef.current = null;
+				}
+			} else {
+				// Show success state while waiting for event
+				setStep("success");
+				// Dialog will close when LibraryCreated event is received
+			}
 		} catch (error) {
 			console.error("Failed to create library:", error);
 			setErrorMessage(
 				error instanceof Error ? error.message : "Failed to create library",
 			);
 			setStep("error");
+
+			// Clean up subscription on error
+			if (unsubscribeRef.current) {
+				unsubscribeRef.current();
+				unsubscribeRef.current = null;
+			}
 		}
 	});
 
@@ -164,7 +230,7 @@ function CreateLibraryDialog(props: CreateLibraryDialogProps) {
 		);
 	}
 
-	// Success state
+	// Success state - waiting for LibraryCreated event
 	if (step === "success") {
 		return (
 			<Dialog
@@ -184,7 +250,7 @@ function CreateLibraryDialog(props: CreateLibraryDialogProps) {
 							Library created successfully!
 						</p>
 						<p className="text-xs text-ink-dull mt-1">
-							Switching to your new library...
+							Initializing...
 						</p>
 					</div>
 				</div>
