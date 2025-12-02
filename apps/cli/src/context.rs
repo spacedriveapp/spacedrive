@@ -16,7 +16,7 @@ pub struct Context {
 	pub core: CoreClient,
 	pub format: OutputFormat,
 	pub data_dir: PathBuf,
-	pub socket_path: PathBuf,
+	pub socket_addr: String,
 	pub library_id: Option<Uuid>,
 	pub cli_config: CliConfig,
 }
@@ -26,7 +26,7 @@ impl Context {
 		core: CoreClient,
 		format: OutputFormat,
 		data_dir: PathBuf,
-		socket_path: PathBuf,
+		socket_addr: String,
 	) -> Result<Self> {
 		let cli_config = CliConfig::load(&data_dir)?;
 		let library_id = cli_config.current_library_id;
@@ -35,7 +35,7 @@ impl Context {
 			core,
 			format,
 			data_dir,
-			socket_path,
+			socket_addr,
 			library_id,
 			cli_config,
 		})

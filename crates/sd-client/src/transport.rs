@@ -1,24 +1,23 @@
 use anyhow::{anyhow, Result};
 use serde::de::DeserializeOwned;
-use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
+use tokio::net::TcpStream;
 
-pub struct UnixSocketTransport {
-    socket_path: PathBuf,
+pub struct TcpTransport {
+    socket_addr: String,
 }
 
-impl UnixSocketTransport {
-    pub fn new(socket_path: PathBuf) -> Self {
-        Self { socket_path }
+impl TcpTransport {
+    pub fn new(socket_addr: String) -> Self {
+        Self { socket_addr }
     }
 
     pub async fn send_request<O>(&self, request: serde_json::Value) -> Result<O>
     where
         O: DeserializeOwned,
     {
-        // Connect to daemon socket
-        let stream = UnixStream::connect(&self.socket_path).await?;
+        // Connect to daemon
+        let stream = TcpStream::connect(&self.socket_addr).await?;
         let (reader, mut writer) = stream.into_split();
 
         // Send request as newline-delimited JSON

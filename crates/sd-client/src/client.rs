@@ -1,19 +1,18 @@
-use crate::transport::UnixSocketTransport;
+use crate::transport::TcpTransport;
 use crate::types::*;
 use anyhow::Result;
 use serde::Serialize;
-use std::path::PathBuf;
 
 pub struct SpacedriveClient {
-    transport: UnixSocketTransport,
+    transport: TcpTransport,
     library_id: Option<String>,
     http_base_url: String,
 }
 
 impl SpacedriveClient {
-    pub fn new(socket_path: PathBuf, http_base_url: String) -> Self {
+    pub fn new(socket_addr: String, http_base_url: String) -> Self {
         Self {
-            transport: UnixSocketTransport::new(socket_path),
+            transport: TcpTransport::new(socket_addr),
             library_id: None,
             http_base_url,
         }

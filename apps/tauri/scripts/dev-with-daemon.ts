@@ -24,7 +24,8 @@ const __dirname = dirname(__filename);
 // So PROJECT_ROOT is: ../../../
 const PROJECT_ROOT = resolve(__dirname, "../../../");
 const DAEMON_BIN = join(PROJECT_ROOT, "target/debug/sd-daemon");
-const SOCKET_PATH = join(homedir(), "Library/Application Support/spacedrive/daemon/daemon.sock");
+const DAEMON_PORT = 6969;
+const DAEMON_ADDR = `127.0.0.1:${DAEMON_PORT}`;
 const DATA_DIR = join(homedir(), "Library/Application Support/spacedrive");
 
 let daemonProcess: any = null;
@@ -77,33 +78,26 @@ async function main() {
 
 	console.log("Daemon built successfully");
 
-	// Check if daemon is already running
+	// Check if daemon is already running by trying to connect to TCP port
 	let daemonAlreadyRunning = false;
-	if (existsSync(SOCKET_PATH)) {
-		console.log("Daemon socket exists, checking if daemon is responsive...");
-		// Try to connect to see if it's actually running
-		try {
-			const { connect } = await import("net");
-			await new Promise<void>((resolve, reject) => {
-				const client = connect(SOCKET_PATH);
-				client.on("connect", () => {
-					daemonAlreadyRunning = true;
-					client.end();
-					resolve();
-				});
-				client.on("error", () => {
-					// Socket file exists but daemon not running
-					unlinkSync(SOCKET_PATH);
-					reject();
-				});
-				setTimeout(() => reject(), 1000);
-			}).catch(() => {});
-		} catch (e) {
-			// Connection failed, remove stale socket
-			if (existsSync(SOCKET_PATH)) {
-				unlinkSync(SOCKET_PATH);
-			}
-		}
+	console.log(`Checking if daemon is running on ${DAEMON_ADDR}...`);
+	try {
+		const { connect } = await import("net");
+		await new Promise<void>((resolve, reject) => {
+			const client = connect(DAEMON_PORT, "127.0.0.1");
+			client.on("connect", () => {
+				daemonAlreadyRunning = true;
+				client.end();
+				resolve();
+			});
+			client.on("error", () => {
+				reject();
+			});
+			setTimeout(() => reject(), 1000);
+		});
+	} catch (e) {
+		// Connection failed, daemon not running
+		daemonAlreadyRunning = false;
 	}
 
 	if (daemonAlreadyRunning) {
@@ -143,17 +137,27 @@ async function main() {
 			}
 		});
 
-		// Wait for socket to be ready
-		console.log("Waiting for daemon socket...");
+		// Wait for daemon to be ready
+		console.log("Waiting for daemon to be ready...");
 		for (let i = 0; i < 30; i++) {
-			if (existsSync(SOCKET_PATH)) {
-				console.log(`Daemon ready at ${SOCKET_PATH}`);
+			try {
+				const { connect } = await import("net");
+				await new Promise<void>((resolve, reject) => {
+					const client = connect(DAEMON_PORT, "127.0.0.1");
+					client.on("connect", () => {
+						client.end();
+						resolve();
+					});
+					client.on("error", reject);
+					setTimeout(() => reject(), 500);
+				});
+				console.log(`Daemon ready at ${DAEMON_ADDR}`);
 				break;
-			}
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-
-			if (i === 29) {
-				throw new Error("Daemon failed to start (socket not found)");
+			} catch (e) {
+				if (i === 29) {
+					throw new Error("Daemon failed to start (connection not available)");
+				}
+				await new Promise((resolve) => setTimeout(resolve, 1000));
 			}
 		}
 	}

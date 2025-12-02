@@ -244,12 +244,11 @@ async fn main() -> Result<()> {
 			.map_err(|e| anyhow::anyhow!("Invalid instance name: {}", e))?;
 	}
 
-	let socket_path = if let Some(inst) = &instance {
-		data_dir
-			.join("daemon")
-			.join(format!("daemon-{}.sock", inst))
+	let socket_addr = if let Some(inst) = &instance {
+		let port = 6970 + (inst.bytes().map(|b| b as u16).sum::<u16>() % 1000);
+		format!("127.0.0.1:{}", port)
 	} else {
-		data_dir.join("daemon/daemon.sock")
+		"127.0.0.1:6969".to_string()
 	};
 
 	match cli.command {
@@ -258,7 +257,7 @@ async fn main() -> Result<()> {
 			println!("Starting daemon...");
 
 			// Check if daemon is already running
-			let client = CoreClient::new(socket_path.clone());
+			let client = CoreClient::new(socket_addr.clone());
 			match client
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
 				.await
@@ -347,7 +346,7 @@ async fn main() -> Result<()> {
 			}
 
 			println!("Stopping daemon...");
-			let core = CoreClient::new(socket_path.clone());
+			let core = CoreClient::new(socket_addr.clone());
 			let stop_result = core
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
 				.await;
@@ -383,7 +382,7 @@ async fn main() -> Result<()> {
 
 			// First, try to stop the daemon if it's running
 			println!("Stopping daemon...");
-			let core = CoreClient::new(socket_path.clone());
+			let core = CoreClient::new(socket_addr.clone());
 			let stop_result = core
 				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
 				.await;
@@ -454,7 +453,7 @@ async fn main() -> Result<()> {
 				tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
 				// Try to connect to verify it started successfully
-				let core = CoreClient::new(socket_path.clone());
+				let core = CoreClient::new(socket_addr.clone());
 				match core
 					.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
 					.await
@@ -480,7 +479,7 @@ async fn main() -> Result<()> {
 			update::run(data_dir, force).await?;
 		}
 		_ => {
-			run_client_command(cli.command, cli.format, data_dir, socket_path).await?;
+			run_client_command(cli.command, cli.format, data_dir, socket_addr).await?;
 		}
 	}
 
@@ -491,7 +490,7 @@ async fn run_client_command(
 	command: Commands,
 	format: OutputFormat,
 	data_dir: std::path::PathBuf,
-	socket_path: std::path::PathBuf,
+	socket_addr: String,
 ) -> Result<()> {
 	// Initialize device ID and slug from device.json if it exists
 	if let Ok(device_config) = std::fs::read_to_string(data_dir.join("device.json")) {
@@ -507,8 +506,8 @@ async fn run_client_command(
 		}
 	}
 
-	let core = CoreClient::new(socket_path.clone());
-	let mut ctx = Context::new(core, format, data_dir, socket_path)?;
+	let core = CoreClient::new(socket_addr.clone());
+	let mut ctx = Context::new(core, format, data_dir, socket_addr)?;
 
 	ctx.validate_and_fix_library().await?;
 

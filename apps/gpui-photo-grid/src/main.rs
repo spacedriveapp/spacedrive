@@ -9,10 +9,7 @@ fn main() {
     env_logger::init();
 
     // Get configuration from environment
-    let socket_path = env::var("SD_SOCKET_PATH").unwrap_or_else(|_| {
-        let home = env::var("HOME").expect("HOME not set");
-        format!("{}/Library/Application Support/spacedrive/daemon/daemon.sock", home)
-    });
+    let socket_addr = env::var("SD_SOCKET_ADDR").unwrap_or_else(|_| "127.0.0.1:6969".to_string());
 
     let http_url = env::var("SD_HTTP_URL").unwrap_or_else(|_e| "http://127.0.0.1:56851".to_string());
 
@@ -21,7 +18,7 @@ fn main() {
     let initial_path = env::var("SD_INITIAL_PATH").unwrap_or_else(|_e| "/Users/jamespine/Desktop".to_string());
 
     println!("Starting GPUI Photo Grid");
-    println!("  Socket: {}", socket_path);
+    println!("  Socket: {}", socket_addr);
     println!("  HTTP: {}", http_url);
     println!("  Library: {}", library_id);
     println!("  Path: {}", initial_path);
@@ -59,7 +56,7 @@ fn main() {
                 |_, cx| {
                     cx.new(|cx| {
                         PhotoGridView::new(
-                            socket_path.into(),
+                            socket_addr,
                             http_url,
                             library_id,
                             initial_path,

@@ -65,7 +65,7 @@ export const TableRow = memo(function TableRow({
       {/* Background layer for alternating colors and selection */}
       <div
         className={clsx(
-          "absolute inset-0 rounded-md border transition-colors",
+          "absolute inset-0 rounded-md border",
           // Alternating background
           index % 2 === 0 && !isSelected && "bg-app-darkBox/50",
           // Selection styling
@@ -108,7 +108,7 @@ export const TableRow = memo(function TableRow({
               style={{ width: cell.column.getSize() }}
             >
               {isNameColumn ? (
-                <NameCell file={file} isSelected={isSelected} />
+                <NameCell file={file} />
               ) : (
                 <span className="truncate">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -123,32 +123,16 @@ export const TableRow = memo(function TableRow({
 });
 
 // Name cell with icon and tags
-const NameCell = memo(function NameCell({
-  file,
-  isSelected,
-}: {
-  file: File;
-  isSelected: boolean;
-}) {
+const NameCell = memo(function NameCell({ file }: { file: File }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
       {/* File icon */}
-      <div
-        className={clsx(
-          "flex-shrink-0 rounded-md p-1 transition-colors",
-          isSelected ? "bg-app-box/50" : "bg-transparent"
-        )}
-      >
+      <div className="flex-shrink-0">
         <FileComponent.Thumb file={file} size={20} />
       </div>
 
       {/* File name */}
-      <span
-        className={clsx(
-          "truncate rounded px-1.5 py-0.5 text-sm transition-colors",
-          isSelected ? "bg-accent text-white" : "text-ink"
-        )}
-      >
+      <span className="truncate text-sm text-ink">
         {file.name}
       </span>
 

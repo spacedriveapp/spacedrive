@@ -21,9 +21,9 @@ pub struct CoreClient {
 }
 
 impl CoreClient {
-	pub fn new(socket: PathBuf) -> Self {
+	pub fn new(socket_addr: String) -> Self {
 		Self {
-			daemon: DaemonClient::new(socket),
+			daemon: DaemonClient::new(socket_addr),
 		}
 	}
 

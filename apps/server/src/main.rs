@@ -12,7 +12,7 @@ use secstr::SecStr;
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::{
 	io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-	net::UnixStream,
+	net::TcpStream,
 	signal,
 	sync::RwLock,
 };
@@ -21,7 +21,7 @@ use tracing::{info, warn};
 #[derive(Clone)]
 struct AppState {
 	auth: HashMap<String, SecStr>,
-	socket_path: PathBuf,
+	socket_addr: String,
 }
 
 /// Basic auth middleware
@@ -66,13 +66,13 @@ async fn health() -> &'static str {
 	"OK"
 }
 
-/// Proxy RPC requests to the daemon via Unix socket
+/// Proxy RPC requests to the daemon via TCP
 async fn daemon_rpc(
 	State(state): State<AppState>,
 	Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
 	// Connect to daemon
-	let mut stream = UnixStream::connect(&state.socket_path)
+	let mut stream = TcpStream::connect(&state.socket_addr)
 		.await
 		.map_err(|e| (StatusCode::SERVICE_UNAVAILABLE, format!("Daemon not available: {}", e)))?;
 
@@ -160,19 +160,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		});
 
 	// Calculate instance-specific paths
-	let (data_dir, socket_path) = if let Some(instance) = &args.instance {
+	let (data_dir, socket_addr) = if let Some(instance) = &args.instance {
 		let instance_data_dir = base_data_dir.join("instances").join(instance);
-		let socket_path = base_data_dir
-			.join("daemon")
-			.join(format!("daemon-{}.sock", instance));
-		(instance_data_dir, socket_path)
+		let port = 6970 + (instance.bytes().map(|b| b as u16).sum::<u16>() % 1000);
+		let socket_addr = format!("127.0.0.1:{}", port);
+		(instance_data_dir, socket_addr)
 	} else {
-		let socket_path = base_data_dir.join("daemon/daemon.sock");
-		(base_data_dir.clone(), socket_path)
+		let socket_addr = "127.0.0.1:6969".to_string();
+		(base_data_dir.clone(), socket_addr)
 	};
 
 	info!("Data directory: {:?}", data_dir);
-	info!("Socket path: {:?}", socket_path);
+	info!("Socket address: {}", socket_addr);
 
 	// Parse authentication
 	let (auth, _disabled) = parse_auth(args.auth.as_deref());
@@ -186,18 +185,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		std::process::exit(1);
 	}
 
-	// Ensure daemon directory exists
-	if let Some(parent) = socket_path.parent() {
-		std::fs::create_dir_all(parent)?;
-	}
-
 	// Start the daemon if not already running
-	let daemon_handle = start_daemon_if_needed(socket_path.clone(), data_dir.clone(), args.p2p).await?;
+	let daemon_handle = start_daemon_if_needed(socket_addr.clone(), data_dir.clone(), args.p2p).await?;
 
 	// Build HTTP router
 	let state = AppState {
 		auth,
-		socket_path: socket_path.clone(),
+		socket_addr: socket_addr.clone(),
 	};
 
 	let app = Router::new()
@@ -267,33 +261,25 @@ fn parse_auth(auth_str: Option<&str>) -> (HashMap<String, SecStr>, bool) {
 
 /// Start the daemon if it's not already running
 async fn start_daemon_if_needed(
-	socket_path: PathBuf,
+	socket_addr: String,
 	data_dir: PathBuf,
 	enable_p2p: bool,
 ) -> Result<Option<Arc<RwLock<tokio::task::JoinHandle<()>>>>, Box<dyn std::error::Error>> {
-	// Check if daemon is already running
-	if socket_path.exists() {
-		match UnixStream::connect(&socket_path).await {
-			Ok(_) => {
-				info!("✓ Daemon already running");
-				return Ok(None);
-			}
-			Err(_) => {
-				warn!("Stale socket file found, removing...");
-				std::fs::remove_file(&socket_path).ok();
-			}
-		}
+	// Check if daemon is already running by sending a ping
+	if is_daemon_running(&socket_addr).await {
+		info!("✓ Daemon already running");
+		return Ok(None);
 	}
 
 	info!("Starting embedded daemon...");
 
 	// Start daemon in background task
-	let socket_path_clone = socket_path.clone();
+	let socket_addr_clone = socket_addr.clone();
 	let data_dir_clone = data_dir.clone();
 
 	let handle = tokio::spawn(async move {
 		if let Err(e) = sd_core::infra::daemon::bootstrap::start_default_server(
-			socket_path_clone,
+			socket_addr_clone,
 			data_dir_clone,
 			enable_p2p,
 		)
@@ -303,10 +289,10 @@ async fn start_daemon_if_needed(
 		}
 	});
 
-	// Wait for socket to be created (daemon startup)
+	// Wait for daemon to be ready
 	for i in 0..30 {
 		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-		if socket_path.exists() {
+		if TcpStream::connect(&socket_addr).await.is_ok() {
 			info!("✓ Daemon started successfully");
 			return Ok(Some(Arc::new(RwLock::new(handle))));
 		}
@@ -315,7 +301,39 @@ async fn start_daemon_if_needed(
 		}
 	}
 
-	Err("Daemon failed to start (socket not created after 3 seconds)".into())
+	Err("Daemon failed to start (connection not available after 3 seconds)".into())
+}
+
+/// Check if daemon is running by sending a ping
+async fn is_daemon_running(socket_addr: &str) -> bool {
+	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+	let mut stream = match TcpStream::connect(socket_addr).await {
+		Ok(s) => s,
+		Err(_) => return false,
+	};
+
+	let ping_request = serde_json::json!({"Ping": null});
+	let request_line = match serde_json::to_string(&ping_request) {
+		Ok(s) => s,
+		Err(_) => return false,
+	};
+
+	if stream.write_all(format!("{}\n", request_line).as_bytes()).await.is_err() {
+		return false;
+	}
+
+	let (reader, _writer) = stream.into_split();
+	let mut buf_reader = BufReader::new(reader);
+	let mut response_line = String::new();
+
+	match tokio::time::timeout(
+		tokio::time::Duration::from_millis(500),
+		buf_reader.read_line(&mut response_line)
+	).await {
+		Ok(Ok(_)) if !response_line.is_empty() => true,
+		_ => false,
+	}
 }
 
 /// Graceful shutdown handler

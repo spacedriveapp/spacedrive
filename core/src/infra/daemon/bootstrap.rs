@@ -7,7 +7,7 @@ use crate::Core;
 
 /// Start a daemon server with a single Core instance
 pub async fn start_default_server(
-	socket_path: PathBuf,
+	socket_addr: String,
 	data_dir: PathBuf,
 	enable_networking: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -30,7 +30,7 @@ pub async fn start_default_server(
 
 	info!("Starting Spacedrive daemon");
 	info!("Data directory: {:?}", data_dir);
-	info!("Socket path: {:?}", socket_path);
+	info!("Socket address: {}", socket_addr);
 	info!("Networking enabled: {}", enable_networking);
 
 	// Log file descriptor limits for debugging
@@ -49,7 +49,7 @@ pub async fn start_default_server(
 		}
 	}
 
-	let mut server = RpcServer::new(socket_path, core.clone());
+	let mut server = RpcServer::new(socket_addr, core.clone());
 
 	// Start the server, which will initialize event streaming
 	server.start().await

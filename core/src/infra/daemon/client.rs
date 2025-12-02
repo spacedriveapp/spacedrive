@@ -1,6 +1,5 @@
-use std::path::PathBuf;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
+use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use crate::infra::daemon::types::{DaemonRequest, DaemonResponse};
@@ -9,22 +8,22 @@ use crate::infra::event::log_emitter::LogMessage;
 
 #[derive(Clone)]
 pub struct DaemonClient {
-	socket_path: PathBuf,
+	socket_addr: String,
 }
 
 impl DaemonClient {
-	pub fn new(socket_path: PathBuf) -> Self {
-		Self { socket_path }
+	pub fn new(socket_addr: String) -> Self {
+		Self { socket_addr }
 	}
 
 	pub async fn send(
 		&self,
 		req: &DaemonRequest,
 	) -> Result<DaemonResponse, Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
+		let mut stream = TcpStream::connect(&self.socket_addr).await.map_err(|e| {
 			format!(
-				"Failed to connect to daemon socket at {}: {}",
-				self.socket_path.display(),
+				"Failed to connect to daemon at {}: {}",
+				self.socket_addr,
 				e
 			)
 		})?;
@@ -60,10 +59,10 @@ impl DaemonClient {
 		request: &DaemonRequest,
 		event_tx: mpsc::UnboundedSender<Event>,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
+		let mut stream = TcpStream::connect(&self.socket_addr).await.map_err(|e| {
 			format!(
-				"Failed to connect to daemon socket at {}: {}",
-				self.socket_path.display(),
+				"Failed to connect to daemon at {}: {}",
+				self.socket_addr,
 				e
 			)
 		})?;
@@ -122,10 +121,10 @@ impl DaemonClient {
 		request: &DaemonRequest,
 		log_tx: mpsc::UnboundedSender<LogMessage>,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = UnixStream::connect(&self.socket_path).await.map_err(|e| {
+		let mut stream = TcpStream::connect(&self.socket_addr).await.map_err(|e| {
 			format!(
-				"Failed to connect to daemon socket at {}: {}",
-				self.socket_path.display(),
+				"Failed to connect to daemon at {}: {}",
+				self.socket_addr,
 				e
 			)
 		})?;

@@ -134,21 +134,24 @@ fn parse_wmic_output(
 			let mount_type = determine_mount_type_windows(caption);
 			let disk_type = DiskType::Unknown; // Would need additional WMI queries
 
-			let volume = Volume::new(
+			let volume_type = classify_volume(&mount_path, &file_system, &name);
+			let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
+
+			let mut volume = Volume::new(
 				device_id,
+				fingerprint,
 				name.clone(),
-				mount_type,
-				classify_volume(&mount_path, &file_system, &name),
 				mount_path,
-				vec![],
-				disk_type,
-				file_system.clone(),
-				total_bytes,
-				available_bytes,
-				false, // Would need additional check for read-only
-				Some(caption.to_string()),
-				VolumeFingerprint::new(&name, total_bytes, &file_system.to_string()),
 			);
+
+			volume.mount_type = mount_type;
+			volume.volume_type = volume_type;
+			volume.disk_type = disk_type;
+			volume.file_system = file_system;
+			volume.total_capacity = total_bytes;
+			volume.available_space = available_bytes;
+			volume.is_read_only = false;
+			volume.hardware_id = Some(caption.to_string());
 
 			volumes.push(volume);
 		}
@@ -216,22 +219,24 @@ pub fn create_volume_from_windows_info(
 	} else {
 		MountType::System
 	};
+	let volume_type = classify_volume(&mount_path, &file_system, &name);
+	let fingerprint = VolumeFingerprint::new(&name, info.size, &file_system.to_string());
 
-	let volume = Volume::new(
+	let mut volume = Volume::new(
 		device_id,
+		fingerprint,
 		name.clone(),
-		mount_type,
-		classify_volume(&mount_path, &file_system, &name),
 		mount_path,
-		vec![],
-		DiskType::Unknown, // Would need additional detection
-		file_system.clone(),
-		info.size,
-		info.size_remaining,
-		false, // Would need additional check for read-only
-		info.volume_guid,
-		VolumeFingerprint::new(&name, info.size, &file_system.to_string()),
 	);
+
+	volume.mount_type = mount_type;
+	volume.volume_type = volume_type;
+	volume.disk_type = DiskType::Unknown;
+	volume.file_system = file_system;
+	volume.total_capacity = info.size;
+	volume.available_space = info.size_remaining;
+	volume.is_read_only = false;
+	volume.hardware_id = info.volume_guid;
 
 	Ok(volume)
 }

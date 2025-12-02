@@ -78,7 +78,7 @@ fn get_default_event_subscription() -> Vec<&'static str> {
 /// Daemon state - tracks if we started it or connected to existing one
 struct DaemonState {
 	started_by_us: bool,
-	socket_path: PathBuf,
+	socket_addr: String,
 	data_dir: PathBuf,
 	server_url: Option<String>,
 	#[allow(dead_code)]
@@ -87,19 +87,19 @@ struct DaemonState {
 }
 
 /// Daemon connection pool - maintains ONE persistent connection for all subscriptions
-/// Multiplexes Subscribe/Unsubscribe messages over a single Unix socket
+/// Multiplexes Subscribe/Unsubscribe messages over a single TCP connection
 struct DaemonConnectionPool {
-	socket_path: PathBuf,
-	writer: Arc<tokio::sync::Mutex<Option<tokio::net::unix::OwnedWriteHalf>>>,
+	socket_addr: String,
+	writer: Arc<tokio::sync::Mutex<Option<tokio::net::tcp::OwnedWriteHalf>>>,
 	subscriptions: Arc<RwLock<HashMap<u64, ()>>>,
 	counter: std::sync::atomic::AtomicU64,
 	initialized: Arc<tokio::sync::Mutex<bool>>,
 }
 
 impl DaemonConnectionPool {
-	fn new(socket_path: PathBuf) -> Self {
+	fn new(socket_addr: String) -> Self {
 		Self {
-			socket_path,
+			socket_addr,
 			writer: Arc::new(tokio::sync::Mutex::new(None)),
 			subscriptions: Arc::new(RwLock::new(HashMap::new())),
 			counter: std::sync::atomic::AtomicU64::new(0),
@@ -117,9 +117,9 @@ impl DaemonConnectionPool {
 		tracing::info!("Initializing persistent daemon connection");
 
 		use tokio::io::{AsyncBufReadExt, BufReader};
-		use tokio::net::UnixStream;
+		use tokio::net::TcpStream;
 
-		let stream = UnixStream::connect(&self.socket_path)
+		let stream = TcpStream::connect(&self.socket_addr)
 			.await
 			.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
 
@@ -304,7 +304,7 @@ struct AppState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DaemonStatusResponse {
 	is_running: bool,
-	socket_path: String,
+	socket_addr: String,
 	server_url: Option<String>,
 	started_by_us: bool,
 }
@@ -330,13 +330,13 @@ async fn app_ready(app: AppHandle) {
 	}
 }
 
-/// Get the daemon socket path for the frontend to connect
+/// Get the daemon socket address for the frontend to connect
 #[tauri::command]
 async fn get_daemon_socket(
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<String, String> {
 	let state = state.read().await;
-	Ok(state.socket_path.to_string_lossy().to_string())
+	Ok(state.socket_addr.clone())
 }
 
 /// Get the HTTP server URL for serving files/sidecars
@@ -482,11 +482,11 @@ async fn daemon_request(
 
 	tracing::debug!("Proxying daemon request: {:?}", request);
 
-	// Connect to daemon via Unix socket
+	// Connect to daemon via TCP
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-	use tokio::net::UnixStream;
+	use tokio::net::TcpStream;
 
-	let mut stream = UnixStream::connect(&daemon_state.socket_path)
+	let mut stream = TcpStream::connect(&daemon_state.socket_addr)
 		.await
 		.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
 
@@ -545,10 +545,10 @@ async fn subscribe_to_events(
 	);
 
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-	use tokio::net::UnixStream;
+	use tokio::net::TcpStream;
 	use tokio::sync::oneshot;
 
-	let socket_path = daemon_state.socket_path.clone();
+	let socket_addr = daemon_state.socket_addr.clone();
 
 	// Create cancellation channel
 	let (cancel_tx, mut cancel_rx) = oneshot::channel::<()>();
@@ -561,7 +561,7 @@ async fn subscribe_to_events(
 
 	// Spawn background task to listen for events
 	tauri::async_runtime::spawn(async move {
-		let stream = match UnixStream::connect(&socket_path).await {
+		let stream = match TcpStream::connect(&socket_addr).await {
 			Ok(s) => s,
 			Err(e) => {
 				tracing::error!("Failed to connect for events: {}", e);
@@ -722,11 +722,11 @@ async fn get_daemon_status(
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<DaemonStatusResponse, String> {
 	let daemon_state = state.read().await;
-	let is_running = is_daemon_running(&daemon_state.socket_path).await;
+	let is_running = is_daemon_running(&daemon_state.socket_addr).await;
 
 	Ok(DaemonStatusResponse {
 		is_running,
-		socket_path: daemon_state.socket_path.to_string_lossy().to_string(),
+		socket_addr: daemon_state.socket_addr.clone(),
 		server_url: daemon_state.server_url.clone(),
 		started_by_us: daemon_state.started_by_us,
 	})
@@ -737,21 +737,21 @@ async fn get_daemon_status(
 async fn start_daemon_process(
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<(), String> {
-	let (data_dir, socket_path) = {
+	let (data_dir, socket_addr) = {
 		let daemon_state = state.read().await;
 		(
 			daemon_state.data_dir.clone(),
-			daemon_state.socket_path.clone(),
+			daemon_state.socket_addr.clone(),
 		)
 	};
 
 	// Check if already running
-	if is_daemon_running(&socket_path).await {
+	if is_daemon_running(&socket_addr).await {
 		return Err("Daemon is already running".to_string());
 	}
 
 	// Start the daemon
-	let child = start_daemon(&data_dir, &socket_path).await?;
+	let child = start_daemon(&data_dir, &socket_addr).await?;
 
 	// Store the process handle
 	let mut daemon_state = state.write().await;
@@ -805,27 +805,47 @@ async fn open_macos_settings() -> Result<(), String> {
 	Ok(())
 }
 
-/// Check if daemon is running by trying to connect to it
-async fn is_daemon_running(socket_path: &PathBuf) -> bool {
-	use tokio::net::UnixStream;
+/// Check if daemon is running by trying to connect and send a ping
+async fn is_daemon_running(socket_addr: &str) -> bool {
+	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+	use tokio::net::TcpStream;
 
-	if !socket_path.exists() {
+	// Try to connect and send a ping request
+	let mut stream = match TcpStream::connect(socket_addr).await {
+		Ok(s) => s,
+		Err(_) => return false,
+	};
+
+	// Send a ping request
+	let ping_request = serde_json::json!({
+		"Ping": null
+	});
+
+	let request_line = match serde_json::to_string(&ping_request) {
+		Ok(s) => s,
+		Err(_) => return false,
+	};
+
+	if stream.write_all(format!("{}\n", request_line).as_bytes()).await.is_err() {
 		return false;
 	}
 
-	// Try to actually connect to the socket
-	match UnixStream::connect(socket_path).await {
-		Ok(_) => {
-			tracing::debug!("Successfully connected to daemon socket");
+	// Try to read response with a short timeout
+	let (reader, _writer) = stream.into_split();
+	let mut buf_reader = BufReader::new(reader);
+	let mut response_line = String::new();
+
+	// Add a timeout for reading
+	match tokio::time::timeout(
+		tokio::time::Duration::from_millis(500),
+		buf_reader.read_line(&mut response_line)
+	).await {
+		Ok(Ok(_)) if !response_line.is_empty() => {
+			tracing::debug!("Daemon responded to ping: {}", response_line.trim());
 			true
 		}
-		Err(e) => {
-			tracing::warn!(
-				"Socket file exists but connection failed: {}. Will clean up stale socket.",
-				e
-			);
-			// Remove stale socket file
-			std::fs::remove_file(socket_path).ok();
+		_ => {
+			tracing::debug!("Daemon did not respond to ping");
 			false
 		}
 	}
@@ -834,7 +854,7 @@ async fn is_daemon_running(socket_path: &PathBuf) -> bool {
 /// Start the daemon as a background process
 async fn start_daemon(
 	data_dir: &PathBuf,
-	socket_path: &PathBuf,
+	socket_addr: &str,
 ) -> Result<std::process::Child, String> {
 	// Find the daemon binary
 	let daemon_path = if cfg!(debug_assertions) {
@@ -878,11 +898,11 @@ async fn start_daemon(
 		.spawn()
 		.map_err(|e| format!("Failed to start daemon: {}", e))?;
 
-	// Wait for socket to be created (daemon startup)
+	// Wait for daemon to be ready
 	for i in 0..30 {
 		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-		if socket_path.exists() {
-			tracing::info!("Daemon socket created: {:?}", socket_path);
+		if is_daemon_running(socket_addr).await {
+			tracing::info!("Daemon ready at {}", socket_addr);
 			return Ok(child);
 		}
 		if i == 10 {
@@ -890,7 +910,7 @@ async fn start_daemon(
 		}
 	}
 
-	Err("Daemon failed to start (socket not created after 3 seconds)".to_string())
+	Err("Daemon failed to start (connection not available after 3 seconds)".to_string())
 }
 
 fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -1026,13 +1046,13 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
 						// Send request to daemon using the daemon_request logic
 						use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-						use tokio::net::UnixStream;
+						use tokio::net::TcpStream;
 
 						let state = daemon_state.read().await;
-						let socket_path = state.socket_path.clone();
+						let socket_addr = state.socket_addr.clone();
 						drop(state);
 
-						match UnixStream::connect(&socket_path).await {
+						match TcpStream::connect(&socket_addr).await {
 							Ok(mut stream) => {
 								// Send request
 								let request_line = match serde_json::to_string(&request) {
@@ -1277,12 +1297,12 @@ fn main() {
 			let data_dir =
 				sd_core::config::default_data_dir().expect("Failed to get default data directory");
 
-			let socket_path = data_dir.join("daemon/daemon.sock");
+			let socket_addr = "127.0.0.1:6969".to_string();
 
 			// Initialize state immediately (before async operations)
 			let daemon_state = Arc::new(RwLock::new(DaemonState {
 				started_by_us: false,
-				socket_path: socket_path.clone(),
+				socket_addr: socket_addr.clone(),
 				data_dir: data_dir.clone(),
 				server_url: None,
 				server_shutdown: None,
@@ -1312,7 +1332,7 @@ fn main() {
 		let app_state = AppState {
 			current_library_id: Arc::new(RwLock::new(persisted_library_id)),
 			selected_file_ids: Arc::new(RwLock::new(Vec::new())),
-			connection_pool: Arc::new(DaemonConnectionPool::new(socket_path.clone())),
+			connection_pool: Arc::new(DaemonConnectionPool::new(socket_addr.clone())),
 			subscription_manager: SubscriptionManager::new(),
 		};
 
@@ -1325,7 +1345,7 @@ fn main() {
 			// Initialize daemon connection in background
 			tauri::async_runtime::spawn(async move {
 				tracing::info!("Data directory: {:?}", data_dir);
-				tracing::info!("Socket path: {:?}", socket_path);
+				tracing::info!("Socket address: {:?}", socket_addr);
 
 				// Start HTTP server for serving files/sidecars
 				match server::start_server(data_dir.clone()).await {
@@ -1341,16 +1361,13 @@ fn main() {
 				}
 
 				// Ensure daemon directory exists
-				if let Some(parent) = socket_path.parent() {
-					std::fs::create_dir_all(parent).ok();
-				}
 
-				let (started_by_us, child_process) = if is_daemon_running(&socket_path).await {
+				let (started_by_us, child_process) = if is_daemon_running(&socket_addr).await {
 					tracing::info!("Daemon already running, connecting to existing instance");
 					(false, None)
 				} else {
 					tracing::info!("No daemon running, starting new instance");
-					match start_daemon(&data_dir, &socket_path).await {
+					match start_daemon(&data_dir, &socket_addr).await {
 						Ok(child) => (
 							true,
 							Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))),

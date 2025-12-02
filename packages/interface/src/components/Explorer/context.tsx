@@ -160,11 +160,13 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
   // Update sort when switching to media view
   useEffect(() => {
     if (viewMode === "media" && sortByInternal === "type") {
-      setSortBy("datetaken");
+      setSortByInternal("datetaken");
+      sortPrefs.setPreferences(pathKey, "datetaken");
     } else if (viewMode !== "media" && sortByInternal === "datetaken") {
-      setSortBy("modified");
+      setSortByInternal("modified");
+      sortPrefs.setPreferences(pathKey, "modified");
     }
-  }, [viewMode, sortByInternal, setSortBy]);
+  }, [viewMode, sortByInternal, pathKey, sortPrefs]);
 
   const setViewSettings = useCallback((settings: Partial<ViewSettings>) => {
     setViewSettingsInternal((prev) => {

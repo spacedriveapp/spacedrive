@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixListener;
+use tokio::net::TcpListener;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
@@ -23,9 +22,9 @@ struct Connection {
 	log_filter: Option<crate::infra::daemon::types::LogFilter>,
 }
 
-/// Minimal JSON-over-UDS RPC server with event streaming support
+/// Minimal JSON-over-TCP RPC server with event streaming support
 pub struct RpcServer {
-	socket_path: PathBuf,
+	socket_addr: String,
 	core: Arc<Core>,
 	shutdown_tx: mpsc::Sender<()>,
 	shutdown_rx: mpsc::Receiver<()>,
@@ -38,10 +37,10 @@ pub struct RpcServer {
 }
 
 impl RpcServer {
-	pub fn new(socket_path: PathBuf, core: Arc<Core>) -> Self {
+	pub fn new(socket_addr: String, core: Arc<Core>) -> Self {
 		let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
 		Self {
-			socket_path,
+			socket_addr,
 			core,
 			shutdown_tx,
 			shutdown_rx,
@@ -53,12 +52,8 @@ impl RpcServer {
 
 	pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
 		tracing::info!("Starting RPC server...");
-		if std::fs::remove_file(&self.socket_path).is_ok() {}
-		if let Some(parent) = self.socket_path.parent() {
-			std::fs::create_dir_all(parent)?;
-		}
-		let listener = UnixListener::bind(&self.socket_path)?;
-		tracing::info!("RPC server bound to socket: {:?}", self.socket_path);
+		let listener = TcpListener::bind(&self.socket_addr).await?;
+		tracing::info!("RPC server bound to: {}", self.socket_addr);
 
 		// Start event broadcaster
 		tracing::info!("Starting event broadcaster...");
@@ -299,7 +294,7 @@ impl RpcServer {
 
 	/// Handle individual client connection concurrently
 	async fn handle_connection(
-		stream: tokio::net::UnixStream,
+		stream: tokio::net::TcpStream,
 		core: Arc<Core>,
 		shutdown_tx: mpsc::Sender<()>,
 		connections: Arc<RwLock<HashMap<Uuid, Connection>>>,

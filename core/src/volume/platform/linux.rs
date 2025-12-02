@@ -102,22 +102,24 @@ fn parse_df_line(
 	let mount_type = determine_mount_type(mount_point, filesystem_device);
 	let disk_type = detect_disk_type_linux(filesystem_device)?;
 	let file_system = utils::parse_filesystem_type(filesystem_type);
+	let volume_type = classify_volume(&mount_path, &file_system, &name);
+	let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
 
-	let volume = Volume::new(
+	let mut volume = Volume::new(
 		device_id,
+		fingerprint,
 		name.clone(),
-		mount_type,
-		classify_volume(&mount_path, &file_system, &name),
 		mount_path,
-		vec![],
-		disk_type,
-		file_system.clone(),
-		total_bytes,
-		available_bytes,
-		false, // Would need additional check for read-only
-		Some(filesystem_device.to_string()),
-		VolumeFingerprint::new(&name, total_bytes, &file_system.to_string()),
 	);
+
+	volume.mount_type = mount_type;
+	volume.volume_type = volume_type;
+	volume.disk_type = disk_type;
+	volume.file_system = file_system;
+	volume.total_capacity = total_bytes;
+	volume.available_space = available_bytes;
+	volume.is_read_only = false;
+	volume.hardware_id = Some(filesystem_device.to_string());
 
 	Ok(Some(volume))
 }
@@ -249,22 +251,24 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 
 	let mount_type = determine_mount_type(&mount.mount_point, &mount.device);
 	let disk_type = detect_disk_type_linux(&mount.device)?;
+	let volume_type = classify_volume(&mount_path, &file_system, &name);
+	let fingerprint = VolumeFingerprint::new(&name, mount.total_bytes, &file_system.to_string());
 
-	let volume = Volume::new(
+	let mut volume = Volume::new(
 		device_id,
+		fingerprint,
 		name.clone(),
-		mount_type,
-		classify_volume(&mount_path, &file_system, &name),
 		mount_path,
-		vec![],
-		disk_type,
-		file_system.clone(),
-		mount.total_bytes,
-		mount.available_bytes,
-		false, // Would need additional check for read-only
-		Some(mount.device),
-		VolumeFingerprint::new(&name, mount.total_bytes, &file_system.to_string()),
 	);
+
+	volume.mount_type = mount_type;
+	volume.volume_type = volume_type;
+	volume.disk_type = disk_type;
+	volume.file_system = file_system;
+	volume.total_capacity = mount.total_bytes;
+	volume.available_space = mount.available_bytes;
+	volume.is_read_only = false;
+	volume.hardware_id = Some(mount.device);
 
 	Ok(volume)
 }

@@ -1,6 +1,5 @@
 use gpui::*;
 use sd_client::{File, SdPath, SpacedriveClient};
-use std::path::PathBuf;
 use std::sync::Arc;
 
 pub struct PhotoGridView {
@@ -15,13 +14,13 @@ pub struct PhotoGridView {
 
 impl PhotoGridView {
     pub fn new(
-        socket_path: PathBuf,
+        socket_addr: String,
         http_url: String,
         library_id: String,
         initial_path: String,
         cx: &mut Context<Self>,
     ) -> Self {
-        let mut client = SpacedriveClient::new(socket_path, http_url);
+        let mut client = SpacedriveClient::new(socket_addr, http_url);
         client.set_library(library_id);
         let client = Arc::new(client);
 
