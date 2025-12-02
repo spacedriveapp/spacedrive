@@ -15,6 +15,7 @@ import { TopBarPortal } from "../../TopBar";
 import { PairingModal } from "../../components/PairingModal";
 import { useAddStorageDialog } from "../../components/Explorer/components/AddStorageModal";
 import { useSyncSetupDialog } from "../../components/SyncSetupModal";
+import { useCreateLibraryDialog } from "../../components/CreateLibraryModal";
 import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
@@ -172,9 +173,10 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 									</>
 								)}
 								<button
-									onClick={() =>
-										librarySwitcher.setOpen(false)
-									}
+									onClick={() => {
+										librarySwitcher.setOpen(false);
+										useCreateLibraryDialog();
+									}}
 									className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-app-selected text-ink font-medium cursor-pointer"
 								>
 									<Plus size={16} weight="bold" />
