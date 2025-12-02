@@ -28,31 +28,62 @@ This is infrastructure for the next era of computing.
 
 ### What Works Now (December 2025)
 
-**MacOS (Primary Testing Platform)**
+**Core Infrastructure**
+- Daemon-client architecture with persistent background operations
 - Tauri desktop app with working interface
-- File indexing and analysis (OCR, transcriptions, thumbnails)
-- Multi-device library sync
-- Content identity and deduplication
-- CLI for daemon management
+- CLI with full library, location, job, and network management
+- Resumable job system with checkpointing and progress tracking
 
-**Windows & Linux (Community Testing)**
-- Everything should work theoretically
-- Not fully tested yet, bugs expected
-- Help us validate cross-platform support
+**Multi-Device Sync**
+- Peer-to-peer library sync via Iroh/QUIC with NAT traversal
+- Device pairing with BIP39 mnemonic codes
+- Local network discovery (mDNS) and relay fallback
+- Leaderless sync using Hybrid Logical Clocks (no central server)
+- Device-owned data (locations, files) and shared resources (tags, collections)
+- Incremental sync with watermarks for offline periods
 
-**CLI**
-- Full library management
-- Daemon control
-- Best way to test core functionality
+**File Management**
+- File indexing with shallow, content, and deep modes
+- Content identity and deduplication across devices
+- Unified addressing: `local://`, `s3://`, `content://` URIs
+- Copy/move operations with atomic and streaming strategies
+- Checksum verification and progress tracking
+
+**Cloud Storage**
+- Integration via OpenDAL (40+ services supported)
+- S3, Google Drive, OneDrive, Dropbox, Azure Blob, GCS
+- Cloud files indexed and searchable like local files
+- Cross-storage operations (local to cloud, cloud to cloud)
+
+**Media & Analysis**
+- Thumbnail generation
+- OCR text extraction
+- Speech transcription
+- Sampled content hashing (58KB identifies any file size)
+
+**Organization**
+- Semantic tagging with hierarchies and polymorphic naming
+- Spaces for custom workspace layouts
+- Collections for grouping files
+
+**Security**
+- Ed25519 device identity with session key derivation
+- XChaCha20-Poly1305 credential encryption
+- OS keyring integration (Keychain, Credential Manager, Secret Service)
+
+**Platform Support**
+- macOS: Primary testing platform, fully functional
+- Windows & Linux: Should work, community testing needed
+- Mobile: Coming in 2.0.0-pre.1
 
 ### Coming in 2.0.0-pre.1 (Before Christmas)
 
-- Mobile app (React Native)
-- Spacedrive Cloud deployment
-- Extension SDK (stable)
-- AI integration (local models)
-- File sync (currently library sync only)
-- New spacedrive.com
+- Mobile apps (iOS and Android via React Native)
+- Spacedrive Cloud relay servers
+- Extension SDK (stable API)
+- AI integration with local models (Ollama)
+- File sync between devices (library metadata sync works now)
+- New spacedrive.com with public roadmap
 
 ### Prototypes (Not Public)
 
