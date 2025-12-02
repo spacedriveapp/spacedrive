@@ -223,8 +223,7 @@ cd spacedrive
 
 # Install dependencies
 bun install
-cargo install cargo-xtask # (if not already installed)
-cargo xtask setup
+cargo run -p xtask -- setup  # generates .cargo/config.toml with aliases
 
 # Run the desktop app (automatically starts daemon)
 cd apps/tauri
