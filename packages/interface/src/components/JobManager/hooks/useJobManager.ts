@@ -6,10 +6,9 @@ export function useJobManager() {
   const [jobs, setJobs] = useState<JobListItem[]>([]);
   const client = useSpacedriveClient();
 
-  // Use jobs.active which only returns in-memory active jobs
   const { data, isLoading, error, refetch } = useLibraryQuery({
-    type: "jobs.active",
-    input: {},
+    type: "jobs.list",
+    input: { status: null },
   });
 
   const pauseMutation = useLibraryMutation("jobs.pause");

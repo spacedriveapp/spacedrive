@@ -10,8 +10,8 @@ export function useJobCount() {
   const client = useSpacedriveClient();
 
   const { data, refetch } = useLibraryQuery({
-    type: "jobs.active",
-    input: {},
+    type: "jobs.list",
+    input: { status: null },
   });
 
   // Subscribe to job state changes and refetch when they occur
@@ -47,8 +47,12 @@ export function useJobCount() {
     };
   }, [client, refetch]);
 
+  const jobs = data?.jobs ?? [];
+  const runningCount = jobs.filter(j => j.status === "running").length;
+  const pausedCount = jobs.filter(j => j.status === "paused").length;
+
   return {
-    activeJobCount: (data?.running_count ?? 0) + (data?.paused_count ?? 0),
-    hasRunningJobs: (data?.running_count ?? 0) > 0,
+    activeJobCount: runningCount + pausedCount,
+    hasRunningJobs: runningCount > 0,
   };
 }
