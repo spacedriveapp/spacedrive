@@ -41,8 +41,9 @@ swift!(pub fn begin_native_drag(
 swift!(pub fn end_native_drag(session_id: &SRString));
 swift!(pub fn update_drag_overlay_position(session_id: &SRString, x: f64, y: f64));
 
-// Callback from Swift when drag session ends
+// Callbacks from Swift
 static mut DRAG_ENDED_CALLBACK: Option<Box<dyn Fn(&str, bool) + Send + Sync>> = None;
+static mut DRAG_MOVED_CALLBACK: Option<Box<dyn Fn(&str, f64, f64) + Send + Sync>> = None;
 
 pub fn set_drag_ended_callback<F>(callback: F)
 where
@@ -50,6 +51,15 @@ where
 {
 	unsafe {
 		DRAG_ENDED_CALLBACK = Some(Box::new(callback));
+	}
+}
+
+pub fn set_drag_moved_callback<F>(callback: F)
+where
+	F: Fn(&str, f64, f64) + Send + Sync + 'static,
+{
+	unsafe {
+		DRAG_MOVED_CALLBACK = Some(Box::new(callback));
 	}
 }
 
@@ -65,6 +75,22 @@ pub extern "C" fn rust_drag_ended_callback(session_id: *const std::ffi::c_char, 
 		let callback_ptr = &raw const DRAG_ENDED_CALLBACK;
 		if let Some(callback) = (*callback_ptr).as_ref() {
 			callback(&session_id_str, was_dropped);
+		}
+	}
+}
+
+#[no_mangle]
+pub extern "C" fn rust_drag_moved_callback(session_id: *const std::ffi::c_char, x: f64, y: f64) {
+	let session_id_str = unsafe {
+		std::ffi::CStr::from_ptr(session_id)
+			.to_string_lossy()
+			.into_owned()
+	};
+
+	unsafe {
+		let callback_ptr = &raw const DRAG_MOVED_CALLBACK;
+		if let Some(callback) = (*callback_ptr).as_ref() {
+			callback(&session_id_str, x, y);
 		}
 	}
 }

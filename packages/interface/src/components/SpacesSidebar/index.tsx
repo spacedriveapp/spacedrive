@@ -81,16 +81,19 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
 
   // Subscribe to drag state changes (from setDragData)
   useEffect(() => {
-    return subscribeToDragState(setIsDragging);
+    return subscribeToDragState((dragging) => {
+      console.log("[Sidebar] Drag state changed:", dragging);
+      setIsDragging(dragging);
+    });
   }, []);
 
-  // Listen for native drag events to track position and handle drop
+  // Listen for drag events to track position and handle drop
   useEffect(() => {
     if (!platform.onDragEvent) return;
 
     const unlisteners: Array<() => void> = [];
 
-    // Track drag position to detect when over sidebar
+    // Track cursor position during drag to detect hover
     platform.onDragEvent("moved", (payload: { x: number; y: number }) => {
       if (!dropZoneRef.current) return;
 
@@ -101,18 +104,28 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
         payload.y >= rect.top &&
         payload.y <= rect.bottom
       );
-      setIsHovering(isOver);
+
+      if (isOver !== isHovering) {
+        console.log("[Sidebar] Hover state changed:", isOver);
+        setIsHovering(isOver);
+      }
     }).then(fn => unlisteners.push(fn));
 
     // Handle drag end - check if dropped on sidebar
     platform.onDragEvent("ended", async (payload: { result?: { type: string } }) => {
       const dragData = getDragData(); // Get BEFORE clearing
+      console.log("[Sidebar] drag:ended", {
+        wasDropped: payload.result?.type?.toLowerCase() === "dropped",
+        isHovering,
+        hasSpace: !!currentSpace,
+        hasDragData: !!dragData
+      });
 
       // Check for "dropped" (lowercase from backend)
       const wasDropped = payload.result?.type?.toLowerCase() === "dropped";
 
-      // If dropped and we have drag data from our app, add it to the space
-      if (wasDropped && currentSpace && dragData) {
+      // Only add if dropped AND hovering over the sidebar
+      if (wasDropped && isHovering && currentSpace && dragData) {
         try {
           await addItem.mutateAsync({
             space_id: currentSpace.id,
@@ -155,8 +168,7 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
             ref={dropZoneRef}
             className={clsx(
               "no-scrollbar mt-3 mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10 transition-colors rounded-lg",
-              isDragging && "bg-accent/10 ring-2 ring-accent/50 ring-inset",
-              isDragging && isHovering && "bg-accent/20 ring-accent"
+              isDragging && isHovering && "bg-accent/10 ring-2 ring-accent/50 ring-inset"
             )}
           >
             {/* Space-level items (pinned shortcuts) */}

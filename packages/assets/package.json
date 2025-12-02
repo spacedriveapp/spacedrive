@@ -1,9 +1,28 @@
 {
-	"name": "@sd/assets",
-	"version": "1.0.0",
+	"name": "@spacedriveapp/assets",
+	"version": "1.0.1",
 	"license": "GPL-3.0-only",
-	"private": true,
 	"sideEffects": false,
+	"description": "Shared assets for Spacedrive applications",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/spacedriveapp/spacedrive.git",
+		"directory": "packages/assets"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": [
+		"icons",
+		"images",
+		"lottie",
+		"svgs",
+		"util",
+		"videos"
+	],
+	"exports": {
+		"./*": "./*"
+	},
 	"scripts": {
 		"gen": "node ./scripts/generate.mjs"
 	},

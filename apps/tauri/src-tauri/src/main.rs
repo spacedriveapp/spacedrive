@@ -1246,8 +1246,19 @@ fn main() {
 					}
 				}
 
-				// Setup drag ended callback
+				// Setup drag callbacks
 				let app_handle = app.handle().clone();
+
+				// Drag moved callback
+				let app_for_moved = app_handle.clone();
+				sd_desktop_macos::set_drag_moved_callback(
+					move |_session_id: &str, x: f64, y: f64| {
+						let coordinator = app_for_moved.state::<drag::DragCoordinator>();
+						coordinator.update_position(&app_for_moved, x, y);
+					}
+				);
+
+				// Drag ended callback
 				sd_desktop_macos::set_drag_ended_callback(
 					move |session_id: &str, was_dropped: bool| {
 						tracing::info!(
