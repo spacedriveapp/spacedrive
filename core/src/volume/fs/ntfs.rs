@@ -376,6 +376,8 @@ fn extract_json_bool(json: &str, key: &str) -> Option<bool> {
 
 /// Enhance volume with NTFS-specific information from Windows
 pub async fn enhance_volume_from_windows(volume: &mut Volume) -> VolumeResult<()> {
+	use self::FilesystemHandler;
+
 	let handler = NtfsHandler::new();
 	handler.enhance_volume(volume).await
 }
