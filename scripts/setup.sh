@@ -53,11 +53,11 @@ if [ "${CI:-}" != "true" ]; then
   echo 'Press Enter to continue'
   read -r
 
-  if ! has pnpm; then
-    err 'pnpm was not found.' \
-      "Ensure the 'pnpm' command is in your \$PATH." \
-      'You must use pnpm for this project; yarn and npm are not allowed.' \
-      'https://pnpm.io/installation'
+  if ! has bun; then
+    err 'bun was not found.' \
+      "Ensure the 'bun' command is in your \$PATH." \
+      'You must use bun for this project; yarn, npm, and pnpm are not allowed.' \
+      'https://bun.sh/docs/installation'
   fi
 
   if ! has rustc cargo; then

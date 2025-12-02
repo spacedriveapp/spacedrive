@@ -43,13 +43,14 @@ Spacedrive V2 is built with a **Rust-first architecture**. The core Virtual Dist
 
 Before you begin, ensure you have the following installed:
 
-| Tool  | Version                        | Required For                 |
-| ----- | ------------------------------ | ---------------------------- |
-| Rust  | [`1.81+`](rust-toolchain.toml) | Core development             |
-| Xcode | Latest                         | iOS/macOS development        |
-| Git   | Any recent version             | Version control & submodules |
+| Tool  | Version                        | Required For                      |
+| ----- | ------------------------------ | --------------------------------- |
+| Rust  | [`1.81+`](rust-toolchain.toml) | Core development                  |
+| Bun   | 1.3+                           | Desktop app (Tauri) development   |
+| Xcode | Latest                         | iOS/macOS development             |
+| Git   | Any recent version             | Version control & submodules      |
 
-**Note:** Bun is only needed if you're working on TypeScript client generation or shared UI packages.
+**Note:** Bun is required for the Tauri desktop app. Install from [bun.sh](https://bun.sh). For CLI-only development, Bun is not required.
 
 [`rustup`](https://rustup.rs/) should automatically pick up the correct Rust version from the project's `rust-toolchain.toml`.
 
@@ -70,21 +71,25 @@ git submodule update --init --recursive
 
 ### System Dependencies
 
-Run the setup script to install required system dependencies:
+There are two setup steps: system dependencies and project dependencies.
 
-**Unix (Linux / macOS):**
+#### Step 1: System Dependencies (Linux only)
+
+On Linux, run the setup script to install required system packages:
 
 ```bash
 ./scripts/setup.sh
 ```
+
+This installs platform-specific dependencies (GTK, WebKit, etc.) required for building the Tauri desktop app.
+
+**macOS users:** Skip this step. Xcode provides all necessary dependencies.
 
 **Windows:**
 
 ```powershell
 .\scripts\setup.ps1
 ```
-
-This script will install platform-specific dependencies required for building Spacedrive.
 
 For mobile development, run:
 
@@ -93,6 +98,24 @@ For mobile development, run:
 ```
 
 This installs additional Rust targets for iOS and Android cross-compilation.
+
+#### Step 2: Project Dependencies
+
+After system dependencies are installed, set up the project:
+
+```bash
+# Install JavaScript dependencies (required for Tauri app)
+bun install
+
+# Download native dependencies and generate cargo config
+cargo run -p xtask -- setup
+```
+
+The `xtask setup` command:
+- Downloads prebuilt native dependencies (FFmpeg, etc.)
+- Creates symlinks for shared libraries
+- Generates `.cargo/config.toml` with cargo aliases
+- Downloads iOS dependencies if iOS targets are installed
 
 ## Core Development
 
@@ -223,16 +246,98 @@ open Spacedrive.xcodeproj
 
 For macOS-specific development instructions, see `apps/macos/README.md`.
 
-### Desktop Development (Coming Soon)
+### Desktop Development (Tauri)
 
-The cross platform desktop app will use Tauri and will also be maintained as a submodule.
+The cross-platform desktop app uses Tauri with a React frontend. Unlike the native iOS/macOS apps, the Tauri app lives directly in the main repository at `apps/tauri/`.
+
+#### Prerequisites
+
+In addition to the standard prerequisites, you need:
+
+| Tool | Version | Required For |
+| ---- | ------- | ------------ |
+| Bun  | 1.3+    | Frontend build and dev server |
+
+Install Bun from [bun.sh](https://bun.sh) if you don't have it.
+
+#### Fresh Start Setup
+
+From a clean clone, follow these steps in order:
 
 ```bash
-# Future workflow (when desktop submodule exists)
-cd apps/desktop
+# 1. Clone the repository
+git clone https://github.com/spacedriveapp/spacedrive
+cd spacedrive
+
+# 2. Install JavaScript dependencies (from repo root)
 bun install
-bun tauri dev
+
+# 3. Setup native dependencies and generate cargo config
+cargo run -p xtask -- setup
+
+# 4. Run the desktop app in development mode
+cd apps/tauri
+bun run tauri:dev
 ```
+
+The `tauri:dev` command will:
+1. Start the Vite dev server (serves the React frontend)
+2. Start the sd-daemon (Rust backend)
+3. Compile and launch the Tauri app
+4. Connect the app to the dev server with hot reload
+
+#### Common Build Error: frontendDist Not Found
+
+If you see this error when running `cargo build`:
+
+```
+error: proc macro panicked
+  --> apps/tauri/src-tauri/src/main.rs
+     |
+     = help: message: The `frontendDist` configuration is set to `"../dist"` but this path doesn't exist
+```
+
+This happens because `cargo build` compiles the Tauri app, which expects the frontend to be built. Solutions:
+
+**Option A: Use tauri:dev for development (recommended)**
+```bash
+cd apps/tauri
+bun run tauri:dev  # Starts dev server, no dist needed
+```
+
+**Option B: Build the frontend first**
+```bash
+cd apps/tauri
+bun run build      # Creates dist/ folder
+cd ../..
+cargo build        # Now succeeds
+```
+
+**Option C: Exclude Tauri from cargo build**
+```bash
+cargo build -p sd-core -p sd-cli -p sd-daemon  # Build only specific packages
+```
+
+#### Development Commands
+
+```bash
+# From apps/tauri directory:
+
+bun run tauri:dev           # Development mode with hot reload
+bun run tauri:dev:no-watch  # Development without Rust hot reload
+bun run tauri:build         # Production build
+bun run dev                 # Frontend only (Vite dev server)
+bun run build               # Frontend only (Vite build)
+```
+
+#### Architecture Notes
+
+The Tauri app consists of:
+- `apps/tauri/` - React frontend (Vite + React)
+- `apps/tauri/src-tauri/` - Rust Tauri shell
+- `apps/tauri/sd-tauri-core/` - Tauri-specific core bindings
+
+The app connects to `sd-daemon` which manages libraries and P2P connections. In dev mode, the daemon is started automatically by the `dev:with-daemon` script.
 
 ## Extension Development
 
@@ -491,9 +596,11 @@ cargo run -p sd-server  # Backend server
 **V2 Workflow:**
 
 ```bash
+bun install                              # Install JS dependencies
+cargo run -p xtask -- setup              # Setup native deps and cargo config
 cargo run -p sd-cli -- library create "My Library"  # CLI-first
-open apps/ios/Spacedrive.xcodeproj  # Native iOS (submodule)
-# Desktop: cd apps/desktop && bun tauri dev (when submodule exists)
+cd apps/tauri && bun run tauri:dev       # Desktop app
+open apps/ios/Spacedrive.xcodeproj       # Native iOS (submodule)
 ```
 
 ### File Structure Comparison
@@ -664,11 +771,11 @@ packages/
 
 | V1 Command               | V2 Equivalent                                      |
 | ------------------------ | -------------------------------------------------- |
-| `bun install`            | Not needed (unless working on ts-client)           |
-| `bun prep`               | Not needed (Specta generates on build)             |
-| `bun tauri dev`          | Will be `cd apps/desktop && bun tauri dev` (future)|
+| `bun install`            | `bun install` (still required for Tauri app)       |
+| `bun prep`               | `cargo run -p xtask -- setup`                      |
+| `bun tauri dev`          | `cd apps/tauri && bun run tauri:dev`               |
 | `bun mobile ios`         | `open apps/ios/Spacedrive.xcodeproj`               |
-| `cargo run -p sd-server` | `cargo run -p sd-cli`                              |
+| `cargo run -p sd-server` | `cargo run -p sd-cli` or `cargo run -p sd-daemon`  |
 | `bun dev:web`            | Not yet available (web in progress)                |
 
 ### Getting Help with Migration
