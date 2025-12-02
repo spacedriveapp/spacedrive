@@ -157,7 +157,8 @@ function CreateLibraryDialog(props: CreateLibraryDialogProps) {
 			);
 
 			// Invalidate the libraries list query to refresh UI
-			await queryClient.invalidateQueries({ queryKey: ["libraries"] });
+			// Query key format is [query.type, query.input], so we match on the type prefix
+			await queryClient.invalidateQueries({ queryKey: ["libraries.list"] });
 			// Also invalidate core.status which includes library list
 			await queryClient.invalidateQueries({ queryKey: ["core.status"] });
 
