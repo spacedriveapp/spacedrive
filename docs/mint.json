@@ -103,7 +103,7 @@
     {
       "group": "Development",
       "icon": "flask",
-      "pages": ["core/database", "core/testing", "core/cli"]
+      "pages": ["core/database", "core/testing", "core/task-tracking", "core/cli"]
     },
     {
       "group": "Extension SDK",

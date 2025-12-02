@@ -2,7 +2,12 @@
 
 Hi Claude, Claude here. Your owner has pointed you here with absolutely no context. This document is your prompt.
 
-This directory tracks the complete development of Spacedrive. Tasks are always kept up-to-date, though some may need updating based on recent work. Your job is to check git history for changes, validate completed tasks against the instructions below, and update their status accordingly.
+This directory tracks the complete development of Spacedrive. Tasks are organized into subdirectories:
+- `core/` - Backend/Rust tasks (CORE, JOB, INDEX, LSYNC, etc.)
+- `interface/` - Frontend/React tasks (UI, EXPL, SETS, MEDIA, etc.)
+- `mobile/` - Mobile-specific tasks (IOS, MACOS, AND)
+
+Tasks are always kept up-to-date, though some may need updating based on recent work. Your job is to check git history for changes, validate completed tasks against the instructions below, and update their status accordingly.
 
 ## Quick Start
 
@@ -28,10 +33,14 @@ Look for feature implementations, major refactors, or completed work that might 
 
 For each recent feature/change:
 
-- **Read the task file** directly from `.tasks/TASK-ID-name.md`
+- **Read the task file** directly from `.tasks/{subdirectory}/TASK-ID-name.md`
+  - Core/backend work: `.tasks/core/`
+  - Interface work: `.tasks/interface/`
+  - Mobile work: `.tasks/mobile/`
 - **Read the acceptance criteria** carefully - this is your checklist
 - **Read all implementation files** mentioned in the task (they're usually listed in an "Implementation Files" section)
-- **Check core/tests/** for integration tests that validate the feature
+- **Check core/tests/** for integration tests that validate the feature (for core tasks)
+- **Check packages/interface/src/** for interface implementations (for interface tasks)
 - Verify each acceptance criterion is actually met in the code
 
 ### 4. Update Task Status
@@ -147,8 +156,8 @@ git log --oneline -15
 Now use the Read tool to thoroughly verify:
 
 ````
-# 4. Read the task file
-Read .tasks/CLOUD-003-cloud-volume.md
+# 4. Read the task file (note the subdirectory)
+Read .tasks/core/CLOUD-003-cloud-volume.md
 
 # 5. Read every implementation file listed in the task
 Read core/src/volume/backend/mod.rs

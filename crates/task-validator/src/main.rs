@@ -86,8 +86,16 @@ fn list_tasks(
 ) -> Result<(), Box<dyn std::error::Error>> {
 	let mut tasks = Vec::new();
 
-	for entry in glob(".tasks/*.md")? {
+	// Support both old flat structure and new subdirectory structure
+	for entry in glob(".tasks/**/*.md")? {
 		let path = entry?;
+
+		// Skip non-task files (like Claude.md, README.md, etc.)
+		let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+		if !file_name.contains('-') || file_name == "Claude.md" {
+			continue;
+		}
+
 		let content = fs::read_to_string(&path)?;
 
 		if content.starts_with("---") {
@@ -210,7 +218,7 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
 		.compile(&schema)
 		.expect("A valid schema");
 
-	// 2. Get a list of staged markdown files
+	// 2. Get a list of staged markdown files (including subdirectories)
 	let output = Command::new("git")
 		.args([
 			"diff",
@@ -218,7 +226,7 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
 			"--name-only",
 			"--diff-filter=ACM",
 			"--",
-			".tasks/*.md",
+			".tasks/",
 		])
 		.output()?;
 
@@ -228,6 +236,20 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
 	// 3. Loop through each file and validate it
 	for file_path in staged_files.lines() {
 		if file_path.is_empty() {
+			continue;
+		}
+
+		// Only validate .md files in .tasks/ (skip schema.json, Claude.md, etc.)
+		if !file_path.ends_with(".md") || !file_path.starts_with(".tasks/") {
+			continue;
+		}
+
+		// Skip non-task files
+		let file_name = std::path::Path::new(file_path)
+			.file_name()
+			.and_then(|n| n.to_str())
+			.unwrap_or("");
+		if !file_name.contains('-') || file_name == "Claude.md" {
 			continue;
 		}
 
