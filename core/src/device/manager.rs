@@ -323,18 +323,54 @@ impl DeviceManager {
 
 	/// Get the master encryption key
 	pub fn master_key(&self) -> Result<[u8; 32], DeviceError> {
-		Ok(self.device_key_manager.get_master_key()?)
+		self.device_key
+			.read()
+			.map(|k| *k)
+			.map_err(|_| DeviceError::LockPoisoned)
 	}
 
 	/// Get the master encryption key as hex string
 	pub fn master_key_hex(&self) -> Result<String, DeviceError> {
-		Ok(self.device_key_manager.get_master_key_hex()?)
+		let key = self.master_key()?;
+		Ok(hex::encode(key))
 	}
 
 	/// Regenerate the master encryption key (dangerous operation)
 	pub fn regenerate_device_key(&self) -> Result<[u8; 32], DeviceError> {
-		Ok(self.device_key_manager.regenerate_master_key()?)
+		use rand::RngCore;
+		let mut new_key = [0u8; 32];
+		rand::thread_rng().fill_bytes(&mut new_key);
+
+		if let Ok(mut key) = self.device_key.write() {
+			*key = new_key;
+		}
+
+		Ok(new_key)
 	}
+}
+
+/// Load device key from file, or create a new one
+fn load_or_create_device_key(path: &PathBuf) -> Result<[u8; 32], DeviceError> {
+	use rand::RngCore;
+
+	// Try to load from file
+	if path.exists() {
+		let data = std::fs::read(path)?;
+		if data.len() == 32 {
+			let mut key = [0u8; 32];
+			key.copy_from_slice(&data);
+			return Ok(key);
+		}
+	}
+
+	// Create new key
+	let mut key = [0u8; 32];
+	rand::thread_rng().fill_bytes(&mut key);
+
+	// Save to file
+	std::fs::write(path, &key)?;
+
+	Ok(key)
 }
 
 /// Get the device name from the system
