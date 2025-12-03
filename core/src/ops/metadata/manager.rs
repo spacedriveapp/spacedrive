@@ -41,7 +41,10 @@ impl UserMetadataManager {
 	}
 
 	/// Get or create entry-scoped metadata (tags specific to this file instance)
-	pub async fn get_or_create_entry_metadata(&self, entry_uuid: Uuid) -> Result<UserMetadata, TagError> {
+	pub async fn get_or_create_entry_metadata(
+		&self,
+		entry_uuid: Uuid,
+	) -> Result<UserMetadata, TagError> {
 		let db = &*self.db;
 
 		// First try to find existing metadata
@@ -73,11 +76,17 @@ impl UserMetadataManager {
 	}
 
 	/// Get or create content-scoped metadata (tags apply to all instances of this content)
-	pub async fn get_or_create_content_metadata(&self, content_identity_uuid: Uuid) -> Result<UserMetadata, TagError> {
+	pub async fn get_or_create_content_metadata(
+		&self,
+		content_identity_uuid: Uuid,
+	) -> Result<UserMetadata, TagError> {
 		let db = &*self.db;
 
 		// First try to find existing metadata
-		if let Some(metadata) = self.get_metadata_by_content_uuid(content_identity_uuid).await? {
+		if let Some(metadata) = self
+			.get_metadata_by_content_uuid(content_identity_uuid)
+			.await?
+		{
 			return Ok(metadata);
 		}
 
@@ -157,7 +166,9 @@ impl UserMetadataManager {
 		let db = &*self.db;
 
 		// Get or create content-scoped metadata
-		let metadata = self.get_or_create_content_metadata(content_identity_uuid).await?;
+		let metadata = self
+			.get_or_create_content_metadata(content_identity_uuid)
+			.await?;
 
 		// Get the database ID for the user metadata
 		let metadata_model = user_metadata::Entity::find()
@@ -169,7 +180,8 @@ impl UserMetadataManager {
 				"UserMetadata not found".to_string(),
 			))?;
 
-		self.apply_tags_to_metadata(metadata_model.id, &tag_applications, device_uuid).await
+		self.apply_tags_to_metadata(metadata_model.id, &tag_applications, device_uuid)
+			.await
 	}
 
 	/// Apply semantic tags to a specific entry (tags only this instance)
@@ -195,7 +207,8 @@ impl UserMetadataManager {
 				"UserMetadata not found".to_string(),
 			))?;
 
-		self.apply_tags_to_metadata(metadata_model.id, &tag_applications, device_uuid).await
+		self.apply_tags_to_metadata(metadata_model.id, &tag_applications, device_uuid)
+			.await
 	}
 
 	/// Apply semantic tags to an entry (legacy method - uses entry-scoped)
@@ -206,7 +219,8 @@ impl UserMetadataManager {
 		tag_applications: Vec<TagApplication>,
 		device_uuid: Uuid,
 	) -> Result<Vec<user_metadata_tag::Model>, TagError> {
-		self.apply_semantic_tags_to_entry(entry_uuid, tag_applications, device_uuid).await
+		self.apply_semantic_tags_to_entry(entry_uuid, tag_applications, device_uuid)
+			.await
 	}
 
 	/// Internal: Apply tags to a metadata record (shared logic)

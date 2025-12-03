@@ -77,7 +77,8 @@ pub async fn run_processing_phase(
 
 	// For cloud paths, compare strings instead of PathBuf (cloud paths have empty path component for root)
 	let location_actual_str = location_actual_path.to_string_lossy();
-	let is_cloud_path = location_actual_str.contains("://") && !location_actual_str.starts_with("local://");
+	let is_cloud_path =
+		location_actual_str.contains("://") && !location_actual_str.starts_with("local://");
 
 	let is_within_boundaries = if is_cloud_path {
 		// For cloud paths, check if the root path matches or is a subpath

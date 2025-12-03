@@ -9,10 +9,7 @@ pub struct CoreBoot {
 
 impl CoreBoot {
 	pub fn new(data_dir: PathBuf, core: Arc<sd_core::Core>) -> Self {
-		Self {
-			data_dir,
-			core,
-		}
+		Self { data_dir, core }
 	}
 }
 

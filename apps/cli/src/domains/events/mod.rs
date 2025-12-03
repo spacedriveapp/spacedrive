@@ -385,7 +385,10 @@ fn summarize_event(event: &Event) -> String {
 			count,
 			..
 		} => {
-			format!("Sync activity: {} changes from peer {}", count, peer_device_id)
+			format!(
+				"Sync activity: {} changes from peer {}",
+				count, peer_device_id
+			)
 		}
 		Event::SyncConnectionChanged {
 			peer_name,
@@ -395,7 +398,11 @@ fn summarize_event(event: &Event) -> String {
 			format!(
 				"Peer {} {}",
 				peer_name,
-				if *connected { "connected" } else { "disconnected" }
+				if *connected {
+					"connected"
+				} else {
+					"disconnected"
+				}
 			)
 		}
 		Event::SyncError { message, .. } => {

@@ -449,7 +449,7 @@ impl Event {
 					false
 				}
 			});
-			
+
 			return has_direct_child;
 		}
 

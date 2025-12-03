@@ -111,8 +111,12 @@ impl VolumeAddCloudArgs {
 			| CloudServiceArg::BackblazeB2
 			| CloudServiceArg::Wasabi
 			| CloudServiceArg::DigitalOceanSpaces => {
-				let bucket = self.bucket.ok_or("--bucket is required for S3-compatible services")?;
-				let region = self.region.ok_or("--region is required for S3-compatible services")?;
+				let bucket = self
+					.bucket
+					.ok_or("--bucket is required for S3-compatible services")?;
+				let region = self
+					.region
+					.ok_or("--region is required for S3-compatible services")?;
 				let access_key_id = self
 					.access_key_id
 					.ok_or("--access-key-id is required for S3-compatible services")?;
@@ -179,7 +183,9 @@ impl VolumeAddCloudArgs {
 				let refresh_token = self
 					.refresh_token
 					.ok_or("--refresh-token is required for Dropbox")?;
-				let client_id = self.client_id.ok_or("--client-id is required for Dropbox")?;
+				let client_id = self
+					.client_id
+					.ok_or("--client-id is required for Dropbox")?;
 				let client_secret = self
 					.client_secret
 					.ok_or("--client-secret is required for Dropbox")?;
@@ -219,7 +225,10 @@ impl VolumeAddCloudArgs {
 					.ok_or("--service-account is required for Google Cloud Storage")?;
 
 				let credential = std::fs::read_to_string(&service_account_path).map_err(|e| {
-					format!("Failed to read service account file '{}': {}", service_account_path, e)
+					format!(
+						"Failed to read service account file '{}': {}",
+						service_account_path, e
+					)
 				})?;
 
 				CloudStorageConfig::GoogleCloudStorage {

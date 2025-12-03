@@ -1,14 +1,17 @@
 //! Create semantic tag action
 
-use super::{input::{ApplyToTargets, CreateTagInput}, output::CreateTagOutput};
+use super::{
+	input::{ApplyToTargets, CreateTagInput},
+	output::CreateTagOutput,
+};
 use crate::infra::sync::ChangeType;
 use crate::{
 	context::CoreContext,
 	domain::tag::{PrivacyLevel, Tag, TagApplication, TagSource, TagType},
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
-	ops::tags::manager::TagManager,
 	ops::metadata::manager::UserMetadataManager,
+	ops::tags::manager::TagManager,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -95,16 +98,30 @@ impl LibraryAction for CreateTagAction {
 					// Apply to content identities (all instances)
 					for &content_id in content_ids {
 						let models = metadata_manager
-							.apply_semantic_tags_to_content(content_id, vec![tag_application.clone()], device_id)
+							.apply_semantic_tags_to_content(
+								content_id,
+								vec![tag_application.clone()],
+								device_id,
+							)
 							.await
-							.map_err(|e| ActionError::Internal(format!("Failed to apply tag to content: {}", e)))?;
+							.map_err(|e| {
+								ActionError::Internal(format!(
+									"Failed to apply tag to content: {}",
+									e
+								))
+							})?;
 
 						// Sync each user_metadata_tag model (for cross-device sync)
 						for model in models {
 							library
 								.sync_model(&model, ChangeType::Insert)
 								.await
-								.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+								.map_err(|e| {
+									ActionError::Internal(format!(
+										"Failed to sync tag association: {}",
+										e
+									))
+								})?;
 						}
 
 						// Find all entries with this content_id for resource events
@@ -121,7 +138,8 @@ impl LibraryAction for CreateTagAction {
 								.all(library.db().conn())
 								.await
 							{
-								affected_entry_uuids.extend(entries.into_iter().filter_map(|e| e.uuid));
+								affected_entry_uuids
+									.extend(entries.into_iter().filter_map(|e| e.uuid));
 							}
 						}
 					}
@@ -132,20 +150,36 @@ impl LibraryAction for CreateTagAction {
 						// Look up entry UUID from database ID
 						let entry_uuid = lookup_entry_uuid(&library.db().conn(), entry_id)
 							.await
-							.map_err(|e| ActionError::Internal(format!("Failed to lookup entry UUID: {}", e)))?;
+							.map_err(|e| {
+								ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
+							})?;
 
 						// Apply the tag
 						let models = metadata_manager
-							.apply_semantic_tags_to_entry(entry_uuid, vec![tag_application.clone()], device_id)
+							.apply_semantic_tags_to_entry(
+								entry_uuid,
+								vec![tag_application.clone()],
+								device_id,
+							)
 							.await
-							.map_err(|e| ActionError::Internal(format!("Failed to apply tag to entry: {}", e)))?;
+							.map_err(|e| {
+								ActionError::Internal(format!(
+									"Failed to apply tag to entry: {}",
+									e
+								))
+							})?;
 
 						// Sync each user_metadata_tag model (for cross-device sync)
 						for model in models {
 							library
 								.sync_model(&model, ChangeType::Insert)
 								.await
-								.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+								.map_err(|e| {
+									ActionError::Internal(format!(
+										"Failed to sync tag association: {}",
+										e
+									))
+								})?;
 						}
 
 						// Track this entry for resource events
@@ -164,7 +198,10 @@ impl LibraryAction for CreateTagAction {
 					.emit_resource_events("file", affected_entry_uuids)
 					.await
 				{
-					tracing::warn!("Failed to emit file resource events after tag creation: {}", e);
+					tracing::warn!(
+						"Failed to emit file resource events after tag creation: {}",
+						e
+					);
 				}
 			}
 		}
@@ -181,7 +218,10 @@ impl LibraryAction for CreateTagAction {
 crate::register_library_action!(CreateTagAction, "tags.create");
 
 /// Look up entry UUID from entry database ID
-async fn lookup_entry_uuid(db: &sea_orm::DatabaseConnection, entry_id: i32) -> Result<Uuid, String> {
+async fn lookup_entry_uuid(
+	db: &sea_orm::DatabaseConnection,
+	entry_id: i32,
+) -> Result<Uuid, String> {
 	use crate::infra::db::entities::entry;
 	use sea_orm::EntityTrait;
 

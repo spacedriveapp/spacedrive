@@ -5,8 +5,8 @@ use crate::infra::query::{LibraryQuery, QueryError, QueryResult};
 use crate::service::sync::metrics::snapshot::SyncMetricsSnapshot;
 use std::sync::Arc;
 
-use super::{GetSyncActivityInput, GetSyncActivityOutput};
 use super::output::PeerActivity;
+use super::{GetSyncActivityInput, GetSyncActivityOutput};
 
 /// Get sync activity summary for the current library
 pub struct GetSyncActivity {
@@ -61,7 +61,8 @@ impl LibraryQuery for GetSyncActivity {
 
 			// Get connected devices
 			let connected = net.get_connected_devices().await;
-			let connected_ids: std::collections::HashSet<_> = connected.into_iter().map(|d| d.device_id).collect();
+			let connected_ids: std::collections::HashSet<_> =
+				connected.into_iter().map(|d| d.device_id).collect();
 			(paired, connected_ids)
 		} else {
 			(Vec::new(), std::collections::HashSet::new())
@@ -87,9 +88,7 @@ impl LibraryQuery for GetSyncActivity {
 					last_seen: device_metrics
 						.map(|m| m.last_seen)
 						.unwrap_or_else(|| chrono::Utc::now()),
-					entries_received: device_metrics
-						.map(|m| m.entries_received)
-						.unwrap_or(0),
+					entries_received: device_metrics.map(|m| m.entries_received).unwrap_or(0),
 					bytes_received: device_metrics
 						.map(|_| snapshot.data_volume.bytes_received)
 						.unwrap_or(0),

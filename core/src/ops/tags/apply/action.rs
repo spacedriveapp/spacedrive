@@ -1,6 +1,9 @@
 //! Apply semantic tags action
 
-use super::{input::{ApplyTagsInput, TagTargets}, output::ApplyTagsOutput};
+use super::{
+	input::{ApplyTagsInput, TagTargets},
+	output::ApplyTagsOutput,
+};
 use crate::{
 	context::CoreContext,
 	domain::tag::{TagApplication, TagSource},
@@ -80,7 +83,11 @@ impl LibraryAction for ApplyTagsAction {
 				// Content-based tagging: apply to content identity (tags all instances)
 				for &content_id in content_ids {
 					match metadata_manager
-						.apply_semantic_tags_to_content(content_id, tag_applications.clone(), device_id)
+						.apply_semantic_tags_to_content(
+							content_id,
+							tag_applications.clone(),
+							device_id,
+						)
 						.await
 					{
 						Ok(models) => {
@@ -90,7 +97,12 @@ impl LibraryAction for ApplyTagsAction {
 								library
 									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
 									.await
-									.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+									.map_err(|e| {
+										ActionError::Internal(format!(
+											"Failed to sync tag association: {}",
+											e
+										))
+									})?;
 							}
 
 							// Find all entries with this content_id to emit resource events
@@ -107,7 +119,8 @@ impl LibraryAction for ApplyTagsAction {
 									.all(db.conn())
 									.await
 								{
-									affected_entry_uuids.extend(entries.into_iter().filter_map(|e| e.uuid));
+									affected_entry_uuids
+										.extend(entries.into_iter().filter_map(|e| e.uuid));
 								}
 							}
 						}
@@ -121,13 +134,16 @@ impl LibraryAction for ApplyTagsAction {
 				// Entry-based tagging: apply to specific entry instance
 				for &entry_id in entry_ids {
 					// Look up actual entry UUID from entry ID
-					let entry_uuid = lookup_entry_uuid(&db.conn(), entry_id)
-						.await
-						.map_err(|e| {
+					let entry_uuid =
+						lookup_entry_uuid(&db.conn(), entry_id).await.map_err(|e| {
 							ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
 						})?;
 					match metadata_manager
-						.apply_semantic_tags_to_entry(entry_uuid, tag_applications.clone(), device_id)
+						.apply_semantic_tags_to_entry(
+							entry_uuid,
+							tag_applications.clone(),
+							device_id,
+						)
 						.await
 					{
 						Ok(models) => {
@@ -137,7 +153,12 @@ impl LibraryAction for ApplyTagsAction {
 								library
 									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
 									.await
-									.map_err(|e| ActionError::Internal(format!("Failed to sync tag association: {}", e)))?;
+									.map_err(|e| {
+										ActionError::Internal(format!(
+											"Failed to sync tag association: {}",
+											e
+										))
+									})?;
 							}
 
 							// Track this entry for resource events

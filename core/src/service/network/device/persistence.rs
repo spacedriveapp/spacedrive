@@ -82,9 +82,8 @@ impl DevicePersistence {
 
 		// Load device key from fallback file (consistent with DeviceManager)
 		let master_key_path = data_dir.join("master_key");
-		let device_key = load_or_create_device_key(&master_key_path).map_err(|e| {
-			NetworkingError::Protocol(format!("Failed to load device key: {}", e))
-		})?;
+		let device_key = load_or_create_device_key(&master_key_path)
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to load device key: {}", e)))?;
 
 		Ok(Self {
 			data_dir: networking_dir,
@@ -552,7 +551,6 @@ mod tests {
 		println!("Device data is properly encrypted on disk");
 	}
 }
-
 
 /// Load device key from file, or create a new one
 fn load_or_create_device_key(path: &PathBuf) -> std::io::Result<[u8; 32]> {

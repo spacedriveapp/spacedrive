@@ -49,9 +49,7 @@ pub struct CloudCredentialManager {
 
 impl CloudCredentialManager {
 	pub fn new(key_manager: Arc<KeyManager>) -> Self {
-		Self {
-			key_manager,
-		}
+		Self { key_manager }
 	}
 
 	/// Store cloud credentials for a volume, encrypted with the library key
@@ -62,9 +60,7 @@ impl CloudCredentialManager {
 		credential: &CloudCredential,
 	) -> Result<(), CloudCredentialError> {
 		// Get or create library encryption key
-		let library_key = self
-			.key_manager
-			.get_library_key(library_id).await?;
+		let library_key = self.key_manager.get_library_key(library_id).await?;
 
 		// Serialize credential
 		let credential_json = serde_json::to_vec(credential)?;
@@ -288,10 +284,13 @@ mod tests {
 	#[tokio::test]
 	async fn test_encrypt_decrypt_credential() {
 		let temp_dir = tempfile::tempdir().unwrap();
-		let key_manager = Arc::new(KeyManager::new_with_fallback(
-			temp_dir.path().to_path_buf(),
-			Some(temp_dir.path().join("device_key")),
-		).unwrap());
+		let key_manager = Arc::new(
+			KeyManager::new_with_fallback(
+				temp_dir.path().to_path_buf(),
+				Some(temp_dir.path().join("device_key")),
+			)
+			.unwrap(),
+		);
 		let manager = CloudCredentialManager::new(key_manager);
 
 		let library_id = Uuid::new_v4();

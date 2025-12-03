@@ -47,7 +47,9 @@ async fn path_exists_safe(
 					"Volume not mounted when checking path existence: {}",
 					path.display()
 				);
-				Err(anyhow::anyhow!("Volume not mounted, cannot verify path existence"))
+				Err(anyhow::anyhow!(
+					"Volume not mounted, cannot verify path existence"
+				))
 			}
 			Err(VolumeError::Io(ref e)) if e.kind() == std::io::ErrorKind::NotFound => {
 				// Path doesn't exist - this is OK, return false
@@ -60,7 +62,10 @@ async fn path_exists_safe(
 					path.display(),
 					io_err
 				);
-				Err(anyhow::anyhow!("IO error, volume may be offline: {}", io_err))
+				Err(anyhow::anyhow!(
+					"IO error, volume may be offline: {}",
+					io_err
+				))
 			}
 			Err(e) => {
 				// Other volume errors (timeout, permission denied, etc.)
@@ -318,9 +323,10 @@ async fn should_filter_path(
 
 	// Get metadata for the path using backend if available
 	let metadata = if let Some(backend) = backend {
-		backend.metadata(path).await.map_err(|e| {
-			anyhow::anyhow!("Failed to get metadata via backend: {}", e)
-		})?
+		backend
+			.metadata(path)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to get metadata via backend: {}", e))?
 	} else {
 		let fs_meta = tokio::fs::metadata(path).await?;
 		crate::volume::backend::RawMetadata {
@@ -391,7 +397,11 @@ async fn handle_create(
 			return Ok(());
 		}
 		Err(e) => {
-			warn!("Skipping create event for inaccessible path {}: {}", path.display(), e);
+			warn!(
+				"Skipping create event for inaccessible path {}: {}",
+				path.display(),
+				e
+			);
 			return Ok(());
 		}
 	}
@@ -742,7 +752,11 @@ async fn handle_modify(
 			return Ok(());
 		}
 		Err(e) => {
-			warn!("Skipping modify event for inaccessible path {}: {}", path.display(), e);
+			warn!(
+				"Skipping modify event for inaccessible path {}: {}",
+				path.display(),
+				e
+			);
 			return Ok(());
 		}
 	}
@@ -928,11 +942,18 @@ async fn handle_rename(
 			// Destination exists and is accessible, proceed
 		}
 		Ok(false) => {
-			debug!("Destination path doesn't exist, skipping rename: {}", to.display());
+			debug!(
+				"Destination path doesn't exist, skipping rename: {}",
+				to.display()
+			);
 			return Ok(());
 		}
 		Err(e) => {
-			warn!("Skipping rename event for inaccessible destination {}: {}", to.display(), e);
+			warn!(
+				"Skipping rename event for inaccessible destination {}: {}",
+				to.display(),
+				e
+			);
 			return Ok(());
 		}
 	}

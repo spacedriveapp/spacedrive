@@ -246,9 +246,9 @@ impl SyncProtocolHandler {
 
 				// Create checkpoint: "timestamp|uuid" format
 				let next_checkpoint = if has_more {
-					records.last().map(|r| {
-						format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid)
-					})
+					records
+						.last()
+						.map(|r| format!("{}|{}", r.timestamp.to_rfc3339(), r.uuid))
 				} else {
 					None
 				};
@@ -509,7 +509,10 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 	) {
 		use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-		tracing::info!("SyncProtocolHandler: Stream accepted from node {}", remote_node_id);
+		tracing::info!(
+			"SyncProtocolHandler: Stream accepted from node {}",
+			remote_node_id
+		);
 
 		// Map node_id to device_id using device registry
 		let from_device = {
@@ -532,7 +535,10 @@ impl crate::service::network::protocol::ProtocolHandler for SyncProtocolHandler 
 		};
 
 		// Read request with length prefix
-		tracing::info!("SyncProtocolHandler: Reading request from device {}...", from_device);
+		tracing::info!(
+			"SyncProtocolHandler: Reading request from device {}...",
+			from_device
+		);
 		let mut len_buf = [0u8; 4];
 		if let Err(e) = recv.read_exact(&mut len_buf).await {
 			// This is normal if peer just opened connection to test connectivity
@@ -661,13 +667,14 @@ mod tests {
 	#[test]
 	fn test_handler_creation() {
 		// Test uses mock registry
-		use crate::service::network::device::DeviceRegistry;
 		use crate::device::DeviceManager;
+		use crate::service::network::device::DeviceRegistry;
 		use std::path::PathBuf;
 
 		let device_manager = Arc::new(DeviceManager::new().unwrap());
 		let logger = Arc::new(crate::service::network::utils::SilentLogger);
-		let registry = DeviceRegistry::new(device_manager, PathBuf::from("/tmp/test"), logger).unwrap();
+		let registry =
+			DeviceRegistry::new(device_manager, PathBuf::from("/tmp/test"), logger).unwrap();
 		let device_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
 		let handler = SyncProtocolHandler::new(Uuid::new_v4(), device_registry);

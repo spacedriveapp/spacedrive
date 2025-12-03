@@ -113,8 +113,8 @@ impl LogSyncHandler {
 		// Query all shared models via registry
 		let db = Arc::new(self.db.conn().clone());
 		let results = crate::infra::sync::registry::query_all_shared_models(
-			None,     // No watermark - get everything
-			100_000,  // Large batch to get all records
+			None,    // No watermark - get everything
+			100_000, // Large batch to get all records
 			db,
 		)
 		.await

@@ -3,7 +3,10 @@ use clap::Args;
 #[derive(Args, Debug)]
 pub struct SyncMetricsArgs {
 	/// Show metrics for a specific time range
-	#[arg(long, help = "Show metrics since this time (e.g., '1 hour ago', '2025-10-23 10:00:00')")]
+	#[arg(
+		long,
+		help = "Show metrics since this time (e.g., '1 hour ago', '2025-10-23 10:00:00')"
+	)]
 	pub since: Option<String>,
 
 	/// Show metrics for a specific peer device

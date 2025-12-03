@@ -191,7 +191,12 @@ impl PairingProtocolHandler {
 			{
 				let mut registry = self.device_registry.write().await;
 				registry
-					.complete_pairing(device_id, initiator_device_info.clone(), session_keys, relay_url)
+					.complete_pairing(
+						device_id,
+						initiator_device_info.clone(),
+						session_keys,
+						relay_url,
+					)
 					.await?;
 			}
 

@@ -39,7 +39,7 @@ impl DependencyTracker {
 	/// It will be retried when the dependency UUID is resolved.
 	pub async fn add_dependency(&self, missing_uuid: Uuid, update: BufferedUpdate) {
 		let mut waiting = self.waiting_for.write().await;
-		
+
 		waiting
 			.entry(missing_uuid)
 			.or_insert_with(Vec::new)
@@ -58,7 +58,7 @@ impl DependencyTracker {
 	/// Returns all updates that can now be retried.
 	pub async fn resolve(&self, resolved_uuid: Uuid) -> Vec<BufferedUpdate> {
 		let mut waiting = self.waiting_for.write().await;
-		
+
 		if let Some(updates) = waiting.remove(&resolved_uuid) {
 			info!(
 				resolved_uuid = %resolved_uuid,
@@ -74,14 +74,14 @@ impl DependencyTracker {
 	/// Get statistics about pending dependencies
 	pub async fn stats(&self) -> DependencyStats {
 		let waiting = self.waiting_for.read().await;
-		
+
 		let total_dependencies = waiting.len();
 		let total_waiting_updates: usize = waiting.values().map(|v| v.len()).sum();
-		
+
 		// Count by update type
 		let mut state_changes = 0;
 		let mut shared_changes = 0;
-		
+
 		for updates in waiting.values() {
 			for update in updates {
 				match update {
@@ -147,7 +147,7 @@ pub fn extract_missing_dependency_uuid(error: &str) -> Option<Uuid> {
 		// Take until closing paren or end of string
 		let end = uuid_str.find(')').unwrap_or(uuid_str.len());
 		let uuid_str = &uuid_str[..end];
-		
+
 		Uuid::parse_str(uuid_str).ok()
 	} else {
 		None
@@ -163,7 +163,7 @@ mod tests {
 	#[test]
 	fn test_extract_uuid_from_parent_id_error() {
 		let error = "FK mapping failed: Sync dependency missing: parent_id -> entries (uuid=082653bb-d55b-45ea-ac0a-18205197981b): Entry with uuid=082653bb-d55b-45ea-ac0a-18205197981b not found";
-		
+
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());
 		assert_eq!(
@@ -175,7 +175,7 @@ mod tests {
 	#[test]
 	fn test_extract_uuid_from_content_id_error() {
 		let error = "FK mapping failed: Sync dependency missing: content_id -> content_identities (uuid=d9d3a478-ecf6-4cb4-8711-ddf776037dbb)";
-		
+
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());
 		assert_eq!(
@@ -187,7 +187,7 @@ mod tests {
 	#[test]
 	fn test_extract_uuid_from_location_id_error() {
 		let error = "FK mapping failed: Sync dependency missing: location_id -> locations (uuid=a1b2c3d4-e5f6-7890-abcd-ef1234567890)";
-		
+
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());
 		assert_eq!(
@@ -205,7 +205,7 @@ mod tests {
 	#[tokio::test]
 	async fn test_dependency_tracker_basic() {
 		let tracker = DependencyTracker::new();
-		
+
 		let parent_uuid = Uuid::new_v4();
 		let child_change = StateChangeMessage {
 			model_type: "entry".to_string(),
@@ -217,7 +217,10 @@ mod tests {
 
 		// Add dependency
 		tracker
-			.add_dependency(parent_uuid, BufferedUpdate::StateChange(child_change.clone()))
+			.add_dependency(
+				parent_uuid,
+				BufferedUpdate::StateChange(child_change.clone()),
+			)
 			.await;
 
 		let stats = tracker.stats().await;
@@ -236,9 +239,9 @@ mod tests {
 	#[tokio::test]
 	async fn test_multiple_children_same_parent() {
 		let tracker = DependencyTracker::new();
-		
+
 		let parent_uuid = Uuid::new_v4();
-		
+
 		// Three children waiting for same parent
 		for _ in 0..3 {
 			let child = StateChangeMessage {
@@ -265,10 +268,10 @@ mod tests {
 	#[tokio::test]
 	async fn test_different_parents() {
 		let tracker = DependencyTracker::new();
-		
+
 		let parent1 = Uuid::new_v4();
 		let parent2 = Uuid::new_v4();
-		
+
 		// Child waiting for parent1
 		tracker
 			.add_dependency(
@@ -307,4 +310,3 @@ mod tests {
 		assert_eq!(tracker.dependency_count().await, 1);
 	}
 }
-

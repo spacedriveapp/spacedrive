@@ -84,9 +84,9 @@ async fn test_job_resumption_at_various_points() {
 	// Define interruption points to test with realistic event counts for smaller datasets
 	// For Downloads folder, use lower event counts since there are fewer files
 	let interruption_points = vec![
-		InterruptionPoint::DiscoveryAfterEvents(2),              // Interrupt early in discovery
-		InterruptionPoint::ProcessingAfterEvents(2),             // Interrupt early in processing
-		InterruptionPoint::ContentIdentificationAfterEvents(2),  // Interrupt early in content ID
+		InterruptionPoint::DiscoveryAfterEvents(2), // Interrupt early in discovery
+		InterruptionPoint::ProcessingAfterEvents(2), // Interrupt early in processing
+		InterruptionPoint::ContentIdentificationAfterEvents(2), // Interrupt early in content ID
 	];
 
 	let mut results = Vec::new();
@@ -138,10 +138,17 @@ async fn generate_test_data() -> Result<PathBuf, Box<dyn std::error::Error>> {
 	let indexing_data_path = home_dir.join("Downloads");
 
 	if !indexing_data_path.exists() {
-		return Err(format!("Downloads folder does not exist at: {}", indexing_data_path.display()).into());
+		return Err(format!(
+			"Downloads folder does not exist at: {}",
+			indexing_data_path.display()
+		)
+		.into());
 	}
 
-	info!("Using Downloads folder at: {}", indexing_data_path.display());
+	info!(
+		"Using Downloads folder at: {}",
+		indexing_data_path.display()
+	);
 	Ok(indexing_data_path)
 }
 
@@ -224,7 +231,8 @@ async fn test_single_interruption_point(
 	sleep(Duration::from_secs(2)).await;
 
 	// Phase 2: Resume and complete the job
-	let resume_result = resume_and_complete_job(&test_setup, indexing_data_path, job_id, library_id).await;
+	let resume_result =
+		resume_and_complete_job(&test_setup, indexing_data_path, job_id, library_id).await;
 
 	match resume_result {
 		Ok((job_log_path, test_log_path)) => TestResult {
@@ -495,7 +503,13 @@ async fn resume_and_complete_job(
 	let library = libraries
 		.iter()
 		.find(|lib| lib.id() == library_id)
-		.ok_or_else(|| format!("Library {} not found after restart. Found {} libraries", library_id, libraries.len()))?;
+		.ok_or_else(|| {
+			format!(
+				"Library {} not found after restart. Found {} libraries",
+				library_id,
+				libraries.len()
+			)
+		})?;
 
 	// Check job status immediately after core initialization
 	// Jobs may have already completed during the core startup process

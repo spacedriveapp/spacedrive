@@ -1,9 +1,9 @@
 //! Shared context providing access to core application components.
 
 use crate::{
-	config::JobLoggingConfig, crypto::key_manager::KeyManager,
-	device::DeviceManager, infra::action::manager::ActionManager, infra::event::EventBus,
-	infra::sync::TransactionManager, library::LibraryManager, service::network::NetworkingService,
+	config::JobLoggingConfig, crypto::key_manager::KeyManager, device::DeviceManager,
+	infra::action::manager::ActionManager, infra::event::EventBus, infra::sync::TransactionManager,
+	library::LibraryManager, service::network::NetworkingService,
 	service::session::SessionStateService, service::sidecar_manager::SidecarManager,
 	volume::VolumeManager,
 };

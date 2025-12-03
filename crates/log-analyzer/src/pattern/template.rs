@@ -237,9 +237,3 @@ mod tests {
 		assert_eq!(templates.len(), 2); // Different patterns
 	}
 }
-
-
-
-
-
-

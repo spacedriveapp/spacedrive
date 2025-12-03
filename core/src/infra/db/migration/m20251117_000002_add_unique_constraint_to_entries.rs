@@ -45,10 +45,3 @@ impl MigrationTrait for Migration {
 enum Entries {
 	Table,
 }
-
-
-
-
-
-
-

@@ -100,7 +100,10 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 					println!("Expires at: {}", o.expires_at);
 				});
 			}
-			PairCmd::Join { ref code, ref node_id } => {
+			PairCmd::Join {
+				ref code,
+				ref node_id,
+			} => {
 				// Check if we should run interactive mode
 				let input = if let Some(input) = pc.to_join_input() {
 					// Non-interactive: code and possibly flags were provided
@@ -204,7 +207,10 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 	Ok(())
 }
 
-async fn run_interactive_pair_join(ctx: &Context, code: Option<&str>) -> Result<sd_core::ops::network::pair::join::input::PairJoinInput> {
+async fn run_interactive_pair_join(
+	ctx: &Context,
+	code: Option<&str>,
+) -> Result<sd_core::ops::network::pair::join::input::PairJoinInput> {
 	use crate::util::confirm::{select, text};
 
 	println!("\n=== Interactive Pairing ===\n");
@@ -260,7 +266,8 @@ async fn run_interactive_pair_join(ctx: &Context, code: Option<&str>) -> Result<
 			"node_id": node_id,
 			"relay_url": relay_url,
 			"session_id": session_id
-		}).to_string();
+		})
+		.to_string();
 
 		(code, Some(node_id))
 	} else {

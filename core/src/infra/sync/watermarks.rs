@@ -226,9 +226,7 @@ impl ResourceWatermarkStore {
 
 		match result {
 			Some(row) => {
-				let watermark_str: Option<String> = row
-					.try_get("", "max_watermark")
-					.ok();
+				let watermark_str: Option<String> = row.try_get("", "max_watermark").ok();
 
 				if let Some(wm_str) = watermark_str {
 					let dt = DateTime::parse_from_rfc3339(&wm_str)
@@ -315,10 +313,7 @@ mod tests {
 		// Verify retrieval
 		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
 		assert!(retrieved.is_some());
-		assert_eq!(
-			retrieved.unwrap().timestamp(),
-			timestamp1.timestamp()
-		);
+		assert_eq!(retrieved.unwrap().timestamp(), timestamp1.timestamp());
 
 		// Update with newer timestamp
 		let timestamp2 = timestamp1 + chrono::Duration::seconds(10);
@@ -329,10 +324,7 @@ mod tests {
 
 		// Verify update
 		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
-		assert_eq!(
-			retrieved.unwrap().timestamp(),
-			timestamp2.timestamp()
-		);
+		assert_eq!(retrieved.unwrap().timestamp(), timestamp2.timestamp());
 
 		// Attempt update with older timestamp (should be ignored)
 		let timestamp0 = timestamp1 - chrono::Duration::seconds(10);
@@ -343,10 +335,7 @@ mod tests {
 
 		// Verify still has timestamp2 (newer)
 		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
-		assert_eq!(
-			retrieved.unwrap().timestamp(),
-			timestamp2.timestamp()
-		);
+		assert_eq!(retrieved.unwrap().timestamp(), timestamp2.timestamp());
 	}
 
 	#[tokio::test]
@@ -436,4 +425,3 @@ mod tests {
 		assert_eq!(all.len(), 0);
 	}
 }
-

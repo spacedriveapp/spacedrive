@@ -228,21 +228,23 @@ impl EntryProcessor {
 
 				// For cloud paths, directory paths may have trailing slashes
 				// Try both with and without to handle path normalization differences
-				let parent_with_slash = if !parent_path_str.ends_with('/') && parent_path_str.contains("://") {
-					Some(format!("{}/", parent_path_str))
-				} else {
-					None
-				};
+				let parent_with_slash =
+					if !parent_path_str.ends_with('/') && parent_path_str.contains("://") {
+						Some(format!("{}/", parent_path_str))
+					} else {
+						None
+					};
 
 				let mut query = entities::directory_paths::Entity::find();
 				if let Some(alt_path) = &parent_with_slash {
 					// Try both variants for cloud paths
 					query = query.filter(
-						entities::directory_paths::Column::Path.is_in([&parent_path_str, alt_path])
+						entities::directory_paths::Column::Path.is_in([&parent_path_str, alt_path]),
 					);
 				} else {
 					// Local paths - exact match
-					query = query.filter(entities::directory_paths::Column::Path.eq(&parent_path_str));
+					query =
+						query.filter(entities::directory_paths::Column::Path.eq(&parent_path_str));
 				}
 
 				if let Ok(Some(dir_path_record)) = query.one(ctx.library_db()).await {

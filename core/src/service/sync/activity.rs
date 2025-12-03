@@ -58,7 +58,11 @@ impl SyncActivityAggregator {
 		}
 	}
 
-	async fn emit_activity_events(&self, current: &SyncMetricsSnapshot, previous: &SyncMetricsSnapshot) {
+	async fn emit_activity_events(
+		&self,
+		current: &SyncMetricsSnapshot,
+		previous: &SyncMetricsSnapshot,
+	) {
 		// State changes
 		if current.state.current_state != previous.state.current_state {
 			self.event_bus.emit(Event::SyncStateChanged {
@@ -79,13 +83,17 @@ impl SyncActivityAggregator {
 		self.emit_recent_errors(current, previous).await;
 	}
 
-	async fn emit_peer_activity(&self, current: &SyncMetricsSnapshot, previous: &SyncMetricsSnapshot) {
+	async fn emit_peer_activity(
+		&self,
+		current: &SyncMetricsSnapshot,
+		previous: &SyncMetricsSnapshot,
+	) {
 		for (peer_id, peer_metrics) in &current.data_volume.entries_by_device {
 			let prev_peer = previous.data_volume.entries_by_device.get(peer_id);
 
 			// Calculate deltas
-			let delta_received = peer_metrics.entries_received
-				- prev_peer.map(|p| p.entries_received).unwrap_or(0);
+			let delta_received =
+				peer_metrics.entries_received - prev_peer.map(|p| p.entries_received).unwrap_or(0);
 
 			if delta_received > 0 {
 				self.event_bus.emit(Event::SyncActivity {
@@ -102,8 +110,8 @@ impl SyncActivityAggregator {
 		}
 
 		// Broadcast activity (aggregate across all peers)
-		let delta_broadcasts = current.operations.broadcasts_sent
-			- previous.operations.broadcasts_sent;
+		let delta_broadcasts =
+			current.operations.broadcasts_sent - previous.operations.broadcasts_sent;
 
 		if delta_broadcasts > 0 {
 			// Use first online peer or just emit without specific peer
@@ -129,7 +137,8 @@ impl SyncActivityAggregator {
 		}
 
 		// Applied changes
-		let delta_applied = current.operations.changes_applied - previous.operations.changes_applied;
+		let delta_applied =
+			current.operations.changes_applied - previous.operations.changes_applied;
 
 		if delta_applied > 0 {
 			let first_online_peer = current
@@ -154,10 +163,7 @@ impl SyncActivityAggregator {
 		}
 
 		// Backfill events (state-based detection)
-		match (
-			&previous.state.current_state,
-			&current.state.current_state,
-		) {
+		match (&previous.state.current_state, &current.state.current_state) {
 			(DeviceSyncState::Ready, DeviceSyncState::Backfilling { .. }) => {
 				if let Some(peer_id) = current
 					.data_volume
@@ -245,7 +251,11 @@ impl SyncActivityAggregator {
 		}
 	}
 
-	async fn emit_connection_changes(&self, current: &SyncMetricsSnapshot, previous: &SyncMetricsSnapshot) {
+	async fn emit_connection_changes(
+		&self,
+		current: &SyncMetricsSnapshot,
+		previous: &SyncMetricsSnapshot,
+	) {
 		for (peer_id, peer_metrics) in &current.data_volume.entries_by_device {
 			let prev_online = previous
 				.data_volume
@@ -266,7 +276,11 @@ impl SyncActivityAggregator {
 		}
 	}
 
-	async fn emit_recent_errors(&self, current: &SyncMetricsSnapshot, previous: &SyncMetricsSnapshot) {
+	async fn emit_recent_errors(
+		&self,
+		current: &SyncMetricsSnapshot,
+		previous: &SyncMetricsSnapshot,
+	) {
 		// Only emit errors that are new since last snapshot
 		let new_errors = current
 			.errors

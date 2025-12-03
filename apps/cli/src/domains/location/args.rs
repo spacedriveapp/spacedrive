@@ -7,10 +7,8 @@ use sd_core::{
 	ops::{
 		indexing::job::IndexMode,
 		locations::{
-			add::action::LocationAddInput,
-			export::LocationExportInput,
-			import::LocationImportInput,
-			remove::action::LocationRemoveInput,
+			add::action::LocationAddInput, export::LocationExportInput,
+			import::LocationImportInput, remove::action::LocationRemoveInput,
 			rescan::action::LocationRescanInput,
 		},
 	},

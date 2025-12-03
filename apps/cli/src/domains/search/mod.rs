@@ -45,7 +45,10 @@ pub async fn run(ctx: &Context, cmd: SearchCmd) -> Result<()> {
 					}
 
 					println!("   Size: {} bytes", result.file.size);
-					println!("   Modified: {}", result.file.modified_at.format("%Y-%m-%d %H:%M:%S"));
+					println!(
+						"   Modified: {}",
+						result.file.modified_at.format("%Y-%m-%d %H:%M:%S")
+					);
 					println!("   Path: {}", result.file.sd_path.display());
 
 					if !result.highlights.is_empty() {

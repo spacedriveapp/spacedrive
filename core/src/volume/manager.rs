@@ -168,7 +168,10 @@ impl VolumeManager {
 				// Try to load credentials and recreate the backend
 				let credential_manager = CloudCredentialManager::new(key_manager.clone());
 
-				match credential_manager.get_credential(library.id(), &db_volume.fingerprint).await {
+				match credential_manager
+					.get_credential(library.id(), &db_volume.fingerprint)
+					.await
+				{
 					Ok(credential) => {
 						// Get mount point from database (for display and cache purposes)
 						let mount_point_str = match &db_volume.mount_point {
@@ -616,30 +619,40 @@ impl VolumeManager {
 		}
 
 		// Query database for tracked volumes to merge metadata
-		let mut tracked_volumes_map: HashMap<VolumeFingerprint, (Uuid, Option<String>)> = HashMap::new();
+		let mut tracked_volumes_map: HashMap<VolumeFingerprint, (Uuid, Option<String>)> =
+			HashMap::new();
 		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
 			if let Some(lib_mgr) = lib_mgr.upgrade() {
 				let libraries = lib_mgr.get_open_libraries().await;
 				debug!("DB_MERGE: Found {} open libraries", libraries.len());
 				for library in libraries {
-					debug!("DB_MERGE: Querying library {} for tracked volumes on device {}", library.id(), device_id);
+					debug!(
+						"DB_MERGE: Querying library {} for tracked volumes on device {}",
+						library.id(),
+						device_id
+					);
 					if let Ok(tracked_vols) = entities::volume::Entity::find()
 						.filter(entities::volume::Column::DeviceId.eq(device_id))
 						.all(library.db().conn())
 						.await
 					{
-						debug!("DB_MERGE: Found {} tracked volumes in library {}", tracked_vols.len(), library.id());
+						debug!(
+							"DB_MERGE: Found {} tracked volumes in library {}",
+							tracked_vols.len(),
+							library.id()
+						);
 						for db_vol in tracked_vols {
 							let fingerprint = VolumeFingerprint(db_vol.fingerprint.clone());
 							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}",
 								fingerprint.short_id(), db_vol.display_name);
-							tracked_volumes_map.insert(
-								fingerprint,
-								(library.id(), db_vol.display_name),
-							);
+							tracked_volumes_map
+								.insert(fingerprint, (library.id(), db_vol.display_name));
 						}
 					} else {
-						debug!("DB_MERGE: Failed to query tracked volumes for library {}", library.id());
+						debug!(
+							"DB_MERGE: Failed to query tracked volumes for library {}",
+							library.id()
+						);
 					}
 				}
 			} else {

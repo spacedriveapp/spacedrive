@@ -185,7 +185,8 @@ impl LibraryQuery for FileByIdQuery {
 
 			// Also check for content-scoped metadata if content identity exists
 			if let Some(ref ci) = file.content_identity {
-				metadata_filter = metadata_filter.or(user_metadata::Column::ContentIdentityUuid.eq(ci.uuid));
+				metadata_filter =
+					metadata_filter.or(user_metadata::Column::ContentIdentityUuid.eq(ci.uuid));
 			}
 
 			let metadata_records = user_metadata::Entity::find()
@@ -214,7 +215,9 @@ impl LibraryQuery for FileByIdQuery {
 					// Convert to domain tags
 					let mut tags = Vec::new();
 					for tag_model in tag_models {
-						if let Ok(domain_tag) = crate::ops::tags::manager::model_to_domain(tag_model) {
+						if let Ok(domain_tag) =
+							crate::ops::tags::manager::model_to_domain(tag_model)
+						{
 							tags.push(domain_tag);
 						}
 					}

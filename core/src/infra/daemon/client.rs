@@ -3,8 +3,8 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use crate::infra::daemon::types::{DaemonRequest, DaemonResponse};
-use crate::infra::event::Event;
 use crate::infra::event::log_emitter::LogMessage;
+use crate::infra::event::Event;
 
 #[derive(Clone)]
 pub struct DaemonClient {
@@ -20,13 +20,9 @@ impl DaemonClient {
 		&self,
 		req: &DaemonRequest,
 	) -> Result<DaemonResponse, Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = TcpStream::connect(&self.socket_addr).await.map_err(|e| {
-			format!(
-				"Failed to connect to daemon at {}: {}",
-				self.socket_addr,
-				e
-			)
-		})?;
+		let mut stream = TcpStream::connect(&self.socket_addr)
+			.await
+			.map_err(|e| format!("Failed to connect to daemon at {}: {}", self.socket_addr, e))?;
 
 		let payload =
 			serde_json::to_vec(req).map_err(|e| format!("Failed to serialize request: {}", e))?;
@@ -59,13 +55,9 @@ impl DaemonClient {
 		request: &DaemonRequest,
 		event_tx: mpsc::UnboundedSender<Event>,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = TcpStream::connect(&self.socket_addr).await.map_err(|e| {
-			format!(
-				"Failed to connect to daemon at {}: {}",
-				self.socket_addr,
-				e
-			)
-		})?;
+		let mut stream = TcpStream::connect(&self.socket_addr)
+			.await
+			.map_err(|e| format!("Failed to connect to daemon at {}: {}", self.socket_addr, e))?;
 
 		// Send subscription request
 		let payload = serde_json::to_string(request)
@@ -121,13 +113,9 @@ impl DaemonClient {
 		request: &DaemonRequest,
 		log_tx: mpsc::UnboundedSender<LogMessage>,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-		let mut stream = TcpStream::connect(&self.socket_addr).await.map_err(|e| {
-			format!(
-				"Failed to connect to daemon at {}: {}",
-				self.socket_addr,
-				e
-			)
-		})?;
+		let mut stream = TcpStream::connect(&self.socket_addr)
+			.await
+			.map_err(|e| format!("Failed to connect to daemon at {}: {}", self.socket_addr, e))?;
 
 		// Send subscription request
 		let payload = serde_json::to_string(request)

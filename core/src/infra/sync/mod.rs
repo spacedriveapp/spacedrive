@@ -41,6 +41,7 @@ pub use fk_mapper::{
 };
 pub use hlc::{HLCGenerator, HLC};
 pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};
+pub use peer_watermarks::PeerWatermarkStore;
 pub use registry::{
 	apply_shared_change, apply_state_change, compute_registry_sync_order, get_fk_mappings,
 	get_table_name, is_device_owned, ApplyError, SyncableInventoryEntry, SyncableModelRegistration,
@@ -49,4 +50,3 @@ pub use syncable::Syncable;
 pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};
 pub use transport::NetworkTransport;
 pub use watermarks::{ResourceWatermarkStore, WatermarkError};
-pub use peer_watermarks::PeerWatermarkStore;

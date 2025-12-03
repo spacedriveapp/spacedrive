@@ -160,7 +160,11 @@ impl VectorStore {
 		// Sort by similarity (descending)
 		results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-		Ok(results.into_iter().take(limit).map(|(doc, _)| doc).collect())
+		Ok(results
+			.into_iter()
+			.take(limit)
+			.map(|(doc, _)| doc)
+			.collect())
 	}
 
 	/// Get embedding count
@@ -250,13 +254,7 @@ mod tests {
 		assert_eq!(store.count().await.unwrap(), 0);
 
 		store
-			.add_embedding(
-				1,
-				None,
-				"Doc 1".to_string(),
-				vec![0.1, 0.2, 0.3],
-				None,
-			)
+			.add_embedding(1, None, "Doc 1".to_string(), vec![0.1, 0.2, 0.3], None)
 			.await
 			.unwrap();
 
@@ -272,13 +270,7 @@ mod tests {
 		let mut store = VectorStore::create(&memory_path).await.unwrap();
 
 		store
-			.add_embedding(
-				1,
-				None,
-				"Doc 1".to_string(),
-				vec![0.1, 0.2, 0.3],
-				None,
-			)
+			.add_embedding(1, None, "Doc 1".to_string(), vec![0.1, 0.2, 0.3], None)
 			.await
 			.unwrap();
 

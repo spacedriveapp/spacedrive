@@ -749,23 +749,20 @@ impl IndexerJob {
 		let event_bus = Some(ctx.library().event_bus().clone());
 
 		// Create ephemeral persistence layer (emits events as entries are stored)
-		let persistence = PersistenceFactory::ephemeral(
-			ephemeral_index.clone(),
-			event_bus,
-			root_path.clone(),
-		);
+		let persistence =
+			PersistenceFactory::ephemeral(ephemeral_index.clone(), event_bus, root_path.clone());
 
 		// Process all batches through persistence layer
 		while let Some(batch) = state.entry_batches.pop() {
 			for entry in batch {
 				// Store entry (this will emit ResourceChanged events)
-				let entry_id = persistence
-					.store_entry(&entry, None, &root_path)
-					.await?;
+				let entry_id = persistence.store_entry(&entry, None, &root_path).await?;
 
 				// Queue files for content identification
 				if entry.kind == super::state::EntryKind::File && entry.size > 0 {
-					state.entries_for_content.push((entry_id, entry.path.clone()));
+					state
+						.entries_for_content
+						.push((entry_id, entry.path.clone()));
 				}
 			}
 		}
@@ -798,15 +795,15 @@ impl IndexerJob {
 		// Get root path and event bus
 		let (root_path, event_bus) = {
 			let index = ephemeral_index.read().await;
-			(index.root_path.clone(), Some(ctx.library().event_bus().clone()))
+			(
+				index.root_path.clone(),
+				Some(ctx.library().event_bus().clone()),
+			)
 		};
 
 		// Create ephemeral persistence for event emission
-		let persistence = PersistenceFactory::ephemeral(
-			ephemeral_index.clone(),
-			event_bus,
-			root_path,
-		);
+		let persistence =
+			PersistenceFactory::ephemeral(ephemeral_index.clone(), event_bus, root_path);
 
 		// Process files for content identification
 		let mut success_count = 0;
@@ -838,7 +835,10 @@ impl IndexerJob {
 				match hash_result {
 					Ok(cas_id) => {
 						// Store via persistence (this emits ResourceChanged event with content_identity)
-						if let Err(e) = persistence.store_content_identity(entry_id, &path, cas_id.clone()).await {
+						if let Err(e) = persistence
+							.store_content_identity(entry_id, &path, cas_id.clone())
+							.await
+						{
 							ctx.add_non_critical_error(format!(
 								"Failed to store content identity for {}: {}",
 								path.display(),
@@ -875,8 +875,7 @@ impl IndexerJob {
 		state.phase = Phase::Complete;
 		ctx.log(format!(
 			"Ephemeral content identification complete: {} files processed, {} errors",
-			success_count,
-			error_count
+			success_count, error_count
 		));
 
 		Ok(())

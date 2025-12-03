@@ -100,4 +100,3 @@ impl LibraryAction for VolumeRefreshAction {
 
 // Register action
 crate::register_library_action!(VolumeRefreshAction, "volumes.refresh");
-

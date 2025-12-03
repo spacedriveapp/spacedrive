@@ -7,9 +7,11 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::infra::daemon::client::DaemonClient;
-use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter, LogFilter};
-use crate::infra::event::Event;
+use crate::infra::daemon::types::{
+	DaemonError, DaemonRequest, DaemonResponse, EventFilter, LogFilter,
+};
 use crate::infra::event::log_emitter::LogMessage;
+use crate::infra::event::Event;
 
 pub trait Wire {
 	const METHOD: &'static str;

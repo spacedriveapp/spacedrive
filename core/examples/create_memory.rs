@@ -9,9 +9,7 @@ use std::path::PathBuf;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize logging
-	tracing_subscriber::fmt()
-		.with_env_filter("info")
-		.init();
+	tracing_subscriber::fmt().with_env_filter("info").init();
 
 	println!("\nCreating Spacedrive Memory File\n");
 
@@ -44,9 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.add_document(
 			None,
 			"MEMORY_FILE_FORMAT_DESIGN.md".to_string(),
-			Some(
-				"Complete specification for .memory file format with custom archive".to_string(),
-			),
+			Some("Complete specification for .memory file format with custom archive".to_string()),
 			DocumentType::Design,
 		)
 		.await?;
@@ -103,7 +99,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	memory
 		.add_fact(
-			"Agent memory types: temporal (events), associative (knowledge), working (current)".to_string(),
+			"Agent memory types: temporal (events), associative (knowledge), working (current)"
+				.to_string(),
 			FactType::Pattern,
 			1.0,
 			Some(agent_doc),
@@ -133,10 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	memory.add_embedding(impl_doc, impl_vector).await?;
 	memory.add_embedding(agent_doc, agent_vector).await?;
 
-	println!(
-		"  {} embeddings added\n",
-		memory.embedding_count().await?
-	);
+	println!("  {} embeddings added\n", memory.embedding_count().await?);
 
 	// Test search
 	println!("Testing semantic search...");

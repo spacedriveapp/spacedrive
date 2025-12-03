@@ -132,10 +132,7 @@ impl Syncable for Model {
 		if ids.is_empty() {
 			return Ok(std::collections::HashMap::new());
 		}
-		let records = Entity::find()
-			.filter(Column::Id.is_in(ids))
-			.all(db)
-			.await?;
+		let records = Entity::find().filter(Column::Id.is_in(ids)).all(db).await?;
 		Ok(records.into_iter().map(|r| (r.id, r.uuid)).collect())
 	}
 
@@ -206,8 +203,8 @@ impl Syncable for Model {
 		entry: crate::infra::sync::SharedChangeEntry,
 		db: &DatabaseConnection,
 	) -> Result<(), sea_orm::DbErr> {
-		use crate::infra::sync::{ChangeType, fk_mapper};
-		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, NotSet};
+		use crate::infra::sync::{fk_mapper, ChangeType};
+		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, NotSet, QueryFilter, Set};
 
 		match entry.change_type {
 			ChangeType::Insert | ChangeType::Update => {
@@ -267,7 +264,9 @@ impl Syncable for Model {
 					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid order: {}", e)))?),
 					created_at: Set(serde_json::from_value(
 						data.get("created_at")
-							.ok_or_else(|| sea_orm::DbErr::Custom("Missing created_at".to_string()))?
+							.ok_or_else(|| {
+								sea_orm::DbErr::Custom("Missing created_at".to_string())
+							})?
 							.clone(),
 					)
 					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid created_at: {}", e)))?),

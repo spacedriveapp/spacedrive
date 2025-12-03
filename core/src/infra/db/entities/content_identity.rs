@@ -200,10 +200,7 @@ impl Syncable for Model {
 		if ids.is_empty() {
 			return Ok(std::collections::HashMap::new());
 		}
-		let records = Entity::find()
-			.filter(Column::Id.is_in(ids))
-			.all(db)
-			.await?;
+		let records = Entity::find().filter(Column::Id.is_in(ids)).all(db).await?;
 		Ok(records
 			.into_iter()
 			.filter_map(|r| r.uuid.map(|u| (r.id, u)))

@@ -171,7 +171,8 @@ impl LibraryAction for LocationImportAction {
 			}
 
 			// Modify statements to use current device
-			let modified_statement = if statement.contains("INSERT") && statement.contains("INTO devices")
+			let modified_statement = if statement.contains("INSERT")
+				&& statement.contains("INTO devices")
 			{
 				// Skip importing the device - we use current device
 				tracing::debug!("Skipping device insert");

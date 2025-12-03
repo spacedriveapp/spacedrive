@@ -212,7 +212,8 @@ impl IndexerState {
 				// Look up this ancestor in directory_paths table
 				if let Ok(Some(dir_record)) = directory_paths::Entity::find()
 					.filter(
-						directory_paths::Column::Path.eq(current_path.to_string_lossy().to_string()),
+						directory_paths::Column::Path
+							.eq(current_path.to_string_lossy().to_string()),
 					)
 					.one(db)
 					.await

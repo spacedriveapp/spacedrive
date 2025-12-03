@@ -9,4 +9,3 @@ pub struct LibraryOpenInput {
 	/// Path to the library directory to open
 	pub path: PathBuf,
 }
-

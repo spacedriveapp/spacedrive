@@ -31,7 +31,11 @@ async fn wait_for_job_completion(
 	let timeout = Duration::from_secs(timeout_secs);
 
 	loop {
-		let jobs = library.jobs().list_jobs(None).await.map_err(|e| e.to_string())?;
+		let jobs = library
+			.jobs()
+			.list_jobs(None)
+			.await
+			.map_err(|e| e.to_string())?;
 
 		let job = jobs.iter().find(|j| j.id == job_id);
 
@@ -171,7 +175,10 @@ async fn test_location_export_import() -> Result<(), Box<dyn std::error::Error>>
 	println!("Indexing complete, {} entries", entry_count);
 
 	// Verify we have some entries
-	assert!(entry_count >= 4, "Should have at least 4 entries (3 files + 1 subdir + root)");
+	assert!(
+		entry_count >= 4,
+		"Should have at least 4 entries (3 files + 1 subdir + root)"
+	);
 
 	// Get location UUID for export
 	let location = entities::location::Entity::find()
@@ -210,7 +217,10 @@ async fn test_location_export_import() -> Result<(), Box<dyn std::error::Error>>
 	);
 
 	assert!(export_file.exists(), "Export file should exist");
-	assert!(export_output.file_size_bytes > 0, "Export file should not be empty");
+	assert!(
+		export_output.file_size_bytes > 0,
+		"Export file should not be empty"
+	);
 	assert_eq!(
 		export_output.stats.entries, entry_count,
 		"Export should include all entries"
@@ -398,7 +408,10 @@ async fn test_export_nonexistent_location() -> Result<(), Box<dyn std::error::Er
 		.dispatch_library(Some(library.id()), export_action)
 		.await;
 
-	assert!(result.is_err(), "Export of non-existent location should fail");
+	assert!(
+		result.is_err(),
+		"Export of non-existent location should fail"
+	);
 
 	// Cleanup
 	drop(action_manager);

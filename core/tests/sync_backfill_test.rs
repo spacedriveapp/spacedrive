@@ -108,7 +108,10 @@ async fn wait_for_indexing(library: &Arc<Library>, _location_id: i32) -> anyhow:
 
 		if !running_jobs.is_empty() {
 			job_seen = true;
-			tracing::debug!(running_count = running_jobs.len(), "Indexing jobs still running");
+			tracing::debug!(
+				running_count = running_jobs.len(),
+				"Indexing jobs still running"
+			);
 		}
 
 		let current_entries = entities::entry::Entity::find()
@@ -117,10 +120,7 @@ async fn wait_for_indexing(library: &Arc<Library>, _location_id: i32) -> anyhow:
 
 		let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
-		if job_seen
-			&& !completed_jobs.is_empty()
-			&& running_jobs.is_empty()
-			&& current_entries > 0
+		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
 		{
 			if current_entries == last_entry_count {
 				stable_iterations += 1;
@@ -285,8 +285,7 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 	register_device(&library_alice, device_bob_id, "Bob").await?;
 	register_device(&library_bob, device_alice_id, "Alice").await?;
 
-	let (transport_alice, transport_bob) =
-		MockTransport::new_pair(device_alice_id, device_bob_id);
+	let (transport_alice, transport_bob) = MockTransport::new_pair(device_alice_id, device_bob_id);
 
 	library_alice
 		.init_sync_service(
@@ -344,10 +343,7 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 
 	// Check if Bob can see Alice as a connected partner
 	let partners = transport_bob
-		.get_connected_sync_partners(
-			library_bob.id(),
-			library_bob.db().conn(),
-		)
+		.get_connected_sync_partners(library_bob.id(), library_bob.db().conn())
 		.await?;
 
 	tracing::info!(

@@ -34,8 +34,9 @@ async fn map_file_structure_per_phase() -> Result<(), Box<dyn std::error::Error>
 	for i in 1..=3 {
 		tokio::fs::write(
 			test_dir.join(format!("file{}.txt", i)),
-			format!("Content {}", i)
-		).await?;
+			format!("Content {}", i),
+		)
+		.await?;
 	}
 
 	eprintln!("Created test directory with 3 files\n");
@@ -94,7 +95,11 @@ async fn map_file_structure_per_phase() -> Result<(), Box<dyn std::error::Error>
 	eprintln!("RESOURCE EVENT FILE STRUCTURES:\n");
 
 	for event in events.iter() {
-		if let Event::ResourceChangedBatch { resource_type, resources } = event {
+		if let Event::ResourceChangedBatch {
+			resource_type,
+			resources,
+		} = event
+		{
 			if resource_type == "file" {
 				batch_num += 1;
 
@@ -108,27 +113,55 @@ async fn map_file_structure_per_phase() -> Result<(), Box<dyn std::error::Error>
 						eprintln!("{}\n", serde_json::to_string_pretty(&file).unwrap());
 
 						eprintln!("Key Fields:");
-						eprintln!("   id:                  {}", file.get("id").unwrap_or(&serde_json::Value::Null));
-						eprintln!("   name:                {}", file.get("name").unwrap_or(&serde_json::Value::Null));
+						eprintln!(
+							"   id:                  {}",
+							file.get("id").unwrap_or(&serde_json::Value::Null)
+						);
+						eprintln!(
+							"   name:                {}",
+							file.get("name").unwrap_or(&serde_json::Value::Null)
+						);
 
 						if let Some(sd_path) = file.get("sd_path") {
 							eprintln!("\n   sd_path:");
 							if let Some(phys) = sd_path.get("Physical") {
 								eprintln!("     Type: Physical");
-								eprintln!("     device_slug: {}", phys.get("device_slug").unwrap_or(&serde_json::Value::Null));
-								eprintln!("     path: {}", phys.get("path").unwrap_or(&serde_json::Value::Null));
+								eprintln!(
+									"     device_slug: {}",
+									phys.get("device_slug").unwrap_or(&serde_json::Value::Null)
+								);
+								eprintln!(
+									"     path: {}",
+									phys.get("path").unwrap_or(&serde_json::Value::Null)
+								);
 							} else if let Some(content) = sd_path.get("Content") {
 								eprintln!("     Type: Content");
-								eprintln!("     content_id: {}", content.get("content_id").unwrap_or(&serde_json::Value::Null));
+								eprintln!(
+									"     content_id: {}",
+									content
+										.get("content_id")
+										.unwrap_or(&serde_json::Value::Null)
+								);
 							} else if let Some(cloud) = sd_path.get("Cloud") {
 								eprintln!("     Type: Cloud");
-								eprintln!("     service: {}", cloud.get("service").unwrap_or(&serde_json::Value::Null));
-								eprintln!("     path: {}", cloud.get("path").unwrap_or(&serde_json::Value::Null));
+								eprintln!(
+									"     service: {}",
+									cloud.get("service").unwrap_or(&serde_json::Value::Null)
+								);
+								eprintln!(
+									"     path: {}",
+									cloud.get("path").unwrap_or(&serde_json::Value::Null)
+								);
 							}
 						}
 
-						eprintln!("\n   content_identity:    {}",
-							if file.get("content_identity").and_then(|v| v.as_object()).is_some() {
+						eprintln!(
+							"\n   content_identity:    {}",
+							if file
+								.get("content_identity")
+								.and_then(|v| v.as_object())
+								.is_some()
+							{
 								"PRESENT"
 							} else {
 								"NULL"
@@ -137,13 +170,25 @@ async fn map_file_structure_per_phase() -> Result<(), Box<dyn std::error::Error>
 
 						if let Some(ci) = file.get("content_identity") {
 							if let Some(ci_obj) = ci.as_object() {
-								eprintln!("     uuid: {}", ci_obj.get("uuid").unwrap_or(&serde_json::Value::Null));
-								eprintln!("     content_hash: {}", ci_obj.get("content_hash").unwrap_or(&serde_json::Value::Null));
+								eprintln!(
+									"     uuid: {}",
+									ci_obj.get("uuid").unwrap_or(&serde_json::Value::Null)
+								);
+								eprintln!(
+									"     content_hash: {}",
+									ci_obj
+										.get("content_hash")
+										.unwrap_or(&serde_json::Value::Null)
+								);
 							}
 						}
 
-						eprintln!("\n   sidecars:            {} items",
-							file.get("sidecars").and_then(|s| s.as_array()).map(|a| a.len()).unwrap_or(0)
+						eprintln!(
+							"\n   sidecars:            {} items",
+							file.get("sidecars")
+								.and_then(|s| s.as_array())
+								.map(|a| a.len())
+								.unwrap_or(0)
 						);
 					}
 				}
@@ -162,14 +207,13 @@ async fn map_file_structure_per_phase() -> Result<(), Box<dyn std::error::Error>
 	use sd_core::infra::db::entities::entry;
 	use sea_orm::EntityTrait;
 
-	let db_entries = entry::Entity::find()
-		.all(db.conn())
-		.await?;
+	let db_entries = entry::Entity::find().all(db.conn()).await?;
 
 	eprintln!("Database has {} entries\n", db_entries.len());
 
 	for entry in db_entries.iter().take(3) {
-		if entry.kind == 0 { // File
+		if entry.kind == 0 {
+			// File
 			eprintln!("Entry ID: {}", entry.id);
 			eprintln!("   UUID: {:?}", entry.uuid);
 			eprintln!("   Name: {}", entry.name);

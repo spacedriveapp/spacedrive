@@ -90,7 +90,10 @@ impl LibraryQuery for SpaceLayoutQuery {
 					let file = build_file_from_entry(entry_model, &item_type, db)
 						.await
 						.map(Box::new);
-					tracing::info!("Built file for space item: {:?}", file.as_ref().map(|f| &f.name));
+					tracing::info!(
+						"Built file for space item: {:?}",
+						file.as_ref().map(|f| &f.name)
+					);
 					file
 				} else {
 					tracing::warn!("Entry {} not found for space item", entry_id);
@@ -164,7 +167,10 @@ impl LibraryQuery for SpaceLayoutQuery {
 						let file = build_file_from_entry(entry_model, &item_type, db)
 							.await
 							.map(Box::new);
-						tracing::info!("Built file for group item: {:?}", file.as_ref().map(|f| &f.name));
+						tracing::info!(
+							"Built file for group item: {:?}",
+							file.as_ref().map(|f| &f.name)
+						);
 						file
 					} else {
 						tracing::warn!("Entry {} not found for group item", entry_id);

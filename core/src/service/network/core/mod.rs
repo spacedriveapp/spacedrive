@@ -9,9 +9,7 @@ use crate::service::network::{
 	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
-use iroh::discovery::{
-	dns::DnsDiscovery, mdns::MdnsDiscovery, pkarr::PkarrPublisher, Discovery,
-};
+use iroh::discovery::{dns::DnsDiscovery, mdns::MdnsDiscovery, pkarr::PkarrPublisher, Discovery};
 use iroh::endpoint::Connection;
 use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, RelayUrl, Watcher};
 use std::sync::Arc;
@@ -1191,9 +1189,8 @@ impl NetworkingService {
 
 		// Generate pairing code with node_id for remote discovery via pkarr
 		// Note: relay_url is no longer included - joiner discovers it via pkarr/DNS
-		let pairing_code =
-			crate::service::network::protocol::pairing::PairingCode::generate()?
-				.with_node_id(initiator_node_id);
+		let pairing_code = crate::service::network::protocol::pairing::PairingCode::generate()?
+			.with_node_id(initiator_node_id);
 
 		let session_id = pairing_code.session_id();
 
@@ -1224,10 +1221,8 @@ impl NetworkingService {
 			"Networking not started".to_string(),
 		))?;
 
-		let user_data =
-			iroh::node_info::UserData::try_from(session_id.to_string()).map_err(|e| {
-				NetworkingError::Protocol(format!("Failed to create user data: {}", e))
-			})?;
+		let user_data = iroh::node_info::UserData::try_from(session_id.to_string())
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to create user data: {}", e)))?;
 
 		endpoint.set_user_data_for_discovery(Some(user_data));
 

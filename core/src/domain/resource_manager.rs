@@ -69,7 +69,7 @@ impl ResourceManager {
 		item_type: &crate::domain::ItemType,
 		db: &DatabaseConnection,
 	) -> Option<crate::domain::File> {
-		use crate::domain::{ContentIdentity, ContentKind, File, ItemType, Sidecar, SdPath};
+		use crate::domain::{ContentIdentity, ContentKind, File, ItemType, SdPath, Sidecar};
 		use crate::infra::db::entities::{content_identity, sidecar};
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
@@ -324,7 +324,9 @@ impl ResourceManager {
 
 						let resolved_file = if let Some(entry_id) = item_model.entry_id {
 							use crate::infra::db::entities::entry;
-							if let Some(entry_model) = entry::Entity::find_by_id(entry_id).one(&*self.db).await? {
+							if let Some(entry_model) =
+								entry::Entity::find_by_id(entry_id).one(&*self.db).await?
+							{
 								Self::build_file_from_entry(entry_model, &item_type, &self.db)
 									.await
 									.map(Box::new)

@@ -97,7 +97,10 @@ impl LibraryAction for VolumeAddCloudAction {
 			.map_err(|e| ActionError::InvalidInput(format!("Failed to get device ID: {}", e)))?;
 		let library_id = library.id();
 
-		let (backend, credential, cloud_identifier, mount_point, cloud_config) = match &self.input.config {
+		let (backend, credential, cloud_identifier, mount_point, cloud_config) = match &self
+			.input
+			.config
+		{
 			CloudStorageConfig::S3 {
 				bucket,
 				region,

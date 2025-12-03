@@ -142,8 +142,8 @@ impl MemoryArchive {
 		let mut index_bytes = Vec::new();
 		file.read_to_end(&mut index_bytes)?;
 
-		let index: FileIndex = rmp_serde::from_slice(&index_bytes)
-			.map_err(|_| ArchiveError::CorruptIndex)?;
+		let index: FileIndex =
+			rmp_serde::from_slice(&index_bytes).map_err(|_| ArchiveError::CorruptIndex)?;
 
 		Ok(Self {
 			file,

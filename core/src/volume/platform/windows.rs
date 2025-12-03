@@ -137,12 +137,7 @@ fn parse_wmic_output(
 			let volume_type = classify_volume(&mount_path, &file_system, &name);
 			let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
 
-			let mut volume = Volume::new(
-				device_id,
-				fingerprint,
-				name.clone(),
-				mount_path,
-			);
+			let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 
 			volume.mount_type = mount_type;
 			volume.volume_type = volume_type;
@@ -222,12 +217,7 @@ pub fn create_volume_from_windows_info(
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
 	let fingerprint = VolumeFingerprint::new(&name, info.size, &file_system.to_string());
 
-	let mut volume = Volume::new(
-		device_id,
-		fingerprint,
-		name.clone(),
-		mount_path,
-	);
+	let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 
 	volume.mount_type = mount_type;
 	volume.volume_type = volume_type;

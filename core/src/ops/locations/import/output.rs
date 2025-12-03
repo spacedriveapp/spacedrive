@@ -32,10 +32,7 @@ impl ActionOutputTrait for LocationImportOutput {
 	}
 
 	fn display_message(&self) -> String {
-		let name = self
-			.location_name
-			.as_deref()
-			.unwrap_or("Unnamed location");
+		let name = self.location_name.as_deref().unwrap_or("Unnamed location");
 		format!(
 			"Imported '{}' from {} ({} entries, {} skipped)",
 			name,

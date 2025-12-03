@@ -137,11 +137,13 @@ impl LibraryQuery for DirectoryListingQuery {
 			Ok(parent_entry) => {
 				// Path is indexed - query from database
 				let parent_id = parent_entry.id;
-				self.query_indexed_directory_impl(parent_id, db.conn()).await
+				self.query_indexed_directory_impl(parent_id, db.conn())
+					.await
 			}
 			Err(_) => {
 				// Path not indexed - trigger ephemeral indexing and return empty
-				self.query_ephemeral_directory_impl(context, library_id).await
+				self.query_ephemeral_directory_impl(context, library_id)
+					.await
 			}
 		}
 	}
@@ -154,7 +156,6 @@ impl DirectoryListingQuery {
 		parent_id: i32,
 		db: &DatabaseConnection,
 	) -> QueryResult<DirectoryListingOutput> {
-
 		// Build efficient SQL query to get all data in one go
 		let mut sql_query = r#"
 			SELECT
@@ -282,11 +283,7 @@ impl DirectoryListingQuery {
 		// Collect entry UUIDs for tag lookup
 		let entry_uuids: Vec<Uuid> = rows
 			.iter()
-			.filter_map(|row| {
-				row.try_get::<Option<Uuid>>("", "entry_uuid")
-					.ok()
-					.flatten()
-			})
+			.filter_map(|row| row.try_get::<Option<Uuid>>("", "entry_uuid").ok().flatten())
 			.collect();
 
 		// Batch fetch tags for these entries (both entry-scoped and content-scoped)
@@ -295,13 +292,18 @@ impl DirectoryListingQuery {
 		if !entry_uuids.is_empty() || !content_uuids.is_empty() {
 			use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-			tracing::debug!("Loading tags for {} entries and {} content identities", entry_uuids.len(), content_uuids.len());
+			tracing::debug!(
+				"Loading tags for {} entries and {} content identities",
+				entry_uuids.len(),
+				content_uuids.len()
+			);
 
 			// Load user_metadata for entries and content
 			let mut metadata_records = user_metadata::Entity::find()
 				.filter(
-					user_metadata::Column::EntryUuid.is_in(entry_uuids.clone())
-						.or(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.clone()))
+					user_metadata::Column::EntryUuid
+						.is_in(entry_uuids.clone())
+						.or(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.clone())),
 				)
 				.all(db)
 				.await?;
@@ -319,9 +321,14 @@ impl DirectoryListingQuery {
 
 				// Get all unique tag IDs
 				let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
-				let unique_tag_ids: std::collections::HashSet<i32> = tag_ids.iter().cloned().collect();
+				let unique_tag_ids: std::collections::HashSet<i32> =
+					tag_ids.iter().cloned().collect();
 
-				tracing::debug!("Found {} user_metadata_tag records with {} unique tags", metadata_tags.len(), unique_tag_ids.len());
+				tracing::debug!(
+					"Found {} user_metadata_tag records with {} unique tags",
+					metadata_tags.len(),
+					unique_tag_ids.len()
+				);
 
 				// Load tag entities
 				let tag_models = tag::Entity::find()
@@ -336,14 +343,17 @@ impl DirectoryListingQuery {
 					.into_iter()
 					.filter_map(|t| {
 						let db_id = t.id;
-						crate::ops::tags::manager::model_to_domain(t).ok().map(|tag| (db_id, tag))
+						crate::ops::tags::manager::model_to_domain(t)
+							.ok()
+							.map(|tag| (db_id, tag))
 					})
 					.collect();
 
 				tracing::debug!("Built tag map with {} entries", tag_map.len());
 
 				// Build metadata_id -> Vec<Tag> mapping
-				let mut tags_by_metadata: HashMap<i32, Vec<crate::domain::tag::Tag>> = HashMap::new();
+				let mut tags_by_metadata: HashMap<i32, Vec<crate::domain::tag::Tag>> =
+					HashMap::new();
 				for mt in metadata_tags {
 					if let Some(tag) = tag_map.get(&mt.tag_id) {
 						tags_by_metadata
@@ -364,11 +374,21 @@ impl DirectoryListingQuery {
 						else if let Some(content_uuid) = metadata.content_identity_uuid {
 							// Apply to all entries with this content_uuid
 							for row in &rows {
-								if let Some(ci_uuid) = row.try_get::<Option<Uuid>>("", "content_identity_uuid").ok().flatten() {
+								if let Some(ci_uuid) = row
+									.try_get::<Option<Uuid>>("", "content_identity_uuid")
+									.ok()
+									.flatten()
+								{
 									if ci_uuid == content_uuid {
-										if let Some(entry_uuid) = row.try_get::<Option<Uuid>>("", "entry_uuid").ok().flatten() {
+										if let Some(entry_uuid) = row
+											.try_get::<Option<Uuid>>("", "entry_uuid")
+											.ok()
+											.flatten()
+										{
 											// Only set if not already set by entry-scoped metadata
-											tags_by_entry.entry(entry_uuid).or_insert_with(|| tags.clone());
+											tags_by_entry
+												.entry(entry_uuid)
+												.or_insert_with(|| tags.clone());
 										}
 									}
 								}
@@ -577,7 +597,7 @@ impl DirectoryListingQuery {
 		context: Arc<CoreContext>,
 		library_id: Uuid,
 	) -> QueryResult<DirectoryListingOutput> {
-		use crate::ops::indexing::{IndexerJob, IndexerJobConfig, IndexMode, IndexScope};
+		use crate::ops::indexing::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig};
 
 		tracing::info!(
 			"Path not indexed, triggering ephemeral indexing for: {:?}",
@@ -603,10 +623,7 @@ impl DirectoryListingQuery {
 					e
 				);
 			} else {
-				tracing::info!(
-					"Dispatched ephemeral indexer for {:?}",
-					self.input.path
-				);
+				tracing::info!("Dispatched ephemeral indexer for {:?}", self.input.path);
 			}
 		}
 

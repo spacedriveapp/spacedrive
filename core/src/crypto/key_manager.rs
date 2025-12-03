@@ -150,8 +150,8 @@ impl KeyManager {
 
 		match entry.get_password() {
 			Ok(key_hex) => {
-				let key_bytes = hex::decode(key_hex)
-					.map_err(|_| KeyManagerError::InvalidKeyFormat)?;
+				let key_bytes =
+					hex::decode(key_hex).map_err(|_| KeyManagerError::InvalidKeyFormat)?;
 
 				if key_bytes.len() != KEY_LENGTH {
 					return Err(KeyManagerError::InvalidKeyFormat);
@@ -179,7 +179,10 @@ impl KeyManager {
 	}
 
 	/// Get a library encryption key (creates if doesn't exist)
-	pub async fn get_library_key(&self, library_id: Uuid) -> Result<[u8; KEY_LENGTH], KeyManagerError> {
+	pub async fn get_library_key(
+		&self,
+		library_id: Uuid,
+	) -> Result<[u8; KEY_LENGTH], KeyManagerError> {
 		let key_id = format!("library_{}", library_id);
 
 		// Try to load from encrypted storage
@@ -281,7 +284,10 @@ impl KeyManager {
 		// Get a write lock and replace with an in-memory database to force file close
 		let mut db_guard = self.db.write().await;
 		// Drop the old database and replace with a dummy in-memory one
-		drop(std::mem::replace(&mut *db_guard, Database::create(":memory:")?));
+		drop(std::mem::replace(
+			&mut *db_guard,
+			Database::create(":memory:")?,
+		));
 		Ok(())
 	}
 
@@ -315,7 +321,11 @@ impl KeyManager {
 	}
 
 	/// Decrypt data with XChaCha20-Poly1305
-	fn decrypt(&self, encrypted: &[u8], key: &[u8; KEY_LENGTH]) -> Result<Vec<u8>, KeyManagerError> {
+	fn decrypt(
+		&self,
+		encrypted: &[u8],
+		key: &[u8; KEY_LENGTH],
+	) -> Result<Vec<u8>, KeyManagerError> {
 		// Extract nonce (first 24 bytes)
 		if encrypted.len() < 24 {
 			return Err(KeyManagerError::Decryption(
@@ -348,10 +358,13 @@ mod tests {
 		let temp_dir = TempDir::new().unwrap();
 		let fallback = temp_dir.path().join("device_key.txt");
 
-		let manager1 = KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(fallback.clone())).unwrap();
+		let manager1 =
+			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(fallback.clone()))
+				.unwrap();
 		let key1 = manager1.get_device_key().await.unwrap();
 
-		let manager2 = KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(fallback)).unwrap();
+		let manager2 =
+			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(fallback)).unwrap();
 		let key2 = manager2.get_device_key().await.unwrap();
 
 		assert_eq!(key1, key2);

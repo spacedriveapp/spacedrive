@@ -61,16 +61,17 @@ impl PairCmd {
 							"version": 2,
 							"words": code,
 							"node_id": node_id,
-						}).to_string()
+						})
+						.to_string()
 					}
 				} else {
 					code
 				};
 
 				Some(PairJoinInput {
-				code,
-				node_id: node_id.clone(),
-			})
+					code,
+					node_id: node_id.clone(),
+				})
 			}
 			_ => None,
 		}

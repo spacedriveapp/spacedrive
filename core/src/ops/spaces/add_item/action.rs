@@ -167,7 +167,11 @@ async fn resolve_sd_path_to_entry_id(
 			let file_name = path_buf.file_name()?.to_string_lossy().to_string();
 			let parent_path = path_buf.parent()?.to_string_lossy().to_string();
 
-			tracing::debug!("Looking up entry: file_name={}, parent_path={}", file_name, parent_path);
+			tracing::debug!(
+				"Looking up entry: file_name={}, parent_path={}",
+				file_name,
+				parent_path
+			);
 
 			// Parse name and extension
 			let (name, extension) = if let Some(dot_idx) = file_name.rfind('.') {

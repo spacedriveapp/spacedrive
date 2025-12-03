@@ -102,9 +102,3 @@ mod tests {
 		assert_eq!(infer_variable_type(&values), VariableType::String);
 	}
 }
-
-
-
-
-
-

@@ -99,7 +99,11 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 			let input: sd_core::ops::locations::export::LocationExportInput = args.into();
 			let out: LocationExportOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &LocationExportOutput| {
-				println!("Exported location {} to {}", o.location_uuid, output_path.display());
+				println!(
+					"Exported location {} to {}",
+					o.location_uuid,
+					output_path.display()
+				);
 				println!(
 					"  {} entries, {} content identities, {} bytes",
 					o.stats.entries, o.stats.content_identities, o.file_size_bytes
@@ -159,8 +163,12 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 		// Cloud storage
 		use sd_core::ops::volumes::list::VolumeListQueryInput;
 
-		let volumes: sd_core::ops::volumes::list::VolumeListOutput =
-            execute_query!(ctx, VolumeListQueryInput { filter: sd_core::ops::volumes::VolumeFilter::TrackedOnly });
+		let volumes: sd_core::ops::volumes::list::VolumeListOutput = execute_query!(
+			ctx,
+			VolumeListQueryInput {
+				filter: sd_core::ops::volumes::VolumeFilter::TrackedOnly
+			}
+		);
 
 		if volumes.volumes.is_empty() {
 			anyhow::bail!(
@@ -201,7 +209,11 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 			.ok_or_else(|| anyhow::anyhow!("Selected volume has no mount point"))?;
 
 		// Get cloud path within the volume
-		let cloud_path = text("Enter path within volume (e.g., / for root or /photos)", false)?.unwrap();
+		let cloud_path = text(
+			"Enter path within volume (e.g., / for root or /photos)",
+			false,
+		)?
+		.unwrap();
 
 		// Construct service-based URI: mount_point + path
 		let full_uri = if cloud_path.starts_with('/') {

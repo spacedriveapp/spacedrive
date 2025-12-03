@@ -443,7 +443,8 @@ impl LibraryManager {
 		if old_db_path.exists() {
 			if new_db_path.exists() {
 				return Err(LibraryError::Other(
-					"Both database.db and library.db exist. Please manually delete one.".to_string()
+					"Both database.db and library.db exist. Please manually delete one."
+						.to_string(),
 				));
 			}
 
@@ -1115,7 +1116,8 @@ impl LibraryManager {
 		);
 
 		// Create Locations group
-		let locations_group_id = deterministic_library_default_uuid(library_id, "space_group", "Locations");
+		let locations_group_id =
+			deterministic_library_default_uuid(library_id, "space_group", "Locations");
 		let locations_type_json = serde_json::to_string(&GroupType::Locations)
 			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
 
@@ -1141,7 +1143,8 @@ impl LibraryManager {
 		);
 
 		// Create Volumes group
-		let volumes_group_id = deterministic_library_default_uuid(library_id, "space_group", "Volumes");
+		let volumes_group_id =
+			deterministic_library_default_uuid(library_id, "space_group", "Volumes");
 		let volumes_type_json = serde_json::to_string(&GroupType::Volumes)
 			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
 
@@ -1260,19 +1263,21 @@ impl LibraryManager {
 		let watch_path_clone = watch_path.clone();
 
 		// Create filesystem watcher
-		let mut watcher = notify::recommended_watcher(move |res: std::result::Result<notify::Event, notify::Error>| {
-			match res {
-				Ok(event) => {
-					// Use try_send since we're in a sync context
-					if let Err(e) = tx_clone.try_send(event) {
-						error!("Failed to send library watcher event: {}", e);
+		let mut watcher = notify::recommended_watcher(
+			move |res: std::result::Result<notify::Event, notify::Error>| {
+				match res {
+					Ok(event) => {
+						// Use try_send since we're in a sync context
+						if let Err(e) = tx_clone.try_send(event) {
+							error!("Failed to send library watcher event: {}", e);
+						}
+					}
+					Err(e) => {
+						error!("Library filesystem watcher error: {}", e);
 					}
 				}
-				Err(e) => {
-					error!("Library filesystem watcher error: {}", e);
-				}
-			}
-		})?;
+			},
+		)?;
 
 		// Configure with polling interval
 		watcher.configure(Config::default().with_poll_interval(Duration::from_millis(500)))?;

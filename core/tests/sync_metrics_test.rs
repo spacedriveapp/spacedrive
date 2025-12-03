@@ -15,11 +15,7 @@ use sd_core::{
 	infra::{db::entities, sync::NetworkTransport},
 	library::Library,
 	service::{
-		sync::{
-			metrics::snapshot::SyncMetricsSnapshot,
-			state::DeviceSyncState,
-			SyncService,
-		},
+		sync::{metrics::snapshot::SyncMetricsSnapshot, state::DeviceSyncState, SyncService},
 		Service,
 	},
 	Core,
@@ -282,7 +278,11 @@ impl MetricsTestHarness {
 	/// Get metrics snapshot for Alice
 	async fn alice_metrics(&self) -> SyncMetricsSnapshot {
 		SyncMetricsSnapshot::from_metrics(
-			self.library_alice.sync_service().unwrap().metrics().metrics(),
+			self.library_alice
+				.sync_service()
+				.unwrap()
+				.metrics()
+				.metrics(),
 		)
 		.await
 	}
@@ -789,10 +789,7 @@ async fn test_metrics_snapshot_structure() -> anyhow::Result<()> {
 	);
 
 	tracing::info!("--- Operations ---");
-	tracing::info!(
-		"  broadcasts_sent: {}",
-		alice.operations.broadcasts_sent
-	);
+	tracing::info!("  broadcasts_sent: {}", alice.operations.broadcasts_sent);
 	tracing::info!(
 		"  state_changes_broadcast: {}",
 		alice.operations.state_changes_broadcast
@@ -801,14 +798,8 @@ async fn test_metrics_snapshot_structure() -> anyhow::Result<()> {
 		"  shared_changes_broadcast: {}",
 		alice.operations.shared_changes_broadcast
 	);
-	tracing::info!(
-		"  changes_received: {}",
-		alice.operations.changes_received
-	);
-	tracing::info!(
-		"  changes_applied: {}",
-		alice.operations.changes_applied
-	);
+	tracing::info!("  changes_received: {}", alice.operations.changes_received);
+	tracing::info!("  changes_applied: {}", alice.operations.changes_applied);
 
 	tracing::info!("--- Data Volume ---");
 	tracing::info!("  bytes_sent: {}", alice.data_volume.bytes_sent);
@@ -829,23 +820,14 @@ async fn test_metrics_snapshot_structure() -> anyhow::Result<()> {
 		alice.performance.apply_latency.count,
 		alice.performance.apply_latency.avg_ms
 	);
-	tracing::info!(
-		"  db_query_count: {}",
-		alice.performance.db_query_count
-	);
+	tracing::info!("  db_query_count: {}", alice.performance.db_query_count);
 
 	tracing::info!("--- Errors ---");
 	tracing::info!("  total_errors: {}", alice.errors.total_errors);
-	tracing::info!(
-		"  conflicts_detected: {}",
-		alice.errors.conflicts_detected
-	);
+	tracing::info!("  conflicts_detected: {}", alice.errors.conflicts_detected);
 
 	tracing::info!("=== BOB METRICS SNAPSHOT ===");
-	tracing::info!(
-		"  changes_received: {}",
-		bob.operations.changes_received
-	);
+	tracing::info!("  changes_received: {}", bob.operations.changes_received);
 	tracing::info!("  changes_applied: {}", bob.operations.changes_applied);
 
 	// Save full snapshot for inspection

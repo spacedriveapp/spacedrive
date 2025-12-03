@@ -221,10 +221,10 @@ pub type SharedApplyFn = fn(
 /// Parameters: device_id, since, batch_size, db
 /// Returns: Vec of (uuid, data, timestamp)
 pub type StateQueryFn = fn(
-	Option<uuid::Uuid>,                                      // device_id filter
-	Option<chrono::DateTime<chrono::Utc>>,                   // since watermark
-	Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>,     // cursor for pagination
-	usize,                                                    // batch_size
+	Option<uuid::Uuid>,                                  // device_id filter
+	Option<chrono::DateTime<chrono::Utc>>,               // since watermark
+	Option<(chrono::DateTime<chrono::Utc>, uuid::Uuid)>, // cursor for pagination
+	usize,                                               // batch_size
 	Arc<DatabaseConnection>,
 ) -> Pin<
 	Box<
@@ -247,33 +247,44 @@ pub type StateDeleteFn = fn(
 ) -> Pin<Box<dyn Future<Output = Result<(), sea_orm::DbErr>> + Send>>;
 
 /// Type alias for FK ID lookup by UUID
-pub type FkLookupIdFn = fn(
-	uuid::Uuid,
-	Arc<DatabaseConnection>,
-) -> Pin<Box<dyn Future<Output = Result<Option<i32>, sea_orm::DbErr>> + Send>>;
+pub type FkLookupIdFn =
+	fn(
+		uuid::Uuid,
+		Arc<DatabaseConnection>,
+	) -> Pin<Box<dyn Future<Output = Result<Option<i32>, sea_orm::DbErr>> + Send>>;
 
 /// Type alias for FK UUID lookup by ID
-pub type FkLookupUuidFn = fn(
-	i32,
-	Arc<DatabaseConnection>,
-) -> Pin<Box<dyn Future<Output = Result<Option<uuid::Uuid>, sea_orm::DbErr>> + Send>>;
+pub type FkLookupUuidFn =
+	fn(
+		i32,
+		Arc<DatabaseConnection>,
+	) -> Pin<Box<dyn Future<Output = Result<Option<uuid::Uuid>, sea_orm::DbErr>> + Send>>;
 
 /// Type alias for batch FK ID lookup by UUIDs
 pub type FkBatchLookupIdsFn = fn(
 	std::collections::HashSet<uuid::Uuid>,
 	Arc<DatabaseConnection>,
-) -> Pin<Box<dyn Future<Output = Result<std::collections::HashMap<uuid::Uuid, i32>, sea_orm::DbErr>> + Send>>;
+) -> Pin<
+	Box<
+		dyn Future<Output = Result<std::collections::HashMap<uuid::Uuid, i32>, sea_orm::DbErr>>
+			+ Send,
+	>,
+>;
 
 /// Type alias for batch FK UUID lookup by IDs
 pub type FkBatchLookupUuidsFn = fn(
 	std::collections::HashSet<i32>,
 	Arc<DatabaseConnection>,
-) -> Pin<Box<dyn Future<Output = Result<std::collections::HashMap<i32, uuid::Uuid>, sea_orm::DbErr>> + Send>>;
+) -> Pin<
+	Box<
+		dyn Future<Output = Result<std::collections::HashMap<i32, uuid::Uuid>, sea_orm::DbErr>>
+			+ Send,
+	>,
+>;
 
 /// Type alias for post-backfill rebuild function
-pub type PostBackfillRebuildFn = fn(
-	Arc<DatabaseConnection>,
-) -> Pin<Box<dyn Future<Output = Result<(), sea_orm::DbErr>> + Send>>;
+pub type PostBackfillRebuildFn =
+	fn(Arc<DatabaseConnection>) -> Pin<Box<dyn Future<Output = Result<(), sea_orm::DbErr>> + Send>>;
 
 /// Type alias for FK mappings function
 pub type FkMappingsFn = fn() -> Vec<super::FKMapping>;
@@ -453,7 +464,9 @@ pub async fn register_device_owned(
 	let mut registry = SYNCABLE_REGISTRY.write().await;
 	registry.insert(
 		model_type.to_string(),
-		SyncableModelRegistration::device_owned(model_type, table_name, apply_fn, query_fn, delete_fn),
+		SyncableModelRegistration::device_owned(
+			model_type, table_name, apply_fn, query_fn, delete_fn,
+		),
 	);
 }
 
@@ -684,7 +697,10 @@ pub async fn query_all_shared_models(
 	since: Option<chrono::DateTime<chrono::Utc>>,
 	batch_size: usize,
 	db: Arc<DatabaseConnection>,
-) -> Result<HashMap<String, Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>>, ApplyError> {
+) -> Result<
+	HashMap<String, Vec<(uuid::Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>>,
+	ApplyError,
+> {
 	// Collect all shared models with query functions
 	let shared_models: Vec<(String, StateQueryFn)> = {
 		let registry = SYNCABLE_REGISTRY.read().await;
@@ -826,18 +842,15 @@ pub async fn run_post_backfill_rebuilds(db: Arc<DatabaseConnection>) -> Result<(
 		let registry = SYNCABLE_REGISTRY.read().await;
 		registry
 			.iter()
-			.filter_map(|(model, reg)| {
-				reg.post_backfill_rebuild_fn
-					.map(|f| (model.clone(), f))
-			})
+			.filter_map(|(model, reg)| reg.post_backfill_rebuild_fn.map(|f| (model.clone(), f)))
 			.collect()
 	};
 
 	for (model_type, rebuild_fn) in rebuild_fns {
 		tracing::info!(model = %model_type, "Running post-backfill rebuild");
-		rebuild_fn(db.clone())
-			.await
-			.map_err(|e| ApplyError::DatabaseError(format!("{} rebuild failed: {}", model_type, e)))?;
+		rebuild_fn(db.clone()).await.map_err(|e| {
+			ApplyError::DatabaseError(format!("{} rebuild failed: {}", model_type, e))
+		})?;
 	}
 
 	Ok(())
@@ -888,10 +901,7 @@ pub async fn compute_registry_sync_order() -> Result<Vec<String>, super::Depende
 		let registry = SYNCABLE_REGISTRY.read().await;
 		registry
 			.iter()
-			.filter_map(|(_, reg)| {
-				reg.sync_depends_on_fn
-					.map(|f| (reg.model_type, f()))
-			})
+			.filter_map(|(_, reg)| reg.sync_depends_on_fn.map(|f| (reg.model_type, f())))
 			.collect()
 	};
 
@@ -963,7 +973,10 @@ mod tests {
 		let space_item_idx = order.iter().position(|m| m == "space_item").unwrap();
 
 		// Device must come before location
-		assert!(device_idx < location_idx, "device must sync before location");
+		assert!(
+			device_idx < location_idx,
+			"device must sync before location"
+		);
 
 		// Location must come before entry
 		assert!(location_idx < entry_idx, "location must sync before entry");
@@ -979,7 +992,13 @@ mod tests {
 		);
 
 		// Space hierarchy
-		assert!(space_idx < space_group_idx, "space must sync before space_group");
-		assert!(space_group_idx < space_item_idx, "space_group must sync before space_item");
+		assert!(
+			space_idx < space_group_idx,
+			"space must sync before space_group"
+		);
+		assert!(
+			space_group_idx < space_item_idx,
+			"space_group must sync before space_item"
+		);
 	}
 }

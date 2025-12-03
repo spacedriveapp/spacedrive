@@ -161,10 +161,9 @@ impl LibraryAction for LocationExportAction {
 				// Find parent's UUID
 				let parent = entries.iter().find(|e| Some(e.id) == entry.parent_id);
 				match parent.and_then(|p| p.uuid) {
-					Some(puuid) => format!(
-						"(SELECT id FROM entries WHERE uuid = {})",
-						sql_uuid(puuid)
-					),
+					Some(puuid) => {
+						format!("(SELECT id FROM entries WHERE uuid = {})", sql_uuid(puuid))
+					}
 					None => "NULL".to_string(),
 				}
 			} else {
@@ -574,8 +573,7 @@ impl LibraryAction for LocationExportAction {
 								.iter()
 								.find(|m| m.id == umt.user_metadata_id)
 								.map(|m| m.uuid);
-							let tag_uuid =
-								tags.iter().find(|t| t.id == umt.tag_id).map(|t| t.uuid);
+							let tag_uuid = tags.iter().find(|t| t.id == umt.tag_id).map(|t| t.uuid);
 
 							if let (Some(um_uuid), Some(tag_uuid)) = (um_uuid, tag_uuid) {
 								sql_output.push_str(&format!(
@@ -619,9 +617,8 @@ impl LibraryAction for LocationExportAction {
 
 		// Rebuild entry_closure for imported entries
 		sql_output.push_str("-- Rebuild entry_closure (self-references)\n");
-		sql_output.push_str(
-			"INSERT OR IGNORE INTO entry_closure (ancestor_id, descendant_id, depth)\n",
-		);
+		sql_output
+			.push_str("INSERT OR IGNORE INTO entry_closure (ancestor_id, descendant_id, depth)\n");
 		sql_output.push_str("SELECT id, id, 0 FROM entries WHERE uuid IN (\n");
 		for (i, entry) in entries.iter().enumerate() {
 			if let Some(uuid) = entry.uuid {
@@ -653,9 +650,9 @@ WHERE e.parent_id IS NOT NULL;
 		// Write to file
 		let export_path = &self.input.export_path;
 		if let Some(parent) = export_path.parent() {
-			tokio::fs::create_dir_all(parent).await.map_err(|e| {
-				ActionError::io_error(parent.to_string_lossy().to_string(), e)
-			})?;
+			tokio::fs::create_dir_all(parent)
+				.await
+				.map_err(|e| ActionError::io_error(parent.to_string_lossy().to_string(), e))?;
 		}
 
 		let mut file = std::fs::File::create(export_path)

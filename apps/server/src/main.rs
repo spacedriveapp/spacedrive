@@ -72,9 +72,12 @@ async fn daemon_rpc(
 	Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
 	// Connect to daemon
-	let mut stream = TcpStream::connect(&state.socket_addr)
-		.await
-		.map_err(|e| (StatusCode::SERVICE_UNAVAILABLE, format!("Daemon not available: {}", e)))?;
+	let mut stream = TcpStream::connect(&state.socket_addr).await.map_err(|e| {
+		(
+			StatusCode::SERVICE_UNAVAILABLE,
+			format!("Daemon not available: {}", e),
+		)
+	})?;
 
 	// Send request
 	let request_line = serde_json::to_string(&payload)
@@ -83,20 +86,31 @@ async fn daemon_rpc(
 	stream
 		.write_all(format!("{}\n", request_line).as_bytes())
 		.await
-		.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Write failed: {}", e)))?;
+		.map_err(|e| {
+			(
+				StatusCode::INTERNAL_SERVER_ERROR,
+				format!("Write failed: {}", e),
+			)
+		})?;
 
 	// Read response
 	let mut reader = BufReader::new(stream);
 	let mut response_line = String::new();
 
-	reader
-		.read_line(&mut response_line)
-		.await
-		.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Read failed: {}", e)))?;
+	reader.read_line(&mut response_line).await.map_err(|e| {
+		(
+			StatusCode::INTERNAL_SERVER_ERROR,
+			format!("Read failed: {}", e),
+		)
+	})?;
 
 	// Parse and return
-	let response: serde_json::Value = serde_json::from_str(&response_line)
-		.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Invalid response: {}", e)))?;
+	let response: serde_json::Value = serde_json::from_str(&response_line).map_err(|e| {
+		(
+			StatusCode::INTERNAL_SERVER_ERROR,
+			format!("Invalid response: {}", e),
+		)
+	})?;
 
 	Ok(Json(response))
 }
@@ -139,25 +153,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let args = Args::parse();
 
 	// Resolve data directory
-	let base_data_dir = args
-		.data_dir
-		.unwrap_or_else(|| {
-			#[cfg(not(debug_assertions))]
-			{
-				std::env::var("DATA_DIR")
-					.expect("DATA_DIR must be set in production")
-					.into()
-			}
-			#[cfg(debug_assertions)]
-			{
-				std::env::var("DATA_DIR")
-					.map(PathBuf::from)
-					.unwrap_or_else(|_| {
-						let temp = tempfile::tempdir().expect("Failed to create temp dir");
-						temp.path().to_path_buf()
-					})
-			}
-		});
+	let base_data_dir = args.data_dir.unwrap_or_else(|| {
+		#[cfg(not(debug_assertions))]
+		{
+			std::env::var("DATA_DIR")
+				.expect("DATA_DIR must be set in production")
+				.into()
+		}
+		#[cfg(debug_assertions)]
+		{
+			std::env::var("DATA_DIR")
+				.map(PathBuf::from)
+				.unwrap_or_else(|_| {
+					let temp = tempfile::tempdir().expect("Failed to create temp dir");
+					temp.path().to_path_buf()
+				})
+		}
+	});
 
 	// Calculate instance-specific paths
 	let (data_dir, socket_addr) = if let Some(instance) = &args.instance {
@@ -186,7 +198,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	// Start the daemon if not already running
-	let daemon_handle = start_daemon_if_needed(socket_addr.clone(), data_dir.clone(), args.p2p).await?;
+	let daemon_handle =
+		start_daemon_if_needed(socket_addr.clone(), data_dir.clone(), args.p2p).await?;
 
 	// Build HTTP router
 	let state = AppState {
@@ -197,7 +210,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let app = Router::new()
 		.route("/health", get(health))
 		.route("/rpc", post(daemon_rpc))
-		.route("/", get(|| async { "Spacedrive Server - RPC only (no web UI)" }))
+		.route(
+			"/",
+			get(|| async { "Spacedrive Server - RPC only (no web UI)" }),
+		)
 		.fallback(|| async {
 			(
 				StatusCode::NOT_FOUND,
@@ -211,7 +227,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap();
 	addr.set_port(args.port);
 
-	info!("Spacedrive Server listening on http://localhost:{}", args.port);
+	info!(
+		"Spacedrive Server listening on http://localhost:{}",
+		args.port
+	);
 	info!("RPC endpoint available at /rpc");
 
 	// Setup graceful shutdown
@@ -245,9 +264,11 @@ fn parse_auth(auth_str: Option<&str>) -> (HashMap<String, SecStr>, bool) {
 			}
 
 			let mut parts = s.split(':');
-			let result = parts
-				.next()
-				.and_then(|user| parts.next().map(|pass| (user.to_string(), SecStr::from(pass))));
+			let result = parts.next().and_then(|user| {
+				parts
+					.next()
+					.map(|pass| (user.to_string(), SecStr::from(pass)))
+			});
 
 			if result.is_none() {
 				warn!("Found invalid credential {i}. Skipping...");
@@ -319,7 +340,11 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 		Err(_) => return false,
 	};
 
-	if stream.write_all(format!("{}\n", request_line).as_bytes()).await.is_err() {
+	if stream
+		.write_all(format!("{}\n", request_line).as_bytes())
+		.await
+		.is_err()
+	{
 		return false;
 	}
 
@@ -329,8 +354,10 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 
 	match tokio::time::timeout(
 		tokio::time::Duration::from_millis(500),
-		buf_reader.read_line(&mut response_line)
-	).await {
+		buf_reader.read_line(&mut response_line),
+	)
+	.await
+	{
 		Ok(Ok(_)) if !response_line.is_empty() => true,
 		_ => false,
 	}

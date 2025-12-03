@@ -156,8 +156,12 @@ impl BackfillManager {
 		self.peer_sync.transition_to_ready().await?;
 
 		// Phase 5: Set initial watermarks from actual received data (not local DB query)
-		self.set_initial_watermarks_after_backfill(selected_peer, final_state_checkpoint, max_shared_hlc)
-			.await?;
+		self.set_initial_watermarks_after_backfill(
+			selected_peer,
+			final_state_checkpoint,
+			max_shared_hlc,
+		)
+		.await?;
 
 		// Record metrics
 		self.metrics.record_backfill_session_complete();
@@ -396,8 +400,10 @@ impl BackfillManager {
 					// This ensures parents are processed before children in the same batch
 					if model_type == "entry" {
 						record_data.sort_by(|a, b| {
-							let a_has_parent = a.get("parent_uuid").map(|v| !v.is_null()).unwrap_or(false);
-							let b_has_parent = b.get("parent_uuid").map(|v| !v.is_null()).unwrap_or(false);
+							let a_has_parent =
+								a.get("parent_uuid").map(|v| !v.is_null()).unwrap_or(false);
+							let b_has_parent =
+								b.get("parent_uuid").map(|v| !v.is_null()).unwrap_or(false);
 							a_has_parent.cmp(&b_has_parent) // false (no parent) comes before true
 						});
 					}
@@ -460,7 +466,9 @@ impl BackfillManager {
 											.dependency_tracker()
 											.add_dependency(
 												missing_uuid,
-												super::state::BufferedUpdate::StateChange(state_change),
+												super::state::BufferedUpdate::StateChange(
+													state_change,
+												),
 											)
 											.await;
 									}
@@ -552,11 +560,8 @@ impl BackfillManager {
 						// After successfully applying, resolve any records waiting for this one
 						// (e.g., child entries waiting for their parent entry)
 						if let Some(uuid) = record_uuid {
-							let waiting_updates = self
-								.peer_sync
-								.dependency_tracker()
-								.resolve(uuid)
-								.await;
+							let waiting_updates =
+								self.peer_sync.dependency_tracker().resolve(uuid).await;
 
 							if !waiting_updates.is_empty() {
 								tracing::info!(
@@ -567,7 +572,10 @@ impl BackfillManager {
 								);
 
 								for update in waiting_updates {
-									if let super::state::BufferedUpdate::StateChange(dependent_change) = update {
+									if let super::state::BufferedUpdate::StateChange(
+										dependent_change,
+									) = update
+									{
 										if let Err(e) = self
 											.peer_sync
 											.apply_state_change(dependent_change.clone())
@@ -671,14 +679,16 @@ impl BackfillManager {
 					if let Some(state_map) = state.as_object() {
 						// Get dependency-ordered list of models to prevent FK violations
 						// CRITICAL: Must apply parent models before children (e.g., user_metadata before user_metadata_tag)
-						let sync_order = match crate::infra::sync::registry::compute_registry_sync_order().await {
-							Ok(order) => order,
-							Err(e) => {
-								warn!("Failed to compute sync order, using unordered: {}", e);
-								// Fallback to unordered if dependency graph fails
-								state_map.keys().map(|k| k.clone()).collect::<Vec<_>>()
-							}
-						};
+						let sync_order =
+							match crate::infra::sync::registry::compute_registry_sync_order().await
+							{
+								Ok(order) => order,
+								Err(e) => {
+									warn!("Failed to compute sync order, using unordered: {}", e);
+									// Fallback to unordered if dependency graph fails
+									state_map.keys().map(|k| k.clone()).collect::<Vec<_>>()
+								}
+							};
 
 						// Apply snapshot records in dependency order
 						for model_type in sync_order {
@@ -798,9 +808,13 @@ impl BackfillManager {
 							let error_str = e.to_string();
 
 							// Check if this is a FK dependency error (from FK mapping or SQLite constraint)
-							if error_str.contains("Sync dependency missing") || error_str.contains("FOREIGN KEY constraint failed") {
+							if error_str.contains("Sync dependency missing")
+								|| error_str.contains("FOREIGN KEY constraint failed")
+							{
 								// Try to extract the missing UUID from the error message
-								if let Some(missing_uuid) = super::dependency::extract_missing_dependency_uuid(&error_str) {
+								if let Some(missing_uuid) =
+									super::dependency::extract_missing_dependency_uuid(&error_str)
+								{
 									tracing::debug!(
 										record_uuid = %entry.record_uuid,
 										model_type = %entry.model_type,
@@ -813,7 +827,9 @@ impl BackfillManager {
 										.dependency_tracker()
 										.add_dependency(
 											missing_uuid,
-											super::state::BufferedUpdate::SharedChange(entry.clone()),
+											super::state::BufferedUpdate::SharedChange(
+												entry.clone(),
+											),
 										)
 										.await;
 
@@ -872,7 +888,11 @@ impl BackfillManager {
 								}
 								super::state::BufferedUpdate::SharedChange(dependent_entry) => {
 									// Retry the shared change now that its dependency exists
-									if let Err(e) = self.log_handler.handle_shared_change(dependent_entry.clone()).await {
+									if let Err(e) = self
+										.log_handler
+										.handle_shared_change(dependent_entry.clone())
+										.await
+									{
 										tracing::warn!(
 											error = %e,
 											record_uuid = %dependent_entry.record_uuid,

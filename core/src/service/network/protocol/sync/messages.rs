@@ -113,8 +113,8 @@ pub enum SyncMessage {
 		device_id: Uuid, // Responding device
 		state_watermark: Option<DateTime<Utc>>,
 		shared_watermark: Option<HLC>,
-		needs_state_catchup: bool,   // If true, peer needs our state
-		needs_shared_catchup: bool,  // If true, peer needs our shared changes
+		needs_state_catchup: bool,  // If true, peer needs our state
+		needs_shared_catchup: bool, // If true, peer needs our shared changes
 	},
 
 	/// Error response

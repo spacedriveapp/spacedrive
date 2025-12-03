@@ -89,10 +89,20 @@ impl CoreAction for LibraryOpenAction {
 		}
 
 		// Check if it's a valid library directory
-		if !self.input.path.extension().and_then(|e| e.to_str()).map(|e| e == "sdlibrary").unwrap_or(false) {
+		if !self
+			.input
+			.path
+			.extension()
+			.and_then(|e| e.to_str())
+			.map(|e| e == "sdlibrary")
+			.unwrap_or(false)
+		{
 			return Err(ActionError::Validation {
 				field: "path".to_string(),
-				message: format!("Path {:?} is not a library directory (.sdlibrary)", self.input.path),
+				message: format!(
+					"Path {:?} is not a library directory (.sdlibrary)",
+					self.input.path
+				),
 			});
 		}
 
@@ -111,4 +121,3 @@ impl CoreAction for LibraryOpenAction {
 
 // Register core action
 crate::register_core_action!(LibraryOpenAction, "libraries.open");
-

@@ -209,7 +209,10 @@ impl crate::domain::resource::Identifiable for File {
 
 				// Get the user_metadata_tag to find its parent user_metadata
 				let umt = crate::infra::db::entities::user_metadata_tag::Entity::find()
-					.filter(crate::infra::db::entities::user_metadata_tag::Column::Uuid.eq(dependency_id))
+					.filter(
+						crate::infra::db::entities::user_metadata_tag::Column::Uuid
+							.eq(dependency_id),
+					)
 					.one(db)
 					.await?
 					.ok_or_else(|| {
@@ -428,16 +431,22 @@ impl File {
 		let is_local = sd_path.is_local();
 
 		// Extract name and extension from path
-		let file_name = metadata.path.file_name()
+		let file_name = metadata
+			.path
+			.file_name()
 			.and_then(|n| n.to_str())
 			.unwrap_or("unknown");
 
 		let (name, extension) = if metadata.kind == crate::ops::indexing::state::EntryKind::File {
-			let extension = metadata.path.extension()
+			let extension = metadata
+				.path
+				.extension()
 				.and_then(|e| e.to_str())
 				.map(|s| s.to_lowercase());
 
-			let name = metadata.path.file_stem()
+			let name = metadata
+				.path
+				.file_stem()
 				.and_then(|s| s.to_str())
 				.unwrap_or(file_name)
 				.to_string();
@@ -455,25 +464,32 @@ impl File {
 		};
 
 		// Convert SystemTime to chrono::DateTime
-		let created_at = metadata.created
-			.and_then(|t| chrono::DateTime::from_timestamp(
-				t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
-				0,
-			))
+		let created_at = metadata
+			.created
+			.and_then(|t| {
+				chrono::DateTime::from_timestamp(
+					t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
+					0,
+				)
+			})
 			.unwrap_or_else(chrono::Utc::now);
 
-		let modified_at = metadata.modified
-			.and_then(|t| chrono::DateTime::from_timestamp(
-				t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
-				0,
-			))
+		let modified_at = metadata
+			.modified
+			.and_then(|t| {
+				chrono::DateTime::from_timestamp(
+					t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
+					0,
+				)
+			})
 			.unwrap_or_else(chrono::Utc::now);
 
-		let accessed_at = metadata.accessed
-			.and_then(|t| chrono::DateTime::from_timestamp(
+		let accessed_at = metadata.accessed.and_then(|t| {
+			chrono::DateTime::from_timestamp(
 				t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64,
 				0,
-			));
+			)
+		});
 
 		Self {
 			id,

@@ -135,12 +135,10 @@ impl Core {
 
 		// Initialize unified key manager with file fallback
 		let device_key_fallback = data_dir.join("device_key");
-		let key_manager = Arc::new(
-			crate::crypto::key_manager::KeyManager::new_with_fallback(
-				data_dir.clone(),
-				Some(device_key_fallback),
-			)?,
-		);
+		let key_manager = Arc::new(crate::crypto::key_manager::KeyManager::new_with_fallback(
+			data_dir.clone(),
+			Some(device_key_fallback),
+		)?);
 
 		// Create the context that will be shared with services
 		let mut context_inner = CoreContext::new(
@@ -248,7 +246,9 @@ impl Core {
 		}
 
 		// Set library manager reference in volume manager so it can query tracked volumes
-		volumes.set_library_manager(Arc::downgrade(&libraries)).await;
+		volumes
+			.set_library_manager(Arc::downgrade(&libraries))
+			.await;
 
 		// Load cloud volumes from database now that libraries are loaded
 		// This restores cloud volumes that were previously added

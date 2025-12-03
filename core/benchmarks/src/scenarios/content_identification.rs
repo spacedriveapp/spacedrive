@@ -34,11 +34,11 @@ impl Scenario for ContentIdentificationScenario {
 		self.base.library = Some(library.clone());
 
 		for loc in &recipe.locations {
-            let input = sd_core::ops::locations::add::action::LocationAddInput {
+			let input = sd_core::ops::locations::add::action::LocationAddInput {
 				path: sd_core::domain::addressing::SdPath::local(loc.path.clone()),
 				name: Some(format!("bench:{}", recipe.name)),
 				mode: sd_core::ops::indexing::IndexMode::Content,
-                job_policies: None,
+				job_policies: None,
 			};
 			let action = sd_core::ops::locations::add::action::LocationAddAction::from_input(input)
 				.map_err(|e| anyhow::anyhow!(e))?;

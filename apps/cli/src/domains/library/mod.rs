@@ -124,18 +124,18 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 				println!();
 				println!("Statistics");
 				println!("----------");
-			println!("Total files: {}", info.statistics.total_files);
-			println!("Unique content: {}", info.statistics.unique_content_count);
-			println!("Total size: {} bytes", info.statistics.total_size);
-			println!("Locations: {}", info.statistics.location_count);
-			println!("Tags: {}", info.statistics.tag_count);
-			println!("Devices: {}", info.statistics.device_count);
-			println!("Total capacity: {} bytes", info.statistics.total_capacity);
-			println!(
-				"Available capacity: {} bytes",
-				info.statistics.available_capacity
-			);
-			println!("Thumbnails: {}", info.statistics.thumbnail_count);
+				println!("Total files: {}", info.statistics.total_files);
+				println!("Unique content: {}", info.statistics.unique_content_count);
+				println!("Total size: {} bytes", info.statistics.total_size);
+				println!("Locations: {}", info.statistics.location_count);
+				println!("Tags: {}", info.statistics.tag_count);
+				println!("Devices: {}", info.statistics.device_count);
+				println!("Total capacity: {} bytes", info.statistics.total_capacity);
+				println!(
+					"Available capacity: {} bytes",
+					info.statistics.available_capacity
+				);
+				println!("Thumbnails: {}", info.statistics.thumbnail_count);
 				println!("Database size: {} bytes", info.statistics.database_size);
 				if let Some(last_indexed) = info.statistics.last_indexed {
 					println!(
@@ -251,14 +251,18 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 
 async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInput> {
 	use crate::util::confirm::{select, text};
-	use sd_core::ops::network::devices::{output::ListPairedDevicesOutput, query::ListPairedDevicesInput};
+	use sd_core::ops::network::devices::{
+		output::ListPairedDevicesOutput, query::ListPairedDevicesInput,
+	};
 
 	println!("\n=== Library Sync Setup ===\n");
 
 	// Get local device ID from config
 	let config_path = ctx.data_dir.join("device.json");
 	if !config_path.exists() {
-		anyhow::bail!("Device config not found. Please run the daemon first to initialize device config.");
+		anyhow::bail!(
+			"Device config not found. Please run the daemon first to initialize device config."
+		);
 	}
 	let config_data = std::fs::read_to_string(&config_path)?;
 	let device_config: sd_core::device::DeviceConfig = serde_json::from_str(&config_data)?;
@@ -273,7 +277,9 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 	);
 
 	if libraries.is_empty() {
-		anyhow::bail!("No libraries found. Create a library first with:\n  sd library create <name>");
+		anyhow::bail!(
+			"No libraries found. Create a library first with:\n  sd library create <name>"
+		);
 	}
 
 	let library_choices: Vec<String> = libraries
@@ -284,7 +290,10 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 	let library_idx = select("Select local library to sync", &library_choices)?;
 	let local_library_id = libraries[library_idx].id;
 
-	println!("\n✓ Selected local library: {}\n", libraries[library_idx].name);
+	println!(
+		"\n✓ Selected local library: {}\n",
+		libraries[library_idx].name
+	);
 
 	// Step 2: Select remote device from paired devices
 	let paired_devices: ListPairedDevicesOutput = execute_core_query!(
@@ -307,7 +316,11 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 		.devices
 		.iter()
 		.map(|d| {
-			let status = if d.is_connected { "connected" } else { "paired" };
+			let status = if d.is_connected {
+				"connected"
+			} else {
+				"paired"
+			};
 			format!("{} - {} ({})", d.name, d.os_version, status)
 		})
 		.collect();
@@ -358,7 +371,9 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 		1 => {
 			// Join remote library
 			if discovery_out.libraries.is_empty() {
-				anyhow::bail!("No libraries found on remote device. Use 'Share my library' instead.");
+				anyhow::bail!(
+					"No libraries found on remote device. Use 'Share my library' instead."
+				);
 			}
 
 			let remote_lib_choices: Vec<String> = discovery_out
@@ -375,10 +390,7 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 			let remote_lib_idx = select("Select remote library to join", &remote_lib_choices)?;
 			let remote_library = &discovery_out.libraries[remote_lib_idx];
 
-			println!(
-				"\n✓ Will join remote library: {}\n",
-				remote_library.name
-			);
+			println!("\n✓ Will join remote library: {}\n", remote_library.name);
 
 			(
 				LibrarySyncAction::JoinRemoteLibrary {

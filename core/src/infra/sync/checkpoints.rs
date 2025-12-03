@@ -394,7 +394,9 @@ mod tests {
 			started_at: Utc::now(),
 		};
 
-		BackfillCheckpointStore::save(&conn, checkpoint1).await.unwrap();
+		BackfillCheckpointStore::save(&conn, checkpoint1)
+			.await
+			.unwrap();
 
 		// Update checkpoint (different resume token and records)
 		let checkpoint2 = BackfillCheckpoint {
@@ -407,7 +409,9 @@ mod tests {
 			started_at: Utc::now(),
 		};
 
-		BackfillCheckpointStore::save(&conn, checkpoint2).await.unwrap();
+		BackfillCheckpointStore::save(&conn, checkpoint2)
+			.await
+			.unwrap();
 
 		// Load and verify update
 		let loaded = BackfillCheckpointStore::load(&conn, device_uuid, peer_uuid, "entry")
@@ -436,7 +440,9 @@ mod tests {
 			started_at: Utc::now(),
 		};
 
-		BackfillCheckpointStore::save(&conn, checkpoint).await.unwrap();
+		BackfillCheckpointStore::save(&conn, checkpoint)
+			.await
+			.unwrap();
 
 		// Verify it exists
 		let loaded = BackfillCheckpointStore::load(&conn, device_uuid, peer_uuid, "volume")
@@ -474,7 +480,9 @@ mod tests {
 				records_synced: 0,
 				started_at: Utc::now(),
 			};
-			BackfillCheckpointStore::save(&conn, checkpoint).await.unwrap();
+			BackfillCheckpointStore::save(&conn, checkpoint)
+				.await
+				.unwrap();
 		}
 
 		// Verify all exist
@@ -496,4 +504,3 @@ mod tests {
 		assert_eq!(all.len(), 0);
 	}
 }
-

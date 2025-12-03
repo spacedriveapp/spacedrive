@@ -392,7 +392,9 @@ impl BackfillRaceHarness {
 
 		// Unblock Bob so he can receive messages now
 		tracing::info!("Unblocking Bob for backfill");
-		self.transport_alice.unblock_device(self.device_bob_id).await;
+		self.transport_alice
+			.unblock_device(self.device_bob_id)
+			.await;
 		self.transport_bob.unblock_device(self.device_bob_id).await;
 
 		tracing::info!("Triggering backfill on Bob");
@@ -589,11 +591,8 @@ async fn test_backfill_with_concurrent_indexing() -> anyhow::Result<()> {
 	// The backfill will request data from Alice
 	// Meanwhile, Alice will be creating new entries that get broadcast as live events
 	let backfill_future = harness.trigger_bob_backfill();
-	let indexing_future = harness.add_and_index_location(
-		&harness.library_alice,
-		&desktop_path,
-		"Desktop",
-	);
+	let indexing_future =
+		harness.add_and_index_location(&harness.library_alice, &desktop_path, "Desktop");
 
 	// Start both concurrently - this is the key to triggering the race
 	let (backfill_result, indexing_result) = tokio::join!(backfill_future, indexing_future);

@@ -125,15 +125,14 @@ impl MemoryFile {
 		};
 
 		// Compute next IDs
-		let next_doc_id = documents
-			.iter()
-			.map(|d: &Document| d.id)
-			.max()
-			.unwrap_or(0)
-			+ 1;
+		let next_doc_id = documents.iter().map(|d: &Document| d.id).max().unwrap_or(0) + 1;
 		let next_fact_id = facts.iter().map(|f: &Fact| f.id).max().unwrap_or(0) + 1;
 
-		debug!("Loaded memory: {} docs, {} facts", documents.len(), facts.len());
+		debug!(
+			"Loaded memory: {} docs, {} facts",
+			documents.len(),
+			facts.len()
+		);
 
 		Ok(Self {
 			path,
@@ -266,15 +265,13 @@ impl MemoryFile {
 	/// Get facts sorted by confidence
 	pub fn get_facts_sorted(&self) -> Vec<&Fact> {
 		let mut sorted = self.facts.iter().collect::<Vec<_>>();
-		sorted.sort_by(|a, b| {
-			match (a.verified, b.verified) {
-				(true, false) => std::cmp::Ordering::Less,
-				(false, true) => std::cmp::Ordering::Greater,
-				_ => b
-					.confidence
-					.partial_cmp(&a.confidence)
-					.unwrap_or(std::cmp::Ordering::Equal),
-			}
+		sorted.sort_by(|a, b| match (a.verified, b.verified) {
+			(true, false) => std::cmp::Ordering::Less,
+			(false, true) => std::cmp::Ordering::Greater,
+			_ => b
+				.confidence
+				.partial_cmp(&a.confidence)
+				.unwrap_or(std::cmp::Ordering::Equal),
 		});
 		sorted
 	}
@@ -371,7 +368,12 @@ mod tests {
 
 		// Add fact
 		memory
-			.add_fact("Test fact".to_string(), FactType::General, 1.0, Some(doc_id))
+			.add_fact(
+				"Test fact".to_string(),
+				FactType::General,
+				1.0,
+				Some(doc_id),
+			)
 			.await
 			.unwrap();
 
@@ -384,13 +386,9 @@ mod tests {
 		let path = temp_file.path().to_path_buf();
 
 		{
-			let mut memory = MemoryFile::create(
-				"test".to_string(),
-				MemoryScope::Standalone,
-				&path,
-			)
-			.await
-			.unwrap();
+			let mut memory = MemoryFile::create("test".to_string(), MemoryScope::Standalone, &path)
+				.await
+				.unwrap();
 
 			memory
 				.add_document(None, "Doc".to_string(), None, DocumentType::Note)

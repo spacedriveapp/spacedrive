@@ -146,12 +146,15 @@ impl LibraryAction for LocationUpdateAction {
 			updated_at: updated_location.updated_at,
 		};
 
-		context.events.emit(crate::infra::event::Event::ResourceChanged {
-			resource_type: "location".to_string(),
-			resource: serde_json::to_value(&location_info)
-				.map_err(|e| ActionError::Internal(format!("Failed to serialize location: {}", e)))?,
-			metadata: None,
-		});
+		context
+			.events
+			.emit(crate::infra::event::Event::ResourceChanged {
+				resource_type: "location".to_string(),
+				resource: serde_json::to_value(&location_info).map_err(|e| {
+					ActionError::Internal(format!("Failed to serialize location: {}", e))
+				})?,
+				metadata: None,
+			});
 
 		Ok(LocationUpdateOutput { id: self.input.id })
 	}

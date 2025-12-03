@@ -1,17 +1,17 @@
 mod args;
 
 use anyhow::Result;
-use clap::Subcommand;
 use chrono::{DateTime, Utc};
-use comfy_table::{Table, Row, Cell, Color, Attribute, ContentArrangement, presets::UTF8_FULL};
+use clap::Subcommand;
+use comfy_table::{presets::UTF8_FULL, Attribute, Cell, Color, ContentArrangement, Row, Table};
 use crossterm::style::Stylize;
 use serde_json;
 use std::time::Duration;
 use tokio::time::sleep;
 
-use crate::util::prelude::*;
 use crate::context::Context;
-use sd_core::ops::sync::get_metrics::{GetSyncMetricsInput};
+use crate::util::prelude::*;
+use sd_core::ops::sync::get_metrics::GetSyncMetricsInput;
 use sd_core::service::sync::state::DeviceSyncState;
 
 use self::args::*;
@@ -56,8 +56,9 @@ async fn run_single_query(
 	args: &SyncMetricsArgs,
 ) -> Result<()> {
 	// Check if we have a library ID
-	let library_id = ctx.library_id
-		.ok_or_else(|| anyhow::anyhow!("No library selected. Use 'sd library switch' to select a library first."))?;
+	let library_id = ctx.library_id.ok_or_else(|| {
+		anyhow::anyhow!("No library selected. Use 'sd library switch' to select a library first.")
+	})?;
 
 	// Call the sync metrics API
 	let input = GetSyncMetricsInput {
@@ -70,7 +71,8 @@ async fn run_single_query(
 	};
 
 	let json_response = ctx.core.query(&input, Some(library_id)).await?;
-	let output: sd_core::ops::sync::get_metrics::GetSyncMetricsOutput = serde_json::from_value(json_response)?;
+	let output: sd_core::ops::sync::get_metrics::GetSyncMetricsOutput =
+		serde_json::from_value(json_response)?;
 
 	if args.json {
 		println!("{}", serde_json::to_string_pretty(&output.metrics)?);
@@ -88,10 +90,14 @@ async fn run_watch_mode(
 	args: &SyncMetricsArgs,
 ) -> Result<()> {
 	// Check if we have a library ID
-	let library_id = ctx.library_id
-		.ok_or_else(|| anyhow::anyhow!("No library selected. Use 'sd library switch' to select a library first."))?;
+	let library_id = ctx.library_id.ok_or_else(|| {
+		anyhow::anyhow!("No library selected. Use 'sd library switch' to select a library first.")
+	})?;
 
-	println!("Watching sync metrics for library {} (Press Ctrl+C to stop)...", library_id);
+	println!(
+		"Watching sync metrics for library {} (Press Ctrl+C to stop)...",
+		library_id
+	);
 	println!();
 
 	loop {
@@ -141,7 +147,8 @@ fn parse_duration(duration_str: &str) -> Result<chrono::Duration> {
 		return Err(anyhow::anyhow!("Invalid duration format: {}", duration_str));
 	}
 
-	let value: i64 = parts[0].parse()
+	let value: i64 = parts[0]
+		.parse()
 		.map_err(|_| anyhow::anyhow!("Invalid number: {}", parts[0]))?;
 	let unit = parts[1].to_lowercase();
 
@@ -157,7 +164,10 @@ fn parse_duration(duration_str: &str) -> Result<chrono::Duration> {
 	Ok(chrono::Duration::seconds(seconds))
 }
 
-fn display_metrics(snapshot: &sd_core::service::sync::metrics::snapshot::SyncMetricsSnapshot, args: &SyncMetricsArgs) {
+fn display_metrics(
+	snapshot: &sd_core::service::sync::metrics::snapshot::SyncMetricsSnapshot,
+	args: &SyncMetricsArgs,
+) {
 	// Status header box
 	let status_icon = match snapshot.state.current_state {
 		DeviceSyncState::Ready => "●".green(),
@@ -169,12 +179,18 @@ fn display_metrics(snapshot: &sd_core::service::sync::metrics::snapshot::SyncMet
 
 	let state_name = format_state(&snapshot.state.current_state);
 	let backfill_status = if snapshot.operations.backfill_sessions_completed > 0 {
-		format!("✓ Complete ({} rounds, {} entries)",
+		format!(
+			"✓ Complete ({} rounds, {} entries)",
 			snapshot.operations.backfill_pagination_rounds,
 			snapshot.data_volume.entries_synced.values().sum::<u64>()
-		).green()
+		)
+		.green()
 	} else if snapshot.operations.active_backfill_sessions > 0 {
-		format!("◐ In Progress ({} active)", snapshot.operations.active_backfill_sessions).yellow()
+		format!(
+			"◐ In Progress ({} active)",
+			snapshot.operations.active_backfill_sessions
+		)
+		.yellow()
 	} else {
 		"Not started".to_string().dark_grey()
 	};
@@ -184,22 +200,24 @@ fn display_metrics(snapshot: &sd_core::service::sync::metrics::snapshot::SyncMet
 		.load_preset(UTF8_FULL)
 		.set_content_arrangement(ContentArrangement::Dynamic)
 		.set_header(Row::from(vec![
-			Cell::new("SYNC STATUS").add_attribute(Attribute::Bold),
+			Cell::new("SYNC STATUS").add_attribute(Attribute::Bold)
 		]));
 
-	status_table.add_row(vec![
-		format!("{} {}                                    Uptime: {}",
-			status_icon, state_name, format_duration(snapshot.state.uptime_seconds))
-	]);
+	status_table.add_row(vec![format!(
+		"{} {}                                    Uptime: {}",
+		status_icon,
+		state_name,
+		format_duration(snapshot.state.uptime_seconds)
+	)]);
 
 	if !snapshot.state.state_history.is_empty() {
 		let last_transition = snapshot.state.state_history.last();
 		if let Some(transition) = last_transition {
-			status_table.add_row(vec![
-				format!("Last transition: {} → {}",
-					format_state(&transition.from),
-					format_state(&transition.to))
-			]);
+			status_table.add_row(vec![format!(
+				"Last transition: {} → {}",
+				format_state(&transition.from),
+				format_state(&transition.to)
+			)]);
 		}
 	}
 
@@ -222,25 +240,49 @@ fn display_metrics(snapshot: &sd_core::service::sync::metrics::snapshot::SyncMet
 		]));
 
 		grid_table.add_row(vec![
-			format!("Broadcasts sent      {:>6}", snapshot.operations.broadcasts_sent),
-			format!("Sent         {:>10}", format_bytes(snapshot.data_volume.bytes_sent)),
-			format!("Broadcast   {:>6.1}ms", snapshot.performance.broadcast_latency.avg_ms),
+			format!(
+				"Broadcasts sent      {:>6}",
+				snapshot.operations.broadcasts_sent
+			),
+			format!(
+				"Sent         {:>10}",
+				format_bytes(snapshot.data_volume.bytes_sent)
+			),
+			format!(
+				"Broadcast   {:>6.1}ms",
+				snapshot.performance.broadcast_latency.avg_ms
+			),
 		]);
 
 		grid_table.add_row(vec![
-			format!("Changes received     {:>6}", snapshot.operations.changes_received),
-			format!("Received     {:>10}", format_bytes(snapshot.data_volume.bytes_received)),
-			format!("Apply       {:>6.1}ms", snapshot.performance.apply_latency.avg_ms),
+			format!(
+				"Changes received     {:>6}",
+				snapshot.operations.changes_received
+			),
+			format!(
+				"Received     {:>10}",
+				format_bytes(snapshot.data_volume.bytes_received)
+			),
+			format!(
+				"Apply       {:>6.1}ms",
+				snapshot.performance.apply_latency.avg_ms
+			),
 		]);
 
 		grid_table.add_row(vec![
-			format!("Changes applied      {:>6}", snapshot.operations.changes_applied),
+			format!(
+				"Changes applied      {:>6}",
+				snapshot.operations.changes_applied
+			),
 			"".to_string(),
 			"".to_string(),
 		]);
 
 		grid_table.add_row(vec![
-			format!("Backfill sessions    {:>6}", snapshot.operations.backfill_sessions_completed),
+			format!(
+				"Backfill sessions    {:>6}",
+				snapshot.operations.backfill_sessions_completed
+			),
 			"".to_string(),
 			"".to_string(),
 		]);
@@ -256,13 +298,14 @@ fn display_metrics(snapshot: &sd_core::service::sync::metrics::snapshot::SyncMet
 			.load_preset(UTF8_FULL)
 			.set_content_arrangement(ContentArrangement::Dynamic)
 			.set_header(Row::from(vec![
-				Cell::new("SYNCED ENTRIES").add_attribute(Attribute::Bold),
+				Cell::new("SYNCED ENTRIES").add_attribute(Attribute::Bold)
 			]));
 
 		let mut entries: Vec<_> = snapshot.data_volume.entries_synced.iter().collect();
 		entries.sort_by(|a, b| b.1.cmp(a.1));
 
-		let entries_line = entries.iter()
+		let entries_line = entries
+			.iter()
 			.map(|(model, count)| format!("{}: {}", model, count))
 			.collect::<Vec<_>>()
 			.join("  │  ");
@@ -277,12 +320,14 @@ fn display_metrics(snapshot: &sd_core::service::sync::metrics::snapshot::SyncMet
 	if !args.state && !args.operations {
 		let has_errors = snapshot.errors.total_errors > 0;
 		let error_summary = if has_errors {
-			format!("Network: {} · Database: {} · Apply: {} · Validation: {}",
+			format!(
+				"Network: {} · Database: {} · Apply: {} · Validation: {}",
 				snapshot.errors.network_errors,
 				snapshot.errors.database_errors,
 				snapshot.errors.apply_errors,
 				snapshot.errors.validation_errors
-			).red()
+			)
+			.red()
 		} else {
 			"No errors".to_string().green()
 		};
@@ -322,14 +367,14 @@ fn format_state(state: &DeviceSyncState) -> String {
 		DeviceSyncState::Paused => "Paused".to_string(),
 		DeviceSyncState::Backfilling { peer, progress } => {
 			format!("Backfilling ({}%)", progress)
-		},
+		}
 		DeviceSyncState::CatchingUp { buffered_count } => {
 			if *buffered_count > 0 {
 				format!("CatchingUp ({} buffered)", buffered_count)
 			} else {
 				"CatchingUp".to_string()
 			}
-		},
+		}
 	}
 }
 

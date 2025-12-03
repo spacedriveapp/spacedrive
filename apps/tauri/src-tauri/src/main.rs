@@ -14,8 +14,8 @@ use std::sync::Arc;
 use tauri::menu::MenuItem;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
-use tokio::sync::RwLock;
 use tokio::sync::oneshot;
+use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Default event subscription list - mirrors packages/ts-client/src/event-filter.ts
@@ -187,9 +187,7 @@ impl DaemonConnectionPool {
 		use tokio::io::AsyncWriteExt;
 
 		let mut writer_guard = self.writer.lock().await;
-		let writer = writer_guard
-			.as_mut()
-			.ok_or("Connection not initialized")?;
+		let writer = writer_guard.as_mut().ok_or("Connection not initialized")?;
 
 		let subscribe_request = json!({
 			"Subscribe": {
@@ -198,15 +196,14 @@ impl DaemonConnectionPool {
 			}
 		});
 
-		let request_line =
-			format!("{}\n", serde_json::to_string(&subscribe_request).unwrap());
+		let request_line = format!("{}\n", serde_json::to_string(&subscribe_request).unwrap());
 		writer
 			.write_all(request_line.as_bytes())
 			.await
 			.map_err(|e| format!("Failed to send Subscribe: {}", e))?;
 
 		self.subscriptions.write().await.insert(subscription_id, ());
-		
+
 		let total = self.subscriptions.read().await.len();
 		tracing::info!(
 			subscription_id = subscription_id,
@@ -231,14 +228,11 @@ impl DaemonConnectionPool {
 		}
 
 		let mut writer_guard = self.writer.lock().await;
-		let writer = writer_guard
-			.as_mut()
-			.ok_or("Connection not initialized")?;
+		let writer = writer_guard.as_mut().ok_or("Connection not initialized")?;
 
 		let unsubscribe_request = json!("Unsubscribe");
-		let request_line =
-			format!("{}\n", serde_json::to_string(&unsubscribe_request).unwrap());
-		
+		let request_line = format!("{}\n", serde_json::to_string(&unsubscribe_request).unwrap());
+
 		writer
 			.write_all(request_line.as_bytes())
 			.await
@@ -824,7 +818,11 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 		Err(_) => return false,
 	};
 
-	if stream.write_all(format!("{}\n", request_line).as_bytes()).await.is_err() {
+	if stream
+		.write_all(format!("{}\n", request_line).as_bytes())
+		.await
+		.is_err()
+	{
 		return false;
 	}
 
@@ -836,8 +834,10 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 	// Add a timeout for reading
 	match tokio::time::timeout(
 		tokio::time::Duration::from_millis(500),
-		buf_reader.read_line(&mut response_line)
-	).await {
+		buf_reader.read_line(&mut response_line),
+	)
+	.await
+	{
 		Ok(Ok(_)) if !response_line.is_empty() => {
 			tracing::debug!("Daemon responded to ping: {}", response_line.trim());
 			true
@@ -1327,12 +1327,12 @@ fn main() {
 				}
 			};
 
-		let app_state = AppState {
-			current_library_id: Arc::new(RwLock::new(persisted_library_id)),
-			selected_file_ids: Arc::new(RwLock::new(Vec::new())),
-			connection_pool: Arc::new(DaemonConnectionPool::new(socket_addr.clone())),
-			subscription_manager: SubscriptionManager::new(),
-		};
+			let app_state = AppState {
+				current_library_id: Arc::new(RwLock::new(persisted_library_id)),
+				selected_file_ids: Arc::new(RwLock::new(Vec::new())),
+				connection_pool: Arc::new(DaemonConnectionPool::new(socket_addr.clone())),
+				subscription_manager: SubscriptionManager::new(),
+			};
 
 			app.manage(daemon_state.clone());
 			app.manage(app_state);
