@@ -321,9 +321,11 @@ The `tauri:dev` command will:
 3. Compile and launch the Tauri app
 4. Connect the app to the dev server with hot reload
 
-#### Common Build Error: frontendDist Not Found
+#### Tauri Build Errors
 
-If you see this error when running `cargo build`:
+As of the V2 rewrite, `cargo build` from the project root **no longer builds the Tauri app** - it's excluded from the default workspace members to prevent frontend dependency issues.
+
+If you still encounter the `frontendDist` error:
 
 ```
 error: proc macro panicked
@@ -332,25 +334,19 @@ error: proc macro panicked
      = help: message: The `frontendDist` configuration is set to `"../dist"` but this path doesn't exist
 ```
 
-This happens because `cargo build` compiles the Tauri app, which expects the frontend to be built. Solutions:
+This means you're explicitly building the Tauri package. Solutions:
 
 **Option A: Use tauri:dev for development (recommended)**
 ```bash
 cd apps/tauri
-bun run tauri:dev  # Starts dev server, no dist needed
+bun run tauri:dev  # Starts dev server with hot reload
 ```
 
 **Option B: Build the frontend first**
 ```bash
 cd apps/tauri
 bun run build      # Creates dist/ folder
-cd ../..
-cargo build        # Now succeeds
-```
-
-**Option C: Exclude Tauri from cargo build**
-```bash
-cargo build -p sd-core -p sd-cli -p sd-daemon  # Build only specific packages
+cargo build -p spacedrive-tauri  # Now succeeds
 ```
 
 #### Development Commands
