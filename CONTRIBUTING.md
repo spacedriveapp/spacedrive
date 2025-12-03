@@ -109,6 +109,9 @@ bun install
 
 # Download native dependencies and generate cargo config
 cargo run -p xtask -- setup
+
+# Build core Rust binaries (CLI, daemon, and core library)
+cargo build
 ```
 
 The `xtask setup` command:
@@ -116,6 +119,16 @@ The `xtask setup` command:
 - Creates symlinks for shared libraries
 - Generates `.cargo/config.toml` with cargo aliases
 - Downloads iOS dependencies if iOS targets are installed
+
+**What does `cargo build` build?**
+
+Running `cargo build` from the project root builds all core Rust components:
+- `sd-cli` - Command-line interface for Spacedrive
+- `sd-daemon` - Background service (used by GUI apps)
+- `sd-core` - Core library with VDFS implementation
+- Various helper crates
+
+**Note:** The Tauri desktop app is excluded from `cargo build` because it requires the frontend to be built first. See [Desktop Development](#desktop-development-tauri) for Tauri-specific setup.
 
 ## Core Development
 
@@ -136,7 +149,29 @@ cargo run -p sd-cli -- location add ~/Documents
 cargo run -p sd-cli -- search .
 ```
 
-You can set up a bashprofile or alias
+#### Setting Up a CLI Alias
+
+To avoid typing `cargo run -p sd-cli --` every time, add an alias to your shell config:
+
+**Bash/Zsh** (`~/.bashrc` or `~/.zshrc`):
+```bash
+alias sd="~/Projects/spacedrive/target/debug/sd-cli"
+```
+
+**Fish** (`~/.config/fish/config.fish`):
+```fish
+alias sd="~/Projects/spacedrive/target/debug/sd-cli"
+```
+
+Then reload your shell (`source ~/.zshrc`) and you can use:
+
+```bash
+sd library create "Dev Library"
+sd location add ~/Documents
+sd search .
+```
+
+**Note:** Update the path to match your Spacedrive project location. The binary is located at `target/debug/sd-cli` after running `cargo build`.
 
 ### Running Tests
 

@@ -17,6 +17,16 @@ members = [
 	"crates/*",
 	"xtask"
 ]
+# Exclude Tauri from default builds - it requires frontend to be built first
+# Use `cd apps/tauri && bun run tauri:dev` to run the Tauri app
+default-members = [
+	"apps/server",
+	"apps/cli",
+	"core",
+	"core/benchmarks",
+	"crates/*",
+	"xtask"
+]
 resolver = "2"
 
 [workspace.package]
