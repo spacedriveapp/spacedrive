@@ -557,7 +557,7 @@ id = "application/sql"
 name = "SQL"
 extensions = ["sql"]
 mime_types = ["application/sql", "text/x-sql"]
-category = "code"
+category = "document"
 priority = 80
 
 [file_types.metadata]
