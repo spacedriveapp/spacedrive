@@ -1,7 +1,6 @@
 //! Device manager for handling device lifecycle
 
 use super::config::DeviceConfig;
-use crate::crypto::device_key_manager::{DeviceKeyError, DeviceKeyManager};
 use crate::domain::device::{Device, OperatingSystem};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -31,15 +30,15 @@ pub enum DeviceError {
 	LockPoisoned,
 
 	#[error("Master key error: {0}")]
-	MasterKey(#[from] DeviceKeyError),
+	MasterKey(String),
 }
 
 /// Manages the current device state
 pub struct DeviceManager {
 	/// Current device configuration
 	config: Arc<RwLock<DeviceConfig>>,
-	/// Master encryption key manager
-	device_key_manager: DeviceKeyManager,
+	/// Device master key (cached)
+	device_key: Arc<RwLock<[u8; 32]>>,
 	/// Custom data directory (if any)
 	data_dir: Option<PathBuf>,
 	/// Pre-library cache: Paired devices from DeviceRegistry (slug -> device_id)
@@ -102,15 +101,13 @@ impl DeviceManager {
 			}
 		}
 
-		// Use fallback file for master key when using custom data directory
+		// Load or create device key from fallback file
 		let master_key_path = data_dir.join("master_key");
-		let device_key_manager = DeviceKeyManager::new_with_fallback(master_key_path)?;
-		// Initialize master key on first run
-		device_key_manager.get_or_create_master_key()?;
+		let device_key = load_or_create_device_key(&master_key_path)?;
 
 		Ok(Self {
 			config: Arc::new(RwLock::new(config)),
-			device_key_manager,
+			device_key: Arc::new(RwLock::new(device_key)),
 			data_dir: Some(data_dir.clone()),
 			paired_device_cache: Arc::new(RwLock::new(HashMap::new())),
 		})
