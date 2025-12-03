@@ -8,11 +8,11 @@ FROM rust:1.81-slim-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    pkg-config \
-    libssl-dev \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+	build-essential \
+	pkg-config \
+	libssl-dev \
+	git \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /build
@@ -39,9 +39,9 @@ FROM debian:bookworm-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+	ca-certificates \
+	libssl3 \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN useradd -m -u 1000 spacedrive
@@ -70,7 +70,7 @@ ENV SPACEDRIVE_DATA_DIR=/data
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD sd-cli status || exit 1
+	CMD sd-cli status || exit 1
 
 # Default command: start daemon in foreground
 CMD ["sd-cli", "--data-dir", "/data", "start", "--foreground"]
