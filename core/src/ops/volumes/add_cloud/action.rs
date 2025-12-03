@@ -97,7 +97,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			.map_err(|e| ActionError::InvalidInput(format!("Failed to get device ID: {}", e)))?;
 		let library_id = library.id();
 
-		let (backend, credential, cloud_identifier, mount_point) = match &self.input.config {
+		let (backend, credential, cloud_identifier, mount_point, cloud_config) = match &self.input.config {
 			CloudStorageConfig::S3 {
 				bucket,
 				region,
@@ -131,7 +131,12 @@ impl LibraryAction for VolumeAddCloudAction {
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, cloud_identifier, mount_point)
+				let config = serde_json::json!({
+					"region": region,
+					"endpoint": endpoint,
+				});
+
+				(backend, credential, cloud_identifier, mount_point, config)
 			}
 			CloudStorageConfig::GoogleDrive {
 				root,
@@ -169,7 +174,11 @@ impl LibraryAction for VolumeAddCloudAction {
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, cloud_identifier, mount_point)
+				let config = serde_json::json!({
+					"root": root,
+				});
+
+				(backend, credential, cloud_identifier, mount_point, config)
 			}
 			CloudStorageConfig::OneDrive {
 				root,
@@ -204,7 +213,11 @@ impl LibraryAction for VolumeAddCloudAction {
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, cloud_identifier, mount_point)
+				let config = serde_json::json!({
+					"root": root,
+				});
+
+				(backend, credential, cloud_identifier, mount_point, config)
 			}
 			CloudStorageConfig::Dropbox {
 				root,
@@ -239,7 +252,11 @@ impl LibraryAction for VolumeAddCloudAction {
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, cloud_identifier, mount_point)
+				let config = serde_json::json!({
+					"root": root,
+				});
+
+				(backend, credential, cloud_identifier, mount_point, config)
 			}
 			CloudStorageConfig::AzureBlob {
 				container,
@@ -272,7 +289,11 @@ impl LibraryAction for VolumeAddCloudAction {
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, cloud_identifier, mount_point)
+				let config = serde_json::json!({
+					"endpoint": endpoint,
+				});
+
+				(backend, credential, cloud_identifier, mount_point, config)
 			}
 			CloudStorageConfig::GoogleCloudStorage {
 				bucket,
@@ -303,7 +324,12 @@ impl LibraryAction for VolumeAddCloudAction {
 					.ensure_unique_mount_point(&desired_mount_point)
 					.await;
 
-				(backend, credential, cloud_identifier, mount_point)
+				let config = serde_json::json!({
+					"root": root,
+					"endpoint": endpoint,
+				});
+
+				(backend, credential, cloud_identifier, mount_point, config)
 			}
 		};
 
@@ -339,6 +365,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			hardware_id: None,
 			backend: Some(backend_arc),
 			cloud_identifier: Some(cloud_identifier),
+			cloud_config: Some(cloud_config),
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),
@@ -359,9 +386,10 @@ impl LibraryAction for VolumeAddCloudAction {
 			error_message: None,
 		};
 
-		let credential_manager = CloudCredentialManager::new(context.library_key_manager.clone());
+		let credential_manager = CloudCredentialManager::new(context.key_manager.clone());
 		credential_manager
 			.store_credential(library_id, &fingerprint.0, &credential)
+			.await
 			.map_err(|e| {
 				ActionError::InvalidInput(format!("Failed to store credentials: {}", e))
 			})?;

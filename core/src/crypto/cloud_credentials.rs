@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
 
-use super::library_key_manager::LibraryKeyManager;
+use super::key_manager::KeyManager;
 use std::sync::Arc;
 
 const KEYRING_SERVICE: &str = "SpacedriveCloudCredentials";
@@ -33,7 +33,7 @@ pub enum CloudCredentialError {
 	Serialization(#[from] serde_json::Error),
 
 	#[error("Library key error: {0}")]
-	LibraryKey(#[from] super::library_key_manager::LibraryKeyError),
+	LibraryKey(#[from] super::key_manager::KeyManagerError),
 
 	#[error("Credential not found: library={0}, volume={1}")]
 	NotFound(Uuid, String),
@@ -44,18 +44,18 @@ pub enum CloudCredentialError {
 
 /// Manages cloud service credentials encrypted with library keys
 pub struct CloudCredentialManager {
-	library_key_manager: Arc<LibraryKeyManager>,
+	key_manager: Arc<KeyManager>,
 }
 
 impl CloudCredentialManager {
-	pub fn new(library_key_manager: Arc<LibraryKeyManager>) -> Self {
+	pub fn new(key_manager: Arc<KeyManager>) -> Self {
 		Self {
-			library_key_manager,
+			key_manager,
 		}
 	}
 
 	/// Store cloud credentials for a volume, encrypted with the library key
-	pub fn store_credential(
+	pub async fn store_credential(
 		&self,
 		library_id: Uuid,
 		volume_fingerprint: &str,
@@ -63,8 +63,8 @@ impl CloudCredentialManager {
 	) -> Result<(), CloudCredentialError> {
 		// Get or create library encryption key
 		let library_key = self
-			.library_key_manager
-			.get_or_create_library_key(library_id)?;
+			.key_manager
+			.get_library_key(library_id).await?;
 
 		// Serialize credential
 		let credential_json = serde_json::to_vec(credential)?;
@@ -81,7 +81,7 @@ impl CloudCredentialManager {
 	}
 
 	/// Retrieve cloud credentials for a volume, decrypted with the library key
-	pub fn get_credential(
+	pub async fn get_credential(
 		&self,
 		library_id: Uuid,
 		volume_fingerprint: &str,
@@ -101,7 +101,7 @@ impl CloudCredentialManager {
 		let encrypted =
 			hex::decode(&encrypted_hex).map_err(|_| CloudCredentialError::InvalidFormat)?;
 
-		let library_key = self.library_key_manager.get_library_key(library_id)?;
+		let library_key = self.key_manager.get_library_key(library_id).await?;
 		let decrypted = self.decrypt_credential(&encrypted, &library_key)?;
 
 		// Deserialize
@@ -285,10 +285,14 @@ impl CloudCredential {
 mod tests {
 	use super::*;
 
-	#[test]
-	fn test_encrypt_decrypt_credential() {
-		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
-		let manager = CloudCredentialManager::new(library_key_manager);
+	#[tokio::test]
+	async fn test_encrypt_decrypt_credential() {
+		let temp_dir = tempfile::tempdir().unwrap();
+		let key_manager = Arc::new(KeyManager::new_with_fallback(
+			temp_dir.path().to_path_buf(),
+			Some(temp_dir.path().join("device_key")),
+		).unwrap());
+		let manager = CloudCredentialManager::new(key_manager);
 
 		let library_id = Uuid::new_v4();
 		let volume_fp = "test-volume-fingerprint";
@@ -304,10 +308,11 @@ mod tests {
 		// Store
 		manager
 			.store_credential(library_id, volume_fp, &credential)
+			.await
 			.unwrap();
 
 		// Retrieve
-		let retrieved = manager.get_credential(library_id, volume_fp).unwrap();
+		let retrieved = manager.get_credential(library_id, volume_fp).await.unwrap();
 
 		match (&credential.data, &retrieved.data) {
 			(

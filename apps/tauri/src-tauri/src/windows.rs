@@ -390,6 +390,7 @@ fn create_window(
         .map_err(|e| format!("Failed to create window: {}", e))?;
 
     window.show().ok();
+    window.set_focus().ok();
     Ok(window)
 }
 

@@ -169,7 +169,8 @@ uuid      = { version = "1.11", features = ["serde", "v4", "v5", "v7"] }
 whoami    = "1.5"
 
 # Secure storage
-keyring = "3.6"
+keyring = "3.6"  # Only for device key in keychain
+redb = "2.2"     # Encrypted KV store for library keys, credentials, etc.
 
 # CLI dependencies
 clap           = { version = "4.5", features = ["derive", "env"] }

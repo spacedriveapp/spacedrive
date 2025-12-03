@@ -119,7 +119,7 @@ impl NetworkingService {
 	/// Create a new networking service
 	pub async fn new(
 		device_manager: Arc<DeviceManager>,
-		library_key_manager: Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
+		key_manager: Arc<crate::crypto::key_manager::KeyManager>,
 		data_dir: impl AsRef<std::path::Path>,
 		logger: Arc<dyn NetworkLogger>,
 	) -> Result<Self> {

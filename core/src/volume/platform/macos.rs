@@ -125,6 +125,7 @@ pub async fn detect_non_apfs_volumes(
 					hardware_id: Some(filesystem.to_string()),
 					backend: None,
 					cloud_identifier: None,
+					cloud_config: None,
 					apfs_container: None,
 					container_volume_id: None,
 					path_mappings: Vec::new(),

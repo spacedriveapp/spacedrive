@@ -43,12 +43,12 @@ Spacedrive V2 is built with a **Rust-first architecture**. The core Virtual Dist
 
 Before you begin, ensure you have the following installed:
 
-| Tool  | Version                        | Required For                      |
-| ----- | ------------------------------ | --------------------------------- |
-| Rust  | [`1.81+`](rust-toolchain.toml) | Core development                  |
-| Bun   | 1.3+                           | Desktop app (Tauri) development   |
-| Xcode | Latest                         | iOS/macOS development             |
-| Git   | Any recent version             | Version control & submodules      |
+| Tool  | Version                        | Required For                    |
+| ----- | ------------------------------ | ------------------------------- |
+| Rust  | [`1.81+`](rust-toolchain.toml) | Core development                |
+| Bun   | 1.3+                           | Desktop app (Tauri) development |
+| Xcode | Latest                         | iOS/macOS development           |
+| Git   | Any recent version             | Version control & submodules    |
 
 **Note:** Bun is required for the Tauri desktop app. Install from [bun.sh](https://bun.sh). For CLI-only development, Bun is not required.
 
@@ -63,7 +63,7 @@ cd spacedrive
 
 If you plan to work on GUI applications, initialize the submodules:
 
-Some submodules are private, such as extensions.
+Some submodules are private, such as tha landing page and future extensions.
 
 ```bash
 git submodule update --init --recursive
@@ -115,6 +115,7 @@ cargo build
 ```
 
 The `xtask setup` command:
+
 - Downloads prebuilt native dependencies (FFmpeg, etc.)
 - Creates symlinks for shared libraries
 - Generates `.cargo/config.toml` with cargo aliases
@@ -123,6 +124,7 @@ The `xtask setup` command:
 **What does `cargo build` build?**
 
 Running `cargo build` from the project root builds all core Rust components:
+
 - `sd-cli` - Command-line interface for Spacedrive
 - `sd-daemon` - Background service (used by GUI apps)
 - `sd-core` - Core library with VDFS implementation
@@ -154,11 +156,13 @@ cargo run -p sd-cli -- search .
 To avoid typing `cargo run -p sd-cli --` every time, add an alias to your shell config:
 
 **Bash/Zsh** (`~/.bashrc` or `~/.zshrc`):
+
 ```bash
 alias sd="~/Projects/spacedrive/target/debug/sd-cli"
 ```
 
 **Fish** (`~/.config/fish/config.fish`):
+
 ```fish
 alias sd="~/Projects/spacedrive/target/debug/sd-cli"
 ```
@@ -289,8 +293,8 @@ The cross-platform desktop app uses Tauri with a React frontend. Unlike the nati
 
 In addition to the standard prerequisites, you need:
 
-| Tool | Version | Required For |
-| ---- | ------- | ------------ |
+| Tool | Version | Required For                  |
+| ---- | ------- | ----------------------------- |
 | Bun  | 1.3+    | Frontend build and dev server |
 
 Install Bun from [bun.sh](https://bun.sh) if you don't have it.
@@ -316,6 +320,7 @@ bun run tauri:dev
 ```
 
 The `tauri:dev` command will:
+
 1. Start the Vite dev server (serves the React frontend)
 2. Start the sd-daemon (Rust backend)
 3. Compile and launch the Tauri app
@@ -337,12 +342,14 @@ error: proc macro panicked
 This means you're explicitly building the Tauri package. Solutions:
 
 **Option A: Use tauri:dev for development (recommended)**
+
 ```bash
 cd apps/tauri
 bun run tauri:dev  # Starts dev server with hot reload
 ```
 
 **Option B: Build the frontend first**
+
 ```bash
 cd apps/tauri
 bun run build      # Creates dist/ folder
@@ -364,6 +371,7 @@ bun run build               # Frontend only (Vite build)
 #### Architecture Notes
 
 The Tauri app consists of:
+
 - `apps/tauri/` - React frontend (Vite + React)
 - `apps/tauri/src-tauri/` - Rust Tauri shell
 - `apps/tauri/sd-tauri-core/` - Tauri-specific core bindings
@@ -800,14 +808,14 @@ packages/
 
 ### Quick Reference: Command Mapping
 
-| V1 Command               | V2 Equivalent                                      |
-| ------------------------ | -------------------------------------------------- |
-| `bun install`            | `bun install` (still required for Tauri app)       |
-| `bun prep`               | `cargo run -p xtask -- setup`                      |
-| `bun tauri dev`          | `cd apps/tauri && bun run tauri:dev`               |
-| `bun mobile ios`         | `open apps/ios/Spacedrive.xcodeproj`               |
-| `cargo run -p sd-server` | `cargo run -p sd-cli` or `cargo run -p sd-daemon`  |
-| `bun dev:web`            | Not yet available (web in progress)                |
+| V1 Command               | V2 Equivalent                                     |
+| ------------------------ | ------------------------------------------------- |
+| `bun install`            | `bun install` (still required for Tauri app)      |
+| `bun prep`               | `cargo run -p xtask -- setup`                     |
+| `bun tauri dev`          | `cd apps/tauri && bun run tauri:dev`              |
+| `bun mobile ios`         | `open apps/ios/Spacedrive.xcodeproj`              |
+| `cargo run -p sd-server` | `cargo run -p sd-cli` or `cargo run -p sd-daemon` |
+| `bun dev:web`            | Not yet available (web in progress)               |
 
 ### Getting Help with Migration
 

@@ -1,7 +1,7 @@
 //! Shared context providing access to core application components.
 
 use crate::{
-	config::JobLoggingConfig, crypto::library_key_manager::LibraryKeyManager,
+	config::JobLoggingConfig, crypto::key_manager::KeyManager,
 	device::DeviceManager, infra::action::manager::ActionManager, infra::event::EventBus,
 	infra::sync::TransactionManager, library::LibraryManager, service::network::NetworkingService,
 	service::session::SessionStateService, service::sidecar_manager::SidecarManager,
@@ -16,7 +16,7 @@ pub struct CoreContext {
 	pub device_manager: Arc<DeviceManager>,
 	pub library_manager: Arc<RwLock<Option<Arc<LibraryManager>>>>,
 	pub volume_manager: Arc<VolumeManager>,
-	pub library_key_manager: Arc<LibraryKeyManager>,
+	pub key_manager: Arc<KeyManager>,
 	// This is wrapped in an RwLock to allow it to be set after initialization
 	pub sidecar_manager: Arc<RwLock<Option<Arc<SidecarManager>>>>,
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
@@ -35,14 +35,14 @@ impl CoreContext {
 		device_manager: Arc<DeviceManager>,
 		library_manager: Option<Arc<LibraryManager>>,
 		volume_manager: Arc<VolumeManager>,
-		library_key_manager: Arc<LibraryKeyManager>,
+		key_manager: Arc<KeyManager>,
 	) -> Self {
 		Self {
 			events,
 			device_manager,
 			library_manager: Arc::new(RwLock::new(library_manager)),
 			volume_manager,
-			library_key_manager,
+			key_manager,
 			sidecar_manager: Arc::new(RwLock::new(None)),
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),

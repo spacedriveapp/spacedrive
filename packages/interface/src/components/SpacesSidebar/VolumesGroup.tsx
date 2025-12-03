@@ -62,7 +62,7 @@ export function VolumesGroup({
 							No volumes
 						</div>
 					) : (
-						volumes.map((volume) => (
+						volumes.map((volume, index) => (
 							<SpaceItem
 								key={volume.id}
 								item={
@@ -82,6 +82,8 @@ export function VolumesGroup({
 								}}
 								rightComponent={getVolumeBadges(volume)}
 								customIcon={getVolumeIcon(volume)}
+								allowInsertion={false}
+								isLastItem={index === volumes.length - 1}
 							/>
 						))
 					)}

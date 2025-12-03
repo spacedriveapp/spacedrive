@@ -1,7 +1,7 @@
 //! Background services management
 
 use crate::{
-	context::CoreContext, crypto::library_key_manager::LibraryKeyManager, infra::event::EventBus,
+	context::CoreContext, crypto::key_manager::KeyManager, infra::event::EventBus,
 	service::session::SessionStateService,
 };
 use anyhow::Result;
@@ -41,8 +41,8 @@ pub struct Services {
 	pub volume_monitor: Option<Arc<VolumeMonitorService>>,
 	/// Sidecar manager
 	pub sidecar_manager: Arc<SidecarManager>,
-	/// Library key manager
-	pub library_key_manager: Arc<LibraryKeyManager>,
+	/// Key manager
+	pub key_manager: Arc<KeyManager>,
 	/// Shared context for all services
 	context: Arc<CoreContext>,
 }
@@ -61,7 +61,7 @@ impl Services {
 		let file_sharing = Arc::new(FileSharingService::new(context.clone()));
 		let device = Arc::new(DeviceService::new(context.clone()));
 		let sidecar_manager = Arc::new(SidecarManager::new(context.clone()));
-		let library_key_manager = context.library_key_manager.clone();
+		let key_manager = context.key_manager.clone();
 		Self {
 			location_watcher,
 			file_sharing,
@@ -69,7 +69,7 @@ impl Services {
 			networking: None,     // Initialized separately when needed
 			volume_monitor: None, // Initialized after library manager is available
 			sidecar_manager,
-			library_key_manager,
+			key_manager,
 			context,
 		}
 	}
@@ -153,7 +153,7 @@ impl Services {
 	pub async fn init_networking(
 		&mut self,
 		device_manager: std::sync::Arc<crate::device::DeviceManager>,
-		library_key_manager: std::sync::Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
+		key_manager: std::sync::Arc<crate::crypto::key_manager::KeyManager>,
 		data_dir: impl AsRef<std::path::Path>,
 	) -> Result<()> {
 		use crate::service::network::{utils::logging::ConsoleLogger, NetworkingService};
@@ -161,7 +161,7 @@ impl Services {
 		info!("Initializing networking service");
 		let logger = std::sync::Arc::new(ConsoleLogger);
 		let networking_service =
-			NetworkingService::new(device_manager, library_key_manager, data_dir, logger)
+			NetworkingService::new(device_manager, key_manager, data_dir, logger)
 				.await
 				.map_err(|e| anyhow::anyhow!("Failed to create networking service: {}", e))?;
 

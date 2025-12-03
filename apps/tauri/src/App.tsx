@@ -7,6 +7,7 @@ import {
   LocationCacheDemo,
   PopoutInspector,
   QuickPreview,
+  Settings,
   PlatformProvider,
   SpacedriveProvider,
 } from "@sd/interface";
@@ -162,12 +163,11 @@ function App() {
   // Route to different UIs based on window type
   if (route === "/settings") {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-950 text-white">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">Settings</h1>
-          <p className="text-gray-400">Settings UI will go here</p>
-        </div>
-      </div>
+      <PlatformProvider platform={platform}>
+        <SpacedriveProvider client={client}>
+          <Settings />
+        </SpacedriveProvider>
+      </PlatformProvider>
     );
   }
 

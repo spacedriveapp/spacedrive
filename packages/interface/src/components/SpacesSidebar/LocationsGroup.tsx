@@ -38,8 +38,13 @@ export function LocationsGroup({ isCollapsed, onToggle }: LocationsGroupProps) {
       {/* Items */}
       {!isCollapsed && (
         <div className="space-y-0.5">
-          {locations.map((location) => (
-            <SpaceItem key={location.id} item={location} />
+          {locations.map((location, index) => (
+            <SpaceItem
+              key={location.id}
+              item={location}
+              allowInsertion={false}
+              isLastItem={index === locations.length - 1}
+            />
           ))}
         </div>
       )}

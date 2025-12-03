@@ -413,6 +413,7 @@ pub fn containers_to_volumes(
 				hardware_id: Some(volume_info.disk_id.clone()),
 				backend: None,
 				cloud_identifier: None,
+				cloud_config: None,
 				apfs_container: Some(container.clone()),
 				container_volume_id: Some(volume_info.disk_id.clone()),
 				path_mappings,

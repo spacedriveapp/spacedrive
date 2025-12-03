@@ -27,6 +27,7 @@ mod m20251117_000001_add_blurhash_to_media_data;
 mod m20251117_000002_add_unique_constraint_to_entries;
 mod m20251117_000003_add_unique_bytes_to_volumes;
 mod m20251129_000001_add_entry_id_to_space_items;
+mod m20251202_000001_add_cloud_config_to_volumes;
 
 pub struct Migrator;
 
@@ -59,6 +60,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251117_000002_add_unique_constraint_to_entries::Migration),
 			Box::new(m20251117_000003_add_unique_bytes_to_volumes::Migration),
 			Box::new(m20251129_000001_add_entry_id_to_space_items::Migration),
+			Box::new(m20251202_000001_add_cloud_config_to_volumes::Migration),
 		]
 	}
 }

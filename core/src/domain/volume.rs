@@ -301,6 +301,9 @@ pub struct Volume {
 	/// while maintaining the correct cloud resource identifier for backend operations
 	pub cloud_identifier: Option<String>,
 
+	/// Cloud service configuration (service-specific settings like region, endpoint)
+	pub cloud_config: Option<serde_json::Value>,
+
 	/// APFS container information (macOS only)
 	pub apfs_container: Option<ApfsContainer>,
 
@@ -569,6 +572,7 @@ impl Volume {
 			hardware_id: None,
 			backend: None,
 			cloud_identifier: None,
+			cloud_config: None,
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),
@@ -835,6 +839,7 @@ impl TrackedVolume {
 			hardware_id: self.device_model.clone(),
 			backend: None,
 			cloud_identifier: None,
+			cloud_config: None,
 			apfs_container: None,
 			container_volume_id: None,
 			path_mappings: Vec::new(),

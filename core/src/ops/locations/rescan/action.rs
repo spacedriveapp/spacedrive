@@ -66,7 +66,8 @@ impl LibraryAction for LocationRescanAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to get location path: {}", e)))?;
 		let location_path_str = location_path_buf.to_string_lossy().to_string();
-		let location_path = SdPath::local(location_path_buf);
+		let location_path = SdPath::from_uri(&location_path_str)
+			.map_err(|e| ActionError::Internal(format!("Failed to parse location path: {}", e)))?;
 
 		// Determine index mode based on full_rescan flag
 		let mode = if self.input.full_rescan {

@@ -15,13 +15,15 @@ type DragStateListener = (isDragging: boolean) => void;
 const dragStateListeners = new Set<DragStateListener>();
 
 export function setDragData(data: SidebarDragData | null) {
-	const wasDragging = currentDragData !== null;
+	console.log("[DnD] setDragData called, data:", data, "listeners:", dragStateListeners.size);
 	currentDragData = data;
 	const isDragging = data !== null;
 
-	if (wasDragging !== isDragging) {
-		dragStateListeners.forEach(listener => listener(isDragging));
-	}
+	// Always notify listeners immediately (sync)
+	dragStateListeners.forEach(listener => {
+		console.log("[DnD] Calling listener with isDragging:", isDragging);
+		listener(isDragging);
+	});
 }
 
 export function getDragData(): SidebarDragData | null {

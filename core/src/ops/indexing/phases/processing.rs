@@ -75,7 +75,21 @@ pub async fn run_processing_phase(
 	.await
 	.map_err(|e| JobError::execution(format!("Failed to resolve location root path: {}", e)))?;
 
-	if !location_root_path.starts_with(&location_actual_path) {
+	// For cloud paths, compare strings instead of PathBuf (cloud paths have empty path component for root)
+	let location_actual_str = location_actual_path.to_string_lossy();
+	let is_cloud_path = location_actual_str.contains("://") && !location_actual_str.starts_with("local://");
+
+	let is_within_boundaries = if is_cloud_path {
+		// For cloud paths, check if the root path matches or is a subpath
+		let root_str = location_root_path.to_string_lossy();
+		// Empty path means root of cloud location, which is always valid
+		root_str.is_empty() || location_actual_str.starts_with(root_str.as_ref())
+	} else {
+		// For local paths, use standard PathBuf comparison
+		location_root_path.starts_with(&location_actual_path)
+	};
+
+	if !is_within_boundaries {
 		return Err(JobError::execution(format!(
 			"SAFETY VIOLATION: Indexing path '{}' is outside location boundaries '{}' (location_id={}). \
 			This indicates a routing bug in the watcher. Aborting to prevent data loss.",

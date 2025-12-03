@@ -478,3 +478,6 @@ whitepaper/*.log
 
 # GitHub Actions build artifacts
 .github/actions/*/dist/
+
+
+test_data

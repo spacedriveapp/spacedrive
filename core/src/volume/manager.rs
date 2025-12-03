@@ -135,7 +135,7 @@ impl VolumeManager {
 	pub async fn load_cloud_volumes_from_db(
 		&self,
 		libraries: &[std::sync::Arc<crate::library::Library>],
-		library_key_manager: std::sync::Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
+		key_manager: std::sync::Arc<crate::crypto::key_manager::KeyManager>,
 	) -> VolumeResult<()> {
 		use crate::crypto::cloud_credentials::CloudCredentialManager;
 
@@ -166,9 +166,9 @@ impl VolumeManager {
 				}
 
 				// Try to load credentials and recreate the backend
-				let credential_manager = CloudCredentialManager::new(library_key_manager.clone());
+				let credential_manager = CloudCredentialManager::new(key_manager.clone());
 
-				match credential_manager.get_credential(library.id(), &db_volume.fingerprint) {
+				match credential_manager.get_credential(library.id(), &db_volume.fingerprint).await {
 					Ok(credential) => {
 						// Get mount point from database (for display and cache purposes)
 						let mount_point_str = match &db_volume.mount_point {
@@ -188,6 +188,12 @@ impl VolumeManager {
 							}
 						};
 
+						// Parse cloud_config JSON if available
+						let cloud_config: Option<serde_json::Value> = db_volume
+							.cloud_config
+							.as_ref()
+							.and_then(|s| serde_json::from_str(s).ok());
+
 						let backend_result = match credential.service {
 							crate::volume::CloudServiceType::S3 => {
 								if let crate::crypto::cloud_credentials::CredentialData::AccessKey {
@@ -196,12 +202,25 @@ impl VolumeManager {
 									..
 								} = &credential.data
 								{
+									// Extract region from cloud_config, or default to us-east-1
+									let region = cloud_config
+										.as_ref()
+										.and_then(|c| c.get("region"))
+										.and_then(|r| r.as_str())
+										.unwrap_or("us-east-1");
+
+									let endpoint = cloud_config
+										.as_ref()
+										.and_then(|c| c.get("endpoint"))
+										.and_then(|e| e.as_str())
+										.map(String::from);
+
 									crate::volume::CloudBackend::new_s3(
 										cloud_identifier,
-										"us-east-1", // Default region
+										region,
 										access_key_id,
 										secret_access_key,
-										None,
+										endpoint,
 									).await
 								} else {
 									warn!("Invalid credential type for S3 volume {}", fingerprint.0);
@@ -330,6 +349,7 @@ impl VolumeManager {
 									hardware_id: None,
 									backend: Some(Arc::new(backend)),
 									cloud_identifier: db_volume.cloud_identifier.clone(),
+									cloud_config,
 									apfs_container: None,
 									container_volume_id: None,
 									path_mappings: Vec::new(),
@@ -1238,6 +1258,7 @@ impl VolumeManager {
 			is_user_visible: Set(Some(volume.is_user_visible)),
 			auto_track_eligible: Set(Some(volume.auto_track_eligible)),
 			cloud_identifier: Set(volume.cloud_identifier.clone()),
+			cloud_config: Set(volume.cloud_config.as_ref().map(|c| c.to_string())),
 			..Default::default()
 		};
 

@@ -785,8 +785,9 @@ impl LibraryManager {
 
 		// Initialize encryption key
 		context
-			.library_key_manager
-			.get_or_create_library_key(config.id)
+			.key_manager
+			.get_library_key(config.id)
+			.await
 			.map_err(|e| {
 				LibraryError::Other(format!(
 					"Failed to initialize library encryption key: {}",
@@ -841,8 +842,9 @@ impl LibraryManager {
 
 		// Initialize encryption key
 		context
-			.library_key_manager
-			.get_or_create_library_key(config.id)
+			.key_manager
+			.get_library_key(config.id)
+			.await
 			.map_err(|e| {
 				LibraryError::Other(format!(
 					"Failed to initialize library encryption key: {}",

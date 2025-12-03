@@ -225,11 +225,27 @@ impl EntryProcessor {
 				// If not in cache, try to find it in the database
 				// This handles cases where parent was created in a previous run
 				let parent_path_str = parent_path.to_string_lossy().to_string();
-				if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
-					.filter(entities::directory_paths::Column::Path.eq(&parent_path_str))
-					.one(ctx.library_db())
-					.await
-				{
+
+				// For cloud paths, directory paths may have trailing slashes
+				// Try both with and without to handle path normalization differences
+				let parent_with_slash = if !parent_path_str.ends_with('/') && parent_path_str.contains("://") {
+					Some(format!("{}/", parent_path_str))
+				} else {
+					None
+				};
+
+				let mut query = entities::directory_paths::Entity::find();
+				if let Some(alt_path) = &parent_with_slash {
+					// Try both variants for cloud paths
+					query = query.filter(
+						entities::directory_paths::Column::Path.is_in([&parent_path_str, alt_path])
+					);
+				} else {
+					// Local paths - exact match
+					query = query.filter(entities::directory_paths::Column::Path.eq(&parent_path_str));
+				}
+
+				if let Ok(Some(dir_path_record)) = query.one(ctx.library_db()).await {
 					// Found parent in database, cache it
 					state
 						.entry_id_cache
@@ -238,9 +254,10 @@ impl EntryProcessor {
 				} else {
 					// Parent not found - this shouldn't happen with proper sorting
 					ctx.log(format!(
-						"WARNING: Parent not found for {}: {}",
+						"WARNING: Parent not found for {}: {} (tried: {:?})",
 						entry.path.display(),
-						parent_path.display()
+						parent_path.display(),
+						parent_with_slash.as_ref().unwrap_or(&parent_path_str)
 					));
 					None
 				}
@@ -333,7 +350,20 @@ impl EntryProcessor {
 		}
 
 		// Cache the entry ID for potential children
-		state.entry_id_cache.insert(entry.path.clone(), result.id);
+		// For directories, normalize the path by removing trailing slash for consistent lookups
+		// since PathBuf::parent() doesn't preserve trailing slashes
+		let cache_key = if entry.kind == EntryKind::Directory {
+			let path_str = entry.path.to_string_lossy();
+			if path_str.ends_with('/') && path_str.contains("://") {
+				// Cloud directory path - remove trailing slash for cache consistency
+				PathBuf::from(path_str.trim_end_matches('/'))
+			} else {
+				entry.path.clone()
+			}
+		} else {
+			entry.path.clone()
+		};
+		state.entry_id_cache.insert(cache_key, result.id);
 
 		Ok(result)
 	}

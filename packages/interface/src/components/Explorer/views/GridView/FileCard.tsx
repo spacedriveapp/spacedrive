@@ -1,4 +1,4 @@
-import { memo, useRef } from "react";
+import { memo } from "react";
 import clsx from "clsx";
 import {
 	Copy,
@@ -29,7 +29,7 @@ import { useLibraryMutation } from "../../../../context";
 import { usePlatform } from "../../../../platform";
 import { formatBytes } from "../../utils";
 import { TagDot } from "../../../Tags";
-import { setDragData, type SidebarDragData } from "../../../SpacesSidebar/dnd";
+import { useDraggable } from "@dnd-kit/core";
 
 interface FileCardProps {
   file: File;
@@ -443,86 +443,34 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
     await contextMenu.show(e);
   };
 
-  // Track mouse position for native drag initiation
-  const dragStartPos = useRef<{ x: number; y: number } | null>(null);
-  const isDraggingRef = useRef(false);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Only track left mouse button
-    if (e.button === 0) {
-      dragStartPos.current = { x: e.clientX, y: e.clientY };
-    }
-  };
-
-  const handleMouseMove = async (e: React.MouseEvent) => {
-    if (!dragStartPos.current || isDraggingRef.current) return;
-    if (!platform.startDrag) return;
-
-    // Calculate distance moved
-    const dx = e.clientX - dragStartPos.current.x;
-    const dy = e.clientY - dragStartPos.current.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // Start native drag after moving 8px (drag threshold)
-    if (distance > 8) {
-      isDraggingRef.current = true;
-
-      // Store our drag data globally for drop handlers
-      const dragData: SidebarDragData = {
-        type: "explorer-file",
-        sdPath: file.sd_path,
-        name: file.name,
-      };
-      setDragData(dragData);
-      console.log("[FileCard] Starting native drag:", dragData);
-
-      try {
-        // Get the file path for native drag
-        let filePath = "";
-        if ("Physical" in file.sd_path) {
-          filePath = file.sd_path.Physical.path;
-        }
-
-        await platform.startDrag({
-          items: [{
-            id: file.id,
-            kind: filePath ? { type: "file", path: filePath } : { type: "text", content: file.name },
-          }],
-          allowedOperations: ["copy", "move"],
-        });
-      } catch (err) {
-        console.error("Failed to start drag:", err);
-      } finally {
-        isDraggingRef.current = false;
-        dragStartPos.current = null;
-      }
-    }
-  };
-
-  const handleMouseUp = () => {
-    dragStartPos.current = null;
-    isDraggingRef.current = false;
-  };
+  const { attributes, listeners, setNodeRef, isDragging: dndIsDragging } = useDraggable({
+    id: file.id,
+    data: {
+      type: "explorer-file",
+      sdPath: file.sd_path,
+      name: file.name,
+      file: file,
+      gridSize: gridSize, // Pass grid size for overlay
+    },
+  });
 
   const thumbSize = Math.max(gridSize * 0.6, 60);
 
   return (
-    <FileComponent
-      file={file}
-      selected={selected}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onContextMenu={handleContextMenu}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      layout="column"
-      className={clsx(
-        "flex flex-col items-center gap-2 p-1 rounded-lg transition-all",
-        focused && !selected && "ring-2 ring-accent/50"
-      )}
-    >
+    <div ref={setNodeRef} {...listeners} {...attributes}>
+      <FileComponent
+        file={file}
+        selected={selected}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onContextMenu={handleContextMenu}
+        layout="column"
+        className={clsx(
+          "flex flex-col items-center gap-2 p-1 rounded-lg transition-all",
+          focused && !selected && "ring-2 ring-accent/50",
+          dndIsDragging && "opacity-50"
+        )}
+      >
       <div
         className={clsx(
           "rounded-lg p-2",
@@ -568,6 +516,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
         )}
       </div>
     </FileComponent>
+    </div>
   );
 }, (prev, next) => {
   // Custom comparison - rerender if file object, selection, or focus changed

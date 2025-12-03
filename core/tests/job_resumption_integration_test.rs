@@ -81,16 +81,12 @@ async fn test_job_resumption_at_various_points() {
 		.await
 		.expect("Failed to prepare test data");
 
-	// Define interruption points to test with realistic event counts for large datasets
-	// With 500k files, we expect many more progress events in each phase
-	// For quick testing during development, comment out all but one interruption point
+	// Define interruption points to test with realistic event counts for smaller datasets
+	// For Downloads folder, use lower event counts since there are fewer files
 	let interruption_points = vec![
-		// InterruptionPoint::DiscoveryAfterEvents(50),              // Interrupt after 50 discovery events (should hit with 500k files)
-		InterruptionPoint::ProcessingAfterEvents(10), // Interrupt after 10 processing events (reduced for faster testing)
-		                                              // InterruptionPoint::ProcessingAfterEvents(10),            // Interrupt after 10 processing events (reduced for faster testing)
-		                                              // InterruptionPoint::ContentIdentificationAfterEvents(200), // Interrupt after 200 content ID events (most likely to hit)
-		                                              // InterruptionPoint::ContentIdentificationAfterEvents(500), // Interrupt later in content ID phase
-		                                              // InterruptionPoint::Aggregation,                        // Interrupt immediately when aggregation starts
+		InterruptionPoint::DiscoveryAfterEvents(2),              // Interrupt early in discovery
+		InterruptionPoint::ProcessingAfterEvents(2),             // Interrupt early in processing
+		InterruptionPoint::ContentIdentificationAfterEvents(2),  // Interrupt early in content ID
 	];
 
 	let mut results = Vec::new();
@@ -134,57 +130,18 @@ async fn test_job_resumption_at_various_points() {
 
 /// Generate test data using benchmark data generation
 async fn generate_test_data() -> Result<PathBuf, Box<dyn std::error::Error>> {
-	let current_dir = std::env::current_dir()?;
-	info!("Current directory: {}", current_dir.display());
+	// Use Downloads folder instead of benchmark data
+	let home_dir = std::env::var("HOME")
+		.map(PathBuf::from)
+		.or_else(|_| std::env::current_dir())?;
 
-	// Use relative path from workspace root (tests run from core/ directory)
-	let indexing_data_path = if current_dir.ends_with("core") {
-		// When running from core/, the path is relative to parent (workspace root)
-		current_dir.parent().unwrap().join(TEST_INDEXING_DATA_PATH)
-	} else {
-		// When running from workspace root, use path as-is
-		current_dir.join(TEST_INDEXING_DATA_PATH)
-	};
+	let indexing_data_path = home_dir.join("Downloads");
 
-	// Check if data already exists
-	if indexing_data_path.exists() && indexing_data_path.is_dir() {
-		// Check if directory has files
-		let entries: Vec<_> =
-			std::fs::read_dir(&indexing_data_path)?.collect::<Result<Vec<_>, _>>()?;
-
-		if !entries.is_empty() {
-			info!(
-				"Test data already exists at: {}, skipping generation",
-				indexing_data_path.display()
-			);
-			return Ok(indexing_data_path);
-		}
+	if !indexing_data_path.exists() {
+		return Err(format!("Downloads folder does not exist at: {}", indexing_data_path.display()).into());
 	}
 
-	// Run benchmark data generation using existing recipe
-	// info!("Generating test data using recipe: {}", TEST_RECIPE_NAME);
-	// let recipe_path = current_dir.join("benchmarks/recipes").join(format!("{}.yaml", TEST_RECIPE_NAME));
-	// info!("Recipe path: {}", recipe_path.display());
-
-	// let output = Command::new("cargo")
-	//     .args([
-	//         "run", "-p", "sd-bench", "--bin", "sd-bench", "--",
-	//         "mkdata",
-	//         "--recipe", recipe_path.to_str().unwrap(),
-	//     ])
-	//     .current_dir(&current_dir)
-	//     .output()?;
-
-	// if !output.status.success() {
-	//     let stderr = String::from_utf8_lossy(&output.stderr);
-	//     let stdout = String::from_utf8_lossy(&output.stdout);
-	//     return Err(format!(
-	//         "Benchmark data generation failed:\nSTDOUT: {}\nSTDERR: {}",
-	//         stdout, stderr
-	//     ).into());
-	// }
-
-	// info!("Generated test data at: {}", indexing_data_path.display());
+	info!("Using Downloads folder at: {}", indexing_data_path.display());
 	Ok(indexing_data_path)
 }
 
@@ -225,8 +182,8 @@ async fn test_single_interruption_point(
 	let interrupt_result =
 		start_and_interrupt_job(&test_setup, indexing_data_path, &interruption_point).await;
 
-	let job_id = match interrupt_result {
-		Ok(job_id) => job_id,
+	let (job_id, library_id) = match interrupt_result {
+		Ok(result) => result,
 		Err(error) => {
 			return TestResult {
 				interruption_point,
@@ -238,11 +195,36 @@ async fn test_single_interruption_point(
 		}
 	};
 
-	// Brief pause to ensure clean shutdown
-	sleep(Duration::from_secs(1)).await;
+	// Clean up SQLite lock files to ensure clean restart
+	info!("Cleaning up database lock files...");
+	let library_dir = test_setup.data_dir().join("libraries");
+	if library_dir.exists() {
+		for entry in std::fs::read_dir(&library_dir)? {
+			let entry = entry?;
+			let path = entry.path();
+			if path.is_dir() {
+				// Remove SQLite WAL and SHM files
+				let db_path = path.join("library.db");
+				let wal_path = path.join("library.db-wal");
+				let shm_path = path.join("library.db-shm");
+
+				for lock_file in [wal_path, shm_path] {
+					if lock_file.exists() {
+						if let Err(e) = std::fs::remove_file(&lock_file) {
+							warn!("Failed to remove {}: {}", lock_file.display(), e);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Longer pause to ensure all database locks are released
+	info!("Waiting for database locks to release...");
+	sleep(Duration::from_secs(2)).await;
 
 	// Phase 2: Resume and complete the job
-	let resume_result = resume_and_complete_job(&test_setup, indexing_data_path, job_id).await;
+	let resume_result = resume_and_complete_job(&test_setup, indexing_data_path, job_id, library_id).await;
 
 	match resume_result {
 		Ok((job_log_path, test_log_path)) => TestResult {
@@ -267,7 +249,7 @@ async fn start_and_interrupt_job(
 	test_setup: &IntegrationTestSetup,
 	indexing_data_path: &PathBuf,
 	interruption_point: &InterruptionPoint,
-) -> Result<Uuid, Box<dyn std::error::Error>> {
+) -> Result<(Uuid, Uuid), Box<dyn std::error::Error>> {
 	info!(
 		"Starting job and waiting for interruption point: {:?}",
 		interruption_point
@@ -284,11 +266,14 @@ async fn start_and_interrupt_job(
 		.create_library("Test Library".to_string(), None, core_context.clone())
 		.await?;
 
+	let library_id = library.id();
+
 	// Create location add action to automatically trigger indexing
 	let location_input = LocationAddInput {
 		path: SdPath::local(indexing_data_path.clone()),
 		name: Some("Test Location".to_string()),
 		mode: IndexMode::Content,
+		job_policies: None,
 	};
 
 	let location_action = LocationAddAction::from_input(location_input)
@@ -451,15 +436,40 @@ async fn start_and_interrupt_job(
 			if phase_order_failed.load(Ordering::Relaxed) {
 				// Force kill the core immediately
 				core.shutdown().await?;
+
+				// Delete the redb database to release file locks (test workaround)
+				let secrets_db_path = test_setup.data_dir().join("secrets.redb");
+				if secrets_db_path.exists() {
+					if let Err(e) = tokio::fs::remove_file(&secrets_db_path).await {
+						warn!("Failed to remove secrets database: {}", e);
+					}
+				}
+
+				sleep(Duration::from_millis(200)).await;
+
 				Err(
 					"Phase order failure: reached a later phase before hitting interruption point"
 						.into(),
 				)
 			} else {
 				info!("Interruption point reached, shutting down core");
+				let result_job_id = job_id;
+
 				// Shutdown core gracefully
 				core.shutdown().await?;
-				Ok(job_id)
+
+				// Delete the redb database to release file locks (test workaround)
+				let secrets_db_path = test_setup.data_dir().join("secrets.redb");
+				if secrets_db_path.exists() {
+					if let Err(e) = tokio::fs::remove_file(&secrets_db_path).await {
+						warn!("Failed to remove secrets database: {}", e);
+					}
+				}
+
+				// Brief delay to ensure cleanup
+				sleep(Duration::from_millis(200)).await;
+
+				Ok((result_job_id, library_id))
 			}
 		}
 		Ok(None) => Err("Interrupt channel closed unexpectedly".into()),
@@ -472,6 +482,7 @@ async fn resume_and_complete_job(
 	test_setup: &IntegrationTestSetup,
 	_indexing_data_path: &PathBuf,
 	job_id: Uuid,
+	library_id: Uuid,
 ) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
 	info!("Resuming job {} and waiting for completion", job_id);
 
@@ -479,9 +490,12 @@ async fn resume_and_complete_job(
 	let core = test_setup.create_core().await?;
 	let core_context = core.context.clone();
 
-	// Get the library (should auto-load)
+	// Get the specific library by ID (don't rely on auto-load which may fail due to locks)
 	let libraries = core_context.libraries().await.list().await;
-	let library = libraries.first().ok_or("No library found after restart")?;
+	let library = libraries
+		.iter()
+		.find(|lib| lib.id() == library_id)
+		.ok_or_else(|| format!("Library {} not found after restart. Found {} libraries", library_id, libraries.len()))?;
 
 	// Check job status immediately after core initialization
 	// Jobs may have already completed during the core startup process

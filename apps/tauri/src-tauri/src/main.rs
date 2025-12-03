@@ -323,11 +323,9 @@ struct MenuState {
 
 /// Called from frontend when app is ready to be shown
 #[tauri::command]
-async fn app_ready(app: AppHandle) {
-	if let Some(window) = app.get_webview_window("main") {
-		window.show().ok();
-		window.set_focus().ok();
-	}
+async fn app_ready(window: tauri::Window) {
+	window.show().ok();
+	window.set_focus().ok();
 }
 
 /// Get the daemon socket address for the frontend to connect

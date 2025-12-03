@@ -86,8 +86,10 @@ impl ToGenericProgress for IndexerProgress {
 				|| self.current_path.contains('/')
 				|| self.current_path.contains('\\')
 			{
-				// Use local device slug for local paths
-				Some(SdPath::local(path_buf))
+				// Try to parse as URI first (for cloud paths), fall back to local path
+				SdPath::from_uri(&self.current_path)
+					.ok()
+					.or_else(|| Some(SdPath::local(path_buf)))
 			} else {
 				None
 			}

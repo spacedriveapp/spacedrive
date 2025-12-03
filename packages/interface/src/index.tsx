@@ -13,6 +13,7 @@ export { LocationCacheDemo } from './LocationCacheDemo';
 export { Inspector, PopoutInspector } from './Inspector';
 export type { InspectorVariant } from './Inspector';
 export { QuickPreview } from './components/QuickPreview';
+export { Settings } from './Settings';
 export { Spacedrop } from './Spacedrop';
 export { PairingModal } from './components/PairingModal';
 export { TopBarProvider, TopBarPortal, useTopBar } from './TopBar';

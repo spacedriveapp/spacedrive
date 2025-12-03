@@ -133,9 +133,14 @@ impl Core {
 		}
 		drop(config_read);
 
-		// Initialize library key manager
-		let library_key_manager =
-			Arc::new(crate::crypto::library_key_manager::LibraryKeyManager::new()?);
+		// Initialize unified key manager with file fallback
+		let device_key_fallback = data_dir.join("device_key");
+		let key_manager = Arc::new(
+			crate::crypto::key_manager::KeyManager::new_with_fallback(
+				data_dir.clone(),
+				Some(device_key_fallback),
+			)?,
+		);
 
 		// Create the context that will be shared with services
 		let mut context_inner = CoreContext::new(
@@ -143,7 +148,7 @@ impl Core {
 			device.clone(),
 			None, // Libraries will be set after context creation
 			volumes.clone(),
-			library_key_manager.clone(),
+			key_manager.clone(),
 		);
 
 		// Enable per-job file logging by default
@@ -249,7 +254,7 @@ impl Core {
 		// This restores cloud volumes that were previously added
 		info!("Loading cloud volumes from database...");
 		if let Err(e) = volumes
-			.load_cloud_volumes_from_db(&loaded_libraries, library_key_manager.clone())
+			.load_cloud_volumes_from_db(&loaded_libraries, key_manager.clone())
 			.await
 		{
 			error!("Failed to load cloud volumes from database: {}", e);
@@ -262,7 +267,7 @@ impl Core {
 			match services
 				.init_networking(
 					device.clone(),
-					services.library_key_manager.clone(),
+					services.key_manager.clone(),
 					config.read().await.data_dir.clone(),
 				)
 				.await
@@ -448,7 +453,7 @@ impl Core {
 			self.services
 				.init_networking(
 					self.device.clone(),
-					self.services.library_key_manager.clone(),
+					self.services.key_manager.clone(),
 					data_dir,
 				)
 				.await?;
@@ -527,6 +532,11 @@ impl Core {
 
 		// Close all libraries
 		self.libraries.close_all().await?;
+
+		// Close KeyManager database to release file locks
+		if let Err(e) = self.context.key_manager.close().await {
+			warn!("Failed to close KeyManager database: {}", e);
+		}
 
 		// Save configuration
 		self.config.write().await.save()?;

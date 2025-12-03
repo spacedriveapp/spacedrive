@@ -22,17 +22,20 @@ export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 
 
 	return (
 		<div
-			className="absolute inset-x-0 top-0 z-[60] h-12"
+			className="absolute top-0 z-[60] h-12"
 			data-tauri-drag-region
 			style={{
-				paddingLeft: sidebarWidth,
-				paddingRight: inspectorWidth,
+				left: sidebarWidth,
+				right: inspectorWidth,
 			}}
 		>
-			<div className="relative flex items-center h-full px-3 gap-3 overflow-hidden">
-				<div ref={leftRef} className="flex items-center gap-2" />
-				<div ref={centerRef} className="flex-1 flex items-center justify-center gap-2" />
-				<div ref={rightRef} className="flex items-center gap-2" />
+			<div
+				className="relative flex items-center h-full px-3 gap-3 overflow-hidden"
+				data-tauri-drag-region
+			>
+				<div ref={leftRef} data-tauri-drag-region className="flex items-center gap-2" />
+				<div ref={centerRef} data-tauri-drag-region className="flex-1 flex items-center justify-center gap-2" />
+				<div ref={rightRef} data-tauri-drag-region className="flex items-center gap-2" />
 
 				{/* Right fade mask - hide when preview active */}
 				{!isPreviewActive && (

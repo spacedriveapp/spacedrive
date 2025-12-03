@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { GearSix } from "@phosphor-icons/react";
-import { useNavigate } from "react-router-dom";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
 import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
 import { SpaceSwitcher } from "./SpaceSwitcher";
@@ -12,8 +11,8 @@ import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
 import { JobManagerPopover } from "../JobManager/JobManagerPopover";
 import { SyncMonitorPopover } from "../SyncMonitor";
-import { getDragData, clearDragData, subscribeToDragState } from "./dnd";
 import clsx from "clsx";
+import { useDroppable } from "@dnd-kit/core";
 
 interface SpacesSidebarProps {
   isPreviewActive?: boolean;
@@ -23,7 +22,6 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
   const client = useSpacedriveClient();
   const platform = usePlatform();
   const { data: libraries } = useLibraries();
-  const navigate = useNavigate();
   const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
     () => client.getCurrentLibraryId(),
   );
@@ -73,66 +71,7 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
 
   const { data: layout } = useSpaceLayout(currentSpace?.id ?? null);
 
-  // Drag-drop state
-  const [isDragging, setIsDragging] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
   const addItem = useLibraryMutation("spaces.add_item");
-  const dropZoneRef = useRef<HTMLDivElement>(null);
-
-  // Subscribe to drag state changes (from setDragData)
-  useEffect(() => {
-    return subscribeToDragState(setIsDragging);
-  }, []);
-
-  // Listen for native drag events to track position and handle drop
-  useEffect(() => {
-    if (!platform.onDragEvent) return;
-
-    const unlisteners: Array<() => void> = [];
-
-    // Track drag position to detect when over sidebar
-    platform.onDragEvent("moved", (payload: { x: number; y: number }) => {
-      if (!dropZoneRef.current) return;
-
-      const rect = dropZoneRef.current.getBoundingClientRect();
-      const isOver = (
-        payload.x >= rect.left &&
-        payload.x <= rect.right &&
-        payload.y >= rect.top &&
-        payload.y <= rect.bottom
-      );
-      setIsHovering(isOver);
-    }).then(fn => unlisteners.push(fn));
-
-    // Handle drag end - check if dropped on sidebar
-    platform.onDragEvent("ended", async (payload: { result?: { type: string } }) => {
-      const dragData = getDragData(); // Get BEFORE clearing
-
-      // Check for "dropped" (lowercase from backend)
-      const wasDropped = payload.result?.type?.toLowerCase() === "dropped";
-
-      // If dropped and we have drag data from our app, add it to the space
-      if (wasDropped && currentSpace && dragData) {
-        try {
-          await addItem.mutateAsync({
-            space_id: currentSpace.id,
-            group_id: null,
-            item_type: { Path: { sd_path: dragData.sdPath } },
-          });
-        } catch (err) {
-          console.error("Failed to add item to space:", err);
-        }
-      }
-
-      clearDragData();
-      setIsDragging(false);
-      setIsHovering(false);
-    }).then(fn => unlisteners.push(fn));
-
-    return () => {
-      unlisteners.forEach(fn => fn());
-    };
-  }, [platform, currentSpace, addItem, isHovering]);
 
   return (
     <div className="w-[220px] min-w-[176px] max-w-[300px] flex flex-col h-full p-2 bg-transparent">
@@ -150,31 +89,21 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
             onSwitch={setCurrentSpace}
           />
 
-          {/* Scrollable Content - Drop Zone */}
-          <div
-            ref={dropZoneRef}
-            className={clsx(
-              "no-scrollbar mt-3 mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10 transition-colors rounded-lg",
-              isDragging && "bg-accent/10 ring-2 ring-accent/50 ring-inset",
-              isDragging && isHovering && "bg-accent/20 ring-accent"
-            )}
-          >
+          {/* Scrollable Content */}
+          <div className="no-scrollbar mt-3 mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
             {/* Space-level items (pinned shortcuts) */}
             {layout?.space_items && layout.space_items.length > 0 && (
               <div className="space-y-0.5">
-                {layout.space_items.map((item) => (
-                  <SpaceItem key={item.id} item={item} />
+                {layout.space_items.map((item, index) => (
+                  <SpaceItem
+                    key={item.id}
+                    item={item}
+                    isLastItem={index === layout.space_items.length - 1}
+                    allowInsertion={true}
+                    spaceId={currentSpace?.id}
+                    groupId={null}
+                  />
                 ))}
-              </div>
-            )}
-
-            {/* Drop hint when dragging */}
-            {isDragging && (
-              <div className={clsx(
-                "flex items-center justify-center py-4 text-xs font-medium transition-colors",
-                isHovering ? "text-accent" : "text-accent/70"
-              )}>
-                {isHovering ? "Release to add shortcut" : "Drop to add shortcut"}
               </div>
             )}
 
@@ -192,7 +121,13 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
             <SyncMonitorPopover />
             <JobManagerPopover />
             <button
-              onClick={() => navigate("/settings")}
+              onClick={() => {
+                if (platform.showWindow) {
+                  platform.showWindow({ type: "Settings", page: "general" }).catch(err =>
+                    console.error("Failed to open settings:", err)
+                  );
+                }
+              }}
               className={clsx(
                 "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
                 "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected",

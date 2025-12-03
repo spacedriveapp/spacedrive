@@ -38,6 +38,8 @@ pub struct Model {
 	pub auto_track_eligible: Option<bool>,
 	/// Cloud identifier (bucket/drive/container name) for cloud volumes
 	pub cloud_identifier: Option<String>,
+	/// Cloud service configuration (JSON) - stores region, endpoint, etc.
+	pub cloud_config: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -302,6 +304,10 @@ impl Syncable for Model {
 				.get("cloud_identifier")
 				.and_then(|v| v.as_str())
 				.map(String::from)),
+			cloud_config: Set(data
+				.get("cloud_config")
+				.and_then(|v| v.as_str())
+				.map(String::from)),
 		};
 
 		Entity::insert(active)
@@ -325,6 +331,7 @@ impl Syncable for Model {
 						Column::IsUserVisible,
 						Column::AutoTrackEligible,
 						Column::CloudIdentifier,
+						Column::CloudConfig,
 						Column::LastSeenAt,
 					])
 					.to_owned(),

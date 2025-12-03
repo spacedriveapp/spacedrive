@@ -67,9 +67,9 @@ pub type Result<T> = std::result::Result<T, NetworkingError>;
 /// Initialize the new networking system
 pub async fn init_networking(
 	device_manager: std::sync::Arc<crate::device::DeviceManager>,
-	library_key_manager: std::sync::Arc<crate::crypto::library_key_manager::LibraryKeyManager>,
+	key_manager: std::sync::Arc<crate::crypto::key_manager::KeyManager>,
 	data_dir: impl AsRef<std::path::Path>,
 ) -> Result<NetworkingService> {
 	let logger = std::sync::Arc::new(utils::logging::ConsoleLogger);
-	NetworkingService::new(device_manager, library_key_manager, data_dir, logger).await
+	NetworkingService::new(device_manager, key_manager, data_dir, logger).await
 }

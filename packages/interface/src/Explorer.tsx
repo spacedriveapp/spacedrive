@@ -29,9 +29,14 @@ import {
   PREVIEW_LAYER_ID,
 } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
-import { useNormalizedCache } from "./context";
+import { useNormalizedCache, useLibraryMutation } from "./context";
 import { usePlatform } from "./platform";
 import type { LocationInfo } from "@sd/ts-client";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, pointerWithin, rectIntersection } from "@dnd-kit/core";
+import type { CollisionDetection } from "@dnd-kit/core";
+import { useState } from "react";
+import type { File } from "@sd/ts-client";
+import { File as FileComponent } from "./components/Explorer/File";
 
 interface AppProps {
   client: SpacedriveClient;
@@ -215,18 +220,164 @@ export function ExplorerLayout() {
   );
 }
 
+/**
+ * DndWrapper - Global drag-and-drop coordinator
+ *
+ * Handles all drag-and-drop operations in the Explorer using @dnd-kit/core.
+ *
+ * Drop Actions:
+ *
+ * 1. insert-before / insert-after
+ *    - Pins a file to the sidebar before/after an existing item
+ *    - Shows a blue line indicator
+ *    - Data: { action, itemId }
+ *
+ * 2. move-into
+ *    - Moves a file into a location/volume/folder
+ *    - Shows a blue ring around the target
+ *    - Data: { action, targetType, targetId, targetPath? }
+ *    - targetType: "location" | "volume" | "folder"
+ *    - targetPath: SdPath (for locations, directly usable)
+ *
+ * 3. type: "space" | "group"
+ *    - Legacy: Drops on the space root or group area (no specific item)
+ *    - Adds item to space/group
+ *    - Data: { type, spaceId, groupId? }
+ */
+function DndWrapper({ children }: { children: React.ReactNode }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before activating drag
+      },
+    })
+  );
+  const addItem = useLibraryMutation("spaces.add_item");
+  const [activeItem, setActiveItem] = useState<any>(null);
+
+  // Custom collision detection: prefer -top zones over -bottom zones to avoid double lines
+  const customCollision: CollisionDetection = (args) => {
+    const collisions = pointerWithin(args);
+    if (!collisions || collisions.length === 0) return collisions;
+
+    // If we have multiple collisions, prefer -top over -bottom
+    const hasTop = collisions.find(c => String(c.id).endsWith('-top'));
+    const hasMiddle = collisions.find(c => String(c.id).endsWith('-middle'));
+
+    if (hasMiddle) return [hasMiddle]; // Middle zone takes priority
+    if (hasTop) return [hasTop]; // Top zone over bottom
+    return [collisions[0]]; // First collision
+  };
+
+  const handleDragStart = (event: any) => {
+    setActiveItem(event.active.data.current);
+  };
+
+  const handleDragEnd = async (event: any) => {
+    const { active, over } = event;
+
+    setActiveItem(null);
+
+    if (!over || !active.data.current) return;
+
+    const dragData = active.data.current;
+    const dropData = over.data.current;
+
+    if (!dragData || dragData.type !== "explorer-file") return;
+
+    // Insert before/after sidebar items (adds item to space/group)
+    if (dropData?.action === "insert-before" || dropData?.action === "insert-after") {
+      if (!dropData.spaceId) return;
+
+      try {
+        await addItem.mutateAsync({
+          space_id: dropData.spaceId,
+          group_id: dropData.groupId || null,
+          item_type: { Path: { sd_path: dragData.sdPath } },
+        });
+        // TODO: Implement proper ordering relative to itemId
+      } catch (err) {
+        console.error("Failed to add item:", err);
+      }
+      return;
+    }
+
+    // Move file into location/volume/folder
+    if (dropData?.action === "move-into") {
+      // TODO: Implement with files.move mutation based on targetType
+      // - location: Use targetPath
+      // - volume: Look up volume root path
+      // - folder: Use targetPath from Path item
+      return;
+    }
+
+    // Drop on space root area (adds to space)
+    if (dropData?.type === "space" && dragData.type === "explorer-file") {
+      try {
+        await addItem.mutateAsync({
+          space_id: dropData.spaceId,
+          group_id: null,
+          item_type: { Path: { sd_path: dragData.sdPath } },
+        });
+      } catch (err) {
+        console.error("Failed to add item:", err);
+      }
+    }
+
+    // Drop on group area (adds to group)
+    if (dropData?.type === "group" && dragData.type === "explorer-file") {
+      try {
+        await addItem.mutateAsync({
+          space_id: dropData.spaceId,
+          group_id: dropData.groupId,
+          item_type: { Path: { sd_path: dragData.sdPath } },
+        });
+      } catch (err) {
+        console.error("Failed to add item to group:", err);
+      }
+    }
+  };
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={customCollision}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      {children}
+      <DragOverlay dropAnimation={null}>
+        {activeItem?.file && activeItem.gridSize ? (
+          <div style={{ width: activeItem.gridSize }}>
+            <div className="flex flex-col items-center gap-2 p-1 rounded-lg">
+              <div className="rounded-lg p-2">
+                <FileComponent.Thumb file={activeItem.file} size={Math.max(activeItem.gridSize * 0.6, 60)} />
+              </div>
+              <div className="text-sm truncate px-2 py-0.5 rounded-md bg-accent text-white max-w-full">
+                {activeItem.name}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
 export function Explorer({ client }: AppProps) {
   const router = createExplorerRouter();
 
   return (
     <SpacedriveProvider client={client}>
-      <TopBarProvider>
-        <SelectionProvider>
-          <ExplorerProvider>
-            <RouterProvider router={router} />
-          </ExplorerProvider>
-        </SelectionProvider>
-      </TopBarProvider>
+      <DndWrapper>
+        <TopBarProvider>
+          <SelectionProvider>
+            <ExplorerProvider>
+              <RouterProvider router={router} />
+            </ExplorerProvider>
+          </SelectionProvider>
+        </TopBarProvider>
+      </DndWrapper>
       <Dialogs />
       <ReactQueryDevtools initialIsOpen={false} />
     </SpacedriveProvider>

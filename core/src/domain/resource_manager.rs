@@ -63,6 +63,81 @@ impl ResourceManager {
 		paths.into_iter().collect()
 	}
 
+	/// Build a File object from an entry model (for space item resolution)
+	async fn build_file_from_entry(
+		entry_model: crate::infra::db::entities::entry::Model,
+		item_type: &crate::domain::ItemType,
+		db: &DatabaseConnection,
+	) -> Option<crate::domain::File> {
+		use crate::domain::{ContentIdentity, ContentKind, File, ItemType, Sidecar, SdPath};
+		use crate::infra::db::entities::{content_identity, sidecar};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let sd_path = match item_type {
+			ItemType::Path { sd_path } => sd_path.clone(),
+			_ => return None,
+		};
+
+		let content_identity = if let Some(content_id) = entry_model.content_id {
+			content_identity::Entity::find_by_id(content_id)
+				.one(db)
+				.await
+				.ok()
+				.flatten()
+				.map(|ci| ContentIdentity {
+					uuid: ci.uuid.unwrap_or_else(Uuid::new_v4),
+					kind: ContentKind::from_id(ci.kind_id),
+					content_hash: ci.content_hash,
+					integrity_hash: ci.integrity_hash,
+					mime_type_id: ci.mime_type_id,
+					text_content: ci.text_content,
+					total_size: ci.total_size,
+					entry_count: ci.entry_count,
+					first_seen_at: ci.first_seen_at,
+					last_verified_at: ci.last_verified_at,
+				})
+		} else {
+			None
+		};
+
+		let sidecars = if let Some(ref ci) = content_identity {
+			if let Some(uuid) = Some(ci.uuid) {
+				sidecar::Entity::find()
+					.filter(sidecar::Column::ContentUuid.eq(uuid))
+					.all(db)
+					.await
+					.ok()
+					.unwrap_or_default()
+					.into_iter()
+					.map(|s| Sidecar {
+						id: s.id,
+						content_uuid: s.content_uuid,
+						kind: s.kind,
+						variant: s.variant,
+						format: s.format,
+						status: s.status,
+						size: s.size,
+						created_at: s.created_at,
+						updated_at: s.updated_at,
+					})
+					.collect()
+			} else {
+				Vec::new()
+			}
+		} else {
+			Vec::new()
+		};
+
+		let mut file = File::from_entity_model(entry_model, sd_path);
+		file.content_identity = content_identity;
+		file.sidecars = sidecars;
+		if let Some(ref ci) = file.content_identity {
+			file.content_kind = ci.kind;
+		}
+
+		Some(file)
+	}
+
 	/// Emit direct ResourceChanged events for simple resources
 	async fn emit_direct_events(&self, resource_type: &str, resource_ids: &[Uuid]) -> Result<()> {
 		use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceItem};
@@ -247,6 +322,19 @@ impl ResourceManager {
 								))
 							})?;
 
+						let resolved_file = if let Some(entry_id) = item_model.entry_id {
+							use crate::infra::db::entities::entry;
+							if let Some(entry_model) = entry::Entity::find_by_id(entry_id).one(&*self.db).await? {
+								Self::build_file_from_entry(entry_model, &item_type, &self.db)
+									.await
+									.map(Box::new)
+							} else {
+								None
+							}
+						} else {
+							None
+						};
+
 						let item = SpaceItem {
 							id: item_model.uuid,
 							space_id,
@@ -258,7 +346,7 @@ impl ResourceManager {
 							item_type,
 							order: item_model.order,
 							created_at: item_model.created_at.into(),
-							resolved_file: None, // Not resolved in events
+							resolved_file,
 						};
 
 						self.events.emit(Event::ResourceChanged {

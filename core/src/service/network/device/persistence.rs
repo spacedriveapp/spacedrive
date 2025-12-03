@@ -1,7 +1,6 @@
 //! Persistence for paired devices and their connection info
 
 use super::{DeviceInfo, SessionKeys};
-use crate::crypto::device_key_manager::DeviceKeyManager;
 use crate::service::network::{NetworkingError, Result};
 use aes_gcm::{
 	aead::{Aead, AeadCore, KeyInit, OsRng},
@@ -71,7 +70,7 @@ struct PersistedPairedDevices {
 pub struct DevicePersistence {
 	data_dir: PathBuf,
 	devices_file: PathBuf,
-	device_key_manager: DeviceKeyManager,
+	device_key: [u8; 32],
 }
 
 impl DevicePersistence {
@@ -81,19 +80,16 @@ impl DevicePersistence {
 		let networking_dir = data_dir.join("networking");
 		let devices_file = networking_dir.join("paired_devices.json");
 
-		// Use fallback file for master key to ensure consistency
-		// IMPORTANT: Use the root data_dir for the master key, not the networking subdirectory
-		// This ensures consistency with DeviceManager which also uses the root data_dir
+		// Load device key from fallback file (consistent with DeviceManager)
 		let master_key_path = data_dir.join("master_key");
-		let device_key_manager =
-			DeviceKeyManager::new_with_fallback(master_key_path).map_err(|e| {
-				NetworkingError::Protocol(format!("Failed to initialize master key manager: {}", e))
-			})?;
+		let device_key = load_or_create_device_key(&master_key_path).map_err(|e| {
+			NetworkingError::Protocol(format!("Failed to load device key: {}", e))
+		})?;
 
 		Ok(Self {
 			data_dir: networking_dir,
 			devices_file,
-			device_key_manager,
+			device_key,
 		})
 	}
 
@@ -107,14 +103,9 @@ impl DevicePersistence {
 
 	/// Derive encryption key from master key for device persistence
 	fn derive_encryption_key(&self, salt: &[u8]) -> Result<[u8; 32]> {
-		let master_key = self
-			.device_key_manager
-			.get_or_create_master_key()
-			.map_err(|e| {
-				NetworkingError::Protocol(format!("Failed to get or create master key: {}", e))
-			})?;
+		let master_key = &self.device_key;
 
-		let hk = Hkdf::<Sha256>::new(Some(salt), &master_key);
+		let hk = Hkdf::<Sha256>::new(Some(salt), master_key);
 		let mut derived_key = [0u8; 32];
 		hk.expand(b"spacedrive-device-persistence", &mut derived_key)
 			.map_err(|e| NetworkingError::Protocol(format!("Key derivation failed: {}", e)))?;
@@ -560,4 +551,29 @@ mod tests {
 
 		println!("Device data is properly encrypted on disk");
 	}
+}
+
+
+/// Load device key from file, or create a new one
+fn load_or_create_device_key(path: &PathBuf) -> std::io::Result<[u8; 32]> {
+	use rand::RngCore;
+
+	// Try to load from file
+	if path.exists() {
+		let data = std::fs::read(path)?;
+		if data.len() == 32 {
+			let mut key = [0u8; 32];
+			key.copy_from_slice(&data);
+			return Ok(key);
+		}
+	}
+
+	// Create new key
+	let mut key = [0u8; 32];
+	rand::thread_rng().fill_bytes(&mut key);
+
+	// Save to file
+	std::fs::write(path, &key)?;
+
+	Ok(key)
 }

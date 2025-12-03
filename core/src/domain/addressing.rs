@@ -230,7 +230,7 @@ impl SdPath {
 	pub fn display(&self) -> String {
 		match self {
 			Self::Physical { device_slug, path } => {
-				format!("local://{}{}", device_slug, path.display())
+				format!("local://{}/{}", device_slug, path.display())
 			}
 			Self::Cloud {
 				service,
