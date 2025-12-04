@@ -206,19 +206,23 @@ async fn test_single_interruption_point(
 	info!("Cleaning up database lock files...");
 	let library_dir = test_setup.data_dir().join("libraries");
 	if library_dir.exists() {
-		for entry in std::fs::read_dir(&library_dir)? {
-			let entry = entry?;
-			let path = entry.path();
-			if path.is_dir() {
-				// Remove SQLite WAL and SHM files
-				let db_path = path.join("library.db");
-				let wal_path = path.join("library.db-wal");
-				let shm_path = path.join("library.db-shm");
+		if let Ok(entries) = std::fs::read_dir(&library_dir) {
+			for entry in entries {
+				if let Ok(entry) = entry {
+					let path = entry.path();
+					if path.is_dir() {
+						// Remove SQLite WAL and SHM files
+						let wal_path = path.join("library.db-wal");
+						let shm_path = path.join("library.db-shm");
 
-				for lock_file in [wal_path, shm_path] {
-					if lock_file.exists() {
-						if let Err(e) = std::fs::remove_file(&lock_file) {
-							warn!("Failed to remove {}: {}", lock_file.display(), e);
+						for lock_file in [wal_path, shm_path] {
+							if lock_file.exists() {
+								if let Err(e) = std::fs::remove_file(&lock_file) {
+									warn!("Failed to remove {}: {}", lock_file.display(), e);
+								} else {
+									info!("Removed lock file: {}", lock_file.display());
+								}
+							}
 						}
 					}
 				}

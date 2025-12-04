@@ -359,7 +359,11 @@ impl ResourceManager {
 									e
 								))
 							})?,
-							metadata: None,
+							metadata: Some(ResourceMetadata {
+								no_merge_fields: vec!["resolved_file".to_string()],
+								alternate_ids: vec![],
+								affected_paths: vec![],
+							}),
 						});
 					}
 				}
