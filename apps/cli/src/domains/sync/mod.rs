@@ -461,6 +461,7 @@ async fn export_events(ctx: &Context, args: SyncEventsArgs) -> Result<()> {
 		correlation_id: query.correlation_id,
 		limit: query.limit,
 		offset: query.offset,
+		include_remote_peers: if args.all_devices { Some(true) } else { None },
 	};
 
 	let json_response = ctx.core.query(&input, Some(library_id)).await?;
@@ -472,7 +473,12 @@ async fn export_events(ctx: &Context, args: SyncEventsArgs) -> Result<()> {
 		"json" => format_events_json(&output.events, args.with_device)?,
 		"sql" => format_events_sql(&output.events),
 		"markdown" | "md" => format_events_markdown(&output.events, args.with_device),
-		_ => return Err(anyhow::anyhow!("Unknown format: {}. Use json, sql, or markdown", args.format)),
+		_ => {
+			return Err(anyhow::anyhow!(
+				"Unknown format: {}. Use json, sql, or markdown",
+				args.format
+			))
+		}
 	};
 
 	// Write output
@@ -486,7 +492,10 @@ async fn export_events(ctx: &Context, args: SyncEventsArgs) -> Result<()> {
 	Ok(())
 }
 
-fn format_events_json(events: &[sd_core::infra::sync::SyncEventLog], with_device: bool) -> Result<String> {
+fn format_events_json(
+	events: &[sd_core::infra::sync::SyncEventLog],
+	with_device: bool,
+) -> Result<String> {
 	if with_device {
 		Ok(serde_json::to_string_pretty(events)?)
 	} else {
@@ -550,7 +559,10 @@ fn format_events_sql(events: &[sd_core::infra::sync::SyncEventLog]) -> String {
 	output
 }
 
-fn format_events_markdown(events: &[sd_core::infra::sync::SyncEventLog], with_device: bool) -> String {
+fn format_events_markdown(
+	events: &[sd_core::infra::sync::SyncEventLog],
+	with_device: bool,
+) -> String {
 	let mut output = String::from("# Sync Event Log\n\n");
 	output.push_str(&format!("**Exported**: {}\n", Utc::now().to_rfc3339()));
 	output.push_str(&format!("**Event Count**: {}\n\n", events.len()));

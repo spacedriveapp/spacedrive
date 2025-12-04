@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
-import { type ReactNode, type PropsWithChildren, useState } from 'react';
+import { type ReactNode, type PropsWithChildren, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Minimal base styles - customize via className prop
@@ -24,14 +24,30 @@ function Root({
 	children,
 }: PropsWithChildren<DropdownMenuProps>) {
 	const [isOpen, setIsOpen] = useState(false);
+	const containerRef = useRef<HTMLDivElement>(null);
 
 	const handleOpenChange = (open: boolean) => {
 		setIsOpen(open);
 		onOpenChange?.(open);
 	};
 
+	useEffect(() => {
+		if (!isOpen) return;
+
+		const handleClickOutside = (event: MouseEvent) => {
+			if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+				handleOpenChange(false);
+			}
+		};
+
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, [isOpen]);
+
 	return (
-		<div className="w-full">
+		<div className="w-full" ref={containerRef}>
 			<div onClick={() => handleOpenChange(!isOpen)}>{trigger}</div>
 
 			<AnimatePresence>

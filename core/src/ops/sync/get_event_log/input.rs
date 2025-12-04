@@ -48,4 +48,8 @@ pub struct GetSyncEventLogInput {
 	/// Offset for pagination
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub offset: Option<u32>,
+
+	/// Include events from remote peers
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub include_remote_peers: Option<bool>,
 }
