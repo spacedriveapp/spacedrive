@@ -1,6 +1,41 @@
 use clap::Args;
 
 #[derive(Args, Debug)]
+pub struct SyncEventsArgs {
+	/// Export format (json, sql, markdown)
+	#[arg(short, long, default_value = "json", help = "Output format: json, sql, or markdown")]
+	pub format: String,
+
+	/// Output file (defaults to stdout)
+	#[arg(short, long, help = "Write output to file instead of stdout")]
+	pub output: Option<String>,
+
+	/// Time range: events since this time
+	#[arg(long, help = "Show events since (e.g., '1 hour ago', '2025-12-03 10:00:00')")]
+	pub since: Option<String>,
+
+	/// Filter by event type
+	#[arg(long, help = "Filter by event type (state_transition, backfill_session_started, etc.)")]
+	pub event_type: Option<String>,
+
+	/// Filter by correlation ID (show all events from a session)
+	#[arg(long, help = "Filter by correlation ID to trace a specific backfill session")]
+	pub correlation_id: Option<String>,
+
+	/// Filter by severity (debug, info, warning, error)
+	#[arg(long, help = "Filter by severity level")]
+	pub severity: Option<String>,
+
+	/// Maximum number of events to return
+	#[arg(long, default_value = "1000", help = "Maximum number of events")]
+	pub limit: u32,
+
+	/// Include device name in output
+	#[arg(long, help = "Include device name/ID in output")]
+	pub with_device: bool,
+}
+
+#[derive(Args, Debug)]
 pub struct SyncMetricsArgs {
 	/// Show metrics for a specific time range
 	#[arg(

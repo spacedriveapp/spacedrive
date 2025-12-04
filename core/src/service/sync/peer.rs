@@ -2659,6 +2659,29 @@ impl PeerSync {
 			)
 			.await?;
 
+		// Log buffer overflow if any drops occurred
+		let dropped_count = self.buffer.get_and_reset_dropped_count();
+		if dropped_count > 0 {
+			if let Some(event_logger) = self.metrics.event_logger().read().await.as_ref() {
+				use crate::infra::sync::{EventSeverity, SyncEventLog, SyncEventType};
+				use serde_json::json;
+
+				let event = SyncEventLog::new(
+					self.device_id,
+					SyncEventType::SyncError,
+					format!("Buffer overflow: {} updates dropped during backfill", dropped_count),
+				)
+				.with_severity(EventSeverity::Error)
+				.with_details(json!({
+					"dropped_count": dropped_count,
+					"max_buffer_size": self.buffer.len().await,
+					"phase": "backfill_to_catchup_transition",
+				}));
+
+				let _ = event_logger.log(event).await;
+			}
+		}
+
 		// Process OLD buffer first (legacy path, should be empty if dependency tracker is working)
 		let mut state_changes_to_broadcast = Vec::new();
 		let mut shared_changes_to_broadcast = Vec::new();
@@ -2685,6 +2708,29 @@ impl PeerSync {
 				"Dependency tracker still has {} unresolved dependencies - these entries may have circular or missing parent references",
 				dep_stats.total_dependencies
 			);
+
+			// Log stuck dependencies as error event
+			if let Some(event_logger) = self.metrics.event_logger().read().await.as_ref() {
+				use crate::infra::sync::{EventSeverity, SyncEventLog, SyncEventType};
+				use serde_json::json;
+
+				let event = SyncEventLog::new(
+					self.device_id,
+					SyncEventType::SyncError,
+					format!(
+						"Stuck dependencies: {} records waiting for {} missing parents",
+						dep_stats.total_waiting_updates, dep_stats.total_dependencies
+					),
+				)
+				.with_severity(EventSeverity::Warning)
+				.with_details(json!({
+					"total_dependencies": dep_stats.total_dependencies,
+					"total_waiting_updates": dep_stats.total_waiting_updates,
+					"phase": "backfill_to_ready_transition",
+				}));
+
+				let _ = event_logger.log(event).await;
+			}
 		}
 
 		info!(

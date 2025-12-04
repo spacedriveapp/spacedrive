@@ -1,5 +1,6 @@
 //! Central metrics collector for sync operations
 
+use crate::infra::sync::SyncEventLogger;
 use crate::service::sync::metrics::types::*;
 use crate::service::sync::state::DeviceSyncState;
 use anyhow::Result;
@@ -15,6 +16,7 @@ use uuid::Uuid;
 pub struct SyncMetricsCollector {
 	metrics: Arc<SyncMetrics>,
 	max_history_size: usize,
+	event_logger: Arc<RwLock<Option<Arc<SyncEventLogger>>>>,
 }
 
 impl SyncMetricsCollector {
@@ -22,7 +24,18 @@ impl SyncMetricsCollector {
 		Self {
 			metrics: Arc::new(SyncMetrics::default()),
 			max_history_size: 100,
+			event_logger: Arc::new(RwLock::new(None)),
 		}
+	}
+
+	/// Set the event logger (called after initialization)
+	pub async fn set_event_logger(&self, logger: Arc<SyncEventLogger>) {
+		*self.event_logger.write().await = Some(logger);
+	}
+
+	/// Get the event logger
+	pub fn event_logger(&self) -> &Arc<RwLock<Option<Arc<SyncEventLogger>>>> {
+		&self.event_logger
 	}
 
 	pub fn with_history_size(mut self, size: usize) -> Self {
@@ -101,6 +114,24 @@ impl SyncMetricsCollector {
 			reason = ?reason,
 			"Recorded sync state transition"
 		);
+
+		// Emit persistent event
+		if let Some(event_logger) = self.event_logger.read().await.as_ref() {
+			use crate::infra::sync::{SyncEventLog, SyncEventType};
+			use serde_json::json;
+
+			let device_id = event_logger.device_id();
+			let summary = format!("{:?} → {:?}", from, to);
+
+			let mut event = SyncEventLog::new(device_id, SyncEventType::StateTransition, summary);
+
+			if let Some(reason_str) = reason {
+				event = event.with_details(json!({ "reason": reason_str }));
+			}
+
+			// Fire and forget - errors already logged in logger
+			let _ = event_logger.log(event).await;
+		}
 
 		Ok(())
 	}

@@ -476,6 +476,53 @@ impl SyncProtocolHandler {
 				Ok(None)
 			}
 
+			SyncMessage::EventLogRequest {
+				library_id,
+				requesting_device,
+				since,
+				event_types,
+				correlation_id,
+				limit,
+			} => {
+				debug!(
+					from_device = %from_device,
+					requesting_device = %requesting_device,
+					"Processing event log request"
+				);
+
+				let backfill_manager = self.backfill_manager.as_ref().ok_or_else(|| {
+					NetworkingError::Protocol("BackfillManager not initialized".to_string())
+				})?;
+
+				let log_handler = backfill_manager.log_handler();
+
+				let response = log_handler
+					.handle_event_log_request(requesting_device, since, event_types, correlation_id, limit)
+					.await
+					.map_err(|e| {
+						NetworkingError::Protocol(format!("Failed to handle event log request: {}", e))
+					})?;
+
+				Ok(Some(response))
+			}
+
+			SyncMessage::EventLogResponse {
+				library_id,
+				responding_device,
+				events,
+			} => {
+				debug!(
+					from_device = %from_device,
+					responding_device = %responding_device,
+					event_count = events.len(),
+					"Received event log response from peer"
+				);
+
+				// EventLogResponse is handled by the cross-device fetcher waiting for it
+				// We don't process it here - it gets delivered to the waiting query
+				Ok(None)
+			}
+
 			SyncMessage::Error {
 				library_id,
 				message,

@@ -1,0 +1,598 @@
+---
+title: Sync Event Log
+sidebarTitle: Sync Event Log
+---
+
+Spacedrive maintains a persistent event log of high-level sync operations for debugging and observability. Unlike the in-memory metrics system, these events survive app restarts and provide a queryable timeline of what happened during sync.
+
+## Overview
+
+The sync event log captures critical lifecycle events, data flow operations, and errors without overwhelming the database. Events are stored in `sync.db` and auto-pruned after 7 days.
+
+**Key Features:**
+- Persistent storage (survives restarts)
+- Batch aggregation (10-1000x write reduction)
+- Correlation IDs (track entire backfill sessions)
+- Flexible query API (filter by type, time, peer, severity)
+- Minimal overhead (<100KB for 7 days)
+
+## Event Types
+
+### Lifecycle Events
+
+**StateTransition** - State machine changes
+```
+Uninitialized → Backfilling → CatchingUp → Ready ⇄ Paused
+```
+
+**BackfillSessionStarted / Completed** - Initial sync sessions
+- Includes correlation ID for tracing entire session
+- Logs peer selection details with scoring
+- Tracks duration and record counts
+
+### Data Flow Events
+
+**BatchIngestion** - Aggregated record applications
+- Batched every 30 seconds or 10,000 records
+- Per-model breakdown (entries, tags, locations, etc.)
+- Per-peer attribution
+- Duration tracking
+
+Example:
+```
+Ingested batch of 45,000 records (25k entries, 15k tags, 5k locations) in 28s
+```
+
+### Critical Error Events
+
+**Buffer Overflow** - When update buffer hits capacity (100k updates)
+```json
+{
+  "event_type": "sync_error",
+  "severity": "error",
+  "summary": "Buffer overflow: 1,247 updates dropped during backfill",
+  "details": {
+    "dropped_count": 1247,
+    "max_buffer_size": 100000,
+    "phase": "backfill_to_catchup_transition"
+  }
+}
+```
+
+**Stuck Dependencies** - Orphaned records waiting for missing FK parents
+```json
+{
+  "event_type": "sync_error",
+  "severity": "warning",
+  "summary": "Stuck dependencies: 12 records waiting for 3 missing parents",
+  "details": {
+    "total_dependencies": 3,
+    "total_waiting_updates": 12,
+    "phase": "backfill_to_ready_transition"
+  }
+}
+```
+
+**Watermark Too Old** - Forces full sync instead of incremental
+```json
+{
+  "event_type": "sync_error",
+  "severity": "warning",
+  "summary": "Watermark too old: 35 days (threshold: 25 days), forcing full sync",
+  "details": {
+    "watermark_age_days": 35,
+    "threshold_days": 25,
+    "action": "force_full_sync"
+  }
+}
+```
+
+## Database Schema
+
+Events are stored in the `sync_event_log` table in `sync.db`:
+
+```sql
+CREATE TABLE sync_event_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    category TEXT NOT NULL,           -- lifecycle, data_flow, network, error
+    severity TEXT NOT NULL,           -- debug, info, warning, error
+    summary TEXT NOT NULL,
+    details TEXT,                     -- JSON blob
+    correlation_id TEXT,              -- Session tracking
+    peer_device_id TEXT,
+    model_types TEXT,                 -- Comma-separated
+    record_count INTEGER,
+    duration_ms INTEGER
+);
+
+-- Indexes for fast queries
+CREATE INDEX idx_sync_event_log_timestamp ON sync_event_log(timestamp);
+CREATE INDEX idx_sync_event_log_type ON sync_event_log(event_type);
+CREATE INDEX idx_sync_event_log_correlation ON sync_event_log(correlation_id);
+```
+
+## CLI Export
+
+### Export Events from a Device
+
+```bash
+# Export as JSON (default)
+sd sync events
+
+# Export to file
+sd sync events --output sync_events.json
+
+# Export last hour only
+sd sync events --since "1 hour ago" -o recent_events.json
+
+# Export as SQL (for database import)
+sd sync events --format sql -o events.sql
+
+# Export as Markdown
+sd sync events --format markdown -o events.md
+
+# Filter by event type
+sd sync events --event-type state_transition
+
+# Filter by severity (errors only)
+sd sync events --severity error
+
+# Trace specific backfill session
+sd sync events --correlation-id abc-123-def
+
+# Limit results
+sd sync events --limit 500
+```
+
+### Cross-Device Timeline
+
+To debug sync issues across multiple devices, export logs from each device and merge:
+
+```bash
+# On Device A
+sd sync events --since "2 hours ago" --output device_a.json
+
+# On Device B
+sd sync events --since "2 hours ago" --output device_b.json
+
+# Merge chronologically (requires jq)
+jq -s 'add | sort_by(.timestamp)' device_a.json device_b.json > timeline.json
+
+# View merged timeline
+jq '.[] | "\(.timestamp) | \(.device_id[0:8]) | \(.event_type) | \(.summary)"' timeline.json
+```
+
+### SQL Import for Analysis
+
+```bash
+# Export as SQL from both devices
+sd sync events --format sql -o device_a.sql
+sd sync events --format sql -o device_b.sql
+
+# Create combined database
+sqlite3 timeline.db < device_a.sql
+sqlite3 timeline.db < device_b.sql
+
+# Query cross-device timeline
+sqlite3 timeline.db "
+SELECT
+  timestamp,
+  substr(device_id, 1, 8) as device,
+  event_type,
+  summary
+FROM sync_event_log
+ORDER BY timestamp
+"
+
+# Find matching backfill sessions across devices
+sqlite3 timeline.db "
+SELECT
+  correlation_id,
+  COUNT(DISTINCT device_id) as device_count,
+  MIN(timestamp) as started,
+  MAX(timestamp) as completed
+FROM sync_event_log
+WHERE correlation_id IS NOT NULL
+GROUP BY correlation_id
+ORDER BY started DESC
+"
+```
+
+## Query API
+
+### Rust API
+
+```rust
+use sd_core::infra::sync::{SyncEventQuery, SyncEventType, EventSeverity};
+
+// Get all events from last hour
+let events = sync_service.event_logger()
+    .query(
+        SyncEventQuery::new(library_id)
+            .with_time_range(one_hour_ago, now)
+    )
+    .await?;
+
+// Get critical errors only
+let errors = sync_service.event_logger()
+    .query(
+        SyncEventQuery::new(library_id)
+            .with_severities(vec![EventSeverity::Error])
+            .with_limit(100)
+    )
+    .await?;
+
+// Trace entire backfill session
+let session_events = sync_service.event_logger()
+    .query(
+        SyncEventQuery::new(library_id)
+            .with_correlation_id(session_id)
+    )
+    .await?;
+```
+
+### rspc API
+
+Frontend access via `sync.eventLog` query:
+
+```typescript
+const events = await client.query(['sync.eventLog', {
+    event_types: ['state_transition', 'backfill_session_started'],
+    start_time: oneHourAgo,
+    limit: 100
+}]);
+
+// Filter by correlation ID
+const sessionEvents = await client.query(['sync.eventLog', {
+    correlation_id: sessionId
+}]);
+
+// Get only errors
+const errors = await client.query(['sync.eventLog', {
+    severities: ['error', 'warning'],
+    limit: 50
+}]);
+```
+
+### SQL Queries
+
+Direct database queries for advanced debugging:
+
+```sql
+-- Find all backfill sessions
+SELECT timestamp, summary, duration_ms, peer_device_id
+FROM sync_event_log
+WHERE event_type = 'backfill_session_completed'
+ORDER BY timestamp DESC;
+
+-- Trace session by correlation ID
+SELECT timestamp, event_type, summary, record_count, duration_ms
+FROM sync_event_log
+WHERE correlation_id = 'abc-123-def'
+ORDER BY timestamp;
+
+-- Find buffer overflows
+SELECT * FROM sync_event_log
+WHERE summary LIKE '%Buffer overflow%'
+ORDER BY timestamp DESC;
+
+-- Check batch ingestion performance
+SELECT timestamp, summary, record_count, duration_ms,
+       CAST(record_count AS FLOAT) / (duration_ms / 1000.0) as records_per_sec
+FROM sync_event_log
+WHERE event_type = 'batch_ingestion'
+  AND duration_ms > 1000
+ORDER BY timestamp DESC;
+
+-- Peer selection patterns
+SELECT timestamp, peer_device_id, details
+FROM sync_event_log
+WHERE event_type = 'backfill_session_started'
+  AND details IS NOT NULL
+ORDER BY timestamp DESC;
+```
+
+## Network Protocol
+
+The system includes protocol messages for querying event logs from remote peers over the network:
+
+**EventLogRequest** - Request events from a peer
+```rust
+EventLogRequest {
+    library_id: Uuid,
+    requesting_device: Uuid,
+    since: Option<DateTime<Utc>>,
+    event_types: Option<Vec<String>>,
+    correlation_id: Option<Uuid>,
+    limit: u32,
+}
+```
+
+**EventLogResponse** - Peer's events
+```rust
+EventLogResponse {
+    library_id: Uuid,
+    responding_device: Uuid,
+    events: Vec<serde_json::Value>,
+}
+```
+
+These messages are routed through `SyncProtocolHandler` and handled by `LogSyncHandler::handle_event_log_request()`.
+
+**Status**: Protocol foundation complete. Automatic cross-device fetching can be implemented when needed by creating a cross-device fetcher that sends requests to all online peers and merges responses.
+
+## Debugging Scenarios
+
+### "Why did sync fail?"
+
+```sql
+-- Get recent errors
+SELECT timestamp, summary, details
+FROM sync_event_log
+WHERE severity IN ('error', 'warning')
+ORDER BY timestamp DESC
+LIMIT 20;
+```
+
+Common errors:
+- **Buffer overflow**: Device offline during heavy sync, buffer filled and dropped updates
+- **Stuck dependencies**: Records waiting for FK parents that haven't synced yet
+- **Watermark too old**: Device offline > 25 days, forced full resync
+
+### "Why is backfill slow?"
+
+```sql
+-- Find the backfill session
+SELECT correlation_id, timestamp, duration_ms
+FROM sync_event_log
+WHERE event_type = 'backfill_session_completed'
+ORDER BY timestamp DESC LIMIT 1;
+
+-- Analyze batch ingestion during that session
+SELECT timestamp, summary, record_count, duration_ms
+FROM sync_event_log
+WHERE correlation_id = '<correlation_id_from_above>'
+  AND event_type = 'batch_ingestion'
+ORDER BY timestamp;
+```
+
+Look for:
+- Decreasing records/second over time → FK dependency bottleneck
+- Long gaps between batches → Network issues or peer overload
+- High duration_ms → Database performance issue
+
+### "Which peer was selected and why?"
+
+```sql
+SELECT timestamp, peer_device_id, details
+FROM sync_event_log
+WHERE event_type = 'backfill_session_started'
+  AND details IS NOT NULL
+ORDER BY timestamp DESC LIMIT 1;
+```
+
+Details JSON shows all candidates with scores based on:
+- `is_online` - Peer reachability
+- `has_complete_state` - Has full library data
+- `latency_ms` - Network round-trip time
+- `active_syncs` - Current load
+
+### "Did we lose data?"
+
+```sql
+-- Check for buffer overflows
+SELECT timestamp, details->>'$.dropped_count' as dropped
+FROM sync_event_log
+WHERE summary LIKE '%Buffer overflow%'
+ORDER BY timestamp DESC;
+
+-- Check for stuck dependencies
+SELECT timestamp, details->>'$.total_waiting_updates' as waiting
+FROM sync_event_log
+WHERE summary LIKE '%Stuck dependencies%'
+ORDER BY timestamp DESC;
+```
+
+## Batch Aggregation
+
+To prevent database flooding, the system aggregates batch ingestion events:
+
+**Flush Triggers:**
+- **Time-based**: Every 30 seconds
+- **Size-based**: 10,000 records accumulated
+- **State change**: When transitioning between sync states
+
+**Example:** During backfill, 100,000 entries arrive in 10,000-record batches. Instead of 100,000 event log rows, we write 10 batch events:
+
+```
+10:15:00 | BatchIngestion | 10,000 records
+10:15:30 | BatchIngestion | 10,000 records
+10:16:00 | BatchIngestion | 10,000 records
+...
+```
+
+Each batch event includes:
+- Model type breakdown
+- Total record count
+- Processing duration
+- Source peer
+
+## Correlation IDs
+
+Session correlation IDs link all events from a single backfill or catch-up operation:
+
+```
+Session abc-123:
+├── BackfillSessionStarted (10:15:00)
+├── BatchIngestion (10:15:32)
+├── BatchIngestion (10:16:02)
+├── BatchIngestion (10:16:32)
+└── BackfillSessionCompleted (10:16:45)
+```
+
+Query all events for a session:
+```sql
+SELECT * FROM sync_event_log
+WHERE correlation_id = 'abc-123'
+ORDER BY timestamp;
+```
+
+## Retention & Cleanup
+
+Events are automatically pruned after **7 days** to keep `sync.db` small.
+
+Cleanup runs hourly via the unified pruning task (same schedule as tombstone pruning).
+
+Expected storage:
+- Normal operation: ~15-50 events/day = ~100-350 rows/week
+- Heavy backfill: ~500-2000 events/day during sync
+- 7-day retention: ~100-14,000 rows = ~10KB-2MB
+
+## Performance
+
+**Write Performance:**
+- Async writes don't block sync operations
+- Batch aggregation reduces writes by 10-1000x
+- Errors in event logging are swallowed (won't crash sync)
+
+**Query Performance:**
+- 5 indexes for common query patterns
+- Typical query: <50ms for 1000 events
+- Complex filters: <200ms
+
+**Memory Overhead:**
+- BatchAggregator: ~100KB for pending batches
+- No in-memory caching of historical events (query on demand)
+
+## Event Categories
+
+Events are categorized for filtering:
+
+- **Lifecycle**: State transitions, session start/complete
+- **Data Flow**: Batch ingestion, record processing
+- **Network**: Peer connections, request/response flow
+- **Error**: Failures, warnings, critical issues
+
+## Event Severity
+
+- **Debug**: Detailed flow information (batch ingestion)
+- **Info**: Normal operations (state transitions, sessions)
+- **Warning**: Attention needed (stuck dependencies, old watermarks)
+- **Error**: Critical failures (buffer overflow, backfill failures)
+
+## Implementation Details
+
+**Core Infrastructure:**
+- `core/src/infra/sync/event_log/types.rs` - Event type definitions
+- `core/src/infra/sync/event_log/logger.rs` - Database persistence + query
+- `core/src/infra/sync/event_log/aggregator.rs` - Batch aggregation
+- `core/src/infra/sync/event_log/query.rs` - Query builder
+
+**Emission Points:**
+- `core/src/service/sync/metrics/collector.rs` - State transitions
+- `core/src/service/sync/backfill.rs` - Backfill sessions, peer selection
+- `core/src/service/sync/peer.rs` - Buffer overflows, stuck dependencies
+- `core/src/service/sync/state.rs` - Buffer drop tracking
+
+**Integration:**
+- `core/src/service/sync/mod.rs` - Logger initialization, cleanup
+- `core/src/ops/sync/get_event_log/` - rspc API endpoint
+- Table creation in `core/src/infra/sync/peer_log.rs`
+
+## Testing
+
+Run the event log test suite:
+
+```bash
+cargo test -p sd-core --test sync_event_log_test
+```
+
+Tests verify:
+- State transitions are logged
+- Correlation IDs work correctly
+- Query API filtering
+- Retention cleanup
+- Persistence across restarts
+- Batch aggregation
+
+## Export Formats
+
+### JSON Format
+
+Structured output for programmatic processing:
+
+```json
+[
+  {
+    "timestamp": "2025-12-03T10:15:00Z",
+    "event_type": "StateTransition",
+    "severity": "Info",
+    "summary": "Ready → Backfilling",
+    "details": { "reason": "new device joined" },
+    "correlation_id": null,
+    "duration_ms": null
+  },
+  {
+    "timestamp": "2025-12-03T10:15:32Z",
+    "event_type": "BatchIngestion",
+    "severity": "Debug",
+    "summary": "Ingested batch of 45,000 records (25k entries, 15k tags, 5k locations) in 28s",
+    "record_count": 45000,
+    "duration_ms": 28000
+  }
+]
+```
+
+### SQL Format
+
+INSERT statements for database import:
+
+```sql
+-- Sync Event Log Export
+-- Generated: 2025-12-03T10:20:00Z
+
+INSERT INTO sync_event_log (...) VALUES (...);
+INSERT INTO sync_event_log (...) VALUES (...);
+```
+
+### Markdown Format
+
+Human-readable table format:
+
+```markdown
+# Sync Event Log
+
+**Exported**: 2025-12-03T10:20:00Z
+**Event Count**: 15
+
+| Timestamp | Event Type | Severity | Summary |
+|-----------|------------|----------|---------|
+| 2025-12-03 10:15:00 | StateTransition | Info | Ready → Backfilling |
+| 2025-12-03 10:15:32 | BatchIngestion | Debug | Ingested 45k records |
+```
+
+## Troubleshooting
+
+**Events not appearing:**
+- Check sync service is running: `sync_service.start().await`
+- Verify event logger initialized: `sync_service.event_logger()`
+- Check sync.db exists: `library.path().join("sync.db")`
+
+**Database growing too large:**
+- Verify pruning task is running (hourly by default)
+- Check retention period: 7 days default
+- Query old events: `SELECT COUNT(*) FROM sync_event_log WHERE timestamp < date('now', '-7 days')`
+
+**Missing batch events:**
+- Batch aggregator flushes every 30 seconds
+- Manually flush: `sync_service.batch_aggregator().flush_all().await`
+- Check aggregator task is running (started with sync service)
+
+## Related Documentation
+
+- [Library Sync](/docs/core/library-sync) - Sync protocol and architecture
+- [Testing](/docs/core/testing) - Sync integration tests
+- [Events](/docs/core/events) - General event system

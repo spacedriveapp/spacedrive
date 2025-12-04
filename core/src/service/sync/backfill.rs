@@ -33,6 +33,7 @@ pub struct BackfillManager {
 	log_handler: Arc<LogSyncHandler>,
 	config: Arc<crate::infra::sync::SyncConfig>,
 	metrics: Arc<SyncMetricsCollector>,
+	batch_aggregator: Arc<crate::infra::sync::BatchAggregator>,
 
 	/// Pending state request channel (backfill is sequential, only one at a time)
 	pending_state_response: Arc<Mutex<Option<oneshot::Sender<SyncMessage>>>>,
@@ -49,6 +50,7 @@ impl BackfillManager {
 		log_handler: Arc<LogSyncHandler>,
 		config: Arc<crate::infra::sync::SyncConfig>,
 		metrics: Arc<SyncMetricsCollector>,
+		batch_aggregator: Arc<crate::infra::sync::BatchAggregator>,
 	) -> Self {
 		Self {
 			library_id,
@@ -57,6 +59,7 @@ impl BackfillManager {
 			log_handler,
 			config,
 			metrics,
+			batch_aggregator,
 			pending_state_response: Arc::new(Mutex::new(None)),
 			pending_shared_response: Arc::new(Mutex::new(None)),
 		}
@@ -65,6 +68,11 @@ impl BackfillManager {
 	/// Get metrics collector for peer latency lookups
 	pub fn metrics(&self) -> &Arc<SyncMetricsCollector> {
 		&self.metrics
+	}
+
+	/// Get log handler for protocol operations
+	pub fn log_handler(&self) -> &Arc<LogSyncHandler> {
+		&self.log_handler
 	}
 
 	/// Deliver a StateResponse to waiting request
@@ -103,24 +111,80 @@ impl BackfillManager {
 
 	/// Start complete backfill process
 	pub async fn start_backfill(&self, available_peers: Vec<PeerInfo>) -> Result<()> {
+		// Generate session ID for correlation
+		let session_id = Uuid::new_v4();
+		let start_time = Utc::now();
+
 		// Record metrics
 		self.metrics.record_backfill_session_start();
+
+		// Log backfill session started
+		if let Some(event_logger) = self.metrics.event_logger().read().await.as_ref() {
+			use crate::infra::sync::{SyncEventLog, SyncEventType};
+			use serde_json::json;
+
+			let event = SyncEventLog::new(
+				self.device_id,
+				SyncEventType::BackfillSessionStarted,
+				format!("Backfill session started with {} available peers", available_peers.len()),
+			)
+			.with_correlation_id(session_id)
+			.with_details(json!({
+				"peer_count": available_peers.len(),
+			}));
+
+			let _ = event_logger.log(event).await;
+		}
 
 		info!(
 			library_id = %self.library_id,
 			device_id = %self.device_id,
 			peer_count = available_peers.len(),
+			session_id = %session_id,
 			"Starting backfill process"
 		);
 
 		// Phase 1: Select best peer
 		let selected_peer =
-			select_backfill_peer(available_peers).map_err(|e| anyhow::anyhow!("{}", e))?;
+			select_backfill_peer(available_peers.clone()).map_err(|e| anyhow::anyhow!("{}", e))?;
 
 		info!(
 			selected_peer = %selected_peer,
 			"Selected backfill peer"
 		);
+
+		// Log peer selection details
+		if let Some(event_logger) = self.metrics.event_logger().read().await.as_ref() {
+			use crate::infra::sync::{SyncEventLog, SyncEventType};
+			use serde_json::json;
+
+			let peer_details: Vec<_> = available_peers
+				.iter()
+				.map(|p| {
+					json!({
+						"device_id": p.device_id.to_string(),
+						"is_online": p.is_online,
+						"has_complete_state": p.has_complete_state,
+						"latency_ms": p.latency_ms,
+						"active_syncs": p.active_syncs,
+						"selected": p.device_id == selected_peer,
+					})
+				})
+				.collect();
+
+			let event = SyncEventLog::new(
+				self.device_id,
+				SyncEventType::BackfillSessionStarted,
+				format!("Selected peer {} from {} candidates", selected_peer, available_peers.len()),
+			)
+			.with_correlation_id(session_id)
+			.with_peer(selected_peer)
+			.with_details(json!({
+				"candidates": peer_details,
+			}));
+
+			let _ = event_logger.log(event).await;
+		}
 
 		// Set state to Backfilling
 		{
@@ -166,7 +230,28 @@ impl BackfillManager {
 		// Record metrics
 		self.metrics.record_backfill_session_complete();
 
-		info!("Backfill complete, device is ready");
+		// Log backfill session completed
+		if let Some(event_logger) = self.metrics.event_logger().read().await.as_ref() {
+			use crate::infra::sync::{SyncEventLog, SyncEventType};
+
+			let duration_ms = Utc::now()
+				.signed_duration_since(start_time)
+				.num_milliseconds()
+				.max(0) as u64;
+
+			let event = SyncEventLog::new(
+				self.device_id,
+				SyncEventType::BackfillSessionCompleted,
+				format!("Backfill session completed successfully"),
+			)
+			.with_correlation_id(session_id)
+			.with_peer(selected_peer)
+			.with_duration_ms(duration_ms);
+
+			let _ = event_logger.log(event).await;
+		}
+
+		info!(session_id = %session_id, "Backfill complete, device is ready");
 
 		Ok(())
 	}
@@ -194,6 +279,32 @@ impl BackfillManager {
 				watermark_age.num_days(),
 				threshold_days
 			);
+
+				// Log watermark age event
+				if let Some(event_logger) = self.metrics.event_logger().read().await.as_ref() {
+					use crate::infra::sync::{EventSeverity, SyncEventLog, SyncEventType};
+					use serde_json::json;
+
+					let event = SyncEventLog::new(
+						self.device_id,
+						SyncEventType::SyncError,
+						format!(
+							"Watermark too old: {} days (threshold: {} days), forcing full sync",
+							watermark_age.num_days(),
+							threshold_days
+						),
+					)
+					.with_peer(peer)
+					.with_severity(EventSeverity::Warning)
+					.with_details(json!({
+						"watermark_age_days": watermark_age.num_days(),
+						"threshold_days": threshold_days,
+						"action": "force_full_sync",
+					}));
+
+					let _ = event_logger.log(event).await;
+				}
+
 				None // Force full sync
 			} else {
 				state_watermark
@@ -599,6 +710,11 @@ impl BackfillManager {
 						.record_entries_synced(&model_type, records_count)
 						.await;
 
+					// Feed batch aggregator for event logging
+					self.batch_aggregator
+						.add_records(model_type.clone(), records_count, Some(peer))
+						.await;
+
 					// Apply deletions via registry
 					for uuid in deleted_uuids {
 						crate::infra::sync::registry::apply_deletion(&model_type, uuid, db.clone())
@@ -957,6 +1073,11 @@ impl BackfillManager {
 				self.metrics.record_backfill_pagination_round();
 				self.metrics
 					.record_entries_synced("shared", batch_size as u64)
+					.await;
+
+				// Feed batch aggregator for event logging
+				self.batch_aggregator
+					.add_records("shared_resources".to_string(), batch_size as u64, Some(peer))
 					.await;
 
 				// Log progress every 10,000 records for large backfills

@@ -11,6 +11,7 @@ use tokio::time::sleep;
 
 use crate::context::Context;
 use crate::util::prelude::*;
+use sd_core::infra::sync::{EventSeverity, SyncEventQuery, SyncEventType};
 use sd_core::ops::sync::get_metrics::GetSyncMetricsInput;
 use sd_core::service::sync::state::DeviceSyncState;
 
@@ -20,10 +21,14 @@ use self::args::*;
 pub enum SyncCmd {
 	/// Show sync metrics
 	Metrics(SyncMetricsArgs),
+
+	/// Export sync event log
+	Events(SyncEventsArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: SyncCmd) -> Result<()> {
 	match cmd {
+		SyncCmd::Events(args) => export_events(ctx, args).await?,
 		SyncCmd::Metrics(args) => {
 			// Parse time filters
 			let since = if let Some(since_str) = &args.since {
@@ -404,4 +409,172 @@ fn format_bytes(bytes: u64) -> String {
 	} else {
 		format!("{:.2} GB", bytes as f64 / GB as f64)
 	}
+}
+
+async fn export_events(ctx: &Context, args: SyncEventsArgs) -> Result<()> {
+	let library_id = ctx.library_id.ok_or_else(|| {
+		anyhow::anyhow!("No library selected. Use 'sd library switch' to select a library first.")
+	})?;
+
+	// Build query
+	let mut query = SyncEventQuery::new(library_id).with_limit(args.limit);
+
+	// Parse time filter
+	if let Some(since_str) = &args.since {
+		let since = parse_time_filter(since_str)?;
+		query = query.with_time_range(since, Utc::now());
+	}
+
+	// Parse event type filter
+	if let Some(event_type_str) = &args.event_type {
+		if let Some(event_type) = SyncEventType::from_str(event_type_str) {
+			query = query.with_event_types(vec![event_type]);
+		} else {
+			return Err(anyhow::anyhow!("Invalid event type: {}", event_type_str));
+		}
+	}
+
+	// Parse correlation ID filter
+	if let Some(corr_id_str) = &args.correlation_id {
+		let corr_id = uuid::Uuid::parse_str(corr_id_str)?;
+		query = query.with_correlation_id(corr_id);
+	}
+
+	// Parse severity filter
+	if let Some(severity_str) = &args.severity {
+		if let Some(severity) = EventSeverity::from_str(severity_str) {
+			query = query.with_severities(vec![severity]);
+		} else {
+			return Err(anyhow::anyhow!("Invalid severity: {}", severity_str));
+		}
+	}
+
+	// Call the API
+	let input = sd_core::ops::sync::get_event_log::GetSyncEventLogInput {
+		start_time: query.time_range.map(|(start, _)| start),
+		end_time: query.time_range.map(|(_, end)| end),
+		event_types: query.event_types,
+		categories: query.categories,
+		severities: query.severities,
+		peer_id: query.peer_filter,
+		model_type: query.model_type_filter,
+		correlation_id: query.correlation_id,
+		limit: query.limit,
+		offset: query.offset,
+	};
+
+	let json_response = ctx.core.query(&input, Some(library_id)).await?;
+	let output: sd_core::ops::sync::get_event_log::GetSyncEventLogOutput =
+		serde_json::from_value(json_response)?;
+
+	// Format output
+	let formatted = match args.format.as_str() {
+		"json" => format_events_json(&output.events, args.with_device)?,
+		"sql" => format_events_sql(&output.events),
+		"markdown" | "md" => format_events_markdown(&output.events, args.with_device),
+		_ => return Err(anyhow::anyhow!("Unknown format: {}. Use json, sql, or markdown", args.format)),
+	};
+
+	// Write output
+	if let Some(output_file) = &args.output {
+		std::fs::write(output_file, formatted)?;
+		println!("Exported {} events to {}", output.events.len(), output_file);
+	} else {
+		println!("{}", formatted);
+	}
+
+	Ok(())
+}
+
+fn format_events_json(events: &[sd_core::infra::sync::SyncEventLog], with_device: bool) -> Result<String> {
+	if with_device {
+		Ok(serde_json::to_string_pretty(events)?)
+	} else {
+		// Strip device_id for cleaner output
+		let simplified: Vec<_> = events
+			.iter()
+			.map(|e| {
+				serde_json::json!({
+					"timestamp": e.timestamp,
+					"event_type": e.event_type,
+					"severity": e.severity,
+					"summary": e.summary,
+					"details": e.details,
+					"correlation_id": e.correlation_id,
+					"peer_device_id": e.peer_device_id,
+					"record_count": e.record_count,
+					"duration_ms": e.duration_ms,
+				})
+			})
+			.collect();
+		Ok(serde_json::to_string_pretty(&simplified)?)
+	}
+}
+
+fn format_events_sql(events: &[sd_core::infra::sync::SyncEventLog]) -> String {
+	let mut output = String::from("-- Sync Event Log Export\n");
+	output.push_str("-- Generated: ");
+	output.push_str(&Utc::now().to_rfc3339());
+	output.push_str("\n\n");
+
+	for event in events {
+		let details = event
+			.details
+			.as_ref()
+			.map(|d| serde_json::to_string(d).unwrap_or_default())
+			.unwrap_or_default();
+
+		let model_types = event
+			.model_types
+			.as_ref()
+			.map(|m| m.join(","))
+			.unwrap_or_default();
+
+		output.push_str(&format!(
+			"INSERT INTO sync_event_log (timestamp, device_id, event_type, category, severity, summary, details, correlation_id, peer_device_id, model_types, record_count, duration_ms) VALUES ('{}', '{}', '{}', '{}', '{}', '{}', {}, {}, {}, {}, {}, {});\n",
+			event.timestamp.to_rfc3339(),
+			event.device_id,
+			event.event_type.as_str(),
+			event.category.as_str(),
+			event.severity.as_str(),
+			event.summary.replace("'", "''"), // Escape quotes
+			if details.is_empty() { "NULL".to_string() } else { format!("'{}'", details.replace("'", "''")) },
+			event.correlation_id.map(|id| format!("'{}'", id)).unwrap_or_else(|| "NULL".to_string()),
+			event.peer_device_id.map(|id| format!("'{}'", id)).unwrap_or_else(|| "NULL".to_string()),
+			if model_types.is_empty() { "NULL".to_string() } else { format!("'{}'", model_types) },
+			event.record_count.map(|c| c.to_string()).unwrap_or_else(|| "NULL".to_string()),
+			event.duration_ms.map(|d| d.to_string()).unwrap_or_else(|| "NULL".to_string()),
+		));
+	}
+
+	output
+}
+
+fn format_events_markdown(events: &[sd_core::infra::sync::SyncEventLog], with_device: bool) -> String {
+	let mut output = String::from("# Sync Event Log\n\n");
+	output.push_str(&format!("**Exported**: {}\n", Utc::now().to_rfc3339()));
+	output.push_str(&format!("**Event Count**: {}\n\n", events.len()));
+
+	output.push_str("| Timestamp | Event Type | Severity | Summary |\n");
+	output.push_str("|-----------|------------|----------|----------|\n");
+
+	for event in events {
+		output.push_str(&format!(
+			"| {} | {:?} | {:?} | {} |\n",
+			event.timestamp.format("%Y-%m-%d %H:%M:%S"),
+			event.event_type,
+			event.severity,
+			event.summary
+		));
+	}
+
+	if with_device && !events.is_empty() {
+		output.push_str("\n## Devices\n\n");
+		let device_ids: std::collections::HashSet<_> = events.iter().map(|e| e.device_id).collect();
+		for device_id in device_ids {
+			output.push_str(&format!("- {}\n", device_id));
+		}
+	}
+
+	output
 }

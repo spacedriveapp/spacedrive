@@ -45,6 +45,23 @@ impl MockTransport {
 		})
 	}
 
+	/// Create a single transport for isolated testing
+	pub fn new_single(device_id: Uuid) -> Arc<Self> {
+		let queues = Arc::new(Mutex::new(HashMap::new()));
+		let history = Arc::new(Mutex::new(Vec::new()));
+		let sync_services = Arc::new(Mutex::new(HashMap::new()));
+		let blocked_devices = Arc::new(Mutex::new(std::collections::HashSet::new()));
+
+		Self::new(
+			device_id,
+			vec![], // No connected peers
+			queues,
+			history,
+			sync_services,
+			blocked_devices,
+		)
+	}
+
 	/// Create a pair of connected transports for two devices
 	pub fn new_pair(device_a: Uuid, device_b: Uuid) -> (Arc<Self>, Arc<Self>) {
 		let queues = Arc::new(Mutex::new(HashMap::new()));

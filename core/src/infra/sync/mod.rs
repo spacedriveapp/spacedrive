@@ -15,6 +15,7 @@ pub mod config;
 pub mod dependency_graph;
 pub mod deterministic;
 pub mod event_bus;
+pub mod event_log;
 pub mod fk_mapper;
 pub mod hlc;
 pub mod peer_log;
@@ -35,6 +36,10 @@ pub use deterministic::{
 	deterministic_system_tag_uuid, system_tags,
 };
 pub use event_bus::{SyncEvent, SyncEventBus};
+pub use event_log::{
+	BatchAggregator, BatchAggregatorConfig, EventCategory, EventSeverity, SyncEventLog,
+	SyncEventLogger, SyncEventQuery, SyncEventType,
+};
 pub use fk_mapper::{
 	batch_map_sync_json_to_local, convert_fk_to_uuid, map_sync_json_to_local, BatchFkMapResult,
 	FKMapping,

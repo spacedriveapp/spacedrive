@@ -117,6 +117,23 @@ pub enum SyncMessage {
 		needs_shared_catchup: bool, // If true, peer needs our shared changes
 	},
 
+	/// Request event log from peer
+	EventLogRequest {
+		library_id: Uuid,
+		requesting_device: Uuid,
+		since: Option<DateTime<Utc>>,
+		event_types: Option<Vec<String>>,
+		correlation_id: Option<Uuid>,
+		limit: u32,
+	},
+
+	/// Response with event log
+	EventLogResponse {
+		library_id: Uuid,
+		responding_device: Uuid,
+		events: Vec<serde_json::Value>, // Serialized SyncEventLog
+	},
+
 	/// Error response
 	Error { library_id: Uuid, message: String },
 }
@@ -145,6 +162,8 @@ impl SyncMessage {
 			| SyncMessage::Heartbeat { library_id, .. }
 			| SyncMessage::WatermarkExchangeRequest { library_id, .. }
 			| SyncMessage::WatermarkExchangeResponse { library_id, .. }
+			| SyncMessage::EventLogRequest { library_id, .. }
+			| SyncMessage::EventLogResponse { library_id, .. }
 			| SyncMessage::Error { library_id, .. } => *library_id,
 		}
 	}

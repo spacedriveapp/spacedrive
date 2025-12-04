@@ -17,12 +17,14 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use super::peer::PeerSync;
+use crate::infra::sync::{SyncEventLog, SyncEventQuery, SyncEventType};
 
 /// Handle log-based sync messages (shared resources)
 pub struct LogSyncHandler {
 	library_id: Uuid,
 	db: Arc<Database>,
 	peer_sync: Arc<PeerSync>,
+	event_logger: Option<Arc<crate::infra::sync::SyncEventLogger>>,
 }
 
 impl LogSyncHandler {
@@ -31,7 +33,13 @@ impl LogSyncHandler {
 			library_id,
 			db,
 			peer_sync,
+			event_logger: None,
 		}
+	}
+
+	/// Set the event logger (called after initialization)
+	pub fn set_event_logger(&mut self, logger: Arc<crate::infra::sync::SyncEventLogger>) {
+		self.event_logger = Some(logger);
 	}
 
 	/// Handle incoming SharedChange message
@@ -139,5 +147,69 @@ impl LogSyncHandler {
 		}
 
 		Ok(serde_json::Value::Object(json_map))
+	}
+
+	/// Handle EventLogRequest message
+	pub async fn handle_event_log_request(
+		&self,
+		requesting_device: Uuid,
+		since: Option<DateTime<Utc>>,
+		event_types: Option<Vec<String>>,
+		correlation_id: Option<Uuid>,
+		limit: u32,
+	) -> Result<SyncMessage> {
+		debug!(
+			requesting_device = %requesting_device,
+			since = ?since,
+			limit = limit,
+			"Handling event log request from peer"
+		);
+
+		// Build query
+		let mut query = SyncEventQuery::new(self.library_id).with_limit(limit);
+
+		if let Some(since_time) = since {
+			query = query.with_time_range(since_time, Utc::now());
+		}
+
+		if let Some(types_str) = event_types {
+			let types: Vec<SyncEventType> = types_str
+				.into_iter()
+				.filter_map(|s| SyncEventType::from_str(&s))
+				.collect();
+			if !types.is_empty() {
+				query = query.with_event_types(types);
+			}
+		}
+
+		if let Some(corr_id) = correlation_id {
+			query = query.with_correlation_id(corr_id);
+		}
+
+		// Query local events
+		let logger = self
+			.event_logger
+			.as_ref()
+			.ok_or_else(|| anyhow::anyhow!("Event logger not initialized"))?;
+
+		let events = logger.query(query).await?;
+
+		// Serialize events to JSON
+		let events_json: Vec<serde_json::Value> = events
+			.into_iter()
+			.map(|e| serde_json::to_value(e))
+			.collect::<Result<Vec<_>, _>>()?;
+
+		info!(
+			event_count = events_json.len(),
+			requesting_device = %requesting_device,
+			"Responding to event log request"
+		);
+
+		Ok(SyncMessage::EventLogResponse {
+			library_id: self.library_id,
+			responding_device: self.peer_sync.device_id(),
+			events: events_json,
+		})
 	}
 }

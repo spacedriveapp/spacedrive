@@ -119,6 +119,12 @@ pub struct SyncService {
 	/// Activity aggregator for UI events
 	activity_aggregator: Arc<SyncActivityAggregator>,
 
+	/// Event logger for persistent sync events
+	event_logger: Arc<crate::infra::sync::SyncEventLogger>,
+
+	/// Batch aggregator for reducing event write volume
+	batch_aggregator: Arc<crate::infra::sync::BatchAggregator>,
+
 	/// Whether the service is running
 	is_running: Arc<AtomicBool>,
 
@@ -161,8 +167,25 @@ impl SyncService {
 				.map_err(|e| anyhow::anyhow!("Failed to open sync.db: {}", e))?,
 		);
 
+		// Create event logger
+		let event_logger = Arc::new(crate::infra::sync::SyncEventLogger::new(
+			library_id,
+			device_id,
+			Arc::new(peer_log.conn().clone()),
+		));
+
 		// Create metrics collector
 		let metrics = Arc::new(SyncMetricsCollector::new());
+
+		// Wire event logger to metrics
+		metrics.set_event_logger(event_logger.clone()).await;
+
+		// Create batch aggregator
+		let batch_aggregator = Arc::new(crate::infra::sync::BatchAggregator::new(
+			device_id,
+			event_logger.clone(),
+			crate::infra::sync::BatchAggregatorConfig::default(),
+		));
 
 		// Create peer sync handler with network transport
 		let peer_sync = Arc::new(
@@ -178,11 +201,13 @@ impl SyncService {
 		);
 
 		// Create protocol handlers
-		let log_handler = Arc::new(LogSyncHandler::new(
+		let mut log_handler = LogSyncHandler::new(
 			library_id,
 			library.db().clone(),
 			peer_sync.clone(),
-		));
+		);
+		log_handler.set_event_logger(event_logger.clone());
+		let log_handler = Arc::new(log_handler);
 
 		// Create backfill manager for automatic orchestration
 		let backfill_manager = Arc::new(BackfillManager::new(
@@ -192,6 +217,7 @@ impl SyncService {
 			log_handler,
 			config.clone(),
 			metrics.clone(),
+			batch_aggregator.clone(),
 		));
 
 		// Set backfill manager reference on peer_sync (for triggering catch-up)
@@ -220,6 +246,8 @@ impl SyncService {
 			backfill_manager,
 			metrics,
 			activity_aggregator,
+			event_logger,
+			batch_aggregator,
 			is_running: Arc::new(AtomicBool::new(false)),
 			shutdown_tx: Arc::new(Mutex::new(None)),
 		})
@@ -243,6 +271,16 @@ impl SyncService {
 	/// Get the metrics collector
 	pub fn metrics(&self) -> &Arc<SyncMetricsCollector> {
 		&self.metrics
+	}
+
+	/// Get the event logger
+	pub fn event_logger(&self) -> &Arc<crate::infra::sync::SyncEventLogger> {
+		&self.event_logger
+	}
+
+	/// Get the batch aggregator
+	pub fn batch_aggregator(&self) -> &Arc<crate::infra::sync::BatchAggregator> {
+		&self.batch_aggregator
 	}
 
 	/// Emit metrics update event
@@ -486,6 +524,7 @@ impl SyncService {
 	async fn run_pruning_task(
 		config: Arc<crate::infra::sync::SyncConfig>,
 		peer_sync: Arc<PeerSync>,
+		event_logger: Arc<crate::infra::sync::SyncEventLogger>,
 	) {
 		let interval_secs = config.monitoring.pruning_interval_secs;
 		let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_secs));
@@ -504,6 +543,18 @@ impl SyncService {
 					error = %e,
 					"Failed to prune sync coordination data"
 				);
+			}
+
+			// Prune old sync events (7-day retention)
+			let cutoff = chrono::Utc::now() - chrono::Duration::days(7);
+			match event_logger.cleanup_old_events(cutoff).await {
+				Ok(deleted) if deleted > 0 => {
+					debug!(deleted, "Pruned old sync events");
+				}
+				Err(e) => {
+					warn!(error = %e, "Failed to prune sync events");
+				}
+				_ => {}
 			}
 		}
 	}
@@ -608,8 +659,15 @@ impl crate::service::Service for SyncService {
 		// Spawn unified pruning task (runs hourly)
 		let config_clone = self.config.clone();
 		let peer_sync_clone = self.peer_sync.clone();
+		let event_logger_clone = self.event_logger.clone();
 		tokio::spawn(async move {
-			Self::run_pruning_task(config_clone, peer_sync_clone).await;
+			Self::run_pruning_task(config_clone, peer_sync_clone, event_logger_clone).await;
+		});
+
+		// Spawn batch aggregator periodic flush task (runs every 30s)
+		let batch_aggregator_clone = self.batch_aggregator.clone();
+		tokio::spawn(async move {
+			batch_aggregator_clone.run_periodic_flush().await;
 		});
 
 		// Spawn metrics persistence task (runs every 5 minutes)
