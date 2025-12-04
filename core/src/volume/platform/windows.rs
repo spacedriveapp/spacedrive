@@ -238,7 +238,8 @@ pub fn should_include_volume(volume: &Volume, config: &VolumeDetectionConfig) ->
 		return false;
 	}
 
-	if !config.include_virtual && volume.total_bytes_capacity == 0 {
+    // FIX: Use parentheses to call the method
+	if !config.include_virtual && volume.total_bytes_capacity() == 0 {
 		return false;
 	}
 
