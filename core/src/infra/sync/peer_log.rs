@@ -112,6 +112,72 @@ impl PeerLog {
 			.await
 			.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
 
+		// sync_event_log table (persistent event logging)
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			r#"
+			CREATE TABLE IF NOT EXISTS sync_event_log (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				timestamp TEXT NOT NULL,
+				device_id TEXT NOT NULL,
+				event_type TEXT NOT NULL,
+				category TEXT NOT NULL,
+				severity TEXT NOT NULL,
+				summary TEXT NOT NULL,
+				details TEXT,
+				correlation_id TEXT,
+				peer_device_id TEXT,
+				model_types TEXT,
+				record_count INTEGER,
+				duration_ms INTEGER
+			)
+			"#
+			.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		// Indexes for efficient event queries
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			"CREATE INDEX IF NOT EXISTS idx_sync_event_log_timestamp ON sync_event_log(timestamp)"
+				.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			"CREATE INDEX IF NOT EXISTS idx_sync_event_log_device ON sync_event_log(device_id)"
+				.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			"CREATE INDEX IF NOT EXISTS idx_sync_event_log_type ON sync_event_log(event_type)"
+				.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			"CREATE INDEX IF NOT EXISTS idx_sync_event_log_correlation ON sync_event_log(correlation_id)"
+				.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
+		conn.execute(Statement::from_string(
+			DbBackend::Sqlite,
+			"CREATE INDEX IF NOT EXISTS idx_sync_event_log_peer ON sync_event_log(peer_device_id)"
+				.to_string(),
+		))
+		.await
+		.map_err(|e| PeerLogError::QueryError(e.to_string()))?;
+
 		Ok(())
 	}
 

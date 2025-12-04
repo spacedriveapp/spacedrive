@@ -135,6 +135,7 @@ const MAX_BUFFER_SIZE: usize = 100_000;
 pub struct BufferQueue {
 	queue: RwLock<BinaryHeap<BufferedUpdate>>,
 	max_size: usize,
+	dropped_count: std::sync::atomic::AtomicU64,
 }
 
 impl BufferQueue {
@@ -143,6 +144,7 @@ impl BufferQueue {
 		Self {
 			queue: RwLock::new(BinaryHeap::new()),
 			max_size: MAX_BUFFER_SIZE,
+			dropped_count: std::sync::atomic::AtomicU64::new(0),
 		}
 	}
 
@@ -151,6 +153,7 @@ impl BufferQueue {
 		Self {
 			queue: RwLock::new(BinaryHeap::new()),
 			max_size,
+			dropped_count: std::sync::atomic::AtomicU64::new(0),
 		}
 	}
 
@@ -165,9 +168,12 @@ impl BufferQueue {
 
 		// Check if at capacity
 		if queue.len() >= self.max_size {
+			self.dropped_count
+				.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 			warn!(
 				current_size = queue.len(),
 				max_size = self.max_size,
+				total_dropped = self.dropped_count.load(std::sync::atomic::Ordering::Relaxed),
 				"Buffer queue at capacity, dropping new update"
 			);
 			return;
@@ -194,6 +200,12 @@ impl BufferQueue {
 	/// Check if buffer is empty
 	pub async fn is_empty(&self) -> bool {
 		self.queue.read().await.is_empty()
+	}
+
+	/// Get and reset dropped update count
+	pub fn get_and_reset_dropped_count(&self) -> u64 {
+		self.dropped_count
+			.swap(0, std::sync::atomic::Ordering::Relaxed)
 	}
 
 	/// Clear all buffered updates
