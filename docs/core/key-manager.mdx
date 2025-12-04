@@ -1,0 +1,394 @@
+---
+title: Key Manager
+sidebarTitle: Key Manager
+---
+
+The KeyManager is Spacedrive's unified cryptographic secret storage system. It provides encrypted storage for all sensitive data including device keys, library encryption keys, paired device session keys, and cloud credentials.
+
+## Architecture
+
+### Storage Backend
+
+KeyManager uses **redb**, an embedded key-value database, for encrypted secret storage:
+
+- **Database**: `<data_dir>/secrets.redb`
+- **Encryption**: XChaCha20-Poly1305 AEAD cipher
+- **Root Key**: Device key stored in OS keychain (or plaintext file fallback for development and testing only)
+
+All secrets are encrypted at rest using the device key. The database provides ACID guarantees and transactional operations.
+
+### Device Key Hierarchy
+
+```
+Device Key (256-bit, from OS keychain)
+  │
+  ├─ Library Keys (per-library encryption)
+  │   └─ Used by: Cloud credentials, library-specific secrets
+  │
+  ├─ Paired Device Data (session keys, device info)
+  │   └─ Used by: P2P networking, device pairing
+  │
+  └─ Arbitrary Secrets (application-level secrets)
+      └─ Used by: Extensions, custom storage needs
+```
+
+### Key Storage Locations
+
+**Device Key**:
+1. **Primary**: OS Keychain
+   - macOS: Keychain Access (`Spacedrive` service)
+   - Linux: Secret Service API (GNOME Keyring, KWallet)
+   - Windows: Windows Credential Manager
+2. **Fallback**: `<data_dir>/device_key` (development and testing only)
+
+**Encrypted Secrets**:
+- All platforms: `<data_dir>/secrets.redb`
+
+## What's Stored
+
+### 1. Library Encryption Keys
+
+Each library has a unique encryption key used for encrypting library-specific secrets:
+
+```rust
+// Automatically generated when first accessed
+let library_key = key_manager.get_library_key(library_id).await?;
+```
+
+**Key format**: `library_{uuid}`
+
+**Used for**:
+- Cloud credential encryption
+- Library-specific secret storage
+- Future: Library database encryption
+
+### 2. Paired Device Data
+
+Device pairing information and session keys for P2P communication:
+
+```rust
+pub struct PersistedPairedDevice {
+    device_info: DeviceInfo,
+    session_keys: SessionKeys,
+    paired_at: DateTime<Utc>,
+    last_connected_at: Option<DateTime<Utc>>,
+    trust_level: TrustLevel,
+    relay_url: Option<String>,
+}
+```
+
+**Key format**: `paired_device_{uuid}`
+
+**Includes**:
+- Device identity (name, slug, type, OS)
+- Session keys for encrypted communication
+- Trust level (Trusted, Unreliable, Blocked)
+- Connection metadata
+
+### 3. Cloud Credentials
+
+OAuth tokens and API keys for cloud storage integrations:
+
+```rust
+pub struct CloudCredential {
+    volume_fingerprint: String,
+    encrypted_credential: Vec<u8>,  // Encrypted with library key
+    service_type: String,           // "google_drive", "dropbox", etc.
+}
+```
+
+**Note**: Cloud credentials are stored in the library database, but encrypted using library keys from KeyManager.
+
+### 4. Arbitrary Secrets
+
+General-purpose encrypted storage for application or extension needs:
+
+```rust
+// Store any secret
+key_manager.set_secret("my_api_key", b"secret_value").await?;
+
+// Retrieve
+let secret = key_manager.get_secret("my_api_key").await?;
+
+// Delete
+key_manager.delete_secret("my_api_key").await?;
+```
+
+## Security Model
+
+### Encryption
+
+**Algorithm**: XChaCha20-Poly1305
+- **Cipher**: XChaCha20 (extended-nonce ChaCha20)
+- **Authentication**: Poly1305 MAC
+- **Nonce**: 24 bytes (randomly generated per encryption)
+- **Key size**: 256 bits
+
+**Process**:
+1. Generate random 24-byte nonce
+2. Encrypt plaintext with device key and nonce
+3. Compute authentication tag
+4. Prepend nonce to ciphertext: `[nonce(24) | ciphertext | tag(16)]`
+
+### Device Key Protection
+
+The device key never exists in plaintext on disk (except in development with file fallback):
+
+**Production**:
+```
+User's device
+  └─ OS Keychain (hardware-backed on supported devices)
+      └─ Device Key (256-bit)
+          └─ Protected by OS authentication (biometrics, password)
+```
+
+**Development and Testing Only**:
+```
+<data_dir>/device_key (file fallback)
+  └─ Plaintext 32-byte file
+  └─ Protected only by OS file permissions
+  └─ Not recommended for production
+```
+
+### Key Rotation
+
+<Warning>
+  Device key rotation is not currently supported. Rotating the device key would
+  require re-encrypting all secrets in the database.
+</Warning>
+
+Library keys are automatically generated and do not require manual rotation.
+
+## API Usage
+
+### Initialization
+
+The KeyManager is initialized once at application startup and shared via `Arc`:
+
+```rust
+// In Core initialization
+let device_key_fallback = data_dir.join("device_key");
+let key_manager = Arc::new(KeyManager::new_with_fallback(
+    data_dir.clone(),
+    Some(device_key_fallback),
+)?);
+```
+
+### Basic Operations
+
+```rust
+// Get device key
+let device_key = key_manager.get_device_key().await?;
+
+// Get library key (auto-generates if not exists)
+let library_key = key_manager.get_library_key(library_id).await?;
+
+// Store a secret
+key_manager.set_secret("api_token", token_bytes).await?;
+
+// Retrieve a secret
+let token = key_manager.get_secret("api_token").await?;
+
+// Delete a secret
+key_manager.delete_secret("api_token").await?;
+
+// Close database (on shutdown)
+key_manager.close().await?;
+```
+
+### Integration Examples
+
+**Device Manager** (network identity):
+```rust
+// DeviceManager uses KeyManager for device key
+let device = DeviceManager::init(&data_dir, key_manager.clone(), None)?;
+let device_key = device.master_key().await?;
+let identity = NetworkIdentity::from_device_key(&device_key).await?;
+```
+
+**Device Pairing** (session keys):
+```rust
+// Store paired device
+let persistence = DevicePersistence::new(key_manager.clone());
+persistence.add_paired_device(
+    device_id,
+    device_info,
+    session_keys,
+    relay_url,
+).await?;
+
+// Load paired devices
+let devices = persistence.load_paired_devices().await?;
+```
+
+**Cloud Credentials**:
+```rust
+// Encrypt and store cloud credential
+let cloud_manager = CloudCredentialManager::new(library_id, key_manager.clone());
+cloud_manager.store_credential(
+    volume_fingerprint,
+    credential,
+    service_type,
+).await?;
+```
+
+## Error Handling
+
+```rust
+use sd_core::crypto::key_manager::KeyManagerError;
+
+match key_manager.get_secret("my_key").await {
+    Ok(secret) => println!("Secret: {:?}", secret),
+    Err(KeyManagerError::KeyNotFound(key)) => {
+        println!("Secret '{}' not found", key);
+    }
+    Err(KeyManagerError::EncryptionError(e)) => {
+        eprintln!("Encryption failed: {}", e);
+    }
+    Err(e) => eprintln!("KeyManager error: {}", e),
+}
+```
+
+## Performance Considerations
+
+### Caching
+
+The device key is cached in memory after first retrieval to avoid repeated OS keychain access:
+
+```rust
+// First call: retrieves from keychain
+let key1 = key_manager.get_device_key().await?;
+
+// Subsequent calls: returns cached value (fast)
+let key2 = key_manager.get_device_key().await?;
+```
+
+### Concurrent Access
+
+KeyManager uses async locking for safe concurrent access:
+
+```rust
+// Safe to call from multiple tasks
+let key_manager = Arc::new(KeyManager::new(data_dir)?);
+
+tokio::spawn({
+    let km = key_manager.clone();
+    async move { km.set_secret("key1", b"value").await }
+});
+
+tokio::spawn({
+    let km = key_manager.clone();
+    async move { km.get_secret("key2").await }
+});
+```
+
+### Database Size
+
+The redb database grows with the number of secrets stored. Typical sizes:
+
+- **Fresh install**: ~4KB (empty database)
+- **With 10 paired devices**: ~20KB
+- **With 100 secrets**: ~50KB
+
+The database is compacted automatically by redb.
+
+## Migration from Legacy Storage
+
+<Info>
+  Prior to the unified KeyManager, Spacedrive stored secrets in multiple locations:
+  - Device key: `<data_dir>/master_key` file
+  - Paired devices: `<data_dir>/networking/paired_devices.json` (AES-256-GCM encrypted)
+  - Cloud credentials: OS keychain (unreliable)
+
+  These systems have been consolidated into KeyManager for better security and reliability.
+</Info>
+
+## Troubleshooting
+
+### "Failed to access keychain" Error
+
+If KeyManager can't access the OS keychain:
+
+1. **macOS**: Grant Keychain Access permission in System Preferences
+2. **Linux**: Install `gnome-keyring` or `kwallet`
+3. **Fallback**: KeyManager will use file fallback at `<data_dir>/device_key`
+
+### Corrupted Database
+
+If `secrets.redb` becomes corrupted:
+
+```bash
+# Backup first
+cp ~/.spacedrive/secrets.redb ~/.spacedrive/secrets.redb.backup
+
+# Remove corrupted database (will lose paired devices!)
+rm ~/.spacedrive/secrets.redb
+
+# Restart Spacedrive (new database will be created)
+```
+
+<Warning>
+  Deleting `secrets.redb` will unpair all devices and remove cloud credentials.
+  You'll need to re-pair devices and re-authenticate cloud services.
+</Warning>
+
+### Inspecting Secrets (Development)
+
+```rust
+// List all paired device keys
+let db = key_manager.db.read().await;
+let read_txn = db.begin_read()?;
+let table = read_txn.open_table(SECRETS_TABLE)?;
+
+for item in table.iter()? {
+    let (key, _value) = item?;
+    if key.value().starts_with("paired_device_") {
+        println!("Device key: {}", key.value());
+    }
+}
+```
+
+## Security Best Practices
+
+<Card title="Production Deployments">
+  - **Always use OS keychain** in production (never file fallback)
+  - **Restrict file permissions** on `secrets.redb` (chmod 600)
+  - **Enable disk encryption** (FileVault, LUKS, BitLocker)
+  - **Backup device key** from keychain before system migration
+</Card>
+
+### File Permissions
+
+Ensure strict permissions on sensitive files:
+
+```bash
+# Check permissions
+ls -la ~/.spacedrive/secrets.redb
+ls -la ~/.spacedrive/device_key  # If using fallback
+
+# Fix if needed
+chmod 600 ~/.spacedrive/secrets.redb
+chmod 600 ~/.spacedrive/device_key
+```
+
+### Backup Strategy
+
+The device key is critical for accessing all secrets:
+
+```bash
+# macOS: Export device key from Keychain
+security find-generic-password -s "Spacedrive" -a "device_key" -w
+
+# Linux: Backup entire secrets database
+cp ~/.spacedrive/secrets.redb ~/backup/
+
+# Windows: Export from Credential Manager
+cmdkey /list | findstr Spacedrive
+```
+
+## Related Documentation
+
+- [Devices](/docs/core/devices) - Device identity and pairing
+- [Networking](/docs/core/networking) - P2P communication using session keys
+- [Cloud Integration](/docs/core/cloud-integration) - Cloud credential storage
+- [Security](/docs/core/security) - Overall security architecture

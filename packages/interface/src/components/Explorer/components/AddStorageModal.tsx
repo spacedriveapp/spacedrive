@@ -5,7 +5,6 @@ import {
 	FolderOpen,
 	HardDrive,
 	CloudArrowUp,
-	ArrowLeft,
 } from "@phosphor-icons/react";
 import {
 	Button,
@@ -255,6 +254,61 @@ const indexModes: Array<{
 	},
 ];
 
+interface StorageDialogProps {
+	dialog: ReturnType<typeof useDialog>;
+	form: any;
+	title: string;
+	icon: React.ReactNode;
+	description: React.ReactNode;
+	onSubmit?: any;
+	ctaLabel?: string;
+	loading?: boolean;
+	showBackButton?: boolean;
+	onBack?: () => void;
+	hideButtons?: boolean;
+	children: React.ReactNode;
+}
+
+function StorageDialog({
+	dialog,
+	form,
+	title,
+	icon,
+	description,
+	onSubmit,
+	ctaLabel,
+	loading,
+	showBackButton,
+	onBack,
+	hideButtons,
+	children,
+}: StorageDialogProps) {
+	return (
+		<Dialog
+			dialog={dialog}
+			form={form}
+			onSubmit={onSubmit}
+			title={title}
+			icon={icon}
+			description={description}
+			ctaLabel={ctaLabel}
+			onCancelled={true}
+			loading={loading}
+			formClassName="!min-w-[480px] !max-w-[480px] max-h-[80vh] flex flex-col"
+			hideButtons={hideButtons}
+			buttonsSideContent={
+				showBackButton ? (
+					<Button variant="gray" size="sm" onClick={onBack}>
+						Back
+					</Button>
+				) : undefined
+			}
+		>
+			{children}
+		</Dialog>
+	);
+}
+
 const jobOptions: JobOption[] = [
 	{
 		id: "thumbnail",
@@ -313,8 +367,6 @@ function AddStorageDialog(props: {
 		useState<StorageCategory | null>(null);
 	const [selectedProvider, setSelectedProvider] =
 		useState<CloudProvider | null>(null);
-	const [selectedProtocol, setSelectedProtocol] =
-		useState<NetworkProtocol | null>(null);
 	const [tab, setTab] = useState<SettingsTab>("preset");
 
 	const addLocation = useLibraryMutation("locations.add");
@@ -377,15 +429,7 @@ function AddStorageDialog(props: {
 
 	const handleCategorySelect = (category: StorageCategory) => {
 		setSelectedCategory(category);
-		if (category === "local") {
-			setStep("provider"); // Will show local folder UI
-		} else if (category === "cloud") {
-			setStep("provider");
-		} else if (category === "network") {
-			setStep("provider");
-		} else if (category === "external") {
-			setStep("provider");
-		}
+		setStep("provider");
 	};
 
 	const handleProviderSelect = (provider: CloudProvider) => {
@@ -394,13 +438,17 @@ function AddStorageDialog(props: {
 	};
 
 	const handleBack = () => {
-		if (step === "provider" || step === "local-config" || step === "cloud-config") {
+		if (step === "cloud-config") {
+			setStep("provider");
+			setSelectedProvider(null);
+		} else if (step === "local-config") {
+			setStep("provider");
+			localForm.setValue("path", "");
+			localForm.setValue("name", "");
+		} else {
 			setStep("category");
 			setSelectedCategory(null);
 			setSelectedProvider(null);
-			setSelectedProtocol(null);
-		} else if (step === "cloud-config") {
-			setStep("provider");
 		}
 	};
 
@@ -624,14 +672,12 @@ function AddStorageDialog(props: {
 	// Render category selection
 	if (step === "category") {
 		return (
-			<Dialog
+			<StorageDialog
 				dialog={dialog}
 				form={dummyForm}
 				title="Add Storage"
 				icon={<CloudArrowUp size={20} weight="fill" />}
 				description="Choose the type of storage you want to connect"
-				className="w-[640px]"
-				onCancelled={true}
 				hideButtons={true}
 			>
 				<div className="grid grid-cols-2 gap-3">
@@ -658,28 +704,22 @@ function AddStorageDialog(props: {
 						</button>
 					))}
 				</div>
-			</Dialog>
+			</StorageDialog>
 		);
 	}
 
 	// Render provider selection for cloud
 	if (step === "provider" && selectedCategory === "cloud") {
 		return (
-			<Dialog
+			<StorageDialog
 				dialog={dialog}
 				form={dummyForm}
 				title="Select Cloud Provider"
 				icon={<CloudArrowUp size={20} weight="fill" />}
 				description="Choose your cloud storage service"
-				className="w-[640px]"
-				onCancelled={true}
 				hideButtons={true}
-				buttonsSideContent={
-					<Button variant="gray" size="sm" onClick={handleBack}>
-						<ArrowLeft size={16} className="mr-1" />
-						Back
-					</Button>
-				}
+				showBackButton={true}
+				onBack={handleBack}
 			>
 				<div className="grid grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-1">
 					{cloudProviders.map((provider) => (
@@ -700,28 +740,22 @@ function AddStorageDialog(props: {
 						</button>
 					))}
 				</div>
-			</Dialog>
+			</StorageDialog>
 		);
 	}
 
 	// Render provider selection for network
 	if (step === "provider" && selectedCategory === "network") {
 		return (
-			<Dialog
+			<StorageDialog
 				dialog={dialog}
 				form={dummyForm}
 				title="Select Network Protocol"
 				icon={<img src={ServerIcon} className="size-5" alt="" />}
 				description="Choose your network file protocol"
-				className="w-[640px]"
-				onCancelled={true}
 				hideButtons={true}
-				buttonsSideContent={
-					<Button variant="gray" size="sm" onClick={handleBack}>
-						<ArrowLeft size={16} className="mr-1" />
-						Back
-					</Button>
-				}
+				showBackButton={true}
+				onBack={handleBack}
 			>
 				<div className="space-y-3">
 					<div className="rounded-lg bg-accent/10 border border-accent/20 p-4 text-sm text-ink">
@@ -755,28 +789,22 @@ function AddStorageDialog(props: {
 						))}
 					</div>
 				</div>
-			</Dialog>
+			</StorageDialog>
 		);
 	}
 
 	// Render provider selection for external
 	if (step === "provider" && selectedCategory === "external") {
 		return (
-			<Dialog
+			<StorageDialog
 				dialog={dialog}
 				form={dummyForm}
 				title="Track External Drive"
 				icon={<HardDrive size={20} weight="fill" />}
 				description="Select a connected drive to track"
-				className="w-[640px]"
-				onCancelled={true}
 				hideButtons={true}
-				buttonsSideContent={
-					<Button variant="gray" size="sm" onClick={handleBack}>
-						<ArrowLeft size={16} className="mr-1" />
-						Back
-					</Button>
-				}
+				showBackButton={true}
+				onBack={handleBack}
 			>
 				<div className="space-y-3">
 					{volumes && volumes.length > 0 ? (
@@ -816,28 +844,22 @@ function AddStorageDialog(props: {
 						</div>
 					)}
 				</div>
-			</Dialog>
+			</StorageDialog>
 		);
 	}
 
 	// Render local folder configuration (browse + suggested + settings)
 	if (step === "provider" && selectedCategory === "local") {
 		return (
-			<Dialog
+			<StorageDialog
 				dialog={dialog}
 				form={dummyForm}
 				title="Add Local Folder"
 				icon={<Folder size={20} weight="fill" />}
 				description="Choose a folder to index and manage"
-				className="w-[640px]"
-				onCancelled={true}
 				hideButtons={true}
-				buttonsSideContent={
-					<Button variant="gray" size="sm" onClick={handleBack}>
-						<ArrowLeft size={16} className="mr-1" />
-						Back
-					</Button>
-				}
+				showBackButton={true}
+				onBack={handleBack}
 			>
 				<div className="space-y-4 flex flex-col">
 					<div className="space-y-2">
@@ -887,14 +909,14 @@ function AddStorageDialog(props: {
 						</div>
 					)}
 				</div>
-			</Dialog>
+			</StorageDialog>
 		);
 	}
 
 	// Render local folder settings (after path selected)
 	if (step === "local-config") {
 		return (
-			<Dialog
+			<StorageDialog
 				dialog={dialog}
 				form={localForm}
 				onSubmit={onSubmitLocal}
@@ -902,23 +924,9 @@ function AddStorageDialog(props: {
 				icon={<Folder size={20} weight="fill" />}
 				description={localForm.watch("path")}
 				ctaLabel="Add Location"
-				onCancelled={true}
 				loading={addLocation.isPending}
-				className="w-[640px]"
-				buttonsSideContent={
-					<Button
-						variant="gray"
-						size="sm"
-						onClick={() => {
-							setStep("provider");
-							localForm.setValue("path", "");
-							localForm.setValue("name", "");
-						}}
-					>
-						<ArrowLeft size={16} className="mr-1" />
-						Back
-					</Button>
-				}
+				showBackButton={true}
+				onBack={handleBack}
 			>
 				<div className="space-y-4">
 					<div className="space-y-2">
@@ -1013,7 +1021,7 @@ function AddStorageDialog(props: {
 						</p>
 					)}
 				</div>
-			</Dialog>
+			</StorageDialog>
 		);
 	}
 
@@ -1033,7 +1041,7 @@ function AddStorageDialog(props: {
 		const isGCSType = provider.cloudServiceType === "gcs";
 
 		return (
-			<Dialog
+			<StorageDialog
 				dialog={dialog}
 				form={cloudForm}
 				onSubmit={onSubmitCloud}
@@ -1041,17 +1049,11 @@ function AddStorageDialog(props: {
 				icon={<img src={provider.icon} className="size-5" alt="" />}
 				description="Configure your cloud storage connection"
 				ctaLabel="Add Storage"
-				onCancelled={true}
 				loading={addCloudVolume.isPending}
-				className="w-[640px]"
-				buttonsSideContent={
-					<Button variant="gray" size="sm" onClick={() => setStep("provider")}>
-						<ArrowLeft size={16} className="mr-1" />
-						Back
-					</Button>
-				}
+				showBackButton={true}
+				onBack={handleBack}
 			>
-				<div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+				<div className="space-y-4 h-full overflow-y-auto pr-1">
 					<div className="space-y-2">
 						<Label>Display Name</Label>
 						<Input
@@ -1262,7 +1264,7 @@ function AddStorageDialog(props: {
 						</p>
 					)}
 				</div>
-			</Dialog>
+			</StorageDialog>
 		);
 	}
 

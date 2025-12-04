@@ -362,7 +362,7 @@ export function Dialog<S extends FieldValues>({
                     {props.title}
                   </RDialog.Title>
                 )}
-                <div className="p-5">
+                <div className="p-5 flex-1 overflow-auto">
                   {props.description && (
                     <RDialog.Description className="mb-2 text-sm text-ink-dull">
                       {props.description}
@@ -371,8 +371,7 @@ export function Dialog<S extends FieldValues>({
 
                   {props.children}
                 </div>
-                {!props.hideButtons &&
-                  (submitButton || props.cancelBtn || onCancelled || props.buttonsSideContent) && (
+                {(props.buttonsSideContent || (!props.hideButtons && (submitButton || props.cancelBtn || onCancelled))) && (
                     <div
                       className={clsx(
                         "flex items-center justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3",
@@ -383,26 +382,28 @@ export function Dialog<S extends FieldValues>({
                         <div>{props.buttonsSideContent}</div>
                       )}
                       <div className="grow" />
-                      <div
-                        className={clsx(
-                          invertButtonFocus ? "flex-row-reverse" : "flex-row",
-                          "flex gap-2",
-                        )}
-                      >
-                        {invertButtonFocus ? (
-                          <>
-                            {submitButton}
-                            {props.cancelBtn && cancelButton}
-                            {onCancelled && closeButton}
-                          </>
-                        ) : (
-                          <>
-                            {onCancelled && closeButton}
-                            {props.cancelBtn && cancelButton}
-                            {submitButton}
-                          </>
-                        )}
-                      </div>
+                      {!props.hideButtons && (
+                        <div
+                          className={clsx(
+                            invertButtonFocus ? "flex-row-reverse" : "flex-row",
+                            "flex gap-2",
+                          )}
+                        >
+                          {invertButtonFocus ? (
+                            <>
+                              {submitButton}
+                              {props.cancelBtn && cancelButton}
+                              {onCancelled && closeButton}
+                            </>
+                          ) : (
+                            <>
+                              {onCancelled && closeButton}
+                              {props.cancelBtn && cancelButton}
+                              {submitButton}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
               </Form>

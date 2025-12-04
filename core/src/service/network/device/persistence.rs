@@ -1,18 +1,12 @@
 //! Persistence for paired devices and their connection info
 
 use super::{DeviceInfo, SessionKeys};
+use crate::crypto::key_manager::KeyManager;
 use crate::service::network::{NetworkingError, Result};
-use aes_gcm::{
-	aead::{Aead, AeadCore, KeyInit, OsRng},
-	Aes256Gcm, Key, Nonce,
-};
 use chrono::{DateTime, Utc};
-use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use tokio::fs;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Persisted paired device data (plain data structure)
@@ -27,17 +21,6 @@ pub struct PersistedPairedDevice {
 	/// Cached relay URL for reconnection optimization (discovered via pkarr or connection)
 	#[serde(default)]
 	pub relay_url: Option<String>,
-}
-
-/// Encrypted device data for disk storage
-#[derive(Debug, Serialize, Deserialize)]
-struct EncryptedDeviceData {
-	/// Encrypted device data using AES-256-GCM
-	ciphertext: Vec<u8>,
-	/// Nonce for AES-GCM encryption
-	nonce: Vec<u8>,
-	/// Salt used for key derivation
-	salt: Vec<u8>,
 }
 
 /// Trust level for persistent connections
@@ -57,188 +40,94 @@ impl Default for TrustLevel {
 	}
 }
 
-/// Collection of all paired devices (encrypted on disk)
-#[derive(Debug, Serialize, Deserialize)]
-struct PersistedPairedDevices {
-	devices: HashMap<Uuid, EncryptedDeviceData>,
-	last_saved: DateTime<Utc>,
-	/// Version for future migration support
-	version: u32,
-}
-
 /// Device persistence manager
 pub struct DevicePersistence {
-	data_dir: PathBuf,
-	devices_file: PathBuf,
-	device_key: [u8; 32],
+	key_manager: Arc<KeyManager>,
 }
 
 impl DevicePersistence {
 	/// Create a new device persistence manager
-	pub fn new(data_dir: impl AsRef<Path>) -> Result<Self> {
-		let data_dir = data_dir.as_ref().to_path_buf();
-		let networking_dir = data_dir.join("networking");
-		let devices_file = networking_dir.join("paired_devices.json");
-
-		// Load device key from fallback file (consistent with DeviceManager)
-		let master_key_path = data_dir.join("master_key");
-		let device_key = load_or_create_device_key(&master_key_path)
-			.map_err(|e| NetworkingError::Protocol(format!("Failed to load device key: {}", e)))?;
-
-		Ok(Self {
-			data_dir: networking_dir,
-			devices_file,
-			device_key,
-		})
+	pub fn new(key_manager: Arc<KeyManager>) -> Self {
+		Self { key_manager }
 	}
 
-	#[cfg(test)]
-	/// Create a test persistence manager with a fixed key (for testing only)
-	pub fn new_for_test(data_dir: impl AsRef<Path>) -> Result<Self> {
-		// Just use the regular new() method for tests now
-		// The fallback file will ensure consistency across test runs
-		Self::new(data_dir)
+	/// Generate key for a paired device
+	fn device_key(device_id: Uuid) -> String {
+		format!("paired_device_{}", device_id)
 	}
 
-	/// Derive encryption key from master key for device persistence
-	fn derive_encryption_key(&self, salt: &[u8]) -> Result<[u8; 32]> {
-		let master_key = &self.device_key;
+	/// Key for the list of all paired device IDs
+	const DEVICE_LIST_KEY: &'static str = "paired_devices_list";
 
-		let hk = Hkdf::<Sha256>::new(Some(salt), master_key);
-		let mut derived_key = [0u8; 32];
-		hk.expand(b"spacedrive-device-persistence", &mut derived_key)
-			.map_err(|e| NetworkingError::Protocol(format!("Key derivation failed: {}", e)))?;
-
-		Ok(derived_key)
+	/// Get list of paired device IDs
+	async fn get_device_list(&self) -> Result<Vec<Uuid>> {
+		match self.key_manager.get_secret(Self::DEVICE_LIST_KEY).await {
+			Ok(data) => {
+				let device_ids: Vec<Uuid> =
+					serde_json::from_slice(&data).map_err(|e| NetworkingError::Serialization(e))?;
+				Ok(device_ids)
+			}
+			Err(_) => Ok(Vec::new()),
+		}
 	}
 
-	/// Encrypt device data using master key-derived encryption key
-	fn encrypt_device_data(&self, device: &PersistedPairedDevice) -> Result<EncryptedDeviceData> {
-		// Generate random salt for key derivation
-		let mut salt = [0u8; 32];
-		aes_gcm::aead::rand_core::RngCore::fill_bytes(&mut OsRng, &mut salt);
-
-		// Derive encryption key
-		let encryption_key = self.derive_encryption_key(&salt)?;
-		let key = Key::<Aes256Gcm>::from_slice(&encryption_key);
-		let cipher = Aes256Gcm::new(key);
-
-		// Generate nonce
-		let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-
-		// Serialize and encrypt device data
-		let plaintext =
-			serde_json::to_vec(device).map_err(|e| NetworkingError::Serialization(e))?;
-
-		let ciphertext = cipher
-			.encrypt(&nonce, plaintext.as_ref())
-			.map_err(|e| NetworkingError::Protocol(format!("Encryption failed: {}", e)))?;
-
-		Ok(EncryptedDeviceData {
-			ciphertext,
-			nonce: nonce.to_vec(),
-			salt: salt.to_vec(),
-		})
+	/// Save list of paired device IDs
+	async fn save_device_list(&self, device_ids: &[Uuid]) -> Result<()> {
+		let data =
+			serde_json::to_vec(device_ids).map_err(|e| NetworkingError::Serialization(e))?;
+		self.key_manager
+			.set_secret(Self::DEVICE_LIST_KEY, &data)
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to save device list: {}", e)))?;
+		Ok(())
 	}
 
-	/// Decrypt device data using master key-derived encryption key
-	fn decrypt_device_data(
-		&self,
-		encrypted_data: &EncryptedDeviceData,
-	) -> Result<PersistedPairedDevice> {
-		// Derive encryption key using stored salt
-		let encryption_key = self.derive_encryption_key(&encrypted_data.salt)?;
-		let key = Key::<Aes256Gcm>::from_slice(&encryption_key);
-		let cipher = Aes256Gcm::new(key);
-
-		// Decrypt data
-		let nonce = Nonce::from_slice(&encrypted_data.nonce);
-		let plaintext = cipher
-			.decrypt(nonce, encrypted_data.ciphertext.as_ref())
-			.map_err(|e| NetworkingError::Protocol(format!("Decryption failed: {}", e)))?;
-
-		// Deserialize device data
-		let device: PersistedPairedDevice =
-			serde_json::from_slice(&plaintext).map_err(|e| NetworkingError::Serialization(e))?;
-
-		Ok(device)
-	}
-
-	/// Save paired devices to disk (encrypted)
+	/// Save paired devices to key manager (encrypted)
 	pub async fn save_paired_devices(
 		&self,
 		devices: &HashMap<Uuid, PersistedPairedDevice>,
 	) -> Result<()> {
-		// Ensure data directory exists
-		if let Some(parent) = self.devices_file.parent() {
-			fs::create_dir_all(parent)
-				.await
-				.map_err(NetworkingError::Io)?;
-		}
+		let device_ids: Vec<Uuid> = devices.keys().copied().collect();
+		self.save_device_list(&device_ids).await?;
 
-		// Encrypt each device individually
-		let mut encrypted_devices = HashMap::new();
 		for (device_id, device) in devices {
-			let encrypted_data = self.encrypt_device_data(device)?;
-			encrypted_devices.insert(*device_id, encrypted_data);
+			let key = Self::device_key(*device_id);
+			let data =
+				serde_json::to_vec(device).map_err(|e| NetworkingError::Serialization(e))?;
+			self.key_manager
+				.set_secret(&key, &data)
+				.await
+				.map_err(|e| {
+					NetworkingError::Protocol(format!("Failed to save device {}: {}", device_id, e))
+				})?;
 		}
-
-		let persisted = PersistedPairedDevices {
-			devices: encrypted_devices,
-			last_saved: Utc::now(),
-			version: 1, // Current version
-		};
-
-		// Write to temporary file first, then rename for atomic operation
-		let temp_file = self.devices_file.with_extension("tmp");
-		let json_data = serde_json::to_string_pretty(&persisted)
-			.map_err(|e| NetworkingError::Serialization(e))?;
-
-		fs::write(&temp_file, json_data)
-			.await
-			.map_err(NetworkingError::Io)?;
-		fs::rename(&temp_file, &self.devices_file)
-			.await
-			.map_err(NetworkingError::Io)?;
 
 		println!("Saved {} paired devices (encrypted)", devices.len());
 		Ok(())
 	}
 
-	/// Load paired devices from disk (decrypt)
+	/// Load paired devices from key manager (decrypt)
 	pub async fn load_paired_devices(&self) -> Result<HashMap<Uuid, PersistedPairedDevice>> {
-		if !self.devices_file.exists() {
-			return Ok(HashMap::new());
-		}
-
-		let json_data = fs::read_to_string(&self.devices_file)
-			.await
-			.map_err(NetworkingError::Io)?;
-
-		let persisted: PersistedPairedDevices =
-			serde_json::from_str(&json_data).map_err(|e| NetworkingError::Serialization(e))?;
-
-		// Check version compatibility
-		if persisted.version != 1 {
-			return Err(NetworkingError::Protocol(format!(
-				"Unsupported device persistence version: {}",
-				persisted.version
-			)));
-		}
-
-		// Decrypt each device individually
+		let device_ids = self.get_device_list().await?;
 		let mut devices = HashMap::new();
-		for (device_id, encrypted_data) in persisted.devices {
-			match self.decrypt_device_data(&encrypted_data) {
-				Ok(device) => {
-					// Filter out devices with expired session keys
-					if !device.session_keys.is_expired() {
-						devices.insert(device_id, device);
+
+		for device_id in device_ids {
+			let key = Self::device_key(device_id);
+			match self.key_manager.get_secret(&key).await {
+				Ok(data) => {
+					match serde_json::from_slice::<PersistedPairedDevice>(&data) {
+						Ok(device) => {
+							if !device.session_keys.is_expired() {
+								devices.insert(device_id, device);
+							}
+						}
+						Err(e) => {
+							eprintln!("Failed to deserialize device {}: {}", device_id, e);
+						}
 					}
 				}
 				Err(e) => {
-					eprintln!("Failed to decrypt device {}: {}", device_id, e);
-					// Continue loading other devices even if one fails
+					eprintln!("Failed to load device {}: {}", device_id, e);
 				}
 			}
 		}
@@ -378,30 +267,39 @@ impl DevicePersistence {
 
 	/// Clear all paired devices
 	pub async fn clear_all_devices(&self) -> Result<()> {
-		if self.devices_file.exists() {
-			fs::remove_file(&self.devices_file)
-				.await
-				.map_err(NetworkingError::Io)?;
-		}
-		Ok(())
-	}
+		let device_ids = self.get_device_list().await?;
 
-	/// Get file path
-	pub fn devices_file_path(&self) -> &Path {
-		&self.devices_file
+		for device_id in device_ids {
+			let key = Self::device_key(device_id);
+			if let Err(e) = self.key_manager.delete_secret(&key).await {
+				eprintln!("Failed to delete device {}: {}", device_id, e);
+			}
+		}
+
+		self.key_manager
+			.delete_secret(Self::DEVICE_LIST_KEY)
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to clear device list: {}", e)))?;
+
+		Ok(())
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::crypto::key_manager::KeyManager;
 	use crate::service::network::utils::identity::NetworkFingerprint;
 	use tempfile::TempDir;
 
 	async fn create_test_persistence() -> (DevicePersistence, TempDir) {
 		let temp_dir = TempDir::new().expect("Failed to create temp dir");
-		let persistence = DevicePersistence::new_for_test(temp_dir.path())
-			.expect("Failed to create test persistence");
+		let device_key_fallback = temp_dir.path().join("device_key");
+		let key_manager = Arc::new(
+			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(device_key_fallback))
+				.expect("Failed to create key manager"),
+		);
+		let persistence = DevicePersistence::new(key_manager);
 		(persistence, temp_dir)
 	}
 
@@ -516,62 +414,4 @@ mod tests {
 		);
 	}
 
-	#[tokio::test]
-	async fn test_file_encryption_format() {
-		let (persistence, temp_dir) = create_test_persistence().await;
-
-		let device_id = Uuid::new_v4();
-		let device_info = create_test_device_info();
-		let session_keys = SessionKeys::from_shared_secret(vec![1, 2, 3, 4]);
-
-		// Add device
-		persistence
-			.add_paired_device(device_id, device_info, session_keys, None)
-			.await
-			.unwrap();
-
-		// Read the raw file - it should be encrypted (not contain plaintext session keys)
-		let file_path = temp_dir
-			.path()
-			.join("networking")
-			.join("paired_devices.json");
-		let raw_content = tokio::fs::read_to_string(&file_path).await.unwrap();
-
-		println!("Raw file content: {}", raw_content);
-
-		// The file should not contain the plaintext session key bytes
-		assert!(!raw_content.contains("\"shared_secret\":[1,2,3,4]"));
-
-		// But should contain encrypted structure
-		assert!(raw_content.contains("\"ciphertext\""));
-		assert!(raw_content.contains("\"nonce\""));
-		assert!(raw_content.contains("\"salt\""));
-		assert!(raw_content.contains("\"version\": 1"));
-
-		println!("Device data is properly encrypted on disk");
-	}
-}
-
-/// Load device key from file, or create a new one
-fn load_or_create_device_key(path: &PathBuf) -> std::io::Result<[u8; 32]> {
-	use rand::RngCore;
-
-	// Try to load from file
-	if path.exists() {
-		let data = std::fs::read(path)?;
-		if data.len() == 32 {
-			let mut key = [0u8; 32];
-			key.copy_from_slice(&data);
-			return Ok(key);
-		}
-	}
-
-	// Create new key
-	let mut key = [0u8; 32];
-	rand::thread_rng().fill_bytes(&mut key);
-
-	// Save to file
-	std::fs::write(path, &key)?;
-
-	Ok(key)
 }

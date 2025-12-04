@@ -24,24 +24,12 @@ impl CoreAction for DeviceRevokeAction {
 			.get_networking()
 			.await
 			.ok_or_else(|| ActionError::Internal("Networking not initialized".to_string()))?;
-		// Remove from registry state
+		// Remove from registry state and persistence
 		{
 			let reg = net.device_registry();
 			let mut guard = reg.write().await;
 			let _ = guard.remove_device(self.device_id);
-		}
-		// Remove from persistence
-		{
-			let reg = net.device_registry();
-			let guard = reg.read().await;
-			// DevicePersistence is not exposed; reconstruct persistence with same data_dir
-			// Use the same constructor used in registry
-			let persistence = crate::service::network::device::DevicePersistence::new(
-				crate::config::default_data_dir()
-					.map_err(|e| ActionError::Internal(e.to_string()))?,
-			)
-			.map_err(|e| ActionError::Internal(e.to_string()))?;
-			let _ = persistence.remove_paired_device(self.device_id).await;
+			let _ = guard.remove_paired_device(self.device_id).await;
 		}
 		Ok(DeviceRevokeOutput { revoked: true })
 	}

@@ -4,12 +4,12 @@ use super::{
 	ConnectionInfo, DeviceInfo, DevicePersistence, DeviceState, PersistedPairedDevice, SessionKeys,
 	TrustLevel,
 };
+use crate::crypto::key_manager::KeyManager;
 use crate::device::DeviceManager;
 use crate::service::network::{utils::logging::NetworkLogger, NetworkingError, Result};
 use chrono::{DateTime, Utc};
 use iroh::{NodeAddr, NodeId};
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -38,19 +38,19 @@ impl DeviceRegistry {
 	/// Create a new device registry
 	pub fn new(
 		device_manager: Arc<DeviceManager>,
-		data_dir: impl AsRef<Path>,
+		key_manager: Arc<KeyManager>,
 		logger: Arc<dyn NetworkLogger>,
-	) -> Result<Self> {
-		let persistence = DevicePersistence::new(data_dir)?;
+	) -> Self {
+		let persistence = DevicePersistence::new(key_manager);
 
-		Ok(Self {
+		Self {
 			device_manager,
 			devices: HashMap::new(),
 			node_to_device: HashMap::new(),
 			session_to_device: HashMap::new(),
 			persistence,
 			logger,
-		})
+		}
 	}
 
 	/// Load paired devices from persistence on startup
@@ -414,6 +414,11 @@ impl DeviceRegistry {
 		}
 
 		Ok(())
+	}
+
+	/// Remove a paired device from persistence
+	pub async fn remove_paired_device(&self, device_id: Uuid) -> Result<bool> {
+		self.persistence.remove_paired_device(device_id).await
 	}
 
 	/// Get peer ID for a device

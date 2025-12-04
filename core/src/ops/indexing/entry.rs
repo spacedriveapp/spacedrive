@@ -15,6 +15,17 @@ use sea_orm::{
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+/// Normalize cloud directory path for consistent lookups
+/// Cloud paths stored with trailing slashes don't match PathBuf::parent() results
+fn normalize_cloud_dir_path(path: &Path) -> PathBuf {
+	let path_str = path.to_string_lossy();
+	if path_str.contains("://") && path_str.ends_with('/') {
+		PathBuf::from(path_str.trim_end_matches('/'))
+	} else {
+		path.to_path_buf()
+	}
+}
+
 /// Metadata about a file system entry
 #[derive(Debug, Clone)]
 pub struct EntryMetadata {
@@ -218,37 +229,34 @@ impl EntryProcessor {
 
 		// Find parent entry ID
 		let parent_id = if let Some(parent_path) = entry.path.parent() {
+			ctx.log(format!(
+				"Looking up parent for {}: parent_path = {}",
+				entry.path.display(),
+				parent_path.display()
+			));
+
 			// First check the cache
 			if let Some(id) = state.entry_id_cache.get(parent_path).copied() {
+				ctx.log(format!("Found parent in cache: id = {}", id));
 				Some(id)
 			} else {
 				// If not in cache, try to find it in the database
-				// This handles cases where parent was created in a previous run
+				// For cloud paths, try both with and without trailing slash
 				let parent_path_str = parent_path.to_string_lossy().to_string();
+				let is_cloud = parent_path_str.contains("://");
 
-				// For cloud paths, directory paths may have trailing slashes
-				// Try both with and without to handle path normalization differences
-				let parent_with_slash =
-					if !parent_path_str.ends_with('/') && parent_path_str.contains("://") {
-						Some(format!("{}/", parent_path_str))
-					} else {
-						None
-					};
-
-				let mut query = entities::directory_paths::Entity::find();
-				if let Some(alt_path) = &parent_with_slash {
-					// Try both variants for cloud paths
-					query = query.filter(
-						entities::directory_paths::Column::Path.is_in([&parent_path_str, alt_path]),
-					);
+				let parent_variants = if is_cloud && !parent_path_str.ends_with('/') {
+					vec![parent_path_str.clone(), format!("{}/", parent_path_str)]
 				} else {
-					// Local paths - exact match
-					query =
-						query.filter(entities::directory_paths::Column::Path.eq(&parent_path_str));
-				}
+					vec![parent_path_str.clone()]
+				};
+
+				let query = entities::directory_paths::Entity::find()
+					.filter(entities::directory_paths::Column::Path.is_in(parent_variants.clone()));
 
 				if let Ok(Some(dir_path_record)) = query.one(ctx.library_db()).await {
 					// Found parent in database, cache it
+					ctx.log(format!("Found parent in database: id = {}", dir_path_record.entry_id));
 					state
 						.entry_id_cache
 						.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
@@ -259,7 +267,7 @@ impl EntryProcessor {
 						"WARNING: Parent not found for {}: {} (tried: {:?})",
 						entry.path.display(),
 						parent_path.display(),
-						parent_with_slash.as_ref().unwrap_or(&parent_path_str)
+						parent_variants
 					));
 					None
 				}
@@ -352,16 +360,9 @@ impl EntryProcessor {
 		}
 
 		// Cache the entry ID for potential children
-		// For directories, normalize the path by removing trailing slash for consistent lookups
-		// since PathBuf::parent() doesn't preserve trailing slashes
+		// Normalize cloud directory paths to match what parent() returns
 		let cache_key = if entry.kind == EntryKind::Directory {
-			let path_str = entry.path.to_string_lossy();
-			if path_str.ends_with('/') && path_str.contains("://") {
-				// Cloud directory path - remove trailing slash for cache consistency
-				PathBuf::from(path_str.trim_end_matches('/'))
-			} else {
-				entry.path.clone()
-			}
+			normalize_cloud_dir_path(&entry.path)
 		} else {
 			entry.path.clone()
 		};

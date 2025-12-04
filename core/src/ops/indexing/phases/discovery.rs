@@ -9,6 +9,7 @@ use crate::{
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
 };
+use std::path::PathBuf;
 use std::time::Instant;
 use std::{path::Path, sync::Arc};
 
@@ -28,6 +29,7 @@ pub async fn run_discovery_phase(
 	root_path: &Path,
 	rule_toggles: RuleToggles,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+	cloud_url_base: Option<String>,
 ) -> Result<(), JobError> {
 	ctx.log(format!(
 		"Discovery phase starting from: {}",
@@ -72,7 +74,7 @@ pub async fn run_discovery_phase(
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
 		// Read directory entries with per-dir FS timing
-		match read_directory(&dir_path, volume_backend).await {
+		match read_directory(&dir_path, volume_backend, cloud_url_base.as_deref()).await {
 			Ok(entries) => {
 				let entry_count = entries.len();
 				let mut added_count = 0;
@@ -186,6 +188,7 @@ pub async fn run_discovery_phase(
 async fn read_directory(
 	path: &Path,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+	cloud_url_base: Option<&str>,
 ) -> Result<Vec<DirEntry>, std::io::Error> {
 	// Use provided backend or create LocalBackend fallback
 	let backend: Arc<dyn crate::volume::VolumeBackend> = match volume_backend {
@@ -199,13 +202,14 @@ async fn read_directory(
 		}
 	};
 
-	read_directory_with_backend(backend.as_ref(), path).await
+	read_directory_with_backend(backend.as_ref(), path, cloud_url_base).await
 }
 
 /// Read a directory using a volume backend (local or cloud)
 async fn read_directory_with_backend(
 	backend: &dyn crate::volume::VolumeBackend,
 	path: &Path,
+	cloud_url_base: Option<&str>,
 ) -> Result<Vec<DirEntry>, std::io::Error> {
 	let t_rd_start = Instant::now();
 
@@ -217,12 +221,29 @@ async fn read_directory_with_backend(
 	// Convert RawDirEntry to DirEntry
 	let entries: Vec<DirEntry> = raw_entries
 		.into_iter()
-		.map(|raw| DirEntry {
-			path: path.join(&raw.name),
-			kind: raw.kind,
-			size: raw.size,
-			modified: raw.modified,
-			inode: raw.inode,
+		.map(|raw| {
+			// For cloud volumes, prepend the cloud URL base to build proper hierarchical paths
+			let full_path = if let Some(base) = cloud_url_base {
+				// Cloud: s3://bucket/ + relative_path + filename
+				let relative = path.to_string_lossy();
+				let joined = if relative.is_empty() {
+					raw.name.clone()
+				} else {
+					format!("{}/{}", relative.trim_end_matches('/'), raw.name)
+				};
+				PathBuf::from(format!("{}{}", base, joined))
+			} else {
+				// Local: just join normally
+				path.join(&raw.name)
+			};
+
+			DirEntry {
+				path: full_path,
+				kind: raw.kind,
+				size: raw.size,
+				modified: raw.modified,
+				inode: raw.inode,
+			}
 		})
 		.collect();
 

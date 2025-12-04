@@ -385,6 +385,13 @@ impl JobHandler for IndexerJob {
 			warn!("DEBUG: IndexerJob entering phase: {:?}", current_phase);
 			match current_phase {
 				Phase::Discovery => {
+					// For cloud volumes, construct the base URL for building absolute paths
+					let cloud_url_base = if let Some((service, identifier, _)) = self.config.path.as_cloud() {
+						Some(format!("{}://{}/", service.scheme(), identifier))
+					} else {
+						None
+					};
+
 					// Use scope-aware discovery
 					if self.config.is_current_scope() {
 						Self::run_current_scope_discovery_static(state, &ctx, root_path).await?;
@@ -395,6 +402,7 @@ impl JobHandler for IndexerJob {
 							root_path,
 							self.config.rule_toggles.clone(),
 							volume_backend.as_ref(),
+							cloud_url_base,
 						)
 						.await?;
 					}

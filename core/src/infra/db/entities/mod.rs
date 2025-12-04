@@ -3,6 +3,7 @@
 //! These map our domain models to database tables.
 
 pub mod audio_media_data;
+pub mod cloud_credential;
 pub mod content_identity;
 pub mod content_kind;
 pub mod device;
@@ -39,6 +40,7 @@ pub mod volume;
 // Re-export all entities
 pub use audio_media_data::Entity as AudioMediaData;
 pub use audit_log::Entity as AuditLog;
+pub use cloud_credential::Entity as CloudCredential;
 pub use collection::Entity as Collection;
 pub use collection_entry::Entity as CollectionEntry;
 pub use content_identity::Entity as ContentIdentity;
@@ -71,6 +73,7 @@ pub use user_metadata_tag::Entity as UserMetadataTag;
 // Re-export active models for easy access
 pub use audio_media_data::ActiveModel as AudioMediaDataActive;
 pub use audit_log::ActiveModel as AuditLogActive;
+pub use cloud_credential::ActiveModel as CloudCredentialActive;
 pub use collection::ActiveModel as CollectionActive;
 pub use collection_entry::ActiveModel as CollectionEntryActive;
 pub use content_identity::ActiveModel as ContentIdentityActive;

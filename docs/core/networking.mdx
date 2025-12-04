@@ -607,22 +607,22 @@ pub enum NetworkError {
 
 ### State Persistence
 
-Device relationships persist across restarts:
+Device relationships and session keys are encrypted and persisted via the KeyManager:
 
 ```rust
-// Saved to disk
-pub struct PersistedNetworkState {
-    // Our identity
-    identity: NetworkIdentity,
-    
-    // Paired devices
-    paired_devices: Vec<PairedDevice>,
-    
-    // Relay preferences
-    preferred_relays: Vec<Url>,
+// Paired device data stored per-device in KeyManager
+pub struct PersistedPairedDevice {
+    device_info: DeviceInfo,
+    session_keys: SessionKeys,
+    paired_at: DateTime<Utc>,
+    trust_level: TrustLevel,
+    relay_url: Option<String>,
 }
 
-// Location: ~/.spacedrive/network_state.json
+// Storage:
+// - Device key: OS keychain or encrypted fallback file
+// - Paired devices: KeyManager's encrypted KV store (secrets.redb)
+// - Network identity: Derived from device key
 ```
 
 ## Future Development

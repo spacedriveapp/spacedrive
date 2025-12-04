@@ -3,7 +3,7 @@
 //! Manages all encryption keys in Spacedrive:
 //! - Device key: Stored in OS keychain (with file fallback)
 //! - Library keys: Stored encrypted in redb database
-//! - Cloud credentials: (future) Stored encrypted in redb database
+//! - Cloud credentials: Stored encrypted in library database (not in key manager)
 
 use chacha20poly1305::{
 	aead::{Aead, KeyInit, OsRng},

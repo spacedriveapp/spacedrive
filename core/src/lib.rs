@@ -102,8 +102,15 @@ impl Core {
 
 		let config = Arc::new(RwLock::new(config));
 
+		// Initialize unified key manager with file fallback
+		let device_key_fallback = data_dir.join("device_key");
+		let key_manager = Arc::new(crate::crypto::key_manager::KeyManager::new_with_fallback(
+			data_dir.clone(),
+			Some(device_key_fallback),
+		)?);
+
 		// Initialize device manager
-		let device = Arc::new(DeviceManager::init(&data_dir, system_device_name)?);
+		let device = Arc::new(DeviceManager::init(&data_dir, key_manager.clone(), system_device_name)?);
 
 		// Set a global device ID and slug for convenience
 		crate::device::set_current_device_id(device.device_id()?);
@@ -132,13 +139,6 @@ impl Core {
 			info!("Volume monitoring disabled in configuration");
 		}
 		drop(config_read);
-
-		// Initialize unified key manager with file fallback
-		let device_key_fallback = data_dir.join("device_key");
-		let key_manager = Arc::new(crate::crypto::key_manager::KeyManager::new_with_fallback(
-			data_dir.clone(),
-			Some(device_key_fallback),
-		)?);
 
 		// Create the context that will be shared with services
 		let mut context_inner = CoreContext::new(
