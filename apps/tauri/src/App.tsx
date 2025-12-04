@@ -29,9 +29,11 @@ function App() {
     // React Scan disabled - too heavy for development
     // Uncomment if you need to debug render performance:
     // if (import.meta.env.DEV) {
-    //   import("react-scan").then(({ scan }) => {
-    //     scan({ enabled: true, log: false });
-    //   });
+    //   setTimeout(() => {
+    //     import("react-scan").then(({ scan }) => {
+    //       scan({ enabled: true, log: false });
+    //     });
+    //   }, 2000);
     // }
 
     // Initialize Tauri native context menu handler
