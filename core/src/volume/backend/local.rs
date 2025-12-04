@@ -45,9 +45,10 @@ impl LocalBackend {
 	}
 
 	#[cfg(windows)]
-	fn get_inode(metadata: &std::fs::Metadata) -> Option<u64> {
-		use std::os::windows::fs::MetadataExt;
-		Some(metadata.file_index().unwrap_or(0))
+	fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
+		// Windows 'file_index' is unstable (issue #63010).
+		// Returning None is safe as the field is Optional.
+		None
 	}
 
 	#[cfg(not(any(unix, windows)))]

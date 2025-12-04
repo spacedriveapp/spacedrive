@@ -169,7 +169,6 @@ async fn download_file(url: &str, expected_size: u64) -> Result<Vec<u8>> {
 
 fn replace_binary(path: &PathBuf, data: &[u8]) -> Result<()> {
 	use std::fs;
-	use std::os::unix::fs::PermissionsExt;
 
 	// Create backup
 	let backup_path = path.with_extension("bak");
@@ -180,10 +179,15 @@ fn replace_binary(path: &PathBuf, data: &[u8]) -> Result<()> {
 	// Write new binary
 	match fs::write(path, data) {
 		Ok(()) => {
-			// Set executable permissions
-			let mut perms = fs::metadata(path)?.permissions();
-			perms.set_mode(0o755);
-			fs::set_permissions(path, perms)?;
+			// Set executable permissions (Unix only)
+			// We guard this block so it is not compiled on Windows
+			#[cfg(unix)]
+			{
+				use std::os::unix::fs::PermissionsExt;
+				let mut perms = fs::metadata(path)?.permissions();
+				perms.set_mode(0o755);
+				fs::set_permissions(path, perms)?;
+			}
 
 			// Remove backup on success
 			if backup_path.exists() {
