@@ -70,6 +70,11 @@ impl BackfillManager {
 		&self.metrics
 	}
 
+	/// Get log handler for protocol operations
+	pub fn log_handler(&self) -> &Arc<LogSyncHandler> {
+		&self.log_handler
+	}
+
 	/// Deliver a StateResponse to waiting request
 	///
 	/// Called by protocol handler when StateResponse is received.

@@ -114,6 +114,93 @@ CREATE INDEX idx_sync_event_log_type ON sync_event_log(event_type);
 CREATE INDEX idx_sync_event_log_correlation ON sync_event_log(correlation_id);
 ```
 
+## CLI Export
+
+### Export Events from a Device
+
+```bash
+# Export as JSON (default)
+sd sync events
+
+# Export to file
+sd sync events --output sync_events.json
+
+# Export last hour only
+sd sync events --since "1 hour ago" -o recent_events.json
+
+# Export as SQL (for database import)
+sd sync events --format sql -o events.sql
+
+# Export as Markdown
+sd sync events --format markdown -o events.md
+
+# Filter by event type
+sd sync events --event-type state_transition
+
+# Filter by severity (errors only)
+sd sync events --severity error
+
+# Trace specific backfill session
+sd sync events --correlation-id abc-123-def
+
+# Limit results
+sd sync events --limit 500
+```
+
+### Cross-Device Timeline
+
+To debug sync issues across multiple devices, export logs from each device and merge:
+
+```bash
+# On Device A
+sd sync events --since "2 hours ago" --output device_a.json
+
+# On Device B
+sd sync events --since "2 hours ago" --output device_b.json
+
+# Merge chronologically (requires jq)
+jq -s 'add | sort_by(.timestamp)' device_a.json device_b.json > timeline.json
+
+# View merged timeline
+jq '.[] | "\(.timestamp) | \(.device_id[0:8]) | \(.event_type) | \(.summary)"' timeline.json
+```
+
+### SQL Import for Analysis
+
+```bash
+# Export as SQL from both devices
+sd sync events --format sql -o device_a.sql
+sd sync events --format sql -o device_b.sql
+
+# Create combined database
+sqlite3 timeline.db < device_a.sql
+sqlite3 timeline.db < device_b.sql
+
+# Query cross-device timeline
+sqlite3 timeline.db "
+SELECT
+  timestamp,
+  substr(device_id, 1, 8) as device,
+  event_type,
+  summary
+FROM sync_event_log
+ORDER BY timestamp
+"
+
+# Find matching backfill sessions across devices
+sqlite3 timeline.db "
+SELECT
+  correlation_id,
+  COUNT(DISTINCT device_id) as device_count,
+  MIN(timestamp) as started,
+  MAX(timestamp) as completed
+FROM sync_event_log
+WHERE correlation_id IS NOT NULL
+GROUP BY correlation_id
+ORDER BY started DESC
+"
+```
+
 ## Query API
 
 ### Rust API
@@ -207,6 +294,35 @@ WHERE event_type = 'backfill_session_started'
   AND details IS NOT NULL
 ORDER BY timestamp DESC;
 ```
+
+## Network Protocol
+
+The system includes protocol messages for querying event logs from remote peers over the network:
+
+**EventLogRequest** - Request events from a peer
+```rust
+EventLogRequest {
+    library_id: Uuid,
+    requesting_device: Uuid,
+    since: Option<DateTime<Utc>>,
+    event_types: Option<Vec<String>>,
+    correlation_id: Option<Uuid>,
+    limit: u32,
+}
+```
+
+**EventLogResponse** - Peer's events
+```rust
+EventLogResponse {
+    library_id: Uuid,
+    responding_device: Uuid,
+    events: Vec<serde_json::Value>,
+}
+```
+
+These messages are routed through `SyncProtocolHandler` and handled by `LogSyncHandler::handle_event_log_request()`.
+
+**Status**: Protocol foundation complete. Automatic cross-device fetching can be implemented when needed by creating a cross-device fetcher that sends requests to all online peers and merges responses.
 
 ## Debugging Scenarios
 
@@ -401,6 +517,62 @@ Tests verify:
 - Retention cleanup
 - Persistence across restarts
 - Batch aggregation
+
+## Export Formats
+
+### JSON Format
+
+Structured output for programmatic processing:
+
+```json
+[
+  {
+    "timestamp": "2025-12-03T10:15:00Z",
+    "event_type": "StateTransition",
+    "severity": "Info",
+    "summary": "Ready → Backfilling",
+    "details": { "reason": "new device joined" },
+    "correlation_id": null,
+    "duration_ms": null
+  },
+  {
+    "timestamp": "2025-12-03T10:15:32Z",
+    "event_type": "BatchIngestion",
+    "severity": "Debug",
+    "summary": "Ingested batch of 45,000 records (25k entries, 15k tags, 5k locations) in 28s",
+    "record_count": 45000,
+    "duration_ms": 28000
+  }
+]
+```
+
+### SQL Format
+
+INSERT statements for database import:
+
+```sql
+-- Sync Event Log Export
+-- Generated: 2025-12-03T10:20:00Z
+
+INSERT INTO sync_event_log (...) VALUES (...);
+INSERT INTO sync_event_log (...) VALUES (...);
+```
+
+### Markdown Format
+
+Human-readable table format:
+
+```markdown
+# Sync Event Log
+
+**Exported**: 2025-12-03T10:20:00Z
+**Event Count**: 15
+
+| Timestamp | Event Type | Severity | Summary |
+|-----------|------------|----------|---------|
+| 2025-12-03 10:15:00 | StateTransition | Info | Ready → Backfilling |
+| 2025-12-03 10:15:32 | BatchIngestion | Debug | Ingested 45k records |
+```
 
 ## Troubleshooting
 
