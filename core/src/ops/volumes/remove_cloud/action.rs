@@ -50,7 +50,11 @@ impl LibraryAction for VolumeRemoveCloudAction {
 			.await
 			.map_err(|e| ActionError::InvalidInput(format!("Volume untracking failed: {}", e)))?;
 
-		let credential_manager = CloudCredentialManager::new(context.key_manager.clone());
+		let credential_manager = CloudCredentialManager::new(
+			context.key_manager.clone(),
+			library.db().clone(),
+			library_id,
+		);
 		if let Err(e) = credential_manager.delete_credential(library_id, &self.input.fingerprint.0)
 		{
 			tracing::warn!(

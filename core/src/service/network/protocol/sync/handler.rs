@@ -667,14 +667,24 @@ mod tests {
 	#[test]
 	fn test_handler_creation() {
 		// Test uses mock registry
+		use crate::crypto::key_manager::KeyManager;
 		use crate::device::DeviceManager;
 		use crate::service::network::device::DeviceRegistry;
-		use std::path::PathBuf;
+		use tempfile::TempDir;
 
-		let device_manager = Arc::new(DeviceManager::new().unwrap());
+		let temp_dir = TempDir::new().unwrap();
+		let device_key_fallback = temp_dir.path().join("device_key");
+		let key_manager = Arc::new(
+			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(device_key_fallback))
+				.unwrap(),
+		);
+		let device_manager = Arc::new(DeviceManager::init(
+			temp_dir.path(),
+			key_manager.clone(),
+			None,
+		).unwrap());
 		let logger = Arc::new(crate::service::network::utils::SilentLogger);
-		let registry =
-			DeviceRegistry::new(device_manager, PathBuf::from("/tmp/test"), logger).unwrap();
+		let registry = DeviceRegistry::new(device_manager, key_manager, logger);
 		let device_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
 		let handler = SyncProtocolHandler::new(Uuid::new_v4(), device_registry);

@@ -69,6 +69,7 @@
         "core/architecture",
         "core/library",
         "core/data-model",
+        "core/key-manager",
         "core/addressing",
         "core/jobs",
         "core/ops",

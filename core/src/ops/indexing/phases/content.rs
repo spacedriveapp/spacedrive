@@ -11,8 +11,23 @@ use crate::{
 		state::{EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
 };
+use std::path::Path;
 use std::sync::Arc;
 use tracing::warn;
+
+/// Strip cloud URL prefix from DirEntry path to get backend-relative path
+fn to_backend_path(path: &Path) -> std::path::PathBuf {
+	let path_str = path.to_string_lossy();
+	if let Some(after_scheme) = path_str.strip_prefix("s3://") {
+		// Strip s3://bucket/ prefix to get just the key
+		if let Some(slash_pos) = after_scheme.find('/') {
+			let key = &after_scheme[slash_pos + 1..];
+			return std::path::PathBuf::from(key);
+		}
+	}
+	// Return as-is for local paths
+	path.to_path_buf()
+}
 
 /// Run the content identification phase
 pub async fn run_content_phase(
@@ -72,12 +87,15 @@ pub async fn run_content_phase(
 				async move {
 					let hash_result = if let Some(backend) = backend_clone {
 						// Use backend for content hashing (supports both local and cloud)
+						// For cloud paths, strip the URL prefix to get backend-relative path
+						let backend_path = to_backend_path(path);
+
 						// Get file size first
-						match backend.metadata(path).await {
+						match backend.metadata(&backend_path).await {
 							Ok(meta) => {
 								ContentHashGenerator::generate_content_hash_with_backend(
 									backend.as_ref(),
-									path,
+									&backend_path,
 									meta.size,
 								)
 								.await

@@ -506,14 +506,29 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_file_sharing_service_creation() {
+		use tempfile::TempDir;
+
+		let temp_dir = TempDir::new().unwrap();
+		let device_key_fallback = temp_dir.path().join("device_key");
+		let key_manager = Arc::new(
+			crate::crypto::key_manager::KeyManager::new_with_fallback(
+				temp_dir.path().to_path_buf(),
+				Some(device_key_fallback),
+			)
+			.unwrap(),
+		);
+
 		let events = Arc::new(EventBus::default());
-		let device_manager = Arc::new(DeviceManager::new().unwrap());
+		let device_manager = Arc::new(DeviceManager::init(
+			temp_dir.path(),
+			key_manager.clone(),
+			None,
+		).unwrap());
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
-		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
@@ -525,7 +540,7 @@ mod tests {
 			device_manager,
 			Some(library_manager),
 			volume_manager,
-			library_key_manager,
+			key_manager,
 		));
 
 		let _file_sharing = FileSharingService::new(context);
@@ -542,14 +557,29 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_create_file_metadata() {
+		use tempfile::TempDir;
+
+		let temp_dir = TempDir::new().unwrap();
+		let device_key_fallback = temp_dir.path().join("device_key");
+		let key_manager = Arc::new(
+			crate::crypto::key_manager::KeyManager::new_with_fallback(
+				temp_dir.path().to_path_buf(),
+				Some(device_key_fallback),
+			)
+			.unwrap(),
+		);
+
 		let events = Arc::new(EventBus::default());
-		let device_manager = Arc::new(DeviceManager::new().unwrap());
+		let device_manager = Arc::new(DeviceManager::init(
+			temp_dir.path(),
+			key_manager.clone(),
+			None,
+		).unwrap());
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
-		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
@@ -561,7 +591,7 @@ mod tests {
 			device_manager,
 			Some(library_manager),
 			volume_manager,
-			library_key_manager,
+			key_manager,
 		));
 		let file_sharing = FileSharingService::new(context);
 

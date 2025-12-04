@@ -1,27 +1,24 @@
 //! Cloud storage credential management
 //!
 //! Provides secure storage for cloud service credentials, encrypted with library keys
-//! and stored in the OS keyring.
+//! and stored in the library database.
 
 use chacha20poly1305::{
 	aead::{Aead, KeyInit, OsRng},
 	XChaCha20Poly1305, XNonce,
 };
-use keyring::{Entry, Error as KeyringError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::sync::Arc;
 use thiserror::Error;
 use uuid::Uuid;
 
 use super::key_manager::KeyManager;
-use std::sync::Arc;
-
-const KEYRING_SERVICE: &str = "SpacedriveCloudCredentials";
+use crate::infra::db::Database;
 
 #[derive(Error, Debug)]
 pub enum CloudCredentialError {
-	#[error("Keyring error: {0}")]
-	Keyring(#[from] KeyringError),
+	#[error("Database error: {0}")]
+	Database(String),
 
 	#[error("Encryption error: {0}")]
 	Encryption(String),
@@ -45,11 +42,17 @@ pub enum CloudCredentialError {
 /// Manages cloud service credentials encrypted with library keys
 pub struct CloudCredentialManager {
 	key_manager: Arc<KeyManager>,
+	db: Arc<Database>,
+	library_id: Uuid,
 }
 
 impl CloudCredentialManager {
-	pub fn new(key_manager: Arc<KeyManager>) -> Self {
-		Self { key_manager }
+	pub fn new(key_manager: Arc<KeyManager>, db: Arc<Database>, library_id: Uuid) -> Self {
+		Self {
+			key_manager,
+			db,
+			library_id,
+		}
 	}
 
 	/// Store cloud credentials for a volume, encrypted with the library key
@@ -68,10 +71,46 @@ impl CloudCredentialManager {
 		// Encrypt with XChaCha20-Poly1305
 		let encrypted = self.encrypt_credential(&credential_json, &library_key)?;
 
-		// Store in keyring
-		let keyring_key = format!("cloud_{}_{}", library_id, volume_fingerprint);
-		let entry = Entry::new(KEYRING_SERVICE, &keyring_key)?;
-		entry.set_password(&hex::encode(encrypted))?;
+		// Store in database
+		use crate::infra::db::entities::cloud_credential;
+		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+
+		let db = self.db.conn();
+
+		// Check if credential already exists
+		let existing = cloud_credential::Entity::find()
+			.filter(cloud_credential::Column::VolumeFingerprint.eq(volume_fingerprint))
+			.one(db)
+			.await
+			.map_err(|e| CloudCredentialError::Database(e.to_string()))?;
+
+		if let Some(existing) = existing {
+			// Update existing credential
+			let mut active: cloud_credential::ActiveModel = existing.into();
+			active.encrypted_credential = Set(encrypted);
+			active.service_type = Set(format!("{:?}", credential.service));
+			active.updated_at = Set(chrono::Utc::now().into());
+
+			active
+				.update(db)
+				.await
+				.map_err(|e| CloudCredentialError::Database(e.to_string()))?;
+		} else {
+			// Insert new credential
+			let active = cloud_credential::ActiveModel {
+				id: sea_orm::ActiveValue::NotSet,
+				volume_fingerprint: Set(volume_fingerprint.to_string()),
+				encrypted_credential: Set(encrypted),
+				service_type: Set(format!("{:?}", credential.service)),
+				created_at: Set(chrono::Utc::now().into()),
+				updated_at: Set(chrono::Utc::now().into()),
+			};
+
+			active
+				.insert(db)
+				.await
+				.map_err(|e| CloudCredentialError::Database(e.to_string()))?;
+		}
 
 		Ok(())
 	}
@@ -82,23 +121,24 @@ impl CloudCredentialManager {
 		library_id: Uuid,
 		volume_fingerprint: &str,
 	) -> Result<CloudCredential, CloudCredentialError> {
-		// Get from keyring
-		let keyring_key = format!("cloud_{}_{}", library_id, volume_fingerprint);
-		let entry = Entry::new(KEYRING_SERVICE, &keyring_key)?;
+		// Get from database
+		use crate::infra::db::entities::cloud_credential;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-		let encrypted_hex = entry.get_password().map_err(|e| match e {
-			KeyringError::NoEntry => {
+		let db = self.db.conn();
+
+		let credential_model = cloud_credential::Entity::find()
+			.filter(cloud_credential::Column::VolumeFingerprint.eq(volume_fingerprint))
+			.one(db)
+			.await
+			.map_err(|e| CloudCredentialError::Database(e.to_string()))?
+			.ok_or_else(|| {
 				CloudCredentialError::NotFound(library_id, volume_fingerprint.to_string())
-			}
-			other => CloudCredentialError::Keyring(other),
-		})?;
+			})?;
 
 		// Decrypt
-		let encrypted =
-			hex::decode(&encrypted_hex).map_err(|_| CloudCredentialError::InvalidFormat)?;
-
 		let library_key = self.key_manager.get_library_key(library_id).await?;
-		let decrypted = self.decrypt_credential(&encrypted, &library_key)?;
+		let decrypted = self.decrypt_credential(&credential_model.encrypted_credential, &library_key)?;
 
 		// Deserialize
 		let credential: CloudCredential = serde_json::from_slice(&decrypted)?;
@@ -111,17 +151,42 @@ impl CloudCredentialManager {
 		library_id: Uuid,
 		volume_fingerprint: &str,
 	) -> Result<(), CloudCredentialError> {
-		let keyring_key = format!("cloud_{}_{}", library_id, volume_fingerprint);
-		let entry = Entry::new(KEYRING_SERVICE, &keyring_key)?;
-		entry.delete_credential()?;
-		Ok(())
+		// Delete from database
+		use crate::infra::db::entities::cloud_credential;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let db = self.db.conn();
+
+		// Use blocking call since this method is not async
+		tokio::task::block_in_place(|| {
+			tokio::runtime::Handle::current().block_on(async {
+				cloud_credential::Entity::delete_many()
+					.filter(cloud_credential::Column::VolumeFingerprint.eq(volume_fingerprint))
+					.exec(db)
+					.await
+					.map_err(|e| CloudCredentialError::Database(e.to_string()))?;
+
+				Ok(())
+			})
+		})
 	}
 
-	/// List all volume fingerprints that have stored credentials for a library
-	pub fn list_credentials(&self, library_id: Uuid) -> Result<Vec<String>, CloudCredentialError> {
-		// Note: This is a simple implementation that might not be efficient
-		// In a real scenario, we might want to maintain an index of volume fingerprints
-		Ok(Vec::new()) // TODO: Implement credential listing if needed
+	/// List all volume fingerprints that have stored credentials for this library
+	pub async fn list_credentials(&self) -> Result<Vec<String>, CloudCredentialError> {
+		use crate::infra::db::entities::cloud_credential;
+		use sea_orm::EntityTrait;
+
+		let db = self.db.conn();
+
+		let credentials = cloud_credential::Entity::find()
+			.all(db)
+			.await
+			.map_err(|e| CloudCredentialError::Database(e.to_string()))?;
+
+		Ok(credentials
+			.into_iter()
+			.map(|c| c.volume_fingerprint)
+			.collect())
 	}
 
 	/// Encrypt credential data using library key
@@ -180,7 +245,7 @@ impl CloudCredentialManager {
 	}
 }
 
-/// Cloud service credentials (stored encrypted in OS keyring)
+/// Cloud service credentials (stored encrypted in library database)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudCredential {
 	/// Service type
@@ -284,6 +349,7 @@ mod tests {
 	#[tokio::test]
 	async fn test_encrypt_decrypt_credential() {
 		let temp_dir = tempfile::tempdir().unwrap();
+		let db_path = temp_dir.path().join("test.db");
 		let key_manager = Arc::new(
 			KeyManager::new_with_fallback(
 				temp_dir.path().to_path_buf(),
@@ -291,9 +357,14 @@ mod tests {
 			)
 			.unwrap(),
 		);
-		let manager = CloudCredentialManager::new(key_manager);
+
+		// Create database
+		let db = Arc::new(Database::create(&db_path).await.unwrap());
+		db.migrate().await.unwrap();
 
 		let library_id = Uuid::new_v4();
+		let manager = CloudCredentialManager::new(key_manager, db, library_id);
+
 		let volume_fp = "test-volume-fingerprint";
 
 		// Create test credential
@@ -332,8 +403,17 @@ mod tests {
 			_ => panic!("Credential type mismatch"),
 		}
 
+		// List credentials
+		let credentials = manager.list_credentials().await.unwrap();
+		assert_eq!(credentials.len(), 1);
+		assert_eq!(credentials[0], volume_fp);
+
 		// Cleanup
 		manager.delete_credential(library_id, volume_fp).unwrap();
+
+		// Verify deleted
+		let result = manager.get_credential(library_id, volume_fp).await;
+		assert!(result.is_err());
 	}
 
 	#[test]

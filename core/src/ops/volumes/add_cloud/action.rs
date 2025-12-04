@@ -389,7 +389,11 @@ impl LibraryAction for VolumeAddCloudAction {
 			error_message: None,
 		};
 
-		let credential_manager = CloudCredentialManager::new(context.key_manager.clone());
+		let credential_manager = CloudCredentialManager::new(
+			context.key_manager.clone(),
+			library.db().clone(),
+			library_id,
+		);
 		credential_manager
 			.store_credential(library_id, &fingerprint.0, &credential)
 			.await
@@ -397,7 +401,7 @@ impl LibraryAction for VolumeAddCloudAction {
 				ActionError::InvalidInput(format!("Failed to store credentials: {}", e))
 			})?;
 
-		tracing::info!("Successfully stored credentials for cloud volume {} in keyring (library: {}, fingerprint: {})",
+		tracing::info!("Successfully stored credentials for cloud volume {} in database (library: {}, fingerprint: {})",
 			self.input.display_name, library_id, fingerprint.0);
 
 		// Register the cloud volume with the volume manager so it can be tracked

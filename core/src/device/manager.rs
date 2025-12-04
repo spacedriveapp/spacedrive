@@ -1,6 +1,7 @@
 //! Device manager for handling device lifecycle
 
 use super::config::DeviceConfig;
+use crate::crypto::key_manager::KeyManager;
 use crate::domain::device::{Device, OperatingSystem};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -37,8 +38,8 @@ pub enum DeviceError {
 pub struct DeviceManager {
 	/// Current device configuration
 	config: Arc<RwLock<DeviceConfig>>,
-	/// Device master key (cached)
-	device_key: Arc<RwLock<[u8; 32]>>,
+	/// Key manager for device encryption key
+	key_manager: Arc<KeyManager>,
 	/// Custom data directory (if any)
 	data_dir: Option<PathBuf>,
 	/// Pre-library cache: Paired devices from DeviceRegistry (slug -> device_id)
@@ -47,13 +48,12 @@ pub struct DeviceManager {
 }
 
 impl DeviceManager {
-	// Simple new function for testing
-	pub fn new() -> Result<Self, DeviceError> {
-		let data_dir = PathBuf::new();
-		return Self::init(&data_dir, None);
-	}
 	/// Initialize the device manager with a custom data directory and optional device name
-	pub fn init(data_dir: &PathBuf, device_name: Option<String>) -> Result<Self, DeviceError> {
+	pub fn init(
+		data_dir: &PathBuf,
+		key_manager: Arc<KeyManager>,
+		device_name: Option<String>,
+	) -> Result<Self, DeviceError> {
 		let mut config = match DeviceConfig::load_from(data_dir) {
 			Ok(mut config) => {
 				// For existing configs, detect and populate missing fields
@@ -101,13 +101,9 @@ impl DeviceManager {
 			}
 		}
 
-		// Load or create device key from fallback file
-		let master_key_path = data_dir.join("master_key");
-		let device_key = load_or_create_device_key(&master_key_path)?;
-
 		Ok(Self {
 			config: Arc::new(RwLock::new(config)),
-			device_key: Arc::new(RwLock::new(device_key)),
+			key_manager,
 			data_dir: Some(data_dir.clone()),
 			paired_device_cache: Arc::new(RwLock::new(HashMap::new())),
 		})
@@ -321,56 +317,19 @@ impl DeviceManager {
 		Ok(())
 	}
 
-	/// Get the master encryption key
-	pub fn master_key(&self) -> Result<[u8; 32], DeviceError> {
-		self.device_key
-			.read()
-			.map(|k| *k)
-			.map_err(|_| DeviceError::LockPoisoned)
+	/// Get the master encryption key from KeyManager
+	pub async fn master_key(&self) -> Result<[u8; 32], DeviceError> {
+		self.key_manager
+			.get_device_key()
+			.await
+			.map_err(|e| DeviceError::MasterKey(e.to_string()))
 	}
 
 	/// Get the master encryption key as hex string
-	pub fn master_key_hex(&self) -> Result<String, DeviceError> {
-		let key = self.master_key()?;
+	pub async fn master_key_hex(&self) -> Result<String, DeviceError> {
+		let key = self.master_key().await?;
 		Ok(hex::encode(key))
 	}
-
-	/// Regenerate the master encryption key (dangerous operation)
-	pub fn regenerate_device_key(&self) -> Result<[u8; 32], DeviceError> {
-		use rand::RngCore;
-		let mut new_key = [0u8; 32];
-		rand::thread_rng().fill_bytes(&mut new_key);
-
-		if let Ok(mut key) = self.device_key.write() {
-			*key = new_key;
-		}
-
-		Ok(new_key)
-	}
-}
-
-/// Load device key from file, or create a new one
-fn load_or_create_device_key(path: &PathBuf) -> Result<[u8; 32], DeviceError> {
-	use rand::RngCore;
-
-	// Try to load from file
-	if path.exists() {
-		let data = std::fs::read(path)?;
-		if data.len() == 32 {
-			let mut key = [0u8; 32];
-			key.copy_from_slice(&data);
-			return Ok(key);
-		}
-	}
-
-	// Create new key
-	let mut key = [0u8; 32];
-	rand::thread_rng().fill_bytes(&mut key);
-
-	// Save to file
-	std::fs::write(path, &key)?;
-
-	Ok(key)
 }
 
 /// Get the device name from the system

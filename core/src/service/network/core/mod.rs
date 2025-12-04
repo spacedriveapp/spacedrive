@@ -124,6 +124,7 @@ impl NetworkingService {
 		// Generate network identity from master key
 		let device_key = device_manager
 			.master_key()
+			.await
 			.map_err(|e| NetworkingError::Protocol(format!("Failed to get device key: {}", e)))?;
 		let identity = NetworkIdentity::from_device_key(&device_key).await?;
 
@@ -139,9 +140,9 @@ impl NetworkingService {
 		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
 		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(
 			device_manager,
-			data_dir,
+			key_manager,
 			logger.clone(),
-		)?));
+		)));
 
 		// Create sync multiplexer for multi-library sync routing
 		let sync_multiplexer = Arc::new(SyncMultiplexer::new(device_registry.clone()));

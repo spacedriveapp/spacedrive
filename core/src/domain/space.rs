@@ -254,6 +254,10 @@ impl Identifiable for SpaceItem {
 	fn resource_type() -> &'static str {
 		"space_item"
 	}
+
+	fn no_merge_fields() -> &'static [&'static str] {
+		&["resolved_file"]
+	}
 }
 
 /// Types of items that can appear in a group
