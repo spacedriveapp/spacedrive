@@ -814,7 +814,18 @@ async fn check_daemon_installed() -> Result<bool, String> {
 		Ok(service_path.exists())
 	}
 
-	#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+	#[cfg(target_os = "windows")]
+	{
+		// On Windows, check if scheduled task exists
+		let output = std::process::Command::new("schtasks")
+			.args(&["/Query", "/TN", "SpacedriveDaemon", "/FO", "LIST"])
+			.output()
+			.map_err(|e| format!("Failed to query scheduled task: {}", e))?;
+
+		Ok(output.status.success())
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 	{
 		Ok(false)
 	}
@@ -1072,7 +1083,161 @@ WantedBy=default.target
 		Ok(())
 	}
 
-	#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+	#[cfg(target_os = "windows")]
+	{
+		use std::io::Write;
+
+		tracing::info!("Installing daemon as Windows scheduled task");
+
+		// Stop any existing daemon child process first
+		{
+			let mut state = daemon_state.write().await;
+			if let Some(process_arc) = state.daemon_process.take() {
+				tracing::info!("Stopping existing daemon child process");
+				let mut process_lock = process_arc.lock().await;
+				if let Some(mut child) = process_lock.take() {
+					let _ = child.kill();
+				}
+			}
+		}
+
+		// Emit starting event since installation starts the daemon
+		let _ = app.emit("daemon-starting", ());
+		tracing::info!("Emitted daemon-starting event");
+
+		let daemon_path = std::env::current_exe()
+			.map_err(|e| format!("Failed to get current exe: {}", e))?
+			.parent()
+			.ok_or_else(|| "Could not determine binary directory".to_string())?
+			.join("sd-daemon.exe");
+
+		if !daemon_path.exists() {
+			return Err(format!("Daemon binary not found at {}", daemon_path.display()));
+		}
+
+		// Delete existing task if it exists
+		let _ = std::process::Command::new("schtasks")
+			.args(&["/Delete", "/TN", "SpacedriveDaemon", "/F"])
+			.output();
+
+		// Create XML for scheduled task
+		let task_xml = format!(
+			r#"<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Spacedrive Daemon Background Service</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions>
+    <Exec>
+      <Command>{}</Command>
+      <Arguments>--data-dir "{}"</Arguments>
+    </Exec>
+  </Actions>
+</Task>"#,
+			daemon_path.display(),
+			data_dir.display()
+		);
+
+		// Write XML to temp file
+		let temp_dir = std::env::temp_dir();
+		let xml_path = temp_dir.join("spacedrive-task.xml");
+		let mut file = std::fs::File::create(&xml_path)
+			.map_err(|e| format!("Failed to create task XML: {}", e))?;
+		file.write_all(task_xml.as_bytes())
+			.map_err(|e| format!("Failed to write task XML: {}", e))?;
+		drop(file);
+
+		// Create the scheduled task
+		let output = std::process::Command::new("schtasks")
+			.args(&[
+				"/Create",
+				"/TN",
+				"SpacedriveDaemon",
+				"/XML",
+				xml_path.to_str().unwrap(),
+			])
+			.output()
+			.map_err(|e| format!("Failed to create scheduled task: {}", e))?;
+
+		// Clean up temp file
+		let _ = std::fs::remove_file(&xml_path);
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			tracing::error!("schtasks create failed: {:?}", stderr);
+			return Err(format!("Failed to create scheduled task: {}", stderr));
+		}
+
+		// Start the task
+		let output = std::process::Command::new("schtasks")
+			.args(&["/Run", "/TN", "SpacedriveDaemon"])
+			.output()
+			.map_err(|e| format!("Failed to start scheduled task: {}", e))?;
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			tracing::error!("schtasks run failed: {:?}", stderr);
+			return Err(format!("Failed to start daemon task: {}", stderr));
+		}
+
+		// Update daemon state - we no longer own the process
+		let mut state = daemon_state.write().await;
+		state.started_by_us = false;
+		state.daemon_process = None;
+		tracing::info!("Updated daemon state: started_by_us = false");
+		drop(state);
+
+		// Reset connection pool so it can reconnect to the service-managed daemon
+		tracing::info!("Resetting connection pool to reconnect to service daemon");
+		app_state.connection_pool.reset().await;
+
+		// Wait for daemon to start and become available
+		tracing::info!("Waiting for daemon to become available...");
+		for i in 0..30 {
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+			if is_daemon_running(&socket_addr).await {
+				tracing::info!("Daemon is running after {} attempts", i + 1);
+				break;
+			}
+			if i == 29 {
+				return Err("Daemon failed to start after installing service".to_string());
+			}
+		}
+
+		// Trigger reconnection
+		tracing::info!("Triggering reconnection");
+		app_state.connection_pool.ensure_connected(&app).await?;
+
+		Ok(())
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 	{
 		Err("Service installation not supported on this platform".to_string())
 	}
@@ -1125,7 +1290,32 @@ async fn uninstall_daemon_service() -> Result<(), String> {
 		Ok(())
 	}
 
-	#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+	#[cfg(target_os = "windows")]
+	{
+		// Stop the task first
+		let _ = std::process::Command::new("schtasks")
+			.args(&["/End", "/TN", "SpacedriveDaemon"])
+			.output();
+
+		// Delete the scheduled task
+		let output = std::process::Command::new("schtasks")
+			.args(&["/Delete", "/TN", "SpacedriveDaemon", "/F"])
+			.output()
+			.map_err(|e| format!("Failed to delete scheduled task: {}", e))?;
+
+		// It's okay if the task doesn't exist
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			// Task not found is okay, other errors should be reported
+			if !stderr.contains("cannot find") && !stderr.is_empty() {
+				tracing::warn!("schtasks delete warning: {:?}", stderr);
+			}
+		}
+
+		Ok(())
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 	{
 		Err("Service installation not supported on this platform".to_string())
 	}
