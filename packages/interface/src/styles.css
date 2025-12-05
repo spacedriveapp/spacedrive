@@ -21,6 +21,9 @@
 	--color-app-overlay: 235, 15%, 16%;
 	--color-app-line: 235, 15%, 23%;
 	--color-app-frame: 235, 15%, 25%;
+	--color-app-button: 235, 15%, 20%;
+	--color-app-hover: 235, 15%, 22%;
+	--color-app-selected: 235, 15%, 24%;
 
 	/* Accent color */
 	--color-accent: 220, 90%, 56%;

@@ -156,6 +156,20 @@ export const platform: Platform = {
 		await invoke("stop_daemon_process");
 	},
 
+	async onDaemonConnected(callback: () => void) {
+		const unlisten = await listen("daemon-connected", () => {
+			callback();
+		});
+		return unlisten;
+	},
+
+	async onDaemonDisconnected(callback: () => void) {
+		const unlisten = await listen("daemon-disconnected", () => {
+			callback();
+		});
+		return unlisten;
+	},
+
 	async openMacOSSettings() {
 		await invoke("open_macos_settings");
 	},

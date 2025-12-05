@@ -127,6 +127,9 @@ impl DaemonConnectionPool {
 
 		*self.writer.lock().await = Some(writer);
 
+		// Emit connection event
+		let _ = app.emit("daemon-connected", ());
+
 		// Spawn persistent reader task that broadcasts to all listeners
 		let app_clone = app.clone();
 		tokio::spawn(async move {
@@ -138,6 +141,7 @@ impl DaemonConnectionPool {
 				match reader.read_line(&mut buffer).await {
 					Ok(0) => {
 						tracing::warn!("Daemon connection closed");
+						let _ = app_clone.emit("daemon-disconnected", ());
 						break;
 					}
 					Ok(_) => {
@@ -160,6 +164,7 @@ impl DaemonConnectionPool {
 					}
 					Err(e) => {
 						tracing::error!("Failed to read from daemon: {}", e);
+						let _ = app_clone.emit("daemon-disconnected", ());
 						break;
 					}
 				}

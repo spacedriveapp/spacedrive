@@ -99,6 +99,12 @@ export type Platform = {
 	/** Stop daemon process (Tauri only) */
 	stopDaemonProcess?(): Promise<void>;
 
+	/** Listen for daemon connection events (Tauri only) */
+	onDaemonConnected?(callback: () => void): Promise<() => void>;
+
+	/** Listen for daemon disconnection events (Tauri only) */
+	onDaemonDisconnected?(callback: () => void): Promise<() => void>;
+
 	/** Open macOS system settings (Tauri/macOS only) */
 	openMacOSSettings?(): Promise<void>;
 

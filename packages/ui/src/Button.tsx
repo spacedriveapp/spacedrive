@@ -56,7 +56,7 @@ export const buttonStyles = cva(
           `rounded border border-dashed border-sidebar-line/70 text-center text-xs font-medium text-ink-faint transition hover:border-sidebar-line hover:bg-sidebar-selected/5`,
         ],
         gray: [
-          "bg-app-button hover:bg-app-hover focus:bg-app-selected",
+          "bg-app-button hover:bg-app-hover focus:bg-app-selected text-white",
           "border border-app-line/80 hover:border-app-line focus:ring-1 focus:ring-accent",
         ],
         accent: [

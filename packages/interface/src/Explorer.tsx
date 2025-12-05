@@ -37,6 +37,7 @@ import type { CollisionDetection } from "@dnd-kit/core";
 import { useState } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
+import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
 
 interface AppProps {
   client: SpacedriveClient;
@@ -378,6 +379,7 @@ export function Explorer({ client }: AppProps) {
           </SelectionProvider>
         </TopBarProvider>
       </DndWrapper>
+      <DaemonDisconnectedOverlay />
       <Dialogs />
       <ReactQueryDevtools initialIsOpen={false} />
     </SpacedriveProvider>
