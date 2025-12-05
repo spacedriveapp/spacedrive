@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
 import { useLibraryQuery } from "../../client";
 import { HeroStats, StorageOverview } from "./components";
+import { PairingPanel } from "../../components/PairingPanel";
 
 export function OverviewScreen() {
 	const insets = useSafeAreaInsets();
 	const navigation = useNavigation();
+	const [showPairing, setShowPairing] = useState(false);
 
 	// Fetch library info with statistics
 	const {
@@ -40,7 +42,12 @@ export function OverviewScreen() {
 					<Text className="text-xl font-bold text-ink">
 						{libraryInfo?.name || "Loading..."}
 					</Text>
-					<View className="w-10" />
+					<Pressable
+						onPress={() => setShowPairing(true)}
+						className="p-2 -mr-2 active:bg-app-hover rounded-lg"
+					>
+						<Text className="text-accent text-xl">◊</Text>
+					</Pressable>
 				</View>
 
 				<View className="items-center justify-center py-12">
@@ -70,7 +77,12 @@ export function OverviewScreen() {
 						<View className="w-6 h-0.5 bg-ink" />
 					</Pressable>
 					<Text className="text-xl font-bold text-ink">Overview</Text>
-					<View className="w-10" />
+					<Pressable
+						onPress={() => setShowPairing(true)}
+						className="p-2 -mr-2 active:bg-app-hover rounded-lg"
+					>
+						<Text className="text-accent text-xl">◊</Text>
+					</Pressable>
 				</View>
 
 				<View className="items-center justify-center py-12">
@@ -104,7 +116,12 @@ export function OverviewScreen() {
 				<Text className="text-xl font-bold text-ink">
 					{libraryInfo.name}
 				</Text>
-				<View className="w-10" />
+				<Pressable
+					onPress={() => setShowPairing(true)}
+					className="p-2 -mr-2 active:bg-app-hover rounded-lg"
+				>
+					<Text className="text-accent text-xl">◊</Text>
+				</Pressable>
 			</View>
 
 			{/* Hero Stats */}
@@ -120,6 +137,12 @@ export function OverviewScreen() {
 
 			{/* Storage Volumes */}
 			<StorageOverview />
+
+			{/* Pairing Panel */}
+			<PairingPanel
+				isOpen={showPairing}
+				onClose={() => setShowPairing(false)}
+			/>
 		</ScrollView>
 	);
 }

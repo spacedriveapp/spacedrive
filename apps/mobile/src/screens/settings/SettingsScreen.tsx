@@ -1,12 +1,26 @@
 import React, { useState } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Card, Divider, Button, Input, Switch } from "../../components/primitive";
+import {
+	Card,
+	Divider,
+	Button,
+	Input,
+	Switch,
+	SettingsGroup,
+	SettingsLink,
+	SettingsToggle,
+	SettingsOption,
+	SettingsSlider,
+} from "../../components/primitive";
 
 export function SettingsScreen() {
 	const insets = useSafeAreaInsets();
 	const [switchValue, setSwitchValue] = useState(false);
 	const [inputValue, setInputValue] = useState("");
+	const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+	const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+	const [sliderValue, setSliderValue] = useState(50);
 
 	return (
 		<ScrollView
@@ -554,6 +568,69 @@ export function SettingsScreen() {
 						</Text>
 					</Pressable>
 				</View>
+			</View>
+
+			{/* Settings Primitives Section */}
+			<View className="mb-6">
+				<Text className="text-ink font-semibold mb-3">
+					iOS Settings Style
+				</Text>
+
+				<SettingsGroup header="Account">
+					<SettingsLink
+						icon={<View className="w-6 h-6 bg-accent rounded-full" />}
+						label="Profile"
+						description="View and edit your profile"
+						onPress={() => console.log("Profile")}
+					/>
+					<SettingsLink
+						icon={<View className="w-6 h-6 bg-green-500 rounded-full" />}
+						label="Security"
+						onPress={() => console.log("Security")}
+					/>
+					<SettingsToggle
+						icon={<View className="w-6 h-6 bg-orange-500 rounded-full" />}
+						label="Notifications"
+						description="Push notifications for this library"
+						value={notificationsEnabled}
+						onValueChange={setNotificationsEnabled}
+					/>
+				</SettingsGroup>
+
+				<SettingsGroup
+					header="Appearance"
+					footer="Dark mode will be applied across all libraries"
+				>
+					<SettingsToggle
+						icon={<View className="w-6 h-6 bg-purple-500 rounded-full" />}
+						label="Dark Mode"
+						value={darkModeEnabled}
+						onValueChange={setDarkModeEnabled}
+					/>
+					<SettingsOption
+						icon={<View className="w-6 h-6 bg-blue-500 rounded-full" />}
+						label="Theme"
+						value="System"
+						onPress={() => console.log("Theme picker")}
+					/>
+				</SettingsGroup>
+
+				<SettingsGroup header="Storage">
+					<SettingsSlider
+						icon={<View className="w-6 h-6 bg-red-500 rounded-full" />}
+						label="Cache Size"
+						description="Maximum cache size in GB"
+						value={sliderValue}
+						minimumValue={10}
+						maximumValue={100}
+						onValueChange={setSliderValue}
+					/>
+					<SettingsLink
+						icon={<View className="w-6 h-6 bg-yellow-500 rounded-full" />}
+						label="Clear Cache"
+						onPress={() => console.log("Clear cache")}
+					/>
+				</SettingsGroup>
 			</View>
 
 			{/* Footer */}

@@ -1,5 +1,6 @@
 import { SDMobileCore } from "sd-mobile-core";
 import { ReactNativeTransport } from "./transport";
+import { WIRE_METHODS } from "@sd/ts-client";
 
 /**
  * Spacedrive client for React Native.
@@ -57,7 +58,11 @@ export class SpacedriveClient {
 		method: string,
 		input: unknown = {},
 	): Promise<T> {
-		return this.transport.request<T>(`query:${method}`, { input });
+		const wireMethod = (WIRE_METHODS.coreQueries as any)[method];
+		if (!wireMethod) {
+			throw new Error(`Unknown core query: ${method}`);
+		}
+		return this.transport.request<T>(wireMethod, { input });
 	}
 
 	/**
@@ -71,7 +76,12 @@ export class SpacedriveClient {
 			throw new Error("No library selected");
 		}
 
-		return this.transport.request<T>(`query:${method}`, {
+		const wireMethod = (WIRE_METHODS.libraryQueries as any)[method];
+		if (!wireMethod) {
+			throw new Error(`Unknown library query: ${method}`);
+		}
+
+		return this.transport.request<T>(wireMethod, {
 			input,
 			library_id: this.currentLibraryId,
 		});
@@ -84,7 +94,11 @@ export class SpacedriveClient {
 		method: string,
 		input: unknown = {},
 	): Promise<T> {
-		return this.transport.request<T>(`action:${method}`, { input });
+		const wireMethod = (WIRE_METHODS.coreActions as any)[method];
+		if (!wireMethod) {
+			throw new Error(`Unknown core action: ${method}`);
+		}
+		return this.transport.request<T>(wireMethod, { input });
 	}
 
 	/**
@@ -98,7 +112,12 @@ export class SpacedriveClient {
 			throw new Error("No library selected");
 		}
 
-		return this.transport.request<T>(`action:${method}`, {
+		const wireMethod = (WIRE_METHODS.libraryActions as any)[method];
+		if (!wireMethod) {
+			throw new Error(`Unknown library action: ${method}`);
+		}
+
+		return this.transport.request<T>(wireMethod, {
 			input,
 			library_id: this.currentLibraryId,
 		});

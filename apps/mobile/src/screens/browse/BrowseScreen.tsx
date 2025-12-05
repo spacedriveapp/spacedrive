@@ -131,8 +131,9 @@ export function BrowseScreen() {
 
 	// Fetch data using queries
 	const { data: locations } = useLibraryQuery("locations.list");
-	const { data: tags } = useLibraryQuery("tags.list");
-	const { data: spaces } = useCoreQuery("spaces.list");
+	// TODO: Re-enable when backend supports these queries
+	// const { data: tags } = useLibraryQuery("tags.list");
+	const { data: spaces } = useLibraryQuery("spaces.list", {});
 
 	// Mock current space (first space if available)
 	const currentSpace = spaces && spaces.length > 0 ? spaces[0] : undefined;
@@ -195,22 +196,11 @@ export function BrowseScreen() {
 
 			{/* Tags */}
 			<CollapsibleGroup title="Tags">
-				{tags && Array.isArray(tags) && tags.length > 0 ? (
-					tags.map((tag: any) => (
-						<SidebarItem
-							key={tag.id}
-							icon=""
-							label={tag.name || "Unnamed"}
-							color={tag.color || "hsl(235, 15%, 18%)"}
-						/>
-					))
-				) : (
-					<View className="px-2 py-3">
-						<Text className="text-ink-dull text-sm">
-							No tags created
-						</Text>
-					</View>
-				)}
+				<View className="px-2 py-3">
+					<Text className="text-ink-dull text-sm">
+						No tags created
+					</Text>
+				</View>
 			</CollapsibleGroup>
 
 			{/* Bottom Section */}

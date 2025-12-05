@@ -64,11 +64,41 @@ export function SpacedriveProvider({
 
 				// Load persisted library ID from storage
 				const storedData = await AsyncStorage.getItem("spacedrive-sidebar");
+				let libraryIdSet = false;
+
 				if (storedData) {
 					const parsed = JSON.parse(storedData);
 					if (parsed.state?.currentLibraryId) {
 						console.log("[SpacedriveProvider] Restoring library ID:", parsed.state.currentLibraryId);
 						client.setCurrentLibrary(parsed.state.currentLibraryId);
+						libraryIdSet = true;
+					}
+				}
+
+				// If no library ID was restored, try to auto-select the first library
+				if (!libraryIdSet) {
+					try {
+						const libraries = await client.coreQuery("libraries.list", { include_stats: false });
+						if (libraries && Array.isArray(libraries) && libraries.length > 0) {
+							const firstLibrary = libraries[0];
+							console.log("[SpacedriveProvider] Auto-selecting first library:", firstLibrary.name, firstLibrary.id);
+							client.setCurrentLibrary(firstLibrary.id);
+
+							// Also save to AsyncStorage for next time
+							await AsyncStorage.setItem(
+								"spacedrive-sidebar",
+								JSON.stringify({
+									state: {
+										currentLibraryId: firstLibrary.id,
+										collapsedGroups: [],
+									},
+								})
+							);
+						} else {
+							console.warn("[SpacedriveProvider] No libraries available to auto-select");
+						}
+					} catch (error) {
+						console.error("[SpacedriveProvider] Failed to auto-select library:", error);
 					}
 				}
 

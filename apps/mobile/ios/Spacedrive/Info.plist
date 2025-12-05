@@ -59,6 +59,8 @@
     <array>
       <string>arm64</string>
     </array>
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is required to scan QR codes for device pairing</string>
     <key>UIRequiresFullScreen</key>
     <false/>
     <key>UIStatusBarStyle</key>

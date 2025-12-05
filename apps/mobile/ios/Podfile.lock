@@ -202,6 +202,10 @@ PODS:
     - Yoga
   - ExpoAsset (12.0.10):
     - ExpoModulesCore
+  - ExpoCamera (17.0.10):
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
   - ExpoDocumentPicker (14.0.7):
     - ExpoModulesCore
   - ExpoFileSystem (19.0.19):
@@ -253,16 +257,8 @@ PODS:
     - ExpoModulesCore
   - FBLazyVector (0.81.5)
   - hermes-engine (0.81.5):
-    - hermes-engine/cdp (= 0.81.5)
-    - hermes-engine/Hermes (= 0.81.5)
-    - hermes-engine/inspector (= 0.81.5)
-    - hermes-engine/inspector_chrome (= 0.81.5)
-    - hermes-engine/Public (= 0.81.5)
-  - hermes-engine/cdp (0.81.5)
-  - hermes-engine/Hermes (0.81.5)
-  - hermes-engine/inspector (0.81.5)
-  - hermes-engine/inspector_chrome (0.81.5)
-  - hermes-engine/Public (0.81.5)
+    - hermes-engine/Pre-built (= 0.81.5)
+  - hermes-engine/Pre-built (0.81.5)
   - libavif/core (0.11.1)
   - libavif/libdav1d (0.11.1):
     - libavif/core
@@ -1628,6 +1624,51 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-slider (5.1.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-slider/common (= 5.1.1)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-slider/common (5.1.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - React-NativeModulesApple (0.81.5):
     - hermes-engine
     - React-callinvoker
@@ -2000,6 +2041,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNCClipboard (1.5.1):
+    - React-Core
   - RNGestureHandler (2.28.0):
     - hermes-engine
     - RCTRequired
@@ -2273,6 +2316,11 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
   - Yoga (0.0.0)
+  - ZXingObjC/Core (3.6.9)
+  - ZXingObjC/OneD (3.6.9):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.9):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - "EXConstants (from `../../../node_modules/.bun/expo-constants@18.0.10+51e9e2dc80cf693a/node_modules/expo-constants/ios`)"
@@ -2284,6 +2332,7 @@ DEPENDENCIES:
   - "expo-dev-menu (from `../../../node_modules/.bun/expo-dev-menu@7.0.18+51e9e2dc80cf693a/node_modules/expo-dev-menu`)"
   - "expo-dev-menu-interface (from `../../../node_modules/.bun/expo-dev-menu-interface@2.0.0+51e9e2dc80cf693a/node_modules/expo-dev-menu-interface/ios`)"
   - "ExpoAsset (from `../../../node_modules/.bun/expo-asset@12.0.10+51e9e2dc80cf693a/node_modules/expo-asset/ios`)"
+  - "ExpoCamera (from `../../../node_modules/.bun/expo-camera@17.0.10+51e9e2dc80cf693a/node_modules/expo-camera/ios`)"
   - "ExpoDocumentPicker (from `../../../node_modules/.bun/expo-document-picker@14.0.7+51e9e2dc80cf693a/node_modules/expo-document-picker/ios`)"
   - "ExpoFileSystem (from `../../../node_modules/.bun/expo-file-system@19.0.19+51e9e2dc80cf693a/node_modules/expo-file-system/ios`)"
   - "ExpoFont (from `../../../node_modules/.bun/expo-font@14.0.9+83575243b667459d/node_modules/expo-font/ios`)"
@@ -2332,6 +2381,7 @@ DEPENDENCIES:
   - "React-Mapbuffer (from `../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon`)"
   - "React-microtasksnativemodule (from `../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
   - "react-native-safe-area-context (from `../../../node_modules/.bun/react-native-safe-area-context@5.6.2+87dd5a4c738f4c73/node_modules/react-native-safe-area-context`)"
+  - "react-native-slider (from `../../../node_modules/.bun/@react-native-community+slider@5.1.1/node_modules/@react-native-community/slider`)"
   - "React-NativeModulesApple (from `../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
   - "React-oscompat (from `../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon/oscompat`)"
   - "React-perflogger (from `../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon/reactperflogger`)"
@@ -2364,6 +2414,7 @@ DEPENDENCIES:
   - "ReactCommon/turbomodule/core (from `../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon`)"
   - "ReactNativeDependencies (from `../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)"
   - "RNCAsyncStorage (from `../../../node_modules/.bun/@react-native-async-storage+async-storage@2.2.0+87dd5a4c738f4c73/node_modules/@react-native-async-storage/async-storage`)"
+  - "RNCClipboard (from `../../../node_modules/.bun/@react-native-community+clipboard@1.5.1+87dd5a4c738f4c73/node_modules/@react-native-community/clipboard`)"
   - "RNGestureHandler (from `../../../node_modules/.bun/react-native-gesture-handler@2.28.0+87dd5a4c738f4c73/node_modules/react-native-gesture-handler`)"
   - "RNReanimated (from `../../../node_modules/.bun/react-native-reanimated@4.1.6+d983531a34c8e10a/node_modules/react-native-reanimated`)"
   - "RNScreens (from `../../../node_modules/.bun/react-native-screens@4.16.0+87dd5a4c738f4c73/node_modules/react-native-screens`)"
@@ -2381,6 +2432,7 @@ SPEC REPOS:
     - SDWebImageAVIFCoder
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   EXConstants:
@@ -2401,6 +2453,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/expo-dev-menu-interface@2.0.0+51e9e2dc80cf693a/node_modules/expo-dev-menu-interface/ios"
   ExpoAsset:
     :path: "../../../node_modules/.bun/expo-asset@12.0.10+51e9e2dc80cf693a/node_modules/expo-asset/ios"
+  ExpoCamera:
+    :path: "../../../node_modules/.bun/expo-camera@17.0.10+51e9e2dc80cf693a/node_modules/expo-camera/ios"
   ExpoDocumentPicker:
     :path: "../../../node_modules/.bun/expo-document-picker@14.0.7+51e9e2dc80cf693a/node_modules/expo-document-picker/ios"
   ExpoFileSystem:
@@ -2496,6 +2550,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-safe-area-context:
     :path: "../../../node_modules/.bun/react-native-safe-area-context@5.6.2+87dd5a4c738f4c73/node_modules/react-native-safe-area-context"
+  react-native-slider:
+    :path: "../../../node_modules/.bun/@react-native-community+slider@5.1.1/node_modules/@react-native-community/slider"
   React-NativeModulesApple:
     :path: "../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-oscompat:
@@ -2560,6 +2616,8 @@ EXTERNAL SOURCES:
     :podspec: "../../../node_modules/.bun/react-native@0.81.5+87dd5a4c738f4c73/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNCAsyncStorage:
     :path: "../../../node_modules/.bun/@react-native-async-storage+async-storage@2.2.0+87dd5a4c738f4c73/node_modules/@react-native-async-storage/async-storage"
+  RNCClipboard:
+    :path: "../../../node_modules/.bun/@react-native-community+clipboard@1.5.1+87dd5a4c738f4c73/node_modules/@react-native-community/clipboard"
   RNGestureHandler:
     :path: "../../../node_modules/.bun/react-native-gesture-handler@2.28.0+87dd5a4c738f4c73/node_modules/react-native-gesture-handler"
   RNReanimated:
@@ -2585,6 +2643,7 @@ SPEC CHECKSUMS:
   expo-dev-menu: 05b18812110c175814c6af0d09dd658abcc5e00d
   expo-dev-menu-interface: 600df12ea01efecdd822daaf13cc0ac091775533
   ExpoAsset: d839c8eae8124470332408427327e8f88beb2dfd
+  ExpoCamera: 6a326deb45ba840749652e4c15198317aa78497e
   ExpoDocumentPicker: 2200eefc2817f19315fa18f0147e0b80ece86926
   ExpoFileSystem: 77157a101e03150a4ea4f854b4dd44883c93ae0a
   ExpoFont: cf9d90ec1d3b97c4f513211905724c8171f82961
@@ -2597,7 +2656,7 @@ SPEC CHECKSUMS:
   ExpoSplashScreen: 268b2f128dc04284c21010540a6c4dd9f95003e3
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
-  hermes-engine: 426174e6c8b9442b8afa05a4c392319ec5b71baa
+  hermes-engine: 9f4dfe93326146a1c99eb535b1cb0b857a3cd172
   libavif: 84bbb62fb232c3018d6f1bab79beea87e35de7b7
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -2635,6 +2694,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 9050ee10c19f4f7fca8963d0211b2854d624973e
   React-microtasksnativemodule: f775db9e991c6f3b8ccbc02bfcde22770f96e23b
   react-native-safe-area-context: 37e680fc4cace3c0030ee46e8987d24f5d3bdab2
+  react-native-slider: f954578344106f0a732a4358ce3a3e11015eb6e1
   React-NativeModulesApple: 8969913947d5b576de4ed371a939455a8daf28aa
   React-oscompat: ce47230ed20185e91de62d8c6d139ae61763d09c
   React-perflogger: 02b010e665772c7dcb859d85d44c1bfc5ac7c0e4
@@ -2667,6 +2727,7 @@ SPEC CHECKSUMS:
   ReactCommon: 08810150b1206cc44aecf5f6ae19af32f29151a8
   ReactNativeDependencies: 71ce9c28beb282aa720ea7b46980fff9669f428a
   RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
+  RNCClipboard: b0541df1bb88935d40bdc93b41b7d8e3334c998a
   RNGestureHandler: 2914750df066d89bf9d8f48a10ad5f0051108ac3
   RNReanimated: 83246804817326398f1506dd916bf6fe47fa6242
   RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
@@ -2678,6 +2739,7 @@ SPEC CHECKSUMS:
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   Yoga: 5934998fbeaef7845dbf698f698518695ab4cd1a
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: a05a9cbfd77a02f471a118db4de26d0f6c7eb79a
 
