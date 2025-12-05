@@ -481,3 +481,4 @@ whitepaper/*.log
 
 
 test_data
+:memory:

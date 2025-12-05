@@ -4,6 +4,7 @@ import { usePlatform } from '../platform';
 export interface DaemonStatus {
 	isConnected: boolean;
 	isChecking: boolean;
+	isInstalled: boolean;
 }
 
 export function useDaemonStatus() {
@@ -11,6 +12,7 @@ export function useDaemonStatus() {
 	const [status, setStatus] = useState<DaemonStatus>({
 		isConnected: true,
 		isChecking: false,
+		isInstalled: false,
 	});
 
 	useEffect(() => {
@@ -32,6 +34,7 @@ export function useDaemonStatus() {
 				if (mounted) {
 					const isRunning = daemonStatus?.is_running ?? false;
 					setStatus(prev => ({
+						...prev,
 						isConnected: isRunning,
 						// Only clear isChecking if we're connected (daemon started successfully)
 						isChecking: isRunning ? false : prev.isChecking,
@@ -56,11 +59,13 @@ export function useDaemonStatus() {
 
 		const setupListeners = async () => {
 			unlistenConnected = await platform.onDaemonConnected?.(() => {
+				console.log('[useDaemonStatus] daemon-connected event received');
 				if (mounted) {
-					setStatus({
+					setStatus(prev => ({
+						...prev,
 						isConnected: true,
 						isChecking: false,
-					});
+					}));
 
 					// Stop polling when connected
 					if (checkInterval) {
@@ -71,6 +76,7 @@ export function useDaemonStatus() {
 			});
 
 			unlistenDisconnected = await platform.onDaemonDisconnected?.(() => {
+				console.log('[useDaemonStatus] daemon-disconnected event received');
 				if (mounted) {
 					setStatus(prev => ({
 						...prev,
@@ -86,6 +92,7 @@ export function useDaemonStatus() {
 			});
 
 			unlistenStarting = await platform.onDaemonStarting?.(() => {
+				console.log('[useDaemonStatus] daemon-starting event received');
 				if (mounted) {
 					setStatus(prev => ({
 						...prev,
@@ -95,8 +102,25 @@ export function useDaemonStatus() {
 			});
 		};
 
-		// Initial check
+		// Check if daemon is installed as a service
+		const checkInstallation = async () => {
+			try {
+				const installed = await platform.checkDaemonInstalled?.();
+				console.log('[useDaemonStatus] checkInstallation result:', installed);
+				if (mounted) {
+					setStatus(prev => ({
+						...prev,
+						isInstalled: installed ?? false,
+					}));
+				}
+			} catch (error) {
+				console.error('[useDaemonStatus] Failed to check daemon installation:', error);
+			}
+		};
+
+		// Initial checks
 		checkDaemonStatus();
+		checkInstallation();
 
 		// Set up event listeners
 		setupListeners();
@@ -116,7 +140,7 @@ export function useDaemonStatus() {
 		};
 	}, [platform]);
 
-	const retryConnection = async () => {
+	const startDaemon = async () => {
 		try {
 			await platform.startDaemonProcess?.();
 		} catch (error) {
@@ -128,8 +152,28 @@ export function useDaemonStatus() {
 		}
 	};
 
+	const installAndStartDaemon = async () => {
+		console.log('[useDaemonStatus] installAndStartDaemon called');
+		try {
+			console.log('[useDaemonStatus] Calling platform.installDaemonService()');
+			await platform.installDaemonService?.();
+			console.log('[useDaemonStatus] installDaemonService completed, updating isInstalled state');
+			setStatus(prev => ({
+				...prev,
+				isInstalled: true,
+			}));
+		} catch (error) {
+			console.error('[useDaemonStatus] Failed to install daemon service:', error);
+			setStatus(prev => ({
+				...prev,
+				isChecking: false,
+			}));
+		}
+	};
+
 	return {
 		...status,
-		retryConnection,
+		startDaemon,
+		installAndStartDaemon,
 	};
 }

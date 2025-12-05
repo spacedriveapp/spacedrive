@@ -108,6 +108,15 @@ export type Platform = {
 	/** Listen for daemon starting events (Tauri only) */
 	onDaemonStarting?(callback: () => void): Promise<() => void>;
 
+	/** Check if daemon is installed as a service (Tauri only) */
+	checkDaemonInstalled?(): Promise<boolean>;
+
+	/** Install daemon as a service (Tauri only) */
+	installDaemonService?(): Promise<void>;
+
+	/** Uninstall daemon service (Tauri only) */
+	uninstallDaemonService?(): Promise<void>;
+
 	/** Open macOS system settings (Tauri/macOS only) */
 	openMacOSSettings?(): Promise<void>;
 

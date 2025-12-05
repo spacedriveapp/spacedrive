@@ -177,6 +177,18 @@ export const platform: Platform = {
 		return unlisten;
 	},
 
+	async checkDaemonInstalled() {
+		return await invoke<boolean>("check_daemon_installed");
+	},
+
+	async installDaemonService() {
+		await invoke("install_daemon_service");
+	},
+
+	async uninstallDaemonService() {
+		await invoke("uninstall_daemon_service");
+	},
+
 	async openMacOSSettings() {
 		await invoke("open_macos_settings");
 	},

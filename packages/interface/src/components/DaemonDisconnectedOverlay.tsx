@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy } from "@phosphor-icons/react";
 import { useDaemonStatus } from "../hooks/useDaemonStatus";
+import { usePlatform } from "../platform";
 import { Button } from "@sd/ui";
 import folderIcon from "@sd/assets/icons/FolderNoSpace.png";
 
@@ -36,9 +37,21 @@ export function DaemonDisconnectedOverlay({
 }: {
   forceShow?: boolean;
 }) {
-  const { isConnected, isChecking, retryConnection } = useDaemonStatus();
-  const [runInBackground, setRunInBackground] = useState(true);
+  const { isConnected, isChecking, isInstalled, startDaemon, installAndStartDaemon } = useDaemonStatus();
+  const [installAsService, setInstallAsService] = useState(isInstalled);
   const prevConnected = useRef(isConnected);
+  const platform = usePlatform();
+
+  // Update checkbox when installation state changes
+  useEffect(() => {
+    console.log('[DaemonDisconnectedOverlay] isInstalled changed to:', isInstalled);
+    setInstallAsService(isInstalled);
+  }, [isInstalled]);
+
+  // Log checkbox state changes
+  useEffect(() => {
+    console.log('[DaemonDisconnectedOverlay] installAsService checkbox state:', installAsService);
+  }, [installAsService]);
 
   // Reload when connection state changes from false to true
   useEffect(() => {
@@ -68,15 +81,32 @@ export function DaemonDisconnectedOverlay({
           transition={{ duration: 0.2 }}
           className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-lg bg-black/50"
         >
-          <div className="fixed right-4 top-4 flex items-center gap-2 rounded-full border border-app-line bg-app-box px-3 py-1.5 text-xs font-medium">
-            <div
-              className={`size-2 rounded-full ${
-                isConnected ? "bg-green-500" : "bg-red-500"
-              } animate-pulse`}
-            />
-            <span className="text-ink-dull">
-              {isConnected ? "Connected" : "Disconnected"}
-            </span>
+          <div className="fixed right-4 top-4 flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-full border border-app-line bg-app-box px-3 py-1.5 text-xs font-medium">
+              <div
+                className={`size-2 rounded-full ${
+                  isChecking
+                    ? "bg-yellow-500"
+                    : isConnected
+                    ? "bg-green-500"
+                    : "bg-red-500"
+                } animate-pulse`}
+              />
+              <span className="text-ink-dull">
+                {isChecking ? "Starting..." : isConnected ? "Connected" : "Disconnected"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-full border border-app-line bg-app-box px-3 py-1.5 text-xs font-medium">
+              <div
+                className={`size-2 rounded-full ${
+                  isInstalled ? "bg-blue-500" : "bg-gray-500"
+                }`}
+              />
+              <span className="text-ink-dull">
+                {isInstalled ? "Persistent" : "Temporary"}
+              </span>
+            </div>
           </div>
 
           <div className="flex max-w-4xl gap-8 rounded-lg border border-app-line p-8 shadow-2xl">
@@ -102,17 +132,26 @@ export function DaemonDisconnectedOverlay({
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
                   <input
                     type="checkbox"
-                    checked={runInBackground}
-                    onChange={(e) => setRunInBackground(e.target.checked)}
+                    checked={installAsService}
+                    onChange={async (e) => {
+                      const shouldInstall = e.target.checked;
+                      setInstallAsService(shouldInstall);
+
+                      if (shouldInstall) {
+                        await installAndStartDaemon();
+                      } else {
+                        await platform.uninstallDaemonService?.();
+                      }
+                    }}
                     className="size-4 cursor-pointer rounded border-app-line bg-app accent-accent"
                   />
-                  <span>Run daemon in background</span>
+                  <span>Install as persistent service</span>
                 </label>
 
                 <div className="flex items-center gap-2">
                   <Button variant="gray">Help</Button>
                   <Button
-                    onClick={retryConnection}
+                    onClick={startDaemon}
                     disabled={isChecking}
                     variant="accent"
                   >
