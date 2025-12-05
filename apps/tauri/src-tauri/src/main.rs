@@ -111,6 +111,7 @@ impl DaemonConnectionPool {
 		let mut initialized = self.initialized.lock().await;
 		*initialized = false;
 		*self.writer.lock().await = None;
+		self.subscriptions.write().await.clear();
 		tracing::info!("Connection pool reset");
 	}
 
@@ -928,7 +929,9 @@ async fn install_daemon_service(
 
 		tracing::info!("launchctl load output: {:?}", String::from_utf8_lossy(&output.stdout));
 		if !output.status.success() {
-			tracing::error!("launchctl load failed: {:?}", String::from_utf8_lossy(&output.stderr));
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			tracing::error!("launchctl load failed: {:?}", stderr);
+			return Err(format!("Failed to load daemon service: {}", stderr));
 		}
 
 		// Update daemon state - we no longer own the process
@@ -1008,20 +1011,35 @@ WantedBy=default.target
 			.map_err(|e| format!("Failed to write service file: {}", e))?;
 
 		// Enable and start the service
-		std::process::Command::new("systemctl")
+		let output = std::process::Command::new("systemctl")
 			.args(&["--user", "daemon-reload"])
 			.output()
 			.map_err(|e| format!("Failed to reload systemd: {}", e))?;
 
-		std::process::Command::new("systemctl")
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			return Err(format!("Failed to reload systemd: {}", stderr));
+		}
+
+		let output = std::process::Command::new("systemctl")
 			.args(&["--user", "enable", "spacedrive-daemon.service"])
 			.output()
 			.map_err(|e| format!("Failed to enable service: {}", e))?;
 
-		std::process::Command::new("systemctl")
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			return Err(format!("Failed to enable service: {}", stderr));
+		}
+
+		let output = std::process::Command::new("systemctl")
 			.args(&["--user", "start", "spacedrive-daemon.service"])
 			.output()
 			.map_err(|e| format!("Failed to start service: {}", e))?;
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			return Err(format!("Failed to start daemon service: {}", stderr));
+		}
 
 		// Update daemon state - we no longer own the process
 		let mut state = daemon_state.write().await;

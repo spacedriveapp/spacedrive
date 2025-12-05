@@ -152,7 +152,7 @@ export function useDaemonStatus() {
 		}
 	};
 
-	const installAndStartDaemon = async () => {
+	const installAndStartDaemon = async (): Promise<boolean> => {
 		console.log('[useDaemonStatus] installAndStartDaemon called');
 		try {
 			console.log('[useDaemonStatus] Calling platform.installDaemonService()');
@@ -162,12 +162,14 @@ export function useDaemonStatus() {
 				...prev,
 				isInstalled: true,
 			}));
+			return true;
 		} catch (error) {
 			console.error('[useDaemonStatus] Failed to install daemon service:', error);
 			setStatus(prev => ({
 				...prev,
 				isChecking: false,
 			}));
+			return false;
 		}
 	};
 

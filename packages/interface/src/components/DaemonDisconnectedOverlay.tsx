@@ -138,9 +138,17 @@ export function DaemonDisconnectedOverlay({
                       setInstallAsService(shouldInstall);
 
                       if (shouldInstall) {
-                        await installAndStartDaemon();
+                        const success = await installAndStartDaemon();
+                        if (!success) {
+                          setInstallAsService(false);
+                        }
                       } else {
-                        await platform.uninstallDaemonService?.();
+                        try {
+                          await platform.uninstallDaemonService?.();
+                        } catch (error) {
+                          console.error('Failed to uninstall daemon service:', error);
+                          setInstallAsService(true);
+                        }
                       }
                     }}
                     className="size-4 cursor-pointer rounded border-app-line bg-app accent-accent"
