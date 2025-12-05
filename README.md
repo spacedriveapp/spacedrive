@@ -226,6 +226,10 @@ bun install
 cargo run -p xtask -- setup  # generates .cargo/config.toml with aliases
 cargo build # builds all core and apps (including the daemon and cli)
 
+# Copy dependencies into the debug Folder ( probably windows only )
+Copy-Item -Path "apps\.deps\lib\*.dll" -Destination "target\debug" -ErrorAction SilentlyContinue
+Copy-Item -Path "apps\.deps\bin\*.dll" -Destination "target\debug" -ErrorAction SilentlyContinue
+
 # Run the desktop app (automatically starts daemon)
 cd apps/tauri
 bun run tauri:dev
