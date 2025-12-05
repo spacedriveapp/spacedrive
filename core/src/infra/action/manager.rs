@@ -32,7 +32,21 @@ impl ActionManager {
 		tracing::info!("Executing core action: {}", action_kind);
 
 		// Validate the action first
-		action.validate(self.context.clone()).await?;
+		let validation_result = action.validate(self.context.clone()).await?;
+
+		// Check if confirmation is required
+		match validation_result {
+			super::ValidationResult::Success => {
+				// Proceed with execution
+			}
+			super::ValidationResult::RequiresConfirmation(_request) => {
+				// Cannot handle confirmation in this context
+				// The dispatcher/CLI layer should have called validate_core first
+				return Err(ActionError::Internal(
+					"Action requires confirmation but confirmation was not resolved".to_string(),
+				));
+			}
+		}
 
 		// Execute the action directly
 		let result = action.execute(self.context.clone()).await;
@@ -44,6 +58,15 @@ impl ActionManager {
 		}
 
 		result
+	}
+
+	/// Validate a core action and return the validation result
+	/// This allows checking for confirmations before executing
+	pub async fn validate_core<A: super::CoreAction>(
+		&self,
+		action: &A,
+	) -> Result<super::ValidationResult, super::error::ActionError> {
+		action.validate(self.context.clone()).await
 	}
 
 	/// Dispatch a library-scoped action (library context pre-validated)
@@ -68,9 +91,23 @@ impl ActionManager {
 			.await?;
 
 		// Validate the action first
-		action
-			.validate(library.clone(), self.context.clone())
+		let validation_result = action
+			.validate(&library, self.context.clone())
 			.await?;
+
+		// Check if confirmation is required
+		match validation_result {
+			super::ValidationResult::Success => {
+				// Proceed with execution
+			}
+			super::ValidationResult::RequiresConfirmation(_request) => {
+				// Cannot handle confirmation in this context
+				// The dispatcher/CLI layer should have called validate_library first
+				return Err(ActionError::Internal(
+					"Action requires confirmation but confirmation was not resolved".to_string(),
+				));
+			}
+		}
 
 		// Execute the action with validated library
 		let result = action.execute(library, self.context.clone()).await;
@@ -84,6 +121,26 @@ impl ActionManager {
 			.await?;
 
 		result
+	}
+
+	/// Validate a library action and return the validation result
+	/// This allows checking for confirmations before executing
+	pub async fn validate_library<A: super::LibraryAction>(
+		&self,
+		library_id: Option<Uuid>,
+		action: &A,
+	) -> Result<super::ValidationResult, super::error::ActionError> {
+		let library_id =
+			library_id.ok_or(ActionError::LibraryNotFound(library_id.unwrap_or_default()))?;
+		// Get and validate library exists
+		let library = self
+			.context
+			.get_library(library_id)
+			.await
+			.ok_or_else(|| ActionError::LibraryNotFound(library_id))?;
+
+		// Validate the action
+		action.validate(&library, self.context.clone()).await
 	}
 
 	/// Create an initial audit log entry for ActionTrait

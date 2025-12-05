@@ -54,12 +54,19 @@ pub trait CoreAction: Send + Sync + 'static {
 		Self: Sized;
 
 	/// Validate the action before execution (optional)
+	/// Returns ValidationResult which can be Success or RequiresConfirmation
 	fn validate(
 		&self,
 		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	) -> impl std::future::Future<Output = Result<ValidationResult, crate::infra::action::error::ActionError>> + Send
 	{
-		async { Ok(()) }
+		async { Ok(ValidationResult::Success) }
+	}
+
+	/// Resolve a user confirmation choice (optional)
+	/// Called when the action previously returned RequiresConfirmation
+	fn resolve_confirmation(&mut self, _choice_index: usize) -> Result<(), crate::infra::action::error::ActionError> {
+		Ok(())
 	}
 
 	/// Execute this action with core context only
@@ -90,13 +97,20 @@ pub trait LibraryAction: Send + Sync + 'static {
 		Self: Sized;
 
 	/// Validate the action before execution (optional)
+	/// Returns ValidationResult which can be Success or RequiresConfirmation
 	fn validate(
 		&self,
-		_library: std::sync::Arc<crate::library::Library>,
+		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> impl std::future::Future<Output = Result<(), crate::infra::action::error::ActionError>> + Send
+	) -> impl std::future::Future<Output = Result<ValidationResult, crate::infra::action::error::ActionError>> + Send
 	{
-		async { Ok(()) }
+		async { Ok(ValidationResult::Success) }
+	}
+
+	/// Resolve a user confirmation choice (optional)
+	/// Called when the action previously returned RequiresConfirmation
+	fn resolve_confirmation(&mut self, _choice_index: usize) -> Result<(), crate::infra::action::error::ActionError> {
+		Ok(())
 	}
 
 	/// Execute this action with validated library and core context

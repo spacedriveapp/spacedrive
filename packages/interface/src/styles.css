@@ -1,10 +1,23 @@
-/* Spacedrive V2 - Color System (matching V1) */
+/* Spacedrive V2 - Color System
+ * Colors are defined in packages/ui/style/colors.js
+ * and converted to CSS variables here for web/desktop use
+ */
 
 :root {
 	/* Hue for dark theme */
 	--dark-hue: 235;
 
-	/* Sidebar colors (dark theme) - values only, no hsl() wrapper for Tailwind compatibility */
+	/* Accent color */
+	--color-accent: 220, 90%, 56%;
+	--color-accent-faint: 220, 90%, 64%;
+	--color-accent-deep: 220, 90%, 47%;
+
+	/* Text colors (ink) */
+	--color-ink: 235, 15%, 92%;
+	--color-ink-dull: 235, 10%, 70%;
+	--color-ink-faint: 235, 10%, 55%;
+
+	/* Sidebar colors */
 	--color-sidebar: 235, 15%, 7%;
 	--color-sidebar-box: 235, 15%, 16%;
 	--color-sidebar-line: 235, 15%, 23%;
@@ -15,23 +28,16 @@
 	--color-sidebar-button: 235, 15%, 18%;
 	--color-sidebar-selected: 235, 15%, 24%;
 
-	/* Main app colors (dark theme) */
+	/* Main app colors */
 	--color-app: 235, 15%, 13%;
 	--color-app-box: 235, 15%, 18%;
+	--color-app-dark-box: 235, 10%, 7%;
 	--color-app-overlay: 235, 15%, 16%;
 	--color-app-line: 235, 15%, 23%;
 	--color-app-frame: 235, 15%, 25%;
 	--color-app-button: 235, 15%, 20%;
 	--color-app-hover: 235, 15%, 22%;
 	--color-app-selected: 235, 15%, 24%;
-
-	/* Accent color */
-	--color-accent: 220, 90%, 56%;
-
-	/* Text colors (ink) */
-	--color-ink: 235, 15%, 92%;
-	--color-ink-dull: 235, 10%, 70%;
-	--color-ink-faint: 235, 10%, 55%;
 
 	/* Menu colors (for dropdowns, context menus) */
 	--color-menu: 235, 15%, 13%;

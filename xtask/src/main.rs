@@ -43,10 +43,12 @@ fn main() -> Result<()> {
 			"  setup        Setup development environment (downloads deps, generates config)"
 		);
 		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
+		eprintln!("  build-mobile Build sd-mobile-core for React Native iOS/Android");
 		eprintln!();
 		eprintln!("Examples:");
 		eprintln!("  cargo xtask setup          # First time setup");
 		eprintln!("  cargo xtask build-ios      # Build iOS framework");
+		eprintln!("  cargo xtask build-mobile   # Build mobile core for React Native");
 		eprintln!("  cargo ios                  # Convenient alias for build-ios");
 		std::process::exit(1);
 	}
@@ -54,6 +56,7 @@ fn main() -> Result<()> {
 	match args[1].as_str() {
 		"setup" => setup()?,
 		"build-ios" => build_ios()?,
+		"build-mobile" => build_mobile()?,
 		_ => {
 			eprintln!("Unknown command: {}", args[1]);
 			eprintln!("Run 'cargo xtask' for usage information.");
@@ -316,6 +319,83 @@ fn build_ios() -> Result<()> {
 	println!("Xcode will automatically use the updated framework");
 	println!();
 	println!("iOS Core build complete! Ready to test.");
+
+	Ok(())
+}
+
+/// Build sd-mobile-core for React Native (iOS and Android)
+///
+/// This task builds the mobile core for use with Expo/React Native.
+/// For iOS: Builds static libraries for device and simulator targets
+/// For Android: Builds shared libraries for arm64-v8a (and optionally x86_64)
+fn build_mobile() -> Result<()> {
+	println!("Building Spacedrive Mobile Core for React Native...");
+	println!();
+
+	let project_root = std::env::current_dir()?;
+	let mobile_core_dir = project_root.join("apps/mobile/modules/sd-mobile-core/core");
+
+	if !mobile_core_dir.exists() {
+		anyhow::bail!(
+			"Mobile core directory not found: {}",
+			mobile_core_dir.display()
+		);
+	}
+
+	// iOS targets
+	let ios_targets = [
+		("aarch64-apple-ios", "Device", false),
+		("aarch64-apple-ios-sim", "Simulator (arm64)", true),
+	];
+
+	println!("Building for iOS targets...");
+	for (target, name, _is_sim) in &ios_targets {
+		println!("  Building for iOS {} ({})...", name, target);
+
+		let status = Command::new("cargo")
+			.args(["build", "--release", "--target", target])
+			.current_dir(&mobile_core_dir)
+			.env("IPHONEOS_DEPLOYMENT_TARGET", "18.0")
+			.status()
+			.context(format!("Failed to build for {}", target))?;
+
+		if !status.success() {
+			anyhow::bail!("Build failed for target: {}", target);
+		}
+		println!("  ✓ {} build complete", name);
+	}
+
+	// Copy built libraries to the iOS module directory
+	let ios_module_dir = project_root.join("apps/mobile/modules/sd-mobile-core/ios");
+	let target_dir = mobile_core_dir.join("target");
+
+	// Create libs directory structure
+	let libs_dir = ios_module_dir.join("libs");
+	fs::create_dir_all(libs_dir.join("device"))?;
+	fs::create_dir_all(libs_dir.join("simulator"))?;
+
+	// Copy device library
+	let device_lib = target_dir.join("aarch64-apple-ios/release/libsd_mobile_core.a");
+	if device_lib.exists() {
+		fs::copy(&device_lib, libs_dir.join("device/libsd_mobile_core.a"))?;
+		println!("  ✓ Copied device library");
+	}
+
+	// Copy simulator library
+	let sim_lib = target_dir.join("aarch64-apple-ios-sim/release/libsd_mobile_core.a");
+	if sim_lib.exists() {
+		fs::copy(&sim_lib, libs_dir.join("simulator/libsd_mobile_core.a"))?;
+		println!("  ✓ Copied simulator library");
+	}
+
+	println!();
+	println!("Mobile core build complete!");
+	println!();
+	println!("Libraries are in: {}", libs_dir.display());
+	println!();
+	println!("Next steps:");
+	println!("  cd apps/mobile && bun run prebuild:clean");
+	println!();
 
 	Ok(())
 }

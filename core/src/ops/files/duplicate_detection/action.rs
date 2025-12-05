@@ -91,7 +91,7 @@ impl LibraryAction for DuplicateDetectionAction {
 
 	async fn validate(
 		&self,
-		_library: std::sync::Arc<crate::library::Library>,
+		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<crate::context::CoreContext>,
 	) -> Result<(), ActionError> {
 		if self.paths.paths.is_empty() {

@@ -74,9 +74,9 @@ impl LibraryAction for FileDeleteAction {
 
 	async fn validate(
 		&self,
-		_library: std::sync::Arc<crate::library::Library>,
+		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Validate targets
 		if self.targets.paths.is_empty() {
 			return Err(ActionError::Validation {
@@ -85,7 +85,7 @@ impl LibraryAction for FileDeleteAction {
 			});
 		}
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 

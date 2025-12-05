@@ -187,9 +187,9 @@ impl LibraryAction for LocationTriggerJobAction {
 
 	async fn validate(
 		&self,
-		library: std::sync::Arc<crate::library::Library>,
+		library: &std::sync::Arc<crate::library::Library>,
 		context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Validate that the location exists
 		let db = library.db().conn();
 		let exists = entities::location::Entity::find()
@@ -203,7 +203,7 @@ impl LibraryAction for LocationTriggerJobAction {
 			return Err(ActionError::LocationNotFound(self.input.location_id));
 		}
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 

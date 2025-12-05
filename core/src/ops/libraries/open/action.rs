@@ -79,7 +79,7 @@ impl CoreAction for LibraryOpenAction {
 		"library.open"
 	}
 
-	async fn validate(&self, _context: Arc<CoreContext>) -> Result<(), ActionError> {
+	async fn validate(&self, _context: Arc<CoreContext>) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Check if the path exists
 		if !self.input.path.exists() {
 			return Err(ActionError::Validation {
@@ -115,7 +115,7 @@ impl CoreAction for LibraryOpenAction {
 			});
 		}
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 

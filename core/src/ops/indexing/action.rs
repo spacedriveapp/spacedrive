@@ -61,9 +61,9 @@ impl LibraryAction for IndexingAction {
 
 	async fn validate(
 		&self,
-		_library: std::sync::Arc<crate::library::Library>,
+		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Validate input
 		if let Err(errors) = self.input.validate() {
 			return Err(ActionError::Validation {
@@ -71,7 +71,7 @@ impl LibraryAction for IndexingAction {
 				message: errors.join("; "),
 			});
 		}
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 
 	async fn execute(

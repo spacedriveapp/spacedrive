@@ -276,6 +276,52 @@ impl LibraryAction for FileCopyAction {
 			.map_err(|e| e.to_string())
 	}
 
+	async fn validate(
+		&self,
+		_library: &std::sync::Arc<crate::library::Library>,
+		_context: Arc<CoreContext>,
+	) -> Result<ValidationResult, ActionError> {
+		if self.sources.paths.is_empty() {
+			return Err(ActionError::Validation {
+				field: "sources".to_string(),
+				message: "At least one source file must be specified".to_string(),
+			});
+		}
+
+		// Check for file conflicts if overwrite is not enabled
+		if !self.options.overwrite {
+			if let Some(conflict_path) = self.check_for_conflicts().await? {
+				let request = ConfirmationRequest {
+					message: format!(
+						"Destination file already exists: {}",
+						conflict_path.display()
+					),
+					choices: FileConflictResolution::CHOICES
+						.iter()
+						.map(|c| c.as_str().to_string())
+						.collect(),
+				};
+				return Ok(ValidationResult::RequiresConfirmation(request));
+			}
+		}
+
+		Ok(ValidationResult::Success)
+	}
+
+	fn resolve_confirmation(&mut self, choice_index: usize) -> Result<(), ActionError> {
+		match FileConflictResolution::from_index(choice_index) {
+			Some(FileConflictResolution::Abort) => Err(ActionError::Cancelled),
+			Some(resolution) => {
+				self.on_conflict = Some(resolution);
+				Ok(())
+			}
+			None => Err(ActionError::Validation {
+				field: "choice".to_string(),
+				message: "Invalid choice selected".to_string(),
+			}),
+		}
+	}
+
 	async fn execute(
 		mut self,
 		library: std::sync::Arc<crate::library::Library>,
@@ -317,54 +363,6 @@ impl LibraryAction for FileCopyAction {
 }
 
 impl FileCopyAction {
-	/// Validate this action and check for conflicts that require user confirmation
-	pub async fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: Arc<CoreContext>,
-	) -> Result<ValidationResult, ActionError> {
-		if self.sources.paths.is_empty() {
-			return Err(ActionError::Validation {
-				field: "sources".to_string(),
-				message: "At least one source file must be specified".to_string(),
-			});
-		}
-
-		// Check for file conflicts if overwrite is not enabled
-		if !self.options.overwrite {
-			if let Some(conflict_path) = self.check_for_conflicts().await? {
-				let request = ConfirmationRequest {
-					message: format!(
-						"Destination file already exists: {}",
-						conflict_path.display()
-					),
-					choices: FileConflictResolution::CHOICES
-						.iter()
-						.map(|c| c.as_str().to_string())
-						.collect(),
-				};
-				return Ok(ValidationResult::RequiresConfirmation(request));
-			}
-		}
-
-		Ok(ValidationResult::Success)
-	}
-
-	/// Resolve user confirmation by applying the selected choice
-	pub fn resolve_confirmation(&mut self, choice_index: usize) -> Result<(), ActionError> {
-		match FileConflictResolution::from_index(choice_index) {
-			Some(FileConflictResolution::Abort) => Err(ActionError::Cancelled),
-			Some(resolution) => {
-				self.on_conflict = Some(resolution);
-				Ok(())
-			}
-			None => Err(ActionError::Validation {
-				field: "choice".to_string(),
-				message: "Invalid choice selected".to_string(),
-			}),
-		}
-	}
-
 	/// Check if any destination files would cause conflicts
 	async fn check_for_conflicts(&self) -> Result<Option<PathBuf>, ActionError> {
 		// For now, implement a simple check for single file destination conflicts

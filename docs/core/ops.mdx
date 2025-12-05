@@ -29,17 +29,18 @@ impl CoreAction for CreateLibraryAction {
     type Input = CreateLibraryInput;
     type Output = Library;
 
-    async fn validate(self, context: Arc<CoreContext>) -> Result<bool, ActionError> {
-    	// Check if the library already exists
-     	Ok(false)
+    async fn validate(&self, context: Arc<CoreContext>)
+        -> Result<ValidationResult, ActionError> {
+    	// Check if the library already exists and return validation result
+     	Ok(ValidationResult::Success)
     }
 
     async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
       	// Create library and return it
     }
 
-    async fn undo(self, context: Arc<CoreContext>) -> Result<bool, ActionError> {
-        // Undo this action
+    fn action_kind(&self) -> &'static str {
+        "libraries.create"
     }
 }
 ```
@@ -88,11 +89,150 @@ pub trait LibraryAction {
     type Output: Send + Sync + 'static;
 
     fn from_input(input: Self::Input) -> Result<Self, String>;
-    fn execute(self, library: Arc<Library>, context: Arc<CoreContext>)
+
+    async fn validate(&self, library: &Arc<Library>, context: Arc<CoreContext>)
+        -> Result<ValidationResult, ActionError>;
+
+    fn resolve_confirmation(&mut self, choice_index: usize)
+        -> Result<(), ActionError>;
+
+    async fn execute(self, library: Arc<Library>, context: Arc<CoreContext>)
         -> impl Future<Output = Result<Self::Output, ActionError>>;
+
     fn action_kind(&self) -> &'static str;
 }
 ```
+
+### Validation and Confirmation
+
+Actions support a validation phase that can request user confirmation before execution. This enables safe, interactive operations with clear user feedback.
+
+#### ValidationResult
+
+The `validate()` method returns one of two results:
+
+```rust
+pub enum ValidationResult {
+    /// Action is valid and can proceed
+    Success,
+    /// Action requires user confirmation
+    RequiresConfirmation(ConfirmationRequest),
+}
+
+pub struct ConfirmationRequest {
+    /// Message to display to the user
+    pub message: String,
+    /// List of choices for the user
+    pub choices: Vec<String>,
+}
+```
+
+#### Example: File Copy with Conflict Resolution
+
+```rust
+impl LibraryAction for FileCopyAction {
+    type Input = FileCopyInput;
+    type Output = JobReceipt;
+
+    async fn validate(&self, library: &Arc<Library>, context: Arc<CoreContext>)
+        -> Result<ValidationResult, ActionError> {
+        // Check if destination file exists
+        if !self.options.overwrite && self.destination_exists().await? {
+            return Ok(ValidationResult::RequiresConfirmation(ConfirmationRequest {
+                message: format!(
+                    "Destination file already exists: {}",
+                    self.destination.display()
+                ),
+                choices: vec![
+                    "Overwrite the existing file".to_string(),
+                    "Rename the new file (e.g., file.txt -> file (1).txt)".to_string(),
+                    "Abort this copy operation".to_string(),
+                ],
+            }));
+        }
+
+        Ok(ValidationResult::Success)
+    }
+
+    fn resolve_confirmation(&mut self, choice_index: usize)
+        -> Result<(), ActionError> {
+        match choice_index {
+            0 => {
+                self.on_conflict = Some(FileConflictResolution::Overwrite);
+                Ok(())
+            }
+            1 => {
+                self.on_conflict = Some(FileConflictResolution::AutoModifyName);
+                Ok(())
+            }
+            2 => Err(ActionError::Cancelled),
+            _ => Err(ActionError::Validation {
+                field: "choice".to_string(),
+                message: "Invalid choice selected".to_string(),
+            })
+        }
+    }
+
+    async fn execute(mut self, library: Arc<Library>, context: Arc<CoreContext>)
+        -> Result<Self::Output, ActionError> {
+        // Apply the conflict resolution strategy if set
+        if let Some(resolution) = self.on_conflict {
+            match resolution {
+                FileConflictResolution::Overwrite => {
+                    self.options.overwrite = true;
+                }
+                FileConflictResolution::AutoModifyName => {
+                    self.destination = self.generate_unique_name().await?;
+                }
+                _ => {}
+            }
+        }
+
+        // Execute the copy operation
+        let job = FileCopyJob::new(self.sources, self.destination)
+            .with_options(self.options);
+        let receipt = library.jobs().dispatch(job).await?;
+        Ok(receipt)
+    }
+
+    fn action_kind(&self) -> &'static str {
+        "files.copy"
+    }
+}
+```
+
+#### CLI Integration
+
+The CLI handles confirmations interactively:
+
+```rust
+// In CLI handler
+let mut action = FileCopyAction::from_input(input)?;
+
+// Validate the action
+let validation_result = action.validate(&library, context).await?;
+
+match validation_result {
+    ValidationResult::Success => {
+        // Proceed with execution
+        let result = action.execute(library, context).await?;
+    }
+    ValidationResult::RequiresConfirmation(request) => {
+        // Prompt user for choice
+        let choice_index = prompt_for_choice(request)?;
+
+        // Resolve the confirmation
+        action.resolve_confirmation(choice_index)?;
+
+        // Now execute with resolved choice
+        let result = action.execute(library, context).await?;
+    }
+}
+```
+
+<Note>
+The `validate()` method takes `&self` (a reference), while `execute()` takes `self` (consumes the action). This ensures validation doesn't modify state, while execution can take ownership to transform the action into its result.
+</Note>
 
 ### Queries
 
@@ -275,6 +415,24 @@ inventory::submit! {
 
 Keep operations focused with clear inputs and outputs. Use appropriate scopes (Library vs Core) based on whether the operation needs library context.
 
+### When to Use Validation Confirmations
+
+Use the confirmation pattern for operations that:
+
+1. **Have Destructive Side Effects**: Deleting files, overwriting data, or making irreversible changes
+2. **Encounter Conflicts**: File name collisions, duplicate entries, or conflicting states
+3. **Need User Decisions**: Multiple valid approaches where user preference matters
+4. **Risk Data Loss**: Operations that could result in unexpected data loss
+
+Examples of good confirmation use cases:
+- File copy/move when destination exists
+- Deleting non-empty directories
+- Overwriting modified files
+- Removing locations with indexed content
+- Irreversible format conversions
+
+Keep confirmations minimal - only ask when truly necessary. Don't confirm routine operations or when the intent is already clear from the input.
+
 ### Type Design
 
 Flatten structures when possible and use Rust enums for variants. Document fields as comments flow through to generated code.
@@ -319,15 +477,27 @@ pub struct BatchDeleteInput {
 
 ### Operation Metadata
 
-Operations can provide UI hints:
+Actions can define metadata for UI presentation:
 
 ```rust
-impl OperationMetadata for DeleteAction {
-    fn display_name() -> &'static str { "Delete Items" }
-    fn dangerous() -> bool { true }
-    fn confirmation_required() -> bool { true }
+impl ActionMetadata for DeleteAction {
+    fn display_name() -> &'static str {
+        "Delete Items"
+    }
+
+    fn description() -> &'static str {
+        "Permanently delete selected items"
+    }
+
+    fn is_dangerous() -> bool {
+        true
+    }
 }
 ```
+
+<Note>
+Confirmation is handled dynamically through the `validate()` method, not as static metadata. This allows context-aware confirmations based on the actual operation state.
+</Note>
 
 <Tip>
 	Run `cargo run --bin generate_swift_types` to debug type extraction issues.

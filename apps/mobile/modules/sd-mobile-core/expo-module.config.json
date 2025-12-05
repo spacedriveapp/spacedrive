@@ -1,0 +1,16 @@
+{
+  "platforms": [
+    "ios",
+    "android"
+  ],
+  "ios": {
+    "modules": [
+      "SDMobileCoreModule"
+    ]
+  },
+  "android": {
+    "modules": [
+      "com.spacedrive.core.SDMobileCoreModule"
+    ]
+  }
+}

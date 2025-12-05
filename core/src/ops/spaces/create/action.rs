@@ -107,10 +107,10 @@ impl LibraryAction for SpaceCreateAction {
 
 	async fn validate(
 		&self,
-		_library: std::sync::Arc<crate::library::Library>,
+		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<CoreContext>,
-	) -> ActionResult<()> {
-		Ok(())
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 

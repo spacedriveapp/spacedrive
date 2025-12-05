@@ -250,40 +250,149 @@ git submodule update --remote
 git submodule status
 ```
 
-### iOS Development
+### Mobile Development (React Native)
 
-The iOS app embeds the full Spacedrive core as a native library, enabling offline-first operation and direct P2P networking.
+The React Native mobile app provides cross-platform iOS and Android support with an embedded Spacedrive core. It uses Expo SDK 53 with React 19 and the New Architecture enabled.
 
-```bash
-# Navigate to iOS submodule
-cd apps/ios
+#### Prerequisites
 
-# Open in Xcode
-open Spacedrive.xcodeproj
-```
+| Tool           | Version | Required For                   |
+| -------------- | ------- | ------------------------------ |
+| Bun            | 1.3+    | Package management             |
+| Xcode          | 26+     | iOS builds                     |
+| Rust           | 1.81+   | Core compilation               |
+| Go             | 1.20+   | Building aws-lc crypto library |
+| Android Studio | Latest  | Android builds                 |
 
-For detailed iOS development instructions, see [`apps/ios/README.md`](apps/ios/README.md).
-
-**Key Points:**
-
-- Core is embedded as `sd-ios-core` static library
-- Uses shared `packages/swift-client` for type-safe Swift API
-- No external daemon required
-- Full documentation in submodule README
-
-### macOS Development
-
-The macOS app connects to the Spacedrive daemon via Unix socket.
+#### Quick Start
 
 ```bash
-# Navigate to macOS submodule
-cd apps/macos
+# 1. Install Go (required for aws-lc cryptographic library)
+brew install go  # macOS
+# or visit https://go.dev/dl/ for other platforms
 
-# Open in Xcode
-open Spacedrive.xcodeproj
+# 2. Build the Rust core for mobile (from project root)
+cargo xtask build-mobile
+
+# 3. Install JavaScript dependencies
+cd apps/mobile
+bun install
+
+# 4. Apply patches and prebuild native projects
+bun run prebuild:clean
+
+# 5. Run on iOS simulator
+bun run ios
+
+# 6. Run on physical iOS device
+RCT_BUILD_HERMES_FROM_SOURCE=true bunx expo run:ios --device "YourDevice"
 ```
 
-For macOS-specific development instructions, see `apps/macos/README.md`.
+#### Development Commands
+
+```bash
+# From apps/mobile directory:
+
+bun run ios              # Run on iOS simulator
+bun run android          # Run on Android emulator
+bun run start            # Start Metro bundler only
+bun run prebuild         # Generate native projects
+bun run prebuild:clean   # Clean and regenerate native projects
+bun run xcode            # Open iOS project in Xcode
+```
+
+#### Architecture
+
+The mobile app embeds the full Spacedrive core as a native library:
+
+```
+React Native App (Expo SDK 53)
+    ↓
+TypeScript Client (src/client/)
+    ↓
+Expo Native Module (modules/sd-mobile-core/)
+    ↓
+Swift/Kotlin FFI Bridge
+    ↓
+Rust Core (libsd_mobile_core.a)
+```
+
+**Key directories:**
+
+- `apps/mobile/src/` - React Native TypeScript code
+- `apps/mobile/modules/sd-mobile-core/` - Expo native module
+- `apps/mobile/modules/sd-mobile-core/core/` - Rust FFI layer
+- `apps/mobile/modules/sd-mobile-core/ios/` - Swift bridge
+- `apps/mobile/modules/sd-mobile-core/android/` - Kotlin bridge
+
+#### Building the Rust Core
+
+The Rust core must be built manually before running the app. The build script in the podspec is intentionally commented out to avoid build issues during Xcode compilation.
+
+```bash
+# Build for iOS (device + simulator) from project root
+cargo xtask build-mobile
+
+# Libraries are output to:
+# apps/mobile/modules/sd-mobile-core/ios/libs/device/libsd_mobile_core.a
+# apps/mobile/modules/sd-mobile-core/ios/libs/simulator/libsd_mobile_core.a
+```
+
+#### Known Issues and Fixes
+
+**SSL certificate errors with Hermes (physical device builds):**
+When building for physical devices, you may encounter SSL certificate verification errors during pod install. Use the `RCT_BUILD_HERMES_FROM_SOURCE=true` environment variable to build Hermes from source instead of downloading prebuilt binaries:
+
+```bash
+RCT_BUILD_HERMES_FROM_SOURCE=true bunx expo run:ios --device "YourDevice"
+```
+
+**aws-lc-sys build failures:**
+If you see errors about missing Go or CMake errors during `cargo xtask build-mobile`:
+
+1. Install Go: `brew install go` (required for aws-lc cryptographic library)
+2. Clean cargo cache: `rm -rf ~/.cargo/registry/src/*/aws-lc-sys-*`
+3. Rebuild: `cargo xtask build-mobile`
+
+**react-native-svg Yoga compatibility:**
+The `bun run prebuild` command automatically patches `react-native-svg` for Yoga 3.0 compatibility. If you see `StyleLength` errors, run `bun run patch` manually.
+
+**React version mismatch:**
+React must be pinned to 19.0.0 in the workspace root's `package.json` overrides to match `react-native-renderer`. If you see version mismatch errors, verify the root `package.json` has:
+
+```json
+"overrides": {
+  "react": "19.0.0"
+}
+```
+
+**Metro cache issues:**
+Clear Metro cache if you encounter bundling issues:
+
+```bash
+bun run start -- --reset-cache
+```
+
+**Xcode build database locked:**
+If you see "database is locked" errors, a previous build is still running. Kill it and clean:
+
+```bash
+pkill -f xcodebuild
+rm -rf ~/Library/Developer/Xcode/DerivedData/Spacedrive-*
+```
+
+#### Adding New Native Functionality
+
+To add new native functionality exposed to JavaScript:
+
+1. Add Rust FFI function in `modules/sd-mobile-core/core/src/lib.rs`
+2. Add Swift bridge in `modules/sd-mobile-core/ios/SDMobileCoreModule.swift`
+3. Add Kotlin bridge in `modules/sd-mobile-core/android/.../SDMobileCoreModule.kt`
+4. Export from `modules/sd-mobile-core/src/index.ts`
+5. Rebuild the Rust core: `cargo xtask build-mobile` (from project root)
+6. Regenerate native projects: `cd apps/mobile && bun run prebuild:clean`
+
+**Important:** Always rebuild the Rust core with `cargo xtask build-mobile` after modifying Rust code. The podspec build script is intentionally disabled to avoid Xcode build issues.
 
 ### Desktop Development (Tauri)
 
@@ -695,9 +804,9 @@ packages/
 
 **React Native Mobile (`apps/mobile`):**
 
-- **Status:** Replaced with native Swift apps in `apps/ios` and `apps/macos` submodules
-- **Why:** Better performance, full iOS API access, offline-first with embedded core
-- **Migration:** Learn SwiftUI or contribute to core Rust
+- **Status:** Ported to V2 with embedded core (Expo SDK 53, React 19)
+- **Why:** Cross-platform support for iOS and Android with embedded Spacedrive core
+- **Migration:** V1 React Native knowledge transfers well; see [Mobile Development](#mobile-development-react-native)
 
 **Interface Package (`interface/`):**
 
@@ -813,7 +922,8 @@ packages/
 | `bun install`            | `bun install` (still required for Tauri app)      |
 | `bun prep`               | `cargo run -p xtask -- setup`                     |
 | `bun tauri dev`          | `cd apps/tauri && bun run tauri:dev`              |
-| `bun mobile ios`         | `open apps/ios/Spacedrive.xcodeproj`              |
+| `bun mobile ios`         | `cd apps/mobile && bun run ios`                   |
+| `bun mobile android`     | `cd apps/mobile && bun run android`               |
 | `cargo run -p sd-server` | `cargo run -p sd-cli` or `cargo run -p sd-daemon` |
 | `bun dev:web`            | Not yet available (web in progress)               |
 

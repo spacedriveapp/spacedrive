@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Spacedrive",
+    "slug": "spacedrive",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "spacedrive",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "newArchEnabled": true,
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.spacedrive.app",
+      "supportsTablet": true,
+      "deploymentTarget": "18.0",
+      "appleTeamId": "YB4V2VA9YY"
+    },
+    "android": {
+      "package": "com.spacedrive.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "18.0"
+          },
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}

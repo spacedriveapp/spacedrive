@@ -70,14 +70,14 @@ impl CoreAction for LibraryCreateAction {
 	async fn validate(
 		&self,
 		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		if self.input.name.trim().is_empty() {
 			return Err(ActionError::Validation {
 				field: "name".to_string(),
 				message: "Library name cannot be empty".to_string(),
 			});
 		}
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 

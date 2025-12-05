@@ -39,9 +39,9 @@ impl LibraryAction for LocationImportAction {
 
 	async fn validate(
 		&self,
-		_library: Arc<crate::library::Library>,
+		_library: &Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Check file exists
 		if !self.input.import_path.exists() {
 			return Err(ActionError::Validation {
@@ -58,7 +58,7 @@ impl LibraryAction for LocationImportAction {
 			});
 		}
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 
 	async fn execute(

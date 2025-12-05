@@ -165,9 +165,9 @@ impl LibraryAction for LocationUpdateAction {
 
 	async fn validate(
 		&self,
-		library: std::sync::Arc<crate::library::Library>,
+		library: &std::sync::Arc<crate::library::Library>,
 		context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Validate that the location exists
 		let db = library.db().conn();
 		let exists = entities::location::Entity::find()
@@ -181,7 +181,7 @@ impl LibraryAction for LocationUpdateAction {
 			return Err(ActionError::LocationNotFound(self.input.id));
 		}
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 

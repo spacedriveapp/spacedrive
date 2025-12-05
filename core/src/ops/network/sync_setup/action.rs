@@ -95,7 +95,7 @@ impl CoreAction for LibrarySyncSetupAction {
 	}
 
 	// DEPRICATED: Sync no longer requires a leader device
-	async fn validate(&self, context: Arc<crate::context::CoreContext>) -> Result<(), ActionError> {
+	async fn validate(&self, context: Arc<crate::context::CoreContext>) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Validate leader device is one of the two devices
 		if self.input.leader_device_id != self.input.local_device_id
 			&& self.input.leader_device_id != self.input.remote_device_id
@@ -106,7 +106,7 @@ impl CoreAction for LibrarySyncSetupAction {
 			});
 		}
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 
@@ -120,7 +120,7 @@ impl LibrarySyncSetupAction {
 		local_library: &Arc<crate::library::Library>,
 		remote_device_id: Uuid,
 		remote_device_slug: String,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		use crate::infra::db::entities;
 		use chrono::Utc;
 		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
@@ -205,7 +205,7 @@ impl LibrarySyncSetupAction {
 			);
 		}
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 
 	/// Execute ShareLocalLibrary action - share local library to remote device

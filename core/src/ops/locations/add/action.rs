@@ -125,9 +125,9 @@ impl LibraryAction for LocationAddAction {
 
 	async fn validate(
 		&self,
-		library: std::sync::Arc<crate::library::Library>,
+		library: &std::sync::Arc<crate::library::Library>,
 		context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<(), ActionError> {
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		use crate::domain::addressing::SdPath;
 
 		match &self.input.path {
@@ -189,7 +189,7 @@ impl LibraryAction for LocationAddAction {
 		// Check for duplicate locations
 		// TODO: Implement proper duplicate detection for both Physical and Cloud paths
 
-		Ok(())
+		Ok(crate::infra::action::ValidationResult::Success)
 	}
 }
 
