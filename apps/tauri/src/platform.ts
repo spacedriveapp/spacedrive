@@ -156,6 +156,39 @@ export const platform: Platform = {
 		await invoke("stop_daemon_process");
 	},
 
+	async onDaemonConnected(callback: () => void) {
+		const unlisten = await listen("daemon-connected", () => {
+			callback();
+		});
+		return unlisten;
+	},
+
+	async onDaemonDisconnected(callback: () => void) {
+		const unlisten = await listen("daemon-disconnected", () => {
+			callback();
+		});
+		return unlisten;
+	},
+
+	async onDaemonStarting(callback: () => void) {
+		const unlisten = await listen("daemon-starting", () => {
+			callback();
+		});
+		return unlisten;
+	},
+
+	async checkDaemonInstalled() {
+		return await invoke<boolean>("check_daemon_installed");
+	},
+
+	async installDaemonService() {
+		await invoke("install_daemon_service");
+	},
+
+	async uninstallDaemonService() {
+		await invoke("uninstall_daemon_service");
+	},
+
 	async openMacOSSettings() {
 		await invoke("open_macos_settings");
 	},

@@ -107,6 +107,14 @@ impl DaemonConnectionPool {
 		}
 	}
 
+	async fn reset(&self) {
+		let mut initialized = self.initialized.lock().await;
+		*initialized = false;
+		*self.writer.lock().await = None;
+		self.subscriptions.write().await.clear();
+		tracing::info!("Connection pool reset");
+	}
+
 	async fn ensure_connected(&self, app: &AppHandle) -> Result<(), String> {
 		let mut initialized = self.initialized.lock().await;
 
@@ -127,6 +135,9 @@ impl DaemonConnectionPool {
 
 		*self.writer.lock().await = Some(writer);
 
+		// Emit connection event
+		let _ = app.emit("daemon-connected", ());
+
 		// Spawn persistent reader task that broadcasts to all listeners
 		let app_clone = app.clone();
 		tokio::spawn(async move {
@@ -138,6 +149,7 @@ impl DaemonConnectionPool {
 				match reader.read_line(&mut buffer).await {
 					Ok(0) => {
 						tracing::warn!("Daemon connection closed");
+						let _ = app_clone.emit("daemon-disconnected", ());
 						break;
 					}
 					Ok(_) => {
@@ -160,6 +172,7 @@ impl DaemonConnectionPool {
 					}
 					Err(e) => {
 						tracing::error!("Failed to read from daemon: {}", e);
+						let _ = app_clone.emit("daemon-disconnected", ());
 						break;
 					}
 				}
@@ -727,6 +740,7 @@ async fn get_daemon_status(
 /// Start daemon as a background process
 #[tauri::command]
 async fn start_daemon_process(
+	app: tauri::AppHandle,
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<(), String> {
 	let (data_dir, socket_addr) = {
@@ -741,6 +755,9 @@ async fn start_daemon_process(
 	if is_daemon_running(&socket_addr).await {
 		return Err("Daemon is already running".to_string());
 	}
+
+	// Emit starting event
+	let _ = app.emit("daemon-starting", ());
 
 	// Start the daemon
 	let child = start_daemon(&data_dir, &socket_addr).await?;
@@ -776,6 +793,532 @@ async fn stop_daemon_process(
 
 	daemon_state.started_by_us = false;
 	Ok(())
+}
+
+/// Check if daemon is installed as a service (LaunchAgent on macOS, systemd on Linux)
+#[tauri::command]
+async fn check_daemon_installed() -> Result<bool, String> {
+	#[cfg(target_os = "macos")]
+	{
+		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let plist_path = std::path::PathBuf::from(home).join("Library/LaunchAgents/com.spacedrive.daemon.plist");
+		let exists = plist_path.exists();
+		tracing::info!("Checking daemon installation at {}: {}", plist_path.display(), exists);
+		Ok(exists)
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let service_path = std::path::PathBuf::from(home).join(".config/systemd/user/spacedrive-daemon.service");
+		Ok(service_path.exists())
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		// On Windows, check if scheduled task exists
+		let output = std::process::Command::new("schtasks")
+			.args(&["/Query", "/TN", "SpacedriveDaemon", "/FO", "LIST"])
+			.output()
+			.map_err(|e| format!("Failed to query scheduled task: {}", e))?;
+
+		Ok(output.status.success())
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+	{
+		Ok(false)
+	}
+}
+
+/// Install daemon as a service (LaunchAgent on macOS, systemd on Linux)
+#[tauri::command]
+async fn install_daemon_service(
+	app: tauri::AppHandle,
+	daemon_state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
+	app_state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+	let (data_dir, socket_addr) = {
+		let state = daemon_state.read().await;
+		(state.data_dir.clone(), state.socket_addr.clone())
+	};
+
+	tracing::info!("Installing daemon as service");
+
+	// Stop any existing daemon child process first
+	{
+		let mut state = daemon_state.write().await;
+		if let Some(process_arc) = state.daemon_process.take() {
+			tracing::info!("Stopping existing daemon child process");
+			let mut process_lock = process_arc.lock().await;
+			if let Some(mut child) = process_lock.take() {
+				let _ = child.kill();
+			}
+		}
+	}
+
+	// Emit starting event since installation starts the daemon
+	let _ = app.emit("daemon-starting", ());
+	tracing::info!("Emitted daemon-starting event");
+
+	#[cfg(target_os = "macos")]
+	{
+		use std::io::Write;
+
+		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let launch_agents_dir = std::path::PathBuf::from(&home).join("Library/LaunchAgents");
+
+		std::fs::create_dir_all(&launch_agents_dir)
+			.map_err(|e| format!("Failed to create LaunchAgents directory: {}", e))?;
+
+		let plist_path = launch_agents_dir.join("com.spacedrive.daemon.plist");
+		tracing::info!("Creating plist at: {}", plist_path.display());
+
+		let daemon_path = std::env::current_exe()
+			.map_err(|e| format!("Failed to get current exe: {}", e))?
+			.parent()
+			.ok_or_else(|| "Could not determine binary directory".to_string())?
+			.join("sd-daemon");
+
+		if !daemon_path.exists() {
+			return Err(format!("Daemon binary not found at {}", daemon_path.display()));
+		}
+
+		let log_dir = data_dir.join("logs");
+		std::fs::create_dir_all(&log_dir)
+			.map_err(|e| format!("Failed to create logs directory: {}", e))?;
+
+		let plist_content = format!(
+			r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.spacedrive.daemon</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>{}</string>
+		<string>--data-dir</string>
+		<string>{}</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>{}</string>
+	<key>StandardErrorPath</key>
+	<string>{}</string>
+</dict>
+</plist>"#,
+			daemon_path.display(),
+			data_dir.display(),
+			log_dir.join("daemon.out.log").display(),
+			log_dir.join("daemon.err.log").display()
+		);
+
+		let mut file = std::fs::File::create(&plist_path)
+			.map_err(|e| format!("Failed to create plist file: {}", e))?;
+		file.write_all(plist_content.as_bytes())
+			.map_err(|e| format!("Failed to write plist file: {}", e))?;
+
+		// Unload any existing service first
+		tracing::info!("Unloading any existing service");
+		let _ = std::process::Command::new("launchctl")
+			.args(&["unload", plist_path.to_str().unwrap()])
+			.output();
+
+		// Load the service (this starts the daemon)
+		tracing::info!("Loading service with launchctl");
+		let output = std::process::Command::new("launchctl")
+			.args(&["load", plist_path.to_str().unwrap()])
+			.output()
+			.map_err(|e| format!("Failed to load service: {}", e))?;
+
+		tracing::info!("launchctl load output: {:?}", String::from_utf8_lossy(&output.stdout));
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			tracing::error!("launchctl load failed: {:?}", stderr);
+			return Err(format!("Failed to load daemon service: {}", stderr));
+		}
+
+		// Update daemon state - we no longer own the process
+		let mut state = daemon_state.write().await;
+		state.started_by_us = false;
+		state.daemon_process = None;
+		tracing::info!("Updated daemon state: started_by_us = false");
+		drop(state);
+
+		// Reset connection pool so it can reconnect to the service-managed daemon
+		tracing::info!("Resetting connection pool to reconnect to service daemon");
+		app_state.connection_pool.reset().await;
+
+		// Wait for daemon to start and become available
+		tracing::info!("Waiting for daemon to become available...");
+		for i in 0..30 {
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+			if is_daemon_running(&socket_addr).await {
+				tracing::info!("Daemon is running after {} attempts", i + 1);
+				break;
+			}
+			if i == 29 {
+				return Err("Daemon failed to start after installing service".to_string());
+			}
+		}
+
+		// Trigger reconnection
+		tracing::info!("Triggering reconnection");
+		app_state.connection_pool.ensure_connected(&app).await?;
+
+		Ok(())
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		use std::io::Write;
+
+		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let systemd_dir = std::path::PathBuf::from(&home).join(".config/systemd/user");
+
+		std::fs::create_dir_all(&systemd_dir)
+			.map_err(|e| format!("Failed to create systemd directory: {}", e))?;
+
+		let service_path = systemd_dir.join("spacedrive-daemon.service");
+
+		let daemon_path = std::env::current_exe()
+			.map_err(|e| format!("Failed to get current exe: {}", e))?
+			.parent()
+			.ok_or_else(|| "Could not determine binary directory".to_string())?
+			.join("sd-daemon");
+
+		if !daemon_path.exists() {
+			return Err(format!("Daemon binary not found at {}", daemon_path.display()));
+		}
+
+		let service_content = format!(
+			r#"[Unit]
+Description=Spacedrive Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={} --data-dir {}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+"#,
+			daemon_path.display(),
+			data_dir.display()
+		);
+
+		let mut file = std::fs::File::create(&service_path)
+			.map_err(|e| format!("Failed to create service file: {}", e))?;
+		file.write_all(service_content.as_bytes())
+			.map_err(|e| format!("Failed to write service file: {}", e))?;
+
+		// Enable and start the service
+		let output = std::process::Command::new("systemctl")
+			.args(&["--user", "daemon-reload"])
+			.output()
+			.map_err(|e| format!("Failed to reload systemd: {}", e))?;
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			return Err(format!("Failed to reload systemd: {}", stderr));
+		}
+
+		let output = std::process::Command::new("systemctl")
+			.args(&["--user", "enable", "spacedrive-daemon.service"])
+			.output()
+			.map_err(|e| format!("Failed to enable service: {}", e))?;
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			return Err(format!("Failed to enable service: {}", stderr));
+		}
+
+		let output = std::process::Command::new("systemctl")
+			.args(&["--user", "start", "spacedrive-daemon.service"])
+			.output()
+			.map_err(|e| format!("Failed to start service: {}", e))?;
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			return Err(format!("Failed to start daemon service: {}", stderr));
+		}
+
+		// Update daemon state - we no longer own the process
+		let mut state = daemon_state.write().await;
+		state.started_by_us = false;
+		state.daemon_process = None;
+		tracing::info!("Updated daemon state: started_by_us = false");
+		drop(state);
+
+		// Reset connection pool so it can reconnect to the service-managed daemon
+		tracing::info!("Resetting connection pool to reconnect to service daemon");
+		app_state.connection_pool.reset().await;
+
+		// Wait for daemon to start and become available
+		tracing::info!("Waiting for daemon to become available...");
+		for i in 0..30 {
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+			if is_daemon_running(&socket_addr).await {
+				tracing::info!("Daemon is running after {} attempts", i + 1);
+				break;
+			}
+			if i == 29 {
+				return Err("Daemon failed to start after installing service".to_string());
+			}
+		}
+
+		// Trigger reconnection
+		tracing::info!("Triggering reconnection");
+		app_state.connection_pool.ensure_connected(&app).await?;
+
+		Ok(())
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		use std::io::Write;
+
+		tracing::info!("Installing daemon as Windows scheduled task");
+
+		// Stop any existing daemon child process first
+		{
+			let mut state = daemon_state.write().await;
+			if let Some(process_arc) = state.daemon_process.take() {
+				tracing::info!("Stopping existing daemon child process");
+				let mut process_lock = process_arc.lock().await;
+				if let Some(mut child) = process_lock.take() {
+					let _ = child.kill();
+				}
+			}
+		}
+
+		// Emit starting event since installation starts the daemon
+		let _ = app.emit("daemon-starting", ());
+		tracing::info!("Emitted daemon-starting event");
+
+		let daemon_path = std::env::current_exe()
+			.map_err(|e| format!("Failed to get current exe: {}", e))?
+			.parent()
+			.ok_or_else(|| "Could not determine binary directory".to_string())?
+			.join("sd-daemon.exe");
+
+		if !daemon_path.exists() {
+			return Err(format!("Daemon binary not found at {}", daemon_path.display()));
+		}
+
+		// Delete existing task if it exists
+		let _ = std::process::Command::new("schtasks")
+			.args(&["/Delete", "/TN", "SpacedriveDaemon", "/F"])
+			.output();
+
+		// Create XML for scheduled task
+		let task_xml = format!(
+			r#"<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Spacedrive Daemon Background Service</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions>
+    <Exec>
+      <Command>{}</Command>
+      <Arguments>--data-dir "{}"</Arguments>
+    </Exec>
+  </Actions>
+</Task>"#,
+			daemon_path.display(),
+			data_dir.display()
+		);
+
+		// Write XML to temp file
+		let temp_dir = std::env::temp_dir();
+		let xml_path = temp_dir.join("spacedrive-task.xml");
+		let mut file = std::fs::File::create(&xml_path)
+			.map_err(|e| format!("Failed to create task XML: {}", e))?;
+		file.write_all(task_xml.as_bytes())
+			.map_err(|e| format!("Failed to write task XML: {}", e))?;
+		drop(file);
+
+		// Create the scheduled task
+		let output = std::process::Command::new("schtasks")
+			.args(&[
+				"/Create",
+				"/TN",
+				"SpacedriveDaemon",
+				"/XML",
+				xml_path.to_str().unwrap(),
+			])
+			.output()
+			.map_err(|e| format!("Failed to create scheduled task: {}", e))?;
+
+		// Clean up temp file
+		let _ = std::fs::remove_file(&xml_path);
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			tracing::error!("schtasks create failed: {:?}", stderr);
+			return Err(format!("Failed to create scheduled task: {}", stderr));
+		}
+
+		// Start the task
+		let output = std::process::Command::new("schtasks")
+			.args(&["/Run", "/TN", "SpacedriveDaemon"])
+			.output()
+			.map_err(|e| format!("Failed to start scheduled task: {}", e))?;
+
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			tracing::error!("schtasks run failed: {:?}", stderr);
+			return Err(format!("Failed to start daemon task: {}", stderr));
+		}
+
+		// Update daemon state - we no longer own the process
+		let mut state = daemon_state.write().await;
+		state.started_by_us = false;
+		state.daemon_process = None;
+		tracing::info!("Updated daemon state: started_by_us = false");
+		drop(state);
+
+		// Reset connection pool so it can reconnect to the service-managed daemon
+		tracing::info!("Resetting connection pool to reconnect to service daemon");
+		app_state.connection_pool.reset().await;
+
+		// Wait for daemon to start and become available
+		tracing::info!("Waiting for daemon to become available...");
+		for i in 0..30 {
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+			if is_daemon_running(&socket_addr).await {
+				tracing::info!("Daemon is running after {} attempts", i + 1);
+				break;
+			}
+			if i == 29 {
+				return Err("Daemon failed to start after installing service".to_string());
+			}
+		}
+
+		// Trigger reconnection
+		tracing::info!("Triggering reconnection");
+		app_state.connection_pool.ensure_connected(&app).await?;
+
+		Ok(())
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+	{
+		Err("Service installation not supported on this platform".to_string())
+	}
+}
+
+/// Uninstall daemon service
+#[tauri::command]
+async fn uninstall_daemon_service() -> Result<(), String> {
+	#[cfg(target_os = "macos")]
+	{
+		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let plist_path = std::path::PathBuf::from(&home).join("Library/LaunchAgents/com.spacedrive.daemon.plist");
+
+		if plist_path.exists() {
+			// Unload the service
+			let _ = std::process::Command::new("launchctl")
+				.args(&["unload", plist_path.to_str().unwrap()])
+				.output();
+
+			std::fs::remove_file(&plist_path)
+				.map_err(|e| format!("Failed to remove plist file: {}", e))?;
+		}
+
+		Ok(())
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let service_path = std::path::PathBuf::from(&home).join(".config/systemd/user/spacedrive-daemon.service");
+
+		if service_path.exists() {
+			// Stop and disable the service
+			let _ = std::process::Command::new("systemctl")
+				.args(&["--user", "stop", "spacedrive-daemon.service"])
+				.output();
+
+			let _ = std::process::Command::new("systemctl")
+				.args(&["--user", "disable", "spacedrive-daemon.service"])
+				.output();
+
+			std::fs::remove_file(&service_path)
+				.map_err(|e| format!("Failed to remove service file: {}", e))?;
+
+			let _ = std::process::Command::new("systemctl")
+				.args(&["--user", "daemon-reload"])
+				.output();
+		}
+
+		Ok(())
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		// Stop the task first
+		let _ = std::process::Command::new("schtasks")
+			.args(&["/End", "/TN", "SpacedriveDaemon"])
+			.output();
+
+		// Delete the scheduled task
+		let output = std::process::Command::new("schtasks")
+			.args(&["/Delete", "/TN", "SpacedriveDaemon", "/F"])
+			.output()
+			.map_err(|e| format!("Failed to delete scheduled task: {}", e))?;
+
+		// It's okay if the task doesn't exist
+		if !output.status.success() {
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			// Task not found is okay, other errors should be reported
+			if !stderr.contains("cannot find") && !stderr.is_empty() {
+				tracing::warn!("schtasks delete warning: {:?}", stderr);
+			}
+		}
+
+		Ok(())
+	}
+
+	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+	{
+		Err("Service installation not supported on this platform".to_string())
+	}
 }
 
 /// Open macOS system settings for background items
@@ -1205,6 +1748,9 @@ fn main() {
 			get_daemon_status,
 			start_daemon_process,
 			stop_daemon_process,
+			check_daemon_installed,
+			install_daemon_service,
+			uninstall_daemon_service,
 			open_macos_settings,
 			windows::show_window,
 			windows::close_window,

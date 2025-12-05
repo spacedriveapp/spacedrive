@@ -25,13 +25,16 @@ impl AsRef<DatabaseConnection> for Database {
 impl Database {
 	/// Create a new database at the specified path
 	pub async fn create(path: &Path) -> Result<Self, DbErr> {
-		// Ensure parent directory exists
-		if let Some(parent) = path.parent() {
-			std::fs::create_dir_all(parent)
-				.map_err(|e| DbErr::Custom(format!("Failed to create directory: {}", e)))?;
-		}
-
-		let db_url = format!("sqlite://{}?mode=rwc", path.display());
+		let db_url = if path.as_os_str() == ":memory:" {
+			"sqlite::memory:".to_string()
+		} else {
+			// Ensure parent directory exists
+			if let Some(parent) = path.parent() {
+				std::fs::create_dir_all(parent)
+					.map_err(|e| DbErr::Custom(format!("Failed to create directory: {}", e)))?;
+			}
+			format!("sqlite://{}?mode=rwc", path.display())
+		};
 
 		// Connection pool sizing for concurrent indexing + sync operations
 		// Supports: indexing (3-5) + sync (8-10) + content ID (3-5) + network (5-8) + headroom (5-10)

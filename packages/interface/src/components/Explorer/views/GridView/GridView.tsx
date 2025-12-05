@@ -6,7 +6,7 @@ import type { DirectorySortBy } from "@sd/ts-client";
 
 export function GridView() {
   const { currentPath, sortBy, viewSettings } = useExplorer();
-  const { isSelected, focusedIndex, selectedFiles, selectFile } = useSelection();
+  const { isSelected, focusedIndex, selectedFiles, selectFile, clearSelection } = useSelection();
   const { gridSize, gapSize } = viewSettings;
 
   const directoryQuery = useNormalizedCache({
@@ -26,13 +26,21 @@ export function GridView() {
 
   const files = directoryQuery.data?.files || [];
 
+  const handleContainerClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      clearSelection();
+    }
+  };
+
   return (
     <div
-      className="grid p-3"
+      className="grid p-3 min-h-full"
       style={{
         gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
+        gridAutoRows: 'max-content',
         gap: `${gapSize}px`,
       }}
+      onClick={handleContainerClick}
     >
       {files.map((file, index) => (
         <FileCard
