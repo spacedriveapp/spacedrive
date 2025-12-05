@@ -22,9 +22,7 @@ export function useDaemonStatus() {
 
 		let mounted = true;
 		let checkInterval: NodeJS.Timeout | null = null;
-		let unlistenConnected: (() => void) | undefined;
-		let unlistenDisconnected: (() => void) | undefined;
-		let unlistenStarting: (() => void) | undefined;
+		let listenerCleanup: (() => void) | null = null;
 
 		const checkDaemonStatus = async () => {
 			if (!mounted) return;
@@ -58,7 +56,7 @@ export function useDaemonStatus() {
 		};
 
 		const setupListeners = async () => {
-			unlistenConnected = await platform.onDaemonConnected?.(() => {
+			const unlistenConnected = await platform.onDaemonConnected?.(() => {
 				console.log('[useDaemonStatus] daemon-connected event received');
 				if (mounted) {
 					setStatus(prev => ({
@@ -75,7 +73,7 @@ export function useDaemonStatus() {
 				}
 			});
 
-			unlistenDisconnected = await platform.onDaemonDisconnected?.(() => {
+			const unlistenDisconnected = await platform.onDaemonDisconnected?.(() => {
 				console.log('[useDaemonStatus] daemon-disconnected event received');
 				if (mounted) {
 					setStatus(prev => ({
@@ -91,7 +89,7 @@ export function useDaemonStatus() {
 				}
 			});
 
-			unlistenStarting = await platform.onDaemonStarting?.(() => {
+			const unlistenStarting = await platform.onDaemonStarting?.(() => {
 				console.log('[useDaemonStatus] daemon-starting event received');
 				if (mounted) {
 					setStatus(prev => ({
@@ -100,6 +98,12 @@ export function useDaemonStatus() {
 					}));
 				}
 			});
+
+			return () => {
+				unlistenConnected?.();
+				unlistenDisconnected?.();
+				unlistenStarting?.();
+			};
 		};
 
 		// Check if daemon is installed as a service
@@ -123,7 +127,16 @@ export function useDaemonStatus() {
 		checkInstallation();
 
 		// Set up event listeners
-		setupListeners();
+		setupListeners()
+			.then(cleanup => {
+				listenerCleanup = cleanup;
+				if (!mounted) {
+					listenerCleanup?.();
+				}
+			})
+			.catch(error => {
+				console.error('[useDaemonStatus] Failed to set up daemon listeners:', error);
+			});
 
 		// Also poll every 5 seconds as a fallback
 		const fallbackInterval = setInterval(checkDaemonStatus, 5000);
@@ -134,9 +147,7 @@ export function useDaemonStatus() {
 				clearInterval(checkInterval);
 			}
 			clearInterval(fallbackInterval);
-			unlistenConnected?.();
-			unlistenDisconnected?.();
-			unlistenStarting?.();
+			listenerCleanup?.();
 		};
 	}, [platform]);
 
