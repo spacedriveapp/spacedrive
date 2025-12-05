@@ -170,6 +170,13 @@ export const platform: Platform = {
 		return unlisten;
 	},
 
+	async onDaemonStarting(callback: () => void) {
+		const unlisten = await listen("daemon-starting", () => {
+			callback();
+		});
+		return unlisten;
+	},
+
 	async openMacOSSettings() {
 		await invoke("open_macos_settings");
 	},

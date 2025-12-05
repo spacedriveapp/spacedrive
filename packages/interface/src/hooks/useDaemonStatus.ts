@@ -22,6 +22,7 @@ export function useDaemonStatus() {
 		let checkInterval: NodeJS.Timeout | null = null;
 		let unlistenConnected: (() => void) | undefined;
 		let unlistenDisconnected: (() => void) | undefined;
+		let unlistenStarting: (() => void) | undefined;
 
 		const checkDaemonStatus = async () => {
 			if (!mounted) return;
@@ -31,9 +32,9 @@ export function useDaemonStatus() {
 				if (mounted) {
 					const isRunning = daemonStatus?.is_running ?? false;
 					setStatus(prev => ({
-						...prev,
 						isConnected: isRunning,
-						isChecking: false,
+						// Only clear isChecking if we're connected (daemon started successfully)
+						isChecking: isRunning ? false : prev.isChecking,
 					}));
 
 					// Clear polling if daemon is back online
@@ -47,7 +48,7 @@ export function useDaemonStatus() {
 					setStatus(prev => ({
 						...prev,
 						isConnected: false,
-						isChecking: false,
+						// Don't clear isChecking on error - might still be starting
 					}));
 				}
 			}
@@ -56,10 +57,10 @@ export function useDaemonStatus() {
 		const setupListeners = async () => {
 			unlistenConnected = await platform.onDaemonConnected?.(() => {
 				if (mounted) {
-					setStatus(prev => ({
-						...prev,
+					setStatus({
 						isConnected: true,
-					}));
+						isChecking: false,
+					});
 
 					// Stop polling when connected
 					if (checkInterval) {
@@ -74,12 +75,22 @@ export function useDaemonStatus() {
 					setStatus(prev => ({
 						...prev,
 						isConnected: false,
+						isChecking: false,
 					}));
 
 					// Start polling when disconnected
 					if (!checkInterval) {
 						checkInterval = setInterval(checkDaemonStatus, 3000);
 					}
+				}
+			});
+
+			unlistenStarting = await platform.onDaemonStarting?.(() => {
+				if (mounted) {
+					setStatus(prev => ({
+						...prev,
+						isChecking: true,
+					}));
 				}
 			});
 		};
@@ -101,33 +112,19 @@ export function useDaemonStatus() {
 			clearInterval(fallbackInterval);
 			unlistenConnected?.();
 			unlistenDisconnected?.();
+			unlistenStarting?.();
 		};
 	}, [platform]);
 
 	const retryConnection = async () => {
-		setStatus(prev => ({ ...prev, isChecking: true }));
-
 		try {
-			const daemonStatus = await platform.getDaemonStatus?.();
-			setStatus({
-				isConnected: daemonStatus?.is_running ?? false,
-				isChecking: false,
-			});
-
-			if (!daemonStatus?.is_running) {
-				await platform.startDaemonProcess?.();
-				await new Promise(resolve => setTimeout(resolve, 1000));
-				const newStatus = await platform.getDaemonStatus?.();
-				setStatus({
-					isConnected: newStatus?.is_running ?? false,
-					isChecking: false,
-				});
-			}
+			await platform.startDaemonProcess?.();
 		} catch (error) {
-			setStatus({
-				isConnected: false,
+			console.error('Failed to start daemon:', error);
+			setStatus(prev => ({
+				...prev,
 				isChecking: false,
-			});
+			}));
 		}
 	};
 

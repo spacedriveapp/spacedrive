@@ -732,6 +732,7 @@ async fn get_daemon_status(
 /// Start daemon as a background process
 #[tauri::command]
 async fn start_daemon_process(
+	app: tauri::AppHandle,
 	state: tauri::State<'_, Arc<RwLock<DaemonState>>>,
 ) -> Result<(), String> {
 	let (data_dir, socket_addr) = {
@@ -746,6 +747,9 @@ async fn start_daemon_process(
 	if is_daemon_running(&socket_addr).await {
 		return Err("Daemon is already running".to_string());
 	}
+
+	// Emit starting event
+	let _ = app.emit("daemon-starting", ());
 
 	// Start the daemon
 	let child = start_daemon(&data_dir, &socket_addr).await?;
