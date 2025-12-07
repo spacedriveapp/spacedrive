@@ -1,6 +1,7 @@
 //! Location operations
 
 pub mod add;
+pub mod enable_indexing;
 pub mod export;
 pub mod import;
 pub mod list;
@@ -11,6 +12,7 @@ pub mod trigger_job;
 pub mod update;
 
 pub use add::*;
+pub use enable_indexing::*;
 pub use export::*;
 pub use import::*;
 pub use list::*;

@@ -233,41 +233,49 @@ impl LocationManager {
 			warn!("Failed to emit location resource events: {}", e);
 		}
 
-		// Also emit indexing started event
-		self.events.emit(Event::IndexingStarted { location_id });
+		// Start indexing job with action context if index mode is not None
+		let job_id = if index_mode != IndexMode::None {
+			// Emit indexing started event
+			self.events.emit(Event::IndexingStarted { location_id });
 
-		// Start indexing job with action context, passing the SdPath directly
-		let job_id = match self
-			.start_indexing_with_context_and_path(
-				library,
-				&managed_location,
-				sd_path.clone(),
-				action_context,
-			)
-			.await
-		{
-			Ok(job_id) => {
-				info!(
-					"Started indexing job {} for location '{}'",
-					job_id, display_name
-				);
+			match self
+				.start_indexing_with_context_and_path(
+					library,
+					&managed_location,
+					sd_path.clone(),
+					action_context,
+				)
+				.await
+			{
+				Ok(job_id) => {
+					info!(
+						"Started indexing job {} for location '{}'",
+						job_id, display_name
+					);
 
-				// Emit job started event
-				self.events.emit(Event::JobStarted {
-					job_id: job_id.clone(),
-					job_type: "Indexing".to_string(),
-				});
+					// Emit job started event
+					self.events.emit(Event::JobStarted {
+						job_id: job_id.clone(),
+						job_type: "Indexing".to_string(),
+					});
 
-				job_id
+					job_id
+				}
+				Err(e) => {
+					error!(
+						"Failed to start indexing for location '{}': {}",
+						display_name, e
+					);
+					// Return empty job ID if indexing fails
+					String::new()
+				}
 			}
-			Err(e) => {
-				error!(
-					"Failed to start indexing for location '{}': {}",
-					display_name, e
-				);
-				// Return empty job ID if indexing fails
-				String::new()
-			}
+		} else {
+			info!(
+				"Location '{}' created with IndexMode::None, skipping indexing",
+				display_name
+			);
+			String::new()
 		};
 
 		info!("Successfully added location '{}'", display_name);
@@ -617,6 +625,7 @@ impl std::str::FromStr for IndexMode {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s {
+			"none" => Ok(IndexMode::None),
 			"shallow" => Ok(IndexMode::Shallow),
 			"quick" => Ok(IndexMode::Quick),
 			"content" => Ok(IndexMode::Content),

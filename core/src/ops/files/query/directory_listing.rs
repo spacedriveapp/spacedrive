@@ -136,6 +136,14 @@ impl LibraryQuery for DirectoryListingQuery {
 
 		let db = library.db();
 
+		// Check if this path's location has IndexMode::None
+		if let Some(should_use_ephemeral) = self.check_location_index_mode(db.conn()).await {
+			if should_use_ephemeral {
+				tracing::info!("Location has IndexMode::None, using ephemeral indexing");
+				return self.query_ephemeral_directory_impl(context, library_id).await;
+			}
+		}
+
 		// Try to find the parent directory entry
 		match self.find_parent_directory(db.conn()).await {
 			Ok(parent_entry) => {
@@ -654,6 +662,42 @@ impl DirectoryListingQuery {
 }
 
 impl DirectoryListingQuery {
+	/// Check if the location containing this path has IndexMode::None
+	/// Returns Some(true) if should use ephemeral, Some(false) if indexed, None if location not found
+	async fn check_location_index_mode(&self, db: &DatabaseConnection) -> Option<bool> {
+		use crate::infra::db::entities::location;
+
+		match &self.input.path {
+			SdPath::Physical { device_slug, path } => {
+				// Find all locations for this device
+				let path_str = path.to_string_lossy().to_string();
+
+				// Get all locations and find the one that is a parent of this path
+				if let Ok(locations) = location::Entity::find().all(db).await {
+					for loc in locations {
+						// Get the location's root path
+						if let Some(entry_id) = loc.entry_id {
+							if let Ok(Some(dir_path)) = directory_paths::Entity::find_by_id(entry_id).one(db).await {
+								// Check if this location's path is a parent of the requested path
+								if path_str.starts_with(&dir_path.path) {
+									// Check if index_mode is "none"
+									return Some(loc.index_mode == "none");
+								}
+							}
+						}
+					}
+				}
+				None
+			}
+			SdPath::Cloud { .. } => {
+				// Similar logic for cloud paths
+				// For now, assume cloud paths should check their location too
+				None
+			}
+			_ => None,
+		}
+	}
+
 	/// Find the parent directory entry for the given SdPath
 	async fn find_parent_directory(&self, db: &DatabaseConnection) -> QueryResult<entry::Model> {
 		tracing::debug!(

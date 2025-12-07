@@ -58,23 +58,17 @@ export function QuickPreviewFullscreen({
 		if (!isOpen) return;
 
 		const handleKeyDown = (e: KeyboardEvent) => {
+			// Only handle close events - let Explorer handle navigation
 			if (e.code === 'Escape' || e.code === 'Space') {
 				e.preventDefault();
+				e.stopImmediatePropagation();
 				onClose();
-			}
-			if (e.code === 'ArrowLeft' && hasPrevious && onPrevious) {
-				e.preventDefault();
-				onPrevious();
-			}
-			if (e.code === 'ArrowRight' && hasNext && onNext) {
-				e.preventDefault();
-				onNext();
 			}
 		};
 
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
-	}, [isOpen, onClose, onNext, onPrevious, hasPrevious, hasNext]);
+		window.addEventListener('keydown', handleKeyDown, { capture: true });
+		return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+	}, [isOpen, onClose]);
 
 	// Get background style based on content type
 	const getBackgroundClass = () => {

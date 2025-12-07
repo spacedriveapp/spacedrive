@@ -37,6 +37,8 @@ pub struct LocationCreateArgs {
 /// Location indexing mode
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum IndexMode {
+	/// Location exists but is not indexed
+	None,
 	/// Only scan file/directory structure
 	Shallow,
 	/// Quick scan (metadata only)
@@ -52,6 +54,7 @@ pub enum IndexMode {
 impl From<IndexMode> for JobIndexMode {
 	fn from(mode: IndexMode) -> Self {
 		match mode {
+			IndexMode::None => JobIndexMode::None,
 			IndexMode::Shallow => JobIndexMode::Shallow,
 			IndexMode::Quick => JobIndexMode::Content,
 			IndexMode::Content => JobIndexMode::Content,
@@ -64,6 +67,7 @@ impl From<IndexMode> for JobIndexMode {
 impl From<&str> for IndexMode {
 	fn from(s: &str) -> Self {
 		match s.to_lowercase().as_str() {
+			"none" => IndexMode::None,
 			"shallow" => IndexMode::Shallow,
 			"quick" => IndexMode::Quick,
 			"content" => IndexMode::Content,
@@ -77,6 +81,7 @@ impl From<&str> for IndexMode {
 impl std::fmt::Display for IndexMode {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
+			IndexMode::None => write!(f, "none"),
 			IndexMode::Shallow => write!(f, "shallow"),
 			IndexMode::Quick => write!(f, "quick"),
 			IndexMode::Content => write!(f, "content"),

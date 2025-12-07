@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useExplorer } from "../context";
 import { useSelection } from "../SelectionContext";
 import { useNormalizedQuery } from "../../../context";
@@ -7,6 +7,10 @@ import type { DirectorySortBy } from "@sd/ts-client";
 export function useExplorerKeyboard() {
   const { currentPath, sortBy, setCurrentPath, viewMode, viewSettings, sidebarVisible, inspectorVisible, openQuickPreview, tagModeActive, setTagModeActive } = useExplorer();
   const { selectedFiles, selectFile, selectAll, clearSelection, focusedIndex, setFocusedIndex, setSelectedFiles } = useSelection();
+
+  // Typeahead search state
+  const searchStringRef = useRef("");
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Query files for keyboard operations
   const directoryQuery = useNormalizedQuery({
@@ -103,10 +107,63 @@ export function useExplorerKeyboard() {
       if (e.code === "Escape" && selectedFiles.length > 0) {
         clearSelection();
       }
+
+      // Typeahead search: Only trigger if:
+      // - Single character key
+      // - No modifiers (except Shift for capitals)
+      // - Not already handled above
+      // - Target is not an input element
+      const target = e.target as HTMLElement;
+      const isInputElement = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+
+      if (
+        !isInputElement &&
+        e.key.length === 1 &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        files.length > 0
+      ) {
+        // Clear previous timeout
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+
+        // Update search string
+        searchStringRef.current += e.key.toLowerCase();
+
+        // Find first file that matches the search string
+        const matchIndex = files.findIndex((file) => {
+          const fileName = file.name.toLowerCase();
+          return fileName.startsWith(searchStringRef.current);
+        });
+
+        // If match found, select it
+        if (matchIndex !== -1) {
+          setFocusedIndex(matchIndex);
+          setSelectedFiles([files[matchIndex]]);
+
+          // Scroll to the matched file
+          const element = document.querySelector(`[data-file-id="${files[matchIndex].id}"]`);
+          if (element) {
+            element.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        }
+
+        // Reset search string after 500ms of inactivity
+        searchTimeoutRef.current = setTimeout(() => {
+          searchStringRef.current = "";
+        }, 500);
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, [
     selectedFiles,
     files,

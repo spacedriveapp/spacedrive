@@ -17,6 +17,7 @@ interface FileProps {
   layout?: "column" | "row";
   children?: React.ReactNode;
   className?: string;
+  "data-file-id"?: string;
 }
 
 function FileComponent({
@@ -32,9 +33,11 @@ function FileComponent({
   layout = "column",
   children,
   className,
+  "data-file-id": dataFileId,
 }: FileProps) {
   return (
     <div
+      data-file-id={dataFileId}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}

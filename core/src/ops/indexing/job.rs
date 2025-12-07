@@ -24,6 +24,8 @@ use super::{
 /// Indexing mode determines the depth of indexing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Type)]
 pub enum IndexMode {
+	/// Location exists but is not indexed
+	None,
 	/// Just filesystem metadata (fastest)
 	Shallow,
 	/// Generate content identities (moderate)
@@ -153,6 +155,7 @@ impl IndexerJobConfig {
 #[derive(Debug)]
 pub struct EphemeralIndex {
 	pub entries: HashMap<PathBuf, EntryMetadata>,
+	pub entry_uuids: HashMap<PathBuf, Uuid>,
 	pub content_identities: HashMap<String, EphemeralContentIdentity>,
 	pub created_at: std::time::Instant,
 	pub last_accessed: std::time::Instant,
@@ -174,6 +177,7 @@ impl EphemeralIndex {
 		let now = std::time::Instant::now();
 		Self {
 			entries: HashMap::new(),
+			entry_uuids: HashMap::new(),
 			content_identities: HashMap::new(),
 			created_at: now,
 			last_accessed: now,
@@ -182,14 +186,19 @@ impl EphemeralIndex {
 		}
 	}
 
-	pub fn add_entry(&mut self, path: PathBuf, metadata: EntryMetadata) {
-		self.entries.insert(path, metadata);
+	pub fn add_entry(&mut self, path: PathBuf, uuid: Uuid, metadata: EntryMetadata) {
+		self.entries.insert(path.clone(), metadata);
+		self.entry_uuids.insert(path, uuid);
 		self.last_accessed = std::time::Instant::now();
 	}
 
 	pub fn get_entry(&mut self, path: &PathBuf) -> Option<&EntryMetadata> {
 		self.last_accessed = std::time::Instant::now();
 		self.entries.get(path)
+	}
+
+	pub fn get_entry_uuid(&self, path: &PathBuf) -> Option<Uuid> {
+		self.entry_uuids.get(path).copied()
 	}
 
 	pub fn add_content_identity(&mut self, cas_id: String, content: EphemeralContentIdentity) {

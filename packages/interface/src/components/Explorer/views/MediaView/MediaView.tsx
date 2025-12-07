@@ -20,6 +20,7 @@ export function MediaView() {
 		viewSettings,
 		sortBy,
 		setSortBy,
+		setCurrentFiles,
 	} = useExplorer();
 	const { selectedFiles, selectFile, focusedIndex, isSelected, selectedFileIds } = useSelection();
 
@@ -131,6 +132,11 @@ export function MediaView() {
 	const files = useMemo(() => {
 		return [...(mediaQuery.data?.files || [])].reverse();
 	}, [mediaQuery.data?.files]);
+
+	// Update current files in explorer context for quick preview navigation
+	useEffect(() => {
+		setCurrentFiles(files);
+	}, [files, setCurrentFiles]);
 
 	// Check if element is ready when files load
 	useEffect(() => {

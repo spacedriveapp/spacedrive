@@ -59,6 +59,9 @@ pub struct Location {
 /// How deeply to index files in this location
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
 pub enum IndexMode {
+	/// Location exists but is not indexed
+	None,
+
 	/// Just filesystem metadata (name, size, dates)
 	Shallow,
 
@@ -205,6 +208,7 @@ impl Location {
 		sd_path: SdPath,
 	) -> Self {
 		let index_mode = match model.index_mode.as_str() {
+			"none" => IndexMode::None,
 			"shallow" => IndexMode::Shallow,
 			"content" => IndexMode::Content,
 			"deep" => IndexMode::Deep,

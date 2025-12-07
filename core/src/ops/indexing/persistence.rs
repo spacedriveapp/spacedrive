@@ -477,10 +477,10 @@ impl IndexPersistence for EphemeralPersistence {
 		let entry_id = self.get_next_id().await;
 		let entry_uuid = Uuid::new_v4();
 
-		// Store in ephemeral index
+		// Store in ephemeral index with UUID
 		{
 			let mut index = self.index.write().await;
-			index.add_entry(entry.path.clone(), metadata.clone());
+			index.add_entry(entry.path.clone(), entry_uuid, metadata.clone());
 
 			// Update stats
 			match entry.kind {
@@ -551,10 +551,13 @@ impl IndexPersistence for EphemeralPersistence {
 
 		// Detect file type using the file type registry
 		let registry = FileTypeRegistry::default();
-		let mime_type = if let Ok(result) = registry.identify(path).await {
-			result.file_type.primary_mime_type().map(|s| s.to_string())
+		let (mime_type, content_kind) = if let Ok(result) = registry.identify(path).await {
+			(
+				result.file_type.primary_mime_type().map(|s| s.to_string()),
+				result.file_type.category,
+			)
 		} else {
-			None
+			(None, crate::domain::ContentKind::Unknown)
 		};
 
 		let content_identity = EphemeralContentIdentity {
@@ -578,13 +581,13 @@ impl IndexPersistence for EphemeralPersistence {
 			use crate::domain::file::File;
 			use crate::infra::event::{Event, ResourceMetadata};
 
-			// Get the stored metadata for this entry
-			let metadata_opt = {
+			// Get the stored metadata and UUID for this entry
+			let (metadata_opt, entry_uuid_opt) = {
 				let index = self.index.read().await;
-				index.entries.get(path).cloned()
+				(index.entries.get(path).cloned(), index.get_entry_uuid(&path.to_path_buf()))
 			};
 
-			if let Some(metadata) = metadata_opt {
+			if let (Some(metadata), Some(entry_uuid)) = (metadata_opt, entry_uuid_opt) {
 				// Build SdPath
 				let device_slug = get_current_device_slug();
 				let sd_path = SdPath::Physical {
@@ -592,16 +595,13 @@ impl IndexPersistence for EphemeralPersistence {
 					path: path.to_path_buf(),
 				};
 
-				// Generate UUID for this file (use entry_id as seed for consistency)
-				let entry_uuid = uuid::Uuid::from_u128(entry_id as u128);
-
 				// Build File with content_identity
 				let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
 
 				// Add content identity
 				file.content_identity = Some(ContentIdentity {
 					uuid: uuid::Uuid::new_v4(),
-					kind: crate::domain::ContentKind::Unknown, // TODO: detect from mime_type
+					kind: content_kind,
 					content_hash: cas_id.clone(),
 					integrity_hash: None,
 					mime_type_id: None,
@@ -611,6 +611,7 @@ impl IndexPersistence for EphemeralPersistence {
 					first_seen_at: chrono::Utc::now(),
 					last_verified_at: chrono::Utc::now(),
 				});
+				file.content_kind = content_kind;
 
 				// Emit event with updated file
 				let parent_path = path.parent().map(|p| SdPath::Physical {
@@ -685,5 +686,98 @@ impl PersistenceFactory {
 		root_path: PathBuf,
 	) -> Box<dyn IndexPersistence + Send + Sync> {
 		Box::new(EphemeralPersistence::new(index, event_bus, root_path))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::infra::event::Event;
+	use crate::ops::indexing::state::{DirEntry, EntryKind};
+	use std::sync::Mutex;
+	use tempfile::TempDir;
+
+	#[tokio::test]
+	async fn test_ephemeral_uuid_consistency() {
+		// Create temp directory for test
+		let temp_dir = TempDir::new().unwrap();
+		let test_file = temp_dir.path().join("test.txt");
+		std::fs::write(&test_file, b"test content").unwrap();
+
+		// Create ephemeral index
+		let index = Arc::new(RwLock::new(EphemeralIndex::new(
+			temp_dir.path().to_path_buf(),
+		)));
+
+		// Create event collector
+		let collected_events = Arc::new(Mutex::new(Vec::new()));
+		let events_clone = collected_events.clone();
+
+		// Create mock event bus that collects events
+		let event_bus = Arc::new(crate::infra::event::EventBus::new());
+		let _subscription = event_bus.subscribe(move |event| {
+			if let Event::ResourceChanged { resource, .. } = event {
+				events_clone.lock().unwrap().push(resource.clone());
+			}
+		});
+
+		// Create ephemeral persistence
+		let persistence = EphemeralPersistence::new(
+			index.clone(),
+			Some(event_bus),
+			temp_dir.path().to_path_buf(),
+		);
+
+		// Store entry (processing phase)
+		let dir_entry = DirEntry {
+			path: test_file.clone(),
+			kind: EntryKind::File,
+			size: 12,
+			modified: Some(std::time::SystemTime::now()),
+			inode: Some(12345),
+		};
+
+		let entry_id = persistence
+			.store_entry(&dir_entry, None, temp_dir.path())
+			.await
+			.unwrap();
+
+		// Store content identity (content phase)
+		let cas_id = "test_hash_123".to_string();
+		persistence
+			.store_content_identity(entry_id, &test_file, cas_id)
+			.await
+			.unwrap();
+
+		// Give events time to propagate
+		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+		// Collect all events
+		let events = collected_events.lock().unwrap();
+
+		// Should have 2 events: one from store_entry, one from store_content_identity
+		assert_eq!(
+			events.len(),
+			2,
+			"Expected 2 ResourceChanged events (processing + content phases)"
+		);
+
+		// Extract UUIDs from both events
+		let uuid1 = events[0]["id"].as_str().expect("First event should have UUID");
+		let uuid2 = events[1]["id"].as_str().expect("Second event should have UUID");
+
+		// CRITICAL: Both events must have the same UUID for the same file
+		assert_eq!(
+			uuid1, uuid2,
+			"UUID mismatch! Processing phase emitted UUID {} but content phase emitted UUID {}. \
+			 These should be identical so the UI can match the events.",
+			uuid1, uuid2
+		);
+
+		// Verify the second event has content_identity
+		assert!(
+			events[1]["content_identity"].is_object(),
+			"Second event should include content_identity"
+		);
 	}
 }

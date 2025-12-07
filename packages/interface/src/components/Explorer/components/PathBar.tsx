@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import clsx from "clsx";
-import { CaretRight } from "@phosphor-icons/react";
+import { CaretRight, Eye, Folder } from "@phosphor-icons/react";
 import type { SdPath, LibraryDeviceInfo } from "@sd/ts-client";
-import { getDeviceIconBySlug } from "@sd/ts-client";
+import { getDeviceIconBySlug, useLibraryMutation } from "@sd/ts-client";
 import { sdPathToUri } from "../utils";
 import LaptopIcon from "@sd/assets/icons/Laptop.png";
 import { useNormalizedQuery } from "@sd/ts-client";
+import { TopBarButton, Popover, usePopover, PopoverContainer, PopoverSection, PopoverDivider } from "@sd/ui";
+import { useSelection } from "../SelectionContext";
 
 interface PathBarProps {
 	path: SdPath;
@@ -95,6 +97,101 @@ function parsePathSegments(sdPath: SdPath): PathSegment[] {
 	return [];
 }
 
+function IndexIndicator({ path }: { path: SdPath }) {
+	const popover = usePopover();
+	const enableIndexing = useLibraryMutation("locations.enable_indexing");
+	const { clearSelection } = useSelection();
+
+	// Fetch all locations
+	const { data: locationsData } = useNormalizedQuery({
+		wireMethod: "query:locations.list",
+		input: null,
+		resourceType: "location",
+	});
+
+	const locations = (locationsData as any)?.locations ?? [];
+
+	// Find location that contains this path
+	const matchingLocation = (() => {
+		if ("Physical" in path) {
+			const pathStr = path.Physical.path;
+			// Find location with longest matching prefix
+			return locations
+				.filter((loc) => {
+					if (!loc.sd_path || !("Physical" in loc.sd_path)) return false;
+					const locPath = loc.sd_path.Physical.path;
+					return pathStr.startsWith(locPath);
+				})
+				.sort((a, b) => {
+					const aPath = ("Physical" in a.sd_path!) ? a.sd_path!.Physical.path : "";
+					const bPath = ("Physical" in b.sd_path!) ? b.sd_path!.Physical.path : "";
+					return bPath.length - aPath.length;
+				})[0];
+		}
+		return undefined;
+	})();
+
+	if (!matchingLocation) return null;
+
+	const isIndexed = matchingLocation.index_mode !== "none";
+
+	return (
+		<>
+		<Popover
+			popover={popover}
+			trigger={
+				<TopBarButton
+					icon={Eye}
+					active={isIndexed}
+					title={isIndexed ? "Location is indexed" : "Location not indexed"}
+				/>
+			}
+		>
+			<PopoverContainer>
+				<PopoverSection>
+					<div className="px-2 py-1.5">
+						<div className="text-xs font-semibold text-ink">{matchingLocation.name ?? "Unknown"}</div>
+						<div className="text-xs text-ink-dull mt-0.5">
+							{isIndexed ? `Indexed (${matchingLocation.index_mode})` : "Not indexed"}
+						</div>
+					</div>
+				</PopoverSection>
+
+				<PopoverDivider />
+
+				<PopoverSection>
+					{!isIndexed && (
+						<button
+							onClick={async () => {
+								await enableIndexing.mutateAsync({
+									id: matchingLocation.id,
+									index_mode: "deep",
+								});
+								popover.setOpen(false);
+							}}
+							className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
+						>
+							<Eye size={16} />
+							Enable Indexing
+						</button>
+					)}
+					<button
+						onClick={() => {
+							clearSelection();
+							popover.setOpen(false);
+						}}
+						className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
+					>
+						<Folder size={16} />
+						Open Location Inspector
+					</button>
+				</PopoverSection>
+			</PopoverContainer>
+		</Popover>
+		</>
+	);
+}
+
 export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isShiftHeld, setIsShiftHeld] = useState(false);
@@ -147,18 +244,19 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 			: breadcrumbsWidth;
 
 	return (
-		<motion.div
-			animate={{ width: currentWidth }}
-			transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-			onMouseEnter={() => setIsExpanded(true)}
-			onMouseLeave={() => setIsExpanded(false)}
-			className={clsx(
-				"flex items-center gap-1.5 h-8 px-3 rounded-full",
-				"backdrop-blur-xl border border-sidebar-line/30",
-				"bg-sidebar-box/20 transition-colors",
-				"focus-within:bg-sidebar-box/30 focus-within:border-sidebar-line/40",
-			)}
-		>
+		<div className="flex items-center gap-2">
+			<motion.div
+				animate={{ width: currentWidth }}
+				transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+				onMouseEnter={() => setIsExpanded(true)}
+				onMouseLeave={() => setIsExpanded(false)}
+				className={clsx(
+					"flex items-center gap-1.5 h-8 px-3 rounded-full",
+					"backdrop-blur-xl border border-sidebar-line/30",
+					"bg-sidebar-box/20 transition-colors",
+					"focus-within:bg-sidebar-box/30 focus-within:border-sidebar-line/40",
+				)}
+			>
 			<img
 				src={deviceIcon}
 				alt="Device"
@@ -203,10 +301,7 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 									{segment.name}
 								</button>
 								{!isLast && (
-									<CaretRight
-										className="size-3 text-sidebar-inkFaint"
-										weight="bold"
-									/>
+									<CaretRight size={12} />
 								)}
 							</div>
 						);
@@ -227,6 +322,8 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 					placeholder="No path selected"
 				/>
 			)}
-		</motion.div>
+			</motion.div>
+			<IndexIndicator path={path} />
+		</div>
 	);
 }

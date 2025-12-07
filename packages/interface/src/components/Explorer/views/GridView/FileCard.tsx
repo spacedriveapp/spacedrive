@@ -457,7 +457,7 @@ export const FileCard = memo(function FileCard({ file, fileIndex, allFiles, sele
   const thumbSize = Math.max(gridSize * 0.6, 60);
 
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes}>
+    <div ref={setNodeRef} {...listeners} {...attributes} data-file-id={file.id}>
       <FileComponent
         file={file}
         selected={selected}
