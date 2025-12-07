@@ -19,9 +19,10 @@ cli = []
 
 [dependencies]
 # Async runtime
-async-trait = "0.1"
-futures     = "0.3"
-tokio       = { version = "1.40", features = ["full"] }
+async-channel = { workspace = true }
+async-trait   = "0.1"
+futures       = "0.3"
+tokio         = { version = "1.40", features = ["full"] }
 
 # Database
 sea-orm = { version = "1.1", features = [

@@ -135,6 +135,11 @@ impl IndexerState {
 			dirs_to_walk.push_back(path.to_path_buf());
 		}
 
+		// Use half of available CPU cores for parallel discovery (Rayon-style)
+		let discovery_concurrency = std::thread::available_parallelism()
+			.map(|n| usize::max(n.get() / 2, 1))
+			.unwrap_or(4);
+
 		Self {
 			phase: Phase::Discovery,
 			started_at: Instant::now(),
@@ -150,7 +155,7 @@ impl IndexerState {
 			last_progress_time: Instant::now(),
 			items_since_last_update: 0,
 			batch_size: 1000,
-			discovery_concurrency: 1,
+			discovery_concurrency,
 			dirs_channel_capacity: 4096,
 			entries_channel_capacity: 16384,
 		}
