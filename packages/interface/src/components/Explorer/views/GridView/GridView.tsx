@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
@@ -5,7 +6,7 @@ import { FileCard } from "./FileCard";
 import type { DirectorySortBy } from "@sd/ts-client";
 
 export function GridView() {
-  const { currentPath, sortBy, viewSettings } = useExplorer();
+  const { currentPath, sortBy, viewSettings, setCurrentFiles } = useExplorer();
   const { isSelected, focusedIndex, selectedFiles, selectFile, clearSelection } = useSelection();
   const { gridSize, gapSize } = viewSettings;
 
@@ -26,6 +27,11 @@ export function GridView() {
   });
 
   const files = directoryQuery.data?.files || [];
+
+  // Update current files in explorer context for quick preview navigation
+  useEffect(() => {
+    setCurrentFiles(files);
+  }, [files, setCurrentFiles]);
 
   const handleContainerClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {

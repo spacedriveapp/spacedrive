@@ -57,6 +57,7 @@ export const TableRow = memo(function TableRow({
     <div
       ref={measureRef}
       data-index={index}
+      data-file-id={file.id}
       className="relative"
       style={{ height: ROW_HEIGHT }}
       onClick={handleClick}

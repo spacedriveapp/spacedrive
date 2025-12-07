@@ -378,6 +378,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 
 	return (
 		<div
+			data-file-id={file.id}
 			className={clsx(
 				"relative overflow-hidden cursor-pointer transition-all w-full h-full group",
 				selected && "ring-2 ring-accent ring-inset",

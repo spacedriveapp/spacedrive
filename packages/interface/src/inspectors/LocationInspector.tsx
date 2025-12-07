@@ -30,7 +30,7 @@ import {
 } from "../components/Inspector";
 import clsx from "clsx";
 import type { LocationInfo } from "@sd/ts-client";
-import { Dialog, dialogManager, useDialog, type UseDialogProps } from "@sd/ui";
+import { Button, Dialog, dialogManager, useDialog, type UseDialogProps } from "@sd/ui";
 import { useLibraryMutation } from "../context";
 import LocationIcon from "@sd/assets/icons/Location.png";
 
@@ -300,7 +300,7 @@ function JobsTab({ location }: { location: LocationInfo }) {
 			</p>
 
 			<Section title="Media Processing" icon={Image}>
-				<div className="space-y-1">
+				<div className="space-y-2.5">
 					<JobConfigRow
 						label="Generate Thumbnails"
 						description="Create preview thumbnails for images and videos"
@@ -370,7 +370,7 @@ function JobsTab({ location }: { location: LocationInfo }) {
 			</Section>
 
 			<Section title="AI Processing" icon={Sparkle}>
-				<div className="space-y-1">
+				<div className="space-y-2.5">
 					<JobConfigRow
 						label="Extract Text (OCR)"
 						description="Scan images for text content"
@@ -727,48 +727,57 @@ function JobConfigRow({
 	icon: Icon,
 }: JobConfigRowProps) {
 	return (
-		<div className="w-full flex items-start gap-3 p-2 hover:bg-app-box/40 rounded-lg transition-colors">
-			<button
-				onClick={() => onToggle(!enabled)}
-				className="flex items-start gap-3 flex-1 text-left"
-			>
-				{enabled ? (
-					<ToggleRight
-						className="size-5 text-accent shrink-0"
-						weight="fill"
-					/>
-				) : (
-					<ToggleLeft
-						className="size-5 text-sidebar-inkDull shrink-0"
-						weight="fill"
-					/>
-				)}
-				<div className="flex-1 min-w-0 flex items-start gap-2">
-					{Icon && (
-						<Icon
-							className="size-4 text-sidebar-inkDull shrink-0 mt-0.5"
-							weight="bold"
+		<div className="w-full p-3 bg-app-box/40 rounded-lg border border-app-line/50">
+			{/* Header with toggle and icon */}
+			<div className="space-y-1.5">
+				<button
+					onClick={() => onToggle(!enabled)}
+					className="flex items-center gap-2.5 w-full text-left group"
+				>
+					{enabled ? (
+						<ToggleRight
+							className="size-5 text-accent shrink-0"
+							weight="fill"
+						/>
+					) : (
+						<ToggleLeft
+							className="size-5 text-sidebar-inkDull shrink-0 group-hover:text-sidebar-ink transition-colors"
+							weight="fill"
 						/>
 					)}
-					<div className="flex-1 min-w-0">
-						<div className="text-xs font-medium text-sidebar-ink">
-							{label}
-						</div>
-						<div className="text-[11px] text-sidebar-inkDull mt-0.5">
-							{description}
+					<div className="flex items-center gap-2 flex-1 min-w-0">
+						{Icon && (
+							<Icon
+								className="size-4 text-sidebar-inkDull shrink-0"
+								weight="bold"
+							/>
+						)}
+						<div className="flex-1 min-w-0">
+							<div className="text-xs font-medium text-sidebar-ink">
+								{label}
+							</div>
 						</div>
 					</div>
-				</div>
-			</button>
-			<button
+				</button>
+
+				{/* Description */}
+				<p className="text-[11px] text-sidebar-inkDull leading-relaxed pl-7">
+					{description}
+				</p>
+			</div>
+
+			{/* Run button */}
+			<Button
 				onClick={onTrigger}
 				disabled={!enabled || isTriggering}
-				className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-accent/10 text-accent hover:bg-accent/20"
+				variant="gray"
+				size="sm"
+				className="w-full flex items-center justify-center gap-1.5 mt-2.5"
 				title={enabled ? "Run job now" : "Enable job first"}
 			>
 				<Play className="size-3" weight="fill" />
-				{isTriggering ? "Running..." : "Run"}
-			</button>
+				{isTriggering ? "Running..." : "Run Now"}
+			</Button>
 		</div>
 	);
 }

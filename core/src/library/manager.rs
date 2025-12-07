@@ -392,6 +392,10 @@ impl LibraryManager {
 		// Create default space with Quick Access group
 		self.create_default_space(&library).await?;
 
+		// Create default locations with IndexMode::None
+		self.create_default_locations(context.clone(), library.clone())
+			.await;
+
 		// Emit event
 		self.event_bus.emit(Event::LibraryCreated {
 			id: library.id(),
@@ -1167,6 +1171,117 @@ impl LibraryManager {
 		info!("Created default Volumes group for library {}", library.id());
 
 		Ok(())
+	}
+
+	/// Create default OS-specific locations with IndexMode::None
+	async fn create_default_locations(&self, context: Arc<CoreContext>, library: Arc<Library>) {
+		use crate::domain::addressing::SdPath;
+		use crate::location::{manager::LocationManager, IndexMode};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		use std::path::PathBuf;
+
+		// Get home directory
+		let home = match dirs::home_dir() {
+			Some(h) => h,
+			None => {
+				warn!("Failed to get home directory, skipping default location creation");
+				return;
+			}
+		};
+
+		// Get OS-specific default locations
+		let default_locations = Self::get_default_locations_for_os(&home);
+
+		// Get current device UUID
+		let device_uuid = crate::device::get_current_device_id();
+
+		// Get device record from database
+		let db = library.db().conn();
+		let device = match entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(device_uuid))
+			.one(db)
+			.await
+		{
+			Ok(Some(dev)) => dev,
+			Ok(None) => {
+				error!("Current device not found in library database");
+				return;
+			}
+			Err(e) => {
+				error!("Failed to query device: {}", e);
+				return;
+			}
+		};
+
+		let device_slug = device.slug.clone();
+		let device_id = device.id;
+
+		// Create location manager
+		let location_manager = LocationManager::new((*self.event_bus).clone());
+
+		// Create each default location with IndexMode::None
+		for (name, path) in default_locations {
+			// Check if path exists
+			if !path.exists() {
+				debug!("Skipping non-existent default location: {:?}", path);
+				continue;
+			}
+
+			let sd_path = SdPath::Physical {
+				device_slug: device_slug.clone(),
+				path: path.clone(),
+			};
+
+			match location_manager
+				.add_location(
+					library.clone(),
+					sd_path,
+					Some(name.clone()),
+					device_id,
+					IndexMode::None,
+					None, // No action context
+					None, // No job policies
+				)
+				.await
+			{
+				Ok((location_id, _)) => {
+					info!("Created default location '{}' at {:?} ({})", name, path, location_id);
+				}
+				Err(e) => {
+					warn!("Failed to create default location '{}': {}", name, e);
+				}
+			}
+		}
+	}
+
+	/// Get default locations based on OS
+	fn get_default_locations_for_os(home: &PathBuf) -> Vec<(String, PathBuf)> {
+		let mut locations = Vec::new();
+
+		if cfg!(target_os = "macos") {
+			locations.push(("Desktop".to_string(), home.join("Desktop")));
+			locations.push(("Documents".to_string(), home.join("Documents")));
+			locations.push(("Downloads".to_string(), home.join("Downloads")));
+			locations.push(("Pictures".to_string(), home.join("Pictures")));
+			locations.push(("Music".to_string(), home.join("Music")));
+			locations.push(("Movies".to_string(), home.join("Movies")));
+		} else if cfg!(target_os = "linux") {
+			locations.push(("Desktop".to_string(), home.join("Desktop")));
+			locations.push(("Documents".to_string(), home.join("Documents")));
+			locations.push(("Downloads".to_string(), home.join("Downloads")));
+			locations.push(("Pictures".to_string(), home.join("Pictures")));
+			locations.push(("Music".to_string(), home.join("Music")));
+			locations.push(("Videos".to_string(), home.join("Videos")));
+		} else if cfg!(target_os = "windows") {
+			locations.push(("Desktop".to_string(), home.join("Desktop")));
+			locations.push(("Documents".to_string(), home.join("Documents")));
+			locations.push(("Downloads".to_string(), home.join("Downloads")));
+			locations.push(("Pictures".to_string(), home.join("Pictures")));
+			locations.push(("Music".to_string(), home.join("Music")));
+			locations.push(("Videos".to_string(), home.join("Videos")));
+		}
+
+		locations
 	}
 
 	/// Check if this device created the library (is the only device)

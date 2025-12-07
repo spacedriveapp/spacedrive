@@ -86,8 +86,9 @@ interface ExplorerState {
   setQuickPreviewFileId: (fileId: string | null) => void;
   openQuickPreview: (fileId: string) => void;
   closeQuickPreview: () => void;
-  goToNextPreview: (files: File[]) => void;
-  goToPreviousPreview: (files: File[]) => void;
+
+  currentFiles: File[];
+  setCurrentFiles: (files: File[]) => void;
 
   tagModeActive: boolean;
   setTagModeActive: (active: boolean) => void;
@@ -125,6 +126,7 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [inspectorVisible, setInspectorVisible] = useState(true);
   const [quickPreviewFileId, setQuickPreviewFileId] = useState<string | null>(null);
+  const [currentFiles, setCurrentFiles] = useState<File[]>([]);
   const [tagModeActive, setTagModeActive] = useState(false);
 
   const spaceItemKey = spaceItemIdInternal;
@@ -219,9 +221,9 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
       setHistory((prev) => {
         const newHistory = prev.slice(0, historyIndex + 1);
         newHistory.push(path);
-        setHistoryIndex(newHistory.length - 1);
         return newHistory;
       });
+      setHistoryIndex((prev) => prev + 1);
     }
     setCurrentPathInternal(path);
   }, [historyIndex]);
@@ -232,28 +234,6 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
 
   const closeQuickPreview = useCallback(() => {
     setQuickPreviewFileId(null);
-  }, []);
-
-  const goToNextPreview = useCallback((files: File[]) => {
-    setQuickPreviewFileId((current) => {
-      if (!current) return current;
-      const currentIndex = files.findIndex(f => f.id === current);
-      if (currentIndex < files.length - 1) {
-        return files[currentIndex + 1].id;
-      }
-      return current;
-    });
-  }, []);
-
-  const goToPreviousPreview = useCallback((files: File[]) => {
-    setQuickPreviewFileId((current) => {
-      if (!current) return current;
-      const currentIndex = files.findIndex(f => f.id === current);
-      if (currentIndex > 0) {
-        return files[currentIndex - 1].id;
-      }
-      return current;
-    });
   }, []);
 
   const value: ExplorerState = useMemo(() => ({
@@ -279,8 +259,8 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
     setQuickPreviewFileId,
     openQuickPreview,
     closeQuickPreview,
-    goToNextPreview,
-    goToPreviousPreview,
+    currentFiles,
+    setCurrentFiles,
     tagModeActive,
     setTagModeActive,
     devices,
@@ -305,8 +285,7 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
     quickPreviewFileId,
     openQuickPreview,
     closeQuickPreview,
-    goToNextPreview,
-    goToPreviousPreview,
+    currentFiles,
     tagModeActive,
     devices,
   ]);

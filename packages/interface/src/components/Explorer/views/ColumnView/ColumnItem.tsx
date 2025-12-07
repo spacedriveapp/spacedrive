@@ -30,6 +30,7 @@ export function ColumnItem({
       onClick={handleClick}
       onContextMenu={onContextMenu}
       layout="row"
+      data-file-id={file.id}
       className={clsx(
         "flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md transition-colors cursor-default",
         selected

@@ -19,7 +19,7 @@ import {
 } from "./useTable";
 
 export const ListView = memo(function ListView() {
-  const { currentPath, sortBy, setSortBy, viewSettings } = useExplorer();
+  const { currentPath, sortBy, setSortBy, viewSettings, setCurrentFiles } = useExplorer();
   const { focusedIndex, setFocusedIndex, selectedFiles, selectFile, moveFocus } = useSelection();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +54,11 @@ export const ListView = memo(function ListView() {
   const files = directoryQuery.data?.files || [];
   const { table } = useTable(files);
   const { rows } = table.getRowModel();
+
+  // Update current files in explorer context for quick preview navigation
+  useEffect(() => {
+    setCurrentFiles(files);
+  }, [files, setCurrentFiles]);
 
   // Virtual row rendering - uses the container as scroll element
   const rowVirtualizer = useVirtualizer({

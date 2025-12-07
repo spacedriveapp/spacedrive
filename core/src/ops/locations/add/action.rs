@@ -72,6 +72,7 @@ impl LibraryAction for LocationAddAction {
 		let location_manager = LocationManager::new(context.events.as_ref().clone());
 
 		let location_mode = match self.input.mode {
+			IndexMode::None => crate::location::IndexMode::None,
 			IndexMode::Shallow => crate::location::IndexMode::Shallow,
 			IndexMode::Content => crate::location::IndexMode::Content,
 			IndexMode::Deep => crate::location::IndexMode::Deep,
