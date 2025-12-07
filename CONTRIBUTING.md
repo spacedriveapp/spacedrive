@@ -279,13 +279,15 @@ cd apps/mobile
 bun install
 
 # 4. Apply patches and prebuild native projects
+# (Not required to ensure rebuilt core is bundled when making changes)
 bun run prebuild:clean
 
-# 5. Run on iOS simulator
-bun run ios
+# 5. Run on iOS simulator (from apps/mobile directory)
+bun ios
 
-# 6. Run on physical iOS device
-RCT_BUILD_HERMES_FROM_SOURCE=true bunx expo run:ios --device "YourDevice"
+# 6. Run on physical iOS device (from apps/mobile directory)
+bun ios --device "YourDeviceName"
+# You can find the device name by running `bunx expo devices`.
 ```
 
 #### Development Commands

@@ -1,18 +1,59 @@
 import { SDMobileCore } from "sd-mobile-core";
 import { ReactNativeTransport } from "./transport";
 import { WIRE_METHODS } from "@sd/ts-client";
+import type { Event } from "@sd/ts-client/src/generated/types";
+import { SubscriptionManager } from "./subscriptionManager";
+
+/**
+ * Simple event emitter for browser compatibility
+ */
+class SimpleEventEmitter {
+	private listeners: Map<string, Set<Function>> = new Map();
+
+	on(event: string, listener: Function) {
+		if (!this.listeners.has(event)) {
+			this.listeners.set(event, new Set());
+		}
+		this.listeners.get(event)!.add(listener);
+	}
+
+	emit(event: string, ...args: any[]) {
+		const listeners = this.listeners.get(event);
+		if (listeners) {
+			listeners.forEach((listener) => listener(...args));
+		}
+	}
+
+	once(event: string, listener: Function) {
+		const onceWrapper = (...args: any[]) => {
+			listener(...args);
+			this.off(event, onceWrapper);
+		};
+		this.on(event, onceWrapper);
+	}
+
+	off(event: string, listener: Function) {
+		const listeners = this.listeners.get(event);
+		if (listeners) {
+			listeners.delete(listener);
+		}
+	}
+}
 
 /**
  * Spacedrive client for React Native.
  * Manages the embedded core lifecycle and provides query/mutation methods.
  */
-export class SpacedriveClient {
+export class SpacedriveClient extends SimpleEventEmitter {
 	private transport: ReactNativeTransport;
 	private currentLibraryId: string | null = null;
 	private initialized = false;
+	private subscriptionManager: SubscriptionManager;
 
 	constructor() {
+		super();
 		this.transport = new ReactNativeTransport();
+		this.subscriptionManager = new SubscriptionManager(this.transport);
 	}
 
 	/**
@@ -39,9 +80,14 @@ export class SpacedriveClient {
 
 	/**
 	 * Set the current library context for queries.
+	 * @param emitEvent - Whether to emit library-changed event (default: true)
 	 */
-	setCurrentLibrary(libraryId: string | null) {
+	setCurrentLibrary(libraryId: string | null, emitEvent: boolean = true) {
 		this.currentLibraryId = libraryId;
+
+		if (emitEvent && libraryId) {
+			this.emit("library-changed", libraryId);
+		}
 	}
 
 	/**
@@ -49,6 +95,24 @@ export class SpacedriveClient {
 	 */
 	getCurrentLibraryId(): string | null {
 		return this.currentLibraryId;
+	}
+
+	/**
+	 * Execute a wire method directly (used by useNormalizedQuery)
+	 * Matches the desktop client's execute method signature
+	 */
+	async execute<I, O>(wireMethod: string, input: I): Promise<O> {
+		const isQuery = wireMethod.startsWith("query:");
+		const isAction = wireMethod.startsWith("action:");
+
+		if (!isQuery && !isAction) {
+			throw new Error(`Invalid wire method: ${wireMethod}`);
+		}
+
+		return this.transport.request<O>(wireMethod, {
+			input,
+			library_id: this.currentLibraryId ?? undefined,
+		});
 	}
 
 	/**
@@ -124,9 +188,47 @@ export class SpacedriveClient {
 	}
 
 	/**
+	 * Subscribe to events from the daemon
+	 */
+	async subscribe(callback?: (event: Event) => void): Promise<() => void> {
+		const unlisten = await this.transport.subscribe((event) => {
+			if (callback) {
+				callback(event);
+			}
+		});
+
+		return unlisten;
+	}
+
+	/**
+	 * Subscribe to filtered events from the daemon
+	 * Uses subscription manager to multiplex connections
+	 */
+	async subscribeFiltered(
+		filter: {
+			resource_type?: string;
+			path_scope?: any;
+			library_id?: string;
+			include_descendants?: boolean;
+			event_types?: string[];
+		},
+		callback: (event: Event) => void,
+	): Promise<() => void> {
+		return this.subscriptionManager.subscribe(filter, callback);
+	}
+
+	/**
+	 * Get subscription manager stats for debugging
+	 */
+	getSubscriptionStats() {
+		return this.subscriptionManager.getStats();
+	}
+
+	/**
 	 * Shutdown the core and clean up resources.
 	 */
 	destroy() {
+		this.subscriptionManager.destroy();
 		this.transport.destroy();
 		SDMobileCore.shutdown();
 		this.initialized = false;

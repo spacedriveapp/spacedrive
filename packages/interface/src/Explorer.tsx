@@ -29,7 +29,7 @@ import {
   PREVIEW_LAYER_ID,
 } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
-import { useNormalizedCache, useLibraryMutation } from "./context";
+import { useNormalizedQuery, useLibraryMutation } from "./context";
 import { usePlatform } from "./platform";
 import type { LocationInfo } from "@sd/ts-client";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, pointerWithin, rectIntersection } from "@dnd-kit/core";
@@ -75,7 +75,7 @@ export function ExplorerLayout() {
   const isKnowledgeView = viewMode === "knowledge";
 
   // Fetch locations to get current location info
-  const locationsQuery = useNormalizedCache<
+  const locationsQuery = useNormalizedQuery<
     null,
     { locations: LocationInfo[] }
   >({

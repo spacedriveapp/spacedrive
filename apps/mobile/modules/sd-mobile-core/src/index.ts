@@ -15,11 +15,25 @@ export interface CoreEvent {
 	body: string;
 }
 
+export interface LogMessage {
+	timestamp: string;
+	level: string;
+	target: string;
+	message: string;
+	job_id?: string;
+	library_id?: string;
+}
+
+export interface CoreLog {
+	body: string;
+}
+
 export interface CoreModule {
 	initialize(dataDir?: string, deviceName?: string): Promise<number>;
 	sendMessage(query: string): Promise<string>;
 	shutdown(): void;
 	addListener(callback: (event: CoreEvent) => void): () => void;
+	addLogListener(callback: (log: CoreLog) => void): () => void;
 }
 
 export const SDMobileCore: CoreModule = {
@@ -39,6 +53,13 @@ export const SDMobileCore: CoreModule = {
 		const subscription = emitter.addListener(
 			"SDCoreEvent",
 			callback as (event: CoreEvent) => void,
+		);
+		return () => subscription.remove();
+	},
+	addLogListener: (callback: (log: CoreLog) => void) => {
+		const subscription = emitter.addListener(
+			"SDCoreLog",
+			callback as (log: CoreLog) => void,
 		);
 		return () => subscription.remove();
 	},

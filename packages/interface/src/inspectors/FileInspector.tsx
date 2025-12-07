@@ -34,7 +34,7 @@ import {
 import { TagSelectorButton } from "../components/Tags";
 import clsx from "clsx";
 import type { File } from "@sd/ts-client";
-import { useNormalizedCache, useLibraryMutation } from "../context";
+import { useNormalizedQuery, useLibraryMutation } from "../context";
 import { formatBytes } from "../components/Explorer/utils";
 import { File as FileComponent } from "../components/Explorer/File";
 import { useContextMenu } from "../hooks/useContextMenu";
@@ -47,7 +47,7 @@ interface FileInspectorProps {
 export function FileInspector({ file }: FileInspectorProps) {
   const [activeTab, setActiveTab] = useState("overview");
 
-  const fileQuery = useNormalizedCache<{ file_id: string }, File>({
+  const fileQuery = useNormalizedQuery<{ file_id: string }, File>({
     wireMethod: "query:files.by_id",
     input: { file_id: file?.id || "" },
     resourceType: "file",

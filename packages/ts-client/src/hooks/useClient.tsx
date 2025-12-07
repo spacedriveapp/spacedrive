@@ -2,7 +2,8 @@ import { createContext, useContext, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { SpacedriveClient } from "../client";
 
-const SpacedriveClientContext = createContext<SpacedriveClient | null>(null);
+// Export context so platforms can provide their own wrappers
+export const SpacedriveClientContext = createContext<SpacedriveClient | null>(null);
 
 // Create a singleton query client
 export const queryClient = new QueryClient({

@@ -1,4 +1,19 @@
 import { SDMobileCore, CoreEvent } from "sd-mobile-core";
+import type { Event } from "@sd/ts-client/src/generated/types";
+
+export interface EventFilter {
+	library_id?: string;
+	job_id?: string;
+	device_id?: string;
+	resource_type?: string;
+	path_scope?: any;
+	include_descendants?: boolean;
+}
+
+export interface SubscriptionOptions {
+	event_types?: string[];
+	filter?: EventFilter;
+}
 
 export interface JsonRpcRequest {
 	jsonrpc: "2.0";
@@ -32,25 +47,10 @@ export class ReactNativeTransport {
 	private pendingRequests = new Map<string, PendingRequest>();
 	private batch: JsonRpcRequest[] = [];
 	private batchQueued = false;
-	private removeEventListener: (() => void) | null = null;
 
 	constructor() {
-		this.removeEventListener = SDMobileCore.addListener(this.handleEvent);
+		// No event listener needed - responses come through sendMessage promise
 	}
-
-	private handleEvent = (event: CoreEvent) => {
-		try {
-			const data = JSON.parse(event.body);
-			// Handle both single response and batch responses
-			if (Array.isArray(data)) {
-				data.forEach(this.processResponse);
-			} else {
-				this.processResponse(data);
-			}
-		} catch (e) {
-			console.error("[Transport] Failed to parse event:", e);
-		}
-	};
 
 	private processResponse = (response: JsonRpcResponse) => {
 		console.log("[Transport] 🔄 Processing response for ID:", response.id);
@@ -138,10 +138,35 @@ export class ReactNativeTransport {
 	}
 
 	/**
+	 * Subscribe to events from the embedded core.
+	 * Note: Mobile core doesn't support per-subscription filtering yet.
+	 * All filtering happens client-side via SubscriptionManager.
+	 */
+	async subscribe(
+		callback: (event: Event) => void,
+		_options?: SubscriptionOptions,
+	): Promise<() => void> {
+		console.log("[Transport] 🎧 Subscribing to core events...");
+
+		const unlisten = SDMobileCore.addListener((coreEvent: CoreEvent) => {
+			console.log("[Transport] 📨 Raw event received:", coreEvent.body.substring(0, 100));
+			try {
+				const event = JSON.parse(coreEvent.body) as Event;
+				console.log("[Transport] ✅ Event parsed:", typeof event === "string" ? event : Object.keys(event)[0]);
+				callback(event);
+			} catch (e) {
+				console.error("[Transport] ❌ Failed to parse event:", e);
+			}
+		});
+
+		console.log("[Transport] ✅ Event listener registered");
+		return unlisten;
+	}
+
+	/**
 	 * Clean up resources.
 	 */
 	destroy() {
-		this.removeEventListener?.();
 		this.pendingRequests.clear();
 		this.batch = [];
 	}

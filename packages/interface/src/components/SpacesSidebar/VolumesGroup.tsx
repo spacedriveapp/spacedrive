@@ -1,7 +1,7 @@
 import { CaretRight } from "@phosphor-icons/react";
 import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
-import { useNormalizedCache, getVolumeIcon } from "@sd/ts-client";
+import { useNormalizedQuery, getVolumeIcon } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
 import type { VolumeItem } from "@sd/ts-client";
 
@@ -19,7 +19,7 @@ export function VolumesGroup({
 }: VolumesGroupProps) {
 	const navigate = useNavigate();
 
-	const { data: volumesData } = useNormalizedCache({
+	const { data: volumesData } = useNormalizedQuery({
 		wireMethod: "query:volumes.list",
 		input: { filter },
 		resourceType: "volume",

@@ -2,7 +2,7 @@ import { useRef, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import clsx from "clsx";
 import type { File, SdPath } from "@sd/ts-client";
-import { useNormalizedCache } from "../../../../context";
+import { useNormalizedQuery } from "../../../../context";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
@@ -23,13 +23,14 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
   const copyFiles = useLibraryMutation("files.copy");
   const deleteFiles = useLibraryMutation("files.delete");
 
-  const directoryQuery = useNormalizedCache({
+  const directoryQuery = useNormalizedQuery({
     wireMethod: "query:files.directory_listing",
     input: {
       path: path,
       limit: null,
       include_hidden: false,
       sort_by: "name",
+      folders_first: viewSettings.foldersFirst,
     },
     resourceType: "file",
     pathScope: path,

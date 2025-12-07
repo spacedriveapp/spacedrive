@@ -281,6 +281,7 @@ async fn list_directory(
 		limit,
 		include_hidden: Some(include_hidden),
 		sort_by,
+		folders_first: None,
 	};
 
 	// Execute the query using the core client

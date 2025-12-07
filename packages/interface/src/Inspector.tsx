@@ -2,7 +2,7 @@ import { ArrowSquareOut } from "@phosphor-icons/react";
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import type { File, LocationInfo } from "@sd/ts-client";
-import { useLibraryQuery, useNormalizedCache } from "./context";
+import { useLibraryQuery, useNormalizedQuery } from "./context";
 import { usePlatform } from "./platform";
 import { useSelection } from "./components/Explorer/SelectionContext";
 import { FileInspector } from "./inspectors/FileInspector";

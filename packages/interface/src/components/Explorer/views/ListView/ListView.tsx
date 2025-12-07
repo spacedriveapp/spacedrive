@@ -8,7 +8,7 @@ import type { File, DirectorySortBy } from "@sd/ts-client";
 
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
-import { useNormalizedCache } from "../../../../context";
+import { useNormalizedQuery } from "../../../../context";
 import { TableRow } from "./TableRow";
 import {
   useTable,
@@ -19,7 +19,7 @@ import {
 } from "./useTable";
 
 export const ListView = memo(function ListView() {
-  const { currentPath, sortBy, setSortBy } = useExplorer();
+  const { currentPath, sortBy, setSortBy, viewSettings } = useExplorer();
   const { focusedIndex, setFocusedIndex, selectedFiles, selectFile, moveFocus } = useSelection();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,14 +35,15 @@ export const ListView = memo(function ListView() {
             limit: null,
             include_hidden: false,
             sort_by: sortBy as DirectorySortBy,
+            folders_first: viewSettings.foldersFirst,
           }
         : null!,
-    [currentPath, sortBy]
+    [currentPath, sortBy, viewSettings.foldersFirst]
   );
 
   const pathScope = useMemo(() => currentPath ?? undefined, [currentPath]);
 
-  const directoryQuery = useNormalizedCache({
+  const directoryQuery = useNormalizedQuery({
     wireMethod: "query:files.directory_listing",
     input: queryInput,
     resourceType: "file",

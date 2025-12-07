@@ -15,7 +15,6 @@ export {
 	useCoreMutation,
 	useLibraryMutation,
 	useNormalizedQuery,
-	useNormalizedCache, // Alias for useNormalizedQuery
 } from "@sd/ts-client/hooks";
 
 // Export client type

@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useRef, useEffect } from "react";
 import { Plus } from "@phosphor-icons/react";
 import type { LocationInfo } from "@sd/ts-client";
-import { useNormalizedCache } from "../../../context";
+import { useNormalizedQuery } from "../../../context";
 import { Section } from "./Section";
 import { SidebarItem } from "./SidebarItem";
 import { useAddLocationDialog } from "./AddLocationModal";
@@ -14,7 +14,7 @@ export function LocationsSection() {
   const { locationId } = useParams();
   const previousLocationIdsRef = useRef<Set<string>>(new Set());
 
-  const locationsQuery = useNormalizedCache<null, LocationInfo>({
+  const locationsQuery = useNormalizedQuery<null, LocationInfo>({
     wireMethod: "query:locations.list",
     input: null,
     resourceType: "location",

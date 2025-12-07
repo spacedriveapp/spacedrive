@@ -10,7 +10,7 @@ import { ProjectCards } from "./ProjectCards";
 import { DevicesPanel } from "./DevicesPanel";
 import { ContentBreakdown } from "./ContentBreakdown";
 import { OverviewTopBar } from "./OverviewTopBar";
-import { useNormalizedCache } from "../../context";
+import { useNormalizedQuery } from "../../context";
 import type { LibraryInfoOutput } from "@sd/ts-client";
 
 export function Overview() {
@@ -20,7 +20,7 @@ export function Overview() {
 		data: libraryInfo,
 		isLoading,
 		error,
-	} = useNormalizedCache<null, LibraryInfoOutput>({
+	} = useNormalizedQuery<null, LibraryInfoOutput>({
 		wireMethod: "query:libraries.info",
 		input: null,
 		resourceType: "library",

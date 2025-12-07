@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { KnowledgeInspector } from "../../../inspectors/KnowledgeInspector";
 import { useExplorer } from "../context";
-import { useNormalizedCache } from "../../../context";
+import { useNormalizedQuery } from "../../../context";
 import type { File, ContentKind } from "@sd/ts-client";
 import { useMemo } from "react";
 import clsx from "clsx";
@@ -77,16 +77,17 @@ const CONTENT_KIND_LABELS: Record<ContentKind, string> = {
 };
 
 export function KnowledgeView() {
-  const { inspectorVisible, currentPath, sortBy } = useExplorer();
+  const { inspectorVisible, currentPath, sortBy, viewSettings } = useExplorer();
 
-  const directoryQuery = useNormalizedCache({
+  const directoryQuery = useNormalizedQuery({
     wireMethod: "query:files.directory_listing",
     input: currentPath
       ? {
           path: currentPath,
           limit: null,
-          offset: 0,
+          include_hidden: false,
           sort_by: sortBy,
+          folders_first: viewSettings.foldersFirst,
         }
       : null,
     resourceType: "file",

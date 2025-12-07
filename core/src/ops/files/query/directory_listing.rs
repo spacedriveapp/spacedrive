@@ -34,6 +34,8 @@ pub struct DirectoryListingInput {
 	pub include_hidden: Option<bool>,
 	/// Sort order for results
 	pub sort_by: DirectorySortBy,
+	/// Whether to show folders before files (default: false)
+	pub folders_first: Option<bool>,
 }
 
 /// Sort options for directory listing
@@ -75,6 +77,7 @@ impl DirectoryListingQuery {
 				limit: Some(1000),
 				include_hidden: Some(false),
 				sort_by: DirectorySortBy::Type,
+				folders_first: Some(false),
 			},
 		}
 	}
@@ -91,6 +94,7 @@ impl DirectoryListingQuery {
 				limit,
 				include_hidden,
 				sort_by,
+				folders_first: Some(false),
 			},
 		}
 	}
@@ -203,12 +207,24 @@ impl DirectoryListingQuery {
 		}
 
 		// Apply sorting
+		let folders_first = self.input.folders_first.unwrap_or(false);
+		sql_query.push_str(" ORDER BY ");
+
+		if folders_first {
+			// Always show directories before files
+			sql_query.push_str("e.kind DESC, ");
+		}
+
 		match self.input.sort_by {
-			DirectorySortBy::Name => sql_query.push_str(" ORDER BY e.name ASC"),
-			DirectorySortBy::Modified => sql_query.push_str(" ORDER BY e.modified_at DESC"),
-			DirectorySortBy::Size => sql_query.push_str(" ORDER BY e.size DESC"),
+			DirectorySortBy::Name => sql_query.push_str("e.name ASC"),
+			DirectorySortBy::Modified => sql_query.push_str("e.modified_at DESC"),
+			DirectorySortBy::Size => sql_query.push_str("e.size DESC"),
 			DirectorySortBy::Type => {
-				sql_query.push_str(" ORDER BY e.kind DESC, e.name ASC"); // Directories first, then files
+				if !folders_first {
+					// Only add kind sorting if folders_first isn't already set
+					sql_query.push_str("e.kind DESC, ");
+				}
+				sql_query.push_str("e.name ASC");
 			}
 		}
 

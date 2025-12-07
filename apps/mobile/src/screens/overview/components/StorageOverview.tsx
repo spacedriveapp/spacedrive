@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
-import { useLibraryQuery, useLibraryMutation } from "../../../client";
+import { useLibraryQuery, useLibraryAction } from "../../../client";
 
 function formatBytes(bytes: number): string {
 	if (bytes === 0) return "0 B";
@@ -89,7 +89,7 @@ interface VolumeBarProps {
 }
 
 function VolumeBar({ volume }: VolumeBarProps) {
-	const trackVolume = useLibraryMutation("volumes.track");
+	const trackVolume = useLibraryAction("volumes.track");
 
 	const handleTrack = async () => {
 		try {

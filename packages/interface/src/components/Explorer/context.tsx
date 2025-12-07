@@ -7,7 +7,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { useLibraryQuery, useNormalizedCache } from "../../context";
+import { useLibraryQuery, useNormalizedQuery } from "../../context";
 import { usePlatform } from "../../platform";
 
 import type {
@@ -27,6 +27,7 @@ interface ViewSettings {
   gapSize: number; // 1-32px
   showFileSize: boolean;
   columnWidth: number; // 200-400px for column view
+  foldersFirst: boolean;
 }
 
 function getSpaceItemKeyFromRoute(pathname: string, search: string): string {
@@ -119,6 +120,7 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
     gapSize: 16,
     showFileSize: true,
     columnWidth: 256,
+    foldersFirst: false,
   });
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [inspectorVisible, setInspectorVisible] = useState(true);

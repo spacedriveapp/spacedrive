@@ -7,7 +7,7 @@ import DatabaseIcon from "@sd/assets/icons/Database.png";
 import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
-import { useNormalizedCache, useLibraryMutation } from "../../context";
+import { useNormalizedQuery, useLibraryMutation } from "../../context";
 import type {
 	VolumeListOutput,
 	VolumeListQueryInput,
@@ -58,7 +58,7 @@ function getDiskTypeLabel(diskType: string): string {
 
 export function StorageOverview() {
 	// Fetch all volumes using normalized cache
-	const { data: volumesData, isLoading: volumesLoading } = useNormalizedCache<
+	const { data: volumesData, isLoading: volumesLoading } = useNormalizedQuery<
 		VolumeListQueryInput,
 		VolumeListOutput
 	>({
@@ -68,7 +68,7 @@ export function StorageOverview() {
 	});
 
 	// Fetch all devices using normalized cache
-	const { data: devicesData, isLoading: devicesLoading } = useNormalizedCache<
+	const { data: devicesData, isLoading: devicesLoading } = useNormalizedQuery<
 		ListLibraryDevicesInput,
 		LibraryDeviceInfo[]
 	>({

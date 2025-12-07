@@ -1135,12 +1135,20 @@ impl NetworkingService {
 		// 3. Try to connect via the best available path
 		let node_addr = NodeAddr::new(node_id);
 
+		self.logger
+			.debug("[Pkarr] Querying dns.iroh.link for node address...")
+			.await;
+
 		// Try to connect - pkarr discovery runs in the background
-		let timeout = tokio::time::Duration::from_secs(15);
+		// 30 seconds to account for:
+		// - DNS/pkarr lookup time (can be slow on first query)
+		// - DHT propagation delays
+		// - Relay connection establishment
+		let timeout = tokio::time::Duration::from_secs(30);
 		match tokio::time::timeout(timeout, endpoint.connect(node_addr, PAIRING_ALPN)).await {
 			Ok(Ok(conn)) => {
 				self.logger
-					.info("[Pkarr] Successfully connected to initiator!")
+					.info("[Pkarr] Successfully connected to initiator via relay!")
 					.await;
 
 				// Track the connection for the pairing protocol
@@ -1151,13 +1159,35 @@ impl NetworkingService {
 
 				Ok(())
 			}
-			Ok(Err(e)) => Err(NetworkingError::ConnectionFailed(format!(
-				"Failed to connect via pkarr discovery: {}",
-				e
-			))),
-			Err(_timeout) => Err(NetworkingError::ConnectionFailed(
-				"Pkarr discovery connection timeout".to_string(),
-			)),
+			Ok(Err(e)) => {
+				self.logger
+					.error(&format!(
+						"[Pkarr] Connection failed: {}. This may indicate the initiator hasn't published to dns.iroh.link yet, or network issues.",
+						e
+					))
+					.await;
+				Err(NetworkingError::ConnectionFailed(format!(
+					"Failed to connect via pkarr discovery: {}",
+					e
+				)))
+			}
+			Err(_timeout) => {
+				self.logger
+					.error("[Pkarr] Connection timeout after 30 seconds. Possible causes:")
+					.await;
+				self.logger
+					.error("  - Initiator hasn't finished publishing to dns.iroh.link (needs ~5 seconds)")
+					.await;
+				self.logger
+					.error("  - Network blocking access to dns.iroh.link or relay servers")
+					.await;
+				self.logger
+					.error("  - Initiator is offline or unreachable")
+					.await;
+				Err(NetworkingError::ConnectionFailed(
+					"Pkarr discovery connection timeout - see logs for details".to_string(),
+				))
+			}
 		}
 	}
 
@@ -1229,13 +1259,36 @@ impl NetworkingService {
 
 		self.logger
 			.info(&format!(
-				"Broadcasting pairing session {} via mDNS + pkarr",
+				"Broadcasting pairing session {} via mDNS",
 				session_id
 			))
 			.await;
 
-		// Wait for discovery re-advertisement to propagate
+		// Wait for mDNS re-advertisement to propagate
 		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+		// Ensure relay connection is established before pkarr publishing
+		self.logger
+			.info("Waiting for relay connection to be established...")
+			.await;
+		let relay_url = endpoint.home_relay().initialized().await;
+		self.logger
+			.info(&format!("Relay connection established: {}", relay_url))
+			.await;
+
+		// Give pkarr sufficient time to publish our node address to dns.iroh.link
+		// Pkarr publishing to DHT can take 3-10 seconds to propagate
+		self.logger
+			.info("Waiting for pkarr to publish node address to dns.iroh.link...")
+			.await;
+		tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+		self.logger
+			.info(&format!(
+				"Pairing session {} ready for cross-network discovery via pkarr",
+				session_id
+			))
+			.await;
 
 		let expires_in = 300; // 5 minutes
 

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useExplorer } from "../context";
 import { useSelection } from "../SelectionContext";
-import { useNormalizedCache } from "../../../context";
+import { useNormalizedQuery } from "../../../context";
 import type { DirectorySortBy } from "@sd/ts-client";
 
 export function useExplorerKeyboard() {
@@ -9,7 +9,7 @@ export function useExplorerKeyboard() {
   const { selectedFiles, selectFile, selectAll, clearSelection, focusedIndex, setFocusedIndex, setSelectedFiles } = useSelection();
 
   // Query files for keyboard operations
-  const directoryQuery = useNormalizedCache({
+  const directoryQuery = useNormalizedQuery({
     wireMethod: "query:files.directory_listing",
     input: currentPath
       ? {

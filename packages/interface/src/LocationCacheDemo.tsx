@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { useNormalizedCache, useCoreMutation } from "./context";
+import { useNormalizedQuery, useCoreMutation } from "./context";
 import type { Location } from "@sd/ts-client";
 import { Button } from "@sd/ui";
 
@@ -17,7 +17,7 @@ export function LocationCacheDemo() {
 
 	// Use normalized cache - automatic updates when events arrive!
 	// This is just TanStack Query + event listeners that call setQueryData atomically
-	const locationsQuery = useNormalizedCache<{}, Location>({
+	const locationsQuery = useNormalizedQuery<{}, Location>({
 		wireMethod: "query:locations.list",
 		input: null, // Unit struct
 		resourceType: "location",

@@ -1,6 +1,6 @@
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
-import { useNormalizedCache } from "../../../../context";
+import { useNormalizedQuery } from "../../../../context";
 import { FileCard } from "./FileCard";
 import type { DirectorySortBy } from "@sd/ts-client";
 
@@ -9,7 +9,7 @@ export function GridView() {
   const { isSelected, focusedIndex, selectedFiles, selectFile, clearSelection } = useSelection();
   const { gridSize, gapSize } = viewSettings;
 
-  const directoryQuery = useNormalizedCache({
+  const directoryQuery = useNormalizedQuery({
     wireMethod: "query:files.directory_listing",
     input: currentPath
       ? {
@@ -17,6 +17,7 @@ export function GridView() {
           limit: null,
           include_hidden: false,
           sort_by: sortBy as DirectorySortBy,
+          folders_first: viewSettings.foldersFirst,
         }
       : null!,
     resourceType: "file",
