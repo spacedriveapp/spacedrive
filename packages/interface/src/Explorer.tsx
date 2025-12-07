@@ -52,14 +52,15 @@ export function ExplorerLayout() {
     inspectorVisible,
     setInspectorVisible,
     quickPreviewFileId,
+    setQuickPreviewFileId,
     closeQuickPreview,
-    goToNextPreview,
-    goToPreviousPreview,
+    currentFiles,
     tagModeActive,
     setTagModeActive,
     viewMode,
     setSpaceItemId,
   } = useExplorer();
+  const { selectedFiles, selectFile } = useSelection();
 
   // Sync route with explorer context for view preferences
   useEffect(() => {
@@ -69,6 +70,16 @@ export function ExplorerLayout() {
     );
     setSpaceItemId(spaceItemKey);
   }, [location.pathname, location.search, setSpaceItemId]);
+
+  // Sync QuickPreview with selection - Explorer is source of truth
+  useEffect(() => {
+    if (!quickPreviewFileId) return;
+
+    // When selection changes and QuickPreview is open, update preview to match selection
+    if (selectedFiles.length === 1 && selectedFiles[0].id !== quickPreviewFileId) {
+      setQuickPreviewFileId(selectedFiles[0].id);
+    }
+  }, [selectedFiles, quickPreviewFileId, setQuickPreviewFileId]);
 
   // Check if we're on Overview (hide inspector) or in Knowledge view (has its own inspector)
   const isOverview = location.pathname === "/";
@@ -202,21 +213,39 @@ export function ExplorerLayout() {
       </AnimatePresence>
 
       {/* Quick Preview - renders via portal into preview layer */}
-      {quickPreviewFileId && (
-        <QuickPreviewFullscreen
-          fileId={quickPreviewFileId}
-          isOpen={!!quickPreviewFileId}
-          onClose={closeQuickPreview}
-          onNext={() => goToNextPreview([])}
-          onPrevious={() => goToPreviousPreview([])}
-          hasPrevious={false}
-          hasNext={false}
-          sidebarWidth={sidebarVisible ? 220 : 0}
-          inspectorWidth={
-            inspectorVisible && !isOverview && !isKnowledgeView ? 280 : 0
+      {quickPreviewFileId && (() => {
+        const currentIndex = currentFiles.findIndex(f => f.id === quickPreviewFileId);
+        const hasPrevious = currentIndex > 0;
+        const hasNext = currentIndex < currentFiles.length - 1;
+
+        const handleNext = () => {
+          if (hasNext && currentFiles[currentIndex + 1]) {
+            selectFile(currentFiles[currentIndex + 1], currentFiles, false, false);
           }
-        />
-      )}
+        };
+
+        const handlePrevious = () => {
+          if (hasPrevious && currentFiles[currentIndex - 1]) {
+            selectFile(currentFiles[currentIndex - 1], currentFiles, false, false);
+          }
+        };
+
+        return (
+          <QuickPreviewFullscreen
+            fileId={quickPreviewFileId}
+            isOpen={!!quickPreviewFileId}
+            onClose={closeQuickPreview}
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+            hasPrevious={hasPrevious}
+            hasNext={hasNext}
+            sidebarWidth={sidebarVisible ? 220 : 0}
+            inspectorWidth={
+              inspectorVisible && !isOverview && !isKnowledgeView ? 280 : 0
+            }
+          />
+        );
+      })()}
     </div>
   );
 }
