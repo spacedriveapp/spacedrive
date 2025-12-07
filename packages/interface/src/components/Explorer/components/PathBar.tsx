@@ -6,7 +6,7 @@ import type { SdPath, LibraryDeviceInfo } from "@sd/ts-client";
 import { getDeviceIconBySlug } from "@sd/ts-client";
 import { sdPathToUri } from "../utils";
 import LaptopIcon from "@sd/assets/icons/Laptop.png";
-import { useNormalizedCache } from "@sd/ts-client";
+import { useNormalizedQuery } from "@sd/ts-client";
 
 interface PathBarProps {
 	path: SdPath;

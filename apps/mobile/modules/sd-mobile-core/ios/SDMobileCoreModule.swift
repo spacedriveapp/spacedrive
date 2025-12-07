@@ -17,6 +17,12 @@ func spawn_core_event_listener(
     callback_data: UnsafeMutableRawPointer?
 )
 
+@_silgen_name("spawn_core_log_listener")
+func spawn_core_log_listener(
+    callback: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>) -> Void,
+    callback_data: UnsafeMutableRawPointer?
+)
+
 @_silgen_name("shutdown_core")
 func shutdown_core()
 
@@ -46,29 +52,72 @@ private func eventCallback(data: UnsafeMutableRawPointer?, event: UnsafePointer<
     }
 }
 
+// Callback for logs
+private func logCallback(data: UnsafeMutableRawPointer?, log: UnsafePointer<CChar>) {
+    guard let data = data else { return }
+    let module = Unmanaged<SDMobileCoreModule>.fromOpaque(data).takeUnretainedValue()
+    let logStr = String(cString: log)
+    if module.logListeners > 0 {
+        module.sendEvent("SDCoreLog", ["body": logStr])
+    }
+}
+
 // Expo Module
 public class SDMobileCoreModule: Module {
     var listeners = 0
+    var logListeners = 0
     private var registeredWithRust = false
+    private var logRegisteredWithRust = false
 
     public func definition() -> ModuleDefinition {
         Name("SDMobileCore")
 
-        Events("SDCoreEvent")
+        Events("SDCoreEvent", "SDCoreLog")
 
-        OnStartObserving {
+        OnStartObserving("SDCoreEvent") {
+            NSLog("[SDMobileCore] 📡 OnStartObserving SDCoreEvent triggered")
+
+            // Register event listener if not already done
             if !self.registeredWithRust {
+                NSLog("[SDMobileCore] 🚀 Registering event listener...")
                 spawn_core_event_listener(
                     callback: eventCallback,
                     callback_data: Unmanaged.passUnretained(self).toOpaque()
                 )
                 self.registeredWithRust = true
+                NSLog("[SDMobileCore] ✅ Event listener registered with Rust")
             }
+
             self.listeners += 1
+            NSLog("[SDMobileCore] 📊 SDCoreEvent listeners: \(self.listeners)")
         }
 
-        OnStopObserving {
+        OnStopObserving("SDCoreEvent") {
             self.listeners -= 1
+            NSLog("[SDMobileCore] 📉 SDCoreEvent listeners: \(self.listeners)")
+        }
+
+        OnStartObserving("SDCoreLog") {
+            NSLog("[SDMobileCore] 📡 OnStartObserving SDCoreLog triggered")
+
+            // Register log listener if not already done
+            if !self.logRegisteredWithRust {
+                NSLog("[SDMobileCore] 🚀 Registering log listener...")
+                spawn_core_log_listener(
+                    callback: logCallback,
+                    callback_data: Unmanaged.passUnretained(self).toOpaque()
+                )
+                self.logRegisteredWithRust = true
+                NSLog("[SDMobileCore] ✅ Log listener registered with Rust")
+            }
+
+            self.logListeners += 1
+            NSLog("[SDMobileCore] 📊 SDCoreLog listeners: \(self.logListeners)")
+        }
+
+        OnStopObserving("SDCoreLog") {
+            self.logListeners -= 1
+            NSLog("[SDMobileCore] 📉 SDCoreLog listeners: \(self.logListeners)")
         }
 
         Function("initialize") { (dataDir: String?, deviceName: String?) throws -> Int in

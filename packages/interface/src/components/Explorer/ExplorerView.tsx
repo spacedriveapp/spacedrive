@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useExplorer } from "./context";
-import { useNormalizedCache } from "../../context";
+import { useNormalizedQuery } from "../../context";
 import { GridView } from "./views/GridView";
 import { ListView } from "./views/ListView";
 import { MediaView } from "./views/MediaView";
@@ -50,7 +50,7 @@ export function ExplorerView() {
   const isPreviewActive = !!quickPreviewFileId;
 
   // Fetch locations to get the SdPath for this locationId
-  const locationsQuery = useNormalizedCache({
+  const locationsQuery = useNormalizedQuery({
     wireMethod: "query:locations.list",
     input: null,
     resourceType: "location",

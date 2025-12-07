@@ -51,6 +51,10 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your camera</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
@@ -59,8 +63,6 @@
     <array>
       <string>arm64</string>
     </array>
-    <key>NSCameraUsageDescription</key>
-    <string>Camera access is required to scan QR codes for device pairing</string>
     <key>UIRequiresFullScreen</key>
     <false/>
     <key>UIStatusBarStyle</key>

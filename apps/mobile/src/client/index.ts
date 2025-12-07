@@ -10,3 +10,6 @@ export {
 	useCoreAction,
 	useLibraryAction,
 } from "./hooks/useQuery";
+
+// Re-export shared hooks from ts-client
+export { useNormalizedQuery } from "@sd/ts-client/src/hooks/useNormalizedQuery";

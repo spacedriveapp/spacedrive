@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 import type { File } from '@sd/ts-client';
-import { useNormalizedCache } from '../../context';
+import { useNormalizedQuery } from '../../context';
 import { ContentRenderer } from './ContentRenderer';
 import { TopBarPortal } from '../../TopBar';
 
@@ -40,7 +40,7 @@ export function QuickPreviewFullscreen({
 		setIsZoomed(false);
 	}, [fileId]);
 
-	const { data: file, isLoading, error } = useNormalizedCache<{ file_id: string }, File>({
+	const { data: file, isLoading, error } = useNormalizedQuery<{ file_id: string }, File>({
 		wireMethod: 'query:files.by_id',
 		input: { file_id: fileId },
 		resourceType: 'file',

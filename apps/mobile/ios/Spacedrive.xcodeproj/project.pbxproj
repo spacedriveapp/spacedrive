@@ -9,10 +9,10 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		7CDE75B9D7E20774D9CF1E8E /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390E817FD38DD68785DD7F46 /* ExpoModulesProvider.swift */; };
-		8B92B5C3B5F4CB00CBA01D7B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FCC488E672FE1D40B66D16D0 /* PrivacyInfo.xcprivacy */; };
-		BA5DE8C0B7B409B9EE595756 /* libPods-Spacedrive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 56F0D3B103AAADB203E5E955 /* libPods-Spacedrive.a */; };
+		97715081206FCB268DE6EF1C /* libPods-Spacedrive.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8D2433440EF620DAB0150F1F /* libPods-Spacedrive.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		D7EEB2E25018FB2A40EE29D2 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25178F2D681F4D65F10117CC /* ExpoModulesProvider.swift */; };
+		E48312EB51FF1B0800CD3FA4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1F01297183477A50BDE411D2 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,16 +20,16 @@
 		13B07F961A680F5B00A75B9A /* Spacedrive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spacedrive.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Spacedrive/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Spacedrive/Info.plist; sourceTree = "<group>"; };
-		390E817FD38DD68785DD7F46 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Spacedrive/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		56F0D3B103AAADB203E5E955 /* libPods-Spacedrive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Spacedrive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		5F62B24A166FED54E0D3DF77 /* Pods-Spacedrive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.debug.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.debug.xcconfig"; sourceTree = "<group>"; };
+		1F01297183477A50BDE411D2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Spacedrive/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		22C87D25B25EC9845FB7C7F8 /* Pods-Spacedrive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.debug.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.debug.xcconfig"; sourceTree = "<group>"; };
+		25178F2D681F4D65F10117CC /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Spacedrive/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		6BF866963457A8D6655775AD /* Pods-Spacedrive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.release.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.release.xcconfig"; sourceTree = "<group>"; };
+		8D2433440EF620DAB0150F1F /* libPods-Spacedrive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Spacedrive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Spacedrive/SplashScreen.storyboard; sourceTree = "<group>"; };
-		ACA07CDC334C49B4BDAEDC2A /* Pods-Spacedrive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Spacedrive.release.xcconfig"; path = "Target Support Files/Pods-Spacedrive/Pods-Spacedrive.release.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Spacedrive/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Spacedrive-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Spacedrive-Bridging-Header.h"; path = "Spacedrive/Spacedrive-Bridging-Header.h"; sourceTree = "<group>"; };
-		FCC488E672FE1D40B66D16D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Spacedrive/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA5DE8C0B7B409B9EE595756 /* libPods-Spacedrive.a in Frameworks */,
+				97715081206FCB268DE6EF1C /* libPods-Spacedrive.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,7 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				FCC488E672FE1D40B66D16D0 /* PrivacyInfo.xcprivacy */,
+				1F01297183477A50BDE411D2 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Spacedrive;
 			sourceTree = "<group>";
@@ -62,27 +62,27 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				56F0D3B103AAADB203E5E955 /* libPods-Spacedrive.a */,
+				8D2433440EF620DAB0150F1F /* libPods-Spacedrive.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		680EC520E5F61C7DD3F56683 /* Pods */ = {
+		42798537B08B5D76DFB457E7 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				5F62B24A166FED54E0D3DF77 /* Pods-Spacedrive.debug.xcconfig */,
-				ACA07CDC334C49B4BDAEDC2A /* Pods-Spacedrive.release.xcconfig */,
+				22C87D25B25EC9845FB7C7F8 /* Pods-Spacedrive.debug.xcconfig */,
+				6BF866963457A8D6655775AD /* Pods-Spacedrive.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
-		7269C5DA8A3CBBD856E842F5 /* ExpoModulesProviders */ = {
+		4FB1CBF77585F74645A1185E /* Spacedrive */ = {
 			isa = PBXGroup;
 			children = (
-				E3FEA3520BE76C73533FE1C2 /* Spacedrive */,
+				25178F2D681F4D65F10117CC /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = Spacedrive;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -99,8 +99,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				680EC520E5F61C7DD3F56683 /* Pods */,
-				7269C5DA8A3CBBD856E842F5 /* ExpoModulesProviders */,
+				B72BBC0A0CC1879D53F63DAB /* ExpoModulesProviders */,
+				42798537B08B5D76DFB457E7 /* Pods */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -115,6 +115,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		B72BBC0A0CC1879D53F63DAB /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				4FB1CBF77585F74645A1185E /* Spacedrive */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -124,14 +132,6 @@
 			path = Spacedrive/Supporting;
 			sourceTree = "<group>";
 		};
-		E3FEA3520BE76C73533FE1C2 /* Spacedrive */ = {
-			isa = PBXGroup;
-			children = (
-				390E817FD38DD68785DD7F46 /* ExpoModulesProvider.swift */,
-			);
-			name = Spacedrive;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -139,14 +139,14 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Spacedrive" */;
 			buildPhases = (
-				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				060F37A74F1B325C73E68238 /* [Expo] Configure project */,
+				52BA9D16F880670D9D7E318C /* [CP] Check Pods Manifest.lock */,
+				AFC9D743E8C8086DE4D89015 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				A0C13D4FA5244C863B10C876 /* [CP] Embed Pods Frameworks */,
+				4F55279F996324975C6F08DE /* [CP] Embed Pods Frameworks */,
+				31F4BA6009A034F8388CF793 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				8B92B5C3B5F4CB00CBA01D7B /* PrivacyInfo.xcprivacy in Resources */,
+				E48312EB51FF1B0800CD3FA4 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,53 +220,7 @@
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
 		};
-		060F37A74F1B325C73E68238 /* [Expo] Configure project */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/Spacedrive/Spacedrive.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-Spacedrive/expo-configure-project.sh",
-			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-Spacedrive/ExpoModulesProvider.swift",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Spacedrive/expo-configure-project.sh\"\n";
-		};
-		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-Spacedrive-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+		31F4BA6009A034F8388CF793 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -302,7 +256,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		A0C13D4FA5244C863B10C876 /* [CP] Embed Pods Frameworks */ = {
+		4F55279F996324975C6F08DE /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -324,6 +278,52 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Spacedrive/Pods-Spacedrive-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		52BA9D16F880670D9D7E318C /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Spacedrive-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		AFC9D743E8C8086DE4D89015 /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/Spacedrive/Spacedrive.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Spacedrive/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Spacedrive/ExpoModulesProvider.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Spacedrive/expo-configure-project.sh\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -332,7 +332,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				7CDE75B9D7E20774D9CF1E8E /* ExpoModulesProvider.swift in Sources */,
+				D7EEB2E25018FB2A40EE29D2 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -341,7 +341,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5F62B24A166FED54E0D3DF77 /* Pods-Spacedrive.debug.xcconfig */;
+			baseConfigurationReference = 22C87D25B25EC9845FB7C7F8 /* Pods-Spacedrive.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -378,7 +378,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = ACA07CDC334C49B4BDAEDC2A /* Pods-Spacedrive.release.xcconfig */;
+			baseConfigurationReference = 6BF866963457A8D6655775AD /* Pods-Spacedrive.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

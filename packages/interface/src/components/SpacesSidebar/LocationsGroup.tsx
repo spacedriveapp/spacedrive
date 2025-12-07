@@ -1,7 +1,7 @@
 import { CaretRight, Folder } from "@phosphor-icons/react";
 import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
-import { useNormalizedCache } from "@sd/ts-client";
+import { useNormalizedQuery } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
 
 interface LocationsGroupProps {
@@ -12,7 +12,7 @@ interface LocationsGroupProps {
 export function LocationsGroup({ isCollapsed, onToggle }: LocationsGroupProps) {
   const navigate = useNavigate();
 
-  const { data: locationsData } = useNormalizedCache({
+  const { data: locationsData } = useNormalizedQuery({
     wireMethod: "query:locations.list",
     input: null, // Unit struct serializes as null, not {}
     resourceType: "location",

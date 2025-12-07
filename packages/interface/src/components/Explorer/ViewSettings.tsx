@@ -180,6 +180,30 @@ export function ViewSettings({ className }: ViewSettingsProps) {
                 />
               </button>
             </div>
+
+            {/* Folders First Toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="text-xs text-sidebar-inkDull">
+                Folders First
+              </label>
+              <button
+                onClick={() =>
+                  setViewSettings({ foldersFirst: !viewSettings.foldersFirst })
+                }
+                className={clsx(
+                  "relative w-9 h-5 rounded-full transition-colors",
+                  viewSettings.foldersFirst ? "bg-accent" : "bg-app-line",
+                )}
+              >
+                <motion.div
+                  className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full"
+                  animate={{
+                    x: viewSettings.foldersFirst ? 16 : 0,
+                  }}
+                  transition={{ duration: 0.2 }}
+                />
+              </button>
+            </div>
           </motion.div>
           </AnimatePresence>,
           document.body

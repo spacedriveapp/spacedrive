@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import type { File, DirectorySortBy } from "@sd/ts-client";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
-import { useNormalizedCache } from "../../../../context";
+import { useNormalizedQuery } from "../../../../context";
 import { formatBytes } from "../../utils";
 import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
 import { ArrowsOut, ArrowCounterClockwise, Plus, Minus } from "@phosphor-icons/react";
@@ -81,10 +81,10 @@ function getFileType(file: File): string {
 }
 
 export function SizeView() {
-  const { currentPath, sortBy, setCurrentPath } = useExplorer();
+  const { currentPath, sortBy, setCurrentPath, viewSettings } = useExplorer();
   const { selectedFiles, selectFile } = useSelection();
 
-  const directoryQuery = useNormalizedCache({
+  const directoryQuery = useNormalizedQuery({
     wireMethod: "query:files.directory_listing",
     input: currentPath
       ? {
@@ -92,6 +92,7 @@ export function SizeView() {
           limit: null,
           include_hidden: false,
           sort_by: sortBy as DirectorySortBy,
+          folders_first: viewSettings.foldersFirst,
         }
       : null!,
     resourceType: "file",

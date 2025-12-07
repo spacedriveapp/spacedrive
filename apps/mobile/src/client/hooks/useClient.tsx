@@ -1,42 +1,17 @@
 import React, {
-	createContext,
-	useContext,
 	useEffect,
 	useState,
-	useMemo,
 	ReactNode,
 } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { SpacedriveClientContext, queryClient, useSpacedriveClient } from "@sd/ts-client/src/hooks/useClient";
 import { SpacedriveClient } from "../SpacedriveClient";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SDMobileCore } from "sd-mobile-core";
 
-// Context for the Spacedrive client
-const ClientContext = createContext<SpacedriveClient | null>(null);
-
-/**
- * Hook to access the Spacedrive client.
- * Must be used within a SpacedriveProvider.
- */
-export function useSpacedriveClient(): SpacedriveClient {
-	const client = useContext(ClientContext);
-	if (!client) {
-		throw new Error(
-			"useSpacedriveClient must be used within SpacedriveProvider",
-		);
-	}
-	return client;
-}
-
-// Create a stable QueryClient instance
-const queryClient = new QueryClient({
-	defaultOptions: {
-		queries: {
-			staleTime: 30 * 1000, // 30 seconds
-			retry: 2,
-		},
-	},
-});
+// Re-export the shared hook
+export { useSpacedriveClient };
 
 interface SpacedriveProviderProps {
 	children: ReactNode;
@@ -57,10 +32,24 @@ export function SpacedriveProvider({
 
 	useEffect(() => {
 		let mounted = true;
+		let unsubscribeLogs: (() => void) | null = null;
 
 		async function init() {
 			try {
 				await client.initialize(deviceName ?? "Spacedrive Mobile");
+
+				// Subscribe to core logs AFTER core is initialized
+				console.log("[SpacedriveProvider] 🔌 Subscribing to core logs...");
+				unsubscribeLogs = SDMobileCore.addLogListener((log) => {
+					console.log("[SpacedriveProvider] 📝 RAW LOG RECEIVED:", log);
+					try {
+						const logData = JSON.parse(log.body);
+						console.log(`[CORE ${logData.level}] ${logData.target}: ${logData.message}`);
+					} catch (e) {
+						console.error("[SpacedriveProvider] Failed to parse log:", log.body);
+					}
+				});
+				console.log("[SpacedriveProvider] ✅ Log listener subscribed");
 
 				// Load persisted library ID from storage
 				const storedData = await AsyncStorage.getItem("spacedrive-sidebar");
@@ -119,6 +108,7 @@ export function SpacedriveProvider({
 
 		return () => {
 			mounted = false;
+			if (unsubscribeLogs) unsubscribeLogs();
 			client.destroy();
 		};
 	}, [client, deviceName]);
@@ -144,11 +134,11 @@ export function SpacedriveProvider({
 	}
 
 	return (
-		<ClientContext.Provider value={client}>
-			<QueryClientProvider client={queryClient}>
+		<QueryClientProvider client={queryClient}>
+			<SpacedriveClientContext.Provider value={client}>
 				{children}
-			</QueryClientProvider>
-		</ClientContext.Provider>
+			</SpacedriveClientContext.Provider>
+		</QueryClientProvider>
 	);
 }
 

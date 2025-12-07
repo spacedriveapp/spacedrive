@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
-import { useNormalizedCache } from "../../../../context";
+import { useNormalizedQuery } from "../../../../context";
 import { MediaViewItem } from "./MediaViewItem";
 import { DateHeader, DATE_HEADER_HEIGHT } from "./DateHeader";
 import { formatDate, getItemDate, normalizeDateToMidnight } from "./utils";
@@ -109,7 +109,7 @@ export function MediaView() {
 	}, []);
 
 	// Query for all media files from current path with descendants
-	const mediaQuery = useNormalizedCache({
+	const mediaQuery = useNormalizedQuery({
 		wireMethod: "query:files.media_listing",
 		input: currentPath
 			? {
