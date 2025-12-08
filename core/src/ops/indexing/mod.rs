@@ -23,7 +23,7 @@
 pub mod action;
 pub mod change_detection;
 pub mod ctx;
-pub mod entry;
+pub mod db_writer;
 pub mod ephemeral;
 pub mod hierarchy;
 pub mod input;
@@ -42,17 +42,14 @@ pub mod verify;
 pub use action::IndexingAction;
 pub use change_detection::{
 	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeDetector, ChangeHandler,
-	ChangeType, EntryRef, EphemeralChangeHandler, PersistentChangeHandler,
+	ChangeType, EntryRef, PersistentWriter, PersistentWriterAdapter,
 };
 pub use ctx::{IndexingCtx, ResponderCtx};
-pub use entry::{EntryMetadata, EntryProcessor};
-pub use ephemeral::EphemeralIndexCache;
+pub use db_writer::{DBWriter, EntryMetadata};
+pub use ephemeral::{EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats, EphemeralWriter};
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
-pub use job::{
-	EphemeralIndex, EphemeralIndexStats, IndexMode, IndexPersistence, IndexScope, IndexerJob,
-	IndexerJobConfig, IndexerOutput,
-};
+pub use job::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};
 pub use metrics::IndexerMetrics;
 pub use path_resolver::PathResolver;
 pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};

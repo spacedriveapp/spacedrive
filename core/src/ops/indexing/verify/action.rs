@@ -9,10 +9,9 @@ use crate::{
 		db::entities,
 	},
 	ops::indexing::{
-		entry::EntryProcessor,
-		job::{
-			EphemeralIndex, IndexMode, IndexPersistence, IndexScope, IndexerJob, IndexerJobConfig,
-		},
+		db_writer::DBWriter,
+		ephemeral::EphemeralIndex,
+		job::{IndexMode, IndexPersistence, IndexScope, IndexerJob, IndexerJobConfig},
 		path_resolver::PathResolver,
 		state::EntryKind,
 	},
@@ -98,7 +97,7 @@ impl IndexVerifyAction {
 		library: &Arc<crate::library::Library>,
 		context: &Arc<CoreContext>,
 		path: &Path,
-	) -> Result<HashMap<PathBuf, crate::ops::indexing::entry::EntryMetadata>, ActionError> {
+	) -> Result<HashMap<PathBuf, crate::ops::indexing::db_writer::EntryMetadata>, ActionError> {
 		use tokio::sync::RwLock;
 
 		tracing::debug!("Running ephemeral indexer job on {}", path.display());
@@ -404,7 +403,7 @@ impl IndexVerifyAction {
 	/// Compare ephemeral index with database entries
 	async fn compare_indexes(
 		&self,
-		fs_entries: HashMap<PathBuf, crate::ops::indexing::entry::EntryMetadata>,
+		fs_entries: HashMap<PathBuf, crate::ops::indexing::db_writer::EntryMetadata>,
 		mut db_entries: HashMap<PathBuf, (entities::entry::Model, PathBuf)>,
 		root_path: &Path,
 	) -> Result<IntegrityReport, ActionError> {

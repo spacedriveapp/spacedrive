@@ -12,7 +12,7 @@ use crate::{
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
 		ctx::IndexingCtx,
-		entry::EntryProcessor,
+		db_writer::DBWriter,
 		processor::{ContentHashProcessor, ProcessorEntry},
 		state::{EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
@@ -128,7 +128,7 @@ pub async fn run_content_phase(
 
 			match hash_result {
 				Ok(content_hash) => {
-					match EntryProcessor::link_to_content_identity(
+					match DBWriter::link_to_content_identity(
 						ctx,
 						entry_id,
 						&path,

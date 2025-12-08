@@ -44,6 +44,7 @@ pub mod name;
 pub mod registry;
 pub mod responder;
 pub mod types;
+pub mod writer;
 
 // Re-export public types
 pub use arena::NodeArena;
@@ -52,3 +53,4 @@ pub use index::{EphemeralIndex, EphemeralIndexStats};
 pub use name::NameCache;
 pub use registry::NameRegistry;
 pub use types::{EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
+pub use writer::EphemeralWriter;

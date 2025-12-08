@@ -17,7 +17,7 @@
 
 use crate::domain::ContentKind;
 use crate::filetype::FileTypeRegistry;
-use crate::ops::indexing::entry::EntryMetadata;
+use crate::ops::indexing::db_writer::EntryMetadata;
 use crate::ops::indexing::state::{EntryKind, IndexerStats};
 
 use super::types::{FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};

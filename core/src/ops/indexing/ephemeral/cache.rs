@@ -4,9 +4,9 @@
 //! directories share one arena and string pool, keeping memory at ~50 bytes per
 //! entry regardless of how many paths the user navigates. The cache tracks which
 //! paths are indexed (queryable), in-progress (being scanned), or watched
-//! (receiving live filesystem updates via `EphemeralChangeHandler`).
+//! (receiving live filesystem updates via `EphemeralWriter`).
 
-use crate::ops::indexing::EphemeralIndex;
+use super::EphemeralIndex;
 use parking_lot::RwLock;
 use std::{
 	collections::HashSet,
@@ -160,7 +160,7 @@ impl EphemeralIndexCache {
 	/// Register a path for filesystem watching.
 	///
 	/// When registered, the watcher service will monitor this path for changes
-	/// and update the ephemeral index via `EphemeralChangeHandler`. The path
+	/// and update the ephemeral index via `EphemeralWriter`. The path
 	/// must already be indexed.
 	pub fn register_for_watching(&self, path: PathBuf) -> bool {
 		let indexed = self.indexed_paths.read();

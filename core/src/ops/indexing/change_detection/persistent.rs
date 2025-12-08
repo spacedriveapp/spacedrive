@@ -1,13 +1,16 @@
-//! Persistent (database-backed) change handler for managed locations.
+//! Unified persistent (database-backed) writer for both watcher and indexer pipelines.
 //!
-//! Uses EntryProcessor for CRUD operations and maintains closure table
-//! relationships. Runs the processor pipeline (thumbnails, content hash)
-//! for new and modified files.
+//! This module provides `PersistentWriter`, which implements both `ChangeHandler`
+//! (for the watcher pipeline) and `IndexPersistence` (for the indexer job).
+//! Both pipelines share the same database write logic through `DBWriter`,
+//! eliminating code duplication.
 
 use super::handler::ChangeHandler;
 use super::types::{ChangeType, EntryRef};
 use crate::context::CoreContext;
 use crate::infra::db::entities;
+use crate::infra::job::prelude::{JobContext, JobError, JobResult};
+use crate::ops::indexing::persistence::IndexPersistence;
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 use anyhow::Result;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
@@ -16,8 +19,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// Database-backed change handler for managed locations.
-pub struct PersistentChangeHandler {
+/// Unified writer for persistent (database-backed) index storage.
+///
+/// Implements both `ChangeHandler` (for the watcher pipeline) and `IndexPersistence`
+/// (for the indexer job pipeline). Both pipelines share:
+/// - The same `DBWriter` for CRUD operations
+/// - Closure table management
+/// - Directory path tracking
+/// - Entry ID caching for hierarchy construction
+pub struct PersistentWriter {
 	context: Arc<CoreContext>,
 	library_id: Uuid,
 	location_id: Uuid,
@@ -27,7 +37,7 @@ pub struct PersistentChangeHandler {
 	entry_id_cache: HashMap<PathBuf, i32>,
 }
 
-impl PersistentChangeHandler {
+impl PersistentWriter {
 	pub async fn new(
 		context: Arc<CoreContext>,
 		library_id: Uuid,
@@ -134,7 +144,7 @@ impl PersistentChangeHandler {
 }
 
 #[async_trait::async_trait]
-impl ChangeHandler for PersistentChangeHandler {
+impl ChangeHandler for PersistentWriter {
 	async fn find_by_path(&self, path: &Path) -> Result<Option<EntryRef>> {
 		let entry_id = match self.resolve_entry_id(path).await? {
 			Some(id) => id,
@@ -195,16 +205,20 @@ impl ChangeHandler for PersistentChangeHandler {
 
 	async fn create(&mut self, metadata: &DirEntry, parent_path: &Path) -> Result<EntryRef> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::entry::EntryProcessor;
+		use crate::ops::indexing::db_writer::DBWriter;
 		use crate::ops::indexing::state::IndexerState;
 
 		let mut state = IndexerState::new(&SdPath::local(&metadata.path));
+		let ctx =
+			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
 
+		// Cache Management: Check cache first, then query DB if needed
 		if let Some(&parent_id) = self.entry_id_cache.get(parent_path) {
 			state
 				.entry_id_cache
 				.insert(parent_path.to_path_buf(), parent_id);
-		} else if let Some(parent_id) = self.resolve_directory_entry_id(parent_path).await? {
+		} else if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(&ctx, parent_path).await {
+			// Cache the parent ID for future lookups
 			state
 				.entry_id_cache
 				.insert(parent_path.to_path_buf(), parent_id);
@@ -212,10 +226,7 @@ impl ChangeHandler for PersistentChangeHandler {
 				.insert(parent_path.to_path_buf(), parent_id);
 		}
 
-		let ctx =
-			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
-
-		let entry_id = EntryProcessor::create_entry(&mut state, &ctx, metadata, 0, parent_path)
+		let entry_id = DBWriter::create_entry(&mut state, &ctx, metadata, 0, parent_path)
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to create entry: {}", e))?;
 
@@ -235,11 +246,11 @@ impl ChangeHandler for PersistentChangeHandler {
 	}
 
 	async fn update(&mut self, entry: &EntryRef, metadata: &DirEntry) -> Result<()> {
-		use crate::ops::indexing::entry::EntryProcessor;
+		use crate::ops::indexing::db_writer::DBWriter;
 
 		let ctx =
 			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
-		EntryProcessor::update_entry(&ctx, entry.id, metadata)
+		DBWriter::update_entry(&ctx, entry.id, metadata)
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to update entry: {}", e))?;
 
@@ -254,26 +265,27 @@ impl ChangeHandler for PersistentChangeHandler {
 		new_parent_path: &Path,
 	) -> Result<()> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::entry::EntryProcessor;
+		use crate::ops::indexing::db_writer::DBWriter;
 		use crate::ops::indexing::state::IndexerState;
 
 		let mut state = IndexerState::new(&SdPath::local(old_path));
+		let ctx =
+			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
 
+		// Cache Management: Check cache first, then query DB if needed
 		if let Some(&parent_id) = self.entry_id_cache.get(new_parent_path) {
 			state
 				.entry_id_cache
 				.insert(new_parent_path.to_path_buf(), parent_id);
-		} else if let Some(parent_id) = self.resolve_directory_entry_id(new_parent_path).await? {
+		} else if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(&ctx, new_parent_path).await
+		{
 			state
 				.entry_id_cache
 				.insert(new_parent_path.to_path_buf(), parent_id);
 			self.entry_id_cache
 				.insert(new_parent_path.to_path_buf(), parent_id);
 		}
-
-		let ctx =
-			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
-		EntryProcessor::move_entry(
+		DBWriter::move_entry(
 			&mut state,
 			&ctx,
 			entry.id,
@@ -399,7 +411,6 @@ impl ChangeHandler for PersistentChangeHandler {
 		let ctx =
 			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
 
-		// Helper to build ProcessorEntry (re-queries to get latest content_id after hash)
 		let build_proc_entry = |db: &sea_orm::DatabaseConnection,
 		                        entry: &EntryRef|
 		 -> std::pin::Pin<
@@ -634,5 +645,180 @@ impl ChangeHandler for PersistentChangeHandler {
 		}
 
 		Ok(())
+	}
+}
+
+// ============================================================================
+// IndexPersistence Implementation (Job Pipeline)
+// ============================================================================
+
+/// Adapter for using PersistentWriter in the job pipeline.
+///
+/// The job system expects an `IndexPersistence` trait, but works with `JobContext`
+/// instead of `CoreContext`. This adapter wraps `PersistentWriter` and delegates
+/// storage operations to `DBWriter`, ensuring both pipelines use identical logic.
+pub struct PersistentWriterAdapter<'a> {
+	ctx: &'a JobContext<'a>,
+	library_id: Uuid,
+	location_root_entry_id: Option<i32>,
+}
+
+impl<'a> PersistentWriterAdapter<'a> {
+	pub fn new(
+		ctx: &'a JobContext<'a>,
+		library_id: Uuid,
+		location_root_entry_id: Option<i32>,
+	) -> Self {
+		Self {
+			ctx,
+			library_id,
+			location_root_entry_id,
+		}
+	}
+}
+
+#[async_trait::async_trait]
+impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
+	async fn store_entry(
+		&self,
+		entry: &DirEntry,
+		_location_id: Option<i32>,
+		location_root_path: &Path,
+	) -> JobResult<i32> {
+		use crate::domain::addressing::SdPath;
+		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::state::IndexerState;
+
+		let mut state = IndexerState::new(&SdPath::local(&entry.path));
+
+		// Cache Management: Resolve parent ID if needed (for job pipeline)
+		// The job processes entries in hierarchy order, but we still need to ensure
+		// the parent ID is cached before creating this entry
+		if let Some(parent_path) = entry.path.parent() {
+			if !state.entry_id_cache.contains_key(parent_path) {
+				if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(self.ctx, parent_path).await
+				{
+					state
+						.entry_id_cache
+						.insert(parent_path.to_path_buf(), parent_id);
+				}
+			}
+		}
+
+		let entry_id =
+			DBWriter::create_entry(&mut state, self.ctx, entry, 0, location_root_path)
+				.await?;
+
+		Ok(entry_id)
+	}
+
+	async fn store_content_identity(
+		&self,
+		entry_id: i32,
+		path: &Path,
+		cas_id: String,
+	) -> JobResult<()> {
+		use crate::ops::indexing::db_writer::DBWriter;
+
+		DBWriter::link_to_content_identity(self.ctx, entry_id, path, cas_id, self.library_id)
+			.await
+			.map(|_| ())
+	}
+
+	async fn get_existing_entries(
+		&self,
+		indexing_path: &Path,
+	) -> JobResult<
+		HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>,
+	> {
+		use crate::infra::db::entities::{directory_paths, entry_closure};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let location_root_entry_id = match self.location_root_entry_id {
+			Some(id) => id,
+			None => return Ok(HashMap::new()),
+		};
+
+		let indexing_path_str = indexing_path.to_string_lossy().to_string();
+		let indexing_path_entry_id = if let Ok(Some(dir_record)) = directory_paths::Entity::find()
+			.filter(directory_paths::Column::Path.eq(&indexing_path_str))
+			.one(self.ctx.library_db())
+			.await
+		{
+			dir_record.entry_id
+		} else {
+			location_root_entry_id
+		};
+
+		let descendant_ids = entry_closure::Entity::find()
+			.filter(entry_closure::Column::AncestorId.eq(indexing_path_entry_id))
+			.all(self.ctx.library_db())
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
+			.into_iter()
+			.map(|ec| ec.descendant_id)
+			.collect::<Vec<i32>>();
+
+		let mut all_entry_ids = vec![indexing_path_entry_id];
+		all_entry_ids.extend(descendant_ids);
+
+		let mut existing_entries: Vec<entities::entry::Model> = Vec::new();
+		let chunk_size: usize = 900;
+		for chunk in all_entry_ids.chunks(chunk_size) {
+			let mut batch = entities::entry::Entity::find()
+				.filter(entities::entry::Column::Id.is_in(chunk.to_vec()))
+				.all(self.ctx.library_db())
+				.await
+				.map_err(|e| {
+					JobError::execution(format!("Failed to query existing entries: {}", e))
+				})?;
+			existing_entries.append(&mut batch);
+		}
+
+		let mut result = HashMap::new();
+
+		self.ctx.log(format!(
+			"Loading {} existing entries",
+			existing_entries.len()
+		));
+
+		for entry in existing_entries {
+			let full_path =
+				crate::ops::indexing::PathResolver::get_full_path(self.ctx.library_db(), entry.id)
+					.await
+					.unwrap_or_else(|_| PathBuf::from(&entry.name));
+
+			let modified_time =
+				entry
+					.modified_at
+					.timestamp()
+					.try_into()
+					.ok()
+					.and_then(|secs: u64| {
+						std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(secs))
+					});
+
+			result.insert(
+				full_path,
+				(
+					entry.id,
+					entry.inode.map(|i| i as u64),
+					modified_time,
+					entry.size as u64,
+				),
+			);
+		}
+
+		Ok(result)
+	}
+
+	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()> {
+		use crate::ops::indexing::db_writer::DBWriter;
+
+		DBWriter::update_entry(self.ctx, entry_id, entry).await
+	}
+
+	fn is_persistent(&self) -> bool {
+		true
 	}
 }

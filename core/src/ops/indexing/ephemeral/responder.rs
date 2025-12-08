@@ -17,11 +17,13 @@
 
 use crate::context::CoreContext;
 use crate::infra::event::FsRawEventKind;
-use crate::ops::indexing::change_detection::{self, ChangeConfig, EphemeralChangeHandler};
+use crate::ops::indexing::change_detection::{self, ChangeConfig};
 use crate::ops::indexing::rules::RuleToggles;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use super::EphemeralWriter;
 
 /// Check if a path falls under an ephemeral watched directory.
 ///
@@ -52,7 +54,7 @@ pub fn find_ephemeral_root_for_events(
 
 /// Process a batch of filesystem events against the ephemeral index.
 ///
-/// Creates an `EphemeralChangeHandler` and processes the events using shared
+/// Creates an `EphemeralWriter` and processes the events using shared
 /// handler logic. The ephemeral index is updated in-place and ResourceChanged
 /// events are emitted for UI updates.
 pub async fn apply_batch(
@@ -68,7 +70,7 @@ pub async fn apply_batch(
 	let index = context.ephemeral_cache().get_global_index();
 	let event_bus = context.events.clone();
 
-	let mut handler = EphemeralChangeHandler::new(index, event_bus, root_path.to_path_buf());
+	let mut writer = EphemeralWriter::new(index, event_bus, root_path.to_path_buf());
 
 	let config = ChangeConfig {
 		rule_toggles,
@@ -76,7 +78,7 @@ pub async fn apply_batch(
 		volume_backend: None, // Ephemeral paths typically don't use volume backends
 	};
 
-	change_detection::apply_batch(&mut handler, events, &config).await
+	change_detection::apply_batch(&mut writer, events, &config).await
 }
 
 /// Process a single filesystem event against the ephemeral index.

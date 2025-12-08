@@ -1,8 +1,8 @@
-//! # Entry Processing and Persistence
+//! # Core Database Writer for Indexing
 //!
-//! `core::ops::indexing::entry` handles the translation of discovered filesystem
-//! entries into database records, managing the full lifecycle from metadata extraction
-//! to content identification and move operations.
+//! `core::ops::indexing::db_writer` provides the foundational database operations layer
+//! for the indexing system. All database writes (creates, updates, moves, deletes) flow
+//! through this module, ensuring consistency across both watcher and job pipelines.
 //!
 //! ## Key Design Decisions
 //!
@@ -24,10 +24,10 @@
 //!
 //! ## Example
 //! ```rust,no_run
-//! use spacedrive_core::ops::indexing::{EntryProcessor, state::DirEntry};
+//! use spacedrive_core::ops::indexing::{DBWriter, state::DirEntry};
 //!
 //! let entry = DirEntry { /* ... */ };
-//! let entry_id = EntryProcessor::create_entry(
+//! let entry_id = DBWriter::create_entry(
 //!     &mut state,
 //!     &ctx,
 //!     &entry,
@@ -111,13 +111,14 @@ impl From<DirEntry> for EntryMetadata {
 	}
 }
 
-/// Entry persistence operations for the indexing system.
+/// Core database operations for the indexing system.
 ///
-/// EntryProcessor provides methods for creating, updating, and moving database entries,
-/// handling the complexity of closure table updates and directory path cascades. All
-/// methods come in both standalone (creates own transaction) and `_in_conn` variants
-/// (uses existing transaction) for flexible batch operations.
-pub struct EntryProcessor;
+/// DBWriter provides the foundational layer for all database writes during indexing.
+/// Both the watcher pipeline (`PersistentWriter`) and job pipeline (`PersistentWriterAdapter`)
+/// delegate to these methods, ensuring consistent database operations. All methods come in
+/// both standalone (creates own transaction) and `_in_conn` variants (uses existing transaction)
+/// for flexible batch operations.
+pub struct DBWriter;
 
 /// Result of linking an entry to its content identity.
 ///
@@ -131,7 +132,7 @@ pub struct ContentLinkResult {
 	pub is_new_content: bool,
 }
 
-impl EntryProcessor {
+impl DBWriter {
 	/// Get platform-specific inode
 	#[cfg(unix)]
 	pub fn get_inode(metadata: &std::fs::Metadata) -> Option<u64> {
@@ -151,6 +152,40 @@ impl EntryProcessor {
 	#[cfg(not(any(unix, windows)))]
 	pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
 		None
+	}
+
+	/// Resolves a parent directory path to its entry ID via pure database lookup.
+	///
+	/// This is the foundational database query operation. Callers (writers) should
+	/// check their cache first, then call this method if the ID isn't cached.
+	///
+	/// For cloud paths (containing "://"), tries both with and without trailing slashes
+	/// since cloud backends may store paths inconsistently.
+	pub async fn resolve_parent_id(
+		ctx: &impl IndexingCtx,
+		parent_path: &Path,
+	) -> Result<Option<i32>, JobError> {
+		let parent_path_str = parent_path.to_string_lossy().to_string();
+		let is_cloud = parent_path_str.contains("://");
+
+		let parent_variants = if is_cloud && !parent_path_str.ends_with('/') {
+			vec![parent_path_str.clone(), format!("{}/", parent_path_str)]
+		} else {
+			vec![parent_path_str.clone()]
+		};
+
+		let query = entities::directory_paths::Entity::find()
+			.filter(entities::directory_paths::Column::Path.is_in(parent_variants));
+
+		match query.one(ctx.library_db()).await {
+			Ok(Some(dir_path_record)) => Ok(Some(dir_path_record.entry_id)),
+			Ok(None) => Ok(None),
+			Err(e) => Err(JobError::execution(format!(
+				"Failed to resolve parent ID for {}: {}",
+				parent_path.display(),
+				e
+			))),
+		}
 	}
 
 	/// Extracts filesystem metadata through either a volume backend or direct I/O.
@@ -282,11 +317,8 @@ impl EntryProcessor {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
-		// UUID assignment strategy: preserve ephemeral UUIDs from prior browsing sessions
-		// so user metadata (tags, notes) attached during ephemeral mode survives the
-		// transition to persistent indexing. Without preservation, adding a browsed folder
-		// as a managed location would orphan all existing tags and make Quick Look previews
-		// flash as UUIDs change. The ephemeral cache is populated during state initialization.
+		// UUID assignment: preserve ephemeral UUIDs from prior browsing sessions
+		// so user metadata (tags, notes) survives the transition to persistent indexing.
 		let entry_uuid = if let Some(ephemeral_uuid) = state.get_ephemeral_uuid(&entry.path) {
 			tracing::debug!(
 				"Preserving ephemeral UUID {} for {}",
@@ -298,57 +330,12 @@ impl EntryProcessor {
 			Some(Uuid::new_v4())
 		};
 
-		let parent_id = if let Some(parent_path) = entry.path.parent() {
-			ctx.log(format!(
-				"Looking up parent for {}: parent_path = {}",
-				entry.path.display(),
-				parent_path.display()
-			));
-
-			if let Some(id) = state.entry_id_cache.get(parent_path).copied() {
-				ctx.log(format!("Found parent in cache: id = {}", id));
-				Some(id)
-			} else {
-				// For cloud paths, try both with and without trailing slash since cloud backends
-				// may store paths inconsistently depending on API responses.
-				let parent_path_str = parent_path.to_string_lossy().to_string();
-				let is_cloud = parent_path_str.contains("://");
-
-				let parent_variants = if is_cloud && !parent_path_str.ends_with('/') {
-					vec![parent_path_str.clone(), format!("{}/", parent_path_str)]
-				} else {
-					vec![parent_path_str.clone()]
-				};
-
-				let query = entities::directory_paths::Entity::find()
-					.filter(entities::directory_paths::Column::Path.is_in(parent_variants.clone()));
-
-				if let Ok(Some(dir_path_record)) = query.one(ctx.library_db()).await {
-					// Found parent in database, cache it
-					ctx.log(format!(
-						"Found parent in database: id = {}",
-						dir_path_record.entry_id
-					));
-					state
-						.entry_id_cache
-						.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
-					Some(dir_path_record.entry_id)
-				} else {
-					// Parent not found indicates entries arrived out of order, possibly from
-					// concurrent file watchers or interrupted batch processing. The entry will
-					// be orphaned (parent_id = NULL) until the next full reindex repairs the hierarchy.
-					ctx.log(format!(
-						"WARNING: Parent not found for {}: {} (tried: {:?})",
-						entry.path.display(),
-						parent_path.display(),
-						parent_variants
-					));
-					None
-				}
-			}
-		} else {
-			None
-		};
+		// Parent ID should already be resolved and cached by the caller (writer layer).
+		// This keeps DBWriter focused on pure database operations without cache management.
+		let parent_id = entry
+			.path
+			.parent()
+			.and_then(|parent_path| state.entry_id_cache.get(parent_path).copied());
 
 		let now = chrono::Utc::now();
 		tracing::debug!(
@@ -1084,7 +1071,7 @@ impl EntryProcessor {
 	/// - Database cleanup operations
 	///
 	/// For watcher-triggered deletions that need sync/events, use
-	/// `PersistentChangeHandler::delete()` instead.
+	/// `PersistentWriter::delete()` instead.
 	pub async fn delete_subtree(
 		entry_id: i32,
 		db: &sea_orm::DatabaseConnection,

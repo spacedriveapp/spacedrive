@@ -9,7 +9,7 @@ use crate::{
 	infra::job::generic_progress::ToGenericProgress,
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
-		entry::EntryProcessor,
+		db_writer::DBWriter,
 		rules::{build_default_ruler, RuleToggles, RulerDecision},
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},

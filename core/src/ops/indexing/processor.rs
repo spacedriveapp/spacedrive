@@ -5,7 +5,7 @@
 //! happen in a single transaction. This ensures entries either have valid content_id references
 //! or remain unlinked if processing fails.
 
-use super::{ctx::IndexingCtx, entry::EntryProcessor, state::EntryKind};
+use super::{ctx::IndexingCtx, db_writer::DBWriter, state::EntryKind};
 use crate::domain::content_identity::ContentHashGenerator;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -149,7 +149,7 @@ impl ContentHashProcessor {
 		let content_hash = ContentHashGenerator::generate_content_hash(&entry.path).await?;
 		debug!("✓ Generated content hash: {}", content_hash);
 
-		EntryProcessor::link_to_content_identity(
+		DBWriter::link_to_content_identity(
 			ctx,
 			entry.id,
 			&entry.path,

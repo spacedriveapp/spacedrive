@@ -65,7 +65,8 @@ impl ChangeDetector {
 	) -> Result<(), crate::infra::job::prelude::JobError> {
 		use crate::infra::db::entities;
 		use crate::infra::job::prelude::JobError;
-		use crate::ops::indexing::persistence::{DatabasePersistence, IndexPersistence};
+		use crate::ops::indexing::change_detection::PersistentWriterAdapter;
+		use crate::ops::indexing::persistence::IndexPersistence;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		let location_record = entities::location::Entity::find_by_id(location_id)
@@ -74,8 +75,8 @@ impl ChangeDetector {
 			.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
 
-		// Create a database persistence instance to leverage the scoped query logic
-		let persistence = DatabasePersistence::new(ctx, 0, location_record.entry_id);
+		// Create a persistent writer adapter to leverage the unified query logic
+		let persistence = PersistentWriterAdapter::new(ctx, location_record.uuid, location_record.entry_id);
 
 		// Use the scoped query method
 		let existing_entries = persistence.get_existing_entries(indexing_path).await?;
