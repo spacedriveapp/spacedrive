@@ -22,7 +22,6 @@
 
 pub mod action;
 pub mod change_detection;
-pub mod ctx;
 pub mod db_writer;
 pub mod ephemeral;
 pub mod hierarchy;
@@ -44,7 +43,6 @@ pub use change_detection::{
 	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeDetector, ChangeHandler,
 	ChangeType, EntryRef, PersistentWriter, PersistentWriterAdapter,
 };
-pub use ctx::{IndexingCtx, ResponderCtx};
 pub use db_writer::{DBWriter, EntryMetadata};
 pub use ephemeral::{EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats, EphemeralWriter};
 pub use hierarchy::HierarchyQuery;

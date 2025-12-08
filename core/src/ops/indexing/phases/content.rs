@@ -11,7 +11,6 @@ use crate::{
 	infra::job::generic_progress::ToGenericProgress,
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
-		ctx::IndexingCtx,
 		db_writer::DBWriter,
 		processor::{ContentHashProcessor, ProcessorEntry},
 		state::{EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
@@ -129,7 +128,7 @@ pub async fn run_content_phase(
 			match hash_result {
 				Ok(content_hash) => {
 					match DBWriter::link_to_content_identity(
-						ctx,
+						ctx.library_db(),
 						entry_id,
 						&path,
 						content_hash.clone(),
@@ -189,33 +188,27 @@ pub async fn run_content_phase(
 		}
 
 		if !content_identities_to_sync.is_empty() {
-			match IndexingCtx::library(ctx) {
-				Some(library) => {
-					match library
-						.sync_models_batch(
-							&content_identities_to_sync,
-							crate::infra::sync::ChangeType::Insert,
-							ctx.library_db(),
-						)
-						.await
-					{
-						Ok(()) => {
-							ctx.log(format!(
-								"Batch synced {} content identities",
-								content_identities_to_sync.len()
-							));
-						}
-						Err(e) => {
-							tracing::warn!(
-								"Failed to batch sync {} content identities: {}",
-								content_identities_to_sync.len(),
-								e
-							);
-						}
-					}
+			let library = ctx.library();
+			match library
+				.sync_models_batch(
+					&content_identities_to_sync,
+					crate::infra::sync::ChangeType::Insert,
+					ctx.library_db(),
+				)
+				.await
+			{
+				Ok(()) => {
+					ctx.log(format!(
+						"Batch synced {} content identities",
+						content_identities_to_sync.len()
+					));
 				}
-				None => {
-					ctx.log("Sync disabled - content identities saved locally only");
+				Err(e) => {
+					tracing::warn!(
+						"Failed to batch sync {} content identities: {}",
+						content_identities_to_sync.len(),
+						e
+					);
 				}
 			}
 		}
@@ -226,16 +219,15 @@ pub async fn run_content_phase(
 		tokio::task::yield_now().await;
 
 		if !entries_to_sync.is_empty() {
-			match IndexingCtx::library(ctx) {
-				Some(library) => {
-					match library
-						.sync_models_batch(
-							&entries_to_sync,
-							crate::infra::sync::ChangeType::Update,
-							ctx.library_db(),
-						)
-						.await
-					{
+			let library = ctx.library();
+			match library
+				.sync_models_batch(
+					&entries_to_sync,
+					crate::infra::sync::ChangeType::Update,
+					ctx.library_db(),
+				)
+				.await
+			{
 						Ok(()) => {
 							ctx.log(format!(
 								"Batch synced {} entries with content IDs",
@@ -249,11 +241,6 @@ pub async fn run_content_phase(
 								e
 							);
 						}
-					}
-				}
-				None => {
-					ctx.log("Sync disabled - entries saved locally only");
-				}
 			}
 		}
 

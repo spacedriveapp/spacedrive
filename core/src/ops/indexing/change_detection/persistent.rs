@@ -209,15 +209,15 @@ impl ChangeHandler for PersistentWriter {
 		use crate::ops::indexing::state::IndexerState;
 
 		let mut state = IndexerState::new(&SdPath::local(&metadata.path));
-		let ctx =
-			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
+		let library = self.context.get_library(self.library_id).await;
 
 		// Cache Management: Check cache first, then query DB if needed
 		if let Some(&parent_id) = self.entry_id_cache.get(parent_path) {
 			state
 				.entry_id_cache
 				.insert(parent_path.to_path_buf(), parent_id);
-		} else if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(&ctx, parent_path).await {
+		} else if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(&self.db, parent_path).await
+		{
 			// Cache the parent ID for future lookups
 			state
 				.entry_id_cache
@@ -226,9 +226,10 @@ impl ChangeHandler for PersistentWriter {
 				.insert(parent_path.to_path_buf(), parent_id);
 		}
 
-		let entry_id = DBWriter::create_entry(&mut state, &ctx, metadata, 0, parent_path)
-			.await
-			.map_err(|e| anyhow::anyhow!("Failed to create entry: {}", e))?;
+		let entry_id =
+			DBWriter::create_entry(&mut state, &self.db, library.as_deref(), metadata, 0, parent_path)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to create entry: {}", e))?;
 
 		self.entry_id_cache.insert(metadata.path.clone(), entry_id);
 
@@ -248,9 +249,7 @@ impl ChangeHandler for PersistentWriter {
 	async fn update(&mut self, entry: &EntryRef, metadata: &DirEntry) -> Result<()> {
 		use crate::ops::indexing::db_writer::DBWriter;
 
-		let ctx =
-			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
-		DBWriter::update_entry(&ctx, entry.id, metadata)
+		DBWriter::update_entry(&self.db, entry.id, metadata)
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to update entry: {}", e))?;
 
@@ -269,15 +268,14 @@ impl ChangeHandler for PersistentWriter {
 		use crate::ops::indexing::state::IndexerState;
 
 		let mut state = IndexerState::new(&SdPath::local(old_path));
-		let ctx =
-			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
 
 		// Cache Management: Check cache first, then query DB if needed
 		if let Some(&parent_id) = self.entry_id_cache.get(new_parent_path) {
 			state
 				.entry_id_cache
 				.insert(new_parent_path.to_path_buf(), parent_id);
-		} else if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(&ctx, new_parent_path).await
+		} else if let Ok(Some(parent_id)) =
+			DBWriter::resolve_parent_id(&self.db, new_parent_path).await
 		{
 			state
 				.entry_id_cache
@@ -287,7 +285,7 @@ impl ChangeHandler for PersistentWriter {
 		}
 		DBWriter::move_entry(
 			&mut state,
-			&ctx,
+			&self.db,
 			entry.id,
 			old_path,
 			new_path,
@@ -408,9 +406,6 @@ impl ChangeHandler for PersistentWriter {
 			.await
 			.unwrap_or_default();
 
-		let ctx =
-			crate::ops::indexing::ctx::ResponderCtx::new(&self.context, self.library_id).await?;
-
 		let build_proc_entry = |db: &sea_orm::DatabaseConnection,
 		                        entry: &EntryRef|
 		 -> std::pin::Pin<
@@ -468,7 +463,7 @@ impl ChangeHandler for PersistentWriter {
 		{
 			let proc_entry = build_proc_entry(&self.db, entry).await?;
 			let content_proc = ContentHashProcessor::new(self.library_id);
-			if let Err(e) = content_proc.process(&ctx, &proc_entry).await {
+			if let Err(e) = content_proc.process(&self.db, &proc_entry).await {
 				tracing::warn!("Content hash processing failed: {}", e);
 			}
 		}
@@ -696,7 +691,8 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 		// the parent ID is cached before creating this entry
 		if let Some(parent_path) = entry.path.parent() {
 			if !state.entry_id_cache.contains_key(parent_path) {
-				if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(self.ctx, parent_path).await
+				if let Ok(Some(parent_id)) =
+					DBWriter::resolve_parent_id(self.ctx.library_db(), parent_path).await
 				{
 					state
 						.entry_id_cache
@@ -705,9 +701,15 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 			}
 		}
 
-		let entry_id =
-			DBWriter::create_entry(&mut state, self.ctx, entry, 0, location_root_path)
-				.await?;
+		let entry_id = DBWriter::create_entry(
+			&mut state,
+			self.ctx.library_db(),
+			Some(self.ctx.library()),
+			entry,
+			0,
+			location_root_path,
+		)
+		.await?;
 
 		Ok(entry_id)
 	}
@@ -720,9 +722,15 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 	) -> JobResult<()> {
 		use crate::ops::indexing::db_writer::DBWriter;
 
-		DBWriter::link_to_content_identity(self.ctx, entry_id, path, cas_id, self.library_id)
-			.await
-			.map(|_| ())
+		DBWriter::link_to_content_identity(
+			self.ctx.library_db(),
+			entry_id,
+			path,
+			cas_id,
+			self.library_id,
+		)
+		.await
+		.map(|_| ())
 	}
 
 	async fn get_existing_entries(
@@ -815,7 +823,7 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()> {
 		use crate::ops::indexing::db_writer::DBWriter;
 
-		DBWriter::update_entry(self.ctx, entry_id, entry).await
+		DBWriter::update_entry(self.ctx.library_db(), entry_id, entry).await
 	}
 
 	fn is_persistent(&self) -> bool {

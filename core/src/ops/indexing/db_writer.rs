@@ -36,17 +36,18 @@
 //! ).await?;
 //! ```
 
-use super::ctx::IndexingCtx;
 use super::path_resolver::PathResolver;
 use super::state::{DirEntry, EntryKind, IndexerState};
-use crate::infra::job::prelude::{JobContext, JobError};
+use crate::infra::job::prelude::JobError;
+use crate::library::Library;
 use crate::{
 	filetype::FileTypeRegistry,
 	infra::db::entities::{self, directory_paths, entry_closure},
 };
 use sea_orm::{
-	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseTransaction,
-	DbBackend, EntityTrait, IntoActiveModel, QueryFilter, QuerySelect, Statement, TransactionTrait,
+	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseConnection,
+	DatabaseTransaction, DbBackend, EntityTrait, IntoActiveModel, QueryFilter, QuerySelect,
+	Statement, TransactionTrait,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -162,7 +163,7 @@ impl DBWriter {
 	/// For cloud paths (containing "://"), tries both with and without trailing slashes
 	/// since cloud backends may store paths inconsistently.
 	pub async fn resolve_parent_id(
-		ctx: &impl IndexingCtx,
+		db: &DatabaseConnection,
 		parent_path: &Path,
 	) -> Result<Option<i32>, JobError> {
 		let parent_path_str = parent_path.to_string_lossy().to_string();
@@ -177,7 +178,7 @@ impl DBWriter {
 		let query = entities::directory_paths::Entity::find()
 			.filter(entities::directory_paths::Column::Path.is_in(parent_variants));
 
-		match query.one(ctx.library_db()).await {
+		match query.one(db).await {
 			Ok(Some(dir_path_record)) => Ok(Some(dir_path_record.entry_id)),
 			Ok(None) => Ok(None),
 			Err(e) => Err(JobError::execution(format!(
@@ -267,7 +268,6 @@ impl DBWriter {
 	/// and collect related rows for bulk insertion by the caller.
 	pub async fn create_entry_in_conn<C: ConnectionTrait>(
 		state: &mut IndexerState,
-		ctx: &impl IndexingCtx,
 		entry: &DirEntry,
 		device_id: i32,
 		location_root_path: &Path,
@@ -428,13 +428,13 @@ impl DBWriter {
 	/// Create an entry, starting and committing its own transaction (single insert)
 	pub async fn create_entry(
 		state: &mut IndexerState,
-		ctx: &impl IndexingCtx,
+		db: &DatabaseConnection,
+		library: Option<&Library>,
 		entry: &DirEntry,
 		device_id: i32,
 		location_root_path: &Path,
 	) -> Result<i32, JobError> {
-		let txn = ctx
-			.library_db()
+		let txn = db
 			.begin()
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
@@ -443,7 +443,6 @@ impl DBWriter {
 		let mut dir_paths: Vec<directory_paths::ActiveModel> = Vec::new();
 		let result = Self::create_entry_in_conn(
 			state,
-			ctx,
 			entry,
 			device_id,
 			location_root_path,
@@ -482,18 +481,14 @@ impl DBWriter {
 			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 
 		// Sync entry to other devices
-		if let Some(library) = ctx.library() {
+		if let Some(library) = library {
 			tracing::info!(
 				"ENTRY_SYNC: About to sync entry name={} uuid={:?}",
 				entry_model.name,
 				entry_model.uuid
 			);
 			if let Err(e) = library
-				.sync_model_with_db(
-					&entry_model,
-					crate::infra::sync::ChangeType::Insert,
-					ctx.library_db(),
-				)
+				.sync_model_with_db(&entry_model, crate::infra::sync::ChangeType::Insert, db)
 				.await
 			{
 				tracing::warn!(
@@ -518,12 +513,12 @@ impl DBWriter {
 
 	/// Update an existing entry
 	pub async fn update_entry(
-		ctx: &impl IndexingCtx,
+		db: &DatabaseConnection,
 		entry_id: i32,
 		entry: &DirEntry,
 	) -> Result<(), JobError> {
 		let db_entry = entities::entry::Entity::find_by_id(entry_id)
-			.one(ctx.library_db())
+			.one(db)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to find entry: {}", e)))?
 			.ok_or_else(|| JobError::execution("Entry not found for update".to_string()))?;
@@ -555,7 +550,7 @@ impl DBWriter {
 		entry_active.indexed_at = Set(Some(chrono::Utc::now()));
 
 		entry_active
-			.update(ctx.library_db())
+			.update(db)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
 
@@ -565,22 +560,20 @@ impl DBWriter {
 	/// Handle entry move operation with closure table updates (creates own transaction)
 	pub async fn move_entry(
 		state: &mut IndexerState,
-		ctx: &impl IndexingCtx,
+		db: &DatabaseConnection,
 		entry_id: i32,
 		old_path: &Path,
 		new_path: &Path,
 		location_root_path: &Path,
 	) -> Result<(), JobError> {
 		// Begin transaction for atomic move operation
-		let txn = ctx
-			.library_db()
+		let txn = db
 			.begin()
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
 
 		let result = Self::move_entry_in_conn(
 			state,
-			ctx,
 			entry_id,
 			old_path,
 			new_path,
@@ -606,7 +599,6 @@ impl DBWriter {
 	/// Handle entry move operation within existing transaction
 	pub async fn move_entry_in_conn(
 		state: &mut IndexerState,
-		ctx: &impl IndexingCtx,
 		entry_id: i32,
 		old_path: &Path,
 		new_path: &Path,
@@ -753,7 +745,7 @@ impl DBWriter {
 	/// Returns both the content identity and the updated entry for batch sync operations.
 	/// The caller must sync both models if running outside the job system (e.g., watcher).
 	pub async fn link_to_content_identity(
-		ctx: &impl IndexingCtx,
+		db: &DatabaseConnection,
 		entry_id: i32,
 		path: &Path,
 		content_hash: String,
@@ -761,7 +753,7 @@ impl DBWriter {
 	) -> Result<ContentLinkResult, JobError> {
 		let existing = entities::content_identity::Entity::find()
 			.filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
-			.one(ctx.library_db())
+			.one(db)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to query content identity: {}", e)))?;
 
@@ -771,7 +763,7 @@ impl DBWriter {
 			existing_active.last_verified_at = Set(chrono::Utc::now());
 
 			let updated = existing_active
-				.update(ctx.library_db())
+				.update(db)
 				.await
 				.map_err(|e| {
 					JobError::execution(format!("Failed to update content identity: {}", e))
@@ -807,7 +799,7 @@ impl DBWriter {
 					{
 						let existing = entities::mime_type::Entity::find()
 							.filter(entities::mime_type::Column::MimeType.eq(mime_str))
-							.one(ctx.library_db())
+							.one(db)
 							.await
 							.map_err(|e| {
 								JobError::execution(format!("Failed to query mime type: {}", e))
@@ -823,13 +815,12 @@ impl DBWriter {
 									..Default::default()
 								};
 
-								let mime_result =
-									new_mime.insert(ctx.library_db()).await.map_err(|e| {
-										JobError::execution(format!(
-											"Failed to create mime type: {}",
-											e
-										))
-									})?;
+								let mime_result = new_mime.insert(db).await.map_err(|e| {
+									JobError::execution(format!(
+										"Failed to create mime type: {}",
+										e
+									))
+								})?;
 
 								Some(mime_result.id)
 							}
@@ -860,13 +851,13 @@ impl DBWriter {
 			// Handle race condition: another job (or device sync) may have created this
 			// content identity between our check and insert. Catch UNIQUE constraint violations
 			// and use the existing record instead of failing.
-			let result = match new_content.insert(ctx.library_db()).await {
+			let result = match new_content.insert(db).await {
 				Ok(model) => (model, true),
 				Err(e) => {
 					if e.to_string().contains("UNIQUE constraint failed") {
 						let existing = entities::content_identity::Entity::find()
                             .filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
-                            .one(ctx.library_db())
+                            .one(db)
                             .await
                             .map_err(|e| JobError::execution(format!("Failed to find existing content identity: {}", e)))?
                             .ok_or_else(|| JobError::execution("Content identity should exist after unique constraint violation".to_string()))?;
@@ -876,16 +867,12 @@ impl DBWriter {
 						existing_active.entry_count = Set(existing.entry_count + 1);
 						existing_active.last_verified_at = Set(chrono::Utc::now());
 
-						let updated =
-							existing_active
-								.update(ctx.library_db())
-								.await
-								.map_err(|e| {
-									JobError::execution(format!(
-										"Failed to update content identity: {}",
-										e
-									))
-								})?;
+						let updated = existing_active.update(db).await.map_err(|e| {
+							JobError::execution(format!(
+								"Failed to update content identity: {}",
+								e
+							))
+						})?;
 
 						(updated, false)
 					} else {
@@ -901,7 +888,7 @@ impl DBWriter {
 		};
 
 		let entry = entities::entry::Entity::find_by_id(entry_id)
-			.one(ctx.library_db())
+			.one(db)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to find entry: {}", e)))?
 			.ok_or_else(|| JobError::execution("Entry not found after creation".to_string()))?;
@@ -909,7 +896,7 @@ impl DBWriter {
 		let mut entry_active: entities::entry::ActiveModel = entry.into();
 		entry_active.content_id = Set(Some(content_model.id));
 
-		let updated_entry = entry_active.update(ctx.library_db()).await.map_err(|e| {
+		let updated_entry = entry_active.update(db).await.map_err(|e| {
 			JobError::execution(format!("Failed to link content identity to entry: {}", e))
 		})?;
 
@@ -923,7 +910,6 @@ impl DBWriter {
 	/// Simple move entry within existing transaction (no directory path cascade updates)
 	pub async fn simple_move_entry_in_conn(
 		state: &mut IndexerState,
-		ctx: &impl IndexingCtx,
 		entry_id: i32,
 		old_path: &Path,
 		new_path: &Path,
@@ -984,7 +970,6 @@ impl DBWriter {
 	/// Bulk move entries within a single transaction for better performance
 	pub async fn bulk_move_entries(
 		state: &mut IndexerState,
-		ctx: &impl IndexingCtx,
 		moves: &[(i32, PathBuf, PathBuf, super::state::DirEntry)],
 		_location_root_path: &Path,
 		txn: &DatabaseTransaction,
@@ -992,8 +977,7 @@ impl DBWriter {
 		let mut moved_count = 0;
 
 		for (entry_id, old_path, new_path, _) in moves {
-			match Self::simple_move_entry_in_conn(state, ctx, *entry_id, old_path, new_path, txn)
-				.await
+			match Self::simple_move_entry_in_conn(state, *entry_id, old_path, new_path, txn).await
 			{
 				Ok(()) => {
 					moved_count += 1;
@@ -1003,13 +987,13 @@ impl DBWriter {
 					// the entire batch. Parent directory renames succeed even if a child fails
 					// due to file locks, though the child will have a stale path until the next
 					// reindex cleans it up.
-					ctx.log(format!(
+					tracing::debug!(
 						"Failed to move entry {} from {} to {}: {}",
 						entry_id,
 						old_path.display(),
 						new_path.display(),
 						e
-					));
+					);
 				}
 			}
 		}
@@ -1019,7 +1003,6 @@ impl DBWriter {
 
 	/// Update entry within existing transaction
 	pub async fn update_entry_in_conn(
-		ctx: &impl IndexingCtx,
 		entry_id: i32,
 		entry: &super::state::DirEntry,
 		txn: &DatabaseTransaction,

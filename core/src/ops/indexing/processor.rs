@@ -5,9 +5,10 @@
 //! happen in a single transaction. This ensures entries either have valid content_id references
 //! or remain unlinked if processing fails.
 
-use super::{ctx::IndexingCtx, db_writer::DBWriter, state::EntryKind};
+use super::{db_writer::DBWriter, state::EntryKind};
 use crate::domain::content_identity::ContentHashGenerator;
 use anyhow::Result;
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::debug;
@@ -137,7 +138,7 @@ impl ContentHashProcessor {
 
 	pub async fn process(
 		&self,
-		ctx: &impl IndexingCtx,
+		db: &DatabaseConnection,
 		entry: &ProcessorEntry,
 	) -> Result<ProcessorResult> {
 		if !matches!(entry.kind, EntryKind::File) || entry.content_id.is_some() {
@@ -149,14 +150,8 @@ impl ContentHashProcessor {
 		let content_hash = ContentHashGenerator::generate_content_hash(&entry.path).await?;
 		debug!("✓ Generated content hash: {}", content_hash);
 
-		DBWriter::link_to_content_identity(
-			ctx,
-			entry.id,
-			&entry.path,
-			content_hash,
-			self.library_id,
-		)
-		.await?;
+		DBWriter::link_to_content_identity(db, entry.id, &entry.path, content_hash, self.library_id)
+			.await?;
 
 		debug!("✓ Linked content identity for entry {}", entry.id);
 

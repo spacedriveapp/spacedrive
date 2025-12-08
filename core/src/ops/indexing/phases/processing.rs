@@ -284,7 +284,6 @@ pub async fn run_processing_phase(
 				Some(Change::New(_)) => {
 					match DBWriter::create_entry_in_conn(
 						state,
-						ctx,
 						&entry,
 						device_id,
 						location_root_path,
@@ -332,7 +331,7 @@ pub async fn run_processing_phase(
 				}
 
 				Some(Change::Modified { entry_id, .. }) => {
-					match DBWriter::update_entry_in_conn(ctx, entry_id, &entry, &txn).await {
+					match DBWriter::update_entry_in_conn(entry_id, &entry, &txn).await {
 						Ok(()) => {
 							ctx.log(format!(
 								"Updated entry {}: {}",
@@ -368,7 +367,7 @@ pub async fn run_processing_phase(
 						new_path.display()
 					));
 					match DBWriter::simple_move_entry_in_conn(
-						state, ctx, entry_id, &old_path, &new_path, &txn,
+						state, entry_id, &old_path, &new_path, &txn,
 					)
 					.await
 					{
