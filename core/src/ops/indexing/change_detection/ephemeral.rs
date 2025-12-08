@@ -7,7 +7,7 @@ use super::handler::{build_dir_entry, ChangeHandler};
 use super::types::{ChangeType, EntryRef};
 use crate::infra::event::EventBus;
 use crate::ops::indexing::entry::EntryMetadata;
-use crate::ops::indexing::job::EphemeralIndex;
+use crate::ops::indexing::ephemeral::EphemeralIndex;
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 use anyhow::Result;
 use std::path::{Path, PathBuf};

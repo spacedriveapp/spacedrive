@@ -2,16 +2,15 @@
 //!
 //! Provides O(1) tree traversal operations using a precomputed closure table.
 //! The closure table stores all ancestor-descendant relationships with their depths,
-//! eliminating recursive queries for common operations like "get all children" or
-//! "build full path". Each insert updates the closure table to maintain transitive
-//! relationships, trading write complexity for instant read performance.
+//! eliminating recursive queries for common operations like "get all children".
+//! Each insert updates the closure table to maintain transitive relationships,
+//! trading write complexity for instant read performance.
+//!
+//! For path resolution, use [`PathResolver::get_full_path`] which provides O(1)
+//! lookups via the `directory_paths` cache table.
 
 use crate::infra::db::entities::{entry, entry_closure};
-use sea_orm::{
-	ColumnTrait, Condition, DbConn, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QueryOrder,
-	QuerySelect, RelationTrait,
-};
-use std::path::PathBuf;
+use sea_orm::{ColumnTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 
 /// Namespace for closure table queries that avoid recursive database operations.
 pub struct HierarchyQuery;
@@ -136,34 +135,6 @@ impl HierarchyQuery {
 			}
 			Ok(results)
 		}
-	}
-
-	/// Constructs the absolute filesystem path by joining location_path + ancestors + entry name.
-	///
-	/// Used for displaying full paths in UI and for validating moves/renames don't exceed
-	/// filesystem limits. The closure table makes this O(1) instead of recursively walking
-	/// parent_id links.
-	pub async fn build_full_path(
-		db: &DbConn,
-		entry_id: i32,
-		location_path: &str,
-	) -> Result<PathBuf, sea_orm::DbErr> {
-		let entry = entry::Entity::find_by_id(entry_id)
-			.one(db)
-			.await?
-			.ok_or_else(|| sea_orm::DbErr::RecordNotFound("Entry not found".to_string()))?;
-
-		let ancestors = Self::get_ancestors(db, entry_id).await?;
-
-		let mut path = PathBuf::from(location_path);
-
-		for ancestor in ancestors {
-			path.push(&ancestor.name);
-		}
-
-		path.push(&entry.name);
-
-		Ok(path)
 	}
 
 	/// Counts descendants at any depth without fetching full entry records.

@@ -26,7 +26,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use super::{
-	job::EphemeralIndex,
+	ephemeral::EphemeralIndex,
 	state::{DirEntry, EntryKind},
 	PathResolver,
 };
