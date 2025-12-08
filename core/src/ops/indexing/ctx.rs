@@ -1,8 +1,9 @@
-//! Lightweight context abstraction for indexing operations
+//! Context abstraction for indexing operations.
 //!
-//! Provides a minimal interface required by indexing code paths so they can run
-//! either inside the job system (with `JobContext`) or outside of it (watcher
-//! responder) without duplicating logic.
+//! The `IndexingCtx` trait provides a minimal interface that indexing code paths
+//! need to function. This allows the same indexing logic to run both inside the
+//! job system (with `JobContext`) and outside of it (watcher responder), avoiding
+//! code duplication between job-based and event-driven indexing.
 
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
@@ -10,17 +11,23 @@ use uuid::Uuid;
 
 use crate::{context::CoreContext, infra::job::prelude::JobContext, library::Library};
 
-/// Minimal capabilities needed by indexing operations
+/// Minimal interface required by indexing operations.
+///
+/// This trait abstracts away the difference between job-based indexing and
+/// event-driven indexing (file watcher responders). Both execution contexts
+/// provide database access and logging, but only the job context has full
+/// library access for sync operations.
 pub trait IndexingCtx {
-	/// Access to the library database connection
 	fn library_db(&self) -> &DatabaseConnection;
 
-	/// Access to the library for sync operations (optional - only available in job context)
+	/// Returns the library reference when running in job context, None otherwise.
+	///
+	/// This is only available for job-based indexing since responder contexts
+	/// don't have direct library access (they operate through the event bus).
 	fn library(&self) -> Option<&Library> {
 		None
 	}
 
-	/// Lightweight logging hook
 	fn log(&self, message: impl AsRef<str>) {
 		tracing::debug!(message = %message.as_ref());
 	}
@@ -36,14 +43,17 @@ impl<'a> IndexingCtx for JobContext<'a> {
 	}
 }
 
-/// Context for responder paths running outside the job system
+/// Context for file watcher responders that run outside the job system.
+///
+/// Responders handle filesystem events (file created, moved, deleted) by
+/// performing incremental indexing updates. They operate independently of
+/// the job system and communicate results through the event bus rather than
+/// job completion.
 pub struct ResponderCtx {
-	/// Cloned DB connection for the target library
 	db: DatabaseConnection,
 }
 
 impl ResponderCtx {
-	/// Build a responder context for a specific library
 	pub async fn new(context: &Arc<CoreContext>, library_id: Uuid) -> anyhow::Result<Self> {
 		let library: Arc<Library> = context
 			.get_library(library_id)

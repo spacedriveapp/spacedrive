@@ -280,17 +280,13 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 						"Interned strings (shared)",
 						&stats.interned_strings.to_string(),
 					]);
-					stats_table.add_row(vec![
-						"Content kinds",
-						&stats.content_kinds.to_string(),
-					]);
+					stats_table.add_row(vec!["Content kinds", &stats.content_kinds.to_string()]);
 					stats_table.add_row(vec![
 						"Memory usage",
 						&format_bytes(stats.memory_bytes as u64),
 					]);
 					stats_table.add_row(vec!["Cache age", &format!("{:.1}s", stats.age_seconds)]);
-					stats_table
-						.add_row(vec!["Idle time", &format!("{:.1}s", stats.idle_seconds)]);
+					stats_table.add_row(vec!["Idle time", &format!("{:.1}s", stats.idle_seconds)]);
 
 					println!("{}", stats_table);
 
@@ -303,14 +299,11 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 							println!();
 							let mut progress_table = Table::new();
 							progress_table.load_preset(UTF8_BORDERS_ONLY);
-							progress_table.set_header(vec![
-								Cell::new("INDEXING IN PROGRESS").add_attribute(Attribute::Bold),
-							]);
+							progress_table
+								.set_header(vec![Cell::new("INDEXING IN PROGRESS")
+									.add_attribute(Attribute::Bold)]);
 							for path in &status.paths_in_progress {
-								progress_table.add_row(vec![format!(
-									"● {}",
-									path.display()
-								)]);
+								progress_table.add_row(vec![format!("● {}", path.display())]);
 							}
 							println!("{}", progress_table);
 						}

@@ -1,4 +1,9 @@
-//! Main indexer job implementation
+//! Indexer job implementation and ephemeral index storage.
+//!
+//! This module contains the main `IndexerJob` struct that orchestrates the multi-phase
+//! indexing pipeline, as well as the `EphemeralIndex` used for browsing unmanaged paths
+//! without database writes. The job supports both persistent indexing (for managed locations)
+//! and ephemeral indexing (for external drives, network shares, and temporary browsing).
 
 use crate::{
 	domain::addressing::SdPath,
@@ -26,20 +31,30 @@ use super::{
 	PathResolver,
 };
 
-/// Indexing mode determines the depth of indexing
+/// How deeply to index files, from metadata-only to full processing.
+///
+/// IndexMode controls the trade-off between indexing speed and feature completeness.
+/// Shallow mode is fast enough for ephemeral browsing, while Deep mode enables
+/// duplicate detection, thumbnail generation, and full-text search at the cost of
+/// significantly longer indexing time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Type)]
 pub enum IndexMode {
 	/// Location exists but is not indexed
 	None,
 	/// Just filesystem metadata (fastest)
 	Shallow,
-	/// Generate content identities (moderate)
+	/// Generate content identities via BLAKE3 hashing (enables duplicate detection)
 	Content,
 	/// Full indexing with thumbnails and text extraction (slowest)
 	Deep,
 }
 
-/// Indexing scope determines how much of the directory tree to process
+/// Whether to index just one directory level or recurse through subdirectories.
+///
+/// Current scope is used for UI navigation where users expand folders on-demand,
+/// while Recursive scope is used for full location indexing. Current scope with
+/// persistent storage enables progressive indexing where the UI drives which
+/// directories get indexed based on user interaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum IndexScope {
 	/// Index only the current directory (single level)
@@ -73,7 +88,14 @@ impl std::fmt::Display for IndexScope {
 	}
 }
 
-/// Determines whether indexing results are persisted to database or kept in memory
+/// Whether to write indexing results to the database or keep them in memory.
+///
+/// Ephemeral persistence allows users to browse external drives and network shares
+/// without adding them as managed locations. The in-memory index survives for the
+/// session duration and provides the same API surface as persistent entries, enabling
+/// features like search and navigation to work identically for both modes. If an
+/// ephemeral path is later promoted to a managed location, UUIDs are preserved to
+/// maintain continuity for user metadata.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum IndexPersistence {
 	/// Write all results to database (normal operation)
@@ -88,21 +110,24 @@ impl Default for IndexPersistence {
 	}
 }
 
-/// Enhanced configuration for indexer jobs
+/// Configuration for an indexer job, supporting both persistent and ephemeral indexing.
+///
+/// Persistent jobs require a location_id to identify which managed location they're
+/// indexing. Ephemeral jobs (browsing unmanaged paths) use location_id = None and
+/// store results in memory instead of the database.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexerJobConfig {
-	pub location_id: Option<Uuid>, // None for ephemeral indexing
+	pub location_id: Option<Uuid>,
 	pub path: SdPath,
 	pub mode: IndexMode,
 	pub scope: IndexScope,
 	pub persistence: IndexPersistence,
-	pub max_depth: Option<u32>, // Override for Current scope or depth limiting
+	pub max_depth: Option<u32>,
 	#[serde(default)]
 	pub rule_toggles: super::rules::RuleToggles,
 }
 
 impl IndexerJobConfig {
-	/// Create a new configuration for persistent recursive indexing (traditional)
 	pub fn new(location_id: Uuid, path: SdPath, mode: IndexMode) -> Self {
 		Self {
 			location_id: Some(location_id),
@@ -115,7 +140,6 @@ impl IndexerJobConfig {
 		}
 	}
 
-	/// Create configuration for UI directory navigation (quick current scan)
 	pub fn ui_navigation(location_id: Uuid, path: SdPath) -> Self {
 		Self {
 			location_id: Some(location_id),
@@ -128,12 +152,11 @@ impl IndexerJobConfig {
 		}
 	}
 
-	/// Create configuration for ephemeral path browsing (outside managed locations)
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
 		Self {
 			location_id: None,
 			path,
-			mode: IndexMode::Shallow, // Ephemeral jobs identify content kind by extension, no hashing needed
+			mode: IndexMode::Shallow,
 			scope,
 			persistence: IndexPersistence::Ephemeral,
 			max_depth: if scope == IndexScope::Current {
@@ -156,38 +179,29 @@ impl IndexerJobConfig {
 	}
 }
 
-/// In-memory storage for ephemeral indexing results
+/// Memory-efficient index for browsing paths outside managed locations.
 ///
-/// This implementation uses efficient data structures for memory optimization:
-/// - NodeArena: Contiguous storage for file nodes (~48 bytes per node)
-/// - NameCache: String interning for common filenames (shared across all entries)
-/// - NameRegistry: Fast name-based lookups
+/// Ephemeral indexing lets users navigate unmanaged directories (network shares,
+/// external drives) without adding them as permanent locations. Instead of writing
+/// to the database, entries live in this memory-only structure until the session
+/// ends or the path is promoted to a managed location.
 ///
-/// All browsed paths share a single index, maximizing string deduplication
-/// and memory efficiency. Parent-child relationships are established based
-/// on path hierarchy.
+/// Memory usage is ~50 bytes per entry vs ~200 bytes with a naive `HashMap<PathBuf, Entry>`
+/// approach. The optimization comes from:
+/// - **NodeArena:** Contiguous slab allocation with pointer-sized entry IDs
+/// - **NameCache:** String interning (one copy of "index.js" for thousands of node_modules files)
+/// - **NameRegistry:** Trie-based prefix search without full-text indexing overhead
 ///
-/// Memory usage: ~50 bytes per entry vs ~200 bytes with HashMap
+/// Multiple directory trees can coexist in the same index (e.g., browsing both
+/// `/mnt/nas` and `/media/usb` simultaneously), sharing the string interning pool
+/// for maximum deduplication.
 pub struct EphemeralIndex {
-	/// Efficient tree storage
 	arena: super::ephemeral::NodeArena,
-
-	/// String interning (shared across all paths)
 	cache: std::sync::Arc<super::ephemeral::NameCache>,
-
-	/// Fast name lookups
 	registry: super::ephemeral::NameRegistry,
-
-	/// Path → EntryId mapping (for lookups by path)
 	path_index: HashMap<PathBuf, super::ephemeral::EntryId>,
-
-	/// UUID mapping (for API compatibility)
 	entry_uuids: HashMap<PathBuf, Uuid>,
-
-	/// Content kinds by path (fast extension-based identification)
 	content_kinds: HashMap<PathBuf, crate::domain::ContentKind>,
-
-	/// Metadata
 	created_at: std::time::Instant,
 	last_accessed: std::time::Instant,
 	pub stats: IndexerStats,
@@ -204,11 +218,6 @@ impl std::fmt::Debug for EphemeralIndex {
 }
 
 impl EphemeralIndex {
-	/// Create a new empty ephemeral index
-	///
-	/// The index stores entries with their full paths and builds parent-child
-	/// relationships based on path hierarchy. Multiple directory trees can
-	/// coexist in the same index, sharing the arena and string interning pool.
 	pub fn new() -> Self {
 		use super::ephemeral::{NameCache, NameRegistry, NodeArena};
 
@@ -231,21 +240,22 @@ impl EphemeralIndex {
 		}
 	}
 
-	/// Ensure a directory exists in the index, creating ancestor chain if needed
+	/// Ensures a directory exists, creating all missing ancestors recursively.
 	///
-	/// Returns the EntryId of the directory.
+	/// This method guarantees that `list_directory()` works immediately after
+	/// `add_entry()` without a separate tree-building pass. Parent directories
+	/// are created from root to leaf, so the full ancestor chain exists before
+	/// any child is added.
 	pub fn ensure_directory(&mut self, path: &Path) -> super::ephemeral::EntryId {
 		use super::ephemeral::{
 			FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata,
 		};
 		use super::state::EntryKind;
 
-		// Already exists?
 		if let Some(&id) = self.path_index.get(path) {
 			return id;
 		}
 
-		// Ensure parent exists first (recursive)
 		let parent_id = if let Some(parent_path) = path.parent() {
 			if parent_path.as_os_str().is_empty() {
 				None
@@ -256,7 +266,6 @@ impl EphemeralIndex {
 			None
 		};
 
-		// Create this directory
 		let name = self.cache.intern(
 			path.file_name()
 				.map(|s| s.to_string_lossy())
@@ -279,18 +288,21 @@ impl EphemeralIndex {
 			}
 		}
 
-		// Index by path and name
 		self.path_index.insert(path.to_path_buf(), id);
 		self.registry.insert(name, id);
 
-		// Generate UUID for directory
 		let uuid = uuid::Uuid::new_v4();
 		self.entry_uuids.insert(path.to_path_buf(), uuid);
 
 		id
 	}
 
-	/// Add an entry to the index. Returns Some(content_kind) if added, None if duplicate.
+	/// Adds an entry to the index, returning its content kind if successful.
+	///
+	/// Content kind is identified by file extension (no I/O needed), which is
+	/// sufficient for ephemeral browsing where speed is critical. Returns None
+	/// if the entry already exists (prevents duplicate entries when re-indexing
+	/// a directory).
 	pub fn add_entry(
 		&mut self,
 		path: PathBuf,
@@ -303,30 +315,26 @@ impl EphemeralIndex {
 		use crate::domain::ContentKind;
 		use crate::filetype::FileTypeRegistry;
 
-		// Check if entry already exists for this path - skip if so to prevent duplicates
 		if self.path_index.contains_key(&path) {
 			tracing::trace!("Skipping duplicate entry: {}", path.display());
 			return None;
 		}
 
-		// Ensure parent directory exists in the index FIRST (requires &mut self)
-		// This must happen before interning the name to avoid borrow conflicts
+		// Ensure parent directories exist before adding this entry, building the ancestor
+		// chain from root to leaf. The &mut borrow happens before name interning to avoid
+		// holding the cache lock while recursing.
 		let parent_id = if let Some(parent_path) = path.parent() {
 			if parent_path.as_os_str().is_empty() {
-				// Root of filesystem, no parent
 				None
 			} else if let Some(&existing_id) = self.path_index.get(parent_path) {
-				// Parent already exists
 				Some(existing_id)
 			} else {
-				// Parent doesn't exist - ensure it (and ancestors) are created
 				Some(self.ensure_directory(parent_path))
 			}
 		} else {
 			None
 		};
 
-		// Now intern the filename (borrows self.cache immutably)
 		let name = self.cache.intern(
 			path.file_name()
 				.map(|s| s.to_string_lossy())
@@ -334,13 +342,11 @@ impl EphemeralIndex {
 				.unwrap_or("unknown"),
 		);
 
-		// Create metadata
 		let file_type = FileType::from(metadata.kind);
 
 		let meta = PackedMetadata::new(NodeState::Accessible, file_type, metadata.size)
 			.with_times(metadata.modified, metadata.created);
 
-		// Create node
 		let parent_ref = parent_id
 			.map(MaybeEntryId::some)
 			.unwrap_or(MaybeEntryId::NONE);
@@ -355,17 +361,15 @@ impl EphemeralIndex {
 			}
 		}
 
-		// Detect content kind by extension (fast, no I/O)
 		let content_kind = if metadata.kind == super::state::EntryKind::File {
 			let registry = FileTypeRegistry::default();
 			registry.identify_by_extension(&path)
 		} else if metadata.kind == super::state::EntryKind::Directory {
-			ContentKind::Unknown // Directories don't have content kind
+			ContentKind::Unknown
 		} else {
 			ContentKind::Unknown
 		};
 
-		// Index by path and name
 		self.path_index.insert(path.clone(), id);
 		self.registry.insert(name, id);
 		self.entry_uuids.insert(path.clone(), uuid);
@@ -428,7 +432,6 @@ impl EphemeralIndex {
 		self.entry_uuids.get(path).copied()
 	}
 
-	/// Get the content kind for an entry (identified by extension)
 	pub fn get_content_kind(&self, path: &PathBuf) -> crate::domain::ContentKind {
 		self.content_kinds
 			.get(path)
@@ -436,7 +439,6 @@ impl EphemeralIndex {
 			.unwrap_or(crate::domain::ContentKind::Unknown)
 	}
 
-	/// List directory children
 	pub fn list_directory(&self, path: &std::path::Path) -> Option<Vec<PathBuf>> {
 		let id = self.path_index.get(path)?;
 		let node = self.arena.get(*id)?;
@@ -449,13 +451,13 @@ impl EphemeralIndex {
 		)
 	}
 
-	/// Clear all direct children of a directory (for re-indexing)
+	/// Clears immediate children of a directory to prepare for re-indexing.
 	///
-	/// This removes entries for the immediate children of the given directory,
-	/// preventing ghost entries when files are deleted between index runs.
-	/// Note: Does not recursively clear subdirectories.
+	/// This prevents ghost entries when files are deleted between index runs.
+	/// The arena nodes become orphaned but remain allocated, which is acceptable
+	/// for ephemeral indexes since memory pressure triggers full eviction anyway.
+	/// Only clears the direct children (non-recursive).
 	pub fn clear_directory_children(&mut self, dir_path: &Path) -> usize {
-		// Get the directory's children paths first
 		let children_paths: Vec<PathBuf> = if let Some(dir_id) = self.path_index.get(dir_path) {
 			if let Some(dir_node) = self.arena.get(*dir_id) {
 				dir_node
@@ -472,7 +474,6 @@ impl EphemeralIndex {
 
 		let mut cleared = 0;
 
-		// Remove each child from indexes (arena nodes are left as orphans - acceptable for ephemeral)
 		for child_path in &children_paths {
 			if self.path_index.remove(child_path).is_some() {
 				cleared += 1;
@@ -481,7 +482,6 @@ impl EphemeralIndex {
 			self.content_kinds.remove(child_path);
 		}
 
-		// Clear the parent's children list
 		if let Some(dir_id) = self.path_index.get(dir_path) {
 			if let Some(dir_node) = self.arena.get_mut(*dir_id) {
 				dir_node.children.clear();
@@ -491,18 +491,15 @@ impl EphemeralIndex {
 		cleared
 	}
 
-	/// Reconstruct full path for a node
 	fn reconstruct_path(&self, id: super::ephemeral::EntryId) -> Option<PathBuf> {
 		let mut segments = Vec::new();
 		let mut current = id;
 
-		// Walk up the tree collecting path segments
 		while let Some(node) = self.arena.get(current) {
 			segments.push(node.name().to_owned());
 			if let Some(parent) = node.parent() {
 				current = parent;
 			} else {
-				// Reached a root node (no parent)
 				break;
 			}
 		}
@@ -511,7 +508,6 @@ impl EphemeralIndex {
 			return None;
 		}
 
-		// Build absolute path from segments (root to leaf)
 		let mut path = PathBuf::from("/");
 		for segment in segments.into_iter().rev() {
 			path.push(segment);
@@ -519,7 +515,6 @@ impl EphemeralIndex {
 		Some(path)
 	}
 
-	/// Find all entries with the given filename
 	pub fn find_by_name(&self, name: &str) -> Vec<PathBuf> {
 		self.registry
 			.get(name)
@@ -531,7 +526,6 @@ impl EphemeralIndex {
 			.unwrap_or_default()
 	}
 
-	/// Find all entries with names starting with the given prefix
 	pub fn find_by_prefix(&self, prefix: &str) -> Vec<PathBuf> {
 		self.registry
 			.find_prefix(prefix)
@@ -548,17 +542,14 @@ impl EphemeralIndex {
 		self.last_accessed.elapsed()
 	}
 
-	/// Get the total number of entries
 	pub fn len(&self) -> usize {
 		self.arena.len()
 	}
 
-	/// Check if the index is empty
 	pub fn is_empty(&self) -> bool {
 		self.arena.is_empty()
 	}
 
-	/// Get approximate memory usage in bytes
 	pub fn memory_usage(&self) -> usize {
 		self.arena.memory_usage()
 			+ self.cache.memory_usage()
@@ -570,7 +561,6 @@ impl EphemeralIndex {
 				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<Uuid>())
 	}
 
-	/// Get statistics about the index
 	pub fn get_stats(&self) -> EphemeralIndexStats {
 		EphemeralIndexStats {
 			total_entries: self.arena.len(),
@@ -580,20 +570,19 @@ impl EphemeralIndex {
 		}
 	}
 
-	/// Get the number of content kinds stored
 	pub fn content_kinds_count(&self) -> usize {
 		self.content_kinds.len()
 	}
 
-	/// Get the number of entries in the path index
 	pub fn path_index_count(&self) -> usize {
 		self.path_index.len()
 	}
 
-	/// Get all entries as a HashMap (for backward compatibility)
+	/// Reconstructs paths for all entries and returns them as a HashMap.
 	///
-	/// This method reconstructs paths for all entries. For large indexes,
-	/// consider using iterators or specific queries instead.
+	/// For large indexes, this can be expensive since it walks the tree to rebuild
+	/// every path. Prefer using `list_directory()` or `find_by_name()` for targeted
+	/// queries when possible.
 	pub fn entries(&self) -> HashMap<PathBuf, EntryMetadata> {
 		use super::state::EntryKind;
 
@@ -639,25 +628,25 @@ pub struct EphemeralIndexStats {
 	pub memory_bytes: usize,
 }
 
-/// Indexer job - discovers and indexes files in a location
+/// Orchestrates multi-phase file indexing for both persistent and ephemeral modes.
+///
+/// The job executes as a state machine progressing through Discovery, Processing,
+/// Aggregation, and ContentIdentification phases. State is automatically serialized
+/// between phases, allowing the job to survive app restarts and resume from the last
+/// completed phase. Ephemeral jobs (browsing unmanaged paths) skip aggregation and
+/// content identification, storing results in memory via `EphemeralIndex`.
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct IndexerJob {
 	pub config: IndexerJobConfig,
-
-	// Resumable state
 	state: Option<IndexerState>,
-
-	// Ephemeral storage for non-persistent jobs
 	#[serde(skip)]
 	ephemeral_index: Option<Arc<RwLock<EphemeralIndex>>>,
-
-	// Performance tracking
 	#[serde(skip)]
 	timer: Option<PhaseTimer>,
 	#[serde(skip)]
-	db_operations: (u64, u64), // (reads, writes)
+	db_operations: (u64, u64),
 	#[serde(skip)]
-	batch_info: (u64, usize), // (count, total_size)
+	batch_info: (u64, usize),
 }
 
 impl Job for IndexerJob {
@@ -675,10 +664,7 @@ impl DynJob for IndexerJob {
 impl JobProgress for IndexerProgress {}
 
 impl IndexerJob {
-	/// Inner implementation of the job phases (separated for cleanup guarantee)
 	async fn run_job_phases(&mut self, ctx: &JobContext<'_>) -> JobResult<IndexerOutput> {
-		// Initialize or restore state
-		// Ensure state is always created early to avoid serialization issues
 		if self.state.is_none() {
 			ctx.log(format!(
 				"Starting new indexer job (scope: {}, persistence: {:?})",
@@ -704,9 +690,8 @@ impl IndexerJob {
 
 		let state = self.state.as_mut().unwrap();
 
-		// Get root path ONCE for the entire job
 		// For cloud volumes, we use the path component from the SdPath (e.g., "/" or "folder/")
-		// since discovery operates through the volume backend (not direct filesystem access)
+		// since discovery operates through the volume backend (not direct filesystem access).
 		let root_path_buf = if let Some(p) = self.config.path.as_local_path() {
 			p.to_path_buf()
 		} else if let Some(cloud_path) = self.config.path.cloud_path() {
@@ -739,7 +724,6 @@ impl IndexerJob {
 		};
 		let root_path = root_path_buf.as_path();
 
-		// Get volume backend for the entire job
 		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
 			if let Some(vm) = ctx.volume_manager() {
 				match vm
@@ -754,7 +738,6 @@ impl IndexerJob {
 						Some(vm.backend_for_volume(&mut volume))
 					}
 					Ok(None) => {
-						// For cloud paths, we MUST have a volume - can't fall back to local
 						if self.config.path.is_cloud() {
 							ctx.log(format!(
 								"Cloud volume not found for path: {}",
@@ -766,7 +749,6 @@ impl IndexerJob {
 							)));
 						}
 
-						// For local paths, we can fall back to LocalBackend
 						ctx.log(format!(
 							"No volume found for path: {}, will use LocalBackend fallback",
 							self.config.path
@@ -786,12 +768,10 @@ impl IndexerJob {
 				None
 			};
 
-		// Seed discovery queue if it wasn't initialized due to device-id timing
 		if state.dirs_to_walk.is_empty() {
 			state.dirs_to_walk.push_back(root_path.to_path_buf());
 		}
 
-		// Main state machine loop
 		loop {
 			ctx.check_interrupt().await?;
 
@@ -799,7 +779,6 @@ impl IndexerJob {
 			warn!("DEBUG: IndexerJob entering phase: {:?}", current_phase);
 			match current_phase {
 				Phase::Discovery => {
-					// For cloud volumes, construct the base URL for building absolute paths
 					let cloud_url_base =
 						if let Some((service, identifier, _)) = self.config.path.as_cloud() {
 							Some(format!("{}://{}/", service.scheme(), identifier))
@@ -807,7 +786,6 @@ impl IndexerJob {
 							None
 						};
 
-					// Use scope-aware discovery
 					if self.config.is_current_scope() {
 						Self::run_current_scope_discovery_static(state, &ctx, root_path).await?;
 					} else {
@@ -822,11 +800,9 @@ impl IndexerJob {
 						.await?;
 					}
 
-					// Track batch info
 					self.batch_info.0 = state.entry_batches.len() as u64;
 					self.batch_info.1 = state.entry_batches.iter().map(|b| b.len()).sum();
 
-					// Start processing timer
 					if let Some(timer) = &mut self.timer {
 						timer.start_processing();
 					}
@@ -859,8 +835,7 @@ impl IndexerJob {
 						)
 						.await?;
 
-						// Update DB operation counts
-						self.db_operations.1 += state.entry_batches.len() as u64 * 100; // Estimate
+						self.db_operations.1 += state.entry_batches.len() as u64 * 100;
 					}
 				}
 
@@ -875,14 +850,11 @@ impl IndexerJob {
 						)
 						.await?;
 					} else {
-						// Skip aggregation and content phases for ephemeral jobs
-						// Content kind is already identified by extension during add_entry
 						ctx.log("Skipping aggregation and content phases for ephemeral job (content kind identified by extension)");
 						state.phase = Phase::Complete;
 						continue;
 					}
 
-					// Start content timer
 					if let Some(timer) = &mut self.timer {
 						timer.start_content();
 					}
@@ -891,7 +863,6 @@ impl IndexerJob {
 				Phase::ContentIdentification => {
 					if self.config.mode >= IndexMode::Content {
 						if self.config.is_ephemeral() {
-							// Skip content phase for ephemeral jobs - content kind already identified
 							ctx.log("Skipping content identification for ephemeral job");
 							state.phase = Phase::Complete;
 							continue;
@@ -915,14 +886,12 @@ impl IndexerJob {
 				Phase::Complete => break,
 			}
 
-			// State is automatically saved during job serialization on shutdown
 			warn!(
 				"DEBUG: IndexerJob completed phase: {:?}, next phase will be: {:?}",
 				current_phase, state.phase
 			);
 		}
 
-		// Send final progress update
 		let final_progress = IndexerProgress {
 			phase: IndexPhase::Finalizing {
 				processed: 0,
@@ -935,27 +904,23 @@ impl IndexerJob {
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
-			action_context: None, // TODO: Pass action context from job state
+			action_context: None,
 		};
 		ctx.progress(Progress::generic(final_progress.to_generic_progress()));
 
-		// Calculate final metrics
 		let metrics = if let Some(timer) = &self.timer {
 			IndexerMetrics::calculate(&state.stats, timer, self.db_operations, self.batch_info)
 		} else {
 			IndexerMetrics::default()
 		};
 
-		// Log summary
 		ctx.log(&metrics.format_summary());
 
-		// If Deep mode, dispatch thumbnail generation job after indexing completes
 		if self.config.mode == IndexMode::Deep && !self.config.is_ephemeral() {
 			use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 
 			ctx.log("Deep mode enabled - dispatching thumbnail generation job");
 
-			// Dispatch thumbnail job for all entries in this location
 			let thumbnail_config = ThumbnailJobConfig::default();
 			let thumbnail_job = ThumbnailJob::new(thumbnail_config);
 
@@ -965,12 +930,10 @@ impl IndexerJob {
 				}
 				Err(e) => {
 					ctx.log(format!("Warning: Failed to dispatch thumbnail job: {}", e));
-					// Don't fail the indexing job if thumbnail dispatch fails
 				}
 			}
 		}
 
-		// Generate final output (cleanup happens in outer run() method)
 		Ok(IndexerOutput {
 			location_id: self.config.location_id,
 			stats: state.stats,
@@ -992,22 +955,20 @@ impl JobHandler for IndexerJob {
 	type Output = IndexerOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
-		// Initialize timer
 		if self.timer.is_none() {
 			self.timer = Some(PhaseTimer::new());
 		}
 
-		// Initialize ephemeral index if needed
 		if self.config.is_ephemeral() && self.ephemeral_index.is_none() {
 			self.ephemeral_index = Some(Arc::new(RwLock::new(EphemeralIndex::new())));
 			ctx.log("Initialized ephemeral index for non-persistent job");
 		}
 
-		// Run the actual job, ensuring ephemeral cleanup happens on both success and failure
 		let result = self.run_job_phases(&ctx).await;
 
-		// ALWAYS mark ephemeral indexing complete, even on failure
-		// This prevents the indexing flag from being stuck forever
+		// Mark ephemeral indexing complete even on failure to prevent the indexing
+		// flag from being stuck forever. Without this, a failed ephemeral job would
+		// block all future indexing attempts for that path until app restart.
 		if self.config.is_ephemeral() {
 			if let Some(local_path) = self.config.path.as_local_path() {
 				ctx.library()
@@ -1032,7 +993,6 @@ impl JobHandler for IndexerJob {
 	}
 
 	async fn on_resume(&mut self, ctx: &JobContext<'_>) -> JobResult {
-		// State is already loaded from serialization
 		warn!("DEBUG: IndexerJob on_resume called");
 		if let Some(state) = &self.state {
 			warn!(
@@ -1045,18 +1005,16 @@ impl JobHandler for IndexerJob {
 				state.stats.files, state.stats.dirs, state.stats.errors
 			));
 
-			// Reinitialize timer for resumed job
 			self.timer = Some(PhaseTimer::new());
 		} else {
 			warn!("DEBUG: IndexerJob has no state during resume - creating new state!");
-			// If state is missing, create it now (this shouldn't happen in normal operation)
 			self.state = Some(IndexerState::new(&self.config.path));
 		}
 		Ok(())
 	}
 
 	async fn on_pause(&mut self, ctx: &JobContext<'_>) -> JobResult {
-		ctx.log("Pausing indexer job - state will be preserved");
+		ctx.log("Pausing indexer job");
 		Ok(())
 	}
 
@@ -1072,13 +1030,11 @@ impl JobHandler for IndexerJob {
 	}
 
 	fn is_resuming(&self) -> bool {
-		// If we have existing state, we're resuming
 		self.state.is_some()
 	}
 }
 
 impl IndexerJob {
-	/// Create a new indexer job with enhanced configuration
 	pub fn new(config: IndexerJobConfig) -> Self {
 		Self {
 			config,
@@ -1090,43 +1046,40 @@ impl IndexerJob {
 		}
 	}
 
-	/// Create a traditional persistent recursive indexer job
 	pub fn from_location(location_id: Uuid, root_path: SdPath, mode: IndexMode) -> Self {
 		Self::new(IndexerJobConfig::new(location_id, root_path, mode))
 	}
 
-	/// Create a shallow indexer job (metadata only)
 	pub fn shallow(location_id: Uuid, root_path: SdPath) -> Self {
 		Self::from_location(location_id, root_path, IndexMode::Shallow)
 	}
 
-	/// Create a content indexer job (with CAS IDs)
 	pub fn with_content(location_id: Uuid, root_path: SdPath) -> Self {
 		Self::from_location(location_id, root_path, IndexMode::Content)
 	}
 
-	/// Create a deep indexer job (full processing)
 	pub fn deep(location_id: Uuid, root_path: SdPath) -> Self {
 		Self::from_location(location_id, root_path, IndexMode::Deep)
 	}
 
-	/// Create a UI navigation job (current scope, quick scan)
 	pub fn ui_navigation(location_id: Uuid, path: SdPath) -> Self {
 		Self::new(IndexerJobConfig::ui_navigation(location_id, path))
 	}
 
-	/// Set the ephemeral index storage (must be called before dispatching for ephemeral jobs)
-	/// This allows external code to maintain a reference to the same storage the job uses
+	/// Sets the ephemeral index storage that the job will use.
+	///
+	/// This must be called before dispatching ephemeral jobs. It allows external code
+	/// (like the ephemeral cache manager) to maintain a reference to the same storage
+	/// the job uses, enabling direct access to indexing results without job-to-caller
+	/// communication overhead.
 	pub fn set_ephemeral_index(&mut self, index: Arc<RwLock<EphemeralIndex>>) {
 		self.ephemeral_index = Some(index);
 	}
 
-	/// Create an ephemeral browsing job (no database writes)
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
 		Self::new(IndexerJobConfig::ephemeral_browse(path, scope))
 	}
 
-	/// Run current scope discovery (single level only)
 	async fn run_current_scope_discovery_static(
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
@@ -1180,7 +1133,6 @@ impl IndexerJob {
 			}
 		}
 
-		// Create single batch and move to processing
 		if !state.pending_entries.is_empty() {
 			let batch = state.create_batch();
 			state.entry_batches.push(batch);
@@ -1195,7 +1147,6 @@ impl IndexerJob {
 		Ok(())
 	}
 
-	/// Run ephemeral processing (store in memory instead of database)
 	async fn run_ephemeral_processing_static(
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
@@ -1207,26 +1158,20 @@ impl IndexerJob {
 
 		ctx.log("Starting ephemeral processing");
 
-		// Get event bus from library
 		let event_bus = Some(ctx.library().event_bus().clone());
 
-		// Create ephemeral persistence layer (emits events as entries are stored)
 		let persistence = PersistenceFactory::ephemeral(
 			ephemeral_index.clone(),
 			event_bus,
 			root_path.to_path_buf(),
 		);
 
-		// Process all batches through persistence layer
 		while let Some(batch) = state.entry_batches.pop() {
 			for entry in batch {
-				// Store entry (this will emit ResourceChanged events)
-				// Content kind is identified by extension during add_entry, no hashing needed
 				let _entry_id = persistence.store_entry(&entry, None, root_path).await?;
 			}
 		}
 
-		// Skip content identification for ephemeral jobs - go directly to complete
 		state.phase = Phase::Complete;
 
 		ctx.log("Ephemeral processing complete");

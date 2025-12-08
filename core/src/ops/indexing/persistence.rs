@@ -1,7 +1,10 @@
-//! Persistence abstraction layer for indexing operations
+//! # Persistence Abstraction for Indexing
 //!
-//! This module provides a unified interface for storing indexing results
-//! either persistently in the database or ephemerally in memory.
+//! `core::ops::indexing::persistence` provides a unified interface for storing
+//! indexing results either persistently in the database or ephemerally in memory.
+//! This abstraction allows the same indexing pipeline to work for both managed
+//! locations (database-backed) and ephemeral browsing (memory-only).
+//!
 
 use crate::{
 	filetype::FileTypeRegistry,
@@ -28,10 +31,18 @@ use super::{
 	PathResolver,
 };
 
-/// Abstraction for storing indexing results
+/// Unified storage interface for persistent and ephemeral indexing.
+///
+/// Implementations handle either database writes (DatabasePersistence) or
+/// in-memory storage (EphemeralPersistence). The indexing pipeline calls
+/// these methods without knowing which backend is active.
 #[async_trait::async_trait]
 pub trait IndexPersistence: Send + Sync {
-	/// Store an entry and return its ID
+	/// Stores an entry and returns its ID for linking content identities.
+	///
+	/// For database persistence, this creates an `entry` row and updates the closure table.
+	/// For ephemeral persistence, this adds the entry to the in-memory index and emits
+	/// a ResourceChanged event for immediate UI updates.
 	async fn store_entry(
 		&self,
 		entry: &DirEntry,
@@ -39,7 +50,11 @@ pub trait IndexPersistence: Send + Sync {
 		location_root_path: &Path,
 	) -> JobResult<i32>;
 
-	/// Store content identity and link to entry
+	/// Links a content identity (hash) to an entry.
+	///
+	/// For database persistence, this creates or finds a `content_identity` row and updates
+	/// the entry's `content_id` foreign key. For ephemeral persistence, this is a no-op since
+	/// in-memory indexes don't track content deduplication across sessions.
 	async fn store_content_identity(
 		&self,
 		entry_id: i32,
@@ -47,7 +62,12 @@ pub trait IndexPersistence: Send + Sync {
 		cas_id: String,
 	) -> JobResult<()>;
 
-	/// Get existing entries for change detection, scoped to the indexing path
+	/// Retrieves existing entries under a path for change detection.
+	///
+	/// Returns a map of path -> (entry_id, inode, modified_time, size) for all entries
+	/// under the indexing path. Change detection compares this snapshot against the
+	/// current filesystem to identify additions, modifications, and deletions. Ephemeral
+	/// persistence returns an empty map since it doesn't support incremental indexing.
 	async fn get_existing_entries(
 		&self,
 		indexing_path: &Path,
@@ -55,18 +75,25 @@ pub trait IndexPersistence: Send + Sync {
 		HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>,
 	>;
 
-	/// Update an existing entry
 	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()>;
 
-	/// Check if this persistence layer supports operations
+	/// Returns true for database persistence, false for ephemeral.
+	///
+	/// Used by the indexing pipeline to determine whether to perform expensive operations
+	/// like change detection (database only) or content hashing (database only).
 	fn is_persistent(&self) -> bool;
 }
 
-/// Database-backed persistence implementation
+/// Database-backed persistence with RwLock-protected entry ID cache.
+///
+/// This implementation writes all entries to the database and manages a cache of
+/// path -> entry_id mappings for fast parent lookups during hierarchy construction.
+/// The cache uses RwLock instead of clone-modify-write to prevent race conditions
+/// where concurrent cache updates overwrite each other.
 pub struct DatabasePersistence<'a> {
 	ctx: &'a JobContext<'a>,
 	device_id: i32,
-	location_root_entry_id: Option<i32>, // The root entry ID of the location being indexed
+	location_root_entry_id: Option<i32>,
 	entry_id_cache: Arc<RwLock<HashMap<std::path::PathBuf, i32>>>,
 }
 
@@ -95,20 +122,8 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	) -> JobResult<i32> {
 		use super::entry::EntryProcessor;
 
-		// CRITICAL FIX: Do NOT clone the cache!
-		// The previous clone-modify-write pattern caused cache corruption:
-		// 1. Thread A clones cache, processes entry, writes back
-		// 2. Thread B clones cache (stale snapshot), processes entry, writes back
-		// 3. Thread B's write overwrites Thread A's updates -> lost updates
-		// 4. Worse: concurrent HashMap mutations could cause data corruption
-		//
-		// Instead, we manage the cache directly with proper locking.
-		// We look up the parent, then create the entry, then cache it.
-		// All cache operations are protected by the RwLock.
-
-		// Find parent entry ID with proper locking
+		// Cache lookups use RwLock read/write operations instead of clone-modify-write.
 		let parent_id = if let Some(parent_path) = entry.path.parent() {
-			// Try cache first (read lock)
 			let cached_parent = {
 				let cache = self.entry_id_cache.read().await;
 				cache.get(parent_path).copied()
@@ -117,19 +132,16 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			if let Some(id) = cached_parent {
 				Some(id)
 			} else {
-				// Not in cache, check database (no lock held during async DB query)
 				let parent_path_str = parent_path.to_string_lossy().to_string();
 				if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
 					.filter(entities::directory_paths::Column::Path.eq(&parent_path_str))
 					.one(self.ctx.library_db())
 					.await
 				{
-					// Found in database, cache it (write lock)
 					let mut cache = self.entry_id_cache.write().await;
 					cache.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
 					Some(dir_path_record.entry_id)
 				} else {
-					// Parent truly not found
 					tracing::warn!(
 						"Parent not found for {}: {}",
 						entry.path.display(),
@@ -142,12 +154,6 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			None
 		};
 
-		// Now create the entry using the old implementation (not EntryProcessor)
-		// We can't easily use EntryProcessor without IndexerState, and creating
-		// IndexerState with clone causes the bug we're trying to fix.
-		// TODO: Refactor EntryProcessor to work without full IndexerState
-
-		// For now, inline the entry creation logic with our properly-locked cache
 		use entities::entry_closure;
 
 		let extension = match entry.kind {
@@ -295,7 +301,6 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			);
 		}
 
-		// Cache the entry ID for potential children (write lock)
 		{
 			let mut cache = self.entry_id_cache.write().await;
 			cache.insert(entry.path.clone(), result.id);
@@ -312,10 +317,8 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	) -> JobResult<()> {
 		use super::entry::EntryProcessor;
 
-		// Use the library ID from the context
 		let library_id = self.ctx.library().id();
 
-		// Delegate to existing implementation with the library_id
 		EntryProcessor::link_to_content_identity(self.ctx, entry_id, path, cas_id, library_id)
 			.await
 			.map(|_| ())
@@ -329,27 +332,22 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	> {
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-		// If we don't have a location root entry ID, we can't find existing entries
 		let location_root_entry_id = match self.location_root_entry_id {
 			Some(id) => id,
 			None => return Ok(HashMap::new()),
 		};
 
-		// Query descendants of the indexing path
 		let indexing_path_str = indexing_path.to_string_lossy().to_string();
 		let indexing_path_entry_id = if let Ok(Some(dir_record)) = directory_paths::Entity::find()
 			.filter(directory_paths::Column::Path.eq(&indexing_path_str))
 			.one(self.ctx.library_db())
 			.await
 		{
-			// Indexing path exists in DB - use its entry ID
 			dir_record.entry_id
 		} else {
-			// This is safe because if the path doesn't exist, there are no descendants to delete
 			location_root_entry_id
 		};
 
-		// Get all descendants of the indexing path
 		let descendant_ids = entry_closure::Entity::find()
 			.filter(entry_closure::Column::AncestorId.eq(indexing_path_entry_id))
 			.all(self.ctx.library_db())
@@ -359,11 +357,10 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			.map(|ec| ec.descendant_id)
 			.collect::<Vec<i32>>();
 
-		// Add the indexing path entry itself
 		let mut all_entry_ids = vec![indexing_path_entry_id];
 		all_entry_ids.extend(descendant_ids);
 
-		// Fetch all entries (chunked to avoid SQLite variable limit)
+		// Chunk queries to stay under SQLite's 999 variable limit.
 		let mut existing_entries: Vec<entities::entry::Model> = Vec::new();
 		let chunk_size: usize = 900;
 		for chunk in all_entry_ids.chunks(chunk_size) {
@@ -385,12 +382,10 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 		));
 
 		for entry in existing_entries {
-			// Build full path for the entry using PathResolver
 			let full_path = PathResolver::get_full_path(self.ctx.library_db(), entry.id)
 				.await
 				.unwrap_or_else(|_| PathBuf::from(&entry.name));
 
-			// Convert timestamp to SystemTime for comparison
 			let modified_time =
 				entry
 					.modified_at
@@ -418,7 +413,6 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()> {
 		use super::entry::EntryProcessor;
 
-		// Delegate to existing implementation
 		EntryProcessor::update_entry(self.ctx, entry_id, entry).await
 	}
 
@@ -427,7 +421,10 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	}
 }
 
-/// In-memory ephemeral persistence implementation
+/// In-memory ephemeral persistence for browsing unmanaged paths.
+///
+/// Stores entries in an `EphemeralIndex` (memory-only) and emits ResourceChanged
+/// events for immediate UI updates.
 pub struct EphemeralPersistence {
 	index: Arc<RwLock<EphemeralIndex>>,
 	next_entry_id: Arc<RwLock<i32>>,
@@ -467,23 +464,18 @@ impl IndexPersistence for EphemeralPersistence {
 	) -> JobResult<i32> {
 		use super::entry::EntryProcessor;
 
-		// Extract full metadata
-		// Note: Ephemeral persistence uses direct filesystem (None backend)
 		let metadata = EntryProcessor::extract_metadata(&entry.path, None)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to extract metadata: {}", e)))?;
 
-		// Generate a stable UUID for this ephemeral entry
 		let entry_id = self.get_next_id().await;
 		let entry_uuid = Uuid::new_v4();
 
-		// Store in ephemeral index with UUID
-		// add_entry returns Some(content_kind) if added, None if duplicate
+		// add_entry returns Some(content_kind) if added, None if duplicate path.
 		let content_kind = {
 			let mut index = self.index.write().await;
 			let result = index.add_entry(entry.path.clone(), entry_uuid, metadata.clone());
 
-			// Only update stats if the entry was actually added (not a duplicate)
 			if result.is_some() {
 				match entry.kind {
 					EntryKind::File => index.stats.files += 1,
@@ -495,19 +487,16 @@ impl IndexPersistence for EphemeralPersistence {
 			result
 		};
 
-		// Only emit event if entry was actually added
 		let Some(content_kind) = content_kind else {
 			return Ok(entry_id);
 		};
 
-		// Emit ResourceChanged event for UI
 		if let Some(event_bus) = &self.event_bus {
 			use crate::device::get_current_device_slug;
 			use crate::domain::addressing::SdPath;
 			use crate::domain::file::File;
 			use crate::infra::event::{Event, ResourceMetadata};
 
-			// Build SdPath - for ephemeral indexing, we use Physical paths
 			let device_slug = get_current_device_slug();
 
 			let sd_path = SdPath::Physical {
@@ -515,11 +504,9 @@ impl IndexPersistence for EphemeralPersistence {
 				path: entry.path.clone(),
 			};
 
-			// Build File domain object from ephemeral data
 			let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
 			file.content_kind = content_kind;
 
-			// Emit event with path metadata for filtering
 			let parent_path = entry.path.parent().map(|p| SdPath::Physical {
 				device_slug: file.sd_path.device_slug().unwrap_or("local").to_string(),
 				path: p.to_path_buf(),
@@ -553,7 +540,6 @@ impl IndexPersistence for EphemeralPersistence {
 		_path: &Path,
 		_cas_id: String,
 	) -> JobResult<()> {
-		// Ephemeral indexes do not store content identities
 		Ok(())
 	}
 
@@ -563,12 +549,10 @@ impl IndexPersistence for EphemeralPersistence {
 	) -> JobResult<
 		HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>,
 	> {
-		// Ephemeral persistence doesn't support change detection
 		Ok(HashMap::new())
 	}
 
 	async fn update_entry(&self, _entry_id: i32, _entry: &DirEntry) -> JobResult<()> {
-		// Updates not needed for ephemeral storage
 		Ok(())
 	}
 

@@ -1,4 +1,9 @@
-//! Discovery phase - walks directories and collects entries
+//! # Directory Discovery Phase
+//!
+//! `core::ops::indexing::phases::discovery` implements parallel directory traversal
+//! using a work-stealing pattern inspired by Rayon. Workers pull directories from a
+//! shared queue, read their contents, filter entries against indexing rules, and
+//! directly enqueue subdirectories for other workers to process.
 
 use crate::{
 	infra::job::generic_progress::ToGenericProgress,
@@ -24,7 +29,11 @@ impl crate::ops::indexing::rules::MetadataForIndexerRules for SimpleMetadata {
 	}
 }
 
-/// Run the discovery phase of indexing with parallel directory walking
+/// Runs parallel directory discovery or falls back to sequential for concurrency = 1.
+///
+/// Spawns worker tasks that walk the directory tree, apply filtering rules, and collect
+/// entries into batches for the processing phase. Falls back to sequential traversal
+/// when concurrency is 1 to avoid task spawning overhead for single-threaded scenarios.
 pub async fn run_discovery_phase(
 	state: &mut IndexerState,
 	ctx: &JobContext<'_>,
@@ -36,7 +45,6 @@ pub async fn run_discovery_phase(
 	let concurrency = state.discovery_concurrency;
 
 	if concurrency <= 1 {
-		// Fall back to sequential discovery for concurrency = 1
 		return run_discovery_phase_sequential(
 			state,
 			ctx,
@@ -69,7 +77,12 @@ pub async fn run_discovery_phase(
 	.await
 }
 
-/// Parallel discovery implementation using Rayon-style work-stealing
+/// Parallel discovery using work-stealing with N worker tasks and atomic coordination.
+///
+/// Workers pull directories from a shared queue, read contents, filter against rules,
+/// and directly enqueue subdirectories. A monitor task watches `pending_work` (atomic
+/// counter) and signals shutdown when it reaches zero, avoiding explicit work completion
+/// messages that would require coordinator awareness.
 async fn run_parallel_discovery(
 	state: &mut IndexerState,
 	ctx: &JobContext<'_>,
@@ -80,21 +93,20 @@ async fn run_parallel_discovery(
 ) -> Result<(), JobError> {
 	let concurrency = state.discovery_concurrency;
 
-	// Use unbounded channels to avoid backpressure/deadlock issues
 	let (work_tx, work_rx) = chan::unbounded::<PathBuf>();
 	let (result_tx, result_rx) = chan::unbounded::<DiscoveryResult>();
 
-	// Atomic counter tracking work in progress + shutdown signal
-	// INVARIANT: incremented BEFORE sending to work channel, decremented AFTER processing
+	// INVARIANT: `pending_work` is incremented BEFORE enqueuing work and decremented AFTER
+	// completing it. When it reaches zero, all work is done and shutdown can be signaled.
+	// This avoids coordinator bottlenecks from explicit "work done" messages.
 	let pending_work = Arc::new(AtomicUsize::new(0));
 	let skipped_count = Arc::new(AtomicU64::new(0));
 	let shutdown = Arc::new(AtomicBool::new(false));
 
-	// Shared seen_paths across all workers to prevent duplicate processing
-	// (handles symlink loops and same directory reached via different paths)
+	// Shared across all workers to prevent duplicate processing when symlinks create cycles
+	// or multiple paths (e.g., /home/user/docs and /mnt/docs) lead to the same directory.
 	let seen_paths = Arc::new(parking_lot::RwLock::new(std::collections::HashSet::new()));
 
-	// Seed initial work
 	while let Some(dir) = state.dirs_to_walk.pop_front() {
 		pending_work.fetch_add(1, Ordering::Release);
 		work_tx
@@ -103,7 +115,6 @@ async fn run_parallel_discovery(
 			.map_err(|_| JobError::execution("Work channel closed"))?;
 	}
 
-	// Spawn worker tasks
 	let mut workers = Vec::new();
 	for worker_id in 0..concurrency {
 		let work_rx = work_rx.clone();
@@ -138,7 +149,8 @@ async fn run_parallel_discovery(
 		workers.push(worker);
 	}
 
-	// Monitor task: signals shutdown when all work is done
+	// Monitor polls `pending_work` and signals shutdown when it hits zero, allowing workers
+	// to exit gracefully without needing explicit "I'm done" messages to a coordinator.
 	let monitor = tokio::spawn({
 		let shutdown = Arc::clone(&shutdown);
 		let pending_work = Arc::clone(&pending_work);
@@ -153,11 +165,9 @@ async fn run_parallel_discovery(
 		}
 	});
 
-	// Drop our copies so channels close when workers are done
 	drop(work_tx);
 	drop(result_tx);
 
-	// Collect results
 	let mut total_processed = 0u64;
 	while let Ok(result) = result_rx.recv().await {
 		match result {
@@ -200,7 +210,6 @@ async fn run_parallel_discovery(
 				state.items_since_last_update += 1;
 			}
 			DiscoveryResult::QueueDirectories(_) => {
-				// Workers queue directly, this shouldn't happen
 				unreachable!("Workers should not send QueueDirectories in Rayon-style mode");
 			}
 		}
@@ -208,7 +217,6 @@ async fn run_parallel_discovery(
 		ctx.check_interrupt().await?;
 	}
 
-	// Wait for monitor and workers
 	monitor
 		.await
 		.map_err(|e| JobError::execution(format!("Monitor task failed: {}", e)))?;
@@ -219,7 +227,6 @@ async fn run_parallel_discovery(
 			.map_err(|e| JobError::execution(format!("Worker task failed: {}", e)))?;
 	}
 
-	// Final batch
 	if !state.pending_entries.is_empty() {
 		let final_batch_size = state.pending_entries.len();
 		ctx.log(format!(
@@ -246,7 +253,11 @@ async fn run_parallel_discovery(
 	Ok(())
 }
 
-/// Result types sent from workers back to coordinator
+/// Messages sent from workers to the coordinator via the result channel.
+///
+/// Workers send entries, stats updates, progress notifications, and errors through this
+/// enum instead of directly mutating shared state. QueueDirectories is unused in the
+/// work-stealing implementation (workers directly enqueue subdirectories).
 enum DiscoveryResult {
 	Entry(DirEntry),
 	QueueDirectories(Vec<PathBuf>),
@@ -262,7 +273,12 @@ enum DiscoveryResult {
 	},
 }
 
-/// Rayon-style worker: processes directories and directly enqueues new work
+/// Worker task that pulls directories, reads contents, filters entries, and enqueues subdirectories.
+///
+/// Workers check the shutdown signal, pull work with a timeout to avoid blocking forever,
+/// skip already-seen paths (using the shared RwLock), apply filtering rules, and directly
+/// enqueue subdirectories for other workers. The atomic `pending_work` counter tracks
+/// in-flight work: incremented before enqueue, decremented after processing completes.
 async fn discovery_worker_rayon(
 	_worker_id: usize,
 	work_rx: chan::Receiver<PathBuf>,
@@ -278,12 +294,10 @@ async fn discovery_worker_rayon(
 	cloud_url_base: Option<String>,
 ) {
 	loop {
-		// Check shutdown signal
 		if shutdown.load(Ordering::Acquire) {
 			break;
 		}
 
-		// Try to get work with a timeout to periodically check shutdown
 		let dir_path = match tokio::time::timeout(
 			tokio::time::Duration::from_millis(50),
 			work_rx.recv(),
@@ -291,11 +305,10 @@ async fn discovery_worker_rayon(
 		.await
 		{
 			Ok(Ok(path)) => path,
-			Ok(Err(_)) => break, // Channel closed
-			Err(_) => continue,  // Timeout, check shutdown flag again
+			Ok(Err(_)) => break,
+			Err(_) => continue,
 		};
 
-		// Skip if already seen (handles symlink loops across ALL workers)
 		{
 			let mut seen = seen_paths.write();
 			if !seen.insert(dir_path.clone()) {
@@ -304,10 +317,8 @@ async fn discovery_worker_rayon(
 			}
 		}
 
-		// Build rules for this directory
 		let dir_ruler = build_default_ruler(rule_toggles, &root_path, &dir_path).await;
 
-		// Read directory
 		match read_directory(
 			&dir_path,
 			volume_backend.as_ref(),
@@ -319,7 +330,6 @@ async fn discovery_worker_rayon(
 				let mut local_stats = LocalStats::default();
 
 				for entry in entries {
-					// Apply rules
 					let decision = dir_ruler
 						.evaluate_path(
 							&entry.path,
@@ -347,10 +357,10 @@ async fn discovery_worker_rayon(
 					match entry.kind {
 						EntryKind::Directory => {
 							local_stats.dirs += 1;
-							// Rayon-style: increment BEFORE queueing, worker directly enqueues
+							// Increment BEFORE enqueuing so the monitor never sees pending_work=0 while
+							// work is in flight. Decrement only happens after processing completes.
 							pending_work.fetch_add(1, Ordering::Release);
 							if work_tx.send(entry.path.clone()).await.is_err() {
-								// Channel closed, decrement and continue
 								pending_work.fetch_sub(1, Ordering::Release);
 							}
 							let _ = result_tx.send(DiscoveryResult::Entry(entry)).await;
@@ -367,7 +377,6 @@ async fn discovery_worker_rayon(
 					}
 				}
 
-				// Send stats update
 				let _ = result_tx
 					.send(DiscoveryResult::Stats {
 						files: local_stats.files,
@@ -377,7 +386,6 @@ async fn discovery_worker_rayon(
 					})
 					.await;
 
-				// Send progress update
 				let dirs_queued = pending_work.load(Ordering::Acquire);
 				let _ = result_tx
 					.send(DiscoveryResult::Progress { dirs_queued })
@@ -393,7 +401,6 @@ async fn discovery_worker_rayon(
 			}
 		}
 
-		// Decrement AFTER processing complete
 		pending_work.fetch_sub(1, Ordering::Release);
 	}
 }
@@ -406,7 +413,11 @@ struct LocalStats {
 	bytes: u64,
 }
 
-/// Sequential discovery fallback (original implementation)
+/// Single-threaded directory traversal fallback for concurrency = 1.
+///
+/// Uses a simple queue-based approach without task spawning overhead. Processes
+/// directories one at a time, applies filters, and accumulates entries into batches.
+/// Useful for debugging or when parallel overhead exceeds benefits (small directory trees).
 async fn run_discovery_phase_sequential(
 	state: &mut IndexerState,
 	ctx: &JobContext<'_>,
@@ -545,31 +556,32 @@ async fn run_discovery_phase_sequential(
 	Ok(())
 }
 
-/// Read a directory and extract metadata
+/// Reads a directory through a volume backend, falling back to LocalBackend if none provided.
 ///
-/// Uses the provided volume backend if available, otherwise creates a LocalBackend fallback.
-/// The backend is typically provided once per indexer job from the root volume lookup.
+/// Volume backends abstract local filesystems and cloud storage (S3, Dropbox) behind a
+/// unified interface. When indexing managed locations, the backend is provided upfront from
+/// volume registration. For ephemeral browsing or untracked paths, this creates a temporary
+/// LocalBackend on demand.
 async fn read_directory(
 	path: &Path,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<&str>,
 ) -> Result<Vec<DirEntry>, std::io::Error> {
-	// Use provided backend or create LocalBackend fallback
 	let backend: Arc<dyn crate::volume::VolumeBackend> = match volume_backend {
 		Some(backend) => Arc::clone(backend),
-		None => {
-			// Fallback: create temporary LocalBackend
-			// This happens when no volume is tracked for the indexing path
-			Arc::new(crate::volume::LocalBackend::new(
-				path.parent().unwrap_or(path),
-			))
-		}
+		None => Arc::new(crate::volume::LocalBackend::new(
+			path.parent().unwrap_or(path),
+		)),
 	};
 
 	read_directory_with_backend(backend.as_ref(), path, cloud_url_base).await
 }
 
-/// Read a directory using a volume backend (local or cloud)
+/// Reads directory contents via a volume backend and converts paths for cloud vs local.
+///
+/// For cloud volumes, prepends the cloud URL base (e.g., "s3://bucket/") to build proper
+/// hierarchical paths. For local volumes, uses standard PathBuf joins. This ensures cloud
+/// entries have full URIs like "s3://bucket/folder/file.txt" instead of relative paths.
 async fn read_directory_with_backend(
 	backend: &dyn crate::volume::VolumeBackend,
 	path: &Path,
@@ -582,13 +594,10 @@ async fn read_directory_with_backend(
 		.await
 		.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-	// Convert RawDirEntry to DirEntry
 	let entries: Vec<DirEntry> = raw_entries
 		.into_iter()
 		.map(|raw| {
-			// For cloud volumes, prepend the cloud URL base to build proper hierarchical paths
 			let full_path = if let Some(base) = cloud_url_base {
-				// Cloud: s3://bucket/ + relative_path + filename
 				let relative = path.to_string_lossy();
 				let joined = if relative.is_empty() {
 					raw.name.clone()
@@ -597,7 +606,6 @@ async fn read_directory_with_backend(
 				};
 				PathBuf::from(format!("{}{}", base, joined))
 			} else {
-				// Local: just join normally
 				path.join(&raw.name)
 			};
 

@@ -1,4 +1,40 @@
-//! Entry processing and metadata extraction
+//! # Entry Processing and Persistence
+//!
+//! `core::ops::indexing::entry` handles the translation of discovered filesystem
+//! entries into database records, managing the full lifecycle from metadata extraction
+//! to content identification and move operations.
+//!
+//! ## Key Design Decisions
+//!
+//! **Closure Table Hierarchy:** Parent-child relationships use a closure table
+//! (`entry_closure`) instead of recursive Common Table Expressions (CTEs). This makes
+//! "find all descendants" queries O(1) regardless of nesting depth, at the cost of
+//! additional storage (~N² in worst case for deeply nested trees). Move operations
+//! require rebuilding closures for the entire moved subtree.
+//!
+//! **Ephemeral UUID Preservation:** When converting ephemeral browsing sessions to
+//! persistent indexed locations, entries retain their original UUIDs. This prevents
+//! orphaning user metadata (tags, notes, colors) that were attached during browsing.
+//! Without preservation, promoting `/mnt/nas` to a managed location would generate new
+//! UUIDs and break all existing tag associations.
+//!
+//! **Deterministic Content UUIDs:** Content identities use v5 UUIDs (namespace hash of
+//! `content_hash + library_id`) so different devices can independently identify identical
+//! files and merge metadata without coordination. This enables offline duplicate detection.
+//!
+//! ## Example
+//! ```rust,no_run
+//! use spacedrive_core::ops::indexing::{EntryProcessor, state::DirEntry};
+//!
+//! let entry = DirEntry { /* ... */ };
+//! let entry_id = EntryProcessor::create_entry(
+//!     &mut state,
+//!     &ctx,
+//!     &entry,
+//!     device_id,
+//!     &location_root,
+//! ).await?;
+//! ```
 
 use super::ctx::IndexingCtx;
 use super::path_resolver::PathResolver;
@@ -15,8 +51,12 @@ use sea_orm::{
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-/// Normalize cloud directory path for consistent lookups
-/// Cloud paths stored with trailing slashes don't match PathBuf::parent() results
+/// Normalizes cloud storage paths to match PathBuf::parent() semantics.
+///
+/// Cloud backends (S3, Dropbox) store directory paths with trailing slashes
+/// ("s3://bucket/folder/"), but Rust's PathBuf::parent() strips the trailing slash.
+/// This mismatch breaks cache lookups when creating child entries. We normalize by
+/// removing the trailing slash for cloud paths so cached parent IDs can be found.
 fn normalize_cloud_dir_path(path: &Path) -> PathBuf {
 	let path_str = path.to_string_lossy();
 	if path_str.contains("://") && path_str.ends_with('/') {
@@ -26,7 +66,17 @@ fn normalize_cloud_dir_path(path: &Path) -> PathBuf {
 	}
 }
 
-/// Metadata about a file system entry
+/// Snapshot of filesystem metadata for a single entry.
+///
+/// This struct is deliberately separate from the database `entry::Model` to
+/// decouple discovery (filesystem operations) from persistence (database writes).
+/// During ephemeral browsing, thousands of these are created in memory without
+/// touching the database, while persistent indexing converts them to ActiveModels
+/// in batch transactions.
+///
+/// The `inode` field is populated on Unix systems but remains `None` on Windows,
+/// where file indices are unstable across reboots. Change detection uses
+/// (inode, mtime, size) tuples when available, falling back to path-only matching.
 #[derive(Debug, Clone)]
 pub struct EntryMetadata {
 	pub path: PathBuf,
@@ -61,10 +111,20 @@ impl From<DirEntry> for EntryMetadata {
 	}
 }
 
-/// Handles entry creation and updates in the database
+/// Entry persistence operations for the indexing system.
+///
+/// EntryProcessor provides methods for creating, updating, and moving database entries,
+/// handling the complexity of closure table updates and directory path cascades. All
+/// methods come in both standalone (creates own transaction) and `_in_conn` variants
+/// (uses existing transaction) for flexible batch operations.
 pub struct EntryProcessor;
 
-/// Result of content identity linking (for batch sync)
+/// Result of linking an entry to its content identity.
+///
+/// Returned by `link_to_content_identity` to provide both models for sync operations.
+/// The caller must sync both the content_identity and entry if running outside the
+/// job system (e.g., file watcher). The `is_new_content` flag indicates whether this
+/// is the first entry with this content hash, which triggers thumbnail generation.
 pub struct ContentLinkResult {
 	pub content_identity: entities::content_identity::Model,
 	pub entry: entities::entry::Model,
@@ -81,9 +141,10 @@ impl EntryProcessor {
 
 	#[cfg(windows)]
 	pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
-		// Windows doesn't have inodes.
-		// The method `file_index()` from `std::os::windows::fs::MetadataExt` is unstable (issue #63010).
-		// Returning None is safe as the field is Optional.
+		// Windows file indices exist but are unstable across reboots and volume operations,
+		// making them unsuitable for change detection. We return None and fall back to
+		// path-only matching, which is sufficient since Windows NTFS doesn't support hard
+		// links for directories (the main inode use case on Unix).
 		None
 	}
 
@@ -92,14 +153,20 @@ impl EntryProcessor {
 		None
 	}
 
-	/// Extract detailed metadata from a path
+	/// Extracts filesystem metadata through either a volume backend or direct I/O.
 	///
-	/// Uses the provided VolumeBackend if available, otherwise falls back to direct filesystem access.
+	/// Volume backends abstract cloud storage (S3, Dropbox) and local filesystems
+	/// behind a unified interface. When a backend is provided, metadata comes from
+	/// the volume's cache or API; otherwise this falls back to `tokio::fs` for local
+	/// paths. Cloud volumes MUST provide a backend since there's no local file to read.
+	///
+	/// Returns `Err` if the path doesn't exist or lacks read permissions. On permission
+	/// errors, the entry should still be indexed as inaccessible rather than skipped
+	/// entirely - this preserves the directory tree structure for UI navigation.
 	pub async fn extract_metadata(
 		path: &Path,
 		backend: Option<&std::sync::Arc<dyn crate::volume::VolumeBackend>>,
 	) -> Result<EntryMetadata, std::io::Error> {
-		// Use backend if available, otherwise fall back to local filesystem
 		if let Some(backend) = backend {
 			let raw = backend
 				.metadata(path)
@@ -122,7 +189,6 @@ impl EntryProcessor {
 					.unwrap_or(false),
 			})
 		} else {
-			// Fallback to direct filesystem access
 			let metadata = tokio::fs::symlink_metadata(path).await?;
 
 			let kind = if metadata.is_dir() {
@@ -174,7 +240,10 @@ impl EntryProcessor {
 		out_self_closures: &mut Vec<entry_closure::ActiveModel>,
 		out_dir_paths: &mut Vec<directory_paths::ActiveModel>,
 	) -> Result<entities::entry::Model, JobError> {
-		// Extract file extension (without dot) for files, None for directories
+		// Extensions are normalized to lowercase and stored without the leading dot
+		// because search queries are case-insensitive ("JPG" should match "*.jpg").
+		// Directories never have extensions even if named "folder.app" since macOS
+		// treats .app bundles as atomic units, not files with extensions.
 		let extension = match entry.kind {
 			EntryKind::File => entry
 				.path
@@ -184,35 +253,25 @@ impl EntryProcessor {
 			EntryKind::Directory | EntryKind::Symlink => None,
 		};
 
-		// Get file/directory name
-		// For files: use stem (name without extension)
-		// For directories: use full name (including .app, etc.)
 		let name = match entry.kind {
-			EntryKind::File => {
-				// For files, use stem (without extension)
-				entry
-					.path
-					.file_stem()
-					.map(|stem| stem.to_string_lossy().to_string())
-					.unwrap_or_else(|| {
-						entry
-							.path
-							.file_name()
-							.map(|n| n.to_string_lossy().to_string())
-							.unwrap_or_else(|| "unknown".to_string())
-					})
-			}
-			EntryKind::Directory | EntryKind::Symlink => {
-				// For directories and symlinks, use full name
-				entry
-					.path
-					.file_name()
-					.map(|n| n.to_string_lossy().to_string())
-					.unwrap_or_else(|| "unknown".to_string())
-			}
+			EntryKind::File => entry
+				.path
+				.file_stem()
+				.map(|stem| stem.to_string_lossy().to_string())
+				.unwrap_or_else(|| {
+					entry
+						.path
+						.file_name()
+						.map(|n| n.to_string_lossy().to_string())
+						.unwrap_or_else(|| "unknown".to_string())
+				}),
+			EntryKind::Directory | EntryKind::Symlink => entry
+				.path
+				.file_name()
+				.map(|n| n.to_string_lossy().to_string())
+				.unwrap_or_else(|| "unknown".to_string()),
 		};
 
-		// Convert timestamps
 		let modified_at = entry
 			.modified
 			.and_then(|t| {
@@ -223,11 +282,11 @@ impl EntryProcessor {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
-		// UUID assignment strategy:
-		// 1. First check if there's an ephemeral UUID to preserve (from previous browsing)
-		// 2. If not, generate a new UUID
-		//
-		// This ensures that files browsed before enabling indexing keep the same UUID
+		// UUID assignment strategy: preserve ephemeral UUIDs from prior browsing sessions
+		// so user metadata (tags, notes) attached during ephemeral mode survives the
+		// transition to persistent indexing. Without preservation, adding a browsed folder
+		// as a managed location would orphan all existing tags and make Quick Look previews
+		// flash as UUIDs change. The ephemeral cache is populated during state initialization.
 		let entry_uuid = if let Some(ephemeral_uuid) = state.get_ephemeral_uuid(&entry.path) {
 			tracing::debug!(
 				"Preserving ephemeral UUID {} for {}",
@@ -239,7 +298,6 @@ impl EntryProcessor {
 			Some(Uuid::new_v4())
 		};
 
-		// Find parent entry ID
 		let parent_id = if let Some(parent_path) = entry.path.parent() {
 			ctx.log(format!(
 				"Looking up parent for {}: parent_path = {}",
@@ -247,13 +305,12 @@ impl EntryProcessor {
 				parent_path.display()
 			));
 
-			// First check the cache
 			if let Some(id) = state.entry_id_cache.get(parent_path).copied() {
 				ctx.log(format!("Found parent in cache: id = {}", id));
 				Some(id)
 			} else {
-				// If not in cache, try to find it in the database
-				// For cloud paths, try both with and without trailing slash
+				// For cloud paths, try both with and without trailing slash since cloud backends
+				// may store paths inconsistently depending on API responses.
 				let parent_path_str = parent_path.to_string_lossy().to_string();
 				let is_cloud = parent_path_str.contains("://");
 
@@ -277,7 +334,9 @@ impl EntryProcessor {
 						.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
 					Some(dir_path_record.entry_id)
 				} else {
-					// Parent not found - this shouldn't happen with proper sorting
+					// Parent not found indicates entries arrived out of order, possibly from
+					// concurrent file watchers or interrupted batch processing. The entry will
+					// be orphaned (parent_id = NULL) until the next full reindex repairs the hierarchy.
 					ctx.log(format!(
 						"WARNING: Parent not found for {}: {} (tried: {:?})",
 						entry.path.display(),
@@ -291,7 +350,6 @@ impl EntryProcessor {
 			None
 		};
 
-		// Create entry
 		let now = chrono::Utc::now();
 		tracing::debug!(
 			"Creating entry: name={}, path={}, inode={:?}, parent_id={:?}",
@@ -305,23 +363,22 @@ impl EntryProcessor {
 			name: Set(name.clone()),
 			kind: Set(Self::entry_kind_to_int(entry.kind)),
 			extension: Set(extension),
-			metadata_id: Set(None), // User metadata only created when user adds metadata
-			content_id: Set(None),  // Will be set later during content identification phase
+			metadata_id: Set(None),
+			content_id: Set(None),
 			size: Set(entry.size as i64),
-			aggregate_size: Set(0), // Will be calculated in aggregation phase
-			child_count: Set(0),    // Will be calculated in aggregation phase
-			file_count: Set(0),     // Will be calculated in aggregation phase
+			aggregate_size: Set(0),
+			child_count: Set(0),
+			file_count: Set(0),
 			created_at: Set(now),
 			modified_at: Set(modified_at),
 			accessed_at: Set(None),
-			indexed_at: Set(Some(now)), // Record when we indexed this entry
-			permissions: Set(None),     // TODO: Could extract from metadata
+			indexed_at: Set(Some(now)),
+			permissions: Set(None),
 			inode: Set(entry.inode.map(|i| i as i64)),
 			parent_id: Set(parent_id),
 			..Default::default()
 		};
 
-		// Insert the entry
 		let result = new_entry
 			.insert(conn)
 			.await
@@ -334,8 +391,6 @@ impl EntryProcessor {
 			result.inode
 		);
 
-		// Populate closure table
-		// First, insert self-reference
 		let self_closure = entry_closure::ActiveModel {
 			ancestor_id: Set(result.id),
 			descendant_id: Set(result.id),
@@ -344,9 +399,9 @@ impl EntryProcessor {
 		};
 		out_self_closures.push(self_closure);
 
-		// If there's a parent, copy all parent's ancestors
+		// Copy all parent's ancestor relationships to build the transitive closure for this entry.
+		// This allows "find all descendants" queries to run in O(1) without recursive traversal.
 		if let Some(parent_id) = parent_id {
-			// Insert closure entries for all ancestors
 			conn.execute_unprepared(&format!(
 				"INSERT INTO entry_closure (ancestor_id, descendant_id, depth) \
                  SELECT ancestor_id, {}, depth + 1 \
@@ -360,12 +415,8 @@ impl EntryProcessor {
 			})?;
 		}
 
-		// If this is a directory, populate the directory_paths table
 		if entry.kind == EntryKind::Directory {
-			// Use the absolute path from the DirEntry which contains the full filesystem path
 			let absolute_path = entry.path.to_string_lossy().to_string();
-
-			// Insert into directory_paths table
 			let dir_path_entry = directory_paths::ActiveModel {
 				entry_id: Set(result.id),
 				path: Set(absolute_path),
@@ -374,8 +425,9 @@ impl EntryProcessor {
 			out_dir_paths.push(dir_path_entry);
 		}
 
-		// Cache the entry ID for potential children
-		// Normalize cloud directory paths to match what parent() returns
+		// Normalize cloud directory paths (remove trailing slash) so child entries can find
+		// their parent in the cache. PathBuf::parent() doesn't include trailing slashes, but
+		// cloud backends may store "s3://bucket/folder/" with the slash.
 		let cache_key = if entry.kind == EntryKind::Directory {
 			normalize_cloud_dir_path(&entry.path)
 		} else {
@@ -510,9 +562,9 @@ impl EntryProcessor {
 			entry_active.inode = Set(Some(inode as i64));
 		}
 
-		// TODO: Rename indexed_at to last_indexed_at to better reflect its purpose
-		// Update indexed_at so incremental sync picks up this change
-		// Without this, modified entries would be skipped by watermark-based queries
+		// Update indexed_at so incremental sync picks up this change.
+		// The watermark-based query filters on indexed_at, so skipping this would
+		// cause modified entries to be ignored on subsequent scans.
 		entry_active.indexed_at = Set(Some(chrono::Utc::now()));
 
 		entry_active
@@ -584,17 +636,14 @@ impl EntryProcessor {
 		let is_directory = db_entry.kind == Self::entry_kind_to_int(EntryKind::Directory);
 		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
 
-		// Find new parent entry ID
 		let new_parent_id = if let Some(parent_path) = new_path.parent() {
 			state.entry_id_cache.get(parent_path).copied()
 		} else {
 			None
 		};
 
-		// Update entry fields
 		entry_active.parent_id = Set(new_parent_id);
 
-		// Extract new name if it changed
 		let mut new_name_value = None;
 		if let Some(new_name) = new_path.file_stem() {
 			let name_string = new_name.to_string_lossy().to_string();
@@ -602,14 +651,16 @@ impl EntryProcessor {
 			entry_active.name = Set(name_string);
 		}
 
-		// Save the updated entry
 		entry_active
 			.update(txn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
 
-		// Update closure table for the move operation
-		// Step 1: Delete all ancestor relationships for the moved subtree (except internal relationships)
+		// Rebuild closure table for the moved subtree. Moving a directory with 10,000 descendants
+		// requires updating ~50M closure rows in the worst case (full tree reconnection). We do this
+		// in two steps: (1) disconnect the subtree from old ancestors, (2) reconnect to new parent.
+		// Step 1: Delete all ancestor relationships for the moved subtree, but preserve internal
+		// relationships (entries within the subtree can still find their descendants).
 		txn.execute_unprepared(&format!(
             "DELETE FROM entry_closure \
              WHERE descendant_id IN (SELECT descendant_id FROM entry_closure WHERE ancestor_id = {}) \
@@ -619,9 +670,10 @@ impl EntryProcessor {
         .await
         .map_err(|e| JobError::execution(format!("Failed to disconnect subtree: {}", e)))?;
 
-		// Step 2: If there's a new parent, reconnect the subtree
+		// Step 2: Reconnect the subtree under the new parent by creating closure rows for all
+		// (ancestor, descendant) pairs where ancestor is in the new parent chain and descendant
+		// is in the moved subtree. The depth is calculated as parent_depth + child_depth + 1.
 		if let Some(new_parent_id) = new_parent_id {
-			// Connect moved subtree to new parent
 			txn.execute_unprepared(&format!(
 				"INSERT INTO entry_closure (ancestor_id, descendant_id, depth) \
                  SELECT p.ancestor_id, c.descendant_id, p.depth + c.depth + 1 \
@@ -633,11 +685,8 @@ impl EntryProcessor {
 			.map_err(|e| JobError::execution(format!("Failed to reconnect subtree: {}", e)))?;
 		}
 
-		// If this is a directory, update its path in directory_paths table
 		if is_directory {
-			// Get the new name from what we saved earlier
 			let new_name = new_name_value.unwrap_or_else(|| {
-				// If name didn't change, get it from the path
 				new_path
 					.file_name()
 					.and_then(|n| n.to_str())
@@ -645,7 +694,6 @@ impl EntryProcessor {
 					.to_string()
 			});
 
-			// Build the new path
 			let new_directory_path =
 				PathResolver::build_directory_path(txn, new_parent_id, &new_name)
 					.await
@@ -653,14 +701,12 @@ impl EntryProcessor {
 						JobError::execution(format!("Failed to build new directory path: {}", e))
 					})?;
 
-			// Get the old path for descendant updates
 			let old_directory_path = PathResolver::get_directory_path(txn, entry_id)
 				.await
 				.map_err(|e| {
 					JobError::execution(format!("Failed to get old directory path: {}", e))
 				})?;
 
-			// Update the directory's own path
 			let mut dir_path_active = directory_paths::Entity::find_by_id(entry_id)
 				.one(txn)
 				.await
@@ -672,8 +718,9 @@ impl EntryProcessor {
 				JobError::execution(format!("Failed to update directory path: {}", e))
 			})?;
 
-			// Update descendant directory paths within the same transaction
-			// Note: This is done synchronously within the batch transaction for consistency
+			// Cascade path updates to all descendant directories. Moving "/home/user/docs" to
+			// "/backup/docs" requires rewriting paths for every child, which can be thousands
+			// of directories. This runs in the same transaction to maintain consistency.
 			if let Err(e) = PathResolver::update_descendant_paths(
 				txn,
 				entry_id,
@@ -704,9 +751,20 @@ impl EntryProcessor {
 		}
 	}
 
-	/// Create or find content identity and link to entry with deterministic UUID
-	/// This method implements the content identification phase logic
-	/// Returns models for batch syncing (caller responsible for sync)
+	/// Links an entry to its content identity, deduplicating files with identical hashes.
+	///
+	/// Content identities are shared across all entries with the same content hash
+	/// (computed via BLAKE3). When two files have identical content, they reference
+	/// the same `content_identity` row, enabling "find all duplicates" queries and
+	/// reducing thumbnail storage (one thumbnail per content, not per entry).
+	///
+	/// Each content identity gets a deterministic UUID (v5 hash of content_hash + library_id)
+	/// so other devices can independently identify the same content and merge their
+	/// metadata without coordination. This enables offline duplicate detection across
+	/// library peers.
+	///
+	/// Returns both the content identity and the updated entry for batch sync operations.
+	/// The caller must sync both models if running outside the job system (e.g., watcher).
 	pub async fn link_to_content_identity(
 		ctx: &impl IndexingCtx,
 		entry_id: i32,
@@ -714,7 +772,6 @@ impl EntryProcessor {
 		content_hash: String,
 		library_id: Uuid,
 	) -> Result<ContentLinkResult, JobError> {
-		// Check if content identity already exists by content_hash
 		let existing = entities::content_identity::Entity::find()
 			.filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
 			.one(ctx.library_db())
@@ -722,7 +779,6 @@ impl EntryProcessor {
 			.map_err(|e| JobError::execution(format!("Failed to query content identity: {}", e)))?;
 
 		let (content_model, is_new_content) = if let Some(existing) = existing {
-			// Increment entry count for existing content
 			let mut existing_active: entities::content_identity::ActiveModel = existing.into();
 			existing_active.entry_count = Set(existing_active.entry_count.unwrap() + 1);
 			existing_active.last_verified_at = Set(chrono::Utc::now());
@@ -736,36 +792,32 @@ impl EntryProcessor {
 
 			(updated, false)
 		} else {
-			// Create new content identity with deterministic UUID (ready for sync)
 			let file_size = tokio::fs::symlink_metadata(path)
 				.await
 				.map(|m| m.len() as i64)
 				.unwrap_or(0);
 
-			// Generate deterministic UUID from content_hash + library_id
+			// Generate deterministic v5 UUID (namespace hash) so different devices can independently
+			// create the same content identity UUID for duplicate files. The namespace is derived from
+			// the library ID, ensuring content UUIDs are unique per library while still being deterministic.
 			let deterministic_uuid = {
 				const LIBRARY_NAMESPACE: uuid::Uuid = uuid::Uuid::from_bytes([
 					0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f,
 					0xd4, 0x30, 0xc8,
 				]);
-				// We use v5 to ensure the UUID is deterministic and unique within the library
 				let namespace = uuid::Uuid::new_v5(&LIBRARY_NAMESPACE, library_id.as_bytes());
 				uuid::Uuid::new_v5(&namespace, content_hash.as_bytes())
 			};
 
-			// Detect file type using the file type registry
 			let registry = FileTypeRegistry::default();
 			let file_type_result = registry.identify(path).await;
 
 			let (kind_id, mime_type_id) = match file_type_result {
 				Ok(result) => {
-					// Get content kind ID directly from the enum
 					let kind_id = result.file_type.category as i32;
 
-					// Handle MIME type - upsert if found
 					let mime_type_id = if let Some(mime_str) = result.file_type.primary_mime_type()
 					{
-						// Check if MIME type already exists
 						let existing = entities::mime_type::Entity::find()
 							.filter(entities::mime_type::Column::MimeType.eq(mime_str))
 							.one(ctx.library_db())
@@ -777,7 +829,6 @@ impl EntryProcessor {
 						match existing {
 							Some(mime_record) => Some(mime_record.id),
 							None => {
-								// Create new MIME type entry
 								let new_mime = entities::mime_type::ActiveModel {
 									uuid: Set(Uuid::new_v4()),
 									mime_type: Set(mime_str.to_string()),
@@ -802,19 +853,16 @@ impl EntryProcessor {
 
 					(kind_id, mime_type_id)
 				}
-				Err(_) => {
-					// If identification fails, fall back to "unknown" (0)
-					(0, None)
-				}
+				Err(_) => (0, None),
 			};
 
 			let new_content = entities::content_identity::ActiveModel {
-				uuid: Set(Some(deterministic_uuid)), // Deterministic UUID for sync
-				integrity_hash: Set(None),           // Generated later by validate job
+				uuid: Set(Some(deterministic_uuid)),
+				integrity_hash: Set(None),
 				content_hash: Set(content_hash.clone()),
 				mime_type_id: Set(mime_type_id),
 				kind_id: Set(kind_id),
-				text_content: Set(None), // TODO: Extract text content for indexing
+				text_content: Set(None),
 				total_size: Set(file_size),
 				entry_count: Set(1),
 				first_seen_at: Set(chrono::Utc::now()),
@@ -822,13 +870,13 @@ impl EntryProcessor {
 				..Default::default()
 			};
 
-			// Try to insert, but handle unique constraint violations
+			// Handle race condition: another job (or device sync) may have created this
+			// content identity between our check and insert. Catch UNIQUE constraint violations
+			// and use the existing record instead of failing.
 			let result = match new_content.insert(ctx.library_db()).await {
 				Ok(model) => (model, true),
 				Err(e) => {
-					// Check if it's a unique constraint violation
 					if e.to_string().contains("UNIQUE constraint failed") {
-						// Another job created it - find and use the existing one
 						let existing = entities::content_identity::Entity::find()
                             .filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
                             .one(ctx.library_db())
@@ -836,7 +884,6 @@ impl EntryProcessor {
                             .map_err(|e| JobError::execution(format!("Failed to find existing content identity: {}", e)))?
                             .ok_or_else(|| JobError::execution("Content identity should exist after unique constraint violation".to_string()))?;
 
-						// Update entry count
 						let mut existing_active: entities::content_identity::ActiveModel =
 							existing.clone().into();
 						existing_active.entry_count = Set(existing.entry_count + 1);
@@ -866,7 +913,6 @@ impl EntryProcessor {
 			result
 		};
 
-		// Update Entry with content_id (now sync-ready for regular files)
 		let entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(ctx.library_db())
 			.await
@@ -966,7 +1012,10 @@ impl EntryProcessor {
 					moved_count += 1;
 				}
 				Err(e) => {
-					// Log error but continue with other moves
+					// Bulk move operations are best-effort: one failure shouldn't roll back
+					// the entire batch. Parent directory renames succeed even if a child fails
+					// due to file locks, though the child will have a stale path until the next
+					// reindex cleans it up.
 					ctx.log(format!(
 						"Failed to move entry {} from {} to {}: {}",
 						entry_id,
@@ -988,7 +1037,6 @@ impl EntryProcessor {
 		entry: &super::state::DirEntry,
 		txn: &DatabaseTransaction,
 	) -> Result<(), JobError> {
-		// Get the existing entry
 		let db_entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(txn)
 			.await
@@ -997,11 +1045,9 @@ impl EntryProcessor {
 
 		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
 
-		// Update size if it changed
 		if let Ok(metadata) = std::fs::symlink_metadata(&entry.path) {
 			entry_active.size = Set(metadata.len() as i64);
 
-			// Update modified time
 			if let Ok(modified) = metadata.modified() {
 				if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
 					entry_active.modified_at = Set(chrono::DateTime::from_timestamp(
@@ -1013,7 +1059,6 @@ impl EntryProcessor {
 			}
 		}
 
-		// Save the updated entry
 		entry_active
 			.update(txn)
 			.await
