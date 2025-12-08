@@ -34,6 +34,11 @@ pub fn default_data_dir() -> Result<PathBuf> {
 		.ok_or_else(|| anyhow!("Could not determine data directory"))?
 		.join("spacedrive");
 
+	#[cfg(target_os = "android")]
+	let dir = dirs::data_dir()
+	.ok_or_else(|| anyhow!("Could not determine data directory"))?
+	.join("spacedrive");
+
 	// Create directory if it doesn't exist
 	fs::create_dir_all(&dir)?;
 

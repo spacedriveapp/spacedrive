@@ -256,13 +256,14 @@ The React Native mobile app provides cross-platform iOS and Android support with
 
 #### Prerequisites
 
-| Tool           | Version | Required For                   |
-| -------------- | ------- | ------------------------------ |
-| Bun            | 1.3+    | Package management             |
-| Xcode          | 26+     | iOS builds                     |
-| Rust           | 1.81+   | Core compilation               |
-| Go             | 1.20+   | Building aws-lc crypto library |
-| Android Studio | Latest  | Android builds                 |
+| Tool           | Version | Required For                               |
+| -------------- | ------- | ------------------------------------------ |
+| Bun            | 1.3+    | Package management                         |
+| Xcode          | 26+     | iOS builds                                 |
+| Rust           | 1.81+   | Core compilation                           |
+| Go             | 1.20+   | Building aws-lc crypto library             |
+| Android Studio | Latest  | Android builds, NDK (26.1.10909125), CMake |
+| Java           | 17      | Android builds                             |
 
 #### Quick Start
 
@@ -270,6 +271,9 @@ The React Native mobile app provides cross-platform iOS and Android support with
 # 1. Install Go (required for aws-lc cryptographic library)
 brew install go  # macOS
 # or visit https://go.dev/dl/ for other platforms
+
+# 2. Install Java (required for Android builds)
+brew install openjdk@17 # macOS
 
 # 2. Build the Rust core for mobile (from project root)
 cargo xtask build-mobile

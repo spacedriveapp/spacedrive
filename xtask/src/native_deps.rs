@@ -34,6 +34,7 @@ pub fn download_native_deps(filename: &str, dest_dir: &Path) -> Result<()> {
 }
 
 /// Download iOS native dependencies
+#[cfg(target_os = "macos")]
 pub fn download_ios_deps(target: &str, dest_dir: &Path) -> Result<()> {
 	let filename = match target {
 		"aarch64-apple-ios" => "native-deps-aarch64-ios-apple.tar.xz",
@@ -49,6 +50,37 @@ pub fn download_ios_deps(target: &str, dest_dir: &Path) -> Result<()> {
 
 	let response = reqwest::blocking::get(&url)
 		.context("Failed to download iOS dependencies")?
+		.error_for_status()
+		.context("Server returned error")?;
+
+	let bytes = response.bytes().context("Failed to read response")?;
+
+	// Create target-specific directory
+	let target_dir = dest_dir.join(target);
+	fs::create_dir_all(&target_dir)?;
+
+	// Extract the archive
+	extract_tar_xz(&bytes, &target_dir)?;
+
+	println!("   ✓ Extracted to {}", target_dir.display());
+
+	Ok(())
+}
+
+pub fn download_android_deps(target: &str, dest_dir: &Path) -> Result<()> {
+	let filename = match target {
+		"aarch64-linux-android" => "native-deps-aarch64-linux-android.tar.xz",
+		"x86_64-linux-android" => "native-deps-x86_64-linux-android.tar.xz",
+		_ => anyhow::bail!("Unknown Android target: {}", target),
+	};
+
+	let url = format!("{}/{}", NATIVE_DEPS_URL, filename);
+
+	println!("Downloading Android dependencies for {}...", target);
+	println!("   {}", url);
+
+	let response = reqwest::blocking::get(&url)
+		.context("Failed to download Android dependencies")?
 		.error_for_status()
 		.context("Server returned error")?;
 

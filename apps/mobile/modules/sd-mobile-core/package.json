@@ -2,5 +2,8 @@
   "name": "sd-mobile-core",
   "version": "1.0.0",
   "main": "./src/index.ts",
-  "types": "./src/index.ts"
+  "types": "./src/index.ts",
+  "dependencies": {
+    "expo-modules-core": "~3.0.28"
+  }
 }
