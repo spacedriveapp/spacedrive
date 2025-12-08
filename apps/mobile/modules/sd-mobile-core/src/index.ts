@@ -47,7 +47,7 @@ const SDMobileCoreModule =
   requireNativeModule<SDMobileCoreNativeModule>("SDMobileCore");
 
 if (!SDMobileCoreModule) {
-  throw new Error("SDMOBI")
+  throw new Error("SDMobileCoreModule has not been initialized. Did you run 'cargo xtask build-mobile' and rebuild the app?")
 }
 
 const emitter = new EventEmitter<SDMobileCoreEvents>(SDMobileCoreModule as any);
