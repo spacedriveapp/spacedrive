@@ -748,6 +748,16 @@ impl DirectoryListingQuery {
 			// Create cache entry and get the index to share with the job
 			let ephemeral_index = cache.create_for_indexing(local_path.clone());
 
+			// Clear any stale entries from previous indexing (prevents ghost files)
+			let cleared = cache.clear_for_reindex(&local_path).await;
+			if cleared > 0 {
+				tracing::debug!(
+					"Cleared {} stale entries for re-indexing: {}",
+					cleared,
+					local_path.display()
+				);
+			}
+
 			// Create ephemeral indexer job for this directory (shallow, current scope only)
 			let config = IndexerJobConfig::ephemeral_browse(
 				self.input.path.clone(),

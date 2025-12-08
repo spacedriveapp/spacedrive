@@ -83,10 +83,28 @@ impl EphemeralIndexCache {
 	///
 	/// Marks the path as indexing-in-progress and returns the global index.
 	/// The indexer job should add entries to this shared index.
+	///
+	/// If the path was previously indexed, clears its children first to
+	/// prevent ghost entries from deleted files.
 	pub fn create_for_indexing(&self, path: PathBuf) -> Arc<TokioRwLock<EphemeralIndex>> {
 		let mut in_progress = self.indexing_in_progress.write();
+		let mut indexed = self.indexed_paths.write();
+
+		// If this path was previously indexed, remove it from indexed set
+		// The actual clearing of stale entries happens asynchronously via clear_for_reindex
+		indexed.remove(&path);
 		in_progress.insert(path);
+
 		self.index.clone()
+	}
+
+	/// Clear stale entries for a path before re-indexing (async version)
+	///
+	/// Call this after create_for_indexing to remove old children entries.
+	/// This prevents ghost entries when files are deleted between index runs.
+	pub async fn clear_for_reindex(&self, path: &Path) -> usize {
+		let mut index = self.index.write().await;
+		index.clear_directory_children(path)
 	}
 
 	/// Mark indexing as complete for a path
@@ -192,7 +210,6 @@ pub struct EphemeralIndexCacheStats {
 	pub indexed_paths: usize,
 	/// Number of paths currently being indexed
 	pub indexing_in_progress: usize,
-
 	// Legacy field names for compatibility
 }
 

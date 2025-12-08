@@ -449,6 +449,48 @@ impl EphemeralIndex {
 		)
 	}
 
+	/// Clear all direct children of a directory (for re-indexing)
+	///
+	/// This removes entries for the immediate children of the given directory,
+	/// preventing ghost entries when files are deleted between index runs.
+	/// Note: Does not recursively clear subdirectories.
+	pub fn clear_directory_children(&mut self, dir_path: &Path) -> usize {
+		// Get the directory's children paths first
+		let children_paths: Vec<PathBuf> = if let Some(dir_id) = self.path_index.get(dir_path) {
+			if let Some(dir_node) = self.arena.get(*dir_id) {
+				dir_node
+					.children
+					.iter()
+					.filter_map(|&child_id| self.reconstruct_path(child_id))
+					.collect()
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		};
+
+		let mut cleared = 0;
+
+		// Remove each child from indexes (arena nodes are left as orphans - acceptable for ephemeral)
+		for child_path in &children_paths {
+			if self.path_index.remove(child_path).is_some() {
+				cleared += 1;
+			}
+			self.entry_uuids.remove(child_path);
+			self.content_kinds.remove(child_path);
+		}
+
+		// Clear the parent's children list
+		if let Some(dir_id) = self.path_index.get(dir_path) {
+			if let Some(dir_node) = self.arena.get_mut(*dir_id) {
+				dir_node.children.clear();
+			}
+		}
+
+		cleared
+	}
+
 	/// Reconstruct full path for a node
 	fn reconstruct_path(&self, id: super::ephemeral::EntryId) -> Option<PathBuf> {
 		let mut segments = Vec::new();
