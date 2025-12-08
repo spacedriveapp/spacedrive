@@ -76,7 +76,8 @@ impl ChangeDetector {
 			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
 
 		// Create a persistent writer adapter to leverage the unified query logic
-		let persistence = PersistentWriterAdapter::new(ctx, location_record.uuid, location_record.entry_id);
+		let persistence =
+			PersistentWriterAdapter::new(ctx, location_record.uuid, location_record.entry_id);
 
 		// Use the scoped query method
 		let existing_entries = persistence.get_existing_entries(indexing_path).await?;

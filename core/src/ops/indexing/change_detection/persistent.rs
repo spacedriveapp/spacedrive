@@ -226,10 +226,16 @@ impl ChangeHandler for PersistentWriter {
 				.insert(parent_path.to_path_buf(), parent_id);
 		}
 
-		let entry_id =
-			DBWriter::create_entry(&mut state, &self.db, library.as_deref(), metadata, 0, parent_path)
-				.await
-				.map_err(|e| anyhow::anyhow!("Failed to create entry: {}", e))?;
+		let entry_id = DBWriter::create_entry(
+			&mut state,
+			&self.db,
+			library.as_deref(),
+			metadata,
+			0,
+			parent_path,
+		)
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to create entry: {}", e))?;
 
 		self.entry_id_cache.insert(metadata.path.clone(), entry_id);
 

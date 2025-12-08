@@ -101,11 +101,7 @@ impl ToGenericProgress for IndexerProgress {
 
 		let mut progress = GenericProgress::new(percentage, &phase_name, &phase_message)
 			.with_bytes(self.total_found.bytes, self.total_found.bytes)
-			.with_performance(
-				self.processing_rate,
-				self.estimated_remaining,
-				None,
-			)
+			.with_performance(self.processing_rate, self.estimated_remaining, None)
 			.with_errors(self.total_found.errors, 0)
 			.with_metadata(self);
 

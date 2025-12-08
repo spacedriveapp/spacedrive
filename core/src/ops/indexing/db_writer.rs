@@ -762,12 +762,9 @@ impl DBWriter {
 			existing_active.entry_count = Set(existing_active.entry_count.unwrap() + 1);
 			existing_active.last_verified_at = Set(chrono::Utc::now());
 
-			let updated = existing_active
-				.update(db)
-				.await
-				.map_err(|e| {
-					JobError::execution(format!("Failed to update content identity: {}", e))
-				})?;
+			let updated = existing_active.update(db).await.map_err(|e| {
+				JobError::execution(format!("Failed to update content identity: {}", e))
+			})?;
 
 			(updated, false)
 		} else {
@@ -868,10 +865,7 @@ impl DBWriter {
 						existing_active.last_verified_at = Set(chrono::Utc::now());
 
 						let updated = existing_active.update(db).await.map_err(|e| {
-							JobError::execution(format!(
-								"Failed to update content identity: {}",
-								e
-							))
+							JobError::execution(format!("Failed to update content identity: {}", e))
 						})?;
 
 						(updated, false)
@@ -977,8 +971,7 @@ impl DBWriter {
 		let mut moved_count = 0;
 
 		for (entry_id, old_path, new_path, _) in moves {
-			match Self::simple_move_entry_in_conn(state, *entry_id, old_path, new_path, txn).await
-			{
+			match Self::simple_move_entry_in_conn(state, *entry_id, old_path, new_path, txn).await {
 				Ok(()) => {
 					moved_count += 1;
 				}

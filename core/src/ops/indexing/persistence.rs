@@ -102,8 +102,8 @@ impl PersistenceFactory {
 	) -> Box<dyn IndexPersistence + Send + Sync> {
 		use super::ephemeral::EphemeralWriter;
 
-		let event_bus =
-			event_bus.unwrap_or_else(|| std::sync::Arc::new(crate::infra::event::EventBus::new(1024)));
+		let event_bus = event_bus
+			.unwrap_or_else(|| std::sync::Arc::new(crate::infra::event::EventBus::new(1024)));
 
 		Box::new(EphemeralWriter::new(index, event_bus, root_path))
 	}

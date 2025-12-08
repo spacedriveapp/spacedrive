@@ -228,19 +228,19 @@ pub async fn run_content_phase(
 				)
 				.await
 			{
-						Ok(()) => {
-							ctx.log(format!(
-								"Batch synced {} entries with content IDs",
-								entries_to_sync.len()
-							));
-						}
-						Err(e) => {
-							tracing::warn!(
-								"Failed to batch sync {} entries: {}",
-								entries_to_sync.len(),
-								e
-							);
-						}
+				Ok(()) => {
+					ctx.log(format!(
+						"Batch synced {} entries with content IDs",
+						entries_to_sync.len()
+					));
+				}
+				Err(e) => {
+					tracing::warn!(
+						"Failed to batch sync {} entries: {}",
+						entries_to_sync.len(),
+						e
+					);
+				}
 			}
 		}
 

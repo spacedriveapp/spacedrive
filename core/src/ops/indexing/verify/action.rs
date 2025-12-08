@@ -103,10 +103,10 @@ impl IndexVerifyAction {
 		tracing::debug!("Running ephemeral indexer job on {}", path.display());
 
 		// Create ephemeral index storage that we'll share with the job
-		let ephemeral_index = Arc::new(RwLock::new(
-			EphemeralIndex::new()
-				.map_err(|e| ActionError::from(std::io::Error::new(std::io::ErrorKind::Other, e)))?,
-		));
+		let ephemeral_index =
+			Arc::new(RwLock::new(EphemeralIndex::new().map_err(|e| {
+				ActionError::from(std::io::Error::new(std::io::ErrorKind::Other, e))
+			})?));
 
 		// Subscribe to job events before dispatching
 		let mut event_subscriber = context.events.subscribe();
