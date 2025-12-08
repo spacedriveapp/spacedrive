@@ -249,8 +249,8 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 					println!("║              EPHEMERAL INDEX CACHE STATUS                    ║");
 					println!("╠══════════════════════════════════════════════════════════════╣");
 					println!(
-						"║ Total Indexes: {:3}    In Progress: {:3}    Stale: {:3}        ║",
-						status.total_indexes, status.indexing_in_progress, status.stale_count
+						"║ Total Indexes: {:3}    In Progress: {:3}                       ║",
+						status.total_indexes, status.indexing_in_progress
 					);
 					println!("╚══════════════════════════════════════════════════════════════╝");
 

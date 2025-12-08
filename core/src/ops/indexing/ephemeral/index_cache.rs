@@ -3,6 +3,10 @@
 //! This module provides a thread-safe cache for storing ephemeral indexes
 //! by their root path. This allows directory listing queries to reuse
 //! existing indexes instead of spawning new indexer jobs.
+//!
+//! The cache is permanent in memory (no TTL or expiration). Entries persist
+//! until the daemon restarts or they are explicitly removed. This ensures
+//! UUIDs from ephemeral indexing can be preserved when regular indexing is enabled.
 
 use crate::ops::indexing::EphemeralIndex;
 use parking_lot::RwLock;
@@ -10,15 +14,9 @@ use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
 	sync::Arc,
-	time::{Duration, Instant},
+	time::Instant,
 };
 use tokio::sync::RwLock as TokioRwLock;
-
-/// Default TTL for ephemeral indexes (5 minutes)
-const DEFAULT_TTL: Duration = Duration::from_secs(5 * 60);
-
-/// Maximum idle time before an index is considered stale (2 minutes)
-const MAX_IDLE_TIME: Duration = Duration::from_secs(2 * 60);
 
 /// Cache entry wrapping an ephemeral index with metadata
 struct CacheEntry {
@@ -38,77 +36,40 @@ impl CacheEntry {
 			indexing_in_progress: false,
 		}
 	}
-
-	fn is_stale(&self, ttl: Duration) -> bool {
-		self.created_at.elapsed() > ttl
-	}
 }
 
 /// Global cache for ephemeral indexes
 ///
 /// Stores ephemeral indexes by their root path for reuse across queries.
-/// Indexes are automatically evicted based on TTL and idle time.
+/// Indexes persist in memory until the daemon restarts or they are explicitly removed.
 pub struct EphemeralIndexCache {
 	/// Map of root path to cache entry
 	entries: RwLock<HashMap<PathBuf, CacheEntry>>,
-	/// Time-to-live for cache entries
-	ttl: Duration,
 }
 
 impl EphemeralIndexCache {
-	/// Create a new cache with default TTL
+	/// Create a new cache
 	pub fn new() -> Self {
 		Self {
 			entries: RwLock::new(HashMap::new()),
-			ttl: DEFAULT_TTL,
 		}
 	}
 
-	/// Create a new cache with custom TTL
-	pub fn with_ttl(ttl: Duration) -> Self {
-		Self {
-			entries: RwLock::new(HashMap::new()),
-			ttl,
-		}
-	}
-
-	/// Get an existing index for a path, or None if not cached or stale
-	///
-	/// Also checks if the index is still being populated (indexing in progress).
+	/// Get an existing index for a path, or None if not cached
 	pub fn get(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
 		let entries = self.entries.read();
-		if let Some(entry) = entries.get(path) {
-			// Check if stale
-			if entry.is_stale(self.ttl) {
-				return None;
-			}
-			Some(entry.index.clone())
-		} else {
-			None
-		}
+		entries.get(path).map(|entry| entry.index.clone())
 	}
 
 	/// Get an existing index for a path (exact match only)
 	///
-	/// Returns the index if:
-	/// 1. An index exists for this exact path
-	/// 2. The index is not stale
+	/// Returns the index if an index exists for this exact path.
 	///
 	/// Note: We only use exact matches because ephemeral indexing uses
 	/// IndexScope::Current (single level), so an ancestor index doesn't
 	/// contain the contents of subdirectories.
 	pub fn get_for_path(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
-		let entries = self.entries.read();
-
-		// Only exact match - ancestor indexes don't contain subdirectory contents
-		// because ephemeral indexing uses IndexScope::Current (single level)
-		if let Some(entry) = entries.get(path) {
-			if !entry.is_stale(self.ttl) {
-				return Some(entry.index.clone());
-			}
-		}
-
-		None
+		self.get(path)
 	}
 
 	/// Check if indexing is in progress for a path
@@ -147,17 +108,10 @@ impl EphemeralIndexCache {
 	}
 
 	/// Mark indexing as complete for a path
-	///
-	/// This also refreshes the entry's `created_at` timestamp so it's no longer
-	/// considered stale. This is important because `create_for_indexing()` may
-	/// have reused an existing stale entry, and without this refresh the entry
-	/// would remain stale even after being freshly populated.
 	pub fn mark_indexing_complete(&self, path: &Path) {
 		let mut entries = self.entries.write();
 		if let Some(entry) = entries.get_mut(path) {
 			entry.indexing_in_progress = false;
-			// Reset created_at so the freshly-populated index is no longer stale
-			entry.created_at = Instant::now();
 		}
 	}
 
@@ -165,12 +119,6 @@ impl EphemeralIndexCache {
 	pub fn remove(&self, path: &Path) {
 		let mut entries = self.entries.write();
 		entries.remove(path);
-	}
-
-	/// Remove stale entries from the cache
-	pub fn evict_stale(&self) {
-		let mut entries = self.entries.write();
-		entries.retain(|_, entry| !entry.is_stale(self.ttl));
 	}
 
 	/// Get the number of cached indexes
@@ -193,13 +141,19 @@ impl EphemeralIndexCache {
 		let entries = self.entries.read();
 		let total_entries = entries.len();
 		let indexing_count = entries.values().filter(|e| e.indexing_in_progress).count();
-		let stale_count = entries.values().filter(|e| e.is_stale(self.ttl)).count();
 
 		EphemeralIndexCacheStats {
 			total_entries,
 			indexing_count,
-			stale_count,
 		}
+	}
+
+	/// Get the age of a cached index in seconds
+	pub fn get_age(&self, path: &Path) -> Option<f64> {
+		let entries = self.entries.read();
+		entries
+			.get(path)
+			.map(|e| e.created_at.elapsed().as_secs_f64())
 	}
 }
 
@@ -214,7 +168,6 @@ impl Default for EphemeralIndexCache {
 pub struct EphemeralIndexCacheStats {
 	pub total_entries: usize,
 	pub indexing_count: usize,
-	pub stale_count: usize,
 }
 
 #[cfg(test)]
@@ -244,7 +197,7 @@ mod tests {
 		let cache = EphemeralIndexCache::new();
 		let path = PathBuf::from("/test/path");
 
-		let index = cache.create_for_indexing(path.clone());
+		let _index = cache.create_for_indexing(path.clone());
 
 		assert!(cache.is_indexing(&path));
 
@@ -284,17 +237,18 @@ mod tests {
 	}
 
 	#[test]
-	fn test_stale_detection() {
-		let cache = EphemeralIndexCache::with_ttl(Duration::from_millis(1));
+	fn test_cache_persists() {
+		// Test that cache entries persist (no TTL expiration)
+		let cache = EphemeralIndexCache::new();
 		let path = PathBuf::from("/test/path");
 		let index = Arc::new(TokioRwLock::new(EphemeralIndex::new(path.clone())));
 
 		cache.insert(path.clone(), index);
 
-		// Wait for TTL to expire
-		std::thread::sleep(Duration::from_millis(10));
+		// Wait a bit
+		std::thread::sleep(std::time::Duration::from_millis(100));
 
-		// Should be stale now
-		assert!(cache.get(&path).is_none());
+		// Should still be available (no expiration)
+		assert!(cache.get(&path).is_some());
 	}
 }

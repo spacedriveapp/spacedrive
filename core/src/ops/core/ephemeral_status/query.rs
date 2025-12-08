@@ -91,7 +91,6 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 		Ok(EphemeralCacheStatus {
 			total_indexes: cache_stats.total_entries,
 			indexing_in_progress: cache_stats.indexing_count,
-			stale_count: cache_stats.stale_count,
 			indexes,
 		})
 	}

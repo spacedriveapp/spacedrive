@@ -7,7 +7,6 @@ import {
 	useParams,
 } from "react-router-dom";
 import { useEffect, useMemo } from "react";
-import { useLocationChangeInvalidation } from "./hooks/useLocationChangeInvalidation";
 import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
@@ -70,9 +69,6 @@ export function ExplorerLayout() {
 		setSpaceItemId,
 	} = useExplorer();
 	const { selectedFiles, selectFile } = useSelection();
-
-	// Listen for location index_mode changes and invalidate directory listing queries
-	useLocationChangeInvalidation();
 
 	// Sync route with explorer context for view preferences
 	useEffect(() => {

@@ -42,6 +42,20 @@ pub async fn run_processing_phase(
 		total_batches
 	));
 
+	// Populate ephemeral UUIDs for preservation before processing
+	// This allows entries that were browsed before enabling indexing to keep
+	// the same UUID, preserving any user data associated with them
+	let ephemeral_cache = ctx.library().core_context().ephemeral_cache();
+	let preserved_count = state
+		.populate_ephemeral_uuids(ephemeral_cache, location_root_path)
+		.await;
+	if preserved_count > 0 {
+		ctx.log(format!(
+			"Found {} ephemeral UUIDs to preserve from previous browsing",
+			preserved_count
+		));
+	}
+
 	if total_batches == 0 {
 		ctx.log("No batches to process - transitioning to Aggregation phase");
 		state.phase = crate::ops::indexing::state::Phase::Aggregation;

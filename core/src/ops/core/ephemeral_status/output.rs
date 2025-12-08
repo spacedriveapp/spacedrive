@@ -11,8 +11,6 @@ pub struct EphemeralCacheStatus {
 	pub total_indexes: usize,
 	/// Number of indexes currently being populated
 	pub indexing_in_progress: usize,
-	/// Number of stale indexes (past TTL)
-	pub stale_count: usize,
 	/// Details for each cached index
 	pub indexes: Vec<EphemeralIndexInfo>,
 }

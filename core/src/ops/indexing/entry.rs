@@ -223,10 +223,21 @@ impl EntryProcessor {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
-		// All entries get UUIDs immediately for UI normalized caching compatibility.
-		// Sync readiness is now determined by content_id presence (for regular files)
-		// or by entry kind (for directories/empty files).
-		let entry_uuid = Some(Uuid::new_v4());
+		// UUID assignment strategy:
+		// 1. First check if there's an ephemeral UUID to preserve (from previous browsing)
+		// 2. If not, generate a new UUID
+		//
+		// This ensures that files browsed before enabling indexing keep the same UUID
+		let entry_uuid = if let Some(ephemeral_uuid) = state.get_ephemeral_uuid(&entry.path) {
+			tracing::debug!(
+				"Preserving ephemeral UUID {} for {}",
+				ephemeral_uuid,
+				entry.path.display()
+			);
+			Some(ephemeral_uuid)
+		} else {
+			Some(Uuid::new_v4())
+		};
 
 		// Find parent entry ID
 		let parent_id = if let Some(parent_path) = entry.path.parent() {
