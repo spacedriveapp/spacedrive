@@ -100,11 +100,23 @@ impl EphemeralIndexCache {
 
 	/// Clear stale entries for a path before re-indexing (async version)
 	///
-	/// Call this after create_for_indexing to remove old children entries.
-	/// This prevents ghost entries when files are deleted between index runs.
+	/// Removes files and unbrowsed subdirectories, preserving subdirectories
+	/// that were explicitly navigated to. Verifies preserved directories still
+	/// exist on the filesystem and removes deleted ones from tracking.
 	pub async fn clear_for_reindex(&self, path: &Path) -> usize {
+		let indexed = self.indexed_paths.read().clone();
 		let mut index = self.index.write().await;
-		index.clear_directory_children(path)
+		let (cleared, deleted_browsed_dirs) = index.clear_directory_children(path, &indexed);
+
+		// Remove deleted browsed directories from indexed_paths
+		if !deleted_browsed_dirs.is_empty() {
+			let mut indexed_paths = self.indexed_paths.write();
+			for deleted_path in deleted_browsed_dirs {
+				indexed_paths.remove(&deleted_path);
+			}
+		}
+
+		cleared
 	}
 
 	/// Mark indexing as complete for a path

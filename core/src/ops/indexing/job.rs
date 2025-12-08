@@ -451,44 +451,86 @@ impl EphemeralIndex {
 		)
 	}
 
-	/// Clears immediate children of a directory to prepare for re-indexing.
+	/// Clears entries before re-indexing, preserving explicitly browsed subdirectories.
 	///
-	/// This prevents ghost entries when files are deleted between index runs.
-	/// The arena nodes become orphaned but remain allocated, which is acceptable
-	/// for ephemeral indexes since memory pressure triggers full eviction anyway.
-	/// Only clears the direct children (non-recursive).
-	pub fn clear_directory_children(&mut self, dir_path: &Path) -> usize {
-		let children_paths: Vec<PathBuf> = if let Some(dir_id) = self.path_index.get(dir_path) {
-			if let Some(dir_node) = self.arena.get(*dir_id) {
-				dir_node
-					.children
-					.iter()
-					.filter_map(|&child_id| self.reconstruct_path(child_id))
-					.collect()
-			} else {
-				return 0;
-			}
-		} else {
-			return 0;
+	/// Since ephemeral indexing is shallow, subdirectories that were explicitly
+	/// navigated to (in `indexed_paths`) should be preserved as separate index
+	/// branches. Unbrowsed subdirectories are refreshed with the parent.
+	///
+	/// Returns (cleared_count, deleted_browsed_dirs) where deleted_browsed_dirs
+	/// contains paths that were in indexed_paths but no longer exist on disk.
+	pub fn clear_directory_children(
+		&mut self,
+		dir_path: &Path,
+		indexed_paths: &std::collections::HashSet<std::path::PathBuf>,
+	) -> (usize, Vec<std::path::PathBuf>) {
+		let dir_id = match self.path_index.get(dir_path) {
+			Some(&id) => id,
+			None => return (0, Vec::new()),
 		};
 
-		let mut cleared = 0;
+		let dir_node = match self.arena.get(dir_id) {
+			Some(node) => node,
+			None => return (0, Vec::new()),
+		};
 
-		for child_path in &children_paths {
-			if self.path_index.remove(child_path).is_some() {
-				cleared += 1;
-			}
+		let mut deleted_browsed_dirs = Vec::new();
+
+		// Collect children to remove
+		let mut children_to_remove: Vec<(PathBuf, super::ephemeral::EntryId)> = dir_node
+			.children
+			.iter()
+			.filter_map(|&child_id| {
+				let child_node = self.arena.get(child_id)?;
+				let child_path = self.reconstruct_path(child_id)?;
+
+				// Preserve subdirectories that were explicitly browsed AND still exist
+				if child_node.is_directory() && indexed_paths.contains(&child_path) {
+					// Verify the directory still exists on the filesystem
+					if std::fs::metadata(&child_path).is_ok() {
+						return None; // Preserve - still exists and was browsed
+					}
+					// Directory was deleted - track for removal from indexed_paths
+					tracing::debug!(
+						"Removing deleted browsed directory: {}",
+						child_path.display()
+					);
+					deleted_browsed_dirs.push(child_path.clone());
+				}
+
+				// Remove everything else (files, unbrowsed directories, deleted directories)
+				Some((child_path, child_id))
+			})
+			.collect();
+
+		let cleared = children_to_remove.len();
+
+		// Remove from indexes
+		for (child_path, _) in &children_to_remove {
+			self.path_index.remove(child_path);
 			self.entry_uuids.remove(child_path);
 			self.content_kinds.remove(child_path);
 		}
 
-		if let Some(dir_id) = self.path_index.get(dir_path) {
-			if let Some(dir_node) = self.arena.get_mut(*dir_id) {
-				dir_node.children.clear();
-			}
+		// Update parent's children list
+		if let Some(dir_node) = self.arena.get_mut(dir_id) {
+			let removed_ids: std::collections::HashSet<_> =
+				children_to_remove.iter().map(|(_, id)| id).collect();
+
+			dir_node
+				.children
+				.retain(|child_id| !removed_ids.contains(child_id));
 		}
 
-		cleared
+		if cleared > 0 {
+			tracing::debug!(
+				"Cleared {} entries from {} (preserved browsed subdirs)",
+				cleared,
+				dir_path.display()
+			);
+		}
+
+		(cleared, deleted_browsed_dirs)
 	}
 
 	fn reconstruct_path(&self, id: super::ephemeral::EntryId) -> Option<PathBuf> {

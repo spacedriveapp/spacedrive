@@ -7,8 +7,17 @@ import { getDeviceIconBySlug, useLibraryMutation } from "@sd/ts-client";
 import { sdPathToUri } from "../utils";
 import LaptopIcon from "@sd/assets/icons/Laptop.png";
 import { useNormalizedQuery } from "@sd/ts-client";
-import { TopBarButton, Popover, usePopover, PopoverContainer, PopoverSection, PopoverDivider } from "@sd/ui";
+import {
+	TopBarButton,
+	Popover,
+	usePopover,
+	PopoverContainer,
+	PopoverSection,
+	PopoverDivider,
+	Button,
+} from "@sd/ui";
 import { useSelection } from "../SelectionContext";
+import { useAddStorageDialog } from "./AddStorageModal";
 
 interface PathBarProps {
 	path: SdPath;
@@ -118,77 +127,113 @@ function IndexIndicator({ path }: { path: SdPath }) {
 			// Find location with longest matching prefix
 			return locations
 				.filter((loc) => {
-					if (!loc.sd_path || !("Physical" in loc.sd_path)) return false;
+					if (!loc.sd_path || !("Physical" in loc.sd_path))
+						return false;
 					const locPath = loc.sd_path.Physical.path;
 					return pathStr.startsWith(locPath);
 				})
 				.sort((a, b) => {
-					const aPath = ("Physical" in a.sd_path!) ? a.sd_path!.Physical.path : "";
-					const bPath = ("Physical" in b.sd_path!) ? b.sd_path!.Physical.path : "";
+					const aPath =
+						"Physical" in a.sd_path!
+							? a.sd_path!.Physical.path
+							: "";
+					const bPath =
+						"Physical" in b.sd_path!
+							? b.sd_path!.Physical.path
+							: "";
 					return bPath.length - aPath.length;
 				})[0];
 		}
 		return undefined;
 	})();
 
-	if (!matchingLocation) return null;
-
-	const isIndexed = matchingLocation.index_mode !== "none";
+	const isIndexed =
+		matchingLocation?.index_mode !== undefined &&
+		matchingLocation.index_mode !== "none";
 
 	return (
-		<>
 		<Popover
 			popover={popover}
 			trigger={
 				<TopBarButton
 					icon={Eye}
 					active={isIndexed}
-					title={isIndexed ? "Location is indexed" : "Location not indexed"}
+					className={isIndexed ? "!text-blue-500" : undefined}
+					title={isIndexed ? "Location is indexed" : "Not indexed"}
 				/>
 			}
 		>
 			<PopoverContainer>
-				<PopoverSection>
-					<div className="px-2 py-1.5">
-						<div className="text-xs font-semibold text-ink">{matchingLocation.name ?? "Unknown"}</div>
-						<div className="text-xs text-ink-dull mt-0.5">
-							{isIndexed ? `Indexed (${matchingLocation.index_mode})` : "Not indexed"}
+				{matchingLocation ? (
+					<>
+						<PopoverSection>
+							<div className="px-2 py-1.5">
+								<div className="text-xs font-semibold text-ink">
+									{matchingLocation.name}
+								</div>
+								<div className="text-xs text-ink-dull mt-0.5">
+									{isIndexed
+										? `Indexed (${matchingLocation.index_mode})`
+										: "Not indexed"}
+								</div>
+							</div>
+						</PopoverSection>
+
+						<PopoverDivider />
+
+						<PopoverSection>
+							{!isIndexed && (
+								<button
+									onClick={async () => {
+										await enableIndexing.mutateAsync({
+											id: matchingLocation.id,
+											index_mode: "deep",
+										});
+										popover.setOpen(false);
+									}}
+									className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
+								>
+									<Eye size={16} />
+									Enable Indexing
+								</button>
+							)}
+							<button
+								onClick={() => {
+									clearSelection();
+									popover.setOpen(false);
+								}}
+								className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
+							>
+								<Folder size={16} />
+								Open Location Inspector
+							</button>
+						</PopoverSection>
+					</>
+				) : (
+					<PopoverSection>
+						<div className="px-2 py-1.5">
+							<div className="text-xs text-ink-dull mb-2">
+								Path is outside any location
+							</div>
+							<Button
+								size="sm"
+								variant="accent"
+								onClick={() => {
+									const initialPath =
+										"Physical" in path
+											? path.Physical.path
+											: undefined;
+									useAddStorageDialog(undefined, initialPath);
+									popover.setOpen(false);
+								}}
+							>
+								Add Location
+							</Button>
 						</div>
-					</div>
-				</PopoverSection>
-
-				<PopoverDivider />
-
-				<PopoverSection>
-					{!isIndexed && (
-						<button
-							onClick={async () => {
-								await enableIndexing.mutateAsync({
-									id: matchingLocation.id,
-									index_mode: "deep",
-								});
-								popover.setOpen(false);
-							}}
-							className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
-						>
-							<Eye size={16} />
-							Enable Indexing
-						</button>
-					)}
-					<button
-						onClick={() => {
-							clearSelection();
-							popover.setOpen(false);
-						}}
-						className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
-					>
-						<Folder size={16} />
-						Open Location Inspector
-					</button>
-				</PopoverSection>
+					</PopoverSection>
+				)}
 			</PopoverContainer>
 		</Popover>
-		</>
 	);
 }
 
@@ -257,71 +302,69 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 					"focus-within:bg-sidebar-box/30 focus-within:border-sidebar-line/40",
 				)}
 			>
-			<img
-				src={deviceIcon}
-				alt="Device"
-				className="size-5 opacity-60 flex-shrink-0"
-			/>
+				<img
+					src={deviceIcon}
+					alt="Device"
+					className="size-5 opacity-60 flex-shrink-0"
+				/>
 
-			{showUri ? (
-				<input
-					type="text"
-					value={uri}
-					readOnly
-					className={clsx(
-						"bg-transparent border-0 outline-none ring-0 flex-1 min-w-0",
-						"text-xs font-medium text-sidebar-ink",
-						"placeholder:text-sidebar-inkFaint",
-						"select-all cursor-text",
-						"focus:ring-0 focus:outline-none",
-					)}
-					placeholder="No path selected"
-				/>
-			) : isExpanded ? (
-				<div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
-					{segments.map((segment, index) => {
-						const isLast = index === segments.length - 1;
-						return (
-							<div
-								key={index}
-								className="flex items-center gap-1 flex-shrink-0"
-							>
-								<button
-									onClick={() =>
-										!isLast && onNavigate(segment.path)
-									}
-									disabled={isLast}
-									className={clsx(
-										"text-xs font-medium transition-colors whitespace-nowrap",
-										isLast
-											? "text-sidebar-ink cursor-default"
-											: "text-sidebar-inkDull hover:text-sidebar-ink cursor-pointer",
-									)}
+				{showUri ? (
+					<input
+						type="text"
+						value={uri}
+						readOnly
+						className={clsx(
+							"bg-transparent border-0 outline-none ring-0 flex-1 min-w-0",
+							"text-xs font-medium text-sidebar-ink",
+							"placeholder:text-sidebar-inkFaint",
+							"select-all cursor-text",
+							"focus:ring-0 focus:outline-none",
+						)}
+						placeholder="No path selected"
+					/>
+				) : isExpanded ? (
+					<div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
+						{segments.map((segment, index) => {
+							const isLast = index === segments.length - 1;
+							return (
+								<div
+									key={index}
+									className="flex items-center gap-1 flex-shrink-0"
 								>
-									{segment.name}
-								</button>
-								{!isLast && (
-									<CaretRight size={12} />
-								)}
-							</div>
-						);
-					})}
-				</div>
-			) : (
-				<input
-					type="text"
-					value={currentDir}
-					readOnly
-					className={clsx(
-						"bg-transparent border-0 outline-none ring-0 flex-1 min-w-0",
-						"text-xs font-medium text-sidebar-ink",
-						"placeholder:text-sidebar-inkFaint",
-						"select-all cursor-text",
-						"focus:ring-0 focus:outline-none",
-					)}
-					placeholder="No path selected"
-				/>
-			)}
+									<button
+										onClick={() =>
+											!isLast && onNavigate(segment.path)
+										}
+										disabled={isLast}
+										className={clsx(
+											"text-xs font-medium transition-colors whitespace-nowrap",
+											isLast
+												? "text-sidebar-ink cursor-default"
+												: "text-sidebar-inkDull hover:text-sidebar-ink cursor-pointer",
+										)}
+									>
+										{segment.name}
+									</button>
+									{!isLast && <CaretRight size={12} />}
+								</div>
+							);
+						})}
+					</div>
+				) : (
+					<input
+						type="text"
+						value={currentDir}
+						readOnly
+						className={clsx(
+							"bg-transparent border-0 outline-none ring-0 flex-1 min-w-0",
+							"text-xs font-medium text-sidebar-ink",
+							"placeholder:text-sidebar-inkFaint",
+							"select-all cursor-text",
+							"focus:ring-0 focus:outline-none",
+						)}
+						placeholder="No path selected"
+					/>
+				)}
 			</motion.div>
 			<IndexIndicator path={path} />
 		</div>
