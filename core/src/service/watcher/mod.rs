@@ -139,6 +139,8 @@ pub struct LocationWatcher {
 	context: Arc<CoreContext>,
 	/// Currently watched locations
 	watched_locations: Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+	/// Ephemeral watches (shallow, non-recursive) keyed by path
+	ephemeral_watches: Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	/// File system watcher
 	watcher: Arc<RwLock<Option<RecommendedWatcher>>>,
 	/// Whether the service is running
@@ -170,6 +172,15 @@ pub struct WatchedLocation {
 	pub rule_toggles: crate::ops::indexing::rules::RuleToggles,
 }
 
+/// Information about an ephemeral watch (shallow, non-recursive)
+#[derive(Debug, Clone)]
+pub struct EphemeralWatch {
+	/// Path being watched
+	pub path: PathBuf,
+	/// Indexing rule toggles for filtering events
+	pub rule_toggles: crate::ops::indexing::rules::RuleToggles,
+}
+
 impl LocationWatcher {
 	/// Create a new location watcher
 	pub fn new(
@@ -184,6 +195,7 @@ impl LocationWatcher {
 			events,
 			context,
 			watched_locations: Arc::new(RwLock::new(HashMap::new())),
+			ephemeral_watches: Arc::new(RwLock::new(HashMap::new())),
 			watcher: Arc::new(RwLock::new(None)),
 			is_running: Arc::new(RwLock::new(false)),
 			platform_handler,
@@ -508,6 +520,135 @@ impl LocationWatcher {
 			.collect()
 	}
 
+	// ========================================================================
+	// Ephemeral Watch Support (shallow, non-recursive)
+	// ========================================================================
+
+	/// Add an ephemeral watch for a directory (shallow, immediate children only).
+	///
+	/// Unlike location watches which are recursive, ephemeral watches only monitor
+	/// immediate children of the watched directory. This is appropriate for ephemeral
+	/// browsing where only the current directory's contents are indexed.
+	///
+	/// The path should already be indexed in the ephemeral cache before calling this.
+	pub async fn add_ephemeral_watch(
+		&self,
+		path: PathBuf,
+		rule_toggles: crate::ops::indexing::rules::RuleToggles,
+	) -> Result<()> {
+		// Check if path is valid
+		if !path.exists() {
+			return Err(anyhow::anyhow!(
+				"Cannot watch non-existent path: {}",
+				path.display()
+			));
+		}
+
+		if !path.is_dir() {
+			return Err(anyhow::anyhow!(
+				"Cannot watch non-directory path: {}",
+				path.display()
+			));
+		}
+
+		// Check if already watching
+		{
+			let watches = self.ephemeral_watches.read().await;
+			if watches.contains_key(&path) {
+				debug!("Already watching ephemeral path: {}", path.display());
+				return Ok(());
+			}
+		}
+
+		// Register in ephemeral cache
+		self.context
+			.ephemeral_cache()
+			.register_for_watching(path.clone());
+
+		// Add to our tracking
+		{
+			let mut watches = self.ephemeral_watches.write().await;
+			watches.insert(
+				path.clone(),
+				EphemeralWatch {
+					path: path.clone(),
+					rule_toggles,
+				},
+			);
+		}
+
+		// Add to file system watcher with NonRecursive mode
+		if *self.is_running.read().await {
+			if let Some(watcher) = self.watcher.write().await.as_mut() {
+				watcher.watch(&path, RecursiveMode::NonRecursive)?;
+				info!("Started shallow ephemeral watch for: {}", path.display());
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Remove an ephemeral watch
+	pub async fn remove_ephemeral_watch(&self, path: &Path) -> Result<()> {
+		let watch = {
+			let mut watches = self.ephemeral_watches.write().await;
+			watches.remove(path)
+		};
+
+		if let Some(watch) = watch {
+			// Unregister from ephemeral cache
+			self.context
+				.ephemeral_cache()
+				.unregister_from_watching(&watch.path);
+
+			// Remove from file system watcher
+			if *self.is_running.read().await {
+				if let Some(watcher) = self.watcher.write().await.as_mut() {
+					if let Err(e) = watcher.unwatch(&watch.path) {
+						warn!(
+							"Failed to unwatch ephemeral path {}: {}",
+							watch.path.display(),
+							e
+						);
+					} else {
+						info!("Stopped ephemeral watch for: {}", watch.path.display());
+					}
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	/// Get all ephemeral watches
+	pub async fn get_ephemeral_watches(&self) -> Vec<EphemeralWatch> {
+		self.ephemeral_watches
+			.read()
+			.await
+			.values()
+			.cloned()
+			.collect()
+	}
+
+	/// Check if a path has an ephemeral watch
+	pub async fn has_ephemeral_watch(&self, path: &Path) -> bool {
+		self.ephemeral_watches.read().await.contains_key(path)
+	}
+
+	/// Find the ephemeral watch that covers a given path (if any).
+	///
+	/// For shallow watches, only returns a match if the path is an immediate
+	/// child of a watched directory.
+	pub async fn find_ephemeral_watch_for_path(&self, path: &Path) -> Option<EphemeralWatch> {
+		let watches = self.ephemeral_watches.read().await;
+
+		// Get the parent directory of the event path
+		let parent = path.parent()?;
+
+		// Check if the parent is being watched
+		watches.get(parent).cloned()
+	}
+
 	/// Load existing locations from the database and add them to the watcher
 	async fn load_existing_locations(&self) -> Result<()> {
 		info!("Loading existing locations from database...");
@@ -674,11 +815,13 @@ impl LocationWatcher {
 	async fn start_event_loop(&self) -> Result<()> {
 		let platform_handler = self.platform_handler.clone();
 		let watched_locations = self.watched_locations.clone();
+		let ephemeral_watches = self.ephemeral_watches.clone();
 		let workers = self.workers.clone();
 		let is_running = self.is_running.clone();
 		let debug_mode = self.config.debug_mode;
 		let metrics = self.metrics.clone();
 		let events = self.events.clone();
+		let context = self.context.clone();
 
 		let (tx, mut rx) = mpsc::channel(self.config.event_buffer_size);
 		let tx_clone = tx.clone();
@@ -731,6 +874,17 @@ impl LocationWatcher {
 		}
 		drop(locations);
 
+		// Watch all ephemeral paths (non-recursive/shallow)
+		let ephemeral = ephemeral_watches.read().await;
+		for watch in ephemeral.values() {
+			watcher.watch(&watch.path, RecursiveMode::NonRecursive)?;
+			info!(
+				"Started shallow ephemeral watch for: {}",
+				watch.path.display()
+			);
+		}
+		drop(ephemeral);
+
 		// Store watcher
 		*self.watcher.write().await = Some(watcher);
 
@@ -761,6 +915,46 @@ impl LocationWatcher {
 												FsRawEventKind::Remove { path } => Some(path.as_path()),
 												FsRawEventKind::Rename { from, .. } => Some(from.as_path()),
 											};
+
+											// First, check if this is an ephemeral watch event
+											// For shallow watches, only process if path is immediate child
+											let mut handled_by_ephemeral = false;
+											if let Some(event_path) = event_path {
+												let parent = event_path.parent();
+												if let Some(parent_path) = parent {
+													let ephemeral = ephemeral_watches.read().await;
+													if let Some(watch) = ephemeral.get(parent_path) {
+														debug!(
+															"Ephemeral watch match for {}: parent {} is watched",
+															event_path.display(),
+															parent_path.display()
+														);
+														handled_by_ephemeral = true;
+
+														// Process via ephemeral handler
+														let ctx = context.clone();
+														let root = watch.path.clone();
+														let toggles = watch.rule_toggles;
+														let event_kind = kind.clone();
+
+														tokio::spawn(async move {
+															if let Err(e) = crate::ops::indexing::ephemeral::responder::apply(
+																&ctx,
+																&root,
+																event_kind,
+																toggles,
+															).await {
+																warn!("Failed to process ephemeral event: {}", e);
+															}
+														});
+													}
+												}
+											}
+
+											// Skip location matching if handled by ephemeral
+											if handled_by_ephemeral {
+												continue;
+											}
 
 											// Find the location for this event by matching path prefix
 											// CRITICAL: Must match by path, not just library_id, to avoid routing
@@ -995,6 +1189,7 @@ impl LocationWatcher {
 							events: events.clone(),
 							context: context.clone(),
 							watched_locations: watched_locations.clone(),
+							ephemeral_watches: Arc::new(RwLock::new(HashMap::new())),
 							watcher: watcher_ref.clone(),
 							is_running: is_running.clone(),
 							platform_handler: platform_handler.clone(),
@@ -1033,6 +1228,7 @@ impl LocationWatcher {
 							events: events.clone(),
 							context: context.clone(),
 							watched_locations: watched_locations.clone(),
+							ephemeral_watches: Arc::new(RwLock::new(HashMap::new())),
 							watcher: watcher_ref.clone(),
 							is_running: is_running.clone(),
 							platform_handler: platform_handler.clone(),

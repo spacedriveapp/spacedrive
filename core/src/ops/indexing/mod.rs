@@ -25,6 +25,7 @@ pub mod change_detection;
 pub mod ctx;
 pub mod entry;
 pub mod ephemeral;
+pub mod handler;
 pub mod hierarchy;
 pub mod input;
 pub mod job;
@@ -43,6 +44,10 @@ pub use action::IndexingAction;
 pub use ctx::{IndexingCtx, ResponderCtx};
 pub use entry::{EntryMetadata, EntryProcessor};
 pub use ephemeral::EphemeralIndexCache;
+pub use handler::{
+	apply_batch as apply_change_batch, ChangeConfig, ChangeHandler, ChangeType, EntryRef,
+	EphemeralChangeHandler, PersistentChangeHandler,
+};
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
 pub use job::{

@@ -620,6 +620,47 @@ impl EphemeralIndex {
 		self.path_index.len()
 	}
 
+	/// Check if an entry exists at the given path.
+	pub fn has_entry(&self, path: &Path) -> bool {
+		self.path_index.contains_key(path)
+	}
+
+	/// Remove an entry at the given path.
+	///
+	/// Returns true if the entry was removed, false if it didn't exist.
+	/// For directories, this only removes the directory entry itself, not its children.
+	/// Use `remove_directory_tree` to remove a directory and all its descendants.
+	pub fn remove_entry(&mut self, path: &Path) -> bool {
+		let existed = self.path_index.remove(path).is_some();
+		self.entry_uuids.remove(path);
+		self.content_kinds.remove(path);
+		existed
+	}
+
+	/// Remove a directory and all its descendants.
+	///
+	/// Returns the number of entries removed.
+	pub fn remove_directory_tree(&mut self, path: &Path) -> usize {
+		let prefix = path.to_string_lossy().to_string();
+		let keys_to_remove: Vec<_> = self
+			.path_index
+			.keys()
+			.filter(|k| {
+				let k_str = k.to_string_lossy();
+				k_str == prefix || k_str.starts_with(&format!("{}/", prefix))
+			})
+			.cloned()
+			.collect();
+
+		let count = keys_to_remove.len();
+		for key in keys_to_remove {
+			self.path_index.remove(&key);
+			self.entry_uuids.remove(&key);
+			self.content_kinds.remove(&key);
+		}
+		count
+	}
+
 	/// Reconstructs paths for all entries and returns them as a HashMap.
 	///
 	/// For large indexes, this can be expensive since it walks the tree to rebuild

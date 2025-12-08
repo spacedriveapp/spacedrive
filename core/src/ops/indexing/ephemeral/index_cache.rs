@@ -11,6 +11,12 @@
 //!
 //! The cache tracks which paths have been indexed (ready) vs are currently
 //! being indexed (in progress).
+//!
+//! ## File Watching Support
+//!
+//! The cache can optionally track which paths should be monitored for filesystem
+//! changes. When a path is marked for watching, the watcher service can detect
+//! changes and update the ephemeral index via `EphemeralChangeHandler`.
 
 use crate::ops::indexing::EphemeralIndex;
 use parking_lot::RwLock;
@@ -36,6 +42,9 @@ pub struct EphemeralIndexCache {
 	/// Paths currently being indexed
 	indexing_in_progress: RwLock<HashSet<PathBuf>>,
 
+	/// Paths registered for filesystem watching (subset of indexed_paths)
+	watched_paths: RwLock<HashSet<PathBuf>>,
+
 	/// When the cache was created
 	created_at: Instant,
 }
@@ -47,6 +56,7 @@ impl EphemeralIndexCache {
 			index: Arc::new(TokioRwLock::new(EphemeralIndex::new()?)),
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
+			watched_paths: RwLock::new(HashSet::new()),
 			created_at: Instant::now(),
 		})
 	}
@@ -159,14 +169,92 @@ impl EphemeralIndexCache {
 		self.indexing_in_progress.read().iter().cloned().collect()
 	}
 
+	// ========================================================================
+	// File Watching Support
+	// ========================================================================
+
+	/// Register a path for filesystem watching.
+	///
+	/// When registered, the watcher service will monitor this path for changes
+	/// and update the ephemeral index via `EphemeralChangeHandler`. The path
+	/// must already be indexed.
+	pub fn register_for_watching(&self, path: PathBuf) -> bool {
+		let indexed = self.indexed_paths.read();
+		if !indexed.contains(&path) {
+			return false;
+		}
+		drop(indexed);
+
+		let mut watched = self.watched_paths.write();
+		watched.insert(path);
+		true
+	}
+
+	/// Unregister a path from filesystem watching.
+	pub fn unregister_from_watching(&self, path: &Path) {
+		let mut watched = self.watched_paths.write();
+		watched.remove(path);
+	}
+
+	/// Check if a path is registered for watching.
+	pub fn is_watched(&self, path: &Path) -> bool {
+		self.watched_paths.read().contains(path)
+	}
+
+	/// Get all watched paths.
+	pub fn watched_paths(&self) -> Vec<PathBuf> {
+		self.watched_paths.read().iter().cloned().collect()
+	}
+
+	/// Find the watched root path that contains the given path.
+	///
+	/// If the given path is under a watched directory, returns that directory.
+	/// Used by the watcher to route events to the ephemeral handler.
+	pub fn find_watched_root(&self, path: &Path) -> Option<PathBuf> {
+		let watched = self.watched_paths.read();
+
+		// Find the longest matching watched path that is an ancestor of `path`
+		let mut best_match: Option<&PathBuf> = None;
+		let mut best_len = 0;
+
+		for watched_path in watched.iter() {
+			if path.starts_with(watched_path) {
+				let len = watched_path.as_os_str().len();
+				if len > best_len {
+					best_len = len;
+					best_match = Some(watched_path);
+				}
+			}
+		}
+
+		best_match.cloned()
+	}
+
+	/// Check if any path in an event batch is under an ephemeral watched path.
+	///
+	/// Returns the watched root if found.
+	pub fn find_watched_root_for_any<'a, I>(&self, paths: I) -> Option<PathBuf>
+	where
+		I: IntoIterator<Item = &'a Path>,
+	{
+		for path in paths {
+			if let Some(root) = self.find_watched_root(path) {
+				return Some(root);
+			}
+		}
+		None
+	}
+
 	/// Get cache statistics
 	pub fn stats(&self) -> EphemeralIndexCacheStats {
 		let indexed = self.indexed_paths.read();
 		let in_progress = self.indexing_in_progress.read();
+		let watched = self.watched_paths.read();
 
 		EphemeralIndexCacheStats {
 			indexed_paths: indexed.len(),
 			indexing_in_progress: in_progress.len(),
+			watched_paths: watched.len(),
 		}
 	}
 
@@ -222,7 +310,8 @@ pub struct EphemeralIndexCacheStats {
 	pub indexed_paths: usize,
 	/// Number of paths currently being indexed
 	pub indexing_in_progress: usize,
-	// Legacy field names for compatibility
+	/// Number of paths registered for filesystem watching
+	pub watched_paths: usize,
 }
 
 impl EphemeralIndexCacheStats {
@@ -327,5 +416,50 @@ mod tests {
 		let stats = cache.stats();
 		assert_eq!(stats.indexed_paths, 1);
 		assert_eq!(stats.indexing_in_progress, 1);
+	}
+
+	#[test]
+	fn test_watch_registration() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+		let path = PathBuf::from("/test/watched");
+
+		// Can't watch a path that's not indexed
+		assert!(!cache.register_for_watching(path.clone()));
+		assert!(!cache.is_watched(&path));
+
+		// Index the path first
+		let _index = cache.create_for_indexing(path.clone());
+		cache.mark_indexing_complete(&path);
+
+		// Now we can register for watching
+		assert!(cache.register_for_watching(path.clone()));
+		assert!(cache.is_watched(&path));
+
+		// Stats should reflect watched path
+		let stats = cache.stats();
+		assert_eq!(stats.watched_paths, 1);
+
+		// Unregister
+		cache.unregister_from_watching(&path);
+		assert!(!cache.is_watched(&path));
+	}
+
+	#[test]
+	fn test_find_watched_root() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+
+		let root = PathBuf::from("/mnt/nas");
+		let child = PathBuf::from("/mnt/nas/documents/report.pdf");
+
+		// Index and watch the root
+		let _index = cache.create_for_indexing(root.clone());
+		cache.mark_indexing_complete(&root);
+		cache.register_for_watching(root.clone());
+
+		// Child path should find the watched root
+		assert_eq!(cache.find_watched_root(&child), Some(root.clone()));
+
+		// Unrelated path should not find a root
+		assert_eq!(cache.find_watched_root(Path::new("/other/path")), None);
 	}
 }

@@ -41,6 +41,7 @@ pub mod arena;
 pub mod cache;
 pub mod index_cache;
 pub mod registry;
+pub mod responder;
 pub mod types;
 
 // Re-export public types
