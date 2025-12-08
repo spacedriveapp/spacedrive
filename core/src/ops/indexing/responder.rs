@@ -390,9 +390,7 @@ async fn handle_create(
 	debug!("Create: {}", path.display());
 
 	match path_exists_safe(path, backend).await {
-		Ok(true) => {
-			// Path exists and is accessible, proceed
-		}
+		Ok(true) => {}
 		Ok(false) => {
 			debug!("Path no longer exists, skipping create: {}", path.display());
 			return Ok(());
@@ -407,7 +405,6 @@ async fn handle_create(
 		}
 	}
 
-	// Check if path should be filtered
 	if should_filter_path(path, rule_toggles, location_root, backend).await? {
 		debug!("✗ Skipping filtered path: {}", path.display());
 		return Ok(());
@@ -416,7 +413,6 @@ async fn handle_create(
 	debug!("→ Processing create for: {}", path.display());
 	let dir_entry = build_dir_entry(path, backend).await?;
 
-	// Check if entry already exists at this exact path (race condition from duplicate watcher events)
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
 	if let Some(existing_id) =
 		resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await?
@@ -426,7 +422,6 @@ async fn handle_create(
 			path.display(),
 			existing_id
 		);
-		// Treat as a modify instead
 		return handle_modify(
 			ctx,
 			context,
@@ -440,15 +435,12 @@ async fn handle_create(
 		.await;
 	}
 
-	// If inode matches an existing entry at another path, treat this as a move
 	if handle_move_by_inode(ctx, path, dir_entry.inode, backend).await? {
 		return Ok(());
 	}
 
-	// Minimal state provides parent cache used by EntryProcessor
 	let mut state = IndexerState::new(&crate::domain::addressing::SdPath::local(path));
 
-	// Seed ancestor directories into cache to prevent ghost folder bug
 	if let Ok(Some(location_record)) = entities::location::Entity::find()
 		.filter(entities::location::Column::Uuid.eq(location_id))
 		.one(ctx.library_db())
@@ -461,12 +453,11 @@ async fn handle_create(
 		}
 	}
 
-	// Try to create the entry, handling unique constraint violations with upsert
 	let entry_id = match EntryProcessor::create_entry(
 		&mut state,
 		ctx,
 		&dir_entry,
-		0, // device_id not needed here
+		0,
 		path.parent().unwrap_or_else(|| Path::new("/")),
 	)
 	.await
@@ -476,24 +467,20 @@ async fn handle_create(
 			id
 		}
 		Err(e) if is_unique_constraint_violation(&e) => {
-			// Entry was created concurrently by another event, update it instead
 			debug!(
 				"Unique constraint violation for {}, updating existing entry (race condition)",
 				path.display()
 			);
 
-			// Find the existing entry that caused the constraint violation
 			if let Some(existing_id) =
 				resolve_entry_id_by_path_scoped(ctx, path, location_root_entry_id).await?
 			{
-				// Update the existing entry with new metadata (including potentially new inode)
 				EntryProcessor::update_entry(ctx, existing_id, &dir_entry).await?;
 				debug!(
 					"✓ Updated existing entry {} with new metadata (inode: {:?})",
 					existing_id, dir_entry.inode
 				);
 
-				// Treat as modify for processor pipeline
 				return handle_modify(
 					ctx,
 					context,
@@ -506,7 +493,6 @@ async fn handle_create(
 				)
 				.await;
 			} else {
-				// Shouldn't happen - we got unique constraint but can't find the entry
 				warn!(
 					"Unique constraint violation but entry not found for path: {}",
 					path.display()
@@ -519,7 +505,6 @@ async fn handle_create(
 		}
 	};
 
-	// Get the entry UUID for event emission
 	let entry_uuid = match entities::entry::Entity::find_by_id(entry_id)
 		.one(ctx.library_db())
 		.await?
@@ -528,16 +513,13 @@ async fn handle_create(
 		None => None,
 	};
 
-	// If this is a directory, spawn a recursive indexer job to index its contents
 	if dir_entry.kind == super::state::EntryKind::Directory {
 		debug!(
 			"Created directory detected, spawning recursive indexer job for: {}",
 			path.display()
 		);
 
-		// Get the library to access the job manager
 		if let Some(library) = context.get_library(library_id).await {
-			// Query the location to get its index_mode policy
 			let location_record = entities::location::Entity::find()
 				.filter(entities::location::Column::Uuid.eq(location_id))
 				.one(ctx.library_db())
@@ -545,7 +527,6 @@ async fn handle_create(
 				.ok()
 				.flatten();
 
-			// Determine index mode from location policy (default to Content if not found)
 			let index_mode = if let Some(loc) = location_record {
 				match loc.index_mode.as_str() {
 					"shallow" => super::job::IndexMode::Shallow,
@@ -557,15 +538,12 @@ async fn handle_create(
 				super::job::IndexMode::Content
 			};
 
-			// Create a recursive indexer job for this directory subtree
-			// Use the location's index_mode to respect thumbnail/thumbstrip policies
 			let indexer_job = super::job::IndexerJob::from_location(
 				location_id,
 				crate::domain::addressing::SdPath::local(path),
 				index_mode,
 			);
 
-			// Dispatch the job asynchronously (fire and forget)
 			if let Err(e) = library.jobs().dispatch(indexer_job).await {
 				warn!(
 					"Failed to spawn indexer job for directory {}: {}",
@@ -581,18 +559,14 @@ async fn handle_create(
 			}
 		}
 	} else {
-		// For files, run processors inline (single file processing)
 		if let Some(library) = context.get_library(library_id).await {
-			// Load processor configuration for this location
 			let proc_config =
 				processor::load_location_processor_config(location_id, ctx.library_db())
 					.await
 					.unwrap_or_default();
 
-			// Build processor entry (with MIME type after content linking)
 			let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
 
-			// Run content hash processor first
 			if proc_config
 				.watcher_processors
 				.iter()
@@ -604,10 +578,8 @@ async fn handle_create(
 				}
 			}
 
-			// Reload processor entry to get updated content_id and MIME type
 			let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
 
-			// Run thumbnail processor
 			if proc_config
 				.watcher_processors
 				.iter()
@@ -711,7 +683,6 @@ async fn handle_create(
 		}
 	}
 
-	// Emit resource event for the created entry
 	if let Some(uuid) = entry_uuid {
 		debug!("→ Emitting resource event for entry {}", uuid);
 		let resource_manager =
@@ -730,7 +701,10 @@ async fn handle_create(
 	Ok(())
 }
 
-/// Handle modify: resolve entry ID by path, then update
+/// Updates an existing entry's metadata and re-runs processors for files.
+///
+/// Detects inode-based moves before updating. For files, regenerates content hashes and
+/// thumbnails in case the file contents changed.
 async fn handle_modify(
 	ctx: &impl IndexingCtx,
 	context: &Arc<CoreContext>,
@@ -743,11 +717,8 @@ async fn handle_modify(
 ) -> Result<()> {
 	debug!("Modify: {}", path.display());
 
-	// Verify path is accessible before processing
 	match path_exists_safe(path, backend).await {
-		Ok(true) => {
-			// Path exists and is accessible, proceed
-		}
+		Ok(true) => {}
 		Ok(false) => {
 			debug!("Path no longer exists, skipping modify: {}", path.display());
 			return Ok(());
@@ -762,7 +733,6 @@ async fn handle_modify(
 		}
 	}
 
-	// Check if path should be filtered
 	if should_filter_path(path, rule_toggles, location_root, backend).await? {
 		debug!("✗ Skipping filtered path: {}", path.display());
 		return Ok(());
@@ -770,10 +740,8 @@ async fn handle_modify(
 
 	debug!("→ Processing modify for: {}", path.display());
 
-	// Get location root entry ID for scoped queries
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
 
-	// If inode indicates a move, handle as a move and skip update
 	let meta = EntryProcessor::extract_metadata(path, backend).await?;
 	if handle_move_by_inode(ctx, path, meta.inode, backend).await? {
 		return Ok(());
@@ -792,7 +760,6 @@ async fn handle_modify(
 		EntryProcessor::update_entry(ctx, entry_id, &dir_entry).await?;
 		debug!("✓ Updated entry {} for path: {}", entry_id, path.display());
 
-		// Get entry UUID for event emission
 		let entry_uuid = match entities::entry::Entity::find_by_id(entry_id)
 			.one(ctx.library_db())
 			.await?
@@ -801,19 +768,15 @@ async fn handle_modify(
 			None => None,
 		};
 
-		// For files, run processors on the modified file
 		if dir_entry.kind == super::state::EntryKind::File {
 			if let Some(library) = context.get_library(library_id).await {
-				// Load processor configuration
 				let proc_config =
 					processor::load_location_processor_config(location_id, ctx.library_db())
 						.await
 						.unwrap_or_default();
 
-				// Build processor entry
 				let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
 
-				// Run content hash processor first
 				if proc_config
 					.watcher_processors
 					.iter()
@@ -825,10 +788,8 @@ async fn handle_modify(
 					}
 				}
 
-				// Reload processor entry to get updated content_id and MIME type
 				let proc_entry = build_processor_entry(ctx, entry_id, path).await?;
 
-				// Run thumbnail processor
 				if proc_config
 					.watcher_processors
 					.iter()
@@ -872,7 +833,6 @@ async fn handle_modify(
 			}
 		}
 
-		// Emit resource event for the updated entry
 		if let Some(uuid) = entry_uuid {
 			debug!("→ Emitting resource event for modified entry {}", uuid);
 			let resource_manager =
@@ -896,7 +856,9 @@ async fn handle_modify(
 	Ok(())
 }
 
-/// Handle remove: resolve entry ID and delete subtree (closure table + cache)
+/// Deletes an entry and its entire subtree using closure table traversal.
+///
+/// Creates tombstones for all deleted entries to sync the deletion across devices.
 async fn handle_remove(
 	ctx: &impl IndexingCtx,
 	context: &Arc<CoreContext>,
@@ -905,7 +867,6 @@ async fn handle_remove(
 ) -> Result<()> {
 	debug!("Remove: {}", path.display());
 
-	// Get location root entry ID for scoped queries
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
 
 	if let Some(entry_id) =
@@ -914,7 +875,6 @@ async fn handle_remove(
 		debug!("→ Deleting entry {} for path: {}", entry_id, path.display());
 		delete_subtree(ctx, context, location_id, entry_id).await?;
 		debug!("✓ Deleted entry {} for path: {}", entry_id, path.display());
-		// Note: ResourceDeleted events are emitted by sync_models_batch in delete_subtree
 	} else {
 		debug!(
 			"✗ Entry not found for path, skipping remove: {}",
@@ -924,7 +884,10 @@ async fn handle_remove(
 	Ok(())
 }
 
-/// Handle rename/move: resolve source entry and move via EntryProcessor
+/// Moves an entry from one path to another, updating parent relationships and directory_paths.
+///
+/// Checks if the destination is filtered (treats as deletion). Updates the entry's parent_id,
+/// name, and extension, then recursively fixes descendant paths in directory_paths.
 async fn handle_rename(
 	ctx: &impl IndexingCtx,
 	context: &Arc<CoreContext>,
@@ -937,11 +900,8 @@ async fn handle_rename(
 ) -> Result<()> {
 	debug!("Rename: {} -> {}", from.display(), to.display());
 
-	// Verify destination path is accessible before processing
 	match path_exists_safe(to, backend).await {
-		Ok(true) => {
-			// Destination exists and is accessible, proceed
-		}
+		Ok(true) => {}
 		Ok(false) => {
 			debug!(
 				"Destination path doesn't exist, skipping rename: {}",
@@ -959,17 +919,13 @@ async fn handle_rename(
 		}
 	}
 
-	// Get location root entry ID for scoped queries
 	let location_root_entry_id = get_location_root_entry_id(ctx, location_id).await?;
 
-	// Check if the destination path should be filtered
-	// If the file is being moved to a filtered location, we should remove it from the database
 	if should_filter_path(to, rule_toggles, location_root, backend).await? {
 		debug!(
 			"✗ Destination path is filtered, removing entry: {}",
 			to.display()
 		);
-		// Treat this as a removal of the source file
 		return handle_remove(ctx, context, location_id, from).await;
 	}
 
@@ -1023,7 +979,7 @@ async fn handle_rename(
 	Ok(())
 }
 
-/// Build a DirEntry from current filesystem metadata
+/// Extracts filesystem metadata into a DirEntry for database insertion.
 async fn build_dir_entry(
 	path: &Path,
 	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
@@ -1038,7 +994,7 @@ async fn build_dir_entry(
 	})
 }
 
-/// Build a ProcessorEntry from database entry
+/// Constructs a ProcessorEntry by querying the entry and resolving MIME type via content_identity.
 async fn build_processor_entry(
 	ctx: &impl IndexingCtx,
 	entry_id: i32,
@@ -1051,7 +1007,6 @@ async fn build_processor_entry(
 		.await?
 		.ok_or_else(|| anyhow::anyhow!("Entry not found"))?;
 
-	// Get MIME type if content exists
 	let mime_type = if let Some(content_id) = entry.content_id {
 		if let Ok(Some(ci)) = entities::content_identity::Entity::find_by_id(content_id)
 			.one(ctx.library_db())
@@ -1076,7 +1031,6 @@ async fn build_processor_entry(
 		None
 	};
 
-	// Convert DB entry kind to domain EntryKind
 	let kind = match entry.kind {
 		0 => super::state::EntryKind::File,
 		1 => super::state::EntryKind::Directory,
@@ -1095,7 +1049,7 @@ async fn build_processor_entry(
 	})
 }
 
-/// Resolve an entry ID by absolute path, scoped to location's entry tree
+/// Resolves an entry ID by trying directory lookup first, then file lookup.
 async fn resolve_entry_id_by_path_scoped(
 	ctx: &impl IndexingCtx,
 	abs_path: &Path,
@@ -1109,7 +1063,7 @@ async fn resolve_entry_id_by_path_scoped(
 	resolve_file_entry_id_scoped(ctx, abs_path, location_root_entry_id).await
 }
 
-/// Resolve a directory entry by path, scoped to location's entry tree using entry_closure
+/// Queries directory_paths joined with entry_closure to find directories scoped to this location.
 async fn resolve_directory_entry_id_scoped(
 	ctx: &impl IndexingCtx,
 	abs_path: &Path,
@@ -1119,8 +1073,6 @@ async fn resolve_directory_entry_id_scoped(
 
 	let path_str = abs_path.to_string_lossy().to_string();
 
-	// Query directory_paths and JOIN with entry_closure to scope by location
-	// This ensures we only find entries within THIS location's tree
 	#[derive(Debug, FromQueryResult)]
 	struct DirectoryEntryId {
 		entry_id: i32,
@@ -1143,7 +1095,7 @@ async fn resolve_directory_entry_id_scoped(
 	Ok(result.map(|r| r.entry_id))
 }
 
-/// Resolve a file entry by parent directory path + file name, scoped to location's tree
+/// Finds a file entry by resolving its parent directory, then matching name + extension.
 async fn resolve_file_entry_id_scoped(
 	ctx: &impl IndexingCtx,
 	abs_path: &Path,
@@ -1154,14 +1106,12 @@ async fn resolve_file_entry_id_scoped(
 		None => return Ok(None),
 	};
 
-	// First resolve parent directory using scoped lookup
 	let parent_id =
 		match resolve_directory_entry_id_scoped(ctx, parent, location_root_entry_id).await? {
 			Some(id) => id,
 			None => return Ok(None),
 		};
 
-	// Now find the file entry by parent + name + extension
 	let name = abs_path
 		.file_stem()
 		.and_then(|s| s.to_str())
@@ -1184,19 +1134,18 @@ async fn resolve_file_entry_id_scoped(
 	Ok(model.map(|m| m.id))
 }
 
-/// Check if an error is a unique constraint violation
+/// Detects SQLite unique constraint errors by checking error message strings.
 fn is_unique_constraint_violation(error: &crate::infra::job::error::JobError) -> bool {
-	// Check if the error contains SQLite unique constraint violation messages
 	let error_msg = error.to_string().to_lowercase();
 	error_msg.contains("unique constraint")
 		|| error_msg.contains("unique index")
 		|| error_msg.contains("constraint failed")
 }
 
-/// Best-effort deletion of an entry and its subtree (with tombstone creation)
+/// Deletes an entry tree and creates tombstones for sync.
 ///
-/// This variant is used for local deletions (watcher, indexer) and creates
-/// a tombstone for the root entry UUID to sync the deletion to other devices.
+/// Used by watcher and indexer to propagate deletions to other devices. Traverses using both
+/// entry_closure and parent_id (fallback) to handle partially-corrupted closure tables.
 async fn delete_subtree(
 	ctx: &impl IndexingCtx,
 	context: &Arc<CoreContext>,
@@ -1205,7 +1154,6 @@ async fn delete_subtree(
 ) -> Result<()> {
 	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-	// Step 1: Collect all entry IDs in the subtree
 	let mut to_delete_ids: Vec<i32> = vec![entry_id];
 	if let Ok(rows) = entities::entry_closure::Entity::find()
 		.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
@@ -1215,7 +1163,6 @@ async fn delete_subtree(
 		to_delete_ids.extend(rows.into_iter().map(|r| r.descendant_id));
 	}
 
-	// IMPORTANT: Also find descendants by parent_id recursively as a fallback
 	let mut queue = vec![entry_id];
 	let mut visited = std::collections::HashSet::from([entry_id]);
 
@@ -1244,10 +1191,8 @@ async fn delete_subtree(
 		to_delete_ids.len()
 	);
 
-	// Step 2: Fetch all entry models that will be deleted
 	let entries_to_delete = if !to_delete_ids.is_empty() {
 		let mut all_entries = Vec::new();
-		// Chunk to avoid SQLite variable limit
 		for chunk in to_delete_ids.chunks(900) {
 			let batch = entities::entry::Entity::find()
 				.filter(entities::entry::Column::Id.is_in(chunk.to_vec()))
@@ -1262,8 +1207,6 @@ async fn delete_subtree(
 
 	if !entries_to_delete.is_empty() {
 		if let Some(library) = context.get_library(location_id).await {
-			// Use sync_models_batch for proper sync and event handling
-			// This will create tombstones for all entries and emit ResourceDeleted events
 			let _ = library
 				.sync_models_batch(
 					&entries_to_delete,
@@ -1274,7 +1217,6 @@ async fn delete_subtree(
 		}
 	}
 
-	// Step 4: Now perform the actual database deletion
 	let txn = ctx.library_db().begin().await?;
 
 	if !to_delete_ids.is_empty() {
@@ -1300,10 +1242,7 @@ async fn delete_subtree(
 	Ok(())
 }
 
-/// Best-effort deletion of an entry and its subtree (without tombstone creation)
-///
-/// This variant is used when applying deletion tombstones from sync to avoid
-/// recursion. It performs the same deletions but does not create new tombstones.
+/// Deletes an entry tree without creating tombstones (used when applying remote tombstones).
 pub async fn delete_subtree_internal(
 	entry_id: i32,
 	db: &sea_orm::DatabaseConnection,
@@ -1316,12 +1255,11 @@ pub async fn delete_subtree_internal(
 	Ok(())
 }
 
-/// Helper to delete subtree without transaction management (for use within existing transactions)
+/// Deletes a subtree within an existing transaction (no transaction management).
 async fn delete_subtree_no_txn<C>(entry_id: i32, db: &C) -> Result<(), sea_orm::DbErr>
 where
 	C: sea_orm::ConnectionTrait,
 {
-	// Find all descendants
 	let mut to_delete_ids: Vec<i32> = vec![entry_id];
 	if let Ok(rows) = entities::entry_closure::Entity::find()
 		.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
@@ -1333,7 +1271,6 @@ where
 	to_delete_ids.sort_unstable();
 	to_delete_ids.dedup();
 
-	// Delete entries and related data
 	if !to_delete_ids.is_empty() {
 		let _ = entities::entry_closure::Entity::delete_many()
 			.filter(entities::entry_closure::Column::DescendantId.is_in(to_delete_ids.clone()))
@@ -1356,8 +1293,10 @@ where
 	Ok(())
 }
 
-/// Inode-aware move detection: if an existing entry has the same inode but a different path,
-/// treat the change as a move and update the database accordingly.
+/// Detects moves by matching inodes: if an entry exists with the same inode at a different path, treats as a move.
+///
+/// Prevents duplicate entries when files are moved instead of deleted+created. Falls back to update
+/// if the inode matches but the path is the same (macOS FSEvents quirk).
 async fn handle_move_by_inode(
 	ctx: &impl IndexingCtx,
 	new_path: &Path,
@@ -1379,7 +1318,6 @@ async fn handle_move_by_inode(
 		.one(ctx.library_db())
 		.await?
 	{
-		// Resolve old full path
 		let old_path = PathResolver::get_full_path(ctx.library_db(), existing.id)
 			.await
 			.unwrap_or_else(|_| std::path::PathBuf::from(&existing.name));
@@ -1394,7 +1332,6 @@ async fn handle_move_by_inode(
 		);
 
 		if old_path != new_path {
-			// File was moved to a different path
 			debug!(
 				"✓ Detected inode-based move: {} → {}",
 				old_path.display(),
@@ -1413,8 +1350,6 @@ async fn handle_move_by_inode(
 			debug!("✓ Completed inode-based move for entry {}", existing.id);
 			return Ok(true);
 		} else {
-			// Same path, same inode - this is a modification (macOS FSEvents reports as Create)
-			// Update the existing entry instead of creating a duplicate
 			debug!(
 				"Entry already exists at path with same inode {}, updating instead of creating: {}",
 				inode_val,

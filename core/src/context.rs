@@ -49,7 +49,9 @@ impl CoreContext {
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
 			plugin_manager: Arc::new(RwLock::new(None)),
-			ephemeral_index_cache: Arc::new(EphemeralIndexCache::new()),
+			ephemeral_index_cache: Arc::new(
+				EphemeralIndexCache::new().expect("Failed to create ephemeral index cache"),
+			),
 			job_logging_config: None,
 			job_logs_dir: None,
 		}

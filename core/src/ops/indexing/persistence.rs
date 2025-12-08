@@ -471,10 +471,15 @@ impl IndexPersistence for EphemeralPersistence {
 		let entry_id = self.get_next_id().await;
 		let entry_uuid = Uuid::new_v4();
 
-		// add_entry returns Some(content_kind) if added, None if duplicate path.
+		// add_entry returns Ok(Some(content_kind)) if added, Ok(None) if duplicate path.
 		let content_kind = {
 			let mut index = self.index.write().await;
-			let result = index.add_entry(entry.path.clone(), entry_uuid, metadata.clone());
+			let result = index
+				.add_entry(entry.path.clone(), entry_uuid, metadata.clone())
+				.map_err(|e| {
+					tracing::error!("Failed to add entry to ephemeral index: {}", e);
+					e
+				})?;
 
 			if result.is_some() {
 				match entry.kind {
@@ -604,7 +609,9 @@ mod tests {
 		std::fs::write(&test_file, b"test content").unwrap();
 
 		// Create ephemeral index
-		let index = Arc::new(RwLock::new(EphemeralIndex::new()));
+		let index = Arc::new(RwLock::new(
+			EphemeralIndex::new().expect("failed to create ephemeral index"),
+		));
 
 		// Create event collector
 		let collected_events = Arc::new(Mutex::new(Vec::new()));

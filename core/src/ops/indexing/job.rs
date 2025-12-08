@@ -218,16 +218,16 @@ impl std::fmt::Debug for EphemeralIndex {
 }
 
 impl EphemeralIndex {
-	pub fn new() -> Self {
+	pub fn new() -> std::io::Result<Self> {
 		use super::ephemeral::{NameCache, NameRegistry, NodeArena};
 
 		let cache = std::sync::Arc::new(NameCache::new());
-		let arena = NodeArena::new();
+		let arena = NodeArena::new()?;
 		let registry = NameRegistry::new();
 
 		let now = std::time::Instant::now();
 
-		Self {
+		Ok(Self {
 			arena,
 			cache,
 			registry,
@@ -237,7 +237,7 @@ impl EphemeralIndex {
 			created_at: now,
 			last_accessed: now,
 			stats: IndexerStats::default(),
-		}
+		})
 	}
 
 	/// Ensures a directory exists, creating all missing ancestors recursively.
@@ -246,21 +246,21 @@ impl EphemeralIndex {
 	/// `add_entry()` without a separate tree-building pass. Parent directories
 	/// are created from root to leaf, so the full ancestor chain exists before
 	/// any child is added.
-	pub fn ensure_directory(&mut self, path: &Path) -> super::ephemeral::EntryId {
+	pub fn ensure_directory(&mut self, path: &Path) -> std::io::Result<super::ephemeral::EntryId> {
 		use super::ephemeral::{
 			FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata,
 		};
 		use super::state::EntryKind;
 
 		if let Some(&id) = self.path_index.get(path) {
-			return id;
+			return Ok(id);
 		}
 
 		let parent_id = if let Some(parent_path) = path.parent() {
 			if parent_path.as_os_str().is_empty() {
 				None
 			} else {
-				Some(self.ensure_directory(parent_path))
+				Some(self.ensure_directory(parent_path)?)
 			}
 		} else {
 			None
@@ -279,7 +279,7 @@ impl EphemeralIndex {
 		let meta = PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0);
 		let node = FileNode::new(NameRef::new(name, parent_ref), meta);
 
-		let id = self.arena.insert(node);
+		let id = self.arena.insert(node)?;
 
 		// Add to parent's children
 		if let Some(parent_id) = parent_id {
@@ -294,13 +294,13 @@ impl EphemeralIndex {
 		let uuid = uuid::Uuid::new_v4();
 		self.entry_uuids.insert(path.to_path_buf(), uuid);
 
-		id
+		Ok(id)
 	}
 
 	/// Adds an entry to the index, returning its content kind if successful.
 	///
 	/// Content kind is identified by file extension (no I/O needed), which is
-	/// sufficient for ephemeral browsing where speed is critical. Returns None
+	/// sufficient for ephemeral browsing where speed is critical. Returns Ok(None)
 	/// if the entry already exists (prevents duplicate entries when re-indexing
 	/// a directory).
 	pub fn add_entry(
@@ -308,7 +308,7 @@ impl EphemeralIndex {
 		path: PathBuf,
 		uuid: Uuid,
 		metadata: EntryMetadata,
-	) -> Option<crate::domain::ContentKind> {
+	) -> std::io::Result<Option<crate::domain::ContentKind>> {
 		use super::ephemeral::{
 			FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata,
 		};
@@ -317,7 +317,7 @@ impl EphemeralIndex {
 
 		if self.path_index.contains_key(&path) {
 			tracing::trace!("Skipping duplicate entry: {}", path.display());
-			return None;
+			return Ok(None);
 		}
 
 		// Ensure parent directories exist before adding this entry, building the ancestor
@@ -329,7 +329,7 @@ impl EphemeralIndex {
 			} else if let Some(&existing_id) = self.path_index.get(parent_path) {
 				Some(existing_id)
 			} else {
-				Some(self.ensure_directory(parent_path))
+				Some(self.ensure_directory(parent_path)?)
 			}
 		} else {
 			None
@@ -352,7 +352,7 @@ impl EphemeralIndex {
 			.unwrap_or(MaybeEntryId::NONE);
 		let node = FileNode::new(NameRef::new(name, parent_ref), meta);
 
-		let id = self.arena.insert(node);
+		let id = self.arena.insert(node)?;
 
 		// Add to parent's children
 		if let Some(parent_id) = parent_id {
@@ -376,7 +376,7 @@ impl EphemeralIndex {
 		self.content_kinds.insert(path, content_kind);
 
 		self.last_accessed = std::time::Instant::now();
-		Some(content_kind)
+		Ok(Some(content_kind))
 	}
 
 	pub fn get_entry(&mut self, path: &PathBuf) -> Option<EntryMetadata> {
@@ -615,7 +615,7 @@ impl EphemeralIndex {
 
 impl Default for EphemeralIndex {
 	fn default() -> Self {
-		Self::new()
+		Self::new().expect("Failed to create default EphemeralIndex")
 	}
 }
 
@@ -960,7 +960,9 @@ impl JobHandler for IndexerJob {
 		}
 
 		if self.config.is_ephemeral() && self.ephemeral_index.is_none() {
-			self.ephemeral_index = Some(Arc::new(RwLock::new(EphemeralIndex::new())));
+			let index = EphemeralIndex::new()
+				.map_err(|e| JobError::Other(format!("Failed to create ephemeral index: {}", e)))?;
+			self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
 			ctx.log("Initialized ephemeral index for non-persistent job");
 		}
 

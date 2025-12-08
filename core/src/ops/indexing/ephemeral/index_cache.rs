@@ -42,13 +42,13 @@ pub struct EphemeralIndexCache {
 
 impl EphemeralIndexCache {
 	/// Create a new cache with an empty global index
-	pub fn new() -> Self {
-		Self {
-			index: Arc::new(TokioRwLock::new(EphemeralIndex::new())),
+	pub fn new() -> std::io::Result<Self> {
+		Ok(Self {
+			index: Arc::new(TokioRwLock::new(EphemeralIndex::new()?)),
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			created_at: Instant::now(),
-		}
+		})
 	}
 
 	/// Get the global index if the given path has been indexed
@@ -199,7 +199,7 @@ impl EphemeralIndexCache {
 
 impl Default for EphemeralIndexCache {
 	fn default() -> Self {
-		Self::new()
+		Self::new().expect("Failed to create default EphemeralIndexCache")
 	}
 }
 
@@ -231,7 +231,7 @@ mod tests {
 
 	#[test]
 	fn test_single_global_index() {
-		let cache = EphemeralIndexCache::new();
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 
 		// Initially no paths are indexed
 		assert!(cache.is_empty());
@@ -240,7 +240,7 @@ mod tests {
 
 	#[test]
 	fn test_indexing_workflow() {
-		let cache = EphemeralIndexCache::new();
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 		let path = PathBuf::from("/test/path");
 
 		// Start indexing
@@ -259,7 +259,7 @@ mod tests {
 
 	#[test]
 	fn test_shared_index_across_paths() {
-		let cache = EphemeralIndexCache::new();
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 
 		let path1 = PathBuf::from("/test/path1");
 		let path2 = PathBuf::from("/test/path2");
@@ -283,7 +283,7 @@ mod tests {
 
 	#[test]
 	fn test_invalidate_path() {
-		let cache = EphemeralIndexCache::new();
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 		let path = PathBuf::from("/test/path");
 
 		// Index the path
@@ -301,7 +301,7 @@ mod tests {
 
 	#[test]
 	fn test_stats() {
-		let cache = EphemeralIndexCache::new();
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 
 		let path1 = PathBuf::from("/ready");
 		let path2 = PathBuf::from("/in_progress");
