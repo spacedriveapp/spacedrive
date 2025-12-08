@@ -1,4 +1,8 @@
-//! IndexerProgress to GenericProgress conversion
+//! # IndexerProgress to GenericProgress Conversion
+//!
+//! Maps indexer-specific progress (phases, stats) to the generic job progress format for UI display.
+//! Each phase is assigned a percentage range to show continuous progress across all four stages.
+//! The converter handles path filtering to distinguish between real filesystem paths and status messages.
 
 use super::state::{IndexPhase, IndexerProgress};
 use crate::{
@@ -73,20 +77,16 @@ impl ToGenericProgress for IndexerProgress {
 			}
 		};
 
-		// Convert current_path string to SdPath only if it's a real filesystem path
-		// During aggregation, current_path contains status messages like "Aggregating directory 3846/3877: info"
-		// During other phases, it might contain actual file paths
+		// Filter out status messages from current_path - only convert real filesystem paths to SdPath.
 		let current_path = if !self.current_path.is_empty()
 			&& !self.current_path.starts_with("Aggregating directory")
 			&& !self.current_path.starts_with("Finalizing")
 		{
-			// Only create SdPath if it looks like a real path (absolute or relative with separators)
 			let path_buf = PathBuf::from(&self.current_path);
 			if path_buf.is_absolute()
 				|| self.current_path.contains('/')
 				|| self.current_path.contains('\\')
 			{
-				// Try to parse as URI first (for cloud paths), fall back to local path
 				SdPath::from_uri(&self.current_path)
 					.ok()
 					.or_else(|| Some(SdPath::local(path_buf)))
@@ -97,34 +97,29 @@ impl ToGenericProgress for IndexerProgress {
 			None
 		};
 
-		// completion_info is already set correctly from phase matching above
 		let final_completion = completion_info;
 
-		// Create the generic progress
 		let mut progress = GenericProgress::new(percentage, &phase_name, &phase_message)
-			.with_bytes(self.total_found.bytes, self.total_found.bytes) // Total bytes found so far
+			.with_bytes(self.total_found.bytes, self.total_found.bytes)
 			.with_performance(
 				self.processing_rate,
 				self.estimated_remaining,
-				None, // Could calculate elapsed time from start
+				None,
 			)
-			.with_errors(self.total_found.errors, 0) // No separate warning count in IndexerStats
-			.with_metadata(self); // Include original indexer progress as metadata
+			.with_errors(self.total_found.errors, 0)
+			.with_metadata(self);
 
-		// Set completion data - for finalizing phase, manually set to avoid auto-percentage calculation
+		// Finalizing phase uses manual completion to preserve custom percentage ranges.
 		match &self.phase {
 			IndexPhase::Finalizing { .. } => {
-				// Manually set completion to preserve our custom percentage calculation
 				progress.completion.completed = final_completion.0;
 				progress.completion.total = final_completion.1;
 			}
 			_ => {
-				// For other phases, use normal with_completion which auto-calculates percentage
 				progress = progress.with_completion(final_completion.0, final_completion.1);
 			}
 		}
 
-		// Set current path if available
 		if let Some(path) = current_path {
 			progress = progress.with_current_path(path);
 		}

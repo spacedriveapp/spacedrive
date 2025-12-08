@@ -1,4 +1,14 @@
-//! Directory size aggregation phase
+//! # Directory Size Aggregation
+//!
+//! Computes total sizes and file counts for directories by traversing from deepest
+//! leaves to the root. Each directory's `aggregate_size` includes all descendant files,
+//! and `file_count` tracks the total number of files (not subdirectories) contained
+//! within. This data powers folder size displays in the UI and enables sorting by size.
+//!
+//! Processing order matters: children must be aggregated before their parents, so we
+//! sort directories by depth (deepest first) before computing. Without this, parent
+//! totals would miss unaggregated child contributions. The closure table provides all
+//! descendants in one query instead of recursive tree walks.
 
 use crate::{
 	infra::{
@@ -15,7 +25,12 @@ use sea_orm::{
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Run the directory aggregation phase
+/// Aggregates directory sizes and file counts from leaves to root.
+///
+/// Queries all directories under the location using the closure table, sorts them by
+/// depth (deepest first), then computes aggregate_size and file_count for each by
+/// summing direct children. Updates indexed_at after each directory so sync picks up
+/// the aggregated values. Skips locations without an entry_id (not yet indexed).
 pub async fn run_aggregation_phase(
 	location_id: Uuid,
 	state: &mut IndexerState,
@@ -23,7 +38,6 @@ pub async fn run_aggregation_phase(
 ) -> Result<(), JobError> {
 	ctx.log("Starting directory size aggregation phase");
 
-	// Get the location record
 	let location_record = entities::location::Entity::find()
 		.filter(entities::location::Column::Uuid.eq(location_id))
 		.one(ctx.library_db())
@@ -33,8 +47,6 @@ pub async fn run_aggregation_phase(
 
 	let location_id_i32 = location_record.id;
 
-	// Find all directories under this location using closure table
-	// First get all descendant IDs
 	let descendant_ids = entities::entry_closure::Entity::find()
 		.filter(entities::entry_closure::Column::AncestorId.eq(location_record.entry_id))
 		.all(ctx.library_db())
@@ -44,14 +56,12 @@ pub async fn run_aggregation_phase(
 		.map(|ec| ec.descendant_id)
 		.collect::<Vec<i32>>();
 
-	// Add the root entry itself (skip if location has no entry_id)
 	let Some(root_entry_id) = location_record.entry_id else {
-		return Ok(()); // Skip if location not yet synced
+		return Ok(());
 	};
 	let mut all_entry_ids = vec![root_entry_id];
 	all_entry_ids.extend(descendant_ids);
 
-	// Now get all directories from these entries
 	let mut directories: Vec<entities::entry::Model> = Vec::new();
 	// SQLite has a bind parameter limit (~999). Query in safe chunks.
 	let chunk_size: usize = 900;
@@ -65,18 +75,15 @@ pub async fn run_aggregation_phase(
 		directories.append(&mut batch);
 	}
 
-	// Sort directories by their depth in the hierarchy (deepest first)
-	// We'll use a simple approach: count parents
+	// Count depth by following parent links up to root.
 	let mut dir_depths: Vec<(entities::entry::Model, usize)> = Vec::new();
 
 	for directory in directories {
 		let mut depth = 0;
 		let mut current_parent_id = directory.parent_id;
 
-		// Count the depth by following parent links
 		while let Some(parent_id) = current_parent_id {
 			depth += 1;
-			// Find the parent to get its parent_id
 			if let Ok(Some(parent)) = entities::entry::Entity::find_by_id(parent_id)
 				.one(ctx.library_db())
 				.await
@@ -90,7 +97,6 @@ pub async fn run_aggregation_phase(
 		dir_depths.push((directory, depth));
 	}
 
-	// Sort by depth (deepest first)
 	dir_depths.sort_by(|a, b| b.1.cmp(&a.1));
 	let directories: Vec<entities::entry::Model> =
 		dir_depths.into_iter().map(|(dir, _)| dir).collect();
@@ -98,7 +104,6 @@ pub async fn run_aggregation_phase(
 	let total_dirs = directories.len();
 	ctx.log(format!("Found {} directories to aggregate", total_dirs));
 
-	// Process directories from leaves to root
 	let mut processed = 0;
 	let aggregator = DirectoryAggregator::new(ctx.library_db().clone());
 
@@ -125,16 +130,14 @@ pub async fn run_aggregation_phase(
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-		// Calculate aggregate values for this directory
 		match aggregator.aggregate_directory(&directory).await {
 			Ok((aggregate_size, child_count, file_count)) => {
-				// Update the directory entry
 				let directory_name = directory.name.clone();
 				let mut active_dir: entities::entry::ActiveModel = directory.into();
 				active_dir.aggregate_size = Set(aggregate_size);
 				active_dir.child_count = Set(child_count);
 				active_dir.file_count = Set(file_count);
-				// Update indexed_at so aggregate changes are picked up by sync
+				// Bump indexed_at so sync picks up aggregate changes.
 				active_dir.indexed_at = Set(Some(chrono::Utc::now()));
 
 				active_dir.update(ctx.library_db()).await.map_err(|e| {
@@ -153,8 +156,6 @@ pub async fn run_aggregation_phase(
 				));
 			}
 		}
-
-		// State is automatically saved during job serialization on shutdown
 	}
 
 	ctx.log(format!(
@@ -174,12 +175,15 @@ impl DirectoryAggregator {
 		Self { db }
 	}
 
-	/// Calculate aggregate size, child count, and file count for a directory
+	/// Computes aggregate values by summing direct children only.
+	///
+	/// Files contribute their size directly. Subdirectories contribute their already-computed
+	/// aggregate_size and file_count (this is why we process deepest-first). Symlinks are
+	/// treated as files for counting purposes.
 	async fn aggregate_directory(
 		&self,
 		directory: &entities::entry::Model,
 	) -> Result<(i64, i32, i32), DbErr> {
-		// Get all direct children using parent_id only
 		let children = entities::entry::Entity::find()
 			.filter(entities::entry::Column::ParentId.eq(directory.id))
 			.all(&self.db)
@@ -192,21 +196,19 @@ impl DirectoryAggregator {
 		for child in children {
 			match child.kind {
 				0 => {
-					// File
 					aggregate_size += child.size;
 					file_count += 1;
 				}
 				1 => {
-					// Directory
 					aggregate_size += child.aggregate_size;
 					file_count += child.file_count;
 				}
 				2 => {
-					// Symlink - count as file
+					// Symlinks count as files.
 					aggregate_size += child.size;
 					file_count += 1;
 				}
-				_ => {} // Unknown type, skip
+				_ => {}
 			}
 		}
 
@@ -214,9 +216,12 @@ impl DirectoryAggregator {
 	}
 }
 
-/// One-time migration to calculate all directory sizes for existing data
+/// Backfills aggregate_size and file_count for all existing directories across all locations.
+///
+/// This is a one-time migration for databases created before aggregation was added.
+/// Safe to run multiple times (idempotent). Processes each location independently,
+/// sorting directories by depth within each location tree.
 pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbErr> {
-	// Get all locations
 	let locations = entities::location::Entity::find().all(db).await?;
 
 	for location in locations {
@@ -225,7 +230,6 @@ pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbEr
 			location.name.as_deref().unwrap_or("Unknown")
 		);
 
-		// Find all directories under this location using closure table
 		let Some(root_entry_id) = location.entry_id else {
 			tracing::warn!(
 				"Skipping location {} - entry_id not set (not yet synced)",
@@ -256,7 +260,6 @@ pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbEr
 			directories.append(&mut batch);
 		}
 
-		// Sort by depth (deepest first) - same logic as above
 		let mut dir_depths: Vec<(entities::entry::Model, usize)> = Vec::new();
 
 		for directory in directories {
@@ -290,7 +293,7 @@ pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbEr
 					active_dir.aggregate_size = Set(aggregate_size);
 					active_dir.child_count = Set(child_count);
 					active_dir.file_count = Set(file_count);
-					// Update indexed_at so aggregate changes are picked up by sync
+					// Bump indexed_at so sync picks up aggregate changes.
 					active_dir.indexed_at = Set(Some(chrono::Utc::now()));
 
 					active_dir.update(db).await?;

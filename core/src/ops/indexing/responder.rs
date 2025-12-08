@@ -94,7 +94,10 @@ async fn path_exists_safe(
 	}
 }
 
-/// Apply a raw FS change by resolving it to DB operations (create/modify/move/delete)
+/// Translates a single filesystem event into database mutations: create, modify, rename, or remove.
+///
+/// Queries the database to resolve paths to entry IDs, then delegates to specialized handlers.
+/// For creates/modifies, runs the processor pipeline (content hash, thumbnails, etc.) inline.
 pub async fn apply(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
@@ -152,7 +155,11 @@ pub async fn apply(
 	Ok(())
 }
 
-/// Apply a batch of raw FS changes with optimized processing
+/// Processes multiple filesystem events as a batch, deduplicating and ordering for correctness.
+///
+/// Groups events by type, deduplicates (macOS sends duplicate creates), then processes in order:
+/// removes first, then renames, creates, modifies. This prevents conflicts like creating a file
+/// that should have been deleted.
 pub async fn apply_batch(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
@@ -181,7 +188,6 @@ pub async fn apply_batch(
 	// Lightweight indexing context for DB access
 	let ctx = ResponderCtx::new(context, library_id).await?;
 
-	// Group events by type for potential bulk operations
 	let mut creates = Vec::new();
 	let mut modifies = Vec::new();
 	let mut removes = Vec::new();
@@ -196,17 +202,13 @@ pub async fn apply_batch(
 		}
 	}
 
-	// Deduplicate events - macOS FSEvents can send duplicate Create events for the same file
-	// when it's written in stages (common for screenshots, large files, etc)
+	// macOS FSEvents sends duplicate creates when files are written incrementally.
 	creates.sort();
 	creates.dedup();
 	modifies.sort();
 	modifies.dedup();
 	removes.sort();
 	removes.dedup();
-
-	// Process in order: removes first, then renames, then creates, then modifies
-	// This ensures we don't try to create files that should be removed, etc.
 
 	debug!(
 		"Processing batch: {} creates, {} modifies, {} removes, {} renames",
@@ -298,7 +300,7 @@ pub async fn apply_batch(
 	Ok(())
 }
 
-/// Get the location's root entry ID for scoping queries
+/// Fetches the location's root entry_id to scope path lookups within the correct location tree.
 async fn get_location_root_entry_id(ctx: &impl IndexingCtx, location_id: Uuid) -> Result<i32> {
 	let location_record = entities::location::Entity::find()
 		.filter(entities::location::Column::Uuid.eq(location_id))
@@ -311,17 +313,15 @@ async fn get_location_root_entry_id(ctx: &impl IndexingCtx, location_id: Uuid) -
 		.ok_or_else(|| anyhow::anyhow!("Location {} has no root entry", location_id))
 }
 
-/// Check if a path should be filtered based on indexing rules
+/// Evaluates indexing rules to determine if a path should be skipped (hidden files, system dirs, etc.).
 async fn should_filter_path(
 	path: &Path,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
 	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<bool> {
-	// Build ruler for this path using the same logic as the indexer
 	let ruler = build_default_ruler(rule_toggles, location_root, path).await;
 
-	// Get metadata for the path using backend if available
 	let metadata = if let Some(backend) = backend {
 		backend
 			.metadata(path)
@@ -346,7 +346,6 @@ async fn should_filter_path(
 		}
 	};
 
-	// Simple metadata implementation for rule evaluation
 	struct SimpleMetadata {
 		is_dir: bool,
 	}
@@ -360,7 +359,6 @@ async fn should_filter_path(
 		is_dir: metadata.kind == crate::ops::indexing::state::EntryKind::Directory,
 	};
 
-	// Evaluate the path against the ruler
 	match ruler.evaluate_path(path, &simple_meta).await {
 		Ok(RulerDecision::Reject) => {
 			debug!("Filtered path by indexing rules: {}", path.display());
@@ -369,12 +367,16 @@ async fn should_filter_path(
 		Ok(RulerDecision::Accept) => Ok(false),
 		Err(e) => {
 			tracing::warn!("Error evaluating rules for {}: {}", path.display(), e);
-			Ok(false) // Don't filter on error, let it through
+			Ok(false)
 		}
 	}
 }
 
-/// Handle create: extract metadata and insert via EntryProcessor
+/// Creates a new entry for the path, runs processors, and spawns recursive indexing for directories.
+///
+/// Checks for duplicate creates (race conditions), inode-based moves, and filters based on rules.
+/// For directories, dispatches an IndexerJob to index contents. For files, runs the processor
+/// pipeline inline (content hash, thumbnails, etc.).
 async fn handle_create(
 	ctx: &impl IndexingCtx,
 	context: &Arc<CoreContext>,
@@ -387,7 +389,6 @@ async fn handle_create(
 ) -> Result<()> {
 	debug!("Create: {}", path.display());
 
-	// Verify path is accessible before processing
 	match path_exists_safe(path, backend).await {
 		Ok(true) => {
 			// Path exists and is accessible, proceed
