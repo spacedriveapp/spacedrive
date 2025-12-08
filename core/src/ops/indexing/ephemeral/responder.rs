@@ -17,7 +17,7 @@
 
 use crate::context::CoreContext;
 use crate::infra::event::FsRawEventKind;
-use crate::ops::indexing::handler::{self, ChangeConfig, EphemeralChangeHandler};
+use crate::ops::indexing::change_detection::{self, ChangeConfig, EphemeralChangeHandler};
 use crate::ops::indexing::rules::RuleToggles;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -76,7 +76,7 @@ pub async fn apply_batch(
 		volume_backend: None, // Ephemeral paths typically don't use volume backends
 	};
 
-	handler::apply_batch(&mut handler, events, &config).await
+	change_detection::apply_batch(&mut handler, events, &config).await
 }
 
 /// Process a single filesystem event against the ephemeral index.
