@@ -1,206 +1,449 @@
-//! String interning cache for deduplicating filenames
+//! # Ephemeral Index Cache
 //!
-//! The NameCache provides global string interning to reduce memory usage.
-//! Common filenames like `.git`, `node_modules`, `target`, `README.md` etc.
-//! are stored only once and referenced via pointers.
-//!
-//! Benefits:
-//! - 30-40% memory reduction on typical filesystems
-//! - Pointer-based equality (faster comparisons)
-//! - Stable references for NameRef
+//! Thread-safe wrapper around a single global `EphemeralIndex`. All browsed
+//! directories share one arena and string pool, keeping memory at ~50 bytes per
+//! entry regardless of how many paths the user navigates. The cache tracks which
+//! paths are indexed (queryable), in-progress (being scanned), or watched
+//! (receiving live filesystem updates via `EphemeralChangeHandler`).
 
-use parking_lot::Mutex;
-use std::collections::BTreeSet;
+use crate::ops::indexing::EphemeralIndex;
+use parking_lot::RwLock;
+use std::{
+	collections::HashSet,
+	path::{Path, PathBuf},
+	sync::Arc,
+	time::Instant,
+};
+use tokio::sync::RwLock as TokioRwLock;
 
-/// Global string interning pool for deduplicating filenames
+/// Global cache with a single unified ephemeral index
 ///
-/// Strings are stored in a BTreeSet for ordered iteration and fast lookup.
-/// The Mutex ensures thread-safe access for concurrent indexing.
-pub struct NameCache {
-	inner: Mutex<BTreeSet<Box<str>>>,
+/// Instead of separate indexes per path, all entries live in one shared index.
+/// This maximizes memory efficiency through shared string interning and arena.
+pub struct EphemeralIndexCache {
+	/// Single global index containing all browsed entries
+	index: Arc<TokioRwLock<EphemeralIndex>>,
+
+	/// Paths whose immediate children have been indexed (ready for queries)
+	indexed_paths: RwLock<HashSet<PathBuf>>,
+
+	/// Paths currently being indexed
+	indexing_in_progress: RwLock<HashSet<PathBuf>>,
+
+	/// Paths registered for filesystem watching (subset of indexed_paths)
+	watched_paths: RwLock<HashSet<PathBuf>>,
+
+	/// When the cache was created
+	created_at: Instant,
 }
 
-impl NameCache {
-	/// Create a new empty cache
-	pub fn new() -> Self {
-		Self {
-			inner: Mutex::new(BTreeSet::new()),
+impl EphemeralIndexCache {
+	/// Create a new cache with an empty global index
+	pub fn new() -> std::io::Result<Self> {
+		Ok(Self {
+			index: Arc::new(TokioRwLock::new(EphemeralIndex::new()?)),
+			indexed_paths: RwLock::new(HashSet::new()),
+			indexing_in_progress: RwLock::new(HashSet::new()),
+			watched_paths: RwLock::new(HashSet::new()),
+			created_at: Instant::now(),
+		})
+	}
+
+	/// Get the global index if the given path has been indexed
+	///
+	/// Returns Some(index) if this path's contents are available,
+	/// None if the path hasn't been browsed yet.
+	pub fn get_for_path(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
+		let indexed = self.indexed_paths.read();
+		if indexed.contains(path) {
+			Some(self.index.clone())
+		} else {
+			None
 		}
 	}
 
-	/// Intern a string and return a stable reference
-	///
-	/// If the string already exists, returns a reference to the existing copy.
-	/// If not, inserts a new copy and returns a reference to it.
-	///
-	/// # Safety
-	/// The returned reference is valid as long as the NameCache exists.
-	/// NameCache never removes strings, so references remain stable.
-	pub fn intern<'cache>(&'cache self, name: &str) -> &'cache str {
-		let mut inner = self.inner.lock();
-
-		// Check if already interned
-		if let Some(existing) = inner.get(name) {
-			// SAFETY: BTreeSet owns the Box<str>, which lives as long as NameCache.
-			// We return a reference with lifetime tied to &self.
-			return unsafe { &*(existing.as_ref() as *const str) };
-		}
-
-		// Insert new string
-		let boxed: Box<str> = name.into();
-		let ptr = boxed.as_ref() as *const str;
-		inner.insert(boxed);
-
-		// SAFETY: We just inserted the string, and NameCache never removes strings.
-		// The pointer remains valid as long as NameCache exists.
-		unsafe { &*ptr }
+	/// Get the global index unconditionally (for internal use)
+	pub fn get_global_index(&self) -> Arc<TokioRwLock<EphemeralIndex>> {
+		self.index.clone()
 	}
 
-	/// Get the number of interned strings
+	/// Check if a path has been fully indexed
+	pub fn is_indexed(&self, path: &Path) -> bool {
+		self.indexed_paths.read().contains(path)
+	}
+
+	/// Check if indexing is in progress for a path
+	pub fn is_indexing(&self, path: &Path) -> bool {
+		self.indexing_in_progress.read().contains(path)
+	}
+
+	/// Prepare the global index for indexing a new path
+	///
+	/// Marks the path as indexing-in-progress and returns the global index.
+	/// The indexer job should add entries to this shared index.
+	///
+	/// If the path was previously indexed, clears its children first to
+	/// prevent ghost entries from deleted files.
+	pub fn create_for_indexing(&self, path: PathBuf) -> Arc<TokioRwLock<EphemeralIndex>> {
+		let mut in_progress = self.indexing_in_progress.write();
+		let mut indexed = self.indexed_paths.write();
+
+		// If this path was previously indexed, remove it from indexed set
+		// The actual clearing of stale entries happens asynchronously via clear_for_reindex
+		indexed.remove(&path);
+		in_progress.insert(path);
+
+		self.index.clone()
+	}
+
+	/// Clear stale entries for a path before re-indexing (async version)
+	///
+	/// Removes files and unbrowsed subdirectories, preserving subdirectories
+	/// that were explicitly navigated to. Verifies preserved directories still
+	/// exist on the filesystem and removes deleted ones from tracking.
+	pub async fn clear_for_reindex(&self, path: &Path) -> usize {
+		let indexed = self.indexed_paths.read().clone();
+		let mut index = self.index.write().await;
+		let (cleared, deleted_browsed_dirs) = index.clear_directory_children(path, &indexed);
+
+		// Remove deleted browsed directories from indexed_paths
+		if !deleted_browsed_dirs.is_empty() {
+			let mut indexed_paths = self.indexed_paths.write();
+			for deleted_path in deleted_browsed_dirs {
+				indexed_paths.remove(&deleted_path);
+			}
+		}
+
+		cleared
+	}
+
+	/// Mark indexing as complete for a path
+	///
+	/// Moves the path from "in progress" to "indexed" state.
+	pub fn mark_indexing_complete(&self, path: &Path) {
+		let mut in_progress = self.indexing_in_progress.write();
+		let mut indexed = self.indexed_paths.write();
+
+		in_progress.remove(path);
+		indexed.insert(path.to_path_buf());
+	}
+
+	/// Remove a path from the indexed set (e.g., on invalidation)
+	///
+	/// Note: This doesn't remove entries from the index itself,
+	/// just marks the path as needing re-indexing.
+	pub fn invalidate_path(&self, path: &Path) {
+		let mut indexed = self.indexed_paths.write();
+		indexed.remove(path);
+	}
+
+	/// Get the number of indexed paths
 	pub fn len(&self) -> usize {
-		self.inner.lock().len()
+		self.indexed_paths.read().len()
 	}
 
-	/// Check if the cache is empty
+	/// Check if no paths have been indexed
 	pub fn is_empty(&self) -> bool {
-		self.inner.lock().is_empty()
+		self.indexed_paths.read().is_empty()
 	}
 
-	/// Check if a string is already interned
-	pub fn contains(&self, name: &str) -> bool {
-		self.inner.lock().contains(name)
+	/// Get all indexed paths
+	pub fn indexed_paths(&self) -> Vec<PathBuf> {
+		self.indexed_paths.read().iter().cloned().collect()
 	}
 
-	/// Get approximate memory usage in bytes
-	pub fn memory_usage(&self) -> usize {
-		let inner = self.inner.lock();
-		// Base struct size + BTreeSet overhead + string contents
-		std::mem::size_of::<Self>()
-			+ inner.len() * std::mem::size_of::<Box<str>>()
-			+ inner.iter().map(|s| s.len()).sum::<usize>()
+	/// Get all paths currently being indexed
+	pub fn paths_in_progress(&self) -> Vec<PathBuf> {
+		self.indexing_in_progress.read().iter().cloned().collect()
 	}
 
-	/// Iterate over all interned strings
-	pub fn iter(&self) -> impl Iterator<Item = String> {
-		let inner = self.inner.lock();
-		inner
-			.iter()
-			.map(|s| s.to_string())
-			.collect::<Vec<_>>()
-			.into_iter()
+	/// Register a path for filesystem watching.
+	///
+	/// When registered, the watcher service will monitor this path for changes
+	/// and update the ephemeral index via `EphemeralChangeHandler`. The path
+	/// must already be indexed.
+	pub fn register_for_watching(&self, path: PathBuf) -> bool {
+		let indexed = self.indexed_paths.read();
+		if !indexed.contains(&path) {
+			return false;
+		}
+		drop(indexed);
+
+		let mut watched = self.watched_paths.write();
+		watched.insert(path);
+		true
+	}
+
+	/// Unregister a path from filesystem watching.
+	pub fn unregister_from_watching(&self, path: &Path) {
+		let mut watched = self.watched_paths.write();
+		watched.remove(path);
+	}
+
+	/// Check if a path is registered for watching.
+	pub fn is_watched(&self, path: &Path) -> bool {
+		self.watched_paths.read().contains(path)
+	}
+
+	/// Get all watched paths.
+	pub fn watched_paths(&self) -> Vec<PathBuf> {
+		self.watched_paths.read().iter().cloned().collect()
+	}
+
+	/// Find the watched root path that contains the given path.
+	///
+	/// If the given path is under a watched directory, returns that directory.
+	/// Used by the watcher to route events to the ephemeral handler.
+	pub fn find_watched_root(&self, path: &Path) -> Option<PathBuf> {
+		let watched = self.watched_paths.read();
+
+		// Find the longest matching watched path that is an ancestor of `path`
+		let mut best_match: Option<&PathBuf> = None;
+		let mut best_len = 0;
+
+		for watched_path in watched.iter() {
+			if path.starts_with(watched_path) {
+				let len = watched_path.as_os_str().len();
+				if len > best_len {
+					best_len = len;
+					best_match = Some(watched_path);
+				}
+			}
+		}
+
+		best_match.cloned()
+	}
+
+	/// Check if any path in an event batch is under an ephemeral watched path.
+	///
+	/// Returns the watched root if found.
+	pub fn find_watched_root_for_any<'a, I>(&self, paths: I) -> Option<PathBuf>
+	where
+		I: IntoIterator<Item = &'a Path>,
+	{
+		for path in paths {
+			if let Some(root) = self.find_watched_root(path) {
+				return Some(root);
+			}
+		}
+		None
+	}
+
+	/// Get cache statistics
+	pub fn stats(&self) -> EphemeralIndexCacheStats {
+		let indexed = self.indexed_paths.read();
+		let in_progress = self.indexing_in_progress.read();
+		let watched = self.watched_paths.read();
+
+		EphemeralIndexCacheStats {
+			indexed_paths: indexed.len(),
+			indexing_in_progress: in_progress.len(),
+			watched_paths: watched.len(),
+		}
+	}
+
+	/// Get how long the cache has existed
+	pub fn age(&self) -> std::time::Duration {
+		self.created_at.elapsed()
+	}
+
+	/// Legacy: Get age for a specific path (returns cache age since all share one index)
+	pub fn get_age(&self, _path: &Path) -> Option<f64> {
+		Some(self.created_at.elapsed().as_secs_f64())
+	}
+
+	// Legacy compatibility methods
+
+	/// Legacy: Get an index by exact path (for backward compatibility)
+	#[deprecated(note = "Use get_for_path instead")]
+	pub fn get(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
+		self.get_for_path(path)
+	}
+
+	/// Legacy: Get all cached paths (returns indexed paths)
+	#[deprecated(note = "Use indexed_paths instead")]
+	pub fn cached_paths(&self) -> Vec<PathBuf> {
+		self.indexed_paths()
+	}
+
+	/// Legacy: Insert (no-op, entries are added directly to global index)
+	#[deprecated(note = "Entries should be added directly to the global index")]
+	pub fn insert(&self, path: PathBuf, _index: Arc<TokioRwLock<EphemeralIndex>>) {
+		// Mark the path as indexed
+		let mut indexed = self.indexed_paths.write();
+		indexed.insert(path);
+	}
+
+	/// Legacy: Remove (just invalidates the path)
+	#[deprecated(note = "Use invalidate_path instead")]
+	pub fn remove(&self, path: &Path) {
+		self.invalidate_path(path);
 	}
 }
 
-impl Default for NameCache {
+impl Default for EphemeralIndexCache {
 	fn default() -> Self {
-		Self::new()
+		Self::new().expect("Failed to create default EphemeralIndexCache")
 	}
 }
 
-// SAFETY: NameCache uses Mutex for thread-safe access
-unsafe impl Send for NameCache {}
-unsafe impl Sync for NameCache {}
+/// Statistics about the ephemeral index cache
+#[derive(Debug, Clone)]
+pub struct EphemeralIndexCacheStats {
+	/// Number of paths that have been indexed
+	pub indexed_paths: usize,
+	/// Number of paths currently being indexed
+	pub indexing_in_progress: usize,
+	/// Number of paths registered for filesystem watching
+	pub watched_paths: usize,
+}
+
+impl EphemeralIndexCacheStats {
+	/// Legacy: total_entries now means indexed_paths
+	pub fn total_entries(&self) -> usize {
+		self.indexed_paths
+	}
+
+	/// Legacy: indexing_count now means indexing_in_progress
+	pub fn indexing_count(&self) -> usize {
+		self.indexing_in_progress
+	}
+}
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 
 	#[test]
-	fn test_intern_returns_same_pointer() {
-		let cache = NameCache::new();
+	fn test_single_global_index() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 
-		let s1 = cache.intern("hello");
-		let s2 = cache.intern("hello");
-
-		// Same pointer means same interned string
-		assert!(std::ptr::eq(s1, s2));
-		assert_eq!(s1, "hello");
+		// Initially no paths are indexed
+		assert!(cache.is_empty());
+		assert!(cache.get_for_path(Path::new("/test")).is_none());
 	}
 
 	#[test]
-	fn test_intern_different_strings() {
-		let cache = NameCache::new();
+	fn test_indexing_workflow() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+		let path = PathBuf::from("/test/path");
 
-		let s1 = cache.intern("hello");
-		let s2 = cache.intern("world");
+		// Start indexing
+		let _index = cache.create_for_indexing(path.clone());
+		assert!(cache.is_indexing(&path));
+		assert!(!cache.is_indexed(&path));
 
-		assert!(!std::ptr::eq(s1, s2));
-		assert_eq!(s1, "hello");
-		assert_eq!(s2, "world");
+		// Complete indexing
+		cache.mark_indexing_complete(&path);
+		assert!(!cache.is_indexing(&path));
+		assert!(cache.is_indexed(&path));
+
+		// Now get_for_path returns the index
+		assert!(cache.get_for_path(&path).is_some());
 	}
 
 	#[test]
-	fn test_len_and_contains() {
-		let cache = NameCache::new();
+	fn test_shared_index_across_paths() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 
-		assert_eq!(cache.len(), 0);
-		assert!(!cache.contains("test"));
+		let path1 = PathBuf::from("/test/path1");
+		let path2 = PathBuf::from("/test/path2");
 
-		cache.intern("test");
-		assert_eq!(cache.len(), 1);
-		assert!(cache.contains("test"));
+		// Start indexing both paths
+		let index1 = cache.create_for_indexing(path1.clone());
+		let index2 = cache.create_for_indexing(path2.clone());
 
-		// Interning same string doesn't increase count
-		cache.intern("test");
-		assert_eq!(cache.len(), 1);
+		// They should be the same index
+		assert!(Arc::ptr_eq(&index1, &index2));
+
+		// Complete both
+		cache.mark_indexing_complete(&path1);
+		cache.mark_indexing_complete(&path2);
+
+		// Both paths now indexed
+		assert!(cache.is_indexed(&path1));
+		assert!(cache.is_indexed(&path2));
+		assert_eq!(cache.len(), 2);
 	}
 
 	#[test]
-	fn test_common_filenames() {
-		let cache = NameCache::new();
+	fn test_invalidate_path() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+		let path = PathBuf::from("/test/path");
 
-		// Simulate common filesystem patterns
-		let common_names = [
-			".git",
-			".gitignore",
-			"node_modules",
-			"target",
-			"Cargo.toml",
-			"README.md",
-			"package.json",
-			"src",
-			"lib",
-			"main.rs",
-		];
+		// Index the path
+		let _index = cache.create_for_indexing(path.clone());
+		cache.mark_indexing_complete(&path);
+		assert!(cache.is_indexed(&path));
 
-		for name in &common_names {
-			cache.intern(name);
-		}
+		// Invalidate it
+		cache.invalidate_path(&path);
+		assert!(!cache.is_indexed(&path));
 
-		// All unique, so length equals count
-		assert_eq!(cache.len(), common_names.len());
-
-		// Interning again returns same references
-		for name in &common_names {
-			let ptr1 = cache.intern(name);
-			let ptr2 = cache.intern(name);
-			assert!(std::ptr::eq(ptr1, ptr2));
-		}
+		// get_for_path now returns None
+		assert!(cache.get_for_path(&path).is_none());
 	}
 
 	#[test]
-	fn test_thread_safety() {
-		use std::sync::Arc;
-		use std::thread;
+	fn test_stats() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
 
-		let cache = Arc::new(NameCache::new());
-		let mut handles = vec![];
+		let path1 = PathBuf::from("/ready");
+		let path2 = PathBuf::from("/in_progress");
 
-		for i in 0..10 {
-			let cache = Arc::clone(&cache);
-			handles.push(thread::spawn(move || {
-				for j in 0..100 {
-					let name = format!("file_{}_{}", i, j);
-					cache.intern(&name);
-				}
-			}));
-		}
+		// One indexed, one in progress
+		let _index = cache.create_for_indexing(path1.clone());
+		cache.mark_indexing_complete(&path1);
 
-		for handle in handles {
-			handle.join().unwrap();
-		}
+		let _index = cache.create_for_indexing(path2.clone());
 
-		// Should have 1000 unique strings
-		assert_eq!(cache.len(), 1000);
+		let stats = cache.stats();
+		assert_eq!(stats.indexed_paths, 1);
+		assert_eq!(stats.indexing_in_progress, 1);
+	}
+
+	#[test]
+	fn test_watch_registration() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+		let path = PathBuf::from("/test/watched");
+
+		// Can't watch a path that's not indexed
+		assert!(!cache.register_for_watching(path.clone()));
+		assert!(!cache.is_watched(&path));
+
+		// Index the path first
+		let _index = cache.create_for_indexing(path.clone());
+		cache.mark_indexing_complete(&path);
+
+		// Now we can register for watching
+		assert!(cache.register_for_watching(path.clone()));
+		assert!(cache.is_watched(&path));
+
+		// Stats should reflect watched path
+		let stats = cache.stats();
+		assert_eq!(stats.watched_paths, 1);
+
+		// Unregister
+		cache.unregister_from_watching(&path);
+		assert!(!cache.is_watched(&path));
+	}
+
+	#[test]
+	fn test_find_watched_root() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+
+		let root = PathBuf::from("/mnt/nas");
+		let child = PathBuf::from("/mnt/nas/documents/report.pdf");
+
+		// Index and watch the root
+		let _index = cache.create_for_indexing(root.clone());
+		cache.mark_indexing_complete(&root);
+		cache.register_for_watching(root.clone());
+
+		// Child path should find the watched root
+		assert_eq!(cache.find_watched_root(&child), Some(root.clone()));
+
+		// Unrelated path should not find a root
+		assert_eq!(cache.find_watched_root(Path::new("/other/path")), None);
 	}
 }

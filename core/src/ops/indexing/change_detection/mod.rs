@@ -1,43 +1,15 @@
-//! Change detection and handling for the indexing system.
+//! # Change Detection
 //!
-//! This module provides two complementary subsystems:
+//! Tracks filesystem changes through two complementary subsystems: batch
+//! detection during indexer jobs (`detector`) and real-time handling of watcher
+//! events (`handler`). Both produce the same `Change` type and share inode-based
+//! move detection, so a file moved while the indexer is running behaves
+//! identically to one moved while the watcher is active.
 //!
-//! 1. **Detection** (`detector.rs`): Batch scanning during indexer jobs.
-//!    Compares database state against filesystem to identify changes.
-//!
-//! 2. **Handling** (`handler.rs`): Real-time response to watcher events.
-//!    Applies changes (create/modify/move/delete) to storage.
-//!
-//! Both systems use the same `Change` type and share concepts like
-//! inode-based move detection, ensuring consistent behavior.
-//!
-//! ## Architecture
-//!
-//! ```text
-//! ┌─────────────────────────────────────────────────────────────┐
-//! │                     Change Detection                        │
-//! ├─────────────────────────────────────────────────────────────┤
-//! │                                                             │
-//! │  ┌─────────────┐            ┌─────────────┐                │
-//! │  │  Detector   │            │   Handler   │                │
-//! │  │  (batch)    │            │  (real-time)│                │
-//! │  └──────┬──────┘            └──────┬──────┘                │
-//! │         │                          │                        │
-//! │         │     ┌─────────┐          │                        │
-//! │         └────►│ Change  │◄─────────┘                        │
-//! │               │  enum   │                                   │
-//! │               └────┬────┘                                   │
-//! │                    │                                        │
-//! │         ┌──────────┴──────────┐                            │
-//! │         ▼                     ▼                            │
-//! │  ┌─────────────┐       ┌─────────────┐                     │
-//! │  │ Persistent  │       │  Ephemeral  │                     │
-//! │  │  Handler    │       │   Handler   │                     │
-//! │  │ (database)  │       │ (in-memory) │                     │
-//! │  └─────────────┘       └─────────────┘                     │
-//! │                                                             │
-//! └─────────────────────────────────────────────────────────────┘
-//! ```
+//! Changes route to either `PersistentChangeHandler` (database writes for
+//! managed locations) or `EphemeralChangeHandler` (in-memory updates for
+//! browsing sessions). This split keeps browsed directories responsive without
+//! polluting the database with temporary entries.
 
 pub mod detector;
 pub mod ephemeral;
@@ -45,7 +17,6 @@ pub mod handler;
 pub mod persistent;
 pub mod types;
 
-// Re-export primary types
 pub use detector::ChangeDetector;
 pub use ephemeral::EphemeralChangeHandler;
 pub use handler::{

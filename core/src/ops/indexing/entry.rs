@@ -1066,4 +1066,83 @@ impl EntryProcessor {
 
 		Ok(())
 	}
+
+	// ========================================================================
+	// Subtree Deletion
+	// ========================================================================
+
+	/// Deletes an entry and all its descendants from the database.
+	///
+	/// This is a raw database operation that does NOT:
+	/// - Create tombstones for sync
+	/// - Emit events for UI updates
+	/// - Run any processors
+	///
+	/// Use cases:
+	/// - Applying remote tombstones (deletion already synced)
+	/// - Cascade deletes from entity relationships
+	/// - Database cleanup operations
+	///
+	/// For watcher-triggered deletions that need sync/events, use
+	/// `PersistentChangeHandler::delete()` instead.
+	pub async fn delete_subtree(
+		entry_id: i32,
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<(), sea_orm::DbErr> {
+		use sea_orm::TransactionTrait;
+
+		let txn = db.begin().await?;
+		Self::delete_subtree_in_txn(entry_id, &txn).await?;
+		txn.commit().await?;
+		Ok(())
+	}
+
+	/// Deletes a subtree within an existing transaction.
+	///
+	/// Traverses via entry_closure to find all descendants, then deletes
+	/// closure links, directory_paths, and entries in the correct order.
+	pub async fn delete_subtree_in_txn<C>(entry_id: i32, db: &C) -> Result<(), sea_orm::DbErr>
+	where
+		C: sea_orm::ConnectionTrait,
+	{
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		// Collect all descendants via closure table
+		let mut to_delete_ids: Vec<i32> = vec![entry_id];
+		if let Ok(rows) = entities::entry_closure::Entity::find()
+			.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
+			.all(db)
+			.await
+		{
+			to_delete_ids.extend(rows.into_iter().map(|r| r.descendant_id));
+		}
+		to_delete_ids.sort_unstable();
+		to_delete_ids.dedup();
+
+		if !to_delete_ids.is_empty() {
+			// Delete closure links (both directions)
+			let _ = entities::entry_closure::Entity::delete_many()
+				.filter(entities::entry_closure::Column::DescendantId.is_in(to_delete_ids.clone()))
+				.exec(db)
+				.await;
+			let _ = entities::entry_closure::Entity::delete_many()
+				.filter(entities::entry_closure::Column::AncestorId.is_in(to_delete_ids.clone()))
+				.exec(db)
+				.await;
+
+			// Delete directory paths
+			let _ = entities::directory_paths::Entity::delete_many()
+				.filter(entities::directory_paths::Column::EntryId.is_in(to_delete_ids.clone()))
+				.exec(db)
+				.await;
+
+			// Delete entries
+			let _ = entities::entry::Entity::delete_many()
+				.filter(entities::entry::Column::Id.is_in(to_delete_ids))
+				.exec(db)
+				.await;
+		}
+
+		Ok(())
+	}
 }
