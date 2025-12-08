@@ -46,6 +46,10 @@ interface SDMobileCoreNativeModule extends NativeModule<SDMobileCoreEvents> {
 const SDMobileCoreModule =
   requireNativeModule<SDMobileCoreNativeModule>("SDMobileCore");
 
+if (!SDMobileCoreModule) {
+  throw new Error("SDMOBI")
+}
+
 const emitter = new EventEmitter<SDMobileCoreEvents>(SDMobileCoreModule as any);
 
 export const SDMobileCore: CoreModule = {
