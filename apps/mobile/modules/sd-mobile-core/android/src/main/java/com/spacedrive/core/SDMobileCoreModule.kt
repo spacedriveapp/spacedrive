@@ -13,7 +13,6 @@ class SDMobileCoreModule : Module() {
     init {
         try {
             System.loadLibrary("sd_mobile_core")
-            android.util.Log.i("SDMobileCore", "Loading SD Mobile Core")
         } catch (e: UnsatisfiedLinkError) {
             android.util.Log.e("SDMobileCore", "Failed to load native library: ${e.message}")
         }
