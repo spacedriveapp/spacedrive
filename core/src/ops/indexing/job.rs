@@ -8,7 +8,12 @@ use crate::{
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+	collections::HashMap,
+	path::{Path, PathBuf},
+	sync::Arc,
+	time::Duration,
+};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -155,18 +160,19 @@ impl IndexerJobConfig {
 ///
 /// This implementation uses efficient data structures for memory optimization:
 /// - NodeArena: Contiguous storage for file nodes (~48 bytes per node)
-/// - NameCache: String interning for common filenames
+/// - NameCache: String interning for common filenames (shared across all entries)
 /// - NameRegistry: Fast name-based lookups
+///
+/// All browsed paths share a single index, maximizing string deduplication
+/// and memory efficiency. Parent-child relationships are established based
+/// on path hierarchy.
 ///
 /// Memory usage: ~50 bytes per entry vs ~200 bytes with HashMap
 pub struct EphemeralIndex {
 	/// Efficient tree storage
 	arena: super::ephemeral::NodeArena,
 
-	/// Root node
-	root: super::ephemeral::EntryId,
-
-	/// String interning
+	/// String interning (shared across all paths)
 	cache: std::sync::Arc<super::ephemeral::NameCache>,
 
 	/// Fast name lookups
@@ -184,66 +190,104 @@ pub struct EphemeralIndex {
 	/// Metadata
 	created_at: std::time::Instant,
 	last_accessed: std::time::Instant,
-	pub root_path: PathBuf,
 	pub stats: IndexerStats,
 }
 
 impl std::fmt::Debug for EphemeralIndex {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("EphemeralIndex")
-			.field("root_path", &self.root_path)
 			.field("entry_count", &self.arena.len())
 			.field("interned_names", &self.cache.len())
+			.field("path_count", &self.path_index.len())
 			.finish()
 	}
 }
 
 impl EphemeralIndex {
-	pub fn new(root_path: PathBuf) -> Self {
-		use super::ephemeral::{
-			FileNode, FileType, MaybeEntryId, NameCache, NameRef, NameRegistry, NodeArena,
-			NodeState, PackedMetadata,
-		};
+	/// Create a new empty ephemeral index
+	///
+	/// The index stores entries with their full paths and builds parent-child
+	/// relationships based on path hierarchy. Multiple directory trees can
+	/// coexist in the same index, sharing the arena and string interning pool.
+	pub fn new() -> Self {
+		use super::ephemeral::{NameCache, NameRegistry, NodeArena};
 
 		let cache = std::sync::Arc::new(NameCache::new());
-		let mut arena = NodeArena::new();
+		let arena = NodeArena::new();
 		let registry = NameRegistry::new();
 
-		// Create root node
-		let root_name = cache.intern(
-			root_path
-				.file_name()
+		let now = std::time::Instant::now();
+
+		Self {
+			arena,
+			cache,
+			registry,
+			path_index: HashMap::new(),
+			entry_uuids: HashMap::new(),
+			content_kinds: HashMap::new(),
+			created_at: now,
+			last_accessed: now,
+			stats: IndexerStats::default(),
+		}
+	}
+
+	/// Ensure a directory exists in the index, creating ancestor chain if needed
+	///
+	/// Returns the EntryId of the directory.
+	pub fn ensure_directory(&mut self, path: &Path) -> super::ephemeral::EntryId {
+		use super::ephemeral::{
+			FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata,
+		};
+		use super::state::EntryKind;
+
+		// Already exists?
+		if let Some(&id) = self.path_index.get(path) {
+			return id;
+		}
+
+		// Ensure parent exists first (recursive)
+		let parent_id = if let Some(parent_path) = path.parent() {
+			if parent_path.as_os_str().is_empty() {
+				None
+			} else {
+				Some(self.ensure_directory(parent_path))
+			}
+		} else {
+			None
+		};
+
+		// Create this directory
+		let name = self.cache.intern(
+			path.file_name()
 				.map(|s| s.to_string_lossy())
 				.as_deref()
 				.unwrap_or("/"),
 		);
 
-		let root_node = FileNode::new(
-			NameRef::new(root_name, MaybeEntryId::NONE),
-			PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0),
-		);
+		let parent_ref = parent_id
+			.map(MaybeEntryId::some)
+			.unwrap_or(MaybeEntryId::NONE);
+		let meta = PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0);
+		let node = FileNode::new(NameRef::new(name, parent_ref), meta);
 
-		let root = arena.insert(root_node);
+		let id = self.arena.insert(node);
 
-		let now = std::time::Instant::now();
-
-		// Add root path to path_index so list_directory works for the root
-		let mut path_index = HashMap::new();
-		path_index.insert(root_path.clone(), root);
-
-		Self {
-			arena,
-			root,
-			cache,
-			registry,
-			path_index,
-			entry_uuids: HashMap::new(),
-			content_kinds: HashMap::new(),
-			created_at: now,
-			last_accessed: now,
-			root_path,
-			stats: IndexerStats::default(),
+		// Add to parent's children
+		if let Some(parent_id) = parent_id {
+			if let Some(parent) = self.arena.get_mut(parent_id) {
+				parent.add_child(id);
+			}
 		}
+
+		// Index by path and name
+		self.path_index.insert(path.to_path_buf(), id);
+		self.registry.insert(name, id);
+
+		// Generate UUID for directory
+		let uuid = uuid::Uuid::new_v4();
+		self.entry_uuids.insert(path.to_path_buf(), uuid);
+
+		id
 	}
 
 	/// Add an entry to the index. Returns Some(content_kind) if added, None if duplicate.
@@ -265,19 +309,30 @@ impl EphemeralIndex {
 			return None;
 		}
 
-		// Intern the filename
+		// Ensure parent directory exists in the index FIRST (requires &mut self)
+		// This must happen before interning the name to avoid borrow conflicts
+		let parent_id = if let Some(parent_path) = path.parent() {
+			if parent_path.as_os_str().is_empty() {
+				// Root of filesystem, no parent
+				None
+			} else if let Some(&existing_id) = self.path_index.get(parent_path) {
+				// Parent already exists
+				Some(existing_id)
+			} else {
+				// Parent doesn't exist - ensure it (and ancestors) are created
+				Some(self.ensure_directory(parent_path))
+			}
+		} else {
+			None
+		};
+
+		// Now intern the filename (borrows self.cache immutably)
 		let name = self.cache.intern(
 			path.file_name()
 				.map(|s| s.to_string_lossy())
 				.as_deref()
 				.unwrap_or("unknown"),
 		);
-
-		// Find parent
-		let parent_id = path
-			.parent()
-			.and_then(|p| self.path_index.get(p).copied())
-			.unwrap_or(self.root);
 
 		// Create metadata
 		let file_type = FileType::from(metadata.kind);
@@ -286,13 +341,18 @@ impl EphemeralIndex {
 			.with_times(metadata.modified, metadata.created);
 
 		// Create node
-		let node = FileNode::new(NameRef::new(name, MaybeEntryId::some(parent_id)), meta);
+		let parent_ref = parent_id
+			.map(MaybeEntryId::some)
+			.unwrap_or(MaybeEntryId::NONE);
+		let node = FileNode::new(NameRef::new(name, parent_ref), meta);
 
 		let id = self.arena.insert(node);
 
 		// Add to parent's children
-		if let Some(parent) = self.arena.get_mut(parent_id) {
-			parent.add_child(id);
+		if let Some(parent_id) = parent_id {
+			if let Some(parent) = self.arena.get_mut(parent_id) {
+				parent.add_child(id);
+			}
 		}
 
 		// Detect content kind by extension (fast, no I/O)
@@ -394,20 +454,23 @@ impl EphemeralIndex {
 		let mut segments = Vec::new();
 		let mut current = id;
 
+		// Walk up the tree collecting path segments
 		while let Some(node) = self.arena.get(current) {
+			segments.push(node.name().to_owned());
 			if let Some(parent) = node.parent() {
-				segments.push(node.name().to_owned());
 				current = parent;
 			} else {
+				// Reached a root node (no parent)
 				break;
 			}
 		}
 
 		if segments.is_empty() {
-			return Some(self.root_path.clone());
+			return None;
 		}
 
-		let mut path = self.root_path.clone();
+		// Build absolute path from segments (root to leaf)
+		let mut path = PathBuf::from("/");
 		for segment in segments.into_iter().rev() {
 			path.push(segment);
 		}
@@ -519,6 +582,12 @@ impl EphemeralIndex {
 	}
 }
 
+impl Default for EphemeralIndex {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 /// Statistics about an ephemeral index
 #[derive(Debug, Clone)]
 pub struct EphemeralIndexStats {
@@ -575,13 +644,7 @@ impl JobHandler for IndexerJob {
 
 		// Initialize ephemeral index if needed
 		if self.config.is_ephemeral() && self.ephemeral_index.is_none() {
-			let root_path =
-				self.config.path.as_local_path().ok_or_else(|| {
-					JobError::execution("Path not accessible locally".to_string())
-				})?;
-			self.ephemeral_index = Some(Arc::new(RwLock::new(EphemeralIndex::new(
-				root_path.to_path_buf(),
-			))));
+			self.ephemeral_index = Some(Arc::new(RwLock::new(EphemeralIndex::new())));
 			ctx.log("Initialized ephemeral index for non-persistent job");
 		}
 
@@ -750,6 +813,7 @@ impl JobHandler for IndexerJob {
 							state,
 							&ctx,
 							ephemeral_index,
+							root_path,
 							volume_backend.as_ref(),
 						)
 						.await?;
@@ -879,15 +943,14 @@ impl JobHandler for IndexerJob {
 
 		// Mark ephemeral indexing as complete in the cache
 		if self.config.is_ephemeral() {
-			if let Some(ephemeral_index) = &self.ephemeral_index {
-				let root_path = ephemeral_index.read().await.root_path.clone();
+			if let Some(local_path) = self.config.path.as_local_path() {
 				ctx.library()
 					.core_context()
 					.ephemeral_cache()
-					.mark_indexing_complete(&root_path);
+					.mark_indexing_complete(local_path);
 				ctx.log(format!(
 					"Marked ephemeral indexing complete for: {}",
-					root_path.display()
+					local_path.display()
 				));
 			}
 		}
@@ -1076,31 +1139,29 @@ impl IndexerJob {
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
 		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
-		volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+		root_path: &Path,
+		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	) -> JobResult<()> {
 		use super::persistence::PersistenceFactory;
 
 		ctx.log("Starting ephemeral processing");
 
-		// Get root path from ephemeral index
-		let root_path = {
-			let index = ephemeral_index.read().await;
-			index.root_path.clone()
-		};
-
 		// Get event bus from library
 		let event_bus = Some(ctx.library().event_bus().clone());
 
 		// Create ephemeral persistence layer (emits events as entries are stored)
-		let persistence =
-			PersistenceFactory::ephemeral(ephemeral_index.clone(), event_bus, root_path.clone());
+		let persistence = PersistenceFactory::ephemeral(
+			ephemeral_index.clone(),
+			event_bus,
+			root_path.to_path_buf(),
+		);
 
 		// Process all batches through persistence layer
 		while let Some(batch) = state.entry_batches.pop() {
 			for entry in batch {
 				// Store entry (this will emit ResourceChanged events)
 				// Content kind is identified by extension during add_entry, no hashing needed
-				let _entry_id = persistence.store_entry(&entry, None, &root_path).await?;
+				let _entry_id = persistence.store_entry(&entry, None, root_path).await?;
 			}
 		}
 

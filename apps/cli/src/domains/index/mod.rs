@@ -246,63 +246,91 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				|status: &sd_core::ops::core::ephemeral_status::EphemeralCacheStatus| {
 					println!();
 					println!("╔══════════════════════════════════════════════════════════════╗");
-					println!("║              EPHEMERAL INDEX CACHE STATUS                    ║");
+					println!("║           UNIFIED EPHEMERAL INDEX CACHE                      ║");
 					println!("╠══════════════════════════════════════════════════════════════╣");
 					println!(
-						"║ Total Indexes: {:3}    In Progress: {:3}                       ║",
-						status.total_indexes, status.indexing_in_progress
+						"║ Indexed Paths: {:3}    In Progress: {:3}                       ║",
+						status.indexed_paths_count, status.indexing_in_progress_count
 					);
 					println!("╚══════════════════════════════════════════════════════════════╝");
 
-					if status.indexes.is_empty() {
-						println!("\n  No ephemeral indexes cached.");
+					// Show unified index stats
+					let stats = &status.index_stats;
+					println!();
+					let mut stats_table = Table::new();
+					stats_table.load_preset(UTF8_BORDERS_ONLY);
+					stats_table.set_header(vec![
+						Cell::new("SHARED INDEX STATS").add_attribute(Attribute::Bold),
+						Cell::new(""),
+					]);
+
+					stats_table.add_row(vec![
+						"Total entries (shared arena)",
+						&stats.total_entries.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Path index count",
+						&stats.path_index_count.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Unique names (shared)",
+						&stats.unique_names.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Interned strings (shared)",
+						&stats.interned_strings.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Content kinds",
+						&stats.content_kinds.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Memory usage",
+						&format_bytes(stats.memory_bytes as u64),
+					]);
+					stats_table.add_row(vec!["Cache age", &format!("{:.1}s", stats.age_seconds)]);
+					stats_table
+						.add_row(vec!["Idle time", &format!("{:.1}s", stats.idle_seconds)]);
+
+					println!("{}", stats_table);
+
+					// Show indexed paths
+					if status.indexed_paths.is_empty() && status.paths_in_progress.is_empty() {
+						println!("\n  No paths indexed yet.");
 					} else {
-						for idx in &status.indexes {
+						// Paths in progress
+						if !status.paths_in_progress.is_empty() {
 							println!();
-							let mut table = Table::new();
-							table.load_preset(UTF8_BORDERS_ONLY);
+							let mut progress_table = Table::new();
+							progress_table.load_preset(UTF8_BORDERS_ONLY);
+							progress_table.set_header(vec![
+								Cell::new("INDEXING IN PROGRESS").add_attribute(Attribute::Bold),
+							]);
+							for path in &status.paths_in_progress {
+								progress_table.add_row(vec![format!(
+									"● {}",
+									path.display()
+								)]);
+							}
+							println!("{}", progress_table);
+						}
 
-							let status_indicator = if idx.indexing_in_progress {
-								"● INDEXING"
-							} else {
-								"○ Ready"
-							};
-
-							table.set_header(vec![
-								Cell::new(format!("{}", idx.root_path.display()))
-									.add_attribute(Attribute::Bold),
-								Cell::new(status_indicator),
+						// Indexed paths
+						if !status.indexed_paths.is_empty() {
+							println!();
+							let mut paths_table = Table::new();
+							paths_table.load_preset(UTF8_BORDERS_ONLY);
+							paths_table.set_header(vec![
+								Cell::new("INDEXED PATHS").add_attribute(Attribute::Bold),
+								Cell::new("Children"),
 							]);
-
-							table.add_row(vec!["Entries (arena)", &idx.total_entries.to_string()]);
-							table.add_row(vec![
-								"Path index count",
-								&idx.path_index_count.to_string(),
-							]);
-							table.add_row(vec!["Unique names", &idx.unique_names.to_string()]);
-							table.add_row(vec![
-								"Interned strings",
-								&idx.interned_strings.to_string(),
-							]);
-							table.add_row(vec!["Content kinds", &idx.content_kinds.to_string()]);
-							table.add_row(vec![
-								"Memory usage",
-								&format_bytes(idx.memory_bytes as u64),
-							]);
-							table.add_row(vec!["Age", &format!("{:.1}s", idx.age_seconds)]);
-							table.add_row(vec!["Idle time", &format!("{:.1}s", idx.idle_seconds)]);
-							table.add_row(vec![
-								"Job stats",
-								&format!(
-									"{} files, {} dirs, {} symlinks, {}",
-									idx.job_stats.files,
-									idx.job_stats.dirs,
-									idx.job_stats.symlinks,
-									format_bytes(idx.job_stats.bytes)
-								),
-							]);
-
-							println!("{}", table);
+							for info in &status.indexed_paths {
+								paths_table.add_row(vec![
+									format!("○ {}", info.path.display()),
+									info.child_count.to_string(),
+								]);
+							}
+							println!("{}", paths_table);
 						}
 					}
 					println!();

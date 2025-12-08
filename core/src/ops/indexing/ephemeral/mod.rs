@@ -26,9 +26,10 @@
 //! ```rust,ignore
 //! use sd_core::ops::indexing::ephemeral::EphemeralIndex;
 //!
-//! let mut index = EphemeralIndex::new("/path/to/root".into());
+//! // Create a unified index (supports multiple directory trees)
+//! let mut index = EphemeralIndex::new();
 //!
-//! // Add entries
+//! // Add entries with full paths - parent chain is created automatically
 //! index.add_entry(path, uuid, metadata);
 //!
 //! // Query

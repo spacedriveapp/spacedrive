@@ -620,9 +620,7 @@ mod tests {
 		std::fs::write(&test_file, b"test content").unwrap();
 
 		// Create ephemeral index
-		let index = Arc::new(RwLock::new(EphemeralIndex::new(
-			temp_dir.path().to_path_buf(),
-		)));
+		let index = Arc::new(RwLock::new(EphemeralIndex::new()));
 
 		// Create event collector
 		let collected_events = Arc::new(Mutex::new(Vec::new()));

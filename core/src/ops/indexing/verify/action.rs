@@ -104,7 +104,7 @@ impl IndexVerifyAction {
 		tracing::debug!("Running ephemeral indexer job on {}", path.display());
 
 		// Create ephemeral index storage that we'll share with the job
-		let ephemeral_index = Arc::new(RwLock::new(EphemeralIndex::new(path.to_path_buf())));
+		let ephemeral_index = Arc::new(RwLock::new(EphemeralIndex::new()));
 
 		// Subscribe to job events before dispatching
 		let mut event_subscriber = context.events.subscribe();
