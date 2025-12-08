@@ -126,7 +126,10 @@ impl BackfillManager {
 			let event = SyncEventLog::new(
 				self.device_id,
 				SyncEventType::BackfillSessionStarted,
-				format!("Backfill session started with {} available peers", available_peers.len()),
+				format!(
+					"Backfill session started with {} available peers",
+					available_peers.len()
+				),
 			)
 			.with_correlation_id(session_id)
 			.with_details(json!({
@@ -175,7 +178,11 @@ impl BackfillManager {
 			let event = SyncEventLog::new(
 				self.device_id,
 				SyncEventType::BackfillSessionStarted,
-				format!("Selected peer {} from {} candidates", selected_peer, available_peers.len()),
+				format!(
+					"Selected peer {} from {} candidates",
+					selected_peer,
+					available_peers.len()
+				),
 			)
 			.with_correlation_id(session_id)
 			.with_peer(selected_peer)
@@ -1077,7 +1084,11 @@ impl BackfillManager {
 
 				// Feed batch aggregator for event logging
 				self.batch_aggregator
-					.add_records("shared_resources".to_string(), batch_size as u64, Some(peer))
+					.add_records(
+						"shared_resources".to_string(),
+						batch_size as u64,
+						Some(peer),
+					)
 					.await;
 
 				// Log progress every 10,000 records for large backfills

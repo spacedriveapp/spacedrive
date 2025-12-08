@@ -2,6 +2,7 @@ pub mod args;
 
 use anyhow::Result;
 use clap::Subcommand;
+use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
 
 use crate::util::prelude::*;
 
@@ -20,6 +21,8 @@ pub enum IndexCmd {
 	Browse(BrowseArgs),
 	/// Verify index integrity for a path
 	Verify(IndexVerifyArgs),
+	/// Show ephemeral index cache status
+	EphemeralCache(EphemeralCacheArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
@@ -232,6 +235,97 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				}
 			);
 		}
+		IndexCmd::EphemeralCache(args) => {
+			let input = args.to_input();
+			let out: sd_core::ops::core::ephemeral_status::EphemeralCacheStatus =
+				execute_core_query!(ctx, input);
+
+			print_output!(
+				ctx,
+				&out,
+				|status: &sd_core::ops::core::ephemeral_status::EphemeralCacheStatus| {
+					println!();
+					println!("╔══════════════════════════════════════════════════════════════╗");
+					println!("║              EPHEMERAL INDEX CACHE STATUS                    ║");
+					println!("╠══════════════════════════════════════════════════════════════╣");
+					println!(
+						"║ Total Indexes: {:3}    In Progress: {:3}    Stale: {:3}        ║",
+						status.total_indexes, status.indexing_in_progress, status.stale_count
+					);
+					println!("╚══════════════════════════════════════════════════════════════╝");
+
+					if status.indexes.is_empty() {
+						println!("\n  No ephemeral indexes cached.");
+					} else {
+						for idx in &status.indexes {
+							println!();
+							let mut table = Table::new();
+							table.load_preset(UTF8_BORDERS_ONLY);
+
+							let status_indicator = if idx.indexing_in_progress {
+								"● INDEXING"
+							} else {
+								"○ Ready"
+							};
+
+							table.set_header(vec![
+								Cell::new(format!("{}", idx.root_path.display()))
+									.add_attribute(Attribute::Bold),
+								Cell::new(status_indicator),
+							]);
+
+							table.add_row(vec!["Entries (arena)", &idx.total_entries.to_string()]);
+							table.add_row(vec![
+								"Path index count",
+								&idx.path_index_count.to_string(),
+							]);
+							table.add_row(vec!["Unique names", &idx.unique_names.to_string()]);
+							table.add_row(vec![
+								"Interned strings",
+								&idx.interned_strings.to_string(),
+							]);
+							table.add_row(vec!["Content kinds", &idx.content_kinds.to_string()]);
+							table.add_row(vec![
+								"Memory usage",
+								&format_bytes(idx.memory_bytes as u64),
+							]);
+							table.add_row(vec!["Age", &format!("{:.1}s", idx.age_seconds)]);
+							table.add_row(vec!["Idle time", &format!("{:.1}s", idx.idle_seconds)]);
+							table.add_row(vec![
+								"Job stats",
+								&format!(
+									"{} files, {} dirs, {} symlinks, {}",
+									idx.job_stats.files,
+									idx.job_stats.dirs,
+									idx.job_stats.symlinks,
+									format_bytes(idx.job_stats.bytes)
+								),
+							]);
+
+							println!("{}", table);
+						}
+					}
+					println!();
+				}
+			);
+		}
 	}
 	Ok(())
+}
+
+fn format_bytes(bytes: u64) -> String {
+	const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+	let mut size = bytes as f64;
+	let mut unit_index = 0;
+
+	while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+		size /= 1024.0;
+		unit_index += 1;
+	}
+
+	if unit_index == 0 {
+		format!("{} {}", bytes, UNITS[unit_index])
+	} else {
+		format!("{:.1} {}", size, UNITS[unit_index])
+	}
 }

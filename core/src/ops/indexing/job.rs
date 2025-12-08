@@ -128,7 +128,7 @@ impl IndexerJobConfig {
 		Self {
 			location_id: None,
 			path,
-			mode: IndexMode::Content, // Enable content identification for ephemeral browsing
+			mode: IndexMode::Shallow, // Ephemeral jobs identify content kind by extension, no hashing needed
 			scope,
 			persistence: IndexPersistence::Ephemeral,
 			max_depth: if scope == IndexScope::Current {
@@ -152,33 +152,93 @@ impl IndexerJobConfig {
 }
 
 /// In-memory storage for ephemeral indexing results
-#[derive(Debug)]
+///
+/// This implementation uses efficient data structures for memory optimization:
+/// - NodeArena: Contiguous storage for file nodes (~48 bytes per node)
+/// - NameCache: String interning for common filenames
+/// - NameRegistry: Fast name-based lookups
+///
+/// Memory usage: ~50 bytes per entry vs ~200 bytes with HashMap
 pub struct EphemeralIndex {
-	pub entries: HashMap<PathBuf, EntryMetadata>,
-	pub entry_uuids: HashMap<PathBuf, Uuid>,
-	pub content_identities: HashMap<String, EphemeralContentIdentity>,
-	pub created_at: std::time::Instant,
-	pub last_accessed: std::time::Instant,
+	/// Efficient tree storage
+	arena: super::ephemeral::NodeArena,
+
+	/// Root node
+	root: super::ephemeral::EntryId,
+
+	/// String interning
+	cache: std::sync::Arc<super::ephemeral::NameCache>,
+
+	/// Fast name lookups
+	registry: super::ephemeral::NameRegistry,
+
+	/// Path → EntryId mapping (for lookups by path)
+	path_index: HashMap<PathBuf, super::ephemeral::EntryId>,
+
+	/// UUID mapping (for API compatibility)
+	entry_uuids: HashMap<PathBuf, Uuid>,
+
+	/// Content kinds by path (fast extension-based identification)
+	content_kinds: HashMap<PathBuf, crate::domain::ContentKind>,
+
+	/// Metadata
+	created_at: std::time::Instant,
+	last_accessed: std::time::Instant,
 	pub root_path: PathBuf,
 	pub stats: IndexerStats,
 }
 
-/// Simplified content identity for ephemeral storage
-#[derive(Debug, Clone)]
-pub struct EphemeralContentIdentity {
-	pub cas_id: String,
-	pub mime_type: Option<String>,
-	pub file_size: u64,
-	pub entry_count: u32,
+impl std::fmt::Debug for EphemeralIndex {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("EphemeralIndex")
+			.field("root_path", &self.root_path)
+			.field("entry_count", &self.arena.len())
+			.field("interned_names", &self.cache.len())
+			.finish()
+	}
 }
 
 impl EphemeralIndex {
 	pub fn new(root_path: PathBuf) -> Self {
+		use super::ephemeral::{
+			FileNode, FileType, MaybeEntryId, NameCache, NameRef, NameRegistry, NodeArena,
+			NodeState, PackedMetadata,
+		};
+
+		let cache = std::sync::Arc::new(NameCache::new());
+		let mut arena = NodeArena::new();
+		let registry = NameRegistry::new();
+
+		// Create root node
+		let root_name = cache.intern(
+			root_path
+				.file_name()
+				.map(|s| s.to_string_lossy())
+				.as_deref()
+				.unwrap_or("/"),
+		);
+
+		let root_node = FileNode::new(
+			NameRef::new(root_name, MaybeEntryId::NONE),
+			PackedMetadata::new(NodeState::Accessible, FileType::Directory, 0),
+		);
+
+		let root = arena.insert(root_node);
+
 		let now = std::time::Instant::now();
+
+		// Add root path to path_index so list_directory works for the root
+		let mut path_index = HashMap::new();
+		path_index.insert(root_path.clone(), root);
+
 		Self {
-			entries: HashMap::new(),
+			arena,
+			root,
+			cache,
+			registry,
+			path_index,
 			entry_uuids: HashMap::new(),
-			content_identities: HashMap::new(),
+			content_kinds: HashMap::new(),
 			created_at: now,
 			last_accessed: now,
 			root_path,
@@ -186,24 +246,193 @@ impl EphemeralIndex {
 		}
 	}
 
-	pub fn add_entry(&mut self, path: PathBuf, uuid: Uuid, metadata: EntryMetadata) {
-		self.entries.insert(path.clone(), metadata);
-		self.entry_uuids.insert(path, uuid);
+	/// Add an entry to the index. Returns Some(content_kind) if added, None if duplicate.
+	pub fn add_entry(
+		&mut self,
+		path: PathBuf,
+		uuid: Uuid,
+		metadata: EntryMetadata,
+	) -> Option<crate::domain::ContentKind> {
+		use super::ephemeral::{
+			FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata,
+		};
+		use crate::domain::ContentKind;
+		use crate::filetype::FileTypeRegistry;
+
+		// Check if entry already exists for this path - skip if so to prevent duplicates
+		if self.path_index.contains_key(&path) {
+			tracing::trace!("Skipping duplicate entry: {}", path.display());
+			return None;
+		}
+
+		// Intern the filename
+		let name = self.cache.intern(
+			path.file_name()
+				.map(|s| s.to_string_lossy())
+				.as_deref()
+				.unwrap_or("unknown"),
+		);
+
+		// Find parent
+		let parent_id = path
+			.parent()
+			.and_then(|p| self.path_index.get(p).copied())
+			.unwrap_or(self.root);
+
+		// Create metadata
+		let file_type = FileType::from(metadata.kind);
+
+		let meta = PackedMetadata::new(NodeState::Accessible, file_type, metadata.size)
+			.with_times(metadata.modified, metadata.created);
+
+		// Create node
+		let node = FileNode::new(NameRef::new(name, MaybeEntryId::some(parent_id)), meta);
+
+		let id = self.arena.insert(node);
+
+		// Add to parent's children
+		if let Some(parent) = self.arena.get_mut(parent_id) {
+			parent.add_child(id);
+		}
+
+		// Detect content kind by extension (fast, no I/O)
+		let content_kind = if metadata.kind == super::state::EntryKind::File {
+			let registry = FileTypeRegistry::default();
+			registry.identify_by_extension(&path)
+		} else if metadata.kind == super::state::EntryKind::Directory {
+			ContentKind::Unknown // Directories don't have content kind
+		} else {
+			ContentKind::Unknown
+		};
+
+		// Index by path and name
+		self.path_index.insert(path.clone(), id);
+		self.registry.insert(name, id);
+		self.entry_uuids.insert(path.clone(), uuid);
+		self.content_kinds.insert(path, content_kind);
+
 		self.last_accessed = std::time::Instant::now();
+		Some(content_kind)
 	}
 
-	pub fn get_entry(&mut self, path: &PathBuf) -> Option<&EntryMetadata> {
+	pub fn get_entry(&mut self, path: &PathBuf) -> Option<EntryMetadata> {
+		use super::state::EntryKind;
+
+		let id = self.path_index.get(path)?;
+		let node = self.arena.get(*id)?;
+
 		self.last_accessed = std::time::Instant::now();
-		self.entries.get(path)
+
+		Some(EntryMetadata {
+			path: path.clone(),
+			kind: EntryKind::from(node.meta.file_type()),
+			size: node.meta.size(),
+			modified: node.meta.mtime_as_system_time(),
+			accessed: None,
+			created: node.meta.ctime_as_system_time(),
+			inode: None,
+			permissions: None,
+			is_hidden: path
+				.file_name()
+				.and_then(|n| n.to_str())
+				.map(|n| n.starts_with('.'))
+				.unwrap_or(false),
+		})
+	}
+
+	/// Get entry reference for read-only access (doesn't update last_accessed)
+	pub fn get_entry_ref(&self, path: &PathBuf) -> Option<EntryMetadata> {
+		use super::state::EntryKind;
+
+		let id = self.path_index.get(path)?;
+		let node = self.arena.get(*id)?;
+
+		Some(EntryMetadata {
+			path: path.clone(),
+			kind: EntryKind::from(node.meta.file_type()),
+			size: node.meta.size(),
+			modified: node.meta.mtime_as_system_time(),
+			accessed: None,
+			created: node.meta.ctime_as_system_time(),
+			inode: None,
+			permissions: None,
+			is_hidden: path
+				.file_name()
+				.and_then(|n| n.to_str())
+				.map(|n| n.starts_with('.'))
+				.unwrap_or(false),
+		})
 	}
 
 	pub fn get_entry_uuid(&self, path: &PathBuf) -> Option<Uuid> {
 		self.entry_uuids.get(path).copied()
 	}
 
-	pub fn add_content_identity(&mut self, cas_id: String, content: EphemeralContentIdentity) {
-		self.content_identities.insert(cas_id, content);
-		self.last_accessed = std::time::Instant::now();
+	/// Get the content kind for an entry (identified by extension)
+	pub fn get_content_kind(&self, path: &PathBuf) -> crate::domain::ContentKind {
+		self.content_kinds
+			.get(path)
+			.copied()
+			.unwrap_or(crate::domain::ContentKind::Unknown)
+	}
+
+	/// List directory children
+	pub fn list_directory(&self, path: &std::path::Path) -> Option<Vec<PathBuf>> {
+		let id = self.path_index.get(path)?;
+		let node = self.arena.get(*id)?;
+
+		Some(
+			node.children
+				.iter()
+				.filter_map(|&child_id| self.reconstruct_path(child_id))
+				.collect(),
+		)
+	}
+
+	/// Reconstruct full path for a node
+	fn reconstruct_path(&self, id: super::ephemeral::EntryId) -> Option<PathBuf> {
+		let mut segments = Vec::new();
+		let mut current = id;
+
+		while let Some(node) = self.arena.get(current) {
+			if let Some(parent) = node.parent() {
+				segments.push(node.name().to_owned());
+				current = parent;
+			} else {
+				break;
+			}
+		}
+
+		if segments.is_empty() {
+			return Some(self.root_path.clone());
+		}
+
+		let mut path = self.root_path.clone();
+		for segment in segments.into_iter().rev() {
+			path.push(segment);
+		}
+		Some(path)
+	}
+
+	/// Find all entries with the given filename
+	pub fn find_by_name(&self, name: &str) -> Vec<PathBuf> {
+		self.registry
+			.get(name)
+			.map(|ids| {
+				ids.iter()
+					.filter_map(|&id| self.reconstruct_path(id))
+					.collect()
+			})
+			.unwrap_or_default()
+	}
+
+	/// Find all entries with names starting with the given prefix
+	pub fn find_by_prefix(&self, prefix: &str) -> Vec<PathBuf> {
+		self.registry
+			.find_prefix(prefix)
+			.iter()
+			.filter_map(|&id| self.reconstruct_path(id))
+			.collect()
 	}
 
 	pub fn age(&self) -> Duration {
@@ -213,6 +442,90 @@ impl EphemeralIndex {
 	pub fn idle_time(&self) -> Duration {
 		self.last_accessed.elapsed()
 	}
+
+	/// Get the total number of entries
+	pub fn len(&self) -> usize {
+		self.arena.len()
+	}
+
+	/// Check if the index is empty
+	pub fn is_empty(&self) -> bool {
+		self.arena.is_empty()
+	}
+
+	/// Get approximate memory usage in bytes
+	pub fn memory_usage(&self) -> usize {
+		self.arena.memory_usage()
+			+ self.cache.memory_usage()
+			+ self.registry.memory_usage()
+			+ self.path_index.capacity()
+				* (std::mem::size_of::<PathBuf>()
+					+ std::mem::size_of::<super::ephemeral::EntryId>())
+			+ self.entry_uuids.capacity()
+				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<Uuid>())
+	}
+
+	/// Get statistics about the index
+	pub fn get_stats(&self) -> EphemeralIndexStats {
+		EphemeralIndexStats {
+			total_entries: self.arena.len(),
+			unique_names: self.registry.unique_names(),
+			interned_strings: self.cache.len(),
+			memory_bytes: self.memory_usage(),
+		}
+	}
+
+	/// Get the number of content kinds stored
+	pub fn content_kinds_count(&self) -> usize {
+		self.content_kinds.len()
+	}
+
+	/// Get the number of entries in the path index
+	pub fn path_index_count(&self) -> usize {
+		self.path_index.len()
+	}
+
+	/// Get all entries as a HashMap (for backward compatibility)
+	///
+	/// This method reconstructs paths for all entries. For large indexes,
+	/// consider using iterators or specific queries instead.
+	pub fn entries(&self) -> HashMap<PathBuf, EntryMetadata> {
+		use super::state::EntryKind;
+
+		let mut result = HashMap::with_capacity(self.path_index.len());
+
+		for (path, &id) in &self.path_index {
+			if let Some(node) = self.arena.get(id) {
+				let metadata = EntryMetadata {
+					path: path.clone(),
+					kind: EntryKind::from(node.meta.file_type()),
+					size: node.meta.size(),
+					modified: node.meta.mtime_as_system_time(),
+					accessed: None,
+					created: node.meta.ctime_as_system_time(),
+					inode: None,
+					permissions: None,
+					is_hidden: path
+						.file_name()
+						.and_then(|n| n.to_str())
+						.map(|n| n.starts_with('.'))
+						.unwrap_or(false),
+				};
+				result.insert(path.clone(), metadata);
+			}
+		}
+
+		result
+	}
+}
+
+/// Statistics about an ephemeral index
+#[derive(Debug, Clone)]
+pub struct EphemeralIndexStats {
+	pub total_entries: usize,
+	pub unique_names: usize,
+	pub interned_strings: usize,
+	pub memory_bytes: usize,
 }
 
 /// Indexer job - discovers and indexes files in a location
@@ -395,11 +708,12 @@ impl JobHandler for IndexerJob {
 			match current_phase {
 				Phase::Discovery => {
 					// For cloud volumes, construct the base URL for building absolute paths
-					let cloud_url_base = if let Some((service, identifier, _)) = self.config.path.as_cloud() {
-						Some(format!("{}://{}/", service.scheme(), identifier))
-					} else {
-						None
-					};
+					let cloud_url_base =
+						if let Some((service, identifier, _)) = self.config.path.as_cloud() {
+							Some(format!("{}://{}/", service.scheme(), identifier))
+						} else {
+							None
+						};
 
 					// Use scope-aware discovery
 					if self.config.is_current_scope() {
@@ -468,9 +782,10 @@ impl JobHandler for IndexerJob {
 						)
 						.await?;
 					} else {
-						// Skip aggregation for ephemeral jobs
-						ctx.log("Skipping aggregation phase for ephemeral job");
-						state.phase = Phase::ContentIdentification;
+						// Skip aggregation and content phases for ephemeral jobs
+						// Content kind is already identified by extension during add_entry
+						ctx.log("Skipping aggregation and content phases for ephemeral job (content kind identified by extension)");
+						state.phase = Phase::Complete;
 						continue;
 					}
 
@@ -483,14 +798,10 @@ impl JobHandler for IndexerJob {
 				Phase::ContentIdentification => {
 					if self.config.mode >= IndexMode::Content {
 						if self.config.is_ephemeral() {
-							let ephemeral_index =
-								self.ephemeral_index.clone().ok_or_else(|| {
-									JobError::execution(
-										"Ephemeral index not initialized".to_string(),
-									)
-								})?;
-							Self::run_ephemeral_content_phase_static(state, &ctx, ephemeral_index)
-								.await?;
+							// Skip content phase for ephemeral jobs - content kind already identified
+							ctx.log("Skipping content identification for ephemeral job");
+							state.phase = Phase::Complete;
+							continue;
 						} else {
 							let library_id = ctx.library().id();
 							phases::run_content_phase(
@@ -563,6 +874,21 @@ impl JobHandler for IndexerJob {
 					ctx.log(format!("Warning: Failed to dispatch thumbnail job: {}", e));
 					// Don't fail the indexing job if thumbnail dispatch fails
 				}
+			}
+		}
+
+		// Mark ephemeral indexing as complete in the cache
+		if self.config.is_ephemeral() {
+			if let Some(ephemeral_index) = &self.ephemeral_index {
+				let root_path = ephemeral_index.read().await.root_path.clone();
+				ctx.library()
+					.core_context()
+					.ephemeral_cache()
+					.mark_indexing_complete(&root_path);
+				ctx.log(format!(
+					"Marked ephemeral indexing complete for: {}",
+					root_path.display()
+				));
 			}
 		}
 
@@ -773,128 +1099,15 @@ impl IndexerJob {
 		while let Some(batch) = state.entry_batches.pop() {
 			for entry in batch {
 				// Store entry (this will emit ResourceChanged events)
-				let entry_id = persistence.store_entry(&entry, None, &root_path).await?;
-
-				// Queue files for content identification
-				if entry.kind == super::state::EntryKind::File && entry.size > 0 {
-					state
-						.entries_for_content
-						.push((entry_id, entry.path.clone()));
-				}
+				// Content kind is identified by extension during add_entry, no hashing needed
+				let _entry_id = persistence.store_entry(&entry, None, &root_path).await?;
 			}
 		}
 
-		state.phase = Phase::ContentIdentification;
+		// Skip content identification for ephemeral jobs - go directly to complete
+		state.phase = Phase::Complete;
 
 		ctx.log("Ephemeral processing complete");
-		Ok(())
-	}
-
-	/// Run ephemeral content identification
-	async fn run_ephemeral_content_phase_static(
-		state: &mut IndexerState,
-		ctx: &JobContext<'_>,
-		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
-	) -> JobResult<()> {
-		use crate::domain::content_identity::ContentHashGenerator;
-		use crate::ops::indexing::persistence::PersistenceFactory;
-
-		ctx.log(format!(
-			"Starting ephemeral content identification for {} files",
-			state.entries_for_content.len()
-		));
-
-		if state.entries_for_content.is_empty() {
-			state.phase = Phase::Complete;
-			return Ok(());
-		}
-
-		// Get root path and event bus
-		let (root_path, event_bus) = {
-			let index = ephemeral_index.read().await;
-			(
-				index.root_path.clone(),
-				Some(ctx.library().event_bus().clone()),
-			)
-		};
-
-		// Create ephemeral persistence for event emission
-		let persistence =
-			PersistenceFactory::ephemeral(ephemeral_index.clone(), event_bus, root_path);
-
-		// Process files for content identification
-		let mut success_count = 0;
-		let mut error_count = 0;
-
-		// Process in chunks to emit progress
-		const CHUNK_SIZE: usize = 50;
-		let total = state.entries_for_content.len();
-
-		while !state.entries_for_content.is_empty() {
-			ctx.check_interrupt().await?;
-
-			let chunk_size = CHUNK_SIZE.min(state.entries_for_content.len());
-			let chunk: Vec<_> = state.entries_for_content.drain(..chunk_size).collect();
-
-			// Process chunk in parallel
-			let hash_futures: Vec<_> = chunk
-				.iter()
-				.map(|(entry_id, path)| async move {
-					let hash_result = ContentHashGenerator::generate_content_hash(path).await;
-					(*entry_id, path.clone(), hash_result)
-				})
-				.collect();
-
-			let results = futures::future::join_all(hash_futures).await;
-
-			// Store results and emit events
-			for (entry_id, path, hash_result) in results {
-				match hash_result {
-					Ok(cas_id) => {
-						// Store via persistence (this emits ResourceChanged event with content_identity)
-						if let Err(e) = persistence
-							.store_content_identity(entry_id, &path, cas_id.clone())
-							.await
-						{
-							ctx.add_non_critical_error(format!(
-								"Failed to store content identity for {}: {}",
-								path.display(),
-								e
-							));
-							error_count += 1;
-						} else {
-							success_count += 1;
-						}
-					}
-					Err(e) => {
-						// Skip empty files or errors
-						if !matches!(e, crate::domain::ContentHashError::EmptyFile) {
-							ctx.add_non_critical_error(format!(
-								"Failed to hash {}: {}",
-								path.display(),
-								e
-							));
-							error_count += 1;
-						}
-					}
-				}
-			}
-
-			ctx.log(format!(
-				"Content identification progress: {}/{} (success: {}, errors: {})",
-				total - state.entries_for_content.len(),
-				total,
-				success_count,
-				error_count
-			));
-		}
-
-		state.phase = Phase::Complete;
-		ctx.log(format!(
-			"Ephemeral content identification complete: {} files processed, {} errors",
-			success_count, error_count
-		));
-
 		Ok(())
 	}
 }

@@ -140,7 +140,9 @@ impl LibraryQuery for DirectoryListingQuery {
 		if let Some(should_use_ephemeral) = self.check_location_index_mode(db.conn()).await {
 			if should_use_ephemeral {
 				tracing::info!("Location has IndexMode::None, using ephemeral indexing");
-				return self.query_ephemeral_directory_impl(context, library_id).await;
+				return self
+					.query_ephemeral_directory_impl(context, library_id)
+					.await;
 			}
 		}
 
@@ -615,39 +617,163 @@ impl DirectoryListingQuery {
 		})
 	}
 
-	/// Query ephemeral directory (not indexed) - trigger on-demand indexing
+	/// Query ephemeral directory (not indexed) - check cache first, then trigger on-demand indexing
 	async fn query_ephemeral_directory_impl(
 		&self,
 		context: Arc<CoreContext>,
 		library_id: Uuid,
 	) -> QueryResult<DirectoryListingOutput> {
-		use crate::ops::indexing::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig};
+		use crate::domain::file::File;
+		use crate::ops::indexing::{IndexScope, IndexerJob, IndexerJobConfig};
+
+		// Get the local path for cache lookup
+		let local_path = match &self.input.path {
+			SdPath::Physical { path, .. } => path.clone(),
+			_ => {
+				tracing::warn!(
+					"Ephemeral indexing only supported for physical paths: {:?}",
+					self.input.path
+				);
+				return Ok(DirectoryListingOutput {
+					files: Vec::new(),
+					total_count: 0,
+					has_more: false,
+				});
+			}
+		};
+
+		let cache = context.ephemeral_cache();
+
+		// Check if we have a cached index that covers this path
+		if let Some(index) = cache.get_for_path(&local_path) {
+			tracing::info!(
+				"Found cached ephemeral index for path: {}",
+				local_path.display()
+			);
+
+			// Try to get directory listing from cached index
+			let index_guard = index.read().await;
+
+			// Check if the index actually has entries for this directory
+			if let Some(children) = index_guard.list_directory(&local_path) {
+				tracing::debug!(
+					"Cached index has {} children for {}",
+					children.len(),
+					local_path.display()
+				);
+
+				// Convert cached entries to File objects
+				let mut files = Vec::new();
+				for child_path in children {
+					if let Some(metadata) = index_guard.get_entry_ref(&child_path) {
+						// Apply hidden file filter
+						if !self.input.include_hidden.unwrap_or(false) && metadata.is_hidden {
+							continue;
+						}
+
+						// Get UUID from index
+						let entry_uuid = index_guard
+							.get_entry_uuid(&child_path)
+							.unwrap_or_else(Uuid::new_v4);
+
+						// Build SdPath for this entry
+						let entry_sd_path = SdPath::Physical {
+							device_slug: match &self.input.path {
+								SdPath::Physical { device_slug, .. } => device_slug.clone(),
+								_ => String::new(),
+							},
+							path: child_path.clone(),
+						};
+
+						// Get content kind from index (identified by extension)
+						let content_kind = index_guard.get_content_kind(&child_path);
+
+						// Convert to File
+						let mut file = File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
+						file.content_kind = content_kind;
+						files.push(file);
+					}
+				}
+
+				// Apply sorting
+				self.sort_files(&mut files);
+
+				// Apply limit
+				let total_count = files.len() as u32;
+				let has_more = if let Some(limit) = self.input.limit {
+					if files.len() > limit as usize {
+						files.truncate(limit as usize);
+						true
+					} else {
+						false
+					}
+				} else {
+					false
+				};
+
+				return Ok(DirectoryListingOutput {
+					files,
+					total_count,
+					has_more,
+				});
+			}
+
+			// Index exists but doesn't have this directory yet
+			// Fall through to spawn indexer job
+			tracing::debug!(
+				"Cached index doesn't contain directory: {}",
+				local_path.display()
+			);
+		}
+
+		// No cached index or index doesn't cover this path
+		// Check if indexing is already in progress
+		if cache.is_indexing(&local_path) {
+			tracing::info!("Indexing already in progress for: {}", local_path.display());
+			// Return empty, UI will get updates via events
+			return Ok(DirectoryListingOutput {
+				files: Vec::new(),
+				total_count: 0,
+				has_more: false,
+			});
+		}
 
 		tracing::info!(
-			"Path not indexed, triggering ephemeral indexing for: {:?}",
+			"No cached index, triggering ephemeral indexing for: {:?}",
 			self.input.path
 		);
 
 		// Get library to dispatch indexer job
 		if let Some(library) = context.get_library(library_id).await {
+			// Create cache entry and get the index to share with the job
+			let ephemeral_index = cache.create_for_indexing(local_path.clone());
+
 			// Create ephemeral indexer job for this directory (shallow, current scope only)
 			let config = IndexerJobConfig::ephemeral_browse(
 				self.input.path.clone(),
 				IndexScope::Current, // Only current directory, not recursive
 			);
 
-			let indexer_job = IndexerJob::new(config);
+			let mut indexer_job = IndexerJob::new(config);
 
-			// Dispatch job asynchronously (fire and forget)
+			// Share the cached index with the job
+			indexer_job.set_ephemeral_index(ephemeral_index);
+
+			// Dispatch job asynchronously
 			// The job will emit ResourceChanged events as files are discovered
-			if let Err(e) = library.jobs().dispatch(indexer_job).await {
-				tracing::warn!(
-					"Failed to dispatch ephemeral indexer for {:?}: {}",
-					self.input.path,
-					e
-				);
-			} else {
-				tracing::info!("Dispatched ephemeral indexer for {:?}", self.input.path);
+			match library.jobs().dispatch(indexer_job).await {
+				Ok(_) => {
+					tracing::info!("Dispatched ephemeral indexer for {:?}", self.input.path);
+				}
+				Err(e) => {
+					tracing::warn!(
+						"Failed to dispatch ephemeral indexer for {:?}: {}",
+						self.input.path,
+						e
+					);
+					// Mark indexing as not in progress since job failed
+					cache.mark_indexing_complete(&local_path);
+				}
 			}
 		}
 
@@ -658,6 +784,42 @@ impl DirectoryListingQuery {
 			total_count: 0,
 			has_more: false,
 		})
+	}
+
+	/// Sort files according to the input options
+	fn sort_files(&self, files: &mut Vec<File>) {
+		use crate::domain::file::EntryKind;
+
+		let folders_first = self.input.folders_first.unwrap_or(false);
+
+		files.sort_by(|a, b| {
+			// Folders first if enabled
+			if folders_first {
+				let a_is_dir = matches!(a.kind, EntryKind::Directory);
+				let b_is_dir = matches!(b.kind, EntryKind::Directory);
+				if a_is_dir != b_is_dir {
+					return b_is_dir.cmp(&a_is_dir); // Directories first
+				}
+			}
+
+			// Then apply sort order
+			match self.input.sort_by {
+				DirectorySortBy::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+				DirectorySortBy::Modified => b.modified_at.cmp(&a.modified_at),
+				DirectorySortBy::Size => b.size.cmp(&a.size),
+				DirectorySortBy::Type => {
+					// Sort by kind (directories first), then name
+					if !folders_first {
+						let a_is_dir = matches!(a.kind, EntryKind::Directory);
+						let b_is_dir = matches!(b.kind, EntryKind::Directory);
+						if a_is_dir != b_is_dir {
+							return b_is_dir.cmp(&a_is_dir);
+						}
+					}
+					a.name.to_lowercase().cmp(&b.name.to_lowercase())
+				}
+			}
+		});
 	}
 }
 
@@ -677,7 +839,9 @@ impl DirectoryListingQuery {
 					for loc in locations {
 						// Get the location's root path
 						if let Some(entry_id) = loc.entry_id {
-							if let Ok(Some(dir_path)) = directory_paths::Entity::find_by_id(entry_id).one(db).await {
+							if let Ok(Some(dir_path)) =
+								directory_paths::Entity::find_by_id(entry_id).one(db).await
+							{
 								// Check if this location's path is a parent of the requested path
 								if path_str.starts_with(&dir_path.path) {
 									// Check if index_mode is "none"

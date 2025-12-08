@@ -13,6 +13,9 @@ pub struct EnableIndexingOutput {
 
 impl EnableIndexingOutput {
 	pub fn new(location_id: Uuid, job_id: String) -> Self {
-		Self { location_id, job_id }
+		Self {
+			location_id,
+			job_id,
+		}
 	}
 }

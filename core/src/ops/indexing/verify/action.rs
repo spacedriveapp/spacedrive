@@ -183,7 +183,7 @@ impl IndexVerifyAction {
 		// Extract the results from our shared ephemeral index
 		let entries = {
 			let index = ephemeral_index.read().await;
-			index.entries.clone()
+			index.entries()
 		};
 
 		tracing::debug!(

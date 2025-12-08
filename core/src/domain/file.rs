@@ -78,8 +78,8 @@ pub struct File {
 	pub accessed_at: Option<DateTime<Utc>>,
 
 	/// Additional computed fields
-	pub content_kind: ContentKind, // This is redundant with ContentIdentity, it lives inside
-	pub is_local: bool, // this is also redundant with SdPath
+	pub content_kind: ContentKind, // Populated by the ephemeral indexer, for when a File does not have a ContentIdentity
+	pub is_local: bool, // this is redundant with SdPath
 
 	/// Video duration (for grid display optimization)
 	pub duration_seconds: Option<f64>,

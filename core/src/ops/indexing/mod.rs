@@ -12,6 +12,7 @@ pub mod action;
 pub mod change_detection;
 pub mod ctx;
 pub mod entry;
+pub mod ephemeral;
 pub mod hierarchy;
 pub mod input;
 pub mod job;
@@ -30,10 +31,11 @@ pub mod verify;
 pub use action::IndexingAction;
 pub use ctx::{IndexingCtx, ResponderCtx};
 pub use entry::{EntryMetadata, EntryProcessor};
+pub use ephemeral::EphemeralIndexCache;
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
 pub use job::{
-	EphemeralContentIdentity, EphemeralIndex, IndexMode, IndexPersistence, IndexScope, IndexerJob,
+	EphemeralIndex, EphemeralIndexStats, IndexMode, IndexPersistence, IndexScope, IndexerJob,
 	IndexerJobConfig, IndexerOutput,
 };
 pub use metrics::IndexerMetrics;

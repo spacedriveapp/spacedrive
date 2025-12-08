@@ -312,11 +312,11 @@ fn extract_json_number(json: &str, key: &str) -> Option<u64> {
 
 /// Enhance volume with ReFS-specific information from Windows
 pub async fn enhance_volume_from_windows(volume: &mut Volume) -> VolumeResult<()> {
-    // Import the trait from the parent module so the enhance_volume method is available
-    use super::FilesystemHandler;
+	// Import the trait from the parent module so the enhance_volume method is available
+	use super::FilesystemHandler;
 
-    let handler = RefsHandler::new();
-    handler.enhance_volume(volume).await
+	let handler = RefsHandler::new();
+	handler.enhance_volume(volume).await
 }
 
 #[cfg(test)]

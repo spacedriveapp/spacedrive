@@ -800,17 +800,25 @@ async fn stop_daemon_process(
 async fn check_daemon_installed() -> Result<bool, String> {
 	#[cfg(target_os = "macos")]
 	{
-		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
-		let plist_path = std::path::PathBuf::from(home).join("Library/LaunchAgents/com.spacedrive.daemon.plist");
+		let home =
+			std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let plist_path =
+			std::path::PathBuf::from(home).join("Library/LaunchAgents/com.spacedrive.daemon.plist");
 		let exists = plist_path.exists();
-		tracing::info!("Checking daemon installation at {}: {}", plist_path.display(), exists);
+		tracing::info!(
+			"Checking daemon installation at {}: {}",
+			plist_path.display(),
+			exists
+		);
 		Ok(exists)
 	}
 
 	#[cfg(target_os = "linux")]
 	{
-		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
-		let service_path = std::path::PathBuf::from(home).join(".config/systemd/user/spacedrive-daemon.service");
+		let home =
+			std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let service_path =
+			std::path::PathBuf::from(home).join(".config/systemd/user/spacedrive-daemon.service");
 		Ok(service_path.exists())
 	}
 
@@ -865,7 +873,8 @@ async fn install_daemon_service(
 	{
 		use std::io::Write;
 
-		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let home =
+			std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
 		let launch_agents_dir = std::path::PathBuf::from(&home).join("Library/LaunchAgents");
 
 		std::fs::create_dir_all(&launch_agents_dir)
@@ -881,7 +890,10 @@ async fn install_daemon_service(
 			.join("sd-daemon");
 
 		if !daemon_path.exists() {
-			return Err(format!("Daemon binary not found at {}", daemon_path.display()));
+			return Err(format!(
+				"Daemon binary not found at {}",
+				daemon_path.display()
+			));
 		}
 
 		let log_dir = data_dir.join("logs");
@@ -938,7 +950,10 @@ async fn install_daemon_service(
 			.output()
 			.map_err(|e| format!("Failed to load service: {}", e))?;
 
-		tracing::info!("launchctl load output: {:?}", String::from_utf8_lossy(&output.stdout));
+		tracing::info!(
+			"launchctl load output: {:?}",
+			String::from_utf8_lossy(&output.stdout)
+		);
 		if !output.status.success() {
 			let stderr = String::from_utf8_lossy(&output.stderr);
 			tracing::error!("launchctl load failed: {:?}", stderr);
@@ -980,7 +995,8 @@ async fn install_daemon_service(
 	{
 		use std::io::Write;
 
-		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let home =
+			std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
 		let systemd_dir = std::path::PathBuf::from(&home).join(".config/systemd/user");
 
 		std::fs::create_dir_all(&systemd_dir)
@@ -995,7 +1011,10 @@ async fn install_daemon_service(
 			.join("sd-daemon");
 
 		if !daemon_path.exists() {
-			return Err(format!("Daemon binary not found at {}", daemon_path.display()));
+			return Err(format!(
+				"Daemon binary not found at {}",
+				daemon_path.display()
+			));
 		}
 
 		let service_content = format!(
@@ -1112,7 +1131,10 @@ WantedBy=default.target
 			.join("sd-daemon.exe");
 
 		if !daemon_path.exists() {
-			return Err(format!("Daemon binary not found at {}", daemon_path.display()));
+			return Err(format!(
+				"Daemon binary not found at {}",
+				daemon_path.display()
+			));
 		}
 
 		// Delete existing task if it exists
@@ -1248,8 +1270,10 @@ WantedBy=default.target
 async fn uninstall_daemon_service() -> Result<(), String> {
 	#[cfg(target_os = "macos")]
 	{
-		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
-		let plist_path = std::path::PathBuf::from(&home).join("Library/LaunchAgents/com.spacedrive.daemon.plist");
+		let home =
+			std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let plist_path = std::path::PathBuf::from(&home)
+			.join("Library/LaunchAgents/com.spacedrive.daemon.plist");
 
 		if plist_path.exists() {
 			// Unload the service
@@ -1266,8 +1290,10 @@ async fn uninstall_daemon_service() -> Result<(), String> {
 
 	#[cfg(target_os = "linux")]
 	{
-		let home = std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
-		let service_path = std::path::PathBuf::from(&home).join(".config/systemd/user/spacedrive-daemon.service");
+		let home =
+			std::env::var("HOME").map_err(|_| "Could not determine home directory".to_string())?;
+		let service_path =
+			std::path::PathBuf::from(&home).join(".config/systemd/user/spacedrive-daemon.service");
 
 		if service_path.exists() {
 			// Stop and disable the service

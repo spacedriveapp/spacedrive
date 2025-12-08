@@ -167,6 +167,12 @@ once_cell = "1.20"
 rand      = "0.8"                                                        # Random number generation for secure delete
 tempfile  = "3.14"                                                       # Temporary directories for testing
 uuid      = { version = "1.11", features = ["serde", "v4", "v5", "v7"] }
+
+# High-performance ephemeral index
+memmap2      = "0.9"  # Memory-mapped file support for arena storage
+smallvec     = "1.13" # Small vector optimization for children arrays
+parking_lot  = "0.12" # Fast mutex for name cache
+num_cpus     = "1.16" # CPU count for parallel walker
 whoami    = "1.5"
 
 # Secure storage

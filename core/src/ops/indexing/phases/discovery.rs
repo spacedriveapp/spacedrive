@@ -58,8 +58,15 @@ pub async fn run_discovery_phase(
 		state.dirs_to_walk.len()
 	));
 
-	run_parallel_discovery(state, ctx, root_path, rule_toggles, volume_backend, cloud_url_base)
-		.await
+	run_parallel_discovery(
+		state,
+		ctx,
+		root_path,
+		rule_toggles,
+		volume_backend,
+		cloud_url_base,
+	)
+	.await
 }
 
 /// Parallel discovery implementation using Rayon-style work-stealing
@@ -244,7 +251,9 @@ enum DiscoveryResult {
 		bytes: u64,
 	},
 	Error(IndexError),
-	Progress { dirs_queued: usize },
+	Progress {
+		dirs_queued: usize,
+	},
 }
 
 /// Rayon-style worker: processes directories and directly enqueues new work
@@ -291,7 +300,12 @@ async fn discovery_worker_rayon(
 		let dir_ruler = build_default_ruler(rule_toggles, &root_path, &dir_path).await;
 
 		// Read directory
-		match read_directory(&dir_path, volume_backend.as_ref(), cloud_url_base.as_deref()).await
+		match read_directory(
+			&dir_path,
+			volume_backend.as_ref(),
+			cloud_url_base.as_deref(),
+		)
+		.await
 		{
 			Ok(entries) => {
 				let mut local_stats = LocalStats::default();

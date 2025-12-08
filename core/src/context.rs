@@ -3,9 +3,9 @@
 use crate::{
 	config::JobLoggingConfig, crypto::key_manager::KeyManager, device::DeviceManager,
 	infra::action::manager::ActionManager, infra::event::EventBus, infra::sync::TransactionManager,
-	library::LibraryManager, service::network::NetworkingService,
-	service::session::SessionStateService, service::sidecar_manager::SidecarManager,
-	volume::VolumeManager,
+	library::LibraryManager, ops::indexing::ephemeral::EphemeralIndexCache,
+	service::network::NetworkingService, service::session::SessionStateService,
+	service::sidecar_manager::SidecarManager, volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
@@ -22,6 +22,8 @@ pub struct CoreContext {
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
 	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
+	// Ephemeral index cache for unmanaged paths
+	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
@@ -47,9 +49,15 @@ impl CoreContext {
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
 			plugin_manager: Arc::new(RwLock::new(None)),
+			ephemeral_index_cache: Arc::new(EphemeralIndexCache::new()),
 			job_logging_config: None,
 			job_logs_dir: None,
 		}
+	}
+
+	/// Get the ephemeral index cache
+	pub fn ephemeral_cache(&self) -> &Arc<EphemeralIndexCache> {
+		&self.ephemeral_index_cache
 	}
 
 	/// Get the library manager

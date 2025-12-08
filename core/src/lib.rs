@@ -110,7 +110,11 @@ impl Core {
 		)?);
 
 		// Initialize device manager
-		let device = Arc::new(DeviceManager::init(&data_dir, key_manager.clone(), system_device_name)?);
+		let device = Arc::new(DeviceManager::init(
+			&data_dir,
+			key_manager.clone(),
+			system_device_name,
+		)?);
 
 		// Set a global device ID and slug for convenience
 		crate::device::set_current_device_id(device.device_id()?);

@@ -94,16 +94,13 @@ impl BatchAggregator {
 	}
 
 	/// Add records to the batch
-	pub async fn add_records(
-		&self,
-		model_type: String,
-		count: u64,
-		peer_id: Option<Uuid>,
-	) {
+	pub async fn add_records(&self, model_type: String, count: u64, peer_id: Option<Uuid>) {
 		let key = BatchKey { peer_id };
 
 		let mut batches = self.pending_batches.write().await;
-		let batch = batches.entry(key.clone()).or_insert_with(|| PendingBatch::new(peer_id));
+		let batch = batches
+			.entry(key.clone())
+			.or_insert_with(|| PendingBatch::new(peer_id));
 
 		batch.add(model_type, count);
 
@@ -195,7 +192,8 @@ impl BatchAggregator {
 			let keys_to_flush: Vec<BatchKey> = batches
 				.iter()
 				.filter(|(_, batch)| {
-					now.signed_duration_since(batch.started_at) >= chrono::Duration::from_std(self.config.flush_interval).unwrap()
+					now.signed_duration_since(batch.started_at)
+						>= chrono::Duration::from_std(self.config.flush_interval).unwrap()
 				})
 				.map(|(k, _)| k.clone())
 				.collect();
