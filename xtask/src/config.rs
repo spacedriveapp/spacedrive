@@ -14,6 +14,10 @@ struct ConfigContext {
 	protoc: Option<String>,
 	#[serde(rename = "mobileNativeDeps")]
 	mobile_native_deps: Option<String>,
+	#[serde(rename = "androidNdkHome")]
+	android_ndk_home: String,
+	#[serde(rename = "hostTag")]
+	host_tag: &'static str,
 	#[serde(rename = "isWin")]
 	is_win: bool,
 	#[serde(rename = "isMacOS")]
@@ -22,6 +26,8 @@ struct ConfigContext {
 	is_linux: bool,
 	#[serde(rename = "hasiOS")]
 	has_ios: bool,
+	#[serde(rename = "hasAndroid")]
+	has_android: bool,
 	#[serde(rename = "hasLLD")]
 	has_lld: Option<LinkerInfo>,
 }
@@ -52,6 +58,15 @@ pub fn generate_cargo_config(
 		.iter()
 		.any(|t| rust_targets.contains(&t.to_string()));
 
+	let android_targets = [
+		"aarch64-linux-android",
+		"x86_64-linux-android",
+		// add more as needed
+	];
+	let has_android = android_targets
+		.iter()
+		.any(|t| rust_targets.contains(&t.to_string()));
+
 	// Get linker info
 	let has_lld = get_best_linker().map(|linker| LinkerInfo { linker });
 
@@ -75,15 +90,32 @@ pub fn generate_cargo_config(
 	let mobile_native_deps =
 		mobile_deps_dir.map(|p| p.to_string_lossy().replace('\\', "\\\\").to_string());
 
+	let android_ndk_home = std::env::var("ANDROID_NDK")
+		.or_else(|_| std::env::var("ANDROID_NDK_HOME"))
+		.expect("Android NDK not found. Set ANDROID_NDK or ANDROID_NDK_HOME");
+
 	// Build context for mustache
 	let context = ConfigContext {
 		native_deps,
 		protoc,
 		mobile_native_deps,
+		android_ndk_home,
+		host_tag: match system.os {
+			Os::Windows => "windows-x86_64",
+			Os::Linux => "linux-x86_64",
+			Os::MacOS => {
+				if cfg!(target_arch = "aarch64") {
+					"darwin-aarch64"
+				} else {
+					"darwin-x86_64"
+				}
+			}
+		},
 		is_win: matches!(system.os, Os::Windows),
 		is_macos: matches!(system.os, Os::MacOS),
 		is_linux: matches!(system.os, Os::Linux),
 		has_ios,
+		has_android,
 		has_lld,
 	};
 

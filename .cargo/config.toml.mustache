@@ -93,6 +93,16 @@ rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
 {{/isLinux}}
 
+{{#hasAndroid}}
+[target.aarch64-linux-android]
+linker = "{{{androidNdkHome}}}/toolchains/llvm/prebuilt/{{{hostTag}}}/bin/aarch64-linux-android35-clang"
+rustflags = ["-L", "{{{mobileNativeDeps}}}/aarch64-linux-android/lib"]
+
+[target.x86_64-linux-android]
+linker = "{{{androidNdkHome}}}/toolchains/llvm/prebuilt/{{{hostTag}}}/bin/x86_64-linux-android35-clang"
+rustflags = ["-L", "{{{mobileNativeDeps}}}/x86_64-linux-android/lib"]
+{{/hasAndroid}}
+
 # Cargo aliases for xtask commands
 [alias]
 xtask = "run --package xtask --"

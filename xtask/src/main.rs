@@ -156,6 +156,32 @@ fn setup() -> Result<()> {
 			);
 		}
 	}
+	{
+		let rust_targets = system::get_rust_targets().unwrap_or_default();
+		let android_targets = ["aarch64-linux-android", "x86_64-linux-android"];
+
+		let has_android_targets: Vec<_> = android_targets
+			.iter()
+			.filter(|t| rust_targets.contains(&t.to_string()))
+			.collect();
+
+		if !has_android_targets.is_empty() {
+			println!();
+			println!("Android targets detected, downloading Android dependencies...");
+
+			let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
+			fs::create_dir_all(&mobile_deps_dir)?;
+
+			for target in has_android_targets {
+				native_deps::download_android_deps(target, &mobile_deps_dir)?;
+			}
+		} else {
+			println!();
+			println!("️  No Android targets installed. Skipping Android dependencies.");
+			println!("   To add Android support, run:");
+			println!("   rustup target add aarch64-linux-android x86_64-linux-android");
+		}
+	}
 
 	// Generate cargo config
 	println!();
@@ -343,12 +369,15 @@ fn build_mobile() -> Result<()> {
 	}
 
 	// iOS targets
+	#[cfg(target_os = "macos")]
 	let ios_targets = [
 		("aarch64-apple-ios", "Device", false),
 		("aarch64-apple-ios-sim", "Simulator (arm64)", true),
 	];
 
+	#[cfg(target_os = "macos")]
 	println!("Building for iOS targets...");
+	#[cfg(target_os = "macos")]
 	for (target, name, _is_sim) in &ios_targets {
 		println!("  Building for iOS {} ({})...", name, target);
 
@@ -362,7 +391,29 @@ fn build_mobile() -> Result<()> {
 		if !status.success() {
 			anyhow::bail!("Build failed for target: {}", target);
 		}
+
 		println!("  ✓ {} build complete", name);
+	}
+
+	let android_targets = [
+		("aarch64-linux-android", "Device", false),
+		("x86_64-linux-android", "Android Emulator", true),
+		// add more as needed
+	];
+
+	println!("Building for Android targets...");
+	for (target, name, _is_emulator) in &android_targets {
+		println!("	Building for Android {} ({}) ...", name, target);
+
+		let status = Command::new("cargo")
+			.args(["build", "--release", "--target", target])
+			.current_dir(&mobile_core_dir)
+			.status()
+			.context(format!("Failed to build for {}", target))?;
+
+		if !status.success() {
+			anyhow::bail!("Build failed for target: {}", target);
+		}
 	}
 
 	// Copy built libraries to the iOS module directory

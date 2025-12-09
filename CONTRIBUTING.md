@@ -256,20 +256,26 @@ The React Native mobile app provides cross-platform iOS and Android support with
 
 #### Prerequisites
 
-| Tool           | Version | Required For                   |
-| -------------- | ------- | ------------------------------ |
-| Bun            | 1.3+    | Package management             |
-| Xcode          | 26+     | iOS builds                     |
-| Rust           | 1.81+   | Core compilation               |
-| Go             | 1.20+   | Building aws-lc crypto library |
-| Android Studio | Latest  | Android builds                 |
+| Tool           | Version | Required For                               |
+| -------------- | ------- | ------------------------------------------ |
+| Bun            | 1.3+    | Package management                         |
+| Xcode          | 26+     | iOS builds                                 |
+| Rust           | 1.81+   | Core compilation                           |
+| Go             | 1.20+   | Building aws-lc crypto library             |
+| Android Studio | Latest  | Android builds, NDK (26.1.10909125), CMake |
+| Java           | 17      | Android builds                             |
 
 #### Quick Start
+> [!important]
+> If you're building for Android devices, it's imperative that you install NDK (26.1.10909125) and CMake in Android Studio's SDK Manager in order to build the aws-lc crypto library. You'll need to add the NDK path to your system's environment variable as `ANDROID_NDK` or `ANDROID_NDK_HOME`.
 
 ```bash
 # 1. Install Go (required for aws-lc cryptographic library)
 brew install go  # macOS
 # or visit https://go.dev/dl/ for other platforms
+
+# 2. Install Java (required for Android builds)
+brew install openjdk@17 # macOS
 
 # 2. Build the Rust core for mobile (from project root)
 cargo xtask build-mobile
@@ -282,11 +288,13 @@ bun install
 # (Not required to ensure rebuilt core is bundled when making changes)
 bun run prebuild:clean
 
-# 5. Run on iOS simulator (from apps/mobile directory)
+# 5. Run on iOS simulator or Android emulator (from apps/mobile directory)
 bun ios
+bun android
 
-# 6. Run on physical iOS device (from apps/mobile directory)
+# 6. Run on physical iOS or Android device (from apps/mobile directory)
 bun ios --device "YourDeviceName"
+bun android --device "YourDeviceName"
 # You can find the device name by running `bunx expo devices`.
 ```
 
@@ -332,12 +340,18 @@ Rust Core (libsd_mobile_core.a)
 The Rust core must be built manually before running the app. The build script in the podspec is intentionally commented out to avoid build issues during Xcode compilation.
 
 ```bash
-# Build for iOS (device + simulator) from project root
+# Build for iOS/Android (device + simulator) from project root. iOS will only build on MacOS
 cargo xtask build-mobile
 
 # Libraries are output to:
+
+# iOS
 # apps/mobile/modules/sd-mobile-core/ios/libs/device/libsd_mobile_core.a
 # apps/mobile/modules/sd-mobile-core/ios/libs/simulator/libsd_mobile_core.a
+
+# Android
+# apps/mobile/modules/sd-mobile-core/android/src/main/jniLibs/arm64-v8a/libsd_mobile_core.so
+# apps/mobile/modules/sd-mobile-core/android/src/main/jniLibs/x86_64/libsd_mobile_core.so
 ```
 
 #### Known Issues and Fixes
@@ -382,6 +396,11 @@ If you see "database is locked" errors, a previous build is still running. Kill 
 pkill -f xcodebuild
 rm -rf ~/Library/Developer/Xcode/DerivedData/Spacedrive-*
 ```
+
+**Android build errors:**
+`"Android NDK not found. Set ANDROID_NDK or ANDROID_NDK_HOME"`
+
+If you haven't already, you'll need to install NDK (26.1.10909125) and CMake from Android Studio and add it as an environment variable to your system as either `ANDROID_NDK` or `ANDROID_NDK_HOME`. You can find the directory in the path of your Android SDK.
 
 #### Adding New Native Functionality
 

@@ -488,6 +488,13 @@ mod android {
 	static EVENT_MODULE_REF: OnceCell<GlobalRef> = OnceCell::new();
 	static LOG_MODULE_REF: OnceCell<GlobalRef> = OnceCell::new();
 
+	// Only for Android x86_64 - provides missing symbol
+	#[cfg(all(target_os = "android", target_arch = "x86_64"))]
+	#[no_mangle]
+	pub extern "C" fn __rust_probestack() {
+		// Intentionally empty - stack probing disabled for x86_64 emulator
+	}
+
 	#[no_mangle]
 	pub unsafe extern "C" fn Java_com_spacedrive_core_SDMobileCoreModule_initializeCore(
 		mut env: JNIEnv,
@@ -511,7 +518,7 @@ mod android {
 		};
 
 		let data_dir_cstr = CString::new(data_dir_str).unwrap();
-		let device_name_cstr = device_name_str.map(|s| CString::new(s).unwrap());
+		let device_name_cstr = device_name_str.map(|s: String| CString::new(s).unwrap());
 
 		let result = super::initialize_core(
 			data_dir_cstr.as_ptr(),
