@@ -107,9 +107,9 @@ impl FsWatcherService {
 	/// Initialize handlers with a reference to self (wrapped in Arc)
 	///
 	/// Must be called after the service is wrapped in Arc.
-	pub fn init_handlers(self: &Arc<Self>) {
-		self.persistent_handler.connect(self.clone());
-		self.ephemeral_handler.connect(self.clone());
+	pub async fn init_handlers(self: &Arc<Self>) {
+		self.persistent_handler.connect(self.clone()).await;
+		self.ephemeral_handler.connect(self.clone()).await;
 	}
 
 	/// Subscribe to filesystem events

@@ -319,19 +319,50 @@ impl Default for MacOsHandler {
 #[async_trait::async_trait]
 impl EventHandler for MacOsHandler {
 	async fn process(&self, event: RawNotifyEvent) -> Result<Vec<FsEvent>> {
-		let Some(path) = event.primary_path().cloned() else {
-			return Ok(vec![]);
-		};
-
 		match event.kind {
-			RawEventKind::Create => self.process_create(path).await,
-			RawEventKind::Remove => self.process_remove(path).await,
-			RawEventKind::Modify => self.process_modify(path).await,
-			RawEventKind::Rename => {
-				// On macOS, rename events from notify are unreliable
-				// We handle renames via inode tracking instead
-				// Treat as modify and let inode tracking handle it
+			RawEventKind::Create => {
+				let Some(path) = event.primary_path().cloned() else {
+					return Ok(vec![]);
+				};
+				self.process_create(path).await
+			}
+			RawEventKind::Remove => {
+				let Some(path) = event.primary_path().cloned() else {
+					return Ok(vec![]);
+				};
+				self.process_remove(path).await
+			}
+			RawEventKind::Modify => {
+				let Some(path) = event.primary_path().cloned() else {
+					return Ok(vec![]);
+				};
 				self.process_modify(path).await
+			}
+			RawEventKind::Rename => {
+				// macOS FSEvents provides rename events with both paths
+				// paths[0] = from (old path), paths[1] = to (new path)
+				if event.paths.len() >= 2 {
+					let from = event.paths[0].clone();
+					let to = event.paths[1].clone();
+					debug!(
+						"Rename event received: {} -> {}",
+						from.display(),
+						to.display()
+					);
+					let is_dir = Self::is_directory(&to).await;
+					return Ok(vec![FsEvent::rename_with_dir_flag(from, to, is_dir)]);
+				} else if let Some(path) = event.primary_path() {
+					// Single path rename event - treat as create (file appeared) or remove (file gone)
+					// Check if path exists to determine which
+					if path.exists() {
+						debug!("Rename event with single path (exists): {}", path.display());
+						return self.process_create(path.clone()).await;
+					} else {
+						debug!("Rename event with single path (gone): {}", path.display());
+						return self.process_remove(path.clone()).await;
+					}
+				}
+				Ok(vec![])
 			}
 			RawEventKind::Other(ref kind) => {
 				trace!("Ignoring unknown event kind: {}", kind);

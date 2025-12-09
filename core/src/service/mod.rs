@@ -56,9 +56,6 @@ impl Services {
 		let fs_watcher_config = FsWatcherServiceConfig::default();
 		let fs_watcher = Arc::new(FsWatcherService::new(context.clone(), fs_watcher_config));
 
-		// Connect handlers to the watcher (they need Arc<FsWatcherService>)
-		fs_watcher.init_handlers();
-
 		let file_sharing = Arc::new(FileSharingService::new(context.clone()));
 		let device = Arc::new(DeviceService::new(context.clone()));
 		let sidecar_manager = Arc::new(SidecarManager::new(context.clone()));
@@ -84,6 +81,8 @@ impl Services {
 	pub async fn start_all(&self) -> Result<()> {
 		info!("Starting all background services");
 
+		// Initialize handlers before starting (connects them to the watcher)
+		self.fs_watcher.init_handlers().await;
 		self.fs_watcher.start().await?;
 
 		// Start volume monitor if initialized
@@ -97,6 +96,9 @@ impl Services {
 	/// Start services based on configuration
 	pub async fn start_all_with_config(&self, config: &crate::config::ServiceConfig) -> Result<()> {
 		info!("Starting background services based on configuration");
+
+		// Initialize handlers (connects them to the watcher)
+		self.fs_watcher.init_handlers().await;
 
 		if config.fs_watcher_enabled {
 			self.fs_watcher.start().await?;

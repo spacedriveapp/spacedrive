@@ -105,8 +105,8 @@ impl PersistentEventHandler {
 	}
 
 	/// Connect to a FsWatcherService
-	pub fn connect(&self, fs_watcher: Arc<FsWatcherService>) {
-		*self.fs_watcher.blocking_write() = Some(fs_watcher);
+	pub async fn connect(&self, fs_watcher: Arc<FsWatcherService>) {
+		*self.fs_watcher.write().await = Some(fs_watcher);
 	}
 
 	/// Register a location for persistent indexing

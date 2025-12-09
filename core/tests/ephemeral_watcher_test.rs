@@ -6,47 +6,118 @@
 
 use sd_core::{
 	context::CoreContext,
-	infra::event::{Event, EventSubscriber, FsRawEventKind},
 	library::Library,
-	ops::indexing::job::{IndexScope, IndexerJob, IndexerJobConfig},
-	service::{watcher::LocationWatcher, watcher::LocationWatcherConfig, Service},
+	ops::indexing::{
+		job::{IndexScope, IndexerJob, IndexerJobConfig},
+		state::EntryKind,
+	},
+	service::{watcher::FsWatcherService, watcher::FsWatcherServiceConfig, Service},
 	Core,
 };
+use sd_fs_watcher::FsEvent;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tempfile::TempDir;
+use tokio::sync::Mutex;
 use tokio::time::timeout;
 
 // ============================================================================
-// Helper Functions
+// Event Collector for Debugging
 // ============================================================================
 
-/// Wait for a specific event with timeout
-async fn wait_for_event<F>(
-	event_rx: &mut EventSubscriber,
-	predicate: F,
-	timeout_duration: Duration,
-	description: &str,
-) -> Result<Event, Box<dyn std::error::Error>>
-where
-	F: Fn(&Event) -> bool,
-{
-	timeout(timeout_duration, async {
-		loop {
-			match event_rx.recv().await {
-				Ok(event) if predicate(&event) => return Ok(event),
-				Ok(_) => continue,
-				Err(e) => {
-					return Err(format!(
-						"Event channel error while waiting for {}: {}",
-						description, e
-					)
-					.into())
+/// Collects FsEvents for diagnostic output
+struct EventCollector {
+	events: Arc<Mutex<Vec<(std::time::Instant, FsEvent)>>>,
+	start_time: std::time::Instant,
+}
+
+impl EventCollector {
+	fn new() -> Self {
+		Self {
+			events: Arc::new(Mutex::new(Vec::new())),
+			start_time: std::time::Instant::now(),
+		}
+	}
+
+	/// Start collecting events from a watcher
+	fn start_collecting(&self, watcher: &FsWatcherService) {
+		let events = self.events.clone();
+		let mut rx = watcher.subscribe();
+
+		tokio::spawn(async move {
+			loop {
+				match rx.recv().await {
+					Ok(event) => {
+						let mut events_lock = events.lock().await;
+						events_lock.push((std::time::Instant::now(), event));
+					}
+					Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+					Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+						eprintln!("Event collector lagged by {} events", n);
+					}
 				}
 			}
+		});
+	}
+
+	/// Dump collected events to a file
+	async fn dump_to_file(&self, path: &std::path::Path) -> std::io::Result<()> {
+		use std::io::Write;
+
+		let events = self.events.lock().await;
+		let mut file = std::fs::File::create(path)?;
+
+		writeln!(file, "=== FsWatcher Event Log ===")?;
+		writeln!(file, "Total events collected: {}", events.len())?;
+		writeln!(file, "")?;
+
+		for (i, (timestamp, event)) in events.iter().enumerate() {
+			let elapsed = timestamp.duration_since(self.start_time);
+			writeln!(
+				file,
+				"[{:03}] +{:.3}s | {:?}",
+				i,
+				elapsed.as_secs_f64(),
+				event.kind
+			)?;
+			writeln!(file, "         path: {}", event.path.display())?;
+			if let Some(is_dir) = event.is_directory {
+				writeln!(file, "         is_directory: {}", is_dir)?;
+			}
+			writeln!(file, "")?;
 		}
-	})
-	.await
-	.map_err(|_| format!("Timeout waiting for event: {}", description))?
+
+		writeln!(file, "=== End of Event Log ===")?;
+
+		Ok(())
+	}
+
+	/// Print summary to console
+	async fn print_summary(&self) {
+		let events = self.events.lock().await;
+
+		println!("\n=== Event Summary ===");
+		println!("Total events: {}", events.len());
+
+		let mut creates = 0;
+		let mut modifies = 0;
+		let mut removes = 0;
+		let mut renames = 0;
+
+		for (_, event) in events.iter() {
+			match &event.kind {
+				sd_fs_watcher::FsEventKind::Create => creates += 1,
+				sd_fs_watcher::FsEventKind::Modify => modifies += 1,
+				sd_fs_watcher::FsEventKind::Remove => removes += 1,
+				sd_fs_watcher::FsEventKind::Rename { .. } => renames += 1,
+			}
+		}
+
+		println!("  Creates: {}", creates);
+		println!("  Modifies: {}", modifies);
+		println!("  Removes: {}", removes);
+		println!("  Renames: {}", renames);
+		println!("===================\n");
+	}
 }
 
 // ============================================================================
@@ -59,9 +130,9 @@ struct TestHarness {
 	core: Arc<Core>,
 	library: Arc<Library>,
 	test_dir: PathBuf,
-	fs_event_rx: EventSubscriber,
-	watcher: Arc<LocationWatcher>,
+	watcher: Arc<FsWatcherService>,
 	context: Arc<CoreContext>,
+	event_collector: EventCollector,
 }
 
 impl TestHarness {
@@ -113,18 +184,17 @@ impl TestHarness {
 		// Create initial file
 		tokio::fs::write(test_dir.join("initial.txt"), "initial content").await?;
 
-		// Subscribe to filesystem events
-		let fs_event_rx = core.events.subscribe();
-
 		// Start the watcher service
-		let watcher_config = LocationWatcherConfig::default();
-		let watcher = Arc::new(LocationWatcher::new(
-			watcher_config,
-			core.events.clone(),
-			core.context.clone(),
-		));
+		let watcher_config = FsWatcherServiceConfig::default();
+		let watcher = Arc::new(FsWatcherService::new(core.context.clone(), watcher_config));
+		watcher.init_handlers().await;
 		watcher.start().await?;
 		println!("✓ Started watcher service");
+
+		// Create event collector and start collecting
+		let event_collector = EventCollector::new();
+		event_collector.start_collecting(&watcher);
+		println!("✓ Started event collector");
 
 		// Run ephemeral indexing job
 		let sd_path = sd_core::domain::addressing::SdPath::local(test_dir.clone());
@@ -148,8 +218,7 @@ impl TestHarness {
 			.mark_indexing_complete(&test_dir);
 
 		// Add ephemeral watch
-		let rule_toggles = sd_core::ops::indexing::rules::RuleToggles::default();
-		watcher.add_ephemeral_watch(test_dir.clone(), rule_toggles).await?;
+		watcher.watch_ephemeral(test_dir.clone()).await?;
 		println!("✓ Added ephemeral watch for: {}", test_dir.display());
 
 		// Give the watcher a moment to settle
@@ -162,9 +231,9 @@ impl TestHarness {
 			core: Arc::new(core),
 			library,
 			test_dir,
-			fs_event_rx,
 			watcher,
 			context,
+			event_collector,
 		})
 	}
 
@@ -222,61 +291,8 @@ impl TestHarness {
 		Ok(())
 	}
 
-	/// Wait for a specific filesystem event
-	async fn wait_for_fs_event(
-		&mut self,
-		expected_kind: FsRawEventKind,
-		timeout_secs: u64,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		let expected_path = match &expected_kind {
-			FsRawEventKind::Create { path } => path.clone(),
-			FsRawEventKind::Modify { path } => path.clone(),
-			FsRawEventKind::Remove { path } => path.clone(),
-			FsRawEventKind::Rename { to, .. } => to.clone(),
-		};
-
-		timeout(Duration::from_secs(timeout_secs), async {
-			loop {
-				match self.fs_event_rx.recv().await {
-					Ok(Event::FsRawChange { kind, .. }) => {
-						let matches = match (&kind, &expected_kind) {
-							(FsRawEventKind::Create { path }, FsRawEventKind::Create { .. }) => {
-								path == &expected_path
-							}
-							(FsRawEventKind::Modify { path }, FsRawEventKind::Modify { .. }) => {
-								path == &expected_path
-							}
-							(FsRawEventKind::Remove { path }, FsRawEventKind::Remove { .. }) => {
-								path == &expected_path
-							}
-							(FsRawEventKind::Rename { to, .. }, FsRawEventKind::Rename { .. }) => {
-								to == &expected_path
-							}
-							_ => false,
-						};
-
-						if matches {
-							println!(
-								"✓ Detected filesystem event for: {}",
-								expected_path.display()
-							);
-							return Ok(());
-						}
-					}
-					Ok(_) => continue,
-					Err(e) => return Err(format!("Event channel error: {}", e).into()),
-				}
-			}
-		})
-		.await
-		.map_err(|_| "Timeout waiting for filesystem event")?
-	}
-
 	/// Verify entry exists in ephemeral index
-	async fn verify_entry_exists(
-		&self,
-		name: &str,
-	) -> Result<(), Box<dyn std::error::Error>> {
+	async fn verify_entry_exists(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let path = self.path(name);
 
 		// Poll for the entry to appear (with timeout)
@@ -294,7 +310,11 @@ impl TestHarness {
 			tokio::time::sleep(Duration::from_millis(50)).await;
 		}
 
-		Err(format!("Entry '{}' not found in ephemeral index after timeout", name).into())
+		Err(format!(
+			"Entry '{}' not found in ephemeral index after timeout",
+			name
+		)
+		.into())
 	}
 
 	/// Verify entry does NOT exist in ephemeral index
@@ -323,8 +343,139 @@ impl TestHarness {
 		.into())
 	}
 
+	/// Verify entry is a directory
+	async fn verify_is_directory(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+		let path = self.path(name);
+		let index = self.context.ephemeral_cache().get_global_index();
+		let mut index_lock = index.write().await;
+
+		if let Some(entry) = index_lock.get_entry(&path) {
+			if entry.kind == EntryKind::Directory {
+				println!("✓ Entry '{}' is correctly marked as directory", name);
+				return Ok(());
+			} else {
+				return Err(format!(
+					"Entry '{}' should be a directory but kind={:?}",
+					name, entry.kind
+				)
+				.into());
+			}
+		}
+		Err(format!("Entry '{}' not found in index", name).into())
+	}
+
+	/// Verify entry is a file (not directory)
+	async fn verify_is_file(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+		let path = self.path(name);
+		let index = self.context.ephemeral_cache().get_global_index();
+		let mut index_lock = index.write().await;
+
+		if let Some(entry) = index_lock.get_entry(&path) {
+			if entry.kind == EntryKind::File {
+				println!("✓ Entry '{}' is correctly marked as file", name);
+				return Ok(());
+			} else {
+				return Err(format!(
+					"Entry '{}' should be a file but kind={:?}",
+					name, entry.kind
+				)
+				.into());
+			}
+		}
+		Err(format!("Entry '{}' not found in index", name).into())
+	}
+
+	/// Get current entry count in index for this test directory
+	async fn get_entry_count(&self) -> usize {
+		let index = self.context.ephemeral_cache().get_global_index();
+		let index_lock = index.read().await;
+		index_lock
+			.entries()
+			.iter()
+			.filter(|(path, _)| path.starts_with(&self.test_dir))
+			.count()
+	}
+
+	/// Verify expected entry count
+	async fn verify_entry_count(&self, expected: usize) -> Result<(), Box<dyn std::error::Error>> {
+		let count = self.get_entry_count().await;
+		if count == expected {
+			println!("✓ Entry count matches: {}", expected);
+			Ok(())
+		} else {
+			// List actual entries for debugging
+			let index = self.context.ephemeral_cache().get_global_index();
+			let index_lock = index.read().await;
+			let entries: Vec<_> = index_lock
+				.entries()
+				.iter()
+				.filter(|(path, _)| path.starts_with(&self.test_dir))
+				.map(|(path, entry)| {
+					let kind_str = match entry.kind {
+						EntryKind::Directory => "DIR",
+						EntryKind::File => "FILE",
+						EntryKind::Symlink => "LINK",
+					};
+					format!(
+						"  - {} ({})",
+						path.strip_prefix(&self.test_dir).unwrap_or(path).display(),
+						kind_str
+					)
+				})
+				.collect();
+
+			Err(format!(
+				"Entry count mismatch: expected {}, got {}\nActual entries:\n{}",
+				expected,
+				count,
+				entries.join("\n")
+			)
+			.into())
+		}
+	}
+
+	/// Print current index state (for debugging)
+	async fn dump_index_state(&self) {
+		let index = self.context.ephemeral_cache().get_global_index();
+		let index_lock = index.read().await;
+
+		println!("\n=== Ephemeral Index State ===");
+		let mut count = 0;
+		for (path, entry) in index_lock.entries().iter() {
+			if path.starts_with(&self.test_dir) {
+				let rel_path = path.strip_prefix(&self.test_dir).unwrap_or(path);
+				let type_str = match entry.kind {
+					EntryKind::Directory => "DIR ",
+					EntryKind::File => "FILE",
+					EntryKind::Symlink => "LINK",
+				};
+				println!("  {} {}", type_str, rel_path.display());
+				count += 1;
+			}
+		}
+		println!("Total entries: {}", count);
+		println!("=============================\n");
+	}
+
+	/// Dump collected events to file and print summary
+	async fn dump_events(&self) {
+		// Print summary to console
+		self.event_collector.print_summary().await;
+
+		// Write detailed log to file
+		let log_path = std::env::temp_dir().join("ephemeral_watcher_events.log");
+		if let Err(e) = self.event_collector.dump_to_file(&log_path).await {
+			eprintln!("Failed to write event log: {}", e);
+		} else {
+			println!("📝 Event log written to: {}", log_path.display());
+		}
+	}
+
 	/// Clean up test resources
 	async fn cleanup(self) -> Result<(), Box<dyn std::error::Error>> {
+		// Dump events before cleanup
+		self.dump_events().await;
+
 		// Stop watcher
 		self.watcher.stop().await?;
 
@@ -346,18 +497,17 @@ impl TestHarness {
 	}
 }
 
-/// Comprehensive "story" test demonstrating ephemeral watcher functionality
-#[tokio::test]
-async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
-	println!("\n=== Ephemeral Watcher Full Story Test ===\n");
-
-	let mut harness = TestHarness::setup().await?;
+/// Inner test logic that can fail
+async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::error::Error>> {
+	// Note: Entry counts include +1 for the root directory itself which is indexed
 
 	// ========================================================================
 	// Scenario 1: Initial State
 	// ========================================================================
 	println!("\n--- Scenario 1: Initial State ---");
 	harness.verify_entry_exists("initial.txt").await?;
+	harness.verify_is_file("initial.txt").await?;
+	harness.verify_entry_count(2).await?; // root dir + initial.txt
 
 	// ========================================================================
 	// Scenario 2: Create Files
@@ -365,31 +515,15 @@ async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n--- Scenario 2: Create Files ---");
 
 	harness.create_file("document.txt", "Hello World").await?;
-	harness
-		.wait_for_fs_event(
-			FsRawEventKind::Create {
-				path: harness.path("document.txt"),
-			},
-			30,
-		)
-		.await?;
-	// Give the responder time to process
-	tokio::time::sleep(Duration::from_millis(500)).await;
 	harness.verify_entry_exists("document.txt").await?;
+	harness.verify_is_file("document.txt").await?;
 
 	harness
 		.create_file("notes.md", "# My Notes\n\nSome content")
 		.await?;
-	harness
-		.wait_for_fs_event(
-			FsRawEventKind::Create {
-				path: harness.path("notes.md"),
-			},
-			30,
-		)
-		.await?;
-	tokio::time::sleep(Duration::from_millis(500)).await;
 	harness.verify_entry_exists("notes.md").await?;
+	harness.verify_is_file("notes.md").await?;
+	harness.verify_entry_count(4).await?; // root + initial.txt, document.txt, notes.md
 
 	// ========================================================================
 	// Scenario 3: Modify Files
@@ -399,9 +533,9 @@ async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
 	harness
 		.modify_file("document.txt", "Hello World - Updated!")
 		.await?;
-	// Wait a bit for the modification event
-	tokio::time::sleep(Duration::from_millis(1000)).await;
+	// File should still exist after modification
 	harness.verify_entry_exists("document.txt").await?;
+	harness.verify_entry_count(4).await?; // Count unchanged
 
 	// ========================================================================
 	// Scenario 4: Rename Files
@@ -409,18 +543,10 @@ async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n--- Scenario 4: Rename Files ---");
 
 	harness.rename_file("notes.md", "notes-renamed.md").await?;
-	harness
-		.wait_for_fs_event(
-			FsRawEventKind::Rename {
-				from: harness.path("notes.md"),
-				to: harness.path("notes-renamed.md"),
-			},
-			30,
-		)
-		.await?;
-	tokio::time::sleep(Duration::from_millis(500)).await;
 	harness.verify_entry_exists("notes-renamed.md").await?;
 	harness.verify_entry_not_exists("notes.md").await?;
+	harness.verify_is_file("notes-renamed.md").await?;
+	harness.verify_entry_count(4).await?; // Count unchanged (rename doesn't add/remove)
 
 	// ========================================================================
 	// Scenario 5: Delete Files
@@ -428,16 +554,8 @@ async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n--- Scenario 5: Delete Files ---");
 
 	harness.delete_file("document.txt").await?;
-	harness
-		.wait_for_fs_event(
-			FsRawEventKind::Remove {
-				path: harness.path("document.txt"),
-			},
-			30,
-		)
-		.await?;
-	tokio::time::sleep(Duration::from_millis(500)).await;
 	harness.verify_entry_not_exists("document.txt").await?;
+	harness.verify_entry_count(3).await?; // root + initial.txt, notes-renamed.md
 
 	// ========================================================================
 	// Scenario 6: Create Directory (shallow watch should detect it)
@@ -445,16 +563,45 @@ async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
 	println!("\n--- Scenario 6: Create Directory ---");
 
 	harness.create_dir("projects").await?;
-	harness
-		.wait_for_fs_event(
-			FsRawEventKind::Create {
-				path: harness.path("projects"),
-			},
-			30,
-		)
-		.await?;
-	tokio::time::sleep(Duration::from_millis(500)).await;
 	harness.verify_entry_exists("projects").await?;
+	harness.verify_is_directory("projects").await?;
+	harness.verify_entry_count(4).await?; // root + initial.txt, notes-renamed.md, projects/
+
+	// ========================================================================
+	// Final State Verification
+	// ========================================================================
+	println!("\n--- Final State Verification ---");
+	harness.dump_index_state().await;
+
+	// Verify exact expected final state
+	harness.verify_entry_exists("initial.txt").await?;
+	harness.verify_entry_exists("notes-renamed.md").await?;
+	harness.verify_entry_exists("projects").await?;
+	harness.verify_entry_not_exists("document.txt").await?;
+	harness.verify_entry_not_exists("notes.md").await?;
+
+	Ok(())
+}
+
+/// Comprehensive "story" test demonstrating ephemeral watcher functionality
+#[tokio::test]
+async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
+	println!("\n=== Ephemeral Watcher Full Story Test ===\n");
+
+	let harness = TestHarness::setup().await?;
+
+	// Run tests and capture result
+	let test_result = run_test_scenarios(&harness).await;
+
+	// ALWAYS dump events, even on failure
+	harness.dump_events().await;
+
+	// Check if test passed
+	if test_result.is_err() {
+		println!("\n❌ Test failed - see event log above for details");
+		harness.cleanup().await?;
+		return test_result;
+	}
 
 	// ========================================================================
 	// Final Summary
