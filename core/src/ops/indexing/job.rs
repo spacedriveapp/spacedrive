@@ -224,29 +224,18 @@ impl IndexerJob {
 			self.state = Some(IndexerState::new(&self.config.path));
 		} else {
 			ctx.log("Resuming indexer from saved state");
-			let state = self.state.as_ref().unwrap();
 			info!("INDEXER_STATE: Job resuming with saved state - phase: {:?}, entry_batches: {}, entries_for_content: {}, seen_paths: {}",
-				state.phase,
-				state.entry_batches.len(),
-				state.entries_for_content.len(),
-				state.seen_paths.len());
-			warn!(
-				"DEBUG: Resumed state - phase: {:?}, entry_batches: {}, entries_for_content: {}",
-				state.phase,
-				state.entry_batches.len(),
-				state.entries_for_content.len()
-			);
+				self.state.as_ref().unwrap().phase,
+				self.state.as_ref().unwrap().entry_batches.len(),
+				self.state.as_ref().unwrap().entries_for_content.len(),
+				self.state.as_ref().unwrap().seen_paths.len());
 		}
 
 		let state = self.state.as_mut().unwrap();
 
-		// For cloud volumes, we use the path component from the SdPath (e.g., "/" or "folder/")
-		// since discovery operates through the volume backend (not direct filesystem access).
 		let root_path_buf = if let Some(p) = self.config.path.as_local_path() {
 			p.to_path_buf()
 		} else if let Some(cloud_path) = self.config.path.cloud_path() {
-			// Cloud path - use the path component within the cloud volume
-			// The actual I/O will go through the volume backend
 			PathBuf::from(cloud_path)
 		} else if !self.config.is_ephemeral() {
 			let loc_uuid = self
@@ -326,7 +315,6 @@ impl IndexerJob {
 			ctx.check_interrupt().await?;
 
 			let current_phase = state.phase.clone();
-			warn!("DEBUG: IndexerJob entering phase: {:?}", current_phase);
 			match current_phase {
 				Phase::Discovery => {
 					let cloud_url_base =
@@ -359,7 +347,6 @@ impl IndexerJob {
 				}
 
 				Phase::Processing => {
-					warn!("DEBUG: IndexerJob starting Processing phase");
 					if self.config.is_ephemeral() {
 						let ephemeral_index = self.ephemeral_index.clone().ok_or_else(|| {
 							JobError::execution("Ephemeral index not initialized".to_string())
@@ -435,11 +422,6 @@ impl IndexerJob {
 
 				Phase::Complete => break,
 			}
-
-			warn!(
-				"DEBUG: IndexerJob completed phase: {:?}, next phase will be: {:?}",
-				current_phase, state.phase
-			);
 		}
 
 		let final_progress = IndexerProgress {
@@ -545,12 +527,7 @@ impl JobHandler for IndexerJob {
 	}
 
 	async fn on_resume(&mut self, ctx: &JobContext<'_>) -> JobResult {
-		warn!("DEBUG: IndexerJob on_resume called");
 		if let Some(state) = &self.state {
-			warn!(
-				"DEBUG: IndexerJob has state, resuming in {:?} phase",
-				state.phase
-			);
 			ctx.log(format!("Resuming indexer in {:?} phase", state.phase));
 			ctx.log(format!(
 				"Progress: {} files, {} dirs, {} errors so far",
@@ -559,7 +536,6 @@ impl JobHandler for IndexerJob {
 
 			self.timer = Some(PhaseTimer::new());
 		} else {
-			warn!("DEBUG: IndexerJob has no state during resume - creating new state!");
 			self.state = Some(IndexerState::new(&self.config.path));
 		}
 		Ok(())
@@ -641,8 +617,6 @@ impl IndexerJob {
 		use super::state::{DirEntry, EntryKind};
 		use tokio::fs;
 
-		ctx.log("Starting current scope discovery (single level)");
-
 		let mut entries = fs::read_dir(root_path)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to read directory: {}", e)))?;
@@ -677,7 +651,6 @@ impl IndexerJob {
 			state.pending_entries.push(dir_entry);
 			state.items_since_last_update += 1;
 
-			// Update stats
 			match entry_kind {
 				EntryKind::File => state.stats.files += 1,
 				EntryKind::Directory => state.stats.dirs += 1,

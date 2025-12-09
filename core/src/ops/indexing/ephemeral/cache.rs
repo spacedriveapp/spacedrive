@@ -106,7 +106,6 @@ impl EphemeralIndexCache {
 		let mut index = self.index.write().await;
 		let (cleared, deleted_browsed_dirs) = index.clear_directory_children(path, &indexed);
 
-		// Remove deleted browsed directories from indexed_paths
 		if !deleted_browsed_dirs.is_empty() {
 			let mut indexed_paths = self.indexed_paths.write();
 			for deleted_path in deleted_browsed_dirs {
@@ -197,7 +196,6 @@ impl EphemeralIndexCache {
 	pub fn find_watched_root(&self, path: &Path) -> Option<PathBuf> {
 		let watched = self.watched_paths.read();
 
-		// Find the longest matching watched path that is an ancestor of `path`
 		let mut best_match: Option<&PathBuf> = None;
 		let mut best_len = 0;
 
@@ -269,7 +267,6 @@ impl EphemeralIndexCache {
 	/// Legacy: Insert (no-op, entries are added directly to global index)
 	#[deprecated(note = "Entries should be added directly to the global index")]
 	pub fn insert(&self, path: PathBuf, _index: Arc<TokioRwLock<EphemeralIndex>>) {
-		// Mark the path as indexed
 		let mut indexed = self.indexed_paths.write();
 		indexed.insert(path);
 	}

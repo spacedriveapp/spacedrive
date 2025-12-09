@@ -54,10 +54,6 @@ pub trait ChangeHandler: Send + Sync {
 	async fn handle_new_directory(&self, path: &Path) -> Result<()>;
 }
 
-// ============================================================================
-// Shared Logic - Used by both handlers
-// ============================================================================
-
 /// Check if a path exists, distinguishing between "doesn't exist" and "can't access".
 ///
 /// Critical for preventing false deletions when volumes go offline.
@@ -190,10 +186,6 @@ pub async fn build_dir_entry(
 		inode: meta.inode,
 	})
 }
-
-// ============================================================================
-// Generic Change Application
-// ============================================================================
 
 /// Apply a batch of filesystem changes using the provided handler.
 ///

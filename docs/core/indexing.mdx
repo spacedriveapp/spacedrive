@@ -3,19 +3,25 @@ title: Indexing
 sidebarTitle: Indexing
 ---
 
-The indexing system discovers and analyzes your files through a sophisticated multi-phase process. Built on Spacedrive's job system, it provides resumable operations, real-time progress tracking, and supports both persistent library indexing and ephemeral browsing of external drives.
+The indexing system discovers and analyzes your files through a multi-phase pipeline. Built on Spacedrive's job system, it provides resumable operations, real-time progress tracking, and supports both persistent library indexing and ephemeral browsing of external drives.
 
 ## Architecture Overview
 
-The indexing system consists of several key components working together:
+The indexing system consists of specialized components working together:
 
 **IndexerJob** orchestrates the entire indexing process as a resumable job. It maintains state across application restarts and provides detailed progress reporting.
 
-**IndexerState** preserves all necessary information to resume indexing from any interruption point. This includes the current phase, directories to process, and accumulated statistics.
+**IndexerState** preserves all necessary information to resume indexing from any interruption point. This includes the current phase, directories to process, accumulated statistics, and ephemeral UUID mappings for preserving user metadata across browsing-to-persistent transitions.
 
-**EntryProcessor** handles the complex task of creating and updating database records while maintaining referential integrity through materialized paths.
+**DBWriter** provides the low-level database CRUD layer. All database operations (create, update, move, delete) flow through this module for consistency.
 
-**FileTypeRegistry** identifies files through a combination of extensions, magic bytes, and content analysis to provide accurate type detection.
+**PersistentWriter** implements both `ChangeHandler` (for filesystem watcher events) and `IndexPersistence` (for indexer job batches). Both pipelines use the same code to write entries to the database via `DBWriter`.
+
+**EphemeralWriter** implements both `ChangeHandler` (for filesystem watcher events) and `IndexPersistence` (for indexer job batches). Both pipelines use the same code to write entries to the in-memory `EphemeralIndex`.
+
+This dual-implementation architecture unifies watcher and job pipelines, eliminating code duplication between real-time filesystem monitoring and batch indexing operations.
+
+**FileTypeRegistry** identifies files through extensions, magic bytes, and content analysis.
 
 The system integrates deeply with Spacedrive's job infrastructure, which provides automatic state persistence through MessagePack serialization. When you pause an indexing operation, the entire job state is saved to a dedicated jobs database, allowing seamless resumption even after application restarts.
 
@@ -24,63 +30,153 @@ The system integrates deeply with Spacedrive's job infrastructure, which provide
 	architecture ensures no work is lost if interrupted.
 </Note>
 
+## Database Architecture
+
+The indexing system uses a closure table for hierarchy management instead of recursive queries:
+
+### Closure Table
+
+Parent-child relationships are stored in the `entry_closure` table with precomputed ancestor-descendant pairs. This makes "find all descendants" queries O(1) regardless of nesting depth, at the cost of additional storage (worst-case N² for deeply nested trees).
+
+```sql
+CREATE TABLE entry_closure (
+    ancestor_id INTEGER,
+    descendant_id INTEGER,
+    depth INTEGER
+);
+```
+
+The closure table stores all transitive relationships. For a file at `/home/user/docs/report.pdf`, entries exist for:
+- (home_id, report_id, depth=3)
+- (user_id, report_id, depth=2)
+- (docs_id, report_id, depth=1)
+- (report_id, report_id, depth=0)
+
+Move operations require rebuilding closures for the entire moved subtree, which can affect thousands of rows when moving large directories.
+
+### Directory Paths Cache
+
+The `directory_paths` table provides O(1) absolute path lookups for directories:
+
+```sql
+CREATE TABLE directory_paths (
+    entry_id INTEGER PRIMARY KEY,
+    path TEXT UNIQUE
+);
+```
+
+This eliminates recursive parent traversal when building file paths. Each directory stores its complete absolute path, enabling instant resolution for child entries.
+
+### Entries Table
+
+```sql
+CREATE TABLE entry (
+    id INTEGER PRIMARY KEY,
+    uuid UUID UNIQUE,
+    parent_id INTEGER,
+    name TEXT,
+    extension TEXT,
+    kind INTEGER,
+    size BIGINT,
+    inode BIGINT,
+    content_id INTEGER,
+    aggregate_size BIGINT,
+    child_count INTEGER,
+    file_count INTEGER
+);
+```
+
 ## Indexing Phases
 
-The indexer operates through four distinct phases, each designed to be interruptible and resumable:
+The indexer operates through five distinct phases, each designed to be interruptible and resumable:
 
 ### Phase 1: Discovery
 
-The discovery phase walks your filesystem to build a list of all files and directories. This phase is optimized for speed, collecting just enough information to plan the work ahead:
+Discovery walks the filesystem using parallel workers with a work-stealing model. On systems with 8+ cores, multiple threads scan directories concurrently, communicating via channels to maximize disk throughput.
 
-```rust
-// Discovery maintains a queue of directories to process
-pub struct DiscoveryPhase {
-    dirs_to_walk: VecDeque<PathBuf>,
-    seen_paths: HashSet<PathBuf>,  // Cycle detection
-}
-```
+Discovered entries are filtered through `IndexerRuler`, which applies toggleable system rules (like `NO_HIDDEN`, `NO_DEV_DIRS`) and dynamically loaded `.gitignore` patterns when inside a Git repository.
 
-The phase uses a breadth-first traversal to ensure shallow directories are processed first, providing quicker initial results. Progress is measured by directories discovered versus total estimated.
+Progress is measured by directories discovered. Entries are collected into batches of 1,000 items before moving to processing.
 
 ### Phase 2: Processing
 
-Processing creates or updates database entries for each discovered item. This is where Spacedrive builds its understanding of your file structure:
+Processing converts discovered entries into database records. Entries are sorted by depth (parents before children) to maintain referential integrity during batch insertion.
 
-```rust
-// Batch processing for efficiency
-const BATCH_SIZE: usize = 1000;
+**Change Detection** runs during this phase. The `ChangeDetector` loads existing database entries for the indexing path, then compares against filesystem state to identify:
 
-// Process entries in parent-first order
-let sorted_batch = batch.sort_by_depth();
-persistence.process_batch(sorted_batch, &mut entry_cache)?;
-```
+- **New**: Paths not in database
+- **Modified**: Size or mtime differs
+- **Moved**: Same inode at different path
+- **Deleted**: In database but missing from filesystem
 
-The system uses materialized paths instead of parent IDs, making queries faster and eliminating complex recursive lookups. Each entry stores its full path prefix, enabling instant directory listings.
+Changes are processed in batch transactions. Each batch inserts closure table rows, updates the directory paths cache, and syncs entries across devices.
+
+**Ephemeral UUID Preservation** happens here. When a browsed folder is promoted to a managed location, UUIDs assigned during ephemeral indexing are preserved (`state.ephemeral_uuids`). This prevents orphaning user metadata like tags and notes attached during browsing sessions.
+
+The processing phase validates that the indexing path stays within location boundaries, preventing catastrophic cross-location deletion if watcher routing bugs send events for the wrong path.
 
 ### Phase 3: Aggregation
 
-Aggregation calculates sizes and counts for directories by traversing the tree bottom-up. This phase provides the statistics you see in the UI:
+Aggregation walks the entry tree bottom-up, computing directory statistics:
 
-- Total size including subdirectories
-- Direct child count
-- Recursive file count
-- Aggregate content types
+- `aggregate_size`: Total bytes including subdirectories
+- `child_count`: Direct children only
+- `file_count`: Recursive file count
+
+These aggregates are stored in the entry table and enable instant directory size display without traversing descendants.
 
 ### Phase 4: Content Identification
 
-The final phase generates content-addressed storage (CAS) identifiers and performs deep file analysis:
+Content identification generates BLAKE3 hashes for files, linking entries to `content_identity` records for deduplication.
+
+Content identities use deterministic v5 UUIDs (namespace hash of `content_hash + library_id`) so different devices can independently identify identical files and merge metadata without coordination. This enables offline duplicate detection across library peers.
+
+**Sync Order**: Content identities must be synced before entries to avoid foreign key violations on receiving devices. The job system enforces this ordering.
+
+For new content, file type identification runs via `FileTypeRegistry` to populate `kind_id` and `mime_type_id` fields.
+
+### Phase 5: Finalizing
+
+Finalizing handles post-processing tasks like directory aggregation updates and potential processor dispatch (thumbnail generation for Deep Mode).
+
+## Change Detection System
+
+The indexing system includes both batch and real-time change detection:
+
+### Batch Change Detection
+
+`ChangeDetector` compares database state against filesystem during indexer job scans:
 
 ```rust
-// Sampled hashing for large files
-let cas_id = cas_generator
-    .generate_cas_id(path, file_size)
-    .await?;
+let mut detector = ChangeDetector::new();
+detector.load_existing_entries(ctx, location_id, indexing_path).await?;
 
-// Link to content identity for deduplication
-content_processor.link_or_create(entry_id, cas_id)?;
+for entry in discovered_entries {
+    if let Some(change) = detector.check_path(&path, &metadata, inode) {
+        // Process New, Modified, or Moved change
+    }
+}
+
+let deleted = detector.find_deleted(&seen_paths);
 ```
 
-This phase enables deduplication, content-based search, and file tracking across renames.
+The detector tracks paths by inode to identify moves. On Unix systems, inodes provide stable file identity across renames. Windows falls back to path-only matching since file indices are unstable across reboots.
+
+### Real-Time Change Detection
+
+Both `PersistentWriter` and `EphemeralWriter` implement the `ChangeHandler` trait, which defines the interface for responding to filesystem watcher events:
+
+```rust
+pub trait ChangeHandler {
+    async fn find_by_path(&self, path: &Path) -> Result<Option<EntryRef>>;
+    async fn create(&mut self, metadata: &DirEntry, parent_path: &Path) -> Result<EntryRef>;
+    async fn update(&mut self, entry: &EntryRef, metadata: &DirEntry) -> Result<()>;
+    async fn move_entry(&mut self, entry: &EntryRef, old_path: &Path, new_path: &Path) -> Result<()>;
+    async fn delete(&mut self, entry: &EntryRef) -> Result<()>;
+}
+```
+
+The watcher routes events to the appropriate handler based on whether the path belongs to a persistent location (`PersistentWriter` → database) or ephemeral session (`EphemeralWriter` → memory).
 
 ## Indexing Modes and Scopes
 
@@ -88,29 +184,21 @@ The system provides flexible configuration through modes and scopes:
 
 ### Index Modes
 
-**Shallow Mode** extracts only filesystem metadata (name, size, dates). Completes in under 500ms for typical directories. Perfect for responsive UI navigation.
+**Shallow Mode** extracts only filesystem metadata (name, size, dates). Completes in under 500ms for typical directories.
 
-**Content Mode** adds cryptographic hashing to identify files by content. Enables deduplication and content tracking. Moderate performance impact.
+**Content Mode** adds BLAKE3 hashing to identify files by content. Enables deduplication and content tracking.
 
-**Deep Mode** performs full analysis including thumbnails and media metadata extraction. Best for photo and video libraries.
+**Deep Mode** performs full analysis including file type identification and metadata extraction. Triggers thumbnail generation for images and videos.
 
 ### Index Scopes
 
-**Current Scope** indexes only the immediate directory contents:
+**Current Scope** indexes only immediate directory contents. Used for responsive UI navigation.
 
-```rust
-IndexerJobConfig::ui_navigation(location_id, path)
-```
-
-**Recursive Scope** indexes the entire directory tree:
-
-```rust
-IndexerJobConfig::new(location_id, path, IndexMode::Deep)
-```
+**Recursive Scope** indexes the entire directory tree. Used for full location indexing.
 
 ## Persistence and Ephemeral Indexing
 
-One of Spacedrive's key innovations is supporting both persistent and ephemeral indexing modes.
+Spacedrive supports both persistent and ephemeral indexing modes:
 
 ### Persistent Indexing
 
@@ -123,26 +211,62 @@ Persistent indexing stores all data in the database permanently. This is the def
 
 ### Ephemeral Indexing
 
-Ephemeral indexing keeps data in memory only, perfect for browsing external drives:
+Ephemeral indexing keeps data in memory only, perfect for browsing external drives without permanent storage.
 
-```rust
-let config = IndexerJobConfig::ephemeral_browse(
-    usb_path,
-    IndexScope::Current
-);
-```
+The ephemeral system uses highly memory-optimized structures:
 
-The ephemeral index uses an LRU cache with automatic cleanup:
+**NodeArena**: Slab allocator for `FileNode` entries with pointer-sized entry IDs. Provides contiguous memory layout for cache efficiency.
 
-- No database writes
-- Session-based lifetime
-- Memory-efficient storage
-- Automatic expiration
+**NameCache**: Global string interning pool. One copy of "index.js" serves thousands of node_modules files.
+
+**NameRegistry**: BTreeMap for fast name-based lookups without full-text indexing overhead.
+
+Memory usage is around 50 bytes per entry vs 200+ bytes with naive `HashMap<PathBuf, Entry>` approach. This 4-6x reduction enables browsing hundreds of thousands of files without database overhead.
+
+Multiple directory trees can coexist in the same `EphemeralIndex` (browsing both `/mnt/nas` and `/media/usb` simultaneously), sharing the string interning pool for maximum deduplication.
+
+The `EphemeralIndexCache` tracks which paths have been indexed, are currently being indexed, or are registered for filesystem watching. When a watched path receives filesystem events, `EphemeralWriter` updates the in-memory index in real-time.
 
 <Info>
 	Ephemeral mode lets you explore USB drives or network shares without
 	permanently adding them to your library.
 </Info>
+
+## Indexer Rules
+
+The `IndexerRuler` applies filtering rules during discovery to skip unwanted files:
+
+**System Rules** are toggleable patterns like:
+- `NO_HIDDEN`: Skip dotfiles (`.git`, `.DS_Store`)
+- `NO_DEV_DIRS`: Skip `node_modules`, `target`, `dist`
+- `NO_SYSTEM`: Skip OS folders (`System32`, `Windows`)
+
+**Git Integration**: When indexing inside a Git repository, rules are dynamically loaded from `.gitignore` files. This automatically excludes build artifacts and local configuration.
+
+Rules return a `RulerDecision` (Accept/Reject) for each path during discovery, preventing unwanted entries from ever reaching the processing phase.
+
+## Index Integrity Verification
+
+The `IndexVerifyAction` checks integrity by running a fresh ephemeral scan and comparing metadata against the existing persistent index:
+
+```rust
+let verify = IndexVerifyAction::from_input(IndexVerifyInput { path }).await?;
+let output = verify.execute(library, context).await?;
+
+// output.report contains:
+// - missing_from_index: Files on disk but not in database
+// - stale_in_index: Entries in database but missing from filesystem
+// - metadata_mismatches: Size, mtime, or inode differences
+```
+
+The verification system detects:
+- **MissingFromIndex**: Files created outside Spacedrive
+- **StaleInIndex**: Deleted files not yet purged from database
+- **SizeMismatch**: Files modified externally
+- **ModifiedTimeMismatch**: Timestamp drift (with 1-second tolerance)
+- **InodeMismatch**: File replacement or filesystem corruption
+
+Verification runs as a library action and returns a detailed `IntegrityReport` with per-file diagnostics.
 
 ## Job System Integration
 
@@ -159,8 +283,8 @@ pub struct IndexerState {
     dirs_to_walk: VecDeque<PathBuf>,
     entry_batches: Vec<Vec<DirEntry>>,
     entry_id_cache: HashMap<PathBuf, i32>,
+    ephemeral_uuids: HashMap<PathBuf, Uuid>,
     stats: IndexerStats,
-    // ... checkpoint data
 }
 ```
 
@@ -172,24 +296,16 @@ Real-time progress flows through multiple channels:
 
 ```rust
 pub struct IndexerProgress {
-    phase: String,
-    items_done: u64,
-    total_items: u64,
-    bytes_per_second: f64,
-    eta_seconds: Option<u32>,
+    pub phase: IndexPhase,
+    pub total_found: IndexerStats,
+    pub processing_rate: f32,
+    pub estimated_remaining: Option<Duration>,
 }
 ```
 
-Progress updates are:
-
-- Sent to UI via channels
-- Persisted to database
-- Available through job queries
-- Used for time estimates
+Progress updates are sent to the UI via channels, persisted to the database, and available through job queries for time estimates.
 
 ### Error Handling
-
-The job system provides structured error handling:
 
 **Non-critical errors** are accumulated but don't stop indexing:
 
@@ -202,47 +318,6 @@ The job system provides structured error handling:
 - Database connection lost
 - Filesystem unmounted
 - Out of disk space
-
-## Database Schema
-
-The indexer populates several key tables designed for query performance.
-
-### Entries Table
-
-The core table uses materialized paths for efficient queries:
-
-```sql
-CREATE TABLE entries (
-    id INTEGER PRIMARY KEY,
-    uuid UUID UNIQUE,
-    location_id INTEGER,
-    relative_path TEXT,     -- Parent path (materialized)
-    name TEXT,              -- Without extension
-    extension TEXT,
-    kind INTEGER,           -- 0=File, 1=Directory
-    size BIGINT,
-    inode BIGINT,          -- Change detection
-    content_id INTEGER
-);
-
--- Key indexes for performance
-CREATE INDEX idx_entries_location_path
-    ON entries(location_id, relative_path);
-```
-
-### Content Identities Table
-
-Enables deduplication across your library:
-
-```sql
-CREATE TABLE content_identities (
-    id INTEGER PRIMARY KEY,
-    cas_id TEXT UNIQUE,
-    kind_id INTEGER,
-    total_size BIGINT,
-    entry_count INTEGER
-);
-```
 
 ## Performance Characteristics
 
@@ -259,31 +334,11 @@ Indexing performance varies by mode and scope:
 
 **Batch Processing**: Groups operations into transactions of 1,000 items, reducing database overhead by 30x.
 
-**Parallel I/O**: Content identification runs on multiple threads, saturating disk bandwidth on fast storage.
+**Parallel Discovery**: Work-stealing model with atomic counters for directory traversal, using half of available CPU cores by default.
 
-**Smart Caching**: The entry ID cache eliminates redundant parent lookups, critical for deep directory trees.
+**Entry ID Cache**: Eliminates redundant parent lookups during hierarchy construction, critical for deep directory trees.
 
 **Checkpoint Strategy**: Checkpoints occur every 5,000 items or 30 seconds, balancing durability with performance.
-
-## Change Detection
-
-The indexer efficiently detects changes without full rescans:
-
-```rust
-// Platform-specific change detection
-#[cfg(unix)]
-let file_id = metadata.ino();  // inode
-
-#[cfg(windows)]
-let file_id = get_file_index(path)?;  // File index
-```
-
-Detection capabilities:
-
-- New files: Appear with unknown inodes
-- Modified files: Same inode, different size/mtime
-- Moved files: Known inode at new path
-- Deleted files: Missing from filesystem walk
 
 ## Usage Examples
 
@@ -310,7 +365,7 @@ let job = IndexerJob::new(config);
 
 ### Full Library Location
 
-Comprehensive indexing with all features:
+Full indexing with content identification:
 
 ```rust
 let config = IndexerJobConfig::new(
@@ -318,8 +373,6 @@ let config = IndexerJobConfig::new(
     path,
     IndexMode::Deep
 );
-config.with_checkpointing(true)
-      .with_filters(indexer_rules);
 ```
 
 ## CLI Commands
@@ -342,9 +395,9 @@ spacedrive job monitor  # Watch progress
 
 ### Common Issues
 
-**Slow Indexing**: Check for large node_modules or build directories. Use `.spacedriveignore` files to exclude them.
+**Slow Indexing**: Check for large `node_modules` or build directories. System rules automatically skip common patterns, or use `.gitignore` to exclude project-specific artifacts.
 
-**High Memory Usage**: Reduce batch size or avoid ephemeral mode for very large directories.
+**High Memory Usage**: Reduce batch size for directories over 1M files. Ephemeral mode uses around 50 bytes per entry, so 100K files requires roughly 5MB.
 
 **Resume Not Working**: Ensure the jobs database isn't corrupted. Check logs for serialization errors.
 
@@ -364,7 +417,7 @@ spacedrive job info <job-id> --detailed
 
 ## Platform Notes
 
-**Windows**: Uses file indices for change detection. Supports long paths transparently. Network drives may require polling.
+**Windows**: Uses file indices for change detection where available, falling back to path-only matching. Supports long paths transparently. Network drives may require polling.
 
 **macOS**: Leverages FSEvents and native inodes. Integrates with Time Machine exclusions. APFS provides efficient cloning.
 
@@ -372,15 +425,15 @@ spacedrive job info <job-id> --detailed
 
 ## Best Practices
 
-1. **Start shallow** for new locations to verify configuration
-2. **Use filters** to exclude build artifacts and caches
-3. **Monitor progress** through the job system instead of polling
-4. **Schedule deep scans** during low-usage periods
-5. **Enable checkpointing** for locations over 100K files
+1. **Start shallow** for new locations to verify configuration before deep scans
+2. **Use Git repositories** to automatically inherit `.gitignore` exclusions
+3. **Monitor progress** through the job system instead of polling the database
+4. **Schedule deep scans** during low-usage periods for large photo/video libraries
+5. **Enable checkpointing** for locations over 100K files to survive interruptions
 
 <Warning>
 	Always let indexing jobs complete or pause them properly. Force-killing can
-	corrupt the job state.
+	corrupt the job state and require reindexing from scratch.
 </Warning>
 
 ## Related Documentation

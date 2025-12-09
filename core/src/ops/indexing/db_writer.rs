@@ -566,7 +566,6 @@ impl DBWriter {
 		new_path: &Path,
 		location_root_path: &Path,
 	) -> Result<(), JobError> {
-		// Begin transaction for atomic move operation
 		let txn = db
 			.begin()
 			.await
@@ -605,7 +604,6 @@ impl DBWriter {
 		location_root_path: &Path,
 		txn: &DatabaseTransaction,
 	) -> Result<(), JobError> {
-		// Get the entry
 		let db_entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(txn)
 			.await
@@ -918,27 +916,22 @@ impl DBWriter {
 
 		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
 
-		// Find new parent entry ID
 		let new_parent_id = if let Some(parent_path) = new_path.parent() {
 			state.entry_id_cache.get(parent_path).copied()
 		} else {
 			None
 		};
 
-		// Update entry fields
 		entry_active.parent_id = Set(new_parent_id);
 
-		// Extract new name and extension for files
 		match new_path.extension() {
 			Some(ext) => {
-				// File with extension
 				if let Some(stem) = new_path.file_stem() {
 					entry_active.name = Set(stem.to_string_lossy().to_string());
 					entry_active.extension = Set(Some(ext.to_string_lossy().to_lowercase()));
 				}
 			}
 			None => {
-				// File without extension or directory
 				if let Some(name) = new_path.file_name() {
 					entry_active.name = Set(name.to_string_lossy().to_string());
 					entry_active.extension = Set(None);
@@ -946,13 +939,11 @@ impl DBWriter {
 			}
 		}
 
-		// Save the updated entry
 		entry_active
 			.update(txn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
 
-		// Update cache
 		state.entry_id_cache.remove(old_path);
 		state
 			.entry_id_cache
@@ -1030,10 +1021,6 @@ impl DBWriter {
 		Ok(())
 	}
 
-	// ========================================================================
-	// Subtree Deletion
-	// ========================================================================
-
 	/// Deletes an entry and all its descendants from the database.
 	///
 	/// This is a raw database operation that does NOT:
@@ -1070,7 +1057,6 @@ impl DBWriter {
 	{
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-		// Collect all descendants via closure table
 		let mut to_delete_ids: Vec<i32> = vec![entry_id];
 		if let Ok(rows) = entities::entry_closure::Entity::find()
 			.filter(entities::entry_closure::Column::AncestorId.eq(entry_id))
@@ -1083,7 +1069,6 @@ impl DBWriter {
 		to_delete_ids.dedup();
 
 		if !to_delete_ids.is_empty() {
-			// Delete closure links (both directions)
 			let _ = entities::entry_closure::Entity::delete_many()
 				.filter(entities::entry_closure::Column::DescendantId.is_in(to_delete_ids.clone()))
 				.exec(db)
@@ -1093,13 +1078,11 @@ impl DBWriter {
 				.exec(db)
 				.await;
 
-			// Delete directory paths
 			let _ = entities::directory_paths::Entity::delete_many()
 				.filter(entities::directory_paths::Column::EntryId.is_in(to_delete_ids.clone()))
 				.exec(db)
 				.await;
 
-			// Delete entries
 			let _ = entities::entry::Entity::delete_many()
 				.filter(entities::entry::Column::Id.is_in(to_delete_ids))
 				.exec(db)

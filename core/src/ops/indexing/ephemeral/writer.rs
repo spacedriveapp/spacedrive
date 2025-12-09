@@ -53,14 +53,11 @@ impl EphemeralWriter {
 		}
 	}
 
-	/// Generate the next entry ID.
 	fn next_id(&self) -> i32 {
 		self.next_id.fetch_add(1, Ordering::SeqCst)
 	}
 
-	/// Add an entry to the index and emit a ResourceChanged event.
-	///
-	/// This is the core write operation used by both pipelines.
+	/// Core write operation shared by both watcher and indexer pipelines.
 	async fn add_entry_internal(
 		&self,
 		path: &Path,
@@ -78,7 +75,6 @@ impl EphemeralWriter {
 		Ok((entry_id, content_kind))
 	}
 
-	/// Emit a ResourceChanged event for UI updates.
 	async fn emit_resource_changed(
 		&self,
 		uuid: Uuid,
@@ -142,7 +138,7 @@ impl ChangeHandler for EphemeralWriter {
 	}
 
 	async fn find_by_inode(&self, _inode: u64) -> Result<Option<EntryRef>> {
-		// Ephemeral index doesn't track inodes for move detection
+		// Inode tracking is skipped to minimize memory overhead; fall back to path-only detection.
 		Ok(None)
 	}
 
@@ -154,7 +150,6 @@ impl ChangeHandler for EphemeralWriter {
 			.add_entry_internal(&metadata.path, entry_uuid, entry_metadata.clone())
 			.await?;
 
-		// Emit event if entry was actually added (not a duplicate)
 		if let Some(content_kind) = content_kind {
 			self.emit_resource_changed(entry_uuid, &metadata.path, &entry_metadata, content_kind)
 				.await;
@@ -216,7 +211,7 @@ impl ChangeHandler for EphemeralWriter {
 	}
 
 	async fn run_processors(&self, _entry: &EntryRef, _is_new: bool) -> Result<()> {
-		// Ephemeral indexing skips processor pipeline (no thumbnails/content hash)
+		// File processors (thumbnails, content hash) are disabled to ensure responsive, low-overhead browsing.
 		Ok(())
 	}
 
@@ -295,10 +290,6 @@ impl ChangeHandler for EphemeralWriter {
 	}
 }
 
-// ============================================================================
-// IndexPersistence Implementation (Job Pipeline)
-// ============================================================================
-
 #[async_trait::async_trait]
 impl IndexPersistence for EphemeralWriter {
 	async fn store_entry(
@@ -336,7 +327,6 @@ impl IndexPersistence for EphemeralWriter {
 			(self.next_id(), content_kind)
 		};
 
-		// Emit event if entry was actually added (not a duplicate)
 		if let Some(content_kind) = content_kind {
 			self.emit_resource_changed(entry_uuid, &entry.path, &metadata, content_kind)
 				.await;
@@ -351,7 +341,6 @@ impl IndexPersistence for EphemeralWriter {
 		_path: &Path,
 		_cas_id: String,
 	) -> JobResult<()> {
-		// Ephemeral indexing doesn't track content identities
 		Ok(())
 	}
 
@@ -359,12 +348,10 @@ impl IndexPersistence for EphemeralWriter {
 		&self,
 		_indexing_path: &Path,
 	) -> JobResult<HashMap<PathBuf, (i32, Option<u64>, Option<SystemTime>, u64)>> {
-		// Ephemeral indexing doesn't support incremental indexing
 		Ok(HashMap::new())
 	}
 
 	async fn update_entry(&self, _entry_id: i32, _entry: &DirEntry) -> JobResult<()> {
-		// Updates are handled via add_entry (overwrites existing)
 		Ok(())
 	}
 
@@ -393,7 +380,6 @@ mod tests {
 		let mut writer =
 			EphemeralWriter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
 
-		// Test create
 		let dir_entry = DirEntry {
 			path: test_file.clone(),
 			kind: EntryKind::File,
@@ -411,7 +397,6 @@ mod tests {
 		assert_eq!(entry_ref.path, test_file);
 		assert_eq!(entry_ref.kind, EntryKind::File);
 
-		// Verify entry exists
 		let found = writer
 			.find_by_path(&test_file)
 			.await
@@ -448,7 +433,6 @@ mod tests {
 		assert!(entry_id > 0);
 		assert!(!writer.is_persistent());
 
-		// Verify index was updated
 		let idx = index.read().await;
 		assert!(idx.has_entry(&test_file));
 	}
@@ -481,7 +465,6 @@ mod tests {
 			.await
 			.expect("store_entry should succeed");
 
-		// Try to receive the event
 		let event =
 			tokio::time::timeout(tokio::time::Duration::from_millis(100), subscriber.recv()).await;
 
