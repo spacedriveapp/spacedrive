@@ -92,7 +92,10 @@ pub fn generate_cargo_config(
 
 	let android_ndk_home = std::env::var("ANDROID_NDK")
 		.or_else(|_| std::env::var("ANDROID_NDK_HOME"))
-		.expect("Android NDK not found. Set ANDROID_NDK or ANDROID_NDK_HOME");
+		.unwrap_or_else(|_| {
+			println!("   ⚠️  Android NDK not found. Android builds will not work.");
+			String::new()
+		});
 
 	// Build context for mustache
 	let context = ConfigContext {

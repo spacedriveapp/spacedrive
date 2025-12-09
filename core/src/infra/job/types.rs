@@ -151,6 +151,10 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 	) -> Box<dyn sd_task_system::Task<crate::infra::job::error::JobError>>;
 
 	fn serialize_state(&self) -> Result<Vec<u8>, crate::infra::job::error::JobError>;
+
+	fn should_persist(&self) -> bool {
+		true
+	}
 }
 
 /// Information about a job (for display/querying)

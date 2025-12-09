@@ -132,4 +132,10 @@ pub trait JobDependencies {
 pub trait DynJob: Send + Sync {
 	/// Job name for identification
 	fn job_name(&self) -> &'static str;
+
+	/// Whether this job should be persisted to the database
+	/// Returns false for ephemeral jobs that run in the background without persistence
+	fn should_persist(&self) -> bool {
+		true
+	}
 }

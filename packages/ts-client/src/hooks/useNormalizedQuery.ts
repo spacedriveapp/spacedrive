@@ -142,7 +142,7 @@ export function useNormalizedQuery<I, O>(
   // This ensures subscription re-runs when path changes, even if object reference stays same
   const pathScopeSerialized = useMemo(
     () => JSON.stringify(options.pathScope),
-    [options.pathScope]
+    [options.pathScope],
   );
 
   // Event subscription
@@ -153,15 +153,13 @@ export function useNormalizedQuery<I, O>(
 
     // Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
     // Unless resourceId is provided (single-file queries like FileInspector don't need pathScope)
-    if (options.resourceType === "file" && !options.pathScope && !options.resourceId) {
+    if (
+      options.resourceType === "file" &&
+      !options.pathScope &&
+      !options.resourceId
+    ) {
       return;
     }
-
-    console.log('[useNormalizedQuery] Creating subscription', {
-      resourceType: options.resourceType,
-      pathScope: options.pathScope,
-      includeDescendants: options.includeDescendants ?? false,
-    });
 
     let unsubscribe: (() => void) | undefined;
     let isCancelled = false;
@@ -172,20 +170,25 @@ export function useNormalizedQuery<I, O>(
 
     const handleEvent = (event: Event) => {
       // Debug: log every batch event to understand what's happening
-      if (typeof event !== 'string' && 'ResourceChangedBatch' in event) {
-        const batch = (event as any).ResourceChangedBatch;
-        console.log('[useNormalizedQuery] Batch event received', {
-          capturedPath: capturedPathScope,
-          currentRefPath: optionsRef.current.pathScope,
-          pathsMatch: JSON.stringify(optionsRef.current.pathScope) === JSON.stringify(capturedPathScope),
-          resourceCount: batch.resources?.length || 0,
-          resourceType: batch.resource_type,
-        });
-      }
+      // if (typeof event !== "string" && "ResourceChangedBatch" in event) {
+      //   const batch = (event as any).ResourceChangedBatch;
+      //   console.log("[useNormalizedQuery] Batch event received", {
+      //     capturedPath: capturedPathScope,
+      //     currentRefPath: optionsRef.current.pathScope,
+      //     pathsMatch:
+      //       JSON.stringify(optionsRef.current.pathScope) ===
+      //       JSON.stringify(capturedPathScope),
+      //     resourceCount: batch.resources?.length || 0,
+      //     resourceType: batch.resource_type,
+      //   });
+      // }
 
       // Guard: only process events if pathScope hasn't changed since subscription
-      if (JSON.stringify(optionsRef.current.pathScope) !== JSON.stringify(capturedPathScope)) {
-        console.log('[useNormalizedQuery] Dropping stale event', {
+      if (
+        JSON.stringify(optionsRef.current.pathScope) !==
+        JSON.stringify(capturedPathScope)
+      ) {
+        console.log("[useNormalizedQuery] Dropping stale event", {
           eventPathScope: capturedPathScope,
           currentPathScope: optionsRef.current.pathScope,
         });
@@ -212,20 +215,22 @@ export function useNormalizedQuery<I, O>(
       )
       .then((unsub) => {
         if (isCancelled) {
-          console.log('[useNormalizedQuery] Subscription cancelled before creation completed');
+          // console.log(
+          //   "[useNormalizedQuery] Subscription cancelled before creation completed",
+          // );
           unsub();
         } else {
-          console.log('[useNormalizedQuery] Subscription active', {
-            pathScope: options.pathScope,
-          });
+          // console.log("[useNormalizedQuery] Subscription active", {
+          //   pathScope: options.pathScope,
+          // });
           unsubscribe = unsub;
         }
       });
 
     return () => {
-      console.log('[useNormalizedQuery] Cleaning up subscription', {
-        pathScope: options.pathScope,
-      });
+      // console.log("[useNormalizedQuery] Cleaning up subscription", {
+      //   pathScope: options.pathScope,
+      // });
       isCancelled = true;
       unsubscribe?.();
     };
@@ -272,10 +277,10 @@ export function handleResourceEvent(
   if ("ResourceChanged" in event) {
     const result = v.safeParse(ResourceChangedSchema, event);
     if (!result.success) {
-      console.warn(
-        "[useNormalizedQuery] Invalid ResourceChanged event:",
-        result.issues,
-      );
+      // console.warn(
+      //   "[useNormalizedQuery] Invalid ResourceChanged event:",
+      //   result.issues,
+      // );
       return;
     }
 
@@ -289,10 +294,10 @@ export function handleResourceEvent(
   else if ("ResourceChangedBatch" in event) {
     const result = v.safeParse(ResourceChangedBatchSchema, event);
     if (!result.success) {
-      console.warn(
-        "[useNormalizedQuery] Invalid ResourceChangedBatch event:",
-        result.issues,
-      );
+      // console.warn(
+      //   "[useNormalizedQuery] Invalid ResourceChangedBatch event:",
+      //   result.issues,
+      // );
       return;
     }
 
@@ -308,10 +313,10 @@ export function handleResourceEvent(
   else if ("ResourceDeleted" in event) {
     const result = v.safeParse(ResourceDeletedSchema, event);
     if (!result.success) {
-      console.warn(
-        "[useNormalizedQuery] Invalid ResourceDeleted event:",
-        result.issues,
-      );
+      // console.warn(
+      //   "[useNormalizedQuery] Invalid ResourceDeleted event:",
+      //   result.issues,
+      // );
       return;
     }
 
@@ -381,7 +386,8 @@ export function filterBatchResources(
       const physicalFromAlternate = alternatePaths.find((p: any) => p.Physical);
       const physicalFromSdPath = resource.sd_path?.Physical;
 
-      const physicalPath = physicalFromAlternate?.Physical || physicalFromSdPath;
+      const physicalPath =
+        physicalFromAlternate?.Physical || physicalFromSdPath;
 
       if (!physicalPath?.path) {
         return false; // No physical path found
@@ -401,15 +407,15 @@ export function filterBatchResources(
       return parentDir === normalizedScope;
     });
 
-    const afterCount = filtered.length;
-    if (beforeCount !== afterCount) {
-      console.log('[filterBatchResources] Filtered resources', {
-        pathScope: options.pathScope,
-        before: beforeCount,
-        after: afterCount,
-        filtered: beforeCount - afterCount,
-      });
-    }
+    // const afterCount = filtered.length;
+    // if (beforeCount !== afterCount) {
+    //   console.log("[filterBatchResources] Filtered resources", {
+    //     pathScope: options.pathScope,
+    //     before: beforeCount,
+    //     after: afterCount,
+    //     filtered: beforeCount - afterCount,
+    //   });
+    // }
   }
 
   return filtered;
@@ -436,10 +442,10 @@ export function updateSingleResource<O>(
   if (options) {
     resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
     if (resourcesToUpdate.length === 0) {
-      console.log('[updateSingleResource] Filtered out resource', {
-        pathScope: options.pathScope,
-        resourcePath: resource.sd_path,
-      });
+      // console.log("[updateSingleResource] Filtered out resource", {
+      //   pathScope: options.pathScope,
+      //   resourcePath: resource.sd_path,
+      // });
       return; // Resource was filtered out
     }
   }

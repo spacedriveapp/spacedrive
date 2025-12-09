@@ -22,6 +22,7 @@ pub struct CoreContext {
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
 	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
+	pub location_watcher: Arc<RwLock<Option<Arc<crate::service::watcher::LocationWatcher>>>>,
 	// Ephemeral index cache for unmanaged paths
 	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
 	// Job logging configuration
@@ -49,6 +50,7 @@ impl CoreContext {
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
 			plugin_manager: Arc::new(RwLock::new(None)),
+			location_watcher: Arc::new(RwLock::new(None)),
 			ephemeral_index_cache: Arc::new(
 				EphemeralIndexCache::new().expect("Failed to create ephemeral index cache"),
 			),
@@ -98,6 +100,16 @@ impl CoreContext {
 	/// Method for Core to set networking after it's initialized
 	pub async fn set_networking(&self, networking: Arc<NetworkingService>) {
 		*self.networking.write().await = Some(networking);
+	}
+
+	/// Helper method for services to get the location watcher
+	pub async fn get_location_watcher(&self) -> Option<Arc<crate::service::watcher::LocationWatcher>> {
+		self.location_watcher.read().await.clone()
+	}
+
+	/// Method for Core to set location watcher after it's initialized
+	pub async fn set_location_watcher(&self, watcher: Arc<crate::service::watcher::LocationWatcher>) {
+		*self.location_watcher.write().await = Some(watcher);
 	}
 
 	/// Helper method to get the action manager

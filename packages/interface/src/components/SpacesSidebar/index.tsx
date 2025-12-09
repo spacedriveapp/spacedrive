@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { GearSix } from "@phosphor-icons/react";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
+import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
 import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 import { SpaceGroup } from "./SpaceGroup";
@@ -13,6 +14,66 @@ import { JobManagerPopover } from "../JobManager/JobManagerPopover";
 import { SyncMonitorPopover } from "../SyncMonitor";
 import clsx from "clsx";
 import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+// Wrapper that adds a space-level drop zone before each group and makes it sortable
+function SpaceGroupWithDropZone({
+  group,
+  items,
+  spaceId,
+  isFirst,
+}: {
+  group: SpaceGroupType;
+  items: SpaceItemType[];
+  spaceId?: string;
+  isFirst: boolean;
+}) {
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `space-root-before-${group.id}`,
+    disabled: !spaceId,
+    data: {
+      action: 'add-to-space',
+      spaceId,
+      groupId: null,
+    },
+  });
+
+  // Sortable for group reordering
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: group.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setSortableRef} style={style} className={clsx("relative", isDragging && "opacity-50 z-50")}>
+      {/* Drop zone before this group (for adding root-level items) */}
+      <div ref={setDropRef} className="absolute -top-2.5 left-0 right-0 h-5 z-10">
+        {isOver && !isDragging && (
+          <div className="absolute top-1/2 -translate-y-1/2 left-2 right-2 h-[2px] bg-accent rounded-full" />
+        )}
+      </div>
+      <SpaceGroup
+        group={group}
+        items={items}
+        spaceId={spaceId}
+        sortableAttributes={attributes}
+        sortableListeners={listeners}
+      />
+    </div>
+  );
+}
 
 interface SpacesSidebarProps {
   isPreviewActive?: boolean;
@@ -93,24 +154,43 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
           <div className="no-scrollbar mt-3 mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
             {/* Space-level items (pinned shortcuts) */}
             {layout?.space_items && layout.space_items.length > 0 && (
-              <div className="space-y-0.5">
-                {layout.space_items.map((item, index) => (
-                  <SpaceItem
-                    key={item.id}
-                    item={item}
-                    isLastItem={index === layout.space_items.length - 1}
-                    allowInsertion={true}
-                    spaceId={currentSpace?.id}
-                    groupId={null}
-                  />
-                ))}
-              </div>
+              <SortableContext
+                items={layout.space_items.map(item => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-0.5">
+                  {layout.space_items.map((item, index) => (
+                    <SpaceItem
+                      key={item.id}
+                      item={item}
+                      isLastItem={index === layout.space_items.length - 1}
+                      allowInsertion={true}
+                      spaceId={currentSpace?.id}
+                      groupId={null}
+                      sortable={true}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
             )}
 
-            {/* Groups */}
-            {layout?.groups.map(({ group, items }) => (
-              <SpaceGroup key={group.id} group={group} items={items} spaceId={currentSpace?.id} />
-            ))}
+            {/* Groups with space-level drop zones between them */}
+            {layout?.groups && (
+              <SortableContext
+                items={layout.groups.map(({ group }) => group.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {layout.groups.map(({ group, items }, index) => (
+                  <SpaceGroupWithDropZone
+                    key={group.id}
+                    group={group}
+                    items={items}
+                    spaceId={currentSpace?.id}
+                    isFirst={index === 0}
+                  />
+                ))}
+              </SortableContext>
+            )}
 
             {/* Add Group Button */}
             {currentSpace && <AddGroupButton spaceId={currentSpace.id} />}

@@ -1,7 +1,11 @@
 [package]
-name = "spacedrive-tauri"
+name = "spacedrive"
 version = "2.0.0"
 edition = "2021"
+
+[[bin]]
+name = "Spacedrive"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }

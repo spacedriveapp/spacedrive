@@ -100,6 +100,10 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
 				rmp_serde::to_vec(self)
 					.map_err(|e| crate::infra::job::error::JobError::serialization(format!("{}", e)))
 			}
+
+			fn should_persist(&self) -> bool {
+				<#name as crate::infra::job::traits::DynJob>::should_persist(self)
+			}
 		}
 	};
 

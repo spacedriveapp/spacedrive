@@ -185,6 +185,11 @@ impl Core {
 			.set_sidecar_manager(services.sidecar_manager.clone())
 			.await;
 
+		// Set location watcher in context so it can be accessed by jobs (for ephemeral watch registration)
+		context
+			.set_location_watcher(services.location_watcher.clone())
+			.await;
+
 		// Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
 		let mut loaded_libraries: Vec<Arc<crate::library::Library>> =

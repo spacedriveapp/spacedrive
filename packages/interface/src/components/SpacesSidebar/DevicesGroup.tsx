@@ -1,7 +1,8 @@
-import { CaretRight, Desktop, WifiHigh } from "@phosphor-icons/react";
-import clsx from "clsx";
+import { WifiHigh } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import { useLibraryQuery, getDeviceIcon } from "../../context";
+import { SpaceItem } from "./SpaceItem";
+import { GroupHeader } from "./GroupHeader";
 
 interface DevicesGroupProps {
 	isCollapsed: boolean;
@@ -22,21 +23,7 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 
 	return (
 		<div>
-			{/* Header */}
-			<button
-				onClick={onToggle}
-				className="mb-1 flex w-full cursor-default items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-sidebar-ink-faint hover:text-sidebar-ink"
-			>
-				<CaretRight
-					className={clsx("transition-transform", !isCollapsed && "rotate-90")}
-					size={10}
-					weight="bold"
-				/>
-				<span>Devices</span>
-				{devices && devices.length > 0 && (
-					<span className="ml-auto text-sidebar-ink-faint">{devices.length}</span>
-				)}
-			</button>
+			<GroupHeader label="Devices" isCollapsed={isCollapsed} onToggle={onToggle} />
 
 			{/* Items */}
 			{!isCollapsed && (
@@ -46,47 +33,48 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 					) : !devices || devices.length === 0 ? (
 						<div className="px-2 py-1 text-xs text-sidebar-ink-faint">No devices</div>
 					) : (
-						devices.map((device) => (
-							<button
-								key={device.id}
-								onClick={() => navigate(`/device/${device.id}`)}
-								className={clsx(
-									"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium",
-									device.is_current
-										? "bg-sidebar-selected/30 text-sidebar-ink"
-										: "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-box transition-colors"
-								)}
-							>
-								{/* Device Icon */}
-								<img src={getDeviceIcon(device)} alt="" className="size-4" />
+						devices.map((device, index) => {
+							// Create a minimal SpaceItem structure for the device
+							const deviceItem = {
+								id: device.id,
+								item_type: "Overview" as const,
+							};
 
-								{/* Device Name */}
-								<span className="flex-1 truncate text-left">{device.name}</span>
+							return (
+								<SpaceItem
+									key={device.id}
+									item={deviceItem as any}
+									customIcon={getDeviceIcon(device)}
+									customLabel={device.name}
+									allowInsertion={false}
+									isLastItem={index === devices.length - 1}
+									className="text-sidebar-inkDull"
+									rightComponent={
+										<div className="flex items-center gap-1">
+											{/* Paired indicator (network icon) */}
+											{device.is_paired && (
+												<WifiHigh
+													size={12}
+													weight="bold"
+													className="text-accent"
+													title="Paired via network"
+												/>
+											)}
 
-								{/* Status Indicators */}
-								<div className="flex items-center gap-1">
-									{/* Paired indicator (network icon) */}
-									{device.is_paired && (
-										<WifiHigh
-											size={12}
-											weight="bold"
-											className="text-accent"
-											title="Paired via network"
-										/>
-									)}
+											{/* Offline indicator */}
+											{!device.is_online && !device.is_connected && (
+												<span className="text-xs text-ink-faint">Offline</span>
+											)}
 
-									{/* Offline indicator */}
-									{!device.is_online && !device.is_connected && (
-										<span className="text-xs text-ink-faint">Offline</span>
-									)}
-
-									{/* Connected indicator for paired devices */}
-									{device.is_paired && device.is_connected && (
-										<span className="text-xs text-accent">Connected</span>
-									)}
-								</div>
-							</button>
-						))
+											{/* Connected indicator for paired devices */}
+											{device.is_paired && device.is_connected && (
+												<span className="text-xs text-accent">Connected</span>
+											)}
+										</div>
+									}
+								/>
+							);
+						})
 					)}
 				</div>
 			)}

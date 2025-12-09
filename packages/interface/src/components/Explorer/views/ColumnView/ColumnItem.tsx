@@ -46,7 +46,7 @@ export function ColumnItem({
     <div ref={setNodeRef} {...listeners} {...attributes}>
       <FileComponent
         file={file}
-        selected={selected}
+        selected={selected && !isDragging}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={onContextMenu}
@@ -54,11 +54,11 @@ export function ColumnItem({
         data-file-id={file.id}
         className={clsx(
           "flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md cursor-default transition-none",
-          selected
+          selected && !isDragging
             ? "bg-accent text-white"
             : "text-ink",
           focused && !selected && "ring-2 ring-accent/50",
-          isDragging && "opacity-50"
+          isDragging && "opacity-40"
         )}
       >
         <div className="[&_*]:!rounded-[3px] flex-shrink-0">

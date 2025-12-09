@@ -575,6 +575,8 @@ impl LocationWatcher {
 					rule_toggles,
 				},
 			);
+			// Update metrics
+			self.metrics.update_ephemeral_watches(watches.len());
 		}
 
 		// Add to file system watcher with NonRecursive mode
@@ -592,7 +594,10 @@ impl LocationWatcher {
 	pub async fn remove_ephemeral_watch(&self, path: &Path) -> Result<()> {
 		let watch = {
 			let mut watches = self.ephemeral_watches.write().await;
-			watches.remove(path)
+			let watch = watches.remove(path);
+			// Update metrics
+			self.metrics.update_ephemeral_watches(watches.len());
+			watch
 		};
 
 		if let Some(watch) = watch {
@@ -719,6 +724,15 @@ impl LocationWatcher {
 							debug!("Skipping location {} without entry_id", location.uuid);
 							continue;
 						};
+
+						// Skip locations with IndexMode::None (not persistently indexed)
+						if location.index_mode == "none" {
+							debug!(
+								"Skipping location {} with IndexMode::None (ephemeral browsing only)",
+								location.uuid
+							);
+							continue;
+						}
 
 						// Get the full path using PathResolver with timeout
 						let path_result = tokio::time::timeout(
@@ -1182,6 +1196,44 @@ impl LocationWatcher {
 							location_id,
 							path.display()
 						);
+
+						// Query the location to check its index_mode
+						let libraries = context.libraries().await;
+						let should_watch = if let Some(library) = libraries.get_library(library_id).await {
+							let db = library.db().conn();
+							match crate::infra::db::entities::location::Entity::find()
+								.filter(crate::infra::db::entities::location::Column::Uuid.eq(location_id))
+								.one(db)
+								.await
+							{
+								Ok(Some(location_record)) => {
+									if location_record.index_mode == "none" {
+										debug!(
+											"Skipping newly added location {} with IndexMode::None",
+											location_id
+										);
+										false
+									} else {
+										true
+									}
+								}
+								Ok(None) => {
+									warn!("Location {} not found in database", location_id);
+									false
+								}
+								Err(e) => {
+									error!("Failed to query location {}: {}", location_id, e);
+									false
+								}
+							}
+						} else {
+							warn!("Library {} not found for location {}", library_id, location_id);
+							false
+						};
+
+						if !should_watch {
+							continue;
+						}
 
 						// Create a temporary LocationWatcher instance for this operation
 						let temp_watcher = LocationWatcher {

@@ -57,6 +57,9 @@
 			"icons/icon.icns",
 			"icons/icon.ico"
 		],
+		"resources": {
+			"gen/**/*": "./"
+		},
 		"fileAssociations": [
 			{
 				"ext": ["memory"],
@@ -73,7 +76,9 @@
 		},
 		"macOS": {
 			"minimumSystemVersion": "10.15",
-			"signingIdentity": "Apple Development: James Pine (TU2EDB6U4N)"
+			"signingIdentity": "-",
+			"infoPlist": "Info.plist",
+			"frameworks": ["../apps/.deps/Spacedrive.framework"]
 		},
 		"windows": {
 			"webviewInstallMode": {

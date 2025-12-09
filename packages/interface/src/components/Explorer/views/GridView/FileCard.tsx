@@ -569,7 +569,7 @@ export const FileCard = memo(
 				)}
 				<FileComponent
 					file={file}
-					selected={selected}
+					selected={selected && !dndIsDragging}
 					onClick={handleClick}
 					onDoubleClick={handleDoubleClick}
 					onContextMenu={handleContextMenu}
@@ -577,14 +577,14 @@ export const FileCard = memo(
 					className={clsx(
 						"flex flex-col items-center gap-2 p-1 rounded-lg transition-all",
 						focused && !selected && "ring-2 ring-accent/50",
-						dndIsDragging && "opacity-50",
+						dndIsDragging && "opacity-40",
 						isFolder && isDropOver && "bg-accent/10",
 					)}
 				>
 					<div
 						className={clsx(
 							"rounded-lg p-2",
-							selected ? "bg-app-box" : "bg-transparent",
+							selected && !dndIsDragging ? "bg-app-box" : "bg-transparent",
 						)}
 					>
 						<FileComponent.Thumb file={file} size={thumbSize} />
@@ -593,7 +593,7 @@ export const FileCard = memo(
 						<div
 							className={clsx(
 								"text-sm truncate px-2 py-0.5 rounded-md inline-block max-w-full",
-								selected ? "bg-accent text-white" : "text-ink",
+								selected && !dndIsDragging ? "bg-accent text-white" : "text-ink",
 							)}
 						>
 							{file.name}
