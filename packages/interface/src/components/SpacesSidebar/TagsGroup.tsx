@@ -1,9 +1,10 @@
-import { CaretRight, Tag as TagIcon, Plus } from '@phosphor-icons/react';
+import { Tag as TagIcon, Plus } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { useNormalizedQuery, useLibraryMutation } from '../../context';
 import type { Tag } from '@sd/ts-client';
+import { GroupHeader } from './GroupHeader';
 
 interface TagsGroupProps {
 	isCollapsed: boolean;
@@ -119,21 +120,16 @@ export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
 
 	return (
 		<div>
-			{/* Header */}
-			<button
-				onClick={onToggle}
-				className="mb-1 flex w-full items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-sidebar-ink-faint hover:text-sidebar-ink"
-			>
-				<CaretRight
-					className={clsx('transition-transform', !isCollapsed && 'rotate-90')}
-					size={10}
-					weight="bold"
-				/>
-				<span>Tags</span>
-				{tags.length > 0 && (
-					<span className="ml-auto text-sidebar-ink-faint">{tags.length}</span>
-				)}
-			</button>
+			<GroupHeader
+				label="Tags"
+				isCollapsed={isCollapsed}
+				onToggle={onToggle}
+				rightComponent={
+					tags.length > 0 && (
+						<span className="ml-auto text-sidebar-ink-faint">{tags.length}</span>
+					)
+				}
+			/>
 
 			{/* Items */}
 			{!isCollapsed && (

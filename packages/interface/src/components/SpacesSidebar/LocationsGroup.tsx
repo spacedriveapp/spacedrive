@@ -1,8 +1,7 @@
-import { CaretRight, Folder } from "@phosphor-icons/react";
-import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
 import { useNormalizedQuery } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
+import { GroupHeader } from "./GroupHeader";
 
 interface LocationsGroupProps {
   isCollapsed: boolean;
@@ -22,18 +21,7 @@ export function LocationsGroup({ isCollapsed, onToggle }: LocationsGroupProps) {
 
   return (
     <div>
-      {/* Header */}
-      <button
-        onClick={onToggle}
-        className="mb-1 flex w-full cursor-default items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-sidebar-ink-faint hover:text-sidebar-ink"
-      >
-        <CaretRight
-          className={clsx("transition-transform", !isCollapsed && "rotate-90")}
-          size={10}
-          weight="bold"
-        />
-        <span>Locations</span>
-      </button>
+      <GroupHeader label="Locations" isCollapsed={isCollapsed} onToggle={onToggle} />
 
       {/* Items */}
       {!isCollapsed && (

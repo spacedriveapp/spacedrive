@@ -138,6 +138,13 @@ export function useNormalizedQuery<I, O>(
     queryKeyRef.current = queryKey;
   });
 
+  // Serialize pathScope for deep comparison in dependency array
+  // This ensures subscription re-runs when path changes, even if object reference stays same
+  const pathScopeSerialized = useMemo(
+    () => JSON.stringify(options.pathScope),
+    [options.pathScope],
+  );
+
   // Event subscription
   // Only re-subscribe when filter criteria change
   // Using refs for event handler to avoid re-subscription on every render
@@ -146,18 +153,52 @@ export function useNormalizedQuery<I, O>(
 
     // Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
     // Unless resourceId is provided (single-file queries like FileInspector don't need pathScope)
-    if (options.resourceType === "file" && !options.pathScope && !options.resourceId) {
+    if (
+      options.resourceType === "file" &&
+      !options.pathScope &&
+      !options.resourceId
+    ) {
       return;
     }
 
     let unsubscribe: (() => void) | undefined;
     let isCancelled = false;
 
+    // Capture current pathScope in closure to prevent stale events from updating wrong query
+    const capturedPathScope = options.pathScope;
+    const capturedQueryKey = queryKey;
+
     const handleEvent = (event: Event) => {
+      // Debug: log every batch event to understand what's happening
+      // if (typeof event !== "string" && "ResourceChangedBatch" in event) {
+      //   const batch = (event as any).ResourceChangedBatch;
+      //   console.log("[useNormalizedQuery] Batch event received", {
+      //     capturedPath: capturedPathScope,
+      //     currentRefPath: optionsRef.current.pathScope,
+      //     pathsMatch:
+      //       JSON.stringify(optionsRef.current.pathScope) ===
+      //       JSON.stringify(capturedPathScope),
+      //     resourceCount: batch.resources?.length || 0,
+      //     resourceType: batch.resource_type,
+      //   });
+      // }
+
+      // Guard: only process events if pathScope hasn't changed since subscription
+      if (
+        JSON.stringify(optionsRef.current.pathScope) !==
+        JSON.stringify(capturedPathScope)
+      ) {
+        console.log("[useNormalizedQuery] Dropping stale event", {
+          eventPathScope: capturedPathScope,
+          currentPathScope: optionsRef.current.pathScope,
+        });
+        return;
+      }
+
       handleResourceEvent(
         event,
         optionsRef.current,
-        queryKeyRef.current,
+        capturedQueryKey, // Use captured queryKey, not ref
         queryClient,
       );
     };
@@ -174,13 +215,22 @@ export function useNormalizedQuery<I, O>(
       )
       .then((unsub) => {
         if (isCancelled) {
+          // console.log(
+          //   "[useNormalizedQuery] Subscription cancelled before creation completed",
+          // );
           unsub();
         } else {
+          // console.log("[useNormalizedQuery] Subscription active", {
+          //   pathScope: options.pathScope,
+          // });
           unsubscribe = unsub;
         }
       });
 
     return () => {
+      // console.log("[useNormalizedQuery] Cleaning up subscription", {
+      //   pathScope: options.pathScope,
+      // });
       isCancelled = true;
       unsubscribe?.();
     };
@@ -189,7 +239,7 @@ export function useNormalizedQuery<I, O>(
     queryClient,
     options.resourceType,
     options.resourceId,
-    options.pathScope,
+    pathScopeSerialized, // Use serialized version for deep comparison
     options.includeDescendants,
     libraryId,
     // options and queryKey accessed via refs - don't need to be in deps
@@ -227,16 +277,16 @@ export function handleResourceEvent(
   if ("ResourceChanged" in event) {
     const result = v.safeParse(ResourceChangedSchema, event);
     if (!result.success) {
-      console.warn(
-        "[useNormalizedQuery] Invalid ResourceChanged event:",
-        result.issues,
-      );
+      // console.warn(
+      //   "[useNormalizedQuery] Invalid ResourceChanged event:",
+      //   result.issues,
+      // );
       return;
     }
 
     const { resource_type, resource, metadata } = result.output.ResourceChanged;
     if (resource_type === options.resourceType) {
-      updateSingleResource(resource, metadata, queryKey, queryClient);
+      updateSingleResource(resource, metadata, queryKey, queryClient, options);
     }
   }
 
@@ -244,10 +294,10 @@ export function handleResourceEvent(
   else if ("ResourceChangedBatch" in event) {
     const result = v.safeParse(ResourceChangedBatchSchema, event);
     if (!result.success) {
-      console.warn(
-        "[useNormalizedQuery] Invalid ResourceChangedBatch event:",
-        result.issues,
-      );
+      // console.warn(
+      //   "[useNormalizedQuery] Invalid ResourceChangedBatch event:",
+      //   result.issues,
+      // );
       return;
     }
 
@@ -263,10 +313,10 @@ export function handleResourceEvent(
   else if ("ResourceDeleted" in event) {
     const result = v.safeParse(ResourceDeletedSchema, event);
     if (!result.success) {
-      console.warn(
-        "[useNormalizedQuery] Invalid ResourceDeleted event:",
-        result.issues,
-      );
+      // console.warn(
+      //   "[useNormalizedQuery] Invalid ResourceDeleted event:",
+      //   result.issues,
+      // );
       return;
     }
 
@@ -320,6 +370,7 @@ export function filterBatchResources(
     options.resourceType === "file" &&
     !options.includeDescendants
   ) {
+    const beforeCount = filtered.length;
     filtered = filtered.filter((resource: any) => {
       // Get the scope path (must be Physical)
       const scopeStr = (options.pathScope as any).Physical?.path;
@@ -335,7 +386,8 @@ export function filterBatchResources(
       const physicalFromAlternate = alternatePaths.find((p: any) => p.Physical);
       const physicalFromSdPath = resource.sd_path?.Physical;
 
-      const physicalPath = physicalFromAlternate?.Physical || physicalFromSdPath;
+      const physicalPath =
+        physicalFromAlternate?.Physical || physicalFromSdPath;
 
       if (!physicalPath?.path) {
         return false; // No physical path found
@@ -354,6 +406,16 @@ export function filterBatchResources(
       // Only match if parent equals scope (normalized)
       return parentDir === normalizedScope;
     });
+
+    // const afterCount = filtered.length;
+    // if (beforeCount !== afterCount) {
+    //   console.log("[filterBatchResources] Filtered resources", {
+    //     pathScope: options.pathScope,
+    //     before: beforeCount,
+    //     after: afterCount,
+    //     filtered: beforeCount - afterCount,
+    //   });
+    // }
   }
 
   return filtered;
@@ -371,20 +433,34 @@ export function updateSingleResource<O>(
   metadata: any,
   queryKey: any[],
   queryClient: QueryClient,
+  options?: UseNormalizedQueryOptions<any>,
 ) {
   const noMergeFields = metadata?.no_merge_fields || [];
+
+  // Apply client-side filtering if options provided (same as batch)
+  let resourcesToUpdate = [resource];
+  if (options) {
+    resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
+    if (resourcesToUpdate.length === 0) {
+      // console.log("[updateSingleResource] Filtered out resource", {
+      //   pathScope: options.pathScope,
+      //   resourcePath: resource.sd_path,
+      // });
+      return; // Resource was filtered out
+    }
+  }
 
   queryClient.setQueryData<O>(queryKey, (oldData: any) => {
     if (!oldData) return oldData;
 
     // Handle array responses
     if (Array.isArray(oldData)) {
-      return updateArrayCache(oldData, [resource], noMergeFields) as O;
+      return updateArrayCache(oldData, resourcesToUpdate, noMergeFields) as O;
     }
 
     // Handle wrapped responses { files: [...] }
     if (oldData && typeof oldData === "object") {
-      return updateWrappedCache(oldData, [resource], noMergeFields) as O;
+      return updateWrappedCache(oldData, resourcesToUpdate, noMergeFields) as O;
     }
 
     return oldData;
@@ -491,6 +567,11 @@ function updateArrayCache(
   // Append new items
   for (const resource of newResources) {
     if (!seenIds.has(resource.id)) {
+      // Skip resources with Content paths - they represent alternate instances
+      // and should only update existing entries (e.g., thumbnail generation)
+      if (resource.sd_path?.Content) {
+        continue;
+      }
       newData.push(resource);
     }
   }
@@ -535,6 +616,11 @@ function updateWrappedCache(
     // Append new
     for (const resource of newResources) {
       if (!seenIds.has(resource.id)) {
+        // Skip resources with Content paths - they represent alternate instances
+        // and should only update existing entries (e.g., thumbnail generation)
+        if (resource.sd_path?.Content) {
+          continue;
+        }
         array.push(resource);
       }
     }

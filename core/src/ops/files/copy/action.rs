@@ -26,18 +26,20 @@ use uuid::Uuid;
 pub enum FileConflictResolution {
 	Overwrite,
 	AutoModifyName,
+	Skip,
 	Abort,
 }
 
 impl FileConflictResolution {
 	/// All available choices for conflict resolution
-	const CHOICES: [Self; 3] = [Self::Overwrite, Self::AutoModifyName, Self::Abort];
+	const CHOICES: [Self; 4] = [Self::Overwrite, Self::AutoModifyName, Self::Skip, Self::Abort];
 
 	/// Convert to human-readable string
 	fn as_str(&self) -> &'static str {
 		match self {
 			Self::Overwrite => "Overwrite the existing file",
 			Self::AutoModifyName => "Rename the new file (e.g., file.txt -> file (1).txt)",
+			Self::Skip => "Skip files that already exist",
 			Self::Abort => "Abort this copy operation",
 		}
 	}
@@ -288,8 +290,9 @@ impl LibraryAction for FileCopyAction {
 			});
 		}
 
-		// Check for file conflicts if overwrite is not enabled
-		if !self.options.overwrite {
+		// Check for file conflicts if overwrite is not enabled AND on_conflict is not already set
+		// If on_conflict is set, the user has already made their choice (via UI or CLI)
+		if !self.options.overwrite && self.on_conflict.is_none() {
 			if let Some(conflict_path) = self.check_for_conflicts().await? {
 				let request = ConfirmationRequest {
 					message: format!(
@@ -327,16 +330,20 @@ impl LibraryAction for FileCopyAction {
 		library: std::sync::Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Apply conflict resolution to options if set
+		// Apply conflict resolution to options
 		let mut options = self.options.clone();
+
+		// Pass the conflict resolution to the job
+		options.conflict_resolution = self.on_conflict;
+
+		// Set overwrite flag based on resolution
 		if let Some(resolution) = self.on_conflict {
 			match resolution {
 				FileConflictResolution::Overwrite => {
 					options.overwrite = true;
 				}
-				FileConflictResolution::AutoModifyName => {
-					// Generate a unique destination path to avoid conflicts
-					self.destination = self.generate_unique_destination().await?;
+				FileConflictResolution::AutoModifyName | FileConflictResolution::Skip => {
+					// These are handled per-file in the job
 					options.overwrite = false;
 				}
 				FileConflictResolution::Abort => {

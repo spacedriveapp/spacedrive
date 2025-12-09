@@ -125,6 +125,7 @@ impl FileCopyInput {
 			delete_after_copy: self.move_files,
 			move_mode: None, // Will be determined by job system
 			copy_method: self.copy_method.clone(),
+			conflict_resolution: None, // Set by action, not input
 		}
 	}
 

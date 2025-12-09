@@ -91,7 +91,7 @@ impl JobManager {
 	/// Dispatch a job for execution
 	pub async fn dispatch<J>(&self, job: J) -> JobResult<JobHandle>
 	where
-		J: Job + JobHandler,
+		J: Job + JobHandler + DynJob,
 	{
 		self.dispatch_with_priority(job, JobPriority::NORMAL, None)
 			.await
@@ -165,34 +165,42 @@ impl JobManager {
 		action_context: Option<ActionContext>,
 	) -> JobResult<JobHandle> {
 		let job_id = JobId::new();
-		info!("Dispatching job {} ({}): {}", job_id, job_name, job_name);
+		let should_persist = erased_job.should_persist();
 
-		// Serialize job state for database
-		let state = erased_job.serialize_state()?;
+		info!(
+			"Dispatching job {} ({}): {} [persist: {}]",
+			job_id, job_name, job_name, should_persist
+		);
 
-		// Create database record
-		let job_model = database::jobs::ActiveModel {
-			id: Set(job_id.to_string()),
-			name: Set(job_name.to_string()),
-			state: Set(state),
-			status: Set(JobStatus::Queued.to_string()),
-			priority: Set(priority.0),
-			progress_type: Set(None),
-			progress_data: Set(None),
-			parent_job_id: Set(None),
-			created_at: Set(Utc::now()),
-			started_at: Set(None),
-			completed_at: Set(None),
-			paused_at: Set(None),
-			error_message: Set(None),
-			warnings: Set(None),
-			non_critical_errors: Set(None),
-			metrics: Set(None),
-			action_context: Set(None),
-			action_type: Set(None),
-		};
+		// Only persist to database if the job should be persisted
+		if should_persist {
+			// Serialize job state for database
+			let state = erased_job.serialize_state()?;
 
-		job_model.insert(self.db.conn()).await?;
+			// Create database record
+			let job_model = database::jobs::ActiveModel {
+				id: Set(job_id.to_string()),
+				name: Set(job_name.to_string()),
+				state: Set(state),
+				status: Set(JobStatus::Queued.to_string()),
+				priority: Set(priority.0),
+				progress_type: Set(None),
+				progress_data: Set(None),
+				parent_job_id: Set(None),
+				created_at: Set(Utc::now()),
+				started_at: Set(None),
+				completed_at: Set(None),
+				paused_at: Set(None),
+				error_message: Set(None),
+				warnings: Set(None),
+				non_critical_errors: Set(None),
+				metrics: Set(None),
+				action_context: Set(None),
+				action_type: Set(None),
+			};
+
+			job_model.insert(self.db.conn()).await?;
+		}
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -203,6 +211,7 @@ impl JobManager {
 		let latest_progress = Arc::new(Mutex::new(None));
 
 		// Create progress forwarding task
+		// For ephemeral jobs, skip database updates and event emission
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
 		let event_bus = self.context.events.clone();
@@ -216,6 +225,11 @@ impl JobManager {
 			while let Some(progress) = progress_rx.recv().await {
 				*latest_progress_clone.lock().await = Some(progress.clone());
 				let _ = broadcast_tx_clone.send(progress.clone());
+
+				// Skip event updates for ephemeral jobs
+				if !should_persist {
+					continue;
+				}
 
 				// Throttle JobProgress events to prevent flooding the event bus
 				let now = std::time::Instant::now();
@@ -337,54 +351,57 @@ impl JobManager {
 						let status = *status_rx.borrow();
 						match status {
 							JobStatus::Completed => {
-								// Get the final output from the handle before removing the job
-								let output = {
-									let jobs = running_jobs.read().await;
-									if let Some(job) = jobs.get(&job_id_clone) {
-										let result = job.handle.output.lock().await.clone();
-										match result {
-											Some(Ok(output)) => output,
-											Some(Err(_)) => JobOutput::Success,
-											None => JobOutput::Success,
-										}
-									} else {
-										JobOutput::Success
-									}
-								};
-
-								// Emit completion event with the job's output
-								event_bus.emit(Event::JobCompleted {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.clone(),
-									output,
-								});
-
-								// Trigger library statistics recalculation after job completion
-								let library_id_for_stats = library_id_clone;
-								let context_for_stats = context.clone();
-								tokio::spawn(async move {
-									if let Some(library) = context_for_stats
-										.libraries()
-										.await
-										.get_library(library_id_for_stats)
-										.await
-									{
-										if let Err(e) = library.recalculate_statistics().await {
-											warn!(
-												library_id = %library_id_for_stats,
-												job_id = %job_id_clone,
-												error = %e,
-												"Failed to trigger library statistics recalculation after job completion"
-											);
+								// Only emit events and trigger statistics for persistent jobs
+								if should_persist {
+									// Get the final output from the handle before removing the job
+									let output = {
+										let jobs = running_jobs.read().await;
+										if let Some(job) = jobs.get(&job_id_clone) {
+											let result = job.handle.output.lock().await.clone();
+											match result {
+												Some(Ok(output)) => output,
+												Some(Err(_)) => JobOutput::Success,
+												None => JobOutput::Success,
+											}
 										} else {
-											debug!(
-												library_id = %library_id_for_stats,
-												job_id = %job_id_clone,
-												"Triggered library statistics recalculation after job completion"
-											);
+											JobOutput::Success
 										}
-									}
-								});
+									};
+
+									// Emit completion event with the job's output
+									event_bus.emit(Event::JobCompleted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.clone(),
+										output,
+									});
+
+									// Trigger library statistics recalculation after job completion
+									let library_id_for_stats = library_id_clone;
+									let context_for_stats = context.clone();
+									tokio::spawn(async move {
+										if let Some(library) = context_for_stats
+											.libraries()
+											.await
+											.get_library(library_id_for_stats)
+											.await
+										{
+											if let Err(e) = library.recalculate_statistics().await {
+												warn!(
+													library_id = %library_id_for_stats,
+													job_id = %job_id_clone,
+													error = %e,
+													"Failed to trigger library statistics recalculation after job completion"
+												);
+											} else {
+												debug!(
+													library_id = %library_id_for_stats,
+													job_id = %job_id_clone,
+													"Triggered library statistics recalculation after job completion"
+												);
+											}
+										}
+									});
+								}
 
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
@@ -395,23 +412,27 @@ impl JobManager {
 								break;
 							}
 							JobStatus::Failed => {
-								// Emit failure event
-								event_bus.emit(Event::JobFailed {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.clone(),
-									error: "Job failed".to_string(),
-								});
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobFailed {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.clone(),
+										error: "Job failed".to_string(),
+									});
+								}
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
 								info!("Job {} failed and removed from running jobs", job_id_clone);
 								break;
 							}
 							JobStatus::Cancelled => {
-								// Emit cancellation event
-								event_bus.emit(Event::JobCancelled {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.clone(),
-								});
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobCancelled {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.clone(),
+									});
+								}
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
 								info!(
@@ -439,54 +460,68 @@ impl JobManager {
 		action_context: Option<ActionContext>,
 	) -> JobResult<JobHandle>
 	where
-		J: Job + JobHandler,
+		J: Job + JobHandler + DynJob,
 	{
 		let job_id = JobId::new();
+		let should_persist = job.should_persist();
+
 		if let Some(ref ctx) = action_context {
 			info!(
-				"Dispatching job {}: {} (from action: {})",
+				"Dispatching job {}: {} (from action: {}) [persist: {}]",
 				job_id,
 				J::NAME,
-				ctx.action_type
+				ctx.action_type,
+				should_persist
 			);
 		} else {
-			info!("Dispatching job {}: {}", job_id, J::NAME);
+			info!(
+				"Dispatching job {}: {} [persist: {}]",
+				job_id,
+				J::NAME,
+				should_persist
+			);
 		}
 
-		// Serialize job state
-		let state =
-			rmp_serde::to_vec(&job).map_err(|e| JobError::serialization(format!("{}", e)))?;
+		// Only persist to database if the job should be persisted
+		if should_persist {
+			// Serialize job state
+			let state =
+				rmp_serde::to_vec(&job).map_err(|e| JobError::serialization(format!("{}", e)))?;
 
-		// Serialize action context if provided
-		let serialized_action_context = if let Some(ref ctx) = action_context {
-			Some(rmp_serde::to_vec(ctx).map_err(|e| JobError::serialization(format!("{}", e)))?)
-		} else {
-			None
-		};
+			// Serialize action context if provided
+			let serialized_action_context = if let Some(ref ctx) = action_context {
+				Some(
+					rmp_serde::to_vec(ctx)
+						.map_err(|e| JobError::serialization(format!("{}", e)))?,
+				)
+			} else {
+				None
+			};
 
-		// Create database record
-		let job_model = database::jobs::ActiveModel {
-			id: Set(job_id.to_string()),
-			name: Set(J::NAME.to_string()),
-			state: Set(state),
-			status: Set(JobStatus::Queued.to_string()),
-			priority: Set(priority.0),
-			progress_type: Set(None),
-			progress_data: Set(None),
-			parent_job_id: Set(None),
-			created_at: Set(Utc::now()),
-			started_at: Set(None),
-			completed_at: Set(None),
-			paused_at: Set(None),
-			error_message: Set(None),
-			warnings: Set(None),
-			non_critical_errors: Set(None),
-			metrics: Set(None),
-			action_context: Set(serialized_action_context),
-			action_type: Set(action_context.as_ref().map(|ctx| ctx.action_type.clone())),
-		};
+			// Create database record
+			let job_model = database::jobs::ActiveModel {
+				id: Set(job_id.to_string()),
+				name: Set(J::NAME.to_string()),
+				state: Set(state),
+				status: Set(JobStatus::Queued.to_string()),
+				priority: Set(priority.0),
+				progress_type: Set(None),
+				progress_data: Set(None),
+				parent_job_id: Set(None),
+				created_at: Set(Utc::now()),
+				started_at: Set(None),
+				completed_at: Set(None),
+				paused_at: Set(None),
+				error_message: Set(None),
+				warnings: Set(None),
+				non_critical_errors: Set(None),
+				metrics: Set(None),
+				action_context: Set(serialized_action_context),
+				action_type: Set(action_context.as_ref().map(|ctx| ctx.action_type.clone())),
+			};
 
-		job_model.insert(self.db.conn()).await?;
+			job_model.insert(self.db.conn()).await?;
+		}
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -497,6 +532,7 @@ impl JobManager {
 		let latest_progress = Arc::new(Mutex::new(None));
 
 		// Create progress forwarding task with batching and throttling
+		// For ephemeral jobs, skip database updates and event emission
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
 		let event_bus = self.context.events.clone();
@@ -518,6 +554,11 @@ impl JobManager {
 				// Forward progress from mpsc to broadcast
 				// Ignore errors if no one is listening
 				let _ = broadcast_tx_clone.send(progress.clone());
+
+				// Skip database and event updates for ephemeral jobs
+				if !should_persist {
+					continue;
+				}
 
 				// Persist progress to database with throttling
 				if last_db_update.elapsed() >= DB_UPDATE_INTERVAL {
@@ -564,12 +605,14 @@ impl JobManager {
 			}
 
 			// Final progress update when channel closes
-			if let Some(final_progress) = &*latest_progress_clone.lock().await {
-				if let Err(e) = job_db_clone
-					.update_progress(job_id_clone, final_progress)
-					.await
-				{
-					debug!("Failed to persist final job progress to database: {}", e);
+			if should_persist {
+				if let Some(final_progress) = &*latest_progress_clone.lock().await {
+					if let Err(e) = job_db_clone
+						.update_progress(job_id_clone, final_progress)
+						.await
+					{
+						debug!("Failed to persist final job progress to database: {}", e);
+					}
 				}
 			}
 		});
@@ -661,54 +704,57 @@ impl JobManager {
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
 							JobStatus::Completed => {
-								// Get the final output from the handle before removing the job
-								let output = {
-									let jobs = running_jobs.read().await;
-									if let Some(job) = jobs.get(&job_id_clone) {
-										job.handle
-											.output
-											.lock()
-											.await
-											.clone()
-											.unwrap_or(Ok(JobOutput::Success))
-									} else {
-										Ok(JobOutput::Success)
-									}
-								};
-
-								// Emit completion event with the job's output
-								event_bus.emit(Event::JobCompleted {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.to_string(),
-									output: output.unwrap_or(JobOutput::Success),
-								});
-
-								// Trigger library statistics recalculation after job completion
-								let library_id_for_stats = library_id_clone;
-								let context_for_stats = context.clone();
-								tokio::spawn(async move {
-									if let Some(library) = context_for_stats
-										.libraries()
-										.await
-										.get_library(library_id_for_stats)
-										.await
-									{
-										if let Err(e) = library.recalculate_statistics().await {
-											warn!(
-												library_id = %library_id_for_stats,
-												job_id = %job_id_clone,
-												error = %e,
-												"Failed to trigger library statistics recalculation after job completion"
-											);
+								// Only emit events and trigger statistics for persistent jobs
+								if should_persist {
+									// Get the final output from the handle before removing the job
+									let output = {
+										let jobs = running_jobs.read().await;
+										if let Some(job) = jobs.get(&job_id_clone) {
+											job.handle
+												.output
+												.lock()
+												.await
+												.clone()
+												.unwrap_or(Ok(JobOutput::Success))
 										} else {
-											debug!(
-												library_id = %library_id_for_stats,
-												job_id = %job_id_clone,
-												"Triggered library statistics recalculation after job completion"
-											);
+											Ok(JobOutput::Success)
 										}
-									}
-								});
+									};
+
+									// Emit completion event with the job's output
+									event_bus.emit(Event::JobCompleted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										output: output.unwrap_or(JobOutput::Success),
+									});
+
+									// Trigger library statistics recalculation after job completion
+									let library_id_for_stats = library_id_clone;
+									let context_for_stats = context.clone();
+									tokio::spawn(async move {
+										if let Some(library) = context_for_stats
+											.libraries()
+											.await
+											.get_library(library_id_for_stats)
+											.await
+										{
+											if let Err(e) = library.recalculate_statistics().await {
+												warn!(
+													library_id = %library_id_for_stats,
+													job_id = %job_id_clone,
+													error = %e,
+													"Failed to trigger library statistics recalculation after job completion"
+												);
+											} else {
+												debug!(
+													library_id = %library_id_for_stats,
+													job_id = %job_id_clone,
+													"Triggered library statistics recalculation after job completion"
+												);
+											}
+										}
+									});
+								}
 
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
@@ -719,23 +765,27 @@ impl JobManager {
 								break;
 							}
 							JobStatus::Failed => {
-								// Emit failure event
-								event_bus.emit(Event::JobFailed {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.to_string(),
-									error: "Job failed".to_string(),
-								});
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobFailed {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										error: "Job failed".to_string(),
+									});
+								}
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
 								info!("Job {} failed and removed from running jobs", job_id_clone);
 								break;
 							}
 							JobStatus::Cancelled => {
-								// Emit cancellation event
-								event_bus.emit(Event::JobCancelled {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.to_string(),
-								});
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobCancelled {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+									});
+								}
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
 								info!(

@@ -10,6 +10,6 @@ pub struct ReorderGroupsInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ReorderItemsInput {
-	pub group_id: Uuid,
+	pub group_id: Option<Uuid>,
 	pub item_ids: Vec<Uuid>,
 }

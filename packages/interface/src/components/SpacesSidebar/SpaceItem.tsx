@@ -23,6 +23,8 @@ import { useContextMenu } from "../../hooks/useContextMenu";
 import { usePlatform } from "../../platform";
 import { useLibraryMutation } from "../../context";
 import { useDroppable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface SpaceItemProps {
 	item: SpaceItemType;
@@ -38,6 +40,8 @@ interface SpaceItemProps {
 	volumeData?: { device_slug: string; mount_path: string };
 	/** Optional custom icon (as image path) to override default icon */
 	customIcon?: string;
+	/** Optional custom label to override automatic label detection */
+	customLabel?: string;
 	/** Whether this is the last item in the list (for showing bottom insertion line) */
 	isLastItem?: boolean;
 	/** Whether this item supports insertion (reordering) - false for system groups */
@@ -46,6 +50,8 @@ interface SpaceItemProps {
 	spaceId?: string;
 	/** The group ID this item belongs to (for adding items on insertion) */
 	groupId?: string | null;
+	/** Whether this item is sortable (can be reordered) */
+	sortable?: boolean;
 }
 
 function getItemIcon(itemType: ItemType): any {
@@ -96,8 +102,12 @@ function getItemPath(
 	if (itemType === "Overview") return "/";
 	if (itemType === "Recents") return "/recents";
 	if (itemType === "Favorites") return "/favorites";
-	if (typeof itemType === "object" && "Location" in itemType)
+	if (typeof itemType === "object" && "Location" in itemType) {
+		// For proper SpaceItem with Location type, we need the sd_path
+		// This requires the parent to pass volumeData or similar
+		// For now, keep the old route - will be replaced when locations use raw format
 		return `/location/${itemType.Location.location_id}`;
+	}
 	if (typeof itemType === "object" && "Volume" in itemType) {
 		// Navigate to explorer with volume's root path
 		if (volumeData) {
@@ -114,12 +124,9 @@ function getItemPath(
 	if (typeof itemType === "object" && "Tag" in itemType)
 		return `/tag/${itemType.Tag.tag_id}`;
 	if (typeof itemType === "object" && "Path" in itemType) {
-		// If it's a directory, navigate to explorer
-		if (resolvedFile?.kind === "Directory") {
-			return `/explorer?path=${encodeURIComponent(JSON.stringify(itemType.Path.sd_path))}`;
-		}
-		// Regular files don't have a path to navigate to (could open/preview in future)
-		return null;
+		// Navigate to explorer with the SD path
+		// Assume it's explorable (directory or file) - if it's in the sidebar, it should be clickable
+		return `/explorer?path=${encodeURIComponent(JSON.stringify(itemType.Path.sd_path))}`;
 	}
 	return null;
 }
@@ -132,15 +139,37 @@ export function SpaceItem({
 	onClick,
 	volumeData,
 	customIcon,
+	customLabel,
 	isLastItem = false,
 	allowInsertion = true,
 	spaceId,
 	groupId,
+	sortable = false,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const platform = usePlatform();
 	const deleteItem = useLibraryMutation("spaces.delete_item");
+
+	// Sortable hook (for reordering)
+	const sortableProps = useSortable({
+		id: item.id,
+		disabled: !sortable,
+	});
+
+	const {
+		attributes: sortableAttributes,
+		listeners: sortableListeners,
+		setNodeRef: setSortableRef,
+		transform,
+		transition,
+		isDragging: isSortableDragging,
+	} = sortableProps;
+
+	const style = sortable ? {
+		transform: CSS.Transform.toString(transform),
+		transition,
+	} : undefined;
 
 	// Check if this is a raw location object (has 'name' and 'sd_path' but no 'item_type')
 	const isRawLocation =
@@ -155,7 +184,9 @@ export function SpaceItem({
 		// Handle raw location object
 		iconData = { type: "image", icon: Location };
 		label = (item as any).name || "Unnamed Location";
-		path = `/location/${item.id}`;
+		// Use explorer path with the location's sd_path
+		const sdPath = (item as any).sd_path;
+		path = sdPath ? `/explorer?path=${encodeURIComponent(JSON.stringify(sdPath))}` : null;
 	} else {
 		// Handle proper SpaceItem
 		iconData = getItemIcon(item.item_type);
@@ -169,13 +200,38 @@ export function SpaceItem({
 		iconData = { type: "image", icon: customIcon };
 	}
 
-	// Check if this item is active
-	// For paths with query params (like volumes), compare full path including search
-	const isActive = path
-		? path.includes("?")
-			? location.pathname + location.search === path
-			: location.pathname === path
-		: false;
+	// Override with custom label if provided
+	if (customLabel) {
+		label = customLabel;
+	}
+
+	// Check if this item is active by comparing SD paths
+	const isActive = (() => {
+		if (!path) return false;
+
+		// For explorer paths with query params, compare the SD path parameter
+		if (path.startsWith("/explorer?path=")) {
+			const currentSearchParams = new URLSearchParams(location.search);
+			const currentPathParam = currentSearchParams.get("path");
+			const itemPathParam = new URLSearchParams(path.split("?")[1]).get("path");
+
+			// Compare the actual SD path objects, not just the encoded strings
+			if (currentPathParam && itemPathParam) {
+				try {
+					const currentSdPath = JSON.parse(decodeURIComponent(currentPathParam));
+					const itemSdPath = JSON.parse(decodeURIComponent(itemPathParam));
+					return JSON.stringify(currentSdPath) === JSON.stringify(itemSdPath);
+				} catch {
+					// If parsing fails, fall back to string comparison
+					return currentPathParam === itemPathParam;
+				}
+			}
+			return false;
+		}
+
+		// For non-explorer routes, use simple path matching
+		return location.pathname === path;
+	})();
 
 	const handleClick = () => {
 		if (onClick) {
@@ -229,12 +285,10 @@ export function SpaceItem({
 				icon: Trash,
 				label: "Remove from Space",
 				onClick: async () => {
-					if (confirm(`Remove "${label}" from this space?`)) {
-						try {
-							await deleteItem.mutateAsync({ item_id: item.id });
-						} catch (err) {
-							console.error("Failed to remove item:", err);
-						}
+					try {
+						await deleteItem.mutateAsync({ item_id: item.id });
+					} catch (err) {
+						console.error("Failed to remove item:", err);
 					}
 				},
 				variant: "danger" as const,
@@ -321,14 +375,18 @@ export function SpaceItem({
 	});
 
 	return (
-		<div className="relative">
+		<div
+			ref={setSortableRef}
+			style={style}
+			className={clsx("relative", isSortableDragging && "opacity-50 z-50")}
+		>
 			{/* Insertion line indicator - only show top (bottom of previous item handles gaps) */}
-			{isOverTop && (
+			{isOverTop && !isSortableDragging && (
 				<div className="absolute -top-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
 			)}
 
 			{/* Ring highlight for drop-into */}
-			{isOverMiddle && isDropTarget && (
+			{isOverMiddle && isDropTarget && !isSortableDragging && (
 				<div className="absolute inset-0 rounded-md ring-2 ring-accent/50 ring-inset pointer-events-none z-10" />
 			)}
 
@@ -375,6 +433,7 @@ export function SpaceItem({
 				<button
 					onClick={handleClick}
 					onContextMenu={handleContextMenu}
+					{...(sortable ? { ...sortableAttributes, ...sortableListeners } : {})}
 					className={clsx(
 						"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
 						className ||

@@ -223,6 +223,7 @@ impl FileSharingService {
 			delete_after_copy: false,
 			move_mode: None,
 			copy_method: crate::ops::files::copy::input::CopyMethod::Auto,
+			conflict_resolution: None,
 		});
 
 		// Submit job to job system

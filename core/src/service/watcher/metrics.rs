@@ -145,6 +145,8 @@ impl LocationWorkerMetrics {
 pub struct WatcherMetrics {
 	/// Total locations being watched
 	pub total_locations: AtomicU64,
+	/// Total ephemeral watches (shallow, non-recursive)
+	pub total_ephemeral_watches: AtomicU64,
 	/// Total events received from filesystem
 	pub total_events_received: AtomicU64,
 	/// Total workers created
@@ -179,6 +181,11 @@ impl WatcherMetrics {
 		self.total_locations.store(count as u64, Ordering::Relaxed);
 	}
 
+	/// Update total ephemeral watches count
+	pub fn update_ephemeral_watches(&self, count: usize) {
+		self.total_ephemeral_watches.store(count as u64, Ordering::Relaxed);
+	}
+
 	/// Get event processing rate (events per second)
 	pub fn get_processing_rate(&self) -> f64 {
 		let received = self.total_events_received.load(Ordering::Relaxed);
@@ -190,8 +197,9 @@ impl WatcherMetrics {
 	/// Log current metrics
 	pub fn log_metrics(&self) {
 		info!(
-			"Watcher metrics: locations={}, events_received={}, workers_created={}, workers_destroyed={}",
+			"Watcher metrics: locations={}, ephemeral_watches={}, events_received={}, workers_created={}, workers_destroyed={}",
 			self.total_locations.load(Ordering::Relaxed),
+			self.total_ephemeral_watches.load(Ordering::Relaxed),
 			self.total_events_received.load(Ordering::Relaxed),
 			self.total_workers_created.load(Ordering::Relaxed),
 			self.total_workers_destroyed.load(Ordering::Relaxed)

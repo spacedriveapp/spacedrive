@@ -9872,29 +9872,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spacedrive-sdk"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "spacedrive-sdk-macros",
- "thiserror 1.0.69",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "spacedrive-sdk-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.106",
-]
-
-[[package]]
-name = "spacedrive-tauri"
+name = "spacedrive"
 version = "2.0.0"
 dependencies = [
  "axum",
@@ -9916,6 +9894,28 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "spacedrive-sdk"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "spacedrive-sdk-macros",
+ "thiserror 1.0.69",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "spacedrive-sdk-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]

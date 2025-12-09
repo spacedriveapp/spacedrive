@@ -132,7 +132,6 @@ pub async fn run_content_phase(
 						entry_id,
 						&path,
 						content_hash.clone(),
-						library_id,
 					)
 					.await
 					{

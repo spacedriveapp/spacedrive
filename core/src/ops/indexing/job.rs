@@ -209,6 +209,10 @@ impl DynJob for IndexerJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}
+
+	fn should_persist(&self) -> bool {
+		!self.config.is_ephemeral()
+	}
 }
 
 impl JobProgress for IndexerProgress {}
@@ -510,10 +514,32 @@ impl JobHandler for IndexerJob {
 					.ephemeral_cache()
 					.mark_indexing_complete(local_path);
 				match &result {
-					Ok(_) => ctx.log(format!(
-						"Marked ephemeral indexing complete for: {}",
-						local_path.display()
-					)),
+					Ok(_) => {
+						ctx.log(format!(
+							"Marked ephemeral indexing complete for: {}",
+							local_path.display()
+						));
+
+						// Automatically add filesystem watch for successfully indexed ephemeral paths
+						// This enables real-time updates when files change in browsed directories
+						if let Some(watcher) = ctx.library().core_context().get_location_watcher().await {
+							if let Err(e) = watcher.add_ephemeral_watch(
+								local_path.to_path_buf(),
+								self.config.rule_toggles
+							).await {
+								ctx.log(format!(
+									"Warning: Failed to add ephemeral watch for {}: {}",
+									local_path.display(),
+									e
+								));
+							} else {
+								ctx.log(format!(
+									"Added ephemeral watch for: {}",
+									local_path.display()
+								));
+							}
+						}
+					}
 					Err(e) => ctx.log(format!(
 						"Marked ephemeral indexing complete (job failed: {}) for: {}",
 						e,
