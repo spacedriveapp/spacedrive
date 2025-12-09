@@ -12,15 +12,15 @@ import { useLibraryMutation } from "../../../../context";
 
 interface ColumnProps {
   path: SdPath;
-  selectedFile: File | null;
-  onSelectFile: (file: File) => void;
+  selectedFiles: File[];
+  onSelectFile: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
   onNavigate: (path: SdPath) => void;
   nextColumnPath?: SdPath;
   columnIndex: number;
   isActive: boolean;
 }
 
-export function Column({ path, selectedFile, onSelectFile, onNavigate, nextColumnPath, columnIndex, isActive }: ColumnProps) {
+export function Column({ path, selectedFiles, onSelectFile, onNavigate, nextColumnPath, columnIndex, isActive }: ColumnProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const { viewSettings, sortBy } = useExplorer();
   const copyFiles = useLibraryMutation("files.copy");
@@ -153,21 +153,18 @@ export function Column({ path, selectedFile, onSelectFile, onNavigate, nextColum
       )}
       style={{ width: `${viewSettings.columnWidth}px` }}
     >
-      {files.length === 0 ? (
-        <div className="p-4 text-sm text-ink-dull">Empty folder</div>
-      ) : (
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const file = files[virtualRow.index];
 
             // Check if this file is selected
-            const fileIsSelected = selectedFile?.id === file.id;
+            const fileIsSelected = selectedFiles.some((f) => f.id === file.id);
 
             // Check if this file is part of the navigation path
             const isInPath = nextColumnPath && file.sd_path.Physical && nextColumnPath.Physical
@@ -191,19 +188,20 @@ export function Column({ path, selectedFile, onSelectFile, onNavigate, nextColum
                   file={file}
                   selected={fileIsSelected || isInPath}
                   focused={false}
-                  onClick={() => onSelectFile(file)}
+                  onClick={(multi, range) => onSelectFile(file, files, multi, range)}
                   onContextMenu={async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onSelectFile(file);
+                    if (!fileIsSelected) {
+                      onSelectFile(file, files, false, false);
+                    }
                     await contextMenu.show(e);
                   }}
                 />
               </div>
             );
           })}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

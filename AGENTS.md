@@ -28,6 +28,8 @@ cargo run --bin sd-cli -- <command>      # Run CLI (binary is sd-cli, not spaced
 - Using `println!` instead of `tracing` macros (`info!`, `debug!`, etc)
 - Implementing `Wire` manually instead of using `register_*` macros
 - Blocking the async runtime with synchronous I/O operations
+- On frontend apps, such as the interface in React, you must ALWAYS ensure type-safety based on the auto generated TypeScript types from `ts-client`. Never cast to as any or redefine backend types. our hooks are typesafe with correct input/output types, but sometimes you might need to access types directly from the `ts-client`.
+- If you have changed types on the backend that are public to the frontend (have `Type` derive), then you must regenerate the types using `cargo run --bin generate_typescript_types`
 
 ## Architecture Overview
 
