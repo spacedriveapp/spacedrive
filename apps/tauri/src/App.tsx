@@ -81,7 +81,7 @@ function App() {
     invoke("app_ready").catch(console.error);
 
     // Play startup sound
-    sounds.startup();
+    // sounds.startup();
 
     // Create Tauri-based client
     try {
