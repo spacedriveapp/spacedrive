@@ -34,6 +34,11 @@ export function useExplorerKeyboard() {
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Arrow keys: Navigation
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        // Skip column view - each column handles its own keyboard navigation
+        if (viewMode === "column") {
+          return;
+        }
+
         e.preventDefault();
 
         if (files.length === 0) return;
@@ -44,11 +49,6 @@ export function useExplorerKeyboard() {
           // List view: only up/down
           if (e.key === "ArrowUp") newIndex = Math.max(0, focusedIndex - 1);
           if (e.key === "ArrowDown") newIndex = Math.min(files.length - 1, focusedIndex + 1);
-        } else if (viewMode === "column") {
-          // Column view: up/down in current column, left/right between columns (TODO)
-          if (e.key === "ArrowUp") newIndex = Math.max(0, focusedIndex - 1);
-          if (e.key === "ArrowDown") newIndex = Math.min(files.length - 1, focusedIndex + 1);
-          // Left/right for column navigation - TODO: implement column switching
         } else if (viewMode === "grid" || viewMode === "media") {
           // Grid/Media view: 2D navigation
           const containerWidth =
@@ -86,10 +86,10 @@ export function useExplorerKeyboard() {
         return;
       }
 
-      // Enter: Navigate into directory (for column view)
+      // Enter: Navigate into directory
       if (e.key === "Enter" && selectedFiles.length === 1) {
         const selected = selectedFiles[0];
-        if (selected.kind.type === "Directory") {
+        if (selected.kind === "Directory") {
           e.preventDefault();
           setCurrentPath(selected.sd_path);
         }

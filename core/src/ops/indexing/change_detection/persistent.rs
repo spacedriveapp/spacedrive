@@ -733,7 +733,6 @@ impl<'a> IndexPersistence for DatabaseAdapterForJob<'a> {
 			entry_id,
 			path,
 			cas_id,
-			self.library_id,
 		)
 		.await
 		.map(|_| ())

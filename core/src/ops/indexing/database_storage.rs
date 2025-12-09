@@ -18,9 +18,10 @@
 //! Without preservation, promoting `/mnt/nas` to a managed location would generate new
 //! UUIDs and break all existing tag associations.
 //!
-//! **Deterministic Content UUIDs:** Content identities use v5 UUIDs (namespace hash of
-//! `content_hash + library_id`) so different devices can independently identify identical
-//! files and merge metadata without coordination. This enables offline duplicate detection.
+//! **Globally Deterministic Content UUIDs:** Content identities use v5 UUIDs (namespace hash of
+//! `content_hash` only) so any device can independently identify identical files and merge
+//! metadata without coordination. This enables offline duplicate detection across all devices
+//! and libraries.
 //!
 //! ## Example
 //! ```rust,no_run
@@ -735,10 +736,9 @@ impl DatabaseStorage {
 	/// the same `content_identity` row, enabling "find all duplicates" queries and
 	/// reducing thumbnail storage (one thumbnail per content, not per entry).
 	///
-	/// Each content identity gets a deterministic UUID (v5 hash of content_hash + library_id)
-	/// so other devices can independently identify the same content and merge their
-	/// metadata without coordination. This enables offline duplicate detection across
-	/// library peers.
+	/// Each content identity gets a globally deterministic UUID (v5 hash of content_hash only)
+	/// so any device can independently identify the same content and merge metadata without
+	/// coordination. This enables offline duplicate detection across all devices and libraries.
 	///
 	/// Returns both the content identity and the updated entry for batch sync operations.
 	/// The caller must sync both models if running outside the job system (e.g., watcher).
@@ -747,7 +747,6 @@ impl DatabaseStorage {
 		entry_id: i32,
 		path: &Path,
 		content_hash: String,
-		library_id: Uuid,
 	) -> Result<ContentLinkResult, JobError> {
 		let existing = entities::content_identity::Entity::find()
 			.filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
@@ -771,17 +770,11 @@ impl DatabaseStorage {
 				.map(|m| m.len() as i64)
 				.unwrap_or(0);
 
-			// Generate deterministic v5 UUID (namespace hash) so different devices can independently
-			// create the same content identity UUID for duplicate files. The namespace is derived from
-			// the library ID, ensuring content UUIDs are unique per library while still being deterministic.
-			let deterministic_uuid = {
-				const LIBRARY_NAMESPACE: uuid::Uuid = uuid::Uuid::from_bytes([
-					0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f,
-					0xd4, 0x30, 0xc8,
-				]);
-				let namespace = uuid::Uuid::new_v5(&LIBRARY_NAMESPACE, library_id.as_bytes());
-				uuid::Uuid::new_v5(&namespace, content_hash.as_bytes())
-			};
+			// Generate globally deterministic v5 UUID so any device can independently
+			// create the same content identity UUID for duplicate files, enabling
+			// cross-device and cross-library deduplication without coordination.
+			let deterministic_uuid =
+				entities::content_identity::Model::deterministic_uuid(&content_hash);
 
 			let registry = FileTypeRegistry::default();
 			let file_type_result = registry.identify(path).await;

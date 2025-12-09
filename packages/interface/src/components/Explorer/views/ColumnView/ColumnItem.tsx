@@ -6,7 +6,8 @@ interface ColumnItemProps {
   file: File;
   selected: boolean;
   focused: boolean;
-  onClick: (file: File, multi?: boolean, range?: boolean) => void;
+  onClick: () => void;
+  onDoubleClick?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -15,12 +16,17 @@ export function ColumnItem({
   selected,
   focused,
   onClick,
+  onDoubleClick,
   onContextMenu,
 }: ColumnItemProps) {
-  const handleClick = (e: React.MouseEvent) => {
-    const multi = e.metaKey || e.ctrlKey;
-    const range = e.shiftKey;
-    onClick(file, multi, range);
+  const handleClick = () => {
+    onClick();
+  };
+
+  const handleDoubleClick = () => {
+    if (onDoubleClick) {
+      onDoubleClick();
+    }
   };
 
   return (
@@ -28,18 +34,21 @@ export function ColumnItem({
       file={file}
       selected={selected}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onContextMenu={onContextMenu}
       layout="row"
       data-file-id={file.id}
       className={clsx(
-        "flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md transition-colors cursor-default",
+        "flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md cursor-default transition-none",
         selected
           ? "bg-accent text-white"
-          : "hover:bg-app-hover text-ink",
+          : "text-ink",
         focused && !selected && "ring-2 ring-accent/50"
       )}
     >
-      <FileComponent.Thumb file={file} size={20} />
+      <div className="[&_*]:!rounded-[3px] flex-shrink-0">
+        <FileComponent.Thumb file={file} size={20} />
+      </div>
       <span className="text-sm truncate flex-1">{file.name}</span>
       {file.kind === "Directory" && (
         <svg

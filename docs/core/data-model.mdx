@@ -152,7 +152,7 @@ ContentIdentity represents unique file content, enabling deduplication across yo
 ```rust Expandable theme={null}
 pub struct ContentIdentity {
     pub id: i32,
-    pub uuid: Option<Uuid>,           // Deterministic from content_hash + library_id
+    pub uuid: Option<Uuid>,           // Globally deterministic from content_hash only
 
     // Hashing
     pub content_hash: String,         // Fast sampled hash (for deduplication)

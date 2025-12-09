@@ -51,7 +51,8 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 		try {
 			setPhase({ type: "executing" });
 
-			const copyInput = {
+			// Execute with the user's chosen conflict resolution
+			await copyFiles.mutateAsync({
 				sources: { paths: props.sources },
 				destination: props.destination,
 				overwrite: conflictResolution === "Overwrite",
@@ -60,19 +61,7 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 				move_files: props.operation === "move",
 				copy_method: "Auto",
 				on_conflict: conflictResolution,
-			};
-
-			console.log("[FileOperationModal] Copy operation starting:", {
-				operation: props.operation,
-				sourceCount: props.sources.length,
-				sources: props.sources,
-				destination: props.destination,
-				conflictResolution,
-				fullInput: copyInput,
 			});
-
-			// Execute with the user's chosen conflict resolution
-			await copyFiles.mutateAsync(copyInput);
 
 			// Play completion sound
 			sounds.copy();

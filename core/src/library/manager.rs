@@ -1119,6 +1119,33 @@ impl LibraryManager {
 			library.id()
 		);
 
+		// Create Devices group
+		let devices_group_id =
+			deterministic_library_default_uuid(library_id, "space_group", "Devices");
+		let devices_type_json = serde_json::to_string(&GroupType::Devices)
+			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
+
+		let devices_group_model = crate::infra::db::entities::space_group::ActiveModel {
+			id: NotSet,
+			uuid: Set(devices_group_id),
+			space_id: Set(space_result.id),
+			name: Set("Devices".to_string()),
+			group_type: Set(devices_type_json),
+			is_collapsed: Set(false),
+			order: Set(0),
+			created_at: Set(now.into()),
+		};
+
+		devices_group_model
+			.insert(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		info!(
+			"Created default Devices group for library {}",
+			library.id()
+		);
+
 		// Create Locations group
 		let locations_group_id =
 			deterministic_library_default_uuid(library_id, "space_group", "Locations");
@@ -1132,7 +1159,7 @@ impl LibraryManager {
 			name: Set("Locations".to_string()),
 			group_type: Set(locations_type_json),
 			is_collapsed: Set(false),
-			order: Set(0),
+			order: Set(1),
 			created_at: Set(now.into()),
 		};
 
@@ -1159,7 +1186,7 @@ impl LibraryManager {
 			name: Set("Volumes".to_string()),
 			group_type: Set(volumes_type_json),
 			is_collapsed: Set(false),
-			order: Set(1),
+			order: Set(2),
 			created_at: Set(now.into()),
 		};
 
@@ -1169,6 +1196,30 @@ impl LibraryManager {
 			.map_err(LibraryError::DatabaseError)?;
 
 		info!("Created default Volumes group for library {}", library.id());
+
+		// Create Tags group
+		let tags_group_id =
+			deterministic_library_default_uuid(library_id, "space_group", "Tags");
+		let tags_type_json = serde_json::to_string(&GroupType::Tags)
+			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
+
+		let tags_group_model = crate::infra::db::entities::space_group::ActiveModel {
+			id: NotSet,
+			uuid: Set(tags_group_id),
+			space_id: Set(space_result.id),
+			name: Set("Tags".to_string()),
+			group_type: Set(tags_type_json),
+			is_collapsed: Set(false),
+			order: Set(3),
+			created_at: Set(now.into()),
+		};
+
+		tags_group_model
+			.insert(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		info!("Created default Tags group for library {}", library.id());
 
 		Ok(())
 	}

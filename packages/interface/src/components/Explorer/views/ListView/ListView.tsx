@@ -212,18 +212,21 @@ export const ListView = memo(function ListView() {
         ref={bodyScrollRef}
         className="overflow-x-auto"
         onScroll={handleBodyScroll}
+        style={{ pointerEvents: 'auto' }}
       >
         <div
           className="relative"
           style={{
             height: rowVirtualizer.getTotalSize() - TABLE_HEADER_HEIGHT,
             width: totalWidth,
+            pointerEvents: 'auto',
           }}
         >
           <div
             className="absolute left-0 top-0 w-full"
             style={{
               transform: `translateY(${(virtualRows[0]?.start ?? 0) - TABLE_HEADER_HEIGHT - TABLE_PADDING_Y}px)`,
+              pointerEvents: 'auto',
             }}
           >
             {virtualRows.map((virtualRow) => {

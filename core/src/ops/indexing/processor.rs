@@ -155,7 +155,6 @@ impl ContentHashProcessor {
 			entry.id,
 			&entry.path,
 			content_hash,
-			self.library_id,
 		)
 		.await?;
 

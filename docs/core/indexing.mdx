@@ -174,7 +174,7 @@ This enables instant directory size display without traversing descendants.
 Enables Spacedrive's deduplication capabilities through Content Addressable Storage (CAS):
 
 - **BLAKE3 Hashing**: Generates content hashes for files, linking entries to `content_identity` records
-- **Deterministic UUIDs**: Uses v5 UUIDs (namespace hash of `content_hash + library_id`) so different devices can independently identify identical files and arrive at the exact same Content UUID without communicating. This enables offline duplicate detection across library peers
+- **Globally Deterministic UUIDs**: Uses v5 UUIDs (namespace hash of `content_hash` only) so any device can independently identify identical files and arrive at the exact same Content UUID without communicating. This enables offline duplicate detection across all devices and libraries
 - **Sync Order**: Content identities must be synced before entries to avoid foreign key violations on receiving devices. The job system enforces this ordering
 - **File Type Identification**: Runs via `FileTypeRegistry` to populate `kind_id` and `mime_type_id` fields for new content
 

@@ -12,14 +12,17 @@ import { useLibraryMutation } from "../../../../context";
 
 interface ColumnProps {
   path: SdPath;
-  isActive: boolean;
+  selectedFile: File | null;
+  onSelectFile: (file: File) => void;
   onNavigate: (path: SdPath) => void;
+  nextColumnPath?: SdPath;
+  columnIndex: number;
+  isActive: boolean;
 }
 
-export function Column({ path, isActive, onNavigate }: ColumnProps) {
+export function Column({ path, selectedFile, onSelectFile, onNavigate, nextColumnPath, columnIndex, isActive }: ColumnProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const { currentPath, viewSettings } = useExplorer();
-  const { selectFile, selectedFiles, focusedIndex, isSelected } = useSelection();
+  const { viewSettings, sortBy } = useExplorer();
   const copyFiles = useLibraryMutation("files.copy");
   const deleteFiles = useLibraryMutation("files.delete");
 
@@ -29,7 +32,7 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
       path: path,
       limit: null,
       include_hidden: false,
-      sort_by: "name",
+      sort_by: sortBy as any,
       folders_first: viewSettings.foldersFirst,
     },
     resourceType: "file",
@@ -45,14 +48,6 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
     estimateSize: () => 32,
     overscan: 10,
   });
-
-  const getTargetFiles = (file: File) => {
-    const isSelected = selectedFiles.some((f) => f.id === file.id);
-    if (isSelected && selectedFiles.length > 0) {
-      return selectedFiles;
-    }
-    return [file];
-  };
 
   const contextMenu = useContextMenu({
     items: [
@@ -77,32 +72,28 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
       { type: "separator" },
       {
         icon: Copy,
-        label: selectedFiles.length > 1 ? `Copy ${selectedFiles.length} items` : "Copy",
-        onClick: async () => {
-          const sdPaths = selectedFiles.map((f) => f.sd_path);
+        label: "Copy",
+        onClick: async (file: File) => {
           window.__SPACEDRIVE__ = window.__SPACEDRIVE__ || {};
           window.__SPACEDRIVE__.clipboard = {
             operation: 'copy',
-            files: sdPaths,
-            sourcePath: currentPath,
+            files: [file.sd_path],
+            sourcePath: path,
           };
         },
         keybind: "⌘C",
-        condition: () => selectedFiles.length > 0,
       },
       {
         icon: Copy,
         label: "Paste",
         onClick: async () => {
           const clipboard = window.__SPACEDRIVE__?.clipboard;
-          if (!clipboard || !clipboard.files || !currentPath) {
-            return;
-          }
+          if (!clipboard || !clipboard.files) return;
 
           try {
             await copyFiles.mutateAsync({
               sources: { paths: clipboard.files },
-              destination: currentPath,
+              destination: path,
               overwrite: false,
               verify_checksum: false,
               preserve_timestamps: true,
@@ -122,17 +113,12 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
       { type: "separator" },
       {
         icon: Trash,
-        label: selectedFiles.length > 1 ? `Delete ${selectedFiles.length} items` : "Delete",
+        label: "Delete",
         onClick: async (file: File) => {
-          const targets = getTargetFiles(file);
-          const message = targets.length > 1
-            ? `Delete ${targets.length} items?`
-            : `Delete "${file.name}"?`;
-
-          if (confirm(message)) {
+          if (confirm(`Delete "${file.name}"?`)) {
             try {
               await deleteFiles.mutateAsync({
-                targets: { paths: targets.map((f) => f.sd_path) },
+                targets: { paths: [file.sd_path] },
                 permanent: false,
                 recursive: true,
               });
@@ -146,23 +132,6 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
       },
     ],
   });
-
-  const handleItemClick = (file: File, multi?: boolean, range?: boolean) => {
-    selectFile(file, multi, range);
-    // Don't navigate here - let the selection trigger column addition in ColumnView
-  };
-
-  const handleContextMenu = async (e: React.MouseEvent, file: File) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const isSelected = selectedFiles.some((f) => f.id === file.id);
-    if (!isSelected) {
-      selectFile(file, false, false);
-    }
-
-    await contextMenu.show(e);
-  };
 
   if (directoryQuery.isLoading) {
     return (
@@ -196,8 +165,15 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const file = files[virtualRow.index];
-            const fileIsSelected = isSelected(file.id);
-            const isFocused = focusedIndex === virtualRow.index;
+
+            // Check if this file is selected
+            const fileIsSelected = selectedFile?.id === file.id;
+
+            // Check if this file is part of the navigation path
+            const isInPath = nextColumnPath && file.sd_path.Physical && nextColumnPath.Physical
+              ? file.sd_path.Physical.path === nextColumnPath.Physical.path &&
+                file.sd_path.Physical.device_slug === nextColumnPath.Physical.device_slug
+              : false;
 
             return (
               <div
@@ -213,10 +189,15 @@ export function Column({ path, isActive, onNavigate }: ColumnProps) {
               >
                 <ColumnItem
                   file={file}
-                  selected={fileIsSelected}
-                  focused={isFocused}
-                  onClick={handleItemClick}
-                  onContextMenu={(e) => handleContextMenu(e, file)}
+                  selected={fileIsSelected || isInPath}
+                  focused={false}
+                  onClick={() => onSelectFile(file)}
+                  onContextMenu={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelectFile(file);
+                    await contextMenu.show(e);
+                  }}
                 />
               </div>
             );
