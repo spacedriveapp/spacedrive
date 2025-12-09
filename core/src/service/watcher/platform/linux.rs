@@ -3,7 +3,7 @@
 use super::EventHandler;
 use crate::infra::event::{Event, FsRawEventKind};
 use crate::service::watcher::event_handler::WatcherEventKind;
-use crate::service::watcher::{WatchedLocation, WatcherEvent};
+use crate::service::watcher::{EphemeralWatch, WatchedLocation, WatcherEvent};
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -86,6 +86,7 @@ impl EventHandler for LinuxHandler {
 		&self,
 		event: WatcherEvent,
 		watched_locations: &Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+		_ephemeral_watches: &Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	) -> Result<Vec<Event>> {
 		if !event.should_process() {
 			return Ok(vec![]);

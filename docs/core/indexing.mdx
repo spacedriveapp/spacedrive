@@ -3,7 +3,38 @@ title: Indexing
 sidebarTitle: Indexing
 ---
 
-The indexing system discovers and analyzes your files through a multi-phase pipeline. Built on Spacedrive's job system, it provides resumable operations, real-time progress tracking, and supports both persistent library indexing and ephemeral browsing of external drives.
+Spacedrive's indexing system solves a specific challenge: How do you build a distributed database that feels as fast as a local file explorer?
+
+The answer is a **Hybrid Indexing Engine** that layers an ultra-fast, in-memory ephemeral index over a robust, SQLite-backed persistent index. These two systems operate in tandem, allowing Spacedrive to instantly browse unmanaged locations (like a file manager) while seamlessly upgrading those paths to managed libraries (like a DAM) without UI flicker or state loss.
+
+## The Hybrid Philosophy
+
+Most file management software forces a choice: fast, dumb directory listing (Explorer/Finder) or slow, heavy database ingestion (Lightroom/Photos). Spacedrive does both simultaneously by decoupling **Discovery** from **Persistence**.
+
+### The Ephemeral Layer ("File Manager" Mode)
+
+When you open a location that hasn't been added to your library—an external drive, network share, or local directory—Spacedrive runs only Phase 1 (Discovery) of the indexing pipeline:
+
+- **Memory-Resident**: The index lives entirely in RAM
+- **Highly Optimized**: Custom slab allocators (NodeArena) and string interning (NameCache) compress file entries down to ~50 bytes
+- **Massive Scale**: Can index millions of files into RAM for accelerated local search
+- **Zero Database I/O**: Bypasses SQLite entirely for maximum throughput
+
+### The Persistent Layer ("Library" Mode)
+
+For files you want to track across devices, Spacedrive persists data to a synchronized SQLite database using the full multi-phase pipeline with deep content analysis, deduplication, and closure-table hierarchy management.
+
+### Seamless State Promotion
+
+The critical innovation is how these two layers communicate. When you add a location to your library for a folder you're currently browsing ephemerally, the system performs an **Intelligent Promotion**:
+
+- **UUID Preservation**: The persistent indexer detects the existing ephemeral index and carries over UUIDs assigned during the browsing session into the database
+- **UI Consistency**: Because UUIDs remain stable, the UI doesn't flicker or reset. Selections, active tabs, and view states remain intact
+- **Phase Continuation**: The indexer essentially "resumes" from Phase 1, flushing discovered entries to SQLite and proceeding to Phase 2 (Processing) and Phase 3 (Content Analysis)
+
+<Info>
+This architecture allows Spacedrive to act as your daily driver file explorer. You get instant access to files immediately, with the option to progressively "deepen" the index for files that matter.
+</Info>
 
 ## Architecture Overview
 
@@ -88,19 +119,26 @@ CREATE TABLE entry (
 
 ## Indexing Phases
 
-The indexer operates through five distinct phases, each designed to be interruptible and resumable:
+The pipeline is broken into atomic, resumable phases. The **Ephemeral engine** runs only Phase 1. The **Persistent engine** runs all five phases.
 
 ### Phase 1: Discovery
+**Used by: Ephemeral & Persistent**
 
-Discovery walks the filesystem using parallel workers with a work-stealing model. On systems with 8+ cores, multiple threads scan directories concurrently, communicating via channels to maximize disk throughput.
+A parallel, asynchronous filesystem walk designed for raw speed:
 
-Discovered entries are filtered through `IndexerRuler`, which applies toggleable system rules (like `NO_HIDDEN`, `NO_DEV_DIRS`) and dynamically loaded `.gitignore` patterns when inside a Git repository.
+- **Parallelism**: Work-stealing architecture where workers consume directories and directly enqueue subdirectories. On systems with 8+ cores, multiple threads scan concurrently, communicating via channels to maximize disk throughput
+- **Rules Engine**: Filters system files (`.git`, `node_modules`) at the discovery edge through `IndexerRuler`, which applies toggleable system rules (`NO_HIDDEN`, `NO_DEV_DIRS`) and dynamically loaded `.gitignore` patterns when inside a Git repository
+- **Output**: A stream of lightweight `DirEntry` objects
 
 Progress is measured by directories discovered. Entries are collected into batches of 1,000 items before moving to processing.
 
 ### Phase 2: Processing
+**Used by: Persistent Only**
 
-Processing converts discovered entries into database records. Entries are sorted by depth (parents before children) to maintain referential integrity during batch insertion.
+Converts discovered entries into database records:
+
+- **Topology Sorting**: Entries are sorted by depth (parents before children) to maintain referential integrity during batch insertion
+- **Batching**: Writes occur in transactions of 1,000 items to minimize SQLite locking overhead
 
 **Change Detection** runs during this phase. The `ChangeDetector` loads existing database entries for the indexing path, then compares against filesystem state to identify:
 
@@ -116,26 +154,32 @@ Changes are processed in batch transactions. Each batch inserts closure table ro
 The processing phase validates that the indexing path stays within location boundaries, preventing catastrophic cross-location deletion if watcher routing bugs send events for the wrong path.
 
 ### Phase 3: Aggregation
+**Used by: Persistent Only**
 
-Aggregation walks the entry tree bottom-up, computing directory statistics:
+To allow sorting folders by "True Size" (the size of all children recursively), we aggregate statistics from the bottom up:
 
+- **Closure Table**: Uses the `entry_closure` table to perform O(1) descendant lookups
+- **Leaf-to-Root**: Calculates sizes for the deepest directories first, bubbling totals up to the root
+
+These aggregates are stored in the entry table:
 - `aggregate_size`: Total bytes including subdirectories
 - `child_count`: Direct children only
 - `file_count`: Recursive file count
 
-These aggregates are stored in the entry table and enable instant directory size display without traversing descendants.
+This enables instant directory size display without traversing descendants.
 
 ### Phase 4: Content Identification
+**Used by: Persistent Only**
 
-Content identification generates BLAKE3 hashes for files, linking entries to `content_identity` records for deduplication.
+Enables Spacedrive's deduplication capabilities through Content Addressable Storage (CAS):
 
-Content identities use deterministic v5 UUIDs (namespace hash of `content_hash + library_id`) so different devices can independently identify identical files and merge metadata without coordination. This enables offline duplicate detection across library peers.
-
-**Sync Order**: Content identities must be synced before entries to avoid foreign key violations on receiving devices. The job system enforces this ordering.
-
-For new content, file type identification runs via `FileTypeRegistry` to populate `kind_id` and `mime_type_id` fields.
+- **BLAKE3 Hashing**: Generates content hashes for files, linking entries to `content_identity` records
+- **Deterministic UUIDs**: Uses v5 UUIDs (namespace hash of `content_hash + library_id`) so different devices can independently identify identical files and arrive at the exact same Content UUID without communicating. This enables offline duplicate detection across library peers
+- **Sync Order**: Content identities must be synced before entries to avoid foreign key violations on receiving devices. The job system enforces this ordering
+- **File Type Identification**: Runs via `FileTypeRegistry` to populate `kind_id` and `mime_type_id` fields for new content
 
 ### Phase 5: Finalizing
+**Used by: Persistent Only**
 
 Finalizing handles post-processing tasks like directory aggregation updates and potential processor dispatch (thumbnail generation for Deep Mode).
 
@@ -211,26 +255,40 @@ Persistent indexing stores all data in the database permanently. This is the def
 
 ### Ephemeral Indexing
 
-Ephemeral indexing keeps data in memory only, perfect for browsing external drives without permanent storage.
+Ephemeral indexing keeps data in memory only, perfect for browsing external drives without permanent storage. The system uses highly memory-optimized structures (detailed in the Data Structures section below):
 
-The ephemeral system uses highly memory-optimized structures:
+- **NodeArena**: Slab allocator for `FileNode` entries with 32-bit entry IDs instead of 64-bit pointers
+- **NameCache**: Global string interning pool where one copy of "index.js" serves thousands of node_modules files
+- **NameRegistry**: BTreeMap for fast name-based lookups without full-text indexing overhead
 
-**NodeArena**: Slab allocator for `FileNode` entries with pointer-sized entry IDs. Provides contiguous memory layout for cache efficiency.
+Memory usage is around 50 bytes per entry vs 200+ bytes with naive approaches—a 4-6x reduction that enables browsing hundreds of thousands of files without database overhead.
 
-**NameCache**: Global string interning pool. One copy of "index.js" serves thousands of node_modules files.
-
-**NameRegistry**: BTreeMap for fast name-based lookups without full-text indexing overhead.
-
-Memory usage is around 50 bytes per entry vs 200+ bytes with naive `HashMap<PathBuf, Entry>` approach. This 4-6x reduction enables browsing hundreds of thousands of files without database overhead.
-
-Multiple directory trees can coexist in the same `EphemeralIndex` (browsing both `/mnt/nas` and `/media/usb` simultaneously), sharing the string interning pool for maximum deduplication.
-
-The `EphemeralIndexCache` tracks which paths have been indexed, are currently being indexed, or are registered for filesystem watching. When a watched path receives filesystem events, `EphemeralWriter` updates the in-memory index in real-time.
+The `EphemeralIndexCache` tracks which paths have been indexed, are currently being indexed, or are registered for filesystem watching. When a watched path receives filesystem events, the system updates the in-memory index in real-time through the unified `ChangeHandler` trait (shared with persistent storage).
 
 <Info>
 	Ephemeral mode lets you explore USB drives or network shares without
 	permanently adding them to your library.
 </Info>
+
+## Data Structures & Optimizations
+
+Specific low-level optimizations make the hybrid architecture viable:
+
+### NodeArena (Ephemeral)
+
+The ephemeral index doesn't use standard HashMaps. Instead, it uses a memory-mapped **NodeArena**—a contiguous slab of memory that stores file nodes using 32-bit integers as pointers rather than 64-bit pointers. This reduces memory overhead by 4-6x compared to naive `HashMap<PathBuf, Entry>` implementations, enabling browsing of hundreds of thousands of files without database overhead.
+
+### Name Pooling (Ephemeral)
+
+In typical filesystems, filenames like `index.js`, `.DS_Store`, or `conf.yaml` repeat thousands of times. The **NameCache** interns these strings, storing them once and referencing them by pointer. Multiple directory trees can coexist in the same `EphemeralIndex` (browsing both `/mnt/nas` and `/media/usb` simultaneously), sharing the string interning pool for maximum deduplication.
+
+<Note>
+**Future Roadmap**: We plan to port the Name Pooling strategy from the ephemeral engine to the SQLite database schema. This will significantly reduce the storage footprint of the persistent library by deduplicating filename strings at the database level.
+</Note>
+
+### Directory Path Caching (Persistent)
+
+While the database uses an adjacency list (`parent_id`) for structure, recursive queries are slow. The `directory_paths` table caches the full absolute path of every directory, enabling O(1) path resolution for any file without recursive parent traversal.
 
 ## Indexer Rules
 

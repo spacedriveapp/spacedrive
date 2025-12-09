@@ -21,6 +21,7 @@
 	},
 	"dependencies": {
 		"@phosphor-icons/react": "^2.1.0",
+		"@sd/assets": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ts-client": "workspace:*",
 		"@sd/ui": "workspace:*",

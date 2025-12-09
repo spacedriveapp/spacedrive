@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useRef, useEffect } from "react";
 import { Plus } from "@phosphor-icons/react";
+import clsx from "clsx";
 import type { LocationInfo } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../context";
 import { Section } from "./Section";
@@ -8,6 +9,7 @@ import { SidebarItem } from "./SidebarItem";
 import { useAddLocationDialog } from "./AddLocationModal";
 import { Location } from "@sd/assets/icons";
 import { useEvent } from "../../../hooks/useEvent";
+import { useDroppable } from "@dnd-kit/core";
 
 export function LocationsSection() {
   const navigate = useNavigate();
@@ -75,10 +77,9 @@ export function LocationsSection() {
         )}
 
       {locations.map((location) => (
-        <SidebarItem
+        <LocationDropZone
           key={location.id}
-          icon={Location}
-          label={location.name || "Unnamed"}
+          location={location}
           active={locationId === location.id}
           onClick={() => handleLocationClick(location)}
         />
@@ -91,5 +92,41 @@ export function LocationsSection() {
         className="text-ink-faint hover:text-ink"
       />
     </Section>
+  );
+}
+
+// Location item with drop zone support
+function LocationDropZone({
+  location,
+  active,
+  onClick,
+}: {
+  location: LocationInfo;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `location-drop-${location.id}`,
+    data: {
+      action: "move-into",
+      targetType: "location",
+      targetId: location.id,
+      targetPath: location.sd_path, // Use the proper sd_path from the location
+    },
+  });
+
+  return (
+    <div ref={setNodeRef} className="relative">
+      {isOver && (
+        <div className="absolute inset-0 rounded-lg ring-2 ring-accent ring-inset pointer-events-none z-10" />
+      )}
+      <SidebarItem
+        icon={Location}
+        label={location.name || "Unnamed"}
+        active={active}
+        onClick={onClick}
+        className={clsx(isOver && "bg-accent/10")}
+      />
+    </div>
   );
 }

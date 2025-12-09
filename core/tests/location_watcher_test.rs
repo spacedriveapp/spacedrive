@@ -17,7 +17,6 @@ use sd_core::{
 		indexing::IndexMode,
 		locations::add::action::{LocationAddAction, LocationAddInput},
 	},
-	service::Service,
 	Core,
 };
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
@@ -215,6 +214,7 @@ impl TestHarness {
 			path: SdPath::local(test_dir.clone()),
 			name: Some("SD_TEST_DIR".to_string()),
 			mode: IndexMode::Deep,
+			job_policies: None,
 		};
 
 		let action = LocationAddAction::new(input);

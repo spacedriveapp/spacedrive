@@ -5,8 +5,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobList } from "./components/JobList";
-import { useJobCount } from "./hooks/useJobCount";
-import { useJobManager } from "./hooks/useJobManager";
+import { useJobs } from "./hooks/useJobs";
 import { CARD_HEIGHT } from "./types";
 
 interface JobManagerPopoverProps {
@@ -18,8 +17,8 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
   const popover = usePopover();
   const [showOnlyRunning, setShowOnlyRunning] = useState(true);
 
-  // Lightweight hook for trigger badge/icon
-  const { activeJobCount, hasRunningJobs } = useJobCount();
+  // Unified hook for job data and badge/icon
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume } = useJobs();
 
   // Reset filter to "active only" when popover opens
   useEffect(() => {
@@ -94,8 +93,11 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
       {/* Popover content with full job manager */}
       {popover.open && (
         <JobManagerPopoverContent
+          jobs={jobs}
           showOnlyRunning={showOnlyRunning}
           setShowOnlyRunning={setShowOnlyRunning}
+          pause={pause}
+          resume={resume}
         />
       )}
     </Popover>
@@ -103,15 +105,18 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
 }
 
 function JobManagerPopoverContent({
+  jobs,
   showOnlyRunning,
   setShowOnlyRunning,
+  pause,
+  resume,
 }: {
+  jobs: any[];
   showOnlyRunning: boolean;
   setShowOnlyRunning: (value: boolean) => void;
+  pause: (jobId: string) => Promise<void>;
+  resume: (jobId: string) => Promise<void>;
 }) {
-  // Full job manager with progress subscriptions (only when popover is open)
-  const { jobs, pause, resume } = useJobManager();
-
   const filteredJobs = showOnlyRunning
     ? jobs.filter((job) => job.status === "running" || job.status === "paused")
     : jobs;

@@ -31,7 +31,7 @@ import {
 import { createExplorerRouter } from "./router";
 import { useNormalizedQuery, useLibraryMutation } from "./context";
 import { usePlatform } from "./platform";
-import type { LocationInfo } from "@sd/ts-client";
+import type { LocationInfo, SdPath } from "@sd/ts-client";
 import {
 	DndContext,
 	DragOverlay,
@@ -46,6 +46,7 @@ import { useState } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
+import { useFileOperationDialog } from "./components/FileOperationModal";
 
 interface AppProps {
 	client: SpacedriveClient;
@@ -313,6 +314,7 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 		}),
 	);
 	const addItem = useLibraryMutation("spaces.add_item");
+	const openFileOperation = useFileOperationDialog();
 	const [activeItem, setActiveItem] = useState<any>(null);
 
 	// Custom collision detection: prefer -top zones over -bottom zones to avoid double lines
@@ -369,10 +371,21 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 
 		// Move file into location/volume/folder
 		if (dropData?.action === "move-into") {
-			// TODO: Implement with files.move mutation based on targetType
-			// - location: Use targetPath
-			// - volume: Look up volume root path
-			// - folder: Use targetPath from Path item
+			const sources: SdPath[] = dragData.selectedFiles
+				? dragData.selectedFiles.map((f: File) => f.sd_path)
+				: [dragData.sdPath];
+
+			const destination: SdPath = dropData.targetPath;
+
+			// Determine operation based on modifier keys
+			// For now default to copy (user can choose in modal)
+			const operation = "copy";
+
+			openFileOperation({
+				operation,
+				sources,
+				destination,
+			});
 			return;
 		}
 
@@ -414,7 +427,7 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 			<DragOverlay dropAnimation={null}>
 				{activeItem?.file && activeItem.gridSize ? (
 					<div style={{ width: activeItem.gridSize }}>
-						<div className="flex flex-col items-center gap-2 p-1 rounded-lg">
+						<div className="flex flex-col items-center gap-2 p-1 rounded-lg relative">
 							<div className="rounded-lg p-2">
 								<FileComponent.Thumb
 									file={activeItem.file}
@@ -427,6 +440,12 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 							<div className="text-sm truncate px-2 py-0.5 rounded-md bg-accent text-white max-w-full">
 								{activeItem.name}
 							</div>
+							{/* Show count badge if dragging multiple files */}
+							{activeItem.selectedFiles && activeItem.selectedFiles.length > 1 && (
+								<div className="absolute -top-2 -right-2 size-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center shadow-lg border-2 border-app">
+									{activeItem.selectedFiles.length}
+								</div>
+							)}
 						</div>
 					</div>
 				) : null}

@@ -203,7 +203,7 @@ impl CopyStrategy for FastCopyStrategy {
 		source: &SdPath,
 		destination: &SdPath,
 		verify_checksum: bool,
-		_progress_callback: Option<&ProgressCallback<'a>>,
+		progress_callback: Option<&ProgressCallback<'a>>,
 	) -> Result<u64> {
 		let source_path = source
 			.as_local_path()
@@ -212,12 +212,25 @@ impl CopyStrategy for FastCopyStrategy {
 			.as_local_path()
 			.ok_or_else(|| anyhow::anyhow!("Destination path is not local"))?;
 
+		// Check if source is a directory
+		let metadata = fs::metadata(source_path).await?;
+		if metadata.is_dir() {
+			// FastCopyStrategy doesn't support directories - delegate to streaming
+			ctx.log(format!(
+				"FastCopyStrategy: Source is a directory, delegating to LocalStreamCopyStrategy for recursive copy: {}",
+				source_path.display()
+			));
+			return LocalStreamCopyStrategy
+				.execute(ctx, source, destination, verify_checksum, progress_callback)
+				.await;
+		}
+
 		// Create destination directory if needed
 		if let Some(parent) = dest_path.parent() {
 			fs::create_dir_all(parent).await?;
 		}
 
-		// Use std::fs::copy which automatically handles filesystem optimizations
+		// Use std::fs::copy which automatically handles filesystem optimizations (CoW on APFS, etc.)
 		let bytes_copied = tokio::task::spawn_blocking({
 			let source_path = source_path.to_path_buf();
 			let dest_path = dest_path.to_path_buf();

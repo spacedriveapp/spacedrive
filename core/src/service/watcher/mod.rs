@@ -897,7 +897,7 @@ impl LocationWatcher {
 					Some(event) = rx.recv() => {
 						debug!("Received event from channel: {:?}", event.kind);
 						// Process the event through platform handler
-						match platform_handler.process_event(event, &watched_locations).await {
+						match platform_handler.process_event(event, &watched_locations, &ephemeral_watches).await {
 							Ok(processed_events) => {
 								for processed_event in processed_events {
 									match processed_event {
@@ -1045,7 +1045,7 @@ impl LocationWatcher {
 						// Handle platform-specific tick events that might generate additional events (e.g., rename matching)
 						#[cfg(target_os = "macos")]
 						{
-							if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations).await {
+							if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations, &ephemeral_watches).await {
 								for tick_event in tick_events {
 									match tick_event {
 										Event::FsRawChange { library_id, kind } => {

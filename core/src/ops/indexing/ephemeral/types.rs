@@ -468,3 +468,4 @@ mod tests {
 		assert_eq!(EntryKind::from(FileType::Symlink), EntryKind::Symlink);
 	}
 }
+

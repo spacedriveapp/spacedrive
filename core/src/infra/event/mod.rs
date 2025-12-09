@@ -420,6 +420,15 @@ impl Event {
 			return true;
 		}
 
+		// Handle Physical scope against Content/Sidecar paths by checking alternate_paths
+		// This prevents unnecessary events when content exists outside the subscribed scope
+		if matches!(scope, SdPath::Physical { .. }) {
+			let has_content_with_alternate_match = self.check_alternate_paths(scope, include_descendants);
+			if has_content_with_alternate_match {
+				return true;
+			}
+		}
+
 		// For exact mode with Physical paths: check if ANY file is a direct child
 		if !include_descendants {
 			// Exact mode: find if there's at least one file that's a direct child
@@ -496,6 +505,84 @@ impl Event {
 		);
 
 		result
+	}
+
+	/// Check if alternate_paths in the resource match the Physical scope
+	///
+	/// For Content/Sidecar events, alternate_paths contains all Physical locations
+	/// where that content exists. This allows filtering to only forward events
+	/// when the content has a physical presence in the subscribed path scope.
+	fn check_alternate_paths(&self, scope: &SdPath, include_descendants: bool) -> bool {
+		// Extract resource(s) from the event
+		let resources = match self {
+			Event::ResourceChanged { resource, .. } => vec![resource],
+			Event::ResourceChangedBatch { resources, .. } => {
+				// Extract array of resources
+				if let Some(arr) = resources.as_array() {
+					arr.iter().collect()
+				} else {
+					return false;
+				}
+			}
+			_ => return false,
+		};
+
+		// Check if any resource's alternate_paths match the scope
+		for resource in resources {
+			// Extract alternate_paths array from resource JSON
+			let alternate_paths = resource
+				.get("alternate_paths")
+				.and_then(|v| v.as_array());
+
+			if let Some(paths_array) = alternate_paths {
+				// Deserialize each path and check if it matches the scope
+				for path_value in paths_array {
+					if let Ok(alt_path) = serde_json::from_value::<SdPath>(path_value.clone()) {
+						// Check if this alternate path matches the scope
+						if let (
+							SdPath::Physical {
+								device_slug: scope_device,
+								path: scope_path,
+							},
+							SdPath::Physical {
+								device_slug: alt_device,
+								path: alt_path,
+							},
+						) = (scope, &alt_path)
+						{
+							if scope_device != alt_device {
+								continue;
+							}
+
+							// Apply same matching logic as regular physical paths
+							let matches = if include_descendants {
+								// Recursive: match if path is descendant
+								alt_path.starts_with(scope_path)
+							} else {
+								// Exact: match if parent directory equals scope
+								if let Some(parent) = alt_path.parent() {
+									parent == scope_path.as_path()
+								} else {
+									false
+								}
+							};
+
+							if matches {
+								tracing::debug!(
+									"alternate_path match: scope={}, alt_path={}, include_descendants={}",
+									scope_path.display(),
+									alt_path.display(),
+									include_descendants
+								);
+								return true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		false
 	}
 }
 

@@ -36,6 +36,7 @@ pub struct CopyOptions {
 	pub delete_after_copy: bool,
 	pub move_mode: Option<MoveMode>,
 	pub copy_method: CopyMethod,
+	pub conflict_resolution: Option<super::action::FileConflictResolution>,
 }
 
 impl Default for CopyOptions {
@@ -47,6 +48,7 @@ impl Default for CopyOptions {
 			delete_after_copy: false,
 			move_mode: None,
 			copy_method: CopyMethod::Auto,
+			conflict_resolution: None,
 		}
 	}
 }
@@ -259,23 +261,32 @@ impl JobHandler for FileCopyJob {
 				continue;
 			}
 
-			let final_destination = if self.sources.paths.len() > 1 {
-				// Multiple sources: destination must be a directory
-				self.destination
-					.join(resolved_source.file_name().unwrap_or_default())
-			} else {
-				// Single source: check if destination is a directory
-				if let Some(dest_path) = self.destination.as_local_path() {
-					if dest_path.is_dir() {
-						// Destination is a directory, join with source filename
-						self.destination
-							.join(resolved_source.file_name().unwrap_or_default())
+			// Determine the final destination path for this source
+			let final_destination = if let Some(dest_path) = self.destination.as_local_path() {
+				// Check if destination exists and is a file (common mistake when dragging onto files)
+				if dest_path.exists() && dest_path.is_file() {
+					// User dropped onto a file - use its parent directory
+					if let Some(parent) = dest_path.parent() {
+						SdPath::local(parent.join(resolved_source.file_name().unwrap_or_default()))
 					} else {
-						// Destination is a file path, use as-is
+						// No parent directory (root?), fallback to destination
 						self.destination.clone()
 					}
+				} else if dest_path.is_dir() || self.sources.paths.len() > 1 {
+					// Destination is a directory, OR we have multiple sources
+					// In both cases, join with source filename
+					self.destination.join(resolved_source.file_name().unwrap_or_default())
 				} else {
-					// Non-local destination, assume file copy
+					// Single source, destination doesn't exist or is not a file/dir
+					// Use destination as-is (allows renaming: copy file.txt -> newname.txt)
+					self.destination.clone()
+				}
+			} else {
+				// Non-local destination (Cloud, Content, Sidecar)
+				// For multiple sources, join with filename; for single source, use as-is
+				if self.sources.paths.len() > 1 {
+					self.destination.join(resolved_source.file_name().unwrap_or_default())
+				} else {
 					self.destination.clone()
 				}
 			};
@@ -335,6 +346,52 @@ impl JobHandler for FileCopyJob {
 				resolved_source.display(),
 				final_destination.display()
 			);
+
+			// Handle conflict resolution before copying
+			let final_destination = if let Some(resolution) = self.options.conflict_resolution {
+				match resolution {
+					super::action::FileConflictResolution::Skip => {
+						// Check if destination exists
+						if let Some(dest_path) = final_destination.as_local_path() {
+							if dest_path.exists() {
+								ctx.log(format!("Skipping existing file: {}", dest_path.display()));
+								// Skip this file
+								progress_aggregator.complete_source();
+								copied_count += files_in_source;
+								self.completed_indices.push(index);
+								continue;
+							}
+						}
+						final_destination
+					}
+					super::action::FileConflictResolution::AutoModifyName => {
+						// Generate unique name if destination exists
+						if let Some(dest_path) = final_destination.as_local_path() {
+							if dest_path.exists() {
+								let unique_dest = self.generate_unique_name(&dest_path).await?;
+								SdPath::Physical {
+									device_slug: final_destination.device_slug().unwrap_or_default().to_string(),
+									path: unique_dest,
+								}
+							} else {
+								final_destination
+							}
+						} else {
+							final_destination
+						}
+					}
+					super::action::FileConflictResolution::Overwrite => {
+						// Overwrite is already handled via options.overwrite
+						final_destination
+					}
+					super::action::FileConflictResolution::Abort => {
+						// Should have been caught earlier
+						return Err(JobError::execution("Operation aborted by user"));
+					}
+				}
+			} else {
+				final_destination
+			};
 
 			// 2. Execute the strategy with progress callback
 			match strategy
@@ -838,6 +895,44 @@ impl FileCopyJob {
 		}
 
 		Ok(total)
+	}
+
+	/// Generate a unique filename by appending (1), (2), etc.
+	async fn generate_unique_name(&self, dest_path: &std::path::Path) -> JobResult<PathBuf> {
+		let mut counter = 1;
+		let mut new_path = dest_path.to_path_buf();
+
+		while tokio::fs::metadata(&new_path).await.is_ok() {
+			if let Some(parent) = dest_path.parent() {
+				if let Some(file_name) = dest_path.file_name() {
+					let file_name_str = file_name.to_string_lossy();
+
+					// Split filename and extension
+					if let Some(dot_pos) = file_name_str.rfind('.') {
+						let name = &file_name_str[..dot_pos];
+						let ext = &file_name_str[dot_pos..];
+						new_path = parent.join(format!("{} ({}){}", name, counter, ext));
+					} else {
+						// No extension
+						new_path = parent.join(format!("{} ({})", file_name_str, counter));
+					}
+				} else {
+					return Err(JobError::execution("Could not get filename"));
+				}
+			} else {
+				return Err(JobError::execution("Could not get parent directory"));
+			}
+
+			counter += 1;
+
+			if counter > 1000 {
+				return Err(JobError::execution(
+					"Could not generate unique filename after 1000 attempts",
+				));
+			}
+		}
+
+		Ok(new_path)
 	}
 
 	/// Delete source file after successful cross-volume move

@@ -12,6 +12,7 @@ import {
   SpacedriveProvider,
 } from "@sd/interface";
 import { SpacedriveClient, TauriTransport } from "@sd/ts-client";
+import { sounds } from "@sd/assets/sounds";
 import { useEffect, useState } from "react";
 import { DragOverlay } from "./routes/DragOverlay";
 import { ContextMenuWindow } from "./routes/ContextMenuWindow";
@@ -78,6 +79,9 @@ function App() {
 
     // Tell Tauri window is ready to be shown
     invoke("app_ready").catch(console.error);
+
+    // Play startup sound
+    sounds.startup();
 
     // Create Tauri-based client
     try {

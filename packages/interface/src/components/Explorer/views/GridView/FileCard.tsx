@@ -29,7 +29,7 @@ import { useLibraryMutation } from "../../../../context";
 import { usePlatform } from "../../../../platform";
 import { formatBytes, getContentKind } from "../../utils";
 import { TagDot } from "../../../Tags";
-import { useDraggable } from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 interface FileCardProps {
 	file: File;
@@ -520,7 +520,7 @@ export const FileCard = memo(
 		const {
 			attributes,
 			listeners,
-			setNodeRef,
+			setNodeRef: setDragNodeRef,
 			isDragging: dndIsDragging,
 		} = useDraggable({
 			id: file.id,
@@ -529,9 +529,29 @@ export const FileCard = memo(
 				sdPath: file.sd_path,
 				name: file.name,
 				file: file,
-				gridSize: gridSize, // Pass grid size for overlay
+				gridSize: gridSize,
+				selectedFiles: selected && selectedFiles.length > 0 ? selectedFiles : undefined,
 			},
 		});
+
+		// Make folders droppable
+		const isFolder = file.kind === "Directory";
+		const { setNodeRef: setDropNodeRef, isOver: isDropOver } = useDroppable({
+			id: `folder-drop-${file.id}`,
+			disabled: !isFolder,
+			data: {
+				action: "move-into",
+				targetType: "folder",
+				targetId: file.id,
+				targetPath: file.sd_path,
+			},
+		});
+
+		// Combine refs for folders that are both draggable and droppable
+		const setNodeRef = (node: HTMLElement | null) => {
+			setDragNodeRef(node);
+			if (isFolder) setDropNodeRef(node);
+		};
 
 		const thumbSize = Math.max(gridSize * 0.6, 60);
 
@@ -541,7 +561,12 @@ export const FileCard = memo(
 				{...listeners}
 				{...attributes}
 				data-file-id={file.id}
+				className="relative"
 			>
+				{/* Drop indicator for folders */}
+				{isFolder && isDropOver && (
+					<div className="absolute inset-0 rounded-lg ring-2 ring-accent ring-inset pointer-events-none z-10" />
+				)}
 				<FileComponent
 					file={file}
 					selected={selected}
@@ -553,6 +578,7 @@ export const FileCard = memo(
 						"flex flex-col items-center gap-2 p-1 rounded-lg transition-all",
 						focused && !selected && "ring-2 ring-accent/50",
 						dndIsDragging && "opacity-50",
+						isFolder && isDropOver && "bg-accent/10",
 					)}
 				>
 					<div

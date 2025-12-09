@@ -491,6 +491,11 @@ function updateArrayCache(
   // Append new items
   for (const resource of newResources) {
     if (!seenIds.has(resource.id)) {
+      // Skip resources with Content paths - they represent alternate instances
+      // and should only update existing entries (e.g., thumbnail generation)
+      if (resource.sd_path?.Content) {
+        continue;
+      }
       newData.push(resource);
     }
   }
@@ -535,6 +540,11 @@ function updateWrappedCache(
     // Append new
     for (const resource of newResources) {
       if (!seenIds.has(resource.id)) {
+        // Skip resources with Content paths - they represent alternate instances
+        // and should only update existing entries (e.g., thumbnail generation)
+        if (resource.sd_path?.Content) {
+          continue;
+        }
         array.push(resource);
       }
     }

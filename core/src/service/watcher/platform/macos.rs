@@ -13,7 +13,7 @@ use super::EventHandler;
 use crate::infra::db::entities::{directory_paths, entry};
 use crate::infra::event::Event;
 use crate::service::watcher::event_handler::WatcherEventKind;
-use crate::service::watcher::{WatchedLocation, WatcherEvent};
+use crate::service::watcher::{EphemeralWatch, WatchedLocation, WatcherEvent};
 use anyhow::Result;
 use notify::{
 	event::{CreateKind, DataChange, MetadataKind, ModifyKind, RenameMode},
@@ -373,6 +373,7 @@ impl MacOSHandler {
 	async fn handle_to_update_eviction(
 		&self,
 		watched_locations: &Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+		ephemeral_watches: &Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	) -> Result<Vec<Event>> {
 		let mut events = Vec::new();
 		let mut files_to_update = self.files_to_update.write().await;
@@ -410,6 +411,9 @@ impl MacOSHandler {
 				// Emit create event (responder will detect if it's an update via inode)
 				// This handles both newly created files and files that were modified
 				let locations = watched_locations.read().await;
+				let mut matched = false;
+
+				// Check locations first
 				for location in locations.values() {
 					if path.starts_with(&location.path) {
 						events.push(Event::FsRawChange {
@@ -418,7 +422,23 @@ impl MacOSHandler {
 								path: path.clone(),
 							},
 						});
+						matched = true;
 						break;
+					}
+				}
+
+				// If not matched by location, check ephemeral watches
+				if !matched {
+					let ephemeral = ephemeral_watches.read().await;
+					if let Some(parent) = path.parent() {
+						if ephemeral.contains_key(parent) {
+							events.push(Event::FsRawChange {
+								library_id: Uuid::nil(), // Ephemeral events use nil UUID
+								kind: crate::infra::event::FsRawEventKind::Create {
+									path: path.clone(),
+								},
+							});
+						}
 					}
 				}
 			}
@@ -550,6 +570,7 @@ impl EventHandler for MacOSHandler {
 		&self,
 		event: WatcherEvent,
 		watched_locations: &Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+		ephemeral_watches: &Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	) -> Result<Vec<Event>> {
 		if !event.should_process() {
 			return Ok(vec![]);
@@ -587,6 +608,9 @@ impl EventHandler for MacOSHandler {
 
 					// For directories, emit immediately
 					let locations = watched_locations.read().await;
+					let mut matched = false;
+
+					// Check locations first
 					for location in locations.values() {
 						if location.enabled && path.starts_with(&location.path) {
 							events.push(Event::FsRawChange {
@@ -601,7 +625,23 @@ impl EventHandler for MacOSHandler {
 								let mut to_recalc = self.to_recalculate_size.write().await;
 								to_recalc.insert(parent.to_path_buf(), Instant::now());
 							}
+							matched = true;
 							break;
+						}
+					}
+
+					// If not matched by location, check ephemeral watches
+					if !matched {
+						let ephemeral = ephemeral_watches.read().await;
+						if let Some(parent) = path.parent() {
+							if ephemeral.contains_key(parent) {
+								events.push(Event::FsRawChange {
+									library_id: Uuid::nil(), // Ephemeral events use nil UUID
+									kind: crate::infra::event::FsRawEventKind::Create {
+										path: path.clone(),
+									},
+								});
+							}
 						}
 					}
 				} else {
@@ -639,6 +679,9 @@ impl EventHandler for MacOSHandler {
 			WatcherEventKind::Remove => {
 				// Generate removal event and schedule parent for size recalculation
 				let locations = watched_locations.read().await;
+				let mut matched = false;
+
+				// Check locations first
 				for location in locations.values() {
 					if location.enabled && path.starts_with(&location.path) {
 						events.push(Event::FsRawChange {
@@ -652,7 +695,23 @@ impl EventHandler for MacOSHandler {
 							let mut to_recalc = self.to_recalculate_size.write().await;
 							to_recalc.insert(parent.to_path_buf(), Instant::now());
 						}
+						matched = true;
 						break;
+					}
+				}
+
+				// If not matched by location, check ephemeral watches
+				if !matched {
+					let ephemeral = ephemeral_watches.read().await;
+					if let Some(parent) = path.parent() {
+						if ephemeral.contains_key(parent) {
+							events.push(Event::FsRawChange {
+								library_id: Uuid::nil(), // Ephemeral events use nil UUID
+								kind: crate::infra::event::FsRawEventKind::Remove {
+									path: path.clone(),
+								},
+							});
+						}
 					}
 				}
 			}
@@ -686,6 +745,7 @@ impl MacOSHandler {
 	pub async fn tick_with_locations(
 		&self,
 		watched_locations: &Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+		ephemeral_watches: &Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	) -> Result<Vec<Event>> {
 		let mut all_events = Vec::new();
 		let mut last_check = self.last_events_eviction_check.write().await;
@@ -696,7 +756,9 @@ impl MacOSHandler {
 
 		if last_check.elapsed() > eviction_interval {
 			// Handle file update evictions
-			let update_events = self.handle_to_update_eviction(watched_locations).await?;
+			let update_events = self
+				.handle_to_update_eviction(watched_locations, ephemeral_watches)
+				.await?;
 			all_events.extend(update_events);
 
 			// Handle rename create evictions

@@ -1,10 +1,11 @@
 //! Platform-specific event handling
 
 use crate::infra::event::Event;
-use crate::service::watcher::{WatchedLocation, WatcherEvent};
+use crate::service::watcher::{EphemeralWatch, WatchedLocation, WatcherEvent};
 use anyhow::Result;
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -48,8 +49,11 @@ impl PlatformHandler {
 		&self,
 		event: WatcherEvent,
 		watched_locations: &Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+		ephemeral_watches: &Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	) -> Result<Vec<Event>> {
-		self.inner.process_event(event, watched_locations).await
+		self.inner
+			.process_event(event, watched_locations, ephemeral_watches)
+			.await
 	}
 
 	/// Periodic tick for cleanup and debouncing
@@ -88,6 +92,7 @@ pub trait EventHandler: Send + Sync {
 		&self,
 		event: WatcherEvent,
 		watched_locations: &Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+		ephemeral_watches: &Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	) -> Result<Vec<Event>>;
 
 	/// Periodic cleanup and processing
@@ -112,6 +117,7 @@ impl EventHandler for DefaultHandler {
 		&self,
 		event: WatcherEvent,
 		watched_locations: &Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
+		ephemeral_watches: &Arc<RwLock<HashMap<PathBuf, EphemeralWatch>>>,
 	) -> Result<Vec<Event>> {
 		// Basic event processing without platform-specific optimizations
 		if !event.should_process() {
@@ -119,23 +125,33 @@ impl EventHandler for DefaultHandler {
 		}
 
 		let locations = watched_locations.read().await;
+		let ephemeral = ephemeral_watches.read().await;
 		let mut events = Vec::new();
 
-		for location in locations.values() {
-			if !location.enabled {
-				continue;
-			}
-
-			for path in &event.paths {
-				if path.starts_with(&location.path) {
-					// Generate a placeholder entry ID for now
-					// In a real implementation, this would look up or create an entry
-					let entry_id = Uuid::new_v4();
-
+		for path in &event.paths {
+			// Check if this matches a location
+			let mut matched_location = false;
+			for location in locations.values() {
+				if location.enabled && path.starts_with(&location.path) {
 					if let Some(core_event) = event.to_raw_event(location.library_id) {
 						events.push(core_event);
 					}
+					matched_location = true;
 					break;
+				}
+			}
+
+			// If not matched by location, check ephemeral watches
+			// For ephemeral, we use a dummy library_id since it's not library-specific
+			if !matched_location {
+				if let Some(parent) = path.parent() {
+					if ephemeral.contains_key(parent) {
+						// Use a zero UUID for ephemeral events (they're not library-specific)
+						if let Some(core_event) = event.to_raw_event(Uuid::nil()) {
+							events.push(core_event);
+						}
+						break;
+					}
 				}
 			}
 		}
