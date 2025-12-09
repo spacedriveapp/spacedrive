@@ -21,6 +21,7 @@ import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
+import { getContentKind } from "../../utils";
 import { useContextMenu } from "../../../../hooks/useContextMenu";
 import { useJobDispatch } from "../../../../hooks/useJobDispatch";
 import { useLibraryMutation } from "../../../../context";
@@ -29,7 +30,7 @@ import { usePlatform } from "../../../../platform";
 function formatDuration(seconds: number): string {
 	const mins = Math.floor(seconds / 60);
 	const secs = Math.floor(seconds % 60);
-	return `${mins}:${String(secs).padStart(2, '0')}`;
+	return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
 interface MediaViewItemProps {
@@ -37,7 +38,12 @@ interface MediaViewItemProps {
 	allFiles: File[];
 	selected: boolean;
 	focused: boolean;
-	onSelect: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
+	onSelect: (
+		file: File,
+		files: File[],
+		multi?: boolean,
+		range?: boolean,
+	) => void;
 	size: number;
 }
 
@@ -90,7 +96,8 @@ export const MediaViewItem = memo(function MediaViewItem({
 					}
 				},
 				keybind: "⌘⇧R",
-				condition: () => "Physical" in file.sd_path && !!platform.revealFile,
+				condition: () =>
+					"Physical" in file.sd_path && !!platform.revealFile,
 			},
 			{ type: "separator" },
 			{
@@ -140,7 +147,11 @@ export const MediaViewItem = memo(function MediaViewItem({
 				keybind: "⌘V",
 				condition: () => {
 					const clipboard = window.__SPACEDRIVE__?.clipboard;
-					return !!clipboard && !!clipboard.files && clipboard.files.length > 0;
+					return (
+						!!clipboard &&
+						!!clipboard.files &&
+						clipboard.files.length > 0
+					);
 				},
 			},
 			// Media Processing submenus
@@ -148,7 +159,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 				type: "submenu",
 				icon: Image,
 				label: "Image Processing",
-				condition: () => file.content_identity?.kind === "image",
+				condition: () => getContentKind(file) === "image",
 				submenu: [
 					{
 						icon: Sparkle,
@@ -190,7 +201,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 				type: "submenu",
 				icon: Video,
 				label: "Video Processing",
-				condition: () => file.content_identity?.kind === "video",
+				condition: () => getContentKind(file) === "video",
 				submenu: [
 					{
 						icon: FilmStrip,
@@ -202,7 +213,10 @@ export const MediaViewItem = memo(function MediaViewItem({
 								frame_count: 10,
 							});
 						},
-						condition: () => !file.sidecars?.some((s) => s.kind === "thumbstrip"),
+						condition: () =>
+							!file.sidecars?.some(
+								(s) => s.kind === "thumbstrip",
+							),
 					},
 					{
 						icon: Sparkle,
@@ -256,7 +270,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 				type: "submenu",
 				icon: Microphone,
 				label: "Audio Processing",
-				condition: () => file.content_identity?.kind === "audio",
+				condition: () => getContentKind(file) === "audio",
 				submenu: [
 					{
 						icon: TextAa,
@@ -314,7 +328,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 						label: "Generate Thumbstrips (Videos)",
 						onClick: async () => {
 							const videos = selectedFiles.filter(
-								(f) => f.content_identity?.kind === "video",
+								(f) => getContentKind(f) === "video",
 							);
 							if (videos.length > 0) {
 								await runJob("thumbstrip", {
@@ -323,7 +337,9 @@ export const MediaViewItem = memo(function MediaViewItem({
 							}
 						},
 						condition: () =>
-							selectedFiles.some((f) => f.content_identity?.kind === "video"),
+							selectedFiles.some(
+								(f) => getContentKind(f) === "video",
+							),
 					},
 				],
 			},
@@ -344,7 +360,9 @@ export const MediaViewItem = memo(function MediaViewItem({
 					if (confirm(message)) {
 						try {
 							await deleteFiles.mutateAsync({
-								targets: { paths: targets.map((f) => f.sd_path) },
+								targets: {
+									paths: targets.map((f) => f.sd_path),
+								},
 								permanent: false,
 								recursive: true,
 							});

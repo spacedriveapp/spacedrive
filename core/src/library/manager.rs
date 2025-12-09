@@ -1245,7 +1245,10 @@ impl LibraryManager {
 				.await
 			{
 				Ok((location_id, _)) => {
-					info!("Created default location '{}' at {:?} ({})", name, path, location_id);
+					info!(
+						"Created default location '{}' at {:?} ({})",
+						name, path, location_id
+					);
 				}
 				Err(e) => {
 					warn!("Failed to create default location '{}': {}", name, e);

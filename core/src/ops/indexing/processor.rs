@@ -1,14 +1,20 @@
-//! Content hash processor - atomic operation for generating and linking content identities
+//! # Content Hash Processor
+//!
+//! Generates BLAKE3 content hashes for files and links them to content_identity records. Each
+//! processor execution is atomic: hash generation, identity creation/lookup, and entry linking
+//! happen in a single transaction. This ensures entries either have valid content_id references
+//! or remain unlinked if processing fails.
 
-use super::{ctx::IndexingCtx, entry::EntryProcessor, state::EntryKind};
+use super::{database_storage::DatabaseStorage, state::EntryKind};
 use crate::domain::content_identity::ContentHashGenerator;
 use anyhow::Result;
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::debug;
 use uuid::Uuid;
 
-/// Entry data for processor execution
+/// Minimal entry snapshot required for content processing without full database models.
 #[derive(Debug, Clone)]
 pub struct ProcessorEntry {
 	pub id: i32,
@@ -20,7 +26,7 @@ pub struct ProcessorEntry {
 	pub mime_type: Option<String>,
 }
 
-/// Result of processor execution
+/// Outcome of a single processor run: success/failure, artifacts created, and bytes processed.
 #[derive(Debug, Clone)]
 pub struct ProcessorResult {
 	pub success: bool,
@@ -49,7 +55,7 @@ impl ProcessorResult {
 	}
 }
 
-/// Processor configuration
+/// Per-processor settings: type, enabled flag, and arbitrary JSON config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessorConfig {
 	pub processor_type: String,
@@ -58,7 +64,7 @@ pub struct ProcessorConfig {
 	pub settings: serde_json::Value,
 }
 
-/// Location processor configuration
+/// Collection of processors that run automatically on watcher events for a location.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationProcessorConfig {
 	#[serde(default)]
@@ -84,7 +90,7 @@ impl Default for LocationProcessorConfig {
 				},
 				ProcessorConfig {
 					processor_type: "thumbstrip".to_string(),
-					enabled: true, // Fast enough for auto-generation (~6s)
+					enabled: true, // ~6s per video, acceptable for auto-generation.
 					settings: serde_json::json!({
 						"variants": ["thumbstrip_preview"],
 						"regenerate": false
@@ -92,7 +98,7 @@ impl Default for LocationProcessorConfig {
 				},
 				ProcessorConfig {
 					processor_type: "proxy".to_string(),
-					enabled: false, // Disabled by default (user opt-in, ~8s per video)
+					enabled: false, // User opt-in required (~8s per video).
 					settings: serde_json::json!({
 						"enabled": false,
 						"max_file_size_gb": 5,
@@ -101,7 +107,7 @@ impl Default for LocationProcessorConfig {
 				},
 				ProcessorConfig {
 					processor_type: "ocr".to_string(),
-					enabled: false, // Disabled by default (expensive)
+					enabled: false, // Expensive, user opt-in.
 					settings: serde_json::json!({
 						"languages": ["eng"],
 						"min_confidence": 0.6
@@ -109,7 +115,7 @@ impl Default for LocationProcessorConfig {
 				},
 				ProcessorConfig {
 					processor_type: "speech_to_text".to_string(),
-					enabled: false, // Disabled by default (very expensive)
+					enabled: false, // Very expensive, user opt-in.
 					settings: serde_json::json!({
 						"model": "base",
 						"language": null
@@ -120,7 +126,7 @@ impl Default for LocationProcessorConfig {
 	}
 }
 
-/// Content hash processor
+/// Generates BLAKE3 hashes and creates content_identity records for files.
 pub struct ContentHashProcessor {
 	library_id: Uuid,
 }
@@ -132,7 +138,7 @@ impl ContentHashProcessor {
 
 	pub async fn process(
 		&self,
-		ctx: &impl IndexingCtx,
+		db: &DatabaseConnection,
 		entry: &ProcessorEntry,
 	) -> Result<ProcessorResult> {
 		if !matches!(entry.kind, EntryKind::File) || entry.content_id.is_some() {
@@ -144,8 +150,8 @@ impl ContentHashProcessor {
 		let content_hash = ContentHashGenerator::generate_content_hash(&entry.path).await?;
 		debug!("✓ Generated content hash: {}", content_hash);
 
-		EntryProcessor::link_to_content_identity(
-			ctx,
+		DatabaseStorage::link_to_content_identity(
+			db,
 			entry.id,
 			&entry.path,
 			content_hash,
@@ -159,7 +165,7 @@ impl ContentHashProcessor {
 	}
 }
 
-/// Load processor configuration for a location
+/// Loads processor config from the location's database record, falling back to defaults.
 pub async fn load_location_processor_config(
 	_location_id: Uuid,
 	_db: &sea_orm::DatabaseConnection,

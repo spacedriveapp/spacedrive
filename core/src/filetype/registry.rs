@@ -145,6 +145,35 @@ impl FileTypeRegistry {
 			.collect()
 	}
 
+	/// Fast identification by extension only (no file I/O)
+	///
+	/// This is useful for quick file type detection during indexing where
+	/// we don't need high-confidence identification. Returns the content kind
+	/// based purely on extension matching.
+	///
+	/// Returns `ContentKind::Unknown` if the extension is not recognized.
+	pub fn identify_by_extension(&self, path: &Path) -> ContentKind {
+		let extension = match path.extension().and_then(|s| s.to_str()) {
+			Some(ext) => ext,
+			None => return ContentKind::Unknown,
+		};
+
+		let candidates = self.get_by_extension(extension);
+
+		match candidates.len() {
+			0 => ContentKind::Unknown,
+			1 => candidates[0].category,
+			_ => {
+				// Multiple matches - pick highest priority
+				candidates
+					.iter()
+					.max_by_key(|ft| ft.priority)
+					.map(|ft| ft.category)
+					.unwrap_or(ContentKind::Unknown)
+			}
+		}
+	}
+
 	/// Identify a file type from a path
 	pub async fn identify(&self, path: &Path) -> Result<IdentificationResult> {
 		// Get extension

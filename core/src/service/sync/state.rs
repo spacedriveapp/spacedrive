@@ -173,7 +173,9 @@ impl BufferQueue {
 			warn!(
 				current_size = queue.len(),
 				max_size = self.max_size,
-				total_dropped = self.dropped_count.load(std::sync::atomic::Ordering::Relaxed),
+				total_dropped = self
+					.dropped_count
+					.load(std::sync::atomic::Ordering::Relaxed),
 				"Buffer queue at capacity, dropping new update"
 			);
 			return;

@@ -173,15 +173,16 @@ async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
 	// 8. Verify indexed entries in database
 	// Helper to get all entry IDs under the location
 	let get_location_entry_ids = || async {
-		let descendant_ids = entry_closure::Entity::find()
-			.filter(entry_closure::Column::AncestorId.eq(location_entry_id))
+		let location_id = location_entry_id.expect("Location should have entry_id");
+		let descendant_ids: Vec<i32> = entry_closure::Entity::find()
+			.filter(entry_closure::Column::AncestorId.eq(location_id))
 			.all(db.conn())
 			.await?
 			.into_iter()
 			.map(|ec| ec.descendant_id)
-			.collect::<Vec<i32>>();
+			.collect();
 
-		let mut all_ids = vec![location_entry_id];
+		let mut all_ids = vec![location_id];
 		all_ids.extend(descendant_ids);
 		Ok::<Vec<i32>, anyhow::Error>(all_ids)
 	};
@@ -337,15 +338,16 @@ async fn test_incremental_indexing() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	// Get all entry IDs under this location
-	let descendant_ids = entry_closure::Entity::find()
-		.filter(entry_closure::Column::AncestorId.eq(location_entry_id))
+	let location_id = location_entry_id.expect("Location should have entry_id");
+	let descendant_ids: Vec<i32> = entry_closure::Entity::find()
+		.filter(entry_closure::Column::AncestorId.eq(location_id))
 		.all(db.conn())
 		.await?
 		.into_iter()
 		.map(|ec| ec.descendant_id)
-		.collect::<Vec<i32>>();
+		.collect();
 
-	let mut all_entry_ids = vec![location_entry_id];
+	let mut all_entry_ids = vec![location_id];
 	all_entry_ids.extend(descendant_ids);
 
 	let initial_file_count = entities::entry::Entity::find()

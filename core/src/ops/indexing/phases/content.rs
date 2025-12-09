@@ -1,12 +1,17 @@
-//! Content identification phase - generates CAS IDs and links content
+//! # Content Identification and Hashing
+//!
+//! `core::ops::indexing::phases::content` generates BLAKE3 content hashes for files and
+//! links entries to content_identity records for deduplication. Processes files in parallel
+//! chunks, supports both local filesystem and cloud backends (S3, Dropbox), and carefully
+//! orders sync operations (content identities before entries) to prevent foreign key violations
+//! on receiving devices.
 
 use crate::{
 	domain::content_identity::ContentHashGenerator,
 	infra::job::generic_progress::ToGenericProgress,
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
-		ctx::IndexingCtx,
-		entry::EntryProcessor,
+		database_storage::DatabaseStorage,
 		processor::{ContentHashProcessor, ProcessorEntry},
 		state::{EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
@@ -15,21 +20,27 @@ use std::path::Path;
 use std::sync::Arc;
 use tracing::warn;
 
-/// Strip cloud URL prefix from DirEntry path to get backend-relative path
+/// Strips cloud URL schemes to convert full URIs into backend-relative paths.
+///
+/// Backends expect relative keys ("folder/file.txt"), not full URIs ("s3://bucket/folder/file.txt").
+/// For S3 paths like "s3://my-bucket/docs/report.pdf", this returns "docs/report.pdf".
+/// Local paths pass through unchanged.
 fn to_backend_path(path: &Path) -> std::path::PathBuf {
 	let path_str = path.to_string_lossy();
 	if let Some(after_scheme) = path_str.strip_prefix("s3://") {
-		// Strip s3://bucket/ prefix to get just the key
 		if let Some(slash_pos) = after_scheme.find('/') {
 			let key = &after_scheme[slash_pos + 1..];
 			return std::path::PathBuf::from(key);
 		}
 	}
-	// Return as-is for local paths
 	path.to_path_buf()
 }
 
-/// Run the content identification phase
+/// Generates BLAKE3 content hashes for files and links them to content identities.
+///
+/// Processes files in parallel chunks for throughput, uses volume backends for cloud files,
+/// syncs content identities before entries (to prevent foreign key violations), and emits
+/// ResourceChanged events for UI updates. Empty files are skipped (no content to hash).
 pub async fn run_content_phase(
 	state: &mut IndexerState,
 	ctx: &JobContext<'_>,
@@ -52,7 +63,6 @@ pub async fn run_content_phase(
 	let mut success_count = 0;
 	let mut error_count = 0;
 
-	// Process in chunks for better performance and memory usage
 	const CHUNK_SIZE: usize = 100;
 
 	while !state.entries_for_content.is_empty() {
@@ -62,7 +72,6 @@ pub async fn run_content_phase(
 		let chunk: Vec<_> = state.entries_for_content.drain(..chunk_size).collect();
 		let chunk_len = chunk.len();
 
-		// Report progress BEFORE processing (using current processed count)
 		let indexer_progress = IndexerProgress {
 			phase: IndexPhase::ContentIdentification {
 				current: processed,
@@ -75,22 +84,18 @@ pub async fn run_content_phase(
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
-			action_context: None, // TODO: Pass action context from job state
+			action_context: None,
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-		// Process chunk in parallel for better performance
 		let content_hash_futures: Vec<_> = chunk
 			.iter()
 			.map(|(entry_id, path)| {
 				let backend_clone = volume_backend.cloned();
 				async move {
 					let hash_result = if let Some(backend) = backend_clone {
-						// Use backend for content hashing (supports both local and cloud)
-						// For cloud paths, strip the URL prefix to get backend-relative path
 						let backend_path = to_backend_path(path);
 
-						// Get file size first
 						match backend.metadata(&backend_path).await {
 							Ok(meta) => {
 								ContentHashGenerator::generate_content_hash_with_backend(
@@ -105,7 +110,6 @@ pub async fn run_content_phase(
 							)),
 						}
 					} else {
-						// No backend - use local filesystem path
 						ContentHashGenerator::generate_content_hash(path).await
 					};
 					(*entry_id, path.clone(), hash_result)
@@ -113,22 +117,18 @@ pub async fn run_content_phase(
 			})
 			.collect();
 
-		// Wait for all content hash generations to complete
 		let hash_results = futures::future::join_all(content_hash_futures).await;
 
-		// Collect results for batch syncing
 		let mut content_identities_to_sync = Vec::new();
 		let mut entries_to_sync = Vec::new();
 
-		// Process results
 		for (entry_id, path, hash_result) in hash_results {
-			// Check for interruption during result processing
 			ctx.check_interrupt().await?;
 
 			match hash_result {
 				Ok(content_hash) => {
-					match EntryProcessor::link_to_content_identity(
-						ctx,
+					match DatabaseStorage::link_to_content_identity(
+						ctx.library_db(),
 						entry_id,
 						&path,
 						content_hash.clone(),
@@ -143,7 +143,6 @@ pub async fn run_content_phase(
 								content_hash
 							));
 
-							// Collect for batch sync
 							content_identities_to_sync.push(result.content_identity);
 							entries_to_sync.push(result.entry);
 
@@ -188,86 +187,67 @@ pub async fn run_content_phase(
 			}
 		}
 
-		// Batch sync content identities (shared resources)
 		if !content_identities_to_sync.is_empty() {
-			match IndexingCtx::library(ctx) {
-				Some(library) => {
-					match library
-						.sync_models_batch(
-							&content_identities_to_sync,
-							crate::infra::sync::ChangeType::Insert,
-							ctx.library_db(),
-						)
-						.await
-					{
-						Ok(()) => {
-							ctx.log(format!(
-								"Batch synced {} content identities",
-								content_identities_to_sync.len()
-							));
-						}
-						Err(e) => {
-							tracing::warn!(
-								"Failed to batch sync {} content identities: {}",
-								content_identities_to_sync.len(),
-								e
-							);
-						}
-					}
+			let library = ctx.library();
+			match library
+				.sync_models_batch(
+					&content_identities_to_sync,
+					crate::infra::sync::ChangeType::Insert,
+					ctx.library_db(),
+				)
+				.await
+			{
+				Ok(()) => {
+					ctx.log(format!(
+						"Batch synced {} content identities",
+						content_identities_to_sync.len()
+					));
 				}
-				None => {
-					ctx.log("Sync disabled - content identities saved locally only");
+				Err(e) => {
+					tracing::warn!(
+						"Failed to batch sync {} content identities: {}",
+						content_identities_to_sync.len(),
+						e
+					);
 				}
 			}
 		}
 
-		// Yield to allow content_identity events to be emitted before entry updates
-		// This ensures content_identities arrive on receiving devices before entries that reference them
-		// Prevents FK orphaning where entry UPDATE arrives before content_identity exists
+		// Yield to let content_identity sync messages propagate before entry updates.
+		// Without this, receiving devices might process entry.content_id foreign keys before
+		// the referenced content_identity row exists, causing foreign key constraint violations.
 		tokio::task::yield_now().await;
 
-		// Batch sync entries (device-owned, now sync-ready with content_id assigned)
 		if !entries_to_sync.is_empty() {
-			match IndexingCtx::library(ctx) {
-				Some(library) => {
-					match library
-						.sync_models_batch(
-							&entries_to_sync,
-							crate::infra::sync::ChangeType::Update,
-							ctx.library_db(),
-						)
-						.await
-					{
-						Ok(()) => {
-							ctx.log(format!(
-								"Batch synced {} entries with content IDs",
-								entries_to_sync.len()
-							));
-						}
-						Err(e) => {
-							tracing::warn!(
-								"Failed to batch sync {} entries: {}",
-								entries_to_sync.len(),
-								e
-							);
-						}
-					}
+			let library = ctx.library();
+			match library
+				.sync_models_batch(
+					&entries_to_sync,
+					crate::infra::sync::ChangeType::Update,
+					ctx.library_db(),
+				)
+				.await
+			{
+				Ok(()) => {
+					ctx.log(format!(
+						"Batch synced {} entries with content IDs",
+						entries_to_sync.len()
+					));
 				}
-				None => {
-					ctx.log("Sync disabled - entries saved locally only");
+				Err(e) => {
+					tracing::warn!(
+						"Failed to batch sync {} entries: {}",
+						entries_to_sync.len(),
+						e
+					);
 				}
 			}
 		}
 
-		// Update processed count AFTER processing chunk
 		processed += chunk_len;
-
-		// Update rate tracking
 		state.items_since_last_update += chunk_len as u64;
 
-		// Emit ResourceChanged events for affected Files
 		if !entries_to_sync.is_empty() {
-			// Collect entry UUIDs from successfully processed entries
 			let entry_ids_for_events: Vec<uuid::Uuid> = entries_to_sync
 				.iter()
 				.filter_map(|entry_model| entry_model.uuid)
@@ -288,8 +268,6 @@ pub async fn run_content_phase(
 				}
 			}
 		}
-
-		// State is automatically saved during job serialization on shutdown
 	}
 
 	ctx.log(format!(

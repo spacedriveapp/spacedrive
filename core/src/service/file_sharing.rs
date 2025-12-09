@@ -519,11 +519,8 @@ mod tests {
 		);
 
 		let events = Arc::new(EventBus::default());
-		let device_manager = Arc::new(DeviceManager::init(
-			temp_dir.path(),
-			key_manager.clone(),
-			None,
-		).unwrap());
+		let device_manager =
+			Arc::new(DeviceManager::init(temp_dir.path(), key_manager.clone(), None).unwrap());
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
@@ -570,11 +567,8 @@ mod tests {
 		);
 
 		let events = Arc::new(EventBus::default());
-		let device_manager = Arc::new(DeviceManager::init(
-			temp_dir.path(),
-			key_manager.clone(),
-			None,
-		).unwrap());
+		let device_manager =
+			Arc::new(DeviceManager::init(temp_dir.path(), key_manager.clone(), None).unwrap());
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),

@@ -1,4 +1,10 @@
-//! Processing phase - creates/updates database entries
+//! # Entry Processing and Change Detection
+//!
+//! `core::ops::indexing::phases::processing` converts discovered filesystem entries into
+//! database records, applying change detection to identify new, modified, moved, and deleted
+//! entries. Processes entries in depth-first order (parents before children) within database
+//! transactions, preserving ephemeral UUIDs from prior browsing sessions and validating that
+//! indexing paths stay within location boundaries to prevent cross-location data corruption.
 
 use crate::{
 	infra::{
@@ -8,7 +14,7 @@ use crate::{
 	},
 	ops::indexing::{
 		change_detection::{Change, ChangeDetector},
-		entry::EntryProcessor,
+		database_storage::DatabaseStorage,
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 		IndexMode,
 	},
@@ -18,16 +24,24 @@ use std::{path::Path, sync::Arc};
 use tracing::warn;
 use uuid::Uuid;
 
-/// Check if an error is a unique constraint violation
+/// Detects SQLite unique constraint violations from concurrent watcher and indexer writes.
+///
+/// When the file watcher creates an entry while the indexer is processing the same file,
+/// both try to insert with the same (path, parent_id) combination. This is benign - the entry
+/// exists, which is the desired outcome. We detect and skip these instead of failing the job.
 fn is_unique_constraint_violation(error: &JobError) -> bool {
-	// Check if the error contains SQLite unique constraint violation messages
 	let error_msg = error.to_string().to_lowercase();
 	error_msg.contains("unique constraint")
 		|| error_msg.contains("unique index")
 		|| error_msg.contains("constraint failed")
 }
 
-/// Run the processing phase of indexing
+/// Processes discovered entries into database records with change detection and UUID preservation.
+///
+/// Sorts all entries by depth (parents before children) to ensure hierarchy integrity, applies
+/// change detection to identify new/modified/moved/deleted entries, processes changes within
+/// batch transactions, preserves ephemeral UUIDs from browsing sessions, validates indexing
+/// boundaries to prevent cross-location corruption, and emits sync/event batches for UI updates.
 pub async fn run_processing_phase(
 	location_id: Uuid,
 	state: &mut IndexerState,
@@ -42,13 +56,26 @@ pub async fn run_processing_phase(
 		total_batches
 	));
 
+	// Populate ephemeral UUIDs so entries browsed before enabling indexing keep the same UUID,
+	// preserving tags and notes attached during ephemeral mode. Without this, promoting a browsed
+	// folder to a managed location would orphan all existing user metadata.
+	let ephemeral_cache = ctx.library().core_context().ephemeral_cache();
+	let preserved_count = state
+		.populate_ephemeral_uuids(ephemeral_cache, location_root_path)
+		.await;
+	if preserved_count > 0 {
+		ctx.log(format!(
+			"Found {} ephemeral UUIDs to preserve from previous browsing",
+			preserved_count
+		));
+	}
+
 	if total_batches == 0 {
 		ctx.log("No batches to process - transitioning to Aggregation phase");
 		state.phase = crate::ops::indexing::state::Phase::Aggregation;
 		return Ok(());
 	}
 
-	// Get the actual location record from database
 	let location_record = entities::location::Entity::find()
 		.filter(entities::location::Column::Uuid.eq(location_id))
 		.one(ctx.library_db())
@@ -66,8 +93,10 @@ pub async fn run_processing_phase(
 		device_id, location_id_i32, location_entry_id
 	));
 
-	// CRITICAL SAFETY CHECK: Validate that the indexing path is within this location's boundaries
-	// This prevents catastrophic cross-location deletion if the watcher routes events incorrectly
+	// SAFETY: Validate indexing path is within location boundaries to prevent catastrophic
+	// cross-location deletion if watcher routing bugs send events for /home/user/photos to a
+	// /home/user/documents location. Without this check, we'd delete all documents entries
+	// not present in photos, wiping the database.
 	let location_actual_path = crate::ops::indexing::path_resolver::PathResolver::get_full_path(
 		ctx.library_db(),
 		location_entry_id,
@@ -75,18 +104,14 @@ pub async fn run_processing_phase(
 	.await
 	.map_err(|e| JobError::execution(format!("Failed to resolve location root path: {}", e)))?;
 
-	// For cloud paths, compare strings instead of PathBuf (cloud paths have empty path component for root)
 	let location_actual_str = location_actual_path.to_string_lossy();
 	let is_cloud_path =
 		location_actual_str.contains("://") && !location_actual_str.starts_with("local://");
 
 	let is_within_boundaries = if is_cloud_path {
-		// For cloud paths, check if the root path matches or is a subpath
 		let root_str = location_root_path.to_string_lossy();
-		// Empty path means root of cloud location, which is always valid
 		root_str.is_empty() || location_actual_str.starts_with(root_str.as_ref())
 	} else {
-		// For local paths, use standard PathBuf comparison
 		location_root_path.starts_with(&location_actual_path)
 	};
 
@@ -105,8 +130,9 @@ pub async fn run_processing_phase(
 		location_actual_path.display()
 	));
 
-	// Seed cache with ancestor directories from location root to indexing path
-	// This prevents the ghost folder bug where subpath reindexing creates wrong parent_ids
+	// Seed entry ID cache with all ancestors between location root and indexing path.
+	// Without this, re-indexing /home/user/docs/photos would fail to find /home/user/docs
+	// in the cache and create a duplicate "docs" folder with wrong parent_id.
 	let _ = state
 		.seed_ancestor_cache(
 			ctx.library_db(),
@@ -116,8 +142,6 @@ pub async fn run_processing_phase(
 		)
 		.await;
 
-	// Load existing entries for change detection scoped to the indexing path
-	// Note: location_root_path is the actual path being indexed (could be a subpath of the location)
 	let mut change_detector = ChangeDetector::new();
 	if !state.existing_entries.is_empty() || mode != IndexMode::Shallow {
 		ctx.log("Loading existing entries for change detection...");
@@ -130,22 +154,21 @@ pub async fn run_processing_phase(
 		));
 	}
 
-	// Flatten all batches and sort globally by depth to ensure parents are always processed before children
+	// Sort all discovered entries by depth (parents before children) to ensure parent entries
+	// exist in the database before we try to create children with parent_id foreign keys.
+	// Without this, creating /a/b/c.txt before /a would fail the parent_id constraint.
 	ctx.log("Flattening and sorting all entries by depth...");
 	let mut all_entries: Vec<DirEntry> = Vec::new();
 	while let Some(batch) = state.entry_batches.pop() {
 		all_entries.extend(batch);
 	}
 
-	// Sort all entries by depth first, then by type
 	all_entries.sort_by(|a, b| {
 		let a_depth = a.path.components().count();
 		let b_depth = b.path.components().count();
 
-		// First sort by depth (parents before children)
 		match a_depth.cmp(&b_depth) {
 			std::cmp::Ordering::Equal => {
-				// Then sort by type (directories before files at same depth)
 				let a_priority = match a.kind {
 					EntryKind::Directory => 0,
 					EntryKind::Symlink => 1,
@@ -167,8 +190,7 @@ pub async fn run_processing_phase(
 		all_entries.len()
 	));
 
-	// Re-batch the sorted entries for processing
-	let batch_size = 1000; // Use a reasonable batch size
+	let batch_size = 1000;
 	let mut sorted_batches: Vec<Vec<DirEntry>> = Vec::new();
 	let mut current_batch = Vec::with_capacity(batch_size);
 
@@ -185,7 +207,6 @@ pub async fn run_processing_phase(
 		sorted_batches.push(current_batch);
 	}
 
-	// Use pop() below to consume batches. Reverse so that the first (shallowest) batch is processed first.
 	state.entry_batches = sorted_batches;
 	state.entry_batches.reverse();
 	let total_batches = state.entry_batches.len();
@@ -212,29 +233,22 @@ pub async fn run_processing_phase(
 			scope: None,
 			persistence: None,
 			is_ephemeral: false,
-			action_context: None, // TODO: Pass action context from job state
+			action_context: None,
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-		// Check for interruption before starting transaction
 		ctx.check_interrupt().await?;
 
-		// Begin a single transaction for all new entry creations in this batch
 		let txn = ctx.library_db().begin().await.map_err(|e| {
 			JobError::execution(format!("Failed to begin processing transaction: {}", e))
 		})?;
 
-		// Accumulate related rows for bulk insert
 		let mut bulk_self_closures: Vec<entities::entry_closure::ActiveModel> = Vec::new();
 		let mut bulk_dir_paths: Vec<entities::directory_paths::ActiveModel> = Vec::new();
 		let mut created_entries: Vec<entities::entry::Model> = Vec::new();
 
-		// Process batch - check for changes and create/update entries
-		// (Already sorted globally by depth)
 		for entry in batch {
-			// Check for interruption during batch processing
 			if let Err(e) = ctx.check_interrupt().await {
-				// Rollback transaction before propagating interruption
 				if let Err(rollback_err) = txn.rollback().await {
 					warn!(
 						"Failed to rollback transaction during interruption: {}",
@@ -244,19 +258,14 @@ pub async fn run_processing_phase(
 				return Err(e);
 			}
 
-			// Add to seen_paths for delete detection (important for resumed jobs)
 			state.seen_paths.insert(entry.path.clone());
 
-			// Check for changes
-			// Note: For cloud backends, we skip change detection for now since we can't
-			// access std::fs::Metadata directly. Cloud entries are always treated as "new"
-			// on first index. Future: implement cloud-specific change detection using
-			// backend metadata.
+			// Cloud backends can't use std::fs::Metadata for change detection since files don't
+			// exist locally. We treat cloud entries as always "new" for now. Future enhancement:
+			// use backend-provided ETag or modified_at for cloud change detection.
 			let change = if volume_backend.is_some() && !volume_backend.unwrap().is_local() {
-				// Cloud backend - treat as new for now
 				Some(Change::New(entry.path.clone()))
 			} else {
-				// Local backend - use standard change detection
 				let metadata = match std::fs::symlink_metadata(&entry.path) {
 					Ok(m) => m,
 					Err(e) => {
@@ -273,10 +282,8 @@ pub async fn run_processing_phase(
 
 			match change {
 				Some(Change::New(_)) => {
-					// Create new entry within batch transaction
-					match EntryProcessor::create_entry_in_conn(
+					match DatabaseStorage::create_entry_in_conn(
 						state,
-						ctx,
 						&entry,
 						device_id,
 						location_root_path,
@@ -295,25 +302,18 @@ pub async fn run_processing_phase(
 							));
 							total_processed += 1;
 
-							// Track for content identification if needed
 							if mode >= IndexMode::Content && entry.kind == EntryKind::File {
 								state.entries_for_content.push((entry_id, entry.path));
 							}
 
-							// Collect for batch sync after transaction commits
 							created_entries.push(entry_model);
-							// end Some(Change::New)
 						}
 						Err(e) => {
-							// Check if this is a unique constraint violation
-							// This can happen when the watcher creates an entry while the indexer is running
 							if is_unique_constraint_violation(&e) {
 								ctx.log(format!(
 									"Entry already exists (created by watcher): {}",
 									entry.path.display()
 								));
-								// This is not an error - the entry exists, which is what we want
-								// Just skip it and continue
 							} else {
 								let error_msg = format!(
 									"Failed to create entry for {}: {}",
@@ -331,8 +331,7 @@ pub async fn run_processing_phase(
 				}
 
 				Some(Change::Modified { entry_id, .. }) => {
-					// Update existing entry within batch transaction
-					match EntryProcessor::update_entry_in_conn(ctx, entry_id, &entry, &txn).await {
+					match DatabaseStorage::update_entry_in_conn(entry_id, &entry, &txn).await {
 						Ok(()) => {
 							ctx.log(format!(
 								"Updated entry {}: {}",
@@ -341,7 +340,6 @@ pub async fn run_processing_phase(
 							));
 							total_processed += 1;
 
-							// Re-process content if needed
 							if mode >= IndexMode::Content && entry.kind == EntryKind::File {
 								state.entries_for_content.push((entry_id, entry.path));
 							}
@@ -363,14 +361,13 @@ pub async fn run_processing_phase(
 					entry_id,
 					..
 				}) => {
-					// Handle move - update path in database
 					ctx.log(format!(
 						"Detected move: {} -> {}",
 						old_path.display(),
 						new_path.display()
 					));
-					match EntryProcessor::simple_move_entry_in_conn(
-						state, ctx, entry_id, &old_path, &new_path, &txn,
+					match DatabaseStorage::simple_move_entry_in_conn(
+						state, entry_id, &old_path, &new_path, &txn,
 					)
 					.await
 					{
@@ -383,7 +380,6 @@ pub async fn run_processing_phase(
 							));
 							total_processed += 1;
 
-							// Re-process content if needed for moved files
 							if mode >= IndexMode::Content && entry.kind == EntryKind::File {
 								state.entries_for_content.push((entry_id, new_path));
 							}

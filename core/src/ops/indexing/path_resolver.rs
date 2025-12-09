@@ -1,6 +1,9 @@
-//! Path resolution service for the pure hierarchical model
+//! # Path Resolution via directory_paths Cache
 //!
-//! This service provides efficient path resolution by utilizing the directory_paths lookup table.
+//! Resolves full filesystem paths for entries without walking parent_id chains. The directory_paths
+//! table caches absolute paths for all directories, making lookups O(1) instead of O(depth). Files
+//! are resolved by joining their parent's cached path with the filename. This table is updated during
+//! indexing and move operations to keep paths in sync with the entry hierarchy.
 
 use std::path::PathBuf;
 
@@ -11,12 +14,11 @@ use crate::infra::db::entities::{directory_paths, entry, DirectoryPaths, Entry};
 pub struct PathResolver;
 
 impl PathResolver {
-	/// Get the full path for any entry (file or directory)
+	/// Resolves the absolute path by looking up directories in the cache or reconstructing file paths.
 	pub async fn get_full_path<C: ConnectionTrait>(
 		db: &C,
 		entry_id: i32,
 	) -> Result<PathBuf, DbErr> {
-		// First, get the entry to determine if it's a file or directory
 		let entry = Entry::find_by_id(entry_id)
 			.one(db)
 			.await?
@@ -24,7 +26,6 @@ impl PathResolver {
 
 		match entry.entry_kind() {
 			crate::infra::db::entities::entry::EntryKind::Directory => {
-				// For directories, lookup in directory_paths table
 				let dir_path = DirectoryPaths::find_by_id(entry_id)
 					.one(db)
 					.await?
@@ -37,7 +38,6 @@ impl PathResolver {
 				Ok(PathBuf::from(dir_path.path))
 			}
 			_ => {
-				// For files, get parent directory path and append full filename (name + extension)
 				if let Some(parent_id) = entry.parent_id {
 					let parent_path = DirectoryPaths::find_by_id(parent_id)
 						.one(db)
@@ -49,7 +49,6 @@ impl PathResolver {
 							))
 						})?;
 
-					// Reconstruct full filename: name + extension
 					let full_filename = if let Some(ext) = &entry.extension {
 						format!("{}.{}", entry.name, ext)
 					} else {
@@ -58,8 +57,6 @@ impl PathResolver {
 
 					Ok(PathBuf::from(parent_path.path).join(full_filename))
 				} else {
-					// Root file (shouldn't normally happen)
-					// Still need to add extension if present
 					let full_filename = if let Some(ext) = &entry.extension {
 						format!("{}.{}", entry.name, ext)
 					} else {
@@ -71,7 +68,7 @@ impl PathResolver {
 		}
 	}
 
-	/// Get the path for a directory from the cache
+	/// Fetches the cached path string directly from directory_paths without entry lookup.
 	pub async fn get_directory_path<C: ConnectionTrait>(
 		db: &C,
 		directory_id: i32,
@@ -88,7 +85,9 @@ impl PathResolver {
 			})
 	}
 
-	/// Build the full path for a new directory entry
+	/// Constructs the path string for a new directory by joining its parent's path with its name.
+	///
+	/// Used during indexing to populate the directory_paths table for newly discovered directories.
 	pub async fn build_directory_path<C: ConnectionTrait>(
 		db: &C,
 		parent_id: Option<i32>,
@@ -98,17 +97,15 @@ impl PathResolver {
 			let parent_path = Self::get_directory_path(db, parent_id).await?;
 			Ok(format!("{}/{}", parent_path, name))
 		} else {
-			// Root directory
 			Ok(name.to_string())
 		}
 	}
 
-	/// Get paths for multiple entries efficiently
+	/// Resolves paths for multiple entries in batched queries to minimize database round-trips.
 	pub async fn get_paths_batch<C: ConnectionTrait>(
 		db: &C,
 		entry_ids: Vec<i32>,
 	) -> Result<Vec<(i32, PathBuf)>, DbErr> {
-		// First, fetch all entries to determine types
 		let mut entries: Vec<entry::Model> = Vec::new();
 		let chunk_size: usize = 900;
 		for chunk in entry_ids.chunks(chunk_size) {
@@ -121,7 +118,6 @@ impl PathResolver {
 
 		let mut results = Vec::with_capacity(entries.len());
 
-		// Separate directories and files
 		let mut directory_ids = Vec::new();
 		let mut file_entries = Vec::new();
 
@@ -136,7 +132,6 @@ impl PathResolver {
 			}
 		}
 
-		// Batch fetch directory paths
 		if !directory_ids.is_empty() {
 			let mut dir_paths: Vec<directory_paths::Model> = Vec::new();
 			for chunk in directory_ids.chunks(chunk_size) {
@@ -152,7 +147,6 @@ impl PathResolver {
 			}
 		}
 
-		// Handle files by fetching parent paths
 		if !file_entries.is_empty() {
 			let parent_ids: Vec<i32> = file_entries.iter().filter_map(|e| e.parent_id).collect();
 
@@ -165,7 +159,6 @@ impl PathResolver {
 				parent_paths.append(&mut batch);
 			}
 
-			// Create a map for quick lookup
 			let parent_map: std::collections::HashMap<i32, String> = parent_paths
 				.into_iter()
 				.map(|dp| (dp.entry_id, dp.path))
@@ -188,15 +181,16 @@ impl PathResolver {
 		Ok(results)
 	}
 
-	/// Update all descendant directory paths after a move operation
-	/// This should be called in a background job after moving a directory
+	/// Bulk-updates descendant directory paths after moving a directory tree.
+	///
+	/// Uses a single SQL REPLACE to rewrite all paths under the moved directory's old prefix.
+	/// Should be called after updating the moved directory's entry.parent_id and directory_paths.path.
 	pub async fn update_descendant_paths<C: ConnectionTrait>(
 		db: &C,
 		moved_directory_id: i32,
 		old_path: &str,
 		new_path: &str,
 	) -> Result<u64, DbErr> {
-		// Use raw SQL for efficient bulk update
 		let sql = r#"
             UPDATE directory_paths
             SET path = REPLACE(path, ?, ?)

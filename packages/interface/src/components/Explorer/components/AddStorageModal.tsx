@@ -349,22 +349,34 @@ const jobOptions: JobOption[] = [
 
 export function useAddStorageDialog(
 	onStorageAdded?: (id: string) => void,
+	initialPath?: string,
 ) {
 	return dialogManager.create((props) => (
-		<AddStorageDialog {...props} onStorageAdded={onStorageAdded} />
+		<AddStorageDialog
+			{...props}
+			onStorageAdded={onStorageAdded}
+			initialPath={initialPath}
+		/>
 	));
 }
 
 function AddStorageDialog(props: {
 	id: number;
 	onStorageAdded?: (id: string) => void;
+	initialPath?: string;
 }) {
 	const dialog = useDialog(props);
 	const platform = usePlatform();
 
-	const [step, setStep] = useState<ModalStep>("category");
+	// Derive initial folder name from path
+	const initialFolderName =
+		props.initialPath?.split("/").filter(Boolean).pop() || "";
+
+	const [step, setStep] = useState<ModalStep>(
+		props.initialPath ? "local-config" : "category",
+	);
 	const [selectedCategory, setSelectedCategory] =
-		useState<StorageCategory | null>(null);
+		useState<StorageCategory | null>(props.initialPath ? "local" : null);
 	const [selectedProvider, setSelectedProvider] =
 		useState<CloudProvider | null>(null);
 	const [tab, setTab] = useState<SettingsTab>("preset");
@@ -385,8 +397,8 @@ function AddStorageDialog(props: {
 
 	const localForm = useForm<LocalFolderFormData>({
 		defaultValues: {
-			path: "",
-			name: "",
+			path: props.initialPath || "",
+			name: initialFolderName,
 			mode: "Deep",
 		},
 	});
@@ -404,7 +416,9 @@ function AddStorageDialog(props: {
 	const currentMode = localForm.watch("mode");
 	const [selectedJobs, setSelectedJobs] = useState<Set<string>>(
 		new Set(
-			jobOptions.filter((j) => j.presets.includes("Deep")).map((j) => j.id),
+			jobOptions
+				.filter((j) => j.presets.includes("Deep"))
+				.map((j) => j.id),
 		),
 	);
 
@@ -539,7 +553,9 @@ function AddStorageDialog(props: {
 			localForm.setError("root", {
 				type: "manual",
 				message:
-					error instanceof Error ? error.message : "Failed to add location",
+					error instanceof Error
+						? error.message
+						: "Failed to add location",
 			});
 		}
 	});
@@ -692,7 +708,11 @@ function AddStorageDialog(props: {
 								"border-app-line bg-app-box hover:bg-app-hover hover:border-accent/50",
 							)}
 						>
-							<img src={category.icon} className="size-12" alt="" />
+							<img
+								src={category.icon}
+								className="size-12"
+								alt=""
+							/>
 							<div className="text-center">
 								<div className="text-sm font-medium text-ink">
 									{category.label}
@@ -733,7 +753,11 @@ function AddStorageDialog(props: {
 								"border-app-line bg-app-box hover:bg-app-hover hover:border-accent/50",
 							)}
 						>
-							<img src={provider.icon} className="size-10" alt="" />
+							<img
+								src={provider.icon}
+								className="size-10"
+								alt=""
+							/>
 							<div className="text-xs font-medium text-ink text-center">
 								{provider.name}
 							</div>
@@ -761,8 +785,9 @@ function AddStorageDialog(props: {
 					<div className="rounded-lg bg-accent/10 border border-accent/20 p-4 text-sm text-ink">
 						<strong>Coming Soon</strong>
 						<p className="mt-1 text-ink-dull">
-							Network protocol support (SMB, NFS, SFTP, WebDAV) is currently in
-							development. Check back in a future update!
+							Network protocol support (SMB, NFS, SFTP, WebDAV) is
+							currently in development. Check back in a future
+							update!
 						</p>
 					</div>
 					<div className="grid grid-cols-2 gap-3 opacity-50 pointer-events-none">
@@ -776,7 +801,11 @@ function AddStorageDialog(props: {
 									"border-app-line bg-app-box",
 								)}
 							>
-								<img src={protocol.icon} className="size-8" alt="" />
+								<img
+									src={protocol.icon}
+									className="size-8"
+									alt=""
+								/>
 								<div className="text-left">
 									<div className="text-sm font-medium text-ink">
 										{protocol.name}
@@ -820,17 +849,27 @@ function AddStorageDialog(props: {
 										"border-app-line bg-app-box hover:bg-app-hover hover:border-accent/50",
 									)}
 								>
-									<img src={HDDIcon} className="size-8" alt="" />
+									<img
+										src={HDDIcon}
+										className="size-8"
+										alt=""
+									/>
 									<div className="flex-1 min-w-0">
 										<div className="text-sm font-medium text-ink truncate">
 											{volume.name}
 										</div>
 										<div className="text-xs text-ink-faint">
-											{volume.mount_point} • {volume.filesystem}
+											{volume.mount_point} •{" "}
+											{volume.filesystem}
 										</div>
 									</div>
 									<div className="text-xs text-ink-dull">
-										{volume.total_capacity ? (volume.total_capacity / 1e9).toFixed(0) : '?'} GB
+										{volume.total_capacity
+											? (
+													volume.total_capacity / 1e9
+												).toFixed(0)
+											: "?"}{" "}
+										GB
 									</div>
 								</button>
 							))}
@@ -838,8 +877,8 @@ function AddStorageDialog(props: {
 					) : (
 						<div className="rounded-lg bg-app-box border border-app-line p-6 text-center">
 							<p className="text-sm text-ink-dull">
-								No untracked external drives found. Connect a drive and refresh
-								to see it here.
+								No untracked external drives found. Connect a
+								drive and refresh to see it here.
 							</p>
 						</div>
 					)}
@@ -867,7 +906,9 @@ function AddStorageDialog(props: {
 						<div className="relative">
 							<Input
 								value={localForm.watch("path") || ""}
-								onChange={(e) => localForm.setValue("path", e.target.value)}
+								onChange={(e) =>
+									localForm.setValue("path", e.target.value)
+								}
 								placeholder="Select a custom folder"
 								size="lg"
 								className="pr-14"
@@ -880,34 +921,40 @@ function AddStorageDialog(props: {
 						</div>
 					</div>
 
-					{suggestedLocations && suggestedLocations.locations.length > 0 && (
-						<div className="space-y-2">
-							<Label>Suggested Locations</Label>
-							<div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1">
-								{suggestedLocations.locations.map((loc) => (
-									<button
-										key={loc.path}
-										type="button"
-										onClick={() => handleSelectSuggested(loc.path, loc.name)}
-										className="flex items-center gap-3 rounded-lg border border-app-line bg-app-box p-3 text-left transition-all hover:bg-app-hover hover:border-accent/50 h-fit"
-									>
-										<Folder
-											className="size-5 shrink-0 text-accent"
-											weight="fill"
-										/>
-										<div className="min-w-0 flex-1">
-											<div className="text-sm font-medium text-ink truncate">
-												{loc.name}
+					{suggestedLocations &&
+						suggestedLocations.locations.length > 0 && (
+							<div className="space-y-2">
+								<Label>Suggested Locations</Label>
+								<div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1">
+									{suggestedLocations.locations.map((loc) => (
+										<button
+											key={loc.path}
+											type="button"
+											onClick={() =>
+												handleSelectSuggested(
+													loc.path,
+													loc.name,
+												)
+											}
+											className="flex items-center gap-3 rounded-lg border border-app-line bg-app-box p-3 text-left transition-all hover:bg-app-hover hover:border-accent/50 h-fit"
+										>
+											<Folder
+												className="size-5 shrink-0 text-accent"
+												weight="fill"
+											/>
+											<div className="min-w-0 flex-1">
+												<div className="text-sm font-medium text-ink truncate">
+													{loc.name}
+												</div>
+												<div className="text-xs text-ink-faint truncate">
+													{loc.path}
+												</div>
 											</div>
-											<div className="text-xs text-ink-faint truncate">
-												{loc.path}
-											</div>
-										</div>
-									</button>
-								))}
+										</button>
+									))}
+								</div>
 							</div>
-						</div>
-					)}
+						)}
 				</div>
 			</StorageDialog>
 		);
@@ -939,11 +986,16 @@ function AddStorageDialog(props: {
 						/>
 					</div>
 
-					<Tabs.Root value={tab} onValueChange={(v) => setTab(v as SettingsTab)}>
+					<Tabs.Root
+						value={tab}
+						onValueChange={(v) => setTab(v as SettingsTab)}
+					>
 						<Tabs.List>
 							<Tabs.Trigger value="preset">Preset</Tabs.Trigger>
 							<Tabs.Trigger value="jobs">
-								Jobs {selectedJobs.size > 0 && `(${selectedJobs.size})`}
+								Jobs{" "}
+								{selectedJobs.size > 0 &&
+									`(${selectedJobs.size})`}
 							</Tabs.Trigger>
 						</Tabs.List>
 
@@ -952,12 +1004,15 @@ function AddStorageDialog(props: {
 								<Label>Indexing Mode</Label>
 								<div className="grid grid-cols-3 gap-2">
 									{indexModes.map((mode) => {
-										const isSelected = currentMode === mode.value;
+										const isSelected =
+											currentMode === mode.value;
 										return (
 											<button
 												key={mode.value}
 												type="button"
-												onClick={() => handleModeChange(mode.value)}
+												onClick={() =>
+													handleModeChange(mode.value)
+												}
 												className={clsx(
 													"rounded-lg border p-3 text-left transition-all",
 													isSelected
@@ -981,17 +1036,21 @@ function AddStorageDialog(props: {
 						<Tabs.Content value="jobs" className="pt-3">
 							<div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
 								<p className="text-xs text-ink-faint">
-									Select which jobs to run after indexing. Extensions can add
-									more jobs.
+									Select which jobs to run after indexing.
+									Extensions can add more jobs.
 								</p>
 								<div className="grid grid-cols-2 gap-2">
 									{jobOptions.map((job) => {
-										const isSelected = selectedJobs.has(job.id);
+										const isSelected = selectedJobs.has(
+											job.id,
+										);
 										return (
 											<button
 												key={job.id}
 												type="button"
-												onClick={() => toggleJob(job.id)}
+												onClick={() =>
+													toggleJob(job.id)
+												}
 												className={clsx(
 													"flex items-start gap-2 rounded-lg border p-3 text-left transition-all",
 													isSelected
@@ -1110,8 +1169,10 @@ function AddStorageDialog(props: {
 								<div className="space-y-2">
 									<Label>
 										Endpoint
-										{provider.id === "r2" && " (e.g., https://account.r2.cloudflarestorage.com)"}
-										{provider.id === "minio" && " (e.g., http://localhost:9000)"}
+										{provider.id === "r2" &&
+											" (e.g., https://account.r2.cloudflarestorage.com)"}
+										{provider.id === "minio" &&
+											" (e.g., http://localhost:9000)"}
 									</Label>
 									<Input
 										{...cloudForm.register("endpoint")}

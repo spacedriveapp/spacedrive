@@ -95,7 +95,10 @@ impl CoreAction for LibrarySyncSetupAction {
 	}
 
 	// DEPRICATED: Sync no longer requires a leader device
-	async fn validate(&self, context: Arc<crate::context::CoreContext>) -> Result<crate::infra::action::ValidationResult, ActionError> {
+	async fn validate(
+		&self,
+		context: Arc<crate::context::CoreContext>,
+	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Validate leader device is one of the two devices
 		if self.input.leader_device_id != self.input.local_device_id
 			&& self.input.leader_device_id != self.input.remote_device_id

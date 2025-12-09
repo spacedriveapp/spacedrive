@@ -501,7 +501,7 @@ impl LocationManager {
 		// Delete the root entry tree first if it exists
 		// Use delete_subtree_internal to avoid creating entry tombstones (we'll tombstone the location instead)
 		if let Some(entry_id) = location.entry_id {
-			crate::ops::indexing::responder::delete_subtree_internal(entry_id, library.db().conn())
+			crate::ops::indexing::DatabaseStorage::delete_subtree(entry_id, library.db().conn())
 				.await
 				.map_err(|e| LocationError::Other(format!("Failed to delete entry tree: {}", e)))?;
 		}

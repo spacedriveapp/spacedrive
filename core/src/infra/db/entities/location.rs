@@ -330,7 +330,7 @@ impl Syncable for Model {
 		// Delete root entry tree first if it exists
 		// Use delete_subtree_internal to avoid creating tombstones (we're applying a tombstone)
 		if let Some(entry_id) = location.entry_id {
-			crate::ops::indexing::responder::delete_subtree_internal(entry_id, db).await?;
+			crate::ops::indexing::DatabaseStorage::delete_subtree(entry_id, db).await?;
 		}
 
 		// Delete location record

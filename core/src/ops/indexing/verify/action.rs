@@ -9,10 +9,9 @@ use crate::{
 		db::entities,
 	},
 	ops::indexing::{
-		entry::EntryProcessor,
-		job::{
-			EphemeralIndex, IndexMode, IndexPersistence, IndexScope, IndexerJob, IndexerJobConfig,
-		},
+		database_storage::DatabaseStorage,
+		ephemeral::EphemeralIndex,
+		job::{IndexMode, IndexPersistence, IndexScope, IndexerJob, IndexerJobConfig},
 		path_resolver::PathResolver,
 		state::EntryKind,
 	},
@@ -98,13 +97,16 @@ impl IndexVerifyAction {
 		library: &Arc<crate::library::Library>,
 		context: &Arc<CoreContext>,
 		path: &Path,
-	) -> Result<HashMap<PathBuf, crate::ops::indexing::entry::EntryMetadata>, ActionError> {
+	) -> Result<HashMap<PathBuf, crate::ops::indexing::database_storage::EntryMetadata>, ActionError> {
 		use tokio::sync::RwLock;
 
 		tracing::debug!("Running ephemeral indexer job on {}", path.display());
 
 		// Create ephemeral index storage that we'll share with the job
-		let ephemeral_index = Arc::new(RwLock::new(EphemeralIndex::new(path.to_path_buf())));
+		let ephemeral_index =
+			Arc::new(RwLock::new(EphemeralIndex::new().map_err(|e| {
+				ActionError::from(std::io::Error::new(std::io::ErrorKind::Other, e))
+			})?));
 
 		// Subscribe to job events before dispatching
 		let mut event_subscriber = context.events.subscribe();
@@ -183,7 +185,7 @@ impl IndexVerifyAction {
 		// Extract the results from our shared ephemeral index
 		let entries = {
 			let index = ephemeral_index.read().await;
-			index.entries.clone()
+			index.entries()
 		};
 
 		tracing::debug!(
@@ -401,7 +403,7 @@ impl IndexVerifyAction {
 	/// Compare ephemeral index with database entries
 	async fn compare_indexes(
 		&self,
-		fs_entries: HashMap<PathBuf, crate::ops::indexing::entry::EntryMetadata>,
+		fs_entries: HashMap<PathBuf, crate::ops::indexing::database_storage::EntryMetadata>,
 		mut db_entries: HashMap<PathBuf, (entities::entry::Model, PathBuf)>,
 		root_path: &Path,
 	) -> Result<IntegrityReport, ActionError> {

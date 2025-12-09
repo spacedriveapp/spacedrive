@@ -91,9 +91,7 @@ impl ActionManager {
 			.await?;
 
 		// Validate the action first
-		let validation_result = action
-			.validate(&library, self.context.clone())
-			.await?;
+		let validation_result = action.validate(&library, self.context.clone()).await?;
 
 		// Check if confirmation is required
 		match validation_result {

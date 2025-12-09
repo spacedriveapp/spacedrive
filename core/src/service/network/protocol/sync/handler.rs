@@ -497,10 +497,19 @@ impl SyncProtocolHandler {
 				let log_handler = backfill_manager.log_handler();
 
 				let response = log_handler
-					.handle_event_log_request(requesting_device, since, event_types, correlation_id, limit)
+					.handle_event_log_request(
+						requesting_device,
+						since,
+						event_types,
+						correlation_id,
+						limit,
+					)
 					.await
 					.map_err(|e| {
-						NetworkingError::Protocol(format!("Failed to handle event log request: {}", e))
+						NetworkingError::Protocol(format!(
+							"Failed to handle event log request: {}",
+							e
+						))
 					})?;
 
 				Ok(Some(response))
@@ -725,11 +734,8 @@ mod tests {
 			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(device_key_fallback))
 				.unwrap(),
 		);
-		let device_manager = Arc::new(DeviceManager::init(
-			temp_dir.path(),
-			key_manager.clone(),
-			None,
-		).unwrap());
+		let device_manager =
+			Arc::new(DeviceManager::init(temp_dir.path(), key_manager.clone(), None).unwrap());
 		let logger = Arc::new(crate::service::network::utils::SilentLogger);
 		let registry = DeviceRegistry::new(device_manager, key_manager, logger);
 		let device_registry = Arc::new(tokio::sync::RwLock::new(registry));

@@ -595,61 +595,72 @@ impl ThumbnailJob {
 		let is_cloud = Self::is_cloud_path(&entry.relative_path);
 
 		// For cloud files, download to temp file. For local files, use direct path
-		let (source_path, temp_file): (std::path::PathBuf, Option<tempfile::NamedTempFile>) = if is_cloud {
-			// Cloud path - need to download via volume backend
-			let volume_manager = ctx.volume_manager()
-				.ok_or_else(|| ThumbnailError::other("VolumeManager not available for cloud file"))?;
+		let (source_path, temp_file): (std::path::PathBuf, Option<tempfile::NamedTempFile>) =
+			if is_cloud {
+				// Cloud path - need to download via volume backend
+				let volume_manager = ctx.volume_manager().ok_or_else(|| {
+					ThumbnailError::other("VolumeManager not available for cloud file")
+				})?;
 
-			// Parse the cloud path to get an SdPath
-			use crate::domain::addressing::SdPath;
-			let sdpath = SdPath::from_uri_with_context(&entry.relative_path, &library.core_context())
-				.await
-				.map_err(|e| ThumbnailError::other(format!("Failed to parse cloud path: {}", e)))?;
+				// Parse the cloud path to get an SdPath
+				use crate::domain::addressing::SdPath;
+				let sdpath =
+					SdPath::from_uri_with_context(&entry.relative_path, &library.core_context())
+						.await
+						.map_err(|e| {
+							ThumbnailError::other(format!("Failed to parse cloud path: {}", e))
+						})?;
 
-			// Resolve the volume backend for this path
-			let volume = volume_manager
-				.resolve_volume_for_sdpath(&sdpath, &library)
-				.await
-				.map_err(|e| ThumbnailError::other(format!("Failed to resolve volume: {}", e)))?
-				.ok_or_else(|| ThumbnailError::other("No volume found for cloud path"))?;
+				// Resolve the volume backend for this path
+				let volume = volume_manager
+					.resolve_volume_for_sdpath(&sdpath, &library)
+					.await
+					.map_err(|e| ThumbnailError::other(format!("Failed to resolve volume: {}", e)))?
+					.ok_or_else(|| ThumbnailError::other("No volume found for cloud path"))?;
 
-			let backend = volume.backend
-				.as_ref()
-				.ok_or_else(|| ThumbnailError::other("Volume has no backend"))?;
+				let backend = volume
+					.backend
+					.as_ref()
+					.ok_or_else(|| ThumbnailError::other("Volume has no backend"))?;
 
-			// Get the backend-relative path (strip s3://bucket/ prefix)
-			let backend_path = Self::to_backend_path(&entry.relative_path);
+				// Get the backend-relative path (strip s3://bucket/ prefix)
+				let backend_path = Self::to_backend_path(&entry.relative_path);
 
-			// Download file content from cloud
-			let file_data = backend
-				.read(&backend_path)
-				.await
-				.map_err(|e| ThumbnailError::other(format!("Failed to read cloud file: {}", e)))?;
+				// Download file content from cloud
+				let file_data = backend.read(&backend_path).await.map_err(|e| {
+					ThumbnailError::other(format!("Failed to read cloud file: {}", e))
+				})?;
 
-			// Write to temporary file
-			let mut temp = tempfile::NamedTempFile::new()
-				.map_err(|e| ThumbnailError::other(format!("Failed to create temp file: {}", e)))?;
+				// Write to temporary file
+				let mut temp = tempfile::NamedTempFile::new().map_err(|e| {
+					ThumbnailError::other(format!("Failed to create temp file: {}", e))
+				})?;
 
-			use std::io::Write;
-			temp.write_all(&file_data)
-				.map_err(|e| ThumbnailError::other(format!("Failed to write temp file: {}", e)))?;
-			temp.flush()
-				.map_err(|e| ThumbnailError::other(format!("Failed to flush temp file: {}", e)))?;
+				use std::io::Write;
+				temp.write_all(&file_data).map_err(|e| {
+					ThumbnailError::other(format!("Failed to write temp file: {}", e))
+				})?;
+				temp.flush().map_err(|e| {
+					ThumbnailError::other(format!("Failed to flush temp file: {}", e))
+				})?;
 
-			let temp_path = temp.path().to_path_buf();
-			ctx.log(format!("Downloaded cloud file {} to temp location", entry.relative_path));
+				let temp_path = temp.path().to_path_buf();
+				ctx.log(format!(
+					"Downloaded cloud file {} to temp location",
+					entry.relative_path
+				));
 
-			(temp_path, Some(temp))
-		} else {
-			// Local path - use direct filesystem access
-			let source_path = library.path().join(&entry.relative_path);
+				(temp_path, Some(temp))
+			} else {
+				// Local path - use direct filesystem access
+				let source_path = library.path().join(&entry.relative_path);
 
-			if !source_path.exists() {
-				return Err(ThumbnailError::FileNotFound(entry.relative_path.clone()));
-			}
+				if !source_path.exists() {
+					return Err(ThumbnailError::FileNotFound(entry.relative_path.clone()));
+				}
 
-			(source_path, None)
-		};
+				(source_path, None)
+			};
 
 		let mut total_thumbnail_size = 0u64;
 

@@ -138,7 +138,8 @@ impl CloudCredentialManager {
 
 		// Decrypt
 		let library_key = self.key_manager.get_library_key(library_id).await?;
-		let decrypted = self.decrypt_credential(&credential_model.encrypted_credential, &library_key)?;
+		let decrypted =
+			self.decrypt_credential(&credential_model.encrypted_credential, &library_key)?;
 
 		// Deserialize
 		let credential: CloudCredential = serde_json::from_slice(&decrypted)?;

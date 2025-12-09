@@ -1,4 +1,9 @@
-//! Indexing action handler
+//! # Indexing Action Handler
+//!
+//! Bridges user-facing indexing requests (from CLI, API, UI) to the internal IndexerJob system.
+//! Actions validate inputs, convert paths to SdPaths, dispatch jobs to the library's job queue,
+//! and track execution context for observability. Each action can spawn multiple jobs (one per
+//! path), but returns only the last handle for API simplicity.
 
 use super::job::{IndexMode, IndexPersistence, IndexScope, IndexerJob, IndexerJobConfig};
 use super::IndexInput;
@@ -64,7 +69,6 @@ impl LibraryAction for IndexingAction {
 		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<crate::context::CoreContext>,
 	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		// Validate input
 		if let Err(errors) = self.input.validate() {
 			return Err(ActionError::Validation {
 				field: "paths".to_string(),
@@ -79,10 +83,6 @@ impl LibraryAction for IndexingAction {
 		library: std::sync::Arc<crate::library::Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Validation is now handled by ActionManager before execute
-
-		// For now, submit one job per path (sequentially). Could be parallelized later.
-		// Return the handle of the last job submitted for convenience.
 		let mut last_handle: Option<JobHandle> = None;
 
 		for path in &self.input.paths {
@@ -93,16 +93,13 @@ impl LibraryAction for IndexingAction {
 					IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope)
 				}
 				IndexPersistence::Persistent => {
-					// Persistent indexing expects a location context. For now, default to recursive path walk with selected mode.
-					// If we later bind paths to a location, we can set location_id properly.
-					// Here use ui_navigation/new with mode overridden below when possible.
+					// Persistent mode stores entries in the database but doesn't require a location binding yet.
 					let mut c = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope);
 					c.persistence = IndexPersistence::Persistent;
 					c
 				}
 			};
 
-			// Apply selected mode
 			config.mode = self.input.mode;
 
 			// TODO: Apply include_hidden via rule_toggles when available

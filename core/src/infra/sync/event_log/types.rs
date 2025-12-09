@@ -33,11 +33,7 @@ pub struct SyncEventLog {
 
 impl SyncEventLog {
 	/// Create a new event with common fields pre-filled
-	pub fn new(
-		device_id: Uuid,
-		event_type: SyncEventType,
-		summary: impl Into<String>,
-	) -> Self {
+	pub fn new(device_id: Uuid, event_type: SyncEventType, summary: impl Into<String>) -> Self {
 		let (category, severity) = event_type.default_category_and_severity();
 
 		Self {

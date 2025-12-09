@@ -201,11 +201,8 @@ impl SyncService {
 		);
 
 		// Create protocol handlers
-		let mut log_handler = LogSyncHandler::new(
-			library_id,
-			library.db().clone(),
-			peer_sync.clone(),
-		);
+		let mut log_handler =
+			LogSyncHandler::new(library_id, library.db().clone(), peer_sync.clone());
 		log_handler.set_event_logger(event_logger.clone());
 		let log_handler = Arc::new(log_handler);
 
